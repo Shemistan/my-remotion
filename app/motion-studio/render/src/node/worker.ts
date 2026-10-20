@@ -10,13 +10,20 @@
 // таймауту; ПОСЛЕДНЯЯ строка — JSON WorkerResult. Задание приходит JSON-ом в stdin.
 import { existsSync } from "node:fs";
 import { rename, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { join } from "node:path";
 import { bundle } from "@remotion/bundler";
-import { type BrowserLog, type HeadlessBrowser, openBrowser, renderMedia, renderStill, selectComposition } from "@remotion/renderer";
+import type * as Renderer from "@remotion/renderer";
+import type { BrowserLog, HeadlessBrowser } from "@remotion/renderer";
 import type { WorkerJob, WorkerResult, WorkerStage } from "./protocol.js";
 // .ts явно: worker исполняется стиранием типов Node, без загрузчика
+import { type AssetPolicy, blockingOnDownload, installAssetGuard } from "./asset-guard.ts";
 import { jailResolve } from "./resolve-jail.ts";
+
+// Рендерер — CJS-сборка через require, а не ESM: только в ней installAssetGuard может
+// подменить downloadAsset (asset-guard.ts); ESM-сборка Remotion — один файл без швов.
+const { openBrowser, renderMedia, renderStill, selectComposition } = createRequire(import.meta.url)("@remotion/renderer") as typeof Renderer;
 
 const STAGE = "@@ms:stage ";
 const LOG = "@@ms:log ";
@@ -128,6 +135,11 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
   // только его, остальной loopback (Control API 127.0.0.1:8790) закрыт прокси.
   const port = await freePort();
   process.env.MS_BUNDLE_PORT = String(port);
+  // Node-сторона того же сервера (/proxy, звук renderMedia) идёт мимо прокси Chrome:
+  // качать можно только сам бандл и локальные файлы бандла и хранилища. Ставится до
+  // первого запуска сервера (selectComposition, у которого нет хука onDownload).
+  const assets: AssetPolicy = { bundlePort: port, roots: [serveUrl, job.run.root] };
+  installAssetGuard(assets);
   browser = await openBrowser("chrome", {
     browserExecutable: job.browserExecutable,
     chromeMode: "headless-shell",
@@ -144,13 +156,15 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
     chromeMode: "headless-shell",
     port,
   } as const;
+  // официальный хук Remotion — второй рубеж за installAssetGuard
+  const onDownload = blockingOnDownload(assets);
   const selected = await selectComposition({ ...common, id: "Scene" });
   // настройки сцены — поверх композиции из бандла: бандл кэшируется по содержимому
   const composition = { ...selected, ...job.composition };
 
   const stills: string[] = [];
   for (const s of job.stills) {
-    await renderStill({ ...common, composition, frame: s.frame, output: s.out, imageFormat: "png", overwrite: true });
+    await renderStill({ ...common, onDownload, composition, frame: s.frame, output: s.out, imageFormat: "png", overwrite: true });
     stills.push(s.out);
   }
 
@@ -159,6 +173,7 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
   const tmpOut = join(job.preview.out, "..", `.preview-${process.pid}.tmp.mp4`);
   await renderMedia({
     ...common,
+    onDownload,
     composition,
     codec: "h264",
     crf: job.preview.crf,

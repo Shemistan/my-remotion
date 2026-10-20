@@ -169,6 +169,50 @@ it("Chrome cannot reach local services on loopback (Control API), bundle assets 
   }
 }, T);
 
+/** Рендер proxy-scene в режиме `mode` при живом локальном сервисе; возвращает число его запросов. */
+async function renderProxyScene(mode: "fetch" | "img" | "audio") {
+  let hits = 0;
+  const server = createServer((_req, res) => {
+    hits++;
+    res.end("ok");
+  });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+  const port = (server.address() as AddressInfo).port;
+  try {
+    const versionDir = await copyFixture("proxy-scene", join(tmp, `proxy-${mode}`));
+    writeFileSync(join(versionDir, "props.json"), JSON.stringify({ port, mode }));
+    const r = await timed(`proxy-${mode}`, () => renderVersion({ ...req, versionDir, stills: [0], timeoutMs: 60_000 }));
+    return { r, hits };
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+}
+
+it("/proxy of the bundle server does not download a loopback URL from Node; bundled image still renders", async () => {
+  const { r, hits } = await renderProxyScene("fetch");
+  expect(hits).toBe(0);
+  expect(r.error).toBeUndefined();
+  expect(r.ok).toBe(true); // <Img> из import загрузился
+  const lines = r.browserLogs.filter((l) => l.includes("proxy-scene:"));
+  expect(lines.length).toBeGreaterThan(0);
+  for (const l of lines) expect(l).toMatch(/status 500 guarded/);
+}, T);
+
+it("<Img src='/proxy?src=http://127.0.0.1:…'> fails the render with no request to the service", async () => {
+  const { r, hits } = await renderProxyScene("img");
+  expect(hits).toBe(0);
+  expect(r.ok).toBe(false);
+  expect(r.error!.stage).toBe("still");
+}, T);
+
+it("<Audio src='http://127.0.0.1:…'> is not downloaded by Node when the preview is muxed", async () => {
+  const { r, hits } = await renderProxyScene("audio");
+  expect(hits).toBe(0);
+  expect(r.ok).toBe(false);
+  expect(r.error).toMatchObject({ stage: "media" });
+  expect(r.error!.message).toMatch(/ассет заблокирован/);
+}, T);
+
 it("a fake package in <version>/node_modules does not shadow the real one in the bundle", async () => {
   const versionDir = await copyFixture("shadow-scene", join(tmp, "shadow"));
   const fake = join(versionDir, "node_modules", "@remotion", "fonts");

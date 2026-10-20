@@ -194,7 +194,18 @@ const MSG_WAAPI = (n: string) =>
 const MSG_URL =
   "внешний адрес запрещён: при рендере сети нет, ассет не загрузится. Положи файл в src/ и импортируй его " +
   "(public/ и staticFile() не работают: у бандла сцены нет public/). Если это просто текст в кадре — убери схему (https://).";
-const MSG_LINK = "<link> запрещён: подгружает внешние стили и шрифты. Шрифты — ensureFonts() из @ms/motion-kit или loadFont с url из import файла в src/, стили — объектом style.";
+const MSG_PROXY =
+  "адрес /proxy запрещён: это служебный эндпоинт сервера бандла Remotion, через него Node при рендере скачал бы " +
+  "любой URL в обход закрытой сети. Видео и картинки клади в src/ и импортируй: import clip from './clip.mp4', " +
+  "затем <OffthreadVideo src={clip} /> — Remotion сам построит нужный адрес.";
+const MSG_ENCODED_URL =
+  "закодированный адрес (%3A%2F%2F — это «://») запрещён: так внешний URL прячут от проверки. " +
+  "Ассеты клади в src/ и импортируй (import a from './a.png'); если это текст в кадре — пиши его без процент-кодирования.";
+const MSG_MEDIA_SRC = (tag: string) =>
+  `src у <${tag}> — только импорт файла из src/ (import a from './a.png'; <${tag} src={a} />), ассет из @ms/motion-kit ` +
+  "или строка с относительным путём ('./a.png'). Адреса из props, параметров, вызовов (staticFile()) и шаблонов запрещены: " +
+  "при рендере их скачал бы Node в обход закрытой сети. Несколько картинок — массив импортов: const imgs = [a, b]; <Img src={imgs[i]} />.";
+const MSG_LINK ="<link> запрещён: подгружает внешние стили и шрифты. Шрифты — ensureFonts() из @ms/motion-kit или loadFont с url из import файла в src/, стили — объектом style.";
 const MSG_CSS_IMPORT = "@import в CSS запрещён: тянет ресурсы в обход проверки. Импортируй нужный CSS-файл из .tsx через import './a.css'.";
 
 // --- Классификация файлов ---
@@ -257,6 +268,18 @@ class Collector {
 
 const REMOTE_START = /^\s*(?:(?:https?|wss?|ftp):|javascript:|\/\/)/i;
 const REMOTE_CSS_URL = /url\(\s*['"]?\s*(?:(?:https?|wss?|ftp):|javascript:|\/\/)/i;
+/** Эндпоинт сервера бандла Remotion: Node качает его `src` мимо прокси Chrome. */
+const PROXY_START = /^\s*\/proxy/i;
+const PROXY_CSS_URL = /url\(\s*['"]?\s*\/proxy/i;
+/** Процент-кодированное `://` — внешний URL внутри параметра (`/proxy?src=http%3A%2F%2F…`). */
+const ENCODED_SCHEME = /%3a%2f%2f/i;
+/** Значение src медиа без адреса: относительный путь модуля или встроенные данные. */
+const LOCAL_SRC = /^(?:\.{1,2}\/|data:)/;
+
+/** Медиа-компоненты remotion, `src` которых грузит браузер или Node при рендере. */
+const REMOTION_MEDIA = new Set(["Img", "OffthreadVideo", "Video", "Audio", "IFrame", "Html5Audio", "Html5Video"]);
+/** Встроенные элементы с загружаемым `src` (iframe/embed/script уже forbidden-dom). */
+const HTML_MEDIA = new Set(["img", "video", "audio", "source"]);
 const CSS_ANIM_DECL = /(?:^|[;{\s])(?:-(?:webkit|moz|ms|o)-)?(?:transition|animation)(?:-[a-z-]+)?\s*:/i;
 const KEYFRAMES = /@(?:-(?:webkit|moz|ms|o)-)?keyframes\b/i;
 const CLASS_TOKEN = /^(?:[^\s:]+:)*!?(?:animate-|transition(?:-|$))/;
@@ -370,12 +393,39 @@ function isAmbient(decl: ts.Node): boolean {
   return false;
 }
 
+/**
+ * Сообщение external-url для строковой части (литерал или кусок шаблона) или undefined.
+ * Одно на узел: внешний адрес, затем /proxy, затем закодированная схема.
+ */
+function urlMessage(node: ts.StringLiteralLike | ts.TemplateLiteralLikeNode, isStart: boolean): string | undefined {
+  const text = node.text;
+  const key = enclosingKey(node);
+  const isNamespace = (key !== undefined && /^xmlns/i.test(key)) || XML_NAMESPACE_URI.test(text);
+  const remote =
+    (isStart && REMOTE_START.test(text)) || REMOTE_CSS_URL.test(text) || (key !== undefined && SRCSET_KEYS.has(key.toLowerCase()) && REMOTE_ANYWHERE.test(text));
+  if (!isNamespace && remote) return MSG_URL;
+  if ((isStart && PROXY_START.test(text)) || PROXY_CSS_URL.test(text)) return MSG_PROXY;
+  if (ENCODED_SCHEME.test(text)) return MSG_ENCODED_URL;
+  return undefined;
+}
+
+/** Импорт ассета: из локального файла (выход за src/ ловит outside-src) или из @ms/motion-kit. */
+function assetModule(decl: ts.Node): boolean {
+  let d: ts.Node | undefined = decl;
+  while (d && !ts.isImportDeclaration(d)) d = d.parent;
+  if (!d || !ts.isStringLiteral(d.moduleSpecifier)) return false;
+  const s = d.moduleSpecifier.text;
+  return s.startsWith("./") || s.startsWith("../") || s === "@ms/motion-kit";
+}
+
 function checkCss(c: Collector, order: number, file: string, text: string): void {
   const lines = text.split("\n");
   lines.forEach((l, i) => {
     if (KEYFRAMES.test(l) || CSS_ANIM_DECL.test(l)) c.report(order, file, i + 1, i, "forbidden-css-animation", MSG_CSS_TEXT);
     if (/@import\b/i.test(l)) c.report(order, file, i + 1, i, "external-url", MSG_CSS_IMPORT);
     else if (REMOTE_CSS_URL.test(l)) c.report(order, file, i + 1, i, "external-url", MSG_URL);
+    else if (PROXY_CSS_URL.test(l)) c.report(order, file, i + 1, i, "external-url", MSG_PROXY);
+    else if (ENCODED_SCHEME.test(l)) c.report(order, file, i + 1, i, "external-url", MSG_ENCODED_URL);
   });
 }
 
@@ -809,12 +859,77 @@ class FileChecker {
     const p = node.parent;
     if (FORBIDDEN_PROTO_STRINGS.has(text) && !(ts.isElementAccessExpression(p) && p.argumentExpression === node && FORBIDDEN_PROTO_PROPS.has(text)))
       this.report(node, "forbidden-global", MSG_PROTO(text));
-    const key = enclosingKey(node);
-    const isNamespace = (key !== undefined && /^xmlns/i.test(key)) || XML_NAMESPACE_URI.test(text);
-    const remote =
-      (isStart && REMOTE_START.test(text)) || REMOTE_CSS_URL.test(text) || (key !== undefined && SRCSET_KEYS.has(key.toLowerCase()) && REMOTE_ANYWHERE.test(text));
-    if (this.suppressDepth === 0 && !isNamespace && remote) this.report(node, "external-url", MSG_URL);
+    const msg = this.suppressDepth === 0 ? urlMessage(node, isStart) : undefined;
+    if (msg) this.report(node, "external-url", msg);
     if (KEYFRAMES.test(text) || CSS_ANIM_DECL.test(text)) this.report(node, "forbidden-css-animation", MSG_CSS_TEXT);
+  }
+
+  // --- src медиа ---
+
+  /** Имя медиа-элемента для сообщения, если `src` этого тега грузится при рендере. */
+  private mediaTag(tag: ts.JsxTagNameExpression): string | undefined {
+    if (ts.isIdentifier(tag) && /^[a-z]/.test(tag.text)) return HTML_MEDIA.has(tag.text) ? tag.text : undefined;
+    const fromRemotion = (d: ts.Node | undefined): boolean => {
+      while (d && !ts.isImportDeclaration(d)) d = d.parent;
+      return !!d && ts.isStringLiteral(d.moduleSpecifier) && d.moduleSpecifier.text === "remotion";
+    };
+    if (ts.isIdentifier(tag)) {
+      const d = this.checker.getSymbolAtLocation(tag)?.declarations?.[0];
+      if (d && ts.isImportSpecifier(d) && fromRemotion(d) && REMOTION_MEDIA.has((d.propertyName ?? d.name).text)) return tag.text;
+      return undefined;
+    }
+    if (ts.isPropertyAccessExpression(tag) && ts.isIdentifier(tag.expression) && REMOTION_MEDIA.has(tag.name.text)) {
+      const d = this.checker.getSymbolAtLocation(tag.expression)?.declarations?.[0];
+      if (d && ts.isNamespaceImport(d) && fromRemotion(d)) return `${tag.expression.text}.${tag.name.text}`;
+    }
+    return undefined;
+  }
+
+  /**
+   * Значение src статически сводится к импортам ассетов: импорт из src/ (относительный
+   * спецификатор) или @ms/motion-kit, const-алиас, массив/объект таких значений и
+   * выбор из них (`a ? b : c`, `list[i]`), либо строка с относительным путём.
+   */
+  private staticAssetSrc(e: ts.Expression, seen = new Set<ts.Node>()): boolean {
+    while (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isNonNullExpression(e) || ts.isSatisfiesExpression(e)) e = e.expression;
+    if (seen.has(e)) return false;
+    seen.add(e);
+    if (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return LOCAL_SRC.test(e.text);
+    if (ts.isConditionalExpression(e)) return this.staticAssetSrc(e.whenTrue, seen) && this.staticAssetSrc(e.whenFalse, seen);
+    if (ts.isArrayLiteralExpression(e)) return e.elements.every((x) => !ts.isSpreadElement(x) && this.staticAssetSrc(x, seen));
+    if (ts.isObjectLiteralExpression(e)) {
+      return e.properties.every((p) =>
+        ts.isPropertyAssignment(p) ? this.staticAssetSrc(p.initializer, seen) : ts.isShorthandPropertyAssignment(p) && this.staticAssetSrc(p.name, seen),
+      );
+    }
+    if (ts.isPropertyAccessExpression(e) || ts.isElementAccessExpression(e)) {
+      const base = e.expression;
+      if (ts.isIdentifier(base)) {
+        const d = this.checker.getSymbolAtLocation(base)?.declarations?.[0];
+        if (d && ts.isNamespaceImport(d)) return assetModule(d);
+      }
+      return this.staticAssetSrc(base, seen);
+    }
+    if (ts.isIdentifier(e)) {
+      const sym = ts.isShorthandPropertyAssignment(e.parent) && e.parent.name === e ? this.checker.getShorthandAssignmentValueSymbol(e.parent) : this.checker.getSymbolAtLocation(e);
+      const d = sym?.declarations?.[0];
+      if (!d) return false;
+      if (ts.isImportClause(d) || ts.isImportSpecifier(d)) return assetModule(d);
+      if (ts.isVariableDeclaration(d) && d.initializer && ts.isIdentifier(d.name) && ts.getCombinedNodeFlags(d) & ts.NodeFlags.Const) {
+        return this.staticAssetSrc(d.initializer, seen);
+      }
+    }
+    return false;
+  }
+
+  private checkMediaSrc(attr: ts.JsxAttribute): void {
+    const owner = attr.parent.parent;
+    const tag = this.mediaTag(owner.tagName);
+    if (tag === undefined) return;
+    const init = attr.initializer;
+    const value = init && ts.isJsxExpression(init) ? init.expression : init;
+    if (value && (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) && urlMessage(value, true)) return; // уже external-url
+    if (!value || !this.staticAssetSrc(value as ts.Expression)) this.report(init ?? attr, "external-url", MSG_MEDIA_SRC(tag));
   }
 
   // --- обход ---
@@ -861,6 +976,7 @@ class FileChecker {
       const attr = n && FORBIDDEN_ATTRS.get(n);
       if (attr) this.report(node.name, "forbidden-dom", attr);
       if ((n === "className" || n === "class") && node.initializer) this.checkClassName(node.initializer);
+      if (n === "src") this.checkMediaSrc(node);
     } else if (ts.isPropertyAssignment(node)) {
       this.checkKey(propName(node.name), node.name, node.parent, node.initializer);
       if (propName(node.name) === "className") this.checkClassName(node.initializer);

@@ -13,8 +13,9 @@ const check = (text: string, path = "src/Scene.tsx") => checkSceneSource([{ path
 const rules = (v: Violation[]): RuleId[] => [...new Set(v.map((x) => x.rule))];
 
 const okScene = `
-import { AbsoluteFill, Img, interpolate, random, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Img, interpolate, random, useCurrentFrame } from "remotion";
 import { useMemo } from "react";
+import logo from "./logo.png";
 import { presets } from "@ms/motion-kit";
 import { Title } from "./parts/Title";
 
@@ -31,7 +32,7 @@ export const Scene = () => {
   const cfg = { transition: "fade", transitionFrames: 15, animation: "rise" };
   return (
     <AbsoluteFill style={{ background: presets["dark-premium"].palette.bg, opacity: Math.min(1, frame / 30) }}>
-      <Img src={staticFile("logo.png")} style={{ transform: \`translateX(\${x + jitter}px)\` }} />
+      <Img src={logo} style={{ transform: \`translateX(\${x + jitter}px)\` }} />
       <img src="./parts/dot.png" />
       <Title text={String(launch + dots.length + cfg.transitionFrames)} className="text-xl font-bold" />
       <svg xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" data-ns={NS} viewBox="0 0 10 10">
@@ -99,6 +100,11 @@ describe("Violation: файл, строка, сообщение для аген�
     expect(check("<div style={{ transition: 'all 1s' }} />")[0]!.message).toContain("interpolate");
     expect(check("<img src='https://x/a.png' />")[0]!.message).toContain("src/ и импортируй");
     expect(check("const d = new Date()")[0]!.message).toMatch(/[а-я]/);
+    expect(check("const u = '/proxy?src=a'")[0]!.message).toMatch(/\/proxy.*import clip from '\.\/clip\.mp4'/s);
+    expect(check("const u = 'a%3A%2F%2Fb'")[0]!.message).toMatch(/закодирован/);
+    expect(check("import { Img } from 'remotion'; const e = (s: string) => <Img src={s} />")[0]!.message).toMatch(
+      /<Img>.*import a from '\.\/a\.png'/s,
+    );
   });
 });
 
@@ -216,7 +222,7 @@ const cases: Record<string, Case[]> = {
     ["ws://", "const u = 'wss://x/socket'", ["external-url"]],
     ["javascript:", "<a href='javascript:void 0'>x</a>", ["external-url"]],
     ["loadFont с внешним url", "import { loadFont } from '@remotion/fonts'; loadFont({ family: 'X', url: 'https://x/f.woff2' })", ["external-url"]],
-    ["staticFile", "import { Img, staticFile } from 'remotion'; const e = <Img src={staticFile('a.png')} />", []],
+    ["staticFile в src — вычисляемый адрес", "import { Img, staticFile } from 'remotion'; const e = <Img src={staticFile('a.png')} />", ["external-url"]],
     ["относительный путь", "<img src='./a.png' />", []],
     ["url() локальный", "<div style={{ backgroundImage: 'url(./a.png)' }} />", []],
     ["data: URL", "<img src='data:image/png;base64,AAAA' />", []],
@@ -303,6 +309,39 @@ const cases: Record<string, Case[]> = {
     ["протокол-относительный в srcSet", "<img srcSet='./a.png 1x, //x/b.png 2x' />", ["external-url"]],
     ["srcSet в объекте props", "const p = { srcSet: './a.png 1x, https://x/b.png 2x' }", ["external-url"]],
     ["локальный srcSet", "<img srcSet='./a.png 1x, ./b.png 2x' />", []],
+  ],
+  "/proxy сервера бандла и закодированные адреса": [
+    ["'/proxy?src=…'", "const u = '/proxy?src=x&time=0'", ["external-url"]],
+    ["шаблон `/proxy?src=${…}`", "const p = 1; const u = `/proxy?src=${p}&time=0`", ["external-url"]],
+    ["<Img src='/proxy…'>", "import { Img } from 'remotion'; const e = <Img src='/proxy?src=a' />", ["external-url"]],
+    ["%3A%2F%2F", "const u = 'x?src=http%3A%2F%2F127.0.0.1%3A8790%2F'", ["external-url"]],
+    ["%3a%2f%2f в нижнем регистре", "const u = 'a%3a%2f%2fb'", ["external-url"]],
+    ["%3A%2F%2F в части шаблона", "const p = 1; const u = `${p}%3A%2F%2Fx`", ["external-url"]],
+    ["/proxy не в начале — просто текст", "const t = 'путь /proxy в документации'", []],
+    ["./proxy.png — локальный файл", "import { Img } from 'remotion'; import proxy from './proxy.png'; const e = <Img src={proxy} />", []],
+  ],
+  "src у медиа: только импорт из src/ или kit": [
+    ["Img из import", "import { Img } from 'remotion'; import dot from './dot.png'; const e = <Img src={dot} />", []],
+    ["OffthreadVideo из import", "import { OffthreadVideo } from 'remotion'; import clip from './clip.mp4'; const e = <OffthreadVideo src={clip} />", []],
+    ["Audio из import", "import { Audio } from 'remotion'; import a from './a.mp3'; const e = <Audio src={a} />", []],
+    ["алиас Img as Picture", "import { Img as Picture } from 'remotion'; import dot from './dot.png'; const e = <Picture src={dot} />", []],
+    ["R.Img через namespace", "import * as R from 'remotion'; import dot from './dot.png'; const e = <R.Img src={dot} />", []],
+    ["ассет из @ms/motion-kit", "import { Img } from 'remotion'; import { logo } from '@ms/motion-kit'; const e = <Img src={logo} />", []],
+    ["const-алиас импорта", "import { Img } from 'remotion'; import dot from './dot.png'; const D = dot; const e = <Img src={D} />", []],
+    ["массив импортов", "import { Img } from 'remotion'; import a from './a.png'; import b from './b.png'; const L = [a, b]; const e = (i: number) => <Img src={L[i]} />", []],
+    ["условие между импортами", "import { Img } from 'remotion'; import a from './a.png'; import b from './b.png'; const e = (x: boolean) => <Img src={x ? a : b} />", []],
+    ["относительная строка", "<video src='./clip.mp4' />", []],
+    ["<source> из import", "import clip from './clip.mp4'; const e = <video><source src={clip} /></video>", []],
+    ["src из props", "import { Img } from 'remotion'; const e = (p: { src: string }) => <Img src={p.src} />", ["external-url"]],
+    ["src из параметра", "import { Video } from 'remotion'; const e = (src: string) => <Video src={src} />", ["external-url"]],
+    ["строка без ./", "import { Img } from 'remotion'; const e = <Img src='a.png' />", ["external-url"]],
+    ["абсолютный путь", "<img src='/etc/a.png' />", ["external-url"]],
+    ["вычисляемый шаблон", "import { Img } from 'remotion'; const n = 1; const e = <Img src={`./a${n}.png`} />", ["external-url"]],
+    ["вызов функции", "import { Audio } from 'remotion'; const f = () => './a.mp3'; const e = <Audio src={f()} />", ["external-url"]],
+    ["let-переменная", "import { Img } from 'remotion'; import dot from './dot.png'; let D = dot; const e = <Img src={D} />", ["external-url"]],
+    ["IFrame из remotion", "import { IFrame } from 'remotion'; const p = { u: '' }; const e = <IFrame src={p.u} />", ["external-url"]],
+    ["<source> из props", "const e = (p: { u: string }) => <audio><source src={p.u} /></audio>", ["external-url"]],
+    ["src у не-медиа компонента — не проверяется", "const Card = (p: { src: string }) => null; const e = (s: string) => <Card src={s} />", []],
   ],
   "файлы и пути": [
     [".tsx вне src/", "export const a = 1", ["outside-src"]],
