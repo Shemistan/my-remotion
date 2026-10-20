@@ -1,0 +1,11 @@
+{
+  "name": "@ms/server",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@ms/core": "*"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  }
+}
