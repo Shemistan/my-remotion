@@ -91,13 +91,24 @@ export async function ffprobe(path: string): Promise<ProbeResult> {
 }
 
 /**
- * Сверка превью с настройками сцены: длительность ± 1 кадр, размеры = настройки × scale
- * (с округлением, как у Remotion), fps как дробь, кодек H.264. Пусто — gate пройден.
+ * Размер кадра H.264 у Remotion (validateEvenDimensionsWithCodec, renderer 4.0.537):
+ * исходный размер уменьшается на 1, пока `Math.round(size * scale)` нечётен, и итог —
+ * `Math.round(size * scale)`. Например, 1350 × 0.5 → 674, а не 675.
+ */
+export function h264Size(size: number, scale: number): number {
+  let even = size;
+  while (Math.round(even * scale) % 2 !== 0) even--;
+  return Math.round(even * scale);
+}
+
+/**
+ * Сверка превью с настройками сцены: длительность ± 1 кадр, размеры — как у Remotion для
+ * H.264 (`h264Size`), fps как дробь, кодек h264. Пусто — gate пройден.
  */
 export function probeGate(probe: ProbeResult, settings: Settings, scale: number): string[] {
   const problems: string[] = [];
-  const width = Math.round(settings.width * scale);
-  const height = Math.round(settings.height * scale);
+  const width = h264Size(settings.width, scale);
+  const height = h264Size(settings.height, scale);
   if (probe.width !== width) problems.push(`width ${probe.width}, ожидалось ${width}`);
   if (probe.height !== height) problems.push(`height ${probe.height}, ожидалось ${height}`);
 

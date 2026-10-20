@@ -14,8 +14,12 @@ export const APP_NODE_MODULES = join(APP_ROOT, "node_modules");
 /** Цель алиаса `@ms/motion-kit` (каталог появится в Task 6). */
 export const MOTION_KIT_DIR = join(RENDER_ROOT, "src", "motion-kit");
 
-/** Версия шаблона entry: меняется — старые бандлы в кэше перестают совпадать по ключу. */
-const ENTRY_TEMPLATE_VERSION = 1;
+/**
+ * Исходники, от которых зависит бандл помимо версии: шаблон entry (этот файл) и опции
+ * bundle() в worker.ts (webpackOverride, алиасы). Их правка меняет ключ, и кэш бандлов
+ * не отдаёт сборку, сделанную по старым правилам.
+ */
+const TOOLCHAIN_SOURCES = [fileURLToPath(import.meta.url), fileURLToPath(new URL("./worker.ts", import.meta.url))];
 const REMOTION_VERSION = (
   JSON.parse(readFileSync(join(APP_NODE_MODULES, "remotion", "package.json"), "utf8")) as { version: string }
 ).version;
@@ -66,12 +70,14 @@ async function readRegular(path: string, what: string): Promise<Buffer> {
 /**
  * sha256 содержимого версии: `src/**` (относительный путь + байты) и `props.json`.
  * Абсолютное расположение версии в ключ не входит — перенос draft → version ключ не
- * меняет. В ключ также входят версия Remotion, шаблона entry и содержимое motion-kit:
- * бандл зависит от них, и без этого кэш отдал бы устаревшую сборку.
+ * меняет. В ключ также входят версия Remotion, исходники шаблона entry и опций bundle()
+ * (entry.ts, worker.ts) и содержимое motion-kit: бандл зависит от них, и без этого кэш
+ * отдал бы устаревшую сборку.
  */
 export async function contentKey(versionDir: string): Promise<string> {
   const h = createHash("sha256");
-  h.update(`ms-render entry v${ENTRY_TEMPLATE_VERSION} remotion@${REMOTION_VERSION}\0`);
+  h.update(`ms-render remotion@${REMOTION_VERSION}\0`);
+  for (const f of TOOLCHAIN_SOURCES) h.update(await readFile(f)).update("\0");
   await hashMotionKit(h);
   const src = join(versionDir, "src");
   const st = await lstat(src).catch(() => undefined);

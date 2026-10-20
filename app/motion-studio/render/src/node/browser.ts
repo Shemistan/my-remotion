@@ -1,33 +1,35 @@
 // Chrome Headless Shell для рендера. Скачивается один раз (doctor) в
 // `app/motion-studio/node_modules/.remotion/`; рендер сам в сеть не ходит.
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { ensureBrowser } from "@remotion/renderer";
-import { APP_ROOT } from "./entry.js";
+import { APP_NODE_MODULES, APP_ROOT } from "./entry.js";
 
-// Remotion выбирает каталог загрузки по ближайшему к process.cwd() package.json —
-// на время вызова переходим в корень workspaces, чтобы браузер всегда жил в одном месте.
-function inAppRoot<T>(fn: () => T): T;
-function inAppRoot<T>(fn: () => Promise<T>): Promise<T>;
-function inAppRoot<T>(fn: () => T | Promise<T>): T | Promise<T> {
+/** Обёртка browserExecutable: запись Chrome в реестр процессов и закрытая сеть. */
+export const CHROME_WRAPPER = fileURLToPath(new URL("./chrome-wrapper.sh", import.meta.url));
+
+/** Где Remotion держит Chrome Headless Shell, если cwd внутри `app/motion-studio`. */
+const DOWNLOADS = join(APP_NODE_MODULES, ".remotion", "chrome-headless-shell");
+
+/**
+ * Гарантирует Chrome Headless Shell (скачивает при отсутствии) и возвращает путь к нему.
+ *
+ * Только для CLI (`doctor`) и e2e — НЕ вызывать из сервера. Remotion выбирает каталог
+ * загрузки по ближайшему к `process.cwd()` package.json, поэтому на время вызова процесс
+ * переходит в корень workspaces (`process.chdir` глобален для процесса). Рендер браузер
+ * не качает: он берёт путь из `findRenderBrowser`, которому cwd не нужен.
+ */
+export async function ensureRenderBrowser(): Promise<{ path: string }> {
   const prev = process.cwd();
   process.chdir(APP_ROOT);
-  let r: T | Promise<T>;
+  let status;
   try {
-    r = fn();
-  } catch (e) {
+    status = await ensureBrowser({ chromeMode: "headless-shell", logLevel: "error" });
+  } finally {
     process.chdir(prev);
-    throw e;
   }
-  if (r instanceof Promise) return r.finally(() => process.chdir(prev));
-  process.chdir(prev);
-  return r;
-}
-
-/** Гарантирует Chrome Headless Shell (скачивает при отсутствии) и возвращает путь к нему. */
-export async function ensureRenderBrowser(): Promise<{ path: string }> {
-  const status = await inAppRoot(() => ensureBrowser({ chromeMode: "headless-shell", logLevel: "error" }));
   if (status.type !== "local-puppeteer-browser" && status.type !== "user-defined-path") {
     throw new Error(`render: Chrome Headless Shell не установлен (${status.type})`);
   }
@@ -35,34 +37,38 @@ export async function ensureRenderBrowser(): Promise<{ path: string }> {
 }
 
 interface BrowserFetcher {
-  getRevisionInfo(mode: "headless-shell"): { executablePath: string; local: boolean };
-  readVersionFile(mode: "headless-shell"): string | null;
   getExpectedVersion(o: { version: null; chromeMode: "headless-shell"; platform: string }): string;
   getPlatform(): string;
 }
 
 /**
- * Путь к уже скачанному Chrome Headless Shell без сетевых запросов; нет браузера или
- * не та версия — Error с подсказкой запустить doctor.
+ * Путь к уже скачанному Chrome Headless Shell без сети и без смены cwd; нет браузера
+ * или не та версия — Error с подсказкой запустить doctor.
  *
- * Публичный `ensureBrowser` при отсутствии браузера сразу качает, а отказ из
- * `onBrowserDownload` навсегда отравляет его внутреннюю очередь в этом процессе. Поэтому
- * проверка повторяет его `getBrowserStatus` на внутреннем `BrowserFetcher` — это
- * допустимо, пока Remotion закреплён точно (4.0.537, ADR 0004).
+ * Повторяет `getBrowserStatus` Remotion для каталога `DOWNLOADS`: раскладка
+ * `<platform>/chrome-headless-shell-<platform>/{headless_shell|chrome-headless-shell}` и
+ * файл `VERSION`; ожидаемую версию берёт из внутреннего `BrowserFetcher`. Публичный
+ * `ensureBrowser` не годится: без браузера он качает, а отказ из `onBrowserDownload`
+ * навсегда отравляет его внутреннюю очередь. Допустимо, пока Remotion закреплён точно
+ * (4.0.537, ADR 0004).
  */
 export function findRenderBrowser(): string {
   const require = createRequire(import.meta.url);
   const fetcher = require(join(dirname(require.resolve("@remotion/renderer")), "browser", "BrowserFetcher.js")) as BrowserFetcher;
-  return inAppRoot(() => {
-    const info = fetcher.getRevisionInfo("headless-shell");
-    if (!info.local || !existsSync(info.executablePath)) {
-      throw new Error("render: Chrome Headless Shell не скачан — запусти `npm run doctor`");
-    }
-    const actual = fetcher.readVersionFile("headless-shell");
-    const expected = fetcher.getExpectedVersion({ version: null, chromeMode: "headless-shell", platform: fetcher.getPlatform() });
-    if (actual !== expected) {
-      throw new Error(`render: Chrome Headless Shell ${actual ?? "?"} вместо ${expected} — запусти \`npm run doctor\``);
-    }
-    return info.executablePath;
-  });
+  const platform = fetcher.getPlatform();
+  const shell = join(DOWNLOADS, platform, `chrome-headless-shell-${platform}`);
+  const patched = join(shell, "headless_shell");
+  const exe = existsSync(patched) ? patched : join(shell, "chrome-headless-shell");
+  if (!existsSync(exe)) throw new Error("render: Chrome Headless Shell не скачан — запусти `npm run doctor`");
+  let actual: string | null = null;
+  try {
+    actual = readFileSync(join(DOWNLOADS, "VERSION"), "utf8").trim();
+  } catch {
+    // нет файла версии — считаем, что версия не та
+  }
+  const expected = fetcher.getExpectedVersion({ version: null, chromeMode: "headless-shell", platform });
+  if (actual !== expected) {
+    throw new Error(`render: Chrome Headless Shell ${actual ?? "?"} вместо ${expected} — запусти \`npm run doctor\``);
+  }
+  return exe;
 }

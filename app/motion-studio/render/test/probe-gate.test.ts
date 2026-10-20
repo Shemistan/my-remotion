@@ -39,3 +39,10 @@ it("parses ffprobe JSON of an H.264 stream", () => {
   });
   expect(() => parseProbe(JSON.stringify({ streams: [], format: {} }))).toThrow(/видеопоток/);
 });
+
+it("mirrors Remotion's even-dimension rounding for H.264", () => {
+  const square = { ...defaultSettings(), aspect_ratio: "1:1" as const, width: 1350, height: 1350, duration_frames: 60 };
+  const q = { ...p, width: 674, height: 674 };
+  expect(probeGate(q, square, 0.5)).toEqual([]);
+  expect(probeGate({ ...q, width: 675, height: 675 }, square, 0.5)[0]).toMatch(/width 675, ожидалось 674/);
+});

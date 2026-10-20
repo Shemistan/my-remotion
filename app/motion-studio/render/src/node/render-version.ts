@@ -1,14 +1,14 @@
 // Рендер версии в отслеживаемом дочернем процессе (worker.ts через spawnTracked).
-import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { constants, existsSync } from "node:fs";
+import { access, mkdtemp, readdir, rename, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Settings } from "@ms/contracts";
-import { StorageError, killGroup, safeMkdir, spawnTracked } from "@ms/core";
-import { findRenderBrowser } from "./browser.js";
+import { StorageError, safeMkdir, spawnTracked } from "@ms/core";
+import { CHROME_WRAPPER, findRenderBrowser } from "./browser.js";
 import { APP_NODE_MODULES, MOTION_KIT_DIR, mkdirOne, readProps, writeEntry } from "./entry.js";
 import { FFPROBE_ARGS, type ProbeResult, ffprobeBin, parseProbe } from "./ffprobe.js";
+import { reapByMarker, settleBrowserRecords } from "./processes.js";
 import type { WorkerJob, WorkerResult, WorkerStage } from "./protocol.js";
 
 export interface RenderRequest {
@@ -28,10 +28,12 @@ export interface RenderRequest {
  * - `probe` — ffprobe превью не отработал или не разобран;
  * - `timeout` — не уложились в `timeoutMs`, группа процессов убита;
  * - `aborted` — сработал `signal` вызывающего, группа убита;
+ * - `timeout` также ставит worker, если сработал (чуть более короткий) таймаут delayRender;
  * - `orphaned` — группа процессов (worker, ffprobe или Chrome) не исчезла и после SIGKILL:
- *   попытка НЕ завершена, запись в `run/processes/` оставлена для reapStale. Это не
- *   обычная ошибка рендера: повторять попытку нельзя, пока процессы живы (ADR 0007,
- *   `stale_process`).
+ *   попытка НЕ завершена; записи в `run/processes/` оставлены (их добьёт reapStale),
+ *   Chrome без записи найдёт reapStrayRenderers; `run/tmp/…` попытки переименован в
+ *   `*.quarantined`. Это не обычная ошибка рендера: повторять попытку нельзя, пока
+ *   процессы живы (ADR 0007, `stale_process`).
  */
 export type RenderStage = WorkerStage | "probe" | "timeout" | "aborted" | "orphaned";
 
@@ -99,35 +101,9 @@ function parseWorkerOutput(stdout: string): WorkerOutput {
 
 const tail = (s: string) => (s.length > STDERR_TAIL ? "…" + s.slice(-STDERR_TAIL) : s).trim();
 
-/** Процессы, в командной строке которых есть `marker` (Chrome: `--user-data-dir` в TMPDIR попытки). */
-async function findStrays(marker: string): Promise<{ pid: number; pgid: number }[]> {
-  const out = await new Promise<string>((resolve, reject) =>
-    execFile("/bin/ps", ["-axww", "-o", "pid=,pgid=,command="], { maxBuffer: 64 * 1024 * 1024 }, (e, so) => (e ? reject(e) : resolve(so))),
-  );
-  const found: { pid: number; pgid: number }[] = [];
-  for (const line of out.split("\n")) {
-    if (!line.includes(marker)) continue;
-    const m = /^\s*(\d+)\s+(\d+)\s/.exec(line);
-    if (m) found.push({ pid: Number(m[1]), pgid: Number(m[2]) });
-  }
-  return found.filter((p) => p.pid !== process.pid);
-}
-
-/**
- * Chrome Remotion запускает в собственной группе (detached), и убийство группы worker
- * его не задевает. Ищем такие процессы по TMPDIR попытки, бьём их группы SIGKILL и
- * ждём исчезновения. Возвращает тех, кто выжил.
- */
-async function reapStrays(marker: string): Promise<{ pid: number; pgid: number }[]> {
-  let strays = await findStrays(marker);
-  if (strays.length === 0) return [];
-  for (const pgid of new Set(strays.map((p) => p.pgid))) killGroup(pgid, "SIGKILL");
-  const until = Date.now() + STRAY_WAIT_MS;
-  while (strays.length > 0 && Date.now() < until) {
-    await new Promise((r) => setTimeout(r, 100));
-    strays = await findStrays(marker);
-  }
-  return strays;
+/** Таймаут Remotion внутри worker — чуть меньше внешнего (на 10%, но не меньше 2 с). */
+export function innerTimeoutMs(outer: number): number {
+  return Math.max(Math.floor(outer / 2), outer - Math.max(2000, Math.round(outer * 0.1)));
 }
 
 function pidAlive(pid: number): boolean {
@@ -166,11 +142,14 @@ function childEnv(tmpdir: string): NodeJS.ProcessEnv {
 /**
  * Рендер версии: бандл (кэш по contentKey) → стоп-кадры `<versionDir>/frames/<n>.png` →
  * превью `<versionDir>/preview.mp4` (H.264) → ffprobe. Всё тяжёлое — в worker под
- * `spawnTracked`; ffprobe тоже отслеживается. Таймаут и `signal` убивают группу.
- * Gate по настройкам (`probeGate`) вызывающий применяет сам к `probe`.
+ * `spawnTracked`; ffprobe тоже отслеживается. Chrome запускается через
+ * chrome-wrapper.sh: он сам пишет запись в `run/processes/` (Chrome в своей группе) и
+ * закрывает браузеру сеть. Таймаут и `signal` убивают группы. Gate по настройкам
+ * (`probeGate`) вызывающий применяет сам к `probe`.
  *
  * Временные файлы Remotion и профиль Chrome — в `run/tmp/<runId>-a<attempt>-*` хранилища
- * (TMPDIR дочернего процесса), не на системном диске; каталог удаляется в конце.
+ * (TMPDIR дочернего процесса), не на системном диске; каталог удаляется в конце, а при
+ * `orphaned` переименовывается в `*.quarantined`.
  *
  * Бросает (а не возвращает ok:false), если рендер невозможен в принципе: хранилище
  * недоступно (StorageError), нет Chrome Headless Shell или ffprobe, Node без стирания
@@ -185,16 +164,23 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
     ...extra,
     error: { stage, message },
   });
+  const cancelled = () => fail("aborted", "рендер отменён до запуска worker");
 
-  if (signal?.aborted) return fail("aborted", "рендер отменён до запуска");
+  if (signal?.aborted) return cancelled();
   const frames = req.settings.duration_frames;
   const badFrames = req.stills.filter((f) => !Number.isInteger(f) || f < 0 || f >= frames);
   if (badFrames.length > 0) return fail("still", `кадры вне 0..${frames - 1}: ${badFrames.join(", ")}`);
 
   if (!process.features.typescript) throw new Error("render: Node без стирания типов (нужен 22.18+), worker.ts не запустится");
   if (!existsSync(WORKER_PATH)) throw new Error(`render: нет ${WORKER_PATH}`);
-  const browserExecutable = await (deps.browserPath ?? (async () => findRenderBrowser()))();
+  await access(CHROME_WRAPPER, constants.X_OK).catch((e: unknown) => {
+    throw new Error(`render: ${CHROME_WRAPPER} не исполняемый`, { cause: e });
+  });
+  // отмена во время подготовки не должна потеряться: проверка после каждого await
+  const chrome = await (deps.browserPath ?? (async () => findRenderBrowser()))();
+  if (signal?.aborted) return cancelled();
   const ffprobe = await (deps.ffprobeBin ?? ffprobeBin)();
+  if (signal?.aborted) return cancelled();
 
   let entryPoint: string;
   let inputProps: Record<string, unknown>;
@@ -212,6 +198,7 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
   const { root, runId, attempt } = req.run;
   const ref = { runId, attempt };
   const tmpRoot = await safeMkdir(root, "run/tmp");
+  if (signal?.aborted) return cancelled();
   const runTmp = await mkdtemp(join(tmpRoot, `${runId}-a${attempt}-`));
   const env = childEnv(runTmp);
 
@@ -222,12 +209,14 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
     rootDir: dirname(entryPoint),
     nodeModules: APP_NODE_MODULES,
     motionKitDir: MOTION_KIT_DIR,
-    browserExecutable,
+    browserExecutable: CHROME_WRAPPER,
+    chrome,
+    run: { root, runId, attempt },
     inputProps,
     composition: { width: req.settings.width, height: req.settings.height, fps: num / den, durationInFrames: frames },
     stills: req.stills.map((frame) => ({ frame, out: join(framesDir, `${frame}.png`) })),
     preview: { out: join(req.versionDir, "preview.mp4"), scale: req.preview.scale, crf: req.preview.crf },
-    timeoutMs: req.timeoutMs,
+    timeoutMs: innerTimeoutMs(req.timeoutMs),
   };
 
   const ac = new AbortController();
@@ -241,12 +230,15 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
     ac.abort();
   };
   signal?.addEventListener("abort", onAbort, { once: true });
+  if (signal?.aborted) onAbort();
   const interrupted = (logs: string[]) =>
     why === "timeout"
       ? fail("timeout", `рендер не уложился в ${req.timeoutMs} мс; группа процессов убита`, { browserLogs: logs })
       : fail("aborted", "рендер отменён; группа процессов убита", { browserLogs: logs });
 
+  let orphaned = false;
   try {
+    if (ac.signal.aborted) return interrupted([]);
     const w = await spawn(root, ref, process.execPath, [...NODE_ARGS, WORKER_PATH], {
       cwd: runTmp,
       env,
@@ -255,12 +247,28 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
       killGraceMs: deps.killGraceMs ?? 5000,
     });
     const out = parseWorkerOutput(w.stdout);
-    const survivors = await reapStrays(runTmp);
-    if (w.orphaned || survivors.length > 0) {
-      const who = w.orphaned ? `группа worker ${process.execPath}` : `Chrome (pid ${survivors.map((p) => p.pid).join(", ")})`;
-      return fail("orphaned", `${who} не исчезла после SIGKILL; попытка не завершена, нужен reapStale`, { browserLogs: out.logs });
+    if (w.orphaned) {
+      orphaned = true;
+      return fail(
+        "orphaned",
+        "группа worker не исчезла после SIGKILL; её запись оставлена в run/processes/, попытка не завершена (stale_process)",
+        { browserLogs: out.logs },
+      );
     }
-    // worker подтверждённо мёртв — его недоделки можно убрать
+    // Chrome — в своей группе: добиваем по TMPDIR попытки, затем закрываем его записи
+    const strays = await reapByMarker(runTmp + "/", { graceMs: 0, waitMs: STRAY_WAIT_MS });
+    const browsers = await settleBrowserRecords(root, ref);
+    if (strays.length > 0 || browsers.length > 0) {
+      orphaned = true;
+      const pids = [...new Set([...strays.map((p) => p.pid), ...browsers.map((p) => p.pid)])].join(", ");
+      return fail(
+        "orphaned",
+        `Chrome (pid ${pids}) не исчез после SIGKILL; записи Chrome оставлены в run/processes/, ` +
+          `процессы без записи уберёт reapStrayRenderers; попытка не завершена (stale_process)`,
+        { browserLogs: out.logs },
+      );
+    }
+    // worker и Chrome подтверждённо мертвы — их недоделки можно убрать
     await removeLeftovers(req.versionDir, bundlesDir);
     if (why) return interrupted(out.logs);
     const r = out.result;
@@ -277,7 +285,12 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
     }
 
     const p = await spawn(root, ref, ffprobe, [...FFPROBE_ARGS, r.previewPath], { cwd: runTmp, env, signal: ac.signal });
-    if (p.orphaned) return fail("orphaned", `группа ffprobe не исчезла после SIGKILL; попытка не завершена`, { browserLogs });
+    if (p.orphaned) {
+      orphaned = true;
+      return fail("orphaned", "группа ffprobe не исчезла после SIGKILL; её запись оставлена в run/processes/, попытка не завершена (stale_process)", {
+        browserLogs,
+      });
+    }
     if (why) return interrupted(browserLogs);
     const base = { stills: r.stills, previewPath: r.previewPath, browserLogs };
     if (p.code !== 0) return fail("probe", `ffprobe завершился с кодом ${p.code}: ${tail(p.stderr)}`, base);
@@ -289,6 +302,8 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", onAbort);
-    await rm(runTmp, { recursive: true, force: true }).catch(() => undefined);
+    // при живых процессах каталог не трогаем, только помечаем: в нём их файлы
+    if (orphaned) await rename(runTmp, `${runTmp}.quarantined`).catch(() => undefined);
+    else await rm(runTmp, { recursive: true, force: true }).catch(() => undefined);
   }
 }

@@ -5,7 +5,8 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { SpawnTrackedOptions, SpawnTrackedResult } from "@ms/core";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { type RenderDeps, type RenderRequest, WORKER_PATH, renderVersion } from "../src/node/render-version.js";
+import { CHROME_WRAPPER } from "../src/node/browser.js";
+import { type RenderDeps, type RenderRequest, WORKER_PATH, innerTimeoutMs, renderVersion } from "../src/node/render-version.js";
 import { copyFixture, fixtureSettings, makeStore, makeTmp, removeTmp } from "./helpers.js";
 
 const FFPROBE = "/fake/ffprobe";
@@ -120,12 +121,14 @@ it("worker gets a minimal env, TMPDIR inside run/tmp and the job on stdin; run t
   expect(job).toMatchObject({
     entryPoint: expect.stringMatching(/entries\/[0-9a-f]{64}\/index\.tsx$/),
     bundleDir: expect.stringMatching(/bundles\/[0-9a-f]{64}$/),
-    browserExecutable: "/fake/chrome-headless-shell",
+    browserExecutable: CHROME_WRAPPER,
+    chrome: "/fake/chrome-headless-shell",
+    run: req.run,
     inputProps: { title: "Hello, Motion Studio" },
     composition: { width: 640, height: 360, fps: 30, durationInFrames: 60 },
     stills: [0, 30, 59].map((f) => ({ frame: f, out: join(req.versionDir, "frames", `${f}.png`) })),
     preview: { out: join(req.versionDir, "preview.mp4"), scale: 1, crf: 23 },
-    timeoutMs: 60_000,
+    timeoutMs: 54_000, // внутренний таймаут Remotion чуть меньше внешнего
   });
   // каталоги созданы: frames/ версии, entries/ и bundles/ кэша
   expect(existsSync(join(req.versionDir, "frames"))).toBe(true);
@@ -219,4 +222,35 @@ it("removes partial preview and bundle leftovers of dead workers after a failed 
   expect(r.error?.stage).toBe("media");
   expect(readdirSync(bundles)).toEqual([]);
   expect(readdirSync(req.versionDir).filter((n) => n.includes("preview"))).toEqual([]);
+});
+
+it("abort that arrives while preparing (before spawn) is not lost", async () => {
+  const ac = new AbortController();
+  const d = deps(() => ({ stdout: workerOut(okResult(req)) }));
+  const r = await renderVersion(req, ac.signal, {
+    ...d,
+    browserPath: async () => {
+      ac.abort();
+      return "/fake/chrome-headless-shell";
+    },
+  });
+  expect(r).toMatchObject({ ok: false, error: { stage: "aborted" } });
+  expect(calls).toEqual([]);
+});
+
+it("inner Remotion timeout is slightly below the outer one", () => {
+  expect(innerTimeoutMs(60_000)).toBe(54_000);
+  expect(innerTimeoutMs(15_000)).toBe(13_000);
+  expect(innerTimeoutMs(300_000)).toBe(270_000);
+  expect(innerTimeoutMs(1000)).toBe(500);
+});
+
+it("orphaned worker keeps run tmp as *.quarantined instead of deleting it", async () => {
+  let tmpdir = "";
+  await renderVersion(req, undefined, deps((c) => {
+    tmpdir = c.opts.cwd;
+    return { orphaned: true };
+  }));
+  expect(existsSync(tmpdir)).toBe(false);
+  expect(existsSync(`${tmpdir}.quarantined`)).toBe(true);
 });

@@ -19,6 +19,9 @@ const LOG = "@@ms:log ";
 // Remotion пишет в консоль сам; оставляем только ошибки, чтобы не путать протокол.
 const LOG_LEVEL = "error";
 
+// «A delayRender() "…" was called but not cleared after 13000ms»
+const DELAY_RENDER_TIMEOUT = /delayRender\(\).*not cleared after \d+ms/s;
+
 const browserLogs: string[] = [];
 let stage: WorkerStage = "bundle";
 let browser: HeadlessBrowser | undefined;
@@ -51,9 +54,9 @@ async function readStdin(): Promise<string> {
 
 function parseJob(text: string): WorkerJob {
   const job = JSON.parse(text) as Partial<WorkerJob>;
-  const need = ["entryPoint", "bundleDir", "rootDir", "nodeModules", "motionKitDir", "browserExecutable"] as const;
+  const need = ["entryPoint", "bundleDir", "rootDir", "nodeModules", "motionKitDir", "browserExecutable", "chrome"] as const;
   for (const k of need) if (typeof job[k] !== "string") throw new Error(`worker: в задании нет ${k}`);
-  if (!job.composition || !job.preview || !Array.isArray(job.stills) || typeof job.timeoutMs !== "number") {
+  if (!job.composition || !job.preview || !job.run || !Array.isArray(job.stills) || typeof job.timeoutMs !== "number") {
     throw new Error("worker: неполное задание");
   }
   return job as WorkerJob;
@@ -103,6 +106,11 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
   const serveUrl = await ensureBundle(job);
 
   startStage("still");
+  // для chrome-wrapper.sh: Remotion запускает браузер с env этого процесса
+  process.env.MS_CHROME = job.chrome;
+  process.env.MS_RUN_ROOT = job.run.root;
+  process.env.MS_RUN_ID = job.run.runId;
+  process.env.MS_RUN_ATTEMPT = String(job.run.attempt);
   browser = await openBrowser("chrome", {
     browserExecutable: job.browserExecutable,
     chromeMode: "headless-shell",
@@ -157,7 +165,10 @@ async function main(): Promise<void> {
     result = await run(job);
   } catch (e) {
     const err = e as Error;
-    result = { ok: false, stills: [], browserLogs, error: { stage, message: err.stack ?? err.message } };
+    const message = err.stack ?? err.message;
+    // таймаут delayRender Remotion (он чуть короче внешнего) — это тоже таймаут рендера
+    const timedOut = DELAY_RENDER_TIMEOUT.test(err.message);
+    result = { ok: false, stills: [], browserLogs, error: { stage: timedOut ? "timeout" : stage, message } };
   }
   await browser?.close({ silent: true }).catch(() => undefined);
   finish(result);

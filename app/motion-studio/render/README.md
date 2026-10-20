@@ -7,12 +7,13 @@ H.264 → ffprobe. Зависит только от `@ms/core` и `@ms/contracts
 
 | Функция | Что делает |
 |---|---|
-| `ensureRenderBrowser()` | Chrome Headless Shell через `ensureBrowser()`; качает при отсутствии. Зовёт `npm run doctor` |
-| `findRenderBrowser()` | Путь к уже скачанному браузеру без сети; нет или не та версия — Error «запусти doctor» |
-| `contentKey(versionDir)` | sha256 `src/**` (относительный путь + байты) и `props.json`; плюс версия Remotion, шаблона entry и содержимое motion-kit |
+| `ensureRenderBrowser()` | Chrome Headless Shell через `ensureBrowser()`; качает при отсутствии. Только CLI (`doctor`) и e2e: на время вызова меняет `process.cwd()` — в сервере не звать |
+| `findRenderBrowser()` | Путь к уже скачанному браузеру без сети и без смены cwd; нет или не та версия — Error «запусти doctor» |
+| `contentKey(versionDir)` | sha256 `src/**` (относительный путь + байты) и `props.json`; плюс версия Remotion, исходники `entry.ts` и `worker.ts` (шаблон entry и опции `bundle()`) и содержимое motion-kit |
 | `writeEntry(versionDir, cacheDir, settings)` | `<cacheDir>/entries/<key>/index.tsx`: `registerRoot` + `<Composition id="Scene">` |
 | `renderVersion(req, signal?)` | Рендер в отслеживаемом дочернем процессе, см. ниже |
-| `ffprobe(path)` / `probeGate(probe, settings, scale)` | Проба файла и сверка: длительность ± 1 кадр, размеры × scale, fps, h264 |
+| `ffprobe(path)` / `probeGate(probe, settings, scale)` | Проба файла и сверка: длительность ± 1 кадр, размеры как у Remotion для H.264 (`h264Size`: чётные, 1350 × 0.5 → 674), fps дробью, h264 |
+| `reapStrayRenderers(root)` | Восстановление под owner lock: процессы с `<root>/run/tmp/` в командной строке — SIGTERM, через 5 с SIGKILL, ждать до 30 с; возвращает выживших |
 
 Сцена экспортирует компонент `Scene` (именованный экспорт; default тоже принимается)
 из `src/Scene.tsx`; `props.json` — JSON-объект, он же `defaultProps` и `inputProps`.
@@ -31,8 +32,15 @@ H.264 → ffprobe. Зависит только от `@ms/core` и `@ms/contracts
 4. Worker: `bundle()` (кэш `<cacheDir>/bundles/<key>`, сборка во временный каталог и
    `rename`; кэш webpack выключен) → `openBrowser` → `selectComposition` → настройки
    поверх композиции → `renderStill` PNG → `renderMedia` H.264 (`crf`, `scale`) во
-   временный файл → `rename` в `preview.mp4`.
-5. ffprobe превью — тоже через `spawnTracked`.
+   временный файл → `rename` в `preview.mp4`. `timeoutInMilliseconds` Remotion чуть
+   меньше внешнего (`innerTimeoutMs`: −10%, не меньше 2 с), так что зависший
+   `delayRender` обычно падает с понятной ошибкой (`stage: "timeout"`) до убийства группы.
+5. После выхода worker: Chrome попытки добивается и его записи закрываются (ниже),
+   недоделки мёртвых worker (`bundles/<key>.tmp-<pid>`, `.preview-<pid>.tmp.mp4`) удаляются.
+6. ffprobe превью — тоже через `spawnTracked`.
+
+Отмена (`signal`) проверяется после каждого `await` подготовки: отмена до запуска worker
+не теряется и возвращает `aborted` без spawn.
 
 Протокол stdout worker: `@@ms:stage <bundle|still|media>` и `@@ms:log <json>` по ходу
 работы, последней строкой — JSON-результат. Поэтому при таймауте логи браузера и этап
@@ -44,20 +52,29 @@ H.264 → ffprobe. Зависит только от `@ms/core` и `@ms/contracts
 |---|---|
 | `bundle` / `still` / `media` | Ошибка в worker на этом этапе (или его падение без результата — по последнему начатому этапу); битые исходники версии — `bundle`, кадры вне сцены — `still` |
 | `probe` | ffprobe не отработал или вывод не разобран |
-| `timeout` | Не уложились в `timeoutMs`: SIGTERM группе, через 5 с SIGKILL |
+| `timeout` | Не уложились в `timeoutMs` (SIGTERM группе, через 5 с SIGKILL) или раньше сработал таймаут `delayRender` внутри Remotion |
 | `aborted` | Сработал `signal` вызывающего |
-| `orphaned` | Группа worker/ffprobe или Chrome не исчезла после SIGKILL. Попытка не завершена, запись в `run/processes/` оставлена для `reapStale`; ни успехом, ни обычной ошибкой это считать нельзя (ADR 0007, `stale_process`) |
+| `orphaned` | Группа worker/ffprobe или Chrome не исчезла после SIGKILL. Попытка не завершена: записи в `run/processes/` оставлены (их добьёт `reapStale`), Chrome без записи найдёт `reapStrayRenderers`, `run/tmp/…` попытки переименован в `*.quarantined`. Ни успехом, ни обычной ошибкой это считать нельзя (ADR 0007, `stale_process`) |
 
 `probeGate` renderVersion не применяет — это делает вызывающий по `probe`.
 
 ### Chrome вне группы worker
 
 Remotion запускает Chrome с `detached: true` — в собственной группе процессов, и
-убийство группы worker его не задевает. Две защиты: worker на SIGTERM сразу выходит,
-и обработчик `exit` в Remotion добивает группу Chrome; если worker убит SIGKILL,
-renderVersion находит процессы с TMPDIR попытки в командной строке (`--user-data-dir`)
-и бьёт их группы SIGKILL; не исчезли за 5 с — `orphaned`. E2e-тест убивает worker
-SIGKILL и проверяет, что Chrome не остался.
+убийство группы worker его не задевает. Защиты:
+
+1. **Запись в реестре.** `browserExecutable` — `chrome-wrapper.sh`: до старта Chrome он
+   пишет `run/processes/<runId>-a<attempt>-<pid>.json` (формат fileProcessRegistry,
+   pgid = свой pid — он лидер группы, `startedAt` — как у `procInfo`) и exec-ает
+   `chrome-headless-shell` с теми же аргументами. После выхода worker renderVersion
+   добивает живые группы Chrome и удаляет запись только когда группа подтверждённо
+   исчезла (ожидание 30 с, как у spawnTracked). Если сервер упал вместе с worker,
+   Chrome остаётся обычной записью, и `reapStale(root, runId)` его убивает (e2e).
+2. **Поиск по TMPDIR.** Профиль Chrome лежит в TMPDIR попытки (`--user-data-dir`):
+   renderVersion после worker бьёт SIGKILL группы процессов с этим путём в командной
+   строке. `reapStrayRenderers(root)` делает то же для всего `<root>/run/tmp/` при
+   восстановлении. Группы с pgid ≤ 1 и наша собственная не трогаются никогда.
+3. Worker на SIGTERM сразу выходит, и обработчик `exit` Remotion закрывает Chrome сам.
 
 ## Как запускается worker.ts
 
@@ -70,10 +87,23 @@ worker.ts`; в 22.21.1 включено по умолчанию). Ни tsx, ни
 
 ## Сеть
 
-Рендер в сеть не ходит: браузер передаётся путём (`browserExecutable`), качает его
-только `ensureRenderBrowser` (doctor) в `app/motion-studio/node_modules/.remotion/`;
-`licenseKey` не передаётся — с ним Remotion шлёт usage-событие; кэш webpack выключен.
-Сетевые запросы самой сцены отсекает статическая проверка (Task 5).
+Рендер в сеть не ходит, и это обеспечено, а не случайно:
+
+- Chrome закрыт от сети. `chromiumOptions` Remotion прокси не настраивает, а его собственные
+  `--no-proxy-server --proxy-server='direct://'` перебили бы флаг, поэтому
+  `chrome-wrapper.sh` выкидывает их и добавляет `--proxy-server=127.0.0.1:9` (discard:
+  соединение отклоняется). loopback Chrome не проксирует, так что бандл с локального
+  сервера Remotion и ассеты из него грузятся. E2e `net-scene`: `<Img>` локального png
+  рендерится, а `fetch` на `https://example.com/` и `http://1.1.1.1/` — `blocked`; без
+  флага тот же тест видит `open`.
+- Браузер передаётся путём; качает его только `ensureRenderBrowser` (doctor) в
+  `app/motion-studio/node_modules/.remotion/`.
+- `licenseKey` не передаётся — с ним Remotion шлёт usage-событие; кэш webpack выключен.
+
+## fps дробью
+
+Remotion принимает fps числом; worker передаёт `num / den`. ffmpeg приводит его к дроби
+сам: e2e на 30000/1001 даёт `r_frame_rate` ровно `30000/1001`, gate проходит.
 
 ## Версии
 
@@ -93,6 +123,7 @@ Apple M1 Pro (10 ядер), Node 22.21.1, `make e2e`, хранилище и кэ
 | 1 | 13,6 с | 2,8 с | 2,1 с | 15,1 с |
 | 2 | 12,9 с | 2,7 с | 2,0 с | 15,1 с |
 | 3 | 13,5 с | 5,9 с | 3,0 с | 15,1 с |
+| 4 (после fix round 1, с обёрткой Chrome) | 9,1 с | 2,6 с | 1,9 с | 15,1 с |
 
 Сборка бандла (webpack) — около 10 с (разница первого и повторного прогона); дальше
 кэш по contentKey.
