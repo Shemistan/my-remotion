@@ -30,7 +30,8 @@
                       │  (опц.) HTTP :8780 /api/photo/jobs — изображения [Ф]         │
                       └─────────────────────────────────────────────────────────────┘
 
-  Данные: MS_DATA_DIR (по умолчанию ~/MotionStudio) — workspace/, studio.db  — вне git
+  Данные: MS_DATA_DIR (обязателен; внешний SSD, напр. /Volumes/External SSD/MotionStudio)
+          — studio.db, workspace/, cache/, logs/ — вне git, под StorageGuard
 ```
 
 ## 2. Что переиспользуем

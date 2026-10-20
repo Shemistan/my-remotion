@@ -17,9 +17,21 @@
 
 ## 2. Первый вертикальный срез (внутри Phase 1)
 
-Сначала доказываем путь целиком, потом расширяем: **P1-01 → P1-02 → P1-05 → P1-06 → P1-07
-(без QA-агента) → P1-08 (одна роль Engineer) → P1-09 (минимум)** = «промпт из CLI →
-реальный preview.mp4». Только после этого — UI, правки, QA-агент, экспорт.
+Сначала доказываем путь целиком, потом расширяем (утверждено 2026-10-20):
+
+**P1-01 → P1-19 → P1-02 → P1-05 → P1-06 → P1-07 → P1-08 → P1-09 → P1-20**
+= «текстовый запрос → агент → Knowledge Base → Remotion → реальный `preview.mp4`».
+
+P1-19 (StorageGuard) и P1-20 (связка среза) — минимальная интеграция, без которой
+результат негде сохранить и нечем запустить. До успешного первого рендера не делаем:
+UI, БД и очередь задач (P1-03/04), правки через чат, QA-агента, видеомонтаж, ASR.
+
+**Критерий результата среза:** по текстовому запросу создана настоящая Remotion-анимация,
+в `knowledge-refs.json` есть записи KB с commit и лицензией, код прошёл typecheck и
+статическую проверку, `preview.mp4` получен реальным `renderMedia`, проходит ffprobe-gate и
+лежит в версии с `manifest.json`; повторный рендер из сохранённых файлов даёт те же
+ключевые кадры. Mock-рендер и заранее подготовленные ролики не засчитываются.
+Детальный план среза — `docs/superpowers/plans/2026-10-20-motion-playground-mvp.md`.
 
 ## 3. Backlog Phase 1
 
@@ -27,25 +39,27 @@
 |---|---|---|---|---|---|
 | P1-01 | Каркас `app/motion-studio/`: npm workspaces, TS strict, Vitest, ESLint, `Makefile check`, `.nvmrc` 22, подключение к `./check` | — | S | низкий | `./check` зелёный с пустыми тестами |
 | P1-02 | `contracts/`: Zod-схемы (Settings, MotionSpecification, ComponentSelection, Concept/Edit/QA I/O, Job, Manifest), генерация JSON Schema, `time.ts` с тестами | P1-01 | M | средний: схемы будут меняться | схемы покрыты тестами, JSON Schema принимает `claude --json-schema` |
-| P1-03 | БД: миграции SQLite (таблицы Phase 1), репозитории, `PRAGMA user_version` | P1-01 | M | низкий | тесты миграций и CRUD |
-| P1-04 | Job Orchestrator: очередь, lease/heartbeat, лимиты по типам, cancel, retry, идемпотентность, восстановление после рестарта, `job_events` | P1-03 | L | средний | тесты: kill процесса посреди задачи → после старта задача продолжена или честно failed |
+| P1-03 | БД: миграции SQLite (таблицы Phase 1), репозитории, `PRAGMA user_version`; БД в `MS_DATA_DIR` | P1-01, P1-19 | M | низкий | тесты миграций и CRUD |
+| P1-04 | Job Orchestrator: очередь, lease/heartbeat, лимиты по типам, cancel, retry, идемпотентность, восстановление после рестарта, `job_events`, режим `storage_offline` | P1-03, P1-19 | L | средний | тесты: kill процесса посреди задачи → после старта задача продолжена или честно failed; отключение хранилища → задачи в `pending`, без записи на системный диск |
 | P1-05 | `render/`: Remotion 4.0.537 (точный pin), шрифты OFL, генератор entry, `bundle`/`renderStill`/`renderMedia` в дочернем процессе, ffprobe-gate | P1-01 | L | **высокий**: первая установка Remotion и Chrome в sandbox | рукописная тестовая сцена рендерится в MP4 и PNG; ffprobe совпадает |
 | P1-06 | Статическая проверка кода сцены: allowlist импортов, запрещённые API (AST, `typescript` compiler API), `tsc --noEmit` для версии | P1-05 | M | средний | набор «плохих» сцен-фикстур отклоняется с понятной причиной |
 | P1-07 | motion-kit v0.1: `useBeat`, `AnimatedNumber`, `LineChart`, `FlowGraph`, `PulseAlongPath`, `Card(elevation)`, `KineticText`, `Background`; 3 пресета StyleBible; `PROVENANCE.md` | P1-05 | L | средний: качество визуала | каждый примитив отрендерен, кадры просмотрены, записи в `component_tests` |
 | P1-08 | `AgentRuntimeAdapter` + `ClaudeCodeRuntime`: флаги из `04` §5, таймаут, cancel, бюджет, журнал, парсинг `structured_output`, capability check | P1-02 | M | средний: изменения CLI | интеграционный тест на реальном `claude` (дешёвая модель) + тесты на фейковом бинарнике (только для юнит-тестов) |
 | P1-09 | `KnowledgeAdapter`: загрузка jsonl/repositories/results, взвешенный поиск, RU/EN-синонимы, фильтры, `license_class`, `confidence`, `getSourceReference` с `exists`, копирование refs | P1-02 | M | средний: релевантность | golden-тесты: запросы тестов 1–3 дают ожидаемые id в top-5 (`animated-counter`, `line-chart-anim`, `animated-beam`) |
 | P1-10 | Промпты ролей Concept, Motion Director, Engineer, Visual QA, Edit Planner (`prompts/`), выдержки official skills | P1-07, P1-09 | L | **высокий**: качество сцен | 3 эталонных запроса дают рендер без ручной правки |
-| P1-11 | SceneStore: drafts, атомарная публикация, `chmod a-w`, manifest + sha256, восстановление, сравнение (diff props/spec/src) | P1-03 | M | низкий | тесты иммутабельности и восстановления |
-| P1-12 | Пайплайн `playground.generate`: Concept → KB → Director → Engineer → tech gate → QA → publish, лимит 2 исправлений | P1-04, P1-06, P1-08, P1-10, P1-11 | L | высокий | тесты 1 и 2 проходят end-to-end |
+| P1-11 | SceneStore: drafts, атомарная публикация, `chmod a-w`, manifest + sha256, восстановление, сравнение (diff props/spec/src); развивает файловый store из P1-20 | P1-03, P1-20 | M | низкий | тесты иммутабельности и восстановления |
+| P1-12 | Пайплайн `playground.generate`: Concept → KB → Director → Engineer → tech gate → QA → publish, лимит 2 исправлений; расширяет пайплайн P1-20 | P1-04, P1-06, P1-08, P1-10, P1-11, P1-20 | L | высокий | тесты 1 и 2 проходят end-to-end |
 | P1-13 | Пайплайн `playground.edit`: Edit Planner, param-only путь, borrow из других версий, проверка preserve | P1-12 | M | средний | тест 3 проходит |
 | P1-14 | Экспорт: MP4 H.264/AAC (полное разрешение, выбор fps/качества), прозрачный ProRes 4444, export-manifest | P1-05, P1-11 | S | низкий | ffprobe экспортов совпадает с настройками |
 | P1-15 | Control API (Fastify): проекты, сцены, версии, чат, jobs (SSE), preview/export с Range, Host/Origin-защита, `Idempotency-Key` | P1-04, P1-11 | M | низкий | контрактные тесты API |
 | P1-16 | UI Playground: чат + история, параметры (ТЗ §6.4), плеер (play/pause/seek/frame step), версии (сравнить/восстановить), статус и логи задач, кнопки Render/Export, простой таймлайн сцены | P1-15 | L | средний | E2E Playwright: создать → правка → восстановить → экспорт |
-| P1-17 | `npm run doctor` и README запуска; Jobs Monitor (минимум: список, cancel, retry) | P1-15 | S | низкий | doctor ловит отсутствие claude/chrome/места |
+| P1-17 | `npm run doctor` (полный набор проверок) и README запуска; Jobs Monitor (минимум: список, cancel, retry) | P1-15, P1-19 | S | низкий | doctor ловит отсутствие claude/chrome/места/диска |
 | P1-18 | Приёмка: прогон тестов 1–3 и теста рестарта, сбор evidence в `docs/evidence/phase-1/`, отчёт с честной разметкой «авто / нужна проверка глазами» | все | M | — | см. `09-acceptance-tests.md` |
+| P1-19 | StorageGuard (`03` §5.1): обязательный `MS_DATA_DIR`, `doctor --init` с маркером тома, проверки Volume UUID / `st_dev` / записи / места, без авто-`mkdir` корня | P1-01 | S | средний: поведение при отключении диска | тесты: нет переменной, нет каталога, чужой маркер, путь на системном томе, мало места — понятный отказ; ручная проверка с отключённым SSD |
+| P1-20 | Связка вертикального среза: CLI `npm run generate -- "<запрос>"`; KB-поиск по запросу → Motion Director (spec + выбор компонентов) → Engineer → static check + tsc → stills + `preview.mp4` → ffprobe-gate → файловая версия с `manifest.json`; минимальные промпты двух ролей | P1-05…P1-09, P1-19 | M | высокий: первое качество сцен | критерий среза из §2 выполнен на промптах тестов 1 и 2 |
 
-Порядок исполнения (критический путь): P1-01 → P1-05 → P1-07 → P1-10 → P1-12 → P1-13 → P1-18.
-Параллельно критическому пути: P1-02/03/04, P1-08, P1-09, P1-11, затем P1-15 → P1-16.
+Порядок исполнения: вертикальный срез из §2, затем P1-10 → P1-12 → P1-13 → P1-18 по
+критическому пути; параллельно — P1-03 → P1-04 → P1-11, P1-14, затем P1-15 → P1-16 → P1-17.
 
 ## 4. Подзадачи и ветки
 

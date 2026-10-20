@@ -6,9 +6,15 @@
 
 ## 1. Workspace (ТЗ §7, уточнено)
 
+`MS_DATA_DIR` — каталог на внешнем SSD под защитой StorageGuard
+(`03-target-architecture.md` §5.1, ADR 0006).
+
 ```text
 $MS_DATA_DIR/
-  studio.db
+  .motion-studio-store.json         маркер тома: store_id, volume_uuid, created_at
+  studio.db (+ -wal, -shm)
+  cache/                            бандлы Remotion, временные кадры
+  logs/                             логи сервера
   workspace/
     projects/<project-id>/
       project.json                  снимок метаданных (для ручного восстановления)

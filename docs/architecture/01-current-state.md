@@ -26,6 +26,7 @@
 | CPU / GPU | Apple M1 Pro, 10 ядер CPU, 16 ядер GPU, Metal 4 | [Ф] `sysctl`, `system_profiler` |
 | RAM | 32 ГБ unified memory | [Ф] `hw.memsize` |
 | Диск | 460 ГБ, **свободно 61 ГБ (занято 87 %)** | [Ф] `df -h` |
+| Внешний SSD | `/Volumes/External SSD`: APFS, PCI-Express, 477 ГБ, свободно 211 ГБ, Volume UUID `DF07AEE5-03DA-4E40-9AF0-B1D03396D6BD`; в корне `local_models/` (модели ai-platform) и личные папки | [Ф] `df -h`, `diskutil info` |
 | Node | v20.20.0 активна (nvm); есть v22.21.1 | [Ф] |
 | npm / pnpm | 10.8.2 / 10.34.5; bun, yarn нет | [Ф] |
 | Python | 3.12.0 (pyenv) | [Ф] |
