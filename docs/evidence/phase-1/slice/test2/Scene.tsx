@@ -2,7 +2,6 @@ import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import {
   Background,
-  Card,
   EASE,
   KineticText,
   PulseAlongPath,
@@ -10,6 +9,8 @@ import {
   StyleProvider,
   accent,
   alpha,
+  beatProgress,
+  cardSurface,
   edgePath,
   mix,
   pathD,
@@ -20,577 +21,396 @@ import {
 
 type SceneProps = {
   kicker?: string;
-  userRequest?: string;
-  finalCaption?: string;
+  query?: string;
 };
 
-type NodeDef = {
-  id: string;
-  label: string;
-  caption: string;
+type Style = ReturnType<typeof useStyle>;
+
+const CLAMP = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
+
+const TEXT = "#F2F0FA";
+const MUTED = "#A9A6BD";
+const DISPLAY = "Manrope, sans-serif";
+const MONO = "JetBrains Mono, monospace";
+
+// Область графа внутри safe area (1728×972): layout y 0.1, h 0.8
+const GRAPH_W = 1728;
+const GRAPH_H = 780;
+const GRAPH_TOP = 97;
+
+const NODES = {
+  user: { id: "user", label: "Пользователь", x: 40, y: 330, w: 320, h: 120 },
+  orch: { id: "orch", label: "Оркестратор", x: 684, y: 300, w: 360, h: 180 },
+  search: { id: "tool-search", label: "Веб-поиск", x: 1368, y: 40, w: 320, h: 110 },
+  kb: { id: "tool-kb", label: "База знаний", x: 1368, y: 335, w: 320, h: 110 },
+  calc: { id: "tool-calc", label: "Калькулятор", x: 1368, y: 630, w: 320, h: 110 },
+};
+
+const SEG = {
+  request: edgePath(NODES.user, NODES.orch),
+  search: edgePath(NODES.orch, NODES.search),
+  kb: edgePath(NODES.orch, NODES.kb),
+  calc: edgePath(NODES.orch, NODES.calc),
+};
+
+// Тайминг из битов spec
+const EDGE_DRAW = [
+  { key: "request" as const, start: 36, end: 54 },
+  { key: "search" as const, start: 44, end: 60 },
+  { key: "kb" as const, start: 50, end: 66 },
+  { key: "calc" as const, start: 56, end: 72 },
+];
+
+const TOOLS = [
+  { node: NODES.search, seg: "search" as const, caption: "search()", enter: 30, call: 76, ret: 102, loopCall: 151, loopRet: 163 },
+  { node: NODES.kb, seg: "kb" as const, caption: "retrieve()", enter: 38, call: 80, ret: 106, loopCall: 153, loopRet: 165 },
+  { node: NODES.calc, seg: "calc" as const, caption: "calc()", enter: 46, call: 84, ret: 110, loopCall: 155, loopRet: 167 },
+];
+
+const REQUEST = { start: 50, end: 76 };
+const CALL_PASS = 18;
+const RET_PASS = 16;
+const ANSWER = { start: 124, end: 140 };
+const LOOP_REQ = { start: 141, end: 151 };
+const LOOP_PASS = 10;
+const LOOP_ANSWER = { start: 175, end: 186 };
+const HOLD = { start: 140, end: 180 };
+
+const PHASES = [
+  { text: "запрос", from: 50, to: 76, accentIndex: 0 },
+  { text: "вызов инструментов", from: 76, to: 102, accentIndex: 1 },
+  { text: "ответ", from: 102, to: 999, accentIndex: 2 },
+];
+
+// Вспышка в кадр прихода импульса: быстрый подъём и пружинный спад
+const flash = (frame: number, fps: number, style: Style, at: number): number => {
+  if (frame < at) return 0;
+  const up = interpolate(frame, [at, at + 4], [0, 1], CLAMP);
+  const down = springAt(frame, fps, style, at + 4, "bouncy");
+  return up * (1 - down);
+};
+
+const step = (frame: number, at: number): number =>
+  interpolate(frame, [at, at + 5], [0, 1], { ...CLAMP, easing: EASE.outQuart });
+
+type NodeBoxProps = {
   x: number;
   y: number;
   w: number;
   h: number;
+  elevation: 0 | 1 | 2 | 3;
+  transform: string;
+  opacity: number;
+  glow: number;
+  glowColor: string;
+  topEdge?: string;
+  children: React.ReactNode;
 };
 
-type EdgeDef = { id: string; from: string; to: string; drawStart: number };
-
-const CLAMP = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
-
-const GRAPH_W = 1600;
-const GRAPH_H = 760;
-const GRAPH_LEFT = 64;
-const GRAPH_TOP = 70;
-const DRAW_LEN = 18;
-
-const USER: NodeDef = { id: "user", label: "Пользователь", caption: "", x: 0, y: 300, w: 330, h: 160 };
-const ORCH: NodeDef = { id: "orch", label: "Оркестратор", caption: "LLM · план", x: 620, y: 265, w: 380, h: 230 };
-const TOOLS: NodeDef[] = [
-  { id: "tool-search", label: "Веб-поиск", caption: "рейсы, отели", x: 1260, y: 30, w: 340, h: 150 },
-  { id: "tool-db", label: "База знаний", caption: "профиль", x: 1260, y: 305, w: 340, h: 150 },
-  { id: "tool-code", label: "Код", caption: "расчёт бюджета", x: 1260, y: 580, w: 340, h: 150 },
-];
-const NODES: Record<string, NodeDef> = Object.fromEntries(
-  [USER, ORCH, ...TOOLS].map((n) => [n.id, n]),
-);
-
-const EDGES: EdgeDef[] = [
-  { id: "e-req", from: "user", to: "orch", drawStart: 30 },
-  { id: "e-search", from: "orch", to: "tool-search", drawStart: 56 },
-  { id: "e-db", from: "orch", to: "tool-db", drawStart: 64 },
-  { id: "e-code", from: "orch", to: "tool-code", drawStart: 72 },
-];
-const TOOL_EDGES = EDGES.slice(1);
-
-const SEGMENTS: Record<string, ReturnType<typeof edgePath>> = Object.fromEntries(
-  EDGES.map((e) => [e.id, edgePath(NODES[e.from], NODES[e.to])]),
-);
-
-// Тайминг импульсов (из битов spec): старт и travel → кадр прихода
-const REQ_START = 38;
-const REQ_TRAVEL = 20;
-const REQ_ARRIVE = REQ_START + REQ_TRAVEL; // 58
-const CALL_STARTS = [72, 79, 86];
-const CALL_TRAVEL = 16;
-const RET_STARTS = [98, 104, 110];
-const RET_TRAVEL = 14;
-const ANS_START = 118;
-const ANS_TRAVEL = 20;
-const ANS_ARRIVE = ANS_START + ANS_TRAVEL; // 138
-const HOLD_START = 144;
-const HOLD_TRAVEL = 45;
-
-const PHASES = [
-  { text: "1 · запрос", from: 34 },
-  { text: "2 · вызов инструментов", from: 62 },
-  { text: "3 · ответ", from: 118 },
-];
-
-// Вспышка от кадра прихода импульса: подъём 4 кадра, затухание 14
-const spike = (frame: number, at: number): number =>
-  interpolate(frame, [at, at + 4, at + 18], [0, 1, 0], { ...CLAMP, easing: EASE.outQuart });
-
-const DISPLAY = "Manrope, sans-serif";
-const MONO = "'JetBrains Mono', monospace";
-
-export const Scene: React.FC<SceneProps> = (props) => {
-  const base = presets["dark-premium"];
-  return (
-    <StyleProvider style={{ ...base, motion: { ...base.motion, intensity: "balanced" } }}>
-      <SceneInner {...props} />
-    </StyleProvider>
-  );
-};
-
-const SceneInner: React.FC<SceneProps> = ({
-  kicker = "Архитектура AI-агента",
-  userRequest = "«Спланируй поездку»",
-  finalCaption = "Готово: маршрут и бюджет",
-}) => {
-  const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
+const NodeBox: React.FC<NodeBoxProps> = ({ x, y, w, h, elevation, transform, opacity, glow, glowColor, topEdge, children }) => {
   const style = useStyle();
-  const a0 = accent(style, 0);
-  const a1 = accent(style, 1);
-  const a2 = accent(style, 2);
-
-  // Камера: наезд 1.00→1.02 к оркестратору весь ролик + дрейф 6 px в hold
-  const camScale = interpolate(frame, [0, durationInFrames], [1, 1.02], { ...CLAMP, easing: EASE.inOutCubic });
-  const drift = interpolate(frame, [HOLD_START, durationInFrames], [0, 1], { ...CLAMP, easing: EASE.inOutCubic });
-  const originX = ORCH.x + ORCH.w / 2;
-  const originY = ORCH.y + ORCH.h / 2;
-
-  // ---- Пользователь: flip + подъём 40 px (snappy)
-  const userIn = springAt(frame, fps, style, 4, "snappy");
-  const userOpacity = interpolate(frame, [4, 12], [0, 1], CLAMP);
-  const userRise = interpolate(frame, [ANS_ARRIVE, ANS_ARRIVE + 4], [0, 1], CLAMP);
-  const userSettle = springAt(frame, fps, style, ANS_ARRIVE + 4, "bouncy");
-  const userPunch = 1 + 0.06 * (userRise - userSettle);
-  const userGlow = Math.max(
-    spike(frame, ANS_ARRIVE),
-    interpolate(frame, [ANS_ARRIVE + 4, ANS_ARRIVE + 18], [0, 0.5], CLAMP),
+  const surface = cardSurface(style, elevation);
+  const g = Math.max(0, glow);
+  return (
+    <div style={{ position: "absolute", left: x, top: y, width: w, height: h, transform, opacity }}>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          borderRadius: surface.borderRadius,
+          boxShadow: `0 0 ${20 + 46 * g}px ${alpha(glowColor, Math.min(0.85, 0.55 * g))}`,
+        }}
+      />
+      <div
+        style={{
+          ...surface,
+          position: "absolute",
+          inset: 0,
+          overflow: "hidden",
+          border: `1.5px solid ${alpha(glowColor, Math.min(1, 0.18 + 0.6 * g))}`,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        {topEdge ? (
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: 0,
+              height: 3,
+              background: topEdge,
+              boxShadow: `0 0 18px ${topEdge}`,
+            }}
+          />
+        ) : null}
+        {children}
+      </div>
+    </div>
   );
-  const ringT = interpolate(frame, [ANS_ARRIVE, ANS_ARRIVE + 24], [0, 1], { ...CLAMP, easing: EASE.outExpo });
-  const ringOpacity = frame >= ANS_ARRIVE ? interpolate(ringT, [0, 0.15, 1], [0, 0.8, 0], CLAMP) : 0;
+};
 
-  // TypeWriter запроса 14–34, курсор мигает до 54; затем fade-swap на итог
-  const typed = Math.floor(interpolate(frame, [14, 34], [0, userRequest.length], CLAMP));
-  const cursorOn = frame >= 14 && frame < 54 && (frame < 34 || Math.floor((frame - 34) / 8) % 2 === 0);
-  const oldCaptionOpacity = interpolate(frame, [ANS_ARRIVE, ANS_ARRIVE + 5], [1, 0], CLAMP);
+const GridOverlay: React.FC<{ frame: number }> = ({ frame }) => {
+  const fadeIn = interpolate(frame, [0, 30], [0, 1], { ...CLAMP, easing: EASE.outQuart });
+  const drift = interpolate(frame, [HOLD.start, HOLD.end], [0, 1], { ...CLAMP, easing: EASE.inOutCubic });
+  const dx = 3 * drift;
+  const dy = -3 * drift;
+  return (
+    <AbsoluteFill style={{ opacity: 0.35 * fadeIn }}>
+      <svg width={1920} height={1080}>
+        <defs>
+          <pattern id="agent-grid" width={48} height={48} patternUnits="userSpaceOnUse" patternTransform={`translate(${dx} ${dy})`}>
+            <path d="M 48 0 L 0 0 0 48" fill="none" stroke={alpha(TEXT, 0.22)} strokeWidth={1} />
+          </pattern>
+          <radialGradient id="agent-grid-fade" cx="50%" cy="50%" r="60%">
+            <stop offset="0%" stopColor="#FFFFFF" stopOpacity={1} />
+            <stop offset="70%" stopColor="#FFFFFF" stopOpacity={0.35} />
+            <stop offset="100%" stopColor="#FFFFFF" stopOpacity={0} />
+          </radialGradient>
+          <mask id="agent-grid-mask">
+            <rect width={1920} height={1080} fill="url(#agent-grid-fade)" />
+          </mask>
+        </defs>
+        <rect width={1920} height={1080} fill="url(#agent-grid)" mask="url(#agent-grid-mask)" />
+      </svg>
+    </AbsoluteFill>
+  );
+};
 
-  // ---- Оркестратор: из глубины 0.85→1, вспышка от запроса, ступени от возвратов, дыхание в hold
-  const orchIn = springAt(frame, fps, style, 18, "snappy");
-  const orchOpacity = interpolate(frame, [18, 26], [0, 1], CLAMP);
-  const orchBlur = interpolate(frame, [18, 30], [10, 0], CLAMP);
-  const reqFlash = interpolate(frame, [REQ_ARRIVE, REQ_ARRIVE + 4, REQ_ARRIVE + 18], [0, 1, 0.4], {
-    ...CLAMP,
-    easing: EASE.outQuart,
-  });
-  const retArrivals = RET_STARTS.map((s) => s + RET_TRAVEL);
-  const retSteps = retArrivals.reduce((sum, at) => sum + interpolate(frame, [at, at + 4], [0, 0.2], CLAMP), 0);
-  const retSpikes = retArrivals.reduce((sum, at) => sum + spike(frame, at), 0);
-  const breathT = ((frame - HOLD_START) / 40) * Math.PI * 2;
-  const inHold = frame >= HOLD_START;
-  const orchGlow = inHold
-    ? 0.85 + 0.15 * Math.cos(breathT)
-    : Math.min(1, reqFlash + retSteps + 0.15 * retSpikes);
-  const orchScale =
-    (0.85 + 0.15 * orchIn) *
-    (1 + 0.04 * spike(frame, REQ_ARRIVE) + 0.02 * retSpikes + (inHold ? 0.015 * Math.sin(breathT) : 0));
+const PhaseLabel: React.FC<{ frame: number }> = ({ frame }) => {
+  const style = useStyle();
+  const { fps } = useVideoConfig();
+  return (
+    <div style={{ position: "absolute", left: 0, right: 0, top: 904, height: 58 }}>
+      {PHASES.map((p) => {
+        if (frame < p.from) return null;
+        const inP = springAt(frame, fps, style, p.from, "snappy");
+        const out = interpolate(frame, [p.to, p.to + 8], [0, 1], { ...CLAMP, easing: EASE.outQuart });
+        if (out >= 1) return null;
+        const color = accent(style, p.accentIndex);
+        const x = 40 * (1 - inP) - 40 * out;
+        const skew = -10 * (1 - inP) + 10 * out;
+        return (
+          <div
+            key={p.text}
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              gap: 14,
+              opacity: Math.min(1, Math.max(0, inP)) * (1 - out),
+              transform: `translateX(${x}px) skewX(${skew}deg)`,
+            }}
+          >
+            <div style={{ width: 10, height: 10, borderRadius: 5, background: color, boxShadow: `0 0 14px ${color}` }} />
+            <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 28, color: mix(MUTED, color, 0.55), letterSpacing: 0.5 }}>
+              {p.text}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
-  // ---- Сетка: проявление 0–30, сдвиг 6 px в hold
-  const gridOpacity = interpolate(frame, [0, 30], [0, 1], CLAMP);
-  const gridShift = 6 * interpolate(frame, [HOLD_START, durationInFrames], [0, 1], CLAMP);
+const AgentScene: React.FC<Required<SceneProps>> = ({ kicker, query }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const style = useStyle();
+
+  const violet = accent(style, 0);
+  const teal = accent(style, 1);
+  const amber = accent(style, 2);
+
+  // Камера: статична до 140, затем наезд 1 → 1,015 и дрейф 6 px вправо-вверх
+  const cam = interpolate(frame, [HOLD.start, HOLD.end], [0, 1], { ...CLAMP, easing: EASE.inOutCubic });
+  const camScale = 1 + 0.015 * cam;
+  const camX = 6 * cam;
+  const camY = -6 * cam;
+
+  // --- Пользователь: rise 40 px, snappy, кадры 8–30
+  const userP = springAt(frame, fps, style, 8, "snappy");
+  const userIn = interpolate(frame, [8, 16], [0, 1], CLAMP);
+  const userFlash = flash(frame, fps, style, ANSWER.end);
+  const answered = step(frame, ANSWER.end);
+  const breathe = frame >= HOLD.start ? Math.sin(((frame - HOLD.start) / 40) * Math.PI * 2) : 0;
+  const userGlow = 0.12 + userFlash * 1.2 + answered * (0.5 + 0.08 * breathe);
+  const userColor = mix(MUTED, amber, answered);
+  const userScale = 1 + 0.08 * userFlash;
+
+  const fullQuery = `«${query}»`;
+  const typed = Math.floor(interpolate(frame, [12, 40], [0, fullQuery.length], CLAMP));
+  // Курсор: сплошной во время печати, мигает, гаснет после 40-го кадра
+  const cursorOn = frame >= 12 && frame < 40 && (typed < fullQuery.length || Math.floor(frame / 6) % 2 === 0);
+  const checkP = springAt(frame, fps, style, ANSWER.end, "bouncy");
+
+  // --- Оркестратор: scale 0.6 → 1, bouncy, кадры 18–46
+  const orchP = springAt(frame, fps, style, 18, "bouncy");
+  const orchIn = interpolate(frame, [18, 26], [0, 1], CLAMP);
+  const edgeOn = interpolate(frame, [38, 48], [0, 1], { ...CLAMP, easing: EASE.outQuart });
+  const reqFlash = flash(frame, fps, style, REQUEST.end);
+  const retArrivals = TOOLS.map((t) => t.ret + RET_PASS);
+  const charge = 0.4 + 0.3 * step(frame, retArrivals[1]) + 0.3 * step(frame, retArrivals[2]);
+  const drain = interpolate(frame, [ANSWER.start + 2, ANSWER.end], [0, 0.55], { ...CLAMP, easing: EASE.outQuart });
+  const retFlash = retArrivals.reduce((s, a) => s + flash(frame, fps, style, a), 0);
+  const loopFlash = TOOLS.reduce((s, t) => s + flash(frame, fps, style, t.loopRet + LOOP_PASS), 0) + flash(frame, fps, style, LOOP_REQ.end);
+  const orchLevel = edgeOn * (frame < retArrivals[0] ? 0.4 : charge - drain);
+  const orchGlow = (orchLevel + 0.8 * reqFlash + 0.25 * retFlash + 0.2 * loopFlash) * (1 + 0.15 * breathe);
+  const hue = interpolate(frame, [retArrivals[0], retArrivals[2]], [0, 1], CLAMP) - interpolate(frame, [ANSWER.end, HOLD.end], [0, 0.6], { ...CLAMP, easing: EASE.inOutCubic });
+  const orchColor = mix(violet, amber, Math.max(0, hue));
+  const orchScale = (0.6 + 0.4 * orchP) * (1 + 0.06 * reqFlash + 0.015 * retFlash);
 
   return (
-    <>
-      <Background beat={{ start_frame: 0, end_frame: 30 }} variant="aurora" seed="agent-arch" />
-      <GridOverlay opacity={gridOpacity} shift={gridShift} color={mix(a0, "#ffffff", 0.7)} />
-      <SafeArea>
-        <div style={{ position: "absolute", left: 0, top: 0, opacity: 0.68 }}>
-          <KineticText
-            text={kicker}
-            beat={{ start_frame: 10, end_frame: 34 }}
-            mode="letters"
-            enter="fade"
-            size={1}
-            font="mono"
-            caps
-          />
+    <SafeArea>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          transform: `translate(${camX}px, ${camY}px) scale(${camScale})`,
+          transformOrigin: "50% 50%",
+        }}
+      >
+        <div style={{ position: "absolute", left: 0, top: 0, width: 700 }}>
+          <KineticText text={kicker} beat={{ start_frame: 2, end_frame: 30 }} mode="letters" enter="fade" size={1} font="mono" caps color={MUTED} />
         </div>
 
-        {/* Слой камеры: граф */}
-        <div
-          style={{
-            position: "absolute",
-            left: GRAPH_LEFT,
-            top: GRAPH_TOP,
-            width: GRAPH_W,
-            height: GRAPH_H,
-            transformOrigin: `${originX}px ${originY}px`,
-            transform: `translate(${-6 * drift}px, ${-3 * drift}px) scale(${camScale})`,
-          }}
-        >
-          {/* Рёбра: подложка + прорисовка по кадру */}
+        <div style={{ position: "absolute", left: 0, top: GRAPH_TOP, width: GRAPH_W, height: GRAPH_H }}>
+          {/* Рёбра: прорисовка stroke-dashoffset, стрелка на конце */}
           <svg width={GRAPH_W} height={GRAPH_H} style={{ position: "absolute", left: 0, top: 0, overflow: "visible" }}>
             <defs>
-              {EDGES.map((e) => (
-                <marker
-                  key={e.id}
-                  id={`arrow-${e.id}`}
-                  viewBox="0 0 10 10"
-                  refX={8}
-                  refY={5}
-                  markerWidth={7}
-                  markerHeight={7}
-                  orient="auto"
-                >
-                  <path d="M0,0 L10,5 L0,10 z" fill={alpha(a0, 0.8)} />
-                </marker>
-              ))}
+              <marker id="agent-arrow" viewBox="0 0 10 10" refX={9} refY={5} markerWidth={7} markerHeight={7} orient="auto" markerUnits="strokeWidth">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill={alpha(TEXT, 0.55)} />
+              </marker>
             </defs>
-            {EDGES.map((e) => {
-              const p = interpolate(frame, [e.drawStart, e.drawStart + DRAW_LEN], [0, 1], {
-                ...CLAMP,
-                easing: EASE.outQuart,
-              });
-              if (p <= 0) return null;
-              const d = pathD([SEGMENTS[e.id]]);
+            {EDGE_DRAW.map((e) => {
+              const p = beatProgress(frame, { start_frame: e.start, end_frame: e.end }, EASE.outQuart);
+              const d = pathD([SEG[e.key]]);
               return (
-                <g key={e.id}>
-                  <path d={d} fill="none" stroke={alpha(a0, 0.22 * p)} strokeWidth={8} strokeLinecap="round" />
-                  <path
-                    d={d}
-                    fill="none"
-                    stroke={alpha(mix(a0, "#ffffff", 0.25), 0.75)}
-                    strokeWidth={2.5}
-                    strokeLinecap="round"
-                    pathLength={1}
-                    strokeDasharray={1}
-                    strokeDashoffset={1 - p}
-                    markerEnd={p > 0.97 ? `url(#arrow-${e.id})` : undefined}
-                  />
+                <g key={e.key}>
+                  <path d={d} fill="none" stroke={alpha(TEXT, 0.06)} strokeWidth={8} pathLength={1} strokeDasharray="1 1" strokeDashoffset={1 - p} strokeLinecap="round" />
+                  <path d={d} fill="none" stroke={alpha(TEXT, 0.3)} strokeWidth={2} pathLength={1} strokeDasharray="1 1" strokeDashoffset={1 - p} strokeLinecap="round" />
+                  <g opacity={interpolate(p, [0.85, 1], [0, 1], CLAMP)}>
+                    <path d={d} fill="none" stroke="none" strokeWidth={2} markerEnd="url(#agent-arrow)" />
+                  </g>
                 </g>
               );
             })}
           </svg>
 
           {/* Пользователь */}
-          <div
-            style={{
-              position: "absolute",
-              left: USER.x,
-              top: USER.y,
-              width: USER.w,
-              height: USER.h,
-              opacity: userOpacity,
-              transform: `perspective(1200px) translateY(${40 * (1 - userIn)}px) rotateY(${-55 * (1 - userIn)}deg) scale(${userPunch})`,
-            }}
+          <NodeBox
+            {...NODES.user}
+            elevation={1}
+            transform={`translateY(${40 * (1 - userP)}px) scale(${userScale})`}
+            opacity={userIn}
+            glow={userGlow}
+            glowColor={mix(MUTED, amber, answered)}
           >
-            <div
-              style={{
-                position: "absolute",
-                inset: -40 * ringT,
-                borderRadius: 24 + 40 * ringT,
-                border: `2px solid ${alpha(a1, ringOpacity)}`,
-                boxShadow: `0 0 24px ${alpha(a1, ringOpacity * 0.6)}`,
-              }}
-            />
-            <NodeCard node={USER} elevation={2} accentIndex={1} glow={userGlow} glowColor={a1}>
-              <KineticText
-                text={USER.label}
-                beat={{ start_frame: 8, end_frame: 26 }}
-                mode="words"
-                enter="rise"
-                size={3}
-                align="center"
-              />
-              <div style={{ position: "relative", height: 60, width: "100%" }}>
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    opacity: oldCaptionOpacity,
-                    fontFamily: MONO,
-                    fontWeight: 500,
-                    fontSize: 22,
-                    color: mix(a1, "#ffffff", 0.55),
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  <span>{userRequest.slice(0, typed)}</span>
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: 2,
-                      height: 24,
-                      marginLeft: 3,
-                      background: a1,
-                      opacity: cursorOn ? 1 : 0,
-                    }}
-                  />
-                </div>
-                {frame >= ANS_ARRIVE + 4 ? (
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      textAlign: "center",
-                    }}
-                  >
-                    <KineticText
-                      text={finalCaption}
-                      beat={{ start_frame: ANS_ARRIVE + 4, end_frame: ANS_ARRIVE + 14 }}
-                      mode="words"
-                      enter="fade"
-                      size={1}
-                      font="mono"
-                      align="center"
-                      maxWidth={290}
-                      lineHeight={1.2}
-                    />
-                  </div>
-                ) : null}
-              </div>
-            </NodeCard>
-          </div>
+            <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 36, color: TEXT, lineHeight: 1 }}>{NODES.user.label}</div>
+            <div style={{ fontFamily: MONO, fontWeight: 500, fontSize: 20, color: userColor, display: "flex", alignItems: "center", gap: 6, height: 26 }}>
+              <span>{fullQuery.slice(0, typed)}</span>
+              <span style={{ display: "inline-block", width: 10, height: 22, background: TEXT, opacity: cursorOn ? 0.85 : 0 }} />
+              {frame >= ANSWER.end ? (
+                <span style={{ color: amber, fontWeight: 700, display: "inline-block", transform: `scale(${checkP})`, marginLeft: -10 }}>✓</span>
+              ) : null}
+            </div>
+          </NodeBox>
 
           {/* Оркестратор — герой */}
-          <div
-            style={{
-              position: "absolute",
-              left: ORCH.x,
-              top: ORCH.y,
-              width: ORCH.w,
-              height: ORCH.h,
-              opacity: orchOpacity,
-              filter: `blur(${orchBlur}px)`,
-              transform: `scale(${orchScale})`,
-            }}
+          <NodeBox
+            {...NODES.orch}
+            elevation={3}
+            transform={`scale(${orchScale})`}
+            opacity={orchIn}
+            glow={orchGlow}
+            glowColor={orchColor}
+            topEdge={alpha(orchColor, edgeOn)}
           >
-            <NodeCard node={ORCH} elevation={3} accentIndex={0} glow={orchGlow} glowColor={a0} rimBase={0.35}>
-              <KineticText
-                text={ORCH.label}
-                beat={{ start_frame: 24, end_frame: 44 }}
-                mode="words"
-                enter="scale"
-                size={4}
-                align="center"
-              />
-              <div style={{ opacity: 0.7 }}>
-                <KineticText
-                  text={ORCH.caption}
-                  beat={{ start_frame: 30, end_frame: 46 }}
-                  mode="words"
-                  enter="fade"
-                  size={1}
-                  font="mono"
-                  align="center"
-                />
-              </div>
-            </NodeCard>
-          </div>
+            <div style={{ fontFamily: DISPLAY, fontWeight: 800, fontSize: 46, color: TEXT, lineHeight: 1 }}>{NODES.orch.label}</div>
+            <div style={{ fontFamily: MONO, fontWeight: 500, fontSize: 20, color: mix(MUTED, orchColor, 0.5) }}>LLM · планирует шаги</div>
+          </NodeBox>
 
-          {/* Инструменты: slide справа со скосом, когда ребро дорисовано на 70 % */}
-          {TOOLS.map((node, i) => {
-            const enterAt = TOOL_EDGES[i].drawStart + Math.round(DRAW_LEN * 0.7);
-            const s = springAt(frame, fps, style, enterAt, "snappy");
-            const op = interpolate(frame, [enterAt, enterAt + 6], [0, 1], CLAMP);
-            const arrive = CALL_STARTS[i] + CALL_TRAVEL;
-            const flash = spike(frame, arrive);
-            const lit = interpolate(frame, [arrive, arrive + 18], [0, 0.3], CLAMP);
-            const sendBack = 0.5 * spike(frame, RET_STARTS[i]);
+          {/* Инструменты: slide 48 px со скосом, шаг 8 кадров */}
+          {TOOLS.map((t) => {
+            const p = springAt(frame, fps, style, t.enter, "snappy");
+            const op = interpolate(frame, [t.enter, t.enter + 8], [0, 1], CLAMP);
+            const arrive = t.call + CALL_PASS;
+            const f = flash(frame, fps, style, arrive);
+            const lf = flash(frame, fps, style, t.loopCall + LOOP_PASS);
+            const linger = frame >= arrive ? interpolate(frame, [arrive, arrive + 30], [0.55, 0.3], CLAMP) : 0.12;
+            const glow = linger + 0.9 * f + 0.3 * lf;
             return (
-              <div
-                key={node.id}
-                style={{
-                  position: "absolute",
-                  left: node.x,
-                  top: node.y,
-                  width: node.w,
-                  height: node.h,
-                  opacity: op,
-                  transform: `translateX(${40 * (1 - s)}px) skewX(${-8 * (1 - s)}deg) scale(${1 + 0.03 * flash})`,
-                }}
+              <NodeBox
+                key={t.node.id}
+                {...t.node}
+                elevation={2}
+                transform={`translateX(${48 * (1 - p)}px) skewX(${-8 * (1 - p)}deg) scale(${1 + 0.06 * f + 0.02 * lf})`}
+                opacity={op}
+                glow={glow}
+                glowColor={teal}
+                topEdge={alpha(teal, 0.35 + 0.5 * Math.min(1, glow))}
               >
-                <NodeCard
-                  node={node}
-                  elevation={2}
-                  glow={Math.max(flash, lit, sendBack)}
-                  glowColor={sendBack > flash ? a2 : a0}
-                >
-                  <KineticText
-                    text={node.label}
-                    beat={{ start_frame: enterAt + 3, end_frame: enterAt + 18 }}
-                    mode="words"
-                    enter="slide"
-                    size={3}
-                    align="center"
-                  />
-                  <div style={{ opacity: 0.7 }}>
-                    <KineticText
-                      text={node.caption}
-                      beat={{ start_frame: enterAt + 7, end_frame: enterAt + 20 }}
-                      mode="words"
-                      enter="fade"
-                      size={1}
-                      font="mono"
-                      align="center"
-                    />
-                  </div>
-                </NodeCard>
-              </div>
+                <div style={{ fontFamily: DISPLAY, fontWeight: 700, fontSize: 34, color: TEXT, lineHeight: 1 }}>{t.node.label}</div>
+                <div style={{ fontFamily: MONO, fontWeight: 500, fontSize: 20, color: mix(MUTED, teal, 0.45) }}>{t.caption}</div>
+              </NodeBox>
             );
           })}
 
           {/* Импульсы: один источник тайминга с вспышками узлов */}
-          <AbsoluteFill>
-            <PulseAlongPath
-              segments={[SEGMENTS["e-req"]]}
-              beat={{ start_frame: REQ_START, end_frame: REQ_ARRIVE }}
-              travel={REQ_TRAVEL}
-              repeat={false}
-              color={a0}
-              size={8}
-              tail={120}
-            />
-            {TOOL_EDGES.map((e, i) => (
-              <PulseAlongPath
-                key={`call-${e.id}`}
-                segments={[SEGMENTS[e.id]]}
-                beat={{ start_frame: CALL_STARTS[i], end_frame: CALL_STARTS[i] + CALL_TRAVEL }}
-                travel={CALL_TRAVEL}
-                repeat={false}
-                color={a0}
-              />
+          <div style={{ position: "absolute", left: 0, top: 0, width: GRAPH_W, height: GRAPH_H }}>
+            <PulseAlongPath segments={[SEG.request]} beat={{ start_frame: REQUEST.start, end_frame: REQUEST.end }} color={violet} tail={120} size={8} />
+            {TOOLS.map((t) => (
+              <PulseAlongPath key={`call-${t.seg}`} segments={[SEG[t.seg]]} beat={{ start_frame: t.call, end_frame: t.call + CALL_PASS }} color={teal} tail={110} size={7} />
             ))}
-            {TOOL_EDGES.map((e, i) => (
-              <PulseAlongPath
-                key={`ret-${e.id}`}
-                segments={[SEGMENTS[e.id]]}
-                beat={{ start_frame: RET_STARTS[i], end_frame: RET_STARTS[i] + RET_TRAVEL }}
-                travel={RET_TRAVEL}
-                repeat={false}
-                reverse
-                color={a2}
-              />
+            {TOOLS.map((t) => (
+              <PulseAlongPath key={`ret-${t.seg}`} segments={[SEG[t.seg]]} beat={{ start_frame: t.ret, end_frame: t.ret + RET_PASS }} color={amber} tail={110} size={7} reverse />
             ))}
-            <PulseAlongPath
-              segments={[SEGMENTS["e-req"]]}
-              beat={{ start_frame: ANS_START, end_frame: ANS_ARRIVE }}
-              travel={ANS_TRAVEL}
-              repeat={false}
-              reverse
-              color={a1}
-              size={9}
-              tail={140}
-            />
-          </AbsoluteFill>
+            <PulseAlongPath segments={[SEG.request]} beat={{ start_frame: ANSWER.start, end_frame: ANSWER.end }} color={amber} tail={160} size={10} reverse />
+          </div>
 
-          {/* Живое удержание: приглушённые циклы по всем рёбрам */}
-          <AbsoluteFill style={{ opacity: 0.5 }}>
-            {[
-              { edge: "e-req", start: HOLD_START, reverse: true, color: a1 },
-              { edge: "e-search", start: HOLD_START + 9, reverse: false, color: a0 },
-              { edge: "e-db", start: HOLD_START + 18, reverse: false, color: a0 },
-              { edge: "e-code", start: HOLD_START + 27, reverse: false, color: a0 },
-              { edge: "e-search", start: HOLD_START + 4, reverse: true, color: a2 },
-              { edge: "e-db", start: HOLD_START + 13, reverse: true, color: a2 },
-              { edge: "e-code", start: HOLD_START + 22, reverse: true, color: a2 },
-              { edge: "e-req", start: HOLD_START + 31, reverse: false, color: a1 },
-            ].map((h) => (
-              <PulseAlongPath
-                key={`hold-${h.edge}-${h.start}`}
-                segments={[SEGMENTS[h.edge]]}
-                beat={{ start_frame: h.start, end_frame: durationInFrames }}
-                travel={HOLD_TRAVEL}
-                reverse={h.reverse}
-                color={h.color}
-                size={6}
-                tail={90}
-              />
+          {/* Живой цикл удержания: мелкие импульсы по всей петле */}
+          <div style={{ position: "absolute", left: 0, top: 0, width: GRAPH_W, height: GRAPH_H, opacity: 0.6 }}>
+            <PulseAlongPath segments={[SEG.request]} beat={{ start_frame: LOOP_REQ.start, end_frame: LOOP_REQ.end }} color={violet} tail={70} size={5} />
+            {TOOLS.map((t) => (
+              <PulseAlongPath key={`lcall-${t.seg}`} segments={[SEG[t.seg]]} beat={{ start_frame: t.loopCall, end_frame: t.loopCall + LOOP_PASS }} color={teal} tail={70} size={5} />
             ))}
-          </AbsoluteFill>
+            {TOOLS.map((t) => (
+              <PulseAlongPath key={`lret-${t.seg}`} segments={[SEG[t.seg]]} beat={{ start_frame: t.loopRet, end_frame: t.loopRet + LOOP_PASS }} color={amber} tail={70} size={5} reverse />
+            ))}
+            <PulseAlongPath segments={[SEG.request]} beat={{ start_frame: LOOP_ANSWER.start, end_frame: LOOP_ANSWER.end }} color={amber} tail={70} size={5} reverse />
+          </div>
         </div>
 
-        {/* Подпись фазы: уход влево с fade за 8 кадров, вход slide справа */}
-        <div style={{ position: "absolute", left: 0, right: 0, top: 878, height: 50 }}>
-          {PHASES.map((ph, i) => {
-            const next = PHASES[i + 1];
-            const exitT = next ? interpolate(frame, [next.from, next.from + 8], [0, 1], CLAMP) : 0;
-            const enterAt = i === 0 ? ph.from : ph.from + 4;
-            if (frame < enterAt || exitT >= 1) return null;
-            return (
-              <div
-                key={ph.text}
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  display: "flex",
-                  justifyContent: "center",
-                  opacity: 0.72 * (1 - exitT),
-                  transform: `translateX(${-40 * exitT}px)`,
-                }}
-              >
-                <KineticText
-                  text={ph.text}
-                  beat={{ start_frame: enterAt, end_frame: enterAt + 14 }}
-                  mode="words"
-                  enter="slide"
-                  size={2}
-                  font="mono"
-                  align="center"
-                />
-              </div>
-            );
-          })}
-        </div>
-      </SafeArea>
+        <PhaseLabel frame={frame} />
+      </div>
+    </SafeArea>
+  );
+};
+
+const Frame: React.FC<Required<SceneProps>> = (props) => {
+  const frame = useCurrentFrame();
+  return (
+    <>
+      <Background beat={{ start_frame: 0, end_frame: 30 }} variant="aurora" seed="agent-arch" />
+      <GridOverlay frame={frame} />
+      <AgentScene {...props} />
     </>
   );
 };
 
-// ---- Узел-карточка со светящейся кромкой (glow 0..1 от прихода импульса)
-const NodeCard: React.FC<{
-  node: NodeDef;
-  elevation: 0 | 1 | 2 | 3;
-  accentIndex?: number;
-  glow: number;
-  glowColor: string;
-  rimBase?: number;
-  children: React.ReactNode;
-}> = ({ node, elevation, accentIndex, glow, glowColor, rimBase = 0, children }) => {
-  const rim = Math.min(1, rimBase + glow * 0.65);
-  return (
-    <div
-      style={{
-        position: "relative",
-        width: node.w,
-        height: node.h,
-        borderRadius: 24,
-        boxShadow: `0 0 ${24 + 48 * glow}px ${alpha(glowColor, 0.5 * glow)}`,
-      }}
-    >
-      <Card elevation={elevation} enter="none" accentIndex={accentIndex} width={node.w} height={node.h} padding={20}>
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            fontFamily: DISPLAY,
-          }}
-        >
-          {children}
-        </div>
-      </Card>
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          borderRadius: 24,
-          border: `2px solid ${alpha(glowColor, rim)}`,
-          pointerEvents: "none",
-        }}
-      />
-    </div>
-  );
-};
-
-// ---- Инженерная сетка 48 px с радиальным затуханием (идея grid-pattern, сдвиг patternTransform по кадру)
-const GridOverlay: React.FC<{ opacity: number; shift: number; color: string }> = ({ opacity, shift, color }) => (
-  <AbsoluteFill style={{ opacity }}>
-    <svg width="100%" height="100%">
-      <defs>
-        <pattern
-          id="eng-grid"
-          width={48}
-          height={48}
-          patternUnits="userSpaceOnUse"
-          patternTransform={`translate(${shift} ${shift * 0.5})`}
-        >
-          <path d="M48 0 L0 0 0 48" fill="none" stroke={alpha(color, 0.06)} strokeWidth={1} />
-        </pattern>
-        <radialGradient id="eng-grid-fade" cx="50%" cy="50%" r="60%">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity={1} />
-          <stop offset="70%" stopColor="#ffffff" stopOpacity={0.5} />
-          <stop offset="100%" stopColor="#ffffff" stopOpacity={0} />
-        </radialGradient>
-        <mask id="eng-grid-mask">
-          <rect width="100%" height="100%" fill="url(#eng-grid-fade)" />
-        </mask>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#eng-grid)" mask="url(#eng-grid-mask)" />
-    </svg>
-  </AbsoluteFill>
+export const Scene: React.FC<SceneProps> = ({ kicker = "Архитектура AI-агента", query = "Посчитай бюджет" }) => (
+  <StyleProvider
+    style={{
+      ...presets["dark-premium"],
+      motion: { ...presets["dark-premium"].motion, intensity: "balanced" as const },
+    }}
+  >
+    <Frame kicker={kicker} query={query} />
+  </StyleProvider>
 );

@@ -3,6 +3,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remo
 import {
   AnimatedNumber,
   Background,
+  Card,
   EASE,
   KineticText,
   LineChart,
@@ -16,216 +17,205 @@ import {
   useStyle,
 } from "@ms/motion-kit";
 
+type Point = { label: string; value: number };
 type Intensity = "calm" | "balanced" | "energetic";
 
-type Point = { label: string; value: number };
-
 export type SceneProps = {
+  preset?: keyof typeof presets;
   animation_intensity?: Intensity;
-  caption?: string;
+  kicker?: string;
+  subtitle?: string;
+  multiplier?: string;
+  multiplierCaption?: string;
   points?: Point[];
 };
 
 const DEFAULT_POINTS: Point[] = [
-  { label: "янв 2022", value: 10_000 },
-  { label: "июл 2022", value: 22_000 },
-  { label: "янв 2023", value: 48_000 },
-  { label: "июл 2023", value: 105_000 },
-  { label: "янв 2024", value: 230_000 },
-  { label: "июл 2024", value: 480_000 },
-  { label: "янв 2025", value: 1_000_000 },
+  { label: "янв 22", value: 10_000 },
+  { label: "июл 22", value: 24_000 },
+  { label: "янв 23", value: 55_000 },
+  { label: "июл 23", value: 120_000 },
+  { label: "янв 24", value: 250_000 },
+  { label: "июл 24", value: 500_000 },
+  { label: "янв 25", value: 1_000_000 },
 ];
 
 const CLAMP = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
-// Биты из spec
+// Биты из spec.beats
 const BG_BEAT = { start_frame: 0, end_frame: 40 };
-const CHART_BEAT = { start_frame: 10, end_frame: 130 };
-const HERO_START = 18;
-const CAPTION_BEAT = { start_frame: 26, end_frame: 52 };
-const HOLD_START = 132;
+const KICKER_BEAT = { start_frame: 6, end_frame: 36 };
+const CHART_BEAT = { start_frame: 14, end_frame: 130 };
+const SUBTITLE_BEAT = { start_frame: 24, end_frame: 50 };
+const CHIP_START = 113;
+const HOLD_START = 136;
 
-// Раскладка в px безопасной зоны (1728×972)
-const CHART = { left: 570, top: 330, width: 1140, height: 600 };
-const HERO = { left: 60, top: 29 };
-const CAPTION = { left: 64, top: 236 };
-// Вершина графика (правый верхний угол поля данных) — точка, к которой тянется камера
-const PEAK = { x: CHART.left + CHART.width - 50, y: CHART.top + 40 };
-// Период «прихода импульса» в удержании (balanced: 40–50 кадров)
-const PULSE_PERIOD = 45;
+// Раскладка в координатах безопасной зоны (1728×972). Отступ INSET слева
+// оставляет запас под наезд камеры 1.02, чтобы текст не уходил за safe area.
+const INSET = 40;
+const CHART_W = 1688;
+const CHART_H = 600;
+const CHART_TOP = 350;
+// Опора наезда — примерно финальная точка графика (справа вверху)
+const ORIGIN_X = 1690;
+const ORIGIN_Y = 400;
+const CHIP_W = 290;
 
-const Content: React.FC<{ points: Point[]; caption: string }> = ({ points, caption }) => {
+const Content: React.FC<Required<Omit<SceneProps, "preset" | "animation_intensity">>> = ({
+  kicker,
+  subtitle,
+  multiplier,
+  multiplierCaption,
+  points,
+}) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const style = useStyle();
-  const amber = accent(style, 2);
 
-  // Один источник: голова линии → значение героя и момент удара
-  const head = lineChartHead(points, CHART_BEAT, frame, {
-    width: CHART.width,
-    height: CHART.height,
-    yTicks: 4,
+  // Один источник движения: голова линии ведёт счёт героя
+  const head = lineChartHead(points, CHART_BEAT, frame, { width: CHART_W, height: CHART_H, yTicks: 4 });
+  const peak = head.endFrame;
+
+  // Камера: медленный наезд 1.00 → 1.02 с кадра 14 до конца сцены
+  const camera = interpolate(frame, [CHART_BEAT.start_frame, durationInFrames - 1], [1, 1.02], {
+    ...CLAMP,
+    easing: EASE.inOutCubic,
   });
-  const impactFrame = head.endFrame;
 
-  // Камера: медленный наезд 1.00 → 1.03 к вершине + дрейф 6 px вправо-вверх в hold
-  const camT = EASE.inOutCubic(
-    interpolate(frame, [0, durationInFrames - 1], [0, 1], CLAMP),
-  );
-  const camScale = 1 + 0.03 * camT;
-  const driftT = EASE.inOutCubic(
-    interpolate(frame, [HOLD_START - 20, durationInFrames - 1], [0, 1], CLAMP),
-  );
-  const driftX = 4.8 * driftT;
-  const driftY = -3.6 * driftT;
+  // Вход героя: snappy-пружина, 40 px снизу, scale 0.96 → 1
+  const heroIn = springAt(frame, fps, style, CHART_BEAT.start_frame, "snappy");
+  const heroOpacity = interpolate(frame, [CHART_BEAT.start_frame, CHART_BEAT.start_frame + 10], [0, 1], CLAMP);
 
-  // Вход героя: из глубины, пружина snappy, blur 8 → 0
-  const heroIn = springAt(frame, fps, style, HERO_START, "snappy");
-  const heroOpacity = interpolate(frame, [HERO_START, HERO_START + 10], [0, 1], CLAMP);
-  const heroBlur = 8 * Math.max(0, 1 - heroIn);
-  // Дыхание в удержании: scale 1.00 ↔ 1.015
-  const holdLocal = Math.max(0, frame - HOLD_START);
-  const breathPhase = (holdLocal / PULSE_PERIOD) * Math.PI * 2;
-  const holdOn = interpolate(frame, [HOLD_START, HOLD_START + 8], [0, 1], CLAMP);
-  const breath = holdOn * (0.5 - 0.5 * Math.cos(breathPhase));
-  const heroScale = (0.88 + 0.12 * heroIn) * (1 + 0.015 * breath);
+  // Вспышка свечения в кадр прихода головы на вершину + дыхание в удержании (~60 кадров)
+  const flash = interpolate(frame, [peak, peak + 4, peak + 30], [0, 1, 0], CLAMP);
+  const breatheOn = interpolate(frame, [peak + 10, HOLD_START], [0, 1], CLAMP);
+  const breathe = Math.sin(((frame - HOLD_START) / 60) * Math.PI * 2) * breatheOn;
+  const glowColor = accent(style, 0);
+  const glowAlpha = 0.18 + 0.5 * flash + 0.12 * breathe * 0.5 + 0.1 * breatheOn;
+  const glowBlur = 18 + 30 * flash + 6 * breathe;
 
-  // Свечение героя: вспышка в кадр удара, затем дыхание ±10 %
-  const flash = interpolate(
-    frame,
-    [impactFrame, impactFrame + 5, impactFrame + 26],
-    [0, 1, 0.4],
-    CLAMP,
-  );
-  const glow = frame < HOLD_START ? flash : 0.4 + 0.1 * Math.sin(breathPhase);
-  const glowRise = interpolate(frame, [HERO_START, 60], [0, 0.12], CLAMP);
-  const heroGlow = Math.max(glowRise, glow);
-
-  // Янтарное пятно за вершиной: проявляется с линией, ярчает на 20 % в удар,
-  // в hold мягко пульсирует на каждом «приходе» импульса
-  const bloomBase = interpolate(frame, [24, 106], [0.35, 0.8], CLAMP);
-  const bloomHit = interpolate(
-    frame,
-    [impactFrame, impactFrame + 6, impactFrame + 30],
-    [0, 0.2, 0.1],
-    CLAMP,
-  );
-  const arrival = holdOn * Math.pow(0.5 + 0.5 * Math.cos(breathPhase), 3);
-  const bloom = bloomBase * (1 + bloomHit + 0.12 * arrival);
-  const bloomScale = 1 + 0.06 * arrival + 0.05 * bloomHit;
+  // Плашка: лёгкое парение в удержании и проход блика
+  const chipFloat = Math.sin(((frame - HOLD_START) / 50) * Math.PI * 2) * 4 * breatheOn;
+  const sheen = interpolate(frame, [142, 172], [-140, 140], { ...CLAMP, easing: EASE.inOutCubic });
 
   return (
     <AbsoluteFill
       style={{
-        transformOrigin: `${PEAK.x}px ${PEAK.y}px`,
-        transform: `translate(${driftX}px, ${driftY}px) scale(${camScale})`,
+        transform: `scale(${camera})`,
+        transformOrigin: `${ORIGIN_X}px ${ORIGIN_Y}px`,
       }}
     >
-      <div
-        style={{
-          position: "absolute",
-          left: PEAK.x - 380,
-          top: PEAK.y - 380,
-          width: 760,
-          height: 760,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, ${alpha(amber, 0.28)} 0%, ${alpha(amber, 0.08)} 40%, ${alpha(amber, 0)} 70%)`,
-          opacity: bloom,
-          transform: `scale(${bloomScale})`,
-        }}
-      />
-
-      <div
-        style={{
-          position: "absolute",
-          left: CHART.left,
-          top: CHART.top,
-          width: CHART.width,
-          height: CHART.height,
-        }}
-      >
-        <LineChart
-          points={points}
-          beat={CHART_BEAT}
-          width={CHART.width}
-          height={CHART.height}
-          area
-          highlightLast={false}
-          accentIndex={0}
-          yTicks={4}
-          compact
-          locale="ru"
-        />
+      <div style={{ position: "absolute", left: INSET, top: 10 }}>
+        <KineticText text={kicker} beat={KICKER_BEAT} mode="letters" enter="fade" size={1} font="mono" caps
+          style={{ opacity: 0.6 }} />
       </div>
 
       <div
         style={{
           position: "absolute",
-          left: HERO.left,
-          top: HERO.top,
-          transformOrigin: "left center",
-          transform: `scale(${heroScale})`,
+          left: INSET,
+          top: 58,
           opacity: heroOpacity,
-          filter: `blur(${heroBlur}px)`,
+          transform: `translateY(${40 * (1 - heroIn)}px) scale(${0.96 + 0.04 * heroIn})`,
+          transformOrigin: "left bottom",
+          filter: `brightness(${1 + 0.12 * breathe}) drop-shadow(0 0 ${glowBlur}px ${alpha(glowColor, glowAlpha)})`,
         }}
       >
-        <div
-          style={{
-            position: "absolute",
-            left: -80,
-            top: -50,
-            width: 1060,
-            height: 300,
-            borderRadius: "50%",
-            background: `radial-gradient(ellipse at 45% 50%, ${alpha(amber, 0.32)} 0%, ${alpha(amber, 0)} 68%)`,
-            opacity: heroGlow,
-          }}
-        />
         <AnimatedNumber
           from={10_000}
           to={1_000_000}
           value={head.value}
-          beat={{ start_frame: CHART_BEAT.start_frame, end_frame: impactFrame }}
+          beat={{ start_frame: CHART_BEAT.start_frame, end_frame: peak }}
           locale="ru"
           size={8}
           font="display"
           reserveWidth
-          align="left"
         />
       </div>
 
-      <div style={{ position: "absolute", left: CAPTION.left, top: CAPTION.top, width: 700 }}>
-        <KineticText
-          text={caption}
-          beat={CAPTION_BEAT}
-          mode="words"
-          enter="rise"
-          size={3}
-          font="body"
-          weight={600}
-          highlight={["три года"]}
-          stagger={7}
-          align="left"
+      <div style={{ position: "absolute", left: INSET + 4, top: 262 }}>
+        <KineticText text={subtitle} beat={SUBTITLE_BEAT} mode="words" enter="slide" size={3} weight={600}
+          style={{ opacity: 0.66 }} />
+      </div>
+
+      <div style={{ position: "absolute", left: INSET, top: CHART_TOP, width: CHART_W, height: CHART_H }}>
+        <LineChart
+          points={points}
+          beat={CHART_BEAT}
+          area
+          highlightLast={false}
+          width={CHART_W}
+          height={CHART_H}
+          locale="ru"
+          compact
+          yTicks={4}
+          accentIndex={0}
         />
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          left: ORIGIN_X - CHIP_W - 10,
+          top: 196,
+          width: CHIP_W,
+          transform: `translateY(${chipFloat}px)`,
+        }}
+      >
+        <Card
+          elevation={3}
+          beat={{ start_frame: CHIP_START, end_frame: HOLD_START }}
+          enter="scale"
+          accentIndex={2}
+          width={CHIP_W}
+          style={{ transformOrigin: "90% 100%" }}
+        >
+          <div style={{ position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", gap: 4 }}>
+            <KineticText text={multiplier} beat={{ start_frame: CHIP_START + 3, end_frame: CHIP_START + 20 }}
+              mode="words" enter="scale" size={5} weight={800} />
+            <KineticText text={multiplierCaption} beat={{ start_frame: CHIP_START + 9, end_frame: CHIP_START + 26 }}
+              mode="words" enter="fade" size={1} font="mono" caps style={{ opacity: 0.66 }} />
+            <div
+              style={{
+                position: "absolute",
+                top: -20,
+                bottom: -20,
+                left: "50%",
+                width: 60,
+                marginLeft: -30,
+                transform: `translateX(${sheen * 2}px) skewX(-20deg)`,
+                background: `linear-gradient(90deg, transparent, ${alpha(accent(style, 2), 0.22)}, transparent)`,
+                opacity: interpolate(frame, [142, 148, 166, 172], [0, 1, 1, 0], CLAMP),
+              }}
+            />
+          </div>
+        </Card>
       </div>
     </AbsoluteFill>
   );
 };
 
 export const Scene: React.FC<SceneProps> = ({
+  preset = "dark-premium",
   animation_intensity = "balanced",
-  caption = "пользователей за три года",
+  kicker = "Пользователи · 2022–2025",
+  subtitle = "пользователей",
+  multiplier = "×100",
+  multiplierCaption = "за 3 года",
   points = DEFAULT_POINTS,
-}) => {
-  const base = presets["dark-premium"];
-  return (
-    <StyleProvider
-      style={{ ...base, motion: { ...base.motion, intensity: animation_intensity } }}
-    >
-      <Background beat={BG_BEAT} variant="aurora" seed="million-growth" grain />
-      <SafeArea>
-        <Content points={points} caption={caption} />
-      </SafeArea>
-    </StyleProvider>
-  );
-};
+}) => (
+  <StyleProvider
+    style={{ ...presets[preset], motion: { ...presets[preset].motion, intensity: animation_intensity } }}
+  >
+    <Background beat={BG_BEAT} variant="aurora" seed="growth-100x" grain />
+    <SafeArea>
+      <Content
+        kicker={kicker}
+        subtitle={subtitle}
+        multiplier={multiplier}
+        multiplierCaption={multiplierCaption}
+        points={points}
+      />
+    </SafeArea>
+  </StyleProvider>
+);
