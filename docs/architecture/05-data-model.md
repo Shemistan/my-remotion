@@ -15,7 +15,7 @@ $MS_DATA_DIR/
   studio.db (+ -wal, -shm)
   cache/                            бандлы Remotion, временные кадры
   logs/                             логи сервера
-  run/owner.lock                    единственный владелец хранилища: pid, время старта, server|cli
+  run/owner.lock, owner.json        блокировка ОС единственного владельца; owner.json — pid, время старта, server|cli
   run/processes/                    реестр дочерних процессов в срезе без БД (ADR 0007)
   workspace/
     projects/<project-id>/

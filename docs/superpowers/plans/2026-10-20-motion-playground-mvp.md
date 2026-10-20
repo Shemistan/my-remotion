@@ -15,7 +15,7 @@
 
 **Tech Stack:** Node 22, TypeScript 5 (strict, ESM), Vitest, ESLint 9 (flat config), Zod 3 + zod-to-json-schema, Remotion 4.0.537 (`remotion`, `@remotion/bundler`, `@remotion/renderer`, `@remotion/fonts`), React (версия из peer-зависимости Remotion 4.0.537), TypeScript compiler API, OFL-шрифты с кириллицей (woff2 в `render/fonts/`), Claude Code CLI 2.1.x.
 
-**Spec:** `docs/superpowers/specs/2026-10-20-ai-motion-studio-design.md` → `docs/architecture/01…09`, ADR 0001–0006 (приняты), ADR 0007 (предложено).
+**Spec:** `docs/superpowers/specs/2026-10-20-ai-motion-studio-design.md` → `docs/architecture/01…09`, ADR 0001–0007 (приняты).
 
 **Порядок = утверждённая последовательность:** P1-01 + P1-19 (Task 1, 2) → P1-02 (Task 3) → P1-05 (Task 4) → P1-06 (Task 5) → P1-07 (Task 6) → P1-08 (Task 7) → P1-09 (Task 8) → P1-20 (Task 9, 10).
 
@@ -26,7 +26,7 @@
 - `MS_DATA_DIR` обязателен; значения по умолчанию нет; корень создаёт только `doctor --init`; подкаталоги данных — только через `safeMkdir`; данные приложения (версии, кэш, логи, `run/`) пишутся только в `MS_DATA_DIR`. Вне его: `tmp/` репозитория в тестах, evidence в `docs/evidence/`, Chrome Headless Shell в `node_modules`.
 - Рекомендуемое значение для этой машины: `/Volumes/External SSD/MotionStudio`.
 - Хранилище проверяется перед запуском, перед каждым вызовом агента и рендером, перед публикацией и каждые 10 с во время дочерних процессов (сторож прерывает их через `AbortSignal`).
-- ADR 0007 (предложено) в срезе: один владелец `run/owner.lock`; каждый дочерний процесс — своя группа и запись в `run/processes/`; draft на попытку `workspace/drafts/<run_id>-a<attempt>/`; повторный запуск того же прогона при живом процессе прежней попытки запрещён. Если человек отклонит ADR 0007 — Task 2 исключается из среза, остальные задачи от него не зависят, кроме вызова `acquireOwnerLock` в Task 10.
+- ADR 0007 (принято) в срезе: один владелец `run/owner.lock`; каждый дочерний процесс — своя группа и запись в `run/processes/`; draft на попытку `workspace/drafts/<run_id>-a<attempt>/`; повторный запуск того же прогона при живом процессе прежней попытки запрещён.
 - Агенты: только `claude -p --restricted --strict-mcp-config --no-session-persistence --output-format json --json-schema …`; никогда `bypassPermissions` и `--dangerously-skip-permissions`; Bash агенту не даётся.
 - Модели по умолчанию: `motion_director` и `engineer` — `opus`, остальные роли — `sonnet`; ключ настройки `agents.<role>.model`.
 - Лимиты по умолчанию: `maxBudgetUsd` на вызов 2; `scene.maxCostUsd` 5 (ориентир для тестов, не лимит подписки); автоисправлений на попытку 2; таймаут агента 10 мин; таймаут рендера превью 5 мин.
@@ -119,7 +119,7 @@ it("watchStorage aborts on first failure", async () => {
 - Consumes: `safeMkdir` (Task 1)
 - Produces:
   - `interface ProcInfo { pid: number; startedAt: string }`; `procInfo(pid: number): Promise<ProcInfo | undefined>` — `ps -o lstart= -p <pid>`; `undefined`, если процесса нет
-  - `acquireOwnerLock(root: string, kind: "server" | "cli"): Promise<{ release(): Promise<void> }>` — `run/owner.lock` через `open(..., "wx")` с `{ pid, startedAt, kind }`; брошенный lock (процесс мёртв или `startedAt` не совпадает) заменяется; живой владелец → ошибка `owner_busy` с pid
+  - `acquireOwnerLock(root: string, kind: "server" | "cli"): Promise<{ release(): Promise<void> }>` — блокировка ОС на `run/owner.lock`: better-sqlite3, `PRAGMA locking_mode=EXCLUSIVE` + `BEGIN EXCLUSIVE` (POSIX `fcntl`, ядро снимает при смерти процесса); `run/owner.json` `{ pid, startedAt, kind }` — диагностика; занято → ошибка `owner_busy` с pid из `owner.json`
   - `interface TrackedProcess { runId: string; attempt: number; pid: number; pgid: number; startedAt: string; cmd: string }`
   - `spawnTracked(root: string, ref: { runId: string; attempt: number }, cmd: string, args: string[], opts: { cwd: string; env: NodeJS.ProcessEnv; signal: AbortSignal; stdin?: string; killGraceMs?: number }): Promise<{ code: number | null; signal: string | null; stdout: string; stderr: string }>` — `detached: true` (своя группа); запись `run/processes/<runId>-a<attempt>-<pid>.json` до начала работы; по `signal` — SIGTERM на группу, через `killGraceMs` (5000) SIGKILL на группу; запись удаляется только после выхода процесса
   - `reapStale(root: string, runId: string): Promise<{ clean: boolean; alive: TrackedProcess[] }>` — для записей прогона: мёртвые (или с другим `startedAt`) удаляются; живые получают SIGTERM → 5 с → SIGKILL → ожидание до 30 с; `clean: false`, если кто-то остался жив
@@ -130,9 +130,8 @@ it("watchStorage aborts on first failure", async () => {
 const a = await acquireOwnerLock(root, "cli");
 await expect(acquireOwnerLock(root, "cli")).rejects.toThrow(/owner_busy/);
 await a.release(); await expect(acquireOwnerLock(root, "cli")).resolves.toBeDefined();
-// брошенный lock: pid несуществующего процесса
-await writeFile(join(root, "run/owner.lock"), JSON.stringify({ pid: 999999, startedAt: "x", kind: "cli" }));
-await expect(acquireOwnerLock(root, "server")).resolves.toBeDefined();
+// блокировка из другого процесса: дочерний node держит lock → owner_busy; kill -9 ребёнка → lock свободен
+// без release: процесс-владелец убит SIGKILL — следующий захват успешен (ядро сняло fcntl-lock)
 // группа процессов убивается целиком: sleepy.sh запускает дочерний sleep
 const ctrl = new AbortController(); const p = spawnTracked(root, ref, sleepy, [], { ...o, signal: ctrl.signal });
 ctrl.abort(); await p; expect(await procInfo(grandchildPid)).toBeUndefined();

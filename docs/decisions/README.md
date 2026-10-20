@@ -13,5 +13,5 @@
 | [0004](0004-remotion-pin-and-motion-kit.md) | Remotion 4.0.537 с точным pin и собственный motion-kit | принято |
 | [0005](0005-personal-local-tool.md) | Персональный локальный инструмент без облака и многопользовательности | принято |
 | [0006](0006-external-ssd-storage.md) | Данные на внешнем SSD через `MS_DATA_DIR` под защитой StorageGuard | принято |
-| [0007](0007-job-attempt-isolation.md) | Изоляция попыток задач и дочерних процессов | предложено |
+| [0007](0007-job-attempt-isolation.md) | Изоляция попыток задач и дочерних процессов | принято |
 <!-- gate:end adr-index -->
