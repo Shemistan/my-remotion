@@ -2,8 +2,12 @@
 // к новому тому после переноса. Затем — Chrome Headless Shell для рендера (скачивается
 // при отсутствии). Печатает StorageStatus в JSON с полем `browser`; код 1, если не в
 // порядке хранилище (ok: false) или браузер (browser.ok: false).
+// `--import-slice` (Q2): под owner lock открывает studio.db (миграции, сверка store_id),
+// закрывает незакрытые версии и регистрирует каталоги версий без строки в БД; код 1,
+// если какие-то версии пропущены (повреждены).
 import { pathToFileURL } from "node:url";
 import {
+  acquireOwnerLock,
   checkStorage,
   initStore,
   macosProbe,
@@ -13,8 +17,14 @@ import {
   type VolumeProbe,
 } from "@ms/core";
 import { ensureRenderBrowser } from "@ms/render";
+import { bindStoreId } from "../db/meta.js";
+import { migrate } from "../db/migrate.js";
+import { openDb } from "../db/open.js";
+import { importSliceVersions } from "../scenes/import-slice.js";
+import { SceneRepo } from "../scenes/repo.js";
+import { relockVersions } from "../scenes/store.js";
 
-const USAGE = "usage: doctor [--init | --adopt]";
+const USAGE = "usage: doctor [--init | --adopt | --import-slice]";
 
 export type BrowserCheck = () => Promise<{ path: string }>;
 type BrowserStatus = { ok: true; path: string } | { ok: false; error: string };
@@ -26,9 +36,10 @@ export async function runDoctor(
   browser: BrowserCheck = ensureRenderBrowser,
 ): Promise<{ code: number; output: string }> {
   const [mode, ...rest] = argv;
-  if (rest.length > 0 || (mode !== undefined && mode !== "--init" && mode !== "--adopt")) {
+  if (rest.length > 0 || (mode !== undefined && mode !== "--init" && mode !== "--adopt" && mode !== "--import-slice")) {
     return { code: 2, output: USAGE };
   }
+  if (mode === "--import-slice") return importSlice(env, probe);
 
   if (mode) {
     const root = env.MS_DATA_DIR?.trim();
@@ -49,6 +60,36 @@ export async function runDoctor(
   }
   const status = await checkStorage(env, probe);
   return report(status, await checkBrowser(browser));
+}
+
+async function importSlice(env: StorageEnv, probe: VolumeProbe): Promise<{ code: number; output: string }> {
+  const status = await checkStorage(env, probe);
+  if (!status.ok) return report(status);
+  const { root } = status;
+  let lock;
+  try {
+    lock = await acquireOwnerLock(root, "cli");
+  } catch (e) {
+    return { code: 1, output: JSON.stringify({ ok: false, error: (e as Error).message }, null, 2) };
+  }
+  try {
+    const db = openDb(root);
+    try {
+      migrate(db);
+      bindStoreId(db, status.marker);
+      const relock = await relockVersions(root);
+      const repo = new SceneRepo({ root, db, guard: () => checkStorage(env, probe) });
+      const imported = await importSliceVersions(repo, root);
+      const ok = imported.skipped.length === 0 && relock.broken.length === 0;
+      return { code: ok ? 0 : 1, output: JSON.stringify({ ok, root, relock, import: imported }, null, 2) };
+    } finally {
+      db.close();
+    }
+  } catch (e) {
+    return { code: 1, output: JSON.stringify({ ok: false, error: (e as Error).message }, null, 2) };
+  } finally {
+    await lock.release();
+  }
 }
 
 async function checkBrowser(browser: BrowserCheck): Promise<BrowserStatus> {

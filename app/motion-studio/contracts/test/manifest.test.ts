@@ -51,4 +51,28 @@ describe("VersionManifest", () => {
   it("неверный вердикт qa", () =>
     expect(ok({ ...manifest(), qa: { technical: "ok", visual: "warn", semantic: "pass", style: "pass" } })).toBe(false));
   it("number должен быть >= 1", () => expect(ok({ ...manifest(), number: 0 })).toBe(false));
+
+  describe("edit_plan и job (Phase 1)", () => {
+    const sliceManifest = { ...manifest(), edit_plan: { base_version_id: "ver_0", borrow: [{ from: "ver_0", what: "palette" }] } };
+    it("версии среза читаются: job отсутствует, срезовый edit_plan допустим", () => {
+      expect(VersionManifestSchema.parse(sliceManifest).job).toBeUndefined();
+      expect(VersionManifestSchema.parse(manifest()).job).toBeUndefined();
+    });
+    it("edit_plan restore", () => {
+      expect(VersionManifestSchema.safeParse({ ...sliceManifest, edit_plan: { kind: "restore", base_version_id: "ver_1" } }).success).toBe(true);
+      expect(ok({ ...manifest(), edit_plan: { kind: "restore" } })).toBe(false);
+    });
+    it("edit_plan — EditPlan", () => {
+      const plan = {
+        base_version_id: "ver_1", path: "param", changes: [{ target: "timing", kind: "param", description: "медленнее" }],
+        borrow: [{ from_version_id: "ver_0", what: "palette" }], preserve: ["composition"], timing_scale: 4 / 3, reply: "ок",
+      };
+      expect(ok({ ...manifest(), edit_plan: plan })).toBe(true);
+      expect(ok({ ...manifest(), edit_plan: { ...plan, changes: [{ target: "x", kind: "code", description: "y" }] } })).toBe(false);
+    });
+    it("job: id и attempt", () => {
+      expect(VersionManifestSchema.parse({ ...manifest(), job: { id: "job_1", attempt: 2 } }).job).toEqual({ id: "job_1", attempt: 2 });
+      expect(ok({ ...manifest(), job: { id: "job_1", attempt: 0 } })).toBe(false);
+    });
+  });
 });

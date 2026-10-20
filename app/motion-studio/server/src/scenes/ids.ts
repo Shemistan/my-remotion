@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 // Алфавит Крокфорда: без I, L, O, U.
 const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-export type IdPrefix = "scn" | "ver" | "run";
+export type IdPrefix = "scn" | "ver" | "run" | "prj" | "job" | "msg" | "exp";
 
 let lastTime = -1;
 let lastRand = 0n;
@@ -18,7 +18,7 @@ function encode(value: bigint, len: number): string {
 }
 
 /**
- * ULID с префиксом: `scn_…` / `ver_…` / `run_…`. Внутри одной миллисекунды
+ * ULID с префиксом (`scn_…`, `ver_…`, `job_…` и т. д.). Внутри одной миллисекунды
  * монотонен (случайная часть увеличивается), поэтому сортировка строк = порядок
  * создания. Подходит под SAFE_ID из core (`run/processes`).
  */

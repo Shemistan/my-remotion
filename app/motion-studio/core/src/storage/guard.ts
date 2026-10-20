@@ -2,6 +2,7 @@
 // (ADR 0006, docs/architecture/03-target-architecture.md §5.1). Корень никогда
 // не создаётся неявно — только initStore (`doctor --init`).
 import { randomUUID } from "node:crypto";
+import { lstatSync, readFileSync } from "node:fs";
 import { lstat, mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
 import { dirname, isAbsolute, join } from "node:path";
 
@@ -113,6 +114,19 @@ export async function readMarker(root: string): Promise<StoreMarker> {
   return parsed;
 }
 
+/** Синхронный `readMarker` (для `safeMkdirSync`). */
+export function readMarkerSync(root: string): StoreMarker {
+  const path = join(root, MARKER_FILE);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, "utf8"));
+  } catch (e) {
+    throw new StorageError("marker_missing", `${path}: ${(e as Error).message}`);
+  }
+  if (!isMarker(parsed)) throw new StorageError("marker_missing", `${path}: неверный формат маркера`);
+  return parsed;
+}
+
 async function isDirectory(path: string): Promise<boolean> {
   try {
     return (await stat(path)).isDirectory();
@@ -139,6 +153,19 @@ export async function rootProblem(root: string): Promise<string | undefined> {
   let st;
   try {
     st = await lstat(root);
+  } catch {
+    return `каталог не найден: ${root}`;
+  }
+  if (st.isSymbolicLink()) return `${root} — симлинк; укажи в MS_DATA_DIR реальный путь`;
+  if (!st.isDirectory()) return `${root} не каталог`;
+  return undefined;
+}
+
+/** Синхронный `rootProblem` (то же правило). */
+export function rootProblemSync(root: string): string | undefined {
+  let st;
+  try {
+    st = lstatSync(root);
   } catch {
     return `каталог не найден: ${root}`;
   }

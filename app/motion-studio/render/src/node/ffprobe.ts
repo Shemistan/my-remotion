@@ -2,15 +2,10 @@
 import { execFile } from "node:child_process";
 import { access, constants } from "node:fs/promises";
 import { delimiter, isAbsolute, join } from "node:path";
-import type { Fps, Settings } from "@ms/contracts";
+import type { Fps, ProbeResult, Settings } from "@ms/contracts";
 
-export interface ProbeResult {
-  durationMs: number;
-  width: number;
-  height: number;
-  fps: Fps;
-  codec: string;
-}
+// Тип — из `@ms/contracts` (ProbeResultSchema); `audioCodec`/`pixFmt` заполнит экспорт (Task 19).
+export type { ProbeResult };
 
 export const FFPROBE_ARGS = ["-v", "error", "-print_format", "json", "-show_streams", "-show_format"];
 const FFPROBE_TIMEOUT_MS = 30_000;

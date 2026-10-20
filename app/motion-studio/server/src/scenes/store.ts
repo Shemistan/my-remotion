@@ -1,23 +1,29 @@
-import { constants, existsSync } from "node:fs";
+import {
+  chmodSync, closeSync, constants, existsSync, fsyncSync, lstatSync, openSync, readdirSync, renameSync, rmSync, writeSync,
+} from "node:fs";
 import { chmod, copyFile, lstat, mkdir, open, readFile, readdir, rename, rm } from "node:fs/promises";
 import { basename, dirname, join, posix } from "node:path";
 import { VersionManifestSchema, type Settings, type VersionManifest } from "@ms/contracts";
-import { SAFE_ID, type ProcessRegistry, fileProcessRegistry, safeMkdir, type StorageStatus } from "@ms/core";
+import { SAFE_ID, type ProcessRegistry, fileProcessRegistry, safeMkdir, safeMkdirSync, type StorageStatus } from "@ms/core";
 import { sha256File } from "./hash.js";
 import { newId } from "./ids.js";
 
-const PROJECT = "playground";
+/** Проект по умолчанию: Playground (создаётся миграцией 001). */
+export const DEFAULT_PROJECT = "playground";
 const MANIFEST = "manifest.json";
-const QUARANTINE = ".quarantined";
+export const QUARANTINE = ".quarantined";
 const COPIED_FROM_PARENT = ["src", "props.json", "spec.json", "settings.json"];
 
 export interface DraftRef {
   runId: string;
   attempt: number;
   sceneId: string;
+  /** Проект сцены; по умолчанию `playground` (H7). */
+  projectId?: string;
   parentVersionId?: string;
 }
 export interface Draft extends DraftRef {
+  projectId: string;
   /** Корень хранилища (MS_DATA_DIR): нужен публикации для safeMkdir и rename. */
   root: string;
   dir: string;
@@ -27,7 +33,12 @@ export type PublishMeta = Omit<VersionManifest, "files" | "version_id" | "number
 function checkId(kind: string, id: string): void {
   if (!SAFE_ID.test(id)) throw new Error(`scenes: ${kind} не годится для имени файла: ${JSON.stringify(id)}`);
 }
-const sceneRel = (sceneId: string) => `workspace/projects/${PROJECT}/scenes/${sceneId}`;
+/** Каталог сцены относительно корня хранилища. */
+export function sceneRel(projectId: string, sceneId: string): string {
+  checkId("projectId", projectId);
+  checkId("sceneId", sceneId);
+  return `workspace/projects/${projectId}/scenes/${sceneId}`;
+}
 
 /** Файлы и подкаталоги (POSIX-пути от `dir`); симлинки и спецфайлы — ошибка. */
 async function walk(dir: string, sub = ""): Promise<{ files: string[]; dirs: string[] }> {
@@ -46,7 +57,8 @@ async function walk(dir: string, sub = ""): Promise<{ files: string[]; dirs: str
   return { files, dirs };
 }
 
-async function setWritable(path: string): Promise<void> {
+/** Снимает запрет записи (глубина первой не нужна: сначала корень, затем дети). */
+export async function setWritable(path: string): Promise<void> {
   const st = await lstat(path);
   if (st.isDirectory()) {
     await chmod(path, 0o755);
@@ -66,6 +78,31 @@ async function lockChildren(dir: string): Promise<void> {
       await chmod(p, st.mode & 0o555);
     } else if (st.isFile()) {
       await chmod(p, st.mode & 0o555);
+    } else {
+      throw new Error(`scenes: недопустимый тип файла при блокировке: ${p}`);
+    }
+  }
+}
+
+function setWritableSync(path: string): void {
+  const st = lstatSync(path);
+  if (st.isDirectory()) {
+    chmodSync(path, 0o755);
+    for (const n of readdirSync(path)) setWritableSync(join(path, n));
+  } else if (st.isFile()) {
+    chmodSync(path, 0o644);
+  }
+}
+
+function lockChildrenSync(dir: string): void {
+  for (const n of readdirSync(dir)) {
+    const p = join(dir, n);
+    const st = lstatSync(p);
+    if (st.isDirectory()) {
+      lockChildrenSync(p);
+      chmodSync(p, st.mode & 0o555);
+    } else if (st.isFile()) {
+      chmodSync(p, st.mode & 0o555);
     } else {
       throw new Error(`scenes: недопустимый тип файла при блокировке: ${p}`);
     }
@@ -97,6 +134,39 @@ async function fsyncWrite(path: string, data: string): Promise<void> {
   }
 }
 
+function fsyncWriteSync(path: string, data: string): void {
+  const fd = openSync(path, "w");
+  try {
+    writeSync(fd, data);
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function fsyncDirSync(dir: string): void {
+  const fd = openSync(dir, constants.O_RDONLY);
+  try {
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/** Снимок дерева draft (путь → тип, размер, mtime): коммит сверяет, что после подготовки ничего не менялось. */
+function snapshotSync(dir: string, sub = "", out = new Map<string, string>()): Map<string, string> {
+  for (const e of readdirSync(join(dir, sub), { withFileTypes: true })) {
+    const rel = sub ? posix.join(sub, e.name) : e.name;
+    const st = lstatSync(join(dir, rel));
+    if (st.isDirectory()) {
+      out.set(rel, "d");
+      snapshotSync(dir, rel, out);
+    } else if (st.isFile()) out.set(rel, `f:${st.size}:${st.mtimeMs}`);
+    else throw new Error(`scenes: недопустимый тип файла (симлинк/спецфайл): ${rel}`);
+  }
+  return out;
+}
+
 async function fsyncDir(dir: string): Promise<void> {
   const fh = await open(dir, constants.O_RDONLY);
   try {
@@ -120,14 +190,15 @@ async function copyTree(root: string, from: string, toRel: string): Promise<void
 
 /** Рабочий каталог одной попытки; повторно не используется. */
 export async function createDraft(root: string, ref: DraftRef): Promise<Draft> {
+  const projectId = ref.projectId ?? DEFAULT_PROJECT;
   checkId("runId", ref.runId);
-  checkId("sceneId", ref.sceneId);
+  const rel = sceneRel(projectId, ref.sceneId);
   if (!Number.isInteger(ref.attempt) || ref.attempt < 1) throw new Error(`scenes: attempt должен быть целым >= 1: ${ref.attempt}`);
   if (ref.parentVersionId !== undefined) checkId("parentVersionId", ref.parentVersionId);
 
   let parentDir: string | undefined;
   if (ref.parentVersionId) {
-    parentDir = join(root, sceneRel(ref.sceneId), "versions", ref.parentVersionId);
+    parentDir = join(root, rel, "versions", ref.parentVersionId);
     await readVersion(parentDir); // родитель должен быть целым
   }
 
@@ -151,28 +222,41 @@ export async function createDraft(root: string, ref: DraftRef): Promise<Draft> {
       throw e;
     }
   }
-  return { ...ref, root, dir };
+  return { ...ref, projectId, root, dir };
 }
 
-export async function writeBrief(
-  root: string,
-  sceneId: string,
-  brief: { prompt: string; settings: Settings; created_at: string },
-): Promise<void> {
-  checkId("sceneId", sceneId);
-  const dir = await safeMkdir(root, sceneRel(sceneId));
+export interface Brief {
+  prompt: string;
+  settings: Settings;
+  created_at: string;
+}
+
+export async function writeBrief(root: string, sceneId: string, brief: Brief, projectId = DEFAULT_PROJECT): Promise<void> {
+  const dir = await safeMkdir(root, sceneRel(projectId, sceneId));
   const tmp = join(dir, "brief.json.tmp");
   await fsyncWrite(tmp, JSON.stringify(brief, null, 2) + "\n");
   await rename(tmp, join(dir, "brief.json"));
+}
+
+/** Синхронный `writeBrief` — для создания сцены внутри транзакции SQLite. */
+export function writeBriefSync(root: string, sceneId: string, brief: Brief, projectId = DEFAULT_PROJECT): void {
+  const dir = safeMkdirSync(root, sceneRel(projectId, sceneId));
+  const tmp = join(dir, "brief.json.tmp");
+  fsyncWriteSync(tmp, JSON.stringify(brief, null, 2) + "\n");
+  renameSync(tmp, join(dir, "brief.json"));
 }
 
 /**
  * Неудача прогона, не дошедшего до версии (сбой до draft, карантин): `failure.json`
  * рядом с `brief.json`, чтобы сцена не выглядела «в работе». Перезаписывается последним прогоном.
  */
-export async function writeSceneFailure(root: string, sceneId: string, failure: Record<string, unknown>): Promise<void> {
-  checkId("sceneId", sceneId);
-  const dir = await safeMkdir(root, sceneRel(sceneId));
+export async function writeSceneFailure(
+  root: string,
+  sceneId: string,
+  failure: Record<string, unknown>,
+  projectId = DEFAULT_PROJECT,
+): Promise<void> {
+  const dir = await safeMkdir(root, sceneRel(projectId, sceneId));
   const tmp = join(dir, "failure.json.tmp");
   await fsyncWrite(tmp, JSON.stringify({ ...failure, at: new Date().toISOString() }, null, 2) + "\n");
   await rename(tmp, join(dir, "failure.json"));
@@ -217,19 +301,28 @@ function requireStorage(status: StorageStatus): void {
   if (!status.ok) throw new Error(`storage_unavailable: ${status.reason}: ${status.detail}`);
 }
 
+/** Текст `manifest.json` версии (по нему считается `scene_versions.manifest_sha256`). */
+export function manifestText(m: VersionManifest): string {
+  return JSON.stringify(m, null, 2) + "\n";
+}
+
+/** Draft, готовый к коммиту: файлы захешированы и на диске, хранилище проверено. */
+export interface PreparedVersion {
+  draft: Draft;
+  meta: PublishMeta;
+  files: { path: string; sha256: string }[];
+  /** Абсолютный путь `versions/` сцены (создан). */
+  versionsDir: string;
+  snapshot: Map<string, string>;
+}
+
 /**
- * Публикация. Порядок важен для устойчивости к сбоям:
- * 1) guard; 2) sha256 + fsync каждого файла; 3) manifest.json + fsync, fsync каталогов;
- * 4) guard и карантин ещё раз; 5) содержимое draft -> read-only (глубина первой);
- * 6) атомарный rename draft -> versions/<ver>; 7) chmod корня.
- * Сбой до 6 оставляет draft; после 6 версия целая, а незакрытый корень (сбой до 7)
- * `readVersion` отвергает, `relockVersions` закрывает его при старте.
+ * Асинхронная подготовка публикации (H9) — всё медленное до транзакции SQLite:
+ * 1) guard и карантин; 2) sha256 + fsync каждого файла, fsync подкаталогов; 3) проверка
+ * manifest по схеме; 4) guard и карантин ещё раз; 5) каталог `versions/` сцены.
+ * Draft не меняется; сбой оставляет его как был.
  */
-export async function publishVersion(
-  draft: Draft,
-  meta: PublishMeta,
-  guard: () => Promise<StorageStatus>,
-): Promise<{ versionId: string; dir: string; manifest: VersionManifest; warnings: string[] }> {
+export async function prepareVersion(draft: Draft, meta: PublishMeta, guard: () => Promise<StorageStatus>): Promise<PreparedVersion> {
   if (meta.scene_id !== draft.sceneId) throw new Error(`scenes: scene_id манифеста (${meta.scene_id}) не совпадает с draft (${draft.sceneId})`);
   if ((meta.parent_version_id ?? null) !== (draft.parentVersionId ?? null)) {
     throw new Error(`scenes: parent_version_id манифеста (${meta.parent_version_id}) не совпадает с draft (${draft.parentVersionId ?? null})`);
@@ -238,57 +331,103 @@ export async function publishVersion(
   if (quarantined()) throw new Error(`scenes: draft в карантине (quarantined), публикация запрещена: ${draft.dir}`);
   requireStorage(await guard());
 
-  const versionsRel = `${sceneRel(draft.sceneId)}/versions`;
-  const versionsDir = join(draft.root, versionsRel);
-  const number = existsSync(versionsDir) ? (await readdir(versionsDir, { withFileTypes: true })).filter((e) => e.isDirectory()).length + 1 : 1;
-  const versionId = newId("ver");
-
+  await rm(join(draft.dir, MANIFEST), { force: true });
   const tree = await walk(draft.dir);
-  const paths = tree.files.filter((p) => p !== MANIFEST).sort();
+  const paths = tree.files.sort();
   if (paths.includes(QUARANTINE)) throw new Error(`scenes: draft в карантине (quarantined): ${draft.dir}`);
   const files = [];
   for (const path of paths) files.push({ path, sha256: await sha256File(join(draft.dir, path), { sync: true }) });
   if (meta.preview && !files.some((f) => f.path === meta.preview!.path && f.sha256 === meta.preview!.sha256)) {
     throw new Error(`scenes: preview ${meta.preview.path} не найден в файлах draft (или sha256 не совпадает)`);
   }
-  const manifest = VersionManifestSchema.parse({
-    ...meta,
-    version_id: versionId,
-    number,
-    created_at: new Date().toISOString(),
-    files,
-  });
-
-  await rm(join(draft.dir, MANIFEST), { force: true });
-  await fsyncWrite(join(draft.dir, MANIFEST), JSON.stringify(manifest, null, 2) + "\n");
+  // Схема проверяется до транзакции: в коммите остаются только id, номер и время.
+  VersionManifestSchema.parse({ ...meta, version_id: "ver_PREPARE", number: 1, created_at: new Date().toISOString(), files });
   for (const d of [...tree.dirs].sort((x, y) => y.length - x.length)) await fsyncDir(join(draft.dir, d));
-  await fsyncDir(draft.dir);
 
-  // Перепроверка прямо перед rename: между первой проверкой и ним шли хеширование и запись.
-  try {
-    requireStorage(await guard());
-    if (quarantined()) throw new Error(`scenes: draft попал в карантин (quarantined) во время публикации: ${draft.dir}`);
-  } catch (e) {
-    await rm(join(draft.dir, MANIFEST), { force: true }).catch(() => undefined);
-    throw e;
-  }
-  const vDir = await safeMkdir(draft.root, versionsRel);
-  const target = join(vDir, versionId);
-  // Содержимое закрываем до rename: каталог 0555 на этой машине не переносится в другой родитель.
-  try {
-    await lockChildren(draft.dir);
-    await rename(draft.dir, target);
-  } catch (e) {
-    await setWritable(draft.dir).catch(() => undefined);
-    await rm(join(draft.dir, MANIFEST), { force: true }).catch(() => undefined);
-    throw e;
-  }
-  const warnings: string[] = [];
-  await fsyncDir(vDir).catch((e: unknown) => {
-    warnings.push(`fsync ${vDir} после rename не удался: ${(e as Error).message}`);
+  // Перепроверка прямо перед коммитом: между первой проверкой и ней шло хеширование.
+  requireStorage(await guard());
+  if (quarantined()) throw new Error(`scenes: draft попал в карантин (quarantined) во время публикации: ${draft.dir}`);
+  const versionsDir = await safeMkdir(draft.root, `${sceneRel(draft.projectId, draft.sceneId)}/versions`);
+  return { draft, meta, files, versionsDir, snapshot: snapshotSync(draft.dir) };
+}
+
+/**
+ * Синхронный коммит файлов (внутри транзакции SQLite, H9): карантин и неизменность draft →
+ * `manifest.json` + fsync → содержимое read-only (глубина первой) → `renameSync` в
+ * `dest.dir`. Корень версии закрывает вызывающий (`sealVersion`) после COMMIT. Сбой до
+ * rename возвращает draft в записываемое состояние без manifest.
+ */
+export function commitVersionFiles(prepared: PreparedVersion, dest: { versionId: string; number: number; dir: string }): VersionManifest {
+  const { draft } = prepared;
+  checkId("versionId", dest.versionId);
+  if (existsSync(join(draft.dir, QUARANTINE))) throw new Error(`scenes: draft в карантине (quarantined), публикация запрещена: ${draft.dir}`);
+  const now = snapshotSync(draft.dir);
+  const same = now.size === prepared.snapshot.size && [...now].every(([k, v]) => prepared.snapshot.get(k) === v);
+  if (!same) throw new Error(`scenes: draft изменился после подготовки публикации: ${draft.dir}`);
+  const manifest = VersionManifestSchema.parse({
+    ...prepared.meta,
+    version_id: dest.versionId,
+    number: dest.number,
+    created_at: new Date().toISOString(),
+    files: prepared.files,
   });
-  await lockRoot(target);
-  return { versionId, dir: target, manifest, warnings };
+  const manifestPath = join(draft.dir, MANIFEST);
+  try {
+    fsyncWriteSync(manifestPath, manifestText(manifest));
+    fsyncDirSync(draft.dir);
+    // Содержимое закрываем до rename: каталог 0555 на этой машине не переносится в другой родитель.
+    lockChildrenSync(draft.dir);
+    renameSync(draft.dir, dest.dir);
+  } catch (e) {
+    try {
+      setWritableSync(draft.dir);
+      rmSync(manifestPath, { force: true });
+    } catch {
+      // draft остаётся как есть; карантин поставит вызывающий
+    }
+    throw e;
+  }
+  return manifest;
+}
+
+/**
+ * Откат коммита, когда запись в БД не удалась после rename: версия снова записываемая и
+ * возвращается на место draft без `manifest.json`.
+ */
+export function undoCommitVersionFiles(prepared: PreparedVersion, dir: string): void {
+  setWritableSync(dir);
+  renameSync(dir, prepared.draft.dir);
+  rmSync(join(prepared.draft.dir, MANIFEST), { force: true });
+}
+
+/** После COMMIT: fsync каталога `versions/` и запрет записи корня версии. Возвращает предупреждения. */
+export async function sealVersion(dir: string): Promise<string[]> {
+  const warnings: string[] = [];
+  await fsyncDir(dirname(dir)).catch((e: unknown) => {
+    warnings.push(`fsync ${dirname(dir)} после rename не удался: ${(e as Error).message}`);
+  });
+  await lockRoot(dir);
+  return warnings;
+}
+
+/**
+ * Публикация без БД (срез, CLI): `prepareVersion` → номер по числу каталогов версий →
+ * `commitVersionFiles` → `sealVersion`. Сбой до rename оставляет draft; после rename версия
+ * целая, а незакрытый корень (сбой до `sealVersion`) `readVersion` отвергает,
+ * `relockVersions` закрывает его при старте.
+ */
+export async function publishVersion(
+  draft: Draft,
+  meta: PublishMeta,
+  guard: () => Promise<StorageStatus>,
+): Promise<{ versionId: string; dir: string; manifest: VersionManifest; warnings: string[] }> {
+  const prepared = await prepareVersion(draft, meta, guard);
+  const number = (await readdir(prepared.versionsDir, { withFileTypes: true })).filter((e) => e.isDirectory()).length + 1;
+  const versionId = newId("ver");
+  const dir = join(prepared.versionsDir, versionId);
+  const manifest = commitVersionFiles(prepared, { versionId, number, dir });
+  const warnings = await sealVersion(dir);
+  return { versionId, dir, manifest, warnings };
 }
 
 /**

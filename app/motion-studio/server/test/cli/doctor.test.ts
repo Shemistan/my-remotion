@@ -4,7 +4,14 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { VolumeProbe } from "@ms/core";
 import { afterEach, beforeEach, expect, it } from "vitest";
+import { defaultSettings } from "@ms/contracts";
 import { runDoctor } from "../../src/cli/doctor.js";
+import { openDb } from "../../src/db/open.js";
+import * as scenes from "../../src/db/repos/scenes.js";
+import * as versions from "../../src/db/repos/versions.js";
+import { publishVersion, writeBrief } from "../../src/scenes/store.js";
+import { unlockTree } from "../db/helpers.js";
+import { makeDraft, meta } from "../scenes/helpers.js";
 
 const REPO_TMP = fileURLToPath(new URL("../../../../../tmp/", import.meta.url));
 const probe: VolumeProbe = {
@@ -21,7 +28,10 @@ beforeEach(async () => {
   await mkdir(REPO_TMP, { recursive: true });
   tmp = await mkdtemp(join(REPO_TMP, "ms-server-test-"));
 });
-afterEach(() => rm(tmp, { recursive: true, force: true }));
+afterEach(async () => {
+  await unlockTree(tmp); // опубликованные версии read-only
+  await rm(tmp, { recursive: true, force: true });
+});
 
 it("reports not_found with exit 1 and creates nothing", async () => {
   const root = join(tmp, "NoSuchDisk", "MotionStudio");
@@ -73,4 +83,33 @@ it("reports the render browser and fails when it is unavailable", async () => {
   const bad = await runDoctor([], { MS_DATA_DIR: root }, probe, broken);
   expect(bad.code).toBe(1);
   expect(JSON.parse(bad.output)).toMatchObject({ ok: true, browser: { ok: false, error: "download blocked" } });
+});
+
+it("--import-slice регистрирует версии среза в studio.db", async () => {
+  const root = join(tmp, "store");
+  await runDoctor(["--init"], { MS_DATA_DIR: root }, probe, browser);
+  const status = { ok: true as const, root, marker: {} as never, freeBytes: 1 };
+  await writeBrief(root, "scn_S", { prompt: "срез", settings: defaultSettings(), created_at: "2026-10-20T00:00:00.000Z" });
+  const v = await publishVersion(await makeDraft(root, { runId: "run_1", attempt: 1, sceneId: "scn_S" }), meta("scn_S"), async () => status);
+
+  const r = await runDoctor(["--import-slice"], { MS_DATA_DIR: root }, probe, browser);
+  expect(r.code).toBe(0);
+  expect(JSON.parse(r.output)).toMatchObject({ ok: true, import: { imported: 1, skipped: [] } });
+  const db = openDb(root);
+  try {
+    expect(versions.get(db, v.versionId)).toMatchObject({ number: 1, status: "ready" });
+    expect(scenes.get(db, "scn_S")!.current_version_id).toBe(v.versionId);
+  } finally {
+    db.close();
+  }
+  const again = await runDoctor(["--import-slice"], { MS_DATA_DIR: root }, probe, browser);
+  expect(JSON.parse(again.output)).toMatchObject({ ok: true, import: { imported: 0 } });
+});
+
+it("--import-slice без хранилища — отказ без создания БД", async () => {
+  const root = join(tmp, "nope");
+  const r = await runDoctor(["--import-slice"], { MS_DATA_DIR: root }, probe, browser);
+  expect(r.code).toBe(1);
+  expect(JSON.parse(r.output)).toMatchObject({ ok: false, reason: "not_found" });
+  expect(existsSync(root)).toBe(false);
 });

@@ -1,9 +1,9 @@
 import { existsSync, statSync } from "node:fs";
 import { mkdir, rename, rm, symlink } from "node:fs/promises";
 import { join } from "node:path";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { MARKER_FILE, StorageError, StoragePathError, initStore } from "../../src/storage/guard.js";
-import { safeMkdir } from "../../src/storage/safe-mkdir.js";
+import { safeMkdir, safeMkdirSync } from "../../src/storage/safe-mkdir.js";
 import { fakeProbe, makeTmp, removeTmp } from "../helpers.js";
 
 let tmp: string;
@@ -61,4 +61,34 @@ it("refuses to descend through a symlink", async () => {
   await symlink(outside, join(root, "link"));
   await expect(safeMkdir(root, "link/sub")).rejects.toThrow(/storage/);
   expect(existsSync(join(outside, "sub"))).toBe(false);
+});
+
+describe("safeMkdirSync (для записи внутри синхронной транзакции SQLite)", () => {
+  it("creates nested directories under root, repeat is fine", () => {
+    const dir = safeMkdirSync(root, "workspace/projects/p/scenes/s");
+    expect(dir).toBe(join(root, "workspace/projects/p/scenes/s"));
+    expect(statSync(dir).isDirectory()).toBe(true);
+    expect(safeMkdirSync(root, "workspace/projects/p/scenes/s")).toBe(dir);
+  });
+  it("refuses when root vanished or marker is missing", async () => {
+    await rm(join(root, MARKER_FILE));
+    expect(() => safeMkdirSync(root, "cache")).toThrow(StorageError);
+    expect(existsSync(join(root, "cache"))).toBe(false);
+    await rename(root, root + ".gone");
+    expect(() => safeMkdirSync(root, "cache")).toThrow(/storage/);
+    expect(existsSync(root)).toBe(false);
+  });
+  it.each(["../x", "/etc/x", ""])("refuses path escape %j", (rel) => {
+    expect(() => safeMkdirSync(root, rel)).toThrow(StoragePathError);
+  });
+  it("refuses symlinked root and symlink inside", async () => {
+    const link = join(tmp, "link-root");
+    await symlink(root, link);
+    expect(() => safeMkdirSync(link, "cache")).toThrow(/симлинк/);
+    const outside = join(tmp, "outside");
+    await mkdir(outside);
+    await symlink(outside, join(root, "link"));
+    expect(() => safeMkdirSync(root, "link/sub")).toThrow(/storage/);
+    expect(existsSync(join(outside, "sub"))).toBe(false);
+  });
 });

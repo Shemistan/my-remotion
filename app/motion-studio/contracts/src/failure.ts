@@ -31,6 +31,14 @@ export const FailureStageSchema = z.enum([
   "interrupted",
   /** Устаревшая попытка пыталась записать результат (fencing `jobs.attempt`, Task 11). */
   "fenced_out",
+  /** Агент Concept (идея, паттерны, уточнения). */
+  "concept",
+  /** Агент Edit Planner (план правки). */
+  "edit_planner",
+  /** Блокирующее замечание QA (технический gate или Visual QA). */
+  "qa",
+  /** Экспорт версии (в т. ч. `transparent_unsupported`). */
+  "export",
 ]);
 export type FailureStage = z.infer<typeof FailureStageSchema>;
 
@@ -53,6 +61,10 @@ const STAGE_TO_CODE: Record<FailureStage, JobErrorCode> = {
   publish: "pipeline",
   interrupted: "interrupted",
   fenced_out: "fenced_out",
+  concept: "pipeline",
+  edit_planner: "pipeline",
+  qa: "pipeline",
+  export: "pipeline",
 };
 
 /** Код ошибки задачи по этапу неудачи пайплайна. */

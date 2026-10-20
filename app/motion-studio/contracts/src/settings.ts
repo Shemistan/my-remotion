@@ -8,8 +8,8 @@ export const IntensitySchema = z.enum(["calm", "balanced", "energetic"]);
 const Half = z.number().min(0).lt(0.5);
 const ASPECT: Record<string, number> = { "16:9": 16 / 9, "9:16": 9 / 16, "1:1": 1 };
 
-/** Настройки сцены (ТЗ §6.4). safe_area — доли кадра. */
-export const SettingsSchema = z.object({
+/** Поля настроек без межпольных проверок: основа для частичного патча (`RenderBody`). */
+export const SettingsFieldsSchema = z.object({
   aspect_ratio: AspectRatioSchema,
   width: z.number().int().positive(),
   height: z.number().int().positive(),
@@ -22,7 +22,10 @@ export const SettingsSchema = z.object({
   background: z.string().min(1),
   transparent_export: z.boolean(),
   safe_area: z.object({ x: Half, y: Half }).strict(),
-}).strict().superRefine((s, ctx) => {
+}).strict();
+
+/** Настройки сцены (ТЗ §6.4). safe_area — доли кадра. */
+export const SettingsSchema = SettingsFieldsSchema.superRefine((s, ctx) => {
   const want = ASPECT[s.aspect_ratio]!;
   if (Math.abs(s.width / s.height / want - 1) > 0.01) {
     ctx.addIssue({ code: "custom", path: ["aspect_ratio"], message: `width/height не соответствуют ${s.aspect_ratio} (допуск 1%)` });

@@ -8,7 +8,7 @@ import { initStore, type StorageStatus, type VolumeProbe } from "@ms/core";
 import { newId } from "../../src/scenes/ids.js";
 import { sha256 } from "../../src/scenes/hash.js";
 import {
-  createDraft, publishVersion, quarantineDraft, readVersion, relockVersions, writeBrief, type Draft,
+  commitVersionFiles, createDraft, prepareVersion, publishVersion, quarantineDraft, readVersion, relockVersions, writeBrief, type Draft,
 } from "../../src/scenes/store.js";
 
 const REPO_TMP = fileURLToPath(new URL("../../../../../tmp/", import.meta.url));
@@ -86,6 +86,65 @@ describe("ids", () => {
     expect([...ids].sort()).toEqual(ids);
     expect(newId("ver").startsWith("ver_")).toBe(true);
     expect(newId("run")).toMatch(/^[A-Za-z0-9_][A-Za-z0-9_.-]*$/);
+  });
+  it("префиксы Phase 1: prj, job, msg, exp", () => {
+    expect(newId("job")).toMatch(/^job_/);
+    expect(newId("exp")).toMatch(/^exp_/);
+    expect(newId("prj")).toMatch(/^prj_/);
+    expect(newId("msg")).toMatch(/^msg_/);
+  });
+});
+
+describe("projectId (H7)", () => {
+  it("по умолчанию playground; draft сцены проекта prj_x копирует родителя из workspace/projects/prj_x/…", async () => {
+    const d = await createDraft(root, { runId: "run_1", attempt: 1, sceneId: "scn_A", projectId: "prj_x" });
+    expect(d.projectId).toBe("prj_x");
+    await fill(d);
+    const v = await publishVersion(d, meta("scn_A"), okGuard);
+    expect(v.dir).toBe(join(root, "workspace/projects/prj_x/scenes/scn_A/versions", v.versionId));
+    const child = await createDraft(root, { runId: "run_2", attempt: 1, sceneId: "scn_A", projectId: "prj_x", parentVersionId: v.versionId });
+    expect(await readFile(join(child.dir, "src/Scene.tsx"), "utf8")).toBe(sceneText);
+    // тот же родитель в проекте playground не найден
+    await expect(createDraft(root, { runId: "run_3", attempt: 1, sceneId: "scn_A", parentVersionId: v.versionId })).rejects.toThrow();
+    expect((await createDraft(root, { runId: "run_4", attempt: 1, sceneId: "scn_B" })).projectId).toBe("playground");
+  });
+  it("writeBrief пишет в каталог сцены проекта", async () => {
+    await writeBrief(root, "scn_A", { prompt: "p", settings: defaultSettings(), created_at: "2026-10-20T00:00:00.000Z" }, "prj_x");
+    expect(existsSync(join(root, "workspace/projects/prj_x/scenes/scn_A/brief.json"))).toBe(true);
+  });
+  it("небезопасный projectId отклоняется", async () => {
+    await expect(createDraft(root, { runId: "run_1", attempt: 1, sceneId: "scn_A", projectId: "../x" })).rejects.toThrow();
+  });
+});
+
+describe("prepareVersion + commitVersionFiles (H9)", () => {
+  it("подготовка не переносит draft; коммит синхронно публикует с заданными номером и id", async () => {
+    const d = await mk("scn_A");
+    const prepared = await prepareVersion(d, meta("scn_A"), okGuard);
+    expect(existsSync(d.dir)).toBe(true);
+    expect(existsSync(join(d.dir, "manifest.json"))).toBe(false);
+    const dir = join(prepared.versionsDir, "ver_FIXED");
+    const m = commitVersionFiles(prepared, { versionId: "ver_FIXED", number: 7, dir });
+    expect(m).toMatchObject({ version_id: "ver_FIXED", number: 7 });
+    expect(existsSync(d.dir)).toBe(false);
+    expect((await lstat(join(dir, "src/Scene.tsx"))).mode & 0o222).toBe(0);
+    await chmod(dir, 0o555); // корень закрывает вызывающий после COMMIT
+    expect((await readVersion(dir)).files.map((f) => f.path)).toEqual(["preview.mp4", "props.json", "src/Scene.tsx"]);
+  });
+  it("карантин после подготовки останавливает коммит, draft цел и записываем", async () => {
+    const d = await mk("scn_A");
+    const prepared = await prepareVersion(d, meta("scn_A"), okGuard);
+    await quarantineDraft(d, "fenced_out");
+    expect(() => commitVersionFiles(prepared, { versionId: "ver_Q", number: 1, dir: join(prepared.versionsDir, "ver_Q") })).toThrow(/quarantined/);
+    expect(existsSync(join(prepared.versionsDir, "ver_Q"))).toBe(false);
+    await writeFile(join(d.dir, "props.json"), "{}");
+  });
+  it("файл, изменённый после подготовки, не публикуется", async () => {
+    const d = await mk("scn_A");
+    const prepared = await prepareVersion(d, meta("scn_A"), okGuard);
+    await writeFile(join(d.dir, "src/Late.tsx"), "x");
+    expect(() => commitVersionFiles(prepared, { versionId: "ver_L", number: 1, dir: join(prepared.versionsDir, "ver_L") })).toThrow(/изменился/);
+    expect(existsSync(d.dir)).toBe(true);
   });
 });
 
