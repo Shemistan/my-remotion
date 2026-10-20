@@ -7,4 +7,8 @@
 <!-- gate:begin adr-index -->
 | № | Решение | Статус |
 |---|---------|--------|
+| [0001](0001-motion-studio-separate-app.md) | Motion Studio — отдельное Node/TS-приложение в my-remotion | предложено |
+| [0002](0002-sqlite-durable-job-runner.md) | SQLite и собственная durable-очередь задач | предложено |
+| [0003](0003-claude-code-restricted-runtime.md) | Агенты через `claude -p --restricted` без Bash | предложено |
+| [0004](0004-remotion-pin-and-motion-kit.md) | Remotion 4.0.537 с точным pin и собственный motion-kit | предложено |
 <!-- gate:end adr-index -->
