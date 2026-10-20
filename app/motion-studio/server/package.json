@@ -4,7 +4,8 @@
   "type": "module",
   "dependencies": {
     "@ms/core": "*",
-    "@ms/render": "*"
+    "@ms/render": "*",
+    "typescript": "~5.9.3"
   },
   "scripts": {
     "typecheck": "tsc -p ."
