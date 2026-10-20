@@ -1,7 +1,7 @@
 ---
 тип: plan
 статус: запланировано
-обновлено: 2026-10-20
+обновлено: 2026-10-21
 спека: 2026-10-20-motion-studio-phase1-rest.md
 ---
 
@@ -13,9 +13,9 @@
 
 **Architecture:** к пакетам среза `@ms/contracts`, `@ms/core`, `@ms/render`, `server` добавляются: SQLite-схема и репозитории (`server/src/db`), Job Orchestrator с fencing-токеном и реестром `job_processes` (`server/src/jobs`), SceneRepo v2 поверх файлового SceneStore (`server/src/scenes`), QA по реальным кадрам (`server/src/qa`), пайплайны `playground.generate` / `playground.edit` / `scene.restore` / `scene.export` (`server/src/pipeline`), Control API на Fastify (`server/src/api`) и пакет `web` (React + Vite). motion-kit растёт до v0.2: StyleBible-система, хореография входов, камера, safe area, примитивы паттернов ТЗ §8.4. Движок сцен (`contracts` + `render`) по-прежнему не зависит от HTTP и БД.
 
-**Tech Stack:** то же, что в срезе (Node 22.21.1, TS strict ESM, Vitest 3, ESLint 9, Zod 3, Remotion 4.0.537 pin, Claude Code CLI 2.1.x) плюс `better-sqlite3` (уже в `@ms/core`), Fastify 5 + `fastify-type-provider-zod` + `@fastify/static`, `pngjs` (MIT, разбор PNG для QA), `diff` (BSD-3, текстовый diff версий), React (та же точная версия, что в `render`) + Vite + TanStack Query 5, `@testing-library/react` + jsdom, Playwright. Точные версии новых пакетов фиксируются в lockfile при установке.
+**Tech Stack:** то же, что в срезе (Node 22.21.1, TS ~5.9 strict ESM, Vitest 5, ESLint 10, Zod 3, Remotion 4.0.537 pin, Claude Code CLI 2.1.x) плюс `better-sqlite3` (уже в `@ms/core`), Fastify 5 + `fastify-type-provider-zod` + `@fastify/static`, `pngjs` (MIT, разбор PNG для QA), `diff` (BSD-3, текстовый diff версий), React (та же точная версия, что в `render`) + Vite + TanStack Query 5, `@testing-library/react` + jsdom, Playwright. Точные версии новых пакетов фиксируются в lockfile при установке.
 
-**Spec:** `docs/superpowers/specs/2026-10-20-ai-motion-studio-design.md` → `docs/architecture/01…09`, ADR 0001–0007 (приняты); начало — `docs/superpowers/plans/2026-10-20-motion-playground-mvp.md` (Task 1–10) и решения контроллера `.superpowers/sdd/2026-10-20-motion-playground-mvp/rulings.md` (R1–R4).
+**Spec:** `docs/superpowers/specs/2026-10-20-ai-motion-studio-design.md` → `docs/architecture/01…09`, ADR 0001–0007 (приняты); начало — `docs/superpowers/plans/2026-10-20-motion-playground-mvp.md` (Task 1–10) и решения контроллера `.superpowers/sdd/2026-10-20-motion-playground-mvp/rulings.md` (R1–R16).
 
 **Покрытие backlog `07` §3:** P1-03 + P1-11 (Task 11), P1-04 (Task 12, 13), P1-07+ (Task 14, 15), QA из P1-10/P1-12 (Task 16), P1-10 + P1-12 (Task 17), P1-13 (Task 18), P1-14 (Task 19), P1-15 + P1-17 (Task 20), P1-16 + P1-17 Jobs Monitor (Task 21), P1-18 (Task 22).
 
@@ -44,7 +44,9 @@
 ## Global Constraints
 
 - Всё из Global Constraints среза остаётся в силе (Node 22.21.1, точный pin Remotion 4.0.537, `MS_DATA_DIR` только через StorageGuard и `safeMkdir`, агенты только `claude -p --restricted …` без Bash и без bypass, модели `agents.<role>.model`, лимиты, детерминизм кода сцены, KB по умолчанию только `permissive`, запрет устаревшего `ai-platform/.../aiplatform/motion/` как кода и референса, KB-исходники только чтение).
-- Решения контроллера R1–R4 действуют: storage и run-утилиты в `@ms/core`; Vitest `test.projects`; все команды через `scripts/with-node.sh`; коммиты без строк соавторства; ветки и `./finish` — контроллер.
+- Решения контроллера R1–R16 (`.superpowers/sdd/2026-10-20-motion-playground-mvp/rulings.md`) действуют: storage и run-утилиты в `@ms/core`; Vitest `test.projects`; все команды через `scripts/with-node.sh`; коммиты без строк соавторства; ветки и `./finish` — контроллер; версии инструментов — Vitest 5, ESLint 10, TS ~5.9 (R9); журналы агентов через `safeMkdir` (R12); `orphaned` никогда не успех (R13); отказы прав Engineer решает оркестратор (R14); бюджет по фактическому `usage.costUsd` (R15); static check до typecheck и бандла (R16).
+- Словарь этапов неудачи — `FailureStageSchema` в `@ms/contracts` (срез, финальная волна); `JobError.code` задачи получается через `failureToJobErrorCode(stage)`, своих строк этапов в пайплайнах не заводить. Этап рендера «ffprobe не отработал» — `RenderStage = "ffprobe"`, этап пайплайна «превью не прошло `probeGate`» — `FailureStage = "probe"`.
+- Граница draft (срез, финальная волна): Engineer меняет только `src/**` и `props.json`; файлы пайплайна (`spec.json`, `settings.json`, `selection.json`, `knowledge-refs.json`, `style.json`, `refs/`) пайплайн хранит в памяти и перезаписывает перед публикацией; `node_modules` где угодно и `package.json` в `src/**` и в корне draft отклоняет static check; бандлер ищет модули только в `node_modules` приложения (`render/src/node/resolve-jail.ts`).
 - Сервер слушает только `127.0.0.1:8790`; `Host` ∈ {`127.0.0.1:8790`, `localhost:8790`}; мутирующие запросы — только с `Origin` `http://127.0.0.1:8790` или `http://localhost:8790`; нет авторизации, ролей, биллинга, облака, Redis, Docker, ORM.
 - Порядок старта сервера (ADR 0007 п.5): owner-lock → StorageGuard → `studio.db` (миграции, сверка `store_id`) → разбор реестра процессов → восстановление задач → только затем захват новых задач и `listen`.
 - Fencing: каждая запись результата задачи (публикация версии, экспорт, `output_refs_json`, сообщение ассистента) идёт в транзакции с проверкой `jobs.attempt = <attempt попытки>`; несовпадение — `fenced_out`, ничего не пишется, draft помечается `.quarantined`.
@@ -126,6 +128,11 @@
     - `diff(aId: string, bId: string): Promise<VersionDiff>`; `VersionDiff = { settings: JsonChange[]; props: JsonChange[]; spec: JsonChange[]; files: { path: string; status: "added" | "removed" | "changed" | "same"; unified?: string }[] }`; `JsonChange = { path: string /* JSON Pointer */; before?: unknown; after?: unknown }`
     - `cleanupDrafts(live: { runId: string; attempt: number }[]): Promise<{ removed: string[]; kept: string[] }>` — удаляет drafts без живой попытки, кроме `.quarantined`
   - `importSliceVersions(repo: SceneRepo, root: string): Promise<{ imported: number }>` — версии `workspace/projects/playground/` без записи в БД регистрируются с проверкой sha256 (`readVersion`)
+
+**Поправки после ревью среза (2026-10-21):**
+- `JobErrorSchema.code` — тот же `JobErrorCodeSchema`, что уже есть в `@ms/contracts` (`contracts/src/failure.ts`); `JobError.stage` — `FailureStage`, не свободная строка. Соответствие: `orphaned → stale_process`, `storage → storage_unavailable`, `budget → budget`, `cancelled → cancelled`, `interrupted → interrupted`, `fenced_out → fenced_out`, остальные этапы → `pipeline` (`failureToJobErrorCode`).
+- `cleanupDrafts`: опубликованные копии и drafts после неудачной публикации могут быть read-only — перед `rm` вызывать `setWritable` (как `publishVersion` при откате), иначе `EACCES` оставит мусор.
+- `ScenePropsBaseSchema.style.intensity` — единственный источник интенсивности для сцены: пайплайн и `resolveStyle` берут её из `props.json`, не из жёстко заданного значения в коде пайплайна или промпта.
 
 - [ ] **Step 1: Тесты контрактов (падают):**
 
@@ -222,6 +229,8 @@ expect(jobs.get(db, c1.job.id)!.status).toBe("running");
 // EventBus: subscribe(5) получает события 6.. из БД, затем живые
 ```
 
+**Поправка после ревью среза (2026-10-21):** отменённая задача версию не публикует (согласовано с Task 17): обработчик при `signal.aborted` помечает draft попытки `.quarantined` с причиной `cancelled` и завершает задачу `cancelled` через `finish`; `failed`-версия с `failure.stage = "cancelled"` (поведение CLI среза) в задачах не создаётся.
+
 - [ ] **Step 2–4:** FAIL → реализовать → PASS. Раннер: цикл `claimNext` каждые `pollMs`; на задачу — `AbortController`, heartbeat-таймер; `cancel_requested` проверяется в heartbeat; исключение обработчика → `failed` с `error.code = "pipeline"`; `HandlerResult` пишется только через `finish` (fencing).
 - [ ] **Step 5:** `./check`; коммит `feat(motion-studio): очередь задач с fencing и замком сцены`.
 
@@ -247,14 +256,23 @@ expect(jobs.get(db, c1.job.id)!.status).toBe("running");
   - `recoverOnStart(deps: { db: Db; repo: SceneRepo; registry: ProcessRegistry; reap?: typeof reapAttempt }): Promise<RecoveryReport>`; `RecoveryReport = { requeued: string[]; failed: string[]; blocked: { jobId: string; pids: number[]; cmds: string[] }[]; draftsRemoved: string[] }` — для каждой `running`-задачи: `reapAttempt` → `clean` и `attempt < max_attempts` → `pending` (`error.code = "interrupted"` в журнале); `clean` и попытки исчерпаны → `failed(interrupted)`; не `clean` → `blocked(stale_process)` + `.quarantined` на draft попытки; затем `cleanupDrafts`
   - `class StorageSupervisor`: `constructor(deps: { check: () => Promise<StorageStatus>; runner: JobRunner; registry: SqliteProcessRegistry; reopen: () => Db; intervalMs?: 10_000 })`; `mode(): "online" | "storage_offline"`; при сбое: `runner.pause()`, abort всех попыток, закрыть БД; при возврате: `quickCheck` → reopen → тот же разбор, что `recoverOnStart`, причина `storage_unavailable` → `runner.resume()`
   - `retryJob(db, jobId, registry): Promise<Job>` — только `failed | cancelled | blocked`; при живых процессах прежней попытки → ошибка `stale_process_alive` с `pids`, `cmds`; иначе `pending` (без изменения `attempt` — его увеличит захват)
-  - `bootCore(opts: { env: NodeJS.ProcessEnv; kind: "server" | "cli"; probe?: VolumeProbe; handlers?: …; log?: (step: string) => void }): Promise<Core>`; `Core = { root; config: AppConfig; db: Db; repo: SceneRepo; kb: KnowledgeAdapter; agents: AgentRuntimeAdapter; runner: JobRunner; storage: StorageSupervisor; registry: SqliteProcessRegistry; recovery: RecoveryReport; close(): Promise<void> }` — порядок шагов `log`: `owner_lock → storage → db → registry → recovery → runner`
+  - `bootCore(opts: { env: NodeJS.ProcessEnv; kind: "server" | "cli"; probe?: VolumeProbe; handlers?: …; log?: (step: string) => void }): Promise<Core>`; `Core = { root; config: AppConfig; db: Db; repo: SceneRepo; kb: KnowledgeAdapter; agents: AgentRuntimeAdapter; runner: JobRunner; storage: StorageSupervisor; registry: SqliteProcessRegistry; recovery: RecoveryReport; close(): Promise<void> }` — порядок шагов `log`: `owner_lock → storage → db → registry → reap → sweep_drafts → relock_versions → recovery → runner`, где `reap` — `reapStale` по всем записям реестра плюс `reapStrayRenderers`, `sweep_drafts` — `sweepAbandonedDrafts`, `relock_versions` — `relockVersions`
+
+**Поправки после ревью среза (2026-10-21):**
+- Это не «всё обратно совместимо»: `ProcessRegistry` меняет форму (`list/remove` среза → `add/end/live`), `spawnTracked`, `reapStale`, `sweepAbandonedDrafts` и `settleBrowserRecords` переходят на новый интерфейс; тесты среза на `fileProcessRegistry` переписываются вместе с ним.
+- Реестр передаётся явно: `RenderRequest` и `AgentTask` получают `registry` (или объект контекста прогона `{ root, runId, attempt, registry }`), рантайм агентов и `renderVersion` отдают его в `spawnTracked`; файловый реестр по умолчанию — только для CLI и тестов.
+- `chrome-wrapper.sh` по-прежнему пишет запись Chrome в файловый «боковой» реестр `run/processes/` (он запускается Remotion, а не нами, и до SQLite не дотянется); `recoverOnStart` сливает живые записи SQLite и бокового реестра по `(runId, attempt)` и убивает обе группы.
+- `spawnTracked`: буферы stdout/stderr ограничены (хвост, например, 8 МБ на поток, с пометкой об обрезке), иначе зависший агент или Chrome с потоком логов съест память сервера.
+- Таймаут сторожа хранилища (`watchStorage`: проверка не ответила за 3 интервала) — отдельная причина (`storage_watch_timeout`), а не `not_found`, чтобы журнал отличал повисший `diskutil` от отключённого диска.
+- `StorageSupervisor`, возврат из `storage_offline`: перед `quickCheck`/reopen заново взять или проверить `run/owner.lock` на новом монтировании (fcntl-замок привязан к vnode старого монтирования и после переподключения тома не защищает новый файл); `owner_busy` — остаться в `storage_offline` с причиной и не возобновлять раннер. Тест: подменить файл замка (новый vnode) при занятом замке другим процессом → режим остаётся `storage_offline`.
+
 
 - [ ] **Step 1: Тесты (падают):**
 
 ```ts
 // порядок старта (ADR 0007 п.5)
 const steps: string[] = []; await bootCore({ env, kind: "server", probe, log: s => steps.push(s) });
-expect(steps).toEqual(["owner_lock", "storage", "db", "registry", "recovery", "runner"]);
+expect(steps).toEqual(["owner_lock", "storage", "db", "registry", "reap", "sweep_drafts", "relock_versions", "recovery", "runner"]);
 // хранилище недоступно → owner-lock взят, БД не открыта, runner не стартовал
 await expect(bootCore({ env: { MS_DATA_DIR: missing }, kind: "server", probe })).rejects.toThrow(/storage/);
 expect(existsSync(join(missing, "studio.db"))).toBe(false);
@@ -292,7 +310,7 @@ await expect(retryJob(db, "job_1", registry)).rejects.toThrow(/stale_process_ali
 - Consumes: `StyleBibleSchema`, `Settings`, `Beat` (Task 3); `presets`, `StyleProvider`, `useStyle`, `useBeat`, `beatProgress` (Task 6); `renderVersion`, `probeGate` (Task 4); `checkSceneSource` (Task 5)
 - Produces (`@ms/motion-kit`, версия `0.2.0`):
   - `type ResolvedStyle = StyleBible & { amplitude: number; depth: 0 | 1 | 2 | 3; transparent: boolean }`
-  - `resolveStyle(input: { preset: StylePreset; palette_overrides?: Record<string, string>; font?: string; intensity: Intensity; depth?: 0 | 1 | 2 | 3; transparent?: boolean; safe_area?: { x: number; y: number } }): ResolvedStyle` — интенсивность: `calm` — кадры `enter/exit/stagger × 1.25` (round), `amplitude 0.6`; `balanced` — `× 1`, `1.0`; `energetic` — `× 0.75`, `1.35`; `palette_overrides` только по известным ключам палитры
+  - `resolveStyle(input: { preset: StylePreset; palette_overrides?: Record<string, string>; font?: string; intensity: Intensity; depth?: 0 | 1 | 2 | 3; transparent?: boolean; safe_area?: { x: number; y: number } }): ResolvedStyle` — интенсивность: `calm` — кадры `enter/exit/stagger × 1.25` (round), `amplitude 0.6`; `balanced` — `× 1`, `1.0`; `energetic` — `× 0.75`, `1.35`; после округления `enter_frames` (и `exit_frames`) ограничиваются снизу 1 (поправка после ревью среза); `palette_overrides` только по известным ключам палитры
   - `contrastRatio(fg: string, bg: string): number` (WCAG 2.x); `relativeLuminance(hex: string): number`
   - `typeSize(style: ResolvedStyle, level: "display" | "h1" | "h2" | "body" | "caption", frameHeight: number): number` — доли высоты кадра `0.11 / 0.075 / 0.055 / 0.042 / 0.03`, `round`
   - `enterStyle(kind: EnterKind, p: number, o: { amplitude: number; distancePx: number; direction?: "up" | "down" | "left" | "right" }): React.CSSProperties` — `fade`: только `opacity`; `rise`: `translateY((1-p)·distance·amp)` + opacity; `scale`: `scale(0.92 + 0.08p)` при `amp=1`; `mask`: `clipPath inset`; `blur`: `filter blur((1-p)·12·amp px)`; `pop`: spring с overshoot из `style.motion.spring.pop`; `type`/`count`/`draw` — `{}` (обрабатывает компонент)
@@ -310,6 +328,8 @@ await expect(retryJob(db, "job_1", registry)).rejects.toThrow(/stale_process_ali
 const base = presets["dark-premium"].motion;
 expect(resolveStyle({ preset: "dark-premium", intensity: "calm" }).motion.enter_frames).toBe(Math.round(base.enter_frames * 1.25));
 expect(resolveStyle({ preset: "dark-premium", intensity: "energetic" }).amplitude).toBe(1.35);
+// поправка после ревью среза: кадры входа не обнуляются округлением
+expect(resolveStyle({ preset: tinyEnterPreset, intensity: "energetic" }).motion.enter_frames).toBeGreaterThanOrEqual(1);
 expect(resolveStyle({ preset: "dark-premium", intensity: "balanced", palette_overrides: { accent0: "#9B5CFF" } }).palette.accent[0]).toBe("#9B5CFF");
 expect(() => resolveStyle({ preset: "dark-premium", intensity: "balanced", palette_overrides: { nope: "#000" } })).toThrow(/nope/);
 expect(contrastRatio("#FFFFFF", "#000000")).toBeCloseTo(21, 1);
@@ -397,6 +417,12 @@ expect(timelineLayout(3, { x: 0, y: 0, w: 1000, h: 100 }, "h").map(p => p.x)).to
   - `fixHints(report: QAReport): string` — текст для Engineer: код, кадр, область, `fix_hint`
 - `prompts/visual-qa.md`: чек-лист по ТЗ §8.1–8.5 и `06` §6 — иерархия, одна мысль, обрезка и safe area, перекрытия, контраст, размер текста, разные входы, ритм битов по кадрам, соответствие смыслу запроса и стилю; для каждого числа и подписи — OCR в `ocr[]`; только наблюдения по кадрам, без догадок о коде.
 
+**Поправки после ревью среза (2026-10-21)** — по итогам приёмочного прогона Test 1:
+- Visual QA проверяет, что каждый элемент `spec.elements` действительно построен (в прогоне Test 1 не было `line-pulse`): чек-лист `visual-qa.md` перечисляет `id`/`role` элементов, ответ агента содержит `elements_seen: { id; frame?; seen: boolean }[]`, отсутствующий элемент — blocking `missing_element`.
+- `frozen` не должен срабатывать на общий дрейф камеры: сравнивать области объектов (`layout` элементов) или разность после вычитания фона/глобального сдвига, а не `frameDelta` всего кадра.
+- `selectQaFrames`: обязательные кадры держат шаг ≥ 10 кадров, где длительность позволяет (как `qaFrames` среза); при конфликте приоритет — вход, акцент, последний кадр.
+- `blank` не флагует кадр 0: сцена по замыслу может начинаться с пустого фона; проверяются кадры внутри битов, начиная с конца входа первого бита.
+
 - [ ] **Step 1: Юнит-тесты (падают)** на синтетических PNG 192×108 (`pngjs`):
 
 ```ts
@@ -445,6 +471,12 @@ expect(qaBlocks(mergeQA({ technical: [], programmatic: [block("clipping")] }))).
   - `scene-contract.md`: `props.json` проходит `ScenePropsBaseSchema`; тайминги битов только из `props.timing`, стиль только через `resolveStyle(props.style)` и `<StyleProvider>`; при `props.style.transparent` — без фона на корне; импорт только из allowlist; предпочитать motion-kit; код из `refs/kb` — адаптировать на кадры.
   - `concept.md`: уточнять только то, без чего сцену не сделать; иначе — defaults настроек; RU и EN ключи поиска; 1–3 паттерна.
   - `motion-director.md`: spec с битами, `entrance` для каждого элемента, `layout` в долях кадра без пересечений, `camera` по необходимости, выбор компонентов только из кандидатов с обоснованием и стратегией.
+
+**Поправки после ревью среза (2026-10-21):**
+- `KnowledgeAdapter.fresh()` при недописанной KB (индекс читается во время пересборки, битый JSON, пропавшие карточки) оставляет последний исправный индекс и пишет предупреждение, а не падает и не отдаёт пустую выдачу.
+- Поиск по умолчанию исключает невизуальные записи (`kind = "doc"`, «Не рисует…», «Своей картинки нет…») — то же, что `searchCandidates` среза, но в самом адаптере, чтобы UI и все пайплайны видели одно.
+- Выбор Director сводится к предложенным кандидатам и `permissive` до `knowledge-refs.json`, manifest и промпта Engineer (`filterSelection` среза); отброшенное — предупреждение и `selection.json.dropped`.
+- Отмена: отменённая задача версию не публикует; draft попытки — `.quarantined` с причиной `cancelled`, задача `cancelled` (согласовано с Task 12). `generateScene` CLI среза публикует `failed/cancelled` — при переходе на обработчик это поведение заменяется.
 
 - [ ] **Step 1: Юнит-тесты (падают),** фейковые агенты и рендер — только логика:
 
@@ -597,6 +629,11 @@ expect(exportGate({ ...ok, codec: "prores", pixFmt: "yuv422p10le" }, { format: "
     - `GET /settings`, `PUT /settings` — `$MS_DATA_DIR/config.json` (модели ролей, лимиты, `defaults: Settings`), валидация `loadConfig`
   - `main.ts`: `bootCore({ kind: "server" })` → `buildApp` → `listen({ host: "127.0.0.1", port: 8790 })`; SIGTERM/SIGINT → `runner.stop({ abortRunning: true })` → закрытие БД → release lock; `--dev` — Vite middleware (Q7), иначе статика `web/dist`
   - `doctor` (полный, `03` §7): Node ≥ 22; `claude --version` и вход (`claude -p` с `--tools ""`, модель `haiku`, стоимость < $0.01); `ffmpeg`/`ffprobe` версии и энкодеры `libx264`, `aac`, `prores_ks`; `KB_ROOT`/`KB_SOURCE_ROOT`; StorageGuard; Chrome Headless Shell; `quick_check` БД; owner-lock свободен; итоговая таблица и код выхода 1 при любой ошибке; `--json`
+
+**Поправки после ревью среза (2026-10-21):**
+- Все `GET` API без побочных эффектов: никаких `enqueue`, записи в БД или на диск, перерендера превью по запросу; тест — прогон всех `GET`-маршрутов и сравнение `studio.db` (`total_changes`) и дерева `MS_DATA_DIR` до и после.
+- Любая мутация (`POST`/`PUT`/`PATCH`/`DELETE`) требует `Origin` из allowlist — отсутствующий `Origin` тоже 403 (уже в `security.ts` выше); тест на каждый мутирующий маршрут, а не на один.
+- Chrome рендера не достаёт до `127.0.0.1:8790`: уже сделано в срезе — `chrome-wrapper.sh` гонит весь трафик, включая loopback (`--proxy-bypass-list=<-loopback>`), в `127.0.0.1:9`, напрямую пускает только сервер бандла Remotion на порту, который worker выбирает сам и передаёт в `MS_BUNDLE_PORT` (`port` в `selectComposition`/`renderStill`/`renderMedia`). Проверено e2e `render.e2e.test.ts` («Chrome cannot reach local services on loopback»): `127.0.0.1`, `localhost` и `[::1]` на порту тестового сервера — `blocked`, ноль запросов, ассеты бандла грузятся. В Task 20 — повторить проверку против настоящего сервера на 8790 (e2e: сцена с `fetch("http://127.0.0.1:8790/api/health")` → `blocked`, в журнале сервера запроса нет).
 
 - [ ] **Step 1: Тесты (падают),** `app.inject`, `Core` на `tmp/` с фейковыми обработчиками задач (только контракт API):
 
