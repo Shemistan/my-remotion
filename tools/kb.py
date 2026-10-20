@@ -6,6 +6,8 @@
     python3 tools/kb.py check   # проверить базу (зовётся из ./check)
     python3 tools/kb.py check --repo <id>   # только один репозиторий
     python3 tools/kb.py stats   # сводка: репозитории, записи, категории
+    python3 tools/kb.py patterns  # пересобрать таблицы кандидатов в
+                                  # knowledge/patterns/*.md (блок kb:begin/end)
 
 Исходные части каталога: knowledge/components/<repo>/capabilities*.jsonl
 (большой репозиторий можно разбить на срезы capabilities-<срез>.jsonl).
@@ -288,6 +290,12 @@ def check(root, only_repo=None):
     if actual != expected:
         err(os.path.relpath(out, root),
             "устарел — запусти `python3 tools/kb.py build`")
+
+    # таблицы кандидатов в паттернах актуальны
+    for path, (old, new) in patterns_render(root).items():
+        if old != new:
+            err(os.path.relpath(path, root),
+                "таблица кандидатов устарела — запусти `python3 tools/kb.py patterns`")
     return errors, warnings, ids
 
 
@@ -303,6 +311,78 @@ def cmd_check(root, only_repo=None):
                   file=sys.stderr)
         return 1
     print("✓ kb: %d записей, ошибок нет" % len(ids))
+    return 0
+
+
+PAT_BEGIN = "<!-- kb:begin candidates -->"
+PAT_END = "<!-- kb:end candidates -->"
+COMPAT_ORDER = ("native", "adaptable", "complex", "unknown", "unsuitable")
+COMPAT_TITLE = {
+    "native": "Готово для Remotion (`native`)",
+    "adaptable": "Адаптируется без переписывания (`adaptable`)",
+    "complex": "Требует существенной переработки (`complex`)",
+    "unknown": "Данных недостаточно (`unknown`)",
+    "unsuitable": "Не подходит (`unsuitable`)",
+}
+
+
+def render_candidates(rows, slug):
+    """Таблицы кандидатов паттерна по классам совместимости."""
+    items = [r for r in rows if slug in r.get("patterns", [])]
+    if not items:
+        return "_в каталоге пока нет записей с этим паттерном_"
+    out = []
+    for cls in COMPAT_ORDER:
+        group = sorted((r for r in items if r.get("remotion_compat") == cls),
+                       key=lambda r: (r.get("repo", ""), r.get("id", "")))
+        if not group:
+            continue
+        out += ["### %s — %d" % (COMPAT_TITLE[cls], len(group)), "",
+                "| id | Репозиторий | Что визуализирует | Карточка |",
+                "|---|---|---|---|"]
+        for r in group:
+            vis = r.get("visualizes", "").replace("|", "\\|").replace("\n", " ")
+            if len(vis) > 140:
+                vis = vis[:137].rstrip() + "…"
+            out.append("| `%s` | %s | %s | [карточка](../%s) |"
+                       % (r["id"], r.get("repo", ""), vis, r.get("card", "")))
+        out.append("")
+    return "\n".join(out).rstrip()
+
+
+def patterns_render(root):
+    """{path: new_text} для файлов паттернов с маркерами."""
+    rows = [r for _, p in part_files(root) for _, r in read_jsonl(p)
+            if isinstance(r, dict)]
+    pdir = os.path.join(root, KB, "patterns")
+    result = {}
+    if not os.path.isdir(pdir):
+        return result
+    for name in sorted(os.listdir(pdir)):
+        if not name.endswith(".md") or name == "README.md":
+            continue
+        path = os.path.join(pdir, name)
+        with open(path, encoding="utf-8") as f:
+            old = f.read()
+        if PAT_BEGIN not in old or PAT_END not in old:
+            continue
+        content = render_candidates(rows, name[:-3])
+        pattern = re.compile(re.escape(PAT_BEGIN) + r".*?" + re.escape(PAT_END),
+                             re.DOTALL)
+        new = pattern.sub(lambda _m: "%s\n%s\n%s" % (PAT_BEGIN, content, PAT_END), old)
+        result[path] = (old, new)
+    return result
+
+
+def cmd_patterns(root):
+    changed = []
+    for path, (old, new) in patterns_render(root).items():
+        if old != new:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(new)
+            changed.append(os.path.relpath(path, root))
+    print("✓ kb: паттерны %s" % ("обновлены: " + ", ".join(changed) if changed
+                                  else "актуальны"))
     return 0
 
 
@@ -343,7 +423,7 @@ def main(argv):
         return 0
     if cmd == "check":
         return cmd_check(root, only_repo)
-    return {"build": cmd_build, "stats": cmd_stats}[cmd](root)
+    return {"build": cmd_build, "stats": cmd_stats, "patterns": cmd_patterns}[cmd](root)
 
 
 if __name__ == "__main__":
