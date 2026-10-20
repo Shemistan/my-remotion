@@ -6,7 +6,7 @@ import type { CSSProperties } from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { EASE, frames, springAt } from "../easing.js";
 import { formatNumber } from "../format.js";
-import { CLAMP, clamp01 } from "../internal.js";
+import { CLAMP, clamp01, ramp } from "../internal.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, fontFamily, tracking, typeSize } from "../tokens.js";
 
@@ -43,9 +43,10 @@ export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact
   const ease = EASE.count;
 
   // счёт идёт до конца бита; вход занимает его начало и идёт параллельно
-  const countStart = b0 + Math.min(6, (b1 - b0) * 0.1);
-  const p = interpolate(frame, [countStart, b1], [0, 1], { ...CLAMP, easing: ease });
-  const pPrev = interpolate(frame - 1, [countStart, b1], [0, 1], { ...CLAMP, easing: ease });
+  const countStart = b0 + Math.max(0, Math.min(6, (b1 - b0) * 0.1));
+  // ramp: бит нулевой длины — ступенька, а не исключение interpolate
+  const p = ramp(frame, countStart, b1, ease);
+  const pPrev = ramp(frame - 1, countStart, b1, ease);
   const value = from + (to - from) * p;
   const fmt = { locale, compact, decimals };
   const text = formatNumber(value, fmt);

@@ -33,7 +33,8 @@ H.264 → ffprobe. Зависит только от `@ms/core` и `@ms/contracts
 - Файлы kit проходят статическую проверку сцен без нарушений
   (`server/test/scenes/kit-static.test.ts`).
 - Галерея — фикстура `test/fixtures/kit-gallery` (все компоненты, 1920×1080, 150 кадров,
-  пресет из props). Её e2e — `test/kit/gallery.e2e.test.ts`.
+  пресет из props). Её e2e — `test/kit/gallery.e2e.test.ts`; там же
+  `test/fixtures/kit-degenerate`: все компоненты на битах нулевой длины и обратных.
 
 ## Как устроен renderVersion
 

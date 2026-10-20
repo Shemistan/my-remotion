@@ -13,7 +13,7 @@
 
 **Architecture:** npm-workspace `app/motion-studio/` из трёх пакетов: `contracts` (Zod-схемы), `render` (Remotion 4.0.537 + motion-kit + рендер в дочернем процессе), `server` (StorageGuard, owner-lock и реестр процессов, KnowledgeAdapter, AgentRuntimeAdapter, static check, файловый SceneStore, пайплайн и CLI). В срезе нет БД, очереди задач и UI — это следующие задачи Phase 1 (`docs/architecture/07-implementation-roadmap.md` §3).
 
-**Tech Stack:** Node 22, TypeScript 5 (strict, ESM), Vitest, ESLint 9 (flat config), Zod 3 + zod-to-json-schema, Remotion 4.0.537 (`remotion`, `@remotion/bundler`, `@remotion/renderer`, `@remotion/fonts`), React (версия из peer-зависимости Remotion 4.0.537), TypeScript compiler API, OFL-шрифты с кириллицей (woff2 в `render/fonts/`), Claude Code CLI 2.1.x.
+**Tech Stack:** Node 22, TypeScript 5 (strict, ESM), Vitest, ESLint 9 (flat config), Zod 3 + zod-to-json-schema, Remotion 4.0.537 (`remotion`, `@remotion/bundler`, `@remotion/renderer`, `@remotion/fonts`), React (версия из peer-зависимости Remotion 4.0.537), TypeScript compiler API, OFL-шрифты с кириллицей (woff2 в `render/src/motion-kit/fonts/`), Claude Code CLI 2.1.x.
 
 **Spec:** `docs/superpowers/specs/2026-10-20-ai-motion-studio-design.md` → `docs/architecture/01…09`, ADR 0001–0007 (приняты).
 
@@ -271,7 +271,7 @@ expect(await typecheckVersion(typeErrorScene)).toHaveLength(1);
 - Create: `app/motion-studio/render/src/motion-kit/{index.ts,tokens.ts,presets.ts,fonts.ts,beat.ts,easing.ts,geometry.ts,format.ts}`
 - Create: `app/motion-studio/render/src/motion-kit/components/{Background,AnimatedNumber,LineChart,FlowGraph,PulseAlongPath,Card,KineticText}.tsx`
 - Create: `app/motion-studio/render/src/motion-kit/{API.md,PROVENANCE.md}`
-- Create: `app/motion-studio/render/fonts/{Inter,Manrope,JetBrainsMono}-*.woff2`, `app/motion-studio/render/fonts/OFL.txt`, `app/motion-studio/scripts/sync-fonts.mjs` (копирует latin+cyrillic woff2 из devDependencies `@fontsource/*` в `render/fonts/`; результат коммитится)
+- Create: `app/motion-studio/render/src/motion-kit/fonts/{Inter,Manrope,JetBrainsMono}-*.woff2`, `app/motion-studio/render/src/motion-kit/fonts/OFL.txt`, `app/motion-studio/scripts/sync-fonts.mjs` (копирует latin+cyrillic woff2 из devDependencies `@fontsource/*` в `render/src/motion-kit/fonts/`; результат коммитится)
 - Create: `app/motion-studio/render/test/fixtures/kit-gallery/src/Scene.tsx`
 - Test: `app/motion-studio/render/test/kit/{format,beat,geometry}.test.ts`, `app/motion-studio/render/test/kit/gallery.e2e.test.ts`
 
@@ -279,7 +279,7 @@ expect(await typecheckVersion(typeErrorScene)).toHaveLength(1);
 - Consumes: `StyleBible`, `Beat` (Task 3); `renderVersion`, `probeGate` (Task 4); `checkSceneSource` (Task 5)
 - Produces (импорт `@ms/motion-kit`):
   - `presets: Record<"dark-premium" | "light-clean" | "tech-neon", StyleBible>`; `<StyleProvider style>`, `useStyle(): StyleBible`
-  - `ensureFonts(): void` — `loadFont` из `@remotion/fonts` с `url` на файлы `render/fonts/` (импорт woff2 как ассета webpack)
+  - `ensureFonts(): void` — `loadFont` из `@remotion/fonts` с `url` на файлы `render/src/motion-kit/fonts/` (импорт woff2 как ассета webpack)
   - `beatProgress(frame: number, beat: Pick<Beat, "start_frame" | "end_frame">, easing?: EasingFn): number` (0..1, clamp); `useBeat(beat): { progress: number; phase: "before" | "enter" | "hold" | "exit" | "after" }`
   - `formatNumber(value: number, opts: { locale: "ru" | "en"; compact?: boolean; decimals?: number }): string`
   - `cubicPoint(p0: Point, p1: Point, p2: Point, p3: Point, t: number): Point`; `pathLUT(segments: CubicSegment[], samples: number): { points: Point[]; lengths: number[] }`; `pointAtLength(lut, s: number): Point`
@@ -482,5 +482,5 @@ expect(again.stills.map(sha256)).toEqual(m.qa_frames_sha256);
 
 - Критерий среза (`07` §2): запрос → KB (Task 8, 10) → Claude Code (Task 7, 10) → Remotion (Task 4, 6) → `preview.mp4` с проверками (Task 4, 5) и воспроизводимой версией (Task 9, 10).
 - Принятые ADR: `MS_DATA_DIR`, StorageGuard и сторож во время рендера (Task 1, 9, 10); модели и бюджет в конфиге (Task 7); персональный режим — в срезе нет сервера; ADR 0007 — Task 2 и Task 10 (условно до утверждения).
-- Находки аудита согласованности закрыты: `@remotion/cli` не нужен (`ensureBrowser`); поднятые зависимости + static check; тест бюджета пересчитан; ESLint в `check`; ключ бандла — `contentKey`; `childEnv` = список из `03` §6; KB только permissive по умолчанию; `useBeat(beat)`; шрифты в `render/fonts/`; `agents.<role>.model`; имена `CapabilityView` по `02` §4.1; `versionDir?`; `refs/skills` — реальные имена файлов.
+- Находки аудита согласованности закрыты: `@remotion/cli` не нужен (`ensureBrowser`); поднятые зависимости + static check; тест бюджета пересчитан; ESLint в `check`; ключ бандла — `contentKey`; `childEnv` = список из `03` §6; KB только permissive по умолчанию; `useBeat(beat)`; шрифты в `render/src/motion-kit/fonts/`; `agents.<role>.model`; имена `CapabilityView` по `02` §4.1; `versionDir?`; `refs/skills` — реальные имена файлов.
 - Вне среза: Concept, Visual QA, Edit Planner, SQLite и очередь, API, UI, экспорт, правки через чат.

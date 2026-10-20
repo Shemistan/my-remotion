@@ -83,7 +83,11 @@ async function ensureBundle(job: WorkerJob): Promise<string> {
         // node_modules пакетов Remotion), затем node_modules workspaces
         modules: ["node_modules", job.nodeModules],
         // motion-kit пишет импорты с `.js` (NodeNext, как остальной пакет render):
-        // webpack сначала ищет одноимённый .ts/.tsx
+        // webpack сначала ищет одноимённый .ts/.tsx. Правило глобальное — действует на
+        // все импорты бандла (код сцены, node_modules), не только на kit. Это безопасно:
+        // для `x.js` без соседнего `x.ts`/`x.tsx` разрешение то же, что без алиаса.
+        // Сузить до каталога kit можно только через resolve в module.rules по issuer —
+        // лишняя сложность ради того же результата.
         extensionAlias: { ...config.resolve?.extensionAlias, ".js": [".ts", ".tsx", ".js"] },
       },
     }),

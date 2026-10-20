@@ -70,7 +70,7 @@ export function KineticText({
   const words = text.split(/\s+/).filter(Boolean);
   const units = mode === "letters" ? words.reduce((n, w) => n + Array.from(w).length, 0) : words.length;
   // разбег по биту: не дольше 60% его длины, чтобы последняя часть успела встать
-  const len = beat.end_frame - beat.start_frame;
+  const len = Math.max(0, beat.end_frame - beat.start_frame);
   const baseStagger = stagger ?? (mode === "letters" ? Math.max(1, s.motion.stagger_frames * 0.5) : s.motion.stagger_frames);
   const step = Math.min(frames(s, baseStagger), units > 1 ? (len * 0.6) / (units - 1) : baseStagger);
   const start = beat.start_frame + delay;

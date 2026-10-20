@@ -1,8 +1,8 @@
 // Фон сцены: базовый цвет палитры + атмосфера по пресету (световые пятна, неоновая
 // сетка, бумага с точечной сеткой), виньетка и плёночное зерно. Всё движение — от кадра.
 import type { Beat } from "@ms/contracts";
-import { AbsoluteFill, Easing, interpolate, random, useCurrentFrame, useVideoConfig } from "remotion";
-import { CLAMP, useSvgId } from "../internal.js";
+import { AbsoluteFill, Easing, random, useCurrentFrame, useVideoConfig } from "remotion";
+import { ramp, useSvgId } from "../internal.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, isDark, mix } from "../tokens.js";
 
@@ -33,7 +33,7 @@ export function Background({ beat, variant, grain = true, seed = "bg" }: Backgro
   const v = variant ?? DEFAULT_VARIANT[s.id] ?? (dark ? "aurora" : "paper");
   const t = frame / fps;
   const reveal = beat
-    ? interpolate(frame, [beat.start_frame, beat.end_frame], [0, 1], { ...CLAMP, easing: Easing.bezier(0.25, 1, 0.5, 1) })
+    ? ramp(frame, beat.start_frame, beat.end_frame, Easing.bezier(0.25, 1, 0.5, 1))
     : 1;
   const noiseId = useSvgId("ms-grain");
 

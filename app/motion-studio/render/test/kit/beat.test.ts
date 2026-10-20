@@ -43,3 +43,15 @@ describe("beatPhase", () => {
     expect(beatPhase(19, b, { enter: 4, exit: 0 })).toBe("hold");
   });
 });
+
+describe("ramp: вырожденные окна не бросают", () => {
+  it("нулевое и обратное окно — ступенька", async () => {
+    const { ramp } = await import("../../src/motion-kit/internal.js");
+    expect(ramp(9, 10, 10)).toBe(0);
+    expect(ramp(10, 10, 10)).toBe(1);
+    expect(ramp(5, 10, 3)).toBe(0);
+    expect(ramp(11, 10, 3)).toBe(1);
+    expect(ramp(15, 10, 20)).toBeCloseTo(0.5);
+    expect(ramp(15, 10, 20, (t) => t * t)).toBeCloseTo(0.25);
+  });
+});

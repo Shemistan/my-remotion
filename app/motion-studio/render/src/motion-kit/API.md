@@ -10,7 +10,8 @@ import { AnimatedNumber, Background, Card, FlowGraph, KineticText, LineChart,
 ```
 
 Время задаётся битами: `beat = { start_frame, end_frame }` (поля `Beat` из MotionSpec).
-Бит компонента — это окно, в котором идёт его анимация. После `end_frame` элемент
+Бит компонента — это окно, в котором идёт его анимация. Бит нулевой длины
+(`start_frame === end_frame`) не ошибка: компонент показывает его ступенькой. После `end_frame` элемент
 остаётся в итоговом состоянии. Исчезает он, только если это задано явно (`exit`).
 Размеры указаны в px для кадра 1920×1080.
 
@@ -31,9 +32,18 @@ export const Scene = () => (
 | `light-clean` | светлый фон с точечной сеткой, Inter 700, синий акцент, мягкие тени, сдержанное движение |
 | `tech-neon` | почти чёрный фон, неоновая сетка-пол, JetBrains Mono, циан и маджента, свечение вместо теней, резкое движение (energetic) |
 
-Шрифты (Inter, Manrope, JetBrains Mono, латиница и кириллица) загружаются при
-импорте kit. `ensureFonts()` звать не нужно. Своих шрифтов и `staticFile` для шрифтов
-не добавляй.
+Шрифты (латиница и кириллица) загружаются при импорте kit, `ensureFonts()` звать не
+нужно. Загружены только эти начертания:
+
+| Семейство | `fontWeight` |
+|---|---|
+| Inter | 400, 500, 600, 700 |
+| Manrope | 600, 700, 800 |
+| JetBrains Mono | 400, 500, 700 |
+
+Другие веса браузер синтезирует из ближайшего: 300 станет 400, 900 станет 800, а
+жирность Inter 800 будет искусственной и грубой. Бери веса из таблицы. Своих шрифтов и
+`staticFile` для шрифтов не добавляй.
 
 ## Компоненты
 
@@ -64,7 +74,7 @@ align?, maxWidth?, lineHeight?, delay?, stagger?, exit?, caps?, style? }`
 (`random(seed)`), поэтому части не входят строем.
 ```tsx
 <KineticText text="Рост пользователей" beat={{ start_frame: 4, end_frame: 50 }}
-  mode="words" enter="rise" highlight={["Рост"]} />
+  mode="words" enter="rise" size={5} highlight={["Рост"]} />
 <KineticText text="Данные · 2022–2025" beat={{ start_frame: 0, end_frame: 30 }}
   mode="letters" enter="fade" size={1} font="mono" caps />
 ```
@@ -78,8 +88,9 @@ font? = "display" | "mono", reserveWidth?, color?, align?, style? }`
 При быстром счёте цифры слегка смазываются. `reserveWidth` держит ширину под итоговое
 значение; по умолчанию включено только без `prefix`/`suffix`.
 ```tsx
+{/* герой кадра: число крупнее заголовка; суффикс не повторяет слово из заголовка */}
 <AnimatedNumber from={10_000} to={1_000_000} beat={{ start_frame: 12, end_frame: 100 }}
-  locale="ru" suffix="пользователей" size={6} />
+  locale="ru" size={7} />
 ```
 
 ### LineChart
@@ -103,8 +114,10 @@ delay?, accentIndex?, width?, height?, padding?, style? }`
 
 `elevation` задаёт тень, светлоту поверхности и блик кромки: 0 — плоская, 3 — самая
 «высокая». Вход по умолчанию: `flip` (поворот к зрителю) для 2–3 и `rise` для 0–1.
-`accentIndex` рисует светящуюся кромку сверху. Для своих блоков в стиле kit есть
-`cardSurface(style, elevation)` (только оформление, без анимации).
+`accentIndex` рисует светящуюся кромку сверху. Для своих блоков в стиле kit:
+- `cardSurface(style, elevation)` — оформление поверхности (фон, тень, радиус) без анимации;
+- `cardEnterStyle(style, frame, fps, start, enter)` — стиль входа (`opacity`, `transform`,
+  `filter`) с кадра `start`, как у Card. Не хук: можно звать в `.map()`.
 ```tsx
 <Card elevation={3} beat={{ start_frame: 30, end_frame: 80 }} accentIndex={0} width={420}>…</Card>
 ```
@@ -119,6 +132,14 @@ edges: { id, from, to }[], beat, width?, height?, enter? = "flip", children? }`
 (≥ 16 px), иначе вертикальные. Подписи всех узлов получают общий кегль, при котором
 каждая влезает в свой узел без многоточия. Ширину узла закладывай примерно
 0.57 × кегль × число символов + 60 px.
+
+Для своих слоёв поверх графа:
+- `useFlowGeometry()` возвращает `{ edges: Map<edgeId, CubicSegment>, ready: Map<edgeId, frame> }`
+  ближайшего FlowGraph (`null` вне графа). `ready` — кадр, когда ребро дорисовано. Так
+  делают подписи у середины ребра или свои маркеры.
+- `edgePath(a, b)` возвращает `CubicSegment` ребра между двумя `FlowNode` по тем же
+  правилам портов, что в графе. Пригодится, чтобы провести путь для `PulseAlongPath
+  segments` или своей SVG-линии вне FlowGraph.
 
 ### PulseAlongPath
 `{ edgeId? | segments?, beat, color?, tail? = 120, size? = 7, count? = 1, travel?, repeat? = true,
@@ -164,6 +185,10 @@ reverse? }`
   карточки не должны обрезать текст.
 - Один главный акцент в кадре: одно выделенное слово (`highlight`), одна выноска.
 
+- Строй иерархию размером: главный акцент (число, вывод) — самый крупный в кадре
+  (`AnimatedNumber size={7}` и больше), заголовок на шаг-два меньше (`size={5}`),
+  подписи и кикеры — 0–2. Подпись к числу не повторяет слово из заголовка.
+
 Не делай:
 - CSS `transition`/`animation`, `setTimeout`, `Math.random`, `Date.now` — статическая
   проверка их отклонит. Случайность — `random("seed")` из remotion.
@@ -173,5 +198,6 @@ reverse? }`
   зови `springAt`/`beatProgress`.
 - Свои тени, цвета и шрифты поверх пресета. Нужен другой вид — смени пресет или
   передай свой StyleBible в `StyleProvider`.
+- Заголовок крупнее главного числа или два элемента одного кегля, спорящие за внимание.
 - `scaleX` на блоке с текстом (текст растягивается), анимацию `width` у карточек,
   пропорциональные цифры в счётчиках.

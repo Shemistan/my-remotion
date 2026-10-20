@@ -30,12 +30,17 @@ const POINTS = [
 ];
 
 const NODES: FlowNode[] = [
-  { id: "user", label: "Пользователь", caption: "запрос", x: 0, y: 214, w: 250, h: 96, elevation: 1, accentIndex: 2 },
-  { id: "orch", label: "Оркестратор", caption: "LLM-агент", x: 318, y: 202, w: 240, h: 120, elevation: 3, accentIndex: 0 },
-  { id: "search", label: "Поиск", caption: "web", x: 600, y: 24, w: 210, h: 88, elevation: 2, accentIndex: 1 },
-  { id: "kb", label: "База знаний", caption: "RAG", x: 600, y: 218, w: 210, h: 88, elevation: 2, accentIndex: 1 },
-  { id: "code", label: "Код", caption: "sandbox", x: 600, y: 412, w: 210, h: 88, elevation: 2, accentIndex: 1 },
+  { id: "user", label: "Пользователь", caption: "запрос", x: 0, y: 262, w: 250, h: 96, elevation: 1, accentIndex: 2 },
+  { id: "orch", label: "Оркестратор", caption: "LLM-агент", x: 318, y: 250, w: 240, h: 120, elevation: 3, accentIndex: 0 },
+  { id: "search", label: "Поиск", caption: "web", x: 600, y: 20, w: 210, h: 92, elevation: 2, accentIndex: 1 },
+  { id: "kb", label: "База знаний", caption: "RAG", x: 600, y: 264, w: 210, h: 92, elevation: 2, accentIndex: 1 },
+  { id: "code", label: "Код", caption: "sandbox", x: 600, y: 508, w: 210, h: 92, elevation: 2, accentIndex: 1 },
 ];
+
+// подписи оси X у LineChart лежат под базовой линией (нижнее поле 56 px): ряд карточек
+// поднимаем на столько же, чтобы его низ совпал с нулевой линией графика
+const CHART_PAD_BOTTOM = 56;
+
 const EDGES: FlowEdge[] = [
   { id: "e-user", from: "user", to: "orch" },
   { id: "e-search", from: "orch", to: "search" },
@@ -53,7 +58,7 @@ function Gallery() {
       <SafeArea>
         <div style={{ display: "flex", justifyContent: "space-between", height: "100%" }}>
           {/* левая колонка: заголовок, счётчик, график */}
-          <div style={{ width: 830, display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ width: 830, display: "flex", flexDirection: "column", gap: 16 }}>
             <KineticText
               text="Данные · 2022–2025"
               beat={{ start_frame: 0, end_frame: 30 }}
@@ -64,16 +69,17 @@ function Gallery() {
               caps
               color={s.palette.muted}
             />
-            <KineticText text="Рост пользователей" beat={{ start_frame: 4, end_frame: 50 }} mode="words" enter="rise" size={6} highlight={["Рост"]} />
-            <AnimatedNumber from={10_000} to={1_000_000} beat={{ start_frame: 12, end_frame: 100 }} locale="ru" suffix="пользователей" size={6} />
-            <div style={{ marginTop: 8 }}>
-              <LineChart points={POINTS} beat={{ start_frame: 20, end_frame: 110 }} width={830} height={500} locale="ru" />
+            {/* иерархия: число — главный акцент (7 = 120 px), заголовок — второй уровень (5 = 64 px) */}
+            <KineticText text="Рост пользователей" beat={{ start_frame: 4, end_frame: 50 }} mode="words" enter="rise" size={5} highlight={["Рост"]} />
+            <AnimatedNumber from={10_000} to={1_000_000} beat={{ start_frame: 12, end_frame: 100 }} locale="ru" size={7} />
+            <div style={{ marginTop: "auto" }}>
+              <LineChart points={POINTS} beat={{ start_frame: 20, end_frame: 110 }} width={830} height={560} locale="ru" />
             </div>
           </div>
 
           {/* правая колонка: схема с импульсами и карточки по высоте */}
-          <div style={{ width: 810, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-            <FlowGraph nodes={NODES} edges={EDGES} beat={{ start_frame: 18, end_frame: 90 }} width={810} height={524}>
+          <div style={{ width: 810, display: "flex", flexDirection: "column", justifyContent: "space-between", paddingBottom: CHART_PAD_BOTTOM, boxSizing: "border-box" }}>
+            <FlowGraph nodes={NODES} edges={EDGES} beat={{ start_frame: 18, end_frame: 90 }} width={810} height={600}>
               <PulseAlongPath edgeId="e-user" beat={{ start_frame: 60, end_frame: 150 }} count={2} />
               <PulseAlongPath edgeId="e-search" beat={{ start_frame: 70, end_frame: 150 }} />
               <PulseAlongPath edgeId="e-kb" beat={{ start_frame: 74, end_frame: 150 }} count={2} />
@@ -81,7 +87,7 @@ function Gallery() {
             </FlowGraph>
             <div style={{ display: "flex", gap: 22 }}>
               {([0, 1, 2, 3] as Elevation[]).map((e) => (
-                <Card key={e} elevation={e} beat={{ start_frame: 34, end_frame: 90 }} delay={e * 5} enter={CARD_ENTERS[e]} accentIndex={e === 3 ? 0 : undefined} width={186} height={150}>
+                <Card key={e} elevation={e} beat={{ start_frame: 34, end_frame: 90 }} delay={e * 5} enter={CARD_ENTERS[e]} accentIndex={e === 3 ? 0 : undefined} width={186} height={160}>
                   <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}>
                     <div style={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 18, color: s.palette.muted }}>elevation {e}</div>
                     <div style={{ fontFamily: '"Inter", sans-serif', fontWeight: 600, fontSize: 24, whiteSpace: "nowrap" }}>Уровень {e}</div>

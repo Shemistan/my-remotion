@@ -61,3 +61,15 @@ it("kit-gallery в light-clean и tech-neon: рендер ok, кадр 120 от�
   }
   expect(hashes.size).toBe(3);
 }, T);
+
+it("kit-degenerate: биты нулевой длины и обратные рендерятся ступенькой, без исключений", async () => {
+  const dir = await copyFixture("kit-degenerate", join(tmp, "degenerate"));
+  const settings = await fixtureSettings("kit-degenerate");
+  const r = await renderVersion({ ...req, versionDir: dir, settings, stills: [0, 10, 29], run: { ...req.run, runId: "kit-degenerate" } });
+  expect(r.error).toBeUndefined();
+  expect(r.ok).toBe(true);
+  expect(probeGate(r.probe!, settings, 0.5)).toEqual([]);
+  // до ступеньки (кадр 0) и после (кадр 29) — разные кадры
+  expect(sha256(r.stills[0]!)).not.toBe(sha256(r.stills[2]!));
+  expect(r.browserLogs.filter((l) => l.startsWith("[error]"))).toEqual([]);
+}, T);

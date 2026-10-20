@@ -67,10 +67,13 @@ export function radius(s: StyleBible, level: number): number {
   return list[clampInt(level, 0, list.length - 1)]!;
 }
 
-/** Цвет поверхности на высоте: на тёмной теме светлее с высотой, на светлой — белее. */
+/**
+ * Цвет поверхности на высоте: на тёмной теме светлее с высотой; на светлой уровень 0 —
+ * «вдавлен» к цвету фона, выше — чистая поверхность (глубину дают тени).
+ */
 export function surfaceAt(s: StyleBible, elevation: number): string {
   const e = clampInt(elevation, 0, 3);
-  return isDark(s) ? mix(s.palette.surface, s.palette.text, [0, 0.035, 0.07, 0.11][e]!) : mix(s.palette.surface, "#ffffff", [0, 0.4, 0.7, 1][e]!);
+  return isDark(s) ? mix(s.palette.surface, s.palette.text, [0, 0.035, 0.07, 0.11][e]!) : mix(s.palette.surface, s.palette.bg, [0.55, 0, 0, 0][e]!);
 }
 
 /** Кегль шага шкалы (px при высоте кадра 1080). */

@@ -1,0 +1,12 @@
+{
+  "aspect_ratio": "16:9",
+  "width": 1280,
+  "height": 720,
+  "fps": { "num": 30, "den": 1 },
+  "duration_frames": 30,
+  "style_preset": "light-clean",
+  "animation_intensity": "balanced",
+  "background": "#f4f5f7",
+  "transparent_export": false,
+  "safe_area": { "x": 0.06, "y": 0.08 }
+}
