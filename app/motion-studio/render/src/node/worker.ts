@@ -82,6 +82,9 @@ async function ensureBundle(job: WorkerJob): Promise<string> {
         // entry и сцена лежат вне дерева пакета: обычный поиск вверх (вложенные
         // node_modules пакетов Remotion), затем node_modules workspaces
         modules: ["node_modules", job.nodeModules],
+        // motion-kit пишет импорты с `.js` (NodeNext, как остальной пакет render):
+        // webpack сначала ищет одноимённый .ts/.tsx
+        extensionAlias: { ...config.resolve?.extensionAlias, ".js": [".ts", ".tsx", ".js"] },
       },
     }),
   });

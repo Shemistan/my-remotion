@@ -1,0 +1,100 @@
+// Счётчик: значение идёт from → to по биту с торможением к концу (кривая enter стиля),
+// цифры моноширинные, ширина блока зарезервирована под итоговое значение (ничего не
+// «прыгает»). Вход — подъём из размытия, на финише — короткий акцентный «удар».
+import type { Beat } from "@ms/contracts";
+import type { CSSProperties } from "react";
+import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { EASE, frames, springAt } from "../easing.js";
+import { formatNumber } from "../format.js";
+import { CLAMP, clamp01 } from "../internal.js";
+import { useStyle } from "../style.js";
+import { accent, alpha, fontFamily, tracking, typeSize } from "../tokens.js";
+
+export interface AnimatedNumberProps {
+  from: number;
+  to: number;
+  beat: Pick<Beat, "start_frame" | "end_frame">;
+  locale: "ru" | "en";
+  prefix?: string;
+  suffix?: string;
+  compact?: boolean;
+  decimals?: number;
+  /** Шаг типографской шкалы (0..8) или кегль в px (> 8). По умолчанию 7 (120 px). */
+  size?: number;
+  font?: "display" | "mono";
+  /**
+   * Держать ширину под итоговое значение (число не сдвигает соседей). По умолчанию —
+   * да без prefix/suffix; с ними — нет, иначе между числом и подписью зияет пустота.
+   */
+  reserveWidth?: boolean;
+  /** Цвет цифр; по умолчанию текст, на финише — вспышка акцента. */
+  color?: string;
+  align?: "left" | "center" | "right";
+  style?: CSSProperties;
+}
+
+export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact, decimals, size = 7, font = "display", color, align = "left", reserveWidth, style }: AnimatedNumberProps) {
+  const s = useStyle();
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const ref = s.typography[font];
+  const px = size > 8 ? size : typeSize(s, size);
+  const { start_frame: b0, end_frame: b1 } = beat;
+  const ease = EASE.count;
+
+  // счёт идёт до конца бита; вход занимает его начало и идёт параллельно
+  const countStart = b0 + Math.min(6, (b1 - b0) * 0.1);
+  const p = interpolate(frame, [countStart, b1], [0, 1], { ...CLAMP, easing: ease });
+  const pPrev = interpolate(frame - 1, [countStart, b1], [0, 1], { ...CLAMP, easing: ease });
+  const value = from + (to - from) * p;
+  const fmt = { locale, compact, decimals };
+  const text = formatNumber(value, fmt);
+  const ghost = formatNumber(Math.abs(to) >= Math.abs(from) ? to : from, fmt);
+
+  const enter = springAt(frame, fps, s, b0, "snappy");
+  // «смаз» цифр при быстром счёте (не больше 1.5 px, к финишу исчезает) и размытие входа
+  const speedBlur = Math.min(1.5, Math.abs(p - pPrev) * 60);
+  const enterBlur = (1 - clamp01(enter)) * 12;
+  const reserve = reserveWidth ?? (!prefix && !suffix);
+  const digitBlur = speedBlur > 0.05 ? `blur(${speedBlur.toFixed(2)}px)` : undefined;
+  // удар на финише: короткий всплеск масштаба и свечения
+  const hit = frame >= b1 ? interpolate(frame, [b1, b1 + frames(s, 10), b1 + frames(s, 26)], [0, 1, 0], CLAMP) : 0;
+  const glow = alpha(accent(s, 0), 0.55 * hit);
+  const affix: CSSProperties = { fontSize: "0.5em", fontWeight: s.typography.body.weight ?? 500, color: s.palette.muted, letterSpacing: 0 };
+
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "baseline",
+        gap: "0.12em",
+        fontFamily: fontFamily(ref),
+        fontWeight: ref.weight ?? 800,
+        fontSize: px,
+        lineHeight: 1,
+        letterSpacing: `${tracking(s, "display")}em`,
+        fontVariantNumeric: "tabular-nums",
+        whiteSpace: "nowrap",
+        color: color ?? s.palette.text,
+        opacity: clamp01(enter * 1.6),
+        transform: `translateY(${((1 - enter) * 0.35 * px).toFixed(2)}px) scale(${(1 + 0.045 * hit).toFixed(4)})`,
+        transformOrigin: align === "right" ? "100% 70%" : align === "center" ? "50% 70%" : "0% 70%",
+        filter: enterBlur > 0.05 ? `blur(${enterBlur.toFixed(2)}px)` : undefined,
+        textShadow: hit > 0 ? `0 0 ${(0.3 * px).toFixed(1)}px ${glow}` : undefined,
+        ...style,
+      }}
+    >
+      {prefix ? <span style={affix}>{prefix}</span> : null}
+      {reserve ? (
+        // призрак итогового значения держит ширину; видимое число — в той же ячейке
+        <span style={{ display: "inline-grid" }}>
+          <span style={{ gridArea: "1 / 1", visibility: "hidden" }}>{ghost}</span>
+          <span style={{ gridArea: "1 / 1", justifySelf: align === "left" ? "start" : align === "right" ? "end" : "center", filter: digitBlur }}>{text}</span>
+        </span>
+      ) : (
+        <span style={{ filter: digitBlur }}>{text}</span>
+      )}
+      {suffix ? <span style={affix}>{suffix}</span> : null}
+    </div>
+  );
+}

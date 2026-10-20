@@ -18,6 +18,23 @@ H.264 → ffprobe. Зависит только от `@ms/core` и `@ms/contracts
 Сцена экспортирует компонент `Scene` (именованный экспорт; default тоже принимается)
 из `src/Scene.tsx`; `props.json` — JSON-объект, он же `defaultProps` и `inputProps`.
 
+## motion-kit
+
+`src/motion-kit/` — библиотека компонентов сцен (`@ms/motion-kit`). Справка для агента
+лежит в `API.md`, происхождение — в `PROVENANCE.md`.
+
+- В бандле алиас `@ms/motion-kit` указывает на этот каталог. Импорты внутри kit пишутся
+  с `.js`, как во всём пакете (NodeNext). webpack находит одноимённый `.ts`/`.tsx` через
+  `resolve.extensionAlias` в `worker.ts`. Для `tsc` пакета фикстуры сцен видят kit через
+  `paths` в `tsconfig.json`.
+- Шрифты (`fonts/*.woff2`, OFL) лежат внутри kit и импортируются как ассеты webpack.
+  Поэтому они попадают в contentKey и не зависят от `public/` версии.
+  `../scripts/sync-fonts.mjs` копирует их из `@fontsource/*`.
+- Файлы kit проходят статическую проверку сцен без нарушений
+  (`server/test/scenes/kit-static.test.ts`).
+- Галерея — фикстура `test/fixtures/kit-gallery` (все компоненты, 1920×1080, 150 кадров,
+  пресет из props). Её e2e — `test/kit/gallery.e2e.test.ts`.
+
 ## Как устроен renderVersion
 
 1. Проверки до запуска: кадры в `0..duration_frames-1`, исходники версии (`src/`,

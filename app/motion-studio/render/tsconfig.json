@@ -2,7 +2,9 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM"],
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    // как алиас webpack в worker.ts: фикстуры сцен импортируют kit по имени
+    "paths": { "@ms/motion-kit": ["./src/motion-kit/index.ts"] }
   },
   "include": ["src", "test"]
 }
