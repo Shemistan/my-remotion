@@ -49,7 +49,8 @@ const ALLOWED_LIST = [...ALLOWED_MODULES].join(", ");
 
 const MSG_NET = (n: string) =>
   `\`${n}\` запрещён: сети при рендере нет, а внешние загрузки ломают детерминизм. ` +
-  "Данные передавай через props, картинки, видео и шрифты клади в src/ (import) или в public/ и бери через staticFile().";
+  "Данные передавай через props, картинки, видео и шрифты клади в src/ и импортируй (import logo from './logo.png'). " +
+  "public/ и staticFile() не используй: у бандла сцены нет каталога public/, такой файл при рендере не найдётся.";
 const MSG_EXEC = (n: string) =>
   `\`${n}\` запрещён: выполнение строки как кода и загрузка модулей в обход статического import. ` +
   `Используй статический import из allowlist (${ALLOWED_LIST}) или локального файла из src/.`;
@@ -84,9 +85,9 @@ add(
   ],
   MSG_NET,
 );
-FORBIDDEN_GLOBALS.set("Image", "`Image` запрещён: загрузка картинок в обход бандла. Используй <Img src={staticFile('a.png')} /> из remotion или import картинки из src/.");
-FORBIDDEN_GLOBALS.set("Audio", "`Audio` запрещён: используй <Audio src={staticFile('a.mp3')} /> из remotion.");
-FORBIDDEN_GLOBALS.set("FontFace", "`FontFace` запрещён: шрифты — loadFont из @remotion/fonts с url: staticFile('font.woff2') (или ensureFonts() из @ms/motion-kit).");
+FORBIDDEN_GLOBALS.set("Image", "`Image` запрещён: загрузка картинок в обход бандла. Положи картинку в src/, импортируй (import a from './a.png') и покажи <Img src={a} /> из remotion.");
+FORBIDDEN_GLOBALS.set("Audio", "`Audio` запрещён: положи звук в src/, импортируй (import a from './a.mp3') и используй <Audio src={a} /> из remotion.");
+FORBIDDEN_GLOBALS.set("FontFace", "`FontFace` запрещён: шрифты — ensureFonts() из @ms/motion-kit или loadFont из @remotion/fonts с url из import файла в src/ (import f from './font.woff2').");
 add(
   [
     "eval",
@@ -191,9 +192,9 @@ const MSG_WAAPI = (n: string) =>
   `\`.${n}()\` (Web Animations API) запрещён: анимация идёт по реальному времени. Используй interpolate/spring от useCurrentFrame().`;
 
 const MSG_URL =
-  "внешний адрес запрещён: при рендере сети нет, ассет не загрузится. Положи файл в src/ и импортируй его, " +
-  "или в public/ и бери через staticFile('имя'). Если это просто текст в кадре — убери схему (https://).";
-const MSG_LINK = "<link> запрещён: подгружает внешние стили и шрифты. Шрифты — loadFont из @remotion/fonts с staticFile(), стили — объектом style.";
+  "внешний адрес запрещён: при рендере сети нет, ассет не загрузится. Положи файл в src/ и импортируй его " +
+  "(public/ и staticFile() не работают: у бандла сцены нет public/). Если это просто текст в кадре — убери схему (https://).";
+const MSG_LINK = "<link> запрещён: подгружает внешние стили и шрифты. Шрифты — ensureFonts() из @ms/motion-kit или loadFont с url из import файла в src/, стили — объектом style.";
 const MSG_CSS_IMPORT = "@import в CSS запрещён: тянет ресурсы в обход проверки. Импортируй нужный CSS-файл из .tsx через import './a.css'.";
 
 // --- Классификация файлов ---
@@ -851,7 +852,7 @@ class FileChecker {
     else if (node.kind === ts.SyntaxKind.ThisKeyword) this.checkThis(node);
     else if (ts.isWithStatement(node)) this.report(node, "forbidden-global", "with запрещён: подменяет область видимости и скрывает обращения к глобалам.");
     else if (ts.isMetaProperty(node) && node.keywordToken === ts.SyntaxKind.ImportKeyword)
-      this.report(node, "forbidden-global", "import.meta запрещён: даёт адреса модулей и загрузку в обход import. Ассеты импортируй из src/ или бери через staticFile().");
+      this.report(node, "forbidden-global", "import.meta запрещён: даёт адреса модулей и загрузку в обход import. Ассеты клади в src/ и импортируй.");
     else if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) this.checkMember(node);
     else if (ts.isCallExpression(node)) this.checkCall(node);
     else if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) this.checkJsxTag(node.tagName);
@@ -888,10 +889,44 @@ class FileChecker {
 
 // --- Каталог версии на диске ---
 
+const MSG_NODE_MODULES = (p: string) =>
+  `${p} запрещён: каталог node_modules в версии подменил бы пакеты (react, remotion, @remotion/fonts) при сборке. ` +
+  `Пакеты берутся только из приложения; свой код клади в src/ и импортируй относительным путём.`;
+const MSG_PACKAGE_JSON = (p: string) =>
+  `${p} запрещён: package.json рядом с кодом сцены меняет разрешение модулей сборщиком (main, browser, imports, exports). ` +
+  `Удали его; данные сцены — в props.json.`;
+
+/**
+ * Файлы, которые меняют разрешение модулей бандлера вокруг `src/`: любой сегмент
+ * `node_modules` во всём каталоге версии и `package.json` в `src/**` и в корне версии.
+ * Обход не идёт по симлинкам.
+ */
+async function resolutionTraps(versionDir: string): Promise<Violation[]> {
+  const out: Violation[] = [];
+  const walk = async (rel: string): Promise<void> => {
+    const entries = await readdir(rel ? join(versionDir, rel) : versionDir, { withFileTypes: true });
+    for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
+      const r = rel ? `${rel}/${e.name}` : e.name;
+      if (e.name === "node_modules") {
+        out.push({ rule: "forbidden-file", file: r, line: 1, message: MSG_NODE_MODULES(r) });
+        continue;
+      }
+      if (e.name === "package.json" && (rel === "" || rel === "src" || rel.startsWith("src/"))) {
+        out.push({ rule: "forbidden-file", file: r, line: 1, message: MSG_PACKAGE_JSON(r) });
+      }
+      if (e.isDirectory() && !e.isSymbolicLink()) await walk(r);
+    }
+  };
+  await walk("");
+  return out;
+}
+
 /**
  * Проверяет `src/` версии на диске: симлинки и не-файлы — `outside-src`, неизвестные
- * типы — `forbidden-file`, код и CSS — `checkSceneSource`. Вне `src/` каталог не
- * обходится: бандл берёт только `src/Scene.tsx` и его импорты, а выход импорта за
+ * типы — `forbidden-file`, код и CSS — `checkSceneSource`. Весь каталог версии
+ * обходится только ради ловушек разрешения модулей: `node_modules` где угодно и
+ * `package.json` в `src/**` или в корне — `forbidden-file`. Остальное вне `src/` не
+ * проверяется: бандл берёт только `src/Scene.tsx` и его импорты, а выход импорта за
  * `src/` ловит `outside-src`.
  */
 export async function checkSceneDir(versionDir: string): Promise<Violation[]> {
@@ -903,14 +938,16 @@ export async function checkSceneDir(versionDir: string): Promise<Violation[]> {
     const what = !st ? "нет каталога src/" : "src/ — не обычный каталог (симлинк или файл)";
     return [{ rule: "outside-src", file: "src", line: 1, message: `${what}: код сцены должен лежать в каталоге src/ версии.` }];
   }
+  pre.push(...(await resolutionTraps(versionDir)));
   const walk = async (rel: string): Promise<void> => {
     const entries = await readdir(join(versionDir, rel), { withFileTypes: true });
     for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
       const r = `${rel}/${e.name}`;
       if (e.isSymbolicLink()) {
         pre.push({ rule: "outside-src", file: r, line: 1, message: `симлинк ${r} запрещён: он может вести за пределы src/. Положи сам файл в src/.` });
-      } else if (e.isDirectory()) await walk(r);
-      else if (!e.isFile()) {
+      } else if (e.isDirectory()) {
+        if (e.name !== "node_modules") await walk(r); // сам каталог уже отклонён resolutionTraps
+      } else if (!e.isFile()) {
         pre.push({ rule: "outside-src", file: r, line: 1, message: `${r} — не обычный файл и не каталог; в src/ допустимы только файлы.` });
       } else if (fileKind(r) === "unknown") {
         pre.push({ rule: "forbidden-file", file: r, line: 1, message: MSG_UNKNOWN_FILE(r) });

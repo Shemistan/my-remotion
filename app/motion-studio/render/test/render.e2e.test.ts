@@ -4,6 +4,8 @@ import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
+import { type AddressInfo } from "node:net";
+import { createServer } from "node:http";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { groupExists, reapStale } from "@ms/core";
@@ -142,6 +144,42 @@ it("Chrome has no network during render, local bundle assets still load", async 
   const lines = r.browserLogs.filter((l) => l.includes("net-scene:"));
   expect(lines.length).toBeGreaterThan(0);
   for (const l of lines) expect(l).toMatch(/example\.com blocked, 1\.1\.1\.1 blocked/);
+}, T);
+
+it("Chrome cannot reach local services on loopback (Control API), bundle assets still load", async () => {
+  let hits = 0;
+  const server = createServer((_req, res) => {
+    hits++;
+    res.end("ok");
+  });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+  const port = (server.address() as AddressInfo).port;
+  try {
+    const versionDir = await copyFixture("loopback-scene", join(tmp, "loopback"));
+    writeFileSync(join(versionDir, "props.json"), JSON.stringify({ port }));
+    const r = await timed("loopback", () => renderVersion({ ...req, versionDir, stills: [0] }));
+    expect(r.error).toBeUndefined();
+    expect(r.ok).toBe(true); // <Img> из бандла загрузился: сервер бандла Remotion доступен
+    const lines = r.browserLogs.filter((l) => l.includes("loopback-scene:"));
+    expect(lines.length).toBeGreaterThan(0);
+    for (const l of lines) expect(l).toMatch(/127\.0\.0\.1 blocked, localhost blocked, ::1 blocked/);
+    expect(hits).toBe(0);
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+}, T);
+
+it("a fake package in <version>/node_modules does not shadow the real one in the bundle", async () => {
+  const versionDir = await copyFixture("shadow-scene", join(tmp, "shadow"));
+  const fake = join(versionDir, "node_modules", "@remotion", "fonts");
+  await mkdir(fake, { recursive: true });
+  writeFileSync(join(fake, "package.json"), JSON.stringify({ name: "@remotion/fonts", main: "index.js" }));
+  writeFileSync(join(fake, "index.js"), "exports.loadFont = 'SHADOW';\n");
+  const r = await timed("shadow", () => renderVersion({ ...req, versionDir, stills: [0] }));
+  expect(r.error).toBeUndefined();
+  const lines = r.browserLogs.filter((l) => l.includes("shadow-scene:"));
+  expect(lines.length).toBeGreaterThan(0);
+  for (const l of lines) expect(l).toMatch(/loadFont function/);
 }, T);
 
 it("parent and worker die together: Chrome stays registered and reapStale kills it", async () => {

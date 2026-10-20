@@ -19,13 +19,20 @@ export interface RenderRequest {
   preview: { scale: number; crf: number };
   timeoutMs: number;
   run: { root: string; runId: string; attempt: number };
+  /**
+   * Куда писать `frames/<n>.png` и `preview.mp4` (каталог должен существовать). По
+   * умолчанию — `versionDir`; отдельный каталог позволяет перерендерить опубликованную
+   * read-only версию без копирования исходников.
+   */
+  outDir?: string;
 }
 
 /**
  * Этап, на котором рендер не удался:
  * - `bundle` / `still` / `media` — внутри worker (сборка, стоп-кадры, превью); сюда же
  *   ошибки исходников версии (нет `src/Scene.tsx`, битый `props.json`) и кадры вне сцены;
- * - `probe` — ffprobe превью не отработал или не разобран;
+ * - `ffprobe` — ffprobe превью не отработал или не разобран (не путать с этапом
+ *   пайплайна `probe` — превью не прошло `probeGate`);
  * - `timeout` — не уложились в `timeoutMs`, группа процессов убита;
  * - `aborted` — сработал `signal` вызывающего, группа убита;
  * - `timeout` также ставит worker, если сработал (чуть более короткий) таймаут delayRender;
@@ -35,7 +42,7 @@ export interface RenderRequest {
  *   `*.quarantined`. Это не обычная ошибка рендера: повторять попытку нельзя, пока
  *   процессы живы (ADR 0007, `stale_process`).
  */
-export type RenderStage = WorkerStage | "probe" | "timeout" | "aborted" | "orphaned";
+export type RenderStage = WorkerStage | "ffprobe" | "timeout" | "aborted" | "orphaned";
 
 export interface RenderResult {
   ok: boolean;
@@ -140,8 +147,9 @@ function childEnv(tmpdir: string): NodeJS.ProcessEnv {
 }
 
 /**
- * Рендер версии: бандл (кэш по contentKey) → стоп-кадры `<versionDir>/frames/<n>.png` →
- * превью `<versionDir>/preview.mp4` (H.264) → ffprobe. Всё тяжёлое — в worker под
+ * Рендер версии: бандл (кэш по contentKey) → стоп-кадры `<outDir>/frames/<n>.png` →
+ * превью `<outDir>/preview.mp4` (H.264) → ffprobe; `outDir` по умолчанию — `versionDir`
+ * (версия тогда только читается). Всё тяжёлое — в worker под
  * `spawnTracked`; ffprobe тоже отслеживается. Chrome запускается через
  * chrome-wrapper.sh: он сам пишет запись в `run/processes/` (Chrome в своей группе) и
  * закрывает браузеру сеть. Таймаут и `signal` убивают группы. Gate по настройкам
@@ -153,7 +161,7 @@ function childEnv(tmpdir: string): NodeJS.ProcessEnv {
  *
  * Бросает (а не возвращает ok:false), если рендер невозможен в принципе: хранилище
  * недоступно (StorageError), нет Chrome Headless Shell или ffprobe, Node без стирания
- * типов. `versionDir` и `cacheDir` должны существовать.
+ * типов. `versionDir`, `cacheDir` и `outDir` (если задан) должны существовать.
  */
 export async function renderVersion(req: RenderRequest, signal?: AbortSignal, deps: RenderDeps = {}): Promise<RenderResult> {
   const spawn = deps.spawn ?? spawnTracked;
@@ -193,7 +201,8 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
   }
   const key = basename(dirname(entryPoint));
 
-  const framesDir = await mkdirOne(join(req.versionDir, "frames"));
+  const outDir = req.outDir ?? req.versionDir;
+  const framesDir = await mkdirOne(join(outDir, "frames"));
   const bundlesDir = await mkdirOne(join(req.cacheDir, "bundles"));
   const { root, runId, attempt } = req.run;
   const ref = { runId, attempt };
@@ -215,7 +224,7 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
     inputProps,
     composition: { width: req.settings.width, height: req.settings.height, fps: num / den, durationInFrames: frames },
     stills: req.stills.map((frame) => ({ frame, out: join(framesDir, `${frame}.png`) })),
-    preview: { out: join(req.versionDir, "preview.mp4"), scale: req.preview.scale, crf: req.preview.crf },
+    preview: { out: join(outDir, "preview.mp4"), scale: req.preview.scale, crf: req.preview.crf },
     timeoutMs: innerTimeoutMs(req.timeoutMs),
   };
 
@@ -269,7 +278,7 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
       );
     }
     // worker и Chrome подтверждённо мертвы — их недоделки можно убрать
-    await removeLeftovers(req.versionDir, bundlesDir);
+    await removeLeftovers(outDir, bundlesDir);
     if (why) return interrupted(out.logs);
     const r = out.result;
     if (!r) {
@@ -293,11 +302,11 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
     }
     if (why) return interrupted(browserLogs);
     const base = { stills: r.stills, previewPath: r.previewPath, browserLogs };
-    if (p.code !== 0) return fail("probe", `ffprobe завершился с кодом ${p.code}: ${tail(p.stderr)}`, base);
+    if (p.code !== 0) return fail("ffprobe", `ffprobe завершился с кодом ${p.code}: ${tail(p.stderr)}`, base);
     try {
       return { ok: true, ...base, probe: parseProbe(p.stdout) };
     } catch (e) {
-      return fail("probe", (e as Error).message, base);
+      return fail("ffprobe", (e as Error).message, base);
     }
   } finally {
     clearTimeout(timer);

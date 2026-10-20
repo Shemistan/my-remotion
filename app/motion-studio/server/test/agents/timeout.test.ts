@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readdir } from "node:fs/promises";
 import { isAbsolute, join, relative } from "node:path";
-import type { spawnTracked } from "@ms/core";
+import { StorageError, type spawnTracked } from "@ms/core";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { ClaudeCodeRuntime } from "../../src/agents/claude-code.js";
 import { Ok, bin, fx, makeTask, makeStore, makeTmp, removeTmp } from "./helpers.js";
@@ -102,6 +102,51 @@ it("orphaned process group: a distinct failure even with a valid answer", async 
   expect(r.status).toBe("failed");
   expect(r.error?.kind).toBe("orphaned");
   expect(r.output).toBeUndefined();
+});
+
+it("orphaned call keeps its run tmp as *.quarantined", async () => {
+  const spawn: typeof spawnTracked = async () => ({ code: 0, signal: null, stdout: fx("success.json"), stderr: "", orphaned: true });
+  await new ClaudeCodeRuntime({ bin: sleepy, logRoot, spawn }).run(task(60_000, "orph"), Ok, new AbortController().signal);
+  const left = await readdir(join(store, "run", "tmp"));
+  expect(left).toHaveLength(1);
+  expect(left[0]).toMatch(/^orph-a1-motion_director-.+\.quarantined$/);
+});
+
+it("TMPDIR of the child is a per-call dir in run/tmp of the store, removed after the call", async () => {
+  let seen = "";
+  const spawn: typeof spawnTracked = async (_root, _ref, _cmd, _args, opts) => {
+    seen = opts.env.TMPDIR ?? "";
+    expect(existsSync(seen)).toBe(true);
+    return { code: 0, signal: null, stdout: fx("success.json"), stderr: "", orphaned: false };
+  };
+  const r = await new ClaudeCodeRuntime({ bin: sleepy, logRoot, spawn }).run(task(60_000, "tmpd"), Ok, new AbortController().signal);
+  expect(r.status).toBe("completed");
+  expect(seen.startsWith(join(store, "run", "tmp", "tmpd-a1-motion_director-"))).toBe(true);
+  expect(existsSync(seen)).toBe(false);
+  expect(await readdir(join(store, "run", "tmp"))).toEqual([]);
+});
+
+it("spawnTracked throws (registry not written / child error): run() rethrows, no failed/cli; run tmp quarantined", async () => {
+  const boom = new StorageError("not_found", "корень хранилища недоступен");
+  const spawn: typeof spawnTracked = async () => {
+    throw boom;
+  };
+  await expect(new ClaudeCodeRuntime({ bin: sleepy, logRoot, spawn }).run(task(60_000, "thr"), Ok, new AbortController().signal)).rejects.toBe(boom);
+  const plain = new Error("spawn EAGAIN");
+  const spawn2: typeof spawnTracked = async () => {
+    throw plain;
+  };
+  await expect(new ClaudeCodeRuntime({ bin: sleepy, logRoot, spawn: spawn2 }).run(task(60_000, "thr2"), Ok, new AbortController().signal)).rejects.toBe(plain);
+  const left = await readdir(join(store, "run", "tmp"));
+  expect(left.filter((n) => n.endsWith(".quarantined"))).toHaveLength(2);
+});
+
+it("real spawnTracked: registry write fails (run/processes is a file) → StorageError is thrown", async () => {
+  await mkdir(join(store, "run"), { recursive: true });
+  const { writeFile } = await import("node:fs/promises");
+  await writeFile(join(store, "run", "processes"), "not a dir");
+  const err = await new ClaudeCodeRuntime({ bin: bin("fake-claude.sh"), logRoot }).run(task(60_000, "reg"), Ok, new AbortController().signal).catch((e: unknown) => e);
+  expect(err).toBeInstanceOf(StorageError);
 });
 
 it("non-zero exit with a non-error answer is a failure", async () => {

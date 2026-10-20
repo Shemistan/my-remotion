@@ -35,3 +35,10 @@ it("passes the full allowlist and drops everything else", () => {
 it("skips undefined values", () => {
   expect(childEnv({ PATH: "/bin", HOME: undefined })).toEqual({ PATH: "/bin" });
 });
+
+it("tmpdir of the call replaces the parent TMPDIR", () => {
+  expect(childEnv({ PATH: "/bin", TMPDIR: "/var/folders/x/" }, "/Volumes/SSD/MS/run/tmp/run_1-a1-engineer-abc")).toEqual({
+    PATH: "/bin",
+    TMPDIR: "/Volumes/SSD/MS/run/tmp/run_1-a1-engineer-abc",
+  });
+});

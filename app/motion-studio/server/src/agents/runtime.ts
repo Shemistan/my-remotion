@@ -16,7 +16,7 @@ export const MODEL_RE = /^[a-z0-9][a-z0-9.\-[\]]*$/i;
 /** Верхняя граница `maxBudgetUsd` одного вызова в config.json. */
 export const MAX_CALL_BUDGET_USD = 50;
 
-export type Ref ={ kind: "file" | "version" | "kb" | "job"; id: string; path?: string };
+export type Ref = { kind: "file" | "version" | "kb" | "job"; id: string; path?: string };
 
 export interface AgentTask<I> {
   role: Role;
@@ -33,7 +33,11 @@ export interface AgentTask<I> {
   run: { root: string; runId: string; attempt: number };
 }
 
-export type AgentErrorKind = "schema" | "cli" | "budget" | "timeout" | "denied" | "cancelled" | "orphaned";
+/**
+ * `denied` здесь нет: отказы прав рантайм не оценивает — оркестратор решает по
+ * `permissionDenials` (rulings п. 14) и пишет причину `denied: …` в этап `engineer`.
+ */
+export type AgentErrorKind = "schema" | "cli" | "budget" | "timeout" | "cancelled" | "orphaned";
 
 export interface AgentUsage {
   /** Фактическая модель из `modelUsage` (самая дорогая в вызове). */
@@ -53,7 +57,6 @@ export interface AgentResult<O> {
    * незавершённой, повтор только после reapStale.
    */
   error?: { kind: AgentErrorKind; message: string };
-  // `denied` рантайм сам не ставит: решает оркестратор по permissionDenials (rulings п. 14).
   usage: AgentUsage;
   /** Из CLI, как есть. */
   permissionDenials: unknown[];

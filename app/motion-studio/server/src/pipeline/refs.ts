@@ -61,6 +61,43 @@ export function topPatterns(cands: CapabilityView[], n = 2): string[] {
   return [...count.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([p]) => p);
 }
 
+export interface DroppedSelection {
+  kb_id: string;
+  reason: string;
+}
+
+/**
+ * Выбор Director, сведённый к допустимому: только id из предложенных кандидатов и только
+ * `permissive` (лицензию берём из KB, а не из ответа модели); повторы id — один раз.
+ * Отброшенное возвращается с причиной — пайплайн пишет предупреждение и `selection.json`.
+ * Идёт до knowledge-refs.json, manifest и промпта Engineer.
+ */
+export function filterSelection(
+  selection: ComponentSelection,
+  candidates: CapabilityView[],
+  kb: KnowledgeSource,
+): { selection: ComponentSelection; dropped: DroppedSelection[] } {
+  const offered = new Map(candidates.map((c) => [c.id, c]));
+  const items: ComponentSelection["items"] = [];
+  const dropped: DroppedSelection[] = [];
+  const seen = new Set<string>();
+  for (const item of selection.items) {
+    if (seen.has(item.kb_id)) continue;
+    seen.add(item.kb_id);
+    if (!offered.has(item.kb_id)) {
+      dropped.push({ kb_id: item.kb_id, reason: "нет среди предложенных кандидатов" });
+      continue;
+    }
+    const license = (kb.getCapability(item.kb_id) ?? offered.get(item.kb_id))!.license_class;
+    if (license !== "permissive") {
+      dropped.push({ kb_id: item.kb_id, reason: `license_class ${license}, допустим только permissive` });
+      continue;
+    }
+    items.push(item);
+  }
+  return { selection: { items }, dropped };
+}
+
 /**
  * Записи `knowledge-refs.json` по выбору Director: только известные KB id, по одной на id.
  * Неизвестные id возвращаются отдельно (предупреждение, не ошибка).

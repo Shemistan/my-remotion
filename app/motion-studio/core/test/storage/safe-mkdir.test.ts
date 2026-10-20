@@ -2,7 +2,7 @@ import { existsSync, statSync } from "node:fs";
 import { mkdir, rename, rm, symlink } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { MARKER_FILE, StorageError, initStore } from "../../src/storage/guard.js";
+import { MARKER_FILE, StorageError, StoragePathError, initStore } from "../../src/storage/guard.js";
 import { safeMkdir } from "../../src/storage/safe-mkdir.js";
 import { fakeProbe, makeTmp, removeTmp } from "../helpers.js";
 
@@ -41,7 +41,10 @@ it.each(["../x", "a/../../x", "/etc/x", "", "."])("safeMkdir refuses path escape
   // ошибка программиста, а не состояние хранилища
   expect(err).toBeInstanceOf(Error);
   expect(err).not.toBeInstanceOf(StorageError);
-  expect(String((err as Error).message)).toMatch(/^storage:/);
+  expect(err).toBeInstanceOf(StoragePathError);
+  expect((err as StoragePathError).code).toBe("path_escape");
+  // не похоже на сообщение StorageError (`storage: …`)
+  expect(String((err as Error).message)).toMatch(/^storage_path:/);
   expect(existsSync(join(tmp, "x"))).toBe(false);
 });
 

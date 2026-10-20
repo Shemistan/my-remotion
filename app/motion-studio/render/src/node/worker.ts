@@ -1,18 +1,22 @@
 // Дочерний процесс рендера: bundle → selectComposition → renderStill по кадрам →
 // renderMedia (H.264). Запускается renderVersion через spawnTracked как
 // `node --disable-warning=ExperimentalWarning worker.ts` — встроенное в Node 22.18+
-// стирание типов, без сборки и загрузчиков. Поэтому здесь только `import type` из
-// локальных файлов (стираются целиком) и рантайм-импорты из node:* и @remotion/*.
+// стирание типов, без сборки и загрузчиков. Поэтому локальные модули — `import type`
+// (стираются целиком) или явный `.ts` без зависимостей кроме node:* (resolve-jail.ts);
+// рантайм-импорты — из node:* и @remotion/*.
 //
 // Протокол stdout: строки `@@ms:stage <stage>` (начат этап) и `@@ms:log <json-строка>`
 // (лог браузера) идут по ходу работы — родитель видит их даже после убийства по
 // таймауту; ПОСЛЕДНЯЯ строка — JSON WorkerResult. Задание приходит JSON-ом в stdin.
 import { existsSync } from "node:fs";
 import { rename, rm } from "node:fs/promises";
+import { createServer } from "node:net";
 import { join } from "node:path";
 import { bundle } from "@remotion/bundler";
 import { type BrowserLog, type HeadlessBrowser, openBrowser, renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import type { WorkerJob, WorkerResult, WorkerStage } from "./protocol.js";
+// .ts явно: worker исполняется стиранием типов Node, без загрузчика
+import { jailResolve } from "./resolve-jail.ts";
 
 const STAGE = "@@ms:stage ";
 const LOG = "@@ms:log ";
@@ -74,22 +78,11 @@ async function ensureBundle(job: WorkerJob): Promise<string> {
     // свой кэш бандлов по contentKey; кэш webpack писал бы в node_modules/.cache
     enableCaching: false,
     ignoreRegisterRootWarning: true,
+    // Модули — только из node_modules workspaces, без поиска вверх от draft
+    // (resolve-jail.ts): подменить пакет файлом в draft нельзя.
     webpackOverride: (config) => ({
       ...config,
-      resolve: {
-        ...config.resolve,
-        alias: { ...(config.resolve?.alias as Record<string, string> | undefined), "@ms/motion-kit": job.motionKitDir },
-        // entry и сцена лежат вне дерева пакета: обычный поиск вверх (вложенные
-        // node_modules пакетов Remotion), затем node_modules workspaces
-        modules: ["node_modules", job.nodeModules],
-        // motion-kit пишет импорты с `.js` (NodeNext, как остальной пакет render):
-        // webpack сначала ищет одноимённый .ts/.tsx. Правило глобальное — действует на
-        // все импорты бандла (код сцены, node_modules), не только на kit. Это безопасно:
-        // для `x.js` без соседнего `x.ts`/`x.tsx` разрешение то же, что без алиаса.
-        // Сузить до каталога kit можно только через resolve в module.rules по issuer —
-        // лишняя сложность ради того же результата.
-        extensionAlias: { ...config.resolve?.extensionAlias, ".js": [".ts", ".tsx", ".js"] },
-      },
+      resolve: jailResolve(config.resolve, { nodeModules: job.nodeModules, motionKitDir: job.motionKitDir }),
     }),
   });
   try {
@@ -108,6 +101,19 @@ async function ensureBundle(job: WorkerJob): Promise<string> {
   return job.bundleDir;
 }
 
+/** Свободный TCP-порт на 127.0.0.1 (там слушает сервер бандла Remotion). */
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = createServer();
+    srv.once("error", reject);
+    srv.listen(0, "127.0.0.1", () => {
+      const addr = srv.address();
+      const port = typeof addr === "object" && addr !== null ? addr.port : 0;
+      srv.close(() => (port > 0 ? resolve(port) : reject(new Error("worker: не удалось выбрать порт сервера бандла"))));
+    });
+  });
+}
+
 async function run(job: WorkerJob): Promise<WorkerResult> {
   startStage("bundle");
   const serveUrl = await ensureBundle(job);
@@ -118,6 +124,10 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
   process.env.MS_RUN_ROOT = job.run.root;
   process.env.MS_RUN_ID = job.run.runId;
   process.env.MS_RUN_ATTEMPT = String(job.run.attempt);
+  // Порт сервера бандла выбираем сами и до запуска Chrome: обёртка пускает напрямую
+  // только его, остальной loopback (Control API 127.0.0.1:8790) закрыт прокси.
+  const port = await freePort();
+  process.env.MS_BUNDLE_PORT = String(port);
   browser = await openBrowser("chrome", {
     browserExecutable: job.browserExecutable,
     chromeMode: "headless-shell",
@@ -132,6 +142,7 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
     onBrowserLog,
     logLevel: LOG_LEVEL,
     chromeMode: "headless-shell",
+    port,
   } as const;
   const selected = await selectComposition({ ...common, id: "Scene" });
   // настройки сцены — поверх композиции из бандла: бандл кэшируется по содержимому

@@ -180,12 +180,12 @@ it("caller abort is reported as stage aborted", async () => {
   expect(calls).toEqual([]);
 });
 
-it("ffprobe failure is reported as stage probe", async () => {
+it("ffprobe failure is reported as stage ffprobe (not the pipeline probe gate)", async () => {
   const r = await renderVersion(req, undefined, deps(
     () => ({ stdout: workerOut(okResult(req)) }),
     () => ({ code: 1, stderr: "moov atom not found" }),
   ));
-  expect(r).toMatchObject({ ok: false, error: { stage: "probe" }, previewPath: join(req.versionDir, "preview.mp4") });
+  expect(r).toMatchObject({ ok: false, error: { stage: "ffprobe" }, previewPath: join(req.versionDir, "preview.mp4") });
   expect(r.error!.message).toMatch(/moov atom/);
 });
 
@@ -253,4 +253,20 @@ it("orphaned worker keeps run tmp as *.quarantined instead of deleting it", asyn
   }));
   expect(existsSync(tmpdir)).toBe(false);
   expect(existsSync(`${tmpdir}.quarantined`)).toBe(true);
+});
+
+it("outDir: stills and preview go to a separate dir, the version dir is only read", async () => {
+  const out = join(tmp, "rerender");
+  await mkdir(out);
+  const r2 = { ...req, outDir: out };
+  const res = await renderVersion(r2, undefined, deps((c) => {
+    const job = JSON.parse(c.opts.stdin!) as { stills: { out: string }[]; preview: { out: string } };
+    expect(job.stills.map((s) => s.out)).toEqual(r2.stills.map((f) => join(out, "frames", `${f}.png`)));
+    expect(job.preview.out).toBe(join(out, "preview.mp4"));
+    return { stdout: workerOut({ ok: true, stills: job.stills.map((s) => s.out), previewPath: job.preview.out, browserLogs: [] }) };
+  }));
+  expect(res.ok).toBe(true);
+  expect(res.previewPath).toBe(join(out, "preview.mp4"));
+  expect(existsSync(join(out, "frames"))).toBe(true);
+  expect(existsSync(join(req.versionDir, "frames"))).toBe(false);
 });

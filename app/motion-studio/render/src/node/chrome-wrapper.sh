@@ -6,14 +6,23 @@
 # сбоя сервера reapStale находит и убивает Chrome как обычную запись (ADR 0007).
 #
 # Заодно закрывает браузеру сеть: флаги прокси Remotion (`--no-proxy-server`,
-# `--proxy-server='direct://'`) выкидываются, и весь не-loopback трафик идёт в
-# 127.0.0.1:9 (discard, соединение отклоняется). localhost — сервер бандла Remotion —
-# Chrome не проксирует.
+# `--proxy-server='direct://'`) выкидываются, и весь трафик идёт в 127.0.0.1:9 (discard,
+# соединение отклоняется). Loopback тоже: `<-loopback>` снимает неявное исключение
+# localhost/127.0.0.1/[::1], иначе сцена достучалась бы до локальных сервисов (Control
+# API на 127.0.0.1:8790). Напрямую — только сервер бандла Remotion на порту, который
+# worker выбрал и передал в MS_BUNDLE_PORT.
 #
 # Окружение (ставит worker): MS_CHROME — настоящий chrome-headless-shell,
-# MS_RUN_ROOT, MS_RUN_ID, MS_RUN_ATTEMPT — хранилище и попытка.
+# MS_RUN_ROOT, MS_RUN_ID, MS_RUN_ATTEMPT — хранилище и попытка, MS_BUNDLE_PORT — порт
+# сервера бандла.
 set -eu
-: "${MS_CHROME:?}" "${MS_RUN_ROOT:?}" "${MS_RUN_ID:?}" "${MS_RUN_ATTEMPT:?}"
+: "${MS_CHROME:?}" "${MS_RUN_ROOT:?}" "${MS_RUN_ID:?}" "${MS_RUN_ATTEMPT:?}" "${MS_BUNDLE_PORT:?}"
+case $MS_BUNDLE_PORT in
+  '' | *[!0-9]*)
+    echo "chrome-wrapper: MS_BUNDLE_PORT не число: $MS_BUNDLE_PORT" >&2
+    exit 125
+    ;;
+esac
 
 pid=$$
 pgid=$(/bin/ps -o pgid= -p "$pid" | tr -d ' ')
@@ -43,4 +52,4 @@ while [ "$n" -gt 0 ]; do
     *) set -- "$@" "$a" ;;
   esac
 done
-exec "$MS_CHROME" "$@" --proxy-server=127.0.0.1:9
+exec "$MS_CHROME" "$@" --proxy-server=127.0.0.1:9 "--proxy-bypass-list=<-loopback>;localhost:$MS_BUNDLE_PORT;127.0.0.1:$MS_BUNDLE_PORT"

@@ -54,6 +54,19 @@ export class StorageError extends Error {
   }
 }
 
+/**
+ * Путь вне хранилища, переданный `safeMkdir`, — ошибка программиста, а не состояние
+ * хранилища: не `StorageError`, сообщение начинается с `storage_path:` (не `storage:`),
+ * чтобы такой сбой нельзя было принять за отключённый диск.
+ */
+export class StoragePathError extends Error {
+  readonly code = "path_escape" as const;
+  constructor(readonly rel: string) {
+    super(`storage_path: путь выходит за пределы хранилища: ${JSON.stringify(rel)}`);
+    this.name = "StoragePathError";
+  }
+}
+
 class Failed extends Error {
   constructor(readonly status: Extract<StorageStatus, { ok: false }>) {
     super(status.detail);

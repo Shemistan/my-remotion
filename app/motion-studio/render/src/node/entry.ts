@@ -15,11 +15,15 @@ export const APP_NODE_MODULES = join(APP_ROOT, "node_modules");
 export const MOTION_KIT_DIR = join(RENDER_ROOT, "src", "motion-kit");
 
 /**
- * Исходники, от которых зависит бандл помимо версии: шаблон entry (этот файл) и опции
- * bundle() в worker.ts (webpackOverride, алиасы). Их правка меняет ключ, и кэш бандлов
+ * Исходники, от которых зависит бандл помимо версии: шаблон entry (этот файл), опции
+ * bundle() в worker.ts (webpackOverride) и правила разрешения модулей (resolve-jail.ts). Их правка меняет ключ, и кэш бандлов
  * не отдаёт сборку, сделанную по старым правилам.
  */
-const TOOLCHAIN_SOURCES = [fileURLToPath(import.meta.url), fileURLToPath(new URL("./worker.ts", import.meta.url))];
+const TOOLCHAIN_SOURCES = [
+  fileURLToPath(import.meta.url),
+  fileURLToPath(new URL("./worker.ts", import.meta.url)),
+  fileURLToPath(new URL("./resolve-jail.ts", import.meta.url)),
+];
 const REMOTION_VERSION = (
   JSON.parse(readFileSync(join(APP_NODE_MODULES, "remotion", "package.json"), "utf8")) as { version: string }
 ).version;

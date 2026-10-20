@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { SettingsSchema } from "./settings.js";
 import { KnowledgeRefSchema } from "./selection.js";
+import { FailureStageSchema } from "./failure.js";
 
 const Sha = z.string().regex(/^[0-9a-f]{64}$/, "ожидается sha256 (64 hex)");
 // not_checked — гейт в этом срезе не проверялся (например, Visual QA ещё нет).
@@ -36,7 +37,7 @@ export const VersionManifestSchema = z.object({
   qa: z.object({ technical: Verdict, visual: Verdict, semantic: Verdict, style: Verdict }).strict().nullable().optional(),
   preview: FileEntry.nullable(),
   status: z.enum(["ready", "failed"]),
-  failure: z.object({ stage: z.string(), message: z.string() }).strict().optional(),
+  failure: z.object({ stage: FailureStageSchema, message: z.string() }).strict().optional(),
   qa_frames: z.array(z.number().int().nonnegative()),
   qa_frames_sha256: z.array(Sha),
 }).strict().superRefine((m, ctx) => {

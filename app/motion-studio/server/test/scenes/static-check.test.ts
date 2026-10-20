@@ -97,7 +97,7 @@ describe("Violation: файл, строка, сообщение для аген�
     expect(check("setTimeout(() => 1, 10)")[0]!.message).toContain("useCurrentFrame");
     expect(check("import gsap from 'gsap'")[0]!.message).toMatch(/gsap.*remotion/s);
     expect(check("<div style={{ transition: 'all 1s' }} />")[0]!.message).toContain("interpolate");
-    expect(check("<img src='https://x/a.png' />")[0]!.message).toContain("staticFile");
+    expect(check("<img src='https://x/a.png' />")[0]!.message).toContain("src/ и импортируй");
     expect(check("const d = new Date()")[0]!.message).toMatch(/[а-я]/);
   });
 });
@@ -405,6 +405,28 @@ describe("checkSceneDir: файлы версии на диске", () => {
       ["forbidden-file", "src/notes.txt"],
       ["forbidden-file", "src/x.wasm"],
     ]);
+  });
+  it("node_modules где угодно в версии и package.json в src/** и в корне — forbidden-file", async () => {
+    await mkdir(join(tmp, "node_modules", "@remotion", "fonts"), { recursive: true });
+    await writeFile(join(tmp, "node_modules", "@remotion", "fonts", "index.js"), "module.exports = 1;\n");
+    await mkdir(join(tmp, "src", "node_modules", "x"), { recursive: true });
+    await writeFile(join(tmp, "src", "node_modules", "x", "package.json"), JSON.stringify({ main: "../../../evil.js" }));
+    await writeFile(join(tmp, "src", "node_modules", "x", "index.js"), "export const a = Date.now();\n");
+    await mkdir(join(tmp, "refs", "kb", "a", "node_modules"), { recursive: true });
+    await writeFile(join(tmp, "src", "parts", "package.json"), JSON.stringify({ browser: { remotion: "./evil.js" } }));
+    await writeFile(join(tmp, "package.json"), "{}");
+    // package.json вне src/ и корня (справка refs/) на разрешение модулей сцены не влияет
+    await writeFile(join(tmp, "refs", "kb", "a", "package.json"), "{}");
+    const v = await checkSceneDir(tmp);
+    expect(v.map((x) => [x.rule, x.file])).toEqual([
+      ["forbidden-file", "node_modules"],
+      ["forbidden-file", "package.json"],
+      ["forbidden-file", "refs/kb/a/node_modules"],
+      ["forbidden-file", "src/node_modules"],
+      ["forbidden-file", "src/parts/package.json"],
+    ]);
+    expect(v[0]!.message).toMatch(/node_modules.*подменил/);
+    expect(v[1]!.message).toContain("разрешение модулей");
   });
   it("CSS-файл в src/ проверяется", async () => {
     await writeFile(join(tmp, "src", "a.css"), ".a {\n  animation: spin 1s;\n}\n");

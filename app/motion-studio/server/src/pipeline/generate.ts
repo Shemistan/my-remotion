@@ -12,7 +12,7 @@
 // маркер карантина может не записаться — такой draft найдёт `sweepAbandonedDrafts` при
 // следующем старте CLI. До draft неудача пишет `failure.json` рядом с brief.json.
 import { existsSync } from "node:fs";
-import { readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { readFile, readdir, readlink, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -21,12 +21,13 @@ import {
   DirectorOutputSchema,
   type EngineerReport,
   EngineerReportSchema,
+  type FailureStage,
   type KnowledgeRef,
   type MotionSpec,
   type Settings,
   type VersionManifest,
 } from "@ms/contracts";
-import { StorageError, type StorageStatus, safeMkdir, watchStorage } from "@ms/core";
+import { StorageError, StoragePathError, type StorageStatus, safeMkdir, watchStorage } from "@ms/core";
 import { MOTION_KIT_DIR, probeGate, type renderVersion } from "@ms/render";
 import type { AgentResult, AgentRuntimeAdapter, AgentTask, Role } from "../agents/runtime.js";
 import type { AppConfig } from "../config.js";
@@ -40,6 +41,7 @@ import {
   type KnowledgeSource,
   SKILLS_REL,
   candidateBrief,
+  filterSelection,
   knowledgeRefs,
   prepareRefs,
   searchCandidates,
@@ -50,23 +52,8 @@ import { renderEnv } from "./render-env.js";
 
 export { qaFrames } from "./qa-frames.js";
 
-export type FailureStage =
-  | "storage"
-  | "director"
-  /** Подготовка draft: spec/settings/refs/кэш. */
-  | "prepare"
-  | "engineer"
-  | "static"
-  | "typecheck"
-  | "render"
-  | "probe"
-  | "budget"
-  /** Процесс агента или рендера не исчез (ADR 0007, stale_process): draft в карантине. */
-  | "orphaned"
-  /** Отмена вызывающим (Ctrl-C в CLI). */
-  | "cancelled"
-  /** Публикация не удалась при доступном хранилище: draft в карантине. */
-  | "publish";
+/** Словарь этапов неудачи — `@ms/contracts` (`FailureStageSchema`). */
+export type { FailureStage };
 
 export interface GenerateDeps {
   storage: () => Promise<StorageStatus>;
@@ -118,8 +105,62 @@ function clip(s: string, n = MAX_ISSUE_CHARS): string {
   return s.length > n ? `${s.slice(0, n)}\n…(обрезано)` : s;
 }
 
-function isStorageError(e: unknown): boolean {
-  return e instanceof StorageError || (e instanceof Error && /^storage(_unavailable)?:/.test(e.message));
+/**
+ * Сбой хранилища: `StorageError` (в том числе из рантайма агентов) или отказ guard в
+ * `publishVersion` (`storage_unavailable: …`). `StoragePathError` из `safeMkdir` — путь
+ * вне хранилища, ошибка программиста: не хранилище, хотя сообщение и похоже.
+ */
+export function isStorageError(e: unknown): boolean {
+  if (e instanceof StoragePathError) return false;
+  return e instanceof StorageError || (e instanceof Error && /^storage_unavailable:/.test(e.message));
+}
+
+/** Зона Engineer в draft: `src/**` и `props.json`. Всё остальное — файлы пайплайна. */
+function engineerZone(rel: string): boolean {
+  return rel === "src" || rel.startsWith("src/") || rel === "props.json";
+}
+
+/** Снимок draft вне зоны Engineer: путь → `dir` | `file:<sha256>` | `link:<цель>` | `special`. */
+export async function snapshotOutsideZone(dir: string): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const walk = async (rel: string): Promise<void> => {
+    const entries = await readdir(rel ? join(dir, rel) : dir, { withFileTypes: true });
+    for (const e of entries) {
+      const r = rel ? `${rel}/${e.name}` : e.name;
+      if (engineerZone(r)) continue;
+      const abs = join(dir, r);
+      if (e.isSymbolicLink()) out.set(r, `link:${await readlink(abs)}`);
+      else if (e.isDirectory()) {
+        out.set(r, "dir");
+        await walk(r);
+      } else if (e.isFile()) out.set(r, `file:${await sha256File(abs)}`);
+      else out.set(r, "special");
+    }
+  };
+  await walk("");
+  return out;
+}
+
+export interface ZoneDiff {
+  added: string[];
+  changed: string[];
+  removed: string[];
+}
+
+export function diffSnapshots(before: Map<string, string>, after: Map<string, string>): ZoneDiff {
+  const d: ZoneDiff = { added: [], changed: [], removed: [] };
+  for (const [p, v] of after) {
+    if (!before.has(p)) d.added.push(p);
+    else if (before.get(p) !== v) d.changed.push(p);
+  }
+  for (const p of before.keys()) if (!after.has(p)) d.removed.push(p);
+  for (const k of ["added", "changed", "removed"] as const) d[k].sort();
+  return d;
+}
+
+function describeDiff(d: ZoneDiff): string {
+  const part = (what: string, xs: string[]) => (xs.length > 0 ? `${what}: ${xs.slice(0, 20).join(", ")}${xs.length > 20 ? ` (+${xs.length - 20})` : ""}` : "");
+  return [part("добавлены", d.added), part("изменены", d.changed), part("удалены", d.removed)].filter(Boolean).join("; ");
 }
 
 function json(v: unknown): string {
@@ -343,10 +384,13 @@ export async function generateScene(prompt: string, settings: Settings, deps: Ge
     spec.style_preset = settings.style_preset;
   }
   for (const w of specWarnings(spec)) warnings.push(`spec: ${w}`);
-  const { refs, unknown } = knowledgeRefs(director.selection, deps.kb);
+  // выбор Director — только из предложенных кандидатов и только permissive
+  const filtered = filterSelection(director.selection, cands, deps.kb);
+  for (const x of filtered.dropped) warnings.push(`Director выбрал ${x.kb_id} — отброшено: ${x.reason}`);
+  const { refs, unknown } = knowledgeRefs(filtered.selection, deps.kb);
   if (unknown.length > 0) warnings.push(`Director выбрал неизвестные kb_id (пропущены): ${unknown.join(", ")}`);
-  if (refs.length === 0) warnings.push("knowledge-refs пуст: Director не выбрал ни одной записи KB");
-  const selection: ComponentSelection = { items: director.selection.items.filter((i) => refs.some((r) => r.kb_id === i.kb_id)) };
+  if (refs.length === 0) warnings.push("knowledge-refs пуст: Director не выбрал ни одной допустимой записи KB");
+  const selection = { items: filtered.selection.items.filter((i) => refs.some((r) => r.kb_id === i.kb_id)) };
   log(`Director: «${spec.title}» (${director.composition.archetype}), ${spec.beats.length} битов, KB: ${refs.map((r) => `${r.kb_id} (${r.strategy})`).join(", ") || "—"}`);
   const frames = qaFrames(spec, settings.duration_frames);
 
@@ -360,12 +404,54 @@ export async function generateScene(prompt: string, settings: Settings, deps: Ge
   const draftDir = draft.dir;
   let phase: FailureStage = "prepare";
 
+  // Файлы пайплайна в draft — из памяти: пишутся до Engineer, восстанавливаются после
+  // нарушения границы и перезаписываются перед публикацией (опубликованы всегда эти).
+  const owned: Record<string, string> = {
+    "spec.json": JSON.stringify(spec, null, 2) + "\n",
+    "settings.json": JSON.stringify(settings, null, 2) + "\n",
+    "selection.json": JSON.stringify({ ...selection, rationale: director.rationale, dropped: filtered.dropped }, null, 2) + "\n",
+    "knowledge-refs.json": JSON.stringify(refs satisfies KnowledgeRef[], null, 2) + "\n",
+  };
+  const writeOwned = async () => {
+    for (const [name, text] of Object.entries(owned)) {
+      await rm(join(draftDir, name), { recursive: true, force: true });
+      await writeFile(join(draftDir, name), text);
+    }
+  };
+  const skillsRoot = deps.skillsRoot ?? join(config.kb.sourceRoot, SKILLS_REL);
+  /**
+   * Возвращает draft вне зоны Engineer к снимку `before`: добавленное удаляется, файлы
+   * пайплайна пишутся из памяти, `refs/` готовится заново, прочее (кадры и превью
+   * прошлого рендера) удаляется — рендер создаст их снова. Не сошлось — исключение.
+   */
+  const restoreOutside = async (before: Map<string, string>, d: ZoneDiff): Promise<void> => {
+    for (const p of d.added) await rm(join(draftDir, p), { recursive: true, force: true });
+    let refsDirty = false;
+    const dropped: string[] = [];
+    for (const p of [...d.changed, ...d.removed]) {
+      if (p in owned) continue; // ниже — writeOwned
+      if (p === "refs" || p.startsWith("refs/")) refsDirty = true;
+      else {
+        await rm(join(draftDir, p), { recursive: true, force: true });
+        dropped.push(p);
+      }
+    }
+    if (refsDirty) {
+      await rm(join(draftDir, "refs"), { recursive: true, force: true });
+      await prepareRefs(draftDir, selection, deps.kb, skillsRoot);
+    }
+    await writeOwned();
+    const gone = (p: string) => dropped.some((x) => p === x || p.startsWith(`${x}/`));
+    const expected = new Map([...before].filter(([p]) => !gone(p)));
+    const left = diffSnapshots(expected, await snapshotOutsideZone(draftDir));
+    if (left.added.length + left.changed.length + left.removed.length > 0) {
+      throw new Error(`draft вне src/ и props.json не восстановлен: ${describeDiff(left)}`);
+    }
+  };
+
   const afterDraft = async (): Promise<Exit> => {
-    await writeFile(join(draftDir, "spec.json"), JSON.stringify(spec, null, 2) + "\n");
-    await writeFile(join(draftDir, "settings.json"), JSON.stringify(settings, null, 2) + "\n");
-    await writeFile(join(draftDir, "selection.json"), JSON.stringify({ ...director.selection, rationale: director.rationale }, null, 2) + "\n");
-    await writeFile(join(draftDir, "knowledge-refs.json"), JSON.stringify(refs satisfies KnowledgeRef[], null, 2) + "\n");
-    await prepareRefs(draftDir, selection, deps.kb, deps.skillsRoot ?? join(config.kb.sourceRoot, SKILLS_REL));
+    await writeOwned();
+    await prepareRefs(draftDir, selection, deps.kb, skillsRoot);
     const cacheDir = await safeMkdir(root, "cache");
 
     const maxCalls = 1 + config.scene.maxAutoFixes;
@@ -381,6 +467,7 @@ export async function generateScene(prompt: string, settings: Settings, deps: Ge
       if (signal?.aborted) return { ok: false, stage: "cancelled", message: "отменено" };
 
       engineerCalls++;
+      const zoneBefore = await snapshotOutsideZone(draftDir);
       const input = engineerPrompt({ prompt, settings, spec, selection, refs, call, maxCalls, issue });
       log(call === 1 ? "Engineer…" : `Engineer: исправление ${call - 1} из ${maxCalls - 1} (${issue?.stage})…`);
       const e = await timed(`engineer_${call}`, () =>
@@ -396,6 +483,24 @@ export async function generateScene(prompt: string, settings: Settings, deps: Ge
       if (er.error?.kind === "orphaned") return { ok: false, stage: "orphaned", message: `Engineer: ${er.error.message}`, alive: true };
       if (e.lost) return { ok: false, stage: "storage", message: `хранилище пропало во время Engineer: ${e.lost}` };
       if (signal?.aborted) return { ok: false, stage: "cancelled", message: "отменено во время Engineer" };
+
+      // Граница draft: Engineer правит только src/** и props.json. Остальное (файлы
+      // пайплайна, refs/, node_modules, package.json рядом с src/) меняло бы сборку
+      // или опубликованные данные в обход static check — откат и причина на исправление.
+      const zoneDiff = diffSnapshots(zoneBefore, await snapshotOutsideZone(draftDir));
+      if (zoneDiff.added.length + zoneDiff.changed.length + zoneDiff.removed.length > 0) {
+        const what = describeDiff(zoneDiff);
+        await restoreOutside(zoneBefore, zoneDiff);
+        warnings.push(`Engineer писал вне src/ и props.json (откачено): ${what}`);
+        issue = {
+          stage: "static",
+          message: `[draft-boundary] изменения вне src/ и props.json запрещены и откачены пайплайном: ${what}. ` +
+            "Код сцены и ассеты — только в src/ (без node_modules и package.json), данные — в props.json; spec.json, settings.json, selection.json, knowledge-refs.json и refs/ не трогай.",
+        };
+        history.push({ at: new Date().toISOString(), ...issue });
+        log(`граница draft: ${what}`);
+        continue;
+      }
 
       if (er.permissionDenials.length > 0) {
         deniedLog.push(...er.permissionDenials);
@@ -478,6 +583,8 @@ export async function generateScene(prompt: string, settings: Settings, deps: Ge
   /** Публикация версии; вся подготовка (логи, хеши, окружение) — внутри try. */
   const publish = async (exit: Exit): Promise<GenerateResult> => {
     try {
+      // опубликованные файлы пайплайна — всегда из памяти, а не то, что лежит в draft
+      await writeOwned();
       if (warnings.length > 0 || deniedLog.length > 0) {
         await writeFile(join(draftDir, "warnings.json"), JSON.stringify({ warnings, permission_denials: deniedLog }, null, 2) + "\n");
       }

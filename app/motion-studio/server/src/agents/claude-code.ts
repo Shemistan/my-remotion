@@ -2,10 +2,10 @@
 // 04-agent-workflows.md §5). Флаги сверены с `claude --help` 2.1.304.
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
-import { access, lstat, readFile, writeFile } from "node:fs/promises";
+import { access, lstat, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { delimiter, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
-import { assertRunRef, safeMkdir, spawnTracked } from "@ms/core";
+import { StorageError, assertRunRef, safeMkdir, spawnTracked } from "@ms/core";
 import { toJsonSchema } from "@ms/contracts";
 import type { ZodType, ZodTypeAny } from "zod";
 import { childEnv } from "./env.js";
@@ -187,8 +187,9 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
 
   /**
    * Ошибки задачи (runId, logRoot вне хранилища, инструменты, модель, бюджет, промпт роли,
-   * нет бинарника) — `failed`, не исключение. Исключение — только сбой хранилища
-   * (`StorageError` из `safeMkdir`) и записи журнала.
+   * нет бинарника) — `failed`, не исключение. Исключение — сбой хранилища (`StorageError`:
+   * `safeMkdir`, запись журнала, TMPDIR вызова) и отказ `spawnTracked` (реестр не записан,
+   * процесс не запустился): состояние процесса тогда неизвестно, `failed/cli` скрыл бы это.
    */
   async run<I, O>(task: AgentTask<I>, schema: ZodType<O>, signal: AbortSignal): Promise<AgentResult<O>> {
     const startedAt = new Date().toISOString();
@@ -227,8 +228,7 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
     stderrPath = join(dir, "stderr.log");
 
     // всё проверяется до записи prompt.md и запуска
-    const env = childEnv(process.env);
-    const bin = await resolveBin(this.bin, env.PATH);
+    const bin = await resolveBin(this.bin, childEnv(process.env).PATH);
     if (!bin) return stop("failed", "cli", `claude не найден: ${this.bin}`);
     let args: string[];
     try {
@@ -239,8 +239,18 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
 
     // промпт пишется в журнал до запуска; в нём только данные задачи
     const prompt = typeof task.input === "string" ? task.input : "````json\n" + JSON.stringify(task.input, null, 2) + "\n````\n";
-    await writeFile(join(dir, "prompt.md"), prompt);
+    await storageWrite(join(dir, "prompt.md"), prompt);
     if (signal.aborted) return stop("cancelled", "cancelled", "отменено до запуска");
+
+    // TMPDIR дочернего процесса — `run/tmp/<runId>-a<attempt>-<role>-*` хранилища, не системный диск
+    const tmpRoot = await safeMkdir(task.run.root, "run/tmp");
+    let runTmp: string;
+    try {
+      runTmp = await mkdtemp(join(tmpRoot, `${task.run.runId}-a${task.run.attempt}-${task.role}-`));
+    } catch (e) {
+      throw new StorageError("not_writable", `${tmpRoot}: ${(e as Error).message}`);
+    }
+    const env = childEnv(process.env, runTmp);
 
     const ctrl = new AbortController();
     let timedOut = false;
@@ -251,7 +261,10 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
     const onAbort = () => ctrl.abort();
     signal.addEventListener("abort", onAbort, { once: true });
 
-    let res: Awaited<ReturnType<typeof spawnTracked>>;
+    // Исключение spawnTracked (реестр не записан — StorageError из safeMkdir; событие
+    // `error` дочернего процесса) не превращается в `failed/cli`: состояние процесса
+    // неизвестно, решает вызывающий (хранилище → storage, иначе карантин).
+    let res: Awaited<ReturnType<typeof spawnTracked>> | undefined;
     try {
       res = await (this.opts.spawn ?? spawnTracked)(task.run.root, task.run, bin, args, {
         cwd: task.workdir,
@@ -259,14 +272,15 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
         signal: ctrl.signal,
         stdin: prompt,
       });
-    } catch (e) {
-      return stop("failed", "cli", `запуск claude не удался: ${(e as Error).message}`);
     } finally {
       clearTimeout(timer);
       signal.removeEventListener("abort", onAbort);
+      // процессы живы или их состояние неизвестно — каталог не трогаем, только помечаем
+      if (res === undefined || res.orphaned) await rename(runTmp, `${runTmp}.quarantined`).catch(() => undefined);
+      else await rm(runTmp, { recursive: true, force: true }).catch(() => undefined);
     }
-    await writeFile(stdoutPath, res.stdout);
-    await writeFile(stderrPath, res.stderr);
+    await storageWrite(stdoutPath, res.stdout);
+    await storageWrite(stderrPath, res.stderr);
 
     const parsed = parseClaudeOutput(res.stdout, schema);
     if (res.orphaned) {
@@ -302,6 +316,15 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
     } catch (e) {
       throw new Error(`системный промпт роли не прочитан: ${(e as Error).message}`, { cause: e });
     }
+  }
+}
+
+/** Запись журнала вызова; сбой — `StorageError` (`not_writable`): журнал лежит в хранилище. */
+async function storageWrite(path: string, data: string): Promise<void> {
+  try {
+    await writeFile(path, data);
+  } catch (e) {
+    throw new StorageError("not_writable", `${path}: ${(e as Error).message}`);
   }
 }
 

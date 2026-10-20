@@ -46,7 +46,7 @@ function launchViaWrapper(args: string[]): { child: ChildProcess; argsOut: strin
   const child = spawn(CHROME_WRAPPER, args, {
     detached: true,
     stdio: "ignore",
-    env: { PATH: process.env.PATH, ARGS_OUT: argsOut, MS_CHROME: fake, MS_RUN_ROOT: root, MS_RUN_ID: "run7", MS_RUN_ATTEMPT: "2" },
+    env: { PATH: process.env.PATH, ARGS_OUT: argsOut, MS_CHROME: fake, MS_RUN_ROOT: root, MS_RUN_ID: "run7", MS_RUN_ATTEMPT: "2", MS_BUNDLE_PORT: "3123" },
   });
   children.push(child);
   return { child, argsOut };
@@ -63,14 +63,34 @@ it("chrome-wrapper registers Chrome in run/processes and reapStale kills it afte
   expect(rec.cmd.startsWith(BROWSER_CMD_PREFIX)).toBe(true);
   // startedAt совпадает с procInfo — reapStale узнает процесс после exec
   expect(rec.startedAt).toBe((await procInfo(pid))!.startedAt);
-  // прокси Remotion выкинуты, сеть закрыта, остальные аргументы целы
-  expect(readFileSync(argsOut, "utf8").trim().split("\n")).toEqual(["about:blank", "--user-data-dir=/x y", "--proxy-server=127.0.0.1:9"]);
+  // прокси Remotion выкинуты, сеть закрыта (и loopback, кроме порта бандла), остальные аргументы целы
+  expect(readFileSync(argsOut, "utf8").trim().split("\n")).toEqual([
+    "about:blank",
+    "--user-data-dir=/x y",
+    "--proxy-server=127.0.0.1:9",
+    "--proxy-bypass-list=<-loopback>;localhost:3123;127.0.0.1:3123",
+  ]);
 
   // сервер упал: записью Chrome занимается reapStale
   const r = await reapStale(root, "run7", { graceMs: 200, waitMs: 5000 });
   expect(r).toEqual({ clean: true, alive: [] });
   expect(groupExists(pid)).toBe(false);
   expect(readdirSync(join(root, "run/processes"))).toEqual([]);
+});
+
+it("chrome-wrapper refuses to start Chrome without a numeric MS_BUNDLE_PORT", async () => {
+  const fake = join(tmp, "fake-chrome-never.sh");
+  const marker = join(tmp, "started.txt");
+  writeFileSync(fake, `#!/bin/sh\ntouch "${marker}"\n`);
+  chmodSync(fake, 0o755);
+  for (const port of ["", "80;evil", undefined]) {
+    const env: Record<string, string | undefined> = { PATH: process.env.PATH, MS_CHROME: fake, MS_RUN_ROOT: root, MS_RUN_ID: "run8", MS_RUN_ATTEMPT: "1" };
+    if (port !== undefined) env.MS_BUNDLE_PORT = port;
+    const child = spawn(CHROME_WRAPPER, ["about:blank"], { stdio: "ignore", env });
+    const code = await new Promise<number | null>((r) => child.once("exit", (c) => r(c)));
+    expect(code, String(port)).not.toBe(0);
+  }
+  expect(existsSync(marker)).toBe(false);
 });
 
 it("settleBrowserRecords kills the Chrome group and removes the record only once it is gone", async () => {

@@ -23,7 +23,7 @@ describe("VersionManifest", () => {
   it("failed с failure", () =>
     expect(ok({ ...manifest(), status: "failed", failure: { stage: "render", message: "x" }, preview: null })).toBe(true));
   it("failed допускает qa null и отсутствие qa", () => {
-    const f: Record<string, unknown> = { ...manifest(), status: "failed", failure: { stage: "agent", message: "x" }, preview: null };
+    const f: Record<string, unknown> = { ...manifest(), status: "failed", failure: { stage: "engineer", message: "x" }, preview: null };
     expect(ok({ ...f, qa: null })).toBe(true);
     const noQa = { ...f };
     delete noQa.qa;
@@ -41,7 +41,7 @@ describe("VersionManifest", () => {
   });
   it("failed без failure отвергается", () => expect(ok({ ...manifest(), status: "failed" })).toBe(false));
   it("ready с failure отвергается", () =>
-    expect(ok({ ...manifest(), failure: { stage: "a", message: "b" } })).toBe(false));
+    expect(ok({ ...manifest(), failure: { stage: "render", message: "b" } })).toBe(false));
   it("ready без preview отвергается", () => expect(ok({ ...manifest(), preview: null })).toBe(false));
   it("неверная schema_version", () => expect(ok({ ...manifest(), schema_version: 2 })).toBe(false));
   it("qa_frames и qa_frames_sha256 разной длины", () =>
