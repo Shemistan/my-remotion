@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { ROLES, type Role } from "./agents/runtime.js";
+import { MAX_CALL_BUDGET_USD, MODEL_RE, ROLES, type Role } from "./agents/runtime.js";
 
 export interface AgentSettings {
   model: string;
@@ -32,9 +32,9 @@ const MAIN_CHECKOUT = REPO_ROOT.split("/.claude/worktrees/")[0]!;
 
 const AgentOverride = z
   .object({
-    model: z.string().min(1),
+    model: z.string().regex(MODEL_RE, "имя модели: латиница, цифры, . - [ ]"),
     timeoutMs: z.number().int().positive(),
-    maxBudgetUsd: z.number().positive(),
+    maxBudgetUsd: z.number().positive().max(MAX_CALL_BUDGET_USD),
   })
   .partial()
   .strict();

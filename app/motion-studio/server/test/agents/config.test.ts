@@ -69,3 +69,13 @@ it("readConfigFile: missing file is undefined, bad JSON throws, good JSON loads"
     await removeTmp(dir);
   }
 });
+
+it("model names are validated; maxBudgetUsd has an upper bound", () => {
+  const load = (engineer: object) => loadConfig({ MS_DATA_DIR: root }, { agents: { engineer } });
+  expect(load({ model: "claude-haiku-5-5" }).agents.engineer.model).toBe("claude-haiku-5-5");
+  expect(load({ model: "opus[1m]" }).agents.engineer.model).toBe("opus[1m]");
+  expect(() => load({ model: "opus --dangerously-skip-permissions" })).toThrow(/config\.json/);
+  expect(() => load({ model: "-opus" })).toThrow(/config\.json/);
+  expect(load({ maxBudgetUsd: 50 }).agents.engineer.maxBudgetUsd).toBe(50);
+  expect(() => load({ maxBudgetUsd: 51 })).toThrow(/config\.json/);
+});

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join, relative } from "node:path";
 import type { spawnTracked } from "@ms/core";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { ClaudeCodeRuntime } from "../../src/agents/claude-code.js";
@@ -13,9 +13,9 @@ let workdir: string;
 beforeEach(async () => {
   tmp = await makeTmp();
   store = await makeStore(tmp);
-  logRoot = join(tmp, "agent-runs");
+  // logRoot ещё не существует: каталоги журнала создаёт safeMkdir внутри хранилища
+  logRoot = join(store, "logs", "agent-runs");
   workdir = join(tmp, "draft");
-  await mkdir(logRoot);
   await mkdir(workdir);
 });
 afterEach(() => removeTmp(tmp));
@@ -62,12 +62,12 @@ it("happy path: prompt via stdin, allowlisted env, logs written", async () => {
     });
     const r = await new ClaudeCodeRuntime({ bin: bin("fake-claude.sh"), logRoot }).run(t, Ok, new AbortController().signal);
     expect(r).toMatchObject({ status: "completed", output: { ok: true }, sessionId: expect.any(String) });
-    expect(r.stdoutPath).toBe(join(logRoot, "run2", "stdout.json"));
-    expect(r.stderrPath).toBe(join(logRoot, "run2", "stderr.log"));
+    expect(r.stdoutPath).toBe(join(logRoot, "run2", "a1-engineer-1", "stdout.json"));
+    expect(r.stderrPath).toBe(join(logRoot, "run2", "a1-engineer-1", "stderr.log"));
     expect(readFileSync(r.stdoutPath, "utf8")).toBe(fx("success.json"));
     expect(Date.parse(r.finishedAt)).toBeGreaterThanOrEqual(Date.parse(r.startedAt));
 
-    const prompt = readFileSync(join(logRoot, "run2", "prompt.md"), "utf8");
+    const prompt = readFileSync(join(logRoot, "run2", "a1-engineer-1", "prompt.md"), "utf8");
     expect(prompt).toContain("Сделай сцену");
     expect(readFileSync(join(workdir, "stdin.txt"), "utf8")).toBe(prompt);
     const args = readFileSync(join(workdir, "args.txt"), "utf8");
@@ -121,4 +121,69 @@ it("capabilities: missing binary is unavailable", async () => {
   const c = await new ClaudeCodeRuntime({ bin: join(tmp, "no-such-claude"), logRoot }).capabilities();
   expect(c.available).toBe(false);
   expect(c.reason).toBeTruthy();
+});
+
+it("R12: same runId/attempt/role twice gives two log dirs (seq 1 and 2)", async () => {
+  const rt = new ClaudeCodeRuntime({ bin: bin("fake-claude.sh"), logRoot });
+  const a = await rt.run(task(60_000, "same"), Ok, new AbortController().signal);
+  const b = await rt.run(task(60_000, "same"), Ok, new AbortController().signal);
+  expect(a.stdoutPath).toBe(join(logRoot, "same", "a1-motion_director-1", "stdout.json"));
+  expect(b.stdoutPath).toBe(join(logRoot, "same", "a1-motion_director-2", "stdout.json"));
+  expect((await readdir(join(logRoot, "same"))).sort()).toEqual(["a1-motion_director-1", "a1-motion_director-2"]);
+  expect(existsSync(join(logRoot, "same", "a1-motion_director-2", "prompt.md"))).toBe(true);
+});
+
+it("logRoot outside the storage root: failed, nothing written", async () => {
+  const outside = join(tmp, "elsewhere");
+  const r = await new ClaudeCodeRuntime({ bin: bin("fake-claude.sh"), logRoot: outside }).run(task(60_000), Ok, new AbortController().signal);
+  expect(r).toMatchObject({ status: "failed", error: { kind: "cli", message: expect.stringMatching(/logRoot вне хранилища/) } });
+  expect(existsSync(outside)).toBe(false);
+  // сам корень тоже не годится
+  const r2 = await new ClaudeCodeRuntime({ bin: bin("fake-claude.sh"), logRoot: store }).run(task(60_000), Ok, new AbortController().signal);
+  expect(r2.status).toBe("failed");
+});
+
+it("buildClaudeArgs error: failed result, no prompt.md, no spawn", async () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bad = { ...task(60_000, "bad"), tools: ["Bash"] as any };
+  const r = await new ClaudeCodeRuntime({ bin: bin("fake-claude.sh"), logRoot }).run(bad, Ok, new AbortController().signal);
+  expect(r).toMatchObject({ status: "failed", error: { kind: "cli", message: expect.stringMatching(/Bash/) } });
+  expect(existsSync(join(logRoot, "bad", "a1-motion_director-1", "prompt.md"))).toBe(false);
+  expect(existsSync(join(workdir, "args.txt"))).toBe(false);
+  const badModel = { ...task(60_000, "bad2"), model: "opus --dangerously-skip-permissions" };
+  const r2 = await new ClaudeCodeRuntime({ bin: bin("fake-claude.sh"), logRoot }).run(badModel, Ok, new AbortController().signal);
+  expect(r2).toMatchObject({ status: "failed", error: { kind: "cli" } });
+});
+
+it("is_error JSON without session_id keeps usage and permission denials", async () => {
+  const j = JSON.parse(fx("is-error.json"));
+  delete j.session_id;
+  j.permission_denials = [{ tool_name: "Read", tool_input: { file_path: "/x" } }];
+  const spawn: typeof spawnTracked = async () => ({ code: 1, signal: null, stdout: JSON.stringify(j), stderr: "", orphaned: false });
+  const r = await new ClaudeCodeRuntime({ bin: sleepy, logRoot, spawn }).run(task(60_000), Ok, new AbortController().signal);
+  expect(r).toMatchObject({ status: "failed", error: { kind: "cli", message: expect.stringMatching(/529/) } });
+  expect(r.usage.costUsd).toBeGreaterThan(0);
+  expect(r.permissionDenials).toHaveLength(1);
+});
+
+it("relative bin is resolved to an absolute path once", async () => {
+  const rel = relative(process.cwd(), bin("fake-claude.sh"));
+  let seen = "";
+  const spawn: typeof spawnTracked = async (_root, _ref, cmd) => {
+    seen = cmd;
+    return { code: 0, signal: null, stdout: fx("success.json"), stderr: "", orphaned: false };
+  };
+  const r = await new ClaudeCodeRuntime({ bin: rel, logRoot, spawn }).run(task(60_000), Ok, new AbortController().signal);
+  expect(r.status).toBe("completed");
+  expect(isAbsolute(seen)).toBe(true);
+  expect(seen).toBe(bin("fake-claude.sh"));
+});
+
+it("object input is embedded in a 4-backtick fence", async () => {
+  const t = { ...task(60_000, "obj"), input: { code: "```ts\nx\n```" } };
+  await new ClaudeCodeRuntime({ bin: bin("fake-claude.sh"), logRoot }).run(t, Ok, new AbortController().signal);
+  const prompt = readFileSync(join(logRoot, "obj", "a1-motion_director-1", "prompt.md"), "utf8");
+  expect(prompt.startsWith("````json\n")).toBe(true);
+  expect(prompt.trimEnd().endsWith("````")).toBe(true);
+  expect(JSON.parse(prompt.slice("````json\n".length, prompt.lastIndexOf("\n````")))).toEqual(t.input);
 });

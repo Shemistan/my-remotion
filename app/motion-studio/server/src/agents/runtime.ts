@@ -10,7 +10,13 @@ export type Role = (typeof ROLES)[number];
 export const AGENT_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep"] as const;
 export type AgentTool = (typeof AGENT_TOOLS)[number];
 
-export type Ref = { kind: "file" | "version" | "kb" | "job"; id: string; path?: string };
+/** Алиас (`opus`) или полное имя модели (`claude-haiku-5-5`, `…[1m]`); проверяют config.json и buildClaudeArgs. */
+export const MODEL_RE = /^[a-z0-9][a-z0-9.\-[\]]*$/i;
+
+/** Верхняя граница `maxBudgetUsd` одного вызова в config.json. */
+export const MAX_CALL_BUDGET_USD = 50;
+
+export type Ref ={ kind: "file" | "version" | "kb" | "job"; id: string; path?: string };
 
 export interface AgentTask<I> {
   role: Role;
@@ -47,6 +53,7 @@ export interface AgentResult<O> {
    * незавершённой, повтор только после reapStale.
    */
   error?: { kind: AgentErrorKind; message: string };
+  // `denied` рантайм сам не ставит: решает оркестратор по permissionDenials (rulings п. 14).
   usage: AgentUsage;
   /** Из CLI, как есть. */
   permissionDenials: unknown[];
@@ -59,5 +66,6 @@ export interface AgentResult<O> {
 
 export interface AgentRuntimeAdapter {
   run<I, O>(task: AgentTask<I>, schema: ZodType<O>, signal: AbortSignal): Promise<AgentResult<O>>;
+  /** Короткая проверка вне прогона (doctor); в `run/processes/` не регистрируется. */
   capabilities(): Promise<{ available: boolean; version?: string; reason?: string }>;
 }

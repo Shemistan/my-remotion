@@ -15,8 +15,7 @@ let rt: ClaudeCodeRuntime;
 beforeAll(async () => {
   tmp = await makeTmp();
   store = await makeStore(tmp);
-  logRoot = join(tmp, "agent-runs");
-  await mkdir(logRoot);
+  logRoot = join(store, "logs", "agent-runs");
   rt = new ClaudeCodeRuntime({ bin: process.env.MS_CLAUDE_BIN ?? "claude", logRoot });
 });
 afterAll(() => removeTmp(tmp));

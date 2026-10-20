@@ -2,10 +2,10 @@
 // 04-agent-workflows.md §5). Флаги сверены с `claude --help` 2.1.304.
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
-import { delimiter, join } from "node:path";
+import { access, lstat, readFile, writeFile } from "node:fs/promises";
+import { delimiter, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
-import { assertRunRef, spawnTracked } from "@ms/core";
+import { assertRunRef, safeMkdir, spawnTracked } from "@ms/core";
 import { toJsonSchema } from "@ms/contracts";
 import type { ZodType, ZodTypeAny } from "zod";
 import { childEnv } from "./env.js";
@@ -16,6 +16,7 @@ import {
   type AgentRuntimeAdapter,
   type AgentTask,
   type AgentUsage,
+  MODEL_RE,
   type Role,
 } from "./runtime.js";
 
@@ -29,6 +30,7 @@ const EDIT_TOOLS = new Set(["Write", "Edit"]);
 export function buildClaudeArgs(task: AgentTask<unknown>, jsonSchema: object, systemPrompt: string): string[] {
   const bad = task.tools.filter((t) => !(AGENT_TOOLS as readonly string[]).includes(t));
   if (bad.length > 0) throw new Error(`agents: инструменты вне allowlist: ${bad.join(", ")}`);
+  if (!MODEL_RE.test(task.model)) throw new Error(`agents: недопустимое имя модели: ${JSON.stringify(task.model)}`);
   const budget = task.limits.maxBudgetUsd;
   if (!(Number.isFinite(budget) && budget > 0)) throw new Error(`agents: maxBudgetUsd должен быть > 0: ${budget}`);
 
@@ -49,28 +51,43 @@ export function buildClaudeArgs(task: AgentTask<unknown>, jsonSchema: object, sy
 }
 
 type Parsed<O> = Pick<AgentResult<O>, "status" | "output" | "error" | "usage" | "permissionDenials" | "sessionId">;
+/** `noResult` — в stdout не нашлось итогового объекта `type:"result"`. */
+export type ParsedClaudeOutput<O> = Parsed<O> & { noResult: boolean };
 
 const EMPTY_USAGE: AgentUsage = { model: "", inputTokens: 0, outputTokens: 0, costUsd: 0 };
 
-/** Разбирает итоговый JSON `claude -p --output-format json`. */
-export function parseClaudeOutput<O>(stdout: string, schema: ZodType<O>): Parsed<O> {
-  let j: Record<string, unknown>;
-  try {
-    const v: unknown = JSON.parse(stdout);
-    if (typeof v !== "object" || v === null || Array.isArray(v) || (v as { type?: unknown }).type !== "result") {
-      return fail("cli", `ответ CLI — не объект result: ${clip(stdout)}`);
-    }
-    j = v as Record<string, unknown>;
-  } catch {
-    return fail("cli", `ответ CLI — не JSON: ${clip(stdout) || "<пусто>"}`);
+/**
+ * Разбирает итоговый JSON `claude -p --output-format json`. Если весь stdout не JSON
+ * (например, перед ответом напечатано предупреждение), берётся последняя непустая
+ * строка, начинающаяся с `{`.
+ */
+export function parseClaudeOutput<O>(stdout: string, schema: ZodType<O>): ParsedClaudeOutput<O> {
+  let v = tryJson(stdout);
+  if (v === undefined) {
+    const last = stdout
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith("{"))
+      .pop();
+    if (last !== undefined) v = tryJson(last);
   }
+  if (v === undefined) return fail("cli", `ответ CLI — не JSON: ${clip(stdout) || "<пусто>"}`);
+  if (typeof v !== "object" || v === null || Array.isArray(v) || (v as { type?: unknown }).type !== "result") {
+    return fail("cli", `ответ CLI — не объект result: ${clip(stdout)}`);
+  }
+  const j = v as Record<string, unknown>;
 
   const base = {
     usage: usageOf(j),
     permissionDenials: Array.isArray(j.permission_denials) ? (j.permission_denials as unknown[]) : [],
     sessionId: typeof j.session_id === "string" ? j.session_id : undefined,
+    noResult: false,
   };
-  const failed = (kind: AgentErrorKind, message: string): Parsed<O> => ({ ...base, status: "failed", error: { kind, message } });
+  const failed = (kind: AgentErrorKind, message: string): ParsedClaudeOutput<O> => ({
+    ...base,
+    status: "failed",
+    error: { kind, message },
+  });
 
   if (j.is_error === true) {
     const subtype = String(j.subtype ?? "");
@@ -90,8 +107,16 @@ export function parseClaudeOutput<O>(stdout: string, schema: ZodType<O>): Parsed
   }
   return { ...base, status: "completed", output: r.data };
 
-  function fail(kind: AgentErrorKind, message: string): Parsed<O> {
-    return { status: "failed", error: { kind, message }, usage: { ...EMPTY_USAGE }, permissionDenials: [] };
+  function fail(kind: AgentErrorKind, message: string): ParsedClaudeOutput<O> {
+    return { status: "failed", error: { kind, message }, usage: { ...EMPTY_USAGE }, permissionDenials: [], noResult: true };
+  }
+}
+
+function tryJson(s: string): unknown {
+  try {
+    return JSON.parse(s) as unknown;
+  } catch {
+    return undefined;
   }
 }
 
@@ -123,9 +148,12 @@ function clip(s: string, n = 300): string {
 }
 
 export interface ClaudeCodeRuntimeOptions {
-  /** `claude` или абсолютный путь. */
+  /** `claude` (поиск по PATH) или путь; относительный путь разрешается от cwd один раз. */
   bin: string;
-  /** Существующий каталог журналов; внутри — `<runId>/{prompt.md,stdout.json,stderr.log}`. */
+  /**
+   * Каталог журналов внутри хранилища `task.run.root` (каталоги — через `safeMkdir`);
+   * журнал вызова — `<logRoot>/<runId>/a<attempt>-<role>-<seq>/{prompt.md,stdout.json,stderr.log}`.
+   */
   logRoot: string;
   /** Каталог `prompts/` с `<role>.md` (`motion_director` → `motion-director.md`). */
   promptsDir?: string;
@@ -134,12 +162,20 @@ export interface ClaudeCodeRuntimeOptions {
 }
 
 export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
-  constructor(private readonly opts: ClaudeCodeRuntimeOptions) {}
+  private readonly bin: string;
 
+  constructor(private readonly opts: ClaudeCodeRuntimeOptions) {
+    this.bin = opts.bin.includes("/") ? resolve(opts.bin) : opts.bin;
+  }
+
+  /**
+   * Короткий вызов `<bin> --version` вне прогона: `execFile` с таймаутом 15 с,
+   * в `run/processes/` не регистрируется (нет run-ссылки).
+   */
   async capabilities(): Promise<{ available: boolean; version?: string; reason?: string }> {
     const env = childEnv(process.env);
-    const bin = await resolveBin(this.opts.bin, env.PATH);
-    if (!bin) return { available: false, reason: `claude не найден: ${this.opts.bin}` };
+    const bin = await resolveBin(this.bin, env.PATH);
+    if (!bin) return { available: false, reason: `claude не найден: ${this.bin}` };
     try {
       const { stdout } = await promisify(execFile)(bin, ["--version"], { env, timeout: 15_000 });
       const version = stdout.trim().split(/\s+/)[0];
@@ -149,16 +185,27 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
     }
   }
 
+  /**
+   * Ошибки задачи (runId, logRoot вне хранилища, инструменты, модель, бюджет, промпт роли,
+   * нет бинарника) — `failed`, не исключение. Исключение — только сбой хранилища
+   * (`StorageError` из `safeMkdir`) и записи журнала.
+   */
   async run<I, O>(task: AgentTask<I>, schema: ZodType<O>, signal: AbortSignal): Promise<AgentResult<O>> {
     const startedAt = new Date().toISOString();
-    assertRunRef(task.run);
-    const dir = join(this.opts.logRoot, task.run.runId);
-    await mkdir(dir).catch((e: NodeJS.ErrnoException) => {
-      if (e.code !== "EEXIST") throw e;
+    let stdoutPath = "";
+    let stderrPath = "";
+    const done = (r: Parsed<O>): AgentResult<O> => ({
+      status: r.status,
+      output: r.output,
+      error: r.error,
+      usage: r.usage,
+      permissionDenials: r.permissionDenials,
+      sessionId: r.sessionId,
+      stdoutPath,
+      stderrPath,
+      startedAt,
+      finishedAt: new Date().toISOString(),
     });
-    const stdoutPath = join(dir, "stdout.json");
-    const stderrPath = join(dir, "stderr.log");
-    const done = (r: Parsed<O>): AgentResult<O> => ({ ...r, stdoutPath, stderrPath, startedAt, finishedAt: new Date().toISOString() });
     const stop = (status: AgentResult<O>["status"], kind: AgentErrorKind, message: string, from?: Parsed<O>) =>
       done({
         status,
@@ -168,20 +215,31 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
         sessionId: from?.sessionId,
       });
 
-    // промпт пишется в журнал до запуска; в нём только данные задачи
-    const prompt = typeof task.input === "string" ? task.input : `\`\`\`json\n${JSON.stringify(task.input, null, 2)}\n\`\`\`\n`;
-    await writeFile(join(dir, "prompt.md"), prompt);
-
-    const env = childEnv(process.env);
-    const bin = await resolveBin(this.opts.bin, env.PATH);
-    if (!bin) return stop("failed", "cli", `claude не найден: ${this.opts.bin}`);
-    let systemPrompt: string;
+    let rel: string;
     try {
-      systemPrompt = await this.systemPrompt(task.role);
+      assertRunRef(task.run);
+      rel = logRel(task.run.root, this.opts.logRoot);
     } catch (e) {
-      return stop("failed", "cli", `системный промпт роли не прочитан: ${(e as Error).message}`);
+      return stop("failed", "cli", (e as Error).message);
     }
-    const args = buildClaudeArgs(task, toJsonSchema(schema as unknown as ZodTypeAny), systemPrompt);
+    const dir = await this.logDir(task, rel);
+    stdoutPath = join(dir, "stdout.json");
+    stderrPath = join(dir, "stderr.log");
+
+    // всё проверяется до записи prompt.md и запуска
+    const env = childEnv(process.env);
+    const bin = await resolveBin(this.bin, env.PATH);
+    if (!bin) return stop("failed", "cli", `claude не найден: ${this.bin}`);
+    let args: string[];
+    try {
+      args = buildClaudeArgs(task, toJsonSchema(schema as unknown as ZodTypeAny), await this.systemPrompt(task.role));
+    } catch (e) {
+      return stop("failed", "cli", (e as Error).message);
+    }
+
+    // промпт пишется в журнал до запуска; в нём только данные задачи
+    const prompt = typeof task.input === "string" ? task.input : "````json\n" + JSON.stringify(task.input, null, 2) + "\n````\n";
+    await writeFile(join(dir, "prompt.md"), prompt);
     if (signal.aborted) return stop("cancelled", "cancelled", "отменено до запуска");
 
     const ctrl = new AbortController();
@@ -219,16 +277,50 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
     if (parsed.status === "completed" && res.code !== 0) {
       return stop("failed", "cli", `claude завершился с кодом ${res.code}: ${clip(res.stderr)}`, parsed);
     }
-    if (parsed.error?.kind === "cli" && parsed.sessionId === undefined) {
+    if (parsed.noResult) {
       // итогового JSON нет — причина в коде выхода (127: бинарник не найден) и stderr
-      return stop("failed", "cli", `${parsed.error.message}; код ${res.code ?? res.signal}; stderr: ${clip(res.stderr) || "<пусто>"}`);
+      const why = `код ${res.code ?? res.signal}; stderr: ${clip(res.stderr) || "<пусто>"}`;
+      return stop("failed", "cli", `${parsed.error?.message}; ${why}`);
     }
     return done(parsed);
   }
 
+  /** Первый свободный `<rel>/<runId>/a<attempt>-<role>-<seq>` — через `safeMkdir`. */
+  private async logDir(task: AgentTask<unknown>, rel: string): Promise<string> {
+    const base = join(rel, task.run.runId);
+    for (let seq = 1; ; seq++) {
+      const leaf = join(base, `a${task.run.attempt}-${task.role}-${seq}`);
+      if (await exists(join(task.run.root, leaf))) continue;
+      return safeMkdir(task.run.root, leaf);
+    }
+  }
+
   private async systemPrompt(role: Role): Promise<string> {
     if (!this.opts.promptsDir) return "";
-    return readFile(join(this.opts.promptsDir, `${role.replace(/_/g, "-")}.md`), "utf8");
+    try {
+      return await readFile(join(this.opts.promptsDir, `${role.replace(/_/g, "-")}.md`), "utf8");
+    } catch (e) {
+      throw new Error(`системный промпт роли не прочитан: ${(e as Error).message}`, { cause: e });
+    }
+  }
+}
+
+/** `logRoot` относительно корня хранилища; вне корня (или сам корень) — ошибка. */
+function logRel(root: string, logRoot: string): string {
+  const rel = relative(resolve(root), resolve(logRoot));
+  if (rel === "" || isAbsolute(rel) || rel === ".." || rel.startsWith(".." + sep)) {
+    throw new Error(`agents: logRoot вне хранилища ${root}: ${logRoot}`);
+  }
+  return rel;
+}
+
+async function exists(p: string): Promise<boolean> {
+  try {
+    await lstat(p);
+    return true;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw e;
   }
 }
 

@@ -100,7 +100,10 @@ interface AgentTask<I> {
 interface AgentResult<O> {
   status: "completed" | "failed" | "cancelled" | "timeout";
   output?: O;                   // structured_output, прошедший Zod
-  error?: { kind: "schema"|"cli"|"budget"|"timeout"|"denied"; message: string };
+  error?: { kind: "schema"|"cli"|"budget"|"timeout"|"cancelled"|"orphaned"|"denied"; message: string };
+                                // cancelled — внешняя отмена; orphaned — группа процессов
+                                // не исчезла (ADR 0007), задача → blocked/stale_process;
+                                // denied ставит оркестратор по permissionDenials, не рантайм
   usage: { model: string; inputTokens: number; outputTokens: number; costUsd: number };
   permissionDenials: unknown[]; // из CLI, сохраняем как есть
   stdoutPath: string; stderrPath: string;
@@ -159,7 +162,7 @@ cwd = <draft-каталог>, env = allowlist
 - Таймаут: `AbortController` → SIGTERM, через 5 с SIGKILL; статус `timeout`.
 - Ответ с `is_error: true`, пустым `structured_output` или не прошедший Zod → `failed`
   (одна автоматическая переотправка при ошибке схемы, в лимите попыток задачи).
-- Сохраняем stdout/stderr в `agent-runs/<run-id>/`, `usage`, `modelUsage`, `session_id`,
+- Сохраняем prompt/stdout/stderr в `<logRoot>/<run-id>/a<attempt>-<role>-<seq>/` (каталоги — `safeMkdir`), `usage`, `modelUsage`, `session_id`,
   `permission_denials`.
 - Секреты: процессу не передаются; промпты пишутся в файл до запуска и сохраняются
   в журнал (в них только данные задачи).

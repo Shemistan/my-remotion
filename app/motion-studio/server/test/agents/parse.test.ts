@@ -64,3 +64,15 @@ it("model is the one with the largest cost in modelUsage", () => {
   expect(r.usage.model).toBe("claude-opus-x");
   expect(r.usage.outputTokens).toBe(57);
 });
+
+it("prefix line before the JSON: falls back to the last line starting with {", () => {
+  const out = "Warning: something noisy\n" + fx("success.json");
+  const r = parseClaudeOutput(out, Ok);
+  expect(r).toMatchObject({ status: "completed", output: { ok: true }, noResult: false });
+});
+
+it("noResult flag: true only when there is no result object", () => {
+  expect(parseClaudeOutput("garbage", Ok).noResult).toBe(true);
+  expect(parseClaudeOutput(fx("is-error.json"), Ok).noResult).toBe(false);
+  expect(parseClaudeOutput(fx("success.json"), Ok).noResult).toBe(false);
+});
