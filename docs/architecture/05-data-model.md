@@ -15,6 +15,8 @@ $MS_DATA_DIR/
   studio.db (+ -wal, -shm)
   cache/                            бандлы Remotion, временные кадры
   logs/                             логи сервера
+  run/owner.lock                    единственный владелец хранилища: pid, время старта, server|cli
+  run/processes/                    реестр дочерних процессов в срезе без БД (ADR 0007)
   workspace/
     projects/<project-id>/
       project.json                  снимок метаданных (для ручного восстановления)
@@ -29,6 +31,7 @@ $MS_DATA_DIR/
           knowledge-refs.json       выбранные компоненты с provenance
           src/                      код сцены (Scene.tsx и модули)
           props.json
+          settings.json             настройки сцены (ТЗ §6.4) этой версии
           assets/                   локальные ассеты версии
           frames/                   QA-кадры PNG
           preview.mp4
@@ -36,9 +39,13 @@ $MS_DATA_DIR/
           logs/                     технические логи рендера
         approved.json               Ph4: утверждённая версия
       exports/<export-id>/          MP4/MOV + export-manifest.json
-    drafts/<job-id>/                рабочие каталоги агентов (удаляются после публикации/по TTL)
+    drafts/<job-id>-a<attempt>/     рабочий каталог одной попытки (удаляется после публикации;
+                                    .quarantined — не трогать до решения человека)
     agent-runs/<run-id>/            prompt.md, stdout.json, stderr.log
 ```
+
+В вертикальном срезе (без БД) используется один проект `playground`; идентификаторы
+проектов появляются вместе с SQLite (P1-03).
 
 `motion-spec.json` и `knowledge-refs.json` из примера ТЗ хранятся **в версии**, а не на
 уровне сцены: они меняются при правках и должны воспроизводить именно эту версию.
@@ -69,7 +76,7 @@ Phase 1 (обязательные):
 | `scenes` | `id`, `project_id`, `title`, `current_version_id`, `approved_version_id`, `created_at` |
 | `scene_versions` | `id`, `scene_id`, `parent_version_id`, `number` (v1, v2…), `status` (`draft`\|`ready`\|`failed`), `prompt`, `edit_plan_json`, `settings_json`, `path`, `manifest_sha256`, `created_by_job_id`, `created_at` |
 | `chat_messages` | `id`, `scene_id`, `role` (`user`\|`assistant`\|`system`), `text`, `version_id`, `job_id`, `created_at` |
-| `jobs` | `id`, `type`, `project_id`, `scene_id`, `version_id`, `parent_job_id`, `status`, `progress` (0–1), `stage`, `attempts`, `max_attempts`, `input_refs_json`, `input_hash`, `output_refs_json`, `error_json`, `idempotency_key` UNIQUE, `lease_owner`, `lease_until`, `cancel_requested`, `created_at`, `started_at`, `finished_at` |
+| `jobs` | `id`, `type`, `project_id`, `scene_id`, `version_id`, `parent_job_id`, `status`, `progress` (0–1), `stage`, `attempt`, `max_attempts`, `input_refs_json`, `input_hash`, `output_refs_json`, `error_json`, `idempotency_key` UNIQUE, `lease_owner`, `lease_until`, `cancel_requested`, `created_at`, `started_at`, `finished_at` |
 | `job_events` | `id` (монотонный), `job_id`, `ts`, `level`, `kind`, `message`, `data_json` — для SSE и журнала |
 | `agent_runs` | `id`, `job_id`, `role`, `model`, `status`, `input_tokens`, `output_tokens`, `cost_usd`, `session_id`, `permission_denials_json`, `log_dir`, `started_at`, `finished_at` |
 | `render_jobs` | `id`, `job_id`, `version_id`, `kind` (`still`\|`preview`\|`export`), `codec`, `width`, `height`, `fps_num`, `fps_den`, `frames`, `output_path`, `ffprobe_json`, `duration_ms` |
@@ -78,6 +85,11 @@ Phase 1 (обязательные):
 | `exports` | `id`, `version_id`, `job_id`, `format`, `path`, `sha256`, `created_at` |
 | `component_tests` | `kb_id`, `remotion_version`, `result`, `version_id`, `date` — реальные рендер-проверки компонентов |
 | `scene_locks` | `scene_id` PK, `job_id`, `acquired_at` |
+| `job_processes` | `job_id`, `attempt`, `pid`, `pgid`, `started_at` (время старта процесса из `ps`), `cmd`, `ended_at`, `exit_code` — реестр дочерних процессов (ADR 0007) |
+
+В `jobs` поле `attempt` — номер текущей попытки и одновременно fencing-токен (ADR 0007):
+увеличивается при захвате в транзакции и сравнивается с `max_attempts`; публикация и
+запись `output_refs_json` принимаются только при совпадении токена.
 
 Phase 2–5 (добавляются миграциями): `media_assets`, `transcripts`, `transcript_words`,
 `transcript_segments`, `edit_decisions`, `timelines`, `timeline_clips`,
@@ -134,8 +146,17 @@ pending ──lease──▶ running ──▶ completed
    │                  │  ├──▶ cancelled    (cancel_requested)
    │                  │  ├──▶ awaiting_input     (Concept просит уточнение)
    │                  │  └──▶ awaiting_approval  (Ph2+: approvals A/B/C)
-   └── lease истёк при рестарте: attempts < max → pending, иначе failed(interrupted)
+   │                  │
+   │                  └──(рестарт / storage_offline / retry)──▶ проверка процессов попытки
+   │                                                            │
+   └──── все процессы подтверждённо завершены, attempt < max  ◀─┤
+                                                                ├──▶ failed(interrupted)  attempts исчерпаны
+                                                                └──▶ blocked(stale_process)  завершение не подтверждено
 ```
+
+`blocked` — расширение списка статусов ТЗ §4.2 (ADR 0007): задача не перезапускается
+автоматически; прежняя попытка аннулирована fencing-токеном, её draft помечен
+`.quarantined`; повтор — только действием человека после исчезновения процесса.
 
 Идемпотентность: клиент шлёт заголовок `Idempotency-Key`; повторный POST с тем же
 ключом возвращает существующую задачу. Шаги пайплайна с одинаковым `input_hash` и

@@ -67,13 +67,15 @@
   `my-remotion` (там лежат `templates/` и `official_skills/`). Оба — настройки.
 - Загрузка: `capabilities.jsonl` + `repositories.json` + `compatibility/results.jsonl`
   в память при старте (836 записей, ≈2 МБ); перечитывание по mtime.
-- Выдача по контракту §9 ТЗ: `repository`, `commit` (джойн с `repositories.json`),
-  `license` + нормализованный `license_class`, `source_path`, `documentation_path`,
-  `compatibility_status` (= `remotion_compat`), `tested_status` (= `verification`
-  или результат из `results.jsonl`), `confidence` (вычисляемое правило или `unknown`).
+- Выдача по контракту §9 ТЗ (имена полей `CapabilityView`): `repository`, `repository_url`,
+  `commit` (джойн с `repositories.json`), `license` + нормализованный `license_class`,
+  `source_paths[]`, `documentation_paths[]` (у записи KB обычно несколько файлов, поэтому
+  `source_path`/`documentation_path` из ТЗ — списки), `compatibility_status`
+  (= `remotion_compat`), `tested_status` (= `verification` или результат из
+  `results.jsonl`), `confidence` (вычисляемое правило или `unknown`).
 - Отсутствующий исходник → `exists: false`, а не исключение.
-- Запись результатов рендер-проверок — в собственную таблицу `component_tests`
-  в SQLite платформы. В `knowledge/compatibility/results.jsonl` пишет только
+- Запись результатов рендер-проверок — в `PROVENANCE.md` motion-kit (срез, без БД), затем
+  в собственную таблицу `component_tests` в SQLite платформы (P1-03). В `knowledge/compatibility/results.jsonl` пишет только
   человек или отдельная задача с PR (KB — артефакт репозитория).
 
 ### 4.2. ASR (Phase 2)
@@ -104,7 +106,8 @@ AsrAdapter.transcribe(mediaAssetId, {language, model, hotwords})
 ### 4.4. Remotion и FFmpeg (Phase 1)
 
 - Новый пакет `app/motion-studio/render/` с точно закреплёнными `remotion`,
-  `@remotion/bundler`, `@remotion/renderer`, `@remotion/cli` и др. = **4.0.537**.
+  `@remotion/bundler`, `@remotion/renderer`, `@remotion/fonts` = **4.0.537** (`@remotion/cli` не нужен:
+  браузер ставится через `ensureBrowser()` из `@remotion/renderer`).
 - Рендер через `@remotion/renderer` (`bundle` → `selectComposition` →
   `renderMedia`/`renderStill`) в дочернем процессе, по одному на задачу.
 - Chrome Headless Shell скачивается Remotion при первом рендере
