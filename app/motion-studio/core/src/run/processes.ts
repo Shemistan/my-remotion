@@ -31,7 +31,7 @@ export interface ProcessRegistry {
 }
 
 const PROCESSES_DIR = "run/processes";
-const SAFE_ID = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
+export const SAFE_ID = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
 
 export function assertRunRef(ref: { runId: string; attempt: number }): void {
   if (!SAFE_ID.test(ref.runId)) throw new Error(`runId не годится для имени файла: ${JSON.stringify(ref.runId)}`);

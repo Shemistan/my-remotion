@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
-import { chmod, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { defaultSettings, type VersionManifest } from "@ms/contracts";
@@ -8,7 +8,7 @@ import { initStore, type StorageStatus, type VolumeProbe } from "@ms/core";
 import { newId } from "../../src/scenes/ids.js";
 import { sha256 } from "../../src/scenes/hash.js";
 import {
-  createDraft, publishVersion, quarantineDraft, readVersion, writeBrief, type Draft,
+  createDraft, publishVersion, quarantineDraft, readVersion, relockVersions, writeBrief, type Draft,
 } from "../../src/scenes/store.js";
 
 const REPO_TMP = fileURLToPath(new URL("../../../../../tmp/", import.meta.url));
@@ -62,7 +62,7 @@ async function mk(sceneId: string, attempt = 1, parent?: string) {
 async function unlock(dir: string) {
   for (const e of await readdir(dir, { withFileTypes: true }).catch(() => [])) {
     const p = join(dir, e.name);
-    if (e.isDirectory()) { await chmod(p, 0o755); await unlock(p); } else await chmod(p, 0o644);
+    if (e.isDirectory()) { await chmod(p, 0o755); await unlock(p); } else if (e.isFile()) await chmod(p, 0o644);
   }
   await chmod(dir, 0o755).catch(() => undefined);
 }
@@ -216,10 +216,98 @@ describe("SceneStore", () => {
       await rm(join(v.dir, "src/Scene.tsx"));
       await expect(readVersion(v.dir)).rejects.toThrow(/Scene\.tsx/);
     });
-    it("версия, переименованная, но не закрытая chmod (сбой после rename), читается", async () => {
+    it("сбой после rename до chmod корня: readVersion отвергает, relockVersions закрывает", async () => {
+      const v = await publishVersion(await mk("scn_A"), meta("scn_A"), okGuard);
+      await chmod(v.dir, 0o755); // имитация: корень остался записываемым
+      await expect(readVersion(v.dir)).rejects.toThrow(/writable/);
+      const r = await relockVersions(root);
+      expect(r.relocked).toEqual([v.dir]);
+      expect(r.broken).toEqual([]);
+      await expect(readVersion(v.dir)).resolves.toBeDefined();
+      await expect(writeFile(join(v.dir, "x"), "x")).rejects.toMatchObject({ code: "EACCES" });
+    });
+    it("записываемый файл или подкаталог внутри версии отвергается", async () => {
+      const v = await publishVersion(await mk("scn_A"), meta("scn_A"), okGuard);
+      await chmod(join(v.dir, "props.json"), 0o644);
+      await expect(readVersion(v.dir)).rejects.toThrow(/writable/);
+      await chmod(join(v.dir, "props.json"), 0o444);
+      await chmod(join(v.dir, "src"), 0o755);
+      await expect(readVersion(v.dir)).rejects.toThrow(/writable/);
+      expect((await relockVersions(root)).relocked).toEqual([v.dir]);
+      await expect(readVersion(v.dir)).resolves.toBeDefined();
+    });
+    it("relockVersions не закрывает повреждённую версию", async () => {
       const v = await publishVersion(await mk("scn_A"), meta("scn_A"), okGuard);
       await unlock(v.dir);
-      await expect(readVersion(v.dir)).resolves.toBeDefined();
+      await writeFile(join(v.dir, "props.json"), "bad");
+      const r = await relockVersions(root);
+      expect(r.relocked).toEqual([]);
+      expect(r.broken[0]!.dir).toBe(v.dir);
+    });
+    it("version_id и scene_id должны совпадать с путём", async () => {
+      const v = await publishVersion(await mk("scn_A"), meta("scn_A"), okGuard);
+      await chmod(v.dir, 0o755); // 0555 на macOS нельзя переносить к другому родителю
+      const moved = join(dirname(v.dir), "ver_OTHER");
+      await rename(v.dir, moved);
+      await expect(readVersion(moved)).rejects.toThrow(/version_id/);
+      await rename(moved, v.dir);
+      const other = join(root, "workspace/projects/playground/scenes/scn_Z/versions");
+      await mkdir(other, { recursive: true });
+      const there = join(other, v.versionId);
+      await rename(v.dir, there);
+      await expect(readVersion(there)).rejects.toThrow(/scene_id|version_id/);
+    });
+    it("preview обязан быть в files", async () => {
+      const d = await mk("scn_A");
+      await expect(
+        publishVersion(d, meta("scn_A", { preview: { path: "nope.mp4", sha256: hex } }), okGuard),
+      ).rejects.toThrow(/preview/);
+      expect(existsSync(d.dir)).toBe(true);
+    });
+  });
+
+  describe("защита от симлинков, родителя и порядка записи", () => {
+    it("симлинк внутри draft отвергается при публикации, draft цел", async () => {
+      const d = await mk("scn_A");
+      await symlink("/etc/hosts", join(d.dir, "src/link.txt"));
+      await expect(publishVersion(d, meta("scn_A"), okGuard)).rejects.toThrow(/симлинк/);
+      expect(existsSync(d.dir)).toBe(true);
+    });
+    it("симлинк в родительской версии отвергается в createDraft", async () => {
+      const v = await publishVersion(await mk("scn_A"), meta("scn_A"), okGuard);
+      await unlock(v.dir);
+      await rm(join(v.dir, "props.json"));
+      await symlink("/etc/hosts", join(v.dir, "props.json"));
+      await expect(
+        createDraft(root, { runId: "run_S", attempt: 1, sceneId: "scn_A", parentVersionId: v.versionId }),
+      ).rejects.toThrow();
+      expect(existsSync(join(root, "workspace/drafts/run_S-a1"))).toBe(false);
+    });
+    it("parent_version_id манифеста должен совпадать с draft", async () => {
+      const v = await publishVersion(await mk("scn_A"), meta("scn_A"), okGuard);
+      const d = await mk("scn_A", 2);
+      await expect(publishVersion(d, meta("scn_A", { parent_version_id: v.versionId }), okGuard)).rejects.toThrow(/parent_version_id/);
+      const child = await createDraft(root, { runId: "run_C", attempt: 1, sceneId: "scn_A", parentVersionId: v.versionId });
+      await writeFile(join(child.dir, "preview.mp4"), "video");
+      await expect(publishVersion(child, meta("scn_A"), okGuard)).rejects.toThrow(/parent_version_id/);
+      await expect(publishVersion(child, meta("scn_A", { parent_version_id: v.versionId }), okGuard)).resolves.toBeDefined();
+    });
+    it("карантин, поставленный во время публикации (между проверками), останавливает rename", async () => {
+      const d = await mk("scn_A");
+      let n = 0;
+      const guard = async () => {
+        if (++n === 2) await quarantineDraft(d, "поздний карантин");
+        return okGuard();
+      };
+      await expect(publishVersion(d, meta("scn_A"), guard)).rejects.toThrow(/quarantined/);
+      expect(existsSync(d.dir)).toBe(true);
+    });
+    it("после публикации в версии нет записываемых файлов и каталогов", async () => {
+      const v = await publishVersion(await mk("scn_A"), meta("scn_A"), okGuard);
+      expect(v.warnings).toEqual([]);
+      for (const p of [v.dir, join(v.dir, "src"), join(v.dir, "src/Scene.tsx"), join(v.dir, "manifest.json")]) {
+        expect((await lstat(p)).mode & 0o222).toBe(0);
+      }
     });
   });
 });
