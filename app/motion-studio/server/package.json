@@ -3,9 +3,11 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@ms/contracts": "*",
     "@ms/core": "*",
     "@ms/render": "*",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "zod": "3.25.76"
   },
   "scripts": {
     "typecheck": "tsc -p ."
