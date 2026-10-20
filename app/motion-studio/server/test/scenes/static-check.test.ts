@@ -24,11 +24,20 @@ export const Scene = () => {
   const x = interpolate(frame, [0, 30], [0, 100], clamp);
   const jitter = useMemo(() => random("seed") * 10, []);
   const launch = new Date(Date.UTC(2024, 0, 1)).getUTCFullYear();
+  const { sin, cos } = Math;
+  const dots = [0, 1, 2].map((i) => random(\`dot-\${i}\`) * sin(i) * cos(i));
+  const NS = "http://www.w3.org/2000/svg";
+  // Конфиг сцены, не CSS: ключи transition/transitionFrames без CSS-значения.
+  const cfg = { transition: "fade", transitionFrames: 15, animation: "rise" };
   return (
     <AbsoluteFill style={{ background: presets["dark-premium"].palette.bg, opacity: Math.min(1, frame / 30) }}>
       <Img src={staticFile("logo.png")} style={{ transform: \`translateX(\${x + jitter}px)\` }} />
       <img src="./parts/dot.png" />
-      <Title text={String(launch)} className="text-xl font-bold" />
+      <Title text={String(launch + dots.length + cfg.transitionFrames)} className="text-xl font-bold" />
+      <svg xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" data-ns={NS} viewBox="0 0 10 10">
+        <use xlinkHref="#a" />
+      </svg>
+      <img srcSet="./a.png 1x, ./b.png 2x" />
     </AbsoluteFill>
   );
 };
@@ -72,6 +81,12 @@ describe("bad-scenes: по одному нарушению на файл", async
 });
 
 describe("Violation: файл, строка, сообщение для агента", () => {
+  it("['constructor'] даёт одно нарушение, а не два (член + строка)", () => {
+    expect(check("const F = (() => 1)['constructor']")).toHaveLength(1);
+  });
+  it("прагма указывает на строку комментария", () => {
+    expect(check("const a = 1;\n/** @jsx eval */\nconst F = <div />")[0]).toMatchObject({ rule: "forbidden-pragma", line: 2 });
+  });
   it("строка 1-based и путь файла", () => {
     const v = check("import { a } from 'remotion';\n\nconst r = Math.random();\n", "src/parts/A.tsx");
     expect(v).toHaveLength(1);
@@ -172,7 +187,7 @@ const cases: Record<string, Case[]> = {
     ["file: URL", "import x from 'file:///etc/passwd'", ["import-not-allowed"]],
     ["разрешённые модули", "import 'react'; import { jsx } from 'react/jsx-runtime'; import { loadFont } from '@remotion/fonts'; import { useCurrentFrame } from 'remotion'; import { presets } from '@ms/motion-kit'", []],
     ["ассет из src", "import dot from './dot.png'; import data from './data/points.json'", []],
-    ["/// <reference>", "/// <reference path=\"../../x.d.ts\" />\nconst a = 1", ["import-not-allowed"]],
+    ["/// <reference>", "/// <reference path=\"../../x.d.ts\" />\nconst a = 1", ["forbidden-pragma"]],
   ],
   "DOM и опасный HTML": [
     ["document.createElement('script')", "document.createElement('script')", ["forbidden-global", "forbidden-dom"]],
@@ -209,7 +224,7 @@ const cases: Record<string, Case[]> = {
   "CSS-анимации": [
     ["animation в style", "<div style={{ animation: 'spin 1s' }} />", ["forbidden-css-animation"]],
     ["WebkitTransition", "<div style={{ WebkitTransition: 'opacity 1s' }} />", ["forbidden-css-animation"]],
-    ["transitionDuration shorthand", "const transitionDuration = '1s'; const s = { transitionDuration }", ["forbidden-css-animation"]],
+    ["transitionDuration shorthand в style", "const transitionDuration = '1s'; const e = <div style={{ transitionDuration }} />", ["forbidden-css-animation"]],
     ["'transition-duration'", "const s = { 'transition-duration': '1s' }", ["forbidden-css-animation"]],
     ["style.transition =", "const f = (el: HTMLElement) => { el.style.transition = 'all 1s' }", ["forbidden-css-animation"]],
     ["el.animate()", "const f = (el: HTMLElement) => el.animate([], 100)", ["forbidden-css-animation"]],
@@ -221,6 +236,73 @@ const cases: Record<string, Case[]> = {
     ["className-шаблон", "const a = 'x'; const e = <div className={`p-2 ${a} animate-bounce`} />", ["forbidden-css-animation"]],
     ["className через cn()", "const cn = (...a: string[]) => a.join(' '); const e = <div className={cn('p-2', 'animate-ping')} />", ["forbidden-css-animation"]],
     ["className-похожие слова допустимы", "<div className='transitioned animated p-2' />", []],
+  ],
+  "fix round 1: прагмы в комментариях": [
+    ["@jsx eval", "/** @jsx eval */\nconst F = <x:Function />", ["forbidden-pragma"]],
+    ["@jsxFrag", "/** @jsxFrag Function */\nconst F = <></>", ["forbidden-pragma"]],
+    ["@jsxRuntime classic", "/** @jsxRuntime classic */\nconst F = <div />", ["forbidden-pragma"]],
+    ["@jsxImportSource", "/** @jsxImportSource /abs/dir */\nconst F = <div />", ["forbidden-pragma"]],
+    ["@jsx в однострочном комментарии", "// @jsx h\nconst F = <div />", ["forbidden-pragma"]],
+    ["@ts-nocheck", "// @ts-nocheck\nconst a: number = 1", ["forbidden-pragma"]],
+    ["/// <reference types>", "/// <reference types=\"node\" />\nconst a = 1", ["forbidden-pragma"]],
+    ["/// <reference lib>", "/// <reference lib=\"dom\" />\nconst a = 1", ["forbidden-pragma"]],
+    ["прагма поверх синтаксической ошибки тоже видна", "/** @jsx eval */\nconst = 1", ["forbidden-pragma", "syntax-error"]],
+  ],
+  "fix round 1: пространства имён SVG": [
+    ["xmlns", "<svg xmlns='http://www.w3.org/2000/svg' />", []],
+    ["xmlnsXlink", "<svg xmlnsXlink='http://www.w3.org/1999/xlink' />", []],
+    ["xmlns:xlink", "<svg xmlns:xlink='http://www.w3.org/1999/xlink' />", []],
+    ["константа с URI w3.org", "const NS = 'https://www.w3.org/2000/svg'", []],
+    ["прочий http в xmlns не грузится, но href — грузится", "<svg xmlns='http://www.w3.org/2000/svg'><image href='https://x/a.png' /></svg>", ["external-url"]],
+  ],
+  "fix round 1: transition/animation как конфиг": [
+    ["transition: 'fade' — конфиг", "const cfg = { transition: 'fade' }", []],
+    ["transitionFrames: 15", "const cfg = { transitionFrames: 15 }", []],
+    ["animation: 'rise' — конфиг", "const cfg = { animation: 'rise', animationName: 'x' }", []],
+    ["CSS-значение вне style", "const s = { transition: 'opacity 300ms ease-in' }", ["forbidden-css-animation"]],
+    ["CSS-значение infinite", "const s = { animation: 'spin infinite' }", ["forbidden-css-animation"]],
+    ["cubic-bezier", "const s = { transitionTimingFunction: 'cubic-bezier(0.1, 0.7, 1, 0.1)' }", ["forbidden-css-animation"]],
+    ["объект доходит до style через переменную", "const anim = 'x'; const s = { animation: anim }; const e = <div style={s} />", ["forbidden-css-animation"]],
+    ["вложенный объект стилей", "const styles = { box: { transition: 'fade' } }; const e = <div style={styles.box} />", ["forbidden-css-animation"]],
+    ["spread в style", "const base = { transition: 'fade' }; const e = <div style={{ ...base, opacity: 1 }} />", ["forbidden-css-animation"]],
+    ["тип CSSProperties", "import type { CSSProperties } from 'react'; const s: CSSProperties = { transition: 'fade' }", ["forbidden-css-animation"]],
+    ["transitionFrames в style — не CSS-свойство", "const e = <div style={{ opacity: 1 }} data-x={{ transitionFrames: 15 }} />", []],
+  ],
+  "fix round 1: Math деструктуризация": [
+    ["{ sin, cos } = Math", "const { sin, cos } = Math; const y = sin(1) + cos(1)", []],
+    ["{ random } = Math", "const { random } = Math", ["forbidden-global"]],
+    ["{ random: r } = Math", "const { random: r } = Math", ["forbidden-global"]],
+    ["{ ...rest } = Math", "const { ...rest } = Math", ["forbidden-global"]],
+  ],
+  "fix round 1: детерминизм": [
+    ["random(null)", "import { random } from 'remotion'; const r = random(null)", ["forbidden-global"]],
+    ["random(undefined)", "import { random } from 'remotion'; const r = random(undefined)", ["forbidden-global"]],
+    ["random() без сида", "import { random } from 'remotion'; const r = (random as any)()", ["forbidden-global"]],
+    ["R.random(null) через namespace", "import * as R from 'remotion'; const r = R.random(null)", ["forbidden-global"]],
+    ["random(`dot-${i}`)", "import { random } from 'remotion'; const i = 1; const r = random(`dot-${i}`) + random(1) + random('a')", []],
+    ["локальная random(null) — не remotion", "const random = (x: unknown) => 1; const r = random(null)", []],
+    ["Intl.DateTimeFormat().format()", "const s = new Intl.DateTimeFormat('ru').format()", ["forbidden-global"]],
+    ["DateTimeFormat через переменную", "const f = Intl.DateTimeFormat('ru'); const s = f.format()", ["forbidden-global"]],
+    ["formatToParts()", "const p = new Intl.DateTimeFormat('ru').formatToParts()", ["forbidden-global"]],
+    ["DateTimeFormat с фиксированной датой", "const s = new Intl.DateTimeFormat('ru').format(new Date(2024, 0, 1))", []],
+    ["NumberFormat.format(n)", "const s = new Intl.NumberFormat('ru').format(1000)", []],
+    ["Temporal", "const t = Temporal.Now.instant()", ["forbidden-global"]],
+    ["ResizeObserver", "const o = new ResizeObserver(() => {})", ["forbidden-global"]],
+    ["IntersectionObserver", "const o = new IntersectionObserver(() => {})", ["forbidden-global"]],
+    ["MutationObserver", "const o = new MutationObserver(() => {})", ["forbidden-global"]],
+  ],
+  "fix round 1: строки constructor/__proto__/prototype": [
+    ["getOwnPropertyDescriptor(..., 'constructor')", "const d = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(() => 1), 'constructor')", ["forbidden-global"]],
+    ["Reflect.get(x, '__proto__')", "const p = Reflect.get({}, '__proto__')", ["forbidden-global"]],
+    ["'prototype'", "const k = 'prototype'", ["forbidden-global"]],
+    ["['constructor'] — одно нарушение", "const F = (() => 1)['constructor']", ["forbidden-global"]],
+    ["слово внутри строки допустимо", "const s = 'constructor of scenes'", []],
+  ],
+  "fix round 1: srcSet": [
+    ["внешний URL вторым в srcSet", "<img srcSet='./a.png 1x, https://x/b.png 2x' />", ["external-url"]],
+    ["протокол-относительный в srcSet", "<img srcSet='./a.png 1x, //x/b.png 2x' />", ["external-url"]],
+    ["srcSet в объекте props", "const p = { srcSet: './a.png 1x, https://x/b.png 2x' }", ["external-url"]],
+    ["локальный srcSet", "<img srcSet='./a.png 1x, ./b.png 2x' />", []],
   ],
   "файлы и пути": [
     [".tsx вне src/", "export const a = 1", ["outside-src"]],

@@ -62,7 +62,14 @@ export function sceneCompilerOptions(): ts.CompilerOptions {
   };
 }
 
-/** Ошибки типов в `src/` версии (ошибки в motion-kit и библиотеках не включаются). */
+/**
+ * Ошибки типов в `src/` версии (ошибки в motion-kit и библиотеках не включаются).
+ *
+ * Предусловие: вызывать только после `checkSceneDir(versionDir)`, вернувшего `[]`.
+ * Компилятор следует по `import` и `/// <reference>` и читает файлы, на которые они
+ * указывают, в том числе вне версии; симлинки внутри `src/` он тоже разыменует. Код при
+ * этом не выполняется, но без static check typecheck — чтение произвольных путей.
+ */
 export async function typecheckVersion(versionDir: string): Promise<TypeErrorEntry[]> {
   const root = resolve(versionDir);
   const src = join(root, "src");

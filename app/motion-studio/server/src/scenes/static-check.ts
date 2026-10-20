@@ -17,7 +17,8 @@ export type RuleId =
   | "external-url"
   | "forbidden-dom"
   | "forbidden-file"
-  | "syntax-error";
+  | "syntax-error"
+  | "forbidden-pragma";
 
 export interface Violation {
   rule: RuleId;
@@ -105,7 +106,13 @@ add(
   MSG_EXEC,
 );
 add(["setTimeout", "setInterval", "setImmediate", "requestAnimationFrame", "requestIdleCallback", "queueMicrotask"], MSG_TIMER);
-add(["performance"], MSG_TIME);
+add(["performance", "Temporal"], MSG_TIME);
+add(
+  ["ResizeObserver", "IntersectionObserver", "MutationObserver"],
+  (n) =>
+    `\`${n}\` запрещён: колбэки наблюдателей асинхронны и приходят не по кадрам, рендер расходится с превью. ` +
+    "Задавай размеры явно или бери из useVideoConfig(); состояние вычисляй из useCurrentFrame().",
+);
 add(["crypto"], MSG_RANDOM);
 add(
   [
@@ -253,10 +260,79 @@ const CSS_ANIM_DECL = /(?:^|[;{\s])(?:-(?:webkit|moz|ms|o)-)?(?:transition|anima
 const KEYFRAMES = /@(?:-(?:webkit|moz|ms|o)-)?keyframes\b/i;
 const CLASS_TOKEN = /^(?:[^\s:]+:)*!?(?:animate-|transition(?:-|$))/;
 
-/** `transition`, `transitionDuration`, `WebkitAnimation`, `'animation-name'`, … */
+/** CSS-свойства transition/animation в kebab-case (без вендорного префикса). */
+const CSS_ANIM_PROPS = new Set([
+  "transition",
+  "transition-property",
+  "transition-duration",
+  "transition-timing-function",
+  "transition-delay",
+  "transition-behavior",
+  "animation",
+  "animation-name",
+  "animation-duration",
+  "animation-timing-function",
+  "animation-delay",
+  "animation-iteration-count",
+  "animation-direction",
+  "animation-fill-mode",
+  "animation-play-state",
+  "animation-composition",
+  "animation-timeline",
+  "animation-range",
+  "animation-range-start",
+  "animation-range-end",
+]);
+
+/**
+ * Настоящее CSS-свойство анимации: `transition`, `transitionDuration`, `WebkitAnimation`,
+ * `'animation-name'`. Ключи конфига вроде `transitionFrames` сюда не попадают.
+ */
 function isCssAnimKey(name: string): boolean {
   const rest = name.replace(/^-?(?:webkit|moz|ms|o)(?=-|[A-Z])-?/i, "");
-  return /^[tT]ransition(?:$|-|[A-Z])/.test(rest) || /^[aA]nimation(?:$|-|[A-Z])/.test(rest);
+  const kebab = rest.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`).replace(/^-/, "").toLowerCase();
+  return CSS_ANIM_PROPS.has(kebab);
+}
+
+/** Значение похоже на CSS-тайминг: `300ms`, `1s`, `ease-in`, `linear`, `cubic-bezier(...)`, `infinite`. */
+const CSS_TIMING_VALUE = /\d+(?:\.\d+)?m?s\b|\bease(?:-in|-out|-in-out)?\b|\blinear\b|cubic-bezier\(|steps\(|\binfinite\b|\balternate\b/i;
+
+/** Строковые части выражения-значения (литерал или шаблон); для прочих — undefined. */
+function literalText(e: ts.Expression | undefined): string | undefined {
+  if (!e) return undefined;
+  if (ts.isStringLiteralLike(e)) return e.text;
+  if (ts.isTemplateExpression(e)) return [e.head.text, ...e.templateSpans.map((s) => s.literal.text)].join(" ");
+  return undefined;
+}
+
+/** Имя JSX-атрибута, включая `xmlns:xlink`. */
+function jsxAttrName(a: ts.JsxAttribute): string {
+  return ts.isIdentifier(a.name) ? a.name.text : `${a.name.namespace.text}:${a.name.name.text}`;
+}
+
+/** Атрибут или ключ объекта, в значении которого лежит узел (до границы оператора). */
+function enclosingKey(node: ts.Node): string | undefined {
+  for (let n: ts.Node | undefined = node.parent; n && !ts.isStatement(n) && !ts.isFunctionLike(n); n = n.parent) {
+    if (ts.isJsxAttribute(n)) return jsxAttrName(n);
+    if (ts.isPropertyAssignment(n)) return propName(n.name);
+  }
+  return undefined;
+}
+
+/** Пространства имён XML (svg, xlink): URI-идентификаторы, браузер их не загружает. */
+const XML_NAMESPACE_URI = /^\s*https?:\/\/www\.w3\.org\//i;
+const REMOTE_ANYWHERE = /(?:^|[\s,])(?:(?:https?|wss?|ftp):|\/\/)/i;
+const SRCSET_KEYS = new Set(["srcset", "imagesrcset"]);
+/** Строки, через которые достают конструктор Function (getOwnPropertyDescriptor, Reflect.get). */
+const FORBIDDEN_PROTO_STRINGS = new Set(["constructor", "__proto__", "prototype"]);
+
+const PRAGMA = /@jsx(?:Runtime|ImportSource|Frag)?\b|@ts-nocheck\b/gi;
+function pragmaMessage(p: string): string {
+  const lower = p.toLowerCase();
+  if (lower === "@ts-nocheck") return "// @ts-nocheck запрещён: отключает проверку типов сцены. Удали комментарий и исправь ошибки типов.";
+  if (lower === "@jsx" || lower === "@jsxfrag")
+    return `прагма ${p} запрещена: подменяет фабрику JSX (например, на eval) в обход проверки. Удали комментарий — JSX компилируется стандартным react/jsx-runtime.`;
+  return `прагма ${p} запрещена: подменяет модуль JSX-рантайма, то есть импорт в обход allowlist (${ALLOWED_LIST}). Удали комментарий.`;
 }
 
 function propName(name: ts.PropertyName | ts.BindingName | undefined): string | undefined {
@@ -385,6 +461,13 @@ class FileChecker {
   }
 
   run(program: ts.Program): void {
+    // Прагмы — по всему тексту (esbuild читает их из любого комментария), до разбора
+    // синтаксиса: они опасны и в файле с ошибкой. Совпадение в строке тоже считается.
+    for (const m of this.sf.text.matchAll(PRAGMA)) this.report(m.index, "forbidden-pragma", pragmaMessage(m[0]));
+    for (const r of [...this.sf.referencedFiles, ...this.sf.typeReferenceDirectives, ...this.sf.libReferenceDirectives]) {
+      this.report(r.pos, "forbidden-pragma", `директива /// <reference> (${r.fileName}) запрещена: модули и типы — только через import из allowlist (${ALLOWED_LIST}).`);
+    }
+    this.collectStyleSymbols();
     // Синтаксическая ошибка: AST восстановлен парсером и ненадёжен — сначала её чинить.
     const syn = program.getSyntacticDiagnostics(this.sf);
     if (syn.length > 0) {
@@ -398,10 +481,91 @@ class FileChecker {
       }
       return;
     }
-    for (const r of [...this.sf.referencedFiles, ...this.sf.typeReferenceDirectives, ...this.sf.libReferenceDirectives]) {
-      this.report(r.pos, "import-not-allowed", `директива /// <reference> (${r.fileName}) запрещена: модули и типы — только через import из allowlist (${ALLOWED_LIST}).`);
-    }
     this.visit(this.sf);
+  }
+
+  // --- контекст style ---
+
+  /** Символы имён, которые попадают в `style={...}` (сам объект, spread, `styles.box`). */
+  private readonly styleSymbols = new Set<ts.Symbol>();
+
+  private collectStyleSymbols(): void {
+    const collect = (n: ts.Node): void => {
+      if (ts.isIdentifier(n)) {
+        const sym = this.checker.getSymbolAtLocation(n);
+        if (sym) this.styleSymbols.add(sym);
+      }
+      ts.forEachChild(n, collect);
+    };
+    const walk = (n: ts.Node): void => {
+      if (ts.isJsxAttribute(n) && jsxAttrName(n) === "style" && n.initializer) collect(n.initializer);
+      ts.forEachChild(n, walk);
+    };
+    walk(this.sf);
+  }
+
+  /** Объектный литерал доходит до style: напрямую, через spread, вложенный ключ или переменную. */
+  private inStyleContext(obj: ts.Node): boolean {
+    let cur = obj;
+    for (;;) {
+      const p = cur.parent;
+      if (!p) return false;
+      if (ts.isJsxExpression(p)) return ts.isJsxAttribute(p.parent) && jsxAttrName(p.parent) === "style";
+      if (
+        (ts.isPropertyAssignment(p) && p.initializer === cur) ||
+        ts.isSpreadAssignment(p) ||
+        ts.isObjectLiteralExpression(p) ||
+        ts.isParenthesizedExpression(p) ||
+        ts.isAsExpression(p) ||
+        ts.isSatisfiesExpression(p) ||
+        ts.isConditionalExpression(p) ||
+        ts.isBinaryExpression(p) ||
+        ts.isArrayLiteralExpression(p)
+      ) {
+        cur = p;
+        continue;
+      }
+      if (ts.isVariableDeclaration(p) && p.initializer === cur) {
+        if (p.type && /CSSProperties/.test(p.type.getText(this.sf))) return true;
+        const sym = ts.isIdentifier(p.name) ? this.checker.getSymbolAtLocation(p.name) : undefined;
+        return sym !== undefined && this.styleSymbols.has(sym);
+      }
+      return false;
+    }
+  }
+
+  // --- remotion random и Intl ---
+
+  /** Вызов `random` из remotion (именованный импорт или namespace). */
+  private isRemotionRandom(callee: ts.Expression): boolean {
+    let e = callee;
+    while (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isNonNullExpression(e) || ts.isSatisfiesExpression(e)) e = e.expression;
+    const fromRemotion = (d: ts.Node | undefined): boolean => {
+      while (d && !ts.isImportDeclaration(d)) d = d.parent;
+      return !!d && ts.isStringLiteral(d.moduleSpecifier) && d.moduleSpecifier.text === "remotion";
+    };
+    if (ts.isIdentifier(e)) {
+      const d = this.checker.getSymbolAtLocation(e)?.declarations?.[0];
+      return !!d && ts.isImportSpecifier(d) && (d.propertyName ?? d.name).text === "random" && fromRemotion(d);
+    }
+    if (ts.isPropertyAccessExpression(e) && e.name.text === "random" && ts.isIdentifier(e.expression)) {
+      const d = this.checker.getSymbolAtLocation(e.expression)?.declarations?.[0];
+      return !!d && ts.isNamespaceImport(d) && fromRemotion(d);
+    }
+    return false;
+  }
+
+  /** В выражении (или в инициализаторе переменной, на которую оно ссылается) есть DateTimeFormat. */
+  private mentionsDateTimeFormat(expr: ts.Node, depth = 2): boolean {
+    const walk = (n: ts.Node): boolean => {
+      if (ts.isIdentifier(n)) {
+        if (n.text === "DateTimeFormat") return true;
+        const d = this.checker.getSymbolAtLocation(n)?.declarations?.[0];
+        if (depth > 0 && d && ts.isVariableDeclaration(d) && d.initializer && this.mentionsDateTimeFormat(d.initializer, depth - 1)) return true;
+      }
+      return ts.forEachChild(n, (ch) => (walk(ch) ? true : undefined)) ?? false;
+    };
+    return walk(expr);
   }
 
   // --- импорт ---
@@ -505,6 +669,15 @@ class FileChecker {
     if (!isGlobalSymbol(this.symbolOf(id))) return;
 
     if (name === "Math") {
+      // const { sin, cos } = Math — допустимо, если не достаёт random и нет rest/вычисляемых ключей.
+      const vd = id.parent;
+      if (ts.isVariableDeclaration(vd) && vd.initializer === id && ts.isObjectBindingPattern(vd.name)) {
+        const ok = vd.name.elements.every((el) => {
+          const key = propName(el.propertyName ?? (ts.isIdentifier(el.name) ? el.name : undefined));
+          return !el.dotDotDotToken && key !== undefined && key !== "random";
+        });
+        if (ok) return;
+      }
       const m = memberName(id.parent);
       if (m !== undefined && m !== "random" && (id.parent as ts.PropertyAccessExpression).expression === id) return;
       this.report(id, "forbidden-global", m === "random" ? MSG_RANDOM("Math.random") : MSG_RANDOM("Math") + " Вызывай методы Math напрямую (Math.floor(...)), без алиаса.");
@@ -569,6 +742,27 @@ class FileChecker {
       else if (tag === "link") this.report(arg0, "external-url", MSG_LINK);
     }
     if (!ts.isIdentifier(callee) && (fn === "animate" || fn === "getAnimations")) this.report(callee, "forbidden-css-animation", MSG_WAAPI(fn));
+    if (this.isRemotionRandom(callee)) {
+      const bad =
+        !arg0 ||
+        arg0.kind === ts.SyntaxKind.NullKeyword ||
+        (ts.isIdentifier(arg0) && arg0.text === "undefined") ||
+        ts.isVoidExpression(arg0);
+      if (bad)
+        this.report(
+          arg0 ?? callee,
+          "forbidden-global",
+          "random() из remotion без сида (null/undefined) даёт настоящую случайность. Передай сид — строку или число, разные для разных элементов: random(`dot-${i}`).",
+        );
+    }
+    if ((fn === "format" || fn === "formatToParts") && !ts.isIdentifier(callee) && node.arguments.length === 0) {
+      if (this.mentionsDateTimeFormat((callee as ts.PropertyAccessExpression | ts.ElementAccessExpression).expression))
+        this.report(
+          callee,
+          "forbidden-global",
+          `Intl.DateTimeFormat#${fn}() без аргумента форматирует текущее время. Передай фиксированную дату: ${fn}(new Date(2024, 0, 1)).`,
+        );
+    }
     if (fn === "setProperty" && arg0 && ts.isStringLiteralLike(arg0) && isCssAnimKey(arg0.text)) this.report(arg0, "forbidden-css-animation", MSG_CSS_KEY(arg0.text));
   }
 
@@ -578,11 +772,18 @@ class FileChecker {
     else if (tag.text === "link") this.report(tag, "external-url", MSG_LINK);
   }
 
-  private checkKey(name: string | undefined, at: ts.Node): void {
+  /**
+   * Ключ объектного литерала. `transition`/`animation` — нарушение, только если значение похоже
+   * на CSS-тайминг или объект доходит до style: иначе это конфиг сцены (`transition: 'fade'`).
+   */
+  private checkKey(name: string | undefined, at: ts.Node, obj: ts.Node, value: ts.Expression | undefined): void {
     if (name === undefined) return;
     const attr = FORBIDDEN_ATTRS.get(name);
     if (attr) this.report(at, "forbidden-dom", attr);
-    else if (isCssAnimKey(name)) this.report(at, "forbidden-css-animation", MSG_CSS_KEY(name));
+    else if (isCssAnimKey(name)) {
+      const text = literalText(value);
+      if ((text !== undefined && CSS_TIMING_VALUE.test(text)) || this.inStyleContext(obj)) this.report(at, "forbidden-css-animation", MSG_CSS_KEY(name));
+    }
   }
 
   /** Строковые части внутри значения className: токены animate-* и transition*. */
@@ -604,7 +805,14 @@ class FileChecker {
 
   private checkString(node: ts.StringLiteralLike | ts.TemplateLiteralLikeNode, isStart: boolean): void {
     const text = node.text;
-    if (this.suppressDepth === 0 && ((isStart && REMOTE_START.test(text)) || REMOTE_CSS_URL.test(text))) this.report(node, "external-url", MSG_URL);
+    const p = node.parent;
+    if (FORBIDDEN_PROTO_STRINGS.has(text) && !(ts.isElementAccessExpression(p) && p.argumentExpression === node && FORBIDDEN_PROTO_PROPS.has(text)))
+      this.report(node, "forbidden-global", MSG_PROTO(text));
+    const key = enclosingKey(node);
+    const isNamespace = (key !== undefined && /^xmlns/i.test(key)) || XML_NAMESPACE_URI.test(text);
+    const remote =
+      (isStart && REMOTE_START.test(text)) || REMOTE_CSS_URL.test(text) || (key !== undefined && SRCSET_KEYS.has(key.toLowerCase()) && REMOTE_ANYWHERE.test(text));
+    if (this.suppressDepth === 0 && !isNamespace && remote) this.report(node, "external-url", MSG_URL);
     if (KEYFRAMES.test(text) || CSS_ANIM_DECL.test(text)) this.report(node, "forbidden-css-animation", MSG_CSS_TEXT);
   }
 
@@ -648,14 +856,14 @@ class FileChecker {
     else if (ts.isCallExpression(node)) this.checkCall(node);
     else if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) this.checkJsxTag(node.tagName);
     else if (ts.isJsxAttribute(node)) {
-      const n = propName(ts.isIdentifier(node.name) ? node.name : undefined);
+      const n = jsxAttrName(node);
       const attr = n && FORBIDDEN_ATTRS.get(n);
       if (attr) this.report(node.name, "forbidden-dom", attr);
       if ((n === "className" || n === "class") && node.initializer) this.checkClassName(node.initializer);
     } else if (ts.isPropertyAssignment(node)) {
-      this.checkKey(propName(node.name), node.name);
+      this.checkKey(propName(node.name), node.name, node.parent, node.initializer);
       if (propName(node.name) === "className") this.checkClassName(node.initializer);
-    } else if (ts.isShorthandPropertyAssignment(node)) this.checkKey(node.name.text, node.name);
+    } else if (ts.isShorthandPropertyAssignment(node)) this.checkKey(node.name.text, node.name, node.parent, undefined);
     else if (ts.isBindingElement(node)) {
       const key = propName(node.propertyName ?? (ts.isIdentifier(node.name) ? node.name : undefined));
       const at = node.propertyName ?? node.name;
