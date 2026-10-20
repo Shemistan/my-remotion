@@ -1,5 +1,7 @@
 // doctor: проверка хранилища MS_DATA_DIR; `--init` создаёт его, `--adopt` привязывает
-// к новому тому после переноса. Печатает StorageStatus в JSON; код 1 при ok: false.
+// к новому тому после переноса. Затем — Chrome Headless Shell для рендера (скачивается
+// при отсутствии). Печатает StorageStatus в JSON с полем `browser`; код 1, если не в
+// порядке хранилище (ok: false) или браузер (browser.ok: false).
 import { pathToFileURL } from "node:url";
 import {
   checkStorage,
@@ -10,13 +12,18 @@ import {
   type StorageStatus,
   type VolumeProbe,
 } from "@ms/core";
+import { ensureRenderBrowser } from "@ms/render";
 
 const USAGE = "usage: doctor [--init | --adopt]";
+
+export type BrowserCheck = () => Promise<{ path: string }>;
+type BrowserStatus = { ok: true; path: string } | { ok: false; error: string };
 
 export async function runDoctor(
   argv: string[],
   env: StorageEnv,
   probe: VolumeProbe,
+  browser: BrowserCheck = ensureRenderBrowser,
 ): Promise<{ code: number; output: string }> {
   const [mode, ...rest] = argv;
   if (rest.length > 0 || (mode !== undefined && mode !== "--init" && mode !== "--adopt")) {
@@ -40,11 +47,21 @@ export async function runDoctor(
       return { code: 1, output: String((e as Error).message) };
     }
   }
-  return report(await checkStorage(env, probe));
+  const status = await checkStorage(env, probe);
+  return report(status, await checkBrowser(browser));
 }
 
-function report(status: StorageStatus): { code: number; output: string } {
-  return { code: status.ok ? 0 : 1, output: JSON.stringify(status, null, 2) };
+async function checkBrowser(browser: BrowserCheck): Promise<BrowserStatus> {
+  try {
+    return { ok: true, path: (await browser()).path };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+function report(status: StorageStatus, browser?: BrowserStatus): { code: number; output: string } {
+  const ok = status.ok && (browser?.ok ?? true);
+  return { code: ok ? 0 : 1, output: JSON.stringify(browser ? { ...status, browser } : status, null, 2) };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

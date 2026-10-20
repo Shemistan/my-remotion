@@ -9,10 +9,9 @@
 | Пакет | Что внутри |
 |---|---|
 | `core` (`@ms/core`) | StorageGuard: проверка хранилища, `safeMkdir`, сторож `watchStorage`, macOS-проба тома |
+| `contracts` (`@ms/contracts`) | Схемы и типы: настройки сцены, время, контракты агентов |
+| `render` (`@ms/render`) | Рендер версии на Remotion 4.0.537: бандл, кадры, превью, ffprobe-gate (`render/README.md`) |
 | `server` (`@ms/server`) | CLI `doctor` |
-
-`contracts` и `render` появятся в следующих задачах — тогда их добавят в `workspaces`
-(`package.json`) и в `vitest.config.ts`.
 
 ## Node
 
@@ -39,7 +38,7 @@ make e2e     # интеграционные тесты (*.e2e.test.ts): сеть
 
 ```sh
 export MS_DATA_DIR="/Volumes/External SSD/MotionStudio"
-./scripts/with-node.sh npm run doctor             # проверка, JSON StorageStatus; код 1 при сбое
+./scripts/with-node.sh npm run doctor             # хранилище + Chrome Headless Shell (качает при отсутствии); код 1 при сбое
 ./scripts/with-node.sh npm run doctor -- --init   # создать корень и маркер (родитель должен существовать)
 ./scripts/with-node.sh npm run doctor -- --adopt  # после переноса данных на другой том
 ```

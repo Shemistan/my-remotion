@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@ms/core": "*"
+    "@ms/core": "*",
+    "@ms/render": "*"
   },
   "scripts": {
     "typecheck": "tsc -p ."

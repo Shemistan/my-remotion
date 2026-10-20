@@ -13,6 +13,8 @@ const probe: VolumeProbe = {
   systemDeviceId: async () => 1,
   freeBytes: async () => 100 * 1024 ** 3,
 };
+// Браузер подменён: настоящий ensureRenderBrowser качает Chrome (проверяется в e2e render).
+const browser = async () => ({ path: "/fake/chrome-headless-shell" });
 
 let tmp: string;
 beforeEach(async () => {
@@ -23,7 +25,7 @@ afterEach(() => rm(tmp, { recursive: true, force: true }));
 
 it("reports not_found with exit 1 and creates nothing", async () => {
   const root = join(tmp, "NoSuchDisk", "MotionStudio");
-  const r = await runDoctor([], { MS_DATA_DIR: root }, probe);
+  const r = await runDoctor([], { MS_DATA_DIR: root }, probe, browser);
   expect(r.code).toBe(1);
   expect(JSON.parse(r.output)).toMatchObject({ ok: false, reason: "not_found" });
   expect(existsSync(join(tmp, "NoSuchDisk"))).toBe(false);
@@ -31,19 +33,19 @@ it("reports not_found with exit 1 and creates nothing", async () => {
 
 it("--init creates the store, then reports ok", async () => {
   const root = join(tmp, "store");
-  const r = await runDoctor(["--init"], { MS_DATA_DIR: root }, probe);
+  const r = await runDoctor(["--init"], { MS_DATA_DIR: root }, probe, browser);
   expect(r.code).toBe(0);
   expect(JSON.parse(r.output)).toMatchObject({ ok: true, root, marker: { volume_uuid: "VOL-A" } });
 });
 
 it("--init without MS_DATA_DIR fails with env_missing", async () => {
-  const r = await runDoctor(["--init"], {}, probe);
+  const r = await runDoctor(["--init"], {}, probe, browser);
   expect(r.code).toBe(1);
   expect(JSON.parse(r.output)).toMatchObject({ ok: false, reason: "env_missing" });
 });
 
 it("--init failure is reported as StorageStatus JSON, not thrown", async () => {
-  const r = await runDoctor(["--init"], { MS_DATA_DIR: join(tmp, "no/such") }, probe);
+  const r = await runDoctor(["--init"], { MS_DATA_DIR: join(tmp, "no/such") }, probe, browser);
   expect(r.code).toBe(1);
   expect(JSON.parse(r.output)).toMatchObject({
     ok: false,
@@ -53,7 +55,22 @@ it("--init failure is reported as StorageStatus JSON, not thrown", async () => {
 });
 
 it("rejects unknown arguments with exit 2", async () => {
-  const r = await runDoctor(["--frobnicate"], {}, probe);
+  const r = await runDoctor(["--frobnicate"], {}, probe, browser);
   expect(r.code).toBe(2);
   expect(r.output).toMatch(/--init/);
+});
+
+it("reports the render browser and fails when it is unavailable", async () => {
+  const root = join(tmp, "store");
+  await runDoctor(["--init"], { MS_DATA_DIR: root }, probe, browser);
+  const ok = await runDoctor([], { MS_DATA_DIR: root }, probe, browser);
+  expect(ok.code).toBe(0);
+  expect(JSON.parse(ok.output)).toMatchObject({ ok: true, browser: { ok: true, path: "/fake/chrome-headless-shell" } });
+
+  const broken = async () => {
+    throw new Error("download blocked");
+  };
+  const bad = await runDoctor([], { MS_DATA_DIR: root }, probe, broken);
+  expect(bad.code).toBe(1);
+  expect(JSON.parse(bad.output)).toMatchObject({ ok: true, browser: { ok: false, error: "download blocked" } });
 });
