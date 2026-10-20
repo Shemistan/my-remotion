@@ -10,6 +10,9 @@ const E2E = "test/**/*.e2e.test.ts";
 
 export default defineConfig({
   test: {
+    // e2e — по одному файлу: параллельные рендеры и агенты делят CPU, и тайминговые
+    // проверки (hang-scene: логи браузера до kill по таймауту) начинают флаковать.
+    fileParallelism: !e2e,
     projects: packages.map((name) => ({
       test: {
         name,

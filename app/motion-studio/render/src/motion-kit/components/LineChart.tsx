@@ -32,6 +32,59 @@ export interface LineChartProps {
 }
 
 const PAD = { left: 104, right: 40, top: 76, bottom: 56 };
+const DRAW_EASE = Easing.bezier(0.45, 0, 0.2, 1);
+
+/** Геометрия графика: общая для LineChart и lineChartHead. */
+function chartGeometry(points: { value: number }[], width: number, height: number, yTicks: number) {
+  const innerW = width - PAD.left - PAD.right;
+  const innerH = height - PAD.top - PAD.bottom;
+  const values = points.map((p) => p.value);
+  const ticks = niceTicks(Math.min(0, ...values), Math.max(...values, 1), yTicks);
+  const y0 = ticks[0]!;
+  const y1 = ticks.at(-1)!;
+  const toY = (v: number) => PAD.top + innerH - ((v - y0) / (y1 - y0 || 1)) * innerH;
+  const coords: Point[] = points.map((p, i) => ({ x: PAD.left + (innerW * i) / Math.max(1, points.length - 1), y: toY(p.value) }));
+  const segs = smoothSegments(coords);
+  const lut = pathLUT(segs, 48);
+  return { innerW, innerH, ticks, y0, y1, toY, coords, segs, lut, total: lutLength(lut) };
+}
+
+/** Окно прорисовки линии внутри бита: 12–80 %. */
+function drawWindow(beat: Pick<Beat, "start_frame" | "end_frame">) {
+  const L = Math.max(1, beat.end_frame - beat.start_frame);
+  return { drawStart: beat.start_frame + L * 0.12, drawEnd: beat.start_frame + L * 0.8 };
+}
+
+function drawAt(frame: number, beat: Pick<Beat, "start_frame" | "end_frame">): number {
+  const { drawStart, drawEnd } = drawWindow(beat);
+  return interpolate(frame, [drawStart, drawEnd], [0, 1], { ...CLAMP, easing: DRAW_EASE });
+}
+
+/**
+ * Голова линии LineChart в кадре `frame` — чтобы привязать к ней другие элементы (один
+ * источник движения): `progress` — доля прорисовки 0..1, `value` — значение под головой
+ * (линейно между соседними точками по x), `endFrame` — кадр, когда линия дорисована.
+ * Не хук: можно звать где угодно. `width`/`height`/`yTicks` — те же, что у графика.
+ */
+export function lineChartHead(
+  points: { label: string; value: number }[],
+  beat: Pick<Beat, "start_frame" | "end_frame">,
+  frame: number,
+  opts: { width?: number; height?: number; yTicks?: number } = {},
+): { progress: number; value: number; endFrame: number } {
+  const { coords, lut, total } = chartGeometry(points, opts.width ?? 1100, opts.height ?? 560, opts.yTicks ?? 4);
+  const progress = drawAt(frame, beat);
+  const endFrame = Math.ceil(drawWindow(beat).drawEnd);
+  if (points.length < 2) return { progress, value: points[0]?.value ?? 0, endFrame };
+  const x = pointAtLength(lut, progress * total).x;
+  let i = 0;
+  while (i < coords.length - 2 && coords[i + 1]!.x < x) i++;
+  const a = coords[i]!;
+  const b = coords[i + 1]!;
+  const t = clamp01((x - a.x) / (b.x - a.x || 1));
+  const value = progress >= 1 ? points.at(-1)!.value : points[i]!.value + (points[i + 1]!.value - points[i]!.value) * t;
+  return { progress, value, endFrame };
+}
 
 export function LineChart({
   points,
@@ -57,25 +110,14 @@ export function LineChart({
 
   const { start_frame: b0, end_frame: b1 } = beat;
   const L = Math.max(1, b1 - b0);
-  const innerW = width - PAD.left - PAD.right;
-  const innerH = height - PAD.top - PAD.bottom;
-  const values = points.map((p) => p.value);
-  const ticks = niceTicks(Math.min(0, ...values), Math.max(...values, 1), yTicks);
-  const y0 = ticks[0]!;
-  const y1 = ticks.at(-1)!;
-  const toY = (v: number) => PAD.top + innerH - ((v - y0) / (y1 - y0 || 1)) * innerH;
-  const coords: Point[] = points.map((p, i) => ({ x: PAD.left + (innerW * i) / Math.max(1, points.length - 1), y: toY(p.value) }));
-  const segs = smoothSegments(coords);
-  const lut = pathLUT(segs, 48);
-  const total = lutLength(lut);
+  const { innerW, innerH, ticks, y0, toY, coords, segs, lut, total } = chartGeometry(points, width, height, yTicks);
   const d = pathD(segs);
   const baseY = toY(Math.max(y0, 0));
 
   // тайминг внутри бита
   const gridEnd = b0 + L * 0.3;
-  const drawStart = b0 + L * 0.12;
-  const drawEnd = b0 + L * 0.8;
-  const draw = interpolate(frame, [drawStart, drawEnd], [0, 1], { ...CLAMP, easing: Easing.bezier(0.45, 0, 0.2, 1) });
+  const { drawStart, drawEnd } = drawWindow(beat);
+  const draw = drawAt(frame, beat);
   const head = pointAtLength(lut, draw * total);
   const headOn = frame >= drawStart && draw < 1 ? 1 : 0;
   const last = coords.at(-1);
@@ -86,7 +128,7 @@ export function LineChart({
     let hi = drawEnd;
     for (let k = 0; k < 18; k++) {
       const mid = (lo + hi) / 2;
-      const dm = interpolate(mid, [drawStart, drawEnd], [0, 1], { ...CLAMP, easing: Easing.bezier(0.45, 0, 0.2, 1) });
+      const dm = drawAt(mid, beat);
       if (pointAtLength(lut, dm * total).x < x) lo = mid;
       else hi = mid;
     }

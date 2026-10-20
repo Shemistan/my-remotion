@@ -52,6 +52,6 @@ export { Background, type BackgroundProps, type BackgroundVariant } from "./comp
 export { Card, type CardEnter, type CardProps, cardEnterStyle, cardSurface } from "./components/Card.js";
 export { type FlowEdge, FlowGraph, type FlowGraphProps, type FlowNode, edgePath, useFlowGeometry } from "./components/FlowGraph.js";
 export { KineticText, type KineticEnter, type KineticTextProps } from "./components/KineticText.js";
-export { LineChart, type LineChartProps } from "./components/LineChart.js";
+export { LineChart, type LineChartProps, lineChartHead } from "./components/LineChart.js";
 export { PulseAlongPath, type PulseAlongPathProps } from "./components/PulseAlongPath.js";
 export { SafeArea, useSafeArea } from "./components/SafeArea.js";

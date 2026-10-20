@@ -18,7 +18,9 @@ function steps(over: Partial<CliSteps> = {}) {
     leftoverRuns: async () => (calls.push("leftovers"), ["run_old"]),
     reapStale: async (_root, runId) => (calls.push(`reap:${runId}`), { clean: true, alive: [] }),
     reapStrays: async () => (calls.push("strays"), []),
+    sweep: async () => (calls.push("sweep"), { quarantined: ["/store/workspace/drafts/run_old-a1"], skipped: [] }),
     relock: async () => (calls.push("relock"), { relocked: [], broken: [] }),
+    ensureBrowser: async () => (calls.push("browser"), { path: "/chrome" }),
     generate: async (): Promise<GenerateResult> => {
       calls.push("generate");
       return { status: "ready", runId: "run_x", versionDir: "/v", previewPath: "/v/preview.mp4", costUsd: 1.5, engineerCalls: 1, warnings: ["w1"], timings: {} };
@@ -49,11 +51,12 @@ describe("parseArgs", () => {
 });
 
 describe("runGenerate", () => {
-  it("порядок: lock → storage → reap прогонов → strays → relock → generate → release; печатает итог", async () => {
+  it("порядок: lock → storage → reap → strays → sweep → relock → browser → generate → release; печатает итог", async () => {
     const { s, calls } = steps();
     const o = io();
     expect(await runGenerate(["Рост"], env, o.io, s)).toBe(0);
-    expect(calls).toEqual(["lock", "storage", "leftovers", "reap:run_old", "strays", "relock", "generate", "release"]);
+    expect(calls).toEqual(["lock", "storage", "leftovers", "reap:run_old", "strays", "sweep", "relock", "browser", "generate", "release"]);
+    expect(o.err.join("\n")).toContain("abandoned");
     expect(o.out).toContain("status: ready");
     expect(o.out).toContain("preview: /v/preview.mp4");
     expect(o.out.join("\n")).toContain("cost: $1.50");
@@ -83,6 +86,14 @@ describe("runGenerate", () => {
     const o = io();
     expect(await runGenerate(["Рост"], env, o.io, s)).toBe(1);
     expect(o.err.join("\n")).toContain("pid 9");
+    expect(calls).not.toContain("generate");
+  });
+
+  it("Chrome недоступен → отказ до генерации (до трат на агентов)", async () => {
+    const { s, calls } = steps({ ensureBrowser: async () => { throw new Error("нет сети"); } });
+    const o = io();
+    expect(await runGenerate(["Рост"], env, o.io, s)).toBe(1);
+    expect(o.err.join("\n")).toContain("doctor");
     expect(calls).not.toContain("generate");
   });
 

@@ -1,13 +1,14 @@
 // Логика generateScene на фейковых адаптерах (агенты, рендер, KB, typecheck);
 // static check и хранилище (tmp/) — настоящие.
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { StorageError, type StorageStatus } from "@ms/core";
 import { canSpend } from "../../src/pipeline/budget.js";
 import { generateScene, qaFrames } from "../../src/pipeline/generate.js";
 import { searchCandidates } from "../../src/pipeline/refs.js";
-import { readVersion } from "../../src/scenes/store.js";
+import { readVersion, sweepAbandonedDrafts } from "../../src/scenes/store.js";
 import {
   BAD_SCENE, GOOD_SCENE, OFFLINE, directorOutput, fakeAgents, fakeKb, fakeRender, makeDeps, makeSkills, makeStore, makeTmp,
   okStatus, removeTmp, settings, view,
@@ -43,6 +44,8 @@ describe("generateScene: успех", () => {
     expect(m.status).toBe("ready");
     expect(m.knowledge_refs).toEqual([{ kb_id: "fake/line-chart", commit: "abc1234", license: "MIT", strategy: "adapt" }]);
     expect(m.render_env.remotion).toBe("4.0.537");
+    expect(m.qa).toEqual({ technical: "pass", visual: "not_checked", semantic: "not_checked", style: "not_checked" });
+    expect(JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8")).composition.archetype).toBe("split");
     expect(m.preview?.path).toBe("preview.mp4");
     expect(m.qa_frames.length).toBe(m.qa_frames_sha256.length);
     expect(m.qa_frames.length).toBeGreaterThan(2);
@@ -53,13 +56,9 @@ describe("generateScene: успех", () => {
     expect(existsSync(join(root, "workspace/projects/playground/scenes", m.scene_id, "brief.json"))).toBe(true);
   });
 
-  it("кадры QA: после входа, середины битов, последний — внутри сцены", () => {
+  it("кадры QA: конец входов, середина акцента, последний; середины битов — с шагом ≥ 10", () => {
     const f = qaFrames(directorOutput().spec, 180);
-    expect(f[0]).toBe(40);
-    expect(f).toContain(179);
-    expect(f).toContain(90);
-    expect(f.every((x) => x >= 0 && x < 180)).toBe(true);
-    expect([...f].sort((a, b) => a - b)).toEqual(f);
+    expect(f).toEqual([40, 80, 140, 165, 179]);
   });
 
   it("Director: кандидаты KB без нерисующих записей, без инструментов; Engineer: cwd = draft и инструменты файлов", async () => {
@@ -163,6 +162,9 @@ describe("generateScene: Director", () => {
     expect(r).toMatchObject({ status: "failed", failure: { stage: "director" } });
     expect(r.versionDir).toBeUndefined();
     expect(draftsOf()).toEqual([]);
+    // сцена с одним brief видна как неудачная
+    const failure = JSON.parse(readFileSync(join(root, "workspace/projects/playground/scenes", r.sceneId!, "failure.json"), "utf8"));
+    expect(failure).toMatchObject({ run_id: r.runId, stage: "director" });
   });
 
   it("spec Director с другой длительностью → failed/director", async () => {
@@ -199,8 +201,8 @@ describe("generateScene: хранилище и процессы", () => {
     expect(m.failure!.stage).toBe("storage");
     expect(slowRenderAborted).toBe(true);
     expect(versionsOf()).toEqual([]);
-    // рендер подтверждённо завершён — карантин не нужен
-    expect(existsSync(join(m.versionDir!, ".quarantined"))).toBe(false);
+    // хранилище недоступно — публиковать нельзя, draft в карантин (здесь маркер записался)
+    expect(JSON.parse(readFileSync(join(m.versionDir!, ".quarantined"), "utf8")).reason).toContain("хранилище недоступно");
   });
 
   it("render orphaned → failure orphaned, draft в карантине, публикации нет", async () => {
@@ -227,11 +229,25 @@ describe("generateScene: хранилище и процессы", () => {
     expect(versionsOf()).toEqual([]);
   });
 
-  it("agents.run() Director отклонён → storage, draft не создан", async () => {
-    const agents = fakeAgents({ director: async () => { throw new Error("EIO"); } });
+  it("agents.run() Director отклонён StorageError → storage; каталог Director в карантине, draft не создан", async () => {
+    const agents = fakeAgents({ director: async () => { throw new StorageError("not_found", "диск"); } });
     const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
     expect(r).toMatchObject({ status: "failed", failure: { stage: "storage" } });
     expect(r.versionDir).toBeUndefined();
+    expect(existsSync(join(root, "run/agent-cwd", `${r.runId}-a1-director`, ".quarantined"))).toBe(true);
+  });
+
+  it("agents.run() Director отклонён не по хранилищу → director, не storage", async () => {
+    const agents = fakeAgents({ director: async () => { throw new Error("spawn EACCES"); } });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r).toMatchObject({ status: "failed", failure: { stage: "director", message: expect.stringContaining("EACCES") } });
+  });
+
+  it("Director orphaned → каталог Director не удалён, в карантине", async () => {
+    const agents = fakeAgents({ director: async () => ({ status: "failed", output: undefined, error: { kind: "orphaned", message: "группа жива" } }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r).toMatchObject({ status: "failed", failure: { stage: "orphaned" } });
+    expect(JSON.parse(readFileSync(join(root, "run/agent-cwd", `${r.runId}-a1-director`, ".quarantined"), "utf8")).reason).toContain("orphaned");
   });
 
   it("render бросил StorageError → storage, draft в карантине, публикации нет", async () => {
@@ -297,5 +313,121 @@ describe("searchCandidates", () => {
     ]);
     expect(searchCandidates(kb, "рост", 1).map((v) => v.id)).toEqual(["a/one"]);
     expect(searchCandidates(kb, "рост", 12).map((v) => v.id)).toEqual(["a/one", "a/two"]);
+  });
+});
+
+describe("generateScene: каждый выход после draft — публикация failed или карантин", () => {
+  it("отмена во время Engineer (процесс завершён) → опубликована failed/cancelled", async () => {
+    const ac = new AbortController();
+    const agents = fakeAgents({ engineer: async () => { ac.abort(); return { status: "cancelled", files: { "src/Scene.tsx": GOOD_SCENE } }; } });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }), ac.signal);
+    expect(r).toMatchObject({ status: "failed", failure: { stage: "cancelled" } });
+    expect((await readVersion(r.versionDir!)).failure?.stage).toBe("cancelled");
+  });
+
+  it("отмена во время рендера → опубликована failed/cancelled", async () => {
+    const ac = new AbortController();
+    const { render } = fakeRender({ onCall: async () => { ac.abort(); return { ok: false, stills: [], browserLogs: [], error: { stage: "aborted", message: "отменён" } }; } });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { render }), ac.signal);
+    expect(r).toMatchObject({ status: "failed", failure: { stage: "cancelled" } });
+    expect((await readVersion(r.versionDir!)).status).toBe("failed");
+  });
+
+  it("отмена между исправлениями (до следующего вызова Engineer) → опубликована failed/cancelled", async () => {
+    const ac = new AbortController();
+    const typecheck = async () => { ac.abort(); return [{ file: "src/Scene.tsx", line: 1, message: "ошибка" }]; };
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { typecheck }), ac.signal);
+    expect(r).toMatchObject({ status: "failed", engineerCalls: 1, failure: { stage: "cancelled" } });
+    expect((await readVersion(r.versionDir!)).failure?.stage).toBe("cancelled");
+  });
+
+  it("сбой в подготовке публикации (pipeline-log.json не пишется) → failed/publish, draft в карантине", async () => {
+    const { render } = fakeRender({ onCall: async (req) => { mkdirSync(join(req.versionDir, "pipeline-log.json")); } });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { render }));
+    expect(r).toMatchObject({ status: "failed", failure: { stage: "publish" } });
+    expect(existsSync(join(r.versionDir!, ".quarantined"))).toBe(true);
+  });
+
+  it("подготовка refs не удалась → опубликована failed/prepare с логом", async () => {
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { skillsRoot: join(tmp, "нет-такого") }));
+    expect(r).toMatchObject({ status: "failed", engineerCalls: 0, failure: { stage: "prepare" } });
+    const m = await readVersion(r.versionDir!);
+    expect(m.failure?.stage).toBe("prepare");
+    expect(existsSync(join(r.versionDir!, "pipeline-log.json"))).toBe(true);
+  });
+
+  it("кэш не создаётся (на месте каталога файл) → не сирота: опубликована failed", async () => {
+    writeFileSync(join(root, "cache"), "не каталог");
+    const r = await generateScene("тест", s, await makeDeps(root, skills));
+    expect(r.status).toBe("failed");
+    expect((await readVersion(r.versionDir!)).status).toBe("failed");
+  });
+
+  it("публикация упала при живом хранилище → failed/publish, draft в карантине", async () => {
+    const { render } = fakeRender({
+      onCall: async (req) => {
+        mkdirSync(join(req.versionDir, "frames"), { recursive: true });
+        symlinkSync("/etc/hosts", join(req.versionDir, "frames", "evil.png"));
+      },
+    });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { render }));
+    expect(r).toMatchObject({ status: "failed", failure: { stage: "publish" } });
+    expect(existsSync(join(r.versionDir!, ".quarantined"))).toBe(true);
+    expect(versionsOf()).toEqual([]);
+  });
+
+  it("хранилище пропало перед вызовом Engineer → карантин, без публикации", async () => {
+    let n = 0;
+    const storage = async (): Promise<StorageStatus> => (++n > 4 ? OFFLINE : okStatus(root));
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { storage }));
+    expect(r).toMatchObject({ status: "failed", failure: { stage: "storage" } });
+    expect(existsSync(join(r.versionDir!, ".quarantined"))).toBe(true);
+    expect(versionsOf()).toEqual([]);
+  });
+
+  it("ни один draft не остаётся без маркера или версии (все пути выше)", async () => {
+    // после всех сценариев этого файла в своём root draft либо опубликован, либо в карантине
+    const { render } = fakeRender({ fail: { stage: "orphaned", message: "x" } });
+    await generateScene("тест", s, await makeDeps(root, skills, { render }));
+    await generateScene("тест", s, await makeDeps(root, skills, { skillsRoot: join(tmp, "нет") }));
+    for (const d of draftsOf()) expect(existsSync(join(root, "workspace/drafts", d, ".quarantined")), d).toBe(true);
+  });
+});
+
+describe("sweepAbandonedDrafts", () => {
+  it("draft без маркера и без живых процессов → abandoned; с записью процесса — не трогается", async () => {
+    const drafts = join(root, "workspace/drafts");
+    mkdirSync(join(drafts, "run_A-a1"), { recursive: true });
+    mkdirSync(join(drafts, "run_B-a1"), { recursive: true });
+    mkdirSync(join(drafts, "run_C-a1"), { recursive: true });
+    writeFileSync(join(drafts, "run_C-a1", ".quarantined"), "{\"reason\":\"old\"}");
+    const registry = { add: async () => undefined, remove: async () => undefined, list: async () => [{ runId: "run_B", attempt: 1, pid: 1, pgid: 1, startedAt: "", cmd: "x" }] };
+    const r = await sweepAbandonedDrafts(root, registry);
+    expect(r.quarantined).toEqual([join(drafts, "run_A-a1")]);
+    expect(r.skipped).toEqual([join(drafts, "run_B-a1")]);
+    expect(JSON.parse(readFileSync(join(drafts, "run_A-a1", ".quarantined"), "utf8")).reason).toBe("abandoned");
+    expect(readFileSync(join(drafts, "run_C-a1", ".quarantined"), "utf8")).toContain("old");
+  });
+});
+
+describe("qaFrames на spec реальных прогонов", () => {
+  const spec = (name: string) => JSON.parse(readFileSync(fileURLToPath(new URL(`../fixtures/specs/${name}`, import.meta.url)), "utf8"));
+  it.each([
+    ["test1-slice.json", 130, 76],
+    ["test2-slice.json", 150, 42],
+    ["test1-r1.json", 123, 60],
+    ["test2-r1.json", 152, 72],
+  ])("%s: середина акцента %i и конец входов %i — в кадрах; нет кадров внутри входа заголовка; шаг ≥ 10", (name, accentMid, entranceEnd) => {
+    const sp = spec(name);
+    const f = qaFrames(sp, sp.duration_frames);
+    expect(f).toContain(accentMid);
+    expect(f).toContain(entranceEnd);
+    expect(f).toContain(sp.duration_frames - 1);
+    expect(f.length).toBeLessThanOrEqual(6);
+    // ни одного кадра внутри входа текстового элемента (заголовок/кикер наполовину вошёл)
+    const kinds = new Map(sp.elements.map((e: { id: string; kind: string }) => [e.id, e.kind]));
+    const textIn = sp.beats.filter((b: { action: string; element_ids: string[] }) => /entrance/.test(b.action) && b.element_ids.some((id) => kinds.get(id) === "text"));
+    for (const b of textIn) expect(f.filter((x) => x > b.start_frame && x < b.end_frame), b.action).toEqual([]);
+    for (let i = 1; i < f.length; i++) expect(f[i]! - f[i - 1]!).toBeGreaterThanOrEqual(10);
   });
 });

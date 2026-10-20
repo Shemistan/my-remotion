@@ -7,8 +7,11 @@ NODE := ./scripts/with-node.sh
 check: lint typecheck test
 
 # Чистый checkout: ставим зависимости по lockfile.
+# `npm ci` стирает node_modules/.remotion (Chrome Headless Shell) — сразу ставим его снова,
+# иначе рендер упадёт уже после трат на агентов (docs/грабли.md).
 node_modules/.package-lock.json: package.json package-lock.json $(wildcard */package.json)
 	$(NODE) npm ci
+	$(NODE) npx tsx scripts/ensure-browser.mts
 	@touch $@
 
 install: node_modules/.package-lock.json

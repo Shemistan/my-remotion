@@ -1,25 +1,25 @@
 {
   "status": "ready",
-  "run_id": "run_01M5DFMJBZMXYNR5S6ATDHBJPA",
-  "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5DFMJBZMXYNR5S6ATDHBJPB/versions/ver_01M5DFR5N7ECN8PNNBAC5F6MD4",
-  "cost_usd": 0.3930644,
+  "run_id": "run_01M5DHR89BBA841JVB1XNZCTX8",
+  "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5DHR89BBA841JVB1XNZCTX9/versions/ver_01M5DHYEPF2NXR2E6HBAG4C8D8",
+  "cost_usd": 0.5367582000000001,
   "engineer_calls": 1,
   "timings_ms": {
-    "director": 33107,
-    "engineer_1": 52255,
-    "static": 38,
-    "typecheck": 12449,
-    "render_1": 16991,
-    "publish": 836,
-    "total": 118219
+    "director": 44366,
+    "engineer_1": 128521,
+    "static": 53,
+    "typecheck": 11760,
+    "render_1": 16524,
+    "publish": 761,
+    "total": 203349
   },
   "warnings": [],
   "prompt": "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении",
-  "wall_ms": 118220,
+  "wall_ms": 203349,
   "second_cli": {
     "code": 1,
     "out": [
-      "owner_busy: хранилище занято другим процессом (cli, pid 40832)"
+      "owner_busy: хранилище занято другим процессом (cli, pid 76194)"
     ]
   }
 }

@@ -12,23 +12,28 @@
     ]
   },
   {
-    "kb_id": "xyflow/react-flow",
-    "repository": "xyflow (React Flow)",
-    "repository_url": "git@github.com:xyflow/xyflow.git",
-    "commit": "654ba5a5e",
-    "license": "MIT (LICENSE, packages/react/package.json)",
+    "kb_id": "remotion-bits/type-writer",
+    "repository": "Remotion Bits",
+    "repository_url": "git@github.com:av/remotion-bits.git",
+    "commit": "de35fda",
+    "license": "MIT (package.json)",
+    "license_class": "permissive",
+    "strategy": "reuse",
+    "source_paths": [
+      "templates/remotion-components/remotion-bits/src/components/TypeWriter.tsx",
+      "templates/remotion-components/remotion-bits/src/utils/random.ts"
+    ]
+  },
+  {
+    "kb_id": "motion-primitives-website/grid-pattern",
+    "repository": "motion-primitives-website (itsjwill)",
+    "repository_url": "git@github.com:itsjwill/motion-primitives-website.git",
+    "commit": "cff72d8",
+    "license": "MIT (package.json; файла LICENSE нет)",
     "license_class": "permissive",
     "strategy": "adapt",
     "source_paths": [
-      "templates/infografika/xyflow/packages/react/src/container/ReactFlow/index.tsx",
-      "templates/infografika/xyflow/packages/react/src/types/component-props.ts",
-      "templates/infografika/xyflow/packages/react/src/components/NodeWrapper/index.tsx",
-      "templates/infografika/xyflow/packages/react/src/components/NodeWrapper/useNodeObserver.ts",
-      "templates/infografika/xyflow/packages/react/src/container/NodeRenderer/useResizeObserver.ts",
-      "templates/infografika/xyflow/packages/react/src/hooks/useResizeHandler.ts",
-      "templates/infografika/xyflow/packages/react/src/hooks/useViewportSync.ts",
-      "templates/infografika/xyflow/packages/system/src/utils/edges/positions.ts",
-      "templates/infografika/xyflow/packages/system/src/styles/init.css"
+      "templates/react-libriry/motion-primitives-website/src/components/backgrounds/premium-backgrounds.tsx"
     ]
   }
 ]

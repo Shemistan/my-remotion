@@ -3,7 +3,8 @@ import { SettingsSchema } from "./settings.js";
 import { KnowledgeRefSchema } from "./selection.js";
 
 const Sha = z.string().regex(/^[0-9a-f]{64}$/, "ожидается sha256 (64 hex)");
-const Verdict = z.enum(["pass", "warn", "fail"]);
+// not_checked — гейт в этом срезе не проверялся (например, Visual QA ещё нет).
+const Verdict = z.enum(["pass", "warn", "fail", "not_checked"]);
 const FileEntry = z.object({ path: z.string().min(1), sha256: Sha }).strict();
 
 /** Manifest версии (05-data-model §4) плюс статус и кадры QA. */

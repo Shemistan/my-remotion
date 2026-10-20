@@ -56,9 +56,10 @@ export const Scene = () => (
 ```
 
 ### SafeArea / useSafeArea()
-`<SafeArea style?>` — `AbsoluteFill` с полями из `grid.safe_area`. Дети лежат в блоке
+`<SafeArea style?>` — `AbsoluteFill` с полями из `grid.safe_area`. Дети лежат во flex-колонке
 размером с безопасную зону: `AbsoluteFill` и `position: absolute` внутри отсчитываются
-от её края, а не от края кадра. `useSafeArea()`
+от её края, а не от края кадра. Свойства раскладки из `style` (`justifyContent`,
+`alignItems`, `flexDirection`, `gap`, grid-свойства) действуют на этот блок. `useSafeArea()`
 возвращает `{ left, top, width, height }` в px, если раскладку нужно считать вручную.
 
 ### KineticText
@@ -83,7 +84,10 @@ align?, maxWidth?, lineHeight?, delay?, stagger?, exit?, caps?, style? }`
 
 ### AnimatedNumber
 `{ from, to, beat, locale: "ru" | "en", prefix?, suffix?, compact?, decimals?, size? = 7,
-font? = "display" | "mono", reserveWidth?, color?, align?, style? }`
+font? = "display" | "mono", reserveWidth?, color?, align?, style?, value? }`
+
+`value` — внешнее значение вместо своего счёта: привязка к другому источнику движения
+(см. `lineChartHead`). Удар на финише остаётся в `end_frame` бита.
 
 Счёт идёт весь бит: разгон, затем долгое торможение (`EASE.count`). Цифры
 моноширинные. На финише (`end_frame`) — короткий удар масштаба и свечения акцентом.
@@ -103,8 +107,18 @@ valuePrefix?, valueSuffix? }`
 Порядок внутри бита: сетка и подписи оси Y (первые 30%), затем гладкая монотонная
 линия рисуется со светящейся «головой» (12–80% бита). Точки вспыхивают, когда линия до
 них доходит, заливка открывается вслед. В конце последняя точка пульсирует, рядом
-появляется выноска со значением. Подписи осей форматирует `formatNumber`. Точки
+появляется выноска со значением (`highlightLast={false}` убирает выноску, если это
+значение уже показывает герой-число). Подписи осей форматирует `formatNumber`. Точки
 передавай по порядку оси X.
+
+`lineChartHead(points, beat, frame, { width?, height?, yTicks? })` → `{ progress, value,
+endFrame }` — голова линии в кадре (не хук). Счётчик, привязанный к линии, показывает
+ровно значение под головой:
+```tsx
+const head = lineChartHead(POINTS, CHART_BEAT, frame, { width: 900, height: 560 });
+<AnimatedNumber from={10_000} to={1_000_000} value={head.value}
+  beat={{ start_frame: CHART_BEAT.start_frame, end_frame: head.endFrame }} locale="ru" size={8} />
+```
 ```tsx
 <LineChart points={[{ label: "янв 22", value: 10_000 }, /* … */ { label: "янв 25", value: 1_000_000 }]}
   beat={{ start_frame: 20, end_frame: 110 }} width={830} height={500} />

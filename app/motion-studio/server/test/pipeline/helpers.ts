@@ -129,10 +129,12 @@ export function directorOutput(): DirectorOutput {
       ],
       beats: [
         { id: "b1", start_frame: 0, end_frame: 40, action: "title-entrance", description: "", element_ids: ["title"] },
-        { id: "b2", start_frame: 30, end_frame: 150, action: "chart-growth", description: "", element_ids: ["chart"] },
-        { id: "b3", start_frame: 150, end_frame: 180, action: "emphasis", description: "", element_ids: ["chart"] },
+        { id: "b2", start_frame: 30, end_frame: 130, action: "chart-growth", description: "", element_ids: ["chart"] },
+        { id: "b3", start_frame: 130, end_frame: 150, action: "final-emphasis", description: "", element_ids: ["chart"] },
+        { id: "b4", start_frame: 150, end_frame: 180, action: "hold", description: "дрейф, пульс точки", element_ids: ["chart"] },
       ],
     },
+    composition: { archetype: "split", idea: "число слева, график справа", focus: "итоговая точка", transitions: "голова линии ведёт счётчик" },
     selection: { items: [{ kb_id: "fake/line-chart", strategy: "adapt", why: "график", files_to_copy: [] }] },
     rationale: "тест",
   };

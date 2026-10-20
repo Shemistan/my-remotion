@@ -92,7 +92,7 @@ async function rerenderCopy(r: GenerateResult, settings: Settings, name: string)
     versionDir: copy,
     settings,
     cacheDir,
-    stills: m.qa_frames,
+    stills: [...new Set([...m.qa_frames, settings.duration_frames - 20])].sort((a, b) => a - b),
     preview: { scale: 0.5, crf: 23 },
     timeoutMs: 300_000,
     run: { root: DATA_DIR, runId: `${r.runId}-repro`, attempt: 1 },
@@ -103,6 +103,8 @@ async function rerenderCopy(r: GenerateResult, settings: Settings, name: string)
 /** Evidence: кадры (уменьшенные), manifest, knowledge-refs, spec, итог прогона, превью ≤ 10 МБ. */
 async function saveEvidence(name: string, r: GenerateResult, extra: Record<string, unknown>) {
   const dir = join(EVIDENCE, name);
+  // evidence прогона заменяется целиком: старые кадры с другими номерами не остаются
+  await rm(dir, { recursive: true, force: true });
   mkdirSync(join(dir, "frames"), { recursive: true });
   const v = r.versionDir!;
   for (const f of ["manifest.json", "knowledge-refs.json", "spec.json", "selection.json", "pipeline-log.json", "warnings.json"]) {
@@ -128,10 +130,11 @@ async function saveEvidence(name: string, r: GenerateResult, extra: Record<strin
   );
 }
 
-/** Второй CLI на том же хранилище, пока держим owner lock: должен упасть с owner_busy. */
+/** Второй `npm run generate` на том же хранилище, пока первый держит owner lock: owner_busy. */
 function secondCli(): Promise<{ code: number | null; out: string }> {
   return new Promise((resolve) => {
-    const child = spawn(join(APP, "scripts/with-node.sh"), ["npx", "tsx", "server/src/cli/generate.ts", "второй запуск"], { cwd: APP, env });
+    // настоящий второй `npm run generate`, как его запустил бы человек
+    const child = spawn(join(APP, "scripts/with-node.sh"), ["npm", "run", "--silent", "generate", "--", "второй запуск"], { cwd: APP, env });
     let out = "";
     child.stdout.on("data", (d) => (out += d));
     child.stderr.on("data", (d) => (out += d));
@@ -153,7 +156,11 @@ async function commonChecks(r: GenerateResult, settings: Settings) {
   // стабильный рендер: копия версии даёт те же кадры
   const { again, base } = await rerenderCopy(r, settings, m.version_id);
   expect(again.error).toBeUndefined();
-  expect(again.stills.map(sha256)).toEqual(m.qa_frames_sha256);
+  const frameSha = (f: number) => sha256(join(base, "version", "frames", `${f}.png`));
+  expect(m.qa_frames.map(frameSha)).toEqual(m.qa_frames_sha256);
+  // финал не замер: кадры N−20 и N−1 различаются
+  const n = settings.duration_frames;
+  expect(frameSha(n - 20), "кадры N−20 и N−1 одинаковы — финал замер").not.toBe(frameSha(n - 1));
   await rm(base, { recursive: true, force: true });
   return m;
 }

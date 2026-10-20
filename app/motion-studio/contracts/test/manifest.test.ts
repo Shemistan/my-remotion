@@ -35,6 +35,10 @@ describe("VersionManifest", () => {
     delete noQa.qa;
     expect(ok(noQa)).toBe(false);
   });
+  it("verdict not_checked допустим, неизвестный — нет", () => {
+    expect(ok({ ...manifest(), qa: { technical: "pass", visual: "not_checked", semantic: "not_checked", style: "not_checked" } })).toBe(true);
+    expect(ok({ ...manifest(), qa: { technical: "pass", visual: "skip", semantic: "pass", style: "pass" } })).toBe(false);
+  });
   it("failed без failure отвергается", () => expect(ok({ ...manifest(), status: "failed" })).toBe(false));
   it("ready с failure отвергается", () =>
     expect(ok({ ...manifest(), failure: { stage: "a", message: "b" } })).toBe(false));

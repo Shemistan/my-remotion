@@ -1,9 +1,11 @@
 import { z } from "zod";
-import { MotionSpecSchema } from "./motion-spec.js";
+import { CompositionSchema, MotionSpecSchema } from "./motion-spec.js";
 import { ComponentSelectionSchema } from "./selection.js";
 
 export const DirectorOutputSchema = z.object({
   spec: MotionSpecSchema,
+  /** Обязательна в ответе Director; оркестратор переносит её в spec.json. */
+  composition: CompositionSchema,
   selection: ComponentSelectionSchema,
   rationale: z.string(),
 }).strict();

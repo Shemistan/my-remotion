@@ -33,6 +33,18 @@ export const BeatSchema = z.object({
 }).strict();
 export type Beat = z.infer<typeof BeatSchema>;
 
+/**
+ * Композиционная идея сцены (Motion Director): архетип раскладки, фокус/движение камеры,
+ * как сцена переходит из состояния в состояние. Пишется в spec.json для Engineer.
+ */
+export const CompositionSchema = z.object({
+  archetype: z.enum(["centered-hero", "split", "diagonal", "full-bleed-data", "network-centric", "stacked", "orbit", "other"]),
+  idea: z.string().min(1),
+  focus: z.string(),
+  transitions: z.string().min(1),
+}).strict();
+export type Composition = z.infer<typeof CompositionSchema>;
+
 export const MotionSpecSchema = z.object({
   title: z.string().min(1),
   purpose: z.string(),
@@ -40,6 +52,7 @@ export const MotionSpecSchema = z.object({
   fps: FpsSchema,
   style_preset: StylePresetSchema,
   palette_overrides: PaletteOverridesSchema.optional(),
+  composition: CompositionSchema.optional(),
   elements: z.array(ElementSchema).min(1),
   beats: z.array(BeatSchema).min(1),
 }).strict().superRefine((spec, ctx) => {

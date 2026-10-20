@@ -62,7 +62,10 @@ describe("MotionSpec", () => {
 describe("выходы агентов", () => {
   const selection = { items: [{ kb_id: "a/b", strategy: "reuse", why: "x", files_to_copy: [] }] };
   it("DirectorOutput", () => {
-    expect(DirectorOutputSchema.safeParse({ spec: baseSpec(), selection, rationale: "r" }).success).toBe(true);
+    const composition = { archetype: "split", idea: "график справа, число слева", focus: "число", transitions: "линия ведёт к числу" };
+    expect(DirectorOutputSchema.safeParse({ spec: baseSpec(), composition, selection, rationale: "r" }).success).toBe(true);
+    expect(DirectorOutputSchema.safeParse({ spec: baseSpec(), selection, rationale: "r" }).success).toBe(false);
+    expect(DirectorOutputSchema.safeParse({ spec: baseSpec(), composition: { ...composition, archetype: "grid" }, selection, rationale: "r" }).success).toBe(false);
     expect(DirectorOutputSchema.safeParse({ spec: baseSpec(), selection }).success).toBe(false);
   });
   it("ComponentSelection: неверная strategy", () => {

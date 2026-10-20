@@ -3,7 +3,8 @@
 //   [--style dark-premium|light-clean|tech-neon]`
 // Порядок старта (ADR 0007): owner lock (держим до выхода) → checkStorage → reapStale
 // незавершённых прогонов + reapStrayRenderers (не чисто — отказ с pid и командой) →
-// relockVersions → generateScene. Код выхода 1 при failed и любом отказе, 2 — usage.
+// sweepAbandonedDrafts (брошенные draft → карантин `abandoned`) → relockVersions →
+// ensureRenderBrowser (Chrome мог стереть `npm ci`; до трат на агентов) → generateScene. Код выхода 1 при failed и любом отказе, 2 — usage.
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { type Settings, SettingsSchema, StylePresetSchema, defaultSettings } from "@ms/contracts";
@@ -19,13 +20,13 @@ import {
   macosProbe,
   reapStale,
 } from "@ms/core";
-import { findRenderBrowser, reapStrayRenderers, renderVersion } from "@ms/render";
+import { ensureRenderBrowser, reapStrayRenderers, renderVersion } from "@ms/render";
 import { ClaudeCodeRuntime } from "../agents/claude-code.js";
 import { loadConfig, readConfigFile } from "../config.js";
 import { KnowledgeAdapter } from "../knowledge/adapter.js";
 import { DEFAULT_PROMPTS_DIR, type GenerateResult, generateScene } from "../pipeline/generate.js";
 import { checkSceneDir } from "../scenes/static-check.js";
-import { relockVersions } from "../scenes/store.js";
+import { relockVersions, sweepAbandonedDrafts } from "../scenes/store.js";
 import { typecheckVersion } from "../scenes/typecheck.js";
 
 export const USAGE =
@@ -85,7 +86,11 @@ export interface CliSteps {
   leftoverRuns(root: string): Promise<string[]>;
   reapStale(root: string, runId: string): Promise<{ clean: boolean; alive: TrackedProcess[] }>;
   reapStrays(root: string): Promise<{ pid: number; pgid: number }[]>;
+  /** Брошенные draft (нет маркера и живых процессов) → карантин `abandoned`. */
+  sweep(root: string): Promise<{ quarantined: string[]; skipped: string[] }>;
   relock(root: string): Promise<{ relocked: string[]; broken: { dir: string; error: string }[] }>;
+  /** Chrome Headless Shell на месте (скачать при отсутствии); CLI может менять cwd. */
+  ensureBrowser(): Promise<{ path: string }>;
   generate(prompt: string, settings: Settings, status: Extract<StorageStatus, { ok: true }>, env: NodeJS.ProcessEnv, signal: AbortSignal, log: (l: string) => void): Promise<GenerateResult>;
 }
 
@@ -104,7 +109,6 @@ async function realGenerate(
   log: (l: string) => void,
 ): Promise<GenerateResult> {
   const root = status.root;
-  findRenderBrowser(); // нет Chrome — отказ до трат на агентов
   const config = loadConfig({ ...env, MS_DATA_DIR: root }, await readConfigFile(root));
   const kb = await KnowledgeAdapter.load({ kbRoot: config.kb.root, sourceRoot: config.kb.sourceRoot });
   const agents = new ClaudeCodeRuntime({ bin: config.claudeBin, logRoot: join(root, "logs", "agent-runs"), promptsDir: DEFAULT_PROMPTS_DIR });
@@ -132,7 +136,9 @@ export const realSteps: CliSteps = {
   leftoverRuns,
   reapStale: (root, runId) => reapStale(root, runId),
   reapStrays: (root) => reapStrayRenderers(root),
+  sweep: (root) => sweepAbandonedDrafts(root),
   relock: relockVersions,
+  ensureBrowser: ensureRenderBrowser,
   generate: realGenerate,
 };
 
@@ -187,9 +193,18 @@ export async function runGenerate(
       io.err(`stale_process: процессы рендера не завершились: ${strays.map((p) => `pid ${p.pid}`).join(", ")}. Заверши их вручную и повтори.`);
       return 1;
     }
+    const swept = await steps.sweep(root);
+    for (const d of swept.quarantined) io.err(`⚠ брошенный draft помечен карантином (abandoned): ${d}`);
     const relock = await steps.relock(root);
     for (const d of relock.relocked) io.err(`relock: версия закрыта от записи: ${d}`);
     for (const b of relock.broken) io.err(`⚠ повреждённая версия (не тронута): ${b.dir}: ${b.error}`);
+
+    try {
+      await steps.ensureBrowser();
+    } catch (e) {
+      io.err(`render: Chrome Headless Shell недоступен (${(e as Error).message}); запусти npm run doctor`);
+      return 1;
+    }
 
     const t0 = Date.now();
     const r = await steps.generate(args.prompt, args.settings, status, env, signal, (l) => io.err(l));

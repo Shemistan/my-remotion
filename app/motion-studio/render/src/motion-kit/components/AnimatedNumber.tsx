@@ -31,9 +31,14 @@ export interface AnimatedNumberProps {
   color?: string;
   align?: "left" | "center" | "right";
   style?: CSSProperties;
+  /**
+   * Внешнее значение вместо собственного счёта — привязка к другому источнику движения
+   * (например `lineChartHead(...).value`). Удар на финише остаётся в `end_frame`.
+   */
+  value?: number;
 }
 
-export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact, decimals, size = 7, font = "display", color, align = "left", reserveWidth, style }: AnimatedNumberProps) {
+export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact, decimals, size = 7, font = "display", color, align = "left", reserveWidth, style, value: bound }: AnimatedNumberProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -45,9 +50,11 @@ export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact
   // счёт идёт до конца бита; вход занимает его начало и идёт параллельно
   const countStart = b0 + Math.max(0, Math.min(6, (b1 - b0) * 0.1));
   // ramp: бит нулевой длины — ступенька, а не исключение interpolate
-  const p = ramp(frame, countStart, b1, ease);
-  const pPrev = ramp(frame - 1, countStart, b1, ease);
-  const value = from + (to - from) * p;
+  const span = to - from || 1;
+  const p = bound !== undefined ? clamp01((bound - from) / span) : ramp(frame, countStart, b1, ease);
+  // при внешнем значении скорость не знаем — смаз цифр не рисуем
+  const pPrev = bound !== undefined ? p : ramp(frame - 1, countStart, b1, ease);
+  const value = bound ?? from + (to - from) * p;
   const fmt = { locale, compact, decimals };
   const text = formatNumber(value, fmt);
   const ghost = formatNumber(Math.abs(to) >= Math.abs(from) ? to : from, fmt);
