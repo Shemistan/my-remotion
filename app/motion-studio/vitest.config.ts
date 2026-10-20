@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 
-// Пакеты workspace с тестами; contracts и render добавятся вместе с пакетами.
-const packages = ["core", "server"];
+// Пакеты workspace с тестами; render добавится вместе с пакетами.
+const packages = ["contracts", "core", "server"];
 
 // Юнит-тесты — `*.test.ts`; интеграционные (сеть, рендер, реальный SSD) —
 // `*.e2e.test.ts`, запускаются только `make e2e` (MS_E2E=1).
