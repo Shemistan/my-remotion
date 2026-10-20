@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import type { Writable } from "node:stream";
 import { procInfo } from "./proc-info.js";
-import { type ProcessRegistry, type TrackedProcess, assertRunRef, fileProcessRegistry, killGroup } from "./processes.js";
+import { type ProcessRegistry, type TrackedProcess, assertRunRef, fileProcessRegistry, groupExists, killGroup } from "./processes.js";
 
 export interface SpawnTrackedOptions {
   cwd: string;
@@ -11,6 +11,10 @@ export interface SpawnTrackedOptions {
   /** Пауза между SIGTERM и SIGKILL группе после `signal`, мс (5000). */
   killGraceMs?: number;
   registry?: ProcessRegistry;
+  /** Сколько ждать исчезновения группы после выхода лидера и SIGKILL, мс (30000). */
+  groupWaitMs?: number;
+  /** Проверка «группа ещё есть»; подменяется в тестах. По умолчанию `kill(-pgid, 0)`. */
+  groupAlive?: (pgid: number) => boolean;
 }
 
 export interface SpawnTrackedResult {
@@ -18,6 +22,12 @@ export interface SpawnTrackedResult {
   signal: string | null;
   stdout: string;
   stderr: string;
+  /**
+   * Группа не исчезла за `groupWaitMs` после выхода лидера (например, процесс висит в
+   * непрерываемом вводе-выводе на отключённом диске). Запись осталась в реестре;
+   * вызывающий обязан считать попытку незавершённой (`stale_process`).
+   */
+  orphaned: boolean;
 }
 
 // Шлюз: sh ждёт строку на fd 3 и только потом exec-ает команду (pid, группа и время
@@ -30,8 +40,12 @@ const STDIO_DRAIN_MS = 2000;
 /**
  * Запускает команду в своей группе процессов (`detached: true`) с записью в реестре
  * (ADR 0007, п. 3). По `signal` — SIGTERM группе, через `killGraceMs` — SIGKILL.
- * После выхода лидера остатки группы добиваются SIGKILL, и только потом запись
- * удаляется из реестра. Команда не найдена — код 127 от sh, а не исключение.
+ * После выхода лидера остатки группы добиваются SIGKILL; запись удаляется только когда
+ * группа подтверждённо исчезла, иначе `orphaned: true` и запись остаётся.
+ *
+ * Команда не найдена — код 127 от sh, а не исключение; но 127 может вернуть и сама
+ * команда, поэтому бинарник вызывающий проверяет заранее (doctor). `cmd` и `args`
+ * пишутся в `run/processes/` открытым текстом — секреты аргументами не передавать.
  */
 export async function spawnTracked(
   root: string,
@@ -44,6 +58,8 @@ export async function spawnTracked(
   opts.signal.throwIfAborted();
   const registry = opts.registry ?? fileProcessRegistry(root);
   const killGraceMs = opts.killGraceMs ?? 5000;
+  const groupWaitMs = opts.groupWaitMs ?? 30_000;
+  const groupAlive = opts.groupAlive ?? groupExists;
 
   const child = spawn("/bin/sh", ["-c", GATE, "ms-gate", cmd, ...args], {
     cwd: opts.cwd,
@@ -107,13 +123,28 @@ export async function spawnTracked(
     clearTimeout(graceTimer);
     opts.signal.removeEventListener("abort", onAbort);
   }
-  // остатки группы (внуки) не переживают лидера
-  killGroup(pid, "SIGKILL");
+  // остатки группы (внуки) не переживают лидера; проверка до сигнала сужает окно,
+  // в котором pgid мог бы достаться чужой группе
+  let orphaned = false;
+  if (groupAlive(pid)) {
+    killGroup(pid, "SIGKILL");
+    orphaned = !(await waitGroupGone(pid, groupAlive, groupWaitMs));
+  }
   let drainTimer: NodeJS.Timeout | undefined;
   await Promise.race([closed, new Promise((r) => (drainTimer = setTimeout(r, STDIO_DRAIN_MS)))]);
   clearTimeout(drainTimer);
   child.stdout!.destroy();
   child.stderr!.destroy();
-  await registry.remove(record);
-  return { ...res, stdout, stderr };
+  // группа жива — запись остаётся для reapStale
+  if (!orphaned) await registry.remove(record);
+  return { ...res, stdout, stderr, orphaned };
+}
+
+async function waitGroupGone(pgid: number, alive: (pgid: number) => boolean, ms: number): Promise<boolean> {
+  const until = Date.now() + ms;
+  while (alive(pgid)) {
+    if (Date.now() >= until) return false;
+    await new Promise((r) => setTimeout(r, Math.min(50, Math.max(1, until - Date.now()))));
+  }
+  return true;
 }

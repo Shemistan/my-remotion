@@ -30,6 +30,10 @@ export interface OwnerLock {
   release(): Promise<void>;
 }
 
+// Держит соединения до release: иначе брошенный вызывающим результат соберёт GC,
+// деструктор better-sqlite3 закроет базу и fcntl-lock молча снимется.
+const held = new Set<Database.Database>();
+
 /**
  * Берёт эксклюзивную блокировку ОС на `run/owner.lock` (ADR 0007, п. 1).
  *
@@ -53,6 +57,7 @@ export async function acquireOwnerLock(root: string, kind: OwnerKind): Promise<O
     }
     throw e;
   }
+  held.add(db);
 
   let released = false;
   try {
@@ -62,6 +67,7 @@ export async function acquireOwnerLock(root: string, kind: OwnerKind): Promise<O
     await writeFile(tmp, JSON.stringify(info, null, 2) + "\n");
     await rename(tmp, ownerFile);
   } catch (e) {
+    held.delete(db);
     db.close();
     throw e;
   }
@@ -75,6 +81,7 @@ export async function acquireOwnerLock(root: string, kind: OwnerKind): Promise<O
         const cur = await readOwner(ownerFile);
         if (cur?.pid === process.pid) await rm(ownerFile, { force: true });
       } finally {
+        held.delete(db);
         db.close(); // откатывает транзакцию и снимает блокировку
       }
     },

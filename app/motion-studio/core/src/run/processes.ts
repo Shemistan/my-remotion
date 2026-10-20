@@ -11,6 +11,11 @@ export interface TrackedProcess {
   pid: number;
   pgid: number;
   startedAt: string;
+  /**
+   * Команда с аргументами — для диагностики (UI показывает PID и команду). Пишется на
+   * диск открытым текстом: секреты (токены, ключи) передавать только через env/stdin,
+   * никогда аргументами.
+   */
   cmd: string;
 }
 
@@ -142,7 +147,8 @@ async function isAlive(p: TrackedProcess): Promise<boolean> {
   return groupExists(p.pgid);
 }
 
-function groupExists(pgid: number): boolean {
+/** Есть ли ещё процессы в группе (EPERM — есть, но сигнал не доставить, например зомби). */
+export function groupExists(pgid: number): boolean {
   try {
     process.kill(-pgid, 0);
     return true;

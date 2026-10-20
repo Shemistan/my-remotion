@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, expect, it } from "vitest";
@@ -97,7 +97,7 @@ it("runs a command, captures output, passes stdin and leaves no record", async (
     ...opts(),
     stdin: "hello",
   });
-  expect(res).toEqual({ code: 3, signal: null, stdout: "hello", stderr: "err\n" });
+  expect(res).toEqual({ code: 3, signal: null, stdout: "hello", stderr: "err\n", orphaned: false });
   expect(readdirSync(join(root, "run/processes"))).toEqual([]);
 });
 
@@ -295,4 +295,93 @@ it("file registry: run-scoped list, remove, missing dir is empty, vanished root 
   expect(await reg.list()).toEqual([a]);
   await removeTmp(root);
   await expect(reg.list()).rejects.toThrow(/storage/);
+});
+
+// --- fix round 1 ---
+
+/** Временно подменяет переменные окружения текущего процесса. */
+async function withEnv<T>(vars: Record<string, string>, fn: () => Promise<T>): Promise<T> {
+  const env = process.env;
+  const old = Object.fromEntries(Object.keys(vars).map((k) => [k, env[k]]));
+  Object.assign(env, vars);
+  try {
+    return await fn();
+  } finally {
+    for (const [k, v] of Object.entries(old)) {
+      if (v === undefined) delete env[k];
+      else env[k] = v;
+    }
+  }
+}
+
+it("startedAt does not depend on the caller's locale and TZ: reap under another env keeps a live record", async () => {
+  const child = spawn(ignoreTerm, [join(tmp, "ready")], { detached: true, stdio: "ignore" });
+  child.unref();
+  groups.add(child.pid!);
+  // запись пишет «сервер» в одной локали и поясе…
+  const rec = await withEnv({ LC_ALL: "ru_RU.UTF-8", LANG: "ru_RU.UTF-8", TZ: "Asia/Tokyo" }, async () => {
+    const r: TrackedProcess = {
+      runId: "run1",
+      attempt: 1,
+      pid: child.pid!,
+      pgid: child.pid!,
+      startedAt: (await procInfo(child.pid!))!.startedAt,
+      cmd: ignoreTerm,
+    };
+    await fileProcessRegistry(root).add(r);
+    return r;
+  });
+  // …а разбирает «CLI» в другой
+  const res = await withEnv({ LC_ALL: "en_US.UTF-8", LANG: "en_US.UTF-8", TZ: "America/New_York" }, async () => {
+    expect((await procInfo(child.pid!))?.startedAt).toBe(rec.startedAt);
+    return reapStale(root, "run1", { kill: () => undefined, graceMs: 50, waitMs: 50 });
+  });
+  expect(res.clean).toBe(false);
+  expect(res.alive).toEqual([rec]);
+  expect(readdirSync(join(root, "run/processes"))).toEqual([`run1-a1-${rec.pid}.json`]);
+});
+
+it("procInfo throws when ps fails for a reason other than 'no such process'", async () => {
+  const bin = join(tmp, "fake-bin");
+  await mkdir(bin);
+  await writeFile(join(bin, "ps"), "#!/bin/sh\nexit 2\n", { mode: 0o755 });
+  await withEnv({ PATH: bin }, async () => {
+    await expect(procInfo(process.pid)).rejects.toThrow();
+  });
+});
+
+it("spawnTracked keeps the record and reports orphaned when the group does not die after the leader", async () => {
+  const res = await spawnTracked(root, ref, "/bin/sh", ["-c", "exit 0"], {
+    ...opts(),
+    groupAlive: () => true,
+    groupWaitMs: 200,
+  });
+  expect(res.code).toBe(0);
+  expect(res.orphaned).toBe(true);
+  const rec = await trackedRecord();
+  expect(rec).toMatchObject({ runId: "run1", attempt: 1 });
+});
+
+it("abort path: orphaned group keeps the record too", async () => {
+  const ctrl = new AbortController();
+  const marker = join(tmp, "ready");
+  const p = spawnTracked(root, ref, ignoreTerm, [marker], {
+    ...opts(ctrl.signal),
+    killGraceMs: 100,
+    groupAlive: () => true,
+    groupWaitMs: 200,
+  });
+  const rec = await trackedRecord();
+  await waitFor(() => (existsSync(marker) ? true : undefined));
+  ctrl.abort();
+  const res = await p;
+  expect(res.signal).toBe("SIGKILL");
+  expect(res.orphaned).toBe(true);
+  expect(readdirSync(join(root, "run/processes"))).toEqual([`run1-a1-${rec.pid}.json`]);
+});
+
+it("normal exit with a dead group reports orphaned: false and removes the record", async () => {
+  const res = await spawnTracked(root, ref, "/bin/sh", ["-c", "exit 0"], opts());
+  expect(res.orphaned).toBe(false);
+  expect(readdirSync(join(root, "run/processes"))).toEqual([]);
 });

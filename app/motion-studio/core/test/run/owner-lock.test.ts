@@ -23,11 +23,15 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  for (const l of locks.splice(0)) await l.release();
+  // сначала дети: упавший release не должен оставить держателей lock
   for (const c of children.splice(0)) {
     if (c.exitCode === null && c.signalCode === null) c.kill("SIGKILL");
   }
-  await removeTmp(tmp);
+  try {
+    for (const l of locks.splice(0)) await l.release();
+  } finally {
+    await removeTmp(tmp);
+  }
 });
 
 async function acquire(kind: "server" | "cli" = "cli") {
@@ -37,8 +41,9 @@ async function acquire(kind: "server" | "cli" = "cli") {
 }
 
 /** Запускает отдельный node, который держит lock; ждёт строки "locked". */
-async function spawnHolder(): Promise<ChildProcess> {
-  const child = spawn(process.execPath, ["--import", "tsx", HOLDER, root], {
+async function spawnHolder(mode?: "drop-gc"): Promise<ChildProcess> {
+  const args = mode ? ["--expose-gc", "--import", "tsx", HOLDER, root, mode] : ["--import", "tsx", HOLDER, root];
+  const child = spawn(process.execPath, args, {
     cwd: CORE,
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -90,6 +95,15 @@ it("lock held by another process: owner_busy with its pid; kill -9 frees the loc
   expect(b).toBeDefined();
   const owner = JSON.parse(readFileSync(join(root, "run/owner.json"), "utf8"));
   expect(owner.pid).toBe(process.pid);
+});
+
+it("lock survives GC when the caller drops the returned handle", { timeout: 20_000 }, async () => {
+  const child = await spawnHolder("drop-gc");
+  // держатель продолжает гонять GC; lock всё ещё его
+  await new Promise((r) => setTimeout(r, 300));
+  const err = await acquireOwnerLock(root, "cli").catch((e: unknown) => e);
+  expect(err).toBeInstanceOf(OwnerBusyError);
+  expect((err as OwnerBusyError).pid).toBe(child.pid);
 });
 
 it("refuses without a store marker", async () => {
