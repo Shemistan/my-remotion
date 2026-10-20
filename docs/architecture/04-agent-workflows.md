@@ -36,7 +36,8 @@ user prompt + settings
    │ patterns[], kb_queries{ru[],en[]}, concept
    ▼
 KnowledgeAdapter.search(…) ─▶ top-N кандидатов (фильтр: compat ∈ {native, adaptable},
-   │                            license_class ≠ restricted, если не разрешено)
+   │                            license_class = permissive; restricted/unknown —
+   │                            только по явному разрешению пользователя)
    ▼
 [Motion Director] ─▶ MotionSpecification + ComponentSelection(strategy: reuse|adapt|build)
    │
@@ -165,17 +166,39 @@ cwd = <draft-каталог>, env = allowlist
 - Замена рантайма: второй адаптер (Anthropic API напрямую или Agent SDK) реализует
   тот же интерфейс; Phase 1 его не делает.
 
-> Блокирующий вопрос №3: можно ли вызывать Claude Code headless под вашей подпиской
-> (как уже делает ai-platform), и какие модели ставить ролям по умолчанию.
-> Предложение: Concept/Edit Planner/QA — Sonnet 5.5, Motion Director/Engineer — Opus 5.5.
+**Модели и лимиты (утверждено 2026-10-20, всё — в настройках, не в коде):**
+
+| Роль | Модель по умолчанию | Ключ настройки |
+|---|---|---|
+| Motion Director, Remotion Engineer | Opus (`opus`) | `agents.<role>.model` |
+| Concept, Visual QA, Edit Planner и остальные | Sonnet (`sonnet`) | `agents.<role>.model` |
+
+Алиасы `opus`/`sonnet` разрешает сам CLI; фактическая модель берётся из `modelUsage`
+ответа и пишется в `agent_runs.model`. Лимиты на вызов (`timeoutMs`, `maxBudgetUsd`) и на
+сцену (`scene.maxCostUsd`, по умолчанию $5 как ориентир для тестов) — тоже в настройках.
+
+**Условия использования** (подробно — `08-risks.md` §2): CLI запускается неизменённым,
+пользователь входит своей подпиской через штатный вход Anthropic, приложение не
+читает, не хранит и не передаёт токены и работает только для этого же пользователя.
+
+**Смена runtime без переписывания архитектуры:**
+
+1. API-ключ в том же CLI: `ClaudeCodeRuntime` с переменной `ANTHROPIC_API_KEY`, переданной
+   только в env дочернего процесса из секрет-хранилища (Keychain). Меняется настройка, не код.
+2. Agent SDK или Messages API: новая реализация `AgentRuntimeAdapter`
+   (`AgentSdkRuntime`) с тем же `AgentTask`/`AgentResult`. Инструменты Engineer
+   (Read/Write/Edit в draft-каталоге) — через SDK с тем же ограничением каталога.
+   Выбор реализации — настройка `agents.runtime`.
 
 ## 6. Оркестрация и конкуренция
 
 - Шаги пайплайна — задачи в `jobs` с `parent_job_id`; статусы
-  `pending → running → completed | failed | cancelled | awaiting_approval | awaiting_input`.
+  `pending → running → completed | failed | cancelled | awaiting_approval | awaiting_input | blocked`
+  (`blocked` — процессы прежней попытки не завершились подтверждённо, ADR 0007).
 - Блокировка записи: одна активная задача, пишущая в сцену (`scene_locks` в SQLite,
-  берётся транзакцией). Каждая правка пишет в **новый** draft, опубликованные версии не
-  меняются — параллельная запись в одну SceneVersion невозможна по построению.
+  берётся транзакцией). Каждая попытка пишет в **свой** draft `drafts/<job-id>-a<attempt>/`,
+  опубликованные версии не меняются, публикация проверяет fencing-токен попытки (ADR 0007) —
+  параллельная запись в одну SceneVersion невозможна по построению.
 - Независимые шаги (например, рендер разных сцен в Phase 4) идут параллельно в пределах
   лимитов из `03-target-architecture.md` §8.
 - Повтор: `POST /jobs/:id/retry` создаёт новую попытку с тем же `idempotency_key`

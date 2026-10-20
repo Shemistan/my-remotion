@@ -29,7 +29,7 @@ growth-decline, system-structure, key-point-emphasis):
 
 | Примитив | Основа в KB | Нужен для |
 |---|---|---|
-| `useBeat(spec, beatId)` → прогресс 0..1, `enter/hold/exit` | — (своё) | синхронизация с битами |
+| `useBeat(beat)` → `{ progress 0..1, phase: before/enter/hold/exit/after }` | — (своё) | синхронизация с битами |
 | `AnimatedNumber` (tabular-nums, формат RU/EN, суффиксы «тыс.», «млн») | `remotion-bits/animated-counter`, `free-remotion-templates/kpi-counter` | тест 1 |
 | `LineChart` / `AreaChart` (draw-on через `strokeDashoffset`, оси, подписи) | `free-remotion-templates/line-chart-anim`, `remotion-video-templates/ChartVideo` | тест 1 |
 | `FlowGraph` (узлы-карточки + рёбра SVG-путями, ручная или простая слоистая раскладка) | `xyflow` (идея), `free-remotion-templates/logo-stroke-draw` (обводка) | тест 2 |
@@ -39,9 +39,14 @@ growth-decline, system-structure, key-point-emphasis):
 | `Background` (градиент, виньетка, шум с `random(seed)`) | free-remotion-templates | все |
 
 Каждый примитив проходит в Phase 1 реальный рендер; результат пишется в
-`component_tests` — это первые `tested_status = rendered-ok` для соответствующих записей KB.
+`PROVENANCE.md` motion-kit (колонка `rendered`), а после появления БД (P1-03) — в
+`component_tests`. Это первые `tested_status = rendered-ok` для соответствующих записей KB.
 
-## 3. Правила детерминизма (из official skills 4.0.537 и traps.md)
+## 3. Правила детерминизма и движения
+
+Источники: official skills 4.0.537 (`official_skills/skills/skills/remotion-markup/`) и
+`templates/remotion-components/remotion-motion-graphics-skill/skills/remotion-motion-graphics/references/traps.md`
+(карточки KB `remotion-motion-graphics-skill/*`), ТЗ §8.2.
 
 - Анимация только от `useCurrentFrame()`; секунды → кадры через `fps` из `useVideoConfig()`.
 - `interpolate(..., { extrapolateLeft: "clamp", extrapolateRight: "clamp" })` по умолчанию
@@ -50,6 +55,8 @@ growth-decline, system-structure, key-point-emphasis):
 - Запрещены: CSS `transition`/`animation`, Tailwind `animate-*`/`transition-*`,
   `setTimeout`/`setInterval`/`requestAnimationFrame`, `Math.random`, `Date.now`,
   `useFrame` из R3F, хуки внутри `.map()`.
+- Разные объекты сцены не входят одинаковым эффектом (ТЗ §8.2): Motion Director задаёт
+  тип входа для каждого элемента в spec; Visual QA проверяет это по spec и кадрам.
 - Случайность: `random(seed)` из Remotion.
 - Шрифты загружаются через `@remotion/fonts` из локальных файлов `render/fonts/`
   (блокирует рендер до загрузки); `tabular-nums` в числах.
@@ -85,7 +92,7 @@ Phase 1 поставляет 3 пресета (`dark-premium`, `light-clean`, `t
 
 ## 5. Сборка и рендер версии
 
-1. Генерируется `render/src/entry/<version-id>.tsx`: `registerRoot` с одной
+1. Генерируется `MS_DATA_DIR/cache/entries/<sha256 файлов версии>/index.tsx`: `registerRoot` с одной
    `<Composition id="Scene">`, импортирующей `src/Scene.tsx` версии; `defaultProps` из
    `props.json`; размеры, fps, длительность из настроек; `schema` из Zod спецификации props.
 2. `bundle()` с `webpackOverride`: алиасы только на файлы версии, `motion-kit` и
@@ -98,7 +105,8 @@ Phase 1 поставляет 3 пресета (`dark-premium`, `light-clean`, `t
 5. Логи браузера (`onBrowserLog`) сохраняются; любые сетевые запросы или ошибки
    консоли — warning/blocking в QA.
 
-Бандлы кэшируются по `manifest_sha256` версии (пересборка только при изменении).
+Бандлы кэшируются по sha256 содержимого файлов версии (`src/`, `props.json`) — ключ не
+меняется при переносе draft → version, пересборка только при изменении содержимого.
 
 ## 6. Визуальный QA
 

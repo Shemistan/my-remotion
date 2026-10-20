@@ -1,7 +1,7 @@
 # 01. Текущее состояние (аудит Phase 0)
 
 Дата аудита: 2026-10-20. Источник требований: `AI_Motion_Studio_TZ.md` v1.2
-(лежит в корне main checkout `my-remotion`, в git пока не закоммичен).
+(в корне репозитория `my-remotion`, в git с коммита `ef4c237`).
 
 Обозначения: **[Ф]** — факт, проверенный чтением кода, файлов или запуском команды;
 **[Д]** — допущение или вывод, не проверенный напрямую. В Phase 0 ничего не
@@ -26,6 +26,7 @@
 | CPU / GPU | Apple M1 Pro, 10 ядер CPU, 16 ядер GPU, Metal 4 | [Ф] `sysctl`, `system_profiler` |
 | RAM | 32 ГБ unified memory | [Ф] `hw.memsize` |
 | Диск | 460 ГБ, **свободно 61 ГБ (занято 87 %)** | [Ф] `df -h` |
+| Внешний SSD | `/Volumes/External SSD`: APFS, PCI-Express, 477 ГБ, свободно 211 ГБ, Volume UUID `DF07AEE5-03DA-4E40-9AF0-B1D03396D6BD`; в корне `local_models/` (модели ai-platform) и личные папки | [Ф] `df -h`, `diskutil info` |
 | Node | v20.20.0 активна (nvm); есть v22.21.1 | [Ф] |
 | npm / pnpm | 10.8.2 / 10.34.5; bun, yarn нет | [Ф] |
 | Python | 3.12.0 (pyenv) | [Ф] |
@@ -61,20 +62,25 @@
 | Изображения | `/api/photo/jobs` | flux2, qwen-image, z-image-turbo, krea-2 и др. (MLX) |
 | TTS | `/api/audio/jobs` | Supertonic, ESpeech, Silero, Higgs |
 | Видео | `/api/video/jobs` | LTX-2.x, Wan 2.2 (MLX) |
-| «Монтаж» | `aiplatform/montage/` | talking-head: расшифровка, план вырезок LLM, раскадровка, вставки, QA, экспорт |
-| «Моушн» | `aiplatform/motion/` | агенты editor → designer → director → expert → animator; сцены на **HyperFrames (HTML/CSS/GSAP)**, выход ProRes 4444 `.mov` + `package.zip` |
+| «Монтаж» | `aiplatform/montage/` | модуль, в котором живёт ASR-воркер; для Motion Studio используется **только** как владелец ASR (см. §3.3) |
 
-[Ф] LLM вызывается как `claude -p` **без инструментов** (`AIP_LLM_CMD`,
-`montage/config.py:74-83`), ответ — JSON, код аниматора чистится от сети и таймеров
-(`motion/agents.py`). Это прямой прецедент для нашего `AgentRuntimeAdapter`.
+### 3.2а. Исключено из источников (решение человека, 2026-10-20)
 
-[Ф] В корне ai-platform лежит неотслеживаемый `MASTER_SPEC.md` — ТЗ на «Local-First AI
-Video Production Studio» с похожими целями (FastAPI + Next.js + Remotion). Он не
-реализован в таком виде: фактическая реализация — stdlib + HyperFrames.
+Старая реализация моушн-анимации `aiplatform/motion/` — устаревший эксперимент.
+Она **не является источником** требований, архитектурных, функциональных или
+технических решений Motion Studio: из неё не берутся агентные роли, промпты,
+пайплайны, схемы данных, способы генерации анимации и организация рендеринга.
+Совместимость, миграция и объединение с ней — не цель. Код ai-platform не меняется.
+
+Источник истины — `AI_Motion_Studio_TZ.md` v1.2. Прочие ТЗ в ai-platform
+(например неотслеживаемый `MASTER_SPEC.md`) источником требований тоже не считаются.
+
+Из ai-platform используются только независимые возможности, нужные по ТЗ §2.1:
+ASR (обязательно, Phase 2) и генерация изображений (опционально).
 
 ### 3.3. ASR в деталях [Ф]
 
-- Отдельного ASR-эндпоинта **нет**: расшифровка — этап проекта «Монтажа» или «Моушна».
+- Отдельного ASR-эндпоинта **нет**: расшифровка — этап проекта «Монтажа».
 - HTTP-путь: `POST /api/montage/projects` (`mode: "manual"`, иначе после ASR сразу
   запускается LLM-план) → `POST …/sources/head` (сырое тело видео, только загрузка,
   до 16 ГБ, обязательна аудиодорожка) → `POST …/start` → опрос `GET …/{pid}` до
@@ -160,10 +166,9 @@ Video Production Studio» с похожими целями (FastAPI + Next.js + 
 
 ## 6. Выводы для архитектуры
 
-1. **Главная развилка:** в ai-platform уже есть «Моушн» и «Монтаж» с близкой целью, но
-   на другом стеке (Python stdlib + HyperFrames/GSAP, ванильный JS). ТЗ требует Remotion,
-   React/TS и Knowledge Base из my-remotion. Варианты и рекомендация — в
-   `03-target-architecture.md` §1; решение за человеком.
+1. **Размещение:** бэкенд ai-platform — Python stdlib без сборки фронтенда, а ТЗ требует
+   Remotion, React/TS и Knowledge Base из my-remotion. Поэтому Motion Studio — отдельное
+   Node/TS-приложение, ai-platform — поставщик ASR и изображений (`03-target-architecture.md` §1).
 2. ASR переиспользуем как **CLI-воркер** ai-platform (слова + время), сегменты строим сами,
    confidence честно `unknown`.
 3. KB пригодна как каталог, но нужен свой поиск (двуязычный), нормализация лицензий,

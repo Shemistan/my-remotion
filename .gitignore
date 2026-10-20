@@ -11,3 +11,10 @@ tmp/
 .superpowers/
 global/backup/claude-home/skills/**/__pycache__/
 global/backup/claude-home/skills/**/*.pyc
+
+# Сторонние исходники KB — локальные git-клоны, в репозиторий не входят.
+# Состав и коммиты: knowledge/repositories.json.
+/official_skills/
+/templates/infografika/
+/templates/react-libriry/
+/templates/remotion-components/
