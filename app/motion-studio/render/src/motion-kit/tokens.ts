@@ -1,11 +1,14 @@
 // Производные токены StyleBible: цвет, тени, размеры, safe area, интенсивность.
 // Компоненты kit берут оформление только отсюда — сцена меняет стиль одним пресетом.
 import type { StyleBible } from "@ms/contracts";
+import { safeRect } from "./choreo/safe-area.js";
+
+export { type Intensity, intensityScale } from "./style/intensity.js";
+export { typeSize } from "./style/type-scale.js";
 
 export type FontRef = StyleBible["typography"]["display"];
 
 export type Elevation = 0 | 1 | 2 | 3;
-export type Intensity = StyleBible["motion"]["intensity"];
 
 const clampInt = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, Math.round(v)));
 
@@ -76,12 +79,6 @@ export function surfaceAt(s: StyleBible, elevation: number): string {
   return isDark(s) ? mix(s.palette.surface, s.palette.text, [0, 0.035, 0.07, 0.11][e]!) : mix(s.palette.surface, s.palette.bg, [0.55, 0, 0, 0][e]!);
 }
 
-/** Кегль шага шкалы (px при высоте кадра 1080). */
-export function typeSize(s: StyleBible, step: number): number {
-  const list = s.typography.scale;
-  return list[clampInt(step, 0, list.length - 1)]!;
-}
-
 /** CSS font-family для FontRef: локальный шрифт kit + системный запасной. */
 export function fontFamily(ref: FontRef): string {
   const generic = /mono/i.test(ref.family) ? "ui-monospace, monospace" : "system-ui, sans-serif";
@@ -94,26 +91,17 @@ export const tracking = (s: StyleBible, role: string) => s.typography.tracking[r
 /** Отступ: n долей gutter сетки. */
 export const space = (s: StyleBible, n = 1) => s.grid.gutter * n;
 
-export interface Rect {
+/** Прямоугольник в px в стиле CSS (v0.1); новая раскладка — `Rect` { x, y, w, h }. */
+export interface Box {
   left: number;
   top: number;
   width: number;
   height: number;
 }
 
-/** Безопасная зона кадра в пикселях. */
-export function safeAreaPx(s: StyleBible, width: number, height: number): Rect {
-  const left = Math.round(width * s.grid.safe_area.x);
-  const top = Math.round(height * s.grid.safe_area.y);
-  return { left, top, width: width - 2 * left, height: height - 2 * top };
+/** Безопасная зона кадра в пикселях по StyleBible (расчёт — safeRect). */
+export function safeAreaPx(s: StyleBible, width: number, height: number): Box {
+  const r = safeRect({ width, height, safe_area: s.grid.safe_area });
+  return { left: r.x, top: r.y, width: r.w, height: r.h };
 }
 
-/**
- * Интенсивность движения: `time` — множитель длительностей, `amplitude` — смещений и
- * перелётов. calm медленнее и мягче, energetic быстрее и резче.
- */
-export function intensityScale(i: Intensity): { time: number; amplitude: number } {
-  if (i === "calm") return { time: 1.3, amplitude: 0.7 };
-  if (i === "energetic") return { time: 0.8, amplitude: 1.25 };
-  return { time: 1, amplitude: 1 };
-}

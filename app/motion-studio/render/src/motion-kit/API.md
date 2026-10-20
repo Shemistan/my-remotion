@@ -1,12 +1,12 @@
-# @ms/motion-kit — справка для агента
+# @ms/motion-kit 0.2.0 — справка для агента
 
 Детерминированные компоненты Remotion 4.0.537. Всё движение считается от
 `useCurrentFrame()`; оформление берётся из StyleBible (`useStyle()`). Импорт —
 только `@ms/motion-kit`, `remotion`, `react`.
 
 ```tsx
-import { AnimatedNumber, Background, Card, FlowGraph, KineticText, LineChart,
-  PulseAlongPath, SafeArea, StyleProvider } from "@ms/motion-kit";
+import { AnimatedNumber, Background, Camera, Card, Enter, FlowGraph, KineticText, LineChart,
+  Parallax, PulseAlongPath, SafeArea, StyleProvider } from "@ms/motion-kit";
 ```
 
 Время задаётся битами: `beat = { start_frame, end_frame }` (поля `Beat` из MotionSpec).
@@ -18,13 +18,17 @@ import { AnimatedNumber, Background, Card, FlowGraph, KineticText, LineChart,
 ## Каркас сцены
 
 ```tsx
-export const Scene = () => (
-  <StyleProvider style="dark-premium">       {/* или "light-clean" | "tech-neon" | StyleBible */}
+// props.json: { timing: { duration_frames, beats }, style: { preset, intensity, depth, transparent }, content }
+export const Scene = ({ timing, style, content }: Props) => (
+  <StyleProvider style={style}>              {/* стиль — только из props.style */}
     <Background beat={{ start_frame: 0, end_frame: 40 }} />
     <SafeArea>{/* весь контент внутри безопасной зоны */}</SafeArea>
   </StyleProvider>
 );
 ```
+
+Тайминги битов бери из `props.timing.beats`, стиль — из `props.style`. Правки
+«медленнее», «палитра из v1», «объёмнее» меняют props, а не код сцены.
 
 | Пресет | Характер |
 |---|---|
@@ -49,6 +53,100 @@ export const Scene = () => (
 (`import clip from './clip.mp4'` → `<OffthreadVideo src={clip} />`). `staticFile()`,
 `src` из props или шаблона, внешние URL и `/proxy` статическая проверка отклоняет.
 
+## Стиль
+
+`StyleProvider style=…` принимает `props.style` сцены (`{ preset, intensity, depth?,
+transparent?, palette_overrides? }`), id пресета, StyleBible или готовый `ResolvedStyle`, и
+разрешает его через `resolveStyle` под fps композиции. `useStyle()` возвращает
+`ResolvedStyle` = StyleBible + `amplitude` + `depth` + `transparent`:
+
+| Поле | Что значит |
+|---|---|
+| `motion.enter_frames`, `exit_frames`, `stagger_frames` | уже пересчитаны под fps (база 30) и интенсивность: бери как есть, в `frames()` не оборачивай |
+| `amplitude` | размах движения: calm 0.6, balanced 1, energetic 1.35 (кадры: calm ×1.25, energetic ×0.75) |
+| `depth` | 0 плоско · 1 как задумано · 2–3 объёмнее: тени карточек, перспектива, атмосфера фона, тень крупного текста |
+| `transparent` | прозрачный экспорт: `Background` не рисуется, свой фон на корне сцены не ставь |
+| `palette` | палитра пресета с `palette_overrides` (`accent[i]` заменяет `accent[i]`) |
+| `grid.safe_area` | поля кадра (из настроек сцены) |
+
+Типографская шкала — от высоты кадра, одна для 16:9, 9:16 и 1:1:
+`typeSize(style, level, height)`, `level`: `display` 11 % · `h1` 7.5 % · `h2` 5.5 % ·
+`body` 4.2 % · `caption` 3 % высоты (1080: 119 / 81 / 59 / 45 / 32 px). `KineticText size`
+принимает эти уровни. Старая форма `typeSize(style, шаг)` — шаг шкалы 0..8 в px при 1080.
+
+`contrastRatio(fg, bg)` — контраст WCAG (текст ≥ 4.5, крупный ≥ 3). Пресеты дают текст
+≥ 7, `muted` ≥ 4.5, `accent[0]` ≥ 3 к `bg`; свои цвета поверх фона проверяй так же.
+
+## Входы
+
+Вид входа элемента — `entrance` из spec. Обёртка `<Enter>` анимирует любой блок:
+```tsx
+<Enter kind="mask" beat={beats.title}>…</Enter>
+{items.map((it, i) => (
+  <Enter key={it.id} kind="rise" beat={beats.list} index={i} total={items.length}>…</Enter>
+))}
+```
+`{ kind, beat, index? = 0, total? = 1, direction?, distance?, exit?, style? }`. Старт
+элемента `index` сдвигается на `stagger_frames` (`staggerBeat`), вход длится
+`enter_frames` по кривой `easing.enter`; `pop` — пружина `spring.pop` с перелётом. С
+`exit` элемент уходит обратным движением по `easing.exit` за `exit_frames` до конца бита.
+
+| `kind` | Движение | Для чего |
+|---|---|---|
+| `rise` | подъём на `distance × amplitude` снизу (`direction: "up"` — сверху) | заголовки, карточки |
+| `slide` | сдвиг сбоку (`direction` `left` по умолчанию / `right`) | перечисления, смена темы |
+| `fade` | только прозрачность | фон второго плана, тихие подписи |
+| `scale` | из глубины, 0.92 → 1 | акцентный блок |
+| `mask` | шторка `clipPath`, открывается от стороны `direction` (снизу по умолчанию) | крупный заголовок, фото |
+| `blur` | из размытия 12 px × amplitude | подзаголовок, вторичный текст |
+| `pop` | масштаб с перелётом | бейдж, число-акцент, иконка |
+| `type` | набор по буквам с кареткой — `KineticText enter="type"` | кикер, код, команда |
+| `count` | счёт — `AnimatedNumber` | числа |
+| `draw` | прорисовка линии — `LineChart`, рёбра `FlowGraph` | графики, схемы |
+| `none` | без анимации | то, что уже на экране |
+
+`enterStyle(kind, p, { amplitude, distancePx, direction? })` — стиль входа по доле `p`
+(0 → 1), если анимируешь сам. Для `type`, `count`, `draw` он пустой: их рисует компонент.
+
+**Правило соседей:** соседние элементы (рядом в кадре или по времени) входят разными
+`kind` или со сдвигом старта не меньше `stagger_frames`. Одинаковый вход всем — брак.
+
+## Камера
+
+Камера — ключи `MotionSpec.camera`: `{ frame, scale, x, y }` (`x, y` — точка интереса, px
+от центра кадра). Масштаб зажат в `camera.max_scale` стиля, при `allow_zoom = false`
+остаётся 1 (только панорама). Между ключами — кривая `easing.emphasis` без перелёта.
+```tsx
+<Camera keys={[{ frame: 0, scale: 1, x: 0, y: 0 }, { frame: 179, scale: 1.08, x: 0, y: 0 }]}>
+  <Parallax layer={0}><Background /></Parallax>          {/* дальний план: как камера */}
+  <Parallax layer={1}>{/* текст, графики */}</Parallax>
+  <Parallax layer={2}>{/* ближний план: карточки */}</Parallax>
+</Camera>
+```
+`<Parallax layer>` двигает слой как камеру × (1 + 0.15·layer); при `camera.parallax = false`
+слои едут вместе. `layer` элемента — `depth_layer` из spec. `cameraAt(frame, keys, style)`
+→ `{ scale, x, y }` для своих расчётов. Камера — только когда помогает смыслу: медленный
+наезд на главное, панорама к следующему блоку. На наезде контент уходит к краям: держи
+его в safe area, сжатой в `1 + (scale − 1)·(1 + 0.15·layer)` раз от центра.
+
+## Safe area
+
+`safeRect({ width, height, safe_area })` → `{ x, y, w, h }` в px — тот же расчёт, что у
+`<SafeArea>` и `useSafeArea()` (она возвращает и `{ x, y, w, h }`, и
+`{ left, top, width, height }`). Поля берутся из настроек сцены через стиль.
+
+## Раскладка
+
+- `gridColumns(style, rect, n)` → `{ x, w }[]`: n равных колонок с `gutter` сетки стиля.
+- `layoutLayered(nodes, edges, rect, gap)` → `Record<id, Rect>`: схема слоями слева
+  направо по топологическому порядку, внутри слоя — столбиком по центру вертикали, без
+  пересечений, внутри `rect`. Не влезает — ошибка с размерами (уменьши узлы или gap).
+```tsx
+const rect = useSafeArea();
+const pos = layoutLayered(NODES, EDGES, { x: 0, y: 0, w: rect.w, h: rect.h }, { x: 120, y: 48 });
+<FlowGraph nodes={NODES.map((n) => ({ ...n, ...pos[n.id]! }))} edges={EDGES} beat={…} width={rect.w} height={rect.h} />
+```
+
 ## Компоненты
 
 ### Background
@@ -60,24 +158,27 @@ export const Scene = () => (
 ```
 
 ### SafeArea / useSafeArea()
-`<SafeArea style?>` — `AbsoluteFill` с полями из `grid.safe_area`. Дети лежат во flex-колонке
+`<SafeArea style?>` — `AbsoluteFill` с полями из `grid.safe_area` (расчёт — `safeRect`). Дети лежат во flex-колонке
 размером с безопасную зону: `AbsoluteFill` и `position: absolute` внутри отсчитываются
 от её края, а не от края кадра. Свойства раскладки из `style` (`justifyContent`,
 `alignItems`, `flexDirection`, `gap`, grid-свойства) действуют на этот блок. `useSafeArea()`
-возвращает `{ left, top, width, height }` в px, если раскладку нужно считать вручную.
+возвращает `{ x, y, w, h }` и `{ left, top, width, height }` в px, если раскладку нужно считать вручную.
 
 ### KineticText
-`{ text, beat, mode: "words" | "letters", enter: "rise" | "fade" | "scale" | "slide",
+`{ text, beat, mode: "words" | "letters", enter: "rise" | "fade" | "scale" | "slide" | "type",
 size? = 6, font? = "display" | "body" | "mono", weight?, color?, highlight?: string[],
 align?, maxWidth?, lineHeight?, delay?, stagger?, exit?, caps?, style? }`
 
 - `rise` — текст выходит из маски снизу с перелётом (для заголовков);
 - `fade` — проявляется из размытия (для подписей и кикеров);
 - `scale` — вырастает из глубины (для акцентного слова);
-- `slide` — сдвиг со скосом (для перечислений и смены темы).
+- `slide` — сдвиг со скосом (для перечислений и смены темы);
+- `type` — набор по буквам с мигающей кареткой акцентом (для кикеров, команд, кода);
+  ещё не набранные буквы держат место, раскладка не прыгает.
 
-`size` — шаг шкалы 0..8 (18, 22, 28, 36, 48, 64, 88, 120, 160 px) или кегль в px,
-если больше 8. Разбег частей не превышает 60% бита. Задержки частей слегка разбросаны
+`size` — уровень шкалы кадра (`"display"`, `"h1"`, `"h2"`, `"body"`, `"caption"`), шаг
+шкалы 0..8 (18, 22, 28, 36, 48, 64, 88, 120, 160 px) или кегль в px, если больше 8. При
+`depth` 2–3 крупный текст получает мягкую тень. Разбег частей не превышает 60% бита. Задержки частей слегка разбросаны
 (`random(seed)`), поэтому части не входят строем.
 ```tsx
 <KineticText text="Рост пользователей" beat={{ start_frame: 4, end_frame: 50 }}
@@ -133,7 +234,8 @@ const head = lineChartHead(POINTS, CHART_BEAT, frame, { width: 900, height: 560 
 delay?, accentIndex?, width?, height?, padding?, style? }`
 
 `elevation` задаёт тень, светлоту поверхности и блик кромки: 0 — плоская, 3 — самая
-«высокая». Вход по умолчанию: `flip` (поворот к зрителю) для 2–3 и `rise` для 0–1.
+«высокая». `depth` стиля сдвигает уровень (`elevation + depth − 1`, в пределах 0..3) и
+силу перспективы входа: «объёмнее» — это `depth`, а не правка elevation в коде. Вход по умолчанию: `flip` (поворот к зрителю) для 2–3 и `rise` для 0–1.
 `accentIndex` рисует светящуюся кромку сверху. Для своих блоков в стиле kit:
 - `cardSurface(style, elevation)` — оформление поверхности (фон, тень, радиус) без анимации;
 - `cardEnterStyle(style, frame, fps, start, enter)` — стиль входа (`opacity`, `transform`,
@@ -180,14 +282,16 @@ reverse? }`
 
 | Функция | Что делает |
 |---|---|
-| `useStyle()` | StyleBible ближайшего `StyleProvider` |
+| `useStyle()` | `ResolvedStyle` ближайшего `StyleProvider` |
+| `resolveStyle({ preset, intensity, palette_overrides?, font?, depth?, transparent?, safe_area?, fps? })` | разрешённый стиль вне провайдера |
 | `useBeat(beat)` | `{ progress 0..1, phase: before/enter/hold/exit/after, local, length }` |
 | `beatProgress(frame, beat, easing?)` | доля бита 0..1 с clamp |
 | `springAt(frame, fps, style, start, role)` | пружина 0→1 роли `soft`/`snappy`/`bouncy` из стиля; не хук, можно в `.map()` |
 | `easingOf(style, "enter" \| "exit" \| "emphasis")`, `EASE.*` | кривые стиля и именованные (`outExpo`, `count`, `inOutCubic`, `outQuart`) |
-| `frames(style, n)` | длительность с учётом интенсивности (calm ×1.3, energetic ×0.8) |
+| `frames(style, n)` | своя константа в кадрах с учётом интенсивности (calm ×1.25, energetic ×0.75); токены `style.motion.*_frames` уже пересчитаны |
+| `staggerBeat(beat, index, total, stagger)` | окно элемента каскада: старт + index × stagger, разбег ≤ половины бита |
 | `formatNumber(v, { locale, compact?, decimals? })` | `1 000 000`, `10,000`, `12,5 тыс.`, `2.4B`. Минус — U+2212, в ru 4-значные числа без пробела |
-| `accent(style, i)`, `alpha(c, a)`, `mix(a, b, t)`, `shadow(style, e)`, `radius`, `space`, `typeSize`, `fontFamily` | токены StyleBible |
+| `accent(style, i)`, `alpha(c, a)`, `mix(a, b, t)`, `shadow(style, e)`, `radius`, `space`, `typeSize`, `fontFamily`, `contrastRatio` | токены StyleBible |
 | `pathLUT(segments, samples)`, `pointAtLength(lut, s)`, `smoothSegments(points)`, `edgeSegment(a, b)`, `pathD(segments)` | геометрия путей без DOM |
 
 ## Правила качества движения

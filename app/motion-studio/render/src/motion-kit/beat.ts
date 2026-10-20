@@ -2,7 +2,6 @@
 import type { Beat } from "@ms/contracts";
 import { useCurrentFrame } from "remotion";
 import type { EasingFn } from "./easing.js";
-import { frames } from "./easing.js";
 import { useStyle } from "./style.js";
 
 export type BeatWindow = Pick<Beat, "start_frame" | "end_frame">;
@@ -48,13 +47,13 @@ export interface BeatState {
   length: number;
 }
 
-/** Состояние бита для текущего кадра; длины входа и выхода — из StyleBible. */
+/** Состояние бита для текущего кадра; длины входа и выхода — из разрешённого стиля. */
 export function useBeat(beat: BeatWindow): BeatState {
   const frame = useCurrentFrame();
   const s = useStyle();
   return {
     progress: beatProgress(frame, beat),
-    phase: beatPhase(frame, beat, { enter: frames(s, s.motion.enter_frames), exit: frames(s, s.motion.exit_frames) }),
+    phase: beatPhase(frame, beat, { enter: s.motion.enter_frames, exit: s.motion.exit_frames }),
     local: frame - beat.start_frame,
     length: beat.end_frame - beat.start_frame,
   };

@@ -2,11 +2,11 @@
 // (enter / exit / emphasis, soft / snappy / bouncy), а значения даёт пресет.
 import type { StyleBible } from "@ms/contracts";
 import { Easing, spring } from "remotion";
-import { intensityScale } from "./tokens.js";
+import { amplitudeOf, intensityScale } from "./style/intensity.js";
 
 export type EasingFn = (t: number) => number;
 export type EasingRole = keyof StyleBible["motion"]["easing"];
-export type SpringRole = "soft" | "snappy" | "bouncy";
+export type SpringRole = "soft" | "snappy" | "bouncy" | "pop";
 
 /** Кривая роли из StyleBible. */
 export function easingOf(s: StyleBible, role: EasingRole): EasingFn {
@@ -31,13 +31,13 @@ const FALLBACK: Record<SpringRole, { damping: number; stiffness: number; mass: n
   soft: { damping: 22, stiffness: 90, mass: 1 },
   snappy: { damping: 15, stiffness: 170, mass: 0.8 },
   bouncy: { damping: 10, stiffness: 140, mass: 0.9 },
+  pop: { damping: 12, stiffness: 180, mass: 0.8 },
 };
 
-/** Конфиг пружины роли; интенсивность меняет демпфирование (energetic — больше перелёт). */
+/** Конфиг пружины роли; амплитуда стиля меняет демпфирование (energetic — больше перелёт). */
 export function springConfig(s: StyleBible, role: SpringRole) {
   const base = s.motion.spring[role] ?? FALLBACK[role];
-  const { amplitude } = intensityScale(s.motion.intensity);
-  return { ...base, damping: base.damping / amplitude };
+  return { ...base, damping: base.damping / amplitudeOf(s) };
 }
 
 /**
@@ -49,7 +49,11 @@ export function springAt(frame: number, fps: number, s: StyleBible, start: numbe
   return spring({ frame: (frame - start) / time, fps, config: springConfig(s, role) });
 }
 
-/** Кадры с учётом интенсивности: calm длиннее, energetic короче. */
+/**
+ * Свои длительности компонента (константы в кадрах) с учётом интенсивности: calm длиннее,
+ * energetic короче. Токены `style.motion.*_frames` из useStyle() уже пересчитаны
+ * resolveStyle — их в frames() не оборачивать.
+ */
 export function frames(s: StyleBible, n: number): number {
   return Math.max(1, Math.round(n * intensityScale(s.motion.intensity).time));
 }

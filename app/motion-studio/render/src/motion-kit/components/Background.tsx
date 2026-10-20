@@ -1,8 +1,11 @@
 // Фон сцены: базовый цвет палитры + атмосфера по пресету (световые пятна, неоновая
 // сетка, бумага с точечной сеткой), виньетка и плёночное зерно. Всё движение — от кадра.
+// Глубина стиля (depth) усиливает атмосферу и виньетку; при transparent фон не рисуется
+// (прозрачный экспорт: на корне сцены не должно быть фона).
 import type { Beat } from "@ms/contracts";
 import { AbsoluteFill, Easing, random, useCurrentFrame, useVideoConfig } from "remotion";
 import { ramp, useSvgId } from "../internal.js";
+import { depthOf } from "../style/resolve.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, isDark, mix } from "../tokens.js";
 
@@ -36,6 +39,10 @@ export function Background({ beat, variant, grain = true, seed = "bg" }: Backgro
     ? ramp(frame, beat.start_frame, beat.end_frame, Easing.bezier(0.25, 1, 0.5, 1))
     : 1;
   const noiseId = useSvgId("ms-grain");
+  // глубина: 0 — почти плоский фон, 1 — как задумано, 2–3 — плотнее свет и виньетка
+  const depth = depthOf(s);
+  const air = [0.45, 1, 1.25, 1.5][depth]!;
+  const vig = [0.4, 1, 1.2, 1.4][depth]!;
 
   // три световых пятна: медленный дрейф по синусоидам с фазами из random(seed)
   const blobs = [0, 1, 2].map((i) => {
@@ -45,12 +52,14 @@ export function Background({ beat, variant, grain = true, seed = "bg" }: Backgro
     const x = (bx + Math.sin(t * 0.35 + ph) * 0.05) * 100;
     const y = (by + Math.cos(t * 0.28 + ph) * 0.05) * 100;
     const size = [62, 55, 70][i]! * (0.85 + 0.15 * reveal);
-    const a = (dark ? [0.26, 0.2, 0.14] : [0.12, 0.09, 0.07])[i]! * reveal;
+    const a = (dark ? [0.26, 0.2, 0.14] : [0.12, 0.09, 0.07])[i]! * reveal * air;
     return `radial-gradient(${size}% ${size * 1.1}% at ${x.toFixed(2)}% ${y.toFixed(2)}%, ${alpha(accent(s, i), a)} 0%, ${alpha(accent(s, i), 0)} 70%)`;
   });
 
   const cell = 72;
   const gridShift = (frame * 1.6) % cell;
+
+  if (s.transparent) return null;
 
   return (
     <AbsoluteFill style={{ backgroundColor: s.palette.bg, overflow: "hidden" }}>
@@ -75,7 +84,7 @@ export function Background({ beat, variant, grain = true, seed = "bg" }: Backgro
         <>
           <AbsoluteFill
             style={{
-              background: `radial-gradient(60% 45% at 50% 62%, ${alpha(accent(s, 0), 0.22 * reveal)} 0%, transparent 70%), radial-gradient(40% 30% at 85% 15%, ${alpha(accent(s, 1), 0.14 * reveal)} 0%, transparent 70%)`,
+              background: `radial-gradient(60% 45% at 50% 62%, ${alpha(accent(s, 0), 0.22 * reveal * air)} 0%, transparent 70%), radial-gradient(40% 30% at 85% 15%, ${alpha(accent(s, 1), 0.14 * reveal * air)} 0%, transparent 70%)`,
             }}
           />
           <div
@@ -106,7 +115,7 @@ export function Background({ beat, variant, grain = true, seed = "bg" }: Backgro
       {/* виньетка: края темнее (на светлой теме — мягче) */}
       <AbsoluteFill
         style={{
-          background: `radial-gradient(ellipse 85% 80% at 50% 45%, transparent 55%, ${alpha(dark ? "#000000" : s.palette.text, dark ? 0.55 : 0.06)} 100%)`,
+          background: `radial-gradient(ellipse 85% 80% at 50% 45%, transparent 55%, ${alpha(dark ? "#000000" : s.palette.text, (dark ? 0.55 : 0.06) * vig)} 100%)`,
         }}
       />
 

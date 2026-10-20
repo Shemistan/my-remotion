@@ -7,8 +7,9 @@ import { interpolate, random, useCurrentFrame, useVideoConfig } from "remotion";
 import { EASE, frames, springAt } from "../easing.js";
 import { type CubicSegment, type Point, cubicPoint, edgeSegment, lutLength, pathD, pathLUT } from "../geometry.js";
 import { CLAMP, clamp01 } from "../internal.js";
+import { typeSize } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
-import { type Elevation, accent, alpha, fontFamily, radius, space, typeSize } from "../tokens.js";
+import { type Elevation, accent, alpha, fontFamily, radius, space } from "../tokens.js";
 import { type CardEnter, cardEnterStyle, cardSurface } from "./Card.js";
 
 export interface FlowNode {
@@ -77,7 +78,7 @@ export function edgePath(a: FlowNode, b: FlowNode): CubicSegment {
 export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", children }: FlowGraphProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height: frameH } = useVideoConfig();
   const W = width ?? Math.max(...nodes.map((n) => n.x + n.w));
   const H = height ?? Math.max(...nodes.map((n) => n.y + n.h));
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -86,9 +87,9 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", c
   const L = Math.max(1, b1 - b0);
   // порядок входа: слева направо, сверху вниз; узлы занимают первые ~45% бита
   const order = [...nodes].sort((a, b) => a.x - b.x || a.y - b.y);
-  const gap = Math.min(frames(s, s.motion.stagger_frames * 2.5), (L * 0.45) / Math.max(1, nodes.length - 1));
+  const gap = Math.min(s.motion.stagger_frames * 2.5, (L * 0.45) / Math.max(1, nodes.length - 1));
   const nodeStart = new Map(order.map((n, i) => [n.id, b0 + i * gap + random(`node-${n.id}`) * gap * 0.4]));
-  const drawLen = frames(s, s.motion.enter_frames * 1.1);
+  const drawLen = Math.max(1, Math.round(s.motion.enter_frames * 1.1));
 
   const geo = new Map<string, CubicSegment>();
   const ready = new Map<string, number>();
@@ -104,14 +105,15 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", c
   }
 
   // единый кегль подписей графа: самый крупный, при котором каждая подпись влезает в
-  // свой узел без многоточия (оценка ширины: 0.57 em на символ), но не меньше 16 px
+  // свой узел без многоточия (оценка ширины: 0.57 em на символ), но не крупнее уровня
+  // caption шкалы кадра и не меньше 16 px
   const padX = space(s, 0.5);
   const DOT = 12;
   const labelSize = Math.max(
     16,
-    Math.floor(Math.min(typeSize(s, 2), ...nodes.map((n) => (n.w - 2 * padX - DOT - padX * 0.75) / (Math.max(1, Array.from(n.label).length) * 0.57)))),
+    Math.floor(Math.min(typeSize(s, "caption", frameH), ...nodes.map((n) => (n.w - 2 * padX - DOT - padX * 0.75) / (Math.max(1, Array.from(n.label).length) * 0.57)))),
   );
-  const capSize = Math.min(typeSize(s, 0), Math.round(labelSize * 0.72));
+  const capSize = Math.min(Math.round(typeSize(s, "caption", frameH) * 0.6), Math.round(labelSize * 0.72));
 
   return (
     <FlowContext.Provider value={{ edges: geo, ready }}>

@@ -173,7 +173,7 @@ export function LineChart({
       {/* сетка и подписи Y */}
       {ticks.map((v, i) => {
         const y = toY(v);
-        const t0 = b0 + i * frames(s, s.motion.stagger_frames);
+        const t0 = b0 + i * s.motion.stagger_frames;
         const g = interpolate(frame, [t0, Math.max(t0 + 1, gridEnd)], [0, 1], { ...CLAMP, easing: EASE.outExpo });
         return (
           <g key={`t${i}`}>

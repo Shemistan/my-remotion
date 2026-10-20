@@ -15,7 +15,10 @@ export const ElementSchema = z.object({
   id: z.string().min(1),
   kind: z.enum(["text", "number", "chart", "graph", "card", "shape", "group"]),
   role: z.string().min(1),
-  entrance: z.enum(["rise", "fade", "scale", "slide", "draw", "count", "none"]),
+  /** Вид входа (motion-kit enterStyle / <Enter>): type, count, draw анимирует сам компонент. */
+  entrance: z.enum(["rise", "fade", "scale", "slide", "mask", "blur", "pop", "type", "draw", "count", "none"]),
+  /** Слой параллакса: 0 — дальний (как камера), 2 — ближний. */
+  depth_layer: z.union([z.literal(0), z.literal(1), z.literal(2)]).optional(),
   content: z.record(z.unknown()),
   layout: z.object({ x: Fraction, y: Fraction, w: Fraction, h: Fraction }).strict()
     .refine((l) => l.x + l.w <= 1 + 1e-9 && l.y + l.h <= 1 + 1e-9, "layout выходит за кадр (x+w<=1, y+h<=1)")
@@ -45,6 +48,15 @@ export const CompositionSchema = z.object({
 }).strict();
 export type Composition = z.infer<typeof CompositionSchema>;
 
+/** Ключ камеры: наезд `scale` (1 — без масштаба) и точка интереса `x, y` (px от центра кадра). */
+export const CameraKeySchema = z.object({
+  frame: Frame,
+  scale: z.number().positive(),
+  x: z.number(),
+  y: z.number(),
+}).strict();
+export type CameraKey = z.infer<typeof CameraKeySchema>;
+
 export const MotionSpecSchema = z.object({
   title: z.string().min(1),
   purpose: z.string(),
@@ -55,6 +67,8 @@ export const MotionSpecSchema = z.object({
   composition: CompositionSchema.optional(),
   elements: z.array(ElementSchema).min(1),
   beats: z.array(BeatSchema).min(1),
+  /** Движение камеры по ключам; без поля камера стоит. */
+  camera: z.array(CameraKeySchema).optional(),
 }).strict().superRefine((spec, ctx) => {
   const ids = new Set<string>();
   spec.elements.forEach((e, i) => {
@@ -74,6 +88,11 @@ export const MotionSpecSchema = z.object({
     b.element_ids.forEach((id, j) => {
       if (!ids.has(id)) ctx.addIssue({ code: "custom", path: ["beats", i, "element_ids", j], message: `неизвестный элемент: ${id}` });
     });
+  });
+  spec.camera?.forEach((k, i) => {
+    if (k.frame > spec.duration_frames) {
+      ctx.addIssue({ code: "custom", path: ["camera", i, "frame"], message: `ключ камеры за duration_frames (${spec.duration_frames})` });
+    }
   });
 });
 export type MotionSpec = z.infer<typeof MotionSpecSchema>;

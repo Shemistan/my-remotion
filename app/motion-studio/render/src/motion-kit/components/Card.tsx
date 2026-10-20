@@ -1,10 +1,14 @@
 // Карточка с глубиной: elevation 0..3 задаёт тень из StyleBible, светлоту поверхности,
-// блик по верхней кромке и (для 2–3) вход с перспективой. Вход — от бита.
+// блик по верхней кромке и (для 2–3) вход с перспективой. Вход — от бита. Глубина стиля
+// (depth 0..3, «объёмнее») сдвигает уровень тени и силу перспективы всех карточек сцены.
 import type { Beat, StyleBible } from "@ms/contracts";
 import type { CSSProperties, ReactNode } from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { enterStyle } from "../choreo/enter.js";
 import { springAt } from "../easing.js";
 import { CLAMP, clamp01 } from "../internal.js";
+import { amplitudeOf } from "../style/intensity.js";
+import { depthOf } from "../style/resolve.js";
 import { useStyle } from "../style.js";
 import { type Elevation, accent, alpha, isDark, radius, shadow, space, surfaceAt } from "../tokens.js";
 
@@ -27,9 +31,15 @@ export interface CardProps {
   style?: CSSProperties;
 }
 
+/** Уровень тени с учётом глубины стиля: depth 1 — как задано, 0 — ниже, 2–3 — выше. */
+export const depthElevation = (s: StyleBible, elevation: number) => Math.max(0, Math.min(3, Math.round(elevation) + depthOf(s) - 1));
+
+/** Сила перспективы и подъёма входа по глубине стиля. */
+const DEPTH_K = [0.35, 1, 1.3, 1.6] as const;
+
 /** Оформление поверхности карточки (без анимации) — для своих блоков в стиле kit. */
 export function cardSurface(s: StyleBible, elevation: number): CSSProperties {
-  const e = Math.max(0, Math.min(3, Math.round(elevation)));
+  const e = depthElevation(s, elevation);
   const dark = isDark(s);
   const sheen = dark ? alpha("#ffffff", [0.015, 0.035, 0.055, 0.08][e]!) : alpha("#ffffff", 0.6);
   const edge = dark ? alpha("#ffffff", [0.04, 0.07, 0.1, 0.14][e]!) : alpha("#ffffff", 0.9);
@@ -48,15 +58,16 @@ export function cardEnterStyle(s: StyleBible, frame: number, fps: number, start:
   if (enter === "none") return {};
   const p = springAt(frame, fps, s, start, enter === "rise" ? "bouncy" : "snappy");
   const fade = clamp01(p * 1.6);
-  if (enter === "rise") {
-    return { opacity: fade, transform: `translateY(${((1 - p) * 70).toFixed(2)}px)` };
-  }
+  const amp = amplitudeOf(s);
+  const dk = DEPTH_K[depthOf(s)];
+  // подъём — общий вход kit (enterStyle "rise") с пружиной bouncy вместо кривой
+  if (enter === "rise") return enterStyle("rise", p, { amplitude: amp, distancePx: 70 });
   if (enter === "scale") {
     const sc = interpolate(p, [0, 1], [0.78, 1]);
     return { opacity: fade, transform: `scale(${sc.toFixed(4)})`, filter: `blur(${((1 - clamp01(p)) * 10).toFixed(2)}px)` };
   }
-  const rx = (1 - p) * 28;
-  const ty = (1 - p) * 50;
+  const rx = (1 - p) * 28 * dk;
+  const ty = (1 - p) * 50 * amp;
   const sc = interpolate(p, [0, 1], [0.9, 1]);
   return {
     opacity: fade,

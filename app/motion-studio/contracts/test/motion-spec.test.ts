@@ -57,6 +57,23 @@ describe("MotionSpec", () => {
   it("лишнее поле отвергается", () => expect(ok({ ...baseSpec(), extra: 1 })).toBe(false));
   it("palette_overrides необязателен", () =>
     expect(ok({ ...baseSpec(), palette_overrides: { accent: ["#ff0000"], bg: "#000" } })).toBe(true));
+  it("входы v0.2 (mask, blur, pop, type) и слой глубины 0..2", () => {
+    for (const entrance of ["mask", "blur", "pop", "type"]) {
+      const s = baseSpec();
+      (s.elements[0] as Record<string, unknown>).entrance = entrance;
+      (s.elements[0] as Record<string, unknown>).depth_layer = 2;
+      expect(ok(s), entrance).toBe(true);
+    }
+    const t = baseSpec();
+    (t.elements[0] as Record<string, unknown>).depth_layer = 3;
+    expect(ok(t)).toBe(false);
+  });
+  it("camera: ключи { frame, scale, x, y }, необязательна", () => {
+    expect(ok({ ...baseSpec(), camera: [{ frame: 0, scale: 1, x: 0, y: 0 }, { frame: 90, scale: 1.08, x: -40, y: 12 }] })).toBe(true);
+    expect(ok({ ...baseSpec(), camera: [{ frame: -1, scale: 1, x: 0, y: 0 }] })).toBe(false);
+    expect(ok({ ...baseSpec(), camera: [{ frame: 0, scale: 0, x: 0, y: 0 }] })).toBe(false);
+    expect(ok({ ...baseSpec(), camera: [{ frame: 0, scale: 1, x: 0, y: 0, rot: 5 }] })).toBe(false);
+  });
 });
 
 describe("выходы агентов", () => {

@@ -1,10 +1,15 @@
 // Три пресета StyleBible. Размеры — px при кадре 1920×1080; тени — CSS box-shadow по
-// уровням elevation 0..3.
+// уровням elevation 0..3; кадровые токены motion — для 30 fps и интенсивности balanced
+// (под сцену их пересчитывает resolveStyle). Контраст: текст ≥ 7, muted ≥ 4.5,
+// accent[0] ≥ 3 к фону (test/kit/presets.test.ts).
 import type { StyleBible } from "@ms/contracts";
 
 export type PresetId = "dark-premium" | "light-clean" | "tech-neon";
 
 const SCALE = [18, 22, 28, 36, 48, 64, 88, 120, 160];
+
+/** Пружина входа pop: осознанный перелёт (ТЗ §8.2), общая для пресетов. */
+const POP = { damping: 12, stiffness: 180, mass: 0.8 };
 
 /** Тёмный премиум: глубокий графит, фиолетово-бирюзовые акценты, мягкие пружины. */
 const darkPremium: StyleBible = {
@@ -43,6 +48,7 @@ const darkPremium: StyleBible = {
       soft: { damping: 22, stiffness: 90, mass: 1 },
       snappy: { damping: 15, stiffness: 170, mass: 0.8 },
       bouncy: { damping: 10, stiffness: 140, mass: 0.9 },
+      pop: { ...POP },
     },
     stagger_frames: 4,
     enter_frames: 24,
@@ -88,6 +94,7 @@ const lightClean: StyleBible = {
       soft: { damping: 26, stiffness: 100, mass: 1 },
       snappy: { damping: 20, stiffness: 180, mass: 0.9 },
       bouncy: { damping: 13, stiffness: 150, mass: 0.9 },
+      pop: { ...POP },
     },
     stagger_frames: 3,
     enter_frames: 22,
@@ -133,6 +140,7 @@ const techNeon: StyleBible = {
       soft: { damping: 18, stiffness: 140, mass: 0.8 },
       snappy: { damping: 14, stiffness: 240, mass: 0.6 },
       bouncy: { damping: 9, stiffness: 200, mass: 0.7 },
+      pop: { ...POP },
     },
     stagger_frames: 3,
     enter_frames: 16,
