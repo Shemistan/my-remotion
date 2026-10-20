@@ -5,9 +5,9 @@
 <!-- gate:begin spec-plan-index -->
 ### Спеки
 
-_пока нет_
+- [Visual Knowledge Base для Remotion](specs/2026-10-20-visual-knowledge-base-design.md) — утверждено
 
 ### Планы
 
-_пока нет_
+- [План: Visual Knowledge Base для Remotion](plans/2026-10-20-visual-knowledge-base.md) — в работе
 <!-- gate:end spec-plan-index -->
