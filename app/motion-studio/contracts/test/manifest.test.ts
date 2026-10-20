@@ -22,6 +22,19 @@ describe("VersionManifest", () => {
   it("корректный manifest", () => expect(ok(manifest())).toBe(true));
   it("failed с failure", () =>
     expect(ok({ ...manifest(), status: "failed", failure: { stage: "render", message: "x" }, preview: null })).toBe(true));
+  it("failed допускает qa null и отсутствие qa", () => {
+    const f: Record<string, unknown> = { ...manifest(), status: "failed", failure: { stage: "agent", message: "x" }, preview: null };
+    expect(ok({ ...f, qa: null })).toBe(true);
+    const noQa = { ...f };
+    delete noQa.qa;
+    expect(ok(noQa)).toBe(true);
+  });
+  it("ready без qa отвергается", () => {
+    expect(ok({ ...manifest(), qa: null })).toBe(false);
+    const noQa = manifest();
+    delete noQa.qa;
+    expect(ok(noQa)).toBe(false);
+  });
   it("failed без failure отвергается", () => expect(ok({ ...manifest(), status: "failed" })).toBe(false));
   it("ready с failure отвергается", () =>
     expect(ok({ ...manifest(), failure: { stage: "a", message: "b" } })).toBe(false));

@@ -18,7 +18,7 @@ export const KnowledgeRefSchema = z.object({
   repository_url: z.string().min(1),
   commit: z.string().min(1),
   license: z.string().min(1),
-  license_class: z.string().min(1),
+  license_class: z.enum(["permissive", "restricted", "unknown"]),
   strategy: StrategySchema,
   source_paths: z.array(z.string()),
 }).strict();

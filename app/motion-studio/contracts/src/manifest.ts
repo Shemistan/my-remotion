@@ -31,7 +31,8 @@ export const VersionManifestSchema = z.object({
   }).strict(),
   knowledge_refs: z.array(KnowledgeRefSchema.pick({ kb_id: true, commit: true, license: true, strategy: true })),
   agent_runs: z.array(z.string()),
-  qa: z.object({ technical: Verdict, visual: Verdict, semantic: Verdict, style: Verdict }).strict(),
+  // null/отсутствует допустимы только для failed (сбой до QA).
+  qa: z.object({ technical: Verdict, visual: Verdict, semantic: Verdict, style: Verdict }).strict().nullable().optional(),
   preview: FileEntry.nullable(),
   status: z.enum(["ready", "failed"]),
   failure: z.object({ stage: z.string(), message: z.string() }).strict().optional(),
@@ -42,6 +43,7 @@ export const VersionManifestSchema = z.object({
     ctx.addIssue({ code: "custom", path: ["failure"], message: "для failed нужен failure" });
   }
   if (m.status === "ready") {
+    if (!m.qa) ctx.addIssue({ code: "custom", path: ["qa"], message: "для ready нужен qa" });
     if (m.failure) ctx.addIssue({ code: "custom", path: ["failure"], message: "для ready failure недопустим" });
     if (!m.preview) ctx.addIssue({ code: "custom", path: ["preview"], message: "для ready нужен preview" });
   }

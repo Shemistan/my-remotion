@@ -21,9 +21,9 @@ export function usToFrame(us: number, fps: Fps): number {
   return Math.floor((us * fps.num) / (fps.den * US_PER_S));
 }
 
-/** Номер кадра -> микросекунды начала кадра (округление к ближайшему). */
+/** Номер кадра -> микросекунды начала кадра (округление вверх, R8: usToFrame(frameToUs(f)) === f). */
 export function frameToUs(frame: number, fps: Fps): number {
   checkFps(fps);
   if (!Number.isInteger(frame) || frame < 0) throw new RangeError(`frame должен быть целым >= 0: ${frame}`);
-  return Math.round((frame * fps.den * US_PER_S) / fps.num);
+  return Math.ceil((frame * fps.den * US_PER_S) / fps.num);
 }

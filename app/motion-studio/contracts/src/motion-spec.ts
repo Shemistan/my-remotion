@@ -5,13 +5,21 @@ import { StylePresetSchema } from "./settings.js";
 const Fraction = z.number().min(0).max(1);
 const Frame = z.number().int().nonnegative();
 
+/** Переопределения палитры StyleBible: фиксированные необязательные ключи. */
+export const PaletteOverridesSchema = z.object({
+  bg: z.string(), surface: z.string(), text: z.string(), muted: z.string(),
+  accent: z.array(z.string()).min(1), positive: z.string(), negative: z.string(),
+}).partial().strict();
+
 export const ElementSchema = z.object({
   id: z.string().min(1),
   kind: z.enum(["text", "number", "chart", "graph", "card", "shape", "group"]),
   role: z.string().min(1),
   entrance: z.enum(["rise", "fade", "scale", "slide", "draw", "count", "none"]),
   content: z.record(z.unknown()),
-  layout: z.object({ x: Fraction, y: Fraction, w: Fraction, h: Fraction }).strict().optional(),
+  layout: z.object({ x: Fraction, y: Fraction, w: Fraction, h: Fraction }).strict()
+    .refine((l) => l.x + l.w <= 1 + 1e-9 && l.y + l.h <= 1 + 1e-9, "layout выходит за кадр (x+w<=1, y+h<=1)")
+    .optional(),
 }).strict();
 export type Element = z.infer<typeof ElementSchema>;
 
@@ -31,7 +39,7 @@ export const MotionSpecSchema = z.object({
   duration_frames: z.number().int().positive(),
   fps: FpsSchema,
   style_preset: StylePresetSchema,
-  palette_overrides: z.record(z.string()).optional(),
+  palette_overrides: PaletteOverridesSchema.optional(),
   elements: z.array(ElementSchema).min(1),
   beats: z.array(BeatSchema).min(1),
 }).strict().superRefine((spec, ctx) => {

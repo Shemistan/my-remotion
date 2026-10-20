@@ -40,13 +40,23 @@ describe("MotionSpec", () => {
     s.elements[1]!.layout = { x: 0, y: 0, w: 1.5, h: 1 };
     expect(ok(s)).toBe(false);
   });
+  it("layout не должен выходить за кадр", () => {
+    const s = baseSpec();
+    s.elements[1]!.layout = { x: 0.5, y: 0, w: 0.6, h: 0.5 };
+    expect(ok(s)).toBe(false);
+    const t = baseSpec();
+    t.elements[1]!.layout = { x: 0, y: 0.7, w: 0.5, h: 0.4 };
+    expect(ok(t)).toBe(false);
+  });
+  it("palette_overrides: неизвестный ключ отвергается", () =>
+    expect(ok({ ...baseSpec(), palette_overrides: { primary: "#fff" } })).toBe(false));
   it("пустые elements/beats отвергаются", () => {
     expect(ok({ ...baseSpec(), elements: [] })).toBe(false);
     expect(ok({ ...baseSpec(), beats: [] })).toBe(false);
   });
   it("лишнее поле отвергается", () => expect(ok({ ...baseSpec(), extra: 1 })).toBe(false));
   it("palette_overrides необязателен", () =>
-    expect(ok({ ...baseSpec(), palette_overrides: { accent: "#ff0000" } })).toBe(true));
+    expect(ok({ ...baseSpec(), palette_overrides: { accent: ["#ff0000"], bg: "#000" } })).toBe(true));
 });
 
 describe("выходы агентов", () => {
@@ -61,6 +71,10 @@ describe("выходы агентов", () => {
   it("EngineerReport", () => {
     expect(EngineerReportSchema.safeParse({ files_written: ["src/Scene.tsx"], kit_components_used: [], kb_ids_used: [], notes: "" }).success).toBe(true);
     expect(EngineerReportSchema.safeParse({ files_written: "x" }).success).toBe(false);
+  });
+  it("KnowledgeRef: неверный license_class", () => {
+    const ref = { kb_id: "a/b", repository: "r", repository_url: "https://x", commit: "abc", license: "MIT", license_class: "free", strategy: "adapt", source_paths: [] };
+    expect(KnowledgeRefSchema.safeParse(ref).success).toBe(false);
   });
   it("KnowledgeRef", () => {
     const ref = { kb_id: "a/b", repository: "r", repository_url: "https://x", commit: "abc", license: "MIT", license_class: "permissive", strategy: "adapt", source_paths: ["a"] };

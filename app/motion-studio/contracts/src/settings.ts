@@ -5,7 +5,8 @@ export const AspectRatioSchema = z.enum(["16:9", "9:16", "1:1"]);
 export const StylePresetSchema = z.enum(["dark-premium", "light-clean", "tech-neon"]);
 export const IntensitySchema = z.enum(["calm", "balanced", "energetic"]);
 
-const Fraction = z.number().min(0).max(1);
+const Half = z.number().min(0).lt(0.5);
+const ASPECT: Record<string, number> = { "16:9": 16 / 9, "9:16": 9 / 16, "1:1": 1 };
 
 /** Настройки сцены (ТЗ §6.4). safe_area — доли кадра. */
 export const SettingsSchema = z.object({
@@ -20,8 +21,13 @@ export const SettingsSchema = z.object({
   animation_intensity: IntensitySchema,
   background: z.string().min(1),
   transparent_export: z.boolean(),
-  safe_area: z.object({ x: Fraction, y: Fraction }).strict(),
-}).strict();
+  safe_area: z.object({ x: Half, y: Half }).strict(),
+}).strict().superRefine((s, ctx) => {
+  const want = ASPECT[s.aspect_ratio]!;
+  if (Math.abs(s.width / s.height / want - 1) > 0.01) {
+    ctx.addIssue({ code: "custom", path: ["aspect_ratio"], message: `width/height не соответствуют ${s.aspect_ratio} (допуск 1%)` });
+  }
+});
 export type Settings = z.infer<typeof SettingsSchema>;
 
 export function defaultSettings(): Settings {
