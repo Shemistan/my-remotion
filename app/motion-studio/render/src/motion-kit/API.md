@@ -56,7 +56,9 @@ export const Scene = () => (
 ```
 
 ### SafeArea / useSafeArea()
-`<SafeArea style?>` — `AbsoluteFill` с полями из `grid.safe_area`. `useSafeArea()`
+`<SafeArea style?>` — `AbsoluteFill` с полями из `grid.safe_area`. Дети лежат в блоке
+размером с безопасную зону: `AbsoluteFill` и `position: absolute` внутри отсчитываются
+от её края, а не от края кадра. `useSafeArea()`
 возвращает `{ left, top, width, height }` в px, если раскладку нужно считать вручную.
 
 ### KineticText

@@ -16,7 +16,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "test:e2e": "MS_E2E=1 vitest run --passWithNoTests",
-    "doctor": "tsx server/src/cli/doctor.ts"
+    "doctor": "tsx server/src/cli/doctor.ts",
+    "generate": "tsx server/src/cli/generate.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

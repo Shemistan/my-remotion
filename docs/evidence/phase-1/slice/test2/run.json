@@ -1,0 +1,19 @@
+{
+  "status": "ready",
+  "run_id": "run_01M5DFSA0TZ46EENVP92PK79NK",
+  "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5DFSA0TZ46EENVP92PK79NM/versions/ver_01M5DFXMH82ENHZYB2Z44KMSZN",
+  "cost_usd": 0.38392239999999994,
+  "engineer_calls": 1,
+  "timings_ms": {
+    "director": 34148,
+    "engineer_1": 76436,
+    "static": 18,
+    "typecheck": 12871,
+    "render_1": 16493,
+    "publish": 1025,
+    "total": 142005
+  },
+  "warnings": [],
+  "prompt": "Покажи архитектуру AI-агента: пользователь отправляет запрос, оркестратор вызывает три инструмента, данные возвращаются обратно. Световые импульсы движутся по связям",
+  "wall_ms": 142005
+}
