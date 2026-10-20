@@ -3,8 +3,8 @@
 // при отсутствии). Печатает StorageStatus в JSON с полем `browser`; код 1, если не в
 // порядке хранилище (ok: false) или браузер (browser.ok: false).
 // `--import-slice` (Q2): под owner lock открывает studio.db (миграции, сверка store_id),
-// закрывает незакрытые версии и регистрирует каталоги версий без строки в БД; код 1,
-// если какие-то версии пропущены (повреждены).
+// закрывает незакрытые версии, доводит прерванные rename и регистрирует каталоги версий
+// без строки в БД (`reconcileVersions`); код 1, если версии пропущены или помечены broken.
 import { pathToFileURL } from "node:url";
 import {
   acquireOwnerLock,
@@ -20,7 +20,7 @@ import { ensureRenderBrowser } from "@ms/render";
 import { bindStoreId } from "../db/meta.js";
 import { migrate } from "../db/migrate.js";
 import { openDb } from "../db/open.js";
-import { importSliceVersions } from "../scenes/import-slice.js";
+import { reconcileVersions } from "../scenes/import-slice.js";
 import { SceneRepo } from "../scenes/repo.js";
 import { relockVersions } from "../scenes/store.js";
 
@@ -79,8 +79,8 @@ async function importSlice(env: StorageEnv, probe: VolumeProbe): Promise<{ code:
       bindStoreId(db, status.marker);
       const relock = await relockVersions(root);
       const repo = new SceneRepo({ root, db, guard: () => checkStorage(env, probe) });
-      const imported = await importSliceVersions(repo, root);
-      const ok = imported.skipped.length === 0 && relock.broken.length === 0;
+      const imported = await reconcileVersions(repo, root);
+      const ok = imported.skipped.length === 0 && imported.missing.broken.length === 0 && relock.broken.length === 0;
       return { code: ok ? 0 : 1, output: JSON.stringify({ ok, root, relock, import: imported }, null, 2) };
     } finally {
       db.close();

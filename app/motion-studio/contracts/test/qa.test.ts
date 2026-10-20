@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { QAIssueSchema, QAReportSchema, VerdictSchema, VisualQAOutputSchema, toJsonSchema } from "../src/index.js";
+import { HistoryEntrySchema, QAIssueSchema, QAReportSchema, QaGateSchema, VerdictSchema, VersionManifestSchema, VisualQAOutputSchema, toJsonSchema } from "../src/index.js";
 
 const vqa = {
   gate: { visual: "pass", semantic: "warn", style: "pass" },
@@ -35,4 +35,9 @@ describe("QA", () => {
     expect(QAReportSchema.safeParse({ ...report, gate: { ...report.gate, technical: "ok" } }).success).toBe(false);
   });
   it("JSON Schema без $ref", () => expect(JSON.stringify(toJsonSchema(VisualQAOutputSchema))).not.toContain("$ref"));
+  it("гейт из четырёх вердиктов — один объект для QAReport, manifest и HistoryEntry", () => {
+    expect(QAReportSchema.shape.gate).toBe(QaGateSchema);
+    expect(HistoryEntrySchema.shape.qa.unwrap()).toBe(QaGateSchema);
+    expect(VersionManifestSchema.innerType().shape.qa.unwrap().unwrap()).toBe(QaGateSchema);
+  });
 });

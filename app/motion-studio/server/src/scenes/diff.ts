@@ -1,6 +1,6 @@
 // Сравнение версий (`05` §5): JSON — собственный обход с путями JSON Pointer, файлы `src/**` — unified diff.
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { createTwoFilesPatch } from "diff";
 import type { JsonChange, VersionDiff, VersionManifest } from "@ms/contracts";
 
@@ -36,12 +36,21 @@ function text(dir: string, path: string): string | undefined {
   return buf.toString("utf8");
 }
 
+/** Путь из manifest: относительный, нормализованный, без `..` — иначе ошибка (чтение вне версии). */
+function safeRel(path: string): string {
+  if (posix.isAbsolute(path) || posix.normalize(path) !== path || path.split("/").includes("..")) {
+    throw new Error(`scenes: недопустимый путь в manifest: ${JSON.stringify(path)}`);
+  }
+  return path;
+}
+
 /** Файлы `src/**` двух версий по sha256 из manifest; для отличающихся текстовых — unified diff. */
 export function srcFilesDiff(
   a: { dir: string; manifest: VersionManifest },
   b: { dir: string; manifest: VersionManifest },
 ): VersionDiff["files"] {
-  const src = (m: VersionManifest) => new Map(m.files.filter((f) => f.path.startsWith("src/")).map((f) => [f.path, f.sha256]));
+  const src = (m: VersionManifest) =>
+    new Map(m.files.map((f) => [safeRel(f.path), f.sha256] as const).filter(([p]) => p.startsWith("src/")));
   const fa = src(a.manifest);
   const fb = src(b.manifest);
   const paths = [...new Set([...fa.keys(), ...fb.keys()])].sort();

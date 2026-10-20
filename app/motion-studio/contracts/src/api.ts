@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ChatMessageSchema } from "./chat.js";
 import { JobSchema } from "./jobs.js";
 import { VersionManifestSchema } from "./manifest.js";
-import { QAReportSchema, VerdictSchema } from "./qa.js";
+import { QAReportSchema, QaGateSchema } from "./qa.js";
 import { KnowledgeRefSchema } from "./selection.js";
 import { SettingsFieldsSchema, SettingsSchema } from "./settings.js";
 import { StyleBibleSchema } from "./style.js";
@@ -21,7 +21,7 @@ export const HistoryEntrySchema = z.object({
   palette: StyleBibleSchema.shape.palette,
   depth: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
   duration_frames: z.number().int().positive(),
-  qa: z.object({ technical: VerdictSchema, visual: VerdictSchema, semantic: VerdictSchema, style: VerdictSchema }).strict().nullable(),
+  qa: QaGateSchema.nullable(),
   created_at: Ts,
 }).strict();
 export type HistoryEntry = z.infer<typeof HistoryEntrySchema>;

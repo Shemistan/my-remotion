@@ -30,6 +30,12 @@ describe("jobs", () => {
     expect(JobErrorSchema.safeParse({ code: "pipeline", message: "x", stage: "ffprobe" }).success).toBe(false);
     expect(JobSchema.safeParse(job({ status: "failed", error: { code: "pipeline", message: "x", stage: "qa" } })).success).toBe(true);
   });
+  it("JobError: code согласован со stage (failureToJobErrorCode)", () => {
+    expect(JobErrorSchema.safeParse({ code: "pipeline", message: "x", stage: "orphaned" }).success).toBe(false);
+    expect(JobErrorSchema.safeParse({ code: "stale_process", message: "x", stage: "orphaned" }).success).toBe(true);
+    expect(JobErrorSchema.safeParse({ code: "budget", message: "x", stage: "qa" }).success).toBe(false);
+    expect(JobErrorSchema.safeParse({ code: "interrupted", message: "x" }).success).toBe(true);
+  });
   it("ChatMessage", () => {
     const m = { id: "msg_1", scene_id: "scn_1", role: "user", text: "медленнее", created_at: "2026-10-21T00:00:00.000Z" };
     expect(ChatMessageSchema.safeParse(m).success).toBe(true);

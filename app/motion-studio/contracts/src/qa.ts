@@ -4,6 +4,15 @@ import { z } from "zod";
 export const VerdictSchema = z.enum(["pass", "warn", "fail", "not_checked"]);
 export type Verdict = z.infer<typeof VerdictSchema>;
 
+/** Гейт версии из четырёх вердиктов: `QAReport.gate`, `manifest.qa`, `HistoryEntry.qa`. */
+export const QaGateSchema = z.object({
+  technical: VerdictSchema,
+  visual: VerdictSchema,
+  semantic: VerdictSchema,
+  style: VerdictSchema,
+}).strict();
+export type QaGate = z.infer<typeof QaGateSchema>;
+
 const Frame = z.number().int().nonnegative();
 
 export const QAIssueSchema = z.object({
@@ -31,7 +40,7 @@ export type VisualQAOutput = z.infer<typeof VisualQAOutputSchema>;
 
 /** Итоговый отчёт QA версии (`qa.json`): технический gate + Visual QA. */
 export const QAReportSchema = z.object({
-  gate: z.object({ technical: VerdictSchema, visual: VerdictSchema, semantic: VerdictSchema, style: VerdictSchema }).strict(),
+  gate: QaGateSchema,
   issues: z.array(QAIssueSchema),
   checked_frames: z.array(Frame),
   ocr: OcrSchema,

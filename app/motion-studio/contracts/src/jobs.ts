@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FailureStageSchema, JobErrorCodeSchema } from "./failure.js";
+import { FailureStageSchema, JobErrorCodeSchema, failureToJobErrorCode } from "./failure.js";
 
 export const JobStatusSchema = z.enum(["pending", "running", "completed", "failed", "cancelled", "awaiting_approval", "awaiting_input", "blocked"]);
 export type JobStatus = z.infer<typeof JobStatusSchema>;
@@ -14,7 +14,11 @@ export const JobErrorSchema = z.object({
   stage: FailureStageSchema.optional(),
   pids: z.array(z.number().int().positive()).optional(),
   cmds: z.array(z.string()).optional(),
-}).strict();
+}).strict().superRefine((e, ctx) => {
+  if (e.stage !== undefined && e.code !== failureToJobErrorCode(e.stage)) {
+    ctx.addIssue({ code: "custom", path: ["code"], message: `для этапа ${e.stage} код должен быть ${failureToJobErrorCode(e.stage)}` });
+  }
+});
 export type JobError = z.infer<typeof JobErrorSchema>;
 
 const Ts = z.string().datetime();

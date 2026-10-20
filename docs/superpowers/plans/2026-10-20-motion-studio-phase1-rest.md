@@ -299,6 +299,11 @@ expect(jobs.get(db, c1.job.id)!.status).toBe("running");
 - `StorageSupervisor`, возврат из `storage_offline`: перед `quickCheck`/reopen заново взять или проверить `run/owner.lock` на новом монтировании (fcntl-замок привязан к vnode старого монтирования и после переподключения тома не защищает новый файл); `owner_busy` — остаться в `storage_offline` с причиной и не возобновлять раннер. Тест: подменить файл замка (новый vnode) при занятом замке другим процессом → режим остаётся `storage_offline`.
 
 
+
+**Порядок загрузки версий (уточнение после Task 11, fix round 1):**
+- `relock_versions` (`relockVersions`) идёт ДО `reconcile_versions`: `readVersion` отвергает версии с незакрытым корнем, и без повторной блокировки reconcile их бы пропустил.
+- `reconcile_versions` — `reconcileVersions(repo, root)` из `server/src/scenes/import-slice.ts`: сначала `recoverMissingVersions` (строка в БД есть, каталога нет — довести rename из draft с тем же `manifest_sha256` или пометить `scene_versions.broken_reason`), затем `importSliceVersions` (каталог без строки — зарегистрировать). Шаг идёт до `recovery`, потому что `cleanupDrafts` удалил бы draft с карантином `abandoned`, нужный для довода rename.
+- `reconcile_versions` обязан завершиться до того, как раннер начнёт захватывать задачи: `versions.nextNumber` считает только строки БД. `SceneRepo.publish` дополнительно берёт максимум с номерами каталогов версий на диске, но регистрация версий до `runner` — основная гарантия.
 - [ ] **Step 1: Тесты (падают):**
 
 ```ts

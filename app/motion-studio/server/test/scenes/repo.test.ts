@@ -6,11 +6,13 @@ import { defaultSettings } from "@ms/contracts";
 import { openDb, type Db } from "../../src/db/open.js";
 import { migrate } from "../../src/db/migrate.js";
 import * as jobs from "../../src/db/repos/jobs.js";
+import * as jobProcesses from "../../src/db/repos/job-processes.js";
 import * as projects from "../../src/db/repos/projects.js";
 import * as scenes from "../../src/db/repos/scenes.js";
 import * as versions from "../../src/db/repos/versions.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
-import { quarantineDraft } from "../../src/scenes/store.js";
+import { publishVersion, quarantineDraft } from "../../src/scenes/store.js";
+import { fileProcessRegistry } from "@ms/core";
 import { makeStore, removeStore, type TestStore } from "../db/helpers.js";
 import { RENDER_ENV, makeDraft, meta } from "./helpers.js";
 
@@ -97,13 +99,12 @@ describe("SceneRepo", () => {
     expect(d.settings).toEqual([]);
     expect(d.spec).toEqual([]);
 
-    const fence6 = addJob("job_6", 1, sceneId);
+    addJob("job_6", 1, sceneId);
     const cancelledDraft = await makeDraft(s.root, { runId: "job_6", attempt: 1, sceneId });
     await quarantineDraft(cancelledDraft, "cancelled: отменено пользователем");
     const live = await makeDraft(s.root, { runId: "job_7", attempt: 1, sceneId });
     await quarantineDraft(live, "interrupted");
-    void fence6;
-    const c = await repo.cleanupDrafts([{ runId: "job_7", attempt: 1 }]);
+        const c = await repo.cleanupDrafts([{ runId: "job_7", attempt: 1 }]);
     expect(c.kept).toEqual([draftA1.dir, live.dir]);                 // карантин fenced_out и живая попытка остаются
     expect(c.removed).toEqual([cancelledDraft.dir]);                 // карантин cancelled удалён
     expect(existsSync(cancelledDraft.dir)).toBe(false);
@@ -150,6 +151,75 @@ describe("SceneRepo", () => {
     addJob("job_2", 1, sceneId);
     const d2 = await makeDraft(s.root, { runId: "job_9", attempt: 1, sceneId });
     await expect(repo.publish(d2, meta(sceneId), { jobId: "job_2", attempt: 1 })).rejects.toThrow(/draft/);
+  });
+
+  it("cleanupDrafts: карантин cancelled, но живой процесс попытки (БД или файловый реестр) — draft остаётся", async () => {
+    const sceneId = repo.createScene("playground", { prompt: "сцена", settings: defaultSettings() }).id;
+    const a = await makeDraft(s.root, { runId: "job_1", attempt: 1, sceneId });
+    await quarantineDraft(a, "cancelled: отменено");
+    jobProcesses.insert(db, { job_id: "job_1", attempt: 1, pid: 4242, pgid: 4242, started_at: "x", cmd: "claude -p" });
+    const b = await makeDraft(s.root, { runId: "job_2", attempt: 3, sceneId });
+    await quarantineDraft(b, "interrupted");
+    await fileProcessRegistry(s.root).add({ runId: "job_2", attempt: 3, pid: 4343, pgid: 4343, startedAt: "x", cmd: "chrome" });
+    const c = await makeDraft(s.root, { runId: "job_2", attempt: 2, sceneId });
+    await quarantineDraft(c, "cancelled");
+    const r = await repo.cleanupDrafts([]);
+    expect(r.kept).toEqual([a.dir, b.dir]);
+    expect(r.removed).toEqual([c.dir]);
+    jobProcesses.end(db, { job_id: "job_1", attempt: 1, pid: 4242 });
+    expect((await repo.cleanupDrafts([])).removed).toEqual([a.dir]);
+  });
+
+  it("сбой отката после сбоя вставки: исходная ошибка сохраняется, ошибка отката — в cause", async () => {
+    const sceneId = repo.createScene("playground", { prompt: "сцена", settings: defaultSettings() }).id;
+    const fence = addJob("job_1", 1, sceneId);
+    const d = await makeDraft(s.root, { runId: "job_1", attempt: 1, sceneId });
+    const { mkdirSync, writeFileSync } = await import("node:fs");
+    // занять место draft до отката: renameSync обратно не сможет перезаписать непустой каталог
+    db.function("occupy_draft", () => {
+      mkdirSync(d.dir);
+      writeFileSync(join(d.dir, "x"), "x");
+      return 0;
+    });
+    db.exec("CREATE TRIGGER fail_insert BEFORE INSERT ON scene_versions BEGIN SELECT occupy_draft(); SELECT RAISE(ABORT, 'boom'); END;");
+    const err = (await repo.publish(d, meta(sceneId), fence).then(() => new Error("опубликовано"), (e: unknown) => e)) as Error;
+    expect(err.message).toMatch(/boom/);
+    expect(String((err.cause as Error).message)).toMatch(/ENOTEMPTY|EEXIST/);
+  });
+
+  it("lockRoot после COMMIT не удался: версия опубликована, предупреждение unsealed", async () => {
+    const sceneId = repo.createScene("playground", { prompt: "сцена", settings: defaultSettings() }).id;
+    const fence = addJob("job_1", 1, sceneId);
+    const d = await makeDraft(s.root, { runId: "job_1", attempt: 1, sceneId });
+    const { renameSync } = await import("node:fs");
+    let moved = "";
+    db.function("hide_version", (path: unknown) => {
+      moved = join(s.root, String(path));
+      renameSync(moved, moved + ".hidden"); // корень ещё записываемый: каталог переносится
+      return 0;
+    });
+    db.exec("CREATE TRIGGER hide AFTER INSERT ON scene_versions BEGIN SELECT hide_version(NEW.path); END;");
+    const v = await repo.publish(d, meta(sceneId), fence);
+    expect(v.warnings).toEqual([{ code: "unsealed", message: expect.stringMatching(/ENOENT/) }]);
+    expect(versions.get(db, v.versionId)).toBeDefined();
+    expect(scenes.get(db, sceneId)!.current_version_id).toBe(v.versionId);
+    renameSync(moved + ".hidden", moved);
+  });
+
+  it("номер версии учитывает каталоги на диске без строки в БД (нет коллизии с reconcile)", async () => {
+    const sceneId = repo.createScene("playground", { prompt: "сцена", settings: defaultSettings() }).id;
+    const orphan = await publishVersion(await makeDraft(s.root, { runId: "run_x", attempt: 1, sceneId }), meta(sceneId), s.guard);
+    expect(orphan.manifest.number).toBe(1);
+    const v = await repo.publish(await makeDraft(s.root, { runId: "job_1", attempt: 1, sceneId }), meta(sceneId), addJob("job_1", 1, sceneId));
+    expect(v.manifest.number).toBe(2);
+  });
+
+  it("испорченный knowledge-refs.json — ошибка публикации, а не молчаливая подмена краткими ссылками", async () => {
+    const sceneId = repo.createScene("playground", { prompt: "сцена", settings: defaultSettings() }).id;
+    const d = await makeDraft(s.root, { runId: "job_1", attempt: 1, sceneId });
+    await writeFile(join(d.dir, "knowledge-refs.json"), "{not json");
+    await expect(repo.publish(d, meta(sceneId), addJob("job_1", 1, sceneId))).rejects.toThrow(/knowledge-refs/);
+    expect(versions.listByScene(db, sceneId)).toHaveLength(0);
   });
 
   it("хранилище недоступно: storage_unavailable до транзакции, draft цел", async () => {

@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { chmod, writeFile } from "node:fs/promises";
+import { chmod, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { defaultSettings } from "@ms/contracts";
@@ -8,9 +8,9 @@ import { migrate } from "../../src/db/migrate.js";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as scenes from "../../src/db/repos/scenes.js";
 import * as versions from "../../src/db/repos/versions.js";
-import { importSliceVersions } from "../../src/scenes/import-slice.js";
+import { importSliceVersions, reconcileVersions, recoverMissingVersions } from "../../src/scenes/import-slice.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
-import { publishVersion, writeBrief } from "../../src/scenes/store.js";
+import { publishVersion, readVersion, sweepAbandonedDrafts, writeBrief } from "../../src/scenes/store.js";
 import { makeStore, removeStore, type TestStore } from "../db/helpers.js";
 import { makeDraft, meta } from "./helpers.js";
 
@@ -70,5 +70,60 @@ describe("importSliceVersions", () => {
     expect(r.imported).toBe(0);
     expect(r.skipped).toEqual([{ dir: join(s.root, "workspace/projects/prj_lost"), error: expect.stringMatching(/проект/) }]);
     expect(existsSync(v.dir)).toBe(true);
+  });
+});
+
+describe("recoverMissingVersions: строка в БД есть, каталога версии нет, draft с manifest.json остался", () => {
+  async function published() {
+    const sceneId = repo.createScene("playground", { prompt: "сцена", settings: defaultSettings() }).id;
+    jobs.insert(db, { id: "job_1", type: "playground.generate", project_id: "playground", scene_id: sceneId, input: {}, attempt: 1 });
+    const d = await makeDraft(s.root, { runId: "job_1", attempt: 1, sceneId });
+    const v = await repo.publish(d, meta(sceneId), { jobId: "job_1", attempt: 1 });
+    // обратный случай: rename не дошёл до диска — каталог версии снова на месте draft
+    await chmod(v.dir, 0o755);
+    await rename(v.dir, d.dir);
+    return { sceneId, d, v };
+  }
+
+  it("целый draft (manifest sha256 совпадает с БД, файлы сверены) — rename доводится, версия закрыта", async () => {
+    const { d, v } = await published();
+    await sweepAbandonedDrafts(s.root); // как при загрузке: draft уже помечен abandoned
+    const r = await recoverMissingVersions(repo, s.root);
+    expect(r).toEqual({ restored: [v.versionId], broken: [] });
+    expect(existsSync(d.dir)).toBe(false);
+    await expect(readVersion(v.dir)).resolves.toMatchObject({ version_id: v.versionId });
+    expect(versions.get(db, v.versionId)!.broken_reason).toBeNull();
+  });
+
+  it("draft не сходится с БД — строка помечается broken_reason, файлы не трогаются", async () => {
+    const { d, v } = await published();
+    await chmod(join(d.dir, "props.json"), 0o644);
+    await writeFile(join(d.dir, "props.json"), "{\"x\":2}");
+    const r = await recoverMissingVersions(repo, s.root);
+    expect(r.restored).toEqual([]);
+    expect(r.broken).toEqual([{ versionId: v.versionId, reason: expect.stringMatching(/sha256/) }]);
+    expect(versions.get(db, v.versionId)!.broken_reason).toMatch(/sha256/);
+    expect(existsSync(d.dir)).toBe(true);
+    expect(existsSync(v.dir)).toBe(false);
+  });
+
+  it("ни каталога, ни draft — broken_reason «каталог версии не найден»; повтор не дублирует", async () => {
+    const { d, v } = await published();
+    await chmod(d.dir, 0o755);
+    const { rm } = await import("node:fs/promises");
+    const { unlockTree } = await import("../db/helpers.js");
+    await unlockTree(d.dir);
+    await rm(d.dir, { recursive: true });
+    expect((await recoverMissingVersions(repo, s.root)).broken).toEqual([{ versionId: v.versionId, reason: expect.stringMatching(/не найден/) }]);
+    expect((await recoverMissingVersions(repo, s.root)).broken).toEqual([]);
+  });
+
+  it("reconcileVersions = восстановление пропавших + импорт каталогов без строки", async () => {
+    const { v } = await published();
+    const orphan = await publishVersion(await makeDraft(s.root, { runId: "run_9", attempt: 1, sceneId: "scn_O" }), meta("scn_O"), s.guard);
+    const r = await reconcileVersions(repo, s.root);
+    expect(r.missing).toEqual({ restored: [v.versionId], broken: [] });
+    expect(r.imported).toBe(1);
+    expect(versions.get(db, orphan.versionId)).toBeDefined();
   });
 });

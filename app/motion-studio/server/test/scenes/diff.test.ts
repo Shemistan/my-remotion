@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { jsonDiff } from "../../src/scenes/diff.js";
+import type { VersionManifest } from "@ms/contracts";
+import { jsonDiff, srcFilesDiff } from "../../src/scenes/diff.js";
 
 describe("jsonDiff (JSON Pointer)", () => {
   it("равные значения — пусто", () => expect(jsonDiff({ a: [1, { b: 2 }] }, { a: [1, { b: 2 }] })).toEqual([]));
@@ -22,5 +23,12 @@ describe("jsonDiff (JSON Pointer)", () => {
       { path: "/a~1b", before: 1, after: 2 },
       { path: "/c~0d", before: 1, after: 2 },
     ]);
+  });
+});
+
+describe("srcFilesDiff: пути manifest", () => {
+  const m = (path: string) => ({ files: [{ path, sha256: "a".repeat(64) }] }) as unknown as VersionManifest;
+  it.each(["src/../../etc/passwd", "/etc/passwd", "src/./x.tsx", "src//x.tsx"])("отклоняет %j", (path) => {
+    expect(() => srcFilesDiff({ dir: "/nonexistent", manifest: m(path) }, { dir: "/nonexistent", manifest: m("src/a.tsx") })).toThrow(/путь/);
   });
 });

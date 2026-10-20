@@ -73,6 +73,8 @@ CREATE TABLE scene_versions (
   manifest_sha256   TEXT NOT NULL,
   created_by_job_id TEXT REFERENCES jobs (id),
   created_at        TEXT NOT NULL,
+  -- Не NULL: каталог версии пропал и не восстановлен при старте (reconcile_versions) — причина.
+  broken_reason     TEXT,
   UNIQUE (scene_id, number)
 ) STRICT;
 

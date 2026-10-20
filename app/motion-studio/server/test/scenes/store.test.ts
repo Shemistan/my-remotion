@@ -139,6 +139,28 @@ describe("prepareVersion + commitVersionFiles (H9)", () => {
     expect(existsSync(join(prepared.versionsDir, "ver_Q"))).toBe(false);
     await writeFile(join(d.dir, "props.json"), "{}");
   });
+  it("файл, изменённый во время хеширования, не публикуется (снимок до хеширования)", async () => {
+    const d = await mk("scn_A");
+    let touched = false;
+    const onHashed = async (path: string) => {
+      if (touched || path !== "props.json") return;
+      touched = true;
+      await writeFile(join(d.dir, "props.json"), '{"late":true}'); // уже захеширован
+    };
+    await expect(prepareVersion(d, meta("scn_A"), okGuard, { onHashed })).rejects.toThrow(/изменился/);
+    expect(touched).toBe(true);
+    expect(existsSync(join(root, "workspace/projects/playground/scenes/scn_A/versions"))).toBe(false);
+  });
+  it("prepareVersion не меняет draft: старый manifest.json остаётся до коммита и не попадает в files", async () => {
+    const d = await mk("scn_A");
+    await writeFile(join(d.dir, "manifest.json"), "stale");
+    const prepared = await prepareVersion(d, meta("scn_A"), okGuard);
+    expect(await readFile(join(d.dir, "manifest.json"), "utf8")).toBe("stale");
+    expect(prepared.files.map((f) => f.path)).not.toContain("manifest.json");
+    const dir = join(prepared.versionsDir, "ver_M");
+    commitVersionFiles(prepared, { versionId: "ver_M", number: 1, dir });
+    expect(JSON.parse(await readFile(join(dir, "manifest.json"), "utf8")).version_id).toBe("ver_M");
+  });
   it("файл, изменённый после подготовки, не публикуется", async () => {
     const d = await mk("scn_A");
     const prepared = await prepareVersion(d, meta("scn_A"), okGuard);

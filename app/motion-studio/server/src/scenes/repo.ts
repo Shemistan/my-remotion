@@ -1,14 +1,15 @@
 // SceneRepo (P1-11): сцены и версии поверх studio.db и иммутабельных каталогов версий.
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { copyFile, mkdir, readFile, readdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
   KnowledgeRefSchema, SettingsSchema, VersionManifestSchema, type Settings, type VersionDiff, type VersionManifest,
 } from "@ms/contracts";
-import type { StorageStatus } from "@ms/core";
+import { fileProcessRegistry, type StorageStatus } from "@ms/core";
 import { z } from "zod";
 import type { Db } from "../db/open.js";
 import { tx } from "../db/tx.js";
+import * as jobProcesses from "../db/repos/job-processes.js";
 import * as jobs from "../db/repos/jobs.js";
 import * as knowledgeRefs from "../db/repos/knowledge-refs.js";
 import * as projects from "../db/repos/projects.js";
@@ -18,15 +19,20 @@ import { jsonDiff, srcFilesDiff } from "./diff.js";
 import { sha256, sha256File } from "./hash.js";
 import { newId } from "./ids.js";
 import {
-  QUARANTINE, commitVersionFiles, createDraft, manifestText, prepareVersion, quarantineDraft, readVersion, sceneRel,
+  QUARANTINE, attachCause, commitVersionFiles, createDraft, manifestText, prepareVersion, quarantineDraft, readVersion, sceneRel,
   sealVersion, setWritable, undoCommitVersionFiles, writeBriefSync, type Draft, type PublishMeta,
 } from "./store.js";
 
+/** Предупреждение публикации: `unsealed` — корень версии не закрыт после COMMIT (закроет `relockVersions`). */
+export interface PublishWarning {
+  code: "unsealed";
+  message: string;
+}
 export interface PublishedVersion {
   versionId: string;
   dir: string;
   manifest: VersionManifest;
-  warnings: string[];
+  warnings: PublishWarning[];
 }
 export interface Fence {
   jobId: string;
@@ -50,15 +56,38 @@ class FencedOutError extends Error {
 
 const RefsFile = z.array(KnowledgeRefSchema);
 
-/** Полные ссылки KB из `knowledge-refs.json` версии; нет файла или он не по схеме — краткие из manifest. */
+/**
+ * Полные ссылки KB из `knowledge-refs.json` версии; нет файла — краткие из manifest.
+ * Испорченный файл (не JSON или не по схеме) — ошибка: provenance не подменяется молча.
+ */
 export async function readKnowledgeRefs(dir: string, manifest: Pick<VersionManifest, "knowledge_refs">): Promise<knowledgeRefs.KnowledgeRefInsert[]> {
+  let text: string;
   try {
-    const parsed = RefsFile.safeParse(JSON.parse(await readFile(join(dir, "knowledge-refs.json"), "utf8")));
-    if (parsed.success) return parsed.data;
-  } catch {
-    // нет файла — берём manifest
+    text = await readFile(join(dir, "knowledge-refs.json"), "utf8");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return manifest.knowledge_refs;
+    throw e;
   }
-  return manifest.knowledge_refs;
+  try {
+    return RefsFile.parse(JSON.parse(text));
+  } catch (e) {
+    throw new Error(`scenes: knowledge-refs.json испорчен (${dir}): ${(e as Error).message}`, { cause: e });
+  }
+}
+
+/** Наибольший номер среди каталогов версий сцены на диске (по их manifest.json); 0 — нет. */
+function maxNumberOnDisk(versionsDir: string): number {
+  let max = 0;
+  for (const e of readdirSync(versionsDir, { withFileTypes: true })) {
+    if (!e.isDirectory()) continue;
+    try {
+      const n = (JSON.parse(readFileSync(join(versionsDir, e.name, "manifest.json"), "utf8")) as { number?: unknown }).number;
+      if (typeof n === "number" && Number.isInteger(n) && n > max) max = n;
+    } catch {
+      // каталог без manifest — не версия
+    }
+  }
+  return max;
 }
 
 export class SceneRepo {
@@ -118,7 +147,8 @@ export class SceneRepo {
       published = tx(this.db, () => {
         const current = this.fenceOk(fence);
         if (current !== undefined) throw new FencedOutError(fence, current < 0 ? undefined : current);
-        const number = versions.nextNumber(this.db, draft.sceneId);
+        // Каталог версии без строки в БД (до reconcile) тоже занимает номер — иначе коллизия.
+        const number = Math.max(versions.nextNumber(this.db, draft.sceneId), maxNumberOnDisk(prepared.versionsDir) + 1);
         const versionId = newId("ver");
         const dir = join(prepared.versionsDir, versionId);
         const manifest = commitVersionFiles(prepared, { versionId, number, dir });
@@ -142,11 +172,24 @@ export class SceneRepo {
         return { versionId, dir, manifest };
       });
     } catch (e) {
-      if (moved) undoCommitVersionFiles(prepared, moved);
+      if (moved) {
+        try {
+          undoCommitVersionFiles(prepared, moved);
+        } catch (u) {
+          attachCause(e, u);
+        }
+      }
       if (e instanceof FencedOutError) await quarantineDraft(draft, e.message);
       throw e;
     }
-    return { ...published, warnings: await sealVersion(published.dir) };
+    // Версия уже в БД: незакрытый корень — не отказ, а предупреждение (relockVersions при старте).
+    const warnings: PublishWarning[] = [];
+    try {
+      await sealVersion(published.dir);
+    } catch (e) {
+      warnings.push({ code: "unsealed", message: `корень версии не закрыт от записи: ${(e as Error).message}` });
+    }
+    return { ...published, warnings };
   }
 
   /**
@@ -223,17 +266,22 @@ export class SceneRepo {
    * Уборка draft (H6): draft без живой попытки с карантином `cancelled` / `abandoned…` /
    * `interrupted` удаляется (сначала снимается read-only). Карантин `fenced_out` /
    * `stale_process` / `publish` и прочие, draft живых попыток и draft без карантина
-   * остаются до решения человека (или `sweepAbandonedDrafts`).
+   * остаются до решения человека (или `sweepAbandonedDrafts`). Попытка живая, если она в
+   * `live` или у неё есть незавершённые процессы в `job_processes` или файловом реестре.
    */
   async cleanupDrafts(live: { runId: string; attempt: number }[]): Promise<{ removed: string[]; kept: string[] }> {
     const out = { removed: [] as string[], kept: [] as string[] };
     const draftsDir = join(this.root, "workspace/drafts");
     if (!existsSync(draftsDir)) return out;
-    const alive = new Set(live.map((l) => `${l.runId}-a${l.attempt}`));
+    const key = (runId: string, attempt: number) => `${runId}-a${attempt}`;
+    const alive = new Set(live.map((l) => key(l.runId, l.attempt)));
+    for (const p of jobProcesses.listLive(this.db)) alive.add(key(p.job_id, p.attempt));
+    for (const p of await fileProcessRegistry(this.root).list()) alive.add(key(p.runId, p.attempt));
     const entries = (await readdir(draftsDir, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name).sort();
     for (const name of entries) {
       const dir = join(draftsDir, name);
-      if (alive.has(name) || !(await disposable(dir))) {
+      const m = /^(.+)-a(\d+)$/.exec(name);
+      if (!m || alive.has(key(m[1]!, Number(m[2]))) || !(await disposable(dir))) {
         out.kept.push(dir);
         continue;
       }

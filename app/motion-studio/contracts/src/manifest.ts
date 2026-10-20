@@ -2,7 +2,7 @@ import { z } from "zod";
 import { SettingsSchema } from "./settings.js";
 import { KnowledgeRefSchema } from "./selection.js";
 import { FailureStageSchema } from "./failure.js";
-import { VerdictSchema } from "./qa.js";
+import { QaGateSchema } from "./qa.js";
 import { EditPlanSchema } from "./edit.js";
 
 export const Sha256Schema = z.string().regex(/^[0-9a-f]{64}$/, "ожидается sha256 (64 hex)");
@@ -44,7 +44,7 @@ export const VersionManifestSchema = z.object({
   knowledge_refs: z.array(KnowledgeRefSchema.pick({ kb_id: true, commit: true, license: true, strategy: true })),
   agent_runs: z.array(z.string()),
   // null/отсутствует допустимы только для failed (сбой до QA).
-  qa: z.object({ technical: VerdictSchema, visual: VerdictSchema, semantic: VerdictSchema, style: VerdictSchema }).strict().nullable().optional(),
+  qa: QaGateSchema.nullable().optional(),
   preview: FileEntry.nullable(),
   status: z.enum(["ready", "failed"]),
   failure: z.object({ stage: FailureStageSchema, message: z.string() }).strict().optional(),
