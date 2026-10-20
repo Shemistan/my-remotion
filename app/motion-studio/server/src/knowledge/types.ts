@@ -47,8 +47,27 @@ export interface SearchHit {
 
 export interface SourceReference {
   path: string;
+  /** Пустая строка, если путь недопустим (invalid). */
   absPath: string;
   exists: boolean;
+  /** Путь вне корня исходников, симлинк или не файл: exists всегда false. */
+  invalid?: boolean;
+  reason?: string;
+}
+
+/**
+ * Строка knowledge/compatibility/results.jsonl (формат — knowledge/compatibility/rules.md,
+ * «Как фиксировать проверку»; tools/kb.py требует только id). Адаптер читает `id` и `result`:
+ * "ok" -> tested_status "rendered-ok", "fail" -> "rendered-fail"; при нескольких строках с одним id
+ * побеждает последняя. Остальные поля справочные.
+ */
+export interface ResultRecord {
+  id: string;
+  result: "ok" | "fail";
+  date?: string;
+  remotion?: string;
+  how?: string;
+  notes?: string;
 }
 
 export interface CopyResult {

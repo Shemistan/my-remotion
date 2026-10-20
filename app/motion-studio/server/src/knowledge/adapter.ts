@@ -1,14 +1,17 @@
 // KnowledgeAdapter: только чтение, всё в памяти. Источник — knowledge/capabilities.jsonl
 // (+ repositories.json, compatibility/results.jsonl). Исходники (templates/, official_skills/) —
 // в sourceRoot, оригиналы не изменяются; в draft копируются только permissive-источники.
+// Файлы KB перечитываются лениво при смене mtime/размера (integration-map §4.1).
+import { readFileSync, statSync } from "node:fs";
 import { copyFile, lstat, mkdir, readFile } from "node:fs/promises";
 import { isAbsolute, join, resolve, sep } from "node:path";
 import { confidenceOf, licenseClass } from "./license.js";
-import { indexTokens, searchDocs, type IndexedDoc } from "./search.js";
+import { buildIndex, indexTokens, searchDocs, type IndexedDoc, type SearchIndex } from "./search.js";
 import type {
   CapabilityView,
   CompatibilityStatus,
   CopyResult,
+  ResultRecord,
   SearchFilters,
   SearchHit,
   SourceReference,
@@ -45,19 +48,134 @@ interface RepoInfo {
 const ID_RE = /^[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9.-]*$/;
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 const UNKNOWN = "unknown";
+const STRING_FIELDS = [
+  "id", "name", "repo", "kind", "category", "visualizes", "use_when", "inputs", "adaptations",
+  "remotion_compat", "verification", "license", "card",
+] as const;
+const LIST_FIELDS = ["voiceover_cues", "patterns", "compat_flags", "source_files", "docs"] as const;
 
-async function readJsonl(path: string, optional: boolean): Promise<Record<string, unknown>[]> {
+const fileStamp = (path: string): string => {
+  try {
+    const st = statSync(path);
+    return `${st.mtimeMs}:${st.size}`;
+  } catch {
+    return "absent";
+  }
+};
+
+/** Читает jsonl; битая строка или запись — ошибка с именем файла, строкой и id. */
+function readJsonlSync(path: string, optional: boolean): { n: number; row: Record<string, unknown> }[] {
   let text: string;
   try {
-    text = await readFile(path, "utf8");
+    text = readFileSync(path, "utf8");
   } catch (e) {
     if (optional && (e as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw e;
   }
-  return text
-    .split("\n")
-    .filter((l) => l.trim() !== "")
-    .map((l) => JSON.parse(l) as Record<string, unknown>);
+  const name = path.split(sep).slice(-2).join("/");
+  const out: { n: number; row: Record<string, unknown> }[] = [];
+  text.split("\n").forEach((line, i) => {
+    if (line.trim() === "") return;
+    try {
+      const row: unknown = JSON.parse(line);
+      if (typeof row !== "object" || row === null || Array.isArray(row)) throw new Error("не объект");
+      out.push({ n: i + 1, row: row as Record<string, unknown> });
+    } catch (e) {
+      throw new Error(`KB: ${name}:${i + 1}: невалидный JSON (${(e as Error).message})`, { cause: e });
+    }
+  });
+  return out;
+}
+
+function validateRecord(r: Record<string, unknown>, where: string): RawRecord {
+  const id = typeof r.id === "string" ? r.id : "?";
+  const bad = (m: string): never => {
+    throw new Error(`KB: ${where} (id ${id}): ${m}`);
+  };
+  for (const f of STRING_FIELDS) if (typeof r[f] !== "string") bad(`поле '${f}' должно быть строкой`);
+  for (const f of LIST_FIELDS) {
+    const v = r[f];
+    if (!Array.isArray(v) || v.some((x) => typeof x !== "string")) bad(`поле '${f}' должно быть списком строк`);
+  }
+  return r as unknown as RawRecord;
+}
+
+interface State {
+  docs: IndexedDoc[];
+  byId: Map<string, IndexedDoc>;
+  index: SearchIndex;
+  stamps: string[];
+}
+
+function buildState(kbRoot: string): State {
+  const capsPath = join(kbRoot, "capabilities.jsonl");
+  const reposPath = join(kbRoot, "repositories.json");
+  const resPath = join(kbRoot, "compatibility", "results.jsonl");
+  const stamps = [fileStamp(capsPath), fileStamp(reposPath), fileStamp(resPath)];
+
+  let reposFile: { repositories?: RepoInfo[] };
+  try {
+    reposFile = JSON.parse(readFileSync(reposPath, "utf8")) as { repositories?: RepoInfo[] };
+  } catch (e) {
+    throw new Error(`KB: repositories.json: ${(e as Error).message}`, { cause: e });
+  }
+  const repos = new Map((reposFile.repositories ?? []).map((r) => [r.id, r]));
+
+  // results.jsonl: одна строка на проверку, поздняя запись перекрывает раннюю.
+  const results = new Map<string, string>();
+  for (const { n, row } of readJsonlSync(resPath, true)) {
+    const r = row as Partial<ResultRecord>;
+    if (typeof r.id !== "string") throw new Error(`KB: compatibility/results.jsonl:${n}: нет поля id`);
+    if (r.result !== "ok" && r.result !== "fail") {
+      throw new Error(`KB: compatibility/results.jsonl:${n} (id ${r.id}): result должен быть "ok" или "fail"`);
+    }
+    results.set(r.id, r.result === "ok" ? "rendered-ok" : "rendered-fail");
+  }
+
+  const docs: IndexedDoc[] = [];
+  const byId = new Map<string, IndexedDoc>();
+  for (const { n, row } of readJsonlSync(capsPath, false)) {
+    const r = validateRecord(row, `capabilities.jsonl:${n}`);
+    if (byId.has(r.id)) throw new Error(`KB: capabilities.jsonl:${n}: дубликат id ${r.id}`);
+    const repo = repos.get(r.repo);
+    const base = {
+      tested_status: results.get(r.id) ?? r.verification,
+      compatibility_status: r.remotion_compat,
+    };
+    const view: CapabilityView = {
+      id: r.id,
+      name: r.name,
+      kind: r.kind,
+      category: r.category,
+      visualizes: r.visualizes,
+      use_when: r.use_when,
+      inputs: r.inputs,
+      adaptations: r.adaptations,
+      patterns: r.patterns,
+      compat_flags: r.compat_flags,
+      repository: repo?.name ?? r.repo,
+      repository_url: repo?.url ?? UNKNOWN,
+      commit: repo?.commit ?? UNKNOWN,
+      license: r.license,
+      license_class: licenseClass(r.license),
+      source_paths: r.source_files,
+      documentation_paths: r.docs,
+      ...base,
+      confidence: confidenceOf(base),
+      card_path: r.card,
+    };
+    const doc: IndexedDoc = {
+      view,
+      name: indexTokens(`${r.name} ${r.id}`),
+      visualizes: indexTokens(r.visualizes),
+      voiceover: indexTokens(r.voiceover_cues.join(" ")),
+      useWhen: indexTokens(r.use_when),
+      tags: indexTokens(`${r.category} ${r.patterns.join(" ")}`),
+    };
+    docs.push(doc);
+    byId.set(r.id, doc);
+  }
+  return { docs, byId, index: buildIndex(docs), stamps };
 }
 
 /** Относительный путь без `..`, пустых и абсолютных частей; иначе — ошибка. */
@@ -67,6 +185,35 @@ function safeSegments(rel: string, what: string): string[] {
     throw new Error(`${what}: путь вне корня: ${rel}`);
   }
   return segs;
+}
+
+type Inspected =
+  | { state: "ok"; abs: string; segs: string[] }
+  | { state: "missing"; abs: string }
+  | { state: "invalid"; reason: string };
+
+/** Проверка пути источника: вне корня, симлинк, не файл -> invalid; нет файла -> missing. */
+async function inspectSource(root: string, rel: string): Promise<Inspected> {
+  let segs: string[];
+  try {
+    segs = safeSegments(rel, "источник");
+  } catch {
+    return { state: "invalid", reason: `путь вне корня исходников: ${rel}` };
+  }
+  const abs = resolve(root, rel);
+  if (!abs.startsWith(root + sep)) return { state: "invalid", reason: `путь вне корня исходников: ${rel}` };
+  let cur = root;
+  for (const [i, s] of segs.entries()) {
+    cur = join(cur, s);
+    const st = await lstat(cur).catch((e: NodeJS.ErrnoException) => {
+      if (e.code === "ENOENT" || e.code === "ENOTDIR") return undefined;
+      throw e;
+    });
+    if (!st) return { state: "missing", abs };
+    if (st.isSymbolicLink()) return { state: "invalid", reason: `симлинк в источнике: ${rel}` };
+    if (i === segs.length - 1 && !st.isFile()) return { state: "invalid", reason: `источник не файл: ${rel}` };
+  }
+  return { state: "ok", abs, segs };
 }
 
 /** Каталог за каталогом, без recursive: наружу `base` не выйти. */
@@ -86,80 +233,40 @@ async function mkdirInside(base: string, segs: string[]): Promise<string> {
 }
 
 export class KnowledgeAdapter {
+  private state: State;
+
   private constructor(
     private readonly kbRoot: string,
     private readonly sourceRoot: string,
-    private readonly docs: IndexedDoc[],
-    private readonly byId: Map<string, IndexedDoc>,
-  ) {}
+  ) {
+    this.state = buildState(kbRoot);
+  }
 
   static async load(opts: { kbRoot: string; sourceRoot: string }): Promise<KnowledgeAdapter> {
-    const { kbRoot, sourceRoot } = opts;
-    const raw = (await readJsonl(join(kbRoot, "capabilities.jsonl"), false)) as unknown as RawRecord[];
-    const reposFile = JSON.parse(await readFile(join(kbRoot, "repositories.json"), "utf8")) as {
-      repositories?: RepoInfo[];
-    };
-    const repos = new Map((reposFile.repositories ?? []).map((r) => [r.id, r]));
-    const results = new Map<string, string>();
-    for (const r of await readJsonl(join(kbRoot, "compatibility", "results.jsonl"), true)) {
-      const status = r.status ?? r.verification ?? r.result;
-      if (typeof r.id === "string" && typeof status === "string") results.set(r.id, status);
-    }
+    return new KnowledgeAdapter(opts.kbRoot, opts.sourceRoot);
+  }
 
-    const docs: IndexedDoc[] = [];
-    const byId = new Map<string, IndexedDoc>();
-    for (const r of raw) {
-      const repo = repos.get(r.repo);
-      const base = {
-        tested_status: results.get(r.id) ?? r.verification,
-        compatibility_status: r.remotion_compat,
-      };
-      const view: CapabilityView = {
-        id: r.id,
-        name: r.name,
-        kind: r.kind,
-        category: r.category,
-        visualizes: r.visualizes,
-        use_when: r.use_when,
-        inputs: r.inputs,
-        adaptations: r.adaptations,
-        patterns: r.patterns,
-        compat_flags: r.compat_flags,
-        repository: repo?.name ?? r.repo,
-        repository_url: repo?.url ?? UNKNOWN,
-        commit: repo?.commit ?? UNKNOWN,
-        license: r.license,
-        license_class: licenseClass(r.license),
-        source_paths: r.source_files,
-        documentation_paths: r.docs,
-        ...base,
-        confidence: confidenceOf(base),
-        card_path: r.card,
-      };
-      const doc: IndexedDoc = {
-        view,
-        name: indexTokens(`${r.name} ${r.id}`),
-        visualizes: indexTokens(r.visualizes),
-        voiceover: indexTokens(r.voiceover_cues.join(" ")),
-        useWhen: indexTokens(r.use_when),
-        tags: indexTokens(`${r.category} ${r.patterns.join(" ")}`),
-      };
-      docs.push(doc);
-      byId.set(r.id, doc);
-    }
-    return new KnowledgeAdapter(kbRoot, sourceRoot, docs, byId);
+  /** Перечитывает файлы KB, если их mtime/размер изменились. */
+  private fresh(): State {
+    const stamps = [
+      fileStamp(join(this.kbRoot, "capabilities.jsonl")),
+      fileStamp(join(this.kbRoot, "repositories.json")),
+      fileStamp(join(this.kbRoot, "compatibility", "results.jsonl")),
+    ];
+    if (stamps.some((s, i) => s !== this.state.stamps[i])) this.state = buildState(this.kbRoot);
+    return this.state;
   }
 
   get size(): number {
-    return this.docs.length;
+    return this.fresh().docs.length;
   }
 
   search(query: string, filters?: SearchFilters, limit?: number): SearchHit[] {
-    return searchDocs(this.docs, query, filters, limit);
+    return searchDocs(this.fresh().index, query, filters, limit);
   }
 
   getCapability(id: string): CapabilityView | undefined {
-    return this.byId.get(id)?.view;
+    return this.fresh().byId.get(id)?.view;
   }
 
   private need(id: string): CapabilityView {
@@ -174,13 +281,15 @@ export class KnowledgeAdapter {
     return readFile(join(this.kbRoot, card), "utf8");
   }
 
+  /** Недопустимый путь (вне корня, симлинк, не файл) -> exists:false, invalid:true и reason. */
   async getSourceReference(id: string): Promise<SourceReference[]> {
     const v = this.need(id);
+    const root = resolve(this.sourceRoot);
     return Promise.all(
-      v.source_paths.map(async (path) => {
-        const absPath = join(this.sourceRoot, path);
-        const exists = await lstat(absPath).then(() => true, () => false);
-        return { path, absPath, exists };
+      v.source_paths.map(async (path): Promise<SourceReference> => {
+        const r = await inspectSource(root, path);
+        if (r.state === "invalid") return { path, absPath: "", exists: false, invalid: true, reason: r.reason };
+        return { path, absPath: r.abs, exists: r.state === "ok" };
       }),
     );
   }
@@ -212,32 +321,44 @@ export class KnowledgeAdapter {
 
   /**
    * Копирует source_paths в destDir/<id>/<путь> и карточку в CARD.md. destDir создаёт вызывающий.
-   * Отказ (исключение до любых записей) для restricted/unknown-лицензии, путей вне корня и симлинков.
+   * Все проверки (лицензия, пути вне корня, симлинки) идут до первой записи: при отказе ничего не создаётся.
    */
   async copyRefs(ids: string[], destDir: string): Promise<CopyResult[]> {
     const views = ids.map((id) => this.need(id));
+    const root = resolve(this.sourceRoot);
+    const plan: { v: CapabilityView; items: { p: string; r: Inspected }[] }[] = [];
     for (const v of views) {
       if (v.license_class !== "permissive") {
         throw new Error(`KB: копирование ${v.id} запрещено: лицензия ${v.license_class} (${v.license})`);
       }
       if (!ID_RE.test(v.id)) throw new Error(`KB: неверный id ${v.id}`);
-      for (const p of v.source_paths) safeSegments(p, v.id);
+      safeSegments(v.card_path, v.id);
+      const items: { p: string; r: Inspected }[] = [];
+      for (const p of v.source_paths) {
+        const r = await inspectSource(root, p);
+        if (r.state === "invalid") throw new Error(`KB: ${v.id}: ${r.reason}`);
+        items.push({ p, r });
+      }
+      plan.push({ v, items });
     }
-    const root = resolve(this.sourceRoot);
     const out: CopyResult[] = [];
-    for (const v of views) {
+    for (const { v, items } of plan) {
       const idDir = await mkdirInside(destDir, v.id.split("/"));
       const copied: string[] = [];
       const missing: string[] = [];
-      for (const p of v.source_paths) {
-        const segs = safeSegments(p, v.id);
-        const abs = resolve(root, p);
-        if (!abs.startsWith(root + sep)) throw new Error(`KB: ${v.id}: путь вне корня исходников: ${p}`);
-        if (await this.copyOne(root, segs, idDir)) copied.push(p);
-        else missing.push(p);
+      for (const { p, r } of items) {
+        if (r.state !== "ok") {
+          missing.push(p);
+          continue;
+        }
+        const dir = await mkdirInside(idDir, r.segs.slice(0, -1));
+        const target = join(dir, r.segs[r.segs.length - 1]!);
+        const t = await lstat(target).catch(() => undefined);
+        if (t?.isSymbolicLink()) throw new Error(`KB: симлинк в приёмнике: ${target}`);
+        await copyFile(r.abs, target);
+        copied.push(p);
       }
-      const cardSegs = safeSegments(v.card_path, v.id);
-      const card = join(this.kbRoot, ...cardSegs);
+      const card = join(this.kbRoot, ...safeSegments(v.card_path, v.id));
       const cardStat = await lstat(card).catch(() => undefined);
       if (cardStat?.isFile()) {
         await copyFile(card, join(idDir, "CARD.md"));
@@ -249,26 +370,4 @@ export class KnowledgeAdapter {
     }
     return out;
   }
-
-  /** true — скопировано, false — источника нет. Симлинк в пути источника — ошибка. */
-  private async copyOne(root: string, segs: string[], idDir: string): Promise<boolean> {
-    let cur = root;
-    for (const [i, s] of segs.entries()) {
-      cur = join(cur, s);
-      const st = await lstat(cur).catch((e: NodeJS.ErrnoException) => {
-        if (e.code === "ENOENT" || e.code === "ENOTDIR") return undefined;
-        throw e;
-      });
-      if (!st) return false;
-      if (st.isSymbolicLink()) throw new Error(`KB: симлинк в источнике: ${cur}`);
-      if (i === segs.length - 1 && !st.isFile()) throw new Error(`KB: источник не файл: ${cur}`);
-    }
-    const dir = await mkdirInside(idDir, segs.slice(0, -1));
-    const target = join(dir, segs[segs.length - 1]!);
-    const t = await lstat(target).catch(() => undefined);
-    if (t?.isSymbolicLink()) throw new Error(`KB: симлинк в приёмнике: ${target}`);
-    await copyFile(cur, target);
-    return true;
-  }
 }
-

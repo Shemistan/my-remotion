@@ -5,7 +5,7 @@ const RESTRICTED = /commons clause|unlicensed|proprietary/;
 // Лицензия сама по себе не определена.
 const UNDEFINED = /^(не указана|нет|unknown|n\/a)/;
 // Оговорки о сторонних материалах с неясной лицензией (изображения, свои лицензии проектов).
-const CAVEAT = /лицензия не указана|сторонн|своя лицензия/;
+const CAVEAT = /лицензия не указана|сторонн|своя лицензия|своя у источника|unsplash/;
 const PERMISSIVE = /^(mit|apache|bsd|isc|cc0)/;
 
 export function licenseClass(license: string): LicenseClass {

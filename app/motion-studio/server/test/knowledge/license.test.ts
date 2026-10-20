@@ -22,8 +22,14 @@ describe("licenseClass", () => {
     expect(licenseClass("Apache-2.0 (package.json, LICENSE, NOTICE)")).toBe("permissive");
     expect(licenseClass("BSD-3-Clause")).toBe("permissive");
     expect(licenseClass("ISC")).toBe("permissive");
+    // Реальные строки KB: фото/аватары Unsplash, сторонние бренды, чужие данные.
+    expect(licenseClass("MIT (LICENSE.md); фото по умолчанию — Unsplash")).toBe("unknown");
+    expect(licenseClass("MIT (LICENSE.md); аватар по умолчанию — Unsplash")).toBe("unknown");
+    expect(licenseClass("MIT (LICENSE.md); логотип авиакомпании — сторонний бренд с seeklogo.com")).toBe("unknown");
+    expect(licenseClass("Apache-2.0 (package.json, LICENSE, NOTICE); лицензия GeoJSON — своя у источника")).toBe("unknown");
     expect(licenseClass("CC0 1.0 (LICENSE)")).toBe("permissive");
-    expect(licenseClass("MIT (LICENSE.md); фото по умолчанию — Unsplash")).toBe("permissive");
+    expect(licenseClass("MIT (package.json, LICENSE); шрифт Inter — OFL (Google Fonts)")).toBe("permissive");
+    expect(licenseClass("Apache-2.0 (package.json, LICENSE, NOTICE); layoutHelper.ts содержит код d3 (BSD-3, licenses/LICENSE-d3)")).toBe("permissive");
   });
   it("оговорки о неясных сторонних материалах -> unknown", () => {
     expect(licenseClass("MIT (LICENSE.md); обложка public/widget/music.jpg — лицензия не указана")).toBe("unknown");

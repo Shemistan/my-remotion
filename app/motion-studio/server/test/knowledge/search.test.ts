@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { KnowledgeAdapter } from "../../src/knowledge/adapter.js";
-import { tokenize } from "../../src/knowledge/search.js";
+import { queryPatterns, tokenize } from "../../src/knowledge/search.js";
 
 describe("tokenize", () => {
   it("нижний регистр, ё->е, усечение длинных русских слов до 6, синонимы EN", () => {
@@ -14,6 +14,35 @@ describe("tokenize", () => {
   });
   it("числа и короткий шум отбрасываются", () => {
     expect(tokenize("10 000 до 1 000 000")).toEqual([]);
+  });
+});
+
+describe("токены и паттерны", () => {
+  it("английские формы совпадают с синонимами", () => {
+    for (const w of ["charts", "users", "nodes", "counters"]) expect(tokenize(w).length).toBeGreaterThan(1);
+    expect(tokenize("nodes")).toContain("узел");
+  });
+  it("короткие известные токены 3d/ai/ui остаются, регистр не важен", () => {
+    expect(tokenize("3D AI Ui")).toEqual(["3d", "ai", "ui"]);
+    expect(tokenize("ПОКАЖИ ГРАФИК")).toEqual(tokenize("покажи график"));
+  });
+  it("императивы и филлеры отбрасываются", () => {
+    expect(tokenize("Создай сделай покажи нужно идёт анимацию ролик сцена плавный")).toEqual([]);
+  });
+  it("все 12 паттернов достижимы по русским словам", () => {
+    const cases: [string, string][] = [
+      ["рост", "growth-decline"], ["падение продаж", "growth-decline"], ["снижение", "growth-decline"],
+      ["сравнение", "comparison"], ["против", "comparison"], ["хронология", "timeline"],
+      ["таймлайн", "timeline"], ["с 2015 по 2025", "timeline"], ["этапы", "sequence-steps"], ["шаг", "sequence-steps"],
+      ["архитектура", "system-structure"], ["структура", "system-structure"], ["причина", "cause-effect"],
+      ["следствие", "cause-effect"], ["связи", "relationships"], ["отношения", "relationships"],
+      ["превращение", "transformation"], ["трансформация", "transformation"], ["количество", "quantities"],
+      ["доля", "quantities"], ["процент", "quantities"], ["карта", "spatial"], ["география", "spatial"],
+      ["акцент", "key-point-emphasis"], ["главное", "key-point-emphasis"], ["концепция", "abstract-concepts"],
+    ];
+    for (const [q, slug] of cases) expect(queryPatterns(q), q).toContain(slug);
+    expect(new Set(cases.map((c) => c[1])).size).toBe(12);
+    expect(queryPatterns("карточка")).toEqual([]);
   });
 });
 
@@ -65,6 +94,11 @@ describe("search на синтетической KB", () => {
   it("matched показывает токены, пустой запрос — пусто", () => {
     expect(kb.search("счётчик")[0]!.matched).toContain("счетчи");
     expect(kb.search("")).toEqual([]);
+  });
+  it("IDF: редкий токен весит больше частого", () => {
+    // «счетчик» есть у 4 из 5 записей, «chart» — у одной: при равных полях редкий выигрывает.
+    const hits = kb.search("счетчик chart", { compat: ["native"], kinds: ["template", "component"] });
+    expect(hits[0]!.view.id).toBe("r/by-name");
   });
   it("view: commit/репозиторий из repositories.json, confidence, unknown для отсутствующего", () => {
     const v = kb.getCapability("r/counter")!;

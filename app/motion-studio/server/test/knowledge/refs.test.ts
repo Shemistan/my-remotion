@@ -71,4 +71,21 @@ describe("copyRefs / getSourceReference", () => {
   it("симлинк — отказ", async () => {
     await expect(kb.copyRefs(["r/sym"], dest)).rejects.toThrow(/симлинк/);
   });
+
+  it("проверки до записей: плохой id в списке не оставляет следов от хороших", async () => {
+    const fresh = join(base, "dest2");
+    await mkdir(fresh);
+    await expect(kb.copyRefs(["r/ok", "r/sym"], fresh)).rejects.toThrow(/симлинк/);
+    expect(await readdir(fresh)).toEqual([]);
+  });
+
+  it("getSourceReference: .., абсолютный путь и симлинк — exists:false, invalid и reason", async () => {
+    for (const id of ["r/esc", "r/abs", "r/sym"]) {
+      const [ref] = await kb.getSourceReference(id);
+      expect(ref).toMatchObject({ exists: false, invalid: true, absPath: "" });
+      expect(ref!.reason).toMatch(/вне корня|симлинк/);
+    }
+    const ok = (await kb.getSourceReference("r/ok"))[0]!;
+    expect(ok.invalid).toBeUndefined();
+  });
 });
