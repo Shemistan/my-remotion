@@ -5,6 +5,7 @@ import {
   checkStorage,
   initStore,
   macosProbe,
+  StorageError,
   type StorageEnv,
   type StorageStatus,
   type VolumeProbe,
@@ -33,6 +34,9 @@ export async function runDoctor(
         allowSystemDisk: env.MS_ALLOW_SYSTEM_DISK === "1",
       });
     } catch (e) {
+      if (e instanceof StorageError) {
+        return report({ ok: false, reason: e.reason, detail: e.detail });
+      }
       return { code: 1, output: String((e as Error).message) };
     }
   }

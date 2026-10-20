@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { chmod, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { MARKER_FILE, checkStorage, initStore, type StoreMarker } from "../../src/storage/guard.js";
@@ -118,6 +118,16 @@ describe("checkStorage", () => {
     });
   });
 
+  it("rejects a symlinked root", async () => {
+    const link = join(tmp, "link");
+    await symlink(root, link);
+    expect(await checkStorage({ MS_DATA_DIR: link }, probe)).toMatchObject({
+      ok: false,
+      reason: "not_found",
+      detail: expect.stringMatching(/симлинк/),
+    });
+  });
+
   it("treats a failing probe as a failed check", async () => {
     const broken = { ...probe, volumeUuid: () => Promise.reject(new Error("diskutil failed")) };
     expect(await checkStorage({ MS_DATA_DIR: root }, broken)).toMatchObject({
@@ -147,6 +157,34 @@ describe("initStore", () => {
     await expect(initStore(root, sysProbe, { allowSystemDisk: true })).resolves.toMatchObject({
       schema_version: 1,
     });
+  });
+
+  it("checks the existing root's device, not the parent's", async () => {
+    await mkdir(root);
+    // корень — точка монтирования внешнего тома, родитель — на системном
+    const mounted = { ...sysProbe, deviceId: async (p: string) => (p === root ? 2 : 1) };
+    await expect(initStore(root, mounted, {})).resolves.toMatchObject({ schema_version: 1 });
+
+    const other = join(tmp, "other");
+    await mkdir(other);
+    // существующий корень на системном томе при внешнем родителе
+    const internal = { ...probe, deviceId: async (p: string) => (p === other ? 1 : 2) };
+    await expect(initStore(other, internal, {})).rejects.toThrow(/system_volume/);
+    expect(existsSync(join(other, MARKER_FILE))).toBe(false);
+  });
+
+  it("refuses a symlinked root without writing the marker", async () => {
+    const target = join(tmp, "target");
+    await mkdir(target);
+    await symlink(target, root);
+    await expect(initStore(root, probe, {})).rejects.toThrow(/симлинк/);
+    expect(existsSync(join(target, MARKER_FILE))).toBe(false);
+  });
+
+  it("leaves no temporary files next to the marker", async () => {
+    await initStore(root, probe, {});
+    await initStore(root, fakeProbe({ uuid: "VOL-B" }), { adopt: true });
+    expect(await readdir(root)).toEqual([MARKER_FILE]);
   });
 
   it("refuses to re-initialize an existing store", async () => {

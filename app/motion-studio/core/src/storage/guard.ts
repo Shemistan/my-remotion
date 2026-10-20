@@ -2,7 +2,7 @@
 // (ADR 0006, docs/architecture/03-target-architecture.md §5.1). Корень никогда
 // не создаётся неявно — только initStore (`doctor --init`).
 import { randomUUID } from "node:crypto";
-import { mkdir, open, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
 import { dirname, isAbsolute, join } from "node:path";
 
 export const MARKER_FILE = ".motion-studio-store.json";
@@ -117,6 +117,23 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+/**
+ * Единое правило для корня хранилища (checkStorage, initStore, safeMkdir): это
+ * настоящий каталог, не симлинк — иначе запись может уйти на другой том мимо проверок.
+ * Возвращает описание проблемы или undefined, если корень в порядке.
+ */
+export async function rootProblem(root: string): Promise<string | undefined> {
+  let st;
+  try {
+    st = await lstat(root);
+  } catch {
+    return `каталог не найден: ${root}`;
+  }
+  if (st.isSymbolicLink()) return `${root} — симлинк; укажи в MS_DATA_DIR реальный путь`;
+  if (!st.isDirectory()) return `${root} не каталог`;
+  return undefined;
+}
+
 async function onSystemVolume(path: string, probe: VolumeProbe): Promise<boolean> {
   return (await probe.deviceId(path)) === (await probe.systemDeviceId());
 }
@@ -129,8 +146,11 @@ async function writeTest(root: string): Promise<void> {
     await fh.writeFile("ok");
     await fh.sync();
   } finally {
-    await fh.close();
-    await unlink(path);
+    try {
+      await fh.close();
+    } finally {
+      await unlink(path);
+    }
   }
 }
 
@@ -157,7 +177,8 @@ export async function checkStorage(
     if (!isAbsolute(root)) fail("env_missing", `MS_DATA_DIR должен быть абсолютным путём: ${root}`);
     const minFree = minFreeBytes(env);
 
-    if (!(await isDirectory(root))) fail("not_found", `каталог не найден: ${root}`);
+    const problem = await rootProblem(root);
+    if (problem) fail("not_found", problem);
 
     const marker = await step("marker_missing", "маркер", () => readMarker(root));
     if (expectedStoreId !== undefined && marker.store_id !== expectedStoreId) {
@@ -188,10 +209,31 @@ export async function checkStorage(
   }
 }
 
+/** Атомарная запись маркера: уникальный tmp → fsync → rename → fsync каталога. */
 async function writeMarker(root: string, marker: StoreMarker): Promise<void> {
-  const tmp = join(root, `${MARKER_FILE}.${process.pid}.tmp`);
-  await writeFile(tmp, JSON.stringify(marker, null, 2) + "\n", { flag: "wx" });
+  const tmp = join(root, `${MARKER_FILE}.${randomUUID()}.tmp`);
+  const fh = await open(tmp, "wx");
+  try {
+    await fh.writeFile(JSON.stringify(marker, null, 2) + "\n");
+    await fh.sync();
+  } catch (e) {
+    await fh.close().catch(() => undefined);
+    await unlink(tmp).catch(() => undefined);
+    throw e;
+  }
+  await fh.close();
   await rename(tmp, join(root, MARKER_FILE));
+  // Best effort: не на всех ФС каталог можно открыть и синхронизировать.
+  try {
+    const dir = await open(root, "r");
+    try {
+      await dir.sync();
+    } finally {
+      await dir.close();
+    }
+  } catch {
+    /* rename уже выполнен */
+  }
 }
 
 /**
@@ -208,8 +250,21 @@ export async function initStore(
   if (!(await isDirectory(parent))) {
     throw new StorageError("not_found", `родительский каталог не существует: ${parent}`);
   }
-  if (!opts.allowSystemDisk && (await onSystemVolume(parent, probe))) {
-    throw new StorageError("system_volume", `${parent} на системном томе; разрешить — MS_ALLOW_SYSTEM_DISK=1`);
+  // Существующий корень проверяем сам (он может быть точкой монтирования или симлинком),
+  // иначе — родителя, в котором его создадим.
+  let rootExists = true;
+  try {
+    await lstat(root);
+  } catch {
+    rootExists = false;
+  }
+  if (rootExists) {
+    const problem = await rootProblem(root);
+    if (problem) throw new StorageError("not_found", problem);
+  }
+  const placed = rootExists ? root : parent;
+  if (!opts.allowSystemDisk && (await onSystemVolume(placed, probe))) {
+    throw new StorageError("system_volume", `${placed} на системном томе; разрешить — MS_ALLOW_SYSTEM_DISK=1`);
   }
 
   if (opts.adopt) {
@@ -224,7 +279,8 @@ export async function initStore(
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
     // Существующий каталог без маркера можно инициализировать, готовое хранилище — нет.
-    if (!(await isDirectory(root))) throw new StorageError("not_found", `${root} не каталог`);
+    const problem = await rootProblem(root);
+    if (problem) throw new StorageError("not_found", problem);
     if (await exists(join(root, MARKER_FILE))) {
       throw new StorageError("marker_mismatch", `${root} уже инициализирован; перенос на другой том — --adopt`);
     }

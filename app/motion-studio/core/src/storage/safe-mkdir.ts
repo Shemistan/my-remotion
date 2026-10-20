@@ -1,22 +1,25 @@
 import { lstat, mkdir } from "node:fs/promises";
 import { isAbsolute, join, normalize, sep } from "node:path";
-import { StorageError, readMarker } from "./guard.js";
+import { StorageError, readMarker, rootProblem } from "./guard.js";
 
 /**
- * Создаёт подкаталог `rel` внутри хранилища. Сначала проверяет, что корень и маркер
- * на месте; затем создаёт сегменты по одному без `recursive`, поэтому исчезнувший
- * корень не будет воссоздан. Симлинки внутри пути не допускаются.
+ * Создаёт подкаталог `rel` внутри хранилища и возвращает его абсолютный путь.
+ *
+ * Проверяет только, что корень — настоящий каталог (не симлинк) и маркер на месте;
+ * том, системный диск, запись и место не проверяет — вызывающий обязан до этого
+ * пройти `checkStorage`. Сегменты создаются по одному без `recursive`, поэтому
+ * исчезнувший корень не будет воссоздан; симлинки внутри пути не допускаются.
+ *
+ * `rel`, выходящий за корень, — ошибка программиста: бросается обычный Error
+ * (сообщение начинается с `storage:`), а не StorageError.
  */
 export async function safeMkdir(root: string, rel: string): Promise<string> {
   const norm = normalize(rel);
   if (rel === "" || isAbsolute(rel) || norm === "." || norm === ".." || norm.startsWith(".." + sep)) {
-    throw new StorageError("not_found", `путь выходит за пределы хранилища: ${JSON.stringify(rel)}`);
+    throw new Error(`storage: путь выходит за пределы хранилища: ${JSON.stringify(rel)}`);
   }
-  try {
-    if (!(await lstat(root)).isDirectory()) throw new Error("не каталог");
-  } catch (e) {
-    throw new StorageError("not_found", `корень хранилища недоступен: ${root} (${(e as Error).message})`);
-  }
+  const problem = await rootProblem(root);
+  if (problem) throw new StorageError("not_found", `корень хранилища недоступен: ${problem}`);
   await readMarker(root);
 
   let current = root;

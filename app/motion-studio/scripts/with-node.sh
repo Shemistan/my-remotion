@@ -12,4 +12,9 @@ if [ ! -s "$NVM_DIR/nvm.sh" ]; then
 fi
 # shellcheck disable=SC1091
 . "$NVM_DIR/nvm.sh" --no-use
+if ! nvm version "$version" | grep -q "^v"; then
+  echo "with-node: Node $version (из .nvmrc) не установлен в nvm." >&2
+  echo "  Выполни: nvm install $version" >&2
+  exit 1
+fi
 nvm exec --silent "$version" "$@"

@@ -42,10 +42,14 @@ it("--init without MS_DATA_DIR fails with env_missing", async () => {
   expect(JSON.parse(r.output)).toMatchObject({ ok: false, reason: "env_missing" });
 });
 
-it("--init failure is reported, not thrown", async () => {
+it("--init failure is reported as StorageStatus JSON, not thrown", async () => {
   const r = await runDoctor(["--init"], { MS_DATA_DIR: join(tmp, "no/such") }, probe);
   expect(r.code).toBe(1);
-  expect(r.output).toMatch(/storage/);
+  expect(JSON.parse(r.output)).toMatchObject({
+    ok: false,
+    reason: "not_found",
+    detail: expect.stringMatching(/родительский каталог/),
+  });
 });
 
 it("rejects unknown arguments with exit 2", async () => {

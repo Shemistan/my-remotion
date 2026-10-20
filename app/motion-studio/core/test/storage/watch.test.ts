@@ -47,12 +47,14 @@ it("treats a throwing check as a failure", async () => {
   expect(w.lastFailure()).toMatchObject({ ok: false, detail: expect.stringMatching(/boom/) });
 });
 
-it("does not overlap slow checks", async () => {
+it("does not overlap slow checks that finish within the deadline", async () => {
   let running = 0;
   let maxRunning = 0;
+  let calls = 0;
   const slow = async (): Promise<StorageStatus> => {
+    calls++;
     maxRunning = Math.max(maxRunning, ++running);
-    await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 50)); // дольше интервала, короче дедлайна
     running--;
     return okStatus;
   };
@@ -60,4 +62,26 @@ it("does not overlap slow checks", async () => {
   await vi.advanceTimersByTimeAsync(200);
   w.stop();
   expect(maxRunning).toBe(1);
+  expect(calls).toBeGreaterThan(1);
+  expect(w.signal.aborted).toBe(false);
+});
+
+it("aborts when a check never settles", async () => {
+  const hung = vi.fn(() => new Promise<StorageStatus>(() => undefined));
+  const w = watchStorage(hung, 20);
+  await vi.advanceTimersByTimeAsync(20 + 3 * 20);
+  expect(w.signal.aborted).toBe(true);
+  expect(w.lastFailure()).toMatchObject({ ok: false, detail: expect.stringMatching(/не ответила/) });
+  expect(hung).toHaveBeenCalledTimes(1);
+});
+
+it("an in-flight check cannot abort after stop()", async () => {
+  let settle: (s: StorageStatus) => void = () => undefined;
+  const w = watchStorage(() => new Promise<StorageStatus>((r) => (settle = r)), 20);
+  await vi.advanceTimersByTimeAsync(20);
+  w.stop();
+  settle(failStatus);
+  await vi.advanceTimersByTimeAsync(200);
+  expect(w.signal.aborted).toBe(false);
+  expect(w.lastFailure()).toBeUndefined();
 });

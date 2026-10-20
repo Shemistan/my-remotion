@@ -17,9 +17,15 @@ export async function mountPointOf(path: string): Promise<string> {
   }
 }
 
+/** diskutil на отключающемся диске может повиснуть; сторож не должен ждать вечно. */
+export const DISKUTIL_TIMEOUT_MS = 5000;
+
 /**
  * Системный том. На macOS пользовательские данные (/Users, /private/tmp) лежат на
  * томе Data, а не на запечатанном "/", поэтому сравниваем с ним, если он есть.
+ * Ограничение: это одно устройство. Другие тома внутреннего диска (второй APFS-том
+ * того же контейнера, разделы) за системные не считаются — защита ловит главный
+ * сценарий «диск отключён, путь ушёл на системный том», а не любой внутренний том.
  */
 async function systemDev(): Promise<number> {
   try {
@@ -33,7 +39,10 @@ export const macosProbe: VolumeProbe = {
   async volumeUuid(path) {
     // diskutil принимает точку монтирования, а не произвольный подкаталог.
     const mount = await mountPointOf(path);
-    const { stdout } = await run("diskutil", ["info", "-plist", mount]);
+    const { stdout } = await run("diskutil", ["info", "-plist", mount], {
+      timeout: DISKUTIL_TIMEOUT_MS,
+      killSignal: "SIGKILL",
+    });
     const uuid = /<key>VolumeUUID<\/key>\s*<string>([^<]+)<\/string>/.exec(stdout)?.[1];
     if (!uuid) throw new Error(`diskutil не вернул VolumeUUID для ${mount}`);
     return uuid;
