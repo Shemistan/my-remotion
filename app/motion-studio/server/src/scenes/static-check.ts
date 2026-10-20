@@ -205,7 +205,8 @@ const MSG_MEDIA_SRC = (tag: string) =>
   `src у <${tag}> — только импорт файла из src/ (import a from './a.png'; <${tag} src={a} />), ассет из @ms/motion-kit ` +
   "или строка с относительным путём ('./a.png'). Адреса из props, параметров, вызовов (staticFile()) и шаблонов запрещены: " +
   "при рендере их скачал бы Node в обход закрытой сети. Несколько картинок — массив импортов: const imgs = [a, b]; <Img src={imgs[i]} />.";
-const MSG_LINK ="<link> запрещён: подгружает внешние стили и шрифты. Шрифты — ensureFonts() из @ms/motion-kit или loadFont с url из import файла в src/, стили — объектом style.";
+const MSG_LINK =
+  "<link> запрещён: подгружает внешние стили и шрифты. Шрифты — ensureFonts() из @ms/motion-kit или loadFont с url из import файла в src/, стили — объектом style.";
 const MSG_CSS_IMPORT = "@import в CSS запрещён: тянет ресурсы в обход проверки. Импортируй нужный CSS-файл из .tsx через import './a.css'.";
 
 // --- Классификация файлов ---
@@ -268,13 +269,23 @@ class Collector {
 
 const REMOTE_START = /^\s*(?:(?:https?|wss?|ftp):|javascript:|\/\/)/i;
 const REMOTE_CSS_URL = /url\(\s*['"]?\s*(?:(?:https?|wss?|ftp):|javascript:|\/\/)/i;
-/** Эндпоинт сервера бандла Remotion: Node качает его `src` мимо прокси Chrome. */
-const PROXY_START = /^\s*\/proxy/i;
-const PROXY_CSS_URL = /url\(\s*['"]?\s*\/proxy/i;
-/** Процент-кодированное `://` — внешний URL внутри параметра (`/proxy?src=http%3A%2F%2F…`). */
-const ENCODED_SCHEME = /%3a%2f%2f/i;
-/** Значение src медиа без адреса: относительный путь модуля или встроенные данные. */
-const LOCAL_SRC = /^(?:\.{1,2}\/|data:)/;
+/**
+ * Эндпоинт сервера бандла Remotion: Node качает его `src` мимо прокси Chrome. Сервер
+ * ловит любой путь, начинающийся с `/proxy` (в т.ч. `/proxy.png`), а страница рендера
+ * лежит в корне, так что `./proxy…`, `../proxy…`, `.//proxy…` приходят туда же.
+ */
+const PROXY_START = /^\s*(?:\.{0,2}\/+)+proxy/i;
+/** `proxy?…src=` в любом месте пути — без ./ браузер тоже разрешит его в `/proxy`. */
+const PROXY_QUERY = /(?:^|\/)proxy[^?#\s]*\?[^#]*\bsrc=/i;
+const PROXY_CSS_URL = /url\(\s*['"]?\s*(?:\.{0,2}\/+)*proxy/i;
+/** Процент-кодированное `://` (целиком или частично): внешний URL внутри параметра. */
+const ENCODED_SCHEME = /%3a(?:%2f|\/){2}|:(?:%2f%2f|%2f\/|\/%2f)/i;
+
+/** Значение src медиа без адреса: относительный путь модуля без запроса и якоря или data:. */
+function isLocalSrc(text: string): boolean {
+  if (text.startsWith("data:")) return true;
+  return /^\.{1,2}\//.test(text) && !/[?#]|:\/\//.test(text);
+}
 
 /** Медиа-компоненты remotion, `src` которых грузит браузер или Node при рендере. */
 const REMOTION_MEDIA = new Set(["Img", "OffthreadVideo", "Video", "Audio", "IFrame", "Html5Audio", "Html5Video"]);
@@ -404,7 +415,7 @@ function urlMessage(node: ts.StringLiteralLike | ts.TemplateLiteralLikeNode, isS
   const remote =
     (isStart && REMOTE_START.test(text)) || REMOTE_CSS_URL.test(text) || (key !== undefined && SRCSET_KEYS.has(key.toLowerCase()) && REMOTE_ANYWHERE.test(text));
   if (!isNamespace && remote) return MSG_URL;
-  if ((isStart && PROXY_START.test(text)) || PROXY_CSS_URL.test(text)) return MSG_PROXY;
+  if ((isStart && PROXY_START.test(text)) || PROXY_QUERY.test(text) || PROXY_CSS_URL.test(text)) return MSG_PROXY;
   if (ENCODED_SCHEME.test(text)) return MSG_ENCODED_URL;
   return undefined;
 }
@@ -424,7 +435,7 @@ function checkCss(c: Collector, order: number, file: string, text: string): void
     if (KEYFRAMES.test(l) || CSS_ANIM_DECL.test(l)) c.report(order, file, i + 1, i, "forbidden-css-animation", MSG_CSS_TEXT);
     if (/@import\b/i.test(l)) c.report(order, file, i + 1, i, "external-url", MSG_CSS_IMPORT);
     else if (REMOTE_CSS_URL.test(l)) c.report(order, file, i + 1, i, "external-url", MSG_URL);
-    else if (PROXY_CSS_URL.test(l)) c.report(order, file, i + 1, i, "external-url", MSG_PROXY);
+    else if (PROXY_CSS_URL.test(l) || PROXY_QUERY.test(l)) c.report(order, file, i + 1, i, "external-url", MSG_PROXY);
     else if (ENCODED_SCHEME.test(l)) c.report(order, file, i + 1, i, "external-url", MSG_ENCODED_URL);
   });
 }
@@ -894,7 +905,7 @@ class FileChecker {
     while (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isNonNullExpression(e) || ts.isSatisfiesExpression(e)) e = e.expression;
     if (seen.has(e)) return false;
     seen.add(e);
-    if (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return LOCAL_SRC.test(e.text);
+    if (ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e)) return isLocalSrc(e.text);
     if (ts.isConditionalExpression(e)) return this.staticAssetSrc(e.whenTrue, seen) && this.staticAssetSrc(e.whenFalse, seen);
     if (ts.isArrayLiteralExpression(e)) return e.elements.every((x) => !ts.isSpreadElement(x) && this.staticAssetSrc(x, seen));
     if (ts.isObjectLiteralExpression(e)) {

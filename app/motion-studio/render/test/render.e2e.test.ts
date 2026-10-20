@@ -203,6 +203,8 @@ it("<Img src='/proxy?src=http://127.0.0.1:…'> fails the render with no request
   expect(hits).toBe(0);
   expect(r.ok).toBe(false);
   expect(r.error!.stage).toBe("still");
+  // отказ — от asset-guard (а не, например, от неверного запроса к /proxy)
+  expect(r.browserLogs.join("\n")).toMatch(/\[asset-guard\] render: ассет заблокирован \(адрес вне сервера бандла\): http:\/\/127\.0\.0\.1:\d+\/x\.png/);
 }, T);
 
 it("<Audio src='http://127.0.0.1:…'> is not downloaded by Node when the preview is muxed", async () => {

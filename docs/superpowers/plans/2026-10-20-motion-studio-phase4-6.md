@@ -1,7 +1,7 @@
 ---
 тип: plan
 статус: запланировано
-обновлено: 2026-10-20
+обновлено: 2026-10-21
 спека: 2026-10-20-motion-studio-phase4-6.md
 ---
 
@@ -190,6 +190,8 @@ expect(migrate(db)).toEqual({ from: 2, to: 3 });
   - `buildEditedAudio(i: { input: string; tl: EditedTimeline; fadeUs: number; out: string; run; signal; registry? }): Promise<{ path: string; sha256: string; samples: number }>` — `-ar 48000`, каналы как в источнике, `pcm_s24le`; длина = `round(duration_us·48000/1e6)` сэмплов
   - `masterArgs(input: string, out: string, probe: ProbeSummary, fps: Fps, crf: number): string[]` — автоповорот, `fps=<num>/<den>`, `-fps_mode cfr`, `libx264 -preset medium -crf <crf> -g <round(fps)> -pix_fmt yuv420p -an -movflags +faststart`; `ensureMaster(deps, mediaId, fps): Promise<{ path; sha256 }>` — дериватив `master@<num>-<den>` в `proxy/<media>/`, повторный вызов — из кэша (sha256 сверяется); `assertOutsideSource` на выходе
 - ADR 0008: контекст F1–F4, F9; решение — одна композиция Remotion, FFmpeg только подготовка и проверка; последствия — время рендера финала, кэш master.
+
+**Ограничение (из H1, `render/src/node/asset-guard.ts`):** Node-загрузки Remotion (`/proxy` для `OffthreadVideo`, звук `renderMedia`) закрыты `installAssetGuard`: разрешены только сервер бандла и `data:`, путей на диске и `file://` нет. Медиа финала доставляется так: композиция `ProjectTimeline` — доверенный код пакета рендера (не сцена агента), id медиа получает через провалидированные inputProps; worker сам поднимает loopback-медиасервер (`serveMedia`), который отдаёт только явный allowlist `{token → realpath}`, собранный оркестратором из EDL, без листинга и без редиректов. Его origin передаётся в `AssetPolicy.media` (`origin` + множество токенов; точка расширения уже описана, сейчас `installAssetGuard` её отвергает — реализовать здесь) и в allowlist `chrome-wrapper.sh`. Сцены агента по-прежнему получают медиа только через `import` из `src/`; static check это требует.
 
 - [ ] **Step 1: Юнит-тесты (падают):**
 

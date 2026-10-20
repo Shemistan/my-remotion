@@ -45,6 +45,10 @@ export const Scene = () => (
 жирность Inter 800 будет искусственной и грубой. Бери веса из таблицы. Своих шрифтов и
 `staticFile` для шрифтов не добавляй.
 
+Медиа сцены (картинки, видео, звук) — только `import` файла из `src/`
+(`import clip from './clip.mp4'` → `<OffthreadVideo src={clip} />`). `staticFile()`,
+`src` из props или шаблона, внешние URL и `/proxy` статическая проверка отклоняет.
+
 ## Компоненты
 
 ### Background

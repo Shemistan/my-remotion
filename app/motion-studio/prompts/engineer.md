@@ -46,6 +46,10 @@
 - TypeScript strict: без `any`, с типами props; неиспользуемых переменных нет.
 - Шрифты — только из motion-kit (веса из таблицы API.md); свои шрифты и
   `staticFile` для шрифтов не добавляй. `Interactive.*` не используй.
+- Медиа (картинки, видео, звук) — только `import` файла из `src/`: `import clip from
+  './clip.mp4'` → `<OffthreadVideo src={clip} />`. `staticFile()`, `src` из props или
+  шаблона, внешние URL и `/proxy` проверка отклонит — даже если KB советует
+  `Img` + `staticFile`.
 
 ## Как строить: motion-kit прежде всего
 

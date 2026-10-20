@@ -81,6 +81,14 @@ describe("bad-scenes: по одному нарушению на файл", async
   }
 });
 
+describe("CSS: /proxy и закодированные адреса", () => {
+  it.each(["a { background: url(/proxy?src=a) }", "a { background: url('./proxy?src=a') }", "a { background: url(../proxy.png) }", "a { --u: 'x%3A%2F%2Fy' }"])(
+    "%s",
+    (css) => expect(rules(check(css, "src/a.css"))).toEqual(["external-url"]),
+  );
+  it("локальный url() допустим", () => expect(check("a { background: url(./a.png) }", "src/a.css")).toEqual([]));
+});
+
 describe("Violation: файл, строка, сообщение для агента", () => {
   it("['constructor'] даёт одно нарушение, а не два (член + строка)", () => {
     expect(check("const F = (() => 1)['constructor']")).toHaveLength(1);
@@ -318,7 +326,17 @@ const cases: Record<string, Case[]> = {
     ["%3a%2f%2f в нижнем регистре", "const u = 'a%3a%2f%2fb'", ["external-url"]],
     ["%3A%2F%2F в части шаблона", "const p = 1; const u = `${p}%3A%2F%2Fx`", ["external-url"]],
     ["/proxy не в начале — просто текст", "const t = 'путь /proxy в документации'", []],
-    ["./proxy.png — локальный файл", "import { Img } from 'remotion'; import proxy from './proxy.png'; const e = <Img src={proxy} />", []],
+    ["импорт ./proxy.png — локальный файл", "import { Img } from 'remotion'; import proxy from './proxy.png'; const e = <Img src={proxy} />", []],
+    ["<Img src='./proxy?src=…'>", "import { Img } from 'remotion'; const e = <Img src='./proxy?src=http://127.0.0.1:8790/x&time=0' />", ["external-url"]],
+    ["'../proxy?src=…'", "const u = '../proxy?src=a&time=0'", ["external-url"]],
+    ["'.//proxy'", "const u = './/proxy?src=a'", ["external-url"]],
+    ["строка ./proxy.png — тоже /proxy на сервере бандла", "<img src='./proxy.png' />", ["external-url"]],
+    ["proxy?src= без ./", "const u = 'proxy?src=a&time=0'", ["external-url"]],
+    ["x/proxy?src= в середине пути", "const u = 'a/b/proxy?time=0&src=x'", ["external-url"]],
+    ["./proxy?src=http:%2F%2F…", "const u = './proxy?src=http:%2F%2F127.0.0.1:8790%2Fx'", ["external-url"]],
+    ["http:%2F%2F без /proxy", "const u = 'x?u=http:%2F%2Fexample.com'", ["external-url"]],
+    ["url(./proxy?src=…) в style", "<div style={{ backgroundImage: 'url(./proxy?src=a)' }} />", ["external-url"]],
+    ["слово proxy в тексте", "const t = 'proxy server settings'", []],
   ],
   "src у медиа: только импорт из src/ или kit": [
     ["Img из import", "import { Img } from 'remotion'; import dot from './dot.png'; const e = <Img src={dot} />", []],
@@ -334,7 +352,10 @@ const cases: Record<string, Case[]> = {
     ["<source> из import", "import clip from './clip.mp4'; const e = <video><source src={clip} /></video>", []],
     ["src из props", "import { Img } from 'remotion'; const e = (p: { src: string }) => <Img src={p.src} />", ["external-url"]],
     ["src из параметра", "import { Video } from 'remotion'; const e = (src: string) => <Video src={src} />", ["external-url"]],
-    ["строка без ./", "import { Img } from 'remotion'; const e = <Img src='a.png' />", ["external-url"]],
+    ["относительная строка с ?", "<img src='./a.png?v=1' />", ["external-url"]],
+    ["относительная строка с #", "<img src='./a.svg#x' />", ["external-url"]],
+    ["относительная строка с ://", "<img src='./x/http://example.com/a.png' />", ["external-url"]],
+    ["строка без ./","import { Img } from 'remotion'; const e = <Img src='a.png' />", ["external-url"]],
     ["абсолютный путь", "<img src='/etc/a.png' />", ["external-url"]],
     ["вычисляемый шаблон", "import { Img } from 'remotion'; const n = 1; const e = <Img src={`./a${n}.png`} />", ["external-url"]],
     ["вызов функции", "import { Audio } from 'remotion'; const f = () => './a.mp3'; const e = <Audio src={f()} />", ["external-url"]],

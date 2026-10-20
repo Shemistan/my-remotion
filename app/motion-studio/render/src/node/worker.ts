@@ -42,11 +42,17 @@ function startStage(s: WorkerStage): void {
   process.stdout.write(`${STAGE}${s}\n`);
 }
 
-function onBrowserLog(log: BrowserLog): void {
-  const line = `[${log.type}] ${log.text}`;
+function pushLog(line: string): void {
   browserLogs.push(line);
   process.stdout.write(`${LOG}${JSON.stringify(line)}\n`);
 }
+
+function onBrowserLog(log: BrowserLog): void {
+  pushLog(`[${log.type}] ${log.text}`);
+}
+
+/** Отказ asset-guard — в лог рендера: браузер видит лишь 500 от /proxy без причины. */
+const onAssetBlocked = (message: string) => pushLog(`[asset-guard] ${message}`);
 
 function finish(result: WorkerResult): void {
   process.stdout.write(JSON.stringify(result) + "\n", () => process.exit(result.ok ? 0 : 1));
@@ -136,10 +142,10 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
   const port = await freePort();
   process.env.MS_BUNDLE_PORT = String(port);
   // Node-сторона того же сервера (/proxy, звук renderMedia) идёт мимо прокси Chrome:
-  // качать можно только сам бандл и локальные файлы бандла и хранилища. Ставится до
-  // первого запуска сервера (selectComposition, у которого нет хука onDownload).
-  const assets: AssetPolicy = { bundlePort: port, roots: [serveUrl, job.run.root] };
-  installAssetGuard(assets);
+  // качать можно только файлы самого бандла (и data:). Ставится до первого запуска
+  // сервера (selectComposition, у которого нет хука onDownload).
+  const assets: AssetPolicy = { bundlePort: port };
+  installAssetGuard(assets, onAssetBlocked);
   browser = await openBrowser("chrome", {
     browserExecutable: job.browserExecutable,
     chromeMode: "headless-shell",
@@ -157,7 +163,7 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
     port,
   } as const;
   // официальный хук Remotion — второй рубеж за installAssetGuard
-  const onDownload = blockingOnDownload(assets);
+  const onDownload = blockingOnDownload(assets, onAssetBlocked);
   const selected = await selectComposition({ ...common, id: "Scene" });
   // настройки сцены — поверх композиции из бандла: бандл кэшируется по содержимому
   const composition = { ...selected, ...job.composition };

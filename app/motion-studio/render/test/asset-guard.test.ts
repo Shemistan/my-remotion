@@ -1,13 +1,23 @@
-import { createServer } from "node:http";
+// Защита Node-загрузок Remotion (asset-guard.ts). Не e2e: идёт в ./check и гоняет
+// настоящих вызывающих downloadAsset из @remotion/renderer — listener /proxy
+// (offthread-video-server) и downloadAndMapAssetsToFileUrl (звук renderMedia), — чтобы
+// смена внутренностей Remotion не оставила защиту молча снятой.
+import { type Server, createServer, get } from "node:http";
 import { createRequire } from "node:module";
 import { type AddressInfo } from "node:net";
 import { dirname, join } from "node:path";
-import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { type AssetPolicy, assetBlockReason, blockingOnDownload, installAssetGuard } from "../src/node/asset-guard.ts";
+import {
+  type AssetPolicy,
+  PINNED_RENDERER,
+  assertPinnedRenderer,
+  assetBlockReason,
+  blockingOnDownload,
+  installAssetGuard,
+} from "../src/node/asset-guard.ts";
 import { makeTmp, removeTmp } from "./helpers.js";
 
-const policy: AssetPolicy = { bundlePort: 3123, roots: ["/data/ms/cache/bundles/k", "/data/ms"] };
+const policy: AssetPolicy = { bundlePort: 3123 };
 const blocked = (src: string) => assetBlockReason(src, policy) !== null;
 
 describe("assetBlockReason", () => {
@@ -16,9 +26,7 @@ describe("assetBlockReason", () => {
     "http://127.0.0.1:3123/static-abc/clip.mp4",
     "data:image/png;base64,AAAA",
     "same-as-asset-1-0",
-    "file:///data/ms/media/a.mp4",
-    "/data/ms/media/a.mp4",
-    "/data/ms/cache/bundles/k/static/a.mp3",
+    "same-as-audio-0.123-15",
   ])("пропускает %s", (src) => expect(assetBlockReason(src, policy)).toBeNull());
 
   it.each([
@@ -34,10 +42,12 @@ describe("assetBlockReason", () => {
     "http://localhost:3123/proxy?src=http%3A%2F%2F127.0.0.1%3A8790%2F",
     "http://localhost:3123/%70roxy?src=x",
     "ftp://localhost:3123/x",
-    "file:///etc/passwd",
-    "file:///data/ms/../../etc/passwd",
-    "/etc/passwd",
-    "/data/msx/a.mp4",
+    // путей на диске политика не пропускает (Phase 4/5 — media origin)
+    "file:///data/ms/media/a.mp4",
+    "/data/ms/media/a.mp4",
+    "same-as-../../etc/passwd-1",
+    "same-as-a/b-1",
+    "same-as-x",
     "relative/a.png",
     "",
   ])("блокирует %s", (src) => expect(blocked(src)).toBe(true));
@@ -49,72 +59,130 @@ describe("blockingOnDownload", () => {
     expect(() => h("http://127.0.0.1:8790/x")).toThrow(/ассет заблокирован/);
     expect(h("http://localhost:3123/static/a.png")).toBeUndefined();
   });
+  it("сообщает об отказе в onBlocked", () => {
+    const seen: string[] = [];
+    expect(() => blockingOnDownload(policy, (m) => seen.push(m))("http://127.0.0.1:8790/x")).toThrow();
+    expect(seen).toEqual([expect.stringMatching(/ассет заблокирован \(адрес вне сервера бандла\): http:\/\/127\.0\.0\.1:8790\/x/)]);
+  });
 });
 
-describe("installAssetGuard", () => {
-  let uninstall: (() => void) | undefined;
-  const cleanups: (() => Promise<void>)[] = [];
+describe("версия Remotion", () => {
+  it("только закреплённая", () => {
+    expect(() => assertPinnedRenderer(PINNED_RENDERER)).not.toThrow();
+    expect(() => assertPinnedRenderer("4.0.538")).toThrow(/4\.0\.538 вместо 4\.0\.537/);
+    expect(() => assertPinnedRenderer(undefined)).toThrow();
+  });
+  it("установленная совпадает с закреплённой", () => {
+    const require = createRequire(import.meta.url);
+    expect((require("@remotion/renderer/package.json") as { version: string }).version).toBe(PINNED_RENDERER);
+  });
+  it("media origin пока отвергается", () => {
+    expect(() => installAssetGuard({ bundlePort: 1, media: { origin: "http://127.0.0.1:2", tokens: new Set() } })).toThrow(/Phase 4\/5/);
+  });
+});
+
+// --- настоящие вызывающие downloadAsset ---
+
+const require = createRequire(import.meta.url);
+const DIST = dirname(require.resolve("@remotion/renderer"));
+type Listener = (req: unknown, res: unknown) => void;
+const ovs = require(join(DIST, "offthread-video-server.js")) as {
+  startOffthreadVideoServer: (o: object) => { listener: Listener; close: () => Promise<void> };
+};
+const dl = require(join(DIST, "assets", "download-and-map-assets-to-file.js")) as {
+  downloadAndMapAssetsToFileUrl: (o: object) => Promise<{ src: string }>;
+};
+const { RenderInternals } = require("@remotion/renderer") as { RenderInternals: { makeDownloadMap: () => unknown } };
+
+async function listen(handler: (req: unknown, res: { end: (s?: string) => void }) => void): Promise<{ server: Server; port: number }> {
+  const server = createServer(handler as never);
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+  return { server, port: (server.address() as AddressInfo).port };
+}
+const close = (s: Server) => new Promise((r) => s.close(r));
+
+describe("installAssetGuard на настоящих вызывающих", () => {
+  const cleanups: (() => unknown)[] = [];
   afterEach(async () => {
-    uninstall?.();
-    uninstall = undefined;
-    for (const c of cleanups.splice(0)) await c();
+    for (const c of cleanups.splice(0).reverse()) await c();
   });
 
-  it("downloadAsset Remotion отказывает без запроса в сеть; разрешённое качает", async () => {
+  /** downloadMap Remotion с временными файлами в tmp/ репозитория, не в системном TMPDIR. */
+  async function downloadMap(): Promise<unknown> {
+    const tmp = await makeTmp();
+    cleanups.push(() => removeTmp(tmp));
+    const prev = process.env.TMPDIR;
+    process.env.TMPDIR = tmp;
+    try {
+      return RenderInternals.makeDownloadMap();
+    } finally {
+      if (prev === undefined) delete process.env.TMPDIR;
+      else process.env.TMPDIR = prev;
+    }
+  }
+
+  /** «Control API»: считает запросы. */
+  async function service(): Promise<{ port: number; hits: () => number }> {
     let hits = 0;
-    const server = createServer((_req, res) => {
+    const { server, port } = await listen((_req, res) => {
       hits++;
-      res.setHeader("content-type", "text/plain");
       res.end("ok");
     });
-    await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
-    const port = (server.address() as AddressInfo).port;
-    try {
-      uninstall = installAssetGuard({ bundlePort: port, roots: [] });
-      const require = createRequire(import.meta.url);
-      const mod = require(join(dirname(require.resolve("@remotion/renderer")), "assets", "download-and-map-assets-to-file.js")) as {
-        downloadAsset: (o: object) => Promise<string>;
-      };
-      const { RenderInternals } = require("@remotion/renderer") as { RenderInternals: { makeDownloadMap: () => unknown } };
-      // временные файлы Remotion — в tmp/ репозитория, не в системный TMPDIR
-      const tmp = await makeTmp();
-      cleanups.push(() => removeTmp(tmp));
-      const prevTmp = process.env.TMPDIR;
-      process.env.TMPDIR = tmp;
-      const downloadMap = RenderInternals.makeDownloadMap();
-      if (prevTmp === undefined) delete process.env.TMPDIR;
-      else process.env.TMPDIR = prevTmp;
-      const call = (src: string) =>
-        mod.downloadAsset({ src, downloadMap, indent: false, logLevel: "error", binariesDirectory: null, shouldAnalyzeAudioImmediately: false });
-      // другой порт того же хоста — как Control API
-      const other = createServer((_req, res) => {
-        hits++;
-        res.end("ok");
-      });
-      await new Promise<void>((r) => other.listen(0, "127.0.0.1", () => r()));
-      const otherPort = (other.address() as AddressInfo).port;
-      try {
-        await expect(call(`http://127.0.0.1:${otherPort}/x.txt`)).rejects.toThrow(/ассет заблокирован/);
-        await expect(call(`http://127.0.0.1:${port}/proxy?src=x`)).rejects.toThrow(/ассет заблокирован/);
-        expect(hits).toBe(0);
-        // сервер бандла (тот же порт) — разрешён
-        const to = await call(`http://127.0.0.1:${port}/static/a.txt`);
-        expect(to).toMatch(/\.txt$/);
-        expect(hits).toBe(1);
-      } finally {
-        await new Promise((r) => other.close(r));
-      }
-    } finally {
-      await new Promise((r) => server.close(r));
-    }
+    cleanups.push(() => close(server));
+    return { port, hits: () => hits };
+  }
+
+  const audioArgs = (src: string, map: unknown) => ({
+    renderAsset: { type: "audio", src, id: "a", frame: 0, volume: 1, mediaFrame: 0, playbackRate: 1, toneFrequency: 1, audioStartFrame: 0, audioStreamIndex: 0 },
+    onDownload: () => undefined,
+    downloadMap: map,
+    logLevel: "error",
+    indent: false,
+    binariesDirectory: null,
+    cancelSignalForAudioAnalysis: undefined,
+    shouldAnalyzeAudioImmediately: false,
   });
 
-  it("путь к модулю совпадает с тем, что грузит index Remotion (один экземпляр)", () => {
-    const require = createRequire(import.meta.url);
-    const index = require.resolve("@remotion/renderer");
-    require(index);
-    const path = join(dirname(index), "assets", "download-and-map-assets-to-file.js");
-    expect(Object.keys(require.cache)).toContain(path);
-    expect(pathToFileURL(path).href).toMatch(/download-and-map-assets-to-file\.js$/);
+  it("downloadAndMapAssetsToFileUrl (звук renderMedia): без защиты качает, с защитой — ноль запросов", async () => {
+    const svc = await service();
+    const map = await downloadMap();
+    const src = `http://127.0.0.1:${svc.port}/a.mp3`;
+    // контроль: путь действительно ведёт в сеть
+    await dl.downloadAndMapAssetsToFileUrl(audioArgs(src, map));
+    expect(svc.hits()).toBe(1);
+
+    cleanups.push(installAssetGuard({ bundlePort: 1 }));
+    await expect(dl.downloadAndMapAssetsToFileUrl(audioArgs(`${src}?2`, map))).rejects.toThrow(/ассет заблокирован/);
+    expect(svc.hits()).toBe(1);
+  });
+
+  it("listener /proxy сервера бандла: 500 с меткой защиты, ноль запросов к сервису", async () => {
+    const svc = await service();
+    const off = ovs.startOffthreadVideoServer({
+      downloadMap: await downloadMap(),
+      offthreadVideoThreads: 1,
+      logLevel: "error",
+      indent: false,
+      offthreadVideoCacheSizeInBytes: null,
+      binariesDirectory: null,
+    });
+    cleanups.push(() => off.close());
+    const front = await listen(off.listener as never);
+    cleanups.push(() => close(front.server));
+    const seen: string[] = [];
+    cleanups.push(installAssetGuard({ bundlePort: front.port }, (m) => seen.push(m)));
+
+    const src = encodeURIComponent(`http://127.0.0.1:${svc.port}/x`);
+    const { status, body } = await new Promise<{ status: number; body: string }>((resolve, reject) => {
+      get(`http://127.0.0.1:${front.port}/proxy?src=${src}&time=0&transparent=false&toneMapped=true`, (res) => {
+        let body = "";
+        res.on("data", (d: Buffer) => (body += d.toString()));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, body }));
+      }).on("error", reject);
+    });
+    expect(status).toBe(500);
+    expect(body).toMatch(/ассет заблокирован/);
+    expect(svc.hits()).toBe(0);
+    expect(seen).toHaveLength(1);
   });
 });
