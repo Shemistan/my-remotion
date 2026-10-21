@@ -92,6 +92,17 @@ export function agreement(rows: readonly { id: string; judge: number; ref: numbe
   return { n: rows.length, mae: mae(judge, ref), spearman: spearman(judge, ref), bias: mean(judge.map((j, i) => j - ref[i]!)), worst };
 }
 
+export type Split = "train" | "holdout";
+
+/**
+ * Согласие отдельно по частям калибровки: по train настраивается рубрика (in-sample,
+ * оптимистично), holdout — проверка. Меньше двух сцен в части — null.
+ */
+export function agreementBySplit(rows: readonly { id: string; split: Split; judge: number; ref: number }[]): Record<Split | "all", Agreement | null> {
+  const of = (rs: readonly { id: string; judge: number; ref: number }[]) => (rs.length >= 2 ? agreement(rs) : null);
+  return { train: of(rows.filter((r) => r.split === "train")), holdout: of(rows.filter((r) => r.split === "holdout")), all: of(rows) };
+}
+
 /**
  * Пары версий одной сцены (R1 → R2): судья прав, если знак разницы совпал с дизайнером.
  * Равенство у судьи — не угадал (он не отличил версии).

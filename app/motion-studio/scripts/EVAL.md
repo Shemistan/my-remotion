@@ -9,7 +9,10 @@
 - `server/src/eval/judge.ts` — вход судьи (листы и кадры из превью) и вызов через
   `ClaudeCodeRuntime` (роль со зрением, только `Read` в каталоге входа).
 - `server/src/eval/metrics.ts` — MAE, Spearman, порядок R1→R2, медиана прогонов, кадровые числа.
-- `server/src/eval/reference.ts` — 12 оценок дизайнера (R1 и R2) и якоря шкалы.
+- `server/src/eval/reference.ts` — 12 оценок дизайнера (R1 и R2), якоря шкалы, разбиение
+  train/holdout.
+- `server/src/eval/provenance.ts` — хеши промптов и отпечаток судьи (рубрика + якоря).
+- `server/src/eval/compare.ts` — сравнение двух прогонов «до/после» по правилу приёмки.
 
 ## Набор
 
@@ -31,13 +34,21 @@ $N npx tsx scripts/eval-set.mts --run <id>             # продолжить п
 $N npx tsx scripts/eval-set.mts --run <id> --no-judge  # только генерация
 $N npx tsx scripts/eval-set.mts --run <id> --judge-only            # судья по готовым превью
 $N npx tsx scripts/eval-set.mts --run <id> --judge-only --rejudge  # судья заново (новая рубрика)
+$N npx tsx scripts/eval-set.mts --run <id> --judge-only --no-judge # только пересобрать отчёт
 $N npx tsx scripts/eval-set.mts --only test1,eval-oauth            # часть набора
-$N npx tsx scripts/eval-set.mts --calibrate --run calib-<n>        # проверка судьи на 12 оценках R1/R2
+$N npx tsx scripts/eval-set.mts --calibrate --run calib-<n>        # судья на оценках train
+$N npx tsx scripts/eval-set.mts --calibrate --split holdout        # проверка на holdout
+$N npx tsx scripts/eval-set.mts --run <после> --compare <до>       # дельты и вердикт «до/после»
 ```
 
 Флаги: `--runs N` — прогонов судьи на сцену (3, итог — медиана), `--parallel N` — задач
-генерации одновременно (3), `--judge-parallel N` (6), `--judge-model M` (`opus`),
-`--write-evidence` — копия `scores.{json,md}` в `docs/evidence/phase-1/eval/<run>/`.
+генерации одновременно (3), `--judge-parallel N` (6), `--judge-model M` (`opus`), `--gen-timeout-min N` — общий
+таймаут задачи генерации (60; по истечении задача отменяется, сцена пишется в `gen-failed.json`),
+`--write-evidence` — копия `scores.{json,md}`, `run.json` и по сценам `gen.json` и
+`judge-runs/` в `docs/evidence/phase-1/eval/<run>/` (ответы судьи holdout не копируются).
+
+Сцены генерируются в отдельном проекте хранилища `eval-<run>`: в playground они не попадают,
+а подсказки против повторов (последние spec проекта) не тянутся из прошлых прогонов.
 
 Генерация держит owner lock хранилища (сервер в это время не запустить). Судья работает в
 своём хранилище `$MS_DATA_DIR/eval` (журналы вызовов — `eval/logs/`), поэтому калибровку
@@ -45,14 +56,20 @@ $N npx tsx scripts/eval-set.mts --calibrate --run calib-<n>        # прове�
 
 ## Что лежит в `tmp/eval/<run>/`
 
-- `run.json` — коммит, режим, судья, список сцен.
-- `<scene>/gen.json` — итог задачи: статус, стоимость, время; `preview.mp4`, `spec.json`,
+- `run.json` — коммит создания, режим, судья, список сцен; пишется один раз, каждый
+  следующий запуск (`--judge-only`, `--rejudge`, продолжение) дописывает себя в `invocations`.
+- `<scene>/gen.json` — итог задачи: статус, стоимость, время и происхождение: `commit`
+  (`-dirty` — с незакоммиченными правками приложения), `motion_kit_version`,
+  `motion_kit_sha256` (из манифеста версии), `prompts_sha256` (sha256 каждого
+  `prompts/**/*.md` на момент постановки задачи); `prior_attempts` — прежние неудачные
+  попытки сцены, их стоимость входит в итог; `preview.mp4`, `spec.json`,
   `qa.json`, `manifest.json`, `Scene.tsx` из версии (у неопубликованной — из версии `failed`).
   Нет превью — `gen-failed.json`, повторный запуск сгенерирует сцену заново.
 - `<scene>/judge/` — вход судьи: `brief.json`, `sheets/sheet-{a,b,c,d}.png` (раскладка
   motion-review-2: 0…48 / 60…120 / 125…150 / 155…179), `frames/<n>.png`.
-- `<scene>/judge-runs/<k>.json` — ответ k-го прогона с кадрами-доказательствами;
-  `<k>.failed.json` — неудачный вызов (повтор запуска его переделает).
+- `<scene>/judge-runs/<k>.json` — ответ k-го прогона с кадрами-доказательствами, коммит
+  и отпечаток судьи `judge: {rubric_sha256, anchors_sha256}`; `<k>.failed-<n>.json` —
+  неудачный вызов (повтор запуска его переделает; стоимость входит в итог).
 - `<scene>/metrics.json` — содержимое кадров 0 и 4, движение в удержании, доля кадров с
   пустой третью.
 - `scores.json`, `scores.md` — таблица по сценам и критериям, среднее (всё, настроенные,
@@ -60,12 +77,34 @@ $N npx tsx scripts/eval-set.mts --calibrate --run calib-<n>        # прове�
 
 Возобновление: готовые `gen.json` и `judge-runs/<k>.json` не переделываются.
 
+## Один судья на прогон
+
+Отпечаток судьи — sha256 `prompts/rubric-judge.md` и якорей шкалы из `reference.ts`.
+Оценки разных отпечатков не смешиваются: если рубрика или якоря изменились, а в прогоне уже
+есть ответы прежнего судьи, скрипт откажется до первого вызова — перезапусти с `--rejudge`.
+Отчёт тоже не собирается из ответов разных судей. `--compare` откажется, если у любой
+стороны нет хешей или они различаются: перезапусти судью одной из сторон с `--rejudge`.
+
 ## Правило приёмки изменения качества
 
-Изменение промптов, kit или пайплайна идёт с прогоном до и после. Отклоняется, если
+Изменение промптов, kit или пайплайна идёт с прогоном до и после (`--compare`; код выхода 1
+— отклонить). Отклоняется, если
 среднее судьи упало больше чем на 0.15 или любая сцена — больше чем на 1.0. Разброс судьи
 между прогонами ~0.5 на сцену, поэтому сравнивай средние набора, а сдвиг одной сцены на 0.5
 считай шумом.
 
-После каждого ревью дизайнера добавь его оценки в `server/src/eval/reference.ts` и
-перепроверь калибровку (`--calibrate`). MAE > 0.8 — перекалибруй судью, прежде чем ему верить.
+## Калибровка: train и holdout
+
+Оценки дизайнера разбиты по сценам (`split` в `reference.ts`): holdout — gen-cache (пара
+R1→R2), held-mobile, held-queue; остальное — train. Правила рубрики пишутся только по
+промахам на train (`--calibrate`, по умолчанию train); согласие на train — in-sample и
+оптимистично. Holdout (`--split holdout`) — проверка: отчёт печатает его согласие отдельно и
+не показывает дефекты судьи по holdout, его промахи рубрику не правят. Рубрика v1–v4 писалась
+до разбиения и видела все 12 оценок (`HOLDOUT_SEEN_BY_RUBRIC`), поэтому и нынешний holdout
+оптимистичен. Каждый отчёт калибровки несёт хеш рубрики и якорей.
+
+После каждого ревью дизайнера добавь его оценки в `reference.ts` со `split: "holdout"` и
+проверь судью на holdout до любых правок рубрики. Чтобы holdout стал чистым, прежние 4
+оценки holdout переведи в train и сними `HOLDOUT_SEEN_BY_RUBRIC`. MAE > 0.8
+— перекалибруй судью (по train), прежде чем ему верить. Новые якоря меняют отпечаток судьи:
+прогоны до и после правки `reference.ts` сравниваются только после `--rejudge`.
