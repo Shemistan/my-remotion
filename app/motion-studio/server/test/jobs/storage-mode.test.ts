@@ -135,8 +135,8 @@ it("H2: slow/failing volume probe (diskutil under load) does not take a live sto
   });
   runner!.start();
   sup!.start();
-  await new Promise((r) => setTimeout(r, 40 * 30));
-  expect(n).toBeGreaterThan(10);
+  // по числу проверок, а не по времени: под нагрузкой тики редеют
+  await until(() => n >= 15, "15 проверок сторожа", 15_000);
   expect(sup!.mode()).toBe("online");
   expect(runner!.isPaused()).toBe(false);
 });
