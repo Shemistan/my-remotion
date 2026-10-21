@@ -2,9 +2,9 @@
 // без LLM: пустой кадр, застывшая анимация, обрезка, открытый край сцены, safe area,
 // контраст, сеть.
 import type { MotionSpec, QAIssue, Settings } from "@ms/contracts";
-import { type RenderResult, type ResolvedStyle, contrastRatio, safeRect } from "@ms/render";
+import { type Rect, type RenderResult, type ResolvedStyle, contrastRatio, safeRect } from "@ms/render";
 import { accentBeat, blankCheckFrom, inBeat, isEmphasisRole } from "../pipeline/qa-frames.js";
-import { EDGES, type Edge, type Img, INK_THRESHOLD, backgroundEstimate, edgeBackground, edgeClip, loadPng, lumaStats, objectDelta } from "./image.js";
+import { EDGES, type Edge, type Img, INK_THRESHOLD, backgroundEstimate, downsample, edgeBackground, edgeClip, loadPng, lumaStats, objectDelta } from "./image.js";
 
 export interface ProgrammaticInput {
   frames: { frame: number; path: string }[];
@@ -23,12 +23,16 @@ export interface ProgrammaticInput {
 /** Однотонный кадр: std яркости Y' ниже. */
 export const BLANK_STD = 0.01;
 /**
- * Финальный акцент застыл: средняя |ΔY'| региона акцента между N−20 и N−1 ниже. Калибровка
- * Fix C по 5 реальным сценам (перерендер N−20/N−1): дрейф фона (зерно, аврора, частицы)
- * даёт неподвижным регионам 0.005–0.0068, живые акценты — 0.0088–0.053. Порог между ними:
- * ниже него регион меняется не больше, чем просто фон.
+ * Финальный акцент застыл (тайловая мера, `accentTileStats`): самый живой тайл региона
+ * акцента меняется между N−20 и N−1 меньше max(ACCENT_TILE_ABS, ACCENT_TILE_K × p95 тайлов
+ * фона). Калибровка — Fix G (отчёт Task 17).
  */
-export const ACCENT_ALIVE_DELTA = 0.0075;
+export const ACCENT_TILE_ABS = 0.01;
+export const ACCENT_TILE_K = 2;
+/** Ширина, до которой уменьшаются кадры тайловой меры. */
+const TILE_WIDTH = 960;
+/** Тайл — 1/TILE_ROWS высоты кадра. */
+const TILE_ROWS = 16;
 /** Кадр отступа от конца для проверки «акцент жив». */
 export const ACCENT_HOLD_GAP = 20;
 /** Кадры совпадают: изменение объектов ниже. */
@@ -194,7 +198,10 @@ function exposedIssues(img: Img, frame: number): Issue[] {
 /**
  * Финальный акцент жив (ТЗ: в конце — успокоение, но не стоп-кадр): элементы акцента (роль
  * emphasis/accent/акцент, иначе элементы бита акцента) с layout, видимые на последнем
- * кадре; средняя |ΔY'| их региона между N−20 и N−1 ниже порога у всех — warning.
+ * кадре. Мера тайловая (`accentTileStats`): максимум по тайлам региона акцента против p95
+ * тайлов фона вне раскладок; живой акцент меньше региона (точка «сейчас» на Timeline) не
+ * разбавляется неподвижной частью региона, а дрейф фона сцены задаёт планку. Ниже —
+ * warning.
  */
 function accentAliveIssues(spec: MotionSpec, settings: Settings, [fa, a]: [number, Img], [fb, b]: [number, Img]): Issue[] {
   if (a.width !== b.width || a.height !== b.height) return [];
@@ -205,35 +212,66 @@ function accentAliveIssues(spec: MotionSpec, settings: Settings, [fa, a]: [numbe
   if (visible.length === 0) return [];
   // layout — доли safe area; в px кадра — через safeRect, как в kit и specChecks
   const safe = safeRect({ width: a.width, height: a.height, safe_area: settings.safe_area });
-  const deltas = visible.map((e) => {
-    const l = e.layout!;
-    const x0 = Math.max(0, Math.floor(safe.x + l.x * safe.w));
-    const y0 = Math.max(0, Math.floor(safe.y + l.y * safe.h));
-    const x1 = Math.min(a.width, Math.ceil(safe.x + (l.x + l.w) * safe.w));
-    const y1 = Math.min(a.height, Math.ceil(safe.y + (l.y + l.h) * safe.h));
-    return { id: e.id, d: regionLumaDelta(a, b, x0, y0, x1, y1) };
-  });
-  if (deltas.some((x) => x.d >= ACCENT_ALIVE_DELTA)) return [];
+  const px = (l: NonNullable<MotionSpec["elements"][number]["layout"]>): Rect => ({ x: safe.x + l.x * safe.w, y: safe.y + l.y * safe.h, w: l.w * safe.w, h: l.h * safe.h });
+  const layouts = spec.elements.filter((e) => e.layout && e.kind !== "group" && e.layout.w * e.layout.h < 0.9).map((e) => px(e.layout!));
+  const t = accentTileStats(a, b, visible.map((e) => px(e.layout!)), layouts);
+  const bar = Math.max(ACCENT_TILE_ABS, ACCENT_TILE_K * t.baseline);
+  if (t.accent >= bar) return [];
+  const ids = visible.map((e) => e.id).join(", ");
   return [{
-    code: "accent_static", severity: "warning", frame: fb, area: visible.map((e) => e.id).join(", "),
-    description: `финальный акцент застыл: регион ${visible.map((e) => e.id).join(", ")} на кадрах ${fa} и ${fb} почти не меняется (|ΔY'| ${Math.max(...deltas.map((x) => x.d)).toFixed(4)} < ${ACCENT_ALIVE_DELTA})`,
+    code: "accent_static", severity: "warning", frame: fb, area: ids,
+    description: `финальный акцент застыл: самый живой тайл региона ${ids} между кадрами ${fa} и ${fb} меняется на |ΔY'| ${t.accent.toFixed(4)} — ниже планки ${bar.toFixed(4)} (max(${ACCENT_TILE_ABS}, ${ACCENT_TILE_K} × фон ${t.baseline.toFixed(4)}))`,
     fix_hint: "финальное состояние живёт до последнего кадра: дыхание свечения, пульс или блик на акценте — движение, подтверждающее итог",
   }];
 }
 
-/** Средняя |ΔY'| пикселей прямоугольника [x0, x1) × [y0, y1) двух кадров, 0..1. */
-function regionLumaDelta(a: Img, b: Img, x0: number, y0: number, x1: number, y1: number): number {
+/**
+ * Тайловая мера «акцент жив» по паре кадров. Кадры уменьшаются до ~960 px (1080p QA-кадры
+ * и фикстуры 960×540 — одна шкала, зерно усредняется), тайл — 1/16 высоты; значение
+ * тайла — средняя |ΔY'| его пикселей. `accent` — максимум по тайлам регионов акцента,
+ * `baseline` — p95 тайлов кадра, не задевающих ни одну раскладку (фон сцены: аврора,
+ * частицы, зерно); тайлов фона меньше 8 — baseline 0.
+ */
+export function accentTileStats(a: Img, b: Img, accent: Rect[], layouts: Rect[]): { accent: number; baseline: number } {
+  const k = Math.max(1, Math.round(a.width / TILE_WIDTH));
+  const A = downsample(a, k);
+  const B = downsample(b, k);
+  const { width: w, height: h } = A;
   const luma = (d: Uint8Array, i: number) => ((0.2126 * d[i]! + 0.7152 * d[i + 1]! + 0.0722 * d[i + 2]!) / 255) * (d[i + 3]! / 255);
-  let sum = 0;
-  let n = 0;
-  for (let y = y0; y < y1; y++) {
-    for (let x = x0; x < x1; x++) {
-      const i = (y * a.width + x) * 4;
-      sum += Math.abs(luma(a.data, i) - luma(b.data, i));
-      n++;
+  const diff = new Float32Array(w * h);
+  for (let p = 0; p < w * h; p++) diff[p] = Math.abs(luma(A.data, p * 4) - luma(B.data, p * 4));
+  const t = Math.max(2, Math.round(h / TILE_ROWS));
+  const mean = (x0: number, y0: number, x1: number, y1: number) => {
+    let sum = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) sum += diff[y * w + x]!;
+    return sum / ((x1 - x0) * (y1 - y0));
+  };
+  const scaled = (r: Rect) => ({
+    x0: Math.max(0, Math.floor(r.x / k)), y0: Math.max(0, Math.floor(r.y / k)),
+    x1: Math.min(w, Math.ceil((r.x + r.w) / k)), y1: Math.min(h, Math.ceil((r.y + r.h) / k)),
+  });
+  let best = 0;
+  for (const r of accent.map(scaled)) {
+    for (let y = r.y0; y < r.y1; y += t) {
+      for (let x = r.x0; x < r.x1; x += t) {
+        const [x1, y1] = [Math.min(r.x1, x + t), Math.min(r.y1, y + t)];
+        // обрезок у края региона меньше четверти тайла — шум, не тайл
+        if ((x1 - x) * (y1 - y) * 4 < t * t && (r.x1 - r.x0) * (r.y1 - r.y0) * 4 >= t * t) continue;
+        best = Math.max(best, mean(x, y, x1, y1));
+      }
     }
   }
-  return n > 0 ? sum / n : 0;
+  const boxes = layouts.map(scaled);
+  const bg: number[] = [];
+  for (let y = 0; y + t <= h; y += t) {
+    for (let x = 0; x + t <= w; x += t) {
+      if (boxes.some((r) => x < r.x1 && x + t > r.x0 && y < r.y1 && y + t > r.y0)) continue;
+      bg.push(mean(x, y, x + t, y + t));
+    }
+  }
+  bg.sort((p, q) => p - q);
+  const baseline = bg.length >= 8 ? bg[Math.ceil(bg.length * 0.95) - 1]! : 0;
+  return { accent: best, baseline };
 }
 
 /**

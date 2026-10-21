@@ -72,3 +72,30 @@ describe("кадры среза (Test 1, Test 2) с их spec — без blockin
     expect(uncoveredElements(sp, selectQaFrames(sp))).toEqual([]);
   });
 });
+
+// fixtures/accent-hold/<версия>/{160,179}.png — кадры N−20 и N−1 перерендера версий на kit 0.3
+// (1920×1080 → 960×540, ffmpeg area), spec.json — spec версии. r3-gen-cache — прогон 3 Fix D:
+// Emphasis под непрозрачной карточкой узла, финал застыл. r4-* — прогон 4: живые финалы
+// (gen-timeline — крупный регион Timeline с дышащей точкой «сейчас»; gen-cache — наименьший
+// запас над фоном из пяти сцен).
+describe("accent_static на реальных кадрах удержания (Fix G)", () => {
+  const HOLD = fileURLToPath(new URL("../fixtures/accent-hold/", import.meta.url));
+  const settings: Settings = { ...defaultSettings(), width: 960, height: 540, safe_area: { x: 0.05, y: 0.05 } };
+  const run = async (n: string) => {
+    const sp = MotionSpecSchema.parse(JSON.parse(readFileSync(`${HOLD}${n}/spec.json`, "utf8")));
+    const at = (f: number) => ({ frame: f, path: `${HOLD}${n}/${f}.png` });
+    const r = await programmaticChecks({
+      frames: [at(179)], spec: sp, settings, style: resolveStyle({ preset: "dark-premium", intensity: "balanced" }),
+      render: renderResult(), previewBytes: 1000, accentFrames: [at(160), at(179)],
+    });
+    return r.filter((i) => i.code === "accent_static");
+  };
+
+  it("r3-gen-cache: акцент под непрозрачной карточкой — accent_static warning", async () => {
+    expect(await run("r3-gen-cache")).toEqual([expect.objectContaining({ severity: "warning", frame: 179 })]);
+  });
+
+  it.each(["r4-gen-timeline", "r4-gen-cache"])("%s: живой финал — без accent_static", async (n) => {
+    expect(await run(n)).toEqual([]);
+  });
+});

@@ -206,8 +206,30 @@ describe("крупные объекты у края", () => {
       expect(find(await run(card(), outside), "accent_static")).toHaveLength(1);
     });
 
-    it("изменение уровня дрейфа фона (|ΔY'| ≈ 0.005, калибровка Fix C) — акцент всё ещё застыл", async () => {
+    it("изменение уровня дрейфа фона (|ΔY'| ≈ 0.007 < планки 0.01) — акцент всё ещё застыл", async () => {
       expect(find(await run(card(), card(0, "#e2e2e2")), "accent_static")).toHaveLength(1);
+    });
+
+    it("тайловая мера: живая точка в крупном регионе (Timeline на пол-кадра) не разбавляется неподвижной частью", async () => {
+      // регион акцента — 0.9 × 0.66 safe area; дышит только точка 6×6 px
+      const big = spec({
+        beats: [beat("b0", 0, 60, ["title"]), beat("b1", 60, 90, ["tl"], "final-emphasis"), beat("b2", 90, 120, ["tl", "title"], "hold")],
+        elements: [el("title", { layout: { x: 0, y: 0, w: 0.4, h: 0.1 } }), el("tl", { kind: "shape", role: "акцент: шкала", layout: { x: 0.05, y: 0.25, w: 0.9, h: 0.66 } })],
+      });
+      const frame = (dot: string) => new Canvas().rect(30, 60, 130, 2, "#8b91a5").rect(140, 58, 6, 6, dot);
+      expect(find(await run(frame("#6a5cd0"), frame("#b8acff"), big), "accent_static")).toEqual([]);
+      expect(find(await run(frame("#6a5cd0"), frame("#6a5cd0"), big), "accent_static")).toHaveLength(1);
+    });
+
+    it("планка — от фона сцены: акцент меняется не сильнее дрейфа фона вне раскладок (×2) — застыл", async () => {
+      // фон вне раскладок мерцает на |ΔY'| ≈ 0.047 (частицы, аврора), акцент — на ≈ 0.043
+      const drift = (bg: string, badge: string) => {
+        const c = new Canvas(W, H, bg);
+        return c.rect(70, 40, 50, 28, badge);
+      };
+      expect(find(await run(drift("#101010", "#e0e0e0"), drift("#1c1c1c", "#ebebeb")), "accent_static")).toHaveLength(1);
+      // тот же фон, акцент дышит заметно сильнее фона — жив
+      expect(find(await run(drift("#101010", "#c0c0c0"), drift("#1c1c1c", "#ffffff")), "accent_static")).toEqual([]);
     });
 
     it("регион — через safeRect (поле 0.05 × 192 → 10 px, не 9.6): столбец 9 вне региона", async () => {
