@@ -101,23 +101,31 @@ describe("accent_static на реальных кадрах удержания (F
 });
 
 // Кадр удержания N−1 пяти сцен прогона 4 (их смотрел ревьюер, motion-review-1) и среза.
+// Сцены прогона 4 — fixtures/empty-region/<сцена>/{179.png,spec.json,settings.json}: копия
+// docs/evidence/phase-1/pipeline на d35c69f^ (evidence перезаписывают новые прогоны —
+// регрессия не должна от них зависеть). Срез — docs/evidence/phase-1/slice.
 describe("empty_region на реальных кадрах удержания (Fix G)", () => {
-  const EV = fileURLToPath(new URL("../../../../../docs/evidence/phase-1/", import.meta.url));
+  const ER = fileURLToPath(new URL("../fixtures/empty-region/", import.meta.url));
+  const load = (dir: string) =>
+    dir.startsWith("slice/")
+      ? { base: `${SLICE}${dir.slice(6)}`, frame: "frames/179.png", settings: JSON.parse(readFileSync(`${SLICE}${dir.slice(6)}/manifest.json`, "utf8")).settings }
+      : { base: `${ER}${dir}`, frame: "179.png", settings: JSON.parse(readFileSync(`${ER}${dir}/settings.json`, "utf8")) };
   const run = async (dir: string) => {
-    const sp = MotionSpecSchema.parse(JSON.parse(readFileSync(`${EV}${dir}/spec.json`, "utf8")));
-    const settings = SettingsSchema.parse(JSON.parse(readFileSync(`${EV}${dir}/manifest.json`, "utf8")).settings);
+    const { base, frame, settings: raw } = load(dir);
+    const sp = MotionSpecSchema.parse(JSON.parse(readFileSync(`${base}/spec.json`, "utf8")));
+    const settings = SettingsSchema.parse(raw);
     const r = await programmaticChecks({
-      frames: [{ frame: 179, path: `${EV}${dir}/frames/179.png` }], spec: sp, settings,
+      frames: [{ frame: 179, path: `${base}/${frame}` }], spec: sp, settings,
       style: resolveStyle({ preset: settings.style_preset, intensity: settings.animation_intensity }), render: renderResult(), previewBytes: 1000,
     });
     return r.filter((i) => i.code === "empty_region");
   };
 
-  it.each([["pipeline/test1", "middle"], ["pipeline/gen-compare", "top-right"]])("%s: пустой регион по ревью (%s) — warning", async (dir, area) => {
+  it.each([["test1", "middle"], ["gen-compare", "top-right"]])("%s: пустой регион по ревью (%s) — warning", async (dir, area) => {
     expect(await run(dir)).toEqual([expect.objectContaining({ severity: "warning", frame: 179, area })]);
   });
 
-  it.each(["pipeline/test2", "pipeline/gen-timeline", "pipeline/gen-cache", "slice/test1", "slice/test2"])("%s: без empty_region", async (dir) => {
+  it.each(["test2", "gen-timeline", "gen-cache", "slice/test1", "slice/test2"])("%s: без empty_region", async (dir) => {
     expect(await run(dir)).toEqual([]);
   });
 });
