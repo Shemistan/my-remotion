@@ -6,14 +6,14 @@ import { ensureFonts } from "./fonts.js";
 ensureFonts();
 
 /** Версия API kit (API.md): 0.2 — StyleBible-система, хореография, примитивы паттернов ТЗ §8.4; 0.2.1 — Emphasis/Halo, акцент точки LineChart, входы и вспышки узлов FlowGraph (аддитивно); 0.2.2 — FlowNode.emphasis, AccentPulse.swell (аддитивно); 0.3.0 — кольцо акцента только на ударе по умолчанию, шторка mask с мягкой кромкой 14–18 кадров, FlowNode.size, Background seed/focus/spotlight/blueprint, useArrivalCount, StatusChip, DataToken, LatencyRace, SceneTitle (меняет вид существующих сцен, API — обратно совместим); 0.3.1 — полировка после дизайн-ревью: FlowNode.slot и DataToken в слот, разная грамматика StatusChip / DataToken, LatencyRace от высоты кадра, различимые blueprint / spotlight, свечение Emphasis за текстом, сообщения kit о неверном использовании (аддитивно). */
-export const MOTION_KIT_VERSION = "0.3.1";
+export const MOTION_KIT_VERSION = "0.4.0";
 
 export { ensureFonts, FONT_FILES, KIT_FONT_FAMILIES } from "./fonts.js";
 export { type PresetId, presets } from "./presets.js";
 export { StyleProvider, type StyleSource, toResolved, useStyle } from "./style.js";
 export { type Depth, type PaletteOverrides, type ResolveStyleInput, type ResolvedStyle, resolveStyle } from "./style/resolve.js";
 export { contrastRatio, relativeLuminance } from "./style/contrast.js";
-export { TYPE_LEVELS, type TypeLevel, sizePx } from "./style/type-scale.js";
+export { MIN_TEXT_PX, TYPE_LEVELS, type TypeLevel, floorText, minTextPx, sizePx } from "./style/type-scale.js";
 export { INTENSITY, amplitudeOf } from "./style/intensity.js";
 export { type EnterDirection, type EnterKind, type EnterOptions, MASK_FEATHER, enterStyle } from "./choreo/enter.js";
 export { staggerBeat } from "./choreo/stagger.js";
@@ -26,7 +26,7 @@ export { gridColumns, layoutLayered } from "./choreo/layout.js";
 export { type BeatPhase, type BeatState, type BeatWindow, beatPhase, beatProgress, useBeat } from "./beat.js";
 export { EASE, type EasingFn, type EasingRole, type SpringRole, easingOf, fpsFrames, frames, springAt, springConfig } from "./easing.js";
 export { type FormatOptions, type PluralForms, formatNumber, pluralForm } from "./format.js";
-export { niceTicks } from "./ticks.js";
+export { axisTicks, niceTicks } from "./ticks.js";
 export { barLayout } from "./bars.js";
 export { type CodeFragment, type CodeLang, type CodeToken, type TokenKind, caretLine, codeLines, tokenizeCode, typedTokens } from "./code-tokens.js";
 export { timelineLayout } from "./timeline-layout.js";

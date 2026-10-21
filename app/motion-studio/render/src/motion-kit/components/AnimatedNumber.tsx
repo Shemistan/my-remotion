@@ -8,7 +8,7 @@ import { EASE, frames, springAt } from "../easing.js";
 import { type PluralForms, formatNumber, pluralForm } from "../format.js";
 import { CLAMP, clamp01, ramp } from "../internal.js";
 import { useStyle } from "../style.js";
-import { type TypeLevel, sizePx } from "../style/type-scale.js";
+import { type TypeLevel, minTextPx, sizePx } from "../style/type-scale.js";
 import { accent, alpha, fontFamily, mix, tracking } from "../tokens.js";
 
 export interface AnimatedNumberProps {
@@ -89,7 +89,8 @@ export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact
   // удар на шаге события (pop) и на финише — сильнейший из двух
   const kick = Math.max(hit, clamp01(pop));
   const glow = alpha(accent(s, 0), 0.55 * kick);
-  const affix: CSSProperties = { fontSize: "0.5em", fontWeight: s.typography.body.weight ?? 500, color: s.palette.muted, letterSpacing: 0 };
+  // подпись и знак — 0.5 кегля числа, не мельче предела kit (minTextPx)
+  const affix: CSSProperties = { fontSize: Math.max(px * 0.5, minTextPx(height)), fontWeight: s.typography.body.weight ?? 500, color: s.palette.muted, letterSpacing: 0 };
 
   return (
     <div

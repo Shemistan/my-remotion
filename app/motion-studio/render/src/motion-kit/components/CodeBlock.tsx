@@ -12,6 +12,7 @@ import { typeRhythm } from "../choreo/rhythm.js";
 import { type CodeLang, type TokenKind, caretLine as caretLineOf, codeLines, tokenizeCode, typedTokens } from "../code-tokens.js";
 import { easingOf, frames, springAt } from "../easing.js";
 import { ramp } from "../internal.js";
+import { floorText } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
 import type { ResolvedStyle } from "../style/resolve.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, surfaceAt, tracking } from "../tokens.js";
@@ -88,7 +89,7 @@ function windows(beat: Pick<Beat, "start_frame" | "end_frame">) {
 export function CodeBlock({ code, lang, beat, highlightLines = [], title, width = 1100, fontSize = 30, style }: CodeBlockProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height: frameH } = useVideoConfig();
   const dark = isDark(s);
   const m = codeMetrics(fontSize);
   const w = windows(beat);
@@ -152,7 +153,7 @@ export function CodeBlock({ code, lang, beat, highlightLines = [], title, width 
               background: surfaceAt(s, 3),
               boxShadow: `inset 0 -2px 0 ${accent(s, 0)}`,
               fontFamily: mono,
-              fontSize: Math.round(fontSize * 0.62),
+              fontSize: floorText(Math.round(fontSize * 0.62), frameH),
               color: s.palette.muted,
               letterSpacing: `${tracking(s, "mono")}em`,
             }}

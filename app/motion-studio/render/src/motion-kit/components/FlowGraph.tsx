@@ -12,7 +12,7 @@ import { EASE, frames, springAt } from "../easing.js";
 import { type CubicSegment, type Point, cubicPoint, edgeSegment, lutLength, pathD, pathLUT } from "../geometry.js";
 import { CLAMP, clamp01, kitWarn } from "../internal.js";
 import { amplitudeOf } from "../style/intensity.js";
-import { typeSize } from "../style/type-scale.js";
+import { minTextPx, typeSize } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
 import { type Elevation, accent, alpha, fontFamily, isDark, mix, radius, space } from "../tokens.js";
 import { type CardEnter, cardEnterStyle, cardSurface } from "./Card.js";
@@ -190,14 +190,15 @@ const dotOf = (label: number) => Math.max(10, Math.min(20, Math.round(label * 0.
  * Кегли узлов графа (чистая функция): подпись, пояснение, маркер. Внутри группы одного
  * `size` — общий кегль: самый крупный, при котором каждая подпись группы влезает в свой
  * узел без многоточия (оценка ширины 0.57 em на символ), но не крупнее уровня группы
- * (`h2` — не меньше 1.3 × body, `body`, `caption`) и не меньше 16 px (caption — 14).
- * Пояснение под подписью — caption шкалы, не крупнее 0.8 подписи (у h2 — 0.6).
+ * (`h2` — не меньше 1.3 × body, `body`, `caption`) и не меньше `minTextPx` (22 px при 1080).
+ * Пояснение под подписью — caption шкалы, не крупнее 0.8 подписи (у h2 — 0.6), не мельче предела.
  */
 export function flowLabelSizes(nodes: Pick<FlowNode, "id" | "label" | "w" | "size">[], s: StyleBible, frameH: number): Map<string, { label: number; caption: number; dot: number }> {
   const padX = space(s, 0.5);
   const body = typeSize(s, "body", frameH);
   const cap = { h2: Math.max(typeSize(s, "h2", frameH), Math.ceil(body * 1.3)), body, caption: typeSize(s, "caption", frameH) };
-  const floor = { h2: 16, body: 16, caption: 14 };
+  const min = minTextPx(frameH);
+  const floor = { h2: min, body: min, caption: min };
   const out = new Map<string, { label: number; caption: number; dot: number }>();
   for (const level of ["h2", "body", "caption"] as const) {
     const group = nodes.filter((n) => (n.size ?? "body") === level);
@@ -205,7 +206,7 @@ export function flowLabelSizes(nodes: Pick<FlowNode, "id" | "label" | "w" | "siz
     // ширина под текст: поля, маркер (по кеглю уровня) и зазор
     const fit = group.map((n) => (n.w - 2 * padX - dotOf(cap[level]) - padX * 0.75) / (Math.max(1, Array.from(n.label).length) * 0.57));
     const label = Math.max(floor[level], Math.floor(Math.min(cap[level], ...fit)));
-    const caption = Math.min(Math.round(typeSize(s, "caption", frameH) * (level === "h2" ? 1.15 : 1)), Math.round(label * (level === "h2" ? 0.6 : 0.8)));
+    const caption = Math.max(min, Math.min(Math.round(typeSize(s, "caption", frameH) * (level === "h2" ? 1.15 : 1)), Math.round(label * (level === "h2" ? 0.6 : 0.8))));
     for (const n of group) out.set(n.id, { label, caption, dot: dotOf(label) });
   }
   return out;

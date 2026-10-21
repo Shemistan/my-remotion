@@ -8,7 +8,7 @@ import { barLayout } from "../bars.js";
 import { EASE, easingOf, frames, springAt } from "../easing.js";
 import { clamp01, ramp, useSvgId } from "../internal.js";
 import { useStyle } from "../style.js";
-import { niceTicks } from "../ticks.js";
+import { axisTicks } from "../ticks.js";
 import { typeSize } from "../style/type-scale.js";
 import { accent, alpha, fontFamily, isDark, mix } from "../tokens.js";
 import { AnimatedNumber } from "./AnimatedNumber.js";
@@ -69,7 +69,7 @@ export function BarChart({
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
   const values = bars.map((b) => b.value);
-  const ticks = niceTicks(0, Math.max(...values, 1), yTicks);
+  const ticks = axisTicks(0, Math.max(...values, 1), yTicks);
   const yMax = ticks.at(-1)!;
   const toY = (v: number) => pad.top + innerH - (v / (yMax || 1)) * innerH;
   const rects = barLayout(values, { x: pad.left, y: pad.top, w: innerW, h: innerH }, gapRatio, { max: yMax });

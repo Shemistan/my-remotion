@@ -8,7 +8,7 @@ import type { Beat } from "@ms/contracts";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import { EASE, easingOf, frames, springAt } from "../easing.js";
 import { clamp01, drawDash, ramp, useSvgId } from "../internal.js";
-import { typeSize } from "../style/type-scale.js";
+import { floorText, typeSize } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, shadow, surfaceAt, tracking } from "../tokens.js";
 
@@ -45,8 +45,8 @@ export function ProcessSteps({ steps, notes = [], beat, connector, width = 1690,
   const R = Math.round(Math.min(slot * 0.2, frameH * 0.072));
   const cy = R + 34;
   const cx = (i: number) => slot * (i + 0.5);
-  const labelPx = Math.round(Math.min(typeSize(s, "h2", frameH) * 0.8, slot * 0.12));
-  const notePx = Math.round(Math.min(typeSize(s, "caption", frameH), slot * 0.085));
+  const labelPx = floorText(Math.round(Math.min(typeSize(s, "h2", frameH) * 0.8, slot * 0.12)), frameH);
+  const notePx = floorText(Math.round(Math.min(typeSize(s, "caption", frameH), slot * 0.085)), frameH);
   const cardTop = cy + R + 40;
   const cardGap = Math.round(slot * 0.07);
   const enterEase = easingOf(s, "enter");

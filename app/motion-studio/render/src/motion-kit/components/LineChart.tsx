@@ -17,8 +17,8 @@ import { useStyle } from "../style.js";
 import { lineDrawWindow } from "../line-window.js";
 import { type AccentPulse, accentPulse } from "../choreo/accent.js";
 import { HALO_FALLOFF } from "./Emphasis.js";
-import { niceTicks } from "../ticks.js";
-import { TYPE_LEVELS, typeSize } from "../style/type-scale.js";
+import { axisTicks } from "../ticks.js";
+import { TYPE_LEVELS, floorText, typeSize } from "../style/type-scale.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, surfaceAt, shadow } from "../tokens.js";
 
 export interface LineChartProps {
@@ -55,7 +55,7 @@ export interface LineChartProps {
 
 /** Поля области построения графика внутри width × height (подписи осей — в полях). */
 /** Кегль подписей осей графиков: уровень caption шкалы кадра (32 px при 1080). */
-export const chartFont = (frameHeight: number) => Math.round(frameHeight * TYPE_LEVELS.caption);
+export const chartFont = (frameHeight: number) => floorText(Math.round(frameHeight * TYPE_LEVELS.caption), frameHeight);
 
 /** Поля области построения внутри width × height под подписи осей кеглем chartFont. */
 export function chartPad(frameHeight: number) {
@@ -73,7 +73,7 @@ export function chartGeometry(points: { value: number }[], width: number, height
   const innerW = width - PAD.left - PAD.right;
   const innerH = height - PAD.top - PAD.bottom;
   const values = points.map((p) => p.value);
-  const ticks = niceTicks(Math.min(0, ...values), Math.max(...values, 1), yTicks);
+  const ticks = axisTicks(Math.min(0, ...values), Math.max(...values, 1), yTicks);
   const y0 = ticks[0]!;
   const y1 = ticks.at(-1)!;
   const toY = (v: number) => PAD.top + innerH - ((v - y0) / (y1 - y0 || 1)) * innerH;
