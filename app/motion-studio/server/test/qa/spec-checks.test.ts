@@ -146,10 +146,10 @@ describe("accent_conflict: два акцента в один момент", () =
     expect(conflict(two(100))).toBeUndefined();
   });
 
-  it("реальные spec прогона 3: test2 и gen-cache — конфликт, остальные — нет", () => {
-    const at = (n: string) => MotionSpecSchema.parse(JSON.parse(readFileSync(fileURLToPath(new URL(`../../../../../docs/evidence/phase-1/pipeline/${n}/spec.json`, import.meta.url)), "utf8")));
-    const st = (n: string) => SettingsSchema.parse(JSON.parse(readFileSync(fileURLToPath(new URL(`../../../../../docs/evidence/phase-1/pipeline/${n}/manifest.json`, import.meta.url)), "utf8")).settings);
-    const has = (n: string) => specChecks(at(n), st(n)).some((i) => i.code === "accent_conflict");
+  it("реальные spec прогона 3 (Fix C, до проверки): test2 и gen-cache — конфликт, остальные — нет", () => {
+    const dir = (f: string) => fileURLToPath(new URL(`../fixtures/specs-run3/${f}`, import.meta.url));
+    const st = SettingsSchema.parse(JSON.parse(readFileSync(dir("settings.json"), "utf8")));
+    const has = (n: string) => specChecks(MotionSpecSchema.parse(JSON.parse(readFileSync(dir(`${n}.spec.json`), "utf8"))), st).some((i) => i.code === "accent_conflict");
     expect(has("test2")).toBe(true);
     expect(has("gen-cache")).toBe(true);
     for (const n of ["test1", "gen-compare", "gen-timeline"]) expect(has(n), n).toBe(false);
