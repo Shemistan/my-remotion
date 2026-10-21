@@ -1,18 +1,12 @@
 {
-  "title": "Как работает кэширование",
-  "purpose": "Показать цикл кэша: запрос, промах и долгий путь к базе, запись в ячейку, затем попадание и мгновенный ответ коротким путём.",
+  "title": "Кэш: промах, запись, попадание",
+  "purpose": "Показать, что первый запрос идёт к источнику и записывается в кэш, а повторный кэш отдаёт сразу — «Попадание».",
   "duration_frames": 180,
   "fps": {
     "num": 30,
     "den": 1
   },
   "style_preset": "dark-premium",
-  "composition": {
-    "archetype": "network-centric",
-    "idea": "Три узла в линию, кэш в центре и крупнее всех. Взгляд идёт слева направо до базы данных и возвращается, потом на втором запросе путь короткий: клиент → кэш → клиент. Фон — aurora dark-premium с редкими пылинками Particles слоя 0.",
-    "focus": "Фокус на кэше, его ведут вспышки и смена слова над ним. Камера стоит, свет и масштаб ведут взгляд.",
-    "transitions": "Слово над кэшем меняется на месте: Запрос → Промах → Запись → Попадание. Ячейка из «пусто» становится «user:42». На втором запросе база данных гаснет."
-  },
   "elements": [
     {
       "id": "title",
@@ -24,393 +18,358 @@
         "text": "Как работает кэширование",
         "size": "h2",
         "align": "center",
-        "component": "Enter mask (direction bottom)",
-        "color": "text"
+        "component": "Enter kind=mask"
       },
       "layout": {
-        "x": 0.25,
-        "y": 0.02,
-        "w": 0.5,
-        "h": 0.1
+        "x": 0.2,
+        "y": 0,
+        "w": 0.6,
+        "h": 0.09
       }
     },
     {
-      "id": "status-label",
-      "kind": "text",
-      "role": "контекст: состояние кэша, меняется на месте",
-      "entrance": "pop",
-      "depth_layer": 1,
-      "content": {
-        "component": "Enter (смена слов на месте через exit)",
-        "size": "h1",
-        "align": "center",
-        "states": [
-          {
-            "text": "Запрос",
-            "from_frame": 40,
-            "to_frame": 56,
-            "color": "muted",
-            "enter": "type"
-          },
-          {
-            "text": "Промах",
-            "from_frame": 56,
-            "to_frame": 92,
-            "color": "negative",
-            "enter": "pop"
-          },
-          {
-            "text": "Запись",
-            "from_frame": 94,
-            "to_frame": 122,
-            "color": "accent[2]",
-            "enter": "rise"
-          },
-          {
-            "text": "Попадание",
-            "from_frame": 126,
-            "to_frame": 180,
-            "color": "positive",
-            "enter": "pop"
-          }
-        ],
-        "note": "каждое предыдущее слово уходит exit fade за exit_frames=14 до входа следующего; в кадре всегда одно слово, перекрытия нет"
-      },
-      "layout": {
-        "x": 0.33,
-        "y": 0.18,
-        "w": 0.34,
-        "h": 0.12
-      }
-    },
-    {
-      "id": "cache-flow",
+      "id": "cache-graph",
       "kind": "graph",
-      "role": "структура: клиент → кэш → база данных",
+      "role": "схема: клиент → кэш → источник",
       "entrance": "draw",
       "depth_layer": 1,
       "content": {
         "component": "FlowGraph + PulseAlongPath",
-        "enter": "flip",
         "nodes": [
           "node-client",
           "node-cache",
-          "node-db"
+          "node-source"
         ],
         "edges": [
           {
-            "id": "e-req",
+            "id": "e-client-cache",
             "from": "node-client",
             "to": "node-cache"
           },
           {
-            "id": "e-db",
+            "id": "e-cache-source",
             "from": "node-cache",
-            "to": "node-db"
+            "to": "node-source"
           }
         ],
-        "travel": 16,
         "flows": [
           {
-            "edge": "e-req",
+            "edge": "e-client-cache",
             "direction": "forward",
-            "beat": "request-1",
-            "color": "accent[0]"
+            "beat": "b-miss-request"
           },
           {
-            "edge": "e-db",
+            "edge": "e-cache-source",
             "direction": "forward",
-            "beat": "miss-to-db",
-            "color": "accent[0]"
+            "beat": "b-miss-forward"
           },
           {
-            "edge": "e-db",
+            "edge": "e-cache-source",
             "direction": "back",
-            "beat": "db-return-write",
-            "color": "accent[2]"
+            "beat": "b-write"
           },
           {
-            "edge": "e-req",
+            "edge": "e-client-cache",
             "direction": "back",
-            "beat": "answer-1",
-            "color": "accent[2]"
+            "beat": "b-miss-response"
           },
           {
-            "edge": "e-req",
+            "edge": "e-client-cache",
             "direction": "forward",
-            "beat": "request-2",
-            "color": "accent[0]"
+            "beat": "b-hit-request"
           },
           {
-            "edge": "e-req",
+            "edge": "e-client-cache",
             "direction": "back",
-            "beat": "hit-return",
-            "color": "accent[1]"
+            "beat": "b-hit-response"
           }
         ],
-        "pulse_params": {
-          "count": 1,
+        "pulse": {
+          "travel": 12,
           "repeat": false,
-          "tail": 120,
-          "size": 7
-        }
+          "count": 1
+        },
+        "pulse_colors": {
+          "forward": "accent[1]",
+          "back": "accent[2]"
+        },
+        "dim_after_hit": "ребро e-cache-source и узел node-source с кадра 96 приглушаются до 0.4 непрозрачности (путь к источнику не нужен)",
+        "node_layout_px_note": "узлы — внутри области графа; координаты по layout узлов относительно графа"
       },
       "layout": {
         "x": 0,
-        "y": 0.34,
+        "y": 0.2,
         "w": 1,
-        "h": 0.48
+        "h": 0.42
       }
     },
     {
       "id": "node-client",
       "kind": "card",
-      "role": "node: клиент — источник запроса",
+      "role": "node: клиент",
       "entrance": "slide",
       "depth_layer": 1,
       "content": {
         "label": "Клиент",
-        "caption": "GET user:42",
         "enter": "slide",
-        "enterAt": 10,
         "elevation": 2,
         "size": "body"
       },
       "layout": {
         "x": 0.02,
-        "y": 0.5,
+        "y": 0.33,
         "w": 0.2,
-        "h": 0.18
+        "h": 0.17
       }
     },
     {
       "id": "node-cache",
       "kind": "card",
-      "role": "акцент: ячейка кэша — герой кадра",
+      "role": "node: кэш — центральный узел",
       "entrance": "pop",
       "depth_layer": 1,
       "content": {
         "label": "Кэш",
-        "size": "h2",
-        "elevation": 3,
+        "caption": "ключ → значение",
         "enter": "pop",
-        "enterAt": 16,
-        "accentIndex": 0,
-        "slot": {
-          "empty_text": "пусто",
-          "filled_text": "user:42",
-          "fill_at_frame": 94,
-          "note": "внутри узла — ячейка-строка caption/body: до кадра 94 пунктир и приглушённое «пусто», в кадр прихода обратного импульса по e-db содержимое меняется на «user:42» (rise внутри ячейки, кромка accent[2])"
-        },
-        "flash_on": [
-          "e-req@request-1",
-          "e-db@db-return-write",
-          "e-req@request-2"
-        ],
-        "flash_note": "flash: pulseArrival для трёх импульсов (repeat:false, travel 16): промах 56, запись 94, попадание 126",
-        "final_emphasis": {
-          "component": "Emphasis",
-          "shape": "rounded",
-          "loop": true,
-          "accentIndex": 1
-        }
+        "elevation": 3,
+        "size": "h2",
+        "flash_on": "e-cache-source",
+        "flash_beat": "b-write",
+        "flash_note": "вспышка только по приходу обратного импульса записи (b-write, pulseArrival с reverse); на импульсах b-hit-request и b-hit-response flash нет"
       },
       "layout": {
         "x": 0.38,
-        "y": 0.42,
+        "y": 0.29,
         "w": 0.24,
-        "h": 0.34
+        "h": 0.25
       }
     },
     {
-      "id": "node-db",
+      "id": "node-source",
       "kind": "card",
-      "role": "node: база данных — медленный источник",
+      "role": "node: источник данных",
       "entrance": "blur",
       "depth_layer": 1,
       "content": {
-        "label": "База данных",
+        "label": "Источник",
         "caption": "медленно",
         "enter": "blur",
-        "enterAt": 24,
         "elevation": 1,
         "size": "body"
       },
       "layout": {
-        "x": 0.76,
-        "y": 0.5,
-        "w": 0.22,
-        "h": 0.18
+        "x": 0.78,
+        "y": 0.33,
+        "w": 0.2,
+        "h": 0.17
       }
     },
     {
-      "id": "path-summary",
+      "id": "status-miss",
       "kind": "text",
-      "role": "подпись: вывод сравнения путей",
-      "entrance": "blur",
-      "depth_layer": 1,
+      "role": "статус: промах",
+      "entrance": "pop",
+      "depth_layer": 2,
       "content": {
-        "component": "KineticText enter=fade mode=words",
-        "text": "Промах — долгий путь · Попадание — сразу",
+        "text": "Промах",
         "size": "body",
-        "align": "center",
-        "color": "muted",
-        "highlight": [
-          "сразу"
-        ]
+        "color": "negative",
+        "component": "Enter kind=pop, плашка-пилюля surface, без Emphasis",
+        "dim_from_frame": 96
       },
       "layout": {
-        "x": 0.15,
-        "y": 0.86,
-        "w": 0.7,
-        "h": 0.09
+        "x": 0.62,
+        "y": 0.12,
+        "w": 0.17,
+        "h": 0.07
+      }
+    },
+    {
+      "id": "status-write",
+      "kind": "text",
+      "role": "статус: запись в кэш",
+      "entrance": "rise",
+      "depth_layer": 2,
+      "content": {
+        "text": "Запись",
+        "size": "body",
+        "color": "text",
+        "component": "Enter kind=rise, плашка-пилюля surface, без Emphasis",
+        "dim_from_frame": 96
+      },
+      "layout": {
+        "x": 0.62,
+        "y": 0.65,
+        "w": 0.17,
+        "h": 0.07
+      }
+    },
+    {
+      "id": "status-hit",
+      "kind": "text",
+      "role": "акцент: герой — попадание",
+      "entrance": "scale",
+      "depth_layer": 2,
+      "content": {
+        "text": "Попадание",
+        "size": "display",
+        "align": "center",
+        "component": "Enter kind=scale + Emphasis (beat b-hit-emphasis, loop: true, accentIndex 0, shape pill, ring true)"
+      },
+      "layout": {
+        "x": 0.25,
+        "y": 0.76,
+        "w": 0.5,
+        "h": 0.16
       }
     }
   ],
   "beats": [
     {
-      "id": "title-in",
+      "id": "b-title-in",
       "start_frame": 0,
       "end_frame": 36,
       "action": "title-in",
-      "description": "Заголовок открывается шторкой снизу (1.5 × enter_frames = 36). Фон aurora проявляется 0–40.",
+      "description": "Заголовок «Как работает кэширование» открывается шторкой снизу (mask, 1.5×enter_frames).",
       "element_ids": [
         "title"
       ]
     },
     {
-      "id": "graph-in",
-      "start_frame": 10,
-      "end_frame": 48,
+      "id": "b-graph-in",
+      "start_frame": 4,
+      "end_frame": 40,
       "action": "graph-entrance",
-      "description": "Узлы входят с разными видами: Клиент slide (enterAt 10), Кэш pop (16) — самый крупный, с пустой ячейкой «пусто», База данных blur (24). Рёбра e-req и e-db прорисовываются со стрелками, когда оба конца на месте.",
+      "description": "Узлы входят слева направо разными входами: Клиент slide, Кэш pop (самый крупный, elevation 3), Источник blur; рёбра прорисовываются со стрелками, когда оба конца на месте.",
       "element_ids": [
-        "cache-flow",
+        "cache-graph",
         "node-client",
         "node-cache",
-        "node-db"
+        "node-source"
       ]
     },
     {
-      "id": "request-1",
+      "id": "b-miss-request",
       "start_frame": 40,
-      "end_frame": 56,
-      "action": "request-pulse-in",
-      "description": "Над кэшем печатается «Запрос» (type, muted). Импульс accent[0] идёт по e-req от клиента к кэшу (travel 16, repeat false).",
+      "end_frame": 52,
+      "action": "miss-request-flow",
+      "description": "Запрос: бирюзовый импульс (accent[1]) идёт по e-client-cache к кэшу, travel 12, repeat false. Вспышки узла нет — кэш пуст.",
       "element_ids": [
-        "cache-flow",
-        "status-label"
+        "cache-graph"
       ]
     },
     {
-      "id": "miss-emphasis",
-      "start_frame": 56,
-      "end_frame": 70,
-      "action": "miss-emphasis",
-      "description": "Импульс упирается в пустую ячейку: узел Кэш вспыхивает (flash по приходу e-req), слово меняется на «Промах» цветом negative с pop. Ячейка остаётся пустой.",
+      "id": "b-miss-in",
+      "start_frame": 50,
+      "end_frame": 74,
+      "action": "status-miss-in",
+      "description": "Над правым ребром выскакивает плашка «Промах» цветом negative (pop) — без свечения, это не акцент.",
       "element_ids": [
-        "node-cache",
-        "status-label"
+        "status-miss"
       ]
     },
     {
-      "id": "miss-to-db",
-      "start_frame": 60,
-      "end_frame": 76,
-      "action": "miss-forward-pulse",
-      "description": "Запрос идёт дальше: импульс accent[0] по e-db от кэша к базе данных — длинный путь.",
+      "id": "b-miss-forward",
+      "start_frame": 54,
+      "end_frame": 66,
+      "action": "miss-forward-flow",
+      "description": "Запрос идёт дальше: бирюзовый импульс по e-cache-source к источнику; вспышки у источника нет.",
       "element_ids": [
-        "cache-flow",
-        "node-db"
+        "cache-graph"
       ]
     },
     {
-      "id": "db-return-write",
-      "start_frame": 78,
-      "end_frame": 94,
-      "action": "write-pulse-back",
-      "description": "Ответ возвращается: импульс accent[2] reverse по e-db к кэшу. В кадр прихода (94) узел Кэш вспыхивает, ячейка заполняется «user:42», слово — «Запись» (rise, accent[2]).",
+      "id": "b-write",
+      "start_frame": 66,
+      "end_frame": 80,
+      "action": "write-flow-emphasis",
+      "description": "Ответ источника — янтарный импульс (accent[2]) reverse по e-cache-source. В кадр прихода (pulseArrival('e-cache-source', b-write, 12, {repeat:false})) node-cache вспыхивает: ячейка записана. Это единственная вспышка узла в сцене, гаснет примерно к кадру 104.",
       "element_ids": [
-        "cache-flow",
-        "node-cache",
-        "status-label"
-      ]
-    },
-    {
-      "id": "answer-1",
-      "start_frame": 96,
-      "end_frame": 112,
-      "action": "answer-pulse-back",
-      "description": "Данные уходят клиенту: импульс accent[2] reverse по e-req. Первый круг завершён, «Запись» держится.",
-      "element_ids": [
-        "cache-flow"
-      ]
-    },
-    {
-      "id": "request-2",
-      "start_frame": 112,
-      "end_frame": 126,
-      "action": "request-2-pulse-in",
-      "description": "Тот же запрос второй раз: импульс accent[0] по e-req к кэшу. Ребро e-db и База данных приглушаются до 45 % — путь туда не нужен.",
-      "element_ids": [
-        "cache-flow",
-        "node-db"
-      ]
-    },
-    {
-      "id": "hit-emphasis",
-      "start_frame": 126,
-      "end_frame": 140,
-      "action": "hit-emphasis",
-      "description": "Импульс упирается в заполненную ячейку: вспышка узла Кэш, слово «Попадание» positive с pop — вывод сцены, держится до конца (54 кадра).",
-      "element_ids": [
-        "node-cache",
-        "status-label"
-      ]
-    },
-    {
-      "id": "hit-return",
-      "start_frame": 128,
-      "end_frame": 142,
-      "action": "hit-return-pulse",
-      "description": "Ответ сразу возвращается коротким путём: импульс accent[1] reverse по e-req к клиенту — контраст с долгим путём промаха.",
-      "element_ids": [
-        "cache-flow"
-      ]
-    },
-    {
-      "id": "summary-in",
-      "start_frame": 130,
-      "end_frame": 152,
-      "action": "summary-entrance",
-      "description": "Внизу проявляется по словам вывод «Промах — долгий путь · Попадание — сразу» (fade, muted, «сразу» подсвечено).",
-      "element_ids": [
-        "path-summary"
-      ]
-    },
-    {
-      "id": "final-emphasis",
-      "start_frame": 144,
-      "end_frame": 156,
-      "action": "final-emphasis",
-      "description": "Emphasis на узле Кэш (shape rounded, accentIndex 1, loop true): удар и дыхание заполненной ячейки «user:42» — герой.",
-      "element_ids": [
+        "cache-graph",
         "node-cache"
       ]
     },
     {
-      "id": "hold",
-      "start_frame": 156,
+      "id": "b-write-in",
+      "start_frame": 76,
+      "end_frame": 100,
+      "action": "status-write-in",
+      "description": "Под правым ребром поднимается плашка «Запись» (rise), без свечения.",
+      "element_ids": [
+        "status-write"
+      ]
+    },
+    {
+      "id": "b-miss-response",
+      "start_frame": 80,
+      "end_frame": 92,
+      "action": "miss-response-flow",
+      "description": "Данные возвращаются клиенту: янтарный импульс reverse по e-client-cache; вспышки у клиента нет.",
+      "element_ids": [
+        "cache-graph"
+      ]
+    },
+    {
+      "id": "b-hit-request",
+      "start_frame": 96,
+      "end_frame": 106,
+      "action": "hit-request-flow",
+      "description": "Второй запрос того же ключа: бирюзовый импульс по e-client-cache доходит до кэша (без flash у node-cache). «Промах» и «Запись» плавно приглушаются до 0.45, путь к источнику (e-cache-source, node-source) тускнеет до 0.4.",
+      "element_ids": [
+        "cache-graph",
+        "status-miss",
+        "status-write"
+      ]
+    },
+    {
+      "id": "b-hit-response",
+      "start_frame": 106,
+      "end_frame": 116,
+      "action": "hit-response-flow",
+      "description": "Кэш сразу отвечает: короткий янтарный импульс reverse по e-client-cache к клиенту, без вспышек узлов (flash у node-client нет): приход отмечает сам status-hit.",
+      "element_ids": [
+        "cache-graph"
+      ]
+    },
+    {
+      "id": "b-hit-in",
+      "start_frame": 112,
+      "end_frame": 136,
+      "action": "status-hit-entrance",
+      "description": "Под кэшем из глубины встаёт «Попадание» (scale, display) — самый крупный элемент кадра.",
+      "element_ids": [
+        "status-hit"
+      ]
+    },
+    {
+      "id": "b-hit-emphasis",
+      "start_frame": 120,
+      "end_frame": 153,
+      "action": "final-emphasis",
+      "description": "Акцент на «Попадание»: удар цветом accent[0] в кадре 120 (вспышка кэша после записи к этому моменту уже погасла, flash у узлов на импульсах попадания нет), затем дыхание с loop: true. Других светящихся объектов в кадре нет.",
+      "element_ids": [
+        "status-hit"
+      ]
+    },
+    {
+      "id": "b-hold",
+      "start_frame": 153,
       "end_frame": 180,
       "action": "hold",
-      "description": "Новых входов и импульсов нет: процесс завершён. Живёт результат — заполненная ячейка Кэша дышит (Emphasis loop, свечение и масштаб ±1.8 %), «Попадание» стоит, База данных приглушена и неподвижна. Фон aurora медленно дрейфует. Дыхание ячейки подтверждает: данные уже в кэше.",
+      "description": "Новых входов и импульсов нет: процесс завершён. «Попадание» дышит (ореол и масштаб ±1.8 %, кольцо на вдох), поэтому кадры N−20 и N−1 различаются. Путь к источнику и плашки промаха и записи стоят приглушёнными: так видно, что источник не понадобился.",
       "element_ids": [
-        "node-cache",
-        "status-label",
-        "path-summary",
-        "cache-flow"
+        "status-hit",
+        "cache-graph",
+        "status-miss",
+        "status-write"
       ]
     }
   ],
-  "camera": []
+  "composition": {
+    "archetype": "network-centric",
+    "idea": "Цепочка Клиент — Кэш — Источник, в центре крупный узел кэша. Взгляд идёт за импульсами слева направо и обратно, а после второго запроса падает вниз, на крупное «Попадание» под кэшем. Фон — aurora пресета и редкие частицы слоя 0.",
+    "focus": "Сначала заголовок, затем импульс промаха уходит к источнику, ответ возвращается, и кэш вспыхивает (запись). Финальный фокус — «Попадание» под кэшем. Камера стоит, фокус ведут свет и масштаб.",
+    "transitions": "Состояние «пустой кэш» сменяется на «кэш записан» в момент вспышки узла. На втором запросе путь к источнику и плашки промаха и записи тускнеют. «Попадание» встаёт из глубины, принимает акцент и держит его до конца."
+  }
 }

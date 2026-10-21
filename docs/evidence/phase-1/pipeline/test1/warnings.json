@@ -1,7 +1,6 @@
 {
   "warnings": [
-    "spec: бит b-count 33–106 → 33–107: счётчик hero-number идёт за головой chart (бит b-chart)",
-    "spec: бит b-number-in 14–38 → 9–33: вход hero-number кончается, когда голова chart трогается"
+    "spec: бит b-number-in 8–32 → 3–27: вход hero-number кончается, когда голова growth-chart трогается"
   ],
   "permission_denials": []
 }

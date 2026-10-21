@@ -1,46 +1,54 @@
 {
-  "run_id": "job_01M5EZPF15Z9W0TG4RKCY76TMK",
-  "attempt": 1,
-  "cost_usd": 1.5209169,
+  "run_id": "job_01M5F191KJN463PJ38GCTSCRX1",
+  "attempt": 2,
+  "cost_usd": 1.0083324,
   "engineer_calls": 2,
   "visual_qa": [
     {
       "call": 2,
-      "wall_ms": 25959,
-      "cost_usd": 0.1565361999999999,
+      "wall_ms": 28232,
+      "cost_usd": 0.15934000000000004,
       "status": "completed",
       "gate": {
         "technical": "pass",
-        "visual": "warn",
+        "visual": "pass",
         "semantic": "pass",
         "style": "pass"
       }
     }
   ],
   "timings": {
-    "concept": 11289,
-    "motion_director": 57520,
-    "engineer_1": 183070,
-    "static": 63,
-    "typecheck": 29099,
-    "engineer_2": 28393,
-    "render_2": 36353,
-    "qa_programmatic": 2913,
-    "visual_qa_2": 25979
+    "engineer_1": 140491,
+    "static": 44,
+    "typecheck": 28984,
+    "engineer_2": 29829,
+    "render_2": 21730,
+    "qa_programmatic": 2923,
+    "visual_qa_2": 28254
   },
   "history": [
     {
-      "at": "2026-10-21T10:30:02.097Z",
+      "at": "2026-10-21T10:59:12.257Z",
+      "stage": "concept",
+      "message": "Concept: результат из чекпоинта /Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5F191KJN463PJ38GCTSCRX1/checkpoints/concept.json"
+    },
+    {
+      "at": "2026-10-21T10:59:12.333Z",
+      "stage": "director",
+      "message": "Motion Director: результат из чекпоинта /Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5F191KJN463PJ38GCTSCRX1/checkpoints/motion_director.json"
+    },
+    {
+      "at": "2026-10-21T11:01:47.665Z",
       "stage": "typecheck",
-      "message": "src/Scene.tsx:339 Type 'SceneStyle' is not assignable to type 'StyleSource'.\n  Type 'SceneStyle' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'SceneStyle' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
+      "message": "src/Scene.tsx:349 Type 'SceneStyle' is not assignable to type 'StyleSource'.\n  Type 'SceneStyle' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'SceneStyle' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
     },
     {
-      "at": "2026-10-21T10:31:52.922Z",
+      "at": "2026-10-21T11:03:26.638Z",
       "stage": "qa",
-      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
+      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"pass\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
     },
     {
-      "at": "2026-10-21T10:31:52.962Z",
+      "at": "2026-10-21T11:03:26.668Z",
       "stage": "ready",
       "message": "gate пройден с вызова 2"
     }

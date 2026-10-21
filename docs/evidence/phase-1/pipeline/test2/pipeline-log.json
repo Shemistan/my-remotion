@@ -1,53 +1,47 @@
 {
-  "run_id": "job_01M5EZPF1HVGD9XWXGVBM0KJCC",
+  "run_id": "job_01M5F191M1ANW1PK8NY0J3FR33",
   "attempt": 1,
-  "cost_usd": 1.6982452000000001,
-  "engineer_calls": 2,
+  "cost_usd": 1.4455633999999997,
+  "engineer_calls": 1,
   "visual_qa": [
     {
-      "call": 2,
-      "wall_ms": 22878,
-      "cost_usd": 0.15515030000000007,
+      "call": 1,
+      "wall_ms": 23171,
+      "cost_usd": 0.11844849999999996,
       "status": "completed",
       "gate": {
         "technical": "pass",
-        "visual": "warn",
+        "visual": "pass",
         "semantic": "pass",
-        "style": "pass"
+        "style": "warn"
       }
     }
   ],
   "timings": {
-    "concept": 6093,
-    "motion_director": 134747,
-    "engineer_1": 126452,
-    "static": 58,
-    "typecheck": 30831,
-    "engineer_2": 25448,
-    "render_2": 22779,
-    "qa_programmatic": 3001,
-    "visual_qa_2": 22899
+    "concept": 6099,
+    "motion_director": 137454,
+    "engineer_1": 86098,
+    "static": 45,
+    "typecheck": 14352,
+    "render_1": 19954,
+    "qa_programmatic": 2548,
+    "visual_qa_1": 23193
   },
   "history": [
     {
-      "at": "2026-10-21T10:33:32.040Z",
+      "at": "2026-10-21T11:03:14.577Z",
       "stage": "director",
-      "message": "spec не прошла проверку (раунд 1):\n- accent_conflict (node-orchestrator, agent-graph, node-tool-search, node-tool-kb, node-tool-code): вспышка node-orchestrator (приход импульса бита request-pulse, кадры 59–82) и акцент agent-graph, node-tool-search, node-tool-kb, node-tool-code (бит fan-out-calls, кадры 60–84) светятся одновременно: два акцента в один момент → один акцент в момент: если приход импульса отмечает сам agent-graph, node-tool-search, node-tool-kb, node-tool-code — убери flash_on у node-orchestrator; иначе начни бит fan-out-calls не раньше кадра 82, когда вспышка погаснет"
+      "message": "spec не прошла проверку (раунд 1):\n- accent_conflict (node-orchestrator, node-user): вспышка node-orchestrator (приход импульса бита data-return, кадры 149–172) и акцент node-user (бит final-emphasis, кадры 166–180) светятся одновременно: два акцента в один момент → один акцент в момент: если приход импульса отмечает сам node-user — убери flash_on у node-orchestrator; иначе начни бит final-emphasis не раньше кадра 172, когда вспышка погаснет\n- accent_conflict (node-orchestrator, node-user): вспышка node-orchestrator (приход импульса бита data-return, кадры 149–172) и акцент node-user (бит final-emphasis, кадры 166–180) светятся одновременно: два акцента в один момент → один акцент в момент: если приход импульса отмечает сам node-user — убери flash_on у node-orchestrator; иначе начни бит final-emphasis не раньше кадра 172, когда вспышка погаснет\n- accent_conflict (node-orchestrator, node-user): вспышка node-orchestrator (приход импульса бита data-return, кадры 149–172) и акцент node-user (бит final-emphasis, кадры 166–180) светятся одновременно: два акцента в один момент → один акцент в момент: если приход импульса отмечает сам node-user — убери flash_on у node-orchestrator; иначе начни бит final-emphasis не раньше кадра 172, когда вспышка погаснет"
     },
     {
-      "at": "2026-10-21T10:37:04.818Z",
-      "stage": "typecheck",
-      "message": "src/Scene.tsx:235 Type 'SceneStyle' is not assignable to type 'StyleSource'.\n  Type 'SceneStyle' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'SceneStyle' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
-    },
-    {
-      "at": "2026-10-21T10:38:35.035Z",
+      "at": "2026-10-21T11:06:40.076Z",
       "stage": "qa",
-      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
+      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"pass\",\"semantic\":\"pass\",\"style\":\"warn\"}; blocking: —"
     },
     {
-      "at": "2026-10-21T10:38:35.062Z",
+      "at": "2026-10-21T11:06:40.092Z",
       "stage": "ready",
-      "message": "gate пройден с вызова 2"
+      "message": "gate пройден с вызова 1"
     }
   ]
 }

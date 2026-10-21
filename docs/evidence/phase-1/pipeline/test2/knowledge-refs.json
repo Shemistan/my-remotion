@@ -12,16 +12,23 @@
     ]
   },
   {
-    "kb_id": "xyflow/example-custom-node",
+    "kb_id": "xyflow/react-flow",
     "repository": "xyflow (React Flow)",
     "repository_url": "git@github.com:xyflow/xyflow.git",
     "commit": "654ba5a5e",
-    "license": "MIT (LICENSE)",
+    "license": "MIT (LICENSE, packages/react/package.json)",
     "license_class": "permissive",
     "strategy": "adapt",
     "source_paths": [
-      "templates/infografika/xyflow/examples/react/src/examples/CustomNode/index.tsx",
-      "templates/infografika/xyflow/examples/react/src/examples/CustomNode/ColorSelectorNode.tsx"
+      "templates/infografika/xyflow/packages/react/src/container/ReactFlow/index.tsx",
+      "templates/infografika/xyflow/packages/react/src/types/component-props.ts",
+      "templates/infografika/xyflow/packages/react/src/components/NodeWrapper/index.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/NodeWrapper/useNodeObserver.ts",
+      "templates/infografika/xyflow/packages/react/src/container/NodeRenderer/useResizeObserver.ts",
+      "templates/infografika/xyflow/packages/react/src/hooks/useResizeHandler.ts",
+      "templates/infografika/xyflow/packages/react/src/hooks/useViewportSync.ts",
+      "templates/infografika/xyflow/packages/system/src/utils/edges/positions.ts",
+      "templates/infografika/xyflow/packages/system/src/styles/init.css"
     ]
   }
 ]

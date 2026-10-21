@@ -9,18 +9,18 @@
       },
       {
         "id": "title-in",
-        "start_frame": 6,
-        "end_frame": 42
+        "start_frame": 8,
+        "end_frame": 44
       },
       {
         "id": "timeline-draw",
-        "start_frame": 24,
+        "start_frame": 30,
         "end_frame": 150
       },
       {
         "id": "final-emphasis",
-        "start_frame": 125,
-        "end_frame": 153
+        "start_frame": 126,
+        "end_frame": 150
       },
       {
         "id": "hold",
@@ -41,55 +41,54 @@
   },
   "content": {
     "kicker": {
-      "text": "История компании",
+      "text": "2015 — 2025",
       "layout": {
         "x": 0.05,
-        "y": 0.05,
+        "y": 0.06,
         "w": 0.5,
-        "h": 0.06
+        "h": 0.05
       }
     },
     "title": {
-      "text": "Десять лет: 2015–2025",
+      "text": "Десять лет — пять вех",
       "layout": {
         "x": 0.05,
         "y": 0.12,
-        "w": 0.6,
-        "h": 0.1
+        "w": 0.9,
+        "h": 0.09
       }
     },
     "timeline": {
       "orientation": "h",
       "width": 1555,
-      "height": 620,
+      "height": 600,
       "accentIndex": 0,
-      "highlightLast": true,
       "layout": {
         "x": 0.05,
-        "y": 0.28,
+        "y": 0.3,
         "w": 0.9,
-        "h": 0.64
+        "h": 0.62
       },
       "items": [
         {
           "date": "2015",
           "label": "Основание",
-          "note": "три основателя"
+          "note": "команда из трёх"
         },
         {
           "date": "2017",
           "label": "Первый продукт",
-          "note": "первые клиенты"
+          "note": "запуск MVP"
         },
         {
           "date": "2019",
-          "label": "Выход в регионы",
-          "note": "офисы в 5 городах"
+          "label": "Выход на рынок",
+          "note": "первые клиенты"
         },
         {
           "date": "2022",
-          "label": "Миллион клиентов",
-          "note": "рост ×10"
+          "label": "Выход за рубеж",
+          "note": "новые страны"
         },
         {
           "date": "2025",
@@ -97,6 +96,10 @@
           "note": "сейчас"
         }
       ]
+    },
+    "particles": {
+      "count": 46,
+      "seed": "path-dust"
     },
     "camera": [
       {
@@ -106,13 +109,13 @@
         "y": 0
       },
       {
-        "frame": 110,
+        "frame": 120,
         "scale": 1,
         "x": 0,
         "y": 0
       },
       {
-        "frame": 172,
+        "frame": 179,
         "scale": 1.04,
         "x": 40,
         "y": 0

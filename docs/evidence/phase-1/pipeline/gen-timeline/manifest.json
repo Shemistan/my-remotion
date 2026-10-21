@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5EZXBTS6G631XFZGVTFSBSP",
-  "scene_id": "scn_01M5EZPF0T07J7WB7Q2NAHF0PD",
+  "version_id": "ver_01M5F1FB708Z0CPCB2C7VYE7BC",
+  "scene_id": "scn_01M5F191K727MRR44R1E3C8N3A",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T10:25:34.554Z",
+  "created_at": "2026-10-21T10:52:52.322Z",
   "prompt": "Таймлайн развития компании 2015–2025 с пятью вехами",
   "edit_plan": null,
   "settings": {
@@ -27,56 +27,48 @@
   },
   "files": [
     {
-      "path": "frames/139.png",
-      "sha256": "0585c26bf80d6faa55d500968524d238554e6991ccc6008e978fdfc33d213568"
+      "path": "frames/138.png",
+      "sha256": "6a6c5c5637aac768c9ff41f10b4f28226ee302defde1d90d399a1661e2af5ec8"
     },
     {
-      "path": "frames/152.png",
-      "sha256": "cf606bc4f76a6e2d885088c45aa1e7bf3ceb1fba12b4fed89a83429a367b5693"
+      "path": "frames/149.png",
+      "sha256": "0f6a9f69dba626c425a3e712fad45b72694934591f784fcf00448241d0476459"
     },
     {
       "path": "frames/166.png",
-      "sha256": "370d4477e5859bf60e59cf2c207340612169331bbd3de2a43530e6763591e829"
+      "sha256": "a73f339674ef00a5dc4700443de0079b2edea5b9ccc4a0cf24d6864fbbec29ba"
     },
     {
       "path": "frames/179.png",
-      "sha256": "e579cce3fabab2b09d3cf55d5d4ded0cb110be9c0781f5942b6b34c9594e4c4f"
+      "sha256": "1c7dbe463a8840d9e987a5a954c2f9c9808bfa573f468806b72cfb02e71c85b7"
     },
     {
-      "path": "frames/42.png",
-      "sha256": "a46558131b5db9749752f836f8a0dda7ad31e224598b7adbc4e3b79c12d08316"
+      "path": "frames/44.png",
+      "sha256": "c071e9126076f45a046d9cea17766fa448323ad5fa00dfd548b0bfc1527bb5b0"
     },
     {
-      "path": "frames/87.png",
-      "sha256": "f5b0e0943d876f50d552b417025025ec304e1043ea6693e2f06ecad9354d39c6"
+      "path": "frames/90.png",
+      "sha256": "c98a59678e33188ce78e33d841273322550d30b8cf7ee6e56b896e1ac067b736"
     },
     {
       "path": "knowledge-refs.json",
-      "sha256": "3a06f20d7af6feb71d9e267a064ae489a86040839e36fd8b627a4e483b2ccf8d"
+      "sha256": "2091a0232724cc9cb29028b81b86d73bdf3c6bd419188dcee5325721adc945ed"
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "82e09cc9de0c49c7d34aa354201bf81a032a0133f7784076faf1a6c1d80d40ad"
+      "sha256": "5095dfbd5eb0c00cc0d8516506de9fea98bf1fb4bd888849ed56798ef6211056"
     },
     {
       "path": "preview.mp4",
-      "sha256": "7226d4e64a4d63ea3765ae65becd98a103b05a5e5218d38b272f4b05ad22dea6"
+      "sha256": "ac0487b998e9ca575883d14a4e5c19bbcf732804d9ec90bfa08d94039ce3197a"
     },
     {
       "path": "props.json",
-      "sha256": "b349368e34d8c0b7453503433ff5c9c294b70bd4778fa3b11228575ca89d9e80"
+      "sha256": "5c7f5095ff78a983347d42dcba74fc7fdbc63acaa378d118a6efc77be49a526c"
     },
     {
       "path": "qa.json",
-      "sha256": "43853e8402aed66a5d4ed261f55f85c94ccadf24d4cabcf648b1ab524bf529f5"
-    },
-    {
-      "path": "refs/kb/free-remotion-templates/chapter-title/CARD.md",
-      "sha256": "7f6430f4411d5a70d1f3032f882a03310856486023b6c8f32ef556992d252e18"
-    },
-    {
-      "path": "refs/kb/free-remotion-templates/chapter-title/templates/remotion-components/free-remotion-templates/src/components/chapter-title/ChapterTitle.tsx",
-      "sha256": "8caae393cf07cd043b7521305974504f4d9dab4e8178fffee7c52d780b049ed8"
+      "sha256": "debfeadd1bd6edf802ee5a8bd6b2b9b025a8730225b0b9eef1c1714b0a9ea7bf"
     },
     {
       "path": "refs/kb/motion-primitives-website/svg-path-draw/CARD.md",
@@ -87,8 +79,20 @@
       "sha256": "2e34dc4ac14ec9377193e366217e90d02a46f02d1e0881ffce5a6ccbe0dabd32"
     },
     {
+      "path": "refs/kb/remotion-video-templates/line-chart-draw/CARD.md",
+      "sha256": "6badcb995b7fd4b499d1da0c97d8fd1e76ea4783ca04c4304b00b24ba666227f"
+    },
+    {
+      "path": "refs/kb/remotion-video-templates/line-chart-draw/templates/remotion-components/remotion-video-templates/src/templates/ChartVideo/LineChart.tsx",
+      "sha256": "3241f002e773e293ac1cfa6b62aacd956441a47d2c5da2894669a30d1df1f7e4"
+    },
+    {
+      "path": "refs/kb/remotion-video-templates/line-chart-draw/templates/remotion-components/remotion-video-templates/src/templates/ChartVideo/sample-data.ts",
+      "sha256": "f06e00cdf2306b678fe6bdd0e7736d16574dcdd2289f9a1332d126474a23843b"
+    },
+    {
       "path": "refs/motion-kit/API.md",
-      "sha256": "aef7aee2f882cc13bdcf837d5f3342cab75d7ba9ea4bb3b74e77829d5d3f438f"
+      "sha256": "2842a3bb93d0ef1d634e50307c7cc7d15907c4d275abe64f28966846445c8d63"
     },
     {
       "path": "refs/skills/remotion-markup/SKILL.md",
@@ -116,7 +120,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "838f6eae95d1f991a1ddcdbeef9661e1090143c8852aec230f8d8deb2f49f390"
+      "sha256": "8dad097acbf597ad8258ef0a01eefe0b70d2d6edab7187d0a1af12c7cd440d5c"
     },
     {
       "path": "settings.json",
@@ -124,11 +128,11 @@
     },
     {
       "path": "spec.json",
-      "sha256": "bc334b383f50a266d29bdfae839c44c7726e02fc61a4a1236fbc2ab49fa1662c"
+      "sha256": "4cf6b034fc9711096400920fdbcd1a16408ba2041a2d46ed9119d7c984ecbaff"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "c6d7225c03c8fcbf001c38bdbc2396207f7f6af0d7f5fa48bbc7e5852c290164"
+      "sha256": "08358891221496f1250c7326156b60f7345abb9ec9c087da7e89e65308634a70"
     },
     {
       "path": "style.json",
@@ -142,7 +146,7 @@
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:aa65f750424ab273",
+    "motion_kit": "sha256:3e8d6ee7bf584338",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
@@ -154,18 +158,18 @@
       "strategy": "adapt"
     },
     {
-      "kb_id": "free-remotion-templates/chapter-title",
-      "commit": "f648980",
-      "license": "MIT (package.json, LICENSE, SPDX-заголовок в файле)",
+      "kb_id": "remotion-video-templates/line-chart-draw",
+      "commit": "9014946",
+      "license": "MIT (package.json, LICENSE)",
       "strategy": "adapt"
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5EZPF0YPF4TC4V815WAJYHS/a1-concept-1",
-    "logs/agent-runs/job_01M5EZPF0YPF4TC4V815WAJYHS/a1-motion_director-1",
-    "logs/agent-runs/job_01M5EZPF0YPF4TC4V815WAJYHS/a1-engineer-1",
-    "logs/agent-runs/job_01M5EZPF0YPF4TC4V815WAJYHS/a1-engineer-2",
-    "logs/agent-runs/job_01M5EZPF0YPF4TC4V815WAJYHS/a1-visual_qa-1"
+    "logs/agent-runs/job_01M5F191KBSCVW3ZR4JQG1NHYK/a1-concept-1",
+    "logs/agent-runs/job_01M5F191KBSCVW3ZR4JQG1NHYK/a1-motion_director-1",
+    "logs/agent-runs/job_01M5F191KBSCVW3ZR4JQG1NHYK/a1-engineer-1",
+    "logs/agent-runs/job_01M5F191KBSCVW3ZR4JQG1NHYK/a1-engineer-2",
+    "logs/agent-runs/job_01M5F191KBSCVW3ZR4JQG1NHYK/a1-visual_qa-1"
   ],
   "qa": {
     "technical": "pass",
@@ -175,27 +179,27 @@
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "7226d4e64a4d63ea3765ae65becd98a103b05a5e5218d38b272f4b05ad22dea6"
+    "sha256": "ac0487b998e9ca575883d14a4e5c19bbcf732804d9ec90bfa08d94039ce3197a"
   },
   "status": "ready",
   "qa_frames": [
-    42,
-    87,
-    139,
-    152,
+    44,
+    90,
+    138,
+    149,
     166,
     179
   ],
   "qa_frames_sha256": [
-    "a46558131b5db9749752f836f8a0dda7ad31e224598b7adbc4e3b79c12d08316",
-    "f5b0e0943d876f50d552b417025025ec304e1043ea6693e2f06ecad9354d39c6",
-    "0585c26bf80d6faa55d500968524d238554e6991ccc6008e978fdfc33d213568",
-    "cf606bc4f76a6e2d885088c45aa1e7bf3ceb1fba12b4fed89a83429a367b5693",
-    "370d4477e5859bf60e59cf2c207340612169331bbd3de2a43530e6763591e829",
-    "e579cce3fabab2b09d3cf55d5d4ded0cb110be9c0781f5942b6b34c9594e4c4f"
+    "c071e9126076f45a046d9cea17766fa448323ad5fa00dfd548b0bfc1527bb5b0",
+    "c98a59678e33188ce78e33d841273322550d30b8cf7ee6e56b896e1ac067b736",
+    "6a6c5c5637aac768c9ff41f10b4f28226ee302defde1d90d399a1661e2af5ec8",
+    "0f6a9f69dba626c425a3e712fad45b72694934591f784fcf00448241d0476459",
+    "a73f339674ef00a5dc4700443de0079b2edea5b9ccc4a0cf24d6864fbbec29ba",
+    "1c7dbe463a8840d9e987a5a954c2f9c9808bfa573f468806b72cfb02e71c85b7"
   ],
   "job": {
-    "id": "job_01M5EZPF0YPF4TC4V815WAJYHS",
+    "id": "job_01M5F191KBSCVW3ZR4JQG1NHYK",
     "attempt": 1
   }
 }

@@ -1,249 +1,260 @@
 {
   "title": "Архитектура AI-агента",
-  "purpose": "Показать замкнутый контур работы агента: запрос пользователя → оркестратор → три инструмента → данные обратно → ответ пользователю.",
+  "purpose": "Показать замкнутый контур: запрос пользователя → оркестратор → три инструмента → данные обратно → ответ пользователю.",
   "duration_frames": 180,
   "fps": {
     "num": 30,
     "den": 1
   },
   "style_preset": "dark-premium",
+  "palette_overrides": {},
   "composition": {
     "archetype": "network-centric",
-    "idea": "Оркестратор — крупный узел в центре кадра, пользователь слева, три инструмента веером справа. Световой импульс идёт слева к центру, расходится веером к инструментам, возвращается и уходит ответом к пользователю. Фон — aurora dark-premium и редкие пылинки Particles слоя 0.",
-    "focus": "Фокус ведёт свет: сначала вспыхивает оркестратор (приход запроса), потом три инструмента (вызовы), в финале пользователь (ответ). Камера стоит.",
-    "transitions": "Схема собирается каскадом слева направо: опора, потом герой, потом исполнители. Затем акцент переходит по одному: оркестратор → инструменты → пользователь. Прежний акцент гаснет до прихода следующего импульса. Связи остаются тихо светиться до конца сцены."
+    "idea": "Светящаяся схема-контур на графитовом фоне с мягкими пятнами aurora и пылинками слоя 0: пользователь слева, крупный оркестратор в центре, три инструмента веером справа. Взгляд идёт за импульсом слева направо к инструментам и обратно к пользователю.",
+    "focus": "Камера стоит; фокус ведут импульсы и одиночный акцент: оркестратор (приход запроса) → оркестратор (возврат данных) → пользователь (ответ доставлен).",
+    "transitions": "Сборка схемы → запрос в оркестратор → вызовы инструментов → возврат данных → ответ пользователю; схема остаётся до конца, акцент передаётся без перекрытий и оседает на пользователе."
   },
   "elements": [
     {
       "id": "title",
       "kind": "text",
-      "role": "заголовок: тема сцены",
+      "role": "опора: заголовок сцены",
       "entrance": "mask",
       "depth_layer": 1,
       "content": {
         "text": "Архитектура AI-агента",
         "size": "h2",
-        "component": "Enter kind=mask",
+        "component": "Enter kind=mask + текст",
         "align": "center",
         "color": "text"
       },
       "layout": {
         "x": 0.25,
-        "y": 0,
+        "y": 0.02,
         "w": 0.5,
-        "h": 0.09
+        "h": 0.1
       }
     },
     {
       "id": "agent-graph",
       "kind": "graph",
-      "role": "схема: контур агента",
+      "role": "схема: связи агента с импульсами",
       "entrance": "draw",
       "depth_layer": 1,
       "content": {
         "component": "FlowGraph + PulseAlongPath",
+        "enter": "flip",
+        "travel": 20,
         "edges": [
           {
-            "id": "e-user-orc",
+            "id": "e-request",
             "from": "node-user",
             "to": "node-orchestrator"
           },
           {
-            "id": "e-orc-search",
+            "id": "e-t1",
             "from": "node-orchestrator",
-            "to": "node-tool-search"
+            "to": "node-tool-1"
           },
           {
-            "id": "e-orc-kb",
+            "id": "e-t2",
             "from": "node-orchestrator",
-            "to": "node-tool-kb"
+            "to": "node-tool-2"
           },
           {
-            "id": "e-orc-code",
+            "id": "e-t3",
             "from": "node-orchestrator",
-            "to": "node-tool-code"
+            "to": "node-tool-3"
           }
         ],
         "flows": [
           {
-            "edge": "e-user-orc",
+            "edge": "e-request",
             "direction": "forward",
-            "beat": "request-pulse"
+            "beat": "request-pulse",
+            "repeat": false,
+            "count": 1,
+            "color": "accent[0]"
           },
           {
-            "edge": "e-orc-search",
+            "edge": "e-t1",
             "direction": "forward",
-            "beat": "fan-out-calls"
+            "beat": "tool-calls",
+            "repeat": false,
+            "color": "accent[1]"
           },
           {
-            "edge": "e-orc-kb",
+            "edge": "e-t2",
             "direction": "forward",
-            "beat": "fan-out-calls"
+            "beat": "tool-calls",
+            "repeat": false,
+            "color": "accent[1]"
           },
           {
-            "edge": "e-orc-code",
+            "edge": "e-t3",
             "direction": "forward",
-            "beat": "fan-out-calls"
+            "beat": "tool-calls",
+            "repeat": false,
+            "color": "accent[1]"
           },
           {
-            "edge": "e-orc-search",
+            "edge": "e-t1",
             "direction": "back",
-            "beat": "data-return"
+            "beat": "data-return",
+            "repeat": false,
+            "color": "accent[2]"
           },
           {
-            "edge": "e-orc-kb",
+            "edge": "e-t2",
             "direction": "back",
-            "beat": "data-return"
+            "beat": "data-return",
+            "repeat": false,
+            "color": "accent[2]"
           },
           {
-            "edge": "e-orc-code",
+            "edge": "e-t3",
             "direction": "back",
-            "beat": "data-return"
+            "beat": "data-return",
+            "repeat": false,
+            "color": "accent[2]"
           },
           {
-            "edge": "e-user-orc",
+            "edge": "e-request",
             "direction": "back",
-            "beat": "response-pulse"
+            "beat": "answer-return",
+            "repeat": false,
+            "color": "accent[0]"
           }
         ],
-        "pulse": {
-          "travel": 14,
-          "count": 1,
-          "repeat": false,
-          "tail": 120,
-          "size": 7
-        },
-        "pulse_colors": {
-          "forward": "accent[0]",
-          "back": "accent[1]"
-        },
-        "edge_idle": "после прорисовки рёбра тихо светятся приглушённым accent[0] с alpha 0.35 до конца сцены",
-        "note": "у самого графа акцента нет, вспыхивают только узлы — по flash_on"
+        "note": "Все импульсы repeat=false: каждый проход один раз, после answer-return импульсов нет."
       },
       "layout": {
         "x": 0,
-        "y": 0.14,
+        "y": 0.16,
         "w": 1,
-        "h": 0.86
+        "h": 0.84
       }
     },
     {
       "id": "node-user",
       "kind": "card",
-      "role": "node: пользователь — источник запроса и получатель ответа",
+      "role": "акцент: node: пользователь — получает ответ",
       "entrance": "slide",
       "depth_layer": 1,
       "content": {
         "label": "Пользователь",
+        "caption": "запрос",
         "enter": "slide",
+        "enterAt": 10,
         "elevation": 2,
         "accentIndex": 0,
-        "flash_on": "e-user-orc",
-        "flash_beat": "response-pulse",
-        "flash_direction": "back",
-        "flash_note": "вспыхивает только при приходе обратного импульса (pulseArrival e-user-orc, response-pulse, travel 14, repeat false) и затем дышит до конца сцены (loop true)"
+        "emphasis": {
+          "start_frame": 150,
+          "end_frame": 165,
+          "loop": true
+        },
+        "note": "Нет flash_on: приход ответа отмечает только emphasis с кадра 150."
       },
       "layout": {
-        "x": 0.01,
-        "y": 0.475,
+        "x": 0.02,
+        "y": 0.47,
         "w": 0.22,
-        "h": 0.14
+        "h": 0.15
       }
     },
     {
       "id": "node-orchestrator",
       "kind": "card",
-      "role": "герой: node: оркестратор",
+      "role": "node: оркестратор — герой схемы",
       "entrance": "pop",
       "depth_layer": 1,
       "content": {
         "label": "Оркестратор",
-        "caption": "планирует вызовы",
+        "caption": "LLM-агент",
+        "size": "h2",
         "enter": "pop",
+        "enterAt": 20,
         "elevation": 3,
         "accentIndex": 0,
-        "flash_on": "e-user-orc",
-        "flash_beat": "request-pulse",
-        "flash_repeat": false,
-        "flash_note": "одна вспышка при приходе запроса (кадр ≈ 58), гаснет к кадру ≈ 80, loop false; при возврате данных не вспыхивает"
+        "flash_on": [
+          {
+            "edge": "e-request",
+            "beat": "request-pulse",
+            "travel": 20,
+            "repeat": false
+          },
+          {
+            "edge": "e-t2",
+            "beat": "data-return",
+            "travel": 20,
+            "repeat": false,
+            "reverse": true
+          }
+        ],
+        "note": "Вспышки ≈ кадры 68–91 и ≈ 120–143; обе гаснут до старта акцента node-user (150)."
       },
       "layout": {
-        "x": 0.37,
-        "y": 0.445,
-        "w": 0.26,
-        "h": 0.2
+        "x": 0.36,
+        "y": 0.44,
+        "w": 0.28,
+        "h": 0.21
       }
     },
     {
-      "id": "node-tool-search",
+      "id": "node-tool-1",
       "kind": "card",
-      "role": "node: инструмент «Веб-поиск»",
+      "role": "node: инструмент 1",
       "entrance": "rise",
       "depth_layer": 1,
       "content": {
-        "label": "Веб-поиск",
+        "label": "Инструмент 1",
         "enter": "rise",
-        "elevation": 2,
-        "accentIndex": 0,
-        "cascade_index": 0,
-        "flash_on": "e-orc-search",
-        "flash_beat": "fan-out-calls",
-        "flash_repeat": false,
-        "loop": false
+        "enterAt": 30,
+        "elevation": 2
       },
       "layout": {
         "x": 0.76,
-        "y": 0.18,
-        "w": 0.23,
-        "h": 0.13
+        "y": 0.2,
+        "w": 0.22,
+        "h": 0.15
       }
     },
     {
-      "id": "node-tool-kb",
+      "id": "node-tool-2",
       "kind": "card",
-      "role": "node: инструмент «База знаний»",
+      "role": "node: инструмент 2",
       "entrance": "rise",
       "depth_layer": 1,
       "content": {
-        "label": "База знаний",
+        "label": "Инструмент 2",
         "enter": "rise",
-        "elevation": 2,
-        "accentIndex": 0,
-        "cascade_index": 1,
-        "flash_on": "e-orc-kb",
-        "flash_beat": "fan-out-calls",
-        "flash_repeat": false,
-        "loop": false
+        "enterAt": 34,
+        "elevation": 2
       },
       "layout": {
         "x": 0.76,
-        "y": 0.48,
-        "w": 0.23,
-        "h": 0.13
+        "y": 0.47,
+        "w": 0.22,
+        "h": 0.15
       }
     },
     {
-      "id": "node-tool-code",
+      "id": "node-tool-3",
       "kind": "card",
-      "role": "node: инструмент «Запуск кода»",
+      "role": "node: инструмент 3",
       "entrance": "rise",
       "depth_layer": 1,
       "content": {
-        "label": "Запуск кода",
+        "label": "Инструмент 3",
         "enter": "rise",
-        "elevation": 2,
-        "accentIndex": 0,
-        "cascade_index": 2,
-        "flash_on": "e-orc-code",
-        "flash_beat": "fan-out-calls",
-        "flash_repeat": false,
-        "loop": false
+        "enterAt": 38,
+        "elevation": 2
       },
       "layout": {
         "x": 0.76,
-        "y": 0.78,
-        "w": 0.23,
-        "h": 0.13
+        "y": 0.74,
+        "w": 0.22,
+        "h": 0.15
       }
     }
   ],
@@ -253,114 +264,101 @@
       "start_frame": 0,
       "end_frame": 36,
       "action": "title-mask-in",
-      "description": "Заголовок «Архитектура AI-агента» открывается шторкой снизу, 1.5 × enter_frames = 36 кадров. Background aurora проявляется за 0–40.",
+      "description": "Заголовок «Архитектура AI-агента» открывается шторкой снизу (1.5 × enter_frames = 36).",
       "element_ids": [
         "title"
       ]
     },
     {
-      "id": "user-in",
+      "id": "graph-build",
       "start_frame": 6,
-      "end_frame": 30,
-      "action": "node-user-entrance",
-      "description": "Узел «Пользователь» въезжает слева (slide) со смазом, enterAt 6.",
+      "end_frame": 60,
+      "action": "graph-build-in",
+      "description": "Бит FlowGraph: узлы входят по своим enterAt, рёбра прорисовываются (draw, linear), когда оба конца на месте; стрелки на концах.",
       "element_ids": [
-        "node-user",
         "agent-graph"
+      ]
+    },
+    {
+      "id": "user-in",
+      "start_frame": 10,
+      "end_frame": 34,
+      "action": "node-user-in",
+      "description": "«Пользователь» въезжает слева (slide) со смазом.",
+      "element_ids": [
+        "node-user"
       ]
     },
     {
       "id": "orchestrator-in",
-      "start_frame": 14,
-      "end_frame": 38,
-      "action": "node-orchestrator-entrance",
-      "description": "Оркестратор, самый крупный узел (elevation 3), выстреливает из центра (pop) с перелётом, enterAt 14. Ребро e-user-orc прорисовывается, когда оба конца на месте.",
-      "element_ids": [
-        "node-orchestrator",
-        "agent-graph"
-      ]
-    },
-    {
-      "id": "tools-in",
-      "start_frame": 24,
-      "end_frame": 56,
-      "action": "tools-entrance-cascade",
-      "description": "Три инструмента поднимаются снизу (rise) каскадом с шагом stagger_frames = 4: enterAt 24, 28, 32. За ними прорисовываются рёбра от оркестратора, linear draw, все готовы к ≈ 56.",
-      "element_ids": [
-        "node-tool-search",
-        "node-tool-kb",
-        "node-tool-code",
-        "agent-graph"
-      ]
-    },
-    {
-      "id": "request-pulse",
-      "start_frame": 44,
-      "end_frame": 58,
-      "action": "request-pulse-forward",
-      "description": "Запрос: один импульс accent[0] идёт по e-user-orc от пользователя к оркестратору (travel 14, count 1, repeat false). Пока это поток, а не акцент.",
-      "element_ids": [
-        "agent-graph"
-      ]
-    },
-    {
-      "id": "orchestrator-flash",
-      "start_frame": 58,
-      "end_frame": 80,
-      "action": "orchestrator-emphasis",
-      "description": "Акцент 1: оркестратор вспыхивает ровно в кадр прихода импульса (flash = pulseArrival('e-user-orc', request-pulse, 14, {repeat:false})): удар, кольцо, кромка accent[0]. Вспышка гаснет к 80 (loop false), до старта вызовов к инструментам.",
+      "start_frame": 20,
+      "end_frame": 44,
+      "action": "node-orchestrator-in",
+      "description": "«Оркестратор» выстреливает из центра (pop) с перелётом — крупнейший узел, elevation 3.",
       "element_ids": [
         "node-orchestrator"
       ]
     },
     {
-      "id": "fan-out-calls",
-      "start_frame": 82,
-      "end_frame": 96,
-      "action": "fan-out-calls-forward",
-      "description": "Вызовы: после того как вспышка оркестратора погасла (кадр 80), три импульса accent[0] одновременно расходятся веером по e-orc-search, e-orc-kb, e-orc-code (travel 14, repeat false). В окне бита ни один узел не светится.",
+      "id": "tools-in",
+      "start_frame": 30,
+      "end_frame": 62,
+      "action": "tools-rise-in",
+      "description": "Три инструмента поднимаются каскадом (rise) со сдвигом 4 кадра: 30, 34, 38.",
       "element_ids": [
-        "agent-graph"
+        "node-tool-1",
+        "node-tool-2",
+        "node-tool-3"
       ]
     },
     {
-      "id": "tools-flash",
-      "start_frame": 96,
-      "end_frame": 118,
-      "action": "tools-emphasis",
-      "description": "Акцент 2: три инструмента вместе вспыхивают в кадр прихода своих импульсов (flash = pulseArrival(edge, fan-out-calls, 14, {repeat:false})), это один общий момент «вызовы получены». Гаснут к 118 (loop false). Оркестратор в это время не светится.",
+      "id": "request-pulse",
+      "start_frame": 48,
+      "end_frame": 72,
+      "action": "request-pulse-forward",
+      "description": "Один импульс accent[0] бежит по e-request от пользователя к оркестратору (travel 20, repeat false). В кадр прихода (≈68) оркестратор вспыхивает (flash по pulseArrival e-request), вспышка гаснет ≈91.",
       "element_ids": [
-        "node-tool-search",
-        "node-tool-kb",
-        "node-tool-code"
+        "agent-graph",
+        "node-orchestrator"
+      ]
+    },
+    {
+      "id": "tool-calls",
+      "start_frame": 74,
+      "end_frame": 100,
+      "action": "tool-calls-forward",
+      "description": "Оркестратор расходится тремя тонкими импульсами accent[1] по e-t1, e-t2, e-t3 к инструментам (repeat false). Узлы инструментов не светятся — цвет только у импульсов.",
+      "element_ids": [
+        "agent-graph"
       ]
     },
     {
       "id": "data-return",
-      "start_frame": 119,
-      "end_frame": 133,
+      "start_frame": 100,
+      "end_frame": 126,
       "action": "data-return-back",
-      "description": "Данные возвращаются: три импульса accent[1] (бирюзовые) идут reverse от инструментов к оркестратору (travel 14, repeat false). Узлы не вспыхивают: это поток, а не акцент.",
+      "description": "Импульсы данных accent[2] возвращаются reverse по e-t1, e-t2, e-t3 к оркестратору (travel 20, repeat false). Оркестратор вспыхивает по приходу импульса e-t2 (≈120), вспышка гаснет ≈143 — до акцента пользователя.",
+      "element_ids": [
+        "agent-graph",
+        "node-orchestrator"
+      ]
+    },
+    {
+      "id": "answer-return",
+      "start_frame": 126,
+      "end_frame": 150,
+      "action": "answer-return-back",
+      "description": "Один импульс accent[0] идёт reverse по e-request от оркестратора к пользователю (travel 20, repeat false), приходит ≈146–150. Других импульсов нет.",
       "element_ids": [
         "agent-graph"
       ]
     },
     {
-      "id": "response-pulse",
-      "start_frame": 133,
-      "end_frame": 147,
-      "action": "response-pulse-back",
-      "description": "Ответ: один импульс accent[1] идёт reverse по e-user-orc от оркестратора к пользователю (travel 14, repeat false). После него новых импульсов нет.",
-      "element_ids": [
-        "agent-graph"
-      ]
-    },
-    {
-      "id": "user-final",
-      "start_frame": 147,
-      "end_frame": 180,
+      "id": "final-emphasis",
+      "start_frame": 150,
+      "end_frame": 165,
       "action": "final-emphasis",
-      "description": "Акцент 3: пользователь вспыхивает в кадр прихода ответа (flash = pulseArrival('e-user-orc', response-pulse, 14, {repeat:false})) и дальше дышит (accentPulse loop): ореол и кольцо на вдох, accent[0]. Других акцентов в это время нет.",
+      "description": "Акцент переходит к «Пользователю»: удар accentPulse в кадр 150 (после погасшей вспышки оркестратора ≈143) — ответ доставлен; loop true — далее дыхание. В этот момент светится только node-user.",
       "element_ids": [
         "node-user"
       ]
@@ -370,15 +368,10 @@
       "start_frame": 153,
       "end_frame": 180,
       "action": "hold",
-      "description": "Финал: новых элементов и импульсов нет, схема собрана и неподвижна. Живут дыхание узла «Пользователь» (ответ доставлен) и мягкое мерцание рёбер, плюс дрейф пятен фона. Процесс завершён: импульсы снова к инструментам не уходят, кадры N−20 и N−1 различаются за счёт дыхания.",
+      "description": "Новых входов и импульсов нет: схема собрана и стоит, контур завершён. Живёт только узел «Пользователь» — дыхание акцента (ореол, кольцо на вдох, ±1.8 % масштаба), подтверждая, что ответ получен; фон медленно дрейфует. Кадры N−20 и N−1 различаются за счёт дыхания.",
       "element_ids": [
         "node-user",
-        "agent-graph",
-        "node-orchestrator",
-        "node-tool-search",
-        "node-tool-kb",
-        "node-tool-code",
-        "title"
+        "agent-graph"
       ]
     }
   ]

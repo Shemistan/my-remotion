@@ -1,48 +1,50 @@
 {
-  "run_id": "job_01M5EZPF1BHMZZ4RAWHMDKY876",
-  "attempt": 1,
-  "cost_usd": 1.0218703,
-  "engineer_calls": 2,
+  "run_id": "job_01M5F191KT6T4R2A9M3MW5WMSC",
+  "attempt": 2,
+  "cost_usd": 0.6561366,
+  "engineer_calls": 1,
   "visual_qa": [
     {
-      "call": 2,
-      "wall_ms": 18898,
-      "cost_usd": 0.1301173,
+      "call": 1,
+      "wall_ms": 24089,
+      "cost_usd": 0.13059599999999993,
       "status": "completed",
       "gate": {
         "technical": "pass",
         "visual": "pass",
-        "semantic": "warn",
+        "semantic": "pass",
         "style": "pass"
       }
     }
   ],
   "timings": {
-    "concept": 6348,
-    "motion_director": 77901,
-    "engineer_1": 60479,
-    "static": 49,
-    "typecheck": 29089,
-    "engineer_2": 25427,
-    "render_2": 22566,
-    "qa_programmatic": 2649,
-    "visual_qa_2": 18918
+    "engineer_1": 93068,
+    "static": 12,
+    "typecheck": 14133,
+    "render_1": 20075,
+    "qa_programmatic": 2660,
+    "visual_qa_1": 24109
   },
   "history": [
     {
-      "at": "2026-10-21T10:34:33.867Z",
-      "stage": "typecheck",
-      "message": "src/Scene.tsx:168 Type 'SceneStyle' is not assignable to type 'StyleSource'.\n  Type 'SceneStyle' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'SceneStyle' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
+      "at": "2026-10-21T10:59:12.288Z",
+      "stage": "concept",
+      "message": "Concept: результат из чекпоинта /Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5F191KT6T4R2A9M3MW5WMSC/checkpoints/concept.json"
     },
     {
-      "at": "2026-10-21T10:35:58.590Z",
+      "at": "2026-10-21T10:59:12.346Z",
+      "stage": "director",
+      "message": "Motion Director: результат из чекпоинта /Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5F191KT6T4R2A9M3MW5WMSC/checkpoints/motion_director.json"
+    },
+    {
+      "at": "2026-10-21T11:01:47.685Z",
       "stage": "qa",
-      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"pass\",\"semantic\":\"warn\",\"style\":\"pass\"}; blocking: —"
+      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"pass\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
     },
     {
-      "at": "2026-10-21T10:35:58.612Z",
+      "at": "2026-10-21T11:01:47.702Z",
       "stage": "ready",
-      "message": "gate пройден с вызова 2"
+      "message": "gate пройден с вызова 1"
     }
   ]
 }

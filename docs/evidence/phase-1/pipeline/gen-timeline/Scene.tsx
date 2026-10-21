@@ -1,4 +1,5 @@
 import React from "react";
+import { AbsoluteFill, useVideoConfig } from "remotion";
 import {
   Background,
   Camera,
@@ -13,7 +14,6 @@ import {
   useSafeArea,
   useStyle,
 } from "@ms/motion-kit";
-import { useVideoConfig } from "remotion";
 
 type Beat = { id: string; start_frame: number; end_frame: number };
 type Layout = { x: number; y: number; w: number; h: number };
@@ -28,10 +28,10 @@ type Content = {
     width: number;
     height: number;
     accentIndex: number;
-    highlightLast: boolean;
     layout: Layout;
     items: TimelineItem[];
   };
+  particles: { count: number; seed: string };
   camera: CameraKey[];
 };
 
@@ -44,102 +44,121 @@ type SceneStyle = {
   font?: string;
 };
 
-export type SceneProps = {
+type Props = {
   timing: { duration_frames: number; beats: Beat[] };
   style: SceneStyle;
   content: Content;
 };
 
-const beatOf = (beats: Beat[], id: string): Beat => {
+const beatOf = (beats: Beat[], id: string) => {
   const b = beats.find((x) => x.id === id);
-  if (!b) throw new Error(`beat "${id}" missing in props.timing.beats`);
-  return b;
+  if (!b) throw new Error(`Нет бита ${id} в props.timing.beats`);
+  return { start_frame: b.start_frame, end_frame: b.end_frame };
 };
 
-const SceneBody: React.FC<{ beats: Beat[]; content: Content }> = ({ beats, content }) => {
-  const style = useStyle();
-  const rect = useSafeArea();
+const SceneBody: React.FC<Props> = ({ timing, content }) => {
+  const s = useStyle();
   const { height } = useVideoConfig();
+  const rect = useSafeArea();
 
-  const kickerBeat = beatOf(beats, "kicker-in");
-  const titleBeat = beatOf(beats, "title-in");
-  const drawBeat = beatOf(beats, "timeline-draw");
+  const kickerBeat = beatOf(timing.beats, "kicker-in");
+  const titleBeat = beatOf(timing.beats, "title-in");
+  const timelineBeat = beatOf(timing.beats, "timeline-draw");
 
   const { kicker, title, timeline } = content;
-  const place = (l: Layout): React.CSSProperties => ({
-    position: "absolute",
-    left: l.x * rect.w,
-    top: l.y * rect.h,
-    width: l.w * rect.w,
-  });
-
-  const tlWidth = Math.min(timeline.width, timeline.layout.w * rect.w);
-  const tlHeight = Math.min(timeline.height, timeline.layout.h * rect.h);
-  const display = style.typography.display;
+  const timelineW = Math.min(timeline.width, timeline.layout.w * rect.w);
+  const timelineH = Math.min(timeline.height, timeline.layout.h * rect.h);
 
   return (
-    <SafeArea>
-      {/* Опора: кикер над заголовком — раскладка карточки раздела (chapter-title) */}
-      <div style={place(kicker.layout)}>
-        <KineticText
-          text={kicker.text}
-          beat={kickerBeat}
-          mode="letters"
-          enter="type"
-          size="caption"
-          font="mono"
-          caps
-          color={style.palette.muted}
-        />
-      </div>
-      <div style={place(title.layout)}>
-        <Enter kind="mask" beat={titleBeat}>
-          <div
-            style={{
-              fontFamily: display.family,
-              fontWeight: 800,
-              fontSize: typeSize(style, "h2", height),
-              letterSpacing: `${style.typography.tracking.display}em`,
-              lineHeight: 1.15,
-              color: style.palette.text,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {title.text}
-          </div>
-        </Enter>
-      </div>
-      {/* Герой: ось прорисовывается головой, веха «сейчас» дышит сама (highlightLast) */}
-      <div style={{ ...place(timeline.layout), height: tlHeight }}>
-        <Timeline
-          items={timeline.items}
-          beat={drawBeat}
-          orientation={timeline.orientation}
-          width={tlWidth}
-          height={tlHeight}
-          accentIndex={timeline.accentIndex}
-          highlightLast={timeline.highlightLast}
-        />
-      </div>
-    </SafeArea>
-  );
-};
-
-export const Scene: React.FC<SceneProps> = ({ timing, style, content }) => {
-  const atmosphere = beatOf(timing.beats, "kicker-in");
-  return (
-    <StyleProvider style={style}>
-      <Camera keys={content.camera}>
-        {!style.transparent && (
-          <Parallax layer={0}>
-            <Background beat={atmosphere} variant="aurora" seed="company-path" />
-            <Particles count={56} seed="path-dust" beat={atmosphere} layer={0} />
-          </Parallax>
-        )}
-        <Parallax layer={1}>
-          <SceneBody beats={timing.beats} content={content} />
+    <Camera keys={content.camera}>
+      {s.transparent ? null : (
+        <Parallax layer={0}>
+          <Background beat={{ start_frame: 0, end_frame: titleBeat.end_frame }} />
+          <Particles
+            count={content.particles.count}
+            seed={content.particles.seed}
+            beat={{ start_frame: 0, end_frame: timelineBeat.start_frame + s.motion.enter_frames }}
+            layer={0}
+          />
         </Parallax>
-      </Camera>
-    </StyleProvider>
+      )}
+      <Parallax layer={1}>
+        <SafeArea>
+          <AbsoluteFill>
+            <div
+              style={{
+                position: "absolute",
+                left: kicker.layout.x * rect.w,
+                top: kicker.layout.y * rect.h,
+                width: kicker.layout.w * rect.w,
+              }}
+            >
+              <KineticText
+                text={kicker.text}
+                beat={kickerBeat}
+                mode="letters"
+                enter="type"
+                size="caption"
+                font="mono"
+                color={s.palette.muted}
+                align="left"
+              />
+            </div>
+
+            <div
+              style={{
+                position: "absolute",
+                left: title.layout.x * rect.w,
+                top: title.layout.y * rect.h,
+                width: title.layout.w * rect.w,
+              }}
+            >
+              <Enter kind="mask" beat={titleBeat}>
+                <div
+                  style={{
+                    fontFamily: s.typography.display.family,
+                    fontWeight: 800,
+                    fontSize: typeSize(s, "h2", height),
+                    letterSpacing: `${s.typography.tracking.display}em`,
+                    lineHeight: 1.1,
+                    color: s.palette.text,
+                    textAlign: "left",
+                    paddingBottom: "0.08em",
+                  }}
+                >
+                  {title.text}
+                </div>
+              </Enter>
+            </div>
+
+            <div
+              style={{
+                position: "absolute",
+                left: timeline.layout.x * rect.w,
+                top: timeline.layout.y * rect.h,
+                width: timelineW,
+                height: timelineH,
+              }}
+            >
+              <Timeline
+                items={timeline.items}
+                beat={timelineBeat}
+                orientation={timeline.orientation}
+                width={timelineW}
+                height={timelineH}
+                accentIndex={timeline.accentIndex}
+                highlightLast
+              />
+            </div>
+          </AbsoluteFill>
+        </SafeArea>
+      </Parallax>
+    </Camera>
   );
 };
+
+export const Scene: React.FC<Props> = (props) => (
+  <StyleProvider style={props.style}>
+    <SceneBody {...props} />
+  </StyleProvider>
+);

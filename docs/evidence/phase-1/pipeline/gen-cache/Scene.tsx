@@ -1,11 +1,10 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import {
   Background,
   Emphasis,
   Enter,
   FlowGraph,
-  KineticText,
   Particles,
   PulseAlongPath,
   SafeArea,
@@ -14,56 +13,57 @@ import {
   beatProgress,
   easingOf,
   pulseArrival,
-  radius,
+  shadow,
   typeSize,
   useSafeArea,
   useStyle,
 } from "@ms/motion-kit";
 
-type Beat = { id: string; start_frame: number; end_frame: number };
-type Span = { start_frame: number; end_frame: number };
+type Beat = { start_frame: number; end_frame: number };
+type TimingBeat = Beat & { id: string };
 type Layout = { x: number; y: number; w: number; h: number };
-type CardEnterKind = "rise" | "scale" | "flip" | "pop" | "slide" | "swing" | "blur" | "fade" | "none";
-type WordEnter = "type" | "pop" | "rise";
+type NodeEnter = "rise" | "scale" | "flip" | "pop" | "slide" | "swing" | "blur" | "fade" | "none";
+type Elevation = 0 | 1 | 2 | 3;
 
-type StatusState = { text: string; color: string; enter: WordEnter; beat: string; at: "start" | "end" };
-type GraphNode = {
+type NodeContent = {
   id: string;
   label: string;
   caption?: string;
-  enter: CardEnterKind;
-  enter_frac: number;
-  elevation: 0 | 1 | 2 | 3;
-  accentIndex?: number;
+  enter: NodeEnter;
+  elevation: Elevation;
   layout: Layout;
 };
-type Flow = { edge: string; beat: string; reverse: boolean; accent: number };
-type EdgeRef = { edge: string; beat: string };
+
+type FlowContent = { edge: string; direction: "forward" | "back"; beat: string };
+
+type StatusContent = {
+  text: string;
+  color: "negative" | "text";
+  entrance: "pop" | "rise";
+  beat: string;
+  layout: Layout;
+};
 
 type Content = {
-  locale: "ru" | "en";
   title: { text: string; beat: string; layout: Layout };
-  status: { layout: Layout; states: StatusState[] };
   graph: {
     beat: string;
     layout: Layout;
-    enter: CardEnterKind;
-    nodes: GraphNode[];
+    nodes: NodeContent[];
     edges: { id: string; from: string; to: string }[];
-    travel: number;
-    pulse: { count: number; repeat: boolean; tail: number; size: number };
-    flows: Flow[];
-    cache: {
-      id: string;
-      slot_empty: string;
-      slot_filled: string;
-      fill_beat: string;
-      flash_on: EdgeRef[];
-      final_emphasis: { beat: string; accentIndex: number };
-    };
-    dim: { node: string; edge_from: string; beat: string; opacity: number };
+    flows: FlowContent[];
+    pulse: { travel: number; repeat: boolean; count: number; size: number; tail: number };
+    pulse_colors: { forward: number; back: number };
+    flash: { node: string; edge: string; beat: string };
+    dim: { node: string; beat: string; opacity: number };
   };
-  summary: { text: string; highlight: string[]; beat: string; layout: Layout };
+  status: {
+    miss: StatusContent;
+    write: StatusContent;
+    dim: { beat: string; opacity: number };
+  };
+  hit: { text: string; beat: string; emphasis_beat: string; layout: Layout };
+  atmosphere: { particles: number };
 };
 
 type SceneStyle = {
@@ -74,270 +74,284 @@ type SceneStyle = {
   safe_area?: { x: number; y: number };
 };
 
-type Props = {
-  timing: { duration_frames: number; beats: Beat[] };
+export type SceneProps = {
+  timing: { duration_frames: number; beats: TimingBeat[] };
   style: SceneStyle;
   content: Content;
 };
 
-type Style = ReturnType<typeof useStyle>;
-
-const CLAMP = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
-
-const beatOf = (beats: Beat[], id: string): Span => {
+const beatOf = (beats: TimingBeat[], id: string): Beat => {
   const b = beats.find((x) => x.id === id);
-  if (!b) throw new Error(`Нет бита «${id}» в props.timing.beats`);
+  if (!b) throw new Error(`beat not found: ${id}`);
   return { start_frame: b.start_frame, end_frame: b.end_frame };
 };
 
-// Цвет из токена spec: "muted", "negative", "accent[2]" …
-const colorOf = (style: Style, token: string): string => {
-  const m = /^accent\[(\d+)\]$/.exec(token);
-  if (m) return accent(style, Number(m[1]));
-  const p = style.palette;
-  if (token === "muted") return p.muted;
-  if (token === "negative") return p.negative;
-  if (token === "positive") return p.positive;
-  return p.text;
-};
-
-// Слово состояния над кэшем: входит своим видом, уходит fade до входа следующего.
-const StatusWord: React.FC<{ state: StatusState; from: number; to: number; last: boolean }> = ({
-  state,
-  from,
-  to,
-  last,
-}) => {
-  const frame = useCurrentFrame();
-  const { height } = useVideoConfig();
+// Один и тот же граф, обрезанный по вертикали splitX: левая часть (клиент, кэш)
+// всегда полной яркости, правая (ребро к источнику и источник) тускнеет на попадании.
+const GraphLayer: React.FC<{
+  content: Content["graph"];
+  beats: TimingBeat[];
+  rect: { w: number; h: number };
+  side: "left" | "right";
+  splitX: number;
+  opacity: number;
+}> = ({ content, beats, rect, side, splitX, opacity }) => {
   const style = useStyle();
-  if (frame < from || frame >= to) return null;
+  const { travel, repeat, count, size, tail } = content.pulse;
+  const graphW = content.layout.w * rect.w;
+  const graphH = content.layout.h * rect.h;
+  const top = content.layout.y * rect.h;
+  const left = content.layout.x * rect.w;
+  const flashBeat = beatOf(beats, content.flash.beat);
 
-  // Окно короткое («Запрос» — 16 кадров): выход не длиннее трети окна.
-  const exitLen = last ? 0 : Math.max(1, Math.min(style.motion.exit_frames, Math.floor((to - from) / 3)));
-  const exitStart = to - exitLen;
-  const opacity = last
-    ? 1
-    : interpolate(frame, [exitStart, to - 1], [1, 0], { ...CLAMP, easing: easingOf(style, "exit") });
-  const color = colorOf(style, state.color);
-  const enterBeat = { start_frame: from, end_frame: Math.max(from + 1, exitStart - 1) };
-  const fontSize = typeSize(style, "h1", height);
+  const nodes = content.nodes.map((n) => ({
+    id: n.id,
+    label: n.label,
+    caption: n.caption,
+    enter: n.enter,
+    elevation: n.elevation,
+    accentIndex: 0,
+    x: n.layout.x * rect.w - left,
+    y: n.layout.y * rect.h - top,
+    w: n.layout.w * rect.w,
+    h: n.layout.h * rect.h,
+    ...(n.id === content.flash.node
+      ? { flash: pulseArrival(content.flash.edge, flashBeat, travel, { count, repeat }) }
+      : {}),
+  }));
 
-  const word =
-    state.enter === "type" ? (
-      <KineticText text={state.text} beat={enterBeat} mode="letters" enter="type" size="h1" color={color} align="center" />
-    ) : (
-      <Enter kind={state.enter} beat={enterBeat}>
-        <div
-          style={{
-            fontFamily: style.typography.display.family,
-            fontWeight: style.typography.display.weight,
-            letterSpacing: `${style.typography.tracking.display}em`,
-            fontSize,
-            lineHeight: 1.1,
-            color,
-            whiteSpace: "nowrap",
-          }}
-        >
-          {state.text}
-        </div>
-      </Enter>
-    );
+  const far = 2000;
+  const clip =
+    side === "left"
+      ? `polygon(${-far}px ${-far}px, ${splitX}px ${-far}px, ${splitX}px ${graphH + far}px, ${-far}px ${graphH + far}px)`
+      : `polygon(${splitX}px ${-far}px, ${graphW + far}px ${-far}px, ${graphW + far}px ${graphH + far}px, ${splitX}px ${graphH + far}px)`;
 
   return (
-    <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", opacity }}>{word}</AbsoluteFill>
+    <div
+      style={{
+        position: "absolute",
+        left,
+        top,
+        width: graphW,
+        height: graphH,
+        clipPath: clip,
+        opacity,
+      }}
+    >
+      <FlowGraph
+        nodes={nodes}
+        edges={content.edges}
+        beat={beatOf(beats, content.beat)}
+        width={graphW}
+        height={graphH}
+      >
+        {content.flows.map((f) => (
+          <PulseAlongPath
+            key={`${f.edge}-${f.beat}`}
+            edgeId={f.edge}
+            beat={beatOf(beats, f.beat)}
+            travel={travel}
+            repeat={repeat}
+            count={count}
+            size={size}
+            tail={tail}
+            reverse={f.direction === "back"}
+            color={accent(style, f.direction === "back" ? content.pulse_colors.back : content.pulse_colors.forward)}
+          />
+        ))}
+      </FlowGraph>
+    </div>
   );
 };
 
-const SceneBody: React.FC<Props> = ({ timing, content }) => {
+const StatusPill: React.FC<{
+  status: StatusContent;
+  beat: Beat;
+  rect: { w: number; h: number };
+  opacity: number;
+}> = ({ status, beat, rect, opacity }) => {
+  const style = useStyle();
+  const { height } = useVideoConfig();
+  const { palette } = style;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: status.layout.x * rect.w,
+        top: status.layout.y * rect.h,
+        width: status.layout.w * rect.w,
+        height: status.layout.h * rect.h,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        opacity,
+      }}
+    >
+      <Enter kind={status.entrance} beat={beat}>
+        <div
+          style={{
+            padding: "0.22em 0.9em",
+            borderRadius: 999,
+            background: palette.surface,
+            boxShadow: shadow(style, 1),
+            color: palette[status.color],
+            fontFamily: style.typography.body.family,
+            fontWeight: 600,
+            fontSize: typeSize(style, "body", height),
+            lineHeight: 1.1,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {status.text}
+        </div>
+      </Enter>
+    </div>
+  );
+};
+
+const SceneBody: React.FC<SceneProps> = ({ timing, content }) => {
   const frame = useCurrentFrame();
   const { height } = useVideoConfig();
   const style = useStyle();
   const rect = useSafeArea();
-  const beats = timing.beats;
-  const g = content.graph;
+  const { beats } = timing;
+  const { palette, typography } = style;
 
-  const at = (l: Layout) => ({ left: l.x * rect.w, top: l.y * rect.h, width: l.w * rect.w, height: l.h * rect.h });
+  const graph = content.graph;
+  const graphLeft = graph.layout.x * rect.w;
+  const cache = graph.nodes.find((n) => n.id === "node-cache") ?? graph.nodes[1]!;
+  const splitX = (cache.layout.x + cache.layout.w) * rect.w - graphLeft + 8;
 
-  // Область графа и узлы в её координатах
-  const area = at(g.layout);
-  const graphBeat = beatOf(beats, g.beat);
-  const graphLen = graphBeat.end_frame - graphBeat.start_frame;
-  const nodeRect = (n: GraphNode) => {
-    const r = at(n.layout);
-    return { x: r.left - area.left, y: r.top - area.top, w: r.width, h: r.height };
-  };
-
-  const travel = g.travel;
-  const pulseOpts = { count: g.pulse.count, repeat: g.pulse.repeat };
-  const filled = frame >= beatOf(beats, g.cache.fill_beat).end_frame;
-
-  const nodes = g.nodes.map((n) => {
-    const isCache = n.id === g.cache.id;
-    return {
-      id: n.id,
-      label: n.label,
-      ...nodeRect(n),
-      elevation: n.elevation,
-      enter: n.enter,
-      enterAt: graphBeat.start_frame + Math.round(n.enter_frac * graphLen),
-      caption: isCache ? (filled ? g.cache.slot_filled : g.cache.slot_empty) : n.caption,
-      ...(n.accentIndex !== undefined ? { accentIndex: n.accentIndex } : {}),
-      ...(isCache
-        ? { flash: g.cache.flash_on.map((f) => pulseArrival(f.edge, beatOf(beats, f.beat), travel, pulseOpts)) }
-        : {}),
-    };
+  const graphDimP = beatProgress(frame, beatOf(beats, graph.dim.beat), easingOf(style, "enter"));
+  const graphDim = interpolate(graphDimP, [0, 1], [1, graph.dim.opacity], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const statusDimP = beatProgress(frame, beatOf(beats, content.status.dim.beat), easingOf(style, "enter"));
+  const statusDim = interpolate(statusDimP, [0, 1], [1, content.status.dim.opacity], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
   });
 
-  const cacheNode = g.nodes.find((n) => n.id === g.cache.id);
-  const dimNode = g.nodes.find((n) => n.id === g.dim.node);
-  const dimFrom = g.nodes.find((n) => n.id === g.dim.edge_from);
-  const cacheR = cacheNode ? nodeRect(cacheNode) : null;
-  const dimR = dimNode ? nodeRect(dimNode) : null;
-  const fromR = dimFrom ? nodeRect(dimFrom) : null;
-
-  // Второй запрос: путь к базе не нужен — база и ребро гаснут до заданной яркости
-  const dimP = beatProgress(frame, beatOf(beats, g.dim.beat), easingOf(style, "enter"));
-  const veil = dimP * (1 - g.dim.opacity);
-  const cardRadius = radius(style, 2);
-  const bandH = typeSize(style, "body", height);
-
-  // Окна слов состояния: от своего кадра до кадра следующего
-  const starts = content.status.states.map((s) => {
-    const b = beatOf(beats, s.beat);
-    return s.at === "end" ? b.end_frame : b.start_frame;
-  });
-
-  const title = at(content.title.layout);
-  const status = at(content.status.layout);
-  const summary = at(content.summary.layout);
-  const fin = beatOf(beats, g.cache.final_emphasis.beat);
+  const title = content.title;
+  const hit = content.hit;
 
   return (
     <>
-      <div style={{ position: "absolute", ...title, display: "flex", justifyContent: "center", alignItems: "center" }}>
-        <Enter kind="mask" beat={beatOf(beats, content.title.beat)}>
+      {/* заголовок — шторка снизу */}
+      <div
+        style={{
+          position: "absolute",
+          left: title.layout.x * rect.w,
+          top: title.layout.y * rect.h,
+          width: title.layout.w * rect.w,
+          height: title.layout.h * rect.h,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Enter kind="mask" beat={beatOf(beats, title.beat)}>
           <div
             style={{
-              fontFamily: style.typography.display.family,
-              fontWeight: style.typography.display.weight,
-              letterSpacing: `${style.typography.tracking.display}em`,
+              fontFamily: typography.display.family,
+              fontWeight: typography.display.weight,
               fontSize: typeSize(style, "h2", height),
+              letterSpacing: `${typography.tracking.display}em`,
+              color: palette.text,
               lineHeight: 1.15,
-              color: style.palette.text,
               textAlign: "center",
               whiteSpace: "nowrap",
             }}
           >
-            {content.title.text}
+            {title.text}
           </div>
         </Enter>
       </div>
 
-      <div style={{ position: "absolute", ...status }}>
-        {content.status.states.map((s, i) => (
-          <StatusWord
-            key={s.text}
-            state={s}
-            from={starts[i] ?? 0}
-            to={starts[i + 1] ?? timing.duration_frames}
-            last={i === content.status.states.length - 1}
-          />
-        ))}
-      </div>
+      {/* схема: клиент → кэш → источник */}
+      <GraphLayer content={graph} beats={beats} rect={rect} side="left" splitX={splitX} opacity={1} />
+      <GraphLayer content={graph} beats={beats} rect={rect} side="right" splitX={splitX} opacity={graphDim} />
 
-      <div style={{ position: "absolute", ...area }}>
-        {/* Акцент итога — под графом: ореол выходит из-за карточки кэша, кольцо идёт по её контуру */}
-        {cacheR ? (
-          <div style={{ position: "absolute", left: cacheR.x, top: cacheR.y }}>
-            <Emphasis beat={fin} loop shape="rounded" radius={cardRadius} accentIndex={g.cache.final_emphasis.accentIndex}>
-              <div style={{ width: cacheR.w, height: cacheR.h }} />
-            </Emphasis>
-          </div>
-        ) : null}
+      {/* статусы промаха и записи — без свечения */}
+      <StatusPill
+        status={content.status.miss}
+        beat={beatOf(beats, content.status.miss.beat)}
+        rect={rect}
+        opacity={statusDim}
+      />
+      <StatusPill
+        status={content.status.write}
+        beat={beatOf(beats, content.status.write.beat)}
+        rect={rect}
+        opacity={statusDim}
+      />
 
-        <div style={{ position: "absolute", inset: 0 }}>
-          <FlowGraph nodes={nodes} edges={g.edges} beat={graphBeat} width={area.width} height={area.height} enter={g.enter}>
-            {g.flows.map((f) => (
-              <PulseAlongPath
-                key={`${f.edge}-${f.beat}`}
-                edgeId={f.edge}
-                beat={beatOf(beats, f.beat)}
-                travel={travel}
-                count={g.pulse.count}
-                repeat={g.pulse.repeat}
-                tail={g.pulse.tail}
-                size={g.pulse.size}
-                color={accent(style, f.accent)}
-                reverse={f.reverse}
-              />
-            ))}
-          </FlowGraph>
-        </div>
-
-        {dimR && fromR && veil > 0 ? (
-          <>
+      {/* герой — «Попадание» */}
+      <div
+        style={{
+          position: "absolute",
+          left: hit.layout.x * rect.w,
+          top: hit.layout.y * rect.h,
+          width: hit.layout.w * rect.w,
+          height: hit.layout.h * rect.h,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Enter kind="scale" beat={beatOf(beats, hit.beat)}>
+          <Emphasis
+            beat={beatOf(beats, hit.emphasis_beat)}
+            loop
+            accentIndex={0}
+            shape="pill"
+            ring
+            spread={48}
+          >
             <div
               style={{
-                position: "absolute",
-                left: dimR.x,
-                top: dimR.y,
-                width: dimR.w,
-                height: dimR.h,
-                borderRadius: cardRadius,
-                background: style.palette.bg,
-                opacity: veil,
+                fontFamily: typography.display.family,
+                fontWeight: typography.display.weight,
+                fontSize: typeSize(style, "display", height),
+                letterSpacing: `${typography.tracking.display}em`,
+                color: palette.text,
+                lineHeight: 1,
+                padding: "0.04em 0.3em 0.1em",
+                whiteSpace: "nowrap",
               }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                left: fromR.x + fromR.w,
-                top: dimR.y + dimR.h / 2 - bandH / 2,
-                width: Math.max(0, dimR.x - (fromR.x + fromR.w)),
-                height: bandH,
-                background: `linear-gradient(to bottom, transparent, ${style.palette.bg} 30%, ${style.palette.bg} 70%, transparent)`,
-                opacity: veil,
-              }}
-            />
-          </>
-        ) : null}
-      </div>
-
-      <div style={{ position: "absolute", ...summary, display: "flex", justifyContent: "center", alignItems: "center" }}>
-        <KineticText
-          text={content.summary.text}
-          beat={beatOf(beats, content.summary.beat)}
-          mode="words"
-          enter="fade"
-          size="body"
-          font="body"
-          color={style.palette.muted}
-          highlight={content.summary.highlight}
-          align="center"
-          maxWidth={summary.width}
-        />
+            >
+              {hit.text}
+            </div>
+          </Emphasis>
+        </Enter>
       </div>
     </>
   );
 };
 
-const Atmosphere: React.FC<{ beat: Span }> = ({ beat }) => {
-  const style = useStyle();
-  if (style.transparent) return null;
+const Atmosphere: React.FC<{ transparent: boolean; count: number; beats: TimingBeat[] }> = ({
+  transparent,
+  count,
+  beats,
+}) => {
+  if (transparent) return null;
   return (
     <>
-      <Background beat={beat} variant="aurora" seed="cache" />
-      <Particles count={40} seed="cache-dust" beat={beat} layer={0} />
+      <Background variant="aurora" beat={beatOf(beats, "b-title-in")} seed="cache-flow" />
+      <Particles count={count} seed="cache-dust" beat={beatOf(beats, "b-graph-in")} layer={0} accentShare={0.2} />
     </>
   );
 };
 
-export const Scene: React.FC<Props> = (props) => {
-  const bg = beatOf(props.timing.beats, props.content.title.beat);
+export const Scene: React.FC<SceneProps> = (props) => {
   return (
     <StyleProvider style={props.style}>
-      <Atmosphere beat={bg} />
+      <Atmosphere
+        transparent={props.style.transparent === true}
+        count={props.content.atmosphere.particles}
+        beats={props.timing.beats}
+      />
       <SafeArea>
         <SceneBody {...props} />
       </SafeArea>

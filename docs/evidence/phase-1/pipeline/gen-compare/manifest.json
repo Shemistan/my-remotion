@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
-  "scene_id": "scn_01M5EZPF0D76WPRF7PTY31PYE4",
+  "version_id": "ver_01M5F1NFJA74QYZQS7DYT7B3VG",
+  "scene_id": "scn_01M5F191JTPT5TT0DBGZEB1YKN",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T10:32:20.698Z",
+  "created_at": "2026-10-21T10:56:13.387Z",
   "prompt": "Сравни монолит и микросервисы по скорости релизов",
   "edit_plan": null,
   "settings": {
@@ -27,76 +27,80 @@
   },
   "files": [
     {
-      "path": "frames/152.png",
-      "sha256": "5a2ad2f5ef2aba578027b588955f5728c8a1f1d87c765fc92811c08be87a5608"
+      "path": "frames/103.png",
+      "sha256": "8d8d180f1c284e681e6b523de21762e1f62f23c7f0926e26c8eee7af7cba06ca"
     },
     {
-      "path": "frames/156.png",
-      "sha256": "7dd46c27b9b4154ab940b0b66e2e87d8412e0ad63b9351f8c1255a8ecab64b0d"
+      "path": "frames/138.png",
+      "sha256": "ee5d2e5416b9bcefee101ca6b46cbe5dbb67a5ca774253a1e61ff6cc899670aa"
+    },
+    {
+      "path": "frames/149.png",
+      "sha256": "5f73d423d16e462f3421475e56d24e042967cadf2e087089ed66a9bd0836ae20"
     },
     {
       "path": "frames/166.png",
-      "sha256": "cca80ec3a000e502b076aa6bbb5e102975583546eb6c422f5b23ee1f1972fd6f"
+      "sha256": "0351e95bf41560b9d2e393f67b92705387105aafd920ee9c5863fe244d9fed93"
     },
     {
       "path": "frames/179.png",
-      "sha256": "3e6723c18ae5b540aaeca44863b9258150f29f0757e8178930d3a8040f10ae2e"
+      "sha256": "09dfea0d4ad78379571ca12d6d1f7f5c04d85521326c7094c5ea2f62a47e95fc"
     },
     {
-      "path": "frames/28.png",
-      "sha256": "37652445fa05a0eabcf3f108272297bad8c4dcbe2d010b3ec45d50ae54b9b32c"
+      "path": "frames/30.png",
+      "sha256": "2fca72cc05f1b0bf91451f64c25d3282dc72d30b9fce0807f111046584620231"
     },
     {
-      "path": "frames/40.png",
-      "sha256": "54869524f1eeeccd12fbc50c28d6a7b29af9829b817a0ef745bdcd044d85fb87"
+      "path": "frames/42.png",
+      "sha256": "79f88f8051a024418624cbe0c0b1396a6eb145d4ee093c2757c47aa9e5ef8131"
     },
     {
-      "path": "frames/64.png",
-      "sha256": "34a4ca02614e1db0f4490ea9439396188dae5c9be9ba03359576e883ee3ad9e3"
-    },
-    {
-      "path": "frames/96.png",
-      "sha256": "df9d20579dacdf9d686b1ebe57a37d6f783bdd3e9987cb6ceef6826270fec47c"
+      "path": "frames/78.png",
+      "sha256": "057be348fcdcbc7c70ece71cfffae890571a7d21c2eaeace6b325871b4f26340"
     },
     {
       "path": "knowledge-refs.json",
-      "sha256": "de3eaf21d658ad6d2e16b3cad6c51aba0b0cdbb98edadcce8c10b5bd900b0c16"
+      "sha256": "427ed6b832d91cf40d6e754655ddf617dd0b0890c6c6e1a3c4c510eb2d4f753f"
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "cd63029e221aa638e8b6b6824bae2c9a685cf55ac1cdc1cb8ed39d93872c6e57"
+      "sha256": "80ad6e1e04cfe5ab104cc49cc58477a1501518d615b6fd5c1133f034d1a8ae42"
     },
     {
       "path": "preview.mp4",
-      "sha256": "92a623e3bf258f6cd3262a3f42a5818eda9d3c9fb8fef05056a1832e253fa3d0"
+      "sha256": "2a0da0cd117d733e50482d195a5ab48429816030f0c14e206604d8aa79f01196"
     },
     {
       "path": "props.json",
-      "sha256": "98958ce28501aa8f69d8e591918d4b8c6e8ca1126136217fb358c92819396138"
+      "sha256": "a51ff8da44ac5d24f229cbbd6c715157bb8db190cb607db0955849e49d3db4bc"
     },
     {
       "path": "qa.json",
-      "sha256": "c61fab1dd0e249c223c719b3dad88cd8275a1073ed3db7c8a2a8ee8251802041"
+      "sha256": "212e1cfdef3482232a7e32314e385d41528e9a21fada91b5a61ee887bf84a8c5"
     },
     {
-      "path": "refs/kb/animata/glowing-card/CARD.md",
-      "sha256": "6b17aee1f19aa8181b2cf3df028951dac93bad98f35001fb88adfd4bb2ea284c"
+      "path": "refs/kb/free-remotion-templates/kpi-counter/CARD.md",
+      "sha256": "ab0702c8c4f438887675690916d15c64fac6ed7342156d69494d3561a0105336"
     },
     {
-      "path": "refs/kb/animata/glowing-card/templates/react-libriry/animata/animata/card/glowing-card.tsx",
-      "sha256": "0f2c70bc70f18597b343dee8b7a94b9aeed5b6ad5d17605b745d1588103d0383"
+      "path": "refs/kb/free-remotion-templates/kpi-counter/templates/remotion-components/free-remotion-templates/src/components/kpi-counter/KpiCounter.tsx",
+      "sha256": "0ddc52f49062e1570487f531f3e4589701d7616b5e73ec70071abc25d35b1a9c"
     },
     {
-      "path": "refs/kb/remotion-bits/bit-card-stack/CARD.md",
-      "sha256": "fad9a05b2dce6f998dcbbf091409e0a4f0be614ff10ea27a87c4aa44f5a13aec"
+      "path": "refs/kb/remotion-bits/animated-counter/CARD.md",
+      "sha256": "8dfc3cb748093566c5c02a70d006ff6ad5a7815b5bfaab8540870c5722aa5d11"
     },
     {
-      "path": "refs/kb/remotion-bits/bit-card-stack/templates/remotion-components/remotion-bits/docs/src/bits/examples/staggered-motion/CardStack.tsx",
-      "sha256": "97fb7b1b035d22a3822a8dfcaa8c4035ebc818dff5b86e7e569073d0096b8ece"
+      "path": "refs/kb/remotion-bits/animated-counter/templates/remotion-components/remotion-bits/src/components/AnimatedCounter.tsx",
+      "sha256": "fea81e6e51bfd894065b5e2d435827a493586f56fd4f9b21230f9f08a89d89e7"
+    },
+    {
+      "path": "refs/kb/remotion-bits/animated-counter/templates/remotion-components/remotion-bits/src/utils/motion/index.ts",
+      "sha256": "2247b5c5e896d00a26414e342b65caa52a14bd3adf7bf42af2fecdbdc4d08bd7"
     },
     {
       "path": "refs/motion-kit/API.md",
-      "sha256": "aef7aee2f882cc13bdcf837d5f3342cab75d7ba9ea4bb3b74e77829d5d3f438f"
+      "sha256": "2842a3bb93d0ef1d634e50307c7cc7d15907c4d275abe64f28966846445c8d63"
     },
     {
       "path": "refs/skills/remotion-markup/SKILL.md",
@@ -124,7 +128,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "917bc065054c6fb35f90cdcb7078059c13d3526790636cc80383974c1c9df4e4"
+      "sha256": "ce05a485c04c825ebae787e2606102e6ffb7e70f724a3f9ef4c9c2eeb8227d51"
     },
     {
       "path": "settings.json",
@@ -132,11 +136,15 @@
     },
     {
       "path": "spec.json",
-      "sha256": "1c7222cc1a9fd9e7984845ccebabb32cd32bf1d67d37ea0cf5bc89b28ba6d56f"
+      "sha256": "2150f218c0699402f21a83520d17a51eb58b61c1a599a6bae439ad10f15ecbf4"
+    },
+    {
+      "path": "src/Lane.tsx",
+      "sha256": "083be86c218e15582b09c27c65676dd80927add1374c05a33bca6d5104021570"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "f9522841cc1a5ebf148463a4f986f5ad7fd817dfcc9014fe6f1026d448a16ec0"
+      "sha256": "782284c8464158c40120a7a7a52057d2f018f1bd06ac1829619706335727d747"
     },
     {
       "path": "style.json",
@@ -144,38 +152,37 @@
     }
   ],
   "changed_files": [
+    "src/Lane.tsx",
     "src/Scene.tsx",
     "props.json"
   ],
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:aa65f750424ab273",
+    "motion_kit": "sha256:3e8d6ee7bf584338",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
   "knowledge_refs": [
     {
-      "kb_id": "remotion-bits/bit-card-stack",
+      "kb_id": "remotion-bits/animated-counter",
       "commit": "de35fda",
       "license": "MIT (package.json)",
       "strategy": "adapt"
     },
     {
-      "kb_id": "animata/glowing-card",
-      "commit": "e7478b8",
-      "license": "MIT (LICENSE.md)",
+      "kb_id": "free-remotion-templates/kpi-counter",
+      "commit": "f648980",
+      "license": "MIT (package.json, LICENSE, SPDX-заголовок в файле)",
       "strategy": "adapt"
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/a1-concept-1",
-    "logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/a1-motion_director-1",
-    "logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/a1-motion_director-2",
-    "logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/a1-engineer-1",
-    "logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/a1-visual_qa-1",
-    "logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/a1-engineer-2",
-    "logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/a1-visual_qa-2"
+    "logs/agent-runs/job_01M5F191K0RFA9KW1NG6JF81VG/a1-concept-1",
+    "logs/agent-runs/job_01M5F191K0RFA9KW1NG6JF81VG/a1-motion_director-1",
+    "logs/agent-runs/job_01M5F191K0RFA9KW1NG6JF81VG/a1-engineer-1",
+    "logs/agent-runs/job_01M5F191K0RFA9KW1NG6JF81VG/a1-engineer-2",
+    "logs/agent-runs/job_01M5F191K0RFA9KW1NG6JF81VG/a1-visual_qa-1"
   ],
   "qa": {
     "technical": "pass",
@@ -185,31 +192,31 @@
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "92a623e3bf258f6cd3262a3f42a5818eda9d3c9fb8fef05056a1832e253fa3d0"
+    "sha256": "2a0da0cd117d733e50482d195a5ab48429816030f0c14e206604d8aa79f01196"
   },
   "status": "ready",
   "qa_frames": [
-    28,
-    40,
-    64,
-    96,
-    152,
-    156,
+    30,
+    42,
+    78,
+    103,
+    138,
+    149,
     166,
     179
   ],
   "qa_frames_sha256": [
-    "37652445fa05a0eabcf3f108272297bad8c4dcbe2d010b3ec45d50ae54b9b32c",
-    "54869524f1eeeccd12fbc50c28d6a7b29af9829b817a0ef745bdcd044d85fb87",
-    "34a4ca02614e1db0f4490ea9439396188dae5c9be9ba03359576e883ee3ad9e3",
-    "df9d20579dacdf9d686b1ebe57a37d6f783bdd3e9987cb6ceef6826270fec47c",
-    "5a2ad2f5ef2aba578027b588955f5728c8a1f1d87c765fc92811c08be87a5608",
-    "7dd46c27b9b4154ab940b0b66e2e87d8412e0ad63b9351f8c1255a8ecab64b0d",
-    "cca80ec3a000e502b076aa6bbb5e102975583546eb6c422f5b23ee1f1972fd6f",
-    "3e6723c18ae5b540aaeca44863b9258150f29f0757e8178930d3a8040f10ae2e"
+    "2fca72cc05f1b0bf91451f64c25d3282dc72d30b9fce0807f111046584620231",
+    "79f88f8051a024418624cbe0c0b1396a6eb145d4ee093c2757c47aa9e5ef8131",
+    "057be348fcdcbc7c70ece71cfffae890571a7d21c2eaeace6b325871b4f26340",
+    "8d8d180f1c284e681e6b523de21762e1f62f23c7f0926e26c8eee7af7cba06ca",
+    "ee5d2e5416b9bcefee101ca6b46cbe5dbb67a5ca774253a1e61ff6cc899670aa",
+    "5f73d423d16e462f3421475e56d24e042967cadf2e087089ed66a9bd0836ae20",
+    "0351e95bf41560b9d2e393f67b92705387105aafd920ee9c5863fe244d9fed93",
+    "09dfea0d4ad78379571ca12d6d1f7f5c04d85521326c7094c5ea2f62a47e95fc"
   ],
   "job": {
-    "id": "job_01M5EZPF0JWS93FBFY344TXFD1",
+    "id": "job_01M5F191K0RFA9KW1NG6JF81VG",
     "attempt": 1
   }
 }

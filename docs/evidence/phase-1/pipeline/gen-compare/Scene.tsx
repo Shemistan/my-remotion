@@ -1,208 +1,273 @@
 import React from "react";
-import { AbsoluteFill, useVideoConfig } from "remotion";
+import { useVideoConfig } from "remotion";
 import {
   AnimatedNumber,
   Background,
   Emphasis,
   Enter,
-  FlowGraph,
   KineticText,
   Particles,
   PulseAlongPath,
   SafeArea,
   StyleProvider,
   accent,
+  smoothSegments,
+  staggerBeat,
   typeSize,
   useSafeArea,
   useStyle,
 } from "@ms/motion-kit";
+import { Lane } from "./Lane";
 
 type Beat = { id: string; start_frame: number; end_frame: number };
-type Frac = { x: number; y: number; w: number; h: number };
-type NodeEnter = "rise" | "scale" | "flip" | "pop" | "slide" | "swing" | "blur" | "fade" | "none";
-// enter_at — доля бита graph-in до входа узла: каскад растянут по биту, тайминг живёт в props.
-type NodeSpec = { id: string; label: string; elevation: 0 | 1 | 2 | 3; enter: NodeEnter; enter_at: number; layout: Frac };
-type EdgeSpec = { id: string; from: string; to: string };
-type PulseSpec = { travel: number; count: number; repeat: boolean; accent_index?: number };
+type Window = { start_frame: number; end_frame: number };
+type Box = { x: number; y: number; w: number; h: number };
 
 type Content = {
   locale: "ru" | "en";
   title: string;
-  mono_label: string;
-  micro_label: string;
-  mono_count: string;
-  conclusion: string;
-  graph: {
-    layout: Frac;
-    nodes: NodeSpec[];
-    edges: EdgeSpec[];
-    mono_edges: string[];
-    micro_edge: string;
-    pulses: { mono: PulseSpec; micro: PulseSpec };
+  label_mono: string;
+  label_micro: string;
+  stages: string[];
+  stage_positions: number[];
+  micro_tracks: number[];
+  mono_pulse: { size: number; tail: number; count: number; travel: number };
+  micro_pulse: {
+    size: number;
+    tail: number;
+    travel: number;
+    count_main: number;
+    count_hold: number;
+    offsets_frames: number[];
   };
-  micro_count: { from: number; to: number; suffix_forms: [string, string, string] };
-  layout: Record<"title" | "mono_label" | "micro_label" | "mono_count" | "micro_count" | "conclusion", Frac>;
+  count_mono: { from: number; to: number };
+  count_micro: { from: number; to: number };
+  suffix_forms: [string, string, string];
+  period_caption: string;
+  layout: {
+    title: Box;
+    label_mono: Box;
+    label_micro: Box;
+    lane_mono: Box;
+    lane_micro: Box;
+    count_mono: Box;
+    count_micro: Box;
+  };
 };
 
-type SceneProps = {
+type Props = {
   timing: { duration_frames: number; beats: Beat[] };
-  style: React.ComponentProps<typeof StyleProvider>["style"];
+  style: {
+    preset: "dark-premium" | "light-clean" | "tech-neon";
+    intensity: "calm" | "balanced" | "energetic";
+    depth?: 0 | 1 | 2 | 3;
+    transparent?: boolean;
+    safe_area?: { x: number; y: number };
+  };
   content: Content;
 };
 
-const beatOf = (beats: Beat[], id: string): Beat => {
+const beatOf = (beats: Beat[], id: string): Window => {
   const b = beats.find((x) => x.id === id);
-  if (!b) throw new Error(`beat "${id}" missing in props.timing.beats`);
-  return b;
+  if (!b) throw new Error(`beat ${id} not found`);
+  return { start_frame: b.start_frame, end_frame: b.end_frame };
 };
 
-const Body: React.FC<{ beats: Beat[]; content: Content }> = ({ beats, content }) => {
-  const s = useStyle();
-  const { height } = useVideoConfig();
+const SceneBody: React.FC<{ beats: Beat[]; content: Content }> = ({ beats, content }) => {
+  const style = useStyle();
   const rect = useSafeArea();
-  const stagger = s.motion.stagger_frames;
+  const { height: frameH } = useVideoConfig();
+  const stagger = style.motion.stagger_frames;
 
-  const titleIn = beatOf(beats, "title-in");
-  const labelsIn = beatOf(beats, "labels-in");
-  const graphIn = beatOf(beats, "graph-in");
-  const countIn = beatOf(beats, "count-in");
-  const monoFlow = beatOf(beats, "mono-flow");
-  const microFlow = beatOf(beats, "micro-flow");
-  const countRun = beatOf(beats, "micro-count-run");
-  const conclusionIn = beatOf(beats, "conclusion-in");
-  const monoResultIn = beatOf(beats, "mono-result-in");
-  const finalEmphasis = beatOf(beats, "final-emphasis");
-
-  const box = (f: Frac): React.CSSProperties => ({
-    position: "absolute",
-    left: f.x * rect.w,
-    top: f.y * rect.h,
-    width: f.w * rect.w,
-    height: f.h * rect.h,
-    display: "flex",
-    alignItems: "center",
-  });
+  const bTitle = beatOf(beats, "title-in");
+  const bLabels = beatOf(beats, "labels-in");
+  const bLanes = beatOf(beats, "lanes-draw");
+  const bCounters = beatOf(beats, "counters-in");
+  const bMonoTravel = beatOf(beats, "mono-travel");
+  const bStream = beatOf(beats, "micro-stream");
+  const bMicroCount = beatOf(beats, "micro-count");
+  const bEmphasis = beatOf(beats, "micro-emphasis");
+  const bMonoCount = beatOf(beats, "mono-count");
+  const bHold = beatOf(beats, "hold");
 
   const L = content.layout;
-  const g = content.graph;
-  const graphW = g.layout.w * rect.w;
-  const graphH = g.layout.h * rect.h;
+  const px = (b: Box) => ({ left: b.x * rect.w, top: b.y * rect.h, width: b.w * rect.w, height: b.h * rect.h });
+  const laneMono = px(L.lane_mono);
+  const laneMicro = px(L.lane_micro);
 
-  const graphLen = graphIn.end_frame - graphIn.start_frame;
-  const nodes = g.nodes.map((n) => ({
-    id: n.id,
-    label: n.label,
-    x: n.layout.x * rect.w - g.layout.x * rect.w,
-    y: n.layout.y * rect.h - g.layout.y * rect.h,
-    w: n.layout.w * rect.w,
-    h: n.layout.h * rect.h,
-    elevation: n.elevation,
-    enter: n.enter,
-    enterAt: graphIn.start_frame + Math.round(n.enter_at * graphLen),
-  }));
+  // подписи дорожек: второй стартует на 2 × stagger позже первого
+  const labelMonoBeat: Window = { start_frame: bLabels.start_frame, end_frame: bLabels.end_frame - 2 * stagger };
+  const labelMicroBeat: Window = { start_frame: bLabels.start_frame + 2 * stagger, end_frame: bLabels.end_frame };
 
-  // Один импульс проходит цепочку монолита последовательно: бит mono-flow делится на подбиты по рёбрам.
-  const monoN = g.mono_edges.length;
-  const monoStep = (monoFlow.end_frame - monoFlow.start_frame) / monoN;
-  const monoBeats = g.mono_edges.map((_, i) => ({
-    start_frame: Math.round(monoFlow.start_frame + i * monoStep),
-    end_frame: Math.round(monoFlow.start_frame + (i + 1) * monoStep),
-  }));
+  // монолит — одна линия в первые ~70 % бита; микросервисы — каскадом за ним
+  const lanesLen = bLanes.end_frame - bLanes.start_frame;
+  const monoDraw: Window = { start_frame: bLanes.start_frame, end_frame: bLanes.start_frame + Math.round(lanesLen * 0.72) };
+  const microBase: Window = { start_frame: bLanes.start_frame + Math.round(1.5 * stagger), end_frame: bLanes.end_frame };
+  const microDraw: Window[] = content.micro_tracks.map((_, i) =>
+    staggerBeat(microBase, i, content.micro_tracks.length, stagger),
+  );
 
-  const microLabelBeat = { start_frame: labelsIn.start_frame + stagger, end_frame: labelsIn.end_frame };
+  // счётчики: монолит входит в начале бита, герой — на 1.5 × stagger позже
+  const monoEnterAt = bCounters.start_frame;
+  const microEnterAt = bCounters.start_frame + Math.round(1.5 * stagger);
+
+  const monoY = 0.5 * laneMono.height;
+  const monoSegments = smoothSegments([
+    { x: 0, y: monoY },
+    { x: laneMono.width, y: monoY },
+  ]);
+  const microSegments = content.micro_tracks.map((t) =>
+    smoothSegments([
+      { x: 0, y: t * laneMicro.height },
+      { x: laneMicro.width, y: t * laneMicro.height },
+    ]),
+  );
+
+  const mp = content.micro_pulse;
+  const caption = typeSize(style, "caption", frameH);
+  const microBox = px(L.count_micro);
+  const monoBox = px(L.count_mono);
 
   return (
     <>
-      <div style={box(L.title)}>
-        <KineticText text={content.title} beat={titleIn} mode="words" enter="rise" size="h2" maxWidth={L.title.w * rect.w} />
+      <div style={{ position: "absolute", ...px(L.title) }}>
+        <KineticText text={content.title} beat={bTitle} mode="words" enter="rise" size="h2" align="left" />
       </div>
 
-      <div style={box(L.mono_label)}>
-        <KineticText text={content.mono_label} beat={labelsIn} mode="words" enter="slide" size="body" color={s.palette.muted} />
+      <div style={{ position: "absolute", ...px(L.label_mono), display: "flex", alignItems: "center" }}>
+        <KineticText
+          text={content.label_mono}
+          beat={labelMonoBeat}
+          mode="words"
+          enter="slide"
+          size="body"
+          font="body"
+          color={style.palette.muted}
+        />
       </div>
-      <div style={box(L.micro_label)}>
-        <KineticText text={content.micro_label} beat={microLabelBeat} mode="words" enter="slide" size="body" />
+      <div style={{ position: "absolute", ...px(L.label_micro), display: "flex", alignItems: "center" }}>
+        <KineticText
+          text={content.label_micro}
+          beat={labelMicroBeat}
+          mode="words"
+          enter="slide"
+          size="body"
+          font="body"
+          color={style.palette.text}
+        />
+      </div>
+
+      <div style={{ position: "absolute", ...laneMono }}>
+        <Lane
+          width={laneMono.width}
+          height={laneMono.height}
+          tracks={[0.5]}
+          windows={[monoDraw]}
+          strokeWidth={4}
+          stages={content.stages}
+          stagePositions={content.stage_positions}
+          captionSide="below"
+        />
+        <PulseAlongPath
+          segments={monoSegments}
+          beat={bMonoTravel}
+          color={style.palette.muted}
+          size={content.mono_pulse.size}
+          tail={content.mono_pulse.tail}
+          count={content.mono_pulse.count}
+          travel={content.mono_pulse.travel}
+          repeat={false}
+        />
+      </div>
+
+      <div style={{ position: "absolute", ...laneMicro }}>
+        <Lane
+          width={laneMicro.width}
+          height={laneMicro.height}
+          tracks={content.micro_tracks}
+          windows={microDraw}
+          strokeWidth={3}
+          stages={content.stages}
+          stagePositions={content.stage_positions}
+          captionSide="above"
+        />
+        {microSegments.map((seg, i) => {
+          const off = mp.offsets_frames[i] ?? 0;
+          return (
+            <React.Fragment key={i}>
+              <PulseAlongPath
+                segments={seg}
+                beat={{ start_frame: bStream.start_frame + off, end_frame: bStream.end_frame }}
+                color={accent(style, i)}
+                size={mp.size}
+                tail={mp.tail}
+                count={mp.count_main}
+                travel={mp.travel}
+              />
+              <PulseAlongPath
+                segments={seg}
+                beat={{ start_frame: bHold.start_frame + off, end_frame: bHold.end_frame }}
+                color={accent(style, i)}
+                size={mp.size}
+                tail={mp.tail}
+                count={mp.count_hold}
+                travel={mp.travel}
+              />
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      <div style={{ position: "absolute", ...monoBox, display: "flex", alignItems: "center" }}>
+        <AnimatedNumber
+          from={content.count_mono.from}
+          to={content.count_mono.to}
+          beat={bMonoCount}
+          enterAt={monoEnterAt}
+          locale={content.locale}
+          size="h2"
+          color={style.palette.muted}
+          suffix={content.suffix_forms}
+          align="left"
+        />
       </div>
 
       <div
         style={{
           position: "absolute",
-          left: g.layout.x * rect.w,
-          top: g.layout.y * rect.h,
-          width: graphW,
-          height: graphH,
+          ...microBox,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "flex-start",
+          gap: caption * 0.2,
         }}
       >
-        <FlowGraph nodes={nodes} edges={g.edges} beat={graphIn} width={graphW} height={graphH} enter="flip">
-          {g.mono_edges.map((edgeId, i) => (
-            <PulseAlongPath
-              key={edgeId}
-              edgeId={edgeId}
-              beat={monoBeats[i]!}
-              travel={g.pulses.mono.travel}
-              count={g.pulses.mono.count}
-              repeat={g.pulses.mono.repeat}
-              color={s.palette.muted}
-              size={10}
-              tail={160}
-            />
-          ))}
-          <PulseAlongPath
-            edgeId={g.micro_edge}
-            beat={microFlow}
-            travel={g.pulses.micro.travel}
-            count={g.pulses.micro.count}
-            repeat={g.pulses.micro.repeat}
-            color={accent(s, g.pulses.micro.accent_index ?? 1)}
-            size={12}
-            tail={180}
-          />
-        </FlowGraph>
-      </div>
-
-      <div style={box(L.mono_count)}>
-        <Enter kind="blur" beat={monoResultIn}>
-          <div
-            style={{
-              fontFamily: s.typography.display.family,
-              fontWeight: s.typography.display.weight,
-              fontSize: typeSize(s, "h2", height),
-              color: s.palette.muted,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {content.mono_count}
-          </div>
-        </Enter>
-      </div>
-
-      <div style={box(L.micro_count)}>
-        <Emphasis beat={finalEmphasis} loop shape="pill" accentIndex={0} spread={48} strength={1.3}>
+        <Emphasis beat={bEmphasis} loop accentIndex={0} shape="pill" spread={48}>
           <AnimatedNumber
-            from={content.micro_count.from}
-            to={content.micro_count.to}
-            enterAt={countIn.start_frame}
-            beat={countRun}
+            from={content.count_micro.from}
+            to={content.count_micro.to}
+            beat={bMicroCount}
+            enterAt={microEnterAt}
             locale={content.locale}
-            suffix={content.micro_count.suffix_forms}
-            size={8}
+            size="display"
+            color={style.palette.text}
+            suffix={content.suffix_forms}
+            reserveWidth
             align="left"
           />
         </Emphasis>
-      </div>
-
-      <div style={{ ...box(L.conclusion), justifyContent: "center" }}>
-        <Enter kind="mask" beat={conclusionIn}>
+        <Enter kind="fade" beat={{ start_frame: microEnterAt + stagger, end_frame: bCounters.end_frame }}>
           <div
             style={{
-              fontFamily: s.typography.body.family,
-              fontWeight: 600,
-              fontSize: typeSize(s, "body", height),
-              color: s.palette.text,
-              whiteSpace: "nowrap",
+              fontFamily: style.typography.body.family,
+              fontWeight: 500,
+              fontSize: caption,
+              lineHeight: 1.2,
+              color: style.palette.muted,
             }}
           >
-            {content.conclusion}
+            {content.period_caption}
           </div>
         </Enter>
       </div>
@@ -210,23 +275,19 @@ const Body: React.FC<{ beats: Beat[]; content: Content }> = ({ beats, content })
   );
 };
 
-const Atmosphere: React.FC<{ beat: Beat }> = ({ beat }) => {
-  const s = useStyle();
+export const Scene: React.FC<Props> = ({ timing, style, content }) => {
+  const atmosphere: Window = { start_frame: 0, end_frame: 40 };
   return (
-    <>
-      {s.transparent ? null : <Background beat={beat} variant="aurora" seed="releases" />}
-      <AbsoluteFill>
-        <Particles count={60} seed="releases-dust" beat={beat} layer={0} />
-      </AbsoluteFill>
-    </>
+    <StyleProvider style={style}>
+      {style.transparent ? null : (
+        <>
+          <Background beat={atmosphere} variant="aurora" seed="releases" />
+          <Particles count={40} seed="releases-dust" beat={{ start_frame: 0, end_frame: 60 }} layer={0} accentShare={0.2} />
+        </>
+      )}
+      <SafeArea>
+        <SceneBody beats={timing.beats} content={content} />
+      </SafeArea>
+    </StyleProvider>
   );
 };
-
-export const Scene: React.FC<SceneProps> = ({ timing, style, content }) => (
-  <StyleProvider style={style}>
-    <Atmosphere beat={beatOf(timing.beats, "title-in")} />
-    <SafeArea>
-      <Body beats={timing.beats} content={content} />
-    </SafeArea>
-  </StyleProvider>
-);

@@ -1,9 +1,9 @@
 {
   "job": {
-    "id": "job_01M5EZPF1HVGD9XWXGVBM0KJCC",
+    "id": "job_01M5F191M1ANW1PK8NY0J3FR33",
     "type": "playground.generate",
     "project_id": "playground",
-    "scene_id": "scn_01M5EZPF1E2SSX5HZT48J1JVAG",
+    "scene_id": "scn_01M5F191KX2S01EDW10KKCYV1B",
     "version_id": null,
     "parent_job_id": null,
     "status": "completed",
@@ -13,7 +13,7 @@
     "max_attempts": 3,
     "interrupts": 0,
     "input": {
-      "sceneId": "scn_01M5EZPF1E2SSX5HZT48J1JVAG",
+      "sceneId": "scn_01M5F191KX2S01EDW10KKCYV1B",
       "prompt": "Покажи архитектуру AI-агента: пользователь отправляет запрос, оркестратор вызывает три инструмента, данные возвращаются обратно. Световые импульсы движутся по связям",
       "settings": {
         "aspect_ratio": "16:9",
@@ -34,104 +34,94 @@
         }
       }
     },
-    "input_hash": "689df64460f0612386b4f3ababb5cd77ac2a639cc6719d93b367dc56d4d4d4b0",
+    "input_hash": "39f033aac1842240801ebb0f5761f58ca0ab35949437878628e3db90068a76ab",
     "output_refs": {
-      "scene_id": "scn_01M5EZPF1E2SSX5HZT48J1JVAG",
-      "version_id": "ver_01M5F0N6TMBGQF5R2B98V3QKNH",
+      "scene_id": "scn_01M5F191KX2S01EDW10KKCYV1B",
+      "version_id": "ver_01M5F28MB8N3DT82PJ8THQFTMV",
       "version_number": 1,
-      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EZPF1E2SSX5HZT48J1JVAG/versions/ver_01M5F0N6TMBGQF5R2B98V3QKNH",
-      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EZPF1E2SSX5HZT48J1JVAG/versions/ver_01M5F0N6TMBGQF5R2B98V3QKNH/preview.mp4",
-      "cost_usd": 1.6982452000000001,
-      "engineer_calls": 2,
+      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5F191KX2S01EDW10KKCYV1B/versions/ver_01M5F28MB8N3DT82PJ8THQFTMV",
+      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5F191KX2S01EDW10KKCYV1B/versions/ver_01M5F28MB8N3DT82PJ8THQFTMV/preview.mp4",
+      "cost_usd": 1.4455633999999997,
+      "engineer_calls": 1,
       "qa": {
         "technical": "pass",
-        "visual": "warn",
+        "visual": "pass",
         "semantic": "pass",
-        "style": "pass"
+        "style": "warn"
       },
       "warnings": [],
       "steps": {
         "concept": {
           "input_hash": "fda05e51a5d5da39294573bd62674eedb88744937aec41850d2e8ef6f1853429",
-          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EZPF1HVGD9XWXGVBM0KJCC/checkpoints/concept.json"
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5F191M1ANW1PK8NY0J3FR33/checkpoints/concept.json"
         },
         "director": {
-          "input_hash": "4e9268ed7e01b2a53d888ecc46182c7702427c40d17fac61e1b0f8d6d350100d",
-          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EZPF1HVGD9XWXGVBM0KJCC/checkpoints/motion_director.json"
+          "input_hash": "5f3acd89ae8ee3c89a353f914d4efaa1dd49a48559fd9823c3a95a08275a55d1",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5F191M1ANW1PK8NY0J3FR33/checkpoints/motion_director.json"
         }
       }
     },
     "error": null,
-    "idempotency_key": "e2e-test2-run_01M5EZPF1HVGD9XWXGVBM0KJCB",
+    "idempotency_key": "e2e-test2-run_01M5F191M03CDZTVB3DRE4ZHF1",
     "lease_owner": null,
     "lease_until": null,
     "cancel_requested": false,
-    "created_at": "2026-10-21T10:21:48.465Z",
-    "started_at": "2026-10-21T10:32:20.722Z",
-    "finished_at": "2026-10-21T10:38:35.884Z"
+    "created_at": "2026-10-21T10:49:25.889Z",
+    "started_at": "2026-10-21T11:01:48.572Z",
+    "finished_at": "2026-10-21T11:06:40.896Z"
   },
-  "wall_ms": 1009384,
-  "cost_usd": 1.6982452000000001,
+  "wall_ms": 1036751,
+  "cost_usd": 1.4455633999999997,
   "agent_runs": [
     {
       "role": "concept",
       "model": "claude-sonnet-5-5",
       "status": "completed",
-      "input_tokens": 5445,
-      "output_tokens": 532,
-      "cost_usd": 0.0073113,
-      "started_at": "2026-10-21T10:32:21.043Z",
-      "finished_at": "2026-10-21T10:32:27.136Z"
+      "input_tokens": 5442,
+      "output_tokens": 536,
+      "cost_usd": 0.007339299999999999,
+      "started_at": "2026-10-21T11:01:48.962Z",
+      "finished_at": "2026-10-21T11:01:55.061Z"
     },
     {
       "role": "motion_director",
       "model": "claude-opus-5-5",
       "status": "completed",
-      "input_tokens": 41098,
-      "output_tokens": 7064,
-      "cost_usd": 0.365848,
-      "started_at": "2026-10-21T10:32:27.404Z",
-      "finished_at": "2026-10-21T10:33:32.037Z"
+      "input_tokens": 41683,
+      "output_tokens": 9845,
+      "cost_usd": 0.42614799999999997,
+      "started_at": "2026-10-21T11:01:55.251Z",
+      "finished_at": "2026-10-21T11:03:14.577Z"
     },
     {
       "role": "motion_director",
       "model": "claude-opus-5-5",
       "status": "completed",
-      "input_tokens": 41385,
-      "output_tokens": 7656,
-      "cost_usd": 0.379984,
-      "started_at": "2026-10-21T10:33:32.219Z",
-      "finished_at": "2026-10-21T10:34:42.333Z"
+      "input_tokens": 42226,
+      "output_tokens": 6450,
+      "cost_usd": 0.362592,
+      "started_at": "2026-10-21T11:03:14.736Z",
+      "finished_at": "2026-10-21T11:04:12.864Z"
     },
     {
       "role": "engineer",
       "model": "claude-opus-5-5",
       "status": "completed",
-      "input_tokens": 321534,
-      "output_tokens": 13648,
-      "cost_usd": 0.6917675999999999,
-      "started_at": "2026-10-21T10:34:42.999Z",
-      "finished_at": "2026-10-21T10:36:49.451Z"
-    },
-    {
-      "role": "engineer",
-      "model": "claude-opus-5-5",
-      "status": "completed",
-      "input_tokens": 97204,
-      "output_tokens": 2105,
-      "cost_usd": 0.09818400000000002,
-      "started_at": "2026-10-21T10:37:05.011Z",
-      "finished_at": "2026-10-21T10:37:30.459Z"
+      "input_tokens": 252105,
+      "output_tokens": 9226,
+      "cost_usd": 0.5310355999999999,
+      "started_at": "2026-10-21T11:04:13.487Z",
+      "finished_at": "2026-10-21T11:05:39.585Z"
     },
     {
       "role": "visual_qa",
       "model": "claude-sonnet-5-5",
       "status": "completed",
-      "input_tokens": 47034,
-      "output_tokens": 2881,
-      "cost_usd": 0.15515030000000002,
-      "started_at": "2026-10-21T10:38:12.157Z",
-      "finished_at": "2026-10-21T10:38:35.035Z"
+      "input_tokens": 48337,
+      "output_tokens": 2622,
+      "cost_usd": 0.1184485,
+      "started_at": "2026-10-21T11:06:16.905Z",
+      "finished_at": "2026-10-21T11:06:40.076Z"
     }
   ],
   "render_jobs": [
@@ -140,8 +130,8 @@
       "codec": "png",
       "width": 1920,
       "height": 1080,
-      "frames": 8,
-      "duration_ms": 22779
+      "frames": 7,
+      "duration_ms": 19954
     },
     {
       "kind": "preview",
@@ -149,19 +139,19 @@
       "width": 960,
       "height": 540,
       "frames": 180,
-      "duration_ms": 22779
+      "duration_ms": 19954
     }
   ],
   "qa_reports": [
     {
-      "id": 47,
-      "version_id": "ver_01M5F0N6TMBGQF5R2B98V3QKNH",
+      "id": 52,
+      "version_id": "ver_01M5F28MB8N3DT82PJ8THQFTMV",
       "attempt": 1,
       "technical": "pass",
-      "visual": "warn",
+      "visual": "pass",
       "semantic": "pass",
-      "style": "pass",
-      "report_path": "workspace/projects/playground/scenes/scn_01M5EZPF1E2SSX5HZT48J1JVAG/versions/ver_01M5F0N6TMBGQF5R2B98V3QKNH/qa.json"
+      "style": "warn",
+      "report_path": "workspace/projects/playground/scenes/scn_01M5F191KX2S01EDW10KKCYV1B/versions/ver_01M5F28MB8N3DT82PJ8THQFTMV/qa.json"
     }
   ],
   "component_tests": [
@@ -169,22 +159,22 @@
       "kb_id": "remotion-video-templates/line-chart-draw",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5F0GE098T6V3XM06412Z5XX",
-      "date": "2026-10-21T10:35:59.386Z"
+      "version_id": "ver_01M5F1ZPVY3YRBAF19KAGY0NHW",
+      "date": "2026-10-21T11:01:48.562Z"
     },
     {
       "kb_id": "motion-primitives/animated-number",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5F0GE098T6V3XM06412Z5XX",
-      "date": "2026-10-21T10:35:59.386Z"
+      "version_id": "ver_01M5F1ZPVY3YRBAF19KAGY0NHW",
+      "date": "2026-10-21T11:01:48.562Z"
     },
     {
       "kb_id": "magicui/animated-beam",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5F0N6TMBGQF5R2B98V3QKNH",
-      "date": "2026-10-21T10:38:35.881Z"
+      "version_id": "ver_01M5F28MB8N3DT82PJ8THQFTMV",
+      "date": "2026-10-21T11:06:40.892Z"
     },
     {
       "kb_id": "xyflow/example-custom-node",
@@ -204,8 +194,8 @@
       "kb_id": "remotion-bits/animated-counter",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EV1VTZTSZW7X0C0QSA4TXP",
-      "date": "2026-10-21T09:00:39.154Z"
+      "version_id": "ver_01M5F1NFJA74QYZQS7DYT7B3VG",
+      "date": "2026-10-21T10:56:13.406Z"
     },
     {
       "kb_id": "xyflow/example-floating-edges",
@@ -218,22 +208,22 @@
       "kb_id": "xyflow/react-flow",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5F08Y5K9HJ030R2EXZTAH3A",
-      "date": "2026-10-21T10:31:53.801Z"
+      "version_id": "ver_01M5F28MB8N3DT82PJ8THQFTMV",
+      "date": "2026-10-21T11:06:40.892Z"
     },
     {
       "kb_id": "xyflow/edge-types",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5F08Y5K9HJ030R2EXZTAH3A",
-      "date": "2026-10-21T10:31:53.801Z"
+      "version_id": "ver_01M5F22QG4P3PHSZBHVXMY56ED",
+      "date": "2026-10-21T11:03:27.513Z"
     },
     {
       "kb_id": "motion-primitives-website/svg-path-draw",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EZXBTS6G631XFZGVTFSBSP",
-      "date": "2026-10-21T10:25:34.571Z"
+      "version_id": "ver_01M5F1FB708Z0CPCB2C7VYE7BC",
+      "date": "2026-10-21T10:52:52.343Z"
     },
     {
       "kb_id": "animata/glowing-card",
@@ -274,8 +264,8 @@
       "kb_id": "free-remotion-templates/kpi-counter",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5ES443NFXA24BC5TKBX21VK",
-      "date": "2026-10-21T08:26:56.008Z"
+      "version_id": "ver_01M5F1NFJA74QYZQS7DYT7B3VG",
+      "date": "2026-10-21T10:56:13.406Z"
     },
     {
       "kb_id": "xyflow/default-nodes",
@@ -294,102 +284,90 @@
   ],
   "chat": [
     {
-      "id": "msg_01M5F0N6V9Y72BKTESP02QC7C3",
-      "scene_id": "scn_01M5EZPF1E2SSX5HZT48J1JVAG",
+      "id": "msg_01M5F28MBW7X1ERTSSR3HAEQ8T",
+      "scene_id": "scn_01M5F191KX2S01EDW10KKCYV1B",
       "role": "assistant",
-      "text": "Версия 1 готова.\nКонцепция: Слева загорается узел «Пользователь» и отправляет запрос световым импульсом по связи в центральный узел «Оркестратор» — героя кадра. Оркестратор разветвляет импульсы к трём инструментам (Инструмент 1, 2, 3), каждый на своей ветке вспыхивает при получении, затем данные возвращаются по тем же связям обратным потоком обратно в оркестратор и итоговым импульсом уходят к пользователю. Взгляд идёт слева направо к оркестратору, веером к инструментам и обратно по замкнутому контуру; связи остаются тихо светиться.\nКомпоненты: motion-kit StyleProvider, motion-kit Background, motion-kit Particles, motion-kit SafeArea, motion-kit FlowGraph, motion-kit PulseAlongPath, motion-kit Emphasis, motion-kit Enter, motion-kit pulseArrival, motion-kit flowTiming, motion-kit useFlowGeometry, motion-kit useSafeArea, motion-kit useStyle, motion-kit typeSize, motion-kit accent, motion-kit alpha, motion-kit radius, motion-kit pathD, motion-kit fpsFrames, magicui/animated-beam (adapt, MIT (LICENSE.md)), xyflow/example-custom-node (adapt, MIT (LICENSE)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — пройден, стиль — пройден; замечаний: blocking 0, warning 4.",
-      "version_id": "ver_01M5F0N6TMBGQF5R2B98V3QKNH",
-      "job_id": "job_01M5EZPF1HVGD9XWXGVBM0KJCC",
-      "created_at": "2026-10-21T10:38:35.881Z"
+      "text": "Версия 1 готова.\nКонцепция: Архитектура AI-агента как светящаяся схема: слева узел «Пользователь» отправляет запрос — световой импульс бежит по связи к центральному узлу «Оркестратор», который пульсирует и расходится тремя лучами к трём инструментам («Инструмент 1», «Инструмент 2», «Инструмент 3»). Каждый инструмент по очереди вспыхивает, и импульсы с данными возвращаются по тем же связям обратно к оркестратору, затем к пользователю. Герой кадра — оркестратор в центре; взгляд идёт слева направо к инструментам и обратно по замкнутому контуру.\nКомпоненты: motion-kit StyleProvider, motion-kit Background, motion-kit Particles, motion-kit SafeArea, motion-kit useSafeArea, motion-kit useStyle, motion-kit Enter, motion-kit FlowGraph, motion-kit PulseAlongPath, motion-kit pulseArrival, motion-kit accent, motion-kit typeSize, magicui/animated-beam (adapt, MIT (LICENSE.md)), xyflow/react-flow (adapt, MIT (LICENSE, packages/react/package.json)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — пройден, смысловой — пройден, стиль — с замечаниями; замечаний: blocking 0, warning 3.",
+      "version_id": "ver_01M5F28MB8N3DT82PJ8THQFTMV",
+      "job_id": "job_01M5F191M1ANW1PK8NY0J3FR33",
+      "created_at": "2026-10-21T11:06:40.892Z"
     }
   ],
   "events": [
     {
-      "ts": "2026-10-21T10:32:20.724Z",
+      "ts": "2026-10-21T11:01:48.575Z",
       "level": "info",
       "kind": "started",
       "message": "playground.generate: попытка 1"
     },
     {
-      "ts": "2026-10-21T10:32:21.040Z",
+      "ts": "2026-10-21T11:01:48.959Z",
       "level": "info",
       "kind": "log",
       "message": "Concept…"
     },
     {
-      "ts": "2026-10-21T10:32:27.141Z",
+      "ts": "2026-10-21T11:01:55.066Z",
       "level": "info",
       "kind": "log",
-      "message": "Concept: Слева загорается узел «Пользователь» и отправляет запрос световым импульсом по связи в центральный узел «Оркестратор» — героя кадра. Оркестратор разветвляет импульсы к трём инструментам (Инструмент 1, 2, 3), каждый на своей ветке вспыхивает при получении, затем данные возвращаются по тем же связям обратным потоком обратно в оркестратор и итоговым импульсом уходят к пользователю. Взгляд идёт слева направо к оркестратору, веером к инструментам и обратно по замкнутому контуру; связи остаются тихо светиться. [system-structure, relationships, sequence-steps]"
+      "message": "Concept: Архитектура AI-агента как светящаяся схема: слева узел «Пользователь» отправляет запрос — световой импульс бежит по связи к центральному узлу «Оркестратор», который пульсирует и расходится тремя лучами к трём инструментам («Инструмент 1», «Инструмент 2», «Инструмент 3»). Каждый инструмент по очереди вспыхивает, и импульсы с данными возвращаются по тем же связям обратно к оркестратору, затем к пользователю. Герой кадра — оркестратор в центре; взгляд идёт слева направо к инструментам и обратно по замкнутому контуру. [system-structure, relationships, sequence-steps]"
     },
     {
-      "ts": "2026-10-21T10:32:27.150Z",
+      "ts": "2026-10-21T11:01:55.084Z",
       "level": "info",
       "kind": "log",
       "message": "KB: 12 кандидатов по ключам Concept"
     },
     {
-      "ts": "2026-10-21T10:32:27.401Z",
+      "ts": "2026-10-21T11:01:55.248Z",
       "level": "info",
       "kind": "log",
       "message": "Motion Director…"
     },
     {
-      "ts": "2026-10-21T10:33:32.040Z",
+      "ts": "2026-10-21T11:03:14.578Z",
       "level": "info",
       "kind": "log",
-      "message": "spec: 1 blocking — Director исправляет"
+      "message": "spec: 3 blocking — Director исправляет"
     },
     {
-      "ts": "2026-10-21T10:33:32.216Z",
+      "ts": "2026-10-21T11:03:14.733Z",
       "level": "info",
       "kind": "log",
       "message": "Motion Director…"
     },
     {
-      "ts": "2026-10-21T10:34:42.339Z",
+      "ts": "2026-10-21T11:04:12.870Z",
       "level": "info",
       "kind": "log",
-      "message": "Director: «Архитектура AI-агента» (network-centric), 12 битов, KB: magicui/animated-beam (adapt), xyflow/example-custom-node (adapt)"
+      "message": "Director: «Архитектура AI-агента» (network-centric), 11 битов, KB: magicui/animated-beam (adapt), xyflow/react-flow (adapt)"
     },
     {
-      "ts": "2026-10-21T10:34:42.996Z",
+      "ts": "2026-10-21T11:04:13.484Z",
       "level": "info",
       "kind": "log",
       "message": "Engineer…"
     },
     {
-      "ts": "2026-10-21T10:37:04.818Z",
+      "ts": "2026-10-21T11:05:54.197Z",
       "level": "info",
       "kind": "log",
-      "message": "typecheck: 1 ошибок"
+      "message": "рендер: кадры 27, 54, 87, 113, 138, 157, 179 + превью…"
     },
     {
-      "ts": "2026-10-21T10:37:05.008Z",
-      "level": "info",
-      "kind": "log",
-      "message": "Engineer: исправление 1 из 2 (typecheck)…"
-    },
-    {
-      "ts": "2026-10-21T10:37:46.161Z",
-      "level": "info",
-      "kind": "log",
-      "message": "рендер: кадры 48, 69, 89, 107, 126, 140, 163, 179 + превью…"
-    },
-    {
-      "ts": "2026-10-21T10:38:12.133Z",
+      "ts": "2026-10-21T11:06:16.880Z",
       "level": "info",
       "kind": "log",
       "message": "Visual QA…"
     },
     {
-      "ts": "2026-10-21T10:38:35.876Z",
+      "ts": "2026-10-21T11:06:40.889Z",
       "level": "info",
       "kind": "log",
-      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EZPF1E2SSX5HZT48J1JVAG/versions/ver_01M5F0N6TMBGQF5R2B98V3QKNH"
+      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5F191KX2S01EDW10KKCYV1B/versions/ver_01M5F28MB8N3DT82PJ8THQFTMV"
     },
     {
-      "ts": "2026-10-21T10:38:35.889Z",
+      "ts": "2026-10-21T11:06:40.899Z",
       "level": "info",
       "kind": "completed",
       "message": "completed"

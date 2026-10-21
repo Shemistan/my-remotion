@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5F08Y5K9HJ030R2EXZTAH3A",
-  "scene_id": "scn_01M5EZPF12H0NTMQNT7WV2J4HE",
+  "version_id": "ver_01M5F22QG4P3PHSZBHVXMY56ED",
+  "scene_id": "scn_01M5F191KEPDTAZ7SYBPF56Z7G",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T10:31:53.781Z",
+  "created_at": "2026-10-21T11:03:27.494Z",
   "prompt": "Объясни, как работает кэширование: запрос, промах, запись, попадание",
   "edit_plan": null,
   "settings": {
@@ -27,36 +27,36 @@
   },
   "files": [
     {
-      "path": "frames/104.png",
-      "sha256": "2ad2bf01a19f0f7fdd00d0fa93bb8bf8102cc26df2b3763f3ce216d1307f033c"
+      "path": "frames/101.png",
+      "sha256": "e5e406e779e6d2fa494ffc4446454f1543df1eb8a1af44e071b283c0f28752fa"
     },
     {
-      "path": "frames/119.png",
-      "sha256": "c1497a53fac1a6b1c0ae6c85b5359261e43a7dca83ffc24b66b85a5a71eeca67"
-    },
-    {
-      "path": "frames/150.png",
-      "sha256": "bd8db9232a197647b7590834ae19e0baa1e4ebd1558e184928ce813edcae8bf0"
+      "path": "frames/136.png",
+      "sha256": "3d4b23cbdd04aebf2c7632212662315e14382a77dee5999a32086c1e1c3ac98b"
     },
     {
       "path": "frames/152.png",
-      "sha256": "00b640b2b14759b751c59a5c5a750d24e5c13b4124b427513734f91c322d4c48"
+      "sha256": "81a5691b622d559bd23782c0f4a8c3bc98cffda0c48e35e1836f4f883eeddba8"
+    },
+    {
+      "path": "frames/166.png",
+      "sha256": "7fc01afa11b962333501893454bef5a3427c96c9d3c1c46dc095ebe845e68771"
     },
     {
       "path": "frames/179.png",
-      "sha256": "1362bd4fe6887419dd3eeb14501a4f439dff4971cac8874468b55db33da25299"
+      "sha256": "b51a5b7f710e9fe644b3042deccc5b102d9702022e313f12f28d8e30a7558d46"
     },
     {
       "path": "frames/27.png",
-      "sha256": "d8ee73219b48d6cff62c3b283a9c5dbb1d59e0726598f71d127f1a562f56b5ee"
+      "sha256": "3fedb93ca0484eb96d7eeacce606cd5a9b9a1c3a3fce0970b2b3451432960076"
     },
     {
-      "path": "frames/63.png",
-      "sha256": "ef6411c1c824bfc9d5a7e5d8bf2115e0355b219d6a31f16a7392cf38ba3daaba"
+      "path": "frames/46.png",
+      "sha256": "714331f5c0d48973a1c3eccd576b231e9ee63fe25cec40ba15c0c3d31ec92a14"
     },
     {
-      "path": "frames/86.png",
-      "sha256": "37f0bf380e6eb82a9441aead5af0fba07df83decd8505e1e22eff8c16b97b481"
+      "path": "frames/73.png",
+      "sha256": "b31ed33cc529578d12c9cf7cdece574e9f9ad657459ae5e2b11c97621c53f646"
     },
     {
       "path": "knowledge-refs.json",
@@ -64,19 +64,19 @@
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "c8774b4b09861ef771849583f20c82f02fdfa3090bc1aa3c5f97f3591e956fb1"
+      "sha256": "0aa08c91cafa1d6b6ba39afdb89b661c6309137d4e370c5021aac9d7c945d719"
     },
     {
       "path": "preview.mp4",
-      "sha256": "e6b5e528afc7cb5338ed9f6063b398740081e9c7061ce7175603dcb35ea4f203"
+      "sha256": "66f561aaf0164c5c6f847452343c6b3b55aed0f9c8209b8cc7daefc5bdce98a7"
     },
     {
       "path": "props.json",
-      "sha256": "72d513a1cfa4a35e439bcbdff4b33ec7670d0204fa13ca6ef9b730b404daac83"
+      "sha256": "0274092c3f07f354b5a4ae96467ad829598624915a2fc66c1d983a6737dce83e"
     },
     {
       "path": "qa.json",
-      "sha256": "fb2babac32dba16716c06ab588c94da5084986bb9f654f997a5dbaf573cca4e1"
+      "sha256": "ab247154be949b235584e69fe10062170437a06be00653d3d7628a3cb2a3fe6e"
     },
     {
       "path": "refs/kb/xyflow/edge-types/CARD.md",
@@ -168,7 +168,7 @@
     },
     {
       "path": "refs/motion-kit/API.md",
-      "sha256": "aef7aee2f882cc13bdcf837d5f3342cab75d7ba9ea4bb3b74e77829d5d3f438f"
+      "sha256": "2842a3bb93d0ef1d634e50307c7cc7d15907c4d275abe64f28966846445c8d63"
     },
     {
       "path": "refs/skills/remotion-markup/SKILL.md",
@@ -196,7 +196,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "eaa12dd6aa299fe18b82d6bdb36c09692c1ad8d288a7d79ea106a027e502d8b1"
+      "sha256": "7f46a63ae4a793c11848aeb8e02c3fc20f1c18e4a3b6597cc646d934a1283795"
     },
     {
       "path": "settings.json",
@@ -204,11 +204,11 @@
     },
     {
       "path": "spec.json",
-      "sha256": "e89ecb94e56d4bc2d3ab3976c5f9f619d14e4bf25f5e566d2ce41223e61e031c"
+      "sha256": "7143cd8dfff59a78031646c2c75e0cf84a7166c2ab4d3c4b56eb20f9e0eb8b84"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "12b50fcedaaf856c203c11f44f6230be52101f52a4ac01059731cd7c3e6775db"
+      "sha256": "510bfeec62c5f79e36b27b60fcd1e91ed36e3f425bd2db3c8181b292c147a80b"
     },
     {
       "path": "style.json",
@@ -222,7 +222,7 @@
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:aa65f750424ab273",
+    "motion_kit": "sha256:3e8d6ee7bf584338",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
@@ -241,45 +241,43 @@
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5EZPF15Z9W0TG4RKCY76TMK/a1-concept-1",
-    "logs/agent-runs/job_01M5EZPF15Z9W0TG4RKCY76TMK/a1-motion_director-1",
-    "logs/agent-runs/job_01M5EZPF15Z9W0TG4RKCY76TMK/a1-engineer-1",
-    "logs/agent-runs/job_01M5EZPF15Z9W0TG4RKCY76TMK/a1-engineer-2",
-    "logs/agent-runs/job_01M5EZPF15Z9W0TG4RKCY76TMK/a1-visual_qa-1"
+    "logs/agent-runs/job_01M5F191KJN463PJ38GCTSCRX1/a2-engineer-1",
+    "logs/agent-runs/job_01M5F191KJN463PJ38GCTSCRX1/a2-engineer-2",
+    "logs/agent-runs/job_01M5F191KJN463PJ38GCTSCRX1/a2-visual_qa-1"
   ],
   "qa": {
     "technical": "pass",
-    "visual": "warn",
+    "visual": "pass",
     "semantic": "pass",
     "style": "pass"
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "e6b5e528afc7cb5338ed9f6063b398740081e9c7061ce7175603dcb35ea4f203"
+    "sha256": "66f561aaf0164c5c6f847452343c6b3b55aed0f9c8209b8cc7daefc5bdce98a7"
   },
   "status": "ready",
   "qa_frames": [
     27,
-    63,
-    86,
-    104,
-    119,
-    150,
+    46,
+    73,
+    101,
+    136,
     152,
+    166,
     179
   ],
   "qa_frames_sha256": [
-    "d8ee73219b48d6cff62c3b283a9c5dbb1d59e0726598f71d127f1a562f56b5ee",
-    "ef6411c1c824bfc9d5a7e5d8bf2115e0355b219d6a31f16a7392cf38ba3daaba",
-    "37f0bf380e6eb82a9441aead5af0fba07df83decd8505e1e22eff8c16b97b481",
-    "2ad2bf01a19f0f7fdd00d0fa93bb8bf8102cc26df2b3763f3ce216d1307f033c",
-    "c1497a53fac1a6b1c0ae6c85b5359261e43a7dca83ffc24b66b85a5a71eeca67",
-    "bd8db9232a197647b7590834ae19e0baa1e4ebd1558e184928ce813edcae8bf0",
-    "00b640b2b14759b751c59a5c5a750d24e5c13b4124b427513734f91c322d4c48",
-    "1362bd4fe6887419dd3eeb14501a4f439dff4971cac8874468b55db33da25299"
+    "3fedb93ca0484eb96d7eeacce606cd5a9b9a1c3a3fce0970b2b3451432960076",
+    "714331f5c0d48973a1c3eccd576b231e9ee63fe25cec40ba15c0c3d31ec92a14",
+    "b31ed33cc529578d12c9cf7cdece574e9f9ad657459ae5e2b11c97621c53f646",
+    "e5e406e779e6d2fa494ffc4446454f1543df1eb8a1af44e071b283c0f28752fa",
+    "3d4b23cbdd04aebf2c7632212662315e14382a77dee5999a32086c1e1c3ac98b",
+    "81a5691b622d559bd23782c0f4a8c3bc98cffda0c48e35e1836f4f883eeddba8",
+    "7fc01afa11b962333501893454bef5a3427c96c9d3c1c46dc095ebe845e68771",
+    "b51a5b7f710e9fe644b3042deccc5b102d9702022e313f12f28d8e30a7558d46"
   ],
   "job": {
-    "id": "job_01M5EZPF15Z9W0TG4RKCY76TMK",
-    "attempt": 1
+    "id": "job_01M5F191KJN463PJ38GCTSCRX1",
+    "attempt": 2
   }
 }
