@@ -206,6 +206,17 @@ describe("крупные объекты у края", () => {
       expect(find(await run(card(), outside), "accent_static")).toHaveLength(1);
     });
 
+    it("регион — через safeRect (поле 0.05 × 192 → 10 px, не 9.6): столбец 9 вне региона", async () => {
+      const left = spec({
+        beats: [beat("b0", 0, 60, ["title"]), beat("b1", 60, 90, ["badge"], "final-emphasis"), beat("b2", 90, 120, ["badge", "title"], "hold")],
+        elements: [el("title", { layout: { x: 0.6, y: 0, w: 0.3, h: 0.1 } }), el("badge", { kind: "card", role: "акцент: итог", layout: { x: 0, y: 0.3, w: 0.5, h: 0.4 } })],
+      });
+      const edge = card().rect(9, 30, 1, 50, "#ffffff");
+      expect(find(await run(card(), edge, left), "accent_static")).toHaveLength(1);
+      const inside = card().rect(10, 30, 1, 50, "#ffffff");
+      expect(find(await run(card(), inside, left), "accent_static")).toEqual([]);
+    });
+
     it("акцента нет на последнем кадре (ушёл раньше) или кадров пары нет — проверки нет", async () => {
       const gone = spec({
         beats: [beat("b0", 0, 60, ["title"]), beat("b1", 60, 90, ["badge"], "final-emphasis"), beat("b2", 90, 120, ["title"], "hold")],

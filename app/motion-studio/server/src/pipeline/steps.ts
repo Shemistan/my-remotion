@@ -573,7 +573,7 @@ export async function directorStep(
     const blocking = specChecks(spec, s).filter((x) => x.severity === "blocking");
     if (blocking.length === 0) {
       for (const w of specWarnings(spec)) rc.warnings.push(`spec: ${w}`);
-      for (const c of bound.changes) rc.warnings.push(`spec: ${c}`);
+      for (const c of [...bound.changes, ...bound.warnings]) rc.warnings.push(`spec: ${c}`);
       if (cp && key && !(round === 1 && key.reused)) await saveCheckpoint(rc, cp, "motion_director", key.hash, director);
       return { ok: true, director: { ...director, spec }, spec };
     }

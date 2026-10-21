@@ -409,48 +409,53 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
       return failed(storage ? "storage" : "render", `рендер отклонён: ${errText(r.error)}`, { alive: true });
     }
     const rr = r.value!;
-    if (rr.error?.stage === "orphaned") return failed("orphaned", `рендер: ${rr.error.message}`, { alive: true });
-    if (r.lost) return failed("storage", `хранилище пропало во время рендера: ${r.lost}`);
-    if (rc.aborted) return failed("cancelled", "отменено во время рендера");
-    const consoleErrors = rr.browserLogs.filter((l) => l.startsWith("[error]"));
-    if (!rr.ok || !rr.probe || !rr.previewPath) {
-      const err = rr.error ?? { stage: "media", message: "рендер не вернул превью" };
-      const logs = consoleErrors.length > 0 ? `\nконсоль браузера:\n${consoleErrors.slice(-20).join("\n")}` : "";
-      push({ stage: "render", message: `${err.stage}: ${err.message}${logs}` });
-      rc.log(`рендер: ${err.stage}`);
-      continue;
-    }
-    const ms = Date.now() - t0;
-    state.renders.push(
-      { kind: "still", frames: req.stills.length, width: settings.width, height: settings.height, fps: settings.fps, outputPath: join(draftDir, "frames"), durationMs: ms },
-      { kind: "preview", frames: settings.duration_frames, width: rr.probe.width, height: rr.probe.height, fps: settings.fps, outputPath: rr.previewPath, ffprobe: rr.probe, durationMs: ms },
-    );
-    const gate = probeGate(rr.probe, settings, PREVIEW.scale);
-    if (gate.length > 0) {
-      push({ stage: "probe", message: `превью не прошло проверку ffprobe: ${gate.join("; ")}` });
-      continue;
-    }
-    if (consoleErrors.length > 0) rc.warnings.push(`консоль браузера: ${consoleErrors.slice(0, 5).join(" | ")}`);
-
-    // QA по реальным кадрам (Task 16)
-    if (i.qa) {
-      i.progress?.(0.7, "qa");
-      const q = await runQa(i, state, rr, techWarnings, call, extra);
-      if ("exit" in q) return q.exit;
-      lastQa = q.report;
-      if (qaBlocks(q.report)) {
-        const blocking = q.report.issues.filter((x) => x.severity === "blocking");
-        push({ stage: "qa", message: fixHints(q.report) });
-        rc.log(`QA: blocking ${blocking.map((x) => `${x.code}${x.frame !== undefined ? `@${x.frame}` : ""}`).join(", ") || Object.entries(q.report.gate).filter(([, v]) => v === "fail").map(([k]) => `gate.${k}`).join(", ")}`);
+    // лишний кадр N−20 (accent_static) — не QA-кадр: удаляется на любом исходе этого рендера
+    try {
+      if (rr.error?.stage === "orphaned") return failed("orphaned", `рендер: ${rr.error.message}`, { alive: true });
+      if (r.lost) return failed("storage", `хранилище пропало во время рендера: ${r.lost}`);
+      if (rc.aborted) return failed("cancelled", "отменено во время рендера");
+      const consoleErrors = rr.browserLogs.filter((l) => l.startsWith("[error]"));
+      if (!rr.ok || !rr.probe || !rr.previewPath) {
+        const err = rr.error ?? { stage: "media", message: "рендер не вернул превью" };
+        const logs = consoleErrors.length > 0 ? `\nконсоль браузера:\n${consoleErrors.slice(-20).join("\n")}` : "";
+        push({ stage: "render", message: `${err.stage}: ${err.message}${logs}` });
+        rc.log(`рендер: ${err.stage}`);
         continue;
       }
-    }
+      const ms = Date.now() - t0;
+      state.renders.push(
+        { kind: "still", frames: frames.length, width: settings.width, height: settings.height, fps: settings.fps, outputPath: join(draftDir, "frames"), durationMs: ms },
+        { kind: "preview", frames: settings.duration_frames, width: rr.probe.width, height: rr.probe.height, fps: settings.fps, outputPath: rr.previewPath, ffprobe: rr.probe, durationMs: ms },
+      );
+      const gate = probeGate(rr.probe, settings, PREVIEW.scale);
+      if (gate.length > 0) {
+        push({ stage: "probe", message: `превью не прошло проверку ffprobe: ${gate.join("; ")}` });
+        continue;
+      }
+      if (consoleErrors.length > 0) rc.warnings.push(`консоль браузера: ${consoleErrors.slice(0, 5).join(" | ")}`);
 
-    const framesSha: string[] = [];
-    for (const s of rr.stills.slice(0, frames.length)) framesSha.push(await sha256File(s));
-    const previewSha = await sha256File(rr.previewPath);
-    rc.note("ready", `gate пройден с вызова ${call}`);
-    return { ok: true, previewSha, framesSha, ...(lastQa ? { qa: lastQa } : {}) };
+      // QA по реальным кадрам (Task 16)
+      if (i.qa) {
+        i.progress?.(0.7, "qa");
+        const q = await runQa(i, state, rr, techWarnings, call, extra);
+        if ("exit" in q) return q.exit;
+        lastQa = q.report;
+        if (qaBlocks(q.report)) {
+          const blocking = q.report.issues.filter((x) => x.severity === "blocking");
+          push({ stage: "qa", message: fixHints(q.report) });
+          rc.log(`QA: blocking ${blocking.map((x) => `${x.code}${x.frame !== undefined ? `@${x.frame}` : ""}`).join(", ") || Object.entries(q.report.gate).filter(([, v]) => v === "fail").map(([k]) => `gate.${k}`).join(", ")}`);
+          continue;
+        }
+      }
+
+      const framesSha: string[] = [];
+      for (const s of rr.stills.slice(0, frames.length)) framesSha.push(await sha256File(s));
+      const previewSha = await sha256File(rr.previewPath);
+      rc.note("ready", `gate пройден с вызова ${call}`);
+      return { ok: true, previewSha, framesSha, ...(lastQa ? { qa: lastQa } : {}) };
+    } finally {
+      for (const p of rr.stills.slice(frames.length)) await rm(p, { force: true });
+    }
   }
   const last = issue!;
   if (last.stage === "qa" && lastQa) {

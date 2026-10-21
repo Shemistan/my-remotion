@@ -156,6 +156,8 @@ describe("playgroundGenerate: счётчик за головой линии", ()
     const o = directorOutput();
     o.spec.elements.push({ id: "num", kind: "number", role: "счётчик", entrance: "count", content: { from: 10, to: 1000, bound_to: "chart.head" } });
     o.spec.beats.push({ id: "bc", start_frame: 35, end_frame: 100, action: "number-count", description: "", element_ids: ["num"] });
+    // бит рисования графика — с draw в действии (без него привязка — только предупреждение)
+    o.spec.beats = o.spec.beats.map((b) => (b.id === "b2" ? { ...b, action: "chart-draw" } : b));
     const agents = fakeAgents({ director: async () => ({ output: o }) });
     const { job, scene } = await runJob({ agents });
     expect(job.status).toBe("completed");
@@ -180,6 +182,30 @@ describe("playgroundGenerate: финальный акцент жив", () => {
     expect(m.qa_frames_sha256).toHaveLength(m.qa_frames.length);
     expect(readdirSync(join(env.s.root, v!.path, "frames")).sort()).toEqual(m.qa_frames.map((f) => `${f}.png`).sort());
     expect(String(agents.tasks.find((t) => t.role === "visual_qa")!.input)).not.toContain(`frames/${n - 20}.png`);
+    // в журнале рендера — только QA-кадры, без лишнего
+    expect(count("render_jobs", "job_id = ? AND kind = 'still' AND frames = ?", job.id, m.qa_frames.length)).toBe(1);
+    expect(count("render_jobs", "job_id = ? AND kind = 'still'", job.id)).toBe(1);
+  });
+
+  it("лишний кадр N−20 удаляется сразу после рендера, даже если до QA не дошло (probe не прошёл)", async () => {
+    const n = settings.duration_frames;
+    const base = fakeRender({ png: true });
+    const seen: boolean[] = [];
+    let call = 0;
+    const fr = fakeRender({
+      onCall: async (req, signal) => {
+        call++;
+        seen.push(existsSync(join(req.versionDir, "frames", `${n - 20}.png`)));
+        const r = await base.render(req, signal);
+        // первый рендер: превью не того размера — probe gate, Engineer исправляет
+        return call === 1 ? { ...r, probe: { ...r.probe!, width: 7 } } : r;
+      },
+    });
+    const { job } = await runJob({ render: fr.render, agents: fakeAgents({}) });
+    expect(job.status).toBe("completed");
+    expect(fr.calls).toHaveLength(2);
+    expect(fr.calls[0]!.stills).toContain(n - 20);
+    expect(seen).toEqual([false, false]);
   });
 });
 

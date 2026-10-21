@@ -19,43 +19,79 @@ export interface BoundCounter {
   endFrame: number;
 }
 
-/** Бит рисования графика: первый с `draw` в действии, иначе первый бит графика. */
+/** Бит рисования графика — бит графика с `draw` в действии (по времени первый). */
 function chartBeatOf(spec: MotionSpec, chart: Element): Beat | undefined {
-  const beats = spec.beats.filter((b) => b.element_ids.includes(chart.id)).sort((a, b) => a.start_frame - b.start_frame);
-  return beats.find((b) => /draw/i.test(b.action)) ?? beats[0];
+  return spec.beats.filter((b) => b.element_ids.includes(chart.id) && /draw/i.test(b.action)).sort((a, b) => a.start_frame - b.start_frame)[0];
 }
 
-/** Числа с `bound_to: "<chart>.head"` на существующий график; счёт в бите самого графика — не в счёт. */
-export function boundCounters(spec: MotionSpec): BoundCounter[] {
-  const out: BoundCounter[] = [];
+/** Привязанные счётчики и предупреждения о тех, что нельзя привязать. */
+function scan(spec: MotionSpec): { counters: BoundCounter[]; warnings: string[] } {
+  const counters: BoundCounter[] = [];
+  const warnings: string[] = [];
   for (const e of spec.elements.filter((x) => x.kind === "number")) {
     const m = typeof e.content.bound_to === "string" ? HEAD.exec(e.content.bound_to.trim()) : null;
     const chart = m ? spec.elements.find((x) => x.id === m[1] && x.kind === "chart") : undefined;
     if (!chart) continue;
     const beat = countBeat(spec, e);
     const chartBeat = chartBeatOf(spec, chart);
-    if (!beat || !chartBeat || beat.id === chartBeat.id) continue;
+    if (!chartBeat) {
+      warnings.push(`счётчик ${e.id} привязан к ${chart.id}.head, но у ${chart.id} нет бита с draw в действии — бит счёта не выровнен по голове линии`);
+      continue;
+    }
+    if (!beat || beat.id === chartBeat.id) continue;
     const w = lineDrawWindow(chartBeat);
-    out.push({ number: e.id, chart: chart.id, beat: beat.id, chartBeat: chartBeat.id, startFrame: w.startFrame, endFrame: w.endFrame });
+    const endFrame = Math.min(w.endFrame, spec.duration_frames);
+    if (endFrame <= w.startFrame) {
+      warnings.push(`счётчик ${e.id}: окно головы ${chart.id} (${w.startFrame}–${w.endFrame}) вне сцены (${spec.duration_frames} кадров) — бит ${beat.id} не тронут`);
+      continue;
+    }
+    counters.push({ number: e.id, chart: chart.id, beat: beat.id, chartBeat: chartBeat.id, startFrame: w.startFrame, endFrame });
   }
-  return out;
+  return { counters, warnings };
 }
 
-/** Биты счёта привязанных счётчиков — по окну головы линии. Новая spec и список правок. */
-export function normalizeBoundCounters(spec: MotionSpec): { spec: MotionSpec; changes: string[] } {
+/** Числа с `bound_to: "<chart>.head"` на график с битом рисования; счёт в бите самого графика — не в счёт. */
+export function boundCounters(spec: MotionSpec): BoundCounter[] {
+  return scan(spec).counters;
+}
+
+/** Свободный id бита счёта: `<number>-count`, при совпадении — с номером. */
+function freeBeatId(beats: readonly Beat[], number: string): string {
+  const taken = new Set(beats.map((b) => b.id));
+  let id = `${number}-count`;
+  for (let k = 2; taken.has(id); k++) id = `${number}-count-${k}`;
+  return id;
+}
+
+/**
+ * Биты счёта привязанных счётчиков — по окну головы линии. Бит только этого числа
+ * переписывается на месте; бит, который делят другие элементы, не меняется: число уходит
+ * из него в свой бит счёта. Новая spec, список правок и предупреждения.
+ */
+export function normalizeBoundCounters(spec: MotionSpec): { spec: MotionSpec; changes: string[]; warnings: string[] } {
+  const { counters, warnings } = scan(spec);
   const changes: string[] = [];
-  const fix = new Map<string, { start: number; end: number }>();
-  for (const c of boundCounters(spec)) {
-    const b = spec.beats.find((x) => x.id === c.beat)!;
+  let beats = spec.beats;
+  for (const c of counters) {
+    const b = beats.find((x) => x.id === c.beat)!;
     if (b.start_frame === c.startFrame && b.end_frame === c.endFrame) continue;
-    if (fix.has(b.id)) continue;
-    fix.set(b.id, { start: c.startFrame, end: c.endFrame });
-    changes.push(`бит ${b.id} ${b.start_frame}–${b.end_frame} → ${c.startFrame}–${c.endFrame}: счётчик ${c.number} идёт за головой ${c.chart} (бит ${c.chartBeat})`);
+    if (b.element_ids.every((id) => id === c.number)) {
+      beats = beats.map((x) => (x.id === b.id ? { ...x, start_frame: c.startFrame, end_frame: c.endFrame } : x));
+      changes.push(`бит ${b.id} ${b.start_frame}–${b.end_frame} → ${c.startFrame}–${c.endFrame}: счётчик ${c.number} идёт за головой ${c.chart} (бит ${c.chartBeat})`);
+      continue;
+    }
+    const own: Beat = {
+      id: freeBeatId(beats, c.number),
+      start_frame: c.startFrame,
+      end_frame: c.endFrame,
+      action: "count-follow-head",
+      description: `${c.number} считает за головой линии ${c.chart}: значение — lineChartHead(...).value, окно головы бита ${c.chartBeat}`,
+      element_ids: [c.number],
+    };
+    beats = beats.map((x) => (x.id === b.id ? { ...x, element_ids: x.element_ids.filter((id) => id !== c.number) } : x));
+    const at = beats.findIndex((x) => x.start_frame > own.start_frame);
+    beats = at < 0 ? [...beats, own] : [...beats.slice(0, at), own, ...beats.slice(at)];
+    changes.push(`бит ${b.id} делят другие элементы: счёт ${c.number} вынесен в бит ${own.id} ${c.startFrame}–${c.endFrame} за головой ${c.chart} (бит ${c.chartBeat})`);
   }
-  if (fix.size === 0) return { spec, changes };
-  const beats = spec.beats.map((b) => {
-    const f = fix.get(b.id);
-    return f ? { ...b, start_frame: f.start, end_frame: f.end } : b;
-  });
-  return { spec: { ...spec, beats }, changes };
+  return { spec: beats === spec.beats ? spec : { ...spec, beats }, changes, warnings };
 }

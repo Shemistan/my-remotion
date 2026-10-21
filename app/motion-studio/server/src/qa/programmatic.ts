@@ -198,13 +198,14 @@ function accentAliveIssues(spec: MotionSpec, settings: Settings, [fa, a]: [numbe
   const accent = byRole.length > 0 ? byRole : spec.elements.filter((e) => accentBeat(spec)?.element_ids.includes(e.id));
   const visible = accent.filter((e) => e.layout && e.layout.w * e.layout.h < 0.9 && spec.beats.some((x) => x.element_ids.includes(e.id) && inBeat(x, fb, dur)));
   if (visible.length === 0) return [];
-  const { x: sx, y: sy } = settings.safe_area;
+  // layout — доли safe area; в px кадра — через safeRect, как в kit и specChecks
+  const safe = safeRect({ width: a.width, height: a.height, safe_area: settings.safe_area });
   const deltas = visible.map((e) => {
     const l = e.layout!;
-    const x0 = Math.max(0, Math.floor((sx + l.x * (1 - 2 * sx)) * a.width));
-    const y0 = Math.max(0, Math.floor((sy + l.y * (1 - 2 * sy)) * a.height));
-    const x1 = Math.min(a.width, Math.ceil((sx + (l.x + l.w) * (1 - 2 * sx)) * a.width));
-    const y1 = Math.min(a.height, Math.ceil((sy + (l.y + l.h) * (1 - 2 * sy)) * a.height));
+    const x0 = Math.max(0, Math.floor(safe.x + l.x * safe.w));
+    const y0 = Math.max(0, Math.floor(safe.y + l.y * safe.h));
+    const x1 = Math.min(a.width, Math.ceil(safe.x + (l.x + l.w) * safe.w));
+    const y1 = Math.min(a.height, Math.ceil(safe.y + (l.y + l.h) * safe.h));
     return { id: e.id, d: regionLumaDelta(a, b, x0, y0, x1, y1) };
   });
   if (deltas.some((x) => x.d >= ACCENT_ALIVE_DELTA)) return [];
