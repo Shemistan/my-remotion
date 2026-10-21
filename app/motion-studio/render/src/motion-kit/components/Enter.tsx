@@ -3,9 +3,9 @@
 // обратным движением по easing.exit за exit_frames до конца бита.
 import type { Beat, StyleBible } from "@ms/contracts";
 import type { CSSProperties, ReactNode } from "react";
-import { useCurrentFrame, useVideoConfig } from "remotion";
+import { Freeze, useCurrentFrame, useVideoConfig } from "remotion";
 import { beatPhase } from "../beat.js";
-import { type EnterDirection, type EnterKind, type EnterPre, enterStyle, preStyle } from "../choreo/enter.js";
+import { type EnterDirection, type EnterKind, type EnterPre, enterStyle, posterStyle } from "../choreo/enter.js";
 import { staggerBeat } from "../choreo/stagger.js";
 import { EASE, easingOf, fpsFrames, frames, springAt } from "../easing.js";
 import { ramp } from "../internal.js";
@@ -26,9 +26,11 @@ export interface EnterProps {
   /** Уйти в конце бита (последние exit_frames). */
   exit?: boolean;
   /**
-   * До входа (0.4.0): `hidden` (по умолчанию) — пусто; `silhouette` — размытая приглушённая
-   * форма (15–25 %): кадр 0 уже показывает раскладку — оси, рамки, места героев;
-   * `ghost` — резкий приглушённый вид. Вход поднимает его до полной яркости без провала.
+   * До входа (0.4.0): `hidden` (по умолчанию) — пусто; `silhouette` — итоговый вид блока
+   * (кадр конца бита) размытым и приглушённым на 22 %: кадр 0 уже показывает раскладку —
+   * оси, рамки, места героев, глифы не читаются; `ghost` — резкий на 18 %. Слой гаснет за
+   * первую треть входа, живой блок входит поверх своим видом. Работает и для детей со своим
+   * входом (AnimatedNumber, графики, ComparisonSplit): `kind="none"`.
    */
   pre?: EnterPre;
   style?: CSSProperties;
@@ -62,7 +64,7 @@ export function Enter({ kind, beat, index = 0, total = 1, direction, distance, d
   const p = kind === "pop"
     ? springAt(frame, fps, s, w.start_frame, "pop")
     : ramp(frame, w.start_frame, w.start_frame + len, kind === "mask" ? EASE.outCubic : easingOf(s, "enter"));
-  let anim = pre === "hidden" ? enterStyle(kind, p, o) : preStyle(kind, p, pre, o);
+  let anim = enterStyle(kind, p, o);
 
   if (exit) {
     const phase = beatPhase(frame, w, { enter: s.motion.enter_frames, exit: s.motion.exit_frames });
@@ -75,5 +77,17 @@ export function Enter({ kind, beat, index = 0, total = 1, direction, distance, d
     }
   }
 
-  return <div style={{ ...style, ...anim }}>{children}</div>;
+  const live = <div style={{ ...style, ...anim }}>{children}</div>;
+  if (pre === "hidden" || p >= 1 / 3) return live;
+  // слой-постер: тот же блок в итоговом виде (Freeze на конце бита) — под живым
+  return (
+    <div style={{ position: "relative" }}>
+      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", ...posterStyle(pre, p) }}>
+        <div style={style}>
+          <Freeze frame={Math.max(w.end_frame, w.start_frame + len)}>{children}</Freeze>
+        </div>
+      </div>
+      {live}
+    </div>
+  );
 }

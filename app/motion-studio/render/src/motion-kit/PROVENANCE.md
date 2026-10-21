@@ -48,6 +48,7 @@ dark-premium, e2e `test/kit/choreo.e2e.test.ts`) и просмотра кадр�
 | `Emphasis`, `Halo`, `accentPulse`, `pulseArrival` | `own` | — | — | единый удар + дыхание удержания, гауссов ореол `closest-side`, вспышка узла FlowGraph в кадр прихода импульса (Task 17, fix B) | ok (patterns-gallery/accent, flow) |
 | `StatusChip`, `DataToken`, `LatencyRace`, `SceneTitle`, `useArrivalCount`, `arrivalCount`, `pathArrivals`, `backgroundLayout`, `flowLabelSizes` | `own` | — | — | статус на месте со сменой, данные-объект по ребру, скорость во времени (проход ∝ задержке), режимы заголовка, счётчик по приходам импульсов, раскладка фона по seed (motion-kit 0.3, Task 17 fix E) | ok (юнит-тесты, patterns-gallery/process-speed) |
 | `KineticText enter="type"` | `own` | — | — | — | ok |
+| `PosterGate`, `posterStyle`, `FlowNode.kind` (облики узлов), `flowStatusSlot`, `tokenShot`, `tokenSpan`, `summarizeLayout`, `axisTicks`, `minTextPx` | `own` | — | — | кадр-постер (Freeze итогового вида), облик узла по роли, места данных и статуса, токен без копий текста, реестр раскладки для QA, предел кегля (motion-kit 0.4.0, S2) | ok (юнит-тесты, patterns-gallery/queue, kinds, cache, flow; `docs/evidence/phase-1/kit-v0.4/`) |
 | `cameraAt`, `<Camera>`, `<Parallax>` | `own` | — | — | — | ok |
 | `safeRect`, `gridColumns`, `layoutLayered` | `own` | — | — | слои по топологическому порядку (общеизвестный приём, без кода dagre/elk) | ok (юнит-тесты; `layoutLayered` в рендере — с Task 15) |
 | глубина `depth` в `Card`, `FlowGraph`, `KineticText`, `Background` | `own` | — | — | — | ok |

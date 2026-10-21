@@ -1,5 +1,6 @@
 // Галерея паттернов: таймлайн из четырёх вех (горизонтальный).
-import { Background, KineticText, SafeArea, StyleProvider, Timeline, type ResolveStyleInput } from "@ms/motion-kit";
+import {
+  Enter, Background, KineticText, SafeArea, StyleProvider, Timeline, type ResolveStyleInput } from "@ms/motion-kit";
 
 type Window = { start_frame: number; end_frame: number };
 interface Props {
@@ -24,7 +25,7 @@ export const Scene = ({ timing, style, content }: Props) => {
       <Background beat={{ start_frame: 0, end_frame: 40 }} seed="timeline" />
       <SafeArea style={{ gap: 28 }}>
         <KineticText text="История компании" beat={b.kicker!} mode="letters" enter="type" size="caption" font="mono" caps />
-        <KineticText text="Шесть лет от идеи до миллиона" beat={b.headline!} mode="words" enter="slide" size="h1" highlight={["миллиона"]} />
+        <Enter kind="none" pre="silhouette" beat={b.headline!}><KineticText text="Шесть лет от идеи до миллиона" beat={b.headline!} mode="words" enter="slide" size="h1" highlight={["миллиона"]} /></Enter>
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {v ? (
             <Timeline items={ITEMS} beat={b.timeline!} orientation="v" width={1300} height={680} />

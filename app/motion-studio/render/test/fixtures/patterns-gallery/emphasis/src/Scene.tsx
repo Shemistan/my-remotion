@@ -17,16 +17,16 @@ function Statement({ b, third }: { b: Record<string, Window>; third: "highlight"
   const big = { fontFamily: fontFamily(s.typography.display), fontWeight: s.typography.display.weight, fontSize: typeSize(s, "display", height), lineHeight: 1.08, letterSpacing: "-0.035em", color: s.palette.text } as const;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <Enter kind="mask" beat={b.line1!}>
+      <Enter kind="mask" pre="silhouette" beat={b.line1!}>
         <div style={big}>Анимация должна</div>
       </Enter>
-      <Enter kind="mask" beat={b.line2!}>
+      <Enter kind="mask" pre="silhouette" beat={b.line2!}>
         <div style={big}>
           <Highlight beat={b.marker!} mode="marker" seed="explain">объяснять</Highlight>, а не{" "}
           <Highlight beat={b.underline!} mode="underline" accentIndex={1} seed="decorate">украшать</Highlight>
         </div>
       </Enter>
-      <Enter kind="rise" beat={b.line3!} style={{ marginTop: 36 }}>
+      <Enter kind="rise" pre="silhouette" beat={b.line3!} style={{ marginTop: 36 }}>
         <div style={{ fontFamily: fontFamily(s.typography.body), fontWeight: 500, fontSize: typeSize(s, "h2", height), color: s.palette.muted }}>
           {third === "emphasis" ? (
             <Emphasis beat={b.glow!} accentIndex={2}>

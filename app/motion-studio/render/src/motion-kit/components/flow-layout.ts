@@ -66,7 +66,7 @@ export function storeCap(n: Pick<FlowBox, "w" | "h">): number {
 }
 
 /** Высота панели окна (`client`) при кадре `frameH`. */
-export const clientBar = (frameH: number) => Math.round((22 * frameH) / 1080);
+export const clientBar = (frameH: number) => Math.round((28 * frameH) / 1080);
 
 /**
  * Полоса данных узла (чистая функция): внизу карточки под токен кегля caption, по ширине —

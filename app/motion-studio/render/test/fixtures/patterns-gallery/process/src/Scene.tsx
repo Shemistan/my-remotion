@@ -1,5 +1,6 @@
 // Галерея паттернов: процесс из четырёх шагов со стрелками.
-import { Background, KineticText, ProcessSteps, SafeArea, StyleProvider, type ResolveStyleInput } from "@ms/motion-kit";
+import {
+  Enter, Background, KineticText, ProcessSteps, SafeArea, StyleProvider, type ResolveStyleInput } from "@ms/motion-kit";
 
 type Window = { start_frame: number; end_frame: number };
 interface Props {
@@ -16,7 +17,7 @@ export const Scene = ({ timing, style, content }: Props) => {
       <Background beat={{ start_frame: 0, end_frame: 40 }} seed="process" />
       <SafeArea style={{ gap: 28 }}>
         <KineticText text="Как это работает" beat={b.kicker!} mode="letters" enter="type" size="caption" font="mono" caps />
-        <KineticText text="Четыре шага от запроса до сцены" beat={b.headline!} mode="words" enter="rise" size="h1" highlight={["сцены"]} />
+        <Enter kind="none" pre="silhouette" beat={b.headline!}><KineticText text="Четыре шага от запроса до сцены" beat={b.headline!} mode="words" enter="rise" size="h1" highlight={["сцены"]} /></Enter>
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <ProcessSteps
             steps={["Понять запрос", "Собрать раскадровку", "Написать код сцены", "Проверить кадры"]}

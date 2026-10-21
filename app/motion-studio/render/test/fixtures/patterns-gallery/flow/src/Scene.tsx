@@ -56,7 +56,7 @@ function nodes(b: Record<string, Window>): FlowNode[] {
       flash: [pulseArrival("e-ask", b.ask!, TRAVEL, { repeat: false }), back("e-search"), back("e-db"), back("e-llm")],
     },
     { id: "search", label: "Поиск", caption: "tool", x: 1040, y: 40, w: 300, h: 120, enter: "swing", accentIndex: 1, flash: fan("e-search") },
-    { id: "db", kind: "store", label: "База", caption: "tool", x: 1040, y: 230, w: 300, h: 200, enter: "blur", accentIndex: 1, flash: fan("e-db") },
+    { id: "db", kind: "store", label: "База", caption: "tool", x: 1040, y: 200, w: 300, h: 260, enter: "blur", accentIndex: 1, flash: fan("e-db") },
     { id: "llm", kind: "llm", label: "LLM", caption: "tool", x: 1040, y: 500, w: 300, h: 120, enter: "rise", accentIndex: 1, flash: fan("e-llm") },
   ];
 }

@@ -24,6 +24,25 @@ import { AnimatedNumber, AreaChart, Background, BarChart, Callout, Camera, Card,
 `PulseAlongPath` / `DataToken` с `edgeId` без графа, `DataToken dock="slot"` у узла без
 слота, узел со `slot`, которому не хватает высоты. Видишь такую строку — исправь сцену.
 
+**0.4.0 — плохое движение трудно выразить.** Умолчания kit сами держат ремесло:
+- текст не мельче 22 px при 1080 (`minTextPx`): `size` в px, шаг 0, подписи осей, узлов и
+  суффиксы чисел ниже предела поднимаются до него;
+- ось графика — не больше 4 делений (`yTicks`, `axisTicks`);
+- кадр 0 — постер: `Background` в полную силу с кадра 0; FlowGraph, графики, Timeline и
+  LatencyRace до входа показывают силуэт (`pre`, по умолчанию `silhouette`), кикер
+  `SceneTitle` виден приглушённо до набора; `<Enter pre>` — то же для своих блоков;
+- `DataToken` — один текст в кадре (след — штрих без глифов), едет центром по ребру и
+  встаёт перед карточкой, ложится в полосу данных узла или поглощается им — без хвостов;
+- у узла FlowGraph есть роль (`kind`) со своим обликом и места под данные и статус, которые
+  не пересекают подпись.
+
+**Реестр раскладки (QA).** На QA-кадрах рендер меряет весь видимый текст кадра и пишет
+строку `[motion-kit:layout]`; QA по ней ставит `text_overlap` и `token_on_label`
+(blocking — тексты друг на друге), `ghost_text` (blocking — один текст в нескольких копиях
+друг на друге) и `min_font` (кегль меньше 22 px при 1080). Текст с прозрачностью ниже 0.35
+(силуэт, приглушённый кикер, уходящий статус) не считается. Свой текст на чужом —
+разводи раскладкой, а не прозрачностью.
+
 ## Каркас сцены
 
 ```tsx
@@ -101,7 +120,14 @@ transparent?, palette_overrides?, safe_area?, font? }`), id пресета, Styl
   <Enter key={it.id} kind="rise" beat={beats.list} index={i} total={items.length}>…</Enter>
 ))}
 ```
-`{ kind, beat, index? = 0, total? = 1, direction?, distance?, duration?, exit?, style? }`.
+`{ kind, beat, index? = 0, total? = 1, direction?, distance?, duration?, exit?, pre? = "hidden", style? }`.
+
+`pre` — вид до входа: `hidden` — пусто; `silhouette` — итоговый вид блока (кадр конца
+бита, `Freeze`) размытым и обесцвеченным на 22 %: место героя, рамка, ось, график видны с
+кадра 0, глифы не читаются; `ghost` — резкий на 18 %. Слой гаснет за первую треть входа,
+живой блок входит поверх своим видом. Для детей со своим входом (число, график, сравнение)
+— `<Enter kind="none" pre="silhouette" beat={бит элемента}>`. Для опоры кадра — `silhouette`;
+для вывода, который должен прозвучать событием, — `hidden`. Стиль слоя — `posterStyle(pre, p)`.
 Шторка `mask` — маска с мягкой кромкой в 40 % высоты блока (`MASK_FEATHER`), открывается за 14–18 кадров
 (при 30 fps, любая интенсивность) с быстрым стартом и долгим торможением, текст при этом
 чуть поднимается (0.35 × `distance`) и проявляется: ни «обрезков» глифов (точки «й»,
@@ -222,8 +248,9 @@ const pos = layoutLayered(NODES, EDGES, { x: 0, y: 0, w: rect.w, h: rect.h }, { 
 ### Background
 `{ beat?, variant?: "aurora" | "spotlight" | "blueprint" | "grid" | "paper" | "solid", grain? = true,
 seed? = "bg", focus?: { x, y } }`. По умолчанию вариант выбирается по пресету
-(dark-premium → aurora, light-clean → paper, tech-neon → grid). Атмосфера видна с кадра 0
-(70 %) и разгорается за бит — сцена не открывается чёрным; пятна медленно дрейфуют.
+(dark-premium → aurora, light-clean → paper, tech-neon → grid). Атмосфера в полную силу с
+кадра 0 (0.4.0; `beat` оставлен для совместимости) — сцена не открывается чёрным; пятна
+медленно дрейфуют.
 
 - `seed` — раскладка: где стоят три пятна, их форма и порядок оттенков акцента. **Передавай
   id сцены**: две сцены с одним `seed` получают одну карту света (самый узнаваемый
@@ -256,7 +283,10 @@ seed? = "bg", focus?: { x, y } }`. По умолчанию вариант выб
 ### KineticText
 `{ text, beat, mode: "words" | "letters", enter: "rise" | "fade" | "scale" | "slide" | "type",
 size? = 6, font? = "display" | "body" | "mono", weight?, color?, highlight?: string[],
-align?, maxWidth?, lineHeight?, delay?, stagger?, exit?, caps?, style? }`
+align?, maxWidth?, lineHeight?, delay?, stagger?, exit?, caps?, pre? = "hidden", style? }`
+
+`pre` (с `enter: "type"`): `dim` (по умолчанию) — весь текст виден на 30 % с кадра 0, набор
+его «зажигает» по буквам (кадр-постер не пуст); `hidden` — пусто до набора.
 
 - `rise` — текст выходит из маски снизу с перелётом (для заголовков);
 - `fade` — проявляется из размытия (для подписей и кикеров);
@@ -266,7 +296,8 @@ align?, maxWidth?, lineHeight?, delay?, stagger?, exit?, caps?, style? }`
   ещё не набранные буквы держат место, раскладка не прыгает.
 
 `size` — уровень шкалы кадра (`"display"`, `"h1"`, `"h2"`, `"body"`, `"caption"`), шаг
-шкалы 0..8 (18, 22, 28, 36, 48, 64, 88, 120, 160 px) или кегль в px, если больше 8. При
+шкалы 0..8 (18, 22, 28, 36, 48, 64, 88, 120, 160 px) или кегль в px, если больше 8; меньше
+22 px при 1080 kit не рисует (`minTextPx`). При
 `depth` 2–3 крупный текст получает мягкую тень. Разбег частей не превышает 60% бита. Задержки частей слегка разбросаны
 (`random(seed)`), поэтому части не входят строем.
 ```tsx
@@ -287,6 +318,8 @@ px (> 8). Герой-число — `size="display"`.
 `suffix` массивом — формы существительного по числу: `suffix={[" рейс", " рейса", " рейсов"]}`
 (en — `[one, other]`); форма меняется вместе с показанным значением («1 рейс», «2 рейса»,
 «48 рейсов»). Подпись со словом, согласованным с числом, — только так, не строкой.
+
+`prefix` / `suffix` — 0.5 кегля числа, не мельче 22 px при 1080.
 
 `value` — внешнее значение вместо своего счёта: привязка к другому источнику движения
 (см. `lineChartHead`). Удар на финише остаётся в `end_frame` бита.
@@ -317,7 +350,13 @@ PulseAlongPath). `pop` 0..1 — микро-удар на каждом шаге: 
 ### LineChart
 `{ points: { label, value }[], beat, area? = true, callout? = true, endpointEmphasis?:
 boolean | { beat?, loop? } = true, width? = 1100, height? = 560, locale? = "ru", compact? =
-true, accentIndex? = 0, yTicks? = 4, valuePrefix?, valueSuffix? }`
+true, accentIndex? = 0, yTicks? = 4, valuePrefix?, valueSuffix?, pre? = "silhouette" }`
+
+`yTicks` — сколько делений оси самое большее (круглый шаг 1/2/5 × 10^k, `axisTicks`).
+`pre: "silhouette"` — до прорисовки видны пунктир сетки, приглушённые подписи оси и пунктир
+будущей линии (кадр 0 — постер, график уже читается); `hidden` — пусто до бита. То же `pre`
+у `AreaChart`, `BarChart` (сетка) и `LatencyRace` (дорожки); у `Timeline`, `ComparisonSplit`,
+`ProcessSteps`, `CodeBlock` до бита виден их итоговый вид размытым и приглушённым.
 
 Порядок внутри бита: сетка и подписи оси Y (первые 30%), затем гладкая монотонная
 линия рисуется со светящейся «головой» (12–80% бита). Точки вспыхивают, когда линия до
@@ -621,9 +660,26 @@ width?, height?, padding?, style? }`
 ```
 
 ### FlowGraph
-`{ nodes: { id, label, x, y, w, h, elevation? = 2, caption?, accentIndex?, enter?, enterAt?,
-flash?, emphasis?, size?, slot? }[], edges: { id, from, to }[], beat, width?, height?, enter? = "flip",
-children?, overlay? }`
+`{ nodes: { id, label, x, y, w, h, kind? = "service", elevation? = 2, caption?, accentIndex?, enter?, enterAt?,
+flash?, emphasis?, size?, slot?, writes?, filled? }[], edges: { id, from, to }[], beat, width?, height?, enter? = "flip",
+pre? = "silhouette", children?, overlay? }`
+
+**Роль узла — `kind`** (облик по смыслу, не одна карточка на всё):
+
+| `kind` | Облик | Для чего |
+|---|---|---|
+| `service` | карточка с точкой-маркером (по умолчанию) | сервис, шлюз, обработчик |
+| `client` | окно с панелью и тремя точками | браузер, приложение, пользователь |
+| `llm` | сфера-ядро в медленно вращающейся градиентной кромке | модель, агент, «мозг» схемы |
+| `queue` | буфер FIFO: ряд ячеек, шевроны входа слева и выхода справа | брокер сообщений, буфер задач |
+| `cache` | сетка ячеек-ключей, ячейка загорается на каждой записи; ножки модуля | быстрая память ключей |
+| `store` | цилиндр с крышкой | база, хранилище, архив |
+
+У `queue`, `cache`, `store` полоса данных есть всегда (как `slot`): закладывай высоту узла под
+подпись, пояснение и полосу (≈ 220 px при 1080, у `store` ещё крышка — ≈ 250). `cache`:
+`writes` — кадры записей (`pulseArrival` или числа; по умолчанию — кадры `flash`), `filled`
+— сколько ячеек заполнено с начала. `pre: "silhouette"` — до входа узлов видны их контуры
+пунктиром с приглушённой подписью и пунктир рёбер: схема читается с кадра 0, потом оживает.
 
 Координаты узлов — в px внутри области графа. Узлы — карточки с глубиной. Они входят
 слева направо в первые ~45% бита. Ребро прорисовывается, когда оба его узла на месте,
@@ -674,7 +730,13 @@ const back = { start_frame: 116, end_frame: 150 };
 центрируются над ней. Токен, пришедший по ребру в такой узел, ложится в слот сам — px не
 подбирай. Высоту узла закладывай с запасом: подпись + пояснение + полоса (h2-узел с
 пояснением при 1080 — от ~185 px); не хватает — сообщение в консоли. Без React —
-`flowSlot(node, style, height)` → `{ x, y, w, h, reserve }` (px графа).
+`flowSlot(node, style, height)` → `{ x, y, w, h, reserve }` (px графа); у `queue` полоса
+делится на ячейки (`queueCells`, `queueCellCenter(slot, i)`: ячейка 0 — у выхода).
+
+**Место статуса узла** — снаружи карточки: сверху, если сверху в узел не входит ребро, иначе
+снизу, иначе справа (`flowStatusSlot`). `StatusChip anchor={{ node }}` без `side` встаёт
+туда сам: плашка не ложится на подпись, токены по боковым рёбрам проходят мимо. Подпись,
+полоса данных и место статуса не пересекаются (`flowLabelZone`, `flowSlot`, `flowStatusSlot`).
 
 **Слои.** `children` — над рёбрами, **под** карточками (импульсы). `overlay` — над
 карточками: `DataToken`, который ложится в узел, `StatusChip` у узла или ребра, плашки и
@@ -682,7 +744,8 @@ const back = { start_frame: 116, end_frame: 150 };
 
 Для своих слоёв поверх графа:
 - `useFlowGeometry()` возвращает `{ edges: Map<edgeId, CubicSegment>, nodes: Map<id, FlowNode>,
-  links: Map<edgeId, { from, to }>, slots: Map<id, FlowSlot>, ready: Map<edgeId, frame>,
+  links: Map<edgeId, { from, to }>, slots: Map<id, FlowSlot>, inbox: Map<id, FlowSlot> (= slots),
+  status: Map<id, FlowStatusSlot>, ready: Map<edgeId, frame>,
   arrivals(pulseArrival(...)) → frame[] }` ближайшего FlowGraph
   (`null` вне графа). `ready` —
   кадр, когда ребро дорисовано; `arrivals` — кадры прихода импульса (по возрастанию): так
@@ -754,12 +817,13 @@ accentIndex? }[], anchor?: { node, side?: "top" | "bottom" | "left" | "right" | 
 гаснет, новый поднимается снизу, ширина и цвет плашки перетекают за ~10 кадров с лёгким
 толчком; первый входит пружиной pop. Прошедший статус не остаётся на экране (красная
 «Ошибка» не висит до конца рядом с «Готово»). Якорь — узел или ребро графа (ставь в
-`overlay` FlowGraph): плашка стоит у события, а не где-то рядом. Вне графа — `x`, `y` (центр
+`overlay` FlowGraph): плашка стоит у события, а не где-то рядом. Узел без `side` — место
+статуса узла (снаружи, со стороны без рёбер, 0.4.0); `side` / `gap` — явно, как в 0.3. Вне графа — `x`, `y` (центр
 плашки, px родителя). `until` — кадр ухода. Кадр смены совпадает с событием: бери кадр
 прихода из `useFlowGeometry().arrivals(...)`. Чистая функция — `statusAt(states, frame, style, until?)`.
 ```tsx
 <FlowGraph … overlay={
-  <StatusChip anchor={{ node: "ctl", side: "top" }} states={[
+  <StatusChip anchor={{ node: "ctl" }} states={[
     { text: "Ошибка", tone: "negative", at: failAt },
     { text: "Повтор", tone: "warning", at: retryAt },
     { text: "Готово", tone: "positive", at: doneAt },
@@ -768,29 +832,40 @@ accentIndex? }[], anchor?: { node, side?: "top" | "bottom" | "left" | "right" | 
 ```
 
 ### DataToken — данные как объект
-`{ label, edgeId? | segments?, beat, travel?, reverse?, stay? = true, dock?: "slot" | { dx, dy }, until?,
-tone?, accentIndex? = 0, size? = "caption", mono? = true, style? }`
+`{ label, edgeId? | segments?, beat, travel?, reverse?, stay?, consume?, dock?: "slot" | { dx, dy }, cell?,
+trail? = "streak", until?, tone?, accentIndex? = 0, size? = "caption", mono? = true, style? }`
 
 Данные — **объект**: карточка-запись («sensor:17», «GET /sensor/17», «21,4 °C») —
 прямоугольник с малым скруглением, моноширинный текст, цветная полоса-ярлык слева,
 нейтральная поверхность с тенью (`dataTokenLook`); у статуса — капсула и индикатор.
-Летит по ребру (по той же кривой, что импульс), оставляет короткий след (длина следа —
-скорость), касается цели, «вдавливается» и ложится в узел. **Куда:** узел-цель (`to`, при
-`reverse` — `from`) со `slot` — в его слот, сам; токен «ныряет» к слоту ещё в полёте и не
-проходит по подписи узла. `dock: "slot"` — слот обязателен (нет — ляжет под карточку,
-в консоли сообщение); `dock: { dx, dy }` — смещение от конца пути, px (как в 0.3.0); без
-слота и `dock` — конец пути. С `stay` (по умолчанию) остаётся до конца сцены — данные
-записаны; `stay={false}` — гаснет на приходе.
 
-Цвет — `dataColor(style, tone?, accentIndex?)`: акцент (по умолчанию 0), но не статусный —
-акцент ближе 40° по тону к `positive` / `negative` (teal рядом с зелёным «Готово»)
-заменяется самым далёким от них акцентом палитры. Явный `tone` (кроме `accent`) — как есть.
-Внутри графа ставь в `overlay` (иначе карточка его закроет); старт — не раньше, чем ребро
-дорисовано. Ответ на запрос — тоже токен («Средняя: 21,4 °C»), а не только точка.
-Чистая функция — `tokenAt(frame, start, travel, style, { stay?, until? })`.
+**Путь.** Едет по ребру (той же кривой, что импульс) **центром на линии**; стартует целиком
+снаружи узла-источника и встаёт передним краем у порта цели — карточку и подпись узла не
+перекрывает (`tokenSpan`). След — `trail: "streak"`: один размытый штрих цвета данных за
+карточкой, длина — скорость, **без текста**; `none` — без следа. Текст токена в кадре
+всегда один.
+
+**После прихода** (`tokenMode`):
+- у цели есть полоса данных (`slot`, `kind` queue / cache / store) — токен «вдавливается» в
+  порт и проявляется в полосе (запись), остаётся до конца сцены; в `queue` — в ячейке `cell`
+  (0 — у выхода; сообщения встают по порядку), длинный текст обрезается по ячейке;
+- полосы нет — **поглощается** узлом (по умолчанию): данные дошли, хвостов после итога нет;
+- `consume` или `stay={false}` — поглощается всегда; `stay` без полосы — остаётся перед портом;
+- `dock: { dx, dy }` — смещение от конца пути, px (как в 0.3.0); `dock: "slot"` — полоса
+  обязательна (нет — ляжет под карточку, в консоли сообщение);
+- вне графа (`segments`) — остаётся у конца пути.
+
+`until` — кадр ухода (сообщение забрали из буфера). Цвет — `dataColor(style, tone?, accentIndex?)`: акцент (по умолчанию 0), но не статусный —
+акцент ближе 40° по тону к `positive` / `negative` заменяется самым далёким от них акцентом
+палитры. Явный `tone` (кроме `accent`) — как есть. Внутри графа ставь в `overlay` (иначе
+карточка его закроет); старт — не раньше, чем ребро дорисовано. Ответ на запрос — тоже токен
+(«Средняя: 21,4 °C»), а не только точка. Чистые функции — `tokenShot(frame, start, travel,
+style, { mode, until })`, `tokenMode`, `tokenSpan`, `tokenBox`; `tokenAt` — как в 0.3.
 ```tsx
-// узел архива со слотом: { id: "archive", …, h: 190, slot: true }
+// узел архива с полосой: { id: "archive", kind: "store", …, h: 260 }
 <DataToken edgeId="e-archive" beat={beats.write} travel={30} reverse label="sensor:17" />
+// буфер: три записи встают в ячейки 0, 1, 2; исполнитель забирает первую — until
+<DataToken edgeId="e-in" beat={b1} travel={16} label="#17" cell={0} until={takeAt} />
 ```
 
 ### LatencyRace — скорость во времени
@@ -872,6 +947,9 @@ highlight?, align? = "left", size?, maxWidth?, style? }` — `composition.title_
 | `pathArrivals(segments, { beat, travel?, count?, repeat? }, style, fps, ready?)`, `arrivalCount(frames, frame, style, { per?, from? })` | приходы по своему пути и счётчик по ним без React |
 | `statusAt`, `tokenAt`, `latencyTiming`, `latencyAt`, `backgroundLayout`, `flowLabelSizes`, `enterDuration` | чистые функции новых примитивов 0.3 (см. разделы) |
 | `flowSlot`, `dataColor`, `dataTokenLook`, `statusChipLook`, `latencyLayout`, `laneReadout`, `emphasisFilter`, `haloLevel`, `hueDistance(a, b)` | чистые функции 0.3.1 (см. разделы); `hueDistance` — расстояние тонов по кругу, 0..180° |
+| `tokenShot`, `tokenMode`, `tokenSpan`, `tokenBox`, `flowLabelZone`, `flowStatusSlot`, `queueCells`, `queueCellCenter`, `cacheFill`, `posterStyle` | чистые функции 0.4.0 (см. разделы) |
+| `axisTicks(min, max, n)` | деления оси не больше `n` штук (круглый шаг) |
+| `minTextPx(height)`, `floorText(px, height)`, `MIN_TEXT_PX` | предел кегля kit: 22 px при 1080 |
 | `parallaxTransform(cam, layer, size?)`, `PARALLAX_OVERSCAN` | трансформация слоя параллакса; с размером кадра — с запасом за край |
 | `barTimings(beat, n, stagger)`, `stepStarts(beat, n)` | кадры роста столбцов и активации шагов — для своих привязанных слоёв |
 
@@ -895,6 +973,12 @@ highlight?, align? = "left", size?, maxWidth?, style? }` — `composition.title_
 - Фон — по сцене: `seed` = id сцены, `focus` — за героем, вариант по смыслу (`blueprint` для
   схем, `spotlight` для одного утверждения, `aurora` для данных).
 - Заголовок — по `title_mode` (`SceneTitle`); полоса h2 сверху — не по умолчанию.
+
+- Кадр 0 — постер: опора (оси, рамки узлов, места героев) видна с первого кадра — силуэты
+  kit по умолчанию, свои блоки — `<Enter pre="silhouette">`.
+- Данные по рёбрам — `DataToken` (одна копия текста, по линии, в полосу узла или в узел);
+  статус узла — `StatusChip` без `side` (место статуса). Свой текст поверх чужого — брак,
+  QA меряет наложения по реестру раскладки.
 
 - Строй иерархию размером: главный акцент (число, вывод) — самый крупный в кадре
   (`AnimatedNumber size={7}` и больше), заголовок на шаг-два меньше (`size={5}`),

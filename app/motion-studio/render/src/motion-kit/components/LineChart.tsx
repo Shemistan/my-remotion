@@ -351,7 +351,7 @@ export function chartAxis(o: {
               textAnchor="end"
               fontSize={PAD.font}
               fill={s.palette.muted}
-              opacity={label}
+              opacity={o.pre !== false ? Math.max(label, 0.3) : label}
               style={{ fontVariantNumeric: "tabular-nums" }}
               transform={`translate(${((1 - label) * -10).toFixed(2)} 0)`}
             >

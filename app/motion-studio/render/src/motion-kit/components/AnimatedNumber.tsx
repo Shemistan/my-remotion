@@ -94,6 +94,7 @@ export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact
 
   return (
     <div
+      data-ms-layout="number"
       style={{
         display: "inline-flex",
         alignItems: "baseline",

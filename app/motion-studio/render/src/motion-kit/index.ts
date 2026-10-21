@@ -5,17 +5,18 @@ import { ensureFonts } from "./fonts.js";
 // шрифты kit грузятся при импорте: первый кадр уже нужным шрифтом
 ensureFonts();
 
-/** Версия API kit (API.md): 0.2 — StyleBible-система, хореография, примитивы паттернов ТЗ §8.4; 0.2.1 — Emphasis/Halo, акцент точки LineChart, входы и вспышки узлов FlowGraph (аддитивно); 0.2.2 — FlowNode.emphasis, AccentPulse.swell (аддитивно); 0.3.0 — кольцо акцента только на ударе по умолчанию, шторка mask с мягкой кромкой 14–18 кадров, FlowNode.size, Background seed/focus/spotlight/blueprint, useArrivalCount, StatusChip, DataToken, LatencyRace, SceneTitle (меняет вид существующих сцен, API — обратно совместим); 0.3.1 — полировка после дизайн-ревью: FlowNode.slot и DataToken в слот, разная грамматика StatusChip / DataToken, LatencyRace от высоты кадра, различимые blueprint / spotlight, свечение Emphasis за текстом, сообщения kit о неверном использовании (аддитивно). */
+/** Версия API kit (API.md): 0.2 — StyleBible-система, хореография, примитивы паттернов ТЗ §8.4; 0.2.1 — Emphasis/Halo, акцент точки LineChart, входы и вспышки узлов FlowGraph (аддитивно); 0.2.2 — FlowNode.emphasis, AccentPulse.swell (аддитивно); 0.3.0 — кольцо акцента только на ударе по умолчанию, шторка mask с мягкой кромкой 14–18 кадров, FlowNode.size, Background seed/focus/spotlight/blueprint, useArrivalCount, StatusChip, DataToken, LatencyRace, SceneTitle (меняет вид существующих сцен, API — обратно совместим); 0.3.1 — полировка после дизайн-ревью: FlowNode.slot и DataToken в слот, разная грамматика StatusChip / DataToken, LatencyRace от высоты кадра, различимые blueprint / spotlight, свечение Emphasis за текстом, сообщения kit о неверном использовании (аддитивно); 0.4.0 — плохое движение трудно выразить: DataToken без копий текста (штрих-след, путь по линии, полоса узла / consume), FlowNode.kind (облик по роли), места данных и статуса узла, кадр-постер (pre-силуэты, фон с кадра 0), предел кегля 22 px, ось ≤ 4 делений, разметка реестра раскладки для QA (меняет вид существующих сцен, API — обратно совместим). */
 export const MOTION_KIT_VERSION = "0.4.0";
 
 export { ensureFonts, FONT_FILES, KIT_FONT_FAMILIES } from "./fonts.js";
 export { type PresetId, presets } from "./presets.js";
+export { LAYOUT_TAG, type LayoutFrame, type LayoutItem, type RawText, VISIBLE_OPACITY, summarizeLayout } from "./layout-probe.js";
 export { StyleProvider, type StyleSource, toResolved, useStyle } from "./style.js";
 export { type Depth, type PaletteOverrides, type ResolveStyleInput, type ResolvedStyle, resolveStyle } from "./style/resolve.js";
 export { contrastRatio, relativeLuminance } from "./style/contrast.js";
 export { MIN_TEXT_PX, TYPE_LEVELS, type TypeLevel, floorText, minTextPx, sizePx } from "./style/type-scale.js";
 export { INTENSITY, amplitudeOf } from "./style/intensity.js";
-export { type EnterDirection, type EnterKind, type EnterOptions, type EnterPre, MASK_FEATHER, PRE_ALPHA, enterStyle, preStyle } from "./choreo/enter.js";
+export { type EnterDirection, type EnterKind, type EnterOptions, type EnterPre, MASK_FEATHER, PRE_ALPHA, enterStyle, posterStyle } from "./choreo/enter.js";
 export { staggerBeat } from "./choreo/stagger.js";
 export { ACCENT_REST, type AccentPulse, type AccentPulseOptions, accentPulse } from "./choreo/accent.js";
 export { type ArrivalCount, type PathArrival, type PulseArrival, arrivalCount, pathArrivals, pulseArrival } from "./choreo/pulse.js";
@@ -89,6 +90,6 @@ export { LineChart, type LineChartProps, chartFont, lineChartHead, lineHighlight
 export { PulseAlongPath, type PulseAlongPathProps, useArrivalCount } from "./components/PulseAlongPath.js";
 export { SafeArea, useSafeArea } from "./components/SafeArea.js";
 export { type StatusAnchor, StatusChip, type StatusChipProps, type StatusFrame, type StatusState, type StatusTone, statusAt, statusChipLook, toneColor } from "./components/StatusChip.js";
-export { DataToken, type DataTokenProps, type TokenFrame, dataColor, dataTokenLook, tokenAt } from "./components/DataToken.js";
+export { DataToken, type DataTokenProps, type TokenFrame, type TokenMode, type TokenShot, dataColor, dataTokenLook, tokenAt, tokenBox, tokenMode, tokenShot, tokenSpan } from "./components/DataToken.js";
 export { type LaneFrame, type LaneTiming, type LatencyLane, LatencyRace, type LatencyRaceProps, type LaneReadout, type LatencyLayout, laneReadout, latencyAt, latencyLayout, latencyTiming } from "./components/LatencyRace.js";
 export { SceneTitle, type SceneTitleProps, TITLE_IN_FLOW, type TitleMode } from "./components/SceneTitle.js";

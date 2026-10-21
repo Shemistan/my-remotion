@@ -4,7 +4,7 @@
 //   ./scripts/with-node.sh npx tsx scripts/kit-evidence.mts patterns     # все сцены patterns-gallery
 //   ./scripts/with-node.sh npx tsx scripts/kit-evidence.mts patterns code timeline
 //   ./scripts/with-node.sh npx tsx scripts/kit-evidence.mts patterns timeline:orientation=v   # вариант (props.content)
-//   ./scripts/with-node.sh npx tsx scripts/kit-evidence.mts kit       # галерея v0.1 в трёх пресетах (slice/kit)
+//   ./scripts/with-node.sh npx tsx scripts/kit-evidence.mts kit       # галерея v0.1 в трёх пресетах (kit-v0.4/kit)
 // Полноразмерные PNG (ключевые и промежуточные кадры) остаются в tmp/kit-evidence-*/ репозитория.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -98,8 +98,8 @@ if (mode === "choreo") {
   }
   console.log(`полные кадры: ${work}`);
 } else if (mode === "kit") {
-  // галерея v0.1 (kit-gallery) в трёх пресетах — кадры docs/evidence/phase-1/slice/kit/ (PNG, как в срезе)
-  const OUT = join(REPO, "docs/evidence/phase-1/slice/kit");
+  // галерея v0.1 (kit-gallery) в трёх пресетах — кадры docs/evidence/phase-1/kit-v0.4/kit/ (PNG; срез — в slice/kit)
+  const OUT = join(REPO, "docs/evidence/phase-1/kit-v0.4/kit");
   mkdirSync(OUT, { recursive: true });
   const SETS: [string, number[]][] = [["dark-premium", [0, 30, 75, 120, 149]], ["light-clean", [75, 149]], ["tech-neon", [75, 149]]];
   for (const [preset, stills] of SETS) {

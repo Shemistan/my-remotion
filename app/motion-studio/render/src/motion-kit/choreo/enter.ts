@@ -84,28 +84,13 @@ export const PRE_ALPHA: Readonly<Record<EnterPre, number>> = { hidden: 0, ghost:
 export const PRE_BLUR = 8;
 
 /**
- * Стиль входа с видом до входа (`pre`): прозрачность не опускается ниже силуэта (вход
- * поднимает её от PRE_ALPHA до 1 без провала), у silhouette размытие и обесцвечивание уходят
- * по ходу входа; у mask нераскрытая часть остаётся силуэтом. `hidden` — enterStyle как есть.
+ * Стиль слоя-постера (чистая функция): итоговый вид элемента (Freeze на конце бита) до
+ * входа — на PRE_ALPHA, у silhouette размыт и обесцвечен; по ходу входа `p` 0 → 1 слой гаснет
+ * (за первую треть входа: живой элемент проявляется поверх, двойного текста не видно).
  */
-export function preStyle(kind: EnterKind, p: number, pre: EnterPre, o: EnterOptions): CSSProperties {
-  const base = enterStyle(kind, p, o);
-  if (pre === "hidden") return { ...base, opacity: base.opacity ?? (p > 0 || SELF_DRAWN.has(kind) ? 1 : 0) };
-  const floor = PRE_ALPHA[pre];
-  const op = typeof base.opacity === "number" ? base.opacity : 1;
-  const out: CSSProperties = { ...base, opacity: n(floor + (1 - floor) * c01(op)) };
-  if (typeof base.maskImage === "string") {
-    const img = base.maskImage.replace("transparent", `rgba(0, 0, 0, ${floor})`);
-    out.maskImage = img;
-    out.WebkitMaskImage = img;
-  }
-  if (pre === "silhouette") {
-    const q = c01(1 - p);
-    const own = typeof base.filter === "string" ? `${base.filter} ` : "";
-    if (q > 0.001) out.filter = `${own}blur(${n(PRE_BLUR * q)}px) grayscale(${n(q)})`;
-  }
+export function posterStyle(pre: EnterPre, p: number): CSSProperties {
+  const k = c01(1 - c01(p) * 3);
+  const out: CSSProperties = { opacity: n(PRE_ALPHA[pre] * k) };
+  if (pre === "silhouette") out.filter = `blur(${PRE_BLUR}px) grayscale(1)`;
   return out;
 }
-
-/** Виды, которые рисует сам компонент (type, count, draw, none): enterStyle для них пуст. */
-const SELF_DRAWN = new Set<EnterKind>(["type", "count", "draw", "none"]);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { enterStyle, preStyle } from "../../src/motion-kit/choreo/enter.js";
+import { enterStyle, posterStyle } from "../../src/motion-kit/choreo/enter.js";
 import { enterDuration } from "../../src/motion-kit/components/Enter.js";
 import { EASE } from "../../src/motion-kit/easing.js";
 import { resolveStyle } from "../../src/motion-kit/style/resolve.js";
@@ -107,31 +107,26 @@ describe("enterDuration", () => {
   });
 });
 
-describe("Enter pre: кадр-постер до входа (0.4.0)", () => {
-  const o = { amplitude: 1, distancePx: 48 };
-  it("hidden — как раньше: до входа прозрачно", () => {
-    expect(preStyle("rise", 0, "hidden", o).opacity).toBe(0);
+describe("Enter pre: слой-постер до входа (0.4.0)", () => {
+  it("hidden — слоя нет", () => {
+    expect(posterStyle("hidden", 0).opacity).toBe(0);
   });
   for (const pre of ["ghost", "silhouette"] as const) {
-    it(`${pre}: до входа виден приглушённо (15–25 %), после входа — полностью`, () => {
-      const before = preStyle("rise", 0, pre, o);
-      expect(before.opacity).toBeGreaterThanOrEqual(0.15);
-      expect(before.opacity).toBeLessThanOrEqual(0.25);
-      expect(preStyle("rise", 1, pre, o).opacity).toBe(1);
-      // прозрачность не падает по ходу входа (нет провала между силуэтом и входом)
-      let last = 0;
+    it(`${pre}: до входа 15–25 %, гаснет за первую треть входа и не возвращается`, () => {
+      const before = Number(posterStyle(pre, 0).opacity);
+      expect(before).toBeGreaterThanOrEqual(0.15);
+      expect(before).toBeLessThanOrEqual(0.25);
+      expect(posterStyle(pre, 1 / 3).opacity).toBe(0);
+      let last = before;
       for (let p = 0; p <= 1.0001; p += 0.05) {
-        const v = Number(preStyle("fade", p, pre, o).opacity);
-        expect(v).toBeGreaterThanOrEqual(last - 1e-9);
+        const v = Number(posterStyle(pre, p).opacity);
+        expect(v).toBeLessThanOrEqual(last + 1e-9);
         last = v;
       }
     });
   }
-  it("silhouette размыт (форма без читаемых глифов), ghost — резкий", () => {
-    expect(String(preStyle("fade", 0, "silhouette", o).filter)).toMatch(/blur\((?:[6-9]|1\d)/);
-    expect(preStyle("fade", 0, "ghost", o).filter).toBeUndefined();
-  });
-  it("mask: нераскрытая часть — силуэт, а не пустота", () => {
-    expect(String(preStyle("mask", 0.3, "silhouette", o).maskImage)).toMatch(/rgba\(0, ?0, ?0, ?0\.2/);
+  it("silhouette размыт и обесцвечен (форма без читаемых глифов), ghost — резкий", () => {
+    expect(String(posterStyle("silhouette", 0).filter)).toMatch(/blur\(8px\) grayscale\(1\)/);
+    expect(posterStyle("ghost", 0).filter).toBeUndefined();
   });
 });

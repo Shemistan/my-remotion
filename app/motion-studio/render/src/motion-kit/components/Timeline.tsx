@@ -4,12 +4,14 @@
 // следом. По горизонтали подписи чередуются над и под осью. Последняя веха — «сейчас»:
 // крупный залитый узел с ореолом, дата и подпись — в акцентной плашке; остальные даты —
 // цветом текста, акцент остаётся за «сейчас».
+import type { CSSProperties } from "react";
 import type { Beat } from "@ms/contracts";
 import { Easing, useCurrentFrame, useVideoConfig } from "remotion";
 import { accentPulse } from "../choreo/accent.js";
 import { EASE, frames, springAt } from "../easing.js";
 import { clamp01, ramp, useSvgId } from "../internal.js";
 import { type TypeLevel, typeSize } from "../style/type-scale.js";
+import { PosterGate } from "./Poster.js";
 import { useStyle } from "../style.js";
 import { timelineLayout } from "../timeline-layout.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, tracking } from "../tokens.js";
@@ -50,7 +52,12 @@ function reachFrame(u: number, a: number, b: number): number {
   return hi;
 }
 
-export function Timeline({ items, beat, orientation, width, height, accentIndex = 0, highlightLast = true, pre = "silhouette" }: TimelineProps) {
+/** Timeline с кадром-постером до бита (PosterGate). */
+export function Timeline(props: TimelineProps) {
+  return <PosterGate pre={props.pre} beat={props.beat} render={(css) => <TimelineBody {...props} posterCss={css} />} />;
+}
+
+function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0, highlightLast = true, posterCss }: TimelineProps & { posterCss?: CSSProperties }) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height: frameH } = useVideoConfig();
@@ -85,7 +92,7 @@ export function Timeline({ items, beat, orientation, width, height, accentIndex 
   const uOf = (i: number) => (items.length > 1 ? i / (items.length - 1) : 0);
 
   return (
-    <div style={{ position: "relative", width: W, height: H }}>
+    <div style={{ ...posterCss, position: "relative", width: W, height: H }}>
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
         <defs>
           <linearGradient id={`${id}-axis`} x1={first?.x ?? 0} y1={first?.y ?? 0} x2={lastPt?.x ?? 1} y2={lastPt?.y ?? 1} gradientUnits="userSpaceOnUse">
@@ -106,8 +113,6 @@ export function Timeline({ items, beat, orientation, width, height, accentIndex 
         </defs>
         {first && lastPt ? (
           <g>
-            {/* силуэт оси до входа: пунктир во всю длину (кадр-постер) */}
-            {pre !== "hidden" && track < 1 ? <line x1={first.x} y1={first.y} x2={lastPt.x} y2={lastPt.y} stroke={alpha(s.palette.text, dark ? 0.22 : 0.18)} strokeWidth={Math.max(2, axisW * 0.4)} strokeDasharray={`${axisW * 0.6} ${axisW * 2.4}`} strokeLinecap="round" opacity={1 - track} /> : null}
             {/* дорожка: тусклая, проявляется от центра к краям */}
             <line
               x1={first.x + (lastPt.x - first.x) * 0.5 * (1 - track)}

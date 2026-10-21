@@ -44,8 +44,8 @@ export interface KineticTextProps {
   /** Прописные с разрядкой caps. */
   caps?: boolean;
   /**
-   * До набора (`enter: "type"`): `dim` — весь текст виден приглушённо с кадра 0 и набор его
-   * «зажигает» (кадр-постер не пуст); `hidden` (по умолчанию) — пусто до набора.
+   * До набора (`enter: "type"`): `dim` (по умолчанию, 0.4.0) — весь текст виден приглушённо
+   * с кадра 0 и набор его «зажигает» (кадр-постер не пуст); `hidden` — пусто до набора.
    */
   pre?: "hidden" | "dim";
   style?: CSSProperties;
@@ -73,7 +73,7 @@ export function KineticText({
   stagger,
   exit = false,
   caps = false,
-  pre = "hidden",
+  pre,
   style,
 }: KineticTextProps) {
   const s = useStyle();
@@ -174,7 +174,7 @@ export function KineticText({
     );
     let ci = 0;
     return (
-      <div style={{ ...box, whiteSpace: "pre-wrap" }}>
+      <div data-ms-layout="text" style={{ ...box, whiteSpace: "pre-wrap" }}>
         {words.flatMap((w, wi) => {
           const hot = marks.has(norm(w));
           const out = [
@@ -183,7 +183,7 @@ export function KineticText({
                 const i = ci++;
                 return (
                   <span key={li}>
-                    <span style={{ opacity: i < typed ? 1 : pre === "dim" ? PRE_DIM : 0 }}>{ch}</span>
+                    <span style={{ opacity: i < typed ? 1 : (pre ?? "dim") === "dim" ? PRE_DIM : 0 }}>{ch}</span>
                     {i === typed - 1 ? caret : null}
                   </span>
                 );
@@ -209,6 +209,7 @@ export function KineticText({
   let k = 0;
   return (
     <div
+      data-ms-layout="text"
       style={box}
     >
       {words.map((w, wi) => {

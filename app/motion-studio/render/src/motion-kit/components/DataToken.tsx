@@ -286,7 +286,12 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
   const px = sizePx(s, size, height);
   const col = dataColor(s, tone, accentIndex);
   const look = dataTokenLook(s, px);
-  const box = tokenBox(label, px);
+  const full = tokenBox(label, px);
+  // короткое ребро: карточка с текстом не помещается между узлами — в полёте только капсула
+  // цвета данных без текста (не ложится на подписи), текст проявляется в полосе узла
+  const roomy = tokenSpan(lut, reverse, full, (6 * height) / 1080);
+  const compact = mode !== "offset" && roomy.to - roomy.from < full.w * 0.6;
+  const box = compact ? { w: full.h * 1.1, h: full.h } : full;
   // едет центром по линии и встаёт перед портом: карточка цели и её подпись не перекрыты
   const span = tokenSpan(lut, reverse, box, (6 * height) / 1080);
   const stop = mode === "offset" ? len : span.to;
@@ -342,6 +347,8 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
           alignItems: "stretch",
           overflow: "hidden",
           maxWidth: fit,
+          width: compact && tk.at === "path" ? box.w : undefined,
+          height: compact && tk.at === "path" ? box.h : undefined,
           clipPath: clip,
           borderRadius: look.radius,
           // объект: нейтральная поверхность, кромка цветом данных, тень «лежит на карточке»
@@ -357,7 +364,7 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
         }}
       >
         <span style={{ flex: "0 0 auto", width: look.bar, background: col }} />
-        <span style={{ padding: `${(px * 0.3).toFixed(1)}px ${(px * 0.55).toFixed(1)}px`, overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{label}</span>
+        {compact && tk.at === "path" ? null : <span style={{ padding: `${(px * 0.3).toFixed(1)}px ${(px * 0.55).toFixed(1)}px`, overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{label}</span>}
       </div>
     </>
   );

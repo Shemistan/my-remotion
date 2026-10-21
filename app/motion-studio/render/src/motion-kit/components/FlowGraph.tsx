@@ -23,16 +23,25 @@ import {
   type FlowSlot,
   type FlowStatusSlot,
   clientBar,
-  edgePath,
+  edgePath as layoutEdgePath,
   flowLabelZone,
-  flowSlot,
+  flowSlot as layoutFlowSlot,
   flowStatusSlot,
   queueCells,
   storeCap,
   usedSides,
 } from "./flow-layout.js";
 
-export { type FlowNodeKind, type FlowSlot, type FlowStatusSlot, edgePath, flowSlot, tokenHeight } from "./flow-layout.js";
+export { type FlowNodeKind, type FlowSlot, type FlowStatusSlot, tokenHeight } from "./flow-layout.js";
+
+/**
+ * Порты ребра между узлами графа (как в 0.3): горизонтально (правый край → левый), если узлы
+ * разнесены по x хотя бы на 16 px, иначе вертикально (низ → верх).
+ */
+export const edgePath = (a: FlowNode, b: FlowNode): CubicSegment => layoutEdgePath(a, b);
+
+/** Полоса данных узла графа (как в 0.3, плюс роли queue / store / cache). */
+export const flowSlot = (n: FlowNode, s: StyleBible, frameH: number): FlowSlot | null => layoutFlowSlot(n, s, frameH);
 
 export interface FlowNode {
   id: string;
@@ -155,7 +164,7 @@ export function flowTiming(nodes: FlowNode[], edges: FlowEdge[], beat: Pick<Beat
     const a = byId.get(e.from);
     const b = byId.get(e.to);
     if (!a || !b) continue;
-    geo.set(e.id, edgePath(a, b));
+    geo.set(e.id, layoutEdgePath(a, b));
     const t0 = Math.max(nodeStart.get(a.id)!, nodeStart.get(b.id)!) + edgeDelay(s);
     edgeStart.set(e.id, t0);
     ready.set(e.id, t0 + drawLen);
@@ -245,7 +254,7 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
   const status = new Map<string, FlowStatusSlot>();
   for (const n of nodes) {
     status.set(n.id, flowStatusSlot(n, sides.get(n.id)!, s, frameH));
-    const slot = flowSlot(n, s, frameH);
+    const slot = layoutFlowSlot(n, s, frameH);
     if (!slot) continue;
     slots.set(n.id, slot);
     const sz = sizes.get(n.id)!;
@@ -297,7 +306,7 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
           ? nodes.map((n) => {
               const t0 = nodeStart.get(n.id)!;
               const o = 1 - ramp(frame, t0, t0 + frames(s, 10));
-              return o > 0.01 ? <NodeSilhouette key={`pre-${n.id}`} n={n} opacity={o} frameH={frameH} /> : null;
+              return o > 0.01 ? <NodeSilhouette key={`pre-${n.id}`} n={n} opacity={o} frameH={frameH} label={sizes.get(n.id)!.label} /> : null;
             })
           : null}
 
@@ -327,24 +336,37 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
   );
 }
 
-/** Контур узла до входа: форма роли тонкой линией, без заливки и текста. */
-function NodeSilhouette({ n, opacity, frameH }: { n: FlowNode; opacity: number; frameH: number }) {
+/** Прозрачность подписи силуэта: схема читается с кадра 0, но тише живой (QA не считает её текстом). */
+export const SILHOUETTE_LABEL = 0.3;
+
+/** Контур узла до входа: форма роли пунктиром и приглушённая подпись — схема видна с кадра 0. */
+function NodeSilhouette({ n, opacity, frameH, label }: { n: FlowNode; opacity: number; frameH: number; label: number }) {
   const s = useStyle();
-  const col = alpha(s.palette.muted, 0.5);
+  const col = alpha(s.palette.muted, 0.55);
   const box: CSSProperties = { position: "absolute", left: n.x, top: n.y, width: n.w, height: n.h, opacity, pointerEvents: "none" };
+  const zone = flowLabelZone(n, s, frameH);
+  const text = (
+    <div style={{ position: "absolute", left: zone.x - n.x, top: zone.y - n.y, width: zone.w, height: zone.h, display: "flex", alignItems: "center", opacity: SILHOUETTE_LABEL, fontFamily: fontFamily(s.typography.body), fontWeight: n.size === "h2" ? 700 : 600, fontSize: label, lineHeight: 1.15, color: s.palette.text, whiteSpace: "nowrap", overflow: "hidden" }}>
+      {n.label}
+    </div>
+  );
   if (n.kind === "store") {
     const ry = storeCap(n);
     return (
-      <svg style={{ ...box, overflow: "visible" }} width={n.w} height={n.h}>
-        <path d={cylinderPath(n.w, n.h, ry)} fill={alpha(s.palette.text, 0.025)} stroke={col} strokeWidth={1.5} strokeDasharray="6 6" />
-        <ellipse cx={n.w / 2} cy={ry} rx={n.w / 2} ry={ry} fill="none" stroke={col} strokeWidth={1.5} strokeDasharray="6 6" />
-      </svg>
+      <div style={box}>
+        <svg style={{ position: "absolute", inset: 0, overflow: "visible" }} width={n.w} height={n.h}>
+          <path d={cylinderPath(n.w, n.h, ry)} fill={alpha(s.palette.text, 0.03)} stroke={col} strokeWidth={2} strokeDasharray="7 6" />
+          <ellipse cx={n.w / 2} cy={ry} rx={n.w / 2} ry={ry} fill="none" stroke={col} strokeWidth={2} strokeDasharray="7 6" />
+        </svg>
+        {text}
+      </div>
     );
   }
   const r = radius(s, 2);
   return (
-    <div style={{ ...box, boxSizing: "border-box", borderRadius: n.kind === "llm" ? r * 1.6 : r, border: `1.5px dashed ${col}`, background: alpha(s.palette.text, 0.02) }}>
-      {n.kind === "client" ? <div style={{ position: "absolute", left: 0, right: 0, top: clientBar(frameH), borderTop: `1.5px dashed ${col}` }} /> : null}
+    <div style={{ ...box, boxSizing: "border-box", borderRadius: n.kind === "llm" ? r * 1.6 : r, border: `2px dashed ${col}`, background: alpha(s.palette.text, 0.03) }}>
+      {n.kind === "client" ? <div style={{ position: "absolute", left: 0, right: 0, top: clientBar(frameH), borderTop: `2px dashed ${col}` }} /> : null}
+      {text}
     </div>
   );
 }
@@ -409,9 +431,10 @@ function NodeView({ n, t0, enter, fl, sz, slot, writes }: NodeViewProps) {
   } else {
     const llmEdge: CSSProperties = kind === "llm"
       ? {
-          border: "1.5px solid transparent",
+          border: `${Math.max(2, 2 * k).toFixed(1)}px solid transparent`,
           // кромка-градиент акцентов медленно вращается: ядро «думает» и в удержании
-          background: `linear-gradient(180deg, ${alpha("#ffffff", dark ? 0.05 : 0.5)} 0%, ${alpha("#ffffff", 0)} 42%) padding-box, linear-gradient(${surfaceAt(s, e)}, ${surfaceAt(s, e)}) padding-box, conic-gradient(from ${((frame * 1.2) % 360).toFixed(1)}deg, ${col}, ${accent(s, (n.accentIndex ?? 0) + 1)}, ${alpha(col, 0.2)}, ${col}) border-box`,
+          background: `linear-gradient(180deg, ${alpha("#ffffff", dark ? 0.05 : 0.5)} 0%, ${alpha("#ffffff", 0)} 42%) padding-box, linear-gradient(${surfaceAt(s, e)}, ${surfaceAt(s, e)}) padding-box, conic-gradient(from ${((frame * 1.2) % 360).toFixed(1)}deg, ${col}, ${accent(s, (n.accentIndex ?? 0) + 1)}, ${alpha(col, 0.15)}, ${col}) border-box`,
+
         }
       : {};
     body = (
@@ -422,7 +445,7 @@ function NodeView({ n, t0, enter, fl, sz, slot, writes }: NodeViewProps) {
           boxSizing: "border-box",
           ...surface,
           ...llmEdge,
-          boxShadow: [flashRing, surface.boxShadow].filter(Boolean).join(", "),
+          boxShadow: [flashRing, kind === "llm" ? `inset 0 0 ${(40 * k).toFixed(1)}px ${alpha(col, 0.16)}, 0 0 ${(28 * k).toFixed(1)}px ${alpha(col, 0.14)}` : "", surface.boxShadow].filter(Boolean).join(", "),
           borderRadius: r,
         }}
       >
@@ -430,7 +453,7 @@ function NodeView({ n, t0, enter, fl, sz, slot, writes }: NodeViewProps) {
           // окно устройства: панель с тремя точками и линия под ней
           <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: clientBar(frameH), borderBottom: `1px solid ${alpha(s.palette.text, dark ? 0.1 : 0.12)}`, display: "flex", alignItems: "center", gap: 6 * k, paddingLeft: 12 * k, boxSizing: "border-box" }}>
             {[0, 1, 2].map((i) => (
-              <span key={i} style={{ width: 8 * k, height: 8 * k, borderRadius: 99, background: i === 0 ? alpha(col, 0.9) : alpha(s.palette.muted, 0.45) }} />
+              <span key={i} style={{ width: 10 * k, height: 10 * k, borderRadius: 99, background: i === 0 ? alpha(col, 0.95) : alpha(s.palette.muted, 0.5) }} />
             ))}
           </div>
         ) : null}
@@ -453,8 +476,8 @@ function NodeView({ n, t0, enter, fl, sz, slot, writes }: NodeViewProps) {
     <div
       style={{
         flex: "0 0 auto",
-        width: DOT * 2,
-        height: DOT * 2,
+        width: DOT * 2.4,
+        height: DOT * 2.4,
         borderRadius: 999,
         background: `radial-gradient(circle at 35% 30%, ${mix(col, "#ffffff", 0.7)} 0%, ${col} 38%, ${mix(col, "#000000", 0.55)} 100%)`,
         boxShadow: `0 0 0 ${(3 + 3 * breath * mark).toFixed(2)}px ${alpha(col, 0.16)}, 0 0 ${(16 + 10 * breath + 14 * fl.level).toFixed(2)}px ${alpha(col, 0.75)}`,

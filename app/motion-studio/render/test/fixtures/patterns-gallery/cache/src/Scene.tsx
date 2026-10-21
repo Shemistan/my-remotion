@@ -49,7 +49,7 @@ function nodes(b: Record<string, Window>): FlowNode[] {
   return [
     { id: "client", kind: "client", label: "Клиент", caption: "GET /user/42", x: 0, y: 180, w: 320, h: 150, enter: "slide" },
     { id: "cache", kind: "cache", label: "Кэш", caption: "Redis · в памяти", size: "h2", x: 560, y: 150, w: 420, h: 210, elevation: 3, filled: 5, enter: "pop", flash: [ask(b), write(b), hits(b)], emphasis: { start_frame: b.hits!.start_frame + 12, end_frame: 150 } },
-    { id: "db", kind: "store", label: "База данных", caption: "PostgreSQL", x: 1220, y: 140, w: 320, h: 230, enter: "rise", accentIndex: 2, flash: miss(b) },
+    { id: "db", kind: "store", label: "База данных", caption: "PostgreSQL", x: 1220, y: 125, w: 320, h: 260, enter: "rise", accentIndex: 2, flash: miss(b) },
   ];
 }
 

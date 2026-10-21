@@ -4,15 +4,19 @@
 // Пройденный шаг остаётся «сделанным» (контур и номер акцентом, карточка спокойная).
 // Коннектор к следующему шагу прорисовывается (`draw`) за время активного шага: стрелка с
 // наконечником или пунктир с бегущей точкой.
+import type { CSSProperties } from "react";
 import type { Beat } from "@ms/contracts";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import { EASE, easingOf, frames, springAt } from "../easing.js";
 import { clamp01, drawDash, ramp, useSvgId } from "../internal.js";
 import { floorText, typeSize } from "../style/type-scale.js";
+import { PosterGate } from "./Poster.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, shadow, surfaceAt, tracking } from "../tokens.js";
 
 export interface ProcessStepsProps {
+  /** До входа (0.4.0): `silhouette` (по умолчанию) — итоговый вид размытым и приглушённым с кадра 0 (кадр-постер); `hidden` — пусто. */
+  pre?: "silhouette" | "hidden";
   steps: string[];
   /** Пояснения к шагам (по индексу, одна-две короткие строки); пустые — без пояснения. */
   notes?: string[];
@@ -32,7 +36,12 @@ export function stepStarts(beat: Pick<Beat, "start_frame" | "end_frame">, n: num
   return Array.from({ length: n }, (_, i) => a + (n > 1 ? (i / n) * span : 0));
 }
 
-export function ProcessSteps({ steps, notes = [], beat, connector, width = 1690, height = 560, accentIndex = 0 }: ProcessStepsProps) {
+/** ProcessSteps с кадром-постером до бита (PosterGate). */
+export function ProcessSteps(props: ProcessStepsProps) {
+  return <PosterGate pre={props.pre} beat={props.beat} render={(css) => <ProcessStepsBody {...props} posterCss={css} />} />;
+}
+
+function ProcessStepsBody({ steps, notes = [], beat, connector, width = 1690, height = 560, accentIndex = 0, posterCss }: ProcessStepsProps & { posterCss?: CSSProperties }) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height: frameH } = useVideoConfig();
@@ -54,7 +63,7 @@ export function ProcessSteps({ steps, notes = [], beat, connector, width = 1690,
   const active = starts.reduce((acc, t, i) => (frame >= t ? i : acc), -1);
 
   return (
-    <div style={{ position: "relative", width, height }}>
+    <div style={{ ...posterCss, position: "relative", width, height }}>
       {/* карточки шагов под номерами */}
       {steps.map((label, i) => {
         const t = starts[i]!;

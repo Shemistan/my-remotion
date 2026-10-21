@@ -160,7 +160,7 @@ export function StatusChip({ states, anchor, x, y, size = "caption", until, styl
   const line: CSSProperties = { position: "absolute", left: 0, right: 0, top: 0, textAlign: "center", whiteSpace: "nowrap" };
 
   return (
-    <div style={{ position: "absolute", left: pt.x, top: pt.y, transform: `${pt.tr} scale(${scale.toFixed(4)})`, opacity, ...style }}>
+    <div data-ms-layout="status" style={{ position: "absolute", left: pt.x, top: pt.y, transform: `${pt.tr} scale(${scale.toFixed(4)})`, opacity, ...style }}>
       <div
         style={{
           display: "flex",

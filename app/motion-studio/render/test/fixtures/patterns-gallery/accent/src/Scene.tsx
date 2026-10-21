@@ -27,11 +27,11 @@ function Hero({ b }: { b: Record<string, Window> }) {
   const head = lineChartHead(POINTS, b.chart!, frame, { ...CHART, frameHeight: height });
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 28, width: 620 }}>
-      <Enter kind="mask" beat={b.title!}>
+      <Enter kind="mask" pre="silhouette" beat={b.title!}>
         <div style={{ fontFamily: fontFamily(s.typography.body), fontWeight: 600, fontSize: typeSize(s, "h2", height), color: s.palette.muted }}>Выручка в месяц, ₽</div>
       </Enter>
       <AnimatedNumber from={120_000} to={480_000} value={head.value} beat={{ start_frame: head.startFrame, end_frame: head.endFrame }} enterAt={b.title!.start_frame} locale="ru" size="display" />
-      <Enter kind="pop" beat={b.badge_in!} style={{ alignSelf: "flex-start", marginTop: 24 }}>
+      <Enter kind="pop" pre="silhouette" beat={b.badge_in!} style={{ alignSelf: "flex-start", marginTop: 24 }}>
         <Emphasis beat={b.badge!} shape="pill" spread={64}>
           <div
             style={{
