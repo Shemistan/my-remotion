@@ -245,14 +245,14 @@ describe("accent_conflict: удар акцента посреди полёта �
   });
 });
 
-// Проверки из дизайнер-ревью (motion-review-1 §1, §10). Spec прогона 4 — docs/evidence/phase-1/pipeline
+// Проверки из дизайнер-ревью (motion-review-1 §1, §10). Spec прогона 4 (Fix D) заморожены в fixtures/specs-run4
 // (их и смотрел ревьюер); прогона 2 — fixtures/specs-run2.
 describe("ревью дизайнера: заглушки, ключевая мысль, подпись кадра", () => {
-  const PIPE = fileURLToPath(new URL("../../../../../docs/evidence/phase-1/pipeline/", import.meta.url));
+
   const fx = (f: string) => fileURLToPath(new URL(`../fixtures/${f}`, import.meta.url));
   const st = SettingsSchema.parse(JSON.parse(readFileSync(fx("specs-run3/settings.json"), "utf8")));
   const load = (path: string) => MotionSpecSchema.parse(JSON.parse(readFileSync(path, "utf8")));
-  const run4 = (n: string) => load(`${PIPE}${n}/spec.json`);
+  const run4 = (n: string) => load(fx(`specs-run4/${n}.spec.json`));
   const run2 = (n: string) => load(fx(`specs-run2/${n}.spec.json`));
   const pick = (l: QAIssue[], code: string) => l.filter((i) => i.code === code);
 
@@ -320,6 +320,23 @@ describe("ревью дизайнера: заглушки, ключевая мы
   it("scene_signature_repeat: gen-timeline после gen-compare (камера движется, без таблетки) и без предыдущей сцены — нет", () => {
     expect(pick(specChecks(run4("gen-timeline"), st, { previous: run4("gen-compare") }), "scene_signature_repeat")).toEqual([]);
     expect(pick(specChecks(run4("test2"), st), "scene_signature_repeat")).toEqual([]);
+  });
+
+  it("beat_reference: поток ссылается на несуществующий бит, элемент ни в одном бите — blocking (Fix F, прогон 3: 2 бита на сцену)", () => {
+    const sp = run4("gen-cache");
+    expect(pick(specChecks(sp, st), "beat_reference")).toEqual([]);
+    const lost = structuredClone(sp);
+    const graph = lost.elements.find((e) => Array.isArray((e.content as { flows?: unknown }).flows))!;
+    (graph.content as { flows: { beat: string }[] }).flows[0]!.beat = "lost-beat";
+    lost.beats.forEach((b) => (b.element_ids = b.element_ids.filter((id) => id !== lost.elements.at(-1)!.id)));
+    const issues = pick(specChecks(lost, st), "beat_reference");
+    expect(issues).toEqual([
+      expect.objectContaining({ severity: "blocking", area: graph.id, description: expect.stringContaining("lost-beat") }),
+      expect.objectContaining({ severity: "blocking", area: lost.elements.at(-1)!.id }),
+    ]);
+    // ссылка с префиксом b- или без него — не висячая
+    (graph.content as { flows: { beat: unknown }[] }).flows[0]!.beat = `b-${sp.beats[0]!.id.replace(/^b[-_]/, "")}`;
+    expect(pick(specChecks(lost, st), "beat_reference").map((i) => i.area)).toEqual([lost.elements.at(-1)!.id]);
   });
 
   it("spec прогона 4 без предыдущей сцены: blocking нет; заглушки test2 и ×100 test1 — подсказки (warning)", () => {

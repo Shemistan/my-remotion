@@ -14,7 +14,8 @@ import { beat, el, settings, spec } from "./helpers.js";
 const s = settings();
 /** Реальное разрешение 1920×1080: геометрия рёбер в px кадра задаёт проход импульса kit. */
 const hd = settings({ width: 1920, height: 1080 });
-const blocking = (sp: MotionSpec, st: Settings = s) => specChecks(sp, st).filter((i) => i.severity === "blocking");
+// пробы accent_conflict — синтетические сцены без полного списка битов: beat_reference здесь не предмет
+const blocking = (sp: MotionSpec, st: Settings = s) => specChecks(sp, st).filter((i) => i.severity === "blocking" && i.code !== "beat_reference");
 const pick = (sp: MotionSpec, code: string, st: Settings = s) => specChecks(sp, st).filter((i) => i.code === code);
 const brief = (l: QAIssue[]) => l.map((i) => `${i.code}/${i.severity}: ${i.description}`);
 
@@ -108,7 +109,7 @@ function orders(o: { accent: string; flowsBeat?: string; pulseIds: string[]; act
 describe("accent_conflict: валидные spec проб — без blocking", () => {
   const fx = (f: string) => fileURLToPath(new URL(f, import.meta.url));
   const st = SettingsSchema.parse(JSON.parse(readFileSync(fx("../fixtures/specs-run3/settings.json"), "utf8")));
-  const gc = MotionSpecSchema.parse(JSON.parse(readFileSync(fx("../../../../../docs/evidence/phase-1/pipeline/gen-compare/spec.json"), "utf8")));
+  const gc = MotionSpecSchema.parse(JSON.parse(readFileSync(fx("../fixtures/specs-run4/gen-compare.spec.json"), "utf8")));
   const stream = (ids: string[]) => {
     const sp = structuredClone(gc);
     sp.beats = sp.beats.map((b) => (b.id === "micro-stream" ? { ...b, action: "micro-release-flow", element_ids: ids } : b));

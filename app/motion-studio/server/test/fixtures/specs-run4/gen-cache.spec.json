@@ -1,0 +1,375 @@
+{
+  "title": "Кэш: промах, запись, попадание",
+  "purpose": "Показать, что первый запрос идёт к источнику и записывается в кэш, а повторный кэш отдаёт сразу — «Попадание».",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "elements": [
+    {
+      "id": "title",
+      "kind": "text",
+      "role": "опора: заголовок сцены",
+      "entrance": "mask",
+      "depth_layer": 1,
+      "content": {
+        "text": "Как работает кэширование",
+        "size": "h2",
+        "align": "center",
+        "component": "Enter kind=mask"
+      },
+      "layout": {
+        "x": 0.2,
+        "y": 0,
+        "w": 0.6,
+        "h": 0.09
+      }
+    },
+    {
+      "id": "cache-graph",
+      "kind": "graph",
+      "role": "схема: клиент → кэш → источник",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "FlowGraph + PulseAlongPath",
+        "nodes": [
+          "node-client",
+          "node-cache",
+          "node-source"
+        ],
+        "edges": [
+          {
+            "id": "e-client-cache",
+            "from": "node-client",
+            "to": "node-cache"
+          },
+          {
+            "id": "e-cache-source",
+            "from": "node-cache",
+            "to": "node-source"
+          }
+        ],
+        "flows": [
+          {
+            "edge": "e-client-cache",
+            "direction": "forward",
+            "beat": "b-miss-request"
+          },
+          {
+            "edge": "e-cache-source",
+            "direction": "forward",
+            "beat": "b-miss-forward"
+          },
+          {
+            "edge": "e-cache-source",
+            "direction": "back",
+            "beat": "b-write"
+          },
+          {
+            "edge": "e-client-cache",
+            "direction": "back",
+            "beat": "b-miss-response"
+          },
+          {
+            "edge": "e-client-cache",
+            "direction": "forward",
+            "beat": "b-hit-request"
+          },
+          {
+            "edge": "e-client-cache",
+            "direction": "back",
+            "beat": "b-hit-response"
+          }
+        ],
+        "pulse": {
+          "travel": 12,
+          "repeat": false,
+          "count": 1
+        },
+        "pulse_colors": {
+          "forward": "accent[1]",
+          "back": "accent[2]"
+        },
+        "dim_after_hit": "ребро e-cache-source и узел node-source с кадра 96 приглушаются до 0.4 непрозрачности (путь к источнику не нужен)",
+        "node_layout_px_note": "узлы — внутри области графа; координаты по layout узлов относительно графа"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.2,
+        "w": 1,
+        "h": 0.42
+      }
+    },
+    {
+      "id": "node-client",
+      "kind": "card",
+      "role": "node: клиент",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "label": "Клиент",
+        "enter": "slide",
+        "elevation": 2,
+        "size": "body"
+      },
+      "layout": {
+        "x": 0.02,
+        "y": 0.33,
+        "w": 0.2,
+        "h": 0.17
+      }
+    },
+    {
+      "id": "node-cache",
+      "kind": "card",
+      "role": "node: кэш — центральный узел",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "label": "Кэш",
+        "caption": "ключ → значение",
+        "enter": "pop",
+        "elevation": 3,
+        "size": "h2",
+        "flash_on": "e-cache-source",
+        "flash_beat": "b-write",
+        "flash_note": "вспышка только по приходу обратного импульса записи (b-write, pulseArrival с reverse); на импульсах b-hit-request и b-hit-response flash нет"
+      },
+      "layout": {
+        "x": 0.38,
+        "y": 0.29,
+        "w": 0.24,
+        "h": 0.25
+      }
+    },
+    {
+      "id": "node-source",
+      "kind": "card",
+      "role": "node: источник данных",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "label": "Источник",
+        "caption": "медленно",
+        "enter": "blur",
+        "elevation": 1,
+        "size": "body"
+      },
+      "layout": {
+        "x": 0.78,
+        "y": 0.33,
+        "w": 0.2,
+        "h": 0.17
+      }
+    },
+    {
+      "id": "status-miss",
+      "kind": "text",
+      "role": "статус: промах",
+      "entrance": "pop",
+      "depth_layer": 2,
+      "content": {
+        "text": "Промах",
+        "size": "body",
+        "color": "negative",
+        "component": "Enter kind=pop, плашка-пилюля surface, без Emphasis",
+        "dim_from_frame": 96
+      },
+      "layout": {
+        "x": 0.62,
+        "y": 0.12,
+        "w": 0.17,
+        "h": 0.07
+      }
+    },
+    {
+      "id": "status-write",
+      "kind": "text",
+      "role": "статус: запись в кэш",
+      "entrance": "rise",
+      "depth_layer": 2,
+      "content": {
+        "text": "Запись",
+        "size": "body",
+        "color": "text",
+        "component": "Enter kind=rise, плашка-пилюля surface, без Emphasis",
+        "dim_from_frame": 96
+      },
+      "layout": {
+        "x": 0.62,
+        "y": 0.65,
+        "w": 0.17,
+        "h": 0.07
+      }
+    },
+    {
+      "id": "status-hit",
+      "kind": "text",
+      "role": "акцент: герой — попадание",
+      "entrance": "scale",
+      "depth_layer": 2,
+      "content": {
+        "text": "Попадание",
+        "size": "display",
+        "align": "center",
+        "component": "Enter kind=scale + Emphasis (beat b-hit-emphasis, loop: true, accentIndex 0, shape pill, ring true)"
+      },
+      "layout": {
+        "x": 0.25,
+        "y": 0.76,
+        "w": 0.5,
+        "h": 0.16
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "b-title-in",
+      "start_frame": 0,
+      "end_frame": 36,
+      "action": "title-in",
+      "description": "Заголовок «Как работает кэширование» открывается шторкой снизу (mask, 1.5×enter_frames).",
+      "element_ids": [
+        "title"
+      ]
+    },
+    {
+      "id": "b-graph-in",
+      "start_frame": 4,
+      "end_frame": 40,
+      "action": "graph-entrance",
+      "description": "Узлы входят слева направо разными входами: Клиент slide, Кэш pop (самый крупный, elevation 3), Источник blur; рёбра прорисовываются со стрелками, когда оба конца на месте.",
+      "element_ids": [
+        "cache-graph",
+        "node-client",
+        "node-cache",
+        "node-source"
+      ]
+    },
+    {
+      "id": "b-miss-request",
+      "start_frame": 40,
+      "end_frame": 52,
+      "action": "miss-request-flow",
+      "description": "Запрос: бирюзовый импульс (accent[1]) идёт по e-client-cache к кэшу, travel 12, repeat false. Вспышки узла нет — кэш пуст.",
+      "element_ids": [
+        "cache-graph"
+      ]
+    },
+    {
+      "id": "b-miss-in",
+      "start_frame": 50,
+      "end_frame": 74,
+      "action": "status-miss-in",
+      "description": "Над правым ребром выскакивает плашка «Промах» цветом negative (pop) — без свечения, это не акцент.",
+      "element_ids": [
+        "status-miss"
+      ]
+    },
+    {
+      "id": "b-miss-forward",
+      "start_frame": 54,
+      "end_frame": 66,
+      "action": "miss-forward-flow",
+      "description": "Запрос идёт дальше: бирюзовый импульс по e-cache-source к источнику; вспышки у источника нет.",
+      "element_ids": [
+        "cache-graph"
+      ]
+    },
+    {
+      "id": "b-write",
+      "start_frame": 66,
+      "end_frame": 80,
+      "action": "write-flow-emphasis",
+      "description": "Ответ источника — янтарный импульс (accent[2]) reverse по e-cache-source. В кадр прихода (pulseArrival('e-cache-source', b-write, 12, {repeat:false})) node-cache вспыхивает: ячейка записана. Это единственная вспышка узла в сцене, гаснет примерно к кадру 104.",
+      "element_ids": [
+        "cache-graph",
+        "node-cache"
+      ]
+    },
+    {
+      "id": "b-write-in",
+      "start_frame": 76,
+      "end_frame": 100,
+      "action": "status-write-in",
+      "description": "Под правым ребром поднимается плашка «Запись» (rise), без свечения.",
+      "element_ids": [
+        "status-write"
+      ]
+    },
+    {
+      "id": "b-miss-response",
+      "start_frame": 80,
+      "end_frame": 92,
+      "action": "miss-response-flow",
+      "description": "Данные возвращаются клиенту: янтарный импульс reverse по e-client-cache; вспышки у клиента нет.",
+      "element_ids": [
+        "cache-graph"
+      ]
+    },
+    {
+      "id": "b-hit-request",
+      "start_frame": 96,
+      "end_frame": 106,
+      "action": "hit-request-flow",
+      "description": "Второй запрос того же ключа: бирюзовый импульс по e-client-cache доходит до кэша (без flash у node-cache). «Промах» и «Запись» плавно приглушаются до 0.45, путь к источнику (e-cache-source, node-source) тускнеет до 0.4.",
+      "element_ids": [
+        "cache-graph",
+        "status-miss",
+        "status-write"
+      ]
+    },
+    {
+      "id": "b-hit-response",
+      "start_frame": 106,
+      "end_frame": 116,
+      "action": "hit-response-flow",
+      "description": "Кэш сразу отвечает: короткий янтарный импульс reverse по e-client-cache к клиенту, без вспышек узлов (flash у node-client нет): приход отмечает сам status-hit.",
+      "element_ids": [
+        "cache-graph"
+      ]
+    },
+    {
+      "id": "b-hit-in",
+      "start_frame": 112,
+      "end_frame": 136,
+      "action": "status-hit-entrance",
+      "description": "Под кэшем из глубины встаёт «Попадание» (scale, display) — самый крупный элемент кадра.",
+      "element_ids": [
+        "status-hit"
+      ]
+    },
+    {
+      "id": "b-hit-emphasis",
+      "start_frame": 120,
+      "end_frame": 153,
+      "action": "final-emphasis",
+      "description": "Акцент на «Попадание»: удар цветом accent[0] в кадре 120 (вспышка кэша после записи к этому моменту уже погасла, flash у узлов на импульсах попадания нет), затем дыхание с loop: true. Других светящихся объектов в кадре нет.",
+      "element_ids": [
+        "status-hit"
+      ]
+    },
+    {
+      "id": "b-hold",
+      "start_frame": 153,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "Новых входов и импульсов нет: процесс завершён. «Попадание» дышит (ореол и масштаб ±1.8 %, кольцо на вдох), поэтому кадры N−20 и N−1 различаются. Путь к источнику и плашки промаха и записи стоят приглушёнными: так видно, что источник не понадобился.",
+      "element_ids": [
+        "status-hit",
+        "cache-graph",
+        "status-miss",
+        "status-write"
+      ]
+    }
+  ],
+  "composition": {
+    "archetype": "network-centric",
+    "idea": "Цепочка Клиент — Кэш — Источник, в центре крупный узел кэша. Взгляд идёт за импульсами слева направо и обратно, а после второго запроса падает вниз, на крупное «Попадание» под кэшем. Фон — aurora пресета и редкие частицы слоя 0.",
+    "focus": "Сначала заголовок, затем импульс промаха уходит к источнику, ответ возвращается, и кэш вспыхивает (запись). Финальный фокус — «Попадание» под кэшем. Камера стоит, фокус ведут свет и масштаб.",
+    "transitions": "Состояние «пустой кэш» сменяется на «кэш записан» в момент вспышки узла. На втором запросе путь к источнику и плашки промаха и записи тускнеют. «Попадание» встаёт из глубины, принимает акцент и держит его до конца."
+  }
+}

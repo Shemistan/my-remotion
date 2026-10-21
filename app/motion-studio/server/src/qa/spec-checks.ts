@@ -103,6 +103,7 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
     }
   }
 
+  out.push(...beatReferenceIssues(spec));
   out.push(...accentConflicts(spec, settings));
   out.push(...placeholderIssues(spec));
   out.push(...purposeClaimIssues(spec));
@@ -244,6 +245,41 @@ function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "s
         fix_hint: `передача акцента: бит ${a.beat.id} кончается до старта ${b.beat.id}, у прежнего акцента loop: false`,
       });
     }
+  }
+  return out;
+}
+
+/**
+ * Висячие биты (Fix F, прогон 3): поток ссылается на бит, которого нет в `beats`, или
+ * элемент не стоит ни в одном бите. Тогда Engineer гадает тайминг, а QA не выбирает кадры
+ * элемента и не находит его — сцена падает на приёмке уже после рендера. Исправить может
+ * только Director: blocking.
+ */
+function beatReferenceIssues(spec: MotionSpec): Omit<QAIssue, "source">[] {
+  const out: Omit<QAIssue, "source">[] = [];
+  const ids = spec.beats.map((b) => b.id);
+  for (const e of spec.elements) {
+    const flows = (e.content as Record<string, unknown> | undefined)?.flows;
+    if (!Array.isArray(flows)) continue;
+    const lost = [...new Set(flows.map((f) => (f as Record<string, unknown> | null)?.beat).filter((r): r is string => typeof r === "string" && !ids.some((id) => beatRef(r, id))))];
+    if (lost.length === 0) continue;
+    out.push({
+      code: "beat_reference", severity: "blocking", area: e.id,
+      description: `потоки ${e.id} ссылаются на биты, которых нет в beats: ${lost.join(", ")}`,
+      fix_hint: `добавь биты ${lost.join(", ")} в beats (с кадрами и element_ids) или сошлись на существующие: ${ids.join(", ")}`,
+    });
+  }
+  const inBeat = new Set(spec.beats.flatMap((b) => b.element_ids));
+  // вложенный элемент (подпись в карточке узла) входит вместе с родителем из бита
+  const parents = spec.elements.filter((p) => inBeat.has(p.id) && p.layout && p.kind !== "group" && area(p.layout) < FULL_BLEED);
+  for (const e of spec.elements) {
+    if (inBeat.has(e.id)) continue;
+    if (e.layout && parents.some((p) => contains(p.layout!, e.layout!))) continue;
+    out.push({
+      code: "beat_reference", severity: "blocking", area: e.id,
+      description: `элемент ${e.id} не стоит ни в одном бите: его вход и кадры проверки не определены`,
+      fix_hint: `поставь ${e.id} в element_ids бита, где он входит или действует`,
+    });
   }
   return out;
 }
