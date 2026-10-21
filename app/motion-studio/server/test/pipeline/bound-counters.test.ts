@@ -85,4 +85,24 @@ describe("bound counters", () => {
     const same = { ...spec, beats: spec.beats.map((b) => (b.id === "b2" ? { ...b, element_ids: [...b.element_ids, "hero-number"], action: "chart-draw-count" } : b)) };
     expect(normalizeBoundCounters(same).changes).toEqual([]);
   });
+
+  it("вход числа кончается позже, чем тронулась линия, — бит входа сдвигается к окну головы (длина та же)", () => {
+    const spec = fixture();
+    // как в прогоне 2 Fix C: вход 16–40, график 20–140 (окно 35–116)
+    const late = {
+      ...spec,
+      beats: [
+        ...spec.beats.map((b) => (b.id === "b2" ? { ...b, start_frame: 20, end_frame: 140 } : b.id === "b4" ? { ...b, element_ids: ["hero-number"], start_frame: 35, end_frame: 116 } : b)),
+        { id: "b0", start_frame: 16, end_frame: 40, action: "hero-in", description: "", element_ids: ["hero-number"] },
+      ],
+    };
+    const { spec: out, changes } = normalizeBoundCounters(late);
+    expect([beat(out, "b0").start_frame, beat(out, "b0").end_frame]).toEqual([11, 35]);
+    expect(changes).toEqual([expect.stringContaining("вход")]);
+    // общий бит входа не двигается — предупреждение
+    const shared = { ...late, beats: late.beats.map((b) => (b.id === "b0" ? { ...b, element_ids: ["hero-number", "kicker"] } : b)) };
+    const r = normalizeBoundCounters(shared);
+    expect(beat(r.spec, "b0")).toEqual(beat(shared, "b0"));
+    expect(r.warnings).toEqual([expect.stringContaining("b0")]);
+  });
 });

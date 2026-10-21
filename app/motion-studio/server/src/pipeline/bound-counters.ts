@@ -93,5 +93,20 @@ export function normalizeBoundCounters(spec: MotionSpec): { spec: MotionSpec; ch
     beats = at < 0 ? [...beats, own] : [...beats.slice(0, at), own, ...beats.slice(at)];
     changes.push(`бит ${b.id} делят другие элементы: счёт ${c.number} вынесен в бит ${own.id} ${c.startFrame}–${c.endFrame} за головой ${c.chart} (бит ${c.chartBeat})`);
   }
+  // вход числа кончается до того, как тронулась голова: иначе QA-кадр «от» (конец входа)
+  // попадает уже в счёт и показывает не «от»
+  for (const c of counters) {
+    const count = beats.find((x) => x.element_ids.includes(c.number) && x.start_frame === c.startFrame && x.end_frame === c.endFrame);
+    const entry = [...beats].sort((a, b) => a.start_frame - b.start_frame).find((x) => x.element_ids.includes(c.number) && x !== count && x.start_frame < c.startFrame);
+    if (!entry || entry.end_frame <= c.startFrame) continue;
+    if (!entry.element_ids.every((id) => id === c.number)) {
+      warnings.push(`вход ${c.number} (бит ${entry.id} ${entry.start_frame}–${entry.end_frame}) кончается после старта головы ${c.chart} (${c.startFrame}); бит общий — не сдвинут`);
+      continue;
+    }
+    const len = entry.end_frame - entry.start_frame;
+    const start = Math.max(0, c.startFrame - len);
+    beats = beats.map((x) => (x.id === entry.id ? { ...x, start_frame: start, end_frame: c.startFrame } : x));
+    changes.push(`бит ${entry.id} ${entry.start_frame}–${entry.end_frame} → ${start}–${c.startFrame}: вход ${c.number} кончается, когда голова ${c.chart} трогается`);
+  }
   return { spec: beats === spec.beats ? spec : { ...spec, beats }, changes, warnings };
 }
