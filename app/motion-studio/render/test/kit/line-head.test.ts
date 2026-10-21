@@ -1,6 +1,7 @@
 // lineChartHead: один источник движения для графика и привязанного к нему счётчика.
 import { describe, expect, it } from "vitest";
 import { lineChartHead, xLabelIndices } from "../../src/motion-kit/components/LineChart.js";
+import { lineDrawWindow } from "../../src/motion-kit/line-window.js";
 
 const POINTS = [
   { label: "a", value: 10_000 },
@@ -25,6 +26,12 @@ describe("lineChartHead", () => {
     const { startFrame } = lineChartHead(POINTS, beat, 0);
     expect(startFrame).toBe(12 + Math.ceil(0.12 * 120));
     expect(lineChartHead(POINTS, beat, startFrame).value).toBe(10_000);
+  });
+  it("startFrame / endFrame — те же, что lineDrawWindow (сервер привязывает по нему бит счётчика)", () => {
+    for (const beat of [BEAT, { start_frame: 10, end_frame: 130 }, { start_frame: 0, end_frame: 7 }, { start_frame: 33, end_frame: 101 }]) {
+      const { startFrame, endFrame } = lineChartHead(POINTS, beat, 0);
+      expect({ startFrame, endFrame }).toEqual({ startFrame: lineDrawWindow(beat).startFrame, endFrame: lineDrawWindow(beat).endFrame });
+    }
   });
   it("значение под головой растёт монотонно и остаётся в диапазоне", () => {
     let prev = -Infinity;

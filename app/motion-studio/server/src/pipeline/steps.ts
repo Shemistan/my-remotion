@@ -26,6 +26,7 @@ import type { Permits } from "../jobs/semaphore.js";
 import type { CapabilityView } from "../knowledge/types.js";
 import { specChecks } from "../qa/spec-checks.js";
 import { type StepRef, checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
+import { normalizeBoundCounters } from "./bound-counters.js";
 import { candidateBrief } from "./refs.js";
 
 const WATCH_MS = 10_000;
@@ -558,7 +559,9 @@ export async function directorStep(
     if (!r.ok) return r;
     if (round === 1) key = { hash: r.hash, reused: r.reused };
     const director = r.output;
-    const spec: MotionSpec = { ...director.spec, composition: director.composition };
+    // счётчик за головой линии: бит счёта — окно головы (lineDrawWindow), не расчёт Director
+    const bound = normalizeBoundCounters({ ...director.spec, composition: director.composition });
+    const spec: MotionSpec = bound.spec;
     if (spec.duration_frames !== s.duration_frames) return { ok: false, stage: "director", message: `spec.duration_frames ${spec.duration_frames} ≠ настройкам ${s.duration_frames}` };
     if (spec.fps.num * s.fps.den !== s.fps.num * spec.fps.den) {
       return { ok: false, stage: "director", message: `spec.fps ${spec.fps.num}/${spec.fps.den} ≠ настройкам ${s.fps.num}/${s.fps.den}` };
@@ -570,6 +573,7 @@ export async function directorStep(
     const blocking = specChecks(spec, s).filter((x) => x.severity === "blocking");
     if (blocking.length === 0) {
       for (const w of specWarnings(spec)) rc.warnings.push(`spec: ${w}`);
+      for (const c of bound.changes) rc.warnings.push(`spec: ${c}`);
       if (cp && key && !(round === 1 && key.reused)) await saveCheckpoint(rc, cp, "motion_director", key.hash, director);
       return { ok: true, director: { ...director, spec }, spec };
     }

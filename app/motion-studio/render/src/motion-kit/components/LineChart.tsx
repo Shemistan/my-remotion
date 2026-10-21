@@ -13,6 +13,7 @@ import { type Point, lutLength, pathD, pathLUT, pointAtLength, smoothSegments } 
 import { CLAMP, clamp01, ramp, useSvgId } from "../internal.js";
 import type { ResolvedStyle } from "../style/resolve.js";
 import { useStyle } from "../style.js";
+import { lineDrawWindow } from "../line-window.js";
 import { niceTicks } from "../ticks.js";
 import { TYPE_LEVELS, typeSize } from "../style/type-scale.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, surfaceAt, shadow } from "../tokens.js";
@@ -86,12 +87,8 @@ export function xLabelIndices(labels: string[], spacing: number, font: number): 
   return out;
 }
 
-/** Окно прорисовки линии внутри бита: 12–80 %. */
-function drawWindow(beat: Pick<Beat, "start_frame" | "end_frame">) {
-  const L = Math.max(1, beat.end_frame - beat.start_frame);
-  // старт линии — целый кадр: в нём голова ещё на первой точке (Director считает его так же)
-  return { drawStart: beat.start_frame + Math.ceil(L * 0.12), drawEnd: beat.start_frame + L * 0.8 };
-}
+/** Окно прорисовки линии внутри бита: 12–80 % (`lineDrawWindow`, общий с сервером). */
+const drawWindow = lineDrawWindow;
 
 function drawAt(frame: number, beat: Pick<Beat, "start_frame" | "end_frame">): number {
   const { drawStart, drawEnd } = drawWindow(beat);
@@ -113,9 +110,7 @@ export function lineChartHead(
 ): { progress: number; value: number; startFrame: number; endFrame: number } {
   const { coords, lut, total } = chartGeometry(points, opts.width ?? 1100, opts.height ?? 560, opts.yTicks ?? 4, chartPad(opts.frameHeight ?? 1080));
   const progress = drawAt(frame, beat);
-  const { drawStart, drawEnd } = drawWindow(beat);
-  const startFrame = drawStart;
-  const endFrame = Math.ceil(drawEnd);
+  const { startFrame, endFrame } = drawWindow(beat);
   if (points.length < 2) return { progress, value: points[0]?.value ?? 0, startFrame, endFrame };
   const x = pointAtLength(lut, progress * total).x;
   let i = 0;

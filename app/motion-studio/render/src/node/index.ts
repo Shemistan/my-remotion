@@ -8,3 +8,4 @@ export { type ResolveStyleInput, type ResolvedStyle, resolveStyle } from "../mot
 export { contrastRatio, relativeLuminance } from "../motion-kit/style/contrast.js";
 export { type Rect, safeRect } from "../motion-kit/choreo/safe-area.js";
 export { type TypeLevel, typeSize } from "../motion-kit/style/type-scale.js";
+export { lineDrawWindow } from "../motion-kit/line-window.js";

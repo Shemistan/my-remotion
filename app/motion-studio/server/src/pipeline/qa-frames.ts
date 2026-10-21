@@ -85,11 +85,16 @@ export function blankCheckFrom(spec: MotionSpec, style?: MotionTokens): number {
 export function countStarts(spec: MotionSpec): Beat[] {
   const out: Beat[] = [];
   for (const e of spec.elements.filter((x) => x.kind === "number")) {
-    const beats = byStart(spec.beats).filter((b) => b.element_ids.includes(e.id));
-    const b = beats.find((x) => /count/i.test(x.action)) ?? beats[1] ?? (e.entrance === "count" ? beats[0] : undefined);
+    const b = countBeat(spec, e);
     if (b && !out.includes(b)) out.push(b);
   }
   return out;
+}
+
+/** Бит счёта числа `e` (правило `countStarts`); нет — `undefined`. */
+export function countBeat(spec: MotionSpec, e: Element): Beat | undefined {
+  const beats = byStart(spec.beats).filter((b) => b.element_ids.includes(e.id));
+  return beats.find((x) => /count/i.test(x.action)) ?? beats[1] ?? (e.entrance === "count" ? beats[0] : undefined);
 }
 
 /** Элементы, ни один бит которых не содержит ни одного из кадров. */

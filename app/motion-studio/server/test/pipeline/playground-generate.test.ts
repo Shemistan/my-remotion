@@ -151,6 +151,21 @@ describe("playgroundGenerate: успех и журнал", () => {
   });
 });
 
+describe("playgroundGenerate: счётчик за головой линии", () => {
+  it("бит счёта числа с bound_to chart.head нормализуется по окну головы (lineDrawWindow бита графика): 35–100 → 42–110", async () => {
+    const o = directorOutput();
+    o.spec.elements.push({ id: "num", kind: "number", role: "счётчик", entrance: "count", content: { from: 10, to: 1000, bound_to: "chart.head" } });
+    o.spec.beats.push({ id: "bc", start_frame: 35, end_frame: 100, action: "number-count", description: "", element_ids: ["num"] });
+    const agents = fakeAgents({ director: async () => ({ output: o }) });
+    const { job, scene } = await runJob({ agents });
+    expect(job.status).toBe("completed");
+    const [v] = versionRows(scene.id);
+    const spec = JSON.parse(readFileSync(join(env.s.root, v!.path, "spec.json"), "utf8"));
+    expect(spec.beats.find((b: { id: string }) => b.id === "bc")).toMatchObject({ start_frame: 42, end_frame: 110 });
+    expect((job.output_refs as { warnings: string[] }).warnings).toContainEqual(expect.stringMatching(/бит bc 35–100 → 42–110/));
+  });
+});
+
 describe("playgroundGenerate: Visual QA видит камеру", () => {
   it("ключи камеры spec — в brief.json Visual QA и в чек-листе: зум — не скачок раскладки", async () => {
     const camera = [{ frame: 0, scale: 1, x: 0, y: 0 }, { frame: 179, scale: 1.06, x: 120, y: -40 }];

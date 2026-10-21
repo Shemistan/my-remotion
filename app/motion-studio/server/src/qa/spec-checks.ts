@@ -2,6 +2,7 @@
 // layout, safe area, наличие акцента. `layout` элемента — доли safe area, а не кадра
 // (prompts/motion-director.md §8): в кадр он переводится через safeRect настроек.
 import type { Element, MotionSpec, QAIssue, Settings } from "@ms/contracts";
+import { boundCounters } from "../pipeline/bound-counters.js";
 import { ACCENT_ACTION, isEmphasisRole } from "../pipeline/qa-frames.js";
 
 type Layout = NonNullable<Element["layout"]>;
@@ -75,6 +76,18 @@ export function specChecks(spec: MotionSpec, settings: Settings): QAIssue[] {
         code: "outside_safe_area", severity: "warning", area: e.id,
         description: `layout ${e.id} выходит за безопасную зону: x + w = ${(l.x + l.w).toFixed(2)}, y + h = ${(l.y + l.h).toFixed(2)} (доли safe area)`,
         fix_hint: `layout — доли safe area от 0 до 1: x + w ≤ 1 и y + h ≤ 1 для ${e.id}`,
+      });
+    }
+  }
+
+  // счётчик за головой линии: бит счёта — окно головы (пайплайн нормализует после Director)
+  for (const c of boundCounters(spec)) {
+    const b = spec.beats.find((x) => x.id === c.beat)!;
+    if (b.start_frame !== c.startFrame || b.end_frame !== c.endFrame) {
+      out.push({
+        code: "bound_counter_timing", severity: "warning", area: c.number,
+        description: `бит счёта ${b.id} (${b.start_frame}–${b.end_frame}) не совпадает с окном головы ${c.chart} (${c.startFrame}–${c.endFrame})`,
+        fix_hint: `значение ${c.number} — lineChartHead(...).value; бит ${b.id} — ${c.startFrame}–${c.endFrame}`,
       });
     }
   }
