@@ -5,6 +5,8 @@
 // идут параллельно в одном раннере (одно ядро держит owner lock хранилища).
 // Запуск: `make e2e`. Evidence — tmp/pipeline-evidence/{test1,test2}/; в
 // docs/evidence/phase-1/pipeline/ — только с MS_WRITE_EVIDENCE=1.
+// MS_E2E_GENERALIZE=1 — ещё три разноплановых запроса (gen-compare, gen-timeline, gen-cache):
+// проверка, что промпты не настроены под Test 1/2; идут параллельно с ними.
 import { execFile } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
@@ -39,6 +41,14 @@ const TEST1 =
 const TEST2 =
   "Покажи архитектуру AI-агента: пользователь отправляет запрос, оркестратор вызывает три инструмента, данные возвращаются обратно. Световые импульсы движутся по связям";
 
+/** Запросы проверки обобщения (не из 09): сравнение, таймлайн, процесс с ветвлением. */
+const GENERALIZE: Record<string, string> = {
+  "gen-compare": "Сравни монолит и микросервисы по скорости релизов",
+  "gen-timeline": "Таймлайн развития компании 2015–2025 с пятью вехами",
+  "gen-cache": "Объясни, как работает кэширование: запрос, промах, запись, попадание",
+};
+const generalize = process.env.MS_E2E_GENERALIZE === "1";
+
 interface Outcome {
   job: Job;
   dir: string;
@@ -54,6 +64,12 @@ interface Outcome {
 let core: Core;
 const mine = new Set<string>();
 const outcomes = new Map<string, Outcome>();
+const started = new Map<string, Promise<Outcome>>();
+/** Задача запускается один раз; все пять идут параллельно в одном раннере. */
+const run = (name: string, prompt: string) => {
+  if (!started.has(name)) started.set(name, generate(name, prompt));
+  return started.get(name)!;
+};
 
 const readJson = <T>(p: string) => JSON.parse(readFileSync(p, "utf8")) as T;
 const ocrTexts = (qa: QAReport, frame: number) => qa.ocr.find((o) => o.frame === frame)?.texts ?? [];
@@ -144,7 +160,8 @@ async function saveEvidence(name: string, o: Outcome): Promise<void> {
 
 describe("playground.generate: Test 1 и Test 2 (09 §2–3), реальные модели и рендер", () => {
   it("обе задачи проходят очередь и завершаются ready", async () => {
-    const [t1, t2] = await Promise.all([generate("test1", TEST1), generate("test2", TEST2)]);
+    if (generalize) for (const [name, prompt] of Object.entries(GENERALIZE)) void run(name, prompt).catch(() => undefined);
+    const [t1, t2] = await Promise.all([run("test1", TEST1), run("test2", TEST2)]);
     outcomes.set("test1", t1);
     outcomes.set("test2", t2);
     for (const [name, o] of outcomes) {
@@ -178,5 +195,17 @@ describe("playground.generate: Test 1 и Test 2 (09 §2–3), реальные �
     expect(specChecks(o.spec, o.settings).filter((i) => i.code === "overlap")).toEqual([]);
     const refs = readJson<{ kb_id: string }[]>(join(o.dir, "knowledge-refs.json"));
     expect(refs.some((r) => core.kb.getCapability(r.kb_id)!.patterns.includes("system-structure"))).toBe(true);
+  }, T);
+});
+
+describe.runIf(generalize)("playground.generate: обобщение на новые запросы", () => {
+  it.each(Object.keys(GENERALIZE))("%s: ready, technical pass, spec без blocking", async (name) => {
+    const o = await run(name, GENERALIZE[name]!);
+    console.log(`${name}: ${o.job.status} за ${(o.wallMs / 60000).toFixed(1)} мин; ${JSON.stringify(o.job.error ?? o.job.output_refs)}`);
+    expect(o.job.status, `${name}: ${JSON.stringify(o.job.error)}`).toBe("completed");
+    expect(o.manifest.status).toBe("ready");
+    expect(o.versions).toBe(1);
+    expect(o.manifest.qa?.technical).toBe("pass");
+    expect(specChecks(o.spec, o.settings).filter((i) => i.severity === "blocking")).toEqual([]);
   }, T);
 });
