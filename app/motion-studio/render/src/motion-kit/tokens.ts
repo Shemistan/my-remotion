@@ -50,6 +50,27 @@ export function luminance(color: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+/** Тон hex-цвета, градусы 0..360 (серый и неизвестный формат — null). */
+function hueOf(color: string): number | null {
+  const rgb = parseHex(color);
+  if (!rgb) return null;
+  const [r, g, b] = rgb.map((v) => v / 255) as [number, number, number];
+  const max = Math.max(r, g, b);
+  const d = max - Math.min(r, g, b);
+  if (d < 0.08) return null;
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+
+/** Расстояние тонов двух цветов по кругу, градусы 0..180 (серый / неизвестный — 180: не спутать). */
+export function hueDistance(a: string, b: string): number {
+  const ha = hueOf(a);
+  const hb = hueOf(b);
+  if (ha === null || hb === null) return 180;
+  const d = Math.abs(ha - hb) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
 /** Тёмная тема: фон темнее середины. */
 export const isDark = (s: StyleBible) => luminance(s.palette.bg) < 0.2;
 

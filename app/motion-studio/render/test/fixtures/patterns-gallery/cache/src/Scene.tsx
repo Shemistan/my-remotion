@@ -1,8 +1,9 @@
 // Галерея паттернов (kit 0.3): кэш как процесс. Запрос — промах (статус на месте), медленный
-// поход в базу, данные-объект «user:42» летят обратно и ложатся в кэш (DataToken dock),
+// поход в базу, данные-объект «user:42» летят обратно и ложатся в слот кэша (DataToken),
 // затем быстрые попадания: счётчик растёт ровно на приходах импульсов (useArrivalCount),
 // статус сменяется «Промах → Запись → Попадание» в одной точке (StatusChip). Герой схемы —
-// кэш (FlowNode.size h2), фон — чертёж с ореолом за героем, заголовок — рубрика (kicker).
+// кэш (FlowNode.size h2) со слотом данных (FlowNode.slot: токен ложится в него сам), фон —
+// чертёж с ореолом за героем, заголовок — рубрика (kicker).
 import {
   AnimatedNumber,
   Background,
@@ -47,7 +48,7 @@ const hits = (b: Record<string, Window>) => pulseArrival("e-req", b.hits!, FAST)
 function nodes(b: Record<string, Window>): FlowNode[] {
   return [
     { id: "client", label: "Клиент", caption: "GET /user/42", x: 0, y: 190, w: 320, h: 130, enter: "slide" },
-    { id: "cache", label: "Кэш", caption: "Redis · в памяти", size: "h2", x: 560, y: 160, w: 420, h: 190, elevation: 3, enter: "pop", flash: [ask(b), write(b), hits(b)], emphasis: { start_frame: b.hits!.start_frame + 12, end_frame: 150 } },
+    { id: "cache", label: "Кэш", caption: "Redis · в памяти", size: "h2", x: 560, y: 160, w: 420, h: 190, elevation: 3, slot: true, enter: "pop", flash: [ask(b), write(b), hits(b)], emphasis: { start_frame: b.hits!.start_frame + 12, end_frame: 150 } },
     { id: "db", label: "База данных", caption: "PostgreSQL", x: 1220, y: 190, w: 320, h: 130, enter: "rise", accentIndex: 2, flash: miss(b) },
   ];
 }
@@ -71,7 +72,7 @@ function Overlay({ b }: { b: Record<string, Window> }) {
           { text: "Попадание", tone: "positive", at: first(hits(b)) },
         ]}
       />
-      <DataToken edgeId="e-db" beat={b.write!} travel={SLOW} reverse label="user:42" dock={{ dx: -210, dy: 74 }} />
+      <DataToken edgeId="e-db" beat={b.write!} travel={SLOW} reverse label="user:42" />
       <div style={{ position: "absolute", left: 560, top: 400, width: 420, display: "flex", justifyContent: "center", alignItems: "baseline", gap: 14, opacity: frame >= b.hits!.start_frame ? 1 : 0 }}>
         <AnimatedNumber from={0} to={hit.total} value={hit.value} pop={hit.pop} beat={{ start_frame: b.hits!.start_frame, end_frame: 150 }} locale="ru" size="h1" suffix={[" ответ", " ответа", " ответов"]} />
         <span style={{ fontFamily: fontFamily(s.typography.body), fontSize: typeSize(s, "caption", height), color: s.palette.muted }}>из кэша</span>

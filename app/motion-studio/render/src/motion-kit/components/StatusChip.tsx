@@ -10,7 +10,7 @@ import { cubicPoint } from "../geometry.js";
 import { clamp01, kitWarn, ramp } from "../internal.js";
 import { type TypeLevel, sizePx } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
-import { accent, alpha, fontFamily, isDark, mix, surfaceAt } from "../tokens.js";
+import { type FontRef, accent, alpha, fontFamily, isDark, mix, surfaceAt } from "../tokens.js";
 import { useFlowGeometry } from "./FlowGraph.js";
 
 export type StatusTone = "neutral" | "accent" | "positive" | "negative" | "warning";
@@ -87,6 +87,14 @@ export function statusAnchorIssue(a: StatusAnchor | undefined, flow: Pick<NonNul
   return null;
 }
 
+/**
+ * Грамматика статуса: капсула, капс с разрядкой, точка-индикатор, тонированный фон —
+ * «состояние», а не объект (у DataToken — прямоугольник, моно, полоса-ярлык; dataTokenLook).
+ */
+export function statusChipLook(s: StyleBible, px: number): { radius: number; font: FontRef; caps: boolean; marker: "bar" | "dot"; tracking: number; dot: number } {
+  return { radius: 999, font: s.typography.body, caps: true, marker: "dot", tracking: 0.08, dot: px * 0.42 };
+}
+
 /** Точка якоря в системе координат графа и сдвиг плашки от неё (CSS translate). */
 function anchorPoint(flow: ReturnType<typeof useFlowGeometry>, a: StatusAnchor | undefined, x = 0, y = 0): { x: number; y: number; tr: string } {
   const gap = a?.gap ?? 12;
@@ -135,7 +143,9 @@ export function StatusChip({ states, anchor, x, y, size = "caption", until, styl
   const k = prev ? st.swap : 1;
   const colCur = toneColor(s, cur.tone, cur.accentIndex);
   const col = prev ? mix(toneColor(s, prev.tone, prev.accentIndex), colCur, k) : colCur;
-  const textW = (t: string) => Array.from(t).length * 0.6 * px;
+  const look = statusChipLook(s, px);
+  // капс с разрядкой шире строчных: ~0.72 em на знак + разрядка
+  const textW = (t: string) => Array.from(t).length * (0.72 + look.tracking) * px;
   const w = prev ? textW(prev.text) + (textW(cur.text) - textW(prev.text)) * k : textW(cur.text);
   const bump = prev ? Math.sin(Math.PI * st.swap) * 0.06 : 0;
   const scale = (prev ? 1 : Math.max(0, 0.6 + 0.4 * enter)) * (1 + bump) * (1 - 0.15 * st.leave);
@@ -151,16 +161,19 @@ export function StatusChip({ states, anchor, x, y, size = "caption", until, styl
           alignItems: "center",
           gap: px * 0.45,
           padding: `${(px * 0.38).toFixed(1)}px ${(px * 0.7).toFixed(1)}px`,
-          borderRadius: 999,
-          background: `linear-gradient(${alpha(col, dark ? 0.2 : 0.12)}, ${alpha(col, dark ? 0.2 : 0.12)}), ${surfaceAt(s, 2)}`,
-          boxShadow: `inset 0 0 0 1.5px ${alpha(col, 0.75)}, 0 0 ${(px * 0.9).toFixed(1)}px ${alpha(col, dark ? 0.35 * (1 + bump * 4) : 0.15)}`,
-          fontFamily: fontFamily(s.typography.body),
-          fontWeight: 600,
+          borderRadius: look.radius,
+          // состояние: тонированная капсула без ореола — светится только точка-индикатор
+          background: `linear-gradient(${alpha(col, dark ? 0.22 : 0.14)}, ${alpha(col, dark ? 0.22 : 0.14)}), ${surfaceAt(s, 2)}`,
+          boxShadow: `inset 0 0 0 1.5px ${alpha(col, 0.6 + 0.3 * bump * 4)}`,
+          fontFamily: fontFamily(look.font),
+          fontWeight: 700,
           fontSize: px,
           lineHeight: 1.2,
+          textTransform: "uppercase",
+          letterSpacing: `${look.tracking}em`,
         }}
       >
-        <span style={{ width: px * 0.42, height: px * 0.42, borderRadius: 999, background: col, boxShadow: `0 0 ${(px * 0.5).toFixed(1)}px ${alpha(col, 0.8)}`, flex: "0 0 auto" }} />
+        <span style={{ width: look.dot, height: look.dot, borderRadius: 999, background: col, boxShadow: `0 0 0 ${(px * 0.12).toFixed(1)}px ${alpha(col, 0.25)}, 0 0 ${(px * 0.6).toFixed(1)}px ${alpha(col, 0.9)}`, flex: "0 0 auto" }} />
         {/* ширина перетекает; уходящий текст поднимается и гаснет, новый — поднимается снизу */}
         <span style={{ position: "relative", display: "block", width: w, height: px * 1.2, clipPath: "inset(0 -100% 0 -100%)" }}>
           {prev && k < 1 ? (

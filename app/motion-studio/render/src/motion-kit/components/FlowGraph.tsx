@@ -10,7 +10,7 @@ import { type PulseArrival, pathArrivals } from "../choreo/pulse.js";
 import { edgeDelay } from "../choreo/rhythm.js";
 import { EASE, frames, springAt } from "../easing.js";
 import { type CubicSegment, type Point, cubicPoint, edgeSegment, lutLength, pathD, pathLUT } from "../geometry.js";
-import { CLAMP, clamp01 } from "../internal.js";
+import { CLAMP, clamp01, kitWarn } from "../internal.js";
 import { amplitudeOf } from "../style/intensity.js";
 import { typeSize } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
@@ -52,6 +52,21 @@ export interface FlowNode {
    * `size` (самый крупный, при котором каждая подпись группы влезает в свой узел).
    */
   size?: "h2" | "body" | "caption";
+  /**
+   * Слот данных внизу карточки: подпись поднимается, снизу остаётся место под DataToken
+   * кегля caption — токен, пришедший по ребру в этот узел, ложится в слот сам (без `dock`).
+   */
+  slot?: boolean;
+}
+
+/** Слот данных узла, px графа: прямоугольник под токен и сколько высоты карточки он забирает. */
+export interface FlowSlot {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Высота полосы слота снизу карточки (с отступом от кромки). */
+  reserve: number;
 }
 
 export interface FlowEdge {
@@ -79,6 +94,10 @@ interface FlowGeometry {
   edges: ReadonlyMap<string, CubicSegment>;
   /** Узлы графа по id (якоря StatusChip / DataToken). */
   nodes: ReadonlyMap<string, FlowNode>;
+  /** Концы рёбер по id ребра. */
+  links: ReadonlyMap<string, Pick<FlowEdge, "from" | "to">>;
+  /** Слоты данных узлов с `slot` (куда ложится DataToken). */
+  slots: ReadonlyMap<string, FlowSlot>;
   /** Кадр, когда ребро дорисовано (импульсы раньше не пускать). */
   ready: ReadonlyMap<string, number>;
   /** Кадры прихода импульса (голова касается узла-получателя), по возрастанию. */
@@ -192,6 +211,23 @@ export function flowLabelSizes(nodes: Pick<FlowNode, "id" | "label" | "w" | "siz
   return out;
 }
 
+/** Высота DataToken кегля `px`: строка 1.15 и поля 0.3 em сверху и снизу. */
+export const tokenHeight = (px: number) => px * 1.75;
+
+/**
+ * Слот данных узла (чистая функция): полоса внизу карточки под токен кегля caption, по
+ * ширине — между полями карточки; отступ от нижней кромки — 0.4 caption (не меньше 8 px
+ * при 1080). Карточка центрирует подпись над полосой. null — у узла нет `slot`.
+ */
+export function flowSlot(n: FlowNode, s: StyleBible, frameH: number): FlowSlot | null {
+  if (!n.slot) return null;
+  const cap = typeSize(s, "caption", frameH);
+  const h = tokenHeight(cap);
+  const inset = Math.max((8 * frameH) / 1080, cap * 0.4);
+  const padX = space(s, 0.5);
+  return { x: n.x + padX, y: n.y + n.h - inset - h, w: n.w - 2 * padX, h, reserve: h + inset };
+}
+
 export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", children, overlay }: FlowGraphProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
@@ -206,9 +242,19 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", c
   const padX = space(s, 0.5);
   const sizes = flowLabelSizes(nodes, s, frameH);
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+  const links = new Map(edges.map((e) => [e.id, { from: e.from, to: e.to }]));
+  const slots = new Map<string, FlowSlot>();
+  for (const n of nodes) {
+    const slot = flowSlot(n, s, frameH);
+    if (!slot) continue;
+    slots.set(n.id, slot);
+    const sz = sizes.get(n.id)!;
+    const text = sz.label * 1.15 + (n.caption ? 4 + sz.caption * 1.2 : 0);
+    if (text > n.h - slot.reserve) kitWarn(`slot:${n.id}`, `FlowGraph: узлу "${n.id}" не хватает высоты под подпись и слот данных (нужно ≥ ${Math.ceil(text + slot.reserve)} px, есть ${n.h}) — увеличь h.`);
+  }
 
   return (
-    <FlowContext.Provider value={{ edges: geo, nodes: nodeMap, ready, arrivals }}>
+    <FlowContext.Provider value={{ edges: geo, nodes: nodeMap, links, slots, ready, arrivals }}>
       <div style={{ position: "relative", width: W, height: H }}>
         <svg width={W} height={H} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
           {edges.map((e) => {
@@ -291,7 +337,8 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", c
                 display: "flex",
                 alignItems: "center",
                 gap: padX * 0.75,
-                padding: `0 ${padX}px`,
+                // слот данных: подпись центрируется над полосой слота внизу карточки
+                padding: `0 ${padX}px ${slots.get(n.id)?.reserve ?? 0}px`,
                 ...surface,
                 // кромка акцента и свечение на вспышке — поверх тени поверхности
                 boxShadow: lit ? `inset 0 0 0 ${(1.5 + 1.5 * fl.strike).toFixed(2)}px ${alpha(col, 0.9 * fl.level)}, 0 0 ${(36 * fl.level).toFixed(1)}px ${alpha(col, (dark ? 0.55 : 0.35) * fl.level)}, ${surface.boxShadow}` : surface.boxShadow,
