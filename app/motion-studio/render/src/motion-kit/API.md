@@ -142,11 +142,20 @@ transparent?, palette_overrides?, safe_area?, font? }`), id пресета, Styl
 </Camera>
 ```
 `<Parallax layer>` двигает слой как камеру × (1 + 0.15·layer); при `camera.parallax = false`
-слои едут вместе. `layer` элемента — `depth_layer` из spec. `cameraAt(frame, keys, style, { width, height })`
+слои едут вместе. Слой > 0 на наезде чуть крупнее кадра (`PARALLAX_OVERSCAN` = 3 px за
+край, набирается за первый 1 % наезда): ближний план едет сильнее камеры, и без запаса
+его край открывался бы на 1–3 px. `parallaxTransform(cam, layer, { width, height })` даёт ту
+же трансформацию для своих слоёв. `layer` элемента — `depth_layer` из spec. `cameraAt(frame, keys, style, { width, height })`
 → `{ scale, x, y }` для своих расчётов (размер кадра — тот же зажим, что у `<Camera>`).
 Камера — только когда помогает смыслу: один медленный наезд на главное к акценту. На наезде
 контент уходит к краям: держи его в safe area, сжатой в `1 + (scale − 1)·(1 + 0.15·layer)`
 раз от центра; ближний слой 2 у края кадра не ставь.
+
+Поля safe area задают и запас камеры: наезд не больше `zoomLimit` (край зоны остаётся в
+кадре хотя бы на половину поля), панорама — в остатке поля. **`safe_area` 0 по оси
+выключает камеру:** при нулевом поле `zoomLimit` = 1, наезда нет, а без наезда нет и
+панорамы — ключи `camera` в spec ни на что не влияют. Камере нужно поле: при 5 % наезд
+≈ до 1.055, наезд 1.08 требует полей около 7 %.
 
 ## Safe area
 
@@ -232,8 +241,12 @@ align?, maxWidth?, lineHeight?, delay?, stagger?, exit?, caps?, style? }`
 ```
 
 ### AnimatedNumber
-`{ from, to, beat, locale: "ru" | "en", prefix?, suffix?, compact?, decimals?, size? = 7,
+`{ from, to, beat, locale: "ru" | "en", prefix?, suffix?, compact?, decimals?, size?: TypeLevel | number = 7,
 font? = "display" | "mono", reserveWidth?, color?, align?, style?, value?, enterAt? }`
+
+`size` — как у KineticText: уровень шкалы от высоты кадра (`"display"`, `"h1"`, `"h2"`,
+`"body"`, `"caption"` — одинаково в 16:9, 9:16 и 1:1), шаг шкалы v0.1 (0..8) или кегль в
+px (> 8). Герой-число — `size="display"`.
 
 `value` — внешнее значение вместо своего счёта: привязка к другому источнику движения
 (см. `lineChartHead`). Удар на финише остаётся в `end_frame` бита.
@@ -254,15 +267,24 @@ font? = "display" | "mono", reserveWidth?, color?, align?, style?, value?, enter
 ```
 
 ### LineChart
-`{ points: { label, value }[], beat, area? = true, highlightLast? = true, width? = 1100,
-height? = 560, locale? = "ru", compact? = true, accentIndex? = 0, yTicks? = 4,
-valuePrefix?, valueSuffix? }`
+`{ points: { label, value }[], beat, area? = true, callout? = true, endpointEmphasis?:
+boolean | { beat?, loop? } = true, width? = 1100, height? = 560, locale? = "ru", compact? =
+true, accentIndex? = 0, yTicks? = 4, valuePrefix?, valueSuffix? }`
 
 Порядок внутри бита: сетка и подписи оси Y (первые 30%), затем гладкая монотонная
 линия рисуется со светящейся «головой» (12–80% бита). Точки вспыхивают, когда линия до
-них доходит, заливка открывается вслед. В конце последняя точка пульсирует, рядом
-появляется выноска со значением (`highlightLast={false}` убирает выноску, если это
-значение уже показывает герой-число). Подписи осей форматирует `formatNumber`. Точки
+них доходит, заливка открывается вслед. В конце последняя точка получает акцент, а рядом
+появляется выноска со значением. Они включаются раздельно:
+- `callout={false}` убирает выноску, если значение уже показывает герой-число;
+- `endpointEmphasis` — акцент точки (тот же `accentPulse`, что у `Emphasis`): удар в
+  конце прорисовки, ореол, кольца, дыхание до конца сцены. `{ beat, loop: false }` —
+  свой бит акцента; после бита акцент гаснет (так акцент передают следующему элементу).
+  `false` — точка без акцента.
+
+Точка остаётся живой и без выноски: `callout={false}` + `endpointEmphasis` по умолчанию.
+`highlightLast` устарел: `highlightLast={false}` без новых полей убирает и выноску, и акцент.
+`lineHighlight(props, beat)` → `{ callout, emphasis: { beat, loop } | null }` — что
+выделено у точки и в какие кадры (для своих привязанных слоёв). Подписи осей форматирует `formatNumber`. Точки
 передавай по порядку оси X.
 
 `lineChartHead(points, beat, frame, { width?, height?, yTicks?, frameHeight? })` → `{ progress, value,
@@ -280,6 +302,8 @@ const head = lineChartHead(POINTS, CHART_BEAT, frame, { width: 900, height: 560 
 ```tsx
 <LineChart points={[{ label: "янв 22", value: 10_000 }, /* … */ { label: "янв 25", value: 1_000_000 }]}
   beat={{ start_frame: 20, end_frame: 110 }} width={830} height={500} />
+{/* значение показывает герой-число; точка всё равно бьёт и дышит */}
+<LineChart points={POINTS} beat={CHART_BEAT} callout={false} />
 ```
 
 Ось Y у `LineChart`, `AreaChart`, `BarChart` общая: деления `niceTicks` считаются один раз
@@ -371,6 +395,44 @@ height? = 600, accentIndex? = 0 }`
   notes={["что и для кого", "биты и входы", "Remotion и kit", "QA по пикселям"]} beat={b.steps} connector="arrow" />
 ```
 
+### Emphasis / Halo / useAccentPulse
+`<Emphasis beat loop? = true accentIndex? = 0 color? halo? = true ring? = true shape? = "pill"
+spread? strength? = 1 display? = "inline-block" style?>цель</Emphasis>`
+
+Акцент на цели — слове, числе, плашке, карточке. Один характер у всех акцентов kit
+(`accentPulse`): короткий **удар** в `start_frame` (масштаб +6 % × амплитуда, вспышка
+свечения, кольцо от кромки цели), затем **дыхание удержания**: свечение около 0.6 ±
+размах интенсивности, масштаб ±1 %, по кольцу на вдох (период ≈ 2.4 с при balanced).
+Амплитуда и темп — из `intensity` стиля: calm мягче и медленнее, energetic резче.
+`loop` (по умолчанию) — дышать и после `end_frame`, до конца сцены (финальный акцент
+живой); `loop={false}` — после бита акцент гаснет за ~0.5 с. Свечение повторяет контур
+цели (`drop-shadow`), за целью — `<Halo>`. Свой `box-shadow` / `radial-gradient` для
+ореола не рисуй.
+
+- `shape` — скругление кольца: `pill` (слово, плашка), `rounded` (карточка), `circle`.
+- `spread` — поля ореола за блок цели, равные со всех сторон: px или CSS-длина; `em` —
+  от кегля самого `Emphasis` (наследуется). Если кегль задан внутри цели — передай px.
+- `ring={false}` — без колец (тихий акцент текста), `halo={false}` — без ореола.
+- Один акцент в момент: биты двух `Emphasis` не перекрывай; передавая акцент дальше,
+  ставь прежнему `loop={false}`.
+
+`<Halo level? = 1 color? accentIndex? spread? = "0.6em" style?>` — ореол сам по себе:
+первый ребёнок блока с `position: relative` и `isolation: isolate`. Два слоя —
+ядро по размеру блока и свечение на `spread` за край; гауссов спад `closest-side` до
+нуля на кромке: жёсткой плашки не бывает, центр — центр блока.
+
+`useAccentPulse(beat, { loop?, strength? })` → `{ level, scale, strike, hold, ripple,
+rippleAlpha }` — тот же акцент для своих элементов (хук); `accentPulse(frame, style,
+{ beat, loop?, strength? })` — не хук (SVG, `.map()`). `level` — сила свечения 0..1,
+`ripple` — кольцо 0 → 1 (−1 — кольца нет).
+```tsx
+<Emphasis beat={{ start_frame: 112, end_frame: 150 }} spread={64}>
+  <div style={{ padding: "0.3em 0.8em", borderRadius: 999, background: surfaceAt(s, 2), fontSize: 59 }}>×4 за год</div>
+</Emphasis>
+{/* слово в заголовке — тихий акцент без колец */}
+<h1>Рост <Emphasis beat={B} ring={false}>×100</Emphasis></h1>
+```
+
 ### Callout
 `{ target: Rect, label, beat, side?: "left" | "right" | "auto", bounds?: Rect, shape?:
 "ring" | "box" | "auto", exit?: "diagonal" | "horizontal", reach? = 90, size? = "body",
@@ -456,8 +518,22 @@ width? = 1100, fontSize? = 30, style? }`
 ```
 
 ### Card
-`{ elevation: 0 | 1 | 2 | 3, children, beat?, enter?: "rise" | "scale" | "flip" | "none",
-delay?, accentIndex?, width?, height?, padding?, style? }`
+`{ elevation: 0 | 1 | 2 | 3, children, beat?, enter?: CardEnter, delay?, accentIndex?,
+width?, height?, padding?, style? }`
+
+`CardEnter` (у Card и узлов FlowGraph) — входы, различимые с первого взгляда:
+
+| enter | движение |
+|---|---|
+| `rise` | подъём снизу с перелётом (пружина bouncy) |
+| `scale` | из глубины 0.78 → 1 с фокусом (размытие 10 px → 0) |
+| `flip` | поворот к зрителю вокруг нижней кромки (rotateX, перспектива) |
+| `pop` | «выстрел» из центра 0.35 → 1 с перелётом (пружина pop) |
+| `slide` | въезд слева со смазом по ходу |
+| `swing` | дверца: поворот вокруг левой кромки (rotateY) с перелётом |
+| `blur` | проявление из расфокуса (16 px → 0, масштаб 1.06 → 1, пружина soft) |
+| `fade` | тихое проявление |
+| `none` | сразу на месте |
 
 `elevation` задаёт тень, светлоту поверхности и блик кромки: 0 — плоская, 3 — самая
 «высокая». `depth` стиля сдвигает уровень (`elevation + depth − 1`, в пределах 0..3) и
@@ -471,8 +547,8 @@ delay?, accentIndex?, width?, height?, padding?, style? }`
 ```
 
 ### FlowGraph
-`{ nodes: { id, label, x, y, w, h, elevation? = 2, caption?, accentIndex? }[],
-edges: { id, from, to }[], beat, width?, height?, enter? = "flip", children? }`
+`{ nodes: { id, label, x, y, w, h, elevation? = 2, caption?, accentIndex?, enter?, enterAt?,
+flash? }[], edges: { id, from, to }[], beat, width?, height?, enter? = "flip", children? }`
 
 Координаты узлов — в px внутри области графа. Узлы — карточки с глубиной. Они входят
 слева направо в первые ~45% бита. Ребро прорисовывается, когда оба его узла на месте,
@@ -482,10 +558,38 @@ edges: { id, from, to }[], beat, width?, height?, enter? = "flip", children? }`
 `caption`. Ширину узла закладывай примерно 0.57 × кегль × число символов + 60 px (для
 `body` при 1080: ≈ 26 px на символ + 60): узкий узел мельчит подписи всего графа.
 
+**Входы по узлам.** `enter` графа — вход по умолчанию; у узла может быть свой `enter`
+(`CardEnter`, таблица в Card): разные входы разделяют роли — например, запрос `slide`,
+оркестратор `pop`, инструменты `rise`. Группа равноправных узлов — один вход каскадом.
+`enterAt` — кадр входа узла вместо каскада (бит элемента из spec); рёбра ждут оба конца.
+
+**Вспышка узла по приходу импульса.** `flash: pulseArrival(edgeId, beat, travel?, { count?,
+repeat? })` — узел вспыхивает (удар `accentPulse`: ореол, кромка акцентом, кольцо, толчок
+масштаба) ровно в кадр, когда импульс `PulseAlongPath` с теми же `edgeId`, `beat`,
+`travel`, `count`, `repeat` касается узла (ядро головы ближе 10 px к концу ребра) — на
+каждом проходе. Кадры считает граф: он знает, когда ребро дорисовано и сколько длится
+проход. `flash` принимает и массив, и кадры числом. Цвет — `accentIndex` узла.
+```tsx
+const TRAVEL = 22;
+const back = { start_frame: 116, end_frame: 150 };
+<FlowGraph nodes={[
+  { id: "user", label: "Запрос", x: 0, y: 270, w: 280, h: 120, enter: "slide" },
+  { id: "orc", label: "Оркестратор", x: 450, y: 255, w: 400, h: 150, enter: "pop",
+    flash: pulseArrival("e-db", back, TRAVEL, { repeat: false }) },
+  { id: "db", label: "База", x: 1040, y: 270, w: 300, h: 120, enter: "blur" },
+]} edges={EDGES} beat={{ start_frame: 6, end_frame: 70 }}>
+  <PulseAlongPath edgeId="e-db" beat={back} travel={TRAVEL} repeat={false} reverse />
+</FlowGraph>
+```
+
 Для своих слоёв поверх графа:
-- `useFlowGeometry()` возвращает `{ edges: Map<edgeId, CubicSegment>, ready: Map<edgeId, frame> }`
-  ближайшего FlowGraph (`null` вне графа). `ready` — кадр, когда ребро дорисовано. Так
-  делают подписи у середины ребра или свои маркеры.
+- `useFlowGeometry()` возвращает `{ edges: Map<edgeId, CubicSegment>, ready: Map<edgeId, frame>,
+  arrivals(pulseArrival(...)) → frame[] }` ближайшего FlowGraph (`null` вне графа). `ready` —
+  кадр, когда ребро дорисовано; `arrivals` — кадры прихода импульса (по возрастанию): так
+  плашка «Ответ готов» входит в момент прихода. Так же делают подписи у середины ребра
+  или свои маркеры.
+- `flowTiming(nodes, edges, beat, style, fps)` — тот же тайминг без React: `nodeStart`,
+  `edgeStart`, `ready`, `edges`, `arrivals`.
 - `edgePath(a, b)` возвращает `CubicSegment` ребра между двумя `FlowNode` по тем же
   правилам портов, что в графе. Пригодится, чтобы провести путь для `PulseAlongPath
   segments` или своей SVG-линии вне FlowGraph.
@@ -529,6 +633,10 @@ reverse? }`
 | `codeLineRect(line, { width?, fontSize?, cols? })`, `codeCharWidth(fontSize)` | прямоугольник строки (или знаков) CodeBlock — цель для `Callout` |
 | `codeLines(tokens)`, `caretLine(tokens, count)` | токены по строкам (многострочные режутся по `\n` с тем же idx); строка каретки после набора count токенов |
 | `chartFont(height)` | кегль подписей осей графиков (caption шкалы кадра) |
+| `sizePx(style, size, height)` | кегль `size` компонента: уровень шкалы, шаг 0..8 или px |
+| `accentPulse(frame, style, { beat, loop?, strength? })` | единый акцент kit (см. Emphasis), не хук |
+| `pulseArrival(edgeId, beat, travel?, { count?, repeat? })` | приход импульса для `FlowNode.flash` и `useFlowGeometry().arrivals` |
+| `parallaxTransform(cam, layer, size?)`, `PARALLAX_OVERSCAN` | трансформация слоя параллакса; с размером кадра — с запасом за край |
 | `barTimings(beat, n, stagger)`, `stepStarts(beat, n)` | кадры роста столбцов и активации шагов — для своих привязанных слоёв |
 
 ## Правила качества движения

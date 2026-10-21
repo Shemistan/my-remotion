@@ -19,7 +19,7 @@ export { type EnterDirection, type EnterKind, type EnterOptions, enterStyle } fr
 export { staggerBeat } from "./choreo/stagger.js";
 export { type AccentPulse, type AccentPulseOptions, accentPulse } from "./choreo/accent.js";
 export { type PulseArrival, pulseArrival } from "./choreo/pulse.js";
-export { type CameraKey, type CameraState, type FrameSize, cameraAt, cameraTransform, panLimit, zoomLimit, parallaxFactor, parallaxTransform } from "./choreo/camera.js";
+export { type CameraKey, type CameraState, type FrameSize, cameraAt, cameraTransform, panLimit, zoomLimit, parallaxFactor, parallaxTransform, PARALLAX_OVERSCAN } from "./choreo/camera.js";
 export { type Rect, safeRect, styleSafeRect } from "./choreo/safe-area.js";
 export { edgeDelay, kineticStep, typeRhythm } from "./choreo/rhythm.js";
 export { gridColumns, layoutLayered } from "./choreo/layout.js";
