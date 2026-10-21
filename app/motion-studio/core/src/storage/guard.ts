@@ -205,6 +205,18 @@ function minFreeBytes(env: StorageEnv): number {
 }
 
 /**
+ * Корень пропал посреди проверки (rename, отключение диска): шаг после корня падает ENOENT
+ * под своей причиной (маркер, запись), а отказ на деле — `not_found`. Корень на месте —
+ * причина шага как есть.
+ */
+async function vanished(env: StorageEnv, status: Extract<StorageStatus, { ok: false }>): Promise<Extract<StorageStatus, { ok: false }>> {
+  const root = env.MS_DATA_DIR?.trim();
+  if (status.reason === "not_found" || status.reason === "env_missing" || !root || !isAbsolute(root)) return status;
+  const gone = await rootProblem(root);
+  return gone ? { ok: false, reason: "not_found", detail: `${gone} (пропал во время проверки; шаг: ${status.reason}: ${status.detail})` } : status;
+}
+
+/**
  * Проверяет хранилище, ничего не создавая (кроме временного файла пробной записи).
  * Порядок: env → корень → маркер → store_id → том → системный диск → запись → место.
  */
@@ -246,7 +258,7 @@ export async function checkStorage(
 
     return { ok: true, root, marker, freeBytes };
   } catch (e) {
-    if (e instanceof Failed) return e.status;
+    if (e instanceof Failed) return vanished(env, e.status);
     throw e;
   }
 }

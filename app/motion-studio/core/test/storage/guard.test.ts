@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { chmod, mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, readdir, rename, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { MARKER_FILE, checkStorage, initStore, type StoreMarker } from "../../src/storage/guard.js";
@@ -126,6 +126,17 @@ describe("checkStorage", () => {
       reason: "not_found",
       detail: expect.stringMatching(/симлинк/),
     });
+  });
+
+  // флейк storage-mode.test под нагрузкой: rename корня между шагами проверки давал
+  // marker_missing / not_writable вместо not_found
+  it("root vanishing mid-check (after the root step) is reported as not_found", async () => {
+    const vanishing = { ...probe, volumeUuid: async () => {
+      await rename(root, `${root}.gone`);
+      return "VOL-A";
+    } };
+    expect(await checkStorage({ MS_DATA_DIR: root }, vanishing)).toMatchObject({ ok: false, reason: "not_found", detail: expect.stringContaining("not_writable") });
+    await rename(`${root}.gone`, root);
   });
 
   it("treats a failing probe as a failed check", async () => {

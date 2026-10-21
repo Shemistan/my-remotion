@@ -3,7 +3,7 @@
 // монтировании, quick_check, разбор задач (`storage_unavailable`), раннер снова работает.
 // Пропажа — настоящий rename MS_DATA_DIR во временном хранилище.
 import { type ChildProcess, spawn } from "node:child_process";
-import { renameSync } from "node:fs";
+import { existsSync, renameSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import {
@@ -49,6 +49,8 @@ afterEach(async () => {
   killLeftovers();
   await lock?.release();
   sup = runner = lock = undefined;
+  // тест упал, пока хранилище «пропало»: вернуть его, иначе уборка падает второй ошибкой
+  if (existsSync(`${env.s.root}.gone`) && !existsSync(env.s.root)) renameSync(`${env.s.root}.gone`, env.s.root);
   if (!env.db.open) env.db = openDb(env.s.root);
   await teardownDb(env);
 });
