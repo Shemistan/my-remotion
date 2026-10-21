@@ -11,17 +11,5 @@
       "templates/remotion-components/remotion-bits/src/components/AnimatedCounter.tsx",
       "templates/remotion-components/remotion-bits/src/utils/motion/index.ts"
     ]
-  },
-  {
-    "kb_id": "free-remotion-templates/kpi-counter",
-    "repository": "free-remotion-templates (RenderComp)",
-    "repository_url": "git@github.com:RenderComp/free-remotion-templates.git",
-    "commit": "f648980",
-    "license": "MIT (package.json, LICENSE, SPDX-заголовок в файле)",
-    "license_class": "permissive",
-    "strategy": "adapt",
-    "source_paths": [
-      "templates/remotion-components/free-remotion-templates/src/components/kpi-counter/KpiCounter.tsx"
-    ]
   }
 ]

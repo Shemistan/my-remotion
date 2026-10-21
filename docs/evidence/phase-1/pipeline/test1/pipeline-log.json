@@ -1,48 +1,40 @@
 {
-  "run_id": "job_01M5F191KT6T4R2A9M3MW5WMSC",
-  "attempt": 2,
-  "cost_usd": 0.6561366,
+  "run_id": "job_01M5FG5KYS73E4BT2E5AFH2TQW",
+  "attempt": 1,
+  "cost_usd": 1.1738407999999998,
   "engineer_calls": 1,
   "visual_qa": [
     {
       "call": 1,
-      "wall_ms": 24089,
-      "cost_usd": 0.13059599999999993,
+      "wall_ms": 29260,
+      "cost_usd": 0.14677410000000002,
       "status": "completed",
       "gate": {
         "technical": "pass",
-        "visual": "pass",
+        "visual": "warn",
         "semantic": "pass",
         "style": "pass"
       }
     }
   ],
   "timings": {
-    "engineer_1": 93068,
-    "static": 12,
-    "typecheck": 14133,
-    "render_1": 20075,
-    "qa_programmatic": 2660,
-    "visual_qa_1": 24109
+    "concept": 9637,
+    "motion_director": 65962,
+    "engineer_1": 99387,
+    "static": 30,
+    "typecheck": 14557,
+    "render_1": 22279,
+    "qa_programmatic": 2839,
+    "visual_qa_1": 29279
   },
   "history": [
     {
-      "at": "2026-10-21T10:59:12.288Z",
-      "stage": "concept",
-      "message": "Concept: результат из чекпоинта /Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5F191KT6T4R2A9M3MW5WMSC/checkpoints/concept.json"
-    },
-    {
-      "at": "2026-10-21T10:59:12.346Z",
-      "stage": "director",
-      "message": "Motion Director: результат из чекпоинта /Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5F191KT6T4R2A9M3MW5WMSC/checkpoints/motion_director.json"
-    },
-    {
-      "at": "2026-10-21T11:01:47.685Z",
+      "at": "2026-10-21T15:19:11.864Z",
       "stage": "qa",
-      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"pass\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
+      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
     },
     {
-      "at": "2026-10-21T11:01:47.702Z",
+      "at": "2026-10-21T15:19:11.884Z",
       "stage": "ready",
       "message": "gate пройден с вызова 1"
     }

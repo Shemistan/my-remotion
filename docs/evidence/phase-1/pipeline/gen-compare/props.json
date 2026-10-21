@@ -3,59 +3,40 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "title-in",
+        "id": "tracks-in",
         "start_frame": 0,
         "end_frame": 24
       },
       {
         "id": "labels-in",
-        "start_frame": 8,
-        "end_frame": 40
-      },
-      {
-        "id": "lanes-draw",
-        "start_frame": 14,
-        "end_frame": 50
+        "start_frame": 4,
+        "end_frame": 32
       },
       {
         "id": "counters-in",
-        "start_frame": 30,
-        "end_frame": 54
+        "start_frame": 24,
+        "end_frame": 48
       },
       {
-        "id": "mono-travel",
-        "start_frame": 52,
-        "end_frame": 142
+        "id": "race",
+        "start_frame": 36,
+        "end_frame": 124
       },
       {
-        "id": "micro-stream",
-        "start_frame": 54,
+        "id": "hero-in",
+        "start_frame": 128,
         "end_frame": 152
       },
       {
-        "id": "micro-count",
-        "start_frame": 56,
-        "end_frame": 126
-      },
-      {
-        "id": "micro-emphasis",
-        "start_frame": 126,
-        "end_frame": 150
-      },
-      {
-        "id": "mono-count",
-        "start_frame": 138,
-        "end_frame": 146
-      },
-      {
         "id": "hold",
-        "start_frame": 152,
+        "start_frame": 153,
         "end_frame": 180
       }
     ]
   },
   "style": {
     "preset": "dark-premium",
+    "palette_overrides": {},
     "intensity": "balanced",
     "depth": 1,
     "transparent": false,
@@ -66,98 +47,200 @@
   },
   "content": {
     "locale": "ru",
-    "title": "Скорость релизов",
-    "label_mono": "Монолит",
-    "label_micro": "Микросервисы",
-    "stages": [
-      "Сборка",
-      "Тесты",
-      "Деплой"
-    ],
-    "stage_positions": [
-      0.15,
-      0.5,
-      0.85
-    ],
-    "micro_tracks": [
-      0.2,
-      0.5,
-      0.8
-    ],
-    "mono_pulse": {
-      "size": 18,
-      "tail": 260,
-      "count": 1,
-      "travel": 88
+    "background": {
+      "variant": "spotlight",
+      "seed": "scn_01M5FMZVW4F8TV9PS9J6H2NAQA",
+      "focus": {
+        "x": 0.86,
+        "y": 0.48
+      }
     },
-    "micro_pulse": {
-      "size": 10,
-      "tail": 160,
-      "travel": 22,
-      "count_main": 2,
-      "count_hold": 1,
-      "offsets_frames": [
-        0,
-        7,
-        14
-      ]
-    },
-    "count_mono": {
-      "from": 0,
-      "to": 1
-    },
-    "count_micro": {
-      "from": 0,
-      "to": 24
-    },
-    "suffix_forms": [
-      " релиз",
-      " релиза",
-      " релизов"
-    ],
-    "period_caption": "за месяц",
-    "layout": {
-      "title": {
+    "title": {
+      "text": "Релизы за один квартал",
+      "mode": "integrated",
+      "size": "h2",
+      "align": "left",
+      "layout": {
         "x": 0,
         "y": 0,
         "w": 0.6,
         "h": 0.1
-      },
-      "label_mono": {
+      }
+    },
+    "mono": {
+      "label": "Монолит",
+      "label_layout": {
         "x": 0,
-        "y": 0.27,
-        "w": 0.19,
+        "y": 0.21,
+        "w": 0.17,
         "h": 0.1
       },
-      "label_micro": {
+      "stages": [
+        "Сборка",
+        "Регресс",
+        "Окно",
+        "Деплой"
+      ],
+      "stages_layout": {
+        "x": 0.19,
+        "y": 0.15,
+        "w": 0.39,
+        "h": 0.07
+      },
+      "track_layout": {
+        "x": 0.19,
+        "y": 0.23,
+        "w": 0.39,
+        "h": 0.06
+      },
+      "end_mark": "прод",
+      "token": {
+        "label": "релиз 4.0 · всё приложение",
+        "beat": "race",
+        "travel": 76,
+        "count": 1,
+        "repeat": false,
+        "stay": true,
+        "tone": "neutral",
+        "dock": {
+          "dx": 0,
+          "dy": 0
+        }
+      },
+      "counter": {
+        "from": 0,
+        "to": 1,
+        "suffix_forms": [
+          " релиз",
+          " релиза",
+          " релизов"
+        ],
+        "layout": {
+          "x": 0.6,
+          "y": 0.205,
+          "w": 0.17,
+          "h": 0.1
+        }
+      }
+    },
+    "micro": {
+      "label": "Микросервисы",
+      "label_layout": {
         "x": 0,
-        "y": 0.68,
-        "w": 0.19,
-        "h": 0.1
+        "y": 0.42,
+        "w": 0.3,
+        "h": 0.08
       },
-      "lane_mono": {
-        "x": 0.21,
-        "y": 0.2,
-        "w": 0.38,
-        "h": 0.25
+      "services_layout": {
+        "x": 0,
+        "y": 0.53,
+        "w": 0.17,
+        "h": 0.32
       },
-      "lane_micro": {
-        "x": 0.21,
-        "y": 0.56,
-        "w": 0.38,
-        "h": 0.36
+      "tracks_layout": {
+        "x": 0.19,
+        "y": 0.53,
+        "w": 0.39,
+        "h": 0.32
       },
-      "count_mono": {
-        "x": 0.62,
-        "y": 0.24,
-        "w": 0.38,
-        "h": 0.14
+      "tracks": [
+        {
+          "id": "t-pay",
+          "service": "Платежи",
+          "row_center_y": 0.12,
+          "accent_index": 0
+        },
+        {
+          "id": "t-cat",
+          "service": "Каталог",
+          "row_center_y": 0.5,
+          "accent_index": 1
+        },
+        {
+          "id": "t-ntf",
+          "service": "Уведомления",
+          "row_center_y": 0.88,
+          "accent_index": 2
+        }
+      ],
+      "flows": [
+        {
+          "edge": "t-pay",
+          "direction": "forward",
+          "beat": {
+            "start_frame": 36,
+            "end_frame": 110
+          },
+          "count": 1,
+          "repeat": true,
+          "travel": 20
+        },
+        {
+          "edge": "t-cat",
+          "direction": "forward",
+          "beat": {
+            "start_frame": 40,
+            "end_frame": 114
+          },
+          "count": 1,
+          "repeat": true,
+          "travel": 20
+        },
+        {
+          "edge": "t-ntf",
+          "direction": "forward",
+          "beat": {
+            "start_frame": 44,
+            "end_frame": 118
+          },
+          "count": 1,
+          "repeat": true,
+          "travel": 20
+        }
+      ],
+      "counter": {
+        "from": 0,
+        "to": 12,
+        "suffix_forms": [
+          " релиз",
+          " релиза",
+          " релизов"
+        ],
+        "layout": {
+          "x": 0.6,
+          "y": 0.645,
+          "w": 0.17,
+          "h": 0.1
+        }
+      }
+    },
+    "axis": {
+      "items": [
+        "июль",
+        "август",
+        "сентябрь"
+      ],
+      "layout": {
+        "x": 0.19,
+        "y": 0.89,
+        "w": 0.39,
+        "h": 0.07
+      }
+    },
+    "hero": {
+      "text": "×12",
+      "layout": {
+        "x": 0.79,
+        "y": 0.34,
+        "w": 0.21,
+        "h": 0.2
       },
-      "count_micro": {
-        "x": 0.62,
-        "y": 0.6,
-        "w": 0.38,
-        "h": 0.22
+      "sub": "релизов чаще",
+      "sub_layout": {
+        "x": 0.79,
+        "y": 0.55,
+        "w": 0.21,
+        "h": 0.08
       }
     }
   }

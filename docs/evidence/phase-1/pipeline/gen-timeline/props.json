@@ -3,24 +3,19 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "kicker-in",
+        "id": "timeline-in",
         "start_frame": 0,
-        "end_frame": 24
-      },
-      {
-        "id": "title-in",
-        "start_frame": 8,
-        "end_frame": 44
-      },
-      {
-        "id": "timeline-draw",
-        "start_frame": 30,
-        "end_frame": 150
+        "end_frame": 130
       },
       {
         "id": "final-emphasis",
-        "start_frame": 126,
-        "end_frame": 150
+        "start_frame": 104,
+        "end_frame": 130
+      },
+      {
+        "id": "conclusion-in",
+        "start_frame": 118,
+        "end_frame": 136
       },
       {
         "id": "hold",
@@ -40,66 +35,65 @@
     }
   },
   "content": {
-    "kicker": {
-      "text": "2015 — 2025",
-      "layout": {
-        "x": 0.05,
-        "y": 0.06,
-        "w": 0.5,
-        "h": 0.05
-      }
-    },
-    "title": {
-      "text": "Десять лет — пять вех",
-      "layout": {
-        "x": 0.05,
-        "y": 0.12,
-        "w": 0.9,
-        "h": 0.09
+    "title_mode": "integrated",
+    "background": {
+      "variant": "aurora",
+      "seed": "scn_01M5FNG1GCMH198FH1N4N8MCSP",
+      "focus": {
+        "x": 0.86,
+        "y": 0.42
       }
     },
     "timeline": {
       "orientation": "h",
-      "width": 1555,
-      "height": 600,
+      "highlightLast": true,
       "accentIndex": 0,
+      "width": 1520,
+      "height": 620,
       "layout": {
-        "x": 0.05,
-        "y": 0.3,
-        "w": 0.9,
-        "h": 0.62
+        "x": 0.06,
+        "y": 0.06,
+        "w": 0.88,
+        "h": 0.64
       },
       "items": [
         {
           "date": "2015",
-          "label": "Основание",
-          "note": "команда из трёх"
+          "label": "Основание компании",
+          "note": "команда из 3 человек"
         },
         {
-          "date": "2017",
-          "label": "Первый продукт",
-          "note": "запуск MVP"
+          "date": "2018",
+          "label": "Продукт v1.0",
+          "note": "первый крупный клиент"
         },
         {
-          "date": "2019",
-          "label": "Выход на рынок",
-          "note": "первые клиенты"
+          "date": "2020",
+          "label": "Офис в Берлине",
+          "note": "международный рынок"
         },
         {
-          "date": "2022",
-          "label": "Выход за рубеж",
-          "note": "новые страны"
+          "date": "2023",
+          "label": "100 000 пользователей",
+          "note": "активная аудитория"
         },
         {
           "date": "2025",
-          "label": "Лидер рынка",
-          "note": "сейчас"
+          "label": "Выход на IPO",
+          "note": "публичная компания"
         }
       ]
     },
-    "particles": {
-      "count": 46,
-      "seed": "path-dust"
+    "conclusion": {
+      "text": "10 лет, 5 вех: от команды из 3 человек до IPO",
+      "size": "h2",
+      "align": "center",
+      "layout": {
+        "x": 0.1,
+        "y": 0.78,
+        "w": 0.8,
+        "h": 0.12
+      }
     },
     "camera": [
       {
@@ -118,7 +112,7 @@
         "frame": 179,
         "scale": 1.04,
         "x": 40,
-        "y": 0
+        "y": -10
       }
     ]
   }

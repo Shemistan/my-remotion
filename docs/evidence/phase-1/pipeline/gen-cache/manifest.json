@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5F22QG4P3PHSZBHVXMY56ED",
-  "scene_id": "scn_01M5F191KEPDTAZ7SYBPF56Z7G",
+  "version_id": "ver_01M5FKW3N8XEK9KC58PMQG306T",
+  "scene_id": "scn_01M5FK5TEN8J4CY4TEAN9EN0MW",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T11:03:27.494Z",
+  "created_at": "2026-10-21T16:14:24.937Z",
   "prompt": "Объясни, как работает кэширование: запрос, промах, запись, попадание",
   "edit_plan": null,
   "settings": {
@@ -27,36 +27,20 @@
   },
   "files": [
     {
-      "path": "frames/101.png",
-      "sha256": "e5e406e779e6d2fa494ffc4446454f1543df1eb8a1af44e071b283c0f28752fa"
-    },
-    {
-      "path": "frames/136.png",
-      "sha256": "3d4b23cbdd04aebf2c7632212662315e14382a77dee5999a32086c1e1c3ac98b"
-    },
-    {
-      "path": "frames/152.png",
-      "sha256": "81a5691b622d559bd23782c0f4a8c3bc98cffda0c48e35e1836f4f883eeddba8"
+      "path": "frames/13.png",
+      "sha256": "be00c8865ac2b33dc5847416127a90a2b926a8f07b7200357aec324875e6a666"
     },
     {
       "path": "frames/166.png",
-      "sha256": "7fc01afa11b962333501893454bef5a3427c96c9d3c1c46dc095ebe845e68771"
+      "sha256": "0adb5ae484d06125da72f8b1b063cc5fb90b179925c61ab95694255ccedf45e6"
     },
     {
       "path": "frames/179.png",
-      "sha256": "b51a5b7f710e9fe644b3042deccc5b102d9702022e313f12f28d8e30a7558d46"
+      "sha256": "dd0a008d9820ba1172c7a4d846e0018c7e962dc7943471f0058d1e96d3d93787"
     },
     {
-      "path": "frames/27.png",
-      "sha256": "3fedb93ca0484eb96d7eeacce606cd5a9b9a1c3a3fce0970b2b3451432960076"
-    },
-    {
-      "path": "frames/46.png",
-      "sha256": "714331f5c0d48973a1c3eccd576b231e9ee63fe25cec40ba15c0c3d31ec92a14"
-    },
-    {
-      "path": "frames/73.png",
-      "sha256": "b31ed33cc529578d12c9cf7cdece574e9f9ad657459ae5e2b11c97621c53f646"
+      "path": "frames/24.png",
+      "sha256": "2fe6803557bb04a93b189bacfe079c3595fef63af9bc5ceb8fc3e33e6d7e8291"
     },
     {
       "path": "knowledge-refs.json",
@@ -64,19 +48,19 @@
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "0aa08c91cafa1d6b6ba39afdb89b661c6309137d4e370c5021aac9d7c945d719"
+      "sha256": "a5999b1dfa38fd393deabfc052a734b0d2129603f534aa32318d5e1533e2ebfc"
     },
     {
       "path": "preview.mp4",
-      "sha256": "66f561aaf0164c5c6f847452343c6b3b55aed0f9c8209b8cc7daefc5bdce98a7"
+      "sha256": "2ed5b4478956deea05aee5f4b21e890de94534dc2d385366fcbddbb8a2886b1f"
     },
     {
       "path": "props.json",
-      "sha256": "0274092c3f07f354b5a4ae96467ad829598624915a2fc66c1d983a6737dce83e"
+      "sha256": "0823ec4933c86270761fe1d0ea56bf72d4ca54385d7cff9860961d54fa09897b"
     },
     {
       "path": "qa.json",
-      "sha256": "ab247154be949b235584e69fe10062170437a06be00653d3d7628a3cb2a3fe6e"
+      "sha256": "ca324ad342f118dc31af628f2b9753a2cf3d644928a06f05fbb013c54021f6a6"
     },
     {
       "path": "refs/kb/xyflow/edge-types/CARD.md",
@@ -168,7 +152,7 @@
     },
     {
       "path": "refs/motion-kit/API.md",
-      "sha256": "2842a3bb93d0ef1d634e50307c7cc7d15907c4d275abe64f28966846445c8d63"
+      "sha256": "a02248dae08e838813f7b6c6987e664609169330ad66ec403794541eeea56702"
     },
     {
       "path": "refs/skills/remotion-markup/SKILL.md",
@@ -196,7 +180,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "7f46a63ae4a793c11848aeb8e02c3fc20f1c18e4a3b6597cc646d934a1283795"
+      "sha256": "3d9d3285a2dc67fec482ceb74262dd13d994910cd352dc543a17b469e16ebe71"
     },
     {
       "path": "settings.json",
@@ -204,15 +188,19 @@
     },
     {
       "path": "spec.json",
-      "sha256": "7143cd8dfff59a78031646c2c75e0cf84a7166c2ab4d3c4b56eb20f9e0eb8b84"
+      "sha256": "398134323fb46441355ca2616a42822548954999f765ed5071f7a83569139d24"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "510bfeec62c5f79e36b27b60fcd1e91ed36e3f425bd2db3c8181b292c147a80b"
+      "sha256": "1c9f07fc858204e9b02936f34b76a7816afd837b93d5acce722465737a324723"
     },
     {
       "path": "style.json",
       "sha256": "18a0a04c657887af9d85691285c9480a89f361fb434379a61df3445ffc78e3d6"
+    },
+    {
+      "path": "warnings.json",
+      "sha256": "8934b573adb46ae93262aad5a22774ca0483631387e74f4e6a594862a8d19910"
     }
   ],
   "changed_files": [
@@ -222,7 +210,7 @@
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:3e8d6ee7bf584338",
+    "motion_kit": "sha256:8859be01542ac132",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
@@ -241,43 +229,34 @@
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5F191KJN463PJ38GCTSCRX1/a2-engineer-1",
-    "logs/agent-runs/job_01M5F191KJN463PJ38GCTSCRX1/a2-engineer-2",
-    "logs/agent-runs/job_01M5F191KJN463PJ38GCTSCRX1/a2-visual_qa-1"
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-concept-1",
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-motion_director-1",
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-engineer-1",
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-visual_qa-1",
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-engineer-2",
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-visual_qa-2",
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-engineer-3",
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-visual_qa-3"
   ],
   "qa": {
     "technical": "pass",
-    "visual": "pass",
-    "semantic": "pass",
+    "visual": "fail",
+    "semantic": "warn",
     "style": "pass"
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "66f561aaf0164c5c6f847452343c6b3b55aed0f9c8209b8cc7daefc5bdce98a7"
+    "sha256": "2ed5b4478956deea05aee5f4b21e890de94534dc2d385366fcbddbb8a2886b1f"
   },
-  "status": "ready",
-  "qa_frames": [
-    27,
-    46,
-    73,
-    101,
-    136,
-    152,
-    166,
-    179
-  ],
-  "qa_frames_sha256": [
-    "3fedb93ca0484eb96d7eeacce606cd5a9b9a1c3a3fce0970b2b3451432960076",
-    "714331f5c0d48973a1c3eccd576b231e9ee63fe25cec40ba15c0c3d31ec92a14",
-    "b31ed33cc529578d12c9cf7cdece574e9f9ad657459ae5e2b11c97621c53f646",
-    "e5e406e779e6d2fa494ffc4446454f1543df1eb8a1af44e071b283c0f28752fa",
-    "3d4b23cbdd04aebf2c7632212662315e14382a77dee5999a32086c1e1c3ac98b",
-    "81a5691b622d559bd23782c0f4a8c3bc98cffda0c48e35e1836f4f883eeddba8",
-    "7fc01afa11b962333501893454bef5a3427c96c9d3c1c46dc095ebe845e68771",
-    "b51a5b7f710e9fe644b3042deccc5b102d9702022e313f12f28d8e30a7558d46"
-  ],
+  "status": "failed",
+  "failure": {
+    "stage": "qa",
+    "message": "QA: blocking после 2 исправлений: missing_element: элемент status-cache (shape, «статус процесса в кэше») не найден ни на одном QA-кадре внутри его битов; missing_element: элемент token-request (shape, «данные: запрос») не найден ни на одном QA-кадре внутри его битов; missing_element: элемент token-response (shape, «данные: первый ответ») не найден ни на одном QA-кадре внутри его битов"
+  },
+  "qa_frames": [],
+  "qa_frames_sha256": [],
   "job": {
-    "id": "job_01M5F191KJN463PJ38GCTSCRX1",
-    "attempt": 2
+    "id": "job_01M5FK5TET5Y1G76BW7M2FTXPF",
+    "attempt": 1
   }
 }

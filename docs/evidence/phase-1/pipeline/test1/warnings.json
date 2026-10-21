@@ -1,6 +1,7 @@
 {
   "warnings": [
-    "spec: бит b-number-in 8–32 → 3–27: вход hero-number кончается, когда голова growth-chart трогается"
+    "spec: scene_signature_repeat (background, pill, topTitle, staticCamera): сцена повторяет подпись предыдущей «Мобильный трафик: 35 % → 68 %» (4 из 4): фон aurora:20, без таблетки, без полосы заголовка, камера движется",
+    "spec: бит b-number-in 4–28 → 0–20: вход hero-number кончается, когда голова growth-chart трогается"
   ],
   "permission_denials": []
 }

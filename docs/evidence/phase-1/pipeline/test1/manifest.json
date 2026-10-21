@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5F1ZPVY3YRBAF19KAGY0NHW",
-  "scene_id": "scn_01M5F191KPS7KJV1YZG2TRW01J",
+  "version_id": "ver_01M5FGQ109HRPG5CXAN3NSQ2KV",
+  "scene_id": "scn_01M5FG5KYNQ9PJ0E08YBXEVE4B",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T11:01:48.542Z",
+  "created_at": "2026-10-21T15:19:12.650Z",
   "prompt": "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении",
   "edit_plan": null,
   "settings": {
@@ -27,76 +27,72 @@
   },
   "files": [
     {
-      "path": "frames/125.png",
-      "sha256": "608b373354ede21e158e006912422440959985a5f91c23b031b22ed1e57a5b24"
+      "path": "frames/10.png",
+      "sha256": "12690a5401ba561d641697b9023c7ba37920dcc6e5444a3a3239c0f317313792"
     },
     {
-      "path": "frames/139.png",
-      "sha256": "ded17f4cd760b17216c53e67f7fceaaa6a1853f7ed1fff81e742037377f3fcf7"
+      "path": "frames/120.png",
+      "sha256": "b6b234f7098ffd2d83d1aa6bb40bf19c4793b2d6d428067d2fd37959c78527a1"
+    },
+    {
+      "path": "frames/134.png",
+      "sha256": "84635cfd718661c500f40f7c9e7e030ca805f973864d66d40f7875cbe2fe11a0"
     },
     {
       "path": "frames/166.png",
-      "sha256": "e784478f4b0222cb3e321859e5af3c90f23c35d85e6a2cd750e54d8e826988dd"
+      "sha256": "9536e131cee14fb1709bafa3fe1b0d9462c3361840765fda2be4c71035e27d1c"
     },
     {
       "path": "frames/179.png",
-      "sha256": "6e7f5966b7623dd0e939329af0bad446a7d9efde7c5c9ae968549ca5a90dc6af"
+      "sha256": "805048a8d913a7122506a442979d00c6867b7f5d7e55026b87d2f5b506eceb26"
     },
     {
-      "path": "frames/27.png",
-      "sha256": "5a0561765e7c36e9adf23800f96996bc5ba925a2d97f38f6881c4b7c6d76e329"
+      "path": "frames/20.png",
+      "sha256": "a0676d4a7e09f4d79532d97471d7e5a092f5389223cff29f957334f65f16aa4b"
     },
     {
-      "path": "frames/36.png",
-      "sha256": "21d952f1d9e7f749a761d9c6fcc9ae5bc7ecc6c1e85fb920268c64f9a511d65e"
-    },
-    {
-      "path": "frames/72.png",
-      "sha256": "182828d08607d52116ea5f12557cd75d51190f49d65ea8a35b95063704d5deac"
+      "path": "frames/69.png",
+      "sha256": "e36505f27a5202b9e1eb7671e92e2082be187c750241546c6dc940b1d299a11e"
     },
     {
       "path": "knowledge-refs.json",
-      "sha256": "01d3cc0de45fbe13730bd35f5e7ace91be8ba059827e5668009e8670562ba5d7"
+      "sha256": "acfd38d033dac1ddc59dc1e8b84062655fd7d7ecae1a228c2917f4d16d969e95"
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "bd9af897c30bd8902499e04bc3cbe23d3a95916c3a4fae95e22db0f7eb0eb9fc"
+      "sha256": "d93ed04b018cfc4715b41a075ec49e5281c0bae241ac78451ea0d82ffede0056"
     },
     {
       "path": "preview.mp4",
-      "sha256": "851eef9c5cfc9dd6c239a3466eab696d9aa4a649673b11d2b32135d7d6874824"
+      "sha256": "86f396458d717fd22f43c663c4013683fb850498415bcbbb77d08532e8a26f2e"
     },
     {
       "path": "props.json",
-      "sha256": "f2ca5ea2e7b3057f04867bca787d1af2fa76128ea67460ea19fd2900e4f03dfd"
+      "sha256": "7526f6f7ba9e52084642790dd40456f7d6351045f091798689129a36d3462197"
     },
     {
       "path": "qa.json",
-      "sha256": "4ef935d59c44486dcf1c54d92f2e16f15dcf899ba22b4d7c8e166d8400029a7e"
+      "sha256": "6126a5e78386554d7a526cdc323bd325f87ee3ef4ce5d902477c7aa737db8cfb"
     },
     {
-      "path": "refs/kb/motion-primitives/animated-number/CARD.md",
-      "sha256": "01ea20981b45184726c9a54a5a9b977064400ceabfa02a5525f11cd8a90293ff"
+      "path": "refs/kb/animata/counter/CARD.md",
+      "sha256": "a7cb7becb29033f5b1523f53de7cec36147321db9ee4493b6b3861aa208ec793"
     },
     {
-      "path": "refs/kb/motion-primitives/animated-number/templates/react-libriry/motion-primitives/components/core/animated-number.tsx",
-      "sha256": "3b4a9f3262cb79527fba01a76576e920e340137f0643bf34a7732f7f8b1ff792"
+      "path": "refs/kb/animata/counter/templates/react-libriry/animata/animata/text/counter.tsx",
+      "sha256": "d18706bfed2fdea7b56a87cf6a3f112127cdf8317855ef93ec8ea33511689eb0"
     },
     {
-      "path": "refs/kb/remotion-video-templates/line-chart-draw/CARD.md",
-      "sha256": "6badcb995b7fd4b499d1da0c97d8fd1e76ea4783ca04c4304b00b24ba666227f"
+      "path": "refs/kb/free-remotion-templates/line-chart-anim/CARD.md",
+      "sha256": "6d3141f03bf9e1c7e372bf2993e0eb17758a5566024409953c2cac5248ad8e8c"
     },
     {
-      "path": "refs/kb/remotion-video-templates/line-chart-draw/templates/remotion-components/remotion-video-templates/src/templates/ChartVideo/LineChart.tsx",
-      "sha256": "3241f002e773e293ac1cfa6b62aacd956441a47d2c5da2894669a30d1df1f7e4"
-    },
-    {
-      "path": "refs/kb/remotion-video-templates/line-chart-draw/templates/remotion-components/remotion-video-templates/src/templates/ChartVideo/sample-data.ts",
-      "sha256": "f06e00cdf2306b678fe6bdd0e7736d16574dcdd2289f9a1332d126474a23843b"
+      "path": "refs/kb/free-remotion-templates/line-chart-anim/templates/remotion-components/free-remotion-templates/src/components/line-chart-anim/LineChartAnim.tsx",
+      "sha256": "727cb6c5bc0882b7e2158b2a5c6a90d07270753b091c8ce470a4a940f7b3afde"
     },
     {
       "path": "refs/motion-kit/API.md",
-      "sha256": "2842a3bb93d0ef1d634e50307c7cc7d15907c4d275abe64f28966846445c8d63"
+      "sha256": "a02248dae08e838813f7b6c6987e664609169330ad66ec403794541eeea56702"
     },
     {
       "path": "refs/skills/remotion-markup/SKILL.md",
@@ -124,7 +120,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "47a1b091b804bd507045c6ad6b5f507e626addd80096001885726f88f541e0cf"
+      "sha256": "40cbb750c237330e9b25c641d18a6d76ede8b4fd032a2c1222f3ad6c8085cabe"
     },
     {
       "path": "settings.json",
@@ -132,11 +128,11 @@
     },
     {
       "path": "spec.json",
-      "sha256": "1e371e7bd8878ff88418c8beeae70870e83e2968f5b409ccc6f0bddcd53b2cf6"
+      "sha256": "dbc561b947afd401b10922af354d7faef9d3523cbedfa40c808634e7e637c90a"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "7a0238fdcc9d4af79f326977e72ea245502e81d5fd6a7408204a5a1523bf782a"
+      "sha256": "1da2ee020837dc1ca213b4c386d5de2b12af3dbafa29acc46d2725ea64d74b9d"
     },
     {
       "path": "style.json",
@@ -144,7 +140,7 @@
     },
     {
       "path": "warnings.json",
-      "sha256": "b81df9840e94363f383851302ee1f56f17e231412ca6ea24e19df451020866ab"
+      "sha256": "d73c9388823e522217524e5849eed7156685277f51d46adabde6bf0b7480229e"
     }
   ],
   "changed_files": [
@@ -154,59 +150,61 @@
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:3e8d6ee7bf584338",
+    "motion_kit": "sha256:8859be01542ac132",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
   "knowledge_refs": [
     {
-      "kb_id": "remotion-video-templates/line-chart-draw",
-      "commit": "9014946",
-      "license": "MIT (package.json, LICENSE)",
+      "kb_id": "free-remotion-templates/line-chart-anim",
+      "commit": "f648980",
+      "license": "MIT (package.json, LICENSE, SPDX-заголовок в файле)",
       "strategy": "adapt"
     },
     {
-      "kb_id": "motion-primitives/animated-number",
-      "commit": "120f64f",
-      "license": "MIT (LICENCE.md)",
+      "kb_id": "animata/counter",
+      "commit": "e7478b8",
+      "license": "MIT (LICENSE.md)",
       "strategy": "adapt"
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5F191KT6T4R2A9M3MW5WMSC/a2-engineer-1",
-    "logs/agent-runs/job_01M5F191KT6T4R2A9M3MW5WMSC/a2-visual_qa-1"
+    "logs/agent-runs/job_01M5FG5KYS73E4BT2E5AFH2TQW/a1-concept-1",
+    "logs/agent-runs/job_01M5FG5KYS73E4BT2E5AFH2TQW/a1-motion_director-1",
+    "logs/agent-runs/job_01M5FG5KYS73E4BT2E5AFH2TQW/a1-engineer-1",
+    "logs/agent-runs/job_01M5FG5KYS73E4BT2E5AFH2TQW/a1-visual_qa-1"
   ],
   "qa": {
     "technical": "pass",
-    "visual": "pass",
+    "visual": "warn",
     "semantic": "pass",
     "style": "pass"
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "851eef9c5cfc9dd6c239a3466eab696d9aa4a649673b11d2b32135d7d6874824"
+    "sha256": "86f396458d717fd22f43c663c4013683fb850498415bcbbb77d08532e8a26f2e"
   },
   "status": "ready",
   "qa_frames": [
-    27,
-    36,
-    72,
-    125,
-    139,
+    10,
+    20,
+    69,
+    120,
+    134,
     166,
     179
   ],
   "qa_frames_sha256": [
-    "5a0561765e7c36e9adf23800f96996bc5ba925a2d97f38f6881c4b7c6d76e329",
-    "21d952f1d9e7f749a761d9c6fcc9ae5bc7ecc6c1e85fb920268c64f9a511d65e",
-    "182828d08607d52116ea5f12557cd75d51190f49d65ea8a35b95063704d5deac",
-    "608b373354ede21e158e006912422440959985a5f91c23b031b22ed1e57a5b24",
-    "ded17f4cd760b17216c53e67f7fceaaa6a1853f7ed1fff81e742037377f3fcf7",
-    "e784478f4b0222cb3e321859e5af3c90f23c35d85e6a2cd750e54d8e826988dd",
-    "6e7f5966b7623dd0e939329af0bad446a7d9efde7c5c9ae968549ca5a90dc6af"
+    "12690a5401ba561d641697b9023c7ba37920dcc6e5444a3a3239c0f317313792",
+    "a0676d4a7e09f4d79532d97471d7e5a092f5389223cff29f957334f65f16aa4b",
+    "e36505f27a5202b9e1eb7671e92e2082be187c750241546c6dc940b1d299a11e",
+    "b6b234f7098ffd2d83d1aa6bb40bf19c4793b2d6d428067d2fd37959c78527a1",
+    "84635cfd718661c500f40f7c9e7e030ca805f973864d66d40f7875cbe2fe11a0",
+    "9536e131cee14fb1709bafa3fe1b0d9462c3361840765fda2be4c71035e27d1c",
+    "805048a8d913a7122506a442979d00c6867b7f5d7e55026b87d2f5b506eceb26"
   ],
   "job": {
-    "id": "job_01M5F191KT6T4R2A9M3MW5WMSC",
-    "attempt": 2
+    "id": "job_01M5FG5KYS73E4BT2E5AFH2TQW",
+    "attempt": 1
   }
 }

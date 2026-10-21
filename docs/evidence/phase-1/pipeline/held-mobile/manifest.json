@@ -1,0 +1,212 @@
+{
+  "schema_version": 1,
+  "version_id": "ver_01M5FNX7FM2V7H8XHNNG40QT2H",
+  "scene_id": "scn_01M5FNP3KJS44T9R338XR578F8",
+  "parent_version_id": null,
+  "number": 1,
+  "created_at": "2026-10-21T16:49:58.774Z",
+  "prompt": "Покажи, как растёт доля мобильного трафика: 2019 — 35%, 2024 — 68%",
+  "edit_plan": null,
+  "settings": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 180,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "files": [
+    {
+      "path": "frames/111.png",
+      "sha256": "bc4007289352fc13a4bd7e3b8b30211c16d18bd538cff15af8800234f92eab96"
+    },
+    {
+      "path": "frames/120.png",
+      "sha256": "c3e21899ec9788c07aefebf12cb04f95ee83ce35da3e952999628c3e65b0bec3"
+    },
+    {
+      "path": "frames/166.png",
+      "sha256": "ce8f88a07071684720d4eadcda74e8df1d8f2ec66301ae8b07db6f0ba1dac9f7"
+    },
+    {
+      "path": "frames/179.png",
+      "sha256": "229e0a73ebef5aa45657076404c3c126e0908df8c54efa5aca4e92b5f01d3b92"
+    },
+    {
+      "path": "frames/24.png",
+      "sha256": "bd02cd85eaa13472763d0d4cdc779b73485065ac8df7eb8cbd1141d79a8e28c2"
+    },
+    {
+      "path": "frames/60.png",
+      "sha256": "e37aa298a63c30091778a90a1116874605a1f8bef0422b327ff0f480fc9d50f7"
+    },
+    {
+      "path": "knowledge-refs.json",
+      "sha256": "167630068532f12c23f28fe705485d836e33e6d5290c73b0ec4f677d1c151520"
+    },
+    {
+      "path": "pipeline-log.json",
+      "sha256": "5d517d459c02670d79681ee7902b5008379c001dcea271350b0c652f16f47aa0"
+    },
+    {
+      "path": "preview.mp4",
+      "sha256": "d0adf028db0f83a2eb543a6abefad9511e83fb94971917d8745ccee299e8ea8d"
+    },
+    {
+      "path": "props.json",
+      "sha256": "7522b6c3d8a435bcd35b7966b63f0e240d5fb961924ae877ad69b21979e0b61e"
+    },
+    {
+      "path": "qa.json",
+      "sha256": "6af6966ec021c95500930c9b110aedbe5e3f537ca8786d5e24a4d444f8db131f"
+    },
+    {
+      "path": "refs/kb/remotion-bits/animated-counter/CARD.md",
+      "sha256": "8dfc3cb748093566c5c02a70d006ff6ad5a7815b5bfaab8540870c5722aa5d11"
+    },
+    {
+      "path": "refs/kb/remotion-bits/animated-counter/templates/remotion-components/remotion-bits/src/components/AnimatedCounter.tsx",
+      "sha256": "fea81e6e51bfd894065b5e2d435827a493586f56fd4f9b21230f9f08a89d89e7"
+    },
+    {
+      "path": "refs/kb/remotion-bits/animated-counter/templates/remotion-components/remotion-bits/src/utils/motion/index.ts",
+      "sha256": "2247b5c5e896d00a26414e342b65caa52a14bd3adf7bf42af2fecdbdc4d08bd7"
+    },
+    {
+      "path": "refs/kb/remotion-video-templates/line-chart-draw/CARD.md",
+      "sha256": "6badcb995b7fd4b499d1da0c97d8fd1e76ea4783ca04c4304b00b24ba666227f"
+    },
+    {
+      "path": "refs/kb/remotion-video-templates/line-chart-draw/templates/remotion-components/remotion-video-templates/src/templates/ChartVideo/LineChart.tsx",
+      "sha256": "3241f002e773e293ac1cfa6b62aacd956441a47d2c5da2894669a30d1df1f7e4"
+    },
+    {
+      "path": "refs/kb/remotion-video-templates/line-chart-draw/templates/remotion-components/remotion-video-templates/src/templates/ChartVideo/sample-data.ts",
+      "sha256": "f06e00cdf2306b678fe6bdd0e7736d16574dcdd2289f9a1332d126474a23843b"
+    },
+    {
+      "path": "refs/motion-kit/API.md",
+      "sha256": "689d9cd9d0d5a2b0a7686d995b941b9a0bd2b72dffdaed0ece4615c3bd1b3611"
+    },
+    {
+      "path": "refs/skills/remotion-markup/SKILL.md",
+      "sha256": "399a8f21821ee72071645d22b2e4c7aba34357f2139d027857868eb856f24a4f"
+    },
+    {
+      "path": "refs/skills/remotion-markup/local-fonts.md",
+      "sha256": "fcad2a2e3a05419d4555c59a75454c4891455dbea91ad596c1095e2887d26a11"
+    },
+    {
+      "path": "refs/skills/remotion-markup/sequencing.md",
+      "sha256": "f53680a3ec4b754501ce37516387666e1b3df3c5714d266154b274caea4236a4"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing-props.md",
+      "sha256": "346ff7f3778f3b7ba165ac212459034120cac7cffd3ead3fe68db179e15f7494"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing.md",
+      "sha256": "48047e758b96aea519916479ede62b832bf51f982924978e091c37f569ab4bac"
+    },
+    {
+      "path": "refs/skills/remotion-markup/transitions.md",
+      "sha256": "83b8b511044ef175244a4e9e81f66bd3f5062cf9cecacd30ae88ac17eda40b82"
+    },
+    {
+      "path": "selection.json",
+      "sha256": "3ff9b7168fb67c567340faef24e27f736b921bc3e66a6fe0dfab870d0a12e5e7"
+    },
+    {
+      "path": "settings.json",
+      "sha256": "0b46d98e94443777eaf45644a5755e6faf4ce94ffb01d67689792327ab031365"
+    },
+    {
+      "path": "spec.json",
+      "sha256": "77706293e7a3145fbb7d1b804f0ae76fbba3f7c3710ffe4aa04b58e0b8b96162"
+    },
+    {
+      "path": "src/Scene.tsx",
+      "sha256": "a88d6bf6bfbe7f7ff657d96c90483316c010042faad61889156bdaabaa27940b"
+    },
+    {
+      "path": "style.json",
+      "sha256": "18a0a04c657887af9d85691285c9480a89f361fb434379a61df3445ffc78e3d6"
+    },
+    {
+      "path": "warnings.json",
+      "sha256": "0aa9d55fe8987abb0828ae4bfe356b90a04d8a2178eb0d3f796d7005e37061e3"
+    }
+  ],
+  "changed_files": [
+    "src/Scene.tsx",
+    "props.json"
+  ],
+  "render_env": {
+    "remotion": "4.0.537",
+    "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
+    "motion_kit": "sha256:1fc64dd34263e6be",
+    "chrome_headless_shell": "157.0.8080.0-remotion-v3",
+    "node": "22.21.1"
+  },
+  "knowledge_refs": [
+    {
+      "kb_id": "remotion-video-templates/line-chart-draw",
+      "commit": "9014946",
+      "license": "MIT (package.json, LICENSE)",
+      "strategy": "adapt"
+    },
+    {
+      "kb_id": "remotion-bits/animated-counter",
+      "commit": "de35fda",
+      "license": "MIT (package.json)",
+      "strategy": "adapt"
+    }
+  ],
+  "agent_runs": [
+    "logs/agent-runs/job_01M5FNP3KR3BKJ17B43ZRQ6W8A/a1-concept-1",
+    "logs/agent-runs/job_01M5FNP3KR3BKJ17B43ZRQ6W8A/a1-motion_director-1",
+    "logs/agent-runs/job_01M5FNP3KR3BKJ17B43ZRQ6W8A/a1-engineer-1",
+    "logs/agent-runs/job_01M5FNP3KR3BKJ17B43ZRQ6W8A/a1-visual_qa-1"
+  ],
+  "qa": {
+    "technical": "pass",
+    "visual": "pass",
+    "semantic": "pass",
+    "style": "pass"
+  },
+  "preview": {
+    "path": "preview.mp4",
+    "sha256": "d0adf028db0f83a2eb543a6abefad9511e83fb94971917d8745ccee299e8ea8d"
+  },
+  "status": "ready",
+  "qa_frames": [
+    24,
+    60,
+    111,
+    120,
+    166,
+    179
+  ],
+  "qa_frames_sha256": [
+    "bd02cd85eaa13472763d0d4cdc779b73485065ac8df7eb8cbd1141d79a8e28c2",
+    "e37aa298a63c30091778a90a1116874605a1f8bef0422b327ff0f480fc9d50f7",
+    "bc4007289352fc13a4bd7e3b8b30211c16d18bd538cff15af8800234f92eab96",
+    "c3e21899ec9788c07aefebf12cb04f95ee83ce35da3e952999628c3e65b0bec3",
+    "ce8f88a07071684720d4eadcda74e8df1d8f2ec66301ae8b07db6f0ba1dac9f7",
+    "229e0a73ebef5aa45657076404c3c126e0908df8c54efa5aca4e92b5f01d3b92"
+  ],
+  "job": {
+    "id": "job_01M5FNP3KR3BKJ17B43ZRQ6W8A",
+    "attempt": 1
+  }
+}

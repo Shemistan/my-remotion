@@ -3,57 +3,12 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "title-in",
+        "id": "b-user-in",
         "start_frame": 0,
-        "end_frame": 36
+        "end_frame": 24
       },
       {
-        "id": "graph-build",
-        "start_frame": 6,
-        "end_frame": 60
-      },
-      {
-        "id": "user-in",
-        "start_frame": 10,
-        "end_frame": 34
-      },
-      {
-        "id": "orchestrator-in",
-        "start_frame": 20,
-        "end_frame": 44
-      },
-      {
-        "id": "tools-in",
-        "start_frame": 30,
-        "end_frame": 62
-      },
-      {
-        "id": "request-pulse",
-        "start_frame": 48,
-        "end_frame": 72
-      },
-      {
-        "id": "tool-calls",
-        "start_frame": 74,
-        "end_frame": 100
-      },
-      {
-        "id": "data-return",
-        "start_frame": 100,
-        "end_frame": 126
-      },
-      {
-        "id": "answer-return",
-        "start_frame": 126,
-        "end_frame": 150
-      },
-      {
-        "id": "final-emphasis",
-        "start_frame": 150,
-        "end_frame": 165
-      },
-      {
-        "id": "hold",
+        "id": "b-hold",
         "start_frame": 153,
         "end_frame": 180
       }
@@ -61,7 +16,6 @@
   },
   "style": {
     "preset": "dark-premium",
-    "palette_overrides": {},
     "intensity": "balanced",
     "depth": 1,
     "transparent": false,
@@ -71,213 +25,268 @@
     }
   },
   "content": {
-    "title": {
-      "text": "Архитектура AI-агента",
-      "size": "h2",
-      "beat": "title-in",
+    "locale": "ru",
+    "title_mode": "integrated",
+    "background": {
+      "variant": "blueprint",
+      "seed": "scn_01M5FG5KYWRXR5D1QDKY87VNNN",
+      "focus": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "query": {
+      "text": "«Какая погода завтра в Казани?»",
+      "size": "body",
+      "beat": "b-query",
       "layout": {
-        "x": 0.25,
-        "y": 0.02,
-        "w": 0.5,
+        "x": 0,
+        "y": 0.13,
+        "w": 0.27,
+        "h": 0.22
+      }
+    },
+    "summary": {
+      "text": "1 запрос → 3 инструмента → 1 ответ",
+      "size": "body",
+      "beat": "b-summary",
+      "layout": {
+        "x": 0,
+        "y": 0.8,
+        "w": 0.64,
         "h": 0.1
       }
     },
-    "graph": {
-      "beat": "graph-build",
-      "enter": "flip",
-      "travel": 20,
-      "pulse_size": 12,
-      "pulse_tail": 180,
-      "layout": {
-        "x": 0,
-        "y": 0.16,
-        "w": 1,
-        "h": 0.84
-      },
-      "edges": [
-        {
-          "id": "e-request",
-          "from": "node-user",
-          "to": "node-orchestrator"
-        },
-        {
-          "id": "e-t1",
-          "from": "node-orchestrator",
-          "to": "node-tool-1"
-        },
-        {
-          "id": "e-t2",
-          "from": "node-orchestrator",
-          "to": "node-tool-2"
-        },
-        {
-          "id": "e-t3",
-          "from": "node-orchestrator",
-          "to": "node-tool-3"
-        }
-      ],
-      "flows": [
-        {
-          "edge": "e-request",
-          "direction": "forward",
-          "beat": "request-pulse",
-          "repeat": false,
-          "count": 1,
-          "accent": 0
-        },
-        {
-          "edge": "e-t1",
-          "direction": "forward",
-          "beat": "tool-calls",
-          "repeat": false,
-          "count": 1,
-          "accent": 1
-        },
-        {
-          "edge": "e-t2",
-          "direction": "forward",
-          "beat": "tool-calls",
-          "repeat": false,
-          "count": 1,
-          "accent": 1
-        },
-        {
-          "edge": "e-t3",
-          "direction": "forward",
-          "beat": "tool-calls",
-          "repeat": false,
-          "count": 1,
-          "accent": 1
-        },
-        {
-          "edge": "e-t1",
-          "direction": "back",
-          "beat": "data-return",
-          "repeat": false,
-          "count": 1,
-          "accent": 2
-        },
-        {
-          "edge": "e-t2",
-          "direction": "back",
-          "beat": "data-return",
-          "repeat": false,
-          "count": 1,
-          "accent": 2
-        },
-        {
-          "edge": "e-t3",
-          "direction": "back",
-          "beat": "data-return",
-          "repeat": false,
-          "count": 1,
-          "accent": 2
-        },
-        {
-          "edge": "e-request",
-          "direction": "back",
-          "beat": "answer-return",
-          "repeat": false,
-          "count": 1,
-          "accent": 0
-        }
-      ]
-    },
+    "graph_beat": "b-graph",
     "nodes": [
       {
-        "id": "node-user",
+        "id": "user",
         "label": "Пользователь",
-        "caption": "запрос",
+        "caption": "чат · вопрос",
+        "size": "body",
         "enter": "slide",
-        "enter_beat": "user-in",
-        "stagger_index": 0,
+        "enter_beat": "b-user-in",
         "elevation": 2,
-        "accentIndex": 0,
-        "emphasis_beat": "final-emphasis",
+        "slot": true,
         "layout": {
-          "x": 0.02,
-          "y": 0.47,
-          "w": 0.22,
-          "h": 0.15
+          "x": 0,
+          "y": 0.38,
+          "w": 0.26,
+          "h": 0.24
         }
       },
       {
-        "id": "node-orchestrator",
+        "id": "orchestrator",
         "label": "Оркестратор",
-        "caption": "LLM-агент",
+        "caption": "LLM · планирует вызовы",
+        "size": "h2",
         "enter": "pop",
-        "enter_beat": "orchestrator-in",
-        "stagger_index": 0,
+        "enter_beat": "b-orch-in",
         "elevation": 3,
-        "accentIndex": 0,
-        "flash_on": [
-          {
-            "edge": "e-request",
-            "beat": "request-pulse",
-            "repeat": false,
-            "count": 1
-          },
-          {
-            "edge": "e-t2",
-            "beat": "data-return",
-            "repeat": false,
-            "count": 1
-          }
-        ],
         "layout": {
-          "x": 0.36,
-          "y": 0.44,
-          "w": 0.28,
-          "h": 0.21
+          "x": 0.335,
+          "y": 0.36,
+          "w": 0.32,
+          "h": 0.28
         }
       },
       {
-        "id": "node-tool-1",
-        "label": "Инструмент 1",
+        "id": "tool-search",
+        "label": "Поиск",
+        "caption": "веб",
+        "size": "body",
         "enter": "rise",
-        "enter_beat": "tools-in",
-        "stagger_index": 0,
+        "enter_beat": "b-tools-in",
         "elevation": 2,
         "layout": {
-          "x": 0.76,
-          "y": 0.2,
-          "w": 0.22,
-          "h": 0.15
+          "x": 0.74,
+          "y": 0.06,
+          "w": 0.26,
+          "h": 0.2
         }
       },
       {
-        "id": "node-tool-2",
-        "label": "Инструмент 2",
+        "id": "tool-api",
+        "label": "Погодный API",
+        "caption": "прогноз",
+        "size": "body",
         "enter": "rise",
-        "enter_beat": "tools-in",
-        "stagger_index": 1,
+        "enter_beat": "b-tools-in",
         "elevation": 2,
         "layout": {
-          "x": 0.76,
-          "y": 0.47,
-          "w": 0.22,
-          "h": 0.15
+          "x": 0.74,
+          "y": 0.4,
+          "w": 0.26,
+          "h": 0.2
         }
       },
       {
-        "id": "node-tool-3",
-        "label": "Инструмент 3",
+        "id": "tool-kb",
+        "label": "База знаний",
+        "caption": "контекст",
+        "size": "body",
         "enter": "rise",
-        "enter_beat": "tools-in",
-        "stagger_index": 2,
+        "enter_beat": "b-tools-in",
         "elevation": 2,
         "layout": {
-          "x": 0.76,
+          "x": 0.74,
           "y": 0.74,
-          "w": 0.22,
-          "h": 0.15
+          "w": 0.26,
+          "h": 0.2
         }
       }
     ],
-    "atmosphere": {
-      "particles": 56,
-      "seed": "agent-dust",
-      "beat": "graph-build"
+    "edges": [
+      {
+        "id": "e-user",
+        "from": "user",
+        "to": "orchestrator"
+      },
+      {
+        "id": "e-search",
+        "from": "orchestrator",
+        "to": "tool-search"
+      },
+      {
+        "id": "e-api",
+        "from": "orchestrator",
+        "to": "tool-api"
+      },
+      {
+        "id": "e-kb",
+        "from": "orchestrator",
+        "to": "tool-kb"
+      }
+    ],
+    "flows": [
+      {
+        "edge": "e-user",
+        "direction": "forward",
+        "beat": "b-request",
+        "repeat": false,
+        "travel": 18
+      },
+      {
+        "edge": "e-search",
+        "direction": "forward",
+        "beat": "b-fanout-search",
+        "repeat": false,
+        "travel": 16
+      },
+      {
+        "edge": "e-api",
+        "direction": "forward",
+        "beat": "b-fanout-api",
+        "repeat": false,
+        "travel": 16
+      },
+      {
+        "edge": "e-kb",
+        "direction": "forward",
+        "beat": "b-fanout-kb",
+        "repeat": false,
+        "travel": 16
+      },
+      {
+        "edge": "e-search",
+        "direction": "back",
+        "beat": "b-return-search",
+        "repeat": false,
+        "travel": 20
+      },
+      {
+        "edge": "e-api",
+        "direction": "back",
+        "beat": "b-return-api",
+        "repeat": false,
+        "travel": 20
+      },
+      {
+        "edge": "e-kb",
+        "direction": "back",
+        "beat": "b-return-kb",
+        "repeat": false,
+        "travel": 20
+      },
+      {
+        "edge": "e-user",
+        "direction": "back",
+        "beat": "b-answer",
+        "repeat": false,
+        "travel": 20
+      }
+    ],
+    "pulse_accent": {
+      "forward": 1,
+      "back": 2
+    },
+    "tokens": [
+      {
+        "id": "token-search",
+        "edge": "e-search",
+        "beat": "b-return-search",
+        "label": "веб: 3 источника",
+        "stay": false
+      },
+      {
+        "id": "token-api",
+        "edge": "e-api",
+        "beat": "b-return-api",
+        "label": "API: +18 °C, без осадков",
+        "stay": false
+      },
+      {
+        "id": "token-kb",
+        "edge": "e-kb",
+        "beat": "b-return-kb",
+        "label": "база: предпочтения",
+        "stay": false
+      },
+      {
+        "id": "token-answer",
+        "edge": "e-user",
+        "beat": "b-answer",
+        "label": "+18 °C, без осадков",
+        "stay": true
+      }
+    ],
+    "token_accent": 2,
+    "status": {
+      "anchor": {
+        "node": "orchestrator",
+        "side": "top"
+      },
+      "states": [
+        {
+          "text": "Ожидание",
+          "tone": "neutral",
+          "beat": "b-status"
+        },
+        {
+          "text": "Вызывает · 3",
+          "tone": "accent",
+          "accent": 1,
+          "beat": "b-request",
+          "edge": "e-user"
+        },
+        {
+          "text": "Собирает ответ",
+          "tone": "accent",
+          "accent": 2,
+          "beat": "b-return-search",
+          "edge": "e-search"
+        },
+        {
+          "text": "Готово",
+          "tone": "neutral",
+          "beat": "b-return-kb",
+          "edge": "e-kb"
+        }
+      ]
+    },
+    "emphasis": {
+      "node": "user",
+      "beat": "b-final-emphasis"
     }
   }
 }

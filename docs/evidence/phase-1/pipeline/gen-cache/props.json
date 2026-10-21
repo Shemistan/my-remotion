@@ -3,68 +3,13 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "b-title-in",
+        "id": "nodes-in",
         "start_frame": 0,
-        "end_frame": 36
+        "end_frame": 26
       },
       {
-        "id": "b-graph-in",
-        "start_frame": 4,
-        "end_frame": 40
-      },
-      {
-        "id": "b-miss-request",
-        "start_frame": 40,
-        "end_frame": 52
-      },
-      {
-        "id": "b-miss-in",
-        "start_frame": 50,
-        "end_frame": 74
-      },
-      {
-        "id": "b-miss-forward",
-        "start_frame": 54,
-        "end_frame": 66
-      },
-      {
-        "id": "b-write",
-        "start_frame": 66,
-        "end_frame": 80
-      },
-      {
-        "id": "b-write-in",
-        "start_frame": 76,
-        "end_frame": 100
-      },
-      {
-        "id": "b-miss-response",
-        "start_frame": 80,
-        "end_frame": 92
-      },
-      {
-        "id": "b-hit-request",
-        "start_frame": 96,
-        "end_frame": 106
-      },
-      {
-        "id": "b-hit-response",
-        "start_frame": 106,
-        "end_frame": 116
-      },
-      {
-        "id": "b-hit-in",
-        "start_frame": 112,
-        "end_frame": 136
-      },
-      {
-        "id": "b-hit-emphasis",
-        "start_frame": 120,
-        "end_frame": 153
-      },
-      {
-        "id": "b-hold",
-        "start_frame": 153,
+        "id": "hold",
+        "start_frame": 152,
         "end_frame": 180
       }
     ]
@@ -80,173 +25,283 @@
     }
   },
   "content": {
-    "title": {
-      "text": "Как работает кэширование",
-      "beat": "b-title-in",
-      "layout": {
-        "x": 0.2,
-        "y": 0,
-        "w": 0.6,
-        "h": 0.09
+    "locale": "ru",
+    "background": {
+      "variant": "aurora",
+      "seed": "scn_01M5FK5TEN8J4CY4TEAN9EN0MW",
+      "focus": {
+        "x": 0.5,
+        "y": 0.8
       }
     },
+    "hold_flow": {
+      "edge": "e-req",
+      "direction": "back",
+      "repeat": true,
+      "travel": 10
+    },
     "graph": {
-      "beat": "b-graph-in",
       "layout": {
-        "x": 0,
-        "y": 0.2,
-        "w": 1,
-        "h": 0.42
+        "x": 0.04,
+        "y": 0.04,
+        "w": 0.92,
+        "h": 0.56
       },
       "nodes": [
         {
           "id": "node-client",
           "label": "Клиент",
-          "enter": "slide",
+          "caption": "приложение",
+          "size": "body",
           "elevation": 2,
+          "enter": "slide",
+          "slot": true,
+          "flash_on": [
+            "miss-response",
+            "hit-response"
+          ],
           "layout": {
-            "x": 0.02,
-            "y": 0.33,
+            "x": 0.06,
+            "y": 0.18,
             "w": 0.2,
-            "h": 0.17
+            "h": 0.3
           }
         },
         {
           "id": "node-cache",
           "label": "Кэш",
-          "caption": "ключ → значение",
-          "enter": "pop",
+          "caption": "Redis · память",
+          "size": "h2",
           "elevation": 3,
+          "enter": "pop",
+          "slot": true,
+          "flash_on": [
+            "miss-request",
+            "hit-request"
+          ],
           "layout": {
             "x": 0.38,
-            "y": 0.29,
+            "y": 0.12,
             "w": 0.24,
-            "h": 0.25
+            "h": 0.42
           }
         },
         {
-          "id": "node-source",
-          "label": "Источник",
-          "caption": "медленно",
-          "enter": "blur",
+          "id": "node-db",
+          "label": "База данных",
+          "caption": "PostgreSQL · диск",
+          "size": "body",
           "elevation": 1,
+          "enter": "blur",
+          "slot": false,
+          "flash_on": [
+            "miss-to-db"
+          ],
+          "dim_on": "hit-request",
+          "dim_opacity": 0.65,
           "layout": {
-            "x": 0.78,
-            "y": 0.33,
-            "w": 0.2,
-            "h": 0.17
+            "x": 0.72,
+            "y": 0.18,
+            "w": 0.22,
+            "h": 0.3
           }
         }
       ],
       "edges": [
         {
-          "id": "e-client-cache",
+          "id": "e-req",
           "from": "node-client",
           "to": "node-cache"
         },
         {
-          "id": "e-cache-source",
+          "id": "e-db",
           "from": "node-cache",
-          "to": "node-source"
+          "to": "node-db"
         }
       ],
       "flows": [
         {
-          "edge": "e-client-cache",
+          "beat": "miss-request",
+          "edge": "e-req",
           "direction": "forward",
-          "beat": "b-miss-request"
+          "repeat": false,
+          "travel": 12,
+          "span": [
+            0.04,
+            0.135
+          ]
         },
         {
-          "edge": "e-cache-source",
+          "beat": "miss-to-db",
+          "edge": "e-db",
           "direction": "forward",
-          "beat": "b-miss-forward"
+          "repeat": false,
+          "travel": 22,
+          "span": [
+            0.143,
+            0.317
+          ]
         },
         {
-          "edge": "e-cache-source",
+          "beat": "write-cache",
+          "edge": "e-db",
           "direction": "back",
-          "beat": "b-write"
+          "repeat": false,
+          "travel": 22,
+          "span": [
+            0.325,
+            0.5
+          ]
         },
         {
-          "edge": "e-client-cache",
+          "beat": "miss-response",
+          "edge": "e-req",
           "direction": "back",
-          "beat": "b-miss-response"
+          "repeat": false,
+          "travel": 12,
+          "span": [
+            0.508,
+            0.603
+          ]
         },
         {
-          "edge": "e-client-cache",
+          "beat": "hit-request",
+          "edge": "e-req",
           "direction": "forward",
-          "beat": "b-hit-request"
+          "repeat": false,
+          "travel": 10,
+          "span": [
+            0.619,
+            0.698
+          ]
         },
         {
-          "edge": "e-client-cache",
+          "beat": "hit-response",
+          "edge": "e-req",
           "direction": "back",
-          "beat": "b-hit-response"
+          "repeat": false,
+          "travel": 10,
+          "span": [
+            0.706,
+            0.786
+          ]
         }
       ],
-      "pulse": {
-        "travel": 12,
-        "repeat": false,
-        "count": 1,
-        "size": 12,
-        "tail": 170
-      },
-      "pulse_colors": {
-        "forward": 1,
-        "back": 2
-      },
-      "flash": {
-        "node": "node-cache",
-        "edge": "e-cache-source",
-        "beat": "b-write"
-      },
-      "dim": {
-        "node": "node-source",
-        "beat": "b-hit-request",
-        "opacity": 0.4
+      "tokens": [
+        {
+          "id": "token-request",
+          "label": "GET /user/42",
+          "flow": "miss-request",
+          "stay": false,
+          "until": "write-cache"
+        },
+        {
+          "id": "token-write",
+          "label": "Алиса · Pro",
+          "flow": "write-cache",
+          "dock": "slot",
+          "stay": true
+        },
+        {
+          "id": "token-response",
+          "label": "Алиса · Pro",
+          "flow": "miss-response",
+          "stay": false,
+          "until": "hit-response"
+        },
+        {
+          "id": "token-request-repeat",
+          "label": "GET /user/42",
+          "flow": "hit-request",
+          "stay": false
+        },
+        {
+          "id": "token-hit-response",
+          "label": "Алиса · Pro",
+          "flow": "hit-response",
+          "dock": "slot",
+          "stay": true
+        }
+      ],
+      "status": {
+        "anchor": {
+          "node": "node-cache",
+          "side": "top"
+        },
+        "states": [
+          {
+            "text": "Запрос",
+            "tone": "neutral",
+            "on": "start"
+          },
+          {
+            "text": "Промах",
+            "tone": "negative",
+            "on": "miss-request"
+          },
+          {
+            "text": "Запись",
+            "tone": "accent",
+            "on": "write-cache"
+          },
+          {
+            "text": "Попадание",
+            "tone": "positive",
+            "on": "hit-request"
+          }
+        ]
       }
     },
-    "status": {
-      "miss": {
-        "text": "Промах",
-        "color": "negative",
-        "entrance": "pop",
-        "beat": "b-miss-in",
+    "timers": [
+      {
+        "id": "timer-miss",
+        "prefix": "1-й запрос · ",
+        "from": 0,
+        "to": 120,
+        "suffix": " мс",
+        "size": "body",
+        "number_size": "body",
+        "from_flow": "miss-request",
+        "to_flow": "miss-response",
+        "enter_after": "nodes-in",
         "layout": {
-          "x": 0.62,
-          "y": 0.12,
-          "w": 0.17,
-          "h": 0.07
+          "x": 0.06,
+          "y": 0.63,
+          "w": 0.4,
+          "h": 0.08
         }
       },
-      "write": {
-        "text": "Запись",
-        "color": "text",
-        "entrance": "rise",
-        "beat": "b-write-in",
+      {
+        "id": "timer-hit",
+        "prefix": "Повтор · ",
+        "from": 0,
+        "to": 2,
+        "suffix": " мс",
+        "size": "body",
+        "number_size": "body",
+        "from_flow": "hit-request",
+        "to_flow": "hit-response",
+        "enter_after": "miss-response",
         "layout": {
-          "x": 0.62,
-          "y": 0.65,
-          "w": 0.17,
-          "h": 0.07
+          "x": 0.54,
+          "y": 0.63,
+          "w": 0.4,
+          "h": 0.08
         }
-      },
-      "dim": {
-        "beat": "b-hit-request",
-        "opacity": 0.45
       }
-    },
-    "hit": {
-      "text": "Попадание",
-      "beat": "b-hit-in",
-      "emphasis_beat": "b-hit-emphasis",
+    ],
+    "verdict": {
+      "text": "В 60 раз быстрее",
+      "highlight": [
+        "60"
+      ],
+      "at": 0.794,
       "layout": {
-        "x": 0.25,
+        "x": 0.1,
         "y": 0.76,
-        "w": 0.5,
-        "h": 0.16
+        "w": 0.8,
+        "h": 0.18
       }
-    },
-    "atmosphere": {
-      "particles": 40
     }
   }
 }

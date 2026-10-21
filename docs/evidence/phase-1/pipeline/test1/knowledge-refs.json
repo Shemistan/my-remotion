@@ -1,27 +1,26 @@
 [
   {
-    "kb_id": "remotion-video-templates/line-chart-draw",
-    "repository": "remotion-video-templates (AleBrito124356)",
-    "repository_url": "git@github.com:AleBrito124356/remotion-video-templates.git",
-    "commit": "9014946",
-    "license": "MIT (package.json, LICENSE)",
+    "kb_id": "free-remotion-templates/line-chart-anim",
+    "repository": "free-remotion-templates (RenderComp)",
+    "repository_url": "git@github.com:RenderComp/free-remotion-templates.git",
+    "commit": "f648980",
+    "license": "MIT (package.json, LICENSE, SPDX-заголовок в файле)",
     "license_class": "permissive",
     "strategy": "adapt",
     "source_paths": [
-      "templates/remotion-components/remotion-video-templates/src/templates/ChartVideo/LineChart.tsx",
-      "templates/remotion-components/remotion-video-templates/src/templates/ChartVideo/sample-data.ts"
+      "templates/remotion-components/free-remotion-templates/src/components/line-chart-anim/LineChartAnim.tsx"
     ]
   },
   {
-    "kb_id": "motion-primitives/animated-number",
-    "repository": "Motion-Primitives",
-    "repository_url": "git@github.com:ibelick/motion-primitives.git",
-    "commit": "120f64f",
-    "license": "MIT (LICENCE.md)",
+    "kb_id": "animata/counter",
+    "repository": "Animata",
+    "repository_url": "git@github.com:codse/animata.git",
+    "commit": "e7478b8",
+    "license": "MIT (LICENSE.md)",
     "license_class": "permissive",
     "strategy": "adapt",
     "source_paths": [
-      "templates/react-libriry/motion-primitives/components/core/animated-number.tsx"
+      "templates/react-libriry/animata/animata/text/counter.tsx"
     ]
   }
 ]

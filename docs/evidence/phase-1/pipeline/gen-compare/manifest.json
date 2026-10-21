@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5F1NFJA74QYZQS7DYT7B3VG",
-  "scene_id": "scn_01M5F191JTPT5TT0DBGZEB1YKN",
+  "version_id": "ver_01M5FNFZ8RQ55HM5ZAFCSSWT08",
+  "scene_id": "scn_01M5FMZVW4F8TV9PS9J6H2NAQA",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T10:56:13.387Z",
+  "created_at": "2026-10-21T16:42:44.377Z",
   "prompt": "Сравни монолит и микросервисы по скорости релизов",
   "edit_plan": null,
   "settings": {
@@ -27,64 +27,52 @@
   },
   "files": [
     {
-      "path": "frames/103.png",
-      "sha256": "8d8d180f1c284e681e6b523de21762e1f62f23c7f0926e26c8eee7af7cba06ca"
+      "path": "frames/140.png",
+      "sha256": "2252e036b39f648a55b421652b11f22bb0f32984af3a8986e69efc10144ff3f2"
     },
     {
-      "path": "frames/138.png",
-      "sha256": "ee5d2e5416b9bcefee101ca6b46cbe5dbb67a5ca774253a1e61ff6cc899670aa"
-    },
-    {
-      "path": "frames/149.png",
-      "sha256": "5f73d423d16e462f3421475e56d24e042967cadf2e087089ed66a9bd0836ae20"
+      "path": "frames/153.png",
+      "sha256": "01156f9b1b38b2bb09faab2c34b3e6d2accccb84e110bb92652a82ab8042502e"
     },
     {
       "path": "frames/166.png",
-      "sha256": "0351e95bf41560b9d2e393f67b92705387105aafd920ee9c5863fe244d9fed93"
+      "sha256": "b96a05e9ad94925fd0e23f808e471b8f9879346e5adfed4907683d0357465611"
     },
     {
       "path": "frames/179.png",
-      "sha256": "09dfea0d4ad78379571ca12d6d1f7f5c04d85521326c7094c5ea2f62a47e95fc"
+      "sha256": "0cbb488fe2d73761070af60ce78d06c8ee1d7e2af9d056ed8d81c3aa71b5bf8e"
     },
     {
-      "path": "frames/30.png",
-      "sha256": "2fca72cc05f1b0bf91451f64c25d3282dc72d30b9fce0807f111046584620231"
+      "path": "frames/36.png",
+      "sha256": "13a6ff35c5d34f55cd038cdc7a00ce4f4344bafb3428ea1aa1bf381bc2d2f437"
     },
     {
-      "path": "frames/42.png",
-      "sha256": "79f88f8051a024418624cbe0c0b1396a6eb145d4ee093c2757c47aa9e5ef8131"
+      "path": "frames/48.png",
+      "sha256": "6faedc84f7c089fc1743a582d275adca7c0c306ad8e6c6617daf4f74c82b887f"
     },
     {
-      "path": "frames/78.png",
-      "sha256": "057be348fcdcbc7c70ece71cfffae890571a7d21c2eaeace6b325871b4f26340"
+      "path": "frames/80.png",
+      "sha256": "f3861edb9cfdc1f1c029400fd8ad5aa4fbc84fadbf9be2dffc9d6ffc93da53d0"
     },
     {
       "path": "knowledge-refs.json",
-      "sha256": "427ed6b832d91cf40d6e754655ddf617dd0b0890c6c6e1a3c4c510eb2d4f753f"
+      "sha256": "a0867c388360c5b99ab70193b8bfe40d9fa4ce009fe27c5581e4504881c4beb4"
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "80ad6e1e04cfe5ab104cc49cc58477a1501518d615b6fd5c1133f034d1a8ae42"
+      "sha256": "51ac597c58d3a97498a8e53bd4297997fbd6743cccc9293586e2279379a58879"
     },
     {
       "path": "preview.mp4",
-      "sha256": "2a0da0cd117d733e50482d195a5ab48429816030f0c14e206604d8aa79f01196"
+      "sha256": "fbef065b9ef8de20b0c9cbfaf1ddb33b4197dc8991299e3cf19e7f51ce5df863"
     },
     {
       "path": "props.json",
-      "sha256": "a51ff8da44ac5d24f229cbbd6c715157bb8db190cb607db0955849e49d3db4bc"
+      "sha256": "61c2dcd957c62d14a5f4af32fbf3994fd6beab69eb5cf1d37b5134856e00602c"
     },
     {
       "path": "qa.json",
-      "sha256": "212e1cfdef3482232a7e32314e385d41528e9a21fada91b5a61ee887bf84a8c5"
-    },
-    {
-      "path": "refs/kb/free-remotion-templates/kpi-counter/CARD.md",
-      "sha256": "ab0702c8c4f438887675690916d15c64fac6ed7342156d69494d3561a0105336"
-    },
-    {
-      "path": "refs/kb/free-remotion-templates/kpi-counter/templates/remotion-components/free-remotion-templates/src/components/kpi-counter/KpiCounter.tsx",
-      "sha256": "0ddc52f49062e1570487f531f3e4589701d7616b5e73ec70071abc25d35b1a9c"
+      "sha256": "65282122c7e8672f5772cebdede5a22ade476cf722caaf10b26f9909b95fcf84"
     },
     {
       "path": "refs/kb/remotion-bits/animated-counter/CARD.md",
@@ -100,7 +88,7 @@
     },
     {
       "path": "refs/motion-kit/API.md",
-      "sha256": "2842a3bb93d0ef1d634e50307c7cc7d15907c4d275abe64f28966846445c8d63"
+      "sha256": "a02248dae08e838813f7b6c6987e664609169330ad66ec403794541eeea56702"
     },
     {
       "path": "refs/skills/remotion-markup/SKILL.md",
@@ -128,7 +116,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "ce05a485c04c825ebae787e2606102e6ffb7e70f724a3f9ef4c9c2eeb8227d51"
+      "sha256": "4b257b3b0501dfccadddb15da216d447aa4dc30999ccf1acb2b4ea4603965173"
     },
     {
       "path": "settings.json",
@@ -136,30 +124,29 @@
     },
     {
       "path": "spec.json",
-      "sha256": "2150f218c0699402f21a83520d17a51eb58b61c1a599a6bae439ad10f15ecbf4"
-    },
-    {
-      "path": "src/Lane.tsx",
-      "sha256": "083be86c218e15582b09c27c65676dd80927add1374c05a33bca6d5104021570"
+      "sha256": "6e146e16fb539363cede8ab48998d99bcae09d4a69584512fc993839d952e291"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "782284c8464158c40120a7a7a52057d2f018f1bd06ac1829619706335727d747"
+      "sha256": "fba21eeef3c192cafb3e7b2ac8152dd5596a1ba37d59431190cb3f16b42c4a04"
     },
     {
       "path": "style.json",
       "sha256": "18a0a04c657887af9d85691285c9480a89f361fb434379a61df3445ffc78e3d6"
+    },
+    {
+      "path": "warnings.json",
+      "sha256": "076597f7a3677e94dbcc3793ccfe6a71793605bfe0007156c5f1c9bf3ab10caa"
     }
   ],
   "changed_files": [
-    "src/Lane.tsx",
     "src/Scene.tsx",
     "props.json"
   ],
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:3e8d6ee7bf584338",
+    "motion_kit": "sha256:1fc64dd34263e6be",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
@@ -169,54 +156,45 @@
       "commit": "de35fda",
       "license": "MIT (package.json)",
       "strategy": "adapt"
-    },
-    {
-      "kb_id": "free-remotion-templates/kpi-counter",
-      "commit": "f648980",
-      "license": "MIT (package.json, LICENSE, SPDX-заголовок в файле)",
-      "strategy": "adapt"
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5F191K0RFA9KW1NG6JF81VG/a1-concept-1",
-    "logs/agent-runs/job_01M5F191K0RFA9KW1NG6JF81VG/a1-motion_director-1",
-    "logs/agent-runs/job_01M5F191K0RFA9KW1NG6JF81VG/a1-engineer-1",
-    "logs/agent-runs/job_01M5F191K0RFA9KW1NG6JF81VG/a1-engineer-2",
-    "logs/agent-runs/job_01M5F191K0RFA9KW1NG6JF81VG/a1-visual_qa-1"
+    "logs/agent-runs/job_01M5FMZVW9ZMEFJQYF645W9SVV/a1-concept-1",
+    "logs/agent-runs/job_01M5FMZVW9ZMEFJQYF645W9SVV/a1-motion_director-1",
+    "logs/agent-runs/job_01M5FMZVW9ZMEFJQYF645W9SVV/a1-engineer-1",
+    "logs/agent-runs/job_01M5FMZVW9ZMEFJQYF645W9SVV/a1-visual_qa-1"
   ],
   "qa": {
     "technical": "pass",
     "visual": "warn",
-    "semantic": "pass",
+    "semantic": "warn",
     "style": "pass"
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "2a0da0cd117d733e50482d195a5ab48429816030f0c14e206604d8aa79f01196"
+    "sha256": "fbef065b9ef8de20b0c9cbfaf1ddb33b4197dc8991299e3cf19e7f51ce5df863"
   },
   "status": "ready",
   "qa_frames": [
-    30,
-    42,
-    78,
-    103,
-    138,
-    149,
+    36,
+    48,
+    80,
+    140,
+    153,
     166,
     179
   ],
   "qa_frames_sha256": [
-    "2fca72cc05f1b0bf91451f64c25d3282dc72d30b9fce0807f111046584620231",
-    "79f88f8051a024418624cbe0c0b1396a6eb145d4ee093c2757c47aa9e5ef8131",
-    "057be348fcdcbc7c70ece71cfffae890571a7d21c2eaeace6b325871b4f26340",
-    "8d8d180f1c284e681e6b523de21762e1f62f23c7f0926e26c8eee7af7cba06ca",
-    "ee5d2e5416b9bcefee101ca6b46cbe5dbb67a5ca774253a1e61ff6cc899670aa",
-    "5f73d423d16e462f3421475e56d24e042967cadf2e087089ed66a9bd0836ae20",
-    "0351e95bf41560b9d2e393f67b92705387105aafd920ee9c5863fe244d9fed93",
-    "09dfea0d4ad78379571ca12d6d1f7f5c04d85521326c7094c5ea2f62a47e95fc"
+    "13a6ff35c5d34f55cd038cdc7a00ce4f4344bafb3428ea1aa1bf381bc2d2f437",
+    "6faedc84f7c089fc1743a582d275adca7c0c306ad8e6c6617daf4f74c82b887f",
+    "f3861edb9cfdc1f1c029400fd8ad5aa4fbc84fadbf9be2dffc9d6ffc93da53d0",
+    "2252e036b39f648a55b421652b11f22bb0f32984af3a8986e69efc10144ff3f2",
+    "01156f9b1b38b2bb09faab2c34b3e6d2accccb84e110bb92652a82ab8042502e",
+    "b96a05e9ad94925fd0e23f808e471b8f9879346e5adfed4907683d0357465611",
+    "0cbb488fe2d73761070af60ce78d06c8ee1d7e2af9d056ed8d81c3aa71b5bf8e"
   ],
   "job": {
-    "id": "job_01M5F191K0RFA9KW1NG6JF81VG",
+    "id": "job_01M5FMZVW9ZMEFJQYF645W9SVV",
     "attempt": 1
   }
 }

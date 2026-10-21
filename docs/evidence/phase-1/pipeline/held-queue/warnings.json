@@ -1,0 +1,6 @@
+{
+  "warnings": [
+    "spec: scene_signature_repeat (background, topTitle, staticCamera): сцена повторяет подпись предыдущей «Архитектура AI-агента» (3 из 4): фон blueprint:11, без полосы заголовка, камера стоит"
+  ],
+  "permission_denials": []
+}

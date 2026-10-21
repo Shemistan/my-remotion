@@ -1,48 +1,42 @@
 {
-  "run_id": "job_01M5F191K0RFA9KW1NG6JF81VG",
+  "run_id": "job_01M5FMZVW9ZMEFJQYF645W9SVV",
   "attempt": 1,
-  "cost_usd": 1.5797184000000002,
-  "engineer_calls": 2,
+  "cost_usd": 1.8098792000000001,
+  "engineer_calls": 1,
   "visual_qa": [
     {
-      "call": 2,
-      "wall_ms": 29409,
-      "cost_usd": 0.16351150000000003,
+      "call": 1,
+      "wall_ms": 31252,
+      "cost_usd": 0.1583101,
       "status": "completed",
       "gate": {
         "technical": "pass",
         "visual": "warn",
-        "semantic": "pass",
+        "semantic": "warn",
         "style": "pass"
       }
     }
   ],
   "timings": {
-    "concept": 13341,
-    "motion_director": 148861,
-    "engineer_1": 134655,
-    "static": 77,
-    "typecheck": 31880,
-    "engineer_2": 21826,
-    "render_2": 19963,
-    "qa_programmatic": 3100,
-    "visual_qa_2": 29432
+    "concept": 8580,
+    "motion_director": 115677,
+    "engineer_1": 308690,
+    "static": 250,
+    "typecheck": 25561,
+    "render_1": 29954,
+    "qa_programmatic": 3377,
+    "visual_qa_1": 31295
   },
   "history": [
     {
-      "at": "2026-10-21T10:54:37.958Z",
-      "stage": "typecheck",
-      "message": "src/Scene.tsx:281 Type '{ preset: \"dark-premium\" | \"light-clean\" | \"tech-neon\"; intensity: \"calm\" | \"balanced\" | \"energetic\"; depth?: number | undefined; transparent?: boolean | undefined; safe_area?: { ...; } | undefined; }' is not assignable to type 'StyleSource'.\n  Type '{ preset: \"dark-premium\" | \"light-clean\" | \"tech-neon\"; intensity: \"calm\" | \"balanced\" | \"energetic\"; depth?: number | undefined; transparent?: boolean | undefined; safe_area?: { ...; } | undefined; }' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type '{ preset: \"dark-premium\" | \"light-clean\" | \"tech-neon\"; intensity: \"calm\" | \"balanced\" | \"energetic\"; depth?: number | undefined; transparent?: boolean | undefined; safe_area?: { ...; } | undefined; }' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
-    },
-    {
-      "at": "2026-10-21T10:56:12.610Z",
+      "at": "2026-10-21T16:42:42.632Z",
       "stage": "qa",
-      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
+      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"warn\",\"style\":\"pass\"}; blocking: —"
     },
     {
-      "at": "2026-10-21T10:56:12.634Z",
+      "at": "2026-10-21T16:42:42.808Z",
       "stage": "ready",
-      "message": "gate пройден с вызова 2"
+      "message": "gate пройден с вызова 1"
     }
   ]
 }
