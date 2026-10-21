@@ -20,6 +20,12 @@ describe("lineChartHead", () => {
     expect(lineChartHead(POINTS, BEAT, startFrame).value).toBe(10_000);
     expect(lineChartHead(POINTS, BEAT, startFrame + 2).value).toBeGreaterThan(10_000);
   });
+  it("startFrame = start_frame + ⌈12 % длины⌉ (формула Director) — и в этом кадре голова на первой точке", () => {
+    const beat = { start_frame: 12, end_frame: 132 };
+    const { startFrame } = lineChartHead(POINTS, beat, 0);
+    expect(startFrame).toBe(12 + Math.ceil(0.12 * 120));
+    expect(lineChartHead(POINTS, beat, startFrame).value).toBe(10_000);
+  });
   it("значение под головой растёт монотонно и остаётся в диапазоне", () => {
     let prev = -Infinity;
     for (let f = 20; f <= 120; f++) {

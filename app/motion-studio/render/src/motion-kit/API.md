@@ -267,7 +267,8 @@ valuePrefix?, valueSuffix? }`
 
 `lineChartHead(points, beat, frame, { width?, height?, yTicks?, frameHeight? })` → `{ progress, value,
 startFrame, endFrame }` — голова линии в кадре (не хук). Линия трогается после
-`startFrame` = `beat.start_frame + 12 %` длины бита (до того — сетка и подписи), дорисована к
+`startFrame` = `beat.start_frame + ⌈0.12 × длина бита⌉` (до того — сетка и подписи; в
+самом `startFrame` голова ещё на первой точке), дорисована к
 `endFrame` = `start + 80 %`. Счётчик, привязанный к линии, показывает ровно значение под
 головой; чтобы «от» читалось, число входит (`enterAt`) не позже чем за 15 кадров до
 `startFrame`:

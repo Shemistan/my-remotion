@@ -89,7 +89,8 @@ export function xLabelIndices(labels: string[], spacing: number, font: number): 
 /** Окно прорисовки линии внутри бита: 12–80 %. */
 function drawWindow(beat: Pick<Beat, "start_frame" | "end_frame">) {
   const L = Math.max(1, beat.end_frame - beat.start_frame);
-  return { drawStart: beat.start_frame + L * 0.12, drawEnd: beat.start_frame + L * 0.8 };
+  // старт линии — целый кадр: в нём голова ещё на первой точке (Director считает его так же)
+  return { drawStart: beat.start_frame + Math.ceil(L * 0.12), drawEnd: beat.start_frame + L * 0.8 };
 }
 
 function drawAt(frame: number, beat: Pick<Beat, "start_frame" | "end_frame">): number {
@@ -113,7 +114,7 @@ export function lineChartHead(
   const { coords, lut, total } = chartGeometry(points, opts.width ?? 1100, opts.height ?? 560, opts.yTicks ?? 4, chartPad(opts.frameHeight ?? 1080));
   const progress = drawAt(frame, beat);
   const { drawStart, drawEnd } = drawWindow(beat);
-  const startFrame = Math.floor(drawStart);
+  const startFrame = drawStart;
   const endFrame = Math.ceil(drawEnd);
   if (points.length < 2) return { progress, value: points[0]?.value ?? 0, startFrame, endFrame };
   const x = pointAtLength(lut, progress * total).x;
