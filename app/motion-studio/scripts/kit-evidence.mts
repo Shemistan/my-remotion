@@ -4,6 +4,7 @@
 //   ./scripts/with-node.sh npx tsx scripts/kit-evidence.mts patterns     # все сцены patterns-gallery
 //   ./scripts/with-node.sh npx tsx scripts/kit-evidence.mts patterns code timeline
 //   ./scripts/with-node.sh npx tsx scripts/kit-evidence.mts patterns timeline:orientation=v   # вариант (props.content)
+//   ./scripts/with-node.sh npx tsx scripts/kit-evidence.mts kit       # галерея v0.1 в трёх пресетах (slice/kit)
 // Полноразмерные PNG (ключевые и промежуточные кадры) остаются в tmp/kit-evidence-*/ репозитория.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
@@ -23,10 +24,10 @@ mkdirSync(join(work, "cache"));
 const store = await makeStore(work);
 
 /** Рендер фикстуры с кадрами; путь к PNG кадра. */
-async function render(fixture: string, stills: number[], content: Record<string, string> = {}, tag = ""): Promise<(f: number) => string> {
+async function render(fixture: string, stills: number[], content: Record<string, string> = {}, tag = "", props?: object): Promise<(f: number) => string> {
   const dir = join(work, fixture.replace(/\//g, "-") + tag);
   const r = await renderVersion({
-    versionDir: await withContent(await copyFixture(fixture, dir), content),
+    versionDir: withProps(await withContent(await copyFixture(fixture, dir), content), props),
     settings: await fixtureSettings(fixture),
     cacheDir: join(work, "cache"),
     stills: [...new Set(stills)].sort((a, b) => a - b),
@@ -43,6 +44,12 @@ function withContent(dir: string, content: Record<string, string>): string {
   if (Object.keys(content).length === 0) return dir;
   const props = JSON.parse(readFileSync(join(dir, "props.json"), "utf8")) as { content?: Record<string, unknown> };
   writeFileSync(join(dir, "props.json"), JSON.stringify({ ...props, content: { ...props.content, ...content } }));
+  return dir;
+}
+
+/** props.json целиком (kit-gallery v0.1 берёт пресет из props). */
+function withProps(dir: string, props?: object): string {
+  if (props) writeFileSync(join(dir, "props.json"), JSON.stringify(props));
   return dir;
 }
 
@@ -90,6 +97,16 @@ if (mode === "choreo") {
     console.log(`${arg}: ${out}`);
   }
   console.log(`полные кадры: ${work}`);
+} else if (mode === "kit") {
+  // галерея v0.1 (kit-gallery) в трёх пресетах — кадры docs/evidence/phase-1/slice/kit/ (PNG, как в срезе)
+  const OUT = join(REPO, "docs/evidence/phase-1/slice/kit");
+  mkdirSync(OUT, { recursive: true });
+  const SETS: [string, number[]][] = [["dark-premium", [0, 30, 75, 120, 149]], ["light-clean", [75, 149]], ["tech-neon", [75, 149]]];
+  for (const [preset, stills] of SETS) {
+    const png = await render("kit-gallery", stills, {}, `-${preset}`, { preset });
+    for (const f of stills) ff(["-i", png(f), join(OUT, `${preset}-${f}.png`)]);
+  }
+  console.log(`evidence: ${OUT}`);
 } else {
-  throw new Error(`неизвестный режим ${mode}: choreo | patterns [сцены…]`);
+  throw new Error(`неизвестный режим ${mode}: choreo | patterns [сцены…] | kit`);
 }

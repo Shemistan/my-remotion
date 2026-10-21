@@ -10,10 +10,10 @@ interface Props {
 }
 
 const ITEMS = [
-  { date: "2019", label: "Прототип в гараже" },
-  { date: "2021", label: "Первые клиенты" },
-  { date: "2023", label: "Выход в СНГ" },
-  { date: "2025", label: "1 млн пользователей" },
+  { date: "2019", label: "Прототип в гараже", note: "два основателя" },
+  { date: "2021", label: "Первые клиенты", note: "100 компаний" },
+  { date: "2023", label: "Выход в СНГ", note: "пять стран" },
+  { date: "2025", label: "1 млн пользователей", note: "и рост ×10 за год" },
 ];
 
 export const Scene = ({ timing, style, content }: Props) => {
@@ -27,9 +27,9 @@ export const Scene = ({ timing, style, content }: Props) => {
         <KineticText text="Шесть лет от идеи до миллиона" beat={b.headline!} mode="words" enter="slide" size="h1" highlight={["миллиона"]} />
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {v ? (
-            <Timeline items={ITEMS} beat={b.timeline!} orientation="v" width={1100} height={700} />
+            <Timeline items={ITEMS} beat={b.timeline!} orientation="v" width={1300} height={680} />
           ) : (
-            <Timeline items={ITEMS} beat={b.timeline!} orientation="h" width={1690} height={560} />
+            <Timeline items={ITEMS} beat={b.timeline!} orientation="h" width={1690} height={660} />
           )}
         </div>
       </SafeArea>

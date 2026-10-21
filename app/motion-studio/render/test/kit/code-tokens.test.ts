@@ -1,6 +1,6 @@
 // tokenizeCode: простой лексер без зависимостей; typedTokens — набор по токенам.
 import { describe, expect, it } from "vitest";
-import { tokenizeCode, typedTokens } from "../../src/motion-kit/code-tokens.js";
+import { caretLine, codeLines, tokenizeCode, typedTokens } from "../../src/motion-kit/code-tokens.js";
 
 const kinds = (src: string, lang: "ts" | "py" | "json" | "bash") => tokenizeCode(src, lang).map((t) => t.kind);
 const pairs = (src: string, lang: "ts" | "py" | "json" | "bash") => tokenizeCode(src, lang).filter((t) => t.kind !== "ws").map((t) => `${t.kind}:${t.text}`);
@@ -59,5 +59,41 @@ describe("typedTokens", () => {
       prev = n;
     }
     expect(prev).toBe(toks.length);
+  });
+});
+
+describe("codeLines / caretLine: многострочные токены", () => {
+  const PY = 'def total(xs):\n    """Сумма списка.\n\n    Пустой список — 0.\n    """\n    return sum(xs)';
+  const JSDOC = "/**\n * Сумма двух чисел.\n * @param a первое\n */\nfunction add(a: number, b: number) {\n  return a + b;\n}";
+
+  it("py docstring: строк столько же, сколько в тексте; фрагменты docstring — один idx", () => {
+    const toks = tokenizeCode(PY, "py");
+    const lines = codeLines(toks);
+    expect(lines.length).toBe(PY.split("\n").length);
+    expect(lines.map((l) => l.map((f) => f.text).join(""))).toEqual(PY.split("\n"));
+    const doc = toks.findIndex((t) => t.text.startsWith('"""'));
+    const rows = lines.map((l, i) => (l.some((f) => f.idx === doc) ? i : -1)).filter((i) => i >= 0);
+    expect(rows).toEqual([1, 2, 3, 4]);
+    for (const l of lines) for (const f of l) expect(f.text).not.toContain("\n");
+  });
+
+  it("JSDoc: блочный комментарий занимает свои 4 строки, код — следующие", () => {
+    const toks = tokenizeCode(JSDOC, "ts");
+    const lines = codeLines(toks);
+    expect(lines.length).toBe(7);
+    expect(lines[0]!.map((f) => f.kind)).toEqual(["com"]);
+    expect(lines[3]!.map((f) => f.text).join("")).toBe(" */");
+    expect(lines[4]![0]).toMatchObject({ text: "function", kind: "kw" });
+  });
+
+  it("caretLine считает переводы строк и внутри токенов", () => {
+    const toks = tokenizeCode(JSDOC, "ts");
+    expect(caretLine(toks, 0)).toBe(0);
+    expect(caretLine(toks, 1)).toBe(3); // весь JSDoc набран — каретка в его последней строке
+    expect(caretLine(toks, 2)).toBe(4); // перевод строки после него
+    expect(caretLine(toks, toks.length)).toBe(6);
+    const py = tokenizeCode(PY, "py");
+    const doc = py.findIndex((t) => t.text.startsWith('"""'));
+    expect(caretLine(py, doc + 1)).toBe(4);
   });
 });

@@ -6,7 +6,7 @@ import { useCurrentFrame, useVideoConfig } from "remotion";
 import type { Rect } from "../choreo/safe-area.js";
 import { EASE, frames, springAt } from "../easing.js";
 import { clamp01, drawDash, ramp, useSvgId } from "../internal.js";
-import { typeSize } from "../style/type-scale.js";
+import { type TypeLevel, typeSize } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, shadow, surfaceAt } from "../tokens.js";
 
@@ -23,6 +23,16 @@ export interface CalloutProps {
   shape?: "ring" | "box" | "auto";
   /** Длина горизонтальной части линии-указателя, px (по умолчанию 90). */
   reach?: number;
+  /**
+   * Выход линии: diagonal — излом вверх или вниз от цели (по умолчанию: уводит подпись с
+   * плотной строки на соседнюю высоту), horizontal — прямо вбок от середины стороны цели
+   * (когда справа или слева от цели на её высоте пусто, например цель — конец строки).
+   */
+  exit?: "diagonal" | "horizontal";
+  /** Кегль подписи: уровень шкалы или px (по умолчанию body — подпись не мельче текста кадра). */
+  size?: TypeLevel | number;
+  /** Пояснение под подписью (мельче, приглушённое). */
+  note?: string;
   accentIndex?: number;
 }
 
@@ -33,7 +43,7 @@ function windows(beat: Pick<Beat, "start_frame" | "end_frame">) {
   return { ring: [b0, b0 + L * 0.34], line: [b0 + L * 0.26, b0 + L * 0.52], label: b0 + L * 0.46 } as const;
 }
 
-export function Callout({ target, label, beat, side = "auto", bounds, shape = "auto", reach = 90, accentIndex = 0 }: CalloutProps) {
+export function Callout({ target, label, beat, side = "auto", bounds, shape = "auto", reach = 90, exit = "diagonal", size = "body", note, accentIndex = 0 }: CalloutProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
@@ -54,9 +64,11 @@ export function Callout({ target, label, beat, side = "auto", bounds, shape = "a
   const dx = right ? 1 : -1;
   const dy = up ? -1 : 1;
 
-  // старт линии: у рамки — середина боковой стороны, у эллипса — точка под 45° к подписи
-  const start = box ? { x: cx + dx * rx, y: cy } : { x: cx + dx * rx * Math.SQRT1_2, y: cy + dy * ry * Math.SQRT1_2 };
-  const rise = box ? 40 : 56;
+  // старт линии: у рамки и при выходе вбок — середина боковой стороны, у эллипса — точка
+  // под 45° к подписи; при выходе вбок излома нет
+  const flat = exit === "horizontal";
+  const start = box || flat ? { x: cx + dx * rx, y: cy } : { x: cx + dx * rx * Math.SQRT1_2, y: cy + dy * ry * Math.SQRT1_2 };
+  const rise = flat ? 0 : box ? 40 : 56;
   const elbow = { x: start.x + dx * rise, y: start.y + dy * rise };
   const end = { x: elbow.x + dx * reach, y: elbow.y };
   const leg1 = Math.hypot(elbow.x - start.x, elbow.y - start.y);
@@ -74,7 +86,7 @@ export function Callout({ target, label, beat, side = "auto", bounds, shape = "a
   const ringPath = box
     ? undefined
     : `M${cx + dx * rx * Math.SQRT1_2} ${cy + dy * ry * Math.SQRT1_2} A${rx} ${ry} 0 1 ${dx * dy > 0 ? 0 : 1} ${cx + dx * rx * Math.SQRT1_2 - 0.01} ${cy + dy * ry * Math.SQRT1_2 + 0.01}`;
-  const px = Math.round(typeSize(s, "caption", height) * 0.95);
+  const px = typeof size === "number" ? size : typeSize(s, size, height);
 
   return (
     <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
@@ -161,6 +173,7 @@ export function Callout({ target, label, beat, side = "auto", bounds, shape = "a
           }}
         >
           {label}
+          {note ? <div style={{ marginTop: Math.round(px * 0.18), fontWeight: 500, fontSize: Math.max(typeSize(s, "caption", height) * 0.85, px * 0.5), color: s.palette.muted }}>{note}</div> : null}
         </div>
       </div>
       )}

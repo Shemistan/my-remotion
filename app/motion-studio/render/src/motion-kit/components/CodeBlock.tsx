@@ -9,7 +9,7 @@ import { useCurrentFrame, useVideoConfig } from "remotion";
 import type { Rect } from "../choreo/safe-area.js";
 import { enterStyle } from "../choreo/enter.js";
 import { typeRhythm } from "../choreo/rhythm.js";
-import { type CodeLang, type CodeToken, type TokenKind, tokenizeCode, typedTokens } from "../code-tokens.js";
+import { type CodeLang, type TokenKind, caretLine as caretLineOf, codeLines, tokenizeCode, typedTokens } from "../code-tokens.js";
 import { easingOf, frames, springAt } from "../easing.js";
 import { ramp } from "../internal.js";
 import { useStyle } from "../style.js";
@@ -41,14 +41,23 @@ function codeMetrics(fontSize: number) {
   return { lineH, header, padY, gutter, padX: Math.round(fontSize * 0.9) };
 }
 
+/** Ширина знака кода: у моноширинных шрифтов kit (JetBrains Mono) — 0.6 кегля, без трекинга. */
+export const codeCharWidth = (fontSize: number) => fontSize * 0.6;
+
 /**
  * Прямоугольник строки `line` (с 1) внутри CodeBlock, px от его левого верхнего угла —
  * цель для `Callout` или своей подсветки. `width`/`fontSize` — те же, что у блока.
+ * `cols: [from, to)` — только знаки строки с from по to − 1 (с 0, отступ считается).
  */
-export function codeLineRect(line: number, opts: { width?: number; fontSize?: number } = {}): Rect {
+export function codeLineRect(line: number, opts: { width?: number; fontSize?: number; cols?: [number, number] } = {}): Rect {
   const fs = opts.fontSize ?? 30;
   const m = codeMetrics(fs);
-  return { x: m.gutter, y: m.header + m.padY + (line - 1) * m.lineH, w: (opts.width ?? 1100) - m.gutter - m.padX, h: m.lineH };
+  const y = m.header + m.padY + (line - 1) * m.lineH;
+  if (opts.cols) {
+    const ch = codeCharWidth(fs);
+    return { x: m.gutter + opts.cols[0] * ch, y, w: Math.max(0, opts.cols[1] - opts.cols[0]) * ch, h: m.lineH };
+  }
+  return { x: m.gutter, y, w: (opts.width ?? 1100) - m.gutter - m.padX, h: m.lineH };
 }
 
 function tokenColor(s: ResolvedStyle, kind: TokenKind): string {
@@ -104,15 +113,10 @@ export function CodeBlock({ code, lang, beat, highlightLines = [], title, width 
   const focus = highlightLines.length > 0 ? ramp(frame, w.focus, w.focus + frames(s, 16), easingOf(s, "enter")) : 0;
   const hot = new Set(highlightLines);
 
-  // токены по строкам
-  const lines: { tok: CodeToken; idx: number }[][] = [[]];
-  tokens.forEach((tok, idx) => {
-    if (tok.text === "\n") lines.push([]);
-    else lines.at(-1)!.push({ tok, idx });
-  });
-  // строка каретки: столько переводов строки, сколько уже набрано
-  const caretLine = tokens.slice(0, count).filter((t) => t.text === "\n").length;
-  const lastTyped = count > 0 ? tokens[count - 1] : undefined;
+  // токены по строкам: многострочные (docstring, JSDoc, шаблонные строки) режутся на куски
+  // с тем же idx — номера строк, подсветка и каретка не съезжают
+  const lines = codeLines(tokens);
+  const caretLine = caretLineOf(tokens, count);
 
   const mono = fontFamily(s.typography.mono);
   const caret = (
@@ -176,9 +180,9 @@ export function CodeBlock({ code, lang, beat, highlightLines = [], title, width 
         ) : null,
       )}
 
-      <div style={{ position: "relative", padding: `${m.padY}px ${m.padX}px ${m.padY}px 0`, fontFamily: mono, fontSize, lineHeight: `${m.lineH}px`, letterSpacing: `${tracking(s, "mono")}em`, whiteSpace: "pre" }}>
+      <div style={{ position: "relative", padding: `${m.padY}px ${m.padX}px ${m.padY}px 0`, fontFamily: mono, fontSize, lineHeight: `${m.lineH}px`, letterSpacing: 0, whiteSpace: "pre" }}>
         {lines.map((line, li) => {
-          const started = line.some((t) => t.idx < count) || (li === caretLine && count > 0);
+          const started = line.some((t) => t.idx < count) || li <= caretLine;
           const dim = hot.size > 0 && !hot.has(li + 1) ? focus : 0;
           const numP = started ? 1 : 0;
           return (
@@ -187,18 +191,18 @@ export function CodeBlock({ code, lang, beat, highlightLines = [], title, width 
                 {li + 1}
               </span>
               <span>
-                {line.map(({ tok, idx }) => {
+                {line.map(({ text, kind, idx }, fi) => {
                   if (idx >= count) return null;
                   const a = age.get(idx);
                   const flash = a === undefined ? 0 : 1 - a / 4;
-                  const c = tokenColor(s, tok.kind);
+                  const c = tokenColor(s, kind);
                   return (
-                    <span key={idx} style={{ color: flash > 0 ? mix(c, "#ffffff", 0.45 * flash) : c, textShadow: flash > 0 && tok.kind !== "ws" ? `0 0 ${(12 * flash).toFixed(1)}px ${alpha(c, 0.8 * flash)}` : undefined }}>
-                      {tok.text}
+                    <span key={`${idx}-${fi}`} style={{ color: flash > 0 ? mix(c, "#ffffff", 0.45 * flash) : c, textShadow: flash > 0 && kind !== "ws" ? `0 0 ${(12 * flash).toFixed(1)}px ${alpha(c, 0.8 * flash)}` : undefined }}>
+                      {text}
                     </span>
                   );
                 })}
-                {li === caretLine && (count === 0 ? frame >= w.typeStart : lastTyped !== undefined) ? caret : null}
+                {li === caretLine && frame >= w.typeStart ? caret : null}
               </span>
             </div>
           );

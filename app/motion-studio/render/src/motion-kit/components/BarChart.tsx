@@ -9,9 +9,10 @@ import { EASE, easingOf, frames, springAt } from "../easing.js";
 import { clamp01, ramp, useSvgId } from "../internal.js";
 import { useStyle } from "../style.js";
 import { niceTicks } from "../ticks.js";
+import { typeSize } from "../style/type-scale.js";
 import { accent, alpha, fontFamily, isDark, mix } from "../tokens.js";
 import { AnimatedNumber } from "./AnimatedNumber.js";
-import { CHART_PAD, chartAxis } from "./LineChart.js";
+import { chartAxis, chartPad } from "./LineChart.js";
 
 export interface BarChartProps {
   bars: { label: string; value: number }[];
@@ -58,11 +59,13 @@ export function BarChart({
 }: BarChartProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height: frameH } = useVideoConfig();
   const id = useSvgId("ms-bar");
   const dark = isDark(s);
   const color = accent(s, accentIndex);
-  const pad = { ...CHART_PAD, top: CHART_PAD.top + 24 };
+  const base = chartPad(frameH);
+  // сверху — место под подпись-счётчик самого высокого столбца
+  const pad = { ...base, top: base.top + base.font };
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
   const values = bars.map((b) => b.value);
@@ -73,7 +76,8 @@ export function BarChart({
   const { startOf, focusAt } = barTimings(beat, bars.length, s.motion.stagger_frames);
   const focus = highlight === undefined ? 0 : ramp(frame, focusAt, focusAt + frames(s, 16), easingOf(s, "enter"));
   const neutral = dark ? mix(s.palette.surface, s.palette.text, 0.22) : mix(s.palette.bg, s.palette.text, 0.18);
-  const valuePx = Math.round(Math.max(22, Math.min(44, rects[0] ? rects[0].w * 0.32 : 30)));
+  // подпись-счётчик: от caption до h2 шкалы кадра, по ширине столбца
+  const valuePx = Math.round(Math.max(pad.font, Math.min(typeSize(s, "h2", frameH) * 0.8, rects[0] ? rects[0].w * 0.3 : pad.font)));
   const baseY = pad.top + innerH;
 
   return (
@@ -92,7 +96,7 @@ export function BarChart({
         </filter>
       </defs>
 
-      {chartAxis({ s, frame, beat, ticks, toY, innerW, locale, compact })}
+      {chartAxis({ s, frame, beat, ticks, toY, innerW, locale, compact, pad })}
 
       {rects.map((r, i) => {
         const t0 = startOf(i);
@@ -142,9 +146,9 @@ export function BarChart({
             </foreignObject>
             <text
               x={r.x + r.w / 2}
-              y={baseY + 36}
+              y={baseY + pad.font * 1.55}
               textAnchor="middle"
-              fontSize={21}
+              fontSize={pad.font}
               fontWeight={hot && glow > 0.5 ? 600 : 500}
               fill={hot ? mix(s.palette.muted, s.palette.text, glow) : s.palette.muted}
               opacity={lab * (1 - dim * 0.35)}
@@ -152,7 +156,7 @@ export function BarChart({
             >
               {bars[i]!.label}
             </text>
-            {glow > 0 ? <rect x={r.x + r.w / 2 - 18 * glow} y={baseY + 52} width={36 * glow} height={3} rx={1.5} fill={color} opacity={glow} /> : null}
+            {glow > 0 ? <rect x={r.x + r.w / 2 - 18 * glow} y={baseY + pad.font * 2} width={36 * glow} height={3} rx={1.5} fill={color} opacity={glow} /> : null}
           </g>
         );
       })}

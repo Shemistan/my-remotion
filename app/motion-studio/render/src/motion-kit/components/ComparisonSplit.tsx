@@ -35,11 +35,11 @@ export interface ComparisonSplitProps {
   style?: CSSProperties;
 }
 
-/** Окна внутри бита: панели 0–34 %, встреча и разделитель с 24 %, пункты 30–62 %, акцент с 72 %. */
+/** Окна внутри бита: панели 0–34 %, встреча и разделитель с 24 %, пункты 23–55 %, акцент с 72 %. */
 function windows(beat: Pick<Beat, "start_frame" | "end_frame">) {
   const b0 = beat.start_frame;
   const L = Math.max(1, beat.end_frame - b0);
-  return { b0, L, meet: b0 + L * 0.24, items: b0 + L * 0.3, itemsSpan: L * 0.32, focus: b0 + L * 0.72 };
+  return { b0, L, meet: b0 + L * 0.24, items: b0 + L * 0.23, itemsSpan: L * 0.32, focus: b0 + L * 0.72 };
 }
 
 function Glyph({ tone, p, color, size }: { tone: "negative" | "positive" | "neutral"; p: number; color: string; size: number }) {
@@ -187,7 +187,7 @@ export function ComparisonSplit({ left, right, beat, divider, emphasizeRight = t
                 fontVariantNumeric: "tabular-nums",
                 opacity: clamp01(valueP * 2),
                 transform: `scale(${Math.max(0, 0.6 + 0.4 * valueP).toFixed(4)})`,
-                transformOrigin: which === "left" ? "0% 100%" : "0% 100%",
+                transformOrigin: "0% 100%",
                 textShadow: hot > 0 ? `0 0 ${(40 * hot).toFixed(1)}px ${alpha(accent(s, 0), 0.5 * hot)}` : undefined,
               }}
             >

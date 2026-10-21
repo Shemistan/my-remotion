@@ -152,3 +152,32 @@ export function typedTokens<T extends CodeToken>(tokens: readonly T[], p: number
   }
   return out;
 }
+
+/** Кусок токена в пределах одной строки; `idx` — номер исходного токена. */
+export interface CodeFragment extends CodeToken {
+  idx: number;
+}
+
+/**
+ * Токены по строкам кода: многострочный токен (docstring, JSDoc, шаблонная строка, строка
+ * bash) режется на куски по `\n`, каждый кусок — в своей строке с тем же `idx`. Строк
+ * ровно столько, сколько в тексте; переводов строки внутри кусков нет. Пустые куски
+ * пробелов отброшены, пустые куски других токенов сохранены (строка принадлежит токену).
+ */
+export function codeLines(tokens: readonly CodeToken[]): CodeFragment[][] {
+  const lines: CodeFragment[][] = [[]];
+  tokens.forEach((t, idx) => {
+    t.text.split("\n").forEach((part, k) => {
+      if (k > 0) lines.push([]);
+      if (part !== "" || t.kind !== "ws") lines.at(-1)!.push({ text: part, kind: t.kind, idx });
+    });
+  });
+  return lines;
+}
+
+/** Строка каретки (с 0) после набора первых `count` токенов: число переводов строки в набранном. */
+export function caretLine(tokens: readonly CodeToken[], count: number): number {
+  let n = 0;
+  for (let i = 0; i < Math.min(count, tokens.length); i++) for (const ch of tokens[i]!.text) if (ch === "\n") n++;
+  return n;
+}

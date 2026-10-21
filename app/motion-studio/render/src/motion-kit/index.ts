@@ -26,7 +26,7 @@ export { EASE, type EasingFn, type EasingRole, type SpringRole, easingOf, fpsFra
 export { type FormatOptions, formatNumber } from "./format.js";
 export { niceTicks } from "./ticks.js";
 export { barLayout } from "./bars.js";
-export { type CodeLang, type CodeToken, type TokenKind, tokenizeCode, typedTokens } from "./code-tokens.js";
+export { type CodeFragment, type CodeLang, type CodeToken, type TokenKind, caretLine, codeLines, tokenizeCode, typedTokens } from "./code-tokens.js";
 export { timelineLayout } from "./timeline-layout.js";
 export {
   type CubicSegment,
@@ -67,7 +67,7 @@ export { AnimatedNumber, type AnimatedNumberProps } from "./components/AnimatedN
 export { AreaChart, type AreaChartProps } from "./components/AreaChart.js";
 export { BarChart, type BarChartProps, barTimings } from "./components/BarChart.js";
 export { Callout, type CalloutProps } from "./components/Callout.js";
-export { CodeBlock, type CodeBlockProps, codeLineRect } from "./components/CodeBlock.js";
+export { CodeBlock, type CodeBlockProps, codeCharWidth, codeLineRect } from "./components/CodeBlock.js";
 export { type ComparisonSide, ComparisonSplit, type ComparisonSplitProps } from "./components/ComparisonSplit.js";
 export { Highlight, type HighlightProps } from "./components/Highlight.js";
 export { Particles, type ParticlesProps } from "./components/Particles.js";
@@ -80,6 +80,6 @@ export { Enter, type EnterProps } from "./components/Enter.js";
 export { Parallax, type ParallaxProps } from "./components/Parallax.js";
 export { type FlowEdge, FlowGraph, type FlowGraphProps, type FlowNode, edgePath, useFlowGeometry } from "./components/FlowGraph.js";
 export { KineticText, type KineticEnter, type KineticTextProps } from "./components/KineticText.js";
-export { LineChart, type LineChartProps, lineChartHead } from "./components/LineChart.js";
+export { LineChart, type LineChartProps, chartFont, lineChartHead } from "./components/LineChart.js";
 export { PulseAlongPath, type PulseAlongPathProps } from "./components/PulseAlongPath.js";
 export { SafeArea, useSafeArea } from "./components/SafeArea.js";

@@ -16,6 +16,16 @@
         "id": "area",
         "start_frame": 24,
         "end_frame": 140
+      },
+      {
+        "id": "bars_caption",
+        "start_frame": 4,
+        "end_frame": 60
+      },
+      {
+        "id": "area_caption",
+        "start_frame": 18,
+        "end_frame": 70
       }
     ]
   },

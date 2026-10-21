@@ -91,7 +91,10 @@ transparent?, palette_overrides?, safe_area?, font? }`), id пресета, Styl
 ```
 `{ kind, beat, index? = 0, total? = 1, direction?, distance?, duration?, exit?, style? }`.
 Шторка `mask` после открытия снимает клип: выносные элементы (подчёркивание, свечение)
-не срезаются.
+не срезаются. Но с `exit` в первом кадре выхода клип возвращается рывком (`inset(0…)` по
+границе блока): всё, что выступает за блок, пропадает сразу, а не уходит со шторкой. Блоку
+с подчёркиванием, выноской или свечением давай выход другим видом (`fade`, `blur`, `rise`)
+или держи выступающее внутри блока (padding).
 Старт элемента `index` сдвигается на `stagger_frames` (`staggerBeat`), вход длится
 `enter_frames` по кривой `easing.enter`; `mask` — 1.5 × `enter_frames` по S-кривой (шторка
 крупной формы читается, а не мелькает); `pop` — пружина `spring.pop` с перелётом.
@@ -158,19 +161,23 @@ const pos = layoutLayered(NODES, EDGES, { x: 0, y: 0, w: rect.w, h: rect.h }, { 
 
 ## Паттерны (ТЗ §8.4) → примитивы
 
-| Паттерн | Чем показывать |
-|---|---|
-| рост / падение | `LineChart` (линия рисуется), `AreaChart` (объём наливается), `AnimatedNumber` |
-| сравнение | `ComparisonSplit` (было / стало, A / B), `BarChart` с `highlight` |
-| количества | `BarChart`, `AnimatedNumber`, `Particles` (много мелкого) |
-| причина → следствие, шаги | `ProcessSteps` (стрелки), `FlowGraph` + `PulseAlongPath` |
-| структура системы, связи | `FlowGraph` + `layoutLayered`, `PulseAlongPath` |
-| хронология | `Timeline` |
-| трансформация | `ComparisonSplit` (до / после), `Enter` с выходом и сменой блоков |
-| пространство | `Camera`, `Parallax`, `Particles` по слоям |
-| абстрактные понятия | `Particles`, `Background`, `KineticText` |
-| акцент, главная мысль | `Highlight` (marker / underline / glow), `Callout`, `KineticText highlight` |
-| код | `CodeBlock` + `Callout` на строку (`codeLineRect`) |
+| Паттерн | slug (`PatternSlugSchema`) | Чем показывать |
+|---|---|---|
+| рост / падение | `growth-decline` | `LineChart` (линия рисуется), `AreaChart` (объём наливается), `AnimatedNumber` |
+| сравнение | `comparison` | `ComparisonSplit` (было / стало, A / B), `BarChart` с `highlight` |
+| причина → следствие | `cause-effect` | `ProcessSteps` (стрелки), `FlowGraph` + `PulseAlongPath` |
+| шаги, последовательность | `sequence-steps` | `ProcessSteps`, `Enter` каскадом (`index`/`total`) |
+| структура системы | `system-structure` | `FlowGraph` + `layoutLayered` |
+| связи | `relationships` | `FlowGraph` + `PulseAlongPath` (поток по рёбрам) |
+| хронология | `timeline` | `Timeline` |
+| трансформация | `transformation` | `ComparisonSplit` (до / после), `Enter` с выходом и сменой блоков |
+| количества | `quantities` | `BarChart`, `AnimatedNumber`, `Particles` (много мелкого) |
+| пространство | `spatial` | `Camera`, `Parallax`, `Particles` по слоям |
+| абстрактные понятия | `abstract-concepts` | `Particles`, `Background`, `KineticText` |
+| акцент, главная мысль | `key-point-emphasis` | `Highlight` (marker / underline / glow), `Callout`, `KineticText highlight` |
+
+Код (`CodeBlock` + `Callout` на строку) — приём для `sequence-steps` и `system-structure`
+в технических сценах.
 
 Один паттерн — одна мысль сцены. Примитивы различаются движением (шторка, волна, пружина,
 прорисовка, набор), поэтому два соседних примитива уже входят по-разному; правило соседей
@@ -245,7 +252,7 @@ valuePrefix?, valueSuffix? }`
 значение уже показывает герой-число). Подписи осей форматирует `formatNumber`. Точки
 передавай по порядку оси X.
 
-`lineChartHead(points, beat, frame, { width?, height?, yTicks? })` → `{ progress, value,
+`lineChartHead(points, beat, frame, { width?, height?, yTicks?, frameHeight? })` → `{ progress, value,
 endFrame }` — голова линии в кадре (не хук). Счётчик, привязанный к линии, показывает
 ровно значение под головой:
 ```tsx
@@ -260,15 +267,20 @@ const head = lineChartHead(POINTS, CHART_BEAT, frame, { width: 900, height: 560 
 
 Ось Y у `LineChart`, `AreaChart`, `BarChart` общая: деления `niceTicks` считаются один раз
 от всех данных, линии сетки прочерчиваются одновременно, подписи проявляются все вместе
-(первые 30 % бита). Шкала не перестраивается, пока рисуется линия.
+(первые 30 % бита). Шкала не перестраивается, пока рисуется линия. Текст графиков — из
+шкалы кадра: подписи осей — `caption` (`chartFont(height)`, 32 px при 1080), выноска
+значения — `body`; поля под подписи растут вместе с кеглем. Ширину графика закладывай от
+700 px, иначе подписи X теснятся. `lineChartHead(…, { frameHeight })` — та же высота кадра,
+что у сцены (по умолчанию 1080).
 
 ### AreaChart
 `{ points: { label, value }[], beat, highlightLast? = true, width? = 1100, height? = 560,
 locale? = "ru", compact? = true, accentIndex? = 0, yTicks? = 4, valuePrefix?, valueSuffix? }`
 
 Расширение `LineChart` (та же ось и выноска), но движение другое — объём «наливается»:
-точки поднимаются от нуля волной слева направо на мягкой пружине (старты 14–50 % бита),
-заливка открывается маской с растушёванным фронтом, по фронту идёт блик. Для роста
+заливка поднимается от нуля волной слева направо на мягкой пружине (старты 14–50 % бита),
+у фронта — растушёвка и блик. Линия идёт по итоговой кривой и обрезана по фронту волны:
+склон волны она не повторяет, ложного провала нет. Для роста
 накопленной величины (аудитория, выручка нарастающим итогом); для тренда без объёма —
 `LineChart`.
 ```tsx
@@ -310,46 +322,63 @@ value?, tone?: "negative" | "positive" | "neutral" }`
 ```
 
 ### Timeline
-`{ items: { label, date }[], beat, orientation: "h" | "v", width?, height?, accentIndex? = 0,
-highlightLast? = true }` (по умолчанию h: 1500 × 520, v: 760 × 820)
+`{ items: { label, date, note? }[], beat, orientation: "h" | "v", width?, height?,
+accentIndex? = 0, highlightLast? = true }` (по умолчанию h: 1690 × 620, v: 1100 × 760)
 
 Тусклая дорожка проявляется, ось прогресса прорисовывается со светящейся головой
 (10–80 % бита). Когда голова доходит до вехи, узел выскакивает с волной, прорастает
 стебель, дата (моно, акцент) и подпись выезжают от оси. По горизонтали подписи чередуются
 над и под осью, подписи крайних вех выровнены внутрь области (не выходят за её край).
-Последняя веха — «сейчас»: крупнее, с ореолом и мягким дыханием. 3–6 вех; подпись — до
-трёх слов. `timelineLayout(n, rect, orientation)` — те же позиции вех для своих слоёв.
+Даты — крупные (`h2`, моно), подпись — `body`, `note` — короткое пояснение (`caption`,
+приглушено). Ось толстая (~7 px при 1080). Последняя веха — «сейчас»: залитый узел в 1.5
+раза крупнее с дышащим ореолом, дата акцентом, подпись в акцентной плашке; акцент в
+таймлайне только у неё. 3–6 вех; подпись — до трёх слов. Таймлайн с пояснениями занимает
+около половины высоты кадра — отдай ему всё место под заголовком. `timelineLayout(n, rect, orientation)` — те же позиции вех для своих слоёв.
 ```tsx
-<Timeline items={[{ date: "2019", label: "Прототип" }, /* … */]} beat={b.timeline} orientation="h" width={1690} height={560} />
+<Timeline items={[{ date: "2019", label: "Прототип", note: "два основателя" }, /* … */]} beat={b.timeline} orientation="h" />
 ```
 
 ### ProcessSteps
-`{ steps: string[], beat, connector: "arrow" | "line", width? = 1500, height? = 420,
-accentIndex? = 0 }`
+`{ steps: string[], notes?: string[], beat, connector: "arrow" | "line", width? = 1690,
+height? = 600, accentIndex? = 0 }`
 
 Шаги активируются по очереди (делят 6–82 % бита, `stepStarts(beat, n)`): номер
 выскакивает, кольцо обегает его по кругу, вокруг активного — свечение, подпись поднимается
-из маски. Пройденный шаг остаётся с контуром и номером акцентом. Коннектор к следующему
-шагу прорисовывается за время шага: `arrow` — линия со стрелкой, `line` — пунктир и
-бегущая точка. 3–5 шагов, подпись — 1–3 слова.
+из маски в карточке шага под номером (`notes[i]` — пояснение под подписью, `caption`).
+У активной карточки — акцентная кромка и подсветка. Пройденный шаг остаётся с контуром и
+номером акцентом. Коннектор к следующему шагу прорисовывается за время шага: `arrow` —
+линия со стрелкой, `line` — пунктир и бегущая точка. 3–5 шагов, подпись — 1–3 слова;
+номера ~150 px, подписи ~`h2`: блок занимает около половины высоты кадра.
 ```tsx
 <ProcessSteps steps={["Понять запрос", "Собрать раскадровку", "Написать код", "Проверить кадры"]}
-  beat={b.steps} connector="arrow" width={1690} />
+  notes={["что и для кого", "биты и входы", "Remotion и kit", "QA по пикселям"]} beat={b.steps} connector="arrow" />
 ```
 
 ### Callout
 `{ target: Rect, label, beat, side?: "left" | "right" | "auto", bounds?: Rect, shape?:
-"ring" | "box" | "auto", reach? = 90, accentIndex? = 0 }`
+"ring" | "box" | "auto", exit?: "diagonal" | "horizontal", reach? = 90, size? = "body",
+note?, accentIndex? = 0 }`
 
 Слой поверх родителя (`position: absolute; inset: 0`), координаты `target` — px родителя.
 Кольцо (`ring`, эллипс) или рамка (`box`, для вытянутых целей) прорисовывается по контуру
 со вспышкой внутри (0–34 % бита), линия-указатель с изломом прорастает (26–52 %), подпись
 открывается из маски от конца линии (с 46 %); затем кольцо мягко дышит. `auto` выбирает
-сторону, где больше места в `bounds` (по умолчанию кадр). `reach` — длина горизонтальной
-части линии: выведи подпись туда, где она ничего не закрывает.
+сторону, где больше места в `bounds` (по умолчанию кадр). `size` — кегль подписи (уровень
+шкалы или px): подпись — это мысль кадра, она не мельче окружающего текста (`body`, для
+главной мысли — `h2`); `note` — пояснение под ней.
+
+Как увести подпись из плотного текста (код, абзац):
+- `exit: "diagonal"` (по умолчанию) — излом вверх или вниз на ~50 px, затем горизонталь
+  `reach`: линия уходит со строки цели в зазор между строками и дальше вбок;
+- `exit: "horizontal"` — прямо вбок от середины стороны цели, без излома: только когда
+  на высоте цели в сторону подписи пусто (цель в конце строки, справа поля);
+- цель внутри плотной строки — бери `shape: "box"` на всю строку: линия стартует с края
+  строки и не пересекает текст;
+- `reach` подбирай так, чтобы подпись встала за край текстового блока (в свободную колонку),
+  а не на текст.
 ```tsx
-<Callout target={{ x: 70, y: 260, w: 930, h: 49 }} label="До трёх попыток" beat={b.callout}
-  side="right" shape="box" reach={150} />
+<Callout target={{ x: 70, y: 280, w: 930, h: 49 }} label="До трёх попыток" note="затем — понятная ошибка"
+  size="h2" beat={b.callout} side="right" shape="box" reach={60} />
 ```
 
 ### Highlight
@@ -380,8 +409,16 @@ width? = 1100, fontSize? = 30, style? }`
 токеном строки. С 74 % строки `highlightLines` (с 1) получают полосу-подсветку, остальные
 приглушаются. Шрифт — `typography.mono` стиля, подсветка — акценты палитры (ключевые слова
 `accent[0]`, строки `accent[1]`, числа `accent[2]`, комментарии приглушены). До 12 строк
-по ~60 знаков при 30 px. `codeLineRect(line, { width, fontSize })` — прямоугольник строки
-от левого верхнего угла блока: цель для `Callout`.
+по ~60 знаков при 30 px. Многострочные токены (docstring, JSDoc, шаблонные строки) набираются целиком, но
+раскладываются по своим строкам (`codeLines`): номера строк, подсветка и каретка не
+съезжают. Знаки моноширинные без трекинга: `codeCharWidth(fontSize)` = 0.6 кегля.
+`codeLineRect(line, { width, fontSize, cols? })` — прямоугольник строки (или знаков
+`cols: [from, to)`) от левого верхнего угла блока: цель для `Callout`.
+
+Компоновка кадра с кодом: блок кода — левые ~60 % safe area, правая колонка — под мысль:
+`Callout` на ключевую строку с `size="h2"` и `note`, подпись встаёт в правую колонку
+(`reach`). Пустая правая половина кадра — брак композиции; самый мелкий текст кадра — не
+главная мысль.
 ```tsx
 <div style={{ position: "absolute", left: 0, top: 190 }}>
   <CodeBlock code={CODE} lang="ts" beat={b.code} highlightLines={[3, 4]} title="pipeline.ts" width={1120} />
@@ -471,7 +508,9 @@ reverse? }`
 | `timelineLayout(n, rect, "h" \| "v")` | позиции вех: от края до края rect по середине |
 | `tokenizeCode(src, lang)` | токены `{ text, kind: kw/str/num/com/id/punct/ws }`; склейка = исходный текст |
 | `typedTokens(tokens, p)` | набранная к доле p часть кода целыми токенами (пробелы — вместе со следующим) |
-| `codeLineRect(line, { width?, fontSize? })` | прямоугольник строки CodeBlock — цель для `Callout` |
+| `codeLineRect(line, { width?, fontSize?, cols? })`, `codeCharWidth(fontSize)` | прямоугольник строки (или знаков) CodeBlock — цель для `Callout` |
+| `codeLines(tokens)`, `caretLine(tokens, count)` | токены по строкам (многострочные режутся по `\n` с тем же idx); строка каретки после набора count токенов |
+| `chartFont(height)` | кегль подписей осей графиков (caption шкалы кадра) |
 | `barTimings(beat, n, stagger)`, `stepStarts(beat, n)` | кадры роста столбцов и активации шагов — для своих привязанных слоёв |
 
 ## Правила качества движения

@@ -22,8 +22,9 @@ export const Scene = ({ timing, style, content }: Props) => {
             steps={["Понять запрос", "Собрать раскадровку", "Написать код сцены", "Проверить кадры"]}
             beat={b.steps!}
             connector={content?.connector ?? "arrow"}
+            notes={["что и для кого", "биты и входы", "Remotion и kit", "QA по пикселям"]}
             width={1690}
-            height={420}
+            height={600}
           />
         </div>
       </SafeArea>
