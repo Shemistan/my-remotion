@@ -1,23 +1,55 @@
 {
   "summary": {
     "run": "baseline-f66a2cc",
-    "commit": "8b9dbdb",
+    "report_commit": "900a1b1",
     "judge_model": "opus",
     "judge_runs": 3,
     "scenes": 12,
     "judged": 12,
+    "judge": {
+      "rubric_sha256": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+      "anchors_sha256": "f1df6bc74e3457c6f29b281652a41fa7de8b77e7860c88d07cb39dd4785137c7"
+    },
+    "judge_commits": [
+      "8b9dbdb"
+    ],
+    "gen_commits": [
+      "f66a2cc"
+    ],
+    "motion_kit_versions": [
+      "0.3.1"
+    ],
+    "prompts_sha256": {
+      "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+      "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+      "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+      "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+      "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+      "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+      "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+    },
+    "prompts_mixed": false,
     "mean": 6,
     "mean_tuned": 5.857142857142857,
     "mean_held_out": 6.2,
     "max_spread": 1,
-    "gen_cost_usd": 22.7097049,
-    "judge_cost_usd": 6.450655199999999
+    "spread_over_target": [
+      "test1",
+      "test2",
+      "gen-compare",
+      "eval-cdn"
+    ],
+    "gen_cost_usd": 24.075832,
+    "gen_cost_failed_attempts_usd": 1.3661271,
+    "judge_cost_usd": 6.450655199999999,
+    "judge_failed_calls": 0
   },
   "rows": [
     {
       "id": "test1",
       "scene": "test1",
       "held_out": false,
+      "split": null,
       "ref": null,
       "judge": {
         "overall": 5.5,
@@ -40,6 +72,7 @@
         "mean": 5.666666666666667
       },
       "judge_cost_usd": 0.5653121999999999,
+      "judge_failed_calls": 0,
       "gen": {
         "status": "ready",
         "job_status": "completed",
@@ -49,8 +82,22 @@
         "engineer_calls": 1,
         "duration_frames": 180,
         "fps": 30,
-        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24PWM12A7D4MH8XP1Q06/versions/ver_01M5FSNNZK9SCCKQC0YFFRAPPG"
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24PWM12A7D4MH8XP1Q06/versions/ver_01M5FSNNZK9SCCKQC0YFFRAPPG",
+        "commit": "f66a2cc",
+        "motion_kit_version": "0.3.1",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+          "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+        "motion_kit_sha256": "sha256:1fc64dd34263e6be"
       },
+      "gen_cost_total_usd": 1.3890563,
       "frames": {
         "frame0Content": 0,
         "frame4Content": 0.015223765432098765,
@@ -67,6 +114,7 @@
       "id": "test2",
       "scene": "test2",
       "held_out": false,
+      "split": null,
       "ref": null,
       "judge": {
         "overall": 6,
@@ -89,6 +137,7 @@
         "mean": 5.833333333333333
       },
       "judge_cost_usd": 0.6144852000000001,
+      "judge_failed_calls": 0,
       "gen": {
         "status": "ready",
         "job_status": "completed",
@@ -98,8 +147,22 @@
         "engineer_calls": 2,
         "duration_frames": 180,
         "fps": 30,
-        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24Q7C613J3HSRNR089N3/versions/ver_01M5FSZXQNSE1E92B04JJ0AGG3"
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24Q7C613J3HSRNR089N3/versions/ver_01M5FSZXQNSE1E92B04JJ0AGG3",
+        "commit": "f66a2cc",
+        "motion_kit_version": "0.3.1",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+          "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+        "motion_kit_sha256": "sha256:1fc64dd34263e6be"
       },
+      "gen_cost_total_usd": 2.8854192,
       "frames": {
         "frame0Content": 0.0022685185185185187,
         "frame4Content": 0.007160493827160494,
@@ -116,6 +179,7 @@
       "id": "gen-compare",
       "scene": "gen-compare",
       "held_out": false,
+      "split": null,
       "ref": null,
       "judge": {
         "overall": 6,
@@ -138,6 +202,7 @@
         "mean": 6
       },
       "judge_cost_usd": 0.6165244,
+      "judge_failed_calls": 0,
       "gen": {
         "status": "ready",
         "job_status": "completed",
@@ -147,8 +212,22 @@
         "engineer_calls": 2,
         "duration_frames": 180,
         "fps": 30,
-        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24QFTPC4XYYKJKATZ24D/versions/ver_01M5FT7JZM7J7ZF2P3KKXBT03K"
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24QFTPC4XYYKJKATZ24D/versions/ver_01M5FT7JZM7J7ZF2P3KKXBT03K",
+        "commit": "f66a2cc",
+        "motion_kit_version": "0.3.1",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+          "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+        "motion_kit_sha256": "sha256:1fc64dd34263e6be"
       },
+      "gen_cost_total_usd": 1.3556434000000002,
       "frames": {
         "frame0Content": 0.000038580246913580246,
         "frame4Content": 0.01726851851851852,
@@ -165,6 +244,7 @@
       "id": "gen-timeline",
       "scene": "gen-timeline",
       "held_out": false,
+      "split": null,
       "ref": null,
       "judge": {
         "overall": 6,
@@ -187,6 +267,7 @@
         "mean": 6
       },
       "judge_cost_usd": 0.5094312,
+      "judge_failed_calls": 0,
       "gen": {
         "status": "ready",
         "job_status": "completed",
@@ -196,8 +277,22 @@
         "engineer_calls": 1,
         "duration_frames": 180,
         "fps": 30,
-        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24QRAVPGD3P26J1566RS/versions/ver_01M5FT11S8N8DXFMGE5HKA33VZ"
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24QRAVPGD3P26J1566RS/versions/ver_01M5FT11S8N8DXFMGE5HKA33VZ",
+        "commit": "f66a2cc",
+        "motion_kit_version": "0.3.1",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+          "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+        "motion_kit_sha256": "sha256:1fc64dd34263e6be"
       },
+      "gen_cost_total_usd": 0.9908846,
       "frames": {
         "frame0Content": 0.0000154320987654321,
         "frame4Content": 0.002484567901234568,
@@ -214,6 +309,7 @@
       "id": "gen-cache",
       "scene": "gen-cache",
       "held_out": false,
+      "split": null,
       "ref": null,
       "judge": {
         "overall": 6,
@@ -236,6 +332,7 @@
         "mean": 6
       },
       "judge_cost_usd": 0.4474474,
+      "judge_failed_calls": 0,
       "gen": {
         "status": "ready",
         "job_status": "completed",
@@ -245,8 +342,22 @@
         "engineer_calls": 1,
         "duration_frames": 180,
         "fps": 30,
-        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24QZ6Y7M43N6XAF33YW2/versions/ver_01M5FTEED28DHC43DRQATWHR7P"
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24QZ6Y7M43N6XAF33YW2/versions/ver_01M5FTEED28DHC43DRQATWHR7P",
+        "commit": "f66a2cc",
+        "motion_kit_version": "0.3.1",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+          "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+        "motion_kit_sha256": "sha256:1fc64dd34263e6be"
       },
+      "gen_cost_total_usd": 1.7821463,
       "frames": {
         "frame0Content": 0.00246141975308642,
         "frame4Content": 0.010949074074074076,
@@ -263,6 +374,7 @@
       "id": "held-mobile",
       "scene": "held-mobile",
       "held_out": false,
+      "split": null,
       "ref": null,
       "judge": {
         "overall": 6,
@@ -285,6 +397,7 @@
         "mean": 6
       },
       "judge_cost_usd": 0.4659524,
+      "judge_failed_calls": 0,
       "gen": {
         "status": "ready",
         "job_status": "completed",
@@ -294,8 +407,22 @@
         "engineer_calls": 1,
         "duration_frames": 180,
         "fps": 30,
-        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24R67KY0F5V6HA4X4XBD/versions/ver_01M5FTD5MJP5YR2RFQSFY4KYVR"
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24R67KY0F5V6HA4X4XBD/versions/ver_01M5FTD5MJP5YR2RFQSFY4KYVR",
+        "commit": "f66a2cc",
+        "motion_kit_version": "0.3.1",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+          "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+        "motion_kit_sha256": "sha256:1fc64dd34263e6be"
       },
+      "gen_cost_total_usd": 1.1734941,
       "frames": {
         "frame0Content": 0,
         "frame4Content": 0.013148148148148148,
@@ -312,6 +439,7 @@
       "id": "held-queue",
       "scene": "held-queue",
       "held_out": false,
+      "split": null,
       "ref": null,
       "judge": {
         "overall": 5.5,
@@ -334,6 +462,7 @@
         "mean": 5.5
       },
       "judge_cost_usd": 0.5269352,
+      "judge_failed_calls": 0,
       "gen": {
         "status": "failed",
         "job_status": "failed",
@@ -347,8 +476,51 @@
         "engineer_calls": 3,
         "duration_frames": 180,
         "fps": 30,
-        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FW2D8J1FRXBVPQGMQJA3XS/versions/ver_01M5FX1BD4H2D8HC39WXPDNGVA"
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FW2D8J1FRXBVPQGMQJA3XS/versions/ver_01M5FX1BD4H2D8HC39WXPDNGVA",
+        "commit": "f66a2cc",
+        "motion_kit_version": "0.3.1",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+          "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+        "motion_kit_sha256": "sha256:1fc64dd34263e6be",
+        "prior_attempts": [
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "director",
+              "message": "spec не прошла проверку после исправления:\n- overlap (graph, conclusion): layout graph и conclusion пересекаются на 1.3 % кадра → разведи layout graph и conclusion (доли safe area) по сетке или вложи одно в другое явно; один слой — без наложений"
+            },
+            "cost_usd": 1.3661271,
+            "wall_ms": 1763717,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "f66a2cc",
+            "motion_kit_version": "0.3.1",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+              "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+            "motion_kit_sha256": null
+          }
+        ]
       },
+      "gen_cost_total_usd": 4.9028083,
       "frames": {
         "frame0Content": 0.00253858024691358,
         "frame4Content": 0.01814043209876543,
@@ -365,6 +537,7 @@
       "id": "eval-funnel",
       "scene": "eval-funnel",
       "held_out": true,
+      "split": null,
       "ref": null,
       "judge": {
         "overall": 6,
@@ -387,6 +560,7 @@
         "mean": 6
       },
       "judge_cost_usd": 0.5660118,
+      "judge_failed_calls": 0,
       "gen": {
         "status": "ready",
         "job_status": "completed",
@@ -396,8 +570,22 @@
         "engineer_calls": 1,
         "duration_frames": 180,
         "fps": 30,
-        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24RMGSSA18PH5ABT88YR/versions/ver_01M5FTZNK9X5VB37DAQTVDKGW9"
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24RMGSSA18PH5ABT88YR/versions/ver_01M5FTZNK9X5VB37DAQTVDKGW9",
+        "commit": "f66a2cc",
+        "motion_kit_version": "0.3.1",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+          "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+        "motion_kit_sha256": "sha256:1fc64dd34263e6be"
       },
+      "gen_cost_total_usd": 1.7675264999999998,
       "frames": {
         "frame0Content": 0,
         "frame4Content": 0.009799382716049382,
@@ -414,6 +602,7 @@
       "id": "eval-oauth",
       "scene": "eval-oauth",
       "held_out": true,
+      "split": null,
       "ref": null,
       "judge": {
         "overall": 6,
@@ -436,6 +625,7 @@
         "mean": 6
       },
       "judge_cost_usd": 0.5818909999999999,
+      "judge_failed_calls": 0,
       "gen": {
         "status": "failed",
         "job_status": "failed",
@@ -449,8 +639,22 @@
         "engineer_calls": 3,
         "duration_frames": 180,
         "fps": 30,
-        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24RWZSYC6BCP31K48BWW/versions/ver_01M5FW1NSV0T6QRAGX930AQAQA"
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24RWZSYC6BCP31K48BWW/versions/ver_01M5FW1NSV0T6QRAGX930AQAQA",
+        "commit": "f66a2cc",
+        "motion_kit_version": "0.3.1",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+          "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+        "motion_kit_sha256": "sha256:1fc64dd34263e6be"
       },
+      "gen_cost_total_usd": 2.7677481,
       "frames": {
         "frame0Content": 0.0022685185185185182,
         "frame4Content": 0.016165123456790123,
@@ -467,6 +671,7 @@
       "id": "eval-cdn",
       "scene": "eval-cdn",
       "held_out": true,
+      "split": null,
       "ref": null,
       "judge": {
         "overall": 6.5,
@@ -489,6 +694,7 @@
         "mean": 6.333333333333333
       },
       "judge_cost_usd": 0.5334648,
+      "judge_failed_calls": 0,
       "gen": {
         "status": "ready",
         "job_status": "completed",
@@ -498,8 +704,22 @@
         "engineer_calls": 1,
         "duration_frames": 180,
         "fps": 30,
-        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24S39MKFEDRZPS8K3HAY/versions/ver_01M5FV5ZAFPWX813ZZ0RGFCYM8"
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24S39MKFEDRZPS8K3HAY/versions/ver_01M5FV5ZAFPWX813ZZ0RGFCYM8",
+        "commit": "f66a2cc",
+        "motion_kit_version": "0.3.1",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+          "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+        "motion_kit_sha256": "sha256:1fc64dd34263e6be"
       },
+      "gen_cost_total_usd": 1.1615856,
       "frames": {
         "frame0Content": 0.052160493827160495,
         "frame4Content": 0.06979166666666667,
@@ -516,6 +736,7 @@
       "id": "eval-budget",
       "scene": "eval-budget",
       "held_out": true,
+      "split": null,
       "ref": null,
       "judge": {
         "overall": 6.5,
@@ -538,6 +759,7 @@
         "mean": 6.5
       },
       "judge_cost_usd": 0.525015,
+      "judge_failed_calls": 0,
       "gen": {
         "status": "ready",
         "job_status": "completed",
@@ -547,8 +769,22 @@
         "engineer_calls": 1,
         "duration_frames": 180,
         "fps": 30,
-        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24SAEYVD6ZMPHQF2Y17J/versions/ver_01M5FVDC6V12HYPZJBT2GZAQ1W"
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24SAEYVD6ZMPHQF2Y17J/versions/ver_01M5FVDC6V12HYPZJBT2GZAQ1W",
+        "commit": "f66a2cc",
+        "motion_kit_version": "0.3.1",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+          "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+        "motion_kit_sha256": "sha256:1fc64dd34263e6be"
       },
+      "gen_cost_total_usd": 1.5207461,
       "frames": {
         "frame0Content": 0,
         "frame4Content": 0.000941358024691358,
@@ -565,6 +801,7 @@
       "id": "eval-abtest",
       "scene": "eval-abtest",
       "held_out": true,
+      "split": null,
       "ref": null,
       "judge": {
         "overall": 6,
@@ -587,6 +824,7 @@
         "mean": 6
       },
       "judge_cost_usd": 0.49818460000000003,
+      "judge_failed_calls": 0,
       "gen": {
         "status": "ready",
         "job_status": "completed",
@@ -596,8 +834,22 @@
         "engineer_calls": 2,
         "duration_frames": 180,
         "fps": 30,
-        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24SJG5YWP4RD1VY6VPDP/versions/ver_01M5FVWMGKPY6S8S0PHPBMX9PG"
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24SJG5YWP4RD1VY6VPDP/versions/ver_01M5FVWMGKPY6S8S0PHPBMX9PG",
+        "commit": "f66a2cc",
+        "motion_kit_version": "0.3.1",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+          "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+        "motion_kit_sha256": "sha256:1fc64dd34263e6be"
       },
+      "gen_cost_total_usd": 2.3787735000000003,
       "frames": {
         "frame0Content": 0,
         "frame4Content": 0.008973765432098765,

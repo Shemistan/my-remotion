@@ -1,0 +1,125 @@
+{
+  "run": "baseline-f66a2cc",
+  "mode": "eval",
+  "judge_model": "opus",
+  "judge_runs": 3,
+  "items": [
+    {
+      "id": "test1",
+      "scene": "test1",
+      "prompt": "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении",
+      "ref": null,
+      "held_out": false
+    },
+    {
+      "id": "test2",
+      "scene": "test2",
+      "prompt": "Покажи архитектуру AI-агента: пользователь отправляет запрос, оркестратор вызывает три инструмента, данные возвращаются обратно. Световые импульсы движутся по связям",
+      "ref": null,
+      "held_out": false
+    },
+    {
+      "id": "gen-compare",
+      "scene": "gen-compare",
+      "prompt": "Сравни монолит и микросервисы по скорости релизов",
+      "ref": null,
+      "held_out": false
+    },
+    {
+      "id": "gen-timeline",
+      "scene": "gen-timeline",
+      "prompt": "Таймлайн развития компании 2015–2025 с пятью вехами",
+      "ref": null,
+      "held_out": false
+    },
+    {
+      "id": "gen-cache",
+      "scene": "gen-cache",
+      "prompt": "Объясни, как работает кэширование: запрос, промах, запись, попадание",
+      "ref": null,
+      "held_out": false
+    },
+    {
+      "id": "held-mobile",
+      "scene": "held-mobile",
+      "prompt": "Покажи, как растёт доля мобильного трафика: 2019 — 35%, 2024 — 68%",
+      "ref": null,
+      "held_out": false
+    },
+    {
+      "id": "held-queue",
+      "scene": "held-queue",
+      "prompt": "Объясни, как работает очередь сообщений между сервисом заказов и складом",
+      "ref": null,
+      "held_out": false
+    },
+    {
+      "id": "eval-funnel",
+      "scene": "eval-funnel",
+      "prompt": "Покажи воронку интернет-магазина: из 100 посетителей до покупки доходят только 3",
+      "ref": null,
+      "held_out": true
+    },
+    {
+      "id": "eval-oauth",
+      "scene": "eval-oauth",
+      "prompt": "Объясни вход через OAuth: пользователь, приложение, сервер авторизации и токен доступа",
+      "ref": null,
+      "held_out": true
+    },
+    {
+      "id": "eval-cdn",
+      "scene": "eval-cdn",
+      "prompt": "Сравни задержку загрузки для пользователя из Москвы: сервер во Франкфурте — 180 мс, CDN-узел в Москве — 15 мс",
+      "ref": null,
+      "held_out": true
+    },
+    {
+      "id": "eval-budget",
+      "scene": "eval-budget",
+      "prompt": "Как распределяется месячный бюджет семьи: жильё 35%, еда 25%, транспорт 15%, развлечения 10%, накопления 15%",
+      "ref": null,
+      "held_out": true
+    },
+    {
+      "id": "eval-abtest",
+      "scene": "eval-abtest",
+      "prompt": "Итог A/B-теста новой кнопки оформления заказа: конверсия выросла с 5,0% до 5,6% — плюс 12%",
+      "ref": null,
+      "held_out": true
+    }
+  ],
+  "created_commit": "f66a2cc",
+  "invocations": [
+    {
+      "commit": "f66a2cc",
+      "note": "генерация 12 сцен (held-queue — со второй попытки)"
+    },
+    {
+      "commit": "8b9dbdb",
+      "at": "2026-10-21T18:57:19.617Z",
+      "note": "судья v4, --judge-only; прежний run.json был перезаписан этим запуском (commit 8b9dbdb)"
+    },
+    {
+      "at": "2026-10-21T19:14:18.725Z",
+      "commit": "1c6203e-dirty",
+      "argv": [
+        "--run",
+        "baseline-f66a2cc",
+        "--judge-only",
+        "--write-evidence"
+      ]
+    },
+    {
+      "at": "2026-10-21T19:17:13.747Z",
+      "commit": "900a1b1",
+      "argv": [
+        "--run",
+        "baseline-f66a2cc",
+        "--judge-only",
+        "--write-evidence"
+      ]
+    }
+  ],
+  "provenance_note": "S1-fix: run.json восстановлен задним числом"
+}
