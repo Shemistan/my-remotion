@@ -12,8 +12,13 @@ const BEAT = { start_frame: 20, end_frame: 120 };
 
 describe("lineChartHead", () => {
   it("до прорисовки — первая точка, после — последняя; endFrame — конец окна 80 %", () => {
-    expect(lineChartHead(POINTS, BEAT, 0)).toEqual({ progress: 0, value: 10_000, endFrame: 100 });
+    expect(lineChartHead(POINTS, BEAT, 0)).toEqual({ progress: 0, value: 10_000, startFrame: 32, endFrame: 100 });
     expect(lineChartHead(POINTS, BEAT, 110)).toMatchObject({ progress: 1, value: 1_000_000 });
+  });
+  it("startFrame — последний кадр, где голова ещё на первой точке: число до него держит «от»", () => {
+    const { startFrame } = lineChartHead(POINTS, BEAT, 0);
+    expect(lineChartHead(POINTS, BEAT, startFrame).value).toBe(10_000);
+    expect(lineChartHead(POINTS, BEAT, startFrame + 2).value).toBeGreaterThan(10_000);
   });
   it("значение под головой растёт монотонно и остаётся в диапазоне", () => {
     let prev = -Infinity;

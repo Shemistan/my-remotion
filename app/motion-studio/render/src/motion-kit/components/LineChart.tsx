@@ -100,7 +100,8 @@ function drawAt(frame: number, beat: Pick<Beat, "start_frame" | "end_frame">): n
 /**
  * Голова линии LineChart в кадре `frame` — чтобы привязать к ней другие элементы (один
  * источник движения): `progress` — доля прорисовки 0..1, `value` — значение под головой
- * (линейно между соседними точками по x), `endFrame` — кадр, когда линия дорисована.
+ * (линейно между соседними точками по x), `startFrame` — последний кадр, где голова ещё
+ * на первой точке (линия трогается после него), `endFrame` — кадр, когда линия дорисована.
  * Не хук: можно звать где угодно. `width`/`height`/`yTicks` — те же, что у графика.
  */
 export function lineChartHead(
@@ -108,11 +109,13 @@ export function lineChartHead(
   beat: Pick<Beat, "start_frame" | "end_frame">,
   frame: number,
   opts: { width?: number; height?: number; yTicks?: number; frameHeight?: number } = {},
-): { progress: number; value: number; endFrame: number } {
+): { progress: number; value: number; startFrame: number; endFrame: number } {
   const { coords, lut, total } = chartGeometry(points, opts.width ?? 1100, opts.height ?? 560, opts.yTicks ?? 4, chartPad(opts.frameHeight ?? 1080));
   const progress = drawAt(frame, beat);
-  const endFrame = Math.ceil(drawWindow(beat).drawEnd);
-  if (points.length < 2) return { progress, value: points[0]?.value ?? 0, endFrame };
+  const { drawStart, drawEnd } = drawWindow(beat);
+  const startFrame = Math.floor(drawStart);
+  const endFrame = Math.ceil(drawEnd);
+  if (points.length < 2) return { progress, value: points[0]?.value ?? 0, startFrame, endFrame };
   const x = pointAtLength(lut, progress * total).x;
   let i = 0;
   while (i < coords.length - 2 && coords[i + 1]!.x < x) i++;
@@ -120,7 +123,7 @@ export function lineChartHead(
   const b = coords[i + 1]!;
   const t = clamp01((x - a.x) / (b.x - a.x || 1));
   const value = progress >= 1 ? points.at(-1)!.value : points[i]!.value + (points[i + 1]!.value - points[i]!.value) * t;
-  return { progress, value, endFrame };
+  return { progress, value, startFrame, endFrame };
 }
 
 export function LineChart({

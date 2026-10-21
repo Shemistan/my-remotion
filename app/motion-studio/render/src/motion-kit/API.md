@@ -266,8 +266,11 @@ valuePrefix?, valueSuffix? }`
 передавай по порядку оси X.
 
 `lineChartHead(points, beat, frame, { width?, height?, yTicks?, frameHeight? })` → `{ progress, value,
-endFrame }` — голова линии в кадре (не хук). Счётчик, привязанный к линии, показывает
-ровно значение под головой:
+startFrame, endFrame }` — голова линии в кадре (не хук). Линия трогается после
+`startFrame` = `beat.start_frame + 12 %` длины бита (до того — сетка и подписи), дорисована к
+`endFrame` = `start + 80 %`. Счётчик, привязанный к линии, показывает ровно значение под
+головой; чтобы «от» читалось, число входит (`enterAt`) не позже чем за 15 кадров до
+`startFrame`:
 ```tsx
 const head = lineChartHead(POINTS, CHART_BEAT, frame, { width: 900, height: 560 });
 <AnimatedNumber from={10_000} to={1_000_000} value={head.value}
