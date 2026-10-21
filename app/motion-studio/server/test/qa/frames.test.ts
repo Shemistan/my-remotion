@@ -177,5 +177,26 @@ describe("countStarts", () => {
     expect(countStarts(sp).map((b) => b.id)).toEqual(["chart"]);
     expect(selectQaFrames(sp)).toContain(30);
   });
+
+  it("вход текста накрывает всё окно начала счёта — кадр начала счёта всё равно берётся (Test 1, прогон Task 17)", () => {
+    const sp = spec({
+      elements: [
+        el("kicker", { entrance: "type" }),
+        el("hero", { kind: "number", entrance: "pop" }),
+        el("subtitle", { entrance: "blur" }),
+        el("chart", { kind: "chart", entrance: "draw" }),
+      ],
+      beats: [
+        beat("kicker-in", 0, 30, ["kicker"], "kicker-type-in"),
+        beat("hero-in", 18, 42, ["hero"], "hero-number-pop-in"),
+        beat("subtitle-in", 30, 54, ["subtitle"], "subtitle-blur-in"),
+        beat("chart-draw", 38, 117, ["chart", "hero"], "chart-draw"),
+        beat("hold", 117, 180, ["hero", "chart", "subtitle", "kicker"], "hold"),
+      ],
+    });
+    expect(countStarts(sp).map((b) => b.id)).toEqual(["chart-draw"]);
+    const f = selectQaFrames(sp);
+    expect(f.some((x) => x >= 38 && x <= 46)).toBe(true);
+  });
 });
 

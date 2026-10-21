@@ -147,7 +147,11 @@ export function selectQaFrames(spec: MotionSpec, durationFrames: number = spec.d
   const counts = countStarts(spec).flatMap((b) => {
     const limit = b.start_frame + Math.ceil((b.end_frame - b.start_frame) * 0.1);
     for (let f = b.start_frame; f <= limit; f++) if (!insideTextEntrance(f)) return [clamp(f)];
-    return [];
+    // вход текста накрыл всё окно: если число уже на экране (вошло своим битом раньше),
+    // кадр «от» важнее недовошедшей подписи; число, входящее самим счётом, в начале бита
+    // ещё не видно — кадра нет
+    const shownBefore = spec.elements.some((e) => e.kind === "number" && b.element_ids.includes(e.id) && beats.some((x) => x.element_ids.includes(e.id) && x.start_frame < b.start_frame));
+    return shownBefore ? [clamp(b.start_frame)] : [];
   });
   const chosen = [...new Set([entrance, ...counts, ...(accent ? [mid(accent)] : []), last])];
   const far = (f: number) => Math.min(...chosen.map((c) => Math.abs(c - f)));
