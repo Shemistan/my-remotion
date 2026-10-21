@@ -1,0 +1,327 @@
+{
+  "job": {
+    "id": "job_01M5ENKRD29MCKFV8S40NZ9SRG",
+    "type": "playground.generate",
+    "project_id": "playground",
+    "scene_id": "scn_01M5ENKRCV1SHHMERTCCF0AHCF",
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "publish",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "sceneId": "scn_01M5ENKRCV1SHHMERTCCF0AHCF",
+      "prompt": "Сравни монолит и микросервисы по скорости релизов",
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 180,
+        "style_preset": "dark-premium",
+        "animation_intensity": "balanced",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        }
+      }
+    },
+    "input_hash": "aab596c7689d93ec7e8ed108c69eb68f243d961bf47f1b10e27fb51d207e1b5d",
+    "output_refs": {
+      "scene_id": "scn_01M5ENKRCV1SHHMERTCCF0AHCF",
+      "version_id": "ver_01M5EP03TXDTDVFAWG0G89K6WJ",
+      "version_number": 1,
+      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ENKRCV1SHHMERTCCF0AHCF/versions/ver_01M5EP03TXDTDVFAWG0G89K6WJ",
+      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ENKRCV1SHHMERTCCF0AHCF/versions/ver_01M5EP03TXDTDVFAWG0G89K6WJ/preview.mp4",
+      "cost_usd": 1.7043898,
+      "engineer_calls": 2,
+      "qa": {
+        "technical": "pass",
+        "visual": "pass",
+        "semantic": "pass",
+        "style": "pass"
+      },
+      "warnings": [],
+      "steps": {
+        "concept": {
+          "input_hash": "3b87ac04a23c8a6d6c502eb8d3b2f86e865c1ce5a713a6922e0ef8ca8af5950b",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5ENKRD29MCKFV8S40NZ9SRG/checkpoints/concept.json"
+        },
+        "director": {
+          "input_hash": "a127c9755b1d12ccb82018739239041a2b69c61904b3376791b40116d012b0ec",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5ENKRD29MCKFV8S40NZ9SRG/checkpoints/motion_director.json"
+        }
+      }
+    },
+    "error": null,
+    "idempotency_key": "e2e-gen-compare-run_01M5ENKRD1KCEVFJDP7JF6N3XZ",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-21T07:25:33.986Z",
+    "started_at": "2026-10-21T07:25:34.477Z",
+    "finished_at": "2026-10-21T07:32:18.933Z"
+  },
+  "wall_ms": 406567,
+  "cost_usd": 1.7043898,
+  "agent_runs": [
+    {
+      "role": "concept",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 5398,
+      "output_tokens": 576,
+      "cost_usd": 0.027347999999999997,
+      "started_at": "2026-10-21T07:25:35.115Z",
+      "finished_at": "2026-10-21T07:25:42.524Z"
+    },
+    {
+      "role": "motion_director",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 39312,
+      "output_tokens": 11699,
+      "cost_usd": 0.548468,
+      "started_at": "2026-10-21T07:25:42.730Z",
+      "finished_at": "2026-10-21T07:27:37.076Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 387289,
+      "output_tokens": 18642,
+      "cost_usd": 0.85333,
+      "started_at": "2026-10-21T07:27:37.967Z",
+      "finished_at": "2026-10-21T07:30:24.185Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 114581,
+      "output_tokens": 2169,
+      "cost_usd": 0.1130246,
+      "started_at": "2026-10-21T07:30:38.048Z",
+      "finished_at": "2026-10-21T07:31:06.267Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 64905,
+      "output_tokens": 3557,
+      "cost_usd": 0.16221919999999998,
+      "started_at": "2026-10-21T07:31:50.847Z",
+      "finished_at": "2026-10-21T07:32:18.509Z"
+    }
+  ],
+  "render_jobs": [
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "frames": 7,
+      "duration_ms": 25833
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "frames": 180,
+      "duration_ms": 25833
+    }
+  ],
+  "qa_reports": [
+    {
+      "id": 20,
+      "version_id": "ver_01M5EP03TXDTDVFAWG0G89K6WJ",
+      "attempt": 1,
+      "technical": "pass",
+      "visual": "pass",
+      "semantic": "pass",
+      "style": "pass",
+      "report_path": "workspace/projects/playground/scenes/scn_01M5ENKRCV1SHHMERTCCF0AHCF/versions/ver_01M5EP03TXDTDVFAWG0G89K6WJ/qa.json"
+    }
+  ],
+  "component_tests": [
+    {
+      "kb_id": "remotion-video-templates/line-chart-draw",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EGP1TPJGRDP6M5TZK9TGB3",
+      "date": "2026-10-21T05:59:26.313Z"
+    },
+    {
+      "kb_id": "motion-primitives/animated-number",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EGP1TPJGRDP6M5TZK9TGB3",
+      "date": "2026-10-21T05:59:26.313Z"
+    },
+    {
+      "kb_id": "magicui/animated-beam",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EGRGBK0MDZ9WXAWA07DXN9",
+      "date": "2026-10-21T06:00:46.729Z"
+    },
+    {
+      "kb_id": "xyflow/example-custom-node",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EP03TXDTDVFAWG0G89K6WJ",
+      "date": "2026-10-21T07:32:18.929Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-counter-confetti",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5ECYN3BHMXEQ0EFQSQ8VPMY",
+      "date": "2026-10-21T04:54:13.886Z"
+    },
+    {
+      "kb_id": "remotion-bits/animated-counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EP03TXDTDVFAWG0G89K6WJ",
+      "date": "2026-10-21T07:32:18.929Z"
+    },
+    {
+      "kb_id": "xyflow/example-floating-edges",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EDHES67C9E4SRQ5HYRQDCE",
+      "date": "2026-10-21T05:04:30.010Z"
+    },
+    {
+      "kb_id": "xyflow/react-flow",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EGRGBK0MDZ9WXAWA07DXN9",
+      "date": "2026-10-21T06:00:46.729Z"
+    },
+    {
+      "kb_id": "xyflow/edge-types",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EEYJ6M0M38H1M6AAXQFKFP",
+      "date": "2026-10-21T05:29:08.072Z"
+    },
+    {
+      "kb_id": "motion-primitives-website/svg-path-draw",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5ENTY6XMTRB758EZKQW5TEP",
+      "date": "2026-10-21T07:29:29.329Z"
+    },
+    {
+      "kb_id": "animata/glowing-card",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5ENTY6XMTRB758EZKQW5TEP",
+      "date": "2026-10-21T07:29:29.329Z"
+    }
+  ],
+  "chat": [
+    {
+      "id": "msg_01M5EP03VHZ39C6XERXH6509D5",
+      "scene_id": "scn_01M5ENKRCV1SHHMERTCCF0AHCF",
+      "role": "assistant",
+      "text": "Версия 1 готова.\nКонцепция: Сцена делится на две дорожки: «Монолит» и «Микросервисы» — сравнение по скорости релизов. Слева монолит — один тяжёлый блок, который медленно проходит цепочку «сборка → тесты → выкатка» и выпускает релиз раз в несколько недель: на шкале загорается редкая отметка. Справа микросервисы — россыпь маленьких независимых модулей, каждый быстро проходит свой короткий путь, и релизные вспышки идут одна за другой, часто и параллельно. К концу счётчик релизов за один и тот же период явно уходит вперёд у микросервисов — они остаются светиться как герой кадра, монолит затихает. Взгляд идёт слева направо и сверху вниз: от медленного блока к быстрому рою и итоговому разрыву.\nКомпоненты: motion-kit StyleProvider, motion-kit Background, motion-kit Particles, motion-kit SafeArea, motion-kit KineticText, motion-kit Emphasis, motion-kit Card, motion-kit AnimatedNumber, motion-kit FlowGraph, motion-kit PulseAlongPath, motion-kit pulseArrival, motion-kit typeSize, motion-kit useSafeArea, motion-kit useStyle, remotion-bits/animated-counter (reuse, MIT (package.json)), xyflow/example-custom-node (adapt, MIT (LICENSE)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — пройден, смысловой — пройден, стиль — пройден; замечаний: blocking 0, warning 3.",
+      "version_id": "ver_01M5EP03TXDTDVFAWG0G89K6WJ",
+      "job_id": "job_01M5ENKRD29MCKFV8S40NZ9SRG",
+      "created_at": "2026-10-21T07:32:18.929Z"
+    }
+  ],
+  "events": [
+    {
+      "ts": "2026-10-21T07:25:34.483Z",
+      "level": "info",
+      "kind": "started",
+      "message": "playground.generate: попытка 1"
+    },
+    {
+      "ts": "2026-10-21T07:25:35.112Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept…"
+    },
+    {
+      "ts": "2026-10-21T07:25:42.530Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept: Сцена делится на две дорожки: «Монолит» и «Микросервисы» — сравнение по скорости релизов. Слева монолит — один тяжёлый блок, который медленно проходит цепочку «сборка → тесты → выкатка» и выпускает релиз раз в несколько недель: на шкале загорается редкая отметка. Справа микросервисы — россыпь маленьких независимых модулей, каждый быстро проходит свой короткий путь, и релизные вспышки идут одна за другой, часто и параллельно. К концу счётчик релизов за один и тот же период явно уходит вперёд у микросервисов — они остаются светиться как герой кадра, монолит затихает. Взгляд идёт слева направо и сверху вниз: от медленного блока к быстрому рою и итоговому разрыву. [comparison, quantities, sequence-steps]"
+    },
+    {
+      "ts": "2026-10-21T07:25:42.546Z",
+      "level": "info",
+      "kind": "log",
+      "message": "KB: 12 кандидатов по ключам Concept"
+    },
+    {
+      "ts": "2026-10-21T07:25:42.727Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Motion Director…"
+    },
+    {
+      "ts": "2026-10-21T07:27:37.083Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Director: «Монолит против микросервисов: скорость релизов» (split), 8 битов, KB: remotion-bits/animated-counter (reuse), xyflow/example-custom-node (adapt)"
+    },
+    {
+      "ts": "2026-10-21T07:27:37.964Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer…"
+    },
+    {
+      "ts": "2026-10-21T07:30:37.807Z",
+      "level": "info",
+      "kind": "log",
+      "message": "typecheck: 1 ошибок"
+    },
+    {
+      "ts": "2026-10-21T07:30:38.045Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer: исправление 1 из 2 (typecheck)…"
+    },
+    {
+      "ts": "2026-10-21T07:31:21.685Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 18, 40, 64, 98, 143, 166, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-21T07:31:50.823Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA…"
+    },
+    {
+      "ts": "2026-10-21T07:32:18.925Z",
+      "level": "info",
+      "kind": "log",
+      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ENKRCV1SHHMERTCCF0AHCF/versions/ver_01M5EP03TXDTDVFAWG0G89K6WJ"
+    },
+    {
+      "ts": "2026-10-21T07:32:18.937Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "kb_id": "motion-primitives-website/svg-path-draw",
+    "repository": "motion-primitives-website (itsjwill)",
+    "repository_url": "git@github.com:itsjwill/motion-primitives-website.git",
+    "commit": "cff72d8",
+    "license": "MIT (package.json; файла LICENSE нет)",
+    "license_class": "permissive",
+    "strategy": "adapt",
+    "source_paths": [
+      "templates/react-libriry/motion-primitives-website/src/components/svg/animated-svg.tsx"
+    ]
+  },
+  {
+    "kb_id": "animata/glowing-card",
+    "repository": "Animata",
+    "repository_url": "git@github.com:codse/animata.git",
+    "commit": "e7478b8",
+    "license": "MIT (LICENSE.md)",
+    "license_class": "permissive",
+    "strategy": "adapt",
+    "source_paths": [
+      "templates/react-libriry/animata/animata/card/glowing-card.tsx"
+    ]
+  }
+]

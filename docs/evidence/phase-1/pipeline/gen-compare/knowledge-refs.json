@@ -1,0 +1,28 @@
+[
+  {
+    "kb_id": "remotion-bits/animated-counter",
+    "repository": "Remotion Bits",
+    "repository_url": "git@github.com:av/remotion-bits.git",
+    "commit": "de35fda",
+    "license": "MIT (package.json)",
+    "license_class": "permissive",
+    "strategy": "reuse",
+    "source_paths": [
+      "templates/remotion-components/remotion-bits/src/components/AnimatedCounter.tsx",
+      "templates/remotion-components/remotion-bits/src/utils/motion/index.ts"
+    ]
+  },
+  {
+    "kb_id": "xyflow/example-custom-node",
+    "repository": "xyflow (React Flow)",
+    "repository_url": "git@github.com:xyflow/xyflow.git",
+    "commit": "654ba5a5e",
+    "license": "MIT (LICENSE)",
+    "license_class": "permissive",
+    "strategy": "adapt",
+    "source_paths": [
+      "templates/infografika/xyflow/examples/react/src/examples/CustomNode/index.tsx",
+      "templates/infografika/xyflow/examples/react/src/examples/CustomNode/ColorSelectorNode.tsx"
+    ]
+  }
+]

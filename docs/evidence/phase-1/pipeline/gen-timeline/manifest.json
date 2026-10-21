@@ -1,0 +1,201 @@
+{
+  "schema_version": 1,
+  "version_id": "ver_01M5ENTY6XMTRB758EZKQW5TEP",
+  "scene_id": "scn_01M5ENKRDACN79BT1F8Q9FCC7T",
+  "parent_version_id": null,
+  "number": 1,
+  "created_at": "2026-10-21T07:29:29.310Z",
+  "prompt": "Таймлайн развития компании 2015–2025 с пятью вехами",
+  "edit_plan": null,
+  "settings": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 180,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "files": [
+    {
+      "path": "frames/125.png",
+      "sha256": "e39c787259d1f08fe4d2790f9b57585159efbfedb2c137df2fdbd7995292fecb"
+    },
+    {
+      "path": "frames/139.png",
+      "sha256": "72b5f1930ad793e3e69ced91123334662cf450acd192f01af410220a3e522e38"
+    },
+    {
+      "path": "frames/165.png",
+      "sha256": "dfd552edf6c5b5c9202caead51a611fae15a4244a3b11954cd3a10b7b9ee57e8"
+    },
+    {
+      "path": "frames/179.png",
+      "sha256": "7c6ecda31c92cc031fbc7a83035942d17544c0314e6fe482f757dd3d090b71a2"
+    },
+    {
+      "path": "frames/46.png",
+      "sha256": "42cdd35e7287787a613c9c25f088073e2a6f3b79f6c9323d6321063d18f6d6f3"
+    },
+    {
+      "path": "frames/77.png",
+      "sha256": "d77ec7c55f67738e301c6db0982ef88372e92b45dc093463dba036269dc9a350"
+    },
+    {
+      "path": "knowledge-refs.json",
+      "sha256": "a711eae06da82e9caf830e49bc627f76ad943a89a6dc8c44528cc1b4ab6944e5"
+    },
+    {
+      "path": "pipeline-log.json",
+      "sha256": "045d4929619c69bdea7f4721ffe0eb12d32589e914b421f83c399c850b487518"
+    },
+    {
+      "path": "preview.mp4",
+      "sha256": "d8343462306806607e59dee8c5c092a79d40fbd02ba267cb9b38ae6a7f06d5ac"
+    },
+    {
+      "path": "props.json",
+      "sha256": "96b73cd789ff3b4684e29f0a056eda0a54fa38ea73dec27ebab1d8dc889333b3"
+    },
+    {
+      "path": "qa.json",
+      "sha256": "cb883886940553011db6aa28a0fda09944510f554d44c29e52281a75b0543b6f"
+    },
+    {
+      "path": "refs/kb/animata/glowing-card/CARD.md",
+      "sha256": "6b17aee1f19aa8181b2cf3df028951dac93bad98f35001fb88adfd4bb2ea284c"
+    },
+    {
+      "path": "refs/kb/animata/glowing-card/templates/react-libriry/animata/animata/card/glowing-card.tsx",
+      "sha256": "0f2c70bc70f18597b343dee8b7a94b9aeed5b6ad5d17605b745d1588103d0383"
+    },
+    {
+      "path": "refs/kb/motion-primitives-website/svg-path-draw/CARD.md",
+      "sha256": "568575ca98d704275def6e9c2f3fc5ac2b80d108bf0888f1d71dbba7ea847bd7"
+    },
+    {
+      "path": "refs/kb/motion-primitives-website/svg-path-draw/templates/react-libriry/motion-primitives-website/src/components/svg/animated-svg.tsx",
+      "sha256": "2e34dc4ac14ec9377193e366217e90d02a46f02d1e0881ffce5a6ccbe0dabd32"
+    },
+    {
+      "path": "refs/motion-kit/API.md",
+      "sha256": "7925c5868c2c7b5eb7e6e7cc3aef9f7858539a08d113664881e128c285cf0c2e"
+    },
+    {
+      "path": "refs/skills/remotion-markup/SKILL.md",
+      "sha256": "399a8f21821ee72071645d22b2e4c7aba34357f2139d027857868eb856f24a4f"
+    },
+    {
+      "path": "refs/skills/remotion-markup/local-fonts.md",
+      "sha256": "fcad2a2e3a05419d4555c59a75454c4891455dbea91ad596c1095e2887d26a11"
+    },
+    {
+      "path": "refs/skills/remotion-markup/sequencing.md",
+      "sha256": "f53680a3ec4b754501ce37516387666e1b3df3c5714d266154b274caea4236a4"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing-props.md",
+      "sha256": "346ff7f3778f3b7ba165ac212459034120cac7cffd3ead3fe68db179e15f7494"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing.md",
+      "sha256": "48047e758b96aea519916479ede62b832bf51f982924978e091c37f569ab4bac"
+    },
+    {
+      "path": "refs/skills/remotion-markup/transitions.md",
+      "sha256": "83b8b511044ef175244a4e9e81f66bd3f5062cf9cecacd30ae88ac17eda40b82"
+    },
+    {
+      "path": "selection.json",
+      "sha256": "8f64cdc485449a73afbc849e4dadd9931774458f9e4d79e5b151bcbfe169bf2f"
+    },
+    {
+      "path": "settings.json",
+      "sha256": "0b46d98e94443777eaf45644a5755e6faf4ce94ffb01d67689792327ab031365"
+    },
+    {
+      "path": "spec.json",
+      "sha256": "1e215c43cae978e02c112e4d41fff6f63a0193f65f3b837cfd059562855fb0c0"
+    },
+    {
+      "path": "src/Scene.tsx",
+      "sha256": "ae1f6062d6471583662e15e949cb660d4360b019fa44bd1ef5d6872d0ad2d4a7"
+    },
+    {
+      "path": "style.json",
+      "sha256": "18a0a04c657887af9d85691285c9480a89f361fb434379a61df3445ffc78e3d6"
+    }
+  ],
+  "changed_files": [
+    "src/Scene.tsx",
+    "props.json"
+  ],
+  "render_env": {
+    "remotion": "4.0.537",
+    "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
+    "motion_kit": "sha256:5293b406242306d9",
+    "chrome_headless_shell": "157.0.8080.0-remotion-v3",
+    "node": "22.21.1"
+  },
+  "knowledge_refs": [
+    {
+      "kb_id": "motion-primitives-website/svg-path-draw",
+      "commit": "cff72d8",
+      "license": "MIT (package.json; файла LICENSE нет)",
+      "strategy": "adapt"
+    },
+    {
+      "kb_id": "animata/glowing-card",
+      "commit": "e7478b8",
+      "license": "MIT (LICENSE.md)",
+      "strategy": "adapt"
+    }
+  ],
+  "agent_runs": [
+    "logs/agent-runs/job_01M5ENKRDEW8AMM7SD5GD487A2/a1-concept-1",
+    "logs/agent-runs/job_01M5ENKRDEW8AMM7SD5GD487A2/a1-motion_director-1",
+    "logs/agent-runs/job_01M5ENKRDEW8AMM7SD5GD487A2/a1-engineer-1",
+    "logs/agent-runs/job_01M5ENKRDEW8AMM7SD5GD487A2/a1-engineer-2",
+    "logs/agent-runs/job_01M5ENKRDEW8AMM7SD5GD487A2/a1-visual_qa-1"
+  ],
+  "qa": {
+    "technical": "pass",
+    "visual": "warn",
+    "semantic": "pass",
+    "style": "pass"
+  },
+  "preview": {
+    "path": "preview.mp4",
+    "sha256": "d8343462306806607e59dee8c5c092a79d40fbd02ba267cb9b38ae6a7f06d5ac"
+  },
+  "status": "ready",
+  "qa_frames": [
+    46,
+    77,
+    125,
+    139,
+    165,
+    179
+  ],
+  "qa_frames_sha256": [
+    "42cdd35e7287787a613c9c25f088073e2a6f3b79f6c9323d6321063d18f6d6f3",
+    "d77ec7c55f67738e301c6db0982ef88372e92b45dc093463dba036269dc9a350",
+    "e39c787259d1f08fe4d2790f9b57585159efbfedb2c137df2fdbd7995292fecb",
+    "72b5f1930ad793e3e69ced91123334662cf450acd192f01af410220a3e522e38",
+    "dfd552edf6c5b5c9202caead51a611fae15a4244a3b11954cd3a10b7b9ee57e8",
+    "7c6ecda31c92cc031fbc7a83035942d17544c0314e6fe482f757dd3d090b71a2"
+  ],
+  "job": {
+    "id": "job_01M5ENKRDEW8AMM7SD5GD487A2",
+    "attempt": 1
+  }
+}

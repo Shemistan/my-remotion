@@ -1,0 +1,125 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      {
+        "id": "b-kicker-in",
+        "start_frame": 4,
+        "end_frame": 28
+      },
+      {
+        "id": "b-title-in",
+        "start_frame": 10,
+        "end_frame": 46
+      },
+      {
+        "id": "b-timeline-draw",
+        "start_frame": 24,
+        "end_frame": 130
+      },
+      {
+        "id": "b-final-emphasis",
+        "start_frame": 110,
+        "end_frame": 140
+      },
+      {
+        "id": "b-hold",
+        "start_frame": 150,
+        "end_frame": 180
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "palette_overrides": {},
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "kicker": "История компании",
+    "title": "Таймлайн развития компании 2015–2025",
+    "timeline": {
+      "width": 1555,
+      "height": 600,
+      "accentIndex": 0,
+      "items": [
+        {
+          "date": "2015",
+          "label": "Основание",
+          "note": "три основателя"
+        },
+        {
+          "date": "2017",
+          "label": "Первый продукт",
+          "note": "запуск MVP"
+        },
+        {
+          "date": "2019",
+          "label": "Выход на рынок",
+          "note": "первые клиенты"
+        },
+        {
+          "date": "2021",
+          "label": "Выход за рубеж",
+          "note": "новые страны"
+        },
+        {
+          "date": "2025",
+          "label": "Лидер рынка",
+          "note": "итог десятилетия"
+        }
+      ]
+    },
+    "layout": {
+      "kicker": {
+        "x": 0.05,
+        "y": 0.05,
+        "w": 0.45,
+        "h": 0.06
+      },
+      "title": {
+        "x": 0.05,
+        "y": 0.12,
+        "w": 0.9,
+        "h": 0.11
+      },
+      "timeline": {
+        "x": 0.05,
+        "y": 0.3,
+        "w": 0.9,
+        "h": 0.62
+      },
+      "emphasis": {
+        "x": 0.78,
+        "y": 0.42,
+        "w": 0.17,
+        "h": 0.4
+      }
+    },
+    "camera": [
+      {
+        "frame": 0,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "frame": 100,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "frame": 150,
+        "scale": 1.05,
+        "x": 40,
+        "y": 0
+      }
+    ]
+  }
+}

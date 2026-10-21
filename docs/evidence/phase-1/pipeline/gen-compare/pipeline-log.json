@@ -1,0 +1,48 @@
+{
+  "run_id": "job_01M5ENKRD29MCKFV8S40NZ9SRG",
+  "attempt": 1,
+  "cost_usd": 1.7043898,
+  "engineer_calls": 2,
+  "visual_qa": [
+    {
+      "call": 2,
+      "wall_ms": 27662,
+      "cost_usd": 0.1622192,
+      "status": "completed",
+      "gate": {
+        "technical": "pass",
+        "visual": "pass",
+        "semantic": "pass",
+        "style": "pass"
+      }
+    }
+  ],
+  "timings": {
+    "concept": 7410,
+    "motion_director": 114347,
+    "engineer_1": 166218,
+    "static": 55,
+    "typecheck": 28214,
+    "engineer_2": 28219,
+    "render_2": 25833,
+    "qa_programmatic": 3139,
+    "visual_qa_2": 27683
+  },
+  "history": [
+    {
+      "at": "2026-10-21T07:30:37.807Z",
+      "stage": "typecheck",
+      "message": "src/Scene.tsx:341 Property 'transparent' does not exist on type 'StyleSource'.\n  Property 'transparent' does not exist on type '\"dark-premium\"'."
+    },
+    {
+      "at": "2026-10-21T07:32:18.509Z",
+      "stage": "qa",
+      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"pass\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
+    },
+    {
+      "at": "2026-10-21T07:32:18.545Z",
+      "stage": "ready",
+      "message": "gate пройден с вызова 2"
+    }
+  ]
+}

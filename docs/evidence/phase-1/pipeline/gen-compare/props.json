@@ -1,0 +1,304 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      {
+        "id": "lanes-in",
+        "start_frame": 0,
+        "end_frame": 32
+      },
+      {
+        "id": "mono-graph-in",
+        "start_frame": 14,
+        "end_frame": 50
+      },
+      {
+        "id": "micro-graph-in",
+        "start_frame": 22,
+        "end_frame": 60
+      },
+      {
+        "id": "counters-in",
+        "start_frame": 40,
+        "end_frame": 80
+      },
+      {
+        "id": "pulses-run",
+        "start_frame": 60,
+        "end_frame": 132
+      },
+      {
+        "id": "micro-count-run",
+        "start_frame": 64,
+        "end_frame": 132
+      },
+      {
+        "id": "final-emphasis",
+        "start_frame": 134,
+        "end_frame": 152
+      },
+      {
+        "id": "hold",
+        "start_frame": 153,
+        "end_frame": 180
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "palette_overrides": {},
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "lanes": {
+      "mono": {
+        "text": "Монолит",
+        "layout": {
+          "x": 0.02,
+          "y": 0.02,
+          "w": 0.42,
+          "h": 0.09
+        }
+      },
+      "micro": {
+        "text": "Микросервисы",
+        "layout": {
+          "x": 0.54,
+          "y": 0.02,
+          "w": 0.44,
+          "h": 0.09
+        }
+      }
+    },
+    "divider": {
+      "layout": {
+        "x": 0.497,
+        "y": 0.04,
+        "w": 0.006,
+        "h": 0.9
+      },
+      "opacity": 0.35,
+      "stroke_px": 2
+    },
+    "mono_graph": {
+      "layout": {
+        "x": 0,
+        "y": 0.15,
+        "w": 0.46,
+        "h": 0.5
+      },
+      "nodes": [
+        {
+          "id": "mono-core",
+          "label": "Весь код",
+          "caption": "цикл 6 недель",
+          "elevation": 2,
+          "enter": "scale",
+          "enterAt": 14,
+          "layout": {
+            "x": 0,
+            "y": 0.27,
+            "w": 0.2,
+            "h": 0.26
+          }
+        },
+        {
+          "id": "mono-prod",
+          "label": "Прод",
+          "elevation": 1,
+          "enter": "blur",
+          "enterAt": 24,
+          "layout": {
+            "x": 0.33,
+            "y": 0.33,
+            "w": 0.13,
+            "h": 0.14
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-mono",
+          "from": "mono-core",
+          "to": "mono-prod"
+        }
+      ],
+      "pulse": {
+        "edgeId": "e-mono",
+        "travel": 34,
+        "size": 11,
+        "tail": 200
+      }
+    },
+    "micro_graph": {
+      "layout": {
+        "x": 0.54,
+        "y": 0.13,
+        "w": 0.46,
+        "h": 0.52
+      },
+      "nodes": [
+        {
+          "id": "svc-catalog",
+          "label": "Каталог",
+          "elevation": 2,
+          "enter": "pop",
+          "enterAt": 22,
+          "layout": {
+            "x": 0.54,
+            "y": 0.14,
+            "w": 0.17,
+            "h": 0.1
+          }
+        },
+        {
+          "id": "svc-cart",
+          "label": "Корзина",
+          "elevation": 2,
+          "enter": "pop",
+          "enterAt": 26,
+          "layout": {
+            "x": 0.54,
+            "y": 0.27,
+            "w": 0.17,
+            "h": 0.1
+          }
+        },
+        {
+          "id": "svc-pay",
+          "label": "Оплата",
+          "elevation": 2,
+          "enter": "pop",
+          "enterAt": 30,
+          "layout": {
+            "x": 0.54,
+            "y": 0.4,
+            "w": 0.17,
+            "h": 0.1
+          }
+        },
+        {
+          "id": "svc-search",
+          "label": "Поиск",
+          "elevation": 2,
+          "enter": "pop",
+          "enterAt": 34,
+          "layout": {
+            "x": 0.54,
+            "y": 0.53,
+            "w": 0.17,
+            "h": 0.1
+          }
+        },
+        {
+          "id": "micro-prod",
+          "label": "Прод",
+          "elevation": 3,
+          "enter": "blur",
+          "enterAt": 40,
+          "accentIndex": 1,
+          "layout": {
+            "x": 0.85,
+            "y": 0.33,
+            "w": 0.13,
+            "h": 0.14
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-catalog",
+          "from": "svc-catalog",
+          "to": "micro-prod"
+        },
+        {
+          "id": "e-cart",
+          "from": "svc-cart",
+          "to": "micro-prod"
+        },
+        {
+          "id": "e-pay",
+          "from": "svc-pay",
+          "to": "micro-prod"
+        },
+        {
+          "id": "e-search",
+          "from": "svc-search",
+          "to": "micro-prod"
+        }
+      ],
+      "flash_node": "micro-prod",
+      "pulses": [
+        {
+          "edgeId": "e-catalog",
+          "accentIndex": 1
+        },
+        {
+          "edgeId": "e-cart",
+          "accentIndex": 0
+        },
+        {
+          "edgeId": "e-pay",
+          "accentIndex": 2
+        },
+        {
+          "edgeId": "e-search",
+          "accentIndex": 1
+        }
+      ],
+      "travel": 14,
+      "size": 10,
+      "tail": 160,
+      "hold": {
+        "edges": [
+          "e-catalog",
+          "e-pay"
+        ],
+        "travel": 22,
+        "size": 10,
+        "tail": 160,
+        "opacity": 0.5
+      }
+    },
+    "mono_count": {
+      "from": 0,
+      "to": 2,
+      "suffix": " релиза за квартал",
+      "locale": "ru",
+      "layout": {
+        "x": 0.02,
+        "y": 0.72,
+        "w": 0.44,
+        "h": 0.1
+      }
+    },
+    "micro_count": {
+      "from": 0,
+      "to": 48,
+      "locale": "ru",
+      "spread": 48,
+      "layout": {
+        "x": 0.56,
+        "y": 0.68,
+        "w": 0.4,
+        "h": 0.16
+      }
+    },
+    "micro_caption": {
+      "text": "релизов за квартал",
+      "layout": {
+        "x": 0.56,
+        "y": 0.86,
+        "w": 0.4,
+        "h": 0.07
+      }
+    },
+    "dim_opacity": 0.5
+  }
+}

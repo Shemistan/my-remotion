@@ -1,0 +1,48 @@
+{
+  "run_id": "job_01M5ENKRDEW8AMM7SD5GD487A2",
+  "attempt": 1,
+  "cost_usd": 1.1898255,
+  "engineer_calls": 2,
+  "visual_qa": [
+    {
+      "call": 2,
+      "wall_ms": 23721,
+      "cost_usd": 0.15597600000000011,
+      "status": "completed",
+      "gate": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "pass"
+      }
+    }
+  ],
+  "timings": {
+    "concept": 10829,
+    "motion_director": 45749,
+    "engineer_1": 76994,
+    "static": 63,
+    "typecheck": 28293,
+    "engineer_2": 22397,
+    "render_2": 21781,
+    "qa_programmatic": 2475,
+    "visual_qa_2": 23740
+  },
+  "history": [
+    {
+      "at": "2026-10-21T07:28:03.545Z",
+      "stage": "typecheck",
+      "message": "src/Scene.tsx:170 Type '{ preset: \"dark-premium\" | \"light-clean\" | \"tech-neon\"; intensity: \"calm\" | \"balanced\" | \"energetic\"; depth?: number | undefined; transparent?: boolean | undefined; safe_area?: { ...; } | undefined; }' is not assignable to type 'StyleSource'.\n  Type '{ preset: \"dark-premium\" | \"light-clean\" | \"tech-neon\"; intensity: \"calm\" | \"balanced\" | \"energetic\"; depth?: number | undefined; transparent?: boolean | undefined; safe_area?: { ...; } | undefined; }' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type '{ preset: \"dark-premium\" | \"light-clean\" | \"tech-neon\"; intensity: \"calm\" | \"balanced\" | \"energetic\"; depth?: number | undefined; transparent?: boolean | undefined; safe_area?: { ...; } | undefined; }' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
+    },
+    {
+      "at": "2026-10-21T07:29:28.546Z",
+      "stage": "qa",
+      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
+    },
+    {
+      "at": "2026-10-21T07:29:28.574Z",
+      "stage": "ready",
+      "message": "gate пройден с вызова 2"
+    }
+  ]
+}

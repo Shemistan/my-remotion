@@ -1,0 +1,48 @@
+{
+  "run_id": "job_01M5ENKRDQWD3DSNAGAHP9JF8G",
+  "attempt": 1,
+  "cost_usd": 1.7218444,
+  "engineer_calls": 2,
+  "visual_qa": [
+    {
+      "call": 2,
+      "wall_ms": 25694,
+      "cost_usd": 0.1647909999999999,
+      "status": "completed",
+      "gate": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "warn"
+      }
+    }
+  ],
+  "timings": {
+    "concept": 8151,
+    "motion_director": 106222,
+    "engineer_1": 210728,
+    "static": 64,
+    "typecheck": 43694,
+    "engineer_2": 50689,
+    "render_2": 24384,
+    "qa_programmatic": 6447,
+    "visual_qa_2": 25737
+  },
+  "history": [
+    {
+      "at": "2026-10-21T07:35:23.419Z",
+      "stage": "typecheck",
+      "message": "src/Scene.tsx:467 Type 'SceneStyle' is not assignable to type 'StyleSource'.\n  Type 'SceneStyle' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'SceneStyle' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
+    },
+    {
+      "at": "2026-10-21T07:37:27.242Z",
+      "stage": "qa",
+      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"warn\"}; blocking: —"
+    },
+    {
+      "at": "2026-10-21T07:37:27.286Z",
+      "stage": "ready",
+      "message": "gate пройден с вызова 2"
+    }
+  ]
+}

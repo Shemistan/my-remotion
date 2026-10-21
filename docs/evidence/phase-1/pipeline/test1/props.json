@@ -3,38 +3,43 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "title-in",
+        "id": "b-title-in",
         "start_frame": 0,
-        "end_frame": 36
+        "end_frame": 30
       },
       {
-        "id": "number-in",
+        "id": "b-number-in",
         "start_frame": 8,
         "end_frame": 32
       },
       {
-        "id": "subtitle-in",
+        "id": "b-chart",
         "start_frame": 12,
-        "end_frame": 36
+        "end_frame": 132
       },
       {
-        "id": "chart-draw",
-        "start_frame": 18,
-        "end_frame": 138
+        "id": "b-count",
+        "start_frame": 27,
+        "end_frame": 108
       },
       {
-        "id": "number-count",
-        "start_frame": 33,
+        "id": "b-endpoint",
+        "start_frame": 106,
         "end_frame": 114
       },
       {
-        "id": "final-emphasis",
-        "start_frame": 114,
+        "id": "b-final-emphasis",
+        "start_frame": 116,
         "end_frame": 140
       },
       {
-        "id": "hold",
-        "start_frame": 140,
+        "id": "b-sub-in",
+        "start_frame": 122,
+        "end_frame": 146
+      },
+      {
+        "id": "b-hold",
+        "start_frame": 153,
         "end_frame": 180
       }
     ]
@@ -51,74 +56,82 @@
     }
   },
   "content": {
-    "title": "Рост пользователей",
-    "subtitle": "×100 за три года",
-    "subtitle_dim_to_opacity": 0.55,
+    "title": "Пользователи за три года",
     "hero": {
       "from": 10000,
       "to": 1000000,
       "locale": "ru"
     },
+    "sub": "×100 за три года",
     "chart": {
+      "width": 1555,
+      "height": 620,
       "yTicks": 4,
-      "compact": true,
-      "accentIndex": 0
+      "points": [
+        {
+          "label": "янв 22",
+          "value": 10000
+        },
+        {
+          "label": "июл 22",
+          "value": 32000
+        },
+        {
+          "label": "янв 23",
+          "value": 85000
+        },
+        {
+          "label": "июл 23",
+          "value": 190000
+        },
+        {
+          "label": "янв 24",
+          "value": 360000
+        },
+        {
+          "label": "июл 24",
+          "value": 620000
+        },
+        {
+          "label": "янв 25",
+          "value": 1000000
+        }
+      ]
     },
-    "points": [
-      {
-        "label": "янв 22",
-        "value": 10000
-      },
-      {
-        "label": "июл 22",
-        "value": 35000
-      },
-      {
-        "label": "янв 23",
-        "value": 90000
-      },
-      {
-        "label": "июл 23",
-        "value": 180000
-      },
-      {
-        "label": "янв 24",
-        "value": 320000
-      },
-      {
-        "label": "июл 24",
-        "value": 560000
-      },
-      {
-        "label": "янв 25",
-        "value": 1000000
-      }
-    ],
     "layout": {
       "title": {
         "x": 0.05,
-        "y": 0.05,
-        "w": 0.42,
-        "h": 0.09
-      },
-      "subtitle": {
-        "x": 0.05,
-        "y": 0.15,
-        "w": 0.42,
-        "h": 0.07
+        "y": 0.07,
+        "w": 0.46,
+        "h": 0.12
       },
       "hero": {
-        "x": 0.5,
+        "x": 0.53,
         "y": 0.05,
-        "w": 0.45,
-        "h": 0.18
+        "w": 0.42,
+        "h": 0.17
+      },
+      "sub": {
+        "x": 0.6,
+        "y": 0.22,
+        "w": 0.35,
+        "h": 0.07
       },
       "chart": {
         "x": 0.05,
-        "y": 0.3,
+        "y": 0.31,
         "w": 0.9,
-        "h": 0.65
+        "h": 0.64
       }
+    },
+    "emphasis_spread": 56,
+    "particles": {
+      "count": 50,
+      "seed": "dust"
+    },
+    "background_beat": {
+      "start_frame": 0,
+      "end_frame": 40
     },
     "camera": [
       {
@@ -128,16 +141,16 @@
         "y": 0
       },
       {
-        "frame": 100,
+        "frame": 116,
         "scale": 1,
         "x": 0,
         "y": 0
       },
       {
-        "frame": 175,
+        "frame": 179,
         "scale": 1.04,
         "x": 30,
-        "y": -20
+        "y": -30
       }
     ]
   }

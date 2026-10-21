@@ -1,223 +1,178 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig } from "remotion";
+import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import {
   AnimatedNumber,
   Background,
   Camera,
-  Enter,
+  Emphasis,
+  KineticText,
   LineChart,
   Parallax,
   Particles,
   SafeArea,
   StyleProvider,
-  alpha,
-  accent,
-  beatProgress,
   easingOf,
-  fpsFrames,
   lineChartHead,
-  resolveStyle,
-  typeSize,
+  mix,
   useSafeArea,
   useStyle,
 } from "@ms/motion-kit";
 
-type Beat = { id: string; start_frame: number; end_frame: number };
-type Point = { label: string; value: number };
+type Beat = { start_frame: number; end_frame: number };
+type TimedBeat = Beat & { id: string };
 type Box = { x: number; y: number; w: number; h: number };
-type CameraKey = { frame: number; scale: number; x: number; y: number };
+type Point = { label: string; value: number };
 
-type SceneContent = {
+type Content = {
   title: string;
-  subtitle: string;
-  subtitle_dim_to_opacity: number;
   hero: { from: number; to: number; locale: "ru" | "en" };
-  chart: { yTicks: number; compact: boolean; accentIndex: number };
-  points: Point[];
-  layout: { title: Box; subtitle: Box; hero: Box; chart: Box };
-  camera: CameraKey[];
+  sub: string;
+  chart: { width: number; height: number; yTicks: number; points: Point[] };
+  layout: { title: Box; hero: Box; sub: Box; chart: Box };
+  emphasis_spread: number;
+  particles: { count: number; seed: string };
+  background_beat: Beat;
+  camera: React.ComponentProps<typeof Camera>["keys"];
 };
 
-// Тип props.style — ровно вход resolveStyle (без fps: его подставляет StyleProvider).
-type SceneStyle = Omit<Parameters<typeof resolveStyle>[0], "fps">;
-
-export type SceneProps = {
-  timing: { duration_frames: number; beats: Beat[] };
-  style: SceneStyle;
-  content: SceneContent;
+type Props = {
+  timing: { duration_frames: number; beats: TimedBeat[] };
+  style: React.ComponentProps<typeof StyleProvider>["style"];
+  content: Content;
 };
 
-const beatOf = (beats: Beat[], id: string): Beat => {
+const beatOf = (beats: TimedBeat[], id: string): Beat => {
   const b = beats.find((x) => x.id === id);
-  if (!b) throw new Error(`Нет бита «${id}» в props.timing.beats`);
-  return b;
+  if (!b) throw new Error(`beat ${id} missing`);
+  return { start_frame: b.start_frame, end_frame: b.end_frame };
 };
 
-const Content: React.FC<{ beats: Beat[]; content: SceneContent }> = ({ beats, content }) => {
+const SceneBody: React.FC<{ beats: TimedBeat[]; content: Content }> = ({ beats, content }) => {
   const frame = useCurrentFrame();
   const { height } = useVideoConfig();
   const style = useStyle();
   const rect = useSafeArea();
 
-  const titleIn = beatOf(beats, "title-in");
-  const numberIn = beatOf(beats, "number-in");
-  const subtitleIn = beatOf(beats, "subtitle-in");
-  const chartDraw = beatOf(beats, "chart-draw");
-  const emphasis = beatOf(beats, "final-emphasis");
-  const hold = beatOf(beats, "hold");
+  const bTitle = beatOf(beats, "b-title-in");
+  const bNumberIn = beatOf(beats, "b-number-in");
+  const bChart = beatOf(beats, "b-chart");
+  const bEndpoint = beatOf(beats, "b-endpoint");
+  const bFinal = beatOf(beats, "b-final-emphasis");
+  const bSub = beatOf(beats, "b-sub-in");
 
-  const { layout } = content;
-  const chartW = Math.round(layout.chart.w * rect.w);
-  const chartH = Math.round(layout.chart.h * rect.h);
-
-  // Счётчик — от головы линии: один источник движения.
-  const head = lineChartHead(content.points, chartDraw, frame, {
-    width: chartW,
-    height: chartH,
-    yTicks: content.chart.yTicks,
+  const { chart, layout } = content;
+  const head = lineChartHead(chart.points, bChart, frame, {
+    width: chart.width,
+    height: chart.height,
+    yTicks: chart.yTicks,
     frameHeight: height,
   });
 
-  // После удара подзаголовок уходит в приглушённый тон.
-  const dim = beatProgress(
+  // Заголовок уступает герою: уходит в muted за exit_frames с началом финального акцента.
+  const dim = interpolate(
     frame,
-    { start_frame: emphasis.start_frame + style.motion.stagger_frames, end_frame: emphasis.end_frame },
-    easingOf(style, "exit"),
+    [bFinal.start_frame, bFinal.start_frame + style.motion.exit_frames],
+    [0, 1],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easingOf(style, "exit") },
   );
-  const subtitleOpacity = 1 - (1 - content.subtitle_dim_to_opacity) * dim;
-
-  // Hold: число дышит масштабом и свечением accent[0].
-  const ramp = beatProgress(
-    frame,
-    { start_frame: hold.start_frame, end_frame: hold.start_frame + style.motion.enter_frames },
-    easingOf(style, "enter"),
-  );
-  const period = fpsFrames(style, 36);
-  const wave = frame >= hold.start_frame ? 0.5 - 0.5 * Math.cos((2 * Math.PI * (frame - hold.start_frame)) / period) : 0;
-  const breathScale = 1 + 0.03 * wave * ramp;
-  const glow = (0.4 + 0.4 * wave) * ramp;
-
-  const titleSize = typeSize(style, "h2", height);
-  const subtitleSize = typeSize(style, "body", height);
-  const glowPad = Math.round(subtitleSize * 0.8);
+  const titleColor = mix(style.palette.text, style.palette.muted, dim);
 
   const place = (b: Box): React.CSSProperties => ({
     position: "absolute",
     left: b.x * rect.w,
     top: b.y * rect.h,
     width: b.w * rect.w,
-    height: b.h * rect.h,
   });
 
   return (
     <>
-      <div style={{ ...place(layout.title), display: "flex", alignItems: "center" }}>
-        <Enter kind="mask" beat={titleIn}>
-          <div
-            style={{
-              fontFamily: style.typography.display.family,
-              fontWeight: style.typography.display.weight,
-              fontSize: titleSize,
-              letterSpacing: `${style.typography.tracking.display}em`,
-              lineHeight: 1.1,
-              color: style.palette.text,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {content.title}
-          </div>
-        </Enter>
-      </div>
-
-      <div style={{ ...place(layout.subtitle), display: "flex", alignItems: "center", opacity: subtitleOpacity }}>
-        <Enter kind="blur" beat={subtitleIn}>
-          <div
-            style={{
-              fontFamily: style.typography.body.family,
-              fontWeight: style.typography.body.weight,
-              fontSize: subtitleSize,
-              letterSpacing: `${style.typography.tracking.body}em`,
-              color: style.palette.muted,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {content.subtitle}
-          </div>
-        </Enter>
-      </div>
-
-      <div style={{ ...place(layout.chart) }}>
-        <LineChart
-          points={content.points}
-          beat={chartDraw}
-          area
-          highlightLast={false}
-          width={chartW}
-          height={chartH}
-          locale={content.hero.locale}
-          compact={content.chart.compact}
-          accentIndex={content.chart.accentIndex}
-          yTicks={content.chart.yTicks}
+      <div style={place(layout.title)}>
+        <KineticText
+          text={content.title}
+          beat={bTitle}
+          mode="words"
+          enter="rise"
+          size="h2"
+          font="display"
+          weight={800}
+          color={titleColor}
+          maxWidth={layout.title.w * rect.w}
         />
       </div>
 
-      <div style={{ ...place(layout.hero), display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
-        <div
-          style={{
-            position: "relative",
-            display: "inline-block",
-            transform: `scale(${breathScale})`,
-            transformOrigin: "50% 50%",
-          }}
-        >
-          <div
-            style={{
-              position: "absolute",
-              inset: -glowPad,
-              borderRadius: style.surfaces.radius[3],
-              background: `radial-gradient(closest-side, ${alpha(accent(style, 0), 0.32 * glow)} 0%, transparent 100%)`,
-            }}
+      <div style={{ ...place(layout.hero), display: "flex", justifyContent: "flex-end" }}>
+        <Emphasis beat={bFinal} loop accentIndex={0} shape="pill" ring halo spread={content.emphasis_spread}>
+          <AnimatedNumber
+            from={content.hero.from}
+            to={content.hero.to}
+            value={head.value}
+            beat={{ start_frame: head.startFrame, end_frame: head.endFrame }}
+            enterAt={bNumberIn.start_frame}
+            locale={content.hero.locale}
+            size="display"
+            font="display"
+            align="right"
+            reserveWidth
           />
-          <div style={{ position: "relative" }}>
-            <AnimatedNumber
-              from={content.hero.from}
-              to={content.hero.to}
-              value={head.value}
-              beat={{ start_frame: head.startFrame, end_frame: head.endFrame }}
-              enterAt={numberIn.start_frame}
-              locale={content.hero.locale}
-              size={7}
-              font="display"
-              align="right"
-              reserveWidth
-            />
-          </div>
-        </div>
+        </Emphasis>
+      </div>
+
+      <div style={{ ...place(layout.sub), display: "flex", justifyContent: "flex-end" }}>
+        <KineticText
+          text={content.sub}
+          beat={bSub}
+          mode="words"
+          enter="fade"
+          size="body"
+          color={style.palette.muted}
+          align="right"
+        />
+      </div>
+
+      <div style={place(layout.chart)}>
+        <LineChart
+          points={chart.points}
+          beat={bChart}
+          area
+          callout={false}
+          endpointEmphasis={{ beat: bEndpoint, loop: false }}
+          width={chart.width}
+          height={chart.height}
+          locale={content.hero.locale}
+          compact
+          yTicks={chart.yTicks}
+          accentIndex={0}
+        />
       </div>
     </>
   );
 };
 
-export const Scene: React.FC<SceneProps> = ({ timing, style, content }) => {
-  const titleIn = beatOf(timing.beats, "title-in");
-  const chartDraw = beatOf(timing.beats, "chart-draw");
+const Atmosphere: React.FC<{ content: Content }> = ({ content }) => {
+  const style = useStyle();
+  if (style.transparent) return null;
   return (
-    <StyleProvider style={style}>
-      <Camera keys={content.camera}>
-        {style.transparent ? null : (
-          <Parallax layer={0}>
-            <Background beat={titleIn} variant="aurora" seed="growth" />
-          </Parallax>
-        )}
-        <Parallax layer={0}>
-          <Particles count={60} seed="growth-dust" beat={chartDraw} layer={0} />
-        </Parallax>
-        <Parallax layer={1}>
-          <SafeArea>
-            <Content beats={timing.beats} content={content} />
-          </SafeArea>
-        </Parallax>
-      </Camera>
-    </StyleProvider>
+    <Parallax layer={0}>
+      <Background beat={content.background_beat} variant="aurora" seed="growth" />
+      <Particles
+        count={content.particles.count}
+        seed={content.particles.seed}
+        beat={content.background_beat}
+        layer={0}
+      />
+    </Parallax>
   );
 };
+
+export const Scene: React.FC<Props> = ({ timing, style, content }) => (
+  <StyleProvider style={style}>
+    <Camera keys={content.camera}>
+      <Atmosphere content={content} />
+      <Parallax layer={1}>
+        <SafeArea>
+          <SceneBody beats={timing.beats} content={content} />
+        </SafeArea>
+      </Parallax>
+    </Camera>
+  </StyleProvider>
+);

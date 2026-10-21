@@ -1,0 +1,588 @@
+{
+  "title": "Монолит против микросервисов: скорость релизов",
+  "purpose": "За один и тот же квартал монолит выпускает 2 релиза, а микросервисы — 48: независимые сервисы релизятся часто и параллельно.",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "palette_overrides": {},
+  "elements": [
+    {
+      "id": "lane-mono",
+      "kind": "text",
+      "role": "опора: название левой дорожки",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "component": "KineticText",
+        "text": "Монолит",
+        "size": "h2",
+        "mode": "words",
+        "enter": "rise",
+        "color": "text",
+        "align": "left"
+      },
+      "layout": {
+        "x": 0.02,
+        "y": 0.02,
+        "w": 0.42,
+        "h": 0.09
+      }
+    },
+    {
+      "id": "lane-micro",
+      "kind": "text",
+      "role": "опора: название правой дорожки",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "component": "KineticText",
+        "text": "Микросервисы",
+        "size": "h2",
+        "mode": "words",
+        "enter": "slide",
+        "color": "text",
+        "align": "left"
+      },
+      "layout": {
+        "x": 0.54,
+        "y": 0.02,
+        "w": 0.44,
+        "h": 0.09
+      }
+    },
+    {
+      "id": "divider",
+      "kind": "shape",
+      "role": "ось сравнения: вертикальная линия между дорожками",
+      "entrance": "draw",
+      "depth_layer": 0,
+      "content": {
+        "shape": "line",
+        "orientation": "vertical",
+        "color": "muted",
+        "opacity": 0.35,
+        "draw_from": "center",
+        "stroke_px": 2
+      },
+      "layout": {
+        "x": 0.497,
+        "y": 0.04,
+        "w": 0.006,
+        "h": 0.9
+      }
+    },
+    {
+      "id": "mono-core",
+      "kind": "card",
+      "role": "node: монолит — один тяжёлый блок всего кода",
+      "entrance": "scale",
+      "depth_layer": 1,
+      "content": {
+        "label": "Весь код",
+        "caption": "цикл 6 недель",
+        "elevation": 2,
+        "enter": "scale",
+        "enterAt": 14,
+        "size": "body"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.27,
+        "w": 0.2,
+        "h": 0.26
+      }
+    },
+    {
+      "id": "mono-prod",
+      "kind": "card",
+      "role": "node: прод монолита",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "label": "Прод",
+        "elevation": 1,
+        "enter": "blur",
+        "enterAt": 24,
+        "size": "body",
+        "flash": false,
+        "note": "без вспышек: акцент сцены только у правой стороны"
+      },
+      "layout": {
+        "x": 0.33,
+        "y": 0.33,
+        "w": 0.13,
+        "h": 0.14
+      }
+    },
+    {
+      "id": "graph-mono",
+      "kind": "graph",
+      "role": "медленный поток монолита: один длинный путь сборка → тесты → выкатка",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "FlowGraph + PulseAlongPath",
+        "nodes": [
+          "mono-core",
+          "mono-prod"
+        ],
+        "edges": [
+          {
+            "id": "e-mono",
+            "from": "mono-core",
+            "to": "mono-prod"
+          }
+        ],
+        "flows": [
+          {
+            "edge": "e-mono",
+            "direction": "forward",
+            "beat": "pulses-run"
+          }
+        ],
+        "pulse": {
+          "edgeId": "e-mono",
+          "beat": {
+            "start_frame": 60,
+            "end_frame": 110
+          },
+          "travel": 34,
+          "repeat": true,
+          "size": 11,
+          "tail": 200,
+          "color": "muted",
+          "note": "тяжёлый медленный импульс: 2 прохода, приход ≈ кадры 94 и 128"
+        }
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.15,
+        "w": 0.46,
+        "h": 0.5
+      }
+    },
+    {
+      "id": "svc-catalog",
+      "kind": "card",
+      "role": "node: сервис Каталог",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "label": "Каталог",
+        "elevation": 2,
+        "enter": "pop",
+        "enterAt": 22,
+        "size": "body"
+      },
+      "layout": {
+        "x": 0.54,
+        "y": 0.14,
+        "w": 0.17,
+        "h": 0.1
+      }
+    },
+    {
+      "id": "svc-cart",
+      "kind": "card",
+      "role": "node: сервис Корзина",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "label": "Корзина",
+        "elevation": 2,
+        "enter": "pop",
+        "enterAt": 26,
+        "size": "body"
+      },
+      "layout": {
+        "x": 0.54,
+        "y": 0.27,
+        "w": 0.17,
+        "h": 0.1
+      }
+    },
+    {
+      "id": "svc-pay",
+      "kind": "card",
+      "role": "node: сервис Оплата",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "label": "Оплата",
+        "elevation": 2,
+        "enter": "pop",
+        "enterAt": 30,
+        "size": "body"
+      },
+      "layout": {
+        "x": 0.54,
+        "y": 0.4,
+        "w": 0.17,
+        "h": 0.1
+      }
+    },
+    {
+      "id": "svc-search",
+      "kind": "card",
+      "role": "node: сервис Поиск",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "label": "Поиск",
+        "elevation": 2,
+        "enter": "pop",
+        "enterAt": 34,
+        "size": "body"
+      },
+      "layout": {
+        "x": 0.54,
+        "y": 0.53,
+        "w": 0.17,
+        "h": 0.1
+      }
+    },
+    {
+      "id": "micro-prod",
+      "kind": "card",
+      "role": "node: прод микросервисов — вспыхивает на каждом релизе",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "label": "Прод",
+        "elevation": 3,
+        "enter": "blur",
+        "enterAt": 40,
+        "size": "body",
+        "accentIndex": 1,
+        "flash_on": [
+          "e-catalog",
+          "e-cart",
+          "e-pay",
+          "e-search"
+        ],
+        "flash_beat": "pulses-run",
+        "note": "flash = pulseArrival по 4 рёбрам только в бите pulses-run (64–118); в hold вспышек нет"
+      },
+      "layout": {
+        "x": 0.85,
+        "y": 0.33,
+        "w": 0.13,
+        "h": 0.14
+      }
+    },
+    {
+      "id": "graph-micro",
+      "kind": "graph",
+      "role": "быстрые параллельные потоки: каждый сервис релизится сам",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "FlowGraph + PulseAlongPath",
+        "nodes": [
+          "svc-catalog",
+          "svc-cart",
+          "svc-pay",
+          "svc-search",
+          "micro-prod"
+        ],
+        "edges": [
+          {
+            "id": "e-catalog",
+            "from": "svc-catalog",
+            "to": "micro-prod"
+          },
+          {
+            "id": "e-cart",
+            "from": "svc-cart",
+            "to": "micro-prod"
+          },
+          {
+            "id": "e-pay",
+            "from": "svc-pay",
+            "to": "micro-prod"
+          },
+          {
+            "id": "e-search",
+            "from": "svc-search",
+            "to": "micro-prod"
+          }
+        ],
+        "flows": [
+          {
+            "edge": "e-catalog",
+            "direction": "forward",
+            "beat": "pulses-run"
+          },
+          {
+            "edge": "e-cart",
+            "direction": "forward",
+            "beat": "pulses-run"
+          },
+          {
+            "edge": "e-pay",
+            "direction": "forward",
+            "beat": "pulses-run"
+          },
+          {
+            "edge": "e-search",
+            "direction": "forward",
+            "beat": "pulses-run"
+          },
+          {
+            "edge": "e-catalog",
+            "direction": "forward",
+            "beat": "hold"
+          },
+          {
+            "edge": "e-pay",
+            "direction": "forward",
+            "beat": "hold"
+          }
+        ],
+        "pulses_main": {
+          "travel": 14,
+          "repeat": true,
+          "size": 7,
+          "tail": 110,
+          "starts": {
+            "e-catalog": 64,
+            "e-cart": 68,
+            "e-pay": 72,
+            "e-search": 76
+          },
+          "end_frame": 118,
+          "colors": {
+            "e-catalog": "accent[1]",
+            "e-cart": "accent[0]",
+            "e-pay": "accent[2]",
+            "e-search": "accent[1]"
+          }
+        },
+        "pulses_hold": {
+          "edges": [
+            "e-catalog",
+            "e-pay"
+          ],
+          "beat": {
+            "start_frame": 154,
+            "end_frame": 180
+          },
+          "travel": 22,
+          "size": 5,
+          "opacity": 0.5,
+          "no_flash": true,
+          "note": "установившийся тихий ритм: система продолжает релизить, но без акцента"
+        }
+      },
+      "layout": {
+        "x": 0.54,
+        "y": 0.13,
+        "w": 0.46,
+        "h": 0.52
+      }
+    },
+    {
+      "id": "mono-count",
+      "kind": "number",
+      "role": "контекст: релизы монолита за квартал (приглушено)",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "component": "AnimatedNumber",
+        "from": 0,
+        "to": 2,
+        "suffix": " релиза за квартал",
+        "locale": "ru",
+        "size": "h2",
+        "color": "muted",
+        "enterAt": 40,
+        "bound_to": "graph-mono.arrivals(e-mono)",
+        "note": "значение шагает 0 → 1 → 2 в кадры прихода импульса (≈94, ≈128), без удара акцентом"
+      },
+      "layout": {
+        "x": 0.02,
+        "y": 0.72,
+        "w": 0.44,
+        "h": 0.1
+      }
+    },
+    {
+      "id": "micro-count",
+      "kind": "number",
+      "role": "герой: 48 релизов микросервисов",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "component": "AnimatedNumber",
+        "from": 0,
+        "to": 48,
+        "locale": "ru",
+        "size": "display",
+        "color": "text",
+        "enterAt": 48,
+        "align": "left"
+      },
+      "layout": {
+        "x": 0.56,
+        "y": 0.68,
+        "w": 0.4,
+        "h": 0.16
+      }
+    },
+    {
+      "id": "micro-caption",
+      "kind": "text",
+      "role": "подпись героя",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "component": "KineticText",
+        "text": "релизов за квартал",
+        "size": "body",
+        "mode": "words",
+        "enter": "fade",
+        "color": "muted",
+        "align": "left"
+      },
+      "layout": {
+        "x": 0.56,
+        "y": 0.86,
+        "w": 0.4,
+        "h": 0.07
+      }
+    },
+    {
+      "id": "emphasis-hero",
+      "kind": "shape",
+      "role": "emphasis: дыхание героя-числа 48",
+      "entrance": "none",
+      "depth_layer": 1,
+      "content": {
+        "component": "Emphasis",
+        "target": "micro-count",
+        "accentIndex": 0,
+        "loop": true,
+        "shape": "pill",
+        "spread": 48
+      },
+      "layout": {
+        "x": 0.56,
+        "y": 0.68,
+        "w": 0.4,
+        "h": 0.16
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "lanes-in",
+      "start_frame": 0,
+      "end_frame": 32,
+      "action": "lanes-in",
+      "description": "«Монолит» поднимается из маски слева (rise, 0–24); «Микросервисы» въезжают сбоку со скосом справа (slide, 8–32); разделитель прорастает от центра вверх и вниз (draw, linear по прогрессу).",
+      "element_ids": [
+        "lane-mono",
+        "lane-micro",
+        "divider"
+      ]
+    },
+    {
+      "id": "mono-graph-in",
+      "start_frame": 14,
+      "end_frame": 50,
+      "action": "mono-graph-entrance",
+      "description": "Тяжёлый блок «Весь код» выходит из глубины (scale, enterAt 14), «Прод» проявляется из расфокуса (blur, enterAt 24); ребро e-mono прорисовывается после обоих узлов.",
+      "element_ids": [
+        "graph-mono",
+        "mono-core",
+        "mono-prod"
+      ]
+    },
+    {
+      "id": "micro-graph-in",
+      "start_frame": 22,
+      "end_frame": 60,
+      "action": "micro-graph-entrance",
+      "description": "Четыре сервиса выстреливают каскадом pop со сдвигом 4 кадра (22, 26, 30, 34) — россыпь лёгких модулей; «Прод» справа из расфокуса (blur, 40); четыре ребра сходятся к нему, рисуются по готовности концов.",
+      "element_ids": [
+        "graph-micro",
+        "svc-catalog",
+        "svc-cart",
+        "svc-pay",
+        "svc-search",
+        "micro-prod"
+      ]
+    },
+    {
+      "id": "counters-in",
+      "start_frame": 40,
+      "end_frame": 80,
+      "action": "counters-in",
+      "description": "«0 релиза за квартал» поднимается слева (rise, 40–64) и стоит на нуле; «0» героя выскакивает справа (pop, 48–72) и читается 16 кадров до старта счёта; подпись «релизов за квартал» проявляется из размытия (blur, 56–80).",
+      "element_ids": [
+        "mono-count",
+        "micro-count",
+        "micro-caption"
+      ]
+    },
+    {
+      "id": "pulses-run",
+      "start_frame": 60,
+      "end_frame": 132,
+      "action": "pulses-run-release-flow",
+      "description": "Один период — два темпа. Слева один тяжёлый приглушённый импульс медленно ползёт по e-mono (travel 34): приходит ≈94 и ≈128, и mono-count шагает 0→1→2 ровно в эти кадры. Справа короткие быстрые импульсы (travel 14) по четырём рёбрам со стартами 64/68/72/76, цветовой код по рёбрам; micro-prod вспыхивает accentIndex 1 на каждом приходе (pulseArrival), последние вспышки ≤132.",
+      "element_ids": [
+        "graph-mono",
+        "graph-micro",
+        "micro-prod",
+        "mono-count"
+      ]
+    },
+    {
+      "id": "micro-count-run",
+      "start_frame": 64,
+      "end_frame": 132,
+      "action": "count-micro-releases",
+      "description": "Герой считает 0 → 48 за весь бит частых вспышек (разгон и торможение EASE.count), удар масштаба на 132.",
+      "element_ids": [
+        "micro-count"
+      ]
+    },
+    {
+      "id": "final-emphasis",
+      "start_frame": 134,
+      "end_frame": 152,
+      "action": "final-emphasis",
+      "description": "Emphasis на «48»: удар +6 %, кольцо и ореол accent[0]; одновременно вся левая дорожка (lane-mono, graph-mono, mono-count) за exit_frames 14 гаснет до opacity 0.5 и замирает — проигравшая сторона приглушена.",
+      "element_ids": [
+        "emphasis-hero",
+        "micro-count",
+        "lane-mono",
+        "graph-mono",
+        "mono-count"
+      ]
+    },
+    {
+      "id": "hold",
+      "start_frame": 153,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "Новых входов нет. «48» дышит (Emphasis loop: свечение и масштаб ±1 %, кольцо на вдох) — итог держит победившая сторона. Справа по e-catalog и e-pay изредка идут тихие тонкие импульсы (travel 22, opacity 0.5, без вспышек узла) — система продолжает релизить в обычном ритме, подтверждая «часто и независимо». Левая сторона неподвижна и приглушена.",
+      "element_ids": [
+        "emphasis-hero",
+        "micro-count",
+        "graph-micro",
+        "graph-mono"
+      ]
+    }
+  ],
+  "composition": {
+    "archetype": "split",
+    "idea": "Две дорожки по разные стороны тонкой оси: слева один тяжёлый блок «Весь код» медленно, двумя импульсами за период, доносит релиз в «Прод»; справа четыре лёгких сервиса шлют короткие импульсы параллельно, и «Прод» вспыхивает раз за разом. Взгляд идёт слева направо и сверху вниз — от медленного блока к быстрому рою и к числу 48 внизу справа. Фон — aurora пресета с редкими пылинками слоя 0.",
+    "focus": "Камера стоит, фокус ведут свет и масштаб: сначала заголовки дорожек, затем схемы, в фазе потоков — вспышки правого «Прод», в финале — дышащее «48»; левая сторона гаснет.",
+    "transitions": "Схемы собираются из узлов и рёбер, затем оживают потоками в одном и том же окне времени; счётчики стоят на нуле и шагают за приходами импульсов. После удара на «48» монолит уходит в полутень, а правая система остаётся в тихом установившемся ритме до конца."
+  }
+}

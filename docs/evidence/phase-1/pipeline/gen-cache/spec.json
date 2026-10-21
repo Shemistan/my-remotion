@@ -1,0 +1,442 @@
+{
+  "title": "Как работает кэш",
+  "purpose": "Показать цикл кэширования: запрос, промах, запись в кэш и попадание, при котором ответ возвращается коротким путём без базы данных.",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "composition": {
+    "archetype": "network-centric",
+    "idea": "Горизонтальная цепочка Клиент → Кэш → База данных, крупный Кэш в центре — ячейка, которая сначала пуста, а потом отвечает сама. Над схемой — трекер четырёх этапов, под ней — вывод; фон aurora с редкими частицами слоя 0.",
+    "focus": "Фокус ведут импульсы и вспышки: Клиент → Кэш (промах) → База → Кэш (запись) → Клиент, затем короткий путь Клиент ↔ Кэш. Камера стоит до 120 кадра, потом один медленный наезд до 1.04 к Кэшу.",
+    "transitions": "Пустая ячейка кэша становится заполненной; длинный путь к базе гаснет и уступает короткому; трекер этапов переключается от «Запрос» к «Попаданию»; в финале Кэш дышит как итог."
+  },
+  "elements": [
+    {
+      "id": "stepper",
+      "kind": "group",
+      "role": "опора: четыре этапа кэширования, трекер текущей фазы",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "component": "Enter kind=slide каскадом (index/total=4) + свои чипы",
+        "size": "body",
+        "steps": [
+          {
+            "n": "1",
+            "label": "Запрос",
+            "active_at": 40
+          },
+          {
+            "n": "2",
+            "label": "Промах",
+            "active_at": 58
+          },
+          {
+            "n": "3",
+            "label": "Запись",
+            "active_at": 100
+          },
+          {
+            "n": "4",
+            "label": "Попадание",
+            "active_at": 134
+          }
+        ],
+        "separator": "→ (muted, caption)",
+        "style": "Каждый чип: номер в маленькой круглой плашке surface + подпись body. До своего кадра active_at подпись muted; с active_at переходит в text за enter_frames (easing.enter). Свечения и акцентного цвета у чипов нет — акцент принадлежит узлам схемы.",
+        "chip_width_px": 345
+      },
+      "layout": {
+        "x": 0.1,
+        "y": 0.05,
+        "w": 0.8,
+        "h": 0.12
+      }
+    },
+    {
+      "id": "cache-graph",
+      "kind": "graph",
+      "role": "схема системы: Клиент → Кэш → База данных",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "FlowGraph + PulseAlongPath",
+        "width": 1555,
+        "height": 486,
+        "edges": [
+          {
+            "id": "e-req",
+            "from": "client",
+            "to": "cache"
+          },
+          {
+            "id": "e-db",
+            "from": "cache",
+            "to": "db"
+          }
+        ],
+        "flows": [
+          {
+            "edge": "e-req",
+            "direction": "forward",
+            "beat": "b-request",
+            "color": "accent[0]",
+            "repeat": false,
+            "travel": 18
+          },
+          {
+            "edge": "e-db",
+            "direction": "forward",
+            "beat": "b-fetch",
+            "color": "accent[0]",
+            "repeat": false,
+            "travel": 18
+          },
+          {
+            "edge": "e-db",
+            "direction": "back",
+            "beat": "b-return",
+            "color": "accent[1]",
+            "repeat": false,
+            "travel": 18
+          },
+          {
+            "edge": "e-req",
+            "direction": "back",
+            "beat": "b-deliver",
+            "color": "accent[1]",
+            "repeat": false,
+            "travel": 16
+          },
+          {
+            "edge": "e-req",
+            "direction": "forward",
+            "beat": "b-hit-request",
+            "color": "accent[0]",
+            "repeat": false,
+            "travel": 14
+          },
+          {
+            "edge": "e-req",
+            "direction": "back",
+            "beat": "b-hit-return",
+            "color": "accent[1]",
+            "repeat": false,
+            "travel": 14
+          }
+        ],
+        "dim_long_path": "с кадра 118 по 130 ребро e-db и узел db плавно уходят в opacity 0.35 (easing.exit) и стоят так до конца",
+        "note": "Цвет импульсов — код направления: запрос accent[0], данные назад accent[1]. Узлы светятся только в своих битах вспышки."
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.3,
+        "w": 0.9,
+        "h": 0.5
+      }
+    },
+    {
+      "id": "node-client",
+      "kind": "card",
+      "role": "node: Клиент — источник запроса",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "label": "Клиент",
+        "enter": "slide",
+        "enterAt": 8,
+        "elevation": 2,
+        "graph_px": {
+          "x": 0,
+          "y": 173,
+          "w": 300,
+          "h": 140
+        }
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.478,
+        "w": 0.174,
+        "h": 0.144
+      }
+    },
+    {
+      "id": "node-cache",
+      "kind": "card",
+      "role": "node: Кэш — герой сцены",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "label": "Кэш",
+        "enter": "pop",
+        "enterAt": 16,
+        "elevation": 3,
+        "accentIndex": 0,
+        "graph_px": {
+          "x": 568,
+          "y": 133,
+          "w": 420,
+          "h": 220
+        },
+        "caption_states": [
+          {
+            "from_frame": 16,
+            "text": "пусто",
+            "color": "muted"
+          },
+          {
+            "from_frame": 100,
+            "text": "данные сохранены",
+            "color": "positive",
+            "enter": "blur за enter_frames"
+          }
+        ],
+        "flash_on": [
+          "e-req@b-request: промах, цвет negative, loop false, бит b-miss-emphasis",
+          "e-db back@b-return: запись, accentIndex 1, loop false, бит b-write-emphasis",
+          "e-req@b-hit-request: попадание, Emphasis цвет positive, loop true, shape rounded, бит b-hit-emphasis"
+        ],
+        "miss_detail": "при промахе подпись «пусто» коротко вспыхивает negative и возвращается в muted"
+      },
+      "layout": {
+        "x": 0.378,
+        "y": 0.437,
+        "w": 0.243,
+        "h": 0.226
+      }
+    },
+    {
+      "id": "node-db",
+      "kind": "card",
+      "role": "node: База данных — медленный источник",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "label": "База данных",
+        "enter": "blur",
+        "enterAt": 24,
+        "elevation": 1,
+        "graph_px": {
+          "x": 1175,
+          "y": 173,
+          "w": 380,
+          "h": 140
+        },
+        "flash_on": "e-db@b-fetch: loop false, бит b-db-emphasis"
+      },
+      "layout": {
+        "x": 0.73,
+        "y": 0.478,
+        "w": 0.22,
+        "h": 0.144
+      }
+    },
+    {
+      "id": "conclusion",
+      "kind": "text",
+      "role": "вывод: второй запрос не идёт в базу",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "component": "Enter kind=blur",
+        "text": "Повторный запрос — сразу из кэша",
+        "size": "body",
+        "align": "center",
+        "color": "text",
+        "highlight_word": "«из кэша» цветом positive, без свечения"
+      },
+      "layout": {
+        "x": 0.15,
+        "y": 0.84,
+        "w": 0.7,
+        "h": 0.09
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "b-stepper-in",
+      "start_frame": 0,
+      "end_frame": 36,
+      "action": "stepper-in",
+      "description": "Четыре чипа «1 Запрос → 2 Промах → 3 Запись → 4 Попадание» въезжают слева каскадом slide со сдвигом stagger_frames=4, все в muted.",
+      "element_ids": [
+        "stepper"
+      ]
+    },
+    {
+      "id": "b-graph-in",
+      "start_frame": 8,
+      "end_frame": 48,
+      "action": "graph-in-draw",
+      "description": "Узлы входят по ролям: Клиент slide (enterAt 8), Кэш pop с перелётом (enterAt 16), База данных blur (enterAt 24). Рёбра e-req и e-db прорисовываются, когда оба конца на месте.",
+      "element_ids": [
+        "cache-graph",
+        "node-client",
+        "node-cache",
+        "node-db"
+      ]
+    },
+    {
+      "id": "b-request",
+      "start_frame": 40,
+      "end_frame": 58,
+      "action": "request-pulse",
+      "description": "Чип 1 «Запрос» загорается (text). Импульс accent[0] идёт по e-req от Клиента к Кэшу, один проход.",
+      "element_ids": [
+        "cache-graph",
+        "stepper"
+      ]
+    },
+    {
+      "id": "b-miss-emphasis",
+      "start_frame": 58,
+      "end_frame": 78,
+      "action": "miss-emphasis",
+      "description": "В кадр прихода импульса (pulseArrival e-req/b-request) Кэш вспыхивает цветом negative, loop false: ячейка пуста. Подпись «пусто» коротко краснеет. Загорается чип 2 «Промах».",
+      "element_ids": [
+        "node-cache",
+        "stepper"
+      ]
+    },
+    {
+      "id": "b-fetch",
+      "start_frame": 62,
+      "end_frame": 80,
+      "action": "fetch-pulse",
+      "description": "Запрос уходит дальше: импульс accent[0] по e-db от Кэша к Базе данных.",
+      "element_ids": [
+        "cache-graph"
+      ]
+    },
+    {
+      "id": "b-db-emphasis",
+      "start_frame": 80,
+      "end_frame": 96,
+      "action": "db-emphasis",
+      "description": "База данных вспыхивает в кадр прихода импульса (flash_on e-db/b-fetch), loop false — акцент гаснет до записи.",
+      "element_ids": [
+        "node-db"
+      ]
+    },
+    {
+      "id": "b-return",
+      "start_frame": 82,
+      "end_frame": 100,
+      "action": "return-pulse",
+      "description": "Данные возвращаются: импульс accent[1] по e-db reverse от Базы к Кэшу.",
+      "element_ids": [
+        "cache-graph"
+      ]
+    },
+    {
+      "id": "b-write-emphasis",
+      "start_frame": 100,
+      "end_frame": 118,
+      "action": "write-emphasis",
+      "description": "В кадр прихода обратного импульса Кэш вспыхивает accentIndex 1 (loop false), подпись меняется «пусто» → «данные сохранены» (positive, blur). Загорается чип 3 «Запись».",
+      "element_ids": [
+        "node-cache",
+        "stepper"
+      ]
+    },
+    {
+      "id": "b-deliver",
+      "start_frame": 102,
+      "end_frame": 118,
+      "action": "deliver-pulse",
+      "description": "Ответ уходит клиенту: импульс accent[1] по e-req reverse от Кэша к Клиенту.",
+      "element_ids": [
+        "cache-graph"
+      ]
+    },
+    {
+      "id": "b-dim-long",
+      "start_frame": 118,
+      "end_frame": 130,
+      "action": "dim-long-path",
+      "description": "Длинный путь гаснет: ребро e-db и узел База данных уходят в opacity 0.35 и стоят тусклыми до конца.",
+      "element_ids": [
+        "cache-graph",
+        "node-db"
+      ]
+    },
+    {
+      "id": "b-hit-request",
+      "start_frame": 120,
+      "end_frame": 134,
+      "action": "hit-request-pulse",
+      "description": "Второй такой же запрос: импульс accent[0] по e-req, чуть быстрее первого (travel 14).",
+      "element_ids": [
+        "cache-graph"
+      ]
+    },
+    {
+      "id": "b-conclusion-in",
+      "start_frame": 129,
+      "end_frame": 153,
+      "action": "conclusion-in",
+      "description": "Под схемой из размытия проявляется вывод «Повторный запрос — сразу из кэша», слова «из кэша» цветом positive.",
+      "element_ids": [
+        "conclusion"
+      ]
+    },
+    {
+      "id": "b-hit-emphasis",
+      "start_frame": 134,
+      "end_frame": 153,
+      "action": "final-emphasis",
+      "description": "В кадр прихода импульса Кэш получает Emphasis цветом positive (удар +6 %, кольцо, loop true) — это «Попадание». Загорается чип 4 «Попадание». Камера начинает медленный наезд к Кэшу.",
+      "element_ids": [
+        "node-cache",
+        "stepper"
+      ]
+    },
+    {
+      "id": "b-hit-return",
+      "start_frame": 136,
+      "end_frame": 150,
+      "action": "hit-return-pulse",
+      "description": "Ответ сразу возвращается по короткому пути: импульс accent[1] по e-req reverse к Клиенту; e-db тусклое и без импульсов.",
+      "element_ids": [
+        "cache-graph"
+      ]
+    },
+    {
+      "id": "b-hold",
+      "start_frame": 153,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "Новых входов и импульсов нет: процесс завершён. Живёт результат: Кэш дышит свечением positive (Emphasis loop, кольцо на вдох), камера доезжает до 1.04 к герою, База данных стоит тусклой. Движение подтверждает итог: ответ берётся из кэша, длинный путь не нужен.",
+      "element_ids": [
+        "node-cache",
+        "cache-graph",
+        "stepper",
+        "conclusion"
+      ]
+    }
+  ],
+  "camera": [
+    {
+      "frame": 0,
+      "scale": 1,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "frame": 120,
+      "scale": 1,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "frame": 179,
+      "scale": 1.04,
+      "x": 0,
+      "y": 0
+    }
+  ]
+}

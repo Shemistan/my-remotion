@@ -1,351 +1,364 @@
 {
   "title": "Архитектура AI-агента",
-  "purpose": "Показать, что оркестратор — центр агента: принимает запрос, вызывает три инструмента и собирает их данные в ответ.",
+  "purpose": "Показать цикл AI-агента: запрос пользователя идёт в оркестратор, тот вызывает три инструмента, данные возвращаются и ответ уходит пользователю.",
   "duration_frames": 180,
   "fps": {
     "num": 30,
     "den": 1
   },
   "style_preset": "dark-premium",
+  "palette_overrides": {},
   "composition": {
     "archetype": "network-centric",
-    "idea": "Оркестратор — светящееся ядро в центре: слева в него входит запрос, справа веером три инструмента; свет течёт слева направо и возвращается обратно. Фон aurora + Particles слоя 0.",
-    "focus": "Заголовок → пользователь → оркестратор (вспышка) → инструменты по очереди → обратно в центр → к пользователю. Камера стоит до 120, затем один медленный наезд до 1.04 к центру.",
-    "transitions": "Схема собирается слева направо, затем состояние меняет только свет: фиолетовый запрос, бирюзовые вызовы, янтарные данные, фиолетовый ответ. Схема остаётся до конца, финал — тихий цикл импульсов и дыхание героя."
+    "idea": "Светящаяся схема на графитовой ауре: Пользователь слева, крупный Оркестратор в центре, три инструмента столбцом справа. Взгляд идёт по импульсу слева к центру, веером вправо, обратно в центр и к пользователю — замкнутый цикл. Фон — Background aurora и Particles слоя 0.",
+    "focus": "Камера стоит, фокус ведут импульсы и вспышка узла, к которому пришёл импульс; итог — дышащая плашка «Ответ готов».",
+    "transitions": "Схема собирается каскадом разных входов, рёбра прорисовываются; четыре фазы импульсов (запрос → вызовы → возврат → ответ) передают акцент от узла к узлу; финал — потоки стихли, дышит результат."
   },
   "elements": [
     {
-      "id": "title",
+      "id": "kicker",
       "kind": "text",
-      "role": "опора: заголовок сцены",
-      "entrance": "mask",
+      "role": "контекст: тема сцены",
+      "entrance": "type",
       "depth_layer": 1,
       "content": {
         "component": "KineticText",
-        "text": "Как работает AI-агент",
-        "size": "h2",
-        "align": "center",
-        "highlight": [],
+        "text": "Архитектура AI-агента",
+        "mode": "letters",
+        "enter": "type",
+        "size": "body",
         "font": "display",
-        "weight": 800,
-        "wrap": "Enter kind=mask direction=up"
+        "color": "muted"
       },
       "layout": {
-        "x": 0.05,
-        "y": 0.05,
-        "w": 0.9,
-        "h": 0.1
+        "x": 0,
+        "y": 0,
+        "w": 0.45,
+        "h": 0.08
       }
     },
     {
       "id": "agent-graph",
       "kind": "graph",
-      "role": "система: схема агента (рёбра и потоки)",
+      "role": "схема: связи агента, по которым идут импульсы",
       "entrance": "draw",
       "depth_layer": 1,
       "content": {
-        "component": "FlowGraph + PulseAlongPath",
-        "enter": "flip",
-        "note": "Позиции узлов — layout их элементов (доли safe area), переведённые в px области графа. Рёбра — S-кривые со стрелкой, прорисовка linear после входа обоих узлов.",
-        "nodes": [
-          "node-user",
-          "node-orchestrator",
-          "node-tool-search",
-          "node-tool-kb",
-          "node-tool-calc"
-        ],
+        "component": "FlowGraph",
+        "enter": "rise",
+        "note": "координаты узлов — из layout узлов (доли safe area → px 1728×972); рёбра S-кривые, прорисовка после прихода обоих узлов",
         "edges": [
           {
             "id": "e-user",
-            "from": "node-user",
-            "to": "node-orchestrator"
+            "from": "user",
+            "to": "orchestrator"
           },
           {
             "id": "e-search",
-            "from": "node-orchestrator",
-            "to": "node-tool-search"
+            "from": "orchestrator",
+            "to": "tool-search"
           },
           {
-            "id": "e-kb",
-            "from": "node-orchestrator",
-            "to": "node-tool-kb"
+            "id": "e-code",
+            "from": "orchestrator",
+            "to": "tool-code"
           },
           {
-            "id": "e-calc",
-            "from": "node-orchestrator",
-            "to": "node-tool-calc"
+            "id": "e-db",
+            "from": "orchestrator",
+            "to": "tool-db"
           }
         ],
         "flows": [
           {
             "edge": "e-user",
             "direction": "forward",
-            "beat": "request-pulse"
+            "beat": "pulse-request"
           },
           {
             "edge": "e-search",
             "direction": "forward",
-            "beat": "tool-calls"
+            "beat": "pulse-fan-out"
           },
           {
-            "edge": "e-kb",
+            "edge": "e-code",
             "direction": "forward",
-            "beat": "tool-calls"
+            "beat": "pulse-fan-out"
           },
           {
-            "edge": "e-calc",
+            "edge": "e-db",
             "direction": "forward",
-            "beat": "tool-calls"
+            "beat": "pulse-fan-out"
           },
           {
             "edge": "e-search",
             "direction": "back",
-            "beat": "data-return"
+            "beat": "pulse-return"
           },
           {
-            "edge": "e-kb",
+            "edge": "e-code",
             "direction": "back",
-            "beat": "data-return"
+            "beat": "pulse-return"
           },
           {
-            "edge": "e-calc",
+            "edge": "e-db",
             "direction": "back",
-            "beat": "data-return"
+            "beat": "pulse-return"
           },
           {
             "edge": "e-user",
             "direction": "back",
-            "beat": "answer-return"
+            "beat": "pulse-reply"
           }
         ],
-        "pulse_colors": {
-          "request": "accent[0]",
-          "tool-calls": "accent[1]",
-          "data-return": "accent[2]",
-          "answer": "accent[0]"
+        "pulses": {
+          "component": "PulseAlongPath",
+          "travel": 20,
+          "repeat": false,
+          "count": 1,
+          "colors": {
+            "pulse-request": "accent[0]",
+            "pulse-fan-out": "accent[1]",
+            "pulse-return": "accent[2]",
+            "pulse-reply": "accent[0]"
+          }
         }
       },
       "layout": {
-        "x": 0.05,
-        "y": 0.2,
-        "w": 0.9,
-        "h": 0.72
+        "x": 0,
+        "y": 0.1,
+        "w": 1,
+        "h": 0.9
       }
     },
     {
-      "id": "node-user",
+      "id": "user",
       "kind": "card",
-      "role": "node: пользователь — источник запроса",
-      "entrance": "rise",
+      "role": "node: Пользователь — источник запроса",
+      "entrance": "slide",
       "depth_layer": 1,
       "content": {
         "label": "Пользователь",
-        "size": "body",
+        "caption": "запрос",
+        "enter": "slide",
+        "enterAt": 4,
         "elevation": 2,
-        "component": "FlowGraph node"
+        "size": "body",
+        "flash_on": "e-user (reverse, pulse-reply)"
       },
       "layout": {
-        "x": 0.05,
-        "y": 0.47,
+        "x": 0,
+        "y": 0.42,
         "w": 0.22,
-        "h": 0.13
+        "h": 0.16
       }
     },
     {
-      "id": "node-orchestrator",
+      "id": "orchestrator",
       "kind": "card",
-      "role": "node: оркестратор — герой кадра",
-      "entrance": "scale",
+      "role": "node: Оркестратор — герой кадра",
+      "entrance": "pop",
       "depth_layer": 1,
       "content": {
         "label": "Оркестратор",
-        "caption": "LLM-агент",
-        "size": "h2",
+        "caption": "AI-агент",
+        "enter": "pop",
+        "enterAt": 14,
         "elevation": 3,
+        "size": "h2",
         "accentIndex": 0,
-        "component": "FlowGraph node + собственный Card-оверлей того же rect с подписью h2 (FlowGraph ограничивает подписи body, поэтому крупную подпись героя рисует Card поверх узла)"
+        "flash_on": [
+          "e-user (forward, pulse-request)",
+          "e-search (reverse, pulse-return, первый приход)"
+        ]
       },
       "layout": {
-        "x": 0.37,
+        "x": 0.36,
+        "y": 0.37,
+        "w": 0.27,
+        "h": 0.26
+      }
+    },
+    {
+      "id": "tool-search",
+      "kind": "card",
+      "role": "node: инструмент «Поиск»",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Поиск",
+        "caption": "инструмент 1",
+        "enter": "rise",
+        "enterAt": 26,
+        "elevation": 2,
+        "size": "body",
+        "flash_on": "e-search (forward, pulse-fan-out)",
+        "flash_strength": 0.6
+      },
+      "layout": {
+        "x": 0.76,
+        "y": 0.1,
+        "w": 0.24,
+        "h": 0.16
+      }
+    },
+    {
+      "id": "tool-code",
+      "kind": "card",
+      "role": "node: инструмент «Код»",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Код",
+        "caption": "инструмент 2",
+        "enter": "rise",
+        "enterAt": 30,
+        "elevation": 2,
+        "size": "body",
+        "flash_on": "e-code (forward, pulse-fan-out)",
+        "flash_strength": 0.6
+      },
+      "layout": {
+        "x": 0.76,
         "y": 0.42,
-        "w": 0.26,
-        "h": 0.23
+        "w": 0.24,
+        "h": 0.16
       }
     },
     {
-      "id": "node-tool-search",
+      "id": "tool-db",
       "kind": "card",
-      "role": "node: инструмент 1",
+      "role": "node: инструмент «База данных»",
       "entrance": "rise",
       "depth_layer": 1,
       "content": {
-        "label": "Веб-поиск",
-        "size": "body",
+        "label": "База данных",
+        "caption": "инструмент 3",
+        "enter": "rise",
+        "enterAt": 34,
         "elevation": 2,
-        "component": "FlowGraph node",
-        "cascade_index": 0
+        "size": "body",
+        "flash_on": "e-db (forward, pulse-fan-out)",
+        "flash_strength": 0.6
       },
       "layout": {
-        "x": 0.73,
-        "y": 0.24,
-        "w": 0.22,
-        "h": 0.13
-      }
-    },
-    {
-      "id": "node-tool-kb",
-      "kind": "card",
-      "role": "node: инструмент 2",
-      "entrance": "rise",
-      "depth_layer": 1,
-      "content": {
-        "label": "База знаний",
-        "size": "body",
-        "elevation": 2,
-        "component": "FlowGraph node",
-        "cascade_index": 1
-      },
-      "layout": {
-        "x": 0.73,
-        "y": 0.47,
-        "w": 0.22,
-        "h": 0.13
-      }
-    },
-    {
-      "id": "node-tool-calc",
-      "kind": "card",
-      "role": "node: инструмент 3",
-      "entrance": "rise",
-      "depth_layer": 1,
-      "content": {
-        "label": "Калькулятор",
-        "size": "body",
-        "elevation": 2,
-        "component": "FlowGraph node",
-        "cascade_index": 2
-      },
-      "layout": {
-        "x": 0.73,
-        "y": 0.7,
-        "w": 0.22,
-        "h": 0.13
+        "x": 0.76,
+        "y": 0.74,
+        "w": 0.24,
+        "h": 0.16
       }
     },
     {
       "id": "answer-badge",
-      "kind": "shape",
-      "role": "emphasis: ответ вернулся пользователю",
+      "kind": "card",
+      "role": "emphasis: итог — ответ доставлен пользователю",
       "entrance": "pop",
       "depth_layer": 1,
       "content": {
-        "component": "Enter kind=pop + плашка cardSurface(elevation 1) с кромкой accent[0]",
+        "component": "Emphasis",
         "text": "Ответ готов",
         "size": "body",
-        "color": "accent[0]"
+        "shape": "pill",
+        "loop": true,
+        "accentIndex": 1,
+        "enter_on": "arrival of pulse-reply on e-user (useFlowGeometry().arrivals)",
+        "note": "плашка под узлом «Пользователь», выровнена по его ширине"
       },
       "layout": {
-        "x": 0.07,
-        "y": 0.63,
-        "w": 0.18,
-        "h": 0.08
+        "x": 0,
+        "y": 0.64,
+        "w": 0.22,
+        "h": 0.1
       }
     }
   ],
   "beats": [
     {
-      "id": "title-in",
+      "id": "kicker-in",
       "start_frame": 0,
-      "end_frame": 36,
-      "action": "title-in",
-      "description": "Заголовок открывается шторкой снизу (mask, 1.5×enter_frames = 36 кадров). Фон aurora проявляется за 0–40, частицы слоя 0 всплывают.",
+      "end_frame": 30,
+      "action": "kicker-type-in",
+      "description": "Кикер «Архитектура AI-агента» набирается по буквам с кареткой в левом верхнем углу, цвет muted.",
       "element_ids": [
-        "title"
+        "kicker"
       ]
     },
     {
-      "id": "graph-nodes-in",
-      "start_frame": 8,
-      "end_frame": 68,
-      "action": "graph-nodes-in",
-      "description": "FlowGraph beat 8–68: узлы входят слева направо в первые ~45% бита — «Пользователь» (≈8), герой «Оркестратор» крупнее и выше по elevation (≈16), затем три инструмента каскадом сверху вниз со сдвигом stagger_frames=4. Рёбра прорисовываются linear, как только оба узла на месте, к ~66 все четыре со стрелками.",
+      "id": "graph-in",
+      "start_frame": 4,
+      "end_frame": 56,
+      "action": "graph-entrance",
+      "description": "Узлы входят по ролям: «Пользователь» въезжает slide (enterAt 4), «Оркестратор» выстреливает pop (enterAt 14), инструменты поднимаются rise каскадом 26/30/34. Рёбра прорисовываются (draw), когда оба конца на месте; к ~56 схема собрана и стоит.",
       "element_ids": [
         "agent-graph",
-        "node-user",
-        "node-orchestrator",
-        "node-tool-search",
-        "node-tool-kb",
-        "node-tool-calc"
+        "user",
+        "orchestrator",
+        "tool-search",
+        "tool-code",
+        "tool-db"
       ]
     },
     {
-      "id": "request-pulse",
-      "start_frame": 46,
-      "end_frame": 74,
-      "action": "request-pulse-forward",
-      "description": "PulseAlongPath edgeId=e-user, цвет accent[0], tail 120, один проход: запрос уходит от пользователя к оркестратору. В кадре прихода (≈72) узел-оркестратор вспыхивает — тот же источник движения, что и импульс.",
+      "id": "pulse-request",
+      "start_frame": 52,
+      "end_frame": 72,
+      "action": "pulse-request-in",
+      "description": "Импульс accent[0] с хвостом бежит по e-user от Пользователя к Оркестратору (travel 20, repeat false). В кадр прихода (pulseArrival) Оркестратор вспыхивает: удар accentPulse, кольцо, кромка акцентом.",
       "element_ids": [
         "agent-graph",
-        "node-user",
-        "node-orchestrator"
+        "user",
+        "orchestrator"
       ]
     },
     {
-      "id": "orchestrator-emphasis",
-      "start_frame": 70,
-      "end_frame": 90,
-      "action": "orchestrator-emphasis",
-      "description": "Удар героя: кромка и свечение accent[0] разгораются, масштаб 1→1.04→1 на springAt('snappy'). Остальные узлы приглушены — акцент только у оркестратора.",
-      "element_ids": [
-        "node-orchestrator"
-      ]
-    },
-    {
-      "id": "tool-calls",
-      "start_frame": 82,
-      "end_frame": 110,
-      "action": "tool-calls-forward",
-      "description": "Три импульса accent[1] расходятся лучами по e-search, e-kb, e-calc со стартами 82/86/90 (stagger 4). Каждый инструмент вспыхивает кромкой accent[1] в момент прихода своего импульса, затем гаснет — подсвечен один узел за раз.",
+      "id": "pulse-fan-out",
+      "start_frame": 74,
+      "end_frame": 96,
+      "action": "pulse-fan-out",
+      "description": "Три импульса accent[1] веером из Оркестратора к Поиску, Коду и Базе данных, старты 74/78/82 (сдвиг stagger 4). Каждый инструмент коротко вспыхивает (strength 0.6, loop false) ровно в кадр прихода своего импульса — акцент пробегает волной сверху вниз.",
       "element_ids": [
         "agent-graph",
-        "node-tool-search",
-        "node-tool-kb",
-        "node-tool-calc"
+        "orchestrator",
+        "tool-search",
+        "tool-code",
+        "tool-db"
       ]
     },
     {
-      "id": "data-return",
-      "start_frame": 106,
-      "end_frame": 132,
-      "action": "data-return-back",
-      "description": "PulseAlongPath reverse по трём рёбрам инструментов, цвет accent[2] (данные), старты 106/110/114. Импульсы сходятся в оркестратор; при приходе последнего (~130) оркестратор коротко вспыхивает accent[2] — данные собраны.",
+      "id": "pulse-return",
+      "start_frame": 98,
+      "end_frame": 120,
+      "action": "pulse-return-back",
+      "description": "Данные возвращаются: три импульса accent[2] reverse по e-search/e-code/e-db к Оркестратору (старты 98/102/106). Оркестратор вспыхивает на первом приходе; инструменты гаснут и стоят.",
       "element_ids": [
         "agent-graph",
-        "node-orchestrator",
-        "node-tool-search",
-        "node-tool-kb",
-        "node-tool-calc"
+        "orchestrator",
+        "tool-search",
+        "tool-code",
+        "tool-db"
       ]
     },
     {
-      "id": "answer-return",
-      "start_frame": 124,
-      "end_frame": 150,
-      "action": "answer-return-back",
-      "description": "PulseAlongPath edgeId=e-user reverse, accent[0], size 9: ответ возвращается к пользователю; узел «Пользователь» вспыхивает accent[0] при приходе (~146).",
+      "id": "pulse-reply",
+      "start_frame": 122,
+      "end_frame": 142,
+      "action": "pulse-reply-back",
+      "description": "Финальный импульс accent[0] reverse по e-user от Оркестратора к Пользователю; узел «Пользователь» вспыхивает в кадр прихода. Свечение Оркестратора к этому моменту погасло (loop false).",
       "element_ids": [
         "agent-graph",
-        "node-user"
+        "orchestrator",
+        "user"
       ]
     },
     {
-      "id": "answer-badge-in",
-      "start_frame": 128,
-      "end_frame": 152,
-      "action": "answer-badge-in",
-      "description": "Под узлом «Пользователь» выскакивает плашка «Ответ готов» (pop, пружина с перелётом), кромка accent[0]. Последний вход сцены, закончен до 153.",
+      "id": "answer-emphasis",
+      "start_frame": 142,
+      "end_frame": 153,
+      "action": "final-emphasis-in",
+      "description": "В кадр прихода ответного импульса (useFlowGeometry().arrivals) под узлом «Пользователь» выскакивает pop плашка «Ответ готов» и получает удар Emphasis accent[1] с кольцом.",
       "element_ids": [
-        "answer-badge"
+        "answer-badge",
+        "user"
       ]
     },
     {
@@ -353,37 +366,17 @@
       "start_frame": 153,
       "end_frame": 180,
       "action": "hold",
-      "description": "Успокоение без новых входов. Вторичное движение: цикл продолжается тихо — импульсы малого размера (size 5, opacity 0.6) бегут по e-user вперёд и по рёбрам инструментов туда-обратно (repeat); оркестратор дышит масштабом 1.00↔1.03 и свечением accent[0] (период ~40 кадров); камера медленно наезжает до 1.04 (кадры 120–179). Кадры 160 и 179 заметно различаются.",
+      "description": "Новых входов и импульсов нет — цикл завершён, потоки стихли. Живёт только итог: плашка «Ответ готов» дышит Emphasis loop (свечение и масштаб ±1 %, кольцо на вдох); фон-аврора и пылинки медленно дрейфуют. Импульсы к инструментам не возобновляются — это подтверждает, что ответ доставлен.",
       "element_ids": [
-        "title",
+        "answer-badge",
         "agent-graph",
-        "node-user",
-        "node-orchestrator",
-        "node-tool-search",
-        "node-tool-kb",
-        "node-tool-calc",
-        "answer-badge"
+        "orchestrator",
+        "user",
+        "tool-search",
+        "tool-code",
+        "tool-db",
+        "kicker"
       ]
-    }
-  ],
-  "camera": [
-    {
-      "frame": 0,
-      "scale": 1,
-      "x": 0,
-      "y": 0
-    },
-    {
-      "frame": 120,
-      "scale": 1,
-      "x": 0,
-      "y": 0
-    },
-    {
-      "frame": 179,
-      "scale": 1.04,
-      "x": 0,
-      "y": 20
     }
   ]
 }
