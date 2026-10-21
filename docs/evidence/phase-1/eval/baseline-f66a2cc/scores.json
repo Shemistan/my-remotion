@@ -1,0 +1,614 @@
+{
+  "summary": {
+    "run": "baseline-f66a2cc",
+    "commit": "8b9dbdb",
+    "judge_model": "opus",
+    "judge_runs": 3,
+    "scenes": 12,
+    "judged": 12,
+    "mean": 6,
+    "mean_tuned": 5.857142857142857,
+    "mean_held_out": 6.2,
+    "max_spread": 1,
+    "gen_cost_usd": 22.7097049,
+    "judge_cost_usd": 6.450655199999999
+  },
+  "rows": [
+    {
+      "id": "test1",
+      "scene": "test1",
+      "held_out": false,
+      "ref": null,
+      "judge": {
+        "overall": 5.5,
+        "criteria": {
+          "meaning": 6,
+          "hierarchy": 7,
+          "composition": 6,
+          "entrance": 4,
+          "choreography": 6,
+          "hold": 4.5,
+          "legibility": 6.5,
+          "distinctiveness": 4.5
+        },
+        "runs": [
+          6,
+          5.5,
+          5.5
+        ],
+        "spread": 0.5,
+        "mean": 5.666666666666667
+      },
+      "judge_cost_usd": 0.5653121999999999,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.3890563,
+        "wall_ms": 641264,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24PWM12A7D4MH8XP1Q06/versions/ver_01M5FSNNZK9SCCKQC0YFFRAPPG"
+      },
+      "frames": {
+        "frame0Content": 0,
+        "frame4Content": 0.015223765432098765,
+        "holdDelta": 0.004306281771968046,
+        "emptyThirdShare": 0.38095238095238093
+      },
+      "top_defects": [
+        "60: Промежуточные узлы-точки на «Год 1» (~50 тыс.) и «Год 2» (~220 тыс.) читаются как данные, которых не было в запросе.",
+        "48: Счётчик обгоняет голову линии: 122 000 при голове ~80 тыс., на кадре 60 — 492 000 при ~450 тыс.",
+        "125: Итоговую фразу «×100 за три года» режет маска: слово «года» появляется обрезанным мусором."
+      ]
+    },
+    {
+      "id": "test2",
+      "scene": "test2",
+      "held_out": false,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6,
+          "composition": 6,
+          "entrance": 4,
+          "choreography": 5.5,
+          "hold": 3.5,
+          "legibility": 6,
+          "distinctiveness": 5
+        },
+        "runs": [
+          6,
+          5.5,
+          6
+        ],
+        "spread": 0.5,
+        "mean": 5.833333333333333
+      },
+      "judge_cost_usd": 0.6144852000000001,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 2.8854192,
+        "wall_ms": 976705,
+        "engineer_calls": 2,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24Q7C613J3HSRNR089N3/versions/ver_01M5FSZXQNSE1E92B04JJ0AGG3"
+      },
+      "frames": {
+        "frame0Content": 0.0022685185185185187,
+        "frame4Content": 0.007160493827160494,
+        "holdDelta": 0.0028258517913338174,
+        "emptyThirdShare": 0
+      },
+      "top_defects": [
+        "108: Чип «+18 °C, без осадков» проезжает поверх заголовка «Оркестратор», текст накладывается и превращается в кашу",
+        "120: Двоящиеся полупрозрачные копии чипов ответа и запроса тянутся по связи (также кадр 60)",
+        "179: Удержание застыло: кадры 150–179 одинаковые, импульсы не бегут, система не работает"
+      ]
+    },
+    {
+      "id": "gen-compare",
+      "scene": "gen-compare",
+      "held_out": false,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6.5,
+          "composition": 5.5,
+          "entrance": 4.5,
+          "choreography": 6.5,
+          "hold": 5,
+          "legibility": 6.5,
+          "distinctiveness": 6
+        },
+        "runs": [
+          6.5,
+          6,
+          5.5
+        ],
+        "spread": 1,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.6165244,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.3556434000000002,
+        "wall_ms": 1227544,
+        "engineer_calls": 2,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24QFTPC4XYYKJKATZ24D/versions/ver_01M5FT7JZM7J7ZF2P3KKXBT03K"
+      },
+      "frames": {
+        "frame0Content": 0.000038580246913580246,
+        "frame4Content": 0.01726851851851852,
+        "holdDelta": 0.0009229126321310418,
+        "emptyThirdShare": 0.42857142857142855
+      },
+      "top_defects": [
+        "48: Счётчик микросервисов обгоняет приходы: «2 релиза» при нуле поставленных ромбов (кадр 60: «4» при трёх)",
+        "179: Подпись «1 проход — 1 день» противоречит дорожкам (релиз раз в ~3 дня на сервис); ×14 — сумма трёх сервисов против одного монолита",
+        "0: Кадр 0 почти чёрный — аврора и одна засечка, сетка собирается только к кадрам 24–36"
+      ]
+    },
+    {
+      "id": "gen-timeline",
+      "scene": "gen-timeline",
+      "held_out": false,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 6.5,
+          "hierarchy": 5.5,
+          "composition": 6,
+          "entrance": 4,
+          "choreography": 6.5,
+          "hold": 5,
+          "legibility": 6,
+          "distinctiveness": 4.5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.5094312,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 0.9908846,
+        "wall_ms": 1014737,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24QRAVPGD3P26J1566RS/versions/ver_01M5FT11S8N8DXFMGE5HKA33VZ"
+      },
+      "frames": {
+        "frame0Content": 0.0000154320987654321,
+        "frame4Content": 0.002484567901234568,
+        "holdDelta": 0.00989548031146615,
+        "emptyThirdShare": 0.19047619047619047
+      },
+      "top_defects": [
+        "8: Мусор от глифов «12» сверху и заголовок, разрезанный маской на кадре 16: грязный вход",
+        "0: Кадр 0 пустой (только фон), на кадре 4 одна серая черта вместо собранного постера",
+        "179: Итог «12 стран» спрятан мелкой серой подписью в плашке. Герой 2025 почти не крупнее остальных годов и не владеет кадром"
+      ]
+    },
+    {
+      "id": "gen-cache",
+      "scene": "gen-cache",
+      "held_out": false,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6,
+          "composition": 5,
+          "entrance": 4.5,
+          "choreography": 5.5,
+          "hold": 5,
+          "legibility": 6,
+          "distinctiveness": 5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.4474474,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.7821463,
+        "wall_ms": 1453416,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24QZ6Y7M43N6XAF33YW2/versions/ver_01M5FTEED28DHC43DRQATWHR7P"
+      },
+      "frames": {
+        "frame0Content": 0.00246141975308642,
+        "frame4Content": 0.010949074074074076,
+        "holdDelta": 0.006129586762688615,
+        "emptyThirdShare": 0.38095238095238093
+      },
+      "top_defects": [
+        "48: За движущимися токенами GET /profile/42 и «Анна, 28 лет» тянутся 2–3 полупрозрачные копии текста, они наезжают на «Redis · profile:42» и заголовок «База данных» (48, 60, 72, 96)",
+        "130: Смена пилюли ЗАПИСЬ → ПОПАДАНИЕ — кроссфейд, в котором оба слова видны одновременно двойным текстом",
+        "96: Нижние 55 % кадра пусты первые 4 с: вся система ужата в верхнюю треть"
+      ]
+    },
+    {
+      "id": "held-mobile",
+      "scene": "held-mobile",
+      "held_out": false,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 6,
+          "hierarchy": 6,
+          "composition": 5.5,
+          "entrance": 4.5,
+          "choreography": 6.5,
+          "hold": 5,
+          "legibility": 6,
+          "distinctiveness": 5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.4659524,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.1734941,
+        "wall_ms": 1410518,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24R67KY0F5V6HA4X4XBD/versions/ver_01M5FTD5MJP5YR2RFQSFY4KYVR"
+      },
+      "frames": {
+        "frame0Content": 0,
+        "frame4Content": 0.013148148148148148,
+        "holdDelta": 0.016494641632373113,
+        "emptyThirdShare": 1
+      },
+      "top_defects": [
+        "0: Кадр 0 — пустой фон; на кадрах 4–8 «35 %» висит одно, без графика",
+        "16: Заголовок входит по словам с прыгающей базовой линией, верх «Доля» срезан маской (16–24)",
+        "179: Доля показана линией тренда, а не частью целого; неподписанные узлы 2020–2023 добавляют промежуточные точки"
+      ]
+    },
+    {
+      "id": "held-queue",
+      "scene": "held-queue",
+      "held_out": false,
+      "ref": null,
+      "judge": {
+        "overall": 5.5,
+        "criteria": {
+          "meaning": 6.5,
+          "hierarchy": 6,
+          "composition": 5.5,
+          "entrance": 4.5,
+          "choreography": 5,
+          "hold": 4,
+          "legibility": 5,
+          "distinctiveness": 5
+        },
+        "runs": [
+          5.5,
+          5.5,
+          5.5
+        ],
+        "spread": 0,
+        "mean": 5.5
+      },
+      "judge_cost_usd": 0.5269352,
+      "gen": {
+        "status": "failed",
+        "job_status": "failed",
+        "failure": {
+          "stage": "qa",
+          "message": "QA: blocking после 2 исправлений: overlap (кадр 48): Два полупрозрачных «призрака» токена «№4822 · кофемашина» лежат поверх карточки «Сервис заказов» и друг на друге, надпись задвоена и нечитаема. Под чипом «ОТПРАВКА» просвечивает ещё один слой текста. Токен «№4822» при этом висит на границе карточки очереди, а не внутри неё.; overlap (кадр 76): Рядом с токеном «№4821 · Nike 42» лежит наложенная друг на друга стопка полупрозрачных токенов, видно «№4№4821481». Сам токен «№4821» выступает за правую границу карточки очереди (до x≈1382) и почти касается карточки «Склад». Текст наезжает на текст.; overlap (кадр 103): Строка «№4822 · кофемашина» наложена на размытую копию того же текста, получается каша из букв. Токен вылезает за правый край карточки очереди (до x≈1270).; overlap (кадр 151): Строка «№4822 · кофемашина» в слоте склада перекрыта токеном «№4823 · JBL»: видны обрезки «№4…» и «ина». Под чипом «ЗАРЕЗЕРВИРОВАНО · 3/3» просвечивает «РЕЗЕРВ №4822», текст на тексте."
+        },
+        "version_status": "failed",
+        "cost_usd": 3.5366812000000003,
+        "wall_ms": 1014128,
+        "engineer_calls": 3,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FW2D8J1FRXBVPQGMQJA3XS/versions/ver_01M5FX1BD4H2D8HC39WXPDNGVA"
+      },
+      "frames": {
+        "frame0Content": 0.00253858024691358,
+        "frame4Content": 0.01814043209876543,
+        "holdDelta": 0.0072148390220285645,
+        "emptyThirdShare": 0.14285714285714285
+      },
+      "top_defects": [
+        "108: Призрачные копии текста у движущихся токенов, и токены печатаются друг поверх друга в карточке склада («№4822 · кофемашина 821 · Nike 42»)",
+        "150: Чипы статуса склада «РЕЗЕРВ №4822» и «ЗАРЕЗЕРВИРОВАНО · 3/3» наложены друг на друга, старый токен виден под новым",
+        "179: Удержание застыло: кадры 155–179 одинаковы, очередь пуста, поток не работает"
+      ]
+    },
+    {
+      "id": "eval-funnel",
+      "scene": "eval-funnel",
+      "held_out": true,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 6.5,
+          "hierarchy": 6,
+          "composition": 5.5,
+          "entrance": 4.5,
+          "choreography": 6.5,
+          "hold": 4.5,
+          "legibility": 6,
+          "distinctiveness": 6
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.5660118,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.7675264999999998,
+        "wall_ms": 2017413,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24RMGSSA18PH5ABT88YR/versions/ver_01M5FTZNK9X5VB37DAQTVDKGW9"
+      },
+      "frames": {
+        "frame0Content": 0,
+        "frame4Content": 0.009799382716049382,
+        "holdDelta": 0.01514736897845558,
+        "emptyThirdShare": 0.38095238095238093
+      },
+      "top_defects": [
+        "145: Рамка-пилюля вокруг «3 из 100» появляется на 140 и исчезает к 160 — мигающий акцент в удержании",
+        "0: Кадр 0 — пустой фон-аврора без воронки и заголовка; постер не собран",
+        "135: Наезд камеры выталкивает метку «Посетители» за верхний край кадра, текст срезан вне safe area до конца сцены"
+      ]
+    },
+    {
+      "id": "eval-oauth",
+      "scene": "eval-oauth",
+      "held_out": true,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6,
+          "composition": 5.5,
+          "entrance": 4,
+          "choreography": 5.5,
+          "hold": 4,
+          "legibility": 6,
+          "distinctiveness": 5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.5818909999999999,
+      "gen": {
+        "status": "failed",
+        "job_status": "failed",
+        "failure": {
+          "stage": "engineer",
+          "message": "вызов Engineer завершился timeout (timeout): таймаут 600000 мс"
+        },
+        "version_status": "failed",
+        "cost_usd": 2.7677481,
+        "wall_ms": 3132319,
+        "engineer_calls": 3,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24RWZSYC6BCP31K48BWW/versions/ver_01M5FW1NSV0T6QRAGX930AQAQA"
+      },
+      "frames": {
+        "frame0Content": 0.0022685185185185182,
+        "frame4Content": 0.016165123456790123,
+        "holdDelta": 0.0031553775316711047,
+        "emptyThirdShare": 0.3333333333333333
+      },
+      "top_defects": [
+        "84: Двоящиеся полупрозрачные копии текста тянутся за каждым движущимся токеном (scope, code·4f9a, access_token, Bearer); на кадре 96 code и access_token накладываются",
+        "179: Застывшее удержание: с кадра 150 по 179 ничего не меняется, система не живёт",
+        "0: Кадр 0 — пустая сетка, кадр 4 — одна карточка; API-карточка входит размытой на кадре 24"
+      ]
+    },
+    {
+      "id": "eval-cdn",
+      "scene": "eval-cdn",
+      "held_out": true,
+      "ref": null,
+      "judge": {
+        "overall": 6.5,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6.5,
+          "composition": 4.5,
+          "entrance": 7,
+          "choreography": 6,
+          "hold": 4.5,
+          "legibility": 6,
+          "distinctiveness": 6
+        },
+        "runs": [
+          6.5,
+          6,
+          6.5
+        ],
+        "spread": 0.5,
+        "mean": 6.333333333333333
+      },
+      "judge_cost_usd": 0.5334648,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.1615856,
+        "wall_ms": 2223276,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24S39MKFEDRZPS8K3HAY/versions/ver_01M5FV5ZAFPWX813ZZ0RGFCYM8"
+      },
+      "frames": {
+        "frame0Content": 0.052160493827160495,
+        "frame4Content": 0.06979166666666667,
+        "holdDelta": 0.0043797355361897845,
+        "emptyThirdShare": 0.5714285714285714
+      },
+      "top_defects": [
+        "96: Первые 4 с нижние 55 % кадра пусты (только аврора), правая четверть тоже пустая",
+        "170: Удержание застыло: CDN-поток стоит с 135-го кадра, Франкфурт с 155-го, а счётчики 2 против 13 больше не держат соотношение 1:12",
+        "165: Рамка-пилюля вокруг итога появляется на 145-м кадре и пропадает к 170-му — мигание"
+      ]
+    },
+    {
+      "id": "eval-budget",
+      "scene": "eval-budget",
+      "held_out": true,
+      "ref": null,
+      "judge": {
+        "overall": 6.5,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6.5,
+          "composition": 6.5,
+          "entrance": 4.5,
+          "choreography": 6.5,
+          "hold": 4.5,
+          "legibility": 6.5,
+          "distinctiveness": 5.5
+        },
+        "runs": [
+          6.5,
+          6.5,
+          6.5
+        ],
+        "spread": 0,
+        "mean": 6.5
+      },
+      "judge_cost_usd": 0.525015,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.5207461,
+        "wall_ms": 2467111,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24SAEYVD6ZMPHQF2Y17J/versions/ver_01M5FVDC6V12HYPZJBT2GZAQ1W"
+      },
+      "frames": {
+        "frame0Content": 0,
+        "frame4Content": 0.000941358024691358,
+        "holdDelta": 0.0017222827402565964,
+        "emptyThirdShare": 0.14285714285714285
+      },
+      "top_defects": [
+        "0: Кадры 0–8 пустые: только аврора, потом серое кольцо и одна-две буквы кикера",
+        "170: Удержание застыло: кадры 155–179 одинаковые, три доли из пяти приглушены в серый",
+        "60: Подписи и счётчики входят размытым пятном (под «Транспорт» на 60, «жильё + еда» на 120)"
+      ]
+    },
+    {
+      "id": "eval-abtest",
+      "scene": "eval-abtest",
+      "held_out": true,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 5.5,
+          "composition": 5.5,
+          "entrance": 4.5,
+          "choreography": 6,
+          "hold": 5,
+          "legibility": 6.5,
+          "distinctiveness": 4.5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.49818460000000003,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 2.3787735000000003,
+        "wall_ms": 2966158,
+        "engineer_calls": 2,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24SJG5YWP4RD1VY6VPDP/versions/ver_01M5FVWMGKPY6S8S0PHPBMX9PG"
+      },
+      "frames": {
+        "frame0Content": 0,
+        "frame4Content": 0.008973765432098765,
+        "holdDelta": 0.005546210562414266,
+        "emptyThirdShare": 0.3333333333333333
+      },
+      "top_defects": [
+        "0: Кадр 0 — пустой фон, на кадре 4 только оси: постера нет",
+        "155: Рамка-пилюля вокруг +12 % появляется на 130 и исчезает к 155 — мигание в удержании",
+        "125: Герой +12 % мелкий относительно столбцов, итог не владеет кадром"
+      ]
+    }
+  ]
+}
