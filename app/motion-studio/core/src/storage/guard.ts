@@ -265,6 +265,13 @@ export async function checkStorage(
     // st_dev — дешёвый stat; дальше он и в статусе (сторож ловит смену устройства), и для
     // проверки системного тома.
     const dev = await step("system_volume", "устройство", () => probe.deviceId(root));
+    // Системный том проверяем ДО пробы UUID: корень на системном диске — окончательный отказ,
+    // даже когда diskutil молчит (иначе сильнейшая защита ADR 0006 стала бы «неокончательной»).
+    const system = await step("system_volume", "устройство", () => onSystemVolume(root, probe, dev));
+    if (system && env.MS_ALLOW_SYSTEM_DISK !== "1") {
+      fail("system_volume", `${root} на системном томе; разрешить — MS_ALLOW_SYSTEM_DISK=1`);
+    }
+
     let uuid: string;
     try {
       uuid = await probe.volumeUuid(root);
@@ -274,11 +281,6 @@ export async function checkStorage(
     }
     if (uuid !== marker.volume_uuid) {
       fail("volume_mismatch", `том ${uuid}, в маркере ${marker.volume_uuid}; перенос — doctor --adopt`);
-    }
-
-    const system = await step("system_volume", "устройство", () => onSystemVolume(root, probe, dev));
-    if (system && env.MS_ALLOW_SYSTEM_DISK !== "1") {
-      fail("system_volume", `${root} на системном томе; разрешить — MS_ALLOW_SYSTEM_DISK=1`);
     }
 
     await step("not_writable", "пробная запись", () => writeTest(root));

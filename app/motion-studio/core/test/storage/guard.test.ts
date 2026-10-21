@@ -143,6 +143,15 @@ describe("checkStorage", () => {
     }
   });
 
+  it("system volume is conclusive even while the volume probe is failing", async () => {
+    const broken = { ...sysProbe, volumeUuid: () => Promise.reject(new Error("diskutil failed")) };
+    const st = await checkStorage({ MS_DATA_DIR: root }, broken);
+    expect(st).toMatchObject({ ok: false, reason: "system_volume" });
+    expect(isInconclusive(st)).toBe(false);
+    // с явным разрешением системного диска сбой пробы по-прежнему неокончательный
+    expect(await checkStorage({ MS_DATA_DIR: root, MS_ALLOW_SYSTEM_DISK: "1" }, broken)).toMatchObject({ ok: false, reason: "volume_probe_failed" });
+  });
+
   it("a failing volume probe (diskutil slow or silent) is an inconclusive failure, not volume_mismatch", async () => {
     const broken = { ...probe, volumeUuid: () => Promise.reject(new Error("diskutil failed")) };
     const st = await checkStorage({ MS_DATA_DIR: root }, broken);
