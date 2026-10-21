@@ -19,6 +19,10 @@ export default defineConfig({
         root: `./${name}`,
         include: [e2e ? E2E : "test/**/*.test.ts"],
         exclude: e2e ? [] : [E2E],
+        // юнит-тесты с реальным ядром и конвейером (generate-boot, playground-generate,
+        // real-frames) идут 2–3 с без нагрузки, под параллельными рендерами — вдвое-втрое
+        // дольше: запас против ложных таймаутов ./check. e2e задают таймауты сами.
+        ...(e2e ? {} : { testTimeout: 30_000, hookTimeout: 30_000 }),
       },
     })),
   },
