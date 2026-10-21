@@ -546,9 +546,10 @@ export async function conceptStep(
  */
 export async function directorStep(
   rc: RunCtx,
-  i: Omit<DirectorTaskInput, "workdir" | "fix">,
+  input: Omit<DirectorTaskInput, "workdir" | "fix"> & { previous?: readonly MotionSpec[] },
   cp?: CheckpointOpts,
 ): Promise<{ ok: true; director: DirectorOutput; spec: MotionSpec } | StepFail> {
+  const { previous = [], ...i } = input;
   const s = i.settings;
   let fix: string | undefined;
   // чекпоинт — принятый ответ (после проверок spec) под ключом входа первого раунда (без
@@ -570,21 +571,29 @@ export async function directorStep(
       rc.warnings.push(`Director выбрал пресет ${spec.style_preset}, в настройках ${s.style_preset}: оставлен пресет настроек`);
       spec.style_preset = s.style_preset;
     }
-    const blocking = specChecks(spec, s).filter((x) => x.severity === "blocking");
+    const checks = specChecks(spec, s, { previous });
+    const blocking = checks.filter((x) => x.severity === "blocking");
+    // подсказки Director (ruling P10): видны в журнале и идут в раунд исправления вместе с blocking
+    const hints = checks.filter((x) => DIRECTOR_HINTS.has(x.code));
     if (blocking.length === 0) {
       for (const w of specWarnings(spec)) rc.warnings.push(`spec: ${w}`);
+      for (const h of hints) rc.warnings.push(`spec: ${h.code} (${h.area ?? "spec"}): ${h.description}`);
       for (const c of [...bound.changes, ...bound.warnings]) rc.warnings.push(`spec: ${c}`);
       if (cp && key && !(round === 1 && key.reused)) await saveCheckpoint(rc, cp, "motion_director", key.hash, director);
       return { ok: true, director: { ...director, spec }, spec };
     }
-    const text = blocking.map((x) => `- ${x.code} (${x.area ?? "spec"}): ${x.description} → ${x.fix_hint}`).join("\n");
+    const line = (x: (typeof checks)[number]) => `- ${x.code} (${x.area ?? "spec"}): ${x.description} → ${x.fix_hint}`;
+    const text = blocking.map(line).join("\n");
     rc.note("director", `spec не прошла проверку (раунд ${round}):\n${text}`);
     if (round === 2) return { ok: false, stage: "director", message: `spec не прошла проверку после исправления:\n${text}` };
-    fix = text;
+    fix = hints.length > 0 ? `${text}\nПодсказки (не обязательны):\n${hints.map(line).join("\n")}` : text;
     rc.log(`spec: ${blocking.length} blocking — Director исправляет`);
   }
   return { ok: false, stage: "director", message: "spec не получена" };
 }
+
+/** Замечания specChecks — подсказки Director, не причина нового раунда (ruling P10). */
+const DIRECTOR_HINTS = new Set(["placeholder_label", "purpose_claim", "scene_signature_repeat"]);
 
 /** Самопроверка spec без LLM: удержание в конце и акцент. Нарушения — предупреждения. */
 export function specWarnings(spec: MotionSpec): string[] {

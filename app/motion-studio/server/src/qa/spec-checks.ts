@@ -24,8 +24,11 @@ const contains = (a: Layout, b: Layout) => b.x >= a.x - EPS && b.y >= a.y - EPS 
 const pct = (v: number) => `${(v * 100).toFixed(1)} %`;
 
 export interface SpecCheckOpts {
-  /** Spec предыдущей сцены (последняя версия другой сцены): подпись кадра не повторяется. */
-  previous?: MotionSpec;
+  /**
+   * Spec предыдущих сцен проекта (последние версии других сцен, новые первыми): подпись
+   * кадра не повторяется. Замечание — по первой сцене с повтором.
+   */
+  previous?: MotionSpec | readonly MotionSpec[];
 }
 
 export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheckOpts = {}): QAIssue[] {
@@ -102,7 +105,12 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
   out.push(...accentConflicts(spec, settings));
   out.push(...placeholderIssues(spec));
   out.push(...purposeClaimIssues(spec));
-  if (opts.previous) out.push(...signatureRepeat(spec, opts.previous));
+  for (const prev of [opts.previous ?? []].flat()) {
+    const repeat = signatureRepeat(spec, prev);
+    if (repeat.length === 0) continue;
+    out.push(...repeat);
+    break;
+  }
 
   if (!spec.elements.some((e) => isEmphasisRole(e.role)) && !spec.beats.some((b) => ACCENT_ACTION.test(b.action))) {
     out.push({
@@ -463,7 +471,7 @@ function signatureRepeat(spec: MotionSpec, previous: MotionSpec): Omit<QAIssue, 
   const names: Record<keyof SceneSignature, string> = { background: `фон ${a.background}`, pill: a.pill ? "акцент-таблетка" : "без таблетки", topTitle: a.topTitle ? "полоса заголовка сверху" : "без полосы заголовка", staticCamera: a.staticCamera ? "камера стоит" : "камера движется" };
   return [{
     code: "scene_signature_repeat", severity: "warning", area: same.join(", "),
-    description: `сцена повторяет подпись предыдущей (${same.length} из 4): ${same.map((k) => names[k]).join(", ")}`,
+    description: `сцена повторяет подпись предыдущей «${previous.title}» (${same.length} из 4): ${same.map((k) => names[k]).join(", ")}`,
     fix_hint: "смени хотя бы два признака: фон (variant/seed/focus по id сцены), заголовок (нет, кикер, встроенный у героя), носитель акцента (данные, а не таблетка), камера по смыслу",
   }];
 }

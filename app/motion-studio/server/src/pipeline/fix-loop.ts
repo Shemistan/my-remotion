@@ -103,6 +103,8 @@ export interface LoopInput {
    * технический gate среза (static, typecheck, рендер, probe).
    */
   qa?: { brief: unknown; allowRestricted: boolean };
+  /** Spec последних версий других сцен проекта: проверка повтора подписи кадра. */
+  previous?: readonly MotionSpec[];
   progress?: (p: number, stage: string) => void;
 }
 
@@ -479,7 +481,7 @@ async function runQa(i: LoopInput, state: LoopState, rr: RenderResult, techWarni
   );
   // лишний кадр — не QA-кадр: Visual QA его не видит, в версию он не публикуется
   for (const x of all.slice(frames.length)) if (x.path) await rm(x.path, { force: true });
-  const fromSpec = specChecks(spec, settings);
+  const fromSpec = specChecks(spec, settings, { previous: i.previous ?? [] });
 
   // ruling P5: QA по реальным кадрам обязателен. Бюджет кончился до Visual QA — `budget`;
   // Visual QA не дал оценки — один повтор (без исправления Engineer), затем `qa`. Обе

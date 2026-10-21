@@ -293,6 +293,14 @@ describe("ревью дизайнера: заглушки, ключевая мы
     ]);
   });
 
+  it("scene_signature_repeat: список последних сцен проекта — одно замечание, по первой сцене с повтором", () => {
+    expect(pick(specChecks(run4("test2"), st, { previous: [run4("test1"), run4("gen-compare"), run4("gen-timeline")] }), "scene_signature_repeat")).toEqual([
+      expect.objectContaining({ severity: "warning", description: expect.stringContaining(`«${run4("test1").title}»`) }),
+    ]);
+    expect(pick(specChecks(run4("gen-timeline"), st, { previous: [run4("gen-compare")] }), "scene_signature_repeat")).toEqual([]);
+    expect(pick(specChecks(run4("test2"), st, { previous: [] }), "scene_signature_repeat")).toEqual([]);
+  });
+
   it("scene_signature_repeat: gen-timeline после gen-compare (камера движется, без таблетки) и без предыдущей сцены — нет", () => {
     expect(pick(specChecks(run4("gen-timeline"), st, { previous: run4("gen-compare") }), "scene_signature_repeat")).toEqual([]);
     expect(pick(specChecks(run4("test2"), st), "scene_signature_repeat")).toEqual([]);

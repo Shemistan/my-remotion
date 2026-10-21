@@ -151,6 +151,20 @@ describe("playgroundGenerate: успех и журнал", () => {
   });
 });
 
+describe("playgroundGenerate: подпись кадра сверяется с другими сценами проекта", () => {
+  it("вторая сцена с той же spec: scene_signature_repeat — подсказка Director (warnings) и warning в qa.json; первая — без него", async () => {
+    const first = await runJob();
+    expect(first.job.status).toBe("completed");
+    await runner!.stop({ abortRunning: true });
+    const second = await runJob();
+    expect(second.job.status, JSON.stringify(second.job.error)).toBe("completed");
+    const qa = (sceneId: string) => JSON.parse(readFileSync(join(env.s.root, versionRows(sceneId)[0]!.path, "qa.json"), "utf8")) as { issues: QAIssue[] };
+    expect(qa(first.scene.id).issues.filter((i) => i.code === "scene_signature_repeat")).toEqual([]);
+    expect(qa(second.scene.id).issues.filter((i) => i.code === "scene_signature_repeat")).toEqual([expect.objectContaining({ severity: "warning" })]);
+    expect((second.job.output_refs as { warnings: string[] }).warnings).toContainEqual(expect.stringMatching(/^spec: scene_signature_repeat/));
+  });
+});
+
 describe("playgroundGenerate: счётчик за головой линии", () => {
   it("бит счёта числа с bound_to chart.head нормализуется по окну головы (lineDrawWindow бита графика): 35–100 → 42–110", async () => {
     const o = directorOutput();

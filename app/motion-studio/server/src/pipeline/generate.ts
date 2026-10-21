@@ -156,6 +156,8 @@ export interface GenerationRequest {
   qa?: { allowRestricted: boolean };
   /** Чекпоинты шагов, записанные планом. */
   steps?: GenerateResult["steps"];
+  /** Spec последних версий других сцен проекта (QA spec: повтор подписи кадра). */
+  previous?: readonly MotionSpec[];
 }
 
 export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, signal?: AbortSignal): Promise<GenerateResult> {
@@ -324,6 +326,7 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
       {
         rc: ctx, deps, draftDir, cacheDir, settings, spec: spec!, refs, frames, files,
         ...(req.qa ? { qa: { brief: { prompt, settings, camera: cameraBrief(spec!) }, allowRestricted: req.qa.allowRestricted } } : {}),
+        ...(req.previous ? { previous: req.previous } : {}),
         progress: deps.progress,
       },
       state,

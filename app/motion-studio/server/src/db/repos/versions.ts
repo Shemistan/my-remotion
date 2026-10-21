@@ -64,3 +64,13 @@ export function listByScene(db: Db, sceneId: string): VersionRow[] {
 export function nextNumber(db: Db, sceneId: string): number {
   return (db.prepare("SELECT coalesce(max(number), 0) + 1 AS n FROM scene_versions WHERE scene_id = ?").get(sceneId) as { n: number }).n;
 }
+
+/**
+ * Последние готовые версии других сцен проекта (новые первыми, по одной на сцену — текущая
+ * версия сцены): с ними сверяется подпись кадра новой сцены (`scene_signature_repeat`).
+ */
+export function recentInProject(db: Db, projectId: string, excludeSceneId: string, limit: number): VersionRow[] {
+  return (db.prepare(`SELECT v.* FROM scenes s JOIN scene_versions v ON v.id = s.current_version_id
+      WHERE s.project_id = ? AND s.id <> ? AND v.status = 'ready' AND v.broken_reason IS NULL
+      ORDER BY v.created_at DESC, v.rowid DESC LIMIT ?`).all(projectId, excludeSceneId, limit) as Raw[]).map(row);
+}

@@ -4,11 +4,13 @@
 // QA по кадрам (программные проверки, spec, Visual QA) → исправления (общий лимит
 // `maxAutoFixes`) → публикация через `SceneRepo.publish` (fencing и отмена в транзакции) →
 // журнал задачи (`recordRun`). Сервер и CLI регистрируют один и тот же обработчик.
-import { relative, sep } from "node:path";
-import { type Job, SettingsSchema, failureToJobErrorCode } from "@ms/contracts";
+import { readFile } from "node:fs/promises";
+import { join, relative, sep } from "node:path";
+import { type Job, type MotionSpec, MotionSpecSchema, SettingsSchema, failureToJobErrorCode } from "@ms/contracts";
 import { z } from "zod";
 import * as jobs from "../db/repos/jobs.js";
 import * as scenes from "../db/repos/scenes.js";
+import * as versions from "../db/repos/versions.js";
 import { setOutputRefs } from "../jobs/queue.js";
 import type { HandlerResult, JobContext, JobHandler } from "../jobs/types.js";
 import type { SceneRepo } from "../scenes/repo.js";
@@ -60,6 +62,7 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
     const fence = { jobId, attempt: ctx.attempt };
     const base = d.deps(ctx);
     const projectId = scenes.get(ctx.db, sceneId)?.project_id;
+    const previous = projectId ? await previousSpecs(ctx, d.repo.root, projectId, sceneId) : [];
 
     // чекпоинты Concept и Director (M7): файл в logs/agent-runs/<jobId>/checkpoints/, ссылка — в output_refs.steps
     const steps: Partial<Record<"concept" | "motion_director", StepRef>> = {};
@@ -102,6 +105,7 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
         settings,
         qa: { allowRestricted },
         steps,
+        previous,
         plan: async (rc) => {
           ctx.progress(0.05, "concept");
           const c = await conceptStep(rc, { prompt, settings, ...(answers !== undefined ? { answers } : {}) }, cp);
@@ -113,7 +117,7 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
           const texts = await patternTexts(deps.kb, concept.patterns, rc.warnings);
           const style = sceneStyle({ ...scenePropsStyle(settings), ...(concept.style_hint.palette_overrides ? { palette_overrides: concept.style_hint.palette_overrides } : {}) }, settings);
           ctx.progress(0.15, "director");
-          const dr = await directorStep(rc, { prompt, settings, concept, candidates, patternTexts: texts, kitApi: await readKitApi(), style }, cp);
+          const dr = await directorStep(rc, { prompt, settings, concept, candidates, patternTexts: texts, kitApi: await readKitApi(), style, previous }, cp);
           if (!dr.ok) return { kind: "failed", stage: dr.stage, message: dr.message };
           return { kind: "plan", director: dr.director, spec: dr.spec, candidates, concept };
         },
@@ -125,6 +129,25 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
     record(ctx, d.repo.root, sceneId, r);
     return toHandlerResult(r, sceneId);
   };
+}
+
+/** Сколько последних сцен проекта сверяется с новой по подписи кадра. */
+const SIGNATURE_SCENES = 3;
+
+/**
+ * Spec текущих версий последних других сцен проекта (новые первыми). Не прочиталась —
+ * событие лога, сверка без неё: проверка подсказывает, а не валит генерацию.
+ */
+async function previousSpecs(ctx: JobContext, root: string, projectId: string, sceneId: string): Promise<MotionSpec[]> {
+  const out: MotionSpec[] = [];
+  for (const v of versions.recentInProject(ctx.db, projectId, sceneId, SIGNATURE_SCENES)) {
+    try {
+      out.push(MotionSpecSchema.parse(JSON.parse(await readFile(join(root, v.path, "spec.json"), "utf8"))));
+    } catch (e) {
+      ctx.emit("log", `spec версии ${v.id} не прочитана для сверки подписи кадра: ${errText(e)}`);
+    }
+  }
+  return out;
 }
 
 /** `output_refs.steps`: `concept`, `director` (без префикса роли). */
