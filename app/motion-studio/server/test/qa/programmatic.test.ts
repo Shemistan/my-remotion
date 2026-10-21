@@ -206,6 +206,10 @@ describe("крупные объекты у края", () => {
       expect(find(await run(card(), outside), "accent_static")).toHaveLength(1);
     });
 
+    it("изменение уровня дрейфа фона (|ΔY'| ≈ 0.005, калибровка Fix C) — акцент всё ещё застыл", async () => {
+      expect(find(await run(card(), card(0, "#e2e2e2")), "accent_static")).toHaveLength(1);
+    });
+
     it("регион — через safeRect (поле 0.05 × 192 → 10 px, не 9.6): столбец 9 вне региона", async () => {
       const left = spec({
         beats: [beat("b0", 0, 60, ["title"]), beat("b1", 60, 90, ["badge"], "final-emphasis"), beat("b2", 90, 120, ["badge", "title"], "hold")],
