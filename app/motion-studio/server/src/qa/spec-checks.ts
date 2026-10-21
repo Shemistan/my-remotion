@@ -1,5 +1,7 @@
 // Проверки спецификации без рендера (ТЗ §8.1–8.2): одинаковые входы, перекрытия по
-// layout, safe area, наличие акцента. `layout` элемента — доли safe area, а не кадра
+// layout, safe area, наличие акцента, один акцент в момент; из дизайнер-ревью
+// (motion-review-1) — нумерованные заглушки, ключевая мысль purpose на экране, повтор
+// подписи кадра предыдущей сцены. `layout` элемента — доли safe area, а не кадра
 // (prompts/motion-director.md §8): в кадр он переводится через safeRect настроек.
 import type { Beat, Element, MotionSpec, QAIssue, Settings } from "@ms/contracts";
 import { boundCounters } from "../pipeline/bound-counters.js";
@@ -21,7 +23,12 @@ const intersection = (a: Layout, b: Layout) =>
 const contains = (a: Layout, b: Layout) => b.x >= a.x - EPS && b.y >= a.y - EPS && b.x + b.w <= a.x + a.w + EPS && b.y + b.h <= a.y + a.h + EPS;
 const pct = (v: number) => `${(v * 100).toFixed(1)} %`;
 
-export function specChecks(spec: MotionSpec, settings: Settings): QAIssue[] {
+export interface SpecCheckOpts {
+  /** Spec предыдущей сцены (последняя версия другой сцены): подпись кадра не повторяется. */
+  previous?: MotionSpec;
+}
+
+export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheckOpts = {}): QAIssue[] {
   const out: Omit<QAIssue, "source">[] = [];
 
   // одинаковые входы (ТЗ §8.2): none — не вход
@@ -93,6 +100,9 @@ export function specChecks(spec: MotionSpec, settings: Settings): QAIssue[] {
   }
 
   out.push(...accentConflicts(spec));
+  out.push(...placeholderIssues(spec));
+  out.push(...purposeClaimIssues(spec));
+  if (opts.previous) out.push(...signatureRepeat(spec, opts.previous));
 
   if (!spec.elements.some((e) => isEmphasisRole(e.role)) && !spec.beats.some((b) => ACCENT_ACTION.test(b.action))) {
     out.push({
@@ -250,6 +260,108 @@ function sameObject(spec: MotionSpec): (a: string, b: string) => boolean {
     if (!la || !lb || area(la) >= FULL_BLEED || area(lb) >= FULL_BLEED) return false;
     return contains(la, lb) || contains(lb, la);
   };
+}
+
+/** Строки content с ключами по фильтру; массивы строк — под ключами-списками подписей. */
+function contentStrings(content: unknown, key: RegExp): { key: string; value: string }[] {
+  const out: { key: string; value: string }[] = [];
+  const walk = (v: unknown, k: string) => {
+    if (typeof v === "string") {
+      if (key.test(k)) out.push({ key: k, value: v });
+    } else if (Array.isArray(v)) {
+      for (const x of v) walk(x, typeof x === "string" && LIST_KEY.test(k) ? "text" : k);
+    } else if (v && typeof v === "object") {
+      for (const [kk, x] of Object.entries(v)) walk(x, kk);
+    }
+  };
+  walk(content, "");
+  return out;
+}
+/** Ключи-списки подписей (`stages: ["Сборка", …]`); списки id (`nodes`, `edges`) не подписи. */
+const LIST_KEY = /^(stages|steps|items|labels|options|lines|words|milestones|events|phases)$/i;
+/** Видимое имя объекта. caption не входит: «инструмент 1» под «Веб-поиск» — роль, не заглушка. */
+const LABEL_KEY = /^(label|text|title|name|heading|headline)$/i;
+/** Весь видимый текст: имя, подписи, приставки числа. */
+const DISPLAY_KEY = /^(label|text|title|name|heading|headline|caption|subtitle|kicker|statement|prefix|suffix|unit)$/i;
+
+/**
+ * Нумерованная заглушка вместо конкретного экземпляра («Инструмент 1», «Этап 2»,
+ * motion-review-1 §1): весь текст подписи — родовое слово и номер.
+ */
+const PLACEHOLDER = /^(инструмент|сервис|этап|шаг|узел|модуль|компонент|элемент|пункт|tool|step|service|stage|node|module|component|item)\s*[№#]?\s*\d+$/i;
+
+function placeholderIssues(spec: MotionSpec): Omit<QAIssue, "source">[] {
+  const out: Omit<QAIssue, "source">[] = [];
+  const hits = spec.elements.flatMap((e) => contentStrings(e.content, LABEL_KEY).filter((x) => PLACEHOLDER.test(x.value.trim())).map((x) => ({ id: e.id, text: x.value.trim() })));
+  if (hits.length === 0) return out;
+  out.push({
+    code: "placeholder_label", severity: "blocking", area: [...new Set(hits.map((h) => h.id))].join(", "),
+    description: `нумерованные заглушки вместо конкретных экземпляров: ${hits.map((h) => `«${h.text}» (${h.id})`).join(", ")}`,
+    fix_hint: "запрос назвал количество без имён — придумай правдоподобные конкретные экземпляры с ролями (Веб-поиск · search(), База знаний · retrieve(), Калькулятор · calc()); номера вместо имён запрещены",
+  });
+  return out;
+}
+
+/** Кратность в purpose: «в 100 раз», «×24», «24×», «100-кратный». */
+const CLAIM = /в\s+(\d+(?:[.,]\d+)?)\s*раз|[×xх]\s?(\d+(?:[.,]\d+)?)(?!\d)|(\d+(?:[.,]\d+)?)\s?×|(\d+(?:[.,]\d+)?)[-\s]?кратн/gi;
+const num = (v: string) => Number(v.replace(",", "."));
+
+/**
+ * Ключевая мысль на экране (motion-review-1 §10): явная кратность из purpose («в 100 раз»)
+ * видна текстом — «×100», «в 100 раз», «100×» в подписи, или приставка × у числа с to = N.
+ * Качественное «в разы» без числа программно не проверяется.
+ */
+function purposeClaimIssues(spec: MotionSpec): Omit<QAIssue, "source">[] {
+  const claims = [...new Set([...spec.purpose.matchAll(CLAIM)].map((m) => num((m[1] ?? m[2] ?? m[3] ?? m[4])!)).filter((n) => Number.isFinite(n) && n > 1))];
+  if (claims.length === 0) return [];
+  const shown = (n: number) => spec.elements.some((e) => {
+    const c = (e.content ?? {}) as Record<string, unknown>;
+    if (typeof c.to === "number" && c.to === n && [c.prefix, c.suffix].some((x) => typeof x === "string" && /[×xх]/.test(x))) return true;
+    return contentStrings(c, DISPLAY_KEY).some((x) => [...x.value.matchAll(CLAIM)].some((m) => num((m[1] ?? m[2] ?? m[3] ?? m[4])!) === n));
+  });
+  const missing = claims.filter((n) => !shown(n));
+  if (missing.length === 0) return [];
+  return [{
+    code: "purpose_claim", severity: "blocking", area: "purpose",
+    description: `ключевая мысль purpose («${missing.map((n) => `×${n}`).join("», «")}») не видна на экране: ни подписи с кратностью, ни числа с приставкой ×`,
+    fix_hint: `покажи итог как утверждение: подпись или кикер «×${missing[0]}» / «в ${missing[0]} раз» рядом с героем (AnimatedNumber prefix="×" to={${missing[0]}} или текст)`,
+  }];
+}
+
+/** Подпись кадра сцены (motion-review-1 §10): фон, акцент-таблетка, полоса заголовка, камера. */
+export interface SceneSignature { background: string; pill: boolean; topTitle: boolean; staticCamera: boolean }
+
+/** Фон kit по умолчанию (`<Background>` без variant и seed). */
+const BG_DEFAULT = { variant: "aurora", seed: "bg" };
+const BG_VARIANT = /\b(aurora|grid|solid|gradient|mesh|dots|spotlight|noise)\b/i;
+
+export function sceneSignature(spec: MotionSpec): SceneSignature {
+  const all = spec.elements.flatMap((e) => contentStrings(e.content, /.*/));
+  const bgEl = spec.elements.find((e) => /background|фон/i.test(`${e.id} ${String((e.content as Record<string, unknown> | undefined)?.component ?? "")}`));
+  const bgContent = (bgEl?.content ?? {}) as Record<string, unknown>;
+  const variant = (typeof bgContent.variant === "string" ? bgContent.variant : (all.map((x) => x.value).join(" ") + " " + JSON.stringify(spec.composition ?? {})).match(BG_VARIANT)?.[1] ?? BG_DEFAULT.variant).toLowerCase();
+  const seed = typeof bgContent.seed === "string" || typeof bgContent.seed === "number" ? String(bgContent.seed) : BG_DEFAULT.seed;
+  return {
+    background: `${variant}:${seed}`,
+    pill: all.some((x) => /\bpill\b|пилюл|таблетк/i.test(x.value)),
+    topTitle: spec.elements.some((e) => e.kind === "text" && e.layout !== undefined && e.layout.y <= 0.1 && e.layout.h <= 0.15 && e.layout.w >= 0.3),
+    staticCamera: (spec.camera?.length ?? 0) === 0,
+  };
+}
+
+/** Совпадений подписи с предыдущей сценой, с которых — шаблон. */
+const SIGNATURE_REPEAT = 3;
+
+function signatureRepeat(spec: MotionSpec, previous: MotionSpec): Omit<QAIssue, "source">[] {
+  const [a, b] = [sceneSignature(spec), sceneSignature(previous)];
+  const same = (Object.keys(a) as (keyof SceneSignature)[]).filter((k) => a[k] === b[k]);
+  if (same.length < SIGNATURE_REPEAT) return [];
+  const names: Record<keyof SceneSignature, string> = { background: `фон ${a.background}`, pill: a.pill ? "акцент-таблетка" : "без таблетки", topTitle: a.topTitle ? "полоса заголовка сверху" : "без полосы заголовка", staticCamera: a.staticCamera ? "камера стоит" : "камера движется" };
+  return [{
+    code: "scene_signature_repeat", severity: "warning", area: same.join(", "),
+    description: `сцена повторяет подпись предыдущей (${same.length} из 4): ${same.map((k) => names[k]).join(", ")}`,
+    fix_hint: "смени хотя бы два признака: фон (variant/seed/focus по id сцены), заголовок (нет, кикер, встроенный у героя), носитель акцента (данные, а не таблетка), камера по смыслу",
+  }];
 }
 
 const escapeRe = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

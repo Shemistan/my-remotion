@@ -35,6 +35,16 @@ const TILE_WIDTH = 960;
 const TILE_ROWS = 16;
 /** Кадр отступа от конца для проверки «акцент жив». */
 export const ACCENT_HOLD_GAP = 20;
+/**
+ * Пустой регион кадра удержания: доля содержимого ниже. Калибровка Fix G по кадрам N−1
+ * пяти сцен прогона 4 и среза: пустые по ревью регионы (test1 — средняя полоса, gen-compare —
+ * правая верхняя четверть) 1.0–1.2 %, самые пустые регионы прочих сцен — от 2.7 %.
+ */
+export const EMPTY_REGION_SHARE = 0.015;
+/** Содержимое: |Y' − размытие окрестности| больше. */
+const EMPTY_CONTRAST = 0.06;
+/** Ширина, до которой уменьшается кадр для пустых регионов. */
+const EMPTY_WIDTH = 480;
 /** Кадры совпадают: изменение объектов ниже. */
 export const FROZEN_DELTA = 0.002;
 /** Доля длины края под «сплошными» чернилами, с которой объект считается обрезанным. */
@@ -83,6 +93,11 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
   });
 
   out.push(...frozenIssues(frames.map((f) => f.frame), imgs, beatsAt));
+  // пустой регион — по кадру удержания (последний QA-кадр в последней четверти сцены);
+  // мера откалибрована на кадрах от 480 px, миниатюры не проверяются; прозрачный экспорт —
+  // оверлей для монтажа, пустота в нём задумана
+  const last = frames.length - 1;
+  if (last >= 0 && frames[last]!.frame >= dur * 0.75 && imgs[last]!.width >= EMPTY_WIDTH && !input.settings.transparent_export && !input.style.transparent) out.push(...emptyRegionIssues(imgs[last]!, frames[last]!.frame));
   if (input.accentFrames && input.accentFrames.length === 2) {
     const [a, b] = [...input.accentFrames].sort((x, y) => x.frame - y.frame) as [{ frame: number; path: string }, { frame: number; path: string }];
     out.push(...accentAliveIssues(input.spec, input.settings, [a.frame, await loadPng(a.path)], [b.frame, await loadPng(b.path)]));
@@ -309,6 +324,62 @@ function frozenIssues(frames: number[], imgs: Img[], beatsAt: (f: number) => str
     }
   });
   return out;
+}
+
+/**
+ * Пустой регион кадра удержания (motion-review-1 §10): доля «содержимого» в каждой четверти
+ * 2×2 и трети по горизонтали и вертикали. Содержимое — пиксель, чья яркость отличается от
+ * размытия окрестности (бокс ±1/40 ширины) больше EMPTY_CONTRAST: аврора и виньетка гладкие
+ * и не считаются, текст, контуры, линии и точки — считаются. Кадр уменьшается до ~480 px
+ * (зерно усредняется). Warning — по самому пустому региону: композицию правит Director, а
+ * в цикл Engineer blocking не идёт.
+ */
+function emptyRegionIssues(img: Img, frame: number): Issue[] {
+  const regions = emptyRegionShares(img);
+  const [name, share] = Object.entries(regions).sort((a, b) => a[1] - b[1])[0]!;
+  if (share >= EMPTY_REGION_SHARE) return [];
+  return [{
+    code: "empty_region", severity: "warning", frame, area: name,
+    description: `кадр ${frame}: ${REGION_NAMES[name as keyof typeof REGION_NAMES]} почти пуст — содержимого ${(share * 100).toFixed(1)} % < ${EMPTY_REGION_SHARE * 100} %`,
+    fix_hint: "композиция занимает кадр: разнеси элементы по сетке (layout spec), увеличь героя или поставь пару/подпись в пустую часть; не прижимай всё к одной стороне",
+  }];
+}
+
+const REGION_NAMES = {
+  "top-left": "левая верхняя четверть", "top-right": "правая верхняя четверть", "bottom-left": "левая нижняя четверть", "bottom-right": "правая нижняя четверть",
+  top: "верхняя треть", middle: "средняя треть по высоте", bottom: "нижняя треть", left: "левая треть", center: "средняя треть по ширине", right: "правая треть",
+} as const;
+
+/** Доля пикселей-содержимого по регионам кадра (четверти 2×2, трети по осям), 0..1. */
+export function emptyRegionShares(raw: Img): Record<keyof typeof REGION_NAMES, number> {
+  const img = downsample(raw, Math.max(1, Math.round(raw.width / EMPTY_WIDTH)));
+  const { width: w, height: h, data: d } = img;
+  const L = new Float32Array(w * h);
+  for (let p = 0; p < w * h; p++) L[p] = ((0.2126 * d[p * 4]! + 0.7152 * d[p * 4 + 1]! + 0.0722 * d[p * 4 + 2]!) / 255) * (d[p * 4 + 3]! / 255);
+  // интегральное изображение — размытие боксом за O(1) на пиксель
+  const I = new Float64Array((w + 1) * (h + 1));
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) I[(y + 1) * (w + 1) + x + 1] = L[y * w + x]! + I[y * (w + 1) + x + 1]! + I[(y + 1) * (w + 1) + x]! - I[y * (w + 1) + x]!;
+  const r = Math.max(2, Math.round(w / 40));
+  const content = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const [x0, y0, x1, y1] = [Math.max(0, x - r), Math.max(0, y - r), Math.min(w, x + r + 1), Math.min(h, y + r + 1)];
+      const blur = (I[y1 * (w + 1) + x1]! - I[y0 * (w + 1) + x1]! - I[y1 * (w + 1) + x0]! + I[y0 * (w + 1) + x0]!) / ((x1 - x0) * (y1 - y0));
+      content[y * w + x] = Math.abs(L[y * w + x]! - blur) > EMPTY_CONTRAST ? 1 : 0;
+    }
+  }
+  const share = (fx0: number, fy0: number, fx1: number, fy1: number) => {
+    const [x0, y0, x1, y1] = [Math.floor(fx0 * w), Math.floor(fy0 * h), Math.floor(fx1 * w), Math.floor(fy1 * h)];
+    let n = 0;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) n += content[y * w + x]!;
+    return n / Math.max(1, (x1 - x0) * (y1 - y0));
+  };
+  const t = 1 / 3;
+  return {
+    "top-left": share(0, 0, 0.5, 0.5), "top-right": share(0.5, 0, 1, 0.5), "bottom-left": share(0, 0.5, 0.5, 1), "bottom-right": share(0.5, 0.5, 1, 1),
+    top: share(0, 0, 1, t), middle: share(0, t, 1, 2 * t), bottom: share(0, 2 * t, 1, 1),
+    left: share(0, 0, t, 1), center: share(t, 0, 2 * t, 1), right: share(2 * t, 0, 1, 1),
+  };
 }
 
 /** Контраст разрешённой палитры: text к bg ≥ 4.5, muted к bg ≥ 3. */

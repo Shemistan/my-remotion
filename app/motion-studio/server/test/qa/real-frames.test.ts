@@ -99,3 +99,25 @@ describe("accent_static на реальных кадрах удержания (F
     expect(await run(n)).toEqual([]);
   });
 });
+
+// Кадр удержания N−1 пяти сцен прогона 4 (их смотрел ревьюер, motion-review-1) и среза.
+describe("empty_region на реальных кадрах удержания (Fix G)", () => {
+  const EV = fileURLToPath(new URL("../../../../../docs/evidence/phase-1/", import.meta.url));
+  const run = async (dir: string) => {
+    const sp = MotionSpecSchema.parse(JSON.parse(readFileSync(`${EV}${dir}/spec.json`, "utf8")));
+    const settings = SettingsSchema.parse(JSON.parse(readFileSync(`${EV}${dir}/manifest.json`, "utf8")).settings);
+    const r = await programmaticChecks({
+      frames: [{ frame: 179, path: `${EV}${dir}/frames/179.png` }], spec: sp, settings,
+      style: resolveStyle({ preset: settings.style_preset, intensity: settings.animation_intensity }), render: renderResult(), previewBytes: 1000,
+    });
+    return r.filter((i) => i.code === "empty_region");
+  };
+
+  it.each([["pipeline/test1", "middle"], ["pipeline/gen-compare", "top-right"]])("%s: пустой регион по ревью (%s) — warning", async (dir, area) => {
+    expect(await run(dir)).toEqual([expect.objectContaining({ severity: "warning", frame: 179, area })]);
+  });
+
+  it.each(["pipeline/test2", "pipeline/gen-timeline", "pipeline/gen-cache", "slice/test1", "slice/test2"])("%s: без empty_region", async (dir) => {
+    expect(await run(dir)).toEqual([]);
+  });
+});

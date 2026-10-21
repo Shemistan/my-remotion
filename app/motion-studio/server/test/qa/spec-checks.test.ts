@@ -1,7 +1,7 @@
 // Проверки спецификации до рендера: одинаковые входы, перекрытия, safe area, акцент.
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { type Element, type MotionSpec, MotionSpecSchema, SettingsSchema } from "@ms/contracts";
+import { type Element, type MotionSpec, MotionSpecSchema, type QAIssue, SettingsSchema } from "@ms/contracts";
 import { describe, expect, it } from "vitest";
 import { specChecks } from "../../src/qa/spec-checks.js";
 import { beat, el, settings, spec } from "./helpers.js";
@@ -238,5 +238,67 @@ describe("accent_conflict: удар акцента посреди полёта �
       expect(blocking(sp, st).filter((i) => i.area?.startsWith("b-hit-return"))).toEqual([]);
       expect(conflicts(sp, st)).toContainEqual(expect.objectContaining({ severity: "warning", area: "b-hit-return, status-hit" }));
     });
+  });
+});
+
+// Проверки из дизайнер-ревью (motion-review-1 §1, §10). Spec прогона 4 — docs/evidence/phase-1/pipeline
+// (их и смотрел ревьюер); прогона 2 — fixtures/specs-run2.
+describe("ревью дизайнера: заглушки, ключевая мысль, подпись кадра", () => {
+  const PIPE = fileURLToPath(new URL("../../../../../docs/evidence/phase-1/pipeline/", import.meta.url));
+  const fx = (f: string) => fileURLToPath(new URL(`../fixtures/${f}`, import.meta.url));
+  const st = SettingsSchema.parse(JSON.parse(readFileSync(fx("specs-run3/settings.json"), "utf8")));
+  const load = (path: string) => MotionSpecSchema.parse(JSON.parse(readFileSync(path, "utf8")));
+  const run4 = (n: string) => load(`${PIPE}${n}/spec.json`);
+  const run2 = (n: string) => load(fx(`specs-run2/${n}.spec.json`));
+  const pick = (l: QAIssue[], code: string) => l.filter((i) => i.code === code);
+
+  it("placeholder_label: test2 прогона 4 («Инструмент 1/2/3») — blocking", () => {
+    expect(pick(specChecks(run4("test2"), st), "placeholder_label")).toEqual([
+      expect.objectContaining({ severity: "blocking", area: "node-tool-1, node-tool-2, node-tool-3", description: expect.stringContaining("«Инструмент 1»") }),
+    ]);
+  });
+
+  it("placeholder_label: конкретные имена (test2 прогонов 2–3: «Веб-поиск» с подписью «инструмент 1») и прочие сцены — нет", () => {
+    expect(pick(specChecks(run2("test2"), st), "placeholder_label")).toEqual([]);
+    expect(pick(specChecks(load(fx("specs-run3/test2.spec.json")), st), "placeholder_label")).toEqual([]);
+    for (const n of ["test1", "gen-compare", "gen-timeline", "gen-cache"]) expect(pick(specChecks(run4(n), st), "placeholder_label"), n).toEqual([]);
+  });
+
+  it("placeholder_label: «Этап 2» в списке stages — да; id узлов и «Инструмент поиска» — нет", () => {
+    const sp = run4("gen-compare");
+    const lane = sp.elements.find((e) => e.id === "lane-mono")!;
+    lane.content = { ...lane.content, stages: ["Этап 1", "Этап 2", "Этап 3"], nodes: ["tool1", "tool2"], label: "Инструмент поиска" };
+    expect(pick(specChecks(sp, st), "placeholder_label")).toEqual([expect.objectContaining({ area: "lane-mono" })]);
+  });
+
+  it("purpose_claim: test1 прогона 4 — «в 100 раз» в purpose, ×100 на экране нет — blocking", () => {
+    expect(pick(specChecks(run4("test1"), st), "purpose_claim")).toEqual([expect.objectContaining({ severity: "blocking", description: expect.stringContaining("×100") })]);
+  });
+
+  it("purpose_claim: test1 прогона 2 (подпись «×100 за три года»), число с приставкой ×, purpose без кратности — нет", () => {
+    expect(pick(specChecks(run2("test1"), st), "purpose_claim")).toEqual([]);
+    const sp = run4("test1");
+    sp.elements.push({ ...sp.elements[0]!, id: "ratio", kind: "number", content: { component: "AnimatedNumber", from: 1, to: 100, prefix: "×" } });
+    expect(pick(specChecks(sp, st), "purpose_claim")).toEqual([]);
+    // «в разы» без числа и сцены без кратности в purpose не проверяются
+    for (const n of ["test2", "gen-compare", "gen-timeline", "gen-cache"]) expect(pick(specChecks(run4(n), st), "purpose_claim"), n).toEqual([]);
+  });
+
+  it("scene_signature_repeat: test2 после test1 (прогон 4: фон, полоса заголовка, статичная камера) — warning", () => {
+    expect(pick(specChecks(run4("test2"), st, { previous: run4("test1") }), "scene_signature_repeat")).toEqual([
+      expect.objectContaining({ severity: "warning", area: "background, topTitle, staticCamera" }),
+    ]);
+  });
+
+  it("scene_signature_repeat: gen-timeline после gen-compare (камера движется, без таблетки) и без предыдущей сцены — нет", () => {
+    expect(pick(specChecks(run4("gen-timeline"), st, { previous: run4("gen-compare") }), "scene_signature_repeat")).toEqual([]);
+    expect(pick(specChecks(run4("test2"), st), "scene_signature_repeat")).toEqual([]);
+  });
+
+  it("spec прогона 4 без предыдущей сцены: новые blocking — только заглушки test2 и ×100 test1", () => {
+    const blocking = (n: string) => specChecks(run4(n), st).filter((i) => i.severity === "blocking").map((i) => i.code);
+    expect(blocking("test1")).toEqual(["purpose_claim"]);
+    expect(blocking("test2")).toEqual(["placeholder_label"]);
+    for (const n of ["gen-compare", "gen-timeline", "gen-cache"]) expect(blocking(n), n).toEqual([]);
   });
 });
