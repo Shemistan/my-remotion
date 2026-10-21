@@ -112,14 +112,18 @@ const CONFLICT_MIN_FRAMES = 3;
 const PULSE_ACTION = /pulse|flow|signal|импульс|поток/i;
 /** Установившийся поток удержания — фон системы в работе, а не событие. */
 const STEADY_ACTION = /hold|loop|steady|idle|ambient|удержан|фон/i;
+/** Вход или прорисовка («flowgraph-in», «graph-draw»): данные ещё не летят. */
+const ENTRANCE_ACTION = /(^|[^a-z])(in|entrance|enter|draw)([^a-z]|$)|вход|появ|прорис/i;
+const isPulse = (b: Beat) => PULSE_ACTION.test(b.action) && !ENTRANCE_ACTION.test(b.action);
 
 interface AccentWindow { id: string; from: number; to: number; what: string }
 
 /**
  * Один акцент в момент (prompts/motion-director.md §6): вспышка узла по приходу импульса
- * (`content.flash_on`) и бит акцента (`emphasis`/`accent` в action) другого объекта, два
- * бита акцента разных объектов, или удар акцента посреди полёта импульса к другому
- * объекту перекрываются по кадрам — blocking: Director разводит их.
+ * (`content.flash_on`) и бит акцента (`emphasis`/`accent` в action) другого объекта или два
+ * бита акцента разных объектов перекрываются по кадрам — blocking: Director разводит их.
+ * Удар акцента посреди полёта импульса — blocking, только если импульс летит в сам объект
+ * акцента («итог приходит раньше данных»); удар по другому объекту во время полёта — warning.
  */
 function accentConflicts(spec: MotionSpec): Omit<QAIssue, "source">[] {
   const fps = spec.fps.num / spec.fps.den;
@@ -142,7 +146,7 @@ function accentConflicts(spec: MotionSpec): Omit<QAIssue, "source">[] {
     for (const ref of refs) {
       const named = spec.beats.filter((b) => new RegExp(`(^|[^\\w-])${escapeRe(b.id)}($|[^\\w-])`).test(ref));
       // без id бита — только однозначный бит импульса узла: blocking не ставится наугад
-      const pulses = spec.beats.filter((b) => b.element_ids.includes(e.id) && PULSE_ACTION.test(b.action));
+      const pulses = spec.beats.filter((b) => b.element_ids.includes(e.id) && isPulse(b));
       const beats: Beat[] = named.length > 0 ? named : pulses.length === 1 ? pulses : [];
       for (const b of beats) flashes.push({ id: e.id, from: b.end_frame - 1, to: b.end_frame + flashLen, what: `вспышка ${e.id} (приход импульса бита ${b.id}, кадры ${b.end_frame - 1}–${b.end_frame + flashLen})` });
     }
@@ -160,16 +164,27 @@ function accentConflicts(spec: MotionSpec): Omit<QAIssue, "source">[] {
       });
     }
   }
-  // удар акцента посреди полёта импульса к другому объекту: итог «приходит» раньше данных
-  for (const p of spec.beats.filter((b) => PULSE_ACTION.test(b.action) && !STEADY_ACTION.test(b.action))) {
+  // удар акцента посреди полёта импульса (не вход графа, не поток удержания)
+  const same = sameObject(spec);
+  for (const p of spec.beats.filter((b) => isPulse(b) && !STEADY_ACTION.test(b.action))) {
+    const dest = pulseTargets(spec, p);
     for (const { beat: b, ids } of emph) {
-      if (b.id === p.id || ids.some((id) => p.element_ids.includes(id))) continue;
+      if (b.id === p.id) continue;
       if (!(b.start_frame > p.start_frame && b.start_frame < p.end_frame - CONFLICT_MIN_FRAMES)) continue;
-      out.push({
-        code: "accent_conflict", severity: "blocking", area: `${p.id}, ${ids.join(", ")}`,
-        description: `акцент ${ids.join(", ")} (бит ${b.id}) бьёт в кадр ${b.start_frame}, пока импульс бита ${p.id} ещё летит (${p.start_frame}–${p.end_frame}): свет импульса и удар акцента спорят за взгляд`,
-        fix_hint: `итог приходит вместе с данными: начни бит ${b.id} в кадр прихода импульса — ${p.end_frame} (конец бита ${p.id}), или заверши импульс раньше`,
-      });
+      const hit = ids.filter((id) => [...dest].some((d) => same(id, d)));
+      if (hit.length > 0) {
+        out.push({
+          code: "accent_conflict", severity: "blocking", area: `${p.id}, ${hit.join(", ")}`,
+          description: `акцент ${hit.join(", ")} (бит ${b.id}) бьёт в кадр ${b.start_frame}, пока импульс бита ${p.id} ещё летит к нему (${p.start_frame}–${p.end_frame}): итог приходит раньше данных`,
+          fix_hint: `итог приходит вместе с данными: начни бит ${b.id} в кадр прихода импульса — ${p.end_frame} (конец бита ${p.id}), или заверши импульс раньше`,
+        });
+      } else if (!ids.some((id) => p.element_ids.includes(id))) {
+        out.push({
+          code: "accent_conflict", severity: "warning", area: `${p.id}, ${ids.join(", ")}`,
+          description: `акцент ${ids.join(", ")} (бит ${b.id}) бьёт в кадр ${b.start_frame}, пока импульс бита ${p.id} летит к другому объекту (${p.start_frame}–${p.end_frame}): свет импульса и удар акцента могут спорить за взгляд`,
+          fix_hint: `если удар — итог этого импульса, начни бит ${b.id} в кадр прихода ${p.end_frame}; если события независимы — оставь`,
+        });
+      }
     }
   }
   for (let i = 0; i < emph.length; i++) {
@@ -185,6 +200,56 @@ function accentConflicts(spec: MotionSpec): Omit<QAIssue, "source">[] {
     }
   }
   return out;
+}
+
+/** Ссылка на бит в content (`flows[].beat`): id бита с префиксом `b-` или без. */
+const beatRef = (ref: unknown, id: string) => typeof ref === "string" && (ref === id || ref.replace(/^b[-_]/, "") === id.replace(/^b[-_]/, ""));
+
+/**
+ * Куда летит импульс бита: узлы прихода `flows` графа, привязанных к биту (`to`, у обратного
+ * — `from`), иначе элементы бита, кроме самих графов; плюс счётчики, привязанные к приходам
+ * этого графа (`bound_to: "<граф>.arrivals…"`).
+ */
+function pulseTargets(spec: MotionSpec, p: Beat): Set<string> {
+  const out = new Set<string>();
+  const graphs = new Set<string>();
+  for (const e of spec.elements) {
+    const c = (e.content ?? {}) as Record<string, unknown>;
+    const edges = Array.isArray(c.edges) ? (c.edges as Record<string, unknown>[]) : [];
+    const flows = Array.isArray(c.flows) ? (c.flows as Record<string, unknown>[]).filter((f) => beatRef(f?.beat, p.id)) : [];
+    for (const f of flows) {
+      graphs.add(e.id);
+      const edge = edges.find((x) => x?.id === f.edge);
+      if (!edge) continue;
+      const back = /back|reverse|обрат/i.test(String(f.direction ?? "")) || f.reverse === true;
+      const node = back ? edge.from : edge.to;
+      if (typeof node === "string") out.add(node);
+    }
+  }
+  if (out.size === 0) {
+    for (const id of p.element_ids) {
+      if (byKind(spec, id) === "graph") graphs.add(id);
+      else out.add(id);
+    }
+  }
+  for (const e of spec.elements) {
+    const bound = (e.content as Record<string, unknown> | undefined)?.bound_to;
+    if (typeof bound === "string" && [...graphs].some((g) => bound.startsWith(`${g}.arrivals`))) out.add(e.id);
+  }
+  return out;
+}
+
+const byKind = (spec: MotionSpec, id: string) => spec.elements.find((e) => e.id === id)?.kind;
+
+/** Один объект: тот же id или вложенный layout (подпись в карточке узла, счётчик на узле). */
+function sameObject(spec: MotionSpec): (a: string, b: string) => boolean {
+  const lay = new Map(spec.elements.map((e) => [e.id, e.layout]));
+  return (a, b) => {
+    if (a === b) return true;
+    const [la, lb] = [lay.get(a), lay.get(b)];
+    if (!la || !lb || area(la) >= FULL_BLEED || area(lb) >= FULL_BLEED) return false;
+    return contains(la, lb) || contains(lb, la);
+  };
 }
 
 const escapeRe = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

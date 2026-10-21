@@ -158,11 +158,11 @@ describe("accent_conflict: два акцента в один момент", () =
 });
 
 describe("accent_conflict: удар акцента посреди полёта импульса", () => {
-  const mk = (pulse: [number, number], accentStart: number, action = "hit-return-pulse") => {
+  const mk = (pulse: [number, number], accentStart: number, action = "hit-return-pulse", to = "client") => {
     const sp = spec({
       beats: [
         beat("graph-in", 0, 40, ["graph", "client"]),
-        beat("ret", pulse[0], pulse[1], ["graph", "client"], action),
+        beat("ret", pulse[0], pulse[1], ["graph", to], action),
         beat("hit", accentStart, 152, ["hit"], "hit-final-emphasis"),
         beat("hold", 152, 180, ["hit", "graph"], "hold"),
       ],
@@ -174,17 +174,69 @@ describe("accent_conflict: удар акцента посреди полёта �
     ];
     return sp;
   };
-  const conflict = (sp: MotionSpec) => specChecks(sp, s).find((i) => i.code === "accent_conflict");
+  const conflicts = (sp: MotionSpec, st = s) => specChecks(sp, st).filter((i) => i.code === "accent_conflict");
+  const blocking = (sp: MotionSpec, st = s) => conflicts(sp, st).filter((i) => i.severity === "blocking");
 
-  it("акцент бьёт, пока импульс к другому объекту ещё летит — blocking, подсказка — кадр прихода", () => {
-    const i = conflict(mk([126, 140], 128));
-    expect(i).toMatchObject({ severity: "blocking" });
+  it("импульс летит в сам объект акцента, акцент бьёт до прихода — blocking, подсказка — кадр прихода", () => {
+    const [i, ...rest] = blocking(mk([126, 140], 128, "hit-return-pulse", "hit"));
+    expect(rest).toEqual([]);
+    expect(i?.area).toContain("hit");
     expect(i?.fix_hint).toContain("140");
   });
 
-  it("акцент в кадр прихода и позже, импульсы удержания (hold/loop) — не конфликт", () => {
-    expect(conflict(mk([126, 140], 140))).toBeUndefined();
-    expect(conflict(mk([126, 140], 138))).toBeUndefined();
-    expect(conflict(mk([100, 180], 128, "steady-flow-hold"))).toBeUndefined();
+  it("узел прихода — по flows графа (обратный поток — к from); вложенная подпись узла — тот же объект", () => {
+    const sp = mk([126, 140], 128);
+    sp.elements[0] = { ...sp.elements[0]!, content: { edges: [{ id: "e1", from: "client", to: "server" }], flows: [{ edge: "e1", direction: "back", beat: "ret" }] } };
+    // акцент — подпись внутри карточки client
+    sp.elements[2] = { ...sp.elements[2]!, layout: { x: 0.04, y: 0.12, w: 0.1, h: 0.05 } };
+    expect(blocking(sp)).toHaveLength(1);
+    sp.elements[0] = { ...sp.elements[0]!, content: { edges: [{ id: "e1", from: "client", to: "server" }], flows: [{ edge: "e1", direction: "forward", beat: "ret" }] } };
+    expect(blocking(sp)).toEqual([]);
+  });
+
+  it("импульс к другому объекту — warning, не blocking (ревью Fix D: ложный blocking валит сцену)", () => {
+    const l = conflicts(mk([126, 140], 128));
+    expect(l).toEqual([expect.objectContaining({ severity: "warning" })]);
+  });
+
+  it("акцент в кадр прихода и позже, импульсы удержания (hold/loop) и входа графа (in/draw) — не конфликт", () => {
+    expect(conflicts(mk([126, 140], 140, "hit-return-pulse", "hit"))).toEqual([]);
+    expect(conflicts(mk([126, 140], 138, "hit-return-pulse", "hit"))).toEqual([]);
+    expect(conflicts(mk([100, 180], 128, "steady-flow-hold", "hit"))).toEqual([]);
+    expect(conflicts(mk([100, 150], 128, "flowgraph-in", "hit"))).toEqual([]);
+    expect(conflicts(mk([100, 150], 128, "flow-draw", "hit"))).toEqual([]);
+  });
+
+  describe("реальные spec", () => {
+    const fx = (f: string) => fileURLToPath(new URL(`../fixtures/${f}`, import.meta.url));
+    const st = SettingsSchema.parse(JSON.parse(readFileSync(fx("specs-run3/settings.json"), "utf8")));
+    const load = (f: string) => MotionSpecSchema.parse(JSON.parse(readFileSync(fx(f), "utf8")));
+    const setBeat = (sp: MotionSpec, id: string, over: Partial<MotionSpec["beats"][number]>) => {
+      sp.beats = sp.beats.map((b) => (b.id === id ? { ...b, ...over } : b));
+      return sp;
+    };
+
+    it("проба ревью (gen-compare прогона 3): поток b-micro-releases к «Прод» и удар по «Деплою» монолита — не blocking", () => {
+      const sp = setBeat(load("specs-run3/gen-compare.spec.json"), "b-micro-releases", { action: "micro-releases-flow" });
+      expect(blocking(sp, st)).toEqual([]);
+      expect(conflicts(sp, st)).toEqual([expect.objectContaining({ severity: "warning", area: "b-micro-releases, mono-deploy" })]);
+    });
+
+    it("проба ревью (gen-compare прогона 3): title-accent во время входа графа micro-flowgraph-in — не конфликт", () => {
+      const sp = setBeat(load("specs-run3/gen-compare.spec.json"), "b-micro-graph", { action: "micro-flowgraph-in" });
+      sp.beats.push({ id: "title-accent", start_frame: 40, end_frame: 56, action: "title-accent", description: "проба", element_ids: ["title"] });
+      expect(conflicts(sp, st)).toEqual([]);
+    });
+
+    it("gen-compare прогона 3: вспышка «Деплоя» сдвинута в полёт импульса к нему (100 < 110) — blocking", () => {
+      const sp = setBeat(load("specs-run3/gen-compare.spec.json"), "b-mono-flash", { start_frame: 100 });
+      expect(blocking(sp, st)).toEqual([expect.objectContaining({ area: "b-mono-release, mono-deploy" })]);
+    });
+
+    it("gen-cache прогона 2: «Попадание» бьёт, пока ответ летит к клиенту — warning, не blocking", () => {
+      const sp = load("specs-run2/gen-cache.spec.json");
+      expect(blocking(sp, st).filter((i) => i.area?.startsWith("b-hit-return"))).toEqual([]);
+      expect(conflicts(sp, st)).toContainEqual(expect.objectContaining({ severity: "warning", area: "b-hit-return, status-hit" }));
+    });
   });
 });
