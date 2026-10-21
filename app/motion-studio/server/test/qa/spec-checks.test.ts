@@ -168,8 +168,9 @@ describe("accent_conflict: удар акцента посреди полёта �
       ],
     });
     sp.elements = [
-      // импульс бита ret — по ребру e1 графа к `to`
-      el("graph", { kind: "graph", entrance: "draw", layout: { x: 0.3, y: 0.1, w: 0.6, h: 0.5 }, content: { edges: [{ id: "e1", from: "server", to }], flows: [{ edge: "e1", beat: "ret" }] } }),
+      // одиночный импульс бита ret (repeat: false; в kit по умолчанию поток) — по ребру e1 графа к `to`;
+      // узла server в раскладке нет — длину ребра не вычислить, приход — конец бита
+      el("graph", { kind: "graph", entrance: "draw", layout: { x: 0.3, y: 0.1, w: 0.6, h: 0.5 }, content: { edges: [{ id: "e1", from: "server", to }], flows: [{ edge: "e1", beat: "ret", repeat: false }] } }),
       el("client", { kind: "card", entrance: "slide", layout: { x: 0.02, y: 0.1, w: 0.2, h: 0.12 } }),
       el("hit", { kind: "card", role: "акцент: попадание", entrance: "pop", layout: { x: 0.02, y: 0.7, w: 0.2, h: 0.1 } }),
     ];
@@ -187,11 +188,11 @@ describe("accent_conflict: удар акцента посреди полёта �
 
   it("узел прихода — по flows графа (обратный поток — к from); вложенная подпись узла — тот же объект", () => {
     const sp = mk([126, 140], 128);
-    sp.elements[0] = { ...sp.elements[0]!, content: { edges: [{ id: "e1", from: "client", to: "server" }], flows: [{ edge: "e1", direction: "back", beat: "ret" }] } };
+    sp.elements[0] = { ...sp.elements[0]!, content: { edges: [{ id: "e1", from: "client", to: "server" }], flows: [{ edge: "e1", direction: "back", beat: "ret", repeat: false }] } };
     // акцент — подпись внутри карточки client
     sp.elements[2] = { ...sp.elements[2]!, layout: { x: 0.04, y: 0.12, w: 0.1, h: 0.05 } };
     expect(blocking(sp)).toHaveLength(1);
-    sp.elements[0] = { ...sp.elements[0]!, content: { edges: [{ id: "e1", from: "client", to: "server" }], flows: [{ edge: "e1", direction: "forward", beat: "ret" }] } };
+    sp.elements[0] = { ...sp.elements[0]!, content: { edges: [{ id: "e1", from: "client", to: "server" }], flows: [{ edge: "e1", direction: "forward", beat: "ret", repeat: false }] } };
     expect(blocking(sp)).toEqual([]);
   });
 
@@ -229,8 +230,10 @@ describe("accent_conflict: удар акцента посреди полёта �
       expect(conflicts(sp, st)).toEqual([]);
     });
 
-    it("gen-compare прогона 3: вспышка «Деплоя» сдвинута в полёт импульса к нему (100 < 110) — blocking", () => {
-      const sp = setBeat(load("specs-run3/gen-compare.spec.json"), "b-mono-flash", { start_frame: 100 });
+    // ребро tests → deploy ~86 px при 1920: по расписанию kit (repeat по умолчанию, проход 0.6 с)
+    // первый импульс приходит в ~78 — вспышка в 100 уже после данных, в 70 — в полёте
+    it("gen-compare прогона 3: вспышка «Деплоя» сдвинута в полёт импульса к нему (70 < прихода ~78) — blocking", () => {
+      const sp = setBeat(load("specs-run3/gen-compare.spec.json"), "b-mono-flash", { start_frame: 70 });
       expect(blocking(sp, st)).toEqual([expect.objectContaining({ area: "b-mono-release, mono-deploy" })]);
     });
 

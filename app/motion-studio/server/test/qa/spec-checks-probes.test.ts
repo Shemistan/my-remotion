@@ -5,6 +5,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { type Element, type MotionSpec, MotionSpecSchema, type QAIssue, type Settings, SettingsSchema } from "@ms/contracts";
 import { describe, expect, it } from "vitest";
+import { edgeSegment } from "../../../render/src/motion-kit/geometry.js";
+import { pathArrivals } from "../../../render/src/motion-kit/choreo/pulse.js";
+import { resolveStyle } from "@ms/render";
 import { specChecks } from "../../src/qa/spec-checks.js";
 import { beat, el, settings, spec } from "./helpers.js";
 
@@ -53,6 +56,10 @@ describe("purpose_claim: кратность в purpose — по границам
       expect.objectContaining({ severity: "warning", description: expect.stringContaining("×3") }),
     ]);
     expect(pick(textScene("Новый индекс ускоряет поиск втрое.", [{ label: "Индекс" }, { kicker: "×3 быстрее" }]), "purpose_claim")).toEqual([]);
+  });
+
+  it("заглавная кириллическая «Х» — тоже знак кратности: «Х10» и «10Х» на экране", () => {
+    for (const label of ["Х10 быстрее", "10Х быстрее"]) expect(pick(textScene("Кэш ускоряет чтение в 10 раз.", [{ label: "Кэш" }, { headline: label }]), "purpose_claim"), label).toEqual([]);
   });
 });
 
@@ -137,9 +144,12 @@ describe("accent_conflict: валидные spec проб — без blocking", 
 });
 
 describe("accent_conflict: доказуемый случай остаётся blocking", () => {
-  it("A4 один импульс 110–150 к wh, акцент wh в 130 — blocking, подсказка — кадр прихода 150", () => {
-    const sp = orders({ accent: "wh", flowsBeat: "orders", pulseIds: ["graph"], action: "order-pulse", window: [110, 150], flow: {} });
-    expect(blocking(sp)).toEqual([expect.objectContaining({ code: "accent_conflict", area: "orders, wh", fix_hint: expect.stringContaining("150") })]);
+  // приход — по расписанию kit от длины ребра в px кадра: геометрия — при реальном 1920×1080
+  // (в кадре 192×108 любое ребро короче прохода 0.6 с)
+  it("A4 один импульс (repeat: false) 110–150 к wh @1920, акцент wh в 130 — blocking, подсказка — кадр прихода kit", () => {
+    const sp = orders({ accent: "wh", flowsBeat: "orders", pulseIds: ["graph"], action: "order-pulse", window: [110, 150], flow: { repeat: false } });
+    const at = Math.ceil(kitFirst(hd, sp, { start_frame: 110, end_frame: 150 }, { repeat: false }));
+    expect(blocking(sp, hd)).toEqual([expect.objectContaining({ code: "accent_conflict", area: "orders, wh", fix_hint: expect.stringContaining(`— ${at}`) })]);
   });
 
   it("A4 поток (count 6, repeat) 110–150 при 1920×1080: первый приход ~179 позже удара 130 — blocking", () => {
@@ -149,8 +159,8 @@ describe("accent_conflict: доказуемый случай остаётся bl
 
   it("поток с travel: удар до первого прихода — blocking, после — нет; без travel и геометрии — только warning", () => {
     const at = (travel: number) => orders({ accent: "wh", flowsBeat: "orders", pulseIds: ["graph"], window: [100, 170], flow: { count: 3, repeat: true, travel } });
-    expect(blocking(at(40))).toHaveLength(1); // приход 140 > 130
-    expect(blocking(at(25))).toEqual([]); // приход 125 ≤ 130
+    expect(blocking(at(40), hd)).toHaveLength(1); // приход kit ~136 > 130
+    expect(blocking(at(25), hd)).toEqual([]); // приход kit ~122 ≤ 130
     const blind = orders({ accent: "wh", flowsBeat: "orders", pulseIds: ["graph"], window: [100, 170] });
     blind.elements = blind.elements.map((e) => (e.id === "shop" || e.id === "wh" ? { ...e, layout: undefined } : e));
     expect(pick(blind, "accent_conflict")).toEqual([expect.objectContaining({ severity: "warning", area: "orders, wh" })]);
@@ -169,7 +179,7 @@ describe("accent_conflict: доказуемый случай остаётся bl
       el("desk", { kind: "card", entrance: "slide", layout: { x: 0.02, y: 0.2, w: 0.15, h: 0.12 }, content: { label: "Стойка регистрации" } }),
       el("gate", { kind: "card", role: "акцент: посадка", entrance: "pop", layout: { x: 0.83, y: 0.2, w: 0.15, h: 0.12 }, content: { label: "Выход B12" } }),
     ];
-    expect(blocking(sp)).toEqual([expect.objectContaining({ code: "accent_conflict", area: "pax, gate" })]);
+    expect(blocking(sp, hd)).toEqual([expect.objectContaining({ code: "accent_conflict", area: "pax, gate" })]); // ребро ~1140 px: приход ~134 > 90
   });
 });
 
@@ -219,5 +229,64 @@ describe("валидные spec других доменов — без blocking"
   it("музыка: «2× tempo» в purpose и подпись «2× tempo» на экране", () => {
     const sp = textScene("Show what a 2× tempo change does to a drum loop.", [{ label: "Kick" }, { label: "Snare" }, { headline: "2× tempo" }]);
     expect(brief(specChecks(sp, s).filter((i) => i.severity === "blocking" || i.code === "purpose_claim"))).toEqual([]);
+  });
+});
+
+// ---- пробы tmp/rr-fixG2/probe3.mts: приход импульса — ровно расписание kit (pulse-timing)
+/** Магазин → склад; поток бита orders, акцент бита acc с кадра `accentAt`; whlbl — подпись в карточке склада. */
+function arrivalScene(o: { accent: string; window: [number, number]; accentAt: number; flow: Record<string, unknown>; action?: string }): MotionSpec {
+  const sp = spec({
+    beats: [
+      beat("graph-in", 0, 40, ["graph", "shop", "wh"], "graph-draw"),
+      beat("orders", o.window[0], o.window[1], ["graph"], o.action ?? "orders-flow"),
+      beat("acc", o.accentAt, Math.min(178, o.accentAt + 30), [o.accent], "final-emphasis"),
+      beat("hold", 178, 180, ["graph"], "hold"),
+    ],
+  });
+  sp.elements = [
+    el("graph", { kind: "graph", entrance: "draw", layout: { x: 0.25, y: 0.1, w: 0.5, h: 0.5 }, content: { edges: [{ id: "e1", from: "shop", to: "wh" }], flows: [{ edge: "e1", direction: "forward", beat: "orders", ...o.flow }] } }),
+    el("shop", { kind: "card", entrance: "slide", layout: { x: 0.02, y: 0.2, w: 0.2, h: 0.15 }, content: { label: "Магазин" } }),
+    el("wh", { kind: "card", entrance: "pop", layout: { x: 0.78, y: 0.2, w: 0.2, h: 0.15 }, content: { label: "Склад" } }),
+    el("whlbl", { kind: "text", role: "акцент: склад", entrance: "rise", layout: { x: 0.8, y: 0.22, w: 0.1, h: 0.05 }, content: { text: "Склад" } }),
+    el("cnt", { kind: "number", role: "акцент: заказы", entrance: "scale", layout: { x: 0.78, y: 0.7, w: 0.2, h: 0.12 }, content: { component: "AnimatedNumber", bound_to: "graph.arrivals", to: 240 } }),
+  ];
+  return sp;
+}
+/** Зазор shop → wh в px кадра (layout — доли safe area). */
+const gapPx = (st: Settings) => 0.56 * st.width * (1 - 2 * st.safe_area.x);
+/** Кадр первого прихода по kit: тот же путь длины `len` через pathArrivals PulseAlongPath. */
+function kitFirst(st: Settings, sp: MotionSpec, b: { start_frame: number; end_frame: number }, f: { travel?: number; count?: number; repeat?: boolean }): number {
+  const fps = sp.fps.num / sp.fps.den;
+  const style = resolveStyle({ preset: sp.style_preset, intensity: st.animation_intensity, fps: sp.fps });
+  return pathArrivals([edgeSegment({ x: 0, y: 0 }, { x: gapPx(st), y: 0 }, "h")], { beat: b, ...f }, style, fps)[0]!;
+}
+
+describe("accent_conflict: приход импульса — по расписанию kit (pulse-timing), не по концу бита", () => {
+  it("N1 flows {edge, direction, beat} без count/repeat (в kit repeat по умолчанию): счётчик бьёт в 130 после прихода ~102 @1920 — не blocking", () => {
+    expect(kitFirst(hd, arrivalScene({ accent: "cnt", window: [40, 170], accentAt: 130, flow: {} }), { start_frame: 40, end_frame: 170 }, {})).toBeLessThan(110);
+    expect(brief(blocking(arrivalScene({ accent: "cnt", window: [40, 170], accentAt: 130, flow: {} }), hd))).toEqual([]);
+  });
+
+  it("N2 count 3, repeat, travel 40 со 100: удар ровно в кадр прихода kit (ceil) — не blocking", () => {
+    const flow = { count: 3, repeat: true, travel: 40 };
+    const at = Math.ceil(kitFirst(s, arrivalScene({ accent: "cnt", window: [100, 170], accentAt: 130, flow }), { start_frame: 100, end_frame: 170 }, flow));
+    expect(at).toBeLessThan(140); // раньше сервер брал верхнюю границу start + travel
+    expect(brief(blocking(arrivalScene({ accent: "cnt", window: [100, 170], accentAt: at, flow })))).toEqual([]);
+  });
+
+  it("T1 одиночный импульс repeat:false 100–140 к wh, удар по подписи в карточке wh в 110 — blocking", () => {
+    const sp = arrivalScene({ accent: "whlbl", window: [100, 140], accentAt: 110, flow: { repeat: false, count: 1 }, action: "order-pulse" });
+    expect(blocking(sp)).toEqual([expect.objectContaining({ code: "accent_conflict", area: "orders, whlbl" })]);
+  });
+
+  it("скорость и интенсивность сервера == kit: приход в описании — кадр pathArrivals (calm / balanced / energetic, 60 fps)", () => {
+    const cases: [Settings["animation_intensity"], number][] = [["calm", 30], ["balanced", 30], ["energetic", 30], ["balanced", 60], ["calm", 60]];
+    for (const [intensity, fps] of cases) {
+      const st = settings({ width: 1920, height: 1080, animation_intensity: intensity });
+      const sp = arrivalScene({ accent: "wh", window: [100, 170], accentAt: 101, flow: {} });
+      sp.fps = { num: fps, den: 1 };
+      const want = kitFirst(st, sp, { start_frame: 100, end_frame: 170 }, {});
+      expect(pick(sp, "accent_conflict", st)).toEqual([expect.objectContaining({ severity: "blocking", description: expect.stringContaining(`приход ~${Math.round(want)})`) })]);
+    }
   });
 });

@@ -4,6 +4,7 @@
 // подписи кадра предыдущей сцены. `layout` элемента — доли safe area, а не кадра
 // (prompts/motion-director.md §8): в кадр он переводится через safeRect настроек.
 import type { Beat, Element, MotionSpec, QAIssue, Settings } from "@ms/contracts";
+import { arrivalInPass, pulsePass, pulseStarts, resolveStyle } from "@ms/render";
 import { boundCounters } from "../pipeline/bound-counters.js";
 import { ACCENT_ACTION, isEmphasisRole } from "../pipeline/qa-frames.js";
 
@@ -211,11 +212,11 @@ function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "s
         continue;
       }
       const hit = ids.filter((id) => matched.some(([d]) => same(id, d)));
-      const known = matched.map(([, a]) => a).filter((a): a is number => a !== undefined);
-      const arrival = known.length > 0 ? Math.min(...known) : undefined;
-      // поток: данные уже пришли (первый приход не позже удара) — итог не опережает их
-      if (arrival !== undefined && strike >= arrival - CONFLICT_MIN_FRAMES) continue;
-      if (arrival === undefined) {
+      const known = matched.map(([, a]) => a).filter((a): a is Arrival => a !== undefined);
+      const first = known.length > 0 ? known.reduce((x, y) => (y.at - y.slack < x.at - x.slack ? y : x)) : undefined;
+      // данные уже пришли (первый приход не позже удара) — итог не опережает их
+      if (first !== undefined && strike >= first.at - first.slack) continue;
+      if (first === undefined) {
         out.push({
           code: "accent_conflict", severity: "warning", area: `${p.id}, ${hit.join(", ")}`,
           description: `акцент ${hit.join(", ")} (бит ${b.id}) бьёт в кадр ${strike}, пока поток бита ${p.id} (${p.start_frame}–${p.end_frame}) идёт к нему; кадр первого прихода не вычислить (нет travel и раскладки узлов)`,
@@ -223,10 +224,11 @@ function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "s
         });
         continue;
       }
+      const arrival = first.at;
       out.push({
         code: "accent_conflict", severity: "blocking", area: `${p.id}, ${hit.join(", ")}`,
         description: `акцент ${hit.join(", ")} (бит ${b.id}) бьёт в кадр ${strike}, пока импульс бита ${p.id} ещё летит к нему (${p.start_frame}–${p.end_frame}, приход ~${Math.round(arrival)}): итог приходит раньше данных`,
-        fix_hint: `итог приходит вместе с данными: начни бит ${b.id} в кадр прихода импульса — ${Math.round(arrival)}${arrival === p.end_frame ? ` (конец бита ${p.id})` : ""}, или заверши импульс раньше`,
+        fix_hint: `итог приходит вместе с данными: начни бит ${b.id} в кадр прихода импульса — ${Math.ceil(arrival)}${arrival === p.end_frame ? ` (конец бита ${p.id})` : ""}, или заверши импульс раньше`,
       });
     }
   }
@@ -248,36 +250,46 @@ function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "s
 /** Ссылка на бит в content (`flows[].beat`): id бита с префиксом `b-` или без. */
 const beatRef = (ref: unknown, id: string) => typeof ref === "string" && (ref === id || ref.replace(/^b[-_]/, "") === id.replace(/^b[-_]/, ""));
 
-/** Скорость импульса kit (choreo/pulse.ts `pulsePass`): ~420 px/с при 30 fps, не короче 0.6 с. */
-const PULSE_PX_PER_S = 420;
-const PULSE_MIN_S = 0.6;
-/** Множитель длительностей интенсивности (motion-kit style/intensity.ts). */
-const INTENSITY_TIME: Record<Settings["animation_intensity"], number> = { calm: 1.25, balanced: 1, energetic: 0.75 };
-
 /**
- * Кадр первого прихода потока бита `p` по ребру. Одиночный импульс (без `count` > 1 и
- * `repeat: true`) приходит к концу бита — Director так и задаёт окно. Повторяющийся поток
- * приходит раньше: первый проход стартует в начале бита и длится `travel` или, как в kit,
- * длину ребра в px кадра со скоростью ~420 px/с (не короче 0.6 с). Длину не вычислить (нет
- * travel и раскладки узлов) — `undefined`: доказать, что данные не пришли, нельзя.
+ * Кадр прихода импульса (дробный) и допуск: 0 — расписание kit по длине ребра; оценка
+ * сверху (длина ребра неизвестна) — CONFLICT_MIN_FRAMES, удар чуть раньше оценки не доказан.
  */
-function flowArrival(spec: MotionSpec, settings: Settings, p: Beat, f: Record<string, unknown>, edge: Record<string, unknown>): number | undefined {
-  const repeating = f.repeat === true || Number(f.count) > 1;
-  if (!repeating) return p.end_frame;
-  const travel = Number(f.travel);
-  if (Number.isFinite(travel) && travel > 0) return p.start_frame + travel;
+interface Arrival {
+  at: number;
+  slack: number;
+}
+
+/** Длина ребра для kit: зазор между прямоугольниками узлов в px кадра (layout — доли safe area). */
+function edgeLength(spec: MotionSpec, settings: Settings, edge: Record<string, unknown>): number | undefined {
   const lay = (id: unknown) => (typeof id === "string" ? spec.elements.find((e) => e.id === id)?.layout : undefined);
   const [a, b] = [lay(edge.from), lay(edge.to)];
   if (!a || !b) return undefined;
-  // зазор между прямоугольниками узлов в px кадра (layout — доли safe area)
   const W = settings.width * (1 - 2 * settings.safe_area.x);
   const H = settings.height * (1 - 2 * settings.safe_area.y);
   const dx = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w)) * W;
   const dy = Math.max(0, Math.max(a.y, b.y) - Math.min(a.y + a.h, b.y + b.h)) * H;
-  const fps = spec.fps.num / spec.fps.den;
-  const time = INTENSITY_TIME[settings.animation_intensity] ?? 1;
-  const pass = Math.max(Math.round(fps * PULSE_MIN_S), Math.round(((Math.hypot(dx, dy) / PULSE_PX_PER_S) * 30 * time * fps) / 30));
-  return p.start_frame + pass;
+  return Math.hypot(dx, dy);
+}
+
+/**
+ * Кадр первого прихода потока бита `p` по ребру — расписание kit (choreo/pulse-timing.ts,
+ * те же pulsePass / pulseStarts / arrivalInPass, что у PulseAlongPath): проход — `travel`
+ * или длина ребра со скоростью и интенсивностью стиля сцены; `repeat` по умолчанию true, как
+ * в kit. Длина ребра неизвестна (нет раскладки узлов): при `travel` — верхняя граница
+ * старт + travel; одиночный импульс (`repeat: false`) без travel идёт весь бит — конец бита;
+ * иначе `undefined`: доказать, что данные не пришли, нельзя.
+ */
+function flowArrival(spec: MotionSpec, settings: Settings, p: Beat, f: Record<string, unknown>, edge: Record<string, unknown>): Arrival | undefined {
+  const t = Number(f.travel);
+  const travel = Number.isFinite(t) && t > 0 ? t : undefined;
+  const len = edgeLength(spec, settings, edge);
+  if (len === undefined && travel === undefined) return f.repeat === false ? { at: p.end_frame, slack: CONFLICT_MIN_FRAMES } : undefined;
+  const style = resolveStyle({ preset: spec.style_preset, intensity: settings.animation_intensity, fps: spec.fps });
+  const pass = pulsePass(len ?? 0, travel, spec.fps.num / spec.fps.den, style);
+  const count = Number(f.count);
+  const [t0] = pulseStarts({ start: p.start_frame, end: p.end_frame, pass, count: Number.isFinite(count) ? count : undefined, repeat: f.repeat === false ? false : undefined });
+  if (t0 === undefined) return undefined;
+  return { at: arrivalInPass(t0, pass, len ?? Infinity), slack: len === undefined ? CONFLICT_MIN_FRAMES : 0 };
 }
 
 /**
@@ -286,14 +298,14 @@ function flowArrival(spec: MotionSpec, settings: Settings, p: Beat, f: Record<st
  * (`bound_to: "<граф>.arrivals…"`, первый приход любого его потока). Без flows бита назначения
  * не угадываются по element_ids: там и источник, и сам импульс, и счётчик.
  */
-function pulseTargets(spec: MotionSpec, settings: Settings, p: Beat): Map<string, number | undefined> {
+function pulseTargets(spec: MotionSpec, settings: Settings, p: Beat): Map<string, Arrival | undefined> {
   // кадр прихода — самый ранний из известных; неизвестный не затирает известный
-  const put = (m: Map<string, number | undefined>, id: string, at: number | undefined) => {
+  const put = (m: Map<string, Arrival | undefined>, id: string, at: Arrival | undefined) => {
     const prev = m.get(id);
-    m.set(id, prev === undefined ? at : at === undefined ? prev : Math.min(prev, at));
+    m.set(id, prev === undefined ? at : at === undefined || prev.at - prev.slack <= at.at - at.slack ? prev : at);
   };
-  const out = new Map<string, number | undefined>();
-  const graphs = new Map<string, number | undefined>();
+  const out = new Map<string, Arrival | undefined>();
+  const graphs = new Map<string, Arrival | undefined>();
   for (const e of spec.elements) {
     const c = (e.content ?? {}) as Record<string, unknown>;
     const edges = Array.isArray(c.edges) ? (c.edges as Record<string, unknown>[]) : [];
@@ -385,14 +397,14 @@ const NUM_WORD: Record<string, number> = { полтора: 1.5, полторы: 
 const NOT_WORD = String.raw`(?![\p{L}\p{N}])`;
 /**
  * Кратность в тексте, по границам слов. ×N и N× — без числа по другую сторону знака («2×2»,
- * «4×100 м» — размер); латинская или кириллическая x — только вплотную к числу и отдельным
+ * «4×100 м» — размер); латинская или кириллическая x (и заглавные X, Х) — только вплотную к числу и отдельным
  * словом («10x», «x10»; «Linux 6», «последних 5» — нет); «в N раз(а)» — не «в 3 разных».
  */
 const MULT: RegExp[] = [
   new RegExp(String.raw`(?<![\p{N}]\s?)×\s?${NUM}(?!\s?[×\p{N}])`, "gu"),
-  new RegExp(String.raw`(?<![\p{L}\p{N}])[xхX]${NUM}${NOT_WORD}`, "gu"),
+  new RegExp(String.raw`(?<![\p{L}\p{N}])[xхXХ]${NUM}${NOT_WORD}`, "gu"),
   new RegExp(String.raw`(?<![\p{N}.,×]\s?)${NUM}\s?×(?!\s?\p{N})`, "gu"),
-  new RegExp(String.raw`(?<![\p{L}\p{N}.,])${NUM}[xхX]${NOT_WORD}`, "gu"),
+  new RegExp(String.raw`(?<![\p{L}\p{N}.,])${NUM}[xхXХ]${NOT_WORD}`, "gu"),
   new RegExp(String.raw`(?<!\p{L})в\s+${NUM}\s*раза?${NOT_WORD}`, "giu"),
   new RegExp(String.raw`(?<![\p{L}\p{N}.,])${NUM}[-\s]?кратн`, "giu"),
 ];
