@@ -1,0 +1,18 @@
+{
+  "title": "Рост пользователей",
+  "purpose": "фикстура QA: заголовок за правым краем кадра",
+  "duration_frames": 90,
+  "fps": { "num": 30, "den": 1 },
+  "style_preset": "dark-premium",
+  "elements": [
+    { "id": "title", "kind": "text", "role": "заголовок", "entrance": "rise", "content": { "text": "Рост пользователей" }, "layout": { "x": 0.44, "y": 0.15, "w": 0.5, "h": 0.2 } },
+    { "id": "bar", "kind": "shape", "role": "emphasis", "entrance": "draw", "content": {}, "layout": { "x": 0.06, "y": 0.61, "w": 0.63, "h": 0.12 } },
+    { "id": "caption", "kind": "text", "role": "подпись", "entrance": "fade", "content": { "text": "10 000 → 1 000 000" }, "layout": { "x": 0.06, "y": 0.78, "w": 0.4, "h": 0.07 } }
+  ],
+  "beats": [
+    { "id": "b-title", "start_frame": 0, "end_frame": 25, "action": "title-entrance", "description": "заголовок поднимается", "element_ids": ["title"] },
+    { "id": "b-bar", "start_frame": 20, "end_frame": 60, "action": "bar-grow", "description": "полоса растёт, подпись проявляется", "element_ids": ["bar", "caption"] },
+    { "id": "b-accent", "start_frame": 60, "end_frame": 75, "action": "final-emphasis", "description": "пульс полосы", "element_ids": ["bar"] },
+    { "id": "b-hold", "start_frame": 75, "end_frame": 90, "action": "hold", "description": "удержание", "element_ids": ["title", "bar", "caption"] }
+  ]
+}

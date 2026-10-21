@@ -1,0 +1,341 @@
+{
+  "title": "Архитектура AI-агента",
+  "purpose": "Показать путь запроса: пользователь → оркестратор → три инструмента → ответ возвращается пользователю.",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "composition": {
+    "archetype": "network-centric",
+    "idea": "Оркестратор — светящееся ядро в центре кадра. Запрос приходит слева, расходится веером к трём инструментам и возвращается к пользователю. Взгляд идёт слева направо вместе с импульсами, а потом обратно.",
+    "focus": "Пользователь и строка запроса → вспышка оркестратора → по очереди загораются инструменты → возврат и вспышка пользователя. Камера статична, фокус ведут свет импульсов и вспышки узлов. В hold — медленный наезд на 1,5 % к оркестратору.",
+    "transitions": "Сетка → узлы → прорисовка рёбер → фиолетовый запрос → бирюзовые вызовы → янтарный возврат. Строка запроса морфится в «Ответ готов» при приходе возвратного импульса. Импульсы продолжают бежать в удержании."
+  },
+  "elements": [
+    {
+      "id": "background",
+      "kind": "shape",
+      "role": "атмосфера: графитовый фон aurora с едва заметной инженерной сеткой",
+      "entrance": "fade",
+      "content": {
+        "variant": "aurora",
+        "grain": true,
+        "seed": "agent-arch",
+        "grid_overlay": "тонкая сетка 48 px, opacity 0.05, радиальное затухание к краям"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    },
+    {
+      "id": "kicker",
+      "kind": "text",
+      "role": "контекст: о чём схема",
+      "entrance": "fade",
+      "content": {
+        "text": "Архитектура AI-агента",
+        "mode": "letters",
+        "font": "mono",
+        "size": 1,
+        "caps": true,
+        "color": "muted"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 0.45,
+        "h": 0.05
+      }
+    },
+    {
+      "id": "agent-graph",
+      "kind": "graph",
+      "role": "герой: схема агента, ядро — узел «Оркестратор»",
+      "entrance": "draw",
+      "content": {
+        "graph_width": 1590,
+        "graph_height": 720,
+        "nodes": [
+          {
+            "id": "user",
+            "label": "Пользователь",
+            "x": 30,
+            "y": 310,
+            "w": 260,
+            "h": 100,
+            "elevation": 2,
+            "accentIndex": 0,
+            "enter": "rise"
+          },
+          {
+            "id": "orchestrator",
+            "label": "Оркестратор",
+            "x": 640,
+            "y": 280,
+            "w": 340,
+            "h": 160,
+            "elevation": 3,
+            "accentIndex": 0,
+            "caption": "LLM",
+            "enter": "scale",
+            "note": "герой: крупнейший узел, самая высокая elevation, свечение кромки"
+          },
+          {
+            "id": "tool-search",
+            "label": "Веб-поиск",
+            "x": 1290,
+            "y": 80,
+            "w": 270,
+            "h": 100,
+            "elevation": 2,
+            "accentIndex": 1,
+            "enter": "slide"
+          },
+          {
+            "id": "tool-db",
+            "label": "База данных",
+            "x": 1290,
+            "y": 310,
+            "w": 270,
+            "h": 100,
+            "elevation": 2,
+            "accentIndex": 1,
+            "enter": "slide"
+          },
+          {
+            "id": "tool-code",
+            "label": "Код",
+            "x": 1290,
+            "y": 540,
+            "w": 270,
+            "h": 100,
+            "elevation": 2,
+            "accentIndex": 1,
+            "enter": "slide"
+          }
+        ],
+        "edges": [
+          {
+            "id": "e-user",
+            "from": "user",
+            "to": "orchestrator"
+          },
+          {
+            "id": "e-search",
+            "from": "orchestrator",
+            "to": "tool-search"
+          },
+          {
+            "id": "e-db",
+            "from": "orchestrator",
+            "to": "tool-db"
+          },
+          {
+            "id": "e-code",
+            "from": "orchestrator",
+            "to": "tool-code"
+          }
+        ],
+        "flows": [
+          {
+            "edge": "e-user",
+            "direction": "forward",
+            "color": "accent0 (фиолетовый)",
+            "phase": "request"
+          },
+          {
+            "edge": "e-search",
+            "direction": "forward",
+            "color": "accent1 (бирюзовый)",
+            "phase": "call"
+          },
+          {
+            "edge": "e-db",
+            "direction": "forward",
+            "color": "accent1",
+            "phase": "call"
+          },
+          {
+            "edge": "e-code",
+            "direction": "forward",
+            "color": "accent1",
+            "phase": "call"
+          },
+          {
+            "edge": "e-search",
+            "direction": "back",
+            "color": "accent2 (янтарный)",
+            "phase": "return"
+          },
+          {
+            "edge": "e-db",
+            "direction": "back",
+            "color": "accent2",
+            "phase": "return"
+          },
+          {
+            "edge": "e-code",
+            "direction": "back",
+            "color": "accent2",
+            "phase": "return"
+          },
+          {
+            "edge": "e-user",
+            "direction": "back",
+            "color": "accent2",
+            "phase": "return"
+          }
+        ],
+        "node_flash": "вспышка узла (свечение кромки + scale 1→1.05→1, пружина snappy) bound_to момент прихода головы импульса на конец ребра: pulse.arrival"
+      },
+      "layout": {
+        "x": 0.04,
+        "y": 0.09,
+        "w": 0.92,
+        "h": 0.74
+      }
+    },
+    {
+      "id": "status-line",
+      "kind": "text",
+      "role": "состояние: текст запроса, который превращается в ответ",
+      "entrance": "slide",
+      "content": {
+        "states": [
+          {
+            "text": "«Найди и посчитай продажи за квартал»",
+            "font": "mono",
+            "size": 2,
+            "typing": true,
+            "typeSpeed_frames_per_char": 0.8
+          },
+          {
+            "text": "Ответ готов",
+            "font": "display",
+            "size": 3,
+            "color": "accent2",
+            "enter": "scale"
+          }
+        ],
+        "bound_to": "pulse e-user back arrival — смена состояния в кадр прихода возвратного импульса",
+        "note": "ширина первой строки ≈ 0,57×28×37 ≈ 590 px, влезает"
+      },
+      "layout": {
+        "x": 0.02,
+        "y": 0.86,
+        "w": 0.46,
+        "h": 0.07
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "b-bg",
+      "start_frame": 0,
+      "end_frame": 30,
+      "action": "background-in",
+      "description": "Фон проявляется из размытия, пятна aurora начинают медленно дрейфовать, сетка проступает до opacity 0.05.",
+      "element_ids": [
+        "background"
+      ]
+    },
+    {
+      "id": "b-nodes",
+      "start_frame": 4,
+      "end_frame": 60,
+      "action": "nodes-entrance",
+      "description": "Узлы собираются с центра. Каждый вход объясняется ролью узла. Оркестратор выходит из глубины (scale 0.85→1, пружина bouncy, перелёт 6–8 %) на кадре 4: ядро появляется первым. Пользователь поднимается из маски снизу на 12-м кадре (путь 40 px, snappy). Инструменты въезжают справа со скосом на 20-м, 28-м и 36-м кадрах (шаг 8, путь 40 px, snappy): это перечисление. Внутри FlowGraph задать индивидуальные start-кадры через cardEnterStyle.",
+      "element_ids": [
+        "agent-graph"
+      ]
+    },
+    {
+      "id": "b-kicker",
+      "start_frame": 14,
+      "end_frame": 40,
+      "action": "kicker-entrance",
+      "description": "Кикер проявляется из размытия по буквам вверху слева, приглушённым mono-шрифтом. Это контекст, он не спорит с героем.",
+      "element_ids": [
+        "kicker"
+      ]
+    },
+    {
+      "id": "b-edges",
+      "start_frame": 30,
+      "end_frame": 62,
+      "action": "edges-draw-in",
+      "description": "Рёбра прорисовываются: stroke-dashoffset 1→0, EASE.outQuart, стрелки появляются в конце. e-user начинается на 30-м кадре, затем веер e-search, e-db, e-code с шагом 6 кадров. Линии тонкие и приглушённые, пока по ним не прошёл импульс.",
+      "element_ids": [
+        "agent-graph"
+      ]
+    },
+    {
+      "id": "b-request-type",
+      "start_frame": 40,
+      "end_frame": 72,
+      "action": "request-entrance",
+      "description": "Строка запроса въезжает под узлом пользователя (slide 40 px со скосом) и печатается посимвольно с мигающим курсором. Печать заканчивается к 70-му кадру.",
+      "element_ids": [
+        "status-line"
+      ]
+    },
+    {
+      "id": "b-request-pulse",
+      "start_frame": 66,
+      "end_frame": 88,
+      "action": "request-flow-forward",
+      "description": "Фиолетовый импульс с хвостом-кометой (tail 120, size 8) бежит по e-user от пользователя к оркестратору за ~20 кадров. Узел пользователя слегка гаснет, когда импульс уходит. В кадр прихода (~86) оркестратор вспыхивает: свечение кромки accent0 нарастает, scale 1→1.06→1 (bouncy, перелёт ~7 %).",
+      "element_ids": [
+        "agent-graph"
+      ]
+    },
+    {
+      "id": "b-tool-calls",
+      "start_frame": 86,
+      "end_frame": 114,
+      "action": "tool-calls-forward",
+      "description": "Оркестратор раздаёт вызовы: бирюзовые импульсы стартуют по e-search, e-db, e-code с шагом 6 кадров (86/92/98). Каждый проход занимает ~16 кадров. Каждый инструмент вспыхивает бирюзовой кромкой в кадр прихода своего импульса (snappy, scale до 1.05). Рёбра под импульсом временно светлеют.",
+      "element_ids": [
+        "agent-graph"
+      ]
+    },
+    {
+      "id": "b-return",
+      "start_frame": 112,
+      "end_frame": 146,
+      "action": "data-return-back",
+      "description": "Данные возвращаются: янтарные импульсы reverse по e-code, e-db, e-search (112/118/124), каждый ~16 кадров. Оркестратор принимает их тремя короткими вспышками accent2 и собирает в один. На 130-м кадре один янтарный импульс (size 9) идёт reverse по e-user к пользователю и приходит на ~146 кадре.",
+      "element_ids": [
+        "agent-graph"
+      ]
+    },
+    {
+      "id": "b-final",
+      "start_frame": 144,
+      "end_frame": 160,
+      "action": "final-emphasis",
+      "description": "Финальный акцент продолжает историю: в момент прихода возвратного импульса узел пользователя вспыхивает янтарной кромкой (bouncy, scale 1→1.08→1). Строка запроса растворяется вверх и на её месте выходит из глубины «Ответ готов» (scale, перелёт 6 %, accent2). Путь замкнулся.",
+      "element_ids": [
+        "agent-graph",
+        "status-line"
+      ]
+    },
+    {
+      "id": "b-hold",
+      "start_frame": 140,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "Живое удержание: камера медленно наезжает на центр оркестратора (scale 1→1.015, сдвиг 6 px, EASE.inOutCubic). Свечение оркестратора дышит (opacity 0.6↔1, период 45 кадров). Приглушённые импульсы продолжают круг: фиолетовый вперёд по e-user и бирюзовые по веерным рёбрам, по одному проходу за ~45 кадров, opacity 0.5. Пятна фона дрейфуют. Кадры 160 и 179 заметно различаются.",
+      "element_ids": [
+        "agent-graph",
+        "background",
+        "status-line"
+      ]
+    }
+  ]
+}

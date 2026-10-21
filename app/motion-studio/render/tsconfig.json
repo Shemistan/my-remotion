@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "jsx": "react-jsx",
+    // worker.ts импортирует resolve-jail.ts с явным .ts (исполняется стиранием типов Node)
+    "allowImportingTsExtensions": true,
+    // как алиас webpack в worker.ts: фикстуры сцен импортируют kit по имени
+    "paths": { "@ms/motion-kit": ["./src/motion-kit/index.ts"] }
+  },
+  "include": ["src", "test"]
+}

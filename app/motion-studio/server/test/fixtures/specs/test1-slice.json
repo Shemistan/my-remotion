@@ -1,0 +1,274 @@
+{
+  "title": "Рост в 100 раз за три года",
+  "purpose": "Показать, что аудитория выросла с 10 000 до 1 000 000 пользователей за три года, а сам рост ускорялся.",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "elements": [
+    {
+      "id": "background",
+      "kind": "shape",
+      "role": "атмосфера: графитовый фон с мягкими световыми пятнами",
+      "entrance": "fade",
+      "content": {
+        "component": "Background",
+        "variant": "aurora",
+        "grain": true,
+        "seed": "growth-1m"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    },
+    {
+      "id": "kicker",
+      "kind": "text",
+      "role": "кикер: период данных",
+      "entrance": "fade",
+      "content": {
+        "text": "Данные · 2022–2025",
+        "mode": "letters",
+        "size": 1,
+        "font": "mono",
+        "caps": true,
+        "color": "muted"
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.1,
+        "w": 0.38,
+        "h": 0.04
+      }
+    },
+    {
+      "id": "title",
+      "kind": "text",
+      "role": "заголовок",
+      "entrance": "rise",
+      "content": {
+        "text": "В 100 раз за три года",
+        "highlight": [
+          "100 раз"
+        ],
+        "mode": "words",
+        "size": 5,
+        "weight": 800,
+        "maxWidth": 720,
+        "lineHeight": 1.05
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.16,
+        "w": 0.38,
+        "h": 0.2
+      }
+    },
+    {
+      "id": "hero-number",
+      "kind": "number",
+      "role": "герой: итоговое число пользователей, самый крупный элемент кадра",
+      "entrance": "count",
+      "content": {
+        "from": 10000,
+        "to": 1000000,
+        "locale": "ru",
+        "suffix": "",
+        "compact": false,
+        "size": 7,
+        "font": "display",
+        "reserveWidth": true,
+        "final_text": "1 000 000"
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.42,
+        "w": 0.38,
+        "h": 0.14
+      }
+    },
+    {
+      "id": "number-caption",
+      "kind": "text",
+      "role": "подпись к числу",
+      "entrance": "fade",
+      "content": {
+        "text": "активных пользователей",
+        "mode": "letters",
+        "size": 2,
+        "font": "body",
+        "color": "muted"
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.57,
+        "w": 0.38,
+        "h": 0.04
+      }
+    },
+    {
+      "id": "growth-badge",
+      "kind": "card",
+      "role": "акцент-итог: множитель роста",
+      "entrance": "scale",
+      "content": {
+        "text": "×100",
+        "from_label": "с 10 000",
+        "elevation": 3,
+        "accentIndex": 0,
+        "text_size": 4,
+        "note": "карточка с цифрой ×100 акцентным цветом и мелкой приглушённой подписью «с 10 000» под ней"
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.66,
+        "w": 0.17,
+        "h": 0.13
+      }
+    },
+    {
+      "id": "growth-chart",
+      "kind": "chart",
+      "role": "линия роста пользователей по полугодиям",
+      "entrance": "draw",
+      "content": {
+        "component": "LineChart",
+        "points": [
+          {
+            "label": "янв 22",
+            "value": 10000
+          },
+          {
+            "label": "июл 22",
+            "value": 28000
+          },
+          {
+            "label": "янв 23",
+            "value": 70000
+          },
+          {
+            "label": "июл 23",
+            "value": 150000
+          },
+          {
+            "label": "янв 24",
+            "value": 290000
+          },
+          {
+            "label": "июл 24",
+            "value": 520000
+          },
+          {
+            "label": "янв 25",
+            "value": 1000000
+          }
+        ],
+        "y_format": "compact",
+        "locale": "ru",
+        "compact": true,
+        "area": true,
+        "highlightLast": true,
+        "yTicks": 4,
+        "accentIndex": 0,
+        "width": 900,
+        "height": 560
+      },
+      "layout": {
+        "x": 0.47,
+        "y": 0.2,
+        "w": 0.48,
+        "h": 0.64
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "b-bg",
+      "start_frame": 0,
+      "end_frame": 40,
+      "action": "background-reveal",
+      "description": "Графитовый фон с мягкими фиолетово-бирюзовыми пятнами проявляется, пятна медленно дрейфуют всю сцену.",
+      "element_ids": [
+        "background"
+      ]
+    },
+    {
+      "id": "b-kicker",
+      "start_frame": 6,
+      "end_frame": 30,
+      "action": "kicker-entrance",
+      "description": "Кикер «Данные · 2022–2025» проявляется по буквам из размытия, мелко и приглушённо.",
+      "element_ids": [
+        "kicker"
+      ]
+    },
+    {
+      "id": "b-title",
+      "start_frame": 14,
+      "end_frame": 44,
+      "action": "title-entrance",
+      "description": "Заголовок «В 100 раз за три года» выходит словами из маски снизу с лёгким перелётом; «100 раз» подсвечено акцентом.",
+      "element_ids": [
+        "title"
+      ]
+    },
+    {
+      "id": "b-chart",
+      "start_frame": 28,
+      "end_frame": 112,
+      "action": "chart-draw",
+      "description": "Сначала сетка и подписи оси Y, затем гладкая ускоряющаяся линия рисуется слева направо со светящейся головой, точки вспыхивают по ходу, заливка открывается следом; в конце последняя точка пульсирует.",
+      "element_ids": [
+        "growth-chart"
+      ]
+    },
+    {
+      "id": "b-count",
+      "start_frame": 40,
+      "end_frame": 118,
+      "action": "count-up",
+      "description": "Крупное число докручивается от 10 000 до 1 000 000 синхронно с линией: разгон и долгое торможение, моноширинные цифры; на кадре 118 — удар масштаба и свечение акцентом.",
+      "element_ids": [
+        "hero-number"
+      ]
+    },
+    {
+      "id": "b-caption",
+      "start_frame": 52,
+      "end_frame": 76,
+      "action": "caption-entrance",
+      "description": "Под числом проявляется по буквам подпись «активных пользователей».",
+      "element_ids": [
+        "number-caption"
+      ]
+    },
+    {
+      "id": "b-emphasis",
+      "start_frame": 120,
+      "end_frame": 140,
+      "action": "final-emphasis",
+      "description": "Карточка «×100» вырастает из глубины под числом со светящейся верхней кромкой — смысловой итог роста.",
+      "element_ids": [
+        "growth-badge"
+      ]
+    },
+    {
+      "id": "b-hold",
+      "start_frame": 140,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "Удержание финального кадра: число 1 000 000, пульсирующая последняя точка графика и «×100»; движется только фон.",
+      "element_ids": [
+        "background",
+        "hero-number",
+        "growth-chart",
+        "growth-badge"
+      ]
+    }
+  ]
+}

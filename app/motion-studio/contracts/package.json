@@ -1,0 +1,15 @@
+{
+  "name": "@ms/contracts",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "zod": "3.25.76",
+    "zod-to-json-schema": "3.25.2"
+  }
+}

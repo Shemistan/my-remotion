@@ -1,0 +1,15 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      { "id": "kicker", "start_frame": 2, "end_frame": 62 },
+      { "id": "headline", "start_frame": 8, "end_frame": 70 },
+      { "id": "chart", "start_frame": 10, "end_frame": 120 },
+      { "id": "subtitle", "start_frame": 14, "end_frame": 70 },
+      { "id": "cards", "start_frame": 18, "end_frame": 90 },
+      { "id": "badge", "start_frame": 22, "end_frame": 80 }
+    ]
+  },
+  "style": { "preset": "dark-premium", "intensity": "balanced", "depth": 1, "transparent": false, "safe_area": { "x": 0.06, "y": 0.08 } },
+  "content": { "camera": true, "uniform": null }
+}

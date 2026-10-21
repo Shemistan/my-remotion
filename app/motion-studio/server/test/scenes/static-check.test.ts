@@ -1,0 +1,499 @@
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { type RuleId, type Violation, checkSceneDir, checkSceneSource } from "../../src/scenes/static-check.js";
+
+const BAD = fileURLToPath(new URL("../fixtures/bad-scenes/", import.meta.url));
+const RENDER_FIXTURES = fileURLToPath(new URL("../../../render/test/fixtures/", import.meta.url));
+const REPO_TMP = fileURLToPath(new URL("../../../../../tmp/", import.meta.url));
+
+const check = (text: string, path = "src/Scene.tsx") => checkSceneSource([{ path, text }]);
+/** Уникальные правила в порядке первого появления. */
+const rules = (v: Violation[]): RuleId[] => [...new Set(v.map((x) => x.rule))];
+
+const okScene = `
+import { AbsoluteFill, Img, interpolate, random, useCurrentFrame } from "remotion";
+import { useMemo } from "react";
+import logo from "./logo.png";
+import { presets } from "@ms/motion-kit";
+import { Title } from "./parts/Title";
+
+export const Scene = () => {
+  const frame = useCurrentFrame();
+  const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
+  const x = interpolate(frame, [0, 30], [0, 100], clamp);
+  const jitter = useMemo(() => random("seed") * 10, []);
+  const launch = new Date(Date.UTC(2024, 0, 1)).getUTCFullYear();
+  const { sin, cos } = Math;
+  const dots = [0, 1, 2].map((i) => random(\`dot-\${i}\`) * sin(i) * cos(i));
+  const NS = "http://www.w3.org/2000/svg";
+  // Конфиг сцены, не CSS: ключи transition/transitionFrames без CSS-значения.
+  const cfg = { transition: "fade", transitionFrames: 15, animation: "rise" };
+  return (
+    <AbsoluteFill style={{ background: presets["dark-premium"].palette.bg, opacity: Math.min(1, frame / 30) }}>
+      <Img src={logo} style={{ transform: \`translateX(\${x + jitter}px)\` }} />
+      <img src="./parts/dot.png" />
+      <Title text={String(launch + dots.length + cfg.transitionFrames)} className="text-xl font-bold" />
+      <svg xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" data-ns={NS} viewBox="0 0 10 10">
+        <use xlinkHref="#a" />
+      </svg>
+      <img srcSet="./a.png 1x, ./b.png 2x" />
+    </AbsoluteFill>
+  );
+};
+`;
+
+describe("checkSceneSource: минимум брифа", () => {
+  it("framer-motion, gsap и поднятый в корень zod — вне allowlist", () => {
+    expect(rules(check("import { motion } from 'framer-motion'"))).toEqual(["import-not-allowed"]);
+    expect(rules(check("import gsap from 'gsap'"))).toEqual(["import-not-allowed"]);
+    expect(rules(check("import z from 'zod'"))).toEqual(["import-not-allowed"]);
+  });
+  it("динамический import", () => {
+    expect(rules(check("const m = await import('./x')"))).toEqual(["dynamic-import"]);
+  });
+  it("Math.random и fetch", () => {
+    expect(rules(check("const r = Math.random()"))).toEqual(["forbidden-global"]);
+    expect(rules(check("fetch('https://x')"))).toEqual(["forbidden-global"]);
+  });
+  it("CSS transition в style и animate- в className", () => {
+    expect(rules(check("<div style={{ transition: 'all 1s' }} />"))).toEqual(["forbidden-css-animation"]);
+    expect(rules(check('<div className="animate-pulse" />'))).toEqual(["forbidden-css-animation"]);
+  });
+  it("относительный импорт за пределы src/", () => {
+    expect(rules(check("import x from '../../outside'"))).toEqual(["outside-src"]);
+  });
+  it("корректная сцена проходит", () => {
+    expect(check(okScene)).toEqual([]);
+  });
+});
+
+describe("bad-scenes: по одному нарушению на файл", async () => {
+  const names = (await readdir(BAD)).filter((n) => n.endsWith(".tsx")).sort();
+  it("фикстуры на месте", () => expect(names.length).toBeGreaterThanOrEqual(10));
+  for (const name of names) {
+    it(name, async () => {
+      const text = await readFile(join(BAD, name), "utf8");
+      const v = checkSceneSource([{ path: "src/Scene.tsx", text }]);
+      expect(v.map((x) => x.rule)).toEqual([name.split(".")[0]]);
+    });
+  }
+});
+
+describe("CSS: /proxy и закодированные адреса", () => {
+  it.each(["a { background: url(/proxy?src=a) }", "a { background: url('./proxy?src=a') }", "a { background: url(../proxy.png) }", "a { --u: 'x%3A%2F%2Fy' }"])(
+    "%s",
+    (css) => expect(rules(check(css, "src/a.css"))).toEqual(["external-url"]),
+  );
+  it("локальный url() допустим", () => expect(check("a { background: url(./a.png) }", "src/a.css")).toEqual([]));
+});
+
+describe("Violation: файл, строка, сообщение для агента", () => {
+  it("['constructor'] даёт одно нарушение, а не два (член + строка)", () => {
+    expect(check("const F = (() => 1)['constructor']")).toHaveLength(1);
+  });
+  it("прагма указывает на строку комментария", () => {
+    expect(check("const a = 1;\n/** @jsx eval */\nconst F = <div />")[0]).toMatchObject({ rule: "forbidden-pragma", line: 2 });
+  });
+  it("строка 1-based и путь файла", () => {
+    const v = check("import { a } from 'remotion';\n\nconst r = Math.random();\n", "src/parts/A.tsx");
+    expect(v).toHaveLength(1);
+    expect(v[0]).toMatchObject({ rule: "forbidden-global", file: "src/parts/A.tsx", line: 3 });
+  });
+  it("сообщения по-русски и говорят, чем заменить", () => {
+    expect(check("Math.random()")[0]!.message).toContain("random('seed')");
+    expect(check("setTimeout(() => 1, 10)")[0]!.message).toContain("useCurrentFrame");
+    expect(check("import gsap from 'gsap'")[0]!.message).toMatch(/gsap.*remotion/s);
+    expect(check("<div style={{ transition: 'all 1s' }} />")[0]!.message).toContain("interpolate");
+    expect(check("<img src='https://x/a.png' />")[0]!.message).toContain("src/ и импортируй");
+    expect(check("const d = new Date()")[0]!.message).toMatch(/[а-я]/);
+    expect(check("const u = '/proxy?src=a'")[0]!.message).toMatch(/\/proxy.*import clip from '\.\/clip\.mp4'/s);
+    expect(check("const u = 'a%3A%2F%2Fb'")[0]!.message).toMatch(/закодирован/);
+    expect(check("import { Img } from 'remotion'; const e = (s: string) => <Img src={s} />")[0]!.message).toMatch(
+      /<Img>.*import a from '\.\/a\.png'/s,
+    );
+  });
+});
+
+/** Таблица случаев: код → ожидаемые правила (уникальные, в порядке появления). */
+type Case = [name: string, code: string, expected: RuleId[]];
+
+const cases: Record<string, Case[]> = {
+  "обход через алиасы глобалов": [
+    ["const f = fetch", "const f = fetch; f('/x')", ["forbidden-global"]],
+    ["window.fetch", "window.fetch('/x')", ["forbidden-global"]],
+    ["globalThis['fetch']", "globalThis['fetch']('/x')", ["forbidden-global"]],
+    ["self.fetch", "self.fetch('/x')", ["forbidden-global"]],
+    ["(0, eval)", "(0, eval)('1')", ["forbidden-global"]],
+    ["shorthand { fetch }", "const o = { fetch }; o.fetch('/x')", ["forbidden-global"]],
+    ["export { setTimeout as t }", "export { setTimeout as t }", ["forbidden-global"]],
+    ["typeof window", "const w = typeof window !== 'undefined'", ["forbidden-global"]],
+    ["document.title", "const t = document.title", ["forbidden-global"]],
+    ["top/parent/frames", "const p = parent.frames", ["forbidden-global"]],
+    ["global (полифилл webpack)", "global.fetch('/x')", ["forbidden-global"]],
+    ["crypto.randomUUID", "const id = crypto.randomUUID()", ["forbidden-global"]],
+    ["new Image()", "const i = new Image()", ["forbidden-global"]],
+    ["RTCPeerConnection", "const c = new RTCPeerConnection()", ["forbidden-global"]],
+    ["this в функции", "function f() { return this }", ["forbidden-global"]],
+    ["this на верхнем уровне", "const g = this", ["forbidden-global"]],
+  ],
+  "локальные имена и ambient-объявления": [
+    ["локальный fetch затеняет глобал", "const fetch = (n: number) => n; fetch(1)", []],
+    ["параметр window", "function f(window: number) { return window }", []],
+    ["локальная переменная parent", "const parent = { id: 1 }; const id = parent.id", []],
+    ["declare const fetch", "declare const fetch: (u: string) => void; fetch('/x')", ["forbidden-global"]],
+    ["declare global", "declare global { var fetch: (u: string) => void }\nfetch('/x')", ["forbidden-global"]],
+    ["свойство obj.fetch", "const api = { fetch: (n: number) => n }; api.fetch(1)", []],
+    ["this в методе класса", "class A { x = 1; get() { return this.x } }", []],
+    ["this в стрелке внутри метода", "class A { x = 1; get() { return [1].map(() => this.x) } }", []],
+  ],
+  "Math и Date": [
+    ["Math['random']", "Math['random']()", ["forbidden-global"]],
+    ["алиас const M = Math", "const M = Math; M.random()", ["forbidden-global"]],
+    ["деструктуризация Math", "const { random } = Math", ["forbidden-global"]],
+    ["Math.floor", "const a = Math.floor(1.5) + Math['max'](1, 2) + Math.PI", []],
+    ["Date.now()", "const t = Date.now()", ["forbidden-global"]],
+    ["Date['now']", "const t = Date['now']()", ["forbidden-global"]],
+    ["new Date()", "const d = new Date()", ["forbidden-global"]],
+    ["new Date без скобок", "const d = new Date", ["forbidden-global"]],
+    ["new Date(...spread)", "const a: [] = []; const d = new Date(...a)", ["forbidden-global"]],
+    ["Date() без new", "const s = Date()", ["forbidden-global"]],
+    ["алиас const D = Date", "const D = Date; const d = new D()", ["forbidden-global"]],
+    ["new Date(фиксированная)", "const d = new Date(2024, 0, 1); const e = new Date('2024-01-01')", []],
+    ["Date.UTC и Date.parse", "const a = Date.UTC(2024, 0, 1) + Date.parse('2024-01-01')", []],
+    ["performance.now()", "const t = performance.now()", ["forbidden-global"]],
+  ],
+  "eval и Function": [
+    ["new Function", "const f = new Function('return 1')", ["forbidden-global"]],
+    ["Function(...)", "Function('return 1')()", ["forbidden-global"]],
+    ["тип Function допустим", "let f: Function | undefined; f = undefined", []],
+    ["конструктор через .constructor", "const F = [].constructor.constructor", ["forbidden-global"]],
+    ["конструктор через ['constructor']", "const F = (() => 1)['constructor']", ["forbidden-global"]],
+    ["__proto__", "const p = ({}).__proto__", ["forbidden-global"]],
+    ["import.meta", "const u = import.meta.url", ["forbidden-global"]],
+    ["require", "const fs = require('fs')", ["forbidden-global"]],
+    ["require через алиас", "const r = require; r('fs')", ["forbidden-global"]],
+    ["module.require", "module.require('fs')", ["forbidden-global"]],
+    ["__webpack_require__", "__webpack_require__(1)", ["forbidden-global"]],
+    ["import = require", "import fs = require('fs')", ["forbidden-global"]],
+  ],
+  "спецификаторы импорта и реэкспорт": [
+    ["шаблонная строка в статическом import", "import z from `zod`", ["syntax-error"]],
+    ["шаблонная строка в import()", "const m = import(`./x`)", ["dynamic-import"]],
+    ["import() разрешённого модуля", "const m = await import('remotion')", ["dynamic-import"]],
+    ["import() в выражении", "const z = import('zod')", ["dynamic-import"]],
+    ["import('x') в позиции типа", "type T = import('zod').ZodType; let t: T | undefined", []],
+    ["import type", "import type { ZodType } from 'zod'; let t: ZodType | undefined", []],
+    ["export type from", "export type { ZodType } from 'zod'", []],
+    ["import { type X } не стирается целиком", "import { type ZodType } from 'zod'", ["import-not-allowed"]],
+    ["export * from запрещённого", "export * from 'zod'", ["import-not-allowed"]],
+    ["export { a } from запрещённого", "export { a } from 'gsap'", ["import-not-allowed"]],
+    ["export * as ns from запрещённого", "export * as ns from 'gsap'", ["import-not-allowed"]],
+    ["export { a } from за пределы src", "export { a } from '../../x'", ["outside-src"]],
+    ["export * from локального", "export * from './parts/ok'", []],
+    ["import side-effect", "import 'gsap'", ["import-not-allowed"]],
+    ["node:fs", "import fs from 'node:fs'", ["import-not-allowed"]],
+    ["подпуть remotion", "import { x } from 'remotion/no-react'", ["import-not-allowed"]],
+    ["подпуть motion-kit", "import { x } from '@ms/motion-kit/internal'", ["import-not-allowed"]],
+    ["webpack-лоадер в спецификаторе", "import t from '!!raw-loader!./a.txt'", ["import-not-allowed"]],
+    ["абсолютный путь", "import x from '/etc/passwd'", ["outside-src"]],
+    ["file: URL", "import x from 'file:///etc/passwd'", ["import-not-allowed"]],
+    ["разрешённые модули", "import 'react'; import { jsx } from 'react/jsx-runtime'; import { loadFont } from '@remotion/fonts'; import { useCurrentFrame } from 'remotion'; import { presets } from '@ms/motion-kit'", []],
+    ["ассет из src", "import dot from './dot.png'; import data from './data/points.json'", []],
+    ["/// <reference>", "/// <reference path=\"../../x.d.ts\" />\nconst a = 1", ["forbidden-pragma"]],
+  ],
+  "DOM и опасный HTML": [
+    ["document.createElement('script')", "document.createElement('script')", ["forbidden-global", "forbidden-dom"]],
+    ["React.createElement('script')", "import React from 'react'; React.createElement('script', null)", ["forbidden-dom"]],
+    ["jsx('iframe')", "import { jsx } from 'react/jsx-runtime'; jsx('iframe', {})", ["forbidden-dom"]],
+    ["<script>", "<script>{'x'}</script>", ["forbidden-dom"]],
+    ["<iframe>", "<iframe src='./a.html' />", ["forbidden-dom"]],
+    ["<style>", "<style>{'.a{}'}</style>", ["forbidden-dom"]],
+    ["dangerouslySetInnerHTML", "<div dangerouslySetInnerHTML={{ __html: '<b>x</b>' }} />", ["forbidden-dom"]],
+    ["dangerouslySetInnerHTML в объекте props", "const p = { dangerouslySetInnerHTML: { __html: '' } }", ["forbidden-dom"]],
+    ["srcDoc", "<iframe srcDoc='<b>x</b>' />", ["forbidden-dom"]],
+    ["ref → ownerDocument", "const f = (el: HTMLElement) => el.ownerDocument", ["forbidden-dom"]],
+    ["ref → getRootNode", "const f = (el: HTMLElement) => el.getRootNode()", ["forbidden-dom"]],
+    ["innerHTML", "const f = (el: HTMLElement) => { el.innerHTML = '<img>' }", ["forbidden-dom"]],
+    ["деструктуризация defaultView", "const f = (d: { defaultView: unknown }) => { const { defaultView } = d; return defaultView }", ["forbidden-dom"]],
+  ],
+  "внешние URL": [
+    ["<img src=https>", "<img src='https://x/a.png' />", ["external-url"]],
+    ["<video src=http>", "<video src='http://x/a.mp4' />", ["external-url"]],
+    ["протокол-относительный", "<img src='//cdn.x/a.png' />", ["external-url"]],
+    ["<link>", "<link rel='stylesheet' href='./a.css' />", ["external-url"]],
+    ["url() в style", "<div style={{ backgroundImage: 'url(https://x/a.png)' }} />", ["external-url"]],
+    ["url(\"//...\") в style", "<div style={{ backgroundImage: 'url(\"//x/a.png\")' }} />", ["external-url"]],
+    ["URL в константе", "const SRC = 'https://x/a.png'; const e = <img src={SRC} />", ["external-url"]],
+    ["URL в шаблонной строке", "const n = 1; const e = <img src={`https://x/${n}.png`} />", ["external-url"]],
+    ["ws://", "const u = 'wss://x/socket'", ["external-url"]],
+    ["javascript:", "<a href='javascript:void 0'>x</a>", ["external-url"]],
+    ["loadFont с внешним url", "import { loadFont } from '@remotion/fonts'; loadFont({ family: 'X', url: 'https://x/f.woff2' })", ["external-url"]],
+    ["staticFile в src — вычисляемый адрес", "import { Img, staticFile } from 'remotion'; const e = <Img src={staticFile('a.png')} />", ["external-url"]],
+    ["относительный путь", "<img src='./a.png' />", []],
+    ["url() локальный", "<div style={{ backgroundImage: 'url(./a.png)' }} />", []],
+    ["data: URL", "<img src='data:image/png;base64,AAAA' />", []],
+  ],
+  "CSS-анимации": [
+    ["animation в style", "<div style={{ animation: 'spin 1s' }} />", ["forbidden-css-animation"]],
+    ["WebkitTransition", "<div style={{ WebkitTransition: 'opacity 1s' }} />", ["forbidden-css-animation"]],
+    ["transitionDuration shorthand в style", "const transitionDuration = '1s'; const e = <div style={{ transitionDuration }} />", ["forbidden-css-animation"]],
+    ["'transition-duration'", "const s = { 'transition-duration': '1s' }", ["forbidden-css-animation"]],
+    ["style.transition =", "const f = (el: HTMLElement) => { el.style.transition = 'all 1s' }", ["forbidden-css-animation"]],
+    ["el.animate()", "const f = (el: HTMLElement) => el.animate([], 100)", ["forbidden-css-animation"]],
+    ["@keyframes в строке", "const css = '@keyframes spin { from { opacity: 0 } }'", ["forbidden-css-animation"]],
+    ["cssText с transition", "const css = 'opacity: 1; transition: opacity 1s'", ["forbidden-css-animation"]],
+    ["className transition-opacity", "<div className='p-2 transition-opacity' />", ["forbidden-css-animation"]],
+    ["className transition", "<div className='transition' />", ["forbidden-css-animation"]],
+    ["className с вариантом hover:animate-spin", "<div className='hover:animate-spin' />", ["forbidden-css-animation"]],
+    ["className-шаблон", "const a = 'x'; const e = <div className={`p-2 ${a} animate-bounce`} />", ["forbidden-css-animation"]],
+    ["className через cn()", "const cn = (...a: string[]) => a.join(' '); const e = <div className={cn('p-2', 'animate-ping')} />", ["forbidden-css-animation"]],
+    ["className-похожие слова допустимы", "<div className='transitioned animated p-2' />", []],
+  ],
+  "fix round 1: прагмы в комментариях": [
+    ["@jsx eval", "/** @jsx eval */\nconst F = <x:Function />", ["forbidden-pragma"]],
+    ["@jsxFrag", "/** @jsxFrag Function */\nconst F = <></>", ["forbidden-pragma"]],
+    ["@jsxRuntime classic", "/** @jsxRuntime classic */\nconst F = <div />", ["forbidden-pragma"]],
+    ["@jsxImportSource", "/** @jsxImportSource /abs/dir */\nconst F = <div />", ["forbidden-pragma"]],
+    ["@jsx в однострочном комментарии", "// @jsx h\nconst F = <div />", ["forbidden-pragma"]],
+    ["@ts-nocheck", "// @ts-nocheck\nconst a: number = 1", ["forbidden-pragma"]],
+    ["/// <reference types>", "/// <reference types=\"node\" />\nconst a = 1", ["forbidden-pragma"]],
+    ["/// <reference lib>", "/// <reference lib=\"dom\" />\nconst a = 1", ["forbidden-pragma"]],
+    ["прагма поверх синтаксической ошибки тоже видна", "/** @jsx eval */\nconst = 1", ["forbidden-pragma", "syntax-error"]],
+  ],
+  "fix round 1: пространства имён SVG": [
+    ["xmlns", "<svg xmlns='http://www.w3.org/2000/svg' />", []],
+    ["xmlnsXlink", "<svg xmlnsXlink='http://www.w3.org/1999/xlink' />", []],
+    ["xmlns:xlink", "<svg xmlns:xlink='http://www.w3.org/1999/xlink' />", []],
+    ["константа с URI w3.org", "const NS = 'https://www.w3.org/2000/svg'", []],
+    ["прочий http в xmlns не грузится, но href — грузится", "<svg xmlns='http://www.w3.org/2000/svg'><image href='https://x/a.png' /></svg>", ["external-url"]],
+  ],
+  "fix round 1: transition/animation как конфиг": [
+    ["transition: 'fade' — конфиг", "const cfg = { transition: 'fade' }", []],
+    ["transitionFrames: 15", "const cfg = { transitionFrames: 15 }", []],
+    ["animation: 'rise' — конфиг", "const cfg = { animation: 'rise', animationName: 'x' }", []],
+    ["CSS-значение вне style", "const s = { transition: 'opacity 300ms ease-in' }", ["forbidden-css-animation"]],
+    ["CSS-значение infinite", "const s = { animation: 'spin infinite' }", ["forbidden-css-animation"]],
+    ["cubic-bezier", "const s = { transitionTimingFunction: 'cubic-bezier(0.1, 0.7, 1, 0.1)' }", ["forbidden-css-animation"]],
+    ["объект доходит до style через переменную", "const anim = 'x'; const s = { animation: anim }; const e = <div style={s} />", ["forbidden-css-animation"]],
+    ["вложенный объект стилей", "const styles = { box: { transition: 'fade' } }; const e = <div style={styles.box} />", ["forbidden-css-animation"]],
+    ["spread в style", "const base = { transition: 'fade' }; const e = <div style={{ ...base, opacity: 1 }} />", ["forbidden-css-animation"]],
+    ["тип CSSProperties", "import type { CSSProperties } from 'react'; const s: CSSProperties = { transition: 'fade' }", ["forbidden-css-animation"]],
+    ["transitionFrames в style — не CSS-свойство", "const e = <div style={{ opacity: 1 }} data-x={{ transitionFrames: 15 }} />", []],
+  ],
+  "fix round 1: Math деструктуризация": [
+    ["{ sin, cos } = Math", "const { sin, cos } = Math; const y = sin(1) + cos(1)", []],
+    ["{ random } = Math", "const { random } = Math", ["forbidden-global"]],
+    ["{ random: r } = Math", "const { random: r } = Math", ["forbidden-global"]],
+    ["{ ...rest } = Math", "const { ...rest } = Math", ["forbidden-global"]],
+  ],
+  "fix round 1: детерминизм": [
+    ["random(null)", "import { random } from 'remotion'; const r = random(null)", ["forbidden-global"]],
+    ["random(undefined)", "import { random } from 'remotion'; const r = random(undefined)", ["forbidden-global"]],
+    ["random() без сида", "import { random } from 'remotion'; const r = (random as any)()", ["forbidden-global"]],
+    ["R.random(null) через namespace", "import * as R from 'remotion'; const r = R.random(null)", ["forbidden-global"]],
+    ["random(`dot-${i}`)", "import { random } from 'remotion'; const i = 1; const r = random(`dot-${i}`) + random(1) + random('a')", []],
+    ["локальная random(null) — не remotion", "const random = (x: unknown) => 1; const r = random(null)", []],
+    ["Intl.DateTimeFormat().format()", "const s = new Intl.DateTimeFormat('ru').format()", ["forbidden-global"]],
+    ["DateTimeFormat через переменную", "const f = Intl.DateTimeFormat('ru'); const s = f.format()", ["forbidden-global"]],
+    ["formatToParts()", "const p = new Intl.DateTimeFormat('ru').formatToParts()", ["forbidden-global"]],
+    ["DateTimeFormat с фиксированной датой", "const s = new Intl.DateTimeFormat('ru').format(new Date(2024, 0, 1))", []],
+    ["NumberFormat.format(n)", "const s = new Intl.NumberFormat('ru').format(1000)", []],
+    ["Temporal", "const t = Temporal.Now.instant()", ["forbidden-global"]],
+    ["ResizeObserver", "const o = new ResizeObserver(() => {})", ["forbidden-global"]],
+    ["IntersectionObserver", "const o = new IntersectionObserver(() => {})", ["forbidden-global"]],
+    ["MutationObserver", "const o = new MutationObserver(() => {})", ["forbidden-global"]],
+  ],
+  "fix round 1: строки constructor/__proto__/prototype": [
+    ["getOwnPropertyDescriptor(..., 'constructor')", "const d = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(() => 1), 'constructor')", ["forbidden-global"]],
+    ["Reflect.get(x, '__proto__')", "const p = Reflect.get({}, '__proto__')", ["forbidden-global"]],
+    ["'prototype'", "const k = 'prototype'", ["forbidden-global"]],
+    ["['constructor'] — одно нарушение", "const F = (() => 1)['constructor']", ["forbidden-global"]],
+    ["слово внутри строки допустимо", "const s = 'constructor of scenes'", []],
+  ],
+  "fix round 1: srcSet": [
+    ["внешний URL вторым в srcSet", "<img srcSet='./a.png 1x, https://x/b.png 2x' />", ["external-url"]],
+    ["протокол-относительный в srcSet", "<img srcSet='./a.png 1x, //x/b.png 2x' />", ["external-url"]],
+    ["srcSet в объекте props", "const p = { srcSet: './a.png 1x, https://x/b.png 2x' }", ["external-url"]],
+    ["локальный srcSet", "<img srcSet='./a.png 1x, ./b.png 2x' />", []],
+  ],
+  "/proxy сервера бандла и закодированные адреса": [
+    ["'/proxy?src=…'", "const u = '/proxy?src=x&time=0'", ["external-url"]],
+    ["шаблон `/proxy?src=${…}`", "const p = 1; const u = `/proxy?src=${p}&time=0`", ["external-url"]],
+    ["<Img src='/proxy…'>", "import { Img } from 'remotion'; const e = <Img src='/proxy?src=a' />", ["external-url"]],
+    ["%3A%2F%2F", "const u = 'x?src=http%3A%2F%2F127.0.0.1%3A8790%2F'", ["external-url"]],
+    ["%3a%2f%2f в нижнем регистре", "const u = 'a%3a%2f%2fb'", ["external-url"]],
+    ["%3A%2F%2F в части шаблона", "const p = 1; const u = `${p}%3A%2F%2Fx`", ["external-url"]],
+    ["/proxy не в начале — просто текст", "const t = 'путь /proxy в документации'", []],
+    ["импорт ./proxy.png — локальный файл", "import { Img } from 'remotion'; import proxy from './proxy.png'; const e = <Img src={proxy} />", []],
+    ["<Img src='./proxy?src=…'>", "import { Img } from 'remotion'; const e = <Img src='./proxy?src=http://127.0.0.1:8790/x&time=0' />", ["external-url"]],
+    ["'../proxy?src=…'", "const u = '../proxy?src=a&time=0'", ["external-url"]],
+    ["'.//proxy'", "const u = './/proxy?src=a'", ["external-url"]],
+    ["строка ./proxy.png — тоже /proxy на сервере бандла", "<img src='./proxy.png' />", ["external-url"]],
+    ["proxy?src= без ./", "const u = 'proxy?src=a&time=0'", ["external-url"]],
+    ["x/proxy?src= в середине пути", "const u = 'a/b/proxy?time=0&src=x'", ["external-url"]],
+    ["./proxy?src=http:%2F%2F…", "const u = './proxy?src=http:%2F%2F127.0.0.1:8790%2Fx'", ["external-url"]],
+    ["http:%2F%2F без /proxy", "const u = 'x?u=http:%2F%2Fexample.com'", ["external-url"]],
+    ["url(./proxy?src=…) в style", "<div style={{ backgroundImage: 'url(./proxy?src=a)' }} />", ["external-url"]],
+    ["слово proxy в тексте", "const t = 'proxy server settings'", []],
+  ],
+  "src у медиа: только импорт из src/ или kit": [
+    ["Img из import", "import { Img } from 'remotion'; import dot from './dot.png'; const e = <Img src={dot} />", []],
+    ["OffthreadVideo из import", "import { OffthreadVideo } from 'remotion'; import clip from './clip.mp4'; const e = <OffthreadVideo src={clip} />", []],
+    ["Audio из import", "import { Audio } from 'remotion'; import a from './a.mp3'; const e = <Audio src={a} />", []],
+    ["алиас Img as Picture", "import { Img as Picture } from 'remotion'; import dot from './dot.png'; const e = <Picture src={dot} />", []],
+    ["R.Img через namespace", "import * as R from 'remotion'; import dot from './dot.png'; const e = <R.Img src={dot} />", []],
+    ["ассет из @ms/motion-kit", "import { Img } from 'remotion'; import { logo } from '@ms/motion-kit'; const e = <Img src={logo} />", []],
+    ["const-алиас импорта", "import { Img } from 'remotion'; import dot from './dot.png'; const D = dot; const e = <Img src={D} />", []],
+    ["массив импортов", "import { Img } from 'remotion'; import a from './a.png'; import b from './b.png'; const L = [a, b]; const e = (i: number) => <Img src={L[i]} />", []],
+    ["условие между импортами", "import { Img } from 'remotion'; import a from './a.png'; import b from './b.png'; const e = (x: boolean) => <Img src={x ? a : b} />", []],
+    ["относительная строка", "<video src='./clip.mp4' />", []],
+    ["<source> из import", "import clip from './clip.mp4'; const e = <video><source src={clip} /></video>", []],
+    ["src из props", "import { Img } from 'remotion'; const e = (p: { src: string }) => <Img src={p.src} />", ["external-url"]],
+    ["src из параметра", "import { Video } from 'remotion'; const e = (src: string) => <Video src={src} />", ["external-url"]],
+    ["относительная строка с ?", "<img src='./a.png?v=1' />", ["external-url"]],
+    ["относительная строка с #", "<img src='./a.svg#x' />", ["external-url"]],
+    ["относительная строка с ://", "<img src='./x/http://example.com/a.png' />", ["external-url"]],
+    ["строка без ./","import { Img } from 'remotion'; const e = <Img src='a.png' />", ["external-url"]],
+    ["абсолютный путь", "<img src='/etc/a.png' />", ["external-url"]],
+    ["вычисляемый шаблон", "import { Img } from 'remotion'; const n = 1; const e = <Img src={`./a${n}.png`} />", ["external-url"]],
+    ["вызов функции", "import { Audio } from 'remotion'; const f = () => './a.mp3'; const e = <Audio src={f()} />", ["external-url"]],
+    ["let-переменная", "import { Img } from 'remotion'; import dot from './dot.png'; let D = dot; const e = <Img src={D} />", ["external-url"]],
+    ["IFrame из remotion", "import { IFrame } from 'remotion'; const p = { u: '' }; const e = <IFrame src={p.u} />", ["external-url"]],
+    ["<source> из props", "const e = (p: { u: string }) => <audio><source src={p.u} /></audio>", ["external-url"]],
+    ["src у не-медиа компонента — не проверяется", "const Card = (p: { src: string }) => null; const e = (s: string) => <Card src={s} />", []],
+  ],
+  "файлы и пути": [
+    [".tsx вне src/", "export const a = 1", ["outside-src"]],
+  ],
+};
+
+for (const [group, list] of Object.entries(cases)) {
+  describe(group, () => {
+    for (const [name, code, expected] of list) {
+      it(name, () => {
+        const path = group === "файлы и пути" ? "lib/A.tsx" : "src/Scene.tsx";
+        expect(rules(check(code, path))).toEqual(expected);
+      });
+    }
+  });
+}
+
+describe("пути файлов и относительные импорты", () => {
+  it.each(["lib/A.tsx", "A.tsx", "../src/A.tsx", "/abs/src/A.tsx", "src/../A.tsx", "src\\A.tsx"])("%s — вне src/", (p) => {
+    expect(rules(check("export const a = 1", p))).toEqual(["outside-src"]);
+  });
+  it("импорт соседнего каталога внутри src/ допустим", () => {
+    expect(check("import { B } from '../B'", "src/parts/A.tsx")).toEqual([]);
+  });
+  it("импорт, выходящий из src/ из вложенного файла", () => {
+    expect(rules(check("import { B } from '../../B'", "src/parts/A.tsx"))).toEqual(["outside-src"]);
+  });
+  it("синтаксическая ошибка — отдельное правило", () => {
+    expect(rules(check("const = 1"))).toEqual(["syntax-error"]);
+  });
+  it("CSS-файл: анимации, внешние url и @import", () => {
+    expect(rules(check(".a { transition: all 1s }", "src/a.css"))).toEqual(["forbidden-css-animation"]);
+    expect(rules(check("@keyframes x { from { opacity: 0 } }", "src/a.css"))).toEqual(["forbidden-css-animation"]);
+    expect(rules(check(".a { background: url(https://x/a.png) }", "src/a.css"))).toEqual(["external-url"]);
+    expect(rules(check("@import './b.css';", "src/a.css"))).toEqual(["external-url"]);
+    expect(check(".a { background: url(./b.png); color: red }", "src/a.css")).toEqual([]);
+  });
+  it("несколько файлов проверяются вместе, локальные имена не протекают между ними", () => {
+    const v = checkSceneSource([
+      { path: "src/a.tsx", text: "export const fetch = (n: number) => n" },
+      { path: "src/Scene.tsx", text: "fetch('/x')" },
+    ]);
+    expect(v).toHaveLength(1);
+    expect(v[0]).toMatchObject({ rule: "forbidden-global", file: "src/Scene.tsx" });
+  });
+  it("файл без import/export — тоже модуль: его var не делает глобал локальным", () => {
+    const v = checkSceneSource([
+      { path: "src/a.ts", text: "var fetch = 1" },
+      { path: "src/Scene.tsx", text: "export const x = fetch" },
+    ]);
+    expect(rules(v)).toEqual(["forbidden-global"]);
+  });
+});
+
+describe("checkSceneDir: файлы версии на диске", () => {
+  let tmp: string;
+  beforeEach(async () => {
+    await mkdir(REPO_TMP, { recursive: true });
+    tmp = await mkdtemp(join(REPO_TMP, "ms-static-check-"));
+    await mkdir(join(tmp, "src", "parts"), { recursive: true });
+    await writeFile(join(tmp, "src", "Scene.tsx"), okScene);
+    await writeFile(join(tmp, "src", "parts", "Title.tsx"), "export const Title = (p: { text: string; className?: string }) => <div className={p.className}>{p.text}</div>;\n");
+    await writeFile(join(tmp, "src", "logo.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    await writeFile(join(tmp, "props.json"), "{}");
+  });
+  afterEach(() => rm(tmp, { recursive: true, force: true }));
+
+  it("чистая версия — без нарушений", async () => {
+    expect(await checkSceneDir(tmp)).toEqual([]);
+  });
+  it("нарушение во вложенном файле", async () => {
+    await writeFile(join(tmp, "src", "parts", "Bad.ts"), "export const t = Date.now();\n");
+    const v = await checkSceneDir(tmp);
+    expect(v).toEqual([expect.objectContaining({ rule: "forbidden-global", file: "src/parts/Bad.ts", line: 1 })]);
+  });
+  it("симлинк в src/", async () => {
+    await symlink("/etc/hosts", join(tmp, "src", "hosts.ts"));
+    expect(await checkSceneDir(tmp)).toEqual([expect.objectContaining({ rule: "outside-src", file: "src/hosts.ts" })]);
+  });
+  it("src/ — симлинк", async () => {
+    await rm(join(tmp, "src"), { recursive: true });
+    await mkdir(join(tmp, "real"));
+    await symlink(join(tmp, "real"), join(tmp, "src"));
+    expect(rules(await checkSceneDir(tmp))).toEqual(["outside-src"]);
+  });
+  it("нет src/", async () => {
+    await rm(join(tmp, "src"), { recursive: true });
+    expect(rules(await checkSceneDir(tmp))).toEqual(["outside-src"]);
+  });
+  it("файл без расширения или неизвестного типа", async () => {
+    await writeFile(join(tmp, "src", "helper"), "fetch('/x')\n");
+    await writeFile(join(tmp, "src", "x.wasm"), "\0asm");
+    // .txt webpack Remotion разобрал бы как JavaScript: правила asset для него нет.
+    await writeFile(join(tmp, "src", "notes.txt"), "fetch('/x')\n");
+    await writeFile(join(tmp, "src", "data.json"), "{}");
+    await writeFile(join(tmp, "src", "font.woff2"), "wOF2");
+    const v = await checkSceneDir(tmp);
+    expect(v.map((x) => [x.rule, x.file])).toEqual([
+      ["forbidden-file", "src/helper"],
+      ["forbidden-file", "src/notes.txt"],
+      ["forbidden-file", "src/x.wasm"],
+    ]);
+  });
+  it("node_modules где угодно в версии и package.json в src/** и в корне — forbidden-file", async () => {
+    await mkdir(join(tmp, "node_modules", "@remotion", "fonts"), { recursive: true });
+    await writeFile(join(tmp, "node_modules", "@remotion", "fonts", "index.js"), "module.exports = 1;\n");
+    await mkdir(join(tmp, "src", "node_modules", "x"), { recursive: true });
+    await writeFile(join(tmp, "src", "node_modules", "x", "package.json"), JSON.stringify({ main: "../../../evil.js" }));
+    await writeFile(join(tmp, "src", "node_modules", "x", "index.js"), "export const a = Date.now();\n");
+    await mkdir(join(tmp, "refs", "kb", "a", "node_modules"), { recursive: true });
+    await writeFile(join(tmp, "src", "parts", "package.json"), JSON.stringify({ browser: { remotion: "./evil.js" } }));
+    await writeFile(join(tmp, "package.json"), "{}");
+    // package.json вне src/ и корня (справка refs/) на разрешение модулей сцены не влияет
+    await writeFile(join(tmp, "refs", "kb", "a", "package.json"), "{}");
+    const v = await checkSceneDir(tmp);
+    expect(v.map((x) => [x.rule, x.file])).toEqual([
+      ["forbidden-file", "node_modules"],
+      ["forbidden-file", "package.json"],
+      ["forbidden-file", "refs/kb/a/node_modules"],
+      ["forbidden-file", "src/node_modules"],
+      ["forbidden-file", "src/parts/package.json"],
+    ]);
+    expect(v[0]!.message).toMatch(/node_modules.*подменил/);
+    expect(v[1]!.message).toContain("разрешение модулей");
+  });
+  it("CSS-файл в src/ проверяется", async () => {
+    await writeFile(join(tmp, "src", "a.css"), ".a {\n  animation: spin 1s;\n}\n");
+    expect(await checkSceneDir(tmp)).toEqual([expect.objectContaining({ rule: "forbidden-css-animation", file: "src/a.css", line: 2 })]);
+  });
+  it("фикстуры render: hello-scene чистая, net-scene ловится на fetch и внешних адресах", async () => {
+    expect(await checkSceneDir(join(RENDER_FIXTURES, "hello-scene"))).toEqual([]);
+    expect(rules(await checkSceneDir(join(RENDER_FIXTURES, "net-scene")))).toEqual(["forbidden-global", "external-url"]);
+  });
+});

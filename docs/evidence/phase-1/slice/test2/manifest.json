@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "version_id": "ver_01M5DMPAEMKDDNZYFB9466AX7M",
+  "scene_id": "scn_01M5DMDMN2R9BM0B9MQGYNZWFY",
+  "parent_version_id": null,
+  "number": 1,
+  "created_at": "2026-10-20T21:50:16.069Z",
+  "prompt": "Покажи архитектуру AI-агента: пользователь отправляет запрос, оркестратор вызывает три инструмента, данные возвращаются обратно. Световые импульсы движутся по связям",
+  "edit_plan": null,
+  "settings": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 180,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "files": [
+    {
+      "path": "frames/114.png",
+      "sha256": "babd3b0454a0b58d478be341dcb7a93bd084a20ccd98a472a6c8cf84e6a9df66"
+    },
+    {
+      "path": "frames/135.png",
+      "sha256": "97b2c7cdda449275cc5160e196301547c02c6591538c30e6b8d24fe8a335c480"
+    },
+    {
+      "path": "frames/160.png",
+      "sha256": "a9f2a9b71cbae95e6a0c3aff02b0b017892226609a1de5ca9014c155e06249df"
+    },
+    {
+      "path": "frames/179.png",
+      "sha256": "a97cd67dada8c3f895c5edd06dbe179e1e61425674685801312918dca5cbcc98"
+    },
+    {
+      "path": "frames/60.png",
+      "sha256": "5ab1a05d40d672f5b5b41aa3da1db8ec8522fe5a661792f9befdba0b715a20e2"
+    },
+    {
+      "path": "frames/90.png",
+      "sha256": "6b9579d346c48f8654437853e2a095e5618fddce6d5811193b1665c5b388203c"
+    },
+    {
+      "path": "knowledge-refs.json",
+      "sha256": "0f5a1c6523a82ef80e5dd1f47689a99f6c101c528c6735480354b975e736258c"
+    },
+    {
+      "path": "pipeline-log.json",
+      "sha256": "ee3e31d457666364675a11d29fbb84bf0a7f8f50567e259cca73a3a254e2b9c4"
+    },
+    {
+      "path": "preview.mp4",
+      "sha256": "3e54be30a04cc03009b9a4efc705756f279225da52b976281458a5e39dd6d9af"
+    },
+    {
+      "path": "props.json",
+      "sha256": "e012081391c5043d7ea4bb377ee53fd373d88d051a45a418e1c7770dace85589"
+    },
+    {
+      "path": "refs/kb/magicui/animated-beam/CARD.md",
+      "sha256": "ec12a708622f0945f8ab7c102bd2db43eb629e1604c1a6239d185e057ba16578"
+    },
+    {
+      "path": "refs/kb/magicui/animated-beam/templates/react-libriry/magicui/apps/www/registry/magicui/animated-beam.tsx",
+      "sha256": "6afa2ee1d01694a428eb8517d48deebe5c6b532dc0ee871800bb9d92aae43e79"
+    },
+    {
+      "path": "refs/kb/motion-primitives-website/grid-pattern/CARD.md",
+      "sha256": "45d866d41050b7520f716650a88fab7b3c836be5b2100a093f91f351f2caf8e6"
+    },
+    {
+      "path": "refs/kb/motion-primitives-website/grid-pattern/templates/react-libriry/motion-primitives-website/src/components/backgrounds/premium-backgrounds.tsx",
+      "sha256": "e319c938864decc90bdcc6faf48d1e29ecc7bc9941636f394c8521eb9d752673"
+    },
+    {
+      "path": "refs/kb/remotion-bits/type-writer/CARD.md",
+      "sha256": "fb2f8236501fd7f2f376d7f7ca00018f563a8d129c1c9d6b9da50a420fadac27"
+    },
+    {
+      "path": "refs/kb/remotion-bits/type-writer/templates/remotion-components/remotion-bits/src/components/TypeWriter.tsx",
+      "sha256": "fd6bd6d26569ab6f9d7e03e8a847791572737cb23c5dc4219c4cd89ef311d0ef"
+    },
+    {
+      "path": "refs/kb/remotion-bits/type-writer/templates/remotion-components/remotion-bits/src/utils/random.ts",
+      "sha256": "11c2029d374026ba6cdc8887af6d3b2244cebc20e976da0212a286486b47e4e8"
+    },
+    {
+      "path": "refs/motion-kit/API.md",
+      "sha256": "4d2b0b0bb2e948d49466e4d803ba86d1ba8523aa735b5e8f447005dc805c116f"
+    },
+    {
+      "path": "refs/skills/remotion-markup/SKILL.md",
+      "sha256": "399a8f21821ee72071645d22b2e4c7aba34357f2139d027857868eb856f24a4f"
+    },
+    {
+      "path": "refs/skills/remotion-markup/local-fonts.md",
+      "sha256": "fcad2a2e3a05419d4555c59a75454c4891455dbea91ad596c1095e2887d26a11"
+    },
+    {
+      "path": "refs/skills/remotion-markup/sequencing.md",
+      "sha256": "f53680a3ec4b754501ce37516387666e1b3df3c5714d266154b274caea4236a4"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing-props.md",
+      "sha256": "346ff7f3778f3b7ba165ac212459034120cac7cffd3ead3fe68db179e15f7494"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing.md",
+      "sha256": "48047e758b96aea519916479ede62b832bf51f982924978e091c37f569ab4bac"
+    },
+    {
+      "path": "refs/skills/remotion-markup/transitions.md",
+      "sha256": "83b8b511044ef175244a4e9e81f66bd3f5062cf9cecacd30ae88ac17eda40b82"
+    },
+    {
+      "path": "selection.json",
+      "sha256": "eda257363e4528956113d85ccae81570cddf735e22f67ccfca685ac9ffe8aeb1"
+    },
+    {
+      "path": "settings.json",
+      "sha256": "0b46d98e94443777eaf45644a5755e6faf4ce94ffb01d67689792327ab031365"
+    },
+    {
+      "path": "spec.json",
+      "sha256": "2bef111096dcf6471389284a4a83b2cfb4fb9f89cf89aef66b05e6e65b34dc34"
+    },
+    {
+      "path": "src/Scene.tsx",
+      "sha256": "9e6944de413485c0364c522965c9e38747f12806a549663f5b9c41952e6c3ddd"
+    }
+  ],
+  "changed_files": [
+    "src/Scene.tsx",
+    "props.json"
+  ],
+  "render_env": {
+    "remotion": "4.0.537",
+    "render_lock_sha256": "48f6ab25f810eee6d2febe06021ee2faee163c97bcd4a38f462f16c8383130e7",
+    "motion_kit": "sha256:d33fea54bcb441c0",
+    "chrome_headless_shell": "157.0.8080.0-remotion-v3",
+    "node": "22.21.1"
+  },
+  "knowledge_refs": [
+    {
+      "kb_id": "magicui/animated-beam",
+      "commit": "efe76fc5",
+      "license": "MIT (LICENSE.md)",
+      "strategy": "adapt"
+    },
+    {
+      "kb_id": "remotion-bits/type-writer",
+      "commit": "de35fda",
+      "license": "MIT (package.json)",
+      "strategy": "reuse"
+    },
+    {
+      "kb_id": "motion-primitives-website/grid-pattern",
+      "commit": "cff72d8",
+      "license": "MIT (package.json; файла LICENSE нет)",
+      "strategy": "adapt"
+    }
+  ],
+  "agent_runs": [
+    "logs/agent-runs/run_01M5DMDMN2R9BM0B9MQGYNZWFX/a1-motion_director-1",
+    "logs/agent-runs/run_01M5DMDMN2R9BM0B9MQGYNZWFX/a1-engineer-1"
+  ],
+  "qa": {
+    "technical": "pass",
+    "visual": "not_checked",
+    "semantic": "not_checked",
+    "style": "not_checked"
+  },
+  "preview": {
+    "path": "preview.mp4",
+    "sha256": "3e54be30a04cc03009b9a4efc705756f279225da52b976281458a5e39dd6d9af"
+  },
+  "status": "ready",
+  "qa_frames": [
+    60,
+    90,
+    114,
+    135,
+    160,
+    179
+  ],
+  "qa_frames_sha256": [
+    "5ab1a05d40d672f5b5b41aa3da1db8ec8522fe5a661792f9befdba0b715a20e2",
+    "6b9579d346c48f8654437853e2a095e5618fddce6d5811193b1665c5b388203c",
+    "babd3b0454a0b58d478be341dcb7a93bd084a20ccd98a472a6c8cf84e6a9df66",
+    "97b2c7cdda449275cc5160e196301547c02c6591538c30e6b8d24fe8a335c480",
+    "a9f2a9b71cbae95e6a0c3aff02b0b017892226609a1de5ca9014c155e06249df",
+    "a97cd67dada8c3f895c5edd06dbe179e1e61425674685801312918dca5cbcc98"
+  ]
+}

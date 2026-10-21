@@ -1,0 +1,190 @@
+{
+  "schema_version": 1,
+  "version_id": "ver_01M5DMCGPHDYW1PHKNF5MDW7M2",
+  "scene_id": "scn_01M5DM71Y0VNJP5SSTJ1VEHFPM",
+  "parent_version_id": null,
+  "number": 1,
+  "created_at": "2026-10-20T21:44:53.743Z",
+  "prompt": "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении",
+  "edit_plan": null,
+  "settings": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 180,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "files": [
+    {
+      "path": "frames/122.png",
+      "sha256": "143df2a2ef625e4b9e492675415c206a5d95d7786d9b6a93fe9c00d94cae9e77"
+    },
+    {
+      "path": "frames/158.png",
+      "sha256": "869a793c04987ce4f5e2da16aaab40639ea496a934fec6a038a51daa3184b4b2"
+    },
+    {
+      "path": "frames/179.png",
+      "sha256": "7cdbb02d85d70d42dc2a24e92a9c9886c44f0fe81f22b9e92a30b82c7dccd1ae"
+    },
+    {
+      "path": "frames/50.png",
+      "sha256": "41e7cd4473ef999b191daf204773064241f39c907c1eb21d916d57b606a90a10"
+    },
+    {
+      "path": "frames/61.png",
+      "sha256": "5d31134dac1acbc27741e5d776eb1c56f1143c6c4b738e0a1fc76957794592be"
+    },
+    {
+      "path": "frames/72.png",
+      "sha256": "0d8a7a505599ead9d13ed00cef7b3474485624c04be302ce0b0d92a168172334"
+    },
+    {
+      "path": "knowledge-refs.json",
+      "sha256": "01d3cc0de45fbe13730bd35f5e7ace91be8ba059827e5668009e8670562ba5d7"
+    },
+    {
+      "path": "pipeline-log.json",
+      "sha256": "95d4b47c0bbaa7f91ff91a0ec448e3222216d905ce1b214507532f6240de164c"
+    },
+    {
+      "path": "preview.mp4",
+      "sha256": "0000ceefd526641a1a45e8d6e0ff8101275f4ce4b897873bf50b1d6fe12a4c15"
+    },
+    {
+      "path": "props.json",
+      "sha256": "fe25e440f8fdb7503723d2503a39fd7ad3a1c6ca6f8db5570976fe769219ad38"
+    },
+    {
+      "path": "refs/kb/motion-primitives/animated-number/CARD.md",
+      "sha256": "01ea20981b45184726c9a54a5a9b977064400ceabfa02a5525f11cd8a90293ff"
+    },
+    {
+      "path": "refs/kb/motion-primitives/animated-number/templates/react-libriry/motion-primitives/components/core/animated-number.tsx",
+      "sha256": "3b4a9f3262cb79527fba01a76576e920e340137f0643bf34a7732f7f8b1ff792"
+    },
+    {
+      "path": "refs/kb/remotion-video-templates/line-chart-draw/CARD.md",
+      "sha256": "6badcb995b7fd4b499d1da0c97d8fd1e76ea4783ca04c4304b00b24ba666227f"
+    },
+    {
+      "path": "refs/kb/remotion-video-templates/line-chart-draw/templates/remotion-components/remotion-video-templates/src/templates/ChartVideo/LineChart.tsx",
+      "sha256": "3241f002e773e293ac1cfa6b62aacd956441a47d2c5da2894669a30d1df1f7e4"
+    },
+    {
+      "path": "refs/kb/remotion-video-templates/line-chart-draw/templates/remotion-components/remotion-video-templates/src/templates/ChartVideo/sample-data.ts",
+      "sha256": "f06e00cdf2306b678fe6bdd0e7736d16574dcdd2289f9a1332d126474a23843b"
+    },
+    {
+      "path": "refs/motion-kit/API.md",
+      "sha256": "4d2b0b0bb2e948d49466e4d803ba86d1ba8523aa735b5e8f447005dc805c116f"
+    },
+    {
+      "path": "refs/skills/remotion-markup/SKILL.md",
+      "sha256": "399a8f21821ee72071645d22b2e4c7aba34357f2139d027857868eb856f24a4f"
+    },
+    {
+      "path": "refs/skills/remotion-markup/local-fonts.md",
+      "sha256": "fcad2a2e3a05419d4555c59a75454c4891455dbea91ad596c1095e2887d26a11"
+    },
+    {
+      "path": "refs/skills/remotion-markup/sequencing.md",
+      "sha256": "f53680a3ec4b754501ce37516387666e1b3df3c5714d266154b274caea4236a4"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing-props.md",
+      "sha256": "346ff7f3778f3b7ba165ac212459034120cac7cffd3ead3fe68db179e15f7494"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing.md",
+      "sha256": "48047e758b96aea519916479ede62b832bf51f982924978e091c37f569ab4bac"
+    },
+    {
+      "path": "refs/skills/remotion-markup/transitions.md",
+      "sha256": "83b8b511044ef175244a4e9e81f66bd3f5062cf9cecacd30ae88ac17eda40b82"
+    },
+    {
+      "path": "selection.json",
+      "sha256": "fd63c334dda82808d3b573c6897881177da27f8c6b6bd7f5d27ffe35e2c888bc"
+    },
+    {
+      "path": "settings.json",
+      "sha256": "0b46d98e94443777eaf45644a5755e6faf4ce94ffb01d67689792327ab031365"
+    },
+    {
+      "path": "spec.json",
+      "sha256": "fa925a00c509791673f20ecb68fb158831a015be7951c4d81ffcae329ef0486e"
+    },
+    {
+      "path": "src/Scene.tsx",
+      "sha256": "e99824d4f4864dd31239c866353c513855d9229d0d99af26995204926b04943a"
+    }
+  ],
+  "changed_files": [
+    "src/Scene.tsx",
+    "props.json"
+  ],
+  "render_env": {
+    "remotion": "4.0.537",
+    "render_lock_sha256": "48f6ab25f810eee6d2febe06021ee2faee163c97bcd4a38f462f16c8383130e7",
+    "motion_kit": "sha256:d33fea54bcb441c0",
+    "chrome_headless_shell": "157.0.8080.0-remotion-v3",
+    "node": "22.21.1"
+  },
+  "knowledge_refs": [
+    {
+      "kb_id": "remotion-video-templates/line-chart-draw",
+      "commit": "9014946",
+      "license": "MIT (package.json, LICENSE)",
+      "strategy": "adapt"
+    },
+    {
+      "kb_id": "motion-primitives/animated-number",
+      "commit": "120f64f",
+      "license": "MIT (LICENCE.md)",
+      "strategy": "adapt"
+    }
+  ],
+  "agent_runs": [
+    "logs/agent-runs/run_01M5DM71XZ7SGQ8MTXND22F90P/a1-motion_director-1",
+    "logs/agent-runs/run_01M5DM71XZ7SGQ8MTXND22F90P/a1-engineer-1"
+  ],
+  "qa": {
+    "technical": "pass",
+    "visual": "not_checked",
+    "semantic": "not_checked",
+    "style": "not_checked"
+  },
+  "preview": {
+    "path": "preview.mp4",
+    "sha256": "0000ceefd526641a1a45e8d6e0ff8101275f4ce4b897873bf50b1d6fe12a4c15"
+  },
+  "status": "ready",
+  "qa_frames": [
+    50,
+    61,
+    72,
+    122,
+    158,
+    179
+  ],
+  "qa_frames_sha256": [
+    "41e7cd4473ef999b191daf204773064241f39c907c1eb21d916d57b606a90a10",
+    "5d31134dac1acbc27741e5d776eb1c56f1143c6c4b738e0a1fc76957794592be",
+    "0d8a7a505599ead9d13ed00cef7b3474485624c04be302ce0b0d92a168172334",
+    "143df2a2ef625e4b9e492675415c206a5d95d7786d9b6a93fe9c00d94cae9e77",
+    "869a793c04987ce4f5e2da16aaab40639ea496a934fec6a038a51daa3184b4b2",
+    "7cdbb02d85d70d42dc2a24e92a9c9886c44f0fe81f22b9e92a30b82c7dccd1ae"
+  ]
+}

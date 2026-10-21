@@ -1,0 +1,18 @@
+{
+  "title": "Конверсия",
+  "purpose": "фикстура QA: сцена без движения",
+  "duration_frames": 90,
+  "fps": { "num": 30, "den": 1 },
+  "style_preset": "dark-premium",
+  "elements": [
+    { "id": "title", "kind": "text", "role": "заголовок", "entrance": "rise", "content": { "text": "Конверсия" }, "layout": { "x": 0.08, "y": 0.15, "w": 0.4, "h": 0.15 } },
+    { "id": "bar", "kind": "shape", "role": "emphasis", "entrance": "draw", "content": {}, "layout": { "x": 0.08, "y": 0.37, "w": 0.54, "h": 0.1 } },
+    { "id": "caption", "kind": "text", "role": "подпись", "entrance": "fade", "content": { "text": "12 % → 18 %" }, "layout": { "x": 0.08, "y": 0.53, "w": 0.3, "h": 0.07 } }
+  ],
+  "beats": [
+    { "id": "b-title", "start_frame": 0, "end_frame": 25, "action": "title-entrance", "description": "заголовок", "element_ids": ["title"] },
+    { "id": "b-bar", "start_frame": 20, "end_frame": 60, "action": "bar-grow", "description": "полоса растёт", "element_ids": ["bar", "caption"] },
+    { "id": "b-accent", "start_frame": 60, "end_frame": 75, "action": "final-emphasis", "description": "пульс", "element_ids": ["bar"] },
+    { "id": "b-hold", "start_frame": 75, "end_frame": 90, "action": "hold", "description": "удержание", "element_ids": ["title", "bar", "caption"] }
+  ]
+}

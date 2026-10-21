@@ -1,0 +1,259 @@
+{
+  "title": "Миллион за три года",
+  "purpose": "Показать ускоряющийся рост аудитории от 10 000 до 1 000 000 и закончить ударом на итоговом значении.",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "composition": {
+    "archetype": "full-bleed-data",
+    "idea": "Кривая роста занимает всю ширину кадра: зритель видит, как плоская линия вдруг взмывает вверх, а крупное число в пустом верхнем левом поле растёт синхронно с ней. Взгляд идёт по линии слева направо снизу вверх и встречается с числом на вершине.",
+    "focus": "0–30 — атмосфера; 24–106 — фокус ведёт светящаяся голова линии и связанное с ней число; 106–140 — удар на числе и последней точке; 140–179 — удержание на герое. Камера: медленный наезд 1.00→1.03 к правому верхнему углу (к вершине графика) на всю сцену.",
+    "transitions": "Сетка становится опорой для линии; голова линии «тянет» счётчик; приход головы в последнюю точку превращается в удар числа и рождает плашку «×100». Ничего не уходит — к финалу кадр собран целиком и продолжает дышать."
+  },
+  "elements": [
+    {
+      "id": "bg",
+      "kind": "shape",
+      "role": "атмосфера: графитовый фон aurora с медленно дрейфующими световыми пятнами",
+      "entrance": "fade",
+      "content": {
+        "component": "Background",
+        "variant": "aurora",
+        "grain": true,
+        "seed": "million-growth",
+        "camera": "весь контент (кроме bg) в обёртке с медленным наездом scale 1.00→1.03 к правому верхнему углу (transform-origin 85% 25%), EASE.inOutCubic, кадры 0–179"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    },
+    {
+      "id": "kicker",
+      "kind": "text",
+      "role": "контекст: что и за какой период",
+      "entrance": "fade",
+      "content": {
+        "component": "KineticText",
+        "text": "Пользователи · 2022–2025",
+        "mode": "letters",
+        "enter": "fade",
+        "size": 1,
+        "font": "mono",
+        "caps": true,
+        "color": "muted"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 0.4,
+        "h": 0.05
+      }
+    },
+    {
+      "id": "hero-number",
+      "kind": "number",
+      "role": "герой: число пользователей, растёт вместе с линией и останавливается на 1 000 000",
+      "entrance": "count",
+      "content": {
+        "component": "AnimatedNumber",
+        "from": 10000,
+        "to": 1000000,
+        "locale": "ru",
+        "size": 160,
+        "font": "display",
+        "reserveWidth": true,
+        "align": "left",
+        "bound_to": "growth-chart.head",
+        "binding": "value = lineChartHead(POINTS, CHART_BEAT, frame, {width:1728, height:660}).value; beat = {start_frame: 10, end_frame: head.endFrame}"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.07,
+        "w": 0.52,
+        "h": 0.19
+      }
+    },
+    {
+      "id": "caption",
+      "kind": "text",
+      "role": "контекст: срок роста",
+      "entrance": "slide",
+      "content": {
+        "component": "KineticText",
+        "text": "за три года",
+        "mode": "words",
+        "enter": "slide",
+        "size": 3,
+        "font": "body",
+        "weight": 600,
+        "color": "muted"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.27,
+        "w": 0.25,
+        "h": 0.05
+      }
+    },
+    {
+      "id": "multiplier-badge",
+      "kind": "card",
+      "role": "акцент-вывод: кратность роста, рождается в момент финиша числа",
+      "entrance": "scale",
+      "content": {
+        "component": "Card",
+        "elevation": 3,
+        "accentIndex": 2,
+        "enter": "scale",
+        "text": "×100",
+        "text_size": 64,
+        "text_weight": 800,
+        "text_color": "accent(2) янтарный"
+      },
+      "layout": {
+        "x": 0.55,
+        "y": 0.1,
+        "w": 0.13,
+        "h": 0.13
+      }
+    },
+    {
+      "id": "growth-chart",
+      "kind": "chart",
+      "role": "данные: ускоряющаяся кривая роста на всю ширину кадра",
+      "entrance": "draw",
+      "content": {
+        "component": "LineChart",
+        "width": 1728,
+        "height": 660,
+        "area": true,
+        "highlightLast": false,
+        "compact": true,
+        "locale": "ru",
+        "yTicks": 4,
+        "accentIndex": 0,
+        "points": [
+          {
+            "label": "янв 22",
+            "value": 10000
+          },
+          {
+            "label": "июл 22",
+            "value": 25000
+          },
+          {
+            "label": "янв 23",
+            "value": 60000
+          },
+          {
+            "label": "июл 23",
+            "value": 130000
+          },
+          {
+            "label": "янв 24",
+            "value": 260000
+          },
+          {
+            "label": "июл 24",
+            "value": 480000
+          },
+          {
+            "label": "янв 25",
+            "value": 1000000
+          }
+        ],
+        "note": "выноска выключена — итоговое значение показывает только герой-число"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.35,
+        "w": 1,
+        "h": 0.65
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "b1",
+      "start_frame": 0,
+      "end_frame": 30,
+      "action": "background-in",
+      "description": "Из темноты проявляется графит с фиолетовым и бирюзовым световыми пятнами; пятна начинают медленный дрейф. Стартует медленный наезд камеры 1.00→1.03 на всю сцену (до кадра 179).",
+      "element_ids": [
+        "bg"
+      ]
+    },
+    {
+      "id": "b2",
+      "start_frame": 10,
+      "end_frame": 130,
+      "action": "chart-draw-in",
+      "description": "LineChart beat 10–130: сетка и подписи оси Y прорисовываются в кадрах 10–46, затем гладкая линия со светящейся головой рисуется слева направо (≈24–106): сначала почти плоско, потом круто вверх — ускорение читается формой. Точки вспыхивают при приходе головы, заливка открывается следом.",
+      "element_ids": [
+        "growth-chart"
+      ]
+    },
+    {
+      "id": "b3",
+      "start_frame": 16,
+      "end_frame": 44,
+      "action": "kicker-entrance",
+      "description": "Кикер проявляется из размытия по буквам (fade, mono caps, 22 px), задержки букв слегка разбросаны.",
+      "element_ids": [
+        "kicker"
+      ]
+    },
+    {
+      "id": "b4",
+      "start_frame": 24,
+      "end_frame": 106,
+      "action": "hero-count-in",
+      "description": "Герой-число стартует с 10 000 и считает строго по value = lineChartHead(...).value: в каждом кадре равно значению под головой линии — долго медленно, затем стремительно, синхронно с крутым участком. Моноширинные цифры, лёгкое смазывание на быстром счёте, reserveWidth под «1 000 000».",
+      "element_ids": [
+        "hero-number",
+        "growth-chart"
+      ]
+    },
+    {
+      "id": "b5",
+      "start_frame": 34,
+      "end_frame": 60,
+      "action": "caption-slide-in",
+      "description": "Подпись «за три года» въезжает сдвигом со скосом слева, путь 40 px, пружина snappy с перелётом ~6 %, под героем-числом.",
+      "element_ids": [
+        "caption"
+      ]
+    },
+    {
+      "id": "b6",
+      "start_frame": 106,
+      "end_frame": 140,
+      "action": "final-emphasis",
+      "description": "Голова линии упирается в последнюю точку (янв 25) — в тот же кадр число замирает на «1 000 000» и получает удар: масштаб 1→1.08→1 и вспышка свечения акцентом; последняя точка графика вспыхивает одновременно. С кадра 112 рядом с числом из глубины вырастает плашка «×100» (scale, пружина bouncy, перелёт ~8 %, янтарная кромка).",
+      "element_ids": [
+        "hero-number",
+        "growth-chart",
+        "multiplier-badge"
+      ]
+    },
+    {
+      "id": "b7",
+      "start_frame": 140,
+      "end_frame": 179,
+      "action": "hold",
+      "description": "Живое удержание 40 кадров: последняя точка пульсирует (кольцо расходится раз в ~45 кадров), по линии слева направо проходит световой блик (142–172), свечение героя-числа «дышит» (glow 0.6↔1, период ~40 кадров), пятна фона дрейфуют на 4–8 px, наезд камеры продолжается (~1.5 % за hold). Кадры 159 и 179 заметно различаются.",
+      "element_ids": [
+        "bg",
+        "hero-number",
+        "growth-chart",
+        "multiplier-badge"
+      ]
+    }
+  ]
+}

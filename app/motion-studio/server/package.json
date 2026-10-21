@@ -1,0 +1,22 @@
+{
+  "name": "@ms/server",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@ms/contracts": "*",
+    "@ms/core": "*",
+    "@ms/render": "*",
+    "better-sqlite3": "13.0.3",
+    "diff": "9.0.0",
+    "pngjs": "7.0.0",
+    "typescript": "~5.9.3",
+    "zod": "3.25.76"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "9.6.0",
+    "@types/pngjs": "6.0.5"
+  }
+}

@@ -58,8 +58,8 @@ growth-decline, system-structure, key-point-emphasis):
 - Разные объекты сцены не входят одинаковым эффектом (ТЗ §8.2): Motion Director задаёт
   тип входа для каждого элемента в spec; Visual QA проверяет это по spec и кадрам.
 - Случайность: `random(seed)` из Remotion.
-- Шрифты загружаются через `@remotion/fonts` из локальных файлов `render/fonts/`
-  (блокирует рендер до загрузки); `tabular-nums` в числах.
+- Шрифты загружаются через `@remotion/fonts` из локальных файлов
+  `render/src/motion-kit/fonts/` (блокирует рендер до загрузки); `tabular-nums` в числах.
 - Прозрачность: без фона на корне, `--image-format=png`, ProRes 4444
   `yuva444p10le` в `.mov` или VP9 `yuva420p` в `.webm`.
 - WebGL/3D (`@remotion/three`) — не в Phase 1; при включении `--gl=angle`.

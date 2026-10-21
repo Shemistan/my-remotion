@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.base.json",
+  "include": ["src", "test"],
+  // Фикстуры — код сцен (JSX, DOM), проверяется typecheckVersion в тестах, а не tsc сервера.
+  "exclude": ["test/fixtures"]
+}

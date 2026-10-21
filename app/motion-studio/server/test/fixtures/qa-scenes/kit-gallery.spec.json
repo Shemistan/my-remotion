@@ -1,0 +1,26 @@
+{
+  "title": "Галерея motion-kit",
+  "purpose": "рост пользователей и схема агента: проверка Visual QA на кадрах render/test/fixtures/kit-gallery",
+  "duration_frames": 150,
+  "fps": { "num": 30, "den": 1 },
+  "style_preset": "dark-premium",
+  "elements": [
+    { "id": "background", "kind": "shape", "role": "атмосфера: тёмный фон", "entrance": "fade", "content": {}, "layout": { "x": 0, "y": 0, "w": 1, "h": 1 } },
+    { "id": "kicker", "kind": "text", "role": "кикер: период данных", "entrance": "fade", "content": { "text": "ДАННЫЕ · 2022–2025" }, "layout": { "x": 0.06, "y": 0.08, "w": 0.43, "h": 0.03 } },
+    { "id": "title", "kind": "text", "role": "заголовок", "entrance": "rise", "content": { "text": "Рост пользователей" }, "layout": { "x": 0.06, "y": 0.12, "w": 0.43, "h": 0.08 } },
+    { "id": "counter", "kind": "number", "role": "emphasis", "entrance": "count", "content": { "from": 10000, "to": 1000000 }, "layout": { "x": 0.06, "y": 0.21, "w": 0.43, "h": 0.13 } },
+    { "id": "line-chart", "kind": "chart", "role": "линия роста по полугодиям", "entrance": "draw", "content": { "points": 7 }, "layout": { "x": 0.06, "y": 0.4, "w": 0.43, "h": 0.52 } },
+    { "id": "flow-graph", "kind": "graph", "role": "схема агента: пользователь → оркестратор → поиск, база знаний, код", "entrance": "draw", "content": {}, "layout": { "x": 0.52, "y": 0.08, "w": 0.42, "h": 0.56 } },
+    { "id": "cards", "kind": "group", "role": "четыре карточки уровней elevation 0–3", "entrance": "scale", "content": {}, "layout": { "x": 0.52, "y": 0.69, "w": 0.42, "h": 0.15 } }
+  ],
+  "beats": [
+    { "id": "b-bg", "start_frame": 0, "end_frame": 40, "action": "background-in", "description": "фон проявляется", "element_ids": ["background"] },
+    { "id": "b-kicker", "start_frame": 0, "end_frame": 30, "action": "kicker-entrance", "description": "кикер по буквам", "element_ids": ["kicker"] },
+    { "id": "b-title", "start_frame": 4, "end_frame": 50, "action": "title-entrance", "description": "заголовок по словам", "element_ids": ["title"] },
+    { "id": "b-count", "start_frame": 12, "end_frame": 100, "action": "count-up", "description": "счётчик 10 000 → 1 000 000", "element_ids": ["counter"] },
+    { "id": "b-graph", "start_frame": 18, "end_frame": 90, "action": "graph-build", "description": "узлы и связи схемы", "element_ids": ["flow-graph"] },
+    { "id": "b-chart", "start_frame": 20, "end_frame": 110, "action": "chart-draw", "description": "линия роста", "element_ids": ["line-chart"] },
+    { "id": "b-cards", "start_frame": 34, "end_frame": 90, "action": "cards-stagger", "description": "карточки с разными входами", "element_ids": ["cards"] },
+    { "id": "b-pulses", "start_frame": 90, "end_frame": 150, "action": "pulses-flow", "description": "импульсы по связям схемы", "element_ids": ["flow-graph"] }
+  ]
+}

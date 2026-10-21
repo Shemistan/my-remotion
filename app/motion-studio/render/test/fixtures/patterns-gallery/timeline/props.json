@@ -1,0 +1,33 @@
+{
+  "timing": {
+    "duration_frames": 150,
+    "beats": [
+      {
+        "id": "kicker",
+        "start_frame": 0,
+        "end_frame": 40
+      },
+      {
+        "id": "headline",
+        "start_frame": 6,
+        "end_frame": 56
+      },
+      {
+        "id": "timeline",
+        "start_frame": 14,
+        "end_frame": 140
+      }
+    ]
+  },
+  "style": {
+    "preset": "light-clean",
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.06,
+      "y": 0.08
+    }
+  },
+  "content": {}
+}

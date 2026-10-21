@@ -1,0 +1,19 @@
+{
+  "run_id": "run_01M5DMDMN2R9BM0B9MQGYNZWFX",
+  "cost_usd": 0.8115318,
+  "engineer_calls": 1,
+  "timings": {
+    "director": 64195,
+    "engineer_1": 181270,
+    "static": 39,
+    "typecheck": 13102,
+    "render_1": 23181
+  },
+  "history": [
+    {
+      "at": "2026-10-20T21:50:14.377Z",
+      "stage": "ready",
+      "message": "технический gate пройден с вызова 1"
+    }
+  ]
+}

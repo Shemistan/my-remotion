@@ -1,21 +1,21 @@
 ---
 тип: plan
-статус: запланировано
-обновлено: 2026-10-20
+статус: завершено
+обновлено: 2026-10-21
 спека: 2026-10-20-ai-motion-studio-design.md
 ---
 
 # Motion Playground MVP — вертикальный срез: план реализации
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** текстовый запрос → Knowledge Base → Claude Code → Remotion → реальный MP4: из CLI получить настоящую Remotion-сцену, прошедшую технические проверки и сохранённую как воспроизводимая версия с `preview.mp4`.
 
 **Architecture:** npm-workspace `app/motion-studio/` из трёх пакетов: `contracts` (Zod-схемы), `render` (Remotion 4.0.537 + motion-kit + рендер в дочернем процессе), `server` (StorageGuard, owner-lock и реестр процессов, KnowledgeAdapter, AgentRuntimeAdapter, static check, файловый SceneStore, пайплайн и CLI). В срезе нет БД, очереди задач и UI — это следующие задачи Phase 1 (`docs/architecture/07-implementation-roadmap.md` §3).
 
-**Tech Stack:** Node 22, TypeScript 5 (strict, ESM), Vitest, ESLint 9 (flat config), Zod 3 + zod-to-json-schema, Remotion 4.0.537 (`remotion`, `@remotion/bundler`, `@remotion/renderer`, `@remotion/fonts`), React (версия из peer-зависимости Remotion 4.0.537), TypeScript compiler API, OFL-шрифты с кириллицей (woff2 в `render/fonts/`), Claude Code CLI 2.1.x.
+**Tech Stack:** Node 22, TypeScript 5 (strict, ESM), Vitest, ESLint 9 (flat config), Zod 3 + zod-to-json-schema, Remotion 4.0.537 (`remotion`, `@remotion/bundler`, `@remotion/renderer`, `@remotion/fonts`), React (версия из peer-зависимости Remotion 4.0.537), TypeScript compiler API, OFL-шрифты с кириллицей (woff2 в `render/src/motion-kit/fonts/`), Claude Code CLI 2.1.x.
 
-**Spec:** `docs/superpowers/specs/2026-10-20-ai-motion-studio-design.md` → `docs/architecture/01…09`, ADR 0001–0006 (приняты), ADR 0007 (предложено).
+**Spec:** `docs/superpowers/specs/2026-10-20-ai-motion-studio-design.md` → `docs/architecture/01…09`, ADR 0001–0007 (приняты).
 
 **Порядок = утверждённая последовательность:** P1-01 + P1-19 (Task 1, 2) → P1-02 (Task 3) → P1-05 (Task 4) → P1-06 (Task 5) → P1-07 (Task 6) → P1-08 (Task 7) → P1-09 (Task 8) → P1-20 (Task 9, 10).
 
@@ -26,7 +26,7 @@
 - `MS_DATA_DIR` обязателен; значения по умолчанию нет; корень создаёт только `doctor --init`; подкаталоги данных — только через `safeMkdir`; данные приложения (версии, кэш, логи, `run/`) пишутся только в `MS_DATA_DIR`. Вне его: `tmp/` репозитория в тестах, evidence в `docs/evidence/`, Chrome Headless Shell в `node_modules`.
 - Рекомендуемое значение для этой машины: `/Volumes/External SSD/MotionStudio`.
 - Хранилище проверяется перед запуском, перед каждым вызовом агента и рендером, перед публикацией и каждые 10 с во время дочерних процессов (сторож прерывает их через `AbortSignal`).
-- ADR 0007 (предложено) в срезе: один владелец `run/owner.lock`; каждый дочерний процесс — своя группа и запись в `run/processes/`; draft на попытку `workspace/drafts/<run_id>-a<attempt>/`; повторный запуск того же прогона при живом процессе прежней попытки запрещён. Если человек отклонит ADR 0007 — Task 2 исключается из среза, остальные задачи от него не зависят, кроме вызова `acquireOwnerLock` в Task 10.
+- ADR 0007 (принято) в срезе: один владелец `run/owner.lock`; каждый дочерний процесс — своя группа и запись в `run/processes/`; draft на попытку `workspace/drafts/<run_id>-a<attempt>/`; повторный запуск того же прогона при живом процессе прежней попытки запрещён.
 - Агенты: только `claude -p --restricted --strict-mcp-config --no-session-persistence --output-format json --json-schema …`; никогда `bypassPermissions` и `--dangerously-skip-permissions`; Bash агенту не даётся.
 - Модели по умолчанию: `motion_director` и `engineer` — `opus`, остальные роли — `sonnet`; ключ настройки `agents.<role>.model`.
 - Лимиты по умолчанию: `maxBudgetUsd` на вызов 2; `scene.maxCostUsd` 5 (ориентир для тестов, не лимит подписки); автоисправлений на попытку 2; таймаут агента 10 мин; таймаут рендера превью 5 мин.
@@ -72,8 +72,8 @@
   - `macosProbe: VolumeProbe` — `diskutil info -plist` → `VolumeUUID`; `fs.stat().dev`; `fs.statfs()` → `bavail * bsize`
   - `Makefile`: `check` = lint + typecheck + test (зовётся `./check` репозитория), `e2e` = интеграционные тесты с сетью и рендером
 
-- [ ] **Step 1: Каркас.** `package.json` (`private`, `"type": "module"`, workspaces `contracts`, `render`, `server`, `engines.node: ">=22"`), tsconfig.base (strict, `module: NodeNext`, `target: ES2022`), Vitest workspace, ESLint flat config (typescript-eslint recommended), `.gitignore`: `node_modules/`, `dist/`.
-- [ ] **Step 2: Тесты (падают).** Фейковый `VolumeProbe`, каталоги в `tmp/`:
+- [x] **Step 1: Каркас.** `package.json` (`private`, `"type": "module"`, workspaces `contracts`, `render`, `server`, `engines.node: ">=22"`), tsconfig.base (strict, `module: NodeNext`, `target: ES2022`), Vitest workspace, ESLint flat config (typescript-eslint recommended), `.gitignore`: `node_modules/`, `dist/`.
+- [x] **Step 2: Тесты (падают).** Фейковый `VolumeProbe`, каталоги в `tmp/`:
 
 ```ts
 it("refuses without MS_DATA_DIR", async () =>
@@ -103,10 +103,10 @@ it("watchStorage aborts on first failure", async () => {
 });
 ```
 
-- [ ] **Step 3: Запустить** `./scripts/with-node.sh npx vitest run server/test/storage` — FAIL (модулей нет).
-- [ ] **Step 4: Реализовать.** `doctor`: печатает `StorageStatus`; `--init` / `--adopt` → `initStore` с `macosProbe`; код выхода 1 при `ok: false`.
-- [ ] **Step 5: Запустить** — PASS. Ручная проверка: `MS_DATA_DIR=/Volumes/NoSuchDisk/MotionStudio npm run doctor` → `not_found`, каталог не создан.
-- [ ] **Step 6:** `npm install` создаёт lockfile; `./check` зелёный; коммит `feat(motion-studio): каркас workspace и StorageGuard`; `./finish`.
+- [x] **Step 3: Запустить** `./scripts/with-node.sh npx vitest run server/test/storage` — FAIL (модулей нет).
+- [x] **Step 4: Реализовать.** `doctor`: печатает `StorageStatus`; `--init` / `--adopt` → `initStore` с `macosProbe`; код выхода 1 при `ok: false`.
+- [x] **Step 5: Запустить** — PASS. Ручная проверка: `MS_DATA_DIR=/Volumes/NoSuchDisk/MotionStudio npm run doctor` → `not_found`, каталог не создан.
+- [x] **Step 6:** `npm install` создаёт lockfile; `./check` зелёный; коммит `feat(motion-studio): каркас workspace и StorageGuard`; `./finish`.
 
 ### Task 2: Owner-lock и реестр процессов (P1-19, ADR 0007)
 
@@ -119,20 +119,19 @@ it("watchStorage aborts on first failure", async () => {
 - Consumes: `safeMkdir` (Task 1)
 - Produces:
   - `interface ProcInfo { pid: number; startedAt: string }`; `procInfo(pid: number): Promise<ProcInfo | undefined>` — `ps -o lstart= -p <pid>`; `undefined`, если процесса нет
-  - `acquireOwnerLock(root: string, kind: "server" | "cli"): Promise<{ release(): Promise<void> }>` — `run/owner.lock` через `open(..., "wx")` с `{ pid, startedAt, kind }`; брошенный lock (процесс мёртв или `startedAt` не совпадает) заменяется; живой владелец → ошибка `owner_busy` с pid
+  - `acquireOwnerLock(root: string, kind: "server" | "cli"): Promise<{ release(): Promise<void> }>` — блокировка ОС на `run/owner.lock`: better-sqlite3, `PRAGMA locking_mode=EXCLUSIVE` + `BEGIN EXCLUSIVE` (POSIX `fcntl`, ядро снимает при смерти процесса); `run/owner.json` `{ pid, startedAt, kind }` — диагностика; занято → ошибка `owner_busy` с pid из `owner.json`
   - `interface TrackedProcess { runId: string; attempt: number; pid: number; pgid: number; startedAt: string; cmd: string }`
   - `spawnTracked(root: string, ref: { runId: string; attempt: number }, cmd: string, args: string[], opts: { cwd: string; env: NodeJS.ProcessEnv; signal: AbortSignal; stdin?: string; killGraceMs?: number }): Promise<{ code: number | null; signal: string | null; stdout: string; stderr: string }>` — `detached: true` (своя группа); запись `run/processes/<runId>-a<attempt>-<pid>.json` до начала работы; по `signal` — SIGTERM на группу, через `killGraceMs` (5000) SIGKILL на группу; запись удаляется только после выхода процесса
   - `reapStale(root: string, runId: string): Promise<{ clean: boolean; alive: TrackedProcess[] }>` — для записей прогона: мёртвые (или с другим `startedAt`) удаляются; живые получают SIGTERM → 5 с → SIGKILL → ожидание до 30 с; `clean: false`, если кто-то остался жив
 
-- [ ] **Step 1: Тесты (падают):**
+- [x] **Step 1: Тесты (падают):**
 
 ```ts
 const a = await acquireOwnerLock(root, "cli");
 await expect(acquireOwnerLock(root, "cli")).rejects.toThrow(/owner_busy/);
 await a.release(); await expect(acquireOwnerLock(root, "cli")).resolves.toBeDefined();
-// брошенный lock: pid несуществующего процесса
-await writeFile(join(root, "run/owner.lock"), JSON.stringify({ pid: 999999, startedAt: "x", kind: "cli" }));
-await expect(acquireOwnerLock(root, "server")).resolves.toBeDefined();
+// блокировка из другого процесса: дочерний node держит lock → owner_busy; kill -9 ребёнка → lock свободен
+// без release: процесс-владелец убит SIGKILL — следующий захват успешен (ядро сняло fcntl-lock)
 // группа процессов убивается целиком: sleepy.sh запускает дочерний sleep
 const ctrl = new AbortController(); const p = spawnTracked(root, ref, sleepy, [], { ...o, signal: ctrl.signal });
 ctrl.abort(); await p; expect(await procInfo(grandchildPid)).toBeUndefined();
@@ -142,7 +141,7 @@ expect(readdirSync(join(root, "run/processes"))).toEqual([]);
 // reapStale с фейковым kill, который не убивает → clean: false, alive.length === 1
 ```
 
-- [ ] **Step 2–4:** FAIL → реализовать → PASS. **Step 5:** `./check`; коммит `feat(motion-studio): owner-lock и реестр процессов`; `./finish`.
+- [x] **Step 2–4:** FAIL → реализовать → PASS. **Step 5:** `./check`; коммит `feat(motion-studio): owner-lock и реестр процессов`; `./finish`.
 
 ### Task 3: Контракты (P1-02)
 
@@ -164,7 +163,7 @@ expect(readdirSync(join(root, "run/processes"))).toEqual([]);
   - `VersionManifestSchema` — поля из `05-data-model.md` §4 плюс `status: "ready" | "failed"`, `failure?: { stage: string; message: string }`, `qa_frames: number[]`, `qa_frames_sha256: string[]`
   - `toJsonSchema(schema: ZodTypeAny): object` — `$refStrategy: "none"`, `additionalProperties: false`
 
-- [ ] **Step 1: Тесты (падают):**
+- [x] **Step 1: Тесты (падают):**
 
 ```ts
 expect(usToFrame(1_000_000, { num: 30000, den: 1001 })).toBe(29);
@@ -178,7 +177,7 @@ expect(JSON.stringify(js)).not.toContain("$ref");
 expect(js).toMatchObject({ type: "object", required: expect.arrayContaining(["spec", "selection", "rationale"]) });
 ```
 
-- [ ] **Step 2–4:** FAIL → реализовать (кросс-полевые проверки через `superRefine`) → PASS. **Step 5:** `./check`; коммит `feat(motion-studio): контракты сцены и агентов`; `./finish`.
+- [x] **Step 2–4:** FAIL → реализовать (кросс-полевые проверки через `superRefine`) → PASS. **Step 5:** `./check`; коммит `feat(motion-studio): контракты сцены и агентов`; `./finish`.
 
 ### Task 4: Render-пакет и рендер версии (P1-05)
 
@@ -202,8 +201,8 @@ expect(js).toMatchObject({ type: "object", required: expect.arrayContaining(["sp
   - `probeGate(probe: ProbeResult, settings: Settings, scale: number): string[]` — пусто = pass; длительность ± 1 кадр
 - Бандл: `bundle({ entryPoint, outDir: <cacheDir>/bundles/<contentKey>, webpackOverride })`; `webpackOverride`: `resolve.alias["@ms/motion-kit"]` → `render/src/motion-kit`.
 
-- [ ] **Step 1: Зависимости** с точными версиями (Global Constraints); `react`/`react-dom` — версия из peer-зависимости Remotion 4.0.537, точно. `npm run doctor` вызывает `ensureRenderBrowser()`; если sandbox блокирует загрузку — остановиться и записать блок в отчёт.
-- [ ] **Step 2: Юнит-тест `probeGate` (падает):**
+- [x] **Step 1: Зависимости** с точными версиями (Global Constraints); `react`/`react-dom` — версия из peer-зависимости Remotion 4.0.537, точно. `npm run doctor` вызывает `ensureRenderBrowser()`; если sandbox блокирует загрузку — остановиться и записать блок в отчёт.
+- [x] **Step 2: Юнит-тест `probeGate` (падает):**
 
 ```ts
 const s = { ...defaultSettings(), duration_frames: 60 };
@@ -213,7 +212,7 @@ expect(probeGate({ ...p, durationMs: 2100 }, s, 0.5)).toHaveLength(1);
 expect(probeGate({ ...p, width: 1920, height: 1080 }, s, 0.5)[0]).toMatch(/width/);
 ```
 
-- [ ] **Step 3: e2e-тесты (падают), цель `make e2e`.** `hello-scene` — рукописная тестовая сцена (`interpolate` по кадру), 640×360, 60 кадров:
+- [x] **Step 3: e2e-тесты (падают), цель `make e2e`.** `hello-scene` — рукописная тестовая сцена (`interpolate` по кадру), 640×360, 60 кадров:
 
 ```ts
 const r = await renderVersion({ versionDir: hello, settings: s640, cacheDir, stills: [0, 30, 59], preview: { scale: 1, crf: 23 }, timeoutMs: 120_000, run });
@@ -226,9 +225,9 @@ expect(h).toMatchObject({ ok: false, error: { stage: "timeout" } });
 expect(readdirSync(join(run.root, "run/processes"))).toEqual([]); // группа убита
 ```
 
-- [ ] **Step 4: Реализовать** `browser.ts`, `entry.ts`, `worker.ts` (bundle → `selectComposition` → `renderStill` по кадрам → `renderMedia` `h264`, `crf`, `scale`; `onBrowserLog` → `browserLogs`), `render-version.ts`, `ffprobe.ts` (системный `ffprobe -v error -print_format json -show_streams -show_format`).
-- [ ] **Step 5: Запустить** `make check` и `make e2e` — PASS; время первого и повторного рендера — в README пакета.
-- [ ] **Step 6:** `./check`; коммит `feat(motion-studio): render-пакет Remotion 4.0.537`; `./finish`.
+- [x] **Step 4: Реализовать** `browser.ts`, `entry.ts`, `worker.ts` (bundle → `selectComposition` → `renderStill` по кадрам → `renderMedia` `h264`, `crf`, `scale`; `onBrowserLog` → `browserLogs`), `render-version.ts`, `ffprobe.ts` (системный `ffprobe -v error -print_format json -show_streams -show_format`).
+- [x] **Step 5: Запустить** `make check` и `make e2e` — PASS; время первого и повторного рендера — в README пакета.
+- [x] **Step 6:** `./check`; коммит `feat(motion-studio): render-пакет Remotion 4.0.537`; `./finish`.
 
 ### Task 5: Статическая проверка кода сцены (P1-06)
 
@@ -247,7 +246,7 @@ expect(readdirSync(join(run.root, "run/processes"))).toEqual([]); // групп�
 - Запрещённые глобалы: `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `eval`, `Function`, `setTimeout`, `setInterval`, `requestAnimationFrame`, `Date.now`, `Math.random`, `process`, `require`, `globalThis`, `localStorage`, `navigator`.
 - CSS: ключи `transition`, `animation` в объектах `style`; `className` с `animate-` или `transition`.
 
-- [ ] **Step 1: Тесты (падают):**
+- [x] **Step 1: Тесты (падают):**
 
 ```ts
 expect(rules(check("import { motion } from 'framer-motion'"))).toEqual(["import-not-allowed"]);
@@ -264,7 +263,7 @@ expect(await typecheckVersion(helloScene)).toEqual([]);
 expect(await typecheckVersion(typeErrorScene)).toHaveLength(1);
 ```
 
-- [ ] **Step 2–4:** FAIL → реализовать → PASS. **Step 5:** `./check`; коммит `feat(motion-studio): статическая проверка кода сцены`; `./finish`.
+- [x] **Step 2–4:** FAIL → реализовать → PASS. **Step 5:** `./check`; коммит `feat(motion-studio): статическая проверка кода сцены`; `./finish`.
 
 ### Task 6: motion-kit v0.1 (P1-07)
 
@@ -272,7 +271,7 @@ expect(await typecheckVersion(typeErrorScene)).toHaveLength(1);
 - Create: `app/motion-studio/render/src/motion-kit/{index.ts,tokens.ts,presets.ts,fonts.ts,beat.ts,easing.ts,geometry.ts,format.ts}`
 - Create: `app/motion-studio/render/src/motion-kit/components/{Background,AnimatedNumber,LineChart,FlowGraph,PulseAlongPath,Card,KineticText}.tsx`
 - Create: `app/motion-studio/render/src/motion-kit/{API.md,PROVENANCE.md}`
-- Create: `app/motion-studio/render/fonts/{Inter,Manrope,JetBrainsMono}-*.woff2`, `app/motion-studio/render/fonts/OFL.txt`, `app/motion-studio/scripts/sync-fonts.mjs` (копирует latin+cyrillic woff2 из devDependencies `@fontsource/*` в `render/fonts/`; результат коммитится)
+- Create: `app/motion-studio/render/src/motion-kit/fonts/{Inter,Manrope,JetBrainsMono}-*.woff2`, `app/motion-studio/render/src/motion-kit/fonts/OFL.txt`, `app/motion-studio/scripts/sync-fonts.mjs` (копирует latin+cyrillic woff2 из devDependencies `@fontsource/*` в `render/src/motion-kit/fonts/`; результат коммитится)
 - Create: `app/motion-studio/render/test/fixtures/kit-gallery/src/Scene.tsx`
 - Test: `app/motion-studio/render/test/kit/{format,beat,geometry}.test.ts`, `app/motion-studio/render/test/kit/gallery.e2e.test.ts`
 
@@ -280,14 +279,14 @@ expect(await typecheckVersion(typeErrorScene)).toHaveLength(1);
 - Consumes: `StyleBible`, `Beat` (Task 3); `renderVersion`, `probeGate` (Task 4); `checkSceneSource` (Task 5)
 - Produces (импорт `@ms/motion-kit`):
   - `presets: Record<"dark-premium" | "light-clean" | "tech-neon", StyleBible>`; `<StyleProvider style>`, `useStyle(): StyleBible`
-  - `ensureFonts(): void` — `loadFont` из `@remotion/fonts` с `url` на файлы `render/fonts/` (импорт woff2 как ассета webpack)
+  - `ensureFonts(): void` — `loadFont` из `@remotion/fonts` с `url` на файлы `render/src/motion-kit/fonts/` (импорт woff2 как ассета webpack)
   - `beatProgress(frame: number, beat: Pick<Beat, "start_frame" | "end_frame">, easing?: EasingFn): number` (0..1, clamp); `useBeat(beat): { progress: number; phase: "before" | "enter" | "hold" | "exit" | "after" }`
   - `formatNumber(value: number, opts: { locale: "ru" | "en"; compact?: boolean; decimals?: number }): string`
   - `cubicPoint(p0: Point, p1: Point, p2: Point, p3: Point, t: number): Point`; `pathLUT(segments: CubicSegment[], samples: number): { points: Point[]; lengths: number[] }`; `pointAtLength(lut, s: number): Point`
   - Компоненты, props — в `API.md` (копируется агенту): `Background`, `AnimatedNumber { from; to; beat; locale; prefix?; suffix? }`, `LineChart { points: { label: string; value: number }[]; beat; area?; highlightLast? }`, `FlowGraph { nodes: { id; label; x; y; w; h; elevation? }[]; edges: { id; from; to }[]; beat }`, `PulseAlongPath { edgeId | segments; beat; color?; tail? }`, `Card { elevation: 0 | 1 | 2 | 3; children }`, `KineticText { text; beat; mode: "words" | "letters"; enter: "rise" | "fade" | "scale" | "slide" }`
 - `PROVENANCE.md`: для каждого компонента — `kb_id`, repo, commit из `knowledge/repositories.json`, лицензия, что взято, колонка `rendered: ok | issues`. Из restricted-записей (react-bits, remotion-boilerplate и др.) код не копируется.
 
-- [ ] **Step 1: Юнит-тесты (падают):**
+- [x] **Step 1: Юнит-тесты (падают):**
 
 ```ts
 expect(formatNumber(1_000_000, { locale: "ru" })).toBe("1 000 000");
@@ -299,10 +298,10 @@ expect(cubicPoint({ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }
 expect(pointAtLength(pathLUT([straight0to3], 64), 1.5).x).toBeCloseTo(1.5, 2);
 ```
 
-- [ ] **Step 2: Запустить** — FAIL. **Step 3: Реализовать** функции и компоненты; `checkSceneSource` на файлах kit возвращает `[]`.
-- [ ] **Step 4: Галерея (e2e):** `kit-gallery` — все компоненты в одной сцене 1920×1080, 150 кадров, подписи на кириллице («Рост пользователей», «Оркестратор»). Тест: `renderVersion` ok; кадры `[0, 30, 75, 120, 149]`; `probeGate` пуст; sha256 кадров 30 и 120 различаются.
-- [ ] **Step 5: Просмотр кадров глазами** (Read PNG): кириллица нужным шрифтом, нет обрезки, импульс на пути, тени различимы по `elevation`. Кадры — в `docs/evidence/phase-1/slice/kit/`, итог — в `PROVENANCE.md`.
-- [ ] **Step 6:** `./check`; коммит `feat(motion-studio): motion-kit v0.1`; `./finish`.
+- [x] **Step 2: Запустить** — FAIL. **Step 3: Реализовать** функции и компоненты; `checkSceneSource` на файлах kit возвращает `[]`.
+- [x] **Step 4: Галерея (e2e):** `kit-gallery` — все компоненты в одной сцене 1920×1080, 150 кадров, подписи на кириллице («Рост пользователей», «Оркестратор»). Тест: `renderVersion` ok; кадры `[0, 30, 75, 120, 149]`; `probeGate` пуст; sha256 кадров 30 и 120 различаются.
+- [x] **Step 5: Просмотр кадров глазами** (Read PNG): кириллица нужным шрифтом, нет обрезки, импульс на пути, тени различимы по `elevation`. Кадры — в `docs/evidence/phase-1/slice/kit/`, итог — в `PROVENANCE.md`.
+- [x] **Step 6:** `./check`; коммит `feat(motion-studio): motion-kit v0.1`; `./finish`.
 
 ### Task 7: AgentRuntimeAdapter и ClaudeCodeRuntime (P1-08)
 
@@ -323,7 +322,7 @@ expect(pointAtLength(pathLUT([straight0to3], 64), 1.5).x).toBeCloseTo(1.5, 2);
   - `childEnv(parent: NodeJS.ProcessEnv): NodeJS.ProcessEnv` — только `PATH`, `HOME`, `USER`, `LOGNAME`, `SHELL`, `LANG`, `LC_ALL`, `TMPDIR`
   - `class ClaudeCodeRuntime implements AgentRuntimeAdapter` — `constructor(opts: { bin: string; logRoot: string })`; промпт — через stdin; журнал `<logRoot>/<runId>/{prompt.md,stdout.json,stderr.log}`
 
-- [ ] **Step 1: Тесты (падают):**
+- [x] **Step 1: Тесты (падают):**
 
 ```ts
 expect(loadConfig({ MS_DATA_DIR: root }).agents.engineer.model).toBe("opus");
@@ -345,9 +344,9 @@ expect(childEnv({ PATH: "/bin", GITHUB_TOKEN: "x", ANTHROPIC_API_KEY: "y" })).to
 expect((await new ClaudeCodeRuntime({ bin: sleepy, logRoot }).run(task300ms, Ok, ctrl.signal)).status).toBe("timeout");
 ```
 
-- [ ] **Step 2–3:** FAIL → реализовать (фактическая модель — ключ `modelUsage`; отмена — через `spawnTracked`).
-- [ ] **Step 4: e2e (`make e2e`):** реальный `claude`, роль с моделью `haiku`, схема `{ ok: boolean }` → `completed`, `output.ok === true`, `usage.costUsd > 0`, `usage.model` содержит `haiku`; роль engineer в tmp-каталоге пишет `a.txt`, чтение `~/.zshrc` попадает в `permissionDenials`.
-- [ ] **Step 5:** `./check`; коммит `feat(motion-studio): рантайм агентов на Claude Code`; `./finish`.
+- [x] **Step 2–3:** FAIL → реализовать (фактическая модель — ключ `modelUsage`; отмена — через `spawnTracked`).
+- [x] **Step 4: e2e (`make e2e`):** реальный `claude`, роль с моделью `haiku`, схема `{ ok: boolean }` → `completed`, `output.ok === true`, `usage.costUsd > 0`, `usage.model` содержит `haiku`; роль engineer в tmp-каталоге пишет `a.txt`, чтение `~/.zshrc` попадает в `permissionDenials`.
+- [x] **Step 5:** `./check`; коммит `feat(motion-studio): рантайм агентов на Claude Code`; `./finish`.
 
 ### Task 8: KnowledgeAdapter (P1-09)
 
@@ -365,7 +364,7 @@ expect((await new ClaudeCodeRuntime({ bin: sleepy, logRoot }).run(task300ms, Ok,
   - `class KnowledgeAdapter`: `static load(opts: { kbRoot: string; sourceRoot: string }): Promise<KnowledgeAdapter>`; `search(query: string, filters?: SearchFilters, limit?: number): SearchHit[]`; `getCapability(id: string): CapabilityView | undefined`; `getComponentCard(id: string): Promise<string>`; `getSourceReference(id: string): Promise<{ path: string; absPath: string; exists: boolean }[]>`; `getVisualPatterns(slug: string): Promise<string>` (курируемая часть `patterns/<slug>.md` без автотаблицы); `getCompatibility(id: string): { compatibility_status; compat_flags; adaptations; tested_status }`; `copyRefs(ids: string[], destDir: string): Promise<{ id: string; copied: string[]; missing: string[] }[]>` — `source_paths` в `destDir/<id>/…` и `CARD.md`; для `license_class !== "permissive"` — отказ
 - Поиск: нижний регистр, `ё → е`, русские слова длиннее 6 символов усекаются до 6; EN-токены расширяются по `synonyms.ts` (`chart→график`, `growth→рост`, `counter→счетчик`, `number→число`, `user→пользов`, `architecture→архите`, `diagram→схем`, `node→узел`, `edge→связ`, `pulse→импуль`, `beam→луч`, `flow→поток`, `kinetic→кинети`, `typography→типогр, текст`, `card→карточ`, `depth→объем, глубин`); веса: name/id 3, visualizes 2, voiceover_cues 2, use_when 1, category/patterns 1; множитель native 1.5, adaptable 1.2.
 
-- [ ] **Step 1: Тесты (падают):**
+- [x] **Step 1: Тесты (падают):**
 
 ```ts
 expect(licenseClass("MIT + Commons Clause")).toBe("restricted");
@@ -384,8 +383,8 @@ expect(kb.getCapability("remotion-bits/animated-counter")!.commit).toMatch(/^[0-
 expect((await kbWithFakeRoot.getSourceReference("remotion-bits/animated-counter"))[0].exists).toBe(false);
 ```
 
-- [ ] **Step 2–3:** FAIL → реализовать. Если golden-ожидание не проходит из-за формулировки самой записи KB — тест не подгонять и KB не править, описать находку в отчёте задачи.
-- [ ] **Step 4:** PASS; `./check`; коммит `feat(motion-studio): KnowledgeAdapter`; `./finish`.
+- [x] **Step 2–3:** FAIL → реализовать. Если golden-ожидание не проходит из-за формулировки самой записи KB — тест не подгонять и KB не править, описать находку в отчёте задачи.
+- [x] **Step 4:** PASS; `./check`; коммит `feat(motion-studio): KnowledgeAdapter`; `./finish`.
 
 ### Task 9: Файловый SceneStore (P1-20)
 
@@ -404,7 +403,7 @@ expect((await kbWithFakeRoot.getSourceReference("remotion-bits/animated-counter"
   - `quarantineDraft(draft: Draft, reason: string): Promise<void>` — пишет `.quarantined`
   - `readVersion(dir: string): Promise<VersionManifest>` — сверяет sha256, при расхождении — ошибка
 
-- [ ] **Step 1: Тесты (падают):**
+- [x] **Step 1: Тесты (падают):**
 
 ```ts
 const v = await publishVersion(draft, meta, okGuard);
@@ -417,7 +416,7 @@ await expect(publishVersion(draft2, meta, offlineGuard)).rejects.toThrow(/storag
 expect(existsSync(draft2.dir)).toBe(true);
 ```
 
-- [ ] **Step 2–4:** FAIL → реализовать → PASS. **Step 5:** `./check`; коммит `feat(motion-studio): файловый SceneStore`; `./finish`.
+- [x] **Step 2–4:** FAIL → реализовать → PASS. **Step 5:** `./check`; коммит `feat(motion-studio): файловый SceneStore`; `./finish`.
 
 ### Task 10: Пайплайн среза, промпты и CLI `generate` (P1-20)
 
@@ -439,7 +438,7 @@ expect(existsSync(draft2.dir)).toBe(true);
 - Порядок `generateScene`: storage → `writeBrief` → `kb.search(prompt, default, 12)` → Motion Director (`DirectorOutputSchema`, без инструментов; вход: запрос, настройки, кандидаты `CapabilityView`, курируемый текст 1–2 паттернов кандидатов, `API.md`) → `createDraft` → `spec.json`, `settings.json`, `knowledge-refs.json` (`KnowledgeRef[]`) → `prepareRefs` → Engineer (cwd = draft; пишет `src/Scene.tsx`, `props.json`; `EngineerReportSchema`) → `check` + `typecheck` → `render` (стоп-кадры: первый кадр после входа, середины битов, последний) → `probeGate` → `publishVersion("ready")`. Ошибка `static` / `typecheck` / `render` / `probe` → Engineer снова с причинами (`Violation[]`, диагностика, ошибка рендера), не более `maxAutoFixes` (2) повторов; затем `publishVersion("failed", failure)` с логами и превью, если оно есть. Перед каждым вызовом агента — `canSpend`; иначе `failure.stage = "budget"`. Вызовы агентов и рендер идут под `watchStorage`: сбой хранилища → `AbortSignal`, `failure.stage = "storage"`, публикации нет, draft помечается `.quarantined`, если процесс не завершился подтверждённо.
 - Промпты пишутся по ТЗ §8 (иерархия, детерминизм, интенсивность, safe area, одна мысль в сцене, разные входы для разных элементов), правилам official skills и API motion-kit. В промпте Engineer: «предпочитай motion-kit; код из `refs/kb` адаптируй на кадры; импорт только из allowlist». Ссылок на устаревший `aiplatform/motion` нет.
 
-- [ ] **Step 1: Юнит-тесты логики (падают):**
+- [x] **Step 1: Юнит-тесты логики (падают):**
 
 ```ts
 // Engineer всегда пишет Math.random → первый вызов + 2 исправления → failed
@@ -460,8 +459,8 @@ expect(JSON.parse(readFileSync(join(okResult.versionDir!, "knowledge-refs.json")
   .toMatchObject({ kb_id: expect.any(String), commit: expect.any(String), license: expect.any(String), strategy: expect.any(String) });
 ```
 
-- [ ] **Step 2: Запустить** — FAIL. **Step 3: Реализовать** `generate.ts`, `refs.ts`, `budget.ts`, CLI, промпты. **Step 4: Запустить** — PASS.
-- [ ] **Step 5: Реальный прогон среза (`make e2e`).** После `MS_DATA_DIR="/Volumes/External SSD/MotionStudio" npm run doctor -- --init` — промпты Test 1 и Test 2 из `docs/architecture/09-acceptance-tests.md` дословно:
+- [x] **Step 2: Запустить** — FAIL. **Step 3: Реализовать** `generate.ts`, `refs.ts`, `budget.ts`, CLI, промпты. **Step 4: Запустить** — PASS.
+- [x] **Step 5: Реальный прогон среза (`make e2e`).** После `MS_DATA_DIR="/Volumes/External SSD/MotionStudio" npm run doctor -- --init` — промпты Test 1 и Test 2 из `docs/architecture/09-acceptance-tests.md` дословно:
 
 ```ts
 expect(r.status).toBe("ready");
@@ -474,8 +473,8 @@ expect(again.stills.map(sha256)).toEqual(m.qa_frames_sha256);
 ```
 
   Второй `npm run generate`, запущенный во время первого, завершается ошибкой `owner_busy`.
-- [ ] **Step 6: Просмотр глазами** ключевых кадров (Read PNG): график и числа читаемы (Test 1), узлы и импульсы на связях (Test 2). Evidence — `docs/evidence/phase-1/slice/{test1,test2}/`: `preview.mp4` (если ≤ 10 МБ), кадры, `manifest.json`, `knowledge-refs.json`, стоимость, время. Слабое качество — конкретные замечания в отчёт; полировка — P1-10.
-- [ ] **Step 7:** `./check`; коммит `feat(motion-studio): вертикальный срез generate`; `./finish`; отчёт: что прошло автоматически [A], что требует просмотра [H], стоимость прогонов, блокировки sandbox.
+- [x] **Step 6: Просмотр глазами** ключевых кадров (Read PNG): график и числа читаемы (Test 1), узлы и импульсы на связях (Test 2). Evidence — `docs/evidence/phase-1/slice/{test1,test2}/`: `preview.mp4` (если ≤ 10 МБ), кадры, `manifest.json`, `knowledge-refs.json`, стоимость, время. Слабое качество — конкретные замечания в отчёт; полировка — P1-10.
+- [x] **Step 7:** `./check`; коммит `feat(motion-studio): вертикальный срез generate`; `./finish`; отчёт: что прошло автоматически [A], что требует просмотра [H], стоимость прогонов, блокировки sandbox.
 
 ---
 
@@ -483,5 +482,5 @@ expect(again.stills.map(sha256)).toEqual(m.qa_frames_sha256);
 
 - Критерий среза (`07` §2): запрос → KB (Task 8, 10) → Claude Code (Task 7, 10) → Remotion (Task 4, 6) → `preview.mp4` с проверками (Task 4, 5) и воспроизводимой версией (Task 9, 10).
 - Принятые ADR: `MS_DATA_DIR`, StorageGuard и сторож во время рендера (Task 1, 9, 10); модели и бюджет в конфиге (Task 7); персональный режим — в срезе нет сервера; ADR 0007 — Task 2 и Task 10 (условно до утверждения).
-- Находки аудита согласованности закрыты: `@remotion/cli` не нужен (`ensureBrowser`); поднятые зависимости + static check; тест бюджета пересчитан; ESLint в `check`; ключ бандла — `contentKey`; `childEnv` = список из `03` §6; KB только permissive по умолчанию; `useBeat(beat)`; шрифты в `render/fonts/`; `agents.<role>.model`; имена `CapabilityView` по `02` §4.1; `versionDir?`; `refs/skills` — реальные имена файлов.
+- Находки аудита согласованности закрыты: `@remotion/cli` не нужен (`ensureBrowser`); поднятые зависимости + static check; тест бюджета пересчитан; ESLint в `check`; ключ бандла — `contentKey`; `childEnv` = список из `03` §6; KB только permissive по умолчанию; `useBeat(beat)`; шрифты в `render/src/motion-kit/fonts/`; `agents.<role>.model`; имена `CapabilityView` по `02` §4.1; `versionDir?`; `refs/skills` — реальные имена файлов.
 - Вне среза: Concept, Visual QA, Edit Planner, SQLite и очередь, API, UI, экспорт, правки через чат.

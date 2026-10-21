@@ -1,0 +1,26 @@
+{
+  "name": "@ms/render",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/node/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@ms/contracts": "*",
+    "@ms/core": "*",
+    "@remotion/bundler": "4.0.537",
+    "@remotion/fonts": "4.0.537",
+    "@remotion/renderer": "4.0.537",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.537"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "enhanced-resolve": "5.26.0"
+  }
+}

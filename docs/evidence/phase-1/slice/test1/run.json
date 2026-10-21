@@ -1,0 +1,25 @@
+{
+  "status": "ready",
+  "run_id": "run_01M5DM71XZ7SGQ8MTXND22F90P",
+  "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5DM71Y0VNJP5SSTJ1VEHFPM/versions/ver_01M5DMCGPHDYW1PHKNF5MDW7M2",
+  "cost_usd": 0.4689762,
+  "engineer_calls": 1,
+  "timings_ms": {
+    "director": 52060,
+    "engineer_1": 90843,
+    "static": 52,
+    "typecheck": 12640,
+    "render_1": 21330,
+    "publish": 747,
+    "total": 179129
+  },
+  "warnings": [],
+  "prompt": "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении",
+  "wall_ms": 179130,
+  "second_cli": {
+    "code": 1,
+    "out": [
+      "owner_busy: хранилище занято другим процессом (cli, pid 31393)"
+    ]
+  }
+}

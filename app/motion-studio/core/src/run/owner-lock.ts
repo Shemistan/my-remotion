@@ -1,0 +1,97 @@
+import { readFile, rename, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import Database from "better-sqlite3";
+import { safeMkdir } from "../storage/safe-mkdir.js";
+import { procInfo } from "./proc-info.js";
+
+export type OwnerKind = "server" | "cli";
+
+/** Содержимое `run/owner.json` — только диагностика; истина — блокировка ОС. */
+export interface OwnerInfo {
+  pid: number;
+  startedAt: string;
+  kind: OwnerKind;
+}
+
+/** Хранилище уже занято другим владельцем (сервером или CLI). */
+export class OwnerBusyError extends Error {
+  readonly code = "owner_busy";
+  constructor(
+    readonly pid: number | undefined,
+    readonly owner: OwnerInfo | undefined,
+  ) {
+    const who = owner ? `${owner.kind}, pid ${owner.pid}` : "владелец неизвестен";
+    super(`owner_busy: хранилище занято другим процессом (${who})`);
+    this.name = "OwnerBusyError";
+  }
+}
+
+export interface OwnerLock {
+  release(): Promise<void>;
+}
+
+// Держит соединения до release: иначе брошенный вызывающим результат соберёт GC,
+// деструктор better-sqlite3 закроет базу и fcntl-lock молча снимется.
+const held = new Set<Database.Database>();
+
+/**
+ * Берёт эксклюзивную блокировку ОС на `run/owner.lock` (ADR 0007, п. 1).
+ *
+ * SQLite с `locking_mode=EXCLUSIVE` и открытой `BEGIN EXCLUSIVE` держит POSIX
+ * `fcntl`-lock на файле, пока жив процесс; ядро снимает его при смерти процесса, так
+ * что брошенной блокировки не бывает. Занято — `OwnerBusyError` с pid из `owner.json`.
+ */
+export async function acquireOwnerLock(root: string, kind: OwnerKind): Promise<OwnerLock> {
+  const dir = await safeMkdir(root, "run");
+  const ownerFile = join(dir, "owner.json");
+  // timeout: 0 — не ждать освобождения (по умолчанию better-sqlite3 ждёт 5 с)
+  const db = new Database(join(dir, "owner.lock"), { timeout: 0 });
+  try {
+    db.pragma("locking_mode = EXCLUSIVE");
+    db.exec("BEGIN EXCLUSIVE");
+  } catch (e) {
+    db.close();
+    if ((e as { code?: string }).code === "SQLITE_BUSY") {
+      const owner = await readOwner(ownerFile);
+      throw new OwnerBusyError(owner?.pid, owner);
+    }
+    throw e;
+  }
+  held.add(db);
+
+  let released = false;
+  try {
+    const me = await procInfo(process.pid);
+    const info: OwnerInfo = { pid: process.pid, startedAt: me?.startedAt ?? "", kind };
+    const tmp = `${ownerFile}.${process.pid}.tmp`;
+    await writeFile(tmp, JSON.stringify(info, null, 2) + "\n");
+    await rename(tmp, ownerFile);
+  } catch (e) {
+    held.delete(db);
+    db.close();
+    throw e;
+  }
+
+  return {
+    async release() {
+      if (released) return;
+      released = true;
+      try {
+        // owner.json убираем, пока lock ещё наш, — иначе можно стереть файл нового владельца
+        const cur = await readOwner(ownerFile);
+        if (cur?.pid === process.pid) await rm(ownerFile, { force: true });
+      } finally {
+        held.delete(db);
+        db.close(); // откатывает транзакцию и снимает блокировку
+      }
+    },
+  };
+}
+
+async function readOwner(file: string): Promise<OwnerInfo | undefined> {
+  try {
+    return JSON.parse(await readFile(file, "utf8")) as OwnerInfo;
+  } catch {
+    return undefined;
+  }
+}
