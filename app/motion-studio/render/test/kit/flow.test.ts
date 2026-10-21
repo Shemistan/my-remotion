@@ -109,3 +109,46 @@ describe("входы узлов: разные по характеру", () => {
     expect(String(cardEnterStyle(st, 14, 30, 10, "blur").filter)).toMatch(/blur/);
   });
 });
+
+describe("flowLabelSizes: кегль подписи по группе size узла", () => {
+  const H = 1080;
+  const wide = (id: string, label: string, size?: "h2" | "body" | "caption", w = 420) => ({ id, label, x: 0, y: 0, w, h: 120, size });
+
+  it("без size — единый кегль всех узлов (как раньше), не крупнее body", async () => {
+    const { flowLabelSizes } = await import("../../src/motion-kit/components/FlowGraph.js");
+    const { typeSize } = await import("../../src/motion-kit/style/type-scale.js");
+    const m = flowLabelSizes([wide("a", "Клиент"), wide("b", "Очень длинная подпись узла", undefined, 300)], st, H);
+    expect(m.get("a")!.label).toBe(m.get("b")!.label);
+    expect(m.get("a")!.label).toBeLessThanOrEqual(typeSize(st, "body", H));
+  });
+
+  it("size: h2 у героя — крупнее группы body не меньше чем в 1.3 раза, общий кегль — внутри группы", async () => {
+    const { flowLabelSizes } = await import("../../src/motion-kit/components/FlowGraph.js");
+    const m = flowLabelSizes([wide("a", "Клиент"), wide("hero", "Оркестратор", "h2", 560), wide("c", "Кэш"), wide("d", "Ещё узел", "h2", 560)], st, H);
+    expect(m.get("hero")!.label).toBeGreaterThanOrEqual(1.3 * m.get("a")!.label);
+    expect(m.get("hero")!.label).toBe(m.get("d")!.label);
+    expect(m.get("a")!.label).toBe(m.get("c")!.label);
+    // маркер и пояснение растут с подписью
+    expect(m.get("hero")!.dot).toBeGreaterThan(m.get("a")!.dot);
+    expect(m.get("hero")!.caption).toBeGreaterThanOrEqual(m.get("a")!.caption);
+  });
+
+  it("caption — мельче body; узкий узел ужимает только свою группу", async () => {
+    const { flowLabelSizes } = await import("../../src/motion-kit/components/FlowGraph.js");
+    const m = flowLabelSizes([wide("a", "Клиент"), wide("s", "Служебный", "caption"), wide("n", "Оркестратор запросов", "h2", 260)], st, H);
+    expect(m.get("s")!.label).toBeLessThan(m.get("a")!.label);
+    // h2 не влез в 260 px — ужат по ширине, но группа body не пострадала
+    expect(m.get("a")!.label).toBe(flowLabelSizes([wide("a", "Клиент")], st, H).get("a")!.label);
+  });
+});
+
+describe("FlowNode.emphasis: кольцо только на ударе по умолчанию", () => {
+  it("в удержании нет кольца, ring: every-breath — есть", () => {
+    const e = { start_frame: 30, end_frame: 60 };
+    const hold = Array.from({ length: 200 }, (_, i) => nodeFlash(100 + i, st, [], e));
+    expect(hold.every((p) => p.ripple < 0)).toBe(true);
+    const every = Array.from({ length: 200 }, (_, i) => nodeFlash(100 + i, st, [], { ...e, ring: "every-breath" }));
+    expect(every.some((p) => p.ripple >= 0)).toBe(true);
+    expect(nodeFlash(32, st, [], e).ripple).toBeGreaterThanOrEqual(0);
+  });
+});

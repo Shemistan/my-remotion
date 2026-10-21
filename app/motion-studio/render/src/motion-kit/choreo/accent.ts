@@ -31,7 +31,12 @@ export interface AccentPulse {
   ripple: number;
   /** Непрозрачность кольца в начале (удар — 1, дыхание — тише). */
   rippleAlpha: number;
+  /** Кольцо — от вдоха удержания, а не от удара (Emphasis по умолчанию его не рисует). */
+  rippleBreath: boolean;
 }
+
+/** Акцент в покое (до бита). */
+export const ACCENT_REST: AccentPulse = { level: 0, scale: 1, strike: 0, hold: 0, swell: 0, ripple: -1, rippleAlpha: 0, rippleBreath: false };
 
 /** Середина дыхания удержания; размах ± DEPTH × амплитуда (balanced: 0.4..0.92) — во
  *  впадине свечение не гаснет, финал не выглядит «умирающим». */
@@ -45,7 +50,7 @@ export function accentPulse(frame: number, s: StyleBible, o: AccentPulseOptions)
   const loop = o.loop ?? true;
   const k = o.strength ?? 1;
   const t = frame - b0;
-  if (t < 0) return { level: 0, scale: 1, strike: 0, hold: 0, swell: 0, ripple: -1, rippleAlpha: 0 };
+  if (t < 0) return ACCENT_REST;
   const amp = amplitudeOf(s);
   const attack = frames(s, 5);
   const decay = frames(s, 16);
@@ -69,6 +74,7 @@ export function accentPulse(frame: number, s: StyleBible, o: AccentPulseOptions)
   // кольцо удара; в удержании — по кольцу на пике каждого вдоха
   let ripple = -1;
   let rippleAlpha = 0;
+  let rippleBreath = false;
   if (t < rippleLen && fade > 0) {
     ripple = t / rippleLen;
     rippleAlpha = fade;
@@ -77,7 +83,8 @@ export function accentPulse(frame: number, s: StyleBible, o: AccentPulseOptions)
     if (into < rippleLen) {
       ripple = into / rippleLen;
       rippleAlpha = 0.45 * holdIn;
+      rippleBreath = true;
     }
   }
-  return { level, scale, strike, hold: holdIn, swell: holdIn * swellWave, ripple, rippleAlpha };
+  return { level, scale, strike, hold: holdIn, swell: holdIn * swellWave, ripple, rippleAlpha, rippleBreath };
 }

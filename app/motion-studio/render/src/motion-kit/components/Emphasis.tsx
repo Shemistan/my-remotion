@@ -20,12 +20,14 @@ export function useAccentPulse(beat: Pick<Beat, "start_frame" | "end_frame">, op
 const len = (v: number | string) => (typeof v === "number" ? `${v}px` : v);
 
 /**
- * Гауссов спад ореола: плотный центр, долгий мягкий хвост, к краю блока — ровно 0
+ * Гауссов спад ореола (доля радиуса %, доля непрозрачности): плотный центр, долгий мягкий хвост, к краю блока — ровно 0
  * (`closest-side`: на кромке блока цвета нет, жёсткой плашки не бывает).
  */
-function falloff(color: string, a: number): string {
-  const st: [number, number][] = [[0, 1], [18, 0.84], [38, 0.55], [58, 0.26], [76, 0.09], [90, 0.02], [100, 0]];
-  return `radial-gradient(closest-side, ${st.map(([at, k]) => `${alpha(color, a * k)} ${at}%`).join(", ")})`;
+export const HALO_FALLOFF: readonly (readonly [number, number])[] = [[0, 1], [18, 0.84], [38, 0.55], [58, 0.26], [76, 0.09], [90, 0.02], [100, 0]];
+
+/** CSS-ореол: радиальный градиент по HALO_FALLOFF до прозрачного края блока. */
+export function falloff(color: string, a: number): string {
+  return `radial-gradient(closest-side, ${HALO_FALLOFF.map(([at, k]) => `${alpha(color, a * k)} ${at}%`).join(", ")})`;
 }
 
 export interface HaloProps {
@@ -71,8 +73,12 @@ export interface EmphasisProps {
   color?: string;
   /** Ореол за целью (по умолчанию да). */
   halo?: boolean;
-  /** Кольцо, расходящееся от цели на ударе и на каждом вдохе (по умолчанию да). */
-  ring?: boolean;
+  /**
+   * Кольцо, расходящееся от цели: `"strike"` (по умолчанию, и `true`) — один раз на ударе,
+   * удержание дышит только свечением и масштабом; `"every-breath"` — ещё и на каждом вдохе
+   * (радар «живого сейчас»; вокруг слова или числа читается как мигающий бейдж); `false` — нет.
+   */
+  ring?: boolean | "strike" | "every-breath";
   /** Скругление кольца: pill — капсула (по умолчанию), rounded — карточка, circle — круг. */
   shape?: "pill" | "rounded" | "circle";
   /** `rounded`: радиус углов цели, px (по умолчанию — радиус карточки стиля); кольцо идёт концентрично. */
@@ -86,6 +92,12 @@ export interface EmphasisProps {
   style?: CSSProperties;
 }
 
+/** Рисовать ли кольцо акцента в этом кадре при настройке `ring`. */
+export function emphasisRingVisible(ring: EmphasisProps["ring"], p: AccentPulse): boolean {
+  if (ring === false || p.ripple < 0) return false;
+  return ring === "every-breath" || !p.rippleBreath;
+}
+
 /**
  * Скругление кольца, отошедшего от кромки цели на `offset` px: у `rounded` — радиус цели
  * плюс отступ (концентрично углам карточки, без острых углов), у `pill` и `circle` — свои.
@@ -97,12 +109,12 @@ export function emphasisRingRadius(shape: NonNullable<EmphasisProps["shape"]>, s
 }
 
 /**
- * Акцент на цели: короткий удар масштаба и вспышка свечения в начале бита, затем
- * спокойное дыхание (свечение ~0.6 ± размах интенсивности, масштаб ±1 %), пока идёт бит —
+ * Акцент на цели: короткий удар масштаба, вспышка свечения и одно кольцо в начале бита,
+ * затем спокойное дыхание свечением и масштабом (без кольца), пока идёт бит —
  * и до конца сцены при `loop`. Один акцент в момент: не ставь два Emphasis с
  * перекрывающимися битами.
  */
-export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, halo = true, ring = true, shape = "pill", radius, spread, strength, display = "inline-block", style }: EmphasisProps) {
+export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, halo = true, ring = "strike", shape = "pill", radius, spread, strength, display = "inline-block", style }: EmphasisProps) {
   const s = useStyle();
   const dark = isDark(s);
   const col = color ?? accent(s, accentIndex);
@@ -123,7 +135,7 @@ export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, 
   return (
     <span style={{ position: "relative", display, isolation: "isolate", transform: p.scale === 1 ? undefined : `scale(${p.scale.toFixed(5)})`, transformOrigin: "50% 50%", ...style }}>
       {halo ? <Halo level={p.level} color={col} spread={spread} /> : null}
-      {ring && p.ripple >= 0 ? (
+      {emphasisRingVisible(ring, p) ? (
         <span
           aria-hidden
           style={{

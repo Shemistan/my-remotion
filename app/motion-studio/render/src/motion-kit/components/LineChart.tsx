@@ -16,6 +16,7 @@ import type { ResolvedStyle } from "../style/resolve.js";
 import { useStyle } from "../style.js";
 import { lineDrawWindow } from "../line-window.js";
 import { type AccentPulse, accentPulse } from "../choreo/accent.js";
+import { HALO_FALLOFF } from "./Emphasis.js";
 import { niceTicks } from "../ticks.js";
 import { TYPE_LEVELS, typeSize } from "../style/type-scale.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, surfaceAt, shadow } from "../tokens.js";
@@ -227,7 +228,7 @@ export function LineChart({
           <feGaussianBlur stdDeviation={dark ? 9 : 5} />
         </filter>
         <radialGradient id={`${id}-halo`}>
-          {HALO_STOPS.map(([o, k]) => (
+          {HALO_FALLOFF.map(([o, k]) => (
             <stop key={o} offset={`${o}%`} stopColor={color} stopOpacity={(dark ? 0.8 : 0.45) * k} />
           ))}
         </radialGradient>
@@ -287,8 +288,6 @@ export function LineChart({
   );
 }
 
-/** Гауссов спад ореола точки (доля радиуса %, доля непрозрачности). */
-const HALO_STOPS: [number, number][] = [[0, 1], [18, 0.84], [38, 0.55], [58, 0.26], [76, 0.09], [90, 0.02], [100, 0]];
 
 /**
  * Акцент точки графика по accentPulse: ореол дышит вместе с точкой, на ударе и на каждом

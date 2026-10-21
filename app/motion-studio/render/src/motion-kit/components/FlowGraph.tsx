@@ -5,7 +5,7 @@
 import type { Beat, StyleBible } from "@ms/contracts";
 import { type ReactNode, createContext, useContext } from "react";
 import { interpolate, random, useCurrentFrame, useVideoConfig } from "remotion";
-import { type AccentPulse, accentPulse } from "../choreo/accent.js";
+import { ACCENT_REST, type AccentPulse, accentPulse } from "../choreo/accent.js";
 import { type PulseArrival, arrivalInPass, pulsePass, pulseStarts } from "../choreo/pulse.js";
 import { edgeDelay } from "../choreo/rhythm.js";
 import { EASE, frames, springAt } from "../easing.js";
@@ -16,6 +16,7 @@ import { typeSize } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
 import { type Elevation, accent, alpha, fontFamily, isDark, mix, radius, space } from "../tokens.js";
 import { type CardEnter, cardEnterStyle, cardSurface } from "./Card.js";
+import { Halo } from "./Emphasis.js";
 
 export interface FlowNode {
   id: string;
@@ -44,7 +45,13 @@ export interface FlowNode {
    * (`loop: false` — гаснет после бита). Тот же accentPulse, что у <Emphasis>; отдельный
    * Emphasis-оверлей поверх или под узлом не нужен.
    */
-  emphasis?: Pick<Beat, "start_frame" | "end_frame"> & { loop?: boolean };
+  emphasis?: Pick<Beat, "start_frame" | "end_frame"> & { loop?: boolean; ring?: "strike" | "every-breath" | false };
+  /**
+   * Уровень подписи узла: `h2` — герой схемы (крупнее остальных ≥ 1.3×), `body` — по
+   * умолчанию, `caption` — служебный узел. Общий кегль подбирается внутри группы одного
+   * `size` (самый крупный, при котором каждая подпись группы влезает в свой узел).
+   */
+  size?: "h2" | "body" | "caption";
 }
 
 export interface FlowEdge {
@@ -62,12 +69,16 @@ export interface FlowGraphProps {
   height?: number;
   /** Вход узлов по умолчанию (CardEnter): flip; у узла может быть свой `enter`. */
   enter?: CardEnter;
-  /** Импульсы и прочие слои поверх рёбер. */
+  /** Импульсы и прочие слои поверх рёбер (под карточками). */
   children?: ReactNode;
+  /** Слой над карточками: DataToken, влетающий в узел, StatusChip у узла или ребра. */
+  overlay?: ReactNode;
 }
 
 interface FlowGeometry {
   edges: ReadonlyMap<string, CubicSegment>;
+  /** Узлы графа по id (якоря StatusChip / DataToken). */
+  nodes: ReadonlyMap<string, FlowNode>;
   /** Кадр, когда ребро дорисовано (импульсы раньше не пускать). */
   ready: ReadonlyMap<string, number>;
   /** Кадры прихода импульса (голова касается узла-получателя), по возрастанию. */
@@ -137,12 +148,17 @@ export function flowTiming(nodes: FlowNode[], edges: FlowEdge[], beat: Pick<Beat
 /**
  * Вспышка узла в кадре `frame` по кадрам прихода `at`: удар accentPulse (без дыхания);
  * при нескольких приходах — самая яркая из идущих вспышек. `emphasis` — акцент узла с
- * дыханием удержания; в кадре берётся сильнейшее из акцента и вспышек.
+ * дыханием удержания (кольцо — на ударе, на вдохах — при `ring: "every-breath"`); в
+ * кадре берётся сильнейшее из акцента и вспышек.
  */
 export function nodeFlash(frame: number, s: StyleBible, at: number[], emphasis?: FlowNode["emphasis"]): AccentPulse {
-  let best: AccentPulse = emphasis
-    ? accentPulse(frame, s, { beat: emphasis, loop: emphasis.loop ?? true })
-    : { level: 0, scale: 1, strike: 0, hold: 0, swell: 0, ripple: -1, rippleAlpha: 0 };
+  let best: AccentPulse = ACCENT_REST;
+  if (emphasis) {
+    const e = accentPulse(frame, s, { beat: emphasis, loop: emphasis.loop ?? true });
+    // кольцо удержания — только по ring: every-breath (по умолчанию дыхание без кольца)
+    const ring = emphasis.ring ?? "strike";
+    best = ring === false || (e.rippleBreath && ring !== "every-breath") ? { ...e, ripple: -1, rippleAlpha: 0, rippleBreath: false } : e;
+  }
   for (const t of at) {
     if (t > frame) continue;
     // атака стартует кадром раньше: в сам кадр прихода узел уже загорается
@@ -152,7 +168,35 @@ export function nodeFlash(frame: number, s: StyleBible, at: number[], emphasis?:
   return best;
 }
 
-export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", children }: FlowGraphProps) {
+/** Ширина маркера-точки узла от кегля подписи, px. */
+const dotOf = (label: number) => Math.max(10, Math.min(20, Math.round(label * 0.36)));
+
+/**
+ * Кегли узлов графа (чистая функция): подпись, пояснение, маркер. Внутри группы одного
+ * `size` — общий кегль: самый крупный, при котором каждая подпись группы влезает в свой
+ * узел без многоточия (оценка ширины 0.57 em на символ), но не крупнее уровня группы
+ * (`h2` — не меньше 1.3 × body, `body`, `caption`) и не меньше 16 px (caption — 14).
+ * Пояснение под подписью — caption шкалы, не крупнее 0.8 подписи (у h2 — 0.6).
+ */
+export function flowLabelSizes(nodes: Pick<FlowNode, "id" | "label" | "w" | "size">[], s: StyleBible, frameH: number): Map<string, { label: number; caption: number; dot: number }> {
+  const padX = space(s, 0.5);
+  const body = typeSize(s, "body", frameH);
+  const cap = { h2: Math.max(typeSize(s, "h2", frameH), Math.ceil(body * 1.3)), body, caption: typeSize(s, "caption", frameH) };
+  const floor = { h2: 16, body: 16, caption: 14 };
+  const out = new Map<string, { label: number; caption: number; dot: number }>();
+  for (const level of ["h2", "body", "caption"] as const) {
+    const group = nodes.filter((n) => (n.size ?? "body") === level);
+    if (group.length === 0) continue;
+    // ширина под текст: поля, маркер (по кеглю уровня) и зазор
+    const fit = group.map((n) => (n.w - 2 * padX - dotOf(cap[level]) - padX * 0.75) / (Math.max(1, Array.from(n.label).length) * 0.57));
+    const label = Math.max(floor[level], Math.floor(Math.min(cap[level], ...fit)));
+    const caption = Math.min(Math.round(typeSize(s, "caption", frameH) * (level === "h2" ? 1.15 : 1)), Math.round(label * (level === "h2" ? 0.6 : 0.8)));
+    for (const n of group) out.set(n.id, { label, caption, dot: dotOf(label) });
+  }
+  return out;
+}
+
+export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", children, overlay }: FlowGraphProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height: frameH } = useVideoConfig();
@@ -162,20 +206,13 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", c
   const dark = isDark(s);
   const amp = amplitudeOf(s);
 
-  // единый кегль подписей графа: самый крупный, при котором каждая подпись влезает в
-  // свой узел без многоточия (оценка ширины: 0.57 em на символ), но не крупнее уровня
-  // body шкалы кадра (подпись узла — основной текст схемы) и не меньше 16 px; пояснение
-  // под подписью — caption (рубрика: мельче caption в кадре ничего нет)
+  // кегли подписей по группам size (общий внутри группы), маркер растёт с подписью
   const padX = space(s, 0.5);
-  const DOT = 12;
-  const labelSize = Math.max(
-    16,
-    Math.floor(Math.min(typeSize(s, "body", frameH), ...nodes.map((n) => (n.w - 2 * padX - DOT - padX * 0.75) / (Math.max(1, Array.from(n.label).length) * 0.57)))),
-  );
-  const capSize = Math.min(Math.round(typeSize(s, "caption", frameH)), Math.round(labelSize * 0.8));
+  const sizes = flowLabelSizes(nodes, s, frameH);
+  const nodeMap = new Map(nodes.map((n) => [n.id, n]));
 
   return (
-    <FlowContext.Provider value={{ edges: geo, ready, arrivals }}>
+    <FlowContext.Provider value={{ edges: geo, nodes: nodeMap, ready, arrivals }}>
       <div style={{ position: "relative", width: W, height: H }}>
         <svg width={W} height={H} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
           {edges.map((e) => {
@@ -218,6 +255,8 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", c
           const lit = fl.level > 0.005;
           const surface = cardSurface(s, e);
           const r = radius(s, 2);
+          const sz = sizes.get(n.id)!;
+          const DOT = sz.dot;
           const rp = fl.ripple >= 0 ? 1 - (1 - fl.ripple) ** 3 : 0;
           return (
             <div
@@ -234,16 +273,8 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", c
               }}
             >
               {lit ? (
-                // ореол вспышки: равные поля за карточкой, гауссов спад к прозрачному краю
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: -Math.round(Math.min(n.w, n.h) * 0.45),
-                    zIndex: -1,
-                    opacity: Number(fl.level.toFixed(4)),
-                    background: `radial-gradient(closest-side, ${alpha(col, dark ? 0.5 : 0.3)} 0%, ${alpha(col, dark ? 0.32 : 0.18)} 40%, ${alpha(col, dark ? 0.1 : 0.06)} 72%, ${alpha(col, 0)} 100%)`,
-                  }}
-                />
+                // ореол вспышки: равные поля за карточкой, гауссов спад (Halo) к прозрачному краю
+                <Halo level={fl.level} color={col} spread={Math.round(Math.min(n.w, n.h) * 0.45)} />
               ) : null}
               {fl.ripple >= 0 ? (
                 <div
@@ -287,8 +318,8 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", c
                 <div
                   style={{
                     fontFamily: fontFamily(s.typography.body),
-                    fontWeight: 600,
-                    fontSize: labelSize,
+                    fontWeight: n.size === "h2" ? 700 : 600,
+                    fontSize: sz.label,
                     lineHeight: 1.15,
                     color: s.palette.text,
                     whiteSpace: "nowrap",
@@ -299,13 +330,15 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", c
                   {n.label}
                 </div>
                 {n.caption ? (
-                  <div style={{ fontFamily: fontFamily(s.typography.mono), fontSize: capSize, color: s.palette.muted, whiteSpace: "nowrap", opacity: mark }}>{n.caption}</div>
+                  <div style={{ fontFamily: fontFamily(s.typography.mono), fontSize: sz.caption, color: s.palette.muted, whiteSpace: "nowrap", opacity: mark }}>{n.caption}</div>
                 ) : null}
               </div>
             </div>
             </div>
           );
         })}
+        {/* слой над карточками: данные, влетающие в узел, статусы у узлов и рёбер */}
+        {overlay ? <div style={{ position: "absolute", inset: 0 }}>{overlay}</div> : null}
       </div>
     </FlowContext.Provider>
   );

@@ -115,3 +115,32 @@ describe("emphasisRingRadius: кольцо Emphasis повторяет скру�
     expect(emphasisRingRadius("circle", st, 4)).toBe("50%");
   });
 });
+
+describe("кольцо акцента: по умолчанию — только на ударе (без мигания в удержании)", () => {
+  it("accentPulse помечает кольцо дыхания: rippleBreath", () => {
+    expect(at(32).rippleBreath).toBe(false);
+    const breath = Array.from({ length: 200 }, (_, i) => at(120 + i)).filter((p) => p.ripple >= 0);
+    expect(breath.length).toBeGreaterThan(0);
+    expect(breath.every((p) => p.rippleBreath)).toBe(true);
+  });
+
+  it("ring: strike (по умолчанию и при true) — кольцо только на ударе; every-breath — и на вдохах; false — нет", async () => {
+    const { emphasisRingVisible } = await import("../../src/motion-kit/components/Emphasis.js");
+    const strike = at(32);
+    const breath = Array.from({ length: 200 }, (_, i) => at(120 + i)).find((p) => p.ripple >= 0)!;
+    expect(emphasisRingVisible(undefined, strike)).toBe(true);
+    expect(emphasisRingVisible(undefined, breath)).toBe(false);
+    expect(emphasisRingVisible(true, breath)).toBe(false);
+    expect(emphasisRingVisible("strike", breath)).toBe(false);
+    expect(emphasisRingVisible("every-breath", breath)).toBe(true);
+    expect(emphasisRingVisible(false, strike)).toBe(false);
+  });
+
+  it("удержание без кольца остаётся живым: свечение и масштаб меняются за 19 кадров", () => {
+    for (let f = 130; f < 300; f += 7) {
+      const a = at(f);
+      const b = at(f + 19);
+      expect(Math.abs(a.level - b.level) + Math.abs(a.scale - b.scale)).toBeGreaterThan(0.004);
+    }
+  });
+});
