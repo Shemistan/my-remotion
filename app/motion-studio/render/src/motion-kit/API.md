@@ -36,6 +36,10 @@ export const Scene = ({ timing, style, content }: Props) => (
 );
 ```
 
+Тип `props.style` — `Omit<ResolveStyleInput, "fps">` из kit (`import type { ResolveStyleInput }`),
+а не свой интерфейс: `depth` там — `Depth` (0 | 1 | 2 | 3), и свой `depth: number` не
+пройдёт typecheck у `StyleProvider`.
+
 Тайминги битов бери из `props.timing.beats`, стиль — из `props.style`. Правки
 «медленнее», «палитра из v1», «объёмнее» меняют props, а не код сцены.
 

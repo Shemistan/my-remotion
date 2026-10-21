@@ -165,6 +165,22 @@ describe("patterns-gallery", () => {
     expect(spotlight.light).toBeGreaterThanOrEqual(2 * blueprint.light);
   });
 
+  // Fix F: сетка blueprint дрейфует и в части кадров ложилась крупной линией и крестами на
+  // край кадра — QA видел «объект касается края» (clipping). У краёв кадра сетка гаснет.
+  it("blueprint: у самого края кадра сетки нет ни на одном кадре (дрейф не кладёт линию на край)", () => {
+    for (const f of FRAMES) {
+      const px = pixel(join(tmp, "cache", "frames", `${f}.png`));
+      for (const x of [0, 1, 2, 3, 1916, 1917, 1918, 1919]) {
+        const l = Array.from({ length: 1080 }, (_, y) => {
+          const [r, g, b] = px(x, y);
+          return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        }).sort((a, b) => a - b);
+        // зерно фона даёт разброс 4–8 уровней; линия сетки на краю — 18+
+        expect(l[1076]! - l[540]!, `кадр ${f}, x ${x}: сетка у края`).toBeLessThanOrEqual(10);
+      }
+    }
+  });
+
   // Многострочные токены (docstring, JSDoc): строки, подсветка и каретка не съезжают.
   // Блок кода стоит в safe area (115, 86) со сдвигом CODE_POS; tech-neon, акцент — циан.
   const CODE_SAMPLES = [

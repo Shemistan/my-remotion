@@ -10,6 +10,9 @@ import { depthOf, fpsScaleOf } from "../style/resolve.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, isDark, mix } from "../tokens.js";
 
+/** Маска сетки blueprint: гаснет к краям кадра за 3 % ширины / высоты. */
+const BLUEPRINT_EDGE_FADE = "linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 3%, black 97%, transparent 100%)";
+
 export type BackgroundVariant = "aurora" | "spotlight" | "blueprint" | "grid" | "paper" | "solid";
 
 export interface BackgroundProps {
@@ -155,6 +158,9 @@ export function Background({ beat, variant, grain = true, seed = "bg", focus }: 
         <>
           <AbsoluteFill style={{ background: `${alpha(heroCol, (dark ? 0.05 : 0.035) * reveal)}` }} />
           <AbsoluteFill style={{ background: `radial-gradient(70% 75% at ${fx}% ${fy}%, ${alpha(heroCol, (dark ? 0.09 : 0.05) * reveal * air)} 0%, ${alpha(heroCol, 0)} 80%)` }} />
+          {/* у краёв кадра сетка гаснет: дрейф не кладёт линию и кресты на край (иначе
+              край кадра читается как обрезанный объект) */}
+          <AbsoluteFill style={{ maskImage: BLUEPRINT_EDGE_FADE, WebkitMaskImage: BLUEPRINT_EDGE_FADE, maskComposite: "intersect", WebkitMaskComposite: "source-in" }}>
           <svg
             width={width}
             height={height}
@@ -177,6 +183,7 @@ export function Background({ beat, variant, grain = true, seed = "bg", focus }: 
             </defs>
             <rect width="100%" height="100%" fill={`url(#${gridId})`} />
           </svg>
+          </AbsoluteFill>
         </>
       ) : null}
 
