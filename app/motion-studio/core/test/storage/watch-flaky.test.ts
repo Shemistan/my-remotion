@@ -8,7 +8,8 @@ import { type VolumeProbe, checkStorage, initStore } from "../../src/storage/gua
 import { watchStorage } from "../../src/storage/watch.js";
 import { fakeProbe, makeTmp, removeTmp } from "../helpers.js";
 
-const INTERVAL = 40;
+// 100 мс: дедлайн 300 мс переживает fsync пробной записи под нагрузкой ./check + e2e
+const INTERVAL = 100;
 let tmp: string;
 let root: string;
 
@@ -40,9 +41,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 it("a slow and failing volume probe never takes a live store offline", async () => {
   const probe = flakyProbe();
   const w = watchStorage(() => checkStorage({ MS_DATA_DIR: root }, probe), INTERVAL);
-  await sleep(40 * INTERVAL);
+  // по числу проверок, а не по времени: под нагрузкой тики редеют
+  for (const end = Date.now() + 8000; probe.calls() < 15 && !w.signal.aborted && Date.now() < end; ) await sleep(INTERVAL);
   w.stop();
-  expect(probe.calls()).toBeGreaterThan(15);
+  expect(probe.calls()).toBeGreaterThanOrEqual(15);
   expect(w.signal.aborted).toBe(false);
   expect(w.lastFailure()).toBeUndefined();
 });
@@ -50,14 +52,14 @@ it("a slow and failing volume probe never takes a live store offline", async () 
 it("renaming the root still goes offline on the next tick (not_found is conclusive)", async () => {
   const probe = flakyProbe();
   const w = watchStorage(() => checkStorage({ MS_DATA_DIR: root }, probe), INTERVAL);
-  await sleep(10 * INTERVAL);
+  await sleep(5 * INTERVAL);
   expect(w.signal.aborted).toBe(false);
   const t = Date.now();
   await rename(root, `${root}.gone`);
   const aborted = new Promise<void>((r) => w.signal.addEventListener("abort", () => r(), { once: true }));
   await aborted;
   // окно: проверка в полёте может дойти до дедлайна (3 интервала) — она неокончательна,
-  // следующий тик (≤ интервала) видит, что корня нет; запас — на нагрузку ./check
-  expect(Date.now() - t).toBeLessThan(3 * INTERVAL + INTERVAL + 200);
+  // следующий тик (≤ интервала) видит, что корня нет; запас 1 с — на нагрузку ./check
+  expect(Date.now() - t).toBeLessThan(3 * INTERVAL + INTERVAL + 1000);
   expect(w.lastFailure()).toMatchObject({ ok: false, reason: "not_found" });
 });

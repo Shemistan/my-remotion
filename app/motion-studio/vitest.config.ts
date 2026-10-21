@@ -23,6 +23,9 @@ const project = (name: string, include: string[], exclude: string[], timeout: nu
     root: `./${name.replace(/-heavy$/, "")}`,
     include,
     exclude,
+    // Явно (как по умолчанию): иначе Vitest 5 печатает после итога подсказку «Isolate …
+    // faster with isolate: false», и `./check | tail` показывает её вместо упавших тестов (H2).
+    isolate: true,
     // e2e задают таймауты сами
     ...(e2e ? {} : { testTimeout: timeout, hookTimeout: timeout }),
   },
