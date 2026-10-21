@@ -59,8 +59,8 @@ afterAll(async () => {
 });
 
 describe("patterns-gallery", () => {
-  it("пять сцен брифа, сцена количеств и акценты / схема kit 0.2 на месте", () => {
-    expect(SCENES).toEqual(["accent", "code", "comparison", "data", "emphasis", "flow", "process", "timeline"]);
+  it("пять сцен брифа, сцена количеств, акценты / схема kit 0.2 и процесс / скорость kit 0.3 на месте", () => {
+    expect(SCENES).toEqual(["accent", "cache", "code", "comparison", "data", "emphasis", "flow", "process", "speed", "timeline"]);
   });
 
   for (const name of SCENES) {
