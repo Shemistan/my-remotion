@@ -35,6 +35,8 @@ import { type RunCtx, buildEngineerTask, clip, errText, isStorageError, scenePro
 
 export const PREVIEW = { scale: 0.5, crf: 23 };
 const RENDER_TIMEOUT_MS = 5 * 60_000;
+/** Вызовов Visual QA на один рендер: первый и один повтор (ruling P5). */
+const VISUAL_QA_TRIES = 2;
 const EDIT_TOOLS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 
 /** Причина исправления: этап и текст для Engineer. */
@@ -459,13 +461,18 @@ async function runQa(i: LoopInput, state: LoopState, rr: RenderResult, techWarni
   const programmatic = await rc.timed("qa_programmatic", () => programmaticChecks({ frames: stills, spec, settings, style, render: rr, previewBytes }));
   const fromSpec = specChecks(spec, settings);
 
+  // ruling P5: QA по реальным кадрам обязателен. Бюджет кончился до Visual QA — `budget`;
+  // Visual QA не дал оценки — один повтор (без исправления Engineer), затем `qa`. Обе
+  // неудачи публикуют failed-версию с отчётом программных проверок.
+  const partial = () => mergeQA({ technical: techWarnings, programmatic: [...programmatic, ...fromSpec] });
   let agent: Parameters<typeof mergeQA>[0]["agent"];
-  if (rc.spent >= rc.config.scene.maxCostUsd) {
-    rc.warnings.push(`Visual QA пропущен: бюджет сцены исчерпан ($${rc.spent.toFixed(2)})`);
-  } else {
+  for (let attempt = 1; agent === undefined; attempt++) {
+    if (rc.spent >= rc.config.scene.maxCostUsd) {
+      return { exit: { ok: false, stage: "budget", message: `бюджет сцены исчерпан до Visual QA: $${rc.spent.toFixed(2)} из $${rc.config.scene.maxCostUsd}`, qa: partial() } };
+    }
     const p = await rc.storageProblem();
     if (p) return { exit: { ok: false, stage: "storage", message: p } };
-    rc.log("Visual QA…");
+    rc.log(attempt === 1 ? "Visual QA…" : "Visual QA: повтор…");
     const before = rc.spent;
     const v = await rc.timed(`visual_qa_${call}`, () =>
       rc.underWatch((sig) =>
@@ -477,6 +484,7 @@ async function runQa(i: LoopInput, state: LoopState, rr: RenderResult, techWarni
     );
     if (v.skipped) return { exit: { ok: false, stage: "cancelled", message: "отменено до Visual QA" } };
     if (v.error !== undefined) {
+      // вызов отклонён: процесс агента не подтверждён мёртвым — без повтора, draft в карантин
       const storage = isStorageError(v.error) || v.lost !== undefined || (await rc.storageProblem()) !== undefined;
       return { exit: { ok: false, stage: storage ? "storage" : "qa", message: `вызов Visual QA отклонён: ${errText(v.error)}`, alive: true } };
     }
@@ -485,8 +493,16 @@ async function runQa(i: LoopInput, state: LoopState, rr: RenderResult, techWarni
     if (vr.error?.kind === "orphaned") return { exit: { ok: false, stage: "orphaned", message: `Visual QA: ${vr.error.message}`, alive: true } };
     if (v.lost) return { exit: { ok: false, stage: "storage", message: `хранилище пропало во время Visual QA: ${v.lost}` } };
     if (rc.aborted) return { exit: { ok: false, stage: "cancelled", message: "отменено во время Visual QA" } };
-    if (vr.status === "completed" && vr.output) agent = vr.output;
-    else rc.warnings.push(`Visual QA не дал оценки: ${vr.status}${vr.error ? ` (${vr.error.kind}): ${vr.error.message}` : ""}`);
+    if (vr.status === "completed" && vr.output) {
+      agent = vr.output;
+      break;
+    }
+    const why = `Visual QA не дал оценки: ${vr.status}${vr.error ? ` (${vr.error.kind}): ${vr.error.message}` : ""}`;
+    rc.warnings.push(why);
+    rc.note("qa", why);
+    if (attempt >= VISUAL_QA_TRIES) {
+      return { exit: { ok: false, stage: "qa", message: `${why} (вызовов: ${attempt}); без оценки по кадрам версия не ready`, qa: partial() } };
+    }
   }
   const report = mergeQA({ technical: techWarnings, programmatic: [...programmatic, ...fromSpec], agent });
   rc.note("qa", `QA вызова ${call}: ${JSON.stringify(report.gate)}; blocking: ${report.issues.filter((x) => x.severity === "blocking").map((x) => x.code).join(", ") || "—"}`);

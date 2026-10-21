@@ -227,6 +227,40 @@ describe("playgroundGenerate: неудачи по этапам", () => {
     expect(agents.tasks.map((t) => t.role)).toEqual(["concept", "motion_director", "engineer", "visual_qa"]);
     expect(job.error!.message).toContain("5.10");
   });
+
+  // ruling P5: QA по реальным кадрам обязателен — без Visual QA версия не ready
+  it("бюджет кончился до Visual QA: 0.5 + 2 + 2.6 = 5.1 → failed, stage budget; Visual QA не вызван; версия failed опубликована", async () => {
+    const agents = fakeAgents({ costs: { concept: 0.5, motion_director: 2, engineer: 2.6 } });
+    const { job, scene } = await runJob({ agents });
+    expect(job.status).toBe("failed");
+    expect(job.error).toMatchObject({ code: "budget", stage: "budget" });
+    expect(job.error!.message).toContain("Visual QA");
+    expect(agents.tasks.map((t) => t.role)).toEqual(["concept", "motion_director", "engineer"]);
+    const [v, ...rest] = versionRows(scene.id);
+    expect(rest).toEqual([]);
+    expect(v).toMatchObject({ status: "failed" });
+    expect(scenes.get(env.db, scene.id)!.current_version_id).toBeNull();
+    // программные проверки прошли до бюджета — qa.json опубликован, семантика не проверена
+    expect((await readVersion(join(env.s.root, v!.path))).qa?.semantic).toBe("not_checked");
+  });
+
+  it("Visual QA не дал оценки дважды → failed, stage qa; Engineer 1 вызов, версия failed", async () => {
+    const agents = fakeAgents({ visualQa: async () => ({ status: "failed", output: undefined, error: { kind: "cli", message: "claude упал" } }) });
+    const { job, scene } = await runJob({ agents });
+    expect(job.status).toBe("failed");
+    expect(job.error).toMatchObject({ code: "pipeline", stage: "qa" });
+    expect(job.error!.message).toContain("claude упал");
+    expect(agents.tasks.map((t) => t.role)).toEqual(["concept", "motion_director", "engineer", "visual_qa", "visual_qa"]);
+    expect(versionRows(scene.id)).toEqual([expect.objectContaining({ status: "failed" })]);
+  });
+
+  it("Visual QA сбой один раз, затем оценка → ready, повтор без исправления Engineer", async () => {
+    const agents = fakeAgents({ visualQa: async (_f, _s, n) => (n === 1 ? { status: "timeout", output: undefined, error: { kind: "timeout", message: "долго" } } : {}) });
+    const { job, scene } = await runJob({ agents });
+    expect(job.status).toBe("completed");
+    expect(agents.tasks.map((t) => t.role)).toEqual(["concept", "motion_director", "engineer", "visual_qa", "visual_qa"]);
+    expect(versionRows(scene.id)).toEqual([expect.objectContaining({ status: "ready" })]);
+  });
 });
 
 describe("playgroundGenerate: уточнения", () => {
