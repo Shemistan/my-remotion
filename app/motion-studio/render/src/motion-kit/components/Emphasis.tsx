@@ -128,7 +128,8 @@ export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, 
   const filter = glow
     ? [
         `drop-shadow(0 0 ${(0.05 + 0.12 * p.level).toFixed(3)}em ${alpha(col, (dark ? 0.8 : 0.45) * p.level)})`,
-        `drop-shadow(0 0 ${(0.2 + 0.5 * p.level).toFixed(3)}em ${alpha(col, (dark ? 0.5 : 0.22) * p.level)})`,
+        // шлейф уже и тише, чем в 0.2: широкий смазывал подпись рядом с числом («24 релиза»)
+        `drop-shadow(0 0 ${(0.16 + 0.34 * p.level).toFixed(3)}em ${alpha(col, (dark ? 0.42 : 0.2) * p.level)})`,
         `brightness(${(1 + 0.18 * p.strike + (dark ? 0.06 : 0.03) * p.hold * (p.level - 0.5)).toFixed(4)})`,
       ].join(" ")
     : undefined;

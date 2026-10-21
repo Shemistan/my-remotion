@@ -80,6 +80,9 @@ export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact
   const speedBlur = Math.min(1.5, Math.abs(p - pPrev) * 60);
   const enterBlur = (1 - clamp01(enter)) * 12;
   const reserve = reserveWidth ?? (!prefix && !suffix);
+  // в зарезервированной ячейке цифры прижаты к подписи: «0 релизов» без дыры между числом
+  // и словом, подпись не съезжает при росте разрядов
+  const digitJustify = suffix && !prefix ? "end" : prefix && !suffix ? "start" : align === "left" ? "start" : align === "right" ? "end" : "center";
   const digitBlur = speedBlur > 0.05 ? `blur(${speedBlur.toFixed(2)}px)` : undefined;
   // удар на финише: короткий всплеск масштаба и свечения
   const hit = frame >= b1 ? interpolate(frame, [b1, b1 + frames(s, 10), b1 + frames(s, 26)], [0, 1, 0], CLAMP) : 0;
@@ -115,7 +118,7 @@ export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact
         // призрак итогового значения держит ширину; видимое число — в той же ячейке
         <span style={{ display: "inline-grid" }}>
           <span style={{ gridArea: "1 / 1", visibility: "hidden" }}>{ghost}</span>
-          <span style={{ gridArea: "1 / 1", justifySelf: align === "left" ? "start" : align === "right" ? "end" : "center", filter: digitBlur }}>{text}</span>
+          <span style={{ gridArea: "1 / 1", justifySelf: digitJustify, filter: digitBlur }}>{text}</span>
         </span>
       ) : (
         <span style={{ filter: digitBlur }}>{text}</span>
