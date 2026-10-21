@@ -151,6 +151,21 @@ describe("playgroundGenerate: успех и журнал", () => {
   });
 });
 
+describe("playgroundGenerate: Visual QA видит камеру", () => {
+  it("ключи камеры spec — в brief.json Visual QA и в чек-листе: зум — не скачок раскладки", async () => {
+    const camera = [{ frame: 0, scale: 1, x: 0, y: 0 }, { frame: 179, scale: 1.06, x: 120, y: -40 }];
+    const agents = fakeAgents({ director: async () => ({ output: { ...directorOutput(), spec: { ...directorOutput().spec, camera } } }) });
+    const { job } = await runJob({ agents });
+    expect(job.status).toBe("completed");
+    const qa = agents.tasks.find((t) => t.role === "visual_qa")!;
+    const brief = JSON.parse(readFileSync(join(qa.workdir, "brief.json"), "utf8"));
+    expect(brief.prompt).toBe("Рост пользователей");
+    expect(brief.camera.keys).toEqual(camera);
+    expect(brief.camera.note).toMatch(/камер/);
+    expect(readFileSync(join(qa.workdir, "checklist.md"), "utf8")).toMatch(/brief\.json.*camera[^]*не скачок раскладки/);
+  });
+});
+
 describe("playgroundGenerate: неудачи по этапам", () => {
   it("Concept вернул невалидный ответ → failed, failure.stage concept; Director не вызван", async () => {
     const agents = fakeAgents({ concept: async () => ({ status: "failed", output: undefined, error: { kind: "schema", message: "structured_output не прошёл схему" } }) });

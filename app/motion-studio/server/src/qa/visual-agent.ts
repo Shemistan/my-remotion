@@ -35,6 +35,21 @@ export type VisualQAResult = AgentResult<VisualQAOutput> & { wallMs: number };
 
 const json = (v: unknown) => JSON.stringify(v, null, 2) + "\n";
 
+/**
+ * Камера сцены для brief.json Visual QA: ключи spec (`frame`, `scale`, `x`, `y`). Наезд или
+ * сдвиг камеры двигает весь кадр между QA-кадрами — без ключей агент принимает зум за
+ * «скачок раскладки».
+ */
+export function cameraBrief(spec: MotionSpec): { keys: NonNullable<MotionSpec["camera"]>; note: string } {
+  const keys = spec.camera ?? [];
+  return {
+    keys,
+    note: keys.length > 0
+      ? "Ключи камеры: между ними весь кадр плавно масштабируется (scale) и сдвигается (x, y, px от центра). Общий сдвиг и рост всех элементов между кадрами — движение камеры, не скачок раскладки."
+      : "Камера не движется: общий сдвиг или масштаб кадра между кадрами — брак.",
+  };
+}
+
 /** Чек-лист вызова: кадры и элементы спецификации, которые агент обязан найти. */
 export function qaChecklist(frames: number[], spec: MotionSpec): string {
   const beatsOf = (id: string) => spec.beats.filter((b) => b.element_ids.includes(id)).map((b) => `${b.id} [${b.start_frame}–${b.end_frame})`);
@@ -65,6 +80,9 @@ export function qaChecklist(frames: number[], spec: MotionSpec): string {
     "- контраст и размер текста;",
     "- разные входы у разных элементов, ритм битов по кадрам;",
     "- смысл запроса (`brief.json`) и стиль (`style.json`);",
+    ...(spec.camera && spec.camera.length > 0
+      ? [`- камера (\`brief.json\` → \`camera\`): ключи ${spec.camera.map((k) => `${k.frame}: ×${k.scale}`).join(", ")} — общий масштаб и сдвиг кадра по ним не скачок раскладки;`]
+      : []),
     "- каждое число и подпись на кадре — в `ocr` этого кадра дословно.",
     "",
   ].join("\n");

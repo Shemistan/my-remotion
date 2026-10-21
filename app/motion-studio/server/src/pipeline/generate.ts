@@ -42,6 +42,7 @@ import { type StepRef } from "./checkpoints.js";
 import { type DraftFiles, type Exit, type LoopState, type RenderRecord, type VisualQaRun, type ZoneDiff, describeDiff, diffSnapshots, runFixLoop, snapshotOutsideZone } from "./fix-loop.js";
 import { type KnowledgeSource, SKILLS_REL, filterSelection, knowledgeRefs, prepareRefs, topPatterns } from "./refs.js";
 import { selectQaFrames } from "./qa-frames.js";
+import { cameraBrief } from "../qa/visual-agent.js";
 import { renderEnv } from "./render-env.js";
 import { type AgentRunRecord, RunCtx, clip, directorStep, errText, isStorageError, scenePropsStyle, sceneStyle } from "./steps.js";
 import { PROMPTS_DIR } from "../agents/prompts.js";
@@ -322,7 +323,7 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
     return runFixLoop(
       {
         rc: ctx, deps, draftDir, cacheDir, settings, spec: spec!, refs, frames, files,
-        ...(req.qa ? { qa: { brief: { prompt, settings }, allowRestricted: req.qa.allowRestricted } } : {}),
+        ...(req.qa ? { qa: { brief: { prompt, settings, camera: cameraBrief(spec!) }, allowRestricted: req.qa.allowRestricted } } : {}),
         progress: deps.progress,
       },
       state,
