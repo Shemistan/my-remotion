@@ -2,7 +2,9 @@
 import type { QAIssue } from "@ms/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { programmaticChecks } from "../../src/qa/programmatic.js";
-import { Canvas, H, W, beat, card, makeTmp, removeTmp, solid, spec, style, withFrames } from "./helpers.js";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { Canvas, H, W, beat, card, el, makeTmp, removeTmp, solid, spec, style, withFrames } from "./helpers.js";
 
 let tmp: string;
 beforeEach(async () => (tmp = await makeTmp()));
@@ -174,5 +176,44 @@ describe("крупные объекты у края", () => {
     const r = await run(big((c) => c.rect(300, 350, 300, 180, "#e0e0e0"))); // низ 530 < 540, поле с 513
     expect(issues(r)).not.toContain("clipping");
     expect(r).toContainEqual(expect.objectContaining({ code: "safe_area", severity: "warning" }));
+  });
+
+  describe("accent_static: финальный акцент жив (кадры N−20 и N−1)", () => {
+    // акцент — бейдж в центре safe area (поля 5 %): регион в px ≈ x 67–125, y 34–74
+    const sp = () => spec({
+      beats: [beat("b0", 0, 60, ["title"]), beat("b1", 60, 90, ["badge"], "final-emphasis"), beat("b2", 90, 120, ["badge", "title"], "hold")],
+      elements: [el("title", { layout: { x: 0, y: 0, w: 0.4, h: 0.1 } }), el("badge", { kind: "card", role: "акцент: итог", entrance: "scale", layout: { x: 0.35, y: 0.3, w: 0.3, h: 0.4 } })],
+    });
+    async function run(a: Canvas, b: Canvas, s = sp()) {
+      const input = await withFrames(tmp, [card()], { spec: s, at: [100] });
+      const pair = [];
+      for (const [frame, c] of [[100, a], [119, b]] as const) {
+        const path = join(tmp, `hold-${frame}.png`);
+        await writeFile(path, c.png());
+        pair.push({ frame, path });
+      }
+      return programmaticChecks({ ...input, accentFrames: pair });
+    }
+
+    it("регион акцента не меняется между N−20 и N−1 — warning с кадром N−1 и id элемента", async () => {
+      const r = await run(card(), card());
+      expect(find(r, "accent_static")).toEqual([expect.objectContaining({ severity: "warning", frame: 119, area: "badge" })]);
+    });
+
+    it("регион акцента дышит (свечение ярче) — замечания нет; изменения вне региона не в счёт", async () => {
+      expect(find(await run(card(), card(0, "#ffffff")), "accent_static")).toEqual([]);
+      const outside = card().rect(0, 90, 30, 10, "#ffffff");
+      expect(find(await run(card(), outside), "accent_static")).toHaveLength(1);
+    });
+
+    it("акцента нет на последнем кадре (ушёл раньше) или кадров пары нет — проверки нет", async () => {
+      const gone = spec({
+        beats: [beat("b0", 0, 60, ["title"]), beat("b1", 60, 90, ["badge"], "final-emphasis"), beat("b2", 90, 120, ["title"], "hold")],
+        elements: [el("title", { layout: { x: 0, y: 0, w: 0.4, h: 0.1 } }), el("badge", { kind: "card", role: "акцент: итог", layout: { x: 0.35, y: 0.3, w: 0.3, h: 0.4 } })],
+      });
+      expect(find(await run(card(), card(), gone), "accent_static")).toEqual([]);
+      const input = await withFrames(tmp, [card()], { spec: sp(), at: [100] });
+      expect(find(await programmaticChecks(input), "accent_static")).toEqual([]);
+    });
   });
 });

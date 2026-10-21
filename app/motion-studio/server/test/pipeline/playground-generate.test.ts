@@ -166,6 +166,23 @@ describe("playgroundGenerate: счётчик за головой линии", ()
   });
 });
 
+describe("playgroundGenerate: финальный акцент жив", () => {
+  it("рендерится кадр N−20 для проверки accent_static, но в QA-кадры и версию не попадает", async () => {
+    const fr = fakeRender({ png: true });
+    const agents = fakeAgents({});
+    const { job, scene } = await runJob({ render: fr.render, agents });
+    expect(job.status).toBe("completed");
+    const n = settings.duration_frames;
+    expect(fr.calls[0]!.stills).toContain(n - 20);
+    const [v] = versionRows(scene.id);
+    const m = await readVersion(join(env.s.root, v!.path));
+    expect(m.qa_frames).not.toContain(n - 20);
+    expect(m.qa_frames_sha256).toHaveLength(m.qa_frames.length);
+    expect(readdirSync(join(env.s.root, v!.path, "frames")).sort()).toEqual(m.qa_frames.map((f) => `${f}.png`).sort());
+    expect(String(agents.tasks.find((t) => t.role === "visual_qa")!.input)).not.toContain(`frames/${n - 20}.png`);
+  });
+});
+
 describe("playgroundGenerate: Visual QA видит камеру", () => {
   it("ключи камеры spec — в brief.json Visual QA и в чек-листе: зум — не скачок раскладки", async () => {
     const camera = [{ frame: 0, scale: 1, x: 0, y: 0 }, { frame: 179, scale: 1.06, x: 120, y: -40 }];

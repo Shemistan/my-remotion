@@ -3,7 +3,7 @@
 // контраст, сеть.
 import type { MotionSpec, QAIssue, Settings } from "@ms/contracts";
 import { type RenderResult, type ResolvedStyle, contrastRatio, safeRect } from "@ms/render";
-import { blankCheckFrom, inBeat } from "../pipeline/qa-frames.js";
+import { accentBeat, blankCheckFrom, inBeat, isEmphasisRole } from "../pipeline/qa-frames.js";
 import { EDGES, type Edge, type Img, INK_THRESHOLD, backgroundEstimate, edgeBackground, edgeClip, loadPng, lumaStats, objectDelta } from "./image.js";
 
 export interface ProgrammaticInput {
@@ -13,10 +13,19 @@ export interface ProgrammaticInput {
   style: ResolvedStyle;
   render: RenderResult;
   previewBytes: number;
+  /**
+   * Кадры N−20 и N−1 (рендерятся рядом с QA-кадрами): финальный акцент жив — яркость его
+   * региона между ними меняется. Нет пары — проверки нет.
+   */
+  accentFrames?: { frame: number; path: string }[];
 }
 
 /** Однотонный кадр: std яркости Y' ниже. */
 export const BLANK_STD = 0.01;
+/** Финальный акцент застыл: средняя |ΔY'| региона акцента между N−20 и N−1 ниже. */
+export const ACCENT_ALIVE_DELTA = 0.003;
+/** Кадр отступа от конца для проверки «акцент жив». */
+export const ACCENT_HOLD_GAP = 20;
 /** Кадры совпадают: изменение объектов ниже. */
 export const FROZEN_DELTA = 0.002;
 /** Доля длины края под «сплошными» чернилами, с которой объект считается обрезанным. */
@@ -65,6 +74,10 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
   });
 
   out.push(...frozenIssues(frames.map((f) => f.frame), imgs, beatsAt));
+  if (input.accentFrames && input.accentFrames.length === 2) {
+    const [a, b] = [...input.accentFrames].sort((x, y) => x.frame - y.frame) as [{ frame: number; path: string }, { frame: number; path: string }];
+    out.push(...accentAliveIssues(input.spec, input.settings, [a.frame, await loadPng(a.path)], [b.frame, await loadPng(b.path)]));
+  }
   out.push(...contrastIssues(input.style));
   out.push(...logIssues(input.render.browserLogs));
   if (input.previewBytes === 0) {
@@ -171,6 +184,50 @@ function exposedIssues(img: Img, frame: number): Issue[] {
     description: `кадр ${frame}: у края кадра (${open.join(", ")}) пусто — сцена сдвинута и открыла край (в превью — чёрные полосы)`,
     fix_hint: "фон должен покрывать весь кадр на каждом кадре: камера — только <Camera> kit (панорама в запасе наезда), без своих translate/scale корня; фон — <Background> во весь кадр",
   }];
+}
+
+/**
+ * Финальный акцент жив (ТЗ: в конце — успокоение, но не стоп-кадр): элементы акцента (роль
+ * emphasis/accent/акцент, иначе элементы бита акцента) с layout, видимые на последнем
+ * кадре; средняя |ΔY'| их региона между N−20 и N−1 ниже порога у всех — warning.
+ */
+function accentAliveIssues(spec: MotionSpec, settings: Settings, [fa, a]: [number, Img], [fb, b]: [number, Img]): Issue[] {
+  if (a.width !== b.width || a.height !== b.height) return [];
+  const dur = spec.duration_frames;
+  const byRole = spec.elements.filter((e) => isEmphasisRole(e.role));
+  const accent = byRole.length > 0 ? byRole : spec.elements.filter((e) => accentBeat(spec)?.element_ids.includes(e.id));
+  const visible = accent.filter((e) => e.layout && e.layout.w * e.layout.h < 0.9 && spec.beats.some((x) => x.element_ids.includes(e.id) && inBeat(x, fb, dur)));
+  if (visible.length === 0) return [];
+  const { x: sx, y: sy } = settings.safe_area;
+  const deltas = visible.map((e) => {
+    const l = e.layout!;
+    const x0 = Math.max(0, Math.floor((sx + l.x * (1 - 2 * sx)) * a.width));
+    const y0 = Math.max(0, Math.floor((sy + l.y * (1 - 2 * sy)) * a.height));
+    const x1 = Math.min(a.width, Math.ceil((sx + (l.x + l.w) * (1 - 2 * sx)) * a.width));
+    const y1 = Math.min(a.height, Math.ceil((sy + (l.y + l.h) * (1 - 2 * sy)) * a.height));
+    return { id: e.id, d: regionLumaDelta(a, b, x0, y0, x1, y1) };
+  });
+  if (deltas.some((x) => x.d >= ACCENT_ALIVE_DELTA)) return [];
+  return [{
+    code: "accent_static", severity: "warning", frame: fb, area: visible.map((e) => e.id).join(", "),
+    description: `финальный акцент застыл: регион ${visible.map((e) => e.id).join(", ")} на кадрах ${fa} и ${fb} почти не меняется (|ΔY'| ${Math.max(...deltas.map((x) => x.d)).toFixed(4)} < ${ACCENT_ALIVE_DELTA})`,
+    fix_hint: "финальное состояние живёт до последнего кадра: дыхание свечения, пульс или блик на акценте — движение, подтверждающее итог",
+  }];
+}
+
+/** Средняя |ΔY'| пикселей прямоугольника [x0, x1) × [y0, y1) двух кадров, 0..1. */
+function regionLumaDelta(a: Img, b: Img, x0: number, y0: number, x1: number, y1: number): number {
+  const luma = (d: Uint8Array, i: number) => ((0.2126 * d[i]! + 0.7152 * d[i + 1]! + 0.0722 * d[i + 2]!) / 255) * (d[i + 3]! / 255);
+  let sum = 0;
+  let n = 0;
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const i = (y * a.width + x) * 4;
+      sum += Math.abs(luma(a.data, i) - luma(b.data, i));
+      n++;
+    }
+  }
+  return n > 0 ? sum / n : 0;
 }
 
 /**

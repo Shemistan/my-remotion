@@ -5,7 +5,7 @@
 // проверки, проверки spec, Visual QA; исправление вызывают только blocking-замечания,
 // warnings идут Engineer подсказками вместе с ними, но цикл не запускают.
 import { existsSync } from "node:fs";
-import { readFile, readdir, readlink, stat, writeFile } from "node:fs/promises";
+import { readFile, readdir, readlink, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import {
   type EngineerReport,
@@ -22,7 +22,7 @@ import {
   type Settings,
 } from "@ms/contracts";
 import { type RenderRequest, type RenderResult, type renderVersion, probeGate } from "@ms/render";
-import { programmaticChecks } from "../qa/programmatic.js";
+import { ACCENT_HOLD_GAP, programmaticChecks } from "../qa/programmatic.js";
 import { fixHints, mergeQA, qaBlocks } from "../qa/report.js";
 import { specChecks } from "../qa/spec-checks.js";
 import { runVisualQA } from "../qa/visual-agent.js";
@@ -115,6 +115,12 @@ export interface LoopState {
   /** `props.style` после нормализации (для style.json). */
   style?: ScenePropsStyle;
   deniedLog: unknown[];
+}
+
+/** Кадр N−20 для проверки «финальный акцент жив», если его нет среди QA-кадров (N−1 там всегда). */
+function accentExtra(durationFrames: number, frames: number[]): number[] {
+  const f = durationFrames - ACCENT_HOLD_GAP;
+  return f > 0 && !frames.includes(f) ? [f] : [];
 }
 
 /** Зона Engineer в draft: `src/**` и `props.json`. Всё остальное — файлы пайплайна. */
@@ -380,8 +386,10 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
     if (rp) return failed("storage", rp);
     i.progress?.(0.55, "render");
     rc.log(`рендер: кадры ${frames.join(", ")} + превью…`);
+    // кадр N−20 для «финальный акцент жив» (accent_static) — только для программной проверки
+    const extra = i.qa ? accentExtra(settings.duration_frames, frames) : [];
     const req: RenderRequest = {
-      versionDir: draftDir, settings, cacheDir: i.cacheDir, stills: frames, preview: PREVIEW, timeoutMs: RENDER_TIMEOUT_MS,
+      versionDir: draftDir, settings, cacheDir: i.cacheDir, stills: [...frames, ...extra], preview: PREVIEW, timeoutMs: RENDER_TIMEOUT_MS,
       run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry },
     };
     const t0 = Date.now();
@@ -414,7 +422,7 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
     }
     const ms = Date.now() - t0;
     state.renders.push(
-      { kind: "still", frames: rr.stills.length, width: settings.width, height: settings.height, fps: settings.fps, outputPath: join(draftDir, "frames"), durationMs: ms },
+      { kind: "still", frames: req.stills.length, width: settings.width, height: settings.height, fps: settings.fps, outputPath: join(draftDir, "frames"), durationMs: ms },
       { kind: "preview", frames: settings.duration_frames, width: rr.probe.width, height: rr.probe.height, fps: settings.fps, outputPath: rr.previewPath, ffprobe: rr.probe, durationMs: ms },
     );
     const gate = probeGate(rr.probe, settings, PREVIEW.scale);
@@ -427,7 +435,7 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
     // QA по реальным кадрам (Task 16)
     if (i.qa) {
       i.progress?.(0.7, "qa");
-      const q = await runQa(i, state, rr, techWarnings, call);
+      const q = await runQa(i, state, rr, techWarnings, call, extra);
       if ("exit" in q) return q.exit;
       lastQa = q.report;
       if (qaBlocks(q.report)) {
@@ -439,7 +447,7 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
     }
 
     const framesSha: string[] = [];
-    for (const s of rr.stills) framesSha.push(await sha256File(s));
+    for (const s of rr.stills.slice(0, frames.length)) framesSha.push(await sha256File(s));
     const previewSha = await sha256File(rr.previewPath);
     rc.note("ready", `gate пройден с вызова ${call}`);
     return { ok: true, previewSha, framesSha, ...(lastQa ? { qa: lastQa } : {}) };
@@ -453,12 +461,19 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
 }
 
 /** Программные проверки, проверки spec и Visual QA по кадрам рендера → QAReport (или выход). */
-async function runQa(i: LoopInput, state: LoopState, rr: RenderResult, techWarnings: QAIssue[], call: number): Promise<{ report: QAReport } | { exit: Exit }> {
+async function runQa(i: LoopInput, state: LoopState, rr: RenderResult, techWarnings: QAIssue[], call: number, extra: number[]): Promise<{ report: QAReport } | { exit: Exit }> {
   const { rc, settings, spec, frames, draftDir } = i;
   const style = sceneStyle(state.style ?? scenePropsStyle(settings), settings);
-  const stills = frames.map((f, k) => ({ frame: f, path: rr.stills[k]! }));
+  const all = [...frames, ...extra].map((f, k) => ({ frame: f, path: rr.stills[k]! }));
+  const stills = all.slice(0, frames.length);
+  const end = settings.duration_frames;
+  const pair = [end - ACCENT_HOLD_GAP, end - 1].flatMap((f) => all.filter((x) => x.frame === f && x.path !== undefined).slice(0, 1));
   const previewBytes = rr.previewPath ? (await stat(rr.previewPath)).size : 0;
-  const programmatic = await rc.timed("qa_programmatic", () => programmaticChecks({ frames: stills, spec, settings, style, render: rr, previewBytes }));
+  const programmatic = await rc.timed("qa_programmatic", () =>
+    programmaticChecks({ frames: stills, spec, settings, style, render: rr, previewBytes, ...(pair.length === 2 ? { accentFrames: pair } : {}) }),
+  );
+  // лишний кадр — не QA-кадр: Visual QA его не видит, в версию он не публикуется
+  for (const x of all.slice(frames.length)) if (x.path) await rm(x.path, { force: true });
   const fromSpec = specChecks(spec, settings);
 
   // ruling P5: QA по реальным кадрам обязателен. Бюджет кончился до Visual QA — `budget`;
