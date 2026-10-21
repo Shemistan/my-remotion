@@ -5,7 +5,7 @@ import type { Beat } from "@ms/contracts";
 import type { CSSProperties } from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { EASE, frames, springAt } from "../easing.js";
-import { formatNumber } from "../format.js";
+import { type PluralForms, formatNumber, pluralForm } from "../format.js";
 import { CLAMP, clamp01, ramp } from "../internal.js";
 import { useStyle } from "../style.js";
 import { type TypeLevel, sizePx } from "../style/type-scale.js";
@@ -17,7 +17,8 @@ export interface AnimatedNumberProps {
   beat: Pick<Beat, "start_frame" | "end_frame">;
   locale: "ru" | "en";
   prefix?: string;
-  suffix?: string;
+  /** Подпись после числа; массив — формы по числу (ru: «релиз», «релиза», «релизов»; en: one, other), см. pluralForm. */
+  suffix?: string | PluralForms;
   compact?: boolean;
   decimals?: number;
   /**
@@ -66,6 +67,7 @@ export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact
   const value = bound ?? from + (to - from) * p;
   const fmt = { locale, compact, decimals };
   const text = formatNumber(value, fmt);
+  const suf = suffix === undefined || typeof suffix === "string" ? suffix : pluralForm(value, suffix, fmt);
   const ghost = formatNumber(Math.abs(to) >= Math.abs(from) ? to : from, fmt);
 
   const enter = springAt(frame, fps, s, Math.min(enterAt ?? b0, b0), "snappy");
@@ -111,7 +113,7 @@ export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact
       ) : (
         <span style={{ filter: digitBlur }}>{text}</span>
       )}
-      {suffix ? <span style={affix}>{suffix}</span> : null}
+      {suf ? <span style={affix}>{suf}</span> : null}
     </div>
   );
 }

@@ -69,3 +69,20 @@ describe("accentPulse", () => {
     expect(at(300, { loop: false }).ripple).toBe(-1);
   });
 });
+
+describe("emphasisRingRadius: кольцо Emphasis повторяет скругление цели", () => {
+  it("rounded: радиус цели + отступ кольца (концентрично), по умолчанию — радиус карточки стиля", async () => {
+    const { emphasisRingRadius } = await import("../../src/motion-kit/components/Emphasis.js");
+    expect(emphasisRingRadius("rounded", st, 4, 24)).toBe(28);
+    expect(emphasisRingRadius("rounded", st, 30, 24)).toBe(54);
+    const card = st.surfaces.radius[2]!;
+    expect(card).toBeGreaterThan(8);
+    expect(emphasisRingRadius("rounded", st, 4)).toBe(card + 4);
+  });
+
+  it("pill и circle — не зависят от радиуса цели", async () => {
+    const { emphasisRingRadius } = await import("../../src/motion-kit/components/Emphasis.js");
+    expect(emphasisRingRadius("pill", st, 4, 24)).toBe(999);
+    expect(emphasisRingRadius("circle", st, 4)).toBe("50%");
+  });
+});

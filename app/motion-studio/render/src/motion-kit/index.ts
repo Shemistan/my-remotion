@@ -25,7 +25,7 @@ export { edgeDelay, kineticStep, typeRhythm } from "./choreo/rhythm.js";
 export { gridColumns, layoutLayered } from "./choreo/layout.js";
 export { type BeatPhase, type BeatState, type BeatWindow, beatPhase, beatProgress, useBeat } from "./beat.js";
 export { EASE, type EasingFn, type EasingRole, type SpringRole, easingOf, fpsFrames, frames, springAt, springConfig } from "./easing.js";
-export { type FormatOptions, formatNumber } from "./format.js";
+export { type FormatOptions, type PluralForms, formatNumber, pluralForm } from "./format.js";
 export { niceTicks } from "./ticks.js";
 export { barLayout } from "./bars.js";
 export { type CodeFragment, type CodeLang, type CodeToken, type TokenKind, caretLine, codeLines, tokenizeCode, typedTokens } from "./code-tokens.js";

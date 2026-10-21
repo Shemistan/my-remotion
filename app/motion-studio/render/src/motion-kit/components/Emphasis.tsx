@@ -2,13 +2,13 @@
 // свечение по контуру цели, мягкий ореол <Halo> за ней и кольцо, расходящееся от
 // неё. Заменяет ручные рецепты glow (`box-shadow`, `radial-gradient` вокруг блока).
 // <Halo> — отдельный ореол: равные поля со всех сторон, гауссов спад до прозрачного края.
-import type { Beat } from "@ms/contracts";
+import type { Beat, StyleBible } from "@ms/contracts";
 import type { CSSProperties, ReactNode } from "react";
 import { useCurrentFrame } from "remotion";
 import { type AccentPulse, type AccentPulseOptions, accentPulse } from "../choreo/accent.js";
 import { clamp01 } from "../internal.js";
 import { useStyle } from "../style.js";
-import { accent, alpha, isDark, mix } from "../tokens.js";
+import { accent, alpha, isDark, mix, radius as radiusOf } from "../tokens.js";
 
 /** Акцент в текущем кадре (хук): то же, что accentPulse(frame, style, opts). */
 export function useAccentPulse(beat: Pick<Beat, "start_frame" | "end_frame">, opts: Omit<AccentPulseOptions, "beat"> = {}): AccentPulse {
@@ -75,6 +75,8 @@ export interface EmphasisProps {
   ring?: boolean;
   /** Скругление кольца: pill — капсула (по умолчанию), rounded — карточка, circle — круг. */
   shape?: "pill" | "rounded" | "circle";
+  /** `rounded`: радиус углов цели, px (по умолчанию — радиус карточки стиля); кольцо идёт концентрично. */
+  radius?: number;
   /** Поля ореола за блок цели (см. Halo); em — от кегля самого Emphasis (наследуется). */
   spread?: number | string;
   /** Размах масштаба (по умолчанию 1). */
@@ -84,7 +86,15 @@ export interface EmphasisProps {
   style?: CSSProperties;
 }
 
-const RADIUS = { pill: 999, rounded: "0.35em", circle: "50%" } as const;
+/**
+ * Скругление кольца, отошедшего от кромки цели на `offset` px: у `rounded` — радиус цели
+ * плюс отступ (концентрично углам карточки, без острых углов), у `pill` и `circle` — свои.
+ */
+export function emphasisRingRadius(shape: NonNullable<EmphasisProps["shape"]>, s: StyleBible, offset: number, target?: number): number | string {
+  if (shape === "circle") return "50%";
+  if (shape === "pill") return 999;
+  return (target ?? radiusOf(s, 2)) + offset;
+}
 
 /**
  * Акцент на цели: короткий удар масштаба и вспышка свечения в начале бита, затем
@@ -92,7 +102,7 @@ const RADIUS = { pill: 999, rounded: "0.35em", circle: "50%" } as const;
  * и до конца сцены при `loop`. Один акцент в момент: не ставь два Emphasis с
  * перекрывающимися битами.
  */
-export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, halo = true, ring = true, shape = "pill", spread, strength, display = "inline-block", style }: EmphasisProps) {
+export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, halo = true, ring = true, shape = "pill", radius, spread, strength, display = "inline-block", style }: EmphasisProps) {
   const s = useStyle();
   const dark = isDark(s);
   const col = color ?? accent(s, accentIndex);
@@ -100,6 +110,7 @@ export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, 
   const glow = p.level > 0.005;
   // кольцо: отходит от кромки цели на 4 → 30 px с торможением и гаснет
   const rp = p.ripple >= 0 ? 1 - (1 - p.ripple) ** 3 : 0;
+  const offset = Number((4 + 26 * rp).toFixed(3));
   const filter = glow
     ? `drop-shadow(0 0 ${(0.16 * p.level).toFixed(3)}em ${alpha(col, (dark ? 0.75 : 0.45) * p.level)}) brightness(${(1 + 0.18 * p.strike).toFixed(4)})`
     : undefined;
@@ -111,8 +122,8 @@ export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, 
           aria-hidden
           style={{
             position: "absolute",
-            inset: Number((-4 - 26 * rp).toFixed(3)),
-            borderRadius: RADIUS[shape],
+            inset: -offset,
+            borderRadius: emphasisRingRadius(shape, s, offset, radius),
             border: `2px solid ${alpha(col, 0.75 * (1 - p.ripple) * p.rippleAlpha)}`,
             boxShadow: `0 0 12px ${alpha(col, 0.35 * (1 - p.ripple) * p.rippleAlpha)}`,
             pointerEvents: "none",

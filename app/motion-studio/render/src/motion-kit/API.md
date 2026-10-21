@@ -241,12 +241,16 @@ align?, maxWidth?, lineHeight?, delay?, stagger?, exit?, caps?, style? }`
 ```
 
 ### AnimatedNumber
-`{ from, to, beat, locale: "ru" | "en", prefix?, suffix?, compact?, decimals?, size?: TypeLevel | number = 7,
+`{ from, to, beat, locale: "ru" | "en", prefix?, suffix?: string | PluralForms, compact?, decimals?, size?: TypeLevel | number = 7,
 font? = "display" | "mono", reserveWidth?, color?, align?, style?, value?, enterAt? }`
 
 `size` — как у KineticText: уровень шкалы от высоты кадра (`"display"`, `"h1"`, `"h2"`,
 `"body"`, `"caption"` — одинаково в 16:9, 9:16 и 1:1), шаг шкалы v0.1 (0..8) или кегль в
 px (> 8). Герой-число — `size="display"`.
+
+`suffix` массивом — формы существительного по числу: `suffix={[" релиз", " релиза", " релизов"]}`
+(en — `[one, other]`); форма меняется вместе с показанным значением («1 релиз», «2 релиза»,
+«48 релизов»). Подпись со словом, согласованным с числом, — только так, не строкой.
 
 `value` — внешнее значение вместо своего счёта: привязка к другому источнику движения
 (см. `lineChartHead`). Удар на финише остаётся в `end_frame` бита.
@@ -397,7 +401,7 @@ height? = 600, accentIndex? = 0 }`
 
 ### Emphasis / Halo / useAccentPulse
 `<Emphasis beat loop? = true accentIndex? = 0 color? halo? = true ring? = true shape? = "pill"
-spread? strength? = 1 display? = "inline-block" style?>цель</Emphasis>`
+radius? spread? strength? = 1 display? = "inline-block" style?>цель</Emphasis>`
 
 Акцент на цели — слове, числе, плашке, карточке. Один характер у всех акцентов kit
 (`accentPulse`): короткий **удар** в `start_frame` (масштаб +6 % × амплитуда, вспышка
@@ -410,6 +414,12 @@ spread? strength? = 1 display? = "inline-block" style?>цель</Emphasis>`
 ореола не рисуй.
 
 - `shape` — скругление кольца: `pill` (слово, плашка), `rounded` (карточка), `circle`.
+- `radius` — у `rounded`: радиус углов цели в px (по умолчанию — радиус карточки стиля,
+  `radius(s, 2)`). Кольцо идёт концентрично: его радиус = радиус цели + отступ от кромки,
+  углы не острые. Оверлей поверх узла `FlowGraph` — передай радиус узла.
+- Цель — **реальный объект**: не пустой блок-область. Примитив со своим акцентом
+  (`Timeline highlightLast`, `LineChart endpointEmphasis`, `FlowNode flash`) в `Emphasis`
+  не оборачивай — второй акцент поверх первого.
 - `spread` — поля ореола за блок цели, равные со всех сторон: px или CSS-длина; `em` —
   от кегля самого `Emphasis` (наследуется). Если кегль задан внутри цели — передай px.
 - `ring={false}` — без колец (тихий акцент текста), `halo={false}` — без ореола.
@@ -623,6 +633,7 @@ reverse? }`
 | `fpsFrames(style, n)` | константа при 30 fps → кадры при fps сцены, без интенсивности (ритмы вроде мигания) |
 | `staggerBeat(beat, index, total, stagger)` | окно элемента каскада: старт + index × stagger, разбег ≤ половины бита |
 | `formatNumber(v, { locale, compact?, decimals? })` | `1 000 000`, `10,000`, `12,5 тыс.`, `2.4B`. Минус — U+2212, в ru 4-значные числа без пробела |
+| `pluralForm(v, forms, { locale, compact?, decimals? })` | форма слова при числе: ru `[«релиз», «релиза», «релизов»]` → «1 релиз», «2 релиза», «5 релизов», «21 релиз»; дробное — «2,5 релиза»; en `[one, other]` |
 | `accent(style, i)`, `alpha(c, a)`, `mix(a, b, t)`, `shadow(style, e)`, `radius`, `space`, `typeSize`, `fontFamily`, `contrastRatio` | токены StyleBible |
 | `pathLUT(segments, samples)`, `pointAtLength(lut, s)`, `smoothSegments(points)`, `edgeSegment(a, b)`, `pathD(segments)` | геометрия путей без DOM |
 | `niceTicks(min, max, count)` | «круглые» деления оси (1/2/5 × 10^k), покрывающие диапазон |
