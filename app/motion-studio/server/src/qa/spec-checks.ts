@@ -1,7 +1,7 @@
 // Проверки спецификации без рендера (ТЗ §8.1–8.2): одинаковые входы, перекрытия по
 // layout, safe area, наличие акцента. `layout` элемента — доли safe area, а не кадра
 // (prompts/motion-director.md §8): в кадр он переводится через safeRect настроек.
-import type { Element, MotionSpec, QAIssue, Settings } from "@ms/contracts";
+import type { Beat, Element, MotionSpec, QAIssue, Settings } from "@ms/contracts";
 import { boundCounters } from "../pipeline/bound-counters.js";
 import { ACCENT_ACTION, isEmphasisRole } from "../pipeline/qa-frames.js";
 
@@ -92,6 +92,8 @@ export function specChecks(spec: MotionSpec, settings: Settings): QAIssue[] {
     }
   }
 
+  out.push(...accentConflicts(spec));
+
   if (!spec.elements.some((e) => isEmphasisRole(e.role)) && !spec.beats.some((b) => ACCENT_ACTION.test(b.action))) {
     out.push({
       code: "no_emphasis", severity: "warning",
@@ -101,3 +103,73 @@ export function specChecks(spec: MotionSpec, settings: Settings): QAIssue[] {
   }
   return out.map((i) => ({ source: "programmatic", ...i }));
 }
+
+/** Вспышка узла FlowGraph (nodeFlash): удар за кадр до прихода, гаснет за ~22 кадра при 30 fps. */
+const FLASH_FRAMES_30 = 22;
+/** Перекрытие короче — касание при передаче акцента, не конфликт. */
+const CONFLICT_MIN_FRAMES = 3;
+/** Бит импульса по ребру: по нему считается кадр прихода, если в flash_on нет id бита. */
+const PULSE_ACTION = /pulse|flow|signal|импульс|поток/i;
+
+interface AccentWindow { id: string; from: number; to: number; what: string }
+
+/**
+ * Один акцент в момент (prompts/motion-director.md §6): вспышка узла по приходу импульса
+ * (`content.flash_on`) и бит акцента (`emphasis`/`accent` в action) другого объекта, или два
+ * бита акцента разных объектов, перекрываются по кадрам — blocking: Director разводит их.
+ */
+function accentConflicts(spec: MotionSpec): Omit<QAIssue, "source">[] {
+  const fps = spec.fps.num / spec.fps.den;
+  const flashLen = Math.round((FLASH_FRAMES_30 * fps) / 30);
+  const byId = new Map(spec.elements.map((e) => [e.id, e]));
+
+  // акценты битов: цели — элементы бита с ролью акцента, иначе все элементы бита
+  const emph = spec.beats
+    .filter((b) => ACCENT_ACTION.test(b.action))
+    .map((b) => {
+      const marked = b.element_ids.filter((id) => isEmphasisRole(byId.get(id)?.role ?? ""));
+      return { beat: b, ids: marked.length > 0 ? marked : b.element_ids };
+    });
+
+  // вспышки: кадр прихода — конец бита импульса (id бита в flash_on или единственный бит узла с импульсом)
+  const flashes: AccentWindow[] = [];
+  for (const e of spec.elements) {
+    const raw = (e.content as Record<string, unknown> | undefined)?.flash_on;
+    const refs = (Array.isArray(raw) ? raw : raw === undefined ? [] : [raw]).filter((x): x is string => typeof x === "string");
+    for (const ref of refs) {
+      const named = spec.beats.filter((b) => new RegExp(`(^|[^\\w-])${escapeRe(b.id)}($|[^\\w-])`).test(ref));
+      // без id бита — только однозначный бит импульса узла: blocking не ставится наугад
+      const pulses = spec.beats.filter((b) => b.element_ids.includes(e.id) && PULSE_ACTION.test(b.action));
+      const beats: Beat[] = named.length > 0 ? named : pulses.length === 1 ? pulses : [];
+      for (const b of beats) flashes.push({ id: e.id, from: b.end_frame - 1, to: b.end_frame + flashLen, what: `вспышка ${e.id} (приход импульса бита ${b.id}, кадры ${b.end_frame - 1}–${b.end_frame + flashLen})` });
+    }
+  }
+
+  const overlap = (a: { from: number; to: number }, b: { from: number; to: number }) => Math.min(a.to, b.to) - Math.max(a.from, b.from);
+  const out: Omit<QAIssue, "source">[] = [];
+  for (const f of flashes) {
+    for (const { beat: b, ids } of emph) {
+      if (ids.includes(f.id) || overlap(f, { from: b.start_frame, to: b.end_frame }) < CONFLICT_MIN_FRAMES) continue;
+      out.push({
+        code: "accent_conflict", severity: "blocking", area: `${f.id}, ${ids.join(", ")}`,
+        description: `${f.what} и акцент ${ids.join(", ")} (бит ${b.id}, кадры ${b.start_frame}–${b.end_frame}) светятся одновременно: два акцента в один момент`,
+        fix_hint: `один акцент в момент: если приход импульса отмечает сам ${ids.join(", ")} — убери flash_on у ${f.id}; иначе начни бит ${b.id} не раньше кадра ${f.to}, когда вспышка погаснет`,
+      });
+    }
+  }
+  for (let i = 0; i < emph.length; i++) {
+    for (let j = i + 1; j < emph.length; j++) {
+      const [a, b] = [emph[i]!, emph[j]!];
+      if (a.ids.some((id) => b.ids.includes(id))) continue;
+      if (overlap({ from: a.beat.start_frame, to: a.beat.end_frame }, { from: b.beat.start_frame, to: b.beat.end_frame }) < CONFLICT_MIN_FRAMES) continue;
+      out.push({
+        code: "accent_conflict", severity: "blocking", area: `${a.ids.join(", ")}, ${b.ids.join(", ")}`,
+        description: `биты акцентов ${a.beat.id} (${a.ids.join(", ")}, ${a.beat.start_frame}–${a.beat.end_frame}) и ${b.beat.id} (${b.ids.join(", ")}, ${b.beat.start_frame}–${b.beat.end_frame}) перекрываются: два акцента в один момент`,
+        fix_hint: `передача акцента: бит ${a.beat.id} кончается до старта ${b.beat.id}, у прежнего акцента loop: false`,
+      });
+    }
+  }
+  return out;
+}
+
+const escapeRe = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

@@ -89,3 +89,69 @@ describe("specChecks", () => {
     expect(codes(byAction).map(([c]) => c)).not.toContain("no_emphasis");
   });
 });
+
+describe("accent_conflict: два акцента в один момент", () => {
+  /** Узел user вспыхивает по приходу импульса бита pulse (кончается в `arrive`), плашка — акцент своего бита. */
+  function handoff(arrive: number, emphStart: number, flashOn: string | string[] = "e-req (back, pulse)"): MotionSpec {
+    const beats = [
+      beat("graph-in", 0, 40, ["graph", "user", "orc"]),
+      beat("pulse", arrive - 18, arrive, ["graph", "user", "orc"], "pulse-answer-back"),
+      beat("answer", emphStart, Math.min(180, emphStart + 10), ["answer"], "answer-in-emphasis"),
+      beat("hold", Math.min(179, emphStart + 10), 180, ["answer", "graph"], "final-emphasis-hold"),
+    ];
+    const sp = spec({ beats });
+    sp.duration_frames = 180;
+    sp.elements = [
+      el("graph", { kind: "graph", entrance: "draw", content: {}, layout: { x: 0.3, y: 0.1, w: 0.6, h: 0.5 } }),
+      el("user", { kind: "card", entrance: "slide", content: { flash_on: flashOn }, layout: { x: 0.02, y: 0.1, w: 0.2, h: 0.12 } }),
+      el("orc", { kind: "card", entrance: "pop", content: {}, layout: { x: 0.4, y: 0.2, w: 0.2, h: 0.12 } }),
+      el("answer", { kind: "card", role: "акцент: итог", entrance: "scale", content: {}, layout: { x: 0.02, y: 0.7, w: 0.2, h: 0.1 } }),
+    ];
+    return sp;
+  }
+  const conflict = (sp: MotionSpec) => specChecks(sp, s).find((i) => i.code === "accent_conflict");
+
+  it("вспышка узла по приходу импульса и Emphasis другого объекта перекрываются — blocking", () => {
+    const i = conflict(handoff(152, 148));
+    expect(i).toMatchObject({ severity: "blocking" });
+    expect(i?.area).toContain("user");
+    expect(i?.area).toContain("answer");
+    expect(i?.fix_hint).toMatch(/flash_on/);
+  });
+
+  it("flash_on только с id ребра: бит импульса — бит с узлом и действием pulse", () => {
+    expect(conflict(handoff(152, 148, "e-req"))).toBeDefined();
+  });
+
+  it("акцент стартует после того, как вспышка погасла — нет конфликта", () => {
+    expect(conflict(handoff(120, 150))).toBeUndefined();
+  });
+
+  it("вспышка на самом объекте акцента и веер вспышек по узлам — не конфликт", () => {
+    const sp = handoff(152, 148);
+    sp.elements = sp.elements.map((e) => (e.id === "user" ? { ...e, content: {} } : e.id === "answer" ? { ...e, content: { flash_on: "e-req (back, pulse)" } } : e));
+    expect(conflict(sp)).toBeUndefined();
+    const fan = handoff(120, 160);
+    fan.elements = fan.elements.map((e) => (e.id === "orc" ? { ...e, content: { flash_on: "e-req (back, pulse)" } } : e));
+    expect(conflict(fan)).toBeUndefined();
+  });
+
+  it("два Emphasis на разных объектах с перекрытыми битами — blocking; передача без перекрытия — нет", () => {
+    const two = (bStart: number) => {
+      const sp = spec({ beats: [beat("a", 60, 100, ["x"], "x-emphasis"), beat("b", bStart, 140, ["y"], "y-accent")] });
+      sp.elements = [el("x", { role: "акцент: первое", layout: { x: 0.1, y: 0.1, w: 0.2, h: 0.1 } }), el("y", { role: "акцент: второе", entrance: "fade", layout: { x: 0.5, y: 0.1, w: 0.2, h: 0.1 } })];
+      return sp;
+    };
+    expect(conflict(two(90))).toMatchObject({ severity: "blocking" });
+    expect(conflict(two(100))).toBeUndefined();
+  });
+
+  it("реальные spec прогона 3: test2 и gen-cache — конфликт, остальные — нет", () => {
+    const at = (n: string) => MotionSpecSchema.parse(JSON.parse(readFileSync(fileURLToPath(new URL(`../../../../../docs/evidence/phase-1/pipeline/${n}/spec.json`, import.meta.url)), "utf8")));
+    const st = (n: string) => SettingsSchema.parse(JSON.parse(readFileSync(fileURLToPath(new URL(`../../../../../docs/evidence/phase-1/pipeline/${n}/manifest.json`, import.meta.url)), "utf8")).settings);
+    const has = (n: string) => specChecks(at(n), st(n)).some((i) => i.code === "accent_conflict");
+    expect(has("test2")).toBe(true);
+    expect(has("gen-cache")).toBe(true);
+    for (const n of ["test1", "gen-compare", "gen-timeline"]) expect(has(n), n).toBe(false);
+  });
+});
