@@ -3,8 +3,8 @@
 // sonnet; Director, Engineer — opus по config), реальный рендер Remotion и ffprobe.
 // Промпты — Test 1 и Test 2 из docs/architecture/09-acceptance-tests.md дословно; обе задачи
 // идут параллельно в одном раннере (одно ядро держит owner lock хранилища).
-// Запуск: `make e2e`. Evidence — tmp/generate-evidence/{test1,test2}/; в
-// docs/evidence/phase-1/generate/ — только с MS_WRITE_EVIDENCE=1.
+// Запуск: `make e2e`. Evidence — tmp/pipeline-evidence/{test1,test2}/; в
+// docs/evidence/phase-1/pipeline/ — только с MS_WRITE_EVIDENCE=1.
 import { execFile } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
@@ -32,7 +32,7 @@ const T = 90 * 60_000;
 const DATA_DIR = process.env.MS_DATA_DIR ?? "/Volumes/External SSD/MotionStudio";
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
 // закоммиченное evidence переписывается только явно: иначе каждый `make e2e` менял бы docs/
-const EVIDENCE = process.env.MS_WRITE_EVIDENCE === "1" ? join(REPO, "docs/evidence/phase-1/generate") : join(REPO, "tmp/generate-evidence");
+const EVIDENCE = process.env.MS_WRITE_EVIDENCE === "1" ? join(REPO, "docs/evidence/phase-1/pipeline") : join(REPO, "tmp/pipeline-evidence");
 
 const TEST1 =
   "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении";
@@ -47,6 +47,8 @@ interface Outcome {
   qa: QAReport;
   settings: Settings;
   wallMs: number;
+  /** Версий, опубликованных задачей (попытки не дублируют публикацию). */
+  versions: number;
 }
 
 let core: Core;
@@ -94,10 +96,11 @@ async function generate(name: string, prompt: string): Promise<Outcome> {
     await new Promise((r) => setTimeout(r, 2000));
   }
   const j = jobs.get(core.db, job.id)!;
-  const [v] = versions.listByJob(core.db, j.id);
+  const byJob = versions.listByJob(core.db, j.id);
+  const [v] = byJob;
   const dir = v ? join(DATA_DIR, v.path) : "";
   const outcome = {
-    job: j, dir, settings, wallMs: Date.now() - t0,
+    job: j, dir, settings, wallMs: Date.now() - t0, versions: byJob.length,
     manifest: v ? readJson<VersionManifest>(join(dir, "manifest.json")) : ({} as VersionManifest),
     spec: v ? readJson<MotionSpec>(join(dir, "spec.json")) : ({} as MotionSpec),
     qa: v && existsSync(join(dir, "qa.json")) ? readJson<QAReport>(join(dir, "qa.json")) : ({ ocr: [], issues: [] } as unknown as QAReport),
@@ -148,6 +151,7 @@ describe("playground.generate: Test 1 и Test 2 (09 §2–3), реальные �
       console.log(`${name}: ${o.job.status} за ${(o.wallMs / 60000).toFixed(1)} мин; ${JSON.stringify(o.job.error ?? o.job.output_refs)}`);
       expect(o.job.status, `${name}: ${JSON.stringify(o.job.error)}`).toBe("completed");
       expect(o.manifest.status).toBe("ready");
+      expect(o.versions, `${name}: версий задачи`).toBe(1);
       expect(o.manifest.knowledge_refs.length).toBeGreaterThan(0);
       expect(o.manifest.qa?.technical).toBe("pass");
     }
