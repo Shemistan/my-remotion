@@ -14,6 +14,7 @@ import { Semaphore } from "../../src/jobs/semaphore.js";
 import type { JobContext } from "../../src/jobs/types.js";
 import type { GenerateDeps } from "../../src/pipeline/generate.js";
 import { type PlaygroundDeps, playgroundGenerate } from "../../src/pipeline/playground-generate.js";
+import { stepInputHash } from "../../src/pipeline/checkpoints.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
 import { readVersion } from "../../src/scenes/store.js";
 import { setupDb, until, type JobsEnv } from "../jobs/helpers.js";
@@ -127,6 +128,27 @@ describe("playgroundGenerate: успех и журнал", () => {
     expect(steps.concept!.path).toBe(join(env.s.root, "logs/agent-runs", job.id, "checkpoints", "concept.json"));
     expect(JSON.parse(readFileSync(steps.director!.path, "utf8")).input_hash).toBe(steps.director!.input_hash);
   });
+
+  it("чекпоинт Director — принятый ответ (после проверки spec), ключ — вход первого раунда", async () => {
+    let n = 0;
+    const overlapping = () => {
+      const o = directorOutput();
+      o.spec.title = "раунд 1";
+      o.spec.elements[0]!.layout = { x: 0, y: 0, w: 0.5, h: 0.5 };
+      o.spec.elements[1]!.layout = { x: 0.1, y: 0.1, w: 0.5, h: 0.5 };
+      return o;
+    };
+    const agents = fakeAgents({ director: async () => (++n === 1 ? { output: overlapping() } : {}) });
+    const { job } = await runJob({ agents });
+    expect(job.status).toBe("completed");
+    expect(n).toBe(2);
+    const steps = (job.output_refs as { steps: Record<string, { path: string; input_hash: string }> }).steps;
+    const saved = JSON.parse(readFileSync(steps.director!.path, "utf8"));
+    expect(saved.output.spec.title).toBe("Рост пользователей");
+    const first = agents.tasks.find((t) => t.role === "motion_director")!;
+    expect(saved.input_hash).toBe(stepInputHash("motion_director", first.model, first.input));
+    expect(steps.director!.input_hash).toBe(saved.input_hash);
+  });
 });
 
 describe("playgroundGenerate: неудачи по этапам", () => {
@@ -226,6 +248,15 @@ describe("playgroundGenerate: неудачи по этапам", () => {
     expect(job.error).toMatchObject({ code: "budget", stage: "budget" });
     expect(agents.tasks.map((t) => t.role)).toEqual(["concept", "motion_director", "engineer", "visual_qa"]);
     expect(job.error!.message).toContain("5.10");
+  });
+
+  it("бюджет кончился до Director: рабочий каталог Director не создаётся (run/agent-cwd пуст)", async () => {
+    const agents = fakeAgents({ costs: { concept: 5 } });
+    const { job } = await runJob({ agents });
+    expect(job.error).toMatchObject({ stage: "budget" });
+    expect(agents.tasks.map((t) => t.role)).toEqual(["concept"]);
+    const cwd = join(env.s.root, "run/agent-cwd");
+    expect(existsSync(cwd) ? readdirSync(cwd) : []).toEqual([]);
   });
 
   // ruling P5: QA по реальным кадрам обязателен — без Visual QA версия не ready

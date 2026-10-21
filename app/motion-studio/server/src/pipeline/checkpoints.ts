@@ -24,6 +24,9 @@ export interface StepRef {
 /** Каталог чекпоинтов задачи относительно корня хранилища. */
 export const checkpointsRel = (jobId: string): string => join("logs", "agent-runs", jobId, "checkpoints");
 
+/** Файл чекпоинта роли: чтение (`toolless`) и запись — по одному пути. */
+export const checkpointPath = (root: string, jobId: string, role: Role): string => join(root, checkpointsRel(jobId), `${role}.json`);
+
 /** Хеш входа шага: роль, модель и текст задачи (тот же вход — тот же результат). */
 export function stepInputHash(role: Role, model: string, input: unknown): string {
   return sha256(canonicalJson({ role, model, input }));
@@ -31,8 +34,8 @@ export function stepInputHash(role: Role, model: string, input: unknown): string
 
 /** Пишет чекпоинт атомарно (tmp + rename); каталоги — через `safeMkdir`. Возвращает путь файла. */
 export async function writeCheckpoint(root: string, jobId: string, role: Role, cp: Checkpoint): Promise<string> {
-  const dir = await safeMkdir(root, checkpointsRel(jobId));
-  const path = join(dir, `${role}.json`);
+  await safeMkdir(root, checkpointsRel(jobId));
+  const path = checkpointPath(root, jobId, role);
   const tmp = `${path}.tmp-${process.pid}`;
   await writeFile(tmp, JSON.stringify(cp, null, 2) + "\n");
   await rename(tmp, path);

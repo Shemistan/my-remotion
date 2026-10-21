@@ -25,7 +25,7 @@ import type { AppConfig } from "../config.js";
 import type { Permits } from "../jobs/semaphore.js";
 import type { CapabilityView } from "../knowledge/types.js";
 import { specChecks } from "../qa/spec-checks.js";
-import { type StepRef, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
+import { type StepRef, checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
 import { candidateBrief } from "./refs.js";
 
 const WATCH_MS = 10_000;
@@ -441,8 +441,10 @@ export interface CheckpointOpts {
 
 /**
  * Вызов роли без инструментов (Concept, Director) в своём рабочем каталоге
- * `run/agent-cwd/<runId>-a<attempt>-<role>`: отказ вызова или orphaned — каталог в
- * карантин. С `cp` — чекпоинт по `input_hash`: найден — агент не зовётся.
+ * `run/agent-cwd/<runId>-a<attempt>-<role>`: каталог создаётся только перед самим вызовом
+ * (после чекпоинта и предпроверок) и убирается после него; отказ вызова или orphaned —
+ * каталог в карантин. С `cp` — чекпоинт по `input_hash`: найден — агент не зовётся.
+ * `save: false` — результат не сохраняется здесь (Director сохраняет принятый ответ сам).
  */
 async function toolless<O>(
   rc: RunCtx,
@@ -451,29 +453,22 @@ async function toolless<O>(
   label: string,
   make: (workdir: string) => AgentTask<string>,
   schema: ZodType<O>,
-  cp?: CheckpointOpts,
-): Promise<{ ok: true; output: O; reused: boolean } | StepFail> {
+  cp?: CheckpointOpts & { save?: boolean },
+): Promise<{ ok: true; output: O; reused: boolean; hash: string } | StepFail> {
   const fail = (s: FailureStage, message: string): StepFail => ({ ok: false, stage: s, message });
-  let dir: string;
-  try {
-    const n = rc.records.filter((r) => r.role === role).length + 1;
-    dir = await safeMkdir(rc.root, `run/agent-cwd/${rc.runId}-a${rc.attempt}-${role === "motion_director" ? "director" : role}${n > 1 ? `-${n}` : ""}`);
-  } catch (e) {
-    if (isStorageError(e)) return fail("storage", errText(e));
-    throw e;
-  }
-  const task = make(dir);
+  const n = rc.records.filter((r) => r.role === role).length + 1;
+  const rel = `run/agent-cwd/${rc.runId}-a${rc.attempt}-${role === "motion_director" ? "director" : role}${n > 1 ? `-${n}` : ""}`;
+  const task = make(join(rc.root, rel));
   const hash = stepInputHash(role, task.model, task.input);
   if (cp) {
-    const path = join(rc.root, "logs", "agent-runs", cp.jobId, "checkpoints", `${role}.json`);
+    const path = checkpointPath(rc.root, cp.jobId, role);
     const saved = await readCheckpoint(path, hash);
     const parsed = saved === undefined ? undefined : schema.safeParse(saved);
     if (parsed?.success) {
-      await rm(dir, { recursive: true, force: true }).catch(() => undefined);
       rc.log(`${label}: результат из чекпоинта`);
       rc.note(stage, `${label}: результат из чекпоинта ${path}`);
       cp.onStep?.(role, { input_hash: hash, path });
-      return { ok: true, output: parsed.data, reused: true };
+      return { ok: true, output: parsed.data, reused: true, hash };
     }
   }
   if (!canSpendNow(rc)) return fail("budget", `бюджет сцены исчерпан до ${label}: $${rc.spent.toFixed(2)} из $${rc.config.scene.maxCostUsd}`);
@@ -481,10 +476,22 @@ async function toolless<O>(
   if (problem) return fail("storage", problem);
   if (rc.aborted) return fail("cancelled", `отменено до ${label}`);
 
+  let dir: string;
+  try {
+    dir = await safeMkdir(rc.root, rel);
+  } catch (e) {
+    if (isStorageError(e)) return fail("storage", errText(e));
+    throw e;
+  }
+  task.workdir = dir;
+  const drop = () => rm(dir, { recursive: true, force: true }).catch(() => undefined);
   rc.log(`${label}…`);
   const d = await rc.timed(role, () => rc.call(task, schema));
   // порядок проверок: отказ вызова → orphaned → хранилище → отмена → статус
-  if (d.skipped) return fail("cancelled", `отменено до ${label}`);
+  if (d.skipped) {
+    await drop(); // место семафора не дали: процесс не запускался
+    return fail("cancelled", `отменено до ${label}`);
+  }
   if (d.error !== undefined) {
     // процесс не подтверждён мёртвым: каталог в карантин, не удаляем
     await quarantineCwd(dir, `вызов ${label} отклонён: ${errText(d.error)}`, rc.warnings);
@@ -496,21 +503,24 @@ async function toolless<O>(
     await quarantineCwd(dir, `${label} orphaned: ${r.error.message}`, rc.warnings);
     return fail("orphaned", `${label}: ${r.error.message}`);
   }
-  await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  await drop();
   if (d.lost) return fail("storage", `хранилище пропало во время ${label}: ${d.lost}`);
   if (rc.aborted) return fail("cancelled", `отменено во время ${label}`);
   if (r.status !== "completed" || r.output === undefined) {
     return fail(stage, `${label}: ${r.status}${r.error ? ` (${r.error.kind}): ${r.error.message}` : ""}`);
   }
-  if (cp) {
-    try {
-      const path = await writeCheckpoint(rc.root, cp.jobId, role, { input_hash: hash, output: r.output });
-      cp.onStep?.(role, { input_hash: hash, path });
-    } catch (e) {
-      rc.warnings.push(`чекпоинт ${role} не записан: ${errText(e)}`);
-    }
+  if (cp && cp.save !== false) await saveCheckpoint(rc, cp, role, hash, r.output);
+  return { ok: true, output: r.output, reused: false, hash };
+}
+
+/** Записывает чекпоинт роли и ссылку на него; сбой записи — предупреждение. */
+async function saveCheckpoint(rc: RunCtx, cp: CheckpointOpts, role: Role, hash: string, output: unknown): Promise<void> {
+  try {
+    const path = await writeCheckpoint(rc.root, cp.jobId, role, { input_hash: hash, output });
+    cp.onStep?.(role, { input_hash: hash, path });
+  } catch (e) {
+    rc.warnings.push(`чекпоинт ${role} не записан: ${errText(e)}`);
   }
-  return { ok: true, output: r.output, reused: false };
 }
 
 const canSpendNow = (rc: RunCtx) => rc.spent < rc.config.scene.maxCostUsd;
@@ -540,9 +550,13 @@ export async function directorStep(
 ): Promise<{ ok: true; director: DirectorOutput; spec: MotionSpec } | StepFail> {
   const s = i.settings;
   let fix: string | undefined;
+  // чекпоинт — принятый ответ (после проверок spec) под ключом входа первого раунда (без
+  // замечаний): новая попытка с тем же входом сразу получает spec, прошедшую проверку
+  let key: { hash: string; reused: boolean } | undefined;
   for (let round = 1; round <= 2; round++) {
-    const r = await toolless(rc, "motion_director", "director", "Motion Director", (workdir) => buildDirectorTask({ ...i, fix, workdir }, { ...rc.taskRun, seq: round }), DirectorOutputSchema, round === 1 ? cp : undefined);
+    const r = await toolless(rc, "motion_director", "director", "Motion Director", (workdir) => buildDirectorTask({ ...i, fix, workdir }, { ...rc.taskRun, seq: round }), DirectorOutputSchema, round === 1 && cp ? { ...cp, save: false } : undefined);
     if (!r.ok) return r;
+    if (round === 1) key = { hash: r.hash, reused: r.reused };
     const director = r.output;
     const spec: MotionSpec = { ...director.spec, composition: director.composition };
     if (spec.duration_frames !== s.duration_frames) return { ok: false, stage: "director", message: `spec.duration_frames ${spec.duration_frames} ≠ настройкам ${s.duration_frames}` };
@@ -556,6 +570,7 @@ export async function directorStep(
     const blocking = specChecks(spec, s).filter((x) => x.severity === "blocking");
     if (blocking.length === 0) {
       for (const w of specWarnings(spec)) rc.warnings.push(`spec: ${w}`);
+      if (cp && key && !(round === 1 && key.reused)) await saveCheckpoint(rc, cp, "motion_director", key.hash, director);
       return { ok: true, director: { ...director, spec }, spec };
     }
     const text = blocking.map((x) => `- ${x.code} (${x.area ?? "spec"}): ${x.description} → ${x.fix_hint}`).join("\n");

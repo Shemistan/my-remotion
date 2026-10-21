@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { readCheckpoint, stepInputHash, writeCheckpoint } from "../../src/pipeline/checkpoints.js";
+import { checkpointPath, checkpointsRel, readCheckpoint, stepInputHash, writeCheckpoint } from "../../src/pipeline/checkpoints.js";
 import { makeStore, makeTmp, removeTmp } from "./helpers.js";
 
 let tmp: string;
@@ -22,6 +22,9 @@ describe("checkpoints", () => {
     expect(await readCheckpoint(path, h)).toEqual({ spec: 1 });
     expect(await readCheckpoint(path, stepInputHash("motion_director", "opus", "другой вход"))).toBeUndefined();
     expect(existsSync(`${path}.tmp-${process.pid}`)).toBe(false);
+    // путь для чтения (toolless) и записи — из одного места
+    expect(checkpointPath(root, "job_1", "motion_director")).toBe(path);
+    expect(checkpointPath(root, "job_1", "concept")).toBe(join(root, checkpointsRel("job_1"), "concept.json"));
   });
 
   it("нет файла или он недописан — как нет чекпоинта", async () => {
