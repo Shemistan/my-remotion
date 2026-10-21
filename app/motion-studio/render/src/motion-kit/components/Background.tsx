@@ -78,7 +78,7 @@ export function backgroundLayout(seed: string, focus?: { x: number; y: number })
  */
 export function backgroundReveal(frame: number, beat?: Pick<Beat, "start_frame" | "end_frame">): number {
   if (!beat) return 1;
-  return 0.4 + 0.6 * ramp(frame, beat.start_frame, beat.end_frame, Easing.bezier(0.25, 1, 0.5, 1));
+  return 0.7 + 0.3 * ramp(frame, beat.start_frame, beat.end_frame, Easing.bezier(0.25, 1, 0.5, 1));
 }
 
 const DEFAULT_VARIANT: Record<string, BackgroundVariant> = {

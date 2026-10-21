@@ -42,9 +42,9 @@ describe("backgroundLayout", () => {
 });
 
 describe("backgroundReveal: первый кадр не чёрный", () => {
-  it("в начале бита атмосфера уже видна (≥ 0.4), к концу — 1", () => {
+  it("в начале бита атмосфера уже видна (≥ 0.7: на 0.4 первые кадры читались чёрными, Fix F), к концу — 1", () => {
     const beat = { start_frame: 0, end_frame: 40 };
-    expect(backgroundReveal(0, beat)).toBeGreaterThanOrEqual(0.4);
+    expect(backgroundReveal(0, beat)).toBeGreaterThanOrEqual(0.7);
     expect(backgroundReveal(40, beat)).toBe(1);
     expect(backgroundReveal(10, undefined)).toBe(1);
   });
