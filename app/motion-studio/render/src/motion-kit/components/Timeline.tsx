@@ -143,7 +143,7 @@ export function Timeline({ items, beat, orientation, width, height, accentIndex 
               {now ? <circle cx={p.x} cy={p.y} r={r * (2.4 + 1.8 * breath) * (pulse?.scale ?? 1)} fill={`url(#${id}-now)`} opacity={clamp01(pop) * (0.4 + 0.6 * breath)} /> : null}
               {/* кольцо акцента: расходится от точки на каждом вдохе, как у Emphasis */}
               {pulse && pulse.ripple >= 0 ? (
-                <circle cx={p.x} cy={p.y} r={r * (1.2 + 1.8 * (1 - (1 - pulse.ripple) ** 3))} fill="none" stroke={color} strokeWidth={2.5} opacity={0.75 * (1 - pulse.ripple) * pulse.rippleAlpha} />
+                <circle cx={p.x} cy={p.y} r={r * (1.2 + 2.4 * (1 - (1 - pulse.ripple) ** 3))} fill="none" stroke={color} strokeWidth={3} opacity={0.85 * (1 - pulse.ripple) * pulse.rippleAlpha} />
               ) : null}
               <circle cx={p.x} cy={p.y} r={Math.max(0, r * pop * (pulse?.scale ?? 1))} fill={now ? color : s.palette.bg} stroke={color} strokeWidth={now ? 0 : 4} />
               <circle cx={p.x} cy={p.y} r={Math.max(0, r * (now ? 0.38 : 0.42) * pop * (pulse?.scale ?? 1))} fill={now ? (dark ? s.palette.bg : "#ffffff") : mix(color, s.palette.text, 0.2)} />
@@ -192,7 +192,12 @@ export function Timeline({ items, beat, orientation, width, height, accentIndex 
               opacity: clamp01(lp * 1.8),
               transform: h ? `translateY(${(sign * (1 - lp) * -26 * s.amplitude).toFixed(2)}px)` : `translateX(${((1 - lp) * -26 * s.amplitude).toFixed(2)}px)`,
               ...(now
-                ? { padding: "10px 18px", margin: "-10px -18px", borderRadius: radius(s, 1), background: alpha(color, dark ? 0.16 : 0.1), boxShadow: `inset 0 0 0 1.5px ${alpha(color, 0.45)}` }
+                ? {
+                    padding: "10px 18px", margin: "-10px -18px", borderRadius: radius(s, 1),
+                    // плашка «сейчас» дышит с точкой: заливка, кромка и мягкое свечение наружу
+                    background: alpha(color, (dark ? 0.1 : 0.07) + (dark ? 0.1 : 0.06) * nowLevel),
+                    boxShadow: `inset 0 0 0 1.5px ${alpha(color, 0.3 + 0.4 * nowLevel)}${dark ? `, 0 0 ${(12 + 20 * nowLevel).toFixed(1)}px ${alpha(color, 0.28 * nowLevel)}` : ""}`,
+                  }
                 : {}),
             }}
           >

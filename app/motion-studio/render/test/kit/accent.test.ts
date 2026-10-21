@@ -39,10 +39,10 @@ describe("accentPulse", () => {
     expect(Math.max(...diffs)).toBeGreaterThan(0.2);
   });
 
-  it("удержание заметно: размах свечения ≥ 0.5 при balanced, не гаснет ниже 0.2", () => {
+  it("удержание заметно: размах свечения ≥ 0.5 при balanced, во впадине ≥ 0.35", () => {
     const win = Array.from({ length: 200 }, (_, i) => at(150 + i).level);
     expect(Math.max(...win) - Math.min(...win)).toBeGreaterThan(0.5);
-    expect(Math.min(...win)).toBeGreaterThan(0.2);
+    expect(Math.min(...win)).toBeGreaterThan(0.35);
     const sc = Array.from({ length: 200 }, (_, i) => at(150 + i).scale);
     expect(Math.max(...sc) - Math.min(...sc)).toBeGreaterThan(0.03);
     expect(Math.max(...sc)).toBeLessThan(1.025);
