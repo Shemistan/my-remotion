@@ -1,13 +1,13 @@
 {
-  "run_id": "job_01M5EWNPCFWS6MGEM5J6AX0XT7",
-  "attempt": 2,
-  "cost_usd": 1.3045217,
+  "run_id": "job_01M5EZPF15Z9W0TG4RKCY76TMK",
+  "attempt": 1,
+  "cost_usd": 1.5209169,
   "engineer_calls": 2,
   "visual_qa": [
     {
       "call": 2,
-      "wall_ms": 26918,
-      "cost_usd": 0.15898429999999997,
+      "wall_ms": 25959,
+      "cost_usd": 0.1565361999999999,
       "status": "completed",
       "gate": {
         "technical": "pass",
@@ -18,33 +18,29 @@
     }
   ],
   "timings": {
-    "motion_director": 64782,
-    "engineer_1": 188231,
+    "concept": 11289,
+    "motion_director": 57520,
+    "engineer_1": 183070,
     "static": 63,
-    "typecheck": 32988,
-    "engineer_2": 30151,
-    "render_2": 20746,
-    "qa_programmatic": 3023,
-    "visual_qa_2": 26950
+    "typecheck": 29099,
+    "engineer_2": 28393,
+    "render_2": 36353,
+    "qa_programmatic": 2913,
+    "visual_qa_2": 25979
   },
   "history": [
     {
-      "at": "2026-10-21T09:31:32.327Z",
-      "stage": "concept",
-      "message": "Concept: результат из чекпоинта /Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EWNPCFWS6MGEM5J6AX0XT7/checkpoints/concept.json"
-    },
-    {
-      "at": "2026-10-21T09:36:00.892Z",
+      "at": "2026-10-21T10:30:02.097Z",
       "stage": "typecheck",
-      "message": "src/Scene.tsx:88 Type 'SceneStyle' is not assignable to type 'StyleSource'.\n  Type 'SceneStyle' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'SceneStyle' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
+      "message": "src/Scene.tsx:339 Type 'SceneStyle' is not assignable to type 'StyleSource'.\n  Type 'SceneStyle' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'SceneStyle' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
     },
     {
-      "at": "2026-10-21T09:37:42.738Z",
+      "at": "2026-10-21T10:31:52.922Z",
       "stage": "qa",
       "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
     },
     {
-      "at": "2026-10-21T09:37:42.761Z",
+      "at": "2026-10-21T10:31:52.962Z",
       "stage": "ready",
       "message": "gate пройден с вызова 2"
     }

@@ -3,22 +3,27 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "b-kicker-in",
+        "id": "kicker-in",
         "start_frame": 0,
-        "end_frame": 30
+        "end_frame": 24
       },
       {
-        "id": "b-timeline-draw",
-        "start_frame": 10,
-        "end_frame": 130
+        "id": "title-in",
+        "start_frame": 6,
+        "end_frame": 42
       },
       {
-        "id": "b-final-emphasis",
-        "start_frame": 106,
-        "end_frame": 130
+        "id": "timeline-draw",
+        "start_frame": 24,
+        "end_frame": 150
       },
       {
-        "id": "b-hold",
+        "id": "final-emphasis",
+        "start_frame": 125,
+        "end_frame": 153
+      },
+      {
+        "id": "hold",
         "start_frame": 153,
         "end_frame": 180
       }
@@ -36,17 +41,35 @@
   },
   "content": {
     "kicker": {
-      "text": "Путь компании · 2015–2025",
+      "text": "История компании",
       "layout": {
-        "x": 0,
-        "y": 0.02,
+        "x": 0.05,
+        "y": 0.05,
+        "w": 0.5,
+        "h": 0.06
+      }
+    },
+    "title": {
+      "text": "Десять лет: 2015–2025",
+      "layout": {
+        "x": 0.05,
+        "y": 0.12,
         "w": 0.6,
-        "h": 0.08
+        "h": 0.1
       }
     },
     "timeline": {
+      "orientation": "h",
+      "width": 1555,
+      "height": 620,
       "accentIndex": 0,
       "highlightLast": true,
+      "layout": {
+        "x": 0.05,
+        "y": 0.28,
+        "w": 0.9,
+        "h": 0.64
+      },
       "items": [
         {
           "date": "2015",
@@ -56,30 +79,44 @@
         {
           "date": "2017",
           "label": "Первый продукт",
-          "note": "запуск платформы"
+          "note": "первые клиенты"
         },
         {
           "date": "2019",
           "label": "Выход в регионы",
-          "note": "10 городов"
+          "note": "офисы в 5 городах"
         },
         {
           "date": "2022",
           "label": "Миллион клиентов",
-          "note": "рост ×5"
+          "note": "рост ×10"
         },
         {
           "date": "2025",
-          "label": "Выход за рубеж",
+          "label": "Лидер рынка",
           "note": "сейчас"
         }
-      ],
-      "layout": {
+      ]
+    },
+    "camera": [
+      {
+        "frame": 0,
+        "scale": 1,
         "x": 0,
-        "y": 0.16,
-        "w": 1,
-        "h": 0.8
+        "y": 0
+      },
+      {
+        "frame": 110,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "frame": 172,
+        "scale": 1.04,
+        "x": 40,
+        "y": 0
       }
-    }
+    ]
   }
 }

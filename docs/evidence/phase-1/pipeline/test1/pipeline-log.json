@@ -1,42 +1,48 @@
 {
-  "run_id": "job_01M5EWNPCQZE0VX7CDGBS9BS5P",
+  "run_id": "job_01M5EZPF1BHMZZ4RAWHMDKY876",
   "attempt": 1,
-  "cost_usd": 1.0759767,
-  "engineer_calls": 1,
+  "cost_usd": 1.0218703,
+  "engineer_calls": 2,
   "visual_qa": [
     {
-      "call": 1,
-      "wall_ms": 23679,
-      "cost_usd": 0.15029809999999988,
+      "call": 2,
+      "wall_ms": 18898,
+      "cost_usd": 0.1301173,
       "status": "completed",
       "gate": {
         "technical": "pass",
-        "visual": "warn",
-        "semantic": "pass",
+        "visual": "pass",
+        "semantic": "warn",
         "style": "pass"
       }
     }
   ],
   "timings": {
-    "concept": 6261,
-    "motion_director": 100500,
-    "engineer_1": 81726,
-    "static": 41,
-    "typecheck": 14419,
-    "render_1": 21261,
-    "qa_programmatic": 3029,
-    "visual_qa_1": 23701
+    "concept": 6348,
+    "motion_director": 77901,
+    "engineer_1": 60479,
+    "static": 49,
+    "typecheck": 29089,
+    "engineer_2": 25427,
+    "render_2": 22566,
+    "qa_programmatic": 2649,
+    "visual_qa_2": 18918
   },
   "history": [
     {
-      "at": "2026-10-21T09:39:16.948Z",
-      "stage": "qa",
-      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
+      "at": "2026-10-21T10:34:33.867Z",
+      "stage": "typecheck",
+      "message": "src/Scene.tsx:168 Type 'SceneStyle' is not assignable to type 'StyleSource'.\n  Type 'SceneStyle' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'SceneStyle' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
     },
     {
-      "at": "2026-10-21T09:39:16.982Z",
+      "at": "2026-10-21T10:35:58.590Z",
+      "stage": "qa",
+      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"pass\",\"semantic\":\"warn\",\"style\":\"pass\"}; blocking: —"
+    },
+    {
+      "at": "2026-10-21T10:35:58.612Z",
       "stage": "ready",
-      "message": "gate пройден с вызова 1"
+      "message": "gate пройден с вызова 2"
     }
   ]
 }

@@ -1,0 +1,256 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      {
+        "id": "title-in",
+        "start_frame": 0,
+        "end_frame": 24
+      },
+      {
+        "id": "labels-in",
+        "start_frame": 10,
+        "end_frame": 38
+      },
+      {
+        "id": "graph-in",
+        "start_frame": 16,
+        "end_frame": 64
+      },
+      {
+        "id": "count-in",
+        "start_frame": 24,
+        "end_frame": 48
+      },
+      {
+        "id": "mono-flow",
+        "start_frame": 64,
+        "end_frame": 124
+      },
+      {
+        "id": "micro-flow",
+        "start_frame": 64,
+        "end_frame": 128
+      },
+      {
+        "id": "micro-count-run",
+        "start_frame": 64,
+        "end_frame": 128
+      },
+      {
+        "id": "conclusion-in",
+        "start_frame": 116,
+        "end_frame": 152
+      },
+      {
+        "id": "mono-result-in",
+        "start_frame": 122,
+        "end_frame": 146
+      },
+      {
+        "id": "final-emphasis",
+        "start_frame": 132,
+        "end_frame": 180
+      },
+      {
+        "id": "hold",
+        "start_frame": 153,
+        "end_frame": 180
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "locale": "ru",
+    "title": "Скорость релизов: монолит и микросервисы",
+    "mono_label": "Монолит",
+    "micro_label": "Микросервисы",
+    "mono_count": "1 релиз",
+    "conclusion": "Микросервисы — релизы быстрее и чаще",
+    "graph": {
+      "layout": {
+        "x": 0,
+        "y": 0.2,
+        "w": 0.76,
+        "h": 0.48
+      },
+      "nodes": [
+        {
+          "id": "mono-build",
+          "label": "Сборка",
+          "elevation": 1,
+          "enter": "flip",
+          "enter_at": 0,
+          "layout": {
+            "x": 0,
+            "y": 0.22,
+            "w": 0.139,
+            "h": 0.13
+          }
+        },
+        {
+          "id": "mono-test",
+          "label": "Тесты",
+          "elevation": 1,
+          "enter": "flip",
+          "enter_at": 0.1,
+          "layout": {
+            "x": 0.187,
+            "y": 0.22,
+            "w": 0.124,
+            "h": 0.13
+          }
+        },
+        {
+          "id": "mono-deploy",
+          "label": "Общий деплой",
+          "elevation": 1,
+          "enter": "flip",
+          "enter_at": 0.2,
+          "layout": {
+            "x": 0.359,
+            "y": 0.22,
+            "w": 0.229,
+            "h": 0.13
+          }
+        },
+        {
+          "id": "mono-release",
+          "label": "Релиз",
+          "elevation": 1,
+          "enter": "blur",
+          "enter_at": 0.34,
+          "layout": {
+            "x": 0.636,
+            "y": 0.22,
+            "w": 0.124,
+            "h": 0.13
+          }
+        },
+        {
+          "id": "micro-pipe",
+          "label": "Сборка + тесты",
+          "elevation": 2,
+          "enter": "swing",
+          "enter_at": 0.46,
+          "layout": {
+            "x": 0,
+            "y": 0.51,
+            "w": 0.26,
+            "h": 0.15
+          }
+        },
+        {
+          "id": "micro-release",
+          "label": "Релиз",
+          "elevation": 2,
+          "enter": "pop",
+          "enter_at": 0.58,
+          "layout": {
+            "x": 0.31,
+            "y": 0.51,
+            "w": 0.124,
+            "h": 0.15
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-mono-1",
+          "from": "mono-build",
+          "to": "mono-test"
+        },
+        {
+          "id": "e-mono-2",
+          "from": "mono-test",
+          "to": "mono-deploy"
+        },
+        {
+          "id": "e-mono-3",
+          "from": "mono-deploy",
+          "to": "mono-release"
+        },
+        {
+          "id": "e-micro",
+          "from": "micro-pipe",
+          "to": "micro-release"
+        }
+      ],
+      "mono_edges": [
+        "e-mono-1",
+        "e-mono-2",
+        "e-mono-3"
+      ],
+      "micro_edge": "e-micro",
+      "pulses": {
+        "mono": {
+          "travel": 20,
+          "count": 1,
+          "repeat": false
+        },
+        "micro": {
+          "travel": 16,
+          "count": 3,
+          "repeat": true,
+          "accent_index": 1
+        }
+      }
+    },
+    "micro_count": {
+      "from": 0,
+      "to": 8,
+      "suffix_forms": [
+        " релиз",
+        " релиза",
+        " релизов"
+      ]
+    },
+    "layout": {
+      "title": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 0.09
+      },
+      "mono_label": {
+        "x": 0,
+        "y": 0.15,
+        "w": 0.3,
+        "h": 0.06
+      },
+      "micro_label": {
+        "x": 0,
+        "y": 0.44,
+        "w": 0.35,
+        "h": 0.06
+      },
+      "mono_count": {
+        "x": 0.79,
+        "y": 0.22,
+        "w": 0.21,
+        "h": 0.13
+      },
+      "micro_count": {
+        "x": 0.47,
+        "y": 0.465,
+        "w": 0.53,
+        "h": 0.24
+      },
+      "conclusion": {
+        "x": 0,
+        "y": 0.82,
+        "w": 1,
+        "h": 0.1
+      }
+    }
+  }
+}

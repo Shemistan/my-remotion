@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5EX0TTC9B6BJPW1ECEZAZFX",
-  "scene_id": "scn_01M5EWNPC48NYGKXH82R9D1C37",
+  "version_id": "ver_01M5EZXBTS6G631XFZGVTFSBSP",
+  "scene_id": "scn_01M5EZPF0T07J7WB7Q2NAHF0PD",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T09:35:02.477Z",
+  "created_at": "2026-10-21T10:25:34.554Z",
   "prompt": "Таймлайн развития компании 2015–2025 с пятью вехами",
   "edit_plan": null,
   "settings": {
@@ -27,48 +27,48 @@
   },
   "files": [
     {
-      "path": "frames/118.png",
-      "sha256": "5fd18a901f1405610a2b50bbf53882882448006edbf351ac7379dc42a181713e"
+      "path": "frames/139.png",
+      "sha256": "0585c26bf80d6faa55d500968524d238554e6991ccc6008e978fdfc33d213568"
     },
     {
-      "path": "frames/129.png",
-      "sha256": "e0a842ce2276eb990d81c77b19cc86bd591613434fafae5dd2d7ddd892def81f"
+      "path": "frames/152.png",
+      "sha256": "cf606bc4f76a6e2d885088c45aa1e7bf3ceb1fba12b4fed89a83429a367b5693"
     },
     {
       "path": "frames/166.png",
-      "sha256": "da800985208bf89a728745fbd85b6803fed492e7138f9ffa4e262015ffd79551"
+      "sha256": "370d4477e5859bf60e59cf2c207340612169331bbd3de2a43530e6763591e829"
     },
     {
       "path": "frames/179.png",
-      "sha256": "623b51bbf0c6072b7a78980319c447f941df63e10cefbd56813c97fd95606300"
+      "sha256": "e579cce3fabab2b09d3cf55d5d4ded0cb110be9c0781f5942b6b34c9594e4c4f"
     },
     {
-      "path": "frames/24.png",
-      "sha256": "67344e7efde48a91f1a91d01993d1ce5d01a2b8c9e9a001623ac91142ff7f8d7"
+      "path": "frames/42.png",
+      "sha256": "a46558131b5db9749752f836f8a0dda7ad31e224598b7adbc4e3b79c12d08316"
     },
     {
-      "path": "frames/70.png",
-      "sha256": "0c5a7b8a13f2070dc455fc3e3ab26e2b03997c0534bd7e9efc6b5b24df89c3f4"
+      "path": "frames/87.png",
+      "sha256": "f5b0e0943d876f50d552b417025025ec304e1043ea6693e2f06ecad9354d39c6"
     },
     {
       "path": "knowledge-refs.json",
-      "sha256": "4fd1a8480fcfba353a83e4678345848d330999fe4e563cc71b4469b5c16a9993"
+      "sha256": "3a06f20d7af6feb71d9e267a064ae489a86040839e36fd8b627a4e483b2ccf8d"
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "312ec19a02f5d1b0b55d9f937eabd447dcc92fa5ca203018d74d195d53f0e042"
+      "sha256": "82e09cc9de0c49c7d34aa354201bf81a032a0133f7784076faf1a6c1d80d40ad"
     },
     {
       "path": "preview.mp4",
-      "sha256": "27cdf5b47b2bb0b612e357f92251a4426a8e9d7fa3511c7d864f1bbe002a20be"
+      "sha256": "7226d4e64a4d63ea3765ae65becd98a103b05a5e5218d38b272f4b05ad22dea6"
     },
     {
       "path": "props.json",
-      "sha256": "807ba1c2764063eb2511862bfd326ef175d24448465078df7c9cc6126e98221f"
+      "sha256": "b349368e34d8c0b7453503433ff5c9c294b70bd4778fa3b11228575ca89d9e80"
     },
     {
       "path": "qa.json",
-      "sha256": "09ac9bff078cd31b37131f3916c4e955d8b115a5e869623d739f231792893dba"
+      "sha256": "43853e8402aed66a5d4ed261f55f85c94ccadf24d4cabcf648b1ab524bf529f5"
     },
     {
       "path": "refs/kb/free-remotion-templates/chapter-title/CARD.md",
@@ -79,12 +79,12 @@
       "sha256": "8caae393cf07cd043b7521305974504f4d9dab4e8178fffee7c52d780b049ed8"
     },
     {
-      "path": "refs/kb/remotion-bits/bit-staggered-fade-in/CARD.md",
-      "sha256": "ecf82657001ed51874b3e2434a3b0941ae8f1e335f1d26a898904a754e8af605"
+      "path": "refs/kb/motion-primitives-website/svg-path-draw/CARD.md",
+      "sha256": "568575ca98d704275def6e9c2f3fc5ac2b80d108bf0888f1d71dbba7ea847bd7"
     },
     {
-      "path": "refs/kb/remotion-bits/bit-staggered-fade-in/templates/remotion-components/remotion-bits/docs/src/bits/examples/staggered-motion/StaggeredFadeIn.tsx",
-      "sha256": "7d5932bd526a002a826498c074a48abf6f051063b18cfe68770b2972c92838f8"
+      "path": "refs/kb/motion-primitives-website/svg-path-draw/templates/react-libriry/motion-primitives-website/src/components/svg/animated-svg.tsx",
+      "sha256": "2e34dc4ac14ec9377193e366217e90d02a46f02d1e0881ffce5a6ccbe0dabd32"
     },
     {
       "path": "refs/motion-kit/API.md",
@@ -116,7 +116,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "eab2ad4909aee72da0272d33d7f37ce782b59e90ceedf5942e2668704d2fb5d4"
+      "sha256": "838f6eae95d1f991a1ddcdbeef9661e1090143c8852aec230f8d8deb2f49f390"
     },
     {
       "path": "settings.json",
@@ -124,11 +124,11 @@
     },
     {
       "path": "spec.json",
-      "sha256": "9359e3519cc866b1b134fa64f6423630ae34376fce6adffdbac190187429cb79"
+      "sha256": "bc334b383f50a266d29bdfae839c44c7726e02fc61a4a1236fbc2ab49fa1662c"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "7d66cf5879bd93ac226b63c7b3d6314db6f735c2e4dcd3da6b97e092ff13e7cc"
+      "sha256": "c6d7225c03c8fcbf001c38bdbc2396207f7f6af0d7f5fa48bbc7e5852c290164"
     },
     {
       "path": "style.json",
@@ -142,49 +142,60 @@
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:87cfd3046dd21e1f",
+    "motion_kit": "sha256:aa65f750424ab273",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
   "knowledge_refs": [
     {
+      "kb_id": "motion-primitives-website/svg-path-draw",
+      "commit": "cff72d8",
+      "license": "MIT (package.json; файла LICENSE нет)",
+      "strategy": "adapt"
+    },
+    {
       "kb_id": "free-remotion-templates/chapter-title",
       "commit": "f648980",
       "license": "MIT (package.json, LICENSE, SPDX-заголовок в файле)",
       "strategy": "adapt"
-    },
-    {
-      "kb_id": "remotion-bits/bit-staggered-fade-in",
-      "commit": "de35fda",
-      "license": "MIT (package.json)",
-      "strategy": "adapt"
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5EWNPC8NZAXKNXC4H87GV9Z/a2-engineer-1",
-    "logs/agent-runs/job_01M5EWNPC8NZAXKNXC4H87GV9Z/a2-engineer-2",
-    "logs/agent-runs/job_01M5EWNPC8NZAXKNXC4H87GV9Z/a2-engineer-3",
-    "logs/agent-runs/job_01M5EWNPC8NZAXKNXC4H87GV9Z/a2-visual_qa-1"
+    "logs/agent-runs/job_01M5EZPF0YPF4TC4V815WAJYHS/a1-concept-1",
+    "logs/agent-runs/job_01M5EZPF0YPF4TC4V815WAJYHS/a1-motion_director-1",
+    "logs/agent-runs/job_01M5EZPF0YPF4TC4V815WAJYHS/a1-engineer-1",
+    "logs/agent-runs/job_01M5EZPF0YPF4TC4V815WAJYHS/a1-engineer-2",
+    "logs/agent-runs/job_01M5EZPF0YPF4TC4V815WAJYHS/a1-visual_qa-1"
   ],
   "qa": {
     "technical": "pass",
-    "visual": "fail",
+    "visual": "warn",
     "semantic": "pass",
     "style": "pass"
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "27cdf5b47b2bb0b612e357f92251a4426a8e9d7fa3511c7d864f1bbe002a20be"
+    "sha256": "7226d4e64a4d63ea3765ae65becd98a103b05a5e5218d38b272f4b05ad22dea6"
   },
-  "status": "failed",
-  "failure": {
-    "stage": "qa",
-    "message": "QA: blocking после 2 исправлений: clipping (кадр 166): кадр 166: объект касается края кадра (right) — вероятно, обрезан"
-  },
-  "qa_frames": [],
-  "qa_frames_sha256": [],
+  "status": "ready",
+  "qa_frames": [
+    42,
+    87,
+    139,
+    152,
+    166,
+    179
+  ],
+  "qa_frames_sha256": [
+    "a46558131b5db9749752f836f8a0dda7ad31e224598b7adbc4e3b79c12d08316",
+    "f5b0e0943d876f50d552b417025025ec304e1043ea6693e2f06ecad9354d39c6",
+    "0585c26bf80d6faa55d500968524d238554e6991ccc6008e978fdfc33d213568",
+    "cf606bc4f76a6e2d885088c45aa1e7bf3ceb1fba12b4fed89a83429a367b5693",
+    "370d4477e5859bf60e59cf2c207340612169331bbd3de2a43530e6763591e829",
+    "e579cce3fabab2b09d3cf55d5d4ded0cb110be9c0781f5942b6b34c9594e4c4f"
+  ],
   "job": {
-    "id": "job_01M5EWNPC8NZAXKNXC4H87GV9Z",
-    "attempt": 2
+    "id": "job_01M5EZPF0YPF4TC4V815WAJYHS",
+    "attempt": 1
   }
 }

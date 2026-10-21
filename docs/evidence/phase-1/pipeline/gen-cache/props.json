@@ -3,58 +3,68 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "b-kicker-in",
+        "id": "title-in",
         "start_frame": 0,
-        "end_frame": 28
+        "end_frame": 36
       },
       {
-        "id": "b-graph-in",
-        "start_frame": 6,
-        "end_frame": 54
+        "id": "graph-in",
+        "start_frame": 10,
+        "end_frame": 48
       },
       {
-        "id": "b-request-1",
-        "start_frame": 54,
-        "end_frame": 72
+        "id": "request-1",
+        "start_frame": 40,
+        "end_frame": 56
       },
       {
-        "id": "b-miss-status",
-        "start_frame": 70,
-        "end_frame": 104
+        "id": "miss-emphasis",
+        "start_frame": 56,
+        "end_frame": 70
       },
       {
-        "id": "b-miss-to-db",
-        "start_frame": 72,
-        "end_frame": 88
+        "id": "miss-to-db",
+        "start_frame": 60,
+        "end_frame": 76
       },
       {
-        "id": "b-db-return",
-        "start_frame": 88,
-        "end_frame": 104
+        "id": "db-return-write",
+        "start_frame": 78,
+        "end_frame": 94
       },
       {
-        "id": "b-write",
-        "start_frame": 104,
-        "end_frame": 128
+        "id": "answer-1",
+        "start_frame": 96,
+        "end_frame": 112
       },
       {
-        "id": "b-request-2",
-        "start_frame": 110,
+        "id": "request-2",
+        "start_frame": 112,
         "end_frame": 126
       },
       {
-        "id": "b-hit-return",
+        "id": "hit-emphasis",
         "start_frame": 126,
         "end_frame": 140
       },
       {
-        "id": "b-hit-status",
+        "id": "hit-return",
         "start_frame": 128,
+        "end_frame": 142
+      },
+      {
+        "id": "summary-in",
+        "start_frame": 130,
         "end_frame": 152
       },
       {
-        "id": "b-hold",
-        "start_frame": 153,
+        "id": "final-emphasis",
+        "start_frame": 144,
+        "end_frame": 156
+      },
+      {
+        "id": "hold",
+        "start_frame": 156,
         "end_frame": 180
       }
     ]
@@ -70,158 +80,208 @@
     }
   },
   "content": {
-    "kicker": {
+    "locale": "ru",
+    "title": {
       "text": "Как работает кэширование",
-      "beat": "b-kicker-in",
+      "beat": "title-in",
       "layout": {
-        "x": 0.2,
-        "y": 0.03,
-        "w": 0.6,
-        "h": 0.09
+        "x": 0.25,
+        "y": 0.02,
+        "w": 0.5,
+        "h": 0.1
       }
-    },
-    "graph": {
-      "beat": "b-graph-in",
-      "enter": "flip",
-      "layout": {
-        "x": 0,
-        "y": 0.2,
-        "w": 1,
-        "h": 0.62
-      }
-    },
-    "nodes": [
-      {
-        "id": "node-client",
-        "label": "Клиент",
-        "enter": "slide",
-        "elevation": 1,
-        "enterAt": 8,
-        "layout": {
-          "x": 0.02,
-          "y": 0.39,
-          "w": 0.19,
-          "h": 0.18
-        }
-      },
-      {
-        "id": "node-cache",
-        "label": "Кэш",
-        "enter": "pop",
-        "elevation": 3,
-        "enterAt": 14,
-        "accentIndex": 0,
-        "layout": {
-          "x": 0.37,
-          "y": 0.33,
-          "w": 0.26,
-          "h": 0.3
-        }
-      },
-      {
-        "id": "node-db",
-        "label": "База данных",
-        "enter": "blur",
-        "elevation": 1,
-        "enterAt": 22,
-        "layout": {
-          "x": 0.77,
-          "y": 0.39,
-          "w": 0.21,
-          "h": 0.18
-        }
-      }
-    ],
-    "edges": [
-      {
-        "id": "e-req",
-        "from": "node-client",
-        "to": "node-cache"
-      },
-      {
-        "id": "e-miss",
-        "from": "node-cache",
-        "to": "node-db"
-      }
-    ],
-    "flows": [
-      {
-        "edge": "e-req",
-        "direction": "forward",
-        "beat": "b-request-1",
-        "tone": "accent0"
-      },
-      {
-        "edge": "e-miss",
-        "direction": "forward",
-        "beat": "b-miss-to-db",
-        "tone": "accent0"
-      },
-      {
-        "edge": "e-miss",
-        "direction": "back",
-        "beat": "b-db-return",
-        "tone": "accent1"
-      },
-      {
-        "edge": "e-req",
-        "direction": "forward",
-        "beat": "b-request-2",
-        "tone": "accent0"
-      },
-      {
-        "edge": "e-req",
-        "direction": "back",
-        "beat": "b-hit-return",
-        "tone": "positive"
-      }
-    ],
-    "pulse": {
-      "travel": 16,
-      "repeat": false,
-      "count": 1
-    },
-    "cache": {
-      "node": "node-cache",
-      "caption_before": "ячейка пуста",
-      "caption_after": "ответ сохранён",
-      "flash_edge": "e-miss",
-      "flash_beat": "b-db-return"
-    },
-    "dim": {
-      "edge": "e-miss",
-      "node": "node-db",
-      "after_beat": "b-request-2",
-      "opacity": 0.4
-    },
-    "request_label": {
-      "text": "Запрос",
-      "edge": "e-req",
-      "beat": "b-request-1"
     },
     "status": {
       "layout": {
-        "x": 0.3,
-        "y": 0.72,
-        "w": 0.4,
+        "x": 0.33,
+        "y": 0.18,
+        "w": 0.34,
         "h": 0.12
       },
-      "miss": {
-        "text": "Промах",
-        "beat": "b-miss-status"
+      "states": [
+        {
+          "text": "Запрос",
+          "color": "muted",
+          "enter": "type",
+          "beat": "request-1",
+          "at": "start"
+        },
+        {
+          "text": "Промах",
+          "color": "negative",
+          "enter": "pop",
+          "beat": "miss-emphasis",
+          "at": "start"
+        },
+        {
+          "text": "Запись",
+          "color": "accent[2]",
+          "enter": "rise",
+          "beat": "db-return-write",
+          "at": "end"
+        },
+        {
+          "text": "Попадание",
+          "color": "positive",
+          "enter": "pop",
+          "beat": "hit-emphasis",
+          "at": "start"
+        }
+      ]
+    },
+    "graph": {
+      "beat": "graph-in",
+      "layout": {
+        "x": 0,
+        "y": 0.34,
+        "w": 1,
+        "h": 0.48
       },
-      "write": {
-        "text": "Запись в кэш",
-        "beat": "b-write"
+      "enter": "flip",
+      "nodes": [
+        {
+          "id": "node-client",
+          "label": "Клиент",
+          "caption": "GET user:42",
+          "enter": "slide",
+          "enter_frac": 0,
+          "elevation": 2,
+          "layout": {
+            "x": 0.02,
+            "y": 0.5,
+            "w": 0.2,
+            "h": 0.18
+          }
+        },
+        {
+          "id": "node-cache",
+          "label": "Кэш",
+          "enter": "pop",
+          "enter_frac": 0.16,
+          "elevation": 3,
+          "accentIndex": 0,
+          "layout": {
+            "x": 0.38,
+            "y": 0.42,
+            "w": 0.24,
+            "h": 0.34
+          }
+        },
+        {
+          "id": "node-db",
+          "label": "База данных",
+          "caption": "медленно",
+          "enter": "blur",
+          "enter_frac": 0.37,
+          "elevation": 1,
+          "layout": {
+            "x": 0.76,
+            "y": 0.5,
+            "w": 0.22,
+            "h": 0.18
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-req",
+          "from": "node-client",
+          "to": "node-cache"
+        },
+        {
+          "id": "e-db",
+          "from": "node-cache",
+          "to": "node-db"
+        }
+      ],
+      "travel": 16,
+      "pulse": {
+        "count": 1,
+        "repeat": false,
+        "tail": 160,
+        "size": 10
       },
-      "hit": {
-        "text": "Попадание",
-        "beat": "b-hit-status"
+      "flows": [
+        {
+          "edge": "e-req",
+          "beat": "request-1",
+          "reverse": false,
+          "accent": 0
+        },
+        {
+          "edge": "e-db",
+          "beat": "miss-to-db",
+          "reverse": false,
+          "accent": 0
+        },
+        {
+          "edge": "e-db",
+          "beat": "db-return-write",
+          "reverse": true,
+          "accent": 2
+        },
+        {
+          "edge": "e-req",
+          "beat": "answer-1",
+          "reverse": true,
+          "accent": 2
+        },
+        {
+          "edge": "e-req",
+          "beat": "request-2",
+          "reverse": false,
+          "accent": 0
+        },
+        {
+          "edge": "e-req",
+          "beat": "hit-return",
+          "reverse": true,
+          "accent": 1
+        }
+      ],
+      "cache": {
+        "id": "node-cache",
+        "slot_empty": "пусто",
+        "slot_filled": "user:42",
+        "fill_beat": "db-return-write",
+        "flash_on": [
+          {
+            "edge": "e-req",
+            "beat": "request-1"
+          },
+          {
+            "edge": "e-db",
+            "beat": "db-return-write"
+          },
+          {
+            "edge": "e-req",
+            "beat": "request-2"
+          }
+        ],
+        "final_emphasis": {
+          "beat": "final-emphasis",
+          "accentIndex": 1
+        }
+      },
+      "dim": {
+        "node": "node-db",
+        "edge_from": "node-cache",
+        "beat": "request-2",
+        "opacity": 0.45
       }
     },
-    "atmosphere": {
-      "beat": "b-graph-in",
-      "particles": 40
+    "summary": {
+      "text": "Промах — долгий путь · Попадание — сразу",
+      "highlight": [
+        "сразу"
+      ],
+      "beat": "summary-in",
+      "layout": {
+        "x": 0.15,
+        "y": 0.86,
+        "w": 0.7,
+        "h": 0.09
+      }
     }
   }
 }

@@ -3,62 +3,62 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "b-title-in",
+        "id": "title-in",
         "start_frame": 0,
-        "end_frame": 26
+        "end_frame": 36
       },
       {
-        "id": "b-graph-in",
+        "id": "user-in",
         "start_frame": 6,
-        "end_frame": 60
+        "end_frame": 30
       },
       {
-        "id": "b-user-in",
-        "start_frame": 8,
-        "end_frame": 32
+        "id": "orchestrator-in",
+        "start_frame": 14,
+        "end_frame": 38
       },
       {
-        "id": "b-orch-in",
-        "start_frame": 16,
-        "end_frame": 40
+        "id": "tools-in",
+        "start_frame": 24,
+        "end_frame": 56
       },
       {
-        "id": "b-tools-in",
-        "start_frame": 26,
+        "id": "request-pulse",
+        "start_frame": 44,
         "end_frame": 58
       },
       {
-        "id": "b-request",
-        "start_frame": 50,
-        "end_frame": 72
+        "id": "orchestrator-flash",
+        "start_frame": 58,
+        "end_frame": 80
       },
       {
-        "id": "b-tool-calls",
-        "start_frame": 72,
+        "id": "fan-out-calls",
+        "start_frame": 82,
         "end_frame": 96
       },
       {
-        "id": "b-data-return",
+        "id": "tools-flash",
         "start_frame": 96,
-        "end_frame": 120
+        "end_frame": 118
       },
       {
-        "id": "b-answer",
-        "start_frame": 120,
-        "end_frame": 142
+        "id": "data-return",
+        "start_frame": 119,
+        "end_frame": 133
       },
       {
-        "id": "b-badge-in",
-        "start_frame": 140,
-        "end_frame": 152
+        "id": "response-pulse",
+        "start_frame": 133,
+        "end_frame": 147
       },
       {
-        "id": "b-final-emphasis",
-        "start_frame": 152,
-        "end_frame": 166
+        "id": "user-final",
+        "start_frame": 147,
+        "end_frame": 180
       },
       {
-        "id": "b-hold",
+        "id": "hold",
         "start_frame": 153,
         "end_frame": 180
       }
@@ -75,36 +75,36 @@
     }
   },
   "content": {
-    "title": {
-      "text": "Архитектура AI-агента",
-      "layout": {
-        "x": 0.25,
-        "y": 0,
-        "w": 0.5,
-        "h": 0.08
-      }
+    "title": "Архитектура AI-агента",
+    "title_layout": {
+      "x": 0.25,
+      "y": 0,
+      "w": 0.5,
+      "h": 0.09
     },
-    "graph": {
-      "layout": {
-        "x": 0,
-        "y": 0.12,
-        "w": 1,
-        "h": 0.7
-      },
-      "beat": "b-graph-in",
-      "enter": "flip"
+    "graph_layout": {
+      "x": 0,
+      "y": 0.14,
+      "w": 1,
+      "h": 0.86
     },
     "nodes": [
       {
         "id": "node-user",
         "label": "Пользователь",
-        "caption": "запрос",
         "enter": "slide",
-        "enter_beat": "b-user-in",
+        "enter_beat": "user-in",
+        "cascade_index": 0,
         "elevation": 2,
+        "accentIndex": 0,
+        "flash": {
+          "edge": "e-user-orc",
+          "beat": "response-pulse"
+        },
+        "breathe": true,
         "layout": {
-          "x": 0,
-          "y": 0.38,
+          "x": 0.01,
+          "y": 0.475,
           "w": 0.22,
           "h": 0.14
         }
@@ -112,183 +112,173 @@
       {
         "id": "node-orchestrator",
         "label": "Оркестратор",
-        "caption": "LLM-планировщик",
+        "caption": "планирует вызовы",
         "enter": "pop",
-        "enter_beat": "b-orch-in",
+        "enter_beat": "orchestrator-in",
+        "cascade_index": 0,
         "elevation": 3,
+        "accentIndex": 0,
+        "flash": {
+          "edge": "e-user-orc",
+          "beat": "request-pulse"
+        },
+        "breathe": false,
         "layout": {
-          "x": 0.36,
-          "y": 0.33,
-          "w": 0.28,
-          "h": 0.24
+          "x": 0.37,
+          "y": 0.445,
+          "w": 0.26,
+          "h": 0.2
         }
       },
       {
-        "id": "node-search",
+        "id": "node-tool-search",
         "label": "Веб-поиск",
-        "caption": "инструмент 1",
         "enter": "rise",
-        "enter_beat": "b-tools-in",
+        "enter_beat": "tools-in",
+        "cascade_index": 0,
         "elevation": 2,
+        "accentIndex": 0,
+        "flash": {
+          "edge": "e-orc-search",
+          "beat": "fan-out-calls"
+        },
+        "breathe": false,
         "layout": {
-          "x": 0.79,
-          "y": 0.14,
-          "w": 0.21,
-          "h": 0.14
+          "x": 0.76,
+          "y": 0.18,
+          "w": 0.23,
+          "h": 0.13
         }
       },
       {
-        "id": "node-db",
-        "label": "База данных",
-        "caption": "инструмент 2",
+        "id": "node-tool-kb",
+        "label": "База знаний",
         "enter": "rise",
-        "enter_beat": "b-tools-in",
+        "enter_beat": "tools-in",
+        "cascade_index": 1,
         "elevation": 2,
+        "accentIndex": 0,
+        "flash": {
+          "edge": "e-orc-kb",
+          "beat": "fan-out-calls"
+        },
+        "breathe": false,
         "layout": {
-          "x": 0.79,
-          "y": 0.38,
-          "w": 0.21,
-          "h": 0.14
+          "x": 0.76,
+          "y": 0.48,
+          "w": 0.23,
+          "h": 0.13
         }
       },
       {
-        "id": "node-code",
-        "label": "Код",
-        "caption": "инструмент 3",
+        "id": "node-tool-code",
+        "label": "Запуск кода",
         "enter": "rise",
-        "enter_beat": "b-tools-in",
+        "enter_beat": "tools-in",
+        "cascade_index": 2,
         "elevation": 2,
+        "accentIndex": 0,
+        "flash": {
+          "edge": "e-orc-code",
+          "beat": "fan-out-calls"
+        },
+        "breathe": false,
         "layout": {
-          "x": 0.79,
-          "y": 0.62,
-          "w": 0.21,
-          "h": 0.14
+          "x": 0.76,
+          "y": 0.78,
+          "w": 0.23,
+          "h": 0.13
         }
       }
     ],
     "edges": [
       {
-        "id": "e-user-orch",
+        "id": "e-user-orc",
         "from": "node-user",
         "to": "node-orchestrator"
       },
       {
-        "id": "e-orch-search",
+        "id": "e-orc-search",
         "from": "node-orchestrator",
-        "to": "node-search"
+        "to": "node-tool-search"
       },
       {
-        "id": "e-orch-db",
+        "id": "e-orc-kb",
         "from": "node-orchestrator",
-        "to": "node-db"
+        "to": "node-tool-kb"
       },
       {
-        "id": "e-orch-code",
+        "id": "e-orc-code",
         "from": "node-orchestrator",
-        "to": "node-code"
+        "to": "node-tool-code"
       }
+    ],
+    "graph_beats": [
+      "user-in",
+      "tools-in"
     ],
     "flows": [
       {
-        "edge": "e-user-orch",
+        "edge": "e-user-orc",
         "direction": "forward",
-        "beat": "b-request",
-        "accent": 0,
-        "count": 1,
-        "repeat": false,
-        "travel": 22
+        "beat": "request-pulse"
       },
       {
-        "edge": "e-orch-search",
+        "edge": "e-orc-search",
         "direction": "forward",
-        "beat": "b-tool-calls",
-        "accent": 0,
-        "count": 1,
-        "repeat": false,
-        "travel": 22
+        "beat": "fan-out-calls"
       },
       {
-        "edge": "e-orch-db",
+        "edge": "e-orc-kb",
         "direction": "forward",
-        "beat": "b-tool-calls",
-        "accent": 1,
-        "count": 1,
-        "repeat": false,
-        "travel": 22
+        "beat": "fan-out-calls"
       },
       {
-        "edge": "e-orch-code",
+        "edge": "e-orc-code",
         "direction": "forward",
-        "beat": "b-tool-calls",
-        "accent": 2,
-        "count": 1,
-        "repeat": false,
-        "travel": 22
+        "beat": "fan-out-calls"
       },
       {
-        "edge": "e-orch-search",
+        "edge": "e-orc-search",
         "direction": "back",
-        "beat": "b-data-return",
-        "accent": 0,
-        "count": 1,
-        "repeat": false,
-        "travel": 22
+        "beat": "data-return"
       },
       {
-        "edge": "e-orch-db",
+        "edge": "e-orc-kb",
         "direction": "back",
-        "beat": "b-data-return",
-        "accent": 1,
-        "count": 1,
-        "repeat": false,
-        "travel": 22
+        "beat": "data-return"
       },
       {
-        "edge": "e-orch-code",
+        "edge": "e-orc-code",
         "direction": "back",
-        "beat": "b-data-return",
-        "accent": 2,
-        "count": 1,
-        "repeat": false,
-        "travel": 22
+        "beat": "data-return"
       },
       {
-        "edge": "e-user-orch",
+        "edge": "e-user-orc",
         "direction": "back",
-        "beat": "b-answer",
-        "accent": 0,
-        "count": 1,
-        "repeat": false,
-        "travel": 22
+        "beat": "response-pulse"
       }
     ],
     "pulse": {
-      "size": 10,
-      "tail": 160
+      "travel": 14,
+      "count": 1,
+      "repeat": false,
+      "tail": 160,
+      "size": 10
     },
-    "badge": {
-      "text": "Ответ готов",
-      "elevation": 3,
+    "pulse_colors": {
+      "forward": 0,
+      "back": 1
+    },
+    "edge_idle": {
       "accentIndex": 0,
-      "enter_beat": "b-badge-in",
-      "emphasis_beat": "b-final-emphasis",
-      "arrival": {
-        "edge": "e-user-orch",
-        "beat": "b-answer",
-        "travel": 22,
-        "count": 1,
-        "repeat": false
-      },
-      "layout": {
-        "x": 0.33,
-        "y": 0.85,
-        "w": 0.34,
-        "h": 0.11
-      }
+      "alpha": 0.35
     },
-    "atmosphere": {
-      "particles": 60,
-      "seed": "agent-dust"
+    "background_beat": "title-in",
+    "particles": {
+      "count": 40,
+      "seed": "agent-dust",
+      "beat": "title-in"
     }
   }
 }

@@ -1,116 +1,145 @@
 import React from "react";
 import {
   Background,
+  Camera,
+  Enter,
   KineticText,
+  Parallax,
   Particles,
   SafeArea,
   StyleProvider,
   Timeline,
+  typeSize,
   useSafeArea,
   useStyle,
 } from "@ms/motion-kit";
+import { useVideoConfig } from "remotion";
 
 type Beat = { id: string; start_frame: number; end_frame: number };
-type Rect = { x: number; y: number; w: number; h: number };
-
+type Layout = { x: number; y: number; w: number; h: number };
+type CameraKey = { frame: number; scale: number; x: number; y: number };
 type TimelineItem = { date: string; label: string; note?: string };
 
 type Content = {
-  kicker: { text: string; layout: Rect };
+  kicker: { text: string; layout: Layout };
+  title: { text: string; layout: Layout };
   timeline: {
-    items: TimelineItem[];
+    orientation: "h" | "v";
+    width: number;
+    height: number;
     accentIndex: number;
     highlightLast: boolean;
-    layout: Rect;
+    layout: Layout;
+    items: TimelineItem[];
   };
+  camera: CameraKey[];
 };
 
-type Props = {
+type SceneStyle = {
+  preset: "dark-premium" | "light-clean" | "tech-neon";
+  intensity: "calm" | "balanced" | "energetic";
+  depth?: 0 | 1 | 2 | 3;
+  transparent?: boolean;
+  safe_area?: { x: number; y: number };
+  font?: string;
+};
+
+export type SceneProps = {
   timing: { duration_frames: number; beats: Beat[] };
-  style: {
-    preset: "dark-premium" | "light-clean" | "tech-neon";
-    intensity: "calm" | "balanced" | "energetic";
-    depth: 0 | 1 | 2 | 3;
-    transparent: boolean;
-    safe_area?: { x: number; y: number };
-  };
+  style: SceneStyle;
   content: Content;
 };
 
 const beatOf = (beats: Beat[], id: string): Beat => {
   const b = beats.find((x) => x.id === id);
-  if (!b) throw new Error(`beat ${id} not found`);
+  if (!b) throw new Error(`beat "${id}" missing in props.timing.beats`);
   return b;
 };
 
 const SceneBody: React.FC<{ beats: Beat[]; content: Content }> = ({ beats, content }) => {
-  const s = useStyle();
-  const area = useSafeArea();
-  const kickerBeat = beatOf(beats, "b-kicker-in");
-  const timelineBeat = beatOf(beats, "b-timeline-draw");
-  const k = content.kicker.layout;
-  const t = content.timeline.layout;
+  const style = useStyle();
+  const rect = useSafeArea();
+  const { height } = useVideoConfig();
+
+  const kickerBeat = beatOf(beats, "kicker-in");
+  const titleBeat = beatOf(beats, "title-in");
+  const drawBeat = beatOf(beats, "timeline-draw");
+
+  const { kicker, title, timeline } = content;
+  const place = (l: Layout): React.CSSProperties => ({
+    position: "absolute",
+    left: l.x * rect.w,
+    top: l.y * rect.h,
+    width: l.w * rect.w,
+  });
+
+  const tlWidth = Math.min(timeline.width, timeline.layout.w * rect.w);
+  const tlHeight = Math.min(timeline.height, timeline.layout.h * rect.h);
+  const display = style.typography.display;
 
   return (
-    <>
-      <div
-        style={{
-          position: "absolute",
-          left: k.x * area.w,
-          top: k.y * area.h,
-          width: k.w * area.w,
-          height: k.h * area.h,
-          display: "flex",
-          alignItems: "center",
-        }}
-      >
+    <SafeArea>
+      {/* Опора: кикер над заголовком — раскладка карточки раздела (chapter-title) */}
+      <div style={place(kicker.layout)}>
         <KineticText
-          text={content.kicker.text}
+          text={kicker.text}
           beat={kickerBeat}
           mode="letters"
           enter="type"
-          size="body"
+          size="caption"
           font="mono"
-          color={s.palette.muted}
-          align="left"
+          caps
+          color={style.palette.muted}
         />
       </div>
-      <div
-        style={{
-          position: "absolute",
-          left: t.x * area.w,
-          top: t.y * area.h,
-          width: t.w * area.w,
-          height: t.h * area.h,
-        }}
-      >
+      <div style={place(title.layout)}>
+        <Enter kind="mask" beat={titleBeat}>
+          <div
+            style={{
+              fontFamily: display.family,
+              fontWeight: 800,
+              fontSize: typeSize(style, "h2", height),
+              letterSpacing: `${style.typography.tracking.display}em`,
+              lineHeight: 1.15,
+              color: style.palette.text,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {title.text}
+          </div>
+        </Enter>
+      </div>
+      {/* Герой: ось прорисовывается головой, веха «сейчас» дышит сама (highlightLast) */}
+      <div style={{ ...place(timeline.layout), height: tlHeight }}>
         <Timeline
-          items={content.timeline.items}
-          beat={timelineBeat}
-          orientation="h"
-          width={t.w * area.w}
-          height={t.h * area.h}
-          accentIndex={content.timeline.accentIndex}
-          highlightLast={content.timeline.highlightLast}
+          items={timeline.items}
+          beat={drawBeat}
+          orientation={timeline.orientation}
+          width={tlWidth}
+          height={tlHeight}
+          accentIndex={timeline.accentIndex}
+          highlightLast={timeline.highlightLast}
         />
       </div>
-    </>
+    </SafeArea>
   );
 };
 
-export const Scene: React.FC<Props> = ({ timing, style, content }) => {
-  const kickerBeat = beatOf(timing.beats, "b-kicker-in");
+export const Scene: React.FC<SceneProps> = ({ timing, style, content }) => {
+  const atmosphere = beatOf(timing.beats, "kicker-in");
   return (
     <StyleProvider style={style}>
-      {style.transparent ? null : (
-        <>
-          <Background beat={kickerBeat} variant="aurora" seed="company-path" />
-          <Particles count={40} seed="path-dust" beat={kickerBeat} layer={0} />
-        </>
-      )}
-      <SafeArea>
-        <SceneBody beats={timing.beats} content={content} />
-      </SafeArea>
+      <Camera keys={content.camera}>
+        {!style.transparent && (
+          <Parallax layer={0}>
+            <Background beat={atmosphere} variant="aurora" seed="company-path" />
+            <Particles count={56} seed="path-dust" beat={atmosphere} layer={0} />
+          </Parallax>
+        )}
+        <Parallax layer={1}>
+          <SceneBody beats={timing.beats} content={content} />
+        </Parallax>
+      </Camera>
     </StyleProvider>
   );
 };

@@ -1,51 +1,51 @@
 {
-  "run_id": "job_01M5EWNPCYX0J54VKNA18JY2KB",
+  "run_id": "job_01M5EZPF1HVGD9XWXGVBM0KJCC",
   "attempt": 1,
-  "cost_usd": 1.6167186,
+  "cost_usd": 1.6982452000000001,
   "engineer_calls": 2,
   "visual_qa": [
     {
       "call": 2,
-      "wall_ms": 29591,
-      "cost_usd": 0.15862829999999994,
+      "wall_ms": 22878,
+      "cost_usd": 0.15515030000000007,
       "status": "completed",
       "gate": {
         "technical": "pass",
-        "visual": "pass",
+        "visual": "warn",
         "semantic": "pass",
         "style": "pass"
       }
     }
   ],
   "timings": {
-    "concept": 7035,
-    "motion_director": 141182,
-    "engineer_1": 99353,
-    "static": 43,
-    "typecheck": 29191,
-    "engineer_2": 24418,
-    "render_2": 21113,
-    "qa_programmatic": 2954,
-    "visual_qa_2": 29610
+    "concept": 6093,
+    "motion_director": 134747,
+    "engineer_1": 126452,
+    "static": 58,
+    "typecheck": 30831,
+    "engineer_2": 25448,
+    "render_2": 22779,
+    "qa_programmatic": 3001,
+    "visual_qa_2": 22899
   },
   "history": [
     {
-      "at": "2026-10-21T09:38:53.857Z",
+      "at": "2026-10-21T10:33:32.040Z",
       "stage": "director",
-      "message": "spec не прошла проверку (раунд 1):\n- accent_conflict (node-user, answer-badge): вспышка node-user (приход импульса бита b-answer, кадры 137–160) и акцент answer-badge (бит b-final-emphasis, кадры 152–160) светятся одновременно: два акцента в один момент → один акцент в момент: если приход импульса отмечает сам answer-badge — убери flash_on у node-user; иначе начни бит b-final-emphasis не раньше кадра 160, когда вспышка погаснет\n- accent_conflict (node-orchestrator, agent-graph, node-search, node-db, node-code): вспышка node-orchestrator (приход импульса бита b-request, кадры 61–84) и акцент agent-graph, node-search, node-db, node-code (бит b-tool-calls, кадры 62–94) светятся одновременно: два акцента в один момент → один акцент в момент: если приход импульса отмечает сам agent-graph, node-search, node-db, node-code — убери flash_on у node-orchestrator; иначе начни бит b-tool-calls не раньше кадра 84, когда вспышка погаснет\n- accent_conflict (node-orchestrator, agent-graph, node-user): вспышка node-orchestrator (приход импульса бита b-data-return, кадры 115–138) и акцент agent-graph, node-user (бит b-answer, кадры 116–138) светятся одновременно: два акцента в один момент → один акцент в момент: если приход импульса отмечает сам agent-graph, node-user — убери flash_on у node-orchestrator; иначе начни бит b-answer не раньше кадра 138, когда вспышка погаснет\n- accent_conflict (node-search, agent-graph, node-orchestrator): вспышка node-search (приход импульса бита b-tool-calls, кадры 93–116) и акцент agent-graph, node-orchestrator (бит b-data-return, кадры 94–116) светятся одновременно: два акцента в один момент → один акцент в момент: если приход импульса отмечает сам agent-graph, node-orchestrator — убери flash_on у node-search; иначе начни бит b-data-return не раньше кадра 116, когда вспышка погаснет\n- accent_conflict (node-db, agent-graph, node-orchestrator): вспышка node-db (приход импульса бита b-tool-calls, кадры 93–116) и акцент agent-graph, node-orchestrator (бит b-data-return, кадры 94–116) светятся одновременно: два акцента в один момент → один акцент в момент: если приход импульса отмечает сам agent-graph, node-orchestrator — убери flash_on у node-db; иначе начни бит b-data-return не раньше кадра 116, когда вспышка погаснет\n- accent_conflict (node-code, agent-graph, node-orchestrator): вспышка node-code (приход импульса бита b-tool-calls, кадры 93–116) и акцент agent-graph, node-orchestrator (бит b-data-return, кадры 94–116) светятся одновременно: два акцента в один момент → один акцент в момент: если приход импульса отмечает сам agent-graph, node-orchestrator — убери flash_on у node-code; иначе начни бит b-data-return не раньше кадра 116, когда вспышка погаснет"
+      "message": "spec не прошла проверку (раунд 1):\n- accent_conflict (node-orchestrator, agent-graph, node-tool-search, node-tool-kb, node-tool-code): вспышка node-orchestrator (приход импульса бита request-pulse, кадры 59–82) и акцент agent-graph, node-tool-search, node-tool-kb, node-tool-code (бит fan-out-calls, кадры 60–84) светятся одновременно: два акцента в один момент → один акцент в момент: если приход импульса отмечает сам agent-graph, node-tool-search, node-tool-kb, node-tool-code — убери flash_on у node-orchestrator; иначе начни бит fan-out-calls не раньше кадра 82, когда вспышка погаснет"
     },
     {
-      "at": "2026-10-21T09:42:07.575Z",
+      "at": "2026-10-21T10:37:04.818Z",
       "stage": "typecheck",
-      "message": "src/Scene.tsx:258 Type 'StyleProps' is not assignable to type 'StyleSource'.\n  Type 'StyleProps' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'StyleProps' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
+      "message": "src/Scene.tsx:235 Type 'SceneStyle' is not assignable to type 'StyleSource'.\n  Type 'SceneStyle' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'SceneStyle' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
     },
     {
-      "at": "2026-10-21T09:43:40.882Z",
+      "at": "2026-10-21T10:38:35.035Z",
       "stage": "qa",
-      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"pass\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
+      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
     },
     {
-      "at": "2026-10-21T09:43:40.909Z",
+      "at": "2026-10-21T10:38:35.062Z",
       "stage": "ready",
       "message": "gate пройден с вызова 2"
     }

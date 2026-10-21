@@ -1,0 +1,457 @@
+{
+  "title": "Монолит vs микросервисы: скорость релизов",
+  "purpose": "Показать, что за тот же срок монолит выпускает один релиз, а микросервисы — восемь.",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "composition": {
+    "archetype": "split",
+    "idea": "Две горизонтальные дорожки одна под другой: сверху длинная цепочка монолита, снизу короткий путь микросервиса; справа у каждой дорожки — её итог. Взгляд идёт слева направо по импульсам к числам. Фон — aurora с частицами слоя 0.",
+    "focus": "Камера стоит, фокус ведут импульсы и рост числа: сначала дорожки, потом бегущие импульсы, в конце — крупное «8 релизов».",
+    "transitions": "Цепочки собираются, по ним идут импульсы: сверху один медленный, снизу частые; каждый нижний импульс становится шагом счётчика. Импульсы стихают, на экране остаются дышащий итог и вывод."
+  },
+  "elements": [
+    {
+      "id": "title",
+      "kind": "text",
+      "role": "заголовок: тема сравнения",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "text": "Скорость релизов: монолит и микросервисы",
+        "size": "h2",
+        "component": "KineticText",
+        "mode": "words",
+        "enter": "rise"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 0.7,
+        "h": 0.09
+      }
+    },
+    {
+      "id": "lanes-graph",
+      "kind": "graph",
+      "role": "опора: две дорожки поставки",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "FlowGraph",
+        "enter": "flip",
+        "edges": [
+          {
+            "id": "e-mono-1",
+            "from": "mono-build",
+            "to": "mono-test"
+          },
+          {
+            "id": "e-mono-2",
+            "from": "mono-test",
+            "to": "mono-deploy"
+          },
+          {
+            "id": "e-mono-3",
+            "from": "mono-deploy",
+            "to": "mono-release"
+          },
+          {
+            "id": "e-micro",
+            "from": "micro-pipe",
+            "to": "micro-release"
+          }
+        ],
+        "flows": [
+          {
+            "edge": "e-mono-1",
+            "direction": "forward",
+            "beat": "mono-flow"
+          },
+          {
+            "edge": "e-mono-2",
+            "direction": "forward",
+            "beat": "mono-flow"
+          },
+          {
+            "edge": "e-mono-3",
+            "direction": "forward",
+            "beat": "mono-flow"
+          },
+          {
+            "edge": "e-micro",
+            "direction": "forward",
+            "beat": "micro-flow"
+          }
+        ],
+        "pulses": {
+          "mono": {
+            "travel": 20,
+            "count": 1,
+            "repeat": false,
+            "color": "muted",
+            "note": "один медленный импульс проходит цепочку e-mono-1 → e-mono-2 → e-mono-3 последовательно (подбиты 64–84, 84–104, 104–124)"
+          },
+          "micro": {
+            "travel": 16,
+            "count": 3,
+            "repeat": true,
+            "color": "accent[1]",
+            "note": "частые импульсы — каждый проход = релиз"
+          }
+        },
+        "no_flash": "у узлов графа нет flash: приход импульсов отмечает только счётчик micro-count, акцент один"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.12,
+        "w": 0.58,
+        "h": 0.62
+      }
+    },
+    {
+      "id": "mono-label",
+      "kind": "text",
+      "role": "подпись дорожки: Монолит",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "text": "Монолит",
+        "size": "body",
+        "color": "muted",
+        "component": "KineticText",
+        "enter": "slide"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.12,
+        "w": 0.3,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "mono-build",
+      "kind": "card",
+      "role": "node: сборка монолита",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Сборка",
+        "elevation": 1,
+        "enter": "flip"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.19,
+        "w": 0.12,
+        "h": 0.13
+      }
+    },
+    {
+      "id": "mono-test",
+      "kind": "card",
+      "role": "node: тесты монолита",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Тесты",
+        "elevation": 1,
+        "enter": "flip"
+      },
+      "layout": {
+        "x": 0.14,
+        "y": 0.19,
+        "w": 0.11,
+        "h": 0.13
+      }
+    },
+    {
+      "id": "mono-deploy",
+      "kind": "card",
+      "role": "node: общий деплой",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Общий деплой",
+        "elevation": 1,
+        "enter": "flip"
+      },
+      "layout": {
+        "x": 0.27,
+        "y": 0.19,
+        "w": 0.19,
+        "h": 0.13
+      }
+    },
+    {
+      "id": "mono-release",
+      "kind": "card",
+      "role": "node: релиз монолита",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "label": "Релиз",
+        "elevation": 1,
+        "enter": "blur"
+      },
+      "layout": {
+        "x": 0.48,
+        "y": 0.19,
+        "w": 0.1,
+        "h": 0.13
+      }
+    },
+    {
+      "id": "micro-label",
+      "kind": "text",
+      "role": "подпись дорожки: Микросервисы",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "text": "Микросервисы",
+        "size": "body",
+        "component": "KineticText",
+        "enter": "slide"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.42,
+        "w": 0.35,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "micro-pipe",
+      "kind": "card",
+      "role": "node: короткий конвейер сервиса",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "label": "Сборка + тесты",
+        "elevation": 2,
+        "enter": "swing"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.5,
+        "w": 0.24,
+        "h": 0.13
+      }
+    },
+    {
+      "id": "micro-release",
+      "kind": "card",
+      "role": "node: релиз сервиса",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "label": "Релиз",
+        "elevation": 2,
+        "enter": "pop"
+      },
+      "layout": {
+        "x": 0.48,
+        "y": 0.5,
+        "w": 0.1,
+        "h": 0.13
+      }
+    },
+    {
+      "id": "mono-count",
+      "kind": "text",
+      "role": "контекст: итог монолита, приглушён",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "text": "1 релиз",
+        "size": "h2",
+        "color": "muted",
+        "component": "Enter",
+        "note": "входит в кадр прихода импульса к mono-release (useFlowGeometry().arrivals для e-mono-3), без свечения"
+      },
+      "layout": {
+        "x": 0.62,
+        "y": 0.19,
+        "w": 0.36,
+        "h": 0.13
+      }
+    },
+    {
+      "id": "micro-count",
+      "kind": "number",
+      "role": "акцент: герой — релизы микросервисов",
+      "entrance": "count",
+      "depth_layer": 1,
+      "content": {
+        "component": "AnimatedNumber",
+        "from": 0,
+        "to": 8,
+        "locale": "ru",
+        "size": "display",
+        "suffix_forms": [
+          " релиз",
+          " релиза",
+          " релизов"
+        ],
+        "enterAt": 24,
+        "emphasis": {
+          "component": "Emphasis",
+          "beat": "final-emphasis",
+          "loop": true,
+          "shape": "pill",
+          "accentIndex": 0
+        }
+      },
+      "layout": {
+        "x": 0.62,
+        "y": 0.45,
+        "w": 0.38,
+        "h": 0.2
+      }
+    },
+    {
+      "id": "conclusion",
+      "kind": "text",
+      "role": "вывод",
+      "entrance": "mask",
+      "depth_layer": 1,
+      "content": {
+        "text": "Микросервисы — релизы быстрее и чаще",
+        "size": "body",
+        "component": "Enter",
+        "kind": "mask"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.82,
+        "w": 0.8,
+        "h": 0.1
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "title-in",
+      "start_frame": 0,
+      "end_frame": 24,
+      "action": "title-in",
+      "description": "Заголовок поднимается из маски по словам.",
+      "element_ids": [
+        "title"
+      ]
+    },
+    {
+      "id": "labels-in",
+      "start_frame": 10,
+      "end_frame": 38,
+      "action": "labels-in",
+      "description": "«Монолит» въезжает слайдом в кадре 10, «Микросервисы» — со сдвигом 4 кадра (в 14).",
+      "element_ids": [
+        "mono-label",
+        "micro-label"
+      ]
+    },
+    {
+      "id": "graph-in",
+      "start_frame": 16,
+      "end_frame": 64,
+      "action": "graph-entrance",
+      "description": "Входят узлы: цепочка монолита — каскадом flip (stagger 4), «Релиз» монолита — из размытия (blur); конвейер микросервиса — дверцей swing, его «Релиз» — pop. Рёбра прорисовываются, когда оба конца на месте.",
+      "element_ids": [
+        "lanes-graph",
+        "mono-build",
+        "mono-test",
+        "mono-deploy",
+        "mono-release",
+        "micro-pipe",
+        "micro-release"
+      ]
+    },
+    {
+      "id": "count-in",
+      "start_frame": 24,
+      "end_frame": 48,
+      "action": "number-in",
+      "description": "Число micro-count выскакивает (pop) со значением «0 релизов» и держит его до кадра 64, чтобы стартовое значение успели прочитать.",
+      "element_ids": [
+        "micro-count"
+      ]
+    },
+    {
+      "id": "mono-flow",
+      "start_frame": 64,
+      "end_frame": 124,
+      "action": "mono-flow",
+      "description": "Один тусклый импульс медленно проходит путь «Сборка → Тесты → Общий деплой → Релиз» (подбиты 64–84, 84–104, 104–124). Узлы не вспыхивают.",
+      "element_ids": [
+        "lanes-graph"
+      ]
+    },
+    {
+      "id": "micro-flow",
+      "start_frame": 64,
+      "end_frame": 128,
+      "action": "micro-flow",
+      "description": "По короткому ребру микросервиса часто идут бирюзовые импульсы (count 3, travel 16, repeat), каждый проход — шаг счётчика. Узел micro-release не вспыхивает: приход импульса отмечает только micro-count.",
+      "element_ids": [
+        "lanes-graph"
+      ]
+    },
+    {
+      "id": "micro-count-run",
+      "start_frame": 64,
+      "end_frame": 128,
+      "action": "count",
+      "description": "micro-count считает от 0 до 8, слово согласуется с числом: «1 релиз», «2 релиза», «5 релизов», «8 релизов». Удар на финише — в кадре 128.",
+      "element_ids": [
+        "micro-count"
+      ]
+    },
+    {
+      "id": "conclusion-in",
+      "start_frame": 116,
+      "end_frame": 152,
+      "action": "conclusion-in",
+      "description": "Вывод открывается шторкой mask снизу (36 кадров), белым текстом без свечения.",
+      "element_ids": [
+        "conclusion"
+      ]
+    },
+    {
+      "id": "mono-result-in",
+      "start_frame": 122,
+      "end_frame": 146,
+      "action": "mono-result-in",
+      "description": "Когда единственный импульс доходит до «Релиза» монолита, справа из размытия проявляется приглушённое «1 релиз» — без акцента.",
+      "element_ids": [
+        "mono-count"
+      ]
+    },
+    {
+      "id": "final-emphasis",
+      "start_frame": 132,
+      "end_frame": 180,
+      "action": "final-emphasis",
+      "description": "Emphasis на micro-count цветом accent[0]: удар в кадре 132, дальше дыхание до конца сцены (loop). Других светящихся объектов нет.",
+      "element_ids": [
+        "micro-count"
+      ]
+    },
+    {
+      "id": "hold",
+      "start_frame": 153,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "Новых входов нет. Импульсы стихли — релизы посчитаны. Дышит только «8 релизов»: свет и масштаб в противофазе, кольцо на каждый вдох. Монолит и «1 релиз» приглушены и неподвижны — движение подтверждает победу микросервисов.",
+      "element_ids": [
+        "micro-count",
+        "mono-count",
+        "conclusion",
+        "lanes-graph"
+      ]
+    }
+  ]
+}

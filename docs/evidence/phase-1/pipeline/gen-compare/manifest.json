@@ -1,0 +1,215 @@
+{
+  "schema_version": 1,
+  "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
+  "scene_id": "scn_01M5EZPF0D76WPRF7PTY31PYE4",
+  "parent_version_id": null,
+  "number": 1,
+  "created_at": "2026-10-21T10:32:20.698Z",
+  "prompt": "Сравни монолит и микросервисы по скорости релизов",
+  "edit_plan": null,
+  "settings": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 180,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "files": [
+    {
+      "path": "frames/152.png",
+      "sha256": "5a2ad2f5ef2aba578027b588955f5728c8a1f1d87c765fc92811c08be87a5608"
+    },
+    {
+      "path": "frames/156.png",
+      "sha256": "7dd46c27b9b4154ab940b0b66e2e87d8412e0ad63b9351f8c1255a8ecab64b0d"
+    },
+    {
+      "path": "frames/166.png",
+      "sha256": "cca80ec3a000e502b076aa6bbb5e102975583546eb6c422f5b23ee1f1972fd6f"
+    },
+    {
+      "path": "frames/179.png",
+      "sha256": "3e6723c18ae5b540aaeca44863b9258150f29f0757e8178930d3a8040f10ae2e"
+    },
+    {
+      "path": "frames/28.png",
+      "sha256": "37652445fa05a0eabcf3f108272297bad8c4dcbe2d010b3ec45d50ae54b9b32c"
+    },
+    {
+      "path": "frames/40.png",
+      "sha256": "54869524f1eeeccd12fbc50c28d6a7b29af9829b817a0ef745bdcd044d85fb87"
+    },
+    {
+      "path": "frames/64.png",
+      "sha256": "34a4ca02614e1db0f4490ea9439396188dae5c9be9ba03359576e883ee3ad9e3"
+    },
+    {
+      "path": "frames/96.png",
+      "sha256": "df9d20579dacdf9d686b1ebe57a37d6f783bdd3e9987cb6ceef6826270fec47c"
+    },
+    {
+      "path": "knowledge-refs.json",
+      "sha256": "de3eaf21d658ad6d2e16b3cad6c51aba0b0cdbb98edadcce8c10b5bd900b0c16"
+    },
+    {
+      "path": "pipeline-log.json",
+      "sha256": "cd63029e221aa638e8b6b6824bae2c9a685cf55ac1cdc1cb8ed39d93872c6e57"
+    },
+    {
+      "path": "preview.mp4",
+      "sha256": "92a623e3bf258f6cd3262a3f42a5818eda9d3c9fb8fef05056a1832e253fa3d0"
+    },
+    {
+      "path": "props.json",
+      "sha256": "98958ce28501aa8f69d8e591918d4b8c6e8ca1126136217fb358c92819396138"
+    },
+    {
+      "path": "qa.json",
+      "sha256": "c61fab1dd0e249c223c719b3dad88cd8275a1073ed3db7c8a2a8ee8251802041"
+    },
+    {
+      "path": "refs/kb/animata/glowing-card/CARD.md",
+      "sha256": "6b17aee1f19aa8181b2cf3df028951dac93bad98f35001fb88adfd4bb2ea284c"
+    },
+    {
+      "path": "refs/kb/animata/glowing-card/templates/react-libriry/animata/animata/card/glowing-card.tsx",
+      "sha256": "0f2c70bc70f18597b343dee8b7a94b9aeed5b6ad5d17605b745d1588103d0383"
+    },
+    {
+      "path": "refs/kb/remotion-bits/bit-card-stack/CARD.md",
+      "sha256": "fad9a05b2dce6f998dcbbf091409e0a4f0be614ff10ea27a87c4aa44f5a13aec"
+    },
+    {
+      "path": "refs/kb/remotion-bits/bit-card-stack/templates/remotion-components/remotion-bits/docs/src/bits/examples/staggered-motion/CardStack.tsx",
+      "sha256": "97fb7b1b035d22a3822a8dfcaa8c4035ebc818dff5b86e7e569073d0096b8ece"
+    },
+    {
+      "path": "refs/motion-kit/API.md",
+      "sha256": "aef7aee2f882cc13bdcf837d5f3342cab75d7ba9ea4bb3b74e77829d5d3f438f"
+    },
+    {
+      "path": "refs/skills/remotion-markup/SKILL.md",
+      "sha256": "399a8f21821ee72071645d22b2e4c7aba34357f2139d027857868eb856f24a4f"
+    },
+    {
+      "path": "refs/skills/remotion-markup/local-fonts.md",
+      "sha256": "fcad2a2e3a05419d4555c59a75454c4891455dbea91ad596c1095e2887d26a11"
+    },
+    {
+      "path": "refs/skills/remotion-markup/sequencing.md",
+      "sha256": "f53680a3ec4b754501ce37516387666e1b3df3c5714d266154b274caea4236a4"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing-props.md",
+      "sha256": "346ff7f3778f3b7ba165ac212459034120cac7cffd3ead3fe68db179e15f7494"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing.md",
+      "sha256": "48047e758b96aea519916479ede62b832bf51f982924978e091c37f569ab4bac"
+    },
+    {
+      "path": "refs/skills/remotion-markup/transitions.md",
+      "sha256": "83b8b511044ef175244a4e9e81f66bd3f5062cf9cecacd30ae88ac17eda40b82"
+    },
+    {
+      "path": "selection.json",
+      "sha256": "917bc065054c6fb35f90cdcb7078059c13d3526790636cc80383974c1c9df4e4"
+    },
+    {
+      "path": "settings.json",
+      "sha256": "0b46d98e94443777eaf45644a5755e6faf4ce94ffb01d67689792327ab031365"
+    },
+    {
+      "path": "spec.json",
+      "sha256": "1c7222cc1a9fd9e7984845ccebabb32cd32bf1d67d37ea0cf5bc89b28ba6d56f"
+    },
+    {
+      "path": "src/Scene.tsx",
+      "sha256": "f9522841cc1a5ebf148463a4f986f5ad7fd817dfcc9014fe6f1026d448a16ec0"
+    },
+    {
+      "path": "style.json",
+      "sha256": "18a0a04c657887af9d85691285c9480a89f361fb434379a61df3445ffc78e3d6"
+    }
+  ],
+  "changed_files": [
+    "src/Scene.tsx",
+    "props.json"
+  ],
+  "render_env": {
+    "remotion": "4.0.537",
+    "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
+    "motion_kit": "sha256:aa65f750424ab273",
+    "chrome_headless_shell": "157.0.8080.0-remotion-v3",
+    "node": "22.21.1"
+  },
+  "knowledge_refs": [
+    {
+      "kb_id": "remotion-bits/bit-card-stack",
+      "commit": "de35fda",
+      "license": "MIT (package.json)",
+      "strategy": "adapt"
+    },
+    {
+      "kb_id": "animata/glowing-card",
+      "commit": "e7478b8",
+      "license": "MIT (LICENSE.md)",
+      "strategy": "adapt"
+    }
+  ],
+  "agent_runs": [
+    "logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/a1-concept-1",
+    "logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/a1-motion_director-1",
+    "logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/a1-motion_director-2",
+    "logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/a1-engineer-1",
+    "logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/a1-visual_qa-1",
+    "logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/a1-engineer-2",
+    "logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/a1-visual_qa-2"
+  ],
+  "qa": {
+    "technical": "pass",
+    "visual": "warn",
+    "semantic": "pass",
+    "style": "pass"
+  },
+  "preview": {
+    "path": "preview.mp4",
+    "sha256": "92a623e3bf258f6cd3262a3f42a5818eda9d3c9fb8fef05056a1832e253fa3d0"
+  },
+  "status": "ready",
+  "qa_frames": [
+    28,
+    40,
+    64,
+    96,
+    152,
+    156,
+    166,
+    179
+  ],
+  "qa_frames_sha256": [
+    "37652445fa05a0eabcf3f108272297bad8c4dcbe2d010b3ec45d50ae54b9b32c",
+    "54869524f1eeeccd12fbc50c28d6a7b29af9829b817a0ef745bdcd044d85fb87",
+    "34a4ca02614e1db0f4490ea9439396188dae5c9be9ba03359576e883ee3ad9e3",
+    "df9d20579dacdf9d686b1ebe57a37d6f783bdd3e9987cb6ceef6826270fec47c",
+    "5a2ad2f5ef2aba578027b588955f5728c8a1f1d87c765fc92811c08be87a5608",
+    "7dd46c27b9b4154ab940b0b66e2e87d8412e0ad63b9351f8c1255a8ecab64b0d",
+    "cca80ec3a000e502b076aa6bbb5e102975583546eb6c422f5b23ee1f1972fd6f",
+    "3e6723c18ae5b540aaeca44863b9258150f29f0757e8178930d3a8040f10ae2e"
+  ],
+  "job": {
+    "id": "job_01M5EZPF0JWS93FBFY344TXFD1",
+    "attempt": 1
+  }
+}

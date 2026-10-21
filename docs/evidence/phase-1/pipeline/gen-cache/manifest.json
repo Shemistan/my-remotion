@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5EX5R49N75P4HGQ0V2AT7ZZ",
-  "scene_id": "scn_01M5EWNPCB9QK95RF7ECQXX9CA",
+  "version_id": "ver_01M5F08Y5K9HJ030R2EXZTAH3A",
+  "scene_id": "scn_01M5EZPF12H0NTMQNT7WV2J4HE",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T09:37:43.563Z",
+  "created_at": "2026-10-21T10:31:53.781Z",
   "prompt": "Объясни, как работает кэширование: запрос, промах, запись, попадание",
   "edit_plan": null,
   "settings": {
@@ -27,88 +27,104 @@
   },
   "files": [
     {
-      "path": "frames/128.png",
-      "sha256": "f10ca0706c67cd2b7c29b506a92852d5c5f2a47e8c367272d37ab24507c5484c"
+      "path": "frames/104.png",
+      "sha256": "2ad2bf01a19f0f7fdd00d0fa93bb8bf8102cc26df2b3763f3ce216d1307f033c"
     },
     {
-      "path": "frames/140.png",
-      "sha256": "c4b49131d313796875df84e351338a9a71d3ac59bb3eb7137ce4efc933e9f39b"
+      "path": "frames/119.png",
+      "sha256": "c1497a53fac1a6b1c0ae6c85b5359261e43a7dca83ffc24b66b85a5a71eeca67"
     },
     {
-      "path": "frames/151.png",
-      "sha256": "860330f94467ab8060ff3f414b0bde984bc6bd62e46d5adb7bc6d423eef9eb8f"
+      "path": "frames/150.png",
+      "sha256": "bd8db9232a197647b7590834ae19e0baa1e4ebd1558e184928ce813edcae8bf0"
     },
     {
-      "path": "frames/166.png",
-      "sha256": "c72365435fcfd3aefd02e00a0ce6466e43ec6cc2a159fb0b96dc7f626dbacd70"
+      "path": "frames/152.png",
+      "sha256": "00b640b2b14759b751c59a5c5a750d24e5c13b4124b427513734f91c322d4c48"
     },
     {
       "path": "frames/179.png",
-      "sha256": "8eefcebb92a469aebf4dfbbdfac0f431101c741735f90bf6e05cfef024880c50"
+      "sha256": "1362bd4fe6887419dd3eeb14501a4f439dff4971cac8874468b55db33da25299"
     },
     {
-      "path": "frames/30.png",
-      "sha256": "764a908d15d5a5dc09518df08869a405056725daf792b3a92b8443ca9d86cf34"
+      "path": "frames/27.png",
+      "sha256": "d8ee73219b48d6cff62c3b283a9c5dbb1d59e0726598f71d127f1a562f56b5ee"
     },
     {
-      "path": "frames/7.png",
-      "sha256": "ce5c85bd08ce28f050d5e1871d5761555128c0f3c7a92cc15dd700c23324713b"
+      "path": "frames/63.png",
+      "sha256": "ef6411c1c824bfc9d5a7e5d8bf2115e0355b219d6a31f16a7392cf38ba3daaba"
     },
     {
-      "path": "frames/88.png",
-      "sha256": "4af31e4de0c2b2219d2043b0079ae5f72db673d12ec8eedadb757a252a9f5d09"
+      "path": "frames/86.png",
+      "sha256": "37f0bf380e6eb82a9441aead5af0fba07df83decd8505e1e22eff8c16b97b481"
     },
     {
       "path": "knowledge-refs.json",
-      "sha256": "dd6fe911c1f6d247f3dcb375b7f63f2f2aabe59e26bcc71563ebc13daa45034e"
+      "sha256": "41527519ea7ef90e732c5fe5ef5c94632e1ff707ff341bc284f1cc67edeb0318"
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "214f16483c34d7a60d94d8a1b87311e4c12d1a41dc3abf8481ba70232a383aa0"
+      "sha256": "c8774b4b09861ef771849583f20c82f02fdfa3090bc1aa3c5f97f3591e956fb1"
     },
     {
       "path": "preview.mp4",
-      "sha256": "2a5a2f097ee78f24405f9a94d5c0f30951ca92131c93ab4205f586729f479c51"
+      "sha256": "e6b5e528afc7cb5338ed9f6063b398740081e9c7061ce7175603dcb35ea4f203"
     },
     {
       "path": "props.json",
-      "sha256": "965f00a85e85ac2806ca2bbc081db31ac122e5ddec1dfc0ea7606b629c060fa4"
+      "sha256": "72d513a1cfa4a35e439bcbdff4b33ec7670d0204fa13ca6ef9b730b404daac83"
     },
     {
       "path": "qa.json",
-      "sha256": "795453323514d4f8af5bffd9faab9072c8e14e7a1c2585d46ae58fca64bcf4da"
+      "sha256": "fb2babac32dba16716c06ab588c94da5084986bb9f654f997a5dbaf573cca4e1"
     },
     {
-      "path": "refs/kb/xyflow/default-nodes/CARD.md",
-      "sha256": "457221badf4cdc6ece3e9dcec492575134c045d64e7dfee15d079a21b2158066"
+      "path": "refs/kb/xyflow/edge-types/CARD.md",
+      "sha256": "3f32415a7ccd3f6a71d9ba6d1ae535513226c5f6f3438af11046d3e251376027"
     },
     {
-      "path": "refs/kb/xyflow/default-nodes/templates/infografika/xyflow/packages/react/src/components/NodeWrapper/utils.tsx",
-      "sha256": "ca56c6ca44485f338ae838c452ca6a045134ab2aeee166bba618a2220267c09c"
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/EdgeWrapper/index.tsx",
+      "sha256": "93aa5feb60f1b3d7363abad1f2fd4b196f0591442b6dc8f089a41a9d7f0e7dda"
     },
     {
-      "path": "refs/kb/xyflow/default-nodes/templates/infografika/xyflow/packages/react/src/components/Nodes/DefaultNode.tsx",
-      "sha256": "1b5be46bb8978a0c32743e33312609265562be3b20451678d264acdf8352eca0"
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/EdgeWrapper/utils.ts",
+      "sha256": "4ccd54d9929ac6ffa5c9eb221599298c41069f2c7f62459fbebf289c8a109411"
     },
     {
-      "path": "refs/kb/xyflow/default-nodes/templates/infografika/xyflow/packages/react/src/components/Nodes/GroupNode.tsx",
-      "sha256": "4c405a8814569792cad4041409c8a579a65afff35e43f17cc39827d940369dbb"
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/BaseEdge.tsx",
+      "sha256": "1a82a534bdc72a8d340db0a2194cd75b92baad901a2333fad5102b79358998a0"
     },
     {
-      "path": "refs/kb/xyflow/default-nodes/templates/infografika/xyflow/packages/react/src/components/Nodes/InputNode.tsx",
-      "sha256": "9a76248de3c603e15b26085fa1b0a2bae2cbfc82a0665e46330abcb8b940ef35"
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/BezierEdge.tsx",
+      "sha256": "43f6f3c2727114d237e7cd7f9a37d5b537b54ab32b70bc983f4e19f5a40f3764"
     },
     {
-      "path": "refs/kb/xyflow/default-nodes/templates/infografika/xyflow/packages/react/src/components/Nodes/OutputNode.tsx",
-      "sha256": "08f72fd7562932493990d1e9a0d261cbad1dfd96c7f451a9acfa57b5390be080"
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/EdgeText.tsx",
+      "sha256": "f64580093c01366d28c91675d4602f64e9fa8824a087628f0feba14bda9e5f5e"
     },
     {
-      "path": "refs/kb/xyflow/default-nodes/templates/infografika/xyflow/packages/system/src/styles/style.css",
-      "sha256": "a486ebef041a4cdc9c97eb2f12cf30f4af8f39d84c18dd5cb8e709f7136c539d"
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/SimpleBezierEdge.tsx",
+      "sha256": "a57b3b6c6993de1c6c56df49de7cff09346a66358b91b93f4e679a27ce754639"
     },
     {
-      "path": "refs/kb/xyflow/default-nodes/templates/infografika/xyflow/packages/system/src/types/nodes.ts",
-      "sha256": "3421fe3bb9d71e719f0bce458eda7d5c26e313f745d295b11eb4007d1a4bcc0d"
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/SmoothStepEdge.tsx",
+      "sha256": "3ae3ac3abf55aa09a2c54a1f7aecccbff11c05c9edc1f90d67950edfc1fd0e8c"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/StepEdge.tsx",
+      "sha256": "17b4c63c412db3dd2b58bfd64c607eeb472a65476570edd179df17a231b96396"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/StraightEdge.tsx",
+      "sha256": "0acb4bb04a1dcb8025c50b88ae37db04d2db441cb0d243fb752ab9ce74c25cdc"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/types/edges.ts",
+      "sha256": "7c7e8f335a4bacaeffa5912cc4974c3cfd71d9ecb10f087dbaefde5dd5b9ea38"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/system/src/styles/init.css",
+      "sha256": "2458f7ae49969a3eaa04f43af179fec02b28a2453cb693f05ca9b6cb77df1faa"
     },
     {
       "path": "refs/kb/xyflow/react-flow/CARD.md",
@@ -180,7 +196,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "dcba9c668ea481962e26ef54899cb8d2553e7200da1445f8f9aa05ac4414a950"
+      "sha256": "eaa12dd6aa299fe18b82d6bdb36c09692c1ad8d288a7d79ea106a027e502d8b1"
     },
     {
       "path": "settings.json",
@@ -188,11 +204,11 @@
     },
     {
       "path": "spec.json",
-      "sha256": "e88ea370aef11e448fd62dc393b0e96a838eac3bb0e7ed8dd40b724ca706b6b2"
+      "sha256": "e89ecb94e56d4bc2d3ab3976c5f9f619d14e4bf25f5e566d2ce41223e61e031c"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "8f6aa2f880e72b5a885bb6df89465a2e8f7472f58a3ff79756269b85824a59d3"
+      "sha256": "12b50fcedaaf856c203c11f44f6230be52101f52a4ac01059731cd7c3e6775db"
     },
     {
       "path": "style.json",
@@ -206,7 +222,7 @@
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:87cfd3046dd21e1f",
+    "motion_kit": "sha256:aa65f750424ab273",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
@@ -218,17 +234,18 @@
       "strategy": "adapt"
     },
     {
-      "kb_id": "xyflow/default-nodes",
+      "kb_id": "xyflow/edge-types",
       "commit": "654ba5a5e",
       "license": "MIT (LICENSE, packages/react/package.json)",
       "strategy": "adapt"
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5EWNPCFWS6MGEM5J6AX0XT7/a2-motion_director-1",
-    "logs/agent-runs/job_01M5EWNPCFWS6MGEM5J6AX0XT7/a2-engineer-1",
-    "logs/agent-runs/job_01M5EWNPCFWS6MGEM5J6AX0XT7/a2-engineer-2",
-    "logs/agent-runs/job_01M5EWNPCFWS6MGEM5J6AX0XT7/a2-visual_qa-1"
+    "logs/agent-runs/job_01M5EZPF15Z9W0TG4RKCY76TMK/a1-concept-1",
+    "logs/agent-runs/job_01M5EZPF15Z9W0TG4RKCY76TMK/a1-motion_director-1",
+    "logs/agent-runs/job_01M5EZPF15Z9W0TG4RKCY76TMK/a1-engineer-1",
+    "logs/agent-runs/job_01M5EZPF15Z9W0TG4RKCY76TMK/a1-engineer-2",
+    "logs/agent-runs/job_01M5EZPF15Z9W0TG4RKCY76TMK/a1-visual_qa-1"
   ],
   "qa": {
     "technical": "pass",
@@ -238,31 +255,31 @@
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "2a5a2f097ee78f24405f9a94d5c0f30951ca92131c93ab4205f586729f479c51"
+    "sha256": "e6b5e528afc7cb5338ed9f6063b398740081e9c7061ce7175603dcb35ea4f203"
   },
   "status": "ready",
   "qa_frames": [
-    7,
-    30,
-    88,
-    128,
-    140,
-    151,
-    166,
+    27,
+    63,
+    86,
+    104,
+    119,
+    150,
+    152,
     179
   ],
   "qa_frames_sha256": [
-    "ce5c85bd08ce28f050d5e1871d5761555128c0f3c7a92cc15dd700c23324713b",
-    "764a908d15d5a5dc09518df08869a405056725daf792b3a92b8443ca9d86cf34",
-    "4af31e4de0c2b2219d2043b0079ae5f72db673d12ec8eedadb757a252a9f5d09",
-    "f10ca0706c67cd2b7c29b506a92852d5c5f2a47e8c367272d37ab24507c5484c",
-    "c4b49131d313796875df84e351338a9a71d3ac59bb3eb7137ce4efc933e9f39b",
-    "860330f94467ab8060ff3f414b0bde984bc6bd62e46d5adb7bc6d423eef9eb8f",
-    "c72365435fcfd3aefd02e00a0ce6466e43ec6cc2a159fb0b96dc7f626dbacd70",
-    "8eefcebb92a469aebf4dfbbdfac0f431101c741735f90bf6e05cfef024880c50"
+    "d8ee73219b48d6cff62c3b283a9c5dbb1d59e0726598f71d127f1a562f56b5ee",
+    "ef6411c1c824bfc9d5a7e5d8bf2115e0355b219d6a31f16a7392cf38ba3daaba",
+    "37f0bf380e6eb82a9441aead5af0fba07df83decd8505e1e22eff8c16b97b481",
+    "2ad2bf01a19f0f7fdd00d0fa93bb8bf8102cc26df2b3763f3ce216d1307f033c",
+    "c1497a53fac1a6b1c0ae6c85b5359261e43a7dca83ffc24b66b85a5a71eeca67",
+    "bd8db9232a197647b7590834ae19e0baa1e4ebd1558e184928ce813edcae8bf0",
+    "00b640b2b14759b751c59a5c5a750d24e5c13b4124b427513734f91c322d4c48",
+    "1362bd4fe6887419dd3eeb14501a4f439dff4971cac8874468b55db33da25299"
   ],
   "job": {
-    "id": "job_01M5EWNPCFWS6MGEM5J6AX0XT7",
-    "attempt": 2
+    "id": "job_01M5EZPF15Z9W0TG4RKCY76TMK",
+    "attempt": 1
   }
 }

@@ -1,19 +1,19 @@
 {
   "job": {
-    "id": "job_01M5EWNPBWYCB36XT3FDA61S54",
+    "id": "job_01M5EZPF0JWS93FBFY344TXFD1",
     "type": "playground.generate",
     "project_id": "playground",
-    "scene_id": "scn_01M5EWNPBPFVQ01QZB5XR7Z6D6",
+    "scene_id": "scn_01M5EZPF0D76WPRF7PTY31PYE4",
     "version_id": null,
     "parent_job_id": null,
-    "status": "failed",
-    "progress": 0.15,
-    "stage": "director",
+    "status": "completed",
+    "progress": 1,
+    "stage": "publish",
     "attempt": 1,
     "max_attempts": 3,
     "interrupts": 0,
     "input": {
-      "sceneId": "scn_01M5EWNPBPFVQ01QZB5XR7Z6D6",
+      "sceneId": "scn_01M5EZPF0D76WPRF7PTY31PYE4",
       "prompt": "Сравни монолит и микросервисы по скорости релизов",
       "settings": {
         "aspect_ratio": "16:9",
@@ -34,54 +34,162 @@
         }
       }
     },
-    "input_hash": "c92e3549ae50e3f2614a47f569d51c53b495504796828cf3e9e76278e832fdb3",
+    "input_hash": "f2a43b3155407c53ca5a1f5ae96c96cbb68cbbf7cd693dacc2ac4bb298fc1481",
     "output_refs": {
+      "scene_id": "scn_01M5EZPF0D76WPRF7PTY31PYE4",
+      "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
+      "version_number": 1,
+      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EZPF0D76WPRF7PTY31PYE4/versions/ver_01M5F09RESAR0KF8CMXT00YA6D",
+      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EZPF0D76WPRF7PTY31PYE4/versions/ver_01M5F09RESAR0KF8CMXT00YA6D/preview.mp4",
+      "cost_usd": 2.7068041000000003,
+      "engineer_calls": 2,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "pass"
+      },
+      "warnings": [],
       "steps": {
         "concept": {
           "input_hash": "3b87ac04a23c8a6d6c502eb8d3b2f86e865c1ce5a713a6922e0ef8ca8af5950b",
-          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EWNPBWYCB36XT3FDA61S54/checkpoints/concept.json"
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/checkpoints/concept.json"
+        },
+        "director": {
+          "input_hash": "6d874ab3fbc9e854a77b1ec28a1ac28e623860b73e1c333279c36f5d819334da",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EZPF0JWS93FBFY344TXFD1/checkpoints/motion_director.json"
         }
       }
     },
-    "error": {
-      "code": "storage_unavailable",
-      "message": "хранилище пропало во время Motion Director: volume_mismatch: том: diskutil не вернул VolumeUUID для /Volumes/External SSD",
-      "stage": "storage"
-    },
-    "idempotency_key": "e2e-gen-compare-run_01M5EWNPBWYCB36XT3FDA61S53",
+    "error": null,
+    "idempotency_key": "e2e-gen-compare-run_01M5EZPF0HTTMMRB0JYJW6JR9J",
     "lease_owner": null,
     "lease_until": null,
     "cancel_requested": false,
-    "created_at": "2026-10-21T09:28:57.468Z",
-    "started_at": "2026-10-21T09:28:57.960Z",
-    "finished_at": "2026-10-21T09:30:45.844Z"
+    "created_at": "2026-10-21T10:21:48.434Z",
+    "started_at": "2026-10-21T10:21:48.928Z",
+    "finished_at": "2026-10-21T10:32:20.717Z"
   },
-  "wall_ms": 109607,
-  "cost_usd": 0.0073747,
+  "wall_ms": 633306,
+  "cost_usd": 2.7068041000000003,
   "agent_runs": [
     {
       "role": "concept",
       "model": "claude-sonnet-5-5",
       "status": "completed",
       "input_tokens": 5396,
-      "output_tokens": 540,
-      "cost_usd": 0.0073747,
-      "started_at": "2026-10-21T09:28:58.391Z",
-      "finished_at": "2026-10-21T09:29:08.052Z"
+      "output_tokens": 562,
+      "cost_usd": 0.007594699999999999,
+      "started_at": "2026-10-21T10:21:49.326Z",
+      "finished_at": "2026-10-21T10:21:57.551Z"
     },
     {
       "role": "motion_director",
-      "model": "unknown",
-      "status": "cancelled",
-      "input_tokens": 0,
-      "output_tokens": 0,
-      "cost_usd": 0,
-      "started_at": "2026-10-21T09:29:10.268Z",
-      "finished_at": "2026-10-21T09:30:45.748Z"
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 39947,
+      "output_tokens": 10038,
+      "cost_usd": 0.41612000000000005,
+      "started_at": "2026-10-21T10:21:57.760Z",
+      "finished_at": "2026-10-21T10:23:34.378Z"
+    },
+    {
+      "role": "motion_director",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 99665,
+      "output_tokens": 13175,
+      "cost_usd": 0.6396196000000001,
+      "started_at": "2026-10-21T10:23:34.542Z",
+      "finished_at": "2026-10-21T10:25:25.802Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 259223,
+      "output_tokens": 12533,
+      "cost_usd": 0.6250178,
+      "started_at": "2026-10-21T10:25:26.403Z",
+      "finished_at": "2026-10-21T10:27:29.196Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 63681,
+      "output_tokens": 3724,
+      "cost_usd": 0.1664149,
+      "started_at": "2026-10-21T10:28:07.597Z",
+      "finished_at": "2026-10-21T10:28:35.099Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 479733,
+      "output_tokens": 14185,
+      "cost_usd": 0.6907939999999999,
+      "started_at": "2026-10-21T10:28:35.326Z",
+      "finished_at": "2026-10-21T10:31:08.161Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 63682,
+      "output_tokens": 3527,
+      "cost_usd": 0.16124310000000003,
+      "started_at": "2026-10-21T10:31:50.042Z",
+      "finished_at": "2026-10-21T10:32:20.302Z"
     }
   ],
-  "render_jobs": [],
-  "qa_reports": [],
+  "render_jobs": [
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "frames": 8,
+      "duration_ms": 20527
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "frames": 180,
+      "duration_ms": 20527
+    },
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "frames": 8,
+      "duration_ms": 23001
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "frames": 180,
+      "duration_ms": 23001
+    }
+  ],
+  "qa_reports": [
+    {
+      "id": 45,
+      "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
+      "attempt": 1,
+      "technical": "pass",
+      "visual": "warn",
+      "semantic": "pass",
+      "style": "pass",
+      "report_path": "workspace/projects/playground/scenes/scn_01M5EZPF0D76WPRF7PTY31PYE4/versions/ver_01M5F09RESAR0KF8CMXT00YA6D/qa.json"
+    }
+  ],
   "component_tests": [
     {
       "kb_id": "remotion-video-templates/line-chart-draw",
@@ -94,15 +202,15 @@
       "kb_id": "motion-primitives/animated-number",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EV8YDNENCMGTBKD0FGF2TJ",
-      "date": "2026-10-21T09:04:31.177Z"
+      "version_id": "ver_01M5EX8M4EY32YE53327ZAQW3B",
+      "date": "2026-10-21T09:39:17.794Z"
     },
     {
       "kb_id": "magicui/animated-beam",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EVK76QQNHPZ1WH8DNTREN3",
-      "date": "2026-10-21T09:10:07.851Z"
+      "version_id": "ver_01M5EXGPFCAH4CGTS17ZMMDC25",
+      "date": "2026-10-21T09:43:42.339Z"
     },
     {
       "kb_id": "xyflow/example-custom-node",
@@ -136,43 +244,43 @@
       "kb_id": "xyflow/react-flow",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EVK76QQNHPZ1WH8DNTREN3",
-      "date": "2026-10-21T09:10:07.851Z"
+      "version_id": "ver_01M5F08Y5K9HJ030R2EXZTAH3A",
+      "date": "2026-10-21T10:31:53.801Z"
     },
     {
       "kb_id": "xyflow/edge-types",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EVBJFY7PVDGZMARJZQNX9S",
-      "date": "2026-10-21T09:05:57.268Z"
+      "version_id": "ver_01M5F08Y5K9HJ030R2EXZTAH3A",
+      "date": "2026-10-21T10:31:53.801Z"
     },
     {
       "kb_id": "motion-primitives-website/svg-path-draw",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5ERXFZ32FTCSM0EWMTNQ7EP",
-      "date": "2026-10-21T08:23:18.775Z"
+      "version_id": "ver_01M5EZXBTS6G631XFZGVTFSBSP",
+      "date": "2026-10-21T10:25:34.571Z"
     },
     {
       "kb_id": "animata/glowing-card",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5ENTY6XMTRB758EZKQW5TEP",
-      "date": "2026-10-21T07:29:29.329Z"
+      "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
+      "date": "2026-10-21T10:32:20.714Z"
     },
     {
       "kb_id": "free-remotion-templates/chapter-title",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5ETX34F6S12HQ72N3EAH3TJ",
-      "date": "2026-10-21T08:58:02.797Z"
+      "version_id": "ver_01M5EZXBTS6G631XFZGVTFSBSP",
+      "date": "2026-10-21T10:25:34.571Z"
     },
     {
       "kb_id": "remotion-bits/bit-staggered-fade-in",
       "remotion_version": "4.0.537",
-      "result": "rendered-ok",
-      "version_id": "ver_01M5ETX34F6S12HQ72N3EAH3TJ",
-      "date": "2026-10-21T08:58:02.797Z"
+      "result": "rendered-fail",
+      "version_id": "ver_01M5EX0TTC9B6BJPW1ECEZAZFX",
+      "date": "2026-10-21T09:35:02.496Z"
     },
     {
       "kb_id": "free-remotion-templates/split-screen",
@@ -185,8 +293,8 @@
       "kb_id": "free-remotion-templates/line-chart-anim",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5ERXFZ32FTCSM0EWMTNQ7EP",
-      "date": "2026-10-21T08:23:18.775Z"
+      "version_id": "ver_01M5EX8M4EY32YE53327ZAQW3B",
+      "date": "2026-10-21T09:39:17.794Z"
     },
     {
       "kb_id": "free-remotion-templates/kpi-counter",
@@ -194,60 +302,135 @@
       "result": "rendered-ok",
       "version_id": "ver_01M5ES443NFXA24BC5TKBX21VK",
       "date": "2026-10-21T08:26:56.008Z"
+    },
+    {
+      "kb_id": "xyflow/default-nodes",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EX5R49N75P4HGQ0V2AT7ZZ",
+      "date": "2026-10-21T09:37:43.583Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-card-stack",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
+      "date": "2026-10-21T10:32:20.714Z"
     }
   ],
   "chat": [
     {
-      "id": "msg_01M5EWS05W5RNQJK957MDM7YMS",
-      "scene_id": "scn_01M5EWNPBPFVQ01QZB5XR7Z6D6",
+      "id": "msg_01M5F09RFAB6CKQHH92S533SWK",
+      "scene_id": "scn_01M5EZPF0D76WPRF7PTY31PYE4",
       "role": "assistant",
-      "text": "Версия не удалась (этап storage): хранилище пропало во время Motion Director: volume_mismatch: том: diskutil не вернул VolumeUUID для /Volumes/External SSD",
-      "job_id": "job_01M5EWNPBWYCB36XT3FDA61S54",
-      "created_at": "2026-10-21T09:30:45.820Z"
+      "text": "Версия 1 готова.\nКонцепция: Экран делится на две дорожки: «Монолит» и «Микросервисы» — сравнение по скорости релизов. На дорожке монолита один тяжёлый блок медленно проходит длинную цепочку «сборка → тесты → общий деплой», релиз выходит редко — всего один маркер в конце. На дорожке микросервисов несколько лёгких блоков параллельно проскакивают короткий путь и один за другим загораются маркерами релизов. Герой кадра — частота релизов: у микросервисов маркеры сыплются каскадом, у монолита остаётся один, и взгляд идёт слева направо по дорожкам, а в конце подсвечивается вывод «Микросервисы — релизы быстрее и чаще».\nКомпоненты: motion-kit StyleProvider, motion-kit Background, motion-kit Particles, motion-kit SafeArea, motion-kit KineticText, motion-kit FlowGraph, motion-kit PulseAlongPath, motion-kit Enter, motion-kit AnimatedNumber, motion-kit Emphasis, motion-kit useSafeArea, motion-kit useStyle, motion-kit typeSize, motion-kit accent, remotion-bits/bit-card-stack (adapt, MIT (package.json)), animata/glowing-card (adapt, MIT (LICENSE.md)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — пройден, стиль — пройден; замечаний: blocking 0, warning 5.",
+      "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
+      "job_id": "job_01M5EZPF0JWS93FBFY344TXFD1",
+      "created_at": "2026-10-21T10:32:20.714Z"
     }
   ],
   "events": [
     {
-      "ts": "2026-10-21T09:28:57.965Z",
+      "ts": "2026-10-21T10:21:48.934Z",
       "level": "info",
       "kind": "started",
       "message": "playground.generate: попытка 1"
     },
     {
-      "ts": "2026-10-21T09:28:58.388Z",
+      "ts": "2026-10-21T10:21:49.323Z",
       "level": "info",
       "kind": "log",
       "message": "Concept…"
     },
     {
-      "ts": "2026-10-21T09:29:08.138Z",
+      "ts": "2026-10-21T10:21:57.556Z",
       "level": "info",
       "kind": "log",
-      "message": "Concept: Экран делится на две дорожки: «Монолит» и «Микросервисы» — сравнение по скорости релизов. Слева монолит — один большой блок, который проходит цепочку «сборка → тесты → выкладка» медленно и целиком, релизы появляются редко (1–2 отметки). Справа микросервисы — несколько маленьких блоков, каждый независимо и быстро проскакивает свой конвейер, и релизные отметки часто вспыхивают одна за другой. К концу герой кадра — счётчик релизов: у микросервисов он заметно выше и светится акцентом, а монолит остаётся тусклым. Взгляд идёт слева направо, затем к итоговому перевесу микросервисов. [comparison, sequence-steps, quantities]"
+      "message": "Concept: Экран делится на две дорожки: «Монолит» и «Микросервисы» — сравнение по скорости релизов. На дорожке монолита один тяжёлый блок медленно проходит длинную цепочку «сборка → тесты → общий деплой», релиз выходит редко — всего один маркер в конце. На дорожке микросервисов несколько лёгких блоков параллельно проскакивают короткий путь и один за другим загораются маркерами релизов. Герой кадра — частота релизов: у микросервисов маркеры сыплются каскадом, у монолита остаётся один, и взгляд идёт слева направо по дорожкам, а в конце подсвечивается вывод «Микросервисы — релизы быстрее и чаще». [comparison, sequence-steps, key-point-emphasis]"
     },
     {
-      "ts": "2026-10-21T09:29:08.166Z",
+      "ts": "2026-10-21T10:21:57.577Z",
       "level": "info",
       "kind": "log",
       "message": "KB: 12 кандидатов по ключам Concept"
     },
     {
-      "ts": "2026-10-21T09:29:10.255Z",
+      "ts": "2026-10-21T10:21:57.757Z",
       "level": "info",
       "kind": "log",
       "message": "Motion Director…"
     },
     {
-      "ts": "2026-10-21T09:30:45.752Z",
+      "ts": "2026-10-21T10:23:34.382Z",
       "level": "info",
       "kind": "log",
-      "message": "✗ storage: хранилище пропало во время Motion Director: volume_mismatch: том: diskutil не вернул VolumeUUID для /Volumes/External SSD"
+      "message": "spec: 4 blocking — Director исправляет"
     },
     {
-      "ts": "2026-10-21T09:30:45.874Z",
-      "level": "error",
-      "kind": "failed",
-      "message": "хранилище пропало во время Motion Director: volume_mismatch: том: diskutil не вернул VolumeUUID для /Volumes/External SSD"
+      "ts": "2026-10-21T10:23:34.540Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Motion Director…"
+    },
+    {
+      "ts": "2026-10-21T10:25:25.807Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Director: «Монолит vs микросервисы: скорость релизов» (split), 11 битов, KB: remotion-bits/bit-card-stack (adapt), animata/glowing-card (adapt)"
+    },
+    {
+      "ts": "2026-10-21T10:25:26.400Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer…"
+    },
+    {
+      "ts": "2026-10-21T10:27:43.819Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 28, 40, 64, 96, 152, 156, 166, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-21T10:28:07.572Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA…"
+    },
+    {
+      "ts": "2026-10-21T10:28:35.101Z",
+      "level": "info",
+      "kind": "log",
+      "message": "QA: blocking clipping@152"
+    },
+    {
+      "ts": "2026-10-21T10:28:35.323Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer: исправление 1 из 2 (qa)…"
+    },
+    {
+      "ts": "2026-10-21T10:31:23.842Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 28, 40, 64, 96, 152, 156, 166, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-21T10:31:50.016Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA…"
+    },
+    {
+      "ts": "2026-10-21T10:32:20.711Z",
+      "level": "info",
+      "kind": "log",
+      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EZPF0D76WPRF7PTY31PYE4/versions/ver_01M5F09RESAR0KF8CMXT00YA6D"
+    },
+    {
+      "ts": "2026-10-21T10:32:20.719Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed"
     }
   ]
 }

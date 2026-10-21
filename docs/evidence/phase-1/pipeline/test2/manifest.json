@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5EXGPFCAH4CGTS17ZMMDC25",
-  "scene_id": "scn_01M5EWNPCTXN5A82CTTNWTY5AA",
+  "version_id": "ver_01M5F0N6TMBGQF5R2B98V3QKNH",
+  "scene_id": "scn_01M5EZPF1E2SSX5HZT48J1JVAG",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T09:43:42.318Z",
+  "created_at": "2026-10-21T10:38:35.861Z",
   "prompt": "Покажи архитектуру AI-агента: пользователь отправляет запрос, оркестратор вызывает три инструмента, данные возвращаются обратно. Световые импульсы движутся по связям",
   "edit_plan": null,
   "settings": {
@@ -27,56 +27,56 @@
   },
   "files": [
     {
-      "path": "frames/108.png",
-      "sha256": "da8f76f13624a86ccad5c6cbe8888c5503d8cce224a6f92870a22bb137cedc76"
+      "path": "frames/107.png",
+      "sha256": "0beb9d5a4d941ebc7ba1afc1243fde3a3d2ff12334b81275eb9f4e17b5230722"
     },
     {
-      "path": "frames/14.png",
-      "sha256": "0602bdce6fac988b5722f567809cb1724794f69f1b5074fb0a87fffe2067b5de"
+      "path": "frames/126.png",
+      "sha256": "6496fff058ab120f3579f1c8264215bcf886e00ad5edeb51530bccfd232d0525"
     },
     {
-      "path": "frames/152.png",
-      "sha256": "271f66c1c2df291b3333828da66bf6b42d6d9782f2fc1ab23f08204bc118fba2"
+      "path": "frames/140.png",
+      "sha256": "c98ada5696d5b29aa6fd03188adcc09d5a0194918219a8522e2a806f9b252282"
     },
     {
-      "path": "frames/159.png",
-      "sha256": "e6e89c28101135018436bce052b8b5efd8e88ebcbf0ed71430e5af3e426c5312"
+      "path": "frames/163.png",
+      "sha256": "a15c5ebddc0728f68965a169a74ac7fb31c234ffc26a5cb1cd14949c54e79e25"
     },
     {
       "path": "frames/179.png",
-      "sha256": "5ffb79615ff7cb8f3e37fa2abc8d5eb92749305d360663690b7b1fbefd81b014"
+      "sha256": "406f5454e744f023cf305326eccb57bcd0ef986dd5080aa40a57b4045b25b6ea"
     },
     {
-      "path": "frames/34.png",
-      "sha256": "c371f3747c0fe4cc09904d9425268e10bee892531071d8f9592b2473b89e0164"
+      "path": "frames/48.png",
+      "sha256": "b7f360894811af78ac51c05c618fb932cdd2b1aa9a2887092bd9c9976eb06be6"
     },
     {
-      "path": "frames/61.png",
-      "sha256": "1f58ac0aa018f67b029c829bcf5cf00e36d55ad90d3e4c104d023c3df348fa32"
+      "path": "frames/69.png",
+      "sha256": "617e200c3990e4df8bf23822c413268fcd221b66f907e71c425520366514f276"
     },
     {
-      "path": "frames/84.png",
-      "sha256": "14436f4e0d67978fa2f2f7541f945b0bef443e4fa2c5b980ab95deae3b8b1244"
+      "path": "frames/89.png",
+      "sha256": "b1bf724e8225d0a5db8b1e2c7e8008a74d5119f87fbd56031d4a7b97042c1570"
     },
     {
       "path": "knowledge-refs.json",
-      "sha256": "0efde4afe0a1f044880e59398217a2d549995dbe87d0991a752ea3d4c811d2f2"
+      "sha256": "02ec0dfaa3fc9867760324a0d4a0eaccac10a615a95793e1cad377fd987147bf"
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "3e92e75b223f4d31354804d917af3c561a7ddf0e87a1a20ad6a0c54ea9ebe51b"
+      "sha256": "2e4b865f135aec1591e2b4df3573b30d5aaca09dca1af698231ab42b9045c38f"
     },
     {
       "path": "preview.mp4",
-      "sha256": "cbe22861a0e0c88d8f005fb3b2a5efac610f1214bac637e07081679cbd2f3442"
+      "sha256": "7185af829e4544962728da1e8e91be4a5eed9a265d9a91807c41c31b8a0e8011"
     },
     {
       "path": "props.json",
-      "sha256": "06574f1edf67b2f0d0a3b8fc0f2ada2b5b8f8f90e79d250b8a9e24aa83f3e129"
+      "sha256": "622a779215f77b9344e6d934e11d44a5e4f607e730c6ae0b52f2e9e287a9d391"
     },
     {
       "path": "qa.json",
-      "sha256": "fa611625f04e74d0f64d5ff60a426ab00749c53b007c6221cc658e909626d832"
+      "sha256": "a45eb6bf5bc3f43cd02c01622e15300fd9f59f74779e077cc14367f0d3ac38cc"
     },
     {
       "path": "refs/kb/magicui/animated-beam/CARD.md",
@@ -87,44 +87,16 @@
       "sha256": "6afa2ee1d01694a428eb8517d48deebe5c6b532dc0ee871800bb9d92aae43e79"
     },
     {
-      "path": "refs/kb/xyflow/react-flow/CARD.md",
-      "sha256": "9bf3d75cc8c78e8229c6ea86db9fd8471f1514f8052190857fdf7d9a79cee066"
+      "path": "refs/kb/xyflow/example-custom-node/CARD.md",
+      "sha256": "799a526a0d0421265780edd026934d1b5694d98d3191c9f97a2d173867dfdbf7"
     },
     {
-      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/components/NodeWrapper/index.tsx",
-      "sha256": "fcd5d7a82118ab7f57136c0b04a55cbb5df9005d77776400eb122719e9eb6bab"
+      "path": "refs/kb/xyflow/example-custom-node/templates/infografika/xyflow/examples/react/src/examples/CustomNode/ColorSelectorNode.tsx",
+      "sha256": "71e5498b415f1ca57872aae4e14bd57a994d645b16e2e97a7e9ebee4dea018ce"
     },
     {
-      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/components/NodeWrapper/useNodeObserver.ts",
-      "sha256": "d2cf9c71f5122214d83eee3ca1a3163b531d1de11e23ddbe950ab62199a561e9"
-    },
-    {
-      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/container/NodeRenderer/useResizeObserver.ts",
-      "sha256": "ba8a837cbeeae1da914e2a1e2deb21653177f3a143cb8817a3a1bf0a36a7349c"
-    },
-    {
-      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/container/ReactFlow/index.tsx",
-      "sha256": "d866f64f483e23e54366b014dc884349080e1d74956003af1b8a5053bc387581"
-    },
-    {
-      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/hooks/useResizeHandler.ts",
-      "sha256": "db3b50b64271bd0e169b585d76c76c28a4818ec673d9de67a455ab69ec7fe072"
-    },
-    {
-      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/hooks/useViewportSync.ts",
-      "sha256": "7e8dea6eaddec6294db36aa3a072630a6ab0dea8df7333dd8d7fdcc7404390e7"
-    },
-    {
-      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/types/component-props.ts",
-      "sha256": "98923588781d65f9655b52adaac51e6008d740a622b909c1a8517a153849e020"
-    },
-    {
-      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/system/src/styles/init.css",
-      "sha256": "2458f7ae49969a3eaa04f43af179fec02b28a2453cb693f05ca9b6cb77df1faa"
-    },
-    {
-      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/system/src/utils/edges/positions.ts",
-      "sha256": "abe8f831891e2fb381a09b5660650cf27f17ed06e8dece4eb01137091253765c"
+      "path": "refs/kb/xyflow/example-custom-node/templates/infografika/xyflow/examples/react/src/examples/CustomNode/index.tsx",
+      "sha256": "62e61dc389ca44c881a6feee97d18508669982c9e83a91385e73bacc32e0185e"
     },
     {
       "path": "refs/motion-kit/API.md",
@@ -156,7 +128,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "f266688dce5a926f8b66b085c08b993cd6bc92687a69e6e598e4a5b5bb950d0a"
+      "sha256": "850e52b1aa9465835c40ee55a21ad96ee21bcd551a6963415de684d85a2f1670"
     },
     {
       "path": "settings.json",
@@ -164,11 +136,11 @@
     },
     {
       "path": "spec.json",
-      "sha256": "93f7f458e1bb7ca548b7309c819adf2cfabb3aca5b71c8ee33516cf6b11f3df1"
+      "sha256": "c08da6996d3377ca2b90679f264f9451c08938d79b8465de53e360cec4892022"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "c978047d91b346ea698f14079a0f93aa0cc72ecd244d56ecd836b465567be4fe"
+      "sha256": "207bddca3acef607c25d9ecf5ee8f9c1c5391faf9de1f13dfcbb0ff8ed29077a"
     },
     {
       "path": "style.json",
@@ -182,7 +154,7 @@
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:87cfd3046dd21e1f",
+    "motion_kit": "sha256:aa65f750424ab273",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
@@ -194,53 +166,53 @@
       "strategy": "adapt"
     },
     {
-      "kb_id": "xyflow/react-flow",
+      "kb_id": "xyflow/example-custom-node",
       "commit": "654ba5a5e",
-      "license": "MIT (LICENSE, packages/react/package.json)",
+      "license": "MIT (LICENSE)",
       "strategy": "adapt"
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5EWNPCYX0J54VKNA18JY2KB/a1-concept-1",
-    "logs/agent-runs/job_01M5EWNPCYX0J54VKNA18JY2KB/a1-motion_director-1",
-    "logs/agent-runs/job_01M5EWNPCYX0J54VKNA18JY2KB/a1-motion_director-2",
-    "logs/agent-runs/job_01M5EWNPCYX0J54VKNA18JY2KB/a1-engineer-1",
-    "logs/agent-runs/job_01M5EWNPCYX0J54VKNA18JY2KB/a1-engineer-2",
-    "logs/agent-runs/job_01M5EWNPCYX0J54VKNA18JY2KB/a1-visual_qa-1"
+    "logs/agent-runs/job_01M5EZPF1HVGD9XWXGVBM0KJCC/a1-concept-1",
+    "logs/agent-runs/job_01M5EZPF1HVGD9XWXGVBM0KJCC/a1-motion_director-1",
+    "logs/agent-runs/job_01M5EZPF1HVGD9XWXGVBM0KJCC/a1-motion_director-2",
+    "logs/agent-runs/job_01M5EZPF1HVGD9XWXGVBM0KJCC/a1-engineer-1",
+    "logs/agent-runs/job_01M5EZPF1HVGD9XWXGVBM0KJCC/a1-engineer-2",
+    "logs/agent-runs/job_01M5EZPF1HVGD9XWXGVBM0KJCC/a1-visual_qa-1"
   ],
   "qa": {
     "technical": "pass",
-    "visual": "pass",
+    "visual": "warn",
     "semantic": "pass",
     "style": "pass"
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "cbe22861a0e0c88d8f005fb3b2a5efac610f1214bac637e07081679cbd2f3442"
+    "sha256": "7185af829e4544962728da1e8e91be4a5eed9a265d9a91807c41c31b8a0e8011"
   },
   "status": "ready",
   "qa_frames": [
-    14,
-    34,
-    61,
-    84,
-    108,
-    152,
-    159,
+    48,
+    69,
+    89,
+    107,
+    126,
+    140,
+    163,
     179
   ],
   "qa_frames_sha256": [
-    "0602bdce6fac988b5722f567809cb1724794f69f1b5074fb0a87fffe2067b5de",
-    "c371f3747c0fe4cc09904d9425268e10bee892531071d8f9592b2473b89e0164",
-    "1f58ac0aa018f67b029c829bcf5cf00e36d55ad90d3e4c104d023c3df348fa32",
-    "14436f4e0d67978fa2f2f7541f945b0bef443e4fa2c5b980ab95deae3b8b1244",
-    "da8f76f13624a86ccad5c6cbe8888c5503d8cce224a6f92870a22bb137cedc76",
-    "271f66c1c2df291b3333828da66bf6b42d6d9782f2fc1ab23f08204bc118fba2",
-    "e6e89c28101135018436bce052b8b5efd8e88ebcbf0ed71430e5af3e426c5312",
-    "5ffb79615ff7cb8f3e37fa2abc8d5eb92749305d360663690b7b1fbefd81b014"
+    "b7f360894811af78ac51c05c618fb932cdd2b1aa9a2887092bd9c9976eb06be6",
+    "617e200c3990e4df8bf23822c413268fcd221b66f907e71c425520366514f276",
+    "b1bf724e8225d0a5db8b1e2c7e8008a74d5119f87fbd56031d4a7b97042c1570",
+    "0beb9d5a4d941ebc7ba1afc1243fde3a3d2ff12334b81275eb9f4e17b5230722",
+    "6496fff058ab120f3579f1c8264215bcf886e00ad5edeb51530bccfd232d0525",
+    "c98ada5696d5b29aa6fd03188adcc09d5a0194918219a8522e2a806f9b252282",
+    "a15c5ebddc0728f68965a169a74ac7fb31c234ffc26a5cb1cd14949c54e79e25",
+    "406f5454e744f023cf305326eccb57bcd0ef986dd5080aa40a57b4045b25b6ea"
   ],
   "job": {
-    "id": "job_01M5EWNPCYX0J54VKNA18JY2KB",
+    "id": "job_01M5EZPF1HVGD9XWXGVBM0KJCC",
     "attempt": 1
   }
 }

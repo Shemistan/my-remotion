@@ -1,0 +1,26 @@
+[
+  {
+    "kb_id": "remotion-bits/bit-card-stack",
+    "repository": "Remotion Bits",
+    "repository_url": "git@github.com:av/remotion-bits.git",
+    "commit": "de35fda",
+    "license": "MIT (package.json)",
+    "license_class": "permissive",
+    "strategy": "adapt",
+    "source_paths": [
+      "templates/remotion-components/remotion-bits/docs/src/bits/examples/staggered-motion/CardStack.tsx"
+    ]
+  },
+  {
+    "kb_id": "animata/glowing-card",
+    "repository": "Animata",
+    "repository_url": "git@github.com:codse/animata.git",
+    "commit": "e7478b8",
+    "license": "MIT (LICENSE.md)",
+    "license_class": "permissive",
+    "strategy": "adapt",
+    "source_paths": [
+      "templates/react-libriry/animata/animata/card/glowing-card.tsx"
+    ]
+  }
+]
