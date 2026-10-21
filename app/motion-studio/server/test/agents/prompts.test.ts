@@ -62,6 +62,18 @@ describe("loadPrompt", () => {
     for (const f of files) expect(readFileSync(join(APP, f), "utf8"), f).not.toMatch(/aiplatform|ai-platform\/.*motion/);
   });
 
+  it("промпты без рецептов под приёмочные сцены: окно головы считает пайплайн, ореол — kit, примеры Concept — не из Test 1/2", () => {
+    const director = loadPrompt("motion_director");
+    expect(director).not.toMatch(/⌈0\.12|0\.12 ×/);
+    expect(director).toMatch(/отвергнут/);
+    const engineer = loadPrompt("engineer");
+    expect(engineer).not.toMatch(/radial-gradient\(closest-side|highlightLast/);
+    expect(engineer).toMatch(/<Emphasis/);
+    expect(engineer).toMatch(/pulseArrival/);
+    const concept = loadPrompt("concept");
+    expect(concept).not.toMatch(/1 000 000|оркестратор|линейный график роста|анимированный счётчик/i);
+  });
+
   it("PROMPTS_DIR — каталог prompts/ приложения", () => {
     expect(PROMPTS_DIR.replace(/\/$/, "")).toBe(join(APP, "prompts"));
   });
