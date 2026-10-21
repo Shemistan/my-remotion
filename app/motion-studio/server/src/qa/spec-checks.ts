@@ -451,18 +451,26 @@ export interface SceneSignature { background: string; pill: boolean; topTitle: b
 const BG_DEFAULT = { variant: "aurora", seed: "bg" };
 const BG_VARIANT = /\b(aurora|grid|solid|gradient|mesh|dots|spotlight|noise)\b/i;
 
+/** Зона фокуса фона: сетка 3×3 кадра — близкие фокусы одной зоны дают одну карту света. */
+const focusZone = (f: { x: number; y: number }) => `${Math.min(2, Math.floor(f.x * 3))}${Math.min(2, Math.floor(f.y * 3))}`;
+
 export function sceneSignature(spec: MotionSpec): SceneSignature {
   const all = spec.elements.flatMap((e) => contentStrings(e.content, /.*/));
+  const pill = all.some((x) => /\bpill\b|пилюл|таблетк/i.test(x.value));
+  const staticCamera = (spec.camera?.length ?? 0) === 0;
+  const topStrip = spec.elements.some((e) => e.kind === "text" && e.layout !== undefined && e.layout.y <= 0.1 && e.layout.h <= 0.15 && e.layout.w >= 0.3);
+  const titleMode = spec.composition?.title_mode;
+  const topTitle = titleMode === undefined ? topStrip : titleMode === "strip";
+  // фон из composition (0.3): seed — id сцены у каждой своей, поэтому шаблон — вариант и фокус
+  const bg = spec.composition?.background;
+  if (bg?.variant !== undefined) {
+    return { background: `${bg.variant}:${bg.focus ? focusZone(bg.focus) : "default"}`, pill, topTitle, staticCamera };
+  }
   const bgEl = spec.elements.find((e) => /background|фон/i.test(`${e.id} ${String((e.content as Record<string, unknown> | undefined)?.component ?? "")}`));
   const bgContent = (bgEl?.content ?? {}) as Record<string, unknown>;
   const variant = (typeof bgContent.variant === "string" ? bgContent.variant : (all.map((x) => x.value).join(" ") + " " + JSON.stringify(spec.composition ?? {})).match(BG_VARIANT)?.[1] ?? BG_DEFAULT.variant).toLowerCase();
   const seed = typeof bgContent.seed === "string" || typeof bgContent.seed === "number" ? String(bgContent.seed) : BG_DEFAULT.seed;
-  return {
-    background: `${variant}:${seed}`,
-    pill: all.some((x) => /\bpill\b|пилюл|таблетк/i.test(x.value)),
-    topTitle: spec.elements.some((e) => e.kind === "text" && e.layout !== undefined && e.layout.y <= 0.1 && e.layout.h <= 0.15 && e.layout.w >= 0.3),
-    staticCamera: (spec.camera?.length ?? 0) === 0,
-  };
+  return { background: `${variant}:${seed}`, pill, topTitle, staticCamera };
 }
 
 /** Совпадений подписи с предыдущей сценой, с которых — шаблон. */

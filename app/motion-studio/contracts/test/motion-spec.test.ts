@@ -87,6 +87,18 @@ describe("выходы агентов", () => {
     expect(DirectorOutputSchema.safeParse({ spec: baseSpec(), composition: { ...composition, archetype: "grid" }, selection, rationale: "r" }).success).toBe(false);
     expect(DirectorOutputSchema.safeParse({ spec: baseSpec(), selection }).success).toBe(false);
   });
+  it("composition: режим заголовка и фон сцены (вариант, фокус за героем, seed)", () => {
+    const composition = { archetype: "split", idea: "i", focus: "f", transitions: "t" };
+    const ok = (c: unknown) => DirectorOutputSchema.safeParse({ spec: baseSpec(), composition: c, selection, rationale: "r" }).success;
+    expect(ok({ ...composition, title_mode: "kicker", background: { variant: "blueprint", focus: { x: 0.7, y: 0.4 } } })).toBe(true);
+    for (const m of ["none", "kicker", "statement", "integrated", "strip"]) expect(ok({ ...composition, title_mode: m }), m).toBe(true);
+    for (const v of ["aurora", "spotlight", "blueprint", "grid", "paper", "solid"]) expect(ok({ ...composition, background: { variant: v } }), v).toBe(true);
+    expect(ok({ ...composition, background: { seed: "scn_1" } })).toBe(true);
+    expect(ok({ ...composition, title_mode: "banner" })).toBe(false);
+    expect(ok({ ...composition, background: { variant: "stars" } })).toBe(false);
+    expect(ok({ ...composition, background: { variant: "aurora", focus: { x: 1.2, y: 0.5 } } })).toBe(false);
+    expect(ok({ ...composition, background: { variant: "aurora", blur: 3 } })).toBe(false);
+  });
   it("ComponentSelection: неверная strategy", () => {
     expect(ComponentSelectionSchema.safeParse({ items: [{ ...selection.items[0], strategy: "copy" }] }).success).toBe(false);
   });

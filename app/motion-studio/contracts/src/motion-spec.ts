@@ -40,11 +40,28 @@ export type Beat = z.infer<typeof BeatSchema>;
  * Композиционная идея сцены (Motion Director): архетип раскладки, фокус/движение камеры,
  * как сцена переходит из состояния в состояние. Пишется в spec.json для Engineer.
  */
+export const TitleModeSchema = z.enum(["none", "kicker", "statement", "integrated", "strip"]);
+export type TitleMode = z.infer<typeof TitleModeSchema>;
+
+/**
+ * Фон сцены для `<Background>` kit: вариант по смыслу, `focus` — где герой (доли кадра),
+ * `seed` — раскладка пятен; пайплайн ставит id сцены, чтобы две сцены не делили одну карту света.
+ */
+export const SceneBackgroundSchema = z.object({
+  variant: z.enum(["aurora", "spotlight", "blueprint", "grid", "paper", "solid"]).optional(),
+  focus: z.object({ x: Fraction, y: Fraction }).strict().optional(),
+  seed: z.string().min(1).optional(),
+}).strict();
+export type SceneBackground = z.infer<typeof SceneBackgroundSchema>;
+
 export const CompositionSchema = z.object({
   archetype: z.enum(["centered-hero", "split", "diagonal", "full-bleed-data", "network-centric", "stacked", "orbit", "other"]),
   idea: z.string().min(1),
   focus: z.string(),
   transitions: z.string().min(1),
+  /** Режим заголовка (`SceneTitle` kit): полоса сверху — лишь один из вариантов. */
+  title_mode: TitleModeSchema.optional(),
+  background: SceneBackgroundSchema.optional(),
 }).strict();
 export type Composition = z.infer<typeof CompositionSchema>;
 

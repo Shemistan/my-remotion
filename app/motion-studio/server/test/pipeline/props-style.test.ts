@@ -28,3 +28,13 @@ describe("scenePropsStyle", () => {
     expect(JSON.parse(r.text!).style.safe_area).toEqual({ x: 0.1, y: 0.1 });
   });
 });
+
+describe("withSceneSeed", () => {
+  it("seed фона — id сцены; вариант и фокус Director сохраняются; без composition — как есть", async () => {
+    const { withSceneSeed } = await import("../../src/pipeline/steps.js");
+    const base = { title: "t", purpose: "p", duration_frames: 90, fps: { num: 30, den: 1 }, style_preset: "dark-premium" as const, elements: [{ id: "a", kind: "text" as const, role: "r", entrance: "rise" as const, content: {} }], beats: [{ id: "b", start_frame: 0, end_frame: 90, action: "hold", description: "", element_ids: ["a"] }] };
+    const composition = { archetype: "split" as const, idea: "i", focus: "f", transitions: "t", background: { variant: "blueprint" as const, focus: { x: 0.6, y: 0.4 }, seed: "director" } };
+    expect(withSceneSeed({ ...base, composition }, "scn_1").composition?.background).toEqual({ variant: "blueprint", focus: { x: 0.6, y: 0.4 }, seed: "scn_1" });
+    expect(withSceneSeed(base, "scn_1")).toEqual(base);
+  });
+});

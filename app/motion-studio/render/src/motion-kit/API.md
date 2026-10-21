@@ -143,7 +143,7 @@ transparent?, palette_overrides?, safe_area?, font? }`), id пресета, Styl
 Панорама живёт только в запасе наезда: `<Camera>` сам зажимает `x, y` (`panLimit`), чтобы
 кадр не выходил за сцену (без полос по краям) и край safe area не уходил за край кадра. При
 `scale = 1` и при `allow_zoom = false` камера стоит: сдвиг без наезда открыл бы край фона.
-`x, y` — направление взгляда (к чему тянется наезд), а не точное попадание: при
+`x, y` — направление взгляда (к чему тянется наезд), а не точная цель: при
 `max_scale` 1.08 сдвиг — десятки px. Хочешь показать другой блок — смени состояние сцены
 (вход, выход, перенос фокуса), а не уводи камеру.
 ```tsx
@@ -239,7 +239,7 @@ seed? = "bg", focus?: { x, y } }`. По умолчанию вариант выб
 | `paper` | светлый лист с точечной сеткой | light-clean |
 | `solid` | только цвет фона, виньетка и зерно | под видео, плотные сцены |
 ```tsx
-<Background beat={{ start_frame: 0, end_frame: 45 }} variant="blueprint" seed="gen-cache" focus={{ x: 0.5, y: 0.5 }} />
+<Background beat={{ start_frame: 0, end_frame: 45 }} variant="blueprint" seed="scn_7f3a" focus={{ x: 0.5, y: 0.5 }} />
 ```
 
 ### SafeArea / useSafeArea()
@@ -268,7 +268,7 @@ align?, maxWidth?, lineHeight?, delay?, stagger?, exit?, caps?, style? }`
 ```tsx
 <KineticText text="Рост пользователей" beat={{ start_frame: 4, end_frame: 50 }}
   mode="words" enter="rise" size={5} highlight={["Рост"]} />
-<KineticText text="Данные · 2022–2025" beat={{ start_frame: 0, end_frame: 30 }}
+<KineticText text="Данные · 2019–2023" beat={{ start_frame: 0, end_frame: 30 }}
   mode="letters" enter="fade" size={1} font="mono" caps />
 ```
 
@@ -280,14 +280,14 @@ font? = "display" | "mono", reserveWidth?, color?, align?, style?, value?, enter
 `"body"`, `"caption"` — одинаково в 16:9, 9:16 и 1:1), шаг шкалы v0.1 (0..8) или кегль в
 px (> 8). Герой-число — `size="display"`.
 
-`suffix` массивом — формы существительного по числу: `suffix={[" релиз", " релиза", " релизов"]}`
-(en — `[one, other]`); форма меняется вместе с показанным значением («1 релиз», «2 релиза»,
-«48 релизов»). Подпись со словом, согласованным с числом, — только так, не строкой.
+`suffix` массивом — формы существительного по числу: `suffix={[" рейс", " рейса", " рейсов"]}`
+(en — `[one, other]`); форма меняется вместе с показанным значением («1 рейс», «2 рейса»,
+«48 рейсов»). Подпись со словом, согласованным с числом, — только так, не строкой.
 
 `value` — внешнее значение вместо своего счёта: привязка к другому источнику движения
 (см. `lineChartHead`). Удар на финише остаётся в `end_frame` бита.
 
-**Счётчик событий** (релизы, запросы, заказы) — не плавная кривая, а число пришедших
+**Счётчик событий** (рейсы, запросы, посылки) — не плавная кривая, а число пришедших
 импульсов: `value={arr.value}` и `pop={arr.pop}` из `useArrivalCount(...)` (см.
 PulseAlongPath). `pop` 0..1 — микро-удар на каждом шаге: число подпрыгивает масштабом и
 вспыхивает акцентом. Плавный ease-out счёт — только для непрерывных величин (выручка,
@@ -302,7 +302,7 @@ PulseAlongPath). `pop` 0..1 — микро-удар на каждом шаге: 
 моноширинные. На финише (`end_frame`) — короткий удар масштаба и свечения акцентом.
 При быстром счёте цифры слегка смазываются. `reserveWidth` держит ширину под итоговое
 значение; по умолчанию включено только без `prefix`/`suffix`. С `reserveWidth` и
-`suffix` цифры прижаты к подписи справа: между «0» и «релизов» нет дыры, подпись не
+`suffix` цифры прижаты к подписи справа: между «0» и «рейсов» нет дыры, подпись не
 съезжает при росте разрядов.
 ```tsx
 {/* герой кадра: число крупнее заголовка; суффикс не повторяет слово из заголовка */}
@@ -428,7 +428,7 @@ accentIndex? = 0, highlightLast? = true }` (по умолчанию h: 1690 × 6
 `{ steps: string[], notes?: string[], beat, connector: "arrow" | "line", width? = 1690,
 height? = 600, accentIndex? = 0 }`
 
-Шаги активируются по очереди (делят 6–82 % бита, `stepStarts(beat, n)`): номер
+Шаги активируются один за другим (делят 6–82 % бита, `stepStarts(beat, n)`): номер
 выскакивает, кольцо обегает его по кругу, вокруг активного — свечение, подпись поднимается
 из маски в карточке шага под номером (`notes[i]` — пояснение под подписью, `caption`).
 У активной карточки — акцентная кромка и подсветка. Пройденный шаг остаётся с контуром и
@@ -500,7 +500,7 @@ rippleAlpha, rippleBreath }` — тот же акцент для своих эл
   <div style={{ padding: "0.3em 0.8em", borderRadius: 999, background: surfaceAt(s, 2), fontSize: 59 }}>×4 за год</div>
 </Emphasis>
 {/* слово в заголовке — тихий акцент без колец */}
-<h1>Рост <Emphasis beat={B} ring={false}>×100</Emphasis></h1>
+<h1>Рост <Emphasis beat={B} ring={false}>×3</Emphasis></h1>
 ```
 
 ### Callout
@@ -626,7 +626,7 @@ children?, overlay? }`
 и заканчивается стрелкой. Рёбра — S-кривые: горизонтальные, если узлы разнесены по x
 (≥ 16 px), иначе вертикальные.
 
-**Иерархия узлов — `size`.** `size: "h2"` — герой схемы (оркестратор, кэш): подпись не
+**Иерархия узлов — `size`.** `size: "h2"` — герой схемы (шлюз, контроллер): подпись не
 меньше 1.3 × `body`, жирнее, маркер крупнее; `"body"` — по умолчанию; `"caption"` —
 служебный узел. Общий кегль подбирается **внутри группы одного `size`**: самый крупный, при
 котором каждая подпись группы влезает в свой узел без многоточия. `caption` узла — уровня
@@ -636,7 +636,7 @@ children?, overlay? }`
 
 **Входы по узлам.** `enter` графа — вход по умолчанию; у узла может быть свой `enter`
 (`CardEnter`, таблица в Card): разные входы разделяют роли — например, запрос `slide`,
-оркестратор `pop`, инструменты `rise`. Группа равноправных узлов — один вход каскадом.
+контроллер `pop`, исполнители `rise`. Группа равноправных узлов — один вход каскадом.
 `enterAt` — кадр входа узла вместо каскада (бит элемента из spec); рёбра ждут оба конца.
 
 **Вспышка узла по приходу импульса.** `flash: pulseArrival(edgeId, beat, travel?, { count?,
@@ -657,7 +657,7 @@ const TRAVEL = 22;
 const back = { start_frame: 116, end_frame: 150 };
 <FlowGraph nodes={[
   { id: "user", label: "Запрос", x: 0, y: 270, w: 280, h: 120, enter: "slide" },
-  { id: "orc", label: "Оркестратор", x: 450, y: 255, w: 400, h: 150, enter: "pop",
+  { id: "ctl", label: "Контроллер", x: 450, y: 255, w: 400, h: 150, enter: "pop",
     flash: pulseArrival("e-db", back, TRAVEL, { repeat: false }) },
   { id: "db", label: "База", x: 1040, y: 270, w: 300, h: 120, enter: "blur" },
 ]} edges={EDGES} beat={{ start_frame: 6, end_frame: 70 }}>
@@ -700,12 +700,12 @@ reverse? }`
 `reverse` пускает импульс в обратную сторону: данные возвращаются. Расписание проходов
 (`pulseStarts`) общее с `pulseArrival`, `useArrivalCount` и вспышками узлов: кадры совпадают.
 
-**Скорость — это `travel`.** Если смысл процесса — скорость или стоимость (кэш, CDN,
-индекс, параллелизм), разница должна быть видна во времени: медленный путь — длинный
+**Скорость — это `travel`.** Если смысл процесса — скорость или стоимость (CDN,
+индекс, параллелизм, память против диска), разница должна быть видна во времени: медленный путь — длинный
 `travel` (30+ кадров), быстрый — короткий (8–12), быстрый путь повторяется (`repeat`).
-Одинаковый `travel` у промаха и попадания — брак. Сравнение задержек лоб в лоб — `LatencyRace`.
+Одинаковый `travel` у медленного и быстрого пути — брак. Сравнение задержек лоб в лоб — `LatencyRace`.
 
-Веер параллельных вызовов (оркестратор → три инструмента) — сдвигай `beat.start_frame`
+Веер параллельных вызовов (шлюз → три исполнителя) — сдвигай `beat.start_frame`
 импульсов на 3–4 кадра: одновременный старт и приход выглядят механически.
 ```tsx
 <FlowGraph nodes={NODES} edges={EDGES} beat={{ start_frame: 18, end_frame: 90 }} width={810} height={524}>
@@ -720,7 +720,7 @@ reverse? }`
 событие, а не два независимых. Внутри `<FlowGraph>` (в `children` или `overlay`) —
 `pulseArrival(edgeId, beat, travel, { count, repeat })` с теми же полями, что у
 `PulseAlongPath` на этом ребре; вне графа — `{ segments, beat, travel, count, repeat }` (свои
-дорожки). `per` — единиц на приход (24 релиза при 8 импульсах — `per: 3`; лучше пусть
+дорожки). `per` — единиц на приход (24 рейса при 8 импульсах — `per: 3`; лучше пусть
 импульсов будет столько, сколько событий), `from` — стартовое значение, `pop` — микро-удар
 0..1 на каждом приходе, `total` — всего приходов (итог для `AnimatedNumber to`).
 Без React — `pathArrivals(segments, a, style, fps, ready?)` и `arrivalCount(frames, frame, style, o)`.
@@ -730,7 +730,7 @@ const deploys = { segments: LANE, beat: { start_frame: 60, end_frame: 140 }, tra
 function Releases() {
   const r = useArrivalCount(deploys);
   return <AnimatedNumber from={0} to={r.total} value={r.value} pop={r.pop} beat={{ start_frame: 60, end_frame: 150 }}
-    locale="ru" size="h1" suffix={[" релиз", " релиза", " релизов"]} />;
+    locale="ru" size="h1" suffix={[" рейс", " рейса", " рейсов"]} />;
 }
 <PulseAlongPath segments={LANE} beat={deploys.beat} travel={18} count={3} />
 ```
@@ -748,17 +748,17 @@ accentIndex? }[], anchor?: { node, side?: "top" | "bottom" | "left" | "right" | 
 
 Статусы одного процесса — в **одной точке**, сменяют друг друга: прошлый уходит вверх и
 гаснет, новый поднимается снизу, ширина и цвет плашки перетекают за ~10 кадров с лёгким
-толчком; первый входит пружиной pop. Прошедший статус не остаётся на экране (красный
-«Промах» не висит до конца рядом с «Попаданием»). Якорь — узел или ребро графа (ставь в
+толчком; первый входит пружиной pop. Прошедший статус не остаётся на экране (красная
+«Ошибка» не висит до конца рядом с «Готово»). Якорь — узел или ребро графа (ставь в
 `overlay` FlowGraph): плашка стоит у события, а не где-то рядом. Вне графа — `x`, `y` (центр
 плашки, px родителя). `until` — кадр ухода. Кадр смены совпадает с событием: бери кадр
 прихода из `useFlowGeometry().arrivals(...)`. Чистая функция — `statusAt(states, frame, style, until?)`.
 ```tsx
 <FlowGraph … overlay={
-  <StatusChip anchor={{ node: "cache", side: "top" }} states={[
-    { text: "Промах", tone: "negative", at: missAt },
-    { text: "Запись", tone: "warning", at: writeAt },
-    { text: "Попадание", tone: "positive", at: hitAt },
+  <StatusChip anchor={{ node: "ctl", side: "top" }} states={[
+    { text: "Ошибка", tone: "negative", at: failAt },
+    { text: "Повтор", tone: "warning", at: retryAt },
+    { text: "Готово", tone: "positive", at: doneAt },
   ]} />
 } />
 ```
@@ -767,7 +767,7 @@ accentIndex? }[], anchor?: { node, side?: "top" | "bottom" | "left" | "right" | 
 `{ label, edgeId? | segments?, beat, travel?, reverse?, stay? = true, dock?: "slot" | { dx, dy }, until?,
 tone?, accentIndex? = 0, size? = "caption", mono? = true, style? }`
 
-Данные — **объект**: карточка-запись («user:42», «GET /user/42», «84 000 ₽») —
+Данные — **объект**: карточка-запись («sensor:17», «GET /sensor/17», «21,4 °C») —
 прямоугольник с малым скруглением, моноширинный текст, цветная полоса-ярлык слева,
 нейтральная поверхность с тенью (`dataTokenLook`); у статуса — капсула и индикатор.
 Летит по ребру (по той же кривой, что импульс), оставляет короткий след (длина следа —
@@ -779,14 +779,14 @@ tone?, accentIndex? = 0, size? = "caption", mono? = true, style? }`
 записаны; `stay={false}` — гаснет на приходе.
 
 Цвет — `dataColor(style, tone?, accentIndex?)`: акцент (по умолчанию 0), но не статусный —
-акцент ближе 40° по тону к `positive` / `negative` (teal рядом с зелёным «Попаданием»)
+акцент ближе 40° по тону к `positive` / `negative` (teal рядом с зелёным «Готово»)
 заменяется самым далёким от них акцентом палитры. Явный `tone` (кроме `accent`) — как есть.
 Внутри графа ставь в `overlay` (иначе карточка его закроет); старт — не раньше, чем ребро
-дорисовано. Ответ пользователю — тоже токен («Бюджет: 84 000 ₽»), а не только точка.
+дорисовано. Ответ на запрос — тоже токен («Средняя: 21,4 °C»), а не только точка.
 Чистая функция — `tokenAt(frame, start, travel, style, { stay?, until? })`.
 ```tsx
-// узел кэша со слотом: { id: "cache", …, h: 190, slot: true }
-<DataToken edgeId="e-db" beat={beats.write} travel={30} reverse label="user:42" />
+// узел архива со слотом: { id: "archive", …, h: 190, slot: true }
+<DataToken edgeId="e-archive" beat={beats.write} travel={30} reverse label="sensor:17" />
 ```
 
 ### LatencyRace — скорость во времени
@@ -807,8 +807,8 @@ repeat? = true, tally?, tallyForms?, unit?, width? = 1280, laneHeight? = 150 }` 
 `latencyAt(timing, ms, frame)`.
 ```tsx
 <LatencyRace beat={beats.race} locale="ru" travel={66} width={1600} lanes={[
-  { id: "db", label: "Без кэша", caption: "запрос в БД", ms: 120, tone: "negative" },
-  { id: "cache", label: "Из кэша", caption: "Redis · память", ms: 4, tone: "positive" },
+  { id: "disk", label: "С диска", caption: "чтение файла", ms: 120, tone: "negative" },
+  { id: "ram", label: "Из памяти", caption: "RAM · рядом", ms: 4, tone: "positive" },
 ]} />
 ```
 
@@ -817,7 +817,7 @@ repeat? = true, tally?, tallyForms?, unit?, width? = 1280, laneHeight? = 150 }` 
 highlight?, align? = "left", size?, maxWidth?, style? }` — `composition.title_mode` сцены.
 
 Полоса h2 в верхних 10 % кадра — лишь один из режимов и не по умолчанию: заголовок-ярлык
-(«Архитектура AI-агента», «Скорость релизов») забирает верх кадра и оставляет под собой
+(«Устройство сети», «Скорость ответа») забирает верх кадра и оставляет под собой
 мёртвую полосу.
 
 | `mode` | Что | Где |
@@ -832,7 +832,7 @@ highlight?, align? = "left", size?, maxWidth?, style? }` — `composition.title_
 в углу (kicker, strip). Рубрика входит набором, заголовок — на 8 кадров позже.
 ```tsx
 <SafeArea style={{ justifyContent: "center", gap: 72 }}>
-  <SceneTitle mode="statement" kicker="Кэш · задержка ответа" text="Из кэша — в 30 раз быстрее" highlight={["30"]} beat={beats.title} />
+  <SceneTitle mode="statement" kicker="Память · задержка чтения" text="Из памяти — в 30 раз быстрее" highlight={["30"]} beat={beats.title} />
   <LatencyRace … />
 </SafeArea>
 ```
@@ -850,8 +850,8 @@ highlight?, align? = "left", size?, maxWidth?, style? }` — `composition.title_
 | `frames(style, n)` | своя константа в кадрах (при 30 fps) под fps и интенсивность (calm ×1.25, energetic ×0.75); токены `style.motion.*_frames` уже пересчитаны |
 | `fpsFrames(style, n)` | константа при 30 fps → кадры при fps сцены, без интенсивности (ритмы вроде мигания) |
 | `staggerBeat(beat, index, total, stagger)` | окно элемента каскада: старт + index × stagger, разбег ≤ половины бита |
-| `formatNumber(v, { locale, compact?, decimals? })` | `1 000 000`, `10,000`, `12,5 тыс.`, `2.4B`. Минус — U+2212, в ru 4-значные числа без пробела |
-| `pluralForm(v, forms, { locale, compact?, decimals? })` | форма слова при числе: ru `[«релиз», «релиза», «релизов»]` → «1 релиз», «2 релиза», «5 релизов», «21 релиз»; дробное — «2,5 релиза»; en `[one, other]` |
+| `formatNumber(v, { locale, compact?, decimals? })` | `2 500 000`, `12,000`, `12,5 тыс.`, `2.4B`. Минус — U+2212, в ru 4-значные числа без пробела |
+| `pluralForm(v, forms, { locale, compact?, decimals? })` | форма слова при числе: ru `[«рейс», «рейса», «рейсов»]` → «1 рейс», «2 рейса», «5 рейсов», «21 рейс»; дробное — «2,5 рейса»; en `[one, other]` |
 | `accent(style, i)`, `alpha(c, a)`, `mix(a, b, t)`, `shadow(style, e)`, `radius`, `space`, `typeSize`, `fontFamily`, `contrastRatio` | токены StyleBible |
 | `pathLUT(segments, samples)`, `pointAtLength(lut, s)`, `smoothSegments(points)`, `edgeSegment(a, b)`, `pathD(segments)` | геометрия путей без DOM |
 | `niceTicks(min, max, count)` | «круглые» деления оси (1/2/5 × 10^k), покрывающие диапазон |

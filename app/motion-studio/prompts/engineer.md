@@ -17,7 +17,7 @@
 - `style.json` — разрешённый StyleBible (палитра, шкала кегля, токены движения, предел
   камеры) — тот же, что вернёт `useStyle()`;
 - `selection.json`, `knowledge-refs.json` — выбранные записи KB и их происхождение;
-- `refs/motion-kit/API.md` — справка motion-kit 0.2.1 (**прочитай первой целиком**),
+- `refs/motion-kit/API.md` — справка motion-kit 0.3.1 (**прочитай первой целиком**),
   `refs/kb/<id>/` — исходники и `CARD.md` выбранных записей,
   `refs/skills/remotion-markup/` — выдержки official skills Remotion.
 
@@ -45,7 +45,7 @@
    действия, пик акцента, кадры N−20 и N−1 (они должны различаться). На каждом: всё ли в
    кадре и в safe area, ничего не перекрыто, текст читается, акцент один.
 
-## Как строить: motion-kit 0.2.1 по паттерну
+## Как строить: motion-kit 0.3.1 по паттерну
 
 Главный примитив — тот, что Director назвал в `content.component` (у паттерна несколько
 вариантов показа — не подменяй выбранный привычным). Справочно:
@@ -53,9 +53,9 @@
 | Паттерн | Примитивы kit |
 |---|---|
 | `growth-decline` | `LineChart` / `AreaChart`; счётчик `AnimatedNumber value={lineChartHead(...).value}` — от головы линии |
-| `comparison`, `transformation` | `ComparisonSplit`, `BarChart highlight`, `<Enter exit>` и смена блоков |
-| `cause-effect`, `sequence-steps` | `ProcessSteps`, `FlowGraph` + `PulseAlongPath`, каскад `<Enter index total>` |
-| `system-structure`, `relationships` | `FlowGraph` + `layoutLayered`; поток — `PulseAlongPath edgeId` (обратно — `reverse`) |
+| `comparison`, `transformation` | `ComparisonSplit`, `BarChart highlight`, `LatencyRace` (задержка), потоки с `useArrivalCount` (частота), `<Enter exit>` и смена блоков |
+| `cause-effect`, `sequence-steps` | `ProcessSteps`, `FlowGraph` + `PulseAlongPath`, `StatusChip` (статус на месте), каскад `<Enter index total>` |
+| `system-structure`, `relationships` | `FlowGraph` + `layoutLayered`; поток — `PulseAlongPath edgeId` (обратно — `reverse`); данные — `DataToken` в `overlay` |
 | `timeline` | `Timeline` |
 | `quantities` | `BarChart`, `AnimatedNumber`, `Particles` |
 | `spatial` | `<Camera keys={content.camera}>` + `<Parallax layer={depth_layer}>` |
@@ -64,6 +64,14 @@
 
 - **Каркас:** `<StyleProvider style={props.style}>` → фон (`<Background>`, если не
   прозрачный экспорт) → (камера) → `<SafeArea>` с контентом.
+- **Фон — из `spec.composition.background`:** `variant`, `seed` (пайплайн ставит id
+  сцены) и `focus` перенеси в `props.content.background` и передай в `<Background>`.
+  Без `variant` — вариант пресета, но `seed` всё равно передай: одинаковый seed у разных
+  сцен даёт одну карту света.
+- **Заголовок — `SceneTitle mode={composition.title_mode}`** (`none` — заголовка нет;
+  `kicker` — рубрика в углу; `statement` — утверждение крупно в потоке раскладки;
+  `integrated` — у героя; `strip` — полоса сверху). Тексты — из элемента заголовка spec.
+  Без `title_mode` — как задано раскладкой spec.
 - **Входы:** `entrance` элемента → `<Enter kind=… beat=…>` или вход компонента
   (`KineticText enter`, `Card enter`, `AnimatedNumber`, прорисовка `LineChart`/`FlowGraph`).
   Узел схемы — свой `enter` у `FlowNode` (`entrance` узла или `content.enter`: `flip`,
@@ -86,11 +94,25 @@
   полосы) и обрезают текст. Слои контента — `<Parallax layer={depth_layer}>`.
 - **Глубина:** `Card elevation` (главное — выше), `depth` из `props.style`, слои
   `Parallax`, атмосфера `Background`/`Particles` слоя 0 за контентом.
-- **Импульсы видны:** `PulseAlongPath` с `size` ≥ 10 и `tail` ≥ 160, по связи — 1–2
-  прохода за бит. Узел, к которому пришёл импульс (`content.flash_on` в spec), вспыхивает
+- **Импульсы видны:** `PulseAlongPath` с `size` ≥ 10 и `tail` ≥ 160. Поля потока spec
+  (`content.flows`: `edge`, `direction`, `beat`, `count`, `repeat`, `travel`) переносятся
+  в `PulseAlongPath` один в один (`back` → `reverse`; без `repeat` в spec — умолчание kit
+  `true`). Веер параллельных вызовов — старты через 3–4 кадра, не одновременно. Узел, к которому пришёл импульс (`content.flash_on` в spec), вспыхивает
   через `flash: pulseArrival(edgeId, beat, travel, …)` с теми же `edgeId`, `beat`,
   `travel`, `count`, `repeat`, что у `PulseAlongPath`, — граф сам считает кадр прихода.
   Главный узел схемы крупнее остальных и выше по `elevation`.
+- **Иерархия узлов:** `content.size` узла spec → `FlowNode.size` (`"h2"` у героя схемы,
+  `"body"`, `"caption"`), `content.slot` → `FlowNode.slot`.
+- **Счётчик событий** (`bound_to: "<граф>.arrivals.<ребро>"`) — `useArrivalCount(pulseArrival(...))`
+  с теми же полями, что у `PulseAlongPath` этого ребра; `AnimatedNumber value={r.value}
+  pop={r.pop}`; `content.per` — единиц на приход. Плавный счёт без привязки — только для
+  непрерывных величин.
+- **Статусы** (`content.component: "StatusChip"`) — один `StatusChip` в `overlay` графа с
+  `anchor` у узла или ребра события; кадры смены `at` — из
+  `useFlowGeometry().arrivals(pulseArrival(...))` по ребру `on`. Не три плашки рядом.
+- **Данные** (`content.component: "DataToken"`) — `DataToken` в `overlay` графа по ребру
+  потока с меткой из spec; у узла-цели `slot: true` — токен ляжет в слот сам.
+- **Скорость** — `travel` из spec (медленный проход длиннее быстрого) или `LatencyRace`.
 - **Связанные элементы** — от одного прогресса: `lineChartHead` → `AnimatedNumber value`;
   вспышка узла — `pulseArrival`; плашка или подпись, которая появляется по приходу
   данных, — кадр из `useFlowGeometry().arrivals(pulseArrival(...))`.
@@ -112,7 +134,10 @@
 - **Акцент — примитивами kit.** Удар и дыхание акцента — `<Emphasis beat loop>` вокруг
   цели (слово, число, плашка, карточка), у точки графика — `endpointEmphasis` `LineChart`,
   у узла — `flash` (вспышка прихода) и `emphasis` (итог с дыханием) `FlowNode`; для своих SVG-слоёв — `useAccentPulse` / `accentPulse`.
-  Цвет — `accent[0]` стиля, не белый. Свой `box-shadow`, `drop-shadow` или
+  Цвет — `accent[0]` стиля, не белый. Кольцо — только на ударе (`ring` по умолчанию
+  `"strike"`); `"every-breath"` — лишь радар «сейчас» у точки или узла, не вокруг слова.
+  `shape="pill"` вокруг слова или числа — только если spec так велит и у итога нет
+  своего носителя (точка графика, узел, сторона-победитель); не больше одного на сцену. Свой `box-shadow`, `drop-shadow` или
   `radial-gradient` для ореола не рисуй: мягкий ореол без кромки — `<Halo>`.
   `<Emphasis>` оборачивает **сам объект** (число, плашку, узел, точку вехи) — не пустой
   блок-область вокруг зоны: кольцо идёт по контуру своего ребёнка, и пустой блок даёт
@@ -140,14 +165,14 @@
   `value={head.value}`, `beat={{ start_frame: head.startFrame, end_frame: head.endFrame }}` (своё
   `<Enter>` вокруг числа не нужно: без `enterAt` число не видно до бита счёта), затем
   считает; итоговое значение — моноширинными цифрами (`AnimatedNumber`, `formatNumber`
-  с `locale` из spec: для `ru` — «1 000 000»).
+  с `locale` из spec: для `ru` — «2 500 000»).
 - Не показывай одно значение крупно дважды: если значение показывает герой-число —
   `LineChart callout={false}` (точка всё равно бьёт и дышит через `endpointEmphasis`;
   если акцент передан герою — `endpointEmphasis={false}` или `{ beat, loop: false }`).
 - Конкретные тексты spec (имена, числа, формулировки запроса) — дословно.
-- Слово при числе согласовано с ним («1 релиз», «2 релиза», «5 релизов»): у
-  `AnimatedNumber` — `suffix` массивом форм (`content.suffix_forms` spec), в своём тексте — `pluralForm`. Строка
-  «релиза» при счёте от 0 до 48 даст «1 релиза» и «5 релиза» — брак.
+- Слово при числе согласовано с ним («1 файл», «2 файла», «5 файлов»): у
+  `AnimatedNumber` — `suffix` массивом форм (`content.suffix_forms` spec), в своём тексте — `pluralForm`. Одна
+  строка-суффикс на счётчике даст несогласованное слово на половине кадров счёта — брак.
 
 ## Исправления
 

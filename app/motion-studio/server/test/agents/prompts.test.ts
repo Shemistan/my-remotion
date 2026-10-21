@@ -74,6 +74,46 @@ describe("loadPrompt", () => {
     expect(concept).not.toMatch(/1 000 000|оркестратор|линейный график роста|анимированный счётчик/i);
   });
 
+  it("версия motion-kit в промптах и справке = MOTION_KIT_VERSION", () => {
+    const version = /MOTION_KIT_VERSION = "([\d.]+)"/.exec(readFileSync(join(APP, "render/src/motion-kit/index.ts"), "utf8"))?.[1];
+    expect(version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(readFileSync(join(APP, "render/src/motion-kit/API.md"), "utf8")).toMatch(new RegExp(`^# @ms/motion-kit ${version!.replace(/\./g, "\\.")} `));
+    for (const f of globSync("prompts/**/*.md", { cwd: APP })) {
+      for (const m of readFileSync(join(APP, f), "utf8").matchAll(/motion-kit\s+(\d+\.\d+(?:\.\d+)?)/g)) expect(m[1], f).toBe(version);
+    }
+  });
+
+  it("в промптах и справке kit нет лексики приёмочных и отложенных запросов (примеры — из нейтральных областей)", () => {
+    // слова запросов, на которых проверяется пайплайн: пример с ними — рецепт под тест
+    const LEAK = ["релиз", "монолит", "микросервис", "оркестратор", "ai-агент", "кэш", "промах", "попадани", "бюджет", "веб-поиск",
+      "калькулятор", "заказ", "склад", "мобильн", "трафик", "очеред", "пять вех", "redis", "gen-cache", "gen-compare", "gen-timeline"];
+    const NUM = /(?<![\d ])(10 000|1 000 000|84 000|×100|×24|2015|2025)(?![\d])/;
+    const files = [...globSync("prompts/**/*.md", { cwd: APP }), "render/src/motion-kit/API.md"];
+    for (const f of files) {
+      const text = readFileSync(join(APP, f), "utf8").toLowerCase();
+      for (const w of LEAK) expect(new RegExp(`(?<![а-яёa-z])${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "u").test(text), `${f}: «${w}»`).toBe(false);
+      expect(text.match(NUM)?.[0], f).toBeUndefined();
+    }
+  });
+
+  it("рубрика пронумерована по порядку", () => {
+    const rubric = readFileSync(join(APP, "prompts/partials/quality-rubric.md"), "utf8");
+    const nums = [...rubric.matchAll(/^(\d+)\. /gm)].map((m) => Number(m[1]));
+    expect(nums).toEqual(nums.map((_, i) => i + 1));
+  });
+
+  it("Director учит kit 0.3 по смыслу: заголовок, фон, потоки, счёт событий, статусы, данные, скорость, иерархия, акцент", () => {
+    const d = loadPrompt("motion_director");
+    for (const x of ["title_mode", "background", "focus", "count", "repeat", "travel", "useArrivalCount", "StatusChip", "DataToken", "LatencyRace", "SceneTitle", "size: \"h2\"", "overlay", "slot"]) expect(d, x).toContain(x);
+    expect(d).toMatch(/repeat[^\n]*по умолчанию[^\n]*true|по умолчанию[^\n]*repeat: true/);
+    expect(d).toMatch(/не больше одного pill/i);
+    expect(d).not.toMatch(/Без поля камера стоит — это нормальный выбор/);
+    const e = loadPrompt("engineer");
+    for (const x of ["SceneTitle", "composition.background", "seed", "useArrivalCount", "StatusChip", "DataToken", "LatencyRace", "slot"]) expect(e, x).toContain(x);
+    const c = loadPrompt("concept");
+    expect(c).toMatch(/без имён/);
+  });
+
   it("PROMPTS_DIR — каталог prompts/ приложения", () => {
     expect(PROMPTS_DIR.replace(/\/$/, "")).toBe(join(APP, "prompts"));
   });

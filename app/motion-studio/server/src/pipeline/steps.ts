@@ -592,6 +592,15 @@ export async function directorStep(
   return { ok: false, stage: "director", message: "spec не получена" };
 }
 
+/**
+ * Seed фона — id сцены (motion-review-1 §6): у каждой сцены своя карта света, правки
+ * той же сцены её сохраняют. Вариант и фокус — выбор Director, не трогаются.
+ */
+export function withSceneSeed(spec: MotionSpec, sceneId: string): MotionSpec {
+  if (!spec.composition) return spec;
+  return { ...spec, composition: { ...spec.composition, background: { ...spec.composition.background, seed: sceneId } } };
+}
+
 /** Замечания specChecks — подсказки Director, не причина нового раунда (ruling P10). */
 const DIRECTOR_HINTS = new Set(["placeholder_label", "purpose_claim", "scene_signature_repeat"]);
 

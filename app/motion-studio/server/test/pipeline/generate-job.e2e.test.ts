@@ -7,6 +7,8 @@
 // docs/evidence/phase-1/pipeline/ — только с MS_WRITE_EVIDENCE=1.
 // MS_E2E_GENERALIZE=1 — ещё три разноплановых запроса (gen-compare, gen-timeline, gen-cache):
 // проверка, что промпты не настроены под Test 1/2; идут параллельно с ними.
+// MS_E2E_HOLDOUT=1 — отложенные запросы, на которых промпты не настраивались (Fix F).
+// MS_E2E_ONLY=a,b — только эти сцены (повтор части прогона).
 import { execFile } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
@@ -47,7 +49,18 @@ const GENERALIZE: Record<string, string> = {
   "gen-timeline": "Таймлайн развития компании 2015–2025 с пятью вехами",
   "gen-cache": "Объясни, как работает кэширование: запрос, промах, запись, попадание",
 };
+/** Отложенная проверка обобщения: на этих запросах промпты не настраивались. */
+const HOLDOUT: Record<string, string> = {
+  "held-mobile": "Покажи, как растёт доля мобильного трафика: 2019 — 35%, 2024 — 68%",
+  "held-queue": "Объясни, как работает очередь сообщений между сервисом заказов и складом",
+};
 const generalize = process.env.MS_E2E_GENERALIZE === "1";
+const only = process.env.MS_E2E_ONLY?.split(",").map((x) => x.trim()).filter(Boolean);
+const want = (name: string) => only === undefined || only.includes(name);
+const EXTRA: Record<string, string> = Object.fromEntries(
+  Object.entries({ ...(generalize ? GENERALIZE : {}), ...(process.env.MS_E2E_HOLDOUT === "1" ? HOLDOUT : {}) }).filter(([n]) => want(n)),
+);
+const BASE = Object.entries({ test1: TEST1, test2: TEST2 }).filter(([n]) => want(n));
 
 interface Outcome {
   job: Job;
@@ -158,12 +171,11 @@ async function saveEvidence(name: string, o: Outcome): Promise<void> {
   }
 }
 
-describe("playground.generate: Test 1 и Test 2 (09 §2–3), реальные модели и рендер", () => {
-  it("обе задачи проходят очередь и завершаются ready", async () => {
-    if (generalize) for (const [name, prompt] of Object.entries(GENERALIZE)) void run(name, prompt).catch(() => undefined);
-    const [t1, t2] = await Promise.all([run("test1", TEST1), run("test2", TEST2)]);
-    outcomes.set("test1", t1);
-    outcomes.set("test2", t2);
+describe.runIf(BASE.length > 0)("playground.generate: Test 1 и Test 2 (09 §2–3), реальные модели и рендер", () => {
+  it("задачи проходят очередь и завершаются ready", async () => {
+    for (const [name, prompt] of Object.entries(EXTRA)) void run(name, prompt).catch(() => undefined);
+    const done = await Promise.all(BASE.map(([name, prompt]) => run(name, prompt)));
+    BASE.forEach(([name], i) => outcomes.set(name, done[i]!));
     for (const [name, o] of outcomes) {
       console.log(`${name}: ${o.job.status} за ${(o.wallMs / 60000).toFixed(1)} мин; ${JSON.stringify(o.job.error ?? o.job.output_refs)}`);
       expect(o.job.status, `${name}: ${JSON.stringify(o.job.error)}`).toBe("completed");
@@ -174,7 +186,7 @@ describe("playground.generate: Test 1 и Test 2 (09 §2–3), реальные �
     }
   }, T);
 
-  it("Test 1: график в битах, тёмный фон, OCR «10 000» в начале счёта и «1 000 000» в конце", async () => {
+  it.runIf(want("test1"))("Test 1: график в битах, тёмный фон, OCR «10 000» в начале счёта и «1 000 000» в конце", async () => {
     const o = outcomes.get("test1")!;
     expect(o.spec.beats.some((b) => /chart|graph|график/i.test(b.action))).toBe(true);
     const frames = o.manifest.qa_frames;
@@ -189,7 +201,7 @@ describe("playground.generate: Test 1 и Test 2 (09 §2–3), реальные �
     expect(ocrTexts(o.qa, lastFrame)).toContainEqual(expect.stringMatching(/1\s?000\s?000/));
   }, T);
 
-  it("Test 2: ≥ 5 узлов, без перекрытий раскладки, в knowledge-refs — запись паттерна system-structure", async () => {
+  it.runIf(want("test2"))("Test 2: ≥ 5 узлов, без перекрытий раскладки, в knowledge-refs — запись паттерна system-structure", async () => {
     const o = outcomes.get("test2")!;
     expect(o.spec.elements.filter((e) => e.kind === "card" || e.role.startsWith("node")).length).toBeGreaterThanOrEqual(5);
     expect(specChecks(o.spec, o.settings).filter((i) => i.code === "overlap")).toEqual([]);
@@ -198,9 +210,9 @@ describe("playground.generate: Test 1 и Test 2 (09 §2–3), реальные �
   }, T);
 });
 
-describe.runIf(generalize)("playground.generate: обобщение на новые запросы", () => {
-  it.each(Object.keys(GENERALIZE))("%s: ready, technical pass, spec без blocking", async (name) => {
-    const o = await run(name, GENERALIZE[name]!);
+describe.runIf(Object.keys(EXTRA).length > 0)("playground.generate: обобщение на новые запросы", () => {
+  it.each(Object.keys(EXTRA))("%s: ready, technical pass, spec без blocking", async (name) => {
+    const o = await run(name, EXTRA[name]!);
     console.log(`${name}: ${o.job.status} за ${(o.wallMs / 60000).toFixed(1)} мин; ${JSON.stringify(o.job.error ?? o.job.output_refs)}`);
     expect(o.job.status, `${name}: ${JSON.stringify(o.job.error)}`).toBe("completed");
     expect(o.manifest.status).toBe("ready");

@@ -44,7 +44,7 @@ import { type KnowledgeSource, SKILLS_REL, filterSelection, knowledgeRefs, prepa
 import { selectQaFrames } from "./qa-frames.js";
 import { cameraBrief } from "../qa/visual-agent.js";
 import { renderEnv } from "./render-env.js";
-import { type AgentRunRecord, RunCtx, clip, directorStep, errText, isStorageError, scenePropsStyle, sceneStyle } from "./steps.js";
+import { type AgentRunRecord, RunCtx, clip, directorStep, errText, isStorageError, scenePropsStyle, sceneStyle, withSceneSeed } from "./steps.js";
 import { PROMPTS_DIR } from "../agents/prompts.js";
 
 /** Словарь этапов неудачи — `@ms/contracts` (`FailureStageSchema`). */
@@ -240,7 +240,7 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
     return result("awaiting_input", { questions: plan.concept.needs_clarification });
   }
   concept = plan.concept;
-  spec = plan.spec;
+  spec = withSceneSeed(plan.spec, sceneId);
   const director = plan.director;
   // выбор Director — только из предложенных кандидатов и только permissive (или с разрешением)
   const filtered = filterSelection(director.selection, plan.candidates, deps.kb, req.qa?.allowRestricted ?? false);

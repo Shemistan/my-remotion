@@ -43,7 +43,10 @@ describe("generateScene: успех", () => {
     expect(m.knowledge_refs).toEqual([{ kb_id: "fake/line-chart", commit: "abc1234", license: "MIT", strategy: "adapt" }]);
     expect(m.render_env.remotion).toBe("4.0.537");
     expect(m.qa).toEqual({ technical: "pass", visual: "not_checked", semantic: "not_checked", style: "not_checked" });
-    expect(JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8")).composition.archetype).toBe("split");
+    const written = JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8"));
+    expect(written.composition.archetype).toBe("split");
+    // seed фона — id сцены (своя карта света у каждой сцены), выбор Director не теряется
+    expect(written.composition.background).toEqual({ seed: r.sceneId });
     expect(m.preview?.path).toBe("preview.mp4");
     expect(m.qa_frames.length).toBe(m.qa_frames_sha256.length);
     expect(m.qa_frames.length).toBeGreaterThan(2);

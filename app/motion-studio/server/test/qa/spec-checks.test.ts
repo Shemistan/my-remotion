@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { type Element, type MotionSpec, MotionSpecSchema, type QAIssue, SettingsSchema } from "@ms/contracts";
 import { describe, expect, it } from "vitest";
-import { specChecks } from "../../src/qa/spec-checks.js";
+import { sceneSignature, specChecks } from "../../src/qa/spec-checks.js";
 import { beat, el, settings, spec } from "./helpers.js";
 
 const s = settings();
@@ -302,6 +302,19 @@ describe("ревью дизайнера: заглушки, ключевая мы
     ]);
     expect(pick(specChecks(run4("gen-timeline"), st, { previous: [run4("gen-compare")] }), "scene_signature_repeat")).toEqual([]);
     expect(pick(specChecks(run4("test2"), st, { previous: [] }), "scene_signature_repeat")).toEqual([]);
+  });
+
+  it("sceneSignature: фон и заголовок — из composition (вариант + фокус, title_mode); seed сцены не в счёт", () => {
+    const comp = (background: object, title_mode?: string) => ({ ...run4("test2"), composition: { archetype: "other" as const, idea: "i", focus: "f", transitions: "t", background, ...(title_mode ? { title_mode: title_mode as "strip" } : {}) } });
+    const a = sceneSignature(comp({ variant: "blueprint", focus: { x: 0.5, y: 0.5 }, seed: "scn_a" }, "none"));
+    const b = sceneSignature(comp({ variant: "blueprint", focus: { x: 0.52, y: 0.48 }, seed: "scn_b" }, "kicker"));
+    const c = sceneSignature(comp({ variant: "blueprint", focus: { x: 0.8, y: 0.3 }, seed: "scn_a" }, "strip"));
+    expect(a.background).toBe(b.background); // тот же вариант и фокус в той же зоне, seed — id сцены
+    expect(a.background).not.toBe(c.background);
+    expect(sceneSignature(comp({ variant: "aurora" })).background).not.toBe(sceneSignature(comp({ variant: "spotlight" })).background);
+    // title_mode решает за эвристику раскладки: у test2 полоса заголовка сверху
+    expect(sceneSignature(run4("test2")).topTitle).toBe(true);
+    expect([a.topTitle, b.topTitle, c.topTitle]).toEqual([false, false, true]);
   });
 
   it("scene_signature_repeat: gen-timeline после gen-compare (камера движется, без таблетки) и без предыдущей сцены — нет", () => {
