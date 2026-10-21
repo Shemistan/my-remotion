@@ -3,6 +3,7 @@
 import type { Beat, StyleBible } from "@ms/contracts";
 import { Easing } from "remotion";
 import { frames } from "../easing.js";
+import { type CubicSegment, lutLength, pathLUT } from "../geometry.js";
 
 /** Кривая прохода импульса по пути (доля прохода → доля длины). */
 export const EASE_PASS = Easing.bezier(0.45, 0.05, 0.4, 1);
@@ -68,4 +69,56 @@ export interface PulseArrival {
  */
 export function pulseArrival(edgeId: string, beat: Pick<Beat, "start_frame" | "end_frame">, travel?: number, opts: { count?: number; repeat?: boolean } = {}): PulseArrival {
   return { edgeId, beat, travel, ...opts };
+}
+
+/** Импульс по пути вне графа (свои дорожки): те же поля, что у PulseAlongPath. */
+export interface PathArrival {
+  beat: Pick<Beat, "start_frame" | "end_frame">;
+  travel?: number;
+  count?: number;
+  repeat?: boolean;
+}
+
+/**
+ * Кадры прихода импульсов по пути `segments` (дробные, по возрастанию) — то же
+ * расписание, что у <PulseAlongPath segments=…>: LUT 40, pulsePass, pulseStarts.
+ * `ready` — кадр, раньше которого импульсы не стартуют (ребро графа ещё рисуется).
+ */
+export function pathArrivals(segments: CubicSegment[], a: PathArrival, s: StyleBible, fps: number, ready = 0): number[] {
+  if (segments.length === 0) return [];
+  const len = lutLength(pathLUT(segments, 40));
+  const pass = pulsePass(len, a.travel, fps, s);
+  const start = Math.max(a.beat.start_frame, ready);
+  return pulseStarts({ start, end: a.beat.end_frame, pass, count: a.count, repeat: a.repeat }).map((t0) => arrivalInPass(t0, pass, len));
+}
+
+export interface ArrivalCount {
+  /** Пришло импульсов к кадру. */
+  count: number;
+  /** Значение счётчика: from + count × per. */
+  value: number;
+  /** Кадр последнего прихода (null — ещё ни одного). */
+  last: number | null;
+  /** Микро-«удар» 0..1 на каждом приходе: 1 в кадр прихода, гаснет за ~10 кадров. */
+  pop: number;
+  /** Всего приходов в расписании. */
+  total: number;
+}
+
+/**
+ * Счётчик событий по кадрам прихода `at` (чистая функция): число на экране растёт ровно в
+ * кадры, когда импульс касается цели, — не плавной кривой отдельно от движения.
+ */
+export function arrivalCount(at: readonly number[], frame: number, s: StyleBible, o: { per?: number; from?: number } = {}): ArrivalCount {
+  let count = 0;
+  let last: number | null = null;
+  for (const t of at) {
+    if (t > frame) break;
+    count++;
+    last = t;
+  }
+  const L = frames(s, 10);
+  const d = last === null ? Infinity : frame - last;
+  const pop = d < L ? (1 - d / L) ** 2 : 0;
+  return { count, value: (o.from ?? 0) + count * (o.per ?? 1), last, pop, total: at.length };
 }

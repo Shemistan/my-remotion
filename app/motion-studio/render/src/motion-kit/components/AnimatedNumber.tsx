@@ -9,7 +9,7 @@ import { type PluralForms, formatNumber, pluralForm } from "../format.js";
 import { CLAMP, clamp01, ramp } from "../internal.js";
 import { useStyle } from "../style.js";
 import { type TypeLevel, sizePx } from "../style/type-scale.js";
-import { accent, alpha, fontFamily, tracking } from "../tokens.js";
+import { accent, alpha, fontFamily, mix, tracking } from "../tokens.js";
 
 export interface AnimatedNumberProps {
   from: number;
@@ -46,9 +46,14 @@ export interface AnimatedNumberProps {
    * держит его до начала счёта (зритель читает «от»). По умолчанию — начало `beat`.
    */
   enterAt?: number;
+  /**
+   * Микро-удар 0..1 на шаге счётчика событий (`useArrivalCount(...).pop`): число
+   * подпрыгивает масштабом и вспыхивает акцентом на каждом приходе импульса.
+   */
+  pop?: number;
 }
 
-export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact, decimals, size = 7, font = "display", color, align = "left", reserveWidth, style, value: bound, enterAt }: AnimatedNumberProps) {
+export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact, decimals, size = 7, font = "display", color, align = "left", reserveWidth, style, value: bound, enterAt, pop = 0 }: AnimatedNumberProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
@@ -78,7 +83,9 @@ export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact
   const digitBlur = speedBlur > 0.05 ? `blur(${speedBlur.toFixed(2)}px)` : undefined;
   // удар на финише: короткий всплеск масштаба и свечения
   const hit = frame >= b1 ? interpolate(frame, [b1, b1 + frames(s, 10), b1 + frames(s, 26)], [0, 1, 0], CLAMP) : 0;
-  const glow = alpha(accent(s, 0), 0.55 * hit);
+  // удар на шаге события (pop) и на финише — сильнейший из двух
+  const kick = Math.max(hit, clamp01(pop));
+  const glow = alpha(accent(s, 0), 0.55 * kick);
   const affix: CSSProperties = { fontSize: "0.5em", fontWeight: s.typography.body.weight ?? 500, color: s.palette.muted, letterSpacing: 0 };
 
   return (
@@ -94,12 +101,12 @@ export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact
         letterSpacing: `${tracking(s, "display")}em`,
         fontVariantNumeric: "tabular-nums",
         whiteSpace: "nowrap",
-        color: color ?? s.palette.text,
+        color: pop > 0.01 ? mix(color ?? s.palette.text, accent(s, 0), 0.5 * clamp01(pop)) : (color ?? s.palette.text),
         opacity: clamp01(enter * 1.6),
-        transform: `translateY(${((1 - enter) * 0.35 * px).toFixed(2)}px) scale(${(1 + 0.045 * hit).toFixed(4)})`,
+        transform: `translateY(${((1 - enter) * 0.35 * px).toFixed(2)}px) scale(${(1 + 0.045 * hit + 0.06 * clamp01(pop) * s.amplitude).toFixed(4)})`,
         transformOrigin: align === "right" ? "100% 70%" : align === "center" ? "50% 70%" : "0% 70%",
         filter: enterBlur > 0.05 ? `blur(${enterBlur.toFixed(2)}px)` : undefined,
-        textShadow: hit > 0 ? `0 0 ${(0.3 * px).toFixed(1)}px ${glow}` : undefined,
+        textShadow: kick > 0 ? `0 0 ${(0.3 * px).toFixed(1)}px ${glow}` : undefined,
         ...style,
       }}
     >

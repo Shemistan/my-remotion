@@ -6,7 +6,7 @@ import type { Beat, StyleBible } from "@ms/contracts";
 import { type ReactNode, createContext, useContext } from "react";
 import { interpolate, random, useCurrentFrame, useVideoConfig } from "remotion";
 import { ACCENT_REST, type AccentPulse, accentPulse } from "../choreo/accent.js";
-import { type PulseArrival, arrivalInPass, pulsePass, pulseStarts } from "../choreo/pulse.js";
+import { type PulseArrival, pathArrivals } from "../choreo/pulse.js";
 import { edgeDelay } from "../choreo/rhythm.js";
 import { EASE, frames, springAt } from "../easing.js";
 import { type CubicSegment, type Point, cubicPoint, edgeSegment, lutLength, pathD, pathLUT } from "../geometry.js";
@@ -136,11 +136,7 @@ export function flowTiming(nodes: FlowNode[], edges: FlowEdge[], beat: Pick<Beat
   // приход: то же расписание, что у PulseAlongPath (LUT 40, pulsePass, pulseStarts)
   const arrivals = (a: PulseArrival): number[] => {
     const seg = geo.get(a.edgeId);
-    if (!seg) return [];
-    const len = lutLength(pathLUT([seg], 40));
-    const pass = pulsePass(len, a.travel, fps, s);
-    const start = Math.max(a.beat.start_frame, ready.get(a.edgeId)!);
-    return pulseStarts({ start, end: a.beat.end_frame, pass, count: a.count, repeat: a.repeat }).map((t0) => arrivalInPass(t0, pass, len));
+    return seg ? pathArrivals([seg], a, s, fps, ready.get(a.edgeId)!) : [];
   };
   return { nodeStart, edgeStart, ready, edges: geo, drawLen, arrivals };
 }

@@ -4,7 +4,7 @@
 // берётся по edgeId; вне графа — из segments (координаты родителя).
 import type { Beat } from "@ms/contracts";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import { EASE_PASS, pulsePass } from "../choreo/pulse.js";
+import { type ArrivalCount, EASE_PASS, type PathArrival, type PulseArrival, arrivalCount, pathArrivals, pulsePass, pulseStarts } from "../choreo/pulse.js";
 import { type CubicSegment, lutLength, pathLUT, pointAtLength, pointsBetween, polylineD } from "../geometry.js";
 import { CLAMP, useSvgId } from "../internal.js";
 import { useStyle } from "../style.js";
@@ -50,17 +50,13 @@ export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size
   const pass = pulsePass(len, travel, fps, s);
   // внутри графа не стартуем раньше, чем ребро дорисовано
   const start = Math.max(beat.start_frame, (edgeId && flow?.ready.get(edgeId)) || 0);
-  const n = Math.max(1, Math.floor(count));
-
-  const pulses = Array.from({ length: n }, (_, k) => {
-    const t0 = start + (k * pass) / n;
+  // общее расписание с pulseArrival / useArrivalCount: старты проходов, начатый до конца
+  // бита проход доигрывается
+  const starts = pulseStarts({ start, end: beat.end_frame, pass, count, repeat });
+  const pulses = starts.map((t0, k) => {
     const local = frame - t0;
-    if (local < 0) return null;
-    const cycle = Math.floor(local / pass);
-    if (!repeat && cycle > 0) return null;
-    // начатый до конца бита проход доигрывается, новые не стартуют
-    if (t0 + cycle * pass >= beat.end_frame) return null;
-    const ph = (local - cycle * pass) / pass;
+    if (local < 0 || local >= pass) return null;
+    const ph = local / pass;
     const e = EASE_PASS(ph);
     const sHead = (reverse ? 1 - e : e) * len;
     const sTail = reverse ? sHead + tail : sHead - tail;
@@ -103,4 +99,20 @@ export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size
       )}
     </svg>
   );
+}
+
+/**
+ * Счётчик событий по приходам импульсов (хук): `count` растёт ровно в кадр, когда импульс
+ * касается цели, `pop` — микро-удар на каждом приходе (для `AnimatedNumber pop`).
+ * Внутри <FlowGraph> — `pulseArrival(edgeId, beat, travel, { count, repeat })` (те же поля,
+ * что у PulseAlongPath на этом ребре); вне графа — `{ segments, beat, travel, count, repeat }`.
+ * `per` — единиц на приход, `from` — стартовое значение.
+ */
+export function useArrivalCount(a: PulseArrival | (PathArrival & { segments: CubicSegment[] }), o: { per?: number; from?: number } = {}): ArrivalCount {
+  const s = useStyle();
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const flow = useFlowGeometry();
+  const at = "segments" in a ? pathArrivals(a.segments, a, s, fps) : (flow?.arrivals(a) ?? []);
+  return arrivalCount(at, frame, s, o);
 }
