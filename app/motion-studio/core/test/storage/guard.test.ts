@@ -135,8 +135,12 @@ describe("checkStorage", () => {
       await rename(root, `${root}.gone`);
       return "VOL-A";
     } };
-    expect(await checkStorage({ MS_DATA_DIR: root }, vanishing)).toMatchObject({ ok: false, reason: "not_found", detail: expect.stringContaining("not_writable") });
-    await rename(`${root}.gone`, root);
+    try {
+      expect(await checkStorage({ MS_DATA_DIR: root }, vanishing)).toMatchObject({ ok: false, reason: "not_found", detail: expect.stringContaining("not_writable") });
+    } finally {
+      // корень возвращаем при любом исходе: afterEach чистит tmp, следующие тесты ждут root
+      if (existsSync(`${root}.gone`)) await rename(`${root}.gone`, root);
+    }
   });
 
   it("treats a failing probe as a failed check", async () => {
