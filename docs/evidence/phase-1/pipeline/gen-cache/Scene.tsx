@@ -1,5 +1,5 @@
 import React from "react";
-import { useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import {
   Background,
   Emphasis,
@@ -13,370 +13,414 @@ import {
   accent,
   alpha,
   beatProgress,
-  cardEnterStyle,
   cardSurface,
   easingOf,
   flowTiming,
   mix,
   pulseArrival,
-  radius,
   typeSize,
   useSafeArea,
   useStyle,
 } from "@ms/motion-kit";
 
-type Style = ReturnType<typeof useStyle>;
-type Beat = { start_frame: number; end_frame: number };
-type TimedBeat = Beat & { id: string };
-type Layout = { x: number; y: number; w: number; h: number };
-type NodeEnter = "rise" | "scale" | "flip" | "pop" | "slide" | "swing" | "blur" | "fade" | "none";
+type Beat = { id: string; start_frame: number; end_frame: number };
+type CardEnter = "rise" | "scale" | "flip" | "pop" | "slide" | "swing" | "blur" | "fade" | "none";
 
-type GraphNode = {
+type NodeContent = {
   id: string;
   label: string;
   caption?: string;
-  enter: NodeEnter;
-  enterAt: number;
   elevation: 0 | 1 | 2 | 3;
-  accentIndex: number;
-  flash_on: string[];
-  layout: Layout;
+  enter: CardEnter;
+  enter_offset: number;
 };
-
-type Pulse = {
-  beat: string;
-  edgeId: string;
-  travel: number;
-  repeat: boolean;
-  reverse: boolean;
-  color: string;
-  size: number;
-  tail: number;
-};
+type EdgeContent = { id: string; from: string; to: string };
+type FlowContent = { edge: string; direction: "forward" | "back"; beat: string; accent: number };
 
 type Content = {
   title: string;
-  background: { variant: "aurora" | "grid" | "paper" | "solid"; seed: string; beat: string; particles: number };
-  kicker: { text: string; beat: string; layout: Layout };
-  graph: {
-    beat: string;
-    enter: NodeEnter;
-    layout: Layout;
-    nodes: GraphNode[];
-    edges: { id: string; from: string; to: string }[];
-    pulses: Pulse[];
-    dim: { node: string; beat: string; opacity: number };
+  kicker: string;
+  nodes: NodeContent[];
+  edges: EdgeContent[];
+  flows: FlowContent[];
+  pulse: { travel: number; repeat: boolean; count: number; size: number; tail: number };
+  cell: {
+    empty_text: string;
+    filled_text: string;
+    enter_offset: number;
+    flash_edge: string;
+    flash_beat: string;
   };
-  slot: { empty_text: string; filled_text: string; beat: string; fill_on: string; layout: Layout };
-  steps: {
-    beat: string;
-    final_beat: string;
-    layout: Layout;
-    items: { label: string; beat: string; tone: "text" | "negative" }[];
-  };
+  miss_badge: { text: string };
+  hit_badge: { text: string };
+  track: { text: string; beat: string }[];
+  particles: { count: number; seed: string };
 };
 
-type Props = {
-  timing: { duration_frames: number; beats: TimedBeat[] };
-  style: React.ComponentProps<typeof StyleProvider>["style"];
+type SceneStyle = {
+  preset: "dark-premium" | "light-clean" | "tech-neon";
+  intensity: "calm" | "balanced" | "energetic";
+  depth?: 0 | 1 | 2 | 3;
+  transparent: boolean;
+  safe_area?: { x: number; y: number };
+  font?: string;
+};
+
+export type SceneProps = {
+  timing: { duration_frames: number; beats: Beat[] };
+  style: SceneStyle;
   content: Content;
 };
 
-const beatOf = (beats: TimedBeat[], id: string): Beat => {
+const beatOf = (beats: Beat[], id: string): Beat => {
   const b = beats.find((x) => x.id === id);
-  if (!b) throw new Error(`beat ${id} not found in props.timing.beats`);
-  return { start_frame: b.start_frame, end_frame: b.end_frame };
+  if (!b) throw new Error(`beat ${id} missing`);
+  return b;
 };
 
-const colorOf = (s: Style, key: string): string => {
-  const m = /^accent\[(\d)\]$/.exec(key);
-  if (m) return accent(s, Number(m[1]));
-  if (key === "muted") return s.palette.muted;
-  if (key === "negative") return s.palette.negative;
-  if (key === "positive") return s.palette.positive;
-  return s.palette.text;
-};
+// Раскладка схемы в долях safe area (spec layout; узел кэша — подпись сверху, ячейка под ней).
+const GRAPH = { y: 0.14, h: 0.62 };
+const NODE_W: Record<string, number> = { "node-client": 0.2, "node-cache": 0.28, "node-db": 0.22 };
+const NODE_X: Record<string, number> = { "node-client": 0.02, "node-cache": 0.36, "node-db": 0.76 };
+const CACHE_Y = 0.145;
+const CACHE_H = 0.175;
+const SIDE_H = 0.155;
+const CELL = { w: 0.22, h: 0.16, gap: 0.025 };
+const BADGE = { x: 0.4, y: 0.12, w: 0.2, h: 0.09 };
+const KICKER = { x: 0.05, y: 0.02, w: 0.4 };
+const TRACK = { x: 0.1, y: 0.83, w: 0.8, h: 0.1 };
 
-const arrivalOf = (p: Pulse, beats: TimedBeat[]) =>
-  pulseArrival(p.edgeId, beatOf(beats, p.beat), p.travel, { repeat: p.repeat });
-
-// Ячейка внутри Кэша: «пусто» → «user:42 ✓» в кадр прихода обратного импульса
-const CacheSlot: React.FC<{ rect: Layout; beat: Beat; fillFrame: number; emptyText: string; filledText: string }> = ({
-  rect,
-  beat,
-  fillFrame,
-  emptyText,
-  filledText,
+const Badge: React.FC<{ text: string; tone: string; width: number; height: number }> = ({
+  text,
+  tone,
+  width,
+  height,
 }) => {
   const s = useStyle();
-  const frame = useCurrentFrame();
-  const { fps, height } = useVideoConfig();
-  const filled = beatProgress(
-    frame,
-    { start_frame: fillFrame, end_frame: fillFrame + s.motion.enter_frames },
-    easingOf(s, "enter"),
-  );
-  const border = alpha(mix(s.palette.muted, s.palette.positive, filled), 0.35 + 0.65 * filled);
-  const font = typeSize(s, "body", height);
-  const center: React.CSSProperties = {
-    position: "absolute",
-    inset: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  };
+  const { height: frameH } = useVideoConfig();
   return (
     <div
       style={{
-        position: "absolute",
-        left: rect.x,
-        top: rect.y,
-        width: rect.w,
-        height: rect.h,
-        ...cardSurface(s, 1),
-        border: `2px solid ${border}`,
+        width,
+        height,
         boxSizing: "border-box",
-        ...cardEnterStyle(s, frame, fps, beat.start_frame, "scale"),
+        borderRadius: 999,
+        background: s.palette.surface,
+        border: `3px solid ${tone}`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: tone,
+        fontFamily: s.typography.display.family,
+        fontWeight: 700,
+        fontSize: typeSize(s, "body", frameH),
+        letterSpacing: "-0.01em",
+        whiteSpace: "nowrap",
       }}
     >
-      <div style={center}>
-        <Enter kind="fade" beat={{ start_frame: beat.start_frame, end_frame: fillFrame }} exit>
-          <span style={{ fontFamily: s.typography.body.family, fontWeight: s.typography.body.weight, fontSize: font, color: s.palette.muted }}>
-            {emptyText}
-          </span>
-        </Enter>
-      </div>
-      <div style={center}>
-        <Enter kind="pop" beat={{ start_frame: fillFrame, end_frame: fillFrame + s.motion.enter_frames }}>
-          <span style={{ fontFamily: s.typography.mono.family, fontWeight: s.typography.mono.weight, fontSize: font, color: s.palette.text }}>
-            {filledText}
-          </span>
-        </Enter>
-      </div>
+      {text}
     </div>
   );
 };
 
-// Шаг ряда «Запрос · Промах · Запись · Попадание»: pending → active → done
-const StepItem: React.FC<{
-  label: string;
-  index: number;
-  total: number;
-  enterBeat: Beat;
-  activeFrom: number;
-  activeTo: number | null;
-  tone: "text" | "negative";
-  emphasis: Beat | null;
+const CacheCell: React.FC<{
+  content: Content["cell"];
+  appearAt: number;
+  fillAt: number;
   width: number;
-}> = ({ label, index, total, enterBeat, activeFrom, activeTo, tone, emphasis, width }) => {
+  height: number;
+}> = ({ content, appearAt, fillAt, width, height }) => {
   const s = useStyle();
   const frame = useCurrentFrame();
-  const { height } = useVideoConfig();
-  const on = beatProgress(frame, { start_frame: activeFrom, end_frame: activeFrom + s.motion.enter_frames }, easingOf(s, "enter"));
-  const off =
-    activeTo === null
-      ? 0
-      : beatProgress(frame, { start_frame: activeTo, end_frame: activeTo + s.motion.exit_frames }, easingOf(s, "exit"));
-  const active = on * (1 - off);
-  const color = mix(s.palette.muted, colorOf(s, tone), active);
-  const font = typeSize(s, "body", height);
-  const bar = Math.max(2, Math.round(height * 0.003));
-  const word = (
-    <span style={{ display: "inline-block", fontFamily: s.typography.body.family, fontWeight: 600, fontSize: font, color }}>
-      {label}
-    </span>
+  const { height: frameH } = useVideoConfig();
+  const enter = easingOf(s, "enter");
+  const appear = beatProgress(
+    frame,
+    { start_frame: appearAt, end_frame: appearAt + s.motion.enter_frames },
+    enter,
   );
+  const fill = beatProgress(
+    frame,
+    { start_frame: fillAt, end_frame: fillAt + s.motion.enter_frames },
+    enter,
+  );
+  const textIn = beatProgress(
+    frame,
+    {
+      start_frame: fillAt + s.motion.stagger_frames,
+      end_frame: fillAt + s.motion.stagger_frames + s.motion.enter_frames,
+    },
+    enter,
+  );
+  const r = s.surfaces.radius[2] ?? 26;
+  const font = typeSize(s, "body", frameH);
   return (
-    <div style={{ position: "relative", width, display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
-      {index > 0 ? (
-        <div
+    <div style={{ position: "relative", width, height, opacity: appear }}>
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          boxSizing: "border-box",
+          borderRadius: r,
+          border: `3px dashed ${alpha(s.palette.muted, 0.75)}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: s.palette.muted,
+          fontFamily: s.typography.body.family,
+          fontWeight: 500,
+          fontSize: font,
+          opacity: 1 - fill,
+        }}
+      >
+        {content.empty_text}
+      </div>
+      <div
+        style={{
+          ...cardSurface(s, 2),
+          position: "absolute",
+          inset: 0,
+          borderRadius: r,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          opacity: fill,
+        }}
+      >
+        <span
           style={{
-            position: "absolute",
-            left: -bar * 2,
-            top: "50%",
-            width: bar * 4,
-            height: bar * 4,
-            marginTop: -bar * 2,
-            borderRadius: 999,
-            background: alpha(s.palette.muted, 0.6),
+            color: s.palette.text,
+            fontFamily: s.typography.display.family,
+            fontWeight: 700,
+            fontSize: font,
+            whiteSpace: "nowrap",
+            opacity: textIn,
+            filter: `blur(${(1 - textIn) * 12 * s.amplitude}px)`,
           }}
-        />
-      ) : null}
-      <Enter kind="slide" beat={enterBeat} index={index} total={total}>
-        <div style={{ position: "relative", opacity: 0.5 + 0.5 * on, paddingBottom: bar * 4 }}>
-          {emphasis ? (
-            <Emphasis beat={emphasis} loop ring={false} shape="pill" accentIndex={0}>
-              {word}
-            </Emphasis>
-          ) : (
-            word
-          )}
-          <div
-            style={{
-              position: "absolute",
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: bar,
-              borderRadius: bar,
-              background: s.palette.text,
-              transform: `scaleX(${on})`,
-              transformOrigin: "left center",
-              opacity: 1 - off,
-            }}
-          />
-        </div>
-      </Enter>
+        >
+          {content.filled_text}
+        </span>
+      </div>
     </div>
   );
 };
 
-const Body: React.FC<Props> = ({ timing, content }) => {
+const TrackWord: React.FC<{ text: string; beat: Beat; next: Beat | null }> = ({ text, beat, next }) => {
   const s = useStyle();
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const dim = next
+    ? beatProgress(
+        frame,
+        { start_frame: next.start_frame, end_frame: next.start_frame + s.motion.enter_frames },
+        easingOf(s, "enter"),
+      )
+    : 0;
+  return (
+    <KineticText
+      text={text}
+      beat={beat}
+      mode="words"
+      enter="slide"
+      size="body"
+      font="body"
+      color={mix(s.palette.text, s.palette.muted, dim)}
+    />
+  );
+};
+
+const SceneBody: React.FC<SceneProps> = ({ timing, content }) => {
+  const s = useStyle();
+  const frame = useCurrentFrame();
+  const { fps, height: frameH } = useVideoConfig();
   const rect = useSafeArea();
   const beats = timing.beats;
-  const at = (l: Layout): Layout => ({
-    x: Math.round(l.x * rect.w),
-    y: Math.round(l.y * rect.h),
-    w: Math.round(l.w * rect.w),
-    h: Math.round(l.h * rect.h),
-  });
+  const b = (id: string) => beatOf(beats, id);
 
-  const g = content.graph;
-  const graphRect = at(g.layout);
-  const graphBeat = beatOf(beats, g.beat);
-  const pulseByBeat = (id: string) => g.pulses.find((p) => p.beat === id);
+  const graphIn = b("graph-in");
+  const graphTop = GRAPH.y * rect.h;
+  const graphH = GRAPH.h * rect.h;
 
-  const nodes = g.nodes.map((n) => {
-    const r = at(n.layout);
-    const flashes = n.flash_on
-      .map((id) => pulseByBeat(id))
-      .filter((p): p is Pulse => p !== undefined)
-      .map((p) => arrivalOf(p, beats));
+  const cacheY = CACHE_Y * rect.h;
+  const cacheH = CACHE_H * rect.h;
+  const centerY = cacheY + cacheH / 2;
+  const sideH = SIDE_H * rect.h;
+
+  const nodes = content.nodes.map((n) => {
+    const isCache = n.id === "node-cache";
+    const h = isCache ? cacheH : sideH;
     return {
       id: n.id,
       label: n.label,
-      x: r.x - graphRect.x,
-      y: r.y - graphRect.y,
-      w: r.w,
-      h: r.h,
+      caption: n.caption,
       elevation: n.elevation,
-      accentIndex: n.accentIndex,
       enter: n.enter,
-      enterAt: n.enterAt,
-      ...(n.caption ? { caption: n.caption } : {}),
-      ...(flashes.length > 0 ? { flash: flashes } : {}),
+      enterAt: graphIn.start_frame + n.enter_offset,
+      x: (NODE_X[n.id] ?? 0) * rect.w,
+      y: centerY - h / 2,
+      w: (NODE_W[n.id] ?? 0.2) * rect.w,
+      h,
     };
   });
+  const edges = content.edges;
+  const pulse = content.pulse;
 
-  // кадр прихода обратного импульса к Кэшу — момент записи в ячейку
-  const writePulse = pulseByBeat(content.slot.fill_on);
-  const writeBeat = beatOf(beats, content.slot.fill_on);
-  const geometry = flowTiming(nodes, g.edges, graphBeat, s, fps);
-  const fillFrame = writePulse ? geometry.arrivals(arrivalOf(writePulse, beats))[0] ?? writeBeat.end_frame : writeBeat.end_frame;
+  // Кадр прихода обратного импульса к ячейке — тот же расчёт, что у графа.
+  const flashBeat = b(content.cell.flash_beat);
+  const timingInfo = flowTiming(nodes, edges, graphIn, s, fps);
+  const arrivalFrames = timingInfo.arrivals(
+    pulseArrival(content.cell.flash_edge, flashBeat, pulse.travel, {
+      count: pulse.count,
+      repeat: pulse.repeat,
+    }),
+  );
+  const writeBeat = b("write");
+  const arrival = Math.min(arrivalFrames[0] ?? writeBeat.start_frame, writeBeat.start_frame);
 
-  // Источник гаснет, когда начинается попадание
-  const dimNode = g.nodes.find((n) => n.id === g.dim.node);
-  const dimRect = dimNode ? at(dimNode.layout) : null;
-  const dimStart = beatOf(beats, g.dim.beat).start_frame;
-  const dim = beatProgress(frame, { start_frame: dimStart, end_frame: dimStart + s.motion.exit_frames }, easingOf(s, "enter"));
+  const cellW = CELL.w * rect.w;
+  const cellH = CELL.h * rect.h;
+  const cellX = rect.w / 2 - cellW / 2;
+  const cellY = graphTop + cacheY + cacheH + CELL.gap * rect.h;
 
-  const k = content.kicker;
-  const kRect = at(k.layout);
-  const st = content.steps;
-  const stRect = at(st.layout);
-  const stBeat = beatOf(beats, st.beat);
-  const finalBeat = beatOf(beats, st.final_beat);
-  const colW = stRect.w / st.items.length;
+  const missBeat = b("miss-emphasis");
+  const hitBeat = b("hit-emphasis");
+  const finalBeat = b("final-emphasis");
+  const missOut = beatProgress(
+    frame,
+    { start_frame: writeBeat.start_frame, end_frame: writeBeat.start_frame + s.motion.exit_frames },
+    easingOf(s, "exit"),
+  );
+
+  const badgeW = BADGE.w * rect.w;
+  const badgeH = BADGE.h * rect.h;
+  const badgePos: React.CSSProperties = {
+    position: "absolute",
+    left: BADGE.x * rect.w,
+    top: BADGE.y * rect.h,
+    width: badgeW,
+    height: badgeH,
+  };
 
   return (
     <>
-      {s.transparent ? null : (
-        <Background beat={beatOf(beats, content.background.beat)} variant={content.background.variant} seed={content.background.seed} />
-      )}
-      <Particles count={content.background.particles} seed={`${content.background.seed}-dust`} beat={beatOf(beats, content.background.beat)} layer={0} />
-      <SafeArea>
-        <div style={{ position: "absolute", left: kRect.x, top: kRect.y, width: kRect.w }}>
-          <KineticText
-            text={k.text}
-            beat={beatOf(beats, k.beat)}
-            mode="letters"
-            enter="type"
-            size="body"
-            font="body"
-            color={s.palette.muted}
-          />
-        </div>
-
-        <div style={{ position: "absolute", left: graphRect.x, top: graphRect.y, width: graphRect.w, height: graphRect.h }}>
-          <FlowGraph nodes={nodes} edges={g.edges} beat={graphBeat} width={graphRect.w} height={graphRect.h} enter={g.enter}>
-            {g.pulses.map((p) => (
-              <PulseAlongPath
-                key={p.beat}
-                edgeId={p.edgeId}
-                beat={beatOf(beats, p.beat)}
-                travel={p.travel}
-                repeat={p.repeat}
-                reverse={p.reverse}
-                color={colorOf(s, p.color)}
-                size={p.size}
-                tail={p.tail}
-              />
-            ))}
-          </FlowGraph>
-        </div>
-
-        {dimRect ? (
-          <div
-            style={{
-              position: "absolute",
-              left: dimRect.x,
-              top: dimRect.y,
-              width: dimRect.w,
-              height: dimRect.h,
-              borderRadius: radius(s, 2),
-              background: s.palette.bg,
-              opacity: (1 - g.dim.opacity) * dim,
-            }}
-          />
-        ) : null}
-
-        <CacheSlot
-          rect={at(content.slot.layout)}
-          beat={beatOf(beats, content.slot.beat)}
-          fillFrame={fillFrame}
-          emptyText={content.slot.empty_text}
-          filledText={content.slot.filled_text}
+      <div style={{ position: "absolute", left: KICKER.x * rect.w, top: KICKER.y * rect.h, width: KICKER.w * rect.w }}>
+        <KineticText
+          text={content.kicker}
+          beat={b("kicker-in")}
+          mode="letters"
+          enter="type"
+          size="body"
+          font="body"
+          color={s.palette.muted}
         />
+      </div>
 
-        <div style={{ position: "absolute", left: stRect.x, top: stRect.y, width: stRect.w, height: stRect.h, display: "flex" }}>
-          {st.items.map((it, i) => {
-            const next = st.items[i + 1];
-            return (
-              <StepItem
-                key={it.label}
-                label={it.label}
-                index={i}
-                total={st.items.length}
-                enterBeat={stBeat}
-                activeFrom={beatOf(beats, it.beat).start_frame}
-                activeTo={next ? beatOf(beats, next.beat).start_frame : null}
-                tone={it.tone}
-                emphasis={next ? null : finalBeat}
-                width={colW}
-              />
-            );
-          })}
-        </div>
-      </SafeArea>
+      <div style={{ position: "absolute", left: 0, top: graphTop, width: rect.w, height: graphH }}>
+        <FlowGraph nodes={nodes} edges={edges} beat={graphIn} width={rect.w} height={graphH}>
+          {content.flows.map((f) => (
+            <PulseAlongPath
+              key={`${f.edge}-${f.beat}`}
+              edgeId={f.edge}
+              beat={b(f.beat)}
+              travel={pulse.travel}
+              repeat={pulse.repeat}
+              count={pulse.count}
+              size={pulse.size}
+              tail={pulse.tail}
+              color={accent(s, f.accent)}
+              reverse={f.direction === "back"}
+            />
+          ))}
+        </FlowGraph>
+      </div>
+
+      <div style={{ position: "absolute", left: cellX, top: cellY, width: cellW, height: cellH }}>
+        <Emphasis beat={finalBeat} loop shape="rounded" radius={s.surfaces.radius[2]} spread={28}>
+          <Emphasis
+            beat={{ start_frame: arrival, end_frame: writeBeat.end_frame }}
+            loop={false}
+            shape="rounded"
+            radius={s.surfaces.radius[2]}
+            spread={28}
+          >
+            <CacheCell
+              content={content.cell}
+              appearAt={graphIn.start_frame + content.cell.enter_offset}
+              fillAt={arrival}
+              width={cellW}
+              height={cellH}
+            />
+          </Emphasis>
+        </Emphasis>
+      </div>
+
+      <div style={{ ...badgePos, opacity: 1 - missOut }}>
+        <Enter kind="pop" beat={missBeat}>
+          <Emphasis beat={missBeat} loop={false} accentIndex={0} spread={20}>
+            <Badge text={content.miss_badge.text} tone={s.palette.negative} width={badgeW} height={badgeH} />
+          </Emphasis>
+        </Enter>
+      </div>
+
+      <div style={badgePos}>
+        <Enter kind="scale" beat={hitBeat}>
+          <Emphasis beat={hitBeat} loop={false} accentIndex={0} spread={20}>
+            <Badge text={content.hit_badge.text} tone={s.palette.positive} width={badgeW} height={badgeH} />
+          </Emphasis>
+        </Enter>
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          left: TRACK.x * rect.w,
+          top: TRACK.y * rect.h,
+          width: TRACK.w * rect.w,
+          height: TRACK.h * rect.h,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "0.45em",
+          fontSize: typeSize(s, "body", frameH),
+          whiteSpace: "nowrap",
+        }}
+      >
+        {content.track.map((w, i) => {
+          const nextWord = content.track[i + 1];
+          return (
+            <TrackWord
+              key={w.beat}
+              text={w.text}
+              beat={b(w.beat)}
+              next={nextWord ? b(nextWord.beat) : null}
+            />
+          );
+        })}
+      </div>
     </>
   );
 };
 
-export const Scene: React.FC<Props> = (props) => (
-  <StyleProvider style={props.style}>
-    <Body {...props} />
-  </StyleProvider>
-);
+export const Scene: React.FC<SceneProps> = (props) => {
+  const { style, content, timing } = props;
+  const graphIn = beatOf(timing.beats, "graph-in");
+  return (
+    <StyleProvider style={style}>
+      <AbsoluteFill>
+        {style.transparent ? null : (
+          <>
+            <Background beat={{ start_frame: 0, end_frame: graphIn.end_frame }} seed="cache" />
+            <Particles
+              count={content.particles.count}
+              seed={content.particles.seed}
+              beat={{ start_frame: 0, end_frame: graphIn.end_frame }}
+              layer={0}
+            />
+          </>
+        )}
+        <SafeArea>
+          <SceneBody {...props} />
+        </SafeArea>
+      </AbsoluteFill>
+    </StyleProvider>
+  );
+};

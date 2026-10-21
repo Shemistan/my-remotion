@@ -1,13 +1,13 @@
 {
-  "run_id": "job_01M5ERRFRRV8HNT6CE97QRS99E",
+  "run_id": "job_01M5ETNGVY2TBN4CWKD7A2X5W0",
   "attempt": 1,
-  "cost_usd": 1.4963557,
-  "engineer_calls": 2,
+  "cost_usd": 1.5101725000000001,
+  "engineer_calls": 1,
   "visual_qa": [
     {
-      "call": 2,
-      "wall_ms": 36603,
-      "cost_usd": 0.1799668000000001,
+      "call": 1,
+      "wall_ms": 27533,
+      "cost_usd": 0.13668649999999993,
       "status": "completed",
       "gate": {
         "technical": "pass",
@@ -18,31 +18,25 @@
     }
   ],
   "timings": {
-    "concept": 10080,
-    "motion_director": 105305,
-    "engineer_1": 154655,
-    "static": 56,
-    "typecheck": 25401,
-    "engineer_2": 22029,
-    "render_2": 19945,
-    "qa_programmatic": 3001,
-    "visual_qa_2": 36625
+    "concept": 13960,
+    "motion_director": 124979,
+    "engineer_1": 199934,
+    "static": 46,
+    "typecheck": 13443,
+    "render_1": 18304,
+    "qa_programmatic": 2302,
+    "visual_qa_1": 27549
   },
   "history": [
     {
-      "at": "2026-10-21T08:25:18.996Z",
-      "stage": "typecheck",
-      "message": "src/Scene.tsx:321 Type 'SceneStyle' is not assignable to type 'StyleSource'.\n  Type 'SceneStyle' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'SceneStyle' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
-    },
-    {
-      "at": "2026-10-21T08:26:54.122Z",
+      "at": "2026-10-21T09:00:38.382Z",
       "stage": "qa",
-      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
+      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
     },
     {
-      "at": "2026-10-21T08:26:54.145Z",
+      "at": "2026-10-21T09:00:38.400Z",
       "stage": "ready",
-      "message": "gate пройден с вызова 2"
+      "message": "gate пройден с вызова 1"
     }
   ]
 }

@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5ESBE83T392KTX7CJRBBJJD",
-  "scene_id": "scn_01M5ERRFSDSNYDEBKJT6C5CG1F",
+  "version_id": "ver_01M5EV8YDNENCMGTBKD0FGF2TJ",
+  "scene_id": "scn_01M5ETNGWK9HPREFFP3PPWR2MV",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T08:30:55.748Z",
+  "created_at": "2026-10-21T09:04:31.158Z",
   "prompt": "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении",
   "edit_plan": null,
   "settings": {
@@ -27,64 +27,56 @@
   },
   "files": [
     {
-      "path": "frames/134.png",
-      "sha256": "5fca09a97d3b3b710aa702d05978df9c3422e084af9239854bd11b056e083e56"
+      "path": "frames/121.png",
+      "sha256": "19ea69fa1b3490e373a1254acfc7c004634b159e935b9ca33fa83a35cffe64c5"
     },
     {
-      "path": "frames/149.png",
-      "sha256": "09c875379e29146c3e0fb81d630cd74660792dc97bcab1d9b2d697a6d34f5e6b"
+      "path": "frames/142.png",
+      "sha256": "8f60649cac3273322fa3491656300a3b80b9eb5b33c10cc5edd9db3ef6a8b5c8"
     },
     {
       "path": "frames/166.png",
-      "sha256": "4f951fd0b4905255aefe0d138976e6234c81c44f02c8824c5ea91e522dbe61e6"
+      "sha256": "51e2688b15fbf00bb8f77f6e52a301daa96b1d97ad654e2b55f7b4d196fe085b"
     },
     {
       "path": "frames/179.png",
-      "sha256": "60283886aea448eaf5f61e449591d37b01c1514fa9eb5b4ef705eb58a826f66b"
+      "sha256": "7d6d786d4ccd1ae9f0d632e758a59b2662bf962a62b10b6705aee726e3d00f57"
     },
     {
-      "path": "frames/33.png",
-      "sha256": "a32c028d67f8dbcf81736aaac2faa8cdadf8f8443af657be86ca802f00393014"
+      "path": "frames/28.png",
+      "sha256": "5f6a7082693f373067ebc3dda5abf4d2a49a9c374a2cca8f369c547509071f3c"
     },
     {
-      "path": "frames/68.png",
-      "sha256": "732560adb6ebe7eabd8e513aba140d72607133fe57312019c7c4fb4c24ad4533"
-    },
-    {
-      "path": "frames/79.png",
-      "sha256": "c796089865e7a89691611e43297d5fb560ad532ce74064775d786fb7289c7bf3"
+      "path": "frames/72.png",
+      "sha256": "86b34ad25c00f80256b6311dc38c6deb285e5a272754a56b1aa8344d588fc21d"
     },
     {
       "path": "knowledge-refs.json",
-      "sha256": "167630068532f12c23f28fe705485d836e33e6d5290c73b0ec4f677d1c151520"
+      "sha256": "01d3cc0de45fbe13730bd35f5e7ace91be8ba059827e5668009e8670562ba5d7"
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "96fb037ed3d40342bdb008968adc3abd2043f1eac6ba1cd31233361e04e51a55"
+      "sha256": "a1bce22c0ff537d1c7b7e7dbbc06d068e49f3543d94ba954ad0c65ffa5eb775f"
     },
     {
       "path": "preview.mp4",
-      "sha256": "f4144f288ea406d678dcfd005f1323b5012872d9612915c04ec6b6a70e727e48"
+      "sha256": "e8b96749f84b093049b92b5bd72cec07b483ccd68004fef668caa74a33249e7c"
     },
     {
       "path": "props.json",
-      "sha256": "aca3aeff552dca3fae970aa3a8fa3abc74da0fd12c3873beb81800813591632c"
+      "sha256": "f813e33e71a9a1cd865a70b2b2463645c6a1fde42041b7cc28d64300c6bdbfe4"
     },
     {
       "path": "qa.json",
-      "sha256": "eb9968f2854dbbb7a69061fd72149afa2e01943cad3ce9603479fcee80901ec9"
+      "sha256": "d195af643caa7fd60c7e978babc1349ca7f4da690855a44c442c38239c5594ab"
     },
     {
-      "path": "refs/kb/remotion-bits/animated-counter/CARD.md",
-      "sha256": "8dfc3cb748093566c5c02a70d006ff6ad5a7815b5bfaab8540870c5722aa5d11"
+      "path": "refs/kb/motion-primitives/animated-number/CARD.md",
+      "sha256": "01ea20981b45184726c9a54a5a9b977064400ceabfa02a5525f11cd8a90293ff"
     },
     {
-      "path": "refs/kb/remotion-bits/animated-counter/templates/remotion-components/remotion-bits/src/components/AnimatedCounter.tsx",
-      "sha256": "fea81e6e51bfd894065b5e2d435827a493586f56fd4f9b21230f9f08a89d89e7"
-    },
-    {
-      "path": "refs/kb/remotion-bits/animated-counter/templates/remotion-components/remotion-bits/src/utils/motion/index.ts",
-      "sha256": "2247b5c5e896d00a26414e342b65caa52a14bd3adf7bf42af2fecdbdc4d08bd7"
+      "path": "refs/kb/motion-primitives/animated-number/templates/react-libriry/motion-primitives/components/core/animated-number.tsx",
+      "sha256": "3b4a9f3262cb79527fba01a76576e920e340137f0643bf34a7732f7f8b1ff792"
     },
     {
       "path": "refs/kb/remotion-video-templates/line-chart-draw/CARD.md",
@@ -100,7 +92,7 @@
     },
     {
       "path": "refs/motion-kit/API.md",
-      "sha256": "273f826495022cf9926e11cbc27178f82556621555456dfad54a0fd4073ab86f"
+      "sha256": "b9da5d38d2b127393a257c37bc13b0fc2c1634ecbb749cdb73266482a1f7b260"
     },
     {
       "path": "refs/skills/remotion-markup/SKILL.md",
@@ -128,7 +120,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "7c8bbccb8f30b76b07ca775cebc3164f77bb22a53de410d3e4ef7061ddf238fc"
+      "sha256": "953ac8fb304a411b0444f0170840c45cdf37fcb6ee63c2e8e962bb4bcf67adcf"
     },
     {
       "path": "settings.json",
@@ -136,11 +128,11 @@
     },
     {
       "path": "spec.json",
-      "sha256": "08851169194ec24eb94edd8cc94acb55e5d44708046cde9745a2dc62292372de"
+      "sha256": "4893c14c8ef6775288dc19f4471f1ef2b52cbbefb1695d18272a4cc938c70ff3"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "39eb3ac68656b50e9b285f29000a443cb98a0624ec8b2cd617f75761b15c4508"
+      "sha256": "7cd4a44c26f4d29ce5e70062d475244d0652a72294060aa65caab1ed42dcf547"
     },
     {
       "path": "style.json",
@@ -148,7 +140,7 @@
     },
     {
       "path": "warnings.json",
-      "sha256": "25509683bc8bd883188373f87b1e73a993bbbcd7bf455c7d50ac016b8b823e8e"
+      "sha256": "701735dfb7fb91d1c67f09d8cfc42a0d3cf767700ad29601aea7775251bac15e"
     }
   ],
   "changed_files": [
@@ -158,7 +150,7 @@
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:16e2a35e85de9c01",
+    "motion_kit": "sha256:af4d7a5e4bc68ec0",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
@@ -170,50 +162,47 @@
       "strategy": "adapt"
     },
     {
-      "kb_id": "remotion-bits/animated-counter",
-      "commit": "de35fda",
-      "license": "MIT (package.json)",
+      "kb_id": "motion-primitives/animated-number",
+      "commit": "120f64f",
+      "license": "MIT (LICENCE.md)",
       "strategy": "adapt"
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5ERRFSGX8D61XAHGM7JDY65/a1-concept-1",
-    "logs/agent-runs/job_01M5ERRFSGX8D61XAHGM7JDY65/a1-motion_director-1",
-    "logs/agent-runs/job_01M5ERRFSGX8D61XAHGM7JDY65/a1-engineer-1",
-    "logs/agent-runs/job_01M5ERRFSGX8D61XAHGM7JDY65/a1-engineer-2",
-    "logs/agent-runs/job_01M5ERRFSGX8D61XAHGM7JDY65/a1-visual_qa-1"
+    "logs/agent-runs/job_01M5ETNGWPCCZ6RE6TVB41JH46/a1-concept-1",
+    "logs/agent-runs/job_01M5ETNGWPCCZ6RE6TVB41JH46/a1-motion_director-1",
+    "logs/agent-runs/job_01M5ETNGWPCCZ6RE6TVB41JH46/a1-engineer-1",
+    "logs/agent-runs/job_01M5ETNGWPCCZ6RE6TVB41JH46/a1-visual_qa-1"
   ],
   "qa": {
     "technical": "pass",
-    "visual": "pass",
+    "visual": "warn",
     "semantic": "pass",
     "style": "pass"
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "f4144f288ea406d678dcfd005f1323b5012872d9612915c04ec6b6a70e727e48"
+    "sha256": "e8b96749f84b093049b92b5bd72cec07b483ccd68004fef668caa74a33249e7c"
   },
   "status": "ready",
   "qa_frames": [
-    33,
-    68,
-    79,
-    134,
-    149,
+    28,
+    72,
+    121,
+    142,
     166,
     179
   ],
   "qa_frames_sha256": [
-    "a32c028d67f8dbcf81736aaac2faa8cdadf8f8443af657be86ca802f00393014",
-    "732560adb6ebe7eabd8e513aba140d72607133fe57312019c7c4fb4c24ad4533",
-    "c796089865e7a89691611e43297d5fb560ad532ce74064775d786fb7289c7bf3",
-    "5fca09a97d3b3b710aa702d05978df9c3422e084af9239854bd11b056e083e56",
-    "09c875379e29146c3e0fb81d630cd74660792dc97bcab1d9b2d697a6d34f5e6b",
-    "4f951fd0b4905255aefe0d138976e6234c81c44f02c8824c5ea91e522dbe61e6",
-    "60283886aea448eaf5f61e449591d37b01c1514fa9eb5b4ef705eb58a826f66b"
+    "5f6a7082693f373067ebc3dda5abf4d2a49a9c374a2cca8f369c547509071f3c",
+    "86b34ad25c00f80256b6311dc38c6deb285e5a272754a56b1aa8344d588fc21d",
+    "19ea69fa1b3490e373a1254acfc7c004634b159e935b9ca33fa83a35cffe64c5",
+    "8f60649cac3273322fa3491656300a3b80b9eb5b33c10cc5edd9db3ef6a8b5c8",
+    "51e2688b15fbf00bb8f77f6e52a301daa96b1d97ad654e2b55f7b4d196fe085b",
+    "7d6d786d4ccd1ae9f0d632e758a59b2662bf962a62b10b6705aee726e3d00f57"
   ],
   "job": {
-    "id": "job_01M5ERRFSGX8D61XAHGM7JDY65",
+    "id": "job_01M5ETNGWPCCZ6RE6TVB41JH46",
     "attempt": 1
   }
 }

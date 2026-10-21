@@ -13,16 +13,15 @@
     ]
   },
   {
-    "kb_id": "remotion-bits/animated-counter",
-    "repository": "Remotion Bits",
-    "repository_url": "git@github.com:av/remotion-bits.git",
-    "commit": "de35fda",
-    "license": "MIT (package.json)",
+    "kb_id": "motion-primitives/animated-number",
+    "repository": "Motion-Primitives",
+    "repository_url": "git@github.com:ibelick/motion-primitives.git",
+    "commit": "120f64f",
+    "license": "MIT (LICENCE.md)",
     "license_class": "permissive",
     "strategy": "adapt",
     "source_paths": [
-      "templates/remotion-components/remotion-bits/src/components/AnimatedCounter.tsx",
-      "templates/remotion-components/remotion-bits/src/utils/motion/index.ts"
+      "templates/react-libriry/motion-primitives/components/core/animated-number.tsx"
     ]
   }
 ]

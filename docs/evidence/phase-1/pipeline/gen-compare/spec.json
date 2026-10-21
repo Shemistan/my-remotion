@@ -1,6 +1,6 @@
 {
-  "title": "Монолит vs микросервисы: скорость релизов",
-  "purpose": "За те же 4 недели монолит выпускает 1 релиз, а микросервисы — 20: разрыв в темпе релизов виден как разница в частоте потоков и в итоговых счётчиках.",
+  "title": "Монолит против микросервисов: скорость релизов",
+  "purpose": "Показать, что за один квартал микросервисы выпускают 48 релизов, а монолит — только 3: частота видна по ритму маркеров на двух дорожках и подтверждена итоговым числом.",
   "duration_frames": 180,
   "fps": {
     "num": 30,
@@ -9,22 +9,23 @@
   "style_preset": "dark-premium",
   "composition": {
     "archetype": "split",
-    "idea": "Кадр разрезан горизонтально на две дорожки одной длины: сверху «Монолит» — тяжёлый конвейер «Сборка → Тесты → Деплой», по которому за всю сцену проходит один медленный импульс; снизу «Микросервисы» — три лёгких сервиса шлют частые импульсы в «Прод». Справа у каждой дорожки — свой счётчик релизов; взгляд идёт слева направо по дорожкам к счётчикам и останавливается на герое «20 релизов». Фон — aurora dark-premium с редкими частицами слоя 0.",
-    "focus": "Камера стоит, фокус ведут свет и масштаб: сначала заголовок, затем раскрытие двух дорожек, затем потоки; единственный релиз монолита коротко вспыхивает на «Деплое», после чего акцент переходит к крупному счётчику «20 релизов» и остаётся на нём.",
-    "transitions": "Заголовок и подписи дорожек → схемы дорожек раскрываются каскадом → счётчики встают на «0 релизов» → потоки: частые импульсы снизу, один медленный сверху → вспышка «Деплоя» и «1 релиз» → потоки стихают, верхняя дорожка приглушается, герой «20 релизов» бьёт и дышит до конца."
+    "idea": "Две горизонтальные дорожки времени, одна над другой, на общей оси «нед. 1 … нед. 13». Общая вертикальная линия «сейчас» идёт слева направо: на верхней дорожке («Монолит») она изредка выбивает три тяжёлых маркера релиза, на нижней («Микросервисы», 4 тонкие полосы сервисов) маркеры сыплются часто. Счётчик под дорожками растёт в такт. Фон — аурора dark-premium и редкие пылинки Particles слоя 0. Взгляд идёт так: заголовок → подписи дорожек → бег линии «сейчас» → итоговое число.",
+    "focus": "Камера стоит, фокус ведут свет и масштаб: сначала заголовок, затем бегущая линия «сейчас» и всплывающие маркеры, после остановки — удар акцента на числе «48 релизов». Дорожка монолита приглушается, герой дышит до конца сцены.",
+    "transitions": "Пустые дорожки наполняются маркерами за проход линии «сейчас». Когда линия доходит до 13-й недели, она гаснет, верхняя дорожка и счёт монолита отходят в приглушённый тон, а нижняя дорожка остаётся яркой. Акцент переходит от линии «сейчас» к итоговому числу и держится на нём до конца сцены."
   },
   "elements": [
     {
       "id": "title",
       "kind": "text",
-      "role": "заголовок: рамка сравнения",
+      "role": "опора: заголовок сравнения",
       "entrance": "mask",
       "depth_layer": 1,
       "content": {
-        "text": "Релизы за 4 недели",
+        "component": "KineticText (внутри <Enter kind=\"mask\">)",
+        "text": "Скорость релизов за квартал",
         "size": "h2",
-        "component": "Enter kind=mask + текст",
-        "color": "text"
+        "color": "text",
+        "weight": 800
       },
       "layout": {
         "x": 0,
@@ -34,353 +35,141 @@
       }
     },
     {
-      "id": "mono-label",
-      "kind": "text",
+      "id": "lane-mono",
+      "kind": "card",
       "role": "подпись дорожки: монолит",
-      "entrance": "type",
+      "entrance": "slide",
       "depth_layer": 1,
       "content": {
-        "text": "Монолит",
-        "size": "body",
-        "component": "KineticText enter=type mode=letters",
-        "color": "muted"
+        "component": "Card",
+        "elevation": 1,
+        "enter": "slide",
+        "label": "Монолит",
+        "label_size": "body",
+        "note": "всё приложение разом",
+        "note_size": "caption",
+        "note_color": "muted"
       },
       "layout": {
         "x": 0,
-        "y": 0.13,
-        "w": 0.3,
-        "h": 0.07
+        "y": 0.14,
+        "w": 0.23,
+        "h": 0.2
       }
     },
     {
-      "id": "micro-label",
-      "kind": "text",
+      "id": "lane-micro",
+      "kind": "card",
       "role": "подпись дорожки: микросервисы",
       "entrance": "slide",
       "depth_layer": 1,
       "content": {
-        "text": "Микросервисы",
-        "size": "body",
-        "component": "KineticText enter=slide mode=words",
-        "color": "text"
+        "component": "Card",
+        "elevation": 2,
+        "enter": "slide",
+        "label": "Микросервисы",
+        "label_size": "body",
+        "note": "4 сервиса независимо",
+        "note_size": "caption",
+        "note_color": "muted",
+        "stagger_after": "lane-mono, +8 кадров"
       },
       "layout": {
         "x": 0,
-        "y": 0.51,
-        "w": 0.3,
-        "h": 0.07
-      }
-    },
-    {
-      "id": "mono-lane",
-      "kind": "graph",
-      "role": "дорожка монолита: один общий конвейер",
-      "entrance": "draw",
-      "depth_layer": 1,
-      "content": {
-        "component": "FlowGraph + PulseAlongPath",
-        "nodes": [
-          "mono-build",
-          "mono-tests",
-          "mono-deploy"
-        ],
-        "edges": [
-          {
-            "id": "e-build-tests",
-            "from": "mono-build",
-            "to": "mono-tests"
-          },
-          {
-            "id": "e-tests-deploy",
-            "from": "mono-tests",
-            "to": "mono-deploy"
-          }
-        ],
-        "flows": [
-          {
-            "edge": "e-build-tests",
-            "direction": "forward",
-            "beat": "mono-release"
-          },
-          {
-            "edge": "e-tests-deploy",
-            "direction": "forward",
-            "beat": "mono-release"
-          }
-        ],
-        "pulse": {
-          "count": 1,
-          "repeat": false,
-          "travel": 22,
-          "size": 9,
-          "tail": 160,
-          "color": "accent[2]",
-          "note": "один тяжёлый импульс проходит оба ребра подряд: e-build-tests 66–88, e-tests-deploy 88–110"
-        },
-        "dim_after": {
-          "frame": 140,
-          "opacity": 0.5,
-          "note": "после передачи акцента дорожка приглушается за exit_frames и стоит"
-        }
-      },
-      "layout": {
-        "x": 0,
-        "y": 0.21,
-        "w": 0.56,
+        "y": 0.4,
+        "w": 0.23,
         "h": 0.24
       }
     },
     {
-      "id": "mono-build",
-      "kind": "card",
-      "role": "node: сборка монолита",
-      "entrance": "rise",
-      "depth_layer": 1,
-      "content": {
-        "label": "Сборка",
-        "enter": "flip",
-        "elevation": 2,
-        "size": "body"
-      },
-      "layout": {
-        "x": 0,
-        "y": 0.25,
-        "w": 0.14,
-        "h": 0.16
-      }
-    },
-    {
-      "id": "mono-tests",
-      "kind": "card",
-      "role": "node: тесты монолита",
-      "entrance": "rise",
-      "depth_layer": 1,
-      "content": {
-        "label": "Тесты",
-        "enter": "flip",
-        "elevation": 2,
-        "size": "body"
-      },
-      "layout": {
-        "x": 0.2,
-        "y": 0.25,
-        "w": 0.14,
-        "h": 0.16
-      }
-    },
-    {
-      "id": "mono-deploy",
-      "kind": "card",
-      "role": "акцент: общий деплой монолита (вспышка по приходу единственного импульса)",
-      "entrance": "rise",
-      "depth_layer": 1,
-      "content": {
-        "label": "Деплой",
-        "caption": "общий",
-        "enter": "flip",
-        "elevation": 2,
-        "size": "body",
-        "accentIndex": 2,
-        "flash_on": "e-tests-deploy",
-        "flash_loop": false
-      },
-      "layout": {
-        "x": 0.39,
-        "y": 0.24,
-        "w": 0.17,
-        "h": 0.18
-      }
-    },
-    {
-      "id": "micro-lane",
-      "kind": "graph",
-      "role": "дорожка микросервисов: независимые быстрые релизы",
+      "id": "track-mono",
+      "kind": "chart",
+      "role": "данные: релизы монолита на шкале времени",
       "entrance": "draw",
       "depth_layer": 1,
       "content": {
-        "component": "FlowGraph + PulseAlongPath",
-        "nodes": [
-          "svc-pay",
-          "svc-catalog",
-          "svc-search",
-          "micro-prod"
+        "component": "свой SVG-трек (по идее Timeline/gantt): тусклая дорожка через всю ширину, ось времени общая с track-micro",
+        "weeks": 13,
+        "releases_at_week": [
+          4.5,
+          9,
+          13
         ],
-        "edges": [
-          {
-            "id": "e-pay",
-            "from": "svc-pay",
-            "to": "micro-prod"
-          },
-          {
-            "id": "e-catalog",
-            "from": "svc-catalog",
-            "to": "micro-prod"
-          },
-          {
-            "id": "e-search",
-            "from": "svc-search",
-            "to": "micro-prod"
-          }
+        "marker": "крупный ромб 34 px, цвет text; входит pop (springAt 'bouncy'), когда линия «сейчас» доходит до его недели",
+        "playhead": "общая с track-micro вертикальная линия «сейчас» цвета accent[0] шириной 3 px с мягкой светящейся головой, проходит x от 0 до 1 линейно в бите releases-count",
+        "dim_on_emphasis": "в бите final-emphasis opacity дорожки и маркеров 1 → 0.45 по easing.exit"
+      },
+      "layout": {
+        "x": 0.26,
+        "y": 0.14,
+        "w": 0.74,
+        "h": 0.2
+      }
+    },
+    {
+      "id": "track-micro",
+      "kind": "chart",
+      "role": "данные: релизы микросервисов, 4 параллельные полосы",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "свой SVG-трек: 4 тонкие полосы сервисов, одна над другой, та же ось 13 недель и та же линия «сейчас»",
+        "services": [
+          "Заказы",
+          "Оплата",
+          "Каталог",
+          "Профиль"
         ],
-        "flows": [
-          {
-            "edge": "e-pay",
-            "direction": "forward",
-            "beat": "micro-releases"
-          },
-          {
-            "edge": "e-catalog",
-            "direction": "forward",
-            "beat": "micro-releases"
-          },
-          {
-            "edge": "e-search",
-            "direction": "forward",
-            "beat": "micro-releases"
-          }
+        "service_label_size": "caption",
+        "service_label_position": "короткая подпись caption muted у левого конца каждой полосы, внутри трека, перед первым маркером",
+        "releases_per_service": 12,
+        "total_releases": 48,
+        "release_positions": "по каждому сервису 12 позиций в неделях 0.3–13, детерминированно random('svc-<i>-<k>'), минимальный зазор 0.6 недели; общий массив из 48 позиций отсортирован по времени",
+        "marker": "маленький круг 14 px, цвет text; входит pop, когда его переходит линия «сейчас»",
+        "stays_bright": true
+      },
+      "layout": {
+        "x": 0.26,
+        "y": 0.4,
+        "w": 0.74,
+        "h": 0.24
+      }
+    },
+    {
+      "id": "axis-weeks",
+      "kind": "text",
+      "role": "контекст: подписи оси времени",
+      "entrance": "fade",
+      "depth_layer": 1,
+      "content": {
+        "component": "<Enter kind=\"fade\">",
+        "labels": [
+          "нед. 1",
+          "нед. 5",
+          "нед. 9",
+          "нед. 13"
         ],
-        "pulse": {
-          "repeat": true,
-          "travel": 10,
-          "size": 6,
-          "tail": 90,
-          "colors": [
-            "accent[0]",
-            "accent[1]",
-            "accent[0]"
-          ],
-          "offsets_frames": [
-            0,
-            4,
-            8
-          ],
-          "note": "тонкие импульсы с цветовым кодом по рёбрам, со сдвигом старта, чтобы шли вразнобой; всего ≈ 20 приходов к кадру 138, после конца бита новые проходы не начинаются"
-        }
-      },
-      "layout": {
-        "x": 0,
-        "y": 0.59,
-        "w": 0.56,
-        "h": 0.37
-      }
-    },
-    {
-      "id": "svc-pay",
-      "kind": "card",
-      "role": "node: сервис оплаты",
-      "entrance": "pop",
-      "depth_layer": 1,
-      "content": {
-        "label": "Оплата",
-        "enter": "pop",
-        "elevation": 1,
-        "size": "body"
-      },
-      "layout": {
-        "x": 0,
-        "y": 0.6,
-        "w": 0.16,
-        "h": 0.09
-      }
-    },
-    {
-      "id": "svc-catalog",
-      "kind": "card",
-      "role": "node: сервис каталога",
-      "entrance": "pop",
-      "depth_layer": 1,
-      "content": {
-        "label": "Каталог",
-        "enter": "pop",
-        "elevation": 1,
-        "size": "body"
-      },
-      "layout": {
-        "x": 0,
-        "y": 0.725,
-        "w": 0.16,
-        "h": 0.09
-      }
-    },
-    {
-      "id": "svc-search",
-      "kind": "card",
-      "role": "node: сервис поиска",
-      "entrance": "pop",
-      "depth_layer": 1,
-      "content": {
-        "label": "Поиск",
-        "enter": "pop",
-        "elevation": 1,
-        "size": "body"
-      },
-      "layout": {
-        "x": 0,
-        "y": 0.85,
-        "w": 0.16,
-        "h": 0.09
-      }
-    },
-    {
-      "id": "micro-prod",
-      "kind": "card",
-      "role": "node: прод (финиш релизов)",
-      "entrance": "scale",
-      "depth_layer": 1,
-      "content": {
-        "label": "Прод",
-        "enter": "scale",
-        "elevation": 2,
-        "size": "body",
-        "note": "без вспышек: акцент в нижней дорожке — у счётчика"
-      },
-      "layout": {
-        "x": 0.38,
-        "y": 0.7,
-        "w": 0.18,
-        "h": 0.14
-      }
-    },
-    {
-      "id": "mono-count",
-      "kind": "number",
-      "role": "опора: релизы монолита",
-      "entrance": "count",
-      "depth_layer": 1,
-      "content": {
-        "component": "AnimatedNumber",
-        "from": 0,
-        "to": 1,
-        "locale": "ru",
-        "size": "h2",
-        "suffix_forms": [
-          " релиз",
-          " релиза",
-          " релизов"
-        ],
+        "size": "caption",
         "color": "muted",
-        "enterAt": 40,
-        "enter": "rise",
-        "bound_to": "mono-lane.arrivals(e-tests-deploy)",
-        "note": "стоит на «0 релизов», в кадр прихода импульса к «Деплою» (~110) щёлкает на «1 релиз»"
+        "align": "по долям оси 0, 4/13, 8/13, 1 (крайние подписи выровнены внутрь)"
       },
       "layout": {
-        "x": 0.62,
-        "y": 0.25,
-        "w": 0.38,
-        "h": 0.14
+        "x": 0.26,
+        "y": 0.66,
+        "w": 0.74,
+        "h": 0.05
       }
     },
     {
-      "id": "micro-count",
+      "id": "hero-count",
       "kind": "number",
-      "role": "акцент: герой — 20 релизов микросервисов",
+      "role": "акцент: герой — число релизов микросервисов за квартал",
       "entrance": "count",
-      "depth_layer": 2,
+      "depth_layer": 1,
       "content": {
         "component": "AnimatedNumber + Emphasis",
         "from": 0,
-        "to": 20,
+        "to": 48,
         "locale": "ru",
         "size": "display",
         "suffix_forms": [
@@ -388,151 +177,141 @@
           " релиза",
           " релизов"
         ],
+        "align": "left",
         "color": "text",
-        "enterAt": 46,
-        "enter": "pop",
-        "bound_to": "micro-lane.arrivals",
-        "value_rule": "min(20, round(20 × пришедшие импульсы / все импульсы бита)); ровно 20 к кадру 138",
+        "enterAt": 28,
+        "enter_note": "входит pop уже со значением «0 релизов» и держит его до кадра 44",
+        "bound_to": "track-micro.markers",
+        "value_rule": "value = число маркеров track-micro, уже пройденных линией «сейчас» в кадре (ступенями, ровно в кадр pop маркера)",
         "emphasis": {
+          "beat": "final-emphasis",
+          "loop": true,
           "accentIndex": 0,
           "shape": "pill",
-          "loop": true,
           "spread": 48
-        },
-        "reserveWidth": true
+        }
       },
       "layout": {
-        "x": 0.6,
-        "y": 0.63,
-        "w": 0.4,
-        "h": 0.22
+        "x": 0,
+        "y": 0.75,
+        "w": 0.5,
+        "h": 0.2
+      }
+    },
+    {
+      "id": "mono-count",
+      "kind": "number",
+      "role": "контекст: число релизов монолита",
+      "entrance": "fade",
+      "depth_layer": 1,
+      "content": {
+        "component": "AnimatedNumber",
+        "from": 0,
+        "to": 3,
+        "locale": "ru",
+        "prefix": "Монолит — ",
+        "suffix_forms": [
+          " релиз",
+          " релиза",
+          " релизов"
+        ],
+        "size": "body",
+        "color": "muted",
+        "align": "left",
+        "enterAt": 32,
+        "bound_to": "track-mono.markers",
+        "value_rule": "value = число маркеров track-mono, пройденных линией «сейчас»; без удара на финише (не акцент)",
+        "dim_on_emphasis": "opacity 1 → 0.6 в бите final-emphasis"
+      },
+      "layout": {
+        "x": 0.54,
+        "y": 0.8,
+        "w": 0.42,
+        "h": 0.12
       }
     }
   ],
   "beats": [
     {
-      "id": "b-title",
+      "id": "title-in",
       "start_frame": 0,
       "end_frame": 36,
       "action": "title-in",
-      "description": "Заголовок «Релизы за 4 недели» открывается шторкой снизу (1.5 × enter_frames).",
+      "description": "Заголовок «Скорость релизов за квартал» открывается шторкой снизу: mask, 1.5 × enter_frames = 36 кадров, S-кривая.",
       "element_ids": [
         "title"
       ]
     },
     {
-      "id": "b-mono-label",
-      "start_frame": 8,
-      "end_frame": 32,
-      "action": "mono-label-in",
-      "description": "«Монолит» набирается по буквам с кареткой, приглушённым цветом.",
+      "id": "lanes-in",
+      "start_frame": 10,
+      "end_frame": 42,
+      "action": "lanes-entrance",
+      "description": "Карточки «Монолит» и «Микросервисы» въезжают слева со смазом (Card enter slide), сначала монолит в кадре 10, затем микросервисы в кадре 18 (сдвиг 8 ≥ stagger 4), по enter_frames 24.",
       "element_ids": [
-        "mono-label"
+        "lane-mono",
+        "lane-micro"
       ]
     },
     {
-      "id": "b-micro-label",
-      "start_frame": 16,
-      "end_frame": 40,
-      "action": "micro-label-in",
-      "description": "«Микросервисы» въезжают слева со скосом.",
+      "id": "tracks-in",
+      "start_frame": 20,
+      "end_frame": 46,
+      "action": "tracks-draw-in",
+      "description": "Тусклые дорожки прорисовываются слева направо (draw, прогресс linear): кадры 20–44 у монолита, 24–46 у четырёх полос микросервисов. С кадра 26 проявляются подписи недель (fade). Маркеров пока нет.",
       "element_ids": [
-        "micro-label"
+        "track-mono",
+        "track-micro",
+        "axis-weeks"
       ]
     },
     {
-      "id": "b-mono-graph",
-      "start_frame": 14,
-      "end_frame": 62,
-      "action": "mono-graph-in",
-      "description": "Узлы монолита поворачиваются к зрителю (flip) каскадом слева направо с шагом stagger; рёбра Сборка→Тесты→Деплой прорисовываются, когда оба конца на месте.",
+      "id": "counters-in",
+      "start_frame": 28,
+      "end_frame": 44,
+      "action": "counters-entrance",
+      "description": "В кадре 28 «0 релизов» выскакивает с перелётом (pop, собственный вход AnimatedNumber через enterAt=28), в кадре 32 «Монолит — 0 релизов» тихо проявляется (fade). Оба значения стоят и читаются не меньше 15 кадров до начала прохода.",
       "element_ids": [
-        "mono-lane",
-        "mono-build",
-        "mono-tests",
-        "mono-deploy"
+        "hero-count",
+        "mono-count"
       ]
     },
     {
-      "id": "b-micro-graph",
-      "start_frame": 22,
-      "end_frame": 66,
-      "action": "micro-graph-in",
-      "description": "Сервисы Оплата, Каталог, Поиск выстреливают pop каскадом сверху вниз (шаг 4 кадра), «Прод» вырастает из глубины (scale) последним; три ребра к «Проду» прорисовываются.",
-      "element_ids": [
-        "micro-lane",
-        "svc-pay",
-        "svc-catalog",
-        "svc-search",
-        "micro-prod"
-      ]
-    },
-    {
-      "id": "b-counters-in",
-      "start_frame": 40,
-      "end_frame": 70,
-      "action": "counters-in",
-      "description": "Счётчик монолита поднимается (rise) в 40 со значением «0 релизов»; в 46 герой выскакивает pop крупно «0 релизов». Оба стоят на нуле читаемо ≥ 15 кадров до начала потоков.",
-      "element_ids": [
-        "mono-count",
-        "micro-count"
-      ]
-    },
-    {
-      "id": "b-micro-releases",
-      "start_frame": 66,
-      "end_frame": 138,
-      "action": "micro-releases-count",
-      "description": "По трём рёбрам к «Проду» часто и вразнобой бегут тонкие импульсы (travel 10, repeat). Герой считает от того же источника — приходы импульсов: 0 → 20, форма слова меняется («1 релиз», «2 релиза», «5 релизов», «20 релизов»); в 138 короткий удар на финише счёта.",
-      "element_ids": [
-        "micro-lane",
-        "micro-count"
-      ]
-    },
-    {
-      "id": "b-mono-release",
-      "start_frame": 66,
-      "end_frame": 110,
-      "action": "mono-release-flow",
-      "description": "По верхней дорожке один крупный медленный импульс (accent[2]) идёт Сборка→Тесты (66–88), затем Тесты→Деплой (88–110), repeat=false. Контраст ритма с нижней дорожкой — суть сравнения.",
-      "element_ids": [
-        "mono-lane",
-        "mono-build",
-        "mono-tests",
-        "mono-deploy"
-      ]
-    },
-    {
-      "id": "b-mono-flash",
-      "start_frame": 110,
+      "id": "releases-count",
+      "start_frame": 44,
       "end_frame": 124,
-      "action": "mono-deploy-emphasis",
-      "description": "В кадр прихода импульса (pulseArrival e-tests-deploy) «Деплой» вспыхивает один раз (loop=false, гаснет к ~124); от того же кадра mono-count щёлкает «0 релизов» → «1 релиз».",
+      "action": "releases-count",
+      "description": "Линия «сейчас» (accent[0]) идёт linear от нед. 1 до нед. 13 сразу по обеим дорожкам. Маркер выскакивает pop ровно в кадр, когда линия проходит его неделю: на монолите три тяжёлых ромба (≈ кадры 69, 97, 124), на микросервисах часто сыплются 48 кругов. Оба счётчика привязаны к маркерам одним источником и растут ступенями: 0 → 48 релизов и 0 → 3 релиза, формы слова согласуются на каждом кадре. Акцент в этом бите несёт только линия «сейчас».",
       "element_ids": [
-        "mono-deploy",
+        "track-mono",
+        "track-micro",
+        "hero-count",
         "mono-count"
       ]
     },
     {
-      "id": "b-final-emphasis",
-      "start_frame": 140,
-      "end_frame": 160,
+      "id": "final-emphasis",
+      "start_frame": 124,
+      "end_frame": 150,
       "action": "final-emphasis",
-      "description": "Акцент переходит к герою: удар Emphasis accent[0] по «20 релизов» (масштаб +6 %, кольцо), loop=true. Одновременно верхняя дорожка и «1 релиз» приглушаются до 50 % за exit_frames и замирают.",
+      "description": "Линия «сейчас» гаснет за exit_frames 14, и акцент переходит к герою: удар Emphasis на «48 релизов» (accent[0], масштаб +6 %, кольцо от кромки). Одновременно дорожка монолита уходит в opacity 0.45, «Монолит — 3 релиза» — в 0.6. Микросервисы остаются яркими.",
       "element_ids": [
-        "micro-count",
-        "mono-lane",
+        "hero-count",
+        "track-mono",
         "mono-count"
       ]
     },
     {
-      "id": "b-hold",
-      "start_frame": 153,
+      "id": "hold",
+      "start_frame": 150,
       "end_frame": 180,
       "action": "hold",
-      "description": "Новых входов нет, импульсы стихли — релизы выпущены. Живёт только победитель: «20 релизов» дышит свечением и кольцами (период ≈ 2.4 с), проигравшая дорожка монолита приглушена и неподвижна; фон медленно дрейфует. Дыхание героя подтверждает итог — разрыв 20 к 1.",
+      "description": "Новых входов нет. «48 релизов» дышит (Emphasis loop: свечение и масштаб ±1.8 %, кольцо на вдох) и тем подтверждает итог. Монолит стоит приглушённым и не пульсирует. 48 маркеров микросервисов неподвижны и читаются, фон медленно дрейфует. Кадры N−20 и N−1 различаются за счёт дыхания героя.",
       "element_ids": [
-        "micro-count"
+        "hero-count",
+        "track-micro",
+        "track-mono",
+        "mono-count"
       ]
     }
   ]

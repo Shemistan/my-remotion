@@ -1,24 +1,25 @@
 import React from "react";
+import { useVideoConfig } from "remotion";
 import {
   Background,
-  Camera,
-  KineticText,
-  Parallax,
-  Particles,
+  Enter,
   SafeArea,
   StyleProvider,
   Timeline,
+  typeSize,
   useSafeArea,
   useStyle,
 } from "@ms/motion-kit";
 
-type BeatWindow = { start_frame: number; end_frame: number };
-type TimingBeat = BeatWindow & { id: string };
+type TimedBeat = { id: string; start_frame: number; end_frame: number };
 type Layout = { x: number; y: number; w: number; h: number };
-type Layer = 0 | 1 | 2;
+type TypeLevel = "display" | "h1" | "h2" | "body" | "caption";
 
-type SceneContent = {
-  kicker: { text: string; layout: Layout; depth_layer: Layer };
+type TimelineItem = { date: string; label: string; note?: string };
+
+type Content = {
+  background: { variant: "aurora" | "grid" | "paper" | "solid"; seed: string; beat_end_frame: number };
+  title: { text: string; size: TypeLevel; weight: number; layout: Layout };
   timeline: {
     orientation: "h" | "v";
     width: number;
@@ -26,112 +27,99 @@ type SceneContent = {
     accentIndex: number;
     highlightLast: boolean;
     layout: Layout;
-    depth_layer: Layer;
-    items: React.ComponentProps<typeof Timeline>["items"];
+    items: TimelineItem[];
   };
-  camera: React.ComponentProps<typeof Camera>["keys"];
 };
 
-type Props = {
-  timing: { duration_frames: number; beats: TimingBeat[] };
-  style: React.ComponentProps<typeof StyleProvider>["style"];
-  content: SceneContent;
+// Тип props.style берём у StyleProvider: preset — union id пресетов kit, не произвольная строка.
+type SceneStyle = React.ComponentProps<typeof StyleProvider>["style"];
+
+export type SceneProps = {
+  timing: { duration_frames: number; beats: TimedBeat[] };
+  style: SceneStyle;
+  content: Content;
 };
 
-const beatOf = (beats: TimingBeat[], id: string): BeatWindow => {
+const beatOf = (beats: TimedBeat[], id: string): { start_frame: number; end_frame: number } => {
   const b = beats.find((x) => x.id === id);
-  if (!b) {
-    throw new Error(`Нет бита «${id}» в props.timing.beats`);
-  }
+  if (!b) throw new Error(`beat "${id}" not found in props.timing.beats`);
   return { start_frame: b.start_frame, end_frame: b.end_frame };
 };
 
-const Content: React.FC<{ beats: TimingBeat[]; content: SceneContent }> = ({ beats, content }) => {
-  const style = useStyle();
-  const rect = useSafeArea();
-  const kickerBeat = beatOf(beats, "kicker-in");
-  const timelineBeat = beatOf(beats, "timeline-draw");
-  const { kicker, timeline } = content;
+const Body: React.FC<{ timing: SceneProps["timing"]; content: Content }> = ({ timing, content }) => {
+  const s = useStyle();
+  const { height } = useVideoConfig();
+  const sa = useSafeArea();
+
+  const titleBeat = beatOf(timing.beats, "title-in");
+  const timelineBeat = beatOf(timing.beats, "timeline-draw");
+
+  const { title, timeline } = content;
+  const titleSize = typeSize(s, title.size, height);
+
+  const areaW = timeline.layout.w * sa.w;
+  const tlWidth = Math.min(timeline.width, areaW);
+  const tlHeight = Math.min(timeline.height, timeline.layout.h * sa.h);
+  const tlLeft = timeline.layout.x * sa.w + (areaW - tlWidth) / 2;
+  const tlTop = timeline.layout.y * sa.h;
 
   return (
-    <>
-      <Parallax layer={kicker.depth_layer}>
-        <SafeArea>
+    <SafeArea>
+      <div
+        style={{
+          position: "absolute",
+          left: title.layout.x * sa.w,
+          top: title.layout.y * sa.h,
+          width: title.layout.w * sa.w,
+        }}
+      >
+        <Enter kind="mask" beat={titleBeat}>
           <div
             style={{
-              position: "absolute",
-              left: kicker.layout.x * rect.w,
-              top: kicker.layout.y * rect.h,
-              width: kicker.layout.w * rect.w,
-              height: kicker.layout.h * rect.h,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              fontFamily: s.typography.display.family,
+              fontWeight: title.weight,
+              fontSize: titleSize,
+              lineHeight: 1.2,
+              letterSpacing: `${s.typography.tracking.display}em`,
+              color: s.palette.text,
+              textAlign: "left",
+              whiteSpace: "nowrap",
             }}
           >
-            <KineticText
-              text={kicker.text}
-              beat={kickerBeat}
-              mode="letters"
-              enter="type"
-              size="body"
-              font="mono"
-              color={style.palette.muted}
-              align="center"
-              maxWidth={kicker.layout.w * rect.w}
-            />
+            {title.text}
           </div>
-        </SafeArea>
-      </Parallax>
-      <Parallax layer={timeline.depth_layer}>
-        <SafeArea>
-          <div
-            style={{
-              position: "absolute",
-              left: timeline.layout.x * rect.w,
-              top: timeline.layout.y * rect.h,
-              width: timeline.width,
-              height: timeline.height,
-            }}
-          >
-            {/* акцент — только встроенный highlightLast у последней вехи */}
-            <Timeline
-              items={timeline.items}
-              beat={timelineBeat}
-              orientation={timeline.orientation}
-              width={timeline.width}
-              height={timeline.height}
-              accentIndex={timeline.accentIndex}
-              highlightLast={timeline.highlightLast}
-            />
-          </div>
-        </SafeArea>
-      </Parallax>
-    </>
+        </Enter>
+      </div>
+      <div style={{ position: "absolute", left: tlLeft, top: tlTop, width: tlWidth, height: tlHeight }}>
+        <Timeline
+          items={timeline.items}
+          beat={timelineBeat}
+          orientation={timeline.orientation}
+          width={tlWidth}
+          height={tlHeight}
+          accentIndex={timeline.accentIndex}
+          highlightLast={timeline.highlightLast}
+        />
+      </div>
+    </SafeArea>
   );
 };
 
-const Atmosphere: React.FC<{ beats: TimingBeat[] }> = ({ beats }) => {
-  const style = useStyle();
-  if (style.transparent) {
-    return null;
-  }
-  const bgBeat = beatOf(beats, "kicker-in");
+const Backdrop: React.FC<{ content: Content }> = ({ content }) => {
+  const s = useStyle();
+  if (s.transparent) return null;
   return (
-    <Parallax layer={0}>
-      <Background beat={bgBeat} variant="aurora" seed="company-path" />
-      <Particles count={45} seed="company-dust" beat={bgBeat} layer={0} accentShare={0.25} />
-    </Parallax>
+    <Background
+      beat={{ start_frame: 0, end_frame: content.background.beat_end_frame }}
+      variant={content.background.variant}
+      seed={content.background.seed}
+    />
   );
 };
 
-export const Scene: React.FC<Props> = ({ timing, style, content }) => {
-  return (
-    <StyleProvider style={style}>
-      <Camera keys={content.camera}>
-        <Atmosphere beats={timing.beats} />
-        <Content beats={timing.beats} content={content} />
-      </Camera>
-    </StyleProvider>
-  );
-};
+export const Scene: React.FC<SceneProps> = ({ timing, style, content }) => (
+  <StyleProvider style={style}>
+    <Backdrop content={content} />
+    <Body timing={timing} content={content} />
+  </StyleProvider>
+);

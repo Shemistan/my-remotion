@@ -3,39 +3,44 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "kicker-in",
+        "id": "title-in",
         "start_frame": 0,
         "end_frame": 30
       },
       {
         "id": "graph-build",
-        "start_frame": 6,
-        "end_frame": 60
+        "start_frame": 0,
+        "end_frame": 30
       },
       {
-        "id": "pulse-request",
-        "start_frame": 58,
-        "end_frame": 76
+        "id": "request-pulse",
+        "start_frame": 30,
+        "end_frame": 46
       },
       {
-        "id": "pulse-fan-out",
-        "start_frame": 80,
-        "end_frame": 108
+        "id": "fan-out",
+        "start_frame": 70,
+        "end_frame": 86
       },
       {
-        "id": "pulse-return",
-        "start_frame": 110,
-        "end_frame": 134
+        "id": "return-data",
+        "start_frame": 88,
+        "end_frame": 104
       },
       {
-        "id": "pulse-answer",
-        "start_frame": 134,
-        "end_frame": 152
+        "id": "response-pulse",
+        "start_frame": 106,
+        "end_frame": 122
       },
       {
         "id": "answer-in",
-        "start_frame": 148,
-        "end_frame": 153
+        "start_frame": 122,
+        "end_frame": 146
+      },
+      {
+        "id": "answer-emphasis",
+        "start_frame": 146,
+        "end_frame": 152
       },
       {
         "id": "hold",
@@ -46,7 +51,6 @@
   },
   "style": {
     "preset": "dark-premium",
-    "palette_overrides": {},
     "intensity": "balanced",
     "depth": 1,
     "transparent": false,
@@ -56,236 +60,174 @@
     }
   },
   "content": {
-    "kicker": {
-      "text": "AI-агент: запрос → инструменты → ответ",
-      "layout": {
-        "x": 0.18,
-        "y": 0,
-        "w": 0.64,
-        "h": 0.07
-      }
+    "title": "Как AI-агент отвечает на запрос",
+    "title_layout": {
+      "x": 0.1,
+      "y": 0,
+      "w": 0.8,
+      "h": 0.1
     },
-    "graph": {
-      "layout": {
-        "x": 0,
-        "y": 0.12,
-        "w": 1,
-        "h": 0.76
+    "graph_layout": {
+      "x": 0,
+      "y": 0.14,
+      "w": 1,
+      "h": 0.86
+    },
+    "travel": 14,
+    "nodes": [
+      {
+        "id": "node-user",
+        "label": "Пользователь",
+        "caption": "запрос",
+        "enter": "slide",
+        "elevation": 2,
+        "enterAt": 0,
+        "layout": {
+          "x": 0,
+          "y": 0.4,
+          "w": 0.22,
+          "h": 0.15
+        }
       },
-      "travel": 18,
-      "pulse_options": {
-        "count": 1,
-        "repeat": false,
-        "tail": 170,
-        "size": 12
+      {
+        "id": "node-orchestrator",
+        "label": "Оркестратор",
+        "caption": "LLM-планировщик",
+        "enter": "pop",
+        "elevation": 3,
+        "accentIndex": 0,
+        "enterAt": 6,
+        "flash_on": "e-user",
+        "flash_beat": "request-pulse",
+        "flash_repeat": false,
+        "layout": {
+          "x": 0.36,
+          "y": 0.37,
+          "w": 0.28,
+          "h": 0.22
+        }
       },
-      "nodes": [
-        {
-          "id": "node-user",
-          "label": "Пользователь",
-          "caption": "запрос",
-          "enter": "slide",
-          "enterAt": 8,
-          "elevation": 2,
-          "layout": {
-            "x": 0.02,
-            "y": 0.42,
-            "w": 0.22,
-            "h": 0.13
-          }
-        },
-        {
-          "id": "node-orc",
-          "label": "Оркестратор",
-          "caption": "планирует вызовы",
-          "enter": "pop",
-          "enterAt": 18,
-          "elevation": 3,
-          "layout": {
-            "x": 0.36,
-            "y": 0.39,
-            "w": 0.28,
-            "h": 0.19
-          }
-        },
-        {
-          "id": "node-search",
-          "label": "Веб-поиск",
-          "caption": "инструмент",
-          "enter": "rise",
-          "enterAt": 30,
-          "elevation": 2,
-          "layout": {
-            "x": 0.74,
-            "y": 0.17,
-            "w": 0.24,
-            "h": 0.13
-          }
-        },
-        {
-          "id": "node-db",
-          "label": "База данных",
-          "caption": "инструмент",
-          "enter": "rise",
-          "enterAt": 34,
-          "elevation": 2,
-          "layout": {
-            "x": 0.74,
-            "y": 0.42,
-            "w": 0.24,
-            "h": 0.13
-          }
-        },
-        {
-          "id": "node-calc",
-          "label": "Калькулятор",
-          "caption": "инструмент",
-          "enter": "rise",
-          "enterAt": 38,
-          "elevation": 2,
-          "layout": {
-            "x": 0.74,
-            "y": 0.67,
-            "w": 0.24,
-            "h": 0.13
-          }
+      {
+        "id": "node-search",
+        "label": "Веб-поиск",
+        "caption": "инструмент 1",
+        "enter": "rise",
+        "elevation": 2,
+        "enterAt": 12,
+        "layout": {
+          "x": 0.78,
+          "y": 0.16,
+          "w": 0.22,
+          "h": 0.15
         }
-      ],
-      "edges": [
-        {
-          "id": "e-req",
-          "from": "node-user",
-          "to": "node-orc"
-        },
-        {
-          "id": "e-t1",
-          "from": "node-orc",
-          "to": "node-search"
-        },
-        {
-          "id": "e-t2",
-          "from": "node-orc",
-          "to": "node-db"
-        },
-        {
-          "id": "e-t3",
-          "from": "node-orc",
-          "to": "node-calc"
+      },
+      {
+        "id": "node-python",
+        "label": "Python",
+        "caption": "инструмент 2",
+        "enter": "rise",
+        "elevation": 2,
+        "enterAt": 16,
+        "layout": {
+          "x": 0.78,
+          "y": 0.42,
+          "w": 0.22,
+          "h": 0.15
         }
-      ],
-      "flows": [
-        {
-          "edge": "e-req",
-          "direction": "forward",
-          "beat": "pulse-request",
-          "accent": 0,
-          "delay": 0
-        },
-        {
-          "edge": "e-t1",
-          "direction": "forward",
-          "beat": "pulse-fan-out",
-          "accent": 1,
-          "delay": 0
-        },
-        {
-          "edge": "e-t2",
-          "direction": "forward",
-          "beat": "pulse-fan-out",
-          "accent": 1,
-          "delay": 4
-        },
-        {
-          "edge": "e-t3",
-          "direction": "forward",
-          "beat": "pulse-fan-out",
-          "accent": 1,
-          "delay": 8
-        },
-        {
-          "edge": "e-t1",
-          "direction": "back",
-          "beat": "pulse-return",
-          "accent": 2,
-          "delay": 0
-        },
-        {
-          "edge": "e-t2",
-          "direction": "back",
-          "beat": "pulse-return",
-          "accent": 2,
-          "delay": 4
-        },
-        {
-          "edge": "e-t3",
-          "direction": "back",
-          "beat": "pulse-return",
-          "accent": 2,
-          "delay": 8
-        },
-        {
-          "edge": "e-req",
-          "direction": "back",
-          "beat": "pulse-answer",
-          "accent": 0,
-          "delay": 0
+      },
+      {
+        "id": "node-db",
+        "label": "База данных",
+        "caption": "инструмент 3",
+        "enter": "rise",
+        "elevation": 2,
+        "enterAt": 20,
+        "layout": {
+          "x": 0.78,
+          "y": 0.68,
+          "w": 0.22,
+          "h": 0.15
         }
-      ],
-      "flash": {
-        "node-orc": [
-          {
-            "edge": "e-req",
-            "direction": "forward",
-            "beat": "pulse-request"
-          },
-          {
-            "edge": "e-t2",
-            "direction": "back",
-            "beat": "pulse-return"
-          }
-        ],
-        "node-search": [
-          {
-            "edge": "e-t1",
-            "direction": "forward",
-            "beat": "pulse-fan-out"
-          }
-        ],
-        "node-db": [
-          {
-            "edge": "e-t2",
-            "direction": "forward",
-            "beat": "pulse-fan-out"
-          }
-        ],
-        "node-calc": [
-          {
-            "edge": "e-t3",
-            "direction": "forward",
-            "beat": "pulse-fan-out"
-          }
-        ],
-        "node-user": [
-          {
-            "edge": "e-req",
-            "direction": "back",
-            "beat": "pulse-answer"
-          }
-        ]
       }
+    ],
+    "edges": [
+      {
+        "id": "e-user",
+        "from": "node-user",
+        "to": "node-orchestrator"
+      },
+      {
+        "id": "e-search",
+        "from": "node-orchestrator",
+        "to": "node-search"
+      },
+      {
+        "id": "e-python",
+        "from": "node-orchestrator",
+        "to": "node-python"
+      },
+      {
+        "id": "e-db",
+        "from": "node-orchestrator",
+        "to": "node-db"
+      }
+    ],
+    "flows": [
+      {
+        "edge": "e-user",
+        "direction": "forward",
+        "beat": "request-pulse"
+      },
+      {
+        "edge": "e-search",
+        "direction": "forward",
+        "beat": "fan-out"
+      },
+      {
+        "edge": "e-python",
+        "direction": "forward",
+        "beat": "fan-out"
+      },
+      {
+        "edge": "e-db",
+        "direction": "forward",
+        "beat": "fan-out"
+      },
+      {
+        "edge": "e-search",
+        "direction": "back",
+        "beat": "return-data"
+      },
+      {
+        "edge": "e-python",
+        "direction": "back",
+        "beat": "return-data"
+      },
+      {
+        "edge": "e-db",
+        "direction": "back",
+        "beat": "return-data"
+      },
+      {
+        "edge": "e-user",
+        "direction": "back",
+        "beat": "response-pulse"
+      }
+    ],
+    "pulse_colors": {
+      "forward": 0,
+      "back": 1
     },
     "answer": {
-      "text": "Ответ готов",
-      "arrival": {
-        "edge": "e-req",
-        "direction": "back",
-        "beat": "pulse-answer"
-      },
+      "text": "✓ Ответ готов",
+      "elevation": 3,
+      "arrival_edge": "e-user",
+      "arrival_beat": "response-pulse",
       "layout": {
-        "x": 0.03,
-        "y": 0.61,
-        "w": 0.2,
-        "h": 0.09
+        "x": 0,
+        "y": 0.63,
+        "w": 0.24,
+        "h": 0.12
       }
     }
   }

@@ -3,19 +3,19 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "kicker-in",
+        "id": "title-in",
         "start_frame": 0,
-        "end_frame": 30
+        "end_frame": 36
       },
       {
         "id": "timeline-draw",
-        "start_frame": 12,
+        "start_frame": 14,
         "end_frame": 130
       },
       {
         "id": "final-emphasis",
-        "start_frame": 106,
-        "end_frame": 130
+        "start_frame": 107,
+        "end_frame": 153
       },
       {
         "id": "hold",
@@ -26,6 +26,7 @@
   },
   "style": {
     "preset": "dark-premium",
+    "palette_overrides": {},
     "intensity": "balanced",
     "depth": 1,
     "transparent": false,
@@ -35,34 +36,39 @@
     }
   },
   "content": {
-    "kicker": {
-      "text": "Развитие компании · 2015–2025",
+    "background": {
+      "variant": "aurora",
+      "seed": "company-path",
+      "beat_end_frame": 40
+    },
+    "title": {
+      "text": "Путь компании · 2015–2025",
+      "size": "body",
+      "weight": 700,
       "layout": {
-        "x": 0.05,
-        "y": 0.06,
-        "w": 0.9,
-        "h": 0.07
-      },
-      "depth_layer": 1
+        "x": 0,
+        "y": 0.03,
+        "w": 0.55,
+        "h": 0.09
+      }
     },
     "timeline": {
       "orientation": "h",
-      "width": 1555,
-      "height": 640,
+      "width": 1690,
+      "height": 680,
       "accentIndex": 0,
       "highlightLast": true,
       "layout": {
-        "x": 0.05,
-        "y": 0.2,
-        "w": 0.9,
-        "h": 0.66
+        "x": 0,
+        "y": 0.17,
+        "w": 1,
+        "h": 0.74
       },
-      "depth_layer": 1,
       "items": [
         {
           "date": "2015",
           "label": "Основание",
-          "note": "два основателя"
+          "note": "три основателя"
         },
         {
           "date": "2017",
@@ -76,35 +82,15 @@
         },
         {
           "date": "2022",
-          "label": "Новые регионы",
-          "note": "офисы в 5 странах"
+          "label": "Международный рост",
+          "note": "офисы в 3 странах"
         },
         {
           "date": "2025",
           "label": "Лидер рынка",
-          "note": "сейчас"
+          "note": "итог пути"
         }
       ]
-    },
-    "camera": [
-      {
-        "frame": 0,
-        "scale": 1,
-        "x": 0,
-        "y": 0
-      },
-      {
-        "frame": 110,
-        "scale": 1,
-        "x": 0,
-        "y": 0
-      },
-      {
-        "frame": 170,
-        "scale": 1.04,
-        "x": 40,
-        "y": 0
-      }
-    ]
+    }
   }
 }

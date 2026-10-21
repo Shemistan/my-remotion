@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5ES443NFXA24BC5TKBX21VK",
-  "scene_id": "scn_01M5ERRFRK1BZTZ1JSWM2VEVKY",
+  "version_id": "ver_01M5EV1VTZTSZW7X0C0QSA4TXP",
+  "scene_id": "scn_01M5ETNGVRJC2FKRQ5D4CBJ0XD",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T08:26:55.990Z",
+  "created_at": "2026-10-21T09:00:39.136Z",
   "prompt": "Сравни монолит и микросервисы по скорости релизов",
   "edit_plan": null,
   "settings": {
@@ -27,64 +27,56 @@
   },
   "files": [
     {
-      "path": "frames/102.png",
-      "sha256": "037d34e367b2580bd4af3c4d762b53a9ae7d839a358b6c556be553fd4851f767"
+      "path": "frames/137.png",
+      "sha256": "e6b03ee09009bfe6af8ae1c2d6f664706148d897170299b778e826f0fe3a491d"
     },
     {
-      "path": "frames/117.png",
-      "sha256": "a3da06b41a735f144143d200c9571336c4e94ccfb39af19636e698480d385e75"
+      "path": "frames/149.png",
+      "sha256": "cdb03af1d9741ca98c991992b23c79f2efb207c61d33d0fe8d8db69e32956bb3"
     },
     {
-      "path": "frames/150.png",
-      "sha256": "90a43401258f87f93e544cc3ccb78434b190cdec5cde43f04c89326031626047"
-    },
-    {
-      "path": "frames/166.png",
-      "sha256": "aa3e52558b12811e916f53ff07f1ed7c63236895136833f7a2cdef90cc07c858"
+      "path": "frames/165.png",
+      "sha256": "4a917d87c7ad4c51b113ffaff64b9a6ba876c01a481a13ff37d2684988f83a08"
     },
     {
       "path": "frames/179.png",
-      "sha256": "3e79ecff3d3cc46f025d8372ba637d99ac5fb6cf90b48b066d7ff12e59e627e5"
+      "sha256": "0c015f5a6459de53b42dfc0e8701554c5046d8fd9033b2647e05407e8a498e94"
     },
     {
-      "path": "frames/40.png",
-      "sha256": "affc56a51f8c494ce9cdcb2ae778f72bbfb48e530469a72e73ff815ed0bb928d"
+      "path": "frames/44.png",
+      "sha256": "123e07d7d9d3e9ac32393a0c73e9771935465cbb87b866aaad860dd251ea2ce9"
     },
     {
-      "path": "frames/46.png",
-      "sha256": "da99fc0d62473fe2d5a3bd24d9c2254fe9c22469a269bd20deb4172de80ba6ee"
-    },
-    {
-      "path": "frames/88.png",
-      "sha256": "15ec9c4feb02cc3e0868d65538a2051daaa4a255f5f3fb2633ede4d577342a5c"
+      "path": "frames/84.png",
+      "sha256": "dc3127d3580c130bd108ad1aa311ff8713d9d555b948da7d6c4a2384b23172ca"
     },
     {
       "path": "knowledge-refs.json",
-      "sha256": "427ed6b832d91cf40d6e754655ddf617dd0b0890c6c6e1a3c4c510eb2d4f753f"
+      "sha256": "c389d2d84c1d69afcd55e90fe8fd8e4d0345bca9b3d854ff55907887084d00c6"
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "97ffefb8350394c138bb2d2d18e1a7be0e195ae47c68aa94003695630aba9abf"
+      "sha256": "b269264a21c8d80e715d9ff0151e5cc983383acf3965c6cbdc57940520665dd0"
     },
     {
       "path": "preview.mp4",
-      "sha256": "d33c39a258df78894f8a24bac83c67ad1105ad4663aaae465b3bac7e66edf1f3"
+      "sha256": "75975c4e54ce3aea66a0d667c92ef5dfae191c5f9fea78bdab41ff9ce806623e"
     },
     {
       "path": "props.json",
-      "sha256": "2b22324d72f7f5aad7b01833de659ba54b5d92fd92610a74c2cb5ed988ce2e42"
+      "sha256": "5a27dd8b6c11357c9a0bb0bd7fe2dfa05f3c5c332ede2cb82c1a562d6737dd96"
     },
     {
       "path": "qa.json",
-      "sha256": "7c19c1f4657d10a1419495fad297fece1f7ec3112d5d2373222d6c5804474881"
+      "sha256": "2fabfbdae9a6c766f2675956d72f60d5bedbc2160fa6c318de75fb78f290ffc6"
     },
     {
-      "path": "refs/kb/free-remotion-templates/kpi-counter/CARD.md",
-      "sha256": "ab0702c8c4f438887675690916d15c64fac6ed7342156d69494d3561a0105336"
+      "path": "refs/kb/motion-primitives/animated-number/CARD.md",
+      "sha256": "01ea20981b45184726c9a54a5a9b977064400ceabfa02a5525f11cd8a90293ff"
     },
     {
-      "path": "refs/kb/free-remotion-templates/kpi-counter/templates/remotion-components/free-remotion-templates/src/components/kpi-counter/KpiCounter.tsx",
-      "sha256": "0ddc52f49062e1570487f531f3e4589701d7616b5e73ec70071abc25d35b1a9c"
+      "path": "refs/kb/motion-primitives/animated-number/templates/react-libriry/motion-primitives/components/core/animated-number.tsx",
+      "sha256": "3b4a9f3262cb79527fba01a76576e920e340137f0643bf34a7732f7f8b1ff792"
     },
     {
       "path": "refs/kb/remotion-bits/animated-counter/CARD.md",
@@ -100,7 +92,7 @@
     },
     {
       "path": "refs/motion-kit/API.md",
-      "sha256": "273f826495022cf9926e11cbc27178f82556621555456dfad54a0fd4073ab86f"
+      "sha256": "b9da5d38d2b127393a257c37bc13b0fc2c1634ecbb749cdb73266482a1f7b260"
     },
     {
       "path": "refs/skills/remotion-markup/SKILL.md",
@@ -128,7 +120,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "095271b92a7dfd5f0c175b728c96d6462932d1da5477db9072ce302ad1a98937"
+      "sha256": "0a7645568992ea647c7a00f5dee3c0bc699fbd775bda1f89fad7f95c631037ed"
     },
     {
       "path": "settings.json",
@@ -136,11 +128,11 @@
     },
     {
       "path": "spec.json",
-      "sha256": "b69ba00e7eb30a96957a601b9aa09fbea013b2c1a7f6b1655bd072d3c9e8d5bb"
+      "sha256": "3907851fa957d755f1b601196296d4ae4438ffb205f31cc8ea8c618508c1b333"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "3d9894a3dfab8f1d2c64f8a8ffa1acb4f1f0f383f29aa9bde5163761e443de19"
+      "sha256": "7c7f220034a0deb0f9874f5293e3ff55f7c539d6dd7b0ec22debcd3f3614c0ba"
     },
     {
       "path": "style.json",
@@ -154,7 +146,7 @@
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:16e2a35e85de9c01",
+    "motion_kit": "sha256:af4d7a5e4bc68ec0",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
@@ -166,18 +158,17 @@
       "strategy": "adapt"
     },
     {
-      "kb_id": "free-remotion-templates/kpi-counter",
-      "commit": "f648980",
-      "license": "MIT (package.json, LICENSE, SPDX-заголовок в файле)",
+      "kb_id": "motion-primitives/animated-number",
+      "commit": "120f64f",
+      "license": "MIT (LICENCE.md)",
       "strategy": "adapt"
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5ERRFRRV8HNT6CE97QRS99E/a1-concept-1",
-    "logs/agent-runs/job_01M5ERRFRRV8HNT6CE97QRS99E/a1-motion_director-1",
-    "logs/agent-runs/job_01M5ERRFRRV8HNT6CE97QRS99E/a1-engineer-1",
-    "logs/agent-runs/job_01M5ERRFRRV8HNT6CE97QRS99E/a1-engineer-2",
-    "logs/agent-runs/job_01M5ERRFRRV8HNT6CE97QRS99E/a1-visual_qa-1"
+    "logs/agent-runs/job_01M5ETNGVY2TBN4CWKD7A2X5W0/a1-concept-1",
+    "logs/agent-runs/job_01M5ETNGVY2TBN4CWKD7A2X5W0/a1-motion_director-1",
+    "logs/agent-runs/job_01M5ETNGVY2TBN4CWKD7A2X5W0/a1-engineer-1",
+    "logs/agent-runs/job_01M5ETNGVY2TBN4CWKD7A2X5W0/a1-visual_qa-1"
   ],
   "qa": {
     "technical": "pass",
@@ -187,31 +178,27 @@
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "d33c39a258df78894f8a24bac83c67ad1105ad4663aaae465b3bac7e66edf1f3"
+    "sha256": "75975c4e54ce3aea66a0d667c92ef5dfae191c5f9fea78bdab41ff9ce806623e"
   },
   "status": "ready",
   "qa_frames": [
-    40,
-    46,
-    88,
-    102,
-    117,
-    150,
-    166,
+    44,
+    84,
+    137,
+    149,
+    165,
     179
   ],
   "qa_frames_sha256": [
-    "affc56a51f8c494ce9cdcb2ae778f72bbfb48e530469a72e73ff815ed0bb928d",
-    "da99fc0d62473fe2d5a3bd24d9c2254fe9c22469a269bd20deb4172de80ba6ee",
-    "15ec9c4feb02cc3e0868d65538a2051daaa4a255f5f3fb2633ede4d577342a5c",
-    "037d34e367b2580bd4af3c4d762b53a9ae7d839a358b6c556be553fd4851f767",
-    "a3da06b41a735f144143d200c9571336c4e94ccfb39af19636e698480d385e75",
-    "90a43401258f87f93e544cc3ccb78434b190cdec5cde43f04c89326031626047",
-    "aa3e52558b12811e916f53ff07f1ed7c63236895136833f7a2cdef90cc07c858",
-    "3e79ecff3d3cc46f025d8372ba637d99ac5fb6cf90b48b066d7ff12e59e627e5"
+    "123e07d7d9d3e9ac32393a0c73e9771935465cbb87b866aaad860dd251ea2ce9",
+    "dc3127d3580c130bd108ad1aa311ff8713d9d555b948da7d6c4a2384b23172ca",
+    "e6b03ee09009bfe6af8ae1c2d6f664706148d897170299b778e826f0fe3a491d",
+    "cdb03af1d9741ca98c991992b23c79f2efb207c61d33d0fe8d8db69e32956bb3",
+    "4a917d87c7ad4c51b113ffaff64b9a6ba876c01a481a13ff37d2684988f83a08",
+    "0c015f5a6459de53b42dfc0e8701554c5046d8fd9033b2647e05407e8a498e94"
   ],
   "job": {
-    "id": "job_01M5ERRFRRV8HNT6CE97QRS99E",
+    "id": "job_01M5ETNGVY2TBN4CWKD7A2X5W0",
     "attempt": 1
   }
 }

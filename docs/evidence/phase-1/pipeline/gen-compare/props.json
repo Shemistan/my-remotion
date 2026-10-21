@@ -3,58 +3,38 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "b-title",
+        "id": "title-in",
         "start_frame": 0,
         "end_frame": 36
       },
       {
-        "id": "b-mono-label",
-        "start_frame": 8,
-        "end_frame": 32
+        "id": "lanes-in",
+        "start_frame": 10,
+        "end_frame": 42
       },
       {
-        "id": "b-micro-label",
-        "start_frame": 16,
-        "end_frame": 40
+        "id": "tracks-in",
+        "start_frame": 20,
+        "end_frame": 46
       },
       {
-        "id": "b-mono-graph",
-        "start_frame": 14,
-        "end_frame": 62
+        "id": "counters-in",
+        "start_frame": 28,
+        "end_frame": 44
       },
       {
-        "id": "b-micro-graph",
-        "start_frame": 22,
-        "end_frame": 66
-      },
-      {
-        "id": "b-counters-in",
-        "start_frame": 40,
-        "end_frame": 70
-      },
-      {
-        "id": "b-micro-releases",
-        "start_frame": 66,
-        "end_frame": 138
-      },
-      {
-        "id": "b-mono-release",
-        "start_frame": 66,
-        "end_frame": 110
-      },
-      {
-        "id": "b-mono-flash",
-        "start_frame": 110,
+        "id": "releases-count",
+        "start_frame": 44,
         "end_frame": 124
       },
       {
-        "id": "b-final-emphasis",
-        "start_frame": 140,
-        "end_frame": 160
+        "id": "final-emphasis",
+        "start_frame": 124,
+        "end_frame": 150
       },
       {
-        "id": "b-hold",
-        "start_frame": 153,
+        "id": "hold",
+        "start_frame": 150,
         "end_frame": 180
       }
     ]
@@ -70,233 +50,125 @@
     }
   },
   "content": {
+    "title": "Скорость релизов за квартал",
     "locale": "ru",
-    "title": {
-      "text": "Релизы за 4 недели",
-      "layout": {
+    "weeks": 13,
+    "lane_mono": {
+      "label": "Монолит",
+      "note": "всё приложение разом",
+      "elevation": 1
+    },
+    "lane_micro": {
+      "label": "Микросервисы",
+      "note": "4 сервиса независимо",
+      "elevation": 2
+    },
+    "mono_releases_at_week": [
+      4.5,
+      9,
+      13
+    ],
+    "services": [
+      "Заказы",
+      "Оплата",
+      "Каталог",
+      "Профиль"
+    ],
+    "releases_per_service": 12,
+    "release_window_weeks": [
+      0.3,
+      13
+    ],
+    "release_min_gap_weeks": 0.6,
+    "axis_labels": [
+      {
+        "text": "нед. 1",
+        "at": 0
+      },
+      {
+        "text": "нед. 5",
+        "at": 0.3077
+      },
+      {
+        "text": "нед. 9",
+        "at": 0.6154
+      },
+      {
+        "text": "нед. 13",
+        "at": 1
+      }
+    ],
+    "hero": {
+      "from": 0,
+      "to": 48,
+      "suffix_forms": [
+        " релиз",
+        " релиза",
+        " релизов"
+      ],
+      "emphasis_spread": 48
+    },
+    "mono_count": {
+      "prefix": "Монолит — ",
+      "forms": [
+        "релиз",
+        "релиза",
+        "релизов"
+      ]
+    },
+    "dim": {
+      "mono_track": 0.45,
+      "mono_count": 0.6
+    },
+    "layout": {
+      "title": {
         "x": 0,
         "y": 0,
         "w": 0.6,
         "h": 0.09
-      }
-    },
-    "mono_label": {
-      "text": "Монолит",
-      "layout": {
+      },
+      "lane_mono": {
         "x": 0,
-        "y": 0.13,
-        "w": 0.3,
-        "h": 0.07
-      }
-    },
-    "micro_label": {
-      "text": "Микросервисы",
-      "layout": {
+        "y": 0.14,
+        "w": 0.23,
+        "h": 0.2
+      },
+      "lane_micro": {
         "x": 0,
-        "y": 0.51,
-        "w": 0.3,
-        "h": 0.07
-      }
-    },
-    "mono_lane": {
-      "layout": {
-        "x": 0,
-        "y": 0.21,
-        "w": 0.56,
+        "y": 0.4,
+        "w": 0.23,
         "h": 0.24
       },
-      "nodes": [
-        {
-          "id": "mono-build",
-          "label": "Сборка",
-          "enter": "flip",
-          "elevation": 2,
-          "layout": {
-            "x": 0,
-            "y": 0.25,
-            "w": 0.14,
-            "h": 0.16
-          }
-        },
-        {
-          "id": "mono-tests",
-          "label": "Тесты",
-          "enter": "flip",
-          "elevation": 2,
-          "layout": {
-            "x": 0.2,
-            "y": 0.25,
-            "w": 0.14,
-            "h": 0.16
-          }
-        },
-        {
-          "id": "mono-deploy",
-          "label": "Деплой",
-          "caption": "общий",
-          "enter": "flip",
-          "elevation": 2,
-          "accentIndex": 2,
-          "layout": {
-            "x": 0.39,
-            "y": 0.24,
-            "w": 0.17,
-            "h": 0.18
-          }
-        }
-      ],
-      "edges": [
-        {
-          "id": "e-build-tests",
-          "from": "mono-build",
-          "to": "mono-tests"
-        },
-        {
-          "id": "e-tests-deploy",
-          "from": "mono-tests",
-          "to": "mono-deploy"
-        }
-      ],
-      "flash_node": "mono-deploy",
-      "flash_edge": "e-tests-deploy",
-      "pulse": {
-        "travel": 22,
-        "size": 10,
-        "tail": 160,
-        "accent_index": 2
+      "track_mono": {
+        "x": 0.26,
+        "y": 0.14,
+        "w": 0.74,
+        "h": 0.2
       },
-      "dim_opacity": 0.5
-    },
-    "micro_lane": {
-      "layout": {
+      "track_micro": {
+        "x": 0.26,
+        "y": 0.4,
+        "w": 0.74,
+        "h": 0.24
+      },
+      "axis_weeks": {
+        "x": 0.26,
+        "y": 0.66,
+        "w": 0.74,
+        "h": 0.05
+      },
+      "hero_count": {
         "x": 0,
-        "y": 0.59,
-        "w": 0.56,
-        "h": 0.37
+        "y": 0.75,
+        "w": 0.5,
+        "h": 0.2
       },
-      "nodes": [
-        {
-          "id": "svc-pay",
-          "label": "Оплата",
-          "enter": "pop",
-          "elevation": 1,
-          "layout": {
-            "x": 0,
-            "y": 0.6,
-            "w": 0.16,
-            "h": 0.09
-          }
-        },
-        {
-          "id": "svc-catalog",
-          "label": "Каталог",
-          "enter": "pop",
-          "elevation": 1,
-          "layout": {
-            "x": 0,
-            "y": 0.725,
-            "w": 0.16,
-            "h": 0.09
-          }
-        },
-        {
-          "id": "svc-search",
-          "label": "Поиск",
-          "enter": "pop",
-          "elevation": 1,
-          "layout": {
-            "x": 0,
-            "y": 0.85,
-            "w": 0.16,
-            "h": 0.09
-          }
-        },
-        {
-          "id": "micro-prod",
-          "label": "Прод",
-          "enter": "scale",
-          "elevation": 2,
-          "layout": {
-            "x": 0.38,
-            "y": 0.7,
-            "w": 0.18,
-            "h": 0.14
-          }
-        }
-      ],
-      "edges": [
-        {
-          "id": "e-pay",
-          "from": "svc-pay",
-          "to": "micro-prod"
-        },
-        {
-          "id": "e-catalog",
-          "from": "svc-catalog",
-          "to": "micro-prod"
-        },
-        {
-          "id": "e-search",
-          "from": "svc-search",
-          "to": "micro-prod"
-        }
-      ],
-      "pulse": {
-        "travel": 10,
-        "size": 10,
-        "tail": 160,
-        "accent_indices": [
-          0,
-          1,
-          0
-        ],
-        "offsets_frames": [
-          0,
-          4,
-          8
-        ]
+      "mono_count": {
+        "x": 0.54,
+        "y": 0.8,
+        "w": 0.42,
+        "h": 0.12
       }
-    },
-    "mono_count": {
-      "from": 0,
-      "to": 1,
-      "size": "h2",
-      "suffix_forms": [
-        " релиз",
-        " релиза",
-        " релизов"
-      ],
-      "layout": {
-        "x": 0.62,
-        "y": 0.25,
-        "w": 0.38,
-        "h": 0.14
-      }
-    },
-    "micro_count": {
-      "from": 0,
-      "to": 20,
-      "size": "display",
-      "suffix_forms": [
-        " релиз",
-        " релиза",
-        " релизов"
-      ],
-      "enter_delay_frames": 6,
-      "emphasis": {
-        "accentIndex": 0,
-        "spread": 48
-      },
-      "layout": {
-        "x": 0.6,
-        "y": 0.63,
-        "w": 0.4,
-        "h": 0.22
-      }
-    },
-    "atmosphere": {
-      "particles": 40,
-      "seed": "releases-dust"
     }
   }
 }

@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5ESFPWH6Q2EAQM437A6Z5AX",
-  "scene_id": "scn_01M5ERRFSK2S8GZSNHSEEM9FRJ",
+  "version_id": "ver_01M5EVK76QQNHPZ1WH8DNTREN3",
+  "scene_id": "scn_01M5ETNGWTEMWQ680YG47J2NJ4",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T08:33:15.666Z",
+  "created_at": "2026-10-21T09:10:07.832Z",
   "prompt": "Покажи архитектуру AI-агента: пользователь отправляет запрос, оркестратор вызывает три инструмента, данные возвращаются обратно. Световые импульсы движутся по связям",
   "edit_plan": null,
   "settings": {
@@ -27,36 +27,36 @@
   },
   "files": [
     {
-      "path": "frames/122.png",
-      "sha256": "750917948f372ad216a2c60da2b387e05f55865d6bb9957c2d3dda3771a376ee"
+      "path": "frames/114.png",
+      "sha256": "7b0f2babfa2bed7c6f69fc7870b3c61b1ebe43e687c8a0bc150fbaf16a1fa9bf"
     },
     {
-      "path": "frames/153.png",
-      "sha256": "8df1f4125cdc033df3d90bfce9838c18563e7857907c4b6a033ad4bd713b4319"
+      "path": "frames/146.png",
+      "sha256": "6f3d36fbc4604f49322c3d1798f45d65cf4d2cc8cecbba94420c08348089f273"
     },
     {
-      "path": "frames/166.png",
-      "sha256": "1bd1909c843be1d3573c78703c81bd9140c953f37248d821eceabb58bb34ecbb"
+      "path": "frames/149.png",
+      "sha256": "f81f0ff0ff361e69a24bbe39c4c08fe82ba7fbbc99bf12ab6a488150ebca1ed4"
     },
     {
       "path": "frames/179.png",
-      "sha256": "3295029421eb1380fc8d614b1c20209338bbe721b547e2c4f3db5e0b0d6e1f80"
+      "sha256": "c0281ae520bbb4ce629c77d5e11c464270b54a53b3f0ca982832eb6a135d2ada"
     },
     {
-      "path": "frames/19.png",
-      "sha256": "a9665738d53abc060ae3630d2f37241598c8689a2c5b41666c0a68dc9d5d8521"
+      "path": "frames/38.png",
+      "sha256": "396de1c4629fff5aab0d29f46856ce8fa7665d47a26e56731cca45915231bda3"
     },
     {
-      "path": "frames/33.png",
-      "sha256": "b7fd14c14d7c64624ed082d89ed35bbe13f4fb832cef2ad73c1af6c63616de9e"
+      "path": "frames/7.png",
+      "sha256": "18369d11288b7cb0713f42406318299858743ceae6da7e7fe01c8bd0a879872d"
     },
     {
-      "path": "frames/67.png",
-      "sha256": "8dca266a9acbbdbe693b1166aa7da2a1acf51e63fbeb234fc27056b6fba68221"
+      "path": "frames/78.png",
+      "sha256": "b447bca0578a6fa69a8abef51716722314a2a3e0387864d040d2fc03b76d21ce"
     },
     {
-      "path": "frames/94.png",
-      "sha256": "aed40f949462b10069a2f7ba4c69267d69f0ece781106f540e57d88c2acd4c1a"
+      "path": "frames/96.png",
+      "sha256": "e092d908188126ee9d6895e1e736aee1599270872e4ffbf7d435f67e079bb203"
     },
     {
       "path": "knowledge-refs.json",
@@ -64,19 +64,19 @@
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "190d3bf68e0bf61e9b7800f24c8d889362f598588b820c12f09dcae0f443e73b"
+      "sha256": "afc70d84df10d646e0fd245dd614ae18d196ed1f200e1879fcaab25ed19adf5b"
     },
     {
       "path": "preview.mp4",
-      "sha256": "993c15ab3b7b01179f0d12a779a0463ee83942d6401a3c95eaad552b17a42365"
+      "sha256": "0767713e1907cefa09cc4c13e11b37ed604e5ebf2dd7d4a811268086bf224ff6"
     },
     {
       "path": "props.json",
-      "sha256": "1418415a0b42403e4a79c92e826b54baf58c0fe4ee11d8aa255c2f91e0f3b931"
+      "sha256": "bdc5438563afdc4f854647a034771b261a55a6ef9bb66361c2cbb1f4087fa409"
     },
     {
       "path": "qa.json",
-      "sha256": "d199809b6e6bcbc59b254dced9f2d601647a2a8b01f1cb85ff6b21a8bd935064"
+      "sha256": "8f1755ffa920fa3d275249f3d4fef4d896bb621cb5cb07985f864eb1b51930c3"
     },
     {
       "path": "refs/kb/magicui/animated-beam/CARD.md",
@@ -128,7 +128,7 @@
     },
     {
       "path": "refs/motion-kit/API.md",
-      "sha256": "273f826495022cf9926e11cbc27178f82556621555456dfad54a0fd4073ab86f"
+      "sha256": "b9da5d38d2b127393a257c37bc13b0fc2c1634ecbb749cdb73266482a1f7b260"
     },
     {
       "path": "refs/skills/remotion-markup/SKILL.md",
@@ -156,7 +156,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "bae2b5500c6c513c5a0f1373d6e62a085b96431c1ca9a80a4bc0be672a811a84"
+      "sha256": "3fa5cab324bee8ac53ab10ec676110a91c9d955c7bc116f1737feb7f8205e1a4"
     },
     {
       "path": "settings.json",
@@ -164,11 +164,11 @@
     },
     {
       "path": "spec.json",
-      "sha256": "c7501ff53f913ee2653b104c0f7fe7cf63d17888ed8921bd3a64a263b42f0729"
+      "sha256": "f6795bdbe267580acff68fe76702a8c335c7beb530120274d2abbe0c7b7e102f"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "c020e5ade1c7125bcf2cdc7d24b530673504191fab4097163f8c04b3d5c468d3"
+      "sha256": "56aa8f0b9dbc815b73a4120d6f049b814bb3d109cfa24b5c89d19bfc04c204f1"
     },
     {
       "path": "style.json",
@@ -182,7 +182,7 @@
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:16e2a35e85de9c01",
+    "motion_kit": "sha256:af4d7a5e4bc68ec0",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
@@ -201,44 +201,45 @@
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5ERRFSPZ0Y02AF9X4DEZHFQ/a1-concept-1",
-    "logs/agent-runs/job_01M5ERRFSPZ0Y02AF9X4DEZHFQ/a1-motion_director-1",
-    "logs/agent-runs/job_01M5ERRFSPZ0Y02AF9X4DEZHFQ/a1-engineer-1",
-    "logs/agent-runs/job_01M5ERRFSPZ0Y02AF9X4DEZHFQ/a1-visual_qa-1"
+    "logs/agent-runs/job_01M5ETNGWXT5N0XGZZSPAN4G0R/a1-concept-1",
+    "logs/agent-runs/job_01M5ETNGWXT5N0XGZZSPAN4G0R/a1-motion_director-1",
+    "logs/agent-runs/job_01M5ETNGWXT5N0XGZZSPAN4G0R/a1-motion_director-2",
+    "logs/agent-runs/job_01M5ETNGWXT5N0XGZZSPAN4G0R/a1-engineer-1",
+    "logs/agent-runs/job_01M5ETNGWXT5N0XGZZSPAN4G0R/a1-visual_qa-1"
   ],
   "qa": {
     "technical": "pass",
     "visual": "warn",
     "semantic": "pass",
-    "style": "warn"
+    "style": "pass"
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "993c15ab3b7b01179f0d12a779a0463ee83942d6401a3c95eaad552b17a42365"
+    "sha256": "0767713e1907cefa09cc4c13e11b37ed604e5ebf2dd7d4a811268086bf224ff6"
   },
   "status": "ready",
   "qa_frames": [
-    19,
-    33,
-    67,
-    94,
-    122,
-    153,
-    166,
+    7,
+    38,
+    78,
+    96,
+    114,
+    146,
+    149,
     179
   ],
   "qa_frames_sha256": [
-    "a9665738d53abc060ae3630d2f37241598c8689a2c5b41666c0a68dc9d5d8521",
-    "b7fd14c14d7c64624ed082d89ed35bbe13f4fb832cef2ad73c1af6c63616de9e",
-    "8dca266a9acbbdbe693b1166aa7da2a1acf51e63fbeb234fc27056b6fba68221",
-    "aed40f949462b10069a2f7ba4c69267d69f0ece781106f540e57d88c2acd4c1a",
-    "750917948f372ad216a2c60da2b387e05f55865d6bb9957c2d3dda3771a376ee",
-    "8df1f4125cdc033df3d90bfce9838c18563e7857907c4b6a033ad4bd713b4319",
-    "1bd1909c843be1d3573c78703c81bd9140c953f37248d821eceabb58bb34ecbb",
-    "3295029421eb1380fc8d614b1c20209338bbe721b547e2c4f3db5e0b0d6e1f80"
+    "18369d11288b7cb0713f42406318299858743ceae6da7e7fe01c8bd0a879872d",
+    "396de1c4629fff5aab0d29f46856ce8fa7665d47a26e56731cca45915231bda3",
+    "b447bca0578a6fa69a8abef51716722314a2a3e0387864d040d2fc03b76d21ce",
+    "e092d908188126ee9d6895e1e736aee1599270872e4ffbf7d435f67e079bb203",
+    "7b0f2babfa2bed7c6f69fc7870b3c61b1ebe43e687c8a0bc150fbaf16a1fa9bf",
+    "6f3d36fbc4604f49322c3d1798f45d65cf4d2cc8cecbba94420c08348089f273",
+    "f81f0ff0ff361e69a24bbe39c4c08fe82ba7fbbc99bf12ab6a488150ebca1ed4",
+    "c0281ae520bbb4ce629c77d5e11c464270b54a53b3f0ca982832eb6a135d2ada"
   ],
   "job": {
-    "id": "job_01M5ERRFSPZ0Y02AF9X4DEZHFQ",
+    "id": "job_01M5ETNGWXT5N0XGZZSPAN4G0R",
     "attempt": 1
   }
 }

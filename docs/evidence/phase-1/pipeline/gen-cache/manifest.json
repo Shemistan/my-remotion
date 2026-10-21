@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5ES7REEZ9WX5PZEJ7F7Y26W",
-  "scene_id": "scn_01M5ERRFS67WZ980YR64AH2807",
+  "version_id": "ver_01M5EVBJFY7PVDGZMARJZQNX9S",
+  "scene_id": "scn_01M5ETNGWCX55KT0BRS7JCJMJ2",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T08:28:55.119Z",
+  "created_at": "2026-10-21T09:05:57.247Z",
   "prompt": "Объясни, как работает кэширование: запрос, промах, запись, попадание",
   "edit_plan": null,
   "settings": {
@@ -27,36 +27,36 @@
   },
   "files": [
     {
-      "path": "frames/111.png",
-      "sha256": "90fbfee0276b6c5adb565bc062ef9ce77f34d3884b59e1ccba0611be552aabeb"
+      "path": "frames/104.png",
+      "sha256": "82ec2f39a3e29b4ca491a1636c4fcde72dea18d7fdea527ffe7843c17fc06541"
     },
     {
-      "path": "frames/128.png",
-      "sha256": "fae388d3f02597e1f0ee39b2c73c6644ed36487007c084e78f3848a78234ede7"
+      "path": "frames/120.png",
+      "sha256": "cae715521d1e7a6813778a59865552d06ac886994115ebda52df5a83edb4909c"
     },
     {
-      "path": "frames/153.png",
-      "sha256": "860f243f13be17968774eeba7f15e554ef56c32e2d3055ddd9a85b7ade1f6a54"
+      "path": "frames/13.png",
+      "sha256": "e177a005e5d43d6377446db46ef29ab1c847f47b244f28f3bc8d593ee979d90a"
+    },
+    {
+      "path": "frames/144.png",
+      "sha256": "aa4eb112891e7fe1258cb6ffef208b009c837b7bf50313a8e6b381923a20be5d"
+    },
+    {
+      "path": "frames/149.png",
+      "sha256": "cdf2b907035c3acec0bbb15ad9da422cda7b5f4f87778575af396fca3a0f78a1"
+    },
+    {
+      "path": "frames/166.png",
+      "sha256": "d8acda886e41f3d609c59422070d26f0e5c2a818caccde444d9458b0a0d70f3f"
     },
     {
       "path": "frames/179.png",
-      "sha256": "3ef31d11c07f75eb1529968f16c62eb81c01d62fc5756bb055e9ff951e69518c"
+      "sha256": "1e0fbade83f07c419b3a87a52a7b4c71fb645091d3ed2000618fb2a5299c6a1e"
     },
     {
-      "path": "frames/31.png",
-      "sha256": "e71d7de225d38e3624e655c967a0057063693582b515f3900c815e0fee2b219a"
-    },
-    {
-      "path": "frames/60.png",
-      "sha256": "befbc8b2b48cc933c6194f9880b3bb29bdca2e123d1938934b24a998e13b5c00"
-    },
-    {
-      "path": "frames/7.png",
-      "sha256": "6a903af19a2586ffa32028f3970dcd40385b246536f8932d92085812d8c81229"
-    },
-    {
-      "path": "frames/87.png",
-      "sha256": "0be4619edfb05ae4fc6cfa578419982edb97eedaa09503091fffaa7e786126b8"
+      "path": "frames/90.png",
+      "sha256": "84ed4d3e52696f19661e35f9967c68f6d9b6d250fa2c6146f147f79d9f383596"
     },
     {
       "path": "knowledge-refs.json",
@@ -64,19 +64,19 @@
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "be192f2b76d2e6aa5c36f8dc3ae0a330b4e72e9364f7673b1b7e554901682e65"
+      "sha256": "397d89d1e89206d9d14136044db068876898e8acbc59c45a31f4f52cef12d743"
     },
     {
       "path": "preview.mp4",
-      "sha256": "9c25a88fae397eeef0995d12e708ee89167fbf53e009b143dfd244fddf113b97"
+      "sha256": "838fc692d4df0af13f322fea95b90b91e7774311a0aeb8c7e4243351a3726c30"
     },
     {
       "path": "props.json",
-      "sha256": "e149e0e6a1caa1857cd5c18c56faf804f7992a0ecbcf55d6dee53d90d8af840b"
+      "sha256": "5ff410a06144ea4fea7c907d8746ec203578f6e8007740fdee555d163d429467"
     },
     {
       "path": "qa.json",
-      "sha256": "47b4a0bcc9834bd7acb17cc8baf3f2f8f662a9c2ae73d1633d4f9c80634e41dd"
+      "sha256": "12bbd92c31808f50e2e5168aafe0d9eef41d527df82b1d674a9820537b6ce303"
     },
     {
       "path": "refs/kb/xyflow/edge-types/CARD.md",
@@ -168,7 +168,7 @@
     },
     {
       "path": "refs/motion-kit/API.md",
-      "sha256": "273f826495022cf9926e11cbc27178f82556621555456dfad54a0fd4073ab86f"
+      "sha256": "b9da5d38d2b127393a257c37bc13b0fc2c1634ecbb749cdb73266482a1f7b260"
     },
     {
       "path": "refs/skills/remotion-markup/SKILL.md",
@@ -196,7 +196,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "46496d1c3a3beecc1438b3e5b4d7cc0c198e32fe7d16784edbc2b05f83998c6d"
+      "sha256": "5f58fa7000b1614a245afa1eeca05e3325283cef902bf313e511947c4b9dfde3"
     },
     {
       "path": "settings.json",
@@ -204,11 +204,11 @@
     },
     {
       "path": "spec.json",
-      "sha256": "875ab7cb64f2952bc32fca64ea9aa47c5d0100dc1595bd35e88baa1aec580edc"
+      "sha256": "ece837acfef588382e0d7ca824d503d74401e60605c2848ef8ef182691091817"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "c62267cfdba8635a4beb1a780188586247974a814fed87794225ad680a23220f"
+      "sha256": "0d658723a40ced665a0cfb487bfc2baa020d1108b0be399b31d8a1f10501095d"
     },
     {
       "path": "style.json",
@@ -222,7 +222,7 @@
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:16e2a35e85de9c01",
+    "motion_kit": "sha256:af4d7a5e4bc68ec0",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
@@ -241,10 +241,12 @@
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5ERRFSA4PMF1SN886JEZBQF/a1-concept-1",
-    "logs/agent-runs/job_01M5ERRFSA4PMF1SN886JEZBQF/a1-motion_director-1",
-    "logs/agent-runs/job_01M5ERRFSA4PMF1SN886JEZBQF/a1-engineer-1",
-    "logs/agent-runs/job_01M5ERRFSA4PMF1SN886JEZBQF/a1-visual_qa-1"
+    "logs/agent-runs/job_01M5ETNGWGMGZDH5Y7XW5GXWH9/a1-concept-1",
+    "logs/agent-runs/job_01M5ETNGWGMGZDH5Y7XW5GXWH9/a1-motion_director-1",
+    "logs/agent-runs/job_01M5ETNGWGMGZDH5Y7XW5GXWH9/a1-motion_director-2",
+    "logs/agent-runs/job_01M5ETNGWGMGZDH5Y7XW5GXWH9/a1-engineer-1",
+    "logs/agent-runs/job_01M5ETNGWGMGZDH5Y7XW5GXWH9/a1-engineer-2",
+    "logs/agent-runs/job_01M5ETNGWGMGZDH5Y7XW5GXWH9/a1-visual_qa-1"
   ],
   "qa": {
     "technical": "pass",
@@ -254,31 +256,31 @@
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "9c25a88fae397eeef0995d12e708ee89167fbf53e009b143dfd244fddf113b97"
+    "sha256": "838fc692d4df0af13f322fea95b90b91e7774311a0aeb8c7e4243351a3726c30"
   },
   "status": "ready",
   "qa_frames": [
-    7,
-    31,
-    60,
-    87,
-    111,
-    128,
-    153,
+    13,
+    90,
+    104,
+    120,
+    144,
+    149,
+    166,
     179
   ],
   "qa_frames_sha256": [
-    "6a903af19a2586ffa32028f3970dcd40385b246536f8932d92085812d8c81229",
-    "e71d7de225d38e3624e655c967a0057063693582b515f3900c815e0fee2b219a",
-    "befbc8b2b48cc933c6194f9880b3bb29bdca2e123d1938934b24a998e13b5c00",
-    "0be4619edfb05ae4fc6cfa578419982edb97eedaa09503091fffaa7e786126b8",
-    "90fbfee0276b6c5adb565bc062ef9ce77f34d3884b59e1ccba0611be552aabeb",
-    "fae388d3f02597e1f0ee39b2c73c6644ed36487007c084e78f3848a78234ede7",
-    "860f243f13be17968774eeba7f15e554ef56c32e2d3055ddd9a85b7ade1f6a54",
-    "3ef31d11c07f75eb1529968f16c62eb81c01d62fc5756bb055e9ff951e69518c"
+    "e177a005e5d43d6377446db46ef29ab1c847f47b244f28f3bc8d593ee979d90a",
+    "84ed4d3e52696f19661e35f9967c68f6d9b6d250fa2c6146f147f79d9f383596",
+    "82ec2f39a3e29b4ca491a1636c4fcde72dea18d7fdea527ffe7843c17fc06541",
+    "cae715521d1e7a6813778a59865552d06ac886994115ebda52df5a83edb4909c",
+    "aa4eb112891e7fe1258cb6ffef208b009c837b7bf50313a8e6b381923a20be5d",
+    "cdf2b907035c3acec0bbb15ad9da422cda7b5f4f87778575af396fca3a0f78a1",
+    "d8acda886e41f3d609c59422070d26f0e5c2a818caccde444d9458b0a0d70f3f",
+    "1e0fbade83f07c419b3a87a52a7b4c71fb645091d3ed2000618fb2a5299c6a1e"
   ],
   "job": {
-    "id": "job_01M5ERRFSA4PMF1SN886JEZBQF",
+    "id": "job_01M5ETNGWGMGZDH5Y7XW5GXWH9",
     "attempt": 1
   }
 }

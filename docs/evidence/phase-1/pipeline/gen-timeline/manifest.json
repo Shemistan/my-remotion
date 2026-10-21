@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5ERXFZ32FTCSM0EWMTNQ7EP",
-  "scene_id": "scn_01M5ERRFRY7ZMRNAKQ0T48497J",
+  "version_id": "ver_01M5ETX34F6S12HQ72N3EAH3TJ",
+  "scene_id": "scn_01M5ETNGW5X2RFXZBX0H1NXWY2",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T08:23:18.756Z",
+  "created_at": "2026-10-21T08:58:02.768Z",
   "prompt": "Таймлайн развития компании 2015–2025 с пятью вехами",
   "edit_plan": null,
   "settings": {
@@ -27,68 +27,68 @@
   },
   "files": [
     {
-      "path": "frames/118.png",
-      "sha256": "f540d9e8f30e656db75ae5c8ef57aefc570167c9af13919ab493137b8fca64ff"
+      "path": "frames/130.png",
+      "sha256": "b62b46d497f1fe31c80f37ad3ac39b11d9d766b58486d9d353f1c043f05094c8"
     },
     {
-      "path": "frames/129.png",
-      "sha256": "da8d93bcba5dd485298af144a033a3103f5a934f5a3332deadff28758861eca2"
+      "path": "frames/152.png",
+      "sha256": "d3ad61c222fa072a24b892be3d10474a9a6ab12502a6cf0dd84ab278e5322ced"
     },
     {
       "path": "frames/166.png",
-      "sha256": "8f31a10395056c81d3c7bad31705f28904400ccf369f3cf026c68d25931e1245"
+      "sha256": "a9c7b165b32a089735dccddcb7a9f98c84955f14662c77ea1c9894986f85139c"
     },
     {
       "path": "frames/179.png",
-      "sha256": "3ce4adb2dca64ab443a629882052917303252f76c2d5e53b13f337c089eb3e9d"
+      "sha256": "380a45c83e612ae583909b80bd8cb3f4491e4f62a897b1c76edbf2e2d0c3eec7"
     },
     {
-      "path": "frames/24.png",
-      "sha256": "81155db47b524852c933a2af196c61cdb11db72492a82ebe8543c16150fd1d58"
+      "path": "frames/36.png",
+      "sha256": "416dd659aafa66cd6666f0845c0d81d6b996dabca501d9c57d7788e1348e7200"
     },
     {
-      "path": "frames/71.png",
-      "sha256": "04a3ae970988c2562734e9ec8fd3bc2b6e9d20198ab36c66e828f2a8302decf3"
+      "path": "frames/72.png",
+      "sha256": "2dc50ca1810d23ed6b520f2c33c2e29557cea21073b64d90b360d5ca91326cfa"
     },
     {
       "path": "knowledge-refs.json",
-      "sha256": "801c0340d30ba3e97190928b67f0519e22b38a4e0563686cc0860de3d4dfc73a"
+      "sha256": "4fd1a8480fcfba353a83e4678345848d330999fe4e563cc71b4469b5c16a9993"
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "6342c76a6dc8b106d03fb9aae07c22c26f80311e2f4c7b6f68281d0f2e4ef71a"
+      "sha256": "6a5d5beca4e1997d1cbda4b1b3a6536ebf33ca0030b6052a96f5b3e809f9585d"
     },
     {
       "path": "preview.mp4",
-      "sha256": "8dd413be842e0c01843db39de96db5a960dc5381c8a2c3792614d755421e49fb"
+      "sha256": "24f534db560c71dedced510f35fa9db9078806b44cbbf7dc1f6136d48c65a984"
     },
     {
       "path": "props.json",
-      "sha256": "a5c827ae9b66df064e48ddd30a3843efc97c8a1f4bbc075f7fa9b435387401ec"
+      "sha256": "249a1ef3a6ebd7aedc00453361c3c0b58f50cde0cd61c9be23ddd87c72bf7871"
     },
     {
       "path": "qa.json",
-      "sha256": "e5eb6ef269843d0700d1095894e3a5dd32ffe0a64edcb2514034b3ec71970bf2"
+      "sha256": "09d226f5650fe2853976bbcee13f16243c8145da781eca3f4676868eea25aedf"
     },
     {
-      "path": "refs/kb/free-remotion-templates/line-chart-anim/CARD.md",
-      "sha256": "6d3141f03bf9e1c7e372bf2993e0eb17758a5566024409953c2cac5248ad8e8c"
+      "path": "refs/kb/free-remotion-templates/chapter-title/CARD.md",
+      "sha256": "7f6430f4411d5a70d1f3032f882a03310856486023b6c8f32ef556992d252e18"
     },
     {
-      "path": "refs/kb/free-remotion-templates/line-chart-anim/templates/remotion-components/free-remotion-templates/src/components/line-chart-anim/LineChartAnim.tsx",
-      "sha256": "727cb6c5bc0882b7e2158b2a5c6a90d07270753b091c8ce470a4a940f7b3afde"
+      "path": "refs/kb/free-remotion-templates/chapter-title/templates/remotion-components/free-remotion-templates/src/components/chapter-title/ChapterTitle.tsx",
+      "sha256": "8caae393cf07cd043b7521305974504f4d9dab4e8178fffee7c52d780b049ed8"
     },
     {
-      "path": "refs/kb/motion-primitives-website/svg-path-draw/CARD.md",
-      "sha256": "568575ca98d704275def6e9c2f3fc5ac2b80d108bf0888f1d71dbba7ea847bd7"
+      "path": "refs/kb/remotion-bits/bit-staggered-fade-in/CARD.md",
+      "sha256": "ecf82657001ed51874b3e2434a3b0941ae8f1e335f1d26a898904a754e8af605"
     },
     {
-      "path": "refs/kb/motion-primitives-website/svg-path-draw/templates/react-libriry/motion-primitives-website/src/components/svg/animated-svg.tsx",
-      "sha256": "2e34dc4ac14ec9377193e366217e90d02a46f02d1e0881ffce5a6ccbe0dabd32"
+      "path": "refs/kb/remotion-bits/bit-staggered-fade-in/templates/remotion-components/remotion-bits/docs/src/bits/examples/staggered-motion/StaggeredFadeIn.tsx",
+      "sha256": "7d5932bd526a002a826498c074a48abf6f051063b18cfe68770b2972c92838f8"
     },
     {
       "path": "refs/motion-kit/API.md",
-      "sha256": "273f826495022cf9926e11cbc27178f82556621555456dfad54a0fd4073ab86f"
+      "sha256": "b9da5d38d2b127393a257c37bc13b0fc2c1634ecbb749cdb73266482a1f7b260"
     },
     {
       "path": "refs/skills/remotion-markup/SKILL.md",
@@ -116,7 +116,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "c7c633957b13dd57ab821ec8af8592ae6a503f834741995818a6156ab9f2971b"
+      "sha256": "302bd3029a97956abd65726ca857e5a863e6cb4b2f07a88b310155d8e2c4df45"
     },
     {
       "path": "settings.json",
@@ -124,11 +124,11 @@
     },
     {
       "path": "spec.json",
-      "sha256": "2f41599290cea341702888abc00a7235c66100aba3a86098e2733faa6e778196"
+      "sha256": "9566566b7efd0864175a9026d1ea370ff44bc9a50c8eec214685d02c887b0d2a"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "d1ed283368d17272f20c9d8879df3235bba33db97931c352e061384af70cc077"
+      "sha256": "37e001ef3bccbe7836eb320830a26f897d4d18e7f799945b73d308e090d5b00d"
     },
     {
       "path": "style.json",
@@ -142,29 +142,30 @@
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:16e2a35e85de9c01",
+    "motion_kit": "sha256:af4d7a5e4bc68ec0",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
   "knowledge_refs": [
     {
-      "kb_id": "motion-primitives-website/svg-path-draw",
-      "commit": "cff72d8",
-      "license": "MIT (package.json; файла LICENSE нет)",
+      "kb_id": "free-remotion-templates/chapter-title",
+      "commit": "f648980",
+      "license": "MIT (package.json, LICENSE, SPDX-заголовок в файле)",
       "strategy": "adapt"
     },
     {
-      "kb_id": "free-remotion-templates/line-chart-anim",
-      "commit": "f648980",
-      "license": "MIT (package.json, LICENSE, SPDX-заголовок в файле)",
+      "kb_id": "remotion-bits/bit-staggered-fade-in",
+      "commit": "de35fda",
+      "license": "MIT (package.json)",
       "strategy": "adapt"
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5ERRFS33QVJ8H6787ZK8FRE/a1-concept-1",
-    "logs/agent-runs/job_01M5ERRFS33QVJ8H6787ZK8FRE/a1-motion_director-1",
-    "logs/agent-runs/job_01M5ERRFS33QVJ8H6787ZK8FRE/a1-engineer-1",
-    "logs/agent-runs/job_01M5ERRFS33QVJ8H6787ZK8FRE/a1-visual_qa-1"
+    "logs/agent-runs/job_01M5ETNGW9SFBVXRF1WVGQGAH9/a1-concept-1",
+    "logs/agent-runs/job_01M5ETNGW9SFBVXRF1WVGQGAH9/a1-motion_director-1",
+    "logs/agent-runs/job_01M5ETNGW9SFBVXRF1WVGQGAH9/a1-engineer-1",
+    "logs/agent-runs/job_01M5ETNGW9SFBVXRF1WVGQGAH9/a1-engineer-2",
+    "logs/agent-runs/job_01M5ETNGW9SFBVXRF1WVGQGAH9/a1-visual_qa-1"
   ],
   "qa": {
     "technical": "pass",
@@ -174,27 +175,27 @@
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "8dd413be842e0c01843db39de96db5a960dc5381c8a2c3792614d755421e49fb"
+    "sha256": "24f534db560c71dedced510f35fa9db9078806b44cbbf7dc1f6136d48c65a984"
   },
   "status": "ready",
   "qa_frames": [
-    24,
-    71,
-    118,
-    129,
+    36,
+    72,
+    130,
+    152,
     166,
     179
   ],
   "qa_frames_sha256": [
-    "81155db47b524852c933a2af196c61cdb11db72492a82ebe8543c16150fd1d58",
-    "04a3ae970988c2562734e9ec8fd3bc2b6e9d20198ab36c66e828f2a8302decf3",
-    "f540d9e8f30e656db75ae5c8ef57aefc570167c9af13919ab493137b8fca64ff",
-    "da8d93bcba5dd485298af144a033a3103f5a934f5a3332deadff28758861eca2",
-    "8f31a10395056c81d3c7bad31705f28904400ccf369f3cf026c68d25931e1245",
-    "3ce4adb2dca64ab443a629882052917303252f76c2d5e53b13f337c089eb3e9d"
+    "416dd659aafa66cd6666f0845c0d81d6b996dabca501d9c57d7788e1348e7200",
+    "2dc50ca1810d23ed6b520f2c33c2e29557cea21073b64d90b360d5ca91326cfa",
+    "b62b46d497f1fe31c80f37ad3ac39b11d9d766b58486d9d353f1c043f05094c8",
+    "d3ad61c222fa072a24b892be3d10474a9a6ab12502a6cf0dd84ab278e5322ced",
+    "a9c7b165b32a089735dccddcb7a9f98c84955f14662c77ea1c9894986f85139c",
+    "380a45c83e612ae583909b80bd8cb3f4491e4f62a897b1c76edbf2e2d0c3eec7"
   ],
   "job": {
-    "id": "job_01M5ERRFS33QVJ8H6787ZK8FRE",
+    "id": "job_01M5ETNGW9SFBVXRF1WVGQGAH9",
     "attempt": 1
   }
 }

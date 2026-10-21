@@ -3,37 +3,37 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "b-headline-in",
-        "start_frame": 6,
-        "end_frame": 32
+        "id": "title-in",
+        "start_frame": 0,
+        "end_frame": 36
       },
       {
-        "id": "b-number-in",
-        "start_frame": 9,
-        "end_frame": 33
+        "id": "number-in",
+        "start_frame": 4,
+        "end_frame": 28
       },
       {
-        "id": "b-chart-draw",
-        "start_frame": 18,
-        "end_frame": 140
+        "id": "chart-draw",
+        "start_frame": 14,
+        "end_frame": 130
       },
       {
-        "id": "b-number-count",
-        "start_frame": 33,
-        "end_frame": 116
+        "id": "number-count",
+        "start_frame": 28,
+        "end_frame": 107
       },
       {
-        "id": "b-ratio-in",
-        "start_frame": 44,
-        "end_frame": 68
+        "id": "final-emphasis",
+        "start_frame": 107,
+        "end_frame": 135
       },
       {
-        "id": "b-final-emphasis",
+        "id": "badge-in",
         "start_frame": 118,
-        "end_frame": 150
+        "end_frame": 142
       },
       {
-        "id": "b-hold",
+        "id": "hold",
         "start_frame": 153,
         "end_frame": 180
       }
@@ -41,6 +41,7 @@
   },
   "style": {
     "preset": "dark-premium",
+    "palette_overrides": {},
     "intensity": "balanced",
     "depth": 1,
     "transparent": false,
@@ -50,44 +51,24 @@
     }
   },
   "content": {
-    "headline": {
+    "title": {
       "text": "Пользователи за три года",
-      "size": "h2",
       "layout": {
-        "x": 0.05,
-        "y": 0.05,
-        "w": 0.5,
+        "x": 0,
+        "y": 0,
+        "w": 0.55,
         "h": 0.08
       }
     },
-    "hero": {
+    "number": {
       "from": 10000,
       "to": 1000000,
       "locale": "ru",
-      "size": "display",
-      "emphasis": {
-        "accentIndex": 0,
-        "loop": true,
-        "shape": "pill",
-        "ring": true,
-        "halo": true,
-        "spread": 48
-      },
       "layout": {
-        "x": 0.05,
-        "y": 0.14,
-        "w": 0.45,
-        "h": 0.15
-      }
-    },
-    "ratio_note": {
-      "text": "×100 за три года",
-      "size": "body",
-      "layout": {
-        "x": 0.6,
-        "y": 0.17,
-        "w": 0.35,
-        "h": 0.07
+        "x": 0,
+        "y": 0.09,
+        "w": 0.55,
+        "h": 0.17
       }
     },
     "chart": {
@@ -98,54 +79,35 @@
         },
         {
           "label": "Год 1",
-          "value": 80000
+          "value": 90000
         },
         {
           "label": "Год 2",
-          "value": 300000
+          "value": 350000
         },
         {
           "label": "Год 3",
           "value": 1000000
         }
       ],
-      "width": 1550,
-      "height": 580,
-      "area": true,
-      "locale": "ru",
-      "compact": true,
       "yTicks": 4,
       "accentIndex": 0,
       "layout": {
-        "x": 0.05,
-        "y": 0.33,
-        "w": 0.9,
-        "h": 0.6
+        "x": 0,
+        "y": 0.3,
+        "w": 1,
+        "h": 0.7
       }
     },
-    "background": {
-      "particles": 50,
-      "seed": "users-growth"
-    },
-    "camera": [
-      {
-        "frame": 0,
-        "scale": 1,
-        "x": 0,
-        "y": 0
-      },
-      {
-        "frame": 110,
-        "scale": 1,
-        "x": 0,
-        "y": 0
-      },
-      {
-        "frame": 179,
-        "scale": 1.04,
-        "x": 0,
-        "y": 0
+    "badge": {
+      "text": "×100 за три года",
+      "elevation": 2,
+      "layout": {
+        "x": 0.7,
+        "y": 0.06,
+        "w": 0.28,
+        "h": 0.12
       }
-    ]
+    }
   }
 }

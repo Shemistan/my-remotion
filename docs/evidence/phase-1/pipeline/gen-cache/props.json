@@ -3,58 +3,63 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "b-kicker",
+        "id": "kicker-in",
         "start_frame": 0,
-        "end_frame": 30
+        "end_frame": 24
       },
       {
-        "id": "b-graph",
-        "start_frame": 6,
-        "end_frame": 56
+        "id": "graph-in",
+        "start_frame": 4,
+        "end_frame": 40
       },
       {
-        "id": "b-slot",
-        "start_frame": 36,
-        "end_frame": 60
-      },
-      {
-        "id": "b-tracker",
-        "start_frame": 30,
+        "id": "req1",
+        "start_frame": 38,
         "end_frame": 58
       },
       {
-        "id": "b-request",
-        "start_frame": 58,
-        "end_frame": 74
+        "id": "miss-emphasis",
+        "start_frame": 56,
+        "end_frame": 72
       },
       {
-        "id": "b-miss",
-        "start_frame": 74,
+        "id": "miss-to-db",
+        "start_frame": 60,
+        "end_frame": 80
+      },
+      {
+        "id": "db-return",
+        "start_frame": 80,
         "end_frame": 100
       },
       {
-        "id": "b-write",
+        "id": "write",
         "start_frame": 100,
-        "end_frame": 122
+        "end_frame": 118
       },
       {
-        "id": "b-hit-request",
-        "start_frame": 122,
-        "end_frame": 134
+        "id": "req2",
+        "start_frame": 112,
+        "end_frame": 128
       },
       {
-        "id": "b-hit-answer",
-        "start_frame": 134,
+        "id": "hit-emphasis",
+        "start_frame": 128,
+        "end_frame": 144
+      },
+      {
+        "id": "hit-return",
+        "start_frame": 128,
         "end_frame": 146
       },
       {
-        "id": "b-final",
+        "id": "final-emphasis",
         "start_frame": 146,
-        "end_frame": 160
+        "end_frame": 153
       },
       {
-        "id": "b-hold",
-        "start_frame": 160,
+        "id": "hold",
+        "start_frame": 153,
         "end_frame": 180
       }
     ]
@@ -70,210 +75,118 @@
     }
   },
   "content": {
-    "title": "Кэш: промах и попадание",
-    "background": {
-      "variant": "aurora",
-      "seed": "cache",
-      "beat": "b-kicker",
-      "particles": 50
-    },
-    "kicker": {
-      "text": "Как работает кэширование",
-      "beat": "b-kicker",
-      "layout": {
-        "x": 0.05,
-        "y": 0.04,
-        "w": 0.5,
-        "h": 0.08
-      }
-    },
-    "graph": {
-      "beat": "b-graph",
-      "enter": "flip",
-      "layout": {
-        "x": 0.05,
-        "y": 0.2,
-        "w": 0.9,
-        "h": 0.56
+    "title": "Как работает кэш",
+    "kicker": "Кэширование",
+    "nodes": [
+      {
+        "id": "node-client",
+        "label": "Клиент",
+        "elevation": 1,
+        "enter": "slide",
+        "enter_offset": 0
       },
-      "nodes": [
-        {
-          "id": "node-client",
-          "label": "Клиент",
-          "enter": "slide",
-          "enterAt": 8,
-          "elevation": 2,
-          "accentIndex": 0,
-          "flash_on": [
-            "b-hit-answer"
-          ],
-          "layout": {
-            "x": 0.05,
-            "y": 0.36,
-            "w": 0.2,
-            "h": 0.22
-          }
-        },
-        {
-          "id": "node-cache",
-          "label": "Кэш",
-          "enter": "pop",
-          "enterAt": 14,
-          "elevation": 3,
-          "accentIndex": 0,
-          "flash_on": [
-            "b-request",
-            "b-hit-request"
-          ],
-          "layout": {
-            "x": 0.37,
-            "y": 0.24,
-            "w": 0.26,
-            "h": 0.46
-          }
-        },
-        {
-          "id": "node-source",
-          "label": "Источник",
-          "caption": "медленно",
-          "enter": "blur",
-          "enterAt": 22,
-          "elevation": 1,
-          "accentIndex": 0,
-          "flash_on": [
-            "b-miss"
-          ],
-          "layout": {
-            "x": 0.71,
-            "y": 0.36,
-            "w": 0.24,
-            "h": 0.22
-          }
-        }
-      ],
-      "edges": [
-        {
-          "id": "e-req",
-          "from": "node-client",
-          "to": "node-cache"
-        },
-        {
-          "id": "e-fetch",
-          "from": "node-cache",
-          "to": "node-source"
-        }
-      ],
-      "pulses": [
-        {
-          "beat": "b-request",
-          "edgeId": "e-req",
-          "travel": 14,
-          "repeat": false,
-          "reverse": false,
-          "color": "text",
-          "size": 12,
-          "tail": 180
-        },
-        {
-          "beat": "b-miss",
-          "edgeId": "e-fetch",
-          "travel": 24,
-          "repeat": false,
-          "reverse": false,
-          "color": "accent[2]",
-          "size": 12,
-          "tail": 200
-        },
-        {
-          "beat": "b-write",
-          "edgeId": "e-fetch",
-          "travel": 20,
-          "repeat": false,
-          "reverse": true,
-          "color": "accent[1]",
-          "size": 12,
-          "tail": 180
-        },
-        {
-          "beat": "b-hit-request",
-          "edgeId": "e-req",
-          "travel": 10,
-          "repeat": false,
-          "reverse": false,
-          "color": "text",
-          "size": 12,
-          "tail": 160
-        },
-        {
-          "beat": "b-hit-answer",
-          "edgeId": "e-req",
-          "travel": 10,
-          "repeat": false,
-          "reverse": true,
-          "color": "accent[1]",
-          "size": 12,
-          "tail": 160
-        },
-        {
-          "beat": "b-hold",
-          "edgeId": "e-req",
-          "travel": 16,
-          "repeat": true,
-          "reverse": true,
-          "color": "accent[1]",
-          "size": 10,
-          "tail": 160
-        }
-      ],
-      "dim": {
-        "node": "node-source",
-        "beat": "b-hit-request",
-        "opacity": 0.4
+      {
+        "id": "node-cache",
+        "label": "Кэш",
+        "caption": "быстро",
+        "elevation": 3,
+        "enter": "pop",
+        "enter_offset": 6
+      },
+      {
+        "id": "node-db",
+        "label": "База данных",
+        "caption": "медленно",
+        "elevation": 1,
+        "enter": "blur",
+        "enter_offset": 12
       }
+    ],
+    "edges": [
+      {
+        "id": "e-req",
+        "from": "node-client",
+        "to": "node-cache"
+      },
+      {
+        "id": "e-db",
+        "from": "node-cache",
+        "to": "node-db"
+      }
+    ],
+    "flows": [
+      {
+        "edge": "e-req",
+        "direction": "forward",
+        "beat": "req1",
+        "accent": 1
+      },
+      {
+        "edge": "e-db",
+        "direction": "forward",
+        "beat": "miss-to-db",
+        "accent": 1
+      },
+      {
+        "edge": "e-db",
+        "direction": "back",
+        "beat": "db-return",
+        "accent": 2
+      },
+      {
+        "edge": "e-req",
+        "direction": "forward",
+        "beat": "req2",
+        "accent": 1
+      },
+      {
+        "edge": "e-req",
+        "direction": "back",
+        "beat": "hit-return",
+        "accent": 2
+      }
+    ],
+    "pulse": {
+      "travel": 18,
+      "repeat": false,
+      "count": 1,
+      "size": 12,
+      "tail": 180
     },
-    "slot": {
+    "cell": {
       "empty_text": "пусто",
-      "filled_text": "user:42 ✓",
-      "beat": "b-slot",
-      "fill_on": "b-write",
-      "layout": {
-        "x": 0.395,
-        "y": 0.52,
-        "w": 0.21,
-        "h": 0.15
-      }
+      "filled_text": "ключ → данные",
+      "enter_offset": 18,
+      "flash_edge": "e-db",
+      "flash_beat": "db-return"
     },
-    "steps": {
-      "beat": "b-tracker",
-      "final_beat": "b-final",
-      "layout": {
-        "x": 0.08,
-        "y": 0.82,
-        "w": 0.84,
-        "h": 0.1
+    "miss_badge": {
+      "text": "Промах"
+    },
+    "hit_badge": {
+      "text": "Попадание"
+    },
+    "track": [
+      {
+        "text": "Запрос",
+        "beat": "req1"
       },
-      "items": [
-        {
-          "label": "Запрос",
-          "beat": "b-request",
-          "tone": "text"
-        },
-        {
-          "label": "Промах",
-          "beat": "b-miss",
-          "tone": "negative"
-        },
-        {
-          "label": "Запись",
-          "beat": "b-write",
-          "tone": "text"
-        },
-        {
-          "label": "Попадание",
-          "beat": "b-hit-request",
-          "tone": "text"
-        }
-      ]
+      {
+        "text": "→ Промах",
+        "beat": "miss-emphasis"
+      },
+      {
+        "text": "→ Запись",
+        "beat": "write"
+      },
+      {
+        "text": "→ Попадание",
+        "beat": "hit-emphasis"
+      }
+    ],
+    "particles": {
+      "count": 50,
+      "seed": "cache-dust"
     }
   }
 }
