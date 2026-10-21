@@ -5,8 +5,8 @@ import { ensureFonts } from "./fonts.js";
 // шрифты kit грузятся при импорте: первый кадр уже нужным шрифтом
 ensureFonts();
 
-/** Версия API kit (API.md): 0.2 — StyleBible-система, хореография, примитивы паттернов ТЗ §8.4; 0.2.1 — Emphasis/Halo, акцент точки LineChart, входы и вспышки узлов FlowGraph (аддитивно); 0.2.2 — FlowNode.emphasis, AccentPulse.swell (аддитивно); 0.3.0 — кольцо акцента только на ударе по умолчанию, шторка mask с мягкой кромкой 14–18 кадров, FlowNode.size, Background seed/focus/spotlight/blueprint, useArrivalCount, StatusChip, DataToken, LatencyRace, SceneTitle (меняет вид существующих сцен, API — обратно совместим). */
-export const MOTION_KIT_VERSION = "0.3.0";
+/** Версия API kit (API.md): 0.2 — StyleBible-система, хореография, примитивы паттернов ТЗ §8.4; 0.2.1 — Emphasis/Halo, акцент точки LineChart, входы и вспышки узлов FlowGraph (аддитивно); 0.2.2 — FlowNode.emphasis, AccentPulse.swell (аддитивно); 0.3.0 — кольцо акцента только на ударе по умолчанию, шторка mask с мягкой кромкой 14–18 кадров, FlowNode.size, Background seed/focus/spotlight/blueprint, useArrivalCount, StatusChip, DataToken, LatencyRace, SceneTitle (меняет вид существующих сцен, API — обратно совместим); 0.3.1 — полировка после дизайн-ревью: FlowNode.slot и DataToken в слот, разная грамматика StatusChip / DataToken, LatencyRace от высоты кадра, различимые blueprint / spotlight, свечение Emphasis за текстом, сообщения kit о неверном использовании (аддитивно). */
+export const MOTION_KIT_VERSION = "0.3.1";
 
 export { ensureFonts, FONT_FILES, KIT_FONT_FAMILIES } from "./fonts.js";
 export { type PresetId, presets } from "./presets.js";
@@ -53,6 +53,7 @@ export {
   alpha,
   fontFamily,
   intensityScale,
+  hueDistance,
   isDark,
   luminance,
   mix,
@@ -78,15 +79,15 @@ export { Timeline, type TimelineProps } from "./components/Timeline.js";
 export { Background, type BackgroundBlob, type BackgroundProps, type BackgroundVariant, backgroundLayout, backgroundReveal } from "./components/Background.js";
 export { Camera, type CameraProps, useCamera } from "./components/Camera.js";
 export { Card, type CardEnter, type CardProps, cardEnterStyle, cardSurface, depthElevation } from "./components/Card.js";
-export { Emphasis, type EmphasisProps, HALO_FALLOFF, Halo, type HaloProps, emphasisRingVisible, falloff, useAccentPulse } from "./components/Emphasis.js";
+export { Emphasis, type EmphasisProps, HALO_FALLOFF, Halo, type HaloProps, emphasisFilter, emphasisRingVisible, falloff, haloLevel, useAccentPulse } from "./components/Emphasis.js";
 export { Enter, type EnterProps, enterDuration } from "./components/Enter.js";
 export { Parallax, type ParallaxProps } from "./components/Parallax.js";
-export { type FlowEdge, FlowGraph, type FlowGraphProps, type FlowNode, edgePath, flowLabelSizes, flowTiming, useFlowGeometry } from "./components/FlowGraph.js";
+export { type FlowEdge, FlowGraph, type FlowGraphProps, type FlowNode, type FlowSlot, edgePath, flowLabelSizes, flowSlot, flowTiming, useFlowGeometry } from "./components/FlowGraph.js";
 export { KineticText, type KineticEnter, type KineticTextProps } from "./components/KineticText.js";
 export { LineChart, type LineChartProps, chartFont, lineChartHead, lineHighlight } from "./components/LineChart.js";
 export { PulseAlongPath, type PulseAlongPathProps, useArrivalCount } from "./components/PulseAlongPath.js";
 export { SafeArea, useSafeArea } from "./components/SafeArea.js";
-export { type StatusAnchor, StatusChip, type StatusChipProps, type StatusFrame, type StatusState, type StatusTone, statusAt, toneColor } from "./components/StatusChip.js";
-export { DataToken, type DataTokenProps, type TokenFrame, tokenAt } from "./components/DataToken.js";
-export { type LaneFrame, type LaneTiming, type LatencyLane, LatencyRace, type LatencyRaceProps, latencyAt, latencyTiming } from "./components/LatencyRace.js";
+export { type StatusAnchor, StatusChip, type StatusChipProps, type StatusFrame, type StatusState, type StatusTone, statusAt, statusChipLook, toneColor } from "./components/StatusChip.js";
+export { DataToken, type DataTokenProps, type TokenFrame, dataColor, dataTokenLook, tokenAt } from "./components/DataToken.js";
+export { type LaneFrame, type LaneTiming, type LatencyLane, LatencyRace, type LatencyRaceProps, type LaneReadout, type LatencyLayout, laneReadout, latencyAt, latencyLayout, latencyTiming } from "./components/LatencyRace.js";
 export { SceneTitle, type SceneTitleProps, TITLE_IN_FLOW, type TitleMode } from "./components/SceneTitle.js";
