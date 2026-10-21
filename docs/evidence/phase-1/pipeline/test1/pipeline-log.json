@@ -1,54 +1,46 @@
 {
-  "run_id": "job_01M5EQ529ZTYXCVMX8RJFBSDFN",
-  "attempt": 2,
-  "cost_usd": 0.772837,
+  "run_id": "job_01M5ERRFSGX8D61XAHGM7JDY65",
+  "attempt": 1,
+  "cost_usd": 1.0231376,
   "engineer_calls": 2,
   "visual_qa": [
     {
       "call": 2,
-      "wall_ms": 26213,
-      "cost_usd": 0.13844259999999997,
+      "wall_ms": 26094,
+      "cost_usd": 0.13531400000000005,
       "status": "completed",
       "gate": {
         "technical": "pass",
-        "visual": "warn",
+        "visual": "pass",
         "semantic": "pass",
         "style": "pass"
       }
     }
   ],
   "timings": {
-    "engineer_1": 95888,
-    "static": 28,
-    "typecheck": 31195,
-    "engineer_2": 22981,
-    "render_2": 21286,
-    "qa_programmatic": 2693,
-    "visual_qa_2": 26232
+    "concept": 5975,
+    "motion_director": 57892,
+    "engineer_1": 73396,
+    "static": 49,
+    "typecheck": 30917,
+    "engineer_2": 20022,
+    "render_2": 20738,
+    "qa_programmatic": 2664,
+    "visual_qa_2": 26113
   },
   "history": [
     {
-      "at": "2026-10-21T08:01:38.803Z",
-      "stage": "concept",
-      "message": "Concept: результат из чекпоинта /Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EQ529ZTYXCVMX8RJFBSDFN/checkpoints/concept.json"
-    },
-    {
-      "at": "2026-10-21T08:01:38.846Z",
-      "stage": "director",
-      "message": "Motion Director: результат из чекпоинта /Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EQ529ZTYXCVMX8RJFBSDFN/checkpoints/motion_director.json"
-    },
-    {
-      "at": "2026-10-21T08:03:29.330Z",
+      "at": "2026-10-21T08:29:26.816Z",
       "stage": "typecheck",
-      "message": "src/Scene.tsx:189 Type 'SceneStyle' is not assignable to type 'StyleSource'.\n  Type 'SceneStyle' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'SceneStyle' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'preset' are incompatible.\n        Type 'string' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'."
+      "message": "src/Scene.tsx:183 Type '{ preset: \"dark-premium\" | \"light-clean\" | \"tech-neon\"; intensity: \"calm\" | \"balanced\" | \"energetic\"; depth?: number | undefined; transparent?: boolean | undefined; safe_area?: { ...; } | undefined; font?: string | undefined; }' is not assignable to type 'StyleSource'.\n  Type '{ preset: \"dark-premium\" | \"light-clean\" | \"tech-neon\"; intensity: \"calm\" | \"balanced\" | \"energetic\"; depth?: number | undefined; transparent?: boolean | undefined; safe_area?: { ...; } | undefined; font?: string | undefined; }' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type '{ preset: \"dark-premium\" | \"light-clean\" | \"tech-neon\"; intensity: \"calm\" | \"balanced\" | \"energetic\"; depth?: number | undefined; transparent?: boolean | undefined; safe_area?: { ...; } | undefined; font?: string | undefined; }' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
     },
     {
-      "at": "2026-10-21T08:05:00.938Z",
+      "at": "2026-10-21T08:30:55.283Z",
       "stage": "qa",
-      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
+      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"pass\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
     },
     {
-      "at": "2026-10-21T08:05:00.962Z",
+      "at": "2026-10-21T08:30:55.316Z",
       "stage": "ready",
       "message": "gate пройден с вызова 2"
     }

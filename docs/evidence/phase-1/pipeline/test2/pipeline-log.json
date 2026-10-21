@@ -1,40 +1,40 @@
 {
-  "run_id": "job_01M5EQ52A5JTQNGJMHJK1NP7B4",
+  "run_id": "job_01M5ERRFSPZ0Y02AF9X4DEZHFQ",
   "attempt": 1,
-  "cost_usd": 1.5418228000000003,
+  "cost_usd": 1.1213955,
   "engineer_calls": 1,
   "visual_qa": [
     {
       "call": 1,
-      "wall_ms": 44716,
-      "cost_usd": 0.16494950000000008,
+      "wall_ms": 32765,
+      "cost_usd": 0.141216,
       "status": "completed",
       "gate": {
         "technical": "pass",
         "visual": "warn",
-        "semantic": "warn",
-        "style": "pass"
+        "semantic": "pass",
+        "style": "warn"
       }
     }
   ],
   "timings": {
-    "concept": 6308,
-    "motion_director": 233052,
-    "engineer_1": 178778,
-    "static": 14,
-    "typecheck": 13034,
-    "render_1": 20020,
-    "qa_programmatic": 2941,
-    "visual_qa_1": 44736
+    "concept": 6511,
+    "motion_director": 63173,
+    "engineer_1": 120374,
+    "static": 39,
+    "typecheck": 13267,
+    "render_1": 19509,
+    "qa_programmatic": 2961,
+    "visual_qa_1": 32785
   },
   "history": [
     {
-      "at": "2026-10-21T08:13:22.976Z",
+      "at": "2026-10-21T08:33:14.856Z",
       "stage": "qa",
-      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"warn\",\"style\":\"pass\"}; blocking: —"
+      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"warn\"}; blocking: —"
     },
     {
-      "at": "2026-10-21T08:13:23.001Z",
+      "at": "2026-10-21T08:33:14.893Z",
       "stage": "ready",
       "message": "gate пройден с вызова 1"
     }

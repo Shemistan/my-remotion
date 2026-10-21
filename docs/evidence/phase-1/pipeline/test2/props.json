@@ -10,35 +10,35 @@
       {
         "id": "graph-build",
         "start_frame": 6,
-        "end_frame": 66
+        "end_frame": 60
       },
       {
-        "id": "request-pulse",
-        "start_frame": 46,
-        "end_frame": 68
+        "id": "pulse-request",
+        "start_frame": 58,
+        "end_frame": 76
       },
       {
-        "id": "tool-calls",
-        "start_frame": 70,
-        "end_frame": 92
+        "id": "pulse-fan-out",
+        "start_frame": 80,
+        "end_frame": 108
       },
       {
-        "id": "tool-returns",
-        "start_frame": 94,
-        "end_frame": 116
+        "id": "pulse-return",
+        "start_frame": 110,
+        "end_frame": 134
       },
       {
-        "id": "answer-return",
-        "start_frame": 118,
-        "end_frame": 138
-      },
-      {
-        "id": "answer-in",
-        "start_frame": 138,
+        "id": "pulse-answer",
+        "start_frame": 134,
         "end_frame": 152
       },
       {
-        "id": "final-hold",
+        "id": "answer-in",
+        "start_frame": 148,
+        "end_frame": 153
+      },
+      {
+        "id": "hold",
         "start_frame": 153,
         "end_frame": 180
       }
@@ -46,6 +46,7 @@
   },
   "style": {
     "preset": "dark-premium",
+    "palette_overrides": {},
     "intensity": "balanced",
     "depth": 1,
     "transparent": false,
@@ -55,155 +56,237 @@
     }
   },
   "content": {
-    "title": "Архитектура AI-агента",
-    "points": [],
     "kicker": {
-      "text": "AI-агент: путь запроса",
+      "text": "AI-агент: запрос → инструменты → ответ",
       "layout": {
-        "x": 0.32,
+        "x": 0.18,
         "y": 0,
-        "w": 0.36,
+        "w": 0.64,
         "h": 0.07
       }
     },
     "graph": {
-      "width": 1728,
-      "height": 739,
-      "enter": "rise",
       "layout": {
         "x": 0,
         "y": 0.12,
         "w": 1,
         "h": 0.76
-      }
-    },
-    "nodes": [
-      {
-        "id": "node-user",
-        "label": "Пользователь",
-        "caption": "запрос",
-        "x": 35,
-        "y": 290,
-        "w": 380,
-        "h": 110,
-        "elevation": 2,
-        "enter": "slide",
-        "enter_offset": 2
       },
-      {
-        "id": "node-orc",
-        "label": "Оркестратор",
-        "caption": "LLM планирует вызовы",
-        "x": 640,
-        "y": 260,
-        "w": 450,
-        "h": 170,
-        "elevation": 3,
-        "enter": "pop",
-        "enter_offset": 14,
-        "accent_index": 0
+      "travel": 18,
+      "pulse_options": {
+        "count": 1,
+        "repeat": false,
+        "tail": 170,
+        "size": 12
       },
-      {
-        "id": "node-search",
-        "label": "Поиск",
-        "caption": "инструмент",
-        "x": 1313,
-        "y": 60,
-        "w": 380,
-        "h": 110,
-        "elevation": 2,
-        "enter": "rise",
-        "enter_offset": 28
-      },
-      {
-        "id": "node-code",
-        "label": "Код",
-        "caption": "инструмент",
-        "x": 1313,
-        "y": 315,
-        "w": 380,
-        "h": 110,
-        "elevation": 2,
-        "enter": "rise",
-        "enter_offset": 32
-      },
-      {
-        "id": "node-db",
-        "label": "База данных",
-        "caption": "инструмент",
-        "x": 1313,
-        "y": 570,
-        "w": 380,
-        "h": 110,
-        "elevation": 2,
-        "enter": "rise",
-        "enter_offset": 36
-      }
-    ],
-    "edges": [
-      {
-        "id": "e-user",
-        "from": "node-user",
-        "to": "node-orc"
-      },
-      {
-        "id": "e-search",
-        "from": "node-orc",
-        "to": "node-search"
-      },
-      {
-        "id": "e-code",
-        "from": "node-orc",
-        "to": "node-code"
-      },
-      {
-        "id": "e-db",
-        "from": "node-orc",
-        "to": "node-db"
-      }
-    ],
-    "pulses": {
-      "travel": 20,
-      "count": 1,
-      "repeat": false,
-      "size": 12,
-      "tail": 170,
-      "accent_index": {
-        "e-user": 0,
-        "e-search": 0,
-        "e-code": 1,
-        "e-db": 2
-      }
-    },
-    "flows": {
-      "request": "e-user",
-      "tool_calls": [
-        "e-search",
-        "e-code",
-        "e-db"
+      "nodes": [
+        {
+          "id": "node-user",
+          "label": "Пользователь",
+          "caption": "запрос",
+          "enter": "slide",
+          "enterAt": 8,
+          "elevation": 2,
+          "layout": {
+            "x": 0.02,
+            "y": 0.42,
+            "w": 0.22,
+            "h": 0.13
+          }
+        },
+        {
+          "id": "node-orc",
+          "label": "Оркестратор",
+          "caption": "планирует вызовы",
+          "enter": "pop",
+          "enterAt": 18,
+          "elevation": 3,
+          "layout": {
+            "x": 0.36,
+            "y": 0.39,
+            "w": 0.28,
+            "h": 0.19
+          }
+        },
+        {
+          "id": "node-search",
+          "label": "Веб-поиск",
+          "caption": "инструмент",
+          "enter": "rise",
+          "enterAt": 30,
+          "elevation": 2,
+          "layout": {
+            "x": 0.74,
+            "y": 0.17,
+            "w": 0.24,
+            "h": 0.13
+          }
+        },
+        {
+          "id": "node-db",
+          "label": "База данных",
+          "caption": "инструмент",
+          "enter": "rise",
+          "enterAt": 34,
+          "elevation": 2,
+          "layout": {
+            "x": 0.74,
+            "y": 0.42,
+            "w": 0.24,
+            "h": 0.13
+          }
+        },
+        {
+          "id": "node-calc",
+          "label": "Калькулятор",
+          "caption": "инструмент",
+          "enter": "rise",
+          "enterAt": 38,
+          "elevation": 2,
+          "layout": {
+            "x": 0.74,
+            "y": 0.67,
+            "w": 0.24,
+            "h": 0.13
+          }
+        }
       ],
-      "tool_returns": [
-        "e-search",
-        "e-db",
-        "e-code"
+      "edges": [
+        {
+          "id": "e-req",
+          "from": "node-user",
+          "to": "node-orc"
+        },
+        {
+          "id": "e-t1",
+          "from": "node-orc",
+          "to": "node-search"
+        },
+        {
+          "id": "e-t2",
+          "from": "node-orc",
+          "to": "node-db"
+        },
+        {
+          "id": "e-t3",
+          "from": "node-orc",
+          "to": "node-calc"
+        }
       ],
-      "answer": "e-user"
+      "flows": [
+        {
+          "edge": "e-req",
+          "direction": "forward",
+          "beat": "pulse-request",
+          "accent": 0,
+          "delay": 0
+        },
+        {
+          "edge": "e-t1",
+          "direction": "forward",
+          "beat": "pulse-fan-out",
+          "accent": 1,
+          "delay": 0
+        },
+        {
+          "edge": "e-t2",
+          "direction": "forward",
+          "beat": "pulse-fan-out",
+          "accent": 1,
+          "delay": 4
+        },
+        {
+          "edge": "e-t3",
+          "direction": "forward",
+          "beat": "pulse-fan-out",
+          "accent": 1,
+          "delay": 8
+        },
+        {
+          "edge": "e-t1",
+          "direction": "back",
+          "beat": "pulse-return",
+          "accent": 2,
+          "delay": 0
+        },
+        {
+          "edge": "e-t2",
+          "direction": "back",
+          "beat": "pulse-return",
+          "accent": 2,
+          "delay": 4
+        },
+        {
+          "edge": "e-t3",
+          "direction": "back",
+          "beat": "pulse-return",
+          "accent": 2,
+          "delay": 8
+        },
+        {
+          "edge": "e-req",
+          "direction": "back",
+          "beat": "pulse-answer",
+          "accent": 0,
+          "delay": 0
+        }
+      ],
+      "flash": {
+        "node-orc": [
+          {
+            "edge": "e-req",
+            "direction": "forward",
+            "beat": "pulse-request"
+          },
+          {
+            "edge": "e-t2",
+            "direction": "back",
+            "beat": "pulse-return"
+          }
+        ],
+        "node-search": [
+          {
+            "edge": "e-t1",
+            "direction": "forward",
+            "beat": "pulse-fan-out"
+          }
+        ],
+        "node-db": [
+          {
+            "edge": "e-t2",
+            "direction": "forward",
+            "beat": "pulse-fan-out"
+          }
+        ],
+        "node-calc": [
+          {
+            "edge": "e-t3",
+            "direction": "forward",
+            "beat": "pulse-fan-out"
+          }
+        ],
+        "node-user": [
+          {
+            "edge": "e-req",
+            "direction": "back",
+            "beat": "pulse-answer"
+          }
+        ]
+      }
     },
-    "badge": {
+    "answer": {
       "text": "Ответ готов",
+      "arrival": {
+        "edge": "e-req",
+        "direction": "back",
+        "beat": "pulse-answer"
+      },
       "layout": {
         "x": 0.03,
-        "y": 0.575,
+        "y": 0.61,
         "w": 0.2,
-        "h": 0.08
-      },
-      "elevation": 3,
-      "accent_index": 1
-    },
-    "particles": {
-      "count": 40,
-      "seed": "agent-dust"
-    },
-    "background_seed": "agent-architecture"
+        "h": 0.09
+      }
+    }
   }
 }

@@ -1,16 +1,16 @@
 import React from "react";
-import { useVideoConfig } from "remotion";
+import { useCurrentFrame, useVideoConfig } from "remotion";
 import {
   Background,
-  Card,
   Emphasis,
   FlowGraph,
   KineticText,
-  Particles,
   PulseAlongPath,
   SafeArea,
   StyleProvider,
   accent,
+  cardEnterStyle,
+  cardSurface,
   pulseArrival,
   typeSize,
   useFlowGeometry,
@@ -18,201 +18,170 @@ import {
   useStyle,
 } from "@ms/motion-kit";
 
+type StyleInput = React.ComponentProps<typeof StyleProvider>["style"];
+type GraphNode = React.ComponentProps<typeof FlowGraph>["nodes"][number];
+type NodeEnter = NonNullable<GraphNode["enter"]>;
+
 type Beat = { id: string; start_frame: number; end_frame: number };
-type Span = { start_frame: number; end_frame: number };
+type Frame = { start_frame: number; end_frame: number };
 type Layout = { x: number; y: number; w: number; h: number };
-type CardEnterKind = "rise" | "scale" | "flip" | "pop" | "slide" | "swing" | "blur" | "fade" | "none";
+type Direction = "forward" | "back";
+
+type FlowRef = { edge: string; direction: Direction; beat: string };
+type Flow = FlowRef & { accent: number; delay: number };
 
 type NodeContent = {
   id: string;
   label: string;
   caption: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+  enter: NodeEnter;
+  enterAt: number;
   elevation: 0 | 1 | 2 | 3;
-  enter: CardEnterKind;
-  enter_offset: number;
-  accent_index?: number;
+  layout: Layout;
 };
-
-type EdgeContent = { id: string; from: string; to: string };
 
 type Content = {
-  title: string;
-  points: unknown[];
   kicker: { text: string; layout: Layout };
-  graph: { width: number; height: number; enter: CardEnterKind; layout: Layout };
-  nodes: NodeContent[];
-  edges: EdgeContent[];
-  pulses: {
+  graph: {
+    layout: Layout;
     travel: number;
-    count: number;
-    repeat: boolean;
-    size: number;
-    tail: number;
-    accent_index: Record<string, number>;
+    pulse_options: { count: number; repeat: boolean; tail: number; size: number };
+    nodes: NodeContent[];
+    edges: { id: string; from: string; to: string }[];
+    flows: Flow[];
+    flash: Record<string, FlowRef[]>;
   };
-  flows: { request: string; tool_calls: string[]; tool_returns: string[]; answer: string };
-  badge: { text: string; layout: Layout; elevation: 0 | 1 | 2 | 3; accent_index: number };
-  particles: { count: number; seed: string };
-  background_seed: string;
+  answer: { text: string; arrival: FlowRef; layout: Layout };
 };
 
-type Props = {
+export type SceneProps = {
   timing: { duration_frames: number; beats: Beat[] };
-  style: React.ComponentProps<typeof StyleProvider>["style"];
+  style: StyleInput;
   content: Content;
 };
 
-type Arrival = ReturnType<typeof pulseArrival>;
-
-const findBeat = (beats: Beat[], id: string): Span => {
+const beatOf = (beats: Beat[], id: string): Frame => {
   const b = beats.find((x) => x.id === id);
-  if (!b) throw new Error(`Beat "${id}" not found in props.timing.beats`);
+  if (!b) throw new Error(`beat "${id}" not found in props.timing.beats`);
   return { start_frame: b.start_frame, end_frame: b.end_frame };
 };
 
-// Веер импульсов: старт каждого сдвинут на stagger, все проходы укладываются в бит.
-const fanBeats = (beat: Span, n: number, stagger: number): Span[] =>
-  Array.from({ length: n }, (_, i) => ({
-    start_frame: beat.start_frame + i * stagger,
-    end_frame: beat.end_frame,
-  }));
-
-const fanTravel = (beat: Span, n: number, stagger: number, travel: number): number =>
-  Math.max(1, Math.min(travel, beat.end_frame - beat.start_frame - (n - 1) * stagger));
+// Окно конкретного прохода: бит потока, сдвинутый на delay из spec.
+const flowBeat = (beats: Beat[], flows: Flow[], ref: FlowRef): Frame => {
+  const b = beatOf(beats, ref.beat);
+  const f = flows.find((x) => x.edge === ref.edge && x.direction === ref.direction && x.beat === ref.beat);
+  const delay = f ? f.delay : 0;
+  return { start_frame: Math.min(b.start_frame + delay, b.end_frame), end_frame: b.end_frame };
+};
 
 const AnswerBadge: React.FC<{
-  content: Content["badge"];
-  arrival: Arrival;
-  fallbackStart: number;
-  enterBeat: Span;
-  holdEnd: number;
-  graphTop: number;
-}> = ({ content, arrival, fallbackStart, enterBeat, holdEnd, graphTop }) => {
-  const style = useStyle();
-  const { height } = useVideoConfig();
-  const rect = useSafeArea();
+  text: string;
+  arrival: ReturnType<typeof pulseArrival>;
+  answerBeat: Frame;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}> = ({ text, arrival, answerBeat, left, top, width, height }) => {
+  const frame = useCurrentFrame();
+  const { fps, height: frameH } = useVideoConfig();
+  const s = useStyle();
   const geo = useFlowGeometry();
-  const at = geo?.arrivals(arrival)[0] ?? fallbackStart;
-  const enterLen = enterBeat.end_frame - enterBeat.start_frame;
-  const emphasisStart = Math.max(enterBeat.end_frame, at + enterLen);
+  const arrivals = geo ? geo.arrivals(arrival) : [];
+  const enterAt = arrivals.length > 0 ? arrivals[0]! : answerBeat.start_frame;
+  // Акцент передаётся: сначала вспышка узла «Пользователь», затем удар и дыхание плашки.
+  const emphStart = Math.max(enterAt + s.motion.stagger_frames, answerBeat.end_frame);
+
+  if (frame < enterAt) return null;
+
+  const surface = cardSurface(s, 2);
+  const enterStyle = cardEnterStyle(s, frame, fps, enterAt, "pop");
+  const fontSize = typeSize(s, "body", frameH);
 
   return (
     <div
       style={{
         position: "absolute",
-        left: content.layout.x * rect.w,
-        top: content.layout.y * rect.h - graphTop,
-        display: "inline-block",
+        left,
+        top,
+        width,
+        height,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
-      <Emphasis
-        beat={{ start_frame: emphasisStart, end_frame: holdEnd }}
-        loop
-        shape="pill"
-        accentIndex={content.accent_index}
-      >
-        <Card
-          elevation={content.elevation}
-          beat={{ start_frame: at, end_frame: at + enterLen }}
-          enter="pop"
-          padding={0}
-          style={{ borderRadius: style.surfaces.radius[3] }}
-        >
+      <div style={enterStyle}>
+        <Emphasis beat={{ start_frame: emphStart, end_frame: emphStart + s.motion.enter_frames }} loop shape="pill">
           <div
             style={{
-              padding: "0.3em 0.75em",
-              fontSize: typeSize(style, "body", height),
-              fontFamily: style.typography.body.family,
+              ...surface,
+              borderRadius: 999,
+              padding: "0.35em 1em",
+              fontSize,
+              fontFamily: s.typography.body.family,
               fontWeight: 600,
-              color: style.palette.text,
+              color: s.palette.text,
               whiteSpace: "nowrap",
-              lineHeight: 1.2,
             }}
           >
-            {content.text}
+            {text}
           </div>
-        </Card>
-      </Emphasis>
+        </Emphasis>
+      </div>
     </div>
   );
 };
 
-const SceneBody: React.FC<Props> = ({ timing, content }) => {
-  const style = useStyle();
+const SceneBody: React.FC<{ timing: SceneProps["timing"]; content: Content }> = ({ timing, content }) => {
+  const s = useStyle();
   const rect = useSafeArea();
-  const beats = timing.beats;
+  const { beats } = timing;
+  const g = content.graph;
 
-  const kickerBeat = findBeat(beats, "kicker-in");
-  const graphBeat = findBeat(beats, "graph-build");
-  const requestBeat = findBeat(beats, "request-pulse");
-  const callsBeat = findBeat(beats, "tool-calls");
-  const returnsBeat = findBeat(beats, "tool-returns");
-  const answerBeat = findBeat(beats, "answer-return");
-  const answerInBeat = findBeat(beats, "answer-in");
-  const holdBeat = findBeat(beats, "final-hold");
+  const graphBeat = beatOf(beats, "graph-build");
+  const kickerBeat = beatOf(beats, "kicker-in");
+  const answerBeat = beatOf(beats, "answer-in");
 
-  const { pulses, flows } = content;
-  const stagger = style.motion.stagger_frames;
-  const opts = { count: pulses.count, repeat: pulses.repeat };
+  const gx = g.layout.x * rect.w;
+  const gy = g.layout.y * rect.h;
+  const gw = g.layout.w * rect.w;
+  const gh = g.layout.h * rect.h;
 
-  const callBeats = fanBeats(callsBeat, flows.tool_calls.length, stagger);
-  const callTravel = fanTravel(callsBeat, flows.tool_calls.length, stagger, pulses.travel);
-  const returnBeats = fanBeats(returnsBeat, flows.tool_returns.length, stagger);
-  const returnTravel = fanTravel(returnsBeat, flows.tool_returns.length, stagger, pulses.travel);
+  const opts = { count: g.pulse_options.count, repeat: g.pulse_options.repeat };
+  const arrivalOf = (ref: FlowRef) => pulseArrival(ref.edge, flowBeat(beats, g.flows, ref), g.travel, opts);
 
-  const lastReturn = flows.tool_returns.length - 1;
-  const requestArrival = pulseArrival(flows.request, requestBeat, pulses.travel, opts);
-  const answerArrival = pulseArrival(flows.answer, answerBeat, pulses.travel, opts);
-  const lastReturnArrival = pulseArrival(
-    flows.tool_returns[lastReturn]!,
-    returnBeats[lastReturn]!,
-    returnTravel,
-    opts,
-  );
+  const nodes: GraphNode[] = g.nodes.map((n) => {
+    const refs = g.flash[n.id] ?? [];
+    return {
+      id: n.id,
+      label: n.label,
+      caption: n.caption,
+      x: n.layout.x * rect.w - gx,
+      y: n.layout.y * rect.h - gy,
+      w: n.layout.w * rect.w,
+      h: n.layout.h * rect.h,
+      elevation: n.elevation,
+      enter: n.enter,
+      enterAt: n.enterAt,
+      ...(refs.length > 0 ? { flash: refs.map(arrivalOf) } : {}),
+    };
+  });
 
-  const edgeTarget = (edgeId: string): string | undefined =>
-    content.edges.find((e) => e.id === edgeId)?.to;
-  const userId = content.edges.find((e) => e.id === flows.answer)?.from;
-  const orcId = edgeTarget(flows.request);
-
-  const flashOf = (nodeId: string): Arrival[] => {
-    if (nodeId === userId) return [answerArrival];
-    if (nodeId === orcId) return [requestArrival, lastReturnArrival];
-    const i = flows.tool_calls.findIndex((edgeId) => edgeTarget(edgeId) === nodeId);
-    return i >= 0 ? [pulseArrival(flows.tool_calls[i]!, callBeats[i]!, callTravel, opts)] : [];
-  };
-
-  const nodes = content.nodes.map((n) => ({
-    id: n.id,
-    label: n.label,
-    caption: n.caption,
-    x: n.x,
-    y: n.y,
-    w: n.w,
-    h: n.h,
-    elevation: n.elevation,
-    enter: n.enter,
-    enterAt: graphBeat.start_frame + n.enter_offset,
-    flash: flashOf(n.id),
-    ...(n.accent_index !== undefined ? { accentIndex: n.accent_index } : {}),
-  }));
-
-  const pulseColor = (edgeId: string): string => accent(style, pulses.accent_index[edgeId] ?? 0);
-  const graphTop = content.graph.layout.y * rect.h;
+  const k = content.kicker.layout;
+  const a = content.answer.layout;
 
   return (
     <>
       <div
         style={{
           position: "absolute",
-          left: content.kicker.layout.x * rect.w,
-          top: content.kicker.layout.y * rect.h,
-          width: content.kicker.layout.w * rect.w,
+          left: k.x * rect.w,
+          top: k.y * rect.h,
+          width: k.w * rect.w,
+          height: k.h * rect.h,
           display: "flex",
+          alignItems: "center",
           justifyContent: "center",
         }}
       >
@@ -223,84 +192,36 @@ const SceneBody: React.FC<Props> = ({ timing, content }) => {
           enter="type"
           size="body"
           font="mono"
-          color={style.palette.muted}
+          color={s.palette.muted}
           align="center"
-          maxWidth={content.kicker.layout.w * rect.w}
+          maxWidth={k.w * rect.w}
         />
       </div>
 
-      <div
-        style={{
-          position: "absolute",
-          left: content.graph.layout.x * rect.w,
-          top: graphTop,
-          width: content.graph.width,
-          height: content.graph.height,
-        }}
-      >
-        <FlowGraph
-          nodes={nodes}
-          edges={content.edges}
-          beat={graphBeat}
-          width={content.graph.width}
-          height={content.graph.height}
-          enter={content.graph.enter}
-        >
-          <PulseAlongPath
-            edgeId={flows.request}
-            beat={requestBeat}
-            travel={pulses.travel}
-            count={pulses.count}
-            repeat={pulses.repeat}
-            size={pulses.size}
-            tail={pulses.tail}
-            color={pulseColor(flows.request)}
-          />
-          {flows.tool_calls.map((edgeId, i) => (
+      <div style={{ position: "absolute", left: gx, top: gy, width: gw, height: gh }}>
+        <FlowGraph nodes={nodes} edges={g.edges} beat={graphBeat} width={gw} height={gh}>
+          {g.flows.map((f, i) => (
             <PulseAlongPath
-              key={`call-${edgeId}`}
-              edgeId={edgeId}
-              beat={callBeats[i]!}
-              travel={callTravel}
-              count={pulses.count}
-              repeat={pulses.repeat}
-              size={pulses.size}
-              tail={pulses.tail}
-              color={pulseColor(edgeId)}
+              key={`${f.edge}-${f.direction}-${i}`}
+              edgeId={f.edge}
+              beat={flowBeat(beats, g.flows, f)}
+              travel={g.travel}
+              count={g.pulse_options.count}
+              repeat={g.pulse_options.repeat}
+              tail={g.pulse_options.tail}
+              size={g.pulse_options.size}
+              color={accent(s, f.accent)}
+              reverse={f.direction === "back"}
             />
           ))}
-          {flows.tool_returns.map((edgeId, i) => (
-            <PulseAlongPath
-              key={`return-${edgeId}`}
-              edgeId={edgeId}
-              beat={returnBeats[i]!}
-              travel={returnTravel}
-              count={pulses.count}
-              repeat={pulses.repeat}
-              size={pulses.size}
-              tail={pulses.tail}
-              color={pulseColor(edgeId)}
-              reverse
-            />
-          ))}
-          <PulseAlongPath
-            edgeId={flows.answer}
-            beat={answerBeat}
-            travel={pulses.travel}
-            count={pulses.count}
-            repeat={pulses.repeat}
-            size={pulses.size}
-            tail={pulses.tail}
-            color={pulseColor(flows.answer)}
-            reverse
-          />
           <AnswerBadge
-            content={content.badge}
-            arrival={answerArrival}
-            fallbackStart={answerInBeat.start_frame}
-            enterBeat={answerInBeat}
-            holdEnd={holdBeat.end_frame}
-            graphTop={graphTop}
+            text={content.answer.text}
+            arrival={arrivalOf(content.answer.arrival)}
+            answerBeat={answerBeat}
+            left={a.x * rect.w - gx}
+            top={a.y * rect.h - gy}
+            width={a.w * rect.w}
+            height={a.h * rect.h}
           />
         </FlowGraph>
       </div>
@@ -308,32 +229,14 @@ const SceneBody: React.FC<Props> = ({ timing, content }) => {
   );
 };
 
-const Atmosphere: React.FC<{ timing: Props["timing"]; content: Content }> = ({ timing, content }) => {
-  const style = useStyle();
-  const intro = findBeat(timing.beats, "kicker-in");
-  const build = findBeat(timing.beats, "graph-build");
-  const dust = { start_frame: intro.start_frame, end_frame: build.end_frame };
+export const Scene: React.FC<SceneProps> = ({ timing, style, content }) => {
+  const transparent = typeof style === "object" && style !== null && "transparent" in style && style.transparent === true;
   return (
-    <>
-      {style.transparent ? null : (
-        <Background beat={intro} variant="aurora" seed={content.background_seed} />
-      )}
-      <Particles
-        count={content.particles.count}
-        seed={content.particles.seed}
-        beat={dust}
-        layer={0}
-        accentShare={0.2}
-      />
-    </>
+    <StyleProvider style={style}>
+      {transparent ? null : <Background beat={beatOf(timing.beats, "graph-build")} variant="aurora" />}
+      <SafeArea>
+        <SceneBody timing={timing} content={content} />
+      </SafeArea>
+    </StyleProvider>
   );
 };
-
-export const Scene: React.FC<Props> = (props) => (
-  <StyleProvider style={props.style}>
-    <Atmosphere timing={props.timing} content={props.content} />
-    <SafeArea>
-      <SceneBody {...props} />
-    </SafeArea>
-  </StyleProvider>
-);

@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5EQA2HR4HKSKR91G7FCH9AM",
-  "scene_id": "scn_01M5EQ529ER2S8Z5VYCSAXP1D9",
+  "version_id": "ver_01M5ERXFZ32FTCSM0EWMTNQ7EP",
+  "scene_id": "scn_01M5ERRFRY7ZMRNAKQ0T48497J",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T07:55:13.849Z",
+  "created_at": "2026-10-21T08:23:18.756Z",
   "prompt": "Таймлайн развития компании 2015–2025 с пятью вехами",
   "edit_plan": null,
   "settings": {
@@ -27,68 +27,68 @@
   },
   "files": [
     {
-      "path": "frames/119.png",
-      "sha256": "a965a4aef1d7d86b14f8ee3ab363e978dc08925424bf1966c80e1fa28f2433d5"
+      "path": "frames/118.png",
+      "sha256": "f540d9e8f30e656db75ae5c8ef57aefc570167c9af13919ab493137b8fca64ff"
     },
     {
-      "path": "frames/131.png",
-      "sha256": "1f9962fa8e1e5ce54c954eff7690c8c28b195e5f16aa61ab80aee2554b1333eb"
+      "path": "frames/129.png",
+      "sha256": "da8d93bcba5dd485298af144a033a3103f5a934f5a3332deadff28758861eca2"
     },
     {
       "path": "frames/166.png",
-      "sha256": "b28ed65cf0042410cd8fb1b5c1b0a8226946589c928e8184f1d3b16296e1dea4"
+      "sha256": "8f31a10395056c81d3c7bad31705f28904400ccf369f3cf026c68d25931e1245"
     },
     {
       "path": "frames/179.png",
-      "sha256": "f70ce9dc9b4bfc7593a12341229d16652271dafc01a91b2b0c72ad8946f65d7d"
+      "sha256": "3ce4adb2dca64ab443a629882052917303252f76c2d5e53b13f337c089eb3e9d"
     },
     {
       "path": "frames/24.png",
-      "sha256": "487948804a1afdde1fb9657ad838a4d0f9e940554289445ce1ae5fab54e1ab06"
+      "sha256": "81155db47b524852c933a2af196c61cdb11db72492a82ebe8543c16150fd1d58"
     },
     {
       "path": "frames/71.png",
-      "sha256": "c1e5dcc403e03a28dbf5b49a8c9e93891e4e1e0f7ac2f122b61e35b2414fdf09"
+      "sha256": "04a3ae970988c2562734e9ec8fd3bc2b6e9d20198ab36c66e828f2a8302decf3"
     },
     {
       "path": "knowledge-refs.json",
-      "sha256": "4fd1a8480fcfba353a83e4678345848d330999fe4e563cc71b4469b5c16a9993"
+      "sha256": "801c0340d30ba3e97190928b67f0519e22b38a4e0563686cc0860de3d4dfc73a"
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "07ed4921613ce3771bf738a1a4e1c317cbfaccd80d7ea3e28b45753d2beb3109"
+      "sha256": "6342c76a6dc8b106d03fb9aae07c22c26f80311e2f4c7b6f68281d0f2e4ef71a"
     },
     {
       "path": "preview.mp4",
-      "sha256": "4ceedfafab779efdb4776cca2f6906a0b0338036d5ddac3b9850a77e962709ba"
+      "sha256": "8dd413be842e0c01843db39de96db5a960dc5381c8a2c3792614d755421e49fb"
     },
     {
       "path": "props.json",
-      "sha256": "b0a49123ed1a2f793aaebc34fa5635aa69c8d92e61c1c2dc806956124c9a42da"
+      "sha256": "a5c827ae9b66df064e48ddd30a3843efc97c8a1f4bbc075f7fa9b435387401ec"
     },
     {
       "path": "qa.json",
-      "sha256": "b84adb04f8d29104add4753f74aec93a7187a4eaa1965d89d312d42be3a30114"
+      "sha256": "e5eb6ef269843d0700d1095894e3a5dd32ffe0a64edcb2514034b3ec71970bf2"
     },
     {
-      "path": "refs/kb/free-remotion-templates/chapter-title/CARD.md",
-      "sha256": "7f6430f4411d5a70d1f3032f882a03310856486023b6c8f32ef556992d252e18"
+      "path": "refs/kb/free-remotion-templates/line-chart-anim/CARD.md",
+      "sha256": "6d3141f03bf9e1c7e372bf2993e0eb17758a5566024409953c2cac5248ad8e8c"
     },
     {
-      "path": "refs/kb/free-remotion-templates/chapter-title/templates/remotion-components/free-remotion-templates/src/components/chapter-title/ChapterTitle.tsx",
-      "sha256": "8caae393cf07cd043b7521305974504f4d9dab4e8178fffee7c52d780b049ed8"
+      "path": "refs/kb/free-remotion-templates/line-chart-anim/templates/remotion-components/free-remotion-templates/src/components/line-chart-anim/LineChartAnim.tsx",
+      "sha256": "727cb6c5bc0882b7e2158b2a5c6a90d07270753b091c8ce470a4a940f7b3afde"
     },
     {
-      "path": "refs/kb/remotion-bits/bit-staggered-fade-in/CARD.md",
-      "sha256": "ecf82657001ed51874b3e2434a3b0941ae8f1e335f1d26a898904a754e8af605"
+      "path": "refs/kb/motion-primitives-website/svg-path-draw/CARD.md",
+      "sha256": "568575ca98d704275def6e9c2f3fc5ac2b80d108bf0888f1d71dbba7ea847bd7"
     },
     {
-      "path": "refs/kb/remotion-bits/bit-staggered-fade-in/templates/remotion-components/remotion-bits/docs/src/bits/examples/staggered-motion/StaggeredFadeIn.tsx",
-      "sha256": "7d5932bd526a002a826498c074a48abf6f051063b18cfe68770b2972c92838f8"
+      "path": "refs/kb/motion-primitives-website/svg-path-draw/templates/react-libriry/motion-primitives-website/src/components/svg/animated-svg.tsx",
+      "sha256": "2e34dc4ac14ec9377193e366217e90d02a46f02d1e0881ffce5a6ccbe0dabd32"
     },
     {
       "path": "refs/motion-kit/API.md",
-      "sha256": "7925c5868c2c7b5eb7e6e7cc3aef9f7858539a08d113664881e128c285cf0c2e"
+      "sha256": "273f826495022cf9926e11cbc27178f82556621555456dfad54a0fd4073ab86f"
     },
     {
       "path": "refs/skills/remotion-markup/SKILL.md",
@@ -116,7 +116,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "628026a97b36e86047a15d75185f1099528de22ea44cfe5fa00e6578842e5116"
+      "sha256": "c7c633957b13dd57ab821ec8af8592ae6a503f834741995818a6156ab9f2971b"
     },
     {
       "path": "settings.json",
@@ -124,11 +124,11 @@
     },
     {
       "path": "spec.json",
-      "sha256": "181ee24f41bf68e4d21b73ce20c8fe9a76977f63e44a6f421e9bc042e670ea74"
+      "sha256": "2f41599290cea341702888abc00a7235c66100aba3a86098e2733faa6e778196"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "2a91fcd8547be86fe748894d1dfc4a7f6cb136e29d50936f2547a0ebb2cdf60d"
+      "sha256": "d1ed283368d17272f20c9d8879df3235bba33db97931c352e061384af70cc077"
     },
     {
       "path": "style.json",
@@ -142,29 +142,29 @@
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:5293b406242306d9",
+    "motion_kit": "sha256:16e2a35e85de9c01",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
   "knowledge_refs": [
     {
-      "kb_id": "free-remotion-templates/chapter-title",
-      "commit": "f648980",
-      "license": "MIT (package.json, LICENSE, SPDX-заголовок в файле)",
+      "kb_id": "motion-primitives-website/svg-path-draw",
+      "commit": "cff72d8",
+      "license": "MIT (package.json; файла LICENSE нет)",
       "strategy": "adapt"
     },
     {
-      "kb_id": "remotion-bits/bit-staggered-fade-in",
-      "commit": "de35fda",
-      "license": "MIT (package.json)",
+      "kb_id": "free-remotion-templates/line-chart-anim",
+      "commit": "f648980",
+      "license": "MIT (package.json, LICENSE, SPDX-заголовок в файле)",
       "strategy": "adapt"
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5EQ529JPZ22ABSPS2HMA851/a1-concept-1",
-    "logs/agent-runs/job_01M5EQ529JPZ22ABSPS2HMA851/a1-motion_director-1",
-    "logs/agent-runs/job_01M5EQ529JPZ22ABSPS2HMA851/a1-engineer-1",
-    "logs/agent-runs/job_01M5EQ529JPZ22ABSPS2HMA851/a1-visual_qa-1"
+    "logs/agent-runs/job_01M5ERRFS33QVJ8H6787ZK8FRE/a1-concept-1",
+    "logs/agent-runs/job_01M5ERRFS33QVJ8H6787ZK8FRE/a1-motion_director-1",
+    "logs/agent-runs/job_01M5ERRFS33QVJ8H6787ZK8FRE/a1-engineer-1",
+    "logs/agent-runs/job_01M5ERRFS33QVJ8H6787ZK8FRE/a1-visual_qa-1"
   ],
   "qa": {
     "technical": "pass",
@@ -174,27 +174,27 @@
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "4ceedfafab779efdb4776cca2f6906a0b0338036d5ddac3b9850a77e962709ba"
+    "sha256": "8dd413be842e0c01843db39de96db5a960dc5381c8a2c3792614d755421e49fb"
   },
   "status": "ready",
   "qa_frames": [
     24,
     71,
-    119,
-    131,
+    118,
+    129,
     166,
     179
   ],
   "qa_frames_sha256": [
-    "487948804a1afdde1fb9657ad838a4d0f9e940554289445ce1ae5fab54e1ab06",
-    "c1e5dcc403e03a28dbf5b49a8c9e93891e4e1e0f7ac2f122b61e35b2414fdf09",
-    "a965a4aef1d7d86b14f8ee3ab363e978dc08925424bf1966c80e1fa28f2433d5",
-    "1f9962fa8e1e5ce54c954eff7690c8c28b195e5f16aa61ab80aee2554b1333eb",
-    "b28ed65cf0042410cd8fb1b5c1b0a8226946589c928e8184f1d3b16296e1dea4",
-    "f70ce9dc9b4bfc7593a12341229d16652271dafc01a91b2b0c72ad8946f65d7d"
+    "81155db47b524852c933a2af196c61cdb11db72492a82ebe8543c16150fd1d58",
+    "04a3ae970988c2562734e9ec8fd3bc2b6e9d20198ab36c66e828f2a8302decf3",
+    "f540d9e8f30e656db75ae5c8ef57aefc570167c9af13919ab493137b8fca64ff",
+    "da8d93bcba5dd485298af144a033a3103f5a934f5a3332deadff28758861eca2",
+    "8f31a10395056c81d3c7bad31705f28904400ccf369f3cf026c68d25931e1245",
+    "3ce4adb2dca64ab443a629882052917303252f76c2d5e53b13f337c089eb3e9d"
   ],
   "job": {
-    "id": "job_01M5EQ529JPZ22ABSPS2HMA851",
+    "id": "job_01M5ERRFS33QVJ8H6787ZK8FRE",
     "attempt": 1
   }
 }
