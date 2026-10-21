@@ -39,6 +39,35 @@ describe("accentPulse", () => {
     expect(Math.max(...diffs)).toBeGreaterThan(0.2);
   });
 
+  it("удержание заметно: размах свечения ≥ 0.5 при balanced, не гаснет ниже 0.2", () => {
+    const win = Array.from({ length: 200 }, (_, i) => at(150 + i).level);
+    expect(Math.max(...win) - Math.min(...win)).toBeGreaterThan(0.5);
+    expect(Math.min(...win)).toBeGreaterThan(0.2);
+    const sc = Array.from({ length: 200 }, (_, i) => at(150 + i).scale);
+    expect(Math.max(...sc) - Math.min(...sc)).toBeGreaterThan(0.03);
+    expect(Math.max(...sc)).toBeLessThan(1.025);
+  });
+
+  it("размах удержания — по интенсивности: calm < balanced < energetic", () => {
+    const range = (intensity: "calm" | "balanced" | "energetic") => {
+      const s = resolveStyle({ preset: "dark-premium", intensity });
+      const w = Array.from({ length: 200 }, (_, i) => at(150 + i, {}, s).level);
+      return Math.max(...w) - Math.min(...w);
+    };
+    expect(range("calm")).toBeLessThan(range("balanced"));
+    expect(range("balanced")).toBeLessThan(range("energetic"));
+    expect(range("calm")).toBeGreaterThan(0.3);
+  });
+
+  it("любые два кадра удержания через 19 различаются: свечение или масштаб (N−20 / N−1)", () => {
+    for (let f = 120; f < 400; f++) {
+      const a = at(f);
+      const b = at(f + 19);
+      const moved = Math.abs(a.level - b.level) > 0.08 || Math.abs(a.scale - b.scale) > 0.006;
+      expect(moved, `кадры ${f} / ${f + 19}`).toBe(true);
+    }
+  });
+
   it("без loop акцент гаснет после конца бита", () => {
     expect(at(80, { loop: false }).level).toBeGreaterThan(0.25);
     const after = at(90 + 40, { loop: false });

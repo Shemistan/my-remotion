@@ -111,8 +111,14 @@ export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, 
   // кольцо: отходит от кромки цели на 4 → 30 px с торможением и гаснет
   const rp = p.ripple >= 0 ? 1 - (1 - p.ripple) ** 3 : 0;
   const offset = Number((4 + 26 * rp).toFixed(3));
+  // свечение по контуру: плотная кромка и широкий мягкий шлейф — оба дышат с level;
+  // на тёмном фоне шлейф — главный носитель «живого» удержания, на светлом он тише
   const filter = glow
-    ? `drop-shadow(0 0 ${(0.16 * p.level).toFixed(3)}em ${alpha(col, (dark ? 0.75 : 0.45) * p.level)}) brightness(${(1 + 0.18 * p.strike).toFixed(4)})`
+    ? [
+        `drop-shadow(0 0 ${(0.05 + 0.12 * p.level).toFixed(3)}em ${alpha(col, (dark ? 0.8 : 0.45) * p.level)})`,
+        `drop-shadow(0 0 ${(0.2 + 0.5 * p.level).toFixed(3)}em ${alpha(col, (dark ? 0.5 : 0.22) * p.level)})`,
+        `brightness(${(1 + 0.18 * p.strike + (dark ? 0.06 : 0.03) * p.hold * (p.level - 0.5)).toFixed(4)})`,
+      ].join(" ")
     : undefined;
   return (
     <span style={{ position: "relative", display, isolation: "isolate", transform: p.scale === 1 ? undefined : `scale(${p.scale.toFixed(5)})`, transformOrigin: "50% 50%", ...style }}>

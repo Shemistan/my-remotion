@@ -17,9 +17,9 @@ export interface AccentPulseOptions {
 }
 
 export interface AccentPulse {
-  /** Сила свечения 0..1: удар ≈ 1, удержание дышит около 0.6. */
+  /** Сила свечения 0..1: удар ≈ 1, удержание дышит около 0.58 ± 0.32 × амплитуда. */
   level: number;
-  /** Масштаб цели: удар + едва заметное дыхание. */
+  /** Масштаб цели: удар + дыхание ±1.8 % × амплитуда (на четверть цикла позже свечения). */
   scale: number;
   /** Доля удара 0..1 (атака за несколько кадров, затем экспоненциальный спад). */
   strike: number;
@@ -31,7 +31,11 @@ export interface AccentPulse {
   rippleAlpha: number;
 }
 
-const REST = 0.6;
+/** Середина дыхания удержания; размах ± DEPTH × амплитуда (balanced: 0.26..0.9). */
+const REST = 0.58;
+const DEPTH = 0.32;
+/** Размах масштаба удержания × амплитуда (balanced: ±1.8 %). */
+const SWELL = 0.018;
 
 export function accentPulse(frame: number, s: StyleBible, o: AccentPulseOptions): AccentPulse {
   const { start_frame: b0, end_frame: b1 } = o.beat;
@@ -50,11 +54,14 @@ export function accentPulse(frame: number, s: StyleBible, o: AccentPulseOptions)
   const strike = (t < attack ? Math.sin((Math.PI / 2) * (t / attack)) : Math.exp(-(t - attack) / decay)) * fade;
   const holdIn = ramp(t, attack, attack + frames(s, 20), EASE.inOutCubic) * fade;
   const u = Math.max(0, t - attack) / period;
-  const breath = (1 - Math.cos(2 * Math.PI * u)) / 2;
-  const depth = 0.22 * Math.min(1.2, amp);
-  const holdLevel = holdIn * (REST + depth * (2 * breath - 1));
+  // вдох свечения −1..1; масштаб идёт за светом с отставанием в четверть цикла — два кадра
+  // удержания (кроме кратных периоду) всегда различаются хотя бы одним из двух
+  const glowWave = -Math.cos(2 * Math.PI * u);
+  const swellWave = -Math.sin(2 * Math.PI * u);
+  const depth = DEPTH * Math.min(1.25, amp);
+  const holdLevel = holdIn * (REST + depth * glowWave);
   const level = strike + (1 - strike) * holdLevel;
-  const scale = 1 + k * amp * (0.06 * strike + 0.012 * holdIn * (2 * breath - 1));
+  const scale = 1 + k * amp * (0.06 * strike + SWELL * holdIn * swellWave);
 
   // кольцо удара; в удержании — по кольцу на пике каждого вдоха
   let ripple = -1;

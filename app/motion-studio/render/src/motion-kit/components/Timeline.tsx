@@ -6,6 +6,7 @@
 // цветом текста, акцент остаётся за «сейчас».
 import type { Beat } from "@ms/contracts";
 import { Easing, useCurrentFrame, useVideoConfig } from "remotion";
+import { accentPulse } from "../choreo/accent.js";
 import { EASE, frames, springAt } from "../easing.js";
 import { clamp01, ramp, useSvgId } from "../internal.js";
 import { type TypeLevel, typeSize } from "../style/type-scale.js";
@@ -129,8 +130,9 @@ export function Timeline({ items, beat, orientation, width, height, accentIndex 
           const ring = ramp(frame, rf, rf + frames(s, 20), EASE.outQuart);
           const now = highlightLast && i === items.length - 1;
           const r = node * (now ? 1.5 : 1);
-          // «сейчас» мягко дышит после появления (от кадра, без таймеров)
-          const breath = now && frame > rf + frames(s, 20) ? 0.5 + 0.5 * Math.sin(((frame - rf) / fps) * Math.PI * 1.6) : 0;
+          // «сейчас» дышит после появления тем же accentPulse, что Emphasis (ореол 3 → 3.8 r)
+          const pulse = now ? accentPulse(frame, s, { beat: { start_frame: rf + frames(s, 12), end_frame: rf + frames(s, 12) } }) : null;
+          const breath = pulse?.level ?? 0;
           const sign = i % 2 === 0 ? -1 : 1;
           const g = ramp(frame, rf + frames(s, 2), rf + frames(s, 12), EASE.outExpo);
           return (
@@ -138,9 +140,13 @@ export function Timeline({ items, beat, orientation, width, height, accentIndex 
               {/* стебель к подписи (по горизонтали) */}
               {h && g > 0 ? <line x1={p.x} x2={p.x} y1={p.y + sign * r * 1.4} y2={p.y + sign * (r * 1.4 + stem * g)} stroke={alpha(color, now ? 0.8 : 0.45)} strokeWidth={2.5} strokeLinecap="round" /> : null}
               {frame >= rf ? <circle cx={p.x} cy={p.y} r={r + ring * r * 2.4} fill="none" stroke={color} strokeWidth={2.5} opacity={(1 - ring) * 0.85} /> : null}
-              {now ? <circle cx={p.x} cy={p.y} r={r * (3 + 0.5 * breath)} fill={`url(#${id}-now)`} opacity={clamp01(pop)} /> : null}
-              <circle cx={p.x} cy={p.y} r={Math.max(0, r * pop)} fill={now ? color : s.palette.bg} stroke={color} strokeWidth={now ? 0 : 4} />
-              <circle cx={p.x} cy={p.y} r={Math.max(0, r * (now ? 0.38 : 0.42) * pop)} fill={now ? (dark ? s.palette.bg : "#ffffff") : mix(color, s.palette.text, 0.2)} />
+              {now ? <circle cx={p.x} cy={p.y} r={r * (2.4 + 1.8 * breath) * (pulse?.scale ?? 1)} fill={`url(#${id}-now)`} opacity={clamp01(pop) * (0.4 + 0.6 * breath)} /> : null}
+              {/* кольцо акцента: расходится от точки на каждом вдохе, как у Emphasis */}
+              {pulse && pulse.ripple >= 0 ? (
+                <circle cx={p.x} cy={p.y} r={r * (1.2 + 1.8 * (1 - (1 - pulse.ripple) ** 3))} fill="none" stroke={color} strokeWidth={2.5} opacity={0.75 * (1 - pulse.ripple) * pulse.rippleAlpha} />
+              ) : null}
+              <circle cx={p.x} cy={p.y} r={Math.max(0, r * pop * (pulse?.scale ?? 1))} fill={now ? color : s.palette.bg} stroke={color} strokeWidth={now ? 0 : 4} />
+              <circle cx={p.x} cy={p.y} r={Math.max(0, r * (now ? 0.38 : 0.42) * pop * (pulse?.scale ?? 1))} fill={now ? (dark ? s.palette.bg : "#ffffff") : mix(color, s.palette.text, 0.2)} />
             </g>
           );
         })}
@@ -157,6 +163,8 @@ export function Timeline({ items, beat, orientation, width, height, accentIndex 
         const sign = above ? -1 : 1;
         const now = highlightLast && i === items.length - 1;
         const r = node * (now ? 1.5 : 1);
+        // подпись «сейчас» дышит вместе с точкой (тот же accentPulse)
+        const nowLevel = now ? accentPulse(frame, s, { beat: { start_frame: rf + frames(s, 12), end_frame: rf + frames(s, 12) } }).level : 0;
         const dateEl = (
           <div
             style={{
@@ -169,7 +177,7 @@ export function Timeline({ items, beat, orientation, width, height, accentIndex 
               whiteSpace: "nowrap",
               opacity: dp * (now ? 1 : 0.9),
               transform: h ? `translateY(${(sign * (1 - dp) * -20).toFixed(2)}px)` : `translateX(${((1 - dp) * 20).toFixed(2)}px)`,
-              textShadow: now && dark ? `0 0 ${(datePx * 0.4).toFixed(1)}px ${alpha(color, 0.5 * dp)}` : undefined,
+              textShadow: now && dark ? `0 0 ${(datePx * (0.25 + 0.35 * nowLevel)).toFixed(1)}px ${alpha(color, (0.25 + 0.5 * nowLevel) * dp)}` : undefined,
             }}
           >
             {it.date}
