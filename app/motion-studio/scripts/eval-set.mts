@@ -333,9 +333,13 @@ function report(rows: Row[]): { md: string; summary: Record<string, unknown> } {
     const pairs = [...new Set(withRef.map((r) => r.scene))].flatMap((s) => {
       const a = withRef.find((r) => r.scene === s && r.id.startsWith("r1-"));
       const b = withRef.find((r) => r.scene === s && r.id.startsWith("r2-"));
-      return a && b ? [{ id: s, judge: [a.judge!.overall, b.judge!.overall] as [number, number], ref: [a.ref!, b.ref!] as [number, number] }] : [];
+      return a && b ? [{ id: s, a: a.judge!, b: b.judge!, ref: [a.ref!, b.ref!] as [number, number] }] : [];
     });
-    if (pairs.length > 0) summary.pair_order = pairOrder(pairs);
+    if (pairs.length > 0) {
+      summary.pair_order = pairOrder(pairs.map((p) => ({ id: p.id, judge: [p.a.overall, p.b.overall], ref: p.ref })));
+      // медианы с шагом 0.5 часто равны — порядок по средним прогонов
+      summary.pair_order_mean = pairOrder(pairs.map((p) => ({ id: p.id, judge: [p.a.mean, p.b.mean], ref: p.ref })));
+    }
   }
   const head = ["Сцена", ...(withRef.length ? ["Дизайнер"] : []), "Судья (медиана)", "Прогоны", "Разброс", ...CRITERIA.map((c) => c.slice(0, 5)), "Ген. $", "Статус", "Кадр 0", "Hold Δ", "Пустые трети"];
   const lines = [
@@ -349,7 +353,9 @@ function report(rows: Row[]): { md: string; summary: Record<string, unknown> } {
   if (summary.agreement) {
     const a = summary.agreement as ReturnType<typeof agreement>;
     const p = summary.pair_order as ReturnType<typeof pairOrder> | undefined;
-    lines.push(`Согласие с дизайнером: MAE **${a.mae.toFixed(2)}** (цель ≤ 0.7), Spearman **${a.spearman.toFixed(2)}** (цель ≥ 0.6), смещение ${a.bias >= 0 ? "+" : ""}${a.bias.toFixed(2)}, худшая ${a.worst.id} (${a.worst.err.toFixed(1)})${p ? `; порядок R1→R2 ${p.correct}/${p.total}${p.wrong.length ? ` (мимо: ${p.wrong.join(", ")})` : ""}` : ""}.`, "");
+    const pm = summary.pair_order_mean as ReturnType<typeof pairOrder> | undefined;
+    const po = (x: ReturnType<typeof pairOrder>) => `${x.correct}/${x.total}${x.wrong.length ? ` (мимо: ${x.wrong.join(", ")})` : ""}`;
+    lines.push(`Согласие с дизайнером: MAE **${a.mae.toFixed(2)}** (цель ≤ 0.7), Spearman **${a.spearman.toFixed(2)}** (цель ≥ 0.6), смещение ${a.bias >= 0 ? "+" : ""}${a.bias.toFixed(2)}, худшая ${a.worst.id} (${a.worst.err.toFixed(1)})${p && pm ? `; порядок R1→R2 по медианам ${po(p)}, по средним ${po(pm)}` : ""}.`, "");
   }
   lines.push(`| ${head.join(" | ")} |`, `|${head.map(() => "---").join("|")}|`);
   for (const r of rows) {

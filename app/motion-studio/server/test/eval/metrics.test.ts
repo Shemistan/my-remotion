@@ -84,6 +84,8 @@ describe("aggregateRuns", () => {
   it("медиана по прогонам для итога и каждого критерия; разброс итога — max − min", () => {
     const a = aggregateRuns([run(6, 3), run(5, 5), run(5.5, 4)]);
     expect(a.overall).toBe(5.5);
+    expect(a.mean).toBeCloseTo(5.5);
+    expect(aggregateRuns([run(5, 3), run(5.5, 3), run(5.5, 3)]).mean).toBeCloseTo(5.333, 3);
     expect(a.criteria.hold).toBe(4);
     expect(a.criteria.meaning).toBe(6);
     expect(a.spread).toBeCloseTo(1);

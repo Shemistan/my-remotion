@@ -106,6 +106,8 @@ export interface Aggregate extends JudgeScores {
   runs: number[];
   /** max − min итога по прогонам. */
   spread: number;
+  /** Среднее итога по прогонам — тонкая шкала для порядка версий при равных медианах. */
+  mean: number;
 }
 
 /** Медиана прогонов судьи: итог и каждый критерий отдельно. */
@@ -113,7 +115,7 @@ export function aggregateRuns(runs: readonly JudgeScores[]): Aggregate {
   nonEmpty(runs.map((r) => r.overall), "aggregateRuns");
   const overalls = runs.map((r) => r.overall);
   const criteria = Object.fromEntries(CRITERIA.map((c) => [c, median(runs.map((r) => r.criteria[c]))])) as Record<Criterion, number>;
-  return { overall: median(overalls), criteria, runs: overalls, spread: Math.max(...overalls) - Math.min(...overalls) };
+  return { overall: median(overalls), criteria, runs: overalls, spread: Math.max(...overalls) - Math.min(...overalls), mean: mean(overalls) };
 }
 
 /**
