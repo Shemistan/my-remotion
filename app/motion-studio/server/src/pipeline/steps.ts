@@ -17,7 +17,7 @@ import {
   type ScenePropsStyle,
   type Settings,
 } from "@ms/contracts";
-import { type ProcessRegistry, StorageError, StoragePathError, type StorageStatus, safeMkdir, watchStorage } from "@ms/core";
+import { INCONCLUSIVE_LIMIT, type ProcessRegistry, StorageError, StoragePathError, type StorageStatus, isInconclusive, safeMkdir, watchStorage } from "@ms/core";
 import { type ResolvedStyle, resolveStyle, typeSize } from "@ms/render";
 import type { ZodType } from "zod";
 import type { AgentResult, AgentRuntimeAdapter, AgentTask, AgentTool, AgentUsage, Role } from "../agents/runtime.js";
@@ -134,15 +134,22 @@ export class RunCtx {
     }
   }
 
-  /** Проверка хранилища; не в порядке — строка причины. */
+  /**
+   * Проверка хранилища; не в порядке — строка причины. Неокончательный отказ (медленная
+   * проба тома, H2) перепроверяется — до INCONCLUSIVE_LIMIT раз подряд, как у сторожа;
+   * окончательный — сразу.
+   */
   async storageProblem(): Promise<string | undefined> {
-    let st: StorageStatus;
-    try {
-      st = await this.deps.storage();
-    } catch (e) {
-      return `проверка хранилища упала: ${errText(e)}`;
+    for (let i = 1; ; i++) {
+      let st: StorageStatus;
+      try {
+        st = await this.deps.storage();
+      } catch (e) {
+        return `проверка хранилища упала: ${errText(e)}`;
+      }
+      if (st.ok) return undefined;
+      if (!isInconclusive(st) || i >= INCONCLUSIVE_LIMIT) return `${st.reason}: ${st.detail}`;
     }
-    return st.ok ? undefined : `${st.reason}: ${st.detail}`;
   }
 
   /**

@@ -20,7 +20,7 @@ export interface StorageSupervisorDeps {
   reopen: () => Db;
   /** Текущая база (закрывается при сбое). */
   db: Db;
-  /** Период проверки, мс (10 000); проверка дольше 3 периодов — `storage_watch_timeout`. */
+  /** Период проверки, мс (10 000); окончательный отказ — offline сразу, неокончательный (`storage_watch_timeout`, `volume_probe_failed`) — после серии подряд (`watchStorage`). */
   intervalMs?: number;
   /** Взять или проверить `run/owner.lock` на новом монтировании; `OwnerBusyError` — остаться offline. */
   verifyOwner?: () => Promise<void>;

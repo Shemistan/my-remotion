@@ -127,6 +127,20 @@ it("09 §5 п.5: MS_DATA_DIR renamed → storage_offline (paused, aborted, db cl
   env.db = db;
 });
 
+it("H2: slow/failing volume probe (diskutil under load) does not take a live store offline", async () => {
+  let n = 0;
+  // каждая третья проверка — неокончательный отказ пробы тома, остальные — настоящий checkStorage
+  server(async () => ({ status: "completed", outputRefs: {} }), {
+    check: async () => (n++ % 3 === 0 ? { ok: false, reason: "volume_probe_failed", detail: "том: Command failed: diskutil info -plist" } : checkStorage({ MS_DATA_DIR: env.s.root }, probe)),
+  });
+  runner!.start();
+  sup!.start();
+  await new Promise((r) => setTimeout(r, 40 * 30));
+  expect(n).toBeGreaterThan(10);
+  expect(sup!.mode()).toBe("online");
+  expect(runner!.isPaused()).toBe(false);
+});
+
 it("check hangs (diskutil) → storage_offline with reason storage_watch_timeout", async () => {
   let hang = false;
   server(async () => ({ status: "completed", outputRefs: {} }), {

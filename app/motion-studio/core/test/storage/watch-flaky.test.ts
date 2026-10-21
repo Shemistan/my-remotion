@@ -1,0 +1,63 @@
+// H2: настоящий checkStorage на настоящем корне, проба тома медленная и сбоящая (как
+// diskutil под нагрузкой). Ложного offline нет; настоящий rename корня — offline на
+// первом же тике, как до H2.
+import { rename } from "node:fs/promises";
+import { join } from "node:path";
+import { afterEach, beforeEach, expect, it } from "vitest";
+import { type VolumeProbe, checkStorage, initStore } from "../../src/storage/guard.js";
+import { watchStorage } from "../../src/storage/watch.js";
+import { fakeProbe, makeTmp, removeTmp } from "../helpers.js";
+
+const INTERVAL = 40;
+let tmp: string;
+let root: string;
+
+beforeEach(async () => {
+  tmp = await makeTmp();
+  root = join(tmp, "store");
+  await initStore(root, fakeProbe(), { allowSystemDisk: true });
+});
+afterEach(() => removeTmp(tmp));
+
+/** Каждая третья проба падает, каждая третья отвечает дольше дедлайна сторожа. */
+function flakyProbe(): VolumeProbe & { calls: () => number } {
+  const base = fakeProbe();
+  let n = 0;
+  return {
+    ...base,
+    calls: () => n,
+    async volumeUuid(p) {
+      const i = n++;
+      if (i % 3 === 0) throw new Error("Command failed: diskutil info -plist");
+      if (i % 3 === 1) await new Promise((r) => setTimeout(r, 4 * INTERVAL));
+      return base.volumeUuid(p);
+    },
+  };
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+it("a slow and failing volume probe never takes a live store offline", async () => {
+  const probe = flakyProbe();
+  const w = watchStorage(() => checkStorage({ MS_DATA_DIR: root }, probe), INTERVAL);
+  await sleep(40 * INTERVAL);
+  w.stop();
+  expect(probe.calls()).toBeGreaterThan(15);
+  expect(w.signal.aborted).toBe(false);
+  expect(w.lastFailure()).toBeUndefined();
+});
+
+it("renaming the root still goes offline on the next tick (not_found is conclusive)", async () => {
+  const probe = flakyProbe();
+  const w = watchStorage(() => checkStorage({ MS_DATA_DIR: root }, probe), INTERVAL);
+  await sleep(10 * INTERVAL);
+  expect(w.signal.aborted).toBe(false);
+  const t = Date.now();
+  await rename(root, `${root}.gone`);
+  const aborted = new Promise<void>((r) => w.signal.addEventListener("abort", () => r(), { once: true }));
+  await aborted;
+  // окно: проверка в полёте может дойти до дедлайна (3 интервала) — она неокончательна,
+  // следующий тик (≤ интервала) видит, что корня нет; запас — на нагрузку ./check
+  expect(Date.now() - t).toBeLessThan(3 * INTERVAL + INTERVAL + 200);
+  expect(w.lastFailure()).toMatchObject({ ok: false, reason: "not_found" });
+});
