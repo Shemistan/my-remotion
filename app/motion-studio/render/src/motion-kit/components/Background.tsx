@@ -113,6 +113,15 @@ export function Background({ beat, variant, grain = true, seed = "bg", focus }: 
   const fx = (hero.x * 100).toFixed(2);
   const fy = (hero.y * 100).toFixed(2);
   const cell = 72;
+  // blueprint: шаг и толщины — от высоты кадра (на 540p сетка не тоньше пикселя)
+  const k = height / 1080;
+  const major = cell * 2 * k;
+  const cross = 9 * k;
+  const lineCol = mix(heroCol, s.palette.text, 0.55);
+  const gridId = useSvgId("ms-blueprint");
+  // spotlight: свет — акцент, разбавленный белым (свет, а не цветное пятно); пол под героем
+  const beam = mix(heroCol, "#ffffff", dark ? 0.45 : 0.2);
+  const floorY = Math.min(97, hero.y * 100 + 24).toFixed(2);
   // скорости заданы для 30 fps: на другом fps сетка едет с той же скоростью в секунду
   const gridShift = ((frame * 1.6) / fpsScaleOf(s)) % cell;
   const grainStep = fpsFrames(s, 2);
@@ -124,14 +133,16 @@ export function Background({ beat, variant, grain = true, seed = "bg", focus }: 
       {v === "aurora" ? <AbsoluteFill style={{ background: blobs.join(", ") }} /> : null}
 
       {v === "spotlight" ? (
-        // прожектор за героем: один широкий мягкий свет и слабый встречный, пол чуть светлее
+        // сцена под прожектором: окружение темнее базы, луч сверху на героя, яркое пятно на
+        // нём и световой «пол» под ним; без сетки — на 540p не спутать с blueprint
         <>
+          <AbsoluteFill style={{ backgroundColor: alpha(dark ? "#000000" : s.palette.text, dark ? 0.32 : 0.05) }} />
           <AbsoluteFill
             style={{
               background: [
-                `radial-gradient(${(46 + 6 * reveal).toFixed(2)}% ${(52 + 6 * reveal).toFixed(2)}% at ${fx}% ${fy}%, ${alpha(heroCol, (dark ? 0.3 : 0.14) * reveal * air)} 0%, ${alpha(heroCol, (dark ? 0.1 : 0.05) * reveal * air)} 45%, ${alpha(heroCol, 0)} 75%)`,
-                blobs[2]!,
-                `linear-gradient(180deg, transparent 55%, ${alpha(s.palette.text, dark ? 0.035 : 0.03)} 100%)`,
+                `radial-gradient(${(24 + 4 * reveal).toFixed(2)}% 95% at ${fx}% -12%, ${alpha(beam, (dark ? 0.13 : 0.08) * reveal * air)} 0%, ${alpha(beam, 0)} 100%)`,
+                `radial-gradient(${(34 + 6 * reveal).toFixed(2)}% ${(40 + 6 * reveal).toFixed(2)}% at ${fx}% ${fy}%, ${alpha(beam, (dark ? 0.34 : 0.16) * reveal * air)} 0%, ${alpha(heroCol, (dark ? 0.12 : 0.06) * reveal * air)} 50%, ${alpha(heroCol, 0)} 78%)`,
+                `radial-gradient(36% 7% at ${fx}% ${floorY}%, ${alpha(beam, (dark ? 0.16 : 0.08) * reveal * air)} 0%, ${alpha(beam, 0)} 100%)`,
               ].join(", "),
             }}
           />
@@ -139,23 +150,33 @@ export function Background({ beat, variant, grain = true, seed = "bg", focus }: 
       ) : null}
 
       {v === "blueprint" ? (
-        // чертёж для схем: плоская сетка (мелкий и крупный шаг) проявляется вокруг героя
+        // чертёж для схем: ровный холодный тон, чёткая сетка (крупный шаг толще, кресты на
+        // узлах) почти на весь кадр; свет — слабый и плоский, без пятна прожектора
         <>
-          <AbsoluteFill style={{ background: `radial-gradient(50% 55% at ${fx}% ${fy}%, ${alpha(heroCol, (dark ? 0.2 : 0.1) * reveal * air)} 0%, ${alpha(heroCol, 0)} 70%), ${blobs[1]!}` }} />
-          <AbsoluteFill
+          <AbsoluteFill style={{ background: `${alpha(heroCol, (dark ? 0.05 : 0.035) * reveal)}` }} />
+          <AbsoluteFill style={{ background: `radial-gradient(70% 75% at ${fx}% ${fy}%, ${alpha(heroCol, (dark ? 0.09 : 0.05) * reveal * air)} 0%, ${alpha(heroCol, 0)} 80%)` }} />
+          <svg
+            width={width}
+            height={height}
             style={{
-              backgroundImage: [
-                `linear-gradient(${alpha(s.palette.text, (dark ? 0.07 : 0.08) * reveal)} 1px, transparent 1px)`,
-                `linear-gradient(90deg, ${alpha(s.palette.text, (dark ? 0.07 : 0.08) * reveal)} 1px, transparent 1px)`,
-                `linear-gradient(${alpha(s.palette.text, (dark ? 0.03 : 0.035) * reveal)} 1px, transparent 1px)`,
-                `linear-gradient(90deg, ${alpha(s.palette.text, (dark ? 0.03 : 0.035) * reveal)} 1px, transparent 1px)`,
-              ].join(", "),
-              backgroundSize: `${cell * 2}px ${cell * 2}px, ${cell * 2}px ${cell * 2}px, ${cell / 2}px ${cell / 2}px, ${cell / 2}px ${cell / 2}px`,
-              backgroundPosition: `${(t * 3).toFixed(2)}px 0px`,
-              maskImage: `radial-gradient(ellipse 70% 75% at ${fx}% ${fy}%, black 20%, transparent 90%)`,
-              WebkitMaskImage: `radial-gradient(ellipse 70% 75% at ${fx}% ${fy}%, black 20%, transparent 90%)`,
+              position: "absolute",
+              inset: 0,
+              opacity: reveal,
+              maskImage: `radial-gradient(ellipse 95% 100% at ${fx}% ${fy}%, black 45%, transparent 100%)`,
+              WebkitMaskImage: `radial-gradient(ellipse 95% 100% at ${fx}% ${fy}%, black 45%, transparent 100%)`,
             }}
-          />
+          >
+            <defs>
+              <pattern id={gridId} width={major} height={major} patternUnits="userSpaceOnUse" patternTransform={`translate(${((t * 3) % major).toFixed(2)} 0)`}>
+                {[1, 2, 3].map((i) => (
+                  <path key={i} d={`M ${(i * major) / 4} 0 V ${major} M 0 ${(i * major) / 4} H ${major}`} stroke={alpha(lineCol, dark ? 0.06 : 0.07)} strokeWidth={k} fill="none" />
+                ))}
+                <path d={`M 0 0 V ${major} M 0 0 H ${major}`} stroke={alpha(lineCol, dark ? 0.13 : 0.15)} strokeWidth={2 * k} fill="none" />
+                <path d={`M ${-cross} 0 H ${cross} M 0 ${-cross} V ${cross} M ${major - cross} 0 H ${major + cross} M 0 ${major - cross} V ${major + cross} M ${-cross} ${major} H ${cross} M ${major} ${-cross} V ${cross} M ${major - cross} ${major} H ${major + cross} M ${major} ${major - cross} V ${major + cross}`} stroke={alpha(lineCol, 0.3)} strokeWidth={2 * k} fill="none" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill={`url(#${gridId})`} />
+          </svg>
         </>
       ) : null}
 
@@ -209,7 +230,7 @@ export function Background({ beat, variant, grain = true, seed = "bg", focus }: 
       {/* виньетка: края темнее (на светлой теме — мягче) */}
       <AbsoluteFill
         style={{
-          background: `radial-gradient(ellipse 85% 80% at 50% 45%, transparent 55%, ${alpha(dark ? "#000000" : s.palette.text, (dark ? 0.55 : 0.06) * vig)} 100%)`,
+          background: `radial-gradient(ellipse 85% 80% at 50% 45%, transparent ${v === "spotlight" ? 40 : 55}%, ${alpha(dark ? "#000000" : s.palette.text, (dark ? 0.55 : 0.06) * vig * (v === "spotlight" ? 1.35 : 1))} 100%)`,
         }}
       />
 

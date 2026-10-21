@@ -1,6 +1,7 @@
 // accentPulse: единый акцент kit — удар в начале бита и дыхание удержания.
 import { describe, expect, it } from "vitest";
 import { accentPulse } from "../../src/motion-kit/choreo/accent.js";
+import { emphasisFilter, haloLevel } from "../../src/motion-kit/components/Emphasis.js";
 import { resolveStyle } from "../../src/motion-kit/style/resolve.js";
 
 const st = resolveStyle({ preset: "dark-premium", intensity: "balanced" });
@@ -142,5 +143,45 @@ describe("кольцо акцента: по умолчанию — только 
       const b = at(f + 19);
       expect(Math.abs(a.level - b.level) + Math.abs(a.scale - b.scale)).toBeGreaterThan(0.004);
     }
+  });
+});
+
+describe("emphasisFilter (E2.6): свечение за текстом не размывает слово", () => {
+  const st = resolveStyle({ preset: "dark-premium", intensity: "balanced" });
+  const light = resolveStyle({ preset: "light-clean", intensity: "balanced" });
+  const beat = { start_frame: 10, end_frame: 60 };
+  // удар, вдох и выдох удержания
+  const frames = [11, 13, 16, 40, 70, 100, 130];
+
+  it("в покое фильтра нет", () => {
+    expect(emphasisFilter(accentPulse(5, st, { beat }), "#f4b56a", true)).toBeUndefined();
+  });
+
+  for (const [name, s, dark] of [["dark-premium", st, true], ["light-clean", light, false]] as const) {
+    it(`${name}: только широкое мягкое свечение (радиус ≥ 0.3 em) и негустое у кромки букв (α ≤ 0.32); без blur()`, () => {
+        for (const f of frames) {
+        const css = emphasisFilter(accentPulse(f, s, { beat }), "#f4b56a", dark)!;
+        expect(css, `кадр ${f}`).toBeDefined();
+        expect(css).not.toMatch(/blur\(/);
+        const shadows = [...css.matchAll(/drop-shadow\(0 0 ([\d.]+)em rgba\(\d+, \d+, \d+, ([\d.]+)\)\)/g)];
+        expect(shadows.length, `кадр ${f}`).toBeGreaterThan(0);
+        for (const [, r, a] of shadows) {
+          expect(Number(r), `кадр ${f}: радиус`).toBeGreaterThanOrEqual(0.3);
+          expect(Number(a), `кадр ${f}: α`).toBeLessThanOrEqual(0.32);
+        }
+      }
+    });
+  }
+});
+
+describe("haloLevel: свет удержания — в ореоле за блоком", () => {
+  const st = resolveStyle({ preset: "dark-premium", intensity: "balanced" });
+  const beat = { start_frame: 10, end_frame: 60 };
+  it("размах дыхания ореола шире, чем у свечения; в покое — 0, на ударе — до 1", () => {
+    const hold = Array.from({ length: 80 }, (_, i) => accentPulse(70 + i, st, { beat }));
+    const span = (v: number[]) => Math.max(...v) - Math.min(...v);
+    expect(span(hold.map(haloLevel))).toBeGreaterThanOrEqual(1.3 * span(hold.map((p) => p.level)));
+    expect(haloLevel(accentPulse(5, st, { beat }))).toBe(0);
+    expect(haloLevel(accentPulse(13, st, { beat }))).toBeLessThanOrEqual(1);
   });
 });

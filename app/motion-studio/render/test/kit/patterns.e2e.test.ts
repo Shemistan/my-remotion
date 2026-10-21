@@ -20,13 +20,14 @@ const FRAMES = [0, 30, 75, 120, 149];
 const sha256 = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
 const SCENES = readdirSync(join(FIXTURES, "patterns-gallery")).sort();
 
-/** Варианты (props.content): вторая ориентация, второй вид коннектора/разделителя, кольцо выноски. */
+/** Варианты (props.content): вторая ориентация, второй вид коннектора/разделителя, кольцо выноски, Emphasis на словах. */
 const VARIANTS: [string, Record<string, string>][] = [
   ["timeline", { orientation: "v" }],
   ["process", { connector: "line" }],
   ["comparison", { divider: "line" }],
   ["code", { callout: "ring" }],
   ["code", { sample: "py-doc", callout: "ring" }],
+  ["emphasis", { third: "emphasis" }],
 ];
 
 /** RGB пикселя PNG 1920 × 1080 (rawvideo через ffmpeg). */
@@ -37,6 +38,44 @@ function pixel(png: string): (x: number, y: number) => [number, number, number] 
     return [raw[i]!, raw[i + 1]!, raw[i + 2]!];
   };
 }
+/**
+ * Фон кадра на 540p (серый, area-сжатие) в пустой полосе y 78–92 %, x 6–94 %: `grid` —
+ * высокочастотная часть профилей по столбцам и строкам (линии сетки; зерно усредняется),
+ * `light` — размах сглаженного профиля по x (пятно / пол прожектора), уровни 0..255.
+ */
+function bgMetrics(png: string): { grid: number; light: number } {
+  const W = 960;
+  const H = 540;
+  const raw = execFileSync("ffmpeg", ["-v", "error", "-i", png, "-vf", `scale=${W}:${H}:flags=area,format=gray`, "-f", "rawvideo", "-"], { maxBuffer: 1 << 26 });
+  const [y0, y1, x0, x1] = [Math.round(H * 0.78), Math.round(H * 0.92), Math.round(W * 0.06), Math.round(W * 0.94)];
+  const col: number[] = [];
+  for (let x = x0; x < x1; x++) {
+    let sum = 0;
+    for (let y = y0; y < y1; y++) sum += raw[y * W + x]!;
+    col.push(sum / (y1 - y0));
+  }
+  const row: number[] = [];
+  for (let y = y0; y < y1; y++) {
+    let sum = 0;
+    for (let x = x0; x < x1; x++) sum += raw[y * W + x]!;
+    row.push(sum / (x1 - x0));
+  }
+  const avg = (p: number[], i: number, r: number) => {
+    let sum = 0;
+    let n = 0;
+    for (let k = -r; k <= r; k++) {
+      const v = p[i + k];
+      if (v === undefined) continue;
+      sum += v;
+      n++;
+    }
+    return sum / n;
+  };
+  const high = (p: number[]) => p.slice(4, -4).reduce((a, v, i) => a + Math.abs(v - avg(p, i + 4, 4)), 0) / (p.length - 8);
+  const smooth = col.map((_, i) => avg(col, i, 30));
+  return { grid: high(col) + high(row), light: Math.max(...smooth) - Math.min(...smooth) };
+}
+
 /** Акцент tech-neon (#00e5ff) и его полупрозрачные смеси на тёмном: циан, без красного. */
 const isCyan = ([r, g, b]: [number, number, number]) => g > 140 && b > 140 && r < 120;
 /** sha256 кадра 149 основного рендера сцены — вариант обязан от него отличаться. */
@@ -114,6 +153,17 @@ describe("patterns-gallery", () => {
       expect(sha256(r.stills[1]!)).not.toBe(lastFrame.get(name));
     }, T);
   }
+
+  // E2.4: фоны blueprint (cache) и spotlight (speed) различимы на 540p: у чертежа видна
+  // сетка, у прожектора — перепад света (пол под героем); меры — в пустой полосе внизу кадра.
+  it("blueprint и spotlight различимы на 540p: сетка против перепада света", () => {
+    const blueprint = bgMetrics(join(tmp, "cache", "frames", "149.png"));
+    const spotlight = bgMetrics(join(tmp, "speed", "frames", "149.png"));
+    expect(blueprint.grid).toBeGreaterThanOrEqual(1);
+    expect(blueprint.grid).toBeGreaterThanOrEqual(5 * spotlight.grid);
+    expect(spotlight.light).toBeGreaterThanOrEqual(18);
+    expect(spotlight.light).toBeGreaterThanOrEqual(2 * blueprint.light);
+  });
 
   // Многострочные токены (docstring, JSDoc): строки, подсветка и каретка не съезжают.
   // Блок кода стоит в safe area (115, 86) со сдвигом CODE_POS; tech-neon, акцент — циан.

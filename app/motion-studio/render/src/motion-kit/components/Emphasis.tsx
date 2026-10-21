@@ -109,6 +109,28 @@ export function emphasisRingRadius(shape: NonNullable<EmphasisProps["shape"]>, s
 }
 
 /**
+ * CSS-фильтр цели Emphasis (чистая функция): одно широкое мягкое свечение за глифами
+ * (радиус ≥ 0.3 em, у кромки букв α ≤ 0.32) и вспышка яркости на ударе. Плотной кромки
+ * у контура больше нет: она заливала просветы букв и размывала слово («релиза»,
+ * «Одна мысль»); основной свет удержания несёт <Halo> за блоком. undefined — в покое.
+ */
+export function emphasisFilter(p: AccentPulse, col: string, dark: boolean): string | undefined {
+  if (p.level <= 0.005) return undefined;
+  return [
+    `drop-shadow(0 0 ${(0.3 + 0.5 * p.level).toFixed(3)}em ${alpha(col, (dark ? 0.32 : 0.18) * p.level)})`,
+    `brightness(${(1 + 0.18 * p.strike + (dark ? 0.06 : 0.03) * p.hold * (p.level - 0.5)).toFixed(4)})`,
+  ].join(" ");
+}
+
+/**
+ * Сила ореола Emphasis: дыхание удержания вокруг середины 0.66 шире, чем у свечения
+ * (× 1.4) — свет удержания живёт в ореоле за блоком, а не в кромке у букв.
+ */
+export function haloLevel(p: AccentPulse): number {
+  return Math.max(0, Math.min(1, p.level <= 0.005 ? 0 : 0.66 + (p.level - 0.66) * 1.4));
+}
+
+/**
  * Акцент на цели: короткий удар масштаба, вспышка свечения и одно кольцо в начале бита,
  * затем спокойное дыхание свечением и масштабом (без кольца), пока идёт бит —
  * и до конца сцены при `loop`. Один акцент в момент: не ставь два Emphasis с
@@ -119,23 +141,14 @@ export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, 
   const dark = isDark(s);
   const col = color ?? accent(s, accentIndex);
   const p = useAccentPulse(beat, { loop, strength });
-  const glow = p.level > 0.005;
   // кольцо: отходит от кромки цели на 4 → 30 px с торможением и гаснет
   const rp = p.ripple >= 0 ? 1 - (1 - p.ripple) ** 3 : 0;
   const offset = Number((4 + 26 * rp).toFixed(3));
-  // свечение по контуру: плотная кромка и широкий мягкий шлейф — оба дышат с level;
-  // на тёмном фоне шлейф — главный носитель «живого» удержания, на светлом он тише
-  const filter = glow
-    ? [
-        `drop-shadow(0 0 ${(0.05 + 0.12 * p.level).toFixed(3)}em ${alpha(col, (dark ? 0.8 : 0.45) * p.level)})`,
-        // шлейф уже и тише, чем в 0.2: широкий смазывал подпись рядом с числом («24 релиза»)
-        `drop-shadow(0 0 ${(0.16 + 0.34 * p.level).toFixed(3)}em ${alpha(col, (dark ? 0.42 : 0.2) * p.level)})`,
-        `brightness(${(1 + 0.18 * p.strike + (dark ? 0.06 : 0.03) * p.hold * (p.level - 0.5)).toFixed(4)})`,
-      ].join(" ")
-    : undefined;
+  // свечение — широкое и мягкое за глифами, свет удержания несёт Halo за блоком
+  const filter = emphasisFilter(p, col, dark);
   return (
     <span style={{ position: "relative", display, isolation: "isolate", transform: p.scale === 1 ? undefined : `scale(${p.scale.toFixed(5)})`, transformOrigin: "50% 50%", ...style }}>
-      {halo ? <Halo level={p.level} color={col} spread={spread} /> : null}
+      {halo ? <Halo level={haloLevel(p)} color={col} spread={spread} /> : null}
       {emphasisRingVisible(ring, p) ? (
         <span
           aria-hidden
