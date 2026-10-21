@@ -46,6 +46,7 @@ dark-premium, e2e `test/kit/choreo.e2e.test.ts`) и просмотра кадр�
 | `typeSize(style, level, height)` | `own` | — | — | — | ok |
 | `enterStyle`, `<Enter>`, `staggerBeat` | `own` | — | — | `rise` у `Card` — через `enterStyle` | ok |
 | `Emphasis`, `Halo`, `accentPulse`, `pulseArrival` | `own` | — | — | единый удар + дыхание удержания, гауссов ореол `closest-side`, вспышка узла FlowGraph в кадр прихода импульса (Task 17, fix B) | ok (patterns-gallery/accent, flow) |
+| `StatusChip`, `DataToken`, `LatencyRace`, `SceneTitle`, `useArrivalCount`, `arrivalCount`, `pathArrivals`, `backgroundLayout`, `flowLabelSizes` | `own` | — | — | статус на месте со сменой, данные-объект по ребру, скорость во времени (проход ∝ задержке), режимы заголовка, счётчик по приходам импульсов, раскладка фона по seed (motion-kit 0.3, Task 17 fix E) | ok (юнит-тесты, patterns-gallery/process-speed) |
 | `KineticText enter="type"` | `own` | — | — | — | ok |
 | `cameraAt`, `<Camera>`, `<Parallax>` | `own` | — | — | — | ok |
 | `safeRect`, `gridColumns`, `layoutLayered` | `own` | — | — | слои по топологическому порядку (общеизвестный приём, без кода dagre/elk) | ok (юнит-тесты; `layoutLayered` в рендере — с Task 15) |
