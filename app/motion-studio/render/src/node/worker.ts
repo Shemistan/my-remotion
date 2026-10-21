@@ -170,7 +170,9 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
 
   const stills: string[] = [];
   for (const s of job.stills) {
-    await renderStill({ ...common, onDownload, composition, frame: s.frame, output: s.out, imageFormat: "png", overwrite: true });
+    // реестр раскладки motion-kit (0.4.0): только кадры-стоп печатают `[motion-kit:layout]`;
+    // флаг — во входных props (getInputProps), props композиции сцены не меняются
+    await renderStill({ ...common, inputProps: { ...job.inputProps, __msLayoutProbe: true }, onDownload, composition, frame: s.frame, output: s.out, imageFormat: "png", overwrite: true });
     stills.push(s.out);
   }
 

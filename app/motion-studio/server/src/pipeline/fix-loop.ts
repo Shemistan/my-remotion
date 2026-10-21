@@ -119,11 +119,14 @@ export interface LoopState {
   deniedLog: unknown[];
 }
 
-/** Кадр N−20 для проверки «финальный акцент жив», если его нет среди QA-кадров (N−1 там всегда). */
+/** Кадры только для программных проверок, если их нет среди QA-кадров: N−20 (акцент жив, застывшая схема; N−1 там всегда), 0 и 4 (кадр-постер). */
 function accentExtra(durationFrames: number, frames: number[]): number[] {
-  const f = durationFrames - ACCENT_HOLD_GAP;
-  return f > 0 && !frames.includes(f) ? [f] : [];
+  // N−20 — «акцент жив» и застывшая схема; 0 и 4 — кадр-постер (frame0_coverage)
+  return [durationFrames - ACCENT_HOLD_GAP, ...POSTER_FRAMES].filter((f, i, all) => f >= 0 && f < durationFrames && !frames.includes(f) && all.indexOf(f) === i);
 }
+
+/** Кадры-постер для frame0_coverage. */
+const POSTER_FRAMES = [0, 4];
 
 /** Зона Engineer в draft: `src/**` и `props.json`. Всё остальное — файлы пайплайна. */
 function engineerZone(rel: string): boolean {
@@ -475,9 +478,10 @@ async function runQa(i: LoopInput, state: LoopState, rr: RenderResult, techWarni
   const stills = all.slice(0, frames.length);
   const end = settings.duration_frames;
   const pair = [end - ACCENT_HOLD_GAP, end - 1].flatMap((f) => all.filter((x) => x.frame === f && x.path !== undefined).slice(0, 1));
+  const poster = POSTER_FRAMES.flatMap((f) => all.filter((x) => x.frame === f && x.path !== undefined).slice(0, 1));
   const previewBytes = rr.previewPath ? (await stat(rr.previewPath)).size : 0;
   const programmatic = await rc.timed("qa_programmatic", () =>
-    programmaticChecks({ frames: stills, spec, settings, style, render: rr, previewBytes, ...(pair.length === 2 ? { accentFrames: pair } : {}) }),
+    programmaticChecks({ frames: stills, spec, settings, style, render: rr, previewBytes, ...(pair.length === 2 ? { accentFrames: pair } : {}), ...(poster.length > 0 ? { posterFrames: poster } : {}) }),
   );
   // лишний кадр — не QA-кадр: Visual QA его не видит, в версию он не публикуется
   for (const x of all.slice(frames.length)) if (x.path) await rm(x.path, { force: true });

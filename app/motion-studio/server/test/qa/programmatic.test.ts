@@ -253,4 +253,46 @@ describe("крупные объекты у края", () => {
       expect(find(await programmaticChecks(input), "accent_static")).toEqual([]);
     });
   });
+
+  describe("0.4.0: реестр раскладки, застывшая схема, кадр-постер", () => {
+    const layout = (items: unknown[]) => `[log] [motion-kit:layout] ${JSON.stringify({ frame: 25, height: 1080, ghosts: [], items })}`;
+    const it2 = (id: string, role: string, text: string, x: number) => ({ id, role, text, rect: { x, y: 100, w: 200, h: 40 }, fontPx: 32, opacity: 1 });
+
+    it("строка реестра в логах → token_on_label (blocking, source programmatic)", async () => {
+      const r = await programmaticChecks(await withFrames(tmp, [card()], { logs: [layout([it2("l", "label", "База", 100), it2("t", "token", "user:42", 150)])] }));
+      expect(find(r, "token_on_label")).toEqual([expect.objectContaining({ source: "programmatic", severity: "blocking", frame: 25 })]);
+    });
+
+    async function hold(a: Canvas, b: Canvas, kind: "graph" | "chart") {
+      const sp = spec({ beats: [beat("b0", 0, 120, ["g"])], elements: [el("g", { kind })] });
+      const input = await withFrames(tmp, [card()], { spec: sp, at: [100] });
+      const pair = [];
+      for (const [frame, c] of [[100, a], [119, b]] as const) {
+        const path = join(tmp, `h-${kind}-${frame}.png`);
+        await writeFile(path, c.png());
+        pair.push({ frame, path });
+      }
+      return programmaticChecks({ ...input, accentFrames: pair });
+    }
+    it("схема (graph) застыла между N−20 и N−1 — frozen blocking; живая — нет; не схема — нет", async () => {
+      expect(find(await hold(card(), card(), "graph"), "frozen")).toEqual([expect.objectContaining({ severity: "blocking", frame: 119 })]);
+      expect(find(await hold(card(), card(12), "graph"), "frozen")).toEqual([]);
+      expect(find(await hold(card(), card(), "chart"), "frozen")).toEqual([]);
+    });
+
+    async function poster(f0: Canvas, f4: Canvas) {
+      const input = await withFrames(tmp, [card().rect(10, 10, 60, 8, "#ffffff").rect(130, 80, 40, 10, "#ffffff")], { at: [25] });
+      const posterFrames = [];
+      for (const [frame, c] of [[0, f0], [4, f4]] as const) {
+        const path = join(tmp, `p-${frame}.png`);
+        await writeFile(path, c.png());
+        posterFrames.push({ frame, path });
+      }
+      return programmaticChecks({ ...input, posterFrames });
+    }
+    it("frame0_coverage: пустой кадр 0 при собранном финале — warning; кадр-постер — нет", async () => {
+      expect(find(await poster(solid("#101010"), solid("#101010")), "frame0_coverage")).toEqual([expect.objectContaining({ severity: "warning", frame: 0 })]);
+      expect(find(await poster(card(), card()), "frame0_coverage")).toEqual([]);
+    });
+  });
 });

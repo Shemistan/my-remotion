@@ -4,6 +4,7 @@
 import type { MotionSpec, QAIssue, Settings } from "@ms/contracts";
 import { type Rect, type RenderResult, type ResolvedStyle, contrastRatio, safeRect } from "@ms/render";
 import { accentBeat, blankCheckFrom, inBeat, isEmphasisRole } from "../pipeline/qa-frames.js";
+import { layoutIssues, parseLayout } from "./layout.js";
 import { EDGES, type Edge, type Img, INK_THRESHOLD, backgroundEstimate, downsample, edgeBackground, edgeClip, loadPng, lumaStats, objectDelta } from "./image.js";
 
 export interface ProgrammaticInput {
@@ -18,7 +19,18 @@ export interface ProgrammaticInput {
    * региона между ними меняется. Нет пары — проверки нет.
    */
   accentFrames?: { frame: number; path: string }[];
+  /** Кадры 0 и 4 (рендерятся рядом с QA-кадрами): кадр-постер собран (frame0_coverage). */
+  posterFrames?: { frame: number; path: string }[];
 }
+
+/**
+ * Кадр-постер (motion-kit 0.4.0): содержимое кадров 0 и 4 не меньше POSTER_SHARE содержимого
+ * финального QA-кадра и не меньше POSTER_MIN. Содержимое — средняя по четвертям доля
+ * пикселей с локальным контрастом (emptyRegionShares): гладкий фон не считается, текст,
+ * контуры и линии — считаются. Ниже — warning.
+ */
+export const POSTER_SHARE = 0.2;
+export const POSTER_MIN = 0.008;
 
 /** Однотонный кадр: std яркости Y' ниже. */
 export const BLANK_STD = 0.01;
@@ -35,6 +47,42 @@ const TILE_WIDTH = 960;
 const TILE_ROWS = 16;
 /** Кадр отступа от конца для проверки «акцент жив». */
 export const ACCENT_HOLD_GAP = 20;
+/**
+ * Застывшая схема в удержании (motion-kit 0.4.0, motion-review-2 §4.3): у сцены со схемой
+ * (элемент kind graph) объекты между N−20 и N−1 не меняются — процесс встал, а финал схемы
+ * должен показывать работающую систему. Blocking.
+ */
+function holdFrozenIssues(spec: MotionSpec, [fa, a]: [number, Img], [fb, b]: [number, Img]): Issue[] {
+  if (!spec.elements.some((e) => e.kind === "graph")) return [];
+  if (a.width !== b.width || a.height !== b.height) return [];
+  const d = objectDelta(a, b);
+  if (d >= FROZEN_DELTA) return [];
+  return [{
+    code: "frozen", severity: "blocking", frame: fb, area: "hold",
+    description: `схема застыла в удержании: кадры ${fa} и ${fb} не отличаются (изменение объектов ${d.toFixed(4)} < ${FROZEN_DELTA})`,
+    fix_hint: "в удержании система работает дальше в своём ритме: импульсы и токены по рёбрам (repeat), счётчик или статус на событиях — дыхание ореола на одном узле не hold",
+  }];
+}
+
+/** Кадр-постер: кадры 0 и 4 почти пусты против финала — warning по самому пустому. */
+async function posterIssues(poster: { frame: number; path: string }[], finalImg: Img): Promise<Issue[]> {
+  const share = (img: Img) => {
+    const r = emptyRegionShares(img);
+    return (r["top-left"] + r["top-right"] + r["bottom-left"] + r["bottom-right"]) / 4;
+  };
+  const ref = share(finalImg);
+  const bar = Math.max(POSTER_MIN, POSTER_SHARE * ref);
+  const all: { frame: number; c: number }[] = [];
+  for (const p of poster) all.push({ frame: p.frame, c: share(await loadPng(p.path)) });
+  const worst = all.sort((x, y) => x.c - y.c)[0]!;
+  if (worst.c >= bar) return [];
+  return [{
+      code: "frame0_coverage", severity: "warning", frame: worst.frame,
+      description: `кадр ${worst.frame} почти пуст: содержимого ${(worst.c * 100).toFixed(1)} % против ${(ref * 100).toFixed(1)} % в финале (нужно ≥ ${(bar * 100).toFixed(1)} %) — сцена открывается фоном`,
+      fix_hint: "кадр 0 — постер сцены: опора видна сразу (силуэты kit до входа — pre у Enter, FlowGraph и графиков; кикер виден приглушённо), фон в полную силу",
+  }];
+}
+
 /**
  * Пустой регион кадра удержания: доля содержимого ниже. Калибровка Fix G по кадрам N−1
  * пяти сцен прогона 4 и среза: пустые по ревью регионы (test1 — средняя полоса, gen-compare —
@@ -100,8 +148,14 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
   if (last >= 0 && frames[last]!.frame >= dur * 0.75 && imgs[last]!.width >= EMPTY_WIDTH && !input.settings.transparent_export && !input.style.transparent) out.push(...emptyRegionIssues(imgs[last]!, frames[last]!.frame));
   if (input.accentFrames && input.accentFrames.length === 2) {
     const [a, b] = [...input.accentFrames].sort((x, y) => x.frame - y.frame) as [{ frame: number; path: string }, { frame: number; path: string }];
-    out.push(...accentAliveIssues(input.spec, input.settings, [a.frame, await loadPng(a.path)], [b.frame, await loadPng(b.path)]));
+    const [ia, ib] = [await loadPng(a.path), await loadPng(b.path)];
+    out.push(...accentAliveIssues(input.spec, input.settings, [a.frame, ia], [b.frame, ib]));
+    out.push(...holdFrozenIssues(input.spec, [a.frame, ia], [b.frame, ib]));
   }
+  if (input.posterFrames && input.posterFrames.length > 0 && last >= 0 && !input.style.transparent && !input.settings.transparent_export) {
+    out.push(...(await posterIssues(input.posterFrames, imgs[last]!)));
+  }
+  out.push(...layoutIssues(parseLayout(input.render.browserLogs)));
   out.push(...contrastIssues(input.style));
   out.push(...logIssues(input.render.browserLogs));
   if (input.previewBytes === 0) {

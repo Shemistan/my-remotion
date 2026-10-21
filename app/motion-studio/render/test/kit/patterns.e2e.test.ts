@@ -12,10 +12,28 @@ import { ensureRenderBrowser } from "../../src/node/browser.js";
 import { probeGate } from "../../src/node/ffprobe.js";
 import { renderVersion } from "../../src/node/render-version.js";
 import { codeLineRect } from "../../src/motion-kit/components/CodeBlock.js";
+import { LAYOUT_TAG, type LayoutFrame, intersect } from "../../src/motion-kit/layout-probe.js";
 import { CODE_POS, CODE_W, FONT } from "../fixtures/patterns-gallery/code/src/layout.js";
 import { FIXTURES, copyFixture, fixtureSettings, makeStore, makeTmp, removeTmp } from "../helpers.js";
 
 const T = 600_000;
+
+/** Строки реестра раскладки (`[motion-kit:layout]`) из логов браузера. */
+function layoutFrames(logs: string[]): LayoutFrame[] {
+  return logs.filter((l) => l.includes(LAYOUT_TAG)).map((l) => JSON.parse(l.slice(l.indexOf(LAYOUT_TAG) + LAYOUT_TAG.length)) as LayoutFrame).sort((a, b) => a.frame - b.frame);
+}
+/** Пары текстов кадра, перекрытые ≥ 20 % меньшего (как text_overlap / token_on_label в QA). */
+function textOverlaps(f: LayoutFrame): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < f.items.length; i++) {
+    for (let j = i + 1; j < f.items.length; j++) {
+      const [a, b] = [f.items[i]!.rect, f.items[j]!.rect];
+      const k = intersect(a, b) / Math.min(a.w * a.h, b.w * b.h);
+      if (k >= 0.2) out.push(`${f.frame}: «${f.items[i]!.text}» × «${f.items[j]!.text}»`);
+    }
+  }
+  return out;
+}
 const FRAMES = [0, 30, 75, 120, 149];
 const sha256 = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
 const SCENES = readdirSync(join(FIXTURES, "patterns-gallery")).sort();
@@ -98,8 +116,8 @@ afterAll(async () => {
 });
 
 describe("patterns-gallery", () => {
-  it("пять сцен брифа, сцена количеств, акценты / схема kit 0.2 и процесс / скорость kit 0.3 на месте", () => {
-    expect(SCENES).toEqual(["accent", "cache", "code", "comparison", "data", "emphasis", "flow", "process", "speed", "timeline"]);
+  it("пять сцен брифа, сцена количеств, акценты / схема kit 0.2, процесс / скорость kit 0.3, буфер и роли узлов kit 0.4 на месте", () => {
+    expect(SCENES).toEqual(["accent", "cache", "code", "comparison", "data", "emphasis", "flow", "kinds", "process", "queue", "speed", "timeline"]);
   });
 
   for (const name of SCENES) {
@@ -125,6 +143,11 @@ describe("patterns-gallery", () => {
       lastFrame.set(name, sha256(r.stills[4]!));
       // ошибок в консоли браузера нет (шрифты, SVG-маски и фильтры отработали)
       expect(r.browserLogs.filter((l) => l.startsWith("[error]"))).toEqual([]);
+      // 0.4.0: реестр раскладки на каждом кадре-стоп; ни призраков, ни наложений текста
+      const layout = layoutFrames(r.browserLogs);
+      expect(layout.map((f) => f.frame)).toEqual(FRAMES);
+      expect(layout.flatMap((f) => f.ghosts)).toEqual([]);
+      expect(layout.flatMap((f) => textOverlaps(f))).toEqual([]);
     }, T);
   }
 
