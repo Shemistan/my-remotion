@@ -70,6 +70,23 @@ describe("nodeFlash: вспышка узла по приходу импульс�
   });
 });
 
+describe("FlowNode.emphasis: акцент удержания узла (тот же accentPulse, что Emphasis)", () => {
+  it("удар в начале бита, затем дыхание до конца сцены (loop по умолчанию), без бита — как раньше", () => {
+    const at = (f: number) => nodeFlash(f, st, [], { start_frame: 140, end_frame: 156 });
+    expect(at(139).level).toBe(0);
+    expect(Math.max(...[140, 141, 142, 143, 144, 145].map((f) => at(f).level))).toBeGreaterThan(0.95);
+    const hold = Array.from({ length: 80 }, (_, i) => at(180 + i).level);
+    expect(Math.min(...hold)).toBeGreaterThan(0.35);
+    expect(Math.max(...hold) - Math.min(...hold)).toBeGreaterThan(0.4);
+    expect(nodeFlash(200, st, [])).toMatchObject({ level: 0, scale: 1 });
+  });
+  it("loop: false — гаснет после бита; вспышка и акцент — сильнейший в кадре", () => {
+    expect(nodeFlash(200, st, [], { start_frame: 140, end_frame: 156, loop: false }).level).toBe(0);
+    const both = nodeFlash(101, st, [100], { start_frame: 20, end_frame: 40 });
+    expect(both.level).toBeGreaterThan(nodeFlash(101, st, [], { start_frame: 20, end_frame: 40 }).level);
+  });
+});
+
 describe("входы узлов: разные по характеру", () => {
   const KINDS: CardEnter[] = ["rise", "scale", "flip", "pop", "slide", "swing", "blur", "fade"];
 

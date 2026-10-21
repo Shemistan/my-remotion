@@ -39,6 +39,12 @@ export interface FlowNode {
    * заданные кадры. Удар accentPulse — ореол, кромка, кольцо, толчок масштаба.
    */
   flash?: PulseArrival | number | (PulseArrival | number)[];
+  /**
+   * Акцент узла (итог на нём): удар в `start_frame` и дыхание удержания до конца сцены
+   * (`loop: false` — гаснет после бита). Тот же accentPulse, что у <Emphasis>; отдельный
+   * Emphasis-оверлей поверх или под узлом не нужен.
+   */
+  emphasis?: Pick<Beat, "start_frame" | "end_frame"> & { loop?: boolean };
 }
 
 export interface FlowEdge {
@@ -130,10 +136,13 @@ export function flowTiming(nodes: FlowNode[], edges: FlowEdge[], beat: Pick<Beat
 
 /**
  * Вспышка узла в кадре `frame` по кадрам прихода `at`: удар accentPulse (без дыхания);
- * при нескольких приходах — самая яркая из идущих вспышек.
+ * при нескольких приходах — самая яркая из идущих вспышек. `emphasis` — акцент узла с
+ * дыханием удержания; в кадре берётся сильнейшее из акцента и вспышек.
  */
-export function nodeFlash(frame: number, s: StyleBible, at: number[]): AccentPulse {
-  let best: AccentPulse = { level: 0, scale: 1, strike: 0, hold: 0, swell: 0, ripple: -1, rippleAlpha: 0 };
+export function nodeFlash(frame: number, s: StyleBible, at: number[], emphasis?: FlowNode["emphasis"]): AccentPulse {
+  let best: AccentPulse = emphasis
+    ? accentPulse(frame, s, { beat: emphasis, loop: emphasis.loop ?? true })
+    : { level: 0, scale: 1, strike: 0, hold: 0, swell: 0, ripple: -1, rippleAlpha: 0 };
   for (const t of at) {
     if (t > frame) continue;
     // атака стартует кадром раньше: в сам кадр прихода узел уже загорается
@@ -205,7 +214,7 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", c
           const mark = interpolate(frame, [t0 + frames(s, 8), t0 + frames(s, 22)], [0, 1], { ...CLAMP, easing: EASE.outExpo });
           const col = accent(s, n.accentIndex ?? 0);
           const flashAt = n.flash === undefined ? [] : (Array.isArray(n.flash) ? n.flash : [n.flash]).flatMap((f) => (typeof f === "number" ? [f] : arrivals(f)));
-          const fl = nodeFlash(frame, s, flashAt);
+          const fl = nodeFlash(frame, s, flashAt, n.emphasis);
           const lit = fl.level > 0.005;
           const surface = cardSurface(s, e);
           const r = radius(s, 2);

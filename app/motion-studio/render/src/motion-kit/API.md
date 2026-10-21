@@ -1,4 +1,4 @@
-# @ms/motion-kit 0.2.1 — справка для агента
+# @ms/motion-kit 0.2.2 — справка для агента
 
 Детерминированные компоненты Remotion 4.0.537. Всё движение считается от
 `useCurrentFrame()`; оформление берётся из StyleBible (`useStyle()`). Импорт —
@@ -420,7 +420,8 @@ radius? spread? strength? = 1 display? = "inline-block" style?>цель</Emphasi
 - `shape` — скругление кольца: `pill` (слово, плашка), `rounded` (карточка), `circle`.
 - `radius` — у `rounded`: радиус углов цели в px (по умолчанию — радиус карточки стиля,
   `radius(s, 2)`). Кольцо идёт концентрично: его радиус = радиус цели + отступ от кромки,
-  углы не острые. Оверлей поверх узла `FlowGraph` — передай радиус узла.
+  углы не острые. Акцент узла `FlowGraph` — `FlowNode.emphasis`, не `Emphasis` поверх или
+  под узлом (под непрозрачной карточкой свечение не видно, удержание «гаснет»).
 - Цель — **реальный объект**: не пустой блок-область. Примитив со своим акцентом
   (`Timeline highlightLast`, `LineChart endpointEmphasis`, `FlowNode flash`) в `Emphasis`
   не оборачивай — второй акцент поверх первого.
@@ -435,10 +436,11 @@ radius? spread? strength? = 1 display? = "inline-block" style?>цель</Emphasi
 ядро по размеру блока и свечение на `spread` за край; гауссов спад `closest-side` до
 нуля на кромке: жёсткой плашки не бывает, центр — центр блока.
 
-`useAccentPulse(beat, { loop?, strength? })` → `{ level, scale, strike, hold, ripple,
+`useAccentPulse(beat, { loop?, strength? })` → `{ level, scale, strike, hold, swell, ripple,
 rippleAlpha }` — тот же акцент для своих элементов (хук); `accentPulse(frame, style,
 { beat, loop?, strength? })` — не хук (SVG, `.map()`). `level` — сила свечения 0..1,
-`ripple` — кольцо 0 → 1 (−1 — кольца нет).
+`ripple` — кольцо 0 → 1 (−1 — кольца нет), `swell` — волна «тела» −1..1 на четверть
+цикла позже света (вторая деталь, дышащая не в такт ореолу).
 ```tsx
 <Emphasis beat={{ start_frame: 112, end_frame: 150 }} spread={64}>
   <div style={{ padding: "0.3em 0.8em", borderRadius: 999, background: surfaceAt(s, 2), fontSize: 59 }}>×4 за год</div>
@@ -562,7 +564,7 @@ width?, height?, padding?, style? }`
 
 ### FlowGraph
 `{ nodes: { id, label, x, y, w, h, elevation? = 2, caption?, accentIndex?, enter?, enterAt?,
-flash? }[], edges: { id, from, to }[], beat, width?, height?, enter? = "flip", children? }`
+flash?, emphasis? }[], edges: { id, from, to }[], beat, width?, height?, enter? = "flip", children? }`
 
 Координаты узлов — в px внутри области графа. Узлы — карточки с глубиной. Они входят
 слева направо в первые ~45% бита. Ребро прорисовывается, когда оба его узла на месте,
@@ -583,6 +585,12 @@ repeat? })` — узел вспыхивает (удар `accentPulse`: орео�
 `travel`, `count`, `repeat` касается узла (ядро головы ближе 10 px к концу ребра) — на
 каждом проходе. Кадры считает граф: он знает, когда ребро дорисовано и сколько длится
 проход. `flash` принимает и массив, и кадры числом. Цвет — `accentIndex` узла.
+
+**Акцент узла (итог на узле).** `emphasis: { start_frame, end_frame, loop? = true }` —
+тот же `accentPulse`, что у `Emphasis`: удар в `start_frame`, затем дыхание удержания до
+конца сцены (ореол, кромка, кольцо на вдох, лёгкий масштаб); `loop: false` — гаснет после
+бита. С `flash` уживается: в кадре светит сильнейшее. Отдельный `Emphasis`-оверлей на
+узел не ставь.
 ```tsx
 const TRAVEL = 22;
 const back = { start_frame: 116, end_frame: 150 };
