@@ -1,48 +1,42 @@
 {
-  "run_id": "job_01M5ENKRE97K7A1AXGRVQF64JB",
+  "run_id": "job_01M5EQ52A5JTQNGJMHJK1NP7B4",
   "attempt": 1,
-  "cost_usd": 1.3546882999999998,
-  "engineer_calls": 2,
+  "cost_usd": 1.5418228000000003,
+  "engineer_calls": 1,
   "visual_qa": [
     {
-      "call": 2,
-      "wall_ms": 36133,
-      "cost_usd": 0.17246910000000004,
+      "call": 1,
+      "wall_ms": 44716,
+      "cost_usd": 0.16494950000000008,
       "status": "completed",
       "gate": {
         "technical": "pass",
         "visual": "warn",
-        "semantic": "pass",
-        "style": "warn"
+        "semantic": "warn",
+        "style": "pass"
       }
     }
   ],
   "timings": {
-    "concept": 9411,
-    "motion_director": 56495,
-    "engineer_1": 129546,
-    "static": 51,
-    "typecheck": 28548,
-    "engineer_2": 29122,
-    "render_2": 21365,
-    "qa_programmatic": 3001,
-    "visual_qa_2": 36151
+    "concept": 6308,
+    "motion_director": 233052,
+    "engineer_1": 178778,
+    "static": 14,
+    "typecheck": 13034,
+    "render_1": 20020,
+    "qa_programmatic": 2941,
+    "visual_qa_1": 44736
   },
   "history": [
     {
-      "at": "2026-10-21T07:39:25.468Z",
-      "stage": "typecheck",
-      "message": "src/Scene.tsx:262 Type 'SceneStyle' is not assignable to type 'StyleSource'.\n  Type 'SceneStyle' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'SceneStyle' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'preset' are incompatible.\n        Type 'string' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'."
-    },
-    {
-      "at": "2026-10-21T07:41:09.858Z",
+      "at": "2026-10-21T08:13:22.976Z",
       "stage": "qa",
-      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"warn\"}; blocking: —"
+      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"warn\",\"style\":\"pass\"}; blocking: —"
     },
     {
-      "at": "2026-10-21T07:41:09.891Z",
+      "at": "2026-10-21T08:13:23.001Z",
       "stage": "ready",
-      "message": "gate пройден с вызова 2"
+      "message": "gate пройден с вызова 1"
     }
   ]
 }

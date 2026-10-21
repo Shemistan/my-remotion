@@ -2,21 +2,21 @@ import React from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import {
   Background,
-  Camera,
+  Card,
   Emphasis,
   Enter,
   FlowGraph,
-  Parallax,
+  KineticText,
   Particles,
   PulseAlongPath,
   SafeArea,
   StyleProvider,
   accent,
-  accentPulse,
   alpha,
+  cardEnterStyle,
   easingOf,
-  enterStyle,
-  mix,
+  flowTiming,
+  pathD,
   pulseArrival,
   typeSize,
   useFlowGeometry,
@@ -26,452 +26,458 @@ import {
 
 type Beat = { id: string; start_frame: number; end_frame: number };
 type Layout = { x: number; y: number; w: number; h: number };
-type CardEnter = "rise" | "scale" | "flip" | "pop" | "slide" | "swing" | "blur" | "fade" | "none";
-type CameraKey = { frame: number; scale: number; x: number; y: number };
+type Elevation = 0 | 1 | 2 | 3;
+type NodeEnter = "rise" | "scale" | "flip" | "pop" | "slide" | "swing" | "blur" | "fade" | "none";
+type StatusKind = "rise" | "slide" | "fade" | "scale" | "mask" | "blur" | "pop";
+type ColorKey = "text" | "muted" | "positive" | "negative";
+// color — цвет вспышки на приходе: ключ палитры или индекс акцента (по умолчанию accentIndex узла).
+type FlowRef = { edge: string; beat: string; color?: "negative" | "positive" | number };
 
-type StepItem = { n: string; label: string; active_beat: string };
-type GraphNode = {
+type NodeContent = {
   id: string;
   label: string;
-  enter: CardEnter;
-  enter_offset: number;
-  elevation: 0 | 1 | 2 | 3;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
+  caption?: string;
+  enter: NodeEnter;
+  elevation: Elevation;
+  enterAt: number;
+  accentIndex: number;
+  flash_on: FlowRef[];
+  layout: Layout;
 };
-type GraphEdge = { id: string; from: string; to: string };
-type Flow = { edge: string; reverse: boolean; beat: string; accent: number; travel: number };
+
+type Flow = { edge: string; direction: "forward" | "back"; beat: string; travel: number };
 
 type Content = {
-  title: string;
-  stepper: { layout: Layout; separator: string; steps: StepItem[] };
+  title: { text: string; beat: string; layout: Layout };
   graph: {
+    beat: string;
     layout: Layout;
-    width: number;
-    height: number;
-    nodes: GraphNode[];
-    edges: GraphEdge[];
+    edges: { id: string; from: string; to: string }[];
+    repeat: boolean;
+    pulse_size: number;
+    pulse_tail: number;
+    pulse_colors: { forward: number; back: number };
     flows: Flow[];
-    dim_opacity: number;
-    cache_caption_empty: string;
-    cache_caption_filled: string;
+    edge_dim: { edge: string; beat: string; opacity: number };
   };
-  conclusion: { layout: Layout; text: string; highlight: string };
-  camera: CameraKey[];
+  nodes: NodeContent[];
+  cache_slot: {
+    empty_label: string;
+    filled_label: string;
+    fill_on: FlowRef;
+    accentIndex: number;
+    layout: Layout;
+  };
+  statuses: { id: string; text: string; kind: StatusKind; color: ColorKey; beat: string; layout: Layout }[];
+  hero: { text: string; color: ColorKey; beat: string; emphasis_beat: string; accentIndex: number; layout: Layout };
+  atmosphere: { beat: string; particles: number; seed: string };
 };
 
-type SceneStyle = {
-  preset: "dark-premium" | "light-clean" | "tech-neon";
-  intensity: "calm" | "balanced" | "energetic";
-  depth?: 0 | 1 | 2 | 3;
-  transparent?: boolean;
-  safe_area?: { x: number; y: number };
-  palette_overrides?: {
-    bg?: string;
-    surface?: string;
-    text?: string;
-    muted?: string;
-    accent?: string[];
-    positive?: string;
-    negative?: string;
-  };
-};
+// props.style сцены уходит в StyleProvider как есть; поля читаем из useStyle()
+type SceneStyle = React.ComponentProps<typeof StyleProvider>["style"];
 
-export type SceneProps = {
+type FlowNodes = React.ComponentProps<typeof FlowGraph>["nodes"];
+type ResolvedStyle = ReturnType<typeof useStyle>;
+
+const flashColor = (style: ResolvedStyle, ref: FlowRef): string =>
+  typeof ref.color === "string" ? style.palette[ref.color] : accent(style, ref.color ?? 0);
+
+type SceneProps = {
   timing: { duration_frames: number; beats: Beat[] };
   style: SceneStyle;
   content: Content;
 };
 
-type BeatWindow = { start_frame: number; end_frame: number };
-type Beats = (id: string) => BeatWindow;
-type Arrival = ReturnType<typeof pulseArrival>;
-
 const CLAMP = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
-// Запас вокруг графа: тени и свечение узлов не срезаются маской затемнения.
-const GRAPH_PAD = 120;
+const CACHE_ID = "node-cache";
 
-const beatLookup = (beats: Beat[]): Beats => (id) => {
+const beatOf = (beats: Beat[], id: string): Beat => {
   const b = beats.find((x) => x.id === id);
-  if (!b) throw new Error(`beat ${id} not found`);
-  return { start_frame: b.start_frame, end_frame: b.end_frame };
+  if (!b) throw new Error(`Beat ${id} not found in props.timing.beats`);
+  return b;
 };
 
-const firstArrival = (frames: number[], fallback: number) => frames[0] ?? fallback;
+const travelOf = (flows: Flow[], ref: FlowRef): number => {
+  const f = flows.find((x) => x.edge === ref.edge && x.beat === ref.beat);
+  if (!f) throw new Error(`Flow ${ref.edge}/${ref.beat} not found`);
+  return f.travel;
+};
 
-// ---------- Трекер этапов ----------
+// Приглушение длинного ребра на попадании — SVG-слой внутри FlowGraph (дети графа рисуются в его SVG).
+const DimEdge: React.FC<{ beats: Beat[]; content: Content }> = ({ beats, content }) => {
+  const frame = useCurrentFrame();
+  const style = useStyle();
+  const geo = useFlowGeometry();
+  const { graph } = content;
+  const dimBeat = beatOf(beats, graph.edge_dim.beat);
+  const dim = interpolate(
+    frame,
+    [dimBeat.start_frame, dimBeat.start_frame + style.motion.exit_frames],
+    [0, 1 - graph.edge_dim.opacity],
+    { ...CLAMP, easing: easingOf(style, "enter") },
+  );
+  const dimSeg = geo?.edges.get(graph.edge_dim.edge);
+  if (!dimSeg || dim <= 0) return null;
+  return (
+    <path
+      d={pathD([dimSeg])}
+      fill="none"
+      stroke={style.palette.bg}
+      strokeWidth={12}
+      strokeLinecap="round"
+      opacity={dim}
+    />
+  );
+};
 
-const StepChip: React.FC<{ step: StepItem; activeAt: number; last: boolean; separator: string; width: number }> = ({
-  step,
-  activeAt,
-  last,
-  separator,
-  width,
+// Внутренность узла «Кэш»: подпись, пояснение и ячейка (пусто → данные) и вспышки по приходу импульсов.
+// HTML-слой поверх графа (вне FlowGraph), кадры прихода — из flowTiming с теми же узлами и битом.
+const CacheLayer: React.FC<{ beats: Beat[]; content: Content; flowNodes: FlowNodes; W: number; H: number }> = ({
+  beats,
+  content,
+  flowNodes,
+  W,
+  H,
 }) => {
   const frame = useCurrentFrame();
-  const { height } = useVideoConfig();
-  const s = useStyle();
-  const p = interpolate(frame, [activeAt, activeAt + s.motion.enter_frames], [0, 1], {
+  const { fps, height } = useVideoConfig();
+  const style = useStyle();
+  const { graph, cache_slot: slot } = content;
+  const cache = content.nodes.find((n) => n.id === CACHE_ID);
+  if (!cache) throw new Error("node-cache missing");
+
+  const g = graph.layout;
+  const nx = (cache.layout.x - g.x) * W;
+  const ny = (cache.layout.y - g.y) * H;
+  const nw = cache.layout.w * W;
+  const nh = cache.layout.h * H;
+  const sx = (slot.layout.x - cache.layout.x) * W;
+  const sy = (slot.layout.y - cache.layout.y) * H;
+  const sw = slot.layout.w * W;
+  const sh = slot.layout.h * H;
+
+  const timing = flowTiming(flowNodes, graph.edges, beatOf(beats, graph.beat), style, fps);
+  const arrivalsOf = (ref: FlowRef): number[] =>
+    timing.arrivals(
+      pulseArrival(ref.edge, beatOf(beats, ref.beat), travelOf(graph.flows, ref), { repeat: graph.repeat }),
+    );
+
+  // Вспышки узла: по одной на приход, цвет фазы (промах — negative, запись — accent[1], попадание — accent[0]).
+  const flashes = cache.flash_on
+    .map((ref) => ({ at: arrivalsOf(ref)[0] ?? beatOf(beats, ref.beat).end_frame, color: flashColor(style, ref) }))
+    .sort((a, b) => a.at - b.at);
+  const current = [...flashes].reverse().find((f) => f.at <= frame) ?? flashes[0];
+
+  const fillAt = arrivalsOf(slot.fill_on)[0] ?? beatOf(beats, slot.fill_on.beat).end_frame;
+  const emptyOpacity = interpolate(frame, [fillAt, fillAt + style.motion.exit_frames], [1, 0], {
     ...CLAMP,
-    easing: easingOf(s, "enter"),
+    easing: easingOf(style, "exit"),
   });
-  const body = typeSize(s, "body", height);
-  const caption = typeSize(s, "caption", height);
-  const badge = Math.round(body * 1.3);
-  const color = mix(s.palette.muted, s.palette.text, p);
-  return (
-    <div style={{ width, display: "flex", alignItems: "center", gap: Math.round(body * 0.3) }}>
-      <div
-        style={{
-          width: badge,
-          height: badge,
-          borderRadius: badge,
-          background: s.palette.surface,
-          boxShadow: s.surfaces.elevation[0],
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: s.typography.mono.family,
-          fontWeight: 500,
-          fontSize: caption,
-          color,
-          flexShrink: 0,
-        }}
-      >
-        {step.n}
-      </div>
-      <div
-        style={{
-          fontFamily: s.typography.body.family,
-          fontWeight: 600,
-          fontSize: body,
-          letterSpacing: `${s.typography.tracking.body}em`,
-          color,
-          whiteSpace: "nowrap",
-        }}
-      >
-        {step.label}
-      </div>
-      {last ? null : (
+
+  const enter = cardEnterStyle(style, frame, fps, cache.enterAt, cache.enter);
+  const radius = style.surfaces.radius[1];
+  const display = style.typography.display;
+  const body = style.typography.body;
+
+  const inner = (
+    <div style={{ position: "relative", width: nw, height: nh }}>
         <div
           style={{
-            marginLeft: "auto",
-            marginRight: Math.round(body * 0.4),
-            fontFamily: s.typography.body.family,
-            fontSize: caption,
-            color: s.palette.muted,
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: nw,
+            height: sy,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
           }}
         >
-          {separator}
+          <div
+            style={{
+              fontFamily: display.family,
+              fontWeight: display.weight,
+              fontSize: typeSize(style, "h2", height),
+              color: style.palette.text,
+              lineHeight: 1.1,
+              letterSpacing: `${style.typography.tracking.display}em`,
+            }}
+          >
+            {cache.label}
+          </div>
+          {cache.caption ? (
+            <div
+              style={{
+                fontFamily: body.family,
+                fontWeight: body.weight,
+                fontSize: typeSize(style, "caption", height),
+                color: style.palette.muted,
+                lineHeight: 1.1,
+              }}
+            >
+              {cache.caption}
+            </div>
+          ) : null}
         </div>
+        <div style={{ position: "absolute", left: sx, top: sy, width: sw, height: sh }}>
+          {emptyOpacity > 0 ? (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                borderRadius: radius,
+                border: `2px dashed ${alpha(style.palette.muted, 0.7)}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: emptyOpacity,
+                fontFamily: body.family,
+                fontWeight: body.weight,
+                fontSize: typeSize(style, "caption", height),
+                color: style.palette.muted,
+              }}
+            >
+              {slot.empty_label}
+            </div>
+          ) : null}
+          {frame >= fillAt ? (
+            <Card
+              elevation={1}
+              enter="pop"
+              beat={{ start_frame: fillAt, end_frame: fillAt + style.motion.enter_frames }}
+              accentIndex={slot.accentIndex}
+              width={sw}
+              height={sh}
+              padding={0}
+              style={{ position: "absolute", left: 0, top: 0 }}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: body.family,
+                  fontWeight: 600,
+                  fontSize: typeSize(style, "body", height),
+                  color: style.palette.text,
+                }}
+              >
+                {slot.filled_label}
+              </div>
+            </Card>
+          ) : null}
+        </div>
+    </div>
+  );
+
+  return (
+    <div style={{ position: "absolute", left: nx, top: ny, width: nw, height: nh, transformOrigin: "50% 50%", ...enter }}>
+      {current ? (
+        <Emphasis
+          key={current.at}
+          beat={{ start_frame: current.at, end_frame: current.at }}
+          loop={false}
+          color={current.color}
+          shape="rounded"
+        >
+          {inner}
+        </Emphasis>
+      ) : (
+        inner
       )}
     </div>
   );
 };
 
-const Stepper: React.FC<{ content: Content["stepper"]; beat: Beats }> = ({ content, beat }) => {
-  const rect = useSafeArea();
-  const { layout, steps } = content;
-  const width = layout.w * rect.w;
-  const chipW = width / steps.length;
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: layout.x * rect.w,
-        top: layout.y * rect.h,
-        width,
-        height: layout.h * rect.h,
-        display: "flex",
-        alignItems: "center",
-      }}
-    >
-      {steps.map((step, i) => (
-        <Enter key={step.n} kind="slide" beat={beat("b-stepper-in")} index={i} total={steps.length}>
-          <StepChip
-            step={step}
-            activeAt={beat(step.active_beat).start_frame}
-            last={i === steps.length - 1}
-            separator={content.separator}
-            width={chipW}
-          />
-        </Enter>
-      ))}
-    </div>
-  );
-};
-
-// ---------- Слой Кэша поверх графа: подпись состояния и акцент попадания ----------
-
-const CacheOverlay: React.FC<{ node: GraphNode; graph: Content["graph"]; beat: Beats; flows: Flow[] }> = ({
-  node,
-  graph,
-  beat,
-  flows,
-}) => {
-  const frame = useCurrentFrame();
+const SceneBody: React.FC<SceneProps> = ({ timing, content }) => {
+  const style = useStyle();
+  const safe = useSafeArea();
   const { height } = useVideoConfig();
-  const s = useStyle();
-  const geo = useFlowGeometry();
-  const arrival = (beatId: string, fallback: number) => {
-    const f = flows.find((x) => x.beat === beatId);
-    if (!geo || !f) return fallback;
-    return firstArrival(geo.arrivals(pulseArrival(f.edge, beat(beatId), f.travel, { repeat: false })), fallback);
-  };
-  const missAt = arrival("b-request", beat("b-miss-emphasis").start_frame);
-  const writeAt = arrival("b-return", beat("b-write-emphasis").start_frame);
-  const hitAt = arrival("b-hit-request", beat("b-hit-emphasis").start_frame);
+  const { beats } = timing;
+  const W = safe.w;
+  const H = safe.h;
+  const { graph } = content;
+  const g = graph.layout;
+  const graphRect = { x: g.x * W, y: g.y * H, w: g.w * W, h: g.h * H };
 
-  const body = typeSize(s, "body", height);
-  const enterF = s.motion.enter_frames;
-
-  // «пусто»: коротко краснеет в момент промаха и возвращается в muted
-  const missPulse = accentPulse(frame, s, {
-    beat: { start_frame: missAt, end_frame: beat("b-miss-emphasis").end_frame },
-    loop: false,
+  const nodes: FlowNodes = content.nodes.map((n) => {
+    const isCache = n.id === CACHE_ID;
+    // Вспышки «Кэша» — цветные по фазам, их рисует CacheLayer; остальные узлы — штатный flash.
+    const flash = isCache
+      ? []
+      : n.flash_on.map((ref) =>
+          pulseArrival(ref.edge, beatOf(beats, ref.beat), travelOf(graph.flows, ref), { repeat: graph.repeat }),
+        );
+    return {
+      id: n.id,
+      // Подпись «Кэш» и ячейка рисуются слоем CacheLayer внутри карточки узла.
+      label: isCache ? "" : n.label,
+      ...(n.caption && !isCache ? { caption: n.caption } : {}),
+      x: (n.layout.x - g.x) * W,
+      y: (n.layout.y - g.y) * H,
+      w: n.layout.w * W,
+      h: n.layout.h * H,
+      elevation: n.elevation,
+      accentIndex: n.accentIndex,
+      enter: n.enter,
+      enterAt: n.enterAt,
+      flash,
+    };
   });
-  const emptyColor = mix(s.palette.muted, s.palette.negative, Math.min(1, missPulse.level));
-  const swap = interpolate(frame, [writeAt, writeAt + enterF], [0, 1], { ...CLAMP, easing: easingOf(s, "enter") });
-  const emptyOut = interpolate(frame, [writeAt, writeAt + s.motion.exit_frames], [1, 0], {
-    ...CLAMP,
-    easing: easingOf(s, "exit"),
-  });
-  const filledStyle = enterStyle("blur", swap, { amplitude: s.amplitude, distancePx: 0 });
 
-  // контур акцента попадания появляется в кадр прихода импульса
-  const ringIn = interpolate(frame, [hitAt, hitAt + s.motion.stagger_frames], [0, 1], CLAMP);
-
-  // подпись входит вслед за узлом Кэша
-  const captionIn = {
-    start_frame: beat("b-graph-in").start_frame + node.enter_offset + s.motion.stagger_frames,
-    end_frame: beat("b-graph-in").end_frame,
-  };
-  const captionW = node.w + 200;
-  const captionBox: React.CSSProperties = {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    width: captionW,
-    textAlign: "center",
-    fontFamily: s.typography.body.family,
-    fontWeight: 500,
-    fontSize: body,
-    letterSpacing: `${s.typography.tracking.body}em`,
-    whiteSpace: "nowrap",
-  };
+  const title = content.title;
+  const titleBeat = beatOf(beats, title.beat);
+  const hero = content.hero;
+  const display = style.typography.display;
 
   return (
-    <>
+    <SafeArea>
+      {/* Шторка оборачивает текст в потоке: у обёртки есть размер, клип открывается по биту */}
       <div
         style={{
           position: "absolute",
-          left: node.x + node.w / 2 - captionW / 2,
-          top: node.y + node.h + Math.round(body * 0.45),
-          width: captionW,
-          height: body * 1.3,
+          left: title.layout.x * W,
+          top: title.layout.y * H,
+          width: title.layout.w * W,
+          height: title.layout.h * H,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
-        {frame >= captionIn.start_frame ? (
-          <Enter kind="fade" beat={captionIn}>
-            <div style={{ position: "relative", width: captionW, height: body * 1.3 }}>
-              <div style={{ ...captionBox, color: emptyColor, opacity: emptyOut }}>{graph.cache_caption_empty}</div>
-              {frame >= writeAt ? (
-                <div style={{ ...captionBox, color: s.palette.positive, ...filledStyle }}>{graph.cache_caption_filled}</div>
-              ) : null}
-            </div>
-          </Enter>
-        ) : null}
-      </div>
-      {frame >= hitAt ? (
-        <div style={{ position: "absolute", left: node.x, top: node.y, width: node.w, height: node.h }}>
-          <Emphasis
-            beat={{ start_frame: hitAt, end_frame: beat("b-hit-emphasis").end_frame }}
-            loop
-            color={s.palette.positive}
-            shape="rounded"
-            halo={false}
-            display="block"
+        <Enter kind="mask" beat={titleBeat}>
+          <div
+            style={{
+              textAlign: "center",
+              whiteSpace: "nowrap",
+              fontFamily: display.family,
+              fontWeight: display.weight,
+              fontSize: typeSize(style, "h2", height),
+              letterSpacing: `${style.typography.tracking.display}em`,
+              lineHeight: 1.2,
+              color: style.palette.text,
+            }}
           >
+            {title.text}
+          </div>
+        </Enter>
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          left: graphRect.x,
+          top: graphRect.y,
+          width: graphRect.w,
+          height: graphRect.h,
+        }}
+      >
+        <FlowGraph nodes={nodes} edges={graph.edges} beat={beatOf(beats, graph.beat)} width={graphRect.w} height={graphRect.h}>
+          <DimEdge beats={beats} content={content} />
+          {graph.flows.map((f) => (
+            <PulseAlongPath
+              key={`${f.edge}-${f.beat}`}
+              edgeId={f.edge}
+              beat={beatOf(beats, f.beat)}
+              travel={f.travel}
+              repeat={graph.repeat}
+              reverse={f.direction === "back"}
+              color={accent(style, f.direction === "back" ? graph.pulse_colors.back : graph.pulse_colors.forward)}
+              size={graph.pulse_size}
+              tail={graph.pulse_tail}
+            />
+          ))}
+        </FlowGraph>
+        <CacheLayer beats={beats} content={content} flowNodes={nodes} W={W} H={H} />
+      </div>
+
+      {content.statuses.map((s) => (
+        <div
+          key={s.id}
+          style={{
+            position: "absolute",
+            left: s.layout.x * W,
+            top: s.layout.y * H,
+            width: s.layout.w * W,
+            height: s.layout.h * H,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Enter kind={s.kind} beat={beatOf(beats, s.beat)} exit>
             <div
               style={{
-                width: node.w,
-                height: node.h,
-                borderRadius: s.surfaces.radius[2],
-                border: `3px solid ${alpha(s.palette.positive, 0.75 * ringIn)}`,
+                fontFamily: display.family,
+                fontWeight: display.weight,
+                fontSize: typeSize(style, "h1", height),
+                letterSpacing: `${style.typography.tracking.display}em`,
+                color: style.palette[s.color],
+                lineHeight: 1.1,
+                textAlign: "center",
               }}
-            />
-          </Emphasis>
+            >
+              {s.text}
+            </div>
+          </Enter>
         </div>
-      ) : null}
+      ))}
+
+      <div
+        style={{
+          position: "absolute",
+          left: hero.layout.x * W,
+          top: hero.layout.y * H,
+          width: hero.layout.w * W,
+          height: hero.layout.h * H,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Emphasis
+          beat={beatOf(beats, hero.emphasis_beat)}
+          loop
+          accentIndex={hero.accentIndex}
+          shape="pill"
+          spread={36}
+        >
+          <KineticText
+            text={hero.text}
+            beat={beatOf(beats, hero.beat)}
+            mode="words"
+            enter="scale"
+            size="display"
+            color={style.palette[hero.color]}
+            align="center"
+          />
+        </Emphasis>
+      </div>
+    </SafeArea>
+  );
+};
+
+const Atmosphere: React.FC<{ beat: Beat; particles: number; seed: string }> = ({ beat, particles, seed }) => {
+  const style = useStyle();
+  return (
+    <>
+      {style.transparent ? null : <Background beat={beat} variant="aurora" seed="cache" />}
+      <Particles count={particles} seed={seed} beat={beat} layer={0} />
     </>
   );
 };
 
-// ---------- Схема ----------
-
-const CacheGraph: React.FC<{ graph: Content["graph"]; beat: Beats }> = ({ graph, beat }) => {
-  const frame = useCurrentFrame();
-  const s = useStyle();
-  const rect = useSafeArea();
-  const graphBeat = beat("b-graph-in");
-  // вспышки узлов — с теми же edgeId, beat, travel, repeat, что у импульсов
-  const arrivalsOf = (ids: string[]): Arrival[] =>
-    ids.flatMap((id) => {
-      const f = graph.flows.find((x) => x.beat === id);
-      return f ? [pulseArrival(f.edge, beat(id), f.travel, { repeat: false })] : [];
-    });
-
-  // Кромка Кэша: акцент, затем negative (промах), с возвратом данных — positive (accent[1])
-  const cacheAccent = frame < beat("b-request").start_frame ? 0 : frame < beat("b-return").start_frame ? 2 : 1;
-
-  const nodes = graph.nodes.map((n) => {
-    const base = {
-      id: n.id,
-      label: n.label,
-      x: n.x,
-      y: n.y,
-      w: n.w,
-      h: n.h,
-      elevation: n.elevation,
-      enter: n.enter,
-      enterAt: graphBeat.start_frame + n.enter_offset,
-    };
-    if (n.id === "cache") {
-      return { ...base, accentIndex: cacheAccent, flash: arrivalsOf(["b-request", "b-return"]) };
-    }
-    if (n.id === "db") {
-      return { ...base, accentIndex: 0, flash: arrivalsOf(["b-fetch"]) };
-    }
-    return { ...base, flash: arrivalsOf([]) };
-  });
-
-  // Длинный путь гаснет: маска приглушает правую часть графа (ребро e-db и Базу данных)
-  const dimBeat = beat("b-dim-long");
-  const dim = interpolate(frame, [dimBeat.start_frame, dimBeat.end_frame], [1, graph.dim_opacity], {
-    ...CLAMP,
-    easing: easingOf(s, "exit"),
-  });
-  const cache = graph.nodes.find((n) => n.id === "cache");
-  const db = graph.nodes.find((n) => n.id === "db");
-  const fadeFrom = GRAPH_PAD + (cache ? cache.x + cache.w : 0) + 30;
-  const fadeTo = GRAPH_PAD + (db ? db.x : graph.width) - 60;
-  const mask =
-    frame >= dimBeat.start_frame
-      ? `linear-gradient(to right, #000 0px, #000 ${fadeFrom}px, rgba(0,0,0,${dim}) ${fadeTo}px)`
-      : undefined;
-
+export const Scene: React.FC<SceneProps> = (props) => {
+  const { content, timing } = props;
+  const atmoBeat = beatOf(timing.beats, content.atmosphere.beat);
   return (
-    <div
-      style={{
-        position: "absolute",
-        left: graph.layout.x * rect.w - GRAPH_PAD,
-        top: graph.layout.y * rect.h - GRAPH_PAD,
-        width: graph.width + GRAPH_PAD * 2,
-        height: graph.height + GRAPH_PAD * 2,
-        padding: GRAPH_PAD,
-        boxSizing: "border-box",
-        maskImage: mask,
-        WebkitMaskImage: mask,
-      }}
-    >
-      <FlowGraph nodes={nodes} edges={graph.edges} beat={graphBeat} width={graph.width} height={graph.height}>
-        {graph.flows.map((f) => (
-          <PulseAlongPath
-            key={`${f.edge}-${f.beat}`}
-            edgeId={f.edge}
-            beat={beat(f.beat)}
-            travel={f.travel}
-            repeat={false}
-            reverse={f.reverse}
-            color={accent(s, f.accent)}
-            size={12}
-            tail={180}
-          />
-        ))}
-        {cache ? <CacheOverlay node={cache} graph={graph} beat={beat} flows={graph.flows} /> : null}
-      </FlowGraph>
-    </div>
+    <StyleProvider style={props.style}>
+      <Atmosphere beat={atmoBeat} particles={content.atmosphere.particles} seed={content.atmosphere.seed} />
+      <SceneBody {...props} />
+    </StyleProvider>
   );
 };
-
-// ---------- Вывод ----------
-
-const Conclusion: React.FC<{ content: Content["conclusion"]; beat: Beats }> = ({ content, beat }) => {
-  const { height } = useVideoConfig();
-  const s = useStyle();
-  const rect = useSafeArea();
-  const { layout, text, highlight } = content;
-  const at = text.lastIndexOf(highlight);
-  const before = at >= 0 ? text.slice(0, at) : text;
-  const after = at >= 0 ? text.slice(at + highlight.length) : "";
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: layout.x * rect.w,
-        top: layout.y * rect.h,
-        width: layout.w * rect.w,
-        height: layout.h * rect.h,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Enter kind="blur" beat={beat("b-conclusion-in")}>
-        <div
-          style={{
-            fontFamily: s.typography.body.family,
-            fontWeight: 600,
-            fontSize: typeSize(s, "body", height),
-            letterSpacing: `${s.typography.tracking.body}em`,
-            color: s.palette.text,
-            textAlign: "center",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {before}
-          {at >= 0 ? <span style={{ color: s.palette.positive }}>{highlight}</span> : null}
-          {after}
-        </div>
-      </Enter>
-    </div>
-  );
-};
-
-// ---------- Сцена ----------
-
-const SceneBody: React.FC<SceneProps> = ({ timing, content }) => {
-  const s = useStyle();
-  const beat = beatLookup(timing.beats);
-  return (
-    <Camera keys={content.camera}>
-      {s.transparent ? null : (
-        <Parallax layer={0}>
-          <Background variant="aurora" beat={{ start_frame: 0, end_frame: beat("b-graph-in").end_frame }} seed="cache" />
-          <Particles
-            count={40}
-            seed="cache-dust"
-            beat={{ start_frame: 0, end_frame: beat("b-graph-in").end_frame }}
-            layer={0}
-            accentShare={0.2}
-          />
-        </Parallax>
-      )}
-      <Parallax layer={1}>
-        <SafeArea>
-          <Stepper content={content.stepper} beat={beat} />
-          <CacheGraph graph={content.graph} beat={beat} />
-          <Conclusion content={content.conclusion} beat={beat} />
-        </SafeArea>
-      </Parallax>
-    </Camera>
-  );
-};
-
-export const Scene: React.FC<SceneProps> = (props) => (
-  <StyleProvider style={props.style}>
-    <SceneBody {...props} />
-  </StyleProvider>
-);

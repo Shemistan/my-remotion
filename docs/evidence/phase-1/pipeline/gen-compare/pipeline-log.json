@@ -1,46 +1,46 @@
 {
-  "run_id": "job_01M5ENKRD29MCKFV8S40NZ9SRG",
+  "run_id": "job_01M5EQ5298WNVFZZHY64TV7RAJ",
   "attempt": 1,
-  "cost_usd": 1.7043898,
+  "cost_usd": 1.5807851,
   "engineer_calls": 2,
   "visual_qa": [
     {
       "call": 2,
-      "wall_ms": 27662,
-      "cost_usd": 0.1622192,
+      "wall_ms": 27097,
+      "cost_usd": 0.14322459999999992,
       "status": "completed",
       "gate": {
         "technical": "pass",
-        "visual": "pass",
+        "visual": "warn",
         "semantic": "pass",
         "style": "pass"
       }
     }
   ],
   "timings": {
-    "concept": 7410,
-    "motion_director": 114347,
-    "engineer_1": 166218,
-    "static": 55,
-    "typecheck": 28214,
-    "engineer_2": 28219,
-    "render_2": 25833,
-    "qa_programmatic": 3139,
-    "visual_qa_2": 27683
+    "concept": 11256,
+    "motion_director": 74098,
+    "engineer_1": 163066,
+    "static": 73,
+    "typecheck": 25954,
+    "engineer_2": 30236,
+    "render_2": 20962,
+    "qa_programmatic": 2227,
+    "visual_qa_2": 27113
   },
   "history": [
     {
-      "at": "2026-10-21T07:30:37.807Z",
+      "at": "2026-10-21T07:56:53.113Z",
       "stage": "typecheck",
-      "message": "src/Scene.tsx:341 Property 'transparent' does not exist on type 'StyleSource'.\n  Property 'transparent' does not exist on type '\"dark-premium\"'."
+      "message": "src/Scene.tsx:430 Type '{ children: Element; beat: Beat; loop: true; shape: \"rounded\"; radius: number; spread: number; accentIndex: number; }' is not assignable to type 'IntrinsicAttributes & EmphasisProps'.\n  Property 'radius' does not exist on type 'IntrinsicAttributes & EmphasisProps'.\nsrc/Scene.tsx:466 Type 'SceneStyle' is not assignable to type 'StyleSource'.\n  Type 'SceneStyle' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'SceneStyle' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'depth' are incompatible.\n        Type 'number | undefined' is not assignable to type 'Depth | undefined'.\n          Type 'number' is not assignable to type 'Depth | undefined'."
     },
     {
-      "at": "2026-10-21T07:32:18.509Z",
+      "at": "2026-10-21T07:58:27.044Z",
       "stage": "qa",
-      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"pass\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
+      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
     },
     {
-      "at": "2026-10-21T07:32:18.545Z",
+      "at": "2026-10-21T07:58:27.066Z",
       "stage": "ready",
       "message": "gate пройден с вызова 2"
     }

@@ -1,188 +1,135 @@
 import React from "react";
-import { useVideoConfig } from "remotion";
 import {
   Background,
   Camera,
-  Emphasis,
-  Enter,
   KineticText,
   Parallax,
   Particles,
   SafeArea,
   StyleProvider,
   Timeline,
-  timelineLayout,
-  typeSize,
   useSafeArea,
   useStyle,
 } from "@ms/motion-kit";
 
 type Beat = { id: string; start_frame: number; end_frame: number };
-type Frac = { x: number; y: number; w: number; h: number };
-type CameraKey = { frame: number; scale: number; x: number; y: number };
-type Milestone = { date: string; label: string; note: string };
+type Layout = { x: number; y: number; w: number; h: number };
 
-type Content = {
-  kicker: string;
-  title: string;
-  timeline: { width: number; height: number; accentIndex: number; items: Milestone[] };
-  layout: { kicker: Frac; title: Frac; timeline: Frac; emphasis: Frac };
-  camera: CameraKey[];
+type SceneContent = {
+  kicker: { text: string; layout: Layout };
+  timeline: {
+    orientation: "h" | "v";
+    width: number;
+    height: number;
+    accentIndex: number;
+    highlightLast: boolean;
+    layout: Layout;
+    items: React.ComponentProps<typeof Timeline>["items"];
+  };
+  camera: React.ComponentProps<typeof Camera>["keys"];
 };
 
 type Props = {
   timing: { duration_frames: number; beats: Beat[] };
-  style: {
-    preset: "dark-premium" | "light-clean" | "tech-neon";
-    intensity: "calm" | "balanced" | "energetic";
-    depth?: 0 | 1 | 2 | 3;
-    transparent?: boolean;
-    safe_area?: { x: number; y: number };
-  };
-  content: Content;
+  style: React.ComponentProps<typeof StyleProvider>["style"];
+  content: SceneContent;
 };
 
 const beatOf = (beats: Beat[], id: string) => {
   const b = beats.find((x) => x.id === id);
-  return { start_frame: b ? b.start_frame : 0, end_frame: b ? b.end_frame : 0 };
+  if (!b) throw new Error(`beat "${id}" missing in props.timing.beats`);
+  return { start_frame: b.start_frame, end_frame: b.end_frame };
 };
 
-const SceneBody: React.FC<{ beats: Beat[]; content: Content }> = ({ beats, content }) => {
+const Content: React.FC<{ timing: Props["timing"]; content: SceneContent }> = ({ timing, content }) => {
   const s = useStyle();
-  const { height } = useVideoConfig();
   const rect = useSafeArea();
-  const { layout, timeline } = content;
-
-  const kickerBeat = beatOf(beats, "b-kicker-in");
-  const titleBeat = beatOf(beats, "b-title-in");
-  const drawBeat = beatOf(beats, "b-timeline-draw");
-  const emphasisBeat = beatOf(beats, "b-final-emphasis");
-
-  // Цель Emphasis — область последней вехи, по тем же позициям, что у Timeline
-  const n = timeline.items.length;
-  const points = timelineLayout(n, { x: 0, y: 0, w: timeline.width, h: timeline.height }, "h");
-  const last = points[n - 1];
-  const targetW = layout.emphasis.w * rect.w;
-  const targetH = layout.emphasis.h * rect.h;
-  const lastX = last ? last.x : timeline.width;
-  const lastY = last ? last.y : timeline.height / 2;
-  const targetLeft = Math.min(Math.max(lastX - targetW / 2, 0), timeline.width - targetW);
-  const targetTop = Math.min(Math.max(lastY - targetH / 2, 0), timeline.height - targetH);
+  const kickerBeat = beatOf(timing.beats, "kicker-in");
+  const timelineBeat = beatOf(timing.beats, "timeline-draw");
+  const k = content.kicker.layout;
+  const t = content.timeline.layout;
+  const tlWidth = Math.min(content.timeline.width, t.w * rect.w);
+  const tlHeight = Math.min(content.timeline.height, t.h * rect.h);
 
   return (
     <>
       <div
         style={{
           position: "absolute",
-          left: layout.kicker.x * rect.w,
-          top: layout.kicker.y * rect.h,
-          width: layout.kicker.w * rect.w,
+          left: k.x * rect.w,
+          top: k.y * rect.h,
+          width: k.w * rect.w,
+          height: k.h * rect.h,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
         }}
       >
         <KineticText
-          text={content.kicker}
+          text={content.kicker.text}
           beat={kickerBeat}
           mode="letters"
           enter="type"
-          size="caption"
-          font="mono"
-          caps
+          size="body"
+          font="display"
+          weight={700}
           color={s.palette.muted}
+          align="center"
+          maxWidth={k.w * rect.w}
         />
       </div>
-
       <div
         style={{
           position: "absolute",
-          left: layout.title.x * rect.w,
-          top: layout.title.y * rect.h,
-          width: layout.title.w * rect.w,
+          left: t.x * rect.w,
+          top: t.y * rect.h,
+          width: tlWidth,
+          height: tlHeight,
         }}
       >
-        <Enter kind="mask" beat={titleBeat}>
-          <div
-            style={{
-              fontFamily: s.typography.display.family,
-              fontWeight: s.typography.display.weight,
-              fontSize: typeSize(s, "h2", height),
-              letterSpacing: `${s.typography.tracking.display}em`,
-              lineHeight: 1.15,
-              color: s.palette.text,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {content.title}
-          </div>
-        </Enter>
-      </div>
-
-      <div
-        style={{
-          position: "absolute",
-          left: layout.timeline.x * rect.w,
-          top: layout.timeline.y * rect.h,
-          width: timeline.width,
-          height: timeline.height,
-        }}
-      >
-        {/* Акцент итога — под таймлайном: ореол и кольцо ложатся за веху 2025 */}
-        <div
-          style={{
-            position: "absolute",
-            left: targetLeft,
-            top: targetTop,
-            width: targetW,
-            height: targetH,
-          }}
-        >
-          <Emphasis
-            beat={emphasisBeat}
-            loop
-            accentIndex={timeline.accentIndex}
-            shape="rounded"
-            ring
-            halo
-            display="block"
-          >
-            <div style={{ width: targetW, height: targetH }} />
-          </Emphasis>
-        </div>
-        <div style={{ position: "absolute", inset: 0 }}>
-          <Timeline
-            items={timeline.items}
-            beat={drawBeat}
-            orientation="h"
-            width={timeline.width}
-            height={timeline.height}
-            accentIndex={timeline.accentIndex}
-            highlightLast
-          />
-        </div>
+        <Timeline
+          items={content.timeline.items}
+          beat={timelineBeat}
+          orientation={content.timeline.orientation}
+          width={tlWidth}
+          height={tlHeight}
+          accentIndex={content.timeline.accentIndex}
+          highlightLast={content.timeline.highlightLast}
+        />
       </div>
     </>
   );
 };
 
-export const Scene: React.FC<Props> = ({ timing, style, content }) => {
-  const atmosphere = beatOf(timing.beats, "b-title-in");
-  const bgBeat = { start_frame: 0, end_frame: atmosphere.end_frame };
+const Atmosphere: React.FC<{ timing: Props["timing"] }> = ({ timing }) => {
+  const s = useStyle();
+  const kickerBeat = beatOf(timing.beats, "kicker-in");
+  if (s.transparent) return null;
   return (
-    <StyleProvider style={style}>
-      <Camera keys={content.camera}>
-        {style.transparent ? null : (
-          <Parallax layer={0}>
-            <Background beat={bgBeat} seed="company-path" />
-          </Parallax>
-        )}
-        <Parallax layer={0}>
-          <Particles count={60} seed="company-dust" beat={bgBeat} layer={0} />
-        </Parallax>
-        <Parallax layer={1}>
-          <SafeArea>
-            <SceneBody beats={timing.beats} content={content} />
-          </SafeArea>
-        </Parallax>
-      </Camera>
-    </StyleProvider>
+    <>
+      <Background beat={kickerBeat} variant="aurora" seed="company-path" />
+      <Particles
+        count={40}
+        seed="company-dust"
+        beat={{ start_frame: 0, end_frame: timing.duration_frames / 3 }}
+        layer={0}
+        accentShare={0.25}
+      />
+    </>
   );
 };
+
+export const Scene: React.FC<Props> = ({ timing, style, content }) => (
+  <StyleProvider style={style}>
+    <Camera keys={content.camera}>
+      <Parallax layer={0}>
+        <Atmosphere timing={timing} />
+      </Parallax>
+      <Parallax layer={1}>
+        <SafeArea>
+          <Content timing={timing} content={content} />
+        </SafeArea>
+      </Parallax>
+    </Camera>
+  </StyleProvider>
+);

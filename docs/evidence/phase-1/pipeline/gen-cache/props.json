@@ -3,74 +3,69 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "b-stepper-in",
+        "id": "b-title-in",
         "start_frame": 0,
         "end_frame": 36
       },
       {
         "id": "b-graph-in",
-        "start_frame": 8,
-        "end_frame": 48
+        "start_frame": 10,
+        "end_frame": 60
       },
       {
-        "id": "b-request",
+        "id": "b-status-request-in",
         "start_frame": 40,
-        "end_frame": 58
+        "end_frame": 62
       },
       {
-        "id": "b-miss-emphasis",
-        "start_frame": 58,
-        "end_frame": 78
+        "id": "b-request-pulse",
+        "start_frame": 44,
+        "end_frame": 62
       },
       {
-        "id": "b-fetch",
+        "id": "b-status-miss-in",
         "start_frame": 62,
-        "end_frame": 80
+        "end_frame": 86
       },
       {
-        "id": "b-db-emphasis",
-        "start_frame": 80,
-        "end_frame": 96
+        "id": "b-miss-fetch",
+        "start_frame": 64,
+        "end_frame": 84
       },
       {
-        "id": "b-return",
-        "start_frame": 82,
-        "end_frame": 100
+        "id": "b-write-return",
+        "start_frame": 84,
+        "end_frame": 106
       },
       {
-        "id": "b-write-emphasis",
+        "id": "b-status-write-in",
         "start_frame": 100,
-        "end_frame": 118
+        "end_frame": 124
       },
       {
-        "id": "b-deliver",
-        "start_frame": 102,
-        "end_frame": 118
-      },
-      {
-        "id": "b-dim-long",
-        "start_frame": 118,
-        "end_frame": 130
+        "id": "b-miss-answer",
+        "start_frame": 104,
+        "end_frame": 120
       },
       {
         "id": "b-hit-request",
-        "start_frame": 120,
-        "end_frame": 134
+        "start_frame": 124,
+        "end_frame": 136
       },
       {
-        "id": "b-conclusion-in",
-        "start_frame": 129,
-        "end_frame": 153
-      },
-      {
-        "id": "b-hit-emphasis",
+        "id": "b-hit-answer",
         "start_frame": 134,
-        "end_frame": 153
+        "end_frame": 146
       },
       {
-        "id": "b-hit-return",
+        "id": "b-status-hit-in",
         "start_frame": 136,
-        "end_frame": 150
+        "end_frame": 160
+      },
+      {
+        "id": "b-final-emphasis",
+        "start_frame": 148,
+        "end_frame": 180
       },
       {
         "id": "b-hold",
@@ -81,13 +76,6 @@
   },
   "style": {
     "preset": "dark-premium",
-    "palette_overrides": {
-      "accent": [
-        "#8b7cff",
-        "#45d6c0",
-        "#ff6b81"
-      ]
-    },
     "intensity": "balanced",
     "depth": 1,
     "transparent": false,
@@ -97,171 +85,235 @@
     }
   },
   "content": {
-    "title": "Как работает кэш",
-    "stepper": {
+    "title": {
+      "text": "Как работает кэширование",
+      "beat": "b-title-in",
       "layout": {
-        "x": 0.1,
-        "y": 0.05,
-        "w": 0.8,
-        "h": 0.12
-      },
-      "separator": "→",
-      "steps": [
-        {
-          "n": "1",
-          "label": "Запрос",
-          "active_beat": "b-request"
-        },
-        {
-          "n": "2",
-          "label": "Промах",
-          "active_beat": "b-miss-emphasis"
-        },
-        {
-          "n": "3",
-          "label": "Запись",
-          "active_beat": "b-write-emphasis"
-        },
-        {
-          "n": "4",
-          "label": "Попадание",
-          "active_beat": "b-hit-emphasis"
-        }
-      ]
+        "x": 0.2,
+        "y": 0,
+        "w": 0.6,
+        "h": 0.1
+      }
     },
     "graph": {
+      "beat": "b-graph-in",
       "layout": {
-        "x": 0.05,
-        "y": 0.3,
-        "w": 0.9,
+        "x": 0,
+        "y": 0.2,
+        "w": 1,
         "h": 0.5
       },
-      "width": 1555,
-      "height": 486,
-      "nodes": [
-        {
-          "id": "client",
-          "label": "Клиент",
-          "enter": "slide",
-          "enter_offset": 0,
-          "elevation": 2,
-          "x": 0,
-          "y": 173,
-          "w": 300,
-          "h": 140
-        },
-        {
-          "id": "cache",
-          "label": "Кэш",
-          "enter": "pop",
-          "enter_offset": 8,
-          "elevation": 3,
-          "x": 568,
-          "y": 133,
-          "w": 420,
-          "h": 220
-        },
-        {
-          "id": "db",
-          "label": "База данных",
-          "enter": "blur",
-          "enter_offset": 16,
-          "elevation": 1,
-          "x": 1175,
-          "y": 173,
-          "w": 380,
-          "h": 140
-        }
-      ],
       "edges": [
         {
           "id": "e-req",
-          "from": "client",
-          "to": "cache"
+          "from": "node-client",
+          "to": "node-cache"
         },
         {
-          "id": "e-db",
-          "from": "cache",
-          "to": "db"
+          "id": "e-fetch",
+          "from": "node-cache",
+          "to": "node-source"
         }
       ],
+      "repeat": false,
+      "pulse_size": 12,
+      "pulse_tail": 170,
+      "pulse_colors": {
+        "forward": 0,
+        "back": 1
+      },
       "flows": [
         {
           "edge": "e-req",
-          "reverse": false,
-          "beat": "b-request",
-          "accent": 0,
-          "travel": 18
-        },
-        {
-          "edge": "e-db",
-          "reverse": false,
-          "beat": "b-fetch",
-          "accent": 0,
-          "travel": 18
-        },
-        {
-          "edge": "e-db",
-          "reverse": true,
-          "beat": "b-return",
-          "accent": 1,
-          "travel": 18
-        },
-        {
-          "edge": "e-req",
-          "reverse": true,
-          "beat": "b-deliver",
-          "accent": 1,
+          "direction": "forward",
+          "beat": "b-request-pulse",
           "travel": 16
         },
         {
+          "edge": "e-fetch",
+          "direction": "forward",
+          "beat": "b-miss-fetch",
+          "travel": 22
+        },
+        {
+          "edge": "e-fetch",
+          "direction": "back",
+          "beat": "b-write-return",
+          "travel": 22
+        },
+        {
           "edge": "e-req",
-          "reverse": false,
-          "beat": "b-hit-request",
-          "accent": 0,
+          "direction": "back",
+          "beat": "b-miss-answer",
           "travel": 14
         },
         {
           "edge": "e-req",
-          "reverse": true,
-          "beat": "b-hit-return",
-          "accent": 1,
-          "travel": 14
+          "direction": "forward",
+          "beat": "b-hit-request",
+          "travel": 9
+        },
+        {
+          "edge": "e-req",
+          "direction": "back",
+          "beat": "b-hit-answer",
+          "travel": 9
         }
       ],
-      "dim_opacity": 0.35,
-      "cache_caption_empty": "пусто",
-      "cache_caption_filled": "данные сохранены"
-    },
-    "conclusion": {
-      "layout": {
-        "x": 0.15,
-        "y": 0.84,
-        "w": 0.7,
-        "h": 0.09
-      },
-      "text": "Повторный запрос — сразу из кэша",
-      "highlight": "из кэша"
-    },
-    "camera": [
-      {
-        "frame": 0,
-        "scale": 1,
-        "x": 0,
-        "y": 0
-      },
-      {
-        "frame": 120,
-        "scale": 1,
-        "x": 0,
-        "y": 0
-      },
-      {
-        "frame": 179,
-        "scale": 1.04,
-        "x": 0,
-        "y": 0
+      "edge_dim": {
+        "edge": "e-fetch",
+        "beat": "b-hit-request",
+        "opacity": 0.35
       }
-    ]
+    },
+    "nodes": [
+      {
+        "id": "node-client",
+        "label": "Клиент",
+        "enter": "slide",
+        "elevation": 2,
+        "enterAt": 10,
+        "accentIndex": 1,
+        "flash_on": [
+          {
+            "edge": "e-req",
+            "beat": "b-hit-answer"
+          }
+        ],
+        "layout": {
+          "x": 0.02,
+          "y": 0.36,
+          "w": 0.16,
+          "h": 0.18
+        }
+      },
+      {
+        "id": "node-cache",
+        "label": "Кэш",
+        "caption": "быстро",
+        "enter": "pop",
+        "elevation": 3,
+        "enterAt": 18,
+        "accentIndex": 0,
+        "flash_on": [
+          {
+            "edge": "e-req",
+            "beat": "b-request-pulse",
+            "color": "negative"
+          },
+          {
+            "edge": "e-fetch",
+            "beat": "b-write-return",
+            "color": 1
+          },
+          {
+            "edge": "e-req",
+            "beat": "b-hit-request",
+            "color": 0
+          }
+        ],
+        "layout": {
+          "x": 0.35,
+          "y": 0.26,
+          "w": 0.3,
+          "h": 0.38
+        }
+      },
+      {
+        "id": "node-source",
+        "label": "Источник данных",
+        "caption": "медленно",
+        "enter": "blur",
+        "elevation": 1,
+        "enterAt": 26,
+        "accentIndex": 2,
+        "flash_on": [
+          {
+            "edge": "e-fetch",
+            "beat": "b-miss-fetch"
+          }
+        ],
+        "layout": {
+          "x": 0.7,
+          "y": 0.36,
+          "w": 0.28,
+          "h": 0.18
+        }
+      }
+    ],
+    "cache_slot": {
+      "empty_label": "пусто",
+      "filled_label": "данные",
+      "fill_on": {
+        "edge": "e-fetch",
+        "beat": "b-write-return"
+      },
+      "accentIndex": 1,
+      "layout": {
+        "x": 0.41,
+        "y": 0.47,
+        "w": 0.18,
+        "h": 0.12
+      }
+    },
+    "statuses": [
+      {
+        "id": "status-request",
+        "text": "Запрос",
+        "kind": "blur",
+        "color": "muted",
+        "beat": "b-status-request-in",
+        "layout": {
+          "x": 0.3,
+          "y": 0.74,
+          "w": 0.4,
+          "h": 0.14
+        }
+      },
+      {
+        "id": "status-miss",
+        "text": "Промах",
+        "kind": "pop",
+        "color": "negative",
+        "beat": "b-status-miss-in",
+        "layout": {
+          "x": 0.3,
+          "y": 0.74,
+          "w": 0.4,
+          "h": 0.14
+        }
+      },
+      {
+        "id": "status-write",
+        "text": "Запись",
+        "kind": "rise",
+        "color": "text",
+        "beat": "b-status-write-in",
+        "layout": {
+          "x": 0.3,
+          "y": 0.74,
+          "w": 0.4,
+          "h": 0.14
+        }
+      }
+    ],
+    "hero": {
+      "text": "Попадание",
+      "color": "positive",
+      "beat": "b-status-hit-in",
+      "emphasis_beat": "b-final-emphasis",
+      "accentIndex": 1,
+      "layout": {
+        "x": 0.25,
+        "y": 0.72,
+        "w": 0.5,
+        "h": 0.17
+      }
+    },
+    "atmosphere": {
+      "beat": "b-title-in",
+      "particles": 60,
+      "seed": "cache-dust"
+    }
   }
 }

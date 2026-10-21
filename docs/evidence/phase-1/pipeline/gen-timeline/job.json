@@ -1,9 +1,9 @@
 {
   "job": {
-    "id": "job_01M5ENKRDEW8AMM7SD5GD487A2",
+    "id": "job_01M5EQ529JPZ22ABSPS2HMA851",
     "type": "playground.generate",
     "project_id": "playground",
-    "scene_id": "scn_01M5ENKRDACN79BT1F8Q9FCC7T",
+    "scene_id": "scn_01M5EQ529ER2S8Z5VYCSAXP1D9",
     "version_id": null,
     "parent_job_id": null,
     "status": "completed",
@@ -13,7 +13,7 @@
     "max_attempts": 3,
     "interrupts": 0,
     "input": {
-      "sceneId": "scn_01M5ENKRDACN79BT1F8Q9FCC7T",
+      "sceneId": "scn_01M5EQ529ER2S8Z5VYCSAXP1D9",
       "prompt": "Таймлайн развития компании 2015–2025 с пятью вехами",
       "settings": {
         "aspect_ratio": "16:9",
@@ -34,15 +34,15 @@
         }
       }
     },
-    "input_hash": "bd9330a16a9442cd3a5bf8ddaa47fc20241ee66562aa7d4314d53643383bf6c3",
+    "input_hash": "a2f8862800be8080fb9be9afafc679f3b862e1b4e29b6b912e34fa3a097f7b91",
     "output_refs": {
-      "scene_id": "scn_01M5ENKRDACN79BT1F8Q9FCC7T",
-      "version_id": "ver_01M5ENTY6XMTRB758EZKQW5TEP",
+      "scene_id": "scn_01M5EQ529ER2S8Z5VYCSAXP1D9",
+      "version_id": "ver_01M5EQA2HR4HKSKR91G7FCH9AM",
       "version_number": 1,
-      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ENKRDACN79BT1F8Q9FCC7T/versions/ver_01M5ENTY6XMTRB758EZKQW5TEP",
-      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ENKRDACN79BT1F8Q9FCC7T/versions/ver_01M5ENTY6XMTRB758EZKQW5TEP/preview.mp4",
-      "cost_usd": 1.1898255,
-      "engineer_calls": 2,
+      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EQ529ER2S8Z5VYCSAXP1D9/versions/ver_01M5EQA2HR4HKSKR91G7FCH9AM",
+      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EQ529ER2S8Z5VYCSAXP1D9/versions/ver_01M5EQA2HR4HKSKR91G7FCH9AM/preview.mp4",
+      "cost_usd": 0.9849723000000001,
+      "engineer_calls": 1,
       "qa": {
         "technical": "pass",
         "visual": "warn",
@@ -53,75 +53,65 @@
       "steps": {
         "concept": {
           "input_hash": "01cfe8c5a25d7b5a69d03520ec666a09b94f45913d03446e770260cc0b1fcad0",
-          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5ENKRDEW8AMM7SD5GD487A2/checkpoints/concept.json"
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EQ529JPZ22ABSPS2HMA851/checkpoints/concept.json"
         },
         "director": {
-          "input_hash": "74f1219b94061d0ea21d03eee8aafff5414926594381a1c58f993549c621bd48",
-          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5ENKRDEW8AMM7SD5GD487A2/checkpoints/motion_director.json"
+          "input_hash": "84eef778840f224505ca34af4753c73881a57142dd28b1de8e0c6f2bf9d55360",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EQ529JPZ22ABSPS2HMA851/checkpoints/motion_director.json"
         }
       }
     },
     "error": null,
-    "idempotency_key": "e2e-gen-timeline-run_01M5ENKRDEW8AMM7SD5GD487A1",
+    "idempotency_key": "e2e-gen-timeline-run_01M5EQ529JPZ22ABSPS2HMA850",
     "lease_owner": null,
     "lease_until": null,
     "cancel_requested": false,
-    "created_at": "2026-10-21T07:25:33.998Z",
-    "started_at": "2026-10-21T07:25:34.487Z",
-    "finished_at": "2026-10-21T07:29:29.333Z"
+    "created_at": "2026-10-21T07:52:29.746Z",
+    "started_at": "2026-10-21T07:52:30.237Z",
+    "finished_at": "2026-10-21T07:55:13.870Z"
   },
-  "wall_ms": 236524,
-  "cost_usd": 1.1898255,
+  "wall_ms": 165898,
+  "cost_usd": 0.9849723000000001,
   "agent_runs": [
     {
       "role": "concept",
       "model": "claude-sonnet-5-5",
       "status": "completed",
-      "input_tokens": 11692,
-      "output_tokens": 922,
-      "cost_usd": 0.0349239,
-      "started_at": "2026-10-21T07:25:35.093Z",
-      "finished_at": "2026-10-21T07:25:45.921Z"
+      "input_tokens": 5400,
+      "output_tokens": 432,
+      "cost_usd": 0.0062951,
+      "started_at": "2026-10-21T07:52:30.564Z",
+      "finished_at": "2026-10-21T07:52:37.071Z"
     },
     {
       "role": "motion_director",
       "model": "claude-opus-5-5",
       "status": "completed",
-      "input_tokens": 38768,
-      "output_tokens": 4808,
-      "cost_usd": 0.3052704,
-      "started_at": "2026-10-21T07:25:46.180Z",
-      "finished_at": "2026-10-21T07:26:31.929Z"
+      "input_tokens": 38455,
+      "output_tokens": 4004,
+      "cost_usd": 0.36566919999999997,
+      "started_at": "2026-10-21T07:52:37.237Z",
+      "finished_at": "2026-10-21T07:53:19.750Z"
     },
     {
       "role": "engineer",
       "model": "claude-opus-5-5",
       "status": "completed",
-      "input_tokens": 233918,
-      "output_tokens": 8189,
-      "cost_usd": 0.5841902,
-      "started_at": "2026-10-21T07:26:32.132Z",
-      "finished_at": "2026-10-21T07:27:49.126Z"
-    },
-    {
-      "role": "engineer",
-      "model": "claude-opus-5-5",
-      "status": "completed",
-      "input_tokens": 87171,
-      "output_tokens": 1723,
-      "cost_usd": 0.109465,
-      "started_at": "2026-10-21T07:28:03.802Z",
-      "finished_at": "2026-10-21T07:28:26.199Z"
+      "input_tokens": 266895,
+      "output_tokens": 5815,
+      "cost_usd": 0.49708260000000004,
+      "started_at": "2026-10-21T07:53:19.909Z",
+      "finished_at": "2026-10-21T07:54:18.797Z"
     },
     {
       "role": "visual_qa",
       "model": "claude-sonnet-5-5",
       "status": "completed",
-      "input_tokens": 38740,
-      "output_tokens": 3316,
-      "cost_usd": 0.155976,
-      "started_at": "2026-10-21T07:29:04.824Z",
-      "finished_at": "2026-10-21T07:29:28.545Z"
+      "input_tokens": 37923,
+      "output_tokens": 2537,
+      "cost_usd": 0.11592540000000001,
+      "started_at": "2026-10-21T07:54:53.911Z",
+      "finished_at": "2026-10-21T07:55:13.186Z"
     }
   ],
   "render_jobs": [
@@ -131,7 +121,7 @@
       "width": 1920,
       "height": 1080,
       "frames": 6,
-      "duration_ms": 21781
+      "duration_ms": 19252
     },
     {
       "kind": "preview",
@@ -139,19 +129,19 @@
       "width": 960,
       "height": 540,
       "frames": 180,
-      "duration_ms": 21781
+      "duration_ms": 19252
     }
   ],
   "qa_reports": [
     {
-      "id": 19,
-      "version_id": "ver_01M5ENTY6XMTRB758EZKQW5TEP",
+      "id": 24,
+      "version_id": "ver_01M5EQA2HR4HKSKR91G7FCH9AM",
       "attempt": 1,
       "technical": "pass",
       "visual": "warn",
       "semantic": "pass",
       "style": "pass",
-      "report_path": "workspace/projects/playground/scenes/scn_01M5ENKRDACN79BT1F8Q9FCC7T/versions/ver_01M5ENTY6XMTRB758EZKQW5TEP/qa.json"
+      "report_path": "workspace/projects/playground/scenes/scn_01M5EQ529ER2S8Z5VYCSAXP1D9/versions/ver_01M5EQA2HR4HKSKR91G7FCH9AM/qa.json"
     }
   ],
   "component_tests": [
@@ -159,29 +149,29 @@
       "kb_id": "remotion-video-templates/line-chart-draw",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EGP1TPJGRDP6M5TZK9TGB3",
-      "date": "2026-10-21T05:59:26.313Z"
+      "version_id": "ver_01M5EP6PHTR5NBR1YG5CKE3PA3",
+      "date": "2026-10-21T07:35:54.702Z"
     },
     {
       "kb_id": "motion-primitives/animated-number",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EGP1TPJGRDP6M5TZK9TGB3",
-      "date": "2026-10-21T05:59:26.313Z"
+      "version_id": "ver_01M5EP6PHTR5NBR1YG5CKE3PA3",
+      "date": "2026-10-21T07:35:54.702Z"
     },
     {
       "kb_id": "magicui/animated-beam",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EGRGBK0MDZ9WXAWA07DXN9",
-      "date": "2026-10-21T06:00:46.729Z"
+      "version_id": "ver_01M5EPGB4D3FZE2V1NGFKQPYDK",
+      "date": "2026-10-21T07:41:10.692Z"
     },
     {
       "kb_id": "xyflow/example-custom-node",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EGA2W8Q1MYNXWQX3V8Q3WE",
-      "date": "2026-10-21T05:52:54.175Z"
+      "version_id": "ver_01M5EP03TXDTDVFAWG0G89K6WJ",
+      "date": "2026-10-21T07:32:18.929Z"
     },
     {
       "kb_id": "remotion-bits/bit-counter-confetti",
@@ -194,8 +184,8 @@
       "kb_id": "remotion-bits/animated-counter",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EFDF7RDW469G9BGYV800HC",
-      "date": "2026-10-21T05:37:16.562Z"
+      "version_id": "ver_01M5EP03TXDTDVFAWG0G89K6WJ",
+      "date": "2026-10-21T07:32:18.929Z"
     },
     {
       "kb_id": "xyflow/example-floating-edges",
@@ -208,8 +198,8 @@
       "kb_id": "xyflow/react-flow",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EGRGBK0MDZ9WXAWA07DXN9",
-      "date": "2026-10-21T06:00:46.729Z"
+      "version_id": "ver_01M5EPGB4D3FZE2V1NGFKQPYDK",
+      "date": "2026-10-21T07:41:10.692Z"
     },
     {
       "kb_id": "xyflow/edge-types",
@@ -231,94 +221,96 @@
       "result": "rendered-ok",
       "version_id": "ver_01M5ENTY6XMTRB758EZKQW5TEP",
       "date": "2026-10-21T07:29:29.329Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/chapter-title",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EQA2HR4HKSKR91G7FCH9AM",
+      "date": "2026-10-21T07:55:13.866Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-staggered-fade-in",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EQA2HR4HKSKR91G7FCH9AM",
+      "date": "2026-10-21T07:55:13.866Z"
     }
   ],
   "chat": [
     {
-      "id": "msg_01M5ENTY7HZRTQJQRJ9VYG3CRC",
-      "scene_id": "scn_01M5ENKRDACN79BT1F8Q9FCC7T",
+      "id": "msg_01M5EQA2JAAJSEA76MKKRKT312",
+      "scene_id": "scn_01M5EQ529ER2S8Z5VYCSAXP1D9",
       "role": "assistant",
-      "text": "Версия 1 готова.\nКонцепция: Горизонтальная линия времени 2015–2025 прорисовывается слева направо, и на ней по очереди загораются пять вех: каждая появляется как узел с годом и подписью карточки, предыдущая приглушается, а взгляд движется вдоль оси к последней вехе 2025 — она остаётся светиться как итог пути компании. Заголовок: «Таймлайн развития компании 2015–2025».\nКомпоненты: motion-kit StyleProvider, motion-kit Camera, motion-kit Parallax, motion-kit Background, motion-kit Particles, motion-kit SafeArea, motion-kit KineticText, motion-kit Enter, motion-kit Timeline, motion-kit timelineLayout, motion-kit Emphasis, motion-kit typeSize, motion-kit useSafeArea, motion-kit useStyle, motion-primitives-website/svg-path-draw (adapt, MIT (package.json; файла LICENSE нет)), animata/glowing-card (adapt, MIT (LICENSE.md)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — пройден, стиль — пройден; замечаний: blocking 0, warning 4.",
-      "version_id": "ver_01M5ENTY6XMTRB758EZKQW5TEP",
-      "job_id": "job_01M5ENKRDEW8AMM7SD5GD487A2",
-      "created_at": "2026-10-21T07:29:29.329Z"
+      "text": "Версия 1 готова.\nКонцепция: Горизонтальная линия времени 2015–2025 прорисовывается слева направо, и на ней по очереди вспыхивают пять вех: каждая появляется маркером с годом и короткой подписью, предыдущая приглушается, а последняя веха (2025) остаётся светиться как итог пути компании. Взгляд идёт слева направо вдоль линии к финальной точке «2025».\nКомпоненты: motion-kit StyleProvider, motion-kit Camera, motion-kit Parallax, motion-kit Background, motion-kit Particles, motion-kit SafeArea, motion-kit KineticText, motion-kit Timeline, motion-kit useSafeArea, motion-kit useStyle, free-remotion-templates/chapter-title (adapt, MIT (package.json, LICENSE, SPDX-заголовок в файле)), remotion-bits/bit-staggered-fade-in (adapt, MIT (package.json)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — пройден, стиль — пройден; замечаний: blocking 0, warning 3.",
+      "version_id": "ver_01M5EQA2HR4HKSKR91G7FCH9AM",
+      "job_id": "job_01M5EQ529JPZ22ABSPS2HMA851",
+      "created_at": "2026-10-21T07:55:13.866Z"
     }
   ],
   "events": [
     {
-      "ts": "2026-10-21T07:25:34.491Z",
+      "ts": "2026-10-21T07:52:30.240Z",
       "level": "info",
       "kind": "started",
       "message": "playground.generate: попытка 1"
     },
     {
-      "ts": "2026-10-21T07:25:35.089Z",
+      "ts": "2026-10-21T07:52:30.561Z",
       "level": "info",
       "kind": "log",
       "message": "Concept…"
     },
     {
-      "ts": "2026-10-21T07:25:45.932Z",
+      "ts": "2026-10-21T07:52:37.076Z",
       "level": "info",
       "kind": "log",
-      "message": "Concept: Горизонтальная линия времени 2015–2025 прорисовывается слева направо, и на ней по очереди загораются пять вех: каждая появляется как узел с годом и подписью карточки, предыдущая приглушается, а взгляд движется вдоль оси к последней вехе 2025 — она остаётся светиться как итог пути компании. Заголовок: «Таймлайн развития компании 2015–2025». [timeline, sequence-steps, key-point-emphasis]"
+      "message": "Concept: Горизонтальная линия времени 2015–2025 прорисовывается слева направо, и на ней по очереди вспыхивают пять вех: каждая появляется маркером с годом и короткой подписью, предыдущая приглушается, а последняя веха (2025) остаётся светиться как итог пути компании. Взгляд идёт слева направо вдоль линии к финальной точке «2025». [timeline, sequence-steps]"
     },
     {
-      "ts": "2026-10-21T07:25:45.946Z",
+      "ts": "2026-10-21T07:52:37.092Z",
       "level": "info",
       "kind": "log",
       "message": "KB: 12 кандидатов по ключам Concept"
     },
     {
-      "ts": "2026-10-21T07:25:46.176Z",
+      "ts": "2026-10-21T07:52:37.234Z",
       "level": "info",
       "kind": "log",
       "message": "Motion Director…"
     },
     {
-      "ts": "2026-10-21T07:26:31.936Z",
+      "ts": "2026-10-21T07:53:19.755Z",
       "level": "info",
       "kind": "log",
-      "message": "Director: «Путь компании 2015–2025» (full-bleed-data), 5 битов, KB: motion-primitives-website/svg-path-draw (adapt), animata/glowing-card (adapt)"
+      "message": "Director: «Путь компании 2015–2025» (full-bleed-data), 4 битов, KB: free-remotion-templates/chapter-title (adapt), remotion-bits/bit-staggered-fade-in (adapt)"
     },
     {
-      "ts": "2026-10-21T07:26:32.129Z",
+      "ts": "2026-10-21T07:53:19.906Z",
       "level": "info",
       "kind": "log",
       "message": "Engineer…"
     },
     {
-      "ts": "2026-10-21T07:28:03.546Z",
+      "ts": "2026-10-21T07:54:32.046Z",
       "level": "info",
       "kind": "log",
-      "message": "typecheck: 1 ошибок"
+      "message": "рендер: кадры 24, 71, 119, 131, 166, 179 + превью…"
     },
     {
-      "ts": "2026-10-21T07:28:03.799Z",
-      "level": "info",
-      "kind": "log",
-      "message": "Engineer: исправление 1 из 2 (typecheck)…"
-    },
-    {
-      "ts": "2026-10-21T07:28:40.363Z",
-      "level": "info",
-      "kind": "log",
-      "message": "рендер: кадры 46, 77, 125, 139, 165, 179 + превью…"
-    },
-    {
-      "ts": "2026-10-21T07:29:04.802Z",
+      "ts": "2026-10-21T07:54:53.891Z",
       "level": "info",
       "kind": "log",
       "message": "Visual QA…"
     },
     {
-      "ts": "2026-10-21T07:29:29.325Z",
+      "ts": "2026-10-21T07:55:13.863Z",
       "level": "info",
       "kind": "log",
-      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ENKRDACN79BT1F8Q9FCC7T/versions/ver_01M5ENTY6XMTRB758EZKQW5TEP"
+      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EQ529ER2S8Z5VYCSAXP1D9/versions/ver_01M5EQA2HR4HKSKR91G7FCH9AM"
     },
     {
-      "ts": "2026-10-21T07:29:29.336Z",
+      "ts": "2026-10-21T07:55:13.874Z",
       "level": "info",
       "kind": "completed",
       "message": "completed"

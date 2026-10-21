@@ -1,19 +1,19 @@
 {
   "job": {
-    "id": "job_01M5ENKRE09RQTQGGTE6ACY7TD",
+    "id": "job_01M5EQ529ZTYXCVMX8RJFBSDFN",
     "type": "playground.generate",
     "project_id": "playground",
-    "scene_id": "scn_01M5ENKRDV4SQ0JN673P57WVCP",
+    "scene_id": "scn_01M5EQ529VKNPEAZ5THXK3KZJC",
     "version_id": null,
     "parent_job_id": null,
     "status": "completed",
     "progress": 1,
     "stage": "publish",
-    "attempt": 1,
+    "attempt": 2,
     "max_attempts": 3,
     "interrupts": 0,
     "input": {
-      "sceneId": "scn_01M5ENKRDV4SQ0JN673P57WVCP",
+      "sceneId": "scn_01M5EQ529VKNPEAZ5THXK3KZJC",
       "prompt": "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении",
       "settings": {
         "aspect_ratio": "16:9",
@@ -34,18 +34,18 @@
         }
       }
     },
-    "input_hash": "a9c6d1c610c7acfb800527712d268102b8ec87adf1c948effb2c8864571e6a87",
+    "input_hash": "5d033aa8742e94795fe56131f26f4b5a8077e68b11927f2170101b3210dd2ad0",
     "output_refs": {
-      "scene_id": "scn_01M5ENKRDV4SQ0JN673P57WVCP",
-      "version_id": "ver_01M5EP6PHTR5NBR1YG5CKE3PA3",
+      "scene_id": "scn_01M5EQ529VKNPEAZ5THXK3KZJC",
+      "version_id": "ver_01M5EQW0NPJRVEZ7QSRKH24D0S",
       "version_number": 1,
-      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ENKRDV4SQ0JN673P57WVCP/versions/ver_01M5EP6PHTR5NBR1YG5CKE3PA3",
-      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ENKRDV4SQ0JN673P57WVCP/versions/ver_01M5EP6PHTR5NBR1YG5CKE3PA3/preview.mp4",
-      "cost_usd": 0.9326046000000001,
-      "engineer_calls": 1,
+      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EQ529VKNPEAZ5THXK3KZJC/versions/ver_01M5EQW0NPJRVEZ7QSRKH24D0S",
+      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EQ529VKNPEAZ5THXK3KZJC/versions/ver_01M5EQW0NPJRVEZ7QSRKH24D0S/preview.mp4",
+      "cost_usd": 0.772837,
+      "engineer_calls": 2,
       "qa": {
         "technical": "pass",
-        "visual": "pass",
+        "visual": "warn",
         "semantic": "pass",
         "style": "pass"
       },
@@ -53,65 +53,85 @@
       "steps": {
         "concept": {
           "input_hash": "0136cf4624f47da7f1f7d47d039f5d487cd3339f761717fb190b7d0b7c8c9ce8",
-          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5ENKRE09RQTQGGTE6ACY7TD/checkpoints/concept.json"
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EQ529ZTYXCVMX8RJFBSDFN/checkpoints/concept.json"
         },
         "director": {
-          "input_hash": "cc237ac33d087ecb3619f51b25a480c2c579f79e67ebbf09a9ccbef299c8f008",
-          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5ENKRE09RQTQGGTE6ACY7TD/checkpoints/motion_director.json"
+          "input_hash": "e06d102aab20155614133ce40f99c885eb30850e0ee4809263554eb6cde84e01",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EQ529ZTYXCVMX8RJFBSDFN/checkpoints/motion_director.json"
         }
       }
     },
     "error": null,
-    "idempotency_key": "e2e-test1-run_01M5ENKRE09RQTQGGTE6ACY7TC",
+    "idempotency_key": "e2e-test1-run_01M5EQ529ZTYXCVMX8RJFBSDFM",
     "lease_owner": null,
     "lease_until": null,
     "cancel_requested": false,
-    "created_at": "2026-10-21T07:25:34.016Z",
-    "started_at": "2026-10-21T07:32:18.940Z",
-    "finished_at": "2026-10-21T07:35:54.705Z"
+    "created_at": "2026-10-21T07:52:29.759Z",
+    "started_at": "2026-10-21T08:01:38.568Z",
+    "finished_at": "2026-10-21T08:05:01.774Z"
   },
-  "wall_ms": 622326,
-  "cost_usd": 0.9326046000000001,
+  "wall_ms": 752701,
+  "cost_usd": 1.5875254000000003,
   "agent_runs": [
     {
       "role": "concept",
       "model": "claude-sonnet-5-5",
       "status": "completed",
-      "input_tokens": 5445,
-      "output_tokens": 499,
-      "cost_usd": 0.0096918,
-      "started_at": "2026-10-21T07:32:19.286Z",
-      "finished_at": "2026-10-21T07:32:25.652Z"
+      "input_tokens": 5446,
+      "output_tokens": 489,
+      "cost_usd": 0.006881399999999999,
+      "started_at": "2026-10-21T07:58:27.711Z",
+      "finished_at": "2026-10-21T07:58:33.787Z"
     },
     {
       "role": "motion_director",
       "model": "claude-opus-5-5",
       "status": "completed",
-      "input_tokens": 39275,
-      "output_tokens": 5669,
-      "cost_usd": 0.3265464,
-      "started_at": "2026-10-21T07:32:26.191Z",
-      "finished_at": "2026-10-21T07:33:22.770Z"
+      "input_tokens": 39453,
+      "output_tokens": 6234,
+      "cost_usd": 0.3377572,
+      "started_at": "2026-10-21T07:58:33.994Z",
+      "finished_at": "2026-10-21T07:59:35.285Z"
     },
     {
       "role": "engineer",
       "model": "claude-opus-5-5",
       "status": "completed",
-      "input_tokens": 229909,
-      "output_tokens": 7197,
-      "cost_usd": 0.4517588,
-      "started_at": "2026-10-21T07:33:23.356Z",
-      "finished_at": "2026-10-21T07:34:38.083Z"
+      "input_tokens": 235914,
+      "output_tokens": 7135,
+      "cost_usd": 0.4700498000000001,
+      "started_at": "2026-10-21T07:59:35.885Z",
+      "finished_at": "2026-10-21T08:00:52.718Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 286506,
+      "output_tokens": 8510,
+      "cost_usd": 0.5142044,
+      "started_at": "2026-10-21T08:01:39.991Z",
+      "finished_at": "2026-10-21T08:03:15.879Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 93938,
+      "output_tokens": 1793,
+      "cost_usd": 0.12018999999999999,
+      "started_at": "2026-10-21T08:03:29.569Z",
+      "finished_at": "2026-10-21T08:03:52.549Z"
     },
     {
       "role": "visual_qa",
       "model": "claude-sonnet-5-5",
       "status": "completed",
-      "input_tokens": 59753,
-      "output_tokens": 2852,
-      "cost_usd": 0.1446076,
-      "started_at": "2026-10-21T07:35:26.654Z",
-      "finished_at": "2026-10-21T07:35:53.898Z"
+      "input_tokens": 41969,
+      "output_tokens": 3175,
+      "cost_usd": 0.1384426,
+      "started_at": "2026-10-21T08:04:34.725Z",
+      "finished_at": "2026-10-21T08:05:00.938Z"
     }
   ],
   "render_jobs": [
@@ -121,7 +141,7 @@
       "width": 1920,
       "height": 1080,
       "frames": 7,
-      "duration_ms": 29611
+      "duration_ms": 21286
     },
     {
       "kind": "preview",
@@ -129,19 +149,19 @@
       "width": 960,
       "height": 540,
       "frames": 180,
-      "duration_ms": 29611
+      "duration_ms": 21286
     }
   ],
   "qa_reports": [
     {
-      "id": 21,
-      "version_id": "ver_01M5EP6PHTR5NBR1YG5CKE3PA3",
-      "attempt": 1,
+      "id": 26,
+      "version_id": "ver_01M5EQW0NPJRVEZ7QSRKH24D0S",
+      "attempt": 2,
       "technical": "pass",
-      "visual": "pass",
+      "visual": "warn",
       "semantic": "pass",
       "style": "pass",
-      "report_path": "workspace/projects/playground/scenes/scn_01M5ENKRDV4SQ0JN673P57WVCP/versions/ver_01M5EP6PHTR5NBR1YG5CKE3PA3/qa.json"
+      "report_path": "workspace/projects/playground/scenes/scn_01M5EQ529VKNPEAZ5THXK3KZJC/versions/ver_01M5EQW0NPJRVEZ7QSRKH24D0S/qa.json"
     }
   ],
   "component_tests": [
@@ -149,22 +169,22 @@
       "kb_id": "remotion-video-templates/line-chart-draw",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EP6PHTR5NBR1YG5CKE3PA3",
-      "date": "2026-10-21T07:35:54.702Z"
+      "version_id": "ver_01M5EQW0NPJRVEZ7QSRKH24D0S",
+      "date": "2026-10-21T08:05:01.771Z"
     },
     {
       "kb_id": "motion-primitives/animated-number",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EP6PHTR5NBR1YG5CKE3PA3",
-      "date": "2026-10-21T07:35:54.702Z"
+      "version_id": "ver_01M5EQW0NPJRVEZ7QSRKH24D0S",
+      "date": "2026-10-21T08:05:01.771Z"
     },
     {
       "kb_id": "magicui/animated-beam",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EGRGBK0MDZ9WXAWA07DXN9",
-      "date": "2026-10-21T06:00:46.729Z"
+      "version_id": "ver_01M5EPGB4D3FZE2V1NGFKQPYDK",
+      "date": "2026-10-21T07:41:10.692Z"
     },
     {
       "kb_id": "xyflow/example-custom-node",
@@ -184,8 +204,8 @@
       "kb_id": "remotion-bits/animated-counter",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EP03TXDTDVFAWG0G89K6WJ",
-      "date": "2026-10-21T07:32:18.929Z"
+      "version_id": "ver_01M5EQFZJ986V5EXQ8F0MX1F5N",
+      "date": "2026-10-21T07:58:27.420Z"
     },
     {
       "kb_id": "xyflow/example-floating-edges",
@@ -198,8 +218,8 @@
       "kb_id": "xyflow/react-flow",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EGRGBK0MDZ9WXAWA07DXN9",
-      "date": "2026-10-21T06:00:46.729Z"
+      "version_id": "ver_01M5EPGB4D3FZE2V1NGFKQPYDK",
+      "date": "2026-10-21T07:41:10.692Z"
     },
     {
       "kb_id": "xyflow/edge-types",
@@ -221,82 +241,181 @@
       "result": "rendered-ok",
       "version_id": "ver_01M5ENTY6XMTRB758EZKQW5TEP",
       "date": "2026-10-21T07:29:29.329Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/chapter-title",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EQA2HR4HKSKR91G7FCH9AM",
+      "date": "2026-10-21T07:55:13.866Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-staggered-fade-in",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EQA2HR4HKSKR91G7FCH9AM",
+      "date": "2026-10-21T07:55:13.866Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/split-screen",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EQFZJ986V5EXQ8F0MX1F5N",
+      "date": "2026-10-21T07:58:27.420Z"
     }
   ],
   "chat": [
     {
-      "id": "msg_01M5EP6PJEW8595SKT8ZXQ8000",
-      "scene_id": "scn_01M5ENKRDV4SQ0JN673P57WVCP",
+      "id": "msg_01M5EQW0PBXZTGC3X69KM5BQD1",
+      "scene_id": "scn_01M5EQ529VKNPEAZ5THXK3KZJC",
       "role": "assistant",
-      "text": "Версия 1 готова.\nКонцепция: На тёмном фоне плавная линия-кривая роста пользователей поднимается слева направо за три года — от 10 000 до 1 000 000 — с лёгкой подсветкой под линией. Крупный счётчик в углу плавно считает вверх вместе с кривой, а в финале кривая достигает пика, остальные элементы приглушаются, и герой кадра — итоговое «1 000 000» — вырастает крупной типографикой и остаётся светиться. Взгляд идёт от «10 000» внизу слева по кривой вверх к финальному числу.\nКомпоненты: motion-kit StyleProvider, motion-kit Camera, motion-kit Parallax, motion-kit Background, motion-kit Particles, motion-kit SafeArea, motion-kit KineticText, motion-kit AnimatedNumber, motion-kit Emphasis, motion-kit LineChart, motion-kit lineChartHead, motion-kit useSafeArea, motion-kit useStyle, motion-kit easingOf, motion-kit mix, remotion-video-templates/line-chart-draw (adapt, MIT (package.json, LICENSE)), motion-primitives/animated-number (adapt, MIT (LICENCE.md)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — пройден, смысловой — пройден, стиль — пройден; замечаний: blocking 0, warning 1.",
-      "version_id": "ver_01M5EP6PHTR5NBR1YG5CKE3PA3",
-      "job_id": "job_01M5ENKRE09RQTQGGTE6ACY7TD",
-      "created_at": "2026-10-21T07:35:54.702Z"
+      "text": "Версия 1 готова.\nКонцепция: На тёмном фоне плавная линия роста пользователей поднимается слева направо за три года — от 10 000 до 1 000 000 — оставляя под собой мягкое свечение области. Крупный счётчик в углу растёт вместе с линией, ускоряясь к финалу; в конце линия замирает в верхней точке, счётчик фиксируется на «1 000 000», пульсирует мягким светом и становится героем кадра, а стартовое «10 000» остаётся тихой отметкой в начале пути.\nКомпоненты: motion-kit StyleProvider, motion-kit Background, motion-kit Particles, motion-kit SafeArea, motion-kit KineticText, motion-kit Enter, motion-kit LineChart, motion-kit lineChartHead, motion-kit AnimatedNumber, motion-kit Emphasis, motion-kit typeSize, motion-kit useSafeArea, motion-kit useStyle, remotion-video-templates/line-chart-draw (adapt, MIT (package.json, LICENSE)), motion-primitives/animated-number (adapt, MIT (LICENCE.md)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — пройден, стиль — пройден; замечаний: blocking 0, warning 4.",
+      "version_id": "ver_01M5EQW0NPJRVEZ7QSRKH24D0S",
+      "job_id": "job_01M5EQ529ZTYXCVMX8RJFBSDFN",
+      "created_at": "2026-10-21T08:05:01.771Z"
     }
   ],
   "events": [
     {
-      "ts": "2026-10-21T07:32:18.943Z",
+      "ts": "2026-10-21T07:58:27.433Z",
       "level": "info",
       "kind": "started",
       "message": "playground.generate: попытка 1"
     },
     {
-      "ts": "2026-10-21T07:32:19.282Z",
+      "ts": "2026-10-21T07:58:27.708Z",
       "level": "info",
       "kind": "log",
       "message": "Concept…"
     },
     {
-      "ts": "2026-10-21T07:32:25.685Z",
+      "ts": "2026-10-21T07:58:33.792Z",
       "level": "info",
       "kind": "log",
-      "message": "Concept: На тёмном фоне плавная линия-кривая роста пользователей поднимается слева направо за три года — от 10 000 до 1 000 000 — с лёгкой подсветкой под линией. Крупный счётчик в углу плавно считает вверх вместе с кривой, а в финале кривая достигает пика, остальные элементы приглушаются, и герой кадра — итоговое «1 000 000» — вырастает крупной типографикой и остаётся светиться. Взгляд идёт от «10 000» внизу слева по кривой вверх к финальному числу. [growth-decline, quantities, key-point-emphasis]"
+      "message": "Concept: На тёмном фоне плавная линия роста пользователей поднимается слева направо за три года — от 10 000 до 1 000 000 — оставляя под собой мягкое свечение области. Крупный счётчик в углу растёт вместе с линией, ускоряясь к финалу; в конце линия замирает в верхней точке, счётчик фиксируется на «1 000 000», пульсирует мягким светом и становится героем кадра, а стартовое «10 000» остаётся тихой отметкой в начале пути. [growth-decline, quantities, key-point-emphasis]"
     },
     {
-      "ts": "2026-10-21T07:32:25.760Z",
+      "ts": "2026-10-21T07:58:33.802Z",
       "level": "info",
       "kind": "log",
       "message": "KB: 12 кандидатов по ключам Concept"
     },
     {
-      "ts": "2026-10-21T07:32:26.188Z",
+      "ts": "2026-10-21T07:58:33.991Z",
       "level": "info",
       "kind": "log",
       "message": "Motion Director…"
     },
     {
-      "ts": "2026-10-21T07:33:22.776Z",
+      "ts": "2026-10-21T07:59:35.291Z",
       "level": "info",
       "kind": "log",
-      "message": "Director: «10 000 → 1 000 000 за три года» (diagonal), 8 битов, KB: remotion-video-templates/line-chart-draw (adapt), motion-primitives/animated-number (adapt)"
+      "message": "Director: «10 000 → 1 000 000 за три года» (full-bleed-data), 8 битов, KB: remotion-video-templates/line-chart-draw (adapt), motion-primitives/animated-number (adapt)"
     },
     {
-      "ts": "2026-10-21T07:33:23.352Z",
+      "ts": "2026-10-21T07:59:35.882Z",
       "level": "info",
       "kind": "log",
       "message": "Engineer…"
     },
     {
-      "ts": "2026-10-21T07:34:54.094Z",
+      "ts": "2026-10-21T08:01:28.328Z",
       "level": "info",
       "kind": "log",
-      "message": "рендер: кадры 27, 72, 110, 128, 146, 166, 179 + превью…"
+      "message": "✗ interrupted: interrupted: попытка 1 задачи job_01M5EQ529ZTYXCVMX8RJFBSDFN остановлена (остановка или хранилище) — публикации нет"
     },
     {
-      "ts": "2026-10-21T07:35:26.623Z",
+      "ts": "2026-10-21T08:01:28.339Z",
+      "level": "warn",
+      "kind": "interrupted",
+      "message": "попытка 1 прервана"
+    },
+    {
+      "ts": "2026-10-21T08:01:38.537Z",
+      "level": "warn",
+      "kind": "interrupted",
+      "message": "попытка 1 прервана: хранилище было недоступно"
+    },
+    {
+      "ts": "2026-10-21T08:01:38.537Z",
+      "level": "info",
+      "kind": "requeued",
+      "message": "задача снова в очереди (прерываний 0 из 3)"
+    },
+    {
+      "ts": "2026-10-21T08:01:38.572Z",
+      "level": "info",
+      "kind": "started",
+      "message": "playground.generate: попытка 2"
+    },
+    {
+      "ts": "2026-10-21T08:01:38.800Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept: результат из чекпоинта"
+    },
+    {
+      "ts": "2026-10-21T08:01:38.806Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept: На тёмном фоне плавная линия роста пользователей поднимается слева направо за три года — от 10 000 до 1 000 000 — оставляя под собой мягкое свечение области. Крупный счётчик в углу растёт вместе с линией, ускоряясь к финалу; в конце линия замирает в верхней точке, счётчик фиксируется на «1 000 000», пульсирует мягким светом и становится героем кадра, а стартовое «10 000» остаётся тихой отметкой в начале пути. [growth-decline, quantities, key-point-emphasis]"
+    },
+    {
+      "ts": "2026-10-21T08:01:38.822Z",
+      "level": "info",
+      "kind": "log",
+      "message": "KB: 12 кандидатов по ключам Concept"
+    },
+    {
+      "ts": "2026-10-21T08:01:38.843Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Motion Director: результат из чекпоинта"
+    },
+    {
+      "ts": "2026-10-21T08:01:38.850Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Director: «10 000 → 1 000 000 за три года» (full-bleed-data), 8 битов, KB: remotion-video-templates/line-chart-draw (adapt), motion-primitives/animated-number (adapt)"
+    },
+    {
+      "ts": "2026-10-21T08:01:39.987Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer…"
+    },
+    {
+      "ts": "2026-10-21T08:03:29.330Z",
+      "level": "info",
+      "kind": "log",
+      "message": "typecheck: 1 ошибок"
+    },
+    {
+      "ts": "2026-10-21T08:03:29.565Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer: исправление 1 из 2 (typecheck)…"
+    },
+    {
+      "ts": "2026-10-21T08:04:10.566Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 37, 68, 80, 134, 149, 165, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-21T08:04:34.703Z",
       "level": "info",
       "kind": "log",
       "message": "Visual QA…"
     },
     {
-      "ts": "2026-10-21T07:35:54.698Z",
+      "ts": "2026-10-21T08:05:01.767Z",
       "level": "info",
       "kind": "log",
-      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ENKRDV4SQ0JN673P57WVCP/versions/ver_01M5EP6PHTR5NBR1YG5CKE3PA3"
+      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EQ529VKNPEAZ5THXK3KZJC/versions/ver_01M5EQW0NPJRVEZ7QSRKH24D0S"
     },
     {
-      "ts": "2026-10-21T07:35:54.708Z",
+      "ts": "2026-10-21T08:05:01.778Z",
       "level": "info",
       "kind": "completed",
       "message": "completed"

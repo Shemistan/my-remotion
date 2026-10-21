@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "version_id": "ver_01M5EP9HR5Y14QPCSECGAP1PV6",
-  "scene_id": "scn_01M5ENKRDJTY46VC9612T29VKH",
+  "version_id": "ver_01M5ER8MYQ6N79Y2S9GF5PKQ00",
+  "scene_id": "scn_01M5EQ529N2YFD1EQ241KSKD7V",
   "parent_version_id": null,
   "number": 1,
-  "created_at": "2026-10-21T07:37:28.070Z",
+  "created_at": "2026-10-21T08:11:55.737Z",
   "prompt": "Объясни, как работает кэширование: запрос, промах, запись, попадание",
   "edit_plan": null,
   "settings": {
@@ -27,64 +27,104 @@
   },
   "files": [
     {
-      "path": "frames/110.png",
-      "sha256": "10ecc5668967e7885a20d5b30a46dc84c1b77df9054246d52b7117e7a16781cb"
+      "path": "frames/118.png",
+      "sha256": "44189c4aa10839cf2f676225f1cb995f5a70b24a2f88679e920152baac308cf5"
     },
     {
-      "path": "frames/143.png",
-      "sha256": "c2daf63125e8cbea009380431f433f83e0e75089890e6af95e7c07ab2d6a6603"
+      "path": "frames/130.png",
+      "sha256": "bbbb82274c453805edfad9199e67ffdc0d4d7a5e67acc9738bf70f46aa431d7d"
     },
     {
-      "path": "frames/153.png",
-      "sha256": "804c8cb75f32ca676ae646e3338f441f2c48df69bff2868679d87721edc61032"
+      "path": "frames/160.png",
+      "sha256": "daefd17b0c6addc68f9def1987ff31b08948369bd103f208a9285db750b492c1"
+    },
+    {
+      "path": "frames/164.png",
+      "sha256": "38a4f9c17e5f4c24a831559f75b870ebfe9072c9880213a2cd1c72915e5f3981"
     },
     {
       "path": "frames/179.png",
-      "sha256": "aff2821c73b71a2e47cd6ad93005fc2214ad4f139c71b347672379fda1746e08"
+      "sha256": "0e2865b5fa01029e53be629cc1fd0a5856afca13bcadda88041c4ffd67adf897"
     },
     {
-      "path": "frames/18.png",
-      "sha256": "1709814cba270ee5c650aaf8606add12fff50c8541e583623f59b1e1ca63b5b4"
+      "path": "frames/27.png",
+      "sha256": "4f9b82865369a02c85801f09a81919a7f08af619eb3d49522dece2f1f5b35f94"
     },
     {
-      "path": "frames/49.png",
-      "sha256": "bbb82f5c0c1ee9fe3e17c2aedd71403fc76219316168ad4909ef061edfb30c69"
+      "path": "frames/80.png",
+      "sha256": "b935a817b73f736076a6ec4f9c9ad5ee5240f8d4e3ddc26bc893f19c060ad691"
     },
     {
-      "path": "frames/68.png",
-      "sha256": "07af97be987440504fcc9a49ab83c1b8355bd753243f6b5dfbbc6f0bd7a380b0"
-    },
-    {
-      "path": "frames/88.png",
-      "sha256": "b7915d3f7dff60380391c8c2f02f13f33a0e2561b09c3ac706d3c51d3774da91"
+      "path": "frames/95.png",
+      "sha256": "48d637c2a044c1966ca46cbf7848dd493c9a993b3608448a73e58147a9b914c7"
     },
     {
       "path": "knowledge-refs.json",
-      "sha256": "0efde4afe0a1f044880e59398217a2d549995dbe87d0991a752ea3d4c811d2f2"
+      "sha256": "41527519ea7ef90e732c5fe5ef5c94632e1ff707ff341bc284f1cc67edeb0318"
     },
     {
       "path": "pipeline-log.json",
-      "sha256": "69b729d099b9ece926315fc9162193bafa80cb5c9a76afe01977ffcf22515d29"
+      "sha256": "65f7cac08e161711be2ca888de261a143b40d0110f67502bbe36b24232c6c684"
     },
     {
       "path": "preview.mp4",
-      "sha256": "615283f9317bcfeb43435ddb1309d4eb59b4685d4587b2a0ce7ad1f076a3ef07"
+      "sha256": "5c95ee1cb789e5161cb3e472548f47075e7aa5974072ed3eee3f5441f6ac1f02"
     },
     {
       "path": "props.json",
-      "sha256": "b5a6039bfdaa91ae4b48add11ec80251b75c23429af1c7cbb1e27ecc3f648cdd"
+      "sha256": "a6f5e860af2de916f6614b956693c3e0f455478b27f978ac21fba6e716266b18"
     },
     {
       "path": "qa.json",
-      "sha256": "109ac9bbd0420e2cb4302a19da730f475f74d3c3fe12c66e53819e36dbaa3505"
+      "sha256": "27e63023a8f74b381a534cefd54b63361a6ae506957f1492560857ea43e96c78"
     },
     {
-      "path": "refs/kb/magicui/animated-beam/CARD.md",
-      "sha256": "ec12a708622f0945f8ab7c102bd2db43eb629e1604c1a6239d185e057ba16578"
+      "path": "refs/kb/xyflow/edge-types/CARD.md",
+      "sha256": "3f32415a7ccd3f6a71d9ba6d1ae535513226c5f6f3438af11046d3e251376027"
     },
     {
-      "path": "refs/kb/magicui/animated-beam/templates/react-libriry/magicui/apps/www/registry/magicui/animated-beam.tsx",
-      "sha256": "6afa2ee1d01694a428eb8517d48deebe5c6b532dc0ee871800bb9d92aae43e79"
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/EdgeWrapper/index.tsx",
+      "sha256": "93aa5feb60f1b3d7363abad1f2fd4b196f0591442b6dc8f089a41a9d7f0e7dda"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/EdgeWrapper/utils.ts",
+      "sha256": "4ccd54d9929ac6ffa5c9eb221599298c41069f2c7f62459fbebf289c8a109411"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/BaseEdge.tsx",
+      "sha256": "1a82a534bdc72a8d340db0a2194cd75b92baad901a2333fad5102b79358998a0"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/BezierEdge.tsx",
+      "sha256": "43f6f3c2727114d237e7cd7f9a37d5b537b54ab32b70bc983f4e19f5a40f3764"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/EdgeText.tsx",
+      "sha256": "f64580093c01366d28c91675d4602f64e9fa8824a087628f0feba14bda9e5f5e"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/SimpleBezierEdge.tsx",
+      "sha256": "a57b3b6c6993de1c6c56df49de7cff09346a66358b91b93f4e679a27ce754639"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/SmoothStepEdge.tsx",
+      "sha256": "3ae3ac3abf55aa09a2c54a1f7aecccbff11c05c9edc1f90d67950edfc1fd0e8c"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/StepEdge.tsx",
+      "sha256": "17b4c63c412db3dd2b58bfd64c607eeb472a65476570edd179df17a231b96396"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/StraightEdge.tsx",
+      "sha256": "0acb4bb04a1dcb8025c50b88ae37db04d2db441cb0d243fb752ab9ce74c25cdc"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/types/edges.ts",
+      "sha256": "7c7e8f335a4bacaeffa5912cc4974c3cfd71d9ecb10f087dbaefde5dd5b9ea38"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/system/src/styles/init.css",
+      "sha256": "2458f7ae49969a3eaa04f43af179fec02b28a2453cb693f05ca9b6cb77df1faa"
     },
     {
       "path": "refs/kb/xyflow/react-flow/CARD.md",
@@ -156,7 +196,7 @@
     },
     {
       "path": "selection.json",
-      "sha256": "d6abbd35308e9e53c8057f2719bca7ba8a5f60c9c5480843769ce7192142cfe3"
+      "sha256": "1f407003b29e162ffad75010bc67e22482e993f112c1bc623056b89fca5b38ed"
     },
     {
       "path": "settings.json",
@@ -164,15 +204,15 @@
     },
     {
       "path": "spec.json",
-      "sha256": "a498ecc3978a56149eb69de2f3ce71e3f78ac7b4b6d312b130837defdd28102f"
+      "sha256": "42e496b603170de380fd09f6556fe5e83c7f4d000410d27808d53ffd58ff5908"
     },
     {
       "path": "src/Scene.tsx",
-      "sha256": "250c5606da6239ba8c7e3defffb4f4ce93b703b9072f30f2d8072ffba0f80415"
+      "sha256": "07f4a5eaf23d3f4fcf4a0f9591b87cde23914641d068ba1a3aca634d5297843e"
     },
     {
       "path": "style.json",
-      "sha256": "38fea26d6c9e68f3bc76be0eb7e3853691571947268b193a64e607214faf93f7"
+      "sha256": "18a0a04c657887af9d85691285c9480a89f361fb434379a61df3445ffc78e3d6"
     }
   ],
   "changed_files": [
@@ -188,58 +228,58 @@
   },
   "knowledge_refs": [
     {
-      "kb_id": "magicui/animated-beam",
-      "commit": "efe76fc5",
-      "license": "MIT (LICENSE.md)",
+      "kb_id": "xyflow/react-flow",
+      "commit": "654ba5a5e",
+      "license": "MIT (LICENSE, packages/react/package.json)",
       "strategy": "adapt"
     },
     {
-      "kb_id": "xyflow/react-flow",
+      "kb_id": "xyflow/edge-types",
       "commit": "654ba5a5e",
       "license": "MIT (LICENSE, packages/react/package.json)",
       "strategy": "adapt"
     }
   ],
   "agent_runs": [
-    "logs/agent-runs/job_01M5ENKRDQWD3DSNAGAHP9JF8G/a1-concept-1",
-    "logs/agent-runs/job_01M5ENKRDQWD3DSNAGAHP9JF8G/a1-motion_director-1",
-    "logs/agent-runs/job_01M5ENKRDQWD3DSNAGAHP9JF8G/a1-engineer-1",
-    "logs/agent-runs/job_01M5ENKRDQWD3DSNAGAHP9JF8G/a1-engineer-2",
-    "logs/agent-runs/job_01M5ENKRDQWD3DSNAGAHP9JF8G/a1-visual_qa-1"
+    "logs/agent-runs/job_01M5EQ529RSTXCANCPX32D7K91/a2-engineer-1",
+    "logs/agent-runs/job_01M5EQ529RSTXCANCPX32D7K91/a2-engineer-2",
+    "logs/agent-runs/job_01M5EQ529RSTXCANCPX32D7K91/a2-visual_qa-1",
+    "logs/agent-runs/job_01M5EQ529RSTXCANCPX32D7K91/a2-engineer-3",
+    "logs/agent-runs/job_01M5EQ529RSTXCANCPX32D7K91/a2-visual_qa-2"
   ],
   "qa": {
     "technical": "pass",
     "visual": "warn",
     "semantic": "pass",
-    "style": "warn"
+    "style": "pass"
   },
   "preview": {
     "path": "preview.mp4",
-    "sha256": "615283f9317bcfeb43435ddb1309d4eb59b4685d4587b2a0ce7ad1f076a3ef07"
+    "sha256": "5c95ee1cb789e5161cb3e472548f47075e7aa5974072ed3eee3f5441f6ac1f02"
   },
   "status": "ready",
   "qa_frames": [
-    18,
-    49,
-    68,
-    88,
-    110,
-    143,
-    153,
+    27,
+    80,
+    95,
+    118,
+    130,
+    160,
+    164,
     179
   ],
   "qa_frames_sha256": [
-    "1709814cba270ee5c650aaf8606add12fff50c8541e583623f59b1e1ca63b5b4",
-    "bbb82f5c0c1ee9fe3e17c2aedd71403fc76219316168ad4909ef061edfb30c69",
-    "07af97be987440504fcc9a49ab83c1b8355bd753243f6b5dfbbc6f0bd7a380b0",
-    "b7915d3f7dff60380391c8c2f02f13f33a0e2561b09c3ac706d3c51d3774da91",
-    "10ecc5668967e7885a20d5b30a46dc84c1b77df9054246d52b7117e7a16781cb",
-    "c2daf63125e8cbea009380431f433f83e0e75089890e6af95e7c07ab2d6a6603",
-    "804c8cb75f32ca676ae646e3338f441f2c48df69bff2868679d87721edc61032",
-    "aff2821c73b71a2e47cd6ad93005fc2214ad4f139c71b347672379fda1746e08"
+    "4f9b82865369a02c85801f09a81919a7f08af619eb3d49522dece2f1f5b35f94",
+    "b935a817b73f736076a6ec4f9c9ad5ee5240f8d4e3ddc26bc893f19c060ad691",
+    "48d637c2a044c1966ca46cbf7848dd493c9a993b3608448a73e58147a9b914c7",
+    "44189c4aa10839cf2f676225f1cb995f5a70b24a2f88679e920152baac308cf5",
+    "bbbb82274c453805edfad9199e67ffdc0d4d7a5e67acc9738bf70f46aa431d7d",
+    "daefd17b0c6addc68f9def1987ff31b08948369bd103f208a9285db750b492c1",
+    "38a4f9c17e5f4c24a831559f75b870ebfe9072c9880213a2cd1c72915e5f3981",
+    "0e2865b5fa01029e53be629cc1fd0a5856afca13bcadda88041c4ffd67adf897"
   ],
   "job": {
-    "id": "job_01M5ENKRDQWD3DSNAGAHP9JF8G",
-    "attempt": 1
+    "id": "job_01M5EQ529RSTXCANCPX32D7K91",
+    "attempt": 2
   }
 }

@@ -1,114 +1,143 @@
 import React from "react";
-import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import {
   AnimatedNumber,
   Background,
-  Camera,
   Emphasis,
+  Enter,
   KineticText,
   LineChart,
-  Parallax,
   Particles,
   SafeArea,
   StyleProvider,
-  easingOf,
   lineChartHead,
-  mix,
+  typeSize,
   useSafeArea,
   useStyle,
 } from "@ms/motion-kit";
 
-type Beat = { start_frame: number; end_frame: number };
-type TimedBeat = Beat & { id: string };
-type Box = { x: number; y: number; w: number; h: number };
+type Beat = { id: string; start_frame: number; end_frame: number };
+type Layout = { x: number; y: number; w: number; h: number };
 type Point = { label: string; value: number };
+type Locale = "ru" | "en";
 
 type Content = {
   title: string;
-  hero: { from: number; to: number; locale: "ru" | "en" };
-  sub: string;
-  chart: { width: number; height: number; yTicks: number; points: Point[] };
-  layout: { title: Box; hero: Box; sub: Box; chart: Box };
-  emphasis_spread: number;
+  points: Point[];
+  locale: Locale;
+  kicker: { text: string; layout: Layout };
+  headline: { text: string; layout: Layout };
+  chart: { width: number; height: number; yTicks: number; accentIndex: number; compact: boolean; layout: Layout };
+  hero: { from: number; to: number; spread: number; accentIndex: number; layout: Layout };
+  start_mark: { text: string; layout: Layout };
   particles: { count: number; seed: string };
-  background_beat: Beat;
-  camera: React.ComponentProps<typeof Camera>["keys"];
+  background_seed: string;
+  background_beat: { start_frame: number; end_frame: number };
 };
 
-type Props = {
-  timing: { duration_frames: number; beats: TimedBeat[] };
-  style: React.ComponentProps<typeof StyleProvider>["style"];
+// Тип стиля берём у StyleProvider: preset — id пресета из kit, а не произвольная строка.
+type SceneStyle = React.ComponentProps<typeof StyleProvider>["style"];
+
+export type SceneProps = {
+  timing: { duration_frames: number; beats: Beat[] };
+  style: SceneStyle;
   content: Content;
 };
 
-const beatOf = (beats: TimedBeat[], id: string): Beat => {
+const beatOf = (beats: Beat[], id: string): Beat => {
   const b = beats.find((x) => x.id === id);
-  if (!b) throw new Error(`beat ${id} missing`);
-  return { start_frame: b.start_frame, end_frame: b.end_frame };
+  if (!b) throw new Error(`Нет бита ${id} в props.timing.beats`);
+  return b;
 };
 
-const SceneBody: React.FC<{ beats: TimedBeat[]; content: Content }> = ({ beats, content }) => {
+const Body: React.FC<{ timing: SceneProps["timing"]; content: Content }> = ({ timing, content }) => {
   const frame = useCurrentFrame();
   const { height } = useVideoConfig();
-  const style = useStyle();
-  const rect = useSafeArea();
+  const s = useStyle();
+  const safe = useSafeArea();
 
-  const bTitle = beatOf(beats, "b-title-in");
-  const bNumberIn = beatOf(beats, "b-number-in");
-  const bChart = beatOf(beats, "b-chart");
-  const bEndpoint = beatOf(beats, "b-endpoint");
-  const bFinal = beatOf(beats, "b-final-emphasis");
-  const bSub = beatOf(beats, "b-sub-in");
+  const bKicker = beatOf(timing.beats, "b-kicker-in");
+  const bHeadline = beatOf(timing.beats, "b-headline-in");
+  const bHeroIn = beatOf(timing.beats, "b-hero-in");
+  const bChart = beatOf(timing.beats, "b-chart");
+  const bStartMark = beatOf(timing.beats, "b-start-mark-in");
+  const bFinal = beatOf(timing.beats, "b-final-emphasis");
 
-  const { chart, layout } = content;
-  const head = lineChartHead(chart.points, bChart, frame, {
+  const { chart, hero, kicker, headline, start_mark: startMark } = content;
+  const head = lineChartHead(content.points, bChart, frame, {
     width: chart.width,
     height: chart.height,
     yTicks: chart.yTicks,
     frameHeight: height,
   });
 
-  // Заголовок уступает герою: уходит в muted за exit_frames с началом финального акцента.
-  const dim = interpolate(
-    frame,
-    [bFinal.start_frame, bFinal.start_frame + style.motion.exit_frames],
-    [0, 1],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: easingOf(style, "exit") },
-  );
-  const titleColor = mix(style.palette.text, style.palette.muted, dim);
-
-  const place = (b: Box): React.CSSProperties => ({
+  const box = (l: Layout): React.CSSProperties => ({
     position: "absolute",
-    left: b.x * rect.w,
-    top: b.y * rect.h,
-    width: b.w * rect.w,
+    left: l.x * safe.w,
+    top: l.y * safe.h,
+    width: l.w * safe.w,
   });
 
   return (
     <>
-      <div style={place(layout.title)}>
+      <div style={box(kicker.layout)}>
         <KineticText
-          text={content.title}
-          beat={bTitle}
-          mode="words"
-          enter="rise"
-          size="h2"
-          font="display"
-          weight={800}
-          color={titleColor}
-          maxWidth={layout.title.w * rect.w}
+          text={kicker.text}
+          beat={bKicker}
+          mode="letters"
+          enter="type"
+          size="caption"
+          font="mono"
+          caps
+          color={s.palette.muted}
+          maxWidth={kicker.layout.w * safe.w}
         />
       </div>
 
-      <div style={{ ...place(layout.hero), display: "flex", justifyContent: "flex-end" }}>
-        <Emphasis beat={bFinal} loop accentIndex={0} shape="pill" ring halo spread={content.emphasis_spread}>
+      <div style={box(headline.layout)}>
+        <Enter kind="mask" beat={bHeadline}>
+          <div
+            style={{
+              fontFamily: s.typography.display.family,
+              fontWeight: s.typography.display.weight,
+              fontSize: typeSize(s, "h2", height),
+              lineHeight: 1.1,
+              letterSpacing: `${s.typography.tracking.display}em`,
+              color: s.palette.text,
+              textAlign: "left",
+              paddingBottom: "0.08em",
+            }}
+          >
+            {headline.text}
+          </div>
+        </Enter>
+      </div>
+
+      <div style={{ ...box(chart.layout), height: chart.layout.h * safe.h }}>
+        <LineChart
+          points={content.points}
+          beat={bChart}
+          area
+          callout={false}
+          endpointEmphasis={false}
+          width={chart.width}
+          height={chart.height}
+          locale={content.locale}
+          compact={chart.compact}
+          yTicks={chart.yTicks}
+          accentIndex={chart.accentIndex}
+        />
+      </div>
+
+      <div style={{ ...box(hero.layout), height: hero.layout.h * safe.h, display: "flex", justifyContent: "flex-end", alignItems: "flex-start" }}>
+        <Emphasis beat={bFinal} loop shape="pill" ring spread={hero.spread} accentIndex={hero.accentIndex}>
           <AnimatedNumber
-            from={content.hero.from}
-            to={content.hero.to}
+            from={hero.from}
+            to={hero.to}
             value={head.value}
             beat={{ start_frame: head.startFrame, end_frame: head.endFrame }}
-            enterAt={bNumberIn.start_frame}
-            locale={content.hero.locale}
+            enterAt={bHeroIn.start_frame}
+            locale={content.locale}
             size="display"
             font="display"
             align="right"
@@ -117,62 +146,42 @@ const SceneBody: React.FC<{ beats: TimedBeat[]; content: Content }> = ({ beats, 
         </Emphasis>
       </div>
 
-      <div style={{ ...place(layout.sub), display: "flex", justifyContent: "flex-end" }}>
-        <KineticText
-          text={content.sub}
-          beat={bSub}
-          mode="words"
-          enter="fade"
-          size="body"
-          color={style.palette.muted}
-          align="right"
-        />
-      </div>
-
-      <div style={place(layout.chart)}>
-        <LineChart
-          points={chart.points}
-          beat={bChart}
-          area
-          callout={false}
-          endpointEmphasis={{ beat: bEndpoint, loop: false }}
-          width={chart.width}
-          height={chart.height}
-          locale={content.hero.locale}
-          compact
-          yTicks={chart.yTicks}
-          accentIndex={0}
-        />
+      <div style={box(startMark.layout)}>
+        <Enter kind="blur" beat={bStartMark}>
+          <div
+            style={{
+              fontFamily: s.typography.body.family,
+              fontWeight: s.typography.body.weight,
+              fontSize: typeSize(s, "body", height),
+              lineHeight: 1.2,
+              color: s.palette.muted,
+              textAlign: "right",
+            }}
+          >
+            {startMark.text}
+          </div>
+        </Enter>
       </div>
     </>
   );
 };
 
-const Atmosphere: React.FC<{ content: Content }> = ({ content }) => {
-  const style = useStyle();
-  if (style.transparent) return null;
+const Frame: React.FC<SceneProps> = ({ timing, content }) => {
+  const s = useStyle();
+  const atmosphere = content.background_beat;
   return (
-    <Parallax layer={0}>
-      <Background beat={content.background_beat} variant="aurora" seed="growth" />
-      <Particles
-        count={content.particles.count}
-        seed={content.particles.seed}
-        beat={content.background_beat}
-        layer={0}
-      />
-    </Parallax>
+    <AbsoluteFill>
+      {s.transparent ? null : <Background beat={atmosphere} seed={content.background_seed} />}
+      <Particles count={content.particles.count} seed={content.particles.seed} beat={atmosphere} layer={0} />
+      <SafeArea>
+        <Body timing={timing} content={content} />
+      </SafeArea>
+    </AbsoluteFill>
   );
 };
 
-export const Scene: React.FC<Props> = ({ timing, style, content }) => (
-  <StyleProvider style={style}>
-    <Camera keys={content.camera}>
-      <Atmosphere content={content} />
-      <Parallax layer={1}>
-        <SafeArea>
-          <SceneBody beats={timing.beats} content={content} />
-        </SafeArea>
-      </Parallax>
-    </Camera>
+export const Scene: React.FC<SceneProps> = (props) => (
+  <StyleProvider style={props.style}>
+    <Frame {...props} />
   </StyleProvider>
 );
