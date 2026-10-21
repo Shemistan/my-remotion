@@ -1,5 +1,7 @@
 // Материалы KB для агентов: кандидаты для Motion Director, `knowledge-refs.json` версии
-// и каталог `refs/` draft для Engineer (04-agent-workflows.md §2, §7).
+// и каталог `refs/` draft для Engineer (04-agent-workflows.md §2, §7). Фильтр «только
+// визуальное» — в самом адаптере (`KnowledgeAdapter.search`, Task 17); кандидаты задачи —
+// `kb-select.ts`.
 import { copyFile, lstat, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { ComponentSelection, KnowledgeRef } from "@ms/contracts";
@@ -16,28 +18,6 @@ const SKILL_DIR = "remotion-markup";
 
 /** Каталог official skills относительно корня исходников KB. */
 export const SKILLS_REL = "official_skills/skills/skills";
-
-/** Виды записей KB, которые что-то рисуют; `doc` — справка о процессе, а не визуал. */
-export const VISUAL_KINDS = ["component", "example", "chart-type", "template", "diagram-type", "util", "hook"];
-// Записи без своей картинки (справки, конфиги, загрузка шрифтов) Director'у не нужны.
-const NON_VISUAL = /^\s*(Не рисует|Своей картинки нет)/i;
-
-/** Есть ли у записи визуальный результат. */
-export function isVisual(v: CapabilityView): boolean {
-  return v.kind !== "doc" && !NON_VISUAL.test(v.visualizes);
-}
-
-/**
- * Кандидаты для Motion Director: поиск по запросу с фильтрами по умолчанию (native/adaptable,
- * только permissive) без нерисующих записей. Ищем с запасом, потом отбрасываем лишнее.
- */
-export function searchCandidates(kb: KnowledgeSource, query: string, limit = 12): CapabilityView[] {
-  return kb
-    .search(query, { kinds: VISUAL_KINDS }, limit * 3)
-    .map((h) => h.view)
-    .filter(isVisual)
-    .slice(0, limit);
-}
 
 /** Поля кандидата, которые видит Director (04-agent-workflows.md §7). */
 export function candidateBrief(v: CapabilityView) {
@@ -68,7 +48,8 @@ export interface DroppedSelection {
 
 /**
  * Выбор Director, сведённый к допустимому: только id из предложенных кандидатов и только
- * `permissive` (лицензию берём из KB, а не из ответа модели); повторы id — один раз.
+ * `permissive` (лицензию берём из KB, а не из ответа модели; `allowRestricted` — явное
+ * разрешение пользователя); повторы id — один раз.
  * Отброшенное возвращается с причиной — пайплайн пишет предупреждение и `selection.json`.
  * Идёт до knowledge-refs.json, manifest и промпта Engineer.
  */
@@ -76,6 +57,7 @@ export function filterSelection(
   selection: ComponentSelection,
   candidates: CapabilityView[],
   kb: KnowledgeSource,
+  allowRestricted = false,
 ): { selection: ComponentSelection; dropped: DroppedSelection[] } {
   const offered = new Map(candidates.map((c) => [c.id, c]));
   const items: ComponentSelection["items"] = [];
@@ -89,7 +71,7 @@ export function filterSelection(
       continue;
     }
     const license = (kb.getCapability(item.kb_id) ?? offered.get(item.kb_id))!.license_class;
-    if (license !== "permissive") {
+    if (license !== "permissive" && !allowRestricted) {
       dropped.push({ kb_id: item.kb_id, reason: `license_class ${license}, допустим только permissive` });
       continue;
     }

@@ -4,22 +4,22 @@
 // Старт — общий с сервером `bootCore({ kind: "cli" })` (ADR 0007): owner lock → storage →
 // studio.db → реестр процессов → reap (не чисто — отказ с pid и командой) → sweep →
 // relock → reconcile → восстановление задач → раннер. Затем ensureRenderBrowser (до трат
-// на агентов), сцена и задача `playground.generate` (обработчик `interimGenerate`) в этом
-// же процессе (раннер CLI захватывает только её); CLI ждёт её итога. Код выхода 1 при failed и любом отказе, 2 — usage.
+// на агентов), сцена и задача `playground.generate` (тот же обработчик `playgroundGenerate`,
+// что у сервера) в этом же процессе (раннер CLI захватывает только её); CLI ждёт её итога.
+// Concept спросил уточнение — CLI пропускает его (`skip`, ответы по умолчанию). Код выхода
+// 1 при failed и любом отказе, 2 — usage.
 import { pathToFileURL } from "node:url";
 import { type Settings, SettingsSchema, StylePresetSchema, defaultSettings } from "@ms/contracts";
 import { OwnerBusyError, StorageError } from "@ms/core";
-import { ensureRenderBrowser, renderVersion } from "@ms/render";
+import { ensureRenderBrowser } from "@ms/render";
 import { type BootOptions, type Core, bootCore } from "../boot.js";
 import * as jobs from "../db/repos/jobs.js";
 import { tx } from "../db/tx.js";
-import { interimGenerate } from "../jobs/interim-generate.js";
-import { enqueue, requestCancel } from "../jobs/queue.js";
-import { type GenerateResult, generateScene } from "../pipeline/generate.js";
+import { type HandlerOptions, registerHandlers } from "../jobs/handlers.js";
+import { cancelJob, enqueue, provideInput } from "../jobs/queue.js";
+import type { GenerateResult } from "../pipeline/generate.js";
 import { newId } from "../scenes/ids.js";
-import { checkSceneDir } from "../scenes/static-check.js";
 import { DEFAULT_PROJECT } from "../scenes/store.js";
-import { typecheckVersion } from "../scenes/typecheck.js";
 
 export const USAGE =
   'usage: generate "<запрос>" [--duration-frames N] [--aspect 16:9|9:16|1:1] [--style dark-premium|light-clean|tech-neon]';
@@ -70,10 +70,13 @@ export function parseArgs(argv: string[]): { prompt: string; settings: Settings 
   return { prompt: prompt.trim(), settings: SettingsSchema.parse(s) };
 }
 
+/** Итог генерации, который печатает CLI. */
+export type CliResult = Pick<GenerateResult, "status" | "runId" | "versionDir" | "previewPath" | "costUsd" | "engineerCalls" | "warnings" | "failure">;
+
 /** Ядро для CLI: `Core` и итоги пайплайна по задачам (печатаются и при неудаче). */
 export type CliCore = Pick<Core, "root" | "reaped" | "boot" | "close"> & {
   /** Ставит задачу генерации и ждёт итога; `signal` — отмена (Ctrl-C). */
-  generate(prompt: string, settings: Settings, signal: AbortSignal): Promise<GenerateResult>;
+  generate(prompt: string, settings: Settings, signal: AbortSignal): Promise<CliResult>;
 };
 
 /** Шаги CLI; в тестах подменяются. */
@@ -86,10 +89,15 @@ export interface CliSteps {
 const TERMINAL = new Set(["completed", "failed", "cancelled", "blocked", "awaiting_input", "awaiting_approval"]);
 
 /**
- * Настоящий старт: `bootCore` с обработчиком `playground.generate` = `interimGenerate`
- * (config.json, KB, Claude Code, рендер). `opts` — подмены для интеграционных тестов.
+ * Настоящий старт: `bootCore` с обработчиками сервера (`registerHandlers`: config.json, KB,
+ * Claude Code, рендер). `opts` — подмены для интеграционных тестов (`pipeline` — рендер,
+ * проверки, skills).
  */
-export async function bootCli(env: NodeJS.ProcessEnv, log: (line: string) => void, opts: Partial<BootOptions> & { generate?: typeof generateScene } = {}): Promise<CliCore> {
+export async function bootCli(
+  env: NodeJS.ProcessEnv,
+  log: (line: string) => void,
+  opts: Partial<BootOptions> & { pipeline?: Omit<HandlerOptions, "log" | "onGenerateResult"> } = {},
+): Promise<CliCore> {
   const results = new Map<string, GenerateResult>();
   // раннер CLI берёт только свою задачу: оставшиеся от прежних запусков (восстановление
   // вернуло их в очередь) ждут сервера или человека, а не тратят бюджет агентов здесь
@@ -99,23 +107,8 @@ export async function bootCli(env: NodeJS.ProcessEnv, log: (line: string) => voi
     kind: "cli",
     ...opts,
     runner: { ...opts.runner, onlyIds: mine },
-    handlers: (svc) => ({
-      "playground.generate": interimGenerate({
-        deps: () => ({
-          storage: svc.storageCheck,
-          kb: svc.kb,
-          agents: svc.agents,
-          render: renderVersion,
-          check: checkSceneDir,
-          typecheck: typecheckVersion,
-          config: svc.config,
-          log,
-        }),
-        repo: svc.repo,
-        generate: opts.generate,
-        onResult: (job, r) => results.set(job.id, r),
-      }),
-    }),
+    storageLog: log,
+    handlers: (svc) => registerHandlers(svc, { ...opts.pipeline, log, onGenerateResult: (job, r) => results.set(job.id, r) }),
   });
   return {
     root: core.root,
@@ -131,16 +124,25 @@ export async function bootCli(env: NodeJS.ProcessEnv, log: (line: string) => voi
       // сначала задача в БД, затем разрешение раннеру захватить именно её
       mine.add(job.id);
       const onAbort = () => {
-        try {
-          requestCancel(core.db, job.id);
-        } catch {
+        cancelJob(core.db, core.processes, job.id).catch(() => {
           // база недоступна — задачу разберёт восстановление
-        }
+        });
       };
       signal.addEventListener("abort", onAbort, { once: true });
       try {
         for (;;) {
           const j = jobs.get(core.db, job.id);
+          if (j?.status === "awaiting_input") {
+            // CLI не ведёт диалог: уточнения Concept пропускаются (ответы по умолчанию)
+            const qs = (j.output_refs as { questions?: { question: string; default_if_skipped: string }[] } | null)?.questions ?? [];
+            for (const q of qs) log(`уточнение пропущено: ${q.question} → ${q.default_if_skipped}`);
+            try {
+              provideInput(core.db, job.id, "skip");
+            } catch {
+              // задача уже не ждёт ответа (отменена) — итог прочитается на следующем шаге
+            }
+            continue;
+          }
           if (j && TERMINAL.has(j.status)) {
             const r = results.get(job.id);
             if (r) return r;

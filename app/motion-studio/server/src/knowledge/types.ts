@@ -37,6 +37,11 @@ export interface SearchFilters {
   patterns?: string[];
   /** По умолчанию false: только permissive. */
   allowRestricted?: boolean;
+  /**
+   * По умолчанию false: записи без своей картинки (`kind = "doc"`, «Не рисует…», «Своей
+   * картинки нет…») в выдачу не попадают — их не предлагают ни UI, ни пайплайны.
+   */
+  includeNonVisual?: boolean;
 }
 
 export interface SearchHit {

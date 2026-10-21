@@ -2,13 +2,14 @@
 // 04-agent-workflows.md §5). Флаги сверены с `claude --help` 2.1.304.
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
-import { access, lstat, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { access, lstat, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { delimiter, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { StorageError, assertRunRef, safeMkdir, spawnTracked } from "@ms/core";
 import { toJsonSchema } from "@ms/contracts";
 import type { ZodType, ZodTypeAny } from "zod";
 import { childEnv } from "./env.js";
+import { loadPrompt } from "./prompts.js";
 import {
   AGENT_TOOLS,
   type AgentErrorKind,
@@ -155,7 +156,15 @@ export interface ClaudeCodeRuntimeOptions {
    * журнал вызова — `<logRoot>/<runId>/a<attempt>-<role>-<seq>/{prompt.md,stdout.json,stderr.log}`.
    */
   logRoot: string;
-  /** Каталог `prompts/` с `<role>.md` (`motion_director` → `motion-director.md`). */
+  /**
+   * Системный промпт роли (M8): сервер и CLI передают `loadPrompt` — partials `{{> …}}`
+   * подставлены. Важнее `promptsDir`.
+   */
+  promptLoader?: (role: Role) => string;
+  /**
+   * Каталог `prompts/` с `<role>.md` (`motion_director` → `motion-director.md`); читается
+   * через `loadPrompt` — тоже с подстановкой partials.
+   */
   promptsDir?: string;
   /** Подмена `spawnTracked` в тестах. */
   spawn?: typeof spawnTracked;
@@ -311,9 +320,10 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
   }
 
   private async systemPrompt(role: Role): Promise<string> {
-    if (!this.opts.promptsDir) return "";
+    const { promptLoader, promptsDir } = this.opts;
+    if (!promptLoader && !promptsDir) return "";
     try {
-      return await readFile(join(this.opts.promptsDir, `${role.replace(/_/g, "-")}.md`), "utf8");
+      return promptLoader ? promptLoader(role) : loadPrompt(role, promptsDir);
     } catch (e) {
       throw new Error(`системный промпт роли не прочитан: ${(e as Error).message}`, { cause: e });
     }

@@ -150,3 +150,20 @@ describe("selectQaFrames на spec реальных прогонов", () => {
     gaps(f).forEach((g) => expect(g).toBeGreaterThanOrEqual(10));
   });
 });
+
+describe("selectQaFrames: начало счёта числа (09 §2, Task 17)", () => {
+  it("число входит со значением «от», счёт — отдельный бит: кадр начала счёта среди QA-кадров", () => {
+    const sp = spec({
+      elements: [el("title"), el("hero", { kind: "number", entrance: "pop" }), el("chart", { kind: "chart", entrance: "draw" })],
+      beats: [
+        beat("title", 0, 36, ["title"], "title-in"),
+        beat("hero-in", 10, 34, ["hero"], "hero-entrance"),
+        beat("chart", 24, 130, ["chart"], "chart-draw"),
+        beat("count", 37, 109, ["hero", "chart"], "count-bound-to-head"),
+        beat("accent", 109, 132, ["hero"], "final-emphasis"),
+        beat("hold", 132, 180, ["hero", "chart", "title"], "hold"),
+      ],
+    });
+    expect(selectQaFrames(sp)).toContain(37);
+  });
+});

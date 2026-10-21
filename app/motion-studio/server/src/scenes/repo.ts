@@ -47,10 +47,27 @@ export interface RestoreOptions {
 const DISPOSABLE = /^(cancelled|abandoned|interrupted)\b/;
 const TITLE_MAX = 80;
 
-class FencedOutError extends Error {
+/**
+ * Отказ публикации по fencing: попытка устарела. Draft уже в карантине (`quarantined`) —
+ * вызывающий второй раз его не помечает.
+ */
+export class FencedOutError extends Error {
+  readonly quarantined = true;
   constructor(fence: Fence, current: number | undefined) {
     super(`fenced_out: попытка ${fence.attempt} задачи ${fence.jobId} устарела (текущая: ${current ?? "задачи нет"})`);
     this.name = "FencedOutError";
+  }
+}
+
+/**
+ * Отказ публикации: отмена задачи запрошена (Task 12/17). Отменённая задача версию не
+ * публикует; draft уже в карантине `cancelled` (одноразовый, H6).
+ */
+export class PublishCancelledError extends Error {
+  readonly quarantined = true;
+  constructor(fence: Fence) {
+    super(`cancelled: отмена задачи ${fence.jobId} запрошена — попытка ${fence.attempt} версию не публикует`);
+    this.name = "PublishCancelledError";
   }
 }
 
@@ -132,10 +149,19 @@ export class SceneRepo {
     return job?.attempt === fence.attempt ? undefined : (job?.attempt ?? -1);
   }
 
+  /** Fencing и отмена: устаревшая попытка — `FencedOutError`, запрошенная отмена — `PublishCancelledError`. */
+  private gate(fence: Fence): Error | undefined {
+    const stale = this.fenceOk(fence);
+    if (stale !== undefined) return new FencedOutError(fence, stale < 0 ? undefined : stale);
+    if (jobs.get(this.db, fence.jobId)?.cancel_requested) return new PublishCancelledError(fence);
+    return undefined;
+  }
+
   /**
    * Публикация версии с fencing (ADR 0007, H9). До транзакции, асинхронно: `prepareVersion`
    * (guard, sha256, fsync). Затем одна транзакция `BEGIN IMMEDIATE`, только синхронное:
-   * `jobs.attempt = fence.attempt` (иначе `fenced_out` и карантин draft) → номер →
+   * `jobs.attempt = fence.attempt` и отмена не запрошена (иначе `fenced_out` / `cancelled`
+   * и карантин draft) → номер →
    * `commitVersionFiles` → строки версии и ссылок KB → `ready` становится current.
    * Сбой записи после rename возвращает файлы в draft. После COMMIT — `sealVersion`.
    */
@@ -147,11 +173,10 @@ export class SceneRepo {
     if (!scene) throw new Error(`scenes: сцены нет в БД: ${draft.sceneId}`);
     if (scene.project_id !== draft.projectId) throw new Error(`scenes: сцена ${scene.id} в проекте ${scene.project_id}, draft — в ${draft.projectId}`);
 
-    const stale = this.fenceOk(fence);
-    if (stale !== undefined) {
-      const err = new FencedOutError(fence, stale < 0 ? undefined : stale);
-      await quarantineDraft(draft, err.message);
-      throw err;
+    const refused = this.gate(fence);
+    if (refused) {
+      await quarantineDraft(draft, refused.message);
+      throw refused;
     }
     const prepared = await prepareVersion(draft, { ...meta, job: { id: fence.jobId, attempt: fence.attempt } }, this.guard);
     const refs = await readKnowledgeRefs(draft.dir, meta);
@@ -160,8 +185,8 @@ export class SceneRepo {
     let published: Omit<PublishedVersion, "warnings">;
     try {
       published = tx(this.db, () => {
-        const current = this.fenceOk(fence);
-        if (current !== undefined) throw new FencedOutError(fence, current < 0 ? undefined : current);
+        const refusedInTx = this.gate(fence);
+        if (refusedInTx) throw refusedInTx;
         // Каталог версии без строки в БД (до reconcile) тоже занимает номер — иначе коллизия.
         const number = Math.max(versions.nextNumber(this.db, draft.sceneId), maxNumberOnDisk(prepared.versionsDir) + 1);
         const versionId = newId("ver");
@@ -194,7 +219,7 @@ export class SceneRepo {
           attachCause(e, u);
         }
       }
-      if (e instanceof FencedOutError) await quarantineDraft(draft, e.message);
+      if (e instanceof FencedOutError || e instanceof PublishCancelledError) await quarantineDraft(draft, e.message);
       throw e;
     }
     // Версия уже в БД: незакрытый корень — не отказ, а предупреждение (relockVersions при старте).

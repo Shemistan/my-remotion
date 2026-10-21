@@ -204,9 +204,11 @@ it("awaiting_input от обработчика; общий EventBus получа
   expect(live).toEqual(["started", "awaiting_input"]);
 });
 
-it("registerHandlers: точка регистрации обработчиков", () => {
+it("registerHandlers: playground.generate — обработчик пайплайна; extra дописывает свои типы", () => {
   const h: JobHandler = async () => ({ status: "completed", outputRefs: {} });
-  expect(registerHandlers({ "scene.export": h })["scene.export"]).toBe(h);
+  const hs = registerHandlers({} as never, {}, { "scene.export": h });
+  expect(hs["scene.export"]).toBe(h);
+  expect(typeof hs["playground.generate"]).toBe("function");
 });
 
 it("места семафоров возвращаются, если обработчик бросил исключение, держа heavy", async () => {

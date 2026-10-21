@@ -107,14 +107,15 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", c
 
   // единый кегль подписей графа: самый крупный, при котором каждая подпись влезает в
   // свой узел без многоточия (оценка ширины: 0.57 em на символ), но не крупнее уровня
-  // caption шкалы кадра и не меньше 16 px
+  // body шкалы кадра (подпись узла — основной текст схемы) и не меньше 16 px; пояснение
+  // под подписью — caption (рубрика: мельче caption в кадре ничего нет)
   const padX = space(s, 0.5);
   const DOT = 12;
   const labelSize = Math.max(
     16,
-    Math.floor(Math.min(typeSize(s, "caption", frameH), ...nodes.map((n) => (n.w - 2 * padX - DOT - padX * 0.75) / (Math.max(1, Array.from(n.label).length) * 0.57)))),
+    Math.floor(Math.min(typeSize(s, "body", frameH), ...nodes.map((n) => (n.w - 2 * padX - DOT - padX * 0.75) / (Math.max(1, Array.from(n.label).length) * 0.57)))),
   );
-  const capSize = Math.min(Math.round(typeSize(s, "caption", frameH) * 0.6), Math.round(labelSize * 0.72));
+  const capSize = Math.min(Math.round(typeSize(s, "caption", frameH)), Math.round(labelSize * 0.8));
 
   return (
     <FlowContext.Provider value={{ edges: geo, ready }}>

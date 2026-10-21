@@ -99,6 +99,14 @@ export interface IndexedDoc {
   tags: Set<string>;
 }
 
+// Записи без своей картинки (справки, конфиги, загрузка шрифтов): сцене они не нужны.
+const NON_VISUAL = /^\s*(Не рисует|Своей картинки нет)/i;
+
+/** Есть ли у записи визуальный результат: не `doc` и не «Не рисует…» / «Своей картинки нет…». */
+export function isVisual(v: Pick<CapabilityView, "kind" | "visualizes">): boolean {
+  return v.kind !== "doc" && !NON_VISUAL.test(v.visualizes);
+}
+
 export interface SearchIndex {
   docs: IndexedDoc[];
   df: Map<string, number>;
@@ -140,6 +148,7 @@ export function searchDocs(index: SearchIndex, query: string, filters: SearchFil
     if (!filters.allowRestricted && v.license_class !== "permissive") continue;
     if (filters.kinds && !filters.kinds.includes(v.kind)) continue;
     if (filters.patterns && !filters.patterns.some((p) => v.patterns.includes(p))) continue;
+    if (!filters.includeNonVisual && !isVisual(v)) continue;
     let score = 0;
     const matched: string[] = [];
     for (const t of tokens) {

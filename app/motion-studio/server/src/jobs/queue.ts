@@ -2,6 +2,7 @@
 // `jobs.attempt`, замки сцены и ресурсов. Всё синхронно (better-sqlite3), каждый переход —
 // транзакция `BEGIN IMMEDIATE` (внутри транзакции вызывающего — savepoint).
 import type { Job, JobError, JobType } from "@ms/contracts";
+import { type ProcessRegistry, isTrackedAlive } from "@ms/core";
 import type { Db } from "../db/open.js";
 import * as jobProcesses from "../db/repos/job-processes.js";
 import * as jobs from "../db/repos/jobs.js";
@@ -141,6 +142,15 @@ export function setProgress(db: Db, jobId: string, attempt: number, progress: nu
     .run(p, stage, jobId, attempt).changes === 1;
 }
 
+/**
+ * Промежуточные `output_refs` попытки (чекпоинты шагов, M7): пишутся, только если попытка
+ * текущая. `claimNext` обнуляет их для новой попытки, `finish` перезаписывает итогом.
+ */
+export function setOutputRefs(db: Db, jobId: string, attempt: number, refs: unknown): boolean {
+  return db.prepare("UPDATE jobs SET output_refs_json = ? WHERE id = ? AND attempt = ? AND status = 'running'")
+    .run(JSON.stringify(refs ?? null), jobId, attempt).changes === 1;
+}
+
 const CANCELLED: JobError = { code: "cancelled", stage: "cancelled", message: "задача отменена" };
 
 /**
@@ -194,7 +204,7 @@ export function provideInput(db: Db, jobId: string, answers: Record<string, stri
  * задача без живой попытки (`pending`, `awaiting_input`, `awaiting_approval`, `blocked`) —
  * сразу `cancelled`; завершённая — без изменений.
  */
-export function requestCancel(db: Db, jobId: string): Job {
+export function requestCancel(db: Db, jobId: string, opts: { attemptAlive?: boolean } = {}): Job {
   return tx(db, () => {
     const j = mustGet(db, jobId);
     switch (j.status) {
@@ -206,8 +216,10 @@ export function requestCancel(db: Db, jobId: string): Job {
       case "blocked": {
         const next = jobs.update(db, jobId, { status: "cancelled", cancel_requested: true, error: CANCELLED, finished_at: nowIso(), lease_owner: null, lease_until: null });
         // blocked: процессы прежней попытки могут быть живы — замки держатся, пока реестр их
-        // не покажет завершёнными; снимает восстановление (Task 13)
-        if (j.status !== "blocked" || jobProcesses.listLive(db, { jobId, attempt: j.attempt }).length === 0) releaseLocks(db, next);
+        // не покажет завершёнными; снимает восстановление (Task 13). `attemptAlive` — ответ
+        // полного реестра (cancelJob); без него — только записи `job_processes`.
+        const alive = opts.attemptAlive ?? jobProcesses.listLive(db, { jobId, attempt: j.attempt }).length > 0;
+        if (j.status !== "blocked" || !alive) releaseLocks(db, next);
         return next;
       }
       case "completed":
@@ -217,3 +229,35 @@ export function requestCancel(db: Db, jobId: string): Job {
     }
   });
 }
+
+/**
+ * Есть ли живые процессы попытки в реестре (сервер — слияние `job_processes` и бокового
+ * файлового реестра Chrome). Записи, чьих процессов уже нет (`isTrackedAlive` с проверкой
+ * времени старта), закрываются.
+ */
+export async function attemptAlive(registry: ProcessRegistry, jobId: string, attempt: number): Promise<boolean> {
+  let alive = false;
+  for (const p of await registry.live({ runId: jobId, attempt })) {
+    if (await isTrackedAlive(p)) alive = true;
+    else await registry.end(p, { code: null, signal: null });
+  }
+  return alive;
+}
+
+/**
+ * Отмена для API и CLI (Task 13 → 17): как `requestCancel`, но живость процессов `blocked`
+ * попытки берётся из полного реестра с проверкой процессов, а не только из `job_processes`:
+ * процесс Chrome в боковом реестре держит замки, мёртвая запись — нет.
+ */
+export async function cancelJob(db: Db, registry: ProcessRegistry, jobId: string): Promise<Job> {
+  const j = jobs.get(db, jobId);
+  if (j?.status !== "blocked") return requestCancel(db, jobId);
+  const alive = await attemptAlive(registry, jobId, j.attempt);
+  // попытка не менялась, пока опрашивался реестр (повтор человеком сменил бы её)
+  return tx(db, () => {
+    const cur = jobs.get(db, jobId);
+    if (cur?.status !== "blocked" || cur.attempt !== j.attempt) return requestCancel(db, jobId);
+    return requestCancel(db, jobId, { attemptAlive: alive });
+  });
+}
+

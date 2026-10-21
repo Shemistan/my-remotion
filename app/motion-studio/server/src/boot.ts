@@ -17,6 +17,7 @@ import {
 } from "@ms/core";
 import { type Proc, reapStrayRenderers } from "@ms/render";
 import { ClaudeCodeRuntime } from "./agents/claude-code.js";
+import { loadPrompt } from "./agents/prompts.js";
 import type { AgentRuntimeAdapter } from "./agents/runtime.js";
 import { type AppConfig, loadConfig, readConfigFile } from "./config.js";
 import { bindStoreId, quickCheck } from "./db/meta.js";
@@ -29,7 +30,6 @@ import { JobRunner, type JobRunnerOptions } from "./jobs/runner.js";
 import { StorageSupervisor } from "./jobs/storage-mode.js";
 import type { Handlers } from "./jobs/types.js";
 import { KnowledgeAdapter } from "./knowledge/adapter.js";
-import { DEFAULT_PROMPTS_DIR } from "./pipeline/generate.js";
 import { type ImportReport, type MissingReport, reconcileVersions } from "./scenes/import-slice.js";
 import { SceneRepo } from "./scenes/repo.js";
 import { relockVersions, sweepAbandonedDrafts } from "./scenes/store.js";
@@ -65,6 +65,8 @@ export interface BootOptions {
   agents?: AgentRuntimeAdapter;
   runner?: Partial<Omit<JobRunnerOptions, "db" | "root" | "handlers" | "registry" | "events">>;
   storageIntervalMs?: number;
+  /** Переходы режима хранилища (`storage_offline`, возврат) — журнал CLI и сервера. */
+  storageLog?: (line: string) => void;
   /** Период уборки замков задач, чьи процессы исчезли (`releaseStaleLocks`), мс (30 000). */
   lockSweepMs?: number;
 }
@@ -174,7 +176,7 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     log("recovery");
 
     const kb = opts.kb ?? (await KnowledgeAdapter.load({ kbRoot: config.kb.root, sourceRoot: config.kb.sourceRoot }));
-    const agents = opts.agents ?? new ClaudeCodeRuntime({ bin: config.claudeBin, logRoot: join(root, "logs", "agent-runs"), promptsDir: DEFAULT_PROMPTS_DIR });
+    const agents = opts.agents ?? new ClaudeCodeRuntime({ bin: config.claudeBin, logRoot: join(root, "logs", "agent-runs"), promptLoader: loadPrompt });
     const svc: CoreServices = { root, config, repo, kb, agents, processes, storageCheck };
     const handlers = typeof opts.handlers === "function" ? opts.handlers(svc) : (opts.handlers ?? {});
     runner = new JobRunner({ ...opts.runner, db, root, owner: `${opts.kind}:${process.pid}`, handlers, registry: processes, events });
@@ -186,6 +188,7 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
       db,
       reopen,
       intervalMs: opts.storageIntervalMs,
+      log: opts.storageLog,
       verifyOwner: async () => {
         lock = await verifyOwnerLock(root, kind, lock);
       },

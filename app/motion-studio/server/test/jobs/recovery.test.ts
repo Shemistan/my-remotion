@@ -9,7 +9,7 @@ import * as jobEvents from "../../src/db/repos/job-events.js";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as sceneLocks from "../../src/db/repos/scene-locks.js";
 import { SqliteProcessRegistry, mergeRegistries } from "../../src/jobs/process-registry.js";
-import { claimNext, enqueue, requestCancel } from "../../src/jobs/queue.js";
+import { cancelJob, claimNext, enqueue, requestCancel } from "../../src/jobs/queue.js";
 import { recoverOnStart, releaseStaleLocks } from "../../src/jobs/recovery.js";
 import { retryJob } from "../../src/jobs/retry.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
@@ -204,6 +204,48 @@ describe("releaseStaleLocks (fix 5: runtime sweep)", () => {
   it("running and pending jobs are not touched", async () => {
     await seedRunning("job_1");
     expect(await releaseStaleLocks(env.db, registry)).toEqual([]);
+    expect(sceneLocks.holder(env.db, "scn_1")).toBe("job_1");
+  });
+});
+
+describe("Task 17 (carry Task 13)", () => {
+  it("cancelJob(blocked): процесс есть только в боковом файловом реестре (Chrome) — замки держатся", async () => {
+    await seedRunning("job_1");
+    // процесс попытки записан только в run/processes/ (так регистрирует себя Chrome)
+    const o = await spawnOrphan(fileProcessRegistry(env.s.root), { runId: "job_1", attempt: 1 }, env.s.tmp);
+    jobs.update(env.db, "job_1", { status: "blocked", error: { code: "stale_process", message: "x", pids: [o.pid] } });
+    expect(await cancelJob(env.db, registry, "job_1")).toMatchObject({ status: "cancelled" });
+    expect(sceneLocks.holder(env.db, "scn_1")).toBe("job_1");
+    process.kill(-o.pid, "SIGKILL");
+  });
+
+  it("cancelJob(blocked): запись процесса жива в БД, но процесса нет — запись закрыта, замки сняты", async () => {
+    await seedRunning("job_1");
+    await sql.add({ runId: "job_1", attempt: 1, pid: 999_999, pgid: 999_999, startedAt: "Mon Jan  1 00:00:00 2001", cmd: "claude -p" });
+    jobs.update(env.db, "job_1", { status: "blocked", error: { code: "stale_process", message: "x", pids: [999_999] } });
+    // старая синхронная проверка (только SQLite, без проверки живости) держала бы замок
+    await cancelJob(env.db, registry, "job_1");
+    expect(sceneLocks.holder(env.db, "scn_1")).toBeUndefined();
+    expect(await registry.live({ runId: "job_1" })).toEqual([]);
+  });
+
+  it("cancelJob(running) — как requestCancel: только cancel_requested", async () => {
+    await seedRunning("job_1");
+    expect(await cancelJob(env.db, registry, "job_1")).toMatchObject({ status: "running", cancel_requested: true });
+  });
+
+  it("releaseStaleLocks: попытка сменилась, пока проверялись процессы, — замки не снимаются", async () => {
+    await seedRunning("job_1");
+    jobs.update(env.db, "job_1", { status: "blocked" });
+    // пока уборка опрашивает реестр, человек повторил задачу и новая попытка уже blocked
+    const racing: ProcessRegistry = {
+      ...registry,
+      async live(f) {
+        jobs.update(env.db, "job_1", { attempt: 2 });
+        return registry.live(f);
+      },
+    };
+    expect(await releaseStaleLocks(env.db, racing)).toEqual([]);
     expect(sceneLocks.holder(env.db, "scn_1")).toBe("job_1");
   });
 });

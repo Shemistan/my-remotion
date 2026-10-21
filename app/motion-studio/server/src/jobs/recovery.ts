@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Job, JobError } from "@ms/contracts";
-import { type ProcessRegistry, isTrackedAlive, reapAttempt } from "@ms/core";
+import { type ProcessRegistry, reapAttempt } from "@ms/core";
 import type { Db } from "../db/open.js";
 import * as jobEvents from "../db/repos/job-events.js";
 import * as jobs from "../db/repos/jobs.js";
@@ -16,7 +16,7 @@ import type { SceneRepo } from "../scenes/repo.js";
 import { QUARANTINE, quarantineDir } from "../scenes/store.js";
 import type { EventBus } from "./events.js";
 import { releaseLocks } from "./locks.js";
-import { finish } from "./queue.js";
+import { attemptAlive, finish } from "./queue.js";
 
 export interface RecoveryReport {
   /** Снова `pending` (процессы подтверждённо мертвы, прерываний меньше `max_attempts`). */
@@ -184,15 +184,11 @@ export async function releaseStaleLocks(db: Db, registry: ProcessRegistry, event
   for (const id of lockHolders(db)) {
     const job = jobs.get(db, id);
     if (!job || job.status === "running" || job.status === "pending") continue;
-    let alive = false;
-    for (const p of await registry.live({ runId: job.id, attempt: job.attempt })) {
-      if (await isTrackedAlive(p)) alive = true;
-      else await registry.end(p, { code: null, signal: null });
-    }
-    if (alive) continue;
+    if (await attemptAlive(registry, job.id, job.attempt)) continue;
     tx(db, () => {
       const cur = jobs.get(db, id)!;
-      if (cur.status === "running" || cur.status === "pending") return;
+      // проверялась попытка job.attempt: сменилась (повтор, новый захват) — её процессы не проверены
+      if (cur.status === "running" || cur.status === "pending" || cur.attempt !== job.attempt) return;
       releaseLocks(db, cur);
       const ev = { job_id: id, level: "info" as const, kind: "locks_released", message: "процессы прежней попытки завершены — замки сняты" };
       if (events) events.emit(db, ev);

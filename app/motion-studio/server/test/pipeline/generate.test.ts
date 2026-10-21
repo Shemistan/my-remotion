@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { StorageError, type StorageStatus } from "@ms/core";
 import { canSpend } from "../../src/pipeline/budget.js";
 import { generateScene } from "../../src/pipeline/generate.js";
-import { searchCandidates } from "../../src/pipeline/refs.js";
 import { readVersion, sweepAbandonedDrafts } from "../../src/scenes/store.js";
 import {
   BAD_SCENE, GOOD_SCENE, OFFLINE, directorOutput, fakeAgents, fakeKb, fakeRender, makeDeps, makeSkills, makeStore, makeTmp,
@@ -168,6 +167,33 @@ describe("generateScene: Director", () => {
     const agents = fakeAgents({ director: async () => ({ output: out }) });
     const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
     expect(r).toMatchObject({ status: "failed", failure: { stage: "director", message: expect.stringContaining("duration_frames") } });
+  });
+});
+
+describe("generateScene: проверка spec после Director (Task 17)", () => {
+  const uniform = () => {
+    const out = directorOutput();
+    out.spec.elements = ["a", "b", "c"].map((id) => ({ id, kind: "text" as const, role: "текст", entrance: "fade" as const, content: {} }));
+    out.spec.beats = out.spec.beats.map((b) => ({ ...b, element_ids: ["a", "b", "c"] }));
+    return out;
+  };
+
+  it("blocking specChecks (все входы fade) → Director получает замечания и отвечает ещё раз", async () => {
+    let n = 0;
+    const agents = fakeAgents({ director: async () => ({ output: ++n === 1 ? uniform() : directorOutput() }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r.status).toBe("ready");
+    const directors = agents.tasks.filter((t) => t.role === "motion_director");
+    expect(directors).toHaveLength(2);
+    expect(String(directors[1]!.input)).toContain("uniform_entrance");
+  });
+
+  it("не исправил со второго раза → failed/director, draft не создан", async () => {
+    const agents = fakeAgents({ director: async () => ({ output: uniform() }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r).toMatchObject({ status: "failed", failure: { stage: "director", message: expect.stringContaining("uniform_entrance") } });
+    expect(agents.engineerCalls).toHaveLength(0);
+    expect(draftsOf()).toEqual([]);
   });
 });
 
@@ -337,42 +363,35 @@ describe("generateScene: отказы прав Engineer (rulings п. 14)", () =>
   });
 });
 
-describe("searchCandidates", () => {
-  it("отбрасывает doc и записи «Не рисует» / «Своей картинки нет», не больше limit", () => {
-    const kb = fakeKb([
-      view({ id: "a/doc", kind: "doc", visualizes: "Не рисует: процесс" }),
-      view({ id: "a/util", kind: "util", visualizes: "Своей картинки нет: конфиг" }),
-      view({ id: "a/one" }),
-      view({ id: "a/two" }),
-    ]);
-    expect(searchCandidates(kb, "рост", 1).map((v) => v.id)).toEqual(["a/one"]);
-    expect(searchCandidates(kb, "рост", 12).map((v) => v.id)).toEqual(["a/one", "a/two"]);
-  });
-});
-
 describe("generateScene: каждый выход после draft — публикация failed или карантин", () => {
-  it("отмена во время Engineer (процесс завершён) → опубликована failed/cancelled", async () => {
+  // Task 17: отменённая задача версию не публикует — draft в карантин «cancelled» (одноразовый)
+  const cancelledDraft = (r: { versionDir?: string }) => JSON.parse(readFileSync(join(r.versionDir!, ".quarantined"), "utf8")).reason as string;
+
+  it("отмена во время Engineer (процесс завершён) → карантин cancelled, версии нет", async () => {
     const ac = new AbortController();
     const agents = fakeAgents({ engineer: async () => { ac.abort(); return { status: "cancelled", files: { "src/Scene.tsx": GOOD_SCENE } }; } });
     const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }), ac.signal);
     expect(r).toMatchObject({ status: "failed", failure: { stage: "cancelled" } });
-    expect((await readVersion(r.versionDir!)).failure?.stage).toBe("cancelled");
+    expect(versionsOf()).toEqual([]);
+    expect(cancelledDraft(r)).toMatch(/^cancelled/);
   });
 
-  it("отмена во время рендера → опубликована failed/cancelled", async () => {
+  it("отмена во время рендера → карантин cancelled, версии нет", async () => {
     const ac = new AbortController();
     const { render } = fakeRender({ onCall: async () => { ac.abort(); return { ok: false, stills: [], browserLogs: [], error: { stage: "aborted", message: "отменён" } }; } });
     const r = await generateScene("тест", s, await makeDeps(root, skills, { render }), ac.signal);
     expect(r).toMatchObject({ status: "failed", failure: { stage: "cancelled" } });
-    expect((await readVersion(r.versionDir!)).status).toBe("failed");
+    expect(versionsOf()).toEqual([]);
+    expect(cancelledDraft(r)).toMatch(/^cancelled/);
   });
 
-  it("отмена между исправлениями (до следующего вызова Engineer) → опубликована failed/cancelled", async () => {
+  it("отмена между исправлениями (до следующего вызова Engineer) → карантин cancelled, версии нет", async () => {
     const ac = new AbortController();
     const typecheck = async () => { ac.abort(); return [{ file: "src/Scene.tsx", line: 1, message: "ошибка" }]; };
     const r = await generateScene("тест", s, await makeDeps(root, skills, { typecheck }), ac.signal);
     expect(r).toMatchObject({ status: "failed", engineerCalls: 1, failure: { stage: "cancelled" } });
-    expect((await readVersion(r.versionDir!)).failure?.stage).toBe("cancelled");
+    expect(versionsOf()).toEqual([]);
+    expect(cancelledDraft(r)).toMatch(/^cancelled/);
   });
 
   it("сбой в подготовке публикации (pipeline-log.json не пишется) → failed/publish, draft в карантине", async () => {

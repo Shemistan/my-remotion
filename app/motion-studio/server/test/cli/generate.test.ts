@@ -3,8 +3,7 @@
 // bootCore + задача playground.generate — в generate-boot.test.ts.
 import { describe, expect, it } from "vitest";
 import { OwnerBusyError, type OwnerLock, StorageError, type StorageStatus, type TrackedProcess } from "@ms/core";
-import { type CliCore, type CliSteps, parseArgs, runGenerate } from "../../src/cli/generate.js";
-import type { GenerateResult } from "../../src/pipeline/generate.js";
+import { type CliCore, type CliResult, type CliSteps, parseArgs, runGenerate } from "../../src/cli/generate.js";
 
 const OK: StorageStatus = { ok: true, root: "/store", marker: { schema_version: 1, store_id: "s", volume_uuid: "v", created_at: "" }, freeBytes: 1 };
 const env = { MS_DATA_DIR: "/store" };
@@ -19,7 +18,7 @@ interface FakeSteps {
   sweep(): Promise<{ quarantined: string[]; skipped: string[] }>;
   relock(): Promise<{ relocked: string[]; broken: { dir: string; error: string }[] }>;
   ensureBrowser(): Promise<{ path: string }>;
-  generate(): Promise<GenerateResult>;
+  generate(): Promise<CliResult>;
 }
 
 function steps(over: Partial<FakeSteps> = {}) {
@@ -36,9 +35,9 @@ function steps(over: Partial<FakeSteps> = {}) {
     sweep: async () => (calls.push("sweep"), { quarantined: ["/store/workspace/drafts/run_old-a1"], skipped: [] }),
     relock: async () => (calls.push("relock"), { relocked: [], broken: [] }),
     ensureBrowser: async () => (calls.push("browser"), { path: "/chrome" }),
-    generate: async (): Promise<GenerateResult> => {
+    generate: async (): Promise<CliResult> => {
       calls.push("generate");
-      return { status: "ready", runId: "run_x", versionDir: "/v", previewPath: "/v/preview.mp4", costUsd: 1.5, engineerCalls: 1, warnings: ["w1"], timings: {} };
+      return { status: "ready", runId: "run_x", versionDir: "/v", previewPath: "/v/preview.mp4", costUsd: 1.5, engineerCalls: 1, warnings: ["w1"] };
     },
     ...over,
   };
@@ -152,7 +151,7 @@ describe("runGenerate", () => {
 
   it("failed → код 1 и причина", async () => {
     const { s } = steps({
-      generate: async () => ({ status: "failed", runId: "r", costUsd: 0, engineerCalls: 0, warnings: [], timings: {}, failure: { stage: "storage", message: "SSD" } }),
+      generate: async () => ({ status: "failed", runId: "r", costUsd: 0, engineerCalls: 0, warnings: [], failure: { stage: "storage", message: "SSD" } }),
     });
     const o = io();
     expect(await runGenerate(["Рост"], env, o.io, s)).toBe(1);

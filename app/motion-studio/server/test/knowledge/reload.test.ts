@@ -84,3 +84,71 @@ describe("ошибки загрузки называют строку и id", ()
     await expect(KnowledgeAdapter.load({ kbRoot: dir, sourceRoot: dir })).rejects.toThrow(/дубликат id r\/a/);
   });
 });
+
+describe("недописанная KB (Task 17): fresh() держит последний исправный индекс", () => {
+  const bump = async (file: string, s = 5) => {
+    const t = new Date(Date.now() + s * 1000);
+    await utimes(file, t, t);
+  };
+  const load = async (dir: string, warnings: string[]) => KnowledgeAdapter.load({ kbRoot: dir, sourceRoot: dir, onWarn: (m) => warnings.push(m) });
+
+  it("битый JSON во время пересборки — прежняя выдача и предупреждение; исправленная KB подхватывается", async () => {
+    const dir = await fresh([rec({ id: "r/a", visualizes: "счётчик" })]);
+    const warnings: string[] = [];
+    const kb = await load(dir, warnings);
+    const file = join(dir, "capabilities.jsonl");
+    // пересборка оборвана посреди строки
+    await writeFile(file, `${JSON.stringify(rec({ id: "r/a", visualizes: "счётчик" }))}\n{"id": "r/b", "na`);
+    await bump(file);
+    expect(kb.search("счетчик").map((h) => h.view.id)).toEqual(["r/a"]);
+    expect(kb.getCapability("r/a")).toBeDefined();
+    expect(warnings.join("\n")).toMatch(/KB.*прежний индекс/);
+    // повторные обращения к той же битой KB не множат предупреждения
+    kb.search("счетчик");
+    expect(warnings).toHaveLength(1);
+    await writeFile(file, jsonl([rec({ id: "r/a", visualizes: "счётчик" }), rec({ id: "r/b", visualizes: "счётчик" })]));
+    await bump(file, 10);
+    expect(kb.search("счетчик").map((h) => h.view.id).sort()).toEqual(["r/a", "r/b"]);
+  });
+
+  it("пустой capabilities.jsonl (файл переписывается) — не пустая выдача, а прежний индекс", async () => {
+    const dir = await fresh([rec({ id: "r/a", visualizes: "счётчик" })]);
+    const warnings: string[] = [];
+    const kb = await load(dir, warnings);
+    const file = join(dir, "capabilities.jsonl");
+    await writeFile(file, "");
+    await bump(file);
+    expect(kb.search("счетчик").map((h) => h.view.id)).toEqual(["r/a"]);
+    expect(kb.size).toBe(1);
+    expect(warnings).toHaveLength(1);
+  });
+
+  it("пропала карточка, которая была в исправном индексе, — прежний индекс", async () => {
+    const dir = await fresh([rec({ id: "r/a", visualizes: "счётчик", card: "components/r/a.md" })]);
+    await mkdir(join(dir, "components", "r"), { recursive: true });
+    await writeFile(join(dir, "components", "r", "a.md"), "# a\n");
+    const warnings: string[] = [];
+    const kb = await load(dir, warnings);
+    // пересборка: карточки удалены и ещё не записаны, индекс уже новый
+    await rm(join(dir, "components"), { recursive: true });
+    const file = join(dir, "capabilities.jsonl");
+    await writeFile(file, jsonl([rec({ id: "r/a", visualizes: "счётчик новый", card: "components/r/a.md" })]));
+    await bump(file);
+    expect(kb.getCapability("r/a")!.visualizes).toBe("счётчик");
+    expect(warnings.join("\n")).toMatch(/карточ/);
+  });
+});
+
+describe("поиск по умолчанию — только визуальное (Task 17)", () => {
+  it("kind doc и «Не рисует…» / «Своей картинки нет…» не попадают в выдачу; includeNonVisual — попадают", async () => {
+    const dir = await fresh([
+      rec({ id: "r/chart", kind: "component", visualizes: "график роста" }),
+      rec({ id: "r/doc", kind: "doc", visualizes: "график: как настроить" }),
+      rec({ id: "r/cfg", kind: "util", visualizes: "Не рисует: конфиг графика" }),
+      rec({ id: "r/fonts", kind: "util", visualizes: "Своей картинки нет: шрифты для графика" }),
+    ]);
+    const kb = await KnowledgeAdapter.load({ kbRoot: dir, sourceRoot: dir });
+    expect(kb.search("график").map((h) => h.view.id)).toEqual(["r/chart"]);
+    expect(kb.search("график", { includeNonVisual: true }).map((h) => h.view.id).sort()).toEqual(["r/cfg", "r/chart", "r/doc", "r/fonts"]);
+  });
+});

@@ -76,6 +76,20 @@ export function blankCheckFrom(spec: MotionSpec, style?: MotionTokens): number {
   return settle(b0, longest);
 }
 
+/**
+ * Кадры начала счёта: для каждого числа (`kind: number`) — старт его бита счёта (действие
+ * с `count`, иначе первый бит числа со входом `count`). В этот кадр на экране значение «от».
+ */
+export function countStarts(spec: MotionSpec): Beat[] {
+  const out: Beat[] = [];
+  for (const e of spec.elements.filter((x) => x.kind === "number")) {
+    const beats = byStart(spec.beats).filter((b) => b.element_ids.includes(e.id));
+    const b = beats.find((x) => /count/i.test(x.action)) ?? (e.entrance === "count" ? beats[0] : undefined);
+    if (b && !out.includes(b)) out.push(b);
+  }
+  return out;
+}
+
 /** Элементы, ни один бит которых не содержит ни одного из кадров. */
 export function uncoveredElements(spec: MotionSpec, frames: number[], durationFrames: number = spec.duration_frames): string[] {
   return spec.elements
@@ -88,7 +102,8 @@ export function uncoveredElements(spec: MotionSpec, frames: number[], durationFr
 
 /**
  * QA-кадры, уникальные, по возрастанию, не больше MAX_QA_FRAMES:
- * 1. обязательные (остаются, даже если ближе MIN_QA_GAP друг к другу): вход — кадр, когда
+ * 1. обязательные (остаются, даже если ближе MIN_QA_GAP друг к другу): начало счёта чисел
+ *    (`countStarts`: на кадре видно значение «от»), вход — кадр, когда
  *    вошёл последний появляющийся элемент (начало его первого бита + длительность входа
  *    по стилю, не позже конца бита; бит акцента и короткоживущие элементы входом не
  *    считаются; входов нет — вход первого бита), середина бита акцента, последний кадр;
@@ -124,7 +139,15 @@ export function selectQaFrames(spec: MotionSpec, durationFrames: number = spec.d
     .map(([id, b]) => [b.start_frame, Math.min(settleOf(id, b), b.start_frame + Math.ceil(enterFrames(elements.get(id)!.entrance, m) * TEXT_READY))] as const);
   const insideTextEntrance = (f: number) => textWindows.some(([s, e]) => f > s && f < e);
 
-  const chosen = [...new Set([entrance, ...(accent ? [mid(accent)] : []), last])];
+  // начало счёта числа (09 §2: OCR значения «от» на кадре начала числового бита); старт
+  // внутри входа текста сдвигается вперёд, но не дальше первых 10 % бита счёта (счёт там
+  // ещё у значения «от» — EASE.count разгоняется медленно)
+  const counts = countStarts(spec).flatMap((b) => {
+    const limit = b.start_frame + Math.ceil((b.end_frame - b.start_frame) * 0.1);
+    for (let f = b.start_frame; f <= limit; f++) if (!insideTextEntrance(f)) return [clamp(f)];
+    return [];
+  });
+  const chosen = [...new Set([entrance, ...counts, ...(accent ? [mid(accent)] : []), last])];
   const far = (f: number) => Math.min(...chosen.map((c) => Math.abs(c - f)));
   if (accent && chosen.length < MAX_QA_FRAMES) {
     const end = clamp(accent.end_frame - 1);

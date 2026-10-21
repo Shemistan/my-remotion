@@ -7,3 +7,4 @@ export { type RenderRequest, type RenderResult, type RenderStage, renderVersion 
 export { type ResolveStyleInput, type ResolvedStyle, resolveStyle } from "../motion-kit/style/resolve.js";
 export { contrastRatio, relativeLuminance } from "../motion-kit/style/contrast.js";
 export { type Rect, safeRect } from "../motion-kit/choreo/safe-area.js";
+export { type TypeLevel, typeSize } from "../motion-kit/style/type-scale.js";
