@@ -130,7 +130,8 @@ export function Timeline({ items, beat, orientation, width, height, accentIndex 
           const ring = ramp(frame, rf, rf + frames(s, 20), EASE.outQuart);
           const now = highlightLast && i === items.length - 1;
           const r = node * (now ? 1.5 : 1);
-          // «сейчас» дышит после появления тем же accentPulse, что Emphasis (ореол 3 → 3.8 r)
+          // «сейчас» дышит после появления тем же accentPulse, что Emphasis: ореол — яркостью и
+          // радиусом ≤ 3.6 r (шире — свечение крайней вехи доходит до края кадра: clipping)
           const pulse = now ? accentPulse(frame, s, { beat: { start_frame: rf + frames(s, 12), end_frame: rf + frames(s, 12) } }) : null;
           const breath = pulse?.level ?? 0;
           const sign = i % 2 === 0 ? -1 : 1;
@@ -140,10 +141,11 @@ export function Timeline({ items, beat, orientation, width, height, accentIndex 
               {/* стебель к подписи (по горизонтали) */}
               {h && g > 0 ? <line x1={p.x} x2={p.x} y1={p.y + sign * r * 1.4} y2={p.y + sign * (r * 1.4 + stem * g)} stroke={alpha(color, now ? 0.8 : 0.45)} strokeWidth={2.5} strokeLinecap="round" /> : null}
               {frame >= rf ? <circle cx={p.x} cy={p.y} r={r + ring * r * 2.4} fill="none" stroke={color} strokeWidth={2.5} opacity={(1 - ring) * 0.85} /> : null}
-              {now ? <circle cx={p.x} cy={p.y} r={r * (2.4 + 1.8 * breath) * (pulse?.scale ?? 1)} fill={`url(#${id}-now)`} opacity={clamp01(pop) * (0.4 + 0.6 * breath)} /> : null}
-              {/* кольцо акцента: расходится от точки на каждом вдохе, как у Emphasis */}
+              {now ? <circle cx={p.x} cy={p.y} r={r * (2.6 + 1.0 * breath) * (pulse?.scale ?? 1)} fill={`url(#${id}-now)`} opacity={clamp01(pop) * (0.3 + 0.7 * breath)} /> : null}
+              {/* кольцо акцента: расходится от точки на каждом вдохе, как у Emphasis; не дальше 3 r —
+                  крайняя веха стоит у края safe area, шире кольцо касается края кадра (clipping) */}
               {pulse && pulse.ripple >= 0 ? (
-                <circle cx={p.x} cy={p.y} r={r * (1.2 + 2.4 * (1 - (1 - pulse.ripple) ** 3))} fill="none" stroke={color} strokeWidth={3} opacity={0.85 * (1 - pulse.ripple) * pulse.rippleAlpha} />
+                <circle cx={p.x} cy={p.y} r={r * (1.2 + 1.8 * (1 - (1 - pulse.ripple) ** 3))} fill="none" stroke={color} strokeWidth={2.5} opacity={0.8 * (1 - pulse.ripple) * pulse.rippleAlpha} />
               ) : null}
               <circle cx={p.x} cy={p.y} r={Math.max(0, r * pop * (pulse?.scale ?? 1))} fill={now ? color : s.palette.bg} stroke={color} strokeWidth={now ? 0 : 4} />
               <circle cx={p.x} cy={p.y} r={Math.max(0, r * (now ? 0.38 : 0.42) * pop * (pulse?.scale ?? 1))} fill={now ? (dark ? s.palette.bg : "#ffffff") : mix(color, s.palette.text, 0.2)} />
@@ -164,7 +166,10 @@ export function Timeline({ items, beat, orientation, width, height, accentIndex 
         const now = highlightLast && i === items.length - 1;
         const r = node * (now ? 1.5 : 1);
         // подпись «сейчас» дышит вместе с точкой (тот же accentPulse)
-        const nowLevel = now ? accentPulse(frame, s, { beat: { start_frame: rf + frames(s, 12), end_frame: rf + frames(s, 12) } }).level : 0;
+        const nowPulse = now ? accentPulse(frame, s, { beat: { start_frame: rf + frames(s, 12), end_frame: rf + frames(s, 12) } }) : null;
+        const nowLevel = nowPulse?.level ?? 0;
+        // плашка дышит «телом» (swell — на четверть цикла позже света точки и даты)
+        const plateLevel = nowPulse ? clamp01(nowPulse.strike + (1 - nowPulse.strike) * (0.55 * nowPulse.hold + 0.45 * nowPulse.swell)) : 0;
         const dateEl = (
           <div
             style={{
@@ -195,8 +200,8 @@ export function Timeline({ items, beat, orientation, width, height, accentIndex 
                 ? {
                     padding: "10px 18px", margin: "-10px -18px", borderRadius: radius(s, 1),
                     // плашка «сейчас» дышит с точкой: заливка, кромка и мягкое свечение наружу
-                    background: alpha(color, (dark ? 0.1 : 0.07) + (dark ? 0.1 : 0.06) * nowLevel),
-                    boxShadow: `inset 0 0 0 1.5px ${alpha(color, 0.3 + 0.4 * nowLevel)}${dark ? `, 0 0 ${(12 + 20 * nowLevel).toFixed(1)}px ${alpha(color, 0.28 * nowLevel)}` : ""}`,
+                    background: alpha(color, (dark ? 0.1 : 0.07) + (dark ? 0.1 : 0.06) * plateLevel),
+                    boxShadow: `inset 0 0 0 1.5px ${alpha(color, 0.3 + 0.4 * plateLevel)}${dark ? `, 0 0 ${(12 + 20 * plateLevel).toFixed(1)}px ${alpha(color, 0.28 * plateLevel)}` : ""}`,
                   }
                 : {}),
             }}

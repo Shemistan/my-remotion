@@ -133,7 +133,7 @@ export function flowTiming(nodes: FlowNode[], edges: FlowEdge[], beat: Pick<Beat
  * при нескольких приходах — самая яркая из идущих вспышек.
  */
 export function nodeFlash(frame: number, s: StyleBible, at: number[]): AccentPulse {
-  let best: AccentPulse = { level: 0, scale: 1, strike: 0, hold: 0, ripple: -1, rippleAlpha: 0 };
+  let best: AccentPulse = { level: 0, scale: 1, strike: 0, hold: 0, swell: 0, ripple: -1, rippleAlpha: 0 };
   for (const t of at) {
     if (t > frame) continue;
     // атака стартует кадром раньше: в сам кадр прихода узел уже загорается

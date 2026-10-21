@@ -25,6 +25,8 @@ export interface AccentPulse {
   strike: number;
   /** Доля удержания 0..1 (набирается после удара, гаснет после бита без loop). */
   hold: number;
+  /** Волна «тела» удержания −1..1 × hold: на четверть цикла позже света (ею дышит масштаб). */
+  swell: number;
   /** Кольцо, расходящееся от цели: 0 → 1, −1 — кольца нет. Удар и по кольцу на цикл дыхания. */
   ripple: number;
   /** Непрозрачность кольца в начале (удар — 1, дыхание — тише). */
@@ -43,7 +45,7 @@ export function accentPulse(frame: number, s: StyleBible, o: AccentPulseOptions)
   const loop = o.loop ?? true;
   const k = o.strength ?? 1;
   const t = frame - b0;
-  if (t < 0) return { level: 0, scale: 1, strike: 0, hold: 0, ripple: -1, rippleAlpha: 0 };
+  if (t < 0) return { level: 0, scale: 1, strike: 0, hold: 0, swell: 0, ripple: -1, rippleAlpha: 0 };
   const amp = amplitudeOf(s);
   const attack = frames(s, 5);
   const decay = frames(s, 16);
@@ -77,5 +79,5 @@ export function accentPulse(frame: number, s: StyleBible, o: AccentPulseOptions)
       rippleAlpha = 0.45 * holdIn;
     }
   }
-  return { level, scale, strike, hold: holdIn, ripple, rippleAlpha };
+  return { level, scale, strike, hold: holdIn, swell: holdIn * swellWave, ripple, rippleAlpha };
 }
