@@ -1,6 +1,7 @@
 // Примитивы процесса: смена статуса на месте, данные-объект, скорость во времени.
 import { describe, expect, it } from "vitest";
-import { latencyAt, latencyTiming } from "../../src/motion-kit/components/LatencyRace.js";
+import { laneReadout, latencyAt, latencyLayout, latencyTiming } from "../../src/motion-kit/components/LatencyRace.js";
+import { typeSize } from "../../src/motion-kit/style/type-scale.js";
 import { statusAt } from "../../src/motion-kit/components/StatusChip.js";
 import { tokenAt } from "../../src/motion-kit/components/DataToken.js";
 import { resolveStyle } from "../../src/motion-kit/style/resolve.js";
@@ -100,5 +101,47 @@ describe("tokenAt: данные летят по пути и остаются в 
     expect(tokenAt(200, 10, 20, st, { stay: false }).visible).toBe(false);
     expect(tokenAt(200, 10, 20, st, { until: 100 }).visible).toBe(false);
     expect(tokenAt(90, 10, 20, st, { until: 100 }).visible).toBe(true);
+  });
+});
+
+describe("latencyLayout / laneReadout (E2.2): кегли не мельче caption, геометрия — от высоты кадра", () => {
+  it("подписи и счёт — не мельче caption шкалы; таймер — крупнее body", () => {
+    for (const h of [540, 1080, 1920]) {
+      const l = latencyLayout(st, h);
+      const cap = typeSize(st, "caption", h);
+      expect(l.caption).toBeGreaterThanOrEqual(cap);
+      expect(l.tally).toBeGreaterThanOrEqual(cap);
+      expect(l.timer).toBeGreaterThan(typeSize(st, "body", h));
+    }
+  });
+
+  it("по умолчанию вся геометрия масштабируется от высоты: 540p — ровно половина 1080p", () => {
+    const a = latencyLayout(st, 1080);
+    const b = latencyLayout(st, 540);
+    for (const key of ["width", "laneHeight", "x0", "x1", "track", "dot", "target", "head", "gap"] as const) {
+      expect(b[key], key).toBeCloseTo(a[key] / 2, 0);
+    }
+  });
+
+  it("заданная ширина — как есть; дорожка вмещает подпись и пояснение", () => {
+    const l = latencyLayout(st, 1080, { width: 1600 });
+    expect(l.width).toBe(1600);
+    expect(l.x1).toBeLessThan(1600);
+    expect(l.laneHeight).toBeGreaterThanOrEqual(l.body * 1.2 + l.caption * 1.2);
+  });
+
+  it("до первого прохода — ни «0 мс», ни «0 ответов»; счёт — только после первого прихода", () => {
+    const [miss] = latencyTiming([{ ms: 120 }], { start_frame: 30, end_frame: 150 }, st, { travel: 60 });
+    const idle = laneReadout(latencyAt(miss!, 120, 10), 120);
+    expect(idle.timer).toBe(false);
+    expect(idle.tally).toBe(false);
+    // кадр старта прохода — токен ещё не сдвинулся: «0 мс» не показываем
+    expect(laneReadout(latencyAt(miss!, 120, 30), 120).timer).toBe(false);
+    const fly = laneReadout(latencyAt(miss!, 120, 60), 120);
+    expect(fly.timer).toBe(true);
+    expect(fly.tally).toBe(false);
+    expect(fly.ms).toBeCloseTo(60, 0);
+    const done = laneReadout(latencyAt(miss!, 120, 95), 120);
+    expect(done).toMatchObject({ timer: true, tally: true, ms: 120, done: true });
   });
 });
