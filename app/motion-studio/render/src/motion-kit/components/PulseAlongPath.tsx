@@ -3,8 +3,8 @@
 // getPointAtLength: результат одинаков в любом окружении. Внутри FlowGraph путь
 // берётся по edgeId; вне графа — из segments (координаты родителя).
 import type { Beat } from "@ms/contracts";
-import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import { frames } from "../easing.js";
+import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { EASE_PASS, pulsePass } from "../choreo/pulse.js";
 import { type CubicSegment, lutLength, pathLUT, pointAtLength, pointsBetween, polylineD } from "../geometry.js";
 import { CLAMP, useSvgId } from "../internal.js";
 import { useStyle } from "../style.js";
@@ -32,8 +32,6 @@ export interface PulseAlongPathProps {
   reverse?: boolean;
 }
 
-const EASE_PASS = Easing.bezier(0.45, 0.05, 0.4, 1);
-
 export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size = 7, count = 1, travel, repeat = true, reverse = false }: PulseAlongPathProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
@@ -48,8 +46,8 @@ export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size
   const len = lutLength(lut);
   const col = color ?? accent(s, 1);
   const core = mix(col, "#ffffff", 0.75);
-  // по умолчанию ~ 420 px/с с поправкой на интенсивность, не короче 0.6 с
-  const pass = Math.max(1, travel ?? Math.max(Math.round(fps * 0.6), frames(s, (len / 420) * 30)));
+  // по умолчанию ~ 420 px/с с поправкой на интенсивность, не короче 0.6 с (общий расчёт с pulseArrival)
+  const pass = pulsePass(len, travel, fps, s);
   // внутри графа не стартуем раньше, чем ребро дорисовано
   const start = Math.max(beat.start_frame, (edgeId && flow?.ready.get(edgeId)) || 0);
   const n = Math.max(1, Math.floor(count));

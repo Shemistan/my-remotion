@@ -45,6 +45,7 @@ dark-premium, e2e `test/kit/choreo.e2e.test.ts`) и просмотра кадр�
 | `contrastRatio`, `relativeLuminance` | `own` | — | — | формула WCAG 2.x (спецификация W3C, не код) | ok (юнит-тесты) |
 | `typeSize(style, level, height)` | `own` | — | — | — | ok |
 | `enterStyle`, `<Enter>`, `staggerBeat` | `own` | — | — | `rise` у `Card` — через `enterStyle` | ok |
+| `Emphasis`, `Halo`, `accentPulse`, `pulseArrival` | `own` | — | — | единый удар + дыхание удержания, гауссов ореол `closest-side`, вспышка узла FlowGraph в кадр прихода импульса (Task 17, fix B) | ok (patterns-gallery/accent, flow) |
 | `KineticText enter="type"` | `own` | — | — | — | ok |
 | `cameraAt`, `<Camera>`, `<Parallax>` | `own` | — | — | — | ok |
 | `safeRect`, `gridColumns`, `layoutLayered` | `own` | — | — | слои по топологическому порядку (общеизвестный приём, без кода dagre/elk) | ok (юнит-тесты; `layoutLayered` в рендере — с Task 15) |

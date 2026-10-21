@@ -1,0 +1,48 @@
+{
+  "timing": {
+    "duration_frames": 150,
+    "beats": [
+      {
+        "id": "kicker",
+        "start_frame": 0,
+        "end_frame": 30
+      },
+      {
+        "id": "title",
+        "start_frame": 4,
+        "end_frame": 40
+      },
+      {
+        "id": "chart",
+        "start_frame": 14,
+        "end_frame": 110
+      },
+      {
+        "id": "endpoint",
+        "start_frame": 91,
+        "end_frame": 112
+      },
+      {
+        "id": "badge_in",
+        "start_frame": 100,
+        "end_frame": 124
+      },
+      {
+        "id": "badge",
+        "start_frame": 112,
+        "end_frame": 150
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.06,
+      "y": 0.08
+    }
+  },
+  "content": {}
+}

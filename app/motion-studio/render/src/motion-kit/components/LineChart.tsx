@@ -1,6 +1,7 @@
 // Линейный график: сетка проявляется, гладкая линия рисуется слева направо со
 // светящейся «головой», точки вспыхивают, когда линия до них доходит, заливка
-// открывается за линией, последняя точка выделена пульсом и выноской со значением.
+// открывается за линией. Последняя точка — акцент (удар и дыхание accentPulse, кольца) и
+// выноска со значением; то и другое включается отдельно.
 //
 // Общая часть графиков (ось, геометрия, выноска значения) экспортируется отсюда для
 // AreaChart: ось одна на оба графика и стоит неподвижно с первого кадра появления.
@@ -14,6 +15,7 @@ import { CLAMP, clamp01, ramp, useSvgId } from "../internal.js";
 import type { ResolvedStyle } from "../style/resolve.js";
 import { useStyle } from "../style.js";
 import { lineDrawWindow } from "../line-window.js";
+import { type AccentPulse, accentPulse } from "../choreo/accent.js";
 import { niceTicks } from "../ticks.js";
 import { TYPE_LEVELS, typeSize } from "../style/type-scale.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, surfaceAt, shadow } from "../tokens.js";
@@ -23,7 +25,18 @@ export interface LineChartProps {
   beat: Pick<Beat, "start_frame" | "end_frame">;
   /** Заливка под линией (по умолчанию да). */
   area?: boolean;
-  /** Выделить последнюю точку: пульс и выноска со значением (по умолчанию да). */
+  /** Выноска со значением у последней точки (по умолчанию да). */
+  callout?: boolean;
+  /**
+   * Акцент последней точки: удар, ореол, кольца и дыхание до конца сцены (по умолчанию да).
+   * `{ beat?, loop? }` — свой бит акцента (по умолчанию от конца прорисовки до конца бита
+   * графика) и `loop: false`, чтобы акцент погас после бита.
+   */
+  endpointEmphasis?: boolean | { beat?: Pick<Beat, "start_frame" | "end_frame">; loop?: boolean };
+  /**
+   * @deprecated 0.2: выноска и акцент вместе. Бери `callout` и `endpointEmphasis`;
+   * `highlightLast={false}` без них убирает и то и другое.
+   */
   highlightLast?: boolean;
   width?: number;
   height?: number;
@@ -87,6 +100,23 @@ export function xLabelIndices(labels: string[], spacing: number, font: number): 
   return out;
 }
 
+/**
+ * Что выделено у последней точки: выноска и бит акцента (null — без акцента). Явные
+ * `callout` / `endpointEmphasis` важнее устаревшего `highlightLast`.
+ */
+export function lineHighlight(
+  p: Pick<LineChartProps, "callout" | "endpointEmphasis" | "highlightLast">,
+  beat: Pick<Beat, "start_frame" | "end_frame">,
+): { callout: boolean; emphasis: { beat: Pick<Beat, "start_frame" | "end_frame">; loop: boolean } | null } {
+  const legacy = p.highlightLast ?? true;
+  const callout = p.callout ?? legacy;
+  const e = p.endpointEmphasis ?? legacy;
+  if (e === false) return { callout, emphasis: null };
+  const own = e === true ? {} : e;
+  const { endFrame } = lineDrawWindow(beat);
+  return { callout, emphasis: { beat: own.beat ?? { start_frame: endFrame, end_frame: Math.max(endFrame, beat.end_frame) }, loop: own.loop ?? true } };
+}
+
 /** Окно прорисовки линии внутри бита: 12–80 % (`lineDrawWindow`, общий с сервером). */
 const drawWindow = lineDrawWindow;
 
@@ -126,7 +156,9 @@ export function LineChart({
   points,
   beat,
   area = true,
-  highlightLast = true,
+  callout: calloutProp,
+  endpointEmphasis,
+  highlightLast,
   width = 1100,
   height = 560,
   locale = "ru",
@@ -170,7 +202,9 @@ export function LineChart({
     return hi;
   };
 
-  // точка-ядро последней точки (пульс и выноску рисует valueCallout)
+  // последняя точка: акцент (accentPulse — тот же, что у Emphasis) и выноска — отдельно
+  const hl = lineHighlight({ callout: calloutProp, endpointEmphasis, highlightLast }, beat);
+  const emph = hl.emphasis ? accentPulse(frame, s, hl.emphasis) : null;
   const lastPop = springAt(frame, fps, s, drawEnd, "bouncy");
   const lastValue = points.at(-1)?.value ?? 0;
 
@@ -191,6 +225,11 @@ export function LineChart({
         <filter id={`${id}-glow`} x="-20%" y="-50%" width="140%" height="200%">
           <feGaussianBlur stdDeviation={dark ? 9 : 5} />
         </filter>
+        <radialGradient id={`${id}-halo`}>
+          {HALO_STOPS.map(([o, k]) => (
+            <stop key={o} offset={`${o}%`} stopColor={color} stopOpacity={(dark ? 0.8 : 0.45) * k} />
+          ))}
+        </radialGradient>
         <radialGradient id={`${id}-head`}>
           <stop offset="0%" stopColor={color} stopOpacity={0.9} />
           <stop offset="100%" stopColor={color} stopOpacity={0} />
@@ -217,11 +256,13 @@ export function LineChart({
         const rf = reachFrame(c.x - 0.5);
         const pop = springAt(frame, fps, s, rf, "bouncy");
         const lab = interpolate(frame, [rf, rf + frames(s, 12)], [0, 1], { ...CLAMP, easing: EASE.outQuart });
-        const r = (isLast && highlightLast ? 9 : 6) * Math.max(0, pop);
+        const big = isLast && (emph !== null || hl.callout);
+        const r = (big ? 9 : 6) * Math.max(0, pop) * (isLast && emph ? emph.scale : 1);
         return (
           <g key={`p${i}`}>
+            {isLast && emph ? endpointAccent({ x: c.x, y: c.y, p: emph, color, halo: `url(#${id}-halo)` }) : null}
             <circle cx={c.x} cy={c.y} r={r} fill={s.palette.bg} stroke={color} strokeWidth={3.5} />
-            {isLast && highlightLast ? <circle cx={c.x} cy={c.y} r={Math.max(0, 4 * lastPop)} fill={color} /> : null}
+            {big ? <circle cx={c.x} cy={c.y} r={Math.max(0, 4 * lastPop * (emph ? emph.scale + 0.35 * emph.strike : 1))} fill={emph ? mix(color, "#ffffff", 0.35 * emph.strike) : color} /> : null}
             <text x={c.x} y={PAD.top + innerH + PAD.font * 1.55} textAnchor="middle" fontSize={PAD.font} fill={s.palette.muted} opacity={labelOn ? lab : 0} transform={`translate(0 ${((1 - lab) * 10).toFixed(2)})`}>
               {points[i]!.label}
             </text>
@@ -237,11 +278,31 @@ export function LineChart({
         </g>
       ) : null}
 
-      {/* выделение последней точки: пульс + выноска */}
-      {highlightLast && last
-        ? valueCallout({ s, frame, fps, x: last.x, y: last.y, at: drawEnd, color, text: `${valuePrefix}${formatNumber(lastValue, { locale, compact: false })}${valueSuffix}`, frameHeight: frameH })
+      {/* выноска последней точки (кольца рисует акцент точки) */}
+      {hl.callout && last
+        ? valueCallout({ s, frame, fps, x: last.x, y: last.y, at: drawEnd, color, text: `${valuePrefix}${formatNumber(lastValue, { locale, compact: false })}${valueSuffix}`, frameHeight: frameH, rings: false })
         : null}
     </svg>
+  );
+}
+
+/** Гауссов спад ореола точки (доля радиуса %, доля непрозрачности). */
+const HALO_STOPS: [number, number][] = [[0, 1], [18, 0.84], [38, 0.55], [58, 0.26], [76, 0.09], [90, 0.02], [100, 0]];
+
+/**
+ * Акцент точки графика по accentPulse: ореол дышит вместе с точкой, на ударе и на каждом
+ * вдохе от точки расходится кольцо. Рисуется под самой точкой.
+ */
+function endpointAccent(o: { x: number; y: number; p: AccentPulse; color: string; halo: string }): ReactNode {
+  const { x, y, p, color } = o;
+  const rp = p.ripple >= 0 ? 1 - (1 - p.ripple) ** 3 : 0;
+  return (
+    <g>
+      {p.level > 0.005 ? <circle cx={x} cy={y} r={(46 + 26 * p.level).toFixed(2)} fill={o.halo} opacity={clamp01(p.level).toFixed(4)} /> : null}
+      {p.ripple >= 0 ? (
+        <circle cx={x} cy={y} r={(11 + 46 * rp).toFixed(2)} fill="none" stroke={color} strokeWidth={3 - 1.8 * p.ripple} opacity={(0.9 * (1 - p.ripple) * p.rippleAlpha).toFixed(4)} />
+      ) : null}
+    </g>
   );
 }
 
@@ -298,7 +359,7 @@ export function chartAxis(o: {
  * Выделение итоговой точки: два кольца пульса со сдвигом полпериода и выноска со
  * значением слева от точки (над максимумом часто нет места). Старт — кадр `at`.
  */
-export function valueCallout(o: { s: ResolvedStyle; frame: number; fps: number; x: number; y: number; at: number; color: string; text: string; frameHeight: number }): ReactNode {
+export function valueCallout(o: { s: ResolvedStyle; frame: number; fps: number; x: number; y: number; at: number; color: string; text: string; frameHeight: number; rings?: boolean }): ReactNode {
   const { s, frame, fps, x, y, at, color } = o;
   // выноска — подпись данных крупнее подписей осей: уровень body
   const fs = typeSize(s, "body", o.frameHeight);
@@ -313,7 +374,7 @@ export function valueCallout(o: { s: ResolvedStyle; frame: number; fps: number; 
   const callout = springAt(frame, fps, s, at + frames(s, 4), "snappy");
   return (
     <g>
-      {[0, period / 2].map((off) => {
+      {(o.rings === false ? [] : [0, period / 2]).map((off) => {
         const rg = ring(off);
         return <circle key={off} cx={x} cy={y} r={rg.r} fill="none" stroke={color} strokeWidth={2} opacity={rg.o * clamp01(pop)} />;
       })}

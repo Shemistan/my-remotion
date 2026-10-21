@@ -61,3 +61,22 @@ describe("xLabelIndices: подписи X не налезают друг на д
     for (let i = 1; i < shown.length; i++) expect((shown[i]! - shown[i - 1]!) * 100).toBeGreaterThanOrEqual(6 * 0.56 * 32);
   });
 });
+
+describe("lineHighlight: выноска и акцент конечной точки независимы", () => {
+  it("по умолчанию — и выноска, и акцент (удар в конце прорисовки, дыхание до конца сцены)", async () => {
+    const { lineHighlight } = await import("../../src/motion-kit/components/LineChart.js");
+    expect(lineHighlight({}, BEAT)).toEqual({ callout: true, emphasis: { beat: { start_frame: 100, end_frame: 120 }, loop: true } });
+  });
+  it("акцент без выноски: значение показывает герой-число, точка всё равно живая", async () => {
+    const { lineHighlight } = await import("../../src/motion-kit/components/LineChart.js");
+    expect(lineHighlight({ callout: false }, BEAT)).toEqual({ callout: false, emphasis: { beat: { start_frame: 100, end_frame: 120 }, loop: true } });
+    const own = { start_frame: 104, end_frame: 130 };
+    expect(lineHighlight({ callout: false, endpointEmphasis: { beat: own, loop: false } }, BEAT)).toEqual({ callout: false, emphasis: { beat: own, loop: false } });
+  });
+  it("highlightLast (устарел) — прежнее поведение, явные callout / endpointEmphasis важнее", async () => {
+    const { lineHighlight } = await import("../../src/motion-kit/components/LineChart.js");
+    expect(lineHighlight({ highlightLast: false }, BEAT)).toEqual({ callout: false, emphasis: null });
+    expect(lineHighlight({ highlightLast: false, endpointEmphasis: true }, BEAT).emphasis).not.toBeNull();
+    expect(lineHighlight({ endpointEmphasis: false }, BEAT)).toEqual({ callout: true, emphasis: null });
+  });
+});
