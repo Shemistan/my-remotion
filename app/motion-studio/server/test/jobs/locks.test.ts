@@ -3,7 +3,7 @@ import type { Job } from "@ms/contracts";
 import * as jobs from "../../src/db/repos/jobs.js";
 import { claimNext, enqueue, finish, requestCancel } from "../../src/jobs/queue.js";
 import { lockKeyFor, resourceBusy } from "../../src/jobs/locks.js";
-import { Semaphore } from "../../src/jobs/semaphore.js";
+import { AttemptPermits, Semaphore } from "../../src/jobs/semaphore.js";
 import { idle, job, setupDb, teardownDb, type JobsEnv } from "./helpers.js";
 
 describe("resource_locks (V8)", () => {
@@ -113,5 +113,30 @@ describe("Semaphore", () => {
     (await p)();
     expect(got).toBe(true);
     expect(() => new Semaphore(0)).toThrow();
+  });
+});
+
+describe("AttemptPermits", () => {
+  it("releaseAll возвращает забытые места; release идемпотентен; выданное после закрытия — сразу обратно", async () => {
+    const s = new Semaphore(1);
+    const a = new AttemptPermits(s);
+    const r = await a.acquire();
+    r();
+    r();
+    expect(s.available()).toBe(1);
+    await a.acquire(); // забыли отдать
+    expect(s.available()).toBe(0);
+    const b = new AttemptPermits(s);
+    const late = b.acquire(); // ждёт место
+    expect(a.releaseAll()).toBe(1);
+    expect(a.releaseAll()).toBe(0);
+    const rb = await late;
+    expect(s.available()).toBe(0);
+    const waiting = b.acquire(); // попытка b ещё ждёт второе место
+    expect(b.releaseAll()).toBe(1);
+    await expect(waiting).resolves.toBeTypeOf("function");
+    expect(s.available()).toBe(1); // выданное после releaseAll вернулось сразу
+    rb();
+    expect(s.available()).toBe(1);
   });
 });

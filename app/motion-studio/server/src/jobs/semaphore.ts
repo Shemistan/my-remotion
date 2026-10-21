@@ -52,3 +52,47 @@ export class Semaphore {
 function abortReason(signal: AbortSignal): unknown {
   return signal.reason ?? new DOMException("aborted", "AbortError");
 }
+
+/** То, что видит обработчик: `Semaphore` или обёртка попытки. */
+export interface Permits {
+  acquire(signal?: AbortSignal): Promise<() => void>;
+  available(): number;
+}
+
+/**
+ * Места семафора, взятые одной попыткой: раннер после завершения обработчика (возврат,
+ * исключение, abort) вызывает `releaseAll`, и забытые места возвращаются. Место, выданное
+ * уже после `releaseAll` (ожидание не было прервано), сразу отдаётся обратно.
+ */
+export class AttemptPermits implements Permits {
+  private readonly held = new Set<() => void>();
+  private closed = false;
+
+  constructor(private readonly sem: Semaphore) {}
+
+  available(): number {
+    return this.sem.available();
+  }
+
+  async acquire(signal?: AbortSignal): Promise<() => void> {
+    const release = await this.sem.acquire(signal);
+    if (this.closed) {
+      // обработчик уже завершён: место сразу обратно (без reject — его некому поймать)
+      release();
+      return () => undefined;
+    }
+    const own = (): void => {
+      if (this.held.delete(own)) release();
+    };
+    this.held.add(own);
+    return own;
+  }
+
+  /** Возвращает все места попытки; выданные позже сразу отдаются обратно. Число возвращённых. */
+  releaseAll(): number {
+    this.closed = true;
+    const n = this.held.size;
+    for (const r of [...this.held]) r();
+    return n;
+  }
+}

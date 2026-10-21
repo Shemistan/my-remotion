@@ -1,8 +1,8 @@
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as jobEvents from "../../src/db/repos/job-events.js";
 import { enqueue } from "../../src/jobs/queue.js";
-import { JobRunner, type JobRunnerOptions } from "../../src/jobs/runner.js";
+import { JobRunner, isStorageError, type JobRunnerOptions } from "../../src/jobs/runner.js";
 import { EventBus } from "../../src/jobs/events.js";
 import { LEASE_MS } from "../../src/jobs/limits.js";
 import { registerHandlers } from "../../src/jobs/handlers.js";
@@ -102,8 +102,7 @@ it("семафоры общие для задач: heavy = 1 — вторая ж
   await until(() => r.running().length === 2 && order.length === 1, "обе стартовали, одна внутри heavy");
   await new Promise((res) => setTimeout(res, 20));
   expect(order).toEqual(["in:a"]);
-  expect(ctxA!.heavy).toBe(ctxB!.heavy);
-  expect(ctxA!.agents).toBe(ctxB!.agents);
+  expect(ctxB!.heavy.available()).toBe(0); // место у a — семафор общий
   expect(ctxA!.agents.available()).toBe(2);
   expect(ctxA!.renders.available()).toBe(1);
   held.resolve();
@@ -206,4 +205,58 @@ it("awaiting_input от обработчика; общий EventBus получа
 it("registerHandlers: точка регистрации обработчиков", () => {
   const h: JobHandler = async () => ({ status: "completed", outputRefs: {} });
   expect(registerHandlers({ "scene.export": h })["scene.export"]).toBe(h);
+});
+
+it("места семафоров возвращаются, если обработчик бросил исключение, держа heavy", async () => {
+  const r = make({
+    "playground.edit": async (ctx) => {
+      await ctx.heavy.acquire(ctx.signal);
+      if (ctx.job.idempotency_key === "a") throw new Error("упал с heavy");
+      return { status: "completed", outputRefs: {} };
+    },
+  });
+  const a = enqueue(env.db, edit("scn_1", "a")).job;
+  r.start();
+  await until(() => jobs.get(env.db, a.id)!.status === "failed", "a failed");
+  expect(kinds(a.id)).toContain("permits_released");
+  const b = enqueue(env.db, edit("scn_2", "b")).job;
+  await until(() => jobs.get(env.db, b.id)!.status === "completed", "b получил heavy");
+});
+
+it("сбой такта не из-за хранилища — onError и stderr один раз, раннер продолжает", async () => {
+  const errSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    env.db.exec("CREATE TRIGGER boom BEFORE UPDATE ON jobs BEGIN SELECT RAISE(ABORT, 'boom'); END");
+    const errors: unknown[] = [];
+    const r = make({ "playground.generate": async () => ({ status: "completed", outputRefs: {} }) }, { onError: (e) => errors.push(e) });
+    const j = enqueue(env.db, req()).job;
+    r.start();
+    await until(() => errors.length === 1, "onError");
+    await new Promise((res) => setTimeout(res, 30)); // ещё несколько тактов с той же ошибкой
+    expect(errors).toHaveLength(1);
+    expect(errSpy).toHaveBeenCalledTimes(1);
+    expect(String(errSpy.mock.calls[0]![0])).toMatch(/runner_error: boom/);
+    env.db.exec("DROP TRIGGER boom");
+    await until(() => jobs.get(env.db, j.id)!.status === "completed", "раннер продолжил");
+  } finally {
+    errSpy.mockRestore();
+  }
+});
+
+it("isStorageError: закрытая база и ошибки ввода-вывода — да, прочее — нет", () => {
+  expect(isStorageError(new TypeError("The database connection is not open"))).toBe(true);
+  expect(isStorageError(Object.assign(new Error("disk I/O error"), { code: "SQLITE_IOERR_WRITE" }))).toBe(true);
+  expect(isStorageError(Object.assign(new Error("boom"), { code: "SQLITE_CONSTRAINT_TRIGGER" }))).toBe(false);
+  expect(isStorageError(new Error("bug"))).toBe(false);
+});
+
+it("resume() до start() задачи не захватывает", async () => {
+  const r = make({ "playground.generate": async () => ({ status: "completed", outputRefs: {} }) });
+  const j = enqueue(env.db, req()).job;
+  r.pause();
+  r.resume();
+  await new Promise((res) => setTimeout(res, 30));
+  expect(jobs.get(env.db, j.id)!.status).toBe("pending");
+  r.start();
+  await until(() => jobs.get(env.db, j.id)!.status === "completed", "после start");
 });

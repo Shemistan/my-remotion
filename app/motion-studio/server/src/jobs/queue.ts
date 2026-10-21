@@ -3,6 +3,7 @@
 // транзакция `BEGIN IMMEDIATE` (внутри транзакции вызывающего — savepoint).
 import type { Job, JobError, JobType } from "@ms/contracts";
 import type { Db } from "../db/open.js";
+import * as jobProcesses from "../db/repos/job-processes.js";
 import * as jobs from "../db/repos/jobs.js";
 import { nowIso } from "../db/repos/util.js";
 import { tx } from "../db/tx.js";
@@ -107,6 +108,10 @@ export function claimNext(db: Db, owner: string, now: number, busy: Busy, opts: 
         lease_until: iso(now + LEASE_MS),
         started_at: iso(now),
         error: null,
+        // новая попытка начинает с нуля: прогресс, этап и вопросы прошлой — не её (вход сохраняется)
+        progress: 0,
+        stage: null,
+        output_refs: null,
       });
       takeLocks(db, job, keyFor);
       return { job, attempt };
@@ -192,7 +197,9 @@ export function requestCancel(db: Db, jobId: string): Job {
       case "awaiting_approval":
       case "blocked": {
         const next = jobs.update(db, jobId, { status: "cancelled", cancel_requested: true, error: CANCELLED, finished_at: nowIso(), lease_owner: null, lease_until: null });
-        releaseLocks(db, next);
+        // blocked: процессы прежней попытки могут быть живы — замки держатся, пока реестр их
+        // не покажет завершёнными; снимает восстановление (Task 13)
+        if (j.status !== "blocked" || jobProcesses.listLive(db, { jobId, attempt: j.attempt }).length === 0) releaseLocks(db, next);
         return next;
       }
       case "completed":

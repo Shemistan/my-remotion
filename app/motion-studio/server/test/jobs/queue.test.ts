@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as sceneLocks from "../../src/db/repos/scene-locks.js";
-import { SCENE_WRITING_TYPES, claimNext, enqueue, fenceOk, finish, heartbeat, provideInput } from "../../src/jobs/queue.js";
+import { SCENE_WRITING_TYPES, claimNext, enqueue, fenceOk, finish, heartbeat, provideInput, setProgress } from "../../src/jobs/queue.js";
 import { LEASE_MS } from "../../src/jobs/limits.js";
 import { edit, idle, job, req, setupDb, teardownDb, type JobsEnv } from "./helpers.js";
 
@@ -136,6 +136,7 @@ describe("awaiting_input", () => {
     const { db } = env;
     enqueue(db, req({ input: { prompt: "p" } }));
     const c1 = claimNext(db, "srv", 0, idle)!;
+    setProgress(db, c1.job.id, 1, 0.3, "concept");
     expect(finish(db, c1.job.id, 1, { status: "awaiting_input", questions })).toBe(true);
     expect(jobs.get(db, c1.job.id)).toMatchObject({ status: "awaiting_input", output_refs: { questions }, finished_at: null, lease_owner: null });
     expect(sceneLocks.holder(db, "scn_1")).toBeUndefined();
@@ -149,6 +150,8 @@ describe("awaiting_input", () => {
     expect(p).toMatchObject({ status: "pending", input: { prompt: "p", answers: { "0": "красный" } } });
     const c2 = claimNext(db, "srv", 0, idle)!;
     expect(c2).toMatchObject({ attempt: 2, job: { id: c1.job.id, attempt: 2, interrupts: 0, max_attempts: 3, status: "running" } });
+    // новая попытка: прогресс, этап и вопросы прошлой сброшены, вход с ответами сохранён
+    expect(c2.job).toMatchObject({ progress: 0, stage: null, output_refs: null, input: { prompt: "p", answers: { "0": "красный" } } });
   });
 
   it("skip; provideInput не для awaiting_input — ошибка", () => {

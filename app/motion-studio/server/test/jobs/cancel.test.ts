@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import * as jobs from "../../src/db/repos/jobs.js";
+import * as jobProcesses from "../../src/db/repos/job-processes.js";
 import * as sceneLocks from "../../src/db/repos/scene-locks.js";
 import { claimNext, enqueue, finish, requestCancel } from "../../src/jobs/queue.js";
 import { JobRunner } from "../../src/jobs/runner.js";
@@ -87,4 +88,26 @@ it("обработчик бросает AbortError после отмены → c
   requestCancel(db, j.id);
   await until(() => jobs.get(db, j.id)!.status === "cancelled", "задача cancelled");
   expect(jobs.get(db, j.id)!.error).toMatchObject({ code: "cancelled", stage: "cancelled" });
+});
+
+it("отмена blocked: замки держатся, пока в реестре есть живой процесс попытки", () => {
+  const { db } = env;
+  const j = enqueue(db, req()).job;
+  claimNext(db, "srv", 0, idle);
+  jobProcesses.insert(db, { job_id: j.id, attempt: 1, pid: 4242, pgid: 4242, started_at: "2026-10-21T00:00:00.000Z", cmd: "claude -p" });
+  jobs.update(db, j.id, { status: "blocked", error: { code: "stale_process", stage: "orphaned", message: "жив", pids: [4242] } });
+  expect(requestCancel(db, j.id)).toMatchObject({ status: "cancelled" });
+  expect(sceneLocks.holder(db, "scn_1")).toBe(j.id); // снимет восстановление (Task 13)
+  expect(claimNext(db, "srv", 0, idle)).toBeUndefined();
+});
+
+it("отмена blocked без живых процессов попытки снимает замки", () => {
+  const { db } = env;
+  const j = enqueue(db, req()).job;
+  claimNext(db, "srv", 0, idle);
+  jobProcesses.insert(db, { job_id: j.id, attempt: 1, pid: 4242, pgid: 4242, started_at: "2026-10-21T00:00:00.000Z", cmd: "claude -p" });
+  jobProcesses.end(db, { job_id: j.id, attempt: 1, pid: 4242 });
+  jobs.update(db, j.id, { status: "blocked" });
+  requestCancel(db, j.id);
+  expect(sceneLocks.holder(db, "scn_1")).toBeUndefined();
 });

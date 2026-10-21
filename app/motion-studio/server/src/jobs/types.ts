@@ -1,6 +1,6 @@
 import type { ConceptOutput, Job, JobError, JobType } from "@ms/contracts";
 import type { Db } from "../db/open.js";
-import type { Semaphore } from "./semaphore.js";
+import type { Permits } from "./semaphore.js";
 
 /** Захват задачи: снимок строки после захвата и номер попытки (fencing-токен). */
 export interface Claim {
@@ -34,12 +34,16 @@ export interface JobContext {
   /** Прогресс 0..1 и этап; устаревшая попытка ничего не пишет. */
   progress(p: number, stage: string): void;
   fenceOk(): boolean;
+  /**
+   * Семафоры раннера (общие для всех задач) через обёртку попытки: места, не отданные
+   * обработчиком, раннер возвращает после его завершения.
+   */
   /** Агентные вызовы (2). */
-  agents: Semaphore;
+  agents: Permits;
   /** Рендеры (1). */
-  renders: Semaphore;
+  renders: Permits;
   /** Тяжёлые локальные модели, ASR (1, ruling V8). */
-  heavy: Semaphore;
+  heavy: Permits;
 }
 
 export type JobHandler = (ctx: JobContext) => Promise<HandlerResult>;

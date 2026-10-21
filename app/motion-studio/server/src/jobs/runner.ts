@@ -8,7 +8,7 @@ import { systemClock, type Clock } from "./clock.js";
 import { EventBus } from "./events.js";
 import { AGENT_CALLS, HEARTBEAT_MS, HEAVY, MAX_RUNNING, POLL_MS, RENDERS } from "./limits.js";
 import { claimNext, fenceOk, finish, heartbeat, setProgress } from "./queue.js";
-import { Semaphore } from "./semaphore.js";
+import { AttemptPermits, Semaphore } from "./semaphore.js";
 import type { Claim, HandlerResult, Handlers, JobContext } from "./types.js";
 
 export interface JobRunnerOptions {
@@ -25,6 +25,22 @@ export interface JobRunnerOptions {
   heartbeatMs?: number;
   /** Общая шина событий (SSE, Task 20); по умолчанию своя. */
   events?: EventBus;
+  /**
+   * Сбой такта раннера, не связанный с хранилищем (ошибка в коде, схеме). Пишется ещё и в
+   * stderr; в `job_events` не попадает — у события нет задачи (`job_id NOT NULL`).
+   */
+  onError?: (e: unknown) => void;
+}
+
+/**
+ * Ошибка доступа к базе из-за хранилища (`storage_offline`, Task 13) или временной
+ * блокировки: такт пропускается молча — разбирается StorageSupervisor.
+ */
+export function isStorageError(e: unknown): boolean {
+  if (!(e instanceof Error)) return false;
+  if (/database connection is not open/i.test(e.message)) return true;
+  const code = (e as { code?: unknown }).code;
+  return typeof code === "string" && /^SQLITE_(IOERR|CANTOPEN|FULL|READONLY|NOTADB|CORRUPT|BUSY|LOCKED)/.test(code);
 }
 
 interface Active {
@@ -48,6 +64,7 @@ export class JobRunner {
   private readonly active = new Map<string, Active>();
   private timer: NodeJS.Timeout | undefined;
   private paused = false;
+  private lastError: string | undefined;
   private stopped = false;
 
   constructor(private readonly opts: JobRunnerOptions) {
@@ -96,18 +113,34 @@ export class JobRunner {
   }
 
   private tick(): void {
-    if (this.stopped) return;
+    // до start() (в том числе resume() раньше start()) задачи не захватываются
+    if (this.stopped || !this.timer) return;
     for (const a of this.active.values()) this.checkCancel(a);
     if (this.paused) return;
     for (;;) {
       let claim: Claim | undefined;
       try {
         claim = claimNext(this.db, this.opts.owner, this.clock.now(), { running: this.active.size, maxRunning: this.maxRunning }, { types: this.types });
-      } catch {
-        return; // БД недоступна (storage_offline) — следующий такт
+      } catch (e) {
+        if (!isStorageError(e)) this.reportError(e);
+        return; // следующий такт
       }
+      this.lastError = undefined;
       if (!claim) return;
       this.launch(claim);
+    }
+  }
+
+  /** Сбой такта: в stderr и `onError`; одинаковые сообщения подряд не повторяются. */
+  private reportError(e: unknown): void {
+    const text = errText(e);
+    if (text === this.lastError) return;
+    this.lastError = text;
+    console.error(`motion-studio runner_error: ${text}`);
+    try {
+      this.opts.onError?.(e);
+    } catch {
+      // обработчик ошибок не роняет раннер
     }
   }
 
@@ -157,6 +190,7 @@ export class JobRunner {
       }
     }, this.heartbeatMs);
 
+    const permits = [new AttemptPermits(this.agents), new AttemptPermits(this.renders), new AttemptPermits(this.heavy)] as const;
     const ctx: JobContext = {
       db,
       job,
@@ -168,9 +202,9 @@ export class JobRunner {
         if (setProgress(db, job.id, attempt, p, stage)) this.emit(job.id, "debug", "progress", stage, { progress: p, stage });
       },
       fenceOk: () => fenceOk(db, job.id, attempt),
-      agents: this.agents,
-      renders: this.renders,
-      heavy: this.heavy,
+      agents: permits[0],
+      renders: permits[1],
+      heavy: permits[2],
     };
 
     this.emit(job.id, "info", "started", `${job.type}: попытка ${attempt}`, { attempt });
@@ -182,6 +216,9 @@ export class JobRunner {
       thrown = e;
     } finally {
       clearInterval(hb);
+      // места, не отданные обработчиком (исключение, abort, забытый release), — обратно
+      const leaked = permits.reduce((n, p) => n + p.releaseAll(), 0);
+      if (leaked > 0) this.emit(job.id, "warn", "permits_released", `обработчик не вернул мест семафоров: ${leaked}`, { leaked });
     }
 
     const cancelled = this.cancelRequested(job.id);
