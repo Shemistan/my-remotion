@@ -203,6 +203,11 @@ export function provideInput(db: Db, jobId: string, answers: Record<string, stri
  * Отмена. `running` — `cancel_requested = 1` (раннер прерывает попытку через `AbortSignal`);
  * задача без живой попытки (`pending`, `awaiting_input`, `awaiting_approval`, `blocked`) —
  * сразу `cancelled`; завершённая — без изменений.
+ *
+ * @internal Только для очереди (`cancelJob`) и тестов. API и CLI отменяют через
+ * `cancelJob`: у `blocked` живость процессов здесь берётся лишь из `job_processes`, без
+ * бокового реестра Chrome, и замки сцены могли бы сняться при живом рендере. Экспорт
+ * держится ради тестов; вызовы из `src/` вне queue.ts ловит test/jobs/cancel.test.ts.
  */
 export function requestCancel(db: Db, jobId: string, opts: { attemptAlive?: boolean } = {}): Job {
   return tx(db, () => {
