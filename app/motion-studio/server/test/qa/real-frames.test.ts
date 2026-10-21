@@ -4,7 +4,9 @@
 // карточка у границы safe area) и `choreo-gallery` кадр 16 (тёмный пресет, видимый текст).
 // `clipped-text-67.png` — кадр фикстуры qa-scenes/clipped-text (960×540, как есть): край
 // срезает букву по касательной — обрезка должна ловиться и так.
-// Кадры среза — docs/evidence/phase-1/slice/test{1,2}/frames (960×540, как есть).
+// Кадры среза — fixtures/slice/test{1,2}/{frames,spec.json,settings.json}: копия
+// docs/evidence/phase-1/slice (960×540, как есть; settings — из manifest.json). Evidence
+// перезаписывают новые прогоны — регрессия не должна от них зависеть.
 import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { MotionSpecSchema, type QAIssue, type Settings, SettingsSchema, defaultSettings } from "@ms/contracts";
@@ -16,7 +18,7 @@ import { programmaticChecks } from "../../src/qa/programmatic.js";
 import { beat, renderResult, spec } from "./helpers.js";
 
 const FRAMES = fileURLToPath(new URL("../fixtures/qa-frames/", import.meta.url));
-const SLICE = fileURLToPath(new URL("../../../../../docs/evidence/phase-1/slice/", import.meta.url));
+const SLICE = fileURLToPath(new URL("../fixtures/slice/", import.meta.url));
 const codes = (l: QAIssue[]) => l.map((i) => `${i.code}:${i.severity}`);
 
 /** Настройки кадров kit-галерей после уменьшения: 960×540, поля 6 % × 8 %. */
@@ -58,7 +60,7 @@ describe("кадры среза (Test 1, Test 2) с их spec — без blockin
   it.each(["test1", "test2"])("%s", async (t) => {
     const dir = `${SLICE}${t}/`;
     const sp = MotionSpecSchema.parse(JSON.parse(readFileSync(`${dir}spec.json`, "utf8")));
-    const settings = SettingsSchema.parse(JSON.parse(readFileSync(`${dir}manifest.json`, "utf8")).settings);
+    const settings = SettingsSchema.parse(JSON.parse(readFileSync(`${dir}settings.json`, "utf8")));
     const frames = readdirSync(`${dir}frames`).map((f) => Number(f.replace(".png", ""))).sort((a, b) => a - b);
     const r = await programmaticChecks({
       frames: frames.map((f) => ({ frame: f, path: `${dir}frames/${f}.png` })), spec: sp, settings,
@@ -103,12 +105,12 @@ describe("accent_static на реальных кадрах удержания (F
 // Кадр удержания N−1 пяти сцен прогона 4 (их смотрел ревьюер, motion-review-1) и среза.
 // Сцены прогона 4 — fixtures/empty-region/<сцена>/{179.png,spec.json,settings.json}: копия
 // docs/evidence/phase-1/pipeline на d35c69f^ (evidence перезаписывают новые прогоны —
-// регрессия не должна от них зависеть). Срез — docs/evidence/phase-1/slice.
+// регрессия не должна от них зависеть). Срез — fixtures/slice.
 describe("empty_region на реальных кадрах удержания (Fix G)", () => {
   const ER = fileURLToPath(new URL("../fixtures/empty-region/", import.meta.url));
   const load = (dir: string) =>
     dir.startsWith("slice/")
-      ? { base: `${SLICE}${dir.slice(6)}`, frame: "frames/179.png", settings: JSON.parse(readFileSync(`${SLICE}${dir.slice(6)}/manifest.json`, "utf8")).settings }
+      ? { base: `${SLICE}${dir.slice(6)}`, frame: "frames/179.png", settings: JSON.parse(readFileSync(`${SLICE}${dir.slice(6)}/settings.json`, "utf8")) }
       : { base: `${ER}${dir}`, frame: "179.png", settings: JSON.parse(readFileSync(`${ER}${dir}/settings.json`, "utf8")) };
   const run = async (dir: string) => {
     const { base, frame, settings: raw } = load(dir);
