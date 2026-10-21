@@ -9,6 +9,7 @@ import { safeMkdir } from "@ms/core";
 import type { ResolvedStyle } from "@ms/render";
 import type { AgentResult, AgentRuntimeAdapter, AgentTask } from "../agents/runtime.js";
 import type { AppConfig } from "../config.js";
+import { inBeat, uncoveredElements } from "../pipeline/qa-frames.js";
 
 export interface VisualQAInput {
   /** draft-каталог версии: кадры берутся из `<workdir>/frames/<n>.png`. */
@@ -25,27 +26,38 @@ export interface VisualQAInput {
 export interface VisualQADeps {
   agents: AgentRuntimeAdapter;
   config: AppConfig;
+  /** Журнал пайплайна: id из ответа агента, которых нет в spec. */
+  log?: (message: string) => void;
 }
+
+/** Результат вызова и его время по часам (мс между startedAt и finishedAt рантайма). */
+export type VisualQAResult = AgentResult<VisualQAOutput> & { wallMs: number };
 
 const json = (v: unknown) => JSON.stringify(v, null, 2) + "\n";
 
 /** Чек-лист вызова: кадры и элементы спецификации, которые агент обязан найти. */
 export function qaChecklist(frames: number[], spec: MotionSpec): string {
   const beatsOf = (id: string) => spec.beats.filter((b) => b.element_ids.includes(id)).map((b) => `${b.id} [${b.start_frame}–${b.end_frame})`);
+  const uncovered = new Set(uncoveredElements(spec, frames));
   return [
     "# Чек-лист Visual QA",
     "",
     "## Кадры",
     ...frames.map((f) => {
-      const beats = spec.beats.filter((b) => f >= b.start_frame && f < b.end_frame).map((b) => `${b.id} (${b.action})`);
+      const beats = spec.beats.filter((b) => inBeat(b, f, spec.duration_frames)).map((b) => `${b.id} (${b.action})`);
       return `- \`frames/${f}.png\` — кадр ${f}${beats.length > 0 ? `, биты: ${beats.join(", ")}` : ", вне битов"}`;
     }),
     "",
     "## Элементы spec — каждый в `elements_seen`",
     "Для каждого `id` найди элемент хотя бы на одном кадре, где он должен быть виден (по битам).",
-    "Не нашёл ни на одном кадре — `seen: false`. `frame` — кадр, где элемент виден лучше всего.",
+    "Не нашёл ни на одном кадре — `seen: false`. При `seen: true` обязателен `frame` — кадр из",
+    "списка, где элемент виден лучше всего (и он должен быть в `checked_frames`).",
+    "Пометка «нет кадра в битах» — ни один кадр не попал в биты элемента: ищи его, но если он",
+    "по замыслу уже исчез или ещё не появился, `seen: false` здесь не брак.",
     "",
-    ...spec.elements.map((e) => `- \`${e.id}\` — ${e.kind}, роль «${e.role}», вход ${e.entrance}; биты: ${beatsOf(e.id).join(", ") || "—"}`),
+    ...spec.elements.map(
+      (e) => `- \`${e.id}\` — ${e.kind}, роль «${e.role}», вход ${e.entrance}; биты: ${beatsOf(e.id).join(", ") || "—"}${uncovered.has(e.id) ? " — нет кадра в битах" : ""}`,
+    ),
     "",
     "## Проверить",
     "- одна мысль и иерархия: главный элемент крупнее и заметнее остальных;",
@@ -68,7 +80,7 @@ function prompt(frames: number[]): string {
   ].join("\n");
 }
 
-export async function runVisualQA(input: VisualQAInput, deps: VisualQADeps): Promise<AgentResult<VisualQAOutput>> {
+export async function runVisualQA(input: VisualQAInput, deps: VisualQADeps): Promise<VisualQAResult> {
   const { root, runId, attempt } = input.runRef;
   const frames = [...new Set(input.frames)].sort((a, b) => a - b);
   const dir = await safeMkdir(root, join("run", "tmp", `${runId}-a${attempt}`, "qa"));
@@ -94,33 +106,61 @@ export async function runVisualQA(input: VisualQAInput, deps: VisualQADeps): Pro
     run: input.runRef,
   };
   const r = await deps.agents.run(task, VisualQAOutputSchema, input.signal);
-  return r.output ? { ...r, output: withMissing(r.output, input.spec) } : r;
+  const wallMs = Math.max(0, Date.parse(r.finishedAt) - Date.parse(r.startedAt)) || 0;
+  if (!r.output) return { ...r, wallMs };
+  const known = new Set(input.spec.elements.map((e) => e.id));
+  const unknown = [...new Set(r.output.elements_seen.map((e) => e.id).filter((id) => !known.has(id)))];
+  if (unknown.length > 0) deps.log?.(`Visual QA: elements_seen с id не из spec: ${unknown.join(", ")}`);
+  return { ...r, wallMs, output: withMissing(r.output, input.spec, frames) };
 }
 
 /**
- * Элементы spec, которых агент не увидел: `seen: false` — blocking `missing_element`
- * (visual → fail); не упомянут в `elements_seen` — warning (visual не лучше warn).
+ * Элементы spec, которых агент не подтвердил:
+ * - `seen: false` — blocking `missing_element` (visual → fail); но если ни один QA-кадр не
+ *   попал в биты элемента, отсутствие на кадрах ничего не доказывает — warning;
+ * - `seen: true` без `frame` из `checked_frames`, или элемент не упомянут — warning
+ *   (не подтверждён; visual не лучше warn).
+ * Дубли id в `elements_seen`: худший ответ (`seen: false`) побеждает.
  */
-function withMissing(out: VisualQAOutput, spec: MotionSpec): VisualQAOutput {
-  const seen = new Map(out.elements_seen.map((e) => [e.id, e]));
+function withMissing(out: VisualQAOutput, spec: MotionSpec, frames: number[]): VisualQAOutput {
+  const seen = new Map<string, VisualQAOutput["elements_seen"][number]>();
+  for (const e of out.elements_seen) {
+    const prev = seen.get(e.id);
+    if (!prev || (prev.seen && !e.seen)) seen.set(e.id, e);
+  }
+  const checked = new Set(out.checked_frames);
+  const uncovered = new Set(uncoveredElements(spec, frames));
   const issues = [...out.issues];
   let visual = out.gate.visual;
+  const warn = () => {
+    if (visual === "pass" || visual === "not_checked") visual = "warn";
+  };
   for (const e of spec.elements) {
     const s = seen.get(e.id);
-    if (s?.seen === false) {
+    const beats = spec.beats.filter((b) => b.element_ids.includes(e.id)).map((b) => b.id).join(", ") || "spec";
+    if (s?.seen === false && !uncovered.has(e.id)) {
       issues.push({
         code: "missing_element", severity: "blocking", area: e.id,
-        description: `элемент ${e.id} (${e.kind}, «${e.role}») не найден ни на одном QA-кадре`,
-        fix_hint: `построй ${e.id} в сцене и покажи его в битах ${spec.beats.filter((b) => b.element_ids.includes(e.id)).map((b) => b.id).join(", ") || "spec"}`,
+        description: `элемент ${e.id} (${e.kind}, «${e.role}») не найден ни на одном QA-кадре внутри его битов`,
+        fix_hint: `построй ${e.id} в сцене и покажи его в битах ${beats}`,
       });
       visual = "fail";
-    } else if (s === undefined) {
+    } else if (s?.seen === false) {
       issues.push({
         code: "missing_element", severity: "warning", area: e.id,
-        description: `Visual QA не подтвердил элемент ${e.id}: его нет в elements_seen`,
+        description: `элемент ${e.id} не найден, но ни один QA-кадр не попал в его биты — не проверен`,
+        fix_hint: `проверь, что ${e.id} виден в битах ${beats}`,
+      });
+      warn();
+    } else if (s === undefined || s.frame === undefined || !checked.has(s.frame)) {
+      issues.push({
+        code: "missing_element", severity: "warning", area: e.id,
+        description: s === undefined
+          ? `Visual QA не подтвердил элемент ${e.id}: его нет в elements_seen`
+          : `Visual QA не подтвердил элемент ${e.id}: seen без кадра из checked_frames (frame ${s.frame ?? "—"})`,
         fix_hint: `проверь, что ${e.id} виден на кадрах своих битов`,
       });
-      if (visual === "pass" || visual === "not_checked") visual = "warn";
+      warn();
     }
   }
   return { ...out, issues, gate: { ...out.gate, visual } };

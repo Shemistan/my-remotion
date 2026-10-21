@@ -1,9 +1,9 @@
 // Программные проверки по реальным кадрам, логам браузера и размеру превью (06 §6) —
 // без LLM: пустой кадр, застывшая анимация, обрезка, safe area, контраст, сеть.
 import type { MotionSpec, QAIssue, Settings } from "@ms/contracts";
-import { type Rect, type RenderResult, type ResolvedStyle, contrastRatio, safeRect } from "@ms/render";
-import { blankCheckFrom } from "../pipeline/qa-frames.js";
-import { type Img, backgroundModel, inkCount, loadPng, lumaStats, objectDelta } from "./image.js";
+import { type RenderResult, type ResolvedStyle, contrastRatio, safeRect } from "@ms/render";
+import { blankCheckFrom, inBeat } from "../pipeline/qa-frames.js";
+import { EDGES, type Edge, type Img, INK_THRESHOLD, edgeBackground, edgeClip, loadPng, lumaStats, objectDelta } from "./image.js";
 
 export interface ProgrammaticInput {
   frames: { frame: number; path: string }[];
@@ -14,14 +14,15 @@ export interface ProgrammaticInput {
   previewBytes: number;
 }
 
-/** Однотонный кадр: std относительной яркости ниже. */
+/** Однотонный кадр: std яркости Y' ниже. */
 export const BLANK_STD = 0.01;
 /** Кадры совпадают: изменение объектов ниже. */
 export const FROZEN_DELTA = 0.002;
-/** Полоса по краю кадра, px, и допустимая доля «чернил» в ней. */
-const EDGE_PX = 2;
+/** Доля длины края под «сплошными» чернилами, с которой объект считается обрезанным. */
 const CLIP_INK = 0.01;
 const SAFE_INK = 0.005;
+/** Полоса допуска у границы safe area, доля кадра: тень и свечение элемента на границе. */
+const SAFE_TOLERANCE = 0.01;
 const MIN_TEXT_CONTRAST = 4.5;
 const MIN_MUTED_CONTRAST = 3;
 const PREVIEW_WARN_BYTES = 50 * 1024 * 1024;
@@ -37,8 +38,9 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
   const imgs: Img[] = [];
   for (const f of frames) imgs.push(await loadPng(f.path));
 
-  const beatsAt = (f: number) => input.spec.beats.filter((b) => f >= b.start_frame && f < b.end_frame).map((b) => b.id).sort().join(",");
-  const from = blankCheckFrom(input.spec);
+  const dur = input.spec.duration_frames;
+  const beatsAt = (f: number) => input.spec.beats.filter((b) => inBeat(b, f, dur)).map((b) => b.id).sort().join(",");
+  const from = blankCheckFrom(input.spec, input.style);
   frames.forEach((f, i) => {
     const img = imgs[i]!;
     // пустой кадр: только внутри битов и после входа первого бита (кадр 0 может быть пустым фоном)
@@ -47,7 +49,7 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
       if (std < BLANK_STD) {
         out.push({
           code: "blank", severity: "blocking", frame: f.frame,
-          description: `кадр ${f.frame} однотонный (std яркости ${std.toFixed(4)} < ${BLANK_STD}): элементы не видны`,
+          description: `кадр ${f.frame} однотонный (std яркости Y' ${std.toFixed(4)} < ${BLANK_STD}): элементы не видны`,
           fix_hint: "проверь, что элементы бита отрисованы и видимы в этом кадре (opacity, позиция, цвет на фоне, тайминги из props.timing)",
         });
       }
@@ -71,45 +73,53 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
 }
 
 /**
- * Обрезка (полоса 2 px по краю) и выход за безопасную зону; поля масштабируются к размеру
- * кадра. Фон — модель с плавными градиентами (`backgroundModel`), а не цвет углов: свет
- * aurora и виньетка у края кадра — не объект.
+ * Обрезка и выход за безопасную зону. Фон каждого края — по его полю за safe area
+ * (`edgeBackground`), а не цвет углов: свет aurora и виньетка у края — не объект, карточка
+ * у границы safe area — тоже. Обрезка — «сплошные» чернила у края (`edgeClip`): тонкие
+ * линии фона, пересекающие край, не считаются. Поля масштабируются к размеру кадра.
  */
 function edgeIssues(img: Img, frame: number, settings: Settings): Issue[] {
   const out: Issue[] = [];
-  const bg = backgroundModel(img);
   const { width: w, height: h } = img;
-  const edges: [string, Rect][] = [
-    ["top", { x: 0, y: 0, w, h: EDGE_PX }],
-    ["right", { x: w - EDGE_PX, y: 0, w: EDGE_PX, h }],
-    ["bottom", { x: 0, y: h - EDGE_PX, w, h: EDGE_PX }],
-    ["left", { x: 0, y: 0, w: EDGE_PX, h }],
-  ];
-  const clipped = edges.filter(([, r]) => {
-    const c = inkCount(img, r, bg);
-    return c.ink / c.total > CLIP_INK;
-  }).map(([name]) => name);
+  const safe = safeRect({ width: w, height: h, safe_area: settings.safe_area });
+  const margin: Record<Edge, number> = { top: safe.y, bottom: h - safe.y - safe.h, left: safe.x, right: w - safe.x - safe.w };
+  // поле 0 (safe_area 0) — фон по полосе 2 % кадра
+  const band = (e: Edge) => Math.max(margin[e], Math.round((e === "top" || e === "bottom" ? h : w) * 0.02), 6);
+
+  const t255 = INK_THRESHOLD * 255;
+  const clipped: Edge[] = [];
+  let ink = 0;
+  let total = 0;
+  for (const e of EDGES) {
+    const bg = edgeBackground(img, e, band(e));
+    const c = edgeClip(img, e, bg);
+    if (c.fraction > CLIP_INK) clipped.push(e);
+    // поле за safe area (у боковых краёв — без углов, их считают верх и низ), кроме
+    // внутренней полосы допуска у границы safe area (тень и свечение карточки на границе);
+    // пиксель — чернила, только если они есть и на ±2 px по обеим осям (тонкие линии фона —
+    // сетка пола, разделители — не объект)
+    const along = e === "left" || e === "right" ? [safe.y, safe.y + safe.h] : [0, w];
+    const tol = Math.round((e === "top" || e === "bottom" ? h : w) * SAFE_TOLERANCE);
+    for (let i = along[0]!; i < along[1]!; i++) {
+      const b = bg[i]!;
+      const inkXY = (x: number, y: number) => {
+        if (x < 0 || y < 0 || x >= w || y >= h) return false;
+        const p = (y * w + x) * 4;
+        return Math.abs(img.data[p]! - b[0]) > t255 || Math.abs(img.data[p + 1]! - b[1]) > t255 || Math.abs(img.data[p + 2]! - b[2]) > t255;
+      };
+      for (let d = 0; d < margin[e] - tol; d++) {
+        const [x, y] = e === "top" ? [i, d] : e === "bottom" ? [i, h - 1 - d] : e === "left" ? [d, i] : [w - 1 - d, i];
+        total++;
+        if (inkXY(x, y) && (inkXY(x - 2, y) || inkXY(x + 2, y)) && (inkXY(x, y - 2) || inkXY(x, y + 2))) ink++;
+      }
+    }
+  }
   for (const area of clipped) {
     out.push({
       code: "clipping", severity: "blocking", frame, area,
       description: `кадр ${frame}: объект касается края кадра (${area}) — вероятно, обрезан`,
       fix_hint: `уменьши размер или сдвинь элемент внутрь безопасной зоны (${area}); длинный текст — перенос или меньший кегль`,
     });
-  }
-
-  const safe = safeRect({ width: w, height: h, safe_area: settings.safe_area });
-  const margins: Rect[] = [
-    { x: 0, y: 0, w, h: safe.y },
-    { x: 0, y: safe.y + safe.h, w, h: h - safe.y - safe.h },
-    { x: 0, y: safe.y, w: safe.x, h: safe.h },
-    { x: safe.x + safe.w, y: safe.y, w: w - safe.x - safe.w, h: safe.h },
-  ];
-  let ink = 0;
-  let total = 0;
-  for (const m of margins) {
-    const c = inkCount(img, m, bg);
-    ink += c.ink;
-    total += c.total;
   }
   if (total > 0 && ink / total > SAFE_INK && clipped.length === 0) {
     out.push({

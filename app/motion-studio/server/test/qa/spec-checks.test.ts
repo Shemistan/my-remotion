@@ -1,5 +1,7 @@
 // Проверки спецификации до рендера: одинаковые входы, перекрытия, safe area, акцент.
-import type { Element, MotionSpec } from "@ms/contracts";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { type Element, type MotionSpec, MotionSpecSchema, SettingsSchema } from "@ms/contracts";
 import { describe, expect, it } from "vitest";
 import { specChecks } from "../../src/qa/spec-checks.js";
 import { beat, el, settings, spec } from "./helpers.js";
@@ -51,14 +53,31 @@ describe("specChecks", () => {
     expect(specChecks(sp, s).map((i) => i.code)).not.toContain("overlap");
   });
 
-  it("outside_safe_area: layout за безопасной зоной — warning; фон на весь кадр — нет", () => {
+  it("layout — доли safe area: элемент у края safe area (x = 0, w = 1) — не выход", () => {
     const sp = spec({
-      elements: [el("bg", { kind: "shape", entrance: "fade", layout: { x: 0, y: 0, w: 1, h: 1 } }), el("t", { layout: { x: 0.02, y: 0.1, w: 0.3, h: 0.1 } })],
-      beats: [beat("b0", 0, 60, ["bg", "t"], "final-emphasis")],
+      elements: [el("bg", { kind: "shape", entrance: "fade", layout: { x: 0, y: 0, w: 1, h: 1 } }), el("t", { layout: { x: 0, y: 0, w: 0.4, h: 0.05 } }), el("c", { kind: "chart", entrance: "draw", layout: { x: 0, y: 0.36, w: 1, h: 0.62 } })],
+      beats: [beat("b0", 0, 60, ["bg", "t", "c"], "final-emphasis")],
     });
+    expect(specChecks(sp, s).map((i) => i.code)).not.toContain("outside_safe_area");
+  });
+
+  it("outside_safe_area: x + w > 1 в долях safe area (spec в обход схемы) — warning", () => {
+    const sp = spec({ elements: [el("t", { layout: { x: 0.8, y: 0.1, w: 0.3, h: 0.1 } })], beats: [beat("b0", 0, 60, ["t"], "final-emphasis")] });
     const r = specChecks(sp, s).filter((i) => i.code === "outside_safe_area");
     expect(r).toHaveLength(1);
     expect(r[0]).toMatchObject({ severity: "warning", area: "t" });
+    expect(r[0]!.fix_hint).toContain("доли safe area");
+  });
+
+  it("реальные spec среза (docs/evidence/phase-1/slice) — без outside_safe_area и overlap", () => {
+    for (const t of ["test1", "test2"]) {
+      const dir = fileURLToPath(new URL(`../../../../../docs/evidence/phase-1/slice/${t}/`, import.meta.url));
+      const sp = MotionSpecSchema.parse(JSON.parse(readFileSync(`${dir}spec.json`, "utf8")));
+      const st = SettingsSchema.parse(JSON.parse(readFileSync(`${dir}manifest.json`, "utf8")).settings);
+      const codes = specChecks(sp, st).map((i) => i.code);
+      expect(codes, t).not.toContain("outside_safe_area");
+      expect(codes, t).not.toContain("overlap");
+    }
   });
 
   it("no_emphasis: нет элемента role = emphasis и бита с emphasis/accent — warning", () => {

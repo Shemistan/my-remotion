@@ -20,15 +20,10 @@ export async function loadPng(path: string): Promise<Img> {
   return { width: png.width, height: png.height, data: new Uint8Array(png.data.buffer, png.data.byteOffset, png.data.byteLength) };
 }
 
-// sRGB → линейная яркость: таблица на 256 значений
-const LINEAR = Float64Array.from({ length: 256 }, (_, v) => {
-  const c = v / 255;
-  return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-});
-
 /**
- * Относительная яркость пикселей (WCAG, 0..1): среднее и стандартное отклонение.
- * Прозрачные пиксели — как над чёрным фоном.
+ * Яркость Y' (Rec. 709 по гамма-кодированным каналам, 0..1): среднее и стандартное
+ * отклонение. Не линейная яркость: на тёмных пресетах линеаризация сжимает весь кадр к
+ * нулю, и кадр с текстом выглядел бы однотонным. Прозрачные пиксели — как над чёрным.
  */
 export function lumaStats(img: Img): { mean: number; std: number } {
   const d = img.data;
@@ -36,7 +31,7 @@ export function lumaStats(img: Img): { mean: number; std: number } {
   let sum = 0;
   let sq = 0;
   for (let i = 0; i < d.length; i += 4) {
-    const y = (0.2126 * LINEAR[d[i]!]! + 0.7152 * LINEAR[d[i + 1]!]! + 0.0722 * LINEAR[d[i + 2]!]!) * (d[i + 3]! / 255);
+    const y = ((0.2126 * d[i]! + 0.7152 * d[i + 1]! + 0.0722 * d[i + 2]!) / 255) * (d[i + 3]! / 255);
     sum += y;
     sq += y * y;
   }
@@ -83,7 +78,7 @@ function isInk(d: Uint8Array, i: number, bg: RGB, t255: number): boolean {
   return Math.abs(d[i]! - bg[0]) > t255 || Math.abs(d[i + 1]! - bg[1]) > t255 || Math.abs(d[i + 2]! - bg[2]) > t255;
 }
 
-/** Фон: один цвет или цвет фона в точке (модель `backgroundModel`). */
+/** Фон: один цвет или цвет фона в точке. */
 export type Bg = RGB | ((x: number, y: number) => RGB);
 
 /** Пикселей «чернил» в области (обрезается по кадру) и всего пикселей в ней. */
@@ -106,52 +101,108 @@ export function inkFraction(img: Img, region: Rect, bg: Bg, threshold = INK_THRE
   return total === 0 ? 0 : ink / total;
 }
 
-/** Узлов сетки модели фона по каждой оси; окно медианы узла — четверть кадра. */
-const BG_GRID = 8;
-const BG_WINDOW = 0.25;
+export type Edge = "top" | "right" | "bottom" | "left";
+export const EDGES: readonly Edge[] = ["top", "right", "bottom", "left"];
+
+/** Пиксель края: `i` — вдоль края, `d` — глубина от края внутрь кадра. */
+function edgeGeometry(img: Img, edge: Edge): { length: number; at: (i: number, d: number) => number } {
+  const { width: w, height: h } = img;
+  const idx = (x: number, y: number) => (y * w + x) * 4;
+  switch (edge) {
+    case "top": return { length: w, at: (i, d) => idx(i, d) };
+    case "bottom": return { length: w, at: (i, d) => idx(i, h - 1 - d) };
+    case "left": return { length: h, at: (i, d) => idx(d, i) };
+    case "right": return { length: h, at: (i, d) => idx(w - 1 - d, i) };
+  }
+}
+
+const median = (v: number[]) => {
+  v.sort((a, b) => a - b);
+  return v[Math.floor((v.length - 1) / 2)]!;
+};
+
+/** Окно медианы вдоль края — доля длины края. */
+const EDGE_BG_WINDOW = 0.25;
 
 /**
- * Модель фона с плавными градиентами (aurora, виньетка, световые пятна): медианы по
- * каналам в окнах ¼ × ¼ кадра вокруг узлов сетки 8 × 8, между узлами — билинейно.
- * Объект, занимающий меньше половины окна (текст, карточка, обрезанная строка), в
- * медиану не попадает и остаётся «чернилами»; плавный свет фона — нет.
+ * Фон вдоль края по полю за безопасной зоной: в каждой точке края — медиана по глубине поля
+ * (`margin` px от края), затем медиана вдоль края в окне ¼ его длины. Объекты внутри safe
+ * area (карточка у самой границы поля) в оценку не попадают; объект, пересекающий поле
+ * (обрезанный заголовок), занимает малую часть окна и медиану не сдвигает; плавный свет
+ * фона (aurora, виньетка) остаётся фоном.
  */
-export function backgroundModel(img: Img): (x: number, y: number) => RGB {
-  const { width: w, height: h } = img;
-  const hw = Math.max(1, Math.round((w * BG_WINDOW) / 2));
-  const hh = Math.max(1, Math.round((h * BG_WINDOW) / 2));
-  const step = Math.max(1, Math.round(Math.min(w, h) / 270)); // прореживание пикселей окна
-  const node = (gx: number, gy: number): RGB => {
-    const cx = Math.round((gx * (w - 1)) / (BG_GRID - 1));
-    const cy = Math.round((gy * (h - 1)) / (BG_GRID - 1));
-    const hist = [new Uint32Array(256), new Uint32Array(256), new Uint32Array(256)];
-    let n = 0;
-    for (let y = Math.max(0, cy - hh); y < Math.min(h, cy + hh + 1); y += step) {
-      for (let x = Math.max(0, cx - hw); x < Math.min(w, cx + hw + 1); x += step) {
-        const i = (y * w + x) * 4;
-        hist[0]![img.data[i]!]!++;
-        hist[1]![img.data[i + 1]!]!++;
-        hist[2]![img.data[i + 2]!]!++;
-        n++;
+export function edgeBackground(img: Img, edge: Edge, margin: number): RGB[] {
+  const g = edgeGeometry(img, edge);
+  const depth = Math.max(1, Math.min(margin, edge === "top" || edge === "bottom" ? img.height : img.width));
+  const dStep = Math.max(1, Math.floor(depth / 32));
+  const bin = Math.max(1, Math.round(g.length / 480));
+  const bins = Math.ceil(g.length / bin);
+  const profile: RGB[] = [];
+  for (let k = 0; k < bins; k++) {
+    const ch: number[][] = [[], [], []];
+    for (let i = k * bin; i < Math.min(g.length, (k + 1) * bin); i++) {
+      for (let d = 0; d < depth; d += dStep) {
+        const p = g.at(i, d);
+        for (let c = 0; c < 3; c++) ch[c]!.push(img.data[p + c]!);
       }
     }
-    return hist.map((hc) => {
-      let acc = 0;
-      for (let v = 0; v < 256; v++) if ((acc += hc[v]!) * 2 >= n) return v;
-      return 255;
-    }) as RGB;
-  };
-  const grid: RGB[][] = Array.from({ length: BG_GRID }, (_, gy) => Array.from({ length: BG_GRID }, (_, gx) => node(gx, gy)));
-  return (x, y) => {
-    const fx = (x / Math.max(1, w - 1)) * (BG_GRID - 1);
-    const fy = (y / Math.max(1, h - 1)) * (BG_GRID - 1);
-    const x0 = Math.min(BG_GRID - 2, Math.floor(fx));
-    const y0 = Math.min(BG_GRID - 2, Math.floor(fy));
-    const tx = fx - x0;
-    const ty = fy - y0;
-    const [a, b, c, d] = [grid[y0]![x0]!, grid[y0]![x0 + 1]!, grid[y0 + 1]![x0]!, grid[y0 + 1]![x0 + 1]!];
-    return [0, 1, 2].map((k) => (a[k]! * (1 - tx) + b[k]! * tx) * (1 - ty) + (c[k]! * (1 - tx) + d[k]! * tx) * ty) as RGB;
-  };
+    profile.push(ch.map(median) as RGB);
+  }
+  const r = Math.max(1, Math.round((bins * EDGE_BG_WINDOW) / 2));
+  const smooth = profile.map((_, k) => {
+    const win = profile.slice(Math.max(0, k - r), Math.min(bins, k + r + 1));
+    return [0, 1, 2].map((c) => median(win.map((p) => p[c]!))) as RGB;
+  });
+  return Array.from({ length: g.length }, (_, i) => smooth[Math.min(bins - 1, Math.floor(i / bin))]!);
+}
+
+/** Полоса у края и глубины проверки «чернила продолжаются внутрь», px. */
+const EDGE_STRIP = 2;
+const INWARD = [2, 3, 4];
+
+/**
+ * Обрезка по краю: доля длины края, занятая «сплошными» чернилами — непрерывными отрезками
+ * вдоль края, где объект есть в полосе 2 px у края. Отрезок засчитывается, если
+ * - в нём есть участок не короче `minRun` (0,4 % края), где объект продолжается на 2–4 px
+ *   внутрь (обрезанный штрих, плашка), или
+ * - он сам длинный (≥ 1,5 % края, не меньше 10 px): край срезал выпуклость буквы по касательной.
+ * Тонкие линии фона (сетка пола), пересекающие край, дают короткие отрезки и внутрь не
+ * продолжаются; линия вдоль самого края — тоже.
+ */
+export function edgeClip(img: Img, edge: Edge, bg: RGB[], threshold = INK_THRESHOLD): { fraction: number; longest: number } {
+  const g = edgeGeometry(img, edge);
+  const t255 = threshold * 255;
+  const ink = (i: number, d: number) => isInk(img.data, g.at(i, d), bg[i]!, t255);
+  const minRun = Math.max(3, Math.round(g.length * 0.004));
+  const longRun = Math.max(10, Math.round(g.length * 0.015));
+  // 0 — нет, 1 — объект в полосе у края, 2 — и продолжается внутрь
+  const level = Array.from({ length: g.length }, (_, i) => {
+    for (let d = 0; d < EDGE_STRIP; d++) if (!ink(i, d)) return 0;
+    return INWARD.filter((d) => ink(i, d)).length >= 2 ? 2 : 1;
+  });
+  let total = 0;
+  let longest = 0;
+  for (let i = 0; i < g.length; ) {
+    if (level[i] === 0) {
+      i++;
+      continue;
+    }
+    let j = i;
+    let solid = 0;
+    let deep = 0;
+    let best = 0;
+    for (; j < g.length && level[j]! > 0; j++) {
+      deep = level[j] === 2 ? deep + 1 : 0;
+      best = Math.max(best, deep);
+      solid += level[j] === 2 ? 1 : 0;
+    }
+    const len = j - i;
+    longest = Math.max(longest, len);
+    if (len >= longRun) total += len;
+    else if (best >= minRun) total += solid;
+    i = j;
+  }
+  return { fraction: total / g.length, longest };
 }
 
 /** Уменьшение усреднением блоков k×k (RGBA). */

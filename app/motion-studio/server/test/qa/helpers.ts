@@ -85,7 +85,7 @@ export function renderResult(over: Partial<RenderResult> = {}): RenderResult {
 
 /**
  * Вход programmaticChecks: кадры пишутся в tmp; `beats` битов подряд по 30 кадров,
- * i-й кадр — середина i-го бита (кадры из разных битов), если `at` не задан.
+ * i-й кадр — 25-й кадр i-го бита, после входа (enter_frames 24), если `at` не задан.
  */
 export async function withFrames(
   tmp: string,
@@ -94,7 +94,7 @@ export async function withFrames(
 ) {
   const n = o.beats ?? canvases.length;
   const sp = o.spec ?? spec({ beats: Array.from({ length: n }, (_, i) => beat(`b${i}`, i * 30, i * 30 + 30, ["a"])) });
-  const at = o.at ?? canvases.map((_, i) => Math.min(sp.duration_frames - 1, i * 30 + 20));
+  const at = o.at ?? canvases.map((_, i) => Math.min(sp.duration_frames - 1, i * 30 + 25));
   const frames: { frame: number; path: string }[] = [];
   for (const [i, c] of canvases.entries()) {
     const path = join(tmp, `f${i}-${at[i]}.png`);

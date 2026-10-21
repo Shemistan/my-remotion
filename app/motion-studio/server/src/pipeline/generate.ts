@@ -29,7 +29,7 @@ import {
   type VersionManifest,
 } from "@ms/contracts";
 import { StorageError, StoragePathError, type StorageStatus, safeMkdir, watchStorage } from "@ms/core";
-import { MOTION_KIT_DIR, probeGate, type renderVersion } from "@ms/render";
+import { MOTION_KIT_DIR, probeGate, type renderVersion, resolveStyle } from "@ms/render";
 import type { AgentResult, AgentRuntimeAdapter, AgentTask, Role } from "../agents/runtime.js";
 import type { AppConfig } from "../config.js";
 import { sha256File } from "../scenes/hash.js";
@@ -391,7 +391,11 @@ export async function generateScene(prompt: string, settings: Settings, deps: Ge
   if (refs.length === 0) warnings.push("knowledge-refs пуст: Director не выбрал ни одной допустимой записи KB");
   const selection = { items: filtered.selection.items.filter((i) => refs.some((r) => r.kb_id === i.kb_id)) };
   log(`Director: «${spec.title}» (${director.composition.archetype}), ${spec.beats.length} битов, KB: ${refs.map((r) => `${r.kb_id} (${r.strategy})`).join(", ") || "—"}`);
-  const frames = selectQaFrames(spec, settings.duration_frames);
+  const frames = selectQaFrames(
+    spec,
+    settings.duration_frames,
+    resolveStyle({ preset: settings.style_preset, intensity: settings.animation_intensity, fps: settings.fps }),
+  );
 
   // --- 3. Draft. С этого места любой выход — публикация failed или карантин ---
   try {

@@ -22,7 +22,8 @@ import { makeTmp, removeTmp } from "./helpers.js";
 const T = 20 * 60_000;
 const RESULTS = fileURLToPath(new URL("../../../../../tmp/qa-e2e/", import.meta.url));
 const QA_SCENES = fileURLToPath(new URL("../fixtures/qa-scenes/", import.meta.url));
-const KIT_GALLERY = fileURLToPath(new URL("../../../render/test/fixtures/kit-gallery/", import.meta.url));
+const RENDER_FIXTURES = fileURLToPath(new URL("../../../render/test/fixtures/", import.meta.url));
+const KIT_GALLERY = join(RENDER_FIXTURES, "kit-gallery");
 
 const probe: VolumeProbe = {
   volumeUuid: async () => "VOL-A",
@@ -51,14 +52,14 @@ async function renderFixture(name: string, src: string, specPath: string): Promi
   await cp(src, dir, { recursive: true });
   const settings = SettingsSchema.parse(JSON.parse(await readFile(join(dir, "settings.json"), "utf8")));
   const spec = MotionSpecSchema.parse(JSON.parse(await readFile(specPath, "utf8")));
-  const frames = selectQaFrames(spec, settings.duration_frames);
+  const style = resolveStyle({ preset: settings.style_preset, intensity: settings.animation_intensity, safe_area: settings.safe_area, fps: settings.fps });
+  const frames = selectQaFrames(spec, settings.duration_frames, style);
   const r = await renderVersion({
     versionDir: dir, settings, cacheDir, stills: frames, preview: { scale: 0.5, crf: 23 }, timeoutMs: 300_000,
     run: { root, runId: `qa-${name}`, attempt: 1 },
   });
   expect(r.error, name).toBeUndefined();
   expect(r.ok).toBe(true);
-  const style = resolveStyle({ preset: settings.style_preset, intensity: settings.animation_intensity, safe_area: settings.safe_area, fps: settings.fps });
   const programmatic = await programmaticChecks({
     frames: frames.map((f, i) => ({ frame: f, path: r.stills[i]! })),
     spec, settings, style, render: r, previewBytes: (await stat(r.previewPath!)).size,
@@ -120,6 +121,39 @@ describe("программные проверки на отрендеренны�
   }, T);
 });
 
+describe("ложные срабатывания на рабочих сценах kit (полный 1920×1080)", () => {
+  // сетка пола tech-neon у краёв, карточка у границы safe area, тёмный пресет с текстом
+  it.each([
+    ["patterns-gallery/code", [15, 45, 90, 120, 149]],
+    ["choreo-gallery", [16, 45, 90, 179]],
+  ] as const)("%s — без clipping, safe_area, blank и blocking", async (name, stills) => {
+    const dir = join(tmp, name.replace("/", "-"));
+    await cp(join(RENDER_FIXTURES, name), dir, { recursive: true });
+    const settings = SettingsSchema.parse(JSON.parse(await readFile(join(dir, "settings.json"), "utf8")));
+    const r = await renderVersion({
+      versionDir: dir, settings, cacheDir, stills: [...stills], preview: { scale: 0.25, crf: 30 }, timeoutMs: 300_000,
+      run: { root, runId: `qa-${name.replace("/", "-")}`, attempt: 1 },
+    });
+    expect(r.ok, JSON.stringify(r.error)).toBe(true);
+    // кадры внутри битов и после входа первого бита: проверяется всё
+    const spec = MotionSpecSchema.parse({
+      title: name, purpose: "e2e", duration_frames: settings.duration_frames, fps: settings.fps, style_preset: settings.style_preset,
+      elements: [{ id: "scene", kind: "group", role: "сцена kit", entrance: "none", content: {} }],
+      beats: [
+        { id: "b0", start_frame: 0, end_frame: 10, action: "in", description: "", element_ids: ["scene"] },
+        { id: "b1", start_frame: 10, end_frame: settings.duration_frames, action: "hold", description: "", element_ids: ["scene"] },
+      ],
+    });
+    const style = resolveStyle({ preset: settings.style_preset, intensity: settings.animation_intensity, safe_area: settings.safe_area, fps: settings.fps });
+    const issues = await programmaticChecks({
+      frames: stills.map((f, i) => ({ frame: f, path: r.stills[i]! })), spec, settings, style, render: r, previewBytes: (await stat(r.previewPath!)).size,
+    });
+    await writeFile(join(RESULTS, `${name.replace("/", "-")}.programmatic.json`), JSON.stringify({ frames: stills, programmatic: issues }, null, 1));
+    for (const code of ["clipping", "safe_area", "blank"]) expect(codes(issues), code).not.toContain(code);
+    expect(codes(issues, "blocking")).toEqual([]);
+  }, T);
+});
+
 describe("Visual QA: реальный claude", () => {
   const visual = async (name: string, brief: unknown) => {
     const r = rendered.get(name)!;
@@ -131,8 +165,9 @@ describe("Visual QA: реальный claude", () => {
       { agents, config },
     );
     costs[name] = res.usage.costUsd;
-    await writeFile(join(RESULTS, `${name}.visual-qa.json`), JSON.stringify({ status: res.status, error: res.error, usage: res.usage, output: res.output }, null, 1));
-    console.log(`${name} Visual QA:`, JSON.stringify({ status: res.status, error: res.error, usage: res.usage, output: res.output }, null, 1));
+    console.log(`${name} Visual QA: ${res.wallMs} мс`);
+    await writeFile(join(RESULTS, `${name}.visual-qa.json`), JSON.stringify({ status: res.status, error: res.error, usage: res.usage, wallMs: res.wallMs, startedAt: res.startedAt, finishedAt: res.finishedAt, output: res.output }, null, 1));
+    console.log(`${name} Visual QA:`, JSON.stringify({ status: res.status, error: res.error, usage: res.usage, wallMs: res.wallMs, startedAt: res.startedAt, finishedAt: res.finishedAt, output: res.output }, null, 1));
     return { r, res };
   };
 

@@ -99,6 +99,43 @@ describe("runVisualQA", () => {
     expect(r2.output!.gate.visual).toBe("warn");
   });
 
+  it("импульс в коротком бите [84,96) без QA-кадра в нём: seen: false — warning, в чек-листе пометка", async () => {
+    const config = loadConfig({ MS_DATA_DIR: root });
+    const pulse = spec({
+      elements: [el("title"), el("line-pulse", { kind: "shape", role: "импульс", entrance: "pop" })],
+      beats: [beat("b0", 0, 40, ["title"]), beat("b1", 84, 96, ["line-pulse"], "pulse"), beat("b2", 96, 100, ["title"], "hold")],
+    });
+    const seen: Parameters<typeof fake>[1] = {};
+    const input = { workdir: draft, frames: [15, 72, 99], spec: pulse, style: style(), brief: {}, runRef: { root, runId: "run_X", attempt: 1 }, signal: new AbortController().signal };
+    const r = await runVisualQA(input, { agents: fake({ ...out([{ id: "title", frame: 15, seen: true }, { id: "line-pulse", seen: false }]), checked_frames: [15, 72, 99] }, seen), config });
+    expect(seen.checklist).toMatch(/`line-pulse`.*нет кадра в битах/);
+    expect(seen.checklist).not.toMatch(/`title`.*нет кадра в битах/);
+    const mi = r.output!.issues.filter((i) => i.code === "missing_element");
+    expect(mi).toEqual([expect.objectContaining({ severity: "warning", area: "line-pulse" })]);
+    expect(r.output!.gate.visual).toBe("warn");
+  });
+
+  it("seen: true без кадра из checked_frames — не подтверждён (warning); дубль id — побеждает seen: false; чужие id — в журнал", async () => {
+    const config = loadConfig({ MS_DATA_DIR: root });
+    const logs: string[] = [];
+    const input = { workdir: draft, frames: [15, 72], spec: sp, style: style(), brief: {}, runRef: { root, runId: "run_X", attempt: 1 }, signal: new AbortController().signal };
+    const r = await runVisualQA(input, {
+      agents: fake(out([
+        { id: "title", frame: 50, seen: true },
+        { id: "line-pulse", frame: 72, seen: true },
+        { id: "line-pulse", seen: false },
+        { id: "ghost", frame: 15, seen: true },
+      ])),
+      config,
+      log: (m) => logs.push(m),
+    });
+    expect(r.output!.issues).toContainEqual(expect.objectContaining({ code: "missing_element", severity: "warning", area: "title" }));
+    expect(r.output!.issues).toContainEqual(expect.objectContaining({ code: "missing_element", severity: "blocking", area: "line-pulse" }));
+    expect(r.output!.gate.visual).toBe("fail");
+    expect(logs.join("\n")).toContain("ghost");
+    expect(r.wallMs).toBeGreaterThanOrEqual(0);
+  });
+
   it("кадра нет в draft — ошибка до вызова агента", async () => {
     const config = loadConfig({ MS_DATA_DIR: root });
     const input = { workdir: draft, frames: [5], spec: sp, style: style(), brief: {}, runRef: { root, runId: "run_X", attempt: 1 }, signal: new AbortController().signal };

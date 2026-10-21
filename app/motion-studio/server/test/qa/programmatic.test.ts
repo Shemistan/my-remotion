@@ -20,7 +20,7 @@ describe("programmaticChecks", () => {
   it("blank: однотонный кадр внутри бита — blocking", async () => {
     const r = await programmaticChecks(await withFrames(tmp, [solid("#101010")]));
     expect(issues(r)).toContain("blank");
-    expect(find(r, "blank")[0]).toMatchObject({ source: "programmatic", severity: "blocking", frame: 20 });
+    expect(find(r, "blank")[0]).toMatchObject({ source: "programmatic", severity: "blocking", frame: 25 });
   });
 
   it("blank не флагует кадр 0 и кадры до конца входа первого бита", async () => {
@@ -80,7 +80,7 @@ describe("programmaticChecks", () => {
     const r = await programmaticChecks(await withFrames(tmp, [card(), card().rect(20, 70, 40, 20, "#4080ff"), card().rect(20, 70, 40, 20, "#4080ff")]));
     const f = find(r, "frozen");
     expect(f).toHaveLength(1);
-    expect(f[0]).toMatchObject({ severity: "warning", frame: 80 });
+    expect(f[0]).toMatchObject({ severity: "warning", frame: 85 });
   });
 
   it("frozen: дрейф камеры и фона при застывших объектах — всё равно frozen", async () => {

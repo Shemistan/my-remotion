@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { MotionSpec } from "@ms/contracts";
 import { describe, expect, it } from "vitest";
-import { MAX_QA_FRAMES, MIN_QA_GAP, blankCheckFrom, selectQaFrames } from "../../src/pipeline/qa-frames.js";
+import { resolveStyle } from "@ms/render";
+import { MAX_QA_FRAMES, MIN_QA_GAP, blankCheckFrom, enterFrames, inBeat, selectQaFrames, uncoveredElements } from "../../src/pipeline/qa-frames.js";
 import { directorOutput } from "../pipeline/helpers.js";
 import { beat, el, spec } from "./helpers.js";
 
@@ -16,15 +17,25 @@ const spec162 = spec({
 });
 
 describe("selectQaFrames", () => {
-  it("вход первого бита, середины, последний; 12 отброшен: шаг до 15 < MIN_QA_GAP", () => {
+  it("вход первого бита (enter_frames стиля: dark-premium balanced = 24), середины, последний; 12 внутри входа", () => {
     expect(MAX_QA_FRAMES).toBe(8);
     expect(MIN_QA_GAP).toBe(10);
-    expect(selectQaFrames(spec162)).toEqual([15, 72, 143, 161]);
+    expect(selectQaFrames(spec162)).toEqual([24, 72, 143, 161]);
+  });
+
+  it("длительность входа — из разрешённого стиля: energetic короче, calm длиннее, mask 1.5×", () => {
+    const st = (intensity: "calm" | "balanced" | "energetic") => resolveStyle({ preset: "dark-premium", intensity });
+    expect(st("balanced").motion.enter_frames).toBe(24);
+    expect(selectQaFrames(spec162, 162, st("energetic"))[0]).toBe(18);
+    expect(selectQaFrames(spec162, 162, st("calm"))[0]).toBe(25); // 30, но не позже конца бита
+    expect(enterFrames("mask", st("balanced"))).toBe(36);
+    const masked = spec({ elements: [el("t", { entrance: "mask" })], beats: [beat("b0", 0, 60, ["t"]), beat("b1", 60, 120, ["t"], "hold")] });
+    expect(selectQaFrames(masked)[0]).toBe(36);
   });
 
   it("spec 180 кадров: вход, середина акцента, середины; шаг ≥ 10", () => {
     const fr = selectQaFrames(directorOutput().spec);
-    expect(fr).toEqual([15, 80, 140, 165, 179]);
+    expect(fr).toEqual([24, 80, 140, 165, 179]);
     gaps(fr).forEach((g) => expect(g).toBeGreaterThanOrEqual(10));
   });
 
@@ -56,8 +67,32 @@ describe("selectQaFrames", () => {
 
   it("короткая сцена: обязательные кадры остаются, даже если ближе MIN_QA_GAP", () => {
     const sp = spec({ elements: [el("t")], beats: [beat("b0", 0, 20, ["t"]), beat("b1", 10, 20, ["t"], "accent-flash")] });
+    // вход 19 (бит 20 кадров короче входа 24), середина акцента 15, последний 19
+    expect(selectQaFrames(sp)).toEqual([15, 19]);
+  });
+
+  it("импульс в коротком бите [84,96) получает кадр внутри бита; вход сцены — без него", () => {
+    const sp = spec({
+      elements: [el("title"), el("chart", { kind: "chart", entrance: "draw" }), el("line-pulse", { kind: "shape", role: "импульс по линии", entrance: "pop" })],
+      beats: [
+        beat("b0", 0, 30, ["title"]), beat("b1", 20, 120, ["chart"], "chart-growth"), beat("b2", 84, 96, ["line-pulse"], "pulse"),
+        beat("b3", 120, 150, ["chart"], "final-emphasis"), beat("b4", 150, 180, ["title", "chart"], "hold"),
+      ],
+    });
     const fr = selectQaFrames(sp);
-    expect(fr).toEqual([15, 19]);
+    expect(fr.filter((f) => f >= 84 && f < 96)).toHaveLength(1);
+    expect(fr[0]).toBe(24);
+    expect(uncoveredElements(sp, fr)).toEqual([]);
+    // без покрытия импульс остался бы без кадра
+    expect(uncoveredElements(sp, [24, 70, 135, 165, 179])).toEqual(["line-pulse"]);
+  });
+
+  it("элемент акцента без кадра в своих битах получает кадр раньше середин", () => {
+    const sp = spec({
+      elements: [el("title"), el("chart", { kind: "chart", entrance: "draw" }), el("badge", { kind: "card", role: "emphasis", entrance: "pop" })],
+      beats: [beat("b0", 0, 30, ["title"]), beat("b1", 20, 150, ["chart"], "chart-growth"), beat("b2", 40, 52, ["badge"], "badge-flash"), beat("b3", 150, 180, ["title", "chart"], "final-emphasis")],
+    });
+    expect(selectQaFrames(sp).some((f) => f >= 40 && f < 52)).toBe(true);
   });
 
   it("кадры уникальны, по возрастанию и внутри сцены; durationFrames задаёт последний кадр", () => {
@@ -69,9 +104,19 @@ describe("selectQaFrames", () => {
 });
 
 describe("blankCheckFrom", () => {
-  it("конец входа первого бита: min(end, start + 15)", () => {
-    expect(blankCheckFrom(spec162)).toBe(15);
+  it("конец входа первого бита: min(end, start + enter_frames)", () => {
+    expect(blankCheckFrom(spec162)).toBe(24);
     expect(blankCheckFrom(spec({ beats: [beat("b0", 4, 12, ["a"])] }))).toBe(12);
+  });
+});
+
+describe("inBeat", () => {
+  it("[start, end); последний кадр — и в бите, кончающемся на нём", () => {
+    expect(inBeat({ start_frame: 140, end_frame: 179 }, 179, 180)).toBe(true);
+    expect(inBeat({ start_frame: 140, end_frame: 180 }, 179, 180)).toBe(true);
+    expect(inBeat({ start_frame: 140, end_frame: 179 }, 178, 180)).toBe(true);
+    expect(inBeat({ start_frame: 100, end_frame: 150 }, 150, 180)).toBe(false);
+    expect(inBeat({ start_frame: 100, end_frame: 150 }, 99, 180)).toBe(false);
   });
 });
 
@@ -79,11 +124,11 @@ describe("selectQaFrames на spec реальных прогонов", () => {
   const load = (name: string): MotionSpec =>
     JSON.parse(readFileSync(fileURLToPath(new URL(`../fixtures/specs/${name}`, import.meta.url)), "utf8"));
   it.each([
-    // [spec, середина акцента, вход последнего появляющегося элемента min(end, start + 15)]
-    ["test1-slice.json", 130, 67],
-    ["test2-slice.json", 150, 27],
-    ["test1-r1.json", 123, 49],
-    ["test2-r1.json", 152, 55],
+    // [spec, середина акцента, вход последнего появляющегося элемента min(end, start + 24)]
+    ["test1-slice.json", 130, 76],
+    ["test2-slice.json", 150, 36],
+    ["test1-r1.json", 123, 58],
+    ["test2-r1.json", 152, 64],
   ])("%s: середина акцента %i, вход %i и последний кадр — в кадрах; нет кадров внутри входа текста; шаг ≥ 10", (name, accentMid, entrance) => {
     const sp = load(name);
     const f = selectQaFrames(sp);
@@ -91,7 +136,7 @@ describe("selectQaFrames на spec реальных прогонов", () => {
     expect(f).toContain(entrance);
     expect(f).toContain(sp.duration_frames - 1);
     expect(f.length).toBeLessThanOrEqual(MAX_QA_FRAMES);
-    // ни одного кадра внутри анимации входа текстового элемента (заголовок наполовину вошёл)
+    // ни одного кадра в первых ¾ входа текстового элемента (заголовок наполовину вошёл)
     const kinds = new Map(sp.elements.map((e) => [e.id, e.kind]));
     const firstBeat = new Map<string, MotionSpec["beats"][number]>();
     for (const b of [...sp.beats].sort((a, c) => a.start_frame - c.start_frame)) {
@@ -99,7 +144,7 @@ describe("selectQaFrames на spec реальных прогонов", () => {
     }
     for (const [id, b] of firstBeat) {
       if (kinds.get(id) !== "text") continue;
-      const settle = Math.min(b.end_frame, b.start_frame + 15);
+      const settle = Math.min(b.end_frame, b.start_frame + 18);
       expect(f.filter((x) => x > b.start_frame && x < settle), `${id} ${b.id}`).toEqual([]);
     }
     gaps(f).forEach((g) => expect(g).toBeGreaterThanOrEqual(10));

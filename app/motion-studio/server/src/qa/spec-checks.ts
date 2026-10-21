@@ -1,5 +1,6 @@
 // Проверки спецификации без рендера (ТЗ §8.1–8.2): одинаковые входы, перекрытия по
-// layout, safe area, наличие акцента.
+// layout, safe area, наличие акцента. `layout` элемента — доли safe area, а не кадра
+// (prompts/motion-director.md §8): в кадр он переводится через safeRect настроек.
 import type { Element, MotionSpec, QAIssue, Settings } from "@ms/contracts";
 import { ACCENT_ACTION, isEmphasisRole } from "../pipeline/qa-frames.js";
 
@@ -40,7 +41,13 @@ export function specChecks(spec: MotionSpec, settings: Settings): QAIssue[] {
     }
   }
 
-  const placed = spec.elements.filter((e): e is Element & { layout: Layout } => e.layout !== undefined && e.kind !== "group" && area(e.layout) < FULL_BLEED);
+  // layout → доли кадра: x_кадра = поле + x × ширина safe area
+  const sx = settings.safe_area.x;
+  const sy = settings.safe_area.y;
+  const toFrame = (l: Layout): Layout => ({ x: sx + l.x * (1 - 2 * sx), y: sy + l.y * (1 - 2 * sy), w: l.w * (1 - 2 * sx), h: l.h * (1 - 2 * sy) });
+  const placed = spec.elements
+    .filter((e): e is Element & { layout: Layout } => e.layout !== undefined && e.kind !== "group" && area(e.layout) < FULL_BLEED)
+    .map((e) => ({ ...e, frame: toFrame(e.layout) }));
 
   // перекрытия одного слоя глубины; вложенный элемент (подпись в карточке) не перекрытие
   for (let i = 0; i < placed.length; i++) {
@@ -48,27 +55,26 @@ export function specChecks(spec: MotionSpec, settings: Settings): QAIssue[] {
       const [a, b] = [placed[i]!, placed[j]!];
       if ((a.depth_layer ?? 1) !== (b.depth_layer ?? 1)) continue;
       if (contains(a.layout, b.layout) || contains(b.layout, a.layout)) continue;
-      const inter = intersection(a.layout, b.layout);
+      const inter = intersection(a.frame, b.frame);
       if (inter > OVERLAP_MAX) {
         out.push({
           code: "overlap", severity: "blocking", area: `${a.id}, ${b.id}`,
           description: `layout ${a.id} и ${b.id} пересекаются на ${pct(inter)} кадра`,
-          fix_hint: `разведи ${a.id} и ${b.id} по сетке или вложи одно в другое явно; один слой — без наложений`,
+          fix_hint: `разведи layout ${a.id} и ${b.id} (доли safe area) по сетке или вложи одно в другое явно; один слой — без наложений`,
         });
       }
     }
   }
 
-  // safe area настроек
-  const sx = settings.safe_area.x;
-  const sy = settings.safe_area.y;
+  // layout — доли safe area: за неё выходит только layout с x + w > 1 или y + h > 1
+  // (Zod-схема spec такое отклоняет; проверка — для spec, собранных в обход схемы)
   for (const e of placed) {
     const l = e.layout;
-    if (l.x < sx - EPS || l.y < sy - EPS || l.x + l.w > 1 - sx + EPS || l.y + l.h > 1 - sy + EPS) {
+    if (l.x < -EPS || l.y < -EPS || l.x + l.w > 1 + EPS || l.y + l.h > 1 + EPS) {
       out.push({
         code: "outside_safe_area", severity: "warning", area: e.id,
-        description: `layout ${e.id} выходит за безопасную зону (поля ${pct(sx)} × ${pct(sy)})`,
-        fix_hint: `помести ${e.id} внутрь safe area: x ≥ ${sx}, y ≥ ${sy}, x + w ≤ ${1 - sx}, y + h ≤ ${1 - sy}`,
+        description: `layout ${e.id} выходит за безопасную зону: x + w = ${(l.x + l.w).toFixed(2)}, y + h = ${(l.y + l.h).toFixed(2)} (доли safe area)`,
+        fix_hint: `layout — доли safe area от 0 до 1: x + w ≤ 1 и y + h ≤ 1 для ${e.id}`,
       });
     }
   }
