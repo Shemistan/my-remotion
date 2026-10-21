@@ -5,8 +5,8 @@ import { ensureFonts } from "./fonts.js";
 // шрифты kit грузятся при импорте: первый кадр уже нужным шрифтом
 ensureFonts();
 
-/** Версия API kit (API.md): 0.2.0 — StyleBible-система, хореография и примитивы паттернов ТЗ §8.4. */
-export const MOTION_KIT_VERSION = "0.2.0";
+/** Версия API kit (API.md): 0.2 — StyleBible-система, хореография, примитивы паттернов ТЗ §8.4; 0.2.1 — Emphasis/Halo, акцент точки LineChart, входы и вспышки узлов FlowGraph (аддитивно). */
+export const MOTION_KIT_VERSION = "0.2.1";
 
 export { ensureFonts, FONT_FILES, KIT_FONT_FAMILIES } from "./fonts.js";
 export { type PresetId, presets } from "./presets.js";
