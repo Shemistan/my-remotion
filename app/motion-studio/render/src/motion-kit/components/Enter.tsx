@@ -1,13 +1,13 @@
 // Вход элемента по виду из spec (Element.entrance): каскад по index/total, кривая
 // easing.enter стиля, у pop — пружина spring.pop с перелётом. С `exit` элемент уходит
 // обратным движением по easing.exit за exit_frames до конца бита.
-import type { Beat } from "@ms/contracts";
+import type { Beat, StyleBible } from "@ms/contracts";
 import type { CSSProperties, ReactNode } from "react";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import { beatPhase } from "../beat.js";
 import { type EnterDirection, type EnterKind, enterStyle } from "../choreo/enter.js";
 import { staggerBeat } from "../choreo/stagger.js";
-import { EASE, easingOf, frames, springAt } from "../easing.js";
+import { EASE, easingOf, fpsFrames, frames, springAt } from "../easing.js";
 import { ramp } from "../internal.js";
 import { useStyle } from "../style.js";
 
@@ -21,7 +21,7 @@ export interface EnterProps {
   direction?: EnterDirection;
   /** Путь сдвига при amp = 1, px; по умолчанию 4.5 % высоты кадра. */
   distance?: number;
-  /** Длительность входа, кадры при 30 fps (× fps и интенсивность); по умолчанию enter_frames, у mask — 1.5×. */
+  /** Длительность входа, кадры при 30 fps (× fps и интенсивность); по умолчанию enter_frames, у mask — 14…18 кадров. */
   duration?: number;
   /** Уйти в конце бита (последние exit_frames). */
   exit?: boolean;
@@ -32,6 +32,17 @@ export interface EnterProps {
 /** Виды, у которых свой вход в компоненте: при выходе они просто гаснут. */
 const SELF_ANIMATED = new Set<EnterKind>(["type", "count", "draw", "none"]);
 
+/**
+ * Длительность входа, кадры: `duration` (при 30 fps), у `mask` — 16 кадров × интенсивность
+ * в пределах 14…18 (при 30 fps): короткая шторка с мягкой кромкой читается целиком, а не
+ * режет строку полсекунды; остальные — `enter_frames` стиля.
+ */
+export function enterDuration(kind: EnterKind, s: StyleBible, duration?: number): number {
+  if (duration !== undefined) return frames(s, duration);
+  if (kind === "mask") return Math.min(fpsFrames(s, 18), Math.max(fpsFrames(s, 14), frames(s, 16)));
+  return s.motion.enter_frames;
+}
+
 export function Enter({ kind, beat, index = 0, total = 1, direction, distance, duration, exit = false, style, children }: EnterProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
@@ -39,11 +50,12 @@ export function Enter({ kind, beat, index = 0, total = 1, direction, distance, d
   const w = staggerBeat(beat, index, total, s.motion.stagger_frames);
   const o = { amplitude: s.amplitude, distancePx: distance ?? Math.round(height * 0.045), direction };
 
-  // шторка (mask) — крупная форма: дольше и по S-кривой, иначе expo-out открывает её за пару кадров
-  const len = duration !== undefined ? frames(s, duration) : kind === "mask" ? Math.round(s.motion.enter_frames * 1.5) : s.motion.enter_frames;
+  // шторка (mask): быстрое открытие с долгим торможением — частично открытая строка видна
+  // считанные кадры, мягкая кромка и подъём скрывают срез
+  const len = enterDuration(kind, s, duration);
   const p = kind === "pop"
     ? springAt(frame, fps, s, w.start_frame, "pop")
-    : ramp(frame, w.start_frame, w.start_frame + len, kind === "mask" ? EASE.inOutCubic : easingOf(s, "enter"));
+    : ramp(frame, w.start_frame, w.start_frame + len, kind === "mask" ? EASE.outQuart : easingOf(s, "enter"));
   let anim = enterStyle(kind, p, o);
 
   if (exit) {

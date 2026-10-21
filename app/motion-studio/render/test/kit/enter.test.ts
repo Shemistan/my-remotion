@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { enterStyle } from "../../src/motion-kit/choreo/enter.js";
+import { enterDuration } from "../../src/motion-kit/components/Enter.js";
+import { EASE } from "../../src/motion-kit/easing.js";
+import { resolveStyle } from "../../src/motion-kit/style/resolve.js";
 
 const o = { amplitude: 1, distancePx: 40 };
 
@@ -35,16 +38,30 @@ describe("enterStyle", () => {
     expect(enterStyle("scale", 1, o).transform).toBe("scale(1)");
   });
 
-  it("mask: clipPath inset открывается от края; blur: (1-p)·12·amp px", () => {
-    expect(enterStyle("mask", 0, o).clipPath).toBe("inset(100% 0% 0% 0%)");
-    expect(enterStyle("mask", 0.25, o).clipPath).toBe("inset(75% 0% 0% 0%)");
-    // вход закончен — клипа нет: подчёркивание, свечение и выносные элементы не срезаются
-    expect(enterStyle("mask", 1, o).clipPath).toBeUndefined();
-    expect(enterStyle("mask", 1.02, o).clipPath).toBeUndefined();
-    expect(enterStyle("mask", 0, { ...o, direction: "left" }).clipPath).toBe("inset(0% 100% 0% 0%)");
+  it("mask: мягкая кромка mask-image (не clipPath), открывается от стороны входа; blur: (1-p)·12·amp px", () => {
+    const m0 = enterStyle("mask", 0, o);
+    expect(m0.clipPath).toBeUndefined();
+    // снизу: градиент к верху, кромка ниже нижнего края — ничего не видно
+    expect(m0.maskImage).toBe("linear-gradient(to top, #000 calc(0% + -10px), transparent calc(0% + 0px))");
+    expect(m0.WebkitMaskImage).toBe(m0.maskImage);
+    expect(enterStyle("mask", 0.5, o).maskImage).toBe("linear-gradient(to top, #000 calc(50% + -5px), transparent calc(50% + 5px))");
+    expect(enterStyle("mask", 0, { ...o, direction: "left" }).maskImage).toMatch(/^linear-gradient\(to right,/);
+    expect(enterStyle("mask", 0, { ...o, direction: "up" }).maskImage).toMatch(/^linear-gradient\(to bottom,/);
+    // вход закончен — маски нет: подчёркивание, свечение и выносные элементы не срезаются
+    expect(enterStyle("mask", 1, o)).toEqual({});
+    expect(enterStyle("mask", 1.02, o)).toEqual({});
     expect(enterStyle("blur", 0, o).filter).toBe("blur(12px)");
     expect(enterStyle("blur", 0.5, { ...o, amplitude: 1.35 }).filter).toBe("blur(8.1px)");
     expect(enterStyle("blur", 1, o).filter).toBe("blur(0px)");
+  });
+
+  it("mask: короткий подъём со стороны входа и прозрачность — без «обрезков» глифов на старте", () => {
+    // 0.35 × distance × amp снизу
+    expect(enterStyle("mask", 0, o).transform).toBe("translateY(14px)");
+    expect(enterStyle("mask", 0, { ...o, direction: "left" }).transform).toBe("translateX(-14px)");
+    expect(enterStyle("mask", 0, o).opacity).toBe(0);
+    expect(enterStyle("mask", 0.2, o).opacity).toBe(0.5);
+    expect(enterStyle("mask", 0.4, o).opacity).toBe(1);
   });
 
   it("pop: перелёт пружины (p > 1) даёт масштаб больше 1", () => {
@@ -58,5 +75,33 @@ describe("enterStyle", () => {
     const kinds = ["fade", "rise", "scale", "mask", "blur", "pop", "slide"] as const;
     const seen = new Set(kinds.map((k) => JSON.stringify(enterStyle(k, 0.5, o))));
     expect(seen.size).toBe(kinds.length);
+  });
+});
+
+describe("enterDuration", () => {
+  const st = (intensity: "calm" | "balanced" | "energetic", fps = 30) => resolveStyle({ preset: "dark-premium", intensity, fps: { num: fps, den: 1 } });
+
+  it("mask — 14…18 кадров при 30 fps в любой интенсивности (не 1.5 × enter_frames)", () => {
+    for (const i of ["calm", "balanced", "energetic"] as const) {
+      const n = enterDuration("mask", st(i));
+      expect(n).toBeGreaterThanOrEqual(14);
+      expect(n).toBeLessThanOrEqual(18);
+    }
+    expect(enterDuration("mask", st("balanced", 60))).toBeGreaterThanOrEqual(28);
+  });
+
+  it("частично открытая шторка (0 < p < 0.3) держится не дольше 6 кадров", () => {
+    const n = enterDuration("mask", st("calm"));
+    let partial = 0;
+    for (let f = 0; f <= n; f++) {
+      const p = EASE.outQuart(f / n);
+      if (p > 0 && p < 0.3) partial++;
+    }
+    expect(partial).toBeLessThanOrEqual(6);
+  });
+
+  it("остальные виды — enter_frames, duration — свой", () => {
+    expect(enterDuration("rise", st("balanced"))).toBe(24);
+    expect(enterDuration("mask", st("balanced"), 30)).toBe(30);
   });
 });
