@@ -47,6 +47,15 @@ export function get(db: Db, id: string): VersionRow | undefined {
   return r && row(r);
 }
 
+/** Версии, опубликованные задачей (`created_by_job_id`), по номеру. */
+export function listByJob(db: Db, jobId: string): VersionRow[] {
+  return (db.prepare("SELECT * FROM scene_versions WHERE created_by_job_id = ? ORDER BY number").all(jobId) as Raw[]).map(row);
+}
+
+/**
+ * Все версии сцены по номеру, в том числе помеченные `broken_reason` (каталог пропал):
+ * история показывает и их — номер занят, версия недоступна (restore/diff её отвергают).
+ */
 export function listByScene(db: Db, sceneId: string): VersionRow[] {
   return (db.prepare("SELECT * FROM scene_versions WHERE scene_id = ? ORDER BY number").all(sceneId) as Raw[]).map(row);
 }

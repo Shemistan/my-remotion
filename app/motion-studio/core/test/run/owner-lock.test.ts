@@ -1,9 +1,9 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { OwnerBusyError, acquireOwnerLock } from "../../src/run/owner-lock.js";
+import { OwnerBusyError, acquireOwnerLock, verifyOwnerLock } from "../../src/run/owner-lock.js";
 import { procInfo } from "../../src/run/proc-info.js";
 import { initStore } from "../../src/storage/guard.js";
 import { fakeProbe, makeTmp, removeTmp } from "../helpers.js";
@@ -109,4 +109,34 @@ it("lock survives GC when the caller drops the returned handle", { timeout: 20_0
 it("refuses without a store marker", async () => {
   await removeTmp(root);
   await expect(acquireOwnerLock(root, "cli")).rejects.toThrow(/storage/);
+});
+
+// --- Task 13: проверка замка после переподключения тома ---
+
+it("verifyOwnerLock: the same lock file (same vnode) keeps the lock as is", async () => {
+  const a = await acquire("server");
+  const b = await verifyOwnerLock(root, "server", a);
+  expect(b).toBe(a);
+  await expect(acquireOwnerLock(root, "cli")).rejects.toThrow(/owner_busy/);
+});
+
+it("verifyOwnerLock: lock file replaced (new vnode) and held by another process → owner_busy", async () => {
+  const a = await acquire("server");
+  // «переподключение»: старый файл замка ушёл, на его месте новый — его взял другой процесс
+  renameSync(join(root, "run/owner.lock"), join(root, "run/owner.lock.old-mount"));
+  const holder = await spawnHolder();
+  await expect(verifyOwnerLock(root, "server", a)).rejects.toBeInstanceOf(OwnerBusyError);
+  holder.kill("SIGKILL");
+  await exited(holder);
+});
+
+it("verifyOwnerLock: lock file replaced and free → the new file is locked, the old handle released", async () => {
+  const a = await acquire("server");
+  renameSync(join(root, "run/owner.lock"), join(root, "run/owner.lock.old-mount"));
+  const b = await verifyOwnerLock(root, "server", a);
+  locks.push(b);
+  expect(b).not.toBe(a);
+  // новый файл под замком: другой процесс его не возьмёт
+  await expect(acquireOwnerLock(root, "cli")).rejects.toThrow(/owner_busy/);
+  expect(JSON.parse(readFileSync(join(root, "run/owner.json"), "utf8"))).toMatchObject({ pid: process.pid, kind: "server" });
 });

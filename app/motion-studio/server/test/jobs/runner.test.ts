@@ -47,7 +47,9 @@ it("задача выполняется: контекст попытки, comple
   r.start();
   await until(() => jobs.get(env.db, j.id)!.status === "completed", "completed");
   expect(jobs.get(env.db, j.id)!.output_refs).toEqual({ ok: 1 });
-  expect(seen!.run).toEqual({ root: env.s.root, runId: j.id, attempt: 1 });
+  expect(seen!.run).toMatchObject({ root: env.s.root, runId: j.id, attempt: 1 });
+  // реестр процессов попытки (Task 13): по умолчанию — файловый
+  expect(typeof seen!.run.registry.live).toBe("function");
   expect(seen!.attempt).toBe(1);
   expect(seen!.job.status).toBe("running");
   expect(seen!.fenceOk()).toBe(false); // задача уже завершена

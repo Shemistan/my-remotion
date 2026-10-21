@@ -71,7 +71,9 @@ it("aborts when a check never settles", async () => {
   const w = watchStorage(hung, 20);
   await vi.advanceTimersByTimeAsync(20 + 3 * 20);
   expect(w.signal.aborted).toBe(true);
-  expect(w.lastFailure()).toMatchObject({ ok: false, detail: expect.stringMatching(/не ответила/) });
+  // повисшая проверка (diskutil) — своя причина, не «диск не найден»
+  expect(w.lastFailure()).toMatchObject({ ok: false, reason: "storage_watch_timeout", detail: expect.stringMatching(/не ответила/) });
+  expect(String(w.signal.reason)).toMatch(/storage: storage_watch_timeout/);
   expect(hung).toHaveBeenCalledTimes(1);
 });
 

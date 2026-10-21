@@ -231,4 +231,14 @@ describe("SceneRepo", () => {
     expect(existsSync(d.dir)).toBe(true);
     expect(existsSync(join(d.dir, ".quarantined"))).toBe(false);
   });
+
+  it("broken version (broken_reason): stays in history, restore and diff refuse it with version_broken", async () => {
+    const sceneId = repo.createScene("playground", { prompt: "сцена", settings: defaultSettings() }).id;
+    const v1 = await repo.publish(await makeDraft(s.root, { runId: "job_1", attempt: 1, sceneId }), meta(sceneId), addJob("job_1", 1, sceneId));
+    const v2 = await repo.publish(await makeDraft(s.root, { runId: "job_2", attempt: 1, sceneId }), meta(sceneId), addJob("job_2", 1, sceneId));
+    versions.markBroken(db, v1.versionId, "каталог версии не найден");
+    expect(versions.listByScene(db, sceneId).map((v) => [v.number, v.broken_reason])).toEqual([[1, "каталог версии не найден"], [2, null]]);
+    await expect(repo.restore(sceneId, v1.versionId, addJob("job_3", 1, sceneId))).rejects.toThrow(/version_broken/);
+    await expect(repo.diff(v1.versionId, v2.versionId)).rejects.toThrow(/version_broken/);
+  });
 });

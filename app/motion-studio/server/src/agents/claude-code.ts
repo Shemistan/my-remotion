@@ -271,6 +271,7 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
         env,
         signal: ctrl.signal,
         stdin: prompt,
+        registry: task.run.registry,
       });
     } finally {
       clearTimeout(timer);

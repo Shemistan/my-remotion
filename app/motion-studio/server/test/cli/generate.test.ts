@@ -1,15 +1,31 @@
-// CLI generate: аргументы и порядок старта (owner lock → storage → reap → relock → generate).
+// CLI generate: аргументы, порядок старта (owner lock → storage → reap → relock → generate)
+// и вывод. Старт идёт через bootCore; здесь он подменён шагами с теми же именами, что
+// у bootCore (`steps().s.boot`), — проверяется реакция CLI на каждый исход. Настоящий
+// bootCore + задача playground.generate — в generate-boot.test.ts.
 import { describe, expect, it } from "vitest";
-import { OwnerBusyError, type StorageStatus } from "@ms/core";
-import { type CliSteps, parseArgs, runGenerate } from "../../src/cli/generate.js";
+import { OwnerBusyError, type OwnerLock, StorageError, type StorageStatus, type TrackedProcess } from "@ms/core";
+import { type CliCore, type CliSteps, parseArgs, runGenerate } from "../../src/cli/generate.js";
 import type { GenerateResult } from "../../src/pipeline/generate.js";
 
 const OK: StorageStatus = { ok: true, root: "/store", marker: { schema_version: 1, store_id: "s", volume_uuid: "v", created_at: "" }, freeBytes: 1 };
 const env = { MS_DATA_DIR: "/store" };
 
-function steps(over: Partial<CliSteps> = {}) {
+/** Шаги старта под именами среза; `boot` складывает из них поведение bootCore. */
+interface FakeSteps {
+  acquireLock(root: string): Promise<Pick<OwnerLock, "release">>;
+  checkStorage(): Promise<StorageStatus>;
+  leftoverRuns(): Promise<string[]>;
+  reapStale(root: string, runId: string): Promise<{ clean: boolean; alive: TrackedProcess[] }>;
+  reapStrays(): Promise<{ pid: number; pgid: number }[]>;
+  sweep(): Promise<{ quarantined: string[]; skipped: string[] }>;
+  relock(): Promise<{ relocked: string[]; broken: { dir: string; error: string }[] }>;
+  ensureBrowser(): Promise<{ path: string }>;
+  generate(): Promise<GenerateResult>;
+}
+
+function steps(over: Partial<FakeSteps> = {}) {
   const calls: string[] = [];
-  const s: CliSteps = {
+  const f: FakeSteps = {
     acquireLock: async () => {
       calls.push("lock");
       return { release: async () => void calls.push("release") };
@@ -26,6 +42,32 @@ function steps(over: Partial<CliSteps> = {}) {
       return { status: "ready", runId: "run_x", versionDir: "/v", previewPath: "/v/preview.mp4", costUsd: 1.5, engineerCalls: 1, warnings: ["w1"], timings: {} };
     },
     ...over,
+  };
+  const s: CliSteps & FakeSteps = {
+    ...f,
+    // как bootCore: сбой шага после замка отпускает замок и бросает
+    async boot(e): Promise<CliCore> {
+      const lock = await s.acquireLock(e.MS_DATA_DIR!);
+      try {
+        const st = await s.checkStorage();
+        if (!st.ok) throw new StorageError(st.reason, st.detail);
+        const alive: TrackedProcess[] = [];
+        for (const runId of await s.leftoverRuns()) alive.push(...(await s.reapStale("/store", runId)).alive);
+        const strays = await s.reapStrays();
+        const swept = await s.sweep();
+        const relock = await s.relock();
+        return {
+          root: "/store",
+          reaped: { alive, strays },
+          boot: { swept, relock, reconcile: { imported: 0, skipped: [], missing: { restored: [], broken: [] } } },
+          close: () => lock.release(),
+          generate: () => s.generate(),
+        };
+      } catch (err) {
+        await lock.release();
+        throw err;
+      }
+    },
   };
   return { s, calls };
 }

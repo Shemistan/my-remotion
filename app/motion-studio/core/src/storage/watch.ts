@@ -9,7 +9,7 @@ const DEADLINE_INTERVALS = 3;
  * Сторож хранилища: вызывает `check` каждые `intervalMs` (первый раз — через интервал,
  * проверку перед стартом делает вызывающий). Проверки не перекрываются; проверка,
  * не ответившая за DEADLINE_INTERVALS × intervalMs (например, повисший diskutil на
- * отключённом диске), считается сбоем. На первом сбое `signal` прерывается
+ * отключённом диске), считается сбоем с причиной `storage_watch_timeout`. На первом сбое `signal` прерывается
  * с StorageError и сторож останавливается. После `stop()` сбой уже не прерывает.
  */
 export function watchStorage(
@@ -31,7 +31,7 @@ export function watchStorage(
     let deadline: NodeJS.Timeout | undefined;
     const timeout = new Promise<Failure>((resolve) => {
       deadline = setTimeout(
-        () => resolve({ ok: false, reason: "not_found", detail: `проверка хранилища не ответила за ${deadlineMs} мс` }),
+        () => resolve({ ok: false, reason: "storage_watch_timeout", detail: `проверка хранилища не ответила за ${deadlineMs} мс` }),
         deadlineMs,
       );
       deadline.unref();

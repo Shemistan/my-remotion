@@ -269,8 +269,9 @@ export async function writeSceneFailure(
 }
 
 /**
- * Восстановление при старте (под owner lock, после reapStale): draft без маркера карантина,
- * у прогона которого нет записей в `run/processes/`, брошен — прогон умер или хранилище
+ * Восстановление при старте (под owner lock, после разбора реестра): draft без маркера
+ * карантина, у попытки которого нет живых записей в реестре (сервер — слияние
+ * `job_processes` и бокового `run/processes/`), брошен — прогон умер или хранилище
  * пропало до записи маркера. Такие draft помечаются карантином с причиной `abandoned`;
  * draft с живыми записями процессов не трогаются.
  */
@@ -281,7 +282,7 @@ export async function sweepAbandonedDrafts(
   const out = { quarantined: [] as string[], skipped: [] as string[] };
   const draftsDir = join(root, "workspace/drafts");
   if (!existsSync(draftsDir)) return out;
-  const live = new Set((await registry.list()).map((p) => `${p.runId}-a${p.attempt}`));
+  const live = new Set((await registry.live()).map((p) => `${p.runId}-a${p.attempt}`));
   for (const e of await readdir(draftsDir, { withFileTypes: true })) {
     if (!e.isDirectory()) continue;
     const m = /^(.+)-a(\d+)$/.exec(e.name);
@@ -300,7 +301,12 @@ export async function sweepAbandonedDrafts(
 
 /** Помечает draft карантином: публикация запрещена, каталог не трогать до решения человека. */
 export async function quarantineDraft(draft: Draft, reason: string): Promise<void> {
-  await fsyncWrite(join(draft.dir, QUARANTINE), JSON.stringify({ reason, at: new Date().toISOString() }, null, 2) + "\n");
+  await quarantineDir(draft.dir, reason);
+}
+
+/** То же по каталогу draft (восстановление знает только `<job>-a<attempt>`). */
+export async function quarantineDir(dir: string, reason: string): Promise<void> {
+  await fsyncWrite(join(dir, QUARANTINE), JSON.stringify({ reason, at: new Date().toISOString() }, null, 2) + "\n");
 }
 
 function requireStorage(status: StorageStatus): void {

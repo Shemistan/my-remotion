@@ -270,3 +270,11 @@ it("outDir: stills and preview go to a separate dir, the version dir is only rea
   expect(existsSync(join(out, "frames"))).toBe(true);
   expect(existsSync(join(req.versionDir, "frames"))).toBe(false);
 });
+
+it("run.registry goes to spawnTracked for worker and ffprobe; the worker job gets no registry", async () => {
+  const registry = { add: async () => undefined, end: async () => undefined, live: async () => [] };
+  const r = await renderVersion({ ...req, run: { ...req.run, registry } }, undefined, deps(() => ({ stdout: workerOut(okResult(req)) })));
+  expect(r.ok).toBe(true);
+  expect(calls.map((c) => c.opts.registry)).toEqual([registry, registry]);
+  expect(JSON.parse(calls[0]!.opts.stdin!).run).toEqual({ root: req.run.root, runId: "run1", attempt: 1 });
+});

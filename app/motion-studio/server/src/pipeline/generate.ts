@@ -28,7 +28,7 @@ import {
   type Settings,
   type VersionManifest,
 } from "@ms/contracts";
-import { StorageError, StoragePathError, type StorageStatus, safeMkdir, watchStorage } from "@ms/core";
+import { type ProcessRegistry, StorageError, StoragePathError, type StorageStatus, safeMkdir, watchStorage } from "@ms/core";
 import { MOTION_KIT_DIR, probeGate, type renderVersion, resolveStyle } from "@ms/render";
 import type { AgentResult, AgentRuntimeAdapter, AgentTask, Role } from "../agents/runtime.js";
 import type { AppConfig } from "../config.js";
@@ -69,6 +69,14 @@ export interface GenerateDeps {
   skillsRoot?: string;
   /** Строки прогресса (CLI печатает в stderr). */
   log?: (line: string) => void;
+  /**
+   * Прогон задачи (Task 13, `interimGenerate`): `runId` = id задачи, `attempt` — fencing-
+   * токен, `registry` — реестр процессов раннера; draft — `<runId>-a<attempt>`, в manifest
+   * пишется `job`. Без него — свой `run_*`, попытка 1, файловый реестр (срез).
+   */
+  run?: { runId: string; attempt: number; registry?: ProcessRegistry };
+  /** Сцена, созданная вызывающим (строка в БД и brief.json); без неё — новая. */
+  sceneId?: string;
 }
 
 export interface GenerateResult {
@@ -213,8 +221,9 @@ type Exit =
 
 export async function generateScene(prompt: string, settings: Settings, deps: GenerateDeps, signal?: AbortSignal): Promise<GenerateResult> {
   const t0 = Date.now();
-  const runId = newId("run");
-  const attempt = 1;
+  const runId = deps.run?.runId ?? newId("run");
+  const attempt = deps.run?.attempt ?? 1;
+  const registry = deps.run?.registry;
   const { config } = deps;
   const log = deps.log ?? (() => undefined);
   const warnings: string[] = [];
@@ -224,7 +233,7 @@ export async function generateScene(prompt: string, settings: Settings, deps: Ge
   const deniedLog: unknown[] = [];
   let spent = 0;
   let engineerCalls = 0;
-  const sceneId = newId("scn");
+  const sceneId = deps.sceneId ?? newId("scn");
   let draft: Draft | undefined;
   let root = "";
   let briefWritten = false;
@@ -300,7 +309,7 @@ export async function generateScene(prompt: string, settings: Settings, deps: Ge
     model: config.agents[role].model,
     limits: { timeoutMs: config.agents[role].timeoutMs, maxBudgetUsd: config.agents[role].maxBudgetUsd },
     idempotencyKey: `${runId}-a${attempt}-${role}-${seq}`,
-    run: { root, runId, attempt },
+    run: { root, runId, attempt, registry },
   });
   const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -547,7 +556,7 @@ export async function generateScene(prompt: string, settings: Settings, deps: Ge
       const rp = await storageProblem();
       if (rp) return { ok: false, stage: "storage", message: rp };
       log(`рендер: кадры ${frames.join(", ")} + превью…`);
-      const req = { versionDir: draftDir, settings, cacheDir, stills: frames, preview: PREVIEW, timeoutMs: RENDER_TIMEOUT_MS, run: { root, runId, attempt } };
+      const req = { versionDir: draftDir, settings, cacheDir, stills: frames, preview: PREVIEW, timeoutMs: RENDER_TIMEOUT_MS, run: { root, runId, attempt, registry } };
       const r = await timed(`render_${call}`, () => underWatch((sig) => deps.render(req, sig)));
       if (r.error !== undefined) {
         const storage = isStorageError(r.error) || r.lost !== undefined || (await storageProblem()) !== undefined;
@@ -617,6 +626,8 @@ export async function generateScene(prompt: string, settings: Settings, deps: Ge
         ...(exit.ok ? {} : { failure: { stage: exit.stage, message: exit.message } }),
         qa_frames: exit.ok ? frames : [],
         qa_frames_sha256: exit.ok ? exit.framesSha : [],
+        // ruling P3: восстановление узнаёт версию попытки по manifest.job
+        ...(deps.run ? { job: { id: runId, attempt } } : {}),
       } satisfies Omit<VersionManifest, "files" | "version_id" | "number" | "created_at">;
       const published = await timed("publish", () => publishVersion(draft!, meta, deps.storage));
       warnings.push(...published.warnings);

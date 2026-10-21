@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import {
   KnowledgeRefSchema, SettingsSchema, VersionManifestSchema, type Settings, type VersionDiff, type VersionManifest,
 } from "@ms/contracts";
-import { fileProcessRegistry, type StorageStatus } from "@ms/core";
+import { type ProcessRegistry, fileProcessRegistry, type StorageStatus } from "@ms/core";
 import { z } from "zod";
 import type { Db } from "../db/open.js";
 import { tx } from "../db/tx.js";
@@ -92,13 +92,28 @@ function maxNumberOnDisk(versionsDir: string): number {
 
 export class SceneRepo {
   readonly root: string;
-  readonly db: Db;
+  private dbRef: Db;
   private readonly guard: () => Promise<StorageStatus>;
+  private readonly registry: ProcessRegistry | undefined;
 
-  constructor(deps: { root: string; db: Db; guard: () => Promise<StorageStatus> }) {
+  /**
+   * `registry` — реестр процессов для `cleanupDrafts` (сервер: слияние SQLite и бокового
+   * файлового); без него — `job_processes` этой БД и `run/processes/`.
+   */
+  constructor(deps: { root: string; db: Db; guard: () => Promise<StorageStatus>; registry?: ProcessRegistry }) {
     this.root = deps.root;
-    this.db = deps.db;
+    this.dbRef = deps.db;
     this.guard = deps.guard;
+    this.registry = deps.registry;
+  }
+
+  get db(): Db {
+    return this.dbRef;
+  }
+
+  /** База переоткрыта после `storage_offline` (StorageSupervisor). */
+  useDb(db: Db): void {
+    this.dbRef = db;
   }
 
   /** Новая сцена: `brief.json` в каталоге сцены и строка в БД. Синхронно — годится внутри `tx`. */
@@ -200,6 +215,7 @@ export class SceneRepo {
   async restore(sceneId: string, versionId: string, fence: Fence, opts: RestoreOptions = {}): Promise<PublishedVersion> {
     const row = versions.get(this.db, versionId);
     if (!row || row.scene_id !== sceneId) throw new Error(`scenes: версии ${versionId} нет у сцены ${sceneId}`);
+    if (row.broken_reason) throw new Error(`version_broken: версия ${versionId} недоступна: ${row.broken_reason}`);
     if (row.status !== "ready") throw new Error(`restore_not_ready: версия ${versionId} в статусе ${row.status}, восстанавливать можно только ready`);
     const scene = scenes.get(this.db, sceneId)!;
     const srcDir = join(this.root, row.path);
@@ -247,6 +263,7 @@ export class SceneRepo {
     const load = async (id: string) => {
       const row = versions.get(this.db, id);
       if (!row) throw new Error(`scenes: версии нет: ${id}`);
+      if (row.broken_reason) throw new Error(`version_broken: версия ${id} недоступна: ${row.broken_reason}`);
       const dir = join(this.root, row.path);
       const manifest = VersionManifestSchema.parse(JSON.parse(await readFile(join(dir, "manifest.json"), "utf8")));
       const json = async (name: string): Promise<unknown> =>
@@ -275,8 +292,11 @@ export class SceneRepo {
     if (!existsSync(draftsDir)) return out;
     const key = (runId: string, attempt: number) => `${runId}-a${attempt}`;
     const alive = new Set(live.map((l) => key(l.runId, l.attempt)));
-    for (const p of jobProcesses.listLive(this.db)) alive.add(key(p.job_id, p.attempt));
-    for (const p of await fileProcessRegistry(this.root).list()) alive.add(key(p.runId, p.attempt));
+    if (this.registry) for (const p of await this.registry.live()) alive.add(key(p.runId, p.attempt));
+    else {
+      for (const p of jobProcesses.listLive(this.db)) alive.add(key(p.job_id, p.attempt));
+      for (const p of await fileProcessRegistry(this.root).live()) alive.add(key(p.runId, p.attempt));
+    }
     const entries = (await readdir(draftsDir, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name).sort();
     for (const name of entries) {
       const dir = join(draftsDir, name);

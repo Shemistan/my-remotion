@@ -1,6 +1,7 @@
 // Контракт рантайма агентов (docs/architecture/04-agent-workflows.md §4–5).
 // Реализации: ClaudeCodeRuntime (claude -p --restricted); замена на API/Agent SDK —
 // второй адаптер с тем же интерфейсом.
+import type { ProcessRegistry } from "@ms/core";
 import type { ZodType } from "zod";
 
 export const ROLES = ["concept", "motion_director", "engineer", "visual_qa", "edit_planner"] as const;
@@ -29,8 +30,11 @@ export interface AgentTask<I> {
   model: string;
   limits: { timeoutMs: number; maxBudgetUsd: number };
   idempotencyKey: string;
-  /** Корень хранилища и прогон для реестра `run/processes/` (ADR 0007). */
-  run: { root: string; runId: string; attempt: number };
+  /**
+   * Контекст прогона (ADR 0007): хранилище, попытка и реестр процессов. Без `registry` —
+   * файловый `run/processes/` (только CLI и тесты); сервер передаёт `SqliteProcessRegistry`.
+   */
+  run: { root: string; runId: string; attempt: number; registry?: ProcessRegistry };
 }
 
 /**
@@ -54,7 +58,7 @@ export interface AgentResult<O> {
   output?: O;
   /**
    * `orphaned` — группа процессов не исчезла после выхода (ADR 0007): попытку считать
-   * незавершённой, повтор только после reapStale.
+   * незавершённой, повтор только после reapAttempt.
    */
   error?: { kind: AgentErrorKind; message: string };
   usage: AgentUsage;

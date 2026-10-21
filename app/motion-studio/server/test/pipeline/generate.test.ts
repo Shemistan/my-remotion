@@ -395,7 +395,7 @@ describe("sweepAbandonedDrafts", () => {
     mkdirSync(join(drafts, "run_B-a1"), { recursive: true });
     mkdirSync(join(drafts, "run_C-a1"), { recursive: true });
     writeFileSync(join(drafts, "run_C-a1", ".quarantined"), "{\"reason\":\"old\"}");
-    const registry = { add: async () => undefined, remove: async () => undefined, list: async () => [{ runId: "run_B", attempt: 1, pid: 1, pgid: 1, startedAt: "", cmd: "x" }] };
+    const registry = { add: async () => undefined, end: async () => undefined, live: async () => [{ runId: "run_B", attempt: 1, pid: 1, pgid: 1, startedAt: "", cmd: "x" }] };
     const r = await sweepAbandonedDrafts(root, registry);
     expect(r.quarantined).toEqual([join(drafts, "run_A-a1")]);
     expect(r.skipped).toEqual([join(drafts, "run_B-a1")]);

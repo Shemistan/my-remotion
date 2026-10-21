@@ -3,7 +3,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { chmodSync, existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { groupExists, procInfo, reapStale, safeMkdir } from "@ms/core";
+import { fileProcessRegistry, groupExists, procInfo, reapStale, safeMkdir } from "@ms/core";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { CHROME_WRAPPER } from "../src/node/browser.js";
 import { BROWSER_CMD_PREFIX, findByMarker, reapStrayRenderers, settleBrowserRecords } from "../src/node/processes.js";
@@ -99,10 +99,10 @@ it("settleBrowserRecords kills the Chrome group and removes the record only once
   await until(() => existsSync(join(root, "run/processes", `run7-a2-${pid}.json`)) && readdirSync(join(root, "run/processes")).length === 1);
   await until(async () => (await procInfo(pid)) !== undefined);
   // другая попытка того же прогона не задета
-  expect(await settleBrowserRecords(root, { runId: "run7", attempt: 1 })).toEqual([]);
+  expect(await settleBrowserRecords(fileProcessRegistry(root), { runId: "run7", attempt: 1 })).toEqual([]);
   expect(readdirSync(join(root, "run/processes"))).toHaveLength(1);
 
-  expect(await settleBrowserRecords(root, { runId: "run7", attempt: 2 }, 5000)).toEqual([]);
+  expect(await settleBrowserRecords(fileProcessRegistry(root), { runId: "run7", attempt: 2 }, 5000)).toEqual([]);
   expect(groupExists(pid)).toBe(false);
   expect(readdirSync(join(root, "run/processes"))).toEqual([]);
 });

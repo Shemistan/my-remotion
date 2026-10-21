@@ -4,7 +4,7 @@ import { access, mkdtemp, readdir, rename, rm } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Settings } from "@ms/contracts";
-import { StorageError, safeMkdir, spawnTracked } from "@ms/core";
+import { type ProcessRegistry, StorageError, fileProcessRegistry, safeMkdir, spawnTracked } from "@ms/core";
 import { CHROME_WRAPPER, findRenderBrowser } from "./browser.js";
 import { APP_NODE_MODULES, MOTION_KIT_DIR, mkdirOne, readProps, writeEntry } from "./entry.js";
 import { FFPROBE_ARGS, type ProbeResult, ffprobeBin, parseProbe } from "./ffprobe.js";
@@ -18,7 +18,11 @@ export interface RenderRequest {
   stills: number[];
   preview: { scale: number; crf: number };
   timeoutMs: number;
-  run: { root: string; runId: string; attempt: number };
+  /**
+   * Контекст прогона (ADR 0007): хранилище, попытка и реестр процессов. Без `registry` —
+   * файловый `run/processes/` (только CLI и тесты); сервер передаёт `SqliteProcessRegistry`.
+   */
+  run: { root: string; runId: string; attempt: number; registry?: ProcessRegistry };
   /**
    * Куда писать `frames/<n>.png` и `preview.mp4` (каталог должен существовать). По
    * умолчанию — `versionDir`; отдельный каталог позволяет перерендерить опубликованную
@@ -37,7 +41,7 @@ export interface RenderRequest {
  * - `aborted` — сработал `signal` вызывающего, группа убита;
  * - `timeout` также ставит worker, если сработал (чуть более короткий) таймаут delayRender;
  * - `orphaned` — группа процессов (worker, ffprobe или Chrome) не исчезла и после SIGKILL:
- *   попытка НЕ завершена; записи в `run/processes/` оставлены (их добьёт reapStale),
+ *   попытка НЕ завершена; записи в реестре оставлены (их добьёт reapAttempt),
  *   Chrome без записи найдёт reapStrayRenderers; `run/tmp/…` попытки переименован в
  *   `*.quarantined`. Это не обычная ошибка рендера: повторять попытку нельзя, пока
  *   процессы живы (ADR 0007, `stale_process`).
@@ -204,7 +208,7 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
   const outDir = req.outDir ?? req.versionDir;
   const framesDir = await mkdirOne(join(outDir, "frames"));
   const bundlesDir = await mkdirOne(join(req.cacheDir, "bundles"));
-  const { root, runId, attempt } = req.run;
+  const { root, runId, attempt, registry } = req.run;
   const ref = { runId, attempt };
   const tmpRoot = await safeMkdir(root, "run/tmp");
   if (signal?.aborted) return cancelled();
@@ -254,6 +258,7 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
       signal: ac.signal,
       stdin: JSON.stringify(job),
       killGraceMs: deps.killGraceMs ?? 5000,
+      registry,
     });
     const out = parseWorkerOutput(w.stdout);
     if (w.orphaned) {
@@ -266,7 +271,7 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
     }
     // Chrome — в своей группе: добиваем по TMPDIR попытки, затем закрываем его записи
     const strays = await reapByMarker(runTmp + "/", { graceMs: 0, waitMs: STRAY_WAIT_MS });
-    const browsers = await settleBrowserRecords(root, ref);
+    const browsers = await settleBrowserRecords(fileProcessRegistry(root), ref);
     if (strays.length > 0 || browsers.length > 0) {
       orphaned = true;
       const pids = [...new Set([...strays.map((p) => p.pid), ...browsers.map((p) => p.pid)])].join(", ");
@@ -293,7 +298,7 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
       return { ok: false, stills: r.stills, browserLogs, error };
     }
 
-    const p = await spawn(root, ref, ffprobe, [...FFPROBE_ARGS, r.previewPath], { cwd: runTmp, env, signal: ac.signal });
+    const p = await spawn(root, ref, ffprobe, [...FFPROBE_ARGS, r.previewPath], { cwd: runTmp, env, signal: ac.signal, registry });
     if (p.orphaned) {
       orphaned = true;
       return fail("orphaned", "группа ffprobe не исчезла после SIGKILL; её запись оставлена в run/processes/, попытка не завершена (stale_process)", {

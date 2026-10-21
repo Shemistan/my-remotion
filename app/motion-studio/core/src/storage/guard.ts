@@ -25,7 +25,9 @@ export type StorageFailure =
   | "volume_mismatch"
   | "system_volume"
   | "not_writable"
-  | "low_space";
+  | "low_space"
+  /** Проверка хранилища не ответила за 3 интервала сторожа (повис `diskutil`), а не «диск не найден». */
+  | "storage_watch_timeout";
 
 export type StorageStatus =
   | { ok: true; root: string; marker: StoreMarker; freeBytes: number }

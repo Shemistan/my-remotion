@@ -143,7 +143,8 @@ const CANCELLED: JobError = { code: "cancelled", stage: "cancelled", message: "�
 /**
  * Пишет итог попытки, если она текущая (fencing в той же транзакции), и снимает замки —
  * в том числе для `awaiting_input`: сцена свободна, задача ждёт ответа. Запрошенная отмена
- * превращает `awaiting_input` в `cancelled`.
+ * превращает `awaiting_input` в `cancelled`. `blocked` и `failed(stale_process)` дают
+ * `blocked` и замки не снимают (их снимет восстановление или повтор после смерти процессов).
  */
 export function finish(db: Db, jobId: string, attempt: number, result: HandlerResult): boolean {
   return tx(db, () => {
@@ -157,6 +158,10 @@ export function finish(db: Db, jobId: string, attempt: number, result: HandlerRe
       next = jobs.update(db, jobId, { ...done, finished_at: null, status: "awaiting_input", output_refs: { questions: result.questions } });
     } else if (result.status === "awaiting_input") {
       next = jobs.update(db, jobId, { ...done, status: "cancelled", error: CANCELLED });
+    } else if (result.status === "blocked" || (result.status === "failed" && result.error.code === "stale_process")) {
+      // процессы попытки живы: ждём человека, замки держатся до подтверждённого завершения
+      jobs.update(db, jobId, { ...done, finished_at: null, status: "blocked", error: result.error });
+      return true;
     } else {
       next = jobs.update(db, jobId, { ...done, status: result.status, error: result.error });
     }

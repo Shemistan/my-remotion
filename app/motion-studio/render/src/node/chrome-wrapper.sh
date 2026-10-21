@@ -1,9 +1,11 @@
 #!/bin/sh
 # browserExecutable для Remotion. Remotion запускает браузер detached — в собственной
 # группе процессов, вне группы worker. Обёртка до старта Chrome пишет запись в
-# `run/processes/` (тот же формат, что у fileProcessRegistry; pgid = свой pid, раз мы
-# лидер группы), затем exec-ает Chrome: pid, группа и время старта сохраняются, и после
-# сбоя сервера reapStale находит и убивает Chrome как обычную запись (ADR 0007).
+# «боковой» файловый реестр `run/processes/` (тот же формат, что у fileProcessRegistry;
+# pgid = свой pid, раз мы лидер группы): до SQLite сервера процесс, запущенный Remotion,
+# не дотянется. Затем exec-ает Chrome: pid, группа и время старта сохраняются, и после
+# сбоя сервера восстановление (reapAttempt по слиянию `job_processes` и бокового реестра
+# по паре runId/attempt) находит и убивает Chrome как обычную запись (ADR 0007).
 #
 # Заодно закрывает браузеру сеть: флаги прокси Remotion (`--no-proxy-server`,
 # `--proxy-server='direct://'`) выкидываются, и весь трафик идёт в 127.0.0.1:9 (discard,
