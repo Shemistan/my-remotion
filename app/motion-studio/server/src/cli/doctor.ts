@@ -78,7 +78,7 @@ async function importSlice(env: StorageEnv, probe: VolumeProbe): Promise<{ code:
       migrate(db);
       bindStoreId(db, status.marker);
       const relock = await relockVersions(root);
-      const repo = new SceneRepo({ root, db, guard: () => checkStorage(env, probe) });
+      const repo = new SceneRepo({ root, db, guard: () => checkStorage(env, probe, status.marker.store_id) });
       const imported = await reconcileVersions(repo, root);
       const ok = imported.skipped.length === 0 && imported.missing.broken.length === 0 && relock.broken.length === 0;
       return { code: ok ? 0 : 1, output: JSON.stringify({ ok, root, relock, import: imported }, null, 2) };
