@@ -262,6 +262,46 @@ describe("generateScene: хранилище и процессы", () => {
   });
 });
 
+describe("generateScene: прогон задачи (Task 13, fix round 1)", () => {
+  it("fenceOk() = false прямо перед публикацией → fenced_out, версии нет, draft попытки в карантине", async () => {
+    let calls = 0;
+    const deps = { ...(await makeDeps(root, skills)), run: { runId: "job_1", attempt: 2 }, fenceOk: () => (calls++, false) };
+    const r = await generateScene("тест", s, deps);
+    expect(r).toMatchObject({ status: "failed", failure: { stage: "fenced_out" } });
+    expect(calls).toBe(1);
+    expect(versionsOf()).toEqual([]);
+    expect(draftsOf()).toEqual(["job_1-a2"]);
+    expect(JSON.parse(readFileSync(join(root, "workspace/drafts/job_1-a2/.quarantined"), "utf8")).reason).toMatch(/^fenced_out/);
+  });
+
+  it("deps.publish заменяет файловую публикацию; meta несёт job попытки", async () => {
+    const seen: { job?: unknown }[] = [];
+    const deps = {
+      ...(await makeDeps(root, skills)),
+      run: { runId: "job_1", attempt: 1 },
+      fenceOk: () => true,
+      publish: async (_d: unknown, meta: { job?: unknown }) => (seen.push(meta), { dir: join(root, "pub"), warnings: ["w-pub"] }),
+    };
+    const r = await generateScene("тест", s, deps);
+    expect(r).toMatchObject({ status: "ready", versionDir: join(root, "pub") });
+    expect(r.warnings).toContain("w-pub");
+    expect(seen[0]!.job).toEqual({ id: "job_1", attempt: 1 });
+    expect(versionsOf()).toEqual([]);
+  });
+
+  it("deps.publish отклонил fenced_out → этап fenced_out, не publish", async () => {
+    const deps = {
+      ...(await makeDeps(root, skills)),
+      run: { runId: "job_1", attempt: 1 },
+      publish: async () => {
+        throw new Error("fenced_out: попытка 1 задачи job_1 устарела (текущая: 2)");
+      },
+    };
+    const r = await generateScene("тест", s, deps);
+    expect(r).toMatchObject({ status: "failed", failure: { stage: "fenced_out" } });
+  });
+});
+
 describe("generateScene: отказы прав Engineer (rulings п. 14)", () => {
   it("отказ на чтение вне draft → ready с предупреждением, отказы в warnings.json версии", async () => {
     const denial = { tool_name: "Read", tool_use_id: "t1", tool_input: { file_path: "/Users/x/.zshrc" } };

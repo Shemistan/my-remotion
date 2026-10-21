@@ -43,7 +43,8 @@ const self = async (ref: { runId: string; attempt: number }, cmd: string): Promi
 it("ctx.run carries the runner registry; a real child is recorded and ended in job_processes", async () => {
   const r = make({
     "playground.generate": async (ctx) => {
-      expect(ctx.run.registry).toBe(registry);
+      // реестр попытки — обёртка над реестром раннера (закрывается после попытки)
+      expect(ctx.run.registry).not.toBe(registry);
       const res = await spawnTracked(ctx.run.root, ctx.run, "/bin/sh", ["-c", "exit 0"], { cwd: env.s.tmp, env: process.env, signal: ctx.signal, registry: ctx.run.registry });
       return { status: "completed", outputRefs: { code: res.code } };
     },
@@ -179,4 +180,46 @@ it("isPaused and useDb (StorageSupervisor hooks)", async () => {
   r.useDb(env.db);
   r.resume();
   expect(r.isPaused()).toBe(false);
+});
+
+it("fix 1: claim filter by ids — the runner claims only listed jobs (empty set — none)", async () => {
+  const only = new Set<string>();
+  const ran: string[] = [];
+  const r = make({ "playground.generate": async (ctx) => (ran.push(ctx.job.id), { status: "completed", outputRefs: {} }) }, { onlyIds: only });
+  const a = enqueue(env.db, req({ idempotencyKey: "a" })).job;
+  const b = enqueue(env.db, req({ idempotencyKey: "b", sceneId: "scn_2" })).job;
+  r.start();
+  await new Promise((res) => setTimeout(res, 50));
+  expect(ran).toEqual([]);
+  only.add(b.id);
+  await until(() => jobs.get(env.db, b.id)!.status === "completed", "b");
+  expect(ran).toEqual([b.id]);
+  expect(jobs.get(env.db, a.id)!.status).toBe("pending");
+});
+
+it("fix 6: after the cancel-path reap the attempt is closed — a late spawn through ctx.run is refused and never runs", async () => {
+  const late = deferred();
+  const marker = join(env.s.tmp, "late-spawn");
+  let lateErr: unknown;
+  const r = make({
+    "playground.generate": async (ctx) => {
+      await late.promise; // обработчик не слушает abort
+      // свой signal, не ctx.signal: защита — в реестре попытки, а не в сигнале
+      lateErr = await spawnTracked(ctx.run.root, ctx.run, "/bin/sh", ["-c", `touch "${marker}"`], {
+        cwd: env.s.tmp, env: { PATH: "/usr/bin:/bin" }, signal: new AbortController().signal, registry: ctx.run.registry,
+      }).catch((e: unknown) => e);
+      return { status: "completed", outputRefs: {} };
+    },
+  }, { abortTimeoutMs: 50, reapOptions: { graceMs: 20, waitMs: 200 } });
+  const j = enqueue(env.db, req()).job;
+  r.start();
+  await until(() => jobs.get(env.db, j.id)!.status === "running", "running");
+  requestCancel(env.db, j.id);
+  await until(() => jobs.get(env.db, j.id)!.status === "cancelled", "cancelled", 5000);
+  late.resolve();
+  await until(() => lateErr !== undefined, "поздний spawn");
+  expect(String(lateErr)).toMatch(/attempt_closed/);
+  await new Promise((res) => setTimeout(res, 100));
+  expect(existsSync(marker)).toBe(false);
+  expect(await registry.live()).toEqual([]);
 });

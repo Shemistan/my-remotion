@@ -1,5 +1,4 @@
-// CLI generate: аргументы, порядок старта (owner lock → storage → reap → relock → generate)
-// и вывод. Старт идёт через bootCore; здесь он подменён шагами с теми же именами, что
+// CLI generate: аргументы, реакция на исходы старта и вывод. Старт идёт через bootCore; здесь он подменён шагами с теми же именами, что
 // у bootCore (`steps().s.boot`), — проверяется реакция CLI на каждый исход. Настоящий
 // bootCore + задача playground.generate — в generate-boot.test.ts.
 import { describe, expect, it } from "vitest";
@@ -93,7 +92,10 @@ describe("parseArgs", () => {
 });
 
 describe("runGenerate", () => {
-  it("порядок: lock → storage → reap → strays → sweep → relock → browser → generate → release; печатает итог", async () => {
+  // Порядок шагов ниже задаёт фейковый boot этого файла, а не код: настоящий порядок
+  // bootCore проверяет boot-order.test.ts. Здесь проверяется обвязка CLI: шаги после
+  // загрузки (browser → generate), освобождение хранилища (release) и вывод.
+  it("обвязка CLI (фейковый boot): browser и generate после загрузки, release в конце; печатает итог", async () => {
     const { s, calls } = steps();
     const o = io();
     expect(await runGenerate(["Рост"], env, o.io, s)).toBe(0);

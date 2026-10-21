@@ -35,7 +35,7 @@ import type { AppConfig } from "../config.js";
 import { sha256File } from "../scenes/hash.js";
 import { newId } from "../scenes/ids.js";
 import type { checkSceneDir } from "../scenes/static-check.js";
-import { type Draft, createDraft, publishVersion, quarantineDraft, writeBrief, writeSceneFailure } from "../scenes/store.js";
+import { type Draft, type PublishMeta, createDraft, publishVersion, quarantineDraft, writeBrief, writeSceneFailure } from "../scenes/store.js";
 import type { typecheckVersion } from "../scenes/typecheck.js";
 import { canSpend } from "./budget.js";
 import {
@@ -77,6 +77,16 @@ export interface GenerateDeps {
   run?: { runId: string; attempt: number; registry?: ProcessRegistry };
   /** Сцена, созданная вызывающим (строка в БД и brief.json); без неё — новая. */
   sceneId?: string;
+  /**
+   * Попытка ещё текущая (`ctx.fenceOk` задачи): проверяется прямо перед публикацией;
+   * `false` — draft в карантин `fenced_out`, публикации нет.
+   */
+  fenceOk?: () => boolean;
+  /**
+   * Публикация версии (задача: `SceneRepo.publish` с fencing в транзакции и строкой
+   * `scene_versions`); по умолчанию — файловая `publishVersion` среза.
+   */
+  publish?: (draft: Draft, meta: PublishMeta) => Promise<{ dir: string; warnings: string[] }>;
 }
 
 export interface GenerateResult {
@@ -629,7 +639,12 @@ export async function generateScene(prompt: string, settings: Settings, deps: Ge
         // ruling P3: восстановление узнаёт версию попытки по manifest.job
         ...(deps.run ? { job: { id: runId, attempt } } : {}),
       } satisfies Omit<VersionManifest, "files" | "version_id" | "number" | "created_at">;
-      const published = await timed("publish", () => publishVersion(draft!, meta, deps.storage));
+      if (deps.fenceOk && !deps.fenceOk()) {
+        const msg = `fenced_out: попытка ${attempt} задачи ${runId} больше не текущая (отменена или захвачена заново) — публикации нет`;
+        await quarantine(draft!, msg, warnings);
+        return failed("fenced_out", msg);
+      }
+      const published = await timed("publish", () => (deps.publish ?? ((d, m) => publishVersion(d, m, deps.storage)))(draft!, meta));
       warnings.push(...published.warnings);
       const extra = { versionDir: published.dir, previewPath: preview ? join(published.dir, "preview.mp4") : undefined };
       if (exit.ok) {
@@ -640,6 +655,7 @@ export async function generateScene(prompt: string, settings: Settings, deps: Ge
     } catch (e) {
       const sp = isStorageError(e) ? errText(e) : await storageProblem();
       await quarantine(draft!, `публикация не удалась: ${errText(e)}`, warnings);
+      if (/^fenced_out\b/.test(errText(e))) return failed("fenced_out", errText(e));
       if (sp) return failed("storage", `публикация не удалась: ${errText(e)}`);
       const what = exit.ok ? "" : ` (до этого: ${exit.stage}: ${clip(exit.message, 500)})`;
       return failed("publish", `публикация не удалась: ${errText(e)}${what}`);

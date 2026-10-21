@@ -10,7 +10,7 @@ import * as jobs from "../../src/db/repos/jobs.js";
 import * as sceneLocks from "../../src/db/repos/scene-locks.js";
 import { SqliteProcessRegistry, mergeRegistries } from "../../src/jobs/process-registry.js";
 import { claimNext, enqueue, requestCancel } from "../../src/jobs/queue.js";
-import { recoverOnStart } from "../../src/jobs/recovery.js";
+import { recoverOnStart, releaseStaleLocks } from "../../src/jobs/recovery.js";
 import { retryJob } from "../../src/jobs/retry.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
 import { makeDraft, meta } from "../scenes/helpers.js";
@@ -181,5 +181,29 @@ describe("recoverOnStart", () => {
     const rep = await recoverOnStart({ db: env.db, repo, registry, reap: fastReap, reason: "storage_unavailable" });
     expect(rep.requeued).toEqual(["job_1"]);
     expect(jobs.get(env.db, "job_1")).toMatchObject({ status: "pending", interrupts: 2, error: { code: "storage_unavailable", stage: "storage" } });
+  });
+});
+
+describe("releaseStaleLocks (fix 5: runtime sweep)", () => {
+  it("cancelled blocked job: lock held while its process lives (sweep never kills); released once the process is gone", async () => {
+    await seedRunning("job_1");
+    const o = await spawnOrphan(registry, { runId: "job_1", attempt: 1 }, env.s.tmp);
+    jobs.update(env.db, "job_1", { status: "blocked", error: { code: "stale_process", message: "x", pids: [o.pid] } });
+    requestCancel(env.db, "job_1");
+    expect(await releaseStaleLocks(env.db, registry)).toEqual([]);
+    expect(await procInfo(o.grandchild)).toBeDefined();
+    expect(sceneLocks.holder(env.db, "scn_1")).toBe("job_1");
+    process.kill(-o.pid, "SIGKILL");
+    await new Promise((r) => setTimeout(r, 200));
+    expect(await releaseStaleLocks(env.db, registry)).toEqual(["job_1"]);
+    expect(sceneLocks.holder(env.db, "scn_1")).toBeUndefined();
+    expect(await registry.live()).toEqual([]);
+    expect(jobs.get(env.db, "job_1")!.status).toBe("cancelled");
+  });
+
+  it("running and pending jobs are not touched", async () => {
+    await seedRunning("job_1");
+    expect(await releaseStaleLocks(env.db, registry)).toEqual([]);
+    expect(sceneLocks.holder(env.db, "scn_1")).toBe("job_1");
   });
 });

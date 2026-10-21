@@ -24,7 +24,7 @@ import { migrate } from "./db/migrate.js";
 import { type Db, openDb } from "./db/open.js";
 import { EventBus } from "./jobs/events.js";
 import { SqliteProcessRegistry, mergeRegistries } from "./jobs/process-registry.js";
-import { type RecoveryReport, recoverOnStart } from "./jobs/recovery.js";
+import { type RecoveryReport, recoverOnStart, releaseStaleLocks } from "./jobs/recovery.js";
 import { JobRunner, type JobRunnerOptions } from "./jobs/runner.js";
 import { StorageSupervisor } from "./jobs/storage-mode.js";
 import type { Handlers } from "./jobs/types.js";
@@ -65,6 +65,8 @@ export interface BootOptions {
   agents?: AgentRuntimeAdapter;
   runner?: Partial<Omit<JobRunnerOptions, "db" | "root" | "handlers" | "registry" | "events">>;
   storageIntervalMs?: number;
+  /** Период уборки замков задач, чьи процессы исчезли (`releaseStaleLocks`), мс (30 000). */
+  lockSweepMs?: number;
 }
 
 /** Отчёт шагов загрузки до восстановления (CLI печатает предупреждения). */
@@ -195,6 +197,20 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     });
     runner.start();
     storage.start();
+    // отменённая/blocked задача держит замки, пока живы её процессы (Task 12): как только
+    // они исчезли, замки снимаются без рестарта (при возврате хранилища — через recover)
+    let sweeping = false;
+    const st0 = storage;
+    const lockSweep = setInterval(() => {
+      if (sweeping || st0.mode() !== "online") return;
+      sweeping = true;
+      releaseStaleLocks(current.db, processes, events)
+        .catch(() => undefined)
+        .finally(() => {
+          sweeping = false;
+        });
+    }, opts.lockSweepMs ?? 30_000);
+    lockSweep.unref();
     log("runner");
 
     const r = runner;
@@ -220,6 +236,7 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
       async close() {
         if (closed) return;
         closed = true;
+        clearInterval(lockSweep);
         await st.stop();
         await r.stop({ abortRunning: true });
         try {

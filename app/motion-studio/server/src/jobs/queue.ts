@@ -82,6 +82,8 @@ export function enqueue(db: Db, req: EnqueueRequest): { job: Job; created: boole
 export interface ClaimOptions {
   /** Брать только эти типы (те, для которых у раннера есть обработчик). */
   types?: readonly JobType[];
+  /** Брать только задачи с этими id (CLI: только свою задачу, не чужие и не оставшиеся). */
+  ids?: ReadonlySet<string>;
   /** Ключ замка ресурса; по умолчанию `lockKeyFor`. */
   lockKeyFor?: LockKeyFor;
 }
@@ -98,6 +100,7 @@ export function claimNext(db: Db, owner: string, now: number, busy: Busy, opts: 
     const ids = db.prepare("SELECT id FROM jobs WHERE status = 'pending' ORDER BY created_at, rowid").pluck().all() as string[];
     for (const id of ids) {
       const cand = jobs.get(db, id)!;
+      if (opts.ids && !opts.ids.has(id)) continue;
       if (opts.types && !opts.types.includes(cand.type)) continue;
       if (!locksFree(db, cand, keyFor)) continue;
       const attempt = cand.attempt + 1;

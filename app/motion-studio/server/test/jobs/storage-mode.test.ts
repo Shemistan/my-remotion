@@ -187,3 +187,41 @@ it("quick_check fails after return → stays storage_offline", async () => {
   await until(() => /quick_check/.test(sup!.reason() ?? ""), "quick_check", 5000);
   expect(sup!.mode()).toBe("storage_offline");
 });
+
+it("fix 4: return fails mid-switch (recover throws) → new db closed, registry detached, stays storage_offline; next poll succeeds", async () => {
+  const opened: Db[] = [];
+  let fail = true;
+  const { sql } = server(async () => ({ status: "completed", outputRefs: {} }), {
+    reopen: () => {
+      const db = reopen();
+      opened.push(db);
+      return db;
+    },
+  });
+  const realRecover = (sup as unknown as { deps: { recover: (db: Db) => Promise<unknown> } }).deps.recover;
+  (sup as unknown as { deps: { recover: (db: Db) => Promise<unknown> } }).deps.recover = async (db) => {
+    if (fail) {
+      fail = false;
+      throw new Error("разбор упал");
+    }
+    return realRecover(db);
+  };
+  runner!.start();
+  sup!.start();
+  renameSync(env.s.root, `${env.s.root}.gone`);
+  await until(() => sup!.mode() === "storage_offline", "storage_offline", 5000);
+  renameSync(`${env.s.root}.gone`, env.s.root);
+  await until(() => /разбор упал/.test(sup!.reason() ?? ""), "сбой возврата", 5000);
+  expect(sup!.mode()).toBe("storage_offline");
+  expect(opened[0]!.open).toBe(false);
+  expect(runner!.isPaused()).toBe(true);
+  // реестр отцеплен: запись идёт в память, а не в закрытую базу
+  await sql.add({ runId: "job_x", attempt: 1, pid: 4242, pgid: 4242, startedAt: "x", cmd: "x" });
+  await until(() => sup!.mode() === "online", "online", 5000);
+  expect(opened.length).toBeGreaterThanOrEqual(2);
+  expect(sup!.db()).toBe(opened.at(-1));
+  expect(runner!.isPaused()).toBe(false);
+  // накопленное в памяти досинхронизировано
+  expect(jobProcesses.listLive(sup!.db()).map((p) => p.pid)).toEqual([4242]);
+  env.db = sup!.db();
+});

@@ -5,7 +5,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Job, JobError } from "@ms/contracts";
-import { type ProcessRegistry, reapAttempt } from "@ms/core";
+import { type ProcessRegistry, isTrackedAlive, reapAttempt } from "@ms/core";
 import type { Db } from "../db/open.js";
 import * as jobEvents from "../db/repos/job-events.js";
 import * as jobs from "../db/repos/jobs.js";
@@ -140,8 +140,7 @@ export async function recoverOnStart(deps: RecoveryDeps): Promise<RecoveryReport
   }
 
   // Замки задач не в работе (Task 12: отменённая `blocked` держит их, пока процессы живы).
-  const holders = db.prepare("SELECT job_id FROM scene_locks UNION SELECT job_id FROM resource_locks").pluck().all() as string[];
-  for (const id of holders.sort()) {
+  for (const id of lockHolders(db)) {
     const job = jobs.get(db, id);
     if (!job || job.status === "running" || job.status === "pending") continue;
     const r = await reap(registry, { runId: job.id, attempt: job.attempt });
@@ -167,4 +166,39 @@ async function publishedBy(db: Db, root: string, job: Job): Promise<string | und
     }
   }
   return undefined;
+}
+
+/** Задачи, которые держат замок сцены или ресурса. */
+function lockHolders(db: Db): string[] {
+  return (db.prepare("SELECT job_id FROM scene_locks UNION SELECT job_id FROM resource_locks").pluck().all() as string[]).sort();
+}
+
+/**
+ * Периодическая уборка замков во время работы (fix round 1): задачи не в работе
+ * (`cancelled`, `blocked`, …), которые держат замки, пока живы процессы их попытки
+ * (Task 12). Здесь процессы НЕ убиваются — только проверяется, что они исчезли (человек
+ * добил, сами вышли); тогда записи закрываются и замки снимаются. Возвращает id задач.
+ */
+export async function releaseStaleLocks(db: Db, registry: ProcessRegistry, events?: EventBus): Promise<string[]> {
+  const released: string[] = [];
+  for (const id of lockHolders(db)) {
+    const job = jobs.get(db, id);
+    if (!job || job.status === "running" || job.status === "pending") continue;
+    let alive = false;
+    for (const p of await registry.live({ runId: job.id, attempt: job.attempt })) {
+      if (await isTrackedAlive(p)) alive = true;
+      else await registry.end(p, { code: null, signal: null });
+    }
+    if (alive) continue;
+    tx(db, () => {
+      const cur = jobs.get(db, id)!;
+      if (cur.status === "running" || cur.status === "pending") return;
+      releaseLocks(db, cur);
+      const ev = { job_id: id, level: "info" as const, kind: "locks_released", message: "процессы прежней попытки завершены — замки сняты" };
+      if (events) events.emit(db, ev);
+      else jobEvents.insert(db, ev);
+      released.push(id);
+    });
+  }
+  return released;
 }

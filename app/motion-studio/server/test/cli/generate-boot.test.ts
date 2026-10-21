@@ -7,6 +7,9 @@ import { type CliSteps, bootCli, runGenerate } from "../../src/cli/generate.js";
 import { openDb } from "../../src/db/open.js";
 import { migrate } from "../../src/db/migrate.js";
 import * as jobs from "../../src/db/repos/jobs.js";
+import * as scenes from "../../src/db/repos/scenes.js";
+import { enqueue } from "../../src/jobs/queue.js";
+import { defaultSettings } from "@ms/contracts";
 import { SqliteProcessRegistry } from "../../src/jobs/process-registry.js";
 import type { KnowledgeAdapter } from "../../src/knowledge/adapter.js";
 import type { GenerateDeps, GenerateResult } from "../../src/pipeline/generate.js";
@@ -83,4 +86,22 @@ it("second owner: CLI refuses with owner_busy while another process holds the st
   expect(await runGenerate(["x"], { MS_DATA_DIR: s.root }, o.io, cliSteps([]))).toBe(1);
   expect(o.err.join("\n")).toContain("owner_busy");
   await lock.release();
+});
+
+it("fix 1: a requeued leftover playground.generate job is not claimed by the CLI — it stays pending", async () => {
+  const db = openDb(s.root);
+  migrate(db);
+  scenes.create(db, { id: "scn_old", project_id: "playground", title: "old" });
+  const old = enqueue(db, { type: "playground.generate", projectId: "playground", sceneId: "scn_old", input: { sceneId: "scn_old", prompt: "old", settings: defaultSettings() }, idempotencyKey: "old" }).job;
+  // прежний процесс умер посреди попытки — при старте CLI восстановление вернёт её в очередь
+  jobs.update(db, old.id, { status: "running", attempt: 1 });
+  db.close();
+  const seen: { deps?: GenerateDeps }[] = [];
+  const o = io();
+  expect(await runGenerate(["новая"], { MS_DATA_DIR: s.root }, o.io, cliSteps(seen))).toBe(0);
+  expect(seen).toHaveLength(1);
+  expect(seen[0]!.deps!.run!.runId).not.toBe(old.id);
+  const db2 = openDb(s.root);
+  expect(jobs.get(db2, old.id)).toMatchObject({ status: "pending", attempt: 1, interrupts: 1 });
+  db2.close();
 });

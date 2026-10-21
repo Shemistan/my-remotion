@@ -68,3 +68,29 @@ it("cancelled → cancelled; bad input → failed(pipeline)", async () => {
   await until(() => jobs.get(env.db, bad.id)!.status === "failed", "failed");
   expect(jobs.get(env.db, bad.id)!.error!.message).toMatch(/вход/);
 });
+
+it("fix 3: with a SceneRepo the pipeline publishes through repo.publish (scene_versions row, fencing) and checks ctx.fenceOk", async () => {
+  const { SceneRepo } = await import("../../src/scenes/repo.js");
+  const repo = new SceneRepo({ root: env.s.root, db: env.db, guard: env.s.guard });
+  let deps: GenerateDeps | undefined;
+  runner = new JobRunner({
+    db: env.db, root: env.s.root, owner: "cli", pollMs: 5,
+    handlers: {
+      "playground.generate": interimGenerate({
+        deps: () => ({}) as GenerateDeps,
+        repo,
+        generate: async (_p, _s, d) => {
+          deps = d;
+          return { ...base, status: "ready" } as GenerateResult;
+        },
+      }),
+    },
+  });
+  const j = enqueue(env.db, { type: "playground.generate", projectId: "playground", sceneId: "scn_1", input: { sceneId: "scn_1", prompt: "Рост", settings: defaultSettings() }, idempotencyKey: "k" }).job;
+  runner.start();
+  await until(() => deps !== undefined, "generate");
+  expect(deps!.fenceOk!()).toBe(true);
+  expect(typeof deps!.publish).toBe("function");
+  await until(() => jobs.get(env.db, j.id)!.status === "completed", "completed");
+  expect(deps!.fenceOk!()).toBe(false);
+});

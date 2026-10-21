@@ -5,7 +5,7 @@
 // studio.db → реестр процессов → reap (не чисто — отказ с pid и командой) → sweep →
 // relock → reconcile → восстановление задач → раннер. Затем ensureRenderBrowser (до трат
 // на агентов), сцена и задача `playground.generate` (обработчик `interimGenerate`) в этом
-// же процессе; CLI ждёт её итога. Код выхода 1 при failed и любом отказе, 2 — usage.
+// же процессе (раннер CLI захватывает только её); CLI ждёт её итога. Код выхода 1 при failed и любом отказе, 2 — usage.
 import { pathToFileURL } from "node:url";
 import { type Settings, SettingsSchema, StylePresetSchema, defaultSettings } from "@ms/contracts";
 import { OwnerBusyError, StorageError } from "@ms/core";
@@ -91,10 +91,14 @@ const TERMINAL = new Set(["completed", "failed", "cancelled", "blocked", "awaiti
  */
 export async function bootCli(env: NodeJS.ProcessEnv, log: (line: string) => void, opts: Partial<BootOptions> & { generate?: typeof generateScene } = {}): Promise<CliCore> {
   const results = new Map<string, GenerateResult>();
+  // раннер CLI берёт только свою задачу: оставшиеся от прежних запусков (восстановление
+  // вернуло их в очередь) ждут сервера или человека, а не тратят бюджет агентов здесь
+  const mine = new Set<string>();
   const core = await bootCore({
     env,
     kind: "cli",
     ...opts,
+    runner: { ...opts.runner, onlyIds: mine },
     handlers: (svc) => ({
       "playground.generate": interimGenerate({
         deps: () => ({
@@ -107,6 +111,7 @@ export async function bootCli(env: NodeJS.ProcessEnv, log: (line: string) => voi
           config: svc.config,
           log,
         }),
+        repo: svc.repo,
         generate: opts.generate,
         onResult: (job, r) => results.set(job.id, r),
       }),
@@ -123,6 +128,8 @@ export async function bootCli(env: NodeJS.ProcessEnv, log: (line: string) => voi
         const input = { sceneId: scene.id, prompt, settings };
         return enqueue(core.db, { type: "playground.generate", projectId: DEFAULT_PROJECT, sceneId: scene.id, input, idempotencyKey: `cli-${newId("run")}` }).job;
       });
+      // сначала задача в БД, затем разрешение раннеру захватить именно её
+      mine.add(job.id);
       const onAbort = () => {
         try {
           requestCancel(core.db, job.id);

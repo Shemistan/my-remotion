@@ -165,11 +165,25 @@ export class StorageSupervisor {
       }
       return;
     }
-    this.dbRef = db;
-    this.deps.registry.attach(db);
-    this.deps.runner.useDb(db);
-    this.deps.onDb?.(db);
-    if (this.deps.recover) this.recovery = await this.deps.recover(db);
+    // переключение на новую базу целиком или никак: сбой любого шага — закрыть её,
+    // реестр снова в память, остаться в storage_offline и повторить на следующем опросе
+    try {
+      this.dbRef = db;
+      this.deps.registry.attach(db);
+      this.deps.runner.useDb(db);
+      this.deps.onDb?.(db);
+      if (this.deps.recover) this.recovery = await this.deps.recover(db);
+    } catch (e) {
+      this.why = `возврат хранилища не удался: ${(e as Error).message}`;
+      this.deps.log?.(`storage_offline: ${this.why}`);
+      this.deps.registry.detach();
+      try {
+        db.close();
+      } catch {
+        // уже закрыта
+      }
+      return;
+    }
     if (this.poll) clearInterval(this.poll);
     this.poll = undefined;
     this.current = "online";

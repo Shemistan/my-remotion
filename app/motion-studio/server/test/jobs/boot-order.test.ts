@@ -14,7 +14,8 @@ import type { KnowledgeAdapter } from "../../src/knowledge/adapter.js";
 import type { AgentRuntimeAdapter } from "../../src/agents/runtime.js";
 import { type BootOptions, type Core, bootCore } from "../../src/boot.js";
 import { SqliteProcessRegistry } from "../../src/jobs/process-registry.js";
-import { enqueue } from "../../src/jobs/queue.js";
+import { enqueue, requestCancel } from "../../src/jobs/queue.js";
+import * as sceneLocks from "../../src/db/repos/scene-locks.js";
 import { publishVersion } from "../../src/scenes/store.js";
 import { makeStore, probe, removeStore, type TestStore } from "../db/helpers.js";
 import { makeDraft, meta } from "../scenes/helpers.js";
@@ -145,4 +146,25 @@ it("broken version rows (broken_reason) are exposed in core.boot.reconcile.missi
   core = await bootCore(opts());
   expect(core.boot.reconcile.missing.broken).toEqual([{ versionId: "ver_gone", reason: expect.stringContaining("не найден") }]);
   expect(versions.get(core.db, "ver_gone")!.broken_reason).toMatch(/не найден/);
+});
+
+it("fix 5: periodic lock sweep — a cancelled blocked job's scene lock is released during the session once its process dies", async () => {
+  const db = openDb(s.root);
+  migrate(db);
+  scenes.create(db, { id: "scn_1", project_id: "playground", title: "x" });
+  const j = enqueue(db, req()).job;
+  jobs.update(db, j.id, { status: "running", attempt: 1 });
+  sceneLocks.acquire(db, "scn_1", j.id);
+  const o = await spawnOrphan(new SqliteProcessRegistry(db), { runId: j.id, attempt: 1 }, s.tmp);
+  db.close();
+  // процесс не убивается (фейковый kill) → blocked, замок держится
+  core = await bootCore(opts({ reap: (r, f) => reapAttempt(r, f, { kill: () => undefined, graceMs: 20, waitMs: 20 }), lockSweepMs: 50 }));
+  expect(jobs.get(core.db, j.id)!.status).toBe("blocked");
+  requestCancel(core.db, j.id);
+  await new Promise((r) => setTimeout(r, 200));
+  expect(sceneLocks.holder(core.db, "scn_1")).toBe(j.id);
+  // человек добил процесс — замок снимается без рестарта
+  process.kill(-o.pid, "SIGKILL");
+  await until(() => sceneLocks.holder(core!.db, "scn_1") === undefined, "замок снят", 5000);
+  expect(jobs.get(core.db, j.id)!.status).toBe("cancelled");
 });

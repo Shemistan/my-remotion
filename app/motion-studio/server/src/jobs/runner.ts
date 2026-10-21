@@ -4,7 +4,7 @@
 // вернувшийся за `abortTimeoutMs` после abort, отцепляется: процессы его попытки
 // разбираются `reapAttempt` (ADR 0007 п. 4), его поздний итог не пишется.
 import type { Job, JobError, JobType } from "@ms/contracts";
-import { type ProcessRegistry, type ReapOptions, fileProcessRegistry, reapAttempt } from "@ms/core";
+import { type ProcessRegistry, type ReapOptions, type TrackedProcess, fileProcessRegistry, reapAttempt } from "@ms/core";
 import type { Db } from "../db/open.js";
 import * as jobs from "../db/repos/jobs.js";
 import { systemClock, type Clock } from "./clock.js";
@@ -42,6 +42,12 @@ export interface JobRunnerOptions {
   /** Опции `reapAttempt` для отцепленной попытки (подменяются в тестах). */
   reapOptions?: Omit<ReapOptions, "registry">;
   /**
+   * Захватывать только задачи с этими id (множество читается на каждом такте, его можно
+   * пополнять). CLI: пустое при старте, затем — id своей задачи; оставшиеся от прежних
+   * запусков задачи CLI не исполняет.
+   */
+  onlyIds?: ReadonlySet<string>;
+  /**
    * Сбой такта раннера, не связанный с хранилищем (ошибка в коде, схеме). Пишется ещё и в
    * stderr; в `job_events` не попадает — у события нет задачи (`job_id NOT NULL`).
    */
@@ -67,6 +73,26 @@ interface Active {
 }
 
 const ABORT_TIMEOUT_MS = 45_000;
+
+/**
+ * Реестр одной попытки: после `close()` новые процессы не регистрируются (`attempt_closed`),
+ * а значит, и не запускаются — spawnTracked открывает шлюз команды только после `add`.
+ * Так отцепленный обработчик не может породить процесс после разбора его попытки.
+ */
+function attemptRegistry(base: ProcessRegistry, ref: { runId: string; attempt: number }): ProcessRegistry & { close(): void } {
+  let closed = false;
+  return {
+    async add(p: TrackedProcess) {
+      if (closed) throw new Error(`attempt_closed: попытка ${ref.attempt} задачи ${ref.runId} закрыта, новые процессы запрещены`);
+      await base.add(p);
+    },
+    end: (p, exit) => base.end(p, exit),
+    live: (f) => base.live(f),
+    close() {
+      closed = true;
+    },
+  };
+}
 
 export class JobRunner {
   private db: Db;
@@ -161,7 +187,7 @@ export class JobRunner {
     for (;;) {
       let claim: Claim | undefined;
       try {
-        claim = claimNext(this.db, this.opts.owner, this.clock.now(), { running: this.active.size, maxRunning: this.maxRunning }, { types: this.types });
+        claim = claimNext(this.db, this.opts.owner, this.clock.now(), { running: this.active.size, maxRunning: this.maxRunning }, { types: this.types, ids: this.opts.onlyIds });
       } catch (e) {
         if (!isStorageError(e)) this.reportError(e);
         return; // следующий такт
@@ -234,6 +260,7 @@ export class JobRunner {
     }, this.heartbeatMs);
 
     const permits = [new AttemptPermits(this.agents), new AttemptPermits(this.renders), new AttemptPermits(this.heavy)] as const;
+    const attemptReg = attemptRegistry(this.registry, { runId: job.id, attempt });
     // база может быть переоткрыта (storage_offline) — контекст читает текущую
     const currentDb = () => this.db;
     const ctx: JobContext = {
@@ -243,7 +270,7 @@ export class JobRunner {
       job,
       attempt,
       signal: controller.signal,
-      run: { root: this.opts.root, runId: job.id, attempt, registry: this.registry },
+      run: { root: this.opts.root, runId: job.id, attempt, registry: attemptReg },
       emit: (kind, message, data) => this.emit(job.id, "info", kind, message, data),
       progress: (p, stage) => {
         if (setProgress(this.db, job.id, attempt, p, stage)) this.emit(job.id, "debug", "progress", stage, { progress: p, stage });
@@ -283,6 +310,8 @@ export class JobRunner {
       } else if ("r" in out) result = out.r;
       else thrown = out.e;
     } finally {
+      // обработчик вернулся или отцеплен: процессов этой попытки больше не будет
+      attemptReg.close();
       stopAbortWait();
       clearInterval(hb);
       // места, не отданные обработчиком (исключение, abort, забытый release), — обратно
@@ -298,6 +327,7 @@ export class JobRunner {
         this.emit(job.id, "warn", "interrupted", `попытка ${attempt} прервана`);
         return;
       }
+      // реестр попытки уже закрыт (finally выше): процесс не появится ни во время разбора, ни после
       const reaped = await reapAttempt(this.registry, { runId: job.id, attempt }, this.opts.reapOptions).catch(() => undefined);
       result = reaped?.clean
         ? { status: "cancelled", error: { code: "cancelled", stage: "cancelled", message: "задача отменена" } }
