@@ -36,9 +36,14 @@ export interface AnimatedNumberProps {
    * (например `lineChartHead(...).value`). Удар на финише остаётся в `end_frame`.
    */
   value?: number;
+  /**
+   * Кадр входа числа, если он раньше бита счёта: число появляется со значением `from` и
+   * держит его до начала счёта (зритель читает «от»). По умолчанию — начало `beat`.
+   */
+  enterAt?: number;
 }
 
-export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact, decimals, size = 7, font = "display", color, align = "left", reserveWidth, style, value: bound }: AnimatedNumberProps) {
+export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact, decimals, size = 7, font = "display", color, align = "left", reserveWidth, style, value: bound, enterAt }: AnimatedNumberProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -59,7 +64,7 @@ export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact
   const text = formatNumber(value, fmt);
   const ghost = formatNumber(Math.abs(to) >= Math.abs(from) ? to : from, fmt);
 
-  const enter = springAt(frame, fps, s, b0, "snappy");
+  const enter = springAt(frame, fps, s, Math.min(enterAt ?? b0, b0), "snappy");
   // «смаз» цифр при быстром счёте (не больше 1.5 px, к финишу исчезает) и размытие входа
   const speedBlur = Math.min(1.5, Math.abs(p - pPrev) * 60);
   const enterBlur = (1 - clamp01(enter)) * 12;

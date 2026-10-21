@@ -233,10 +233,15 @@ align?, maxWidth?, lineHeight?, delay?, stagger?, exit?, caps?, style? }`
 
 ### AnimatedNumber
 `{ from, to, beat, locale: "ru" | "en", prefix?, suffix?, compact?, decimals?, size? = 7,
-font? = "display" | "mono", reserveWidth?, color?, align?, style?, value? }`
+font? = "display" | "mono", reserveWidth?, color?, align?, style?, value?, enterAt? }`
 
 `value` — внешнее значение вместо своего счёта: привязка к другому источнику движения
 (см. `lineChartHead`). Удар на финише остаётся в `end_frame` бита.
+
+Число входит в начале `beat` — до него его нет на экране. Чтобы зритель сначала прочитал
+«от», а потом начался счёт, передай `enterAt` — кадр входа (начало бита входа числа):
+число появляется со значением `from` и держит его до начала счёта. Своё `<Enter>` вокруг
+`AnimatedNumber` не поможет — у числа собственный вход.
 
 Счёт идёт весь бит: разгон, затем долгое торможение (`EASE.count`). Цифры
 моноширинные. На финише (`end_frame`) — короткий удар масштаба и свечения акцентом.

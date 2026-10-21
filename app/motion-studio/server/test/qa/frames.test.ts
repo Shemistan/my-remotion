@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { MotionSpec } from "@ms/contracts";
 import { describe, expect, it } from "vitest";
 import { resolveStyle } from "@ms/render";
-import { MAX_QA_FRAMES, MIN_QA_GAP, blankCheckFrom, enterFrames, inBeat, selectQaFrames, uncoveredElements } from "../../src/pipeline/qa-frames.js";
+import { MAX_QA_FRAMES, MIN_QA_GAP, blankCheckFrom, countStarts, enterFrames, inBeat, selectQaFrames, uncoveredElements } from "../../src/pipeline/qa-frames.js";
 import { directorOutput } from "../pipeline/helpers.js";
 import { beat, el, spec } from "./helpers.js";
 
@@ -167,3 +167,15 @@ describe("selectQaFrames: начало счёта числа (09 §2, Task 17)",
     expect(selectQaFrames(sp)).toContain(37);
   });
 });
+
+describe("countStarts", () => {
+  it("без count в действии: второй бит числа (вход → счёт вместе с линией графика)", () => {
+    const sp = spec({
+      elements: [el("hero", { kind: "number", entrance: "count" }), el("chart", { kind: "chart", entrance: "draw" })],
+      beats: [beat("hero-in", 20, 44, ["hero"], "hero-number-pop-in"), beat("chart", 30, 120, ["chart", "hero"], "chart-draw"), beat("hold", 120, 180, ["hero"], "hold")],
+    });
+    expect(countStarts(sp).map((b) => b.id)).toEqual(["chart"]);
+    expect(selectQaFrames(sp)).toContain(30);
+  });
+});
+

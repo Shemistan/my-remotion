@@ -77,14 +77,16 @@ export function blankCheckFrom(spec: MotionSpec, style?: MotionTokens): number {
 }
 
 /**
- * Кадры начала счёта: для каждого числа (`kind: number`) — старт его бита счёта (действие
- * с `count`, иначе первый бит числа со входом `count`). В этот кадр на экране значение «от».
+ * Биты начала счёта: для каждого числа (`kind: number`) — бит, где идёт счёт: с `count` в
+ * действии; иначе второй бит числа (первый — его вход, счёт — следующий, например рисование
+ * графика, к голове которого привязано число); иначе единственный бит числа со входом
+ * `count`. В начале такого бита на экране значение «от».
  */
 export function countStarts(spec: MotionSpec): Beat[] {
   const out: Beat[] = [];
   for (const e of spec.elements.filter((x) => x.kind === "number")) {
     const beats = byStart(spec.beats).filter((b) => b.element_ids.includes(e.id));
-    const b = beats.find((x) => /count/i.test(x.action)) ?? (e.entrance === "count" ? beats[0] : undefined);
+    const b = beats.find((x) => /count/i.test(x.action)) ?? beats[1] ?? (e.entrance === "count" ? beats[0] : undefined);
     if (b && !out.includes(b)) out.push(b);
   }
   return out;
