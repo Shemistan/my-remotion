@@ -210,7 +210,7 @@ const dotOf = (label: number) => Math.max(10, Math.min(20, Math.round(label * 0.
  * (`h2` — не меньше 1.3 × body, `body`, `caption`) и не меньше `minTextPx` (22 px при 1080).
  * Пояснение под подписью — caption шкалы, не крупнее 0.8 подписи (у h2 — 0.6), не мельче предела.
  */
-export function flowLabelSizes(nodes: Pick<FlowNode, "id" | "label" | "w" | "size">[], s: StyleBible, frameH: number): Map<string, { label: number; caption: number; dot: number }> {
+export function flowLabelSizes(nodes: Pick<FlowNode, "id" | "label" | "w" | "size" | "kind">[], s: StyleBible, frameH: number): Map<string, { label: number; caption: number; dot: number }> {
   const padX = space(s, 0.5);
   const body = typeSize(s, "body", frameH);
   const cap = { h2: Math.max(typeSize(s, "h2", frameH), Math.ceil(body * 1.3)), body, caption: typeSize(s, "caption", frameH) };
@@ -220,7 +220,8 @@ export function flowLabelSizes(nodes: Pick<FlowNode, "id" | "label" | "w" | "siz
     const group = nodes.filter((n) => (n.size ?? "body") === level);
     if (group.length === 0) continue;
     // ширина под текст: поля, маркер (по кеглю уровня) и зазор
-    const fit = group.map((n) => (n.w - 2 * padX - dotOf(cap[level]) - padX * 0.75) / (Math.max(1, Array.from(n.label).length) * 0.64));
+    // маркер: точка; у llm — сфера-ядро в 2.4 раза шире
+    const fit = group.map((n) => (n.w - 2 * padX - dotOf(cap[level]) * (n.kind === "llm" ? 2.4 : 1) - padX * 0.75) / (Math.max(1, Array.from(n.label).length) * 0.64));
     const label = Math.max(min, Math.floor(Math.min(cap[level], ...fit)));
     const caption = Math.max(min, Math.min(Math.round(typeSize(s, "caption", frameH) * (level === "h2" ? 1.15 : 1)), Math.round(label * (level === "h2" ? 0.6 : 0.8))));
     for (const n of group) out.set(n.id, { label, caption, dot: dotOf(label) });
@@ -282,7 +283,7 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
             const rail = showPre ? 1 - p : 0;
             return (
               <g key={e.id}>
-                {rail > 0.01 ? <path d={pathD([seg])} fill="none" stroke={alpha(s.palette.muted, 0.4 * rail)} strokeWidth={2} strokeDasharray="2 9" strokeLinecap="round" /> : null}
+                {rail > 0.01 ? <path d={pathD([seg])} fill="none" stroke={alpha(s.palette.muted, 0.3 * rail)} strokeWidth={1.5} strokeLinecap="round" /> : null}
                 {/* при p = 0 круглый конец пунктира рисует точку на конце пути — не рисуем */}
                 {p > 0 ? (
                   <>
@@ -305,8 +306,9 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
         {showPre
           ? nodes.map((n) => {
               const t0 = nodeStart.get(n.id)!;
-              const o = 1 - ramp(frame, t0, t0 + frames(s, 10));
-              return o > 0.01 ? <NodeSilhouette key={`pre-${n.id}`} n={n} opacity={o} frameH={frameH} label={sizes.get(n.id)!.label} /> : null;
+              // контур гаснет быстро: карточка входит своим движением, двух рамок не видно
+              const o = 1 - ramp(frame, t0, t0 + frames(s, 4));
+              return o > 0.01 ? <NodeSilhouette key={`pre-${n.id}`} n={n} opacity={o} frameH={frameH} /> : null;
             })
           : null}
 
@@ -336,37 +338,24 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
   );
 }
 
-/** Прозрачность подписи силуэта: схема читается с кадра 0, но тише живой (QA не считает её текстом). */
-export const SILHOUETTE_LABEL = 0.3;
-
-/** Контур узла до входа: форма роли пунктиром и приглушённая подпись — схема видна с кадра 0. */
-function NodeSilhouette({ n, opacity, frameH, label }: { n: FlowNode; opacity: number; frameH: number; label: number }) {
+/** Контур узла до входа: форма роли тонкой линией, без текста (каркас схемы с кадра 0). */
+function NodeSilhouette({ n, opacity, frameH }: { n: FlowNode; opacity: number; frameH: number }) {
   const s = useStyle();
   const col = alpha(s.palette.muted, 0.55);
   const box: CSSProperties = { position: "absolute", left: n.x, top: n.y, width: n.w, height: n.h, opacity, pointerEvents: "none" };
-  const zone = flowLabelZone(n, s, frameH);
-  const text = (
-    <div style={{ position: "absolute", left: zone.x - n.x, top: zone.y - n.y, width: zone.w, height: zone.h, display: "flex", alignItems: "center", opacity: SILHOUETTE_LABEL, fontFamily: fontFamily(s.typography.body), fontWeight: n.size === "h2" ? 700 : 600, fontSize: label, lineHeight: 1.15, color: s.palette.text, whiteSpace: "nowrap", overflow: "hidden" }}>
-      {n.label}
-    </div>
-  );
   if (n.kind === "store") {
     const ry = storeCap(n);
     return (
-      <div style={box}>
-        <svg style={{ position: "absolute", inset: 0, overflow: "visible" }} width={n.w} height={n.h}>
-          <path d={cylinderPath(n.w, n.h, ry)} fill={alpha(s.palette.text, 0.03)} stroke={col} strokeWidth={2} strokeDasharray="7 6" />
-          <ellipse cx={n.w / 2} cy={ry} rx={n.w / 2} ry={ry} fill="none" stroke={col} strokeWidth={2} strokeDasharray="7 6" />
-        </svg>
-        {text}
-      </div>
+      <svg style={{ ...box, overflow: "visible" }} width={n.w} height={n.h}>
+        <path d={cylinderPath(n.w, n.h, ry)} fill={alpha(s.palette.text, 0.03)} stroke={col} strokeWidth={1.5} />
+        <ellipse cx={n.w / 2} cy={ry} rx={n.w / 2} ry={ry} fill="none" stroke={col} strokeWidth={1.5} />
+      </svg>
     );
   }
   const r = radius(s, 2);
   return (
-    <div style={{ ...box, boxSizing: "border-box", borderRadius: n.kind === "llm" ? r * 1.6 : r, border: `2px dashed ${col}`, background: alpha(s.palette.text, 0.03) }}>
-      {n.kind === "client" ? <div style={{ position: "absolute", left: 0, right: 0, top: clientBar(frameH), borderTop: `2px dashed ${col}` }} /> : null}
-      {text}
+    <div style={{ ...box, boxSizing: "border-box", borderRadius: n.kind === "llm" ? r * 1.6 : r, border: `1.5px solid ${col}`, background: alpha(s.palette.text, 0.03) }}>
+      {n.kind === "client" ? <div style={{ position: "absolute", left: 0, right: 0, top: clientBar(frameH), borderTop: `1.5px solid ${col}` }} /> : null}
     </div>
   );
 }

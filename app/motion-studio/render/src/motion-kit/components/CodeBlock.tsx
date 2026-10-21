@@ -20,7 +20,7 @@ import { accent, alpha, fontFamily, isDark, mix, radius, surfaceAt, tracking } f
 import { cardSurface } from "./Card.js";
 
 export interface CodeBlockProps {
-  /** До входа (0.4.0): `silhouette` (по умолчанию) — итоговый вид размытым и приглушённым с кадра 0 (кадр-постер); `hidden` — пусто. */
+  /** До входа (0.4.0): `silhouette` (по умолчанию) — каркас итогового вида (формы без текста, 30 %) с кадра 0 (кадр-постер); `hidden` — пусто. */
   pre?: "silhouette" | "hidden";
   code: string;
   lang: CodeLang;

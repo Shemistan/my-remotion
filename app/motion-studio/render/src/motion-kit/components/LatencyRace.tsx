@@ -224,7 +224,7 @@ export function LatencyRace({ lanes, beat, locale, travel, minTravel, repeat = t
           {/* силуэт дорожки до входа: пунктир трека и метка цели (кадр-постер) */}
           {ghost > 0.01 ? (
             <svg width={W} height={LH} style={{ position: "absolute", left: 0, top: LH * i, overflow: "visible", opacity: ghost }}>
-              <line x1={x0} y1={cy} x2={x1} y2={cy} stroke={alpha(s.palette.text, dark ? 0.2 : 0.18)} strokeWidth={L.track * 0.6} strokeDasharray={`${L.track} ${L.track * 3}`} strokeLinecap="round" />
+              <line x1={x0} y1={cy} x2={x1} y2={cy} stroke={alpha(s.palette.text, dark ? 0.2 : 0.18)} strokeWidth={L.track * 0.6} strokeLinecap="round" />
               <circle cx={x1} cy={cy} r={L.target} fill="none" stroke={alpha(s.palette.text, 0.2)} strokeWidth={1.5 * k} />
             </svg>
           ) : null}

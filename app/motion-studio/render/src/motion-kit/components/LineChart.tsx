@@ -243,9 +243,6 @@ export function LineChart({
 
       {chartAxis({ s, frame, beat, ticks, toY, innerW, locale, compact, pad: PAD, pre: pre !== "hidden" })}
 
-      {/* силуэт данных до прорисовки: пунктир будущей линии, гаснет по мере прорисовки */}
-      {pre !== "hidden" && draw < 1 && segs.length > 0 ? <path d={d} fill="none" stroke={alpha(color, 0.3)} strokeWidth={2} strokeDasharray="2 10" strokeLinecap="round" opacity={1 - draw} /> : null}
-
       {/* заливка открывается вслед за головой */}
       {area && segs.length > 0 ? (
         <path d={`${d} L${last!.x} ${baseY} L${coords[0]!.x} ${baseY} Z`} fill={`url(#${id}-area)`} clipPath={`url(#${id}-reveal)`} opacity={interpolate(draw, [0, 0.15], [0, 1], CLAMP)} />
@@ -342,7 +339,7 @@ export function chartAxis(o: {
         const base = v === zero;
         return (
           <g key={`t${i}`}>
-            {o.pre !== false && line < 1 ? <line x1={PAD.left} x2={PAD.left + innerW} y1={y} y2={y} stroke={alpha(s.palette.text, base ? 0.2 : 0.1)} strokeWidth={1} strokeDasharray="3 9" opacity={1 - line} /> : null}
+            {o.pre !== false && line < 1 ? <line x1={PAD.left} x2={PAD.left + innerW} y1={y} y2={y} stroke={alpha(s.palette.text, base ? 0.16 : 0.07)} strokeWidth={1} opacity={1 - line} /> : null}
             <line x1={PAD.left} x2={PAD.left + innerW * line} y1={y} y2={y} stroke={alpha(s.palette.text, base ? 0.22 : 0.08)} strokeWidth={base ? 1.5 : 1} />
             <text
               x={PAD.left - PAD.font * 0.6}

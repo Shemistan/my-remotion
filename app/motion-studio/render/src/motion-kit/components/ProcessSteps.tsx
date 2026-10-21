@@ -15,7 +15,7 @@ import { useStyle } from "../style.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, shadow, surfaceAt, tracking } from "../tokens.js";
 
 export interface ProcessStepsProps {
-  /** До входа (0.4.0): `silhouette` (по умолчанию) — итоговый вид размытым и приглушённым с кадра 0 (кадр-постер); `hidden` — пусто. */
+  /** До входа (0.4.0): `silhouette` (по умолчанию) — каркас итогового вида (формы без текста, 30 %) с кадра 0 (кадр-постер); `hidden` — пусто. */
   pre?: "silhouette" | "hidden";
   steps: string[];
   /** Пояснения к шагам (по индексу, одна-две короткие строки); пустые — без пояснения. */

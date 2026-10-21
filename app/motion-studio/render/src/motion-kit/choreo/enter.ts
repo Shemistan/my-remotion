@@ -79,18 +79,21 @@ export function enterStyle(kind: EnterKind, p: number, o: EnterOptions): CSSProp
 export type EnterPre = "hidden" | "ghost" | "silhouette";
 
 /** Прозрачность силуэта / призрака до входа (15–25 %). */
-export const PRE_ALPHA: Readonly<Record<EnterPre, number>> = { hidden: 0, ghost: 0.18, silhouette: 0.22 };
-/** Размытие силуэта до входа, px: форма читается, глифы — нет. */
-export const PRE_BLUR = 8;
+export const PRE_ALPHA: Readonly<Record<EnterPre, number>> = { hidden: 0, ghost: 0.18, silhouette: 0.3 };
 
 /**
  * Стиль слоя-постера (чистая функция): итоговый вид элемента (Freeze на конце бита) до
- * входа — на PRE_ALPHA, у silhouette размыт и обесцвечен; по ходу входа `p` 0 → 1 слой гаснет
- * (за первую треть входа: живой элемент проявляется поверх, двойного текста не видно).
+ * входа — на PRE_ALPHA. `silhouette` — каркас: формы (карточки, столбцы, линии) резкие и
+ * обесцвеченные, глифы HTML-текста прозрачны — ни «призраков» текста, ни размытого мыла
+ * (eval s2: судья читал размытые копии как брак); `ghost` — резкий вид с текстом. По ходу
+ * входа `p` 0 → 1 слой гаснет за первую треть.
  */
 export function posterStyle(pre: EnterPre, p: number): CSSProperties {
   const k = c01(1 - c01(p) * 3);
   const out: CSSProperties = { opacity: n(PRE_ALPHA[pre] * k) };
-  if (pre === "silhouette") out.filter = `blur(${PRE_BLUR}px) grayscale(1)`;
+  if (pre === "silhouette") {
+    out.filter = "grayscale(1)";
+    out.WebkitTextFillColor = "transparent";
+  }
   return out;
 }
