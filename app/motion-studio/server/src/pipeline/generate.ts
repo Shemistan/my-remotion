@@ -374,11 +374,14 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
       } satisfies Omit<VersionManifest, "files" | "version_id" | "number" | "created_at">;
       if (deps.fenceOk && !deps.fenceOk()) {
         const a = signal?.aborted ? aborted().reason : "fenced_out";
-        const msg = a === "cancelled"
-          ? `cancelled: отмена задачи ${runId} запрошена — попытка ${attempt} версию не публикует`
-          : `fenced_out: попытка ${attempt} задачи ${runId} больше не текущая (отменена или захвачена заново) — публикации нет`;
+        // префикс маркера — причина: `cancelled`/`interrupted` одноразовые (cleanupDrafts, H6)
+        const msg = {
+          cancelled: `cancelled: отмена задачи ${runId} запрошена — попытка ${attempt} версию не публикует`,
+          interrupted: `interrupted: попытка ${attempt} задачи ${runId} остановлена (остановка или хранилище) — публикации нет`,
+          fenced_out: `fenced_out: попытка ${attempt} задачи ${runId} больше не текущая (отменена или захвачена заново) — публикации нет`,
+        }[a];
         await quarantine(draft!, msg, ctx.warnings);
-        return failed(a === "cancelled" ? "cancelled" : "fenced_out", msg);
+        return failed(a, msg);
       }
       const fileOnly = async (d: Draft, m: PublishMeta): Promise<PublishedRef> => {
         const v = await publishVersion(d, m, deps.storage);

@@ -347,6 +347,63 @@ describe("playgroundGenerate: попытки, fencing, отмена", () => {
     expect(count("agent_runs")).toBe(0); // журнал устаревшей попытки не пишется
   });
 
+  it("устаревшая попытка без подмены fenceOk: отказ проверкой перед публикацией (generate.ts), версий 0, карантин fenced_out", async () => {
+    const { scene } = await enqueueOnly();
+    const c1 = claimNext(env.db, "srv", Date.now(), { running: 0, maxRunning: 2 })!;
+    const agents = fakeAgents({
+      engineer: async (task) => {
+        jobs.update(env.db, jobIdRef.id, { status: "pending" });
+        claimNext(env.db, "srv-2", Date.now(), { running: 0, maxRunning: 2 });
+        return { files: { "src/Scene.tsx": GOOD_SCENE, "props.json": await contractProps(task.workdir) } };
+      },
+    });
+    const d = await deps({ agents });
+    const r = await playgroundGenerate({ deps: () => d, repo })(ctxOf(c1.attempt));
+    expect(r).toMatchObject({ status: "failed", error: { stage: "fenced_out" } });
+    expect(versionRows(scene.id)).toHaveLength(0);
+    const marker = JSON.parse(readFileSync(join(env.s.root, "workspace/drafts", `${jobIdRef.id}-a1`, ".quarantined"), "utf8"));
+    // текст проверки generate.ts, а не отказа SceneRepo.publish («устарела»)
+    expect(marker.reason).toMatch(/^fenced_out: попытка 1 .* больше не текущая/);
+  });
+
+  it("остановка (не отмена, не fencing) перед публикацией → карантин interrupted, cleanupDrafts его убирает", async () => {
+    const { scene } = await enqueueOnly();
+    const c1 = claimNext(env.db, "srv", Date.now(), { running: 0, maxRunning: 2 })!;
+    const ac = new AbortController();
+    const d = await deps({ agents: fakeAgents({}) });
+    const ctx = ctxOf(c1.attempt, ac.signal);
+    // сигнал попытки прерван ровно перед публикацией: задача текущая, отмены нет
+    const r = await playgroundGenerate({ deps: () => d, repo })({ ...ctx, progress: (_p, stage) => stage === "publish" && ac.abort() });
+    expect(r).toMatchObject({ status: "failed", error: { stage: "interrupted", code: "interrupted" } });
+    expect(versionRows(scene.id)).toHaveLength(0);
+    const marker = JSON.parse(readFileSync(join(env.s.root, "workspace/drafts", `${jobIdRef.id}-a1`, ".quarantined"), "utf8"));
+    expect(marker.reason).toMatch(/^interrupted:/);
+    jobs.update(env.db, jobIdRef.id, { status: "failed", lease_owner: null, lease_until: null });
+    expect((await repo.cleanupDrafts([])).removed).toHaveLength(1);
+  });
+
+  for (const role of ["concept", "motion_director"] as const) {
+    it(`отмена во время ${role}: дальше агенты не зовутся, draft не создан, задача cancelled, рабочий каталог агента убран`, async () => {
+      const { scene } = await enqueueOnly();
+      const c1 = claimNext(env.db, "srv", Date.now(), { running: 0, maxRunning: 2 })!;
+      const ac = new AbortController();
+      const cancel = async () => {
+        requestCancel(env.db, jobIdRef.id);
+        ac.abort();
+        return { status: "cancelled" as const, output: undefined };
+      };
+      const agents = fakeAgents(role === "concept" ? { concept: cancel } : { director: cancel });
+      const d = await deps({ agents });
+      const r = await playgroundGenerate({ deps: () => d, repo })(ctxOf(c1.attempt, ac.signal));
+      expect(r).toMatchObject({ status: "cancelled", error: { stage: "cancelled" } });
+      expect(agents.tasks.map((t) => t.role)).toEqual(role === "concept" ? ["concept"] : ["concept", "motion_director"]);
+      expect(existsSync(join(env.s.root, "workspace/drafts")) ? readdirSync(join(env.s.root, "workspace/drafts")) : []).toEqual([]);
+      expect(versionRows(scene.id)).toHaveLength(0);
+      const cwd = join(env.s.root, "run/agent-cwd");
+      expect(existsSync(cwd) ? readdirSync(cwd) : []).toEqual([]);
+    });
+  }
+
   it("отмена во время рендера: версия не публикуется, draft — карантин cancelled, задача cancelled", async () => {
     const d = await deps({
       render: fakeRender({
