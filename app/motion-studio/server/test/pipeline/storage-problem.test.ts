@@ -8,7 +8,7 @@ const ok: StorageStatus = { ok: true, root: "/r", marker: { schema_version: 1, s
 const slow: StorageStatus = { ok: false, reason: "volume_probe_failed", detail: "том: Command failed: diskutil info -plist" };
 const gone: StorageStatus = { ok: false, reason: "not_found", detail: "каталог не найден: /r" };
 
-const ctx = (storage: () => Promise<StorageStatus>) => new RunCtx({ storage } as unknown as StepDeps, undefined, "/r", "run", 1, undefined);
+const ctx = (storage: () => Promise<StorageStatus>, storageRetryBackoffMs = 0) => new RunCtx({ storage, storageRetryBackoffMs } as unknown as StepDeps, undefined, "/r", "run", 1, undefined);
 
 it("inconclusive failures below the limit are re-checked, not reported", async () => {
   const storage = vi.fn<() => Promise<StorageStatus>>().mockResolvedValueOnce(slow).mockResolvedValueOnce(slow).mockResolvedValue(ok);
@@ -26,4 +26,33 @@ it("a conclusive failure is reported at once", async () => {
   const storage = vi.fn<() => Promise<StorageStatus>>().mockResolvedValueOnce(slow).mockResolvedValue(gone);
   expect(await ctx(storage).storageProblem()).toMatch(/not_found/);
   expect(storage).toHaveBeenCalledTimes(2);
+});
+
+it("re-checks are separated by the backoff, not fired back to back", async () => {
+  vi.useFakeTimers();
+  try {
+    const storage = vi.fn<() => Promise<StorageStatus>>().mockResolvedValueOnce(slow).mockResolvedValueOnce(slow).mockResolvedValue(ok);
+    const p = ctx(storage, 1500).storageProblem();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(storage).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1499);
+    expect(storage).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(storage).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(await p).toBeUndefined();
+    expect(storage).toHaveBeenCalledTimes(3);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("a conclusive failure is not delayed by the backoff", async () => {
+  vi.useFakeTimers();
+  try {
+    const storage = vi.fn<() => Promise<StorageStatus>>().mockResolvedValue(gone);
+    expect(await ctx(storage, 1500).storageProblem()).toMatch(/not_found/);
+  } finally {
+    vi.useRealTimers();
+  }
 });

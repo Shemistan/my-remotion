@@ -30,6 +30,8 @@ import { normalizeBoundCounters } from "./bound-counters.js";
 import { candidateBrief } from "./refs.js";
 
 const WATCH_MS = 10_000;
+/** Пауза между перепроверками неокончательного отказа: даёт `diskutil` отпустить. */
+const STORAGE_RETRY_BACKOFF_MS = 1500;
 const MAX_ISSUE_CHARS = 6000;
 
 export function clip(s: string, n = MAX_ISSUE_CHARS): string {
@@ -70,6 +72,8 @@ export interface StepDeps {
   agents: AgentRuntimeAdapter;
   config: AppConfig;
   watchIntervalMs?: number;
+  /** Пауза между перепроверками `storageProblem` (по умолчанию 1,5 с). */
+  storageRetryBackoffMs?: number;
   log?: (line: string) => void;
   /** Места семафоров раннера (задача): агентные вызовы и рендеры. */
   permits?: { agents: Permits; renders: Permits };
@@ -149,6 +153,17 @@ export class RunCtx {
       }
       if (st.ok) return undefined;
       if (!isInconclusive(st) || i >= INCONCLUSIVE_LIMIT) return `${st.reason}: ${st.detail}`;
+      // короткая пауза: мгновенные повторы упираются в тот же занятый diskutil
+      await new Promise<void>((resolve) => {
+        const t = setTimeout(done, this.deps.storageRetryBackoffMs ?? STORAGE_RETRY_BACKOFF_MS);
+        const sig = this.signal;
+        function done(): void {
+          clearTimeout(t);
+          sig?.removeEventListener("abort", done);
+          resolve();
+        }
+        sig?.addEventListener("abort", done, { once: true });
+      });
     }
   }
 
