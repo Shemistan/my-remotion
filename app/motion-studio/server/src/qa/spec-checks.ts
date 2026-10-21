@@ -99,7 +99,7 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
     }
   }
 
-  out.push(...accentConflicts(spec));
+  out.push(...accentConflicts(spec, settings));
   out.push(...placeholderIssues(spec));
   out.push(...purposeClaimIssues(spec));
   if (opts.previous) out.push(...signatureRepeat(spec, opts.previous));
@@ -122,9 +122,17 @@ const CONFLICT_MIN_FRAMES = 3;
 const PULSE_ACTION = /pulse|flow|signal|импульс|поток/i;
 /** Установившийся поток удержания — фон системы в работе, а не событие. */
 const STEADY_ACTION = /hold|loop|steady|idle|ambient|удержан|фон/i;
-/** Вход или прорисовка («flowgraph-in», «graph-draw»): данные ещё не летят. */
-const ENTRANCE_ACTION = /(^|[^a-z])(in|entrance|enter|draw)([^a-z]|$)|вход|появ|прорис/i;
-const isPulse = (b: Beat) => PULSE_ACTION.test(b.action) && !ENTRANCE_ACTION.test(b.action);
+/**
+ * Вход или прорисовка («flowgraph-in», «graph-draw», «labels-entrance»): данные ещё не летят.
+ * Слова действия — через `-`, `_`, пробел; «in» — только последним словом («check-in-flow» —
+ * поток, а не вход).
+ */
+function isEntranceAction(action: string): boolean {
+  const words = action.toLowerCase().split(/[^a-zа-яё0-9]+/).filter(Boolean);
+  if (words.at(-1) === "in") return true;
+  return words.some((w) => w === "entrance" || w === "enter" || w === "draw" || /^(вход(?!ящ)|появ|прорис)/.test(w));
+}
+const isPulse = (b: Beat) => PULSE_ACTION.test(b.action) && !isEntranceAction(b.action);
 
 interface AccentWindow { id: string; from: number; to: number; what: string }
 
@@ -132,10 +140,11 @@ interface AccentWindow { id: string; from: number; to: number; what: string }
  * Один акцент в момент (prompts/motion-director.md §6): вспышка узла по приходу импульса
  * (`content.flash_on`) и бит акцента (`emphasis`/`accent` в action) другого объекта или два
  * бита акцента разных объектов перекрываются по кадрам — blocking: Director разводит их.
- * Удар акцента посреди полёта импульса — blocking, только если импульс летит в сам объект
- * акцента («итог приходит раньше данных»); удар по другому объекту во время полёта — warning.
+ * Удар акцента посреди полёта импульса — blocking, только если доказуемо, что импульс летит в
+ * сам объект акцента и ещё не пришёл («итог приходит раньше данных»); удар по другому объекту
+ * во время полёта или приход, который не вычислить, — warning.
  */
-function accentConflicts(spec: MotionSpec): Omit<QAIssue, "source">[] {
+function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "source">[] {
   const fps = spec.fps.num / spec.fps.den;
   const flashLen = Math.round((FLASH_FRAMES_30 * fps) / 30);
   const byId = new Map(spec.elements.map((e) => [e.id, e]));
@@ -177,24 +186,40 @@ function accentConflicts(spec: MotionSpec): Omit<QAIssue, "source">[] {
   // удар акцента посреди полёта импульса (не вход графа, не поток удержания)
   const same = sameObject(spec);
   for (const p of spec.beats.filter((b) => isPulse(b) && !STEADY_ACTION.test(b.action))) {
-    const dest = pulseTargets(spec, p);
+    const dest = pulseTargets(spec, settings, p);
     for (const { beat: b, ids } of emph) {
       if (b.id === p.id) continue;
-      if (!(b.start_frame > p.start_frame && b.start_frame < p.end_frame - CONFLICT_MIN_FRAMES)) continue;
-      const hit = ids.filter((id) => [...dest].some((d) => same(id, d)));
-      if (hit.length > 0) {
-        out.push({
-          code: "accent_conflict", severity: "blocking", area: `${p.id}, ${hit.join(", ")}`,
-          description: `акцент ${hit.join(", ")} (бит ${b.id}) бьёт в кадр ${b.start_frame}, пока импульс бита ${p.id} ещё летит к нему (${p.start_frame}–${p.end_frame}): итог приходит раньше данных`,
-          fix_hint: `итог приходит вместе с данными: начни бит ${b.id} в кадр прихода импульса — ${p.end_frame} (конец бита ${p.id}), или заверши импульс раньше`,
-        });
-      } else if (!ids.some((id) => p.element_ids.includes(id))) {
-        out.push({
-          code: "accent_conflict", severity: "warning", area: `${p.id}, ${ids.join(", ")}`,
-          description: `акцент ${ids.join(", ")} (бит ${b.id}) бьёт в кадр ${b.start_frame}, пока импульс бита ${p.id} летит к другому объекту (${p.start_frame}–${p.end_frame}): свет импульса и удар акцента могут спорить за взгляд`,
-          fix_hint: `если удар — итог этого импульса, начни бит ${b.id} в кадр прихода ${p.end_frame}; если события независимы — оставь`,
-        });
+      const strike = b.start_frame;
+      if (!(strike > p.start_frame && strike < p.end_frame - CONFLICT_MIN_FRAMES)) continue;
+      const matched = [...dest].filter(([d]) => ids.some((id) => same(id, d)));
+      if (matched.length === 0) {
+        if (!ids.some((id) => p.element_ids.includes(id))) {
+          out.push({
+            code: "accent_conflict", severity: "warning", area: `${p.id}, ${ids.join(", ")}`,
+            description: `акцент ${ids.join(", ")} (бит ${b.id}) бьёт в кадр ${strike}, пока импульс бита ${p.id} летит к другому объекту (${p.start_frame}–${p.end_frame}): свет импульса и удар акцента могут спорить за взгляд`,
+            fix_hint: `если удар — итог этого импульса, начни бит ${b.id} в кадр прихода ${p.end_frame}; если события независимы — оставь`,
+          });
+        }
+        continue;
       }
+      const hit = ids.filter((id) => matched.some(([d]) => same(id, d)));
+      const known = matched.map(([, a]) => a).filter((a): a is number => a !== undefined);
+      const arrival = known.length > 0 ? Math.min(...known) : undefined;
+      // поток: данные уже пришли (первый приход не позже удара) — итог не опережает их
+      if (arrival !== undefined && strike >= arrival - CONFLICT_MIN_FRAMES) continue;
+      if (arrival === undefined) {
+        out.push({
+          code: "accent_conflict", severity: "warning", area: `${p.id}, ${hit.join(", ")}`,
+          description: `акцент ${hit.join(", ")} (бит ${b.id}) бьёт в кадр ${strike}, пока поток бита ${p.id} (${p.start_frame}–${p.end_frame}) идёт к нему; кадр первого прихода не вычислить (нет travel и раскладки узлов)`,
+          fix_hint: `итог — не раньше первого прихода: задай travel потока или начни бит ${b.id} позже`,
+        });
+        continue;
+      }
+      out.push({
+        code: "accent_conflict", severity: "blocking", area: `${p.id}, ${hit.join(", ")}`,
+        description: `акцент ${hit.join(", ")} (бит ${b.id}) бьёт в кадр ${strike}, пока импульс бита ${p.id} ещё летит к нему (${p.start_frame}–${p.end_frame}, приход ~${Math.round(arrival)}): итог приходит раньше данных`,
+        fix_hint: `итог приходит вместе с данными: начни бит ${b.id} в кадр прихода импульса — ${Math.round(arrival)}${arrival === p.end_frame ? ` (конец бита ${p.id})` : ""}, или заверши импульс раньше`,
+      });
     }
   }
   for (let i = 0; i < emph.length; i++) {
@@ -215,55 +240,95 @@ function accentConflicts(spec: MotionSpec): Omit<QAIssue, "source">[] {
 /** Ссылка на бит в content (`flows[].beat`): id бита с префиксом `b-` или без. */
 const beatRef = (ref: unknown, id: string) => typeof ref === "string" && (ref === id || ref.replace(/^b[-_]/, "") === id.replace(/^b[-_]/, ""));
 
+/** Скорость импульса kit (choreo/pulse.ts `pulsePass`): ~420 px/с при 30 fps, не короче 0.6 с. */
+const PULSE_PX_PER_S = 420;
+const PULSE_MIN_S = 0.6;
+/** Множитель длительностей интенсивности (motion-kit style/intensity.ts). */
+const INTENSITY_TIME: Record<Settings["animation_intensity"], number> = { calm: 1.25, balanced: 1, energetic: 0.75 };
+
 /**
- * Куда летит импульс бита: узлы прихода `flows` графа, привязанных к биту (`to`, у обратного
- * — `from`), иначе элементы бита, кроме самих графов; плюс счётчики, привязанные к приходам
- * этого графа (`bound_to: "<граф>.arrivals…"`).
+ * Кадр первого прихода потока бита `p` по ребру. Одиночный импульс (без `count` > 1 и
+ * `repeat: true`) приходит к концу бита — Director так и задаёт окно. Повторяющийся поток
+ * приходит раньше: первый проход стартует в начале бита и длится `travel` или, как в kit,
+ * длину ребра в px кадра со скоростью ~420 px/с (не короче 0.6 с). Длину не вычислить (нет
+ * travel и раскладки узлов) — `undefined`: доказать, что данные не пришли, нельзя.
  */
-function pulseTargets(spec: MotionSpec, p: Beat): Set<string> {
-  const out = new Set<string>();
-  const graphs = new Set<string>();
+function flowArrival(spec: MotionSpec, settings: Settings, p: Beat, f: Record<string, unknown>, edge: Record<string, unknown>): number | undefined {
+  const repeating = f.repeat === true || Number(f.count) > 1;
+  if (!repeating) return p.end_frame;
+  const travel = Number(f.travel);
+  if (Number.isFinite(travel) && travel > 0) return p.start_frame + travel;
+  const lay = (id: unknown) => (typeof id === "string" ? spec.elements.find((e) => e.id === id)?.layout : undefined);
+  const [a, b] = [lay(edge.from), lay(edge.to)];
+  if (!a || !b) return undefined;
+  // зазор между прямоугольниками узлов в px кадра (layout — доли safe area)
+  const W = settings.width * (1 - 2 * settings.safe_area.x);
+  const H = settings.height * (1 - 2 * settings.safe_area.y);
+  const dx = Math.max(0, Math.max(a.x, b.x) - Math.min(a.x + a.w, b.x + b.w)) * W;
+  const dy = Math.max(0, Math.max(a.y, b.y) - Math.min(a.y + a.h, b.y + b.h)) * H;
+  const fps = spec.fps.num / spec.fps.den;
+  const time = INTENSITY_TIME[settings.animation_intensity] ?? 1;
+  const pass = Math.max(Math.round(fps * PULSE_MIN_S), Math.round(((Math.hypot(dx, dy) / PULSE_PX_PER_S) * 30 * time * fps) / 30));
+  return p.start_frame + pass;
+}
+
+/**
+ * Куда летит импульс бита и когда приходит: узлы прихода `flows` графа, привязанных к биту
+ * (`to`, у обратного — `from`), и счётчики, привязанные к приходам такого графа
+ * (`bound_to: "<граф>.arrivals…"`, первый приход любого его потока). Без flows бита назначения
+ * не угадываются по element_ids: там и источник, и сам импульс, и счётчик.
+ */
+function pulseTargets(spec: MotionSpec, settings: Settings, p: Beat): Map<string, number | undefined> {
+  // кадр прихода — самый ранний из известных; неизвестный не затирает известный
+  const put = (m: Map<string, number | undefined>, id: string, at: number | undefined) => {
+    const prev = m.get(id);
+    m.set(id, prev === undefined ? at : at === undefined ? prev : Math.min(prev, at));
+  };
+  const out = new Map<string, number | undefined>();
+  const graphs = new Map<string, number | undefined>();
   for (const e of spec.elements) {
     const c = (e.content ?? {}) as Record<string, unknown>;
     const edges = Array.isArray(c.edges) ? (c.edges as Record<string, unknown>[]) : [];
     const flows = Array.isArray(c.flows) ? (c.flows as Record<string, unknown>[]).filter((f) => beatRef(f?.beat, p.id)) : [];
     for (const f of flows) {
-      graphs.add(e.id);
       const edge = edges.find((x) => x?.id === f.edge);
       if (!edge) continue;
+      const at = flowArrival(spec, settings, p, f, edge);
       const back = /back|reverse|обрат/i.test(String(f.direction ?? "")) || f.reverse === true;
       const node = back ? edge.from : edge.to;
-      if (typeof node === "string") out.add(node);
-    }
-  }
-  if (out.size === 0) {
-    for (const id of p.element_ids) {
-      if (byKind(spec, id) === "graph") graphs.add(id);
-      else out.add(id);
+      if (typeof node === "string") put(out, node, at);
+      put(graphs, e.id, at);
     }
   }
   for (const e of spec.elements) {
     const bound = (e.content as Record<string, unknown> | undefined)?.bound_to;
-    if (typeof bound === "string" && [...graphs].some((g) => bound.startsWith(`${g}.arrivals`))) out.add(e.id);
+    if (typeof bound !== "string") continue;
+    for (const [g, at] of graphs) if (bound.startsWith(`${g}.arrivals`)) put(out, e.id, at);
   }
   return out;
 }
 
-const byKind = (spec: MotionSpec, id: string) => spec.elements.find((e) => e.id === id)?.kind;
-
-/** Один объект: тот же id или вложенный layout (подпись в карточке узла, счётчик на узле). */
+/**
+ * Один объект: тот же id или вложенный layout (подпись в карточке узла, счётчик на узле).
+ * Контейнер (`group`) — не объект: подпись внутри дорожки не становится её узлом.
+ */
 function sameObject(spec: MotionSpec): (a: string, b: string) => boolean {
-  const lay = new Map(spec.elements.map((e) => [e.id, e.layout]));
+  const byId = new Map(spec.elements.map((e) => [e.id, e]));
   return (a, b) => {
     if (a === b) return true;
-    const [la, lb] = [lay.get(a), lay.get(b)];
-    if (!la || !lb || area(la) >= FULL_BLEED || area(lb) >= FULL_BLEED) return false;
+    const [ea, eb] = [byId.get(a), byId.get(b)];
+    if (!ea?.layout || !eb?.layout || ea.kind === "group" || eb.kind === "group") return false;
+    const [la, lb] = [ea.layout, eb.layout];
+    if (area(la) >= FULL_BLEED || area(lb) >= FULL_BLEED) return false;
     return contains(la, lb) || contains(lb, la);
   };
 }
 
-/** Строки content с ключами по фильтру; массивы строк — под ключами-списками подписей. */
-function contentStrings(content: unknown, key: RegExp): { key: string; value: string }[] {
+/**
+ * Строки content с ключами по фильтру; массивы строк — под ключами-списками подписей.
+ * Ключи `skip` не обходятся вовсе (данные графика: точки, оси, ряды).
+ */
+function contentStrings(content: unknown, key: RegExp, skip?: RegExp): { key: string; value: string }[] {
   const out: { key: string; value: string }[] = [];
   const walk = (v: unknown, k: string) => {
     if (typeof v === "string") {
@@ -271,7 +336,7 @@ function contentStrings(content: unknown, key: RegExp): { key: string; value: st
     } else if (Array.isArray(v)) {
       for (const x of v) walk(x, typeof x === "string" && LIST_KEY.test(k) ? "text" : k);
     } else if (v && typeof v === "object") {
-      for (const [kk, x] of Object.entries(v)) walk(x, kk);
+      for (const [kk, x] of Object.entries(v)) if (!skip?.test(kk)) walk(x, kk);
     }
   };
   walk(content, "");
@@ -281,48 +346,87 @@ function contentStrings(content: unknown, key: RegExp): { key: string; value: st
 const LIST_KEY = /^(stages|steps|items|labels|options|lines|words|milestones|events|phases)$/i;
 /** Видимое имя объекта. caption не входит: «инструмент 1» под «Веб-поиск» — роль, не заглушка. */
 const LABEL_KEY = /^(label|text|title|name|heading|headline)$/i;
-/** Весь видимый текст: имя, подписи, приставки числа. */
-const DISPLAY_KEY = /^(label|text|title|name|heading|headline|caption|subtitle|kicker|statement|prefix|suffix|unit)$/i;
+/** Данные графика: подписи точек и делений осей («Step 1000», «Q1») — значения, не имена. */
+const CHART_DATA_KEY = /^(points|data|series|values|datasets|axis|axes|x_?axis|y_?axis|ticks|x_?labels|y_?labels|categories|legend|bars|rows)$/i;
 
 /**
- * Нумерованная заглушка вместо конкретного экземпляра («Инструмент 1», «Этап 2»,
- * motion-review-1 §1): весь текст подписи — родовое слово и номер.
+ * Нумерованная заглушка вместо конкретного экземпляра («Инструмент 1», motion-review-1 §1):
+ * весь текст подписи — родовое слово и номер. Доменная нумерация (Node, Item, Step, Stage,
+ * Шаг, Этап, Модуль) — законная подпись (реплики Raft, шаги туториала): не ловится.
  */
-const PLACEHOLDER = /^(инструмент|сервис|этап|шаг|узел|модуль|компонент|элемент|пункт|tool|step|service|stage|node|module|component|item)\s*[№#]?\s*\d+$/i;
+const PLACEHOLDER = /^(инструмент|сервис|элемент|объект|компонент|tool|service|element|object|component|placeholder)\s*[№#]?\s*\d+$/i;
 
+/** Ruling P10: эвристика по тексту — подсказка Director (warning), не blocking. */
 function placeholderIssues(spec: MotionSpec): Omit<QAIssue, "source">[] {
-  const out: Omit<QAIssue, "source">[] = [];
-  const hits = spec.elements.flatMap((e) => contentStrings(e.content, LABEL_KEY).filter((x) => PLACEHOLDER.test(x.value.trim())).map((x) => ({ id: e.id, text: x.value.trim() })));
-  if (hits.length === 0) return out;
-  out.push({
-    code: "placeholder_label", severity: "blocking", area: [...new Set(hits.map((h) => h.id))].join(", "),
-    description: `нумерованные заглушки вместо конкретных экземпляров: ${hits.map((h) => `«${h.text}» (${h.id})`).join(", ")}`,
-    fix_hint: "запрос назвал количество без имён — придумай правдоподобные конкретные экземпляры с ролями (Веб-поиск · search(), База знаний · retrieve(), Калькулятор · calc()); номера вместо имён запрещены",
-  });
-  return out;
+  const hits = spec.elements.flatMap((e) => contentStrings(e.content, LABEL_KEY, CHART_DATA_KEY).filter((x) => PLACEHOLDER.test(x.value.trim())).map((x) => ({ id: e.id, text: x.value.trim() })));
+  if (hits.length === 0) return [];
+  return [{
+    code: "placeholder_label", severity: "warning", area: [...new Set(hits.map((h) => h.id))].join(", "),
+    description: `похоже на нумерованные заглушки вместо конкретных экземпляров: ${hits.map((h) => `«${h.text}» (${h.id})`).join(", ")}`,
+    fix_hint: "если запрос назвал количество без имён — дай правдоподобные конкретные экземпляры с ролями (Веб-поиск · search(), База знаний · retrieve(), Калькулятор · calc()); номер оставь, только если экземпляры и правда неотличимы",
+  }];
 }
 
-/** Кратность в purpose: «в 100 раз», «×24», «24×», «100-кратный». */
-const CLAIM = /в\s+(\d+(?:[.,]\d+)?)\s*раз|[×xх]\s?(\d+(?:[.,]\d+)?)(?!\d)|(\d+(?:[.,]\d+)?)\s?×|(\d+(?:[.,]\d+)?)[-\s]?кратн/gi;
+/** Число: «24», «1,5», «1.5». */
+const NUM = String.raw`(\d+(?:[.,]\d+)?)`;
 const num = (v: string) => Number(v.replace(",", "."));
+/** Наречия кратности: «вдвое», «втрое» … */
+const ADVERB: Record<string, number> = { вдвое: 2, втрое: 3, вчетверо: 4, впятеро: 5, вшестеро: 6, всемеро: 7, ввосьмеро: 8, вдевятеро: 9, вдесятеро: 10 };
+/** Числительные в «в десять раз», «в полтора раза». */
+const NUM_WORD: Record<string, number> = { полтора: 1.5, полторы: 1.5, два: 2, две: 2, три: 3, четыре: 4, пять: 5, шесть: 6, семь: 7, восемь: 8, девять: 9, десять: 10, двадцать: 20, сто: 100, тысячу: 1000 };
+const NOT_WORD = String.raw`(?![\p{L}\p{N}])`;
+/**
+ * Кратность в тексте, по границам слов. ×N и N× — без числа по другую сторону знака («2×2»,
+ * «4×100 м» — размер); латинская или кириллическая x — только вплотную к числу и отдельным
+ * словом («10x», «x10»; «Linux 6», «последних 5» — нет); «в N раз(а)» — не «в 3 разных».
+ */
+const MULT: RegExp[] = [
+  new RegExp(String.raw`(?<![\p{N}]\s?)×\s?${NUM}(?!\s?[×\p{N}])`, "gu"),
+  new RegExp(String.raw`(?<![\p{L}\p{N}])[xхX]${NUM}${NOT_WORD}`, "gu"),
+  new RegExp(String.raw`(?<![\p{N}.,×]\s?)${NUM}\s?×(?!\s?\p{N})`, "gu"),
+  new RegExp(String.raw`(?<![\p{L}\p{N}.,])${NUM}[xхX]${NOT_WORD}`, "gu"),
+  new RegExp(String.raw`(?<!\p{L})в\s+${NUM}\s*раза?${NOT_WORD}`, "giu"),
+  new RegExp(String.raw`(?<![\p{L}\p{N}.,])${NUM}[-\s]?кратн`, "giu"),
+];
+/** Только на экране: «10 раз быстрее», «10 times faster» — без «в», в purpose это не кратность («3 раза в день»). */
+const MULT_BARE: RegExp[] = [
+  new RegExp(String.raw`(?<![\p{L}\p{N}.,])${NUM}\s*раза?${NOT_WORD}`, "giu"),
+  new RegExp(String.raw`(?<![\p{L}\p{N}.,])${NUM}\s+times${NOT_WORD}`, "giu"),
+];
+const ADVERB_RE = new RegExp(String.raw`(?<!\p{L})(${Object.keys(ADVERB).join("|")})${NOT_WORD}`, "giu");
+const NUM_WORD_RE = new RegExp(String.raw`(?<!\p{L})в\s+(${Object.keys(NUM_WORD).join("|")})\s+раза?${NOT_WORD}`, "giu");
+
+/** Кратности в тексте (> 1); `bare` — ещё «N раз» без «в» (так пишут подпись на экране). */
+function multipliers(text: string, bare = false): number[] {
+  const out: number[] = [];
+  for (const re of bare ? [...MULT, ...MULT_BARE] : MULT) for (const m of text.matchAll(re)) out.push(num(m[1]!));
+  for (const m of text.matchAll(ADVERB_RE)) out.push(ADVERB[m[1]!.toLowerCase()]!);
+  for (const m of text.matchAll(NUM_WORD_RE)) out.push(NUM_WORD[m[1]!.toLowerCase()]!);
+  return out.filter((n) => Number.isFinite(n) && n > 1);
+}
 
 /**
- * Ключевая мысль на экране (motion-review-1 §10): явная кратность из purpose («в 100 раз»)
- * видна текстом — «×100», «в 100 раз», «100×» в подписи, или приставка × у числа с to = N.
- * Качественное «в разы» без числа программно не проверяется.
+ * Ключевая мысль на экране (motion-review-1 §10): явная кратность из purpose («в 100 раз»,
+ * «×24», «втрое») видна текстом — в любой строке content, в склейке prefix + to + suffix
+ * числа или приставкой × у числа с to = N. Качественное «в разы» без числа не проверяется.
+ * Ruling P10: эвристика по тексту — warning.
  */
 function purposeClaimIssues(spec: MotionSpec): Omit<QAIssue, "source">[] {
-  const claims = [...new Set([...spec.purpose.matchAll(CLAIM)].map((m) => num((m[1] ?? m[2] ?? m[3] ?? m[4])!)).filter((n) => Number.isFinite(n) && n > 1))];
+  const claims = [...new Set(multipliers(spec.purpose))];
   if (claims.length === 0) return [];
   const shown = (n: number) => spec.elements.some((e) => {
     const c = (e.content ?? {}) as Record<string, unknown>;
-    if (typeof c.to === "number" && c.to === n && [c.prefix, c.suffix].some((x) => typeof x === "string" && /[×xх]/.test(x))) return true;
-    return contentStrings(c, DISPLAY_KEY).some((x) => [...x.value.matchAll(CLAIM)].some((m) => num((m[1] ?? m[2] ?? m[3] ?? m[4])!) === n));
+    const str = (x: unknown) => (typeof x === "string" ? x : "");
+    if (typeof c.to === "number") {
+      if (c.to === n && [c.prefix, c.suffix].some((x) => typeof x === "string" && /[×xх]/.test(x))) return true;
+      if (multipliers(`${str(c.prefix)}${c.to}${str(c.suffix)}`, true).includes(n)) return true;
+    }
+    return contentStrings(c, /.*/).some((x) => multipliers(x.value, true).includes(n));
   });
   const missing = claims.filter((n) => !shown(n));
   if (missing.length === 0) return [];
   return [{
-    code: "purpose_claim", severity: "blocking", area: "purpose",
+    code: "purpose_claim", severity: "warning", area: "purpose",
     description: `ключевая мысль purpose («${missing.map((n) => `×${n}`).join("», «")}») не видна на экране: ни подписи с кратностью, ни числа с приставкой ×`,
     fix_hint: `покажи итог как утверждение: подпись или кикер «×${missing[0]}» / «в ${missing[0]} раз» рядом с героем (AnimatedNumber prefix="×" to={${missing[0]}} или текст)`,
   }];

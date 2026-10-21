@@ -168,7 +168,8 @@ describe("accent_conflict: удар акцента посреди полёта �
       ],
     });
     sp.elements = [
-      el("graph", { kind: "graph", entrance: "draw", layout: { x: 0.3, y: 0.1, w: 0.6, h: 0.5 } }),
+      // импульс бита ret — по ребру e1 графа к `to`
+      el("graph", { kind: "graph", entrance: "draw", layout: { x: 0.3, y: 0.1, w: 0.6, h: 0.5 }, content: { edges: [{ id: "e1", from: "server", to }], flows: [{ edge: "e1", beat: "ret" }] } }),
       el("client", { kind: "card", entrance: "slide", layout: { x: 0.02, y: 0.1, w: 0.2, h: 0.12 } }),
       el("hit", { kind: "card", role: "акцент: попадание", entrance: "pop", layout: { x: 0.02, y: 0.7, w: 0.2, h: 0.1 } }),
     ];
@@ -177,7 +178,7 @@ describe("accent_conflict: удар акцента посреди полёта �
   const conflicts = (sp: MotionSpec, st = s) => specChecks(sp, st).filter((i) => i.code === "accent_conflict");
   const blocking = (sp: MotionSpec, st = s) => conflicts(sp, st).filter((i) => i.severity === "blocking");
 
-  it("импульс летит в сам объект акцента, акцент бьёт до прихода — blocking, подсказка — кадр прихода", () => {
+  it("импульс летит в сам объект акцента (flows графа), акцент бьёт до прихода — blocking, подсказка — кадр прихода", () => {
     const [i, ...rest] = blocking(mk([126, 140], 128, "hit-return-pulse", "hit"));
     expect(rest).toEqual([]);
     expect(i?.area).toContain("hit");
@@ -252,9 +253,9 @@ describe("ревью дизайнера: заглушки, ключевая мы
   const run2 = (n: string) => load(fx(`specs-run2/${n}.spec.json`));
   const pick = (l: QAIssue[], code: string) => l.filter((i) => i.code === code);
 
-  it("placeholder_label: test2 прогона 4 («Инструмент 1/2/3») — blocking", () => {
+  it("placeholder_label: test2 прогона 4 («Инструмент 1/2/3») — warning (ruling P10)", () => {
     expect(pick(specChecks(run4("test2"), st), "placeholder_label")).toEqual([
-      expect.objectContaining({ severity: "blocking", area: "node-tool-1, node-tool-2, node-tool-3", description: expect.stringContaining("«Инструмент 1»") }),
+      expect.objectContaining({ severity: "warning", area: "node-tool-1, node-tool-2, node-tool-3", description: expect.stringContaining("«Инструмент 1»") }),
     ]);
   });
 
@@ -264,15 +265,17 @@ describe("ревью дизайнера: заглушки, ключевая мы
     for (const n of ["test1", "gen-compare", "gen-timeline", "gen-cache"]) expect(pick(specChecks(run4(n), st), "placeholder_label"), n).toEqual([]);
   });
 
-  it("placeholder_label: «Этап 2» в списке stages — да; id узлов и «Инструмент поиска» — нет", () => {
+  it("placeholder_label: «Сервис 2» в списке stages — да; «Этап 2», id узлов и «Инструмент поиска» — нет", () => {
     const sp = run4("gen-compare");
     const lane = sp.elements.find((e) => e.id === "lane-mono")!;
     lane.content = { ...lane.content, stages: ["Этап 1", "Этап 2", "Этап 3"], nodes: ["tool1", "tool2"], label: "Инструмент поиска" };
+    expect(pick(specChecks(sp, st), "placeholder_label")).toEqual([]);
+    lane.content = { ...lane.content, stages: ["Сервис 1", "Сервис 2"] };
     expect(pick(specChecks(sp, st), "placeholder_label")).toEqual([expect.objectContaining({ area: "lane-mono" })]);
   });
 
-  it("purpose_claim: test1 прогона 4 — «в 100 раз» в purpose, ×100 на экране нет — blocking", () => {
-    expect(pick(specChecks(run4("test1"), st), "purpose_claim")).toEqual([expect.objectContaining({ severity: "blocking", description: expect.stringContaining("×100") })]);
+  it("purpose_claim: test1 прогона 4 — «в 100 раз» в purpose, ×100 на экране нет — warning (ruling P10)", () => {
+    expect(pick(specChecks(run4("test1"), st), "purpose_claim")).toEqual([expect.objectContaining({ severity: "warning", description: expect.stringContaining("×100") })]);
   });
 
   it("purpose_claim: test1 прогона 2 (подпись «×100 за три года»), число с приставкой ×, purpose без кратности — нет", () => {
@@ -295,10 +298,8 @@ describe("ревью дизайнера: заглушки, ключевая мы
     expect(pick(specChecks(run4("test2"), st), "scene_signature_repeat")).toEqual([]);
   });
 
-  it("spec прогона 4 без предыдущей сцены: новые blocking — только заглушки test2 и ×100 test1", () => {
+  it("spec прогона 4 без предыдущей сцены: blocking нет; заглушки test2 и ×100 test1 — подсказки (warning)", () => {
     const blocking = (n: string) => specChecks(run4(n), st).filter((i) => i.severity === "blocking").map((i) => i.code);
-    expect(blocking("test1")).toEqual(["purpose_claim"]);
-    expect(blocking("test2")).toEqual(["placeholder_label"]);
-    for (const n of ["gen-compare", "gen-timeline", "gen-cache"]) expect(blocking(n), n).toEqual([]);
+    for (const n of ["test1", "test2", "gen-compare", "gen-timeline", "gen-cache"]) expect(blocking(n), n).toEqual([]);
   });
 });
