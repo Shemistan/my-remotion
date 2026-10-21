@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "version_id": "ver_01M5EGRGBK0MDZ9WXAWA07DXN9",
+  "scene_id": "scn_01M5EGD6FCSER5FV3EQEN3V232",
+  "parent_version_id": null,
+  "number": 1,
+  "created_at": "2026-10-21T06:00:46.708Z",
+  "prompt": "Покажи архитектуру AI-агента: пользователь отправляет запрос, оркестратор вызывает три инструмента, данные возвращаются обратно. Световые импульсы движутся по связям",
+  "edit_plan": null,
+  "settings": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 180,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "files": [
+    {
+      "path": "frames/119.png",
+      "sha256": "7859d0301069ae75e93f38165676a7a4b23293abc52c2638f52cb63cd2cff295"
+    },
+    {
+      "path": "frames/137.png",
+      "sha256": "1b92723d131042f48246b5c707499d805cda539cd31506fe16fcac7ca536d2eb"
+    },
+    {
+      "path": "frames/152.png",
+      "sha256": "f7efb23509ea1a2da519cef9c2206de7f7ba393ed2f964551415296e5e49bb6d"
+    },
+    {
+      "path": "frames/179.png",
+      "sha256": "220ba7880a1b29e673dd1a1d3ee45e8439ca60ec460135a2bb9ace6b9be44a78"
+    },
+    {
+      "path": "frames/38.png",
+      "sha256": "9894ea19a0afffc8cfcc78bf6c17d3dc332c6fbec6d44b6cd14aa1127e94444d"
+    },
+    {
+      "path": "frames/60.png",
+      "sha256": "0ec68579692905dd36190622e17ece1c71507b2021a6267f72c648b2598adacc"
+    },
+    {
+      "path": "frames/80.png",
+      "sha256": "8711e080c9be111c7d86609b617b00ac38680516f4a4ba6c78514b553f771bc9"
+    },
+    {
+      "path": "frames/96.png",
+      "sha256": "aa0589e7a8cc943e6436367731f87f8627c272a86a254e140fd5782ace337ade"
+    },
+    {
+      "path": "knowledge-refs.json",
+      "sha256": "0efde4afe0a1f044880e59398217a2d549995dbe87d0991a752ea3d4c811d2f2"
+    },
+    {
+      "path": "pipeline-log.json",
+      "sha256": "7edbeafcf1a2218a73dd13cc2bb6533666d217bba6d4b6efd8dd10b104420059"
+    },
+    {
+      "path": "preview.mp4",
+      "sha256": "0864efcd0c7e5fcfa01bc579cd14e3d3ea96b3f31b24801b488ddb71f1221a99"
+    },
+    {
+      "path": "props.json",
+      "sha256": "4cbce63f45ae9bb36ee7f2c68905f6e55f16c9c6785a4b662b911db74d0fa24b"
+    },
+    {
+      "path": "qa.json",
+      "sha256": "13b6829663a6b4af0326e6e366e11979efa7f5b5ef6e29e7e790088c6fe853eb"
+    },
+    {
+      "path": "refs/kb/magicui/animated-beam/CARD.md",
+      "sha256": "ec12a708622f0945f8ab7c102bd2db43eb629e1604c1a6239d185e057ba16578"
+    },
+    {
+      "path": "refs/kb/magicui/animated-beam/templates/react-libriry/magicui/apps/www/registry/magicui/animated-beam.tsx",
+      "sha256": "6afa2ee1d01694a428eb8517d48deebe5c6b532dc0ee871800bb9d92aae43e79"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/CARD.md",
+      "sha256": "9bf3d75cc8c78e8229c6ea86db9fd8471f1514f8052190857fdf7d9a79cee066"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/components/NodeWrapper/index.tsx",
+      "sha256": "fcd5d7a82118ab7f57136c0b04a55cbb5df9005d77776400eb122719e9eb6bab"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/components/NodeWrapper/useNodeObserver.ts",
+      "sha256": "d2cf9c71f5122214d83eee3ca1a3163b531d1de11e23ddbe950ab62199a561e9"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/container/NodeRenderer/useResizeObserver.ts",
+      "sha256": "ba8a837cbeeae1da914e2a1e2deb21653177f3a143cb8817a3a1bf0a36a7349c"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/container/ReactFlow/index.tsx",
+      "sha256": "d866f64f483e23e54366b014dc884349080e1d74956003af1b8a5053bc387581"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/hooks/useResizeHandler.ts",
+      "sha256": "db3b50b64271bd0e169b585d76c76c28a4818ec673d9de67a455ab69ec7fe072"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/hooks/useViewportSync.ts",
+      "sha256": "7e8dea6eaddec6294db36aa3a072630a6ab0dea8df7333dd8d7fdcc7404390e7"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/types/component-props.ts",
+      "sha256": "98923588781d65f9655b52adaac51e6008d740a622b909c1a8517a153849e020"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/system/src/styles/init.css",
+      "sha256": "2458f7ae49969a3eaa04f43af179fec02b28a2453cb693f05ca9b6cb77df1faa"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/system/src/utils/edges/positions.ts",
+      "sha256": "abe8f831891e2fb381a09b5660650cf27f17ed06e8dece4eb01137091253765c"
+    },
+    {
+      "path": "refs/motion-kit/API.md",
+      "sha256": "c9567297ae61d00d578f62caca853133febf0236cb0da070ec03ac8bbd1b1c96"
+    },
+    {
+      "path": "refs/skills/remotion-markup/SKILL.md",
+      "sha256": "399a8f21821ee72071645d22b2e4c7aba34357f2139d027857868eb856f24a4f"
+    },
+    {
+      "path": "refs/skills/remotion-markup/local-fonts.md",
+      "sha256": "fcad2a2e3a05419d4555c59a75454c4891455dbea91ad596c1095e2887d26a11"
+    },
+    {
+      "path": "refs/skills/remotion-markup/sequencing.md",
+      "sha256": "f53680a3ec4b754501ce37516387666e1b3df3c5714d266154b274caea4236a4"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing-props.md",
+      "sha256": "346ff7f3778f3b7ba165ac212459034120cac7cffd3ead3fe68db179e15f7494"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing.md",
+      "sha256": "48047e758b96aea519916479ede62b832bf51f982924978e091c37f569ab4bac"
+    },
+    {
+      "path": "refs/skills/remotion-markup/transitions.md",
+      "sha256": "83b8b511044ef175244a4e9e81f66bd3f5062cf9cecacd30ae88ac17eda40b82"
+    },
+    {
+      "path": "selection.json",
+      "sha256": "a55962b8a04caaa75de43d2064792fd914d93e3f3191441ecd9ebe48e23fe65c"
+    },
+    {
+      "path": "settings.json",
+      "sha256": "0b46d98e94443777eaf45644a5755e6faf4ce94ffb01d67689792327ab031365"
+    },
+    {
+      "path": "spec.json",
+      "sha256": "1ee47b6d1b375ee83b9a397c81bdd3e7f79aaa22409aaf9da8bf501eca46eefb"
+    },
+    {
+      "path": "src/Scene.tsx",
+      "sha256": "fa3101f82b7af0e45f19fbbf8c93801d01aed466c2f269102d272d9c765f2f75"
+    },
+    {
+      "path": "style.json",
+      "sha256": "18a0a04c657887af9d85691285c9480a89f361fb434379a61df3445ffc78e3d6"
+    }
+  ],
+  "changed_files": [
+    "src/Scene.tsx",
+    "props.json"
+  ],
+  "render_env": {
+    "remotion": "4.0.537",
+    "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
+    "motion_kit": "sha256:d802502881364f60",
+    "chrome_headless_shell": "157.0.8080.0-remotion-v3",
+    "node": "22.21.1"
+  },
+  "knowledge_refs": [
+    {
+      "kb_id": "magicui/animated-beam",
+      "commit": "efe76fc5",
+      "license": "MIT (LICENSE.md)",
+      "strategy": "adapt"
+    },
+    {
+      "kb_id": "xyflow/react-flow",
+      "commit": "654ba5a5e",
+      "license": "MIT (LICENSE, packages/react/package.json)",
+      "strategy": "adapt"
+    }
+  ],
+  "agent_runs": [
+    "logs/agent-runs/job_01M5EGD6FGWRNSTE3P9VR9FCEB/a1-concept-1",
+    "logs/agent-runs/job_01M5EGD6FGWRNSTE3P9VR9FCEB/a1-motion_director-1",
+    "logs/agent-runs/job_01M5EGD6FGWRNSTE3P9VR9FCEB/a1-engineer-1",
+    "logs/agent-runs/job_01M5EGD6FGWRNSTE3P9VR9FCEB/a1-visual_qa-1"
+  ],
+  "qa": {
+    "technical": "pass",
+    "visual": "pass",
+    "semantic": "pass",
+    "style": "pass"
+  },
+  "preview": {
+    "path": "preview.mp4",
+    "sha256": "0864efcd0c7e5fcfa01bc579cd14e3d3ea96b3f31b24801b488ddb71f1221a99"
+  },
+  "status": "ready",
+  "qa_frames": [
+    38,
+    60,
+    80,
+    96,
+    119,
+    137,
+    152,
+    179
+  ],
+  "qa_frames_sha256": [
+    "9894ea19a0afffc8cfcc78bf6c17d3dc332c6fbec6d44b6cd14aa1127e94444d",
+    "0ec68579692905dd36190622e17ece1c71507b2021a6267f72c648b2598adacc",
+    "8711e080c9be111c7d86609b617b00ac38680516f4a4ba6c78514b553f771bc9",
+    "aa0589e7a8cc943e6436367731f87f8627c272a86a254e140fd5782ace337ade",
+    "7859d0301069ae75e93f38165676a7a4b23293abc52c2638f52cb63cd2cff295",
+    "1b92723d131042f48246b5c707499d805cda539cd31506fe16fcac7ca536d2eb",
+    "f7efb23509ea1a2da519cef9c2206de7f7ba393ed2f964551415296e5e49bb6d",
+    "220ba7880a1b29e673dd1a1d3ee45e8439ca60ec460135a2bb9ace6b9be44a78"
+  ],
+  "job": {
+    "id": "job_01M5EGD6FGWRNSTE3P9VR9FCEB",
+    "attempt": 1
+  }
+}

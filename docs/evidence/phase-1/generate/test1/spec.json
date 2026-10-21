@@ -1,0 +1,243 @@
+{
+  "title": "Рост пользователей: 10 000 → 1 000 000",
+  "purpose": "Показать, что за три года аудитория выросла в сто раз — с 10 000 до 1 000 000, и оставить в памяти итоговое число.",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "palette_overrides": {},
+  "composition": {
+    "archetype": "diagonal",
+    "idea": "Светящаяся линия поднимается из левого нижнего угла к правому верхнему и ускоряется; над её концом стоит огромное число, которое считает ровно то значение, где сейчас голова линии. Фон — Background aurora пресета, Particles слоя 0 (60 шт.) медленно поднимаются, дальний план.",
+    "focus": "0–33: заголовок слева сверху и число «10 000» справа сверху. 33–114: взгляд ведёт голова линии из левого нижнего угла вверх-вправо, число считает синхронно. 114–180: фокус на числе 1 000 000. Медленный наезд камеры к числу (до 1.04) с кадра 100.",
+    "transitions": "Сетка и оси проявляются под заголовком, линия рисуется и тащит за собой счётчик. На финише счёта число бьёт акцентом, подзаголовок и подписи осей уходят в приглушённый тон. Число, линия и точка остаются до конца. В финале число дышит, точка на конце линии пульсирует, камера дотягивает наезд."
+  },
+  "elements": [
+    {
+      "id": "title",
+      "kind": "text",
+      "role": "опора: тема сцены",
+      "entrance": "mask",
+      "depth_layer": 1,
+      "content": {
+        "component": "Enter kind=mask + KineticText",
+        "text": "Рост пользователей",
+        "size": "h2",
+        "weight": 800,
+        "align": "left",
+        "color": "text"
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.05,
+        "w": 0.42,
+        "h": 0.09
+      }
+    },
+    {
+      "id": "subtitle",
+      "kind": "text",
+      "role": "контекст: масштаб и период",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "component": "Enter kind=blur",
+        "text": "×100 за три года",
+        "size": "body",
+        "color": "muted",
+        "align": "left",
+        "dim_to_opacity": 0.55
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.15,
+        "w": 0.42,
+        "h": 0.07
+      }
+    },
+    {
+      "id": "hero-number",
+      "kind": "number",
+      "role": "emphasis: герой — итоговое число пользователей",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "component": "AnimatedNumber",
+        "from": 10000,
+        "to": 1000000,
+        "locale": "ru",
+        "size": "display",
+        "font": "display",
+        "align": "right",
+        "reserveWidth": true,
+        "enterAt": 8,
+        "bound_to": "growth-chart.head",
+        "value_source": "lineChartHead(POINTS, {start_frame:18,end_frame:138}, frame, {width: chartW, height: chartH})",
+        "final_text": "1 000 000",
+        "breathing": "с 140 кадра scale 1.00↔1.03 (период ~36 кадров, springAt soft/sin по кадру), свечение accent[0] дышит 0.4↔0.8"
+      },
+      "layout": {
+        "x": 0.5,
+        "y": 0.05,
+        "w": 0.45,
+        "h": 0.18
+      }
+    },
+    {
+      "id": "growth-chart",
+      "kind": "chart",
+      "role": "данные: рост аудитории за три года",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "LineChart",
+        "area": true,
+        "highlightLast": false,
+        "accentIndex": 0,
+        "yTicks": 4,
+        "compact": true,
+        "locale": "ru",
+        "width": 1555,
+        "height": 632,
+        "points": [
+          {
+            "label": "янв 22",
+            "value": 10000
+          },
+          {
+            "label": "июл 22",
+            "value": 35000
+          },
+          {
+            "label": "янв 23",
+            "value": 90000
+          },
+          {
+            "label": "июл 23",
+            "value": 180000
+          },
+          {
+            "label": "янв 24",
+            "value": 320000
+          },
+          {
+            "label": "июл 24",
+            "value": 560000
+          },
+          {
+            "label": "янв 25",
+            "value": 1000000
+          }
+        ],
+        "axis_labels_dim_to_opacity": 0.5,
+        "note": "Выноску значения не показывать: значение показывает hero-number. Последняя точка пульсирует accent[0] до конца сцены."
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.3,
+        "w": 0.9,
+        "h": 0.65
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "title-in",
+      "start_frame": 0,
+      "end_frame": 36,
+      "action": "title-mask-in",
+      "description": "Заголовок «Рост пользователей» открывается шторкой снизу (mask, 1.5×enter_frames = 36 кадров, S-кривая стиля).",
+      "element_ids": [
+        "title"
+      ]
+    },
+    {
+      "id": "number-in",
+      "start_frame": 8,
+      "end_frame": 32,
+      "action": "number-pop-in",
+      "description": "Число входит pop (spring.pop, перелёт ~6 %) уже со значением «10 000», enterAt=8. До кадра 33 оно стоит и читается.",
+      "element_ids": [
+        "hero-number"
+      ]
+    },
+    {
+      "id": "subtitle-in",
+      "start_frame": 12,
+      "end_frame": 36,
+      "action": "subtitle-blur-in",
+      "description": "Подзаголовок «×100 за три года» проявляется из размытия (blur 12 px → 0) под заголовком.",
+      "element_ids": [
+        "subtitle"
+      ]
+    },
+    {
+      "id": "chart-draw",
+      "start_frame": 18,
+      "end_frame": 138,
+      "action": "chart-draw",
+      "description": "LineChart с битом 18–138. Кадры 18–54: сетка и подписи осей Y и X. С 33 до 114 линия рисуется гладко со светящейся головой accent[0] из левого нижнего угла в правый верхний, точки вспыхивают по ходу, следом наливается бледная заливка. После 114 последняя точка пульсирует и не гаснет до конца сцены.",
+      "element_ids": [
+        "growth-chart"
+      ]
+    },
+    {
+      "id": "number-count",
+      "start_frame": 33,
+      "end_frame": 114,
+      "action": "number-count",
+      "description": "Число считает от 10 000 до 1 000 000 и показывает ровно value = lineChartHead(...).value: тот же источник движения, что голова линии. Старт 33 = 18 + ⌈0.12×120⌉, финиш 114 = 18 + 0.8×120. Цифры моноширинные, на быстром счёте слегка смазываются.",
+      "element_ids": [
+        "hero-number",
+        "growth-chart"
+      ]
+    },
+    {
+      "id": "final-emphasis",
+      "start_frame": 114,
+      "end_frame": 140,
+      "action": "final-emphasis",
+      "description": "В кадре 114 число бьёт: короткий удар масштаба и свечение accent[0], одновременно со вспышкой последней точки графика. Это единственный акцент кадра. С 118 по 140 подзаголовок уходит до opacity 0.55, подписи осей до 0.5 (easing.exit), и остаются только число и линия.",
+      "element_ids": [
+        "hero-number",
+        "subtitle",
+        "growth-chart"
+      ]
+    },
+    {
+      "id": "hold",
+      "start_frame": 140,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "Новых входов нет. Число 1 000 000 неподвижно по положению и читается, но дышит: scale 1.00↔1.03 и свечение accent[0] 0.4↔0.8. Последняя точка линии пульсирует ореолом, камера дотягивает медленный наезд до 1.04 к кадру 175, частицы фона поднимаются. Кадры 160 и 179 заметно отличаются.",
+      "element_ids": [
+        "hero-number",
+        "growth-chart",
+        "title",
+        "subtitle"
+      ]
+    }
+  ],
+  "camera": [
+    {
+      "frame": 0,
+      "scale": 1,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "frame": 100,
+      "scale": 1,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "frame": 175,
+      "scale": 1.04,
+      "x": 30,
+      "y": -20
+    }
+  ]
+}

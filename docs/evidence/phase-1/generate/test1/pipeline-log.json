@@ -1,0 +1,48 @@
+{
+  "run_id": "job_01M5EGD6F608VFAWJFZRET930Y",
+  "attempt": 1,
+  "cost_usd": 1.1124947,
+  "engineer_calls": 2,
+  "visual_qa": [
+    {
+      "call": 2,
+      "wall_ms": 24863,
+      "cost_usd": 0.1393158000000001,
+      "status": "completed",
+      "gate": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "pass"
+      }
+    }
+  ],
+  "timings": {
+    "concept": 6037,
+    "motion_director": 70970,
+    "engineer_1": 87039,
+    "static": 69,
+    "typecheck": 27562,
+    "engineer_2": 42246,
+    "render_2": 22593,
+    "qa_programmatic": 2822,
+    "visual_qa_2": 24894
+  },
+  "history": [
+    {
+      "at": "2026-10-21T05:57:36.619Z",
+      "stage": "typecheck",
+      "message": "src/Scene.tsx:210 Type 'SceneStyle' is not assignable to type 'StyleSource'.\n  Type 'SceneStyle' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'.\n    Type 'SceneStyle' is not assignable to type 'Omit<ResolveStyleInput, \"fps\">'.\n      Types of property 'preset' are incompatible.\n        Type 'string' is not assignable to type '{ id: string; name: string; palette: { bg: string; surface: string; text: string; muted: string; accent: string[]; positive: string; negative: string; }; typography: { display: { family: string; weight?: number | undefined; file?: string | undefined; }; body: { ...; }; mono: { ...; }; scale: number[]; tracking: Reco...'."
+    },
+    {
+      "at": "2026-10-21T05:59:25.430Z",
+      "stage": "qa",
+      "message": "QA вызова 2: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
+    },
+    {
+      "at": "2026-10-21T05:59:25.538Z",
+      "stage": "ready",
+      "message": "gate пройден с вызова 2"
+    }
+  ]
+}

@@ -1,0 +1,189 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      {
+        "id": "title-in",
+        "start_frame": 0,
+        "end_frame": 36
+      },
+      {
+        "id": "graph-nodes-in",
+        "start_frame": 8,
+        "end_frame": 68
+      },
+      {
+        "id": "request-pulse",
+        "start_frame": 46,
+        "end_frame": 74
+      },
+      {
+        "id": "orchestrator-emphasis",
+        "start_frame": 70,
+        "end_frame": 90
+      },
+      {
+        "id": "tool-calls",
+        "start_frame": 82,
+        "end_frame": 110
+      },
+      {
+        "id": "data-return",
+        "start_frame": 106,
+        "end_frame": 132
+      },
+      {
+        "id": "answer-return",
+        "start_frame": 124,
+        "end_frame": 150
+      },
+      {
+        "id": "answer-badge-in",
+        "start_frame": 128,
+        "end_frame": 152
+      },
+      {
+        "id": "hold",
+        "start_frame": 153,
+        "end_frame": 180
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "title": "Как работает AI-агент",
+    "title_layout": {
+      "x": 0.05,
+      "y": 0.05,
+      "w": 0.9,
+      "h": 0.1
+    },
+    "hero_id": "node-orchestrator",
+    "user_id": "node-user",
+    "nodes": [
+      {
+        "id": "node-user",
+        "label": "Пользователь",
+        "elevation": 2,
+        "layout": {
+          "x": 0.05,
+          "y": 0.47,
+          "w": 0.22,
+          "h": 0.13
+        }
+      },
+      {
+        "id": "node-orchestrator",
+        "label": "Оркестратор",
+        "caption": "LLM-агент",
+        "elevation": 3,
+        "accentIndex": 0,
+        "layout": {
+          "x": 0.37,
+          "y": 0.42,
+          "w": 0.26,
+          "h": 0.23
+        }
+      },
+      {
+        "id": "node-tool-search",
+        "label": "Веб-поиск",
+        "elevation": 2,
+        "layout": {
+          "x": 0.73,
+          "y": 0.24,
+          "w": 0.22,
+          "h": 0.13
+        }
+      },
+      {
+        "id": "node-tool-kb",
+        "label": "База знаний",
+        "elevation": 2,
+        "layout": {
+          "x": 0.73,
+          "y": 0.47,
+          "w": 0.22,
+          "h": 0.13
+        }
+      },
+      {
+        "id": "node-tool-calc",
+        "label": "Калькулятор",
+        "elevation": 2,
+        "layout": {
+          "x": 0.73,
+          "y": 0.7,
+          "w": 0.22,
+          "h": 0.13
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e-user",
+        "from": "node-user",
+        "to": "node-orchestrator"
+      },
+      {
+        "id": "e-search",
+        "from": "node-orchestrator",
+        "to": "node-tool-search"
+      },
+      {
+        "id": "e-kb",
+        "from": "node-orchestrator",
+        "to": "node-tool-kb"
+      },
+      {
+        "id": "e-calc",
+        "from": "node-orchestrator",
+        "to": "node-tool-calc"
+      }
+    ],
+    "user_edge": "e-user",
+    "tool_edges": [
+      "e-search",
+      "e-kb",
+      "e-calc"
+    ],
+    "badge": {
+      "text": "Ответ готов",
+      "layout": {
+        "x": 0.07,
+        "y": 0.63,
+        "w": 0.18,
+        "h": 0.08
+      }
+    },
+    "camera": [
+      {
+        "frame": 0,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "frame": 120,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "frame": 179,
+        "scale": 1.04,
+        "x": 0,
+        "y": 20
+      }
+    ]
+  }
+}
