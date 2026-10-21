@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cameraAt, parallaxTransform } from "../../src/motion-kit/choreo/camera.js";
+import { PARALLAX_OVERSCAN, cameraAt, parallaxTransform } from "../../src/motion-kit/choreo/camera.js";
 import { resolveStyle } from "../../src/motion-kit/style/resolve.js";
 
 const st = resolveStyle({ preset: "dark-premium", intensity: "balanced" });
@@ -93,5 +93,43 @@ describe("cameraAt с размером кадра: камера не откры�
   it("allow_zoom = false: только покой — панорама без запаса открыла бы край", () => {
     const flat = { ...st, camera: { allow_zoom: false, max_scale: 1.2, parallax: false } };
     expect(cameraAt(60, pan, flat, size)).toEqual({ scale: 1, x: 0, y: 0 });
+  });
+});
+
+describe("parallaxTransform с размером кадра: слои > 0 не открывают края (overscan)", () => {
+  const size = { width: 1920, height: 1080 };
+  const pan = [{ frame: 0, scale: 1, x: 0, y: 0 }, { frame: 60, scale: 1.08, x: 420, y: -200 }];
+  // слой во весь кадр: точка q (от центра) → s·(r·q + t − x); края ±half не заходят в кадр
+  const covers = (cam: { scale: number; x: number; y: number }, l: { scale: number; x: number; y: number }, half: number, axis: "x" | "y") => {
+    const at = (q: number) => cam.scale * (l.scale * q + l[axis] - cam[axis]);
+    return Math.min(-at(-half), at(half)) - half;
+  };
+
+  it("на каждом кадре наезда с панорамой слои 0–2 покрывают кадр", () => {
+    for (let f = 0; f <= 70; f++) {
+      const c = cameraAt(f, pan, zoom, size);
+      for (const layer of [0, 1, 2]) {
+        const l = parallaxTransform(c, layer, size);
+        // слои > 0 — с запасом PARALLAX_OVERSCAN px: край не мерцает сглаживанием
+        const need = layer > 0 ? PARALLAX_OVERSCAN * Math.min(1, (c.scale - 1) / 0.01) : 0;
+        expect(covers(c, l, 960, "x"), `кадр ${f}, слой ${layer}, x`).toBeGreaterThanOrEqual(need - 1e-6);
+        expect(covers(c, l, 540, "y"), `кадр ${f}, слой ${layer}, y`).toBeGreaterThanOrEqual(need - 1e-6);
+      }
+    }
+  });
+
+  it("без размера — прежняя формула (без overscan); слой 0 — всегда как камера", () => {
+    // панорама у предела запаса наезда (panLimit без ограничения safe area)
+    const c = { scale: 1.08, x: 960 * (1 - 1 / 1.08), y: 0 };
+    const raw = parallaxTransform(c, 2);
+    // дефект ревью: без запаса край слоя 2 открывается на 1–3 px
+    expect(covers(c, raw, 960, "x")).toBeLessThan(-0.5);
+    expect(parallaxTransform(c, 0, size)).toEqual({ scale: 1, x: 0, y: 0 });
+    // в покое камеры слой — ровно кадр: запаса нет, сцены без камеры не меняются
+    expect(parallaxTransform({ scale: 1, x: 0, y: 0 }, 2, size)).toEqual({ scale: 1, x: 0, y: 0 });
+    // запас — только масштаб: смещение слоя по-прежнему сильнее камеры
+    const l2 = parallaxTransform(c, 2, size);
+    expect(l2.scale).toBeGreaterThan(raw.scale);
+    expect(l2.scale - raw.scale).toBeLessThan(0.01);
   });
 });

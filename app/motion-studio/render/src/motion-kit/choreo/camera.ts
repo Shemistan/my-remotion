@@ -93,13 +93,26 @@ export function cameraAt(
 /** Множитель движения слоя параллакса: 0 — как камера, 2 — на 30 % сильнее (ближе к зрителю). */
 export const parallaxFactor = (layer: number) => 1 + 0.15 * layer;
 
+/** Запас слоя параллакса > 0 за край кадра, px: край не открывается и не мерцает сглаживанием. */
+export const PARALLAX_OVERSCAN = 3;
+
 /**
  * Трансформация слоя внутри <Camera>: вместе с камерой слой движется как камера с
  * множителем parallaxFactor(layer). CSS: `translate(x, y) scale(scale)`, origin — центр.
+ * С `size` слой > 0 при нужде чуть крупнее (overscan): слой во весь кадр покрывает кадр
+ * с запасом PARALLAX_OVERSCAN px — иначе при панораме у предела край ближнего слоя
+ * открывался бы на 1–3 px (он едет сильнее камеры). Слой 0 — ровно камера.
  */
-export function parallaxTransform(cam: CameraState, layer: number): CameraState {
+export function parallaxTransform(cam: CameraState, layer: number, size?: FrameSize): CameraState {
   const k = parallaxFactor(layer);
-  const sk = 1 + (cam.scale - 1) * k;
+  let sk = 1 + (cam.scale - 1) * k;
+  if (size && layer > 0 && cam.scale > 1) {
+    // итог слоя: точка q (от центра) → sk·(q − k·x); край half + запас должен быть за кадром.
+    // Запас набирается за первый 1 % наезда: в покое слой ровно кадр, без скачка на старте
+    const pad = PARALLAX_OVERSCAN * Math.min(1, (cam.scale - 1) / 0.01);
+    const cover = (half: number, off: number) => (half + pad) / Math.max(1, half - k * Math.abs(off));
+    sk = Math.max(sk, cover(size.width / 2, cam.x), cover(size.height / 2, cam.y));
+  }
   const r = sk / cam.scale;
   return { scale: r, x: cam.x - r * cam.x * k, y: cam.y - r * cam.y * k };
 }
