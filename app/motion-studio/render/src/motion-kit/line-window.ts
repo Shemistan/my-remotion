@@ -10,6 +10,7 @@ import type { Beat } from "@ms/contracts";
 export function lineDrawWindow(beat: Pick<Beat, "start_frame" | "end_frame">): { drawStart: number; drawEnd: number; startFrame: number; endFrame: number } {
   const L = Math.max(1, beat.end_frame - beat.start_frame);
   const drawStart = beat.start_frame + Math.ceil(L * 0.12);
-  const drawEnd = beat.start_frame + L * 0.8;
+  // короткий бит (1–8 кадров): старт округлён вверх и может обогнать 80 % — окно не выворачиваем
+  const drawEnd = Math.max(drawStart, beat.start_frame + L * 0.8);
   return { drawStart, drawEnd, startFrame: drawStart, endFrame: Math.ceil(drawEnd) };
 }

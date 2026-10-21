@@ -122,7 +122,8 @@ const drawWindow = lineDrawWindow;
 
 function drawAt(frame: number, beat: Pick<Beat, "start_frame" | "end_frame">): number {
   const { drawStart, drawEnd } = drawWindow(beat);
-  return interpolate(frame, [drawStart, drawEnd], [0, 1], { ...CLAMP, easing: DRAW_EASE });
+  // ramp: окно нулевой длины — ступенька, а не исключение interpolate
+  return ramp(frame, drawStart, drawEnd, DRAW_EASE);
 }
 
 /**

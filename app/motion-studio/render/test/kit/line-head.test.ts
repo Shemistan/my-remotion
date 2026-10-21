@@ -80,3 +80,15 @@ describe("lineHighlight: выноска и акцент конечной точ�
     expect(lineHighlight({ endpointEmphasis: false }, BEAT)).toEqual({ callout: true, emphasis: null });
   });
 });
+
+describe("вырожденные биты (kit-degenerate)", () => {
+  it("бит нулевой длины и обратный: lineChartHead не бросает, окно не вывернуто", () => {
+    for (const beat of [{ start_frame: 10, end_frame: 10 }, { start_frame: 0, end_frame: 1 }, { start_frame: 40, end_frame: 20 }]) {
+      const w = lineDrawWindow(beat);
+      expect(w.drawEnd).toBeGreaterThanOrEqual(w.drawStart);
+      expect(w.endFrame).toBeGreaterThanOrEqual(w.startFrame);
+      expect(() => lineChartHead(POINTS, beat, 11)).not.toThrow();
+      expect(lineChartHead(POINTS, beat, 500).progress).toBe(1);
+    }
+  });
+});
