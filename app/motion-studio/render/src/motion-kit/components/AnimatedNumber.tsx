@@ -8,7 +8,8 @@ import { EASE, frames, springAt } from "../easing.js";
 import { formatNumber } from "../format.js";
 import { CLAMP, clamp01, ramp } from "../internal.js";
 import { useStyle } from "../style.js";
-import { accent, alpha, fontFamily, tracking, typeSize } from "../tokens.js";
+import { type TypeLevel, sizePx } from "../style/type-scale.js";
+import { accent, alpha, fontFamily, tracking } from "../tokens.js";
 
 export interface AnimatedNumberProps {
   from: number;
@@ -19,8 +20,11 @@ export interface AnimatedNumberProps {
   suffix?: string;
   compact?: boolean;
   decimals?: number;
-  /** Шаг типографской шкалы (0..8) или кегль в px (> 8). По умолчанию 7 (120 px). */
-  size?: number;
+  /**
+   * Уровень шкалы от высоты кадра (`display` | `h1` | `h2` | `body` | `caption`, как у
+   * KineticText), шаг шкалы v0.1 (0..8) или кегль в px (> 8). По умолчанию 7 (120 px).
+   */
+  size?: TypeLevel | number;
   font?: "display" | "mono";
   /**
    * Держать ширину под итоговое значение (число не сдвигает соседей). По умолчанию —
@@ -46,9 +50,9 @@ export interface AnimatedNumberProps {
 export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact, decimals, size = 7, font = "display", color, align = "left", reserveWidth, style, value: bound, enterAt }: AnimatedNumberProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height } = useVideoConfig();
   const ref = s.typography[font];
-  const px = size > 8 ? size : typeSize(s, size);
+  const px = sizePx(s, size, height);
   const { start_frame: b0, end_frame: b1 } = beat;
   const ease = EASE.count;
 

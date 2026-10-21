@@ -26,3 +26,12 @@ export function typeSize(style: StyleBible, level: TypeLevel | number, frameHeig
   if (!(typeof frameHeight === "number" && frameHeight > 0)) throw new RangeError(`typeSize: нужна высота кадра > 0, получено ${frameHeight}`);
   return Math.round(frameHeight * k);
 }
+
+/**
+ * Кегль текста компонента по его `size`: уровень шкалы — от высоты кадра, шаг шкалы v0.1
+ * (0..8) — px при 1080, число > 8 — кегль в px. Общий для KineticText и AnimatedNumber.
+ */
+export function sizePx(style: StyleBible, size: TypeLevel | number, frameHeight: number): number {
+  if (typeof size === "string") return typeSize(style, size, frameHeight);
+  return size > 8 ? size : typeSize(style, size);
+}

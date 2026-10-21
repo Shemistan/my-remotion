@@ -13,7 +13,7 @@ export { type PresetId, presets } from "./presets.js";
 export { StyleProvider, type StyleSource, toResolved, useStyle } from "./style.js";
 export { type Depth, type PaletteOverrides, type ResolveStyleInput, type ResolvedStyle, resolveStyle } from "./style/resolve.js";
 export { contrastRatio, relativeLuminance } from "./style/contrast.js";
-export { TYPE_LEVELS, type TypeLevel } from "./style/type-scale.js";
+export { TYPE_LEVELS, type TypeLevel, sizePx } from "./style/type-scale.js";
 export { INTENSITY, amplitudeOf } from "./style/intensity.js";
 export { type EnterDirection, type EnterKind, type EnterOptions, enterStyle } from "./choreo/enter.js";
 export { staggerBeat } from "./choreo/stagger.js";

@@ -10,7 +10,7 @@ import { easingOf, springAt } from "../easing.js";
 import { CLAMP, clamp01 } from "../internal.js";
 import { amplitudeOf } from "../style/intensity.js";
 import { depthOf } from "../style/resolve.js";
-import { type TypeLevel, typeSize } from "../style/type-scale.js";
+import { type TypeLevel, sizePx } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, fontFamily, isDark, tracking } from "../tokens.js";
 
@@ -71,7 +71,7 @@ export function KineticText({
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
   const ref = s.typography[font];
-  const px = typeof size === "string" ? typeSize(s, size, height) : size > 8 ? size : typeSize(s, size);
+  const px = sizePx(s, size, height);
   const amp = amplitudeOf(s);
   const depth = depthOf(s);
   const marks = new Set(highlight.map(norm));
