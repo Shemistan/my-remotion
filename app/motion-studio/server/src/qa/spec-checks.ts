@@ -212,11 +212,13 @@ function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "s
         continue;
       }
       const hit = ids.filter((id) => matched.some(([d]) => same(id, d)));
-      const known = matched.map(([, a]) => a).filter((a): a is Arrival => a !== undefined);
-      const first = known.length > 0 ? known.reduce((x, y) => (y.at - y.slack < x.at - x.slack ? y : x)) : undefined;
+      const known = matched.map(([, a]) => a).filter((a): a is number => a !== undefined);
+      const arrival = known.length > 0 ? Math.min(...known) : undefined;
       // данные уже пришли (первый приход не позже удара) — итог не опережает их
-      if (first !== undefined && strike >= first.at - first.slack) continue;
-      if (first === undefined) {
+      // допуск CONFLICT_MIN_FRAMES и у точного расписания kit: длина ребра — зазор карточек, а не
+      // путь FlowGraph, и ребро ещё дорисовывается (ready) — удар на 1–3 кадра раньше не доказан
+      if (arrival !== undefined && strike >= arrival - CONFLICT_MIN_FRAMES) continue;
+      if (arrival === undefined) {
         out.push({
           code: "accent_conflict", severity: "warning", area: `${p.id}, ${hit.join(", ")}`,
           description: `акцент ${hit.join(", ")} (бит ${b.id}) бьёт в кадр ${strike}, пока поток бита ${p.id} (${p.start_frame}–${p.end_frame}) идёт к нему; кадр первого прихода не вычислить (нет travel и раскладки узлов)`,
@@ -224,7 +226,6 @@ function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "s
         });
         continue;
       }
-      const arrival = first.at;
       out.push({
         code: "accent_conflict", severity: "blocking", area: `${p.id}, ${hit.join(", ")}`,
         description: `акцент ${hit.join(", ")} (бит ${b.id}) бьёт в кадр ${strike}, пока импульс бита ${p.id} ещё летит к нему (${p.start_frame}–${p.end_frame}, приход ~${Math.round(arrival)}): итог приходит раньше данных`,
@@ -250,15 +251,6 @@ function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "s
 /** Ссылка на бит в content (`flows[].beat`): id бита с префиксом `b-` или без. */
 const beatRef = (ref: unknown, id: string) => typeof ref === "string" && (ref === id || ref.replace(/^b[-_]/, "") === id.replace(/^b[-_]/, ""));
 
-/**
- * Кадр прихода импульса (дробный) и допуск: 0 — расписание kit по длине ребра; оценка
- * сверху (длина ребра неизвестна) — CONFLICT_MIN_FRAMES, удар чуть раньше оценки не доказан.
- */
-interface Arrival {
-  at: number;
-  slack: number;
-}
-
 /** Длина ребра для kit: зазор между прямоугольниками узлов в px кадра (layout — доли safe area). */
 function edgeLength(spec: MotionSpec, settings: Settings, edge: Record<string, unknown>): number | undefined {
   const lay = (id: unknown) => (typeof id === "string" ? spec.elements.find((e) => e.id === id)?.layout : undefined);
@@ -279,17 +271,17 @@ function edgeLength(spec: MotionSpec, settings: Settings, edge: Record<string, u
  * старт + travel; одиночный импульс (`repeat: false`) без travel идёт весь бит — конец бита;
  * иначе `undefined`: доказать, что данные не пришли, нельзя.
  */
-function flowArrival(spec: MotionSpec, settings: Settings, p: Beat, f: Record<string, unknown>, edge: Record<string, unknown>): Arrival | undefined {
+function flowArrival(spec: MotionSpec, settings: Settings, p: Beat, f: Record<string, unknown>, edge: Record<string, unknown>): number | undefined {
   const t = Number(f.travel);
   const travel = Number.isFinite(t) && t > 0 ? t : undefined;
   const len = edgeLength(spec, settings, edge);
-  if (len === undefined && travel === undefined) return f.repeat === false ? { at: p.end_frame, slack: CONFLICT_MIN_FRAMES } : undefined;
+  if (len === undefined && travel === undefined) return f.repeat === false ? p.end_frame : undefined;
   const style = resolveStyle({ preset: spec.style_preset, intensity: settings.animation_intensity, fps: spec.fps });
   const pass = pulsePass(len ?? 0, travel, spec.fps.num / spec.fps.den, style);
   const count = Number(f.count);
   const [t0] = pulseStarts({ start: p.start_frame, end: p.end_frame, pass, count: Number.isFinite(count) ? count : undefined, repeat: f.repeat === false ? false : undefined });
   if (t0 === undefined) return undefined;
-  return { at: arrivalInPass(t0, pass, len ?? Infinity), slack: len === undefined ? CONFLICT_MIN_FRAMES : 0 };
+  return arrivalInPass(t0, pass, len ?? Infinity);
 }
 
 /**
@@ -298,14 +290,14 @@ function flowArrival(spec: MotionSpec, settings: Settings, p: Beat, f: Record<st
  * (`bound_to: "<граф>.arrivals…"`, первый приход любого его потока). Без flows бита назначения
  * не угадываются по element_ids: там и источник, и сам импульс, и счётчик.
  */
-function pulseTargets(spec: MotionSpec, settings: Settings, p: Beat): Map<string, Arrival | undefined> {
+function pulseTargets(spec: MotionSpec, settings: Settings, p: Beat): Map<string, number | undefined> {
   // кадр прихода — самый ранний из известных; неизвестный не затирает известный
-  const put = (m: Map<string, Arrival | undefined>, id: string, at: Arrival | undefined) => {
+  const put = (m: Map<string, number | undefined>, id: string, at: number | undefined) => {
     const prev = m.get(id);
-    m.set(id, prev === undefined ? at : at === undefined || prev.at - prev.slack <= at.at - at.slack ? prev : at);
+    m.set(id, prev === undefined ? at : at === undefined ? prev : Math.min(prev, at));
   };
-  const out = new Map<string, Arrival | undefined>();
-  const graphs = new Map<string, Arrival | undefined>();
+  const out = new Map<string, number | undefined>();
+  const graphs = new Map<string, number | undefined>();
   for (const e of spec.elements) {
     const c = (e.content ?? {}) as Record<string, unknown>;
     const edges = Array.isArray(c.edges) ? (c.edges as Record<string, unknown>[]) : [];

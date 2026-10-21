@@ -274,9 +274,18 @@ describe("accent_conflict: приход импульса — по расписа
     expect(brief(blocking(arrivalScene({ accent: "cnt", window: [100, 170], accentAt: at, flow })))).toEqual([]);
   });
 
-  it("T1 одиночный импульс repeat:false 100–140 к wh, удар по подписи в карточке wh в 110 — blocking", () => {
+  // T1 при 1920×1080: в кадре 192×108 ребро ~97 px, приход ~112.7 — удар в 110 внутри допуска 3 кадра
+  it("T1 одиночный импульс repeat:false 100–140 к wh @1920, удар по подписи в карточке wh в 110 — blocking", () => {
     const sp = arrivalScene({ accent: "whlbl", window: [100, 140], accentAt: 110, flow: { repeat: false, count: 1 }, action: "order-pulse" });
-    expect(blocking(sp)).toEqual([expect.objectContaining({ code: "accent_conflict", area: "orders, whlbl" })]);
+    expect(blocking(sp, hd)).toEqual([expect.objectContaining({ code: "accent_conflict", area: "orders, whlbl" })]);
+  });
+
+  it("допуск 3 кадра и у точного расписания kit (зазор карточек ≠ путь FlowGraph, ready): удар за 2 кадра до прихода — не blocking, за 4 — blocking", () => {
+    const flow = { repeat: false, count: 1 };
+    const at = kitFirst(hd, arrivalScene({ accent: "whlbl", window: [100, 170], accentAt: 130, flow }), { start_frame: 100, end_frame: 170 }, flow);
+    const strike = (d: number) => blocking(arrivalScene({ accent: "whlbl", window: [100, 170], accentAt: Math.ceil(at) - d, flow, action: "order-pulse" }), hd);
+    expect(brief(strike(2))).toEqual([]);
+    expect(strike(4)).toEqual([expect.objectContaining({ code: "accent_conflict", area: "orders, whlbl" })]);
   });
 
   it("скорость и интенсивность сервера == kit: приход в описании — кадр pathArrivals (calm / balanced / energetic, 60 fps)", () => {
