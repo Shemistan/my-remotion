@@ -4,6 +4,7 @@
 import type { Beat } from "@ms/contracts";
 import { type ReactNode, createContext, useContext } from "react";
 import { interpolate, random, useCurrentFrame, useVideoConfig } from "remotion";
+import { edgeDelay } from "../choreo/rhythm.js";
 import { EASE, frames, springAt } from "../easing.js";
 import { type CubicSegment, type Point, cubicPoint, edgeSegment, lutLength, pathD, pathLUT } from "../geometry.js";
 import { CLAMP, clamp01 } from "../internal.js";
@@ -99,7 +100,7 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", c
     const b = byId.get(e.to);
     if (!a || !b) continue;
     geo.set(e.id, edgePath(a, b));
-    const t0 = Math.max(nodeStart.get(a.id)!, nodeStart.get(b.id)!) + frames(s, 6);
+    const t0 = Math.max(nodeStart.get(a.id)!, nodeStart.get(b.id)!) + edgeDelay(s);
     edgeStart.set(e.id, t0);
     ready.set(e.id, t0 + drawLen);
   }

@@ -12,20 +12,27 @@ export const CAMERA = [
 ];
 
 /**
- * Контент: safe area, сжатая под наезд ближнего слоя параллакса (1 + 0.08 · 1.3 = 1.104):
- * в последнем кадре ни один слой не выходит за безопасную зону.
+ * Контент: safe area, сжатая под наезд ближнего слоя параллакса (1 + 0.08 · 1.3 = 1.104),
+ * плюс воздух ~40 px: в последнем кадре ни один слой не подходит к краю зоны вплотную.
  */
-export const CONTENT = { x: 195, y: 129, w: 1530, h: 822 };
+export const CONTENT = { x: 235, y: 160, w: 1450, h: 760 };
 
 const COL_GAP = 40;
-const TEXT_W = 760;
+const TEXT_W = 700;
+const CARDS_H = 180;
 
 /** Области элементов (px кадра): кикер, заголовок, подзаголовок, бейдж, график, карточки. */
 export const REGIONS = {
-  kicker: { x: CONTENT.x, y: CONTENT.y, w: 620, h: 44 },
+  kicker: { x: CONTENT.x, y: CONTENT.y, w: 600, h: 44 },
   headline: { x: CONTENT.x, y: CONTENT.y + 64, w: TEXT_W, h: 176 },
-  subtitle: { x: CONTENT.x, y: CONTENT.y + 264, w: TEXT_W, h: 124 },
-  badge: { x: CONTENT.x, y: CONTENT.y + 420, w: 560, h: 104 },
-  chart: { x: CONTENT.x + TEXT_W + COL_GAP, y: CONTENT.y + 10, w: CONTENT.w - TEXT_W - COL_GAP, h: 560 },
-  cards: { x: CONTENT.x, y: CONTENT.y + CONTENT.h - 200, w: CONTENT.w, h: 200 },
+  subtitle: { x: CONTENT.x, y: CONTENT.y + 260, w: TEXT_W, h: 124 },
+  badge: { x: CONTENT.x, y: CONTENT.y + 410, w: 520, h: 100 },
+  chart: { x: CONTENT.x + TEXT_W + COL_GAP, y: CONTENT.y + 10, w: CONTENT.w - TEXT_W - COL_GAP, h: 520 },
+  cards: { x: CONTENT.x, y: CONTENT.y + CONTENT.h - CARDS_H, w: CONTENT.w, h: CARDS_H },
 } as const;
+
+/** Первая карточка ряда (4 колонки, gutter 32 у dark-premium): область профиля входа каскада. */
+export const CARD0 = { x: REGIONS.cards.x, y: REGIONS.cards.y, w: Math.floor((REGIONS.cards.w - 3 * 32) / 4), h: REGIONS.cards.h };
+
+/** Вид входа каждого элемента (как entrance в spec). */
+export const ENTRANCES = { kicker: "type", headline: "mask", subtitle: "blur", badge: "pop", chart: "draw", cards: "rise" } as const;

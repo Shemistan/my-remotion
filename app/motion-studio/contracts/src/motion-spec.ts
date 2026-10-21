@@ -48,10 +48,11 @@ export const CompositionSchema = z.object({
 }).strict();
 export type Composition = z.infer<typeof CompositionSchema>;
 
-/** Ключ камеры: наезд `scale` (1 — без масштаба) и точка интереса `x, y` (px от центра кадра). */
+/** Ключ камеры: наезд `scale` (1 — без масштаба, меньше 1 нельзя) и точка интереса `x, y` (px от центра кадра). */
 export const CameraKeySchema = z.object({
   frame: Frame,
-  scale: z.number().positive(),
+  /** ≥ 1: отъезд меньше кадра не поддерживается (открылись бы края фона). */
+  scale: z.number().min(1),
   x: z.number(),
   y: z.number(),
 }).strict();

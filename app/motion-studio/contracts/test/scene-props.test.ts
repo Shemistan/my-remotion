@@ -58,4 +58,10 @@ describe("ScenePropsBase", () => {
     (p.timing as { beats: unknown[] }).beats.push({ id: "b3", start_frame: 170, end_frame: 200 });
     expect(ScenePropsBaseSchema.safeParse(p).success).toBe(false);
   });
+  it("safe_area и font из настроек сцены — необязательны и проверяются", () => {
+    expect(ScenePropsBaseSchema.parse(propsWith({ safe_area: { x: 0.1, y: 0.1 }, font: "Inter" })).style).toMatchObject({ safe_area: { x: 0.1, y: 0.1 }, font: "Inter" });
+    expect(ScenePropsBaseSchema.safeParse(propsWith({ safe_area: { x: 0.5, y: 0.1 } })).success).toBe(false);
+    expect(ScenePropsBaseSchema.safeParse(propsWith({ safe_area: { x: 0.1 } })).success).toBe(false);
+    expect(ScenePropsBaseSchema.safeParse(propsWith({ font: "" })).success).toBe(false);
+  });
 });

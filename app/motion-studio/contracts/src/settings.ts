@@ -6,6 +6,8 @@ export const StylePresetSchema = z.enum(["dark-premium", "light-clean", "tech-ne
 export const IntensitySchema = z.enum(["calm", "balanced", "energetic"]);
 
 const Half = z.number().min(0).lt(0.5);
+/** Безопасная зона — доли кадра по x и y (поле с каждой стороны). */
+export const SafeAreaSchema = z.object({ x: Half, y: Half }).strict();
 const ASPECT: Record<string, number> = { "16:9": 16 / 9, "9:16": 9 / 16, "1:1": 1 };
 
 /** Поля настроек без межпольных проверок: основа для частичного патча (`RenderBody`). */
@@ -21,7 +23,7 @@ export const SettingsFieldsSchema = z.object({
   animation_intensity: IntensitySchema,
   background: z.string().min(1),
   transparent_export: z.boolean(),
-  safe_area: z.object({ x: Half, y: Half }).strict(),
+  safe_area: SafeAreaSchema,
 }).strict();
 
 /** Настройки сцены (ТЗ §6.4). safe_area — доли кадра. */

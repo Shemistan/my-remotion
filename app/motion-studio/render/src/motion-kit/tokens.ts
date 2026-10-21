@@ -76,7 +76,7 @@ export function radius(s: StyleBible, level: number): number {
  */
 export function surfaceAt(s: StyleBible, elevation: number): string {
   const e = clampInt(elevation, 0, 3);
-  return isDark(s) ? mix(s.palette.surface, s.palette.text, [0, 0.035, 0.07, 0.11][e]!) : mix(s.palette.surface, s.palette.bg, [0.55, 0, 0, 0][e]!);
+  return isDark(s) ? mix(s.palette.surface, s.palette.text, [0, 0.035, 0.08, 0.12][e]!) : mix(s.palette.surface, s.palette.bg, [0.55, 0, 0, 0][e]!);
 }
 
 /** CSS font-family для FontRef: локальный шрифт kit + системный запасной. */

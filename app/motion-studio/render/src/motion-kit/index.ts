@@ -18,10 +18,11 @@ export { INTENSITY, amplitudeOf } from "./style/intensity.js";
 export { type EnterDirection, type EnterKind, type EnterOptions, enterStyle } from "./choreo/enter.js";
 export { staggerBeat } from "./choreo/stagger.js";
 export { type CameraKey, type CameraState, cameraAt, cameraTransform, parallaxFactor, parallaxTransform } from "./choreo/camera.js";
-export { type Rect, safeRect } from "./choreo/safe-area.js";
+export { type Rect, safeRect, styleSafeRect } from "./choreo/safe-area.js";
+export { edgeDelay, kineticStep, typeRhythm } from "./choreo/rhythm.js";
 export { gridColumns, layoutLayered } from "./choreo/layout.js";
 export { type BeatPhase, type BeatState, type BeatWindow, beatPhase, beatProgress, useBeat } from "./beat.js";
-export { EASE, type EasingFn, type EasingRole, type SpringRole, easingOf, frames, springAt, springConfig } from "./easing.js";
+export { EASE, type EasingFn, type EasingRole, type SpringRole, easingOf, fpsFrames, frames, springAt, springConfig } from "./easing.js";
 export { type FormatOptions, formatNumber } from "./format.js";
 export {
   type CubicSegment,

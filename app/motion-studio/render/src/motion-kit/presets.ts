@@ -37,7 +37,7 @@ const darkPremium: StyleBible = {
     elevation: [
       "0 0 0 1px rgba(255, 255, 255, 0.06)",
       "0 0 0 1px rgba(255, 255, 255, 0.07), 0 10px 24px -10px rgba(0, 0, 0, 0.7)",
-      "0 0 0 1px rgba(255, 255, 255, 0.09), 0 24px 48px -16px rgba(0, 0, 0, 0.8), 0 6px 14px -4px rgba(0, 0, 0, 0.5)",
+      "0 0 0 1px rgba(255, 255, 255, 0.1), 0 24px 48px -16px rgba(0, 0, 0, 0.8), 0 6px 14px -4px rgba(0, 0, 0, 0.5), 0 0 56px -24px rgba(139, 124, 255, 0.22)",
       "0 0 0 1px rgba(255, 255, 255, 0.12), 0 48px 96px -24px rgba(0, 0, 0, 0.9), 0 16px 32px -8px rgba(0, 0, 0, 0.6), 0 0 80px -20px rgba(139, 124, 255, 0.35)",
     ],
   },

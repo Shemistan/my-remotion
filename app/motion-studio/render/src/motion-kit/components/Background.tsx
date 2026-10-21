@@ -5,7 +5,8 @@
 import type { Beat } from "@ms/contracts";
 import { AbsoluteFill, Easing, random, useCurrentFrame, useVideoConfig } from "remotion";
 import { ramp, useSvgId } from "../internal.js";
-import { depthOf } from "../style/resolve.js";
+import { fpsFrames } from "../easing.js";
+import { depthOf, fpsScaleOf } from "../style/resolve.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, isDark, mix } from "../tokens.js";
 
@@ -57,7 +58,9 @@ export function Background({ beat, variant, grain = true, seed = "bg" }: Backgro
   });
 
   const cell = 72;
-  const gridShift = (frame * 1.6) % cell;
+  // скорости заданы для 30 fps: на другом fps сетка едет с той же скоростью в секунду
+  const gridShift = ((frame * 1.6) / fpsScaleOf(s)) % cell;
+  const grainStep = fpsFrames(s, 2);
 
   if (s.transparent) return null;
 
@@ -122,8 +125,8 @@ export function Background({ beat, variant, grain = true, seed = "bg" }: Backgro
       {grain ? (
         <svg width={width} height={height} style={{ position: "absolute", inset: 0, opacity: dark ? 0.07 : 0.04, mixBlendMode: dark ? "screen" : "multiply" }}>
           <filter id={noiseId}>
-            {/* зерно меняется раз в 2 кадра: живое, но без мерцания */}
-            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves={2} seed={Math.floor(frame / 2) % 97} stitchTiles="stitch" />
+            {/* зерно меняется раз в 2 кадра (при 30 fps): живое, но без мерцания */}
+            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves={2} seed={Math.floor(frame / grainStep) % 97} stitchTiles="stitch" />
             <feColorMatrix type="saturate" values="0" />
           </filter>
           <rect width="100%" height="100%" filter={`url(#${noiseId})`} />

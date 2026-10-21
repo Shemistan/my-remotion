@@ -8,8 +8,11 @@ import { type Intensity, intensityScale } from "./intensity.js";
 export type Depth = 0 | 1 | 2 | 3;
 export type PaletteOverrides = Partial<StyleBible["palette"]>;
 
-/** StyleBible с кадрами под fps и интенсивность сцены, плюс амплитуда, глубина и прозрачность. */
-export type ResolvedStyle = StyleBible & { amplitude: number; depth: Depth; transparent: boolean };
+/**
+ * StyleBible с кадрами под fps и интенсивность сцены, плюс амплитуда, глубина и прозрачность.
+ * `fpsScale` = fps / 30: им frames() пересчитывает свои константы компонентов.
+ */
+export type ResolvedStyle = StyleBible & { amplitude: number; depth: Depth; transparent: boolean; fpsScale: number };
 
 export interface ResolveStyleInput {
   /** Id пресета или свой StyleBible. */
@@ -92,7 +95,8 @@ export function resolveStyle(input: ResolveStyleInput): ResolvedStyle {
 
   const fps = input.fps ?? { num: BASE_FPS, den: 1 };
   if (!(fps.num > 0 && fps.den > 0)) throw new RangeError(`fps должен быть > 0: ${fps.num}/${fps.den}`);
-  const k = (fps.num / fps.den / BASE_FPS) * intensityScale(input.intensity).time;
+  const fpsScale = fps.num / fps.den / BASE_FPS;
+  const k = fpsScale * intensityScale(input.intensity).time;
   const m = bible.motion;
   const motion = {
     ...m,
@@ -112,14 +116,18 @@ export function resolveStyle(input: ResolveStyleInput): ResolvedStyle {
     amplitude: intensityScale(input.intensity).amplitude,
     depth: input.depth ?? 1,
     transparent: input.transparent ?? false,
+    fpsScale,
   };
 }
 
 /** Уже разрешённый стиль (есть амплитуда и глубина) — не разрешать второй раз. */
 export function isResolved(s: StyleBible): s is ResolvedStyle {
   const r = s as Partial<ResolvedStyle>;
-  return typeof r.amplitude === "number" && typeof r.depth === "number" && typeof r.transparent === "boolean";
+  return typeof r.amplitude === "number" && typeof r.depth === "number" && typeof r.transparent === "boolean" && typeof r.fpsScale === "number";
 }
 
 /** Глубина стиля: у сырого StyleBible — 1 (как задумано пресетом). */
 export const depthOf = (s: StyleBible): Depth => (isResolved(s) ? s.depth : 1);
+
+/** fps / 30 стиля: у сырого StyleBible — 1. */
+export const fpsScaleOf = (s: StyleBible): number => (isResolved(s) ? s.fpsScale : 1);

@@ -5,7 +5,8 @@
 import type { Beat } from "@ms/contracts";
 import type { CSSProperties } from "react";
 import { interpolate, random, useCurrentFrame, useVideoConfig } from "remotion";
-import { easingOf, frames, springAt } from "../easing.js";
+import { kineticStep, typeRhythm } from "../choreo/rhythm.js";
+import { easingOf, springAt } from "../easing.js";
 import { CLAMP, clamp01 } from "../internal.js";
 import { amplitudeOf } from "../style/intensity.js";
 import { depthOf } from "../style/resolve.js";
@@ -79,9 +80,7 @@ export function KineticText({
   const units = mode === "letters" ? words.reduce((n, w) => n + Array.from(w).length, 0) : words.length;
   // разбег по биту: не дольше 60% его длины, чтобы последняя часть успела встать
   const len = Math.max(0, beat.end_frame - beat.start_frame);
-  // stagger из props — своя константа (× интенсивность); по умолчанию — токен стиля
-  const baseStagger = stagger !== undefined ? frames(s, stagger) : mode === "letters" ? Math.max(1, s.motion.stagger_frames * 0.5) : s.motion.stagger_frames;
-  const step = Math.min(baseStagger, units > 1 ? (len * 0.6) / (units - 1) : baseStagger);
+  const step = kineticStep(s, { mode, units, len, stagger });
   const start = beat.start_frame + delay;
   const exitLen = s.motion.exit_frames;
   const enterEase = easingOf(s, "enter");
@@ -144,10 +143,10 @@ export function KineticText({
     // набор: буквы появляются по одной (ритм — половина stagger стиля, не дольше 70 % бита),
     // ещё не набранные держат место (раскладка не прыгает); каретка мигает до конца бита
     const chars = Array.from(text);
-    const perChar = Math.max(0.5, Math.min(stagger !== undefined ? frames(s, stagger) : Math.max(1, s.motion.stagger_frames * 0.5), (len * 0.7) / Math.max(1, chars.length)));
+    const { perChar, blink } = typeRhythm(s, { chars: chars.length, len, stagger });
     const typed = frame < start ? 0 : Math.min(chars.length, Math.floor((frame - start) / perChar) + 1);
     const doneAt = start + chars.length * perChar;
-    const caretOn = frame >= start && frame < beat.end_frame && (frame < doneAt || Math.floor((frame - doneAt) / 8) % 2 === 0);
+    const caretOn = frame >= start && frame < beat.end_frame && (frame < doneAt || Math.floor((frame - doneAt) / blink) % 2 === 0);
     const caret = (
       <span key="caret" style={{ position: "relative", display: "inline-block", width: 0, height: "1em", verticalAlign: "-0.12em" }}>
         <span

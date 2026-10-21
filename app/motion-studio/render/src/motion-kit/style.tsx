@@ -15,7 +15,8 @@ const StyleContext = createContext<ResolvedStyle>(resolveStyle({ preset: "dark-p
 export function toResolved(style: StyleSource, fps: number): ResolvedStyle {
   const f = { num: fps, den: 1 };
   if (typeof style === "string") {
-    const bible = presets[style] ?? presets["dark-premium"];
+    const bible = Object.prototype.hasOwnProperty.call(presets, style) ? presets[style] : undefined;
+    if (!bible) throw new RangeError(`неизвестный пресет стиля: ${style} (есть: ${Object.keys(presets).join(", ")})`);
     return resolveStyle({ preset: bible, intensity: bible.motion.intensity, fps: f });
   }
   if ("preset" in style) return resolveStyle({ ...style, fps: f });

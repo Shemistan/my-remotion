@@ -7,7 +7,7 @@ import { useCurrentFrame, useVideoConfig } from "remotion";
 import { beatPhase } from "../beat.js";
 import { type EnterDirection, type EnterKind, enterStyle } from "../choreo/enter.js";
 import { staggerBeat } from "../choreo/stagger.js";
-import { easingOf, springAt } from "../easing.js";
+import { EASE, easingOf, frames, springAt } from "../easing.js";
 import { ramp } from "../internal.js";
 import { useStyle } from "../style.js";
 
@@ -21,6 +21,8 @@ export interface EnterProps {
   direction?: EnterDirection;
   /** Путь сдвига при amp = 1, px; по умолчанию 4.5 % высоты кадра. */
   distance?: number;
+  /** Длительность входа, кадры при 30 fps (× fps и интенсивность); по умолчанию enter_frames, у mask — 1.5×. */
+  duration?: number;
   /** Уйти в конце бита (последние exit_frames). */
   exit?: boolean;
   style?: CSSProperties;
@@ -30,23 +32,25 @@ export interface EnterProps {
 /** Виды, у которых свой вход в компоненте: при выходе они просто гаснут. */
 const SELF_ANIMATED = new Set<EnterKind>(["type", "count", "draw", "none"]);
 
-export function Enter({ kind, beat, index = 0, total = 1, direction, distance, exit = false, style, children }: EnterProps) {
+export function Enter({ kind, beat, index = 0, total = 1, direction, distance, duration, exit = false, style, children }: EnterProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
   const w = staggerBeat(beat, index, total, s.motion.stagger_frames);
   const o = { amplitude: s.amplitude, distancePx: distance ?? Math.round(height * 0.045), direction };
 
+  // шторка (mask) — крупная форма: дольше и по S-кривой, иначе expo-out открывает её за пару кадров
+  const len = duration !== undefined ? frames(s, duration) : kind === "mask" ? Math.round(s.motion.enter_frames * 1.5) : s.motion.enter_frames;
   const p = kind === "pop"
     ? springAt(frame, fps, s, w.start_frame, "pop")
-    : ramp(frame, w.start_frame, w.start_frame + s.motion.enter_frames, easingOf(s, "enter"));
+    : ramp(frame, w.start_frame, w.start_frame + len, kind === "mask" ? EASE.inOutCubic : easingOf(s, "enter"));
   let anim = enterStyle(kind, p, o);
 
   if (exit) {
     const phase = beatPhase(frame, w, { enter: s.motion.enter_frames, exit: s.motion.exit_frames });
     if (phase === "exit" || phase === "after") {
-      const len = Math.min(s.motion.exit_frames, (w.end_frame - w.start_frame) / 2);
-      const q = ramp(frame, w.end_frame - len, w.end_frame, easingOf(s, "exit"));
+      const out = Math.min(s.motion.exit_frames, (w.end_frame - w.start_frame) / 2);
+      const q = ramp(frame, w.end_frame - out, w.end_frame, easingOf(s, "exit"));
       // выход — тот же вид в обратную сторону (pop уходит масштабом, без второго перелёта)
       anim = SELF_ANIMATED.has(kind) ? { opacity: 1 - q } : enterStyle(kind === "pop" ? "scale" : kind, 1 - q, o);
       if (q >= 1) anim = { ...anim, opacity: 0 };

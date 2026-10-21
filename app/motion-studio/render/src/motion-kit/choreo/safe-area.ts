@@ -15,3 +15,8 @@ export function safeRect(settings: Pick<Settings, "width" | "height" | "safe_are
   const y = Math.round(settings.height * settings.safe_area.y);
   return { x, y, w: settings.width - 2 * x, h: settings.height - 2 * y };
 }
+
+/** Безопасная зона кадра по стилю: поля — `grid.safe_area` (resolveStyle кладёт туда `safe_area` настроек). */
+export function styleSafeRect(style: { grid: { safe_area: { x: number; y: number } } }, width: number, height: number): Rect {
+  return safeRect({ width, height, safe_area: style.grid.safe_area });
+}

@@ -41,8 +41,9 @@ const DEPTH_K = [0.35, 1, 1.3, 1.6] as const;
 export function cardSurface(s: StyleBible, elevation: number): CSSProperties {
   const e = depthElevation(s, elevation);
   const dark = isDark(s);
-  const sheen = dark ? alpha("#ffffff", [0.015, 0.035, 0.055, 0.08][e]!) : alpha("#ffffff", 0.6);
-  const edge = dark ? alpha("#ffffff", [0.04, 0.07, 0.1, 0.14][e]!) : alpha("#ffffff", 0.9);
+  // шаги блика и кромки заметны между соседними уровнями: 1 и 2 не сливаются на тёмном фоне
+  const sheen = dark ? alpha("#ffffff", [0.015, 0.035, 0.065, 0.095][e]!) : alpha("#ffffff", 0.6);
+  const edge = dark ? alpha("#ffffff", [0.04, 0.075, 0.13, 0.18][e]!) : alpha("#ffffff", 0.9);
   return {
     background: `linear-gradient(180deg, ${sheen} 0%, ${alpha(sheen, 0)} 42%), ${surfaceAt(s, e)}`,
     boxShadow: `inset 0 1px 0 ${edge}, ${shadow(s, e)}`,

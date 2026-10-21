@@ -18,7 +18,7 @@ import { AnimatedNumber, Background, Camera, Card, Enter, FlowGraph, KineticText
 ## Каркас сцены
 
 ```tsx
-// props.json: { timing: { duration_frames, beats }, style: { preset, intensity, depth, transparent }, content }
+// props.json: { timing: { duration_frames, beats }, style: { preset, intensity, depth, transparent, safe_area?, font? }, content }
 export const Scene = ({ timing, style, content }: Props) => (
   <StyleProvider style={style}>              {/* стиль — только из props.style */}
     <Background beat={{ start_frame: 0, end_frame: 40 }} />
@@ -56,9 +56,10 @@ export const Scene = ({ timing, style, content }: Props) => (
 ## Стиль
 
 `StyleProvider style=…` принимает `props.style` сцены (`{ preset, intensity, depth?,
-transparent?, palette_overrides? }`), id пресета, StyleBible или готовый `ResolvedStyle`, и
-разрешает его через `resolveStyle` под fps композиции. `useStyle()` возвращает
-`ResolvedStyle` = StyleBible + `amplitude` + `depth` + `transparent`:
+transparent?, palette_overrides?, safe_area?, font? }`), id пресета, StyleBible или готовый
+`ResolvedStyle`, и разрешает его через `resolveStyle` под fps композиции. Неизвестный id
+пресета — ошибка. `useStyle()` возвращает `ResolvedStyle` = StyleBible + `amplitude` +
+`depth` + `transparent` + `fpsScale`:
 
 | Поле | Что значит |
 |---|---|
@@ -67,7 +68,8 @@ transparent?, palette_overrides? }`), id пресета, StyleBible или го�
 | `depth` | 0 плоско · 1 как задумано · 2–3 объёмнее: тени карточек, перспектива, атмосфера фона, тень крупного текста |
 | `transparent` | прозрачный экспорт: `Background` не рисуется, свой фон на корне сцены не ставь |
 | `palette` | палитра пресета с `palette_overrides` (`accent[i]` заменяет `accent[i]`) |
-| `grid.safe_area` | поля кадра (из настроек сцены) |
+| `grid.safe_area` | поля кадра: `props.style.safe_area` (из настроек сцены), без него — пресета |
+| `fpsScale` | fps / 30: `frames()` пересчитывает им свои константы компонентов |
 
 Типографская шкала — от высоты кадра, одна для 16:9, 9:16 и 1:1:
 `typeSize(style, level, height)`, `level`: `display` 11 % · `h1` 7.5 % · `h2` 5.5 % ·
@@ -86,9 +88,11 @@ transparent?, palette_overrides? }`), id пресета, StyleBible или го�
   <Enter key={it.id} kind="rise" beat={beats.list} index={i} total={items.length}>…</Enter>
 ))}
 ```
-`{ kind, beat, index? = 0, total? = 1, direction?, distance?, exit?, style? }`. Старт
-элемента `index` сдвигается на `stagger_frames` (`staggerBeat`), вход длится
-`enter_frames` по кривой `easing.enter`; `pop` — пружина `spring.pop` с перелётом. С
+`{ kind, beat, index? = 0, total? = 1, direction?, distance?, duration?, exit?, style? }`.
+Старт элемента `index` сдвигается на `stagger_frames` (`staggerBeat`), вход длится
+`enter_frames` по кривой `easing.enter`; `mask` — 1.5 × `enter_frames` по S-кривой (шторка
+крупной формы читается, а не мелькает); `pop` — пружина `spring.pop` с перелётом.
+`duration` — своя длительность в кадрах при 30 fps. С
 `exit` элемент уходит обратным движением по `easing.exit` за `exit_frames` до конца бита.
 
 | `kind` | Движение | Для чего |
@@ -114,8 +118,9 @@ transparent?, palette_overrides? }`), id пресета, StyleBible или го�
 ## Камера
 
 Камера — ключи `MotionSpec.camera`: `{ frame, scale, x, y }` (`x, y` — точка интереса, px
-от центра кадра). Масштаб зажат в `camera.max_scale` стиля, при `allow_zoom = false`
-остаётся 1 (только панорама). Между ключами — кривая `easing.emphasis` без перелёта.
+от центра кадра). `scale` — от 1 до `camera.max_scale` стиля: отъезда меньше кадра нет
+(открылись бы края фона), spec с `scale < 1` не проходит контракт. При `allow_zoom = false`
+масштаб остаётся 1 (только панорама). Между ключами — кривая `easing.emphasis` без перелёта.
 ```tsx
 <Camera keys={[{ frame: 0, scale: 1, x: 0, y: 0 }, { frame: 179, scale: 1.08, x: 0, y: 0 }]}>
   <Parallax layer={0}><Background /></Parallax>          {/* дальний план: как камера */}
@@ -133,7 +138,8 @@ transparent?, palette_overrides? }`), id пресета, StyleBible или го�
 
 `safeRect({ width, height, safe_area })` → `{ x, y, w, h }` в px — тот же расчёт, что у
 `<SafeArea>` и `useSafeArea()` (она возвращает и `{ x, y, w, h }`, и
-`{ left, top, width, height }`). Поля берутся из настроек сцены через стиль.
+`{ left, top, width, height }`). Поля — `settings.safe_area`: пайплайн кладёт их в
+`props.style.safe_area`, `StyleProvider` — в `grid.safe_area` стиля. Без поля — поля пресета.
 
 ## Раскладка
 
@@ -288,7 +294,8 @@ reverse? }`
 | `beatProgress(frame, beat, easing?)` | доля бита 0..1 с clamp |
 | `springAt(frame, fps, style, start, role)` | пружина 0→1 роли `soft`/`snappy`/`bouncy` из стиля; не хук, можно в `.map()` |
 | `easingOf(style, "enter" \| "exit" \| "emphasis")`, `EASE.*` | кривые стиля и именованные (`outExpo`, `count`, `inOutCubic`, `outQuart`) |
-| `frames(style, n)` | своя константа в кадрах с учётом интенсивности (calm ×1.25, energetic ×0.75); токены `style.motion.*_frames` уже пересчитаны |
+| `frames(style, n)` | своя константа в кадрах (при 30 fps) под fps и интенсивность (calm ×1.25, energetic ×0.75); токены `style.motion.*_frames` уже пересчитаны |
+| `fpsFrames(style, n)` | константа при 30 fps → кадры при fps сцены, без интенсивности (ритмы вроде мигания) |
 | `staggerBeat(beat, index, total, stagger)` | окно элемента каскада: старт + index × stagger, разбег ≤ половины бита |
 | `formatNumber(v, { locale, compact?, decimals? })` | `1 000 000`, `10,000`, `12,5 тыс.`, `2.4B`. Минус — U+2212, в ru 4-значные числа без пробела |
 | `accent(style, i)`, `alpha(c, a)`, `mix(a, b, t)`, `shadow(style, e)`, `radius`, `space`, `typeSize`, `fontFamily`, `contrastRatio` | токены StyleBible |

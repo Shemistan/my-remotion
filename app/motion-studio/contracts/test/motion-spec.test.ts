@@ -72,6 +72,8 @@ describe("MotionSpec", () => {
     expect(ok({ ...baseSpec(), camera: [{ frame: 0, scale: 1, x: 0, y: 0 }, { frame: 90, scale: 1.08, x: -40, y: 12 }] })).toBe(true);
     expect(ok({ ...baseSpec(), camera: [{ frame: -1, scale: 1, x: 0, y: 0 }] })).toBe(false);
     expect(ok({ ...baseSpec(), camera: [{ frame: 0, scale: 0, x: 0, y: 0 }] })).toBe(false);
+    // отъезд (scale < 1) не поддерживается: открылись бы края кадра
+    expect(ok({ ...baseSpec(), camera: [{ frame: 0, scale: 0.9, x: 0, y: 0 }] })).toBe(false);
     expect(ok({ ...baseSpec(), camera: [{ frame: 0, scale: 1, x: 0, y: 0, rot: 5 }] })).toBe(false);
   });
 });

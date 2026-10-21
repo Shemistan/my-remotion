@@ -2,7 +2,8 @@
 // реальный claude (opus для Director и Engineer по config), реальный рендер Remotion.
 // Промпты — Test 1 и Test 2 из docs/architecture/09-acceptance-tests.md дословно.
 // Запуск: `make e2e` после `MS_DATA_DIR=... npm run doctor -- --init`.
-// Evidence — docs/evidence/phase-1/slice/{test1,test2}/.
+// Evidence — tmp/slice-evidence/{test1,test2}/; в docs/evidence/phase-1/slice/ — только с
+// MS_WRITE_EVIDENCE=1.
 import { execFile, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -26,8 +27,9 @@ const T = 60 * 60_000;
 const DATA_DIR = process.env.MS_DATA_DIR ?? "/Volumes/External SSD/MotionStudio";
 const APP = fileURLToPath(new URL("../../../", import.meta.url));
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
-const EVIDENCE = join(REPO, "docs/evidence/phase-1/slice");
 const REPO_TMP = join(REPO, "tmp");
+// закоммиченное evidence переписывается только явно: иначе каждый `make e2e` менял бы docs/
+const EVIDENCE = process.env.MS_WRITE_EVIDENCE === "1" ? join(REPO, "docs/evidence/phase-1/slice") : join(REPO_TMP, "slice-evidence");
 
 const TEST1 =
   "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении";

@@ -31,6 +31,13 @@ make e2e     # интеграционные тесты (*.e2e.test.ts): сеть
 `make check` вызывается из `./check` в корне репозитория и pre-commit-хуком.
 Тесты пишут только в `tmp/` репозитория и убирают за собой.
 
+Evidence в `docs/evidence/` закоммичено и само по себе не переписывается:
+- `slice.e2e` кладёт кадры и итоги прогона в `tmp/slice-evidence/`. В
+  `docs/evidence/phase-1/slice/` они попадают только с флагом:
+  `MS_WRITE_EVIDENCE=1 make e2e`.
+- Кадры галереи хореографии kit пересобирает `scripts/kit-evidence.mts` (см.
+  `render/src/motion-kit/PROVENANCE.md`).
+
 ## Хранилище и doctor
 
 Все данные приложения — только в `MS_DATA_DIR` (ADR 0006); значения по умолчанию нет.

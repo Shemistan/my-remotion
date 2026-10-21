@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { BeatSchema, PaletteOverridesSchema } from "./motion-spec.js";
-import { IntensitySchema, StylePresetSchema } from "./settings.js";
+import { IntensitySchema, SafeAreaSchema, StylePresetSchema } from "./settings.js";
 
 /** Стиль сцены в `props.json`: единственный источник интенсивности и глубины для кода сцены. */
 export const ScenePropsStyleSchema = z.object({
@@ -9,6 +9,10 @@ export const ScenePropsStyleSchema = z.object({
   intensity: IntensitySchema,
   depth: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]).default(1),
   transparent: z.boolean(),
+  /** Поля кадра из `settings.safe_area` (без поля — поля пресета). */
+  safe_area: SafeAreaSchema.optional(),
+  /** Шрифт из `settings.font` (только шрифты motion-kit). */
+  font: z.string().min(1).optional(),
 }).strict();
 export type ScenePropsStyle = z.infer<typeof ScenePropsStyleSchema>;
 

@@ -49,7 +49,7 @@ export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size
   const col = color ?? accent(s, 1);
   const core = mix(col, "#ffffff", 0.75);
   // по умолчанию ~ 420 px/с с поправкой на интенсивность, не короче 0.6 с
-  const pass = Math.max(1, travel ?? Math.max(Math.round(fps * 0.6), frames(s, (len / 420) * fps)));
+  const pass = Math.max(1, travel ?? Math.max(Math.round(fps * 0.6), frames(s, (len / 420) * 30)));
   // внутри графа не стартуем раньше, чем ребро дорисовано
   const start = Math.max(beat.start_frame, (edgeId && flow?.ready.get(edgeId)) || 0);
   const n = Math.max(1, Math.floor(count));
