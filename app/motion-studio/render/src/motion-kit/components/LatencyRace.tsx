@@ -255,7 +255,7 @@ export function LatencyRace({ lanes, beat, locale, travel, minTravel, repeat = t
               </div>
               {/* строка счёта занята всегда: таймер не прыгает, когда счёт появляется */}
               {showTally ? (
-                <div style={{ fontFamily: fontFamily(s.typography.mono), fontSize: L.tally, lineHeight: 1.15, color: s.palette.muted, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", opacity: r.tally ? 1 : 0 }}>
+                <div style={{ marginTop: Math.round(L.timer * 0.18), fontFamily: fontFamily(s.typography.mono), fontSize: L.tally, lineHeight: 1.15, color: s.palette.muted, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", opacity: r.tally ? 1 : 0 }}>
                   {formatNumber(f.completed, { locale })}
                   {pluralForm(f.completed, tallyForms ?? (locale === "ru" ? [" ответ", " ответа", " ответов"] : [" response", " responses"]), { locale })}
                 </div>

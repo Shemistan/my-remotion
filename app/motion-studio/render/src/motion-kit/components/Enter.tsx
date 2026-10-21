@@ -28,9 +28,9 @@ export interface EnterProps {
   /**
    * До входа (0.4.0): `hidden` (по умолчанию) — пусто; `silhouette` — итоговый вид блока
    * (кадр конца бита) размытым и приглушённым на 22 %: кадр 0 уже показывает раскладку —
-   * оси, рамки, места героев, глифы не читаются; `ghost` — резкий на 18 %. Слой гаснет за
-   * первую треть входа, живой блок входит поверх своим видом. Работает и для детей со своим
-   * входом (AnimatedNumber, графики, ComparisonSplit): `kind="none"`.
+   * оси, рамки, места героев, глифы не читаются; `ghost` — резкий на 18 %. С начала бита
+   * блок входит своим видом (тот же элемент — раскладка не прыгает). Работает и для детей
+   * со своим входом (AnimatedNumber, графики, ComparisonSplit): `kind="none"`.
    */
   pre?: EnterPre;
   style?: CSSProperties;
@@ -77,17 +77,13 @@ export function Enter({ kind, beat, index = 0, total = 1, direction, distance, d
     }
   }
 
-  const live = <div style={{ ...style, ...anim }}>{children}</div>;
-  if (pre === "hidden" || p >= 1 / 3) return live;
-  // слой-постер: тот же блок в итоговом виде (Freeze на конце бита) — под живым
-  return (
-    <div style={{ position: "relative" }}>
-      <div aria-hidden style={{ position: "absolute", inset: 0, pointerEvents: "none", ...posterStyle(pre, p) }}>
-        <div style={style}>
-          <Freeze frame={Math.max(w.end_frame, w.start_frame + len)}>{children}</Freeze>
-        </div>
+  // до старта — тот же блок (та же раскладка) в итоговом виде (Freeze на конце бита) слоем-постером
+  if (pre !== "hidden" && frame < w.start_frame) {
+    return (
+      <div aria-hidden style={{ ...style, ...posterStyle(pre, 0) }}>
+        <Freeze frame={Math.max(w.end_frame, w.start_frame + len)}>{children}</Freeze>
       </div>
-      {live}
-    </div>
-  );
+    );
+  }
+  return <div style={{ ...style, ...anim }}>{children}</div>;
 }

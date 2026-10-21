@@ -37,6 +37,9 @@ export function collectText(root: Element, origin: { x: number; y: number }): Ra
   for (const [el, texts] of byEl) {
     const cs = getComputedStyle(el);
     if (cs.visibility === "hidden" || cs.display === "none") continue;
+    // декоративные копии текста kit (блик Highlight, слой-постер Enter) помечены aria-hidden;
+    // прозрачный цвет — текст-маска фона, не читаемый текст
+    if (el.closest('[aria-hidden="true"]') || cs.color === "rgba(0, 0, 0, 0)" || cs.color === "transparent") continue;
     let opacity = 1;
     for (let p: Element | null = el; p && opacity > 0; p = p.parentElement) opacity *= Number(getComputedStyle(p).opacity || 1);
     if (opacity < 0.01) continue;

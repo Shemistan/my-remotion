@@ -68,7 +68,8 @@ export function SceneTitle({ mode, text, kicker, beat, highlight, align = "left"
     );
   }
   // statement / integrated — в потоке раскладки: сцена ставит их, где нужно (у героя)
-  const flow: CSSProperties = { display: "flex", flexDirection: "column", gap: 12, alignItems: align === "center" ? "center" : align === "right" ? "flex-end" : "flex-start", ...style };
+  // зазор рубрика → утверждение: подъём слов с перелётом не заходит на рубрику
+  const flow: CSSProperties = { display: "flex", flexDirection: "column", gap: Math.round((40 * height) / 1080), alignItems: align === "center" ? "center" : align === "right" ? "flex-end" : "flex-start", ...style };
   return (
     <div style={flow}>
       {kick}
