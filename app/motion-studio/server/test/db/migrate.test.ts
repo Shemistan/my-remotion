@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { openDb, type Db } from "../../src/db/open.js";
@@ -26,9 +26,17 @@ it("studio.db в корне хранилища: WAL, synchronous=FULL, foreign_k
 });
 
 it("миграции по номеру в PRAGMA user_version, повтор ничего не делает", () => {
-  expect(migrate(db)).toEqual({ from: 0, to: 1 });
-  expect(migrate(db)).toEqual({ from: 1, to: 1 });
-  expect(db.pragma("user_version", { simple: true })).toBe(1);
+  expect(migrate(db)).toEqual({ from: 0, to: 2 });
+  expect(migrate(db)).toEqual({ from: 2, to: 2 });
+  expect(db.pragma("user_version", { simple: true })).toBe(2);
+});
+
+it("002_resource_locks: база версии 1 (Task 11) доводится до 2", () => {
+  db.exec(readFileSync(new URL("../../src/db/migrations/001_phase1.sql", import.meta.url), "utf8"));
+  db.pragma("user_version = 1");
+  expect(migrate(db)).toEqual({ from: 1, to: 2 });
+  const cols = (db.prepare("PRAGMA table_info(resource_locks)").all() as { name: string; pk: number }[]).map((c) => [c.name, c.pk]);
+  expect(cols).toEqual([["resource", 1], ["job_id", 0], ["acquired_at", 0]]);
 });
 
 it("001_phase1: все таблицы Phase 1 и meta", () => {
