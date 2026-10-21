@@ -6,7 +6,7 @@ import type { Beat } from "@ms/contracts";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { type ArrivalCount, EASE_PASS, type PathArrival, type PulseArrival, arrivalCount, pathArrivals, pulsePass, pulseStarts } from "../choreo/pulse.js";
 import { type CubicSegment, lutLength, pathLUT, pointAtLength, pointsBetween, polylineD } from "../geometry.js";
-import { CLAMP, useSvgId } from "../internal.js";
+import { CLAMP, kitWarn, useSvgId } from "../internal.js";
 import { useStyle } from "../style.js";
 import { accent, mix } from "../tokens.js";
 import { useFlowGeometry } from "./FlowGraph.js";
@@ -40,6 +40,10 @@ export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size
   const id = useSvgId("ms-pulse");
   const seg = edgeId ? flow?.edges.get(edgeId) : undefined;
   const path = seg ? [seg] : (segments ?? []);
+  if (edgeId && !seg && !segments) {
+    const m = flow ? `PulseAlongPath: в графе нет ребра "${edgeId}" — импульса нет.` : `PulseAlongPath: edgeId "${edgeId}" вне <FlowGraph> — импульса нет. Ставь в children графа или передай segments.`;
+    kitWarn(`pulse:${m}`, m);
+  }
   if (path.length === 0) return null;
 
   const lut = pathLUT(path, 40);
@@ -102,6 +106,17 @@ export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size
 }
 
 /**
+ * Почему счётчик по приходам останется нулём (чистая функция): `pulseArrival` по ребру вне
+ * <FlowGraph> или по ребру, которого в графе нет. null — источник в порядке.
+ */
+export function arrivalSourceIssue(a: PulseArrival | (PathArrival & { segments: CubicSegment[] }), flow: Pick<NonNullable<ReturnType<typeof useFlowGeometry>>, "edges"> | null): string | null {
+  if ("segments" in a) return null;
+  if (!flow) return `useArrivalCount: pulseArrival("${a.edgeId}") вне <FlowGraph> — счётчик стоит на нуле. Ставь хук в children/overlay графа или передай { segments, beat, travel }.`;
+  if (!flow.edges.has(a.edgeId)) return `useArrivalCount: в графе нет ребра "${a.edgeId}" — счётчик стоит на нуле.`;
+  return null;
+}
+
+/**
  * Счётчик событий по приходам импульсов (хук): `count` растёт ровно в кадр, когда импульс
  * касается цели, `pop` — микро-удар на каждом приходе (для `AnimatedNumber pop`).
  * Внутри <FlowGraph> — `pulseArrival(edgeId, beat, travel, { count, repeat })` (те же поля,
@@ -113,6 +128,8 @@ export function useArrivalCount(a: PulseArrival | (PathArrival & { segments: Cub
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const flow = useFlowGeometry();
+  const issue = arrivalSourceIssue(a, flow);
+  if (issue) kitWarn(`arrival:${issue}`, issue);
   const at = "segments" in a ? pathArrivals(a.segments, a, s, fps) : (flow?.arrivals(a) ?? []);
   return arrivalCount(at, frame, s, o);
 }

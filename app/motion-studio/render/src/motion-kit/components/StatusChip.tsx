@@ -7,7 +7,7 @@ import type { CSSProperties } from "react";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import { EASE, frames, springAt } from "../easing.js";
 import { cubicPoint } from "../geometry.js";
-import { clamp01, ramp } from "../internal.js";
+import { clamp01, kitWarn, ramp } from "../internal.js";
 import { type TypeLevel, sizePx } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, fontFamily, isDark, mix, surfaceAt } from "../tokens.js";
@@ -75,6 +75,18 @@ export function toneColor(s: StyleBible, tone: StatusTone | undefined, accentInd
   return s.palette.muted;
 }
 
+/**
+ * Почему якорь StatusChip не сработает (чистая функция): якорь вне <FlowGraph> или узла /
+ * ребра с таким id нет — плашка встала бы в точку x / y (0, 0 по умолчанию). null — в порядке.
+ */
+export function statusAnchorIssue(a: StatusAnchor | undefined, flow: Pick<NonNullable<ReturnType<typeof useFlowGeometry>>, "edges" | "nodes"> | null): string | null {
+  if (!a) return null;
+  const what = "node" in a ? `узел "${a.node}"` : `ребро "${a.edge}"`;
+  if (!flow) return `StatusChip: якорь ${what} вне <FlowGraph> — плашка встанет в x / y. Ставь StatusChip в overlay графа или задай x, y без anchor.`;
+  if ("node" in a ? !flow.nodes.has(a.node) : !flow.edges.has(a.edge)) return `StatusChip: в графе нет id — ${what}; плашка встанет в x / y.`;
+  return null;
+}
+
 /** Точка якоря в системе координат графа и сдвиг плашки от неё (CSS translate). */
 function anchorPoint(flow: ReturnType<typeof useFlowGeometry>, a: StatusAnchor | undefined, x = 0, y = 0): { x: number; y: number; tr: string } {
   const gap = a?.gap ?? 12;
@@ -107,6 +119,8 @@ export function StatusChip({ states, anchor, x, y, size = "caption", until, styl
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
   const flow = useFlowGeometry();
+  const issue = statusAnchorIssue(anchor, flow);
+  if (issue) kitWarn(`status:${issue}`, issue);
   const st = statusAt(states, frame, s, until);
   if (!st || st.leave >= 1) return null;
   const order = [...states].sort((a, b) => a.at - b.at);
