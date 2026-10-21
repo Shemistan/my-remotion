@@ -1,0 +1,21 @@
+{
+  "title": "Инструменты агента",
+  "purpose": "фикстура QA: все элементы входят одним fade",
+  "duration_frames": 90,
+  "fps": { "num": 30, "den": 1 },
+  "style_preset": "dark-premium",
+  "elements": [
+    { "id": "search", "kind": "card", "role": "emphasis", "entrance": "fade", "content": { "label": "Поиск" }, "layout": { "x": 0.08, "y": 0.17, "w": 0.4, "h": 0.3 } },
+    { "id": "kb", "kind": "card", "role": "инструмент", "entrance": "fade", "content": { "label": "База знаний" }, "layout": { "x": 0.52, "y": 0.17, "w": 0.4, "h": 0.3 } },
+    { "id": "code", "kind": "card", "role": "инструмент", "entrance": "fade", "content": { "label": "Код" }, "layout": { "x": 0.08, "y": 0.54, "w": 0.4, "h": 0.3 } },
+    { "id": "answer", "kind": "card", "role": "итог", "entrance": "fade", "content": { "label": "Ответ" }, "layout": { "x": 0.52, "y": 0.54, "w": 0.4, "h": 0.3 } }
+  ],
+  "beats": [
+    { "id": "b-search", "start_frame": 0, "end_frame": 20, "action": "search-in", "description": "", "element_ids": ["search"] },
+    { "id": "b-kb", "start_frame": 10, "end_frame": 30, "action": "kb-in", "description": "", "element_ids": ["kb"] },
+    { "id": "b-code", "start_frame": 20, "end_frame": 40, "action": "code-in", "description": "", "element_ids": ["code"] },
+    { "id": "b-answer", "start_frame": 30, "end_frame": 50, "action": "answer-in", "description": "", "element_ids": ["answer"] },
+    { "id": "b-accent", "start_frame": 50, "end_frame": 75, "action": "final-emphasis", "description": "пульс первой карточки", "element_ids": ["search"] },
+    { "id": "b-hold", "start_frame": 75, "end_frame": 90, "action": "hold", "description": "", "element_ids": ["search", "kb", "code", "answer"] }
+  ]
+}

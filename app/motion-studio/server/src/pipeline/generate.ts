@@ -48,10 +48,8 @@ import {
   searchCandidates,
   topPatterns,
 } from "./refs.js";
-import { qaFrames } from "./qa-frames.js";
+import { selectQaFrames } from "./qa-frames.js";
 import { renderEnv } from "./render-env.js";
-
-export { qaFrames } from "./qa-frames.js";
 
 /** Словарь этапов неудачи — `@ms/contracts` (`FailureStageSchema`). */
 export type { FailureStage };
@@ -393,7 +391,7 @@ export async function generateScene(prompt: string, settings: Settings, deps: Ge
   if (refs.length === 0) warnings.push("knowledge-refs пуст: Director не выбрал ни одной допустимой записи KB");
   const selection = { items: filtered.selection.items.filter((i) => refs.some((r) => r.kb_id === i.kb_id)) };
   log(`Director: «${spec.title}» (${director.composition.archetype}), ${spec.beats.length} битов, KB: ${refs.map((r) => `${r.kb_id} (${r.strategy})`).join(", ") || "—"}`);
-  const frames = qaFrames(spec, settings.duration_frames);
+  const frames = selectQaFrames(spec, settings.duration_frames);
 
   // --- 3. Draft. С этого места любой выход — публикация failed или карантин ---
   try {

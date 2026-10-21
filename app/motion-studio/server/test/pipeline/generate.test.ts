@@ -2,11 +2,10 @@
 // static check и хранилище (tmp/) — настоящие.
 import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { StorageError, type StorageStatus } from "@ms/core";
 import { canSpend } from "../../src/pipeline/budget.js";
-import { generateScene, qaFrames } from "../../src/pipeline/generate.js";
+import { generateScene } from "../../src/pipeline/generate.js";
 import { searchCandidates } from "../../src/pipeline/refs.js";
 import { readVersion, sweepAbandonedDrafts } from "../../src/scenes/store.js";
 import {
@@ -54,11 +53,6 @@ describe("generateScene: успех", () => {
       expect(existsSync(join(r.versionDir!, f)), f).toBe(true);
     }
     expect(existsSync(join(root, "workspace/projects/playground/scenes", m.scene_id, "brief.json"))).toBe(true);
-  });
-
-  it("кадры QA: конец входов, середина акцента, последний; середины битов — с шагом ≥ 10", () => {
-    const f = qaFrames(directorOutput().spec, 180);
-    expect(f).toEqual([40, 80, 140, 165, 179]);
   });
 
   it("Director: кандидаты KB без нерисующих записей, без инструментов; Engineer: cwd = draft и инструменты файлов", async () => {
@@ -407,27 +401,5 @@ describe("sweepAbandonedDrafts", () => {
     expect(r.skipped).toEqual([join(drafts, "run_B-a1")]);
     expect(JSON.parse(readFileSync(join(drafts, "run_A-a1", ".quarantined"), "utf8")).reason).toBe("abandoned");
     expect(readFileSync(join(drafts, "run_C-a1", ".quarantined"), "utf8")).toContain("old");
-  });
-});
-
-describe("qaFrames на spec реальных прогонов", () => {
-  const spec = (name: string) => JSON.parse(readFileSync(fileURLToPath(new URL(`../fixtures/specs/${name}`, import.meta.url)), "utf8"));
-  it.each([
-    ["test1-slice.json", 130, 76],
-    ["test2-slice.json", 150, 42],
-    ["test1-r1.json", 123, 60],
-    ["test2-r1.json", 152, 72],
-  ])("%s: середина акцента %i и конец входов %i — в кадрах; нет кадров внутри входа заголовка; шаг ≥ 10", (name, accentMid, entranceEnd) => {
-    const sp = spec(name);
-    const f = qaFrames(sp, sp.duration_frames);
-    expect(f).toContain(accentMid);
-    expect(f).toContain(entranceEnd);
-    expect(f).toContain(sp.duration_frames - 1);
-    expect(f.length).toBeLessThanOrEqual(6);
-    // ни одного кадра внутри входа текстового элемента (заголовок/кикер наполовину вошёл)
-    const kinds = new Map(sp.elements.map((e: { id: string; kind: string }) => [e.id, e.kind]));
-    const textIn = sp.beats.filter((b: { action: string; element_ids: string[] }) => /entrance/.test(b.action) && b.element_ids.some((id) => kinds.get(id) === "text"));
-    for (const b of textIn) expect(f.filter((x) => x > b.start_frame && x < b.end_frame), b.action).toEqual([]);
-    for (let i = 1; i < f.length; i++) expect(f[i]! - f[i - 1]!).toBeGreaterThanOrEqual(10);
   });
 });
