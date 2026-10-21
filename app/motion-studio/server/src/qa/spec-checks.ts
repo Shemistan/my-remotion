@@ -110,13 +110,16 @@ const FLASH_FRAMES_30 = 22;
 const CONFLICT_MIN_FRAMES = 3;
 /** Бит импульса по ребру: по нему считается кадр прихода, если в flash_on нет id бита. */
 const PULSE_ACTION = /pulse|flow|signal|импульс|поток/i;
+/** Установившийся поток удержания — фон системы в работе, а не событие. */
+const STEADY_ACTION = /hold|loop|steady|idle|ambient|удержан|фон/i;
 
 interface AccentWindow { id: string; from: number; to: number; what: string }
 
 /**
  * Один акцент в момент (prompts/motion-director.md §6): вспышка узла по приходу импульса
- * (`content.flash_on`) и бит акцента (`emphasis`/`accent` в action) другого объекта, или два
- * бита акцента разных объектов, перекрываются по кадрам — blocking: Director разводит их.
+ * (`content.flash_on`) и бит акцента (`emphasis`/`accent` в action) другого объекта, два
+ * бита акцента разных объектов, или удар акцента посреди полёта импульса к другому
+ * объекту перекрываются по кадрам — blocking: Director разводит их.
  */
 function accentConflicts(spec: MotionSpec): Omit<QAIssue, "source">[] {
   const fps = spec.fps.num / spec.fps.den;
@@ -154,6 +157,18 @@ function accentConflicts(spec: MotionSpec): Omit<QAIssue, "source">[] {
         code: "accent_conflict", severity: "blocking", area: `${f.id}, ${ids.join(", ")}`,
         description: `${f.what} и акцент ${ids.join(", ")} (бит ${b.id}, кадры ${b.start_frame}–${b.end_frame}) светятся одновременно: два акцента в один момент`,
         fix_hint: `один акцент в момент: если приход импульса отмечает сам ${ids.join(", ")} — убери flash_on у ${f.id}; иначе начни бит ${b.id} не раньше кадра ${f.to}, когда вспышка погаснет`,
+      });
+    }
+  }
+  // удар акцента посреди полёта импульса к другому объекту: итог «приходит» раньше данных
+  for (const p of spec.beats.filter((b) => PULSE_ACTION.test(b.action) && !STEADY_ACTION.test(b.action))) {
+    for (const { beat: b, ids } of emph) {
+      if (b.id === p.id || ids.some((id) => p.element_ids.includes(id))) continue;
+      if (!(b.start_frame > p.start_frame && b.start_frame < p.end_frame - CONFLICT_MIN_FRAMES)) continue;
+      out.push({
+        code: "accent_conflict", severity: "blocking", area: `${p.id}, ${ids.join(", ")}`,
+        description: `акцент ${ids.join(", ")} (бит ${b.id}) бьёт в кадр ${b.start_frame}, пока импульс бита ${p.id} ещё летит (${p.start_frame}–${p.end_frame}): свет импульса и удар акцента спорят за взгляд`,
+        fix_hint: `итог приходит вместе с данными: начни бит ${b.id} в кадр прихода импульса — ${p.end_frame} (конец бита ${p.id}), или заверши импульс раньше`,
       });
     }
   }

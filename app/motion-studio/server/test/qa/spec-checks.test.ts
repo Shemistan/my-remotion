@@ -128,7 +128,8 @@ describe("accent_conflict: два акцента в один момент", () =
   });
 
   it("вспышка на самом объекте акцента и веер вспышек по узлам — не конфликт", () => {
-    const sp = handoff(152, 148);
+    // плашка бьёт в кадр прихода (152), вспышка — на ней самой
+    const sp = handoff(152, 152);
     sp.elements = sp.elements.map((e) => (e.id === "user" ? { ...e, content: {} } : e.id === "answer" ? { ...e, content: { flash_on: "e-req (back, pulse)" } } : e));
     expect(conflict(sp)).toBeUndefined();
     const fan = handoff(120, 160);
@@ -153,5 +154,37 @@ describe("accent_conflict: два акцента в один момент", () =
     expect(has("test2")).toBe(true);
     expect(has("gen-cache")).toBe(true);
     for (const n of ["test1", "gen-compare", "gen-timeline"]) expect(has(n), n).toBe(false);
+  });
+});
+
+describe("accent_conflict: удар акцента посреди полёта импульса", () => {
+  const mk = (pulse: [number, number], accentStart: number, action = "hit-return-pulse") => {
+    const sp = spec({
+      beats: [
+        beat("graph-in", 0, 40, ["graph", "client"]),
+        beat("ret", pulse[0], pulse[1], ["graph", "client"], action),
+        beat("hit", accentStart, 152, ["hit"], "hit-final-emphasis"),
+        beat("hold", 152, 180, ["hit", "graph"], "hold"),
+      ],
+    });
+    sp.elements = [
+      el("graph", { kind: "graph", entrance: "draw", layout: { x: 0.3, y: 0.1, w: 0.6, h: 0.5 } }),
+      el("client", { kind: "card", entrance: "slide", layout: { x: 0.02, y: 0.1, w: 0.2, h: 0.12 } }),
+      el("hit", { kind: "card", role: "акцент: попадание", entrance: "pop", layout: { x: 0.02, y: 0.7, w: 0.2, h: 0.1 } }),
+    ];
+    return sp;
+  };
+  const conflict = (sp: MotionSpec) => specChecks(sp, s).find((i) => i.code === "accent_conflict");
+
+  it("акцент бьёт, пока импульс к другому объекту ещё летит — blocking, подсказка — кадр прихода", () => {
+    const i = conflict(mk([126, 140], 128));
+    expect(i).toMatchObject({ severity: "blocking" });
+    expect(i?.fix_hint).toContain("140");
+  });
+
+  it("акцент в кадр прихода и позже, импульсы удержания (hold/loop) — не конфликт", () => {
+    expect(conflict(mk([126, 140], 140))).toBeUndefined();
+    expect(conflict(mk([126, 140], 138))).toBeUndefined();
+    expect(conflict(mk([100, 180], 128, "steady-flow-hold"))).toBeUndefined();
   });
 });
