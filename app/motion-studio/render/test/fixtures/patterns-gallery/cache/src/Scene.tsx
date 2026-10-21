@@ -1,4 +1,4 @@
-// Галерея паттернов (kit 0.3): кэш как процесс. Запрос — промах (статус на месте), медленный
+// Галерея паттернов (kit 0.3, облики узлов 0.4): кэш как процесс. Запрос — промах (статус на месте), медленный
 // поход в базу, данные-объект «user:42» летят обратно и ложатся в слот кэша (DataToken),
 // затем быстрые попадания: счётчик растёт ровно на приходах импульсов (useArrivalCount),
 // статус сменяется «Промах → Запись → Попадание» в одной точке (StatusChip). Герой схемы —
@@ -47,9 +47,9 @@ const hits = (b: Record<string, Window>) => pulseArrival("e-req", b.hits!, FAST)
 
 function nodes(b: Record<string, Window>): FlowNode[] {
   return [
-    { id: "client", label: "Клиент", caption: "GET /user/42", x: 0, y: 190, w: 320, h: 130, enter: "slide" },
-    { id: "cache", label: "Кэш", caption: "Redis · в памяти", size: "h2", x: 560, y: 160, w: 420, h: 190, elevation: 3, slot: true, enter: "pop", flash: [ask(b), write(b), hits(b)], emphasis: { start_frame: b.hits!.start_frame + 12, end_frame: 150 } },
-    { id: "db", label: "База данных", caption: "PostgreSQL", x: 1220, y: 190, w: 320, h: 130, enter: "rise", accentIndex: 2, flash: miss(b) },
+    { id: "client", kind: "client", label: "Клиент", caption: "GET /user/42", x: 0, y: 180, w: 320, h: 150, enter: "slide" },
+    { id: "cache", kind: "cache", label: "Кэш", caption: "Redis · в памяти", size: "h2", x: 560, y: 150, w: 420, h: 210, elevation: 3, filled: 5, enter: "pop", flash: [ask(b), write(b), hits(b)], emphasis: { start_frame: b.hits!.start_frame + 12, end_frame: 150 } },
+    { id: "db", kind: "store", label: "База данных", caption: "PostgreSQL", x: 1220, y: 140, w: 320, h: 230, enter: "rise", accentIndex: 2, flash: miss(b) },
   ];
 }
 
@@ -65,7 +65,7 @@ function Overlay({ b }: { b: Record<string, Window> }) {
   return (
     <>
       <StatusChip
-        anchor={{ node: "cache", side: "top", gap: 18 }}
+        anchor={{ node: "cache" }}
         states={[
           { text: "Промах", tone: "negative", at: first(ask(b)) },
           { text: "Запись", tone: "warning", at: landed },

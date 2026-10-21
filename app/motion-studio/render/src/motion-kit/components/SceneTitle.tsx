@@ -38,7 +38,7 @@ export function SceneTitle({ mode, text, kicker, beat, highlight, align = "left"
   const { height } = useVideoConfig();
   if (mode === "none") return null;
   const kick = kicker ? (
-    <KineticText text={kicker} beat={{ start_frame: beat.start_frame, end_frame: beat.start_frame + frames(s, 18) }} mode="letters" enter="type" size="caption" font="mono" caps color={accent(s, 0)} align={align} />
+    <KineticText text={kicker} beat={{ start_frame: beat.start_frame, end_frame: beat.start_frame + frames(s, 18) }} mode="letters" enter="type" size="caption" font="mono" caps color={accent(s, 0)} align={align} pre="dim" />
   ) : null;
   // заголовок входит после рубрики (если она есть): сначала контекст, потом мысль
   const t0 = kicker ? beat.start_frame + frames(s, 8) : beat.start_frame;
@@ -48,7 +48,7 @@ export function SceneTitle({ mode, text, kicker, beat, highlight, align = "left"
   if (mode === "kicker") {
     return (
       <div style={corner}>
-        {kick ?? (text ? <KineticText text={text} beat={beat} mode="letters" enter="type" size="caption" font="mono" caps color={accent(s, 0)} align={align} /> : null)}
+        {kick ?? (text ? <KineticText text={text} beat={beat} mode="letters" enter="type" size="caption" font="mono" caps color={accent(s, 0)} align={align} pre="dim" /> : null)}
         {kick && text ? <KineticText text={text} beat={head} mode="words" enter="fade" size="body" color={s.palette.muted} align={align} maxWidth={maxWidth} /> : null}
       </div>
     );

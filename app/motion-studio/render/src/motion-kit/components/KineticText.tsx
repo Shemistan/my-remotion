@@ -43,8 +43,16 @@ export interface KineticTextProps {
   exit?: boolean;
   /** Прописные с разрядкой caps. */
   caps?: boolean;
+  /**
+   * До набора (`enter: "type"`): `dim` — весь текст виден приглушённо с кадра 0 и набор его
+   * «зажигает» (кадр-постер не пуст); `hidden` (по умолчанию) — пусто до набора.
+   */
+  pre?: "hidden" | "dim";
   style?: CSSProperties;
 }
+
+/** Прозрачность ещё не набранного текста при `pre: "dim"`. */
+export const PRE_DIM = 0.3;
 
 const norm = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 
@@ -65,6 +73,7 @@ export function KineticText({
   stagger,
   exit = false,
   caps = false,
+  pre = "hidden",
   style,
 }: KineticTextProps) {
   const s = useStyle();
@@ -174,7 +183,7 @@ export function KineticText({
                 const i = ci++;
                 return (
                   <span key={li}>
-                    <span style={{ opacity: i < typed ? 1 : 0 }}>{ch}</span>
+                    <span style={{ opacity: i < typed ? 1 : pre === "dim" ? PRE_DIM : 0 }}>{ch}</span>
                     {i === typed - 1 ? caret : null}
                   </span>
                 );

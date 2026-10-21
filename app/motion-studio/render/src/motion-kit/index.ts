@@ -15,7 +15,7 @@ export { type Depth, type PaletteOverrides, type ResolveStyleInput, type Resolve
 export { contrastRatio, relativeLuminance } from "./style/contrast.js";
 export { MIN_TEXT_PX, TYPE_LEVELS, type TypeLevel, floorText, minTextPx, sizePx } from "./style/type-scale.js";
 export { INTENSITY, amplitudeOf } from "./style/intensity.js";
-export { type EnterDirection, type EnterKind, type EnterOptions, MASK_FEATHER, enterStyle } from "./choreo/enter.js";
+export { type EnterDirection, type EnterKind, type EnterOptions, type EnterPre, MASK_FEATHER, PRE_ALPHA, enterStyle, preStyle } from "./choreo/enter.js";
 export { staggerBeat } from "./choreo/stagger.js";
 export { ACCENT_REST, type AccentPulse, type AccentPulseOptions, accentPulse } from "./choreo/accent.js";
 export { type ArrivalCount, type PathArrival, type PulseArrival, arrivalCount, pathArrivals, pulseArrival } from "./choreo/pulse.js";
@@ -82,7 +82,8 @@ export { Card, type CardEnter, type CardProps, cardEnterStyle, cardSurface, dept
 export { Emphasis, type EmphasisProps, HALO_FALLOFF, Halo, type HaloProps, emphasisFilter, emphasisRingVisible, falloff, haloLevel, useAccentPulse } from "./components/Emphasis.js";
 export { Enter, type EnterProps, enterDuration } from "./components/Enter.js";
 export { Parallax, type ParallaxProps } from "./components/Parallax.js";
-export { type FlowEdge, FlowGraph, type FlowGraphProps, type FlowNode, type FlowSlot, edgePath, flowLabelSizes, flowSlot, flowTiming, useFlowGeometry } from "./components/FlowGraph.js";
+export { type FlowEdge, FlowGraph, type FlowGraphProps, type FlowNode, type FlowSlot, cacheFill, edgePath, flowLabelSizes, flowSlot, flowTiming, useFlowGeometry } from "./components/FlowGraph.js";
+export { FLOW_KINDS, type FlowNodeKind, type FlowStatusSlot, flowLabelZone, flowStatusSlot, queueCellCenter, queueCells, usedSides } from "./components/flow-layout.js";
 export { KineticText, type KineticEnter, type KineticTextProps } from "./components/KineticText.js";
 export { LineChart, type LineChartProps, chartFont, lineChartHead, lineHighlight } from "./components/LineChart.js";
 export { PulseAlongPath, type PulseAlongPathProps, useArrivalCount } from "./components/PulseAlongPath.js";

@@ -15,6 +15,8 @@ import { AnimatedNumber } from "./AnimatedNumber.js";
 import { chartAxis, chartPad } from "./LineChart.js";
 
 export interface BarChartProps {
+  /** До входа (0.4.0): `silhouette` (по умолчанию) — тихий контур с кадра 0 (кадр-постер); `hidden` — пусто. */
+  pre?: "silhouette" | "hidden";
   bars: { label: string; value: number }[];
   beat: Pick<Beat, "start_frame" | "end_frame">;
   /** Индекс выделенного столбца: после роста он разгорается, остальные гаснут в нейтральный тон. */
@@ -56,6 +58,7 @@ export function BarChart({
   valueSuffix,
   yTicks = 4,
   gapRatio = 0.38,
+  pre = "silhouette",
 }: BarChartProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
@@ -96,7 +99,7 @@ export function BarChart({
         </filter>
       </defs>
 
-      {chartAxis({ s, frame, beat, ticks, toY, innerW, locale, compact, pad })}
+      {chartAxis({ s, frame, beat, ticks, toY, innerW, locale, compact, pad, pre: pre !== "hidden" })}
 
       {rects.map((r, i) => {
         const t0 = startOf(i);

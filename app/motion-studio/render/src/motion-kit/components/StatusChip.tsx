@@ -101,7 +101,13 @@ function anchorPoint(flow: ReturnType<typeof useFlowGeometry>, a: StatusAnchor |
   if (a && flow && "node" in a) {
     const n = flow.nodes.get(a.node);
     if (n) {
-      const side = a.side ?? "top";
+      // без стороны — место статуса узла (0.4.0): снаружи карточки, со стороны без рёбер
+      const slot = a.side === undefined ? flow.status.get(a.node) : undefined;
+      const side = a.side ?? slot?.side ?? "top";
+      if (slot && a.gap === undefined) {
+        if (slot.side === "right") return { x: slot.x, y: slot.y, tr: "translate(0, -50%)" };
+        return { x: slot.x, y: slot.y, tr: slot.side === "top" ? "translate(-50%, -100%)" : "translate(-50%, 0)" };
+      }
       if (side === "top") return { x: n.x + n.w / 2, y: n.y - gap, tr: "translate(-50%, -100%)" };
       if (side === "bottom") return { x: n.x + n.w / 2, y: n.y + n.h + gap, tr: "translate(-50%, 0)" };
       if (side === "left") return { x: n.x - gap, y: n.y + n.h / 2, tr: "translate(-100%, -50%)" };

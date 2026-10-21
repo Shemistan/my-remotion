@@ -15,6 +15,8 @@ import { timelineLayout } from "../timeline-layout.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, tracking } from "../tokens.js";
 
 export interface TimelineProps {
+  /** До входа (0.4.0): `silhouette` (по умолчанию) — тихий контур с кадра 0 (кадр-постер); `hidden` — пусто. */
+  pre?: "silhouette" | "hidden";
   /** Вехи: дата, подпись (до трёх слов) и необязательное пояснение (одна короткая строка). */
   items: { label: string; date: string; note?: string }[];
   beat: Pick<Beat, "start_frame" | "end_frame">;
@@ -48,7 +50,7 @@ function reachFrame(u: number, a: number, b: number): number {
   return hi;
 }
 
-export function Timeline({ items, beat, orientation, width, height, accentIndex = 0, highlightLast = true }: TimelineProps) {
+export function Timeline({ items, beat, orientation, width, height, accentIndex = 0, highlightLast = true, pre = "silhouette" }: TimelineProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height: frameH } = useVideoConfig();
@@ -104,6 +106,8 @@ export function Timeline({ items, beat, orientation, width, height, accentIndex 
         </defs>
         {first && lastPt ? (
           <g>
+            {/* силуэт оси до входа: пунктир во всю длину (кадр-постер) */}
+            {pre !== "hidden" && track < 1 ? <line x1={first.x} y1={first.y} x2={lastPt.x} y2={lastPt.y} stroke={alpha(s.palette.text, dark ? 0.22 : 0.18)} strokeWidth={Math.max(2, axisW * 0.4)} strokeDasharray={`${axisW * 0.6} ${axisW * 2.4}`} strokeLinecap="round" opacity={1 - track} /> : null}
             {/* дорожка: тусклая, проявляется от центра к краям */}
             <line
               x1={first.x + (lastPt.x - first.x) * 0.5 * (1 - track)}

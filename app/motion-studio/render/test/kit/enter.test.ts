@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { enterStyle } from "../../src/motion-kit/choreo/enter.js";
+import { enterStyle, preStyle } from "../../src/motion-kit/choreo/enter.js";
 import { enterDuration } from "../../src/motion-kit/components/Enter.js";
 import { EASE } from "../../src/motion-kit/easing.js";
 import { resolveStyle } from "../../src/motion-kit/style/resolve.js";
@@ -104,5 +104,34 @@ describe("enterDuration", () => {
   it("остальные виды — enter_frames, duration — свой", () => {
     expect(enterDuration("rise", st("balanced"))).toBe(24);
     expect(enterDuration("mask", st("balanced"), 30)).toBe(30);
+  });
+});
+
+describe("Enter pre: кадр-постер до входа (0.4.0)", () => {
+  const o = { amplitude: 1, distancePx: 48 };
+  it("hidden — как раньше: до входа прозрачно", () => {
+    expect(preStyle("rise", 0, "hidden", o).opacity).toBe(0);
+  });
+  for (const pre of ["ghost", "silhouette"] as const) {
+    it(`${pre}: до входа виден приглушённо (15–25 %), после входа — полностью`, () => {
+      const before = preStyle("rise", 0, pre, o);
+      expect(before.opacity).toBeGreaterThanOrEqual(0.15);
+      expect(before.opacity).toBeLessThanOrEqual(0.25);
+      expect(preStyle("rise", 1, pre, o).opacity).toBe(1);
+      // прозрачность не падает по ходу входа (нет провала между силуэтом и входом)
+      let last = 0;
+      for (let p = 0; p <= 1.0001; p += 0.05) {
+        const v = Number(preStyle("fade", p, pre, o).opacity);
+        expect(v).toBeGreaterThanOrEqual(last - 1e-9);
+        last = v;
+      }
+    });
+  }
+  it("silhouette размыт (форма без читаемых глифов), ghost — резкий", () => {
+    expect(String(preStyle("fade", 0, "silhouette", o).filter)).toMatch(/blur\((?:[6-9]|1\d)/);
+    expect(preStyle("fade", 0, "ghost", o).filter).toBeUndefined();
+  });
+  it("mask: нераскрытая часть — силуэт, а не пустота", () => {
+    expect(String(preStyle("mask", 0.3, "silhouette", o).maskImage)).toMatch(/rgba\(0, ?0, ?0, ?0\.2/);
   });
 });

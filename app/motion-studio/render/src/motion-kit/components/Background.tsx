@@ -3,8 +3,8 @@
 // Глубина стиля (depth) усиливает атмосферу и виньетку; при transparent фон не рисуется
 // (прозрачный экспорт: на корне сцены не должно быть фона).
 import type { Beat } from "@ms/contracts";
-import { AbsoluteFill, Easing, random, useCurrentFrame, useVideoConfig } from "remotion";
-import { ramp, useSvgId } from "../internal.js";
+import { AbsoluteFill, random, useCurrentFrame, useVideoConfig } from "remotion";
+import { useSvgId } from "../internal.js";
 import { fpsFrames } from "../easing.js";
 import { depthOf, fpsScaleOf } from "../style/resolve.js";
 import { useStyle } from "../style.js";
@@ -73,12 +73,13 @@ export function backgroundLayout(seed: string, focus?: { x: number; y: number })
 }
 
 /**
- * Доля проявления атмосферы: с первого кадра видно 40 % (сцена не открывается чёрным),
- * к концу бита — вся. Без бита — сразу 1.
+ * Доля проявления атмосферы (0.4.0): 1 с кадра 0 — кадр 0 — постер сцены, фон в полную силу
+ * (0.3: 70 % и разгорание за бит — первые кадры читались пустыми). `beat` оставлен для
+ * совместимости и на яркость не влияет.
  */
-export function backgroundReveal(frame: number, beat?: Pick<Beat, "start_frame" | "end_frame">): number {
-  if (!beat) return 1;
-  return 0.7 + 0.3 * ramp(frame, beat.start_frame, beat.end_frame, Easing.bezier(0.25, 1, 0.5, 1));
+export function backgroundReveal(...args: [frame: number, beat?: Pick<Beat, "start_frame" | "end_frame">]): number {
+  void args;
+  return 1;
 }
 
 const DEFAULT_VARIANT: Record<string, BackgroundVariant> = {

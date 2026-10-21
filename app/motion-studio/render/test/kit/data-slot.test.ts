@@ -71,7 +71,7 @@ describe("dockPoint: куда ложится токен", () => {
 
   it("без слота и без dock — конец пути, без сообщения", () => {
     const end = t.edges.get("e-db")![3];
-    expect(dockPoint(flow, "e-db", false, undefined, st, 1080)).toEqual({ at: end, issue: null });
+    expect(dockPoint(flow, "e-db", false, undefined, st, 1080)).toEqual({ at: end, issue: null, slot: false });
   });
 });
 

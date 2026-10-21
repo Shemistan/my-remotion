@@ -5,7 +5,7 @@ import type { Beat, StyleBible } from "@ms/contracts";
 import type { CSSProperties, ReactNode } from "react";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import { beatPhase } from "../beat.js";
-import { type EnterDirection, type EnterKind, enterStyle } from "../choreo/enter.js";
+import { type EnterDirection, type EnterKind, type EnterPre, enterStyle, preStyle } from "../choreo/enter.js";
 import { staggerBeat } from "../choreo/stagger.js";
 import { EASE, easingOf, fpsFrames, frames, springAt } from "../easing.js";
 import { ramp } from "../internal.js";
@@ -25,6 +25,12 @@ export interface EnterProps {
   duration?: number;
   /** Уйти в конце бита (последние exit_frames). */
   exit?: boolean;
+  /**
+   * До входа (0.4.0): `hidden` (по умолчанию) — пусто; `silhouette` — размытая приглушённая
+   * форма (15–25 %): кадр 0 уже показывает раскладку — оси, рамки, места героев;
+   * `ghost` — резкий приглушённый вид. Вход поднимает его до полной яркости без провала.
+   */
+  pre?: EnterPre;
   style?: CSSProperties;
   children?: ReactNode;
 }
@@ -43,7 +49,7 @@ export function enterDuration(kind: EnterKind, s: StyleBible, duration?: number)
   return s.motion.enter_frames;
 }
 
-export function Enter({ kind, beat, index = 0, total = 1, direction, distance, duration, exit = false, style, children }: EnterProps) {
+export function Enter({ kind, beat, index = 0, total = 1, direction, distance, duration, exit = false, pre = "hidden", style, children }: EnterProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
@@ -56,7 +62,7 @@ export function Enter({ kind, beat, index = 0, total = 1, direction, distance, d
   const p = kind === "pop"
     ? springAt(frame, fps, s, w.start_frame, "pop")
     : ramp(frame, w.start_frame, w.start_frame + len, kind === "mask" ? EASE.outCubic : easingOf(s, "enter"));
-  let anim = enterStyle(kind, p, o);
+  let anim = pre === "hidden" ? enterStyle(kind, p, o) : preStyle(kind, p, pre, o);
 
   if (exit) {
     const phase = beatPhase(frame, w, { enter: s.motion.enter_frames, exit: s.motion.exit_frames });

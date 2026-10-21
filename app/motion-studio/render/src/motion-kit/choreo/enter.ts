@@ -74,3 +74,38 @@ export function enterStyle(kind: EnterKind, p: number, o: EnterOptions): CSSProp
       return {};
   }
 }
+
+/** Вид элемента до входа: `hidden` — пусто; `ghost` — резкий и приглушённый; `silhouette` — размытая форма. */
+export type EnterPre = "hidden" | "ghost" | "silhouette";
+
+/** Прозрачность силуэта / призрака до входа (15–25 %). */
+export const PRE_ALPHA: Readonly<Record<EnterPre, number>> = { hidden: 0, ghost: 0.18, silhouette: 0.22 };
+/** Размытие силуэта до входа, px: форма читается, глифы — нет. */
+export const PRE_BLUR = 8;
+
+/**
+ * Стиль входа с видом до входа (`pre`): прозрачность не опускается ниже силуэта (вход
+ * поднимает её от PRE_ALPHA до 1 без провала), у silhouette размытие и обесцвечивание уходят
+ * по ходу входа; у mask нераскрытая часть остаётся силуэтом. `hidden` — enterStyle как есть.
+ */
+export function preStyle(kind: EnterKind, p: number, pre: EnterPre, o: EnterOptions): CSSProperties {
+  const base = enterStyle(kind, p, o);
+  if (pre === "hidden") return { ...base, opacity: base.opacity ?? (p > 0 || SELF_DRAWN.has(kind) ? 1 : 0) };
+  const floor = PRE_ALPHA[pre];
+  const op = typeof base.opacity === "number" ? base.opacity : 1;
+  const out: CSSProperties = { ...base, opacity: n(floor + (1 - floor) * c01(op)) };
+  if (typeof base.maskImage === "string") {
+    const img = base.maskImage.replace("transparent", `rgba(0, 0, 0, ${floor})`);
+    out.maskImage = img;
+    out.WebkitMaskImage = img;
+  }
+  if (pre === "silhouette") {
+    const q = c01(1 - p);
+    const own = typeof base.filter === "string" ? `${base.filter} ` : "";
+    if (q > 0.001) out.filter = `${own}blur(${n(PRE_BLUR * q)}px) grayscale(${n(q)})`;
+  }
+  return out;
+}
+
+/** Виды, которые рисует сам компонент (type, count, draw, none): enterStyle для них пуст. */
+const SELF_DRAWN = new Set<EnterKind>(["type", "count", "draw", "none"]);

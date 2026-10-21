@@ -16,6 +16,8 @@ import { accent, alpha, fontFamily, isDark, mix } from "../tokens.js";
 import { chartAxis, chartGeometry, chartPad, valueCallout, xLabelIndices } from "./LineChart.js";
 
 export interface AreaChartProps {
+  /** До входа (0.4.0): `silhouette` (по умолчанию) — тихий контур с кадра 0 (кадр-постер); `hidden` — пусто. */
+  pre?: "silhouette" | "hidden";
   points: { label: string; value: number }[];
   beat: Pick<Beat, "start_frame" | "end_frame">;
   /** Выделить итоговую точку: пульс и выноска со значением (по умолчанию да). */
@@ -69,6 +71,7 @@ export function AreaChart({
   yTicks = 4,
   valuePrefix = "",
   valueSuffix = "",
+  pre = "silhouette",
 }: AreaChartProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
@@ -137,7 +140,7 @@ export function AreaChart({
         </filter>
       </defs>
 
-      {chartAxis({ s, frame, beat, ticks, toY, innerW, locale, compact, pad: PAD })}
+      {chartAxis({ s, frame, beat, ticks, toY, innerW, locale, compact, pad: PAD, pre: pre !== "hidden" })}
 
       {visible ? (
         <g>

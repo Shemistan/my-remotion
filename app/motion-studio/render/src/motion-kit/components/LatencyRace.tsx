@@ -28,6 +28,8 @@ export interface LatencyLane {
 }
 
 export interface LatencyRaceProps {
+  /** До входа (0.4.0): `silhouette` (по умолчанию) — тихий контур с кадра 0 (кадр-постер); `hidden` — пусто. */
+  pre?: "silhouette" | "hidden";
   lanes: LatencyLane[];
   /** Окно гонки: проходы стартуют с `start_frame`, новые не начинаются после `end_frame`. */
   beat: Pick<Beat, "start_frame" | "end_frame">;
@@ -181,7 +183,7 @@ export function laneReadout(f: LaneFrame, ms: number): LaneReadout {
   return { timer: done || moving, tally: done, ms: done ? ms : moving ? f.elapsedMs : 0, done };
 }
 
-export function LatencyRace({ lanes, beat, locale, travel, minTravel, repeat = true, tally, tallyForms, unit, width, laneHeight }: LatencyRaceProps) {
+export function LatencyRace({ lanes, beat, locale, travel, minTravel, repeat = true, tally, tallyForms, unit, width, laneHeight, pre = "silhouette" }: LatencyRaceProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
@@ -216,8 +218,17 @@ export function LatencyRace({ lanes, beat, locale, travel, minTravel, repeat = t
         // счёт ответов — с первого прихода: до прохода ни «0 мс», ни «0 ответов»
         const r = laneReadout(f, lane.ms);
         const timerCol = r.done ? col : s.palette.text;
+        const ghost = pre !== "hidden" ? 1 - clamp01(enter * 1.5) : 0;
         return (
-          <div key={lane.id} style={{ position: "absolute", left: 0, top: LH * i, width: W, height: LH, opacity: clamp01(enter * 1.5), transform: `translateY(${((1 - Math.min(1, enter)) * 24 * k).toFixed(2)}px)` }}>
+          <div key={lane.id}>
+          {/* силуэт дорожки до входа: пунктир трека и метка цели (кадр-постер) */}
+          {ghost > 0.01 ? (
+            <svg width={W} height={LH} style={{ position: "absolute", left: 0, top: LH * i, overflow: "visible", opacity: ghost }}>
+              <line x1={x0} y1={cy} x2={x1} y2={cy} stroke={alpha(s.palette.text, dark ? 0.2 : 0.18)} strokeWidth={L.track * 0.6} strokeDasharray={`${L.track} ${L.track * 3}`} strokeLinecap="round" />
+              <circle cx={x1} cy={cy} r={L.target} fill="none" stroke={alpha(s.palette.text, 0.2)} strokeWidth={1.5 * k} />
+            </svg>
+          ) : null}
+          <div style={{ position: "absolute", left: 0, top: LH * i, width: W, height: LH, opacity: clamp01(enter * 1.5), transform: `translateY(${((1 - Math.min(1, enter)) * 24 * k).toFixed(2)}px)` }}>
             <div style={{ position: "absolute", left: 0, top: 0, width: L.labelW, height: LH, display: "flex", flexDirection: "column", justifyContent: "center", gap: 4 * k }}>
               <div style={{ fontFamily: fontFamily(s.typography.body), fontWeight: 600, fontSize: L.body, lineHeight: 1.15, color: s.palette.text, whiteSpace: "nowrap" }}>{lane.label}</div>
               {lane.caption ? <div style={{ fontFamily: fontFamily(s.typography.mono), fontSize: L.caption, lineHeight: 1.15, color: s.palette.muted, whiteSpace: "nowrap" }}>{lane.caption}</div> : null}
@@ -250,6 +261,7 @@ export function LatencyRace({ lanes, beat, locale, travel, minTravel, repeat = t
                 </div>
               ) : null}
             </div>
+          </div>
           </div>
         );
       })}
