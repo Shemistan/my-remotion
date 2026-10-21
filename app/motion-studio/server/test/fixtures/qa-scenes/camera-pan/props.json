@@ -1,0 +1,13 @@
+{
+  "timing": {
+    "duration_frames": 90,
+    "beats": [
+      { "id": "title", "start_frame": 0, "end_frame": 25 },
+      { "id": "count", "start_frame": 15, "end_frame": 60 },
+      { "id": "accent", "start_frame": 60, "end_frame": 72 },
+      { "id": "hold", "start_frame": 72, "end_frame": 90 }
+    ]
+  },
+  "style": { "preset": "dark-premium", "intensity": "balanced", "depth": 1, "transparent": false },
+  "content": {}
+}

@@ -17,7 +17,7 @@ export { TYPE_LEVELS, type TypeLevel } from "./style/type-scale.js";
 export { INTENSITY, amplitudeOf } from "./style/intensity.js";
 export { type EnterDirection, type EnterKind, type EnterOptions, enterStyle } from "./choreo/enter.js";
 export { staggerBeat } from "./choreo/stagger.js";
-export { type CameraKey, type CameraState, cameraAt, cameraTransform, parallaxFactor, parallaxTransform } from "./choreo/camera.js";
+export { type CameraKey, type CameraState, type FrameSize, cameraAt, cameraTransform, panLimit, zoomLimit, parallaxFactor, parallaxTransform } from "./choreo/camera.js";
 export { type Rect, safeRect, styleSafeRect } from "./choreo/safe-area.js";
 export { edgeDelay, kineticStep, typeRhythm } from "./choreo/rhythm.js";
 export { gridColumns, layoutLayered } from "./choreo/layout.js";

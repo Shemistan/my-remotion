@@ -1,5 +1,6 @@
 // Программные проверки по реальным кадрам, логам браузера и размеру превью (06 §6) —
-// без LLM: пустой кадр, застывшая анимация, обрезка, safe area, контраст, сеть.
+// без LLM: пустой кадр, застывшая анимация, обрезка, открытый край сцены, safe area,
+// контраст, сеть.
 import type { MotionSpec, QAIssue, Settings } from "@ms/contracts";
 import { type RenderResult, type ResolvedStyle, contrastRatio, safeRect } from "@ms/render";
 import { blankCheckFrom, inBeat } from "../pipeline/qa-frames.js";
@@ -23,6 +24,11 @@ const CLIP_INK = 0.01;
 const SAFE_INK = 0.005;
 /** Полоса допуска у границы safe area, доля кадра: тень и свечение элемента на границе. */
 const SAFE_TOLERANCE = 0.01;
+/** Пиксель края прозрачный: alpha ниже. */
+const EXPOSED_ALPHA = 250;
+/** Доля длины края, прозрачная по всей глубине полосы, с которой край считается открытым. */
+const EXPOSED_SHARE = 0.02;
+const EXPOSED_DEPTH = 2;
 const MIN_TEXT_CONTRAST = 4.5;
 const MIN_MUTED_CONTRAST = 3;
 const PREVIEW_WARN_BYTES = 50 * 1024 * 1024;
@@ -55,6 +61,7 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
       }
     }
     out.push(...edgeIssues(img, f.frame, input.settings));
+    if (!input.settings.transparent_export && !input.style.transparent) out.push(...exposedIssues(img, f.frame));
   });
 
   out.push(...frozenIssues(frames.map((f) => f.frame), imgs, beatsAt));
@@ -131,6 +138,39 @@ function edgeIssues(img: Img, frame: number, settings: Settings): Issue[] {
     });
   }
   return out;
+}
+
+/**
+ * Открытый край сцены (Task 13: камера сдвинула сцену — сверху и справа полосы, в превью
+ * чёрные): у непрозрачной сцены пиксели у края кадра прозрачны. Край открыт, если больше
+ * EXPOSED_SHARE средних 60 % его длины прозрачно на всю глубину полосы EXPOSED_DEPTH px
+ * (концы края не считаются: полоса соседнего края их тоже задевает).
+ */
+function exposedIssues(img: Img, frame: number): Issue[] {
+  const { width: w, height: h, data } = img;
+  const clear = (x: number, y: number) => data[(y * w + x) * 4 + 3]! < EXPOSED_ALPHA;
+  const open: Edge[] = [];
+  for (const e of EDGES) {
+    const len = e === "top" || e === "bottom" ? w : h;
+    const from = Math.floor(len * 0.2);
+    const to = Math.ceil(len * 0.8);
+    let n = 0;
+    for (let i = from; i < to; i++) {
+      let all = true;
+      for (let d = 0; d < EXPOSED_DEPTH && all; d++) {
+        const [x, y] = e === "top" ? [i, d] : e === "bottom" ? [i, h - 1 - d] : e === "left" ? [d, i] : [w - 1 - d, i];
+        all = clear(x, y);
+      }
+      if (all) n++;
+    }
+    if (n / (to - from) > EXPOSED_SHARE) open.push(e);
+  }
+  if (open.length === 0) return [];
+  return [{
+    code: "exposed_edge", severity: "blocking", frame, area: open.join(", "),
+    description: `кадр ${frame}: у края кадра (${open.join(", ")}) пусто — сцена сдвинута и открыла край (в превью — чёрные полосы)`,
+    fix_hint: "фон должен покрывать весь кадр на каждом кадре: камера — только <Camera> kit (панорама в запасе наезда), без своих translate/scale корня; фон — <Background> во весь кадр",
+  }];
 }
 
 /**

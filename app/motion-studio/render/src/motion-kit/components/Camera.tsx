@@ -1,9 +1,10 @@
 // Камера сцены: наезд и панорама по ключам (MotionSpec.camera). Масштаб не больше
-// camera.max_scale стиля, при allow_zoom = false — только панорама. Слои <Parallax>
-// внутри двигаются сильнее или слабее камеры.
+// camera.max_scale стиля. Панорама — только в запасе наезда (`panLimit`): кадр никогда не
+// выходит за сцену и safe area не уходит за край; без наезда камера стоит. Слои
+// <Parallax> внутри двигаются сильнее или слабее камеры.
 import type { CSSProperties, ReactNode } from "react";
 import { createContext, useContext } from "react";
-import { AbsoluteFill, useCurrentFrame } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
 import { type CameraKey, type CameraState, cameraAt, cameraTransform } from "../choreo/camera.js";
 import { useStyle } from "../style.js";
 
@@ -21,7 +22,9 @@ export interface CameraProps {
 export function Camera({ keys, children, style }: CameraProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
-  const cam = cameraAt(frame, keys, s);
+  const { width, height } = useVideoConfig();
+  // панорама зажата по размеру кадра: края фона не открываются, safe area в кадре
+  const cam = cameraAt(frame, keys, s, { width, height });
   return (
     <CameraContext.Provider value={cam}>
       <AbsoluteFill style={{ transformOrigin: "50% 50%", transform: cameraTransform(cam), ...style }}>{children}</AbsoluteFill>

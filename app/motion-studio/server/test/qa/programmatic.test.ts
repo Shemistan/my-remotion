@@ -43,6 +43,24 @@ describe("programmaticChecks", () => {
     expect(find(r, "clipping")[0]).toMatchObject({ severity: "blocking", area: "right" });
   });
 
+  it("exposed_edge: камера открыла край сцены (прозрачные полосы сверху и справа) — blocking", async () => {
+    // дефект Task 13: сцена сдвинута камерой, за ней пусто (в превью — чёрные полосы)
+    const shifted = card().clear(0, 0, W, 12).clear(W - 30, 0, 30, H);
+    const r = await programmaticChecks(await withFrames(tmp, [shifted]));
+    const e = find(r, "exposed_edge");
+    expect(e).toHaveLength(1);
+    expect(e[0]).toMatchObject({ severity: "blocking", frame: 25 });
+    expect(e[0]!.area).toContain("top");
+    expect(e[0]!.area).toContain("right");
+    expect(e[0]!.area).not.toContain("left");
+  });
+
+  it("exposed_edge: прозрачный экспорт — прозрачный край не дефект", async () => {
+    const input = await withFrames(tmp, [card().clear(0, 0, W, 12)]);
+    const r = await programmaticChecks({ ...input, settings: { ...input.settings, transparent_export: true } });
+    expect(issues(r)).not.toContain("exposed_edge");
+  });
+
   it("плавный свет фона у края (aurora, виньетка) — не clipping и не safe_area", async () => {
     // светлое пятно у верхнего левого угла плавно спадает к центру: до +70/255 к фону
     const glow = new Canvas();
