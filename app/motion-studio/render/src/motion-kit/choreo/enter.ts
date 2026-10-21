@@ -47,7 +47,9 @@ export function enterStyle(kind: EnterKind, p: number, o: EnterOptions): CSSProp
     case "scale":
       return { opacity: n(c01(p * 1.6)), transform: `scale(${n(1 - 0.08 * amp * rest)})` };
     case "mask": {
-      // шторка: видимая часть растёт от стороны входа, без смены прозрачности
+      // шторка: видимая часть растёт от стороны входа, без смены прозрачности; когда
+      // открыта — клипа нет, иначе он срезал бы всё, что выходит за блок (подчёркивание, свечение)
+      if (p >= 1) return {};
       const k = `${n(c01(rest) * 100)}%`;
       const dir = o.direction ?? "down";
       const inset = dir === "down" ? [k, "0%", "0%", "0%"] : dir === "up" ? ["0%", "0%", k, "0%"] : dir === "left" ? ["0%", k, "0%", "0%"] : ["0%", "0%", "0%", k];

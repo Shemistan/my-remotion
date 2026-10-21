@@ -1,13 +1,19 @@
 // Линейный график: сетка проявляется, гладкая линия рисуется слева направо со
 // светящейся «головой», точки вспыхивают, когда линия до них доходит, заливка
 // открывается за линией, последняя точка выделена пульсом и выноской со значением.
+//
+// Общая часть графиков (ось, геометрия, выноска значения) экспортируется отсюда для
+// AreaChart: ось одна на оба графика и стоит неподвижно с первого кадра появления.
 import type { Beat } from "@ms/contracts";
+import type { ReactNode } from "react";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { EASE, frames, springAt } from "../easing.js";
 import { formatNumber } from "../format.js";
-import { type Point, lutLength, niceTicks, pathD, pathLUT, pointAtLength, smoothSegments } from "../geometry.js";
-import { CLAMP, clamp01, useSvgId } from "../internal.js";
+import { type Point, lutLength, pathD, pathLUT, pointAtLength, smoothSegments } from "../geometry.js";
+import { CLAMP, clamp01, ramp, useSvgId } from "../internal.js";
+import type { ResolvedStyle } from "../style/resolve.js";
 import { useStyle } from "../style.js";
+import { niceTicks } from "../ticks.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, surfaceAt, shadow } from "../tokens.js";
 
 export interface LineChartProps {
@@ -31,11 +37,16 @@ export interface LineChartProps {
   valueSuffix?: string;
 }
 
-const PAD = { left: 104, right: 40, top: 76, bottom: 56 };
+/** Поля области построения графика внутри width × height (подписи осей — в полях). */
+export const CHART_PAD = { left: 104, right: 40, top: 76, bottom: 56 };
+const PAD = CHART_PAD;
 const DRAW_EASE = Easing.bezier(0.45, 0, 0.2, 1);
 
-/** Геометрия графика: общая для LineChart и lineChartHead. */
-function chartGeometry(points: { value: number }[], width: number, height: number, yTicks: number) {
+/**
+ * Геометрия графика: общая для LineChart, AreaChart и lineChartHead. Деления оси
+ * считаются один раз от всех точек — ось не перестраивается, пока линия рисуется.
+ */
+export function chartGeometry(points: { value: number }[], width: number, height: number, yTicks: number) {
   const innerW = width - PAD.left - PAD.right;
   const innerH = height - PAD.top - PAD.bottom;
   const values = points.map((p) => p.value);
@@ -108,14 +119,11 @@ export function LineChart({
   const color = accent(s, accentIndex);
   const font = fontFamily(s.typography.body);
 
-  const { start_frame: b0, end_frame: b1 } = beat;
-  const L = Math.max(1, b1 - b0);
   const { innerW, innerH, ticks, y0, toY, coords, segs, lut, total } = chartGeometry(points, width, height, yTicks);
   const d = pathD(segs);
   const baseY = toY(Math.max(y0, 0));
 
   // тайминг внутри бита
-  const gridEnd = b0 + L * 0.3;
   const { drawStart, drawEnd } = drawWindow(beat);
   const draw = drawAt(frame, beat);
   const head = pointAtLength(lut, draw * total);
@@ -135,16 +143,8 @@ export function LineChart({
     return hi;
   };
 
-  // пульс последней точки: два кольца со сдвигом полпериода
-  const period = Math.round(fps * 1.1);
+  // точка-ядро последней точки (пульс и выноску рисует valueCallout)
   const lastPop = springAt(frame, fps, s, drawEnd, "bouncy");
-  const ring = (offset: number) => {
-    const local = frame - drawEnd - offset;
-    if (local < 0) return { r: 0, o: 0 };
-    const ph = (local % period) / period;
-    return { r: 10 + ph * 34, o: (1 - ph) * 0.65 };
-  };
-  const callout = springAt(frame, fps, s, drawEnd + frames(s, 4), "snappy");
   const lastValue = points.at(-1)?.value ?? 0;
 
   return (
@@ -170,30 +170,7 @@ export function LineChart({
         </radialGradient>
       </defs>
 
-      {/* сетка и подписи Y */}
-      {ticks.map((v, i) => {
-        const y = toY(v);
-        const t0 = b0 + i * s.motion.stagger_frames;
-        const g = interpolate(frame, [t0, Math.max(t0 + 1, gridEnd)], [0, 1], { ...CLAMP, easing: EASE.outExpo });
-        return (
-          <g key={`t${i}`}>
-            <line x1={PAD.left} x2={PAD.left + innerW * g} y1={y} y2={y} stroke={alpha(s.palette.text, i === 0 ? 0.22 : 0.08)} strokeWidth={i === 0 ? 1.5 : 1} />
-            <text
-              x={PAD.left - 20}
-              y={y}
-              dy="0.35em"
-              textAnchor="end"
-              fontSize={20}
-              fill={s.palette.muted}
-              opacity={g}
-              style={{ fontVariantNumeric: "tabular-nums" }}
-              transform={`translate(${((1 - g) * -12).toFixed(2)} 0)`}
-            >
-              {formatNumber(v, { locale, compact, decimals: compact ? 1 : 0 })}
-            </text>
-          </g>
-        );
-      })}
+      {chartAxis({ s, frame, beat, ticks, toY, innerW, locale, compact })}
 
       {/* заливка открывается вслед за головой */}
       {area && segs.length > 0 ? (
@@ -233,40 +210,105 @@ export function LineChart({
       ) : null}
 
       {/* выделение последней точки: пульс + выноска */}
-      {highlightLast && last ? (
-        <g>
-          {[0, period / 2].map((off) => {
-            const rg = ring(off);
-            return <circle key={off} cx={last.x} cy={last.y} r={rg.r} fill="none" stroke={color} strokeWidth={2} opacity={rg.o * clamp01(lastPop)} />;
-          })}
-          {/* выноска слева от точки: над ней часто нет места (максимум графика у верхнего края) */}
-          <g opacity={clamp01(callout * 1.5)} transform={`translate(${(last.x - 28 + 24 * (1 - callout)).toFixed(2)} ${last.y}) scale(${Math.max(0, 0.75 + 0.25 * callout).toFixed(4)})`}>
-            <foreignObject x={-360} y={-29} width={360} height={58} style={{ overflow: "visible" }}>
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <div
-                  style={{
-                    padding: "8px 18px",
-                    borderRadius: radius(s, 1),
-                    background: surfaceAt(s, 2),
-                    boxShadow: `${shadow(s, 2)}, inset 0 0 0 1.5px ${alpha(color, 0.6)}`,
-                    color: s.palette.text,
-                    fontFamily: fontFamily(s.typography.display),
-                    fontWeight: 700,
-                    fontSize: 28,
-                    lineHeight: 1.15,
-                    whiteSpace: "nowrap",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
-                  {valuePrefix}
-                  {formatNumber(lastValue, { locale, compact: false })}
-                  {valueSuffix}
-                </div>
-              </div>
-            </foreignObject>
-          </g>
-        </g>
-      ) : null}
+      {highlightLast && last
+        ? valueCallout({ s, frame, fps, x: last.x, y: last.y, at: drawEnd, color, text: `${valuePrefix}${formatNumber(lastValue, { locale, compact: false })}${valueSuffix}` })
+        : null}
     </svg>
+  );
+}
+
+/**
+ * Ось Y и сетка графика. Деления фиксированы (`niceTicks` от всех данных) и появляются
+ * все сразу: линии сетки прочерчиваются слева направо одновременно, подписи проявляются
+ * вместе — шкала не «растёт» 20 → 60 → 80 по ходу рисования. Первые 30 % бита.
+ */
+export function chartAxis(o: {
+  s: ResolvedStyle;
+  frame: number;
+  beat: Pick<Beat, "start_frame" | "end_frame">;
+  ticks: number[];
+  toY: (v: number) => number;
+  innerW: number;
+  locale: "ru" | "en";
+  compact: boolean;
+}): ReactNode {
+  const { s, frame, beat, ticks, toY, innerW } = o;
+  const L = Math.max(1, beat.end_frame - beat.start_frame);
+  const line = ramp(frame, beat.start_frame, beat.start_frame + L * 0.3, EASE.outExpo);
+  const label = ramp(frame, beat.start_frame + L * 0.06, beat.start_frame + L * 0.26, EASE.outQuart);
+  const zero = Math.max(ticks[0]!, Math.min(0, ticks.at(-1)!));
+  return (
+    <g>
+      {ticks.map((v, i) => {
+        const y = toY(v);
+        const base = v === zero;
+        return (
+          <g key={`t${i}`}>
+            <line x1={PAD.left} x2={PAD.left + innerW * line} y1={y} y2={y} stroke={alpha(s.palette.text, base ? 0.22 : 0.08)} strokeWidth={base ? 1.5 : 1} />
+            <text
+              x={PAD.left - 20}
+              y={y}
+              dy="0.35em"
+              textAnchor="end"
+              fontSize={20}
+              fill={s.palette.muted}
+              opacity={label}
+              style={{ fontVariantNumeric: "tabular-nums" }}
+              transform={`translate(${((1 - label) * -10).toFixed(2)} 0)`}
+            >
+              {formatNumber(v, { locale: o.locale, compact: o.compact, decimals: o.compact ? 1 : 0 })}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+/**
+ * Выделение итоговой точки: два кольца пульса со сдвигом полпериода и выноска со
+ * значением слева от точки (над максимумом часто нет места). Старт — кадр `at`.
+ */
+export function valueCallout(o: { s: ResolvedStyle; frame: number; fps: number; x: number; y: number; at: number; color: string; text: string }): ReactNode {
+  const { s, frame, fps, x, y, at, color } = o;
+  const period = Math.round(fps * 1.1);
+  const pop = springAt(frame, fps, s, at, "bouncy");
+  const ring = (offset: number) => {
+    const local = frame - at - offset;
+    if (local < 0) return { r: 0, o: 0 };
+    const ph = (local % period) / period;
+    return { r: 10 + ph * 34, o: (1 - ph) * 0.65 };
+  };
+  const callout = springAt(frame, fps, s, at + frames(s, 4), "snappy");
+  return (
+    <g>
+      {[0, period / 2].map((off) => {
+        const rg = ring(off);
+        return <circle key={off} cx={x} cy={y} r={rg.r} fill="none" stroke={color} strokeWidth={2} opacity={rg.o * clamp01(pop)} />;
+      })}
+      <g opacity={clamp01(callout * 1.5)} transform={`translate(${(x - 28 + 24 * (1 - callout)).toFixed(2)} ${y}) scale(${Math.max(0, 0.75 + 0.25 * callout).toFixed(4)})`}>
+        <foreignObject x={-360} y={-29} width={360} height={58} style={{ overflow: "visible" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <div
+              style={{
+                padding: "8px 18px",
+                borderRadius: radius(s, 1),
+                background: surfaceAt(s, 2),
+                boxShadow: `${shadow(s, 2)}, inset 0 0 0 1.5px ${alpha(color, 0.6)}`,
+                color: s.palette.text,
+                fontFamily: fontFamily(s.typography.display),
+                fontWeight: 700,
+                fontSize: 28,
+                lineHeight: 1.15,
+                whiteSpace: "nowrap",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {o.text}
+            </div>
+          </div>
+        </foreignObject>
+      </g>
+    </g>
   );
 }

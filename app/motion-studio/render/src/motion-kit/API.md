@@ -5,8 +5,9 @@
 только `@ms/motion-kit`, `remotion`, `react`.
 
 ```tsx
-import { AnimatedNumber, Background, Camera, Card, Enter, FlowGraph, KineticText, LineChart,
-  Parallax, PulseAlongPath, SafeArea, StyleProvider } from "@ms/motion-kit";
+import { AnimatedNumber, AreaChart, Background, BarChart, Callout, Camera, Card, CodeBlock,
+  ComparisonSplit, Enter, FlowGraph, Highlight, KineticText, LineChart, Parallax, Particles,
+  ProcessSteps, PulseAlongPath, SafeArea, StyleProvider, Timeline } from "@ms/motion-kit";
 ```
 
 Время задаётся битами: `beat = { start_frame, end_frame }` (поля `Beat` из MotionSpec).
@@ -89,6 +90,8 @@ transparent?, palette_overrides?, safe_area?, font? }`), id пресета, Styl
 ))}
 ```
 `{ kind, beat, index? = 0, total? = 1, direction?, distance?, duration?, exit?, style? }`.
+Шторка `mask` после открытия снимает клип: выносные элементы (подчёркивание, свечение)
+не срезаются.
 Старт элемента `index` сдвигается на `stagger_frames` (`staggerBeat`), вход длится
 `enter_frames` по кривой `easing.enter`; `mask` — 1.5 × `enter_frames` по S-кривой (шторка
 крупной формы читается, а не мелькает); `pop` — пружина `spring.pop` с перелётом.
@@ -152,6 +155,26 @@ const rect = useSafeArea();
 const pos = layoutLayered(NODES, EDGES, { x: 0, y: 0, w: rect.w, h: rect.h }, { x: 120, y: 48 });
 <FlowGraph nodes={NODES.map((n) => ({ ...n, ...pos[n.id]! }))} edges={EDGES} beat={…} width={rect.w} height={rect.h} />
 ```
+
+## Паттерны (ТЗ §8.4) → примитивы
+
+| Паттерн | Чем показывать |
+|---|---|
+| рост / падение | `LineChart` (линия рисуется), `AreaChart` (объём наливается), `AnimatedNumber` |
+| сравнение | `ComparisonSplit` (было / стало, A / B), `BarChart` с `highlight` |
+| количества | `BarChart`, `AnimatedNumber`, `Particles` (много мелкого) |
+| причина → следствие, шаги | `ProcessSteps` (стрелки), `FlowGraph` + `PulseAlongPath` |
+| структура системы, связи | `FlowGraph` + `layoutLayered`, `PulseAlongPath` |
+| хронология | `Timeline` |
+| трансформация | `ComparisonSplit` (до / после), `Enter` с выходом и сменой блоков |
+| пространство | `Camera`, `Parallax`, `Particles` по слоям |
+| абстрактные понятия | `Particles`, `Background`, `KineticText` |
+| акцент, главная мысль | `Highlight` (marker / underline / glow), `Callout`, `KineticText highlight` |
+| код | `CodeBlock` + `Callout` на строку (`codeLineRect`) |
+
+Один паттерн — одна мысль сцены. Примитивы различаются движением (шторка, волна, пружина,
+прорисовка, набор), поэтому два соседних примитива уже входят по-разному; правило соседей
+всё равно действует.
 
 ## Компоненты
 
@@ -235,6 +258,149 @@ const head = lineChartHead(POINTS, CHART_BEAT, frame, { width: 900, height: 560 
   beat={{ start_frame: 20, end_frame: 110 }} width={830} height={500} />
 ```
 
+Ось Y у `LineChart`, `AreaChart`, `BarChart` общая: деления `niceTicks` считаются один раз
+от всех данных, линии сетки прочерчиваются одновременно, подписи проявляются все вместе
+(первые 30 % бита). Шкала не перестраивается, пока рисуется линия.
+
+### AreaChart
+`{ points: { label, value }[], beat, highlightLast? = true, width? = 1100, height? = 560,
+locale? = "ru", compact? = true, accentIndex? = 0, yTicks? = 4, valuePrefix?, valueSuffix? }`
+
+Расширение `LineChart` (та же ось и выноска), но движение другое — объём «наливается»:
+точки поднимаются от нуля волной слева направо на мягкой пружине (старты 14–50 % бита),
+заливка открывается маской с растушёванным фронтом, по фронту идёт блик. Для роста
+накопленной величины (аудитория, выручка нарастающим итогом); для тренда без объёма —
+`LineChart`.
+```tsx
+<AreaChart points={USERS} beat={{ start_frame: 24, end_frame: 140 }} width={800} height={700} accentIndex={1} />
+```
+
+### BarChart
+`{ bars: { label, value }[], beat, highlight?, locale, width? = 1100, height? = 560,
+accentIndex? = 0, compact? = true, decimals?, valueSuffix?, yTicks? = 4, gapRatio? = 0.38 }`
+
+Ось встаёт целиком, столбцы растут от базовой линии каскадом (`stagger_frames × 1.5`,
+разбег ≤ 40 % бита) на пружине с лёгким перелётом. Над каждым едет подпись-счётчик
+`AnimatedNumber`, привязанная к высоте столбца. `highlight` — индекс главного столбца:
+после роста он получает световой столб, подпись акцентом и метку под осью, остальные
+уходят в нейтральный тон. Значения ≥ 0. `barTimings(beat, n, stagger)` → `{ startOf(i),
+focusAt }` — кадры для своих элементов, привязанных к столбцам.
+```tsx
+<BarChart bars={[{ label: "I кв.", value: 42_000 }, /* … */ { label: "IV кв.", value: 87_000 }]}
+  beat={{ start_frame: 8, end_frame: 118 }} highlight={3} locale="ru" width={800} height={700} />
+```
+
+### ComparisonSplit
+`{ left: ComparisonSide, right: ComparisonSide, beat, divider: "vs" | "line",
+emphasizeRight? = true, style? }`, `ComparisonSide = { label, title, items?: string[],
+value?, tone?: "negative" | "positive" | "neutral" }`
+
+Две панели на всю ширину родителя (дай ему размер). Панели въезжают навстречу и
+открываются шторкой от внешнего края (0–34 % бита), содержимое едет медленнее рамки. На
+встрече (24 %) — разделитель: `line` прорастает от центра, `vs` — бейдж выскакивает с
+волной. Пункты (30–62 %) входят со своей стороны, значки ✕ / ✓ прорисовываются; `value`
+выскакивает последним. С 72 % акцент на правой («стало»): она приподнимается и светится,
+левая приглушается. Тон по умолчанию: слева negative, справа positive.
+```tsx
+<div style={{ flex: 1 }}>
+  <ComparisonSplit beat={b.split} divider="vs"
+    left={{ label: "Было", title: "Ручной отчёт", items: ["Выгрузка в Excel", "Сверка вручную"], value: "3 дня" }}
+    right={{ label: "Стало", title: "Пайплайн данных", items: ["Данные из DWH", "Проверки в коде"], value: "15 минут" }} />
+</div>
+```
+
+### Timeline
+`{ items: { label, date }[], beat, orientation: "h" | "v", width?, height?, accentIndex? = 0,
+highlightLast? = true }` (по умолчанию h: 1500 × 520, v: 760 × 820)
+
+Тусклая дорожка проявляется, ось прогресса прорисовывается со светящейся головой
+(10–80 % бита). Когда голова доходит до вехи, узел выскакивает с волной, прорастает
+стебель, дата (моно, акцент) и подпись выезжают от оси. По горизонтали подписи чередуются
+над и под осью, подписи крайних вех выровнены внутрь области (не выходят за её край).
+Последняя веха — «сейчас»: крупнее, с ореолом и мягким дыханием. 3–6 вех; подпись — до
+трёх слов. `timelineLayout(n, rect, orientation)` — те же позиции вех для своих слоёв.
+```tsx
+<Timeline items={[{ date: "2019", label: "Прототип" }, /* … */]} beat={b.timeline} orientation="h" width={1690} height={560} />
+```
+
+### ProcessSteps
+`{ steps: string[], beat, connector: "arrow" | "line", width? = 1500, height? = 420,
+accentIndex? = 0 }`
+
+Шаги активируются по очереди (делят 6–82 % бита, `stepStarts(beat, n)`): номер
+выскакивает, кольцо обегает его по кругу, вокруг активного — свечение, подпись поднимается
+из маски. Пройденный шаг остаётся с контуром и номером акцентом. Коннектор к следующему
+шагу прорисовывается за время шага: `arrow` — линия со стрелкой, `line` — пунктир и
+бегущая точка. 3–5 шагов, подпись — 1–3 слова.
+```tsx
+<ProcessSteps steps={["Понять запрос", "Собрать раскадровку", "Написать код", "Проверить кадры"]}
+  beat={b.steps} connector="arrow" width={1690} />
+```
+
+### Callout
+`{ target: Rect, label, beat, side?: "left" | "right" | "auto", bounds?: Rect, shape?:
+"ring" | "box" | "auto", reach? = 90, accentIndex? = 0 }`
+
+Слой поверх родителя (`position: absolute; inset: 0`), координаты `target` — px родителя.
+Кольцо (`ring`, эллипс) или рамка (`box`, для вытянутых целей) прорисовывается по контуру
+со вспышкой внутри (0–34 % бита), линия-указатель с изломом прорастает (26–52 %), подпись
+открывается из маски от конца линии (с 46 %); затем кольцо мягко дышит. `auto` выбирает
+сторону, где больше места в `bounds` (по умолчанию кадр). `reach` — длина горизонтальной
+части линии: выведи подпись туда, где она ничего не закрывает.
+```tsx
+<Callout target={{ x: 70, y: 260, w: 930, h: 49 }} label="До трёх попыток" beat={b.callout}
+  side="right" shape="box" reach={150} />
+```
+
+### Highlight
+`{ children, beat, mode: "marker" | "underline" | "glow", accentIndex? = 0, seed?, style? }`
+
+Акцент на 1–4 словах внутри строки (фраза не переносится):
+- `marker` — неровный мазок маркера прокатывается за текстом слева направо;
+- `underline` — рукописная линия прорисовывается под текстом, следом вторая, тоньше;
+- `glow` — текст разгорается акцентом со свечением и коротким ударом масштаба, по буквам
+  проходит блик (`children` — текст).
+Бит Highlight ставь после входа строки: сначала текст читается, потом выделяется.
+`seed` меняет неровность мазка и линии.
+```tsx
+<Enter kind="mask" beat={b.line}>
+  <div style={big}>
+    <Highlight beat={b.marker} mode="marker">объяснять</Highlight>, а не{" "}
+    <Highlight beat={b.underline} mode="underline" accentIndex={1}>украшать</Highlight>
+  </div>
+</Enter>
+```
+
+### CodeBlock
+`{ code, lang: "ts" | "py" | "json" | "bash", beat, highlightLines?: number[], title?,
+width? = 1100, fontSize? = 30, style? }`
+
+Окно редактора поднимается, код набирается **по токенам** (10–70 % бита): свежий токен
+вспыхивает, за набором идёт каретка, в конце мигает. Номер строки проявляется с первым
+токеном строки. С 74 % строки `highlightLines` (с 1) получают полосу-подсветку, остальные
+приглушаются. Шрифт — `typography.mono` стиля, подсветка — акценты палитры (ключевые слова
+`accent[0]`, строки `accent[1]`, числа `accent[2]`, комментарии приглушены). До 12 строк
+по ~60 знаков при 30 px. `codeLineRect(line, { width, fontSize })` — прямоугольник строки
+от левого верхнего угла блока: цель для `Callout`.
+```tsx
+<div style={{ position: "absolute", left: 0, top: 190 }}>
+  <CodeBlock code={CODE} lang="ts" beat={b.code} highlightLines={[3, 4]} title="pipeline.ts" width={1120} />
+</div>
+```
+
+### Particles
+`{ count, seed, beat, layer: 0 | 1 | 2, area?: Rect, accentShare? = 0.35 }`
+
+Поле светящихся частиц одного слоя глубины: 0 — дальние пылинки (мелкие, медленные),
+1 — средние, 2 — ближние размытые «боке». Частицы проявляются вразброс в первые 45 % бита,
+поднимаются с покачиванием и мерцают до конца сцены. Только `random(seed)` и кадр.
+Атмосфера, а не содержание: 40–80 штук на слое 0, 6–12 на слое 2; за текстом, не поверх.
+Для параллакса камеры оберни в `<Parallax layer>`.
+```tsx
+<Particles count={70} seed="dust" beat={{ start_frame: 0, end_frame: 60 }} layer={0} />
+<Particles count={10} seed="bokeh" beat={{ start_frame: 0, end_frame: 60 }} layer={2} accentShare={0.6} />
+```
+
 ### Card
 `{ elevation: 0 | 1 | 2 | 3, children, beat?, enter?: "rise" | "scale" | "flip" | "none",
 delay?, accentIndex?, width?, height?, padding?, style? }`
@@ -300,6 +466,13 @@ reverse? }`
 | `formatNumber(v, { locale, compact?, decimals? })` | `1 000 000`, `10,000`, `12,5 тыс.`, `2.4B`. Минус — U+2212, в ru 4-значные числа без пробела |
 | `accent(style, i)`, `alpha(c, a)`, `mix(a, b, t)`, `shadow(style, e)`, `radius`, `space`, `typeSize`, `fontFamily`, `contrastRatio` | токены StyleBible |
 | `pathLUT(segments, samples)`, `pointAtLength(lut, s)`, `smoothSegments(points)`, `edgeSegment(a, b)`, `pathD(segments)` | геометрия путей без DOM |
+| `niceTicks(min, max, count)` | «круглые» деления оси (1/2/5 × 10^k), покрывающие диапазон |
+| `barLayout(values, rect, gapRatio, { max? })` | столбцы `Rect[]` на общей базовой линии, высота ∝ значению (`max` — верх шкалы) |
+| `timelineLayout(n, rect, "h" \| "v")` | позиции вех: от края до края rect по середине |
+| `tokenizeCode(src, lang)` | токены `{ text, kind: kw/str/num/com/id/punct/ws }`; склейка = исходный текст |
+| `typedTokens(tokens, p)` | набранная к доле p часть кода целыми токенами (пробелы — вместе со следующим) |
+| `codeLineRect(line, { width?, fontSize? })` | прямоугольник строки CodeBlock — цель для `Callout` |
+| `barTimings(beat, n, stagger)`, `stepStarts(beat, n)` | кадры роста столбцов и активации шагов — для своих привязанных слоёв |
 
 ## Правила качества движения
 

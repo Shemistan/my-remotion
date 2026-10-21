@@ -3,6 +3,9 @@
 Весь код kit написан заново и считается от кадра. Из источников взяты приёмы и идеи,
 а не файлы: ни один файл и ни один фрагмент кода не скопирован. Лицензии и коммиты
 взяты из `knowledge/repositories.json`, идентификаторы — из `knowledge/capabilities.jsonl`.
+`kb_id` = `own` — своя разработка без внешнего источника. Сверку таблиц с KB (запись
+есть, лицензия permissive, commit совпадает, у каждого компонента `components/*` есть
+строка) делает `server/test/scenes/kit-provenance.test.ts`.
 
 Restricted-источники не использовались даже как идея: `react-bits` (MIT + Commons
 Clause) и `remotion-boilerplate` (UNLICENSED).
@@ -27,7 +30,7 @@ Clause) и `remotion-boilerplate` (UNLICENSED).
 | | `remotion-bits/animated-text` | remotion-bits @ de35fda | MIT (package.json) | идея режимов разбиения по словам и по буквам | ok |
 | `Background` | `xyflow/background` | xyflow @ 654ba5a5e | MIT (LICENSE) | идея точечной и линейной сетки-подложки (варианты `paper`, `grid`) | ok |
 | | `free-remotion-templates/lower-third-glass-card` | free-remotion-templates @ f648980 | MIT (LICENSE, SPDX) | идея: размытое радиальное пятно акцента, чтобы фон «дышал» (вариант `aurora`) | ok |
-| `useBeat`, `beatProgress`, `formatNumber`, геометрия (`pathLUT`, `pointAtLength`, `smoothSegments`), токены, пресеты | — | своё | — | монотонная интерполяция Фритча — Карлсона; LUT длины пути | ok (юнит-тесты, рендер) |
+| `useBeat`, `beatProgress`, `formatNumber`, геометрия (`pathLUT`, `pointAtLength`, `smoothSegments`), токены, пресеты, `SafeArea`, `useSafeArea` | `own` | — | — | монотонная интерполяция Фритча — Карлсона; LUT длины пути | ok (юнит-тесты, рендер) |
 
 ## v0.2: StyleBible-система и хореография
 
@@ -38,14 +41,14 @@ dark-premium, e2e `test/kit/choreo.e2e.test.ts`) и просмотра кадр�
 
 | Примитив | kb_id | Репозиторий @ commit | Лицензия | Что взято | rendered |
 |---|---|---|---|---|---|
-| `resolveStyle`, `ResolvedStyle`, `StyleProvider` (разрешение под fps) | — | своё | — | — | ok (юнит-тесты, рендер) |
-| `contrastRatio`, `relativeLuminance` | — | своё | — | формула WCAG 2.x (спецификация W3C, не код) | ok (юнит-тесты) |
-| `typeSize(style, level, height)` | — | своё | — | — | ok |
-| `enterStyle`, `<Enter>`, `staggerBeat` | — | своё | — | `rise` у `Card` — через `enterStyle` | ok |
-| `KineticText enter="type"` | — | своё | — | — | ok |
-| `cameraAt`, `<Camera>`, `<Parallax>` | — | своё | — | — | ok |
-| `safeRect`, `gridColumns`, `layoutLayered` | — | своё | — | слои по топологическому порядку (общеизвестный приём, без кода dagre/elk) | ok (юнит-тесты; `layoutLayered` в рендере — с Task 15) |
-| глубина `depth` в `Card`, `FlowGraph`, `KineticText`, `Background` | — | своё | — | — | ok |
+| `resolveStyle`, `ResolvedStyle`, `StyleProvider` (разрешение под fps) | `own` | — | — | — | ok (юнит-тесты, рендер) |
+| `contrastRatio`, `relativeLuminance` | `own` | — | — | формула WCAG 2.x (спецификация W3C, не код) | ok (юнит-тесты) |
+| `typeSize(style, level, height)` | `own` | — | — | — | ok |
+| `enterStyle`, `<Enter>`, `staggerBeat` | `own` | — | — | `rise` у `Card` — через `enterStyle` | ok |
+| `KineticText enter="type"` | `own` | — | — | — | ok |
+| `cameraAt`, `<Camera>`, `<Parallax>` | `own` | — | — | — | ok |
+| `safeRect`, `gridColumns`, `layoutLayered` | `own` | — | — | слои по топологическому порядку (общеизвестный приём, без кода dagre/elk) | ok (юнит-тесты; `layoutLayered` в рендере — с Task 15) |
+| глубина `depth` в `Card`, `FlowGraph`, `KineticText`, `Background` | `own` | — | — | — | ok |
 
 Evidence пересобирается одной командой из `app/motion-studio` (реальный рендер фикстуры,
 JPEG 960 px в `docs/evidence/phase-1/kit-v0.2/choreo/`, полные PNG — в `tmp/kit-evidence-*/`):
@@ -72,6 +75,79 @@ JPEG 960 px в `docs/evidence/phase-1/kit-v0.2/choreo/`, полные PNG — в
 - Глубина 0 → 3 различима по соседним уровням: светлее поверхность, сильнее блик и
   кромка, у depth 2 — мягкий ореол, у depth 3 — ореол сильнее и полоса акцента.
 - Кириллица набрана своими шрифтами, обрезки нет.
+
+## v0.2: примитивы паттернов ТЗ §8.4
+
+Компоненты написаны заново; из источников — только приёмы и идеи, описанные в карточках
+KB (`knowledge/components/…`), без копирования кода. Где источник — React-компонент с
+CSS-анимацией, таймерами или сторонними пакетами (prism, rough-notation, canvas), приём
+переписан на кадры: всё движение — от `useCurrentFrame()`, случайность — `random(seed)`.
+`rendered` — итог рендера галереи `render/test/fixtures/patterns-gallery` (шесть сцен
+1920×1080 по 150 кадров, e2e `test/kit/patterns.e2e.test.ts`) и просмотра кадров глазами
+2026-10-21. Кадры — `docs/evidence/phase-1/kit-v0.2/patterns/`.
+
+| Компонент | kb_id | Репозиторий @ commit | Лицензия | Что взято | rendered |
+|---|---|---|---|---|---|
+| `BarChart` | `free-remotion-templates/bar-chart-anim` | free-remotion-templates @ f648980 | MIT (LICENSE, SPDX) | приём: столбцы растут пружиной с задержкой по индексу, подписи проявляются вместе со столбцом | ok (data) |
+| | `remotion-bits/bit-bar-chart` | remotion-bits @ de35fda | MIT (package.json) | идея: счётчик значения у растущего столбца; у нас — `AnimatedNumber`, привязанный к высоте столбца | ok (data) |
+| | `own` | — | — | акцент после роста: световой столб и подпись акцентом у выделенного, нейтральный тон остальных; `barLayout`; общая ось `chartAxis` | ok (data) |
+| `AreaChart` | `recharts/area-chart` | recharts @ 17272500987 | MIT (package.json, LICENSE) | идея: заливка раскрывается слева направо; у нас — SVG-маска с растушёванным фронтом от кадра, без таймера | ok (data) |
+| | `free-remotion-templates/line-chart-anim` | free-remotion-templates @ f648980 | MIT (LICENSE, SPDX) | общая с LineChart часть: подписи X проявляются вслед за точками | ok (data) |
+| | `own` | — | — | волна подъёма точек на мягкой пружине, блик по фронту маски, выноска `valueCallout` | ok (data) |
+| `ComparisonSplit` | `free-remotion-templates/split-screen` | free-remotion-templates @ f648980 | MIT (LICENSE, SPDX) | приём: две панели раскрываются clip-path-шторкой по очереди, разделитель по центру появляется отдельно | ok (comparison) |
+| | `motion-primitives/image-comparison` | motion-primitives @ 120f64f | MIT (LICENCE.md, © 2024 ibelick) | идея вертикального разделителя «до / после» | ok (comparison) |
+| | `own` | — | — | встречные входы с параллаксом содержимого, бейдж VS на пружине pop с волной, прорисовка значков ✕ / ✓, перенос акцента на «стало» | ok (comparison) |
+| `Timeline` | `animata/animated-timeline` | animata @ e7478b8 | MIT (LICENSE.md) | идея: точка вехи вырастает при активации, линия прорастает, каскад задержек | ok (timeline) |
+| | `mermaid/timeline` | mermaid @ 6d8921f94 | MIT (LICENSE, package.json) | идея раскладки: горизонтальная ось, события по обе стороны | ok (timeline) |
+| | `own` | — | — | голова оси со свечением, вехи `pop` в кадр прохода головы, стебли к подписям, «сейчас» с дыханием; `timelineLayout` | ok (timeline) |
+| `ProcessSteps` | `own` | — | — | активация шагов по очереди: кольцо прорисовывается, номер выскакивает, свечение переходит к следующему; коннекторы `draw` (стрелка или линия с точкой) | ok (process) |
+| `Callout` | `own` | — | — | кольцо или рамка прорисовываются по контуру, линия-указатель с изломом, подпись из маски от конца линии | ok (code) |
+| `Highlight` | `magicui/highlighter` | magicui @ efe76fc5 | MIT (LICENSE.md) | идея режимов выделения (маркер, подчёркивание); у нас без rough-notation: свой неровный мазок из `random(seed)`, прорисовка штриха от кадра | ok (emphasis) |
+| | `animata/double-underline` | animata @ e7478b8 | MIT (LICENSE.md) | идея второй, тонкой черты подчёркивания | ok (emphasis) |
+| | `own` | — | — | режим glow: разгорание акцентом, удар масштаба, блик по буквам | ok (emphasis) |
+| `CodeBlock` | `remotion-bits/code-block` | remotion-bits @ de35fda | MIT (package.json) | идея: подсветка выбранных строк и приглушение остальных, номера строк | ok (code) |
+| | `remotion-bits/bit-typing-code-block` | remotion-bits @ de35fda | MIT (package.json) | приём: набор кода от кадра с курсором; у нас — по токенам своим лексером вместо prism, вспышка свежего токена | ok (code) |
+| | `own` | — | — | `tokenizeCode`, `typedTokens`, `codeLineRect` | ok (юнит-тесты, code) |
+| `Particles` | `free-remotion-templates/particle-snow` | free-remotion-templates @ f648980 | MIT (LICENSE, SPDX) | приём: слои глубины с разной скоростью и размером, покачивание sin по X, мерцание | ok (emphasis) |
+| | `remotion-bits/particle-system` | remotion-bits @ de35fda | MIT (package.json) | идея: частицы детерминированы от кадра; у нас без симуляции — замкнутая формула от кадра и `random(seed)` | ok (emphasis) |
+| `niceTicks` (`ticks.ts`), `drawDash`, ось LineChart | `own` | — | — | деления оси вынесены из geometry; ось LineChart/AreaChart/BarChart появляется целиком и не меняет шкалу во время рисования | ok (choreo, data) |
+
+Итог просмотра кадров (`rendered: ok`, 2026-10-21):
+
+- **comparison** (dark-premium): панели въезжают навстречу, шторка обгоняет сдвиг рамки —
+  содержимое не режется краем. Бейдж VS выскакивает в момент встречи, по линии-разделителю
+  свечение. Пункты входят со своих сторон, ✕ / ✓ прорисовываются. В конце «Было»
+  приглушена и обесцвечена, «Стало» приподнята, кромка и «15 минут» светятся акцентом.
+- **timeline** (light-clean): ось прорисовывается с головой, вехи выскакивают в кадр
+  прохода головы, стебли прорастают, даты (моно, акцент) и подписи чередуются над и под
+  осью. Подписи крайних вех выровнены внутрь: всё в safe area (первая x ≈ 138 при поле 115,
+  последняя кончается ≈ 1782 при границе 1805). «2025» — крупнее, с ореолом.
+- **process** (dark-premium): шаги 01–04 активируются по очереди, кольцо обегает номер,
+  свечение переходит к активному шагу, стрелки прорисовываются между шагами; пройденные —
+  контур и номер акцентом.
+- **code** (tech-neon): окно поднимается, код набирается по токенам, свежий токен
+  вспыхивает, каретка идёт за набором и мигает в конце. Строки 3–4 подсвечены полосой,
+  остальные приглушены. Рамка выноски обегает строку цикла, линия выходит вправо за окно,
+  подпись «До трёх попыток» открывается из маски. Остатков штриха до старта нет.
+- **emphasis** (dark-premium): строки открываются шторкой, «объяснять» — неровный мазок
+  маркера, «украшать» — двойная рукописная линия (после ревью кадров шторка `Enter` больше
+  не срезает её: клип снимается в конце входа), «Одна мысль» разгорается янтарём. Пылинки
+  и боке двух слоёв видны, не спорят с текстом.
+- **data** (light-clean): ось встаёт целиком, столбцы растут каскадом с подписями-
+  счётчиками; затем IV кв. получает световой столб, подпись акцентом и метку, остальные
+  уходят в серо-синий. AreaChart наливается волной слева направо, блик по фронту, итог —
+  выноска «640 000».
+- **Варианты** (`props.content`, e2e и листы `*-<ключ>-<значение>-*.jpg`): вертикальный
+  `Timeline` (даты слева, подписи справа, отступ за ореолом «сейчас»), `ProcessSteps
+  connector="line"` (пунктир и бегущая точка), `ComparisonSplit divider="line"` (линия
+  прорастает от центра), `Callout shape="ring"` на «3» в условии цикла — кольцо читается,
+  но линия к подписи пересекает строку 2, поэтому в сцене по умолчанию — рамка на строку.
+- **LineChart** (choreo): подписи оси Y появляются все вместе (кадр 26 — 0…80 тыс. сразу),
+  шкала не перестраивается 20 → 60 → 80 по ходу рисования.
+
+Evidence пересобирается: `./scripts/with-node.sh npx tsx scripts/kit-evidence.mts patterns`
+(контактные листы ключевых кадров e2e, JPEG 3 × 2 по 480 px); вариант —
+`… patterns timeline:orientation=v`.
 
 ## Шрифты
 

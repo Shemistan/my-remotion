@@ -20,3 +20,9 @@ export function ramp(frame: number, a: number, b: number, easing?: (t: number) =
   const t = clamp01((frame - a) / (b - a));
   return easing ? easing(t) : t;
 }
+
+/**
+ * Прорисовка штриха SVG по доле p (0..1) при `pathLength={1}`: штрих длины p и разрыв 2.
+ * Рисуй элемент только при p > 0 — у штриха нулевой длины круглый торец даёт точку.
+ */
+export const drawDash = (p: number) => `${Math.max(0, Math.min(1, p)).toFixed(4)} 2`;

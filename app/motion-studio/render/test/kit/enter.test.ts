@@ -38,7 +38,9 @@ describe("enterStyle", () => {
   it("mask: clipPath inset открывается от края; blur: (1-p)·12·amp px", () => {
     expect(enterStyle("mask", 0, o).clipPath).toBe("inset(100% 0% 0% 0%)");
     expect(enterStyle("mask", 0.25, o).clipPath).toBe("inset(75% 0% 0% 0%)");
-    expect(enterStyle("mask", 1, o).clipPath).toBe("inset(0% 0% 0% 0%)");
+    // вход закончен — клипа нет: подчёркивание, свечение и выносные элементы не срезаются
+    expect(enterStyle("mask", 1, o).clipPath).toBeUndefined();
+    expect(enterStyle("mask", 1.02, o).clipPath).toBeUndefined();
     expect(enterStyle("mask", 0, { ...o, direction: "left" }).clipPath).toBe("inset(0% 100% 0% 0%)");
     expect(enterStyle("blur", 0, o).filter).toBe("blur(12px)");
     expect(enterStyle("blur", 0.5, { ...o, amplitude: 1.35 }).filter).toBe("blur(8.1px)");

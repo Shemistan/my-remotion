@@ -1,0 +1,38 @@
+{
+  "timing": {
+    "duration_frames": 150,
+    "beats": [
+      {
+        "id": "kicker",
+        "start_frame": 0,
+        "end_frame": 40
+      },
+      {
+        "id": "headline",
+        "start_frame": 4,
+        "end_frame": 50
+      },
+      {
+        "id": "code",
+        "start_frame": 8,
+        "end_frame": 120
+      },
+      {
+        "id": "callout",
+        "start_frame": 98,
+        "end_frame": 146
+      }
+    ]
+  },
+  "style": {
+    "preset": "tech-neon",
+    "intensity": "energetic",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.06,
+      "y": 0.08
+    }
+  },
+  "content": {}
+}
