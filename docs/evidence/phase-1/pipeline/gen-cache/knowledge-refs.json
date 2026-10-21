@@ -20,7 +20,7 @@
     ]
   },
   {
-    "kb_id": "xyflow/edge-types",
+    "kb_id": "xyflow/default-nodes",
     "repository": "xyflow (React Flow)",
     "repository_url": "git@github.com:xyflow/xyflow.git",
     "commit": "654ba5a5e",
@@ -28,17 +28,13 @@
     "license_class": "permissive",
     "strategy": "adapt",
     "source_paths": [
-      "templates/infografika/xyflow/packages/react/src/components/Edges/BezierEdge.tsx",
-      "templates/infografika/xyflow/packages/react/src/components/Edges/StraightEdge.tsx",
-      "templates/infografika/xyflow/packages/react/src/components/Edges/StepEdge.tsx",
-      "templates/infografika/xyflow/packages/react/src/components/Edges/SmoothStepEdge.tsx",
-      "templates/infografika/xyflow/packages/react/src/components/Edges/SimpleBezierEdge.tsx",
-      "templates/infografika/xyflow/packages/react/src/components/Edges/BaseEdge.tsx",
-      "templates/infografika/xyflow/packages/react/src/components/Edges/EdgeText.tsx",
-      "templates/infografika/xyflow/packages/react/src/components/EdgeWrapper/index.tsx",
-      "templates/infografika/xyflow/packages/react/src/components/EdgeWrapper/utils.ts",
-      "templates/infografika/xyflow/packages/react/src/types/edges.ts",
-      "templates/infografika/xyflow/packages/system/src/styles/init.css"
+      "templates/infografika/xyflow/packages/react/src/components/Nodes/DefaultNode.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/Nodes/InputNode.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/Nodes/OutputNode.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/Nodes/GroupNode.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/NodeWrapper/utils.tsx",
+      "templates/infografika/xyflow/packages/system/src/types/nodes.ts",
+      "templates/infografika/xyflow/packages/system/src/styles/style.css"
     ]
   }
 ]

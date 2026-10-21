@@ -1,19 +1,19 @@
 {
   "job": {
-    "id": "job_01M5ETNGWGMGZDH5Y7XW5GXWH9",
+    "id": "job_01M5EWNPCFWS6MGEM5J6AX0XT7",
     "type": "playground.generate",
     "project_id": "playground",
-    "scene_id": "scn_01M5ETNGWCX55KT0BRS7JCJMJ2",
+    "scene_id": "scn_01M5EWNPCB9QK95RF7ECQXX9CA",
     "version_id": null,
     "parent_job_id": null,
     "status": "completed",
     "progress": 1,
     "stage": "publish",
-    "attempt": 1,
+    "attempt": 2,
     "max_attempts": 3,
     "interrupts": 0,
     "input": {
-      "sceneId": "scn_01M5ETNGWCX55KT0BRS7JCJMJ2",
+      "sceneId": "scn_01M5EWNPCB9QK95RF7ECQXX9CA",
       "prompt": "Объясни, как работает кэширование: запрос, промах, запись, попадание",
       "settings": {
         "aspect_ratio": "16:9",
@@ -34,14 +34,14 @@
         }
       }
     },
-    "input_hash": "ff4daa5bf3ec304930bbf5ba38b11cb2dce49058ba461ebe9f2a9bd99f857eac",
+    "input_hash": "c9a2992f5976bb6688393b9c967aff3cc0fd70a2e7756124031fd114c3bb7358",
     "output_refs": {
-      "scene_id": "scn_01M5ETNGWCX55KT0BRS7JCJMJ2",
-      "version_id": "ver_01M5EVBJFY7PVDGZMARJZQNX9S",
+      "scene_id": "scn_01M5EWNPCB9QK95RF7ECQXX9CA",
+      "version_id": "ver_01M5EX5R49N75P4HGQ0V2AT7ZZ",
       "version_number": 1,
-      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ETNGWCX55KT0BRS7JCJMJ2/versions/ver_01M5EVBJFY7PVDGZMARJZQNX9S",
-      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ETNGWCX55KT0BRS7JCJMJ2/versions/ver_01M5EVBJFY7PVDGZMARJZQNX9S/preview.mp4",
-      "cost_usd": 1.888545,
+      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EWNPCB9QK95RF7ECQXX9CA/versions/ver_01M5EX5R49N75P4HGQ0V2AT7ZZ",
+      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EWNPCB9QK95RF7ECQXX9CA/versions/ver_01M5EX5R49N75P4HGQ0V2AT7ZZ/preview.mp4",
+      "cost_usd": 1.3045217,
       "engineer_calls": 2,
       "qa": {
         "technical": "pass",
@@ -53,85 +53,85 @@
       "steps": {
         "concept": {
           "input_hash": "6e2658399222cb55bb7492cee0e8d0db69b57cafe0cd6dc27a119d31ca52ae1e",
-          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5ETNGWGMGZDH5Y7XW5GXWH9/checkpoints/concept.json"
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EWNPCFWS6MGEM5J6AX0XT7/checkpoints/concept.json"
         },
         "director": {
-          "input_hash": "1f49300427ab7c57148c7dd62b660e51efff86e6db58731fc005ea6cdf59205d",
-          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5ETNGWGMGZDH5Y7XW5GXWH9/checkpoints/motion_director.json"
+          "input_hash": "938a56c80bfa1efeb6acf223eb8754168a4d76f7c1f18c1e639c0707c5ad1b35",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EWNPCFWS6MGEM5J6AX0XT7/checkpoints/motion_director.json"
         }
       }
     },
     "error": null,
-    "idempotency_key": "e2e-gen-cache-run_01M5ETNGWGMGZDH5Y7XW5GXWH8",
+    "idempotency_key": "e2e-gen-cache-run_01M5EWNPCFWS6MGEM5J6AX0XT6",
     "lease_owner": null,
     "lease_until": null,
     "cancel_requested": false,
-    "created_at": "2026-10-21T08:53:54.704Z",
-    "started_at": "2026-10-21T08:58:02.834Z",
-    "finished_at": "2026-10-21T09:05:57.272Z"
+    "created_at": "2026-10-21T09:28:57.487Z",
+    "started_at": "2026-10-21T09:31:32.053Z",
+    "finished_at": "2026-10-21T09:37:43.586Z"
   },
-  "wall_ms": 724266,
-  "cost_usd": 1.888545,
+  "wall_ms": 528043,
+  "cost_usd": 1.3121090000000002,
   "agent_runs": [
     {
       "role": "concept",
       "model": "claude-sonnet-5-5",
       "status": "completed",
-      "input_tokens": 13525,
-      "output_tokens": 1121,
-      "cost_usd": 0.0245977,
-      "started_at": "2026-10-21T08:58:03.247Z",
-      "finished_at": "2026-10-21T08:58:16.341Z"
+      "input_tokens": 5405,
+      "output_tokens": 560,
+      "cost_usd": 0.007587299999999998,
+      "started_at": "2026-10-21T09:30:51.758Z",
+      "finished_at": "2026-10-21T09:31:00.375Z"
+    },
+    {
+      "role": "motion_director",
+      "model": "unknown",
+      "status": "cancelled",
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "cost_usd": 0,
+      "started_at": "2026-10-21T09:31:00.640Z",
+      "finished_at": "2026-10-21T09:31:21.562Z"
     },
     {
       "role": "motion_director",
       "model": "claude-opus-5-5",
       "status": "completed",
-      "input_tokens": 40881,
-      "output_tokens": 6551,
-      "cost_usd": 0.353852,
-      "started_at": "2026-10-21T08:58:17.989Z",
-      "finished_at": "2026-10-21T08:59:22.431Z"
-    },
-    {
-      "role": "motion_director",
-      "model": "claude-opus-5-5",
-      "status": "completed",
-      "input_tokens": 41079,
-      "output_tokens": 7821,
-      "cost_usd": 0.380836,
-      "started_at": "2026-10-21T08:59:22.593Z",
-      "finished_at": "2026-10-21T09:00:41.324Z"
+      "input_tokens": 40374,
+      "output_tokens": 6541,
+      "cost_usd": 0.1419288,
+      "started_at": "2026-10-21T09:31:32.659Z",
+      "finished_at": "2026-10-21T09:32:37.441Z"
     },
     {
       "role": "engineer",
       "model": "claude-opus-5-5",
       "status": "completed",
-      "input_tokens": 475274,
-      "output_tokens": 18302,
-      "cost_usd": 0.849486,
-      "started_at": "2026-10-21T09:00:41.978Z",
-      "finished_at": "2026-10-21T09:03:40.449Z"
+      "input_tokens": 284897,
+      "output_tokens": 19309,
+      "cost_usd": 0.8416836000000001,
+      "started_at": "2026-10-21T09:32:38.118Z",
+      "finished_at": "2026-10-21T09:35:46.349Z"
     },
     {
       "role": "engineer",
       "model": "claude-opus-5-5",
       "status": "completed",
-      "input_tokens": 118734,
-      "output_tokens": 2061,
-      "cost_usd": 0.1147372,
-      "started_at": "2026-10-21T09:04:04.298Z",
-      "finished_at": "2026-10-21T09:04:40.618Z"
+      "input_tokens": 175778,
+      "output_tokens": 1953,
+      "cost_usd": 0.16192499999999999,
+      "started_at": "2026-10-21T09:36:01.118Z",
+      "finished_at": "2026-10-21T09:36:31.269Z"
     },
     {
       "role": "visual_qa",
       "model": "claude-sonnet-5-5",
       "status": "completed",
-      "input_tokens": 63854,
-      "output_tokens": 3545,
-      "cost_usd": 0.16503610000000002,
-      "started_at": "2026-10-21T09:05:22.881Z",
-      "finished_at": "2026-10-21T09:05:56.160Z"
+      "input_tokens": 62648,
+      "output_tokens": 3189,
+      "cost_usd": 0.1589843,
+      "started_at": "2026-10-21T09:37:15.820Z",
+      "finished_at": "2026-10-21T09:37:42.738Z"
     }
   ],
   "render_jobs": [
@@ -141,7 +141,7 @@
       "width": 1920,
       "height": 1080,
       "frames": 8,
-      "duration_ms": 22970
+      "duration_ms": 20746
     },
     {
       "kind": "preview",
@@ -149,19 +149,19 @@
       "width": 960,
       "height": 540,
       "frames": 180,
-      "duration_ms": 22970
+      "duration_ms": 20746
     }
   ],
   "qa_reports": [
     {
-      "id": 37,
-      "version_id": "ver_01M5EVBJFY7PVDGZMARJZQNX9S",
-      "attempt": 1,
+      "id": 40,
+      "version_id": "ver_01M5EX5R49N75P4HGQ0V2AT7ZZ",
+      "attempt": 2,
       "technical": "pass",
       "visual": "warn",
       "semantic": "pass",
       "style": "pass",
-      "report_path": "workspace/projects/playground/scenes/scn_01M5ETNGWCX55KT0BRS7JCJMJ2/versions/ver_01M5EVBJFY7PVDGZMARJZQNX9S/qa.json"
+      "report_path": "workspace/projects/playground/scenes/scn_01M5EWNPCB9QK95RF7ECQXX9CA/versions/ver_01M5EX5R49N75P4HGQ0V2AT7ZZ/qa.json"
     }
   ],
   "component_tests": [
@@ -183,8 +183,8 @@
       "kb_id": "magicui/animated-beam",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5ESFPWH6Q2EAQM437A6Z5AX",
-      "date": "2026-10-21T08:33:15.686Z"
+      "version_id": "ver_01M5EVK76QQNHPZ1WH8DNTREN3",
+      "date": "2026-10-21T09:10:07.851Z"
     },
     {
       "kb_id": "xyflow/example-custom-node",
@@ -218,8 +218,8 @@
       "kb_id": "xyflow/react-flow",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EVBJFY7PVDGZMARJZQNX9S",
-      "date": "2026-10-21T09:05:57.268Z"
+      "version_id": "ver_01M5EX5R49N75P4HGQ0V2AT7ZZ",
+      "date": "2026-10-21T09:37:43.583Z"
     },
     {
       "kb_id": "xyflow/edge-types",
@@ -245,16 +245,16 @@
     {
       "kb_id": "free-remotion-templates/chapter-title",
       "remotion_version": "4.0.537",
-      "result": "rendered-ok",
-      "version_id": "ver_01M5ETX34F6S12HQ72N3EAH3TJ",
-      "date": "2026-10-21T08:58:02.797Z"
+      "result": "rendered-fail",
+      "version_id": "ver_01M5EX0TTC9B6BJPW1ECEZAZFX",
+      "date": "2026-10-21T09:35:02.496Z"
     },
     {
       "kb_id": "remotion-bits/bit-staggered-fade-in",
       "remotion_version": "4.0.537",
-      "result": "rendered-ok",
-      "version_id": "ver_01M5ETX34F6S12HQ72N3EAH3TJ",
-      "date": "2026-10-21T08:58:02.797Z"
+      "result": "rendered-fail",
+      "version_id": "ver_01M5EX0TTC9B6BJPW1ECEZAZFX",
+      "date": "2026-10-21T09:35:02.496Z"
     },
     {
       "kb_id": "free-remotion-templates/split-screen",
@@ -276,106 +276,155 @@
       "result": "rendered-ok",
       "version_id": "ver_01M5ES443NFXA24BC5TKBX21VK",
       "date": "2026-10-21T08:26:56.008Z"
+    },
+    {
+      "kb_id": "xyflow/default-nodes",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EX5R49N75P4HGQ0V2AT7ZZ",
+      "date": "2026-10-21T09:37:43.583Z"
     }
   ],
   "chat": [
     {
-      "id": "msg_01M5EVBJGM6K35P4Q9G9JRFYNN",
-      "scene_id": "scn_01M5ETNGWCX55KT0BRS7JCJMJ2",
+      "id": "msg_01M5EX5R4ZWGSFDHHKRRYMCAX5",
+      "scene_id": "scn_01M5EWNPCB9QK95RF7ECQXX9CA",
       "role": "assistant",
-      "text": "Версия 1 готова.\nКонцепция: Слева клиент, в центре быстрый кэш, справа медленная база данных. Первый «Запрос» летит к пустому кэшу — «Промах» вспыхивает красным, импульс идёт дальше к базе и возвращается с данными. Данные оседают в ячейке кэша — «Запись» зажигает ячейку. Второй такой же запрос останавливается у кэша и мгновенно возвращается — «Попадание» вспыхивает зелёным, и светящаяся ячейка кэша остаётся героем кадра. Путь взгляда: слева направо, короткий возврат, итоговая подпись «Запрос → Промах → Запись → Попадание».\nКомпоненты: motion-kit StyleProvider, motion-kit Background, motion-kit Particles, motion-kit SafeArea, motion-kit FlowGraph, motion-kit PulseAlongPath, motion-kit Enter, motion-kit Emphasis, motion-kit KineticText, motion-kit pulseArrival, motion-kit flowTiming, motion-kit beatProgress, motion-kit cardSurface, motion-kit easingOf, motion-kit typeSize, motion-kit useSafeArea, motion-kit useStyle, motion-kit accent, motion-kit alpha, motion-kit mix, xyflow/react-flow (adapt, MIT (LICENSE, packages/react/package.json)), xyflow/edge-types (adapt, MIT (LICENSE, packages/react/package.json)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — пройден, стиль — пройден; замечаний: blocking 0, warning 4.",
-      "version_id": "ver_01M5EVBJFY7PVDGZMARJZQNX9S",
-      "job_id": "job_01M5ETNGWGMGZDH5Y7XW5GXWH9",
-      "created_at": "2026-10-21T09:05:57.268Z"
+      "text": "Версия 1 готова.\nКонцепция: Объясни, как работает кэширование: запрос, промах, запись, попадание. Четыре станции слева направо: клиент отправляет «Запрос» и импульс летит к кэшу — ячейка пуста, вспыхивает «Промах»; импульс идёт дальше к источнику данных и возвращается с ответом; ответ «Записывается» в ячейку кэша, и она наполняется. Второй импульс того же запроса упирается в кэш и сразу возвращается — «Попадание» светится зелёным, а путь к источнику остаётся тусклым. Герой кадра — заполненная ячейка кэша и короткий путь попадания; взгляд идёт слева направо, затем возвращается назад по короткому маршруту.\nКомпоненты: motion-kit StyleProvider, motion-kit Background, motion-kit Particles, motion-kit SafeArea, motion-kit KineticText, motion-kit FlowGraph, motion-kit PulseAlongPath, motion-kit pulseArrival, motion-kit flowTiming, motion-kit Enter, motion-kit Emphasis, motion-kit enterStyle, motion-kit springAt, motion-kit easingOf, motion-kit typeSize, motion-kit useSafeArea, motion-kit useStyle, motion-kit alpha, motion-kit mix, xyflow/react-flow (adapt, MIT (LICENSE, packages/react/package.json)), xyflow/default-nodes (adapt, MIT (LICENSE, packages/react/package.json)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — пройден, стиль — пройден; замечаний: blocking 0, warning 6.",
+      "version_id": "ver_01M5EX5R49N75P4HGQ0V2AT7ZZ",
+      "job_id": "job_01M5EWNPCFWS6MGEM5J6AX0XT7",
+      "created_at": "2026-10-21T09:37:43.583Z"
     }
   ],
   "events": [
     {
-      "ts": "2026-10-21T08:58:02.853Z",
+      "ts": "2026-10-21T09:30:45.894Z",
       "level": "info",
       "kind": "started",
       "message": "playground.generate: попытка 1"
     },
     {
-      "ts": "2026-10-21T08:58:03.244Z",
+      "ts": "2026-10-21T09:30:51.714Z",
       "level": "info",
       "kind": "log",
       "message": "Concept…"
     },
     {
-      "ts": "2026-10-21T08:58:16.392Z",
+      "ts": "2026-10-21T09:31:00.380Z",
       "level": "info",
       "kind": "log",
-      "message": "Concept: Слева клиент, в центре быстрый кэш, справа медленная база данных. Первый «Запрос» летит к пустому кэшу — «Промах» вспыхивает красным, импульс идёт дальше к базе и возвращается с данными. Данные оседают в ячейке кэша — «Запись» зажигает ячейку. Второй такой же запрос останавливается у кэша и мгновенно возвращается — «Попадание» вспыхивает зелёным, и светящаяся ячейка кэша остаётся героем кадра. Путь взгляда: слева направо, короткий возврат, итоговая подпись «Запрос → Промах → Запись → Попадание». [sequence-steps, system-structure, cause-effect]"
+      "message": "Concept: Объясни, как работает кэширование: запрос, промах, запись, попадание. Четыре станции слева направо: клиент отправляет «Запрос» и импульс летит к кэшу — ячейка пуста, вспыхивает «Промах»; импульс идёт дальше к источнику данных и возвращается с ответом; ответ «Записывается» в ячейку кэша, и она наполняется. Второй импульс того же запроса упирается в кэш и сразу возвращается — «Попадание» светится зелёным, а путь к источнику остаётся тусклым. Герой кадра — заполненная ячейка кэша и короткий путь попадания; взгляд идёт слева направо, затем возвращается назад по короткому маршруту. [sequence-steps, system-structure, cause-effect]"
     },
     {
-      "ts": "2026-10-21T08:58:16.434Z",
+      "ts": "2026-10-21T09:31:00.401Z",
       "level": "info",
       "kind": "log",
       "message": "KB: 12 кандидатов по ключам Concept"
     },
     {
-      "ts": "2026-10-21T08:58:17.986Z",
+      "ts": "2026-10-21T09:31:00.636Z",
       "level": "info",
       "kind": "log",
       "message": "Motion Director…"
     },
     {
-      "ts": "2026-10-21T08:59:22.434Z",
+      "ts": "2026-10-21T09:31:21.577Z",
       "level": "info",
       "kind": "log",
-      "message": "spec: 1 blocking — Director исправляет"
+      "message": "✗ interrupted: отменено во время Motion Director"
     },
     {
-      "ts": "2026-10-21T08:59:22.590Z",
+      "ts": "2026-10-21T09:31:21.607Z",
+      "level": "warn",
+      "kind": "interrupted",
+      "message": "попытка 1 прервана"
+    },
+    {
+      "ts": "2026-10-21T09:31:32.032Z",
+      "level": "warn",
+      "kind": "interrupted",
+      "message": "попытка 1 прервана: хранилище было недоступно"
+    },
+    {
+      "ts": "2026-10-21T09:31:32.032Z",
+      "level": "info",
+      "kind": "requeued",
+      "message": "задача снова в очереди (прерываний 0 из 3)"
+    },
+    {
+      "ts": "2026-10-21T09:31:32.057Z",
+      "level": "info",
+      "kind": "started",
+      "message": "playground.generate: попытка 2"
+    },
+    {
+      "ts": "2026-10-21T09:31:32.323Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept: результат из чекпоинта"
+    },
+    {
+      "ts": "2026-10-21T09:31:32.330Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept: Объясни, как работает кэширование: запрос, промах, запись, попадание. Четыре станции слева направо: клиент отправляет «Запрос» и импульс летит к кэшу — ячейка пуста, вспыхивает «Промах»; импульс идёт дальше к источнику данных и возвращается с ответом; ответ «Записывается» в ячейку кэша, и она наполняется. Второй импульс того же запроса упирается в кэш и сразу возвращается — «Попадание» светится зелёным, а путь к источнику остаётся тусклым. Герой кадра — заполненная ячейка кэша и короткий путь попадания; взгляд идёт слева направо, затем возвращается назад по короткому маршруту. [sequence-steps, system-structure, cause-effect]"
+    },
+    {
+      "ts": "2026-10-21T09:31:32.345Z",
+      "level": "info",
+      "kind": "log",
+      "message": "KB: 12 кандидатов по ключам Concept"
+    },
+    {
+      "ts": "2026-10-21T09:31:32.656Z",
       "level": "info",
       "kind": "log",
       "message": "Motion Director…"
     },
     {
-      "ts": "2026-10-21T09:00:41.330Z",
+      "ts": "2026-10-21T09:32:37.447Z",
       "level": "info",
       "kind": "log",
-      "message": "Director: «Как работает кэш» (network-centric), 12 битов, KB: xyflow/react-flow (adapt), xyflow/edge-types (adapt)"
+      "message": "Director: «Кэш: промах и попадание» (network-centric), 11 битов, KB: xyflow/react-flow (adapt), xyflow/default-nodes (adapt)"
     },
     {
-      "ts": "2026-10-21T09:00:41.975Z",
+      "ts": "2026-10-21T09:32:38.115Z",
       "level": "info",
       "kind": "log",
       "message": "Engineer…"
     },
     {
-      "ts": "2026-10-21T09:04:04.056Z",
+      "ts": "2026-10-21T09:36:00.892Z",
       "level": "info",
       "kind": "log",
       "message": "typecheck: 1 ошибок"
     },
     {
-      "ts": "2026-10-21T09:04:04.293Z",
+      "ts": "2026-10-21T09:36:01.114Z",
       "level": "info",
       "kind": "log",
       "message": "Engineer: исправление 1 из 2 (typecheck)…"
     },
     {
-      "ts": "2026-10-21T09:04:56.690Z",
+      "ts": "2026-10-21T09:36:51.838Z",
       "level": "info",
       "kind": "log",
-      "message": "рендер: кадры 13, 90, 104, 120, 144, 149, 166, 179 + превью…"
+      "message": "рендер: кадры 7, 30, 88, 128, 140, 151, 166, 179 + превью…"
     },
     {
-      "ts": "2026-10-21T09:05:22.857Z",
+      "ts": "2026-10-21T09:37:15.785Z",
       "level": "info",
       "kind": "log",
       "message": "Visual QA…"
     },
     {
-      "ts": "2026-10-21T09:05:57.264Z",
+      "ts": "2026-10-21T09:37:43.579Z",
       "level": "info",
       "kind": "log",
-      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ETNGWCX55KT0BRS7JCJMJ2/versions/ver_01M5EVBJFY7PVDGZMARJZQNX9S"
+      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5EWNPCB9QK95RF7ECQXX9CA/versions/ver_01M5EX5R49N75P4HGQ0V2AT7ZZ"
     },
     {
-      "ts": "2026-10-21T09:05:57.276Z",
+      "ts": "2026-10-21T09:37:43.590Z",
       "level": "info",
       "kind": "completed",
       "message": "completed"

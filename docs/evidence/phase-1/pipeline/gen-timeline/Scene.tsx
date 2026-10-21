@@ -1,125 +1,116 @@
 import React from "react";
-import { useVideoConfig } from "remotion";
 import {
   Background,
-  Enter,
+  KineticText,
+  Particles,
   SafeArea,
   StyleProvider,
   Timeline,
-  typeSize,
   useSafeArea,
   useStyle,
 } from "@ms/motion-kit";
 
-type TimedBeat = { id: string; start_frame: number; end_frame: number };
-type Layout = { x: number; y: number; w: number; h: number };
-type TypeLevel = "display" | "h1" | "h2" | "body" | "caption";
+type Beat = { id: string; start_frame: number; end_frame: number };
+type Rect = { x: number; y: number; w: number; h: number };
 
 type TimelineItem = { date: string; label: string; note?: string };
 
 type Content = {
-  background: { variant: "aurora" | "grid" | "paper" | "solid"; seed: string; beat_end_frame: number };
-  title: { text: string; size: TypeLevel; weight: number; layout: Layout };
+  kicker: { text: string; layout: Rect };
   timeline: {
-    orientation: "h" | "v";
-    width: number;
-    height: number;
+    items: TimelineItem[];
     accentIndex: number;
     highlightLast: boolean;
-    layout: Layout;
-    items: TimelineItem[];
+    layout: Rect;
   };
 };
 
-// Тип props.style берём у StyleProvider: preset — union id пресетов kit, не произвольная строка.
-type SceneStyle = React.ComponentProps<typeof StyleProvider>["style"];
-
-export type SceneProps = {
-  timing: { duration_frames: number; beats: TimedBeat[] };
-  style: SceneStyle;
+type Props = {
+  timing: { duration_frames: number; beats: Beat[] };
+  style: {
+    preset: "dark-premium" | "light-clean" | "tech-neon";
+    intensity: "calm" | "balanced" | "energetic";
+    depth: 0 | 1 | 2 | 3;
+    transparent: boolean;
+    safe_area?: { x: number; y: number };
+  };
   content: Content;
 };
 
-const beatOf = (beats: TimedBeat[], id: string): { start_frame: number; end_frame: number } => {
+const beatOf = (beats: Beat[], id: string): Beat => {
   const b = beats.find((x) => x.id === id);
-  if (!b) throw new Error(`beat "${id}" not found in props.timing.beats`);
-  return { start_frame: b.start_frame, end_frame: b.end_frame };
+  if (!b) throw new Error(`beat ${id} not found`);
+  return b;
 };
 
-const Body: React.FC<{ timing: SceneProps["timing"]; content: Content }> = ({ timing, content }) => {
+const SceneBody: React.FC<{ beats: Beat[]; content: Content }> = ({ beats, content }) => {
   const s = useStyle();
-  const { height } = useVideoConfig();
-  const sa = useSafeArea();
-
-  const titleBeat = beatOf(timing.beats, "title-in");
-  const timelineBeat = beatOf(timing.beats, "timeline-draw");
-
-  const { title, timeline } = content;
-  const titleSize = typeSize(s, title.size, height);
-
-  const areaW = timeline.layout.w * sa.w;
-  const tlWidth = Math.min(timeline.width, areaW);
-  const tlHeight = Math.min(timeline.height, timeline.layout.h * sa.h);
-  const tlLeft = timeline.layout.x * sa.w + (areaW - tlWidth) / 2;
-  const tlTop = timeline.layout.y * sa.h;
+  const area = useSafeArea();
+  const kickerBeat = beatOf(beats, "b-kicker-in");
+  const timelineBeat = beatOf(beats, "b-timeline-draw");
+  const k = content.kicker.layout;
+  const t = content.timeline.layout;
 
   return (
-    <SafeArea>
+    <>
       <div
         style={{
           position: "absolute",
-          left: title.layout.x * sa.w,
-          top: title.layout.y * sa.h,
-          width: title.layout.w * sa.w,
+          left: k.x * area.w,
+          top: k.y * area.h,
+          width: k.w * area.w,
+          height: k.h * area.h,
+          display: "flex",
+          alignItems: "center",
         }}
       >
-        <Enter kind="mask" beat={titleBeat}>
-          <div
-            style={{
-              fontFamily: s.typography.display.family,
-              fontWeight: title.weight,
-              fontSize: titleSize,
-              lineHeight: 1.2,
-              letterSpacing: `${s.typography.tracking.display}em`,
-              color: s.palette.text,
-              textAlign: "left",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {title.text}
-          </div>
-        </Enter>
-      </div>
-      <div style={{ position: "absolute", left: tlLeft, top: tlTop, width: tlWidth, height: tlHeight }}>
-        <Timeline
-          items={timeline.items}
-          beat={timelineBeat}
-          orientation={timeline.orientation}
-          width={tlWidth}
-          height={tlHeight}
-          accentIndex={timeline.accentIndex}
-          highlightLast={timeline.highlightLast}
+        <KineticText
+          text={content.kicker.text}
+          beat={kickerBeat}
+          mode="letters"
+          enter="type"
+          size="body"
+          font="mono"
+          color={s.palette.muted}
+          align="left"
         />
       </div>
-    </SafeArea>
+      <div
+        style={{
+          position: "absolute",
+          left: t.x * area.w,
+          top: t.y * area.h,
+          width: t.w * area.w,
+          height: t.h * area.h,
+        }}
+      >
+        <Timeline
+          items={content.timeline.items}
+          beat={timelineBeat}
+          orientation="h"
+          width={t.w * area.w}
+          height={t.h * area.h}
+          accentIndex={content.timeline.accentIndex}
+          highlightLast={content.timeline.highlightLast}
+        />
+      </div>
+    </>
   );
 };
 
-const Backdrop: React.FC<{ content: Content }> = ({ content }) => {
-  const s = useStyle();
-  if (s.transparent) return null;
+export const Scene: React.FC<Props> = ({ timing, style, content }) => {
+  const kickerBeat = beatOf(timing.beats, "b-kicker-in");
   return (
-    <Background
-      beat={{ start_frame: 0, end_frame: content.background.beat_end_frame }}
-      variant={content.background.variant}
-      seed={content.background.seed}
-    />
+    <StyleProvider style={style}>
+      {style.transparent ? null : (
+        <>
+          <Background beat={kickerBeat} variant="aurora" seed="company-path" />
+          <Particles count={40} seed="path-dust" beat={kickerBeat} layer={0} />
+        </>
+      )}
+      <SafeArea>
+        <SceneBody beats={timing.beats} content={content} />
+      </SafeArea>
+    </StyleProvider>
   );
 };
-
-export const Scene: React.FC<SceneProps> = ({ timing, style, content }) => (
-  <StyleProvider style={style}>
-    <Backdrop content={content} />
-    <Body timing={timing} content={content} />
-  </StyleProvider>
-);

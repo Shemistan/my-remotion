@@ -3,47 +3,62 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "title-in",
+        "id": "b-title-in",
         "start_frame": 0,
-        "end_frame": 30
+        "end_frame": 26
       },
       {
-        "id": "graph-build",
-        "start_frame": 0,
-        "end_frame": 30
+        "id": "b-graph-in",
+        "start_frame": 6,
+        "end_frame": 60
       },
       {
-        "id": "request-pulse",
-        "start_frame": 30,
-        "end_frame": 46
+        "id": "b-user-in",
+        "start_frame": 8,
+        "end_frame": 32
       },
       {
-        "id": "fan-out",
-        "start_frame": 70,
-        "end_frame": 86
+        "id": "b-orch-in",
+        "start_frame": 16,
+        "end_frame": 40
       },
       {
-        "id": "return-data",
-        "start_frame": 88,
-        "end_frame": 104
+        "id": "b-tools-in",
+        "start_frame": 26,
+        "end_frame": 58
       },
       {
-        "id": "response-pulse",
-        "start_frame": 106,
-        "end_frame": 122
+        "id": "b-request",
+        "start_frame": 50,
+        "end_frame": 72
       },
       {
-        "id": "answer-in",
-        "start_frame": 122,
-        "end_frame": 146
+        "id": "b-tool-calls",
+        "start_frame": 72,
+        "end_frame": 96
       },
       {
-        "id": "answer-emphasis",
-        "start_frame": 146,
+        "id": "b-data-return",
+        "start_frame": 96,
+        "end_frame": 120
+      },
+      {
+        "id": "b-answer",
+        "start_frame": 120,
+        "end_frame": 142
+      },
+      {
+        "id": "b-badge-in",
+        "start_frame": 140,
         "end_frame": 152
       },
       {
-        "id": "hold",
+        "id": "b-final-emphasis",
+        "start_frame": 152,
+        "end_frame": 166
+      },
+      {
+        "id": "b-hold",
         "start_frame": 153,
         "end_frame": 180
       }
@@ -60,33 +75,38 @@
     }
   },
   "content": {
-    "title": "Как AI-агент отвечает на запрос",
-    "title_layout": {
-      "x": 0.1,
-      "y": 0,
-      "w": 0.8,
-      "h": 0.1
+    "title": {
+      "text": "Архитектура AI-агента",
+      "layout": {
+        "x": 0.25,
+        "y": 0,
+        "w": 0.5,
+        "h": 0.08
+      }
     },
-    "graph_layout": {
-      "x": 0,
-      "y": 0.14,
-      "w": 1,
-      "h": 0.86
+    "graph": {
+      "layout": {
+        "x": 0,
+        "y": 0.12,
+        "w": 1,
+        "h": 0.7
+      },
+      "beat": "b-graph-in",
+      "enter": "flip"
     },
-    "travel": 14,
     "nodes": [
       {
         "id": "node-user",
         "label": "Пользователь",
         "caption": "запрос",
         "enter": "slide",
+        "enter_beat": "b-user-in",
         "elevation": 2,
-        "enterAt": 0,
         "layout": {
           "x": 0,
-          "y": 0.4,
+          "y": 0.38,
           "w": 0.22,
-          "h": 0.15
+          "h": 0.14
         }
       },
       {
@@ -94,17 +114,13 @@
         "label": "Оркестратор",
         "caption": "LLM-планировщик",
         "enter": "pop",
+        "enter_beat": "b-orch-in",
         "elevation": 3,
-        "accentIndex": 0,
-        "enterAt": 6,
-        "flash_on": "e-user",
-        "flash_beat": "request-pulse",
-        "flash_repeat": false,
         "layout": {
           "x": 0.36,
-          "y": 0.37,
+          "y": 0.33,
           "w": 0.28,
-          "h": 0.22
+          "h": 0.24
         }
       },
       {
@@ -112,123 +128,167 @@
         "label": "Веб-поиск",
         "caption": "инструмент 1",
         "enter": "rise",
+        "enter_beat": "b-tools-in",
         "elevation": 2,
-        "enterAt": 12,
         "layout": {
-          "x": 0.78,
-          "y": 0.16,
-          "w": 0.22,
-          "h": 0.15
-        }
-      },
-      {
-        "id": "node-python",
-        "label": "Python",
-        "caption": "инструмент 2",
-        "enter": "rise",
-        "elevation": 2,
-        "enterAt": 16,
-        "layout": {
-          "x": 0.78,
-          "y": 0.42,
-          "w": 0.22,
-          "h": 0.15
+          "x": 0.79,
+          "y": 0.14,
+          "w": 0.21,
+          "h": 0.14
         }
       },
       {
         "id": "node-db",
         "label": "База данных",
+        "caption": "инструмент 2",
+        "enter": "rise",
+        "enter_beat": "b-tools-in",
+        "elevation": 2,
+        "layout": {
+          "x": 0.79,
+          "y": 0.38,
+          "w": 0.21,
+          "h": 0.14
+        }
+      },
+      {
+        "id": "node-code",
+        "label": "Код",
         "caption": "инструмент 3",
         "enter": "rise",
+        "enter_beat": "b-tools-in",
         "elevation": 2,
-        "enterAt": 20,
         "layout": {
-          "x": 0.78,
-          "y": 0.68,
-          "w": 0.22,
-          "h": 0.15
+          "x": 0.79,
+          "y": 0.62,
+          "w": 0.21,
+          "h": 0.14
         }
       }
     ],
     "edges": [
       {
-        "id": "e-user",
+        "id": "e-user-orch",
         "from": "node-user",
         "to": "node-orchestrator"
       },
       {
-        "id": "e-search",
+        "id": "e-orch-search",
         "from": "node-orchestrator",
         "to": "node-search"
       },
       {
-        "id": "e-python",
-        "from": "node-orchestrator",
-        "to": "node-python"
-      },
-      {
-        "id": "e-db",
+        "id": "e-orch-db",
         "from": "node-orchestrator",
         "to": "node-db"
+      },
+      {
+        "id": "e-orch-code",
+        "from": "node-orchestrator",
+        "to": "node-code"
       }
     ],
     "flows": [
       {
-        "edge": "e-user",
+        "edge": "e-user-orch",
         "direction": "forward",
-        "beat": "request-pulse"
+        "beat": "b-request",
+        "accent": 0,
+        "count": 1,
+        "repeat": false,
+        "travel": 22
       },
       {
-        "edge": "e-search",
+        "edge": "e-orch-search",
         "direction": "forward",
-        "beat": "fan-out"
+        "beat": "b-tool-calls",
+        "accent": 0,
+        "count": 1,
+        "repeat": false,
+        "travel": 22
       },
       {
-        "edge": "e-python",
+        "edge": "e-orch-db",
         "direction": "forward",
-        "beat": "fan-out"
+        "beat": "b-tool-calls",
+        "accent": 1,
+        "count": 1,
+        "repeat": false,
+        "travel": 22
       },
       {
-        "edge": "e-db",
+        "edge": "e-orch-code",
         "direction": "forward",
-        "beat": "fan-out"
+        "beat": "b-tool-calls",
+        "accent": 2,
+        "count": 1,
+        "repeat": false,
+        "travel": 22
       },
       {
-        "edge": "e-search",
+        "edge": "e-orch-search",
         "direction": "back",
-        "beat": "return-data"
+        "beat": "b-data-return",
+        "accent": 0,
+        "count": 1,
+        "repeat": false,
+        "travel": 22
       },
       {
-        "edge": "e-python",
+        "edge": "e-orch-db",
         "direction": "back",
-        "beat": "return-data"
+        "beat": "b-data-return",
+        "accent": 1,
+        "count": 1,
+        "repeat": false,
+        "travel": 22
       },
       {
-        "edge": "e-db",
+        "edge": "e-orch-code",
         "direction": "back",
-        "beat": "return-data"
+        "beat": "b-data-return",
+        "accent": 2,
+        "count": 1,
+        "repeat": false,
+        "travel": 22
       },
       {
-        "edge": "e-user",
+        "edge": "e-user-orch",
         "direction": "back",
-        "beat": "response-pulse"
+        "beat": "b-answer",
+        "accent": 0,
+        "count": 1,
+        "repeat": false,
+        "travel": 22
       }
     ],
-    "pulse_colors": {
-      "forward": 0,
-      "back": 1
+    "pulse": {
+      "size": 10,
+      "tail": 160
     },
-    "answer": {
-      "text": "✓ Ответ готов",
+    "badge": {
+      "text": "Ответ готов",
       "elevation": 3,
-      "arrival_edge": "e-user",
-      "arrival_beat": "response-pulse",
+      "accentIndex": 0,
+      "enter_beat": "b-badge-in",
+      "emphasis_beat": "b-final-emphasis",
+      "arrival": {
+        "edge": "e-user-orch",
+        "beat": "b-answer",
+        "travel": 22,
+        "count": 1,
+        "repeat": false
+      },
       "layout": {
-        "x": 0,
-        "y": 0.63,
-        "w": 0.24,
-        "h": 0.12
+        "x": 0.33,
+        "y": 0.85,
+        "w": 0.34,
+        "h": 0.11
       }
+    },
+    "atmosphere": {
+      "particles": 60,
+      "seed": "agent-dust"
     }
   }
 }

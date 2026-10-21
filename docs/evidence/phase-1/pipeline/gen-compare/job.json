@@ -1,19 +1,19 @@
 {
   "job": {
-    "id": "job_01M5ETNGVY2TBN4CWKD7A2X5W0",
+    "id": "job_01M5EWNPBWYCB36XT3FDA61S54",
     "type": "playground.generate",
     "project_id": "playground",
-    "scene_id": "scn_01M5ETNGVRJC2FKRQ5D4CBJ0XD",
+    "scene_id": "scn_01M5EWNPBPFVQ01QZB5XR7Z6D6",
     "version_id": null,
     "parent_job_id": null,
-    "status": "completed",
-    "progress": 1,
-    "stage": "publish",
+    "status": "failed",
+    "progress": 0.15,
+    "stage": "director",
     "attempt": 1,
     "max_attempts": 3,
     "interrupts": 0,
     "input": {
-      "sceneId": "scn_01M5ETNGVRJC2FKRQ5D4CBJ0XD",
+      "sceneId": "scn_01M5EWNPBPFVQ01QZB5XR7Z6D6",
       "prompt": "Сравни монолит и микросервисы по скорости релизов",
       "settings": {
         "aspect_ratio": "16:9",
@@ -34,137 +34,75 @@
         }
       }
     },
-    "input_hash": "a18c2156fd3c7c8248918cddd713f177c46b7f1e2f66861439a0185eb829629e",
+    "input_hash": "c92e3549ae50e3f2614a47f569d51c53b495504796828cf3e9e76278e832fdb3",
     "output_refs": {
-      "scene_id": "scn_01M5ETNGVRJC2FKRQ5D4CBJ0XD",
-      "version_id": "ver_01M5EV1VTZTSZW7X0C0QSA4TXP",
-      "version_number": 1,
-      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ETNGVRJC2FKRQ5D4CBJ0XD/versions/ver_01M5EV1VTZTSZW7X0C0QSA4TXP",
-      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ETNGVRJC2FKRQ5D4CBJ0XD/versions/ver_01M5EV1VTZTSZW7X0C0QSA4TXP/preview.mp4",
-      "cost_usd": 1.5101725000000001,
-      "engineer_calls": 1,
-      "qa": {
-        "technical": "pass",
-        "visual": "warn",
-        "semantic": "pass",
-        "style": "pass"
-      },
-      "warnings": [],
       "steps": {
         "concept": {
           "input_hash": "3b87ac04a23c8a6d6c502eb8d3b2f86e865c1ce5a713a6922e0ef8ca8af5950b",
-          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5ETNGVY2TBN4CWKD7A2X5W0/checkpoints/concept.json"
-        },
-        "director": {
-          "input_hash": "0fb1be07683fabff0a73cca58abadc43bcfd79832c88e880852349c097a1b2ea",
-          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5ETNGVY2TBN4CWKD7A2X5W0/checkpoints/motion_director.json"
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5EWNPBWYCB36XT3FDA61S54/checkpoints/concept.json"
         }
       }
     },
-    "error": null,
-    "idempotency_key": "e2e-gen-compare-run_01M5ETNGVY2TBN4CWKD7A2X5VZ",
+    "error": {
+      "code": "storage_unavailable",
+      "message": "хранилище пропало во время Motion Director: volume_mismatch: том: diskutil не вернул VolumeUUID для /Volumes/External SSD",
+      "stage": "storage"
+    },
+    "idempotency_key": "e2e-gen-compare-run_01M5EWNPBWYCB36XT3FDA61S53",
     "lease_owner": null,
     "lease_until": null,
     "cancel_requested": false,
-    "created_at": "2026-10-21T08:53:54.686Z",
-    "started_at": "2026-10-21T08:53:55.179Z",
-    "finished_at": "2026-10-21T09:00:39.158Z"
+    "created_at": "2026-10-21T09:28:57.468Z",
+    "started_at": "2026-10-21T09:28:57.960Z",
+    "finished_at": "2026-10-21T09:30:45.844Z"
   },
-  "wall_ms": 405940,
-  "cost_usd": 1.5101725000000001,
+  "wall_ms": 109607,
+  "cost_usd": 0.0073747,
   "agent_runs": [
     {
       "role": "concept",
       "model": "claude-sonnet-5-5",
       "status": "completed",
-      "input_tokens": 11754,
-      "output_tokens": 1089,
-      "cost_usd": 0.0172444,
-      "started_at": "2026-10-21T08:53:55.682Z",
-      "finished_at": "2026-10-21T08:54:09.641Z"
+      "input_tokens": 5396,
+      "output_tokens": 540,
+      "cost_usd": 0.0073747,
+      "started_at": "2026-10-21T09:28:58.391Z",
+      "finished_at": "2026-10-21T09:29:08.052Z"
     },
     {
       "role": "motion_director",
-      "model": "claude-opus-5-5",
-      "status": "completed",
-      "input_tokens": 40054,
-      "output_tokens": 13820,
-      "cost_usd": 0.49261600000000005,
-      "started_at": "2026-10-21T08:54:09.854Z",
-      "finished_at": "2026-10-21T08:56:14.833Z"
-    },
-    {
-      "role": "engineer",
-      "model": "claude-opus-5-5",
-      "status": "completed",
-      "input_tokens": 291318,
-      "output_tokens": 20556,
-      "cost_usd": 0.8636256,
-      "started_at": "2026-10-21T08:56:15.917Z",
-      "finished_at": "2026-10-21T08:59:35.851Z"
-    },
-    {
-      "role": "visual_qa",
-      "model": "claude-sonnet-5-5",
-      "status": "completed",
-      "input_tokens": 40828,
-      "output_tokens": 3510,
-      "cost_usd": 0.13668650000000002,
-      "started_at": "2026-10-21T09:00:10.849Z",
-      "finished_at": "2026-10-21T09:00:38.382Z"
+      "model": "unknown",
+      "status": "cancelled",
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "cost_usd": 0,
+      "started_at": "2026-10-21T09:29:10.268Z",
+      "finished_at": "2026-10-21T09:30:45.748Z"
     }
   ],
-  "render_jobs": [
-    {
-      "kind": "still",
-      "codec": "png",
-      "width": 1920,
-      "height": 1080,
-      "frames": 6,
-      "duration_ms": 18304
-    },
-    {
-      "kind": "preview",
-      "codec": "h264",
-      "width": 960,
-      "height": 540,
-      "frames": 180,
-      "duration_ms": 18304
-    }
-  ],
-  "qa_reports": [
-    {
-      "id": 35,
-      "version_id": "ver_01M5EV1VTZTSZW7X0C0QSA4TXP",
-      "attempt": 1,
-      "technical": "pass",
-      "visual": "warn",
-      "semantic": "pass",
-      "style": "pass",
-      "report_path": "workspace/projects/playground/scenes/scn_01M5ETNGVRJC2FKRQ5D4CBJ0XD/versions/ver_01M5EV1VTZTSZW7X0C0QSA4TXP/qa.json"
-    }
-  ],
+  "render_jobs": [],
+  "qa_reports": [],
   "component_tests": [
     {
       "kb_id": "remotion-video-templates/line-chart-draw",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5ESBE83T392KTX7CJRBBJJD",
-      "date": "2026-10-21T08:30:55.767Z"
+      "version_id": "ver_01M5EV8YDNENCMGTBKD0FGF2TJ",
+      "date": "2026-10-21T09:04:31.177Z"
     },
     {
       "kb_id": "motion-primitives/animated-number",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5EV1VTZTSZW7X0C0QSA4TXP",
-      "date": "2026-10-21T09:00:39.154Z"
+      "version_id": "ver_01M5EV8YDNENCMGTBKD0FGF2TJ",
+      "date": "2026-10-21T09:04:31.177Z"
     },
     {
       "kb_id": "magicui/animated-beam",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5ESFPWH6Q2EAQM437A6Z5AX",
-      "date": "2026-10-21T08:33:15.686Z"
+      "version_id": "ver_01M5EVK76QQNHPZ1WH8DNTREN3",
+      "date": "2026-10-21T09:10:07.851Z"
     },
     {
       "kb_id": "xyflow/example-custom-node",
@@ -198,15 +136,15 @@
       "kb_id": "xyflow/react-flow",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5ESFPWH6Q2EAQM437A6Z5AX",
-      "date": "2026-10-21T08:33:15.686Z"
+      "version_id": "ver_01M5EVK76QQNHPZ1WH8DNTREN3",
+      "date": "2026-10-21T09:10:07.851Z"
     },
     {
       "kb_id": "xyflow/edge-types",
       "remotion_version": "4.0.537",
       "result": "rendered-ok",
-      "version_id": "ver_01M5ES7REEZ9WX5PZEJ7F7Y26W",
-      "date": "2026-10-21T08:28:55.139Z"
+      "version_id": "ver_01M5EVBJFY7PVDGZMARJZQNX9S",
+      "date": "2026-10-21T09:05:57.268Z"
     },
     {
       "kb_id": "motion-primitives-website/svg-path-draw",
@@ -260,81 +198,56 @@
   ],
   "chat": [
     {
-      "id": "msg_01M5EV1VVJ8XQ7J8BY22KZQYQT",
-      "scene_id": "scn_01M5ETNGVRJC2FKRQ5D4CBJ0XD",
+      "id": "msg_01M5EWS05W5RNQJK957MDM7YMS",
+      "scene_id": "scn_01M5EWNPBPFVQ01QZB5XR7Z6D6",
       "role": "assistant",
-      "text": "Версия 1 готова.\nКонцепция: Экран делится на две дорожки: «Монолит» и «Микросервисы». Слева один тяжёлый блок медленно проходит цепочку этапов (сборка, тесты, деплой всего приложения) и выпускает редкие релизы — по одному маркеру на дорожке. Справа несколько небольших сервисов независимо и параллельно выпускают релизы, маркеры релизов сыплются часто. Сравнение «Скорость релизов» заканчивается счётчиком: у микросервисов релизов намного больше, и их дорожка остаётся светиться как герой кадра. Взгляд идёт слева направо, затем к итоговой разнице.\nКомпоненты: motion-kit StyleProvider, motion-kit Background, motion-kit Particles, motion-kit SafeArea, motion-kit Enter, motion-kit KineticText, motion-kit Card, motion-kit AnimatedNumber, motion-kit Emphasis, motion-kit useStyle, motion-kit useSafeArea, motion-kit typeSize, motion-kit springAt, motion-kit easingOf, motion-kit pluralForm, motion-kit formatNumber, motion-kit accent, motion-kit alpha, remotion-bits/animated-counter (adapt, MIT (package.json)), motion-primitives/animated-number (adapt, MIT (LICENCE.md)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — пройден, стиль — пройден; замечаний: blocking 0, warning 6.",
-      "version_id": "ver_01M5EV1VTZTSZW7X0C0QSA4TXP",
-      "job_id": "job_01M5ETNGVY2TBN4CWKD7A2X5W0",
-      "created_at": "2026-10-21T09:00:39.154Z"
+      "text": "Версия не удалась (этап storage): хранилище пропало во время Motion Director: volume_mismatch: том: diskutil не вернул VolumeUUID для /Volumes/External SSD",
+      "job_id": "job_01M5EWNPBWYCB36XT3FDA61S54",
+      "created_at": "2026-10-21T09:30:45.820Z"
     }
   ],
   "events": [
     {
-      "ts": "2026-10-21T08:53:55.194Z",
+      "ts": "2026-10-21T09:28:57.965Z",
       "level": "info",
       "kind": "started",
       "message": "playground.generate: попытка 1"
     },
     {
-      "ts": "2026-10-21T08:53:55.678Z",
+      "ts": "2026-10-21T09:28:58.388Z",
       "level": "info",
       "kind": "log",
       "message": "Concept…"
     },
     {
-      "ts": "2026-10-21T08:54:09.646Z",
+      "ts": "2026-10-21T09:29:08.138Z",
       "level": "info",
       "kind": "log",
-      "message": "Concept: Экран делится на две дорожки: «Монолит» и «Микросервисы». Слева один тяжёлый блок медленно проходит цепочку этапов (сборка, тесты, деплой всего приложения) и выпускает редкие релизы — по одному маркеру на дорожке. Справа несколько небольших сервисов независимо и параллельно выпускают релизы, маркеры релизов сыплются часто. Сравнение «Скорость релизов» заканчивается счётчиком: у микросервисов релизов намного больше, и их дорожка остаётся светиться как герой кадра. Взгляд идёт слева направо, затем к итоговой разнице. [comparison, timeline, quantities]"
+      "message": "Concept: Экран делится на две дорожки: «Монолит» и «Микросервисы» — сравнение по скорости релизов. Слева монолит — один большой блок, который проходит цепочку «сборка → тесты → выкладка» медленно и целиком, релизы появляются редко (1–2 отметки). Справа микросервисы — несколько маленьких блоков, каждый независимо и быстро проскакивает свой конвейер, и релизные отметки часто вспыхивают одна за другой. К концу герой кадра — счётчик релизов: у микросервисов он заметно выше и светится акцентом, а монолит остаётся тусклым. Взгляд идёт слева направо, затем к итоговому перевесу микросервисов. [comparison, sequence-steps, quantities]"
     },
     {
-      "ts": "2026-10-21T08:54:09.660Z",
+      "ts": "2026-10-21T09:29:08.166Z",
       "level": "info",
       "kind": "log",
       "message": "KB: 12 кандидатов по ключам Concept"
     },
     {
-      "ts": "2026-10-21T08:54:09.851Z",
+      "ts": "2026-10-21T09:29:10.255Z",
       "level": "info",
       "kind": "log",
       "message": "Motion Director…"
     },
     {
-      "ts": "2026-10-21T08:56:14.842Z",
+      "ts": "2026-10-21T09:30:45.752Z",
       "level": "info",
       "kind": "log",
-      "message": "Director: «Монолит против микросервисов: скорость релизов» (split), 7 битов, KB: remotion-bits/animated-counter (adapt), motion-primitives/animated-number (adapt)"
+      "message": "✗ storage: хранилище пропало во время Motion Director: volume_mismatch: том: diskutil не вернул VolumeUUID для /Volumes/External SSD"
     },
     {
-      "ts": "2026-10-21T08:56:15.912Z",
-      "level": "info",
-      "kind": "log",
-      "message": "Engineer…"
-    },
-    {
-      "ts": "2026-10-21T08:59:50.105Z",
-      "level": "info",
-      "kind": "log",
-      "message": "рендер: кадры 44, 84, 137, 149, 165, 179 + превью…"
-    },
-    {
-      "ts": "2026-10-21T09:00:10.830Z",
-      "level": "info",
-      "kind": "log",
-      "message": "Visual QA…"
-    },
-    {
-      "ts": "2026-10-21T09:00:39.150Z",
-      "level": "info",
-      "kind": "log",
-      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5ETNGVRJC2FKRQ5D4CBJ0XD/versions/ver_01M5EV1VTZTSZW7X0C0QSA4TXP"
-    },
-    {
-      "ts": "2026-10-21T09:00:39.162Z",
-      "level": "info",
-      "kind": "completed",
-      "message": "completed"
+      "ts": "2026-10-21T09:30:45.874Z",
+      "level": "error",
+      "kind": "failed",
+      "message": "хранилище пропало во время Motion Director: volume_mismatch: том: diskutil не вернул VolumeUUID для /Volumes/External SSD"
     }
   ]
 }

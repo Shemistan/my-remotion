@@ -3,37 +3,42 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "title-in",
-        "start_frame": 0,
-        "end_frame": 36
-      },
-      {
-        "id": "number-in",
+        "id": "b-kicker-in",
         "start_frame": 4,
         "end_frame": 28
       },
       {
-        "id": "chart-draw",
-        "start_frame": 14,
-        "end_frame": 130
+        "id": "b-number-in",
+        "start_frame": 10,
+        "end_frame": 34
       },
       {
-        "id": "number-count",
-        "start_frame": 28,
-        "end_frame": 107
+        "id": "b-chart",
+        "start_frame": 18,
+        "end_frame": 148
       },
       {
-        "id": "final-emphasis",
-        "start_frame": 107,
-        "end_frame": 135
+        "id": "b-number-count",
+        "start_frame": 34,
+        "end_frame": 122
       },
       {
-        "id": "badge-in",
-        "start_frame": 118,
-        "end_frame": 142
+        "id": "b-subtitle-in",
+        "start_frame": 46,
+        "end_frame": 70
       },
       {
-        "id": "hold",
+        "id": "b-chart-dim",
+        "start_frame": 124,
+        "end_frame": 138
+      },
+      {
+        "id": "b-final-emphasis",
+        "start_frame": 126,
+        "end_frame": 160
+      },
+      {
+        "id": "b-hold",
         "start_frame": 153,
         "end_frame": 180
       }
@@ -41,7 +46,6 @@
   },
   "style": {
     "preset": "dark-premium",
-    "palette_overrides": {},
     "intensity": "balanced",
     "depth": 1,
     "transparent": false,
@@ -51,24 +55,39 @@
     }
   },
   "content": {
-    "title": {
-      "text": "Пользователи за три года",
+    "kicker": {
+      "text": "Пользователи продукта",
       "layout": {
-        "x": 0,
-        "y": 0,
-        "w": 0.55,
-        "h": 0.08
+        "x": 0.05,
+        "y": 0.26,
+        "w": 0.38,
+        "h": 0.06
       }
     },
-    "number": {
+    "hero": {
       "from": 10000,
       "to": 1000000,
       "locale": "ru",
+      "enterAt": 14,
       "layout": {
-        "x": 0,
-        "y": 0.09,
-        "w": 0.55,
+        "x": 0.05,
+        "y": 0.34,
+        "w": 0.4,
         "h": 0.17
+      },
+      "emphasis": {
+        "accentIndex": 0,
+        "loop": true,
+        "spread": 48
+      }
+    },
+    "subtitle": {
+      "text": "×100 за три года",
+      "layout": {
+        "x": 0.05,
+        "y": 0.54,
+        "w": 0.38,
+        "h": 0.08
       }
     },
     "chart": {
@@ -79,35 +98,50 @@
         },
         {
           "label": "Год 1",
-          "value": 90000
+          "value": 60000
         },
         {
           "label": "Год 2",
-          "value": 350000
+          "value": 250000
         },
         {
           "label": "Год 3",
           "value": 1000000
         }
       ],
+      "locale": "ru",
+      "compact": true,
       "yTicks": 4,
       "accentIndex": 0,
+      "width": 847,
+      "height": 816,
+      "dim_opacity": 0.55,
       "layout": {
-        "x": 0,
-        "y": 0.3,
-        "w": 1,
-        "h": 0.7
+        "x": 0.46,
+        "y": 0.08,
+        "w": 0.49,
+        "h": 0.84
       }
     },
-    "badge": {
-      "text": "×100 за три года",
-      "elevation": 2,
-      "layout": {
-        "x": 0.7,
-        "y": 0.06,
-        "w": 0.28,
-        "h": 0.12
+    "camera": [
+      {
+        "frame": 0,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "frame": 110,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "frame": 179,
+        "scale": 1.04,
+        "x": -40,
+        "y": 0
       }
-    }
+    ]
   }
 }

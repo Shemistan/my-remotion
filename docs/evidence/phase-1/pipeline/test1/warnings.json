@@ -1,6 +1,6 @@
 {
   "warnings": [
-    "spec: бит number-in 8–32 → 4–28: вход users-number кончается, когда голова growth-chart трогается"
+    "spec: бит b-number-in 14–38 → 10–34: вход hero-number кончается, когда голова growth-chart трогается"
   ],
   "permission_denials": []
 }

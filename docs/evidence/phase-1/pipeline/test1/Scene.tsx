@@ -1,161 +1,211 @@
-import React from "react";
-import { useCurrentFrame, useVideoConfig } from "remotion";
+import React, { type ComponentProps } from "react";
+import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import {
   AnimatedNumber,
   Background,
-  Card,
+  Camera,
   Emphasis,
   Enter,
+  KineticText,
   LineChart,
+  Parallax,
+  Particles,
   SafeArea,
   StyleProvider,
+  easingOf,
   lineChartHead,
   typeSize,
   useSafeArea,
   useStyle,
 } from "@ms/motion-kit";
 
-type BeatRef = { id: string; start_frame: number; end_frame: number };
+type Beat = { start_frame: number; end_frame: number };
+type TimedBeat = Beat & { id: string };
 type Layout = { x: number; y: number; w: number; h: number };
+type Locale = "ru" | "en";
 type Point = { label: string; value: number };
 
-type Content = {
-  title: { text: string; layout: Layout };
-  number: { from: number; to: number; locale: "ru" | "en"; layout: Layout };
-  chart: { points: Point[]; yTicks: number; accentIndex: number; layout: Layout };
-  badge: { text: string; elevation: 0 | 1 | 2 | 3; layout: Layout };
+type SceneContent = {
+  kicker: { text: string; layout: Layout };
+  hero: {
+    from: number;
+    to: number;
+    locale: Locale;
+    enterAt: number;
+    layout: Layout;
+    emphasis: { accentIndex: number; loop: boolean; spread: number };
+  };
+  subtitle: { text: string; layout: Layout };
+  chart: {
+    points: Point[];
+    locale: Locale;
+    compact: boolean;
+    yTicks: number;
+    accentIndex: number;
+    width: number;
+    height: number;
+    dim_opacity: number;
+    layout: Layout;
+  };
+  camera: ComponentProps<typeof Camera>["keys"];
 };
 
-type Props = {
-  timing: { duration_frames: number; beats: BeatRef[] };
-  style: React.ComponentProps<typeof StyleProvider>["style"];
-  content: Content;
+type SceneProps = {
+  timing: { duration_frames: number; beats: TimedBeat[] };
+  style: ComponentProps<typeof StyleProvider>["style"];
+  content: SceneContent;
 };
 
-const beatOf = (beats: BeatRef[], id: string) => {
+const CLAMP = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
+
+const beatOf = (beats: TimedBeat[], id: string): Beat => {
   const b = beats.find((x) => x.id === id);
-  if (!b) throw new Error(`beat "${id}" not found in props.timing.beats`);
+  if (!b) {
+    throw new Error(`Нет бита ${id} в props.timing.beats`);
+  }
   return { start_frame: b.start_frame, end_frame: b.end_frame };
 };
 
-const Body: React.FC<Omit<Props, "style">> = ({ timing, content }) => {
+const Content: React.FC<{ timing: SceneProps["timing"]; content: SceneContent }> = ({
+  timing,
+  content,
+}) => {
   const frame = useCurrentFrame();
-  const { height } = useVideoConfig();
   const s = useStyle();
   const rect = useSafeArea();
 
-  const titleBeat = beatOf(timing.beats, "title-in");
-  const numberIn = beatOf(timing.beats, "number-in");
-  const chartBeat = beatOf(timing.beats, "chart-draw");
-  const finalBeat = beatOf(timing.beats, "final-emphasis");
-  const badgeBeat = beatOf(timing.beats, "badge-in");
+  const bKicker = beatOf(timing.beats, "b-kicker-in");
+  const bChart = beatOf(timing.beats, "b-chart");
+  const bSubtitle = beatOf(timing.beats, "b-subtitle-in");
+  const bDim = beatOf(timing.beats, "b-chart-dim");
+  const bEmphasis = beatOf(timing.beats, "b-final-emphasis");
 
-  const box = (l: Layout) => ({
-    position: "absolute" as const,
+  const { kicker, hero, subtitle, chart } = content;
+
+  // Число и голова линии — одно движение: счёт берёт значение под головой.
+  const head = lineChartHead(chart.points, bChart, frame, {
+    width: chart.width,
+    height: chart.height,
+    yTicks: chart.yTicks,
+    frameHeight: 1080,
+  });
+
+  const dim = interpolate(frame, [bDim.start_frame, bDim.end_frame], [1, chart.dim_opacity], {
+    ...CLAMP,
+    easing: easingOf(s, "exit"),
+  });
+
+  const place = (l: Layout): React.CSSProperties => ({
+    position: "absolute",
     left: l.x * rect.w,
     top: l.y * rect.h,
     width: l.w * rect.w,
   });
 
-  const { title, number, chart, badge } = content;
-  const chartW = chart.layout.w * rect.w;
-  const chartH = chart.layout.h * rect.h;
-
-  // Число — одно движение с головой линии
-  const head = lineChartHead(chart.points, chartBeat, frame, {
-    width: chartW,
-    height: chartH,
-    yTicks: chart.yTicks,
-    frameHeight: height,
-  });
-
   return (
     <>
-      <div style={{ ...box(title.layout), height: title.layout.h * rect.h }}>
-        <Enter kind="mask" beat={titleBeat}>
-          <div
-            style={{
-              fontFamily: s.typography.display.family,
-              fontWeight: 700,
-              fontSize: typeSize(s, "h2", height),
-              letterSpacing: `${s.typography.tracking.display}em`,
-              color: s.palette.muted,
-              lineHeight: 1.15,
-              whiteSpace: "nowrap",
-            }}
-          >
-            {title.text}
-          </div>
-        </Enter>
+      <div style={place(kicker.layout)}>
+        <KineticText
+          text={kicker.text}
+          beat={bKicker}
+          mode="letters"
+          enter="type"
+          size="body"
+          color={s.palette.muted}
+          align="left"
+        />
       </div>
 
-      <div style={{ ...box(number.layout), height: number.layout.h * rect.h }}>
-        <Emphasis beat={finalBeat} loop shape="pill" spread={28}>
+      <div style={place(hero.layout)}>
+        <Emphasis
+          beat={bEmphasis}
+          loop={hero.emphasis.loop}
+          accentIndex={hero.emphasis.accentIndex}
+          shape="pill"
+          spread={hero.emphasis.spread}
+        >
           <AnimatedNumber
-            from={number.from}
-            to={number.to}
+            from={hero.from}
+            to={hero.to}
             value={head.value}
             beat={{ start_frame: head.startFrame, end_frame: head.endFrame }}
-            enterAt={numberIn.start_frame}
-            locale={number.locale}
+            enterAt={hero.enterAt}
+            locale={hero.locale}
             size="display"
             font="display"
-            reserveWidth
             align="left"
+            reserveWidth
           />
         </Emphasis>
       </div>
 
-      <div style={{ ...box(chart.layout), height: chartH }}>
-        <LineChart
-          points={chart.points}
-          beat={chartBeat}
-          area
-          callout={false}
-          endpointEmphasis={false}
-          locale={number.locale}
-          compact
-          yTicks={chart.yTicks}
-          width={chartW}
-          height={chartH}
-          accentIndex={chart.accentIndex}
-        />
-      </div>
-
-      <div style={box(badge.layout)}>
-        <Card
-          elevation={badge.elevation}
-          enter="scale"
-          beat={badgeBeat}
-          width={badge.layout.w * rect.w}
-          height={badge.layout.h * rect.h}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
-        >
+      <div style={place(subtitle.layout)}>
+        <Enter kind="blur" beat={bSubtitle}>
           <div
             style={{
               fontFamily: s.typography.display.family,
-              fontWeight: 700,
-              fontSize: typeSize(s, "body", height),
-              letterSpacing: `${s.typography.tracking.body}em`,
+              fontWeight: s.typography.display.weight,
+              fontSize: typeSize(s, "h2", 1080),
+              letterSpacing: `${s.typography.tracking.display}em`,
               color: s.palette.text,
-              whiteSpace: "nowrap",
-              textAlign: "center",
+              lineHeight: 1.1,
             }}
           >
-            {badge.text}
+            {subtitle.text}
           </div>
-        </Card>
+        </Enter>
+      </div>
+
+      <div style={{ ...place(chart.layout), opacity: dim }}>
+        <LineChart
+          points={chart.points}
+          beat={bChart}
+          area
+          callout={false}
+          endpointEmphasis={false}
+          locale={chart.locale}
+          compact={chart.compact}
+          yTicks={chart.yTicks}
+          accentIndex={chart.accentIndex}
+          width={chart.width}
+          height={chart.height}
+        />
       </div>
     </>
   );
 };
 
-// Background сам не рисуется при style.transparent = true
-export const Scene: React.FC<Props> = ({ timing, style, content }) => (
+const Stage: React.FC<{ timing: SceneProps["timing"]; content: SceneContent }> = ({
+  timing,
+  content,
+}) => {
+  const s = useStyle();
+  const bKicker = beatOf(timing.beats, "b-kicker-in");
+
+  return (
+    <AbsoluteFill>
+      <Camera keys={content.camera}>
+        <Parallax layer={0}>
+          {s.transparent ? null : <Background seed="million" />}
+          <Particles
+            count={60}
+            seed="dust"
+            beat={{ start_frame: 0, end_frame: bKicker.end_frame }}
+            layer={0}
+          />
+        </Parallax>
+        <Parallax layer={1}>
+          <SafeArea>
+            <Content timing={timing} content={content} />
+          </SafeArea>
+        </Parallax>
+      </Camera>
+    </AbsoluteFill>
+  );
+};
+
+export const Scene: React.FC<SceneProps> = ({ timing, style, content }) => (
   <StyleProvider style={style}>
-    <Background beat={beatOf(timing.beats, "title-in")} />
-    <SafeArea>
-      <Body timing={timing} content={content} />
-    </SafeArea>
+    <Stage timing={timing} content={content} />
   </StyleProvider>
 );

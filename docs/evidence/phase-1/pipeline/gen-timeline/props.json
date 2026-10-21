@@ -3,22 +3,22 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "title-in",
+        "id": "b-kicker-in",
         "start_frame": 0,
-        "end_frame": 36
+        "end_frame": 30
       },
       {
-        "id": "timeline-draw",
-        "start_frame": 14,
+        "id": "b-timeline-draw",
+        "start_frame": 10,
         "end_frame": 130
       },
       {
-        "id": "final-emphasis",
-        "start_frame": 107,
-        "end_frame": 153
+        "id": "b-final-emphasis",
+        "start_frame": 106,
+        "end_frame": 130
       },
       {
-        "id": "hold",
+        "id": "b-hold",
         "start_frame": 153,
         "end_frame": 180
       }
@@ -26,7 +26,6 @@
   },
   "style": {
     "preset": "dark-premium",
-    "palette_overrides": {},
     "intensity": "balanced",
     "depth": 1,
     "transparent": false,
@@ -36,34 +35,18 @@
     }
   },
   "content": {
-    "background": {
-      "variant": "aurora",
-      "seed": "company-path",
-      "beat_end_frame": 40
-    },
-    "title": {
+    "kicker": {
       "text": "Путь компании · 2015–2025",
-      "size": "body",
-      "weight": 700,
       "layout": {
         "x": 0,
-        "y": 0.03,
-        "w": 0.55,
-        "h": 0.09
+        "y": 0.02,
+        "w": 0.6,
+        "h": 0.08
       }
     },
     "timeline": {
-      "orientation": "h",
-      "width": 1690,
-      "height": 680,
       "accentIndex": 0,
       "highlightLast": true,
-      "layout": {
-        "x": 0,
-        "y": 0.17,
-        "w": 1,
-        "h": 0.74
-      },
       "items": [
         {
           "date": "2015",
@@ -73,24 +56,30 @@
         {
           "date": "2017",
           "label": "Первый продукт",
-          "note": "запуск MVP"
+          "note": "запуск платформы"
         },
         {
           "date": "2019",
-          "label": "Выход на рынок",
-          "note": "первые клиенты"
+          "label": "Выход в регионы",
+          "note": "10 городов"
         },
         {
           "date": "2022",
-          "label": "Международный рост",
-          "note": "офисы в 3 странах"
+          "label": "Миллион клиентов",
+          "note": "рост ×5"
         },
         {
           "date": "2025",
-          "label": "Лидер рынка",
-          "note": "итог пути"
+          "label": "Выход за рубеж",
+          "note": "сейчас"
         }
-      ]
+      ],
+      "layout": {
+        "x": 0,
+        "y": 0.16,
+        "w": 1,
+        "h": 0.8
+      }
     }
   }
 }
