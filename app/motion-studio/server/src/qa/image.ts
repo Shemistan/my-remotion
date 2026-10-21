@@ -121,17 +121,27 @@ const median = (v: number[]) => {
   return v[Math.floor((v.length - 1) / 2)]!;
 };
 
-/** Окно медианы вдоль края — доля длины края. */
-const EDGE_BG_WINDOW = 0.25;
+/** Скачок цвета профиля края между точками через одну (доля 0..1): граница объекта, а не свет фона. */
+const EDGE_JUMP = 0.08;
+/** Участок профиля, отличающийся от цвета углов кадра больше, — объект, даже если касается угла. */
+const EDGE_BG_LOOSE = 0.35;
+/** Сглаживание фона вдоль края (окно медианы, бинов): тонкие линии фона. */
+const EDGE_BG_SMOOTH = 4;
+
+const maxDiff = (a: RGB, b: RGB) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2]));
 
 /**
- * Фон вдоль края по полю за безопасной зоной: в каждой точке края — медиана по глубине поля
- * (`margin` px от края), затем медиана вдоль края в окне ¼ его длины. Объекты внутри safe
- * area (карточка у самой границы поля) в оценку не попадают; объект, пересекающий поле
- * (обрезанный заголовок), занимает малую часть окна и медиану не сдвигает; плавный свет
- * фона (aurora, виньетка) остаётся фоном.
+ * Фон вдоль края по полю за безопасной зоной, устойчивый к крупным объектам.
+ * 1. Профиль: в каждой точке края — медиана по глубине поля (`margin` px от края).
+ * 2. Профиль режется на участки по скачкам цвета (> 0,08 через одну точку): у объекта
+ *    резкие границы, у света aurora и виньетки — нет.
+ * 3. Фон — участки, которые доходят до угла кадра (конца края) и по цвету близки к углам
+ *    кадра `ref` (≤ 0,35): плавный свет фона связан с углом без скачков. Участок посередине
+ *    между скачками — объект любой длины (карточка 600 px, график, карточка в поле).
+ * 4. На участках объектов фон — линейно между соседними участками фона; фона на крае нет
+ *    совсем (объект во весь край) — `ref`.
  */
-export function edgeBackground(img: Img, edge: Edge, margin: number): RGB[] {
+export function edgeBackground(img: Img, edge: Edge, margin: number, ref: RGB = backgroundEstimate(img)): RGB[] {
   const g = edgeGeometry(img, edge);
   const depth = Math.max(1, Math.min(margin, edge === "top" || edge === "bottom" ? img.height : img.width));
   const dStep = Math.max(1, Math.floor(depth / 32));
@@ -148,12 +158,57 @@ export function edgeBackground(img: Img, edge: Edge, margin: number): RGB[] {
     }
     profile.push(ch.map(median) as RGB);
   }
-  const r = Math.max(1, Math.round((bins * EDGE_BG_WINDOW) / 2));
-  const smooth = profile.map((_, k) => {
-    const win = profile.slice(Math.max(0, k - r), Math.min(bins, k + r + 1));
+
+  // участки между скачками; бины на скачке — ничьи
+  const jump = EDGE_JUMP * 255;
+  const cut = new Array<boolean>(bins).fill(false);
+  for (let k = 2; k < bins; k++) {
+    if (maxDiff(profile[k]!, profile[k - 2]!) > jump) cut[k] = cut[k - 1] = true;
+  }
+  const segs: [number, number][] = [];
+  for (let k = 0; k < bins; ) {
+    if (cut[k]) {
+      k++;
+      continue;
+    }
+    let j = k;
+    while (j < bins && !cut[j]) j++;
+    segs.push([k, j]);
+    k = j;
+  }
+  const isBg = new Array<boolean>(bins).fill(false);
+  const loose = EDGE_BG_LOOSE * 255;
+  for (const [a, b] of segs) {
+    if (a !== 0 && b !== bins) continue;
+    const mid = [0, 1, 2].map((c) => median(profile.slice(a, b).map((p) => p[c]!))) as RGB;
+    if (maxDiff(mid, ref) <= loose) for (let k = a; k < b; k++) isBg[k] = true;
+  }
+
+  // фон: сглаженный профиль на участках фона, между ними — интерполяция
+  const bgIdx = isBg.flatMap((v, k) => (v ? [k] : []));
+  const smooth = (k: number): RGB => {
+    const win = profile.slice(Math.max(0, k - EDGE_BG_SMOOTH), Math.min(bins, k + EDGE_BG_SMOOTH + 1)).filter((_, n) => isBg[Math.max(0, k - EDGE_BG_SMOOTH) + n]);
     return [0, 1, 2].map((c) => median(win.map((p) => p[c]!))) as RGB;
-  });
-  return Array.from({ length: g.length }, (_, i) => smooth[Math.min(bins - 1, Math.floor(i / bin))]!);
+  };
+  const out: RGB[] = new Array(bins);
+  for (const k of bgIdx) out[k] = smooth(k);
+  for (let k = 0; k < bins; k++) {
+    if (isBg[k]) continue;
+    if (bgIdx.length === 0) {
+      out[k] = ref;
+      continue;
+    }
+    let lo = -1;
+    let hi = -1;
+    for (const n of bgIdx) {
+      if (n < k) lo = n;
+      else if (hi < 0) hi = n;
+    }
+    const L = lo >= 0 ? out[lo]! : undefined;
+    const H = hi >= 0 ? out[hi]! : undefined;
+    out[k] = L && H ? ([0, 1, 2].map((c) => L[c]! + ((H[c]! - L[c]!) * (k - lo)) / (hi - lo)) as RGB) : (L ?? H)!;
+  }
+  return Array.from({ length: g.length }, (_, i) => out[Math.min(bins - 1, Math.floor(i / bin))]!);
 }
 
 /** Полоса у края и глубины проверки «чернила продолжаются внутрь», px. */

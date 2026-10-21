@@ -124,3 +124,37 @@ describe("programmaticChecks", () => {
     expect(r).toEqual([]);
   });
 });
+
+// Крупные объекты у края (ревью раунда 1): фон края не должен «съедать» объект больше ⅛
+// длины края. Кадр 960×540, поля 5 % (48 × 27 px); размеры — половина от 1920×1080.
+describe("крупные объекты у края", () => {
+  const big = (paint: (c: Canvas) => void) => {
+    const c = new Canvas(960, 540, "#0b0d12");
+    paint(c);
+    return c;
+  };
+  const run = async (c: Canvas) => {
+    const inp = await withFrames(tmp, [c]);
+    return programmaticChecks({ ...inp, settings: { ...inp.settings, width: 960, height: 540 } });
+  };
+
+  it("карточка 300 px (600 в 1080p), срезанная нижним краем — clipping bottom", async () => {
+    const r = await run(big((c) => c.rect(300, 400, 300, 200, "#e0e0e0")));
+    expect(r).toContainEqual(expect.objectContaining({ code: "clipping", severity: "blocking", area: "bottom" }));
+  });
+
+  it("график 400×150 (800×300 в 1080p), срезанный правым краем — clipping right", async () => {
+    const r = await run(big((c) => {
+      c.rect(600, 150, 400, 150, "#1d2a4a");
+      for (let x = 600; x < 960; x += 40) c.rect(x, 300 - ((x - 600) / 3), 40, 6, "#8b7cff"); // линия данных
+      c.rect(600, 150, 400, 4, "#8b91a5");
+    }));
+    expect(r).toContainEqual(expect.objectContaining({ code: "clipping", severity: "blocking", area: "right" }));
+  });
+
+  it("карточка 300 px в нижнем поле, края не касается — safe_area, не clipping", async () => {
+    const r = await run(big((c) => c.rect(300, 350, 300, 180, "#e0e0e0"))); // низ 530 < 540, поле с 513
+    expect(issues(r)).not.toContain("clipping");
+    expect(r).toContainEqual(expect.objectContaining({ code: "safe_area", severity: "warning" }));
+  });
+});

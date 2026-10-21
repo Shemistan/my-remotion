@@ -3,7 +3,7 @@
 import type { MotionSpec, QAIssue, Settings } from "@ms/contracts";
 import { type RenderResult, type ResolvedStyle, contrastRatio, safeRect } from "@ms/render";
 import { blankCheckFrom, inBeat } from "../pipeline/qa-frames.js";
-import { EDGES, type Edge, type Img, INK_THRESHOLD, edgeBackground, edgeClip, loadPng, lumaStats, objectDelta } from "./image.js";
+import { EDGES, type Edge, type Img, INK_THRESHOLD, backgroundEstimate, edgeBackground, edgeClip, loadPng, lumaStats, objectDelta } from "./image.js";
 
 export interface ProgrammaticInput {
   frames: { frame: number; path: string }[];
@@ -74,8 +74,9 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
 
 /**
  * Обрезка и выход за безопасную зону. Фон каждого края — по его полю за safe area
- * (`edgeBackground`), а не цвет углов: свет aurora и виньетка у края — не объект, карточка
- * у границы safe area — тоже. Обрезка — «сплошные» чернила у края (`edgeClip`): тонкие
+ * (`edgeBackground`: участки, связанные с углом кадра без скачков цвета), а не цвет углов:
+ * свет aurora и виньетка у края — не объект, карточка у границы safe area — тоже, а
+ * крупный объект у края (карточка 600 px, график) фоном не становится. Обрезка — «сплошные» чернила у края (`edgeClip`): тонкие
  * линии фона, пересекающие край, не считаются. Поля масштабируются к размеру кадра.
  */
 function edgeIssues(img: Img, frame: number, settings: Settings): Issue[] {
@@ -87,11 +88,12 @@ function edgeIssues(img: Img, frame: number, settings: Settings): Issue[] {
   const band = (e: Edge) => Math.max(margin[e], Math.round((e === "top" || e === "bottom" ? h : w) * 0.02), 6);
 
   const t255 = INK_THRESHOLD * 255;
+  const ref = backgroundEstimate(img);
   const clipped: Edge[] = [];
   let ink = 0;
   let total = 0;
   for (const e of EDGES) {
-    const bg = edgeBackground(img, e, band(e));
+    const bg = edgeBackground(img, e, band(e), ref);
     const c = edgeClip(img, e, bg);
     if (c.fraction > CLIP_INK) clipped.push(e);
     // поле за safe area (у боковых краёв — без углов, их считают верх и низ), кроме
