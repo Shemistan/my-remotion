@@ -55,7 +55,7 @@ export function Enter({ kind, beat, index = 0, total = 1, direction, distance, d
   const len = enterDuration(kind, s, duration);
   const p = kind === "pop"
     ? springAt(frame, fps, s, w.start_frame, "pop")
-    : ramp(frame, w.start_frame, w.start_frame + len, kind === "mask" ? EASE.outQuart : easingOf(s, "enter"));
+    : ramp(frame, w.start_frame, w.start_frame + len, kind === "mask" ? EASE.outCubic : easingOf(s, "enter"));
   let anim = enterStyle(kind, p, o);
 
   if (exit) {

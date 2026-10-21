@@ -25,6 +25,8 @@ export const EASE = {
   inOutCubic: Easing.bezier(0.65, 0, 0.35, 1),
   /** Мягкий вход без перелёта. */
   outQuart: Easing.bezier(0.25, 1, 0.5, 1),
+  /** Быстрый старт, долгое торможение (мягче outQuart): шторка mask. */
+  outCubic: Easing.bezier(0.33, 1, 0.68, 1),
   linear: (t: number) => t,
 } as const;
 

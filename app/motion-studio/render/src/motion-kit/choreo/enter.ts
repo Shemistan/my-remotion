@@ -19,8 +19,8 @@ export interface EnterOptions {
   direction?: EnterDirection;
 }
 
-/** Ширина мягкой кромки шторки `mask`, px. */
-export const MASK_FEATHER_PX = 10;
+/** Ширина мягкой кромки шторки `mask` — доля высоты (ширины) блока. */
+export const MASK_FEATHER = 0.4;
 
 const n = (v: number) => Number(v.toFixed(4));
 const c01 = (v: number) => Math.max(0, Math.min(1, v));
@@ -50,7 +50,7 @@ export function enterStyle(kind: EnterKind, p: number, o: EnterOptions): CSSProp
     case "scale":
       return { opacity: n(c01(p * 1.6)), transform: `scale(${n(1 - 0.08 * amp * rest)})` };
     case "mask": {
-      // шторка с мягкой кромкой (MASK_FEATHER_PX): видимая часть растёт от стороны входа,
+      // шторка с мягкой кромкой (MASK_FEATHER блока): видимая часть растёт от стороны входа,
       // текст при этом чуть поднимается и проявляется — ни «обрезков» глифов на старте,
       // ни жёсткого среза строки. Когда открыта — маски нет, иначе она срезала бы всё,
       // что выходит за блок (подчёркивание, свечение)
@@ -58,10 +58,9 @@ export function enterStyle(kind: EnterKind, p: number, o: EnterOptions): CSSProp
       const dir = o.direction ?? "down";
       const to = dir === "down" ? "top" : dir === "up" ? "bottom" : dir === "left" ? "right" : "left";
       const q = c01(p);
-      const F = MASK_FEATHER_PX;
-      const edge = (px: number) => `calc(${n(q * 100)}% + ${n(px)}px)`;
-      const img = `linear-gradient(to ${to}, #000 ${edge(q * F - F)}, transparent ${edge(q * F)})`;
-      return { opacity: n(c01(p * 2.5)), transform: offset(dir, rest * o.distancePx * 0.35 * amp), maskImage: img, WebkitMaskImage: img };
+      const F = MASK_FEATHER * 100;
+      const img = `linear-gradient(to ${to}, #000 ${n(q * (100 + F) - F)}%, transparent ${n(q * (100 + F))}%)`;
+      return { opacity: n(c01(p * 1.6)), transform: offset(dir, rest * o.distancePx * 0.35 * amp), maskImage: img, WebkitMaskImage: img };
     }
     case "blur":
       return { opacity: n(c01(p * 1.25)), filter: `blur(${n(c01(rest) * 12 * amp)}px)` };

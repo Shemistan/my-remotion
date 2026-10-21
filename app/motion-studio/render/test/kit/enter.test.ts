@@ -42,9 +42,10 @@ describe("enterStyle", () => {
     const m0 = enterStyle("mask", 0, o);
     expect(m0.clipPath).toBeUndefined();
     // снизу: градиент к верху, кромка ниже нижнего края — ничего не видно
-    expect(m0.maskImage).toBe("linear-gradient(to top, #000 calc(0% + -10px), transparent calc(0% + 0px))");
+    expect(m0.maskImage).toBe("linear-gradient(to top, #000 -40%, transparent 0%)");
     expect(m0.WebkitMaskImage).toBe(m0.maskImage);
-    expect(enterStyle("mask", 0.5, o).maskImage).toBe("linear-gradient(to top, #000 calc(50% + -5px), transparent calc(50% + 5px))");
+    // кромка — 40 % высоты блока: строка не выглядит разрезанной пополам
+    expect(enterStyle("mask", 0.5, o).maskImage).toBe("linear-gradient(to top, #000 30%, transparent 70%)");
     expect(enterStyle("mask", 0, { ...o, direction: "left" }).maskImage).toMatch(/^linear-gradient\(to right,/);
     expect(enterStyle("mask", 0, { ...o, direction: "up" }).maskImage).toMatch(/^linear-gradient\(to bottom,/);
     // вход закончен — маски нет: подчёркивание, свечение и выносные элементы не срезаются
@@ -60,8 +61,8 @@ describe("enterStyle", () => {
     expect(enterStyle("mask", 0, o).transform).toBe("translateY(14px)");
     expect(enterStyle("mask", 0, { ...o, direction: "left" }).transform).toBe("translateX(-14px)");
     expect(enterStyle("mask", 0, o).opacity).toBe(0);
-    expect(enterStyle("mask", 0.2, o).opacity).toBe(0.5);
-    expect(enterStyle("mask", 0.4, o).opacity).toBe(1);
+    expect(enterStyle("mask", 0.25, o).opacity).toBe(0.4);
+    expect(enterStyle("mask", 0.625, o).opacity).toBe(1);
   });
 
   it("pop: перелёт пружины (p > 1) даёт масштаб больше 1", () => {
@@ -94,7 +95,7 @@ describe("enterDuration", () => {
     const n = enterDuration("mask", st("calm"));
     let partial = 0;
     for (let f = 0; f <= n; f++) {
-      const p = EASE.outQuart(f / n);
+      const p = EASE.outCubic(f / n);
       if (p > 0 && p < 0.3) partial++;
     }
     expect(partial).toBeLessThanOrEqual(6);

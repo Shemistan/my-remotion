@@ -15,7 +15,7 @@ export { type Depth, type PaletteOverrides, type ResolveStyleInput, type Resolve
 export { contrastRatio, relativeLuminance } from "./style/contrast.js";
 export { TYPE_LEVELS, type TypeLevel, sizePx } from "./style/type-scale.js";
 export { INTENSITY, amplitudeOf } from "./style/intensity.js";
-export { type EnterDirection, type EnterKind, type EnterOptions, MASK_FEATHER_PX, enterStyle } from "./choreo/enter.js";
+export { type EnterDirection, type EnterKind, type EnterOptions, MASK_FEATHER, enterStyle } from "./choreo/enter.js";
 export { staggerBeat } from "./choreo/stagger.js";
 export { ACCENT_REST, type AccentPulse, type AccentPulseOptions, accentPulse } from "./choreo/accent.js";
 export { type ArrivalCount, type PathArrival, type PulseArrival, arrivalCount, pathArrivals, pulseArrival } from "./choreo/pulse.js";
