@@ -10,10 +10,11 @@
 //   ... scripts/storage-load-test.mts --legacy   # поведение до H2: diskutil каждую проверку, 5 с, offline с первого отказа
 //
 // В хранилище пишет только checkStorage (свой файл пробной записи); нагрузка диска — в
-// `--io-dir` (по умолчанию os.tmpdir()), файл удаляется в конце.
+// `--io-dir`. По умолчанию это уникальный подкаталог `.load-test-*` внутри MS_DATA_DIR (на SSD,
+// а не на системном диске); файлы и этот подкаталог удаляются в конце и по SIGINT. Явный
+// `--io-dir` не создаётся и не удаляется — убираются только наши файлы в нём.
 import { type ChildProcess, execFile, spawn } from "node:child_process";
-import { rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import {
@@ -40,7 +41,6 @@ const DISKUTIL = opt("diskutil", 40);
 const IO = opt("io", 2);
 const LEGACY = args.includes("--legacy");
 const ioDirArg = args.indexOf("--io-dir");
-const IO_DIR = ioDirArg >= 0 ? args[ioDirArg + 1]! : tmpdir();
 const root = process.env.MS_DATA_DIR?.trim();
 if (!root) {
   console.error("storage-load-test: задай MS_DATA_DIR (инициализированное хранилище)");
@@ -82,6 +82,8 @@ if (!first.ok) {
 const storeId = first.marker.store_id;
 
 // --- нагрузка ---
+const ownIoDir = ioDirArg < 0 ? mkdtempSync(join(root, ".load-test-")) : undefined;
+const IO_DIR = ownIoDir ?? args[ioDirArg + 1]!;
 const children: ChildProcess[] = [];
 for (let i = 0; i < CPU; i++) children.push(spawn("yes", [], { stdio: "ignore" }));
 const ioFiles: string[] = [];
@@ -138,6 +140,7 @@ for (let i = 0; i < WATCHERS; i++) startWatcher();
 const cleanup = (): void => {
   for (const c of children) c.kill("SIGKILL");
   for (const f of ioFiles) rmSync(f, { force: true });
+  if (ownIoDir) rmSync(ownIoDir, { recursive: true, force: true });
 };
 process.on("SIGINT", () => {
   cleanup();
