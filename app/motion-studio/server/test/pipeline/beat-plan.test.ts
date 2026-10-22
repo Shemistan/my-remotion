@@ -82,6 +82,18 @@ describe("planSpecBeats", () => {
     expect(180 - beat(r.spec, "b-verdict").start_frame).toBeGreaterThanOrEqual(60);
   });
 
+  it("payoff — удар разом: биты фазы стартуют каскадом в 6 кадров и живут до конца фазы, вывод читается ≥ 2 с (smoke gen-timeline)", () => {
+    const d = phasedSpec();
+    d.beats = d.beats.flatMap((b) => (b.id === "b-verdict" ? [{ ...b, id: "b-glow", action: "final-emphasis", element_ids: ["cache"] }, b] : [b]));
+    d.phases = d.phases!.map((p) => (p.id === "p-pay" ? { ...p, element_ids: ["cache", "verdict"] } : p));
+    const r = ok(planSpecBeats(d, settings));
+    const glow = beat(r.spec, "b-glow");
+    const verdict = beat(r.spec, "b-verdict");
+    expect(verdict.start_frame - glow.start_frame).toBe(6);
+    expect(verdict.end_frame).toBe(glow.end_frame);
+    expect(180 - verdict.start_frame).toBeGreaterThanOrEqual(60);
+  });
+
   it("span: phase растягивает бит на всё окно фазы, slot — своя доля", () => {
     const d = phasedSpec();
     d.beats = d.beats.map((b) => (b.id === "b-client" ? { ...b, span: "phase" as const } : b));

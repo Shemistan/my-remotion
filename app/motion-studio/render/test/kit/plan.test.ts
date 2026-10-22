@@ -127,6 +127,23 @@ describe("время чтения и длина удержания", () => {
   });
 });
 
+describe("веса важнее минимумов (smoke s3a-366b281, eval-funnel)", () => {
+  it("setup 15 / action 45 / payoff 20 / hold 20, 5 и 4 элемента, длинный вывод: action — главная фаза", () => {
+    const funnel: PlanPhase[] = [
+      { id: "setup", role: "setup", weight: 15, elements: 5 },
+      { id: "action", role: "action", weight: 45, elements: 4 },
+      { id: "payoff", role: "payoff", weight: 20, elements: 2, chars: 38 },
+      { id: "hold", role: "hold", weight: 20, elements: 3 },
+    ];
+    const p = planBeats(input({ phases: funnel, seed: "Воронка: 3 из 100|x" }));
+    const len = (id: string) => main(p, id).end_frame - main(p, id).start_frame;
+    expect(len("action")).toBeGreaterThanOrEqual(2 * len("setup"));
+    expect(len("action")).toBeGreaterThanOrEqual(55);
+    // чтение — не больше 40 % сцены (но ≥ 2 с)
+    expect(p.reading).toBeLessThanOrEqual(72);
+  });
+});
+
 describe("сдвиг от содержания", () => {
   it("±6–10 кадров от seed: разные сцены одной структуры не бьют в один кадр", () => {
     const base = planBeats(input({ seed: "x" }));

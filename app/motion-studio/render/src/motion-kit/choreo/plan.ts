@@ -55,10 +55,10 @@ export interface BeatPlan {
 
 /**
  * Кадров на чтение текста: 0,6 с + 15 символов в секунду, от 2 до 4 с; в короткой сцене
- * (`duration`, кадры) — не больше 45 % её, но не меньше 2 с.
+ * (`duration`, кадры) — не больше 40 % её, но не меньше 2 с.
  */
 export function readingFrames(chars: number, fps: number, duration?: number): number {
-  const cap = duration === undefined ? 4 : Math.max(2, Math.min(4, (0.45 * duration) / fps));
+  const cap = duration === undefined ? 4 : Math.max(2, Math.min(4, (0.4 * duration) / fps));
   const sec = Math.min(cap, Math.max(2, 0.6 + Math.max(0, chars) / 15));
   return Math.round(sec * fps);
 }
@@ -80,16 +80,26 @@ function hash(s: string): number {
 }
 
 /**
- * Делит `total` кадров по весам, каждому не меньше `min` (если хватает): сначала минимумы,
- * остаток — по весам, округление по наибольшему остатку. Сумма — ровно `total`.
+ * Делит `total` кадров по весам; доле меньше `min` — её минимум, остаток снова по весам
+ * между прочими (water-filling). Минимумов не хватает — пропорционально им. Округление по
+ * наибольшему остатку, сумма — ровно `total`.
  */
 function split(total: number, items: readonly { weight: number; min: number }[]): number[] {
   if (items.length === 0) return [];
   const minSum = items.reduce((a, x) => a + x.min, 0);
-  const mins = minSum <= total ? items.map((x) => x.min) : items.map((x) => (x.min * total) / minSum);
-  const rest = Math.max(0, total - mins.reduce((a, x) => a + x, 0));
-  const w = items.reduce((a, x) => a + x.weight, 0);
-  const raw = items.map((x, i) => mins[i]! + (rest * x.weight) / w);
+  let raw: number[];
+  if (minSum >= total) raw = items.map((x) => (minSum > 0 ? (x.min * total) / minSum : total / items.length));
+  else {
+    const fixed = new Set<number>();
+    for (;;) {
+      const left = total - [...fixed].reduce((a, i) => a + items[i]!.min, 0);
+      const w = items.reduce((a, x, i) => a + (fixed.has(i) ? 0 : x.weight), 0);
+      raw = items.map((x, i) => (fixed.has(i) ? x.min : (left * x.weight) / w));
+      const low = items.findIndex((x, i) => !fixed.has(i) && raw[i]! < x.min);
+      if (low < 0) break;
+      fixed.add(low);
+    }
+  }
   const out = raw.map(Math.floor);
   let left = total - out.reduce((a, x) => a + x, 0);
   const order = raw.map((v, i) => [v - Math.floor(v), i] as const).sort((a, b) => b[0] - a[0] || a[1] - b[1]);
@@ -129,7 +139,8 @@ export function planBeats(input: PlanInput): BeatPlan {
   const sec = (s: number) => Math.round(s * fps);
   const enter = Math.round(12 * time * sc);
   const stagger = Math.round(8 * time * sc);
-  const phaseMin = (p: PlanPhase) => enter + stagger * Math.max(0, Math.min(p.elements ?? 1, 6) - 1);
+  // минимум фазы — вход и короткий каскад (до 3 шагов): дальше время делят веса
+  const phaseMin = (p: PlanPhase) => enter + stagger * Math.max(0, Math.min(p.elements ?? 1, 3) - 1);
 
   const pre = phases.filter((p) => p.role === "setup" || p.role === "action" || p.role === "turn");
   const pays = phases.filter((p) => p.role === "payoff");
@@ -159,18 +170,20 @@ export function planBeats(input: PlanInput): BeatPlan {
   const h = hash(`${structure}:${input.seed}`);
   const mag = Math.round((6 + (h % 5)) * sc);
   const sign = (h >>> 8) & 1 ? 1 : -1;
-  let H = holds.length ? Math.max(holdMin, reading - P + mag) : 0;
+  // вывод в payoff может войти каскадом позже старта фазы (6 кадров при 30 fps): запас к чтению
+  const need = reading + Math.round(6 * sc);
+  let H = holds.length ? Math.max(holdMin, need - P + mag) : 0;
   if (structure === "call-response" && holds.length) H = Math.max(H, Math.round(0.25 * D));
   // вывод едет поверх действия: входит к середине сцены
   if (structure === "continuous-flow" && holds.length) H = Math.max(H, Math.round(0.45 * D) - P);
-  if (!holds.length) P = pays.length ? Math.max(P, reading) : 0;
+  if (!holds.length) P = pays.length ? Math.max(P, need) : 0;
 
   const preMins = pre.map((p) => (structure === "call-response" && p.role === "turn" ? Math.max(phaseMin(p), sec(0.4)) : phaseMin(p)));
   const preMin = preMins.reduce((a, x) => a + x, 0);
   // не влезает: удержание сжимается до времени чтения; фазы до удара — ниже своих минимумов
   // (split делит их пропорционально); вывод не короче чтения
   const over = O + G + preMin + P + H - D;
-  if (over > 0 && holds.length) H = Math.max(Math.max(1, reading - P), H - over);
+  if (over > 0 && holds.length) H = Math.max(Math.max(1, need - P), H - over);
   let R = D - O - G - P - H;
   if (R < pre.length) {
     // совсем короткая сцена: всё пропорционально, фазам до удара — хотя бы по кадру
@@ -189,7 +202,7 @@ export function planBeats(input: PlanInput): BeatPlan {
   }
 
   // сдвиг — за счёт удержания (или payoff без hold), если обе стороны остаются в своих минимумах
-  const fits = (o: number) => R + o >= preMin && (holds.length ? H - o >= Math.max(1, reading - P) : P - o >= Math.max(1, reading)) && (holds.length ? H - o >= 1 : true);
+  const fits = (o: number) => R + o >= preMin && (holds.length ? H - o >= Math.max(1, need - P) : P - o >= Math.max(1, need));
   let offset = 0;
   if (pre.length && (holds.length || pays.length)) {
     if (fits(sign * mag)) offset = sign * mag;

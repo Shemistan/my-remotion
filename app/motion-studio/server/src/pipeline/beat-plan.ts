@@ -41,7 +41,7 @@ export type BeatPlanResult =
  * `planBeats` (структура, веса, длина текста вывода, seed — заголовок и мысль сцены);
  * биты фазы — по порядку: `span: "slot"` (по умолчанию) — своя доля окна, но не короче
  * входа, `span: "phase"` (и по умолчанию у фона, рисования, счёта, потоков, hold) — всё
- * окно. Фаза без битов получает бит по роли; у фазы hold всегда есть бит `hold` до конца.
+ * окно; биты payoff — каскадом в 6 кадров от старта фазы, все до её конца. Фаза без битов получает бит по роли; у фазы hold всегда есть бит `hold` до конца.
  * Бит без фазы (с кадрами) не трогается. cold-open — бит-постер итога с кадра 0.
  */
 export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Settings, "animation_intensity">): BeatPlanResult {
@@ -87,9 +87,13 @@ export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Se
       changes.push(`в фазе ${p.id} нет бита hold — добавлен`);
     }
     const len = w.end_frame - w.start_frame;
+    // payoff — удар разом: каскад в 6 кадров (при 30 fps), всё до конца фазы — вывод не
+    // входит в хвосте удара и читается всё время payoff + hold
+    const payoff = p.role === "payoff";
+    const step = Math.max(1, Math.min(Math.round(6 * (fps / 30)), Math.floor(len / own.length)));
     own.forEach((b, k) => {
-      const start = w.start_frame + Math.floor((k * len) / own.length);
-      const whole = p.role === "hold" || (b.span ?? (SUSTAIN.test(b.action) ? "phase" : "slot")) === "phase";
+      const start = w.start_frame + (payoff ? k * step : Math.floor((k * len) / own.length));
+      const whole = payoff || p.role === "hold" || (b.span ?? (SUSTAIN.test(b.action) ? "phase" : "slot")) === "phase";
       const slotEnd = start + Math.max(Math.ceil(len / own.length), enter);
       const end = whole ? w.end_frame : Math.min(w.end_frame, slotEnd);
       out.push({ ...b, start_frame: start, end_frame: Math.max(end, start + 1) } as Beat);
