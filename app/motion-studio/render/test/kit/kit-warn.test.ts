@@ -1,7 +1,7 @@
 // Тихие фолбэки kit (E2.5): неверное использование примитива видно в консоли рендера
 // (`[error] [motion-kit] …` — его подхватывает QA как console_error), а не молча даёт ноль.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { kitWarn } from "../../src/motion-kit/internal.js";
+import { kitError, kitWarn } from "../../src/motion-kit/internal.js";
 import { arrivalSourceIssue } from "../../src/motion-kit/components/PulseAlongPath.js";
 import { statusAnchorIssue } from "../../src/motion-kit/components/StatusChip.js";
 import { edgeSegment } from "../../src/motion-kit/geometry.js";
@@ -21,6 +21,16 @@ describe("kitWarn: одно сообщение на ключ, с префикс�
     kitWarn("test-key-2", "другое");
     expect(spy).toHaveBeenCalledTimes(2);
     expect(spy.mock.calls[0]![0]).toBe("[motion-kit] что-то не так");
+  });
+});
+
+describe("kitError: ошибка использования — blocking в QA (S2-fix)", () => {
+  it("пишет [motion-kit:error] в console.error один раз на ключ", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    kitError("test-err-1", "очередь переполнена");
+    kitError("test-err-1", "очередь переполнена");
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]![0]).toBe("[motion-kit:error] очередь переполнена");
   });
 });
 

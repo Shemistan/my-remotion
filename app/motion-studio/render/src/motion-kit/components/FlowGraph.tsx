@@ -28,6 +28,7 @@ import {
   flowSlot as layoutFlowSlot,
   flowStatusSlot,
   queueCells,
+  queueNarrowIssue,
   storeCap,
   usedSides,
 } from "./flow-layout.js";
@@ -93,6 +94,12 @@ export interface FlowNode {
   writes?: (PulseArrival | number)[];
   /** `cache`: сколько ячеек заполнено с начала. */
   filled?: number;
+  /**
+   * `queue`: ёмкость буфера — сколько сообщений лежит в нём одновременно (по умолчанию —
+   * сколько ячеек влезает по ширине, обычно 2–3). Ячейка DataToken `cell` за ёмкостью — ошибка
+   * kit (blocking в QA), не тихое наложение.
+   */
+  cells?: number;
 }
 
 export interface FlowEdge {
@@ -258,6 +265,10 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
     const slot = layoutFlowSlot(n, s, frameH);
     if (!slot) continue;
     slots.set(n.id, slot);
+    if (n.kind === "queue") {
+      const narrow = queueNarrowIssue(n.id, slot);
+      if (narrow) kitWarn(`queue:${n.id}`, narrow);
+    }
     const sz = sizes.get(n.id)!;
     const zone = flowLabelZone(n, s, frameH);
     const text = sz.label * 1.15 + (n.caption ? 4 + sz.caption * 1.2 : 0);

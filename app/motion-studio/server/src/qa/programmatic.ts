@@ -493,17 +493,31 @@ function contrastIssues(style: ResolvedStyle): Issue[] {
   return out;
 }
 
-/** Сеть в логах браузера — blocking; прочие ошибки консоли — warning. */
+/** Ошибка использования kit (`kitError`): портит кадр — blocking, текст говорит, что править. */
+const KIT_ERROR = "[motion-kit:error]";
+
+/**
+ * Сеть в логах браузера — blocking; ошибки использования kit — blocking `kit_misuse`; прочие
+ * ошибки консоли — warning.
+ */
 function logIssues(logs: string[]): Issue[] {
   const out: Issue[] = [];
   const network = logs.filter((l) => NETWORK.test(l));
-  const errors = logs.filter((l) => l.startsWith("[error]") && !NETWORK.test(l));
+  const kit = [...new Set(logs.filter((l) => l.includes(KIT_ERROR)).map((l) => l.slice(l.indexOf(KIT_ERROR) + KIT_ERROR.length).trim()))];
+  const errors = logs.filter((l) => l.startsWith("[error]") && !NETWORK.test(l) && !l.includes(KIT_ERROR));
   const list = (l: string[]) => l.slice(0, MAX_LOG_LINES).join(" | ") + (l.length > MAX_LOG_LINES ? ` (+${l.length - MAX_LOG_LINES})` : "");
   if (network.length > 0) {
     out.push({
       code: "network", severity: "blocking",
       description: `сцена обращается к сети: ${list(network)}`,
       fix_hint: "все ассеты — локальные файлы из src/ (import) или из @ms/motion-kit; никаких URL",
+    });
+  }
+  if (kit.length > 0) {
+    out.push({
+      code: "kit_misuse", severity: "blocking",
+      description: `kit сообщает о неверном использовании: ${list(kit)}`,
+      fix_hint: "сделай, что говорит сообщение kit (какой prop или тайминг поменять); фолбэк kit в этом месте портит кадр",
     });
   }
   if (errors.length > 0) {

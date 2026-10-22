@@ -263,6 +263,14 @@ describe("крупные объекты у края", () => {
       expect(find(r, "token_on_label")).toEqual([expect.objectContaining({ source: "programmatic", severity: "blocking", frame: 25 })]);
     });
 
+    it("[motion-kit:error] в логах → kit_misuse blocking с текстом; в console_error не дублируется", async () => {
+      const logs = ["[error] [motion-kit:error] DataToken: ячейка 2 очереди \"q\" вне буфера", "[error] TypeError: x is undefined"];
+      const r = await programmaticChecks(await withFrames(tmp, [card()], { logs }));
+      expect(find(r, "kit_misuse")).toEqual([expect.objectContaining({ severity: "blocking", source: "programmatic" })]);
+      expect(find(r, "kit_misuse")[0]!.description).toContain("ячейка 2");
+      expect(find(r, "console_error")[0]!.description).not.toContain("ячейка 2");
+    });
+
     async function hold(a: Canvas, b: Canvas, kind: "graph" | "chart") {
       const sp = spec({ beats: [beat("b0", 0, 120, ["g"])], elements: [el("g", { kind })] });
       const input = await withFrames(tmp, [card()], { spec: sp, at: [100] });

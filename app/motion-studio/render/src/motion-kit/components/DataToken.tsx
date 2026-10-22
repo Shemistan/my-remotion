@@ -11,12 +11,12 @@ import { useCurrentFrame, useVideoConfig } from "remotion";
 import { EASE_PASS, pulsePass } from "../choreo/pulse.js";
 import { EASE, frames } from "../easing.js";
 import { type CubicSegment, type PathLUT, type Point, lutLength, pathLUT, pointAtLength } from "../geometry.js";
-import { clamp01, kitWarn, ramp } from "../internal.js";
+import { clamp01, kitError, kitWarn, ramp } from "../internal.js";
 import { type TypeLevel, sizePx } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
 import { type FontRef, accent, alpha, fontFamily, hueDistance, isDark, surfaceAt } from "../tokens.js";
 import { useFlowGeometry } from "./FlowGraph.js";
-import { queueCellCenter, queueCells, tokenHeight } from "./flow-layout.js";
+import { queueCellCenter, queueCellIssue, queueCells, tokenHeight } from "./flow-layout.js";
 import { type StatusTone, toneColor } from "./StatusChip.js";
 
 export interface DataTokenProps {
@@ -123,7 +123,7 @@ type DockFlow = Pick<NonNullable<ReturnType<typeof useFlowGeometry>>, "edges" | 
  * `"slot"` без полосы — под карточку узла (не на подпись) с сообщением; без полосы и dock —
  * конец пути (`slot: false`).
  */
-export function dockPoint(flow: DockFlow, edgeId: string, reverse: boolean, dock: DataTokenProps["dock"], s: StyleBible, frameH: number, cell?: number): { at: Point | null; issue: string | null; slot?: boolean; width?: number } {
+export function dockPoint(flow: DockFlow, edgeId: string, reverse: boolean, dock: DataTokenProps["dock"], s: StyleBible, frameH: number, cell?: number): { at: Point | null; issue: string | null; slot?: boolean; width?: number; blocking?: boolean } {
   const seg = flow.edges.get(edgeId);
   if (!seg) return { at: null, issue: `DataToken: в графе нет ребра "${edgeId}" — токена нет.` };
   const end = reverse ? seg[0] : seg[3];
@@ -133,7 +133,10 @@ export function dockPoint(flow: DockFlow, edgeId: string, reverse: boolean, dock
   const slot = target ? flow.slots.get(target) : undefined;
   const n = target ? flow.nodes.get(target) : undefined;
   if (slot) {
-    if (n?.kind === "queue") return { at: queueCellCenter(slot, cell ?? 0), issue: null, slot: true, width: queueCells(slot).w };
+    if (n?.kind === "queue") {
+      const issue = queueCellIssue(n.id, slot, cell ?? 0);
+      return { at: queueCellCenter(slot, cell ?? 0), issue, slot: true, width: queueCells(slot).w, ...(issue ? { blocking: true } : {}) };
+    }
     return { at: { x: slot.x + slot.w / 2, y: slot.y + slot.h / 2 }, issue: null, slot: true, width: slot.w };
   }
   if (dock !== "slot") return { at: end, issue: null, slot: false };
@@ -262,7 +265,7 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
   let slotW: number | undefined;
   if (edgeId && flow) {
     const d = dockPoint(flow, edgeId, reverse, dock, s, height, cell);
-    if (d.issue) kitWarn(`token:${d.issue}`, d.issue);
+    if (d.issue) (d.blocking ? kitError : kitWarn)(`token:${d.issue}`, d.issue);
     rest = d.at;
     hasSlot = d.slot === true;
     slotW = d.width;

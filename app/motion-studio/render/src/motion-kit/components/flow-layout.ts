@@ -26,6 +26,8 @@ export interface FlowBox {
   h: number;
   kind?: FlowNodeKind;
   slot?: boolean;
+  /** `queue`: ёмкость буфера — число ячеек (по умолчанию — сколько влезает по ширине). */
+  cells?: number;
 }
 
 /** Слот данных узла, px графа: прямоугольник под токен и сколько высоты карточки он забирает. */
@@ -36,6 +38,8 @@ export interface FlowSlot {
   h: number;
   /** Высота полосы слота снизу карточки (с отступом от кромки). */
   reserve: number;
+  /** `queue`: заданная ёмкость буфера (FlowNode.cells). */
+  cells?: number;
 }
 
 /** Место статуса у узла: снаружи карточки, со стороны без рёбер. */
@@ -79,7 +83,9 @@ export function flowSlot(n: FlowBox, s: StyleBible, frameH: number): FlowSlot | 
   const h = tokenHeight(cap);
   const inset = Math.max((8 * frameH) / 1080, cap * 0.4) + (n.kind === "store" ? storeCap(n) : 0);
   const padX = space(s, 0.5) + (n.kind === "queue" ? cap * 0.9 : 0);
-  return { x: n.x + padX, y: n.y + n.h - inset - h, w: n.w - 2 * padX, h, reserve: h + inset };
+  const out: FlowSlot = { x: n.x + padX, y: n.y + n.h - inset - h, w: n.w - 2 * padX, h, reserve: h + inset };
+  if (n.kind === "queue" && n.cells !== undefined) out.cells = Math.max(1, Math.round(n.cells));
+  return out;
 }
 
 /** Зона подписи узла: внутри полей, над полосой данных, под панелью окна и крышкой цилиндра. */
@@ -139,19 +145,46 @@ export function usedSides(nodes: FlowBox[], edges: { from: string; to: string }[
   return out;
 }
 
-/** Ячейки буфера `queue` в полосе: число и ширина (ячейка ≈ 3.2 высоты полосы — под короткий ярлык сообщения). */
+/**
+ * Ячейки буфера `queue` в полосе: число и ширина. По умолчанию — сколько влезает (ячейка ≈ 3.2
+ * высоты полосы — под короткий ярлык сообщения, не меньше 2); `FlowNode.cells` задаёт ёмкость —
+ * буфер держит все сообщения, ячейки сужаются.
+ */
 export function queueCells(slot: FlowSlot): { count: number; w: number; gap: number } {
   const gap = Math.max(4, slot.h * 0.18);
-  const count = Math.max(2, Math.floor((slot.w + gap) / (slot.h * 3.2 + gap)));
+  const count = slot.cells ?? Math.max(2, Math.floor((slot.w + gap) / (slot.h * 3.2 + gap)));
   return { count, w: (slot.w - gap * (count - 1)) / count, gap };
 }
 
+/** Ячейка уже — ярлык сообщения не читается (доля высоты полосы). */
+const QUEUE_CELL_MIN = 1.6;
+
 /**
  * Центр ячейки `i` буфера: ячейка 0 — у выхода (справа), дальше к входу — FIFO читается
- * без слов: старое сообщение ближе к выходу.
+ * без слов: старое сообщение ближе к выходу. Ячейка за ёмкостью не прижимается к последней
+ * (сообщение легло бы поверх соседа) — встаёт дальше к входу; это ошибка, см. queueCellIssue.
  */
 export function queueCellCenter(slot: FlowSlot, i: number): { x: number; y: number } {
   const c = queueCells(slot);
-  const k = Math.max(0, Math.min(c.count - 1, Math.round(i)));
+  const k = Math.max(0, Math.round(i));
   return { x: slot.x + slot.w - c.w / 2 - k * (c.w + c.gap), y: slot.y + slot.h / 2 };
+}
+
+/**
+ * Ячейка вне буфера `node` (чистая функция): сообщение ошибки kit или null. Переполнение не
+ * молчит (S2-fix I1): прежде токен прижимался к последней ячейке поверх соседа (held-queue,
+ * «#4811» под «#4812»).
+ */
+export function queueCellIssue(node: string, slot: FlowSlot, cell: number): string | null {
+  const c = queueCells(slot);
+  const k = Math.round(cell);
+  if (k >= 0 && k < c.count) return null;
+  return `DataToken: ячейка ${k} очереди "${node}" вне буфера (ячеек ${c.count}) — сообщение не ложится в очередь. Задай узлу cells: ${Math.max(k + 1, c.count)} (буфер держит все сообщения, ячейки уже) или освобождай ячейку (until) и ставь следующее сообщение в неё.`;
+}
+
+/** Ячейки уже предела читаемости — сообщение (не ошибка: ярлык сократится многоточием). */
+export function queueNarrowIssue(node: string, slot: FlowSlot): string | null {
+  const c = queueCells(slot);
+  if (c.w >= slot.h * QUEUE_CELL_MIN) return null;
+  return `FlowGraph: у очереди "${node}" ${c.count} ячеек по ${Math.round(c.w)} px — ярлыки сообщений не прочитать. Расширь узел (w) или уменьши cells.`;
 }

@@ -39,3 +39,14 @@ export function kitWarn(key: string, message: string): void {
   warned.add(key);
   console.error(`[motion-kit] ${message}`);
 }
+
+/**
+ * Ошибка использования, которая портит кадр (S2-fix): сообщение `[motion-kit:error]` один раз
+ * на ключ. QA превращает такие строки в blocking `kit_misuse` — Engineer видит текст и
+ * правит props, а не получает тихий фолбэк. Рендер не падает.
+ */
+export function kitError(key: string, message: string): void {
+  if (warned.has(key)) return;
+  warned.add(key);
+  console.error(`[motion-kit:error] ${message}`);
+}

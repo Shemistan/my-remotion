@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { tokenBox, tokenMode, tokenShot, tokenSpan, tokenStop } from "../../src/motion-kit/components/DataToken.js";
 import { cacheFill, flowTiming } from "../../src/motion-kit/components/FlowGraph.js";
-import { FLOW_KINDS, type FlowBox, edgePath, flowLabelZone, flowSlot, flowStatusSlot, queueCellCenter, usedSides } from "../../src/motion-kit/components/flow-layout.js";
+import { FLOW_KINDS, type FlowBox, edgePath, flowLabelZone, flowSlot, flowStatusSlot, queueCellCenter, queueCellIssue, queueCells, usedSides } from "../../src/motion-kit/components/flow-layout.js";
 import type { Rect } from "../../src/motion-kit/choreo/safe-area.js";
 import { pathLUT, pointAtLength } from "../../src/motion-kit/geometry.js";
 import { resolveStyle } from "../../src/motion-kit/style/resolve.js";
@@ -128,5 +128,25 @@ describe("queue и cache", () => {
     const t1 = flowTiming(n, [{ id: "e", from: "a", to: "b" }], { start_frame: 0, end_frame: 60 }, st, 30);
     const t2 = flowTiming(n.map((x) => ({ ...x, kind: "queue" as const })), [{ id: "e", from: "a", to: "b" }], { start_frame: 0, end_frame: 60 }, st, 30);
     expect([...t2.ready]).toEqual([...t1.ready]);
+  });
+});
+
+describe("S2-fix I1: переполнение очереди не молчит", () => {
+  const node = (cells?: number): FlowBox & { cells?: number } => ({ id: "q", x: 0, y: 0, w: 640, h: 200, kind: "queue", ...(cells ? { cells } : {}) });
+  it("cells узла задаёт ёмкость буфера: ячейки уже, все в полосе", () => {
+    const fit = queueCells(flowSlot(node(), st, 1080)!).count;
+    const band = flowSlot(node(fit + 2), st, 1080)!;
+    const c = queueCells(band);
+    expect(c.count).toBe(fit + 2);
+    expect(queueCellCenter(band, fit + 1).x - c.w / 2).toBeGreaterThanOrEqual(band.x - 1e-6);
+  });
+  it("cell ≥ ёмкости: ошибка kit (blocking) с подсказкой cells, позиция не совпадает с занятой ячейкой", () => {
+    const band = flowSlot(node(), st, 1080)!;
+    const n = queueCells(band).count;
+    expect(queueCellIssue("q", band, n - 1)).toBeNull();
+    const msg = queueCellIssue("q", band, n);
+    expect(msg).toMatch(/cells: ?3|cells: ?\d/);
+    expect(msg).toMatch(/"q"/);
+    expect(queueCellCenter(band, n).x).not.toBeCloseTo(queueCellCenter(band, n - 1).x, 0);
   });
 });
