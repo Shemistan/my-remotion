@@ -1,7 +1,7 @@
 // 0.4.0: токен едет по ребру и встаёт перед портом, текст в кадре один (без «призраков»),
 // поглощается узлом или ложится в полосу; зоны узла (подпись, полоса, статус) не пересекаются.
 import { describe, expect, it } from "vitest";
-import { type TokenMode, captionPoint, captionShot, tokenBox, tokenLateIssue, tokenMode, tokenShot, tokenSpan, tokenStop } from "../../src/motion-kit/components/DataToken.js";
+import { type TokenMode, captionPoint, captionShot, slotFit, tokenBox, tokenLateIssue, tokenMode, tokenShot, tokenSpan, tokenStop } from "../../src/motion-kit/components/DataToken.js";
 import { cacheFill, flowTiming } from "../../src/motion-kit/components/FlowGraph.js";
 import { FLOW_KINDS, type FlowBox, edgePath, flowLabelZone, flowSlot, flowStatusSlot, queueCellCenter, queueCellIssue, queueCells, usedSides } from "../../src/motion-kit/components/flow-layout.js";
 import type { Rect } from "../../src/motion-kit/choreo/safe-area.js";
@@ -165,6 +165,25 @@ describe("S2-fix I2: токен не уезжает за свой бит мол�
   });
 });
 
+describe("S2-fix eval: текст токена в полосе не режется многоточием молча", () => {
+  it("влезает — кегль как есть; не влезает — мельчает до предела; ниже предела — ошибка с шириной", () => {
+    const px = 32;
+    const label = "Анна К., Premium";
+    const w = tokenBox(label, px).w;
+    expect(slotFit(label, px, w + 10, 1080)).toEqual({ px, issue: null });
+    const fit = slotFit(label, px, w * 0.85, 1080);
+    expect(fit.issue).toBeNull();
+    expect(fit.px).toBeLessThan(px);
+    expect(fit.px).toBeGreaterThanOrEqual(22);
+    expect(tokenBox(label, fit.px).w).toBeLessThanOrEqual(w * 0.85);
+    const bad = slotFit(label, px, w * 0.4, 1080);
+    expect(bad.px).toBe(22);
+    expect(bad.issue).toMatch(/«Анна К\., Premium»/);
+    expect(bad.issue).toMatch(/Расширь узел/);
+    expect(bad.issue).toMatch(/\d+ px/);
+  });
+});
+
 describe("S2-fix I5: ярлык токена виден в каждом режиме, и у компактного", () => {
   // ярлык виден в кадре: компактная капсула в полёте — без текста, текст — в подписи связи
   // (captionShot) или в полосе после записи; иначе — карточка токена
@@ -217,5 +236,16 @@ describe("S2-fix I5: ярлык токена виден в каждом режи
     const side = captionPoint({ x: 100, y: 120 }, c, d, box, 12, false);
     expect(side.x - box.w / 2).toBeGreaterThanOrEqual(100);
     expect(side.y).toBe(120);
+  });
+  it("S2-fix eval: у буфера queue подпись — под своей ячейкой, подписи соседних сообщений не совпадают", () => {
+    const orders = { x: 0, y: 200, w: 340, h: 300 };
+    const q = { id: "q", x: 520, y: 140, w: 600, h: 440, kind: "queue" as const, cells: 3 };
+    const band = flowSlot(q, st, 1080)!;
+    const box = tokenBox("#1043", 32);
+    const mid = { x: 430, y: 350 };
+    const xs = [0, 1, 2].map((c) => captionPoint(mid, q, orders, box, 12, false, queueCellCenter(band, c).x).x);
+    expect(xs[0]).toBeCloseTo(queueCellCenter(band, 0).x, 6);
+    for (let i = 1; i < 3; i++) expect(Math.abs(xs[i]! - xs[i - 1]!)).toBeGreaterThanOrEqual(box.w);
+    expect(captionPoint(mid, q, orders, box, 12, false).x).toBe(q.x + q.w / 2);
   });
 });

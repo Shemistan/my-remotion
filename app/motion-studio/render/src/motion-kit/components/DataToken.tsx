@@ -12,7 +12,7 @@ import { EASE_PASS, pulsePass } from "../choreo/pulse.js";
 import { EASE, frames } from "../easing.js";
 import { type CubicSegment, type PathLUT, type Point, lutLength, pathLUT, pointAtLength } from "../geometry.js";
 import { clamp01, kitError, kitWarn, ramp } from "../internal.js";
-import { type TypeLevel, sizePx } from "../style/type-scale.js";
+import { type TypeLevel, minTextPx, sizePx } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
 import { type FontRef, accent, alpha, fontFamily, hueDistance, isDark, surfaceAt } from "../tokens.js";
 import { useFlowGeometry } from "./FlowGraph.js";
@@ -184,6 +184,26 @@ export function tokenBox(label: string, px: number): { w: number; h: number } {
   return { w: Array.from(label).length * px * 0.6 + px * 1.1 + Math.max(3, Math.round(px * 0.2)), h: tokenHeight(px) };
 }
 
+/**
+ * Кегль токена под ширину полосы узла (чистая функция, S2-fix eval): карточка в полосе не
+ * шире `slotW`. Влезает — кегль как есть; нет — мельчает, но не ниже `minTextPx`; не влезает
+ * и на пределе — ошибка kit с нужной шириной (иначе текст режется многоточием — clipping).
+ */
+export function slotFit(label: string, px: number, slotW: number, frameH: number): { px: number; issue: string | null } {
+  if (tokenBox(label, px).w <= slotW) return { px, issue: null };
+  const floor = minTextPx(frameH);
+  // tokenBox линеен по px (кроме полосы-ярлыка ≥ 3 px): ищем наибольший кегль, что влезает
+  let fit = px;
+  while (fit > floor && tokenBox(label, fit).w > slotW) fit -= 0.5;
+  fit = Math.max(fit, floor);
+  if (tokenBox(label, fit).w <= slotW) return { px: fit, issue: null };
+  const need = Math.ceil(tokenBox(label, floor).w);
+  return {
+    px: floor,
+    issue: `DataToken «${label}»: метка шире полосы данных узла (нужно ${need} px, есть ${Math.floor(slotW)} px) — текст обрезался бы многоточием. Расширь узел (w) на ${need - Math.floor(slotW)} px или сократи метку.`,
+  };
+}
+
 /** Половина карточки токена вдоль направления (ux, uy) плюс зазор. */
 function extentAlong(ux: number, uy: number, box: { w: number; h: number }, gap: number): number {
   const d = Math.hypot(ux, uy) || 1;
@@ -295,12 +315,14 @@ type Box = { x: number; y: number; w: number; h: number };
  * Где стоит подпись связи (центр, px графа): у горизонтального ребра — под узлом-целью (куда
  * идут данные), ниже обоих узлов (`top` — над ними: снизу у узла место статуса); запрос и
  * ответ по одной связи не ложатся друг на друга. У вертикального — справа от узлов на высоте
- * середины ребра. Не на карточках и не на их подписях.
+ * середины ребра. Не на карточках и не на их подписях. `atX` — своя ось подписи под целью: у
+ * буфера `queue` — центр ячейки сообщения, чтобы подписи соседних сообщений не легли друг на
+ * друга, пока прежнее ещё не записано в ячейку (S2-fix eval, held-queue).
  */
-export function captionPoint(mid: Point, target: Box, other: Box, box: { w: number; h: number }, gap: number, top: boolean): Point {
+export function captionPoint(mid: Point, target: Box, other: Box, box: { w: number; h: number }, gap: number, top: boolean, atX?: number): Point {
   const horizontal = other.x >= target.x + target.w || target.x >= other.x + other.w;
   if (!horizontal) return { x: Math.max(target.x + target.w, other.x + other.w) + gap + box.w / 2, y: mid.y };
-  const x = target.x + target.w / 2;
+  const x = atX ?? target.x + target.w / 2;
   if (top) return { x, y: Math.min(target.y, other.y) - gap - box.h / 2 };
   return { x, y: Math.max(target.y + target.h, other.y + other.h) + gap + box.h / 2 };
 }
@@ -339,7 +361,10 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
   if (late) kitError(`late:${edgeId}:${label}`, late);
   const start = Math.max(beat.start_frame, ready ?? 0);
   const tk = tokenShot(frame, start, pass, s, { mode, until });
-  const px = sizePx(s, size, height);
+  // в полосу узла: кегль под её ширину на всём пути (одна карточка не меняет размер на приходе)
+  const fitted = mode === "slot" && slotW !== undefined ? slotFit(label, sizePx(s, size, height), slotW, height) : null;
+  if (fitted?.issue) kitError(`fit:${edgeId}:${label}`, fitted.issue);
+  const px = fitted ? fitted.px : sizePx(s, size, height);
   const full = tokenBox(label, px);
   // короткое ребро: карточка с текстом не помещается между узлами — в полёте только капсула
   // цвета данных без текста (не ложится на подписи), ярлык — подписью связи снаружи узлов
@@ -399,7 +424,7 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
     const [na, nb] = link ? [flow.nodes.get(reverse ? link.from : link.to), flow.nodes.get(reverse ? link.to : link.from)] : [undefined, undefined];
     if (na && nb) {
       const bottom = [na, nb].some((n) => flow.status.get(n.id)?.side === "bottom");
-      capAt = captionPoint(pointAtLength(lut, len / 2), na, nb, full, (12 * height) / 1080, bottom);
+      capAt = captionPoint(pointAtLength(lut, len / 2), na, nb, full, (12 * height) / 1080, bottom, na.kind === "queue" && hasSlot && rest ? rest.x : undefined);
     }
   }
   const cardStyle = (at: Point, scale: number, opacity: number): CSSProperties => ({
