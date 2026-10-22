@@ -86,6 +86,15 @@ export type EnterPre = "hidden" | "ghost" | "silhouette";
 export const PRE_ALPHA: Readonly<Record<EnterPre, number>> = { hidden: 0, ghost: 0.18, silhouette: 0.3 };
 
 /**
+ * Постер с текстом (`ghost` у Enter, `dim` у KineticText) — только у текста, который входит в
+ * первые TEXT_POSTER_S сцены (S3-fix2): это опора открытия (кикер, заголовок). Поздний текст
+ * — обычно вывод: его приглушённая копия с кадра 0 — спойлер («следствие раньше причины»,
+ * судья s3), поэтому у него постер без текста (`silhouette`) или пусто.
+ */
+export const TEXT_POSTER_S = 1.5;
+export const textPosterOk = (start: number, fps: number) => start <= Math.round(TEXT_POSTER_S * fps);
+
+/**
  * Стиль слоя-постера (чистая функция): итоговый вид элемента (Freeze на конце бита) до
  * входа — на PRE_ALPHA. `silhouette` — каркас: формы (карточки, столбцы, линии) резкие и
  * обесцвеченные, глифы HTML-текста прозрачны — ни «призраков» текста, ни размытого мыла

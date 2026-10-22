@@ -5,6 +5,7 @@
 import type { Beat } from "@ms/contracts";
 import type { CSSProperties } from "react";
 import { interpolate, random, useCurrentFrame, useVideoConfig } from "remotion";
+import { textPosterOk } from "../choreo/enter.js";
 import { kineticStep, typeRhythm } from "../choreo/rhythm.js";
 import { easingOf, springAt } from "../easing.js";
 import { CLAMP, clamp01 } from "../internal.js";
@@ -46,6 +47,8 @@ export interface KineticTextProps {
   /**
    * До набора (`enter: "type"`): `dim` (по умолчанию, 0.4.0) — весь текст виден приглушённо
    * с кадра 0 и набор его «зажигает» (кадр-постер не пуст); `hidden` — пусто до набора.
+   * `dim` — только у текста, чей набор начинается в первые 1,5 с (TEXT_POSTER_S, 0.5.3):
+   * поздний текст (вывод) до набора пуст.
    */
   pre?: "hidden" | "dim";
   style?: CSSProperties;
@@ -91,6 +94,8 @@ export function KineticText({
   const len = Math.max(0, beat.end_frame - beat.start_frame);
   const step = kineticStep(s, { mode, units, len, stagger });
   const start = beat.start_frame + delay;
+  // приглушённый текст до набора — только у текста открытия (поздний — вывод: не спойлерим)
+  const dim = (pre ?? "dim") === "dim" && textPosterOk(start, fps);
   const exitLen = s.motion.exit_frames;
   const enterEase = easingOf(s, "enter");
   const exitEase = easingOf(s, "exit");
@@ -183,7 +188,7 @@ export function KineticText({
                 const i = ci++;
                 return (
                   <span key={li}>
-                    <span style={{ opacity: i < typed ? 1 : (pre ?? "dim") === "dim" ? PRE_DIM : 0 }}>{ch}</span>
+                    <span style={{ opacity: i < typed ? 1 : dim ? PRE_DIM : 0 }}>{ch}</span>
                     {i === typed - 1 ? caret : null}
                   </span>
                 );

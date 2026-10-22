@@ -129,7 +129,7 @@ function graphNodes(e: Element): number {
  * входы короткие (≤ 2 входов), длящийся бит стартует сразу за предыдущим. Потоки фазы —
  * веером через 3–4 кадра; счёт числа — не раньше 15 кадров после его входа («от» видно).
  * Фаза без битов получает бит по роли; у фазы hold всегда есть бит `hold` до конца.
- * Бит без фазы (с кадрами) не трогается. cold-open — бит-постер итога с кадра 0.
+ * Бит без фазы (с кадрами) не трогается. cold-open — бит-крючок итога с кадра 0.
  */
 export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Settings, "animation_intensity">): BeatPlanResult {
   const changes: string[] = [];
@@ -218,7 +218,7 @@ export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Se
   for (const b of directorBeats) {
     if (b.phase === undefined) out.push(b as Beat);
   }
-  // постер cold-open ставится после фаз: на повторном плане (чекпоинт) он не влияет на счёт
+  // крючок cold-open ставится после фаз: на повторном плане (чекпоинт) он не влияет на счёт
   const posters = new Set(phases.filter((p) => p.role === "payoff").map((p) => `${p.id}-open`));
   /** Первый кадр, с которого элемент на экране (по уже поставленным битам). */
   const seenAt = (id: string) => Math.min(Infinity, ...out.filter((x) => !posters.has(x.id) && x.element_ids.includes(id)).map((x) => x.start_frame));
@@ -346,7 +346,9 @@ export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Se
       if (b.end_frame - b.start_frame < need) warnings.push(`бит ${b.id} (граф, ${n} узлов): окно ${b.end_frame - b.start_frame} кадров короче прорисовки рёбер (${need}) — span: "phase" или больше веса фазе ${p.id}`);
     }
   }
-  // cold-open: итог виден с кадра 0, затем уступает объяснению; возвращается в своей фазе
+  // cold-open (S3-fix2): крючок — итог в полную силу с кадра 0, к концу бита уходит из кадра
+  // целиком (не приглушается: «призрак» итога на объяснении судья читает как спойлер);
+  // возвращается ударом в своей фазе (kit `<ColdOpen open strike>`)
   for (const o of plan.beats.filter((x) => x.kind === "open")) {
     const p = phases.find((x) => x.id === o.phase)!;
     const id = `${p.id}-open`;
@@ -355,8 +357,8 @@ export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Se
       id,
       start_frame: o.start_frame,
       end_frame: o.end_frame,
-      action: "cold-open-poster",
-      description: `итог виден с кадра 0 (постер), затем уходит на второй план; возвращается в фазе ${p.id}`,
+      action: "cold-open-hook",
+      description: `крючок: итог в полную силу с кадра 0, к концу бита уходит целиком (<ColdOpen open strike>); на объяснении его нет; возвращается ударом в фазе ${p.id}`,
       element_ids: p.element_ids,
     };
     if (prev >= 0) out[prev] = { ...out[prev]!, start_frame: o.start_frame, end_frame: o.end_frame };

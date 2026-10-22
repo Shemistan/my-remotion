@@ -5,7 +5,7 @@ import type { Beat, StyleBible } from "@ms/contracts";
 import type { CSSProperties, ReactNode } from "react";
 import { Freeze, useCurrentFrame, useVideoConfig } from "remotion";
 import { beatPhase } from "../beat.js";
-import { type EnterDirection, type EnterKind, type EnterPre, enterStyle, posterAlpha, posterStyle, splitBoxStyle, underlayFade } from "../choreo/enter.js";
+import { type EnterDirection, type EnterKind, type EnterPre, enterStyle, posterAlpha, posterStyle, splitBoxStyle, textPosterOk, underlayFade } from "../choreo/enter.js";
 import { staggerBeat } from "../choreo/stagger.js";
 import { EASE, easingOf, fpsFrames, frames, springAt } from "../easing.js";
 import { ramp } from "../internal.js";
@@ -52,11 +52,13 @@ export function enterDuration(kind: EnterKind, s: StyleBible, duration?: number)
   return s.motion.enter_frames;
 }
 
-export function Enter({ kind, beat, index = 0, total = 1, direction, distance, duration, exit = false, pre = "hidden", style, children }: EnterProps) {
+export function Enter({ kind, beat, index = 0, total = 1, direction, distance, duration, exit = false, pre: preIn = "hidden", style, children }: EnterProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
   const w = staggerBeat(beat, index, total, s.motion.stagger_frames);
+  // текст-«призрак» — только у опоры открытия; поздний текст (вывод) — каркас без текста
+  const pre: EnterPre = preIn === "ghost" && !textPosterOk(w.start_frame, fps) ? "silhouette" : preIn;
   const o = { amplitude: s.amplitude, distancePx: distance ?? Math.round(height * 0.045), direction };
 
   // шторка (mask): быстрое открытие с долгим торможением — частично открытая строка видна

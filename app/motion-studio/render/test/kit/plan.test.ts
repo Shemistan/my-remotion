@@ -41,12 +41,14 @@ describe("формы времени по структурам", () => {
     expect(len("act")).toBeGreaterThan(2 * len("setup"));
   });
 
-  it("cold-open: итог-постер с кадра 0, затем объяснение, затем возврат к итогу", () => {
+  it("cold-open: итог-крючок с кадра 0 (1,2–1,8 с: читается и уходит), затем объяснение, затем возврат к итогу", () => {
     const p = planBeats(input({ structure: "cold-open" }));
     const open = p.beats.find((b) => b.kind === "open")!;
     expect(open).toMatchObject({ phase: "pay", start_frame: 0 });
-    expect(open.end_frame).toBeGreaterThanOrEqual(24);
-    expect(open.end_frame).toBeLessThanOrEqual(45);
+    expect(open.end_frame).toBeGreaterThanOrEqual(36);
+    expect(open.end_frame).toBeLessThanOrEqual(54);
+    // длинная сцена — не дольше 1,8 с
+    expect(planBeats(input({ structure: "cold-open", duration: 900 })).beats.find((b) => b.kind === "open")!.end_frame).toBe(54);
     expect(main(p, "setup").start_frame).toBe(open.end_frame);
     expect(main(p, "pay").start_frame).toBeGreaterThan(main(p, "act").start_frame);
     expect(main(p, "hold").end_frame).toBe(180);
@@ -363,10 +365,43 @@ describe("длинные сцены: хвост в секундах, а не в 
       }
     });
   }
-  it("короткая сцена (6 с) потолками не задета: хвост тот же", () => {
-    for (const structure of STRUCTURES) {
-      const p = planBeats(input({ structure }));
-      expect(main(p, "hold").end_frame - main(p, "hold").start_frame).toBeLessThan(Math.round(HOLD_MAX_S * 30));
+  // Потолки трогают и короткие сцены (s3fix-rereview m2): count-up без payoff в 6 с бьёт позже
+  // (хвост не длиннее HOLD_MAX_S), сдвиг от seed не удлиняет хвост за потолок, в 8–12 с меняется
+  // часть планов. Ниже — записанные планы 6 с / 30 fps (kit 0.5.3, крючок cold-open 1,2 с):
+  // любое изменение коротких сцен видно здесь, а не проходит молча.
+  const row = (p: BeatPlan) => `${p.strike} | ${p.beats.map((b) => `${b.phase}${b.kind === "open" ? "^" : ""}:${b.start_frame}-${b.end_frame}`).join(" ")}`;
+  const noPay: PlanPhase[] = [{ id: "act", role: "action", weight: 2 }, { id: "hold", role: "hold", weight: 1, chars: 12 }];
+  it("6 с / 30 fps: планы структур записаны (с payoff и без)", () => {
+    const got = (ps: PlanPhase[]) => Object.fromEntries(STRUCTURES.map((structure) => [structure, row(planBeats(input({ structure, phases: ps })))]));
+    expect(got(phases)).toEqual({
+      "build-strike": "108 | setup:0-27 act:27-108 pay:108-138 hold:138-180",
+      "cold-open": "90 | pay^:0-36 setup:36-56 act:56-90 pay:90-108 hold:108-180",
+      "continuous-flow": "85 | setup:0-21 act:21-180 pay:85-125 hold:125-180",
+      "split-reveal": "103 | setup:0-20 act:20-103 pay:103-148 hold:148-180",
+      "call-response": "101 | setup:0-22 act:22-87 pay:101-125 hold:125-180",
+      "count-up": "50 | act:0-50 setup:8-50 pay:50-80 hold:80-180",
+    });
+    expect(got(noPay)).toEqual({
+      "build-strike": "114 | act:0-114 hold:114-180",
+      "cold-open": "96 | act:0-96 hold:96-180",
+      "continuous-flow": "91 | act:0-180 hold:91-180",
+      "split-reveal": "109 | act:0-109 hold:109-180",
+      "call-response": "107 | act:0-107 hold:107-180",
+      "count-up": "68 | act:0-68 hold:68-180",
+    });
+  });
+  it("count-up без payoff в 6 с: удержание ≤ 4 с — удар позже полосы, но в своём коридоре (любой seed и fps)", () => {
+    for (const fps of [24, 30, 60]) {
+      const D = 6 * fps;
+      const [lo, hi] = TAKEAWAY_BAND["count-up"];
+      for (const seed of ["a", "b", "c", "d", "e"]) {
+        const p = planBeats(input({ structure: "count-up", phases: noPay, duration: D, fps, seed }));
+        const at = `${fps} fps, seed ${seed}`;
+        expect(D - main(p, "hold").start_frame, at).toBeLessThanOrEqual(Math.round(HOLD_MAX_S * fps));
+        // удар — не раньше потолка хвоста (D − 4 с) и не позже верха полосы с сдвигом seed
+        expect(p.strike, at).toBeGreaterThanOrEqual(Math.min(Math.round(lo * D), D - Math.round(HOLD_MAX_S * fps)));
+        expect(p.strike, at).toBeLessThanOrEqual(Math.round(hi * D) + Math.round(10 * (fps / 30)));
+      }
     }
   });
 });

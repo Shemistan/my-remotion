@@ -33,7 +33,8 @@ const BAND_TOP = Math.max(...Object.values(TAKEAWAY_BAND).map(([, hi]) => hi));
  * 13–20 с почти статичного финала. Удержание — не дольше HOLD_MAX_S, payoff — не дольше
  * PAYOFF_MAX_S (или чтения и входа главного бита, если они дольше). Хвост длинной сцены
  * упирается в потолки — удар уходит позже полосы, время получает объяснение. Короткие сцены
- * (до ~12 с) потолков не достают.
+ * потолки тоже трогают (s3fix-rereview m2): count-up без payoff в 6 с бьёт позже (удержание не
+ * длиннее 4 с), сдвиг от seed не удлиняет хвост за потолок, в 8–12 с меняется часть планов.
  */
 export const HOLD_MAX_S = 4;
 export const PAYOFF_MAX_S = 6;
@@ -235,7 +236,8 @@ export function planBeats(input: PlanInput): BeatPlan {
   let G = 0;
   const turns = pre.filter((p) => p.role === "turn");
   if (structure === "cold-open" && pays.length) {
-    O = Math.min(sec(1.5), Math.max(sec(0.8), Math.round(0.14 * D)));
+    // крючок (S3-fix2): итог в полную силу читается и уходит целиком — 1,2–1,8 с
+    O = Math.min(sec(1.8), Math.max(sec(1.2), Math.round(0.2 * D)));
     P0 = Math.max(sec(0.4), Math.round(P0 * 0.6));
   }
   if (structure === "continuous-flow" && pays.length) P0 = Math.max(P0, Math.round(0.22 * D));

@@ -173,12 +173,14 @@ describe("planSpecBeats", () => {
     expect([beat(r.spec, "b-hits").start_frame, beat(r.spec, "b-hits").end_frame]).toEqual([flow.start_frame, flow.end_frame]);
   });
 
-  it("cold-open: бит-постер итога с кадра 0 до объяснения", () => {
+  it("cold-open: бит-крючок итога с кадра 0 до объяснения (полная сила, уходит целиком)", () => {
     const r = ok(planSpecBeats(phasedSpec("cold-open"), settings));
     const open = beat(r.spec, "p-pay-open");
     expect(open.start_frame).toBe(0);
     expect(open.element_ids).toEqual(["verdict"]);
-    expect(open.action).toMatch(/cold-open/);
+    expect(open.action).toBe("cold-open-hook");
+    expect(open.description).toMatch(/полную силу/);
+    expect(open.description).toMatch(/ColdOpen/);
     expect(open.end_frame).toBeLessThanOrEqual(beat(r.spec, "b-client").start_frame);
   });
 

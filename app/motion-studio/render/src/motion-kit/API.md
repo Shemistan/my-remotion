@@ -1,11 +1,11 @@
-# @ms/motion-kit 0.5.2 — справка для агента
+# @ms/motion-kit 0.5.3 — справка для агента
 
 Детерминированные компоненты Remotion 4.0.537. Всё движение считается от
 `useCurrentFrame()`; оформление берётся из StyleBible (`useStyle()`). Импорт —
 только `@ms/motion-kit`, `remotion`, `react`.
 
 ```tsx
-import { AnimatedNumber, AreaChart, Background, BarChart, Callout, Camera, Card, CodeBlock,
+import { AnimatedNumber, AreaChart, Background, BarChart, Callout, Camera, Card, CodeBlock, ColdOpen,
   ComparisonSplit, DataToken, Emphasis, Enter, FlowGraph, Highlight, KineticText, LatencyRace,
   LineChart, Parallax, Particles, ProcessSteps, PulseAlongPath, SafeArea, SceneTitle, StatusChip,
   StyleProvider, Timeline, useArrivalCount } from "@ms/motion-kit";
@@ -33,6 +33,13 @@ import { AnimatedNumber, AreaChart, Background, BarChart, Callout, Camera, Card,
 — блик); `steady-flow` ведёт и потоки, чей бит начинается в удержании; блик `data-shimmer` у
 графа бежит цепочкой рёбер к герою; у гонки в `repeat-result` подписи тика нет (таймер уже
 крупно). Хвост длинной сцены — в секундах: удержание ≤ 4 с, payoff ≤ 6 с (или чтение).
+
+**0.5.3.** Cold-open — крючок, а не спойлер: итог в полную силу с кадра 0, уходит целиком и
+возвращается ударом (`<ColdOpen open strike>`); приглушённого итога на объяснении нет.
+Постер с текстом (`ghost` у `Enter`, `dim` у `KineticText`) — только у текста первых 1,5 с;
+поздний текст (вывод) до входа пуст или каркасом. QA видит финал по тому, кто в кадре
+движется: импульс `steady-flow` в пути, волна героя, повтор, блик — а не по включённому
+режиму; `FlowGraph` предупреждает, если `steady-flow` не продолжает ни одного потока.
 
 **0.5.1.** Кадры сцены с фазами по-прежнему из `spec.json`. Бит графа в setup идёт всё окно
 setup: узлы входят каскадом, рёбра дорисованы к его концу — потоки action идут уже по ним.
@@ -148,7 +155,9 @@ transparent?, palette_overrides?, safe_area?, font? }`), id пресета, Styl
 
 `pre` — вид до входа: `hidden` — пусто; `silhouette` — каркас итогового вида блока (кадр
 конца бита, `Freeze`): формы — рамки, столбцы, линии — резкие, обесцвеченные, на 30 %, текст
-не рисуется (ни «призраков» текста, ни размытого мыла); `ghost` — итоговый вид с текстом на 18 %. С начала бита блок входит своим видом
+не рисуется (ни «призраков» текста, ни размытого мыла); `ghost` — итоговый вид с текстом на 18 %,
+только у блока, который входит в первые 1,5 с (опора открытия); позже `ghost` = `silhouette`
+(приглушённый вывод с кадра 0 — спойлер). С начала бита блок входит своим видом
 (тот же элемент, раскладка не прыгает). Для детей со своим входом (число, график, сравнение)
 — `<Enter kind="none" pre="silhouette" beat={бит элемента}>`. Для опоры кадра — `silhouette`;
 для вывода, который должен прозвучать событием, — `hidden`. Стиль слоя — `posterStyle(pre, p)`.
@@ -228,9 +237,23 @@ transparent?, palette_overrides?, safe_area?, font? }`), id пресета, Styl
 Spec с `phases` (S3): у фазы — `role` (`setup`, `action`, `turn`, `payoff`, `hold`), у бита —
 `phase` и `kind` (`enter` вход, `sustain` длящийся, `count` счёт, `accent` удар, `hold`
 удержание). Кадры битов ставит планировщик — бери их из `spec.json` как есть. Структура
-`cold-open`: бит `<id>-open` (вид `cold-open-poster`) с кадра 0 на элементах payoff — итог
-виден постером сразу (крупно, приглушённо, без удара), уходит на второй план на время
-объяснения и бьёт в полную силу в фазе payoff; удар и `Emphasis` — только в payoff.
+`cold-open`: бит `<id>-open` (вид `cold-open-hook`) с кадра 0 на элементах payoff — крючок,
+как заголовок новости. Итог-герой (число, короткое утверждение) — **в полную силу** с кадра 0
+(кадр 0 — сам итог), к концу бита уходит из кадра **целиком**; на объяснении его нет совсем
+(ни приглушённой копии, ни «призрака» — судья читает их как спойлер «следствие раньше
+причины»); на ударе payoff возвращается, удар даёт `Emphasis` фазы payoff. Всё это делает
+обёртка героя итога:
+
+```tsx
+<ColdOpen open={beats["pay-open"]} strike={beats.strike}>                // крючок → уход → нет → возврат
+  <Emphasis beat={beats.strike} hold={hold}><AnimatedNumber from={3} to={3} beat={beats["pay-open"]} … /></Emphasis>
+</ColdOpen>
+```
+В крючке — только герой итога (число, фраза до ~20 знаков) в своём месте кадра; длинная
+фраза вывода входит в payoff (крючок ≈ 1,2–1,8 с — её не прочесть). Число в крючке уже
+итоговое (`from` = `to` или бит счёта кончается к кадру 0), не счёт. Элементы итога не
+клади в фазы до удара; своих приглушений итога (`opacity` 0.3…, `pre="ghost"`) не делай.
+Свои слои — `useColdOpen(open, strike)` → `{ phase, opacity, scale, blur, style }`.
 
 Финал — `hold_mode` фазы `hold`, бит — бит `hold` (до конца сцены). Нет `hold_mode` (старая
 spec) — по носителю: схема с потоками → `steady-flow`, линейный график → `data-shimmer`, иначе
@@ -253,9 +276,15 @@ const hold = { mode: phase.hold_mode, beat: beats.hold };            // из spe
 <Emphasis beat={beats.payoff} hold={hold}><AnimatedNumber … /></Emphasis>
 ```
 - `FlowGraph hold`: герой — `node` (по умолчанию самый правый узел), дышит в `now-pulse`,
-  `repeat-result`, `settle-push`; `steady-flow` продолжает потоки, шедшие до удара (или `edges`),
-  и ведёт потоки, чей бит начинается в удержании; в других режимах `PulseAlongPath` графа после
-  начала hold новых проходов не начинает. `PulseAlongPath` / `useArrivalCount` вне графа — свой `hold`.
+  `repeat-result`, `settle-push`; `steady-flow` продолжает потоки, шедшие до удара не раньше
+  чем за 1,5 с, — или те, чьи рёбра перечислены в `edges` (**перечисляй**, если поток кончился
+  раньше: иначе в удержании он стоит, kit предупреждает, QA блокирует «финал не на hold
+  engine»), и ведёт потоки, чей бит начинается в удержании; в других режимах `PulseAlongPath`
+  графа после начала hold новых проходов не начинает. `PulseAlongPath` / `useArrivalCount` вне
+  графа — свой `hold`.
+- QA видит финал по движению: `steady-flow` — импульс в пути в удержании, `now-pulse` —
+  волна героя (`FlowGraph`, `Emphasis`), `repeat-result` — повтор к герою, `data-shimmer` —
+  блик; дыхание ореола `Emphasis` в других режимах — акцент, не финал.
 - `settle-push` без запаса наезда (стиль без zoom, камера spec у `max_scale`) стоит — kit
   предупреждает; у light-clean сервер сам ставит `now-pulse`.
 - Свой слой — `useHold(mode, beat)` → `{ live, sweep, sweepAlpha, ripple, rippleAlpha, breath,
@@ -351,7 +380,8 @@ size? = 6, font? = "display" | "body" | "mono", weight?, color?, highlight?: str
 align?, maxWidth?, lineHeight?, delay?, stagger?, exit?, caps?, pre? = "hidden", style? }`
 
 `pre` (с `enter: "type"`): `dim` (по умолчанию) — весь текст виден на 30 % с кадра 0, набор
-его «зажигает» по буквам (кадр-постер не пуст); `hidden` — пусто до набора.
+его «зажигает» по буквам (кадр-постер не пуст) — только если набор начинается в первые 1,5 с;
+поздний текст (вывод) до набора пуст; `hidden` — пусто до набора.
 
 - `rise` — текст выходит из маски снизу с перелётом (для заголовков);
 - `fade` — проявляется из размытия (для подписей и кикеров);
