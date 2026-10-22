@@ -14,7 +14,7 @@ import { resolveStyle } from "@ms/render";
 import { describe, expect, it } from "vitest";
 import { selectQaFrames, uncoveredElements } from "../../src/pipeline/qa-frames.js";
 import { loadPng, lumaStats } from "../../src/qa/image.js";
-import { programmaticChecks } from "../../src/qa/programmatic.js";
+import { POSTER_INK, posterInk, programmaticChecks } from "../../src/qa/programmatic.js";
 import { beat, renderResult, spec } from "./helpers.js";
 
 const FRAMES = fileURLToPath(new URL("../fixtures/qa-frames/", import.meta.url));
@@ -129,5 +129,19 @@ describe("empty_region на реальных кадрах удержания (Fi
 
   it.each(["test2", "gen-timeline", "gen-cache", "slice/test1", "slice/test2"])("%s: без empty_region", async (dir) => {
     expect(await run(dir)).toEqual([]);
+  });
+});
+
+// Кадр-постер (S2-fix, I3): fixtures/poster/*-0.png — кадры 0 превью прогона s2-807e41b
+// (960×540, как есть). Пусты по виду: test1 (бледные подписи оси), gen-timeline (один фон),
+// eval-abtest (бледная ось); постер есть: held-mobile (силуэт кольца), gen-compare,
+// eval-funnel (силуэт воронки), eval-oauth (каркас схемы).
+describe("frame0_coverage на реальных кадрах 0 (калибровка posterInk)", () => {
+  const POSTER = fileURLToPath(new URL("../fixtures/poster/", import.meta.url));
+  it.each(["test1", "gen-timeline", "eval-abtest"])("%s: кадр 0 пуст — ниже POSTER_INK", async (s) => {
+    expect(posterInk(await loadPng(`${POSTER}${s}-0.png`))).toBeLessThan(POSTER_INK);
+  });
+  it.each(["held-mobile", "gen-compare", "eval-funnel", "eval-oauth"])("%s: силуэты — постер, не ниже POSTER_INK", async (s) => {
+    expect(posterInk(await loadPng(`${POSTER}${s}-0.png`))).toBeGreaterThanOrEqual(POSTER_INK);
   });
 });

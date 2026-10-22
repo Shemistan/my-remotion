@@ -24,13 +24,49 @@ export interface ProgrammaticInput {
 }
 
 /**
- * Кадр-постер (motion-kit 0.4.0): содержимое кадров 0 и 4 не меньше POSTER_SHARE содержимого
- * финального QA-кадра и не меньше POSTER_MIN. Содержимое — средняя по четвертям доля
- * пикселей с локальным контрастом (emptyRegionShares): гладкий фон не считается, текст,
- * контуры и линии — считаются. Ниже — warning.
+ * Кадр-постер (S2-fix, I3): «чернила» кадров 0 и 4 (posterInk) не ниже POSTER_INK — планка
+ * брифа шага 2 «ink ≥ 8 %», абсолютная, не доля финала (у финала чернила — в основном текст,
+ * которого у силуэта нет). Ниже — warning.
+ *
+ * Чернила — доля пикселей, чья яркость Y' отличается от размытия окрестности больше
+ * POSTER_CONTRAST, на кадре, уменьшенном до POSTER_WIDTH px (зерно и сжатие усредняются),
+ * окрестность — бокс ±POSTER_RADIUS ширины. Средний масштаб считает и контуры, и заливку
+ * силуэтов (карточка, кольцо, воронка на 30 %), а плавная аврора и виньетка почти не
+ * считаются. Калибровка — кадры 0 прогона s2-807e41b (превью 960 px; кадр 1920 px даёт то же
+ * до 0.5 п.п.): пустые по виду test1 6.1 %, eval-abtest 2.6 %, gen-timeline 2.0 %; силуэты —
+ * held-mobile 12.1 %, gen-compare 13.7 %, eval-funnel 15.6 %, eval-oauth 16.6 %, остальные
+ * 18–33 % (регрессия — test/qa/real-frames.test.ts, fixtures/poster).
  */
-export const POSTER_SHARE = 0.2;
-export const POSTER_MIN = 0.008;
+export const POSTER_INK = 0.08;
+const POSTER_WIDTH = 240;
+const POSTER_RADIUS = 0.06;
+const POSTER_CONTRAST = 0.012;
+
+/** Доля «чернил» кадра-постера 0..1 (см. POSTER_INK). */
+export function posterInk(raw: Img): number {
+  const img = downsample(raw, Math.max(1, Math.round(raw.width / POSTER_WIDTH)));
+  const { width: w, height: h, data: d } = img;
+  const L = new Float32Array(w * h);
+  for (let p = 0; p < w * h; p++) L[p] = ((0.2126 * d[p * 4]! + 0.7152 * d[p * 4 + 1]! + 0.0722 * d[p * 4 + 2]!) / 255) * (d[p * 4 + 3]! / 255);
+  const I = integral(L, w, h);
+  const r = Math.max(2, Math.round(w * POSTER_RADIUS));
+  let n = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (Math.abs(L[y * w + x]! - boxMean(I, w, h, x, y, r)) > POSTER_CONTRAST) n++;
+  return n / Math.max(1, w * h);
+}
+
+/** Интегральное изображение (w+1)×(h+1): среднее по боксу за O(1). */
+function integral(L: Float32Array, w: number, h: number): Float64Array {
+  const I = new Float64Array((w + 1) * (h + 1));
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) I[(y + 1) * (w + 1) + x + 1] = L[y * w + x]! + I[y * (w + 1) + x + 1]! + I[(y + 1) * (w + 1) + x]! - I[y * (w + 1) + x]!;
+  return I;
+}
+
+/** Среднее бокса ±r вокруг (x, y), обрезанного по кадру. */
+function boxMean(I: Float64Array, w: number, h: number, x: number, y: number, r: number): number {
+  const [x0, y0, x1, y1] = [Math.max(0, x - r), Math.max(0, y - r), Math.min(w, x + r + 1), Math.min(h, y + r + 1)];
+  return (I[y1 * (w + 1) + x1]! - I[y0 * (w + 1) + x1]! - I[y1 * (w + 1) + x0]! + I[y0 * (w + 1) + x0]!) / ((x1 - x0) * (y1 - y0));
+}
 
 /** Однотонный кадр: std яркости Y' ниже. */
 export const BLANK_STD = 0.01;
@@ -64,21 +100,15 @@ function holdFrozenIssues(spec: MotionSpec, [fa, a]: [number, Img], [fb, b]: [nu
   }];
 }
 
-/** Кадр-постер: кадры 0 и 4 почти пусты против финала — warning по самому пустому. */
-async function posterIssues(poster: { frame: number; path: string }[], finalImg: Img): Promise<Issue[]> {
-  const share = (img: Img) => {
-    const r = emptyRegionShares(img);
-    return (r["top-left"] + r["top-right"] + r["bottom-left"] + r["bottom-right"]) / 4;
-  };
-  const ref = share(finalImg);
-  const bar = Math.max(POSTER_MIN, POSTER_SHARE * ref);
+/** Кадр-постер: кадры 0 и 4 почти пусты (posterInk < POSTER_INK) — warning по самому пустому. */
+async function posterIssues(poster: { frame: number; path: string }[]): Promise<Issue[]> {
   const all: { frame: number; c: number }[] = [];
-  for (const p of poster) all.push({ frame: p.frame, c: share(await loadPng(p.path)) });
+  for (const p of poster) all.push({ frame: p.frame, c: posterInk(await loadPng(p.path)) });
   const worst = all.sort((x, y) => x.c - y.c)[0]!;
-  if (worst.c >= bar) return [];
+  if (worst.c >= POSTER_INK) return [];
   return [{
       code: "frame0_coverage", severity: "warning", frame: worst.frame,
-      description: `кадр ${worst.frame} почти пуст: содержимого ${(worst.c * 100).toFixed(1)} % против ${(ref * 100).toFixed(1)} % в финале (нужно ≥ ${(bar * 100).toFixed(1)} %) — сцена открывается фоном`,
+      description: `кадр ${worst.frame} почти пуст: чернил ${(worst.c * 100).toFixed(1)} % < ${POSTER_INK * 100} % — сцена открывается фоном`,
       fix_hint: "кадр 0 — постер сцены: опора видна сразу (силуэты kit до входа — pre у Enter, FlowGraph и графиков; кикер виден приглушённо), фон в полную силу",
   }];
 }
@@ -152,8 +182,8 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
     out.push(...accentAliveIssues(input.spec, input.settings, [a.frame, ia], [b.frame, ib]));
     out.push(...holdFrozenIssues(input.spec, [a.frame, ia], [b.frame, ib]));
   }
-  if (input.posterFrames && input.posterFrames.length > 0 && last >= 0 && !input.style.transparent && !input.settings.transparent_export) {
-    out.push(...(await posterIssues(input.posterFrames, imgs[last]!)));
+  if (input.posterFrames && input.posterFrames.length > 0 && !input.style.transparent && !input.settings.transparent_export) {
+    out.push(...(await posterIssues(input.posterFrames)));
   }
   out.push(...layoutIssues(parseLayout(input.render.browserLogs)));
   out.push(...contrastIssues(input.style));

@@ -2,7 +2,7 @@
 // Spearman, порядок R1/R2 одной сцены), агрегация повторных прогонов судьи (медиана),
 // дешёвые кадровые числа без LLM (содержимое кадров 0 и 4, движение в hold, пустые трети).
 import { type Img, frameDelta } from "../qa/image.js";
-import { EMPTY_REGION_SHARE, emptyRegionShares } from "../qa/programmatic.js";
+import { EMPTY_REGION_SHARE, emptyRegionShares, posterInk } from "../qa/programmatic.js";
 
 /** Критерии рубрики судьи (`prompts/rubric-judge.md`). */
 export const CRITERIA = ["meaning", "hierarchy", "composition", "entrance", "choreography", "hold", "legibility", "distinctiveness"] as const;
@@ -145,7 +145,7 @@ export function sheetFrames(n: number): { a: number[]; b: number[]; c: number[];
 }
 
 export interface FrameMetrics {
-  /** Доля пикселей-содержимого на кадре 0 (0..1); фон с плавной авророй — не содержимое. */
+  /** Чернила кадра 0 (0..1) — мера frame0_coverage (`posterInk`, планка 8 %). */
   frame0Content: number | null;
   frame4Content: number | null;
   /** Средняя разница RGB кадров N−20 и N−1: 0 — застывший финал. */
@@ -153,11 +153,6 @@ export interface FrameMetrics {
   /** Доля кадров после открытия (≥ 10 % длины) с почти пустой третью или четвертью. */
   emptyThirdShare: number | null;
 }
-
-const contentShare = (img: Img) => {
-  const r = emptyRegionShares(img);
-  return (r["top-left"] + r["top-right"] + r["bottom-left"] + r["bottom-right"]) / 4;
-};
 
 /** Числа по кадрам `frames` (номер → кадр) сцены длиной `n`; нет нужного кадра — null. */
 export function frameMetrics(frames: ReadonlyMap<number, Img>, n: number): FrameMetrics {
@@ -168,8 +163,8 @@ export function frameMetrics(frames: ReadonlyMap<number, Img>, n: number): Frame
   const body = [...frames.entries()].filter(([f]) => f >= n * 0.1).map(([, img]) => img);
   const empty = body.filter((img) => Math.min(...Object.values(emptyRegionShares(img))) < EMPTY_REGION_SHARE).length;
   return {
-    frame0Content: f0 ? contentShare(f0) : null,
-    frame4Content: f4 ? contentShare(f4) : null,
+    frame0Content: f0 ? posterInk(f0) : null,
+    frame4Content: f4 ? posterInk(f4) : null,
     holdDelta: a && b ? frameDelta(a, b) : null,
     emptyThirdShare: body.length > 0 ? empty / body.length : null,
   };
