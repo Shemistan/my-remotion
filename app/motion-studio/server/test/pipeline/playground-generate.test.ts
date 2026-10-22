@@ -12,7 +12,8 @@ import { claimNext, enqueue, fenceOk, provideInput, requestCancel } from "../../
 import { JobRunner } from "../../src/jobs/runner.js";
 import { Semaphore } from "../../src/jobs/semaphore.js";
 import type { JobContext } from "../../src/jobs/types.js";
-import type { GenerateDeps } from "../../src/pipeline/generate.js";
+import { isTransientFailure } from "../../src/eval/resume.js";
+import type { GenerateDeps, GenerateResult } from "../../src/pipeline/generate.js";
 import { type PlaygroundDeps, playgroundGenerate } from "../../src/pipeline/playground-generate.js";
 import { stepInputHash } from "../../src/pipeline/checkpoints.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
@@ -45,10 +46,10 @@ async function deps(over: Partial<GenerateDeps> = {}): Promise<GenerateDeps> {
 }
 
 /** Сцена (brief.json + строка), задача, раннер с настоящим обработчиком; ждёт итога. */
-async function runJob(over: Partial<GenerateDeps> = {}, input: Record<string, unknown> = {}) {
+async function runJob(over: Partial<GenerateDeps> = {}, input: Record<string, unknown> = {}, onResult?: (r: GenerateResult) => void) {
   const d = await deps(over);
   const scene = repo.createScene("playground", { prompt: "Рост пользователей", settings });
-  const handler = playgroundGenerate({ deps: () => d, repo });
+  const handler = playgroundGenerate({ deps: () => d, repo, ...(onResult ? { onResult: (_j: unknown, r: GenerateResult) => onResult(r) } : {}) });
   runner = new JobRunner({ db: env.db, root: env.s.root, owner: "srv", handlers: { "playground.generate": handler }, pollMs: 5 });
   const j = enqueue(env.db, { type: "playground.generate", projectId: "playground", sceneId: scene.id, input: { sceneId: scene.id, prompt: "Рост пользователей", settings, ...input }, idempotencyKey: `k-${scene.id}` }).job;
   runner.start();
@@ -404,6 +405,24 @@ describe("playgroundGenerate: неудачи по этапам", () => {
     expect(job.error!.message).toContain("claude упал");
     expect(agents.tasks.map((t) => t.role)).toEqual(["concept", "motion_director", "engineer", "visual_qa", "visual_qa"]);
     expect(versionRows(scene.id)).toEqual([expect.objectContaining({ status: "failed" })]);
+  });
+
+  it("S2-fix2 N2: Visual QA упал на обрыве сети дважды → failure.transient: продолжение прогона eval генерирует сцену заново", async () => {
+    const agents = fakeAgents({ visualQa: async () => ({ status: "failed", output: undefined, error: { kind: "cli", message: "API Error: Connection dropped (ECONNRESET)" } }) });
+    let res: GenerateResult | undefined;
+    const { job } = await runJob({ agents }, {}, (r) => (res = r));
+    expect(job.error).toMatchObject({ stage: "qa" });
+    expect(res?.failure).toMatchObject({ stage: "qa", transient: true });
+    expect(isTransientFailure(res?.failure)).toBe(true);
+  });
+
+  it("S2-fix2 N2: Visual QA без оценки не из-за сети — не transient (результат сцены)", async () => {
+    const agents = fakeAgents({ visualQa: async () => ({ status: "failed", output: undefined, error: { kind: "cli", message: "claude упал" } }) });
+    let res: GenerateResult | undefined;
+    await runJob({ agents }, {}, (r) => (res = r));
+    expect(res?.failure).toMatchObject({ stage: "qa" });
+    expect(res?.failure).not.toHaveProperty("transient");
+    expect(isTransientFailure(res?.failure)).toBe(false);
   });
 
   it("Visual QA сбой один раз, затем оценка → ready, повтор без исправления Engineer", async () => {

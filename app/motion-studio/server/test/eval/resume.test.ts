@@ -19,6 +19,12 @@ describe("isTransientFailure", () => {
     expect(isTransientFailure({ stage: "qa", message: "QA: blocking: console_error: fetch failed: ETIMEDOUT в логе сцены" })).toBe(false);
   });
 
+  it("S2-fix2 N2: сбой вызова Visual QA помечен transient там, где возник, — сбой среды", () => {
+    const message = "Visual QA не дал оценки: failed (cli): API Error: Connection dropped (ECONNRESET) (вызовов: 2); без оценки по кадрам версия не ready";
+    expect(isTransientFailure({ stage: "qa", message, transient: true })).toBe(true);
+    expect(isTransientFailure({ stage: "qa", message })).toBe(false); // без пометки — результат
+  });
+
   it("без описания сбоя — не сбой среды", () => {
     expect(isTransientFailure(undefined)).toBe(false);
     expect(isTransientFailure(null)).toBe(false);

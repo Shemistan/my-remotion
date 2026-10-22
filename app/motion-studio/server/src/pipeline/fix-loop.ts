@@ -31,6 +31,7 @@ import type { checkSceneDir } from "../scenes/static-check.js";
 import type { typecheckVersion } from "../scenes/typecheck.js";
 import { provenanceGate } from "./provenance.js";
 import type { KnowledgeSource } from "./refs.js";
+import { isNetworkError } from "./transient.js";
 import { type RunCtx, buildEngineerTask, clip, errText, isStorageError, scenePropsStyle, sceneStyle } from "./steps.js";
 
 export const PREVIEW = { scale: 0.5, crf: 23 };
@@ -72,7 +73,7 @@ export interface VisualQaRun {
  */
 export type Exit =
   | { ok: true; previewSha: string; framesSha: string[]; qa?: QAReport }
-  | { ok: false; stage: FailureStage; message: string; alive?: boolean; qa?: QAReport };
+  | { ok: false; stage: FailureStage; message: string; alive?: boolean; qa?: QAReport; transient?: true };
 
 /** Файлы пайплайна в draft: пишутся из памяти, восстанавливаются после нарушения границы. */
 export interface DraftFiles {
@@ -503,7 +504,7 @@ async function runQa(i: LoopInput, state: LoopState, rr: RenderResult, techWarni
     const v = await rc.timed(`visual_qa_${call}`, () =>
       rc.underWatch((sig) =>
         runVisualQA(
-          { workdir: draftDir, frames, spec, style, brief: i.qa!.brief, runRef: { root: rc.root, runId: rc.runId, attempt: rc.attempt }, signal: sig },
+          { workdir: draftDir, frames, spec, style, durationFrames: end, brief: i.qa!.brief, runRef: { root: rc.root, runId: rc.runId, attempt: rc.attempt }, signal: sig },
           { agents: rc.recording, config: rc.config, log: (m) => rc.warnings.push(m) },
         ),
       ),
@@ -512,7 +513,9 @@ async function runQa(i: LoopInput, state: LoopState, rr: RenderResult, techWarni
     if (v.error !== undefined) {
       // вызов отклонён: процесс агента не подтверждён мёртвым — без повтора, draft в карантин
       const storage = isStorageError(v.error) || v.lost !== undefined || (await rc.storageProblem()) !== undefined;
-      return { exit: { ok: false, stage: storage ? "storage" : "qa", message: `вызов Visual QA отклонён: ${errText(v.error)}`, alive: true } };
+      // обрыв сети в вызове — сбой среды (eval --run генерирует сцену заново), не оценка сцены
+      const net = !storage && isNetworkError(errText(v.error));
+      return { exit: { ok: false, stage: storage ? "storage" : "qa", message: `вызов Visual QA отклонён: ${errText(v.error)}`, alive: true, ...(net ? { transient: true as const } : {}) } };
     }
     const vr = v.value!;
     state.visualQa.push({ call, wall_ms: vr.wallMs, cost_usd: rc.spent - before, status: vr.status, ...(vr.output ? { gate: { technical: "pass", ...vr.output.gate } } : {}) });
@@ -527,7 +530,8 @@ async function runQa(i: LoopInput, state: LoopState, rr: RenderResult, techWarni
     rc.warnings.push(why);
     rc.note("qa", why);
     if (attempt >= VISUAL_QA_TRIES) {
-      return { exit: { ok: false, stage: "qa", message: `${why} (вызовов: ${attempt}); без оценки по кадрам версия не ready`, qa: partial() } };
+      const net = vr.error !== undefined && isNetworkError(vr.error.message);
+      return { exit: { ok: false, stage: "qa", message: `${why} (вызовов: ${attempt}); без оценки по кадрам версия не ready`, qa: partial(), ...(net ? { transient: true as const } : {}) } };
     }
   }
   const report = mergeQA({ technical: techWarnings, programmatic: [...programmatic, ...fromSpec], agent });

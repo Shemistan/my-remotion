@@ -9,7 +9,7 @@ import { safeMkdir } from "@ms/core";
 import type { ResolvedStyle } from "@ms/render";
 import type { AgentResult, AgentRuntimeAdapter, AgentTask } from "../agents/runtime.js";
 import type { AppConfig } from "../config.js";
-import { inBeat, uncoveredElements } from "../pipeline/qa-frames.js";
+import { type MotionTokens, inBeat, uncoveredElements } from "../pipeline/qa-frames.js";
 
 export interface VisualQAInput {
   /** draft-каталог версии: кадры берутся из `<workdir>/frames/<n>.png`. */
@@ -17,6 +17,8 @@ export interface VisualQAInput {
   frames: number[];
   spec: MotionSpec;
   style: ResolvedStyle;
+  /** Длительность сцены (settings.duration_frames; по умолчанию — spec): как при выборе кадров. */
+  durationFrames?: number;
   /** brief.json сцены (запрос и настройки) — для семантического gate. */
   brief: unknown;
   runRef: { root: string; runId: string; attempt: number };
@@ -51,15 +53,15 @@ export function cameraBrief(spec: MotionSpec): { keys: NonNullable<MotionSpec["c
 }
 
 /** Чек-лист вызова: кадры и элементы спецификации, которые агент обязан найти. */
-export function qaChecklist(frames: number[], spec: MotionSpec): string {
+export function qaChecklist(frames: number[], spec: MotionSpec, style?: MotionTokens, durationFrames: number = spec.duration_frames): string {
   const beatsOf = (id: string) => spec.beats.filter((b) => b.element_ids.includes(id)).map((b) => `${b.id} [${b.start_frame}–${b.end_frame})`);
-  const uncovered = new Set(uncoveredElements(spec, frames));
+  const uncovered = new Set(uncoveredElements(spec, frames, durationFrames, style));
   return [
     "# Чек-лист Visual QA",
     "",
     "## Кадры",
     ...frames.map((f) => {
-      const beats = spec.beats.filter((b) => inBeat(b, f, spec.duration_frames)).map((b) => `${b.id} (${b.action})`);
+      const beats = spec.beats.filter((b) => inBeat(b, f, durationFrames)).map((b) => `${b.id} (${b.action})`);
       return `- \`frames/${f}.png\` — кадр ${f}${beats.length > 0 ? `, биты: ${beats.join(", ")}` : ", вне битов"}`;
     }),
     "",
@@ -109,7 +111,9 @@ export async function runVisualQA(input: VisualQAInput, deps: VisualQADeps): Pro
   await writeFile(join(dir, "spec.json"), json(input.spec));
   await writeFile(join(dir, "style.json"), json(input.style));
   await writeFile(join(dir, "brief.json"), json(input.brief));
-  await writeFile(join(dir, "checklist.md"), qaChecklist(frames, input.spec));
+  // покрытие — тем же стилем и длительностью, что при выборе кадров (generate.ts)
+  const duration = input.durationFrames ?? input.spec.duration_frames;
+  await writeFile(join(dir, "checklist.md"), qaChecklist(frames, input.spec, input.style, duration));
 
   const s = deps.config.agents.visual_qa;
   const task: AgentTask<string> = {
@@ -129,7 +133,7 @@ export async function runVisualQA(input: VisualQAInput, deps: VisualQADeps): Pro
   const known = new Set(input.spec.elements.map((e) => e.id));
   const unknown = [...new Set(r.output.elements_seen.map((e) => e.id).filter((id) => !known.has(id)))];
   if (unknown.length > 0) deps.log?.(`Visual QA: elements_seen с id не из spec: ${unknown.join(", ")}`);
-  return { ...r, wallMs, output: withMissing(r.output, input.spec, frames) };
+  return { ...r, wallMs, output: withMissing(r.output, input.spec, frames, input.style, duration) };
 }
 
 /**
@@ -140,14 +144,14 @@ export async function runVisualQA(input: VisualQAInput, deps: VisualQADeps): Pro
  *   (не подтверждён; visual не лучше warn).
  * Дубли id в `elements_seen`: худший ответ (`seen: false`) побеждает.
  */
-function withMissing(out: VisualQAOutput, spec: MotionSpec, frames: number[]): VisualQAOutput {
+function withMissing(out: VisualQAOutput, spec: MotionSpec, frames: number[], style: MotionTokens, durationFrames: number): VisualQAOutput {
   const seen = new Map<string, VisualQAOutput["elements_seen"][number]>();
   for (const e of out.elements_seen) {
     const prev = seen.get(e.id);
     if (!prev || (prev.seen && !e.seen)) seen.set(e.id, e);
   }
   const checked = new Set(out.checked_frames);
-  const uncovered = new Set(uncoveredElements(spec, frames));
+  const uncovered = new Set(uncoveredElements(spec, frames, durationFrames, style));
   const issues = [...out.issues];
   let visual = out.gate.visual;
   const warn = () => {

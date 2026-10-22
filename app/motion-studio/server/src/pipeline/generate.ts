@@ -120,7 +120,8 @@ export interface GenerateResult {
   previewPath?: string;
   costUsd: number;
   engineerCalls: number;
-  failure?: { stage: FailureStage; message: string };
+  /** `transient` — сбой среды (обрыв сети в вызове Visual QA), не результат сцены. */
+  failure?: { stage: FailureStage; message: string; transient?: true };
   /** Предупреждения (отказы прав Engineer, неизвестные kb_id, ошибки консоли браузера). */
   warnings: string[];
   /** Длительность этапов, мс. */
@@ -193,14 +194,14 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
    * Неудача без опубликованной версии: рядом с brief.json пишется failure.json (если
    * хранилище позволяет), чтобы сцена с одним brief не выглядела «в работе».
    */
-  const failed = async (stage: FailureStage, message: string, extra: Partial<GenerateResult> = {}): Promise<GenerateResult> => {
+  const failed = async (stage: FailureStage, message: string, extra: Partial<GenerateResult> = {}, transient?: true): Promise<GenerateResult> => {
     log(`✗ ${stage}: ${message}`);
     if (briefWritten && !extra.versionDir) {
       await writeSceneFailure(root, sceneId, { run_id: runId, stage, message, draft: draft?.dir ?? null }).catch((e: unknown) =>
         (rc?.warnings ?? fallbackWarnings).push(`failure.json не записан: ${(e as Error).message}`),
       );
     }
-    return result("failed", { failure: { stage, message }, ...extra });
+    return result("failed", { failure: { stage, message, ...(transient ? { transient } : {}) }, ...extra });
   };
   const aborted = (): { stage: FailureStage; reason: AbortKind } => {
     const reason = deps.abortReason?.() ?? "cancelled";
@@ -403,7 +404,7 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
         log(`✓ ready: ${published.dir}`);
         return result("ready", extra);
       }
-      return failed(exit.stage, exit.message, extra);
+      return failed(exit.stage, exit.message, extra, exit.transient);
     } catch (e) {
       const sp = isStorageError(e) ? errText(e) : await ctx.storageProblem();
       // fencing и отмена в транзакции публикации: draft уже в карантине (SceneRepo) — второй раз не помечаем
@@ -436,7 +437,7 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
   if (exit.alive) {
     // процесс не подтверждён мёртвым — только карантин, публиковать нельзя
     await quarantine(draft, `${exit.stage}: ${exit.message}`, ctx.warnings);
-    return failed(exit.stage, exit.message);
+    return failed(exit.stage, exit.message, {}, exit.transient);
   }
   const sp = await ctx.storageProblem();
   if (sp) {

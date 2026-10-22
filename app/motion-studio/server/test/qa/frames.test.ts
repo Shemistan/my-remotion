@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { MotionSpec } from "@ms/contracts";
 import { describe, expect, it } from "vitest";
 import { resolveStyle } from "@ms/render";
-import { MAX_QA_FRAMES, MIN_QA_GAP, blankCheckFrom, countStarts, enterFrames, inBeat, selectQaFrames, uncoveredElements } from "../../src/pipeline/qa-frames.js";
+import { MAX_QA_FRAMES, MAX_QA_FRAMES_HARD, MIN_QA_GAP, blankCheckFrom, countStarts, enterFrames, inBeat, selectQaFrames, uncoveredElements } from "../../src/pipeline/qa-frames.js";
 import { directorOutput } from "../pipeline/helpers.js";
 import { beat, el, spec } from "./helpers.js";
 
@@ -57,12 +57,12 @@ describe("selectQaFrames", () => {
     expect(selectQaFrames(sp)).toContain(115);
   });
 
-  it("20 битов → не больше 8 кадров, шаг ≥ 10", () => {
+  it("20 битов по 9 кадров (все короткоживущие) → не больше 12 кадров (S2-fix2), без дублей", () => {
     const beats = Array.from({ length: 20 }, (_, i) => beat(`b${i}`, i * 9, i * 9 + 9, [`e${i}`], `step-${i}`));
     const sp = spec({ beats, elements: beats.map((b) => el(b.element_ids[0]!, { kind: "card", entrance: "pop" })) });
     const fr = selectQaFrames(sp);
-    expect(fr.length).toBeLessThanOrEqual(8);
-    gaps(fr).forEach((g) => expect(g).toBeGreaterThanOrEqual(10));
+    expect(fr.length).toBeLessThanOrEqual(MAX_QA_FRAMES_HARD);
+    expect(new Set(fr).size).toBe(fr.length);
   });
 
   it("короткая сцена: обязательные кадры остаются, даже если ближе MIN_QA_GAP", () => {
@@ -186,6 +186,46 @@ describe("покрытие: кадр в начале бита появления
     const fr = selectQaFrames(sp);
     expect(fr.some((f) => f >= 33 && f < 42)).toBe(true);
     expect(uncoveredElements(sp, fr)).toEqual([]);
+  });
+});
+
+describe("S2-fix2: токен данных — кадр, где читается его ярлык; бюджет под короткоживущие", () => {
+  const tok = (id: string, travel?: number) => el(id, { kind: "shape", role: "данные", entrance: "slide", content: { component: "DataToken", label: id, ...(travel ? { travel } : {}) } });
+  it("ярлык токена читается с ~40 % полёта (не позже середины бита) до прихода + 6: кадр раньше не покрывает", () => {
+    // бит [40, 80), полёт 10: окно [40 + min(4 + 4, 20), min(80, 40 + 10 + 6)) = [48, 56)
+    const sp = spec({ elements: [el("graph", { kind: "graph", entrance: "pop" }), tok("t", 10)], beats: [beat("b0", 0, 30, ["graph"]), beat("bt", 40, 80, ["t"]), beat("hold", 120, 180, ["graph"], "hold")] });
+    expect(uncoveredElements(sp, [44, 179])).toContain("t");
+    expect(uncoveredElements(sp, [70, 179])).toContain("t"); // середина бита: токен уже поглощён
+    expect(uncoveredElements(sp, [50, 179])).not.toContain("t");
+    const fr = selectQaFrames(sp);
+    expect(fr.some((f) => f >= 48 && f < 56)).toBe(true);
+  });
+  it("полёт во весь бит: окно — вторая половина бита (подпись компактного токена видна к середине)", () => {
+    const sp = spec({ elements: [el("graph", { kind: "graph", entrance: "pop" }), tok("t", 18)], beats: [beat("b0", 0, 30, ["graph"]), beat("bt", 42, 60, ["t"]), beat("hold", 120, 180, ["graph"], "hold")] });
+    expect(uncoveredElements(sp, [46, 179])).toContain("t");
+    expect(uncoveredElements(sp, [51, 179])).not.toContain("t");
+  });
+  it("9 токенов и долгие элементы: бюджет 8 + непокрытые короткоживущие (≤ 12) — каждый токен получает кадр", () => {
+    const toks = Array.from({ length: 9 }, (_, i) => tok(`t${i}`, 12));
+    const longs = Array.from({ length: 5 }, (_, i) => el(`l${i}`, { kind: "card", entrance: "pop" }));
+    const sp = spec({
+      elements: [...longs, ...toks],
+      beats: [
+        ...longs.map((e, i) => beat(`bl${i}`, i * 6, 150, [e.id])),
+        ...toks.map((e, i) => beat(`bt${i}`, 20 + i * 14, 34 + i * 14, [e.id])),
+        beat("hold", 150, 180, longs.map((e) => e.id), "hold"),
+      ],
+    });
+    const fr = selectQaFrames(sp);
+    expect(fr.length).toBeGreaterThan(MAX_QA_FRAMES);
+    expect(fr.length).toBeLessThanOrEqual(MAX_QA_FRAMES_HARD);
+    expect(MAX_QA_FRAMES_HARD).toBe(12);
+    expect(uncoveredElements(sp, fr).filter((id) => id.startsWith("t"))).toEqual([]);
+  });
+  it("сцена без короткоживущих — бюджет прежний (8)", () => {
+    const beats = Array.from({ length: 20 }, (_, i) => beat(`b${i}`, i * 9, i * 9 + 30, [`e${i}`], `step-${i}`));
+    const sp = spec({ beats, elements: beats.map((b) => el(b.element_ids[0]!, { kind: "card", entrance: "pop" })) });
+    expect(selectQaFrames(sp, 200).length).toBeLessThanOrEqual(MAX_QA_FRAMES);
   });
 });
 
