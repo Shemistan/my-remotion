@@ -304,7 +304,7 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
         ].join("\n")
       : undefined;
     rc.log(call === 1 ? "Engineer…" : `Engineer: исправление ${call - 1} из ${maxCalls - 1} (${issue?.stage})…`);
-    const e = await rc.timed(`engineer_${call}`, () => rc.call(buildEngineerTask({ draftDir, fix }, { ...rc.taskRun, seq: call }), EngineerReportSchema));
+    const e = await rc.timed(`engineer_${call}`, () => rc.call(buildEngineerTask({ draftDir, fix, spec }, { ...rc.taskRun, seq: call }), EngineerReportSchema));
     if (e.skipped) return failed("cancelled", "отменено до Engineer");
     if (e.error !== undefined) {
       // процесс агента мог остаться: подтверждения его смерти нет

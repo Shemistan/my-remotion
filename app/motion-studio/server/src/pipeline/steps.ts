@@ -18,7 +18,9 @@ import {
   type StructureRule,
   type ScenePropsStyle,
   type Settings,
-  beatKind,
+  holdModeFor,
+  isAccentBeat,
+  isHoldBeat,
   structureOfRule,
 } from "@ms/contracts";
 import { INCONCLUSIVE_LIMIT, type ProcessRegistry, StorageError, StoragePathError, type StorageStatus, isInconclusive, safeMkdir, watchStorage } from "@ms/core";
@@ -30,7 +32,7 @@ import type { Permits } from "../jobs/semaphore.js";
 import type { CapabilityView } from "../knowledge/types.js";
 import { specChecks } from "../qa/spec-checks.js";
 import { type StepRef, checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
-import { planSpecBeats } from "./beat-plan.js";
+import { planSpecBeats, structureFit } from "./beat-plan.js";
 import { normalizeBoundCounters } from "./bound-counters.js";
 import { candidateBrief } from "./refs.js";
 
@@ -409,6 +411,16 @@ export function buildDirectorTask(i: DirectorTaskInput, run: TaskRun): AgentTask
   return agentTask("motion_director", parts.join("\n"), i.workdir, [], run);
 }
 
+/**
+ * Строка финала для Engineer (S3b): режим удержания (`holdModeFor` — тот же выбор, что у QA)
+ * и бит hold, который его несёт (последний бит hold до конца сцены).
+ */
+export function finaleLine(spec: MotionSpec): string {
+  const holds = spec.beats.filter((b) => isHoldBeat(b));
+  const beat = holds.find((b) => b.end_frame === spec.duration_frames) ?? holds.at(-1);
+  return `- финал: hold_mode ${holdModeFor(spec)}, ${beat ? `бит hold \`${beat.id}\`` : "бита hold нет — финал на последнем бите"} (hold-проп компонентов, refs/motion-kit/API.md «Фазы и финал»);`;
+}
+
 /** Инструменты Engineer: только файлы draft (Bash и сеть — никогда). */
 export const ENGINEER_TOOLS: AgentTool[] = ["Read", "Write", "Edit", "Glob", "Grep"];
 
@@ -416,12 +428,13 @@ export const ENGINEER_TOOLS: AgentTool[] = ["Read", "Write", "Edit", "Glob", "Gr
  * Задача Engineer: всё о сцене — в файлах draft (spec, settings, style, selection,
  * knowledge-refs, refs/); `fix` — замечания прошлой проверки (с заголовком «Исправление N»).
  */
-export function buildEngineerTask(i: { draftDir: string; fix?: string }, run: TaskRun): AgentTask<string> {
+export function buildEngineerTask(i: { draftDir: string; fix?: string; spec?: MotionSpec }, run: TaskRun): AgentTask<string> {
   const parts: string[] = [];
   if (i.fix) parts.push(i.fix, "");
   parts.push(
     "# Задача",
     "Собери Remotion-сцену в текущем каталоге (draft) по `spec.json`:",
+    ...(i.spec ? [finaleLine(i.spec)] : []),
     "- `src/Scene.tsx` с `export const Scene` (можно добавить модули в `src/`);",
     "- `props.json` по контракту сцены: `timing` (биты spec), `style` (из `settings.json`), `content` (данные spec).",
     "Прочитай первым `refs/motion-kit/API.md`, затем `spec.json`, `style.json`, `settings.json`, `selection.json`, `knowledge-refs.json`;",
@@ -563,10 +576,13 @@ export function conceptStructure(c: ConceptOutput | undefined): { value: SceneSt
 
 /**
  * Структура — выбор Concept (S3a-fix): Director ставит её фазы и может сменить только с
- * причиной (`composition.structure_reason`). Без причины — структура Concept и
- * предупреждение. Spec без фаз не трогается (структура на кадры не влияет).
+ * причиной (`composition.structure_reason`). Без причины — структура Concept, если фазы
+ * Director под неё уже разложены (`structureFit`); иначе остаётся структура Director —
+ * фазы, построенные под одну форму, в другой играют неверно (s3afix-rereview m2). В обоих
+ * случаях — предупреждение и `note`: строка для раунда исправления, если он будет. Spec без
+ * фаз не трогается (структура на кадры не влияет).
  */
-export function withConceptStructure(director: DirectorOutput, concept: ConceptOutput | undefined): { director: DirectorOutput; warning?: string } {
+export function withConceptStructure(director: DirectorOutput, concept: ConceptOutput | undefined): { director: DirectorOutput; warning?: string; note?: string } {
   const st = conceptStructure(concept);
   if (!st || !director.spec.phases) return { director };
   const chosen = director.composition.structure;
@@ -574,9 +590,18 @@ export function withConceptStructure(director: DirectorOutput, concept: ConceptO
   if (chosen !== undefined && director.composition.structure_reason) {
     return { director, warning: `структура ${chosen} вместо ${st.value} (Concept, правило ${st.rule}): ${director.composition.structure_reason}` };
   }
+  const misfit = structureFit(director.spec, st.value);
+  if (misfit.length > 0) {
+    return {
+      director,
+      warning: `структура ${chosen ?? "не задана"} без structure_reason, Concept выбрал ${st.value} (правило ${st.rule}), но фазы под неё не разложены (${misfit.join("; ")}) — оставлена ${chosen ?? "build-strike"}`,
+      note: `- structure: Concept выбрал ${st.value} (правило ${st.rule}), а фазы разложены под ${chosen ?? "build-strike"} — разложи фазы под ${st.value} (${misfit.join("; ")}) или дай structure_reason`,
+    };
+  }
   return {
     director: { ...director, composition: { ...director.composition, structure: st.value } },
     warning: `структура ${chosen ?? "не задана"} без structure_reason → ${st.value} (Concept, правило ${st.rule})`,
+    note: `- structure: структура заменена на ${st.value} (Concept, правило ${st.rule}) — разложи фазы под неё или дай structure_reason`,
   };
 }
 
@@ -621,7 +646,11 @@ export async function directorStep(
     if (!planned.ok) {
       rc.note("director", `план битов не построен (раунд ${round}): ${planned.message}`);
       if (round === 2) return { ok: false, stage: "director", message: planned.message };
-      fix = `- beat_plan (spec): ${planned.message} → у каждого бита — фаза из phases (или оба кадра у бита вне фаз), id фаз и элементов существуют`;
+      // проверка фаз уже говорит, что исправить; общий хвост — только когда spec не собрать
+      const line = planned.reason === "schema"
+        ? `- beat_plan (spec): ${planned.message} → у каждого бита — фаза из phases (или оба кадра у бита вне фаз), id фаз и элементов существуют`
+        : `- beat_plan (phases): ${planned.message}`;
+      fix = [line, ...(chosen.note ? [chosen.note] : [])].join("\n");
       continue;
     }
     // счётчик за головой линии: бит счёта — окно головы (lineDrawWindow), не расчёт Director
@@ -635,7 +664,8 @@ export async function directorStep(
       rc.warnings.push(`Director выбрал пресет ${spec.style_preset}, в настройках ${s.style_preset}: оставлен пресет настроек`);
       spec.style_preset = s.style_preset;
     }
-    const checks = specChecks(spec, s, { previous });
+    const concept = conceptStructure(i.concept)?.value;
+    const checks = specChecks(spec, s, { previous, ...(concept ? { concept } : {}) });
     const blocking = checks.filter((x) => x.severity === "blocking");
     // подсказки Director (ruling P10): видны в журнале и идут в раунд исправления вместе с blocking
     const hints = checks.filter((x) => DIRECTOR_HINTS.has(x.code));
@@ -650,7 +680,8 @@ export async function directorStep(
     const text = blocking.map(line).join("\n");
     rc.note("director", `spec не прошла проверку (раунд ${round}):\n${text}`);
     if (round === 2) return { ok: false, stage: "director", message: `spec не прошла проверку после исправления:\n${text}` };
-    fix = hints.length > 0 ? `${text}\nПодсказки (не обязательны):\n${hints.map(line).join("\n")}` : text;
+    const notes = [...(chosen.note ? [chosen.note] : []), ...hints.map(line)];
+    fix = notes.length > 0 ? `${text}\nПодсказки (не обязательны):\n${notes.join("\n")}` : text;
     rc.log(`spec: ${blocking.length} blocking — Director исправляет`);
   }
   return { ok: false, stage: "director", message: "spec не получена" };
@@ -671,9 +702,10 @@ const DIRECTOR_HINTS = new Set(["placeholder_label", "purpose_claim", "scene_sig
 /** Самопроверка spec без LLM: удержание в конце и акцент. Нарушения — предупреждения. */
 export function specWarnings(spec: MotionSpec): string[] {
   const out: string[] = [];
-  const holds = spec.beats.filter((b) => beatKind(b) === "hold");
+  const holds = spec.beats.filter((b) => isHoldBeat(b));
   if (!holds.some((b) => b.end_frame === spec.duration_frames)) out.push("нет бита hold, заканчивающегося последним кадром");
-  if (!spec.beats.some((b) => /(emphasis|accent|final|climax|peak|payoff)/i.test(b.action))) out.push("нет бита акцента");
+  // акцент — тем же признаком, что у specChecks и планировщика (kind: "accent" тоже)
+  if (!spec.beats.some((b) => isAccentBeat(b) || /(final|climax|peak|payoff)/i.test(b.action))) out.push("нет бита акцента");
   if (!spec.composition) out.push("нет composition");
   return out;
 }

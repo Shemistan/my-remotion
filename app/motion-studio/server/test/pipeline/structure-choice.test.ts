@@ -6,12 +6,19 @@ import { buildDirectorTask, conceptStructure, scenePropsStyle, sceneStyle, withC
 import { loadConfig } from "../../src/config.js";
 import { conceptOutput, directorOutput } from "./helpers.js";
 
-const phased = (structure?: "count-up" | "split-reveal", reason?: string) => {
+/** Фазы: две стороны (setup) — подходят под split-reveal; одна action — нет. */
+const SIDES = [
+  { id: "left", role: "setup" as const, weight: 1, element_ids: ["title"] },
+  { id: "right", role: "setup" as const, weight: 1, element_ids: ["chart"] },
+  { id: "race", role: "action" as const, weight: 2, element_ids: ["chart"] },
+];
+const ONE = [{ id: "p", role: "action" as const, weight: 1, element_ids: ["chart"] }];
+const phased = (structure?: "count-up" | "split-reveal" | "build-strike", reason?: string, phases: { id: string; role: "setup" | "action"; weight: number; element_ids: string[] }[] = SIDES) => {
   const o = directorOutput();
   return {
     ...o,
     composition: { ...o.composition, ...(structure ? { structure } : {}), ...(reason ? { structure_reason: reason } : {}) },
-    spec: { ...o.spec, phases: [{ id: "p", role: "action" as const, weight: 1, element_ids: ["chart"] }] },
+    spec: { ...o.spec, phases },
   };
 };
 const concept = conceptOutput({ structure: { rule: "two-sides", runner_up: "count-up", reason: "сравни A и B" } });
@@ -24,12 +31,21 @@ describe("структура Concept → Director", () => {
     expect(conceptStructure(old as typeof concept)).toBeUndefined();
   });
 
-  it("Director без структуры или с другой без причины — структура Concept и предупреждение", () => {
-    for (const d of [phased(), phased("count-up")]) {
+  it("Director без структуры или с другой без причины, фазы подходят под Concept — структура Concept, предупреждение и строка для раунда", () => {
+    for (const d of [phased(), phased("build-strike")]) {
       const r = withConceptStructure(d, concept);
       expect(r.director.composition.structure).toBe("split-reveal");
       expect(r.warning).toMatch(/split-reveal.*two-sides/);
+      expect(r.note).toMatch(/структура заменена на split-reveal \(Concept.*structure_reason/);
     }
+  });
+
+  it("фазы не подходят под структуру Concept — остаётся выбор Director, предупреждение и строка для раунда (s3afix-rereview m2)", () => {
+    const r = withConceptStructure(phased("build-strike", undefined, ONE), concept);
+    expect(r.director.composition.structure).toBe("build-strike");
+    expect(r.warning).toMatch(/build-strike.*split-reveal/);
+    expect(r.warning).toMatch(/сторон/);
+    expect(r.note).toMatch(/split-reveal.*structure_reason/);
   });
 
   it("другая структура с причиной — остаётся, причина в предупреждении; та же — без предупреждения", () => {

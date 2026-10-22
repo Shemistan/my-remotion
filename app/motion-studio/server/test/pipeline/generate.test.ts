@@ -191,6 +191,58 @@ describe("generateScene: проверка spec после Director (Task 17)", (
     expect(String(directors[1]!.input)).toContain("uniform_entrance");
   });
 
+  /** Spec с фазами (кадры ставит планировщик); `mode` — hold_mode фазы hold. */
+  const phasedOut = (mode?: "now-pulse") => {
+    const out = directorOutput();
+    out.spec.phases = [
+      { id: "p-setup", role: "setup", weight: 1, element_ids: ["title"] },
+      { id: "p-act", role: "action", weight: 3, element_ids: ["chart"] },
+      { id: "p-pay", role: "payoff", weight: 1, element_ids: ["chart"] },
+      { id: "p-hold", role: "hold", weight: 1, element_ids: ["chart", "title"], ...(mode ? { hold_mode: mode } : {}) },
+    ];
+    out.spec.beats = [
+      { id: "b1", phase: "p-setup", action: "title-entrance", description: "", element_ids: ["title"] },
+      { id: "b2", phase: "p-act", action: "chart-draw", description: "", element_ids: ["chart"] },
+      { id: "b3", phase: "p-pay", action: "final-emphasis", description: "", element_ids: ["chart"] },
+      { id: "b4", phase: "p-hold", action: "hold", description: "", element_ids: ["chart", "title"] },
+    ] as unknown as typeof out.spec.beats;
+    return out;
+  };
+
+  it("план битов: проверка фаз (нет hold_mode) — в раунд идёт её текст без общего хвоста про фазы битов (s3afix-rereview m4)", async () => {
+    let n = 0;
+    const agents = fakeAgents({ director: async () => ({ output: ++n === 1 ? phasedOut() : phasedOut("now-pulse") }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r.status).toBe("ready");
+    const second = String(agents.tasks.filter((t) => t.role === "motion_director")[1]!.input);
+    expect(second).toContain("hold_mode");
+    expect(second).not.toContain("у каждого бита");
+  });
+
+  it("план битов: бит без фазы и кадров — в раунд идёт подсказка про фазы битов", async () => {
+    let n = 0;
+    const broken = () => {
+      const o = phasedOut("now-pulse");
+      o.spec.beats = [...o.spec.beats, { id: "b5", action: "x-in", description: "", element_ids: ["title"] }] as typeof o.spec.beats;
+      return o;
+    };
+    const agents = fakeAgents({ director: async () => ({ output: ++n === 1 ? broken() : phasedOut("now-pulse") }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r.status).toBe("ready");
+    expect(String(agents.tasks.filter((t) => t.role === "motion_director")[1]!.input)).toContain("у каждого бита");
+  });
+
+  it("задача Engineer называет финал: режим удержания и бит hold (S3b)", async () => {
+    const agents = fakeAgents({ director: async () => ({ output: phasedOut("now-pulse") }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r.status).toBe("ready");
+    expect(agents.engineerCalls[0]!.input).toContain("финал: hold_mode now-pulse, бит hold `b4`");
+    // старая spec без фаз — режим по носителю итога (график → data-shimmer)
+    const legacy = fakeAgents({});
+    await generateScene("тест", s, await makeDeps(root, skills, { agents: legacy }));
+    expect(legacy.engineerCalls[0]!.input).toContain("финал: hold_mode data-shimmer, бит hold `b4`");
+  });
+
   it("не исправил со второго раза → failed/director, draft не создан", async () => {
     const agents = fakeAgents({ director: async () => ({ output: uniform() }) });
     const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
