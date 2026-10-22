@@ -4,11 +4,15 @@
 // S3-fix: `emphasis` — у «Учёта» свой акцент payoff (дышит только ореол узла: негатив QA
 // frozen); `inHold` — потоки графа с бита hold (как held-queue); носитель `radar` — RadarRing в
 // голом svg, в группе с фильтром и в сдвинутом слое (как дорожка LatencyRace).
+// S3-fix2: `stale` — потоки графа кончились задолго до hold (steady-flow никого не ведёт:
+// метки пробы нет, kit предупреждает); носитель `path` — PulseAlongPath с segments и своим
+// hold вне графа (метка steady-flow от самого импульса).
 import {
   AnimatedNumber,
   Background,
   Camera,
   Emphasis,
+  edgeSegment,
   type FlowEdge,
   FlowGraph,
   type FlowNode,
@@ -32,11 +36,11 @@ import type { HoldMode } from "@ms/contracts";
 import { useVideoConfig } from "remotion";
 
 type Window = { start_frame: number; end_frame: number };
-type Carrier = "graph" | "chart" | "race" | "timeline" | "number" | "radar";
+type Carrier = "graph" | "chart" | "race" | "timeline" | "number" | "radar" | "path";
 interface Props {
   timing: { duration_frames: number; beats: ({ id: string } & Window)[] };
   style: Omit<ResolveStyleInput, "fps">;
-  content: { carrier: Carrier; mode: HoldMode | "none"; camera?: boolean; emphasis?: boolean; inHold?: boolean };
+  content: { carrier: Carrier; mode: HoldMode | "none"; camera?: boolean; emphasis?: boolean; inHold?: boolean; stale?: boolean };
 }
 
 const EDGES: FlowEdge[] = [
@@ -46,9 +50,10 @@ const EDGES: FlowEdge[] = [
 ];
 const TRAVEL = 26;
 
-function Graph({ b, hold, emphasis, inHold }: { b: Record<string, Window>; hold?: Hold; emphasis?: boolean; inHold?: boolean }) {
-  // inHold: потоки идут только с бита hold (held-queue), их рёбра — в hold.edges
-  const flow = inHold ? b.hold! : b.action!;
+function Graph({ b, hold, emphasis, inHold, stale }: { b: Record<string, Window>; hold?: Hold; emphasis?: boolean; inHold?: boolean; stale?: boolean }) {
+  // inHold: потоки идут только с бита hold (held-queue), их рёбра — в hold.edges; stale:
+  // потоки кончились за ~2 с до hold, рёбра не перечислены — steady-flow их не продолжает
+  const flow = inHold ? b.hold! : stale ? { start_frame: b.action!.start_frame, end_frame: b.action!.start_frame + 30 } : b.action!;
   const a = (edge: string) => pulseArrival(edge, flow, TRAVEL);
   const nodes: FlowNode[] = [
     { id: "api", kind: "client", label: "Заказы", caption: "producer", x: 0, y: 140, w: 290, h: 180, enter: "slide" },
@@ -115,10 +120,24 @@ const POINTS = [
   { label: "2022", value: 410 }, { label: "2023", value: 640 }, { label: "2024", value: 980 },
 ];
 
-function Hero({ c, b, hold, emphasis, inHold }: { c: Carrier; b: Record<string, Window>; hold?: Hold; emphasis?: boolean; inHold?: boolean }) {
+/** Поток вне графа (S3-fix2 I2): свой путь `segments` и свой `hold`. */
+function OwnPath({ b, hold }: { b: Record<string, Window>; hold?: Hold }) {
+  const seg = [edgeSegment({ x: 120, y: 300 }, { x: 1500, y: 300 }, "h")];
+  return (
+    <div style={{ position: "absolute", inset: 0 }}>
+      <svg width={1700} height={600} style={{ position: "absolute", inset: 0 }}>
+        <path d={`M 120 300 L 1500 300`} stroke="#5a6680" strokeWidth={3} />
+      </svg>
+      <PulseAlongPath segments={seg} beat={b.action!} travel={TRAVEL} size={10} tail={170} hold={hold} />
+    </div>
+  );
+}
+
+function Hero({ c, b, hold, emphasis, inHold, stale }: { c: Carrier; b: Record<string, Window>; hold?: Hold; emphasis?: boolean; inHold?: boolean; stale?: boolean }) {
   const s = useStyle();
   const { height } = useVideoConfig();
-  if (c === "graph") return <div style={{ position: "absolute", left: 70, top: 220 }}><Graph b={b} hold={hold} emphasis={emphasis} inHold={inHold} /></div>;
+  if (c === "graph") return <div style={{ position: "absolute", left: 70, top: 220 }}><Graph b={b} hold={hold} emphasis={emphasis} inHold={inHold} stale={stale} /></div>;
+  if (c === "path") return <OwnPath b={b} hold={hold} />;
   if (c === "radar") return <Radar hold={hold} />;
   if (c === "chart") return <div style={{ position: "absolute", left: 180, top: 160 }}><LineChart points={POINTS} beat={{ start_frame: b.build!.start_frame, end_frame: b.action!.end_frame }} width={1360} height={640} valueSuffix=" тыс." hold={hold} /></div>;
   if (c === "race") {
@@ -155,7 +174,7 @@ export const Scene = ({ timing, style, content }: Props) => {
         <Background seed={`hold-${content.carrier}`} />
         <SafeArea>
           <Kicker text={`финал · ${content.mode}`} />
-          <Hero c={content.carrier} b={b} hold={hold} emphasis={content.emphasis} inHold={content.inHold} />
+          <Hero c={content.carrier} b={b} hold={hold} emphasis={content.emphasis} inHold={content.inHold} stale={content.stale} />
         </SafeArea>
       </Camera>
     </StyleProvider>

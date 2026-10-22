@@ -54,20 +54,36 @@ export interface LayoutFrame {
 }
 
 /**
- * Метки hold engine для пробы (S3-fix I3): `useHold` в удержании отмечает режим, проба
- * раскладки кадра-стоп сбрасывает набор до сцены и читает его после. Пиксели N−20…N−1 не
- * отличают «дышит только ореол узла» от волны now-pulse — отличает то, что финал ведёт kit.
+ * Метки hold engine для пробы (S3-fix I3, S3-fix2): носитель движения финала (импульс
+ * steady-flow в пути, волна now-pulse героя, повтор repeat-result, блик data-shimmer, наезд
+ * settle-push, `useHold` своего слоя) отмечает режим, когда в этом кадре он и правда ведёт
+ * финал. Пиксели N−20…N−1 не отличают «дышит только ореол узла» от волны now-pulse — отличает
+ * то, что финал ведёт kit. Метки привязаны к кадру: обёртка пробы объявляет кадр рендера
+ * (`beginHoldFrame`), метки ложатся в него, проба читает метки своего кадра — поддерево,
+ * которое React не перерисовал в этом коммите (memo), не стирает метки кадра.
  */
 // состояние модуля: проба и kit — один бандл, один экземпляр модуля (без глобалов окружения)
-const marks: { set: Set<string> | null } = { set: null };
+const marks: { frame: number | null; byFrame: Map<number, Set<string>> } = { frame: null, byFrame: new Map() };
+/** Кадр рендера (обёртка пробы): метки других кадров отбрасываются, метки этого — остаются. */
+export function beginHoldFrame(frame: number): void {
+  for (const f of [...marks.byFrame.keys()]) if (f !== frame) marks.byFrame.delete(f);
+  marks.frame = frame;
+}
+/** Полный сброс (тесты; вне пробы меток нет). */
 export function resetHoldMarks(): void {
-  marks.set = new Set<string>();
+  marks.frame = null;
+  marks.byFrame.clear();
 }
 export function markHold(mode: string): void {
-  marks.set?.add(mode);
+  if (marks.frame === null) return;
+  const set = marks.byFrame.get(marks.frame) ?? new Set<string>();
+  set.add(mode);
+  marks.byFrame.set(marks.frame, set);
 }
-export function holdMarks(): string[] {
-  return marks.set ? [...marks.set].sort() : [];
+/** Режимы кадра `frame` (по умолчанию — объявленного), по алфавиту. */
+export function holdMarks(frame: number | null = marks.frame): string[] {
+  const set = frame === null ? undefined : marks.byFrame.get(frame);
+  return set ? [...set].sort() : [];
 }
 
 /** Ниже этой прозрачности текст не считается видимым (силуэты, приглушённый кикер, уходящий статус). */

@@ -3,13 +3,13 @@
 import { describe, expect, it } from "vitest";
 import { cameraAt, cameraHoldAt, settlePushHeadroom } from "../../src/motion-kit/choreo/camera.js";
 import { HOLD_RATE, type Hold, holdAt, holdTicks, holdTiming, repeatTick } from "../../src/motion-kit/choreo/hold.js";
-import { pathStarts } from "../../src/motion-kit/choreo/pulse.js";
+import { pathStarts, steadyContinues, steadyLive } from "../../src/motion-kit/choreo/pulse.js";
 import { emphasisHold, haloLevel, holdAccent } from "../../src/motion-kit/components/Emphasis.js";
-import { type FlowEdge, type FlowNode, flowHoldPlan, flowTiming, shimmerPaths } from "../../src/motion-kit/components/FlowGraph.js";
+import { type FlowEdge, type FlowNode, flowHoldMarks, flowHoldPlan, flowTiming, shimmerPaths, steadyFlowIssue } from "../../src/motion-kit/components/FlowGraph.js";
 import { latencyTiming } from "../../src/motion-kit/components/LatencyRace.js";
 import { accentPulse } from "../../src/motion-kit/choreo/accent.js";
 import { edgeSegment } from "../../src/motion-kit/geometry.js";
-import { holdMarks, markHold, resetHoldMarks } from "../../src/motion-kit/layout-probe.js";
+import { beginHoldFrame, holdMarks, markHold, resetHoldMarks } from "../../src/motion-kit/layout-probe.js";
 import { resolveStyle } from "../../src/motion-kit/style/resolve.js";
 
 const s = resolveStyle({ preset: "dark-premium", intensity: "balanced" });
@@ -221,16 +221,75 @@ describe("holdAccent: вход в удержание без скачка оре�
   }
 });
 
-describe("метки hold engine для пробы QA (S3-fix I3)", () => {
-  it("сброс → метки режимов → список без повторов; сброс очищает", () => {
+describe("метки hold engine для пробы QA (S3-fix I3, S3-fix2)", () => {
+  it("кадр объявлен → метки режимов → список без повторов; вне пробы меток нет", () => {
     resetHoldMarks();
+    markHold("steady-flow");
     expect(holdMarks()).toEqual([]);
+    beginHoldFrame(170);
     markHold("steady-flow");
     markHold("now-pulse");
     markHold("steady-flow");
-    expect(holdMarks()).toEqual(["now-pulse", "steady-flow"]);
+    expect(holdMarks(170)).toEqual(["now-pulse", "steady-flow"]);
     resetHoldMarks();
-    expect(holdMarks()).toEqual([]);
+    expect(holdMarks(170)).toEqual([]);
+  });
+  it("метки привязаны к кадру (m3): повторный рендер того же кадра без перерисовки носителя их не стирает", () => {
+    resetHoldMarks();
+    beginHoldFrame(179);
+    markHold("now-pulse");
+    // обёртка перерисована, memo-поддерево с носителем — нет
+    beginHoldFrame(179);
+    expect(holdMarks(179)).toEqual(["now-pulse"]);
+    // новый кадр: метки старого отброшены, у нового — только свои
+    beginHoldFrame(180);
+    expect(holdMarks(180)).toEqual([]);
+    expect(holdMarks(179)).toEqual([]);
+  });
+});
+
+describe("метка — от движения, не от режима (S3-fix2 I1, I2)", () => {
+  const h = H("steady-flow", 120);
+  it("I1: поток кончился за 60 кадров до удержания, без edges — ни метки, ни продолжения; граф предупреждает", () => {
+    const early = { beat: { start_frame: 10, end_frame: 60 } };
+    const { starts, pass } = pathStarts(seg, early, s, 30, 0, { hold: h, end: 180, edgeId: "e" });
+    expect(steadyContinues(starts, 120)).toBe(false);
+    for (let f = 120; f < 180; f++) expect(steadyLive(starts, pass, 120, f), `кадр ${f}`).toBe(false);
+    const m = steadyFlowIssue("steady-flow", { total: 3, live: 0 });
+    expect(m).toMatch(/hold\.edges/);
+    // поток идёт — предупреждения нет; потоков на рёбрах графа нет (рисуют снаружи) — тоже
+    expect(steadyFlowIssue("steady-flow", { total: 3, live: 1 })).toBeNull();
+    expect(steadyFlowIssue("steady-flow", { total: 0, live: 0 })).toBeNull();
+    expect(steadyFlowIssue("now-pulse", { total: 3, live: 0 })).toBeNull();
+  });
+  it("I1: проход, начатый до удара и доигрывающий в удержании, — не steady-flow", () => {
+    const { starts, pass } = pathStarts(seg, { beat: { start_frame: 20, end_frame: 118 }, repeat: false }, s, 30, 0, { hold: h, end: 180 });
+    expect(starts.some((t) => t + pass > 120)).toBe(false);
+    const late = [110];
+    expect(steadyLive(late, 30, 120, 125)).toBe(false);
+  });
+  it("I2: PulseAlongPath со своим hold вне графа (segments) идёт в удержании — метка есть до N−1", () => {
+    const own = { beat: { start_frame: 20, end_frame: 180 } };
+    const { starts, pass } = pathStarts(seg, own, s, 30, 0, { hold: h, end: 180 });
+    expect(steadyContinues(starts, 120)).toBe(true);
+    expect(steadyLive(starts, pass, 120, 160)).toBe(true);
+    expect(steadyLive(starts, pass, 120, 179)).toBe(true);
+    expect(steadyLive(starts, pass, 120, 119)).toBe(false);
+  });
+  it("граф метит только то, что рисует сам и что в плане финала есть", () => {
+    const nodes: FlowNode[] = [{ id: "a", label: "A", x: 0, y: 0, w: 200, h: 90 }, { id: "b", label: "B", x: 400, y: 0, w: 200, h: 90 }];
+    const edges: FlowEdge[] = [{ id: "ab", from: "a", to: "b" }];
+    const t = flowTiming(nodes, edges, { start_frame: 0, end_frame: 60 }, s, 30);
+    const plan = (mode: Hold["mode"], start = 120) => flowHoldPlan(nodes, edges, t.edges, H(mode, start), s, 30, 180);
+    expect(flowHoldMarks(plan("steady-flow"), "steady-flow")).toEqual([]);
+    expect(flowHoldMarks(plan("now-pulse"), "now-pulse")).toEqual(["now-pulse"]);
+    expect(flowHoldMarks(plan("settle-push"), "settle-push")).toEqual(["settle-push"]);
+    expect(flowHoldMarks(plan("data-shimmer"), "data-shimmer")).toEqual(["data-shimmer"]);
+    expect(flowHoldMarks(plan("repeat-result"), "repeat-result")).toEqual(["repeat-result"]);
+    // повтор не помещается (удержание с N−1): repeat нет — и метки нет
+    expect(flowHoldMarks(plan("repeat-result", 179), "repeat-result")).toEqual([]);
+    expect(flowHoldMarks({ hero: plan("data-shimmer")!.hero, repeat: null, shimmer: [] }, "data-shimmer")).toEqual([]);
+    expect(flowHoldMarks(null, "now-pulse")).toEqual([]);
   });
 });
 

@@ -7,7 +7,7 @@
 import type { ComponentType } from "react";
 import { useLayoutEffect, useRef } from "react";
 import { continueRender, delayRender, getInputProps, useCurrentFrame, useVideoConfig } from "remotion";
-import { LAYOUT_TAG, type RawText, holdMarks, resetHoldMarks, summarizeLayout, textLineItems } from "../motion-kit/layout-probe.js";
+import { LAYOUT_TAG, type RawText, beginHoldFrame, holdMarks, summarizeLayout, textLineItems } from "../motion-kit/layout-probe.js";
 
 /** Флаг пробы во входных props кадров-стоп. */
 export const PROBE_PROP = "__msLayoutProbe";
@@ -97,7 +97,7 @@ function Probe() {
         }
         const root = el.parentElement ?? document.body;
         const raw = box ? collectText(root, { x: box.left, y: box.top }) : [];
-        console.log(`${LAYOUT_TAG} ${JSON.stringify({ ...summarizeLayout(frame, height, raw), holds: holdMarks(), ...(box ? {} : { unmeasured: true }) })}`);
+        console.log(`${LAYOUT_TAG} ${JSON.stringify({ ...summarizeLayout(frame, height, raw), holds: holdMarks(frame), ...(box ? {} : { unmeasured: true }) })}`);
       } finally {
         continueRender(handle);
       }
@@ -109,8 +109,9 @@ function Probe() {
 /** Сцена с пробой раскладки рядом (тот же корень — композиция). */
 export function withLayoutProbe<P extends object>(Scene: ComponentType<P>): ComponentType<P> {
   const Wrapped = (props: P) => {
-    // метки hold engine этого рендера: сброс до сцены, проба читает после (S3-fix I3)
-    resetHoldMarks();
+    // метки hold engine — по кадру рендера: объявлен до сцены, проба читает метки своего
+    // кадра (S3-fix2: memo-поддерево без перерисовки не стирает метки кадра)
+    beginHoldFrame(useCurrentFrame());
     return (
       <>
         <Scene {...props} />

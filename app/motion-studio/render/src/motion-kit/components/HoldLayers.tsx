@@ -16,21 +16,30 @@ import { accent, alpha, fontFamily, isDark, mix, radius, surfaceAt } from "../to
  * Кадр удержания для своих слоёв сцены (хук): `useHold(mode, beat)` или `useHold(hold)`;
  * якорь — длительность композиции. Блик — `sweep`/`sweepAlpha` (доля пути), волна —
  * `ripple`/`rippleAlpha`, дыхание — `breath × live`, наезд — `push`, тик — `tick.age`
- * (подпись — `tickLabel(age, style)`). До удержания — покой (`on: false`).
+ * (подпись — `tickLabel(age, style)`). До удержания — покой (`on: false`). Свой слой на
+ * этом хуке объявляет пробе QA, что финал ведёт он: рисуй им движение режима, не ореол.
  */
 export function useHold(mode: HoldMode | Hold | undefined, beat?: Pick<Beat, "start_frame" | "end_frame">): HoldFrame | null {
-  const s = useStyle();
-  const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
   const h: Hold | undefined = typeof mode === "string" ? (beat ? { mode, beat } : undefined) : mode;
-  if (!h) return null;
-  const f = holdAt(frame, h, s, durationInFrames);
+  const f = useHoldQuiet(h);
   // метка для пробы раскладки QA: финал этого кадра ведёт hold engine
-  if (f.on) markHold(h.mode);
+  if (f?.on) markHold(h!.mode);
   return f;
 }
 
-/** Кадр удержания для текущего кадра (хук): `useHold(hold)` — якорь длительность сцены. */
+/**
+ * Кадр удержания без метки пробы (носители kit, S3-fix2): носитель метит режим сам — только
+ * когда его движение в кадре есть (импульс в пути, волна героя, повтор, блик), а не когда
+ * режим включён.
+ */
+export function useHoldQuiet(h: Hold | undefined): HoldFrame | null {
+  const s = useStyle();
+  const frame = useCurrentFrame();
+  const { durationInFrames } = useVideoConfig();
+  return h ? holdAt(frame, h, s, durationInFrames) : null;
+}
+
+/** Кадр удержания для текущего кадра (хук, с меткой режима): `useHold(hold)`. */
 export const useHoldFrame = (hold: Hold | undefined) => useHold(hold);
 
 /**

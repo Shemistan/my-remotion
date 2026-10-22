@@ -4,12 +4,14 @@
 // проходит; схема без hold (контроль) — застывшая, blocking. S3-fix: негатив «дышит только
 // ореол узла» (`graph-none-emph`), светлый пресет (`*-light`), потоки с бита hold (`*-inhold`).
 import { readdirSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type HoldMode, type QAIssue, type Settings, defaultSettings } from "@ms/contracts";
 import { resolveStyle } from "@ms/render";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { programmaticChecks } from "../../src/qa/programmatic.js";
-import { beat, el, renderResult, spec } from "./helpers.js";
+import { Canvas, beat, el, makeTmp, removeTmp, renderResult, spec } from "./helpers.js";
 
 const DIR = fileURLToPath(new URL("../fixtures/hold-frames/", import.meta.url));
 const settings: Settings = { ...defaultSettings(), width: 640, height: 360, safe_area: { x: 0.06, y: 0.08 } };
@@ -25,7 +27,7 @@ const specOf = (mode?: HoldMode, preset: "dark-premium" | "light-clean" = "dark-
 
 const presetOf = (variant: string) => (variant.endsWith("-light") ? "light-clean" : "dark-premium");
 
-/** Строка пробы раскладки кадра 179: `holds` — режимы, которые ведёт hold engine (kit 0.5.2). */
+/** Строка пробы раскладки кадра 179: `holds` — режимы, которые ведёт hold engine (kit 0.5.2+). */
 const probe = (holds: string[]) => `[log] [motion-kit:layout] ${JSON.stringify({ frame: 179, height: 360, items: [], ghosts: [], holds })}`;
 
 /** `holds` — метки пробы (undefined — пробы нет: только пиксели). */
@@ -40,7 +42,8 @@ async function frozen(variant: string, mode?: HoldMode, holds?: string[]): Promi
 }
 
 const BLOCKING = expect.objectContaining({ code: "frozen", severity: "blocking", area: "hold" });
-const CONTROLS = ["graph-none", "graph-none-light", "graph-none-emph"];
+// S3-fix2 I1: steady-flow, потоки кончились задолго до hold, дышит ореол узла — kit 0.5.3 метки не ставит
+const CONTROLS = ["graph-none", "graph-none-light", "graph-none-emph", "graph-steady-flow-stale"];
 
 describe("frozen на реальных финалах графа", () => {
   // контроль без hold и негатив «дышит только ореол узла» (motion-review-2 §4.3): при любом
@@ -74,5 +77,41 @@ describe("frozen на реальных финалах графа", () => {
   });
   it.each(modes)("%s: и в старой spec без фаз — без frozen", async (v) => {
     expect(await frozen(v, undefined, [modeOf(v)])).toEqual([]);
+  });
+});
+
+describe("frozen: мера в коробке схемы и подсказка (S3-fix2)", () => {
+  let tmp: string;
+  beforeAll(async () => {
+    tmp = await makeTmp();
+  });
+  afterAll(() => removeTmp(tmp));
+  /** Схема (карточки) стоит, справа вне схемы бежит точка фона (частица, блик спотлайта). */
+  const frame = (dotY: number) => new Canvas(640, 360, "#101010").rect(60, 80, 120, 70, "#3a4a6a").rect(220, 80, 120, 70, "#3a4a6a").rect(560, dotY, 14, 14, "#e8e8e8");
+  async function run(layout: boolean, holds?: string[]) {
+    const paths = [] as { frame: number; path: string }[];
+    for (const [f, y] of [[160, 40], [179, 140]] as const) {
+      const path = join(tmp, `m1-${f}.png`);
+      await writeFile(path, frame(y).png());
+      paths.push({ frame: f, path });
+    }
+    const sp = specOf("steady-flow");
+    const graph = layout ? { ...sp.elements[0]!, layout: { x: 0, y: 0, w: 0.6, h: 0.7 } } : sp.elements[0]!;
+    const r = await programmaticChecks({
+      frames: paths, spec: { ...sp, elements: [graph] }, settings, style: resolveStyle({ preset: "dark-premium", intensity: "balanced" }),
+      render: renderResult(holds ? { browserLogs: [probe(holds)] } : {}), previewBytes: 1000, accentFrames: paths,
+    });
+    return r.filter((i) => i.code === "frozen");
+  }
+  it("m1: живая точка фона вне схемы не оживляет застывшую схему — мера по раскладке графа", async () => {
+    expect(await run(true)).toContainEqual(BLOCKING);
+    expect(await run(true, ["steady-flow"])).toContainEqual(BLOCKING);
+  });
+  it("m1: без раскладки графа — весь кадр (как раньше)", async () => {
+    expect(await run(false)).toEqual([]);
+  });
+  it("I1: подсказка steady-flow называет hold.edges", async () => {
+    const [i] = await frozen("graph-none-emph", "steady-flow", []);
+    expect(i!.fix_hint).toMatch(/hold\.edges/);
   });
 });

@@ -4,7 +4,7 @@
 // рельсы рёбер — кадр-постер. Дочерние элементы (PulseAlongPath) рисуются в той же системе
 // координат над рёбрами; узел вспыхивает в кадр прихода импульса (FlowNode.flash).
 import type { Beat, StyleBible } from "@ms/contracts";
-import { type CSSProperties, type ReactNode, createContext, useContext, useRef } from "react";
+import { type CSSProperties, type ReactNode, createContext, useContext, useLayoutEffect, useRef } from "react";
 import { interpolate, random, useCurrentFrame, useVideoConfig } from "remotion";
 import { ACCENT_REST, type AccentPulse, accentPulse } from "../choreo/accent.js";
 import { type Hold, holdTicks, repeatTick } from "../choreo/hold.js";
@@ -20,7 +20,8 @@ import { useStyle } from "../style.js";
 import { type Elevation, accent, alpha, fontFamily, isDark, mix, radius, space, surfaceAt } from "../tokens.js";
 import { type CardEnter, cardEnterStyle, cardSurface } from "./Card.js";
 import { Halo } from "./Emphasis.js";
-import { CardRadar, Comet, TickLabel, useHoldFrame } from "./HoldLayers.js";
+import { markHold } from "../layout-probe.js";
+import { CardRadar, Comet, TickLabel, useHoldQuiet } from "./HoldLayers.js";
 import { PulseTrails } from "./PulseAlongPath.js";
 import {
   type FlowNodeKind,
@@ -170,6 +171,11 @@ interface FlowGeometry {
   tokens: TokenBook;
   /** Удержание графа (0.5.0): PulseAlongPath и счётчики режут и продолжают потоки по нему. */
   hold?: Omit<FlowHoldCtx, "edgeId">;
+  /**
+   * Учёт потоков steady-flow (S3-fix2): импульсы графа отмечают себя (`total`) и то, что
+   * продолжаются в удержании (`live`); граф предупреждает, если steady-flow не ведёт ни один.
+   */
+  steady?: { total: number; live: number };
 }
 
 const FlowContext = createContext<FlowGeometry | null>(null);
@@ -338,6 +344,31 @@ export function flowHoldPlan(nodes: FlowNode[], edges: FlowEdge[], geo: Readonly
 }
 
 /**
+ * Метки пробы QA от графа (S3-fix2 I1): режимы, движение которых граф рисует сам и которое
+ * в плане финала есть, — повтор к герою (repeat-result с тиками), блик по цепочке к герою
+ * (data-shimmer с путями), волна радара героя (now-pulse), дыхание героя под наездом камеры
+ * (settle-push). steady-flow граф не метит: потоки рисуют импульсы (PulseAlongPath метит сам,
+ * когда его поток в удержании правда идёт).
+ */
+export function flowHoldMarks(fin: Pick<NonNullable<ReturnType<typeof flowHoldPlan>>, "repeat" | "shimmer" | "hero"> | null, mode: Hold["mode"] | undefined): string[] {
+  if (!fin || !mode) return [];
+  if (mode === "repeat-result") return fin.repeat ? [mode] : [];
+  if (mode === "data-shimmer") return fin.shimmer.length > 0 ? [mode] : [];
+  if (mode === "now-pulse" || mode === "settle-push") return fin.hero ? [mode] : [];
+  return [];
+}
+
+/**
+ * steady-flow без потока (S3-fix2): импульсы на рёбрах графа есть (`total`), но ни один не
+ * продолжается в удержании (`live` 0) — финал стоит. null — всё в порядке (или потоков
+ * графа нет: их могут рисовать снаружи, `PulseAlongPath segments hold`).
+ */
+export function steadyFlowIssue(mode: Hold["mode"] | undefined, steady: { total: number; live: number }): string | null {
+  if (mode !== "steady-flow" || steady.total === 0 || steady.live > 0) return null;
+  return `FlowGraph hold steady-flow: ни один поток графа не продолжается в удержании (${steady.total} импульс(ов) кончились раньше) — финал стоит. Перечисли рёбра потоков в \`hold.edges\` или дай потоку бит до удара / в удержании.`;
+}
+
+/**
  * Дыхание героя финала поверх его вспышек: ореол 0.5 ± 0.2, масштаб ± 0.6 % — узел
  * «живой», без мигающей рамки. Сильнейшее из вспышки и дыхания.
  */
@@ -356,7 +387,16 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
   const holdCtx = hold ? { hold, end: durationInFrames, ...(hold.edges ? { edges: hold.edges } : {}) } : undefined;
   const { nodeStart, edgeStart, ready, edges: geo, drawLen, arrivals } = flowTiming(nodes, edges, beat, s, fps, holdCtx);
   const fin = flowHoldPlan(nodes, edges, geo, hold, s, fps, durationInFrames);
-  const hf = useHoldFrame(hold);
+  const hf = useHoldQuiet(hold);
+  // проба QA: режим метит тот, кто в этом кадре его рисует (S3-fix2 I1)
+  if (hf?.on) for (const m of flowHoldMarks(fin, hold?.mode)) markHold(m);
+  // учёт потоков steady-flow: импульсы отмечаются в рендере, проверка — после коммита детей
+  const steady = useRef({ total: 0, live: 0 });
+  steady.current = { total: 0, live: 0 };
+  useLayoutEffect(() => {
+    const m = steadyFlowIssue(hold?.mode, steady.current);
+    if (m) kitWarn(`steady-flow:${edges.map((e) => e.id).join(",")}`, m);
+  });
   // подпись тика — по тикам повтора (тот же список, что импульс и вспышка героя)
   const heroTick = fin?.repeat && hf?.on ? repeatTick(fin.repeat.ticks, frame) : null;
 
@@ -384,7 +424,7 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
   const book = useRef(new TokenBook());
 
   return (
-    <FlowContext.Provider value={{ edges: geo, nodes: nodeMap, links, slots, inbox: slots, status, ready, arrivals, tokens: book.current, ...(holdCtx ? { hold: holdCtx } : {}) }}>
+    <FlowContext.Provider value={{ edges: geo, nodes: nodeMap, links, slots, inbox: slots, status, ready, arrivals, tokens: book.current, steady: steady.current, ...(holdCtx ? { hold: holdCtx } : {}) }}>
       <div style={{ position: "relative", width: W, height: H }}>
         <svg width={W} height={H} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
           {edges.map((e) => {

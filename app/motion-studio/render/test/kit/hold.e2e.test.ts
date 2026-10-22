@@ -20,7 +20,7 @@ const STILLS = [0, 100, 127, 128, 129, 140, 150, 160, 170, 179];
 const OUT = join(REPO_TMP, "hold-gallery");
 
 /** Вариант галереи: носитель × режим (`none` — финал без hold, контроль) и опции S3-fix. */
-interface Variant { tag?: string; preset?: "light-clean"; emphasis?: boolean; inHold?: boolean }
+interface Variant { tag?: string; preset?: "light-clean"; emphasis?: boolean; inHold?: boolean; stale?: boolean }
 const VARIANTS: [string, string, Variant?][] = [
   ["graph", "none"], ["graph", "steady-flow"], ["graph", "repeat-result"], ["graph", "now-pulse"], ["graph", "data-shimmer"],
   ["chart", "none"], ["chart", "data-shimmer"], ["chart", "now-pulse"], ["chart", "repeat-result"],
@@ -37,7 +37,23 @@ const VARIANTS: [string, string, Variant?][] = [
   ["graph", "repeat-result", { tag: "light", preset: "light-clean" }],
   // RadarRing в голом svg, в группе с фильтром, в сдвинутом слое (I4: Page crashed в LatencyRace)
   ["radar", "now-pulse"],
+  // S3-fix2 I1: steady-flow, а потоки кончились за 2 с до hold, дышит только ореол «Учёта» —
+  // негатив: метки пробы нет, kit предупреждает (фикстура QA graph-steady-flow-stale)
+  ["graph", "steady-flow", { tag: "stale", stale: true, emphasis: true }],
+  // S3-fix2 I2: поток вне графа — PulseAlongPath segments со своим hold — метит steady-flow
+  ["path", "steady-flow"],
 ];
+
+/** Метки hold engine пробы кадра `frame` (строка `[motion-kit:layout]` логов). */
+const holdsAt = (logs: string[], frame: number): string[] | undefined => {
+  for (const l of logs) {
+    const i = l.indexOf("[motion-kit:layout]");
+    if (i < 0) continue;
+    const f = JSON.parse(l.slice(i + "[motion-kit:layout]".length)) as { frame: number; holds?: string[] };
+    if (f.frame === frame) return f.holds;
+  }
+  return undefined;
+};
 
 const base = JSON.parse(readFileSync(join(FIXTURES, "hold-gallery", "props.json"), "utf8")) as { content: Record<string, unknown>; style: Record<string, unknown> };
 const gray = (png: string) => execFileSync("ffmpeg", ["-v", "error", "-i", png, "-vf", "scale=480:270:flags=area,format=gray", "-f", "rawvideo", "-"], { maxBuffer: 1 << 24 });
@@ -92,12 +108,23 @@ it.each(VARIANTS.filter(([c]) => !ONLY || ONLY.includes(c)))("%s × %s %o: ре�
   const dir = await copyFixture("hold-gallery", join(tmp, name));
   // контроль — без камеры: в финале движется только фон
   const style = { ...base.style, ...(v.preset ? { preset: v.preset } : {}) };
-  writeFileSync(join(dir, "props.json"), JSON.stringify({ ...base, style, content: { carrier, mode, ...(mode === "none" ? { camera: false } : {}), ...(v.emphasis ? { emphasis: true } : {}), ...(v.inHold ? { inHold: true } : {}) } }));
+  writeFileSync(join(dir, "props.json"), JSON.stringify({ ...base, style, content: { carrier, mode, ...(mode === "none" ? { camera: false } : {}), ...(v.emphasis ? { emphasis: true } : {}), ...(v.inHold ? { inHold: true } : {}), ...(v.stale ? { stale: true, camera: false } : {}) } }));
   const r = await renderVersion({ ...req, versionDir: dir, run: { ...req.run, runId: name } });
   expect(r.error).toBeUndefined();
   expect(r.ok).toBe(true);
   expect(probeGate(r.probe!, req.settings, 0.5)).toEqual([]);
-  expect(r.browserLogs.filter((l) => l.startsWith("[error]")).slice(0, 3).join("\n")).toBe("");
+  const errors = r.browserLogs.filter((l) => l.startsWith("[error]"));
+  // метки пробы (S3-fix2): режим метит тот, кто в кадре его рисует
+  const holds = holdsAt(r.browserLogs, 179);
+  result.set(`${name}:holds`, (holds ?? []).length);
+  if (v.stale) {
+    expect(errors.join("\n")).toMatch(/steady-flow: ни один поток графа не продолжается/);
+    expect(holds).toEqual([]);
+  } else {
+    expect(errors.slice(0, 3).join("\n")).toBe("");
+    if (mode !== "none" && carrier !== "number" && carrier !== "radar") expect(holds, `${name}: метка режима в N−1`).toContain(mode);
+    if (mode === "none") expect(holds, `${name}: без hold меток нет`).toEqual([]);
+  }
   await mkdir(join(OUT, name), { recursive: true });
   STILLS.forEach((f, i) => copyFileSync(r.stills[i]!, join(OUT, name, `${f}.png`)));
   copyFileSync(r.previewPath!, join(OUT, `${name}.mp4`));
@@ -109,6 +136,7 @@ it.each(VARIANTS.filter(([c]) => !ONLY || ONLY.includes(c)))("%s × %s %o: ре�
   const entry = diff(still(127), still(128));
   const next = diff(still(128), still(129));
   result.set(`${name}:entry`, Number(entry.toFixed(3)));
+  if (v.stale) return;
   if (mode !== "none") expect(entry, `${name}: скачок на входе в удержание (${entry} при шаге ${next})`).toBeLessThan(Math.max(4, next * 2.5));
   if (mode !== "none") {
     const ctl = result.get(`${carrier}-none${v.tag ? `-${v.tag}` : ""}`);

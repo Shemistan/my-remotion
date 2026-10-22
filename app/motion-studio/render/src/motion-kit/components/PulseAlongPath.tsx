@@ -5,9 +5,10 @@
 import type { Beat } from "@ms/contracts";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import type { Hold } from "../choreo/hold.js";
-import { type ArrivalCount, EASE_PASS, type PathArrival, type PulseArrival, arrivalCount, pathArrivals, pathStarts } from "../choreo/pulse.js";
+import { type ArrivalCount, EASE_PASS, type PathArrival, type PulseArrival, arrivalCount, pathArrivals, pathStarts, steadyContinues, steadyLive } from "../choreo/pulse.js";
 import { type CubicSegment, type PathLUT, lutLength, pathLUT, pointAtLength, pointsBetween, polylineD } from "../geometry.js";
 import { CLAMP, kitWarn, useSvgId } from "../internal.js";
+import { markHold } from "../layout-probe.js";
 import { useStyle } from "../style.js";
 import { accent, mix } from "../tokens.js";
 import { useFlowGeometry } from "./FlowGraph.js";
@@ -40,6 +41,7 @@ export interface PulseAlongPathProps {
 
 export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size = 7, count = 1, travel, repeat = true, reverse = false, hold }: PulseAlongPathProps) {
   const s = useStyle();
+  const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const flow = useFlowGeometry();
   const seg = edgeId ? flow?.edges.get(edgeId) : undefined;
@@ -54,6 +56,15 @@ export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size
   const ready = (seg && edgeId && flow?.ready.get(edgeId)) || 0;
   const h = seg && flow?.hold ? { ...flow.hold, edgeId } : hold ? { hold, end: durationInFrames } : undefined;
   const { starts, pass } = pathStarts(path, { beat, travel, count, repeat }, s, fps, ready, h);
+  if (h?.hold.mode === "steady-flow") {
+    // метка пробы — от движения: поток правда идёт в этом кадре удержания (S3-fix2 I1, I2)
+    const hs = h.hold.beat.start_frame;
+    if (seg && flow?.steady) {
+      flow.steady.total++;
+      if (steadyContinues(starts, hs)) flow.steady.live++;
+    }
+    if (steadyLive(starts, pass, hs, frame)) markHold("steady-flow");
+  }
   return <PulseTrails lut={pathLUT(path, 40)} starts={starts} pass={pass} color={color} tail={tail} size={size} reverse={reverse} />;
 }
 

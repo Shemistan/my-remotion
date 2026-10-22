@@ -8,7 +8,8 @@ import { useCurrentFrame } from "remotion";
 import { type AccentPulse, type AccentPulseOptions, accentPulse } from "../choreo/accent.js";
 import { clamp01 } from "../internal.js";
 import { type Hold, type HoldFrame, holdTiming } from "../choreo/hold.js";
-import { useHoldFrame } from "./HoldLayers.js";
+import { markHold } from "../layout-probe.js";
+import { useHoldQuiet } from "./HoldLayers.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, isDark, mix, radius as radiusOf } from "../tokens.js";
 
@@ -184,9 +185,12 @@ export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, 
   const dark = isDark(s);
   const col = color ?? accent(s, accentIndex);
   const base = useAccentPulse(beat, { loop, strength });
-  const hf = useHoldFrame(hold);
+  const hf = useHoldQuiet(hold);
   const p = emphasisHold(base, hf, hold?.mode, s);
   const wave = hf?.on && hold!.mode === "now-pulse" && hf.ripple >= 0 ? hf.ripple : -1;
+  // проба QA (S3-fix2): Emphasis ведёт финал только волной now-pulse; ореол в такт тикам и
+  // бликам — акцент, не движение режима (его носитель — граф, график, гонка)
+  if (hf?.on && hold!.mode === "now-pulse") markHold("now-pulse");
   // кольцо: отходит от кромки цели на 4 → 30 px с торможением и гаснет
   const rp = p.ripple >= 0 ? 1 - (1 - p.ripple) ** 3 : 0;
   const offset = Number((4 + 26 * rp).toFixed(3));

@@ -91,6 +91,25 @@ export function pathStarts(segments: CubicSegment[], a: PathArrival, s: StyleBib
   return { starts: [...base, ...calm], pass, len };
 }
 
+/**
+ * steady-flow (S3-fix2): у потока в удержании начат новый проход — поток правда продолжается
+ * (а не только доигрывает проход, начатый до удара).
+ */
+export function steadyContinues(starts: readonly number[], holdStart: number): boolean {
+  return starts.some((t) => t >= holdStart);
+}
+
+/**
+ * steady-flow (S3-fix2): в кадре `frame` удержания поток ещё ведёт финал — от начала
+ * удержания до конца последнего прохода, видимого в нём. Проба QA метит режим по этому
+ * признаку, а не по включённому режиму: застывшая схема под steady-flow метки не получает.
+ */
+export function steadyLive(starts: readonly number[], pass: number, holdStart: number, frame: number): boolean {
+  if (frame < holdStart) return false;
+  const seen = starts.filter((t) => t + pass > holdStart);
+  return seen.length > 0 && steadyContinues(starts, holdStart) && frame < Math.max(...seen) + pass;
+}
+
 export interface ArrivalCount {
   /** Пришло импульсов к кадру. */
   count: number;

@@ -101,7 +101,7 @@ function holdFrozenIssues(spec: MotionSpec, settings: Settings, [fa, a]: [number
   if (!spec.elements.some((e) => e.kind === "graph")) return [];
   if (a.width !== b.width || a.height !== b.height) return [];
   const mode = holdModeFor(spec);
-  const fix_hint = `финал — \`hold={{ mode: "${mode}", beat: <бит hold> }}\` у FlowGraph (kit 0.5.x): steady-flow продолжает потоки, repeat-result — повтор к герою с подписью, now-pulse — волна от героя; дыхание ореола на одном узле не hold`;
+  const fix_hint = `финал — \`hold={{ mode: "${mode}", beat: <бит hold> }}\` у FlowGraph (kit 0.5.x): steady-flow продолжает только потоки, чьи рёбра перечислены в \`hold.edges\` (или шедшие до удара не раньше чем за 1,5 с) — перечисли их; поток вне графа — \`PulseAlongPath segments hold\`; repeat-result — повтор к герою с подписью, now-pulse — волна от героя; дыхание ореола на одном узле не hold`;
   const probe = layout.find((f) => f.frame === fb);
   const holdBeat = spec.beats.some((x) => isHoldBeat(x) && inBeat(x, fb, spec.duration_frames));
   if (holdBeat && probe && Array.isArray(probe.holds) && probe.holds.length === 0) {
@@ -109,7 +109,11 @@ function holdFrozenIssues(spec: MotionSpec, settings: Settings, [fa, a]: [number
   }
   const safe = safeRect({ width: a.width, height: a.height, safe_area: settings.safe_area });
   const layouts = spec.elements.filter((e) => e.layout && e.kind !== "group" && e.layout.w * e.layout.h < 0.9).map((e) => ({ x: safe.x + e.layout!.x * safe.w, y: safe.y + e.layout!.y * safe.h, w: e.layout!.w * safe.w, h: e.layout!.h * safe.h }));
-  const t = accentTileStats(a, b, [{ x: 0, y: 0, w: a.width, h: a.height }], layouts);
+  // мера — в коробке схемы (S3-fix2 m1): частица фона или дыхание вывода вне графа не
+  // оживляют застывшую схему; без раскладки графа — весь кадр
+  const px = (l: NonNullable<MotionSpec["elements"][number]["layout"]>) => ({ x: safe.x + l.x * safe.w, y: safe.y + l.y * safe.h, w: l.w * safe.w, h: l.h * safe.h });
+  const graphs = spec.elements.filter((e) => e.kind === "graph" && e.layout && e.layout.w > 0 && e.layout.h > 0).map((e) => px(e.layout!));
+  const t = accentTileStats(a, b, graphs.length > 0 ? graphs : [{ x: 0, y: 0, w: a.width, h: a.height }], layouts);
   const bar = Math.max(ACCENT_TILE_ABS, ACCENT_TILE_K * t.baseline);
   if (t.accent >= bar) return [];
   return [{
@@ -185,7 +189,9 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
         });
       }
     }
-    out.push(...edgeIssues(img, f.frame, input.settings));
+    // полноэкранный слой (пейзаж, небо) касается краёв задуманно — пиксельная обрезка не
+    // меряется; обрезанный текст ловит проба раскладки (textClipIssues) и под ним
+    if (!fullBleedAt(input.spec, f.frame)) out.push(...edgeIssues(img, f.frame, input.settings));
     if (!input.settings.transparent_export && !input.style.transparent) out.push(...exposedIssues(img, f.frame));
   });
 
@@ -205,6 +211,7 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
     out.push(...(await posterIssues(input.posterFrames)));
   }
   out.push(...layoutIssues(parseLayout(input.render.browserLogs)));
+  out.push(...textClipIssues(parseLayout(input.render.browserLogs), input.settings));
   out.push(...contrastIssues(input.style));
   out.push(...logIssues(input.render.browserLogs));
   if (input.previewBytes === 0) {
@@ -217,6 +224,57 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
     });
   }
   return out.map(programmatic);
+}
+
+/** Полноэкранный слой: раскладка от края до края safe area с этим допуском (доля). */
+const FULL_BLEED_TOL = 0.01;
+
+/**
+ * Полноэкранный слой в кадре (S3-fix2, user 02/04/06): элемент spec — не текст и не число —
+ * с раскладкой на всю safe area (x, y ≤ 1 %, правый и нижний край ≥ 99 %), вошедший к кадру
+ * (старт одного из его битов не позже кадра). Это фон или сцена во весь кадр: края кадра у
+ * него в «чернилах» задуманно, правило clipping по пикселям к такому кадру не применяется.
+ */
+export function fullBleedAt(spec: MotionSpec, frame: number): boolean {
+  const entered = (id: string) => spec.beats.some((b) => b.element_ids.includes(id) && b.start_frame <= frame);
+  return spec.elements.some((e) => {
+    const l = e.layout;
+    if (!l || e.kind === "text" || e.kind === "number") return false;
+    return l.x <= FULL_BLEED_TOL && l.y <= FULL_BLEED_TOL && l.x + l.w >= 1 - FULL_BLEED_TOL && l.y + l.h >= 1 - FULL_BLEED_TOL && entered(e.id);
+  });
+}
+
+/** Текст за краем кадра: доля прямоугольника строки вне кадра больше этой — обрезан. */
+const TEXT_CLIP_SHARE = 0.05;
+
+/**
+ * Обрезанный текст по пробе раскладки (S3-fix2): видимый текст выходит за край кадра —
+ * blocking clipping с id текста. Меряет данные, не пиксели: работает и под полноэкранным
+ * слоем, где пиксельное правило отключено.
+ */
+function textClipIssues(frames: LayoutFrame[], settings: Settings): Issue[] {
+  const out: Issue[] = [];
+  const seen = new Set<string>();
+  for (const f of frames) {
+    const k = f.height > 0 ? f.height / settings.height : 1;
+    const W = settings.width * k;
+    const Hh = settings.height * k;
+    for (const it of f.items) {
+      const r = it.rect;
+      const a = Math.max(0, r.w) * Math.max(0, r.h);
+      if (a <= 0 || seen.has(it.id)) continue;
+      const iw = Math.max(0, Math.min(W, r.x + r.w) - Math.max(0, r.x));
+      const ih = Math.max(0, Math.min(Hh, r.y + r.h) - Math.max(0, r.y));
+      if (1 - (iw * ih) / a <= TEXT_CLIP_SHARE) continue;
+      seen.add(it.id);
+      out.push({
+        code: "clipping", severity: "blocking", frame: f.frame, area: it.id,
+        description: `кадр ${f.frame}: текст «${it.text.slice(0, 40)}» выходит за край кадра`,
+        fix_hint: "сдвинь текст внутрь безопасной зоны или уменьши кегль / перенеси строку; на наезде камеры держи текст ближе к центру",
+      });
+    }
+  }
+  return out;
 }
 
 /**
