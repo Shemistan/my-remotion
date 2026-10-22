@@ -78,7 +78,11 @@ export function enterStyle(kind: EnterKind, p: number, o: EnterOptions): CSSProp
 /** Вид элемента до входа: `hidden` — пусто; `ghost` — резкий и приглушённый; `silhouette` — размытая форма. */
 export type EnterPre = "hidden" | "ghost" | "silhouette";
 
-/** Прозрачность силуэта / призрака до входа (15–25 %). */
+/**
+ * Прозрачность силуэта / призрака до входа. Силуэт — 30 %, не 15–25 % брифа: каркас без
+ * текста на 30 % даёт кадру 0 чернила 12–17 % (frame0_coverage ≥ 8 %, калибровка S2-fix),
+ * на 20 % тонкие контуры уходят к порогу.
+ */
 export const PRE_ALPHA: Readonly<Record<EnterPre, number>> = { hidden: 0, ghost: 0.18, silhouette: 0.3 };
 
 /**
@@ -96,4 +100,37 @@ export function posterStyle(pre: EnterPre, p: number): CSSProperties {
     out.WebkitTextFillColor = "transparent";
   }
   return out;
+}
+
+/**
+ * Прозрачность слоя-постера в кадре (чистая функция, S2-fix I4): до старта — PRE_ALPHA, с
+ * кадра старта гаснет линейно за `fade` кадров и дальше не возвращается. Слой лежит ПОД
+ * живым элементом, пока тот входит: бит с кадра 0 тоже даёт постер на кадре 0, а на смене
+ * силуэт → живой элемент нет провала (силуэт не исчезает в кадр, где вход ещё прозрачен).
+ */
+export function posterAlpha(pre: EnterPre, frame: number, start: number, fade: number): number {
+  const a = PRE_ALPHA[pre];
+  if (a === 0 || frame < start) return a;
+  return n(a * c01(1 - (frame - start) / Math.max(1, fade)));
+}
+
+/** Ключи стиля блока, которые ставят его в раскладку родителя (снаружи слоя-постера). */
+const OUTER_KEYS = new Set([
+  "position", "left", "top", "right", "bottom", "inset", "zIndex",
+  "width", "height", "minWidth", "maxWidth", "minHeight", "maxHeight",
+  "margin", "marginLeft", "marginRight", "marginTop", "marginBottom", "marginInline", "marginBlock",
+  "flex", "flexGrow", "flexShrink", "flexBasis", "alignSelf", "justifySelf", "order",
+  "gridArea", "gridRow", "gridColumn",
+]);
+
+/**
+ * Разбор стиля блока на внешний (место в раскладке родителя: позиция, размер, поля, flex)
+ * и внутренний (раскладка содержимого и вид) — для стопки «постер под живым элементом» в
+ * одной ячейке сетки.
+ */
+export function splitBoxStyle(style: CSSProperties | undefined): { outer: CSSProperties; inner: CSSProperties } {
+  const outer: Record<string, unknown> = {};
+  const inner: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(style ?? {})) (OUTER_KEYS.has(k) ? outer : inner)[k] = v;
+  return { outer: outer as CSSProperties, inner: inner as CSSProperties };
 }

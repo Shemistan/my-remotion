@@ -4,7 +4,7 @@
 // Пройденный шаг остаётся «сделанным» (контур и номер акцентом, карточка спокойная).
 // Коннектор к следующему шагу прорисовывается (`draw`) за время активного шага: стрелка с
 // наконечником или пунктир с бегущей точкой.
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { Beat } from "@ms/contracts";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import { EASE, easingOf, frames, springAt } from "../easing.js";
@@ -38,10 +38,10 @@ export function stepStarts(beat: Pick<Beat, "start_frame" | "end_frame">, n: num
 
 /** ProcessSteps с кадром-постером до бита (PosterGate). */
 export function ProcessSteps(props: ProcessStepsProps) {
-  return <PosterGate pre={props.pre} beat={props.beat} render={(css) => <ProcessStepsBody {...props} posterCss={css} />} />;
+  return <PosterGate pre={props.pre} beat={props.beat} render={(css, underlay) => <ProcessStepsBody {...props} posterCss={css} underlay={underlay} />} />;
 }
 
-function ProcessStepsBody({ steps, notes = [], beat, connector, width = 1690, height = 560, accentIndex = 0, posterCss }: ProcessStepsProps & { posterCss?: CSSProperties }) {
+function ProcessStepsBody({ steps, notes = [], beat, connector, width = 1690, height = 560, accentIndex = 0, posterCss, underlay }: ProcessStepsProps & { posterCss?: CSSProperties; underlay?: ReactNode }) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height: frameH } = useVideoConfig();
@@ -63,7 +63,8 @@ function ProcessStepsBody({ steps, notes = [], beat, connector, width = 1690, he
   const active = starts.reduce((acc, t, i) => (frame >= t ? i : acc), -1);
 
   return (
-    <div style={{ ...posterCss, position: "relative", width, height }}>
+    <div style={{ position: "relative", width, height, ...posterCss }}>
+      {underlay}
       {/* карточки шагов под номерами */}
       {steps.map((label, i) => {
         const t = starts[i]!;

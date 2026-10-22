@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { enterStyle, posterStyle } from "../../src/motion-kit/choreo/enter.js";
+import { PRE_ALPHA, enterStyle, posterAlpha, posterStyle, splitBoxStyle } from "../../src/motion-kit/choreo/enter.js";
 import { enterDuration } from "../../src/motion-kit/components/Enter.js";
 import { EASE } from "../../src/motion-kit/easing.js";
 import { resolveStyle } from "../../src/motion-kit/style/resolve.js";
@@ -130,5 +130,31 @@ describe("Enter pre: слой-постер до входа (0.4.0)", () => {
     expect(sil.WebkitTextFillColor).toBe("transparent");
     expect(String(sil.filter)).not.toMatch(/blur/);
     expect(posterStyle("ghost", 0).WebkitTextFillColor).toBeUndefined();
+  });
+});
+
+describe("S2-fix I4: слой-постер под входом (posterAlpha, splitBoxStyle)", () => {
+  it("бит с кадра 0: на кадре 0 силуэт виден (PRE_ALPHA), гаснет за fade кадров", () => {
+    expect(posterAlpha("silhouette", 0, 0, 8)).toBe(PRE_ALPHA.silhouette);
+    expect(posterAlpha("silhouette", 4, 0, 8)).toBeCloseTo(PRE_ALPHA.silhouette / 2, 5);
+    expect(posterAlpha("silhouette", 8, 0, 8)).toBe(0);
+    expect(posterAlpha("hidden", 0, 0, 8)).toBe(0);
+  });
+  it("переход силуэт → живой элемент без провала: до старта и в кадр старта — та же прозрачность", () => {
+    const start = 30;
+    expect(posterAlpha("silhouette", start - 1, start, 8)).toBe(PRE_ALPHA.silhouette);
+    expect(posterAlpha("silhouette", start, start, 8)).toBe(PRE_ALPHA.silhouette);
+    // худший случай — линейный fade-вход длиной len: видимость max(слой, вход) не ниже PRE_ALPHA / 2
+    const len = 24;
+    for (let f = start; f <= start + len; f++) {
+      const live = (f - start) / len;
+      expect(Math.max(posterAlpha("silhouette", f, start, len / 3), live)).toBeGreaterThanOrEqual(PRE_ALPHA.silhouette / 2 - 1e-9);
+    }
+  });
+  it("splitBoxStyle: позиция и размер — снаружи, раскладка содержимого и вид — внутри", () => {
+    const { outer, inner } = splitBoxStyle({ position: "absolute", left: 10, top: 20, width: 300, display: "flex", gap: 8, padding: 4, background: "#000" });
+    expect(outer).toEqual({ position: "absolute", left: 10, top: 20, width: 300 });
+    expect(inner).toEqual({ display: "flex", gap: 8, padding: 4, background: "#000" });
+    expect(splitBoxStyle(undefined)).toEqual({ outer: {}, inner: {} });
   });
 });

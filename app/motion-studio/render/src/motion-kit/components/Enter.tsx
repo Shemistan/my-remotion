@@ -5,7 +5,7 @@ import type { Beat, StyleBible } from "@ms/contracts";
 import type { CSSProperties, ReactNode } from "react";
 import { Freeze, useCurrentFrame, useVideoConfig } from "remotion";
 import { beatPhase } from "../beat.js";
-import { type EnterDirection, type EnterKind, type EnterPre, enterStyle, posterStyle } from "../choreo/enter.js";
+import { type EnterDirection, type EnterKind, type EnterPre, enterStyle, posterAlpha, posterStyle, splitBoxStyle } from "../choreo/enter.js";
 import { staggerBeat } from "../choreo/stagger.js";
 import { EASE, easingOf, fpsFrames, frames, springAt } from "../easing.js";
 import { ramp } from "../internal.js";
@@ -29,8 +29,9 @@ export interface EnterProps {
    * До входа (0.4.0): `hidden` (по умолчанию) — пусто; `silhouette` — каркас итогового вида
    * блока (Freeze на конце бита): формы резкие и обесцвеченные на 30 %, текст не рисуется;
    * `ghost` — итоговый вид с текстом на 18 %. С начала бита блок входит своим видом (тот же
-   * элемент — раскладка не прыгает). Работает и для детей со своим входом (AnimatedNumber,
-   * графики, ComparisonSplit): `kind="none"`.
+   * элемент — раскладка не прыгает), а постер лежит под ним и гаснет за первую треть входа:
+   * бит с кадра 0 тоже даёт кадр-постер. Работает и для детей со своим входом
+   * (AnimatedNumber, графики, ComparisonSplit): `kind="none"`.
    */
   pre?: EnterPre;
   style?: CSSProperties;
@@ -77,13 +78,20 @@ export function Enter({ kind, beat, index = 0, total = 1, direction, distance, d
     }
   }
 
-  // до старта — тот же блок (та же раскладка) в итоговом виде (Freeze на конце бита) слоем-постером
-  if (pre !== "hidden" && frame < w.start_frame) {
-    return (
-      <div aria-hidden style={{ ...style, ...posterStyle(pre, 0) }}>
-        <Freeze frame={Math.max(w.end_frame, w.start_frame + len)}>{children}</Freeze>
-      </div>
-    );
-  }
-  return <div style={{ ...style, ...anim }}>{children}</div>;
+  if (pre === "hidden") return <div style={{ ...style, ...anim }}>{children}</div>;
+  // постер: тот же блок в итоговом виде (Freeze на конце бита) в одной ячейке сетки с живым —
+  // до старта он один, на входе лежит под живым и гаснет за первую треть входа (бит с кадра 0
+  // тоже даёт кадр-постер, на смене нет провала). Сетка — на всех кадрах: раскладка не прыгает
+  const under = posterAlpha(pre, frame, w.start_frame, len / 3);
+  const { outer, inner } = splitBoxStyle(style);
+  return (
+    <div style={{ ...outer, display: "grid" }}>
+      {under > 0 ? (
+        <div aria-hidden style={{ ...inner, gridArea: "1 / 1", ...posterStyle(pre, 0), opacity: under }}>
+          <Freeze frame={Math.max(w.end_frame, w.start_frame + len)}>{children}</Freeze>
+        </div>
+      ) : null}
+      {frame >= w.start_frame ? <div style={{ ...inner, gridArea: "1 / 1", ...anim }}>{children}</div> : null}
+    </div>
+  );
 }

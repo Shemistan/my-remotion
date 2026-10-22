@@ -4,7 +4,7 @@
 // полосу-подсветку, остальные приглушаются. Шрифт — mono из StyleBible, цвета подсветки —
 // из палитры стиля.
 import type { Beat } from "@ms/contracts";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import type { Rect } from "../choreo/safe-area.js";
 import { enterStyle } from "../choreo/enter.js";
@@ -91,10 +91,10 @@ function windows(beat: Pick<Beat, "start_frame" | "end_frame">) {
 
 /** CodeBlock с кадром-постером до бита (PosterGate). */
 export function CodeBlock(props: CodeBlockProps) {
-  return <PosterGate pre={props.pre} beat={props.beat} render={(css) => <CodeBlockBody {...props} posterCss={css} />} />;
+  return <PosterGate pre={props.pre} beat={props.beat} render={(css, underlay) => <CodeBlockBody {...props} posterCss={css} underlay={underlay} />} />;
 }
 
-function CodeBlockBody({ code, lang, beat, highlightLines = [], title, width = 1100, fontSize = 30, style, posterCss }: CodeBlockProps & { posterCss?: CSSProperties }) {
+function CodeBlockBody({ code, lang, beat, highlightLines = [], title, width = 1100, fontSize = 30, style, posterCss, underlay }: CodeBlockProps & { posterCss?: CSSProperties; underlay?: ReactNode }) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height: frameH } = useVideoConfig();
@@ -137,7 +137,6 @@ function CodeBlockBody({ code, lang, beat, highlightLines = [], title, width = 1
   return (
     <div
       style={{
-        ...posterCss,
         position: "relative",
         width,
         height,
@@ -146,8 +145,10 @@ function CodeBlockBody({ code, lang, beat, highlightLines = [], title, width = 1
         overflow: "hidden",
         ...win,
         ...style,
+        ...posterCss,
       }}
     >
+      {underlay}
       {/* шапка окна */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, height: m.header, padding: `0 ${m.padX}px`, boxSizing: "border-box", background: alpha(dark ? "#000000" : s.palette.text, dark ? 0.18 : 0.03), boxShadow: `inset 0 -1px 0 ${alpha(s.palette.text, 0.07)}` }}>
         {[0, 1, 2].map((i) => (

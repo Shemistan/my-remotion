@@ -58,10 +58,10 @@ function Glyph({ tone, p, color, size }: { tone: "negative" | "positive" | "neut
 
 /** ComparisonSplit с кадром-постером до бита (PosterGate). */
 export function ComparisonSplit(props: ComparisonSplitProps) {
-  return <PosterGate pre={props.pre} beat={props.beat} render={(css) => <ComparisonSplitBody {...props} posterCss={css} />} />;
+  return <PosterGate pre={props.pre} beat={props.beat} render={(css, underlay) => <ComparisonSplitBody {...props} posterCss={css} underlay={underlay} />} />;
 }
 
-function ComparisonSplitBody({ left, right, beat, divider, emphasizeRight = true, style, posterCss }: ComparisonSplitProps & { posterCss?: CSSProperties }) {
+function ComparisonSplitBody({ left, right, beat, divider, emphasizeRight = true, style, posterCss, underlay }: ComparisonSplitProps & { posterCss?: CSSProperties; underlay?: ReactNode }) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
@@ -216,7 +216,8 @@ function ComparisonSplitBody({ left, right, beat, divider, emphasizeRight = true
   const vs = Math.round(height * 0.085);
 
   return (
-    <div style={{ ...posterCss, position: "relative", display: "flex", width: "100%", height: "100%", gap, ...style }}>
+    <div style={{ position: "relative", display: "flex", width: "100%", height: "100%", gap, ...style, ...posterCss }}>
+      {underlay}
       {panel(left, "left")}
       {panel(right, "right")}
       <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 0 }}>
