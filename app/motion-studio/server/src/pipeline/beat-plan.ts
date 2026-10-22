@@ -10,6 +10,8 @@ import { countBeat } from "./qa-frames.js";
 
 /** Действия, которые идут всё окно фазы: фон, рисование, счёт, поток, удержание. */
 const SUSTAIN = /(hold|draw|count(?!er)|flow|stream|background|bg-|loop|idle|travel|run)/i;
+/** Действия, ведущие к итогу (рисование, счёт): кончаются к выводу. */
+const PROGRESS = /(draw|count(?!er))/i;
 /** Ключи content с текстом, который зритель читает. */
 const TEXT_KEY = /^(text|label|title|caption|subtitle|value|prefix|suffix|unit|note|verdict)$/i;
 
@@ -88,7 +90,10 @@ export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Se
       own = [...own, { id: freeId(taken, `${p.id}-hold`), phase: p.id, span: "phase", action: "hold", description: `удержание${p.hold_mode ? ` (${p.hold_mode})` : ""}`, element_ids: p.element_ids }];
       changes.push(`в фазе ${p.id} нет бита hold — добавлен`);
     }
-    const len = w.end_frame - w.start_frame;
+    // фаза, которая идёт дальше вывода (continuous-flow): старты битов — до вывода, дальше
+    // живут только длящиеся
+    const past = p.role !== "payoff" && p.role !== "hold" && w.start_frame < plan.takeaway && w.end_frame > plan.takeaway;
+    const len = (past ? plan.takeaway : w.end_frame) - w.start_frame;
     // payoff — удар разом: каскад в 6 кадров (при 30 fps), всё до конца фазы — вывод не
     // входит в хвосте удара и читается всё время payoff + hold
     const payoff = p.role === "payoff";
@@ -96,7 +101,10 @@ export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Se
     const whole = own.map((b) => payoff || p.role === "hold" || (b.span ?? (SUSTAIN.test(b.action) ? "phase" : "slot")) === "phase");
     const place = (b: DirectorBeat | Beat, start: number, end: number) => {
       const s0 = Math.min(start, w.end_frame - 1);
-      out.push({ ...b, start_frame: s0, end_frame: Math.max(Math.min(end, w.end_frame), s0 + 1) } as Beat);
+      // рисование и счёт ведут к итогу: кончаются к выводу, даже если фаза идёт дальше
+      // (continuous-flow тянет действие до конца сцены — поток да, линия нет)
+      const cap = p.role !== "payoff" && p.role !== "hold" && PROGRESS.test(b.action) && s0 < plan.takeaway ? plan.takeaway : w.end_frame;
+      out.push({ ...b, start_frame: s0, end_frame: Math.max(Math.min(end, w.end_frame, cap), s0 + 1) } as Beat);
     };
     if (payoff) {
       own.forEach((b, k) => place(b, w.start_frame + k * step, w.end_frame));

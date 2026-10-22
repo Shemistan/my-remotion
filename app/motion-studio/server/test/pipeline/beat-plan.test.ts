@@ -107,6 +107,16 @@ describe("planSpecBeats", () => {
     expect(flow.start_frame).toBe(num.end_frame);
   });
 
+  it("continuous-flow: поток идёт до конца, а рисование и счёт кончаются к выводу (smoke s3a-ae70d94, gen-timeline)", () => {
+    const d = phasedSpec("continuous-flow");
+    d.beats = [...d.beats, { id: "b-draw", phase: "p-flow", action: "chart-draw", description: "", element_ids: ["graph"] }];
+    const r = ok(planSpecBeats(d, settings));
+    expect(beat(r.spec, "b-flow").end_frame).toBe(180);
+    expect(beat(r.spec, "b-draw").end_frame).toBe(r.plan!.takeaway);
+    // счётчик приходов идёт за потоком — до конца (тали приходов, а не удар)
+    expect(beat(r.spec, "b-hits").end_frame).toBe(180);
+  });
+
   it("counter-entrance — вход, а не счёт: не тянется на всю фазу", () => {
     const d = phasedSpec();
     d.beats = d.beats.map((b) => (b.id === "b-client" ? { ...b, action: "counter-entrance" } : b));
