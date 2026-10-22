@@ -7,16 +7,10 @@
 import type { ComponentType } from "react";
 import { useLayoutEffect, useRef } from "react";
 import { continueRender, delayRender, getInputProps, useCurrentFrame, useVideoConfig } from "remotion";
-import { type Box, LAYOUT_TAG, type RawText, summarizeLayout } from "../motion-kit/layout-probe.js";
+import { LAYOUT_TAG, type RawText, summarizeLayout } from "../motion-kit/layout-probe.js";
 
 /** Флаг пробы во входных props кадров-стоп. */
 export const PROBE_PROP = "__msLayoutProbe";
-
-const union = (a: Box, b: Box): Box => {
-  const x = Math.min(a.x, b.x);
-  const y = Math.min(a.y, b.y);
-  return { x, y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y };
-};
 
 /** Видимый текст под `root` в координатах кадра (от `origin` — левого верхнего угла композиции). */
 export function collectText(root: Element, origin: { x: number; y: number }): RawText[] {
@@ -43,30 +37,30 @@ export function collectText(root: Element, origin: { x: number; y: number }): Ra
     let opacity = 1;
     for (let p: Element | null = el; p && opacity > 0; p = p.parentElement) opacity *= Number(getComputedStyle(p).opacity || 1);
     if (opacity < 0.01) continue;
-    let rect: Box | null = null;
-    for (const t of texts) {
-      const range = document.createRange();
-      range.selectNodeContents(t);
-      const b = range.getBoundingClientRect();
-      if (b.width <= 0 || b.height <= 0) continue;
-      const box = { x: b.left - origin.x, y: b.top - origin.y, w: b.width, h: b.height };
-      rect = rect ? union(rect, box) : box;
-    }
-    if (!rect) continue;
     // масштаб камеры / viewBox: экранный размер к собственному
     let scale = 1;
     if (el instanceof SVGGraphicsElement) scale = Math.abs(el.getScreenCTM()?.a ?? 1);
     else if (el instanceof HTMLElement && el.offsetWidth > 0) scale = el.getBoundingClientRect().width / el.offsetWidth;
     const owner = el.closest("[data-ms-layout]");
     if (owner && !owners.has(owner)) owners.set(owner, owners.size);
-    out.push({
-      owner: owner ? `${owner.getAttribute("data-ms-layout")}:${owner.getAttribute("data-ms-id") ?? ""}:${owners.get(owner)}` : null,
-      role: owner?.getAttribute("data-ms-layout") ?? "scene",
-      text: texts.map((t) => t.data).join("").replace(/\s+/g, " ").trim(),
-      rect,
-      fontPx: parseFloat(cs.fontSize) * scale,
-      opacity,
-    });
+    // каждый текстовый узел — свой прямоугольник: объединение узлов одного элемента накрыло бы
+    // вложенный в строку элемент (подсветка Highlight посреди фразы) — ложный text_overlap
+    for (const t of texts) {
+      const range = document.createRange();
+      range.selectNodeContents(t);
+      const b = range.getBoundingClientRect();
+      if (b.width <= 0 || b.height <= 0) continue;
+      const text = t.data.replace(/\s+/g, " ").trim();
+      if (!text) continue;
+      out.push({
+        owner: owner ? `${owner.getAttribute("data-ms-layout")}:${owner.getAttribute("data-ms-id") ?? ""}:${owners.get(owner)}` : null,
+        role: owner?.getAttribute("data-ms-layout") ?? "scene",
+        text,
+        rect: { x: b.left - origin.x, y: b.top - origin.y, w: b.width, h: b.height },
+        fontPx: parseFloat(cs.fontSize) * scale,
+        opacity,
+      });
+    }
   }
   return out;
 }
