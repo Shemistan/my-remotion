@@ -168,6 +168,27 @@ describe("selectQaFrames: начало счёта числа (09 §2, Task 17)",
   });
 });
 
+describe("покрытие: кадр в начале бита появления элемент не покрывает (S2-fix eval, gen-cache)", () => {
+  // токен летит в бите [30, 42); кадр 30 (вход сцены) совпал с его началом — токена ещё нет
+  const sp = spec({
+    elements: [el("graph", { kind: "graph", entrance: "pop" }), el("tok", { kind: "shape", entrance: "none" }), el("hero", { kind: "number", entrance: "pop" })],
+    beats: [
+      beat("b0", 0, 30, ["graph"]), beat("b-tok", 30, 42, ["tok"]), beat("b-hero", 42, 120, ["hero"]),
+      beat("b-hold", 150, 180, ["graph", "hero"], "hold"),
+    ],
+  });
+  it("кадр в первой четверти первого бита элемента не считается покрытием; середина бита — считается", () => {
+    expect(uncoveredElements(sp, [30, 80, 179])).toContain("tok");
+    expect(uncoveredElements(sp, [32, 80, 179])).toContain("tok");
+    expect(uncoveredElements(sp, [36, 80, 179])).not.toContain("tok");
+  });
+  it("selectQaFrames берёт токену кадр из середины его бита", () => {
+    const fr = selectQaFrames(sp);
+    expect(fr.some((f) => f >= 33 && f < 42)).toBe(true);
+    expect(uncoveredElements(sp, fr)).toEqual([]);
+  });
+});
+
 describe("countStarts", () => {
   it("без count в действии: второй бит числа (вход → счёт вместе с линией графика)", () => {
     const sp = spec({

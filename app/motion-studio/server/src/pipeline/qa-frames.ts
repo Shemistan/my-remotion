@@ -97,12 +97,22 @@ export function countBeat(spec: MotionSpec, e: Element): Beat | undefined {
   return beats.find((x) => /count/i.test(x.action)) ?? beats[1] ?? (e.entrance === "count" ? beats[0] : undefined);
 }
 
-/** Элементы, ни один бит которых не содержит ни одного из кадров. */
-export function uncoveredElements(spec: MotionSpec, frames: number[], durationFrames: number = spec.duration_frames): string[] {
+/**
+ * Элементы, ни один бит которых не содержит ни одного из кадров. В первом бите элемента (где
+ * он появляется) кадр до конца входа (не дальше первой четверти бита) покрытием не считается:
+ * элемент там ещё только входит (токен в начале своего полёта не виден). Иначе кадр входа сцены, совпавший с началом
+ * бита токена, «покрывал» токен, и середина его бита в QA не попадала (S2-fix eval, gen-cache).
+ */
+export function uncoveredElements(spec: MotionSpec, frames: number[], durationFrames: number = spec.duration_frames, style?: MotionTokens): string[] {
+  const m = motionOf(spec, style);
   return spec.elements
     .filter((e) => {
-      const beats = spec.beats.filter((b) => b.element_ids.includes(e.id));
-      return beats.length > 0 && !frames.some((f) => beats.some((b) => inBeat(b, f, durationFrames)));
+      const beats = byStart(spec.beats.filter((b) => b.element_ids.includes(e.id)));
+      const b0 = beats[0];
+      // элемент виден с конца входа, но не позже первой четверти бита
+      const from = b0 ? b0.start_frame + Math.min(Math.ceil((b0.end_frame - b0.start_frame) / 4), enterFrames(e.entrance, m)) : 0;
+      const shown = (b: Beat, f: number) => inBeat(b, f, durationFrames) && (b !== b0 || f >= from);
+      return beats.length > 0 && !frames.some((f) => beats.some((b) => shown(b, f)));
     })
     .map((e) => e.id);
 }
@@ -170,12 +180,14 @@ export function selectQaFrames(spec: MotionSpec, durationFrames: number = spec.d
     .map((e) => e.id)
     .filter((id) => beatsOf(id).length > 0)
     .sort((a, b) => Number(isEmphasisRole(elements.get(b)!.role)) - Number(isEmphasisRole(elements.get(a)!.role)) || span(a) - span(b));
-  // проход 1 — только с шагом ≥ MIN_QA_GAP; проход 2 — акцент и короткоживущие, и ближе
-  for (const strict of [true, false]) {
+  // проходы: акцент и короткоживущие с шагом ≥ MIN_QA_GAP, они же и ближе, затем остальные с
+  // шагом — бюджет кадров не уходит на долгие элементы раньше, чем короткий токен получит кадр
+  const prio = (id: string) => isEmphasisRole(elements.get(id)!.role) || transient(id);
+  for (const [strict, wantPrio] of [[true, true], [false, true], [true, false]] as const) {
     for (const id of order) {
       if (chosen.length >= MAX_QA_FRAMES) break;
-      if (!strict && !(isEmphasisRole(elements.get(id)!.role) || transient(id))) continue;
-      if (uncoveredElements({ ...spec, elements: [elements.get(id)!] }, chosen, durationFrames).length === 0) continue;
+      if (prio(id) !== wantPrio) continue;
+      if (uncoveredElements({ ...spec, elements: [elements.get(id)!] }, chosen, durationFrames, m).length === 0) continue;
       // кадры средней половины каждого бита элемента
       let best: number | undefined;
       let bestKey = [-1, 0];
