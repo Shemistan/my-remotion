@@ -5,7 +5,7 @@ import type { Beat, StyleBible } from "@ms/contracts";
 import type { CSSProperties, ReactNode } from "react";
 import { Freeze, useCurrentFrame, useVideoConfig } from "remotion";
 import { beatPhase } from "../beat.js";
-import { type EnterDirection, type EnterKind, type EnterPre, enterStyle, posterAlpha, posterStyle, splitBoxStyle } from "../choreo/enter.js";
+import { type EnterDirection, type EnterKind, type EnterPre, enterStyle, posterAlpha, posterStyle, splitBoxStyle, underlayFade } from "../choreo/enter.js";
 import { staggerBeat } from "../choreo/stagger.js";
 import { EASE, easingOf, fpsFrames, frames, springAt } from "../easing.js";
 import { ramp } from "../internal.js";
@@ -80,9 +80,9 @@ export function Enter({ kind, beat, index = 0, total = 1, direction, distance, d
 
   if (pre === "hidden") return <div style={{ ...style, ...anim }}>{children}</div>;
   // постер: тот же блок в итоговом виде (Freeze на конце бита) в одной ячейке сетки с живым —
-  // до старта он один, на входе лежит под живым и гаснет за первую треть входа (бит с кадра 0
+  // до старта он один, на входе лежит под живым и гаснет за треть входа (под сдвигающим — за 1/6) (бит с кадра 0
   // тоже даёт кадр-постер, на смене нет провала). Сетка — на всех кадрах: раскладка не прыгает
-  const under = posterAlpha(pre, frame, w.start_frame, len / 3);
+  const under = posterAlpha(pre, frame, w.start_frame, underlayFade(kind, len));
   const { outer, inner } = splitBoxStyle(style);
   return (
     <div style={{ ...outer, display: "grid" }}>

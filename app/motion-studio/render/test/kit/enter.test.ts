@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PRE_ALPHA, enterStyle, posterAlpha, posterStyle, splitBoxStyle } from "../../src/motion-kit/choreo/enter.js";
+import { PRE_ALPHA, enterStyle, posterAlpha, posterStyle, splitBoxStyle, underlayFade } from "../../src/motion-kit/choreo/enter.js";
 import { enterDuration } from "../../src/motion-kit/components/Enter.js";
 import { EASE } from "../../src/motion-kit/easing.js";
 import { resolveStyle } from "../../src/motion-kit/style/resolve.js";
@@ -156,5 +156,18 @@ describe("S2-fix I4: слой-постер под входом (posterAlpha, spl
     expect(outer).toEqual({ position: "absolute", left: 10, top: 20, width: 300 });
     expect(inner).toEqual({ display: "flex", gap: 8, padding: 4, background: "#000" });
     expect(splitBoxStyle(undefined)).toEqual({ outer: {}, inner: {} });
+  });
+});
+
+describe("S2-fix2 m4: постер под сдвигающим входом гаснет быстро (без двойника)", () => {
+  it("rise / slide / blur / swing — ~1/6 входа; fade / scale / pop / mask — 1/3", () => {
+    expect(underlayFade("slide", 24)).toBe(4);
+    expect(underlayFade("rise", 24)).toBe(4);
+    expect(underlayFade("blur", 24)).toBe(4);
+    expect(underlayFade("swing", 24)).toBe(4);
+    expect(underlayFade("fade", 24)).toBe(8);
+    expect(underlayFade("scale", 24)).toBe(8);
+    expect(underlayFade("pop", 24)).toBe(8);
+    expect(underlayFade("slide", 6)).toBe(1);
   });
 });

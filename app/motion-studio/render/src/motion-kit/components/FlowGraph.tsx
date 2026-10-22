@@ -9,6 +9,7 @@ import { interpolate, random, useCurrentFrame, useVideoConfig } from "remotion";
 import { ACCENT_REST, type AccentPulse, accentPulse } from "../choreo/accent.js";
 import { type PulseArrival, pathArrivals } from "../choreo/pulse.js";
 import { edgeDelay } from "../choreo/rhythm.js";
+import { underlayFade } from "../choreo/enter.js";
 import { EASE, frames, springAt } from "../easing.js";
 import { type CubicSegment, cubicPoint, lutLength, pathD, pathLUT } from "../geometry.js";
 import { CLAMP, clamp01, kitWarn, ramp, useSvgId } from "../internal.js";
@@ -321,8 +322,9 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
         {showPre
           ? nodes.map((n) => {
               const t0 = nodeStart.get(n.id)!;
-              // контур гаснет быстро: карточка входит своим движением, двух рамок не видно
-              const o = 1 - ramp(frame, t0, t0 + frames(s, 4));
+              // контур гаснет быстро: карточка входит своим движением, двух рамок не видно; под
+              // сдвигающим входом (slide, rise, blur, swing) — за 2 кадра (S2-fix2 m4: двойник)
+              const o = 1 - ramp(frame, t0, t0 + underlayFade(n.enter ?? enter, frames(s, 12)));
               return o > 0.01 ? <NodeSilhouette key={`pre-${n.id}`} n={n} opacity={o} frameH={frameH} /> : null;
             })
           : null}

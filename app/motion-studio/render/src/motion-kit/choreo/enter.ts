@@ -108,6 +108,19 @@ export function posterStyle(pre: EnterPre, p: number): CSSProperties {
  * живым элементом, пока тот входит: бит с кадра 0 тоже даёт постер на кадре 0, а на смене
  * силуэт → живой элемент нет провала (силуэт не исчезает в кадр, где вход ещё прозрачен).
  */
+/** Входы, которые сдвигают или размывают элемент относительно его места. */
+const SHIFTING: ReadonlySet<string> = new Set(["rise", "slide", "blur", "swing"]);
+
+/**
+ * За сколько кадров гаснет постер под входом `kind` длины `len` (чистая функция, S2-fix2 m4):
+ * под сдвигающим входом (rise, slide, blur, swing) неподвижный силуэт рядом с едущим или
+ * размытым живым блоком читается двойником (судья 818eae3: «двоящиеся копии» узлов) — гаснет
+ * за ~1/6 входа; у входа на месте (fade, scale, pop, mask) — за треть, как было.
+ */
+export function underlayFade(kind: string, len: number): number {
+  return Math.max(1, Math.round(len / (SHIFTING.has(kind) ? 6 : 3)));
+}
+
 export function posterAlpha(pre: EnterPre, frame: number, start: number, fade: number): number {
   const a = PRE_ALPHA[pre];
   if (a === 0 || frame < start) return a;
