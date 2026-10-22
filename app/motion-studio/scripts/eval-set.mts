@@ -16,7 +16,7 @@
 // Флаги: --runs N (прогонов судьи, 3), --parallel N (задач генерации, 3), --judge-parallel N (6),
 //   --judge-model M (opus), --gen-timeout-min N (60), --no-judge, --write-evidence.
 import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Job, type Settings, defaultSettings } from "@ms/contracts";
@@ -33,6 +33,7 @@ import { type JudgeOutput, judgeFrames, judgeRuntime, loadJudgePrompt, prepareJu
 import { type Agreement, type Aggregate, CRITERIA, type FrameMetrics, type Split, agreementBySplit, aggregateRuns, frameMetrics, mean, pairOrder } from "../server/src/eval/metrics.js";
 import { type JudgeFingerprint, judgeFingerprint, promptHashes, sameFingerprint, short } from "../server/src/eval/provenance.js";
 import { HOLDOUT_SEEN_BY_RUBRIC, REFERENCE, anchorsFor } from "../server/src/eval/reference.js";
+import { isTransientFailure } from "../server/src/eval/resume.js";
 import { registerHandlers } from "../server/src/jobs/handlers.js";
 import { cancelJob, enqueue, provideInput } from "../server/src/jobs/queue.js";
 import type { GenerateResult } from "../server/src/pipeline/generate.js";
@@ -518,7 +519,18 @@ function report(rows: Row[], judge: JudgeFingerprint | null): { md: string; summ
 
 // ---------- ход ----------
 if (calibrate) items.forEach(fromGit);
-else if (!judgeOnly) await generateMissing(items.filter((it) => !existsSync(join(dirOf(it), "gen.json"))));
+else if (!judgeOnly) {
+  // сцена, упавшая на обрыве сети, — не результат: её попытка уходит в gen-failed.json
+  // (стоимость входит в итог), и сцена генерируется заново
+  for (const it of items) {
+    const genFile = join(dirOf(it), "gen.json");
+    if (existsSync(genFile) && isTransientFailure(readJson<GenInfo>(genFile).failure)) {
+      log(`${it.id}: сбой среды в прошлой попытке — генерирую заново`);
+      renameSync(genFile, join(dirOf(it), "gen-failed.json"));
+    }
+  }
+  await generateMissing(items.filter((it) => !existsSync(join(dirOf(it), "gen.json"))));
+}
 if (!noJudge) await judgeAll(items);
 const { rows, judge } = await collect();
 const { md, summary } = report(rows, judge);
