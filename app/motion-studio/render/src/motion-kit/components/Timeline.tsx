@@ -102,6 +102,7 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
   const uOf = (i: number) => (items.length > 1 ? i / (items.length - 1) : 0);
   const hf = useHoldFrame(hold?.mode === "steady-flow" ? { ...hold, mode: "data-shimmer" } : hold);
   const fin = hf?.on && draw >= 1 ? hf : null;
+  const ringFade = fin && hold!.mode === "now-pulse" ? 1 - fin.live : 1;
   // приход блика / тик — вспышка «сейчас» (дыхание финала с пиком в приход)
   const flare = fin && hold!.mode !== "settle-push" && hold!.mode !== "now-pulse" ? fin.live * Math.max(0, fin.breath) ** 3 : 0;
   const axisLut = first && lastPt && len > 0 ? pathLUT([[first, { x: first.x + (lastPt.x - first.x) / 3, y: first.y + (lastPt.y - first.y) / 3 }, { x: first.x + ((lastPt.x - first.x) * 2) / 3, y: first.y + ((lastPt.y - first.y) * 2) / 3 }, lastPt]], 24) : null;
@@ -170,8 +171,9 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
               {now ? <circle cx={p.x} cy={p.y} r={r * (2.6 + 1.0 * breath) * (pulse?.scale ?? 1)} fill={`url(#${id}-now)`} opacity={clamp01(pop) * (0.3 + 0.7 * breath)} /> : null}
               {/* кольцо акцента: расходится от точки на каждом вдохе, как у Emphasis; не дальше 3 r —
                   крайняя веха стоит у края safe area, шире кольцо касается края кадра (clipping) */}
-              {pulse && pulse.ripple >= 0 && !(fin && hold!.mode === "now-pulse") ? (
-                <circle cx={p.x} cy={p.y} r={r * (1.2 + 1.8 * (1 - (1 - pulse.ripple) ** 3))} fill="none" stroke={color} strokeWidth={2.5} opacity={0.8 * (1 - pulse.ripple) * pulse.rippleAlpha} />
+              {/* в now-pulse кольцо дыхания гаснет с набором волны радара (один ритм, без обрыва) */}
+              {pulse && pulse.ripple >= 0 && ringFade > 0.005 ? (
+                <circle cx={p.x} cy={p.y} r={r * (1.2 + 1.8 * (1 - (1 - pulse.ripple) ** 3))} fill="none" stroke={color} strokeWidth={2.5} opacity={0.8 * (1 - pulse.ripple) * pulse.rippleAlpha * ringFade} />
               ) : null}
               {now && fin && hold!.mode === "now-pulse" ? <RadarRing x={p.x} y={p.y} r0={r * 1.2} reach={r * 1.4} t={fin.ripple} opacity={fin.rippleAlpha} color={color} /> : null}
               <circle cx={p.x} cy={p.y} r={Math.max(0, r * pop * (pulse?.scale ?? 1))} fill={now ? color : s.palette.bg} stroke={color} strokeWidth={now ? 0 : 4} />

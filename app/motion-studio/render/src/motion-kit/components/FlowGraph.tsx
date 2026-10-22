@@ -7,7 +7,7 @@ import type { Beat, StyleBible } from "@ms/contracts";
 import { type CSSProperties, type ReactNode, createContext, useContext, useRef } from "react";
 import { interpolate, random, useCurrentFrame, useVideoConfig } from "remotion";
 import { ACCENT_REST, type AccentPulse, accentPulse } from "../choreo/accent.js";
-import { type Hold, holdTicks } from "../choreo/hold.js";
+import { type Hold, holdTicks, repeatTick } from "../choreo/hold.js";
 import { type FlowHoldCtx, type PulseArrival, arrivalInPass, pathArrivals, pulsePass } from "../choreo/pulse.js";
 import { NODE_JITTER, edgeDelay, edgeDrawLen, nodeGap } from "../choreo/graph-timing.js";
 import { underlayFade } from "../choreo/enter.js";
@@ -115,9 +115,10 @@ export interface FlowEdge {
 
 /**
  * Удержание графа (0.5.0): режим фазы hold spec и её бит. `node` — герой финала (по
- * умолчанию — самый правый узел), `edge` — ребро повтора repeat-result (по умолчанию —
- * последнее ребро в героя), `label` — подпись каждого тика («2 мс»), `edges` — потоки,
- * которые steady-flow продолжает (по умолчанию — шедшие до удара).
+ * умолчанию — самый правый узел; дышит в now-pulse, repeat-result, settle-push), `edge` —
+ * ребро повтора repeat-result (по умолчанию — последнее ребро в героя), `label` — подпись
+ * каждого тика («2 мс»), `edges` — потоки, которые steady-flow продолжает (по умолчанию —
+ * шедшие до удара и начатые в удержании).
  */
 export type FlowHold = Hold & { node?: string; edge?: string; label?: string; edges?: string[] };
 
@@ -272,6 +273,26 @@ export function cacheFill(frame: number, writes: number[], filled: number, s: St
 }
 
 /**
+ * Пути блика data-shimmer (S3-fix m2): цепочки рёбер от истоков к герою — блик бежит по
+ * всей цепочке одним проходом и приходит в героя (а не загорается на каждом ребре разом).
+ * Обход назад от героя по входящим рёбрам, без повторных узлов; не больше `max` путей.
+ */
+export function shimmerPaths(edges: FlowEdge[], geo: ReadonlyMap<string, CubicSegment>, hero: string, max = 4): string[][] {
+  const out: string[][] = [];
+  const walk = (node: string, tail: string[], seen: Set<string>) => {
+    if (out.length >= max) return;
+    const ins = edges.filter((e) => e.to === node && geo.has(e.id) && !seen.has(e.from));
+    if (ins.length === 0) {
+      if (tail.length > 0) out.push(tail);
+      return;
+    }
+    for (const e of ins) walk(e.from, [e.id, ...tail], new Set([...seen, e.from]));
+  };
+  walk(hero, [], new Set([hero]));
+  return out;
+}
+
+/**
  * План финала графа (чистая функция): герой (`hold.node` или самый правый узел), повтор
  * repeat-result (ребро в героя, старты импульсов так, чтобы приход был в кадр тика) и
  * пути блика data-shimmer (рёбра, по которым свет добегает до героя).
@@ -289,18 +310,31 @@ export function flowHoldPlan(nodes: FlowNode[], edges: FlowEdge[], geo: Readonly
       const len = lutLength(lut);
       const pass = pulsePass(len, undefined, fps, s);
       const lag = arrivalInPass(0, pass, len);
-      const ticks = holdTicks(hold, s, end, Math.ceil(lag));
-      repeat = { lut, pass, ticks, starts: ticks.map((t) => t - lag) };
+      // повтор не стартует до удержания: тик, чей импульс начался бы раньше, — не тик
+      // (короткое удержание короче прохода — повтора нет, герой дышит)
+      const ticks = holdTicks(hold, s, end, Math.ceil(lag)).filter((t) => t - lag >= hold.beat.start_frame);
+      if (ticks.length > 0) repeat = { lut, pass, ticks, starts: ticks.map((t) => t - lag) };
     }
   }
-  // блик: рёбра, из которых по графу можно дойти до героя (свет течёт к итогу)
-  const toHero = new Set<string>([hero.id]);
-  for (let changed = true; changed; ) {
-    changed = false;
-    for (const e of edges) if (toHero.has(e.to) && !toHero.has(e.from)) { toHero.add(e.from); changed = true; }
+  // блик бежит по рёбрам цепочки одно за другим (доля прохода — по длине рёбер, без пролётов
+  // под карточками): `from`…`to` — окно ребра в доле прохода
+  const shimmer: { lut: ReturnType<typeof pathLUT>; from: number; to: number }[] = [];
+  if (hold.mode === "data-shimmer") {
+    for (const path of shimmerPaths(edges, geo, hero.id)) {
+      const luts = path.map((id) => pathLUT([geo.get(id)!], 40));
+      const lens = luts.map(lutLength);
+      const total = Math.max(1e-9, lens.reduce((a, x) => a + x, 0));
+      let acc = 0;
+      luts.forEach((lut, i) => {
+        shimmer.push({ lut, from: acc / total, to: (acc + lens[i]!) / total });
+        acc += lens[i]!;
+      });
+    }
   }
-  const shimmer = hold.mode === "data-shimmer" ? edges.filter((e) => toHero.has(e.to) && geo.has(e.id)).map((e) => pathLUT([geo.get(e.id)!], 40)) : [];
-  return { hero, repeat, shimmer };
+  // дыхание героя — только где герой и есть носитель финала (волна, повтор, наезд); в
+  // steady-flow светят вспышки приходов, в data-shimmer — блик: второй акцент не нужен
+  const breathe = hold.mode === "now-pulse" || hold.mode === "repeat-result" || hold.mode === "settle-push";
+  return { hero, repeat, shimmer, breathe };
 }
 
 /**
@@ -323,6 +357,8 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
   const { nodeStart, edgeStart, ready, edges: geo, drawLen, arrivals } = flowTiming(nodes, edges, beat, s, fps, holdCtx);
   const fin = flowHoldPlan(nodes, edges, geo, hold, s, fps, durationInFrames);
   const hf = useHoldFrame(hold);
+  // подпись тика — по тикам повтора (тот же список, что импульс и вспышка героя)
+  const heroTick = fin?.repeat && hf?.on ? repeatTick(fin.repeat.ticks, frame) : null;
 
   const sizes = flowLabelSizes(nodes, s, frameH);
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -404,7 +440,7 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
             {fin.repeat ? <PulseTrails lut={fin.repeat.lut} starts={fin.repeat.starts} pass={fin.repeat.pass} size={8} tail={170} /> : null}
             {hold!.mode === "data-shimmer" ? (
               <svg width={W} height={H} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
-                {fin.shimmer.map((lut, i) => <Comet key={i} lut={lut} pos={hf.sweep} opacity={hf.sweepAlpha} width={5} length={160} />)}
+                {fin.shimmer.map((x, i) => (hf.sweep >= x.from && hf.sweep <= x.to ? <Comet key={i} lut={x.lut} pos={(hf.sweep - x.from) / Math.max(1e-9, x.to - x.from)} opacity={hf.sweepAlpha} width={5} length={160} /> : null))}
               </svg>
             ) : null}
             {hold!.mode === "now-pulse" && fin.hero ? <CardRadar rect={fin.hero} r={radius(s, 2)} oval={fin.hero.kind === "store"} reach={34 * (frameH / 1080)} t={hf.ripple} opacity={hf.rippleAlpha} color={accent(s, fin.hero.accentIndex ?? 0)} /> : null}
@@ -423,7 +459,7 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
               n={n}
               t0={nodeStart.get(n.id)!}
               enter={n.enter ?? enter}
-              fl={fin?.hero?.id === n.id && hf?.on ? heroBreath(fl, hf.live, hf.breath) : fl}
+              fl={fin?.breathe && fin.hero.id === n.id && hf?.on ? heroBreath(fl, hf.live, hf.breath) : fl}
               sz={sizes.get(n.id)!}
               slot={slots.get(n.id)}
               writes={writes}
@@ -433,8 +469,8 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
         {/* слой над карточками: данные, влетающие в узел, статусы у узлов и рёбер */}
         {overlay ? <div style={{ position: "absolute", inset: 0 }}>{overlay}</div> : null}
         {/* подпись тика repeat-result — на месте статуса героя */}
-        {fin?.repeat && fin.hero && hf?.tick && hold!.label ? (
-          <TickLabel x={status.get(fin.hero.id)!.rect.x + status.get(fin.hero.id)!.rect.w / 2} y={status.get(fin.hero.id)!.rect.y + status.get(fin.hero.id)!.rect.h - (status.get(fin.hero.id)!.side === "bottom" ? 0 : 14 * (frameH / 1080))} age={hf.tick.age} text={hold!.label} color={accent(s, fin.hero.accentIndex ?? 0)} />
+        {fin?.repeat && fin.hero && heroTick && hold!.label ? (
+          <TickLabel x={status.get(fin.hero.id)!.rect.x + status.get(fin.hero.id)!.rect.w / 2} y={status.get(fin.hero.id)!.rect.y + status.get(fin.hero.id)!.rect.h - (status.get(fin.hero.id)!.side === "bottom" ? 0 : 14 * (frameH / 1080))} age={heroTick.age} text={hold!.label} color={accent(s, fin.hero.accentIndex ?? 0)} />
         ) : null}
       </div>
     </FlowContext.Provider>

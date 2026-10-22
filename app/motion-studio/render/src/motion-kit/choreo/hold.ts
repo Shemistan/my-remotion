@@ -69,10 +69,22 @@ export function holdTicks(h: Hold, s: StyleBible, end?: number, lead = 0): numbe
 }
 
 /**
+ * Последний тик из `ticks` не позже кадра `frame`: кадр тика, его номер и возраст
+ * (null — тиков ещё не было). Подпись тика и вспышка героя берут его из того же списка, что
+ * и импульс повтора (S3-fix I1): подпись не появляется без прихода.
+ */
+export function repeatTick(ticks: readonly number[], frame: number): { at: number; index: number; age: number } | null {
+  let i = -1;
+  for (let k = 0; k < ticks.length; k++) if (ticks[k]! <= frame) i = k;
+  return i < 0 ? null : { at: ticks[i]!, index: i, age: frame - ticks[i]! };
+}
+
+/**
  * steady-flow: старты проходов импульса в удержании — темп ≈ 60 % (шаг pass / 0.6, при
  * `count` импульсах на пути — в count раз чаще). Ряд идёт от прошлого прохода `after`
- * (поток не замирает на стыке) и подогнан так, что в кадре N−1 импульс на середине пути:
- * шаг — в пределах 0.65…1.4 от 60 %; не подогнать — ровный шаг 60 % от `after`.
+ * (поток не замирает на стыке) и подогнан так, что в кадре N−1 импульс в пути (10…90 %, по
+ * фазе прошлого прохода — каскад рёбер сохраняется): шаг — в пределах 0.65…1.4 от 60 %; не
+ * подогнать — ровный шаг 60 % от `after`.
  */
 export function steadyStarts(h: Hold, pass: number, s: StyleBible, end?: number, o: { count?: number; after?: number } = {}): number[] {
   const n = Math.max(1, Math.floor(o.count ?? 1));
@@ -80,7 +92,11 @@ export function steadyStarts(h: Hold, pass: number, s: StyleBible, end?: number,
   const start = h.beat.start_frame;
   const last = lastOf(h, end);
   const prev = Math.max(o.after ?? -Infinity, start - step0);
-  const target = last - pass * 0.5;
+  // фаза потока сохраняется (S3-fix m1): сдвиг прошлого прохода от начала удержания по модулю
+  // прохода кладёт импульс в N−1 на 10…90 % пути — каскад рёбер (старты через 4 кадра) не
+  // сходится в ногу; без `after` — середина пути
+  const phase = o.after === undefined ? 0.5 : ((((o.after - start) % pass) + pass) % pass) / pass;
+  const target = last - pass * (0.9 - 0.8 * phase);
   const gap = target - prev;
   const k = Math.max(1, Math.round(gap / step0));
   const step = gap / k;
@@ -175,6 +191,15 @@ export function holdAt(frame: number, h: Hold, s: StyleBible, end?: number): Hol
       let i = -1;
       for (let k = 0; k < ticks.length; k++) if (ticks[k]! <= frame) i = k;
       if (i >= 0) out.tick = { index: i, age: frame - ticks[i]! };
+      // блик к итогу приходит ровно в кадр следующего тика (носители без пути повтора —
+      // LineChart): проход короче шага тиков
+      const next = ticks.find((t) => t > frame);
+      const len = Math.min(T.sweep, T.tick - frames(s, 6));
+      if (next !== undefined && next - frame <= len) {
+        const u = 1 - (next - frame) / len;
+        out.sweep = EASE.inOutCubic(u) * 0.85 + u * 0.15;
+        out.sweepAlpha = live * Math.min(1, u / 0.12) * (u > 0.9 ? (1 - u) / 0.1 : 1);
+      }
       out.breath = live * Math.cos((2 * Math.PI * (frame - (ticks.at(-1) ?? frame))) / T.tick);
       break;
     }

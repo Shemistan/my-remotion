@@ -1,6 +1,9 @@
 // Галерея финалов (hold engine 0.5.0): один носитель итога (`content.carrier`: graph,
 // chart, race, timeline, number) и режим удержания (`content.mode`; `none` — финал без
 // hold, контроль «застывшего» финала). Биты: сборка → действие → удар → hold 128–180.
+// S3-fix: `emphasis` — у «Учёта» свой акцент payoff (дышит только ореол узла: негатив QA
+// frozen); `inHold` — потоки графа с бита hold (как held-queue); носитель `radar` — RadarRing в
+// голом svg, в группе с фильтром и в сдвинутом слое (как дорожка LatencyRace).
 import {
   AnimatedNumber,
   Background,
@@ -13,6 +16,7 @@ import {
   LatencyRace,
   LineChart,
   PulseAlongPath,
+  RadarRing,
   SafeArea,
   StyleProvider,
   Timeline,
@@ -20,6 +24,7 @@ import {
   pulseArrival,
   typeSize,
   useArrivalCount,
+  useHold,
   useStyle,
   type ResolveStyleInput,
 } from "@ms/motion-kit";
@@ -27,11 +32,11 @@ import type { HoldMode } from "@ms/contracts";
 import { useVideoConfig } from "remotion";
 
 type Window = { start_frame: number; end_frame: number };
-type Carrier = "graph" | "chart" | "race" | "timeline" | "number";
+type Carrier = "graph" | "chart" | "race" | "timeline" | "number" | "radar";
 interface Props {
   timing: { duration_frames: number; beats: ({ id: string } & Window)[] };
   style: Omit<ResolveStyleInput, "fps">;
-  content: { carrier: Carrier; mode: HoldMode | "none"; camera?: boolean };
+  content: { carrier: Carrier; mode: HoldMode | "none"; camera?: boolean; emphasis?: boolean; inHold?: boolean };
 }
 
 const EDGES: FlowEdge[] = [
@@ -41,20 +46,54 @@ const EDGES: FlowEdge[] = [
 ];
 const TRAVEL = 26;
 
-function Graph({ b, hold }: { b: Record<string, Window>; hold?: Hold }) {
-  const a = (edge: string) => pulseArrival(edge, b.action!, TRAVEL);
+function Graph({ b, hold, emphasis, inHold }: { b: Record<string, Window>; hold?: Hold; emphasis?: boolean; inHold?: boolean }) {
+  // inHold: потоки идут только с бита hold (held-queue), их рёбра — в hold.edges
+  const flow = inHold ? b.hold! : b.action!;
+  const a = (edge: string) => pulseArrival(edge, flow, TRAVEL);
   const nodes: FlowNode[] = [
     { id: "api", kind: "client", label: "Заказы", caption: "producer", x: 0, y: 140, w: 290, h: 180, enter: "slide" },
     { id: "queue", kind: "queue", label: "Очередь", caption: "orders", x: 400, y: 140, w: 400, h: 180, cells: 3, flash: a("e-in") },
     { id: "worker", label: "Склад", caption: "consumer", x: 910, y: 140, w: 280, h: 180, flash: a("e-work") },
-    { id: "store", kind: "store", label: "Учёт", caption: "db", x: 1300, y: 90, w: 280, h: 290, size: "h2", flash: a("e-store") },
+    { id: "store", kind: "store", label: "Учёт", caption: "db", x: 1300, y: 90, w: 280, h: 290, size: "h2", flash: a("e-store"), ...(emphasis ? { emphasis: b.payoff! } : {}) },
   ];
+  const h = hold ? { ...hold, node: "store", label: "2 мс", ...(inHold ? { edges: EDGES.map((e) => e.id) } : {}) } : undefined;
   return (
-    <FlowGraph nodes={nodes} edges={EDGES} beat={b.build!} hold={hold ? { ...hold, node: "store", label: "2 мс" } : undefined} overlay={<Tally b={b} />}>
+    <FlowGraph nodes={nodes} edges={EDGES} beat={b.build!} hold={h} overlay={<Tally b={b} />}>
       {EDGES.map((e, i) => (
-        <PulseAlongPath key={e.id} edgeId={e.id} beat={{ start_frame: b.action!.start_frame + i * 4, end_frame: b.action!.end_frame }} travel={TRAVEL} size={10} tail={170} />
+        <PulseAlongPath key={e.id} edgeId={e.id} beat={{ start_frame: flow.start_frame + i * 4, end_frame: flow.end_frame }} travel={TRAVEL} size={10} tail={170} />
       ))}
     </FlowGraph>
+  );
+}
+
+/** RadarRing в трёх контекстах (S3-fix I4): голый svg, группа с фильтром, сдвинутый слой. */
+function Radar({ hold }: { hold?: Hold }) {
+  const hf = useHold(hold);
+  if (!hf) return null;
+  const ring = <RadarRing x={250} y={200} r0={14} reach={48} t={hf.ripple} opacity={hf.rippleAlpha} />;
+  const dot = <circle cx={250} cy={200} r={14} fill="#7aa2ff" />;
+  return (
+    <div style={{ position: "absolute", left: 160, top: 240, width: 1500, height: 400 }}>
+      <svg width={500} height={400} style={{ position: "absolute", left: 0, top: 0, overflow: "visible" }}>
+        {dot}
+        {ring}
+      </svg>
+      <svg width={500} height={400} style={{ position: "absolute", left: 500, top: 0, overflow: "visible" }}>
+        <defs>
+          <filter id="radar-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation={4} />
+          </filter>
+        </defs>
+        {dot}
+        <g filter="url(#radar-glow)">{ring}</g>
+      </svg>
+      <div style={{ position: "absolute", left: 1000, top: 0, width: 500, height: 400, opacity: 0.98, transform: "translateY(1.5px)" }}>
+        <svg width={500} height={400} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
+          {dot}
+          {ring}
+        </svg>
+      </div>
+    </div>
   );
 }
 
@@ -76,10 +115,11 @@ const POINTS = [
   { label: "2022", value: 410 }, { label: "2023", value: 640 }, { label: "2024", value: 980 },
 ];
 
-function Hero({ c, b, hold }: { c: Carrier; b: Record<string, Window>; hold?: Hold }) {
+function Hero({ c, b, hold, emphasis, inHold }: { c: Carrier; b: Record<string, Window>; hold?: Hold; emphasis?: boolean; inHold?: boolean }) {
   const s = useStyle();
   const { height } = useVideoConfig();
-  if (c === "graph") return <div style={{ position: "absolute", left: 70, top: 220 }}><Graph b={b} hold={hold} /></div>;
+  if (c === "graph") return <div style={{ position: "absolute", left: 70, top: 220 }}><Graph b={b} hold={hold} emphasis={emphasis} inHold={inHold} /></div>;
+  if (c === "radar") return <Radar hold={hold} />;
   if (c === "chart") return <div style={{ position: "absolute", left: 180, top: 160 }}><LineChart points={POINTS} beat={{ start_frame: b.build!.start_frame, end_frame: b.action!.end_frame }} width={1360} height={640} valueSuffix=" тыс." hold={hold} /></div>;
   if (c === "race") {
     return (
@@ -115,7 +155,7 @@ export const Scene = ({ timing, style, content }: Props) => {
         <Background seed={`hold-${content.carrier}`} />
         <SafeArea>
           <Kicker text={`финал · ${content.mode}`} />
-          <Hero c={content.carrier} b={b} hold={hold} />
+          <Hero c={content.carrier} b={b} hold={hold} emphasis={content.emphasis} inHold={content.inHold} />
         </SafeArea>
       </Camera>
     </StyleProvider>

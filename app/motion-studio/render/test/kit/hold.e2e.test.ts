@@ -15,19 +15,31 @@ import { type RenderRequest, renderVersion } from "../../src/node/render-version
 import { FIXTURES, REPO_TMP, copyFixture, fixtureSettings, makeStore, makeTmp, removeTmp } from "../helpers.js";
 
 const T = 900_000;
-const STILLS = [0, 100, 128, 140, 150, 160, 170, 179];
+// 127–129 — вход в удержание: непрерывность акцента (S3-fix C1)
+const STILLS = [0, 100, 127, 128, 129, 140, 150, 160, 170, 179];
 const OUT = join(REPO_TMP, "hold-gallery");
 
-/** Варианты: носитель × режим; `none` — финал без hold (контроль). */
-const VARIANTS: [string, string][] = [
+/** Вариант галереи: носитель × режим (`none` — финал без hold, контроль) и опции S3-fix. */
+interface Variant { tag?: string; preset?: "light-clean"; emphasis?: boolean; inHold?: boolean }
+const VARIANTS: [string, string, Variant?][] = [
   ["graph", "none"], ["graph", "steady-flow"], ["graph", "repeat-result"], ["graph", "now-pulse"], ["graph", "data-shimmer"],
   ["chart", "none"], ["chart", "data-shimmer"], ["chart", "now-pulse"], ["chart", "repeat-result"],
   ["race", "none"], ["race", "repeat-result"], ["race", "steady-flow"], ["race", "now-pulse"],
   ["timeline", "none"], ["timeline", "now-pulse"], ["timeline", "data-shimmer"],
   ["number", "none"], ["number", "settle-push"], ["number", "now-pulse"],
+  // S3-fix: негатив QA frozen — у схемы дышит только ореол узла (акцент payoff, без hold)
+  ["graph", "none", { tag: "emph", emphasis: true }],
+  // held-queue: потоки с бита hold, steady-flow ведёт их (было frozen@179)
+  ["graph", "steady-flow", { tag: "inhold", inHold: true }],
+  // светлый пресет: тонкие волны и блики с меньшим контрастом чернил
+  ["graph", "none", { tag: "light", preset: "light-clean" }], ["graph", "now-pulse", { tag: "light", preset: "light-clean" }],
+  ["graph", "data-shimmer", { tag: "light", preset: "light-clean" }], ["graph", "steady-flow", { tag: "light", preset: "light-clean" }],
+  ["graph", "repeat-result", { tag: "light", preset: "light-clean" }],
+  // RadarRing в голом svg, в группе с фильтром, в сдвинутом слое (I4: Page crashed в LatencyRace)
+  ["radar", "now-pulse"],
 ];
 
-const base = JSON.parse(readFileSync(join(FIXTURES, "hold-gallery", "props.json"), "utf8")) as { content: Record<string, unknown> };
+const base = JSON.parse(readFileSync(join(FIXTURES, "hold-gallery", "props.json"), "utf8")) as { content: Record<string, unknown>; style: Record<string, unknown> };
 const gray = (png: string) => execFileSync("ffmpeg", ["-v", "error", "-i", png, "-vf", "scale=480:270:flags=area,format=gray", "-f", "rawvideo", "-"], { maxBuffer: 1 << 24 });
 /**
  * Самый живой тайл 16×16 (480×270): средняя |ΔY| двух кадров в тайле, максимум по кадру
@@ -75,11 +87,12 @@ afterAll(async () => {
 
 // HOLD_ONLY=graph,race — часть носителей (отладка)
 const ONLY = process.env.HOLD_ONLY?.split(",");
-it.each(VARIANTS.filter(([c]) => !ONLY || ONLY.includes(c)))("%s × %s: рендер ok, финал живой", async (carrier, mode) => {
-  const name = `${carrier}-${mode}`;
+it.each(VARIANTS.filter(([c]) => !ONLY || ONLY.includes(c)))("%s × %s %o: рендер ok, финал живой", async (carrier, mode, v = {}) => {
+  const name = `${carrier}-${mode}${v.tag ? `-${v.tag}` : ""}`;
   const dir = await copyFixture("hold-gallery", join(tmp, name));
   // контроль — без камеры: в финале движется только фон
-  writeFileSync(join(dir, "props.json"), JSON.stringify({ ...base, content: { carrier, mode, ...(mode === "none" ? { camera: false } : {}) } }));
+  const style = { ...base.style, ...(v.preset ? { preset: v.preset } : {}) };
+  writeFileSync(join(dir, "props.json"), JSON.stringify({ ...base, style, content: { carrier, mode, ...(mode === "none" ? { camera: false } : {}), ...(v.emphasis ? { emphasis: true } : {}), ...(v.inHold ? { inHold: true } : {}) } }));
   const r = await renderVersion({ ...req, versionDir: dir, run: { ...req.run, runId: name } });
   expect(r.error).toBeUndefined();
   expect(r.ok).toBe(true);
@@ -90,8 +103,15 @@ it.each(VARIANTS.filter(([c]) => !ONLY || ONLY.includes(c)))("%s × %s: ренд
   copyFileSync(r.previewPath!, join(OUT, `${name}.mp4`));
   const d = diff(gray(r.stills[STILLS.indexOf(160)]!), gray(r.stills[STILLS.indexOf(179)]!));
   result.set(name, Number(d.toFixed(3)));
+  // вход в удержание: кадр 127 → 128 меняется не сильнее соседнего шага 128 → 129 с запасом —
+  // ореол не гаснет и не вспыхивает на кадр (S3-fix C1; до правки number-*: провал ореола)
+  const still = (f: number) => gray(r.stills[STILLS.indexOf(f)]!);
+  const entry = diff(still(127), still(128));
+  const next = diff(still(128), still(129));
+  result.set(`${name}:entry`, Number(entry.toFixed(3)));
+  if (mode !== "none") expect(entry, `${name}: скачок на входе в удержание (${entry} при шаге ${next})`).toBeLessThan(Math.max(4, next * 2.5));
   if (mode !== "none") {
-    const ctl = result.get(`${carrier}-none`);
+    const ctl = result.get(`${carrier}-none${v.tag ? `-${v.tag}` : ""}`);
     // движение заметно выше шума фона (≈ 1–2); где контроль застыл (граф, график, гонка) —
     // в разы живее его. Таймлайн и число и без hold дышат акцентом (kit 0.4) — там только порог
     expect(d, `${name}: финал не движется`).toBeGreaterThan(3);

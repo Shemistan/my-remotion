@@ -1,4 +1,4 @@
-# @ms/motion-kit 0.5.1 — справка для агента
+# @ms/motion-kit 0.5.2 — справка для агента
 
 Детерминированные компоненты Remotion 4.0.537. Всё движение считается от
 `useCurrentFrame()`; оформление берётся из StyleBible (`useStyle()`). Импорт —
@@ -26,6 +26,13 @@ import { AnimatedNumber, AreaChart, Background, BarChart, Callout, Camera, Card,
 Ошибки, которые портят кадр, kit пишет как `[motion-kit:error] …` — QA блокирует их
 (`kit_misuse`): ячейка `cell` за ёмкостью буфера `queue`, токен, чей бит начинается раньше, чем
 ребро дорисовано (0.4.1).
+
+**0.5.2.** Финал ровнее: `<Emphasis hold>` переходит в дыхание финала без провала ореола на
+входе; подпись тика `repeat-result` — только на приходе повтора; герой `FlowGraph` дышит только
+в `now-pulse` / `repeat-result` / `settle-push` (в `steady-flow` светят приходы, в `data-shimmer`
+— блик); `steady-flow` ведёт и потоки, чей бит начинается в удержании; блик `data-shimmer` у
+графа бежит цепочкой рёбер к герою; у гонки в `repeat-result` подписи тика нет (таймер уже
+крупно). Хвост длинной сцены — в секундах: удержание ≤ 4 с, payoff ≤ 6 с (или чтение).
 
 **0.5.1.** Кадры сцены с фазами по-прежнему из `spec.json`. Бит графа в setup идёт всё окно
 setup: узлы входят каскадом, рёбра дорисованы к его концу — потоки action идут уже по ним.
@@ -226,15 +233,16 @@ Spec с `phases` (S3): у фазы — `role` (`setup`, `action`, `turn`, `payof
 объяснения и бьёт в полную силу в фазе payoff; удар и `Emphasis` — только в payoff.
 
 Финал — `hold_mode` фазы `hold`, бит — бит `hold` (до конца сцены). Нет `hold_mode` (старая
-spec) — по носителю: схема с потоками → `steady-flow`, график → `data-shimmer`, иначе
-`now-pulse` (`holdModeFor` из `@ms/contracts`). Один носитель итога получает
+spec) — по носителю: схема с потоками → `steady-flow`, линейный график → `data-shimmer`, иначе
+`now-pulse`. Режим уже назван в задаче (строка «финал: hold_mode …») — бери его. Один носитель
+итога получает
 `hold={{ mode, beat }}`:
 
 | Режим | Носитель | Что движется |
 |---|---|---|
 | `steady-flow` | `FlowGraph`, `LatencyRace` | потоки идут дальше тише (60 % темпа), узлы вспыхивают, `useArrivalCount` считает |
-| `repeat-result` | `FlowGraph` (`label`, `edge`, `node`), `LatencyRace`, `LineChart`, `Timeline` (`label`) | повтор к герою, каждый приход подписан («2 мс»); у гонки — быстрая дорожка |
-| `data-shimmer` | `LineChart`, `Timeline`, `FlowGraph`, `LatencyRace` | блик бежит по линии к итогу, точка вспыхивает на приходе |
+| `repeat-result` | `FlowGraph` (`label`, `edge`, `node`), `LatencyRace`, `LineChart`, `Timeline` (`label`) | повтор к герою, каждый приход подписан («2 мс»); у графика и таймлайна блик приходит в кадр тика; у гонки — быстрая дорожка, цель вспыхивает, счёт растёт (без подписи) |
+| `data-shimmer` | `LineChart`, `Timeline`, `FlowGraph`, `LatencyRace` | блик бежит по линии к итогу (у графа — цепочкой рёбер к герою), точка вспыхивает на приходе |
 | `now-pulse` | `Timeline`, `LineChart`, `FlowGraph` (`node`), `LatencyRace`, `Emphasis` | волна радара от героя, дыхание с пиком в N−1 |
 | `settle-push` | `<Camera hold>` (+ `Emphasis hold` у героя) | медленный наезд ещё на 4 % до последнего кадра (`focus` — px от центра) |
 
@@ -244,11 +252,16 @@ const hold = { mode: phase.hold_mode, beat: beats.hold };            // из spe
 <Camera keys={content.camera ?? []} hold={hold}>…</Camera>           // settle-push; прочие режимы камера не трогает
 <Emphasis beat={beats.payoff} hold={hold}><AnimatedNumber … /></Emphasis>
 ```
-- `FlowGraph hold`: герой — `node` (по умолчанию самый правый узел); `steady-flow` продолжает
-  потоки, шедшие до удара (или `edges`); в других режимах `PulseAlongPath` графа после начала
-  hold новых проходов не начинает. `PulseAlongPath` / `useArrivalCount` вне графа — свой `hold`.
+- `FlowGraph hold`: герой — `node` (по умолчанию самый правый узел), дышит в `now-pulse`,
+  `repeat-result`, `settle-push`; `steady-flow` продолжает потоки, шедшие до удара (или `edges`),
+  и ведёт потоки, чей бит начинается в удержании; в других режимах `PulseAlongPath` графа после
+  начала hold новых проходов не начинает. `PulseAlongPath` / `useArrivalCount` вне графа — свой `hold`.
+- `settle-push` без запаса наезда (стиль без zoom, камера spec у `max_scale`) стоит — kit
+  предупреждает; у light-clean сервер сам ставит `now-pulse`.
 - Свой слой — `useHold(mode, beat)` → `{ live, sweep, sweepAlpha, ripple, rippleAlpha, breath,
-  push, tick }` (доли 0..1, `breath` −1..1) и `Comet`, `RadarRing`, `TickLabel` — те же рисунки.
+  push, tick }` (доли 0..1, `breath` −1..1) и `Comet`, `TickLabel` — те же рисунки. Волну
+  радара в своём SVG рисуй своим `<circle>` по `ripple`/`rippleAlpha` (компонент `RadarRing`
+  внутри дорожки LatencyRace ронял рендер превью — причина не найдена, 0.5.2).
 - В hold не вводи новых элементов и не рисуй своих бликов-полос; движение — только режима.
 
 ## Safe area

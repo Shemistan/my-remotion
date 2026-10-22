@@ -7,6 +7,7 @@ import type { Beat, HoldMode } from "@ms/contracts";
 import { type Hold, type HoldFrame, holdAt, tickLabel } from "../choreo/hold.js";
 import { type PathLUT, lutLength, pointAtLength, pointsBetween, polylineD } from "../geometry.js";
 import { clamp01, useSvgId } from "../internal.js";
+import { markHold } from "../layout-probe.js";
 import { typeSize } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, surfaceAt } from "../tokens.js";
@@ -22,7 +23,11 @@ export function useHold(mode: HoldMode | Hold | undefined, beat?: Pick<Beat, "st
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const h: Hold | undefined = typeof mode === "string" ? (beat ? { mode, beat } : undefined) : mode;
-  return h ? holdAt(frame, h, s, durationInFrames) : null;
+  if (!h) return null;
+  const f = holdAt(frame, h, s, durationInFrames);
+  // метка для пробы раскладки QA: финал этого кадра ведёт hold engine
+  if (f.on) markHold(h.mode);
+  return f;
 }
 
 /** Кадр удержания для текущего кадра (хук): `useHold(hold)` — якорь длительность сцены. */
@@ -81,6 +86,7 @@ export function RadarRing({ x, y, r0, reach, t, opacity, color }: { x: number; y
 /**
  * Волна радара от карточки (HTML, поверх блока `rect`): скруглённый контур отходит на
  * `reach` px и гаснет — «система сейчас здесь», без мигающей рамки на самой карточке.
+ * `oval` — эллипс вокруг блока (цилиндр store), а не скруглённый прямоугольник.
  */
 export function CardRadar({ rect, r, reach, t, opacity, color, oval = false }: { rect: { x: number; y: number; w: number; h: number }; r: number; reach: number; t: number; opacity: number; color?: string; oval?: boolean }) {
   const s = useStyle();
@@ -89,9 +95,12 @@ export function CardRadar({ rect, r, reach, t, opacity, color, oval = false }: {
   const e = 1 - (1 - t) ** 3;
   const off = 4 + reach * e;
   const a = 0.8 * (1 - t) ** 1.4 * opacity;
+  // эллипс шире блока на 15 %: обводит скруглённые крышки цилиндра, а не режет их
+  const ex = oval ? rect.w * 0.075 : 0;
+  const ey = oval ? rect.h * 0.075 : 0;
   const st: CSSProperties = {
-    position: "absolute", left: rect.x - off, top: rect.y - off, width: rect.w + 2 * off, height: rect.h + 2 * off,
-    boxSizing: "border-box", borderRadius: oval ? "50% / 22%" : r + off, border: `2.5px solid ${alpha(col, a)}`, boxShadow: `0 0 ${(14 * (1 - t)).toFixed(1)}px ${alpha(col, 0.4 * a)}`,
+    position: "absolute", left: rect.x - off - ex, top: rect.y - off - ey, width: rect.w + 2 * (off + ex), height: rect.h + 2 * (off + ey),
+    boxSizing: "border-box", borderRadius: oval ? "50%" : r + off, border: `2.5px solid ${alpha(col, a)}`, boxShadow: `0 0 ${(14 * (1 - t)).toFixed(1)}px ${alpha(col, 0.4 * a)}`,
     pointerEvents: "none",
   };
   return <div aria-hidden style={st} />;

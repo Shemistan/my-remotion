@@ -127,6 +127,24 @@ export function cameraTransform(cam: CameraState): string {
 export const SETTLE_PUSH = 0.04;
 
 /**
+ * Запас наезда settle-push (S3-fix m7): насколько вырастет масштаб камеры от начала
+ * удержания до последнего кадра. Без zoom у стиля, при камере spec у предела `max_scale` или
+ * без запаса safe area — около 0: режим молча ничего не делает (Camera предупреждает kitWarn,
+ * сервер меняет settle-push на now-pulse у стиля без zoom).
+ */
+export function settlePushHeadroom(
+  keys: CameraKey[],
+  style: Pick<ResolvedStyle, "motion" | "camera"> & Partial<Pick<ResolvedStyle, "grid">>,
+  size: FrameSize,
+  hold: Hold & { focus?: { x: number; y: number } },
+  end: number,
+): number {
+  if (hold.mode !== "settle-push") return 0;
+  const last = Math.max(hold.beat.start_frame, end - 1);
+  return cameraHoldAt(last, keys, style, size, hold, end).scale - cameraAt(hold.beat.start_frame, keys, style, size).scale;
+}
+
+/**
  * Камера с финалом settle-push (0.5.0): поверх ключей spec в удержании идёт медленный
  * наезд ещё на SETTLE_PUSH (не дальше предела стиля и safe area) к точке `focus` (px от
  * центра; по умолчанию — куда смотрит камера) — ровно до последнего кадра, без

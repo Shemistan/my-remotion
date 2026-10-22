@@ -46,6 +46,28 @@ export interface LayoutFrame {
   items: LayoutItem[];
   /** Повторы одного текста друг на друге в кадре («призраки» следа). */
   ghosts: { text: string; count: number }[];
+  /**
+   * Режимы удержания, которые в этом кадре ведёт hold engine (`useHold` носителей kit и своих
+   * слоёв, S3-fix): пусто — финал не на hold engine. Нет поля — проба старого kit.
+   */
+  holds?: string[];
+}
+
+/**
+ * Метки hold engine для пробы (S3-fix I3): `useHold` в удержании отмечает режим, проба
+ * раскладки кадра-стоп сбрасывает набор до сцены и читает его после. Пиксели N−20…N−1 не
+ * отличают «дышит только ореол узла» от волны now-pulse — отличает то, что финал ведёт kit.
+ */
+// состояние модуля: проба и kit — один бандл, один экземпляр модуля (без глобалов окружения)
+const marks: { set: Set<string> | null } = { set: null };
+export function resetHoldMarks(): void {
+  marks.set = new Set<string>();
+}
+export function markHold(mode: string): void {
+  marks.set?.add(mode);
+}
+export function holdMarks(): string[] {
+  return marks.set ? [...marks.set].sort() : [];
 }
 
 /** Ниже этой прозрачности текст не считается видимым (силуэты, приглушённый кикер, уходящий статус). */

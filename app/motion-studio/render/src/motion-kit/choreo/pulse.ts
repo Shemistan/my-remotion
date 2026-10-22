@@ -3,7 +3,7 @@
 import type { Beat, StyleBible } from "@ms/contracts";
 import { frames } from "../easing.js";
 import { type CubicSegment, lutLength, pathLUT } from "../geometry.js";
-import { type Hold, steadyStarts } from "./hold.js";
+import { HOLD_RATE, type Hold, steadyStarts } from "./hold.js";
 import { arrivalInPass, pulsePass, pulseStarts } from "./pulse-timing.js";
 
 // Чистое расписание (без remotion) — в pulse-timing.ts: его же считает сервер.
@@ -77,8 +77,16 @@ export function pathStarts(segments: CubicSegment[], a: PathArrival, s: StyleBib
   const base = pulseStarts({ start, end: cut, pass, count: a.count, repeat: a.repeat });
   if (!h || h.hold.mode !== "steady-flow" || a.repeat === false) return { starts: base, pass, len };
   const listed = h.edges ? h.edgeId !== undefined && h.edges.includes(h.edgeId) : a.beat.end_frame >= h.hold.beat.start_frame - Math.round(STEADY_RECENT_S * fps);
-  if (!listed || base.length === 0) return { starts: base, pass, len };
+  if (!listed) return { starts: base, pass, len };
   const n = Math.max(1, Math.floor(a.count ?? 1));
+  if (base.length === 0) {
+    // поток с бита внутри удержания (S3-fix, held-queue): steady-flow ведёт его в своём
+    // темпе с его же старта — иначе поток не шёл вовсе и финал стоял
+    if (start >= a.beat.end_frame || start < h.hold.beat.start_frame) return { starts: base, pass, len };
+    const step0 = pass / HOLD_RATE / n;
+    const calm = steadyStarts(h.hold, pass, s, h.end, { count: n, after: start - step0 }).filter((t) => t >= start);
+    return { starts: calm.length > 0 ? calm : [start], pass, len };
+  }
   const calm = steadyStarts(h.hold, pass, s, h.end, { count: n, after: base.at(-1)! });
   return { starts: [...base, ...calm], pass, len };
 }

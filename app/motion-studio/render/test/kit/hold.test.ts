@@ -23,6 +23,9 @@ describe("anchoredStarts", () => {
   });
 });
 
+// Пробел свойства (s3b-review m8): у steady-flow `holdAt` двигает только дыхание — потоки
+// удержания живут в `pathStarts` / `steadyStarts`; их «жив в N−20…N−1» проверяют
+// hold-wiring.test.ts (pathStarts) и e2e галереи (тайловая мера), а не это свойство.
 describe("holdAt: каждый режим жив между N−20 и N−1", () => {
   const cases: [number, number, "calm" | "balanced" | "energetic", number][] = [];
   for (const fps of [24, 30, 60]) {
@@ -88,6 +91,18 @@ describe("режимы", () => {
     expect(last.index).toBe(ticks.length - 1);
   });
 
+  it("repeat-result: блик к итогу приходит в кадр тика (LineChart — «блик и подпись тика», S3-fix m3)", () => {
+    const h = hold("repeat-result", 90, 180);
+    const ticks = holdTicks(h, s, 180);
+    for (const tk of ticks) {
+      const before = holdAt(tk - 1, h, s, 180);
+      expect(before.sweep, `тик ${tk}`).toBeGreaterThan(0.9);
+      expect(holdAt(tk - 10, h, s, 180).sweep).toBeLessThan(before.sweep);
+    }
+    // в N−20…N−1 блик идёт хотя бы в одном кадре
+    expect([...Array(20).keys()].some((i) => holdAt(160 + i, h, s, 180).sweep >= 0)).toBe(true);
+  });
+
   it("settle-push: наезд растёт до последнего кадра и не тормозит в ноль", () => {
     const h = hold("settle-push", 120, 180);
     const p = (f: number) => holdAt(f, h, s, 180).push;
@@ -111,7 +126,17 @@ describe("режимы", () => {
         expect(seq[i]! - seq[i - 1]!, `after ${after}`).toBeGreaterThanOrEqual(step0 * 0.65 - 1e-9);
         expect(seq[i]! - seq[i - 1]!, `after ${after}`).toBeLessThanOrEqual(step0 * 1.4 + 1e-9);
       }
-      expect(starts.at(-1)!).toBeCloseTo(179 - pass / 2, 5);
+      // в N−1 импульс в пути (10…90 % — фаза потока сохраняется, S3-fix m1)
+      expect(starts.at(-1)!, `after ${after}`).toBeGreaterThanOrEqual(179 - pass * 0.9 - 1e-9);
+      expect(starts.at(-1)!, `after ${after}`).toBeLessThanOrEqual(179 - pass * 0.1 + 1e-9);
+    }
+    // каскад потоков (старты через 4 кадра) не сходится в ногу: порядок и зазор сохраняются
+    for (const a0 of [60, 64, 72, 76, 81]) {
+      const x = steadyStarts(h, pass, s, 180, { after: a0 }).at(-1)!;
+      const y = steadyStarts(h, pass, s, 180, { after: a0 + 4 }).at(-1)!;
+      const gap = ((y - x) % pass + pass) % pass;
+      expect(gap, `каскад от ${a0}`).toBeGreaterThanOrEqual(2.5);
+      expect(gap, `каскад от ${a0}`).toBeLessThanOrEqual(pass / 2);
     }
     // два импульса на пути — шаг вдвое меньше
     const two = steadyStarts(h, pass, s, 180, { count: 2 });

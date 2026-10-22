@@ -8,7 +8,7 @@ import { useCurrentFrame, useVideoConfig } from "remotion";
 import { EASE_PASS } from "../choreo/pulse.js";
 import { type Hold, holdTicks, steadyStarts } from "../choreo/hold.js";
 import { pathLUT } from "../geometry.js";
-import { Comet, TickLabel, useHoldFrame } from "./HoldLayers.js";
+import { Comet, useHoldFrame } from "./HoldLayers.js";
 import { EASE, frames, springAt } from "../easing.js";
 import { type PluralForms, formatNumber, pluralForm } from "../format.js";
 import { clamp01, ramp } from "../internal.js";
@@ -55,8 +55,8 @@ export interface LatencyRaceProps {
   laneHeight?: number;
   /**
    * Финал (hold engine 0.5.0). В удержании новые проходы не начинаются (гонка решена), кроме:
-   * `repeat-result` — быстрая дорожка отвечает дальше, каждый приход подписан «15 мс», счёт
-   * растёт; `steady-flow` — все дорожки идут дальше тише (60 % темпа). `now-pulse` — волна от
+   * `repeat-result` — быстрая дорожка отвечает дальше: цель вспыхивает, счёт растёт (подписи
+   * тика нет — крупный таймер уже показывает «15 мс»); `steady-flow` — все дорожки идут дальше тише (60 % темпа). `now-pulse` — волна от
    * цели быстрой дорожки, `data-shimmer` — блик по её треку.
    */
   hold?: Hold;
@@ -99,7 +99,7 @@ export function latencyTiming(lanes: Pick<LatencyLane, "ms">[], beat: Pick<Beat,
     }
     if (h && h.mode === "repeat-result" && l.ms === minMs) {
       const last = starts.at(-1) ?? -Infinity;
-      starts.push(...holdTicks(h, s, o.end, trip).map((a) => a - trip).filter((t) => t >= last + trip + rest));
+      starts.push(...holdTicks(h, s, o.end, trip).map((a) => a - trip).filter((t) => t >= last + trip + rest && t >= h.beat.start_frame));
     }
     return { trip, rest, starts, arrivals: starts.map((t) => t + trip) };
   });
@@ -277,10 +277,8 @@ export function LatencyRace({ lanes, beat, locale, travel, minTravel, repeat = t
                 <circle cx={x1} cy={cy} r={L.target + L.target * 3.4 * (1 - (1 - hf.ripple) ** 3)} fill="none" stroke={col} strokeWidth={3 * k} opacity={0.85 * (1 - hf.ripple) ** 1.4 * hf.rippleAlpha} />
               ) : null}
             </svg>
-            {/* подпись каждого прихода быстрой дорожки в удержании: «15 мс» над целью */}
-            {hf?.on && i === winner && hold!.mode === "repeat-result" && f.lastArrival !== null && f.lastArrival >= hold!.beat.start_frame ? (
-              <TickLabel x={x1 + L.target} y={cy - L.target - 12 * k} anchor="right" age={frame - f.lastArrival} text={`${formatNumber(lane.ms, { locale })} ${u}`} color={col} />
-            ) : null}
+            {/* repeat-result: приход отмечают вспышка цели, таймер и счёт ответов — подписи тика у
+                гонки нет (она повторяла бы крупный таймер рядом, S3-fix m4) */}
             <div style={{ position: "absolute", left: x1 + L.gap, top: 0, width: L.timerW, height: LH, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "flex-start", gap: 2 * k }}>
               <div style={{ fontFamily: fontFamily(s.typography.mono), fontWeight: 700, fontSize: L.timer, lineHeight: 1.1, color: timerCol, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", opacity: r.timer ? 1 : 0, transform: `scale(${(1 + 0.08 * flash).toFixed(4)})`, transformOrigin: "0% 50%", textShadow: flash > 0 ? `0 0 ${(L.body * 0.5).toFixed(1)}px ${alpha(col, 0.6 * flash)}` : undefined }}>
                 {formatNumber(Math.round(r.ms), { locale })} {u}

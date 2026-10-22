@@ -2,12 +2,12 @@
 // свечение по контуру цели, мягкий ореол <Halo> за ней и кольцо, расходящееся от
 // неё. Заменяет ручные рецепты glow (`box-shadow`, `radial-gradient` вокруг блока).
 // <Halo> — отдельный ореол: равные поля со всех сторон, гауссов спад до прозрачного края.
-import type { Beat, StyleBible } from "@ms/contracts";
+import type { Beat, HoldMode, StyleBible } from "@ms/contracts";
 import type { CSSProperties, ReactNode } from "react";
 import { useCurrentFrame } from "remotion";
 import { type AccentPulse, type AccentPulseOptions, accentPulse } from "../choreo/accent.js";
 import { clamp01 } from "../internal.js";
-import type { Hold } from "../choreo/hold.js";
+import { type Hold, type HoldFrame, holdTiming } from "../choreo/hold.js";
 import { useHoldFrame } from "./HoldLayers.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, isDark, mix, radius as radiusOf } from "../tokens.js";
@@ -139,14 +139,38 @@ export function haloLevel(p: AccentPulse): number {
 }
 
 /**
- * Акцент в удержании (0.5.0): дыхание финала поверх акцента — ореол не ниже 0.62 ± 0.24 ×
- * дыхание; `flare` 1 — вспышка в пик дыхания (тик, приход блика). Удар бита сохраняется.
+ * Акцент в удержании (0.5.0): дыхание финала поверх акцента — ореол 0.62 ± 0.24 × дыхание;
+ * `flare` 1 — вспышка в пик дыхания (тик, приход блика). Удар бита сохраняется.
+ * Передача — смешением по `live` (0.5.2): на входе в удержание (live 0) акцент ровно свой,
+ * к live 1 — дыхание финала; ни кадра провала или вспышки ореола (S3-fix C1).
  */
 export function holdAccent(p: AccentPulse, live: number, breath: number, flare = 0): AccentPulse {
+  const k = clamp01(live);
   const peak = flare * Math.max(0, breath) ** 4;
-  const level = Math.min(1, live * (0.62 + 0.24 * breath + 0.3 * peak));
-  if (p.level >= level && p.strike > 0.05) return p;
-  return { ...p, level: Math.max(level, p.strike), hold: Math.max(p.hold, live), swell: breath * live, scale: Math.max(p.scale, 1 + 0.01 * live * (0.5 + 0.5 * breath)), ripple: -1, rippleAlpha: 0, rippleBreath: false };
+  const target = Math.min(1, 0.62 + 0.24 * breath + 0.3 * peak);
+  const mixK = (a: number, b: number) => (1 - k) * a + k * b;
+  const scaleTarget = Math.max(p.scale, 1 + 0.01 * (0.5 + 0.5 * breath));
+  return {
+    ...p,
+    level: Math.max(p.strike, mixK(p.level, target)),
+    hold: Math.max(p.hold, k),
+    swell: mixK(p.swell, breath),
+    scale: mixK(p.scale, scaleTarget),
+    // кольцо удара бита доигрывает; кольцо вдоха акцента гаснет с набором дыхания финала
+    rippleAlpha: p.rippleBreath ? p.rippleAlpha * (1 - k) : p.rippleAlpha,
+  };
+}
+
+/**
+ * Акцент Emphasis в кадре удержания `hf` (чистая функция): передача от своего акцента к
+ * дыханию финала идёт вдвое дольше набора живости (2 × `holdTiming.live`, smoothstep) —
+ * две волны разного периода сходятся без рывка; вспышка ореола в такт тикам и бликам у
+ * repeat-result / data-shimmer / steady-flow.
+ */
+export function emphasisHold(p: AccentPulse, hf: HoldFrame | null, mode: HoldMode | undefined, s: StyleBible): AccentPulse {
+  if (!hf?.on || !mode) return p;
+  const u = clamp01(hf.local / Math.max(1, 2 * holdTiming(s).live));
+  return holdAccent(p, u * u * (3 - 2 * u), hf.breath, mode === "now-pulse" || mode === "settle-push" ? 0 : 1);
 }
 
 /**
@@ -161,7 +185,7 @@ export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, 
   const col = color ?? accent(s, accentIndex);
   const base = useAccentPulse(beat, { loop, strength });
   const hf = useHoldFrame(hold);
-  const p = hf?.on ? holdAccent(base, hf.live, hf.breath, hold!.mode === "now-pulse" || hold!.mode === "settle-push" ? 0 : 1) : base;
+  const p = emphasisHold(base, hf, hold?.mode, s);
   const wave = hf?.on && hold!.mode === "now-pulse" && hf.ripple >= 0 ? hf.ripple : -1;
   // кольцо: отходит от кромки цели на 4 → 30 px с торможением и гаснет
   const rp = p.ripple >= 0 ? 1 - (1 - p.ripple) ** 3 : 0;
