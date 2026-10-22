@@ -106,3 +106,21 @@ describe("bound counters", () => {
     expect(r.warnings).toEqual([expect.stringContaining("b0")]);
   });
 });
+
+describe("бит счёта: «counter» — не счёт (smoke s3a-ae70d94, test1)", () => {
+  it("вход counter-entrance не принимается за бит счёта и не уезжает в окно головы", () => {
+    const spec = fixture();
+    const named: MotionSpec = {
+      ...spec,
+      beats: [
+        ...spec.beats.filter((b) => b.id !== "b4"),
+        { id: "in", start_frame: 6, end_frame: 24, action: "counter-entrance", description: "", element_ids: ["hero-number"] },
+        { id: "cnt", start_frame: 24, end_frame: 106, action: "count", description: "", element_ids: ["hero-number"] },
+      ].sort((a, b) => a.start_frame - b.start_frame),
+    };
+    const { spec: out } = normalizeBoundCounters(named);
+    const w = lineDrawWindow(beat(named, "b2"));
+    expect([beat(out, "cnt").start_frame, beat(out, "cnt").end_frame]).toEqual([w.startFrame, w.endFrame]);
+    expect(beat(out, "in").start_frame).toBe(6);
+  });
+});

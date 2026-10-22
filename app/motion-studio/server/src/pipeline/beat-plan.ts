@@ -9,7 +9,7 @@ import { type BeatPlan, type PlanPhase, planBeats } from "@ms/render";
 import { countBeat } from "./qa-frames.js";
 
 /** Действия, которые идут всё окно фазы: фон, рисование, счёт, поток, удержание. */
-const SUSTAIN = /(hold|draw|count|flow|stream|background|bg-|loop|idle|travel|run)/i;
+const SUSTAIN = /(hold|draw|count(?!er)|flow|stream|background|bg-|loop|idle|travel|run)/i;
 /** Ключи content с текстом, который зритель читает. */
 const TEXT_KEY = /^(text|label|title|caption|subtitle|value|prefix|suffix|unit|note|verdict)$/i;
 

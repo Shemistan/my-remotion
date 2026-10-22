@@ -12,6 +12,8 @@ const APPEARING: ReadonlySet<Element["entrance"]> = new Set(["rise", "fade", "sc
 const TEXT_READY = 0.75;
 /** Короткоживущий элемент (импульс, вспышка): все его биты вместе не длиннее этой доли сцены. */
 const TRANSIENT_SHARE = 1 / 12;
+/** Бит счёта по действию: `count`, `count-up`, `hits-count`; «counter-entrance» — вход, не счёт. */
+export const COUNT_ACTION = /count(?!er)/i;
 /** Бит акцента по действию (тот же признак, что у `no_emphasis` в specChecks). */
 export const ACCENT_ACTION = /emphasis|accent/i;
 
@@ -94,7 +96,7 @@ export function countStarts(spec: MotionSpec): Beat[] {
 /** Бит счёта числа `e` (правило `countStarts`); нет — `undefined`. */
 export function countBeat(spec: MotionSpec, e: Element): Beat | undefined {
   const beats = byStart(spec.beats).filter((b) => b.element_ids.includes(e.id));
-  return beats.find((x) => /count/i.test(x.action)) ?? beats[1] ?? (e.entrance === "count" ? beats[0] : undefined);
+  return beats.find((x) => COUNT_ACTION.test(x.action)) ?? beats[1] ?? (e.entrance === "count" ? beats[0] : undefined);
 }
 
 /**

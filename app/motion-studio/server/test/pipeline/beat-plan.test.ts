@@ -107,6 +107,13 @@ describe("planSpecBeats", () => {
     expect(flow.start_frame).toBe(num.end_frame);
   });
 
+  it("counter-entrance — вход, а не счёт: не тянется на всю фазу", () => {
+    const d = phasedSpec();
+    d.beats = d.beats.map((b) => (b.id === "b-client" ? { ...b, action: "counter-entrance" } : b));
+    const r = ok(planSpecBeats(d, settings));
+    expect(beat(r.spec, "b-client").end_frame).toBeLessThan(beat(r.spec, "b-edges").end_frame);
+  });
+
   it("span: phase растягивает бит на всё окно фазы, slot — своя доля", () => {
     const d = phasedSpec();
     d.beats = d.beats.map((b) => (b.id === "b-client" ? { ...b, span: "phase" as const } : b));
