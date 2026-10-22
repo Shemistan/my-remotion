@@ -182,6 +182,79 @@ export function queueCellIssue(node: string, slot: FlowSlot, cell: number): stri
   return `DataToken: ячейка ${k} очереди "${node}" вне буфера (ячеек ${c.count}) — сообщение не ложится в очередь. Задай узлу cells: ${Math.max(k + 1, c.count)} (буфер держит все сообщения, ячейки уже) или освобождай ячейку (until) и ставь следующее сообщение в неё.`;
 }
 
+/** Полоса, которую занимает токен в режиме `slot`: узел, ячейка и окно кадров [from, to). */
+export interface TokenSlotUse {
+  node: string;
+  cell: number;
+  from: number;
+  to: number;
+}
+
+/** Токен в книге графа (S2-fix2): метка, старт полёта и занятая полоса. */
+export interface TokenEntry {
+  label: string;
+  start: number;
+  slot?: TokenSlotUse;
+}
+
+const sameEntry = (a: TokenEntry, b: TokenEntry) =>
+  a.label === b.label && a.start === b.start && a.slot?.node === b.slot?.node && a.slot?.cell === b.slot?.cell && a.slot?.from === b.slot?.from && a.slot?.to === b.slot?.to;
+
+/**
+ * Книга токенов графа (S2-fix2): DataToken записывает себя при рендере, чтобы правила между
+ * токенами (одна копия текста в кадре, один токен в полосе) не зависели от порядка в дереве.
+ * `version` растёт только при изменении — по ней токен, отрисованный раньше соседей, один раз
+ * перерисовывается в том же коммите (useLayoutEffect), и кадр детерминирован.
+ */
+export class TokenBook implements Iterable<[string, TokenEntry]> {
+  private items = new Map<string, TokenEntry>();
+  version = 0;
+  put(id: string, e: TokenEntry): void {
+    const prev = this.items.get(id);
+    if (prev && sameEntry(prev, e)) return;
+    this.items.set(id, e);
+    this.version++;
+  }
+  drop(id: string): void {
+    if (this.items.delete(id)) this.version++;
+  }
+  get(id: string): TokenEntry | undefined {
+    return this.items.get(id);
+  }
+  [Symbol.iterator]() {
+    return this.items[Symbol.iterator]();
+  }
+}
+
+/** Ближайший старт другого токена с той же меткой после старта `id` (чистая функция). */
+export function nextSameLabel(book: TokenBook, id: string): number | undefined {
+  const me = book.get(id);
+  if (!me) return undefined;
+  let next: number | undefined;
+  for (const [k, e] of book) if (k !== id && e.label === me.label && e.start > me.start && (next === undefined || e.start < next)) next = e.start;
+  return next;
+}
+
+/**
+ * Второй токен в занятую полосу (S2-fix2, m3): сообщение ошибки kit или null. Токен в полосе
+ * лежит до `until` (+ `leave` кадров ухода); следующий в ту же полосу (ячейку queue) лёг бы
+ * поверх. Сообщает поздний из двух (по старту).
+ */
+export function slotBusyIssue(book: TokenBook, id: string, leave = 10): string | null {
+  const me = book.get(id);
+  const a = me?.slot;
+  if (!me || !a) return null;
+  for (const [k, e] of book) {
+    const b = e.slot;
+    if (k === id || !b || b.node !== a.node || b.cell !== a.cell) continue;
+    if (e.start > me.start || (e.start === me.start && k > id)) continue;
+    if (!(a.from < b.to && b.from < a.to)) continue;
+    const till = Number.isFinite(b.to) ? `до кадра ${b.to}` : "до конца сцены";
+    return `DataToken «${me.label}»: полоса узла "${a.node}"${a.cell > 0 ? ` (ячейка ${a.cell})` : ""} занята токеном «${e.label}» (лежит с кадра ${b.from} ${till}) — «${me.label}» лёг бы поверх с кадра ${a.from}. В полосе один токен за раз: прежнему задай until не позже кадра ${a.from - leave}, или этот поглоти узлом (consume), или у queue — другая ячейка (cell).`;
+  }
+  return null;
+}
+
 /** Ячейки уже предела читаемости — сообщение (не ошибка: ярлык сократится многоточием). */
 export function queueNarrowIssue(node: string, slot: FlowSlot): string | null {
   const c = queueCells(slot);

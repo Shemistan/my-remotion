@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { type TokenMode, captionPoint, captionShot, slotFit, tokenBox, tokenLateIssue, tokenMode, tokenShot, tokenSpan, tokenStop } from "../../src/motion-kit/components/DataToken.js";
 import { cacheFill, flowTiming } from "../../src/motion-kit/components/FlowGraph.js";
-import { FLOW_KINDS, type FlowBox, edgePath, flowLabelZone, flowSlot, flowStatusSlot, queueCellCenter, queueCellIssue, queueCells, usedSides } from "../../src/motion-kit/components/flow-layout.js";
+import { FLOW_KINDS, type FlowBox, TokenBook, edgePath, flowLabelZone, flowSlot, flowStatusSlot, nextSameLabel, queueCellCenter, queueCellIssue, queueCells, slotBusyIssue, usedSides } from "../../src/motion-kit/components/flow-layout.js";
 import type { Rect } from "../../src/motion-kit/choreo/safe-area.js";
 import { pathLUT, pointAtLength } from "../../src/motion-kit/geometry.js";
 import { resolveStyle } from "../../src/motion-kit/style/resolve.js";
@@ -211,14 +211,6 @@ describe("S2-fix I5: ярлык токена виден в каждом режи
       expect(Math.min(inSlot, cap)).toBeLessThan(0.05);
     }
   });
-  it("компактный consume и rest: подпись держится до конца бита и гаснет (объект rest — капсула у порта)", () => {
-    const [start, end, pass] = [28, 70, 14];
-    expect(captionShot(end - 1, start, pass, end, st, { mode: "consume" }).opacity).toBe(1);
-    expect(captionShot(end + 20, start, pass, end, st, { mode: "consume" }).opacity).toBe(0);
-    expect(captionShot(end - 1, start, pass, end, st, { mode: "rest" }).opacity).toBe(1);
-    expect(captionShot(end + 20, start, pass, end, st, { mode: "rest" }).opacity).toBe(0);
-    expect(captionShot(start - 1, start, pass, end, st, { mode: "rest" }).opacity).toBe(0);
-  });
   it("подпись связи — снаружи обоих узлов: под целью (над, если снизу статус); у вертикального ребра — справа", () => {
     const a = { x: 0, y: 100, w: 200, h: 120 };
     const b = { x: 260, y: 90, w: 200, h: 150 };
@@ -236,6 +228,80 @@ describe("S2-fix I5: ярлык токена виден в каждом режи
     const side = captionPoint({ x: 100, y: 120 }, c, d, box, 12, false);
     expect(side.x - box.w / 2).toBeGreaterThanOrEqual(100);
     expect(side.y).toBe(120);
+  });
+  it("S2-fix2 N1: подпись не раньше ~40 % полёта, видна к середине бита и гаснет через 8–12 кадров после прихода", () => {
+    // полёт во весь бит: подпись не раньше 0.4·travel… (бит позволяет: len/2 − вход ≥ 0.4·pass)
+    const [start, end, pass] = [20, 60, 40];
+    for (let f = start; f < start + Math.floor(pass * 0.4); f++) expect(captionShot(f, start, pass, end, st, { mode: "consume" }).opacity).toBe(0);
+    for (const mode of ["consume", "rest", "slot"] as const) {
+      const mid = (start + end) / 2;
+      expect(captionShot(mid, start, pass, end, st, { mode }).opacity).toBeGreaterThan(0.9);
+    }
+    const arrive = start + pass;
+    for (const mode of ["consume", "rest"] as const) {
+      expect(captionShot(arrive + 7, start, pass, end, st, { mode }).opacity).toBe(1);
+      expect(captionShot(arrive + 12, start, pass, end, st, { mode }).opacity).toBe(0);
+    }
+    // короткий бит (полёт длиннее бита): подпись после старта, полностью видна к середине бита
+    const [s2, e2, p2] = [30, 48, 18];
+    expect(captionShot(s2, s2, p2, e2, st, { mode: "consume" }).opacity).toBe(0);
+    expect(captionShot(Math.ceil((s2 + e2) / 2), s2, p2, e2, st, { mode: "consume" }).opacity).toBeGreaterThan(0.9);
+  });
+  it("S2-fix2 N1: подпись проявляется подъёмом, не шторкой (write — доля входа, rise → 0)", () => {
+    const [start, end, pass] = [20, 60, 40];
+    const a = captionShot(start + 17, start, pass, end, st, { mode: "consume" });
+    expect(a.opacity).toBeGreaterThan(0);
+    expect(a.rise).toBeGreaterThan(0);
+    expect(captionShot(start + 30, start, pass, end, st, { mode: "consume" }).rise).toBe(0);
+  });
+  it("S2-fix2 N1: текст токена в кадре один — подпись, карточка, полоса и следующий токен с тем же ярлыком", () => {
+    const vis = 0.02;
+    for (const mode of ["slot", "consume", "rest"] as const) {
+      for (const [start, end, pass] of [[20, 60, 40], [30, 48, 18], [28, 90, 14]] as const) {
+        // следующий токен с той же меткой стартует сразу после прихода (цепочка кэш → клиент)
+        const next = start + pass + 2;
+        for (let f = 0; f < 160; f++) {
+          const cap = captionShot(f, start, pass, end, st, { mode, next }).opacity;
+          const t = tokenShot(f, start, pass, st, { mode });
+          const own = t.visible && t.at === "dock" ? t.opacity : 0; // компактная капсула в полёте — без текста
+          const n = tokenShot(f, next, 20, st, { mode: "consume" }).opacity;
+          // подпись не вместе ни со своим текстом в полосе, ни со следующим токеном той же метки
+          // (запись в полосе и следующий токен — разные объекты: копия данных, не призрак)
+          expect(Math.min(cap, own), `${mode} [${start},${end},${pass}] кадр ${f}`).toBeLessThanOrEqual(vis);
+          expect(Math.min(cap, n), `${mode} [${start},${end},${pass}] кадр ${f}: следующий`).toBeLessThanOrEqual(vis);
+        }
+      }
+    }
+  });
+  it("S2-fix2 N1: книга токенов — ближайший старт другого токена с той же меткой", () => {
+    const book = new TokenBook();
+    book.put("a", { label: "Анна", start: 40 });
+    book.put("b", { label: "Анна", start: 70 });
+    book.put("c", { label: "Анна", start: 55 });
+    book.put("d", { label: "Борис", start: 45 });
+    expect(nextSameLabel(book, "a")).toBe(55);
+    expect(nextSameLabel(book, "c")).toBe(70);
+    expect(nextSameLabel(book, "b")).toBeUndefined();
+    const v = book.version;
+    book.put("a", { label: "Анна", start: 40 });
+    expect(book.version).toBe(v); // та же запись — версия не меняется (нет лишнего перерендера)
+    book.drop("a");
+    expect(book.version).toBe(v + 1);
+  });
+  it("S2-fix2 m3: второй токен в занятую полосу — ошибка kit; освобождённая until — нет", () => {
+    const book = new TokenBook();
+    book.put("row", { label: "{ name: Анна }", start: 60, slot: { node: "cache", cell: 0, from: 79, to: Infinity } });
+    book.put("req", { label: "GET /profile", start: 100, slot: { node: "cache", cell: 0, from: 119, to: Infinity } });
+    const issue = slotBusyIssue(book, "req");
+    expect(issue).toMatch(/cache/);
+    expect(issue).toMatch(/until/);
+    expect(slotBusyIssue(book, "row")).toBeNull(); // сообщает только поздний
+    book.put("row", { label: "{ name: Анна }", start: 60, slot: { node: "cache", cell: 0, from: 79, to: 110 } });
+    expect(slotBusyIssue(book, "req")).toBeNull();
+    // очередь: разные ячейки — не конфликт
+    book.put("q1", { label: "#1", start: 10, slot: { node: "queue", cell: 0, from: 30, to: Infinity } });
+    book.put("q2", { label: "#2", start: 20, slot: { node: "queue", cell: 1, from: 40, to: Infinity } });
+    expect(slotBusyIssue(book, "q2")).toBeNull();
   });
   it("S2-fix eval: у буфера queue подпись — под своей ячейкой, подписи соседних сообщений не совпадают", () => {
     const orders = { x: 0, y: 200, w: 340, h: 300 };

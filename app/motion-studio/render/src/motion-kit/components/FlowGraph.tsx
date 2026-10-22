@@ -4,7 +4,7 @@
 // рельсы рёбер — кадр-постер. Дочерние элементы (PulseAlongPath) рисуются в той же системе
 // координат над рёбрами; узел вспыхивает в кадр прихода импульса (FlowNode.flash).
 import type { Beat, StyleBible } from "@ms/contracts";
-import { type CSSProperties, type ReactNode, createContext, useContext } from "react";
+import { type CSSProperties, type ReactNode, createContext, useContext, useRef } from "react";
 import { interpolate, random, useCurrentFrame, useVideoConfig } from "remotion";
 import { ACCENT_REST, type AccentPulse, accentPulse } from "../choreo/accent.js";
 import { type PulseArrival, pathArrivals } from "../choreo/pulse.js";
@@ -22,6 +22,7 @@ import {
   type FlowNodeKind,
   type FlowSlot,
   type FlowStatusSlot,
+  TokenBook,
   clientBar,
   edgePath as layoutEdgePath,
   flowLabelZone,
@@ -144,6 +145,8 @@ interface FlowGeometry {
   ready: ReadonlyMap<string, number>;
   /** Кадры прихода импульса (голова касается узла-получателя), по возрастанию. */
   arrivals: (a: PulseArrival) => number[];
+  /** Книга токенов графа (S2-fix2): старты и полосы DataToken для правил между токенами. */
+  tokens: TokenBook;
 }
 
 const FlowContext = createContext<FlowGeometry | null>(null);
@@ -275,9 +278,10 @@ export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", p
     if (text > zone.h) kitWarn(`slot:${n.id}`, `FlowGraph: узлу "${n.id}" не хватает высоты под подпись и полосу данных (нужно ≥ ${Math.ceil(n.h - zone.h + text)} px, есть ${n.h}) — увеличь h.`);
   }
   const showPre = pre === "silhouette";
+  const book = useRef(new TokenBook());
 
   return (
-    <FlowContext.Provider value={{ edges: geo, nodes: nodeMap, links, slots, inbox: slots, status, ready, arrivals }}>
+    <FlowContext.Provider value={{ edges: geo, nodes: nodeMap, links, slots, inbox: slots, status, ready, arrivals, tokens: book.current }}>
       <div style={{ position: "relative", width: W, height: H }}>
         <svg width={W} height={H} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
           {edges.map((e) => {

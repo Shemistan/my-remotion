@@ -6,7 +6,7 @@
 // Грамматика — объект, не статус: прямоугольник с малым скруглением, моноширинный текст,
 // цветная полоса-ярлык слева, нейтральная поверхность; у StatusChip — капсула и точка.
 import type { Beat, StyleBible } from "@ms/contracts";
-import type { CSSProperties } from "react";
+import { type CSSProperties, useEffect, useId, useLayoutEffect, useReducer, useRef } from "react";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import { EASE_PASS, pulsePass } from "../choreo/pulse.js";
 import { EASE, frames } from "../easing.js";
@@ -16,7 +16,7 @@ import { type TypeLevel, minTextPx, sizePx } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
 import { type FontRef, accent, alpha, fontFamily, hueDistance, isDark, surfaceAt } from "../tokens.js";
 import { useFlowGeometry } from "./FlowGraph.js";
-import { queueCellCenter, queueCellIssue, queueCells, tokenHeight } from "./flow-layout.js";
+import { type TokenSlotUse, nextSameLabel, queueCellCenter, queueCellIssue, queueCells, slotBusyIssue, tokenHeight } from "./flow-layout.js";
 import { type StatusTone, toneColor } from "./StatusChip.js";
 
 export interface DataTokenProps {
@@ -150,6 +150,14 @@ export function dockPoint(flow: DockFlow, edgeId: string, reverse: boolean, dock
     issue: `DataToken: у узла "${n.id}" нет слота данных (FlowNode.slot) — токен лёг под карточку.`,
     slot: true,
   };
+}
+
+/** Полоса, которую займёт токен `slot` (узел-цель с полосой; у queue — ячейка), или undefined. */
+function slotUseOf(flow: DockFlow, edgeId: string, reverse: boolean, cell: number | undefined, from: number, to: number): TokenSlotUse | undefined {
+  const link = flow.links.get(edgeId);
+  const node = link ? (reverse ? link.from : link.to) : undefined;
+  if (!node || !flow.slots.get(node)) return undefined;
+  return { node, cell: flow.nodes.get(node)?.kind === "queue" ? Math.round(cell ?? 0) : 0, from, to };
 }
 
 /** Сколько кадров токен может ждать ребро после начала своего бита без ошибки. */
@@ -291,22 +299,26 @@ export function tokenShot(frame: number, start: number, travel: number, s: Style
 }
 
 /**
- * Подпись связи компактного токена (чистая функция, S2-fix I5): на коротком ребре карточка с
- * текстом не помещается между узлами, капсула летит без текста — а ярлык данных стоит
- * подписью связи снаружи узлов с начала полёта. Дальше по режиму: `slot` — гаснет к записи в
- * полосу (там текст проявится сам, в кадре он один); `consume` и `rest` — держится до конца
- * бита (не меньше, чем до прихода) и гаснет за 4 кадра: подпись — событие передачи, а
- * объект у порта (rest) остаётся капсулой; следующий токен по той же связи в следующем бите
- * не ложится на старую подпись. `until` — уходит.
+ * Подпись связи компактного токена (чистая функция, S2-fix I5 / S2-fix2 N1): на коротком
+ * ребре карточка с текстом не помещается между узлами, капсула летит без текста — ярлык
+ * данных стоит подписью связи снаружи узлов. Проявляется прозрачностью с коротким подъёмом
+ * (`rise` — доля смещения, 1 → 0; не шторкой: срезанная подпись читается как обрезка) с ~40 %
+ * полёта — причина раньше следствия, — но не позже, чем нужно, чтобы к середине бита (кадры
+ * QA) она была видна целиком. Гаснет: `slot` — к записи в полосу (там текст проявится сам);
+ * `consume` и `rest` — через 8–12 кадров после прихода (объект у порта — капсула); раньше —
+ * к старту другого токена с той же меткой (`next`): текст в кадре один. `until` — уходит.
  */
-export function captionShot(frame: number, start: number, travel: number, beatEnd: number, s: StyleBible, o: { mode: TokenMode; until?: number }): { opacity: number; write: number } {
-  if (frame < start) return { opacity: 0, write: 0 };
-  const write = ramp(frame, start, start + frames(s, 8), EASE.outQuart);
-  const arrive = start + Math.max(1, travel);
-  const end = Math.max(arrive, beatEnd);
-  const out = o.mode === "slot" ? ramp(frame, arrive, arrive + frames(s, 5)) : ramp(frame, end, end + frames(s, 4));
+export function captionShot(frame: number, start: number, travel: number, beatEnd: number, s: StyleBible, o: { mode: TokenMode; until?: number; next?: number }): { opacity: number; write: number; rise: number } {
+  const pass = Math.max(1, travel);
+  const fadeIn = frames(s, 4);
+  const from = start + Math.max(1, Math.min(pass * 0.4, Math.max(1, beatEnd - start) / 2 - fadeIn));
+  if (frame < from) return { opacity: 0, write: 0, rise: 1 };
+  const write = ramp(frame, from, from + fadeIn, EASE.outCubic);
+  const arrive = start + pass;
+  const out = o.mode === "slot" ? ramp(frame, arrive, arrive + frames(s, 5)) : ramp(frame, arrive + frames(s, 8), arrive + frames(s, 12));
+  const cut = o.next === undefined ? 0 : ramp(frame, o.next - frames(s, 3), o.next);
   const leave = o.until === undefined ? 0 : ramp(frame, o.until, o.until + frames(s, 10));
-  return { opacity: write * (1 - out) * (1 - leave), write };
+  return { opacity: write * (1 - Math.max(out, cut)) * (1 - leave), write, rise: 1 - write };
 }
 
 type Box = { x: number; y: number; w: number; h: number };
@@ -332,6 +344,15 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
   const flow = useFlowGeometry();
+  // книга токенов графа: токен, отрисованный раньше соседей, перерисовывается в том же коммите
+  const book = edgeId ? flow?.tokens : undefined;
+  const bookId = useId();
+  const bookSeen = useRef(0);
+  const [, rerender] = useReducer((x: number) => x + 1, 0);
+  useLayoutEffect(() => {
+    if (book && book.version !== bookSeen.current) rerender();
+  });
+  useEffect(() => () => book?.drop(bookId), [book, bookId]);
   const seg = edgeId ? flow?.edges.get(edgeId) : undefined;
   const path = seg ? [seg] : (segments ?? []);
   // точка укладки: полоса узла / смещение / конец пути; неверное использование — сообщение
@@ -360,6 +381,14 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
   const late = edgeId ? tokenLateIssue(label, edgeId, beat.start_frame, ready) : null;
   if (late) kitError(`late:${edgeId}:${label}`, late);
   const start = Math.max(beat.start_frame, ready ?? 0);
+  // книга графа: старт и занятая полоса — для правил между токенами (S2-fix2)
+  const leaveLen = frames(s, 10);
+  const slotUse = mode === "slot" && edgeId && flow ? slotUseOf(flow, edgeId, reverse, cell, start + pass + frames(s, 5), until === undefined ? Infinity : until + leaveLen) : undefined;
+  book?.put(bookId, { label, start, ...(slotUse ? { slot: slotUse } : {}) });
+  bookSeen.current = book?.version ?? 0;
+  const busy = book ? slotBusyIssue(book, bookId, leaveLen) : null;
+  if (busy) kitError(`busy:${edgeId}:${label}`, busy);
+  const next = book ? nextSameLabel(book, bookId) : undefined;
   const tk = tokenShot(frame, start, pass, s, { mode, until });
   // в полосу узла: кегль под её ширину на всём пути (одна карточка не меняет размер на приходе)
   const fitted = mode === "slot" && slotW !== undefined ? slotFit(label, sizePx(s, size, height), slotW, height) : null;
@@ -370,7 +399,7 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
   // цвета данных без текста (не ложится на подписи), ярлык — подписью связи снаружи узлов
   const roomy = tokenSpan(lut, reverse, full, (6 * height) / 1080);
   const compact = mode !== "offset" && roomy.to - roomy.from < full.w * 0.6;
-  const cap = compact ? captionShot(frame, start, pass, beat.end_frame, s, { mode, until }) : { opacity: 0, write: 0 };
+  const cap = compact ? captionShot(frame, start, pass, beat.end_frame, s, { mode, until, next }) : { opacity: 0, write: 0, rise: 0 };
   if (!tk.visible && cap.opacity <= 0.001) return null;
 
   const dark = isDark(s);
@@ -450,7 +479,7 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
   return (
     <>
       {capAt ? (
-        <div data-ms-layout="token" style={{ ...cardStyle(capAt, 1, cap.opacity), clipPath: cap.write < 1 ? `inset(0 ${((1 - cap.write) * 100).toFixed(2)}% 0 0)` : undefined, ...style }}>
+        <div data-ms-layout="token" style={{ ...cardStyle({ x: capAt.x, y: capAt.y + cap.rise * full.h * 0.3 }, 1, cap.opacity), ...style }}>
           <span style={{ flex: "0 0 auto", width: look.bar, background: col }} />
           {text}
         </div>
