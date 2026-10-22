@@ -14,7 +14,8 @@
 //   ./scripts/with-node.sh npx tsx scripts/eval-set.mts --calibrate [--split train|holdout|all]
 //   ./scripts/with-node.sh npx tsx scripts/eval-set.mts --run <после> --compare <до>
 // Флаги: --runs N (прогонов судьи, 3), --parallel N (задач генерации, 3), --judge-parallel N (6),
-//   --judge-model M (opus), --gen-timeout-min N (60), --no-judge, --write-evidence.
+//   --judge-model M (opus), --gen-timeout-min N (60), --no-judge, --write-evidence,
+//   --allow-dirty (генерировать при незакоммиченных правках app/motion-studio; сцены — -dirty).
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -37,6 +38,8 @@ import { isTransientFailure } from "../server/src/eval/resume.js";
 import { registerHandlers } from "../server/src/jobs/handlers.js";
 import { cancelJob, enqueue, provideInput } from "../server/src/jobs/queue.js";
 import type { GenerateResult } from "../server/src/pipeline/generate.js";
+import { motionKitHash } from "../server/src/pipeline/render-env.js";
+import { type TreeState, dirtyStartError, sceneTree } from "../server/src/eval/tree.js";
 import { loadPng } from "../server/src/qa/image.js";
 import { newId } from "../server/src/scenes/ids.js";
 
@@ -92,7 +95,11 @@ if (!["train", "holdout", "all"].includes(split)) throw new Error(`--split: trai
 const git = (...a: string[]) => execFileSync("git", a, { cwd: REPO, encoding: "utf8" }).trim();
 const sha = git("rev-parse", "--short", "HEAD");
 /** Коммит, на котором идёт этот запуск; незакоммиченные правки приложения — суффикс `-dirty`. */
-const commit = git("status", "--porcelain", "--", "app/motion-studio") === "" ? sha : `${sha}-dirty`;
+const isDirty = () => git("status", "--porcelain", "--", "app/motion-studio") !== "";
+const commit = isDirty() ? `${sha}-dirty` : sha;
+const allowDirty = flag("--allow-dirty");
+/** Дерево сейчас: незакоммиченные правки приложения и хэш kit (рендер хэширует kit живьём). */
+const treeNow = async (): Promise<TreeState> => ({ dirty: isDirty(), kit_hash: await motionKitHash() });
 const stamp = new Date().toISOString().slice(0, 16).replace(/[-:]/g, "").replace("T", "-");
 const runId = opt("--run") ?? `${calibrate ? "calib" : "eval"}-${stamp}-${sha}`;
 const SAFE_ID = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
@@ -169,8 +176,15 @@ interface GenInfo {
   duration_frames: number;
   fps: number;
   source: string;
-  /** Чем сгенерировано: коммит (`-dirty` — с незакоммиченными правками), kit, промпты. */
+  /**
+   * Чем сгенерировано: коммит (`-dirty` — дерево грязное до или после сцены, или kit поменялся
+   * за время сцены), kit, промпты.
+   */
   commit: string;
+  dirty?: boolean;
+  /** Хэш motion-kit после сцены (`kit_hash_start` — если за сцену он поменялся). */
+  kit_hash?: string;
+  kit_hash_start?: string;
   motion_kit_version: string | null;
   motion_kit_sha256?: string | null;
   prompts_sha256: Record<string, string> | null;
@@ -209,6 +223,8 @@ function fromGit(it: Item): void {
 /** Генерация недостающих сцен настоящим пайплайном; уже готовые (gen.json) пропускаются. */
 async function generateMissing(todo: Item[]): Promise<void> {
   if (todo.length === 0) return;
+  const refuse = dirtyStartError(await treeNow(), allowDirty);
+  if (refuse) throw new Error(refuse);
   log(`генерация: ${todo.map((t) => t.id).join(", ")} (параллельно ${parallel})`);
   await ensureRenderBrowser();
   const mine = new Set<string>();
@@ -235,6 +251,7 @@ async function generateMissing(todo: Item[]): Promise<void> {
       const prior = old ? [...(old.prior_attempts ?? []), { ...old, prior_attempts: undefined }] : [];
       const settings = defaultSettings();
       const t0 = Date.now();
+      const treeStart = await treeNow();
       const provenance = {
         commit, motion_kit_version: kitVersionOf(readFileSync(join(REPO, KIT_INDEX), "utf8")), prompts_sha256: promptHashes(),
       };
@@ -279,9 +296,10 @@ async function generateMissing(todo: Item[]): Promise<void> {
         job_status: j?.status, failure: r?.failure ?? j?.error ?? undefined, version_status: v?.status,
         cost_usd: runsCost, wall_ms: Date.now() - t0, engineer_calls: r?.engineerCalls,
         duration_frames: settings.duration_frames, fps: settings.fps.num / settings.fps.den, source: vdir ?? "",
-        ...provenance, motion_kit_sha256: kitSha(join(out, "manifest.json")),
+        ...provenance, ...sceneTree(sha, treeStart, await treeNow()), motion_kit_sha256: kitSha(join(out, "manifest.json")),
         ...(prior.length ? { prior_attempts: prior } : {}),
       };
+      if (info.dirty) log(`${it.id}: дерево или kit менялись во время сцены — ${info.commit}, kit ${info.kit_hash}`);
       // без превью gen.json не пишется: повторный запуск с --run сгенерирует сцену заново
       if (info.status !== "no_preview" && info.status !== "timeout") writeJson(join(out, "gen.json"), info);
       else writeJson(failedFile, info);

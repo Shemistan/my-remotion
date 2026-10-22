@@ -20,6 +20,11 @@ async function treeHash(dir: string): Promise<string> {
   return h.digest("hex");
 }
 
+/** Хэш motion-kit, как в `render_env.motion_kit` manifest: `sha256:<16 hex>`. */
+export async function motionKitHash(): Promise<string> {
+  return `sha256:${(await treeHash(MOTION_KIT_DIR)).slice(0, 16)}`;
+}
+
 const optional = (p: Promise<string>) => p.then((s) => s.trim()).catch(() => "unknown");
 
 /** remotion, sha256 lockfile приложения, хеш motion-kit, версия Chrome Headless Shell, Node. */
@@ -29,7 +34,7 @@ export async function renderEnv(): Promise<VersionManifest["render_env"]> {
   return {
     remotion,
     render_lock_sha256: createHash("sha256").update(lock).digest("hex"),
-    motion_kit: `sha256:${(await treeHash(MOTION_KIT_DIR)).slice(0, 16)}`,
+    motion_kit: await motionKitHash(),
     chrome_headless_shell: await optional(readFile(join(APP_NODE_MODULES, ".remotion", "chrome-headless-shell", "VERSION"), "utf8")),
     node: process.versions.node,
   };
