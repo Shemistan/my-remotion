@@ -41,7 +41,9 @@ export type BeatPlanResult =
  * `planBeats` (структура, веса, длина текста вывода, seed — заголовок и мысль сцены);
  * биты фазы — по порядку: `span: "slot"` (по умолчанию) — своя доля окна, но не короче
  * входа, `span: "phase"` (и по умолчанию у фона, рисования, счёта, потоков, hold) — всё
- * окно; биты payoff — каскадом в 6 кадров от старта фазы, все до её конца. Фаза без битов получает бит по роли; у фазы hold всегда есть бит `hold` до конца.
+ * окно; биты payoff — каскадом в 6 кадров от старта фазы, все до её конца. Если в фазе
+ * есть и входы, и длящиеся биты, входы короткие (≤ 2 входов), длящийся бит стартует сразу
+ * за предыдущим. Фаза без битов получает бит по роли; у фазы hold всегда есть бит `hold` до конца.
  * Бит без фазы (с кадрами) не трогается. cold-open — бит-постер итога с кадра 0.
  */
 export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Settings, "animation_intensity">): BeatPlanResult {
@@ -91,13 +93,33 @@ export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Se
     // входит в хвосте удара и читается всё время payoff + hold
     const payoff = p.role === "payoff";
     const step = Math.max(1, Math.min(Math.round(6 * (fps / 30)), Math.floor(len / own.length)));
-    own.forEach((b, k) => {
-      const start = w.start_frame + (payoff ? k * step : Math.floor((k * len) / own.length));
-      const whole = payoff || p.role === "hold" || (b.span ?? (SUSTAIN.test(b.action) ? "phase" : "slot")) === "phase";
-      const slotEnd = start + Math.max(Math.ceil(len / own.length), enter);
-      const end = whole ? w.end_frame : Math.min(w.end_frame, slotEnd);
-      out.push({ ...b, start_frame: start, end_frame: Math.max(end, start + 1) } as Beat);
-    });
+    const whole = own.map((b) => payoff || p.role === "hold" || (b.span ?? (SUSTAIN.test(b.action) ? "phase" : "slot")) === "phase");
+    const place = (b: DirectorBeat | Beat, start: number, end: number) => {
+      const s0 = Math.min(start, w.end_frame - 1);
+      out.push({ ...b, start_frame: s0, end_frame: Math.max(Math.min(end, w.end_frame), s0 + 1) } as Beat);
+    };
+    if (payoff) {
+      own.forEach((b, k) => place(b, w.start_frame + k * step, w.end_frame));
+    } else if (p.role !== "hold" && whole.some(Boolean) && whole.some((x) => !x)) {
+      // есть длящийся бит: входы идут коротко (до двух входов), длящийся стартует сразу за
+      // предыдущим входом и живёт до конца фазы — ведущее действие не ждёт равной доли
+      const slot = Math.min(Math.ceil(len / own.length), 2 * enter);
+      let t = w.start_frame;
+      own.forEach((b, k) => {
+        if (whole[k]) {
+          place(b, t, w.end_frame);
+          t += step;
+        } else {
+          place(b, t, t + Math.max(slot, Math.min(enter, len)));
+          t += slot;
+        }
+      });
+    } else {
+      own.forEach((b, k) => {
+        const start = w.start_frame + Math.floor((k * len) / own.length);
+        place(b, start, whole[k] ? w.end_frame : start + Math.max(Math.ceil(len / own.length), enter));
+      });
+    }
   }
   // cold-open: итог виден с кадра 0, затем уступает объяснению; возвращается в своей фазе
   for (const o of plan.beats.filter((x) => x.kind === "open")) {

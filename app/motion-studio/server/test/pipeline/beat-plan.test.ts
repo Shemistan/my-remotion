@@ -94,6 +94,19 @@ describe("planSpecBeats", () => {
     expect(180 - verdict.start_frame).toBeGreaterThanOrEqual(60);
   });
 
+  it("фаза с длящимся битом: входы — коротко (≤ 2 входов), длящийся стартует сразу за ними (smoke s3a-039646a, test1)", () => {
+    const d = phasedSpec("count-up");
+    // count-up test1: вход числа, рисование, счёт — в одной ведущей фазе
+    d.beats = d.beats.map((b) => (b.id === "b-hits" ? { ...b, phase: "p-flow" } : b));
+    d.beats = [{ id: "b-num", phase: "p-flow", action: "number-entrance", description: "", element_ids: ["hits"] }, ...d.beats];
+    const r = ok(planSpecBeats(d, settings));
+    const num = beat(r.spec, "b-num");
+    const flow = beat(r.spec, "b-flow");
+    expect(num.start_frame).toBe(0);
+    expect(num.end_frame - num.start_frame).toBeLessThanOrEqual(24);
+    expect(flow.start_frame).toBe(num.end_frame);
+  });
+
   it("span: phase растягивает бит на всё окно фазы, slot — своя доля", () => {
     const d = phasedSpec();
     d.beats = d.beats.map((b) => (b.id === "b-client" ? { ...b, span: "phase" as const } : b));
