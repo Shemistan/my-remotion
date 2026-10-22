@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DirectorOutputSchema, DirectorSpecSchema, MotionSpecSchema, SceneStructureSchema,
-  phasesOf, structureOf,
+  STRUCTURE_RULES, beatKind, isAccentBeat, isProgressBeat, phasesOf, structureOf, structureOfRule,
 } from "../src/index.js";
 import { baseSpec } from "./fixtures.js";
 
@@ -119,5 +119,47 @@ describe("ответ Director: биты без кадров", () => {
       selection: { items: [] },
       rationale: "r",
     }).success).toBe(true);
+  });
+});
+
+describe("вид бита (S3a-fix M4): целыми словами или явный kind", () => {
+  it("входы с «чужими» подстроками — входы; counter-entrance — вход, не счёт", () => {
+    for (const a of ["upstream-in", "downstream-in", "workflow-in", "account-card-in", "discount-in", "drawer-in", "threshold-in", "placeholder-in", "rerun-in", "counter-entrance"]) {
+      expect(beatKind({ action: a }), a).toBe("enter");
+    }
+  });
+  it("длящиеся, счёт, акцент, удержание — по словам", () => {
+    expect(beatKind({ action: "chart-draw" })).toBe("sustain");
+    expect(beatKind({ action: "requests-flow" })).toBe("sustain");
+    expect(beatKind({ action: "bg_loop" })).toBe("sustain");
+    expect(beatKind({ action: "hits-count" })).toBe("count");
+    expect(beatKind({ action: "count-up" })).toBe("count");
+    expect(beatKind({ action: "final-emphasis" })).toBe("accent");
+    expect(beatKind({ action: "hold" })).toBe("hold");
+    expect(beatKind({ action: "verdict-shows" })).toBeUndefined();
+  });
+  it("явный kind сильнее слов; акцент и «ведёт к итогу» — тем же признаком", () => {
+    expect(beatKind({ action: "upstream-in", kind: "sustain" })).toBe("sustain");
+    expect(isAccentBeat({ action: "verdict-in", kind: "accent" })).toBe(true);
+    expect(isAccentBeat({ action: "glow-emphasis", kind: "enter" })).toBe(false);
+    expect(isProgressBeat({ action: "chart-draw" })).toBe(true);
+    expect(isProgressBeat({ action: "requests-flow" })).toBe(false);
+    expect(isProgressBeat({ action: "x", kind: "count" })).toBe(true);
+  });
+  it("phasesOf: threshold-in — вход (setup), а не hold", () => {
+    const s = MotionSpecSchema.parse({ ...baseSpec(), beats: [
+      { id: "a", start_frame: 0, end_frame: 20, action: "threshold-in", description: "", element_ids: ["title"] },
+      { id: "b", start_frame: 20, end_frame: 180, action: "hold", description: "", element_ids: ["title", "chart"] },
+    ] });
+    expect(phasesOf(s).map((x) => x.role)).toEqual(["setup", "hold"]);
+  });
+});
+
+describe("правила структуры Concept (S3a-fix)", () => {
+  it("шесть правил по порядку, каждое — своя структура", () => {
+    expect(STRUCTURE_RULES.map(([r]) => r)).toEqual(["result-first", "two-sides", "request-answer", "one-number", "always-on", "assembly"]);
+    expect(new Set(STRUCTURE_RULES.map(([, s]) => s)).size).toBe(6);
+    expect(structureOfRule("two-sides")).toBe("split-reveal");
+    expect(structureOfRule("assembly")).toBe("build-strike");
   });
 });

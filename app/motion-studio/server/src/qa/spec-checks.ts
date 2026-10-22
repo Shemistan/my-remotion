@@ -3,10 +3,10 @@
 // (motion-review-1) — нумерованные заглушки, ключевая мысль purpose на экране, повтор
 // подписи кадра предыдущей сцены. `layout` элемента — доли safe area, а не кадра
 // (prompts/motion-director.md §8): в кадр он переводится через safeRect настроек.
-import type { Beat, Element, MotionSpec, QAIssue, Settings } from "@ms/contracts";
+import { type Beat, type Element, type MotionSpec, type QAIssue, type Settings, isAccentBeat, structureOf } from "@ms/contracts";
 import { arrivalInPass, pulsePass, pulseStarts, resolveStyle } from "@ms/render";
 import { boundCounters } from "../pipeline/bound-counters.js";
-import { ACCENT_ACTION, isEmphasisRole } from "../pipeline/qa-frames.js";
+import { isEmphasisRole } from "../pipeline/qa-frames.js";
 
 type Layout = NonNullable<Element["layout"]>;
 
@@ -105,6 +105,7 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
 
   out.push(...beatReferenceIssues(spec));
   out.push(...accentConflicts(spec, settings));
+  out.push(...structureMismatch(spec));
   out.push(...placeholderIssues(spec));
   out.push(...purposeClaimIssues(spec));
   for (const prev of [opts.previous ?? []].flat()) {
@@ -114,7 +115,7 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
     break;
   }
 
-  if (!spec.elements.some((e) => isEmphasisRole(e.role)) && !spec.beats.some((b) => ACCENT_ACTION.test(b.action))) {
+  if (!spec.elements.some((e) => isEmphasisRole(e.role)) && !spec.beats.some((b) => isAccentBeat(b))) {
     out.push({
       code: "no_emphasis", severity: "warning",
       description: "в сцене нет акцента: ни элемента role = emphasis, ни бита emphasis/accent",
@@ -122,6 +123,40 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
     });
   }
   return out.map((i) => ({ source: "programmatic", ...i }));
+}
+
+/**
+ * Форма spec расходится со структурой (S3a-fix): подсказка Director, не blocking — вкус не
+ * стоит раунда. Две независимые стороны в setup — похоже на split-reveal; поток `back` —
+ * на call-response (если Director не объяснил выбор в `structure_reason`); count-up без
+ * числа в ведущей action — число не ведёт.
+ */
+function structureMismatch(spec: MotionSpec): Omit<QAIssue, "source">[] {
+  const phases = spec.phases;
+  if (!phases) return [];
+  const structure = structureOf(spec);
+  const reasoned = spec.composition?.structure_reason !== undefined;
+  const out: Omit<QAIssue, "source">[] = [];
+  const warn = (area: string, description: string, fix_hint: string) => out.push({ code: "structure_mismatch", severity: "warning", area, description, fix_hint });
+  const setups = phases.filter((p) => p.role === "setup");
+  const disjoint = setups.length >= 2 && setups.every((a, i) => setups.every((b, j) => i === j || !a.element_ids.some((id) => b.element_ids.includes(id))));
+  if (structure !== "split-reveal" && disjoint && !reasoned) {
+    warn(setups.map((p) => p.id).join(", "), `${structure}: ${setups.length} фазы setup с разными элементами — две независимые стороны`,
+      "если это сравнение сторон — structure: split-reveal (стороны входят параллельно, вердикт растёт); иначе одна фаза setup или structure_reason");
+  }
+  const back = spec.elements.some((e) => Array.isArray(e.content.flows) && (e.content.flows as unknown[]).some((f) => (f as Record<string, unknown> | null)?.direction === "back"));
+  if (structure !== "call-response" && back && !reasoned) {
+    warn("flows", `${structure}: в графе поток back — данные возвращаются, это запрос и ответ`,
+      "если сцена про запрос и ответ — structure: call-response (пауза перед ответом, ответ — событие); иначе structure_reason");
+  }
+  if (structure === "count-up") {
+    const lead = phases.find((p) => p.role === "action");
+    const kinds = new Map(spec.elements.map((e) => [e.id, e.kind]));
+    if (lead && !lead.element_ids.some((id) => kinds.get(id) === "number")) {
+      warn(lead.id, `count-up: в ведущей фазе ${lead.id} нет числа — число не ведёт`, `положи число (kind: number) в фазу ${lead.id} или выбери структуру по правилу Concept`);
+    }
+  }
+  return out;
 }
 
 /** Вспышка узла FlowGraph (nodeFlash): удар за кадр до прихода, гаснет за ~22 кадра при 30 fps. */
@@ -161,7 +196,7 @@ function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "s
 
   // акценты битов: цели — элементы бита с ролью акцента, иначе все элементы бита
   const emph = spec.beats
-    .filter((b) => ACCENT_ACTION.test(b.action))
+    .filter((b) => isAccentBeat(b))
     .map((b) => {
       const marked = b.element_ids.filter((id) => isEmphasisRole(byId.get(id)?.role ?? ""));
       return { beat: b, ids: marked.length > 0 ? marked : b.element_ids };
@@ -183,13 +218,18 @@ function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "s
 
   const overlap = (a: { from: number; to: number }, b: { from: number; to: number }) => Math.min(a.to, b.to) - Math.max(a.from, b.from);
   const out: Omit<QAIssue, "source">[] = [];
+  // spec с фазами: кадры ставит планировщик — подсказка Director про фазы, а не про кадры
+  const phased = spec.beats.some((b) => b.phase !== undefined);
+  const phaseOf = (b: Beat) => b.phase ?? b.id;
   for (const f of flashes) {
     for (const { beat: b, ids } of emph) {
       if (ids.includes(f.id) || overlap(f, { from: b.start_frame, to: b.end_frame }) < CONFLICT_MIN_FRAMES) continue;
       out.push({
         code: "accent_conflict", severity: "blocking", area: `${f.id}, ${ids.join(", ")}`,
         description: `${f.what} и акцент ${ids.join(", ")} (бит ${b.id}, кадры ${b.start_frame}–${b.end_frame}) светятся одновременно: два акцента в один момент`,
-        fix_hint: `один акцент в момент: если приход импульса отмечает сам ${ids.join(", ")} — убери flash_on у ${f.id}; иначе начни бит ${b.id} не раньше кадра ${f.to}, когда вспышка погаснет`,
+        fix_hint: phased
+          ? `один акцент в момент: если приход импульса отмечает сам ${ids.join(", ")} — убери flash_on у ${f.id}; иначе перенеси бит ${b.id} в фазу после той, где идёт импульс`
+          : `один акцент в момент: если приход импульса отмечает сам ${ids.join(", ")} — убери flash_on у ${f.id}; иначе начни бит ${b.id} не раньше кадра ${f.to}, когда вспышка погаснет`,
       });
     }
   }
@@ -230,7 +270,9 @@ function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "s
       out.push({
         code: "accent_conflict", severity: "blocking", area: `${p.id}, ${hit.join(", ")}`,
         description: `акцент ${hit.join(", ")} (бит ${b.id}) бьёт в кадр ${strike}, пока импульс бита ${p.id} ещё летит к нему (${p.start_frame}–${p.end_frame}, приход ~${Math.round(arrival)}): итог приходит раньше данных`,
-        fix_hint: `итог приходит вместе с данными: начни бит ${b.id} в кадр прихода импульса — ${Math.ceil(arrival)}${arrival === p.end_frame ? ` (конец бита ${p.id})` : ""}, или заверши импульс раньше`,
+        fix_hint: phased
+          ? `итог приходит вместе с данными: бит ${b.id} — в фазе после фазы ${phaseOf(p)} (импульса ${p.id}), или импульс короче — span: "slot"`
+          : `итог приходит вместе с данными: начни бит ${b.id} в кадр прихода импульса — ${Math.ceil(arrival)}${arrival === p.end_frame ? ` (конец бита ${p.id})` : ""}, или заверши импульс раньше`,
       });
     }
   }
@@ -242,7 +284,9 @@ function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "s
       out.push({
         code: "accent_conflict", severity: "blocking", area: `${a.ids.join(", ")}, ${b.ids.join(", ")}`,
         description: `биты акцентов ${a.beat.id} (${a.ids.join(", ")}, ${a.beat.start_frame}–${a.beat.end_frame}) и ${b.beat.id} (${b.ids.join(", ")}, ${b.beat.start_frame}–${b.beat.end_frame}) перекрываются: два акцента в один момент`,
-        fix_hint: `передача акцента: бит ${a.beat.id} кончается до старта ${b.beat.id}, у прежнего акцента loop: false`,
+        fix_hint: phased
+          ? `один акцент в момент: фазы ${phaseOf(a.beat)} и ${phaseOf(b.beat)} идут одновременно — перенеси бит ${b.beat.id} в фазу, которая идёт после, или сделай его не акцентом (kind: "enter"); в одной payoff планировщик сам передаёт акцент`
+          : `передача акцента: бит ${a.beat.id} кончается до старта ${b.beat.id}, у прежнего акцента loop: false`,
       });
     }
   }

@@ -344,3 +344,56 @@ describe("ревью дизайнера: заглушки, ключевая мы
     for (const n of ["test1", "test2", "gen-compare", "gen-timeline", "gen-cache"]) expect(blocking(n), n).toEqual([]);
   });
 });
+
+describe("structure_mismatch: форма spec расходится со структурой (S3a-fix) — подсказка, не blocking", () => {
+  const els = [
+    el("a", { layout: { x: 0, y: 0, w: 0.4, h: 0.2 } }),
+    el("b", { entrance: "fade", layout: { x: 0.5, y: 0, w: 0.4, h: 0.2 } }),
+    el("n", { kind: "number", entrance: "count", layout: { x: 0, y: 0.5, w: 0.4, h: 0.2 } }),
+    el("v", { role: "акцент: вывод", entrance: "mask", layout: { x: 0.5, y: 0.5, w: 0.4, h: 0.2 } }),
+  ];
+  const beats = [beat("b0", 0, 60, ["a", "b"]), beat("b1", 60, 120, ["n"], "n-count"), beat("b2", 120, 150, ["v"], "v-emphasis"), beat("b3", 150, 180, ["v"], "hold")];
+  const phased = (structure: NonNullable<NonNullable<MotionSpec["composition"]>["structure"]>, phases: NonNullable<MotionSpec["phases"]>, over: Partial<MotionSpec> = {}) =>
+    spec({ elements: els, beats, composition: { archetype: "split", idea: "x", focus: "y", transitions: "z", structure }, phases, ...over });
+  const mism = (sp: MotionSpec) => specChecks(sp, s).filter((i) => i.code === "structure_mismatch");
+  const tail: NonNullable<MotionSpec["phases"]> = [{ id: "pay", role: "payoff", weight: 1, element_ids: ["v"] }, { id: "hold", role: "hold", weight: 1, element_ids: ["v"], hold_mode: "now-pulse" }];
+
+  it("build-strike с двумя независимыми setup — похоже на split-reveal; у split-reveal — нет", () => {
+    const ph = [{ id: "left", role: "setup" as const, weight: 1, element_ids: ["a"] }, { id: "right", role: "setup" as const, weight: 1, element_ids: ["b"] }, { id: "act", role: "action" as const, weight: 2, element_ids: ["n"] }, ...tail];
+    const w = mism(phased("build-strike", ph));
+    expect(w).toHaveLength(1);
+    expect(w[0]!.severity).toBe("warning");
+    expect(w[0]!.fix_hint).toMatch(/split-reveal/);
+    expect(mism(phased("split-reveal", ph))).toEqual([]);
+  });
+
+  it("поток back в графе — похоже на call-response; с structure_reason — молчит", () => {
+    const g = el("g", { kind: "graph", entrance: "draw", content: { edges: [{ id: "e", from: "a", to: "b" }], flows: [{ edge: "e", direction: "back", beat: "b1" }] }, layout: { x: 0, y: 0.75, w: 0.9, h: 0.2 } });
+    const ph = [{ id: "setup", role: "setup" as const, weight: 1, element_ids: ["a", "b"] }, { id: "act", role: "action" as const, weight: 2, element_ids: ["n"] }, ...tail];
+    const sp = phased("build-strike", ph, { elements: [...els, g], beats: [...beats.slice(0, 1), { ...beats[1]!, element_ids: ["n", "g"] }, ...beats.slice(2)] });
+    expect(mism(sp).map((i) => i.fix_hint).join(" ")).toMatch(/call-response/);
+    expect(mism({ ...sp, composition: { ...sp.composition!, structure_reason: "ответ не событие" } })).toEqual([]);
+  });
+
+  it("count-up без числа в ведущей action — число не ведёт", () => {
+    const ph = [{ id: "act", role: "action" as const, weight: 2, element_ids: ["a"] }, { id: "setup", role: "setup" as const, weight: 1, element_ids: ["n", "b"] }, ...tail];
+    expect(mism(phased("count-up", ph)).map((i) => i.description).join(" ")).toMatch(/count-up/);
+    const good = [{ id: "act", role: "action" as const, weight: 2, element_ids: ["n"] }, { id: "setup", role: "setup" as const, weight: 1, element_ids: ["a", "b"] }, ...tail];
+    expect(mism(phased("count-up", good))).toEqual([]);
+  });
+
+  it("spec без фаз — проверки нет", () => {
+    expect(mism(spec({ elements: els, beats }))).toEqual([]);
+  });
+});
+
+describe("accent_conflict в spec с фазами: подсказка про фазы, а не кадры (S3a-fix I1)", () => {
+  it("два акцента перекрываются — fix_hint про фазы и kind, без кадров", () => {
+    const e = [el("x", { layout: { x: 0, y: 0, w: 0.3, h: 0.2 } }), el("y", { entrance: "fade", layout: { x: 0.5, y: 0, w: 0.3, h: 0.2 } })];
+    const sp = spec({ elements: e, phases: [{ id: "pay", role: "payoff", weight: 1, element_ids: ["x", "y"] }], beats: [{ ...beat("bx", 0, 60, ["x"], "x-emphasis"), phase: "pay" }, { ...beat("by", 10, 60, ["y"], "y-accent"), phase: "pay" }] });
+    const c = specChecks(sp, s).find((i) => i.code === "accent_conflict")!;
+    expect(c.severity).toBe("blocking");
+    expect(c.fix_hint).toMatch(/фаз/);
+    expect(c.fix_hint).not.toMatch(/кадр/);
+  });
+});

@@ -1,11 +1,28 @@
 // Планировщик ритма (S3a): структура сцены и веса фаз → кадры. Director кадров не пишет:
 // он выбирает форму времени (`composition.structure`) и веса фаз, а окна фаз считает эта
-// чистая функция. Вывод держится не меньше времени чтения, а сдвиг от seed (±6–10 кадров
-// при 30 fps) разводит сцены одной структуры, чтобы удар не приходился на один кадр.
+// чистая функция. Кадр удара лежит в полосе своей структуры (`TAKEAWAY_BAND`), место в
+// полосе задают веса (доля фаз до удара); вывод держится не меньше времени чтения, а сдвиг
+// от seed (±6–10 кадров при 30 fps) разводит сцены одной структуры.
 import type { PhaseRole, SceneStructure } from "@ms/contracts";
 import { type Intensity, intensityScale } from "../style/intensity.js";
 
 export const STRUCTURES: readonly SceneStructure[] = ["build-strike", "cold-open", "continuous-flow", "split-reveal", "call-response", "count-up"];
+
+/**
+ * Полоса кадра удара (доли сцены) по структуре: число ведёт — удар рано, поток — к середине,
+ * сборка и сравнение — позже, ответ на запрос — поздно. Место в полосе — доля веса фаз до
+ * удара (setup, action, turn) от 0,3 до 0,8: больше веса объяснению — удар позже, больше
+ * веса payoff и hold — раньше. Верх полосы ограничен временем чтения вывода.
+ * cold-open: полоса — возврат к итогу; кадр вывода у него — 0 (постер).
+ */
+export const TAKEAWAY_BAND: Readonly<Record<SceneStructure, readonly [number, number]>> = {
+  "count-up": [0.3, 0.44],
+  "continuous-flow": [0.42, 0.54],
+  "split-reveal": [0.5, 0.62],
+  "cold-open": [0.52, 0.64],
+  "build-strike": [0.54, 0.66],
+  "call-response": [0.56, 0.68],
+};
 
 export interface PlanPhase {
   id: string;
@@ -16,6 +33,11 @@ export interface PlanPhase {
   chars?: number;
   /** Элементов, входящих в фазе: каскад входов задаёт её минимальную длину. */
   elements?: number;
+  /**
+   * payoff: кадров от старта фазы до входа последнего бита с текстом вывода (каскад,
+   * передача акцента). Чтение считается от этого кадра.
+   */
+  delay?: number;
 }
 
 export interface PlanInput {
@@ -43,14 +65,45 @@ export interface PlannedBeat {
 export interface BeatPlan {
   structure: SceneStructure;
   beats: PlannedBeat[];
-  /** Кадр, с которого вывод на экране (старт payoff; без payoff — старт hold). */
+  /**
+   * Кадр, с которого вывод на экране — метрика «кадр вывода»: старт payoff (без payoff —
+   * старт hold); у cold-open — 0 (итог-постер с первого кадра).
+   */
   takeaway: number;
+  /** Кадр удара: старт payoff (без payoff — hold); у cold-open — возврат к итогу. */
+  strike: number;
   /** Кадров на чтение вывода. */
   reading: number;
   /** Сдвиг удара от seed, кадры (0 — сдвигать некуда). */
   offset: number;
   /** call-response: пауза между запросом и ответом — новых событий нет. */
   pause?: { start_frame: number; end_frame: number };
+}
+
+/** Кадровые токены фаз (под fps и интенсивность) — общие для планировщика и шага пайплайна. */
+export interface PhaseTokens {
+  /** Вход элемента. */
+  enter: number;
+  /** Шаг каскада входов. */
+  stagger: number;
+  /** Шаг удара payoff: биты входят разом, через столько кадров. */
+  step: number;
+  /** Веер параллельных вызовов (потоки одной фазы): 3–4 кадра между стартами. */
+  fan: number;
+  /** Счётчик показывает «от» до начала счёта. */
+  countFrom: number;
+}
+
+export function phaseTokens(fps: number, intensity: Intensity): PhaseTokens {
+  const sc = fps / 30;
+  const time = intensityScale(intensity).time;
+  return {
+    enter: Math.max(1, Math.round(12 * time * sc)),
+    stagger: Math.max(1, Math.round(8 * time * sc)),
+    step: Math.max(1, Math.round(6 * sc)),
+    fan: Math.max(1, Math.round(4 * sc)),
+    countFrom: Math.max(1, Math.round(15 * sc)),
+  };
 }
 
 /**
@@ -130,92 +183,106 @@ function chain(from: number, lens: readonly number[]): [number, number][] {
  *   долгое удержание (≥ 25 %);
  * - `count-up` — число ведёт: первая action (счёт) с кадра 0 до удара, setup и прочие фазы
  *   входят поверх счёта.
+ * Кадр удара — в полосе структуры (`TAKEAWAY_BAND`) по доле веса фаз до удара.
  */
 export function planBeats(input: PlanInput): BeatPlan {
   const { structure, phases, fps } = input;
   const D = Math.max(1, Math.round(input.duration));
   const sc = fps / 30;
+  const tok = phaseTokens(fps, input.intensity);
   const time = intensityScale(input.intensity).time;
   const sec = (s: number) => Math.round(s * fps);
-  const enter = Math.round(12 * time * sc);
-  const stagger = Math.round(8 * time * sc);
   // минимум фазы — вход и короткий каскад (до 3 шагов): дальше время делят веса
-  const phaseMin = (p: PlanPhase) => enter + stagger * Math.max(0, Math.min(p.elements ?? 1, 3) - 1);
+  const phaseMin = (p: PlanPhase) => tok.enter + tok.stagger * Math.max(0, Math.min(p.elements ?? 1, 3) - 1);
 
   const pre = phases.filter((p) => p.role === "setup" || p.role === "action" || p.role === "turn");
   const pays = phases.filter((p) => p.role === "payoff");
   const holds = phases.filter((p) => p.role === "hold");
-  const wTotal = phases.reduce((a, p) => a + p.weight, 0) || 1;
+  const sum = (xs: readonly PlanPhase[]) => xs.reduce((a, p) => a + p.weight, 0);
+  const wTotal = sum(phases) || 1;
   const chars = [...pays, ...holds].reduce((a, p) => a + (p.chars ?? 0), 0);
   const reading = readingFrames(chars, fps, D);
+  // текст вывода входит через `delay` кадров после удара: чтение — от его входа
+  const delay = Math.max(0, ...pays.map((p) => Math.round(p.delay ?? 0)));
+  const need = reading + delay;
+  const tail = pays.length > 0 || holds.length > 0;
 
-  // длины payoff (P), hold (H), постера (O), паузы (G)
-  const wPay = pays.reduce((a, p) => a + p.weight, 0);
-  let P = pays.length ? Math.min(Math.round(0.3 * D), Math.max(sec(0.5), Math.round((D * wPay) / wTotal))) : 0;
+  // длина payoff (P) по весу, постер (O), пауза (G)
+  let P0 = pays.length ? Math.min(Math.round(0.3 * D), Math.max(sec(0.5), Math.round((D * sum(pays)) / wTotal))) : 0;
   let O = 0;
   let G = 0;
   const turns = pre.filter((p) => p.role === "turn");
   if (structure === "cold-open" && pays.length) {
     O = Math.min(sec(1.5), Math.max(sec(0.8), Math.round(0.14 * D)));
-    P = Math.max(sec(0.4), Math.round(P * 0.6));
+    P0 = Math.max(sec(0.4), Math.round(P0 * 0.6));
   }
-  if (structure === "continuous-flow" && pays.length) P = Math.max(P, Math.round(0.22 * D));
-  if (structure === "split-reveal" && pays.length) P = Math.max(P, Math.round(0.25 * D));
+  if (structure === "continuous-flow" && pays.length) P0 = Math.max(P0, Math.round(0.22 * D));
+  if (structure === "split-reveal" && pays.length) P0 = Math.max(P0, Math.round(0.25 * D));
   if (structure === "call-response") {
-    if (pays.length) P = Math.min(sec(0.8), Math.max(sec(0.5), P));
+    if (pays.length) P0 = Math.min(sec(0.8), Math.max(sec(0.5), P0));
     if (turns.length === 0 && pays.length) G = Math.round(sec(0.45) * time);
   }
+  // главный бит payoff успевает войти после передачи акцента
+  const Pmin = pays.length ? delay + tok.step : 0;
+  P0 = Math.max(P0, Pmin);
   const holdMin = Math.max(sec(1), Math.round(D * ((input.density ?? 0) > 8 ? 0.18 : 0.15)));
-  // сдвиг удара от seed: ±(6..10) кадров при 30 fps; удержанию — запас на него сверх чтения
-  const h = hash(`${structure}:${input.seed}`);
-  const mag = Math.round((6 + (h % 5)) * sc);
-  const sign = (h >>> 8) & 1 ? 1 : -1;
-  // вывод в payoff может войти каскадом позже старта фазы (6 кадров при 30 fps): запас к чтению
-  const need = reading + Math.round(6 * sc);
-  let H = holds.length ? Math.max(holdMin, need - P + mag) : 0;
-  if (structure === "call-response" && holds.length) H = Math.max(H, Math.round(0.25 * D));
-  // вывод едет поверх действия: входит к середине сцены
-  if (structure === "continuous-flow" && holds.length) H = Math.max(H, Math.round(0.45 * D) - P);
-  if (!holds.length) P = pays.length ? Math.max(P, need) : 0;
+  const hMin = holds.length ? (structure === "call-response" ? Math.max(holdMin, Math.round(0.25 * D)) : holdMin) : 0;
+  // хвост (payoff + hold): желательно — чтение и минимумы обеих фаз, обязательно — чтение
+  // вердикт split-reveal и вывод continuous-flow длинные по смыслу структуры — хвост под них
+  const Pform = !pays.length ? 0 : structure === "split-reveal" ? Math.round(0.25 * D) : structure === "continuous-flow" ? Math.round(0.22 * D) : 0;
+  const tailWant = tail ? Math.max(need, Math.max(Pmin, Pform) + hMin) : 0;
+  const tailMin = tail ? Math.max(need, Pmin + (holds.length ? 1 : 0), pays.length + holds.length) : 0;
 
   const preMins = pre.map((p) => (structure === "call-response" && p.role === "turn" ? Math.max(phaseMin(p), sec(0.4)) : phaseMin(p)));
   const preMin = preMins.reduce((a, x) => a + x, 0);
-  // не влезает: удержание сжимается до времени чтения; фазы до удара — ниже своих минимумов
-  // (split делит их пропорционально); вывод не короче чтения
-  const over = O + G + preMin + P + H - D;
-  if (over > 0 && holds.length) H = Math.max(Math.max(1, need - P), H - over);
-  let R = D - O - G - P - H;
-  if (R < pre.length) {
-    // совсем короткая сцена: всё пропорционально, фазам до удара — хотя бы по кадру
-    const k = Math.max(0, D - pre.length) / Math.max(1, O + G + P + H);
-    O = Math.floor(O * k);
-    G = Math.floor(G * k);
-    P = pays.length ? Math.max(1, Math.floor(P * k)) : 0;
-    H = holds.length ? Math.max(1, Math.floor(H * k)) : 0;
-    R = D - O - G - P - H;
-  }
-  if (!pre.length) {
-    // нечего объяснять: остаток — удержанию (или payoff, если нет hold)
-    if (holds.length) H += R;
-    else P += R;
-    R = 0;
-  }
 
-  // сдвиг — за счёт удержания (или payoff без hold), если обе стороны остаются в своих минимумах
-  const fits = (o: number) => R + o >= preMin && (holds.length ? H - o >= Math.max(1, need - P) : P - o >= Math.max(1, need));
+  // кадр удара T: полоса структуры по доле веса фаз до удара
+  let T: number;
   let offset = 0;
-  if (pre.length && (holds.length || pays.length)) {
+  if (!tail) T = D;
+  else if (!pre.length) T = Math.min(O + G, D - tailMin);
+  else {
+    const [lo, hi] = TAKEAWAY_BAND[structure];
+    const x = Math.min(1, Math.max(0, (sum(pre) / wTotal - 0.3) / 0.5));
+    T = Math.round(D * (lo + (hi - lo) * x));
+    T = Math.min(T, D - tailWant);
+    T = Math.max(T, O + G + preMin);
+    T = Math.min(T, D - tailMin);
+    // совсем короткая сцена: постер и пауза сжимаются, фазам до удара — хотя бы по кадру
+    if (T - O - G < pre.length) {
+      T = Math.min(D - pays.length - holds.length, Math.max(T, pre.length));
+      const k = O + G > 0 ? Math.min(1, Math.max(0, T - pre.length) / (O + G)) : 1;
+      O = Math.floor(O * k);
+      G = Math.floor(G * k);
+    }
+    // сдвиг от seed: ±(6..10) кадров при 30 fps, если обе стороны остаются в своих минимумах
+    const h = hash(`${structure}:${input.seed}`);
+    const mag = Math.round((6 + (h % 5)) * sc);
+    const sign = (h >>> 8) & 1 ? 1 : -1;
+    // хвост, который уже влез (чтение и минимумы), сдвиг не отнимает
+    const keep = Math.max(tailMin, Math.min(tailWant, D - T));
+    const fits = (o: number) => T + o - O - G >= preMin && D - (T + o) >= keep;
     if (fits(sign * mag)) offset = sign * mag;
     else if (fits(-sign * mag)) offset = -sign * mag;
+    T += offset;
   }
-  R += offset;
-  if (holds.length) H -= offset;
-  else P -= offset;
+
+  // payoff и hold делят хвост: payoff — по весу, hold — остаток (не меньше своего минимума)
+  const A = D - T;
+  let P = 0;
+  let H = 0;
+  if (pays.length && holds.length) {
+    P = Math.min(P0, A - hMin);
+    P = Math.max(P, Math.min(Pmin, A - 1), 1);
+    H = A - P;
+  } else if (pays.length) P = A;
+  else if (holds.length) H = A;
+  const R = T - O - G;
 
   const win = new Map<string, [number, number]>();
   const beats: PlannedBeat[] = [];
   let pause: BeatPlan["pause"];
-  const ps = O + G + R; // старт payoff (удар)
+  const ps = T; // старт payoff (удар)
   const preStart = O;
 
   if (structure === "split-reveal" && pre.some((p) => p.role === "setup")) {
@@ -276,6 +343,7 @@ export function planBeats(input: PlanInput): BeatPlan {
   // по старту; при равном старте постер раньше, иначе — порядок фаз
   beats.sort((a, b) => a.start_frame - b.start_frame || Number(b.kind === "open") - Number(a.kind === "open"));
   // без payoff и hold вывод — последняя фаза
-  const takeaway = pays.length || holds.length ? ps : win.get(pre.at(-1)!.id)![0];
-  return { structure, beats, takeaway, reading, offset, ...(pause ? { pause } : {}) };
+  const strike = tail ? ps : win.get(pre.at(-1)!.id)![0];
+  const takeaway = structure === "cold-open" && O > 0 ? 0 : strike;
+  return { structure, beats, takeaway, strike, reading, offset, ...(pause ? { pause } : {}) };
 }

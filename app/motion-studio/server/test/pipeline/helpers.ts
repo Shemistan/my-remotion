@@ -158,6 +158,7 @@ export function conceptOutput(over: Partial<ConceptOutput> = {}): ConceptOutput 
     kb_queries: { ru: ["график роста"], en: ["line chart"] },
     composition_mode: "fullscreen",
     style_hint: { preset: "dark-premium" },
+    structure: { rule: "one-number", runner_up: "build-strike", reason: "одна величина растёт от и до" },
     ...over,
   };
 }

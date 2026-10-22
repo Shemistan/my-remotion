@@ -14,8 +14,12 @@ import {
   type FailureStage,
   type MotionSpec,
   PATTERN_SLUGS,
+  type SceneStructure,
+  type StructureRule,
   type ScenePropsStyle,
   type Settings,
+  beatKind,
+  structureOfRule,
 } from "@ms/contracts";
 import { INCONCLUSIVE_LIMIT, type ProcessRegistry, StorageError, StoragePathError, type StorageStatus, isInconclusive, safeMkdir, watchStorage } from "@ms/core";
 import { type ResolvedStyle, resolveStyle, typeSize } from "@ms/render";
@@ -382,7 +386,9 @@ export function buildDirectorTask(i: DirectorTaskInput, run: TaskRun): AgentTask
     "",
   );
   if (i.concept) {
-    parts.push("# Концепция (агент Concept)", json({ concept: i.concept.concept, patterns: i.concept.patterns, composition_mode: i.concept.composition_mode, style_hint: i.concept.style_hint }), "");
+    const st = conceptStructure(i.concept);
+    parts.push("# Концепция (агент Concept)", json({ concept: i.concept.concept, patterns: i.concept.patterns, composition_mode: i.concept.composition_mode, style_hint: i.concept.style_hint, ...(st ? { structure: st } : {}) }), "");
+    if (st) parts.push(`Структура сцены — \`${st.value}\` (правило Concept «${st.rule}», запасная — \`${st.runner_up}\`): composition.structure = "${st.value}". Другая — только с причиной в composition.structure_reason.`, "");
   }
   if (i.base) parts.push("# База правки: spec и props текущей версии", json(i.base), "");
   if (i.editPlan) parts.push("# План правки", json(i.editPlan), "");
@@ -549,6 +555,31 @@ async function saveCheckpoint(rc: RunCtx, cp: CheckpointOpts, role: Role, hash: 
 
 const canSpendNow = (rc: RunCtx) => rc.spent < rc.config.scene.maxCostUsd;
 
+/** Структура, выбранная Concept (правило → структура); старый ответ без выбора — нет. */
+export function conceptStructure(c: ConceptOutput | undefined): { value: SceneStructure; rule: StructureRule; runner_up: SceneStructure; reason: string } | undefined {
+  const st = (c as Partial<ConceptOutput> | undefined)?.structure;
+  return st ? { value: structureOfRule(st.rule), ...st } : undefined;
+}
+
+/**
+ * Структура — выбор Concept (S3a-fix): Director ставит её фазы и может сменить только с
+ * причиной (`composition.structure_reason`). Без причины — структура Concept и
+ * предупреждение. Spec без фаз не трогается (структура на кадры не влияет).
+ */
+export function withConceptStructure(director: DirectorOutput, concept: ConceptOutput | undefined): { director: DirectorOutput; warning?: string } {
+  const st = conceptStructure(concept);
+  if (!st || !director.spec.phases) return { director };
+  const chosen = director.composition.structure;
+  if (chosen === st.value) return { director };
+  if (chosen !== undefined && director.composition.structure_reason) {
+    return { director, warning: `структура ${chosen} вместо ${st.value} (Concept, правило ${st.rule}): ${director.composition.structure_reason}` };
+  }
+  return {
+    director: { ...director, composition: { ...director.composition, structure: st.value } },
+    warning: `структура ${chosen ?? "не задана"} без structure_reason → ${st.value} (Concept, правило ${st.rule})`,
+  };
+}
+
 /** Concept: идея, паттерны, ключи поиска KB, уточнения. Сбой — этап `concept`. */
 export async function conceptStep(
   rc: RunCtx,
@@ -582,7 +613,9 @@ export async function directorStep(
     const r = await toolless(rc, "motion_director", "director", "Motion Director", (workdir) => buildDirectorTask({ ...i, fix, workdir }, { ...rc.taskRun, seq: round }), DirectorOutputSchema, round === 1 && cp ? { ...cp, save: false } : undefined);
     if (!r.ok) return r;
     if (round === 1) key = { hash: r.hash, reused: r.reused };
-    const director = r.output;
+    const chosen = withConceptStructure(r.output, i.concept);
+    const director = chosen.director;
+    if (chosen.warning) rc.note("director", chosen.warning);
     // кадры битов — из фаз и структуры (planBeats), не расчёт Director
     const planned = planSpecBeats({ ...director.spec, composition: director.composition }, s);
     if (!planned.ok) {
@@ -609,7 +642,7 @@ export async function directorStep(
     if (blocking.length === 0) {
       for (const w of specWarnings(spec)) rc.warnings.push(`spec: ${w}`);
       for (const h of hints) rc.warnings.push(`spec: ${h.code} (${h.area ?? "spec"}): ${h.description}`);
-      for (const c of [...planned.changes, ...planned.warnings, ...bound.changes, ...bound.warnings]) rc.warnings.push(`spec: ${c}`);
+      for (const c of [...(chosen.warning ? [chosen.warning] : []), ...planned.changes, ...planned.warnings, ...bound.changes, ...bound.warnings]) rc.warnings.push(`spec: ${c}`);
       if (cp && key && !(round === 1 && key.reused)) await saveCheckpoint(rc, cp, "motion_director", key.hash, director);
       return { ok: true, director: { ...director, spec }, spec };
     }
@@ -633,12 +666,12 @@ export function withSceneSeed(spec: MotionSpec, sceneId: string): MotionSpec {
 }
 
 /** Замечания specChecks — подсказки Director, не причина нового раунда (ruling P10). */
-const DIRECTOR_HINTS = new Set(["placeholder_label", "purpose_claim", "scene_signature_repeat"]);
+const DIRECTOR_HINTS = new Set(["placeholder_label", "purpose_claim", "scene_signature_repeat", "structure_mismatch"]);
 
 /** Самопроверка spec без LLM: удержание в конце и акцент. Нарушения — предупреждения. */
 export function specWarnings(spec: MotionSpec): string[] {
   const out: string[] = [];
-  const holds = spec.beats.filter((b) => /hold/i.test(b.action));
+  const holds = spec.beats.filter((b) => beatKind(b) === "hold");
   if (!holds.some((b) => b.end_frame === spec.duration_frames)) out.push("нет бита hold, заканчивающегося последним кадром");
   if (!spec.beats.some((b) => /(emphasis|accent|final|climax|peak|payoff)/i.test(b.action))) out.push("нет бита акцента");
   if (!spec.composition) out.push("нет composition");

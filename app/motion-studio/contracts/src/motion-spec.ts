@@ -50,6 +50,13 @@ export const PhaseSchema = z.object({
 }).strict();
 export type Phase = z.infer<typeof PhaseSchema>;
 
+/**
+ * Вид бита (S3a-fix): вход, длящийся (рисование, поток, фон), счёт, акцент, удержание.
+ * Director знает намерение — пайплайн не гадает по имени действия; нет поля — `beatKind`.
+ */
+export const BeatKindSchema = z.enum(["enter", "sustain", "count", "accent", "hold"]);
+export type BeatKind = z.infer<typeof BeatKindSchema>;
+
 const BeatFields = {
   id: z.string().min(1),
   start_frame: Frame,
@@ -61,6 +68,7 @@ const BeatFields = {
   phase: z.string().min(1).optional(),
   /** `slot` — своя доля окна фазы по порядку битов (по умолчанию); `phase` — всё окно фазы. */
   span: z.enum(["slot", "phase"]).optional(),
+  kind: BeatKindSchema.optional(),
 };
 export const BeatSchema = z.object(BeatFields).strict();
 export type Beat = z.infer<typeof BeatSchema>;
@@ -97,6 +105,8 @@ export const CompositionSchema = z.object({
   background: SceneBackgroundSchema.optional(),
   /** Форма времени сцены; нет — `build-strike`. */
   structure: SceneStructureSchema.optional(),
+  /** Почему структура не та, что выбрал Concept (без причины пайплайн берёт структуру Concept). */
+  structure_reason: z.string().min(1).optional(),
 }).strict();
 export type Composition = z.infer<typeof CompositionSchema>;
 
@@ -200,9 +210,45 @@ export function structureOf(spec: Pick<MotionSpec, "composition">): SceneStructu
   return spec.composition?.structure ?? "build-strike";
 }
 
-const HOLD_ACTION = /hold/i;
-const PAYOFF_ACTION = /(emphasis|accent|final|climax|peak|payoff|strike)/i;
-const ENTER_ACTION = /(^|-)(in|entrance|enter|reveal|appear)(-|$)/i;
+/** Слова действия бита: через `-`, `_`, пробел, в нижнем регистре. */
+export function actionWords(action: string): string[] {
+  return action.toLowerCase().split(/[^a-zа-яё0-9]+/).filter(Boolean);
+}
+
+const ENTER_WORDS = new Set(["in", "entrance", "enter", "appear", "reveal"]);
+const SUSTAIN_WORDS = new Set(["draw", "flow", "flows", "stream", "background", "bg", "loop", "idle", "travel", "run", "ambient"]);
+const PAYOFF_WORDS = new Set(["final", "climax", "peak", "payoff", "strike"]);
+/** Акцент по действию — подстрокой, как всегда считал specChecks (`final-emphasis`, `accentpulse`). */
+const ACCENT_RE = /emphasis|accent/i;
+
+/**
+ * Вид бита: явный `kind` или по словам действия (целыми словами, а не подстрокой —
+ * `upstream-in`, `account-card-in`, `threshold-in` — входы). Последнее слово in / entrance /
+ * enter / appear / reveal — вход; есть hold — удержание; emphasis/accent — акцент; count —
+ * счёт («counter-entrance» — вход); draw / flow / stream / loop / idle / travel / run / фон —
+ * длящийся. Иначе — не определён.
+ */
+export function beatKind(b: { action: string; kind?: BeatKind | undefined }): BeatKind | undefined {
+  if (b.kind) return b.kind;
+  const w = actionWords(b.action);
+  if (ENTER_WORDS.has(w.at(-1) ?? "")) return "enter";
+  if (w.includes("hold")) return "hold";
+  if (ACCENT_RE.test(b.action)) return "accent";
+  if (w.includes("count") || w.includes("countup")) return "count";
+  if (w.some((x) => SUSTAIN_WORDS.has(x))) return "sustain";
+  return undefined;
+}
+
+/** Бит акцента — один признак для планировщика и specChecks (`accent_conflict`). */
+export function isAccentBeat(b: { action: string; kind?: BeatKind | undefined }): boolean {
+  return b.kind ? b.kind === "accent" : ACCENT_RE.test(b.action);
+}
+
+/** Бит ведёт к итогу (счёт, рисование): кончается к удару. */
+export function isProgressBeat(b: { action: string; kind?: BeatKind | undefined }): boolean {
+  const k = beatKind(b);
+  return k === "count" || (k === "sustain" && actionWords(b.action).includes("draw"));
+}
 
 /**
  * Фазы сцены. Старая spec без `phases` — фаза на каждый бит по его действию: `hold` →
@@ -215,9 +261,10 @@ export function phasesOf(spec: Pick<MotionSpec, "phases" | "beats">): Phase[] {
   let acting = false;
   return beats.map((b) => {
     let role: PhaseRole;
-    if (HOLD_ACTION.test(b.action)) role = "hold";
-    else if (PAYOFF_ACTION.test(b.action)) role = "payoff";
-    else if (!acting && ENTER_ACTION.test(b.action)) role = "setup";
+    const kind = beatKind(b);
+    if (kind === "hold") role = "hold";
+    else if (isAccentBeat(b) || actionWords(b.action).some((x) => PAYOFF_WORDS.has(x))) role = "payoff";
+    else if (!acting && kind === "enter") role = "setup";
     else { role = "action"; acting = true; }
     return { id: b.id, role, weight: Math.max(1, b.end_frame - b.start_frame), element_ids: b.element_ids };
   });

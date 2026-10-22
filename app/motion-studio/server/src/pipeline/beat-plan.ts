@@ -4,16 +4,14 @@
 // (`bound_to: "<граф>.arrivals.<ребро>"`) идёт в окне своего потока: QA-кадр «от» и OCR
 // берутся по тем же кадрам, что и движение. Spec без фаз (старые, чекпоинты) — как была.
 import type { Beat, DirectorBeat, DirectorSpec, Element, MotionSpec, Phase, PhaseRole, Settings } from "@ms/contracts";
-import { MotionSpecSchema, structureOf } from "@ms/contracts";
-import { type BeatPlan, type PlanPhase, planBeats } from "@ms/render";
-import { countBeat } from "./qa-frames.js";
+import { MotionSpecSchema, actionWords, beatKind, isAccentBeat, isProgressBeat, structureOf } from "@ms/contracts";
+import { type BeatPlan, type PhaseTokens, type PlanPhase, phaseTokens, planBeats } from "@ms/render";
+import { countBeat, isEmphasisRole } from "./qa-frames.js";
 
-/** Действия, которые идут всё окно фазы: фон, рисование, счёт, поток, удержание. */
-const SUSTAIN = /(hold|draw|count(?!er)|flow|stream|background|bg-|loop|idle|travel|run)/i;
-/** Действия, ведущие к итогу (рисование, счёт): кончаются к выводу. */
-const PROGRESS = /(draw|count(?!er))/i;
 /** Ключи content с текстом, который зритель читает. */
 const TEXT_KEY = /^(text|label|title|caption|subtitle|value|prefix|suffix|unit|note|verdict)$/i;
+/** Слова действия «вызов, поток»: такие биты одной фазы стартуют веером (3–4 кадра). */
+const FAN_WORDS = new Set(["flow", "flows", "stream", "call", "calls", "request", "requests", "signal", "fan", "pulse", "pulses"]);
 
 /** Символов читаемого текста элемента: строки content по ключам и итог числа. */
 function textChars(e: Element): number {
@@ -34,18 +32,59 @@ function freeId(taken: Set<string>, base: string): string {
   return id;
 }
 
+type AnyBeat = DirectorBeat | Beat;
+
 export type BeatPlanResult =
   | { ok: true; spec: MotionSpec; plan?: BeatPlan; phases?: PlanPhase[]; changes: string[]; warnings: string[] }
   | { ok: false; message: string };
+
+/** Место бита в payoff: `at` — кадров от старта фазы; `until` — до кадра от старта (нет — до конца фазы). */
+interface PayoffSlot { b: AnyBeat; at: number; until?: number }
+
+/**
+ * Удар payoff: биты входят разом, но текст вывода — первым, и акцент в момент — один.
+ * Неакцентные биты — каскадом по `step`, с текстом впереди. Акценты разных объектов
+ * передают друг другу удар: второстепенные — по окну входа, главный (с ролью акцента, иначе
+ * с текстом вывода, иначе последний) — после них и до конца фазы.
+ */
+function payoffLayout(own: readonly AnyBeat[], hasText: (b: AnyBeat) => boolean, emphatic: (b: AnyBeat) => boolean, tok: PhaseTokens): PayoffSlot[] {
+  const accents = own.filter((b) => isAccentBeat(b));
+  const primary = accents.find(emphatic) ?? accents.find(hasText) ?? accents.at(-1);
+  const rest = own.filter((b) => !isAccentBeat(b));
+  const slots: PayoffSlot[] = [...rest.filter(hasText), ...rest.filter((b) => !hasText(b))].map((b, k) => ({ b, at: k * tok.step }));
+  let t = 0;
+  for (const b of accents.filter((x) => x !== primary)) {
+    slots.push({ b, at: t, until: t + tok.enter });
+    t += tok.enter;
+  }
+  if (primary) slots.push({ b: primary, at: t });
+  return slots;
+}
+
+/**
+ * Проверки фаз под структуру, которые Director может исправить в раунде: режим удержания,
+ * одна payoff у call-response, стороны у split-reveal.
+ */
+function phaseProblems(spec: DirectorSpec | MotionSpec): string[] {
+  const phases = spec.phases ?? [];
+  const out: string[] = [];
+  const hold = phases.find((p) => p.role === "hold");
+  if (hold && !hold.hold_mode) out.push(`фаза ${hold.id} (hold): нужен hold_mode — чем живёт финал: steady-flow | repeat-result | data-shimmer | now-pulse | settle-push`);
+  const structure = structureOf(spec);
+  if (structure === "call-response" && phases.filter((p) => p.role === "payoff").length > 1) out.push("call-response: ответ — одно событие, фаза payoff одна; вторую сделай hold или turn");
+  if (structure === "split-reveal" && !phases.some((p) => p.role === "setup")) out.push("split-reveal: стороны сравнения — фазы setup (по одной на сторону), их нет");
+  return out;
+}
 
 /**
  * Кадры битов из фаз. Без `phases` — биты Director как есть. С фазами: окна фаз —
  * `planBeats` (структура, веса, длина текста вывода, seed — заголовок и мысль сцены);
  * биты фазы — по порядку: `span: "slot"` (по умолчанию) — своя доля окна, но не короче
  * входа, `span: "phase"` (и по умолчанию у фона, рисования, счёта, потоков, hold) — всё
- * окно; биты payoff — каскадом в 6 кадров от старта фазы, все до её конца. Если в фазе
- * есть и входы, и длящиеся биты, входы короткие (≤ 2 входов), длящийся бит стартует сразу
- * за предыдущим. Фаза без битов получает бит по роли; у фазы hold всегда есть бит `hold` до конца.
+ * окно; payoff — удар разом (`payoffLayout`). Если в фазе есть и входы, и длящиеся биты,
+ * входы короткие (≤ 2 входов), длящийся бит стартует сразу за предыдущим. Потоки фазы —
+ * веером через 3–4 кадра; счёт числа — не раньше 15 кадров после его входа («от» видно).
+ * Фаза без битов получает бит по роли; у фазы hold всегда есть бит `hold` до конца.
  * Бит без фазы (с кадрами) не трогается. cold-open — бит-постер итога с кадра 0.
  */
 export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Settings, "animation_intensity">): BeatPlanResult {
@@ -57,75 +96,115 @@ export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Se
     const a = alignArrivalCounters(parsed.data);
     return { ok: true, spec: a.spec, changes: a.changes, warnings };
   }
+  const problems = phaseProblems(spec);
+  if (problems.length) return { ok: false, message: problems.join("; ") };
   const phases: Phase[] = spec.phases;
   const byId = new Map(spec.elements.map((e) => [e.id, e]));
   const fps = spec.fps.num / spec.fps.den;
   const D = spec.duration_frames;
-  const enter = Math.round(12 * (fps / 30));
+  const tok = phaseTokens(fps, settings.animation_intensity);
   const payoffIds = new Set(phases.filter((p) => p.role === "payoff").flatMap((p) => p.element_ids));
-  const planPhases: PlanPhase[] = phases.map((p) => {
-    const read = p.role === "payoff" || p.role === "hold";
-    // текст hold, уже прочитанный в payoff, второй раз не считается
-    const ids = p.role === "hold" ? p.element_ids.filter((id) => !payoffIds.has(id)) : p.element_ids;
-    const chars = read ? ids.reduce((a, id) => a + (byId.get(id) ? textChars(byId.get(id)!) : 0), 0) : undefined;
-    return { id: p.id, role: p.role, weight: p.weight, elements: p.element_ids.length, ...(chars !== undefined ? { chars } : {}) };
+  const charsOf = (ids: readonly string[]) => ids.reduce((a, id) => a + (byId.get(id) ? textChars(byId.get(id)!) : 0), 0);
+  /** Бит несёт текст вывода: текст или число payoff с читаемым содержимым (подпись узла — нет). */
+  const hasText = (b: AnyBeat) => b.element_ids.some((id) => {
+    const e = byId.get(id);
+    return payoffIds.has(id) && e !== undefined && (e.kind === "text" || e.kind === "number") && textChars(e) > 0;
   });
-  const structure = structureOf(spec);
-  const plan = planBeats({ structure, phases: planPhases, duration: D, fps, intensity: settings.animation_intensity, density: spec.elements.length, seed: `${spec.title}|${spec.purpose}` });
+  const emphatic = (b: AnyBeat) => b.element_ids.some((id) => isEmphasisRole(byId.get(id)?.role ?? ""));
 
+  // биты по фазам: фаза без битов — бит по роли, hold без бита hold — добавляется
   const taken = new Set(spec.beats.map((b) => b.id));
-  const directorBeats = spec.beats as readonly (DirectorBeat | Beat)[];
-  const out: Beat[] = [];
-  for (const b of directorBeats) {
-    if (b.phase === undefined) out.push(b as Beat);
-  }
+  const directorBeats = spec.beats as readonly AnyBeat[];
+  const ownOf = new Map<string, AnyBeat[]>();
   for (const p of phases) {
-    const w = plan.beats.find((x) => x.phase === p.id && x.kind === "main")!;
     let own = directorBeats.filter((b) => b.phase === p.id);
     if (own.length === 0) {
       own = [{ id: freeId(taken, p.id), phase: p.id, span: "phase", action: ROLE_ACTION[p.role], description: `фаза ${p.id} (${p.role})`, element_ids: p.element_ids }];
       changes.push(`фаза ${p.id} без битов — бит ${own[0]!.id}`);
     }
-    if (p.role === "hold" && !own.some((b) => /hold/i.test(b.action))) {
+    if (p.role === "hold" && !own.some((b) => beatKind(b) === "hold")) {
       own = [...own, { id: freeId(taken, `${p.id}-hold`), phase: p.id, span: "phase", action: "hold", description: `удержание${p.hold_mode ? ` (${p.hold_mode})` : ""}`, element_ids: p.element_ids }];
       changes.push(`в фазе ${p.id} нет бита hold — добавлен`);
     }
-    // фаза, которая идёт дальше вывода (continuous-flow): старты битов — до вывода, дальше
+    const outside = [...new Set(own.flatMap((b) => b.element_ids).filter((id) => !p.element_ids.includes(id)))];
+    if (outside.length) warnings.push(`фаза ${p.id}: биты ведут элементы вне её element_ids (${outside.join(", ")})`);
+    ownOf.set(p.id, own);
+  }
+  // раскладка удара до плана: чтение считается от входа текста вывода, а не от старта payoff
+  const layouts = new Map<string, PayoffSlot[]>();
+  for (const p of phases.filter((x) => x.role === "payoff")) layouts.set(p.id, payoffLayout(ownOf.get(p.id)!, hasText, emphatic, tok));
+
+  const planPhases: PlanPhase[] = phases.map((p) => {
+    const read = p.role === "payoff" || p.role === "hold";
+    // текст hold, уже прочитанный в payoff, второй раз не считается
+    const ids = p.role === "hold" ? p.element_ids.filter((id) => !payoffIds.has(id)) : p.element_ids;
+    const chars = read ? charsOf(ids) : undefined;
+    const lay = layouts.get(p.id);
+    const delay = lay ? Math.max(0, ...lay.filter((s) => hasText(s.b)).map((s) => s.at)) : undefined;
+    return { id: p.id, role: p.role, weight: p.weight, elements: p.element_ids.length, ...(chars !== undefined ? { chars } : {}), ...(delay ? { delay } : {}) };
+  });
+  const structure = structureOf(spec);
+  const plan = planBeats({ structure, phases: planPhases, duration: D, fps, intensity: settings.animation_intensity, density: spec.elements.length, seed: `${spec.title}|${spec.purpose}` });
+
+  const out: Beat[] = [];
+  for (const b of directorBeats) {
+    if (b.phase === undefined) out.push(b as Beat);
+  }
+  // постер cold-open ставится после фаз: на повторном плане (чекпоинт) он не влияет на счёт
+  const posters = new Set(phases.filter((p) => p.role === "payoff").map((p) => `${p.id}-open`));
+  /** Первый кадр, с которого элемент на экране (по уже поставленным битам). */
+  const seenAt = (id: string) => Math.min(Infinity, ...out.filter((x) => !posters.has(x.id) && x.element_ids.includes(id)).map((x) => x.start_frame));
+  for (const p of phases) {
+    const w = plan.beats.find((x) => x.phase === p.id && x.kind === "main")!;
+    const own = ownOf.get(p.id)!;
+    // фаза, которая идёт дальше удара (continuous-flow): старты битов — до удара, дальше
     // живут только длящиеся
-    const past = p.role !== "payoff" && p.role !== "hold" && w.start_frame < plan.takeaway && w.end_frame > plan.takeaway;
-    const len = (past ? plan.takeaway : w.end_frame) - w.start_frame;
-    // payoff — удар разом: каскад в 6 кадров (при 30 fps), всё до конца фазы — вывод не
-    // входит в хвосте удара и читается всё время payoff + hold
-    const payoff = p.role === "payoff";
-    const step = Math.max(1, Math.min(Math.round(6 * (fps / 30)), Math.floor(len / own.length)));
-    const whole = own.map((b) => payoff || p.role === "hold" || (b.span ?? (SUSTAIN.test(b.action) ? "phase" : "slot")) === "phase");
-    const place = (b: DirectorBeat | Beat, start: number, end: number) => {
-      const s0 = Math.min(start, w.end_frame - 1);
-      // рисование и счёт ведут к итогу: кончаются к выводу, даже если фаза идёт дальше
+    const past = p.role !== "payoff" && p.role !== "hold" && w.start_frame < plan.strike && w.end_frame > plan.strike;
+    const len = (past ? plan.strike : w.end_frame) - w.start_frame;
+    const step = Math.max(1, Math.min(tok.step, Math.floor(len / own.length)));
+    const kind = (b: AnyBeat) => beatKind(b);
+    const whole = own.map((b) => p.role === "hold" || (b.span ?? (["sustain", "count", "hold"].includes(kind(b) ?? "") ? "phase" : "slot")) === "phase");
+    const fan = (k: number) => k > 0 && whole[k] === true && whole[k - 1] === true && [own[k]!, own[k - 1]!].every((b) => actionWords(b.action).some((x) => FAN_WORDS.has(x)));
+    const place = (b: AnyBeat, start: number, end: number) => {
+      let s0 = Math.min(start, w.end_frame - 1);
+      // счётчик: «от» видно не меньше 15 кадров (при 30 fps) после входа числа
+      if (kind(b) === "count" && p.role !== "payoff" && p.role !== "hold") {
+        const seen = Math.min(...b.element_ids.map(seenAt));
+        if (Number.isFinite(seen) && seen < s0 + tok.countFrom) s0 = Math.min(Math.max(s0, seen + tok.countFrom), Math.max(s0, w.end_frame - tok.enter));
+      }
+      // рисование и счёт ведут к итогу: кончаются к удару, даже если фаза идёт дальше
       // (continuous-flow тянет действие до конца сцены — поток да, линия нет)
-      const cap = p.role !== "payoff" && p.role !== "hold" && PROGRESS.test(b.action) && s0 < plan.takeaway ? plan.takeaway : w.end_frame;
+      const cap = p.role !== "payoff" && p.role !== "hold" && isProgressBeat(b) && s0 < plan.strike ? plan.strike : w.end_frame;
       out.push({ ...b, start_frame: s0, end_frame: Math.max(Math.min(end, w.end_frame, cap), s0 + 1) } as Beat);
     };
-    if (payoff) {
-      own.forEach((b, k) => place(b, w.start_frame + k * step, w.end_frame));
+    if (p.role === "payoff") {
+      // удар разом: текст первым, акцент в момент — один (передача по окну входа)
+      const L = w.end_frame - w.start_frame;
+      for (const s of layouts.get(p.id)!) {
+        const at = Math.min(s.at, Math.max(0, L - 1));
+        place(s.b, w.start_frame + at, s.until === undefined ? w.end_frame : w.start_frame + Math.max(at + 1, Math.min(s.until, L)));
+      }
     } else if (p.role !== "hold" && whole.some(Boolean) && whole.some((x) => !x)) {
       // есть длящийся бит: входы идут коротко (до двух входов), длящийся стартует сразу за
       // предыдущим входом и живёт до конца фазы — ведущее действие не ждёт равной доли
-      const slot = Math.min(Math.ceil(len / own.length), 2 * enter);
+      const slot = Math.min(Math.ceil(len / own.length), 2 * tok.enter);
       let t = w.start_frame;
       own.forEach((b, k) => {
         if (whole[k]) {
+          if (fan(k)) t = t - step + tok.fan;
           place(b, t, w.end_frame);
           t += step;
         } else {
-          place(b, t, t + Math.max(slot, Math.min(enter, len)));
+          place(b, t, t + Math.max(slot, Math.min(tok.enter, len)));
           t += slot;
         }
       });
     } else {
+      let prev = w.start_frame;
       own.forEach((b, k) => {
-        const start = w.start_frame + Math.floor((k * len) / own.length);
-        place(b, start, whole[k] ? w.end_frame : start + Math.max(Math.ceil(len / own.length), enter));
+        const start = fan(k) ? prev + tok.fan : w.start_frame + Math.floor((k * len) / own.length);
+        prev = start;
+        place(b, start, whole[k] ? w.end_frame : start + Math.max(Math.ceil(len / own.length), tok.enter));
       });
     }
   }
@@ -150,7 +229,7 @@ export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Se
   const parsed = MotionSpecSchema.safeParse(planned);
   if (!parsed.success) return { ok: false, message: `план битов: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}` };
   const windows = plan.beats.filter((b) => b.kind === "main").map((b) => `${b.phase} ${b.start_frame}–${b.end_frame}`).join(", ");
-  changes.unshift(`план ${structure}: ${windows}; вывод с кадра ${plan.takeaway} (чтение ${plan.reading}, сдвиг ${plan.offset})`);
+  changes.unshift(`план ${structure}: ${windows}; вывод с кадра ${plan.takeaway}, удар ${plan.strike} (чтение ${plan.reading}, сдвиг ${plan.offset})`);
   const a = alignArrivalCounters(parsed.data);
   return { ok: true, spec: a.spec, plan, phases: planPhases, changes: [...changes, ...a.changes], warnings };
 }

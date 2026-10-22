@@ -1,5 +1,5 @@
 // Кадры QA (06-motion-engine.md §6) по битам и элементам спецификации.
-import type { Beat, Element, MotionSpec, StyleBible } from "@ms/contracts";
+import { type Beat, type Element, type MotionSpec, type StyleBible, actionWords, isAccentBeat } from "@ms/contracts";
 import { resolveStyle } from "@ms/render";
 
 export const MAX_QA_FRAMES = 8;
@@ -18,10 +18,6 @@ const APPEARING: ReadonlySet<Element["entrance"]> = new Set(["rise", "fade", "sc
 const TEXT_READY = 0.75;
 /** Короткоживущий элемент (импульс, вспышка): все его биты вместе не длиннее этой доли сцены. */
 const TRANSIENT_SHARE = 1 / 12;
-/** Бит счёта по действию: `count`, `count-up`, `hits-count`; «counter-entrance» — вход, не счёт. */
-export const COUNT_ACTION = /count(?!er)/i;
-/** Бит акцента по действию (тот же признак, что у `no_emphasis` в specChecks). */
-export const ACCENT_ACTION = /emphasis|accent/i;
 
 /** Кадровые токены движения: `enter_frames` разрешённого стиля (fps и интенсивность уже учтены). */
 export type MotionTokens = Pick<StyleBible, "motion">;
@@ -66,7 +62,7 @@ function firstBeats(spec: MotionSpec): Map<string, Beat> {
  * первый элемент с ролью акцента (не удержание, где он просто стоит).
  */
 export function accentBeat(spec: MotionSpec): Beat | undefined {
-  const byAction = byStart(spec.beats).filter((b) => ACCENT_ACTION.test(b.action)).at(-1);
+  const byAction = byStart(spec.beats).filter((b) => isAccentBeat(b)).at(-1);
   if (byAction) return byAction;
   const first = firstBeats(spec);
   return byStart(spec.elements.filter((e) => isEmphasisRole(e.role)).flatMap((e) => first.get(e.id) ?? [])).at(0);
@@ -99,10 +95,13 @@ export function countStarts(spec: MotionSpec): Beat[] {
   return out;
 }
 
-/** Бит счёта числа `e` (правило `countStarts`); нет — `undefined`. */
+/**
+ * Бит счёта числа `e` (правило `countStarts`); нет — `undefined`. Счёт — `kind: count` или
+ * слово count в действии, и вход-счёт тоже («hero-count-in»); «counter-entrance» — нет.
+ */
 export function countBeat(spec: MotionSpec, e: Element): Beat | undefined {
   const beats = byStart(spec.beats).filter((b) => b.element_ids.includes(e.id));
-  return beats.find((x) => COUNT_ACTION.test(x.action)) ?? beats[1] ?? (e.entrance === "count" ? beats[0] : undefined);
+  return beats.find((x) => x.kind === "count" || (x.kind === undefined && actionWords(x.action).some((w) => w === "count" || w === "countup"))) ?? beats[1] ?? (e.entrance === "count" ? beats[0] : undefined);
 }
 
 /**
