@@ -1,0 +1,129 @@
+{
+  "run": "s3-6ef1f76",
+  "mode": "eval",
+  "set": "explainer",
+  "created_commit": "6ef1f76",
+  "judge_model": "opus",
+  "judge_runs": 3,
+  "items": [
+    {
+      "id": "test1",
+      "scene": "test1",
+      "prompt": "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении",
+      "ref": null,
+      "split": null,
+      "held_out": false
+    },
+    {
+      "id": "test2",
+      "scene": "test2",
+      "prompt": "Покажи архитектуру AI-агента: пользователь отправляет запрос, оркестратор вызывает три инструмента, данные возвращаются обратно. Световые импульсы движутся по связям",
+      "ref": null,
+      "split": null,
+      "held_out": false
+    },
+    {
+      "id": "gen-compare",
+      "scene": "gen-compare",
+      "prompt": "Сравни монолит и микросервисы по скорости релизов",
+      "ref": null,
+      "split": null,
+      "held_out": false
+    },
+    {
+      "id": "gen-timeline",
+      "scene": "gen-timeline",
+      "prompt": "Таймлайн развития компании 2015–2025 с пятью вехами",
+      "ref": null,
+      "split": null,
+      "held_out": false
+    },
+    {
+      "id": "gen-cache",
+      "scene": "gen-cache",
+      "prompt": "Объясни, как работает кэширование: запрос, промах, запись, попадание",
+      "ref": null,
+      "split": null,
+      "held_out": false
+    },
+    {
+      "id": "held-mobile",
+      "scene": "held-mobile",
+      "prompt": "Покажи, как растёт доля мобильного трафика: 2019 — 35%, 2024 — 68%",
+      "ref": null,
+      "split": null,
+      "held_out": false
+    },
+    {
+      "id": "held-queue",
+      "scene": "held-queue",
+      "prompt": "Объясни, как работает очередь сообщений между сервисом заказов и складом",
+      "ref": null,
+      "split": null,
+      "held_out": false
+    },
+    {
+      "id": "eval-funnel",
+      "scene": "eval-funnel",
+      "prompt": "Покажи воронку интернет-магазина: из 100 посетителей до покупки доходят только 3",
+      "ref": null,
+      "split": null,
+      "held_out": true
+    },
+    {
+      "id": "eval-oauth",
+      "scene": "eval-oauth",
+      "prompt": "Объясни вход через OAuth: пользователь, приложение, сервер авторизации и токен доступа",
+      "ref": null,
+      "split": null,
+      "held_out": true
+    },
+    {
+      "id": "eval-cdn",
+      "scene": "eval-cdn",
+      "prompt": "Сравни задержку загрузки для пользователя из Москвы: сервер во Франкфурте — 180 мс, CDN-узел в Москве — 15 мс",
+      "ref": null,
+      "split": null,
+      "held_out": true
+    },
+    {
+      "id": "eval-budget",
+      "scene": "eval-budget",
+      "prompt": "Как распределяется месячный бюджет семьи: жильё 35%, еда 25%, транспорт 15%, развлечения 10%, накопления 15%",
+      "ref": null,
+      "split": null,
+      "held_out": true
+    },
+    {
+      "id": "eval-abtest",
+      "scene": "eval-abtest",
+      "prompt": "Итог A/B-теста новой кнопки оформления заказа: конверсия выросла с 5,0% до 5,6% — плюс 12%",
+      "ref": null,
+      "split": null,
+      "held_out": true
+    }
+  ],
+  "invocations": [
+    {
+      "at": "2026-10-22T17:08:23.461Z",
+      "commit": "6ef1f76",
+      "argv": [
+        "--run",
+        "s3-6ef1f76",
+        "--gen-timeout-min",
+        "180"
+      ]
+    },
+    {
+      "at": "2026-10-22T17:50:52.455Z",
+      "commit": "6ef1f76",
+      "argv": [
+        "--run",
+        "s3-6ef1f76",
+        "--judge-only",
+        "--no-judge",
+        "--write-evidence"
+      ]
+    }
+  ]
+}
