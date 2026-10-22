@@ -3,7 +3,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type QAIssue, defaultSettings } from "@ms/contracts";
+import { type MotionSpec, type QAIssue, defaultSettings } from "@ms/contracts";
 import * as chat from "../../src/db/repos/chat.js";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as scenes from "../../src/db/repos/scenes.js";
@@ -179,6 +179,40 @@ describe("playgroundGenerate: счётчик за головой линии", ()
     const spec = JSON.parse(readFileSync(join(env.s.root, v!.path, "spec.json"), "utf8"));
     expect(spec.beats.find((b: { id: string }) => b.id === "bc")).toMatchObject({ start_frame: 42, end_frame: 110 });
     expect((job.output_refs as { warnings: string[] }).warnings).toContainEqual(expect.stringMatching(/бит bc 35–100 → 42–110/));
+  });
+});
+
+describe("playgroundGenerate: план битов из фаз (S3a)", () => {
+  it("Director пишет фазы без кадров → в spec.json кадры планировщика, hold до конца, план в предупреждениях", async () => {
+    const o = directorOutput();
+    const phased = {
+      ...o,
+      composition: { ...o.composition, structure: "count-up" as const },
+      spec: {
+        ...o.spec,
+        phases: [
+          { id: "p-count", role: "action" as const, weight: 3, element_ids: ["chart"] },
+          { id: "p-title", role: "setup" as const, weight: 1, element_ids: ["title"] },
+          { id: "p-pay", role: "payoff" as const, weight: 1, element_ids: ["chart"] },
+          { id: "p-hold", role: "hold" as const, weight: 1, element_ids: ["chart"], hold_mode: "data-shimmer" as const },
+        ],
+        // кадров нет: их ставит планировщик
+        beats: o.spec.beats.map((b) => ({ id: b.id, action: b.action, description: b.description, element_ids: b.element_ids, phase: { b1: "p-title", b2: "p-count", b3: "p-pay", b4: "p-hold" }[b.id]! })),
+      },
+    };
+    const agents = fakeAgents({ director: async () => ({ output: phased }) });
+    const { job, scene } = await runJob({ agents });
+    expect(job.status).toBe("completed");
+    const [v] = versionRows(scene.id);
+    const spec = JSON.parse(readFileSync(join(env.s.root, v!.path, "spec.json"), "utf8")) as MotionSpec;
+    const at = (id: string) => spec.beats.find((b) => b.id === id)!;
+    // count-up: счёт (b2) с кадра 0, заголовок входит поверх, удар — в конце счёта
+    expect(at("b2").start_frame).toBe(0);
+    expect(at("b1").start_frame).toBeGreaterThan(0);
+    expect(at("b3").start_frame).toBe(at("b2").end_frame);
+    expect(at("b4").end_frame).toBe(settings.duration_frames);
+    expect(spec.phases).toEqual(phased.spec.phases);
+    expect((job.output_refs as { warnings: string[] }).warnings).toContainEqual(expect.stringMatching(/план count-up: /));
   });
 });
 

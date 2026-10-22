@@ -23,6 +23,7 @@ export { type ArrivalCount, type PathArrival, type PulseArrival, arrivalCount, p
 export { type CameraKey, type CameraState, type FrameSize, cameraAt, cameraTransform, panLimit, zoomLimit, parallaxFactor, parallaxTransform, PARALLAX_OVERSCAN } from "./choreo/camera.js";
 export { type Rect, safeRect, styleSafeRect } from "./choreo/safe-area.js";
 export { edgeDelay, kineticStep, typeRhythm } from "./choreo/rhythm.js";
+export { type BeatPlan, type PlanInput, type PlanPhase, type PlannedBeat, STRUCTURES, planBeats, readingFrames } from "./choreo/plan.js";
 export { gridColumns, layoutLayered } from "./choreo/layout.js";
 export { type BeatPhase, type BeatState, type BeatWindow, beatPhase, beatProgress, useBeat } from "./beat.js";
 export { EASE, type EasingFn, type EasingRole, type SpringRole, easingOf, fpsFrames, frames, springAt, springConfig } from "./easing.js";

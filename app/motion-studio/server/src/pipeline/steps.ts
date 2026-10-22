@@ -26,6 +26,7 @@ import type { Permits } from "../jobs/semaphore.js";
 import type { CapabilityView } from "../knowledge/types.js";
 import { specChecks } from "../qa/spec-checks.js";
 import { type StepRef, checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
+import { planSpecBeats } from "./beat-plan.js";
 import { normalizeBoundCounters } from "./bound-counters.js";
 import { candidateBrief } from "./refs.js";
 
@@ -582,8 +583,16 @@ export async function directorStep(
     if (!r.ok) return r;
     if (round === 1) key = { hash: r.hash, reused: r.reused };
     const director = r.output;
+    // кадры битов — из фаз и структуры (planBeats), не расчёт Director
+    const planned = planSpecBeats({ ...director.spec, composition: director.composition }, s);
+    if (!planned.ok) {
+      rc.note("director", `план битов не построен (раунд ${round}): ${planned.message}`);
+      if (round === 2) return { ok: false, stage: "director", message: planned.message };
+      fix = `- beat_plan (spec): ${planned.message} → у каждого бита — фаза из phases (или оба кадра у бита вне фаз), id фаз и элементов существуют`;
+      continue;
+    }
     // счётчик за головой линии: бит счёта — окно головы (lineDrawWindow), не расчёт Director
-    const bound = normalizeBoundCounters({ ...director.spec, composition: director.composition });
+    const bound = normalizeBoundCounters(planned.spec);
     const spec: MotionSpec = bound.spec;
     if (spec.duration_frames !== s.duration_frames) return { ok: false, stage: "director", message: `spec.duration_frames ${spec.duration_frames} ≠ настройкам ${s.duration_frames}` };
     if (spec.fps.num * s.fps.den !== s.fps.num * spec.fps.den) {
@@ -600,7 +609,7 @@ export async function directorStep(
     if (blocking.length === 0) {
       for (const w of specWarnings(spec)) rc.warnings.push(`spec: ${w}`);
       for (const h of hints) rc.warnings.push(`spec: ${h.code} (${h.area ?? "spec"}): ${h.description}`);
-      for (const c of [...bound.changes, ...bound.warnings]) rc.warnings.push(`spec: ${c}`);
+      for (const c of [...planned.changes, ...planned.warnings, ...bound.changes, ...bound.warnings]) rc.warnings.push(`spec: ${c}`);
       if (cp && key && !(round === 1 && key.reused)) await saveCheckpoint(rc, cp, "motion_director", key.hash, director);
       return { ok: true, director: { ...director, spec }, spec };
     }

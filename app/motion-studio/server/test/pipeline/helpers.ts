@@ -125,7 +125,7 @@ export const BAD_SCENE = `import { AbsoluteFill } from "remotion";
 export const Scene = () => <AbsoluteFill style={{ opacity: Math.random() }} />;
 `;
 
-export function directorOutput(): DirectorOutput {
+export function directorOutput(): Omit<DirectorOutput, "spec"> & { spec: MotionSpec } {
   return {
     spec: {
       title: "Рост пользователей",

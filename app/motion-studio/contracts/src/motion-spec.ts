@@ -26,15 +26,48 @@ export const ElementSchema = z.object({
 }).strict();
 export type Element = z.infer<typeof ElementSchema>;
 
-export const BeatSchema = z.object({
+/**
+ * Структура сцены (S3a): форма времени, по которой планировщик (`planBeats` kit) раскладывает
+ * фазы в кадры. Нет поля — `build-strike` (сборка → действие → удар → удержание).
+ */
+export const SceneStructureSchema = z.enum(["build-strike", "cold-open", "continuous-flow", "split-reveal", "call-response", "count-up"]);
+export type SceneStructure = z.infer<typeof SceneStructureSchema>;
+
+export const PhaseRoleSchema = z.enum(["setup", "action", "turn", "payoff", "hold"]);
+export type PhaseRole = z.infer<typeof PhaseRoleSchema>;
+
+/** Чем живёт финал (фаза `hold`): режим удержания kit (`useHold`, S3b). */
+export const HoldModeSchema = z.enum(["steady-flow", "repeat-result", "data-shimmer", "now-pulse", "settle-push"]);
+export type HoldMode = z.infer<typeof HoldModeSchema>;
+
+/** Фаза сцены: смысловая роль, вес (доля времени среди фаз) и её элементы. Кадров нет. */
+export const PhaseSchema = z.object({
+  id: z.string().min(1),
+  role: PhaseRoleSchema,
+  weight: z.number().positive().max(100),
+  element_ids: z.array(z.string().min(1)),
+  hold_mode: HoldModeSchema.optional(),
+}).strict();
+export type Phase = z.infer<typeof PhaseSchema>;
+
+const BeatFields = {
   id: z.string().min(1),
   start_frame: Frame,
   end_frame: Frame,
   action: z.string().min(1),
   description: z.string(),
   element_ids: z.array(z.string().min(1)),
-}).strict();
+  /** Фаза бита: кадры бита ставит планировщик внутри окна фазы. */
+  phase: z.string().min(1).optional(),
+  /** `slot` — своя доля окна фазы по порядку битов (по умолчанию); `phase` — всё окно фазы. */
+  span: z.enum(["slot", "phase"]).optional(),
+};
+export const BeatSchema = z.object(BeatFields).strict();
 export type Beat = z.infer<typeof BeatSchema>;
+
+/** Бит в ответе Director: при фазах кадры не пишутся — их ставит планировщик. */
+export const DirectorBeatSchema = z.object({ ...BeatFields, start_frame: Frame.optional(), end_frame: Frame.optional() }).strict();
+export type DirectorBeat = z.infer<typeof DirectorBeatSchema>;
 
 /**
  * Композиционная идея сцены (Motion Director): архетип раскладки, фокус/движение камеры,
@@ -62,6 +95,8 @@ export const CompositionSchema = z.object({
   /** Режим заголовка (`SceneTitle` kit): полоса сверху — лишь один из вариантов. */
   title_mode: TitleModeSchema.optional(),
   background: SceneBackgroundSchema.optional(),
+  /** Форма времени сцены; нет — `build-strike`. */
+  structure: SceneStructureSchema.optional(),
 }).strict();
 export type Composition = z.infer<typeof CompositionSchema>;
 
@@ -75,7 +110,7 @@ export const CameraKeySchema = z.object({
 }).strict();
 export type CameraKey = z.infer<typeof CameraKeySchema>;
 
-export const MotionSpecSchema = z.object({
+const SpecFields = {
   title: z.string().min(1),
   purpose: z.string(),
   duration_frames: z.number().int().positive(),
@@ -84,24 +119,51 @@ export const MotionSpecSchema = z.object({
   palette_overrides: PaletteOverridesSchema.optional(),
   composition: CompositionSchema.optional(),
   elements: z.array(ElementSchema).min(1),
+  /** Фазы сцены (S3a): из них пайплайн ставит кадры битов. Нет — биты с кадрами Director. */
+  phases: z.array(PhaseSchema).min(1).optional(),
   beats: z.array(BeatSchema).min(1),
   /** Движение камеры по ключам; без поля камера стоит. */
   camera: z.array(CameraKeySchema).optional(),
-}).strict().superRefine((spec, ctx) => {
+};
+
+type SpecLike = {
+  duration_frames: number;
+  elements: { id: string }[];
+  phases?: Phase[];
+  beats: { id: string; start_frame?: number; end_frame?: number; element_ids: string[]; phase?: string }[];
+  camera?: { frame: number }[];
+};
+
+/** Проверки ссылок и фаз — общие для spec и ответа Director. Кадры битов — только если заданы. */
+function refineSpec(spec: SpecLike, ctx: z.RefinementCtx): void {
   const ids = new Set<string>();
   spec.elements.forEach((e, i) => {
     if (ids.has(e.id)) ctx.addIssue({ code: "custom", path: ["elements", i, "id"], message: `дубль id элемента: ${e.id}` });
     ids.add(e.id);
   });
+  const phaseIds = new Set<string>();
+  let holds = 0;
+  spec.phases?.forEach((p, i) => {
+    if (phaseIds.has(p.id)) ctx.addIssue({ code: "custom", path: ["phases", i, "id"], message: `дубль id фазы: ${p.id}` });
+    phaseIds.add(p.id);
+    if (p.role === "hold" && ++holds > 1) ctx.addIssue({ code: "custom", path: ["phases", i, "role"], message: "фаза hold — одна на сцену" });
+    if (p.hold_mode && p.role !== "hold") ctx.addIssue({ code: "custom", path: ["phases", i, "hold_mode"], message: "hold_mode — только у фазы hold" });
+    p.element_ids.forEach((id, j) => {
+      if (!ids.has(id)) ctx.addIssue({ code: "custom", path: ["phases", i, "element_ids", j], message: `неизвестный элемент: ${id}` });
+    });
+  });
   const beatIds = new Set<string>();
   spec.beats.forEach((b, i) => {
     if (beatIds.has(b.id)) ctx.addIssue({ code: "custom", path: ["beats", i, "id"], message: `дубль id бита: ${b.id}` });
     beatIds.add(b.id);
-    if (b.end_frame <= b.start_frame) {
-      ctx.addIssue({ code: "custom", path: ["beats", i, "end_frame"], message: "end_frame должен быть больше start_frame" });
-    }
-    if (b.end_frame > spec.duration_frames) {
-      ctx.addIssue({ code: "custom", path: ["beats", i, "end_frame"], message: `бит выходит за duration_frames (${spec.duration_frames})` });
+    if (b.phase !== undefined && !phaseIds.has(b.phase)) ctx.addIssue({ code: "custom", path: ["beats", i, "phase"], message: `неизвестная фаза: ${b.phase}` });
+    if (b.start_frame !== undefined && b.end_frame !== undefined) {
+      if (b.end_frame <= b.start_frame) {
+        ctx.addIssue({ code: "custom", path: ["beats", i, "end_frame"], message: "end_frame должен быть больше start_frame" });
+      }
+      if (b.end_frame > spec.duration_frames) {
+        ctx.addIssue({ code: "custom", path: ["beats", i, "end_frame"], message: `бит выходит за duration_frames (${spec.duration_frames})` });
+      }
     }
     b.element_ids.forEach((id, j) => {
       if (!ids.has(id)) ctx.addIssue({ code: "custom", path: ["beats", i, "element_ids", j], message: `неизвестный элемент: ${id}` });
@@ -112,5 +174,51 @@ export const MotionSpecSchema = z.object({
       ctx.addIssue({ code: "custom", path: ["camera", i, "frame"], message: `ключ камеры за duration_frames (${spec.duration_frames})` });
     }
   });
-});
+}
+
+export const MotionSpecSchema = z.object(SpecFields).strict().superRefine(refineSpec);
 export type MotionSpec = z.infer<typeof MotionSpecSchema>;
+
+/**
+ * Spec в ответе Director. С `phases` биты идут без кадров (у каждого — `phase` или, для
+ * бита вне фаз, оба кадра); кадры ставит пайплайн (`server/src/pipeline/beat-plan.ts`).
+ * Без `phases` — прежний формат: кадры у всех битов.
+ */
+export const DirectorSpecSchema = z.object({ ...SpecFields, beats: z.array(DirectorBeatSchema).min(1) }).strict().superRefine((spec, ctx) => {
+  refineSpec(spec, ctx);
+  spec.beats.forEach((b, i) => {
+    const framed = b.start_frame !== undefined && b.end_frame !== undefined;
+    if (!framed && (!spec.phases || b.phase === undefined)) {
+      ctx.addIssue({ code: "custom", path: ["beats", i], message: spec.phases ? "бит без фазы — нужны start_frame и end_frame" : "без phases у бита нужны start_frame и end_frame" });
+    }
+  });
+});
+export type DirectorSpec = z.infer<typeof DirectorSpecSchema>;
+
+/** Структура сцены; старая spec без поля — `build-strike`. */
+export function structureOf(spec: Pick<MotionSpec, "composition">): SceneStructure {
+  return spec.composition?.structure ?? "build-strike";
+}
+
+const HOLD_ACTION = /hold/i;
+const PAYOFF_ACTION = /(emphasis|accent|final|climax|peak|payoff|strike)/i;
+const ENTER_ACTION = /(^|-)(in|entrance|enter|reveal|appear)(-|$)/i;
+
+/**
+ * Фазы сцены. Старая spec без `phases` — фаза на каждый бит по его действию: `hold` →
+ * hold, акцент → payoff, вход до первого действия → setup, остальное → action; вес —
+ * длина бита.
+ */
+export function phasesOf(spec: Pick<MotionSpec, "phases" | "beats">): Phase[] {
+  if (spec.phases) return spec.phases;
+  const beats = [...spec.beats].sort((a, b) => a.start_frame - b.start_frame);
+  let acting = false;
+  return beats.map((b) => {
+    let role: PhaseRole;
+    if (HOLD_ACTION.test(b.action)) role = "hold";
+    else if (PAYOFF_ACTION.test(b.action)) role = "payoff";
+    else if (!acting && ENTER_ACTION.test(b.action)) role = "setup";
+    else { role = "action"; acting = true; }
+    return { id: b.id, role, weight: Math.max(1, b.end_frame - b.start_frame), element_ids: b.element_ids };
+  });
+}
