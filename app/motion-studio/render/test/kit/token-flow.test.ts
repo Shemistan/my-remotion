@@ -1,7 +1,7 @@
 // 0.4.0: токен едет по ребру и встаёт перед портом, текст в кадре один (без «призраков»),
 // поглощается узлом или ложится в полосу; зоны узла (подпись, полоса, статус) не пересекаются.
 import { describe, expect, it } from "vitest";
-import { tokenBox, tokenLateIssue, tokenMode, tokenShot, tokenSpan, tokenStop } from "../../src/motion-kit/components/DataToken.js";
+import { type TokenMode, captionPoint, captionShot, tokenBox, tokenLateIssue, tokenMode, tokenShot, tokenSpan, tokenStop } from "../../src/motion-kit/components/DataToken.js";
 import { cacheFill, flowTiming } from "../../src/motion-kit/components/FlowGraph.js";
 import { FLOW_KINDS, type FlowBox, edgePath, flowLabelZone, flowSlot, flowStatusSlot, queueCellCenter, queueCellIssue, queueCells, usedSides } from "../../src/motion-kit/components/flow-layout.js";
 import type { Rect } from "../../src/motion-kit/choreo/safe-area.js";
@@ -162,5 +162,60 @@ describe("S2-fix I2: токен не уезжает за свой бит мол�
     expect(m).toMatch(/37/);
     expect(m).toMatch(/9 кадр/);
     expect(m).toMatch(/enterAt/);
+  });
+});
+
+describe("S2-fix I5: ярлык токена виден в каждом режиме, и у компактного", () => {
+  // ярлык виден в кадре: компактная капсула в полёте — без текста, текст — в подписи связи
+  // (captionShot) или в полосе после записи; иначе — карточка токена
+  const label = (f: number, start: number, pass: number, end: number, mode: TokenMode, compact: boolean) => {
+    const t = tokenShot(f, start, pass, st, { mode });
+    const card = t.visible && !(compact && t.at === "path") ? t.opacity : 0;
+    const cap = compact ? captionShot(f, start, pass, end, st, { mode }).opacity : 0;
+    return { card, cap, shown: Math.max(card, cap) };
+  };
+  for (const mode of ["slot", "consume", "rest"] as const) {
+    for (const compact of [false, true]) {
+      it(`${mode}${compact ? " (компактный)" : ""}: в середине бита ярлык виден`, () => {
+        const [start, end, pass] = [28, 46, 14];
+        const mid = Math.round((start + end) / 2);
+        expect(label(mid, start, pass, end, mode, compact).shown).toBeGreaterThanOrEqual(0.5);
+      });
+    }
+  }
+  it("компактный в полосу: подпись связи гаснет до записи в полосу — текст в кадре один", () => {
+    const [start, end, pass] = [28, 60, 14];
+    for (let f = start; f < 120; f++) {
+      const t = tokenShot(f, start, pass, st, { mode: "slot" });
+      const inSlot = t.at === "dock" ? t.opacity : 0;
+      const cap = captionShot(f, start, pass, end, st, { mode: "slot" }).opacity;
+      expect(Math.min(inSlot, cap)).toBeLessThan(0.05);
+    }
+  });
+  it("компактный consume и rest: подпись держится до конца бита и гаснет (объект rest — капсула у порта)", () => {
+    const [start, end, pass] = [28, 70, 14];
+    expect(captionShot(end - 1, start, pass, end, st, { mode: "consume" }).opacity).toBe(1);
+    expect(captionShot(end + 20, start, pass, end, st, { mode: "consume" }).opacity).toBe(0);
+    expect(captionShot(end - 1, start, pass, end, st, { mode: "rest" }).opacity).toBe(1);
+    expect(captionShot(end + 20, start, pass, end, st, { mode: "rest" }).opacity).toBe(0);
+    expect(captionShot(start - 1, start, pass, end, st, { mode: "rest" }).opacity).toBe(0);
+  });
+  it("подпись связи — снаружи обоих узлов: под целью (над, если снизу статус); у вертикального ребра — справа", () => {
+    const a = { x: 0, y: 100, w: 200, h: 120 };
+    const b = { x: 260, y: 90, w: 200, h: 150 };
+    const box = { w: 300, h: 40 };
+    const mid = { x: 230, y: 160 };
+    const below = captionPoint(mid, b, a, box, 12, false);
+    expect(below.y - box.h / 2).toBeGreaterThanOrEqual(240);
+    expect(below.x).toBe(360);
+    // запрос (цель b) и ответ (цель a) по одной связи — подписи не совпадают
+    expect(captionPoint(mid, a, b, box, 12, false).x).toBe(100);
+    const above = captionPoint(mid, a, b, box, 12, true);
+    expect(above.y + box.h / 2).toBeLessThanOrEqual(90);
+    const c = { x: 0, y: 0, w: 200, h: 100 };
+    const d = { x: 0, y: 140, w: 200, h: 100 };
+    const side = captionPoint({ x: 100, y: 120 }, c, d, box, 12, false);
+    expect(side.x - box.w / 2).toBeGreaterThanOrEqual(100);
+    expect(side.y).toBe(120);
   });
 });

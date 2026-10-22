@@ -270,6 +270,41 @@ export function tokenShot(frame: number, start: number, travel: number, s: Style
   return shot;
 }
 
+/**
+ * Подпись связи компактного токена (чистая функция, S2-fix I5): на коротком ребре карточка с
+ * текстом не помещается между узлами, капсула летит без текста — а ярлык данных стоит
+ * подписью связи снаружи узлов с начала полёта. Дальше по режиму: `slot` — гаснет к записи в
+ * полосу (там текст проявится сам, в кадре он один); `consume` и `rest` — держится до конца
+ * бита (не меньше, чем до прихода) и гаснет за 4 кадра: подпись — событие передачи, а
+ * объект у порта (rest) остаётся капсулой; следующий токен по той же связи в следующем бите
+ * не ложится на старую подпись. `until` — уходит.
+ */
+export function captionShot(frame: number, start: number, travel: number, beatEnd: number, s: StyleBible, o: { mode: TokenMode; until?: number }): { opacity: number; write: number } {
+  if (frame < start) return { opacity: 0, write: 0 };
+  const write = ramp(frame, start, start + frames(s, 8), EASE.outQuart);
+  const arrive = start + Math.max(1, travel);
+  const end = Math.max(arrive, beatEnd);
+  const out = o.mode === "slot" ? ramp(frame, arrive, arrive + frames(s, 5)) : ramp(frame, end, end + frames(s, 4));
+  const leave = o.until === undefined ? 0 : ramp(frame, o.until, o.until + frames(s, 10));
+  return { opacity: write * (1 - out) * (1 - leave), write };
+}
+
+type Box = { x: number; y: number; w: number; h: number };
+
+/**
+ * Где стоит подпись связи (центр, px графа): у горизонтального ребра — под узлом-целью (куда
+ * идут данные), ниже обоих узлов (`top` — над ними: снизу у узла место статуса); запрос и
+ * ответ по одной связи не ложатся друг на друга. У вертикального — справа от узлов на высоте
+ * середины ребра. Не на карточках и не на их подписях.
+ */
+export function captionPoint(mid: Point, target: Box, other: Box, box: { w: number; h: number }, gap: number, top: boolean): Point {
+  const horizontal = other.x >= target.x + target.w || target.x >= other.x + other.w;
+  if (!horizontal) return { x: Math.max(target.x + target.w, other.x + other.w) + gap + box.w / 2, y: mid.y };
+  const x = target.x + target.w / 2;
+  if (top) return { x, y: Math.min(target.y, other.y) - gap - box.h / 2 };
+  return { x, y: Math.max(target.y + target.h, other.y + other.h) + gap + box.h / 2 };
+}
+
 export function DataToken({ label, edgeId, segments, beat, travel, reverse = false, stay, consume, dock, cell, trail = "streak", until, tone, accentIndex, size = "caption", mono = true, style }: DataTokenProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
@@ -304,17 +339,18 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
   if (late) kitError(`late:${edgeId}:${label}`, late);
   const start = Math.max(beat.start_frame, ready ?? 0);
   const tk = tokenShot(frame, start, pass, s, { mode, until });
-  if (!tk.visible) return null;
-
-  const dark = isDark(s);
   const px = sizePx(s, size, height);
-  const col = dataColor(s, tone, accentIndex);
-  const look = dataTokenLook(s, px);
   const full = tokenBox(label, px);
   // короткое ребро: карточка с текстом не помещается между узлами — в полёте только капсула
-  // цвета данных без текста (не ложится на подписи), текст проявляется в полосе узла
+  // цвета данных без текста (не ложится на подписи), ярлык — подписью связи снаружи узлов
   const roomy = tokenSpan(lut, reverse, full, (6 * height) / 1080);
   const compact = mode !== "offset" && roomy.to - roomy.from < full.w * 0.6;
+  const cap = compact ? captionShot(frame, start, pass, beat.end_frame, s, { mode, until }) : { opacity: 0, write: 0 };
+  if (!tk.visible && cap.opacity <= 0.001) return null;
+
+  const dark = isDark(s);
+  const col = dataColor(s, tone, accentIndex);
+  const look = dataTokenLook(s, px);
   const box = compact ? { w: full.h * 1.1, h: full.h } : full;
   // едет центром по линии и встаёт перед портом: карточка цели и её подпись не перекрыты
   const span = tokenSpan(lut, reverse, box, (6 * height) / 1080);
@@ -356,9 +392,46 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
       };
     }
   }
+  // подпись связи компактного токена: снаружи обоих узлов ребра, проявляется слева направо
+  let capAt: Point | null = null;
+  if (cap.opacity > 0.001 && edgeId && flow) {
+    const link = flow.links.get(edgeId);
+    const [na, nb] = link ? [flow.nodes.get(reverse ? link.from : link.to), flow.nodes.get(reverse ? link.to : link.from)] : [undefined, undefined];
+    if (na && nb) {
+      const bottom = [na, nb].some((n) => flow.status.get(n.id)?.side === "bottom");
+      capAt = captionPoint(pointAtLength(lut, len / 2), na, nb, full, (12 * height) / 1080, bottom);
+    }
+  }
+  const cardStyle = (at: Point, scale: number, opacity: number): CSSProperties => ({
+    position: "absolute",
+    left: at.x,
+    top: at.y,
+    transform: `translate(-50%, -50%) scale(${scale.toFixed(4)})`,
+    opacity,
+    display: "flex",
+    alignItems: "stretch",
+    overflow: "hidden",
+    borderRadius: look.radius,
+    background: surfaceAt(s, 3),
+    boxShadow: `inset 0 0 0 1.5px ${alpha(col, 0.9)}, 0 ${(px * 0.12).toFixed(1)}px ${(px * 0.4).toFixed(1)}px ${alpha("#000000", dark ? 0.45 : 0.18)}`,
+    color: s.palette.text,
+    fontFamily: fontFamily(mono ? look.font : s.typography.body),
+    fontWeight: 600,
+    fontSize: px,
+    lineHeight: 1.15,
+    whiteSpace: "nowrap",
+  });
+  const text = <span style={{ padding: `${(px * 0.3).toFixed(1)}px ${(px * 0.55).toFixed(1)}px`, overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{label}</span>;
   return (
     <>
-      {streak ? <div style={streak} /> : null}
+      {capAt ? (
+        <div data-ms-layout="token" style={{ ...cardStyle(capAt, 1, cap.opacity), clipPath: cap.write < 1 ? `inset(0 ${((1 - cap.write) * 100).toFixed(2)}% 0 0)` : undefined, ...style }}>
+          <span style={{ flex: "0 0 auto", width: look.bar, background: col }} />
+          {text}
+        </div>
+      ) : null}
+      {!tk.visible ? null : streak ? <div style={streak} /> : null}
+      {!tk.visible ? null : (
       <div
         data-ms-layout="token"
         style={{
@@ -388,8 +461,9 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
         }}
       >
         <span style={{ flex: "0 0 auto", width: look.bar, background: col }} />
-        {compact && tk.at === "path" ? null : <span style={{ padding: `${(px * 0.3).toFixed(1)}px ${(px * 0.55).toFixed(1)}px`, overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{label}</span>}
+        {compact && tk.at === "path" ? null : text}
       </div>
+      )}
     </>
   );
 }

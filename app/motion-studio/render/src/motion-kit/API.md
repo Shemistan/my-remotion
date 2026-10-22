@@ -863,6 +863,12 @@ trail? = "streak", until?, tone?, accentIndex? = 0, size? = "caption", mono? = t
   обязательна (нет — ляжет под карточку, в консоли сообщение);
 - вне графа (`segments`) — остаётся у конца пути.
 
+**Короткое ребро** (карточка с текстом не помещается между узлами): в полёте летит капсула
+цвета данных без текста, а ярлык встаёт **подписью связи** под узлом-целью, ниже обоих узлов
+(над ними — если снизу место статуса; у вертикального ребра — справа): с начала полёта до
+записи в полосу (`slot`) или до конца бита (`consume`, `rest`; объект `rest` остаётся
+капсулой у порта). Запрос и ответ по одной связи подписываются под разными узлами.
+
 `until` — кадр ухода (сообщение забрали из буфера). Цвет — `dataColor(style, tone?, accentIndex?)`: акцент (по умолчанию 0), но не статусный —
 акцент ближе 40° по тону к `positive` / `negative` заменяется самым далёким от них акцентом
 палитры. Явный `tone` (кроме `accent`) — как есть. Внутри графа ставь в `overlay` (иначе
@@ -958,7 +964,7 @@ highlight?, align? = "left", size?, maxWidth?, style? }` — `composition.title_
 | `pathArrivals(segments, { beat, travel?, count?, repeat? }, style, fps, ready?)`, `arrivalCount(frames, frame, style, { per?, from? })` | приходы по своему пути и счётчик по ним без React |
 | `statusAt`, `tokenAt`, `latencyTiming`, `latencyAt`, `backgroundLayout`, `flowLabelSizes`, `enterDuration` | чистые функции новых примитивов 0.3 (см. разделы) |
 | `flowSlot`, `dataColor`, `dataTokenLook`, `statusChipLook`, `latencyLayout`, `laneReadout`, `emphasisFilter`, `haloLevel`, `hueDistance(a, b)` | чистые функции 0.3.1 (см. разделы); `hueDistance` — расстояние тонов по кругу, 0..180° |
-| `tokenShot`, `tokenMode`, `tokenSpan`, `tokenBox`, `flowLabelZone`, `flowStatusSlot`, `queueCells`, `queueCellCenter`, `cacheFill`, `posterStyle` | чистые функции 0.4.0 (см. разделы) |
+| `tokenShot`, `tokenMode`, `tokenSpan`, `tokenBox`, `captionShot`, `captionPoint`, `tokenLateIssue`, `flowLabelZone`, `flowStatusSlot`, `queueCells`, `queueCellCenter`, `cacheFill`, `posterStyle` | чистые функции 0.4.0 (см. разделы) |
 | `axisTicks(min, max, n)` | деления оси не больше `n` штук (круглый шаг) |
 | `minTextPx(height)`, `floorText(px, height)`, `MIN_TEXT_PX` | предел кегля kit: 22 px при 1080 |
 | `parallaxTransform(cam, layer, size?)`, `PARALLAX_OVERSCAN` | трансформация слоя параллакса; с размером кадра — с запасом за край |
