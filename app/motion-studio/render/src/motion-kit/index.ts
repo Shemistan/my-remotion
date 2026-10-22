@@ -5,8 +5,8 @@ import { ensureFonts } from "./fonts.js";
 // шрифты kit грузятся при импорте: первый кадр уже нужным шрифтом
 ensureFonts();
 
-/** Версия API kit (API.md): 0.2 — StyleBible-система, хореография, примитивы паттернов ТЗ §8.4; 0.2.1 — Emphasis/Halo, акцент точки LineChart, входы и вспышки узлов FlowGraph (аддитивно); 0.2.2 — FlowNode.emphasis, AccentPulse.swell (аддитивно); 0.3.0 — кольцо акцента только на ударе по умолчанию, шторка mask с мягкой кромкой 14–18 кадров, FlowNode.size, Background seed/focus/spotlight/blueprint, useArrivalCount, StatusChip, DataToken, LatencyRace, SceneTitle (меняет вид существующих сцен, API — обратно совместим); 0.3.1 — полировка после дизайн-ревью: FlowNode.slot и DataToken в слот, разная грамматика StatusChip / DataToken, LatencyRace от высоты кадра, различимые blueprint / spotlight, свечение Emphasis за текстом, сообщения kit о неверном использовании (аддитивно); 0.4.0 — плохое движение трудно выразить: DataToken без копий текста (штрих-след, путь по линии, полоса узла / consume), FlowNode.kind (облик по роли), места данных и статуса узла, кадр-постер (pre-силуэты, фон с кадра 0), предел кегля 22 px, ось ≤ 4 делений, разметка реестра раскладки для QA (меняет вид существующих сцен, API — обратно совместим); 0.4.1 — ошибки kit `[motion-kit:error]` (QA kit_misuse): ёмкость `cells` буфера queue, токен раньше готовности ребра; ярлык компактного токена подписью связи (аддитивно); 0.4.2 — DataToken: запись в полосу без шторки, передача токена без двойника, постер под сдвигающим входом гаснет за 1/6; планировщик ритма: полоса удара по структуре, phaseTokens (меняет вид существующих сцен, API — обратно совместим). */
-export const MOTION_KIT_VERSION = "0.4.2";
+/** Версия API kit (API.md): 0.2 — StyleBible-система, хореография, примитивы паттернов ТЗ §8.4; 0.2.1 — Emphasis/Halo, акцент точки LineChart, входы и вспышки узлов FlowGraph (аддитивно); 0.2.2 — FlowNode.emphasis, AccentPulse.swell (аддитивно); 0.3.0 — кольцо акцента только на ударе по умолчанию, шторка mask с мягкой кромкой 14–18 кадров, FlowNode.size, Background seed/focus/spotlight/blueprint, useArrivalCount, StatusChip, DataToken, LatencyRace, SceneTitle (меняет вид существующих сцен, API — обратно совместим); 0.3.1 — полировка после дизайн-ревью: FlowNode.slot и DataToken в слот, разная грамматика StatusChip / DataToken, LatencyRace от высоты кадра, различимые blueprint / spotlight, свечение Emphasis за текстом, сообщения kit о неверном использовании (аддитивно); 0.4.0 — плохое движение трудно выразить: DataToken без копий текста (штрих-след, путь по линии, полоса узла / consume), FlowNode.kind (облик по роли), места данных и статуса узла, кадр-постер (pre-силуэты, фон с кадра 0), предел кегля 22 px, ось ≤ 4 делений, разметка реестра раскладки для QA (меняет вид существующих сцен, API — обратно совместим); 0.4.1 — ошибки kit `[motion-kit:error]` (QA kit_misuse): ёмкость `cells` буфера queue, токен раньше готовности ребра; ярлык компактного токена подписью связи (аддитивно); 0.4.2 — DataToken: запись в полосу без шторки, передача токена без двойника, постер под сдвигающим входом гаснет за 1/6; планировщик ритма: полоса удара по структуре, phaseTokens (меняет вид существующих сцен, API — обратно совместим); 0.5.0 — hold engine: живой финал по режиму удержания (`hold` у FlowGraph, LineChart, LatencyRace, Timeline, Emphasis, Camera; useHold, Comet, RadarRing, TickLabel), потоки графа в удержании стоят, кроме steady-flow (без `hold` — как раньше; аддитивно). */
+export const MOTION_KIT_VERSION = "0.5.0";
 
 export { ensureFonts, FONT_FILES, KIT_FONT_FAMILIES } from "./fonts.js";
 export { type PresetId, presets } from "./presets.js";
@@ -19,8 +19,10 @@ export { INTENSITY, amplitudeOf } from "./style/intensity.js";
 export { type EnterDirection, type EnterKind, type EnterOptions, type EnterPre, MASK_FEATHER, PRE_ALPHA, enterStyle, posterStyle } from "./choreo/enter.js";
 export { staggerBeat } from "./choreo/stagger.js";
 export { ACCENT_REST, type AccentPulse, type AccentPulseOptions, accentPulse } from "./choreo/accent.js";
-export { type ArrivalCount, type PathArrival, type PulseArrival, arrivalCount, pathArrivals, pulseArrival } from "./choreo/pulse.js";
-export { type CameraKey, type CameraState, type FrameSize, cameraAt, cameraTransform, panLimit, zoomLimit, parallaxFactor, parallaxTransform, PARALLAX_OVERSCAN } from "./choreo/camera.js";
+export { type ArrivalCount, type FlowHoldCtx, type PathArrival, type PulseArrival, STEADY_RECENT_S, arrivalCount, pathArrivals, pathStarts, pulseArrival } from "./choreo/pulse.js";
+export { HOLD_MODES, HOLD_PROBE, HOLD_RATE, type Hold, type HoldFrame, anchoredStarts, holdAt, holdTicks, holdTiming, steadyStarts, tickLabel } from "./choreo/hold.js";
+export { CardRadar, Comet, RadarRing, TickLabel, useHold } from "./components/HoldLayers.js";
+export { type CameraKey, type CameraState, type FrameSize, SETTLE_PUSH, cameraAt, cameraHoldAt, cameraTransform, panLimit, zoomLimit, parallaxFactor, parallaxTransform, PARALLAX_OVERSCAN } from "./choreo/camera.js";
 export { type Rect, safeRect, styleSafeRect } from "./choreo/safe-area.js";
 export { edgeDelay, kineticStep, typeRhythm } from "./choreo/rhythm.js";
 export { type BeatPlan, type PlanInput, type PlanPhase, type PhaseTokens, type PlannedBeat, STRUCTURES, TAKEAWAY_BAND, phaseTokens, planBeats, readingFrames } from "./choreo/plan.js";
@@ -81,10 +83,10 @@ export { Timeline, type TimelineProps } from "./components/Timeline.js";
 export { Background, type BackgroundBlob, type BackgroundProps, type BackgroundVariant, backgroundLayout, backgroundReveal } from "./components/Background.js";
 export { Camera, type CameraProps, useCamera } from "./components/Camera.js";
 export { Card, type CardEnter, type CardProps, cardEnterStyle, cardSurface, depthElevation } from "./components/Card.js";
-export { Emphasis, type EmphasisProps, HALO_FALLOFF, Halo, type HaloProps, emphasisFilter, emphasisRingVisible, falloff, haloLevel, useAccentPulse } from "./components/Emphasis.js";
+export { Emphasis, type EmphasisProps, HALO_FALLOFF, Halo, type HaloProps, emphasisFilter, holdAccent, emphasisRingVisible, falloff, haloLevel, useAccentPulse } from "./components/Emphasis.js";
 export { Enter, type EnterProps, enterDuration } from "./components/Enter.js";
 export { Parallax, type ParallaxProps } from "./components/Parallax.js";
-export { type FlowEdge, FlowGraph, type FlowGraphProps, type FlowNode, type FlowSlot, cacheFill, edgePath, flowLabelSizes, flowSlot, flowTiming, useFlowGeometry } from "./components/FlowGraph.js";
+export { type FlowEdge, FlowGraph, type FlowGraphProps, type FlowHold, type FlowNode, type FlowSlot, cacheFill, flowHoldPlan, heroBreath, edgePath, flowLabelSizes, flowSlot, flowTiming, useFlowGeometry } from "./components/FlowGraph.js";
 export { FLOW_KINDS, type FlowNodeKind, type FlowStatusSlot, flowLabelZone, flowStatusSlot, queueCellCenter, queueCells, usedSides } from "./components/flow-layout.js";
 export { KineticText, type KineticEnter, type KineticTextProps } from "./components/KineticText.js";
 export { LineChart, type LineChartProps, chartFont, lineChartHead, lineHighlight } from "./components/LineChart.js";

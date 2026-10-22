@@ -4,8 +4,9 @@
 // берётся по edgeId; вне графа — из segments (координаты родителя).
 import type { Beat } from "@ms/contracts";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import { type ArrivalCount, EASE_PASS, type PathArrival, type PulseArrival, arrivalCount, pathArrivals, pulsePass, pulseStarts } from "../choreo/pulse.js";
-import { type CubicSegment, lutLength, pathLUT, pointAtLength, pointsBetween, polylineD } from "../geometry.js";
+import type { Hold } from "../choreo/hold.js";
+import { type ArrivalCount, EASE_PASS, type PathArrival, type PulseArrival, arrivalCount, pathArrivals, pathStarts } from "../choreo/pulse.js";
+import { type CubicSegment, type PathLUT, lutLength, pathLUT, pointAtLength, pointsBetween, polylineD } from "../geometry.js";
 import { CLAMP, kitWarn, useSvgId } from "../internal.js";
 import { useStyle } from "../style.js";
 import { accent, mix } from "../tokens.js";
@@ -30,14 +31,17 @@ export interface PulseAlongPathProps {
   repeat?: boolean;
   /** Обратное направление (данные возвращаются). */
   reverse?: boolean;
+  /**
+   * Удержание сцены (0.5.0) для пути вне графа; внутри <FlowGraph hold> берётся у графа.
+   * В удержании поток стоит, `steady-flow` — продолжает тише (60 % темпа).
+   */
+  hold?: Hold;
 }
 
-export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size = 7, count = 1, travel, repeat = true, reverse = false }: PulseAlongPathProps) {
+export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size = 7, count = 1, travel, repeat = true, reverse = false, hold }: PulseAlongPathProps) {
   const s = useStyle();
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
   const flow = useFlowGeometry();
-  const id = useSvgId("ms-pulse");
   const seg = edgeId ? flow?.edges.get(edgeId) : undefined;
   const path = seg ? [seg] : (segments ?? []);
   if (edgeId && !seg && !segments) {
@@ -45,18 +49,22 @@ export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size
     kitWarn(`pulse:${m}`, m);
   }
   if (path.length === 0) return null;
+  // внутри графа не стартуем раньше, чем ребро дорисовано; общее расписание с pulseArrival /
+  // useArrivalCount (начатый проход доигрывается; удержание — по hold графа или своему)
+  const ready = (seg && edgeId && flow?.ready.get(edgeId)) || 0;
+  const h = seg && flow?.hold ? { ...flow.hold, edgeId } : hold ? { hold, end: durationInFrames } : undefined;
+  const { starts, pass } = pathStarts(path, { beat, travel, count, repeat }, s, fps, ready, h);
+  return <PulseTrails lut={pathLUT(path, 40)} starts={starts} pass={pass} color={color} tail={tail} size={size} reverse={reverse} />;
+}
 
-  const lut = pathLUT(path, 40);
+/** Импульсы по LUT пути: старты проходов `starts`, проход `pass` кадров (общий рисунок kit). */
+export function PulseTrails({ lut, starts, pass, color, tail = 120, size = 7, reverse = false, opacity = 1 }: { lut: PathLUT; starts: readonly number[]; pass: number; color?: string; tail?: number; size?: number; reverse?: boolean; opacity?: number }) {
+  const s = useStyle();
+  const frame = useCurrentFrame();
+  const id = useSvgId("ms-pulse");
   const len = lutLength(lut);
   const col = color ?? accent(s, 1);
   const core = mix(col, "#ffffff", 0.75);
-  // по умолчанию ~ 420 px/с с поправкой на интенсивность, не короче 0.6 с (общий расчёт с pulseArrival)
-  const pass = pulsePass(len, travel, fps, s);
-  // внутри графа не стартуем раньше, чем ребро дорисовано
-  const start = Math.max(beat.start_frame, (edgeId && flow?.ready.get(edgeId)) || 0);
-  // общее расписание с pulseArrival / useArrivalCount: старты проходов, начатый до конца
-  // бита проход доигрывается
-  const starts = pulseStarts({ start, end: beat.end_frame, pass, count, repeat });
   const pulses = starts.map((t0, k) => {
     const local = frame - t0;
     if (local < 0 || local >= pass) return null;
@@ -64,7 +72,7 @@ export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size
     const e = EASE_PASS(ph);
     const sHead = (reverse ? 1 - e : e) * len;
     const sTail = reverse ? sHead + tail : sHead - tail;
-    const fade = interpolate(ph, [0, 0.08, 0.86, 1], [0, 1, 1, 0], CLAMP);
+    const fade = interpolate(ph, [0, 0.08, 0.86, 1], [0, 1, 1, 0], CLAMP) * opacity;
     const head = pointAtLength(lut, sHead);
     const tp = pointsBetween(lut, sTail, sHead);
     const from = reverse ? tp.at(-1)! : tp[0]!;
@@ -126,10 +134,10 @@ export function arrivalSourceIssue(a: PulseArrival | (PathArrival & { segments: 
 export function useArrivalCount(a: PulseArrival | (PathArrival & { segments: CubicSegment[] }), o: { per?: number; from?: number } = {}): ArrivalCount {
   const s = useStyle();
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
   const flow = useFlowGeometry();
   const issue = arrivalSourceIssue(a, flow);
   if (issue) kitWarn(`arrival:${issue}`, issue);
-  const at = "segments" in a ? pathArrivals(a.segments, a, s, fps) : (flow?.arrivals(a) ?? []);
+  const at = "segments" in a ? pathArrivals(a.segments, a, s, fps, 0, a.hold ? { hold: a.hold, end: durationInFrames } : undefined) : (flow?.arrivals(a) ?? []);
   return arrivalCount(at, frame, s, o);
 }

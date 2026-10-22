@@ -12,6 +12,9 @@ import { EASE, frames, springAt } from "../easing.js";
 import { clamp01, ramp, useSvgId } from "../internal.js";
 import { type TypeLevel, typeSize } from "../style/type-scale.js";
 import { PosterGate } from "./Poster.js";
+import type { Hold } from "../choreo/hold.js";
+import { pathLUT } from "../geometry.js";
+import { Comet, RadarRing, TickLabel, useHoldFrame } from "./HoldLayers.js";
 import { useStyle } from "../style.js";
 import { timelineLayout } from "../timeline-layout.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, tracking } from "../tokens.js";
@@ -29,6 +32,13 @@ export interface TimelineProps {
   accentIndex?: number;
   /** Выделить последнюю веху как «сейчас» (по умолчанию да). */
   highlightLast?: boolean;
+  /**
+   * Финал (hold engine 0.5.0): `now-pulse` — волна радара от вехи «сейчас»;
+   * `data-shimmer` (и `steady-flow`) — блик бежит по оси к «сейчас», веха вспыхивает на
+   * приходе; `repeat-result` — подпись тика `label` над «сейчас»; `settle-push` — дыхание
+   * вехи (наезд — у <Camera hold>).
+   */
+  hold?: Hold & { label?: string };
 }
 
 const AXIS_EASE = Easing.bezier(0.6, 0, 0.25, 1);
@@ -57,7 +67,7 @@ export function Timeline(props: TimelineProps) {
   return <PosterGate pre={props.pre} beat={props.beat} render={(css, underlay) => <TimelineBody {...props} posterCss={css} underlay={underlay} />} />;
 }
 
-function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0, highlightLast = true, posterCss, underlay }: TimelineProps & { posterCss?: CSSProperties; underlay?: ReactNode }) {
+function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0, highlightLast = true, hold, posterCss, underlay }: TimelineProps & { posterCss?: CSSProperties; underlay?: ReactNode }) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height: frameH } = useVideoConfig();
@@ -90,6 +100,11 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
   const head = first && lastPt ? { x: first.x + (lastPt.x - first.x) * draw, y: first.y + (lastPt.y - first.y) * draw } : { x: 0, y: 0 };
   const headOn = draw > 0 && draw < 1;
   const uOf = (i: number) => (items.length > 1 ? i / (items.length - 1) : 0);
+  const hf = useHoldFrame(hold?.mode === "steady-flow" ? { ...hold, mode: "data-shimmer" } : hold);
+  const fin = hf?.on && draw >= 1 ? hf : null;
+  // приход блика / тик — вспышка «сейчас» (дыхание финала с пиком в приход)
+  const flare = fin && hold!.mode !== "settle-push" && hold!.mode !== "now-pulse" ? fin.live * Math.max(0, fin.breath) ** 3 : 0;
+  const axisLut = first && lastPt && len > 0 ? pathLUT([[first, { x: first.x + (lastPt.x - first.x) / 3, y: first.y + (lastPt.y - first.y) / 3 }, { x: first.x + ((lastPt.x - first.x) * 2) / 3, y: first.y + ((lastPt.y - first.y) * 2) / 3 }, lastPt]], 24) : null;
 
   return (
     <div style={{ position: "relative", width: W, height: H, ...posterCss }}>
@@ -126,6 +141,7 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
             />
             {dark && draw > 0 ? <line x1={first.x} y1={first.y} x2={head.x} y2={head.y} stroke={color} strokeWidth={axisW * 2.4} opacity={0.4} filter={`url(#${id}-glow)`} /> : null}
             {draw > 0 && len > 0 ? <line x1={first.x} y1={first.y} x2={head.x} y2={head.y} stroke={`url(#${id}-axis)`} strokeWidth={axisW} strokeLinecap="round" /> : null}
+            {fin && axisLut ? <Comet lut={axisLut} pos={fin.sweep} opacity={fin.sweepAlpha} color={color} width={axisW * 0.9} length={Math.max(140, len * 0.18)} /> : null}
             {headOn ? (
               <g>
                 <circle cx={head.x} cy={head.y} r={axisW * 6} fill={`url(#${id}-head)`} />
@@ -143,7 +159,7 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
           // «сейчас» дышит после появления тем же accentPulse, что Emphasis: ореол — яркостью и
           // радиусом ≤ 3.6 r (шире — свечение крайней вехи доходит до края кадра: clipping)
           const pulse = now ? accentPulse(frame, s, { beat: { start_frame: rf + frames(s, 12), end_frame: rf + frames(s, 12) } }) : null;
-          const breath = pulse?.level ?? 0;
+          const breath = Math.min(1, (pulse?.level ?? 0) + (now ? 0.4 * flare : 0));
           const sign = i % 2 === 0 ? -1 : 1;
           const g = ramp(frame, rf + frames(s, 2), rf + frames(s, 12), EASE.outExpo);
           return (
@@ -154,15 +170,23 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
               {now ? <circle cx={p.x} cy={p.y} r={r * (2.6 + 1.0 * breath) * (pulse?.scale ?? 1)} fill={`url(#${id}-now)`} opacity={clamp01(pop) * (0.3 + 0.7 * breath)} /> : null}
               {/* кольцо акцента: расходится от точки на каждом вдохе, как у Emphasis; не дальше 3 r —
                   крайняя веха стоит у края safe area, шире кольцо касается края кадра (clipping) */}
-              {pulse && pulse.ripple >= 0 ? (
+              {pulse && pulse.ripple >= 0 && !(fin && hold!.mode === "now-pulse") ? (
                 <circle cx={p.x} cy={p.y} r={r * (1.2 + 1.8 * (1 - (1 - pulse.ripple) ** 3))} fill="none" stroke={color} strokeWidth={2.5} opacity={0.8 * (1 - pulse.ripple) * pulse.rippleAlpha} />
               ) : null}
+              {now && fin && hold!.mode === "now-pulse" ? <RadarRing x={p.x} y={p.y} r0={r * 1.2} reach={r * 1.4} t={fin.ripple} opacity={fin.rippleAlpha} color={color} /> : null}
               <circle cx={p.x} cy={p.y} r={Math.max(0, r * pop * (pulse?.scale ?? 1))} fill={now ? color : s.palette.bg} stroke={color} strokeWidth={now ? 0 : 4} />
               <circle cx={p.x} cy={p.y} r={Math.max(0, r * (now ? 0.38 : 0.42) * pop * (pulse?.scale ?? 1))} fill={now ? (dark ? s.palette.bg : "#ffffff") : mix(color, s.palette.text, 0.2)} />
             </g>
           );
         })}
       </svg>
+
+      {/* подпись тика repeat-result у «сейчас» — со стороны оси без подписей вехи */}
+      {fin && hold!.mode === "repeat-result" && fin.tick && hold!.label && lastPt && highlightLast ? (
+        h
+          ? <TickLabel x={lastPt.x} y={(items.length - 1) % 2 === 0 ? lastPt.y + node * 4.4 : lastPt.y - node * 2.6} age={fin.tick.age} text={hold!.label} color={color} />
+          : <TickLabel x={lastPt.x + node * 2.6} y={lastPt.y + node * 4} age={fin.tick.age} text={hold!.label} color={color} anchor="left" />
+      ) : null}
 
       {/* подписи: дата — моноширинным от оси, подпись и пояснение — следом */}
       {pts.map((p, i) => {

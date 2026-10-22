@@ -2,6 +2,7 @@ export * from "./time.js";
 export * from "./settings.js";
 export * from "./style.js";
 export * from "./motion-spec.js";
+export * from "./hold-mode.js";
 export * from "./selection.js";
 export * from "./agents.js";
 export * from "./failure.js";

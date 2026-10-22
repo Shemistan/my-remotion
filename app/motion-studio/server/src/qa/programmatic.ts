@@ -1,7 +1,7 @@
 // Программные проверки по реальным кадрам, логам браузера и размеру превью (06 §6) —
 // без LLM: пустой кадр, застывшая анимация, обрезка, открытый край сцены, safe area,
 // контраст, сеть.
-import type { MotionSpec, QAIssue, Settings } from "@ms/contracts";
+import { type HoldMode, type MotionSpec, type QAIssue, type Settings, holdModeFor } from "@ms/contracts";
 import { type Rect, type RenderResult, type ResolvedStyle, contrastRatio, safeRect } from "@ms/render";
 import { accentBeat, blankCheckFrom, inBeat, isEmphasisRole } from "../pipeline/qa-frames.js";
 import { layoutIssues, parseLayout } from "./layout.js";
@@ -92,12 +92,26 @@ function holdFrozenIssues(spec: MotionSpec, [fa, a]: [number, Img], [fb, b]: [nu
   if (!spec.elements.some((e) => e.kind === "graph")) return [];
   if (a.width !== b.width || a.height !== b.height) return [];
   const d = objectDelta(a, b);
-  if (d >= FROZEN_DELTA) return [];
+  if (d >= holdFrozenBar(holdModeFor(spec))) return [];
   return [{
     code: "frozen", severity: "blocking", frame: fb, area: "hold",
-    description: `схема застыла в удержании: кадры ${fa} и ${fb} не отличаются (изменение объектов ${d.toFixed(4)} < ${FROZEN_DELTA})`,
-    fix_hint: "в удержании система работает дальше в своём ритме: импульсы и токены по рёбрам (repeat), счётчик или статус на событиях — дыхание ореола на одном узле не hold",
+    description: `схема застыла в удержании: кадры ${fa} и ${fb} не отличаются (изменение объектов ${d.toFixed(4)} < ${holdFrozenBar(holdModeFor(spec))})`,
+    fix_hint: "финал — `hold={{ mode: <hold_mode фазы hold>, beat: <бит hold> }}` у FlowGraph (kit 0.5.0): steady-flow продолжает потоки, repeat-result — повтор к герою с подписью, now-pulse — волна от героя; дыхание ореола на одном узле не hold",
   }];
+}
+
+/**
+ * Режимы удержания kit 0.5.0, где живёт один герой, а не вся схема (волна радара, блик по
+ * рёбрам, наезд): у них порог «застыла» ниже — FROZEN_LOCAL_DELTA. Калибровка — реальные
+ * финалы галереи (fixtures/hold-frames, 640×360): схема без hold 0.00084, now-pulse 0.0020,
+ * data-shimmer 0.0022, потоки (steady-flow, repeat-result) ≥ 0.0038.
+ */
+export const FROZEN_LOCAL_DELTA = 0.0014;
+const LOCAL_HOLD: ReadonlySet<HoldMode> = new Set(["now-pulse", "data-shimmer", "settle-push"]);
+
+/** Порог «схема застыла» для режима удержания (`holdModeFor`: у старой spec — по носителю). */
+export function holdFrozenBar(mode: HoldMode): number {
+  return LOCAL_HOLD.has(mode) ? FROZEN_LOCAL_DELTA : FROZEN_DELTA;
 }
 
 /** Кадр-постер: кадры 0 и 4 почти пусты (posterInk < POSTER_INK) — warning по самому пустому. */

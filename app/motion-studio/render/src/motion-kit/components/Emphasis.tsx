@@ -7,6 +7,8 @@ import type { CSSProperties, ReactNode } from "react";
 import { useCurrentFrame } from "remotion";
 import { type AccentPulse, type AccentPulseOptions, accentPulse } from "../choreo/accent.js";
 import { clamp01 } from "../internal.js";
+import type { Hold } from "../choreo/hold.js";
+import { useHoldFrame } from "./HoldLayers.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, isDark, mix, radius as radiusOf } from "../tokens.js";
 
@@ -90,6 +92,12 @@ export interface EmphasisProps {
   /** inline-block (по умолчанию — для слова, числа, плашки) или block. */
   display?: "inline-block" | "block";
   style?: CSSProperties;
+  /**
+   * Финал (hold engine 0.5.0) у героя без своего примитива (число, вывод): дыхание ореола
+   * держится до последнего кадра; `now-pulse` — ещё мягкая волна света от цели (без рамки),
+   * `repeat-result` / `data-shimmer` — вспышка ореола в такт тикам / бликам.
+   */
+  hold?: Hold;
 }
 
 /** Рисовать ли кольцо акцента в этом кадре при настройке `ring`. */
@@ -131,16 +139,30 @@ export function haloLevel(p: AccentPulse): number {
 }
 
 /**
+ * Акцент в удержании (0.5.0): дыхание финала поверх акцента — ореол не ниже 0.62 ± 0.24 ×
+ * дыхание; `flare` 1 — вспышка в пик дыхания (тик, приход блика). Удар бита сохраняется.
+ */
+export function holdAccent(p: AccentPulse, live: number, breath: number, flare = 0): AccentPulse {
+  const peak = flare * Math.max(0, breath) ** 4;
+  const level = Math.min(1, live * (0.62 + 0.24 * breath + 0.3 * peak));
+  if (p.level >= level && p.strike > 0.05) return p;
+  return { ...p, level: Math.max(level, p.strike), hold: Math.max(p.hold, live), swell: breath * live, scale: Math.max(p.scale, 1 + 0.01 * live * (0.5 + 0.5 * breath)), ripple: -1, rippleAlpha: 0, rippleBreath: false };
+}
+
+/**
  * Акцент на цели: короткий удар масштаба, вспышка свечения и одно кольцо в начале бита,
  * затем спокойное дыхание свечением и масштабом (без кольца), пока идёт бит —
  * и до конца сцены при `loop`. Один акцент в момент: не ставь два Emphasis с
  * перекрывающимися битами.
  */
-export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, halo = true, ring = "strike", shape = "pill", radius, spread, strength, display = "inline-block", style }: EmphasisProps) {
+export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, halo = true, ring = "strike", shape = "pill", radius, spread, strength, display = "inline-block", style, hold }: EmphasisProps) {
   const s = useStyle();
   const dark = isDark(s);
   const col = color ?? accent(s, accentIndex);
-  const p = useAccentPulse(beat, { loop, strength });
+  const base = useAccentPulse(beat, { loop, strength });
+  const hf = useHoldFrame(hold);
+  const p = hf?.on ? holdAccent(base, hf.live, hf.breath, hold!.mode === "now-pulse" || hold!.mode === "settle-push" ? 0 : 1) : base;
+  const wave = hf?.on && hold!.mode === "now-pulse" && hf.ripple >= 0 ? hf.ripple : -1;
   // кольцо: отходит от кромки цели на 4 → 30 px с торможением и гаснет
   const rp = p.ripple >= 0 ? 1 - (1 - p.ripple) ** 3 : 0;
   const offset = Number((4 + 26 * rp).toFixed(3));
@@ -149,6 +171,12 @@ export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, 
   return (
     <span style={{ position: "relative", display, isolation: "isolate", transform: p.scale === 1 ? undefined : `scale(${p.scale.toFixed(5)})`, transformOrigin: "50% 50%", ...style }}>
       {halo ? <Halo level={haloLevel(p)} color={col} spread={spread} /> : null}
+      {wave >= 0 ? (
+        // волна света now-pulse: ореол расходится от цели и гаснет — без рамки вокруг слова
+        <span aria-hidden style={{ position: "absolute", inset: 0, zIndex: -1, transform: `scale(${(1 + 0.7 * (1 - (1 - wave) ** 3)).toFixed(4)})`, opacity: Number((0.75 * (1 - wave) ** 1.6 * hf!.rippleAlpha).toFixed(4)), pointerEvents: "none" }}>
+          <Halo level={1} color={col} spread={spread} />
+        </span>
+      ) : null}
       {emphasisRingVisible(ring, p) ? (
         <span
           aria-hidden

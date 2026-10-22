@@ -10,14 +10,15 @@
 
 ## Что лежит в draft
 
-- `spec.json` — спецификация: `composition` (архетип, идея, фокус, переходы), `elements`
-  (`content`, `layout` — доли safe area, `entrance`, `depth_layer`), `beats`, `camera`;
+- `spec.json` — спецификация: `composition` (архетип, идея, фокус, переходы, `structure`),
+  `elements` (`content`, `layout` — доли safe area, `entrance`, `depth_layer`), `phases` (роль,
+  `hold_mode` финала), `beats` (кадры уже расставлены, `phase`, `kind`), `camera`;
 - `settings.json` — настройки сцены (размер, fps, длительность, пресет, интенсивность,
   safe area, прозрачность);
 - `style.json` — разрешённый StyleBible (палитра, шкала кегля, токены движения, предел
   камеры) — тот же, что вернёт `useStyle()`;
 - `selection.json`, `knowledge-refs.json` — выбранные записи KB и их происхождение;
-- `refs/motion-kit/API.md` — справка motion-kit 0.4.2 (**прочитай первой целиком**),
+- `refs/motion-kit/API.md` — справка motion-kit 0.5.0 (**прочитай первой целиком**),
   `refs/kb/<id>/` — исходники и `CARD.md` выбранных записей,
   `refs/skills/remotion-markup/` — выдержки official skills Remotion.
 
@@ -45,7 +46,7 @@
    действия, пик акцента, кадры N−20 и N−1 (они должны различаться). На каждом: всё ли в
    кадре и в safe area, ничего не перекрыто, текст читается, акцент один.
 
-## Как строить: motion-kit 0.4.2 по паттерну
+## Как строить: motion-kit 0.5.0 по паттерну
 
 Главный примитив — тот, что Director назвал в `content.component` (у паттерна несколько
 вариантов показа — не подменяй выбранный привычным). Справочно:
@@ -141,9 +142,9 @@
   примитива (`endpointEmphasis`, `FlowNode.flash` / `emphasis`), не `Emphasis` поверх.
 - **Один акцент в момент.** Биты двух `Emphasis` не перекрываются, вспышка узла не
   совпадает с `Emphasis` другого объекта; передавая акцент, прежнему — `loop={false}`.
-- **Финал (бит `hold`)** — то движение, что описано в spec, и только оно (рубрика п. 9):
-  дышит акцент итога (`Emphasis` с `loop`) или идёт установившийся поток. Своих
-  «бликов»-полос по карточкам и графикам не рисуй (прямоугольник с жёсткими краями).
+- **Финал** — `hold={{ mode: hold_mode фазы hold, beat: бит hold }}` у носителя итога
+  (API.md «Фазы и финал»; нет `hold_mode` — по носителю), `settle-push` — у `<Camera hold>`.
+  Своих бликов и пульсов поверх не рисуй. `cold-open`: бит `…-open` — итог постером с кадра 0.
 - Счётчик сначала показывает стартовое значение: бит входа раньше бита счёта —
   `AnimatedNumber enterAt beat`, привязанный к линии — `value={head.value}` (см. API.md);
   `formatNumber` с `locale` из spec (для `ru` — «2 500 000»).

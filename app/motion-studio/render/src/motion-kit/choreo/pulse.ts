@@ -3,6 +3,7 @@
 import type { Beat, StyleBible } from "@ms/contracts";
 import { frames } from "../easing.js";
 import { type CubicSegment, lutLength, pathLUT } from "../geometry.js";
+import { type Hold, steadyStarts } from "./hold.js";
 import { arrivalInPass, pulsePass, pulseStarts } from "./pulse-timing.js";
 
 // Чистое расписание (без remotion) — в pulse-timing.ts: его же считает сервер.
@@ -33,6 +34,8 @@ export interface PathArrival {
   travel?: number;
   count?: number;
   repeat?: boolean;
+  /** Удержание сцены — то же, что `hold` у PulseAlongPath этого пути (вне графа). */
+  hold?: Hold;
 }
 
 /**
@@ -40,12 +43,44 @@ export interface PathArrival {
  * расписание, что у <PulseAlongPath segments=…>: LUT 40, pulsePass, pulseStarts.
  * `ready` — кадр, раньше которого импульсы не стартуют (ребро графа ещё рисуется).
  */
-export function pathArrivals(segments: CubicSegment[], a: PathArrival, s: StyleBible, fps: number, ready = 0): number[] {
+export function pathArrivals(segments: CubicSegment[], a: PathArrival, s: StyleBible, fps: number, ready = 0, hold?: FlowHoldCtx): number[] {
   if (segments.length === 0) return [];
-  const len = lutLength(pathLUT(segments, 40));
+  const { starts, pass, len } = pathStarts(segments, a, s, fps, ready, hold);
+  return starts.map((t0) => arrivalInPass(t0, pass, len));
+}
+
+/** Удержание сцены для потоков: режим, бит hold, длительность сцены, рёбра steady-flow. */
+export interface FlowHoldCtx {
+  hold: Hold;
+  /** Длительность сцены, кадры (якорь циклов удержания). */
+  end: number;
+  /** Рёбра, чьи потоки steady-flow продолжает (по умолчанию — шедшие до удара). */
+  edges?: readonly string[];
+  /** Ребро потока (внутри графа). */
+  edgeId?: string;
+}
+
+/** steady-flow продолжает поток, кончившийся не раньше чем за STEADY_RECENT_S до удержания. */
+export const STEADY_RECENT_S = 1.5;
+
+/**
+ * Старты проходов импульса по пути с учётом удержания (hold engine 0.5.0): в удержании
+ * новые проходы не начинаются — поток стоит после итога; `steady-flow` продолжает поток
+ * тише (темп 60 %, `steadyStarts`), если он шёл до удара (или его ребро в `edges`).
+ * Начатый проход доигрывается. Один расчёт для импульса, вспышки узла и счётчика.
+ */
+export function pathStarts(segments: CubicSegment[], a: PathArrival, s: StyleBible, fps: number, ready = 0, h?: FlowHoldCtx): { starts: number[]; pass: number; len: number } {
+  const len = segments.length === 0 ? 0 : lutLength(pathLUT(segments, 40));
   const pass = pulsePass(len, a.travel, fps, s);
   const start = Math.max(a.beat.start_frame, ready);
-  return pulseStarts({ start, end: a.beat.end_frame, pass, count: a.count, repeat: a.repeat }).map((t0) => arrivalInPass(t0, pass, len));
+  const cut = h ? Math.min(a.beat.end_frame, h.hold.beat.start_frame) : a.beat.end_frame;
+  const base = pulseStarts({ start, end: cut, pass, count: a.count, repeat: a.repeat });
+  if (!h || h.hold.mode !== "steady-flow" || a.repeat === false) return { starts: base, pass, len };
+  const listed = h.edges ? h.edgeId !== undefined && h.edges.includes(h.edgeId) : a.beat.end_frame >= h.hold.beat.start_frame - Math.round(STEADY_RECENT_S * fps);
+  if (!listed || base.length === 0) return { starts: base, pass, len };
+  const n = Math.max(1, Math.floor(a.count ?? 1));
+  const calm = steadyStarts(h.hold, pass, s, h.end, { count: n, after: base.at(-1)! });
+  return { starts: [...base, ...calm], pass, len };
 }
 
 export interface ArrivalCount {

@@ -1,4 +1,4 @@
-# @ms/motion-kit 0.4.2 — справка для агента
+# @ms/motion-kit 0.5.0 — справка для агента
 
 Детерминированные компоненты Remotion 4.0.537. Всё движение считается от
 `useCurrentFrame()`; оформление берётся из StyleBible (`useStyle()`). Импорт —
@@ -26,6 +26,11 @@ import { AnimatedNumber, AreaChart, Background, BarChart, Callout, Camera, Card,
 Ошибки, которые портят кадр, kit пишет как `[motion-kit:error] …` — QA блокирует их
 (`kit_misuse`): ячейка `cell` за ёмкостью буфера `queue`, токен, чей бит начинается раньше, чем
 ребро дорисовано (0.4.1).
+
+**0.5.0 — живой финал.** Финал сцены — режим удержания (`hold_mode` фазы `hold` spec) через
+проп `hold={{ mode, beat }}` носителя итога (см. «Финал»): kit сам держит движение между
+N−20 и N−1 и не даёт ему спорить с итогом — потоки графа после удара стоят, кроме
+`steady-flow`.
 
 **0.4.2.** `DataToken` при записи в полосу узла входит без шторки, передача токена дальше
 по ребру — без гаснущей копии на месте; постер под сдвигающим входом гаснет за 1/6 входа.
@@ -206,6 +211,41 @@ transparent?, palette_overrides?, safe_area?, font? }`), id пресета, Styl
 выключает камеру:** при нулевом поле `zoomLimit` = 1, наезда нет, а без наезда нет и
 панорамы — ключи `camera` в spec ни на что не влияют. Камере нужно поле: при 5 % наезд
 ≈ до 1.055, наезд 1.08 требует полей около 7 %.
+
+## Фазы и финал (hold)
+
+Spec с `phases` (S3): у фазы — `role` (`setup`, `action`, `turn`, `payoff`, `hold`), у бита —
+`phase` и `kind` (`enter` вход, `sustain` длящийся, `count` счёт, `accent` удар, `hold`
+удержание). Кадры битов ставит планировщик — бери их из `spec.json` как есть. Структура
+`cold-open`: бит `<id>-open` (вид `cold-open-poster`) с кадра 0 на элементах payoff — итог
+виден постером сразу (крупно, приглушённо, без удара), уходит на второй план на время
+объяснения и бьёт в полную силу в фазе payoff; удар и `Emphasis` — только в payoff.
+
+Финал — `hold_mode` фазы `hold`, бит — бит `hold` (до конца сцены). Нет `hold_mode` (старая
+spec) — по носителю: схема с потоками → `steady-flow`, график → `data-shimmer`, иначе
+`now-pulse` (`holdModeFor` из `@ms/contracts`). Один носитель итога получает
+`hold={{ mode, beat }}`:
+
+| Режим | Носитель | Что движется |
+|---|---|---|
+| `steady-flow` | `FlowGraph`, `LatencyRace` | потоки идут дальше тише (60 % темпа), узлы вспыхивают, `useArrivalCount` считает |
+| `repeat-result` | `FlowGraph` (`label`, `edge`, `node`), `LatencyRace`, `LineChart`, `Timeline` (`label`) | повтор к герою, каждый приход подписан («2 мс»); у гонки — быстрая дорожка |
+| `data-shimmer` | `LineChart`, `Timeline`, `FlowGraph`, `LatencyRace` | блик бежит по линии к итогу, точка вспыхивает на приходе |
+| `now-pulse` | `Timeline`, `LineChart`, `FlowGraph` (`node`), `LatencyRace`, `Emphasis` | волна радара от героя, дыхание с пиком в N−1 |
+| `settle-push` | `<Camera hold>` (+ `Emphasis hold` у героя) | медленный наезд ещё на 4 % до последнего кадра (`focus` — px от центра) |
+
+```tsx
+const hold = { mode: phase.hold_mode, beat: beats.hold };            // из spec.phases / props.timing
+<FlowGraph … hold={{ ...hold, node: "cache", label: "2 мс" }}>…</FlowGraph>
+<Camera keys={content.camera ?? []} hold={hold}>…</Camera>           // settle-push; прочие режимы камера не трогает
+<Emphasis beat={beats.payoff} hold={hold}><AnimatedNumber … /></Emphasis>
+```
+- `FlowGraph hold`: герой — `node` (по умолчанию самый правый узел); `steady-flow` продолжает
+  потоки, шедшие до удара (или `edges`); в других режимах `PulseAlongPath` графа после начала
+  hold новых проходов не начинает. `PulseAlongPath` / `useArrivalCount` вне графа — свой `hold`.
+- Свой слой — `useHold(mode, beat)` → `{ live, sweep, sweepAlpha, ripple, rippleAlpha, breath,
+  push, tick }` (доли 0..1, `breath` −1..1) и `Comet`, `RadarRing`, `TickLabel` — те же рисунки.
+- В hold не вводи новых элементов и не рисуй своих бликов-полос; движение — только режима.
 
 ## Safe area
 

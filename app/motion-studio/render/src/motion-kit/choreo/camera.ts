@@ -3,6 +3,7 @@
 import type { CameraKey } from "@ms/contracts";
 import { Easing } from "remotion";
 import type { ResolvedStyle } from "../style/resolve.js";
+import { type Hold, holdAt } from "./hold.js";
 
 /** Ключ камеры (MotionSpec.camera): наезд scale и точка интереса x, y — px от центра кадра. */
 export type { CameraKey };
@@ -120,4 +121,33 @@ export function parallaxTransform(cam: CameraState, layer: number, size?: FrameS
 /** CSS-трансформация камеры (origin — центр кадра): точка (x, y) едет к центру. */
 export function cameraTransform(cam: CameraState): string {
   return `translate(${(-cam.scale * cam.x).toFixed(3)}px, ${(-cam.scale * cam.y).toFixed(3)}px) scale(${cam.scale.toFixed(5)})`;
+}
+
+/** settle-push: доля наезда удержания сверх камеры spec (не больше остатка до предела). */
+export const SETTLE_PUSH = 0.04;
+
+/**
+ * Камера с финалом settle-push (0.5.0): поверх ключей spec в удержании идёт медленный
+ * наезд ещё на SETTLE_PUSH (не дальше предела стиля и safe area) к точке `focus` (px от
+ * центра; по умолчанию — куда смотрит камера) — ровно до последнего кадра, без
+ * торможения в ноль. Другие режимы и без удержания — `cameraAt` как есть.
+ */
+export function cameraHoldAt(
+  frame: number,
+  keys: CameraKey[],
+  style: Pick<ResolvedStyle, "motion" | "camera"> & Partial<Pick<ResolvedStyle, "grid">>,
+  size: FrameSize,
+  hold: (Hold & { focus?: { x: number; y: number } }) | undefined,
+  end: number,
+): CameraState {
+  const cam = cameraAt(frame, keys, style, size);
+  if (!hold || hold.mode !== "settle-push" || !style.camera.allow_zoom) return cam;
+  const h = holdAt(frame, hold, style as ResolvedStyle, end);
+  if (!h.on) return cam;
+  const base = cameraAt(hold.beat.start_frame, keys, style, size);
+  const fx = hold.focus?.x ?? base.x;
+  const fy = hold.focus?.y ?? base.y;
+  const scale = cam.scale + SETTLE_PUSH * h.push;
+  // точка взгляда плавно уходит к фокусу вместе с наездом; зажим — как у ключа камеры
+  return cameraAt(0, [{ frame: 0, scale, x: cam.x + (fx - cam.x) * h.push, y: cam.y + (fy - cam.y) * h.push }], style, size);
 }

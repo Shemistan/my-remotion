@@ -6,6 +6,9 @@
 import type { Beat, StyleBible } from "@ms/contracts";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import { EASE_PASS } from "../choreo/pulse.js";
+import { type Hold, holdTicks, steadyStarts } from "../choreo/hold.js";
+import { pathLUT } from "../geometry.js";
+import { Comet, TickLabel, useHoldFrame } from "./HoldLayers.js";
 import { EASE, frames, springAt } from "../easing.js";
 import { type PluralForms, formatNumber, pluralForm } from "../format.js";
 import { clamp01, ramp } from "../internal.js";
@@ -50,6 +53,13 @@ export interface LatencyRaceProps {
   width?: number;
   /** Высота дорожки, px (по умолчанию 150 при 1080p; не меньше подписи с пояснением). */
   laneHeight?: number;
+  /**
+   * Финал (hold engine 0.5.0). В удержании новые проходы не начинаются (гонка решена), кроме:
+   * `repeat-result` — быстрая дорожка отвечает дальше, каждый приход подписан «15 мс», счёт
+   * растёт; `steady-flow` — все дорожки идут дальше тише (60 % темпа). `now-pulse` — волна от
+   * цели быстрой дорожки, `data-shimmer` — блик по её треку.
+   */
+  hold?: Hold;
 }
 
 export interface LaneTiming {
@@ -67,18 +77,29 @@ export interface LaneTiming {
  * `travel`, быстрая — не короче `minTravel`), пауза — половина прохода (не меньше 4
  * кадров), с `repeat` проходы идут до конца бита.
  */
-export function latencyTiming(lanes: Pick<LatencyLane, "ms">[], beat: Pick<Beat, "start_frame" | "end_frame">, s: StyleBible, o: { travel?: number; minTravel?: number; repeat?: boolean } = {}): LaneTiming[] {
+export function latencyTiming(lanes: Pick<LatencyLane, "ms">[], beat: Pick<Beat, "start_frame" | "end_frame">, s: StyleBible, o: { travel?: number; minTravel?: number; repeat?: boolean; hold?: Hold; end?: number } = {}): LaneTiming[] {
   const L = Math.max(1, beat.end_frame - beat.start_frame);
   const travel = o.travel ?? Math.max(24, Math.min(90, Math.round(L * 0.55)));
   const maxMs = Math.max(1e-9, ...lanes.map((l) => l.ms));
   const minTrip = o.minTravel ?? 6;
+  const minMs = Math.min(...lanes.map((l) => l.ms));
+  const h = o.hold;
+  // в удержании гонка решена: новые проходы не начинаются (кроме steady / быстрой дорожки repeat-result)
+  const cut = h ? Math.min(beat.end_frame, h.beat.start_frame) : beat.end_frame;
   return lanes.map((l) => {
     const trip = Math.max(minTrip, Math.round((travel * l.ms) / maxMs));
     const rest = Math.max(frames(s, 4), Math.round(trip * 0.5));
     const starts: number[] = [];
-    for (let t = beat.start_frame; t < beat.end_frame; t += trip + rest) {
+    for (let t = beat.start_frame; t < cut; t += trip + rest) {
       starts.push(t);
       if (o.repeat === false) break;
+    }
+    if (h && h.mode === "steady-flow" && o.repeat !== false) {
+      starts.push(...steadyStarts(h, trip + rest, s, o.end, starts.length > 0 ? { after: starts.at(-1)! } : {}));
+    }
+    if (h && h.mode === "repeat-result" && l.ms === minMs) {
+      const last = starts.at(-1) ?? -Infinity;
+      starts.push(...holdTicks(h, s, o.end, trip).map((a) => a - trip).filter((t) => t >= last + trip + rest));
     }
     return { trip, rest, starts, arrivals: starts.map((t) => t + trip) };
   });
@@ -183,12 +204,14 @@ export function laneReadout(f: LaneFrame, ms: number): LaneReadout {
   return { timer: done || moving, tally: done, ms: done ? ms : moving ? f.elapsedMs : 0, done };
 }
 
-export function LatencyRace({ lanes, beat, locale, travel, minTravel, repeat = true, tally, tallyForms, unit, width, laneHeight, pre = "silhouette" }: LatencyRaceProps) {
+export function LatencyRace({ lanes, beat, locale, travel, minTravel, repeat = true, tally, tallyForms, unit, width, laneHeight, pre = "silhouette", hold }: LatencyRaceProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
-  const { fps, height } = useVideoConfig();
+  const { fps, height, durationInFrames } = useVideoConfig();
   const dark = isDark(s);
-  const timing = latencyTiming(lanes, beat, s, { travel, minTravel, repeat });
+  const timing = latencyTiming(lanes, beat, s, { travel, minTravel, repeat, ...(hold ? { hold, end: durationInFrames } : {}) });
+  const hf = useHoldFrame(hold);
+  const winner = lanes.findIndex((l) => l.ms === Math.min(...lanes.map((x) => x.ms)));
   const showTally = tally ?? repeat;
   const u = unit ?? (locale === "ru" ? "мс" : "ms");
   const L = latencyLayout(s, height, { width, laneHeight });
@@ -248,7 +271,16 @@ export function LatencyRace({ lanes, beat, locale, travel, minTravel, repeat = t
                   <circle cx={hx} cy={cy} r={L.head} fill={mix(col, "#ffffff", 0.6)} />
                 </g>
               ) : null}
+              {/* финал быстрой дорожки: блик по треку, волна от цели */}
+              {hf?.on && i === winner && hold!.mode === "data-shimmer" ? <Comet lut={pathLUT([[{ x: x0, y: cy }, { x: x0 + trackW / 3, y: cy }, { x: x0 + (trackW * 2) / 3, y: cy }, { x: x1, y: cy }]], 16)} pos={hf.sweep} opacity={hf.sweepAlpha} color={col} width={L.track * 0.8} length={trackW * 0.22} /> : null}
+              {hf?.on && i === winner && hold!.mode === "now-pulse" && hf.ripple >= 0 ? (
+                <circle cx={x1} cy={cy} r={L.target + L.target * 3.4 * (1 - (1 - hf.ripple) ** 3)} fill="none" stroke={col} strokeWidth={3 * k} opacity={0.85 * (1 - hf.ripple) ** 1.4 * hf.rippleAlpha} />
+              ) : null}
             </svg>
+            {/* подпись каждого прихода быстрой дорожки в удержании: «15 мс» над целью */}
+            {hf?.on && i === winner && hold!.mode === "repeat-result" && f.lastArrival !== null && f.lastArrival >= hold!.beat.start_frame ? (
+              <TickLabel x={x1 + L.target} y={cy - L.target - 12 * k} anchor="right" age={frame - f.lastArrival} text={`${formatNumber(lane.ms, { locale })} ${u}`} color={col} />
+            ) : null}
             <div style={{ position: "absolute", left: x1 + L.gap, top: 0, width: L.timerW, height: LH, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "flex-start", gap: 2 * k }}>
               <div style={{ fontFamily: fontFamily(s.typography.mono), fontWeight: 700, fontSize: L.timer, lineHeight: 1.1, color: timerCol, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", opacity: r.timer ? 1 : 0, transform: `scale(${(1 + 0.08 * flash).toFixed(4)})`, transformOrigin: "0% 50%", textShadow: flash > 0 ? `0 0 ${(L.body * 0.5).toFixed(1)}px ${alpha(col, 0.6 * flash)}` : undefined }}>
                 {formatNumber(Math.round(r.ms), { locale })} {u}

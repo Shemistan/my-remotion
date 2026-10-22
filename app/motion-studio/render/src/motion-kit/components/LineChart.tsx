@@ -17,6 +17,8 @@ import { useStyle } from "../style.js";
 import { lineDrawWindow } from "../line-window.js";
 import { type AccentPulse, accentPulse } from "../choreo/accent.js";
 import { HALO_FALLOFF } from "./Emphasis.js";
+import type { Hold } from "../choreo/hold.js";
+import { Comet, RadarRing, TickLabel, useHoldFrame } from "./HoldLayers.js";
 import { axisTicks } from "../ticks.js";
 import { TYPE_LEVELS, floorText, typeSize } from "../style/type-scale.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, surfaceAt, shadow } from "../tokens.js";
@@ -53,6 +55,13 @@ export interface LineChartProps {
   /** Префикс/суффикс значения в выноске. */
   valuePrefix?: string;
   valueSuffix?: string;
+  /**
+   * Финал (hold engine 0.5.0): `data-shimmer` (и `steady-flow`) — блик бежит по линии к
+   * итоговой точке, точка вспыхивает на приходе; `now-pulse` — волна радара от точки;
+   * `repeat-result` — блик и подпись тика у точки (`label`, по умолчанию значение);
+   * `settle-push` — дыхание точки (наезд — у <Camera hold>).
+   */
+  hold?: Hold & { label?: string };
 }
 
 /** Поля области построения графика внутри width × height (подписи осей — в полях). */
@@ -172,6 +181,7 @@ export function LineChart({
   valuePrefix = "",
   valueSuffix = "",
   pre = "silhouette",
+  hold,
 }: LineChartProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
@@ -212,6 +222,12 @@ export function LineChart({
   const emph = hl.emphasis ? accentPulse(frame, s, hl.emphasis) : null;
   const lastPop = springAt(frame, fps, s, drawEnd, "bouncy");
   const lastValue = points.at(-1)?.value ?? 0;
+  // у графика нет потоков: steady-flow — тот же блик, что data-shimmer
+  const hf = useHoldFrame(hold?.mode === "steady-flow" ? { ...hold, mode: "data-shimmer" } : hold);
+  const holdOn = hf?.on && draw >= 1 ? hf : null;
+  const shimmer = holdOn && (hold!.mode === "data-shimmer" || hold!.mode === "steady-flow" || hold!.mode === "repeat-result");
+  // приход блика к точке — её вспышка (дыхание финала с пиком в приход)
+  const flare = holdOn && hold!.mode !== "settle-push" ? holdOn.live * Math.max(0, holdOn.breath) ** 3 : 0;
 
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: "visible", fontFamily: font }}>
@@ -265,7 +281,8 @@ export function LineChart({
         const r = (big ? 9 : 6) * Math.max(0, pop) * (isLast && emph ? emph.scale : 1);
         return (
           <g key={`p${i}`}>
-            {isLast && emph ? endpointAccent({ x: c.x, y: c.y, p: emph, color, halo: `url(#${id}-halo)` }) : null}
+            {isLast && emph ? endpointAccent({ x: c.x, y: c.y, p: flare > 0 ? { ...emph, level: Math.min(1, emph.level + 0.35 * flare) } : emph, color, halo: `url(#${id}-halo)` }) : null}
+            {isLast && holdOn && hold!.mode === "now-pulse" ? <RadarRing x={c.x} y={c.y} r0={11} reach={58} t={holdOn.ripple} opacity={holdOn.rippleAlpha} color={color} /> : null}
             <circle cx={c.x} cy={c.y} r={r} fill={s.palette.bg} stroke={color} strokeWidth={3.5} />
             {big ? <circle cx={c.x} cy={c.y} r={Math.max(0, 4 * lastPop * (emph ? emph.scale + 0.35 * emph.strike : 1))} fill={emph ? mix(color, "#ffffff", 0.35 * emph.strike) : color} /> : null}
             <text x={c.x} y={PAD.top + innerH + PAD.font * 1.55} textAnchor="middle" fontSize={PAD.font} fill={s.palette.muted} opacity={labelOn ? lab : 0} transform={`translate(0 ${((1 - lab) * 10).toFixed(2)})`}>
@@ -274,6 +291,9 @@ export function LineChart({
           </g>
         );
       })}
+
+      {/* финал: блик по линии к итоговой точке */}
+      {shimmer ? <Comet lut={lut} pos={holdOn!.sweep} opacity={holdOn!.sweepAlpha} color={color} width={5} length={Math.max(120, total * 0.16)} /> : null}
 
       {/* голова рисования */}
       {headOn ? (
@@ -287,6 +307,15 @@ export function LineChart({
       {hl.callout && last
         ? valueCallout({ s, frame, fps, x: last.x, y: last.y, at: drawEnd, color, text: `${valuePrefix}${formatNumber(lastValue, { locale, compact: false })}${valueSuffix}`, frameHeight: frameH, rings: false })
         : null}
+
+      {/* подпись тика repeat-result над итоговой точкой */}
+      {holdOn && hold!.mode === "repeat-result" && holdOn.tick && last ? (
+        <foreignObject x={last.x - 200} y={last.y - 220} width={400} height={220} style={{ overflow: "visible" }}>
+          <div style={{ position: "relative", width: 400, height: 220 }}>
+            <TickLabel x={200} y={220 - typeSize(s, "body", frameH) * 1.3 - 10} age={holdOn.tick.age} text={hold!.label ?? `${valuePrefix}${formatNumber(lastValue, { locale, compact: false })}${valueSuffix}`} color={color} />
+          </div>
+        </foreignObject>
+      ) : null}
     </svg>
   );
 }
