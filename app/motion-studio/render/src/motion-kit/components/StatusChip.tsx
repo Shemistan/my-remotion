@@ -66,6 +66,15 @@ export function statusAt(states: StatusState[], frame: number, s: StyleBible, un
   return { current, previous: current > 0 ? current - 1 : null, swap, leave };
 }
 
+/**
+ * Прозрачность уходящего и нового текста при смене статуса (чистая функция, S2-fix M2):
+ * «переворот» — прошлый гаснет за первую половину смены, новый проявляется во второй; два
+ * текста не видны вместе (наложение «ЗАПИСЬ» под «ПОПАДАНИЕ» в QA-кадре gen-cache s2).
+ */
+export function statusSwapOpacity(k: number): { prev: number; cur: number } {
+  return { prev: clamp01(1 - 2 * k), cur: clamp01(2 * k - 1) };
+}
+
 /** Цвет тона статуса. */
 export function toneColor(s: StyleBible, tone: StatusTone | undefined, accentIndex = 0): string {
   if (tone === "positive") return s.palette.positive;
@@ -182,10 +191,11 @@ export function StatusChip({ states, anchor, x, y, size = "caption", until, styl
         <span style={{ width: look.dot, height: look.dot, borderRadius: 999, background: col, boxShadow: `0 0 0 ${(px * 0.12).toFixed(1)}px ${alpha(col, 0.25)}, 0 0 ${(px * 0.6).toFixed(1)}px ${alpha(col, 0.9)}`, flex: "0 0 auto" }} />
         {/* ширина перетекает; уходящий текст поднимается и гаснет, новый — поднимается снизу */}
         <span style={{ position: "relative", display: "block", width: w, height: px * 1.2, clipPath: "inset(0 -100% 0 -100%)" }}>
-          {prev && k < 1 ? (
-            <span style={{ ...line, color: textCol, opacity: 1 - k, transform: `translateY(${(-0.7 * k * px).toFixed(2)}px)` }}>{prev.text}</span>
+          {/* уходящая строка — свой владелец в реестре раскладки: смена не склеивается с новой */}
+          {prev && k < 0.5 ? (
+            <span data-ms-layout="status" style={{ ...line, color: textCol, opacity: statusSwapOpacity(k).prev, transform: `translateY(${(-0.7 * k * px).toFixed(2)}px)` }}>{prev.text}</span>
           ) : null}
-          <span style={{ ...line, color: textCol, opacity: k, transform: `translateY(${(0.7 * (1 - k) * px).toFixed(2)}px)` }}>{cur.text}</span>
+          <span style={{ ...line, color: textCol, opacity: prev ? statusSwapOpacity(k).cur : k, transform: `translateY(${(0.7 * (1 - k) * px).toFixed(2)}px)` }}>{cur.text}</span>
         </span>
       </div>
     </div>

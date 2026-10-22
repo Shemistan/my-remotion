@@ -1,6 +1,7 @@
 // Реестр раскладки: свод кадра по владельцам и «призраки» (один текст дважды друг на друге).
 import { describe, expect, it } from "vitest";
-import { type RawText, summarizeLayout } from "../../src/motion-kit/layout-probe.js";
+import { type RawText, VISIBLE_OPACITY, summarizeLayout } from "../../src/motion-kit/layout-probe.js";
+import { statusSwapOpacity } from "../../src/motion-kit/components/StatusChip.js";
 
 const raw = (o: Partial<RawText> & Pick<RawText, "text" | "rect">): RawText => ({ owner: null, role: "scene", fontPx: 32, opacity: 1, ...o });
 
@@ -28,5 +29,23 @@ describe("summarizeLayout", () => {
     expect(f.ghosts).toEqual([{ text: "#4821", count: 3 }]);
     // тот же текст в разных местах кадра — не призрак
     expect(summarizeLayout(72, 1080, [at(100, 1), at(700, 1)]).ghosts).toEqual([]);
+  });
+});
+
+describe("S2-fix M2: смена текста StatusChip", () => {
+  it("уходящий и новый текст не видны вместе (порог реестра) — смена «переворотом»", () => {
+    for (let k = 0; k <= 1.0001; k += 0.02) {
+      const o = statusSwapOpacity(k);
+      expect(Math.min(o.prev, o.cur)).toBeLessThan(VISIBLE_OPACITY);
+    }
+    expect(statusSwapOpacity(0)).toEqual({ prev: 1, cur: 0 });
+    expect(statusSwapOpacity(1)).toEqual({ prev: 0, cur: 1 });
+  });
+  it("тексты разных владельцев (уходящая строка — свой data-ms-layout) не склеиваются", () => {
+    const f = summarizeLayout(10, 1080, [
+      { owner: "status::0", role: "status", text: "ПОПАДАНИЕ", rect: { x: 0, y: 0, w: 200, h: 30 }, fontPx: 24, opacity: 1 },
+      { owner: "status::1", role: "status", text: "ЗАПИСЬ", rect: { x: 10, y: 0, w: 150, h: 30 }, fontPx: 24, opacity: 0.6 },
+    ]);
+    expect(f.items).toHaveLength(2);
   });
 });
