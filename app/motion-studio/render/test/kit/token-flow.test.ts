@@ -1,7 +1,7 @@
 // 0.4.0: токен едет по ребру и встаёт перед портом, текст в кадре один (без «призраков»),
 // поглощается узлом или ложится в полосу; зоны узла (подпись, полоса, статус) не пересекаются.
 import { describe, expect, it } from "vitest";
-import { tokenBox, tokenMode, tokenShot, tokenSpan, tokenStop } from "../../src/motion-kit/components/DataToken.js";
+import { tokenBox, tokenLateIssue, tokenMode, tokenShot, tokenSpan, tokenStop } from "../../src/motion-kit/components/DataToken.js";
 import { cacheFill, flowTiming } from "../../src/motion-kit/components/FlowGraph.js";
 import { FLOW_KINDS, type FlowBox, edgePath, flowLabelZone, flowSlot, flowStatusSlot, queueCellCenter, queueCellIssue, queueCells, usedSides } from "../../src/motion-kit/components/flow-layout.js";
 import type { Rect } from "../../src/motion-kit/choreo/safe-area.js";
@@ -148,5 +148,19 @@ describe("S2-fix I1: переполнение очереди не молчит",
     expect(msg).toMatch(/cells: ?3|cells: ?\d/);
     expect(msg).toMatch(/"q"/);
     expect(queueCellCenter(band, n).x).not.toBeCloseTo(queueCellCenter(band, n - 1).x, 0);
+  });
+});
+
+describe("S2-fix I2: токен не уезжает за свой бит молча", () => {
+  it("ребро готово к началу бита (или на 2 кадра позже) — норма; позже — ошибка с числами и подсказкой", () => {
+    expect(tokenLateIssue("GET /a", "e-a", 30, undefined)).toBeNull();
+    expect(tokenLateIssue("GET /a", "e-a", 30, 20)).toBeNull();
+    expect(tokenLateIssue("GET /a", "e-a", 30, 32)).toBeNull();
+    const m = tokenLateIssue("GET /a", "e-a", 28, 37);
+    expect(m).toMatch(/«GET \/a»/);
+    expect(m).toMatch(/e-a/);
+    expect(m).toMatch(/37/);
+    expect(m).toMatch(/9 кадр/);
+    expect(m).toMatch(/enterAt/);
   });
 });

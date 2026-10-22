@@ -26,7 +26,10 @@ export interface DataTokenProps {
   edgeId?: string;
   /** Путь вне графа: сегменты в px родителя. */
   segments?: CubicSegment[];
-  /** Старт полёта — `start_frame` (внутри графа не раньше, чем ребро дорисовано). */
+  /**
+   * Бит токена из spec как есть: старт полёта — `start_frame`. Ребро должно быть дорисовано к
+   * нему (вход узлов раньше); позже, чем на 2 кадра, — ошибка kit (blocking в QA).
+   */
   beat: Pick<Beat, "start_frame" | "end_frame">;
   /** Кадров полёта (по умолчанию — как у импульса по этому пути). */
   travel?: number;
@@ -147,6 +150,21 @@ export function dockPoint(flow: DockFlow, edgeId: string, reverse: boolean, dock
     issue: `DataToken: у узла "${n.id}" нет слота данных (FlowNode.slot) — токен лёг под карточку.`,
     slot: true,
   };
+}
+
+/** Сколько кадров токен может ждать ребро после начала своего бита без ошибки. */
+export const TOKEN_LATE_FRAMES = 2;
+
+/**
+ * Токен ждёт ребро дольше допуска (чистая функция, S2-fix I2): сообщение ошибки kit или null.
+ * Токен стартует не раньше, чем ребро дорисовано (`ready`); если это позже начала его бита,
+ * он летит после кадров, где его ждёт spec (и QA), и поверх следующего токена. Править —
+ * вход узлов ребра раньше, а не бит.
+ */
+export function tokenLateIssue(label: string, edgeId: string, beatStart: number, ready: number | undefined): string | null {
+  if (ready === undefined || ready <= beatStart + TOKEN_LATE_FRAMES) return null;
+  const late = ready - beatStart;
+  return `DataToken «${label}»: бит начинается в кадре ${beatStart}, а ребро "${edgeId}" дорисовано только к кадру ${ready} — токен опоздал бы на ${late} кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ ${late} кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready).`;
 }
 
 /** Что делает токен после прихода: ложится в полосу, поглощается, остаётся у порта, сдвигается на dock. */
@@ -281,7 +299,10 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
   const lut = pathLUT(path, 40);
   const len = lutLength(lut);
   const pass = pulsePass(len, travel, fps, s);
-  const start = Math.max(beat.start_frame, (edgeId && flow?.ready.get(edgeId)) || 0);
+  const ready = edgeId && flow ? flow.ready.get(edgeId) : undefined;
+  const late = edgeId ? tokenLateIssue(label, edgeId, beat.start_frame, ready) : null;
+  if (late) kitError(`late:${edgeId}:${label}`, late);
+  const start = Math.max(beat.start_frame, ready ?? 0);
   const tk = tokenShot(frame, start, pass, s, { mode, until });
   if (!tk.visible) return null;
 
