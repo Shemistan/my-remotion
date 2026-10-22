@@ -28,6 +28,16 @@ export const TAKEAWAY_BAND: Readonly<Record<SceneStructure, readonly [number, nu
 /** Верх самой поздней полосы: под него сдвигаются все полосы, когда вывод длинный. */
 const BAND_TOP = Math.max(...Object.values(TAKEAWAY_BAND).map(([, hi]) => hi));
 
+/**
+ * Потолки хвоста в секундах (S3-fix, user-cases): доли длины в 60-секундной сцене давали
+ * 13–20 с почти статичного финала. Удержание — не дольше HOLD_MAX_S, payoff — не дольше
+ * PAYOFF_MAX_S (или чтения и входа главного бита, если они дольше). Хвост длинной сцены
+ * упирается в потолки — удар уходит позже полосы, время получает объяснение. Короткие сцены
+ * (до ~12 с) потолков не достают.
+ */
+export const HOLD_MAX_S = 4;
+export const PAYOFF_MAX_S = 6;
+
 export interface PlanPhase {
   id: string;
   role: PhaseRole;
@@ -237,14 +247,20 @@ export function planBeats(input: PlanInput): BeatPlan {
   // главный бит payoff (текст вывода или главный акцент после передачи) входит целиком
   const lead = Math.max(delay, ...pays.map((p) => Math.round(p.lead ?? 0)));
   const Pmin = pays.length ? lead + tok.enter : 0;
-  P0 = Math.max(P0, Pmin);
+  // потолки в секундах: payoff — не дольше PAYOFF_MAX_S (чтение и вход главного бита — всегда)
+  const Pcap = Math.max(sec(PAYOFF_MAX_S), need, Pmin);
+  const Hcap = sec(HOLD_MAX_S);
+  P0 = Math.max(Math.min(P0, Pcap), Pmin);
   const holdMin = Math.max(sec(1), Math.round(D * ((input.density ?? 0) > 8 ? 0.18 : 0.15)));
-  const hMin = holds.length ? (structure === "call-response" ? Math.max(holdMin, Math.round(0.25 * D)) : holdMin) : 0;
+  const hMin = holds.length ? Math.min(Hcap, structure === "call-response" ? Math.max(holdMin, Math.round(0.25 * D)) : holdMin) : 0;
   // хвост (payoff + hold): желательно — чтение и минимумы обеих фаз, обязательно — чтение
   // вердикт split-reveal и вывод continuous-flow длинные по смыслу структуры — хвост под них
-  const Pform = !pays.length ? 0 : structure === "split-reveal" ? Math.round(0.25 * D) : structure === "continuous-flow" ? Math.round(0.22 * D) : 0;
+  const Pform = Math.min(Pcap, !pays.length ? 0 : structure === "split-reveal" ? Math.round(0.25 * D) : structure === "continuous-flow" ? Math.round(0.22 * D) : 0);
   const tailWant = tail ? Math.max(need, Math.max(Pmin, Pform) + hMin) : 0;
   const tailMin = tail ? Math.max(need, Pmin + (holds.length ? 1 : 0), pays.length + holds.length) : 0;
+  // потолок хвоста: payoff по весу (не дольше Pcap) + удержание не дольше Hcap; без hold —
+  // payoff до Pcap, без payoff — удержание до Hcap (но не короче чтения)
+  const tailCap = !tail ? 0 : Math.max(tailWant, pays.length && holds.length ? P0 + Hcap : pays.length ? Pcap : Math.max(Hcap, need));
 
   const preMins = pre.map((p) => (structure === "call-response" && p.role === "turn" ? Math.max(phaseMin(p), sec(0.4)) : phaseMin(p)));
   // count-up: счёт (первая action) идёт с кадра 0 до удара, прочие фазы — поверх него после
@@ -275,6 +291,8 @@ export function planBeats(input: PlanInput): BeatPlan {
     const shift = Math.max(0, BAND_TOP * D - (D - need));
     T = Math.round(D * (lo + (hi - lo) * x) - shift);
     T = Math.min(T, D - tailWant);
+    // длинная сцена: хвост не длиннее потолка — удар позже полосы
+    T = Math.max(T, D - tailCap);
     T = Math.max(T, O + G + preMin);
     T = Math.min(T, D - tailMin);
     // совсем короткая сцена: постер и пауза сжимаются, фазам до удара — хотя бы по кадру
@@ -290,7 +308,7 @@ export function planBeats(input: PlanInput): BeatPlan {
     const sign = (h >>> 8) & 1 ? 1 : -1;
     // хвост, который уже влез (чтение и минимумы), сдвиг не отнимает
     const keep = Math.max(tailMin, Math.min(tailWant, D - T));
-    const fits = (o: number) => T + o - O - G >= preMin && D - (T + o) >= keep;
+    const fits = (o: number) => T + o - O - G >= preMin && D - (T + o) >= keep && D - (T + o) <= Math.max(tailCap, D - T);
     if (fits(sign * mag)) offset = sign * mag;
     else if (fits(-sign * mag)) offset = -sign * mag;
     T += offset;

@@ -2,7 +2,7 @@
 // у каждой структуры своя форма времени, вывод держится ≥ времени чтения, сдвиг от seed.
 import { describe, expect, it } from "vitest";
 import type { SceneStructure } from "@ms/contracts";
-import { type BeatPlan, type PlanInput, type PlanPhase, STRUCTURES, TAKEAWAY_BAND, phaseTokens, planBeats, readingFrames } from "../../src/motion-kit/choreo/plan.js";
+import { type BeatPlan, HOLD_MAX_S, PAYOFF_MAX_S, type PlanInput, type PlanPhase, STRUCTURES, TAKEAWAY_BAND, phaseTokens, planBeats, readingFrames } from "../../src/motion-kit/choreo/plan.js";
 
 const phases: PlanPhase[] = [
   { id: "setup", role: "setup", weight: 1, elements: 2 },
@@ -328,6 +328,49 @@ describe("свойства", () => {
   });
 });
 
+describe("длинные сцены: хвост в секундах, а не в доле (S3-fix, user-cases 60 с)", () => {
+  // 60-секундные сцены набора user получили 13–20 с почти статичного финала: payoff и hold
+  // были долей длины. Удержание — не больше HOLD_MAX_S, payoff — не больше PAYOFF_MAX_S (или
+  // чтения и входа главного бита), удар уходит позже, объяснение получает время
+  const sets: PlanPhase[][] = [
+    phases,
+    [{ id: "s", role: "setup", weight: 10, elements: 4 }, { id: "a", role: "action", weight: 40, elements: 6 }, { id: "p", role: "payoff", weight: 25, chars: 60 }, { id: "h", role: "hold", weight: 25 }],
+    [{ id: "a", role: "action", weight: 1 }, { id: "p", role: "payoff", weight: 3, chars: 30 }, { id: "h", role: "hold", weight: 6 }],
+    [{ id: "s", role: "setup", weight: 1 }, { id: "a", role: "action", weight: 1 }, { id: "t", role: "turn", weight: 1 }, { id: "p", role: "payoff", weight: 1, chars: 20 }, { id: "h", role: "hold", weight: 1 }],
+    [{ id: "a", role: "action", weight: 2 }, { id: "h", role: "hold", weight: 3 }],
+  ];
+  for (const [duration, fps] of [[1800, 30], [3600, 60], [1500, 25], [900, 30]] as const) {
+    it(`${duration} кадров при ${fps} fps: удержание ≤ ${HOLD_MAX_S} с, payoff ≤ max(${PAYOFF_MAX_S} с, чтение), кадры в сцене`, () => {
+      for (const structure of STRUCTURES) {
+        for (const ps of sets) {
+          for (const intensity of ["calm", "balanced", "energetic"] as const) {
+            const p = planBeats({ structure, phases: ps, duration, fps, intensity, density: 8, seed: `${structure}-${ps.length}` });
+            const len = (id: string) => main(p, id).end_frame - main(p, id).start_frame;
+            const at = `${structure} × ${ps.map((x) => x.id).join(",")} × ${intensity}`;
+            for (const b of p.beats) {
+              expect(b.start_frame, at).toBeGreaterThanOrEqual(0);
+              expect(b.end_frame, at).toBeLessThanOrEqual(duration);
+            }
+            const h = ps.find((x) => x.role === "hold");
+            if (h) expect(len(h.id), at).toBeLessThanOrEqual(Math.round(HOLD_MAX_S * fps));
+            const pay = ps.find((x) => x.role === "payoff");
+            if (pay) expect(len(pay.id), at).toBeLessThanOrEqual(Math.max(Math.round(PAYOFF_MAX_S * fps), p.reading));
+            // хвост после удара — секунды, а не треть ролика
+            expect(duration - p.strike, at).toBeLessThanOrEqual(Math.round((HOLD_MAX_S + Math.max(PAYOFF_MAX_S, p.reading / fps)) * fps));
+            expect(planBeats({ structure, phases: ps, duration, fps, intensity, density: 8, seed: `${structure}-${ps.length}` })).toEqual(p);
+          }
+        }
+      }
+    });
+  }
+  it("короткая сцена (6 с) потолками не задета: хвост тот же", () => {
+    for (const structure of STRUCTURES) {
+      const p = planBeats(input({ structure }));
+      expect(main(p, "hold").end_frame - main(p, "hold").start_frame).toBeLessThan(Math.round(HOLD_MAX_S * 30));
+    }
+  });
+});
+
 describe("полоса кадра вывода по структуре и веса (S3a-fix I3)", () => {
   // текста нет — чтение 2 с, полоса не упирается в него; сдвиг от seed вычитается
   const bare: PlanPhase[] = [
@@ -363,9 +406,15 @@ describe("полоса кадра вывода по структуре и вес
       expect(t(longExplain), s).toBeGreaterThan(t(base));
       expect(t(longHold), s).toBeLessThan(t(base));
       const hold = (p: BeatPlan) => main(p, "hold").end_frame - main(p, "hold").start_frame + p.offset;
-      // call-response: ответ ≤ 0,8 с — прибавка хвоста сначала идёт ему до потолка, hold не короче
-      if (s === "call-response") expect(hold(longHold), s).toBeGreaterThanOrEqual(hold(base));
-      else expect(hold(longHold), s).toBeGreaterThan(hold(base));
+      // call-response: ответ ≤ 0,8 с — прибавка хвоста сначала идёт ему до потолка: хвост
+      // (ответ + hold) растёт строго, а hold — строго, если ответ уже у потолка 0,8 с
+      if (s === "call-response") {
+        const tailOf = (p: BeatPlan) => main(p, "hold").end_frame - main(p, "pay").start_frame + p.offset;
+        expect(tailOf(longHold), s).toBeGreaterThan(tailOf(base));
+        expect(hold(longHold), s).toBeGreaterThanOrEqual(hold(base));
+        const pay = (p: BeatPlan) => main(p, "pay").end_frame - main(p, "pay").start_frame;
+        if (pay(base) >= 24) expect(hold(longHold), s).toBeGreaterThan(hold(base));
+      } else expect(hold(longHold), s).toBeGreaterThan(hold(base));
     }
   });
 
