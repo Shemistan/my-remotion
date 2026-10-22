@@ -3,7 +3,7 @@
 // (motion-review-1) — нумерованные заглушки, ключевая мысль purpose на экране, повтор
 // подписи кадра предыдущей сцены. `layout` элемента — доли safe area, а не кадра
 // (prompts/motion-director.md §8): в кадр он переводится через safeRect настроек.
-import { type Beat, type Element, type MotionSpec, type QAIssue, type Settings, isAccentBeat, structureOf } from "@ms/contracts";
+import { type Beat, type Element, type MotionSpec, type QAIssue, type SceneStructure, type Settings, isAccentBeat, structureOf } from "@ms/contracts";
 import { arrivalInPass, pulsePass, pulseStarts, resolveStyle } from "@ms/render";
 import { boundCounters } from "../pipeline/bound-counters.js";
 import { isEmphasisRole } from "../pipeline/qa-frames.js";
@@ -30,6 +30,11 @@ export interface SpecCheckOpts {
    * кадра не повторяется. Замечание — по первой сцене с повтором.
    */
   previous?: MotionSpec | readonly MotionSpec[];
+  /**
+   * Структура, выбранная Concept по правилу: spec, которая ей следует, `structure_mismatch` не
+   * получает (правило Concept сильнее эвристики формы), а подсказка к другой называет её.
+   */
+  concept?: SceneStructure;
 }
 
 export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheckOpts = {}): QAIssue[] {
@@ -105,7 +110,7 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
 
   out.push(...beatReferenceIssues(spec));
   out.push(...accentConflicts(spec, settings));
-  out.push(...structureMismatch(spec));
+  out.push(...structureMismatch(spec, opts.concept));
   out.push(...placeholderIssues(spec));
   out.push(...purposeClaimIssues(spec));
   for (const prev of [opts.previous ?? []].flat()) {
@@ -129,15 +134,18 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
  * Форма spec расходится со структурой (S3a-fix): подсказка Director, не blocking — вкус не
  * стоит раунда. Две независимые стороны в setup — похоже на split-reveal; поток `back` —
  * на call-response (если Director не объяснил выбор в `structure_reason`); count-up без
- * числа в ведущей action — число не ведёт.
+ * числа в ведущей action — число не ведёт. Spec по структуре Concept — без подсказки
+ * (s3afix-rereview m3): Concept выбрал её по правилу, эвристика формы ему не спорщик.
  */
-function structureMismatch(spec: MotionSpec): Omit<QAIssue, "source">[] {
+function structureMismatch(spec: MotionSpec, concept?: SceneStructure): Omit<QAIssue, "source">[] {
   const phases = spec.phases;
   if (!phases) return [];
   const structure = structureOf(spec);
+  if (concept !== undefined && structure === concept) return [];
   const reasoned = spec.composition?.structure_reason !== undefined;
   const out: Omit<QAIssue, "source">[] = [];
-  const warn = (area: string, description: string, fix_hint: string) => out.push({ code: "structure_mismatch", severity: "warning", area, description, fix_hint });
+  const by = concept !== undefined ? `; Concept выбрал ${concept} — вернись к ней или объясни в structure_reason` : "";
+  const warn = (area: string, description: string, fix_hint: string) => out.push({ code: "structure_mismatch", severity: "warning", area, description, fix_hint: `${fix_hint}${by}` });
   const setups = phases.filter((p) => p.role === "setup");
   const disjoint = setups.length >= 2 && setups.every((a, i) => setups.every((b, j) => i === j || !a.element_ids.some((id) => b.element_ids.includes(id))));
   if (structure !== "split-reveal" && disjoint && !reasoned) {
@@ -160,9 +168,33 @@ function structureMismatch(spec: MotionSpec): Omit<QAIssue, "source">[] {
 }
 
 /** Вспышка узла FlowGraph (nodeFlash): удар за кадр до прихода, гаснет за ~22 кадра при 30 fps. */
-const FLASH_FRAMES_30 = 22;
+export const FLASH_FRAMES_30 = 22;
 /** Перекрытие короче — касание при передаче акцента, не конфликт. */
-const CONFLICT_MIN_FRAMES = 3;
+export const CONFLICT_MIN_FRAMES = 3;
+/** Длина вспышки прихода в кадрах при fps сцены. */
+export const flashFrames = (fps: number) => Math.round((FLASH_FRAMES_30 * fps) / 30);
+
+type BeatLike = Pick<Beat, "id" | "action" | "element_ids"> & { kind?: Beat["kind"] };
+
+/**
+ * Вспышки прихода (`content.flash_on`): элемент и бит импульса, по концу которого он
+ * вспыхивает — id бита в flash_on или единственный бит импульса этого элемента (без id
+ * бита blocking не ставится наугад). Один расчёт для specChecks и планировщика (потолок
+ * конца импульса перед ударом).
+ */
+export function flashSources(spec: { elements: readonly Element[]; beats: readonly BeatLike[] }): { element: string; beat: string }[] {
+  const out: { element: string; beat: string }[] = [];
+  for (const e of spec.elements) {
+    const raw = (e.content as Record<string, unknown> | undefined)?.flash_on;
+    const refs = (Array.isArray(raw) ? raw : raw === undefined ? [] : [raw]).filter((x): x is string => typeof x === "string");
+    for (const ref of refs) {
+      const named = spec.beats.filter((b) => new RegExp(`(^|[^\\w-])${escapeRe(b.id)}($|[^\\w-])`).test(ref));
+      const pulses = spec.beats.filter((b) => b.element_ids.includes(e.id) && isPulse(b));
+      for (const b of named.length > 0 ? named : pulses.length === 1 ? pulses : []) out.push({ element: e.id, beat: b.id });
+    }
+  }
+  return out;
+}
 /** Бит импульса по ребру: по нему считается кадр прихода, если в flash_on нет id бита. */
 const PULSE_ACTION = /pulse|flow|signal|импульс|поток/i;
 /** Установившийся поток удержания — фон системы в работе, а не событие. */
@@ -177,9 +209,9 @@ function isEntranceAction(action: string): boolean {
   if (words.at(-1) === "in") return true;
   return words.some((w) => w === "entrance" || w === "enter" || w === "draw" || /^(вход(?!ящ)|появ|прорис)/.test(w));
 }
-const isPulse = (b: Beat) => PULSE_ACTION.test(b.action) && !isEntranceAction(b.action);
+const isPulse = (b: Pick<Beat, "action">) => PULSE_ACTION.test(b.action) && !isEntranceAction(b.action);
 
-interface AccentWindow { id: string; from: number; to: number; what: string }
+interface AccentWindow { id: string; from: number; to: number; what: string; source: Beat }
 
 /**
  * Один акцент в момент (prompts/motion-director.md §6): вспышка узла по приходу импульса
@@ -191,7 +223,7 @@ interface AccentWindow { id: string; from: number; to: number; what: string }
  */
 function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "source">[] {
   const fps = spec.fps.num / spec.fps.den;
-  const flashLen = Math.round((FLASH_FRAMES_30 * fps) / 30);
+  const flashLen = flashFrames(fps);
   const byId = new Map(spec.elements.map((e) => [e.id, e]));
 
   // акценты битов: цели — элементы бита с ролью акцента, иначе все элементы бита
@@ -203,18 +235,10 @@ function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "s
     });
 
   // вспышки: кадр прихода — конец бита импульса (id бита в flash_on или единственный бит узла с импульсом)
-  const flashes: AccentWindow[] = [];
-  for (const e of spec.elements) {
-    const raw = (e.content as Record<string, unknown> | undefined)?.flash_on;
-    const refs = (Array.isArray(raw) ? raw : raw === undefined ? [] : [raw]).filter((x): x is string => typeof x === "string");
-    for (const ref of refs) {
-      const named = spec.beats.filter((b) => new RegExp(`(^|[^\\w-])${escapeRe(b.id)}($|[^\\w-])`).test(ref));
-      // без id бита — только однозначный бит импульса узла: blocking не ставится наугад
-      const pulses = spec.beats.filter((b) => b.element_ids.includes(e.id) && isPulse(b));
-      const beats: Beat[] = named.length > 0 ? named : pulses.length === 1 ? pulses : [];
-      for (const b of beats) flashes.push({ id: e.id, from: b.end_frame - 1, to: b.end_frame + flashLen, what: `вспышка ${e.id} (приход импульса бита ${b.id}, кадры ${b.end_frame - 1}–${b.end_frame + flashLen})` });
-    }
-  }
+  const flashes: AccentWindow[] = flashSources(spec).map(({ element, beat }) => {
+    const b = spec.beats.find((x) => x.id === beat)!;
+    return { id: element, from: b.end_frame - 1, to: b.end_frame + flashLen, source: b, what: `вспышка ${element} (приход импульса бита ${b.id}, кадры ${b.end_frame - 1}–${b.end_frame + flashLen})` };
+  });
 
   const overlap = (a: { from: number; to: number }, b: { from: number; to: number }) => Math.min(a.to, b.to) - Math.max(a.from, b.from);
   const out: Omit<QAIssue, "source">[] = [];
@@ -227,9 +251,12 @@ function accentConflicts(spec: MotionSpec, settings: Settings): Omit<QAIssue, "s
       out.push({
         code: "accent_conflict", severity: "blocking", area: `${f.id}, ${ids.join(", ")}`,
         description: `${f.what} и акцент ${ids.join(", ")} (бит ${b.id}, кадры ${b.start_frame}–${b.end_frame}) светятся одновременно: два акцента в один момент`,
-        fix_hint: phased
-          ? `один акцент в момент: если приход импульса отмечает сам ${ids.join(", ")} — убери flash_on у ${f.id}; иначе перенеси бит ${b.id} в фазу после той, где идёт импульс`
-          : `один акцент в момент: если приход импульса отмечает сам ${ids.join(", ")} — убери flash_on у ${f.id}; иначе начни бит ${b.id} не раньше кадра ${f.to}, когда вспышка погаснет`,
+        fix_hint: !phased
+          ? `один акцент в момент: если приход импульса отмечает сам ${ids.join(", ")} — убери flash_on у ${f.id}; иначе начни бит ${b.id} не раньше кадра ${f.to}, когда вспышка погаснет`
+          : b.start_frame >= f.source.end_frame - 1
+            // акцент уже после импульса (в следующей фазе): переносить некуда
+            ? `один акцент в момент: если приход импульса отмечает сам ${ids.join(", ")} — убери flash_on у ${f.id}; иначе пусть импульс ${f.source.id} кончится раньше — span: "slot" или фаза импульса с меньшим весом`
+            : `один акцент в момент: если приход импульса отмечает сам ${ids.join(", ")} — убери flash_on у ${f.id}; иначе перенеси бит ${b.id} в фазу после той, где идёт импульс`,
       });
     }
   }

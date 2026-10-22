@@ -1,5 +1,5 @@
 // Кадры QA (06-motion-engine.md §6) по битам и элементам спецификации.
-import { type Beat, type Element, type MotionSpec, type StyleBible, actionWords, isAccentBeat } from "@ms/contracts";
+import { type Beat, type Element, type MotionSpec, type StyleBible, actionWords, isAccentBeat, isCountWord } from "@ms/contracts";
 import { resolveStyle } from "@ms/render";
 
 export const MAX_QA_FRAMES = 8;
@@ -101,7 +101,7 @@ export function countStarts(spec: MotionSpec): Beat[] {
  */
 export function countBeat(spec: MotionSpec, e: Element): Beat | undefined {
   const beats = byStart(spec.beats).filter((b) => b.element_ids.includes(e.id));
-  return beats.find((x) => x.kind === "count" || (x.kind === undefined && actionWords(x.action).some((w) => w === "count" || w === "countup"))) ?? beats[1] ?? (e.entrance === "count" ? beats[0] : undefined);
+  return beats.find((x) => x.kind === "count" || (x.kind === undefined && actionWords(x.action).some(isCountWord))) ?? beats[1] ?? (e.entrance === "count" ? beats[0] : undefined);
 }
 
 /**

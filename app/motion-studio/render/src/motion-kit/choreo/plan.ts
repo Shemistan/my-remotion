@@ -12,17 +12,21 @@ export const STRUCTURES: readonly SceneStructure[] = ["build-strike", "cold-open
  * Полоса кадра удара (доли сцены) по структуре: число ведёт — удар рано, поток — к середине,
  * сборка и сравнение — позже, ответ на запрос — поздно. Место в полосе — доля веса фаз до
  * удара (setup, action, turn) от 0,3 до 0,8: больше веса объяснению — удар позже, больше
- * веса payoff и hold — раньше. Верх полосы ограничен временем чтения вывода.
+ * веса payoff и hold — раньше. Длинный вывод (чтение) не помещается под верх самой поздней
+ * полосы — тогда все полосы сдвигаются вниз на одно число кадров (`BAND_TOP·D − (D − чтение)`):
+ * ширина и порядок структур сохраняются (s3afix-rereview I2).
  * cold-open: полоса — возврат к итогу; кадр вывода у него — 0 (постер).
  */
 export const TAKEAWAY_BAND: Readonly<Record<SceneStructure, readonly [number, number]>> = {
-  "count-up": [0.3, 0.44],
+  "count-up": [0.26, 0.42],
   "continuous-flow": [0.42, 0.54],
   "split-reveal": [0.5, 0.62],
   "cold-open": [0.52, 0.64],
   "build-strike": [0.54, 0.66],
-  "call-response": [0.56, 0.68],
+  "call-response": [0.58, 0.7],
 };
+/** Верх самой поздней полосы: под него сдвигаются все полосы, когда вывод длинный. */
+const BAND_TOP = Math.max(...Object.values(TAKEAWAY_BAND).map(([, hi]) => hi));
 
 export interface PlanPhase {
   id: string;
@@ -38,6 +42,13 @@ export interface PlanPhase {
    * передача акцента). Чтение считается от этого кадра.
    */
   delay?: number;
+  /**
+   * payoff: кадров от старта фазы до входа главного бита (после передачи акцента): фаза
+   * не короче `max(delay, lead)` + вход — главный акцент успевает войти целиком.
+   */
+  lead?: number;
+  /** Минимальная длина окна фазы, кадры (setup графа — пока не дорисованы рёбра). */
+  minFrames?: number;
 }
 
 export interface PlanInput {
@@ -192,8 +203,9 @@ export function planBeats(input: PlanInput): BeatPlan {
   const tok = phaseTokens(fps, input.intensity);
   const time = intensityScale(input.intensity).time;
   const sec = (s: number) => Math.round(s * fps);
-  // минимум фазы — вход и короткий каскад (до 3 шагов): дальше время делят веса
-  const phaseMin = (p: PlanPhase) => tok.enter + tok.stagger * Math.max(0, Math.min(p.elements ?? 1, 3) - 1);
+  // минимум фазы — вход и короткий каскад (до 3 шагов) или свой минимум фазы (рёбра графа):
+  // дальше время делят веса
+  const phaseMin = (p: PlanPhase) => Math.max(tok.enter + tok.stagger * Math.max(0, Math.min(p.elements ?? 1, 3) - 1), Math.round(p.minFrames ?? 0));
 
   const pre = phases.filter((p) => p.role === "setup" || p.role === "action" || p.role === "turn");
   const pays = phases.filter((p) => p.role === "payoff");
@@ -222,8 +234,9 @@ export function planBeats(input: PlanInput): BeatPlan {
     if (pays.length) P0 = Math.min(sec(0.8), Math.max(sec(0.5), P0));
     if (turns.length === 0 && pays.length) G = Math.round(sec(0.45) * time);
   }
-  // главный бит payoff успевает войти после передачи акцента
-  const Pmin = pays.length ? delay + tok.step : 0;
+  // главный бит payoff (текст вывода или главный акцент после передачи) входит целиком
+  const lead = Math.max(delay, ...pays.map((p) => Math.round(p.lead ?? 0)));
+  const Pmin = pays.length ? lead + tok.enter : 0;
   P0 = Math.max(P0, Pmin);
   const holdMin = Math.max(sec(1), Math.round(D * ((input.density ?? 0) > 8 ? 0.18 : 0.15)));
   const hMin = holds.length ? (structure === "call-response" ? Math.max(holdMin, Math.round(0.25 * D)) : holdMin) : 0;
@@ -234,17 +247,33 @@ export function planBeats(input: PlanInput): BeatPlan {
   const tailMin = tail ? Math.max(need, Pmin + (holds.length ? 1 : 0), pays.length + holds.length) : 0;
 
   const preMins = pre.map((p) => (structure === "call-response" && p.role === "turn" ? Math.max(phaseMin(p), sec(0.4)) : phaseMin(p)));
-  const preMin = preMins.reduce((a, x) => a + x, 0);
+  // count-up: счёт (первая action) идёт с кадра 0 до удара, прочие фазы — поверх него после
+  // короткого вступления: до удара нужно max(счёт, вступление + прочие), а не их сумма
+  const leadAt = structure === "count-up" ? pre.findIndex((p) => p.role === "action") : -1;
+  const preMin = leadAt >= 0
+    ? Math.max(preMins[leadAt]!, Math.min(sec(0.5), preMins[leadAt]!) + preMins.reduce((a, x, i) => a + (i === leadAt ? 0 : x), 0))
+    : preMins.reduce((a, x) => a + x, 0);
+  // cold-open в тесной сцене: постер короче (до 0,5 с), фазам до удара — их минимумы
+  if (O > 0 && pre.length) O = Math.max(Math.min(O, sec(0.5)), Math.min(O, D - tailMin - G - preMin));
 
   // кадр удара T: полоса структуры по доле веса фаз до удара
   let T: number;
   let offset = 0;
   if (!tail) T = D;
-  else if (!pre.length) T = Math.min(O + G, D - tailMin);
-  else {
+  else if (!pre.length) {
+    // только хвост: постер и пауза — сколько влезет до чтения, кадр удара не меньше 0
+    T = Math.max(0, Math.min(O + G, D - tailMin));
+    const k = O + G > 0 ? T / (O + G) : 1;
+    O = Math.floor(O * k);
+    G = T - O;
+  } else {
     const [lo, hi] = TAKEAWAY_BAND[structure];
     const x = Math.min(1, Math.max(0, (sum(pre) / wTotal - 0.3) / 0.5));
-    T = Math.round(D * (lo + (hi - lo) * x));
+    // длинный вывод (чтение) не влезает под верх полос: все полосы сдвигаются вниз на одно и
+    // то же число кадров — оно зависит только от чтения, не от структуры, так что ширина и
+    // порядок структур сохраняются, а не срезаются по верху
+    const shift = Math.max(0, BAND_TOP * D - (D - need));
+    T = Math.round(D * (lo + (hi - lo) * x) - shift);
     T = Math.min(T, D - tailWant);
     T = Math.max(T, O + G + preMin);
     T = Math.min(T, D - tailMin);

@@ -216,38 +216,52 @@ export function actionWords(action: string): string[] {
 }
 
 const ENTER_WORDS = new Set(["in", "entrance", "enter", "appear", "reveal"]);
-const SUSTAIN_WORDS = new Set(["draw", "flow", "flows", "stream", "background", "bg", "loop", "idle", "travel", "run", "ambient"]);
+/** Рисование: draw, draws, drawing, drawn, redraw (не drawer). */
+const DRAW_WORD = /^(re)?draw(s|ing|n)?$/;
+/** Длящиеся слова с формами: flow(s|ing), stream(s|ing), loop(s|ing), run(s|ning). */
+const SUSTAIN_WORD = /^(flow(s|ing)?|stream(s|ing)?|loop(s|ing)?|run(s|ning)?|background|bg|idle|travel(s|ing)?|ambient)$/;
+/** Счёт: count, counts, counting, countup, countdown (не counter). */
+export const COUNT_WORD = /^count(s|ing|up|down)?$/;
 const PAYOFF_WORDS = new Set(["final", "climax", "peak", "payoff", "strike"]);
 /** Акцент по действию — подстрокой, как всегда считал specChecks (`final-emphasis`, `accentpulse`). */
 const ACCENT_RE = /emphasis|accent/i;
 
+/** Слово действия — счёт (`count-down` — тоже: слово count). */
+export const isCountWord = (w: string) => COUNT_WORD.test(w);
+
 /**
- * Вид бита: явный `kind` или по словам действия (целыми словами, а не подстрокой —
- * `upstream-in`, `account-card-in`, `threshold-in` — входы). Последнее слово in / entrance /
- * enter / appear / reveal — вход; есть hold — удержание; emphasis/accent — акцент; count —
- * счёт («counter-entrance» — вход); draw / flow / stream / loop / idle / travel / run / фон —
- * длящийся. Иначе — не определён.
+ * Вид бита: явный `kind` или по словам действия (целыми словами с формами, а не подстрокой —
+ * `upstream-in`, `account-card-in`, `threshold-in` — входы). emphasis/accent — акцент (и с
+ * входом: «verdict-emphasis-in» — акцент, как у isAccentBeat); последнее слово in / entrance /
+ * enter / appear / reveal — вход; есть hold — удержание; count / counting / countdown — счёт
+ * («counter-entrance» — вход, counter — не счёт); draw / drawing / flow / flowing / stream /
+ * loop / run / idle / travel / фон — длящийся. Иначе — не определён.
  */
 export function beatKind(b: { action: string; kind?: BeatKind | undefined }): BeatKind | undefined {
   if (b.kind) return b.kind;
+  if (ACCENT_RE.test(b.action)) return "accent";
   const w = actionWords(b.action);
   if (ENTER_WORDS.has(w.at(-1) ?? "")) return "enter";
   if (w.includes("hold")) return "hold";
-  if (ACCENT_RE.test(b.action)) return "accent";
-  if (w.includes("count") || w.includes("countup")) return "count";
-  if (w.some((x) => SUSTAIN_WORDS.has(x))) return "sustain";
+  if (w.some(isCountWord)) return "count";
+  if (w.some((x) => DRAW_WORD.test(x) || SUSTAIN_WORD.test(x))) return "sustain";
   return undefined;
 }
 
-/** Бит акцента — один признак для планировщика и specChecks (`accent_conflict`). */
+/** Бит акцента — один признак для планировщика и specChecks (`accent_conflict`): вид бита `accent`. */
 export function isAccentBeat(b: { action: string; kind?: BeatKind | undefined }): boolean {
-  return b.kind ? b.kind === "accent" : ACCENT_RE.test(b.action);
+  return beatKind(b) === "accent";
+}
+
+/** Бит удержания: вид hold или слово hold в действии («hold-emphasis» — акцент в удержании). */
+export function isHoldBeat(b: { action: string; kind?: BeatKind | undefined }): boolean {
+  return b.kind ? b.kind === "hold" : actionWords(b.action).includes("hold");
 }
 
 /** Бит ведёт к итогу (счёт, рисование): кончается к удару. */
 export function isProgressBeat(b: { action: string; kind?: BeatKind | undefined }): boolean {
   const k = beatKind(b);
-  return k === "count" || (k === "sustain" && actionWords(b.action).includes("draw"));
+  return k === "count" || (k === "sustain" && actionWords(b.action).some((x) => DRAW_WORD.test(x)));
 }
 
 /**
@@ -262,7 +276,7 @@ export function phasesOf(spec: Pick<MotionSpec, "phases" | "beats">): Phase[] {
   return beats.map((b) => {
     let role: PhaseRole;
     const kind = beatKind(b);
-    if (kind === "hold") role = "hold";
+    if (isHoldBeat(b)) role = "hold";
     else if (isAccentBeat(b) || actionWords(b.action).some((x) => PAYOFF_WORDS.has(x))) role = "payoff";
     else if (!acting && kind === "enter") role = "setup";
     else { role = "action"; acting = true; }

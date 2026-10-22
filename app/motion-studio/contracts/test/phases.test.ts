@@ -146,6 +146,20 @@ describe("вид бита (S3a-fix M4): целыми словами или яв�
     expect(isProgressBeat({ action: "requests-flow" })).toBe(false);
     expect(isProgressBeat({ action: "x", kind: "count" })).toBe(true);
   });
+  it("формы слов — по префиксу (s3afix-rereview m5): drawing/redraw/flowing/streaming — длящиеся, counting/counts/countdown — счёт, counter — нет", () => {
+    for (const a of ["line-drawing", "redraw", "pulses-flowing", "streaming", "bg-looping", "runs", "edges-drawn", "flows"]) expect(beatKind({ action: a }), a).toBe("sustain");
+    for (const a of ["hits-counting", "counts", "countdown", "count-down", "countup"]) expect(beatKind({ action: a }), a).toBe("count");
+    for (const a of ["counter", "counter-glow", "encounter", "rerun-label", "overflow-note", "drawer"]) expect(beatKind({ action: a }), a).toBeUndefined();
+    expect(isProgressBeat({ action: "line-drawing" })).toBe(true);
+    expect(isProgressBeat({ action: "pulses-flowing" })).toBe(false);
+  });
+  it("акцент с входом (verdict-emphasis-in) — акцент и для beatKind, и для isAccentBeat", () => {
+    for (const a of ["verdict-emphasis-in", "accent-in", "final-emphasis", "hold-emphasis"]) {
+      expect(beatKind({ action: a }), a).toBe("accent");
+      expect(isAccentBeat({ action: a }), a).toBe(true);
+    }
+    for (const a of ["verdict-in", "hold", "chart-draw"]) expect(isAccentBeat({ action: a }), a).toBe(beatKind({ action: a }) === "accent");
+  });
   it("phasesOf: threshold-in — вход (setup), а не hold", () => {
     const s = MotionSpecSchema.parse({ ...baseSpec(), beats: [
       { id: "a", start_frame: 0, end_frame: 20, action: "threshold-in", description: "", element_ids: ["title"] },

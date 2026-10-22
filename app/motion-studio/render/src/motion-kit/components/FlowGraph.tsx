@@ -9,7 +9,7 @@ import { interpolate, random, useCurrentFrame, useVideoConfig } from "remotion";
 import { ACCENT_REST, type AccentPulse, accentPulse } from "../choreo/accent.js";
 import { type Hold, holdTicks } from "../choreo/hold.js";
 import { type FlowHoldCtx, type PulseArrival, arrivalInPass, pathArrivals, pulsePass } from "../choreo/pulse.js";
-import { edgeDelay } from "../choreo/rhythm.js";
+import { NODE_JITTER, edgeDelay, edgeDrawLen, nodeGap } from "../choreo/graph-timing.js";
 import { underlayFade } from "../choreo/enter.js";
 import { EASE, frames, springAt } from "../easing.js";
 import { type CubicSegment, cubicPoint, lutLength, pathD, pathLUT } from "../geometry.js";
@@ -185,9 +185,9 @@ export function flowTiming(nodes: FlowNode[], edges: FlowEdge[], beat: Pick<Beat
   const { start_frame: b0, end_frame: b1 } = beat;
   const L = Math.max(1, b1 - b0);
   const order = [...nodes].sort((a, b) => a.x - b.x || a.y - b.y);
-  const gap = Math.min(s.motion.stagger_frames * 2.5, (L * 0.45) / Math.max(1, nodes.length - 1));
-  const nodeStart = new Map(order.map((n, i) => [n.id, n.enterAt ?? b0 + i * gap + random(`node-${n.id}`) * gap * 0.4]));
-  const drawLen = Math.max(1, Math.round(s.motion.enter_frames * 1.1));
+  const gap = nodeGap(s, nodes.length, L);
+  const nodeStart = new Map(order.map((n, i) => [n.id, n.enterAt ?? b0 + i * gap + random(`node-${n.id}`) * gap * NODE_JITTER]));
+  const drawLen = edgeDrawLen(s);
 
   const geo = new Map<string, CubicSegment>();
   const ready = new Map<string, number>();

@@ -2,7 +2,7 @@
 // у каждой структуры своя форма времени, вывод держится ≥ времени чтения, сдвиг от seed.
 import { describe, expect, it } from "vitest";
 import type { SceneStructure } from "@ms/contracts";
-import { type BeatPlan, type PlanInput, type PlanPhase, STRUCTURES, TAKEAWAY_BAND, planBeats, readingFrames } from "../../src/motion-kit/choreo/plan.js";
+import { type BeatPlan, type PlanInput, type PlanPhase, STRUCTURES, TAKEAWAY_BAND, phaseTokens, planBeats, readingFrames } from "../../src/motion-kit/choreo/plan.js";
 
 const phases: PlanPhase[] = [
   { id: "setup", role: "setup", weight: 1, elements: 2 },
@@ -227,9 +227,21 @@ describe("свойства", () => {
       if (!ph.some((x) => x.role === "payoff")) continue;
       const p = planBeats({ ...c, phases: ph });
       expect(c.duration - (p.strike + 12), `${c.structure} ${c.duration}/${c.fps}`).toBeGreaterThanOrEqual(p.reading);
-      // главный бит payoff успевает войти после передачи
+      // главный бит payoff успевает войти после передачи: задержка + целый вход
       const pay = p.beats.find((b) => b.role === "payoff" && b.kind === "main")!;
-      expect(pay.end_frame - pay.start_frame).toBeGreaterThan(12);
+      expect(pay.end_frame - pay.start_frame, `${c.structure} ${c.duration}/${c.fps} ${c.intensity}`).toBeGreaterThanOrEqual(12 + phaseTokens(c.fps, c.intensity).enter);
+    }
+  });
+
+  it("главный акцент после передачи (lead, без текста) получает целый вход (s3afix-rereview I3)", () => {
+    for (const c of cases) {
+      if (!c.phases.some((x) => x.role === "payoff")) continue;
+      const enter = phaseTokens(c.fps, c.intensity).enter;
+      // три второстепенных акцента впереди главного: lead = 3 входа
+      const ph = c.phases.map((x) => (x.role === "payoff" ? { ...x, lead: 3 * enter } : x));
+      const p = planBeats({ ...c, phases: ph });
+      const pay = p.beats.find((b) => b.role === "payoff" && b.kind === "main")!;
+      expect(pay.end_frame - pay.start_frame, `${c.structure} ${c.duration}/${c.fps} ${c.intensity}`).toBeGreaterThanOrEqual(4 * enter);
     }
   });
 
@@ -276,6 +288,44 @@ describe("свойства", () => {
       for (const b of p.beats) expect(b.end_frame).toBeLessThanOrEqual(30);
     }
   });
+
+  it("только хвост (payoff / hold) в сцене короче чтения — кадры в [0, D], без отрицательных (s3afix-rereview m1)", () => {
+    const tails: PlanPhase[][] = [
+      [{ id: "p", role: "payoff", weight: 1, chars: 40 }, { id: "h", role: "hold", weight: 1 }],
+      [{ id: "p", role: "payoff", weight: 1, chars: 40 }],
+      [{ id: "h", role: "hold", weight: 1, chars: 20 }],
+      [{ id: "p", role: "payoff", weight: 2, delay: 12, lead: 24 }, { id: "h", role: "hold", weight: 1 }],
+    ];
+    for (const structure of STRUCTURES) {
+      for (const ph of [...tails, sets[2]!, sets[1]!]) {
+        for (const duration of [30, 45, 60, 90]) {
+          for (const intensity of ["calm", "balanced", "energetic"] as const) {
+            const p = planBeats(input({ structure, duration, phases: ph, intensity }));
+            const label = `${structure} ${ph.map((x) => x.id).join("/")} D=${duration} ${intensity}`;
+            for (const b of p.beats) {
+              expect(b.start_frame, label).toBeGreaterThanOrEqual(0);
+              expect(b.end_frame, label).toBeLessThanOrEqual(duration);
+              expect(b.end_frame, label).toBeGreaterThan(b.start_frame);
+            }
+            expect(p.strike, label).toBeGreaterThanOrEqual(0);
+            expect(p.takeaway, label).toBeGreaterThanOrEqual(0);
+          }
+        }
+      }
+    }
+  });
+
+  it("minFrames фазы (setup графа: рёбра дорисованы) — окно не короче, если сцена позволяет", () => {
+    for (const structure of STRUCTURES) {
+      const ph = phases.map((x) => (x.id === "setup" ? { ...x, minFrames: 66 } : x));
+      // cold-open в 6 с: постер (25) + 66 + действие (28) не влезают до чтения — там нельзя
+      for (const [duration, fps] of [[180, 30], [240, 30], [360, 60]] as const) {
+        if (structure === "cold-open" && duration === 180) continue;
+        const p = planBeats(input({ structure, phases: ph, duration, fps }));
+        expect(main(p, "setup").end_frame - main(p, "setup").start_frame, `${structure} ${duration}`).toBeGreaterThanOrEqual(66);
+      }
+    }
+  });
 });
 
 describe("полоса кадра вывода по структуре и веса (S3a-fix I3)", () => {
@@ -292,8 +342,11 @@ describe("полоса кадра вывода по структуре и вес
     for (const s of STRUCTURES) {
       const p = at(s);
       const [lo, hi] = TAKEAWAY_BAND[s];
-      expect(p.strike - p.offset, s).toBeGreaterThanOrEqual(Math.floor(lo * 180));
-      expect(p.strike - p.offset, s).toBeLessThanOrEqual(Math.ceil(hi * 180));
+      // общий сдвиг полос под чтение: верх самой поздней полосы — не позже D − чтение
+      const top = Math.max(...Object.values(TAKEAWAY_BAND).map((b) => b[1]));
+      const shift = Math.max(0, top * 180 - (180 - p.reading));
+      expect(p.strike - p.offset, s).toBeGreaterThanOrEqual(Math.floor(lo * 180 - shift));
+      expect(p.strike - p.offset, s).toBeLessThanOrEqual(Math.ceil(hi * 180 - shift));
       expect(p.takeaway, s).toBe(s === "cold-open" ? 0 : p.strike);
     }
     // число ведёт — удар раньше всех, ответ на запрос — позже сборки
@@ -310,33 +363,62 @@ describe("полоса кадра вывода по структуре и вес
       expect(t(longExplain), s).toBeGreaterThan(t(base));
       expect(t(longHold), s).toBeLessThan(t(base));
       const hold = (p: BeatPlan) => main(p, "hold").end_frame - main(p, "hold").start_frame + p.offset;
-      expect(hold(longHold), s).toBeGreaterThan(hold(base));
+      // call-response: ответ ≤ 0,8 с — прибавка хвоста сначала идёт ему до потолка, hold не короче
+      if (s === "call-response") expect(hold(longHold), s).toBeGreaterThanOrEqual(hold(base));
+      else expect(hold(longHold), s).toBeGreaterThan(hold(base));
     }
   });
 
-  it("σ кадра вывода по структурам × наборам весов (6 с, 30 fps) ≥ 20 кадров", () => {
-    const sets = [[10, 50, 20, 20], [15, 45, 20, 20], [20, 40, 15, 25], [5, 30, 25, 40], [25, 55, 10, 10], [10, 60, 15, 15], [40, 20, 20, 20]];
-    const all: number[] = [];
-    const explained: number[] = [];
-    for (const s of STRUCTURES) {
-      for (const [a, b, c, d] of sets) {
-        const ph: PlanPhase[] = [
-          { id: "s", role: "setup", weight: a!, elements: 2 },
-          { id: "a", role: "action", weight: b!, elements: 3 },
-          { id: "p", role: "payoff", weight: c!, chars: 20 },
-          { id: "h", role: "hold", weight: d! },
-        ];
-        const p = planBeats(input({ structure: s, phases: ph, seed: `${s}-${a}-${b}` }));
-        all.push(p.takeaway);
-        if (s !== "cold-open") explained.push(p.takeaway);
+  const weightSets = [[10, 50, 20, 20], [15, 45, 20, 20], [20, 40, 15, 25], [5, 30, 25, 40], [25, 55, 10, 10], [10, 60, 15, 15], [40, 20, 20, 20]];
+  const sd = (xs: number[]) => {
+    const m = xs.reduce((x, y) => x + y, 0) / xs.length;
+    return Math.sqrt(xs.reduce((x, v) => x + (v - m) ** 2, 0) / xs.length);
+  };
+  const withText = (chars: number, [a, b, c, d]: number[]): PlanPhase[] => [
+    { id: "s", role: "setup", weight: a!, elements: 2 },
+    { id: "a", role: "action", weight: b!, elements: 3 },
+    { id: "p", role: "payoff", weight: c!, chars },
+    { id: "h", role: "hold", weight: d! },
+  ];
+
+  // реальный вывод (≥ 30 символов) — чтение упирается в потолок 40 % сцены (72 кадра при 6 с)
+  for (const chars of [0, 20, 40, 70]) {
+    it(`σ кадра вывода по структурам × весам (6 с, 30 fps, ${chars} символов): все ≥ 20 и без cold-open ≥ 20 (s3afix-rereview I2)`, () => {
+      const all: number[] = [];
+      const explained: number[] = [];
+      for (const s of STRUCTURES) {
+        for (const w of weightSets) {
+          const p = planBeats(input({ structure: s, phases: withText(chars, w), seed: `${s}-${w[0]}-${w[1]}` }));
+          all.push(p.takeaway);
+          if (s !== "cold-open") explained.push(p.takeaway);
+        }
       }
-    }
-    const sd = (xs: number[]) => {
-      const m = xs.reduce((x, y) => x + y, 0) / xs.length;
-      return Math.sqrt(xs.reduce((x, v) => x + (v - m) ** 2, 0) / xs.length);
-    };
-    expect(sd(all)).toBeGreaterThanOrEqual(20);
-    // и без постера cold-open удары разных структур не сливаются в один кадр
-    expect(sd(explained)).toBeGreaterThanOrEqual(15);
-  });
+      expect(sd(all)).toBeGreaterThanOrEqual(20);
+      // и без постера cold-open удары разных структур не сливаются в один кадр
+      expect(sd(explained)).toBeGreaterThanOrEqual(20);
+    });
+
+    it(`порядок полос сохраняется и при длинном чтении (${chars} символов): count-up < flow < split < build-strike < call-response`, () => {
+      const order: SceneStructure[] = ["count-up", "continuous-flow", "split-reveal", "build-strike", "call-response"];
+      for (const w of weightSets) {
+        const t = order.map((s) => {
+          const p = planBeats(input({ structure: s, phases: withText(chars, w), seed: "order" }));
+          return p.strike - p.offset;
+        });
+        for (let i = 1; i < t.length; i++) expect(t[i]!, `${order[i]} после ${order[i - 1]} при весах ${w.join("/")}: ${t.join(", ")}`).toBeGreaterThanOrEqual(t[i - 1]!);
+        expect(t.at(-1)!, `call-response позже build-strike при весах ${w.join("/")}`).toBeGreaterThan(t[3]!);
+        expect(t[3]!).toBeGreaterThan(t[0]!);
+      }
+    });
+
+    it(`веса двигают удар и при длинном чтении (${chars} символов): полоса не сжата в кадр`, () => {
+      for (const s of STRUCTURES) {
+        const ts = new Set(weightSets.map((w) => {
+          const p = planBeats(input({ structure: s, phases: withText(chars, w), seed: "w" }));
+          return p.strike - p.offset;
+        }));
+        expect(ts.size, s).toBeGreaterThanOrEqual(3);
+      }
+    });
+  }
 });

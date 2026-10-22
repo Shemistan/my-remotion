@@ -385,6 +385,39 @@ describe("structure_mismatch: форма spec расходится со стру
   it("spec без фаз — проверки нет", () => {
     expect(mism(spec({ elements: els, beats }))).toEqual([]);
   });
+
+  it("структура = выбор Concept — молчит (правило Concept важнее эвристики); другая — подсказка называет выбор Concept (s3afix-rereview m3)", () => {
+    const ph = [{ id: "left", role: "setup" as const, weight: 1, element_ids: ["a"] }, { id: "right", role: "setup" as const, weight: 1, element_ids: ["b"] }, { id: "act", role: "action" as const, weight: 2, element_ids: ["n"] }, ...tail];
+    const sp = phased("build-strike", ph);
+    expect(specChecks(sp, s, { concept: "build-strike" }).filter((i) => i.code === "structure_mismatch")).toEqual([]);
+    const w = specChecks(sp, s, { concept: "call-response" }).filter((i) => i.code === "structure_mismatch");
+    expect(w).toHaveLength(1);
+    expect(w[0]!.fix_hint).toMatch(/Concept.*call-response/);
+    // structure_reason гасит подсказку, только когда Director ушёл от Concept; без Concept — как раньше
+    const reasoned = { ...sp, composition: { ...sp.composition!, structure_reason: "сборка, не сравнение" } };
+    expect(specChecks(reasoned, s, { concept: "call-response" }).filter((i) => i.code === "structure_mismatch")).toEqual([]);
+    expect(mism(reasoned)).toEqual([]);
+  });
+});
+
+describe("accent_conflict вспышки: подсказка без «перенеси в фазу после», если акцент уже после импульса (s3afix-rereview I1)", () => {
+  it("импульс в action кончается у удара, акцент payoff — другой объект: fix_hint про длину импульса или flash_on", () => {
+    const e = [
+      el("src", { layout: { x: 0, y: 0, w: 0.2, h: 0.2 } }),
+      el("dst", { entrance: "fade", content: { flash_on: "b-flow" }, layout: { x: 0.5, y: 0, w: 0.2, h: 0.2 } }),
+      el("v", { entrance: "mask", role: "акцент: вывод", layout: { x: 0, y: 0.6, w: 0.5, h: 0.2 } }),
+    ];
+    const sp = spec({
+      elements: e,
+      phases: [{ id: "act", role: "action", weight: 1, element_ids: ["src", "dst"] }, { id: "pay", role: "payoff", weight: 1, element_ids: ["v"] }],
+      beats: [{ ...beat("b-flow", 0, 94, ["src", "dst"], "requests-flow"), phase: "act" }, { ...beat("b-v", 94, 180, ["v"], "v-emphasis"), phase: "pay" }],
+    });
+    const c = specChecks(sp, s).find((i) => i.code === "accent_conflict" && i.severity === "blocking")!;
+    expect(c).toBeDefined();
+    expect(c.fix_hint).not.toMatch(/фазу после/);
+    expect(c.fix_hint).toMatch(/flash_on/);
+    expect(c.fix_hint).toMatch(/b-flow/);
+  });
 });
 
 describe("accent_conflict в spec с фазами: подсказка про фазы, а не кадры (S3a-fix I1)", () => {

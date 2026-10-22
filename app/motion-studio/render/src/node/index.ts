@@ -12,3 +12,4 @@ export { lineDrawWindow } from "../motion-kit/line-window.js";
 export { type RawText, summarizeLayout, textLineItems } from "../motion-kit/layout-probe.js";
 export { ARRIVAL_PX, EASE_PASS, PULSE_MIN_S, PULSE_PX_PER_S, arrivalInPass, cubicBezier, pulsePass, pulseStarts } from "../motion-kit/choreo/pulse-timing.js";
 export { type BeatPlan, type PlanInput, type PlanPhase, type PhaseTokens, type PlannedBeat, STRUCTURES, TAKEAWAY_BAND, phaseTokens, planBeats, readingFrames } from "../motion-kit/choreo/plan.js";
+export { graphSetupMin } from "../motion-kit/choreo/graph-timing.js";

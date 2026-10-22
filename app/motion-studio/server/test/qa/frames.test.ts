@@ -259,5 +259,20 @@ describe("countStarts", () => {
     const f = selectQaFrames(sp);
     expect(f.some((x) => x >= 38 && x <= 46)).toBe(true);
   });
+
+  it("формы слова count (hits-counting, countdown) — бит счёта, counter — нет (s3afix-rereview m5)", () => {
+    for (const action of ["hits-counting", "countdown", "counts"]) {
+      const sp = spec({
+        elements: [el("hero", { kind: "number", entrance: "pop" })],
+        beats: [beat("in", 0, 20, ["hero"], "hero-in"), beat("glow", 20, 40, ["hero"], "hero-glow"), beat("n", 40, 120, ["hero"], action), beat("hold", 120, 180, ["hero"], "hold")],
+      });
+      expect(countStarts(sp).map((b) => b.id), action).toEqual(["n"]);
+    }
+    const sp = spec({
+      elements: [el("hero", { kind: "number", entrance: "pop" })],
+      beats: [beat("in", 0, 20, ["hero"], "hero-in"), beat("glow", 20, 40, ["hero"], "hero-glow"), beat("n", 40, 120, ["hero"], "counter-shine"), beat("hold", 120, 180, ["hero"], "hold")],
+    });
+    expect(countStarts(sp).map((b) => b.id)).toEqual(["glow"]);
+  });
 });
 

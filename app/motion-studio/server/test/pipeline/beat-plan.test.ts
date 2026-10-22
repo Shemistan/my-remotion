@@ -1,10 +1,10 @@
 // Шаг пайплайна после Director (S3a): кадры битов — из фаз и структуры (planBeats kit),
 // Director кадров не пишет. Счётчики по приходам — в окне потока, старые spec — как были.
 import { describe, expect, it } from "vitest";
-import { type Beat, type DirectorSpec, type MotionSpec, MotionSpecSchema, type SceneStructure, defaultSettings } from "@ms/contracts";
-import { planBeats } from "@ms/render";
-import { alignArrivalCounters, planSpecBeats } from "../../src/pipeline/beat-plan.js";
-import { specChecks } from "../../src/qa/spec-checks.js";
+import { type Beat, type DirectorSpec, type MotionSpec, MotionSpecSchema, type SceneStructure, defaultSettings, isAccentBeat } from "@ms/contracts";
+import { graphSetupMin, phaseTokens, planBeats, resolveStyle } from "@ms/render";
+import { alignArrivalCounters, planSpecBeats, structureFit } from "../../src/pipeline/beat-plan.js";
+import { FLASH_FRAMES_30, specChecks } from "../../src/qa/spec-checks.js";
 import { directorOutput } from "./helpers.js";
 
 const settings = defaultSettings();
@@ -63,14 +63,13 @@ describe("planSpecBeats", () => {
     expect(MotionSpecSchema.safeParse(r.spec).success).toBe(true);
     const plan = planBeats({ structure: "build-strike", phases: r.phases!, duration: 180, fps: 30, intensity: settings.animation_intensity, density: 5, seed: "Ответ из кэша|кэш отвечает в 10 раз быстрее" });
     const win = (id: string) => plan.beats.find((b) => b.phase === id && b.kind === "main")!;
-    // setup: три бита по порядку, старт первого — старт фазы
+    // setup: входы по порядку, старт первого — старт фазы
     const setup = ["b-client", "b-cache", "b-edges"].map((id) => beat(r.spec, id));
     expect(setup[0]!.start_frame).toBe(win("p-setup").start_frame);
     expect(setup[0]!.start_frame).toBeLessThan(setup[1]!.start_frame);
-    expect(setup[1]!.start_frame).toBeLessThan(setup[2]!.start_frame);
     for (const b of setup) expect(b.end_frame).toBeLessThanOrEqual(win("p-setup").end_frame);
-    // рисование — до конца окна фазы (span phase по действию draw)
-    expect(beat(r.spec, "b-edges").end_frame).toBe(win("p-setup").end_frame);
+    // бит графа — всё окно setup с его начала: узлы каскадом, рёбра дорисованы к концу окна
+    expect([beat(r.spec, "b-edges").start_frame, beat(r.spec, "b-edges").end_frame]).toEqual([win("p-setup").start_frame, win("p-setup").end_frame]);
     // удар и удержание: payoff в окне payoff, hold до последнего кадра
     expect([beat(r.spec, "b-verdict").start_frame, beat(r.spec, "b-verdict").end_frame]).toEqual([win("p-pay").start_frame, win("p-pay").end_frame]);
     expect(beat(r.spec, "b-hold").end_frame).toBe(180);
@@ -235,8 +234,10 @@ describe("planSpecBeats: S3a-fix", () => {
     d.beats = d.beats.map((b) => (b.id === "b-client" ? { ...b, action: "upstream-in" } : b.id === "b-cache" ? { ...b, action: "account-card-in" } : b));
     const r = ok(planSpecBeats(d, settings));
     const end = beat(r.spec, "b-edges").end_frame;
-    expect(beat(r.spec, "b-client").end_frame).toBeLessThan(end);
-    expect(beat(r.spec, "b-cache").end_frame).toBeLessThan(end);
+    const len = end - beat(r.spec, "b-edges").start_frame;
+    const span = (id: string) => beat(r.spec, id).end_frame - beat(r.spec, id).start_frame;
+    expect(span("b-client")).toBeLessThan(len);
+    expect(span("b-cache")).toBeLessThan(len);
     const k = phasedSpec();
     k.beats = k.beats.map((b) => (b.id === "b-client" ? { ...b, action: "client-shows", kind: "sustain" as const } : b));
     expect(beat(ok(planSpecBeats(k, settings)).spec, "b-client").end_frame).toBe(end);
@@ -285,6 +286,96 @@ describe("planSpecBeats: S3a-fix", () => {
     expect(r.warnings).toContainEqual(expect.stringMatching(/p-setup.*verdict/));
   });
 
+  it("вспышка прихода (flash_on) у узла: поток action кончается так, что вспышка гаснет к удару — без blocking accent_conflict (s3afix-rereview I1, gen-compare)", () => {
+    for (const structure of ["build-strike", "split-reveal", "count-up", "call-response", "cold-open", "continuous-flow"] as const) {
+      const d = phasedSpec(structure);
+      d.elements = d.elements.map((e) => (e.id === "cache" ? { ...e, content: { ...e.content, flash_on: "b-flow" } } : e));
+      const r = ok(planSpecBeats(d, settings));
+      const blocking = specChecks(r.spec, settings).filter((x) => x.code === "accent_conflict" && x.severity === "blocking");
+      expect(blocking.map((x) => x.description), structure).toEqual([]);
+      const flow = beat(r.spec, "b-flow");
+      if (structure !== "continuous-flow") {
+        // данные пришли, вспышка погасла (22 кадра), затем удар
+        expect(flow.end_frame + FLASH_FRAMES_30 - r.plan!.strike, structure).toBeLessThan(3);
+        expect(flow.end_frame - flow.start_frame, structure).toBeGreaterThanOrEqual(12);
+      }
+      // flash_on сохранён: Director не должен его удалять
+      expect(r.spec.elements.find((e) => e.id === "cache")!.content.flash_on).toBe("b-flow");
+    }
+    // continuous-flow: поток идёт до конца сцены и с payoff до конца (без hold) — вспышка после удара
+    const flow = phasedSpec("continuous-flow");
+    flow.elements = flow.elements.map((e) => (e.id === "cache" ? { ...e, content: { ...e.content, flash_on: "b-flow" } } : e));
+    flow.phases = flow.phases!.filter((p) => p.role !== "hold");
+    flow.beats = flow.beats.filter((b) => b.phase !== "p-hold");
+    const r = ok(planSpecBeats(flow, settings));
+    expect(beat(r.spec, "b-flow").end_frame).toBe(180);
+    expect(specChecks(r.spec, settings).filter((x) => x.code === "accent_conflict" && x.severity === "blocking")).toEqual([]);
+  });
+
+  it("главный акцент после трёх второстепенных — не короче входа; secondary ужимаются до шага, если payoff короток (s3afix-rereview I3)", () => {
+    for (const structure of ["call-response", "cold-open", "build-strike"] as const) {
+      const d = phasedSpec(structure);
+      d.beats = d.beats.flatMap((b) => (b.id === "b-verdict"
+        ? [{ ...b, id: "b-a", action: "client-accent", element_ids: ["client"] }, { ...b, id: "b-b", action: "graph-accent", element_ids: ["graph"] }, { ...b, id: "b-c", action: "hits-accent", element_ids: ["hits"] }, { ...b, id: "b-main", action: "cache-emphasis", element_ids: ["cache"] }, { ...b, action: "verdict-in" }]
+        : [b]));
+      d.phases = d.phases!.map((p) => (p.id === "p-pay" ? { ...p, element_ids: ["client", "graph", "hits", "cache", "verdict"] } : p));
+      d.elements = d.elements.map((e) => (e.id === "cache" ? { ...e, role: "акцент: кэш" } : e));
+      const r = ok(planSpecBeats(d, settings));
+      const main = beat(r.spec, "b-main");
+      expect(main.end_frame - main.start_frame, structure).toBeGreaterThanOrEqual(12);
+      expect(specChecks(r.spec, settings).filter((x) => x.code === "accent_conflict" && x.severity === "blocking"), structure).toEqual([]);
+    }
+  });
+
+  it("setup графа не кончается раньше, чем дорисованы рёбра: первый поток action — после готовности (s3afix-rereview, held-queue)", () => {
+    for (const structure of ["build-strike", "continuous-flow", "call-response"] as const) {
+      const d = phasedSpec(structure);
+      // очередь: 4 узла, 3 ребра
+      d.elements = [
+        ...d.elements.filter((e) => e.id !== "graph"),
+        { id: "q", kind: "card", role: "node: очередь", entrance: "pop", content: { label: "Очередь" } },
+        { id: "w", kind: "card", role: "node: воркер", entrance: "pop", content: { label: "Воркер" } },
+        { id: "graph", kind: "graph", role: "схема", entrance: "draw", content: { edges: [{ id: "e1", from: "client", to: "q" }, { id: "e2", from: "q", to: "w" }, { id: "e3", from: "w", to: "cache" }], flows: [{ edge: "e1", direction: "forward", beat: "b-flow" }] } },
+      ];
+      d.phases = d.phases!.map((p) => (p.id === "p-setup" ? { ...p, element_ids: ["client", "q", "w", "cache", "graph"] } : p));
+      d.beats = d.beats.map((b) => (b.id === "b-client" ? { ...b, element_ids: ["client", "q", "w"] } : b));
+      const r = ok(planSpecBeats(d, settings));
+      const style = resolveStyle({ preset: d.style_preset, intensity: settings.animation_intensity, fps: d.fps });
+      const setup = r.plan!.beats.find((b) => b.phase === "p-setup" && b.kind === "main")!;
+      expect(setup.end_frame - setup.start_frame, structure).toBeGreaterThanOrEqual(graphSetupMin(style, 4));
+      expect(beat(r.spec, "b-flow").start_frame, structure).toBeGreaterThanOrEqual(setup.end_frame);
+    }
+  });
+
+  it("сбой плана: проверки фаз — без общего хвоста; схема — с подсказкой про фазы битов (s3afix-rereview m4)", () => {
+    const noMode = phasedSpec();
+    noMode.phases = noMode.phases!.map((p) => (p.role === "hold" ? { id: p.id, role: p.role, weight: p.weight, element_ids: p.element_ids } : p));
+    const a = planSpecBeats(noMode, settings);
+    expect(a.ok).toBe(false);
+    if (!a.ok) expect(a.reason).toBe("phases");
+    const bad = phasedSpec();
+    bad.beats = [...bad.beats, { id: "b-x", action: "x-in", description: "", element_ids: ["client"] }];
+    const b = planSpecBeats(bad, settings);
+    expect(b.ok).toBe(false);
+    if (!b.ok) expect(b.reason).toBe("schema");
+  });
+
+  it("structureFit: подходят ли фазы под структуру Concept (s3afix-rereview m2)", () => {
+    const d = phasedSpec("build-strike");
+    expect(structureFit(d, "build-strike")).toEqual([]);
+    expect(structureFit(d, "call-response")).toEqual([]);
+    // одна сторона — не split-reveal; в первой action нет числа — не count-up
+    expect(structureFit(d, "split-reveal").join(" ")).toMatch(/split-reveal/);
+    const noNum = phasedSpec();
+    noNum.phases = noNum.phases!.map((p) => (p.role === "action" ? { ...p, element_ids: ["graph"] } : p));
+    expect(structureFit(noNum, "count-up").join(" ")).toMatch(/count-up/);
+    expect(structureFit(d, "count-up")).toEqual([]);
+    const noPay = phasedSpec();
+    noPay.phases = noPay.phases!.filter((p) => p.role !== "payoff");
+    expect(structureFit(noPay, "cold-open").join(" ")).toMatch(/payoff/);
+    expect(structureFit(noPay, "call-response").join(" ")).toMatch(/payoff/);
+  });
+
   describe("свойства на синтетических spec", () => {
     // фазы × структуры × число акцентов/текстов в payoff × длительность и интенсивность
     const cases: { d: DirectorSpec; label: string }[] = [];
@@ -303,6 +394,8 @@ describe("planSpecBeats: S3a-fix", () => {
             const d = phasedSpec(structure);
             d.duration_frames = duration;
             d.fps = { num: fps, den: 1 };
+            // приход потока вспыхивает на узле (s3afix-rereview I1): вспышка не спорит с ударом
+            d.elements = d.elements.map((e) => (e.id === "cache" ? { ...e, content: { ...e.content, flash_on: "b-flow" } } : e));
             d.phases = d.phases!.map((p, i) => ({ ...p, weight: w[i]!, ...(p.role === "payoff" ? { element_ids: [...new Set(pay.map((x) => x.el))] } : {}) }));
             d.beats = [...d.beats.filter((b) => b.phase !== "p-pay"), ...pay.map((x, k) => ({ id: `b-pay${k}`, phase: "p-pay", action: x.action, description: "", element_ids: [x.el] }))];
             cases.push({ d, label: `${structure} p${pi} ${duration}/${fps} ${w.join("/")}` });
@@ -327,6 +420,12 @@ describe("planSpecBeats: S3a-fix", () => {
           }
           const blocking = specChecks(r.spec, s).filter((x) => x.code === "accent_conflict" && x.severity === "blocking");
           expect(blocking.map((x) => x.description), `${label} ${intensity}`).toEqual([]);
+          // главный акцент payoff (живёт до конца фазы) — не короче входа
+          const pay = r.plan!.beats.find((x) => x.phase === "p-pay" && x.kind === "main")!;
+          const enter = phaseTokens(d.fps.num, intensity).enter;
+          for (const b of r.spec.beats.filter((x) => x.phase === "p-pay" && isAccentBeat(x) && x.end_frame === pay.end_frame)) {
+            expect(b.end_frame - b.start_frame, `${label} ${intensity} ${b.id}`).toBeGreaterThanOrEqual(enter);
+          }
         }
       }
     });
