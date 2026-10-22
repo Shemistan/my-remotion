@@ -19,6 +19,8 @@ export interface RawText {
   /** Владелец — ближайший предок с data-ms-layout (null — текст сцены). */
   owner: string | null;
   role: string;
+  /** Ключ DOM-элемента (S2-fix2): строки и узлы одного элемента друг с другом не сравниваются. */
+  el?: string;
   text: string;
   rect: Box;
   /** Кегль в px кадра (с учётом масштаба камеры). */
@@ -30,6 +32,8 @@ export interface RawText {
 export interface LayoutItem {
   id: string;
   role: string;
+  /** Ключ DOM-элемента текста сцены без владельца (см. RawText.el). */
+  el?: string;
   text: string;
   rect: Box;
   fontPx: number;
@@ -71,7 +75,7 @@ export function summarizeLayout(frame: number, height: number, raw: RawText[]): 
   vis.forEach((r, i) => {
     const id = r.owner ?? `${r.role}#${i}`;
     const g = groups.get(id);
-    if (!g) groups.set(id, { id, role: r.role, text: r.text.trim(), rect: r.rect, fontPx: r.fontPx, opacity: r.opacity });
+    if (!g) groups.set(id, { id, role: r.role, ...(r.owner === null && r.el ? { el: r.el } : {}), text: r.text.trim(), rect: r.rect, fontPx: r.fontPx, opacity: r.opacity });
     else {
       g.rect = union(g.rect, r.rect);
       g.fontPx = Math.min(g.fontPx, r.fontPx);
@@ -89,11 +93,36 @@ export function summarizeLayout(frame: number, height: number, raw: RawText[]): 
     let n = 1;
     for (let j = i + 1; j < vis.length; j++) {
       const b = vis[j]!;
-      if (b.text.trim() !== t) continue;
+      if (b.text.trim() !== t || (a.el !== undefined && a.el === b.el)) continue;
       if (intersect(a.rect, b.rect) >= 0.3 * Math.min(area(a.rect), area(b.rect))) n++;
     }
     if (n > 1) ghosts.set(t, Math.max(ghosts.get(t) ?? 0, n));
   }
   const items = [...groups.values()].map((g) => ({ ...g, rect: { x: r1(g.rect.x), y: r1(g.rect.y), w: r1(g.rect.w), h: r1(g.rect.h) }, fontPx: r1(g.fontPx), opacity: r1(g.opacity) }));
   return { frame, height, items, ghosts: [...ghosts].map(([text, count]) => ({ text, count })) };
+}
+
+/** Прямоугольник строки текста в координатах окна (DOMRect / ClientRect). */
+export interface LineRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Элементы реестра одного текстового узла (чистая функция, S2-fix2 N3): по прямоугольнику на
+ * строку (`range.getClientRects()`), а не один общий. Узел, начатый посреди строки и
+ * перенесённый, общим прямоугольником накрывал всю ширину обеих строк — и соседний узел той
+ * же строки (ложный text_overlap). Пустые прямоугольники пропускаются.
+ */
+export function textLineItems(base: Omit<RawText, "text" | "rect">, text: string, rects: Iterable<LineRect>, origin: { x: number; y: number }): RawText[] {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return [];
+  const out: RawText[] = [];
+  for (const r of rects) {
+    if (r.width <= 0 || r.height <= 0) continue;
+    out.push({ ...base, text: t, rect: { x: r.left - origin.x, y: r.top - origin.y, w: r.width, h: r.height } });
+  }
+  return out;
 }

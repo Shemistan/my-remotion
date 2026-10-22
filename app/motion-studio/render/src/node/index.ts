@@ -9,5 +9,6 @@ export { contrastRatio, relativeLuminance } from "../motion-kit/style/contrast.j
 export { type Rect, safeRect } from "../motion-kit/choreo/safe-area.js";
 export { type TypeLevel, typeSize } from "../motion-kit/style/type-scale.js";
 export { lineDrawWindow } from "../motion-kit/line-window.js";
+export { type RawText, summarizeLayout, textLineItems } from "../motion-kit/layout-probe.js";
 export { ARRIVAL_PX, EASE_PASS, PULSE_MIN_S, PULSE_PX_PER_S, arrivalInPass, cubicBezier, pulsePass, pulseStarts } from "../motion-kit/choreo/pulse-timing.js";
 export { type BeatPlan, type PlanInput, type PlanPhase, type PlannedBeat, STRUCTURES, planBeats, readingFrames } from "../motion-kit/choreo/plan.js";

@@ -7,7 +7,7 @@
 import type { ComponentType } from "react";
 import { useLayoutEffect, useRef } from "react";
 import { continueRender, delayRender, getInputProps, useCurrentFrame, useVideoConfig } from "remotion";
-import { LAYOUT_TAG, type RawText, summarizeLayout } from "../motion-kit/layout-probe.js";
+import { LAYOUT_TAG, type RawText, summarizeLayout, textLineItems } from "../motion-kit/layout-probe.js";
 
 /** Флаг пробы во входных props кадров-стоп. */
 export const PROBE_PROP = "__msLayoutProbe";
@@ -27,6 +27,7 @@ export function collectText(root: Element, origin: { x: number; y: number }): Ra
   };
   walk(root);
   const owners = new Map<Element, number>();
+  const keys = new Map<Element, string>();
   const out: RawText[] = [];
   for (const [el, texts] of byEl) {
     const cs = getComputedStyle(el);
@@ -43,23 +44,21 @@ export function collectText(root: Element, origin: { x: number; y: number }): Ra
     else if (el instanceof HTMLElement && el.offsetWidth > 0) scale = el.getBoundingClientRect().width / el.offsetWidth;
     const owner = el.closest("[data-ms-layout]");
     if (owner && !owners.has(owner)) owners.set(owner, owners.size);
-    // каждый текстовый узел — свой прямоугольник: объединение узлов одного элемента накрыло бы
-    // вложенный в строку элемент (подсветка Highlight посреди фразы) — ложный text_overlap
+    // каждый текстовый узел — свои прямоугольники по строкам: объединение узлов элемента
+    // накрыло бы вложенный в строку элемент (Highlight посреди фразы), а общий прямоугольник
+    // перенесённого узла — соседа по строке (S2-fix2 N3); строки элемента — один ключ `el`
+    if (!keys.has(el)) keys.set(el, `e${keys.size}`);
+    const base = {
+      owner: owner ? `${owner.getAttribute("data-ms-layout")}:${owner.getAttribute("data-ms-id") ?? ""}:${owners.get(owner)}` : null,
+      role: owner?.getAttribute("data-ms-layout") ?? "scene",
+      el: keys.get(el)!,
+      fontPx: parseFloat(cs.fontSize) * scale,
+      opacity,
+    };
     for (const t of texts) {
       const range = document.createRange();
       range.selectNodeContents(t);
-      const b = range.getBoundingClientRect();
-      if (b.width <= 0 || b.height <= 0) continue;
-      const text = t.data.replace(/\s+/g, " ").trim();
-      if (!text) continue;
-      out.push({
-        owner: owner ? `${owner.getAttribute("data-ms-layout")}:${owner.getAttribute("data-ms-id") ?? ""}:${owners.get(owner)}` : null,
-        role: owner?.getAttribute("data-ms-layout") ?? "scene",
-        text,
-        rect: { x: b.left - origin.x, y: b.top - origin.y, w: b.width, h: b.height },
-        fontPx: parseFloat(cs.fontSize) * scale,
-        opacity,
-      });
+      out.push(...textLineItems(base, t.data, Array.from(range.getClientRects()), origin));
     }
   }
   return out;

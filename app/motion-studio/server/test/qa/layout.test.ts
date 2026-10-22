@@ -1,5 +1,6 @@
 // Реестр раскладки motion-kit → проблемы QA: наложение текста, токен на подписи, призраки, кегль.
 import { describe, expect, it } from "vitest";
+import { summarizeLayout, textLineItems } from "@ms/render";
 import { layoutIssues, parseLayout } from "../../src/qa/layout.js";
 
 const item = (id: string, role: string, text: string, x: number, y: number, w: number, h: number, fontPx = 32) => ({ id, role, text, rect: { x, y, w, h }, fontPx, opacity: 1 });
@@ -30,6 +31,27 @@ describe("layoutIssues", () => {
     expect(r[0]!.severity).toBe("blocking");
     const touch = layoutIssues([{ frame: 30, height: 1080, ghosts: [], items: [item("a", "scene", "А", 100, 100, 100, 40), item("b", "scene", "Б", 200, 100, 100, 40)] }]);
     expect(touch).toEqual([]);
+  });
+  it("S2-fix2 N3: строки одного элемента (перенос, несколько текстовых узлов) друг с другом не сравниваются", () => {
+    // <div>В {n} раз быстрее, чем база</div>: узел «быстрее, чем база» начат в первой строке и перенесён;
+    // его прямоугольник целиком (старый замер) накрывает соседний узел «В 3 раза» той же строки
+    const own = (id: string, text: string, x: number, y: number, w: number, h: number) => ({ ...item(id, "scene", text, x, y, w, h), el: "e7" });
+    const r = layoutIssues([{ frame: 90, height: 1080, ghosts: [], items: [own("scene#0", "В 3 раза", 0, 0, 200, 40), own("scene#1", "быстрее, чем база", 0, 0, 600, 84)] }]);
+    expect(r).toEqual([]);
+    // чужой элемент на том же месте — по-прежнему наложение
+    const other = layoutIssues([{ frame: 90, height: 1080, ghosts: [], items: [own("scene#0", "В 3 раза", 0, 0, 200, 40), { ...item("scene#2", "scene", "x2", 20, 4, 120, 40), el: "e8" }] }]);
+    expect(other.map((i) => i.code)).toEqual(["text_overlap"]);
+  });
+  it("S2-fix2 N3: перенесённая подпись рядом с соседом — построчные прямоугольники не дают ложного text_overlap", () => {
+    const wrap = textLineItems({ owner: null, role: "scene", el: "e1", fontPx: 32, opacity: 1 }, "быстрее, чем база", [
+      { left: 200, top: 0, width: 400, height: 40 },
+      { left: 0, top: 44, width: 300, height: 40 },
+      { left: 0, top: 0, width: 0, height: 40 },
+    ], { x: 0, y: 0 });
+    expect(wrap.map((w) => w.rect)).toEqual([{ x: 200, y: 0, w: 400, h: 40 }, { x: 0, y: 44, w: 300, h: 40 }]);
+    const sibling = { owner: null, role: "scene", el: "e2", text: "×3", rect: { x: 340, y: 44, w: 120, h: 40 }, fontPx: 32, opacity: 1 };
+    const f = summarizeLayout(90, 1080, [...wrap, sibling]);
+    expect(layoutIssues([f])).toEqual([]);
   });
   it("призраки — ghost_text (blocking)", () => {
     const r = layoutIssues([{ frame: 48, height: 1080, items: [], ghosts: [{ text: "GET /user/42", count: 3 }] }]);

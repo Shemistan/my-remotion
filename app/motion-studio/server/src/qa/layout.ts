@@ -16,6 +16,8 @@ interface Box {
 export interface LayoutItem {
   id: string;
   role: string;
+  /** Ключ DOM-элемента (строки одного элемента не сравниваются друг с другом). */
+  el?: string;
   text: string;
   rect: Box;
   fontPx: number;
@@ -85,6 +87,8 @@ export function layoutIssues(frames: LayoutFrame[]): Issue[] {
     for (let i = 0; i < f.items.length; i++) {
       for (let j = i + 1; j < f.items.length; j++) {
         const [a, b] = [f.items[i]!, f.items[j]!];
+        // строки и узлы одного элемента (перенос, `В {n} раз`) — не наложение (S2-fix2 N3)
+        if (a.el !== undefined && a.el === b.el) continue;
         if (overlap(a.rect, b.rect) < OVERLAP_SHARE) continue;
         const token = a.role === "token" ? a : b.role === "token" ? b : null;
         const other = token === a ? b : a;
