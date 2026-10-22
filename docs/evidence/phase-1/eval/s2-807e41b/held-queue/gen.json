@@ -1,0 +1,56 @@
+{
+  "status": "failed",
+  "job_status": "failed",
+  "failure": {
+    "stage": "qa",
+    "message": "QA: blocking после 2 исправлений: text_overlap (кадр 96): тексты «#4811» и «#4812» перекрываются (кадры 96); clipping (кадр 179): Подпись «списание товара» выходит за правый край карточки «Склад» и доходит до x≈1868. Правая граница безопасной зоны — x≈1824, так что текст в поле. На кадрах 37–151 подпись тоже вылезает за карточку (до x≈1826–1832).; overlap (кадр 20): Подпись выходит за правую границу карточки «Заказы» (карточка кончается на x≈522, текст на x≈595) и ложится на ребро к очереди. На кадре 62 летящий токен закрывает конец слова «кофемашина».; missing_element: элемент out-4811 (shape, «данные: склад забирает сообщение») не найден ни на одном QA-кадре внутри его битов; missing_element: элемент out-4812 (shape, «данные: склад забирает заказ #4812») не найден ни на одном QA-кадре внутри его битов"
+  },
+  "version_status": "failed",
+  "cost_usd": 3.8262505,
+  "wall_ms": 1341061,
+  "engineer_calls": 3,
+  "duration_frames": 180,
+  "fps": 30,
+  "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5GYA0G0D0W3GY3A6V1VP2TV/versions/ver_01M5GZJXH3Y0BCXRGFC237W28E",
+  "commit": "1689803",
+  "motion_kit_version": "0.4.0",
+  "prompts_sha256": {
+    "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+    "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+    "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+    "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+    "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+    "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+    "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+  },
+  "motion_kit_sha256": "sha256:c4277d4c56100635",
+  "prior_attempts": [
+    {
+      "status": "failed",
+      "job_status": "failed",
+      "failure": {
+        "stage": "engineer",
+        "message": "вызов Engineer завершился failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+      },
+      "version_status": "failed",
+      "cost_usd": 3.6890532999999994,
+      "wall_ms": 2750284,
+      "engineer_calls": 3,
+      "duration_frames": 180,
+      "fps": 30,
+      "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5G6A5QHKEX74P9099SMMN7Q/versions/ver_01M5G8Y2EV9G3KTNFRZ50JP6H1",
+      "commit": "5b4e6ef",
+      "motion_kit_version": "0.4.0",
+      "prompts_sha256": {
+        "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+        "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+        "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+        "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+        "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+        "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+        "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+      },
+      "motion_kit_sha256": "sha256:c4277d4c56100635"
+    }
+  ]
+}
