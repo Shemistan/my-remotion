@@ -13,7 +13,9 @@
 //   ./scripts/with-node.sh npx tsx scripts/eval-set.mts --only test1,eval-oauth
 //   ./scripts/with-node.sh npx tsx scripts/eval-set.mts --calibrate [--split train|holdout|all]
 //   ./scripts/with-node.sh npx tsx scripts/eval-set.mts --run <после> --compare <до>
-// Флаги: --runs N (прогонов судьи, 3), --parallel N (задач генерации, 3), --judge-parallel N (6),
+//   ./scripts/with-node.sh npx tsx scripts/eval-set.mts --set user --run user-<sha> --gen-timeout-min 180
+// Флаги: --set explainer|user (набор, explainer; user — 6 кейсов пользователя, 60 с, информативно),
+//   --runs N (прогонов судьи, 3), --parallel N (задач генерации, 3), --judge-parallel N (6),
 //   --judge-model M (opus), --gen-timeout-min N (60), --no-judge, --write-evidence,
 //   --allow-dirty (генерировать при незакоммиченных правках app/motion-studio; сцены — -dirty).
 import { execFileSync } from "node:child_process";
@@ -35,6 +37,7 @@ import { type Agreement, type Aggregate, CRITERIA, type FrameMetrics, type Split
 import { type JudgeFingerprint, judgeFingerprint, promptHashes, sameFingerprint, short } from "../server/src/eval/provenance.js";
 import { HOLDOUT_SEEN_BY_RUBRIC, REFERENCE, anchorsFor } from "../server/src/eval/reference.js";
 import { isTransientFailure } from "../server/src/eval/resume.js";
+import { EXPLAINER_SET, HELD_OUT, type SetName, parseSetName, setItems } from "../server/src/eval/sets.js";
 import { registerHandlers } from "../server/src/jobs/handlers.js";
 import { cancelJob, enqueue, provideInput } from "../server/src/jobs/queue.js";
 import type { GenerateResult } from "../server/src/pipeline/generate.js";
@@ -45,25 +48,8 @@ import { newId } from "../server/src/scenes/ids.js";
 
 const REPO = fileURLToPath(new URL("../../../", import.meta.url));
 
-/**
- * Набор: 7 запросов, на которых шла настройка (Test 1/2, обобщение, первые отложенные), и 5
- * новых отложенных (`eval-*`) — заморожены, промпты по ним не настраиваются.
- */
-const SET: Record<string, string> = {
-  test1: "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении",
-  test2: "Покажи архитектуру AI-агента: пользователь отправляет запрос, оркестратор вызывает три инструмента, данные возвращаются обратно. Световые импульсы движутся по связям",
-  "gen-compare": "Сравни монолит и микросервисы по скорости релизов",
-  "gen-timeline": "Таймлайн развития компании 2015–2025 с пятью вехами",
-  "gen-cache": "Объясни, как работает кэширование: запрос, промах, запись, попадание",
-  "held-mobile": "Покажи, как растёт доля мобильного трафика: 2019 — 35%, 2024 — 68%",
-  "held-queue": "Объясни, как работает очередь сообщений между сервисом заказов и складом",
-  "eval-funnel": "Покажи воронку интернет-магазина: из 100 посетителей до покупки доходят только 3",
-  "eval-oauth": "Объясни вход через OAuth: пользователь, приложение, сервер авторизации и токен доступа",
-  "eval-cdn": "Сравни задержку загрузки для пользователя из Москвы: сервер во Франкфурте — 180 мс, CDN-узел в Москве — 15 мс",
-  "eval-budget": "Как распределяется месячный бюджет семьи: жильё 35%, еда 25%, транспорт 15%, развлечения 10%, накопления 15%",
-  "eval-abtest": "Итог A/B-теста новой кнопки оформления заказа: конверсия выросла с 5,0% до 5,6% — плюс 12%",
-};
-const HELD_OUT = new Set(Object.keys(SET).filter((s) => s.startsWith("eval-")));
+/** Наборы запросов — `server/src/eval/sets.ts`: explainer (12 сцен) и user (6 кейсов, информативно). */
+const SET = EXPLAINER_SET;
 /** Цель разброса прогонов судьи на сцену (quality-strategy). */
 const SPREAD_TARGET = 0.4;
 
@@ -81,6 +67,9 @@ const int = (name: string, d: number) => {
   return n;
 };
 const calibrate = flag("--calibrate");
+const setName: SetName = parseSetName(opt("--set"));
+if (calibrate && setName !== "explainer") throw new Error("--calibrate: только набор explainer (оценки дизайнера есть только у него)");
+const userSet = setName === "user";
 const judgeOnly = flag("--judge-only");
 const noJudge = flag("--no-judge");
 const rejudge = flag("--rejudge");
@@ -101,7 +90,7 @@ const allowDirty = flag("--allow-dirty");
 /** Дерево сейчас: незакоммиченные правки приложения и хэш kit (рендер хэширует kit живьём). */
 const treeNow = async (): Promise<TreeState> => ({ dirty: isDirty(), kit_hash: await motionKitHash() });
 const stamp = new Date().toISOString().slice(0, 16).replace(/[-:]/g, "").replace("T", "-");
-const runId = opt("--run") ?? `${calibrate ? "calib" : "eval"}-${stamp}-${sha}`;
+const runId = opt("--run") ?? `${calibrate ? "calib" : userSet ? "user" : "eval"}-${stamp}-${sha}`;
 const SAFE_ID = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
 if (!SAFE_ID.test(runId)) throw new Error(`--run: только латиница, цифры, _ . -: ${runId}`);
 const RUN_DIR = join(REPO, "tmp", "eval", runId);
@@ -138,13 +127,16 @@ interface Item {
   /** Имя запроса (для leave-one-scene-out). */
   scene: string;
   prompt: string;
+  /** Длина сцены набора (user — 60 с); нет — `defaultSettings()`. */
+  duration_frames?: number;
   ref?: number;
   split?: Split;
 }
-const items: Item[] = (calibrate
-  ? REFERENCE.filter((r) => split === "all" || r.split === split).map((r) => ({ id: r.id, scene: r.scene, prompt: SET[r.scene]!, ref: r.grade, split: r.split }))
-  : Object.entries(SET).map(([scene, prompt]) => ({ id: scene, scene, prompt }))
-).filter((it) => !only || only.includes(it.id) || only.includes(it.scene));
+const items: Item[] = calibrate
+  ? REFERENCE.filter((r) => split === "all" || r.split === split)
+    .map((r) => ({ id: r.id, scene: r.scene, prompt: SET[r.scene]!, ref: r.grade, split: r.split }))
+    .filter((it) => !only || only.includes(it.id) || only.includes(it.scene))
+  : setItems(setName, only);
 if (items.length === 0) throw new Error(`--only: нет таких сцен: ${only?.join(", ")}`);
 const dirOf = (it: { id: string }) => join(RUN_DIR, it.id);
 
@@ -154,13 +146,15 @@ const runFile = join(RUN_DIR, "run.json");
 const invocation = { at: new Date().toISOString(), commit, argv };
 if (!existsSync(runFile)) {
   writeJson(runFile, {
-    run: runId, mode: calibrate ? "calibrate" : "eval", created_commit: commit, judge_model: judgeModel, judge_runs: runs,
+    run: runId, mode: calibrate ? "calibrate" : "eval", set: setName, created_commit: commit, judge_model: judgeModel, judge_runs: runs,
     ...(calibrate ? { split } : {}),
-    items: items.map((i) => ({ id: i.id, scene: i.scene, prompt: i.prompt, ref: i.ref ?? null, split: i.split ?? null, held_out: HELD_OUT.has(i.scene) })),
+    items: items.map((i) => ({ id: i.id, scene: i.scene, prompt: i.prompt, ref: i.ref ?? null, split: i.split ?? null, held_out: HELD_OUT.has(i.scene), ...(i.duration_frames ? { duration_frames: i.duration_frames } : {}) })),
     invocations: [invocation],
   });
 } else {
-  const prev = readJson<{ invocations?: unknown[] }>(runFile);
+  // прогон одного набора: продолжать его другим набором нельзя (у прогонов до флага --set — explainer)
+  const prev = readJson<{ set?: string; invocations?: unknown[] }>(runFile);
+  if ((prev.set ?? "explainer") !== setName) throw new Error(`--run ${runId}: прогон набора ${prev.set ?? "explainer"}, а запрошен --set ${setName}`);
   writeJson(runFile, { ...prev, invocations: [...(prev.invocations ?? []), invocation] });
 }
 
@@ -250,6 +244,7 @@ async function generateMissing(todo: Item[]): Promise<void> {
       const old = existsSync(failedFile) ? readJson<GenInfo>(failedFile) : null;
       const prior = old ? [...(old.prior_attempts ?? []), { ...old, prior_attempts: undefined }] : [];
       const settings = defaultSettings();
+      if (it.duration_frames) settings.duration_frames = it.duration_frames;
       const t0 = Date.now();
       const treeStart = await treeNow();
       const provenance = {
@@ -469,9 +464,15 @@ function report(rows: Row[], judge: JudgeFingerprint | null): { md: string; summ
     motion_kit_versions: uniq(gens.map((g) => g.motion_kit_version)),
     prompts_sha256: promptSets.length === 1 && promptSets[0] !== "нет данных" ? JSON.parse(promptSets[0]!) : null,
     prompts_mixed: promptSets.length > 1,
+    set: setName,
     mean: judged.length ? mean(judged.map((r) => r.judge!.overall)) : null,
-    mean_tuned: judged.filter((r) => !r.held_out).length ? mean(judged.filter((r) => !r.held_out).map((r) => r.judge!.overall)) : null,
-    mean_held_out: judged.filter((r) => r.held_out).length ? mean(judged.filter((r) => r.held_out).map((r) => r.judge!.overall)) : null,
+    // у набора user нет деления на настроенные и отложенные: его среднее — отдельное и информативное
+    ...(userSet
+      ? { mean_user: judged.length ? mean(judged.map((r) => r.judge!.overall)) : null, informational: true }
+      : {
+          mean_tuned: judged.filter((r) => !r.held_out).length ? mean(judged.filter((r) => !r.held_out).map((r) => r.judge!.overall)) : null,
+          mean_held_out: judged.filter((r) => r.held_out).length ? mean(judged.filter((r) => r.held_out).map((r) => r.judge!.overall)) : null,
+        }),
     max_spread: judged.length ? Math.max(...judged.map((r) => r.judge!.spread)) : null,
     spread_over_target: spready,
     gen_cost_usd: genCost,
@@ -517,7 +518,10 @@ function report(rows: Row[], judge: JudgeFingerprint | null): { md: string; summ
     `Отчёт на \`${commit}\`, ${new Date().toISOString().slice(0, 10)}. Генерация: коммит ${(summary.gen_commits as string[]).map((c) => `\`${c}\``).join(", ")}, motion-kit ${(summary.motion_kit_versions as string[]).join(", ")}, промпты ${prompts ? `\`${Object.entries(prompts).map(([f, h]) => `${f}:${h.slice(0, 8)}`).join(" ")}\`` : summary.prompts_mixed ? "**разные у сцен**" : "нет данных"}.`,
     `Судья \`${judgeModel}\` × ${runs}, ${judge ? short(judge) : "нет оценок"}, коммит ${(summary.judge_commits as string[]).map((c) => `\`${c}\``).join(", ")}.`,
     "",
-    `Среднее: **${f1(summary.mean as number | null, 2)}** (настроенные ${f1(summary.mean_tuned as number | null, 2)}, отложенные ${f1(summary.mean_held_out as number | null, 2)}); макс. разброс прогонов ${f1(summary.max_spread as number | null)}${spready.length ? ` (цель ≤ ${SPREAD_TARGET}; выше у ${spready.join(", ")})` : ""}; генерация $${genCost.toFixed(2)}${(summary.gen_cost_failed_attempts_usd as number) > 0 ? ` (из них неудачные попытки $${(summary.gen_cost_failed_attempts_usd as number).toFixed(2)})` : ""}, судья $${(summary.judge_cost_usd as number).toFixed(2)}${(summary.judge_failed_calls as number) > 0 ? ` (неудачных вызовов ${summary.judge_failed_calls as number})` : ""}.`,
+    ...(userSet
+      ? ["Набор **user** (иллюстративная нарративная анимация, 60 с): оценка **информативная** — рубрика судьи написана под продуктовый explainer, не под этот жанр; в правило приёмки не входит.", ""]
+      : []),
+    `Среднее${userSet ? " набора user" : ""}: **${f1(summary.mean as number | null, 2)}**${userSet ? "" : ` (настроенные ${f1(summary.mean_tuned as number | null, 2)}, отложенные ${f1(summary.mean_held_out as number | null, 2)})`}; макс. разброс прогонов ${f1(summary.max_spread as number | null)}${spready.length ? ` (цель ≤ ${SPREAD_TARGET}; выше у ${spready.join(", ")})` : ""}; генерация $${genCost.toFixed(2)}${(summary.gen_cost_failed_attempts_usd as number) > 0 ? ` (из них неудачные попытки $${(summary.gen_cost_failed_attempts_usd as number).toFixed(2)})` : ""}, судья $${(summary.judge_cost_usd as number).toFixed(2)}${(summary.judge_failed_calls as number) > 0 ? ` (неудачных вызовов ${summary.judge_failed_calls as number})` : ""}.`,
     "",
   ];
   if (calLines.length) lines.push("Согласие с дизайнером:", "", ...calLines, "");
