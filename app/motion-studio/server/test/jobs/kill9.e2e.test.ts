@@ -14,7 +14,7 @@ import { type Core, bootCore } from "../../src/boot.js";
 import * as jobs from "../../src/db/repos/jobs.js";
 import type { KnowledgeAdapter } from "../../src/knowledge/adapter.js";
 import { makeStore, probe, removeStore, type TestStore } from "../db/helpers.js";
-import { ORPHAN_RENDER, killLeftovers, readPid, track, waitFor } from "./procs.js";
+import { ORPHAN_RENDER, killLeftovers, killStrays, readPid, track, waitFor } from "./procs.js";
 
 const APP = fileURLToPath(new URL("../../../", import.meta.url));
 const src = (rel: string) => JSON.stringify(pathToFileURL(fileURLToPath(new URL(`../../src/${rel}`, import.meta.url))).href);
@@ -27,13 +27,19 @@ const children: ChildProcess[] = [];
 beforeEach(async () => { s = await makeStore("ms-jobs-kill9-"); });
 afterEach(async () => {
   for (const c of children.splice(0)) if (c.exitCode === null && c.signalCode === null) c.kill("SIGKILL");
-  await core?.close();
-  core = undefined;
-  killLeftovers();
-  await removeStore(s);
+  try {
+    await core?.close();
+  } finally {
+    core = undefined;
+    killLeftovers();
+    // лидер фикстуры запускает дочерний сервер, track() его не знает: если тест упал до
+    // track(внук), без этого orphan-render.sh и внук живут после теста
+    killStrays(s.tmp);
+    await removeStore(s);
+  }
 });
 
-/** Дочерний сервер: bootCore, сцена, задача; печатает `ready <jobId> <leader>` после старта внука. */
+/** Дочерний сервер: bootCore, сцена, задача; печатает `ready <jobId>` после старта внука. */
 function startServer(pidFile: string): Promise<{ child: ChildProcess; jobId: string }> {
   const script = join(s.tmp, "server-child.mts");
   writeFileSync(

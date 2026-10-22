@@ -1,5 +1,5 @@
 // Настоящие процессы для тестов восстановления (Task 13): без моков kill и ps.
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,6 +32,30 @@ export function killLeftovers(): void {
     }
   }
   groups.clear();
+}
+
+/**
+ * Добивает (SIGKILL, вместе с группой) процессы, в командной строке которых есть `dir`:
+ * фикстуры, запущенные дочерним «сервером» мимо `track()`. Без этого упавший до `track()`
+ * тест оставлял `orphan-render.sh` и его внука жить вечно.
+ */
+export function killStrays(dir: string): void {
+  const ps = execFileSync("ps", ["-axo", "pid=,pgid=,command="], { encoding: "utf8" });
+  for (const line of ps.split("\n")) {
+    const m = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line);
+    if (!m || !m[3]!.includes(dir)) continue;
+    const pid = Number(m[1]);
+    const pgid = Number(m[2]);
+    if (pid === process.pid || pid <= 1) continue;
+    // группа — только своя у фикстуры (detached): лидер группы и есть этот процесс
+    for (const target of pgid === pid ? [-pgid, pid] : [pid]) {
+      try {
+        process.kill(target, "SIGKILL");
+      } catch {
+        // уже нет
+      }
+    }
+  }
 }
 
 export async function waitFor<T>(fn: () => T | undefined | Promise<T | undefined>, what: string, ms = 10_000): Promise<T> {
