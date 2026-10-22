@@ -4,15 +4,17 @@ import { type HoldMode, type MotionSpec, phasesOf } from "./motion-spec.js";
 
 /**
  * Режим финала: `hold_mode` фазы hold; нет — по носителю итога: схема с потоками
- * (`content.flows` у элемента graph) — `steady-flow`, график (chart) — `data-shimmer`,
- * остальное (схема без потоков, веха, число, вывод) — `now-pulse`.
+ * (`content.flows` у элемента graph) — `steady-flow`, линейный график (chart с
+ * `content.component` LineChart или без него) — `data-shimmer`, остальное (схема без потоков,
+ * столбцы, площадь, сравнение, веха, число, вывод) — `now-pulse` (через Emphasis у героя).
  */
 export function holdModeFor(spec: Pick<MotionSpec, "phases" | "beats" | "elements">): HoldMode {
   const own = spec.phases ? phasesOf(spec).find((p) => p.role === "hold")?.hold_mode : undefined;
   if (own) return own;
   const flows = spec.elements.some((e) => e.kind === "graph" && Array.isArray(e.content.flows) && e.content.flows.length > 0);
   if (flows) return "steady-flow";
-  if (spec.elements.some((e) => e.kind === "chart")) return "data-shimmer";
+  // блик по линии есть только у LineChart; график без `component` (старые spec) — линия
+  if (spec.elements.some((e) => e.kind === "chart" && (e.content.component === undefined || e.content.component === "LineChart"))) return "data-shimmer";
   return "now-pulse";
 }
 

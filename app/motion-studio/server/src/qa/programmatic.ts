@@ -1,10 +1,10 @@
 // Программные проверки по реальным кадрам, логам браузера и размеру превью (06 §6) —
 // без LLM: пустой кадр, застывшая анимация, обрезка, открытый край сцены, safe area,
 // контраст, сеть.
-import { type HoldMode, type MotionSpec, type QAIssue, type Settings, holdModeFor } from "@ms/contracts";
+import { type MotionSpec, type QAIssue, type Settings, holdModeFor, isHoldBeat } from "@ms/contracts";
 import { type Rect, type RenderResult, type ResolvedStyle, contrastRatio, safeRect } from "@ms/render";
 import { accentBeat, blankCheckFrom, inBeat, isEmphasisRole } from "../pipeline/qa-frames.js";
-import { layoutIssues, parseLayout } from "./layout.js";
+import { type LayoutFrame, layoutIssues, parseLayout } from "./layout.js";
 import { EDGES, type Edge, type Img, INK_THRESHOLD, backgroundEstimate, downsample, edgeBackground, edgeClip, loadPng, lumaStats, objectDelta } from "./image.js";
 
 export interface ProgrammaticInput {
@@ -85,33 +85,38 @@ const TILE_ROWS = 16;
 export const ACCENT_HOLD_GAP = 20;
 /**
  * Застывшая схема в удержании (motion-kit 0.4.0, motion-review-2 §4.3): у сцены со схемой
- * (элемент kind graph) объекты между N−20 и N−1 не меняются — процесс встал, а финал схемы
- * должен показывать работающую систему. Blocking.
+ * (элемент kind graph) финал должен показывать работающую систему. Blocking в двух случаях:
+ * - проба раскладки кадра N−1 знает, что финал не ведёт hold engine (`holds` пуст), а в spec
+ *   есть бит hold: «дышит только ореол узла» по пикселям не отличить от волны now-pulse
+ *   (S3-fix I3: negative `graph-none-emph` 0.0021 при now-pulse 0.0022 в objectDelta,
+ *   0.033 против 0.034 по тайлу), отличает то, что движение — режим kit;
+ * - самый живой тайл кадра между N−20 и N−1 меняется меньше max(ACCENT_TILE_ABS,
+ *   ACCENT_TILE_K × p95 тайлов фона) — схема стоит. Тайловая мера (как accent_static)
+ *   вместо глобальной objectDelta: та на светлом пресете не видит тонких волн и бликов
+ *   (now-pulse light 0.0006, data-shimmer light 0.0001 при пороге 0.0014), а тайл — видит
+ *   (0.041, 0.035 против контроля 0.0026). Калибровка — fixtures/hold-frames (галерея hold,
+ *   тёмный и светлый пресеты).
  */
-function holdFrozenIssues(spec: MotionSpec, [fa, a]: [number, Img], [fb, b]: [number, Img]): Issue[] {
+function holdFrozenIssues(spec: MotionSpec, settings: Settings, [fa, a]: [number, Img], [fb, b]: [number, Img], layout: LayoutFrame[]): Issue[] {
   if (!spec.elements.some((e) => e.kind === "graph")) return [];
   if (a.width !== b.width || a.height !== b.height) return [];
-  const d = objectDelta(a, b);
-  if (d >= holdFrozenBar(holdModeFor(spec))) return [];
+  const mode = holdModeFor(spec);
+  const fix_hint = `финал — \`hold={{ mode: "${mode}", beat: <бит hold> }}\` у FlowGraph (kit 0.5.x): steady-flow продолжает потоки, repeat-result — повтор к герою с подписью, now-pulse — волна от героя; дыхание ореола на одном узле не hold`;
+  const probe = layout.find((f) => f.frame === fb);
+  const holdBeat = spec.beats.some((x) => isHoldBeat(x) && inBeat(x, fb, spec.duration_frames));
+  if (holdBeat && probe && Array.isArray(probe.holds) && probe.holds.length === 0) {
+    return [{ code: "frozen", severity: "blocking", frame: fb, area: "hold", description: `финал схемы не на hold engine: в кадре ${fb} ни один компонент не ведёт удержание (${mode}) — движение, если есть, не режим финала`, fix_hint }];
+  }
+  const safe = safeRect({ width: a.width, height: a.height, safe_area: settings.safe_area });
+  const layouts = spec.elements.filter((e) => e.layout && e.kind !== "group" && e.layout.w * e.layout.h < 0.9).map((e) => ({ x: safe.x + e.layout!.x * safe.w, y: safe.y + e.layout!.y * safe.h, w: e.layout!.w * safe.w, h: e.layout!.h * safe.h }));
+  const t = accentTileStats(a, b, [{ x: 0, y: 0, w: a.width, h: a.height }], layouts);
+  const bar = Math.max(ACCENT_TILE_ABS, ACCENT_TILE_K * t.baseline);
+  if (t.accent >= bar) return [];
   return [{
     code: "frozen", severity: "blocking", frame: fb, area: "hold",
-    description: `схема застыла в удержании: кадры ${fa} и ${fb} не отличаются (изменение объектов ${d.toFixed(4)} < ${holdFrozenBar(holdModeFor(spec))})`,
-    fix_hint: "финал — `hold={{ mode: <hold_mode фазы hold>, beat: <бит hold> }}` у FlowGraph (kit 0.5.0): steady-flow продолжает потоки, repeat-result — повтор к герою с подписью, now-pulse — волна от героя; дыхание ореола на одном узле не hold",
+    description: `схема застыла в удержании: самый живой тайл между кадрами ${fa} и ${fb} меняется на |ΔY'| ${t.accent.toFixed(4)} — ниже планки ${bar.toFixed(4)}`,
+    fix_hint,
   }];
-}
-
-/**
- * Режимы удержания kit 0.5.0, где живёт один герой, а не вся схема (волна радара, блик по
- * рёбрам, наезд): у них порог «застыла» ниже — FROZEN_LOCAL_DELTA. Калибровка — реальные
- * финалы галереи (fixtures/hold-frames, 640×360): схема без hold 0.00084, now-pulse 0.0020,
- * data-shimmer 0.0022, потоки (steady-flow, repeat-result) ≥ 0.0038.
- */
-export const FROZEN_LOCAL_DELTA = 0.0014;
-const LOCAL_HOLD: ReadonlySet<HoldMode> = new Set(["now-pulse", "data-shimmer", "settle-push"]);
-
-/** Порог «схема застыла» для режима удержания (`holdModeFor`: у старой spec — по носителю). */
-export function holdFrozenBar(mode: HoldMode): number {
-  return LOCAL_HOLD.has(mode) ? FROZEN_LOCAL_DELTA : FROZEN_DELTA;
 }
 
 /** Кадр-постер: кадры 0 и 4 почти пусты (posterInk < POSTER_INK) — warning по самому пустому. */
@@ -194,7 +199,7 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
     const [a, b] = [...input.accentFrames].sort((x, y) => x.frame - y.frame) as [{ frame: number; path: string }, { frame: number; path: string }];
     const [ia, ib] = [await loadPng(a.path), await loadPng(b.path)];
     out.push(...accentAliveIssues(input.spec, input.settings, [a.frame, ia], [b.frame, ib]));
-    out.push(...holdFrozenIssues(input.spec, [a.frame, ia], [b.frame, ib]));
+    out.push(...holdFrozenIssues(input.spec, input.settings, [a.frame, ia], [b.frame, ib], parseLayout(input.render.browserLogs)));
   }
   if (input.posterFrames && input.posterFrames.length > 0 && !input.style.transparent && !input.settings.transparent_export) {
     out.push(...(await posterIssues(input.posterFrames)));

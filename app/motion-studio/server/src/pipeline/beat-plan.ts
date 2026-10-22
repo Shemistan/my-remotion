@@ -279,13 +279,35 @@ export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Se
       // вспышка прихода, которую импульс не успел погасить до удара (тесная сцена): акценты
       // начинаются после неё — второстепенные делят время до главного, главный (текст вывода
       // читается от него) — на прежнем месте, если вспышка гаснет раньше
-      const tail = Math.max(0, ...out.filter((x) => flashing.has(x.id) && x.end_frame - 1 < w.end_frame).map((x) => x.end_frame + flashFrames(fps) - (CONFLICT_MIN_FRAMES - 1) - w.start_frame).filter((t) => t < L));
+      // Хвост — только от импульсов, чей срез к удару не удался (вспышка всё ещё ложится на
+      // акцент другого объекта); ждут его только акценты других объектов: акцент узла, который
+      // вспыхивает, принимает вспышку на своём месте (s3afix2-rereview I1)
+      const tail = Math.max(0, ...out.filter((x) => flashing.has(x.id) && x.end_frame > flashCap && flashHits(x.end_frame) && x.end_frame - 1 < w.end_frame).map((x) => x.end_frame + flashFrames(fps) - (CONFLICT_MIN_FRAMES - 1) - w.start_frame).filter((t) => t < L));
       const lead = slots.find((s) => s.primary);
       if (lead && tail > 0) {
-        const sec = slots.filter((s) => s.until !== undefined);
-        const at = Math.max(lead.at, tail);
-        const win = sec.length > 0 ? Math.max(1, Math.floor((at - tail) / sec.length)) : 0;
-        slots = [...slots.filter((s) => !isAccentBeat(s.b)), ...sec.map((s, k) => ({ ...s, at: tail + k * win, until: tail + (k + 1) * win })), { ...lead, at }];
+        const movable = (s: PayoffSlot) => isAccentBeat(s.b) && !onFlash(s.b);
+        const sec = slots.filter((s) => s.until !== undefined && movable(s));
+        let at = movable(lead) ? Math.max(lead.at, tail) : lead.at;
+        let win = sec.length > 0 ? Math.floor((at - tail) / sec.length) : 0;
+        let merged = false;
+        if (sec.length > 0 && win < tok.step) {
+          // тесный payoff (s3afix2-rereview m1): второстепенным меньше шага — строб. Главный
+          // сдвигается на `хвост + n·шаг`, если влезает с входом и чтением; иначе второстепенные
+          // без своего окна — входят вместе с главным (предупреждение Director)
+          const at2 = tail + sec.length * tok.step;
+          const readOk = !hasText(lead.b) || w.start_frame + at2 + plan.reading <= D;
+          if (movable(lead) && at2 + tok.enter <= L && readOk) {
+            at = at2;
+            win = tok.step;
+          } else merged = true;
+        }
+        const moved = new Set(sec);
+        slots = [
+          ...slots.filter((s) => s !== lead && !moved.has(s)),
+          ...sec.map((s, k) => (merged ? { ...s, at, until: undefined } : { ...s, at: tail + k * win, until: tail + (k + 1) * win })),
+          { ...lead, at },
+        ];
+        if (merged) warnings.push(`payoff ${p.id} тесный: второстепенные акценты (${sec.map((s) => s.b.id).join(", ")}) слиты с главным ${lead.b.id} — дай payoff больше веса или убери лишние акценты`);
       }
       for (const s of slots) {
         const at = Math.min(s.at, Math.max(0, L - 1));
@@ -315,6 +337,15 @@ export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Se
       });
     }
   }
+  // бит графа в setup короче прорисовки рёбер (span: "slot" Director или тесная сцена) —
+  // рёбра не успеют, kit_misuse вернётся: предупреждение в журнал и раунд (s3afix2-rereview m3)
+  for (const p of phases.filter((x) => graphMin(x) > 0)) {
+    for (const b of out.filter((x) => x.phase === p.id && x.element_ids.some((id) => byId.get(id)?.kind === "graph"))) {
+      const n = Math.max(0, ...b.element_ids.map((id) => (byId.get(id)?.kind === "graph" ? graphNodes(byId.get(id)!) : 0)));
+      const need = n > 0 ? graphSetupMin(style, n) : 0;
+      if (b.end_frame - b.start_frame < need) warnings.push(`бит ${b.id} (граф, ${n} узлов): окно ${b.end_frame - b.start_frame} кадров короче прорисовки рёбер (${need}) — span: "phase" или больше веса фазе ${p.id}`);
+    }
+  }
   // cold-open: итог виден с кадра 0, затем уступает объяснению; возвращается в своей фазе
   for (const o of plan.beats.filter((x) => x.kind === "open")) {
     const p = phases.find((x) => x.id === o.phase)!;
@@ -332,7 +363,14 @@ export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Se
     else out.push(poster);
   }
   out.sort(byTime);
-  const planned = { ...spec, beats: out };
+  // settle-push — наезд камеры: у пресета без zoom (light-clean) он молча стоит — финал
+  // живёт волной от героя (s3b-review m7)
+  let planPhasesOut = spec.phases;
+  if (!style.camera.allow_zoom && phases.some((p) => p.hold_mode === "settle-push")) {
+    planPhasesOut = phases.map((p) => (p.hold_mode === "settle-push" ? { ...p, hold_mode: "now-pulse" as const } : p));
+    warnings.push(`hold_mode settle-push → now-pulse: пресет ${spec.style_preset} без наезда камеры`);
+  }
+  const planned = { ...spec, phases: planPhasesOut, beats: out };
   const parsed = MotionSpecSchema.safeParse(planned);
   if (!parsed.success) return { ok: false, reason: "schema", message: `план битов: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}` };
   const windows = plan.beats.filter((b) => b.kind === "main").map((b) => `${b.phase} ${b.start_frame}–${b.end_frame}`).join(", ");

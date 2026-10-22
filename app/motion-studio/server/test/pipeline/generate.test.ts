@@ -3,7 +3,9 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { type MotionSpec } from "@ms/contracts";
 import { StorageError, type StorageStatus } from "@ms/core";
+import { graphSetupMin, resolveStyle } from "@ms/render";
 import { canSpend } from "../../src/pipeline/budget.js";
 import { generateScene } from "../../src/pipeline/generate.js";
 import { readVersion, sweepAbandonedDrafts } from "../../src/scenes/store.js";
@@ -241,6 +243,43 @@ describe("generateScene: проверка spec после Director (Task 17)", (
     const legacy = fakeAgents({});
     await generateScene("тест", s, await makeDeps(root, skills, { agents: legacy }));
     expect(legacy.engineerCalls[0]!.input).toContain("финал: hold_mode data-shimmer, бит hold `b4`");
+  });
+
+  it("пресет настроек — до плана битов: минимум setup графа по токенам того пресета, что пойдёт в рендер (s3afix2-rereview m2)", async () => {
+    const withGraph = () => {
+      const o = phasedOut("now-pulse");
+      const nodes = ["a", "b", "c", "d", "e", "f"];
+      o.spec.elements = [...o.spec.elements, { id: "graph", kind: "graph", role: "схема", entrance: "draw", content: { edges: nodes.slice(1).map((n, i) => ({ id: `e${i}`, from: nodes[i], to: n })) } }];
+      o.spec.phases = o.spec.phases!.map((p) => (p.id === "p-setup" ? { ...p, element_ids: ["title", "graph"] } : p));
+      o.spec.beats = [...o.spec.beats, { id: "b-graph", phase: "p-setup", action: "graph-build", description: "", element_ids: ["graph"] }] as typeof o.spec.beats;
+      // Director выбрал пресет с короткими входами — в настройках dark-premium
+      o.spec.style_preset = "tech-neon";
+      return o;
+    };
+    const agents = fakeAgents({ director: async () => ({ output: withGraph() }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r.status).toBe("ready");
+    const spec = JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8")) as MotionSpec;
+    expect(spec.style_preset).toBe(s.style_preset);
+    const style = resolveStyle({ preset: s.style_preset, intensity: s.animation_intensity, fps: spec.fps });
+    const g = spec.beats.find((b) => b.id === "b-graph")!;
+    expect(g.end_frame - g.start_frame).toBeGreaterThanOrEqual(graphSetupMin(style, 6));
+    expect(r.warnings.filter((w) => w.includes("Director выбрал пресет tech-neon"))).toHaveLength(1);
+  });
+
+  it("settle-push у пресета без наезда (light-clean) → now-pulse с предупреждением (s3b-review m7)", async () => {
+    const light = { ...s, style_preset: "light-clean" as const };
+    const out = () => {
+      const o = phasedOut("now-pulse");
+      o.spec.phases = o.spec.phases!.map((p) => (p.role === "hold" ? { ...p, hold_mode: "settle-push" as const } : p));
+      o.spec.style_preset = "light-clean";
+      return o;
+    };
+    const agents = fakeAgents({ director: async () => ({ output: out() }) });
+    const r = await generateScene("тест", light, await makeDeps(root, skills, { agents }));
+    expect(r.status).toBe("ready");
+    expect(agents.engineerCalls[0]!.input).toContain("финал: hold_mode now-pulse");
+    expect(r.warnings.join("\n")).toContain("settle-push");
   });
 
   it("не исправил со второго раза → failed/director, draft не создан", async () => {

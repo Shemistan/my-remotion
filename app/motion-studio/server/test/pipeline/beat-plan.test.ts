@@ -347,6 +347,15 @@ describe("planSpecBeats: S3a-fix", () => {
     }
   });
 
+  it("бит графа с span: slot короче прорисовки рёбер — предупреждение (s3afix2-rereview m3)", () => {
+    const d = phasedSpec("build-strike");
+    d.beats = d.beats.map((b) => (b.id === "b-edges" ? { ...b, span: "slot" as const } : b));
+    const r = ok(planSpecBeats(d, settings));
+    expect(r.warnings.join("\n")).toMatch(/b-edges \(граф, 2 узлов\): окно \d+ кадров короче прорисовки рёбер/);
+    // по умолчанию (бит графа на всё окно setup) — без предупреждения
+    expect(ok(planSpecBeats(phasedSpec("build-strike"), settings)).warnings.join("\n")).not.toContain("прорисовки рёбер");
+  });
+
   it("сбой плана: проверки фаз — без общего хвоста; схема — с подсказкой про фазы битов (s3afix-rereview m4)", () => {
     const noMode = phasedSpec();
     noMode.phases = noMode.phases!.map((p) => (p.role === "hold" ? { id: p.id, role: p.role, weight: p.weight, element_ids: p.element_ids } : p));
@@ -386,7 +395,12 @@ describe("planSpecBeats: S3a-fix", () => {
       [{ action: "final-emphasis", el: "cache" }, { action: "verdict-emphasis", el: "verdict" }],
       [{ action: "glow", el: "client" }, { action: "bars-in", el: "graph" }, { action: "note-in", el: "hits" }, { action: "verdict-in", el: "verdict" }],
       [{ action: "a-accent", el: "client" }, { action: "b-accent", el: "cache" }, { action: "c-accent", el: "graph" }, { action: "verdict-emphasis", el: "verdict" }],
+      // акцент на узле, который вспыхивает (flash_on): главный и второстепенный (s3afix2-rereview I1)
+      [{ action: "cache-emphasis", el: "cache" }, { action: "verdict-in", el: "verdict" }],
+      [{ action: "cache-emphasis", el: "cache" }, { action: "graph-accent", el: "graph" }],
     ];
+    /** У форм 5–6 кэш — цель акцента (роль акцента): главный акцент на вспыхивающем узле. */
+    const cacheAccent = new Set([5]);
     for (const structure of STRUCTS) {
       for (const [pi, pay] of payoffs.entries()) {
         for (const [duration, fps] of [[180, 30], [150, 30], [360, 60], [240, 30]] as const) {
@@ -395,7 +409,7 @@ describe("planSpecBeats: S3a-fix", () => {
             d.duration_frames = duration;
             d.fps = { num: fps, den: 1 };
             // приход потока вспыхивает на узле (s3afix-rereview I1): вспышка не спорит с ударом
-            d.elements = d.elements.map((e) => (e.id === "cache" ? { ...e, content: { ...e.content, flash_on: "b-flow" } } : e));
+            d.elements = d.elements.map((e) => (e.id === "cache" ? { ...e, ...(cacheAccent.has(pi) ? { role: "акцент: кэш" } : {}), content: { ...e.content, flash_on: "b-flow" } } : e));
             d.phases = d.phases!.map((p, i) => ({ ...p, weight: w[i]!, ...(p.role === "payoff" ? { element_ids: [...new Set(pay.map((x) => x.el))] } : {}) }));
             d.beats = [...d.beats.filter((b) => b.phase !== "p-pay"), ...pay.map((x, k) => ({ id: `b-pay${k}`, phase: "p-pay", action: x.action, description: "", element_ids: [x.el] }))];
             cases.push({ d, label: `${structure} p${pi} ${duration}/${fps} ${w.join("/")}` });
@@ -425,6 +439,11 @@ describe("planSpecBeats: S3a-fix", () => {
           const enter = phaseTokens(d.fps.num, intensity).enter;
           for (const b of r.spec.beats.filter((x) => x.phase === "p-pay" && isAccentBeat(x) && x.end_frame === pay.end_frame)) {
             expect(b.end_frame - b.start_frame, `${label} ${intensity} ${b.id}`).toBeGreaterThanOrEqual(enter);
+          }
+          // любой акцент payoff — не короче шага удара (не строб в 1 кадр; s3afix2-rereview I1, m1)
+          const step = phaseTokens(d.fps.num, intensity).step;
+          for (const b of r.spec.beats.filter((x) => x.phase === "p-pay" && isAccentBeat(x))) {
+            expect(b.end_frame - b.start_frame, `${label} ${intensity} ${b.id}`).toBeGreaterThanOrEqual(step);
           }
         }
       }

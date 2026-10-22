@@ -24,4 +24,8 @@ describe("holdModeFor", () => {
     expect(holdModeFor(withEl("number"))).toBe("now-pulse");
     expect(holdModeExplicit(withEl("chart"))).toBe(false);
   });
+  it("график без линии (BarChart, AreaChart, ComparisonSplit) — now-pulse: блик data-shimmer есть только у LineChart (s3b-review m6)", () => {
+    expect(holdModeFor(withEl("chart", { component: "LineChart" }))).toBe("data-shimmer");
+    for (const component of ["BarChart", "AreaChart", "ComparisonSplit"]) expect(holdModeFor(withEl("chart", { component }))).toBe("now-pulse");
+  });
 });

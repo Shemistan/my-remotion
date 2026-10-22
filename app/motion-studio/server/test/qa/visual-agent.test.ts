@@ -72,6 +72,8 @@ describe("runVisualQA", () => {
     expect(readFileSync(join(t.workdir, "frames", "15.png")).equals(readFileSync(join(draft, "frames", "15.png")))).toBe(true);
     for (const id of ["title", "line-pulse"]) expect(seen.checklist).toContain(`\`${id}\``);
     expect(seen.checklist).toContain("frames/72.png");
+    // режим финала назван и у старой spec без hold_mode (по носителю, s3b-review m6)
+    expect(seen.checklist).toContain("финал: hold_mode now-pulse (по носителю итога)");
     expect(String(t.input)).toContain("checklist.md");
     // draft не тронут
     expect(readdirSync(join(draft, "frames")).sort()).toEqual(["15.png", "72.png", "99.png"]);

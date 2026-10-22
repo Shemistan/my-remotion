@@ -4,7 +4,7 @@
 // не попали в опубликованную версию.
 import { copyFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { type MotionSpec, type VisualQAOutput, VisualQAOutputSchema } from "@ms/contracts";
+import { type MotionSpec, type VisualQAOutput, VisualQAOutputSchema, holdModeExplicit, holdModeFor } from "@ms/contracts";
 import { safeMkdir } from "@ms/core";
 import type { ResolvedStyle } from "@ms/render";
 import type { AgentResult, AgentRuntimeAdapter, AgentTask } from "../agents/runtime.js";
@@ -85,6 +85,7 @@ export function qaChecklist(frames: number[], spec: MotionSpec, style?: MotionTo
     ...(spec.camera && spec.camera.length > 0
       ? [`- камера (\`brief.json\` → \`camera\`): ключи ${spec.camera.map((k) => `${k.frame}: ×${k.scale}`).join(", ")} — общий масштаб и сдвиг кадра по ним не скачок раскладки;`]
       : []),
+    `- финал: hold_mode ${holdModeFor(spec)} (${holdModeExplicit(spec) ? "фаза hold spec" : "по носителю итога"}) — движение этого режима в удержании не дефект;`,
     "- каждое число и подпись на кадре — в `ocr` этого кадра дословно.",
     "",
   ].join("\n");

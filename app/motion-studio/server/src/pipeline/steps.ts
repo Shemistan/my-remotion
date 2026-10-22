@@ -641,8 +641,11 @@ export async function directorStep(
     const chosen = withConceptStructure(r.output, i.concept);
     const director = chosen.director;
     if (chosen.warning) rc.note("director", chosen.warning);
-    // кадры битов — из фаз и структуры (planBeats), не расчёт Director
-    const planned = planSpecBeats({ ...director.spec, composition: director.composition }, s);
+    // кадры битов — из фаз и структуры (planBeats), не расчёт Director; пресет — из настроек
+    // уже здесь: минимум setup графа (прорисовка рёбер) считается по токенам того пресета, что
+    // пойдёт в рендер (s3afix2-rereview m2)
+    const presetSwap = director.spec.style_preset !== s.style_preset ? director.spec.style_preset : undefined;
+    const planned = planSpecBeats({ ...director.spec, composition: director.composition, style_preset: s.style_preset }, s);
     if (!planned.ok) {
       rc.note("director", `план битов не построен (раунд ${round}): ${planned.message}`);
       if (round === 2) return { ok: false, stage: "director", message: planned.message };
@@ -660,10 +663,7 @@ export async function directorStep(
     if (spec.fps.num * s.fps.den !== s.fps.num * spec.fps.den) {
       return { ok: false, stage: "director", message: `spec.fps ${spec.fps.num}/${spec.fps.den} ≠ настройкам ${s.fps.num}/${s.fps.den}` };
     }
-    if (spec.style_preset !== s.style_preset) {
-      rc.warnings.push(`Director выбрал пресет ${spec.style_preset}, в настройках ${s.style_preset}: оставлен пресет настроек`);
-      spec.style_preset = s.style_preset;
-    }
+    if (presetSwap) rc.warnings.push(`Director выбрал пресет ${presetSwap}, в настройках ${s.style_preset}: оставлен пресет настроек`);
     const concept = conceptStructure(i.concept)?.value;
     const checks = specChecks(spec, s, { previous, ...(concept ? { concept } : {}) });
     const blocking = checks.filter((x) => x.severity === "blocking");

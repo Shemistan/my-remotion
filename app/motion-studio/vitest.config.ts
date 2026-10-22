@@ -13,7 +13,7 @@ const UNIT_TIMEOUT = 10_000;
 // Тяжёлые юнит-файлы с реальным ядром и конвейером идут 2–3 с без нагрузки, под
 // параллельными рендерами — вдвое-втрое дольше: запас против ложных таймаутов ./check.
 const HEAVY: Record<string, string[]> = {
-  server: ["test/cli/generate-boot.test.ts", "test/pipeline/playground-generate.test.ts", "test/qa/real-frames.test.ts"],
+  server: ["test/cli/generate-boot.test.ts", "test/pipeline/playground-generate.test.ts", "test/qa/real-frames.test.ts", "test/qa/hold-frames.test.ts"],
 };
 const HEAVY_TIMEOUT = 30_000;
 

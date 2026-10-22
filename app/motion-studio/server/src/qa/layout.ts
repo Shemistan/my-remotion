@@ -28,6 +28,8 @@ export interface LayoutFrame {
   height: number;
   items: LayoutItem[];
   ghosts: { text: string; count: number }[];
+  /** Режимы, которые в кадре ведёт hold engine (kit 0.5.2); нет поля — старая проба. */
+  holds?: string[];
 }
 
 const TAG = "[motion-kit:layout]";
