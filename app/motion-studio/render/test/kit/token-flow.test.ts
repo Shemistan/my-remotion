@@ -1,7 +1,7 @@
 // 0.4.0: токен едет по ребру и встаёт перед портом, текст в кадре один (без «призраков»),
 // поглощается узлом или ложится в полосу; зоны узла (подпись, полоса, статус) не пересекаются.
 import { describe, expect, it } from "vitest";
-import { type TokenMode, captionPoint, captionShot, slotFit, tokenBox, tokenLateIssue, tokenMode, tokenShot, tokenSpan, tokenStop } from "../../src/motion-kit/components/DataToken.js";
+import { type TokenMode, captionPoint, captionShot, handoffAt, slotFit, tokenBox, tokenLateIssue, tokenMode, tokenShot, tokenSpan, tokenStop } from "../../src/motion-kit/components/DataToken.js";
 import { cacheFill, flowTiming } from "../../src/motion-kit/components/FlowGraph.js";
 import { FLOW_KINDS, type FlowBox, TokenBook, edgePath, flowLabelZone, flowSlot, flowStatusSlot, nextSameLabel, queueCellCenter, queueCellIssue, queueCells, slotBusyIssue, usedSides } from "../../src/motion-kit/components/flow-layout.js";
 import type { Rect } from "../../src/motion-kit/choreo/safe-area.js";
@@ -272,6 +272,19 @@ describe("S2-fix I5: ярлык токена виден в каждом режи
         }
       }
     }
+  });
+  it("S2-fix2 eval: передача — токен в полосе с until уходит к старту следующего с той же меткой (нет полупрозрачного двойника)", () => {
+    // held-queue: #4821 лежит в ячейке до until = 80, со склада тот же #4821 летит с кадра 80
+    for (let f = 0; f < 140; f++) {
+      const inSlot = tokenShot(f, 20, 20, st, { mode: "slot", until: 80, handoff: 80 }).opacity;
+      const out = tokenShot(f, 80, 20, st, { mode: "consume" }).opacity;
+      expect(Math.min(inSlot, out), `кадр ${f}`).toBeLessThanOrEqual(0.02);
+    }
+    // без передачи — прежний уход за 10 кадров после until
+    expect(tokenShot(85, 20, 20, st, { mode: "slot", until: 80 }).opacity).toBeGreaterThan(0.3);
+    expect(handoffAt(80, 80, st)).toBe(80);
+    expect(handoffAt(80, 120, st)).toBeUndefined(); // следующий далеко — не передача
+    expect(handoffAt(undefined, 80, st)).toBeUndefined();
   });
   it("S2-fix2 N1: книга токенов — ближайший старт другого токена с той же меткой", () => {
     const book = new TokenBook();

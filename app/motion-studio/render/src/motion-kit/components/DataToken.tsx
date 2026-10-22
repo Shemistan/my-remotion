@@ -262,12 +262,14 @@ export interface TokenShot {
  * режиму. Карточка в любом кадре одна: в полёте — на пути, при записи — сначала вдавливается
  * в порт и гаснет, потом проявляется в полосе (не две копии текста одновременно).
  */
-export function tokenShot(frame: number, start: number, travel: number, s: StyleBible, o: { mode: TokenMode; until?: number }): TokenShot {
+export function tokenShot(frame: number, start: number, travel: number, s: StyleBible, o: { mode: TokenMode; until?: number; handoff?: number }): TokenShot {
   const none: TokenShot = { visible: false, at: "path", progress: 0, dock: 0, absorb: 0, write: 0, scale: 1, opacity: 0, pop: 0, tail: null };
   const t = frame - start;
   if (t < 0) return none;
   const pass = Math.max(1, travel);
-  const leave = o.until === undefined ? 0 : ramp(frame, o.until, o.until + frames(s, 10));
+  // передача (`handoff`): токен уходит к старту следующего с той же меткой, а не за 10 кадров
+  // после until — иначе в ячейке висит полупрозрачный двойник уже улетевшего сообщения
+  const leave = o.handoff !== undefined ? ramp(frame, o.handoff - frames(s, 3), o.handoff) : o.until === undefined ? 0 : ramp(frame, o.until, o.until + frames(s, 10));
   const appear = clamp01(t / frames(s, 4));
   if (t < pass) {
     const ph = clamp01(t / pass);
@@ -296,6 +298,17 @@ export function tokenShot(frame: number, start: number, travel: number, s: Style
   shot.opacity *= 1 - leave;
   shot.visible = shot.opacity > 0.001;
   return shot;
+}
+
+/**
+ * Передача (чистая функция, S2-fix2 eval): токен с `until`, а следующий токен с той же меткой
+ * стартует рядом с until (−6…+10 кадров) — это тот же объект уезжает дальше (сообщение забрали
+ * из очереди). Кадр старта следующего или undefined. Копия данных (ответ из кэша) — без until,
+ * она остаётся.
+ */
+export function handoffAt(until: number | undefined, next: number | undefined, s: StyleBible): number | undefined {
+  if (until === undefined || next === undefined) return undefined;
+  return next >= until - frames(s, 6) && next <= until + frames(s, 10) ? next : undefined;
 }
 
 /**
@@ -389,7 +402,8 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
   const busy = book ? slotBusyIssue(book, bookId, leaveLen) : null;
   if (busy) kitError(`busy:${edgeId}:${label}`, busy);
   const next = book ? nextSameLabel(book, bookId) : undefined;
-  const tk = tokenShot(frame, start, pass, s, { mode, until });
+  const handoff = handoffAt(until, next, s);
+  const tk = tokenShot(frame, start, pass, s, { mode, until, ...(handoff !== undefined ? { handoff } : {}) });
   // в полосу узла: кегль под её ширину на всём пути (одна карточка не меняет размер на приходе)
   const fitted = mode === "slot" && slotW !== undefined ? slotFit(label, sizePx(s, size, height), slotW, height) : null;
   if (fitted?.issue) kitError(`fit:${edgeId}:${label}`, fitted.issue);
@@ -417,9 +431,8 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
   // вдавливание: карточка смещается к порту и сжимается
   if (tk.absorb > 0 && tk.at === "path") head = { x: head.x + (portPt.x - head.x) * tk.absorb * 0.6, y: head.y + (portPt.y - head.y) * tk.absorb * 0.6 };
   if (tk.at === "dock" && rest) head = rest;
-  // запись в полосу: проявление со стороны входа (шторка по ширине)
-  const fromLeft = portPt.x >= at(0.9).x;
-  const clip = tk.at === "dock" && tk.write < 1 ? (fromLeft ? `inset(0 ${((1 - tk.write) * 100).toFixed(2)}% 0 0)` : `inset(0 0 0 ${((1 - tk.write) * 100).toFixed(2)}%)`) : undefined;
+  // запись в полосу — прозрачностью и масштабом (tokenShot), без шторки: срезанная маской
+  // метка читалась обрезкой («rofile:42», судья s2fix2)
   const fit = tk.at === "dock" && slotW !== undefined ? slotW : undefined;
 
   let streak: CSSProperties | null = null;
@@ -500,7 +513,6 @@ export function DataToken({ label, edgeId, segments, beat, travel, reverse = fal
           maxWidth: fit,
           width: compact && tk.at === "path" ? box.w : undefined,
           height: compact && tk.at === "path" ? box.h : undefined,
-          clipPath: clip,
           borderRadius: look.radius,
           // объект: нейтральная поверхность, кромка цветом данных, тень «лежит на карточке»
           background: surfaceAt(s, 3),
