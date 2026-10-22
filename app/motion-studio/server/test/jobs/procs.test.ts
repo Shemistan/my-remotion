@@ -23,6 +23,26 @@ it("killStrays добивает неотслеженную фикстуру: л�
   await waitFor(async () => ((await procInfo(leader)) || (await procInfo(grandchild)) ? undefined : true), "смерть фикстуры", 5_000);
 });
 
+it("killStrays: каталог — абсолютный и не короче 16 знаков, иначе ошибка (не бьёт по всем процессам)", () => {
+  expect(() => killStrays("")).toThrow();
+  expect(() => killStrays("/tmp")).toThrow();
+  expect(() => killStrays("relative/dir/with/long/name")).toThrow();
+});
+
+it("killStrays: совпадение по границе пути — соседний каталог с тем же префиксом не задет", async () => {
+  // путь соседа — $0 оболочки: виден в командной строке ps (`sleep` с лишним аргументом сразу выходит)
+  const child = spawn("/bin/sh", ["-c", "sleep 30; :", `${tmp}-sibling/x`], { detached: true, stdio: "ignore" });
+  child.unref();
+  try {
+    await waitFor(async () => ((await procInfo(child.pid!)) ? true : undefined), "запуск соседа");
+    killStrays(tmp);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(await procInfo(child.pid!)).toBeDefined();
+  } finally {
+    process.kill(-child.pid!, "SIGKILL");
+  }
+});
+
 it("killStrays не трогает процессы вне каталога", async () => {
   const child = spawn("/bin/sleep", ["30"], { detached: true, stdio: "ignore" });
   child.unref();

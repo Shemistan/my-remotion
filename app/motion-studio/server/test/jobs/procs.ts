@@ -1,7 +1,7 @@
 // Настоящие процессы для тестов восстановления (Task 13): без моков kill и ps.
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type ProcessRegistry, type TrackedProcess, procInfo } from "@ms/core";
 
@@ -38,12 +38,18 @@ export function killLeftovers(): void {
  * Добивает (SIGKILL, вместе с группой) процессы, в командной строке которых есть `dir`:
  * фикстуры, запущенные дочерним «сервером» мимо `track()`. Без этого упавший до `track()`
  * тест оставлял `orphan-render.sh` и его внука жить вечно.
+ * `dir` — абсолютный каталог теста (не короче 16 знаков); совпадение — по границе пути
+ * (`dir/…`, `dir` в конце аргумента), чтобы пустая или короткая строка не задела все процессы.
  */
 export function killStrays(dir: string): void {
+  const base = dir.replace(/\/+$/, "");
+  if (!isAbsolute(base) || base.length < 16) throw new Error(`killStrays: недопустимый каталог «${dir}»`);
+  const esc = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const hit = new RegExp(`${esc}(?:/|\\s|$)`);
   const ps = execFileSync("ps", ["-axo", "pid=,pgid=,command="], { encoding: "utf8" });
   for (const line of ps.split("\n")) {
     const m = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line);
-    if (!m || !m[3]!.includes(dir)) continue;
+    if (!m || !hit.test(m[3]!)) continue;
     const pid = Number(m[1]);
     const pgid = Number(m[2]);
     if (pid === process.pid || pid <= 1) continue;

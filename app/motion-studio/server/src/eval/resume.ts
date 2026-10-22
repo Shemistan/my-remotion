@@ -6,8 +6,11 @@ const TRANSIENT = /ECONNRESET|ECONNREFUSED|ETIMEDOUT|EPIPE|EAI_AGAIN|Connection 
 /**
  * Сцена упала на сбое среды (обрыв соединения с API): её превью — недоделанная версия, судить
  * его нечестно, продолжение прогона генерирует сцену заново. Провал QA или таймаут — результат.
+ * Стадия QA — всегда результат: текст её проблемы может цитировать лог сцены с сетевым словом.
  */
 export function isTransientFailure(failure: unknown): boolean {
-  const message = (failure as { message?: unknown } | null | undefined)?.message;
+  const f = failure as { message?: unknown; stage?: unknown } | null | undefined;
+  if (f?.stage === "qa") return false;
+  const message = f?.message;
   return typeof message === "string" && TRANSIENT.test(message);
 }

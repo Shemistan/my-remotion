@@ -15,6 +15,10 @@ describe("isTransientFailure", () => {
     expect(isTransientFailure({ stage: "engineer", message: "вызов Engineer завершился timeout (timeout): таймаут 600000 мс" })).toBe(false);
   });
 
+  it("QA с сетевым словом в тексте проблемы (цитата лога) — всё равно результат", () => {
+    expect(isTransientFailure({ stage: "qa", message: "QA: blocking: console_error: fetch failed: ETIMEDOUT в логе сцены" })).toBe(false);
+  });
+
   it("без описания сбоя — не сбой среды", () => {
     expect(isTransientFailure(undefined)).toBe(false);
     expect(isTransientFailure(null)).toBe(false);

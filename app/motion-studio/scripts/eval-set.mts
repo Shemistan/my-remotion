@@ -530,6 +530,12 @@ else if (!judgeOnly) {
     }
   }
   await generateMissing(items.filter((it) => !existsSync(join(dirOf(it), "gen.json"))));
+} else {
+  // --judge-only сцену не перегенерирует: превью после сбоя среды судится как есть — сказать об этом
+  for (const it of items) {
+    const genFile = join(dirOf(it), "gen.json");
+    if (existsSync(genFile) && isTransientFailure(readJson<GenInfo>(genFile).failure)) log(`${it.id}: превью — от попытки, оборванной сбоем среды (--judge-only не генерирует заново)`);
+  }
 }
 if (!noJudge) await judgeAll(items);
 const { rows, judge } = await collect();
