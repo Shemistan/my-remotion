@@ -12,11 +12,24 @@ import {
   type Settings,
   scaleContentFrames,
   scaleTiming,
+  unscaledTimeKeys,
 } from "@ms/contracts";
 
 export type ParamEditResult =
-  | { kind: "param"; spec: MotionSpec; props: ScenePropsBase; settings: Settings; changed: string[] }
+  | { kind: "param"; spec: MotionSpec; props: ScenePropsBase; settings: Settings; changed: string[]; warnings: string[] }
   | { kind: "code"; plan: EditPlan };
+
+/** Кадровые пропы kit, которые сцена могла записать числом прямо в JSX (M-R2). */
+const KIT_FRAME_PROPS = ["enterAt", "until", "at", "duration", "delay", "stagger", "travel", "frame", "hold"];
+const HARDCODED = new RegExp(`\\b(${KIT_FRAME_PROPS.join("|")})=\\{\\s*(\\d+(?:\\.\\d+)?)\\s*\\}`, "g");
+
+/**
+ * Кадры числом в коде сцены (`enterAt={20}`, `until={150}`): правка темпа меняет только props,
+ * такие моменты останутся прежними — повод для предупреждения, а не молчаливого рассинхрона.
+ */
+export function hardcodedFrameProps(code: string): string[] {
+  return [...code.matchAll(HARDCODED)].map((m) => `${m[1]}={${m[2]}}`);
+}
 
 /** Поля настроек, которые меняют размер кадра или fps: такая правка идёт через spec (Director). */
 export const GEOMETRY_KEYS = ["width", "height", "fps", "aspect_ratio"] as const;
@@ -53,6 +66,7 @@ export function applyParamEdit(
   const props: ScenePropsBase = structuredClone(parsed.data);
   const settings: Settings = structuredClone(base.settings);
   const changed = new Set<string>();
+  const warnings: string[] = [];
   // целевая длительность до масштаба: из патча или из базы
   let duration = base.spec.duration_frames;
 
@@ -149,9 +163,11 @@ export function applyParamEdit(
     // кадровые величины content (travel, stagger, задержки — договор isContentFrameKey):
     // без них «медленнее» удлинило бы только паузы между битами, а движение осталось бы прежним
     props.content = scaleContentFrames(props.content, factor).content;
+    const odd = unscaledTimeKeys(props.content);
+    if (odd.length > 0) warnings.push(`Темп изменён, но числа ${odd.join(", ")} похожи на кадры и не масштабированы: их имена вне договора кадровых ключей props.content — проверь синхронность движения.`);
     settings.duration_frames = spec.duration_frames;
     changed.add("timing");
   }
 
-  return { kind: "param", spec, props: ScenePropsBaseSchema.parse(props), settings, changed: [...changed] };
+  return { kind: "param", spec, props: ScenePropsBaseSchema.parse(props), settings, changed: [...changed], warnings };
 }

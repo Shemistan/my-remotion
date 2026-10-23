@@ -56,15 +56,39 @@ export function scaleTiming<T extends { duration_frames: number; beats: { start_
 /**
  * Договор кадровых величин `props.content` (Engineer ↔ правка темпа): поле — длительность или
  * момент в кадрах, если его имя из `CONTENT_FRAME_KEYS` (`travel` импульса, `delay`, `stagger`,
- * `hold`, `frame` ключа камеры) или кончается на `_frames`/`Frames`/`_frame`/`Frame`
- * (`fan_stagger_frames`, `start_frame`). «Медленнее на N %» масштабирует ровно их — вместе с
- * битами; прочие числа content (индексы, размеры, доли раскладки) не трогаются.
+ * `hold`, `frame` ключа камеры и кадровые пропы motion-kit под тем же именем: `enterAt` узла
+ * FlowGraph и AnimatedNumber, `until` DataToken и StatusChip, `at` состояния StatusChip,
+ * `duration` Enter, `flash`/`writes` узла FlowGraph — числа в них кадры, объекты прихода
+ * обходятся внутрь, `frames`/`keyframes`) или кончается на `_frames`/`Frames`/`_frame`/`Frame`/`At`
+ * (`fan_stagger_frames`, `start_frame`, `exitAt`). «Медленнее на N %» масштабирует ровно их —
+ * вместе с битами; прочие числа content (индексы, размеры, доли раскладки) не трогаются.
  */
-export const CONTENT_FRAME_KEYS = ["travel", "delay", "stagger", "hold", "frame"] as const;
-const FRAME_SUFFIX = /(_frames|Frames|_frame|Frame)$/;
+export const CONTENT_FRAME_KEYS = ["travel", "delay", "stagger", "hold", "frame", "enterAt", "until", "at", "duration", "frames", "keyframes", "flash", "writes"] as const;
+const FRAME_SUFFIX = /(_frames|Frames|_frame|Frame|[a-z]At)$/;
 
 export function isContentFrameKey(key: string): boolean {
   return (CONTENT_FRAME_KEYS as readonly string[]).includes(key) || FRAME_SUFFIX.test(key);
+}
+
+/** Имена, похожие на время, но вне договора: правка темпа их не масштабирует (M-R2). */
+const TIME_LIKE_KEYS = new Set(["start", "end", "enter", "exit", "leave", "lead", "step", "period", "after", "offset", "begin", "finish"]);
+
+/**
+ * Пути чисел content под временными именами вне договора `isContentFrameKey` (`start`, `end`,
+ * `lead`, `step`, …): при смене темпа о них — предупреждение, а не молчаливый рассинхрон.
+ */
+export function unscaledTimeKeys(content: unknown): string[] {
+  const out: string[] = [];
+  const walk = (v: unknown, path: string, key: string | undefined) => {
+    if (typeof v === "number") {
+      if (key !== undefined && TIME_LIKE_KEYS.has(key)) out.push(path);
+      return;
+    }
+    if (Array.isArray(v)) return v.forEach((x, i) => walk(x, `${path}[${i}]`, key));
+    if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) if (!isContentFrameKey(k)) walk(x, `${path}.${k}`, k);
+  };
+  walk(content, "content", undefined);
+  return out;
 }
 
 /**

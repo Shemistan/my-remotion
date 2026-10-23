@@ -1,7 +1,7 @@
 // applyParamEdit (Task 18): правка параметров без агентов кода — тайминги, палитра донора,
 // глубина, патч настроек; props версии среза уводят правку в код (M18).
 import { describe, expect, it } from "vitest";
-import { applyParamEdit } from "../../src/pipeline/param-edit.js";
+import { applyParamEdit, hardcodedFrameProps } from "../../src/pipeline/param-edit.js";
 import { history, plan, props180, settings180, sliceProps, spec180 } from "./edit-fixtures.js";
 
 const v1 = { id: "ver_v1" };
@@ -76,5 +76,32 @@ describe("applyParamEdit", () => {
     const p2 = applyParamEdit({ spec: spec180, props, settings: settings180 }, plan({ path: "param", changes: [] }), history, { duration_frames: 360 });
     if (p2.kind !== "param") throw new Error("ожидался param");
     expect((p2.props.content as { flows: { travel: number }[] }).flows[0]!.travel).toBe(36);
+  });
+
+  it("M-R2: кадровые пропы kit в content (enterAt, until) масштабируются; числа под временными именами вне договора — предупреждение", () => {
+    const props = { ...props180, content: { nodes: [{ id: "n1", enterAt: 30 }], tokens: [{ edge: "e1", until: 150 }], intro: { start: 12, lead: 4 } } };
+    const r = applyParamEdit({ spec: spec180, props, settings: settings180 }, plan({ path: "param", timing_scale: 1 / 0.75 }), history);
+    if (r.kind !== "param") throw new Error("ожидался param");
+    const c = r.props.content as { nodes: { enterAt: number }[]; tokens: { until: number }[]; intro: { start: number } };
+    expect(c.nodes[0]!.enterAt).toBe(40);
+    expect(c.tokens[0]!.until).toBe(200);
+    expect(c.intro.start).toBe(12);
+    expect(r.warnings.join("\n")).toMatch(/content\.intro\.start.*content\.intro\.lead|content\.intro\.lead.*content\.intro\.start/);
+    // темп не менялся — предупреждения нет
+    const same = applyParamEdit({ spec: spec180, props, settings: settings180 }, plan({ path: "param", param_patch: { style: { depth: 2 } } }), history);
+    if (same.kind !== "param") throw new Error("ожидался param");
+    expect(same.warnings).toEqual([]);
+  });
+
+  it("M-R2: кадры числом прямо в коде сцены (enterAt={20}, until={150}) — найдены для предупреждения; выражения и прочие пропы — нет", () => {
+    const code = [
+      "<FlowGraph nodes={nodes} enterAt={20} />",
+      "<DataToken edge=\"e1\" until={ 150 } travel={t.travel} />",
+      "<Enter duration={12} index={i}>",
+      "<StatusChip states={s} at={x} size={48} />",
+      "<KineticText delay={4} stagger={2} />",
+    ].join("\n");
+    expect(hardcodedFrameProps(code)).toEqual(["enterAt={20}", "until={150}", "duration={12}", "delay={4}", "stagger={2}"]);
+    expect(hardcodedFrameProps("<Card size={3} />")).toEqual([]);
   });
 });

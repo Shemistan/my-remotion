@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ScenePropsBaseSchema, isContentFrameKey, scaleContentFrames, scaleTiming } from "../src/index.js";
+import { ScenePropsBaseSchema, isContentFrameKey, scaleContentFrames, scaleTiming, unscaledTimeKeys } from "../src/index.js";
 
 const b = (start_frame: number, end_frame: number) => ({ start_frame, end_frame });
 
@@ -96,5 +96,34 @@ describe("scaleContentFrames (кадровые величины props.content)",
 
   it("длительность > 0 не схлопывается в 0; дробные — без округления", () => {
     expect(scaleContentFrames({ travel: 1, delay: 0.5 }, 0.25).content).toEqual({ travel: 1, delay: 0.125 });
+  });
+
+  it("кадровые пропы kit под тем же именем (M-R2): enterAt, until, at, duration, frames, keyframes, flash, writes и суффикс At", () => {
+    for (const k of ["enterAt", "until", "at", "duration", "frames", "keyframes", "flash", "writes", "exitAt", "leaveAt"]) expect(isContentFrameKey(k), k).toBe(true);
+    // не время: индексы, счётчики, координаты, «формат»
+    for (const k of ["cells", "filled", "count", "format", "data", "accentIndex", "pop"]) expect(isContentFrameKey(k), k).toBe(false);
+  });
+
+  it("× 4/3: хореография kit масштабируется вместе с битами — enterAt узла, until токена, at статусов, flash/writes узла (числа, не объекты прихода)", () => {
+    const content = {
+      nodes: [{ id: "n1", enterAt: 20, flash: [30, { edge: "e1", beat: "b2" }], writes: [60, 90] }],
+      tokens: [{ edge: "e1", until: 150 }],
+      status: { states: [{ text: "ждёт", at: 0 }, { text: "готово", at: 120 }] },
+      enter: { duration: 12 },
+      pulse: { frames: [10, 40] },
+    };
+    expect(scaleContentFrames(content, 4 / 3).content).toEqual({
+      nodes: [{ id: "n1", enterAt: 27, flash: [40, { edge: "e1", beat: "b2" }], writes: [80, 120] }],
+      tokens: [{ edge: "e1", until: 200 }],
+      status: { states: [{ text: "ждёт", at: 0 }, { text: "готово", at: 160 }] },
+      enter: { duration: 16 },
+      pulse: { frames: [13, 53] },
+    });
+  });
+
+  it("unscaledTimeKeys: числа под временными именами вне договора — пути (для предупреждения при смене темпа)", () => {
+    const content = { start: 10, nodes: [{ id: "n", lead: 4, end: 90, enterAt: 5, x: 3 }], phase: { step: 6, leave: 100, label: "start" }, ms: 120 };
+    expect(unscaledTimeKeys(content).sort()).toEqual(["content.nodes[0].end", "content.nodes[0].lead", "content.phase.leave", "content.phase.step", "content.start"]);
+    expect(unscaledTimeKeys({ travel: 18, layout: { x: 0.1 } })).toEqual([]);
   });
 });
