@@ -1,5 +1,6 @@
-import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { acquireOwnerLock, type VolumeProbe } from "@ms/core";
@@ -41,6 +42,9 @@ function fakeBin(opts: { only?: string[]; cost?: number; encoders?: string[] } =
     claude: [
       "#!/bin/sh",
       'if [ "$1" = "--version" ]; then echo "2.1.0 (Claude Code)"; exit 0; fi',
+      // каталог запуска входа и его содержимое — для проверки cwd (F8)
+      // (только встроенные команды sh: PATH — фейковый каталог)
+      'out="${0%/*}/login-cwd.txt"; pwd -P > "$out"; for f in * .[!.]*; do [ -e "$f" ] && echo "$f" >> "$out"; done',
       `echo '{"type":"result","is_error":false,"result":"ok","total_cost_usd":${opts.cost ?? 0.002}}'`,
     ].join("\n"),
     ffmpeg: [
@@ -145,6 +149,17 @@ describe("полный doctor (03 §7)", () => {
     expect(t.code).toBe(0);
     expect(t.output).toMatch(/^ok\s+node\s+/m);
     expect(t.output).toMatch(/^ok\s+owner_lock\s+/m);
+  });
+
+  it("вход Claude запускается в пустом временном каталоге, не в cwd процесса; каталог убран (F8)", async () => {
+    const root = await store();
+    const bin = fakeBin();
+    await runDoctor(["--json"], { MS_DATA_DIR: root, PATH: bin }, probe, browser);
+    const [cwd, ...entries] = readFileSync(join(bin, "login-cwd.txt"), "utf8").trim().split("\n");
+    expect(cwd).not.toBe(realpathSync(process.cwd()));
+    expect(cwd!.startsWith(realpathSync(tmpdir()))).toBe(true);
+    expect(entries).toEqual([]);
+    expect(existsSync(cwd!)).toBe(false);
   });
 
   it("фейковый PATH без claude → строка claude missing, вход не проверяется, код 1", async () => {

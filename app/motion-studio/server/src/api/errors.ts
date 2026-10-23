@@ -37,7 +37,9 @@ export function toApiResponse(e: unknown): { status: number; body: Record<string
   }
   if (e instanceof IdempotencyKeyReusedError) return { status: 422, body: { error: e.code, message: e.message, job_id: e.jobId } };
   if (e instanceof StaleProcessAliveError) return { status: 409, body: { error: e.code, message: e.message, pids: e.pids, cmds: e.cmds } };
-  if (isStorageError(e)) return { status: 503, body: { error: "storage_offline", message: (e as Error).message } };
+  // сообщения ядра и файловой системы содержат абсолютные пути MS_DATA_DIR: наружу — код и общий
+  // текст, подробности — в журнал сервера (F6)
+  if (isStorageError(e)) return { status: 503, body: { error: "storage_offline", message: "хранилище недоступно (подробности — в журнале сервера)" } };
   const fe = e as FastifyError;
   if (isResponseSerializationError(e)) return { status: 500, body: { error: "response_schema", message: `ответ не по контракту: ${e.cause.message}` } };
   // ошибки разбора тела и прочие клиентские ошибки Fastify (FST_ERR_CTP_*)
@@ -46,14 +48,30 @@ export function toApiResponse(e: unknown): { status: number; body: Record<string
   }
   const m = /^([a-z_]+): /.exec((e as Error)?.message ?? "");
   if (m && CORE_CODES[m[1]!]) return { status: CORE_CODES[m[1]!]!, body: { error: m[1]!, message: (e as Error).message } };
-  return { status: 500, body: { error: "internal", message: (e as Error)?.message ?? String(e) } };
+  return { status: 500, body: { error: "internal", message: INTERNAL_MESSAGE } };
 }
 
-export function installErrorHandler(app: FastifyInstance): void {
+const INTERNAL_MESSAGE = "внутренняя ошибка сервера (подробности — в журнале сервера)";
+
+export interface NotFoundOptions {
+  /** Собранный UI: неизвестный не-API GET/HEAD — `index.html` (клиентский роутер SPA). */
+  spaIndex?: boolean;
+}
+
+const isApiPath = (url: string): boolean => {
+  const path = url.split("?")[0]!;
+  return path === "/api" || path.startsWith("/api/");
+};
+
+/** Обработчики ошибок и единственный not-found-обработчик приложения (F1: Fastify не даёт задать второй). */
+export function installErrorHandler(app: FastifyInstance, o: NotFoundOptions = {}): void {
   app.setErrorHandler((err, req, reply) => {
     const { status, body } = toApiResponse(err);
     if (status >= 500) req.log.error({ err }, "api error");
     return reply.status(status).send(body);
   });
-  app.setNotFoundHandler((req, reply) => reply.status(404).send({ error: "not_found", message: `нет маршрута ${req.method} ${req.url}` }));
+  app.setNotFoundHandler((req, reply) => {
+    if (o.spaIndex && (req.method === "GET" || req.method === "HEAD") && !isApiPath(req.url)) return reply.sendFile("index.html");
+    return reply.status(404).send({ error: "not_found", message: `нет маршрута ${req.method} ${req.url.split("?")[0]}` });
+  });
 }

@@ -9,6 +9,8 @@
 // каталоги версий без строки в БД (`reconcileVersions`); код 1, если версии пропущены или broken.
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -75,8 +77,8 @@ export async function runDoctor(
   return report(await checkStorage(env, probe));
 }
 
-type Exec = (bin: string, args: string[], env: NodeJS.ProcessEnv, timeoutMs: number) => Promise<string>;
-const exec: Exec = async (bin, args, env, timeout) => (await promisify(execFile)(bin, args, { env, timeout, maxBuffer: 8 * 1024 * 1024 })).stdout;
+type Exec = (bin: string, args: string[], env: NodeJS.ProcessEnv, timeoutMs: number, cwd?: string) => Promise<string>;
+const exec: Exec = async (bin, args, env, timeout, cwd) => (await promisify(execFile)(bin, args, { env, timeout, maxBuffer: 8 * 1024 * 1024, ...(cwd ? { cwd } : {}) })).stdout;
 const firstLine = (s: string) => s.trim().split("\n")[0]!.trim();
 const errText = (e: unknown) => ((e as Error).message ?? String(e)).split("\n")[0]!;
 
@@ -181,14 +183,18 @@ async function claudeLogin(bin: string, env: NodeJS.ProcessEnv): Promise<CheckRo
     "--model", "haiku", "--tools", "", "--output-format", "json", "--max-budget-usd", "0.05",
     "Ответь одним словом: ok",
   ];
+  // пустой временный каталог: CLAUDE.md и настройки из cwd не попадают в контекст (F8)
+  const cwd = await mkdtemp(join(tmpdir(), "ms-doctor-"));
   try {
-    const out = JSON.parse(await exec(bin, args, env, 90_000)) as { is_error?: boolean; result?: string; total_cost_usd?: number };
+    const out = JSON.parse(await exec(bin, args, env, 90_000, cwd)) as { is_error?: boolean; result?: string; total_cost_usd?: number };
     const cost = out.total_cost_usd ?? 0;
     if (out.is_error) return { name: "claude_login", ok: false, status: "error", detail: `ошибка входа: ${String(out.result ?? "").slice(0, 200)}` };
     if (cost >= LOGIN_MAX_USD) return { name: "claude_login", ok: false, status: "expensive", detail: `вход работает, но вызов стоил $${cost.toFixed(4)} ≥ $${LOGIN_MAX_USD}` };
     return { name: "claude_login", ok: true, status: "ok", detail: `haiku ответил, $${cost.toFixed(4).replace(/0+$/, "").replace(/\.$/, "")}` };
   } catch (e) {
     return { name: "claude_login", ok: false, status: "error", detail: errText(e) };
+  } finally {
+    await rm(cwd, { recursive: true, force: true }).catch(() => undefined);
   }
 }
 

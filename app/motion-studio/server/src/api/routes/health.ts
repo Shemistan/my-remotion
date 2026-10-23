@@ -61,6 +61,7 @@ export function healthRoutes(app: ZApp, { core }: ApiContext, probes: HealthProb
       ...(mode === "storage_offline" && reason ? { storage_reason: reason } : {}),
       ...(await tools()),
       owner: core.owner,
+      queued_at_start: { pending: core.boot.queued.pending, running: core.boot.queued.running },
     };
   });
 }

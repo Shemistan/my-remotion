@@ -1,5 +1,7 @@
 // Проекты: список (служебные bench-проекты скрыты), создание, карточка; новая сцена по промпту
 // (`playground.generate`): сцена и задача — одной транзакцией, повтор по Idempotency-Key.
+import { rmSync } from "node:fs";
+import { join } from "node:path";
 import {
   CreateProjectBodySchema,
   CreateSceneBodySchema,
@@ -15,6 +17,7 @@ import * as scenes from "../../db/repos/scenes.js";
 import { tx } from "../../db/tx.js";
 import { enqueue } from "../../jobs/queue.js";
 import { versionHistoryDigest } from "../../scenes/history.js";
+import { sceneRel } from "../../scenes/store.js";
 import { type ApiContext, IdParams, QueryBool, type ZApp, idempotencyKey, inputField, replay } from "../context.js";
 import { ApiError, notFound } from "../errors.js";
 
@@ -51,14 +54,29 @@ export function projectRoutes(app: ZApp, { core }: ApiContext): void {
     const db = core.db;
     const { prompt, settings, allowRestricted } = req.body;
     const input = (sceneId: string) => ({ sceneId, prompt, settings, ...(allowRestricted === undefined ? {} : { allowRestricted }) });
-    const out = tx(db, () => {
-      const prev = replay(db, key, "playground.generate", (j) => (j.project_id === req.params.id && j.scene_id ? input(j.scene_id) : undefined));
-      if (prev) return { status: 200 as const, scene: scenes.get(db, prev.scene_id!) as SceneDto, job: prev };
-      if (!projects.get(db, req.params.id)) throw notFound(`проект ${req.params.id}`);
-      const scene = core.repo.createScene(req.params.id, { prompt, settings });
-      const { job } = enqueue(db, { type: "playground.generate", projectId: req.params.id, sceneId: scene.id, input: input(scene.id), idempotencyKey: key });
-      return { status: 202 as const, scene, job };
-    });
+    let created: string | undefined;
+    let out;
+    try {
+      out = tx(db, () => {
+        const prev = replay(db, key, "playground.generate", (j) => (j.project_id === req.params.id && j.scene_id ? input(j.scene_id) : undefined));
+        if (prev) return { status: 200 as const, scene: scenes.get(db, prev.scene_id!) as SceneDto, job: prev };
+        if (!projects.get(db, req.params.id)) throw notFound(`проект ${req.params.id}`);
+        const scene = core.repo.createScene(req.params.id, { prompt, settings });
+        created = scene.id;
+        const { job } = enqueue(db, { type: "playground.generate", projectId: req.params.id, sceneId: scene.id, input: input(scene.id), idempotencyKey: key });
+        return { status: 202 as const, scene, job };
+      });
+    } catch (e) {
+      // откат транзакции: brief.json уже на диске — каталог сцены без строки в БД убираем (F11)
+      if (created && !scenes.get(core.db, created)) {
+        try {
+          rmSync(join(core.root, sceneRel(req.params.id, created)), { recursive: true, force: true });
+        } catch (rmErr) {
+          req.log.warn({ err: rmErr }, "каталог отменённой сцены не удалён (подберёт уборка)");
+        }
+      }
+      throw e;
+    }
     if (!out.scene) throw new ApiError(500, "internal", `сцена задачи ${out.job.id} пропала (${inputField(out.job, "sceneId") ?? "—"})`);
     return reply.status(out.status).send({ scene: out.scene, job: out.job });
   });

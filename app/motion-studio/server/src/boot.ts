@@ -80,6 +80,17 @@ export interface BootReport {
   reconcile: ImportReport & { missing: MissingReport };
   /** Каталоги `exports/` против таблицы: сироты в карантин, незакрытые корни закрыты (F6). */
   exports: ExportsReconcile;
+  /**
+   * Задачи `pending`/`running` после восстановления, до старта раннера: раннер возьмёт их сам
+   * (возобновление после сбоя). Сервер печатает их в журнал, `/health` отдаёт счётчики (F9).
+   */
+  queued: QueuedAtStart;
+}
+
+export interface QueuedAtStart {
+  pending: number;
+  running: number;
+  jobs: { id: string; type: string; status: string; created_at: string }[];
 }
 
 export interface Core {
@@ -207,6 +218,14 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
         repo.useDb(d);
       },
     });
+    const queuedJobs = db
+      .prepare("SELECT id, type, status, created_at FROM jobs WHERE status IN ('pending', 'running') ORDER BY created_at, id")
+      .all() as QueuedAtStart["jobs"];
+    const queued: QueuedAtStart = {
+      pending: queuedJobs.filter((j) => j.status === "pending").length,
+      running: queuedJobs.filter((j) => j.status === "running").length,
+      jobs: queuedJobs,
+    };
     runner.start();
     storage.start();
     // отменённая/blocked задача держит замки, пока живы её процессы (Task 12): как только
@@ -245,7 +264,7 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
       events,
       recovery,
       reaped: { alive, strays },
-      boot: { swept, relock, reconcile, exports: exportsReport },
+      boot: { swept, relock, reconcile, exports: exportsReport, queued },
       async close() {
         if (closed) return;
         closed = true;

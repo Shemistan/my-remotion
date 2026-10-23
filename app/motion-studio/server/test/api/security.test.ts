@@ -7,7 +7,7 @@ import { defaultSettings } from "@ms/contracts";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as projects from "../../src/db/repos/projects.js";
 import { enqueue } from "../../src/jobs/queue.js";
-import { type Api, getHeaders, makeApi, okHeaders, seedVersion } from "./helpers.js";
+import { type Api, ORIGIN, getHeaders, makeApi, okHeaders, seedVersion } from "./helpers.js";
 
 let api: Api;
 beforeEach(async () => {
@@ -63,6 +63,23 @@ describe("Host и Origin", () => {
     }
     expect(changes()).toBe(before);
     expect(jobs.get(api.core.db, job.id)!.status).toBe("pending");
+  });
+
+  it("GET с чужим Origin или Sec-Fetch-Site cross-site/same-site → 403; свой Origin, same-origin, none — 200", async () => {
+    const { versionId } = await seedVersion(api);
+    const urls = ["/api/projects", `/api/versions/${versionId}/preview.mp4`, "/api/health"];
+    for (const u of urls) {
+      const evil = await api.inj("GET", u, { ...getHeaders, origin: "https://evil.example" });
+      expect(evil.statusCode, u).toBe(403);
+      expect(evil.json().error).toBe("forbidden_origin");
+      for (const site of ["cross-site", "same-site"]) {
+        const r = await api.inj("GET", u, { ...getHeaders, "sec-fetch-site": site });
+        expect(r.statusCode, `${u} ${site}`).toBe(403);
+        expect(r.json().error).toBe("forbidden_fetch_site");
+      }
+      expect((await api.inj("GET", u, { ...getHeaders, origin: ORIGIN })).statusCode, u).toBe(200);
+      for (const site of ["same-origin", "none"]) expect((await api.inj("GET", u, { ...getHeaders, "sec-fetch-site": site })).statusCode, `${u} ${site}`).toBe(200);
+    }
   });
 });
 

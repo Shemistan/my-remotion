@@ -3,6 +3,7 @@
 // Путь собирает сервер из строки БД; путь клиента сюда не попадает.
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
+import { Readable } from "node:stream";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import { notFound } from "./errors.js";
 
@@ -44,12 +45,14 @@ export async function sendFile(req: FastifyRequest, reply: FastifyReply, path: s
   }
   reply.header("accept-ranges", "bytes").header("content-type", o.contentType).header("cache-control", "no-cache");
   if (o.attachment) reply.header("content-disposition", `attachment; filename="${o.attachment.replace(/[^\w.-]/g, "_")}"`);
+  // HEAD: пустой поток, а не undefined — иначе Fastify перепишет Content-Length в 0 (F5)
+  const body = (r?: { start: number; end: number }) => (req.method === "HEAD" ? Readable.from([]) : createReadStream(path, r));
   const range = parseRange(req.headers.range, size);
   if (range === "unsatisfiable") return reply.status(416).header("content-range", `bytes */${size}`).send();
   if (!range) {
     reply.header("content-length", size);
-    return reply.status(200).send(req.method === "HEAD" ? undefined : createReadStream(path));
+    return reply.status(200).send(body());
   }
   reply.header("content-range", `bytes ${range.start}-${range.end}/${size}`).header("content-length", range.end - range.start + 1);
-  return reply.status(206).send(req.method === "HEAD" ? undefined : createReadStream(path, range));
+  return reply.status(206).send(body(range));
 }

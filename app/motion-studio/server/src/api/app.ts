@@ -44,7 +44,10 @@ export async function buildApp(core: Core, opts: BuildAppOptions = { port: PORT 
   const app = Fastify({ logger: opts.logger ?? false, bodyLimit: 1024 * 1024, return503OnClosing: true }).withTypeProvider<ZodTypeProvider>();
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
-  installErrorHandler(app);
+  // UI: Vite в `--dev`, иначе собранный `web/dist` (если есть index.html) с SPA-fallback
+  const dist = opts.webDist ?? join(WEB_ROOT, "dist");
+  const serveDist = !opts.dev && existsSync(join(dist, "index.html"));
+  installErrorHandler(app, { spaIndex: serveDist });
   installSecurity(app, core, opts.port);
 
   const ctx: ApiContext = { core, port: opts.port };
@@ -62,19 +65,7 @@ export async function buildApp(core: Core, opts: BuildAppOptions = { port: PORT 
   settingsRoutes(app, ctx);
   eventRoutes(app, ctx, sse);
 
-  if (opts.dev) {
-    await installViteDev(app, WEB_ROOT);
-  } else {
-    const dist = opts.webDist ?? join(WEB_ROOT, "dist");
-    if (existsSync(join(dist, "index.html"))) {
-      await app.register(fastifyStatic, { root: dist, prefix: "/", wildcard: false, index: ["index.html"] });
-      // клиентский роутер SPA: неизвестный не-API GET — index.html
-      app.setNotFoundHandler((req, reply) => {
-        const path = req.url.split("?")[0]!;
-        if (req.method === "GET" && !path.startsWith("/api/") && path !== "/api") return reply.sendFile("index.html");
-        return reply.status(404).send({ error: "not_found", message: `нет маршрута ${req.method} ${req.url}` });
-      });
-    }
-  }
+  if (opts.dev) await installViteDev(app, WEB_ROOT);
+  else if (serveDist) await app.register(fastifyStatic, { root: dist, prefix: "/", wildcard: false, index: ["index.html"] });
   return app;
 }

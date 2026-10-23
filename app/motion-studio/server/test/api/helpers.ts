@@ -52,8 +52,8 @@ export async function makeKb(tmp: string): Promise<KnowledgeAdapter> {
   return KnowledgeAdapter.load({ kbRoot: root, sourceRoot: root });
 }
 
-export async function makeApi(opts: { boot?: Partial<BootOptions>; app?: Partial<BuildAppOptions>; env?: NodeJS.ProcessEnv } = {}): Promise<Api> {
-  const s = await makeStore("ms-api-");
+export async function makeApi(opts: { boot?: Partial<BootOptions>; app?: Partial<BuildAppOptions>; env?: NodeJS.ProcessEnv; store?: TestStore } = {}): Promise<Api> {
+  const s = opts.store ?? (await makeStore("ms-api-"));
   const kb = await makeKb(s.tmp);
   const core = await bootCore({
     env: { MS_DATA_DIR: s.root, ...opts.env },

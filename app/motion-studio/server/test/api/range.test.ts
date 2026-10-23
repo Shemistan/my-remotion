@@ -45,3 +45,18 @@ it("GET preview.mp4: Range → 206 c Content-Range; без Range — 200 цел�
   const frame = await api.inj("GET", `/api/versions/${versionId}/frames/0.png`, getHeaders);
   expect(frame.headers["content-type"]).toBe("image/png");
 });
+
+it("HEAD preview.mp4: Content-Length — размер файла (и диапазона), тела нет", async () => {
+  const { versionId } = await seedVersion(api, { previewBytes: 1000 });
+  const url = `/api/versions/${versionId}/preview.mp4`;
+  const h = await api.inj("HEAD", url, getHeaders);
+  expect(h.statusCode).toBe(200);
+  expect(h.headers["content-length"]).toBe("1000");
+  expect(h.headers["accept-ranges"]).toBe("bytes");
+  expect(h.rawPayload.length).toBe(0);
+  const hr = await api.inj("HEAD", url, { ...getHeaders, range: "bytes=0-9" });
+  expect(hr.statusCode).toBe(206);
+  expect(hr.headers["content-length"]).toBe("10");
+  expect(hr.headers["content-range"]).toBe("bytes 0-9/1000");
+  expect(hr.rawPayload.length).toBe(0);
+});

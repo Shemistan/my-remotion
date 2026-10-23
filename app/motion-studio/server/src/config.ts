@@ -44,7 +44,9 @@ export interface Limits {
 }
 const LIMITS: Limits = { maxRunning: MAX_RUNNING, agentCalls: AGENT_CALLS, renders: RENDERS, exportTimeoutMs: EXPORT_TIMEOUT_MS };
 const Count = z.number().int().min(1).max(16);
-const LimitsSchema = z.object({ maxRunning: Count, agentCalls: Count, renders: Count, exportTimeoutMs: z.number().int().min(10_000) }).partial().strict();
+/** Потолок таймаута экспорта: 4 ч (по умолчанию 30 мин). */
+const EXPORT_TIMEOUT_MAX_MS = 4 * 60 * 60_000;
+const LimitsSchema = z.object({ maxRunning: Count, agentCalls: Count, renders: Count, exportTimeoutMs: z.number().int().min(10_000).max(EXPORT_TIMEOUT_MAX_MS) }).partial().strict();
 
 export interface AppConfig {
   dataDir: string;
@@ -89,6 +91,21 @@ const FileSchema = z
   .partial()
   .strict();
 type FileConfig = z.infer<typeof FileSchema>;
+
+/**
+ * Тело `PUT /api/settings` (ревью Task 20, F2): из браузера меняются только модели ролей, лимиты
+ * (с потолками) и настройки новой сцены. `claudeBin`, `kb.*`, `agentRuntime`, `scene.*` (бюджет
+ * сцены, второй дубль) и бюджеты/таймауты ролей — только правкой config.json руками: иначе
+ * same-origin баг UI запустил бы произвольный бинарник или снял бы денежный предохранитель.
+ */
+export const SettingsPutSchema = z
+  .object({
+    agents: z.object(Object.fromEntries(ROLES.map((r) => [r, z.object({ model: z.string().regex(MODEL_RE, "имя модели: латиница, цифры, . - [ ]") }).strict().optional()]))).strict(),
+    limits: LimitsSchema,
+    defaults: SettingsSchema,
+  })
+  .partial()
+  .strict();
 
 /** Ошибки `config.json` по полям (`PUT /settings` → 400 с путём поля); пусто — годится. */
 export function configFileIssues(fileJson: unknown): { path: string; message: string }[] {

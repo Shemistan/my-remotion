@@ -21,6 +21,12 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<void
     log: (step) => log(`boot: ${step}`),
   });
   for (const w of core.boot.reconcile.missing.broken) log(`предупреждение: версия недоступна: ${JSON.stringify(w)}`);
+  const q = core.boot.queued;
+  if (q.jobs.length > 0) {
+    // раннер уже взял их в работу: это возобновление после сбоя, платные агенты могут запуститься
+    log(`внимание: в очереди при старте ${q.pending} pending и ${q.running} running — раннер возобновит их сам (отмена: POST /api/jobs/:id/cancel)`);
+    for (const j of q.jobs) log(`  ${j.id} ${j.type} ${j.status} (создана ${j.created_at})`);
+  }
   if (core.reaped.alive.length > 0) log(`предупреждение: живы процессы прежних попыток: ${core.reaped.alive.map((p) => p.pid).join(", ")}`);
 
   let app;

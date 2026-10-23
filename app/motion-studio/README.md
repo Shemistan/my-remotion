@@ -68,15 +68,30 @@ export MS_DATA_DIR="/Volumes/External SSD/MotionStudio"
 ./scripts/with-node.sh npm run dev    # то же, UI через Vite middleware на том же порту (Q7)
 ```
 
+> **Внимание: задачи в очереди запускаются сразу.** Раннер стартует до `listen` и берёт все
+> `pending`-задачи из `studio.db` (и прерванные `running`, вернувшиеся в `pending` при
+> восстановлении) — это возобновление после сбоя. Платные агенты могут запуститься без
+> действий в UI. Сервер печатает их в журнал («в очереди при старте …» и список id), а
+> `GET /api/health` отдаёт `queued_at_start: { pending, running }`. Перед первым запуском на
+> хранилище со старыми задачами проверьте очередь
+> (`sqlite3 "$MS_DATA_DIR/studio.db" "SELECT id, type, created_at FROM jobs WHERE status='pending'"`);
+> отмена — `POST /api/jobs/:id/cancel` (идущая попытка прерывается). Отдельной команды CLI для
+> отмены пока нет, режима «запуск на паузе» — тоже.
+
 Сервер слушает только `127.0.0.1:8790`. Запросы с `Host` не из {`127.0.0.1:8790`,
 `localhost:8790`} — 403 `forbidden_host`; мутации (не GET/HEAD) без `Origin`
 `http://127.0.0.1:8790` / `http://localhost:8790` — 403 `forbidden_origin` (защита от DNS
-rebinding и CSRF, `03` §6). Хранилище недоступно — 503 `storage_offline` на `/api/*`, кроме
+rebinding и CSRF, `03` §6). Чужой `Origin` отклоняется и на GET/HEAD, а `/api/*` с
+`Sec-Fetch-Site: cross-site` или `same-site` — 403 `forbidden_fetch_site` (чужая страница не
+встроит превью и не подпишется на SSE). Ответы 500 — код и общий текст, подробности в журнале. Хранилище недоступно — 503 `storage_offline` на `/api/*`, кроме
 `GET /api/health`. POST, создающие задачи, требуют `Idempotency-Key`. Остановка — SIGTERM/SIGINT:
 API и SSE закрываются, попытки прерываются, БД закрывается, owner-lock освобождается.
 
 Лимиты (`config.json` → `limits`, действуют после перезапуска): `maxRunning` 2 задачи,
-`agentCalls` 5, `renders` 2, `exportTimeoutMs` 1 800 000. Настройки — `GET/PUT /api/settings`.
+`agentCalls` 5, `renders` 2, `exportTimeoutMs` 1 800 000. Настройки — `GET/PUT /api/settings`:
+через API меняются только модели ролей (`agents.<роль>.model`), `limits` (1–16, таймаут
+экспорта ≤ 4 ч) и `defaults`; `claudeBin`, `kb.*`, `agentRuntime`, `scene.*` и бюджеты ролей —
+только правкой `config.json` руками (в теле PUT — 400).
 
 ```sh
 curl -H 'Host: 127.0.0.1:8790' http://127.0.0.1:8790/api/health

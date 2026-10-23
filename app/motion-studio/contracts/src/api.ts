@@ -165,6 +165,8 @@ export const HealthDtoSchema = z.object({
   chrome: CapabilitySchema,
   ffmpeg: CapabilitySchema,
   owner: z.object({ pid: z.number().int().positive(), kind: z.enum(["server", "cli"]) }).strict(),
+  /** Задачи в очереди на момент старта (после восстановления): раннер возобновляет их сам (F9). */
+  queued_at_start: z.object({ pending: z.number().int().min(0), running: z.number().int().min(0) }).strict(),
 }).strict();
 export type HealthDto = z.infer<typeof HealthDtoSchema>;
 

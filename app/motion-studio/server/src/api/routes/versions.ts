@@ -23,14 +23,14 @@ import { renderEnv } from "../../pipeline/render-env.js";
 import { readKnowledgeRefs } from "../../scenes/repo.js";
 import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "../context.js";
 import { ApiError, notFound } from "../errors.js";
+import { memoOnSuccess } from "../memo.js";
 import { sendFile } from "../range.js";
 
 const FRAME_RE = /^(0|[1-9]\d{0,6})\.png$/;
 
 export function versionRoutes(app: ZApp, { core }: ApiContext): void {
-  // окружение рендера сервера не меняется без перезапуска (lockfile, motion-kit)
-  let lockSha: Promise<string> | undefined;
-  const currentLock = () => (lockSha ??= renderEnv().then((e) => e.render_lock_sha256));
+  // окружение рендера сервера не меняется без перезапуска (lockfile, motion-kit); отказ не кэшируется
+  const currentLock = memoOnSuccess(() => renderEnv().then((e) => e.render_lock_sha256));
 
   const versionOr404 = (id: string) => {
     const v = versions.get(core.db, id);
