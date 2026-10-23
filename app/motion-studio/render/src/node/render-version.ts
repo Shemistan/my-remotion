@@ -16,7 +16,11 @@ export interface RenderRequest {
   settings: Settings;
   cacheDir: string;
   stills: number[];
-  preview: { scale: number; crf: number };
+  /**
+   * Превью H.264; `null` — только стоп-кадры (проба раскладки, например кадра hold базы при
+   * правке «сохрани композицию»): без превью и ffprobe, `ok` — кадры сняты.
+   */
+  preview: { scale: number; crf: number } | null;
   timeoutMs: number;
   /**
    * Контекст прогона (ADR 0007): хранилище, попытка и реестр процессов. Без `registry` —
@@ -230,7 +234,7 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
     inputProps,
     composition: { width: req.settings.width, height: req.settings.height, fps: num / den, durationInFrames: frames },
     stills: req.stills.map((frame) => ({ frame, out: join(framesDir, `${frame}.png`) })),
-    preview: { out: join(outDir, "preview.mp4"), scale: req.preview.scale, crf: req.preview.crf },
+    preview: req.preview ? { out: join(outDir, "preview.mp4"), scale: req.preview.scale, crf: req.preview.crf } : null,
     timeoutMs: innerTimeoutMs(req.timeoutMs),
   };
 
@@ -296,6 +300,7 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
       });
     }
     const browserLogs = out.logs.length > 0 ? out.logs : r.browserLogs;
+    if (req.preview === null) return r.ok ? { ok: true, stills: r.stills, browserLogs } : { ok: false, stills: r.stills, browserLogs, error: r.error ?? { stage: out.stage ?? "still", message: "worker не снял кадры" } };
     if (!r.ok || !r.previewPath) {
       const error = r.error ?? { stage: out.stage ?? "media", message: "worker не вернул превью" };
       return { ok: false, stills: r.stills, browserLogs, error };

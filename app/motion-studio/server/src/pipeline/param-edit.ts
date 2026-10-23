@@ -10,6 +10,7 @@ import {
   type ScenePropsBase,
   ScenePropsBaseSchema,
   type Settings,
+  scaleContentFrames,
   scaleTiming,
 } from "@ms/contracts";
 
@@ -145,6 +146,9 @@ export function applyParamEdit(
         return s ? { id: b.id, start_frame: s.start_frame, end_frame: s.end_frame } : b;
       }),
     };
+    // кадровые величины content (travel, stagger, задержки — договор isContentFrameKey):
+    // без них «медленнее» удлинило бы только паузы между битами, а движение осталось бы прежним
+    props.content = scaleContentFrames(props.content, factor).content;
     settings.duration_frames = spec.duration_frames;
     changed.add("timing");
   }

@@ -49,6 +49,8 @@ export function sceneRestore(d: SceneRestoreDeps): JobHandler {
     };
     if (!parsed.success) return failed("prepare", `вход scene.restore не годится: ${parsed.error.message}`);
     const { sceneId, versionId } = parsed.data;
+    // замок сцены взят по job.scene_id (M3): восстановление в другую сцену — гонка с её задачами
+    if (ctx.job.scene_id !== sceneId) return failed("prepare", `input.sceneId ${sceneId} не совпадает с scene_id задачи ${ctx.job.scene_id ?? "—"}`);
     const deps = d.deps(ctx);
     const status = await deps.storage().catch((e: unknown) => ({ ok: false as const, reason: "error", detail: errText(e) }));
     if (!status.ok) return failed("storage", `${status.reason}: ${status.detail}`);

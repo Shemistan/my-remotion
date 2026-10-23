@@ -2,6 +2,7 @@
 // при другом render_lock_sha256 — перерендер в draft и новый render_env.
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { type RenderEnv, defaultSettings } from "@ms/contracts";
 import * as chat from "../../src/db/repos/chat.js";
 import * as jobs from "../../src/db/repos/jobs.js";
@@ -14,7 +15,7 @@ import { playgroundGenerate } from "../../src/pipeline/playground-generate.js";
 import { renderEnv } from "../../src/pipeline/render-env.js";
 import { sceneRestore } from "../../src/pipeline/scene-restore.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
-import { readVersion } from "../../src/scenes/store.js";
+import { QUARANTINE, readVersion } from "../../src/scenes/store.js";
 import { removeStore } from "../db/helpers.js";
 import { setupDb, until, type JobsEnv } from "../jobs/helpers.js";
 import { BAD_SCENE, fakeAgents, fakeRender, makeDeps, makeSkills, okStatus } from "./helpers.js";
@@ -36,8 +37,8 @@ afterEach(async () => {
 
 const TERMINAL = ["completed", "failed", "cancelled", "blocked", "awaiting_input"];
 
-async function start(o: { env?: () => Promise<RenderEnv>; engineer?: Parameters<typeof fakeAgents>[0]["engineer"] } = {}) {
-  const render = fakeRender({ png: true });
+async function start(o: { env?: () => Promise<RenderEnv>; engineer?: Parameters<typeof fakeAgents>[0]["engineer"]; render?: Parameters<typeof fakeRender>[0] } = {}) {
+  const render = fakeRender({ png: true, ...o.render });
   const d = await makeDeps(env.s.root, await makeSkills(env.s.tmp), { render: render.render, agents: fakeAgents(o.engineer ? { engineer: o.engineer } : {}) });
   runner = new JobRunner({
     db: env.db, root: env.s.root, owner: "srv", pollMs: 5,
@@ -50,8 +51,8 @@ async function start(o: { env?: () => Promise<RenderEnv>; engineer?: Parameters<
   runner.start();
   const scene = repo.createScene("playground", { prompt: "p", settings: defaultSettings() });
   let k = 0;
-  const run = async (type: "playground.generate" | "playground.edit" | "scene.restore", input: Record<string, unknown>) => {
-    const id = enqueue(env.db, { type, projectId: "playground", sceneId: scene.id, input: { sceneId: scene.id, ...input }, idempotencyKey: `k${++k}` }).job.id;
+  const run = async (type: "playground.generate" | "playground.edit" | "scene.restore", input: Record<string, unknown>, jobSceneId = scene.id) => {
+    const id = enqueue(env.db, { type, projectId: "playground", sceneId: jobSceneId, input: { sceneId: scene.id, ...input }, idempotencyKey: `k${++k}` }).job.id;
     await until(() => TERMINAL.includes(jobs.get(env.db, id)!.status), "итог задачи", 20_000);
     return jobs.get(env.db, id)!;
   };
@@ -111,4 +112,35 @@ describe("sceneRestore", () => {
     expect(job.error).toMatchObject({ code: "pipeline", message: expect.stringMatching(/restore_not_ready/) });
     expect(rows(scene.id)).toHaveLength(1);
   });
+
+  it("перерендер не прошёл probe → задача failed (probe), новой версии нет, draft в карантине, current прежняя", async () => {
+    const current = { ...(await renderEnv()), render_lock_sha256: "e".repeat(64) };
+    let restoring = false;
+    const { scene, run } = await start({
+      env: async () => current,
+      render: { onCall: async (req) => (restoring ? { ok: true, stills: [], previewPath: join(req.versionDir, "preview.mp4"), browserLogs: [], probe: { durationMs: 1000, width: 10, height: 10, fps: { num: 30, den: 1 }, codec: "h264" } } : undefined) },
+    });
+    await run("playground.generate", { prompt: "p", settings: defaultSettings() });
+    const [v1] = rows(scene.id);
+    restoring = true;
+    const job = await run("scene.restore", { versionId: v1!.id });
+    expect(job.status).toBe("failed");
+    expect(job.error).toMatchObject({ stage: "probe" });
+    expect(rows(scene.id)).toHaveLength(1);
+    expect(scenes.get(env.db, scene.id)!.current_version_id).toBe(v1!.id);
+    const draft = join(env.s.root, "workspace/drafts", `${job.id}-a1`);
+    expect(readFileSync(join(draft, QUARANTINE), "utf8")).toMatch(/restore: перерендер не прошёл ffprobe/);
+  });
+
+  it("M3: input.sceneId ≠ job.scene_id → failed, версий не прибавилось", async () => {
+    const { scene, run } = await start();
+    await run("playground.generate", { prompt: "p", settings: defaultSettings() });
+    const [v1] = rows(scene.id);
+    const other = repo.createScene("playground", { prompt: "x", settings: defaultSettings() });
+    const job = await run("scene.restore", { versionId: v1!.id }, other.id);
+    expect(job.status).toBe("failed");
+    expect(job.error?.message).toMatch(/scene_id/);
+    expect(rows(scene.id)).toHaveLength(1);
+  });
 });
+

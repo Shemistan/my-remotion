@@ -34,7 +34,8 @@ export interface WorkerJob {
   /** Подставляется поверх композиции из бандла. */
   composition: { width: number; height: number; fps: number; durationInFrames: number };
   stills: { frame: number; out: string }[];
-  preview: { out: string; scale: number; crf: number };
+  /** null — только стоп-кадры (без превью). */
+  preview: { out: string; scale: number; crf: number } | null;
   /**
    * timeoutInMilliseconds Remotion (delayRender, загрузка страниц) — чуть меньше внешнего
    * таймаута, чтобы зависшая сцена падала с понятной ошибкой до убийства группы.

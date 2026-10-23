@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ScenePropsBaseSchema, scaleTiming } from "../src/index.js";
+import { ScenePropsBaseSchema, isContentFrameKey, scaleContentFrames, scaleTiming } from "../src/index.js";
 
 const b = (start_frame: number, end_frame: number) => ({ start_frame, end_frame });
 
@@ -63,5 +63,38 @@ describe("ScenePropsBase", () => {
     expect(ScenePropsBaseSchema.safeParse(propsWith({ safe_area: { x: 0.5, y: 0.1 } })).success).toBe(false);
     expect(ScenePropsBaseSchema.safeParse(propsWith({ safe_area: { x: 0.1 } })).success).toBe(false);
     expect(ScenePropsBaseSchema.safeParse(propsWith({ font: "" })).success).toBe(false);
+  });
+});
+
+describe("scaleContentFrames (кадровые величины props.content)", () => {
+  it("ключи-кадры по договору: travel, delay, stagger, hold, frame и суффиксы _frames/_frame/Frames/Frame", () => {
+    for (const k of ["travel", "delay", "stagger", "hold", "frame", "fan_stagger_frames", "enter_frames", "staggerFrames", "start_frame", "atFrame"]) expect(isContentFrameKey(k), k).toBe(true);
+    for (const k of ["stagger_index", "size", "count", "x", "frames_total_label", "framework", "accentIndex", "ms"]) expect(isContentFrameKey(k), k).toBe(false);
+  });
+
+  it("× 4/3: flows[].travel, fan_stagger_frames, ключи камеры; индексы, раскладка и строки — как были; вход не меняется", () => {
+    const content = {
+      fan_stagger_frames: 4,
+      flows: [{ edge: "e1", travel: 18, stagger_index: 2, size: 10 }, { edge: "e2", travel: 14 }],
+      nodes: [{ id: "n1", layout: { x: 0.3, y: 0.2, w: 0.2, h: 0.1 }, delay: 0 }],
+      camera: [{ frame: 150, scale: 1.1 }],
+      hold: "steady-flow",
+      pulse: { delay: 3, stagger_frames: [2, 4] },
+    };
+    const r = scaleContentFrames(content, 1 / 0.75);
+    expect(r.content).toEqual({
+      fan_stagger_frames: 5,
+      flows: [{ edge: "e1", travel: 24, stagger_index: 2, size: 10 }, { edge: "e2", travel: 19 }],
+      nodes: [{ id: "n1", layout: { x: 0.3, y: 0.2, w: 0.2, h: 0.1 }, delay: 0 }],
+      camera: [{ frame: 200, scale: 1.1 }],
+      hold: "steady-flow",
+      pulse: { delay: 4, stagger_frames: [3, 5] },
+    });
+    expect(r.scaled).toEqual(expect.arrayContaining(["content.fan_stagger_frames", "content.flows[0].travel", "content.camera[0].frame", "content.pulse.stagger_frames[1]"]));
+    expect(content.flows[0]!.travel).toBe(18);
+  });
+
+  it("длительность > 0 не схлопывается в 0; дробные — без округления", () => {
+    expect(scaleContentFrames({ travel: 1, delay: 0.5 }, 0.25).content).toEqual({ travel: 1, delay: 0.125 });
   });
 });

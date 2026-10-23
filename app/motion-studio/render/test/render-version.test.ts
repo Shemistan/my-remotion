@@ -271,6 +271,20 @@ it("outDir: stills and preview go to a separate dir, the version dir is only rea
   expect(existsSync(join(req.versionDir, "frames"))).toBe(false);
 });
 
+it("preview null: только стоп-кадры (проба раскладки) — worker без превью, ffprobe не зовётся", async () => {
+  const out = join(tmp, "probe");
+  await mkdir(out);
+  const res = await renderVersion({ ...req, outDir: out, stills: [59], preview: null }, undefined, deps((c) => {
+    const job = JSON.parse(c.opts.stdin!) as { stills: { out: string }[]; preview: unknown };
+    expect(job.preview).toBeNull();
+    return { stdout: workerOut({ ok: true, stills: job.stills.map((s) => s.out), browserLogs: ["[motion-kit:layout] {}"] }) };
+  }));
+  expect(res).toEqual({ ok: true, stills: [join(out, "frames", "59.png")], browserLogs: ["[motion-kit:layout] {}"] });
+  expect(calls.map((c) => c.cmd)).toEqual([process.execPath]);
+  const bad = await renderVersion({ ...req, outDir: out, stills: [59], preview: null }, undefined, deps(() => ({ stdout: workerOut({ ok: false, stills: [], browserLogs: [], error: { stage: "still", message: "boom" } }) })));
+  expect(bad).toMatchObject({ ok: false, error: { stage: "still", message: "boom" } });
+});
+
 it("run.registry goes to spawnTracked for worker and ffprobe; the worker job gets no registry", async () => {
   const registry = { add: async () => undefined, end: async () => undefined, live: async () => [] };
   const r = await renderVersion({ ...req, run: { ...req.run, registry } }, undefined, deps(() => ({ stdout: workerOut(okResult(req)) })));

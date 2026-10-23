@@ -198,6 +198,8 @@ export interface EditRequest {
   /** Запрос сцены для Visual QA: исходный запрос и правка (manifest.prompt — сообщение правки). */
   qaPrompt?: string;
   preserveCheck?: LoopInput["preserveCheck"];
+  /** «Сохрани композицию»: кадр hold базы и правки по реестру раскладки (fix-loop). */
+  preserveHold?: LoopInput["preserveHold"];
 }
 
 export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, signal?: AbortSignal): Promise<GenerateResult> {
@@ -386,7 +388,7 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
         ...(req.qa ? { qa: { brief: { prompt: ed?.qaPrompt ?? prompt, settings, camera: cameraBrief(spec!) }, allowRestricted: req.qa.allowRestricted } } : {}),
         ...(req.previous ? { previous: req.previous } : {}),
         progress: deps.progress,
-        ...(ed ? { reviseOnly: true, ...(paramEdit ? { skipFirstEngineer: true } : {}), ...(ed.brief ? { brief: ed.brief } : {}), ...(ed.preserveCheck ? { preserveCheck: ed.preserveCheck } : {}) } : {}),
+        ...(ed ? { reviseOnly: true, ...(paramEdit ? { skipFirstEngineer: true } : {}), ...(ed.brief ? { brief: ed.brief } : {}), ...(ed.preserveCheck ? { preserveCheck: ed.preserveCheck } : {}), ...(ed.preserveHold ? { preserveHold: ed.preserveHold } : {}) } : {}),
         // второй дубль (S5): свой каталог попытки задачи вне draft (граница draft первого дубля
         // не видит его файлов), файлы пайплайна со своим spec и refs/
         takeDir: paramEdit ? undefined : async (spec2) => {

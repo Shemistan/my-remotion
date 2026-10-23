@@ -62,4 +62,19 @@ describe("applyParamEdit", () => {
     expect(r.props.style.depth).toBe(3);
     expect(r.settings.duration_frames).toBe(240);
   });
+
+  it("timing_scale масштабирует кадровые величины props.content (I2): flows[].travel, fan_stagger_frames; раскладка — как была", () => {
+    const props = { ...props180, content: { fan_stagger_frames: 4, flows: [{ edge: "e1", travel: 18, stagger_index: 1 }, { edge: "e2", travel: 14 }], nodes: [{ id: "orch", layout: { x: 0.4, y: 0.4, w: 0.2, h: 0.2 } }] } };
+    const r = applyParamEdit({ spec: spec180, props, settings: settings180 }, plan({ path: "param", timing_scale: 1 / 0.75 }), history);
+    if (r.kind !== "param") throw new Error("ожидался param");
+    const c = r.props.content as { fan_stagger_frames: number; flows: { travel: number; stagger_index?: number }[]; nodes: unknown[] };
+    expect(c.flows.map((f) => f.travel)).toEqual([24, 19]);
+    expect(c.flows[0]!.stagger_index).toBe(1);
+    expect(c.fan_stagger_frames).toBe(5);
+    expect(c.nodes).toEqual(props.content.nodes);
+    // смена длительности патчем (duration_frames) — тот же множитель
+    const p2 = applyParamEdit({ spec: spec180, props, settings: settings180 }, plan({ path: "param", changes: [] }), history, { duration_frames: 360 });
+    if (p2.kind !== "param") throw new Error("ожидался param");
+    expect((p2.props.content as { flows: { travel: number }[] }).flows[0]!.travel).toBe(36);
+  });
 });

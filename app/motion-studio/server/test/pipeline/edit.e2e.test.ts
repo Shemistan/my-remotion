@@ -7,14 +7,14 @@
 // MS_WRITE_EVIDENCE=1. MS_E2E_T18_SCENE=<scn_…> — продолжить на готовой сцене: версии с теми
 // же промптами берутся из истории, недостающие делаются заново.
 import { execFile } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type Job, type MotionSpec, type ScenePropsBase, type StyleBible, type VersionManifest, defaultSettings } from "@ms/contracts";
-import { ensureRenderBrowser, ffprobe } from "@ms/render";
+import { type Job, type MotionSpec, type ScenePropsBase, type StyleBible, type VersionManifest, defaultSettings, scaleContentFrames } from "@ms/contracts";
+import { ensureRenderBrowser, ffprobe, renderVersion } from "@ms/render";
 import { type Core, bootCore } from "../../src/boot.js";
 import * as chat from "../../src/db/repos/chat.js";
 import * as jobEvents from "../../src/db/repos/job-events.js";
@@ -23,7 +23,9 @@ import * as versions from "../../src/db/repos/versions.js";
 import { tx } from "../../src/db/tx.js";
 import { registerHandlers } from "../../src/jobs/handlers.js";
 import { enqueue, provideInput } from "../../src/jobs/queue.js";
-import { checkPreserve } from "../../src/pipeline/preserve.js";
+import * as scenes from "../../src/db/repos/scenes.js";
+import { checkPreserve, compareHoldLayout } from "../../src/pipeline/preserve.js";
+import { type LayoutFrame, parseLayout } from "../../src/qa/layout.js";
 import { newId } from "../../src/scenes/ids.js";
 import { DEFAULT_PROJECT, readVersion } from "../../src/scenes/store.js";
 
@@ -120,6 +122,36 @@ function edit(text: string): string {
   });
 }
 
+/**
+ * Реестр раскладки кадра hold (N−1) версии — тот же рендер-проба, что у пайплайна правки
+ * (`preserveHold`): только этот кадр, без превью, в каталог tmp/ (версия только читается).
+ */
+async function holdLayout(v: V): Promise<LayoutFrame> {
+  const s = v.manifest.settings;
+  const last = s.duration_frames - 1;
+  mkdirSync(join(REPO, "tmp"), { recursive: true });
+  const out = mkdtempSync(join(REPO, "tmp", `t18-hold-${v.name}-`));
+  try {
+    const r = await renderVersion({
+      versionDir: v.dir, outDir: out, settings: s, cacheDir: join(DATA_DIR, "cache"), stills: [last], preview: null, timeoutMs: 5 * 60_000,
+      run: { root: DATA_DIR, runId: `e2e-t18-hold-${newId("run")}`, attempt: 1 },
+    });
+    expect(r.ok, JSON.stringify(r.error)).toBe(true);
+    const f = parseLayout(r.browserLogs).find((x) => x.frame === last);
+    expect(f, `нет реестра кадра ${last} у ${v.name}`).toBeDefined();
+    return f!;
+  } finally {
+    await rm(out, { recursive: true, force: true });
+  }
+}
+
+/** Значение по пути вида `content.flows[0].travel` (пути `scaleContentFrames`). */
+function at(content: unknown, path: string): unknown {
+  let v: unknown = { content };
+  for (const m of path.matchAll(/([^.[\]]+)|\[(\d+)\]/g)) v = (v as Record<string, unknown> | undefined)?.[m[1] ?? m[2]!];
+  return v;
+}
+
 /** Глубина версии: props.style.depth (у kit «объём» — тени и перспектива от depth). */
 const depthOf = (v: V) => v.props.style.depth;
 
@@ -179,7 +211,24 @@ describe("playground.edit: Test 3 (09 §4), реальные модели и р�
     v3.spec.beats.forEach((b, i) => expect(Math.abs(b.end_frame - Math.round(v2.spec.beats[i]!.end_frame / 0.75))).toBeLessThanOrEqual(1));
     expect(v3.style.palette).toEqual(v1.style.palette);
     expect(depthOf(v3)).toBeGreaterThan(depthOf(v2));
-    expect(checkPreserve(v2.spec, v3.spec, v2.props, v3.props, ["composition"])).toEqual([]);
+    // композиция — по тому, что сцена рисует (I1): раскладка props.content и spec ± 2 %, затем
+    // реестр раскладки кадра hold v2 и v3 (позиции текстов, не пиксели — палитра другая)
+    const size = { width: v3.manifest.settings.width, height: v3.manifest.settings.height };
+    expect(checkPreserve(v2.spec, v3.spec, v2.props, v3.props, ["composition"], 0.02, { size })).toEqual([]);
+    const [h2, h3] = [await holdLayout(v2), await holdLayout(v3)];
+    console.log(`кадр hold v2/${h2.frame}: ${h2.items.length} текстов; v3/${h3.frame}: ${h3.items.length}`);
+    expect(h2.items.length).toBeGreaterThan(0);
+    expect(compareHoldLayout(h2, h3, size)).toEqual([]);
+    // пайплайн правки сам сверил кадр hold с базой (а не только этот тест)
+    expect(readFileSync(join(v3.dir, "pipeline-log.json"), "utf8")).toMatch(/сверка кадра hold базы \d+ ↔ \d+: \d+ → \d+ текстов, расхождений 0/);
+    // скорость −25 % — и кадровые величины content (I2): travel, stagger… × 4/3
+    if ((v3.manifest.edit_plan as { path?: string }).path === "param") {
+      const factor = (v3.manifest.edit_plan as { timing_scale?: number }).timing_scale ?? v3.spec.duration_frames / v2.spec.duration_frames;
+      const want = scaleContentFrames(v2.props.content, factor);
+      console.log(`кадровые величины content × ${factor.toFixed(3)}: ${want.scaled.length} (${want.scaled.slice(0, 6).join(", ")}…)`);
+      expect(want.scaled.length).toBeGreaterThan(0);
+      for (const path of want.scaled) expect(at(v3.props.content, path), path).toBe(at(want.content, path));
+    }
     expect(v3.manifest.qa?.technical).toBe("pass");
     const probe = await ffprobe(join(v3.dir, "preview.mp4"));
     expect(Math.abs(probe.durationMs - (v3.spec.duration_frames * 1000) / 30)).toBeLessThanOrEqual(1000 / 30 + 1);
@@ -198,6 +247,7 @@ describe("playground.edit: Test 3 (09 §4), реальные модели и р�
     expect(after).toHaveLength(before.length + 1);
     const v4 = after.at(-1)!;
     expect(v4).toMatchObject({ parent_version_id: v1.row.id, status: "ready", edit_plan: { kind: "restore", base_version_id: v1.row.id } });
+    expect(scenes.get(core.db, sceneId)!.current_version_id).toBe(v4.id);
     for (const v of after) expect((await readVersion(join(DATA_DIR, v.path))).files.length).toBeGreaterThan(0);
     got.v4 = load("v4-restore", v4, job, Date.now() - t0);
   }, T);

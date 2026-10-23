@@ -304,28 +304,41 @@ export function pngFrame(frame: number): Buffer {
  * Рендер-фейк: кадры и превью — файлы-заглушки (`png: true` — настоящие PNG для QA),
  * probe совпадает с настройками (масштаб 0.5).
  */
-export function fakeRender(opts: { fail?: RenderResult["error"]; png?: boolean; onCall?: (req: RenderRequest, signal?: AbortSignal) => Promise<RenderResult | void> } = {}) {
+/**
+ * Фейк рендера: кадры (PNG при `png`) и превью — в `outDir ?? versionDir`; `preview: null` —
+ * только кадры (проба раскладки базы). `layout(req, frame)` — элементы реестра раскладки
+ * кадра: строка `[motion-kit:layout]` в browserLogs, как у пробы рендера.
+ */
+export function fakeRender(opts: {
+  fail?: RenderResult["error"]; png?: boolean; onCall?: (req: RenderRequest, signal?: AbortSignal) => Promise<RenderResult | void>;
+  layout?: (req: RenderRequest, frame: number) => unknown[] | undefined;
+} = {}) {
   const calls: RenderRequest[] = [];
   const render = async (req: RenderRequest, signal?: AbortSignal): Promise<RenderResult> => {
     calls.push(req);
     const custom = await opts.onCall?.(req, signal);
     if (custom) return custom;
     if (opts.fail) return { ok: false, stills: [], browserLogs: [], error: opts.fail };
-    await mkdir(join(req.versionDir, "frames"), { recursive: true });
+    const out = req.outDir ?? req.versionDir;
+    await mkdir(join(out, "frames"), { recursive: true });
     const stills = [];
+    const browserLogs: string[] = [];
     for (const f of req.stills) {
-      const p = join(req.versionDir, "frames", `${f}.png`);
+      const p = join(out, "frames", `${f}.png`);
       await writeFile(p, opts.png ? pngFrame(f) : `png ${f}`);
       stills.push(p);
+      const items = opts.layout?.(req, f);
+      if (items) browserLogs.push(`[motion-kit:layout] ${JSON.stringify({ frame: f, height: req.settings.height, items, ghosts: [] })}`);
     }
-    const previewPath = join(req.versionDir, "preview.mp4");
+    if (req.preview === null) return { ok: true, stills, browserLogs };
+    const previewPath = join(out, "preview.mp4");
     await writeFile(previewPath, "mp4");
     const s = req.settings;
     return {
       ok: true,
       stills,
       previewPath,
-      browserLogs: [],
+      browserLogs,
       probe: {
         durationMs: (s.duration_frames * 1000 * s.fps.den) / s.fps.num,
         width: Math.round(s.width * req.preview.scale),

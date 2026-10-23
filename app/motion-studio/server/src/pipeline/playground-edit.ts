@@ -5,7 +5,8 @@
 // базы не по контракту, M18) — Motion Director (база + план) → Engineer правит копию src/
 // базы → gate (props/spec/settings, H4) → QA. Всё после плана — общий движок `runGeneration`:
 // тот же цикл исправлений, выбор лучшей попытки, общий бюджет задачи, `stage_wall_ms`. Что
-// план обещал сохранить, сверяет `checkPreserve`. Публикация — от базы (`parent_version_id`),
+// план обещал сохранить, сверяет `checkPreserve` (spec и раскладка props.content), а «сохрани
+// композицию» — ещё и реестр раскладки кадра hold базы и правки (`compareHoldLayout`). Публикация — от базы (`parent_version_id`),
 // с `edit_plan` и `changed_files`; ответ Edit Planner — в чат.
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -33,7 +34,7 @@ import type { StepRef } from "./checkpoints.js";
 import { type EditRequest, type GenerateDeps, type PlanOutcome, readKitApi, runGeneration } from "./generate.js";
 import { applyParamEdit, touchesGeometry } from "./param-edit.js";
 import { type PlaygroundDeps, abortKind, record, toHandlerResult } from "./playground-generate.js";
-import { checkPreserve } from "./preserve.js";
+import { checkPreserve, compareHoldLayout } from "./preserve.js";
 import { type CheckpointOpts, type RunCtx, directorStep, errText, scenePropsStyle, sceneStyle, toolless } from "./steps.js";
 
 export const PlaygroundEditInputSchema = z.object({
@@ -79,22 +80,32 @@ function rootPrompt(db: JobContext["db"], row: versions.VersionRow): string {
   return r.prompt;
 }
 
+/** Готовая версия, ближайшая по номеру к `n` (при равенстве — более ранняя). */
+function nearestReady(history: HistoryEntry[], n: number): HistoryEntry | undefined {
+  return history.filter((h) => h.status === "ready").sort((a, b) => Math.abs(a.number - n) - Math.abs(b.number - n) || a.number - b.number)[0];
+}
+
 /**
  * План к базе и истории: id базы — фактическая база; заимствование у неудавшейся версии →
- * у первой готовой (Q5), с пояснением; из `preserve` убирается то, что план меняет сам.
+ * у ближайшей готовой по номеру (для «первой версии» — первая готовая, Q5), с пояснением; из
+ * `preserve` убирается то, что меняет план или патч настроек (кнопка Render: пресет и палитра
+ * настроек — палитра, длительность — тайминги, M5).
  */
-export function normalizePlan(p: EditPlan, baseId: string, history: HistoryEntry[]): { plan: EditPlan; notes: string[] } {
+export function normalizePlan(p: EditPlan, baseId: string, history: HistoryEntry[], patch: Partial<Settings> = {}): { plan: EditPlan; notes: string[] } {
   const notes: string[] = [];
-  const firstReady = history.find((h) => h.status === "ready");
   const borrow = p.borrow.map((b) => {
     const donor = history.find((h) => h.version_id === b.from_version_id);
-    if (!donor || donor.status === "ready" || !firstReady) return b;
-    notes.push(`Версия ${donor.number} не удалась, поэтому ${b.what === "palette" ? "палитру" : "параметры"} беру из первой готовой — версии ${firstReady.number}.`);
-    return { ...b, from_version_id: firstReady.version_id };
+    const near = donor && donor.status !== "ready" ? nearestReady(history, donor.number) : undefined;
+    if (!donor || !near) return b;
+    const first = history.find((h) => h.status === "ready") === near && near.number > donor.number;
+    notes.push(`Версия ${donor.number} не удалась, поэтому ${b.what === "palette" ? "палитру" : "параметры"} беру из ${first ? "первой готовой" : "ближайшей готовой"} — версии ${near.number}.`);
+    return { ...b, from_version_id: near.version_id };
   });
   const changes = new Set<string>();
   if (p.timing_scale !== undefined && p.timing_scale !== 1) changes.add("timing");
   if (borrow.some((b) => b.what === "palette") || p.param_patch?.style?.palette_overrides || p.param_patch?.style?.preset) changes.add("palette");
+  if (patch.style_preset !== undefined || patch.color_palette !== undefined) changes.add("palette");
+  if (patch.duration_frames !== undefined) changes.add("timing");
   if (borrow.some((b) => b.what === "timing")) changes.add("timing");
   if (p.param_patch?.content) changes.add("text");
   const preserve = p.preserve.filter((x) => !changes.has(x));
@@ -136,7 +147,7 @@ function keepFromBase(spec: MotionSpec, base: MotionSpec, preserve: EditPlan["pr
     const b = byId.get(e.id);
     if (!b) return e;
     let next = e;
-    if (preserve.includes("composition") && b.layout && checkPreserve(base, { ...spec, elements: [e] }, undefined, undefined, ["composition"]).length > 0) {
+    if (preserve.includes("composition") && b.layout && checkPreserve(base, { ...spec, elements: [e] }, undefined, undefined, ["composition"]).some((x) => x.area === e.id)) {
       next = { ...next, layout: { ...b.layout } };
       restored.push(`${e.id}: раскладка`);
     }
@@ -146,6 +157,10 @@ function keepFromBase(spec: MotionSpec, base: MotionSpec, preserve: EditPlan["pr
     }
     return next;
   });
+  if (preserve.includes("composition")) {
+    const ids = new Set(spec.elements.map((e) => e.id));
+    for (const b of base.elements) if (b.layout && !ids.has(b.id)) restored.push(`${b.id}: убран Director — не возвращён`);
+  }
   return { spec: { ...spec, elements }, restored };
 }
 
@@ -158,6 +173,10 @@ function editBrief(plan: EditPlan, baseNumber: number): string {
     "## Что изменить",
     ...plan.changes.map((c) => `- ${c.target} (${c.kind}): ${c.description}`),
     ...(plan.preserve.length > 0 ? ["", `## Сохранить как в базе: ${plan.preserve.join(", ")}`] : []),
+    ...(plan.preserve.includes("composition") ? ["Композиция: `layout` в props.json и координаты в коде — как в базе; пайплайн сверит раскладку props и кадр hold с базой (± 2 % кадра)."] : []),
+    ...(plan.timing_scale !== undefined && plan.timing_scale !== 1
+      ? ["", `## Темп × ${Math.round(plan.timing_scale * 1000) / 1000}`, "Биты spec уже пересчитаны. Кадровые величины props.content (`travel`, `delay`, `stagger`, `hold`, `frame`, `*_frames`) умножь на тот же множитель."]
+      : []),
     ...(plan.param_patch ? ["", "## Параметры (props.json)", "```json", JSON.stringify(plan.param_patch, null, 2), "```"] : []),
   ].join("\n");
 }
@@ -169,6 +188,8 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
     if (!parsed.success) return fail(`вход playground.edit не годится: ${parsed.error.message}`);
     const input = parsed.data;
     const { sceneId } = input;
+    // замок сцены взят по job.scene_id (M3): писать в другую сцену — гонка с её генерацией
+    if (ctx.job.scene_id !== sceneId) return fail(`input.sceneId ${sceneId} не совпадает с scene_id задачи ${ctx.job.scene_id ?? "—"}`);
     const root = d.repo.root;
     const scene = scenes.get(ctx.db, sceneId);
     if (!scene) return fail(`сцены нет: ${sceneId}`);
@@ -214,6 +235,15 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
     };
     let final: EditPlan | undefined;
     let notes: string[] = [];
+    /**
+     * «Сохрани композицию» — ещё и кадр hold базы и правки по реестру раскладки (`09` §4).
+     * Другой размер кадра (путь spec) — позиции в px несравнимы, сверки кадра нет.
+     */
+    const holdFor = (preserve: EditPlan["preserve"], next: Settings): Pick<EditRequest, "preserveHold"> => {
+      const s = base.row.settings;
+      if (!preserve.includes("composition") || s.width !== next.width || s.height !== next.height) return {};
+      return { preserveHold: { versionDir: base.dir, settings: s, check: (a, b, size) => compareHoldLayout(a, b, size) } };
+    };
 
     const planEdit = async (rc: RunCtx): Promise<PlanOutcome> => {
       // --- 1. План: готовый, из патча или от Edit Planner ---
@@ -238,7 +268,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
         }
       }
       if (touchesGeometry(patch) && raw.path === "param") raw = { ...raw, path: "spec", changes: raw.changes.map((c) => ({ ...c, kind: "spec" })) };
-      const norm = normalizePlan(raw, base.row.id, history);
+      const norm = normalizePlan(raw, base.row.id, history, patch);
       let plan = norm.plan;
       notes = norm.notes;
       for (const n of notes) rc.warnings.push(n);
@@ -266,7 +296,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
             spec: r.spec,
             candidates: baseCaps,
             settings: r.settings,
-            edit: { ...common, plan, props: JSON.stringify(r.props, null, 2) + "\n", preserveCheck: (props, spec) => checkPreserve(baseSpec, spec, baseProps, props, pr) },
+            edit: { ...common, plan, props: JSON.stringify(r.props, null, 2) + "\n", preserveCheck: (props, spec) => checkPreserve(baseSpec, spec, baseProps, props, pr, 0.02, { size: r.settings }), ...holdFor(pr, r.settings) },
           };
         }
         rc.warnings.push(`правка параметрами невозможна (${base.props === undefined ? "нет props.json" : "props базы не по контракту или заимствуется раскладка/типографика"}) — путь ${r.plan.path}`);
@@ -288,6 +318,12 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
       if (!dr.ok) return { kind: "failed", stage: dr.stage, message: dr.message };
       const kept = keepFromBase(dr.spec, base.spec, plan.preserve);
       if (kept.restored.length > 0) rc.warnings.push(`Director изменил то, что правка обещала сохранить — возвращено из базы: ${kept.restored.join("; ")}`);
+      // «темп тот же» (M2): биты строит Director, Engineer их не исправит — честное предупреждение
+      if (plan.preserve.includes("timing") && checkPreserve(base.spec, kept.spec, undefined, undefined, ["timing"]).length > 0) {
+        const n = `Темп не сохранён: Director перестроил тайминги (${base.spec.duration_frames} → ${kept.spec.duration_frames} кадров или границы битов), хотя правка просила оставить темп.`;
+        rc.warnings.push(n);
+        notes = [...notes, n];
+      }
       final = plan;
       const baseSpec = base.spec;
       const baseProps = base.props;
@@ -299,7 +335,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
         spec: kept.spec,
         candidates,
         settings,
-        edit: { ...common, plan, brief: editBrief(plan, base.row.number), preserveCheck: (props, spec) => checkPreserve(baseSpec, spec, baseProps, props, loopPreserve) },
+        edit: { ...common, plan, brief: editBrief(plan, base.row.number), preserveCheck: (props, spec) => checkPreserve(baseSpec, spec, baseProps, props, loopPreserve, 0.02, { size: settings }), ...holdFor(loopPreserve, settings) },
       };
     };
 

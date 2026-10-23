@@ -29,7 +29,7 @@ import {
 import { type ReapOptions, fileProcessRegistry, reapAttempt, safeMkdir } from "@ms/core";
 import { type RenderRequest, type RenderResult, type renderVersion, probeGate } from "@ms/render";
 import { ACCENT_HOLD_GAP, programmaticChecks } from "../qa/programmatic.js";
-import { parseLayout } from "../qa/layout.js";
+import { type LayoutFrame, parseLayout } from "../qa/layout.js";
 import { acceptedAsWarn, fixHints, meaningFails, mergeQA, qaBlocks } from "../qa/report.js";
 import { specChecks } from "../qa/spec-checks.js";
 import { reconcileMissing, runVisualQA } from "../qa/visual-agent.js";
@@ -132,6 +132,16 @@ export interface LoopInput {
   brief?: string;
   /** Сверка с базой того, что правка обещала сохранить (`checkPreserve`); blocking — исправление. */
   preserveCheck?: (props: ScenePropsBase, spec: MotionSpec) => QAIssue[];
+  /**
+   * «Сохрани композицию» по кадру hold (`09` §4): база рендерится один раз только кадром N−1
+   * (без превью, проба раскладки), её реестр сверяется `check` с реестром кадра N−1 каждой
+   * попытки; blocking — исправление тем же циклом. Сбой пробы базы — предупреждение.
+   */
+  preserveHold?: {
+    versionDir: string;
+    settings: Settings;
+    check: (base: LayoutFrame, next: LayoutFrame, size: { width: number; height: number }) => QAIssue[];
+  };
   /** Второй дубль только `revise` (правка: новое кадрирование `fresh` сломало бы композицию базы). */
   reviseOnly?: boolean;
 }
@@ -935,6 +945,73 @@ export function renderTimeoutMs(settings: Pick<Settings, "duration_frames" | "fp
   return Math.min(4 * RENDER_TIMEOUT_MS, Math.max(RENDER_TIMEOUT_MS, Math.round(sec * 10_000)));
 }
 
+type BaseHold = { layout: LayoutFrame } | { warn: string } | { orphaned: string };
+/** Проба кадра hold базы — одна на правку (оба дубля и все попытки сверяются с ней). */
+const baseHolds = new WeakMap<NonNullable<LoopInput["preserveHold"]>, Promise<BaseHold>>();
+
+/**
+ * Реестр раскладки кадра hold (N−1) базы: рендер только этого кадра (без превью) в свой
+ * каталог `run/tmp/…/base-hold` — опубликованная база только читается; каталог удаляется.
+ */
+function baseHoldLayout(i: LoopInput): Promise<BaseHold> {
+  const h = i.preserveHold!;
+  const cached = baseHolds.get(h);
+  if (cached) return cached;
+  const { rc } = i;
+  const run = async (): Promise<BaseHold> => {
+    const last = h.settings.duration_frames - 1;
+    const out = await safeMkdir(rc.root, `run/tmp/${rc.runId}-a${rc.attempt}/base-hold`);
+    try {
+      const r = await rc.timed("preserve_hold_base", () =>
+        rc.underWatch(async (sig) => {
+          const release = await rc.acquire(rc.deps.permits?.renders, sig);
+          try {
+            return await i.deps.render({
+              versionDir: h.versionDir, outDir: out, settings: h.settings, cacheDir: i.cacheDir, stills: [last], preview: null, timeoutMs: renderTimeoutMs(h.settings),
+              run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry },
+            }, sig);
+          } finally {
+            release();
+          }
+        }),
+      );
+      if (r.value?.error?.stage === "orphaned") return { orphaned: `проба кадра hold базы: ${r.value.error.message}` };
+      if (r.value === undefined || !r.value.ok) return { warn: `проба кадра hold базы не удалась: ${r.value?.error ? `${r.value.error.stage}: ${r.value.error.message}` : errText(r.error ?? r.lost ?? "отменено")}` };
+      const layout = parseLayout(r.value.browserLogs).find((f) => f.frame === last);
+      return layout ? { layout } : { warn: `проба кадра hold базы: нет реестра раскладки кадра ${last}` };
+    } finally {
+      await rm(out, { recursive: true, force: true }).catch(() => undefined);
+    }
+  };
+  const p = run().catch((e: unknown): BaseHold => ({ warn: `проба кадра hold базы: ${errText(e)}` }));
+  baseHolds.set(h, p);
+  return p;
+}
+
+/**
+ * «Сохрани композицию» по кадру hold (`09` §4): реестр N−1 попытки против реестра N−1 базы.
+ * Нет данных — предупреждение (не blocking): без пробы сверку делает только props.content.
+ */
+async function preserveHoldIssues(i: LoopInput, rr: RenderResult): Promise<{ issues: QAIssue[] } | { orphaned: string }> {
+  const h = i.preserveHold;
+  if (!h) return { issues: [] };
+  const b = await baseHoldLayout(i);
+  if ("orphaned" in b) return b;
+  if ("warn" in b) {
+    i.rc.warnings.push(b.warn);
+    return { issues: [] };
+  }
+  const last = i.settings.duration_frames - 1;
+  const next = parseLayout(rr.browserLogs).find((f) => f.frame === last);
+  if (!next) {
+    i.rc.warnings.push(`сверка кадра hold: нет реестра раскладки кадра ${last} новой версии`);
+    return { issues: [] };
+  }
+  const issues = h.check(b.layout, next, { width: i.settings.width, height: i.settings.height });
+  i.rc.note("qa", `сверка кадра hold базы ${b.layout.frame} ↔ ${last}: ${b.layout.items.length} → ${next.items.length} текстов, расхождений ${issues.length}${issues.length > 0 ? ` (${issues.map((x) => x.area).join(", ")})` : ""}`);
+  return { issues };
+}
+
 /** Программные проверки, проверки spec и Visual QA по кадрам рендера → QAReport (или выход). */
 async function runQa(
   i: LoopInput, state: LoopState, t: Take, rr: RenderResult, techWarnings: QAIssue[], call: number, extra: number[], styleOverride: ScenePropsStyle | undefined,
@@ -955,6 +1032,9 @@ async function runQa(
   // лишний кадр — не QA-кадр: Visual QA его не видит, в версию он не публикуется
   for (const x of all.slice(frames.length)) if (x.path) await rm(x.path, { force: true });
   const fromSpec = specChecks(spec, settings, { previous: i.previous ?? [] });
+  const hold = await preserveHoldIssues(i, rr);
+  if ("orphaned" in hold) return { exit: { ok: false, stage: "orphaned", message: hold.orphaned, alive: true } };
+  programmatic.push(...hold.issues);
 
   // ruling P5: QA по реальным кадрам обязателен. Бюджет кончился до Visual QA — `budget`;
   // Visual QA не дал оценки — один повтор (без исправления Engineer), затем `qa`. Обе

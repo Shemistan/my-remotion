@@ -73,7 +73,7 @@ function parseJob(text: string): WorkerJob {
   const job = JSON.parse(text) as Partial<WorkerJob>;
   const need = ["entryPoint", "bundleDir", "rootDir", "nodeModules", "motionKitDir", "browserExecutable", "chrome"] as const;
   for (const k of need) if (typeof job[k] !== "string") throw new Error(`worker: в задании нет ${k}`);
-  if (!job.composition || !job.preview || !job.run || !Array.isArray(job.stills) || typeof job.timeoutMs !== "number") {
+  if (!job.composition || job.preview === undefined || !job.run || !Array.isArray(job.stills) || typeof job.timeoutMs !== "number") {
     throw new Error("worker: неполное задание");
   }
   return job as WorkerJob;
@@ -177,6 +177,7 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
     stills.push(s.out);
   }
 
+  if (!job.preview) return { ok: true, stills, browserLogs };
   startStage("media");
   // временное имя: недописанное превью не выглядит готовым
   const tmpOut = join(job.preview.out, "..", `.preview-${process.pid}.tmp.mp4`);
