@@ -1,8 +1,7 @@
 // S5 п. 6–7: время этапов по часам (параллельные вызовы не складываются), время рендера по
-// длительности сцены, лимиты параллельности раннера.
+// длительности сцены. Лимиты параллельности раннера — поведением в jobs/runner.test.ts.
 import { describe, expect, it } from "vitest";
 import { defaultSettings } from "@ms/contracts";
-import { AGENT_CALLS, RENDERS } from "../../src/jobs/limits.js";
 import { renderTimeoutMs } from "../../src/pipeline/fix-loop.js";
 import { stageOf, stageWall } from "../../src/pipeline/steps.js";
 
@@ -32,9 +31,3 @@ describe("renderTimeoutMs", () => {
   });
 });
 
-describe("лимиты раннера (S5 п. 6)", () => {
-  it("агентные этапы — до 5 одновременно, рендеры — 2", () => {
-    expect(AGENT_CALLS).toBe(5);
-    expect(RENDERS).toBe(2);
-  });
-});

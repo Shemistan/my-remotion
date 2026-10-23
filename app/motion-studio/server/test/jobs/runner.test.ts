@@ -112,6 +112,34 @@ it("семафоры общие для задач: heavy = 1 — вторая ж
   expect(order).toEqual(["in:a", "out:a", "in:b", "out:b"]);
 });
 
+it("S5 п. 6: раннер по умолчанию — 2 рендера и 5 агентных вызовов одновременно, лишний ждёт места", async () => {
+  const peak = { renders: 0, agents: 0 };
+  const now = { renders: 0, agents: 0 };
+  const hold = deferred();
+  const use = async (ctx: JobContext, kind: "renders" | "agents") => {
+    const release = await ctx[kind].acquire(ctx.signal);
+    now[kind]++;
+    peak[kind] = Math.max(peak[kind], now[kind]);
+    await hold.promise;
+    now[kind]--;
+    release();
+  };
+  const r = make({
+    "playground.generate": async (ctx) => {
+      // два дубля и лишний: 3 рендера и 6 агентных вызовов одной задачи наперегонки
+      await Promise.all([...Array.from({ length: 3 }, () => use(ctx, "renders")), ...Array.from({ length: 6 }, () => use(ctx, "agents"))]);
+      return { status: "completed", outputRefs: {} };
+    },
+  });
+  const j = enqueue(env.db, req()).job;
+  r.start();
+  await until(() => now.renders === 2 && now.agents === 5, "места заняты");
+  await new Promise((res) => setTimeout(res, 30));
+  expect(peak).toEqual({ renders: 2, agents: 5 });
+  hold.resolve();
+  await until(() => jobs.get(env.db, j.id)!.status === "completed", "completed");
+});
+
 it("heartbeat продлевает lease по часам раннера; progress пишет этап", async () => {
   let t = 1_000_000;
   const g = gate();
