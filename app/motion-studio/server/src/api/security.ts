@@ -30,7 +30,13 @@ export function installSecurity(app: FastifyInstance, core: Core, port: number):
     if (origin !== undefined ? !origins.has(origin) : !SAFE_METHODS.has(req.method)) {
       return deny(reply, 403, "forbidden_origin", `Origin не разрешён: ${origin ?? "нет заголовка"}`);
     }
-    const path = req.url.split("?")[0]!;
+    // путь — в декодированном виде, как его сопоставляет роутер: `/%61pi/…` — тоже API (R1)
+    let path: string;
+    try {
+      path = decodeURIComponent(req.url.split("?")[0]!);
+    } catch {
+      return deny(reply, 400, "bad_path", "некорректная кодировка пути");
+    }
     const api = path === "/api" || path.startsWith("/api/");
     // API — только со своей страницы или прямым запросом: `<video src>`/`<img>` чужого сайта
     // (в том числе с другого порта localhost — тот же «site») приходят с cross-site/same-site
@@ -40,7 +46,9 @@ export function installSecurity(app: FastifyInstance, core: Core, port: number):
     }
     const health = SAFE_METHODS.has(req.method) && path === "/api/health";
     if (api && !health && core.storage.mode() === "storage_offline") {
-      return deny(reply, 503, "storage_offline", `хранилище недоступно: ${core.storage.reason() ?? "storage_offline"}`);
+      // причина может содержать путь — в ответ только код, подробности в журнал (R2)
+      req.log.warn({ reason: core.storage.reason() }, "storage_offline");
+      return deny(reply, 503, "storage_offline", "хранилище недоступно: подключите SSD");
     }
     return undefined;
   });

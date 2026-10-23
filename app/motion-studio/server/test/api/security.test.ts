@@ -81,6 +81,16 @@ describe("Host и Origin", () => {
       for (const site of ["same-origin", "none"]) expect((await api.inj("GET", u, { ...getHeaders, "sec-fetch-site": site })).statusCode, `${u} ${site}`).toBe(200);
     }
   });
+
+  it("закодированный путь к API (/%61pi/…) не обходит Sec-Fetch-Site; битая кодировка → 400", async () => {
+    const { versionId } = await seedVersion(api);
+    for (const u of ["/%61pi/projects", `/%61pi/versions/${versionId}/preview.mp4`, "/%61%70%69/projects"]) {
+      const r = await api.inj("GET", u, { ...getHeaders, "sec-fetch-site": "cross-site" });
+      expect(r.statusCode, u).toBe(403);
+      expect(r.json().error).toBe("forbidden_fetch_site");
+    }
+    expect((await api.inj("GET", "/api/%E0%A4%A", getHeaders)).statusCode).toBe(400);
+  });
 });
 
 /** Дерево каталога: путь → размер и mtime (без содержимого). */
