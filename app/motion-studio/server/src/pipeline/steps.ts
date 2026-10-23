@@ -268,7 +268,7 @@ export interface TaskRun {
   seq?: number;
 }
 
-function agentTask(role: Role, input: string, workdir: string, tools: AgentTool[], run: TaskRun): AgentTask<string> {
+function agentTask(role: Role, input: string, workdir: string, tools: AgentTool[], run: TaskRun, limits?: AgentTask<string>["limits"]): AgentTask<string> {
   const s = run.config.agents[role];
   return {
     role,
@@ -277,7 +277,7 @@ function agentTask(role: Role, input: string, workdir: string, tools: AgentTool[
     workdir,
     tools,
     model: s.model,
-    limits: { timeoutMs: s.timeoutMs, maxBudgetUsd: s.maxBudgetUsd },
+    limits: limits ?? { timeoutMs: s.timeoutMs, maxBudgetUsd: s.maxBudgetUsd },
     idempotencyKey: `${run.runId}-a${run.attempt}-${role}-${run.seq ?? 1}`,
     run: { root: run.root, runId: run.runId, attempt: run.attempt, registry: run.registry },
   };
@@ -443,7 +443,29 @@ export function buildEngineerTask(i: { draftDir: string; fix?: string; spec?: Mo
     "",
     "В ответе: files_written — пути относительно текущего каталога, kit_components_used, kb_ids_used (только kb_id из knowledge-refs.json), notes.",
   );
-  return agentTask("engineer", parts.join("\n"), i.draftDir, [...ENGINEER_TOOLS], run);
+  const base = run.config.agents.engineer;
+  const limits = i.spec ? engineerLimits(base, (i.spec.duration_frames * i.spec.fps.den) / i.spec.fps.num) : undefined;
+  return agentTask("engineer", parts.join("\n"), i.draftDir, [...ENGINEER_TOOLS], run, limits);
+}
+
+/** Сцена до этой длины, с, — базовый лимит Engineer. */
+const ENGINEER_BASE_SEC = 20;
+/** Потолок множителя времени Engineer (×3: 10 мин → 30 мин). */
+export const ENGINEER_LIMIT_CAP = 3;
+/** Потолок множителя бюджета вызова Engineer: бюджет сцены ($5) общий на все вызовы. */
+const ENGINEER_BUDGET_CAP = 1.5;
+
+/**
+ * Лимиты вызова Engineer по длительности сцены (S5): код длинной сцены больше, и 60-с сцены
+ * упирались в 10 мин / $2. Время растёт линейно от 20 с (×1 до 20 с, ×1.5 на 30 с, ×3 на
+ * 60 с), с потолком ×3; бюджет вызова — тем же множителем, но не больше ×1.5.
+ */
+export function engineerLimits(base: { timeoutMs: number; maxBudgetUsd: number }, durationSec: number): { timeoutMs: number; maxBudgetUsd: number } {
+  const k = Math.min(ENGINEER_LIMIT_CAP, Math.max(1, durationSec / ENGINEER_BASE_SEC));
+  return {
+    timeoutMs: Math.round(base.timeoutMs * k),
+    maxBudgetUsd: Math.round(base.maxBudgetUsd * Math.min(ENGINEER_BUDGET_CAP, k) * 100) / 100,
+  };
 }
 
 // --- Стиль сцены ---
