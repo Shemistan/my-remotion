@@ -130,7 +130,7 @@ describe("время чтения и длина удержания", () => {
   });
 });
 
-describe("веса важнее минимумов (smoke s3a-366b281, eval-funnel)", () => {
+describe("веса важнее минимумов (smoke s3a-366b281, bench-funnel)", () => {
   it("setup 15 / action 45 / payoff 20 / hold 20, 5 и 4 элемента, длинный вывод: action — главная фаза", () => {
     const funnel: PlanPhase[] = [
       { id: "setup", role: "setup", weight: 15, elements: 5 },

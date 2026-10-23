@@ -1,8 +1,8 @@
-// Наборы eval: explainer (12 сцен, средние и правило --compare) и отдельный набор пользователя
+// Наборы bench: explainer (12 сцен, средние и правило --compare) и отдельный набор пользователя
 // (6 кейсов иллюстративной анимации). Выбор набора не должен менять explainer-набор.
 import { describe, expect, it } from "vitest";
-import { EXPLAINER_SET, HELD_OUT, USER_DURATION_FRAMES, parseSetName, setItems } from "../../src/eval/sets.js";
-import { USER_CASES } from "../../src/eval/user-cases.js";
+import { EXPLAINER_SET, HELD_OUT, USER_DURATION_FRAMES, parseSetName, setItems } from "../../src/bench/sets.js";
+import { USER_CASES } from "../../src/bench/user-cases.js";
 
 describe("parseSetName", () => {
   it("по умолчанию — explainer", () => {
@@ -21,10 +21,10 @@ describe("setItems", () => {
     const items = setItems("explainer");
     expect(items.map((i) => i.id)).toEqual([
       "test1", "test2", "gen-compare", "gen-timeline", "gen-cache", "held-mobile", "held-queue",
-      "eval-funnel", "eval-oauth", "eval-cdn", "eval-budget", "eval-abtest",
+      "bench-funnel", "bench-oauth", "bench-cdn", "bench-budget", "bench-abtest",
     ]);
     expect(items.every((i) => i.scene === i.id && i.prompt === EXPLAINER_SET[i.id] && i.duration_frames === undefined)).toBe(true);
-    expect([...HELD_OUT]).toEqual(["eval-funnel", "eval-oauth", "eval-cdn", "eval-budget", "eval-abtest"]);
+    expect([...HELD_OUT]).toEqual(["bench-funnel", "bench-oauth", "bench-cdn", "bench-budget", "bench-abtest"]);
   });
 
   it("user — шесть кейсов user-01…user-06, 60 с, дословный промпт без «Особенно оценивай»", () => {

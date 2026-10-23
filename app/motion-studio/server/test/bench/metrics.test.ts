@@ -1,4 +1,4 @@
-// Метрики eval: согласие судьи с оценками дизайнера, агрегация прогонов, кадровые числа.
+// Метрики bench: согласие судьи с оценками дизайнера, агрегация прогонов, кадровые числа.
 import { describe, expect, it } from "vitest";
 import {
   type JudgeScores,
@@ -12,7 +12,7 @@ import {
   ranks,
   sheetFrames,
   spearman,
-} from "../../src/eval/metrics.js";
+} from "../../src/bench/metrics.js";
 import { Canvas } from "../qa/helpers.js";
 
 const img = (c: Canvas) => ({ width: c.width, height: c.height, data: c.data });

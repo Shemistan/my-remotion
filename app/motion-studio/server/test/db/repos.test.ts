@@ -62,6 +62,13 @@ describe("projects и scenes", () => {
     expect(scenes.get(db, "scn_1")!.current_version_id).toBe("ver_1");
     expect(() => scenes.setCurrent(db, "scn_1", "ver_nope")).toThrow(/FOREIGN KEY/);
   });
+
+  it("служебные проекты харнесса: bench-<run> и старый префикс прогонов до переименования", () => {
+    expect(projects.isBenchProject("bench-s5-e0d174b")).toBe(true);
+    expect(projects.isBenchProject("eval-s3-6ef1f76")).toBe(true);
+    expect(projects.isBenchProject("prj_abc")).toBe(false);
+    expect(projects.isBenchProject("playground")).toBe(false);
+  });
 });
 
 describe("versions", () => {

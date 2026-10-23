@@ -193,7 +193,7 @@ export function tokenBox(label: string, px: number): { w: number; h: number } {
 }
 
 /**
- * Кегль токена под ширину полосы узла (чистая функция, S2-fix eval): карточка в полосе не
+ * Кегль токена под ширину полосы узла (чистая функция, S2-fix bench): карточка в полосе не
  * шире `slotW`. Влезает — кегль как есть; нет — мельчает, но не ниже `minTextPx`; не влезает
  * и на пределе — ошибка kit с нужной шириной (иначе текст режется многоточием — clipping).
  */
@@ -301,7 +301,7 @@ export function tokenShot(frame: number, start: number, travel: number, s: Style
 }
 
 /**
- * Передача (чистая функция, S2-fix2 eval): токен с `until`, а следующий токен с той же меткой
+ * Передача (чистая функция, S2-fix2 bench): токен с `until`, а следующий токен с той же меткой
  * стартует рядом с until (−6…+10 кадров) — это тот же объект уезжает дальше (сообщение забрали
  * из очереди). Кадр старта следующего или undefined. Копия данных (ответ из кэша) — без until,
  * она остаётся.
@@ -342,7 +342,7 @@ type Box = { x: number; y: number; w: number; h: number };
  * ответ по одной связи не ложатся друг на друга. У вертикального — справа от узлов на высоте
  * середины ребра. Не на карточках и не на их подписях. `atX` — своя ось подписи под целью: у
  * буфера `queue` — центр ячейки сообщения, чтобы подписи соседних сообщений не легли друг на
- * друга, пока прежнее ещё не записано в ячейку (S2-fix eval, held-queue).
+ * друга, пока прежнее ещё не записано в ячейку (S2-fix bench, held-queue).
  */
 export function captionPoint(mid: Point, target: Box, other: Box, box: { w: number; h: number }, gap: number, top: boolean, atX?: number): Point {
   const horizontal = other.x >= target.x + target.w || target.x >= other.x + other.w;

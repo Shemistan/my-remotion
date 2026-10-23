@@ -1,4 +1,4 @@
-// Судья eval: вход из превью (кадры и листы), задание с якорями leave-one-scene-out,
+// Судья bench: вход из превью (кадры и листы), задание с якорями leave-one-scene-out,
 // вызов рантайма только с Read в каталоге входа.
 import { execFile } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
@@ -6,8 +6,8 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AgentResult, AgentRuntimeAdapter, AgentTask } from "../../src/agents/runtime.js";
-import { JudgeOutputSchema, judgeFrames, judgeTaskText, loadJudgePrompt, prepareJudgeInput, runJudge, scoresOf } from "../../src/eval/judge.js";
-import { REFERENCE, anchorsFor } from "../../src/eval/reference.js";
+import { JudgeOutputSchema, judgeFrames, judgeTaskText, loadJudgePrompt, prepareJudgeInput, runJudge, scoresOf } from "../../src/bench/judge.js";
+import { REFERENCE, anchorsFor } from "../../src/bench/reference.js";
 import { loadPng } from "../../src/qa/image.js";
 import { makeTmp, removeTmp } from "../qa/helpers.js";
 
@@ -34,7 +34,7 @@ describe("калибровочный набор", () => {
     const a = anchorsFor("test1");
     expect(a).toHaveLength(10);
     expect(a.some((r) => r.scene === "test1")).toBe(false);
-    expect(anchorsFor("eval-funnel")).toHaveLength(12);
+    expect(anchorsFor("bench-funnel")).toHaveLength(12);
   });
 });
 

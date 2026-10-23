@@ -1,4 +1,4 @@
-// Продолжение прогона eval (`--run <id>`): какие готовые сцены переделать.
+// Продолжение прогона bench (`--run <id>`): какие готовые сцены переделать.
 import { isNetworkError } from "../pipeline/transient.js";
 
 /**

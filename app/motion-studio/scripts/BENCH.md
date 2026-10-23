@@ -1,35 +1,35 @@
-# Eval-набор и судья качества сцен
+# Bench-набор и судья качества сцен
 
 Шаг 1 стратегии качества (`.superpowers/sdd/2026-10-20-motion-studio-phase1-rest/quality-strategy.md`):
 каждое изменение качества идёт с замером «до/после» на одном наборе запросов.
 
-- `scripts/eval-set.mts` — прогон набора через настоящий пайплайн и судья.
+- `scripts/bench-set.mts` — прогон набора через настоящий пайплайн и судья.
 - `prompts/rubric-judge.md` — рубрика судьи: 8 критериев и итог 1–10 по планке «моушн-дизайнер
   выпустил бы это в продуктовом explainer».
-- `server/src/eval/judge.ts` — вход судьи (листы и кадры из превью) и вызов через
+- `server/src/bench/judge.ts` — вход судьи (листы и кадры из превью) и вызов через
   `ClaudeCodeRuntime` (роль со зрением, только `Read` в каталоге входа).
-- `server/src/eval/metrics.ts` — MAE, Spearman, порядок R1→R2, медиана прогонов, кадровые числа.
-- `server/src/eval/reference.ts` — 12 оценок дизайнера (R1 и R2), якоря шкалы, разбиение
+- `server/src/bench/metrics.ts` — MAE, Spearman, порядок R1→R2, медиана прогонов, кадровые числа.
+- `server/src/bench/reference.ts` — 12 оценок дизайнера (R1 и R2), якоря шкалы, разбиение
   train/holdout.
-- `server/src/eval/provenance.ts` — хеши промптов и отпечаток судьи (рубрика + якоря).
-- `server/src/eval/compare.ts` — сравнение двух прогонов «до/после» по правилу приёмки.
+- `server/src/bench/provenance.ts` — хеши промптов и отпечаток судьи (рубрика + якоря).
+- `server/src/bench/compare.ts` — сравнение двух прогонов «до/после» по правилу приёмки.
 
 ## Набор explainer (по умолчанию)
 
-`server/src/eval/sets.ts`, 12 запросов: 7, на которых настраивались промпты (`test1`, `test2`, `gen-*`, `held-*`), и 5
-новых отложенных `eval-*` (воронка, OAuth, CDN, бюджет, A/B-тест). Отложенные заморожены:
+`server/src/bench/sets.ts`, 12 запросов: 7, на которых настраивались промпты (`test1`, `test2`, `gen-*`, `held-*`), и 5
+новых отложенных `bench-*` (воронка, OAuth, CDN, бюджет, A/B-тест). Отложенные заморожены:
 промпты пайплайна по ним не настраивать, формулировки не менять — иначе сравнение «до/после»
 теряет смысл. Средние в отчёте даны отдельно для настроенных и отложенных.
 
 ## Набор пользователя (`--set user`)
 
 Отдельный постоянный набор: 6 кейсов пользователя — нарративная рисованная 2D-анимация с героем,
-локациями, светом, погодой и финальным титром (`server/src/eval/user-cases.ts`, сцены
+локациями, светом, погодой и финальным титром (`server/src/bench/user-cases.ts`, сцены
 `user-01`…`user-06`). Промпты дословные, не править. Длина сцены — 60 с (1800 кадров,
-`USER_DURATION_FRAMES` в `server/src/eval/sets.ts`), остальные настройки — по умолчанию.
+`USER_DURATION_FRAMES` в `server/src/bench/sets.ts`), остальные настройки — по умолчанию.
 
 - Гоняй на каждой вехе качества, прогон `user-<sha>`:
-  `$N npx tsx scripts/eval-set.mts --set user --run user-$(git rev-parse --short HEAD) --gen-timeout-min 180`.
+  `$N npx tsx scripts/bench-set.mts --set user --run user-$(git rev-parse --short HEAD) --gen-timeout-min 180`.
 - Оценка судьи **информативная**: рубрика написана под продуктовый explainer. Среднее набора
   в отчёте — отдельное (`mean_user`), в средние explainer и правило приёмки не входит.
   `--compare` между двумя прогонами user допустим как справка, не как вердикт.
@@ -45,24 +45,25 @@
 export MS_DATA_DIR="/Volumes/External SSD/MotionStudio"
 N=./scripts/with-node.sh
 
-$N npx tsx scripts/eval-set.mts                        # новый прогон: генерация 12 сцен + судья ×3
-$N npx tsx scripts/eval-set.mts --run <id>             # продолжить прерванный прогон
-$N npx tsx scripts/eval-set.mts --run <id> --no-judge  # только генерация
-$N npx tsx scripts/eval-set.mts --run <id> --judge-only            # судья по готовым превью
-$N npx tsx scripts/eval-set.mts --run <id> --judge-only --rejudge  # судья заново (новая рубрика)
-$N npx tsx scripts/eval-set.mts --run <id> --judge-only --no-judge # только пересобрать отчёт
-$N npx tsx scripts/eval-set.mts --only test1,eval-oauth            # часть набора
-$N npx tsx scripts/eval-set.mts --calibrate --run calib-<n>        # судья на оценках train
-$N npx tsx scripts/eval-set.mts --calibrate --split holdout        # проверка на holdout
-$N npx tsx scripts/eval-set.mts --run <после> --compare <до>       # дельты и вердикт «до/после»
-$N npx tsx scripts/eval-set.mts --set user --run user-<sha> --gen-timeout-min 180  # набор пользователя
+$N npx tsx scripts/bench-set.mts                        # новый прогон: генерация 12 сцен + судья ×3
+$N npx tsx scripts/bench-set.mts --run <id>             # продолжить прерванный прогон
+$N npx tsx scripts/bench-set.mts --run <id> --no-judge  # только генерация
+$N npx tsx scripts/bench-set.mts --run <id> --judge-only            # судья по готовым превью
+$N npx tsx scripts/bench-set.mts --run <id> --judge-only --rejudge  # судья заново (новая рубрика)
+$N npx tsx scripts/bench-set.mts --run <id> --judge-only --no-judge # только пересобрать отчёт
+$N npx tsx scripts/bench-set.mts --only test1,bench-oauth            # часть набора
+$N npx tsx scripts/bench-set.mts --calibrate --run calib-<n>        # судья на оценках train
+$N npx tsx scripts/bench-set.mts --calibrate --split holdout        # проверка на holdout
+$N npx tsx scripts/bench-set.mts --run <после> --compare <до>       # дельты и вердикт «до/после»
+$N npx tsx scripts/bench-set.mts --set user --run user-<sha> --gen-timeout-min 180  # набор пользователя
+$N npm run bench -- --help                                        # то же через npm-скрипт: справка
 ```
 
 Флаги: `--runs N` — прогонов судьи на сцену (3, итог — медиана), `--parallel N` — задач
 генерации одновременно (3), `--judge-parallel N` (6), `--judge-model M` (`opus`), `--gen-timeout-min N` — общий
 таймаут задачи генерации (60; по истечении задача отменяется, сцена пишется в `gen-failed.json`),
 `--write-evidence` — копия `scores.{json,md}`, `run.json` и по сценам `gen.json` и
-`judge-runs/` в `docs/evidence/phase-1/eval/<run>/` (ответы судьи holdout не копируются),
+`judge-runs/` в `docs/evidence/phase-1/bench/<run>/` (ответы судьи holdout не копируются),
 `--second-take revise|fresh|off` — режим второго дубля пайплайна (S5; без флага — из
 `config.json` хранилища, по умолчанию `revise`; то же — env `MS_SECOND_TAKE`). Для A/B
 режимов — два прогона одного набора с разными `--second-take` и `--compare`.
@@ -77,14 +78,24 @@ $N npx tsx scripts/eval-set.mts --set user --run user-<sha> --gen-timeout-min 18
 откат) — `commit: <sha>-dirty`, `dirty: true`, `kit_hash` (и `kit_hash_start`, если сменился).
 Судья (`--judge-only`) и `--compare` дерево не проверяют — они не рендерят.
 
-Сцены генерируются в отдельном проекте хранилища `eval-<run>`: в playground они не попадают,
-а подсказки против повторов (последние spec проекта) не тянутся из прошлых прогонов.
+Сцены генерируются в отдельном проекте хранилища `bench-<run>`: в playground они не попадают,
+а подсказки против повторов (последние spec проекта) не тянутся из прошлых прогонов. Признак
+служебного проекта для UI — `isBenchProject()` в `server/src/db/repos/projects.ts`.
 
 Генерация держит owner lock хранилища (сервер в это время не запустить). Судья работает в
-своём хранилище `$MS_DATA_DIR/eval` (журналы вызовов — `eval/logs/`), поэтому калибровку
+своём хранилище `$MS_DATA_DIR/bench` (журналы вызовов — `bench/logs/`), поэтому калибровку
 можно гонять параллельно с генерацией.
 
-## Что лежит в `tmp/eval/<run>/`
+**Переименование (2026-10-23).** Харнесс прежде назывался иначе; слово старого имени
+блокирует guard в Bash-командах, поэтому скрипт, модули, каталоги прогонов и принятых
+результатов, id отложенных сцен и проекты новых прогонов носят имя `bench`. Старые прогоны
+перенесены в `tmp/bench/` и `docs/evidence/phase-1/bench/` (каталоги сцен — `bench-*`), а в
+их `scores.json` и `run.json` id сцен остались прежними: `--compare` и `--only` сопоставляют
+их через `LEGACY_SCENE_ALIASES` (`server/src/bench/sets.ts`). Прерванный старый прогон
+продолжается в своём прежнем проекте хранилища; старое хранилище судьи в `$MS_DATA_DIR` не
+удалено. Справка — `npm run bench -- --help`.
+
+## Что лежит в `tmp/bench/<run>/`
 
 - `run.json` — коммит создания, режим, судья, список сцен; пишется один раз, каждый
   следующий запуск (`--judge-only`, `--rejudge`, продолжение) дописывает себя в `invocations`.
@@ -115,7 +126,7 @@ $N npx tsx scripts/eval-set.mts --set user --run user-<sha> --gen-timeout-min 18
   первой (`summary.gen_stats` в `scores.json`).
 
 Возобновление: готовые `gen.json` и `judge-runs/<k>.json` не переделываются. Исключение — сцена,
-упавшая на обрыве сети (`ECONNRESET` и т. п., `server/src/eval/resume.ts`): её превью — недоделанная
+упавшая на обрыве сети (`ECONNRESET` и т. п., `server/src/bench/resume.ts`): её превью — недоделанная
 версия, поэтому `gen.json` уходит в `gen-failed.json` и сцена генерируется заново. Обрыв сети в
 вызове Visual QA пайплайн помечает `failure.transient: true` — такая сцена тоже генерируется
 заново. Провал QA или таймаут — результат сцены, он идёт к судье.

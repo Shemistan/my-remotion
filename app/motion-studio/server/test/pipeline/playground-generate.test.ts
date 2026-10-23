@@ -12,7 +12,7 @@ import { claimNext, enqueue, fenceOk, provideInput, requestCancel } from "../../
 import { JobRunner } from "../../src/jobs/runner.js";
 import { Semaphore } from "../../src/jobs/semaphore.js";
 import type { JobContext } from "../../src/jobs/types.js";
-import { isTransientFailure } from "../../src/eval/resume.js";
+import { isTransientFailure } from "../../src/bench/resume.js";
 import type { GenerateDeps, GenerateResult } from "../../src/pipeline/generate.js";
 import { type PlaygroundDeps, playgroundGenerate } from "../../src/pipeline/playground-generate.js";
 import { stepInputHash } from "../../src/pipeline/checkpoints.js";
@@ -408,7 +408,7 @@ describe("playgroundGenerate: неудачи по этапам", () => {
     expect(versionRows(scene.id)).toEqual([expect.objectContaining({ status: "failed" })]);
   });
 
-  it("S2-fix2 N2: Visual QA упал на обрыве сети дважды → failure.transient: продолжение прогона eval генерирует сцену заново", async () => {
+  it("S2-fix2 N2: Visual QA упал на обрыве сети дважды → failure.transient: продолжение прогона bench генерирует сцену заново", async () => {
     const agents = fakeAgents({ visualQa: async () => ({ status: "failed", output: undefined, error: { kind: "cli", message: "API Error: Connection dropped (ECONNRESET)" } }) });
     let res: GenerateResult | undefined;
     const { job } = await runJob({ agents }, {}, (r) => (res = r));

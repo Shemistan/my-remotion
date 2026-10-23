@@ -839,7 +839,7 @@ async function runQa(
     if (v.error !== undefined) {
       // вызов отклонён: процесс агента не подтверждён мёртвым — без повтора, draft в карантин
       const storage = isStorageError(v.error) || v.lost !== undefined || (await rc.storageProblem()) !== undefined;
-      // обрыв сети в вызове — сбой среды (eval --run генерирует сцену заново), не оценка сцены
+      // обрыв сети в вызове — сбой среды (bench --run генерирует сцену заново), не оценка сцены
       const net = !storage && isNetworkError(errText(v.error));
       return { exit: { ok: false, stage: storage ? "storage" : "qa", message: `вызов Visual QA отклонён: ${errText(v.error)}`, alive: true, ...(net ? { transient: true as const } : {}) } };
     }

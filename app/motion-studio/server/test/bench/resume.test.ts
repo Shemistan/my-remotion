@@ -1,7 +1,7 @@
-// Продолжение прогона eval: сцена, упавшая на обрыве сети, генерируется заново, а настоящий
+// Продолжение прогона bench: сцена, упавшая на обрыве сети, генерируется заново, а настоящий
 // провал пайплайна (QA, таймаут Engineer) остаётся результатом и идёт к судье.
 import { describe, expect, it } from "vitest";
-import { isTransientFailure } from "../../src/eval/resume.js";
+import { isTransientFailure } from "../../src/bench/resume.js";
 
 describe("isTransientFailure", () => {
   it("обрыв соединения с API — сбой среды", () => {

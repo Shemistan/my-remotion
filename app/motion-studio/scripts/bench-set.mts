@@ -1,19 +1,19 @@
-// Eval-набор качества сцен (quality-strategy §3, шаг 1). Гонит фиксированный набор запросов
+// Bench-набор качества сцен (quality-strategy §3, шаг 1). Гонит фиксированный набор запросов
 // через настоящий пайплайн (bootCore + очередь + обработчики сервера, реальные агенты и
 // рендер) и оценивает превью калиброванным судьёй (`prompts/rubric-judge.md`, медиана
-// нескольких прогонов). Итог — `tmp/eval/<run>/scores.{json,md}`; в docs/evidence — только
-// с флагом `--write-evidence`. Как пользоваться — `scripts/EVAL.md`.
+// нескольких прогонов). Итог — `tmp/bench/<run>/scores.{json,md}`; в docs/evidence — только
+// с флагом `--write-evidence`. Как пользоваться — `scripts/BENCH.md`.
 //
 // Запуск из app/motion-studio:
 //   export MS_DATA_DIR="/Volumes/External SSD/MotionStudio"
-//   ./scripts/with-node.sh npx tsx scripts/eval-set.mts                    # новый прогон: 12 сцен + судья
-//   ./scripts/with-node.sh npx tsx scripts/eval-set.mts --run <id>         # продолжить прерванный прогон
-//   ./scripts/with-node.sh npx tsx scripts/eval-set.mts --run <id> --judge-only [--rejudge]
-//   ./scripts/with-node.sh npx tsx scripts/eval-set.mts --run <id> --judge-only --no-judge   # только отчёт
-//   ./scripts/with-node.sh npx tsx scripts/eval-set.mts --only test1,eval-oauth
-//   ./scripts/with-node.sh npx tsx scripts/eval-set.mts --calibrate [--split train|holdout|all]
-//   ./scripts/with-node.sh npx tsx scripts/eval-set.mts --run <после> --compare <до>
-//   ./scripts/with-node.sh npx tsx scripts/eval-set.mts --set user --run user-<sha> --gen-timeout-min 180
+//   ./scripts/with-node.sh npx tsx scripts/bench-set.mts                    # новый прогон: 12 сцен + судья
+//   ./scripts/with-node.sh npx tsx scripts/bench-set.mts --run <id>         # продолжить прерванный прогон
+//   ./scripts/with-node.sh npx tsx scripts/bench-set.mts --run <id> --judge-only [--rejudge]
+//   ./scripts/with-node.sh npx tsx scripts/bench-set.mts --run <id> --judge-only --no-judge   # только отчёт
+//   ./scripts/with-node.sh npx tsx scripts/bench-set.mts --only test1,bench-oauth
+//   ./scripts/with-node.sh npx tsx scripts/bench-set.mts --calibrate [--split train|holdout|all]
+//   ./scripts/with-node.sh npx tsx scripts/bench-set.mts --run <после> --compare <до>
+//   ./scripts/with-node.sh npx tsx scripts/bench-set.mts --set user --run user-<sha> --gen-timeout-min 180
 // Флаги: --set explainer|user (набор, explainer; user — 6 кейсов пользователя, 60 с, информативно),
 //   --runs N (прогонов судьи, 3), --parallel N (задач генерации, 3), --judge-parallel N (6),
 //   --judge-model M (opus), --gen-timeout-min N (60), --no-judge, --write-evidence,
@@ -33,25 +33,25 @@ import * as jobs from "../server/src/db/repos/jobs.js";
 import * as projects from "../server/src/db/repos/projects.js";
 import * as versions from "../server/src/db/repos/versions.js";
 import { tx } from "../server/src/db/tx.js";
-import { type Scores, compareRuns, comparisonMd } from "../server/src/eval/compare.js";
-import { type JudgeOutput, judgeFrames, judgeRuntime, loadJudgePrompt, prepareJudgeInput, runJudge, scoresOf } from "../server/src/eval/judge.js";
-import { type Agreement, type Aggregate, CRITERIA, type FrameMetrics, type Split, agreementBySplit, aggregateRuns, frameMetrics, mean, pairOrder } from "../server/src/eval/metrics.js";
-import { type JudgeFingerprint, judgeFingerprint, promptHashes, sameFingerprint, short } from "../server/src/eval/provenance.js";
-import { HOLDOUT_SEEN_BY_RUBRIC, REFERENCE, anchorsFor } from "../server/src/eval/reference.js";
-import { isTransientFailure } from "../server/src/eval/resume.js";
-import { type AttemptLine, genStats, stageWallOf } from "../server/src/eval/gen-stats.js";
-import { EXPLAINER_SET, HELD_OUT, type SetName, parseSetName, setItems } from "../server/src/eval/sets.js";
+import { type Scores, compareRuns, comparisonMd } from "../server/src/bench/compare.js";
+import { type JudgeOutput, judgeFrames, judgeRuntime, loadJudgePrompt, prepareJudgeInput, runJudge, scoresOf } from "../server/src/bench/judge.js";
+import { type Agreement, type Aggregate, CRITERIA, type FrameMetrics, type Split, agreementBySplit, aggregateRuns, frameMetrics, mean, pairOrder } from "../server/src/bench/metrics.js";
+import { type JudgeFingerprint, judgeFingerprint, promptHashes, sameFingerprint, short } from "../server/src/bench/provenance.js";
+import { HOLDOUT_SEEN_BY_RUBRIC, REFERENCE, anchorsFor } from "../server/src/bench/reference.js";
+import { isTransientFailure } from "../server/src/bench/resume.js";
+import { type AttemptLine, genStats, stageWallOf } from "../server/src/bench/gen-stats.js";
+import { EXPLAINER_SET, HELD_OUT, type SetName, canonicalSceneId, parseSetName, setItems } from "../server/src/bench/sets.js";
 import { registerHandlers } from "../server/src/jobs/handlers.js";
 import { cancelJob, enqueue, provideInput } from "../server/src/jobs/queue.js";
 import type { GenerateResult } from "../server/src/pipeline/generate.js";
 import { motionKitHash } from "../server/src/pipeline/render-env.js";
-import { type TreeState, dirtyStartError, sceneTree } from "../server/src/eval/tree.js";
+import { type TreeState, dirtyStartError, sceneTree } from "../server/src/bench/tree.js";
 import { loadPng } from "../server/src/qa/image.js";
 import { newId } from "../server/src/scenes/ids.js";
 
 const REPO = fileURLToPath(new URL("../../../", import.meta.url));
 
-/** Наборы запросов — `server/src/eval/sets.ts`: explainer (12 сцен) и user (6 кейсов, информативно). */
+/** Наборы запросов — `server/src/bench/sets.ts`: explainer (12 сцен) и user (6 кейсов, информативно). */
 const SET = EXPLAINER_SET;
 /** Цель разброса прогонов судьи на сцену (quality-strategy). */
 const SPREAD_TARGET = 0.4;
@@ -59,6 +59,12 @@ const SPREAD_TARGET = 0.4;
 // ---------- аргументы ----------
 const argv = process.argv.slice(2);
 const flag = (name: string) => argv.includes(name);
+if (flag("--help") || flag("-h")) {
+  // справка — шапка этого файла (запуск и флаги)
+  const head = readFileSync(fileURLToPath(import.meta.url), "utf8").split("\n");
+  console.log(head.slice(0, head.findIndex((l) => !l.startsWith("//"))).map((l) => l.replace(/^\/\/ ?/, "")).join("\n"));
+  process.exit(0);
+}
 const opt = (name: string) => {
   const i = argv.indexOf(name);
   return i >= 0 ? argv[i + 1] : undefined;
@@ -81,7 +87,8 @@ const parallel = int("--parallel", 3);
 const judgeParallel = int("--judge-parallel", 6);
 const genTimeoutMs = int("--gen-timeout-min", 60) * 60_000;
 const judgeModel = opt("--judge-model") ?? "opus";
-const only = opt("--only")?.split(",").map((s) => s.trim()).filter(Boolean);
+// старые id сцен (до переименования харнесса) принимаются через алиасы
+const only = opt("--only")?.split(",").map((s) => canonicalSceneId(s.trim())).filter(Boolean);
 const split = opt("--split") ?? "train";
 if (!["train", "holdout", "all"].includes(split)) throw new Error(`--split: train, holdout или all: ${split}`);
 const git = (...a: string[]) => execFileSync("git", a, { cwd: REPO, encoding: "utf8" }).trim();
@@ -101,11 +108,11 @@ if (secondTakeThreshold !== undefined) process.env.MS_SECOND_TAKE_THRESHOLD = se
 /** Дерево сейчас: незакоммиченные правки приложения и хэш kit (рендер хэширует kit живьём). */
 const treeNow = async (): Promise<TreeState> => ({ dirty: isDirty(), kit_hash: await motionKitHash() });
 const stamp = new Date().toISOString().slice(0, 16).replace(/[-:]/g, "").replace("T", "-");
-const runId = opt("--run") ?? `${calibrate ? "calib" : userSet ? "user" : "eval"}-${stamp}-${sha}`;
+const runId = opt("--run") ?? `${calibrate ? "calib" : userSet ? "user" : "bench"}-${stamp}-${sha}`;
 const SAFE_ID = /^[A-Za-z0-9_][A-Za-z0-9_.-]*$/;
 if (!SAFE_ID.test(runId)) throw new Error(`--run: только латиница, цифры, _ . -: ${runId}`);
-const RUN_DIR = join(REPO, "tmp", "eval", runId);
-const EVIDENCE = join(REPO, "docs", "evidence", "phase-1", "eval");
+const RUN_DIR = join(REPO, "tmp", "bench", runId);
+const EVIDENCE = join(REPO, "docs", "evidence", "phase-1", "bench");
 const readJson = <T,>(p: string): T => JSON.parse(readFileSync(p, "utf8")) as T;
 const writeJson = (p: string, v: unknown) => writeFileSync(p, JSON.stringify(v, null, 2) + "\n");
 
@@ -115,8 +122,8 @@ if (compareWith !== undefined) {
   if (!SAFE_ID.test(compareWith)) throw new Error(`--compare: только латиница, цифры, _ . -: ${compareWith}`);
   if (!opt("--run")) throw new Error("--compare <до>: укажи и --run <после>");
   const load = (id: string): Scores => {
-    const p = [join(REPO, "tmp", "eval", id, "scores.json"), join(EVIDENCE, id, "scores.json")].find((f) => existsSync(f));
-    if (!p) throw new Error(`eval: нет scores.json прогона ${id} (tmp/eval или docs/evidence)`);
+    const p = [join(REPO, "tmp", "bench", id, "scores.json"), join(EVIDENCE, id, "scores.json")].find((f) => existsSync(f));
+    if (!p) throw new Error(`bench: нет scores.json прогона ${id} (tmp/bench или docs/evidence)`);
     return readJson<Scores>(p);
   };
   const c = compareRuns(load(compareWith), load(runId));
@@ -130,7 +137,7 @@ if (compareWith !== undefined) {
 const dataDir = process.env.MS_DATA_DIR?.trim();
 if (!dataDir) throw new Error("MS_DATA_DIR не задан");
 mkdirSync(RUN_DIR, { recursive: true });
-const log = (s: string) => console.log(`[eval ${runId}] ${s}`);
+const log = (s: string) => console.log(`[bench ${runId}] ${s}`);
 
 /** Сцены прогона: id → запрос (и для калибровки — оценка дизайнера). */
 interface Item {
@@ -157,7 +164,7 @@ const runFile = join(RUN_DIR, "run.json");
 const invocation = { at: new Date().toISOString(), commit, argv };
 if (!existsSync(runFile)) {
   writeJson(runFile, {
-    run: runId, mode: calibrate ? "calibrate" : "eval", set: setName, created_commit: commit, judge_model: judgeModel, judge_runs: runs,
+    run: runId, mode: calibrate ? "calibrate" : "bench", set: setName, created_commit: commit, judge_model: judgeModel, judge_runs: runs,
     ...(calibrate ? { split } : {}),
     items: items.map((i) => ({ id: i.id, scene: i.scene, prompt: i.prompt, ref: i.ref ?? null, split: i.split ?? null, held_out: HELD_OUT.has(i.scene), ...(i.duration_frames ? { duration_frames: i.duration_frames } : {}) })),
     invocations: [invocation],
@@ -247,13 +254,15 @@ async function generateMissing(todo: Item[]): Promise<void> {
     handlers: (svc) => registerHandlers(svc, { log: (l) => console.log(`  ${l}`), onGenerateResult: (job, r) => results.set(job.id, r) }),
     storageLog: (l) => console.log(`  [storage] ${l}`),
   });
-  // свой проект на прогон: сцены eval не попадают в playground, а подсказки против повторов
+  // свой проект на прогон: сцены bench не попадают в playground, а подсказки против повторов
   // (последние spec проекта) не тянутся из прошлых прогонов — иначе «до» и «после» неравны
-  const projectId = `eval-${runId}`;
+  // (продолжение прогона, начатого до переименования харнесса, — в его прежнем проекте)
+  const legacyProject = projects.BENCH_PROJECT_PREFIXES.slice(1).map((p) => `${p}${runId}`).find((id) => projects.get(core.db, id));
+  const projectId = legacyProject ?? `${projects.BENCH_PROJECT_PREFIXES[0]}${runId}`;
   try {
     if (core.reaped.alive.length > 0 || core.reaped.strays.length > 0) throw new Error("stale_process: остались процессы прежних прогонов; заверши их и повтори");
     tx(core.db, () => {
-      if (!projects.get(core.db, projectId)) projects.create(core.db, { id: projectId, kind: "video", title: `Eval ${runId}` });
+      if (!projects.get(core.db, projectId)) projects.create(core.db, { id: projectId, kind: "video", title: `Bench ${runId}` });
     });
     const one = async (it: Item) => {
       const out = dirOf(it);
@@ -269,7 +278,7 @@ async function generateMissing(todo: Item[]): Promise<void> {
       };
       const job = tx(core.db, () => {
         const scene = core.repo.createScene(projectId, { prompt: it.prompt, settings });
-        return enqueue(core.db, { type: "playground.generate", projectId, sceneId: scene.id, input: { sceneId: scene.id, prompt: it.prompt, settings }, idempotencyKey: `eval-${runId}-${it.id}-${newId("run")}` }).job;
+        return enqueue(core.db, { type: "playground.generate", projectId, sceneId: scene.id, input: { sceneId: scene.id, prompt: it.prompt, settings }, idempotencyKey: `bench-${runId}-${it.id}-${newId("run")}` }).job;
       });
       mine.add(job.id);
       let j: Job | undefined;
@@ -347,7 +356,7 @@ const judgeFiles = (dir: string, pick: (f: string) => boolean) =>
 async function judgeStore(): Promise<string> {
   // отдельное хранилище судьи внутри MS_DATA_DIR: свои журналы и реестр процессов, без
   // owner lock основного (судью можно гонять, пока идёт генерация)
-  const root = join(dataDir!, "eval");
+  const root = join(dataDir!, "bench");
   if (!existsSync(join(root, MARKER_FILE))) await initStore(root, macosProbe, {});
   return root;
 }
@@ -533,7 +542,7 @@ function report(rows: Row[], judge: JudgeFingerprint | null): { md: string; summ
   const head = ["Сцена", ...(withRef.length ? ["Часть", "Дизайнер"] : []), "Судья (медиана)", "Прогоны", "Разброс", ...CRITERIA.map((c) => c.slice(0, 5)), "Ген. $", "Статус", "Кадр 0", "Hold Δ", "Пустые трети"];
   const prompts = summary.prompts_sha256 as Record<string, string> | null;
   const lines = [
-    `# Eval ${runId}`,
+    `# Bench ${runId}`,
     "",
     `Отчёт на \`${commit}\`, ${new Date().toISOString().slice(0, 10)}. Генерация: коммит ${(summary.gen_commits as string[]).map((c) => `\`${c}\``).join(", ")}, motion-kit ${(summary.motion_kit_versions as string[]).join(", ")}, промпты ${prompts ? `\`${Object.entries(prompts).map(([f, h]) => `${f}:${h.slice(0, 8)}`).join(" ")}\`` : summary.prompts_mixed ? "**разные у сцен**" : "нет данных"}.`,
     `Судья \`${judgeModel}\` × ${runs}, ${judge ? short(judge) : "нет оценок"}, коммит ${(summary.judge_commits as string[]).map((c) => `\`${c}\``).join(", ")}.`,

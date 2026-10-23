@@ -1,7 +1,7 @@
 // S5 п. 7: время генерации по этапам и стоимость p50/p90 — постоянные метрики отчёта прогона;
 // «опубликованная оценка ≥ первой попытки» — по журналу попыток.
 import { describe, expect, it } from "vitest";
-import { genStats, percentile, publishedVsFirst, stageWallOf } from "../../src/eval/gen-stats.js";
+import { genStats, percentile, publishedVsFirst, stageWallOf } from "../../src/bench/gen-stats.js";
 
 describe("percentile", () => {
   it("p50 и p90 линейной интерполяцией; пусто — null", () => {

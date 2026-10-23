@@ -26,6 +26,14 @@ export function get(db: Db, id: string): ProjectRow | undefined {
   return r && row(r);
 }
 
+/**
+ * Служебные проекты харнесса качества (`scripts/bench-set.mts`): `bench-<run>`, у прогонов до
+ * переименования харнесса (2026-10-23) — старый префикс. UI (Task 21) их не показывает.
+ */
+export const BENCH_PROJECT_PREFIXES = ["bench-", "eval-"] as const;
+
+export const isBenchProject = (id: string): boolean => BENCH_PROJECT_PREFIXES.some((p) => id.startsWith(p));
+
 /** Playground первым, затем по времени создания. */
 export function list(db: Db): ProjectRow[] {
   return (db.prepare("SELECT * FROM projects ORDER BY kind = 'playground' DESC, created_at, rowid").all() as Raw[]).map(row);

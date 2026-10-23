@@ -165,14 +165,14 @@ describe("empty_region на реальных кадрах удержания (Fi
 
 // Кадр-постер (S2-fix, I3): fixtures/poster/*-0.png — кадры 0 превью прогона s2-807e41b
 // (960×540, как есть). Пусты по виду: test1 (бледные подписи оси), gen-timeline (один фон),
-// eval-abtest (бледная ось); постер есть: held-mobile (силуэт кольца), gen-compare,
-// eval-funnel (силуэт воронки), eval-oauth (каркас схемы).
+// bench-abtest (бледная ось); постер есть: held-mobile (силуэт кольца), gen-compare,
+// bench-funnel (силуэт воронки), bench-oauth (каркас схемы).
 describe("frame0_coverage на реальных кадрах 0 (калибровка posterInk)", () => {
   const POSTER = fileURLToPath(new URL("../fixtures/poster/", import.meta.url));
-  it.each(["test1", "gen-timeline", "eval-abtest"])("%s: кадр 0 пуст — ниже POSTER_INK", async (s) => {
+  it.each(["test1", "gen-timeline", "bench-abtest"])("%s: кадр 0 пуст — ниже POSTER_INK", async (s) => {
     expect(posterInk(await loadPng(`${POSTER}${s}-0.png`))).toBeLessThan(POSTER_INK);
   });
-  it.each(["held-mobile", "gen-compare", "eval-funnel", "eval-oauth"])("%s: силуэты — постер, не ниже POSTER_INK", async (s) => {
+  it.each(["held-mobile", "gen-compare", "bench-funnel", "bench-oauth"])("%s: силуэты — постер, не ниже POSTER_INK", async (s) => {
     expect(posterInk(await loadPng(`${POSTER}${s}-0.png`))).toBeGreaterThanOrEqual(POSTER_INK);
   });
 });

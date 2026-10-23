@@ -1,7 +1,7 @@
 // Грязное дерево в прогоне (S2-fix2, m5): отказ на старте без --allow-dirty; сцена, во время
 // которой дерево или kit поменялись, помечается `-dirty` с хэшем kit.
 import { describe, expect, it } from "vitest";
-import { dirtyStartError, sceneTree } from "../../src/eval/tree.js";
+import { dirtyStartError, sceneTree } from "../../src/bench/tree.js";
 
 const clean = { dirty: false, kit_hash: "sha256:aaaa" };
 

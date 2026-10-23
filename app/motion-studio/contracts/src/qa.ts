@@ -30,7 +30,7 @@ const OcrSchema = z.array(z.object({ frame: Frame, texts: z.array(z.string()) })
 
 /**
  * Оси оценки Visual QA (S5): оси рубрики судьи без `distinctiveness`. Оценка в пайплайне
- * выбирает лучшую попытку; судья eval — отдельный промпт со своими кадрами (не мера выбора).
+ * выбирает лучшую попытку; судья bench — отдельный промпт со своими кадрами (не мера выбора).
  */
 export const QA_SCORE_AXES = ["hierarchy", "composition", "entrance", "choreography", "hold", "legibility", "meaning"] as const;
 export const QaScoreAxisSchema = z.enum(QA_SCORE_AXES);

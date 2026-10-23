@@ -33,8 +33,8 @@ export interface ProgrammaticInput {
  * окрестность — бокс ±POSTER_RADIUS ширины. Средний масштаб считает и контуры, и заливку
  * силуэтов (карточка, кольцо, воронка на 30 %), а плавная аврора и виньетка почти не
  * считаются. Калибровка — кадры 0 прогона s2-807e41b (превью 960 px; кадр 1920 px даёт то же
- * до 0.5 п.п.): пустые по виду test1 6.1 %, eval-abtest 2.6 %, gen-timeline 2.0 %; силуэты —
- * held-mobile 12.1 %, gen-compare 13.7 %, eval-funnel 15.6 %, eval-oauth 16.6 %, остальные
+ * до 0.5 п.п.): пустые по виду test1 6.1 %, bench-abtest 2.6 %, gen-timeline 2.0 %; силуэты —
+ * held-mobile 12.1 %, gen-compare 13.7 %, bench-funnel 15.6 %, bench-oauth 16.6 %, остальные
  * 18–33 % (регрессия — test/qa/real-frames.test.ts, fixtures/poster).
  */
 export const POSTER_INK = 0.08;

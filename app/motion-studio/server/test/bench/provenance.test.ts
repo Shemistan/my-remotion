@@ -1,12 +1,12 @@
-// Воспроизводимость eval: хеши промптов и судьи, отказ смешивать прогоны разных рубрик,
+// Воспроизводимость bench: хеши промптов и судьи, отказ смешивать прогоны разных рубрик,
 // сравнение «до/после» только при одном судье, разбиение калибровки train/holdout.
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type Scores, compareRuns } from "../../src/eval/compare.js";
-import { CRITERIA, agreementBySplit } from "../../src/eval/metrics.js";
-import { anchorsHash, judgeFingerprint, promptHashes, sameFingerprint, sha256 } from "../../src/eval/provenance.js";
-import { REFERENCE } from "../../src/eval/reference.js";
+import { type Scores, compareRuns } from "../../src/bench/compare.js";
+import { CRITERIA, agreementBySplit } from "../../src/bench/metrics.js";
+import { anchorsHash, judgeFingerprint, promptHashes, sameFingerprint, sha256 } from "../../src/bench/provenance.js";
+import { REFERENCE } from "../../src/bench/reference.js";
 import { makeTmp, removeTmp } from "../qa/helpers.js";
 
 let tmp: string;

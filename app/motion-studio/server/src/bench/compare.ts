@@ -1,7 +1,8 @@
-// Сравнение двух прогонов eval «до/после» (правило приёмки `scripts/EVAL.md`). Сравнивать
+// Сравнение двух прогонов bench «до/после» (правило приёмки `scripts/BENCH.md`). Сравнивать
 // можно только оценки одного судьи: без хешей рубрики и якорей или при разных — отказ.
 import { CRITERIA, type Criterion, mean } from "./metrics.js";
 import { type JudgeFingerprint, short } from "./provenance.js";
+import { canonicalSceneId } from "./sets.js";
 
 /** Допустимое падение среднего набора и одной сцены. */
 export const MEAN_DROP = 0.15;
@@ -36,7 +37,7 @@ export interface Comparison {
 
 function fingerprintOf(s: Scores): JudgeFingerprint {
   const fp = s.summary.judge;
-  if (!fp?.rubric_sha256 || !fp.anchors_sha256) throw new Error(`eval: у прогона ${s.summary.run} нет хеша рубрики или якорей судьи — сравнение невозможно; перезапусти судью с --rejudge`);
+  if (!fp?.rubric_sha256 || !fp.anchors_sha256) throw new Error(`bench: у прогона ${s.summary.run} нет хеша рубрики или якорей судьи — сравнение невозможно; перезапусти судью с --rejudge`);
   return { rubric_sha256: fp.rubric_sha256, anchors_sha256: fp.anchors_sha256 };
 }
 
@@ -44,19 +45,21 @@ export function compareRuns(before: Scores, after: Scores): Comparison {
   const a = fingerprintOf(before);
   const b = fingerprintOf(after);
   if (a.rubric_sha256 !== b.rubric_sha256 || a.anchors_sha256 !== b.anchors_sha256) {
-    throw new Error(`eval: разные судьи (${before.summary.run}: ${short(a)}; ${after.summary.run}: ${short(b)}) — перезапусти судью одного из прогонов с --rejudge`);
+    throw new Error(`bench: разные судьи (${before.summary.run}: ${short(a)}; ${after.summary.run}: ${short(b)}) — перезапусти судью одного из прогонов с --rejudge`);
   }
   if (before.summary.judge_model !== after.summary.judge_model) {
-    throw new Error(`eval: разные модели судьи: ${before.summary.judge_model} и ${after.summary.judge_model}`);
+    throw new Error(`bench: разные модели судьи: ${before.summary.judge_model} и ${after.summary.judge_model}`);
   }
-  const prev = new Map(before.rows.filter((r) => r.judge).map((r) => [r.id, r.judge!]));
+  // сцены сопоставляются по нынешним id: старые прогоны — через алиасы (`LEGACY_SCENE_ALIASES`)
+  const prev = new Map(before.rows.filter((r) => r.judge).map((r) => [canonicalSceneId(r.id), r.judge!]));
   const scenes: SceneDelta[] = after.rows.flatMap((r) => {
-    const p = prev.get(r.id);
+    const id = canonicalSceneId(r.id);
+    const p = prev.get(id);
     if (!p || !r.judge) return [];
     const criteria = Object.fromEntries(CRITERIA.map((c) => [c, r.judge!.criteria[c] - p.criteria[c]])) as Record<Criterion, number>;
-    return [{ id: r.id, before: p.overall, after: r.judge.overall, delta: r.judge.overall - p.overall, criteria }];
+    return [{ id, before: p.overall, after: r.judge.overall, delta: r.judge.overall - p.overall, criteria }];
   });
-  if (scenes.length === 0) throw new Error(`eval: у ${before.summary.run} и ${after.summary.run} нет общих оценённых сцен`);
+  if (scenes.length === 0) throw new Error(`bench: у ${before.summary.run} и ${after.summary.run} нет общих оценённых сцен`);
   const meanBefore = mean(scenes.map((s) => s.before));
   const meanAfter = mean(scenes.map((s) => s.after));
   const meanDelta = meanAfter - meanBefore;
@@ -72,7 +75,7 @@ const sign = (x: number, d = 1) => `${x > 0 ? "+" : ""}${x.toFixed(d)}`;
 export function comparisonMd(c: Comparison): string {
   const head = ["Сцена", "До", "После", "Δ", ...CRITERIA.map((k) => k.slice(0, 5))];
   return [
-    `# Eval ${c.after} против ${c.before}`,
+    `# Bench ${c.after} против ${c.before}`,
     "",
     `Судья: ${short(c.judge)}. Сцен в обоих прогонах: ${c.scenes.length}.`,
     "",

@@ -1,4 +1,4 @@
-// Метрики eval (quality-strategy §3, шаг 1): согласие судьи с оценками дизайнера (MAE,
+// Метрики bench (quality-strategy §3, шаг 1): согласие судьи с оценками дизайнера (MAE,
 // Spearman, порядок R1/R2 одной сцены), агрегация повторных прогонов судьи (медиана),
 // дешёвые кадровые числа без LLM (содержимое кадров 0 и 4, движение в hold, пустые трети).
 import { type Img, frameDelta } from "../qa/image.js";
@@ -15,7 +15,7 @@ export interface JudgeScores {
 }
 
 function nonEmpty(xs: readonly number[], what: string): void {
-  if (xs.length === 0) throw new Error(`eval: ${what} пустой выборки`);
+  if (xs.length === 0) throw new Error(`bench: ${what} пустой выборки`);
 }
 
 export function mean(xs: readonly number[]): number {
@@ -45,7 +45,7 @@ export function ranks(xs: readonly number[]): number[] {
 }
 
 function sameLength(a: readonly number[], b: readonly number[]): void {
-  if (a.length !== b.length) throw new Error(`eval: длины выборок различны: ${a.length} и ${b.length}`);
+  if (a.length !== b.length) throw new Error(`bench: длины выборок различны: ${a.length} и ${b.length}`);
   nonEmpty(a, "сравнение");
 }
 

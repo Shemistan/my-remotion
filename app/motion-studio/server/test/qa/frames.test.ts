@@ -168,7 +168,7 @@ describe("selectQaFrames: начало счёта числа (09 §2, Task 17)",
   });
 });
 
-describe("покрытие: кадр в начале бита появления элемент не покрывает (S2-fix eval, gen-cache)", () => {
+describe("покрытие: кадр в начале бита появления элемент не покрывает (S2-fix bench, gen-cache)", () => {
   // токен летит в бите [30, 42); кадр 30 (вход сцены) совпал с его началом — токена ещё нет
   const sp = spec({
     elements: [el("graph", { kind: "graph", entrance: "pop" }), el("tok", { kind: "shape", entrance: "none" }), el("hero", { kind: "number", entrance: "pop" })],

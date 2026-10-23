@@ -107,7 +107,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfi
   };
 }
 
-/** `MS_SECOND_TAKE=revise|fresh|off` — режим второго дубля поверх config.json (eval A/B). */
+/** `MS_SECOND_TAKE=revise|fresh|off` — режим второго дубля поверх config.json (bench A/B). */
 function secondTakeEnv(env: NodeJS.ProcessEnv): Partial<SecondTake> {
   const out: Partial<SecondTake> = {};
   const v = env.MS_SECOND_TAKE?.trim();

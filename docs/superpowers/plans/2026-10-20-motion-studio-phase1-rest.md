@@ -1,7 +1,7 @@
 ---
 тип: plan
 статус: запланировано
-обновлено: 2026-10-21
+обновлено: 2026-10-23
 спека: 2026-10-20-motion-studio-phase1-rest.md
 ---
 
@@ -759,7 +759,7 @@ expect((await inj("GET", "/api/health")).json().storage).toBe("storage_offline")
   - `useEvents()` — `EventSource('/api/events?since=…')`, инвалидирует запросы TanStack Query по `job_id`/`scene_id`
   - `frameToTime(frame: number, fps: Fps): number = (frame + 0.5) * fps.den / fps.num`; `timeToFrame(t: number, fps: Fps): number = Math.floor(t * fps.num / fps.den)`
   - Экраны (ТЗ §6.2, §11.1):
-    - **Dashboard:** проекты, статусы активных задач, последние экспорты, «Новый проект».
+    - **Dashboard:** проекты, статусы активных задач, последние экспорты, «Новый проект». Служебные проекты харнесса качества (`isBenchProject()` из `server/src/db/repos/projects.ts`: `bench-*` и старый префикс прогонов до переименования) в списках не показываются.
     - **Playground:** слева — `Chat` (сообщения пользователя, ассистента и системы; уточняющие вопросы Concept с ответом или «пропустить»), `VersionHistory` (v1…vN, статус, родитель, «Открыть», «Восстановить», «Сравнить»), `ComponentsPanel` (компоненты KB: `kb_id`, repo, commit, лицензия, `license_class`, стратегия; компоненты motion-kit), параметры (`SettingsForm`, ТЗ §6.4), `JobStatus` (этап, прогресс, журнал, cancel/retry; для `blocked` — PID и команда, текст «повтор после завершения процесса»). Справа — `Player` (`<video>` превью: play/pause, seek, шаг ±1 кадр, номер кадра, aspect ratio, FPS, длительность), фон и тема, кнопки «Рендер» (при изменённых параметрах; `POST /scenes/:id/render { settings_patch }`) и «Экспорт» (`ExportDialog`: MP4 / ProRes 4444 — недоступен с подсказкой, если у версии `settings.transparent_export !== true` (H4); FPS, качество). Снизу — `SceneTimeline`: биты текущей версии, маркеры QA-кадров (клик → seek), полоса версий. `QAPanel`: четыре gate, проблемы с кадром (клик → seek), миниатюры кадров, пометка «автоматическая оценка, решение за вами». `render_env_mismatch` — предупреждение «рендер в другом окружении». Ошибка рендера — ошибка с логами, без превью (ТЗ §11.3).
     - **VersionCompare:** два синхронизированных `<video>` рядом, общий seek; diff `settings`/`props`/`spec` (JSON Pointer, было → стало) и файлов `src/` (unified).
     - **KnowledgeBrowser:** поиск, фильтры паттернов и видов, переключатель «показывать restricted/unknown», бейджи лицензии и совместимости, карточка компонента.

@@ -1,4 +1,4 @@
-// Воспроизводимость eval: чем сгенерирована сцена (хеши промптов) и чем она оценена
+// Воспроизводимость bench: чем сгенерирована сцена (хеши промптов) и чем она оценена
 // (отпечаток судьи — хеш рубрики и якорей шкалы). Прогоны судьи с разными отпечатками не
 // агрегируются и не сравниваются.
 import { createHash } from "node:crypto";
@@ -49,11 +49,11 @@ export function judgeFingerprint(dir: string = PROMPTS_DIR, ref: readonly Refere
 export function sameFingerprint(items: readonly { where: string; fp: Partial<JudgeFingerprint> | undefined }[]): JudgeFingerprint | null {
   let first: { where: string; fp: JudgeFingerprint } | null = null;
   for (const { where, fp } of items) {
-    if (!fp?.rubric_sha256 || !fp.anchors_sha256) throw new Error(`eval: у прогона судьи ${where} нет хеша рубрики или якорей — перезапусти судью с --rejudge`);
+    if (!fp?.rubric_sha256 || !fp.anchors_sha256) throw new Error(`bench: у прогона судьи ${where} нет хеша рубрики или якорей — перезапусти судью с --rejudge`);
     const cur = { rubric_sha256: fp.rubric_sha256, anchors_sha256: fp.anchors_sha256 };
     if (!first) first = { where, fp: cur };
     else if (first.fp.rubric_sha256 !== cur.rubric_sha256 || first.fp.anchors_sha256 !== cur.anchors_sha256) {
-      throw new Error(`eval: прогоны судьи с разными рубриками или якорями (${short(first.fp)} у ${first.where}, ${short(cur)} у ${where}) — агрегировать нельзя; перезапусти судью с --rejudge`);
+      throw new Error(`bench: прогоны судьи с разными рубриками или якорями (${short(first.fp)} у ${first.where}, ${short(cur)} у ${where}) — агрегировать нельзя; перезапусти судью с --rejudge`);
     }
   }
   return first?.fp ?? null;

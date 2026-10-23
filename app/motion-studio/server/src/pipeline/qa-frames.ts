@@ -108,7 +108,7 @@ export function countBeat(spec: MotionSpec, e: Element): Beat | undefined {
  * Элементы, ни один бит которых не содержит ни одного из кадров. В первом бите элемента (где
  * он появляется) кадр до конца входа (не дальше первой четверти бита) покрытием не считается:
  * элемент там ещё только входит (токен в начале своего полёта не виден). Иначе кадр входа сцены, совпавший с началом
- * бита токена, «покрывал» токен, и середина его бита в QA не попадала (S2-fix eval, gen-cache).
+ * бита токена, «покрывал» токен, и середина его бита в QA не попадала (S2-fix bench, gen-cache).
  */
 export function uncoveredElements(spec: MotionSpec, frames: number[], durationFrames: number = spec.duration_frames, style?: MotionTokens): string[] {
   const m = motionOf(spec, style);

@@ -1,4 +1,4 @@
-// Судья eval (quality-strategy §3, шаг 1): рубрика `prompts/rubric-judge.md` по реальным
+// Судья bench (quality-strategy §3, шаг 1): рубрика `prompts/rubric-judge.md` по реальным
 // кадрам превью. Вход судьи — отдельный каталог: brief.json, четыре контактных листа
 // (раскладка motion-review-2) и полноразмерные кадры. Кода и spec там нет, а
 // `--restricted` с единственным инструментом Read не выпускает агента за этот каталог.
@@ -90,7 +90,7 @@ export async function prepareJudgeInput(preview: string, dir: string, brief: Jud
   await run("ffmpeg", ["-v", "error", "-y", "-i", preview, "-vf", `select=${select}`, "-fps_mode", "vfr", tmp]);
   for (let i = 0; i < frames.length; i++) {
     const src = join(dir, "frames", `_${String(i + 1).padStart(3, "0")}.png`);
-    if (!existsSync(src)) throw new Error(`eval: в превью нет кадра ${frames[i]} (${preview}: меньше ${n} кадров?)`);
+    if (!existsSync(src)) throw new Error(`bench: в превью нет кадра ${frames[i]} (${preview}: меньше ${n} кадров?)`);
     await rename(src, join(dir, "frames", `${frames[i]}.png`));
   }
 

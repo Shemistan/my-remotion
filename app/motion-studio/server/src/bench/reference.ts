@@ -16,7 +16,7 @@ import type { Split } from "./metrics.js";
 export interface ReferenceGrade {
   /** `r1-test1` — id в таблицах. */
   id: string;
-  /** Имя сцены (совпадает с id запроса набора eval). */
+  /** Имя сцены (совпадает с id запроса набора bench). */
   scene: string;
   review: "R1" | "R2";
   commit: string;
