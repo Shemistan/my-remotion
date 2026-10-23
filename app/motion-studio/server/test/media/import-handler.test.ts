@@ -2,10 +2,10 @@
 // хранилище в tmp/): оригинал не меняется, один исходник на проект, нехватка места, abort на
 // каждом этапе, повтор после публикации прокси (ревью Task 24, M3).
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync, truncateSync, copyFileSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { existsSync, readdirSync, readFileSync, statSync, truncateSync, copyFileSync, renameSync, unlinkSync } from "node:fs";
+import { appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { Job } from "@ms/contracts";
 import { fileProcessRegistry } from "@ms/core";
 import { openDb, type Db } from "../../src/db/open.js";
@@ -21,6 +21,24 @@ import { type ImportStage, type MediaImportDeps, type MediaImportResult, mediaIm
 import { sha256File } from "../../src/scenes/hash.js";
 import { makeStore, removeStore, type TestStore } from "../db/helpers.js";
 
+// Ревью Task 25 (I5): инъекции в копию оригинала и в аргументы ffmpeg прокси.
+const hooks = vi.hoisted(() => ({
+  onCopied: undefined as undefined | (() => Promise<void> | void),
+  badProxy: false,
+}));
+vi.mock("../../src/media/import.js", async (orig) => {
+  const m = await orig<typeof import("../../src/media/import.js")>();
+  return {
+    ...m,
+    copyOriginal: (src: string, dir: string, o: Parameters<typeof m.copyOriginal>[2] = {}) =>
+      m.copyOriginal(src, dir, { ...o, ...(hooks.onCopied ? { onCopied: hooks.onCopied } : {}) }),
+  };
+});
+vi.mock("../../src/media/proxy.js", async (orig) => {
+  const m = await orig<typeof import("../../src/media/proxy.js")>();
+  return { ...m, proxyArgs: (...a: Parameters<typeof m.proxyArgs>) => (hooks.badProxy ? ["-no-such-option", ...m.proxyArgs(...a)] : m.proxyArgs(...a)) };
+});
+
 let s: TestStore;
 let db: Db;
 let roots: string;
@@ -28,6 +46,7 @@ let clip: string;
 let other: string;
 let silent: string;
 let broken: string;
+let long: string;
 let n = 0;
 
 const ff = (args: string[]) => execFileSync("ffmpeg", ["-hide_banner", "-v", "error", "-y", ...args]);
@@ -48,7 +67,10 @@ beforeAll(async () => {
   broken = join(roots, "broken.mp4");
   copyFileSync(clip, broken);
   truncateSync(broken, Math.floor(statSync(broken).size / 3));
-}, 30_000);
+  // для отмены посреди ffmpeg (M13): прокси идёт заметно дольше опроса реестра
+  long = join(roots, "long.mp4");
+  ff(["-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=30", "-t", "12", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", long]);
+}, 60_000);
 afterAll(async () => {
   db?.close();
   if (s) await removeStore(s);
@@ -69,6 +91,8 @@ interface RunOpts {
   /** Не вызывать `finish` (имитация падения попытки). */
   noFinish?: boolean;
   jobId?: string;
+  importRoots?: string[];
+  storage?: MediaImportDeps["storage"];
 }
 
 async function runImport(projectId: string, o: RunOpts = {}): Promise<{ r: HandlerResult; job: Job; attempt: number }> {
@@ -79,8 +103,8 @@ async function runImport(projectId: string, o: RunOpts = {}): Promise<{ r: Handl
   const ac = new AbortController();
   const deps: MediaImportDeps = {
     root: s.root,
-    media: { importRoots: [roots], proxyShortSide: 720, thumbEveryUs: 500_000 },
-    storage: async () => ({ ok: true, root: s.root, marker: s.marker, freeBytes: 50 * 1024 ** 3 }),
+    media: { importRoots: o.importRoots ?? [roots], proxyShortSide: 720, thumbEveryUs: 500_000 },
+    storage: o.storage ?? (async () => ({ ok: true, root: s.root, marker: s.marker, freeBytes: 50 * 1024 ** 3 })),
     minFreeBytes: o.minFreeBytes ?? 10 * 1024 ** 3,
     onStage: (st) => o.onStage?.(st, ac, job),
   };
@@ -189,7 +213,7 @@ describe("media.import", () => {
     expect(media.byProject(db, p)).toBeUndefined();
   });
 
-  const STAGES: ImportStage[] = ["probe", "space", "copy", "proxy", "audio16k", "waveform", "thumbs", "publish"];
+  const STAGES: ImportStage[] = ["space", "copy", "probe", "proxy", "audio16k", "waveform", "thumbs", "publish"];
   for (const stage of STAGES) {
     it(`отмена на этапе ${stage} → cancelled, source/ пуст, draft убран, оригинал цел`, async () => {
       const p = newProject();
@@ -210,31 +234,32 @@ describe("media.import", () => {
     });
   }
 
-  it("abort посреди ffmpeg прокси → группа убита, реестр пуст, draft убран", async () => {
+  it("abort посреди ffmpeg прокси → группа убита, реестр пуст, draft убран (M13: детерминированно — по записи ffmpeg в реестре)", async () => {
     const p = newProject();
-    let aborted = false;
+    let killedPid: number | undefined;
     const { r, job } = await runImport(p, {
-      onProgress: (pr, st, ac, j) => {
-        if (st === "proxy" && pr > 0.15 && !aborted) {
-          aborted = true;
-          requestCancel(db, j.id);
-          ac.abort();
-        }
-      },
+      path: long,
       onStage: (st, ac, j) => {
-        // ролик короткий: если прогресс не успел прийти — прерываем на следующем этапе
-        if (st === "audio16k" && !aborted) {
-          aborted = true;
-          requestCancel(db, j.id);
-          ac.abort();
-        }
+        if (st !== "proxy") return;
+        // ждём, пока ffmpeg прокси появится в реестре процессов попытки, и отменяем
+        const t = setInterval(() => {
+          void live().then((ps) => {
+            if (killedPid !== undefined || ps.length === 0) return;
+            killedPid = ps[0]!.pid;
+            clearInterval(t);
+            requestCancel(db, j.id);
+            ac.abort();
+          });
+        }, 5);
       },
     });
-    expect(r.status).toBe("cancelled");
+    expect(killedPid, "ffmpeg прокси не застали в реестре").toBeDefined();
+    expect(r).toMatchObject({ status: "cancelled", error: { code: "cancelled" } });
     expect(await live()).toEqual([]);
+    expect(() => process.kill(killedPid!, 0)).toThrow();
     expect(ls(`workspace/projects/${p}/source`)).toEqual([]);
     expect(draftsOf(job.id)).toEqual([]);
-  });
+  }, 60_000);
 
   it("M3: прокси опубликован попыткой 1, попытка упала до source → попытка 2 не публикует прокси повторно", async () => {
     const p = newProject();
@@ -261,5 +286,118 @@ describe("media.import", () => {
     expect(media.derivatives(db, medId)).toHaveLength(4);
     // и третья попытка того же job после завершения — по опубликованному (не дубль)
     expect(draftsOf(first.job.id)).toEqual([]);
+  });
+
+  it("I3: попытка 1 закоммитила media_assets и упала до finish, исходник удалён → попытка 2 completed по БД", async () => {
+    const p = newProject();
+    const src = join(roots, "i3.mp4");
+    copyFileSync(clip, src);
+    const first = await runImport(p, { path: src, noFinish: true });
+    expect(first.r.status).toBe("completed");
+    const id = (first.r as { outputRefs: MediaImportResult }).outputRefs.media_id;
+    unlinkSync(src);
+    releaseLocks(db, jobs.update(db, first.job.id, { status: "pending", lease_owner: null, lease_until: null }));
+    const second = await runImport(p, { jobId: first.job.id });
+    expect(second.attempt).toBe(2);
+    expect(second.r).toMatchObject({ status: "completed", outputRefs: { media_id: id, deduplicated: false } });
+    expect(db.prepare("SELECT COUNT(*) FROM artifact_publications WHERE job_id = ?").pluck().get(first.job.id)).toBe(2);
+  });
+
+  it("M5: projectId входа не совпадает с проектом задачи → отказ до файлов", async () => {
+    const p = newProject();
+    const q = newProject();
+    const { r } = await runImport(p, { input: { projectId: q, method: "path", path: clip } });
+    expect(r).toMatchObject({ status: "failed", error: { code: "pipeline", stage: "prepare", message: expect.stringMatching(/не совпадает/) } });
+    expect(media.byProject(db, q)).toBeUndefined();
+  });
+
+  it("M3: файл внутри хранилища (MS_DATA_DIR) — media_invalid, даже если корень импорта его включает", async () => {
+    const p = newProject();
+    const inside = join(s.root, "workspace", "inside.mp4");
+    copyFileSync(silent, inside);
+    const { r } = await runImport(p, { path: inside, importRoots: [s.tmp] });
+    expect(r).toMatchObject({ status: "failed", error: { code: "media_invalid", message: expect.stringMatching(/хранилищ/) } });
+    unlinkSync(inside);
+  });
+
+  it("I5: исходник дописан между хешами → media_invalid, sha исходника — только чужая правка, source/ пуст, draft убран", async () => {
+    const p = newProject();
+    const src = join(roots, "mutating.mp4");
+    copyFileSync(clip, src);
+    hooks.onCopied = () => appendFile(src, "пользователь дописал");
+    try {
+      const { r, job } = await runImport(p, { path: src });
+      expect(r).toMatchObject({ status: "failed", error: { code: "media_invalid", message: expect.stringMatching(/изменился/) } });
+      expect(draftsOf(job.id)).toEqual([]);
+    } finally {
+      hooks.onCopied = undefined;
+    }
+    expect(readFileSync(src)).toEqual(Buffer.concat([readFileSync(clip), Buffer.from("пользователь дописал")]));
+    expect(ls(`workspace/projects/${p}/source`)).toEqual([]);
+    expect(media.byProject(db, p)).toBeUndefined();
+  });
+
+  it("M2: путь подменён другим файлом (новый inode, то же содержимое) во время копии → media_invalid", async () => {
+    const p = newProject();
+    const src = join(roots, "swapped.mp4");
+    copyFileSync(clip, src);
+    hooks.onCopied = () => {
+      renameSync(src, `${src}.old`);
+      copyFileSync(`${src}.old`, src);
+    };
+    try {
+      const { r, job } = await runImport(p, { path: src });
+      expect(r).toMatchObject({ status: "failed", error: { code: "media_invalid", message: expect.stringMatching(/подменён/) } });
+      expect(draftsOf(job.id)).toEqual([]);
+    } finally {
+      hooks.onCopied = undefined;
+    }
+    expect(ls(`workspace/projects/${p}/source`)).toEqual([]);
+  });
+
+  it("I5: ffmpeg прокси падает (невалидные аргументы) → failed, оригинал цел, source/ пуст, draft убран, реестр пуст", async () => {
+    const p = newProject();
+    const before = await sha256File(clip);
+    hooks.badProxy = true;
+    try {
+      const { r, job } = await runImport(p);
+      expect(r).toMatchObject({ status: "failed", error: { code: "pipeline", message: expect.stringMatching(/proxy: .*no-such-option/) } });
+      expect(draftsOf(job.id)).toEqual([]);
+    } finally {
+      hooks.badProxy = false;
+    }
+    expect(await sha256File(clip)).toBe(before);
+    expect(ls(`workspace/projects/${p}/source`)).toEqual([]);
+    expect(media.byProject(db, p)).toBeUndefined();
+    expect(await live()).toEqual([]);
+  });
+
+  it("M6: ffmpeg упал, а хранилище к этому моменту отключено → storage_unavailable", async () => {
+    const p = newProject();
+    let offline = false;
+    hooks.badProxy = true;
+    try {
+      const { r } = await runImport(p, {
+        storage: async () => (offline
+          ? { ok: false, reason: "offline", detail: "диск отключён" } as never
+          : { ok: true, root: s.root, marker: s.marker, freeBytes: 50 * 1024 ** 3 }),
+        onStage: (st) => {
+          if (st === "proxy") offline = true;
+        },
+      });
+      expect(r).toMatchObject({ status: "failed", error: { code: "storage_unavailable", stage: "storage" } });
+    } finally {
+      hooks.badProxy = false;
+    }
+  });
+
+  it("`%` в пути исходника: импорт проходит (шаблон миниатюр с % в каталоге — args.test.ts, M11)", async () => {
+    const p = newProject();
+    const dir = join(roots, "100% готово");
+    await mkdir(dir, { recursive: true });
+    const src = join(dir, "клип %d.mp4");
+    copyFileSync(clip, src);
+    const { r } = await runImport(p, { path: src });
+    expect(r.status, JSON.stringify(r)).toBe("completed");
   });
 });

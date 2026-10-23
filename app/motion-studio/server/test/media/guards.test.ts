@@ -1,11 +1,12 @@
 // Task 25: пути импорта и защита оригинала.
 import { createHash } from "node:crypto";
-import { existsSync, statSync } from "node:fs";
-import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { appendFile, chmod, mkdir, mkdtemp, open, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { assertOutsideSource, resolveImportPath } from "../../src/media/guards.js";
+import { assertOutsideSource, resolveImportFile, resolveImportPath } from "../../src/media/guards.js";
 import { copyOriginal } from "../../src/media/import.js";
+import { sha256File } from "../../src/scenes/hash.js";
 import { REPO_TMP } from "../db/helpers.js";
 
 let tmp: string;
@@ -84,4 +85,82 @@ describe("copyOriginal", () => {
     await expect(copyOriginal(src, join(tmp, "dest"))).rejects.toThrow();
     expect(existsSync(r.path)).toBe(true);
   });
+});
+
+describe("ревью Task 25: M2/M3 resolveImportFile", () => {
+  it("dev/ino из lstat; путь внутри хранилища (MS_DATA_DIR) — media_invalid, даже если корень импорта его включает", async () => {
+    const f = join(tmpRoot, "Видео с пробелами", "m2.mp4");
+    await writeFile(f, "x");
+    const r = await resolveImportFile(f, [tmpRoot]);
+    const st = statSync(f);
+    expect(r).toMatchObject({ path: f, dev: st.dev, ino: st.ino, size: 1 });
+    const store = join(tmpRoot, "store");
+    await mkdir(join(store, "workspace"), { recursive: true });
+    await writeFile(join(store, "workspace", "a.mp4"), "x");
+    await expect(resolveImportPath(join(store, "workspace", "a.mp4"), [tmpRoot], { forbidden: [store] })).rejects.toThrow(/media_invalid.*хранилищ/);
+    await expect(resolveImportPath(f, [tmpRoot], { forbidden: [store] })).resolves.toBe(f);
+  });
+});
+
+describe("ревью Task 25: I4 sha256File с отменой и прогрессом", () => {
+  it("onBytes считает прочитанное; abort посреди большого (sparse) файла прерывает за < 2 с", async () => {
+    const small = join(tmp, "small.bin");
+    await writeFile(small, Buffer.alloc(5 * 1024 * 1024 + 3, 1));
+    let seen = 0;
+    const h = await sha256File(small, { onBytes: (n) => (seen += n) });
+    expect(seen).toBe(5 * 1024 * 1024 + 3);
+    expect(h).toBe(createHash("sha256").update(Buffer.alloc(5 * 1024 * 1024 + 3, 1)).digest("hex"));
+
+    const big = join(tmp, "sparse.bin");
+    const fh = await open(big, "w");
+    await fh.truncate(64 * 1024 ** 3); // 64 ГиБ без занятого места
+    await fh.close();
+    const ac = new AbortController();
+    setTimeout(() => ac.abort(), 150);
+    const t0 = Date.now();
+    await expect(sha256File(big, { signal: ac.signal })).rejects.toThrow(/abort/i);
+    expect(Date.now() - t0).toBeLessThan(2000);
+    await rm(big);
+  }, 10_000);
+});
+
+describe("ревью Task 25: I4/I5 copyOriginal", () => {
+  it("потоковая копия (другой том) — хеш на лету, cloned=false, прогресс копирования", async () => {
+    const src = join(tmpRoot, "Видео с пробелами", "stream.mp4");
+    const data = Buffer.alloc(2 * 1024 * 1024 + 1, 3);
+    await writeFile(src, data);
+    let bytes = 0;
+    const r = await copyOriginal(src, join(tmp, "dest-stream"), { forceStream: true, onBytes: (n) => (bytes += n) });
+    const want = createHash("sha256").update(data).digest("hex");
+    expect(r).toMatchObject({ sha256: want, srcSha256Before: want, srcSha256After: want, cloned: false });
+    expect(bytes).toBeGreaterThanOrEqual(data.length);
+    expect(statSync(r.path).mode & 0o777).toBe(0o444);
+  });
+
+  it("исходник дописан между хешами → ошибка, копия удалена, исходник нами не тронут", async () => {
+    for (const forceStream of [false, true]) {
+      const src = join(tmpRoot, "Видео с пробелами", `mut-${forceStream}.mp4`);
+      await writeFile(src, Buffer.alloc(1024 * 1024, 5));
+      const dest = join(tmp, `dest-mut-${forceStream}`);
+      await expect(copyOriginal(src, dest, { forceStream, onCopied: async () => appendFile(src, "tail") })).rejects.toThrow(/media_invalid.*изменился/);
+      expect(readdirSync(dest)).toEqual([]);
+      // содержимое источника — ровно то, что записал «пользователь» (мы не писали)
+      expect(await sha256File(src)).toBe(createHash("sha256").update(Buffer.concat([Buffer.alloc(1024 * 1024, 5), Buffer.from("tail")])).digest("hex"));
+    }
+  });
+
+  it("abort во время хеширования источника → быстрый отказ, копии нет", async () => {
+    const big = join(tmpRoot, "Видео с пробелами", "sparse.mov");
+    const fh = await open(big, "w");
+    await fh.truncate(64 * 1024 ** 3);
+    await fh.close();
+    const ac = new AbortController();
+    setTimeout(() => ac.abort(), 150);
+    const t0 = Date.now();
+    const dest = join(tmp, "dest-abort");
+    await expect(copyOriginal(big, dest, { signal: ac.signal, forceStream: true })).rejects.toThrow(/abort/i);
+    expect(Date.now() - t0).toBeLessThan(2000);
+    expect(existsSync(join(dest, "original.mov"))).toBe(false);
+    await rm(big);
+  }, 10_000);
 });

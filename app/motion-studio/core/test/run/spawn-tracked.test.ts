@@ -58,3 +58,17 @@ it("ref may carry a registry (RenderRequest.run / AgentTask.run): it is not writ
   expect(seen[0]).toMatchObject({ runId: "run1", attempt: 3 });
   expect(await reg.live()).toEqual([]);
 });
+
+it("M14: исключение в onStdout не роняет процесс и не теряет вывод", async () => {
+  let calls = 0;
+  const res = await spawnTracked(root, { runId: "run1", attempt: 1 }, "/bin/sh", ["-c", "echo a; sleep 0.05; echo b"], {
+    ...opts(),
+    onStdout: () => {
+      calls++;
+      throw new Error("наблюдатель упал");
+    },
+  });
+  expect(res.code).toBe(0);
+  expect(res.stdout).toBe("a\nb\n");
+  expect(calls).toBeGreaterThanOrEqual(1);
+});

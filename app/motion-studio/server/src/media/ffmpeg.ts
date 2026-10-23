@@ -122,6 +122,16 @@ export function parseFfmpegProgress(line: string): number | undefined {
   return Number.isFinite(n) && n >= 0 ? n : undefined;
 }
 
+/**
+ * Причина отказа ffmpeg по stderr (ревью M6): нет места → `low_space`; ошибка ввода-вывода или
+ * пропавший файл → `io` (вызывающий перепроверяет хранилище: отключённый диск — `storage_unavailable`).
+ */
+export function ffmpegFailureKind(stderr: string): "low_space" | "io" | undefined {
+  if (/No space left on device|ENOSPC/i.test(stderr)) return "low_space";
+  if (/Input\/output error|\bEIO\b|No such file or directory|Device not configured|Permission denied|Read-only file system/i.test(stderr)) return "io";
+  return undefined;
+}
+
 /** Сборка строк `-progress` из кусков stdout. */
 export class ProgressLines {
   private buf = "";

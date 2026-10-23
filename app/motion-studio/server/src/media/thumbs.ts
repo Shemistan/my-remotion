@@ -9,13 +9,14 @@ export interface ThumbsIndex {
   height: number;
 }
 
+/** Вход — прокси (mp4, `-f mov`); `%` в пути каталога экранируется для шаблона image2 (ревью M11). */
 export function thumbsArgs(input: string, outDir: string, everyUs: number, height: number = THUMB_HEIGHT): string[] {
   return [
-    "-protocol_whitelist", "file", "-i", `file:${input}`,
+    "-protocol_whitelist", "file", "-f", "mov", "-i", `file:${input}`,
     "-map", "0:v:0",
     "-vf", `fps=1000000/${everyUs},scale=-2:${height}`,
     "-q:v", "5",
-    "-n", `${outDir}/%06d.jpg`,
+    "-n", `${outDir.replaceAll("%", "%%")}/%06d.jpg`,
   ];
 }
 

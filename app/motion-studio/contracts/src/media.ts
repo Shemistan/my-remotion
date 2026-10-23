@@ -5,7 +5,12 @@ const Us = z.number().int().nonnegative();
 const Sha256 = z.string().regex(/^[0-9a-f]{64}$/);
 const Px = z.number().int().positive();
 
-/** Сводка ffprobe исходника. `timeline_fps` — `snapFps(avg_frame_rate)`; `display_*` — с учётом поворота. */
+/**
+ * Сводка ffprobe исходника. `timeline_fps` — `snapFps(avg_frame_rate)` (у VFR — стандартная частота
+ * по pts, Task 25); `display_*` — с учётом поворота. `start_time_us` потоков — как у ffprobe
+ * (от нуля шкалы контейнера, не от `start_time_us` файла); шкала прокси и audio16k начинается
+ * с `start_time_us` файла, `duration_us` — до конца самого длинного потока.
+ */
 export const ProbeSummarySchema = z.object({
   container: z.string().min(1),
   duration_us: Us,
@@ -22,11 +27,13 @@ export const ProbeSummarySchema = z.object({
     avg_frame_rate: FpsSchema,
     pix_fmt: z.string().min(1),
     bit_depth: z.number().int().positive().optional(),
+    start_time_us: z.number().int().optional(),
   }).strict(),
   audio: z.object({
     codec: z.string().min(1),
     sample_rate: z.number().int().positive(),
     channels: z.number().int().positive(),
+    start_time_us: z.number().int().optional(),
   }).strict().optional(),
   vfr: z.boolean(),
   timeline_fps: FpsSchema,

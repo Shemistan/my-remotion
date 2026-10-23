@@ -32,6 +32,13 @@ describe("media", () => {
     expect(ProbeSummarySchema.safeParse(probe({ video: { ...(probe().video as object), rotation: 45 } })).success).toBe(false);
   });
 
+  it("ProbeSummary: начало потоков (необязательно, µs от начала файла как у ffprobe)", () => {
+    const v = { ...(probe().video as object), start_time_us: 500_000 };
+    const a = { ...(probe().audio as object), start_time_us: 0 };
+    expect(ProbeSummarySchema.safeParse(probe({ video: v, audio: a })).success).toBe(true);
+    expect(ProbeSummarySchema.safeParse(probe({ video: { ...v, start_time_us: 0.5 } })).success).toBe(false);
+  });
+
   it("MediaAsset", () => {
     expect(MediaAssetSchema.safeParse(asset()).success).toBe(true);
     expect(MediaAssetSchema.safeParse(asset({ import: { method: "upload", cloned: false } })).success).toBe(true);

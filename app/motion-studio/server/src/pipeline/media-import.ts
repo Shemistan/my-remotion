@@ -10,7 +10,7 @@
 // `artifact_publications` — не пересчитывается и не публикуется второй раз; исходник уже в
 // `media_assets` — задача завершается по нему.
 import { existsSync, renameSync } from "node:fs";
-import { mkdir, readFile, realpath, rm, stat } from "node:fs/promises";
+import { lstat, mkdir, readFile, realpath, rm, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import {
   type AspectRatioSchema, type DerivativeKind, type JobError, type MediaAsset, type MediaManifest, MediaManifestSchema, type ProbeSummary,
@@ -27,10 +27,10 @@ import * as media from "../db/repos/media.js";
 import * as projects from "../db/repos/projects.js";
 import type { HandlerResult, JobContext, JobHandler } from "../jobs/types.js";
 import { extractAudio16k } from "../media/audio.js";
-import { FfmpegError, runFfmpeg } from "../media/ffmpeg.js";
-import { assertOutsideSource, isInside, resolveImportPath, videoExt } from "../media/guards.js";
+import { FfmpegError, ffmpegFailureKind, runFfmpeg } from "../media/ffmpeg.js";
+import { type ImportFile, assertOutsideSource, isInside, resolveImportFile, videoExt } from "../media/guards.js";
 import { copyOriginal } from "../media/import.js";
-import { MediaInvalidError, probeMedia } from "../media/probe.js";
+import { MediaInvalidError, demuxerFor, probeMedia } from "../media/probe.js";
 import { proxyArgs } from "../media/proxy.js";
 import { checkImportSpace, estimateImportBytes, gib } from "../media/space.js";
 import { THUMB_HEIGHT, countThumbs, thumbsArgs } from "../media/thumbs.js";
@@ -46,7 +46,7 @@ export const MediaImportInputSchema = z.discriminatedUnion("method", [
 ]);
 export type MediaImportInput = z.infer<typeof MediaImportInputSchema>;
 
-export const IMPORT_STAGES = ["hash", "probe", "space", "copy", "proxy", "audio16k", "waveform", "thumbs", "publish"] as const;
+export const IMPORT_STAGES = ["hash", "space", "copy", "probe", "proxy", "audio16k", "waveform", "thumbs", "publish"] as const;
 export type ImportStage = (typeof IMPORT_STAGES)[number];
 
 export interface MediaImportDeps {
@@ -94,15 +94,22 @@ const ASPECTS: { ratio: z.infer<typeof AspectRatioSchema>; w: number; h: number 
   { ratio: "1:1", w: 1080, h: 1080 },
 ];
 
-/** Настройки проекта после первого импорта: fps = timeline_fps, формат кадра — ближайший к display_*. */
+/**
+ * Настройки проекта после первого импорта: fps = timeline_fps, формат кадра — ближайший к display_*;
+ * `duration_frames` пересчитан под новый fps с сохранением длительности в секундах (ревью M12).
+ */
 export function settingsFromProbe(base: Settings | null, probe: ProbeSummary): Settings {
   const r = Math.log(probe.video.display_width / probe.video.display_height);
   const a = ASPECTS.reduce((best, x) => (Math.abs(Math.log(x.w / x.h) - r) < Math.abs(Math.log(best.w / best.h) - r) ? x : best));
-  return { ...(base ?? defaultSettings()), fps: probe.timeline_fps, aspect_ratio: a.ratio, width: a.w, height: a.h };
+  const b = base ?? defaultSettings();
+  const fps = probe.timeline_fps;
+  const seconds = (b.duration_frames * b.fps.den) / b.fps.num;
+  const frames = Math.max(1, Math.round((seconds * fps.num) / fps.den));
+  return { ...b, fps, duration_frames: frames, aspect_ratio: a.ratio, width: a.w, height: a.h };
 }
 
 /** Путь загрузки (Task 29): регулярный файл прямо в `workspace/drafts/…` хранилища, по realpath. */
-async function resolveUploadPath(root: string, uploadPath: string, originalName: string): Promise<string> {
+async function resolveUploadPath(root: string, uploadPath: string, originalName: string): Promise<ImportFile> {
   if (!videoExt(originalName)) throw new MediaInvalidError(`расширение не видео: ${originalName}`);
   let real: string;
   try {
@@ -111,8 +118,21 @@ async function resolveUploadPath(root: string, uploadPath: string, originalName:
     throw new MediaInvalidError(`загруженный файл не найден: ${uploadPath}`);
   }
   if (!isInside(real, await realpath(join(root, DRAFTS_REL)))) throw new MediaInvalidError(`загруженный файл вне ${DRAFTS_REL}: ${uploadPath}`);
-  if (!(await stat(real)).isFile()) throw new MediaInvalidError(`загрузка — не обычный файл: ${uploadPath}`);
-  return real;
+  const st = await lstat(real);
+  if (!st.isFile()) throw new MediaInvalidError(`загрузка — не обычный файл: ${uploadPath}`);
+  return { path: real, dev: st.dev, ino: st.ino, size: st.size };
+}
+
+/**
+ * После копии (ревью M2): путь всё ещё ведёт к тому же файлу (realpath заново, dev/ino из lstat),
+ * иначе исходник подменили во время импорта — `MediaInvalidError`.
+ */
+async function assertSameFile(requested: string, f: ImportFile): Promise<void> {
+  const again = await realpath(requested).catch(() => undefined);
+  const st = again === undefined ? undefined : await lstat(again).catch(() => undefined);
+  if (again !== f.path || !st || st.dev !== f.dev || st.ino !== f.ino) {
+    throw new MediaInvalidError(`исходник подменён во время импорта (путь ${requested} ведёт к другому файлу)`);
+  }
 }
 
 /** Снимает read-only и удаляет каталог draft, если он не в карантине. */
@@ -129,6 +149,9 @@ export function mediaImport(depsOf: (ctx: JobContext) => MediaImportDeps): JobHa
     const parsed = MediaImportInputSchema.safeParse(ctx.job.input);
     if (!parsed.success) return fail({ code: "pipeline", stage: "prepare", message: `вход media.import не годится: ${parsed.error.message}` });
     const input = parsed.data;
+    if (input.projectId !== ctx.job.project_id) {
+      return fail({ code: "pipeline", stage: "prepare", message: `вход media.import: projectId ${input.projectId} не совпадает с проектом задачи ${ctx.job.project_id}` });
+    }
     const project = projects.get(ctx.db, input.projectId);
     if (!project) return fail({ code: "pipeline", stage: "prepare", message: `проекта ${input.projectId} нет` });
     if (project.kind !== "video") return fail({ code: "pipeline", stage: "prepare", message: `проект ${input.projectId} не видеопроект (${project.kind})` });
@@ -157,17 +180,37 @@ export function mediaImport(depsOf: (ctx: JobContext) => MediaImportDeps): JobHa
     const signal = ctx.signal;
 
     try {
+      // Ревью I3: исходник этой задачи уже в БД (попытка N закоммитила media_assets и упала до
+      // finish) — завершаемся по нему, не трогая путь пользователя (файла может уже не быть).
+      const existing = media.byProject(ctx.db, input.projectId);
+      if (existing && media.createdByJob(ctx.db, existing.id) === ctx.job.id) {
+        return done({ media_id: existing.id, deduplicated: false, sha256: existing.sha256, rel_path: existing.rel_path, cloned: existing.import.cloned });
+      }
+
       const status = await d.storage();
       if (!status.ok) throw new ImportFail({ code: "storage_unavailable", stage: "storage", message: `${status.reason}: ${status.detail}` });
 
-      const src = input.method === "path" ? await resolveImportPath(input.path, d.media.importRoots) : await resolveUploadPath(root, input.uploadPath, input.originalName);
+      const file = input.method === "path"
+        ? await resolveImportFile(input.path, d.media.importRoots, { forbidden: [root] })
+        : await resolveUploadPath(root, input.uploadPath, input.originalName);
+      const src = file.path;
+      const requested = input.method === "path" ? input.path : input.uploadPath;
       const originalName = input.method === "path" ? basename(src) : basename(input.originalName);
+      const ext = videoExt(originalName)!;
+      /** Прогресс чтения `passes` полных проходов по исходнику в доле [from, from + span]. */
+      const readBytes = (from: number, span: number, passes: number) => {
+        let n = 0;
+        const total = Math.max(1, passes * file.size);
+        return (k: number) => {
+          n += k;
+          ctx.progress(from + span * Math.min(1, n / total), stage);
+        };
+      };
 
       // Один исходник на проект: тот же файл — существующий ассет, другой — media_exists.
-      const existing = media.byProject(ctx.db, input.projectId);
       if (existing) {
         await enter("hash", 0.02);
-        const sha = await sha256File(src);
+        const sha = await sha256File(src, { signal, onBytes: readBytes(0.02, 0.9, 1) });
         if (sha !== existing.sha256) {
           throw new ImportFail({
             code: "media_exists",
@@ -178,30 +221,44 @@ export function mediaImport(depsOf: (ctx: JobContext) => MediaImportDeps): JobHa
         return done({ media_id: existing.id, deduplicated: by !== ctx.job.id, sha256: existing.sha256, rel_path: existing.rel_path });
       }
 
-      await enter("probe", 0.03);
-      const probe = await probeMedia(src, { run, signal });
-      d.log?.(`импорт ${originalName}: ${probe.video.codec} ${probe.video.display_width}×${probe.video.display_height} ${probe.timeline_fps.num}/${probe.timeline_fps.den}${probe.vfr ? " VFR" : ""}, ${(probe.duration_us / 1e6).toFixed(1)} с`);
-
-      await enter("space", 0.05);
+      // Место: до копии — под копию и запас (длительность ещё неизвестна: probe идёт по копии,
+      // ревью M1), после probe — полная оценка с прокси и audio16k.
+      await enter("space", 0.03);
       const srcStat = await stat(src);
       const sameVolume = srcStat.dev === (await stat(root)).dev;
       const reused = publicationOf(ctx.db, pxRel);
       if (reused && reused.job_id !== ctx.job.id) throw new Error(`media.import: ${pxRel} опубликован другой задачей (${reused.job_id})`);
-      const est = estimateImportBytes({ sizeBytes: srcStat.size, durationUs: reused ? 0 : probe.duration_us, sameVolume });
-      const space = checkImportSpace(est, status.freeBytes, d.minFreeBytes);
-      if (!space.ok) {
-        throw new ImportFail({
-          code: "low_space",
-          message: `low_space: для импорта нужно свободно ${gib(space.needBytes)} (оценка ${gib(est)} + порог ${gib(d.minFreeBytes)}), на томе хранилища ${gib(status.freeBytes)}`,
-        });
-      }
+      const checkSpace = (durationUs: number, free: number) => {
+        const est = estimateImportBytes({ sizeBytes: srcStat.size, durationUs, sameVolume });
+        const space = checkImportSpace(est, free, d.minFreeBytes);
+        if (!space.ok) {
+          throw new ImportFail({
+            code: "low_space",
+            message: `low_space: для импорта нужно свободно ${gib(space.needBytes)} (оценка ${gib(est)} + порог ${gib(d.minFreeBytes)}), на томе хранилища ${gib(free)}`,
+          });
+        }
+      };
+      checkSpace(0, status.freeBytes);
 
-      await enter("copy", 0.08);
+      await enter("copy", 0.04);
       await safeMkdir(root, DRAFTS_REL);
       await mkdir(srcDraft); // без recursive: существующий — ошибка
-      const copied = await copyOriginal(src, srcDraft);
+      // три полных чтения: хеш источника до, копия (у клона — хеш копии), хеш источника после
+      const copied = await copyOriginal(src, srcDraft, { ext, signal, onBytes: readBytes(0.04, 0.08, 3) });
+      await assertSameFile(requested, file);
       ctx.emit("media_copied", `оригинал скопирован${copied.cloned ? " (APFS-клон)" : ""}`, { sha256: copied.sha256, cloned: copied.cloned });
       const original = copied.path;
+
+      // probe — по копии в хранилище (ревью M1): исходник пользователя после хешей не читается
+      await enter("probe", 0.12);
+      const probe = await probeMedia(original, { run, signal });
+      d.log?.(`импорт ${originalName}: ${probe.video.codec} ${probe.video.display_width}×${probe.video.display_height} ${probe.timeline_fps.num}/${probe.timeline_fps.den}${probe.vfr ? " VFR" : ""}, ${(probe.duration_us / 1e6).toFixed(1)} с`);
+      if (!reused) {
+        const now = await d.storage();
+        if (!now.ok) throw new ImportFail({ code: "storage_unavailable", stage: "storage", message: `${now.reason}: ${now.detail}` });
+        // копия уже на диске: в оценке её не считаем
+        checkSpace(probe.duration_us, now.freeBytes + (sameVolume ? 0 : srcStat.size));
+      }
       const asset: MediaAsset = {
         id: medId,
         project_id: input.projectId,
@@ -257,7 +314,7 @@ export function mediaImport(depsOf: (ctx: JobContext) => MediaImportDeps): JobHa
 
           if (probe.audio) {
             await enter("audio16k", 0.76);
-            await extractAudio16k(original, out("audio16k.wav"), { run, signal, durationUs: probe.duration_us, onProgress: (p) => ctx.progress(0.76 + 0.08 * p, "audio16k") });
+            await extractAudio16k(original, out("audio16k.wav"), demuxerFor(probe.container), { run, signal, durationUs: probe.duration_us, onProgress: (p) => ctx.progress(0.76 + 0.08 * p, "audio16k") });
             await add("audio16k", "audio16k.wav", { sample_rate: 16000, channels: 1, codec: "pcm_s16le" });
             await enter("waveform", 0.85);
             out("waveform.bin");
@@ -344,7 +401,15 @@ export function mediaImport(depsOf: (ctx: JobContext) => MediaImportDeps): JobHa
       }
       if (e instanceof MediaInvalidError) return fail({ code: "media_invalid", message: msg });
       if (isStorageError(e)) return fail({ code: "storage_unavailable", stage: "storage", message: msg });
-      if ((e as NodeJS.ErrnoException).code === "ENOSPC") return fail({ code: "low_space", message: `low_space: на томе кончилось место на этапе ${stage}: ${msg}` });
+      const ffKind = e instanceof FfmpegError ? ffmpegFailureKind(msg) : undefined;
+      if ((e as NodeJS.ErrnoException).code === "ENOSPC" || ffKind === "low_space") {
+        return fail({ code: "low_space", message: `low_space: на томе кончилось место на этапе ${stage}: ${msg}` });
+      }
+      // ревью M6: сбой ввода-вывода посреди этапа часто значит «диск отключили» — перепроверка
+      const now = await d.storage().catch(() => undefined);
+      if (!now || !now.ok) {
+        return fail({ code: "storage_unavailable", stage: "storage", message: `${now ? `${now.reason}: ${now.detail}; ` : ""}${stage}: ${msg}` });
+      }
       if (stage === "publish") return fail({ code: "pipeline", stage: "publish", message: msg });
       return fail({ code: "pipeline", message: `${stage}: ${msg}` });
     }

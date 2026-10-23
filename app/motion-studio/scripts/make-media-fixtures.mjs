@@ -91,6 +91,20 @@ make("no-audio.mp4", (out) => ff([
   "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p", out,
 ]));
 
+// Синхронность A/V (ревью I1): белая вспышка 1 кадр и щелчок-тон 100 мс в один момент файла —
+// 3,0 с; в av-vlate видео начинается на 0,5 с позже звука (`-itsoffset 0.5`), в av-alate — звук.
+const FLASH = (at) => `color=c=black:size=640x360:rate=30,drawbox=x=0:y=0:w=iw:h=ih:color=white:t=fill:enable='between(t,${at},${at + 0.03})'`;
+const BEEP = (at) => `sine=frequency=1000:sample_rate=48000,volume=enable='not(between(t,${at},${at + 0.1}))':volume=0`;
+const AV = ["-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k", "-ac", "1"];
+make("av-vlate.mp4", (out) => ff([
+  "-itsoffset", "0.5", "-f", "lavfi", "-t", "5.5", "-i", FLASH(2.5),
+  "-f", "lavfi", "-t", "6", "-i", BEEP(3), "-map", "0:v", "-map", "1:a", ...AV, out,
+]));
+make("av-alate.mp4", (out) => ff([
+  "-f", "lavfi", "-t", "6", "-i", FLASH(3),
+  "-itsoffset", "0.5", "-f", "lavfi", "-t", "5.5", "-i", BEEP(2.5), "-map", "0:v", "-map", "1:a", ...AV, out,
+]));
+
 make("broken.mp4", (out) => {
   const buf = readFileSync(p("talk-ru-cfr.mp4"));
   writeFileSync(out, buf.subarray(0, Math.floor(buf.length * 0.4)));
@@ -101,7 +115,7 @@ function probeJson(file) {
 }
 
 const summary = [];
-for (const name of ["talk-ru-cfr.mp4", "talk-ru-vfr.mov", "rotated.mov", "no-audio.mp4", "broken.mp4"]) {
+for (const name of ["talk-ru-cfr.mp4", "talk-ru-vfr.mov", "rotated.mov", "no-audio.mp4", "av-vlate.mp4", "av-alate.mp4", "broken.mp4"]) {
   let line;
   try {
     const j = probeJson(p(name));

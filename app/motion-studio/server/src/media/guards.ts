@@ -18,12 +18,31 @@ export function isInside(child: string, parent: string): boolean {
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel) && rel.split(sep)[0] !== "..");
 }
 
+export interface ImportFile {
+  /** realpath файла. */
+  path: string;
+  dev: number;
+  ino: number;
+  size: number;
+}
+
+export interface ResolveImportOptions {
+  /** Каталоги, из которых импорт запрещён, даже если они внутри корней (хранилище `MS_DATA_DIR`, ревью M3). */
+  forbidden?: string[];
+}
+
+/** Как `resolveImportFile`, только путь. */
+export async function resolveImportPath(p: string, roots: string[], o: ResolveImportOptions = {}): Promise<string> {
+  return (await resolveImportFile(p, roots, o)).path;
+}
+
 /**
  * Путь импорта → realpath регулярного видеофайла внутри одного из корней (корни тоже по
- * realpath; несуществующие пропускаются). Относительный путь, URL, каталог, спецфайл, чужое
- * расширение, путь вне корней — `MediaInvalidError`.
+ * realpath; несуществующие пропускаются) и не внутри `forbidden`, с dev/ino из lstat (ревью M2:
+ * после копии вызывающий сверяет, что это тот же файл). Относительный путь, URL, каталог,
+ * спецфайл, чужое расширение, путь вне корней или в хранилище — `MediaInvalidError`.
  */
-export async function resolveImportPath(p: string, roots: string[]): Promise<string> {
+export async function resolveImportFile(p: string, roots: string[], o: ResolveImportOptions = {}): Promise<ImportFile> {
   if (!isAbsolute(p)) throw new MediaInvalidError(`путь импорта должен быть абсолютным путём к файлу: ${JSON.stringify(p)}`);
   let real: string;
   try {
@@ -45,7 +64,11 @@ export async function resolveImportPath(p: string, roots: string[]): Promise<str
   if (!realRoots.some((r) => isInside(real, r))) {
     throw new MediaInvalidError(`файл вне разрешённых каталогов импорта (media.importRoots: ${roots.join(", ")}): ${p}`);
   }
-  return real;
+  for (const f of o.forbidden ?? []) {
+    const rf = await realpath(f).catch(() => resolve(f));
+    if (isInside(real, rf)) throw new MediaInvalidError(`файл внутри хранилища Motion Studio — импорт оттуда запрещён: ${p}`);
+  }
+  return { path: real, dev: st.dev, ino: st.ino, size: st.size };
 }
 
 /**

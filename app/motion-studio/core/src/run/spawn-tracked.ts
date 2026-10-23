@@ -112,7 +112,11 @@ export async function spawnTracked(
   const stderr = new Tail(maxOut);
   child.stdout!.setEncoding("utf8").on("data", (d: string) => {
     stdout.push(d);
-    opts.onStdout?.(d);
+    try {
+      opts.onStdout?.(d);
+    } catch {
+      // ошибка наблюдателя (прогресс) не должна ронять процесс сервера и терять вывод
+    }
   });
   child.stderr!.setEncoding("utf8").on("data", (d: string) => stderr.push(d));
   const gate = child.stdio[3] as Writable;

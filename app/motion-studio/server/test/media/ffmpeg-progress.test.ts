@@ -31,7 +31,7 @@ const probe = (over: Partial<ProbeSummary["video"]> = {}, audio = true): ProbeSu
 describe("аргументы ffmpeg", () => {
   it("прокси: H.264 veryfast CRF 23, короткая сторона, CFR на timeline_fps, GOP 2·fps, AAC 48 кГц, faststart", () => {
     const a = proxyArgs("/s/original.mp4", "/d/proxy.mp4", probe(), 720).join(" ");
-    expect(a).toContain("-protocol_whitelist file -i file:/s/original.mp4");
+    expect(a).toContain("-protocol_whitelist file -f mov -i file:/s/original.mp4");
     expect(a).toContain("scale=-2:720");
     expect(a).toContain("-fps_mode cfr -r 30000/1001");
     expect(a).toContain("-g 60");
@@ -51,6 +51,6 @@ describe("аргументы ffmpeg", () => {
   it("миниатюры и audio16k", () => {
     expect(thumbsArgs("/d/proxy.mp4", "/d/thumbs", 2_000_000, 180).join(" ")).toContain("fps=1000000/2000000,scale=-2:180");
     expect(thumbsArgs("/d/proxy.mp4", "/d/thumbs", 2_000_000, 180).at(-1)).toBe("/d/thumbs/%06d.jpg");
-    expect(audio16kArgs("/s/o.mp4", "/d/audio16k.wav").join(" ")).toMatch(/-map 0:a:0 .*-ac 1 .*-c:a pcm_s16le/);
+    expect(audio16kArgs("/s/o.mp4", "/d/audio16k.wav", "mov").join(" ")).toMatch(/-map 0:a:0 .*-ac 1 .*-c:a pcm_s16le/);
   });
 });
