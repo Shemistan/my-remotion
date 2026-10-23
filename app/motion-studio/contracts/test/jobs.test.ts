@@ -15,7 +15,15 @@ function job(over: Record<string, unknown> = {}): Record<string, unknown> {
 describe("jobs", () => {
   it("статусы и типы", () => {
     expect(JobStatusSchema.options).toEqual(["pending", "running", "completed", "failed", "cancelled", "awaiting_approval", "awaiting_input", "blocked"]);
-    expect(JobTypeSchema.options).toEqual(["playground.generate", "playground.edit", "scene.restore", "scene.export"]);
+    expect(JobTypeSchema.options).toEqual([
+      "playground.generate", "playground.edit", "scene.restore", "scene.export",
+      "media.import", "asr.transcribe", "roughcut.propose", "roughcut.preview", "footage.analyze", "semantic.analyze", "plan.visual", "plan.recheck",
+    ]);
+  });
+  it("JobError: коды Phase 2–3 без этапа", () => {
+    for (const code of ["approval_required", "asr_unavailable", "asr_contract_changed", "asr_contract_violation", "low_space", "media_invalid", "media_exists", "no_audio"]) {
+      expect(JobErrorSchema.safeParse({ code, message: "x" }).success, code).toBe(true);
+    }
   });
   it("Job: корректная задача, interrupts обязателен", () => {
     expect(JobSchema.safeParse(job()).success).toBe(true);

@@ -17,3 +17,16 @@ export * from "./chat.js";
 export * from "./export.js";
 export * from "./api.js";
 export * from "./json-schema.js";
+export * from "./timecode.js";
+export * from "./timeline.js";
+export * from "./media.js";
+export * from "./transcript.js";
+export * from "./edl.js";
+export * from "./approvals.js";
+export * from "./footage.js";
+export * from "./semantic.js";
+export * from "./plan.js";
+export * from "./project-style.js";
+export * from "./agents-video.js";
+export * from "./api-video.js";
+// canonical.ts — отдельно: `@ms/contracts/canonical` (node:crypto, не для web)

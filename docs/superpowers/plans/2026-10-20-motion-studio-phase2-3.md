@@ -1,7 +1,7 @@
 ---
 тип: plan
-статус: запланировано
-обновлено: 2026-10-20
+статус: в работе
+обновлено: 2026-10-23
 спека: 2026-10-20-motion-studio-phase2-3.md
 ---
 
@@ -110,7 +110,7 @@ Phase 1 (Task 1–22)
   - `jobs.ts` (modify): `JobTypeSchema` += `"media.import" | "asr.transcribe" | "roughcut.propose" | "roughcut.preview" | "footage.analyze" | "semantic.analyze" | "plan.visual" | "plan.recheck"`; `JobErrorSchema.code` += `"approval_required" | "asr_unavailable" | "asr_contract_changed" | "asr_contract_violation" | "low_space" | "media_invalid" | "media_exists" | "no_audio"`
   - `api-video.ts`: DTO Task 29/33 (`MediaDto`, `TranscriptDto`, `TranscriptRevisionBody`, `EdlDto`, `EdlRevisionBody`, `ApprovalDto`, `FootageDto`, `SemanticDto`, `PlanDto`, `PlanRevisionBody`, `ProjectStyleDto`, `ImportBody`)
 
-- [ ] **Step 1: Тесты (падают):**
+- [x] **Step 1: Тесты (падают):**
 
 ```ts
 const F30 = { num: 30, den: 1 }, NTSC = { num: 30000, den: 1001 };
@@ -148,9 +148,18 @@ for (const s of [RoughCutAgentOutputSchema, FootageAgentOutputSchema, SemanticAg
   expect(JSON.stringify(toJsonSchema(s))).not.toContain("$ref");
 ```
 
-- [ ] **Step 2: Запустить** `./scripts/with-node.sh npx vitest run contracts` — FAIL.
-- [ ] **Step 3: Реализовать** (только чистые функции и схемы, без `node:` импортов, кроме `canonical.ts` — sha256 через `node:crypto`; для `web` — экспорт `canonical.ts` отдельно не нужен).
-- [ ] **Step 4: Запустить** — PASS; `./check`; коммит `feat(motion-studio): контракты видеопроекта и таймкоды`.
+- [x] **Step 2: Запустить** `./scripts/with-node.sh npx vitest run contracts` — FAIL.
+- [x] **Step 3: Реализовать** (только чистые функции и схемы, без `node:` импортов, кроме `canonical.ts` — sha256 через `node:crypto`; для `web` — экспорт `canonical.ts` отдельно не нужен).
+- [x] **Step 4: Запустить** — PASS; `./check`; коммит `feat(motion-studio): контракты видеопроекта и таймкоды`.
+
+Уточнения при реализации (2026-10-23):
+- `canonical.ts` не входит в индекс: импорт `@ms/contracts/canonical` (subpath в `contracts/package.json`), иначе `node:crypto` попадает в web.
+- `usToFrameCeil(us)` — первый кадр, чей `frameToUs` не раньше `us` (двойственно `usToFrame`, R10): `usToFrameCeil(frameToUs(f)) === f` для любых fps; голый `ceil` давал `f + 1` на NTSC.
+- `CompositionModeSchema` — общий с Concept (`concept.ts`), не дублируется; новые коды `JobError` — в `JobErrorCodeSchema` (`failure.ts`).
+- `buildTimeline`: конец вырезки `>= source_duration_us` не выравнивается (вырезка «до конца» доходит до конца исходника); вырезки, пустые после выравнивания, отбрасываются.
+- `rangeFromWords`: поля `pad` — в edited (в пределах `[0, duration_us]`), source — образ edited-границ; граничное слово вырезано целиком → `TimelineError("anchor_in_cut")`, неизвестное — `unknown_word`, обратный порядок — `order`. Кадры — `[usToFrame(start), usToFrameCeil(end))`.
+- `PlanOp.modify.patch.key_terms` — `{ text; word_id }` без `edited_at_us` (время считает код).
+- `jsdom` поднят в корневые devDependencies: после чистого `npm ci` по прежнему lock-файлу он оказывался только в `web/node_modules`, и Vitest (в корне) не находил окружение web.
 
 ### Task 24: Данные видеопроекта — миграция, ArtifactStore, замки ресурсов, approvals
 

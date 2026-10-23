@@ -42,8 +42,11 @@ export const FailureStageSchema = z.enum([
 ]);
 export type FailureStage = z.infer<typeof FailureStageSchema>;
 
-/** Коды `JobError.code` (план Phase 1, Task 11). */
-export const JobErrorCodeSchema = z.enum(["interrupted", "stale_process", "storage_unavailable", "fenced_out", "budget", "cancelled", "pipeline"]);
+/** Коды `JobError.code`: Phase 1 (Task 11) и Phase 2–3 (Task 23; без этапа пайплайна). */
+export const JobErrorCodeSchema = z.enum([
+  "interrupted", "stale_process", "storage_unavailable", "fenced_out", "budget", "cancelled", "pipeline",
+  "approval_required", "asr_unavailable", "asr_contract_changed", "asr_contract_violation", "low_space", "media_invalid", "media_exists", "no_audio",
+]);
 export type JobErrorCode = z.infer<typeof JobErrorCodeSchema>;
 
 const STAGE_TO_CODE: Record<FailureStage, JobErrorCode> = {
