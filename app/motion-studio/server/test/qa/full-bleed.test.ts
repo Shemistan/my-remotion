@@ -66,3 +66,41 @@ describe("clipping под полноэкранным слоем", () => {
     expect(clips(r)).toEqual([]);
   });
 });
+
+// Q12 (m1 S5-fix): кадр-мир по противоположным краям ловит и широкий объект данных — карточка
+// или график во всю ширину, срезанные слева и справа. Пиксели их не отличают от полосы мира;
+// отличает spec: видимый элемент данных (card, chart, graph, number) с раскладкой во всю ширину
+// (высоту) — срез настоящего объекта, его clipping остаётся blocking.
+describe("кадр-мир и широкий объект во всю ширину", () => {
+  /** Светлая карточка 100 %×50 % на тёмном фоне, выходит за левый и правый край. */
+  const wide = () => new Canvas(W, H, "#151820").rect(-10, H / 4, W + 20, H / 2, "#e6e6ea");
+  const WIDE = { x: 0, y: 0.25, w: 1, h: 0.5 };
+  const withEl = (kind: "card" | "chart" | "graph" | "group" | "shape", start = 0) =>
+    spec({ elements: [el("wide", { kind, role: "основной объект", layout: WIDE })], beats: [beat("b-wide", start, 90, ["wide"])] });
+  const lr = (l: QAIssue[]) => clips(l).map((i) => [i.area, i.severity]).sort();
+
+  it.each(["card", "chart", "graph"] as const)("широкий %s 100 %×50 %, срезанный слева и справа, — clipping blocking", async (kind) => {
+    const r = await programmaticChecks(await withFrames(tmp, [wide()], { spec: withEl(kind) }));
+    expect(lr(r)).toEqual([["left", "blocking"], ["right", "blocking"]]);
+  });
+  it("тот же кадр, полоса — элемент фона (group/shape) — кадр-мир, warning", async () => {
+    for (const kind of ["group", "shape"] as const) {
+      const r = await programmaticChecks(await withFrames(tmp, [wide()], { spec: withEl(kind) }));
+      expect(lr(r)).toEqual([["left", "warning"], ["right", "warning"]]);
+    }
+  });
+  it("широкая карточка ещё не вошла (её бит позже кадра) — полоса на кадре не она, warning", async () => {
+    const r = await programmaticChecks(await withFrames(tmp, [wide()], { spec: withEl("card", 40) }));
+    expect(lr(r)).toEqual([["left", "warning"], ["right", "warning"]]);
+  });
+  it("узкая карточка в spec не отменяет мир", async () => {
+    const narrow = spec({ elements: [el("c", { kind: "card", layout: { x: 0.3, y: 0.3, w: 0.4, h: 0.4 } })], beats: [beat("b", 0, 90, ["c"])] });
+    const r = await programmaticChecks(await withFrames(tmp, [wide()], { spec: narrow }));
+    expect(lr(r)).toEqual([["left", "warning"], ["right", "warning"]]);
+  });
+  it("пейзаж у всех краёв рядом с широкой карточкой — мир по трём краям, warning", async () => {
+    const r = await programmaticChecks(await withFrames(tmp, [landscape()], { spec: withEl("card") }));
+    expect(clips(r).length).toBeGreaterThan(0);
+    expect(clips(r).every((i) => i.severity === "warning")).toBe(true);
+  });
+});

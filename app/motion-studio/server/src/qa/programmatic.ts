@@ -200,7 +200,7 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
   // пиксельная обрезка на этом крае — warning. Другие кадры сцены и другие края — как были;
   // обрезанный текст остаётся blocking (textClipIssues по пробе раскладки).
   for (const e of edges) {
-    const world = isWorld(e.bleed);
+    const world = isWorld(e.bleed, wideDataAt(input.spec, e.frame));
     out.push(...e.issues.map((x) => (world && x.code === "clipping" && e.bleed.includes(x.area as Edge) ? worldClip(x, e.frame) : x)));
   }
 
@@ -354,11 +354,28 @@ const BLEED_SHARE = 0.4;
 /**
  * Кадр-мир: слои мира у противоположных краёв (пейзаж, улица от края до края) или у трёх
  * краёв. Два соседних края (верх и левый) — это и крупный объект, срезанный углом кадра
- * (карточка, герой): его обрезка — дефект, а не мир (S5-fix I3).
+ * (карточка, герой): его обрезка — дефект, а не мир (S5-fix I3). Пара противоположных краёв
+ * — не мир, если на кадре вошёл широкий объект данных этой оси (`wideDataAt`, Q12): полосу
+ * от края до края даёт он, срезанный с двух сторон.
  */
-function isWorld(bleed: readonly Edge[]): boolean {
+function isWorld(bleed: readonly Edge[], wide: { across: boolean; down: boolean }): boolean {
   const has = (e: Edge) => bleed.includes(e);
-  return bleed.length >= 3 || (has("left") && has("right")) || (has("top") && has("bottom"));
+  return bleed.length >= 3 || (has("left") && has("right") && !wide.across) || (has("top") && has("bottom") && !wide.down);
+}
+
+/** Объекты данных: их срез краем кадра — дефект и у кадра-мира (фон и атмосфера — group, shape). */
+const DATA_KINDS: ReadonlySet<string> = new Set(["card", "chart", "graph", "number"]);
+/** Раскладка «во всю ширину (высоту)»: доля safe area по оси не меньше этой. */
+const WIDE_DATA = 0.9;
+
+/**
+ * Широкий объект данных на кадре (Q12): вошедший элемент card/chart/graph/number с раскладкой
+ * не меньше WIDE_DATA safe area по ширине (`across`) или высоте (`down`).
+ */
+function wideDataAt(spec: MotionSpec, frame: number): { across: boolean; down: boolean } {
+  const entered = (id: string) => spec.beats.some((b) => b.element_ids.includes(id) && b.start_frame <= frame);
+  const data = spec.elements.filter((e) => e.layout && DATA_KINDS.has(e.kind) && entered(e.id));
+  return { across: data.some((e) => e.layout!.w >= WIDE_DATA), down: data.some((e) => e.layout!.h >= WIDE_DATA) };
 }
 
 /** clipping на крае кадра-мира — warning: объект мира за краем задуман, обрезка по пикселям не доказана. */
