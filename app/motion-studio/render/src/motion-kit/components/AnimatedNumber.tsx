@@ -1,10 +1,11 @@
 // Счётчик: значение идёт from → to по биту с торможением к концу (кривая enter стиля),
 // цифры моноширинные, ширина блока зарезервирована под итоговое значение (ничего не
 // «прыгает»). Вход — подъём из размытия, на финише — короткий акцентный «удар».
-import type { Beat } from "@ms/contracts";
+import type { Beat, StyleBible } from "@ms/contracts";
 import type { CSSProperties } from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import { EASE, frames, springAt } from "../easing.js";
+import { EASE, fpsFrames, frames, springAt } from "../easing.js";
+import { fpsScaleOf } from "../style/resolve.js";
 import { type PluralForms, formatNumber, pluralForm } from "../format.js";
 import { CLAMP, clamp01, ramp } from "../internal.js";
 import { useStyle } from "../style.js";
@@ -53,6 +54,16 @@ export interface AnimatedNumberProps {
   pop?: number;
 }
 
+/** Начало счёта: 10 % бита, но не позже 6 кадров при 30 fps (в секундах при любом fps). */
+export function countStartOf(s: StyleBible, b0: number, b1: number): number {
+  return b0 + Math.max(0, Math.min(fpsFrames(s, 6), (b1 - b0) * 0.1));
+}
+
+/** «Смаз» цифр по скорости счёта (доля за кадр × кадры в секунду при 30 fps), не больше 1,5 px. */
+export function speedBlurOf(s: StyleBible, perFrame: number): number {
+  return Math.min(1.5, perFrame * 60 * fpsScaleOf(s));
+}
+
 export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact, decimals, size = 7, font = "display", color, align = "left", reserveWidth, style, value: bound, enterAt, pop = 0 }: AnimatedNumberProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
@@ -63,7 +74,7 @@ export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact
   const ease = EASE.count;
 
   // счёт идёт до конца бита; вход занимает его начало и идёт параллельно
-  const countStart = b0 + Math.max(0, Math.min(6, (b1 - b0) * 0.1));
+  const countStart = countStartOf(s, b0, b1);
   // ramp: бит нулевой длины — ступенька, а не исключение interpolate
   const span = to - from || 1;
   const p = bound !== undefined ? clamp01((bound - from) / span) : ramp(frame, countStart, b1, ease);
@@ -77,7 +88,7 @@ export function AnimatedNumber({ from, to, beat, locale, prefix, suffix, compact
 
   const enter = springAt(frame, fps, s, Math.min(enterAt ?? b0, b0), "snappy");
   // «смаз» цифр при быстром счёте (не больше 1.5 px, к финишу исчезает) и размытие входа
-  const speedBlur = Math.min(1.5, Math.abs(p - pPrev) * 60);
+  const speedBlur = speedBlurOf(s, Math.abs(p - pPrev));
   const enterBlur = (1 - clamp01(enter)) * 12;
   const reserve = reserveWidth ?? (!prefix && !suffix);
   // в зарезервированной ячейке цифры прижаты к подписи: «0 релизов» без дыры между числом

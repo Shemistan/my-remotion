@@ -2,10 +2,10 @@
 // от базовой линии каскадом на пружине, над каждым едет подпись-счётчик AnimatedNumber,
 // привязанная к высоте столбца. После роста — акцент: выделенный столбец (`highlight`)
 // разгорается и получает световой столб, остальные уходят в нейтральный тон.
-import type { Beat } from "@ms/contracts";
+import type { Beat, StyleBible } from "@ms/contracts";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import { barLayout } from "../bars.js";
-import { EASE, easingOf, frames, springAt } from "../easing.js";
+import { EASE, easingOf, fpsFrames, frames, springAt } from "../easing.js";
 import { clamp01, ramp, useSvgId } from "../internal.js";
 import { useStyle } from "../style.js";
 import { axisTicks } from "../ticks.js";
@@ -43,6 +43,11 @@ export function barTimings(beat: Pick<Beat, "start_frame" | "end_frame">, n: num
   const growStart = beat.start_frame + L * 0.16;
   const step = n > 1 ? Math.min(Math.max(staggerFrames * 1.5, 3), (L * 0.4) / (n - 1)) : 0;
   return { growStart, step, startOf: (i: number) => growStart + i * step, focusAt: growStart + (n - 1) * step + L * 0.22 };
+}
+
+/** Конец проявления оси: 8 кадров при 30 fps от начала бита, в секундах при любом fps. */
+export function axisFadeEnd(s: StyleBible, start: number): number {
+  return start + fpsFrames(s, 8);
 }
 
 export function BarChart({
@@ -163,7 +168,7 @@ export function BarChart({
           </g>
         );
       })}
-      <line x1={pad.left} x2={pad.left + innerW} y1={baseY} y2={baseY} stroke={alpha(s.palette.text, 0.28)} strokeWidth={1.5} opacity={ramp(frame, beat.start_frame, beat.start_frame + 8)} />
+      <line x1={pad.left} x2={pad.left + innerW} y1={baseY} y2={baseY} stroke={alpha(s.palette.text, 0.28)} strokeWidth={1.5} opacity={ramp(frame, beat.start_frame, axisFadeEnd(s, beat.start_frame))} />
     </svg>
   );
 }

@@ -15,6 +15,7 @@ import { EASE, frames, springAt } from "../easing.js";
 import { type CubicSegment, cubicPoint, lutLength, pathD, pathLUT } from "../geometry.js";
 import { CLAMP, clamp01, kitWarn, ramp, useSvgId } from "../internal.js";
 import { amplitudeOf } from "../style/intensity.js";
+import { fpsScaleOf } from "../style/resolve.js";
 import { minTextPx, typeSize } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
 import { type Elevation, accent, alpha, fontFamily, isDark, mix, radius, space, surfaceAt } from "../tokens.js";
@@ -372,6 +373,11 @@ export function steadyFlowIssue(mode: Hold["mode"] | undefined, steady: { total:
  * Дыхание героя финала поверх его вспышек: ореол 0.5 ± 0.2, масштаб ± 0.6 % — узел
  * «живой», без мигающей рамки. Сильнейшее из вспышки и дыхания.
  */
+/** Угол кромки «думающего» LLM-узла: 1,2° за кадр при 30 fps (36°/с) при любом fps. */
+export function llmEdgeAngle(frame: number, s: StyleBible): number {
+  return ((frame * 1.2) / fpsScaleOf(s)) % 360;
+}
+
 export function heroBreath(fl: AccentPulse, live: number, breath: number): AccentPulse {
   const level = live * (0.5 + 0.2 * breath);
   if (fl.level >= level) return fl;
@@ -601,7 +607,7 @@ function NodeView({ n, t0, enter, fl, sz, slot, writes }: NodeViewProps) {
       ? {
           border: `${Math.max(2, 2 * k).toFixed(1)}px solid transparent`,
           // кромка-градиент акцентов медленно вращается: ядро «думает» и в удержании
-          background: `linear-gradient(180deg, ${alpha("#ffffff", dark ? 0.05 : 0.5)} 0%, ${alpha("#ffffff", 0)} 42%) padding-box, linear-gradient(${surfaceAt(s, e)}, ${surfaceAt(s, e)}) padding-box, conic-gradient(from ${((frame * 1.2) % 360).toFixed(1)}deg, ${col}, ${accent(s, (n.accentIndex ?? 0) + 1)}, ${alpha(col, 0.15)}, ${col}) border-box`,
+          background: `linear-gradient(180deg, ${alpha("#ffffff", dark ? 0.05 : 0.5)} 0%, ${alpha("#ffffff", 0)} 42%) padding-box, linear-gradient(${surfaceAt(s, e)}, ${surfaceAt(s, e)}) padding-box, conic-gradient(from ${llmEdgeAngle(frame, s).toFixed(1)}deg, ${col}, ${accent(s, (n.accentIndex ?? 0) + 1)}, ${alpha(col, 0.15)}, ${col}) border-box`,
 
         }
       : {};

@@ -5,7 +5,7 @@ import type { Beat, StyleBible } from "@ms/contracts";
 import type { CSSProperties, ReactNode } from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { enterStyle } from "../choreo/enter.js";
-import { springAt } from "../easing.js";
+import { fpsFrames, springAt } from "../easing.js";
 import { CLAMP, clamp01 } from "../internal.js";
 import { amplitudeOf } from "../style/intensity.js";
 import { depthOf } from "../style/resolve.js";
@@ -105,6 +105,11 @@ export function cardEnterStyle(s: StyleBible, frame: number, fps: number, start:
   };
 }
 
+/** Кадры прорисовки линии акцента: +6…+26 при 30 fps от входа, в секундах при любом fps. */
+export function cardAccentLine(s: StyleBible, start: number): [number, number] {
+  return [start + fpsFrames(s, 6), start + fpsFrames(s, 26)];
+}
+
 export function Card({ elevation, children, beat, enter, delay = 0, accentIndex, width, height, padding, style }: CardProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
@@ -112,7 +117,7 @@ export function Card({ elevation, children, beat, enter, delay = 0, accentIndex,
   const mode: CardEnter = beat ? (enter ?? (elevation >= 2 ? "flip" : "rise")) : "none";
   const start = (beat?.start_frame ?? 0) + delay;
   const anim = cardEnterStyle(s, frame, fps, start, mode);
-  const line = accentIndex === undefined ? 0 : interpolate(frame, [start + 6, start + 26], [0, 1], CLAMP);
+  const line = accentIndex === undefined ? 0 : interpolate(frame, cardAccentLine(s, start), [0, 1], CLAMP);
   return (
     <div
       style={{
