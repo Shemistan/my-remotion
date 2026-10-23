@@ -20,7 +20,16 @@ export interface WorkerJob {
   /** Настоящий chrome-headless-shell, который exec-ает обёртка. */
   chrome: string;
   /** Попытка: обёртка пишет запись `<root>/run/processes/<runId>-a<attempt>-<pid>.json`. */
-  run: { root: string; runId: string; attempt: number };
+  run: {
+    root: string;
+    runId: string;
+    attempt: number;
+    /**
+     * Ключ этого рендера (имя его `run/tmp/…`): обёртка вписывает его в `cmd` записи, и
+     * уборка рендера трогает только свой Chrome — у двух дублей попытки (runId, attempt) общие.
+     */
+    renderId?: string;
+  };
   inputProps: Record<string, unknown>;
   /** Подставляется поверх композиции из бандла. */
   composition: { width: number; height: number; fps: number; durationInFrames: number };

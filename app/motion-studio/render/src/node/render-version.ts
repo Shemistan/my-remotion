@@ -213,6 +213,8 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
   const tmpRoot = await safeMkdir(root, "run/tmp");
   if (signal?.aborted) return cancelled();
   const runTmp = await mkdtemp(join(tmpRoot, `${runId}-a${attempt}-`));
+  // ключ рендера: два дубля одной попытки рендерят параллельно с одним (runId, attempt)
+  const renderId = basename(runTmp);
   const env = childEnv(runTmp);
 
   const { num, den } = req.settings.fps;
@@ -224,7 +226,7 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
     motionKitDir: MOTION_KIT_DIR,
     browserExecutable: CHROME_WRAPPER,
     chrome,
-    run: { root, runId, attempt },
+    run: { root, runId, attempt, renderId },
     inputProps,
     composition: { width: req.settings.width, height: req.settings.height, fps: num / den, durationInFrames: frames },
     stills: req.stills.map((frame) => ({ frame, out: join(framesDir, `${frame}.png`) })),
@@ -269,9 +271,10 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
         { browserLogs: out.logs },
       );
     }
-    // Chrome — в своей группе: добиваем по TMPDIR попытки, затем закрываем его записи
+    // Chrome — в своей группе: добиваем по TMPDIR этого рендера, затем закрываем записи его
+    // Chrome (не всей попытки: Chrome соседнего дубля жив и нужен ему)
     const strays = await reapByMarker(runTmp + "/", { graceMs: 0, waitMs: STRAY_WAIT_MS });
-    const browsers = await settleBrowserRecords(fileProcessRegistry(root), ref);
+    const browsers = await settleBrowserRecords(fileProcessRegistry(root), { ...ref, renderId });
     if (strays.length > 0 || browsers.length > 0) {
       orphaned = true;
       const pids = [...new Set([...strays.map((p) => p.pid), ...browsers.map((p) => p.pid)])].join(", ");

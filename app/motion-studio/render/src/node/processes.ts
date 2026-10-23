@@ -7,6 +7,9 @@ import { type ProcessRegistry, type TrackedProcess, isTrackedAlive, killGroup } 
 /** Префикс `cmd` записи Chrome в `run/processes/` (пишет chrome-wrapper.sh). */
 export const BROWSER_CMD_PREFIX = "chrome-headless-shell (render)";
 
+/** Префикс `cmd` записи Chrome конкретного рендера (`MS_RENDER_ID` у chrome-wrapper.sh). */
+export const browserCmdPrefix = (renderId: string) => `${BROWSER_CMD_PREFIX} [render=${renderId}] `;
+
 export interface Proc {
   pid: number;
   pgid: number;
@@ -85,10 +88,12 @@ export function reapStrayRenderers(root: string, opts: { graceMs?: number; waitM
  */
 export async function settleBrowserRecords(
   registry: ProcessRegistry,
-  ref: { runId: string; attempt: number },
+  ref: { runId: string; attempt: number; renderId?: string },
   waitMs = 30_000,
 ): Promise<TrackedProcess[]> {
-  const records = (await registry.live({ runId: ref.runId, attempt: ref.attempt })).filter((p) => p.cmd.startsWith(BROWSER_CMD_PREFIX));
+  // с renderId — только Chrome этого рендера: соседний дубль той же попытки рендерит параллельно
+  const prefix = ref.renderId === undefined ? BROWSER_CMD_PREFIX : browserCmdPrefix(ref.renderId);
+  const records = (await registry.live({ runId: ref.runId, attempt: ref.attempt })).filter((p) => p.cmd.startsWith(prefix));
   const left: TrackedProcess[] = [];
   for (const p of records) {
     if (await isTrackedAlive(p)) killGroup(p.pgid, "SIGKILL");

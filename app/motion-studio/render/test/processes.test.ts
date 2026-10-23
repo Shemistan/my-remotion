@@ -38,15 +38,15 @@ async function until(cond: () => boolean | Promise<boolean>, ms = 5000): Promise
 }
 
 /** Как Remotion запускает браузер: detached, env процесса. Вместо Chrome — fake-chrome.sh. */
-function launchViaWrapper(args: string[]): { child: ChildProcess; argsOut: string } {
+function launchViaWrapper(args: string[], extraEnv: Record<string, string> = {}, tag = ""): { child: ChildProcess; argsOut: string } {
   const fake = join(tmp, "fake-chrome.sh");
-  const argsOut = join(tmp, "args.txt");
+  const argsOut = join(tmp, `args${tag}.txt`);
   writeFileSync(fake, '#!/bin/sh\nprintf "%s\\n" "$@" > "$ARGS_OUT"\nexec sleep 60\n');
   chmodSync(fake, 0o755);
   const child = spawn(CHROME_WRAPPER, args, {
     detached: true,
     stdio: "ignore",
-    env: { PATH: process.env.PATH, ARGS_OUT: argsOut, MS_CHROME: fake, MS_RUN_ROOT: root, MS_RUN_ID: "run7", MS_RUN_ATTEMPT: "2", MS_BUNDLE_PORT: "3123" },
+    env: { PATH: process.env.PATH, ARGS_OUT: argsOut, MS_CHROME: fake, MS_RUN_ROOT: root, MS_RUN_ID: "run7", MS_RUN_ATTEMPT: "2", MS_BUNDLE_PORT: "3123", ...extraEnv },
   });
   children.push(child);
   return { child, argsOut };
@@ -105,6 +105,27 @@ it("settleBrowserRecords kills the Chrome group and removes the record only once
   expect(await settleBrowserRecords(fileProcessRegistry(root), { runId: "run7", attempt: 2 }, 5000)).toEqual([]);
   expect(groupExists(pid)).toBe(false);
   expect(readdirSync(join(root, "run/processes"))).toEqual([]);
+});
+
+it("settleBrowserRecords with renderId leaves Chrome of a parallel render of the same attempt alive", async () => {
+  // два дубля одной попытки рендерят одновременно: ref (runId, attempt) у них общий
+  const a = launchViaWrapper(["about:blank"], { MS_RENDER_ID: "run7-a2-AAAAAA" }, "a");
+  const b = launchViaWrapper(["about:blank"], { MS_RENDER_ID: "run7-a2-BBBBBB" }, "b");
+  const recs = join(root, "run/processes");
+  await until(() => readdirSync(recs).filter((n) => n.endsWith(".json") && !n.startsWith(".")).length === 2);
+  await until(async () => (await procInfo(a.child.pid!)) !== undefined && (await procInfo(b.child.pid!)) !== undefined);
+  const recB = JSON.parse(readFileSync(join(recs, `run7-a2-${b.child.pid}.json`), "utf8"));
+  expect(recB.cmd.startsWith(`${BROWSER_CMD_PREFIX} [render=run7-a2-BBBBBB] `)).toBe(true);
+
+  // рендер A закончился первым: его уборка не трогает Chrome рендера B
+  expect(await settleBrowserRecords(fileProcessRegistry(root), { runId: "run7", attempt: 2, renderId: "run7-a2-AAAAAA" }, 5000)).toEqual([]);
+  expect(groupExists(a.child.pid!)).toBe(false);
+  expect(groupExists(b.child.pid!)).toBe(true);
+  expect(readdirSync(recs)).toEqual([`run7-a2-${b.child.pid}.json`]);
+
+  expect(await settleBrowserRecords(fileProcessRegistry(root), { runId: "run7", attempt: 2, renderId: "run7-a2-BBBBBB" }, 5000)).toEqual([]);
+  expect(groupExists(b.child.pid!)).toBe(false);
+  expect(readdirSync(recs)).toEqual([]);
 });
 
 it("reapStrayRenderers kills process groups started from <root>/run/tmp/ and nothing else", async () => {

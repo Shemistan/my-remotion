@@ -137,6 +137,7 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
   process.env.MS_RUN_ROOT = job.run.root;
   process.env.MS_RUN_ID = job.run.runId;
   process.env.MS_RUN_ATTEMPT = String(job.run.attempt);
+  if (job.run.renderId !== undefined) process.env.MS_RENDER_ID = job.run.renderId;
   // Порт сервера бандла выбираем сами и до запуска Chrome: обёртка пускает напрямую
   // только его, остальной loopback (Control API 127.0.0.1:8790) закрыт прокси.
   const port = await freePort();
