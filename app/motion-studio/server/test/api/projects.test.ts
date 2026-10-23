@@ -46,7 +46,22 @@ it("GET /projects/:id: сцены с текущими версиями и пос
   expect(body.scenes[0]).toMatchObject({ id: scene.id, current_version_id: versionId, current_version: { version_id: versionId, number: 1, status: "ready" } });
   expect(body.exports).toHaveLength(1);
   expect(body.exports[0]).toMatchObject({ version_id: versionId, format: "mp4", scene_id: scene.id });
+  expect(body.scenes[0].latest_version).toMatchObject({ version_id: versionId, number: 1 });
   const missing = await api.inj("GET", "/api/projects/prj_nope", getHeaders);
   expect(missing.statusCode).toBe(404);
   expect(missing.json()).toMatchObject({ error: "not_found" });
+});
+
+it("GET /projects/:id: сцена только с failed-версией — current_version null, latest_version — она (Task 21)", async () => {
+  const { core } = api;
+  const { makeDraft, meta } = await import("../scenes/helpers.js");
+  const jobs = await import("../../src/db/repos/jobs.js");
+  projects.create(core.db, { id: "p_fail", title: "Падение" });
+  const scene = core.repo.createScene("p_fail", { prompt: "висит", settings: defaultSettings() });
+  jobs.insert(core.db, { id: "job_ff", type: "playground.generate", project_id: "p_fail", scene_id: scene.id, input: {}, status: "completed", attempt: 1 });
+  const draft = await makeDraft(core.root, { runId: "job_ff", attempt: 1, sceneId: scene.id, projectId: "p_fail" });
+  const v = await core.repo.publish(draft, meta(scene.id, { status: "failed" }), { jobId: "job_ff", attempt: 1 });
+  const body = (await api.inj("GET", "/api/projects/p_fail", getHeaders)).json();
+  expect(body.scenes[0].current_version).toBeNull();
+  expect(body.scenes[0].latest_version).toMatchObject({ version_id: v.versionId, number: 1, status: "failed" });
 });

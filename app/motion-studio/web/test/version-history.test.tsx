@@ -66,3 +66,14 @@ it("SceneTimeline: биты, маркеры QA → seek, полоса верси
   const intro = screen.getByText("intro").closest("[data-beat]") as HTMLElement;
   expect(intro.style.width).toBe("33.33333333333333%");
 });
+
+it("SceneTimeline: пересекающиеся биты — на разных дорожках, следующий после конца — на первой", () => {
+  render(
+    <SceneTimeline
+      durationFrames={180} frame={0} qaFrames={[]} versions={[]} openId={undefined} onSeek={() => undefined} onOpen={() => undefined}
+      beats={[{ id: "a", start: 0, end: 60 }, { id: "b", start: 10, end: 70 }, { id: "c", start: 60, end: 120 }]}
+    />,
+  );
+  const lane = (id: string) => (document.querySelector(`[data-beat="${id}"]`) as HTMLElement).dataset.lane;
+  expect([lane("a"), lane("b"), lane("c")]).toEqual(["0", "1", "0"]);
+});

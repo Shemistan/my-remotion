@@ -30,14 +30,14 @@ import { sendFile } from "../range.js";
 const FRAME_RE = /^(0|[1-9]\d{0,6})\.png$/;
 const KIT_IMPORT_RE = /import\s+(type\s+)?\{([^}]*)\}\s*from\s*["']@ms\/motion-kit["']/g;
 
-/** Имена значений из `import { A, B as C } from "@ms/motion-kit"` (без `import type`). */
+/** Компоненты (имена с заглавной) из `import { A, B as C } from "@ms/motion-kit"`; хуки и токены (`useStyle`, `accent`) и `import type` — нет. */
 export function kitImports(src: string): string[] {
   const out: string[] = [];
   for (const m of src.matchAll(KIT_IMPORT_RE)) {
     if (m[1]) continue;
     for (const part of m[2]!.split(",")) {
       const name = part.trim().replace(/^type\s+/, "").split(/\s+as\s+/)[0]!.trim();
-      if (/^[A-Za-z_$][\w$]*$/.test(name) && !/^type\s/.test(part.trim())) out.push(name);
+      if (/^[A-Z][\w$]*$/.test(name) && !/^type\s/.test(part.trim())) out.push(name);
     }
   }
   return out;

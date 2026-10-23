@@ -193,7 +193,8 @@ export type ExportDto = z.infer<typeof ExportDtoSchema>;
 /** `GET /projects/:id`: сцены с текущей версией (строка истории) и последние экспорты проекта. */
 export const ProjectDetailDtoSchema = z.object({
   project: ProjectDtoSchema,
-  scenes: z.array(SceneDtoSchema.extend({ current_version: HistoryEntrySchema.nullable() })),
+  /** `latest_version` — последняя по номеру (в т. ч. failed): карточка сцены без готовой версии. */
+  scenes: z.array(SceneDtoSchema.extend({ current_version: HistoryEntrySchema.nullable(), latest_version: HistoryEntrySchema.nullable() })),
   exports: z.array(ExportDtoSchema),
 }).strict();
 export type ProjectDetailDto = z.infer<typeof ProjectDetailDtoSchema>;

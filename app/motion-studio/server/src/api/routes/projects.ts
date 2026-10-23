@@ -41,8 +41,10 @@ export function projectRoutes(app: ZApp, { core }: ApiContext): void {
     const project = projects.get(db, req.params.id);
     if (!project) throw notFound(`проект ${req.params.id}`);
     const list = scenes.listByProject(db, project.id).map((s) => {
-      const current = s.current_version_id ? versionHistoryDigest(db, core.root, s.id).find((h) => h.version_id === s.current_version_id) ?? null : null;
-      return { ...s, current_version: current };
+      const history = versionHistoryDigest(db, core.root, s.id);
+      const current = s.current_version_id ? history.find((h) => h.version_id === s.current_version_id) ?? null : null;
+      const latest = history.reduce<(typeof history)[number] | null>((a, h) => (!a || h.number > a.number ? h : a), null);
+      return { ...s, current_version: current, latest_version: latest };
     });
     return { project, scenes: list, exports: exportsRepo.recentInProject(db, project.id, RECENT_EXPORTS) };
   });

@@ -113,7 +113,7 @@ it("GET /versions/:id: kit_components из импортов motion-kit в src/, 
   const jobs = await import("../../src/db/repos/jobs.js");
   jobs.insert(core.db, { id: "job_kit", type: "playground.edit", project_id: "playground", scene_id: scene.id, input: {}, status: "completed", attempt: 1 });
   const src = [
-    'import { FlowGraph, PulseAlongPath as Pulse } from "@ms/motion-kit";',
+    'import { FlowGraph, PulseAlongPath as Pulse, useStyle, accent } from "@ms/motion-kit";',
     "import type { NodeSpec } from '@ms/motion-kit';",
     'import { useCurrentFrame } from "remotion";',
     'import {\n  Card,\n  FlowGraph as FG2,\n} from "@ms/motion-kit";',

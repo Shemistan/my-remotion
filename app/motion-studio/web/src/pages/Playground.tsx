@@ -218,7 +218,7 @@ export function Playground({ id, version }: { id: string; version?: string }) {
         <SceneTimeline
           durationFrames={dto.data.settings.duration_frames}
           frame={frame}
-          beats={beatsOf(dto.data.spec)}
+          beats={beatsOf(dto.data.spec).length > 0 ? beatsOf(dto.data.spec) : beatsOf((dto.data.props as { timing?: unknown } | null)?.timing)}
           qaFrames={dto.data.manifest.qa_frames}
           versions={versions}
           openId={openId}

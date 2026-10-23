@@ -772,7 +772,7 @@ expect((await inj("GET", "/api/health")).json().storage).toBe("storage_offline")
   - **`--dev` и HMR (ревью Task 20, F4):** WebSocket HMR Vite идёт мимо хука `onRequest` Fastify. Закрепить `vite` точной версией не ниже 6.0.9 (или линии 5.x ≥ 5.4.12, CVE-2025-24010: проверка Origin и токена WS); в `installViteDev` явно `server.allowedHosts: ["127.0.0.1", "localhost"]`; если Vite этого не делает сам — проверка `Origin` на `upgrade` (`app.server.on("upgrade")` до Vite: Origin ∉ allowlist → 403 и `socket.destroy()`). Тест: WS-upgrade HMR с `Origin: https://evil.example` отклоняется, со своим Origin — подключается.
   - `e2e/seed.ts`: `seedScene(core, fixtures: { dir: string; timeoutMs?: number }[]): Promise<{ sceneId; versionIds }>` — публикует версии из рукописных фикстур с реальным рендером через `renderVersion` и `SceneRepo.publish` (Q8): `kit-gallery`, `choreo-gallery` → `ready`; `hang-scene` с коротким `timeoutMs` (например, 20 000) → рендер падает `timeout`, публикуется `failed`-версия с `failure.stage = "render"` и журналом — это «ошибка рендера с логами» (M14)
 
-- [ ] **Step 1: Юнит-тесты (падают),** Vitest + jsdom + `@testing-library/react`, API — фейковый `fetch` (только UI-логика):
+- [x] **Step 1: Юнит-тесты (падают),** Vitest + jsdom + `@testing-library/react`, API — фейковый `fetch` (только UI-логика):
 
 ```ts
 for (const f of globSync("web/src/**/*.tsx")) expect(stripImports(readFileSync(f, "utf8"))).not.toMatch(/[А-Яа-яЁё]/);
@@ -788,16 +788,17 @@ expect(timeToFrame(frameToTime(179, { num: 30000, den: 1001 }), { num: 30000, de
 // ExportDialog: версия с settings.transparent_export false → ProRes недоступен с подсказкой
 ```
 
-- [ ] **Step 2: Запустить** — FAIL. **Step 3: Реализовать.**
-- [ ] **Step 4: Playwright (`make e2e-ui`),** реальный сервер `npm start` на `tmp`-хранилище с `MS_ALLOW_SYSTEM_DISK=1`, версии из `seed.ts` (реальный рендер, без LLM):
+- [x] **Step 2: Запустить** — FAIL. **Step 3: Реализовать.**
+- [x] **Step 4: Playwright (`make e2e-ui`),** реальный сервер `npm start` на `tmp`-хранилище с `MS_ALLOW_SYSTEM_DISK=1`, версии из `seed.ts` (реальный рендер, без LLM):
   - `dashboard.spec`: создать проект → он в списке; баннер при 503.
   - `versions.spec`: открыть сцену с двумя версиями → проиграть v1 и v2, шаг кадра меняет счётчик на 1; «Сравнить» → два плеера и diff `props`; «Восстановить v1» → появилась v3 с родителем v1, v1 и v2 на месте.
   - `export.spec`: «Экспорт» MP4 → задача → «Скачать»; файл проходит `ffprobe` (1920×1080, `h264`, `aac`).
   - `kb.spec`: поиск «счётчик» → `remotion-bits/animated-counter` с лицензией MIT; карточка открывается.
   - `jobs.spec`: медленный экспорт ProRes 4444 версии `kit-gallery`, засеянной с `settings.transparent_export: true` (иначе Task 19 отказал бы сразу `transparent_unsupported`; отмена приходит раньше `exportGate`) → «Отменить», пока задача `running` → `cancelled`, файла в `exports/` нет; `failed`-версия `hang-scene` → ошибка рендера показана с логами, превью нет (M14). Экспорт `hang-scene` не используется: он ждал бы `limits.exportTimeoutMs` (30 мин).
   Скриншоты ключевых экранов — `docs/evidence/phase-1/ui/`.
-- [ ] **Step 5: Просмотр скриншотов глазами:** раскладка ТЗ §6.2, все подписи на русском, нет обрезанных строк.
-- [ ] **Step 6:** `./check`; коммит `feat(motion-studio): UI Motion Playground`.
+- [x] **Step 5: Просмотр скриншотов глазами:** раскладка ТЗ §6.2, все подписи на русском, нет обрезанных строк.
+- [x] **Step 6:** `./check`; коммит `feat(motion-studio): UI Motion Playground`.
+- [x] **Сделано (2026-10-23, `task-21-report.md`):** пакет `web` (React 19.2.3, Vite 8.3.4 — F4, TanStack Query 5.104.1, jsdom 29.1.1: 30.x требует Node ≥ 22.22); `VersionDto` + `kit_components`, `generation` (время/стоимость из `pipeline-log.json`), `ProjectDetail` + `latest_version`; `--dev`: HMR на сокете Fastify, upgrade только со своими Host/Origin; Playwright 9/9 на tmp-хранилище, скриншоты `docs/evidence/phase-1/ui/`. Отступление: «счётчик» в реальной KB не находит `remotion-bits/animated-counter` (поиск лексический, запись описана словом «число») — kb.spec ищет «счётчик» (счётчики MIT) и «число» (animated-counter).
 
 ### Task 22: Приёмка Phase 1 через UI с реальными Claude Code и рендером (P1-18)
 

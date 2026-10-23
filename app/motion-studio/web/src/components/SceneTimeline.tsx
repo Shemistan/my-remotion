@@ -33,18 +33,35 @@ export function beatsOf(spec: unknown): Beat[] {
   });
 }
 
+/** Дорожки битов: пересекающиеся по времени биты — на разных строках (жадно, по началу). */
+export function laneOf(beats: Beat[]): Map<string, number> {
+  const ends: number[] = [];
+  const out = new Map<string, number>();
+  for (const b of [...beats].sort((x, y) => x.start - y.start || x.end - y.end)) {
+    let lane = ends.findIndex((e) => e <= b.start);
+    if (lane < 0) lane = ends.length;
+    ends[lane] = b.end;
+    out.set(b.id, lane);
+  }
+  return out;
+}
+
+const LANE_PX = 22;
+
 export function SceneTimeline({ durationFrames, frame, beats, qaFrames, versions, openId, onSeek, onOpen }: SceneTimelineProps) {
   const pct = (f: number) => `${(f / Math.max(1, durationFrames)) * 100}%`;
+  const lanes = laneOf(beats);
+  const laneCount = Math.max(1, ...[...lanes.values()].map((l) => l + 1));
   return (
     <section className="timeline" aria-label={t("timeline.title")}>
       <div className="timeline-row">
         <span className="timeline-label">{t("timeline.beats")}</span>
-        <div className="timeline-track" onClick={(e) => {
+        <div className="timeline-track" style={{ height: laneCount * LANE_PX + 10 }} onClick={(e) => {
           const r = e.currentTarget.getBoundingClientRect();
           if (r.width > 0) onSeek(Math.floor(((e.clientX - r.left) / r.width) * durationFrames));
         }}>
           {beats.map((b) => (
-            <div key={b.id} className="beat" data-beat={b.id} title={`${b.id}: ${b.start}–${b.end}`} style={{ left: pct(b.start), width: pct(b.end - b.start) }}>
+            <div key={b.id} className="beat" data-beat={b.id} title={`${b.id}: ${b.start}–${b.end}`} data-lane={lanes.get(b.id)} style={{ left: pct(b.start), width: pct(b.end - b.start), top: 5 + (lanes.get(b.id) ?? 0) * LANE_PX, height: LANE_PX - 3 }}>
               <span>{b.id}</span>
             </div>
           ))}

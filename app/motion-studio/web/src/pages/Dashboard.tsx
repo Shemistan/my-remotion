@@ -1,7 +1,7 @@
 // Dashboard (ТЗ §11.1): проекты, активные задачи, последние экспорты, «Новый проект».
 // Служебные проекты bench скрывает сервер (`GET /projects`). Страница проекта — сцены,
 // экспорты проекта и новая сцена по промпту.
-import { type Job, type Settings, defaultSettings } from "@ms/contracts";
+import { type HistoryEntry, type Job, type Settings, defaultSettings } from "@ms/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { api, newKey, urls } from "../api/client.js";
@@ -37,7 +37,7 @@ function NewProject() {
       <h2>{t("dashboard.newProject")}</h2>
       <label htmlFor={id}>{t("dashboard.projectTitle")}</label>
       <div className="row">
-        <input id={id} value={title} placeholder={t("dashboard.projectTitlePlaceholder")} onChange={(e) => setTitle(e.target.value)} />
+        <input id={id} className="grow" value={title} placeholder={t("dashboard.projectTitlePlaceholder")} onChange={(e) => setTitle(e.target.value)} />
         <button type="submit" className="primary" disabled={!title.trim() || create.isPending}>{t("dashboard.create")}</button>
       </div>
       {create.isError ? <p className="error">{errorText(create.error)}</p> : null}
@@ -147,6 +147,9 @@ function NewScene({ projectId, initial }: { projectId: string; initial: Settings
   );
 }
 
+const sceneLine = (v: HistoryEntry | null) =>
+  v ? `${t("versions.label", { n: v.number })} · ${t(`versions.status.${versionState(v)}`)}` : t("project.noVersions");
+
 export function ProjectPage({ id }: { id: string }) {
   const q = useProject(id);
   const app = useAppSettings();
@@ -170,11 +173,7 @@ export function ProjectPage({ id }: { id: string }) {
                     <img src={urls.frame(s.current_version.version_id, 0)} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
                   ) : <div className="thumb-empty" />}
                   <span className="strong">{s.title}</span>
-                  <span className="muted small">
-                    {s.current_version
-                      ? `${t("versions.label", { n: s.current_version.number })} · ${t(`versions.status.${versionState(s.current_version)}`)}`
-                      : t("project.noVersions")}
-                  </span>
+                  <span className="muted small">{sceneLine(s.current_version ?? s.latest_version)}</span>
                 </Link>
               </li>
             ))}

@@ -28,6 +28,23 @@ it("сообщения трёх ролей; текст данных не раз�
   expect(screen.getByText(/Темп не сохранён/).closest("[data-warning]")).toBeTruthy();
 });
 
+it("scrollIntoView, вернувший Promise (новые Chrome), не ломает размонтирование чата", async () => {
+  const proto = Element.prototype as unknown as { scrollIntoView?: unknown };
+  const prev = proto.scrollIntoView;
+  proto.scrollIntoView = () => Promise.resolve();
+  const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  try {
+    fakeFetch([on("GET", "/api/scenes/s1/messages", [msg("m1", "user", "привет")])]);
+    const view = renderQ(<Chat sceneId="s1" />);
+    expect(await screen.findByText("привет")).toBeTruthy();
+    expect(() => view.unmount()).not.toThrow();
+    expect(errors.mock.calls.flat().join(" ")).not.toMatch(/effect/i);
+  } finally {
+    errors.mockRestore();
+    proto.scrollIntoView = prev;
+  }
+});
+
 it("отправка → POST /messages с Idempotency-Key и текстом; поле очищается", async () => {
   const { calls } = fakeFetch([
     on("GET", "/api/scenes/s1/messages", []),

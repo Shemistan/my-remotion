@@ -49,7 +49,11 @@ export function Chat({ sceneId, baseVersionId, versions = [], onOpenVersion, dis
     },
   });
   const list = messages.data ?? [];
-  useEffect(() => end.current?.scrollIntoView?.({ block: "end" }), [list.length]);
+  // тело блоком: в новых Chrome scrollIntoView возвращает Promise, а React ждёт от эффекта
+  // только функцию очистки или undefined
+  useEffect(() => {
+    void end.current?.scrollIntoView?.({ block: "end" });
+  }, [list.length]);
   const number = (vid: string | undefined) => versions.find((v) => v.version_id === vid)?.number;
 
   const submit = () => {
