@@ -30,6 +30,8 @@ export interface SpawnTrackedOptions {
   maxOutputChars?: number;
   /** Куски stdout по мере поступления (прогресс `ffmpeg -progress pipe:1`); хвост копится как обычно. */
   onStdout?: (chunk: string) => void;
+  /** Куски stderr по мере поступления (silencedetect, «нет вывода» ASR); хвост копится как обычно. */
+  onStderr?: (chunk: string) => void;
 }
 
 /** Хвост потока ограниченной длины; амортизированно O(1) на кусок. */
@@ -118,7 +120,14 @@ export async function spawnTracked(
       // ошибка наблюдателя (прогресс) не должна ронять процесс сервера и терять вывод
     }
   });
-  child.stderr!.setEncoding("utf8").on("data", (d: string) => stderr.push(d));
+  child.stderr!.setEncoding("utf8").on("data", (d: string) => {
+    stderr.push(d);
+    try {
+      opts.onStderr?.(d);
+    } catch {
+      // как onStdout: ошибка наблюдателя не роняет процесс
+    }
+  });
   const gate = child.stdio[3] as Writable;
   // EPIPE и т.п., если процесс умер раньше, — не повод ронять сервер
   child.stdin!.on("error", () => undefined);

@@ -1,6 +1,7 @@
 // doctor (`03` §7): проверка окружения перед запуском сервера и генерацией. Строки: Node ≥ 22;
 // `claude --version` и вход (короткий `claude -p` модели haiku без инструментов, стоимость
-// < $0,01); ffmpeg/ffprobe, энкодеры libx264, aac, prores_ks и фильтры silencedetect, scdet; KB_ROOT/KB_SOURCE_ROOT; StorageGuard
+// < $0,01); ffmpeg/ffprobe, энкодеры libx264, aac, prores_ks и фильтры silencedetect, scdet; ASR
+// (python mlx-audio, воркер ai-platform и его sha256, коммит, веса модели, порт 8780); KB_ROOT/KB_SOURCE_ROOT; StorageGuard
 // MS_DATA_DIR; Chrome Headless Shell (скачивается при отсутствии); `quick_check` studio.db;
 // owner-lock свободен. Итог — таблица (или `--json`), код 1 при любой ошибке.
 // `--init` создаёт хранилище, `--adopt` привязывает его к новому тому после переноса (вывод —
@@ -28,11 +29,12 @@ import {
 } from "@ms/core";
 import { ensureRenderBrowser, findOnPath } from "@ms/render";
 import { childEnv } from "../agents/env.js";
-import { loadConfig, readConfigFile } from "../config.js";
+import { type AppConfig, loadConfig, readConfigFile } from "../config.js";
 import { bindStoreId, quickCheck } from "../db/meta.js";
 import { migrate } from "../db/migrate.js";
 import { openDb } from "../db/open.js";
 import { KnowledgeAdapter } from "../knowledge/adapter.js";
+import { AI_PLATFORM_PORT, type AsrCapability, asrCapability } from "../media/asr-capability.js";
 import { reconcileVersions } from "../scenes/import-slice.js";
 import { SceneRepo } from "../scenes/repo.js";
 import { relockVersions } from "../scenes/store.js";
@@ -45,6 +47,8 @@ const ENCODERS = ["libx264", "aac", "prores_ks"] as const;
 const FILTERS = ["silencedetect", "scdet"] as const;
 
 export type BrowserCheck = () => Promise<{ path: string }>;
+/** Доступность ASR (Task 26); подменяется в тестах. */
+export type AsrCheck = (cfg: AppConfig["asr"]) => Promise<AsrCapability>;
 
 export interface CheckRow {
   name: string;
@@ -59,13 +63,14 @@ export async function runDoctor(
   env: StorageEnv & NodeJS.ProcessEnv,
   probe: VolumeProbe,
   browser: BrowserCheck = ensureRenderBrowser,
+  asr: AsrCheck = (cfg) => asrCapability(cfg),
 ): Promise<{ code: number; output: string }> {
   const [mode, ...rest] = argv;
-  if (mode === "--json" && rest.length === 0) return fullCheck(env, probe, browser, true);
+  if (mode === "--json" && rest.length === 0) return fullCheck(env, probe, browser, asr, true);
   if (rest.length > 0 || (mode !== undefined && mode !== "--init" && mode !== "--adopt" && mode !== "--import-slice")) {
     return { code: 2, output: USAGE };
   }
-  if (mode === undefined) return fullCheck(env, probe, browser, false);
+  if (mode === undefined) return fullCheck(env, probe, browser, asr, false);
   if (mode === "--import-slice") return importSlice(env, probe);
 
   const root = env.MS_DATA_DIR?.trim();
@@ -84,7 +89,7 @@ const exec: Exec = async (bin, args, env, timeout, cwd) => (await promisify(exec
 const firstLine = (s: string) => s.trim().split("\n")[0]!.trim();
 const errText = (e: unknown) => ((e as Error).message ?? String(e)).split("\n")[0]!;
 
-async function fullCheck(env: NodeJS.ProcessEnv, probe: VolumeProbe, browser: BrowserCheck, json: boolean): Promise<{ code: number; output: string }> {
+async function fullCheck(env: NodeJS.ProcessEnv, probe: VolumeProbe, browser: BrowserCheck, asrCheck: AsrCheck, json: boolean): Promise<{ code: number; output: string }> {
   const rows: CheckRow[] = [];
   const row = (name: string, ok: boolean, status: string, detail: string) => rows.push({ name, ok, status: ok ? "ok" : status, detail });
   const root = env.MS_DATA_DIR?.trim();
@@ -154,6 +159,17 @@ async function fullCheck(env: NodeJS.ProcessEnv, probe: VolumeProbe, browser: Br
     } catch (e) {
       row("filters", false, "error", errText(e));
     }
+  }
+
+  // ASR (Phase 2): python mlx-audio, воркер ai-platform (sha256 = контракт), веса, коммит, порт 8780
+  try {
+    const cap = await asrCheck(config.asr);
+    if (cap.available) {
+      const port = cap.gpuContention ? `; порт ${AI_PLATFORM_PORT} занят — ai-platform может держать GPU` : "";
+      row("asr", true, "ok", `${config.asr.model}, воркер sha256 ${cap.workerSha256.slice(0, 12)}…, ai-platform ${cap.commit.slice(0, 7)}, python ${config.asr.python}${port}`);
+    } else row("asr", false, cap.reason, cap.detail);
+  } catch (e) {
+    row("asr", false, "error", errText(e));
   }
 
   // KB

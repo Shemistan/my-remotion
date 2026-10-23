@@ -1,9 +1,11 @@
 // Обработчики задач, общие для сервера и CLI: оба регистрируют одни и те же обработчики
-// (`playground.generate`, `playground.edit`, `scene.restore`, `scene.export`, `media.import`).
+// (`playground.generate`, `playground.edit`, `scene.restore`, `scene.export`, `media.import`,
+// `asr.transcribe`).
 import type { Job } from "@ms/contracts";
 import { DEFAULT_MIN_FREE_GB } from "@ms/core";
 import { alphaAtCorner, exportVersion, renderVersion } from "@ms/render";
 import type { CoreServices } from "../boot.js";
+import { type AsrTranscribeDeps, asrTranscribe } from "../pipeline/asr-transcribe.js";
 import type { GenerateResult } from "../pipeline/generate.js";
 import { type MediaImportDeps, mediaImport } from "../pipeline/media-import.js";
 import { playgroundEdit } from "../pipeline/playground-edit.js";
@@ -29,6 +31,8 @@ export interface HandlerOptions {
   onGenerateResult?: (job: Job, r: GenerateResult) => void;
   /** `media.import`: начало этапа (тесты прерывают попытку). */
   onImportStage?: MediaImportDeps["onStage"];
+  /** `asr.transcribe`: начало этапа (e2e убивает процесс на этапе). */
+  onAsrStage?: AsrTranscribeDeps["onStage"];
 }
 
 export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extra: Handlers = {}): Handlers {
@@ -64,6 +68,13 @@ export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extr
       storage: svc.storageCheck,
       minFreeBytes: svc.minFreeBytes ?? DEFAULT_MIN_FREE_GB * 1024 ** 3,
       ...(o.onImportStage ? { onStage: o.onImportStage } : {}),
+      ...(o.log ? { log: o.log } : {}),
+    })),
+    "asr.transcribe": asrTranscribe(() => ({
+      root: svc.root,
+      asr: svc.config.asr,
+      storage: svc.storageCheck,
+      ...(o.onAsrStage ? { onStage: o.onAsrStage } : {}),
       ...(o.log ? { log: o.log } : {}),
     })),
     ...extra,

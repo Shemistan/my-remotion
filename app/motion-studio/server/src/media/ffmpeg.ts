@@ -23,6 +23,8 @@ export interface ToolOptions {
   /** По умолчанию 4 ч. */
   timeoutMs?: number;
   onStdout?: (chunk: string) => void;
+  /** Куски stderr по мере поступления (silencedetect: строки за пределами хвоста). */
+  onStderr?: (chunk: string) => void;
   /** Подмена для тестов. */
   spawn?: typeof spawnTracked;
 }
@@ -76,14 +78,21 @@ export async function runTool(name: "ffmpeg" | "ffprobe", args: string[], o: Too
       // ошибка наблюдателя прогресса не должна ронять процесс
     }
   };
+  const onStderr = (d: string) => {
+    try {
+      o.onStderr?.(d);
+    } catch {
+      // то же для stderr
+    }
+  };
   try {
     let r: { code: number | null; stdout: string; stderr: string; orphaned: boolean };
     if (o.run) {
       r = await (o.spawn ?? spawnTracked)(o.run.root, { runId: o.run.runId, attempt: o.run.attempt }, path, args, {
-        cwd: o.run.root, env: env(), signal: ac.signal, registry: o.run.registry, killGraceMs: 2000, onStdout, maxOutputChars: 4 * 1024 * 1024,
+        cwd: o.run.root, env: env(), signal: ac.signal, registry: o.run.registry, killGraceMs: 2000, onStdout, onStderr, maxOutputChars: 4 * 1024 * 1024,
       });
     } else {
-      r = await plain(path, args, ac.signal, onStdout);
+      r = await plain(path, args, ac.signal, onStdout, onStderr);
     }
     if (r.orphaned) throw new FfmpegError("orphaned", `группа ${name} не исчезла после SIGKILL; запись оставлена в реестре (stale_process)`);
     if (why) throw new FfmpegError(why, why === "timeout" ? `${name} не уложился в ${timeoutMs} мс` : `${name} отменён`);
@@ -94,7 +103,7 @@ export async function runTool(name: "ffmpeg" | "ffprobe", args: string[], o: Too
   }
 }
 
-function plain(path: string, args: string[], signal: AbortSignal, onStdout: (d: string) => void) {
+function plain(path: string, args: string[], signal: AbortSignal, onStdout: (d: string) => void, onStderr: (d: string) => void) {
   return new Promise<{ code: number | null; stdout: string; stderr: string; orphaned: boolean }>((resolve, reject) => {
     const child = spawn(path, args, { env: env(), stdio: ["ignore", "pipe", "pipe"], signal, killSignal: "SIGKILL" });
     let stdout = "";
@@ -104,6 +113,7 @@ function plain(path: string, args: string[], signal: AbortSignal, onStdout: (d: 
       onStdout(d);
     });
     child.stderr.setEncoding("utf8").on("data", (d: string) => {
+      onStderr(d);
       stderr = (stderr + d).slice(-STDERR_TAIL * 4);
     });
     child.on("error", (e) => {

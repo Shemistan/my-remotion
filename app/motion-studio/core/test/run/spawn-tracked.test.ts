@@ -72,3 +72,17 @@ it("M14: исключение в onStdout не роняет процесс и н
   expect(res.stdout).toBe("a\nb\n");
   expect(calls).toBeGreaterThanOrEqual(1);
 });
+
+it("onStderr (Task 26): куски stderr по мере поступления; исключение наблюдателя не теряет вывод", async () => {
+  const chunks: string[] = [];
+  const res = await spawnTracked(root, { runId: "run1", attempt: 1 }, "/bin/sh", ["-c", "echo x >&2; sleep 0.05; echo y >&2"], {
+    ...opts(),
+    onStderr: (d) => {
+      chunks.push(d);
+      throw new Error("наблюдатель упал");
+    },
+  });
+  expect(res.code).toBe(0);
+  expect(chunks.join("")).toBe("x\ny\n");
+  expect(res.stderr).toBe("x\ny\n");
+});

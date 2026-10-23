@@ -376,7 +376,7 @@ expect((await probeMedia(derivative(await importFixture("rotated.mov"), "proxy")
   - `class AsrAdapter`: `constructor(cfg: AppConfig["asr"], deps: { spawn: typeof spawnTracked })`; `transcribe(i: { audio16k: string; durationUs: number; language: string; hotwords: string[]; workdir: string; run: RunRef; signal: AbortSignal; registry?: ProcessRegistry; onProgress(p: number, stage: string): void }): Promise<{ output: AsrWorkerOutput; splits: number[]; elapsedMs: number }>` — env = `childEnv` + `PYTHONNOUSERSITE=1`; таймаут общий `timeoutMs`, без вывода — `noOutputTimeoutMs`; отмена — `spawnTracked` (группа)
   - `asrTranscribe: JobHandler` — вход `{ projectId; mediaId; language?; model?; hotwords?: string[] }`; `has_audio = 0` → `failed(no_audio)`; `asrCapability` → `unavailable` → `failed(asr_unavailable | asr_contract_changed)`; `silencedetect -35dB:d=0.4` по `audio16k.wav` → `chooseSplits` → `ctx.heavy.acquire()` → `gpuContention` → событие-предупреждение → `transcribe` → `AsrWorkerOutputSchema` (нарушение → `asr_contract_violation`, вывод воркера сохраняется в журнал задачи) → `|duration − media| ≤ 0.1 с` → ревизия `r1` (`author: "asr"`, `asr: { model, worker_sha256, ai_platform_commit, elapsed_s }`, `segments`) → `ArtifactStore.publish` с fencing → `transcripts`, `transcript_revisions`, `transcript_words`, `transcript_segments`
 
-- [ ] **Step 1: Юнит-тесты (падают),** фейковый воркер — только логика:
+- [x] **Step 1: Юнит-тесты (падают),** фейковый воркер — только логика:
 
 ```ts
 expect(chooseSplits([{ start_s: 100, end_s: 101 }, { start_s: 280, end_s: 282 }, { start_s: 400, end_s: 400.5 }, { start_s: 560, end_s: 563 }], 700)).toEqual([281, 561.5]);
@@ -400,7 +400,7 @@ expect((await asrCapability(cfg, { ...deps, sha256File: async () => "deadbeef" }
 // фейковый воркер пишет words-bad-order.json → failed asr_contract_violation, transcripts пуст
 ```
 
-- [ ] **Step 2: e2e (`make e2e`),** реальный воркер ai-platform на `talk-ru-cfr.mp4` (импорт Task 25):
+- [x] **Step 2: e2e (`make e2e`),** реальный воркер ai-platform на `talk-ru-cfr.mp4` (импорт Task 25):
 
 ```ts
 const t = await runJob(core, "asr.transcribe", { projectId, mediaId, language: "ru" });
@@ -415,8 +415,20 @@ expect(doc.segments.length).toBeGreaterThanOrEqual(2);
 // kill -9 во время ASR (дочерний node с bootCore) → после рестарта воркер мёртв, задача pending → completed
 ```
 
-- [ ] **Step 3–4:** FAIL → реализовать → PASS. Время ASR (×реального времени) и пиковая память — в отчёт.
-- [ ] **Step 5:** `./check`; `make e2e` (asr); коммит `feat(motion-studio): ASR через воркер ai-platform`.
+- [x] **Step 3–4:** FAIL → реализовать → PASS. Время ASR (×реального времени) и пиковая память — в отчёт.
+- [x] **Step 5:** `./check`; `make e2e` (asr); коммит `feat(motion-studio): ASR через воркер ai-platform`.
+
+Уточнения при реализации (2026-10-24):
+- Контракт: sha256 `asr_worker.py` на 2026-10-24 совпадает с закреплённым `59b7e03b…` (файл не менялся с e3024ac); HEAD ai-platform — `3a2513a`, не `0456395`. Коммит — справочно (`ASR_WORKER_VERIFIED_COMMIT` в `config.ts`, `asr.ai_platform_commit` ревизии), контракт — только sha256. Коммит читается `rev-parse --show-toplevel HEAD` без `GIT_*` в env (грабли № 3); каталог — не корень репозитория → `unknown`.
+- Файлы сверх плана: тест обработчика `server/test/media/asr-handler.test.ts` (heavy, отмена, SIGTERM игнорируется, orphaned, таймауты, нарушения контракта, M3; в heavy-списке Vitest), e2e kill -9 — `asr-kill9-child.mts`. `AsrAdapter.transcribe` получает `splits` и `audioDurationS` на входе (считает обработчик) и возвращает ещё сырой вывод. `asrCapability(cfg, deps, { model })` — модель из входа задачи; ветка `available: true` несёт `reason?: undefined` (тест плана читает `.reason`).
+- Длительность: `|duration воркера − длительность audio16k по заголовку wav| ≤ 0,1 с` — это то, что воркер прочёл; сравнение с видео давало бы ложный отказ при законно коротком звуке (расхождение звука с видео > 0,1 с — событие `audio_shorter`). Слово с `e > duration + 5 мс`, NaN/Infinity (Python пишет их не-JSON-литералами), отрицательные и нечисловые времена, лишние поля, пустой вывод или нет файла → `asr_contract_violation`: начало вывода — событие `asr_output_rejected`, весь вывод — `asr-worker.json` в draft в карантине. 0 слов при годном выводе → `failed pipeline` «речь не распознана». Код ≠ 0, таймаут, нет вывода → `asr_unavailable` с хвостом stderr (событие `asr_worker_failed`).
+- Процесс: python + путь воркера + аргументы массивом через `spawnTracked` (своя группа, реестр, SIGTERM → SIGKILL через 5 с). cwd и `--out` — `run/tmp/<job>-a<N>-asr-*`, не draft (в ревизию попадает только наше), TMPDIR туда же; каталоги прежних попыток задачи убираются в начале. Env — `childEnv` + `PYTHONNOUSERSITE=1`, `PYTHONDONTWRITEBYTECODE=1` (рядом с исходниками ai-platform ничего не пишется), `PYTHONUNBUFFERED=1`, `HF_HUB_OFFLINE`/`TRANSFORMERS_OFFLINE`/`HF_DATASETS_OFFLINE=1`. Сеть закрыта только этими флагами (веса — локальный каталог); ОС-песочница (`sandbox-exec` с `deny network*`) не применялась — механизм устаревший и внутри песочницы агента не проверяем, решение человека. «Нет вывода» считается по stdout и stderr: `spawnTracked` (core) и `runTool` получили `onStderr`.
+- Вход: язык — `^[a-z]{2,3}$`; hotwords — обрезка пробелов, без `|`, `\p{Cc}`/`\p{Cf}`, ведущего `-` (argparse принял бы за флаг), ≤ 64 символов, ≤ 50 слов; `--audio`/`--out` — только абсолютные пути; модель — `ASR_MODELS`. Нарушение — `failed pipeline/prepare` до воркера.
+- silencedetect — по audio16k (`-f wav`, вход `file:`), строки тишины берутся из потока stderr целиком (хвост `runTool` короток для часовой записи). `chooseSplits`: середина тишины дальше начала окна больше чем на 1 с (иначе пустые куски), разрезы — до мс.
+- M3: id транскрипта — `trn_<ULID задачи>`; `transcripts`, ревизия, слова, сегменты и `artifact_publications` — одна транзакция публикации; попытка N+1 видит `current_revision` своего транскрипта и завершается `reused: true` без воркера и без `r2`. ASR того же проекта другой задачей — новый транскрипт (текущий — последний, `transcripts.byProject`).
+- doctor: строка `asr` (python, воркер, sha256, коммит, модель; порт 8780 занят — ok с пометкой), отказ — код 1; `runDoctor(…, asr?)` — подмена проверки в тестах.
+- e2e (`MS_E2E=1 vitest run server/test/media/asr.e2e.test.ts`, tmp-хранилище, реальный воркер и whisper-large-v3-turbo с SSD): talk-ru-cfr.mp4, 20,0 с звука — воркер 3,1–5,0 с вместе с загрузкой модели (×0,15–0,25 реального времени), задача 3,4–5,3 с; пиковая RSS python 1,7 ГиБ (опрос ps раз в 200 мс; unified-память Metal в RSS видна не полностью); 34 слова, 4 сегмента, наибольшая пауза 1,46 с; текст дословный («…до миллиона пользователей… на 10 клиентах… эээ…»). kill -9 процесса ядра через 1,5 с после появления воркера: воркер пережил ядро, восстановление при старте его убило, попытка 2 → completed, одна ревизия r1, одна публикация, drafts пусты. Рабочее дерево ai-platform не изменено (каталог `montage/` чист). Полный `make e2e` не запускался — только файлы asr и media.
+- Попутно (ревью Task 25, N1, отдельный коммит): `vfrTimelineFps(p10, r, mean)` — сначала средняя частота в симметричном допуске 2 % (кандидат, совпадающий с рабочей частотой p10, иначе ближайший к средней), затем прежнее правило по p10: VFR около 24 с дрожью pts → 24/1, не 25/1; смесь 25 + 30 → 30/1, как раньше.
 
 ### Task 27: Правка транскрипта и ревизии EDL (без LLM)
 

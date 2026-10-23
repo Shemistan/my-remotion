@@ -70,9 +70,15 @@ export interface AsrConfig {
   timeoutMs: number;
   noOutputTimeoutMs: number;
 }
-const ASR_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3-mlx"] as const;
-/** sha256 `asr_worker.py` ai-platform на коммите 0456395 (Global Constraints Phase 2–3). */
+export const ASR_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3-mlx"] as const;
+/**
+ * sha256 `asr_worker.py` ai-platform — закреплённый контракт CLI и вывода (Global Constraints
+ * Phase 2–3; файл не менялся с коммита e3024ac). Сверено 2026-10-24 на HEAD ai-platform
+ * `ASR_WORKER_VERIFIED_COMMIT`: другой sha256 → `asr_contract_changed`.
+ */
 export const ASR_WORKER_SHA256 = "59b7e03bf5a8b7f940b2607d357528e7120f5bb6bbe98efa70de4b39bdce1073";
+/** HEAD ai-platform, на котором сверен контракт воркера (справочно: коммит — не контракт, sha256 — да). */
+export const ASR_WORKER_VERIFIED_COMMIT = "3a2513a79736c1a910075418cb0d3b7098eee416";
 
 /** Импорт исходника (V2): корни для импорта по пути, прокси, шаг миниатюр. */
 export interface MediaConfig {
