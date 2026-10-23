@@ -1,0 +1,632 @@
+{
+  "title": "Архитектура AI-агента: запрос → 3 инструмента → ответ",
+  "purpose": "Показать, что один запрос пользователя оркестратор раздаёт трём инструментам параллельно, а данные по тем же связям возвращаются и собираются в готовый ответ.",
+  "duration_frames": 240,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "palette_overrides": {
+    "bg": "#07080d",
+    "surface": "#12141c",
+    "text": "#f3f4f8",
+    "muted": "#8b91a5",
+    "accent": [
+      "#8b7cff",
+      "#45d6c0",
+      "#f4b56a"
+    ],
+    "positive": "#45d6c0",
+    "negative": "#ff6b81"
+  },
+  "composition": {
+    "archetype": "network-centric",
+    "idea": "Чертёж агента: слева окно пользователя с набранным запросом, в центре светящееся ядро-оркестратор, справа столбик из трёх инструментов. Взгляд идёт за светом: запрос влетает в ядро, ядро выпускает веер из трёх импульсов вправо, три ответа возвращаются по тем же связям, и один яркий луч несёт итог обратно пользователю.",
+    "focus": "Камера стоит: движение ведут импульсы и токены. Setup — сборка схемы и набор запроса слева; action — ядро и веер вправо; turn — три обратных токена сходятся в ядро; payoff/hold — окно пользователя с ответом.",
+    "transitions": "Каркас с кадра 0 собирается в узлы; запрос поглощается ядром; статус над ядром сменяется на месте до «Бронь готова»; результаты поглощаются ядром; ответ ложится в полосу пользователя и остаётся до конца.",
+    "title_mode": "none",
+    "background": {
+      "variant": "blueprint",
+      "focus": {
+        "x": 0.48,
+        "y": 0.52
+      },
+      "seed": "scn_01M5MB7SAQNKEGPQMEHTTC29EK"
+    },
+    "structure": "call-response"
+  },
+  "elements": [
+    {
+      "id": "agent-graph",
+      "kind": "graph",
+      "role": "схема агента: узлы и связи с импульсами",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "FlowGraph",
+        "pre": "silhouette",
+        "nodes": [
+          "node-user",
+          "node-orch",
+          "node-search",
+          "node-calendar",
+          "node-pay"
+        ],
+        "edges": [
+          {
+            "id": "e-req",
+            "from": "node-user",
+            "to": "node-orch"
+          },
+          {
+            "id": "e-search",
+            "from": "node-orch",
+            "to": "node-search"
+          },
+          {
+            "id": "e-cal",
+            "from": "node-orch",
+            "to": "node-calendar"
+          },
+          {
+            "id": "e-pay",
+            "from": "node-orch",
+            "to": "node-pay"
+          }
+        ],
+        "flows": [
+          {
+            "edge": "e-req",
+            "direction": "forward",
+            "beat": "b-request",
+            "count": 1,
+            "repeat": false,
+            "travel": 18
+          },
+          {
+            "edge": "e-search",
+            "direction": "forward",
+            "beat": "b-fan-out",
+            "count": 1,
+            "repeat": false,
+            "travel": 14
+          },
+          {
+            "edge": "e-cal",
+            "direction": "forward",
+            "beat": "b-fan-out",
+            "count": 1,
+            "repeat": false,
+            "travel": 14
+          },
+          {
+            "edge": "e-pay",
+            "direction": "forward",
+            "beat": "b-fan-out",
+            "count": 1,
+            "repeat": false,
+            "travel": 14
+          },
+          {
+            "edge": "e-search",
+            "direction": "back",
+            "beat": "b-return",
+            "count": 1,
+            "repeat": false,
+            "travel": 16
+          },
+          {
+            "edge": "e-cal",
+            "direction": "back",
+            "beat": "b-return",
+            "count": 1,
+            "repeat": false,
+            "travel": 16
+          },
+          {
+            "edge": "e-pay",
+            "direction": "back",
+            "beat": "b-return",
+            "count": 1,
+            "repeat": false,
+            "travel": 16
+          },
+          {
+            "edge": "e-req",
+            "direction": "back",
+            "beat": "b-answer",
+            "count": 1,
+            "repeat": false,
+            "travel": 20,
+            "size": 10,
+            "note": "более яркий и крупный импульс ответа"
+          }
+        ],
+        "fan_stagger_frames": 4,
+        "hold": {
+          "mode": "now-pulse",
+          "node": "node-user"
+        },
+        "overlay": [
+          "token-request",
+          "token-flights",
+          "token-calendar",
+          "token-booking",
+          "token-answer",
+          "status-orch"
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    },
+    {
+      "id": "node-user",
+      "kind": "card",
+      "role": "акцент финала — node: пользователь, получает ответ",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "label": "Пользователь",
+        "caption": "чат-приложение",
+        "kind": "client",
+        "size": "body",
+        "elevation": 2,
+        "slot": true,
+        "enter": "slide",
+        "emphasis": {
+          "beat": "b-final-emphasis",
+          "loop": true,
+          "ring": "strike"
+        },
+        "flash_on": "e-req"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.3,
+        "w": 0.25,
+        "h": 0.42
+      }
+    },
+    {
+      "id": "node-orch",
+      "kind": "card",
+      "role": "node: оркестратор — ядро схемы, самый крупный узел",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "label": "Оркестратор",
+        "caption": "планирует шаги",
+        "kind": "llm",
+        "size": "h2",
+        "elevation": 3,
+        "enter": "pop",
+        "accentIndex": 0,
+        "flash_on": [
+          "e-req",
+          "e-search",
+          "e-cal",
+          "e-pay"
+        ],
+        "flash_note": "вспышка на приходе запроса и на каждом из трёх обратных импульсов"
+      },
+      "layout": {
+        "x": 0.36,
+        "y": 0.32,
+        "w": 0.26,
+        "h": 0.36
+      }
+    },
+    {
+      "id": "node-search",
+      "kind": "card",
+      "role": "node: инструмент поиска рейсов",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Поиск рейсов",
+        "caption": "API авиакомпаний",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "cascade_index": 0,
+        "flash_on": "e-search"
+      },
+      "layout": {
+        "x": 0.74,
+        "y": 0.02,
+        "w": 0.26,
+        "h": 0.28
+      }
+    },
+    {
+      "id": "node-calendar",
+      "kind": "card",
+      "role": "node: инструмент календаря",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Календарь",
+        "caption": "свободные даты",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "cascade_index": 1,
+        "flash_on": "e-cal"
+      },
+      "layout": {
+        "x": 0.74,
+        "y": 0.36,
+        "w": 0.26,
+        "h": 0.28
+      }
+    },
+    {
+      "id": "node-pay",
+      "kind": "card",
+      "role": "node: инструмент оплаты",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Оплата",
+        "caption": "бронирование",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "cascade_index": 2,
+        "flash_on": "e-pay"
+      },
+      "layout": {
+        "x": 0.74,
+        "y": 0.7,
+        "w": 0.26,
+        "h": 0.28
+      }
+    },
+    {
+      "id": "request-quote",
+      "kind": "text",
+      "role": "контекст: текст запроса пользователя",
+      "entrance": "type",
+      "depth_layer": 1,
+      "content": {
+        "component": "KineticText",
+        "text": "«Найди рейсы в Стамбул на пятницу и забронируй самый дешёвый»",
+        "mode": "letters",
+        "enter": "type",
+        "size": "body",
+        "font": "body",
+        "color": "text",
+        "align": "left",
+        "maxWidth": 570,
+        "pre": "dim"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.03,
+        "w": 0.33,
+        "h": 0.24
+      }
+    },
+    {
+      "id": "token-request",
+      "kind": "shape",
+      "role": "данные: запрос летит к оркестратору",
+      "entrance": "none",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "Рейсы в Стамбул · пт",
+        "edge": "e-req",
+        "direction": "forward",
+        "beat": "b-request",
+        "travel": 18,
+        "consume": true,
+        "accentIndex": 0
+      }
+    },
+    {
+      "id": "token-flights",
+      "kind": "shape",
+      "role": "данные: результат поиска возвращается",
+      "entrance": "none",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "12 рейсов",
+        "edge": "e-search",
+        "direction": "back",
+        "beat": "b-return",
+        "travel": 16,
+        "reverse": true,
+        "consume": true,
+        "accentIndex": 1,
+        "stagger_index": 0
+      }
+    },
+    {
+      "id": "token-calendar",
+      "kind": "shape",
+      "role": "данные: ответ календаря возвращается",
+      "entrance": "none",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "пт свободна",
+        "edge": "e-cal",
+        "direction": "back",
+        "beat": "b-return",
+        "travel": 16,
+        "reverse": true,
+        "consume": true,
+        "accentIndex": 1,
+        "stagger_index": 1
+      }
+    },
+    {
+      "id": "token-booking",
+      "kind": "shape",
+      "role": "данные: подтверждение брони возвращается",
+      "entrance": "none",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "бронь ✓",
+        "edge": "e-pay",
+        "direction": "back",
+        "beat": "b-return",
+        "travel": 16,
+        "reverse": true,
+        "consume": true,
+        "accentIndex": 1,
+        "stagger_index": 2
+      }
+    },
+    {
+      "id": "token-answer",
+      "kind": "shape",
+      "role": "данные: итоговый ответ ложится в окно пользователя",
+      "entrance": "none",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "TK 421 · 14:20 · 8 900 ₽",
+        "edge": "e-req",
+        "direction": "back",
+        "beat": "b-answer",
+        "travel": 20,
+        "reverse": true,
+        "dock": "slot",
+        "stay": true,
+        "accentIndex": 2
+      }
+    },
+    {
+      "id": "status-orch",
+      "kind": "shape",
+      "role": "статус оркестратора на месте",
+      "entrance": "pop",
+      "depth_layer": 2,
+      "content": {
+        "component": "StatusChip",
+        "anchor": {
+          "node": "node-orch"
+        },
+        "size": "caption",
+        "states": [
+          {
+            "text": "Планирует",
+            "tone": "accent",
+            "on": "e-req (приход запроса)"
+          },
+          {
+            "text": "3 вызова параллельно",
+            "tone": "neutral",
+            "on": "старт b-fan-out"
+          },
+          {
+            "text": "Собирает ответ",
+            "tone": "neutral",
+            "on": "e-search back (первый обратный приход)"
+          },
+          {
+            "text": "Бронь готова",
+            "tone": "positive",
+            "on": "e-req back (приход ответа пользователю)"
+          }
+        ]
+      }
+    }
+  ],
+  "phases": [
+    {
+      "id": "setup",
+      "role": "setup",
+      "weight": 22,
+      "element_ids": [
+        "agent-graph",
+        "node-user",
+        "node-orch",
+        "node-search",
+        "node-calendar",
+        "node-pay",
+        "request-quote"
+      ]
+    },
+    {
+      "id": "call",
+      "role": "action",
+      "weight": 25,
+      "element_ids": [
+        "agent-graph",
+        "token-request",
+        "status-orch",
+        "node-orch",
+        "node-search",
+        "node-calendar",
+        "node-pay"
+      ]
+    },
+    {
+      "id": "return",
+      "role": "turn",
+      "weight": 20,
+      "element_ids": [
+        "agent-graph",
+        "token-flights",
+        "token-calendar",
+        "token-booking",
+        "status-orch",
+        "node-orch"
+      ]
+    },
+    {
+      "id": "payoff",
+      "role": "payoff",
+      "weight": 18,
+      "element_ids": [
+        "agent-graph",
+        "token-answer",
+        "node-user",
+        "status-orch"
+      ]
+    },
+    {
+      "id": "hold",
+      "role": "hold",
+      "weight": 15,
+      "element_ids": [
+        "agent-graph",
+        "node-user"
+      ],
+      "hold_mode": "now-pulse"
+    }
+  ],
+  "beats": [
+    {
+      "id": "b-graph-build",
+      "start_frame": 0,
+      "end_frame": 75,
+      "action": "graph-build-in",
+      "description": "Каркас схемы виден с кадра 0. Узлы входят разными видами: пользователь — slide слева, оркестратор — pop из центра, три инструмента — rise каскадом сверху вниз со сдвигом stagger_frames. Рёбра прорисовываются (draw, linear) к концу setup.",
+      "element_ids": [
+        "agent-graph",
+        "node-user",
+        "node-orch",
+        "node-search",
+        "node-calendar",
+        "node-pay"
+      ],
+      "phase": "setup",
+      "span": "phase",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-quote-in",
+      "start_frame": 8,
+      "end_frame": 40,
+      "action": "quote-type-in",
+      "description": "Над окном пользователя набирается запрос по буквам с кареткой (с кадра 0 текст приглушён, набор его зажигает).",
+      "element_ids": [
+        "request-quote"
+      ],
+      "phase": "setup",
+      "kind": "enter"
+    },
+    {
+      "id": "b-request",
+      "start_frame": 75,
+      "end_frame": 112,
+      "action": "request-flow",
+      "description": "Импульс и токен «Рейсы в Стамбул · пт» летят по e-req (travel 18, один проход) и поглощаются оркестратором; оркестратор вспыхивает в кадр прихода (pulseArrival e-req), над ним pop-ом встаёт статус «Планирует».",
+      "element_ids": [
+        "agent-graph",
+        "token-request",
+        "node-orch",
+        "status-orch"
+      ],
+      "phase": "call",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-fan-out",
+      "start_frame": 80,
+      "end_frame": 112,
+      "action": "fan-out-flow",
+      "description": "Оркестратор выпускает веер: три импульса по e-search, e-cal, e-pay (travel 14, стартуют со сдвигом 4 кадра). Каждый инструмент вспыхивает ровно в кадр прихода своего импульса. Статус сменяется на «3 вызова параллельно».",
+      "element_ids": [
+        "agent-graph",
+        "node-search",
+        "node-calendar",
+        "node-pay",
+        "status-orch"
+      ],
+      "phase": "call",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-return",
+      "start_frame": 112,
+      "end_frame": 144,
+      "action": "results-return-flow",
+      "description": "Обратные импульсы и токены «12 рейсов», «пт свободна», «бронь ✓» идут по тем же рёбрам к оркестратору (reverse, travel 16, сдвиг 4 кадра), поглощаются им; ядро вспыхивает на каждом приходе. Статус — «Собирает ответ».",
+      "element_ids": [
+        "agent-graph",
+        "token-flights",
+        "token-calendar",
+        "token-booking",
+        "node-orch",
+        "status-orch"
+      ],
+      "phase": "return",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-answer",
+      "start_frame": 144,
+      "end_frame": 176,
+      "action": "answer-flow",
+      "description": "Один более крупный и яркий импульс с токеном «TK 421 · 14:20 · 8 900 ₽» идёт по e-req обратно (travel 20) и ложится в полосу данных окна пользователя, где остаётся до конца.",
+      "element_ids": [
+        "agent-graph",
+        "token-answer"
+      ],
+      "phase": "payoff",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-final-emphasis",
+      "start_frame": 144,
+      "end_frame": 176,
+      "action": "final-emphasis",
+      "description": "В кадр прихода ответа узел пользователя получает удар акцента (FlowNode.emphasis, одно кольцо) и дышит дальше; статус над оркестратором сменяется на позитивное «Бронь готова». Акцент только у пользователя.",
+      "element_ids": [
+        "node-user",
+        "status-orch"
+      ],
+      "phase": "payoff",
+      "kind": "accent"
+    },
+    {
+      "id": "b-hold",
+      "start_frame": 176,
+      "end_frame": 240,
+      "action": "hold",
+      "description": "Новых входов нет, потоки к инструментам не перезапускаются. now-pulse на узле пользователя: волна радара от окна с ответом и дыхание ореола с пиком в N−1 — кадр живой и подтверждает, что ответ доставлен.",
+      "element_ids": [
+        "agent-graph",
+        "node-user"
+      ],
+      "phase": "hold",
+      "span": "phase",
+      "kind": "hold"
+    }
+  ]
+}

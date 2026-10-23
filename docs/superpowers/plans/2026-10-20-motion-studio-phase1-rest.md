@@ -589,7 +589,7 @@ expect(refs.some(r => kb.getCapability(r.kb_id)!.patterns.includes("system-struc
   - `sceneRestore: JobHandler` — вход `{ sceneId; versionId }`; только `ready`-версии → `repo.restore` без LLM; `render_env` копируется из исходной; при несовпадении `render_env.render_lock_sha256` с текущим `renderEnv()` — `opts.rerender`: `renderVersion({ …, outDir })` в draft, новый `render_env`, повтор технического gate; поле в manifest не нужно (M17)
 - Сравнение (`repo.diff`) — без задачи, синхронно через API (Task 20).
 
-- [ ] **Step 1: Юнит-тесты (падают):**
+- [x] **Step 1: Юнит-тесты (падают):**
 
 ```ts
 const r = applyParamEdit({ spec: spec180, props: props180, settings: settings180 }, plan({ path: "param", timing_scale: 1 / 0.75, borrow: [{ from_version_id: v1.id, what: "palette" }], param_patch: { style: { depth: 2 } } }), history);
@@ -609,8 +609,8 @@ expect(checkPreserve(spec180, moved(spec180, "orch", { x: +0.015 }), p, p, ["com
 // правка при failed v1: «палитра из первой версии» → берётся первая ready, reply объясняет
 ```
 
-- [ ] **Step 2–3:** FAIL → реализовать → PASS.
-- [ ] **Step 4: e2e (`make e2e`),** реальные модели: сцена из Test 2 (Task 17) → правка «сделай всё в фиолетовых тонах» → v2 → промпт Test 3 дословно → v3. Проверки [A] `09` §4:
+- [x] **Step 2–3:** FAIL → реализовать → PASS.
+- [x] **Step 4: e2e (`make e2e`),** реальные модели: сцена из Test 2 (Task 17) → правка «сделай всё в фиолетовых тонах» → v2 → промпт Test 3 дословно → v3. Проверки [A] `09` §4:
 
 ```ts
 expect(v3.manifest.parent_version_id).toBe(v2.versionId);
@@ -624,7 +624,7 @@ expect(v3.manifest.qa.technical).toBe("pass");
 for (const v of [v1, v2]) expect((await readVersion(v.dir)).files.length).toBeGreaterThan(0);
 ```
 
-- [ ] **Step 5:** просмотр кадров hold v2/v3 рядом (композиция, тени, палитра); evidence — `docs/evidence/phase-1/pipeline/test3/`; `./check`; коммит `feat(motion-studio): правки через чат и восстановление версий`.
+- [x] **Step 5:** просмотр кадров hold v2/v3 рядом (композиция, тени, палитра); evidence — `docs/evidence/phase-1/pipeline/test3/`; `./check`; коммит `feat(motion-studio): правки через чат и восстановление версий`.
 
 ### Task 19: Экспорт сцены — MP4 H.264/AAC и ProRes 4444 с альфой (P1-14)
 

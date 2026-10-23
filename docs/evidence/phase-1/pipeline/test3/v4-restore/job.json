@@ -1,0 +1,80 @@
+{
+  "job": {
+    "id": "job_01M5MBS03KZZPG3Z0FAW9RS43Z",
+    "type": "scene.restore",
+    "project_id": "playground",
+    "scene_id": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "publish",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "sceneId": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
+      "versionId": "ver_01M5MBKJY2A5ZRJBJHK2CVKGRR"
+    },
+    "input_hash": "f7b85f8b0a4b079ca7b5e70806a0e506315e83ae46feb304d50754e65ac25018",
+    "output_refs": {
+      "scene_id": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
+      "version_id": "ver_01M5MBS0SVAYQP4X8C10MZESM1",
+      "version_number": 4,
+      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5MB7SAQNKEGPQMEHTTC29EK/versions/ver_01M5MBS0SVAYQP4X8C10MZESM1",
+      "restored_from": "ver_01M5MBKJY2A5ZRJBJHK2CVKGRR",
+      "rerendered": false
+    },
+    "error": null,
+    "idempotency_key": "e2e-t18-run_01M5MBS03KZZPG3Z0FAW9RS43Y",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-23T12:29:06.548Z",
+    "started_at": "2026-10-23T12:29:06.953Z",
+    "finished_at": "2026-10-23T12:29:07.278Z"
+  },
+  "wall_ms": 2153,
+  "cost_usd": 0,
+  "agent_runs": [],
+  "render_jobs": [],
+  "chat": [
+    {
+      "id": "msg_01M5MBKK5T4PZKSHZDB0AFA7YB",
+      "scene_id": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
+      "role": "user",
+      "text": "сделай всё в фиолетовых тонах",
+      "created_at": "2026-10-23T12:26:09.467Z"
+    },
+    {
+      "id": "msg_01M5MBP3KJ1V9RDK7DVJYB6JYG",
+      "scene_id": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
+      "role": "user",
+      "text": "Уменьши скорость анимации на 25 %, сделай карточки более объёмными, сохрани композицию и верни цветовую палитру из первой версии",
+      "created_at": "2026-10-23T12:27:31.826Z"
+    },
+    {
+      "id": "msg_01M5MBS0TBEND06BAB03X30YF1",
+      "scene_id": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
+      "role": "assistant",
+      "text": "Версия 1 восстановлена как версия 4.",
+      "version_id": "ver_01M5MBS0SVAYQP4X8C10MZESM1",
+      "job_id": "job_01M5MBS03KZZPG3Z0FAW9RS43Z",
+      "created_at": "2026-10-23T12:29:07.275Z"
+    }
+  ],
+  "events": [
+    {
+      "ts": "2026-10-23T12:29:06.964Z",
+      "level": "info",
+      "kind": "started",
+      "message": "scene.restore: попытка 1"
+    },
+    {
+      "ts": "2026-10-23T12:29:07.281Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed"
+    }
+  ]
+}

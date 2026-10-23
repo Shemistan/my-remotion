@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "kb_id": "magicui/animated-beam",
+      "strategy": "adapt",
+      "why": "Идея светящегося импульса по связи «хаб → сервисы»; в kit — PulseAlongPath по рёбрам FlowGraph.",
+      "files_to_copy": []
+    },
+    {
+      "kb_id": "xyflow/example-custom-node",
+      "strategy": "adapt",
+      "why": "Образец узла-распределителя с несколькими выходами — веер оркестратора к трём инструментам.",
+      "files_to_copy": []
+    }
+  ],
+  "rationale": "правка параметров версии 1",
+  "dropped": []
+}

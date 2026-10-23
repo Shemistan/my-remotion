@@ -1,0 +1,370 @@
+{
+  "timing": {
+    "duration_frames": 240,
+    "beats": [
+      {
+        "id": "b-graph-build",
+        "start_frame": 0,
+        "end_frame": 75
+      },
+      {
+        "id": "b-quote-in",
+        "start_frame": 8,
+        "end_frame": 40
+      },
+      {
+        "id": "b-request",
+        "start_frame": 75,
+        "end_frame": 112
+      },
+      {
+        "id": "b-fan-out",
+        "start_frame": 80,
+        "end_frame": 112
+      },
+      {
+        "id": "b-return",
+        "start_frame": 112,
+        "end_frame": 144
+      },
+      {
+        "id": "b-answer",
+        "start_frame": 144,
+        "end_frame": 176
+      },
+      {
+        "id": "b-final-emphasis",
+        "start_frame": 144,
+        "end_frame": 176
+      },
+      {
+        "id": "b-hold",
+        "start_frame": 176,
+        "end_frame": 240
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "palette_overrides": {
+      "bg": "#07080d",
+      "surface": "#12141c",
+      "text": "#f3f4f8",
+      "muted": "#8b91a5",
+      "accent": [
+        "#8b7cff",
+        "#45d6c0",
+        "#f4b56a"
+      ],
+      "positive": "#45d6c0",
+      "negative": "#ff6b81"
+    },
+    "intensity": "balanced",
+    "depth": 2,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "background": {
+      "variant": "blueprint",
+      "seed": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
+      "focus": {
+        "x": 0.48,
+        "y": 0.52
+      }
+    },
+    "graph_beat": "b-graph-build",
+    "quote": {
+      "text": "«Найди рейсы в Стамбул на пятницу и забронируй самый дешёвый»",
+      "beat": "b-quote-in",
+      "layout": {
+        "x": 0,
+        "y": 0.03,
+        "w": 0.33,
+        "h": 0.24
+      }
+    },
+    "nodes": [
+      {
+        "id": "node-user",
+        "label": "Пользователь",
+        "caption": "чат-приложение",
+        "kind": "client",
+        "size": "body",
+        "elevation": 2,
+        "slot": true,
+        "enter": "slide",
+        "layout": {
+          "x": 0,
+          "y": 0.29,
+          "w": 0.24,
+          "h": 0.42
+        }
+      },
+      {
+        "id": "node-orch",
+        "label": "Оркестратор",
+        "caption": "планирует шаги",
+        "kind": "llm",
+        "size": "h2",
+        "elevation": 3,
+        "enter": "pop",
+        "accentIndex": 0,
+        "layout": {
+          "x": 0.365,
+          "y": 0.32,
+          "w": 0.27,
+          "h": 0.36
+        }
+      },
+      {
+        "id": "node-search",
+        "label": "Поиск рейсов",
+        "caption": "API авиакомпаний",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "layout": {
+          "x": 0.76,
+          "y": 0.02,
+          "w": 0.24,
+          "h": 0.28
+        }
+      },
+      {
+        "id": "node-calendar",
+        "label": "Календарь",
+        "caption": "свободные даты",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "layout": {
+          "x": 0.76,
+          "y": 0.36,
+          "w": 0.24,
+          "h": 0.28
+        }
+      },
+      {
+        "id": "node-pay",
+        "label": "Оплата",
+        "caption": "бронирование",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "layout": {
+          "x": 0.76,
+          "y": 0.7,
+          "w": 0.24,
+          "h": 0.28
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e-req",
+        "from": "node-user",
+        "to": "node-orch"
+      },
+      {
+        "id": "e-search",
+        "from": "node-orch",
+        "to": "node-search"
+      },
+      {
+        "id": "e-cal",
+        "from": "node-orch",
+        "to": "node-calendar"
+      },
+      {
+        "id": "e-pay",
+        "from": "node-orch",
+        "to": "node-pay"
+      }
+    ],
+    "fan_stagger_frames": 4,
+    "flows": [
+      {
+        "edge": "e-req",
+        "direction": "forward",
+        "beat": "b-request",
+        "count": 1,
+        "repeat": false,
+        "travel": 18,
+        "stagger_index": 0,
+        "accentIndex": 0,
+        "size": 10
+      },
+      {
+        "edge": "e-search",
+        "direction": "forward",
+        "beat": "b-fan-out",
+        "count": 1,
+        "repeat": false,
+        "travel": 14,
+        "stagger_index": 0,
+        "accentIndex": 0,
+        "size": 10
+      },
+      {
+        "edge": "e-cal",
+        "direction": "forward",
+        "beat": "b-fan-out",
+        "count": 1,
+        "repeat": false,
+        "travel": 14,
+        "stagger_index": 1,
+        "accentIndex": 0,
+        "size": 10
+      },
+      {
+        "edge": "e-pay",
+        "direction": "forward",
+        "beat": "b-fan-out",
+        "count": 1,
+        "repeat": false,
+        "travel": 14,
+        "stagger_index": 2,
+        "accentIndex": 0,
+        "size": 10
+      },
+      {
+        "edge": "e-search",
+        "direction": "back",
+        "beat": "b-return",
+        "count": 1,
+        "repeat": false,
+        "travel": 16,
+        "stagger_index": 0,
+        "accentIndex": 1,
+        "size": 10
+      },
+      {
+        "edge": "e-cal",
+        "direction": "back",
+        "beat": "b-return",
+        "count": 1,
+        "repeat": false,
+        "travel": 16,
+        "stagger_index": 1,
+        "accentIndex": 1,
+        "size": 10
+      },
+      {
+        "edge": "e-pay",
+        "direction": "back",
+        "beat": "b-return",
+        "count": 1,
+        "repeat": false,
+        "travel": 16,
+        "stagger_index": 2,
+        "accentIndex": 1,
+        "size": 10
+      },
+      {
+        "edge": "e-req",
+        "direction": "back",
+        "beat": "b-answer",
+        "count": 1,
+        "repeat": false,
+        "travel": 20,
+        "stagger_index": 0,
+        "accentIndex": 2,
+        "size": 13
+      }
+    ],
+    "tokens": [
+      {
+        "id": "token-request",
+        "label": "Рейсы в Стамбул · пт",
+        "edge": "e-req",
+        "reverse": false,
+        "beat": "b-request",
+        "travel": 18,
+        "stagger_index": 0,
+        "consume": true,
+        "accentIndex": 0
+      },
+      {
+        "id": "token-flights",
+        "label": "12 рейсов",
+        "edge": "e-search",
+        "reverse": true,
+        "beat": "b-return",
+        "travel": 16,
+        "stagger_index": 0,
+        "consume": true,
+        "accentIndex": 1
+      },
+      {
+        "id": "token-calendar",
+        "label": "пт свободна",
+        "edge": "e-cal",
+        "reverse": true,
+        "beat": "b-return",
+        "travel": 16,
+        "stagger_index": 1,
+        "consume": true,
+        "accentIndex": 1
+      },
+      {
+        "id": "token-booking",
+        "label": "бронь ✓",
+        "edge": "e-pay",
+        "reverse": true,
+        "beat": "b-return",
+        "travel": 16,
+        "stagger_index": 2,
+        "consume": true,
+        "accentIndex": 1
+      },
+      {
+        "id": "token-answer",
+        "label": "TK 421 · 14:20 · 8 900 ₽",
+        "edge": "e-req",
+        "reverse": true,
+        "beat": "b-answer",
+        "travel": 20,
+        "stagger_index": 0,
+        "dock": "slot",
+        "stay": true,
+        "accentIndex": 2
+      }
+    ],
+    "status": {
+      "node": "node-orch",
+      "size": "caption",
+      "states": [
+        {
+          "text": "Планирует",
+          "tone": "accent"
+        },
+        {
+          "text": "3 вызова параллельно",
+          "tone": "neutral"
+        },
+        {
+          "text": "Собирает ответ",
+          "tone": "neutral"
+        },
+        {
+          "text": "Бронь готова",
+          "tone": "positive"
+        }
+      ]
+    },
+    "final": {
+      "node": "node-user",
+      "emphasis_beat": "b-final-emphasis",
+      "ring": "strike",
+      "hold_mode": "now-pulse",
+      "hold_beat": "b-hold"
+    }
+  }
+}
