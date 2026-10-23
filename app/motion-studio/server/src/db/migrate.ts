@@ -1,5 +1,5 @@
 // Миграции — пронумерованные SQL-файлы `migrations/NNN_*.sql`, версия в PRAGMA user_version.
-import { readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, rmSync, statSync, statfsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { basename, dirname, join } from "node:path";
 import type { Db } from "./open.js";
@@ -36,9 +36,12 @@ const JOBS_V2_COLUMNS = [
 ];
 
 /**
- * Сверка схемы перед миграцией (в её транзакции, до SQL): пересборка таблицы переносит
- * явный список колонок, и колонка, добавленная задним числом правкой ранней миграции,
- * пропала бы молча на DROP. Расхождение — отказ без изменений.
+ * Сверка схемы перед миграцией: пересборка таблицы переносит явный список колонок, и
+ * колонка, добавленная задним числом правкой ранней миграции, пропала бы молча на DROP.
+ * Расхождение — отказ без изменений. Только чтение; выполняется до резервной копии (все
+ * недостающие версии разом — постоянный отказ не плодит копии) и ещё раз в транзакции
+ * миграции. Поэтому сверяемая таблица не должна меняться предыдущими миграциями из тех,
+ * что могут оказаться недостающими (для 3: `002` таблицу `jobs` не трогает).
  */
 const PRECHECKS: Record<number, (db: Db) => void> = {
   3: (db) => expectColumns(db, "jobs", JOBS_V2_COLUMNS),
@@ -61,7 +64,12 @@ export interface MigrateOptions {
   log?: (line: string) => void;
   /** Сколько собственных копий оставлять (по умолчанию `KEEP_BACKUPS`). */
   keepBackups?: number;
+  /** Свободно байт в каталоге базы (по умолчанию `statfs`); подмена — для тестов. */
+  freeBytes?: (dir: string) => number;
 }
+
+/** Запас свободного места сверх размера базы и WAL перед резервной копией. */
+export const BACKUP_SPARE_BYTES = 64 * 1024 * 1024;
 
 export interface MigrateResult {
   from: number;
@@ -74,7 +82,8 @@ export interface MigrateResult {
  * Применяет недостающие миграции; каждая — в своей транзакции вместе с user_version.
  * Перед первой из них у непустой базы (from > 0) — резервная копия
  * `<каталог базы>/studio.db.bak-v<from>-<время>` через online backup SQLite (согласованный
- * снимок вместе с WAL); не создалась — миграция не начинается. Хранятся последние
+ * снимок вместе с WAL); не создалась (в том числе мало места: база + WAL + запас) —
+ * миграция не начинается, недописанный файл удалён. Сверки `PRECHECKS` — до копии. Хранятся последние
  * `keepBackups` собственных копий (`<имя базы>.bak-v*`), другие файлы не трогаются.
  * Внешние ключи на время миграций выключены (вне транзакции — иначе PRAGMA не действует):
  * пересборка таблицы (`CREATE new → INSERT … SELECT → DROP → RENAME`, 003 для `jobs.type`)
@@ -93,7 +102,9 @@ export async function migrate(db: Db, opts: MigrateOptions = {}): Promise<Migrat
 
   let backup: string | undefined;
   if (from > 0) {
-    backup = await backupDb(db, from, latest);
+    // сверки только читают: постоянный отказ — до копии, без новых файлов
+    for (const m of all) if (m.version > from) PRECHECKS[m.version]?.(db);
+    backup = await backupDb(db, from, latest, opts.freeBytes ?? statfsFree);
     log(`db: резервная копия studio.db (v${from}) перед миграцией до v${latest}: ${backup}`);
     rotateBackups(db, backup, opts.keepBackups ?? KEEP_BACKUPS, log);
   }
@@ -118,13 +129,42 @@ export async function migrate(db: Db, opts: MigrateOptions = {}): Promise<Migrat
   return backup === undefined ? { from, to: latest } : { from, to: latest, backup };
 }
 
-async function backupDb(db: Db, from: number, to: number): Promise<string> {
+function statfsFree(dir: string): number {
+  const st = statfsSync(dir);
+  return st.bavail * st.bsize;
+}
+
+const sizeOf = (path: string): number => {
+  try {
+    return statSync(path).size;
+  } catch {
+    return 0;
+  }
+};
+
+/**
+ * Копия базы: до неё — свободного места не меньше базы + WAL + запас; сбой посреди
+ * копии — недописанный файл удаляется (не оставлять обрезанную «копию» в ротации).
+ */
+async function backupDb(db: Db, from: number, to: number, freeBytes: (dir: string) => number): Promise<string> {
   const target = db.memory ? undefined : join(dirname(db.name), `${basename(db.name)}.bak-v${from}-${new Date().toISOString().replace(/[:.]/g, "-")}`);
+  let started = false;
   try {
     if (!target) throw new Error("база в памяти — копировать некуда");
+    const need = sizeOf(db.name) + sizeOf(`${db.name}-wal`) + BACKUP_SPARE_BYTES;
+    const free = freeBytes(dirname(db.name));
+    if (free < need) throw new Error(`мало места: свободно ${free} байт, нужно не меньше ${need} (база + WAL + запас)`);
+    started = true;
     await db.backup(target);
     return target;
   } catch (e) {
+    if (started && target) {
+      try {
+        rmSync(target, { force: true });
+      } catch (u) {
+        (e as Error).message += `; недописанная копия не удалена: ${(u as Error).message}`;
+      }
+    }
     throw new Error(
       `db: резервная копия studio.db (v${from}) перед миграцией до v${to} не создана${target ? ` (${target})` : ""}: ` +
         `${(e as Error).message} — миграция не начата`,

@@ -20,7 +20,7 @@ import * as footage from "../../src/db/repos/footage.js";
 import * as semantic from "../../src/db/repos/semantic.js";
 import { enqueue } from "../../src/jobs/queue.js";
 import { makeStore, removeStore, type TestStore } from "./helpers.js";
-import { SHA, asset } from "./video-fixtures.js";
+import { SHA, asset, styleBible } from "./video-fixtures.js";
 
 const planDoc = (revision: number) => ({
   schema_version: 1 as const, plan_id: "pln_1", revision,
@@ -29,6 +29,12 @@ const planDoc = (revision: number) => ({
     style: { id: "sty_1", revision: 1, hash: SHA },
   },
   items: [], skipped: [], issues: [],
+});
+
+const styleDoc = (revision: number) => ({
+  schema_version: 1 as const, style_id: "sty_1", revision,
+  base: { preset: "dark-premium" as const, intensity: "balanced" as const, depth: 1 },
+  resolved: styleBible(), rationale: "", author: "agent" as const,
 });
 
 const quiet = { log: () => undefined };
@@ -156,9 +162,9 @@ describe("репозитории видеопроекта", () => {
   it("стиль, план, footage, semantic: индексы ревизий", async () => {
     media.insert(db, asset());
     styles.create(db, { id: "sty_1", project_id: "p1" });
-    styles.insertRevision(db, { style_id: "sty_1", revision: 1, rel_path: "workspace/projects/p1/style/sty_1/r1", sha256: SHA, hash: SHA, author: "agent" });
+    styles.insertRevision(db, { doc: styleDoc(1), rel_path: "workspace/projects/p1/style/sty_1/r1", sha256: SHA });
     expect(styles.get(db, "sty_1")).toMatchObject({ current_revision: 1 });
-    expect(styles.revision(db, "sty_1", 1)).toMatchObject({ hash: SHA });
+    expect(styles.revision(db, "sty_1", 1)).toMatchObject({ hash: canonicalHash(styleDoc(1)), author: "agent", sha256: SHA });
     plans.create(db, { id: "pln_1", project_id: "p1" });
     plans.insertRevision(db, { doc: planDoc(1), rel_path: "workspace/projects/p1/plan/pln_1/r1", sha256: SHA, opportunities: [] });
     expect(plans.byProject(db, "p1")).toMatchObject({ id: "pln_1", current_revision: 1 });
@@ -208,9 +214,13 @@ describe("репозитории видеопроекта", () => {
     expect(plans.revision(db, "pln_1", 3)).toBeUndefined();
 
     styles.create(db, { id: "sty_1", project_id: "p1" });
-    styles.insertRevision(db, { style_id: "sty_1", revision: 2, rel_path: "s2", sha256: SHA, hash: SHA, author: "agent" });
-    styles.insertRevision(db, { style_id: "sty_1", revision: 1, rel_path: "s1", sha256: SHA, hash: SHA, author: "agent" });
+    styles.insertRevision(db, { doc: styleDoc(2), rel_path: "s2", sha256: SHA });
+    styles.insertRevision(db, { doc: styleDoc(1), rel_path: "s1", sha256: SHA });
     expect(styles.get(db, "sty_1")).toMatchObject({ current_revision: 2 });
+    // M5: hash стиля тоже считает репозиторий, документ проверяется схемой
+    expect(styles.revision(db, "sty_1", 2)!.hash).toBe(canonicalHash(styleDoc(2)));
+    expect(() => styles.insertRevision(db, { doc: { ...styleDoc(3), resolved: {} } as never, rel_path: "s3", sha256: SHA })).toThrow();
+    expect(styles.revision(db, "sty_1", 3)).toBeUndefined();
   });
 });
 
@@ -261,11 +271,36 @@ describe("резервная копия перед миграцией, свер�
     expect(db.prepare("SELECT count(*) FROM sqlite_master WHERE name = 'media_assets'").pluck().get()).toBe(0);
   });
 
+  // Повторное ревью Task 24, N2: недописанная копия удаляется, места мало — миграция не начата.
+  it("db.backup упал посреди копии — недописанный файл удалён, миграция не начата", async () => {
+    v2();
+    db.backup = (async (target: string) => {
+      await writeFile(target, "недописано");
+      throw new Error("диск отвалился");
+    }) as Db["backup"];
+    await expect(migrate(db, quiet)).rejects.toThrow(/не создана.*диск отвалился.*миграция не начата/s);
+    expect(baks()).toEqual([]);
+    expect(db.pragma("user_version", { simple: true })).toBe(2);
+  });
+
+  it("свободного места меньше базы + WAL + запас — ошибка до копии, миграция не начата", async () => {
+    v2();
+    const asked: string[] = [];
+    await expect(migrate(db, { ...quiet, freeBytes: (dir) => (asked.push(dir), 1024) })).rejects.toThrow(/мало места.*миграция не начата/s);
+    expect(asked).toEqual([s.root]);
+    expect(baks()).toEqual([]);
+    expect(db.pragma("user_version", { simple: true })).toBe(2);
+    const r = await migrate(db, { ...quiet, freeBytes: () => 1e12 });
+    expect(r).toMatchObject({ from: 2, to: 3 });
+  });
+
   it("лишняя колонка jobs (правка 001 задним числом) — отказ, база не изменилась", async () => {
     v2();
     db.exec("ALTER TABLE jobs ADD COLUMN extra TEXT");
     const before = db.prepare("SELECT sql FROM sqlite_master WHERE name = 'jobs'").pluck().get();
     await expect(migrate(db, quiet)).rejects.toThrow(/jobs.*extra/s);
+    // N3: сверка до копии — постоянный отказ не плодит резервные копии
+    expect(baks()).toEqual([]);
     expect(db.pragma("user_version", { simple: true })).toBe(2);
     expect(db.prepare("SELECT sql FROM sqlite_master WHERE name = 'jobs'").pluck().get()).toBe(before);
     expect(db.prepare("SELECT count(*) FROM sqlite_master WHERE name IN ('media_assets', 'jobs_new')").pluck().get()).toBe(0);
@@ -276,6 +311,7 @@ describe("резервная копия перед миграцией, свер�
     v2();
     db.exec("ALTER TABLE jobs DROP COLUMN finished_at");
     await expect(migrate(db, quiet)).rejects.toThrow(/jobs.*finished_at/s);
+    expect(baks()).toEqual([]);
     expect(db.pragma("user_version", { simple: true })).toBe(2);
     expect(db.prepare("SELECT count(*) FROM sqlite_master WHERE name = 'media_assets'").pluck().get()).toBe(0);
   });

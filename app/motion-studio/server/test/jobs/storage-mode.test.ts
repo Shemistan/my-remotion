@@ -241,3 +241,31 @@ it("fix 4: return fails mid-switch (recover throws) → new db closed, registry 
   expect(jobProcesses.listLive(sup!.db()).map((p) => p.pid)).toEqual([4242]);
   env.db = sup!.db();
 });
+
+// Повторное ревью Task 24, N4: stop() пришёл, пока reopen() открывал базу — не возобновляться.
+it("stop during reopen → reopened db closed, runner stays paused, supervisor not switched", async () => {
+  const opening = deferred();
+  const gate = deferred();
+  let opened: Db | undefined;
+  server(async () => ({ status: "completed", outputRefs: {} }), {
+    reopen: async () => {
+      opening.resolve();
+      await gate.promise;
+      opened = await reopen();
+      return opened;
+    },
+  });
+  runner!.start();
+  sup!.start();
+  renameSync(env.s.root, `${env.s.root}.gone`);
+  await until(() => sup!.mode() === "storage_offline", "storage_offline", 5000);
+  renameSync(`${env.s.root}.gone`, env.s.root);
+  await opening.promise;
+  const stopping = sup!.stop();
+  gate.resolve();
+  await stopping;
+  expect(opened!.open).toBe(false);
+  expect(sup!.mode()).toBe("storage_offline");
+  expect(runner!.isPaused()).toBe(true);
+  expect(sup!.db()).not.toBe(opened);
+});

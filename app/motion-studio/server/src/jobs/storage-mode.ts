@@ -143,11 +143,17 @@ export class StorageSupervisor {
       this.deps.log?.(`storage_offline: ${this.why}`);
       return;
     }
+    if (this.stopped) return;
     let db: Db;
     try {
       db = await this.deps.reopen();
     } catch (e) {
       this.why = `studio.db не открылась: ${(e as Error).message}`;
+      return;
+    }
+    // stop() пришёл, пока база открывалась: не переключаться и не возобновлять раннер
+    if (this.stopped) {
+      closeQuietly(db);
       return;
     }
     let problem: string | undefined;
@@ -186,10 +192,20 @@ export class StorageSupervisor {
     }
     if (this.poll) clearInterval(this.poll);
     this.poll = undefined;
+    // остановлен во время разбора: база уже текущая (её закроет владелец), раннер не будим
+    if (this.stopped) return;
     this.current = "online";
     this.why = undefined;
     this.deps.log?.("storage online");
     this.deps.runner.resume();
-    if (!this.stopped) this.watchOnline();
+    this.watchOnline();
+  }
+}
+
+function closeQuietly(db: Db): void {
+  try {
+    db.close();
+  } catch {
+    // уже закрыта
   }
 }

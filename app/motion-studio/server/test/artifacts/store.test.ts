@@ -1,6 +1,6 @@
 // Task 24: ArtifactStore — иммутабельные ревизии артефактов проекта с fencing (как SceneRepo.publish).
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { chmod, mkdir, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Job } from "@ms/contracts";
@@ -8,7 +8,7 @@ import type { ProcessRegistry } from "@ms/core";
 import { SceneRepo } from "../../src/scenes/repo.js";
 import { sweepAbandonedDrafts } from "../../src/scenes/store.js";
 import { createJobDraft } from "../../src/artifacts/job-draft.js";
-import { artifactPaths } from "../../src/artifacts/paths.js";
+import { artifactPaths, checkArtifactDestRel } from "../../src/artifacts/paths.js";
 import { ArtifactStore, ResourceBusyError } from "../../src/artifacts/store.js";
 import { openDb, type Db } from "../../src/db/open.js";
 import { migrate } from "../../src/db/migrate.js";
@@ -68,6 +68,24 @@ describe("paths и draft задачи", () => {
     expect(p.abs(p.planRev("pln_1", 1))).toBe(join(s.root, "workspace/projects/p1/plan/pln_1/r1"));
     expect(() => P(s.root, "../x")).toThrow();
     expect(() => p.transcriptRev("trn_1", 0)).toThrow();
+    expect(() => p.source("a.b")).toThrow();
+  });
+
+  // Повторное ревью Task 24, N1.1: destRel — только форма из artifactPaths.
+  it("checkArtifactDestRel: принимает ровно пути artifactPaths, остальное — отказ", () => {
+    const p = P(s.root, "prj_01ABC");
+    for (const ok of [
+      p.source("med_1"), p.proxy("med_1"), p.transcriptRev("trn_1", 1), p.edlRev("edl_1", 12), p.footage("ftg_1"),
+      p.semantic("sem_1"), p.styleRev("sty_1", 3), p.planRev("pln_1", 1),
+    ]) expect(() => checkArtifactDestRel(ok), ok).not.toThrow();
+    for (const bad of [
+      "workspace/projects/p1", "workspace/projects/p1/project.json", "workspace/projects/p1/scenes/scn_1",
+      "workspace/projects/p1/transcript/trn_1", "workspace/projects/p1/transcript/trn_1/r0", "workspace/projects/p1/transcript/trn_1/r01",
+      "workspace/projects/p1/transcript/trn_1/x", "workspace/projects/p1/transcript/trn_1/r1/sub", "workspace/projects/p1/source/med_1/r1",
+      "workspace/projects/p1/source/a.b", "workspace/projects/p1/source/-x", "workspace/projects/p1/analysis/other/x",
+      "workspace/projects/p1/analysis/footage", "workspace/projects/../source/x", "workspace/projects/p.1/source/x",
+      "/workspace/projects/p1/source/x", "workspace/drafts/p1/source/x",
+    ]) expect(() => checkArtifactDestRel(bad), bad).toThrow(/destRel/);
   });
 
   it("createJobDraft: workspace/drafts/<runId>-a<attempt>/, повтор — ошибка", async () => {
@@ -193,6 +211,108 @@ describe("publish", () => {
     const d2 = await draftWith(2);
     await expect(store.publish(d2.dir, dest(), reg, { jobId: job.id, attempt: 2 })).rejects.toThrow(/artifact_exists/);
     expect(await readdir(qroot)).toHaveLength(1);
+  });
+
+  // Повторное ревью Task 24, N1: в карантин уходит только сирота формы artifactPaths.
+  describe("карантин только по форме пути", () => {
+    const mode = async (p: string) => (await lstat(p)).mode;
+    const noQuarantine = () => expect(existsSync(join(s.root, "workspace/quarantine/artifacts"))).toBe(false);
+
+    it("родитель зарегистрированной ревизии (transcript/<id>) — отказ по форме, ревизия на месте и read-only", async () => {
+      const pub = await store.publish((await draftWith(1)).dir, dest(), reg, { jobId: job.id, attempt: 1 });
+      const parentRel = `${P(s.root, "p1").project}/transcript/trn_1`;
+      const before = await mode(pub.dir);
+      jobs.update(db, job.id, { attempt: 2 });
+      const d = await draftWith(2);
+      await expect(store.publish(d.dir, parentRel, reg, { jobId: job.id, attempt: 2 })).rejects.toThrow(/destRel не годится/);
+      expect(readFileSync(join(pub.dir, "transcript.json"), "utf8")).toBe('{"a":1}\n');
+      expect(await mode(pub.dir)).toBe(before);
+      expect(statSync(join(pub.dir, "transcript.json")).mode & 0o222).toBe(0);
+      expect(existsSync(join(d.dir, "transcript.json"))).toBe(true);
+      noQuarantine();
+    });
+
+    it("сцена Phase 1 (scenes/scn_1) и project.json — отказ, ничего не перемещено, права не сняты", async () => {
+      const proj = join(s.root, P(s.root, "p1").project);
+      const scene = join(proj, "scenes/scn_1");
+      await mkdir(join(scene, "versions"), { recursive: true });
+      await writeFile(join(scene, "versions/v1.tsx"), "сцена");
+      await chmod(join(scene, "versions/v1.tsx"), 0o444);
+      await chmod(join(scene, "versions"), 0o555);
+      await writeFile(join(proj, "project.json"), "{}");
+      await chmod(join(proj, "project.json"), 0o444);
+      const d = await draftWith(1);
+      for (const rel of ["scenes/scn_1", "project.json"]) {
+        await expect(store.publish(d.dir, `${P(s.root, "p1").project}/${rel}`, reg, { jobId: job.id, attempt: 1 })).rejects.toThrow(/destRel не годится/);
+      }
+      expect(readFileSync(join(scene, "versions/v1.tsx"), "utf8")).toBe("сцена");
+      expect(statSync(join(scene, "versions")).mode & 0o777).toBe(0o555);
+      expect(statSync(join(scene, "versions/v1.tsx")).mode & 0o777).toBe(0o444);
+      expect(statSync(join(proj, "project.json")).mode & 0o777).toBe(0o444);
+      expect(existsSync(join(d.dir, ".quarantined"))).toBe(false);
+      expect(published()).toBeUndefined();
+      noQuarantine();
+      await chmod(join(scene, "versions"), 0o755);
+    });
+
+    it("зарегистрирован потомок или предок destRel — отказ до карантина", async () => {
+      const p = P(s.root, "p1");
+      const row = db.prepare("INSERT INTO artifact_publications (dest_rel, published_at) VALUES (?, 'x')");
+      // потомок: source/med_1/… зарегистрирован, сам source/med_1 — нет
+      row.run(`${p.source("med_1")}/sub`);
+      const src = join(s.root, p.source("med_1"));
+      await mkdir(join(src, "sub"), { recursive: true });
+      await writeFile(join(src, "sub/f"), "f");
+      await chmod(join(src, "sub"), 0o555);
+      const d = await draftWith(1);
+      await expect(store.publish(d.dir, p.source("med_1"), reg, { jobId: job.id, attempt: 1 })).rejects.toThrow(/зарегистрирован.*med_1\/sub/s);
+      expect(statSync(join(src, "sub")).mode & 0o777).toBe(0o555);
+      expect(readFileSync(join(src, "sub/f"), "utf8")).toBe("f");
+      // предок: edits/edl_1 зарегистрирован целиком
+      row.run(`${p.project}/edits/edl_1`);
+      await expect(store.publish(d.dir, p.edlRev("edl_1", 1), reg, { jobId: job.id, attempt: 1 })).rejects.toThrow(/зарегистрирован.*edits\/edl_1/s);
+      expect(existsSync(join(s.root, p.edlRev("edl_1", 1)))).toBe(false);
+      expect(existsSync(join(d.dir, "transcript.json"))).toBe(true);
+      expect(published()).toBeUndefined();
+      noQuarantine();
+      await chmod(join(src, "sub"), 0o755);
+    });
+
+    it("LIKE экранирован: _ в id не делает чужой путь потомком", async () => {
+      const p = P(s.root, "p1");
+      db.prepare("INSERT INTO artifact_publications (dest_rel, published_at) VALUES (?, 'x')").run(`${p.project}/source/medX1/sub`);
+      const pub = await store.publish((await draftWith(1)).dir, p.source("med_1"), reg, { jobId: job.id, attempt: 1 });
+      expect(existsSync(pub.dir)).toBe(true);
+    });
+
+    it("на месте назначения файл или симлинк — ошибка, ничего не тронуто", async () => {
+      const p = P(s.root, "p1");
+      const file = join(s.root, p.source("med_1"));
+      await mkdir(join(file, ".."), { recursive: true });
+      await writeFile(file, "файл");
+      await chmod(file, 0o444);
+      const outside = join(s.tmp, "outside-dir");
+      await mkdir(outside, { recursive: true });
+      await writeFile(join(outside, "x"), "x");
+      await chmod(join(outside, "x"), 0o444);
+      await chmod(outside, 0o555);
+      await mkdir(join(s.root, p.project, "proxy"), { recursive: true });
+      const link = join(s.root, p.proxy("med_1"));
+      await symlink(outside, link);
+      const d = await draftWith(1);
+      await expect(store.publish(d.dir, p.source("med_1"), reg, { jobId: job.id, attempt: 1 })).rejects.toThrow(/не каталог/);
+      await expect(store.publish(d.dir, p.proxy("med_1"), reg, { jobId: job.id, attempt: 1 })).rejects.toThrow(/не каталог/);
+      expect(readFileSync(file, "utf8")).toBe("файл");
+      expect(statSync(file).mode & 0o777).toBe(0o444);
+      expect((await lstat(link)).isSymbolicLink()).toBe(true);
+      expect(statSync(outside).mode & 0o777).toBe(0o555);
+      expect(statSync(join(outside, "x")).mode & 0o777).toBe(0o444);
+      expect(existsSync(join(d.dir, "transcript.json"))).toBe(true);
+      expect(statSync(join(d.dir, "transcript.json")).mode & 0o222).not.toBe(0);
+      expect(published()).toBeUndefined();
+      noQuarantine();
+      await chmod(outside, 0o755);
+    });
   });
 
   it("пустой незарегистрированный каталог на месте назначения — тоже сирота, не молчаливая замена", async () => {

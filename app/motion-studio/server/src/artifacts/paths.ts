@@ -1,9 +1,15 @@
 // Каталоги артефактов видеопроекта (`05` §1) относительно корня хранилища.
 import { join } from "node:path";
-import { SAFE_ID } from "@ms/core";
+
+/**
+ * Идентификатор в пути артефакта — алфавит `newId` (`<префикс>_<ULID>`): буквы, цифры, `_`,
+ * не с `_`. Без `.` и `-`: имена вроде `project.json` или `.quarantined` формой не проходят.
+ */
+const ART_ID = "[A-Za-z0-9][A-Za-z0-9_]*";
+const ART_ID_RE = new RegExp(`^${ART_ID}$`);
 
 function checkId(kind: string, id: string): string {
-  if (!SAFE_ID.test(id)) throw new Error(`artifacts: ${kind} не годится для имени каталога: ${JSON.stringify(id)}`);
+  if (!ART_ID_RE.test(id)) throw new Error(`artifacts: ${kind} не годится для имени каталога: ${JSON.stringify(id)}`);
   return id;
 }
 
@@ -14,6 +20,22 @@ function rev(n: number): string {
 
 /** Префикс каталогов проектов: публикация артефактов — только внутрь него. */
 export const PROJECTS_REL = "workspace/projects";
+
+/**
+ * Ровно формы `artifactPaths`: `<p>/(source|proxy)/<id>`, `<p>/(transcript|edits|style|plan)/<id>/r<N>`,
+ * `<p>/analysis/(footage|semantic)/<id>`. Остальное в каталоге проекта (сцены Phase 1,
+ * `project.json`, родители ревизий) публикацией и карантином сирот не затрагивается.
+ */
+const DEST_REL_RE = new RegExp(
+  `^${PROJECTS_REL}/${ART_ID}/(?:(?:source|proxy)/${ART_ID}|(?:transcript|edits|style|plan)/${ART_ID}/r[1-9][0-9]*|analysis/(?:footage|semantic)/${ART_ID})$`,
+);
+
+/** destRel публикации — путь формы `artifactPaths`; иначе ошибка до любых изменений ФС. */
+export function checkArtifactDestRel(destRel: string): void {
+  if (!DEST_REL_RE.test(destRel)) {
+    throw new Error(`artifacts: destRel не годится (ожидается путь artifactPaths в ${PROJECTS_REL}/<проект>/…): ${JSON.stringify(destRel)}`);
+  }
+}
 
 export interface ArtifactPaths {
   /** Каталог проекта. */
