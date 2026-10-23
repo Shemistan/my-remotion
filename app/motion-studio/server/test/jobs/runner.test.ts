@@ -4,7 +4,7 @@ import * as jobEvents from "../../src/db/repos/job-events.js";
 import { enqueue } from "../../src/jobs/queue.js";
 import { JobRunner, isStorageError, type JobRunnerOptions } from "../../src/jobs/runner.js";
 import { EventBus } from "../../src/jobs/events.js";
-import { LEASE_MS } from "../../src/jobs/limits.js";
+import { AGENT_CALLS, LEASE_MS, RENDERS } from "../../src/jobs/limits.js";
 import { registerHandlers } from "../../src/jobs/handlers.js";
 import type { JobContext, JobHandler } from "../../src/jobs/types.js";
 import { deferred, edit, job, req, setupDb, teardownDb, until, type JobsEnv } from "./helpers.js";
@@ -84,7 +84,7 @@ it("лимит maxRunning 2: третья задача не стартует, п
   expect(jobs.list(env.db, { status: "pending" }).map((x) => x.idempotency_key)).toEqual(["c"]);
 });
 
-it("семафоры общие для задач: heavy = 1 — вторая ждёт, agents = 2, renders = 1", async () => {
+it("семафоры общие для задач: heavy = 1 — вторая ждёт, agents = AGENT_CALLS, renders = RENDERS", async () => {
   const held = deferred();
   const order: string[] = [];
   const handler: JobHandler = async (ctx) => {
@@ -105,8 +105,8 @@ it("семафоры общие для задач: heavy = 1 — вторая ж
   await new Promise((res) => setTimeout(res, 20));
   expect(order).toEqual(["in:a"]);
   expect(ctxB!.heavy.available()).toBe(0); // место у a — семафор общий
-  expect(ctxA!.agents.available()).toBe(2);
-  expect(ctxA!.renders.available()).toBe(1);
+  expect(ctxA!.agents.available()).toBe(AGENT_CALLS);
+  expect(ctxA!.renders.available()).toBe(RENDERS);
   held.resolve();
   await until(() => jobs.list(env.db, { status: "completed" }).length === 2, "обе завершены");
   expect(order).toEqual(["in:a", "out:a", "in:b", "out:b"]);

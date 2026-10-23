@@ -314,10 +314,17 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
     const base = join(rel, task.run.runId);
     for (let seq = 1; ; seq++) {
       const leaf = join(base, `a${task.run.attempt}-${task.role}-${seq}`);
-      if (await exists(join(task.run.root, leaf))) continue;
+      const full = join(task.run.root, leaf);
+      if (this.claimed.has(full) || (await exists(full))) continue;
+      // одновременные вызовы роли (два дубля, S5): после await место мог занять другой
+      if (this.claimed.has(full)) continue;
+      this.claimed.add(full);
       return safeMkdir(task.run.root, leaf);
     }
   }
+
+  /** Каталоги журналов, уже выданные этим рантаймом (проверка «свободен» не атомарна). */
+  private readonly claimed = new Set<string>();
 
   private async systemPrompt(role: Role): Promise<string> {
     const { promptLoader, promptsDir } = this.opts;
