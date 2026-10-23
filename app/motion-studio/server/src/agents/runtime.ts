@@ -4,7 +4,11 @@
 import type { ProcessRegistry } from "@ms/core";
 import type { ZodType } from "zod";
 
-export const ROLES = ["concept", "motion_director", "engineer", "visual_qa", "edit_planner"] as const;
+export const ROLES = [
+  "concept", "motion_director", "engineer", "visual_qa", "edit_planner",
+  // Phase 2–3: черновой монтаж, видеоряд, смысловая разметка, визуальный план
+  "rough_cut_editor", "footage_analyst", "semantic_director", "visual_planner",
+] as const;
 export type Role = (typeof ROLES)[number];
 
 /** Инструменты, которые вообще можно дать агенту. Bash и WebFetch — никогда. */

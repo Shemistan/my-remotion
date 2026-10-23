@@ -308,7 +308,7 @@ export async function sweepAbandonedDrafts(
 }
 
 /** Помечает draft карантином: публикация запрещена, каталог не трогать до решения человека. */
-export async function quarantineDraft(draft: Draft, reason: string): Promise<void> {
+export async function quarantineDraft(draft: Pick<Draft, "dir">, reason: string): Promise<void> {
   await quarantineDir(draft.dir, reason);
 }
 

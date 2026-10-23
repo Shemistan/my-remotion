@@ -1,7 +1,7 @@
 ---
 тип: plan
 статус: в работе
-обновлено: 2026-10-23
+обновлено: 2026-10-24
 спека: 2026-10-20-motion-studio-phase2-3.md
 ---
 
@@ -164,7 +164,7 @@ for (const s of [RoughCutAgentOutputSchema, FootageAgentOutputSchema, SemanticAg
 ### Task 24: Данные видеопроекта — миграция, ArtifactStore, замки ресурсов, approvals
 
 **Files:**
-- Create: `app/motion-studio/server/src/db/migrations/002_video.sql`
+- Create: `app/motion-studio/server/src/db/migrations/003_video.sql` (в плане было `002_video.sql`; 002 занят Phase 1)
 - Create: `app/motion-studio/server/src/db/repos/{media,transcripts,edls,approvals,footage,semantic,plans,styles,resource-locks}.ts`
 - Create: `app/motion-studio/server/src/artifacts/{store.ts,paths.ts,job-draft.ts}`, `app/motion-studio/server/src/approvals/{engine.ts,subjects.ts}`
 - Modify: `app/motion-studio/server/src/jobs/{queue.ts,locks.ts,types.ts,runner.ts}` (замки ресурсов, `heavy`), `app/motion-studio/server/src/scenes/{ids.ts,store.ts}` (`newId` — новые префиксы; `quarantineDraft(draft: Pick<Draft, "dir">, reason)`), `app/motion-studio/server/src/config.ts` (`AppConfig` += `asr`, `media`, `roughcut`, `planning`, `analysis`; `Role` += 4 роли)
@@ -186,7 +186,7 @@ for (const s of [RoughCutAgentOutputSchema, FootageAgentOutputSchema, SemanticAg
   - `currentSubject(db, projectId, kind: "A" | "B"): { ref: string; hash: string } | undefined` (`subjects.ts`) — A: текущая ревизия EDL; B: текущая ревизия плана
   - `AppConfig` (modify): `asr: { python: string /* "~/.local/share/montage/mlx-audio-0.5.8/.venv/bin/python", env AIP_MONTAGE_ASR_PYTHON */; aiPlatformRoot: string /* "/Users/stalyzade/my_track/01_It_development/ai-platform", env AI_PLATFORM_ROOT */; modelsDir: string /* "/Volumes/External SSD/local_models", env AIP_MODELS_DIR */; model: "whisper-large-v3-turbo" | "whisper-large-v3-mlx"; language: string /* "ru" */; expectedWorkerSha256: string; timeoutMs: number /* 14_400_000 */; noOutputTimeoutMs: number /* 1_800_000 */ }`; `media: { importRoots: string[]; proxyShortSide: 720; thumbEveryUs: 2_000_000 }`; `roughcut: { pauseMinUs: 800_000; keepAfterWordUs: 100_000; sentenceKeepAfterUs: 300_000; keepBeforeWordUs: 100_000; fillerPadUs: 50_000; loudDbfs: -30; fadeUs: 8_000 }`; `planning: { maxCoverage: 0.4; maxFullscreenCoverage: 0.25; minGapUs: 1_500_000; minSceneUs: 1_500_000; maxSceneUs: 12_000_000; padPreUs: 200_000; padPostUs: 300_000; faceMargin: 0.25; faceOverlapMax: 0.02 }`; `analysis: { maxCostUsd: 3 }`; `agents.{rough_cut_editor,footage_analyst,semantic_director,visual_planner}.model = "sonnet"`
 
-- [ ] **Step 1: Тесты (падают),** хранилище в `tmp/`:
+- [x] **Step 1: Тесты (падают),** хранилище в `tmp/`:
 
 ```ts
 expect(migrate(db)).toEqual({ from: 1, to: 2 });
@@ -218,9 +218,21 @@ expect(loadConfig({ MS_DATA_DIR: root, AIP_MODELS_DIR: "/x" }).asr.modelsDir).to
 expect(loadConfig({ MS_DATA_DIR: root }).agents.visual_planner.model).toBe("sonnet");
 ```
 
-- [ ] **Step 2: Запустить** `./scripts/with-node.sh npx vitest run server/test/{db,artifacts,jobs,approvals,agents}` — FAIL.
-- [ ] **Step 3: Реализовать.** Существующие тесты Task 11–13 остаются зелёными (замок сцены — частный случай ресурса).
-- [ ] **Step 4: Запустить** — PASS; `./check`; коммит `feat(motion-studio): данные видеопроекта, артефакты и approvals`.
+- [x] **Step 2: Запустить** `./scripts/with-node.sh npx vitest run server/test/{db,artifacts,jobs,approvals,agents}` — FAIL.
+- [x] **Step 3: Реализовать.** Существующие тесты Task 11–13 остаются зелёными (замок сцены — частный случай ресурса).
+- [x] **Step 4: Запустить** — PASS; `./check`; коммит `feat(motion-studio): данные видеопроекта, артефакты и approvals`.
+
+Уточнения при реализации (2026-10-24):
+- Миграция — `003_video.sql`, не `002`: номер 002 занят `002_resource_locks.sql` Phase 1 (там же уже были `resource_locks`, `lockKeyFor`, `resourceBusy`, `JobContext.heavy`). Ожидания тестов — `{ from: 2, to: 3 }`; тест плана — `server/test/db/migrate-003.test.ts`.
+- `jobs.type` в 001 — CHECK только с типами Phase 1, поэтому 003 пересобирает `jobs` (`jobs_new → INSERT … SELECT → DROP → RENAME`, индексы заново). `migrate()` выключает внешние ключи на время миграций (вне транзакции) и проверяет `foreign_key_check` до COMMIT; ключи включаются обратно и при сбое.
+- `lockKeyFor` для типов Phase 1 — `undefined`, как было: их сериализует `scene_locks` (`sceneLockFor`); ключ `scene:<id>` в `resource_locks` дал бы второй замок того же смысла и менял бы поведение Task 12. Тест плана `lockKeyFor(playground.edit) = "scene:scn_1"` заменён регрессионным: `sceneLockFor = "scn_1"`, `lockKeyFor = undefined`, Phase 1-задача не пишет `resource_locks`.
+- `ArtifactStore.writeRevision(destRel, file, doc, register, { lockKey })` — имя файла ревизии явное; `guard` уже в конструкторе. `lockKey` проверяется в транзакции публикации → `ResourceBusyError` (409 `resource_busy`); `base_revision` (409 `revision_conflict`) проверяет `register` вызывающего. Временный `drafts/sync-<id>` удаляется при любом исходе.
+- `publish`: `destRel` — только `workspace/projects/<p>/…` (безопасные сегменты); draft — только из `workspace/drafts/`, при `fence` — имя `<jobId>-a<attempt>`; существующий `destRel` (в том числе пустой каталог, который `rename` заменил бы молча) → `artifact_exists` под write-lock БД. Отказ по fencing и отмене — карантин (`fenced_out` / `cancelled`, ошибки `SceneRepo`). Содержимое закрывается до `rename` (каталог 0555 не переносится в другой родитель), корень — после COMMIT; ошибка закрытия корня — `warnings`, не отказ. Удаление опубликованного — только после снятия read-only (`unlockTree` в тестах).
+- В `media_assets` добавлен `import_json` (способ импорта из `MediaAsset`), в `edls`, `style_bibles`, `visual_plans` — `created_at` (выбор текущего по проекту); слова/сегменты/решения/сцены — с внешними ключами на свою ревизию.
+- `approve`: `subjectHash` проверяется схемой (sha256 hex), поэтому тесты берут `canonicalHash(…)`, а не `"h2"`. `approvalState(…, undefined)` — `missing` без записи в БД.
+- `AppConfig.asr.aiPlatformRoot` по умолчанию — `<родитель main checkout>/ai-platform` (не литерал пути пользователя); приоритет — config.json > env > умолчание (как `kb`). Разделы Phase 2–3 правятся только config.json: `PUT /settings` их не принимает (путь к python — исполняемый файл).
+- Новые роли в `ROLES` без промптов: тест промптов исключает их до Task 28, 30–32.
+- Попутно: в `test/jobs/test-hooks.test.ts` ожидание маркера карантина ждёт содержимое файла, а не только его появление (под нагрузкой `./check` читался пустой файл).
 
 ### Task 25: Импорт видео — ffprobe, оригинал, прокси, waveform, миниатюры (`media.import`)
 

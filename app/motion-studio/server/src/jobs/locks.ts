@@ -16,17 +16,39 @@ export function sceneLockFor(job: Job): string | undefined {
   return SCENE_WRITING_TYPES.includes(job.type) ? job.scene_id ?? undefined : undefined;
 }
 
+/** Ресурс проекта, который пишет задача Phase 2–3. */
+export type ProjectResource = "media" | "transcript" | "edl" | "footage" | "semantic" | "plan";
+
+/** Ключ замка ресурса проекта: `project:<id>:<ресурс>`. */
+export const projectLockKey = (projectId: string, resource: ProjectResource): string => `project:${projectId}:${resource}`;
+
 /**
- * Ключ замка ресурса проекта. Типы Phase 1 его не берут (им хватает замка сцены);
- * Phase 2 (Task 24) добавляет ключи для своих типов (`project:<id>:<ресурс>`).
+ * Ключ замка ресурса проекта. Типы Phase 1 его не берут: их сериализует замок сцены
+ * (`scene_locks`, `sceneLockFor`) — поведение Task 12 не меняется. Задачи Phase 2–3, пишущие
+ * артефакт, — `project:<id>:<ресурс>`; `roughcut.preview` читает иммутабельные ревизии — без замка.
  */
 export function lockKeyFor(job: Job): string | undefined {
+  const key = (r: ProjectResource) => projectLockKey(job.project_id, r);
   switch (job.type) {
     case "playground.generate":
     case "playground.edit":
     case "scene.restore":
     case "scene.export":
+    case "roughcut.preview":
       return undefined;
+    case "media.import":
+      return key("media");
+    case "asr.transcribe":
+      return key("transcript");
+    case "roughcut.propose":
+      return key("edl");
+    case "footage.analyze":
+      return key("footage");
+    case "semantic.analyze":
+      return key("semantic");
+    case "plan.visual":
+    case "plan.recheck":
+      return key("plan");
   }
 }
 

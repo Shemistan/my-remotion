@@ -1,0 +1,46 @@
+import type { Db } from "../open.js";
+import { nowIso } from "./util.js";
+
+export interface StyleRow {
+  id: string;
+  project_id: string;
+  current_revision: number | null;
+  created_at: string;
+}
+export interface StyleRevisionRow {
+  style_id: string;
+  revision: number;
+  rel_path: string;
+  sha256: string;
+  /** canonicalHash(документ ревизии) — вход Approval B. */
+  hash: string;
+  author: "agent" | "user";
+  created_at: string;
+}
+
+export function create(db: Db, s: { id: string; project_id: string }): StyleRow {
+  db.prepare("INSERT INTO style_bibles (id, project_id, current_revision, created_at) VALUES (?, ?, NULL, ?)").run(s.id, s.project_id, nowIso());
+  return get(db, s.id)!;
+}
+
+export function get(db: Db, id: string): StyleRow | undefined {
+  return db.prepare("SELECT * FROM style_bibles WHERE id = ?").get(id) as StyleRow | undefined;
+}
+
+/** Последний созданный StyleBible проекта. */
+export function byProject(db: Db, projectId: string): StyleRow | undefined {
+  return db.prepare("SELECT * FROM style_bibles WHERE project_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1").get(projectId) as StyleRow | undefined;
+}
+
+/** Индекс опубликованной ревизии (в `register`) и `current_revision`. */
+export function insertRevision(db: Db, r: Omit<StyleRevisionRow, "created_at">): void {
+  db.prepare("INSERT INTO style_revisions (style_id, revision, rel_path, sha256, hash, author, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .run(r.style_id, r.revision, r.rel_path, r.sha256, r.hash, r.author, nowIso());
+  if (db.prepare("UPDATE style_bibles SET current_revision = ? WHERE id = ?").run(r.revision, r.style_id).changes !== 1) {
+    throw new Error(`db: StyleBible нет: ${r.style_id}`);
+  }
+}
+
+export function revision(db: Db, id: string, rev: number): StyleRevisionRow | undefined {
+  return db.prepare("SELECT * FROM style_revisions WHERE style_id = ? AND revision = ?").get(id, rev) as StyleRevisionRow | undefined;
+}

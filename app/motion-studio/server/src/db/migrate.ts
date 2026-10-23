@@ -25,19 +25,35 @@ function migrations(): Migration[] {
   return out;
 }
 
-/** Применяет недостающие миграции; каждая — в своей транзакции вместе с user_version. */
+/**
+ * Применяет недостающие миграции; каждая — в своей транзакции вместе с user_version.
+ * Внешние ключи на время миграций выключены (вне транзакции — иначе PRAGMA не действует):
+ * пересборка таблицы (`CREATE new → INSERT … SELECT → DROP → RENAME`, 003 для `jobs.type`)
+ * с включёнными ключами упала бы на DROP родителя. Целостность проверяет
+ * `foreign_key_check` в той же транзакции до COMMIT; ключи включаются обратно всегда.
+ */
 export function migrate(db: Db): { from: number; to: number } {
   const all = migrations();
   const latest = all.at(-1)?.version ?? 0;
   const from = db.pragma("user_version", { simple: true }) as number;
   if (from > latest) throw new Error(`db: studio.db версии ${from} новее приложения (знает до ${latest})`);
-  for (const m of all) {
-    if (m.version <= from) continue;
-    const sql = readFileSync(join(DIR, m.file), "utf8");
-    db.transaction(() => {
-      db.exec(sql);
-      db.pragma(`user_version = ${m.version}`);
-    }).immediate();
+  if (from === latest) return { from, to: from };
+  if (db.inTransaction) throw new Error("db: migrate внутри транзакции — внешние ключи не выключить");
+  const fk = db.pragma("foreign_keys", { simple: true }) as number;
+  db.pragma("foreign_keys = OFF");
+  try {
+    for (const m of all) {
+      if (m.version <= from) continue;
+      const sql = readFileSync(join(DIR, m.file), "utf8");
+      db.transaction(() => {
+        db.exec(sql);
+        const broken = db.pragma("foreign_key_check") as unknown[];
+        if (broken.length > 0) throw new Error(`db: миграция ${m.file} нарушает внешние ключи: ${JSON.stringify(broken.slice(0, 5))}`);
+        db.pragma(`user_version = ${m.version}`);
+      }).immediate();
+    }
+  } finally {
+    db.pragma(`foreign_keys = ${fk ? "ON" : "OFF"}`);
   }
-  return { from, to: Math.max(from, latest) };
+  return { from, to: latest };
 }

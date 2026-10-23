@@ -1,7 +1,8 @@
 // Настройки приложения: значения по умолчанию (Global Constraints плана) +
 // переопределения из `$MS_DATA_DIR/config.json` + KB_ROOT/KB_SOURCE_ROOT из env.
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Settings, SettingsSchema, defaultSettings } from "@ms/contracts";
 import { EXPORT_TIMEOUT_MS } from "@ms/render";
@@ -48,6 +49,76 @@ const Count = z.number().int().min(1).max(16);
 const EXPORT_TIMEOUT_MAX_MS = 4 * 60 * 60_000;
 const LimitsSchema = z.object({ maxRunning: Count, agentCalls: Count, renders: Count, exportTimeoutMs: z.number().int().min(10_000).max(EXPORT_TIMEOUT_MAX_MS) }).partial().strict();
 
+/**
+ * ASR (Task 26): CLI-воркер ai-platform подпроцессом; ai-platform не меняется. Пути — умолчания
+ * этой машины, переопределяются env (`AIP_MONTAGE_ASR_PYTHON`, `AI_PLATFORM_ROOT`,
+ * `AIP_MODELS_DIR`) или config.json. Контракт воркера закреплён sha256 `asr_worker.py`.
+ */
+export interface AsrConfig {
+  python: string;
+  aiPlatformRoot: string;
+  modelsDir: string;
+  model: (typeof ASR_MODELS)[number];
+  language: string;
+  expectedWorkerSha256: string;
+  timeoutMs: number;
+  noOutputTimeoutMs: number;
+}
+const ASR_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3-mlx"] as const;
+/** sha256 `asr_worker.py` ai-platform на коммите 0456395 (Global Constraints Phase 2–3). */
+export const ASR_WORKER_SHA256 = "59b7e03bf5a8b7f940b2607d357528e7120f5bb6bbe98efa70de4b39bdce1073";
+
+/** Импорт исходника (V2): корни для импорта по пути, прокси, шаг миниатюр. */
+export interface MediaConfig {
+  importRoots: string[];
+  proxyShortSide: number;
+  thumbEveryUs: number;
+}
+/** Детекторы чернового монтажа (Task 28). */
+export interface RoughcutConfig {
+  pauseMinUs: number;
+  keepAfterWordUs: number;
+  sentenceKeepAfterUs: number;
+  keepBeforeWordUs: number;
+  fillerPadUs: number;
+  loudDbfs: number;
+  fadeUs: number;
+}
+/** Проверки визуального плана (Task 32). */
+export interface PlanningConfig {
+  maxCoverage: number;
+  maxFullscreenCoverage: number;
+  minGapUs: number;
+  minSceneUs: number;
+  maxSceneUs: number;
+  padPreUs: number;
+  padPostUs: number;
+  faceMargin: number;
+  faceOverlapMax: number;
+}
+/** Бюджет задачи анализа Phase 2–3 (V9). */
+export interface AnalysisConfig {
+  maxCostUsd: number;
+}
+
+const ROUGHCUT: RoughcutConfig = { pauseMinUs: 800_000, keepAfterWordUs: 100_000, sentenceKeepAfterUs: 300_000, keepBeforeWordUs: 100_000, fillerPadUs: 50_000, loudDbfs: -30, fadeUs: 8_000 };
+const PLANNING: PlanningConfig = { maxCoverage: 0.4, maxFullscreenCoverage: 0.25, minGapUs: 1_500_000, minSceneUs: 1_500_000, maxSceneUs: 12_000_000, padPreUs: 200_000, padPostUs: 300_000, faceMargin: 0.25, faceOverlapMax: 0.02 };
+const Us = z.number().int().min(0);
+const Share = z.number().min(0).max(1);
+const AsrFileSchema = z.object({
+  python: z.string().min(1), aiPlatformRoot: z.string().min(1), modelsDir: z.string().min(1), model: z.enum(ASR_MODELS),
+  language: z.string().min(1), expectedWorkerSha256: z.string().regex(/^[0-9a-f]{64}$/),
+  timeoutMs: z.number().int().positive(), noOutputTimeoutMs: z.number().int().positive(),
+}).partial().strict();
+const MediaFileSchema = z.object({ importRoots: z.array(z.string().min(1)), proxyShortSide: z.number().int().min(144).max(2160), thumbEveryUs: z.number().int().positive() }).partial().strict();
+const RoughcutFileSchema = z.object({
+  pauseMinUs: Us, keepAfterWordUs: Us, sentenceKeepAfterUs: Us, keepBeforeWordUs: Us, fillerPadUs: Us, loudDbfs: z.number().max(0), fadeUs: Us,
+}).partial().strict();
+const PlanningFileSchema = z.object({
+  maxCoverage: Share, maxFullscreenCoverage: Share, minGapUs: Us, minSceneUs: Us, maxSceneUs: Us, padPreUs: Us, padPostUs: Us, faceMargin: Share, faceOverlapMax: Share,
+}).partial().strict();
+const AnalysisFileSchema = z.object({ maxCostUsd: z.number().positive().max(MAX_CALL_BUDGET_USD) }).partial().strict();
+
 export interface AppConfig {
   dataDir: string;
   claudeBin: string;
@@ -58,6 +129,11 @@ export interface AppConfig {
   limits: Limits;
   /** Настройки новой сцены по умолчанию (форма в UI). */
   defaults: Settings;
+  asr: AsrConfig;
+  media: MediaConfig;
+  roughcut: RoughcutConfig;
+  planning: PlanningConfig;
+  analysis: AnalysisConfig;
 }
 
 const OPUS_ROLES: readonly Role[] = ["motion_director", "engineer"];
@@ -68,6 +144,8 @@ const AGENT_BUDGET_USD = 2;
 const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url)).replace(/\/$/, "");
 // Исходники KB лежат в main checkout; из worktree — это путь до `.claude/worktrees/`.
 const MAIN_CHECKOUT = REPO_ROOT.split("/.claude/worktrees/")[0]!;
+// ai-platform — соседний с main checkout репозиторий (только чтение и запуск воркера).
+const AI_PLATFORM_ROOT = join(dirname(MAIN_CHECKOUT), "ai-platform");
 
 const AgentOverride = z
   .object({
@@ -87,6 +165,11 @@ const FileSchema = z
     kb: z.object({ root: z.string().min(1), sourceRoot: z.string().min(1) }).partial().strict(),
     limits: LimitsSchema,
     defaults: SettingsSchema,
+    asr: AsrFileSchema,
+    media: MediaFileSchema,
+    roughcut: RoughcutFileSchema,
+    planning: PlanningFileSchema,
+    analysis: AnalysisFileSchema,
   })
   .partial()
   .strict();
@@ -152,7 +235,37 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfi
     },
     limits: { ...LIMITS, ...file.limits },
     defaults: file.defaults ?? defaultSettings(),
+    ...videoConfig(env, file),
   };
+}
+
+const env1 = (env: NodeJS.ProcessEnv, k: string): string | undefined => env[k]?.trim() || undefined;
+
+/** Разделы Phase 2–3: config.json > env > умолчания (как `kb`). */
+function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig): Pick<AppConfig, "asr" | "media" | "roughcut" | "planning" | "analysis"> {
+  const home = env1(env, "HOME") ?? homedir();
+  return {
+    asr: {
+      python: join(home, ".local/share/montage/mlx-audio-0.5.8/.venv/bin/python"),
+      aiPlatformRoot: AI_PLATFORM_ROOT,
+      modelsDir: "/Volumes/External SSD/local_models",
+      model: "whisper-large-v3-turbo",
+      language: "ru",
+      expectedWorkerSha256: ASR_WORKER_SHA256,
+      timeoutMs: 14_400_000,
+      noOutputTimeoutMs: 1_800_000,
+      ...definedOnly({ python: env1(env, "AIP_MONTAGE_ASR_PYTHON"), aiPlatformRoot: env1(env, "AI_PLATFORM_ROOT"), modelsDir: env1(env, "AIP_MODELS_DIR") }),
+      ...file.asr,
+    },
+    media: { importRoots: ["/Volumes/External SSD", join(home, "Movies")], proxyShortSide: 720, thumbEveryUs: 2_000_000, ...file.media },
+    roughcut: { ...ROUGHCUT, ...file.roughcut },
+    planning: { ...PLANNING, ...file.planning },
+    analysis: { maxCostUsd: 3, ...file.analysis },
+  };
+}
+
+function definedOnly<T extends Record<string, string | undefined>>(o: T): Partial<Record<keyof T, string>> {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<Record<keyof T, string>>;
 }
 
 /** `MS_SECOND_TAKE=revise|fresh|off` — режим второго дубля поверх config.json (bench A/B). */
