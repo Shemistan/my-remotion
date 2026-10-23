@@ -931,7 +931,7 @@ async function runQa(
     }
   }
   // S5: missing_element только по зрению, который опровергает реестр раскладки, — warning
-  agent = reconcileMissing(agent, spec, parseLayout(rr.browserLogs), end);
+  agent = reconcileMissing(agent, spec, parseLayout(rr.browserLogs), end, settings);
   const report = mergeQA({ technical: techWarnings, programmatic: [...programmatic, ...fromSpec], agent });
   rc.note("qa", `QA ${pre ? "дубля 2 " : ""}вызова ${call}: ${JSON.stringify(report.gate)}; overall ${agent.scores.overall}; blocking: ${report.issues.filter((x) => x.severity === "blocking").map((x) => x.code).join(", ") || "—"}`);
   return { report, notes: agent.score_notes, costUsd: cost };

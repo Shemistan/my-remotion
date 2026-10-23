@@ -197,29 +197,61 @@ function withMissing(out: VisualQAOutput, spec: MotionSpec, frames: number[], st
 const norm = (t: string) => t.toLowerCase().replace(/[\s\u00a0\u202f]+/g, " ").trim();
 const compact = (t: string) => norm(t).replace(/ /g, "");
 
-/** Тексты из content элемента spec: строки от 2 знаков и числа (рекурсивно). */
+/** Ключи подписи числа: сами по себе — не текст элемента (это часть числа). */
+const AFFIX_KEYS = new Set(["unit", "suffix", "prefix", "currency"]);
+/** Сравнение текста пробы и content: без пробелов и разделителей разрядов. */
+const key = (t: string) => compact(t).replace(/(?<=\d)[,\u2009](?=\d{3})/g, "");
+
+/**
+ * Тексты элемента spec целиком (S5-fix I4): строки content от 2 знаков; число — вместе с его
+ * `prefix`/`unit`/`suffix`/`currency` (`{value: 2, unit: "мс"}` → «2мс»), а без подписи —
+ * само число от 2 знаков. Подписи числа отдельно не берутся.
+ */
 function contentTexts(v: unknown, out: string[] = []): string[] {
-  if (typeof v === "string") {
-    if (v.trim().length >= 2) out.push(v);
-  } else if (typeof v === "number" && Number.isFinite(v)) out.push(String(v));
+  const push = (t: string) => {
+    const k = key(t);
+    if (k.length >= 2) out.push(k);
+  };
+  if (typeof v === "string") push(v);
+  else if (typeof v === "number" && Number.isFinite(v)) push(String(v));
   else if (Array.isArray(v)) for (const x of v) contentTexts(x, out);
-  else if (v && typeof v === "object") for (const x of Object.values(v)) contentTexts(x, out);
+  else if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    const value = o.value;
+    const affix = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : "");
+    if (typeof value === "number" || (typeof value === "string" && /\d/.test(value))) {
+      push(`${affix("prefix")}${affix("currency")}${String(value)}${affix("unit")}${affix("suffix")}`);
+    }
+    for (const [k, x] of Object.entries(o)) if (k !== "value" && !AFFIX_KEYS.has(k)) contentTexts(x, out);
+  }
   return out;
 }
 
+/** Прямоугольник элемента пробы внутри кадра (хоть частью); размер кадра неизвестен — да. */
+function inFrame(it: LayoutFrame["items"][number], f: LayoutFrame, size?: { width: number; height: number }): boolean {
+  if (!size) return true;
+  const k = f.height > 0 ? f.height / size.height : 1;
+  const r = it.rect;
+  return r.w > 0 && r.h > 0 && r.x < size.width * k && r.y < size.height * k && r.x + r.w > 0 && r.y + r.h > 0;
+}
+
 /**
- * Кадр, на котором проба раскладки видит текст элемента внутри его битов: id элемента в
- * ключе владельца (`<роль>:<data-ms-id>:<n>`) или текст из `content` в тексте пробы.
+ * Кадр, на котором проба раскладки видит элемент внутри его битов (S5-fix I4 — строго):
+ * элемент пробы с тем же id владельца (`<роль>:<data-ms-id>:<n>`), либо элемент без владельца
+ * (`scene#…`), чей текст целиком равен тексту элемента. Текст чужого элемента, совпадение
+ * части заголовка («2 мс» в «Кэш отвечает за 2 мс») и элементы вне кадра не считаются.
  */
-function registryFrame(e: MotionSpec["elements"][number], spec: MotionSpec, layout: LayoutFrame[], durationFrames: number): number | undefined {
+function registryFrame(e: MotionSpec["elements"][number], spec: MotionSpec, layout: LayoutFrame[], durationFrames: number, size?: { width: number; height: number }): number | undefined {
   const beats = spec.beats.filter((b) => b.element_ids.includes(e.id));
-  const texts = contentTexts(e.content).map(compact).filter((t) => t.length >= 2);
+  const texts = new Set(contentTexts(e.content));
   for (const f of layout) {
     if (!beats.some((b) => inBeat(b, f.frame, durationFrames))) continue;
     for (const it of f.items) {
-      if (it.id.split(":")[1] === e.id) return f.frame;
-      const t = compact(it.text);
-      if (t && texts.some((x) => t.includes(x) || (t.length >= 4 && x.includes(t)))) return f.frame;
+      if (!inFrame(it, f, size)) continue;
+      const owner = it.id.split(":")[1];
+      if (owner === e.id) return f.frame;
+      if (!it.id.startsWith("scene#")) continue;
+      if (texts.has(key(it.text))) return f.frame;
     }
   }
   return undefined;
@@ -227,18 +259,20 @@ function registryFrame(e: MotionSpec["elements"][number], spec: MotionSpec, layo
 
 /**
  * S5: blocking `missing_element` по одному зрению, который опровергает реестр раскладки
- * (проба видит текст элемента на кадре его битов), — warning: элемент построен, агент его
- * не узнал. Если других blocking-замечаний агента не осталось, `gate.visual` fail → warn.
- * Элементы без текста реестр не видит — их замечания не меняются.
+ * (проба видит элемент на кадре его битов — `registryFrame`), — warning: элемент построен,
+ * агент его не узнал. Если других blocking-замечаний агента не осталось, `gate.visual`
+ * fail → warn. Элементы без текста и владельца в пробе — их замечания не меняются.
  */
-export function reconcileMissing(out: VisualQAOutput, spec: MotionSpec, layout: LayoutFrame[], durationFrames: number): VisualQAOutput {
+export function reconcileMissing(
+  out: VisualQAOutput, spec: MotionSpec, layout: LayoutFrame[], durationFrames: number, size?: { width: number; height: number },
+): VisualQAOutput {
   if (layout.length === 0) return out;
   const byId = new Map(spec.elements.map((e) => [e.id, e]));
   let changed = false;
   const issues = out.issues.map((i) => {
     if (i.code !== "missing_element" || i.severity !== "blocking" || !i.area) return i;
     const e = byId.get(i.area);
-    const f = e ? registryFrame(e, spec, layout, durationFrames) : undefined;
+    const f = e ? registryFrame(e, spec, layout, durationFrames, size) : undefined;
     if (f === undefined) return i;
     changed = true;
     return { ...i, severity: "warning" as const, description: `${i.description} (реестр раскладки видит его текст на кадре ${f} — замечание только зрения)` };

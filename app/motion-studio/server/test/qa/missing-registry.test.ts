@@ -12,8 +12,10 @@ const sp = spec({
     el("hit-rate", { kind: "number", role: "герой", content: { value: 94, suffix: "%" } }),
     el("db", { kind: "card", role: "база", content: { label: "PostgreSQL" } }),
     el("glow", { kind: "shape", role: "акцент" }),
+    el("latency", { kind: "number", role: "герой", content: { value: 2, unit: "мс" } }),
+    el("year", { kind: "number", role: "год", content: { value: 42 } }),
   ],
-  beats: [beat("b0", 0, 60, ["title", "db"]), beat("b1", 60, 120, ["hit-rate", "glow"])],
+  beats: [beat("b0", 0, 60, ["title", "db", "latency", "year"]), beat("b1", 60, 120, ["hit-rate", "glow"])],
 });
 
 const item = (text: string, id = "scene#0") => ({ id, role: "scene", text, rect: { x: 10, y: 10, w: 200, h: 40 }, fontPx: 40, opacity: 1 });
@@ -62,6 +64,30 @@ describe("reconcileMissing: реестр раскладки опровергае
     const r = reconcileMissing(out([missing("glow"), missing("title"), overlap]), sp, [frame(30, [item("Кэш отвечает за 2 мс")]), frame(90, [item("94%")])], 120);
     expect(r.issues.map((i) => `${i.area}:${i.severity}`)).toEqual(["glow:blocking", "title:warning", "заголовок:blocking"]);
     expect(r.gate.visual).toBe("fail");
+  });
+
+  it("I4: число-герой {2, мс} не опровергается заголовком «Кэш отвечает за 2 мс» — blocking остаётся", () => {
+    const r = reconcileMissing(out([missing("latency")]), sp, [frame(30, [item("Кэш отвечает за 2 мс")])], 120);
+    expect(r.issues[0]!.severity).toBe("blocking");
+    expect(r.gate.visual).toBe("fail");
+  });
+
+  it("I4: число — целым текстом элемента пробы: «2 мс» отдельным элементом подтверждает, «42» в «2042» — нет", () => {
+    expect(reconcileMissing(out([missing("latency")]), sp, [frame(30, [item("2 мс")])], 120).issues[0]!.severity).toBe("warning");
+    expect(reconcileMissing(out([missing("year")]), sp, [frame(30, [item("2042")])], 120).issues[0]!.severity).toBe("blocking");
+    // единица сама по себе (подпись чужого числа) — не текст элемента
+    expect(reconcileMissing(out([missing("latency")]), sp, [frame(30, [item("мс")])], 120).issues[0]!.severity).toBe("blocking");
+  });
+
+  it("I4: текст чужого элемента (владелец в пробе — другой id) не подтверждает", () => {
+    const r = reconcileMissing(out([missing("title")]), sp, [frame(30, [item("Кэш отвечает за 2 мс", "label:db:0")])], 120);
+    expect(r.issues[0]!.severity).toBe("blocking");
+  });
+
+  it("I4: элемент пробы вне кадра не подтверждает", () => {
+    const off = { ...item("PostgreSQL"), rect: { x: 2500, y: 10, w: 200, h: 40 } };
+    const r = reconcileMissing(out([missing("db")]), sp, [frame(30, [off])], 120, { width: 1920, height: 1080 });
+    expect(r.issues[0]!.severity).toBe("blocking");
   });
 
   it("пустой реестр (старая проба, нет текста) — ответ без изменений", () => {
