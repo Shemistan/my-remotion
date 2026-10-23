@@ -1,5 +1,5 @@
 // Ключ содержимого версии и точка входа бандла Remotion.
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { lstat, mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -165,7 +165,8 @@ const Root = () => (
 registerRoot(Root);
 `;
   const file = join(dir, "index.tsx");
-  const tmp = join(dir, `.index.tsx.${process.pid}.tmp`);
+  // pid мало: два дубля в одном процессе пишут одну запись одновременно
+  const tmp = join(dir, `.index.tsx.${process.pid}-${randomBytes(4).toString("hex")}.tmp`);
   await writeFile(tmp, text);
   await rename(tmp, file);
   return file;
