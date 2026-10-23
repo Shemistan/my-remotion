@@ -54,9 +54,12 @@ it("renaming the root still goes offline on the next tick (not_found is conclusi
   const w = watchStorage(() => checkStorage({ MS_DATA_DIR: root }, probe), INTERVAL);
   await sleep(5 * INTERVAL);
   expect(w.signal.aborted).toBe(false);
+  // подписка ДО rename: под нагрузкой тик сторожа успевает сработать, пока ждём rename, и
+  // событие abort (одноразовое) уходит раньше подписки — тест висел до таймаута
+  const aborted = new Promise<void>((r) => w.signal.addEventListener("abort", () => r(), { once: true }));
   const t = Date.now();
   await rename(root, `${root}.gone`);
-  const aborted = new Promise<void>((r) => w.signal.addEventListener("abort", () => r(), { once: true }));
+  await sleep(5 * INTERVAL); // нагрузка между rename и ожиданием: abort уже мог случиться
   await aborted;
   // окно: проверка в полёте может дойти до дедлайна (3 интервала) — она неокончательна,
   // следующий тик (≤ интервала) видит, что корня нет; запас 1 с — на нагрузку ./check
