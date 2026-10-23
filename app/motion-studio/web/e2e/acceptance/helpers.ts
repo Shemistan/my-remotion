@@ -5,6 +5,7 @@
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { connect } from "node:net";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type APIRequestContext, type Page, expect } from "@playwright/test";
@@ -40,6 +41,9 @@ export interface Generated {
   versionId: string | null;
   status: Job["status"];
   wallMs: number;
+  /** Продолжение прогона: результат взят из state.json, статус перечитан через API. */
+  reused?: true;
+  source?: { jobId: string; created_at: string; finished_at: string | null; state_status: Job["status"] };
 }
 export interface AccState {
   runDir: string;
@@ -66,6 +70,29 @@ export function saveState(patch: Partial<AccState>): AccState {
 
 /** Продолжение прогона (MS_ACC_REUSE=1): готовые шаги берутся из state.json, не повторяются. */
 export const REUSE = process.env.MS_ACC_REUSE === "1";
+
+/**
+ * Генерация прошлого прогона (MS_ACC_REUSE=1): статус и версия — из `GET /api/jobs/:id`, а не из
+ * state.json; строка помечена `reused: true` с исходной задачей и её временем.
+ */
+export async function reuseGenerated(request: APIRequestContext, prev: Generated): Promise<Generated> {
+  const j = await job(request, prev.jobId);
+  const out = (j.output_refs as { version_id?: string } | null)?.version_id;
+  const { sceneId, jobId, wallMs } = prev;
+  return {
+    sceneId, jobId, wallMs, status: j.status, versionId: j.status === "completed" ? (out ?? prev.versionId) : null, reused: true,
+    source: { jobId: j.id, created_at: j.created_at, finished_at: j.finished_at, state_status: prev.status },
+  };
+}
+
+/** Без пометок продолжения — то, что хранится в state.json. */
+export const plain = ({ sceneId, jobId, versionId, status, wallMs }: Generated): Generated => ({ sceneId, jobId, versionId, status, wallMs });
+
+const HOME = homedir();
+/** Evidence без личного: домашний каталог → `~`, поле `hostname` журналов pino вырезается. */
+export function redact(text: string): string {
+  return text.split(HOME).join("~").replace(/(\\*)"hostname\1":\1"[^"\\]*\1",?/g, "");
+}
 
 export const sleep =(ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -274,10 +301,11 @@ export async function renderFrames(versionId: string, frames: number[], tag: str
   return { out, logs: r.browserLogs, layout: parseLayout(r.browserLogs), settings };
 }
 
-/** Evidence версии или экспорта (`scripts/collect-evidence.mjs`), итог — JSON. */
-export function collect(id: string, dest: string): Record<string, unknown> {
+/** Evidence версии или экспорта (`scripts/collect-evidence.mjs`), итог — JSON; `maxFrames` — для побочных сцен. */
+export function collect(id: string, dest: string, opts: { maxFrames?: number } = {}): Record<string, unknown> {
   mkdirSync(dest, { recursive: true });
-  const out = execFileSync(process.execPath, [join(APP, "scripts/collect-evidence.mjs"), id, dest], {
+  const extra = opts.maxFrames ? ["--max-frames", String(opts.maxFrames)] : [];
+  const out = execFileSync(process.execPath, [join(APP, "scripts/collect-evidence.mjs"), id, dest, ...extra], {
     cwd: APP, env: { ...process.env, MS_DATA_DIR: ACC_ROOT }, encoding: "utf8", timeout: 300_000,
   });
   return JSON.parse(out.trim().split("\n").at(-1)!) as Record<string, unknown>;
@@ -305,13 +333,13 @@ export class Checks {
   }
   save(): void {
     mkdirSync(join(EVIDENCE, this.dir), { recursive: true });
-    writeFileSync(join(EVIDENCE, this.dir, "checks.json"), JSON.stringify(this.rows, null, 2) + "\n");
+    writeFileSync(join(EVIDENCE, this.dir, "checks.json"), redact(JSON.stringify(this.rows, null, 2) + "\n"));
   }
 }
 
 export function writeEvidence(dir: string, name: string, data: unknown): void {
   mkdirSync(join(EVIDENCE, dir), { recursive: true });
-  writeFileSync(join(EVIDENCE, dir, name), typeof data === "string" ? data : JSON.stringify(data, null, 2) + "\n");
+  writeFileSync(join(EVIDENCE, dir, name), redact(typeof data === "string" ? data : JSON.stringify(data, null, 2) + "\n"));
 }
 
 /** Проигрывание в плеере: `currentTime` растёт. */

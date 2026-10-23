@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import type { VersionManifest } from "@ms/contracts";
-import { Checks, EVIDENCE, collect, db, exportViaUi, killServer, plays, shot, startServer, state, writeEvidence } from "./helpers.js";
+import { Checks, EVIDENCE, collect, db, exportViaUi, getJson, killServer, plays, shot, startServer, state, writeEvidence } from "./helpers.js";
 import { versionDir } from "./helpers.js";
 
 const sha = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
@@ -39,6 +39,12 @@ export default function restart(): void {
     await startServer();
     const restartMs = Date.now() - t0;
     c.check("restart.up", "сервер стартовал после kill -9 (owner-lock снят ядром)", state().serverPid !== pidBefore, { pidBefore, pidAfter: state().serverPid, restartMs });
+    // снимок доказывает рестарт: /api/health отдаёт владельца хранилища — новый pid
+    const health = await getJson<{ owner: { pid: number; kind: string }; queued_at_start: unknown }>(page.request, "/api/health");
+    c.check("restart.owner", "/api/health: владелец хранилища — новый процесс сервера", health.owner.kind === "server" && health.owner.pid === state().serverPid && health.owner.pid !== pidBefore,
+      { pidBefore, owner: health.owner, queued_at_start: health.queued_at_start });
+    await page.goto("/api/health");
+    await shot(page, "restart", "00-health-after-restart");
 
     await page.goto(`/scenes/${sceneId}`);
     const history = page.getByRole("region", { name: "История версий" });

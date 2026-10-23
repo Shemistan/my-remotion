@@ -110,7 +110,11 @@ Playwright через настоящий UI (`web/playwright.acceptance.config.t
 отдельное `/Volumes/External SSD/MotionStudio-acceptance` (нет — создаёт `doctor --init`;
 `doctor` обязан пройти). Сервер запускается с `MS_TEST_HOOKS=1`: тестовые хуки экспорта для
 `09` §5 п. 8–9 включаются только этой переменной, маршрутов не добавляют, взвод — файл
-`arm.json` в `MS_TEST_HOOKS_DIR`. Порт 8790 должен быть свободен. Итоги проверок —
+`arm.json` в `MS_TEST_HOOKS_DIR` (схема проверяется, неизвестный хук — ошибка задачи). С
+`MS_TEST_HOOKS=1` сервер не стартует, если `MS_DATA_DIR` не оканчивается на `-acceptance`
+(исключение — временный каталог юнит-тестов). `MS_ACC_REUSE=1` берёт готовые генерации из
+`tmp/acceptance/state.json`, статус задачи перечитывает через API и помечает строки
+`reused: true`. Порт 8790 должен быть свободен. Итоги проверок —
 `docs/evidence/phase-1/<шаг>/checks.json`, сводка — `docs/evidence/phase-1/REPORT.md`; служебное
 (логи сервера, скачанные файлы, проверочные рендеры) — `tmp/acceptance/`.
 

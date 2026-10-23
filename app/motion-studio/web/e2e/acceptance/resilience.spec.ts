@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { type Page, expect, test } from "@playwright/test";
 import type { Job, JobEventDto } from "@ms/contracts";
 import {
-  ACC_ROOT, APP, BASE, Checks, EVIDENCE, alive, collect, db, exportViaUi, getJson, job, killServer, portBusy, scene, shot, sleep,
+  ACC_ROOT, APP, BASE, Checks, EVIDENCE, alive, collect, db, exportViaUi, getJson, job, killServer, portBusy, saveState, scene, shot, sleep,
   startServer, state, versionDir, waitHealthy, waitJob, writeEvidence,
 } from "./helpers.js";
 
@@ -204,7 +204,8 @@ export default function resilience(): void {
       c.check("p2.other", "другая сцена (Test 2) не затронута: sha256 файлов версий те же", changed.length === 0, { files: Object.keys(before).length, changed });
       const d = await scene(page.request, created.scene.id);
       const v = [...d.versions].sort((a, b) => b.number - a.number)[0];
-      if (v) collect(v.version_id, join(EVIDENCE, "resilience/kill-during-render/version"));
+      // побочная сцена: её кадры не предмет проверки — первый и последний
+      if (v) collect(v.version_id, join(EVIDENCE, "resilience/kill-during-render/version"), { maxFrames: 2 });
       writeEvidence("resilience/kill-during-render", "job.json", { job: j, events: es });
     });
 
@@ -312,13 +313,18 @@ export default function resilience(): void {
       await killServer("SIGKILL");
       const third = npmStart();
       const thirdDone = run(third);
-      await waitHealthy(120_000);
-      c.check("p7.free", "после kill -9 первого npm start поднимает сервер", true, "health ok");
+      const health = await waitHealthy(120_000);
+      // сервер третьего запуска (node под npm/tsx) — в state: упадёт тест — teardown его остановит
       const pid = Number(execFileSync("lsof", ["-nP", "-iTCP:8790", "-sTCP:LISTEN", "-t"], { encoding: "utf8" }).trim().split("\n")[0]);
+      saveState({ serverPid: pid });
+      const owner = (await (await fetch(`${BASE}/api/health`)).json()) as { owner: { pid: number; kind: string } };
+      c.check("p7.free", "после kill -9 первого npm start поднимает сервер, владелец хранилища — он", health.storage === "online" && owner.owner.kind === "server" && owner.owner.pid === pid && alive(pid),
+        { storage: health.storage, owner: owner.owner, listen_pid: pid });
       process.kill(pid, "SIGTERM");
       const r = await thirdDone;
       while (await portBusy()) await sleep(200);
-      c.check("p7.stop", "npm start останавливается по SIGTERM", true, r.out.split("\n").filter(Boolean).slice(-3));
+      c.check("p7.stop", "npm start останавливается по SIGTERM: код выхода 0, «остановлен» в журнале", r.code === 0 && /остановлен/.test(r.out) && !alive(pid),
+        { code: r.code, tail: r.out.split("\n").filter(Boolean).slice(-3) });
       await startServer();
     });
   });

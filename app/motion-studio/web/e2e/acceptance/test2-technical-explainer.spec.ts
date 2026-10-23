@@ -12,7 +12,7 @@ import { type Img, frameDelta, loadPng } from "../../../server/src/qa/image.js";
 import type { LayoutFrame, LayoutItem } from "../../../server/src/qa/layout.js";
 import { specChecks } from "../../../server/src/qa/spec-checks.js";
 import {
-  Checks, EVIDENCE, REPO, REUSE, TEST2, collect, generateViaUi, jobCost, plays, renderFrames, saveState, shot, state, version, versionDir, writeEvidence,
+  Checks, EVIDENCE, REPO, REUSE, TEST2, collect, generateViaUi, jobCost, plain, plays, renderFrames, reuseGenerated, saveState, shot, state, version, versionDir, writeEvidence,
 } from "./helpers.js";
 
 const readJson = <T>(p: string) => JSON.parse(readFileSync(p, "utf8")) as T;
@@ -39,13 +39,16 @@ function beatStart(spec: MotionSpec, timing: { beats?: { id: string; start_frame
   return spec.beats.find((b) => b.id === id) ?? timing?.beats?.find((b) => b.id === id);
 }
 
-/** Потоки как «откуда → куда, начало»: back на ребре a→b — это b→a. */
+/**
+ * Потоки как «откуда → куда, начало»: back на ребре a→b — это b→a. Бит потока не найден —
+ * `resolved: false`, начало неизвестно (NaN): такой поток валит t2.order, а не подставляет порядок.
+ */
 function directed(g: Graph, spec: MotionSpec, timing: Parameters<typeof beatStart>[1]) {
-  return (g.flows ?? []).map((f, i) => {
+  return (g.flows ?? []).map((f) => {
     const e = g.edges?.find((x) => x.id === f.edge);
     const b = beatStart(spec, timing, f.beat);
     const [from, to] = f.direction === "back" ? [e?.to, e?.from] : [e?.from, e?.to];
-    const start = (b?.start_frame ?? i) + (f.delay ?? 0);
+    const start = (b?.start_frame ?? Number.NaN) + (f.delay ?? 0);
     return { from, to, start, arrive: start + (f.travel ?? 0), end: b?.end_frame, travel: f.travel, beat: f.beat, resolved: !!b };
   });
 }
@@ -81,8 +84,8 @@ export default function test2(): void {
     await expect(page.getByRole("heading", { name: "Приёмка", level: 1 })).toBeVisible();
 
     const prev = state().test2;
-    const g = REUSE && prev?.versionId ? prev : await generateViaUi(page, TEST2);
-    saveState({ test2: g });
+    const g = REUSE && prev?.versionId ? await reuseGenerated(page.request, prev) : await generateViaUi(page, TEST2);
+    saveState({ test2: plain(g) });
     c.check("job", "задача playground.generate completed, версия есть", g.status === "completed" && g.versionId !== null, g);
     expect(g.versionId, `генерация Test 2: ${JSON.stringify(g)}`).not.toBeNull();
     const vid = g.versionId!;
@@ -121,10 +124,12 @@ export default function test2(): void {
     const ans = flows.filter((f) => isOrch(f.from) && isUser(f.to));
     const minS = (xs: typeof flows) => Math.min(...xs.map((f) => f.start));
     const maxS = (xs: typeof flows) => Math.max(...xs.map((f) => f.start));
-    const ordered = req.length > 0 && fan.length >= 3 && ret.length > 0 && ans.length > 0 &&
+    // каждый поток с известным битом; возвратов не меньше, чем инструментов
+    const unresolved = flows.filter((f) => !f.resolved);
+    const ordered = unresolved.length === 0 && req.length > 0 && fan.length >= 3 && ret.length >= r.tools.length && ans.length > 0 &&
       minS(req) < minS(fan) && fan.every((f) => ret.filter((x) => x.from === f.to).every((x) => x.start > f.start)) && minS(ans) > maxS(ret);
     c.check("t2.order", "потоки упорядочены: запрос → оркестратор → 3 инструмента → обратно → ответ", ordered,
-      { flows: flows.map((f) => `${f.from}→${f.to}@${f.start}–${f.arrive}${f.resolved ? "" : "(порядок)"}`) }, "A+H");
+      { flows: flows.map((f) => `${f.from}→${f.to}@${f.start}–${f.arrive}${f.resolved ? "" : ` (бит «${f.beat ?? "—"}» не найден)`}`), tools: r.tools.length, returns: ret.length }, "A+H");
     // причинность: вызов инструмента — после прихода запроса; возврат — после прихода вызова;
     // ответ — после прихода последнего возврата (импульсы не обгоняют причину)
     const firstArrive = (xs: typeof flows) => Math.min(...xs.map((f) => f.arrive));

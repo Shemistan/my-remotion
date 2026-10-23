@@ -1,6 +1,7 @@
 // Критерии готовности Motion Playground (`09` §1): п. 1–3 по версиям Test 1–3 (knowledge-refs,
 // ffprobe превью, static check + typecheck кода версии — только чтение), п. 4 и п. 5 — ссылки на
-// resilience и restart, п. 6 — sha256 исходников KB «после» = «до». Evidence —
+// resilience и restart, п. 6 — sha256 всех исходников KB «после» = «до» (полные снимки — в
+// каталоге прогона, в evidence — сводка и список расхождений). Evidence —
 // docs/evidence/phase-1/mvp-criteria/.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -49,11 +50,11 @@ export default function mvpCriteria(): void {
     let out: string;
     let code = 0;
     try {
-      out = execFileSync(process.execPath, [join(APP, "scripts/kb-hashes.mjs"), "after", join(EVIDENCE, "mvp-criteria")], { cwd: APP, encoding: "utf8" });
+      out = execFileSync(process.execPath, [join(APP, "scripts/kb-hashes.mjs"), "after", join(EVIDENCE, "mvp-criteria"), st.runDir], { cwd: APP, encoding: "utf8" });
     } catch (e) {
       code = 1;
       out = String((e as { stdout?: string }).stdout ?? e);
     }
-    c.check("p6", "исходники KB не изменены: sha256 выборки до = после", code === 0, out.trim());
+    c.check("p6", "исходники KB не изменены: sha256 всех файлов до = после", code === 0, out.trim());
   });
 }

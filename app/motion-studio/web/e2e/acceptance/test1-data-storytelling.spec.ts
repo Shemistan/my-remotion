@@ -12,7 +12,7 @@ import { countStarts, inBeat } from "../../../server/src/pipeline/qa-frames.js";
 import { loadPng, lumaStats } from "../../../server/src/qa/image.js";
 import type { LayoutFrame } from "../../../server/src/qa/layout.js";
 import {
-  Checks, EVIDENCE, type Generated, REUSE, TEST1, collect, exportViaUi, generateViaUi, jobCost, plays, renderFrames, saveState, shot, state, versionDir, writeEvidence,
+  Checks, EVIDENCE, type Generated, REUSE, TEST1, collect, exportViaUi, generateViaUi, jobCost, plain, plays, renderFrames, reuseGenerated, saveState, shot, state, versionDir, writeEvidence,
 } from "./helpers.js";
 
 const sha = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
@@ -32,7 +32,9 @@ export default function test1(): void {
     const prev = state().test1;
     let g: Generated;
     if (REUSE && prev?.versionId) {
-      g = prev; // продолжение прогона: генерация уже прошла через UI
+      // продолжение прогона: генерация уже прошла через UI; статус — заново из API, экспорт
+      // ниже делается заново (его id — в summary, не из state)
+      g = await reuseGenerated(page.request, prev);
     } else {
       // Dashboard → новый проект «Приёмка» → страница проекта
       await page.goto("/");
@@ -85,11 +87,13 @@ export default function test1(): void {
     const count = countStarts(spec)[0];
     const firstNumberFrame = count ? frames.find((f) => f >= count.start_frame && inBeat(count, f, spec.duration_frames)) : undefined;
     const first = firstNumberFrame === undefined ? [] : ocr(qa, firstNumberFrame);
-    c.check("t1.ocr-from", "OCR «10 000» на кадре начала счёта", first.some((s) => /10\s?000/.test(s) && !/100\s?000/.test(s)), { frame: firstNumberFrame, texts: first });
+    c.check("t1.ocr-from", "OCR «10 000» на кадре начала счёта", first.some((s) => /10\s?000/.test(s) && !/100\s?000/.test(s)), count ? { frame: firstNumberFrame, texts: first } : "бит счёта не найден (countStarts пуст)");
     c.check("t1.ocr-to", "OCR «1 000 000» на последнем QA-кадре", ocr(qa, last).some((s) => /1\s?000\s?000/.test(s)), { frame: last, texts: ocr(qa, last) });
 
     // то же по данным: реестр раскладки кадров бита счёта — первое и последнее видимое число
-    if (count) {
+    if (!count) {
+      c.check("t1.count-from", "реестр раскладки: первое видимое значение счётчика — 10 000", false, "бит счёта не найден (countStarts пуст)");
+    } else {
       const span = [...new Set([...Array.from({ length: 8 }, (_, i) => count.start_frame + i), ...Array.from({ length: 8 }, (_, i) => Math.min(count.end_frame, count.start_frame + 8 + i * 4))])];
       const cr = await renderFrames(vid, span, "t1-count");
       // герой-счётчик — число кеглем дисплея (≥ 6 % высоты кадра); подписи оси мельче
@@ -128,7 +132,7 @@ export default function test1(): void {
     const v = ex.probe.video;
     c.check("t1.export", "экспорт MP4: h264, aac, 1920×1080, 30/1", v.codec_name === "h264" && ex.probe.audio?.codec_name === "aac" && v.width === 1920 && v.height === 1080 && v.r_frame_rate === "30/1", ex.probe);
     await shot(page, "test1", "03-export");
-    saveState({ test1: { ...g, exportId: ex.exportId } });
+    saveState({ test1: { ...plain(g), exportId: ex.exportId } });
 
     collect(vid, join(EVIDENCE, "test1/v1"));
     collect(ex.exportId, join(EVIDENCE, "test1/export"));
