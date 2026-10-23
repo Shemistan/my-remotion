@@ -57,7 +57,7 @@ function steps(over: Partial<FakeSteps> = {}) {
         return {
           root: "/store",
           reaped: { alive, strays },
-          boot: { swept, relock, reconcile: { imported: 0, skipped: [], missing: { restored: [], broken: [] } } },
+          boot: { swept, relock, reconcile: { imported: 0, skipped: [], missing: { restored: [], broken: [] } }, exports: { relocked: [], quarantined: [], missing: [], errors: [] } },
           close: () => lock.release(),
           generate: () => s.generate(),
         };

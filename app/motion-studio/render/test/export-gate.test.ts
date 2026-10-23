@@ -26,9 +26,9 @@ it("prores4444 без альфы (yuv422p10le) → первая проблема
 });
 
 it("prores4444 с альфой → pass; звук не обязателен", () => {
-  expect(exportGate({ ...ok, codec: "prores", pixFmt: "yuva444p10le", audioCodec: undefined }, prores, s)).toEqual([]);
+  expect(exportGate({ ...ok, codec: "prores", profile: "4444", pixFmt: "yuva444p10le", audioCodec: undefined }, prores, s)).toEqual([]);
   // ffprobe ffmpeg 7 читает ProRes 4444 как 12-битный yuva444p12le — альфа та же
-  expect(exportGate({ ...ok, codec: "prores", pixFmt: "yuva444p12le", audioCodec: undefined }, prores, s)).toEqual([]);
+  expect(exportGate({ ...ok, codec: "prores", profile: "4444", pixFmt: "yuva444p12le", audioCodec: undefined }, prores, s)).toEqual([]);
   expect(exportGate({ ...ok, codec: "prores", pixFmt: "yuv444p12le" }, prores, s)[0]).toMatch(/альфа/);
 });
 
@@ -54,6 +54,49 @@ it("без fps в запросе — fps версии (в т. ч. дробный
   expect(exportFps(ntsc, mp4)).toEqual({ num: 30000, den: 1001 });
   expect(exportDurationFrames(ntsc, mp4)).toBe(180);
   expect(exportDurationFrames(ntsc, { ...mp4, fps: 30 })).toBe(Math.round((180 * 30 * 1001) / 30000));
+});
+
+it("F1: длительность — из видеопотока, не format.duration (AAC 48 кГц добивается до целого кадра)", () => {
+  // 210 кадров при 30 fps → 60 fps: видео ровно 7,000 с, AAC — 7,019 с (до целого кадра AAC)
+  const json = {
+    streams: [
+      { codec_type: "video", codec_name: "h264", width: 1920, height: 1080, r_frame_rate: "60/1", duration: "7.000000", nb_frames: "420", pix_fmt: "yuv420p" },
+      { codec_type: "audio", codec_name: "aac", duration: "7.019000" },
+    ],
+    format: { duration: "7.019000" },
+  };
+  const probe = parseProbe(JSON.stringify(json));
+  expect(probe.durationMs).toBe(7000);
+  expect(probe.audioDurationMs).toBe(7019);
+  const s7 = { ...defaultSettings(), duration_frames: 210 };
+  expect(exportGate(probe, { ...mp4, fps: 60 }, s7)).toEqual([]);
+  // 50 fps: допуск 20 мс — видео ровное, gate по видео
+  expect(exportGate({ ...probe, fps: { num: 50, den: 1 } }, { ...mp4, fps: 50 }, s7)).toEqual([]);
+});
+
+it("F1: без duration у видеопотока — nb_frames / fps, затем format.duration", () => {
+  const v = { codec_type: "video", codec_name: "h264", width: 640, height: 360, r_frame_rate: "60/1" };
+  expect(parseProbe(JSON.stringify({ streams: [{ ...v, nb_frames: "420" }], format: { duration: "7.019" } })).durationMs).toBe(7000);
+  expect(parseProbe(JSON.stringify({ streams: [v], format: { duration: "7.019" } })).durationMs).toBe(7019);
+});
+
+it("F1: звук mp4 не короче видео на кадр и длиннее не больше чем на кадр AAC", () => {
+  const r60: ExportRequest = { ...mp4, fps: 60 };
+  const s7 = { ...defaultSettings(), duration_frames: 210 };
+  const v = { ...ok, durationMs: 7000, fps: { num: 60, den: 1 } };
+  expect(exportGate({ ...v, audioDurationMs: 7019 }, r60, s7)).toEqual([]);
+  expect(exportGate({ ...v, audioDurationMs: 7000 }, r60, s7)).toEqual([]);
+  expect(exportGate({ ...v, audioDurationMs: 7060 }, r60, s7).join("; ")).toMatch(/audio duration 7060/);
+  expect(exportGate({ ...v, audioDurationMs: 6900 }, r60, s7).join("; ")).toMatch(/audio duration 6900/);
+});
+
+it("F5: ProRes — профиль 4444 обязателен", () => {
+  const p = { ...ok, codec: "prores", pixFmt: "yuva444p12le", audioCodec: undefined };
+  expect(exportGate({ ...p, profile: "4444" }, prores, s)).toEqual([]);
+  expect(exportGate({ ...p, profile: "4444XQ" }, prores, s).join("; ")).toMatch(/profile 4444XQ, ожидался 4444/);
+  expect(exportGate({ ...p, profile: undefined }, prores, s).join("; ")).toMatch(/profile/);
+  const json = { streams: [{ codec_type: "video", codec_name: "prores", profile: "4444", width: 64, height: 64, r_frame_rate: "30/1", duration: "1.0" }] };
+  expect(parseProbe(JSON.stringify(json)).profile).toBe("4444");
 });
 
 it("parseProbe заполняет audioCodec и pixFmt (M4)", () => {

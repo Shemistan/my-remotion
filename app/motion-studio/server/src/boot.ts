@@ -1,5 +1,5 @@
 // Старт ядра сервера и CLI (ADR 0007 п. 5): owner_lock → storage → db → registry → reap →
-// sweep_drafts → relock_versions → reconcile_versions → recovery → runner. Новые задачи
+// sweep_drafts → relock_versions → reconcile_versions → reconcile_exports → recovery → runner. Новые задачи
 // захватываются только после разбора реестра процессов и восстановления.
 import { isAbsolute, join } from "node:path";
 import {
@@ -31,11 +31,12 @@ import { StorageSupervisor } from "./jobs/storage-mode.js";
 import type { Handlers } from "./jobs/types.js";
 import { KnowledgeAdapter } from "./knowledge/adapter.js";
 import { type ImportReport, type MissingReport, reconcileVersions } from "./scenes/import-slice.js";
+import { type ExportsReconcile, reconcileExports } from "./scenes/reconcile-exports.js";
 import { SceneRepo } from "./scenes/repo.js";
 import { relockVersions, sweepAbandonedDrafts } from "./scenes/store.js";
 
 export const BOOT_STEPS = [
-  "owner_lock", "storage", "db", "registry", "reap", "sweep_drafts", "relock_versions", "reconcile_versions", "recovery", "runner",
+  "owner_lock", "storage", "db", "registry", "reap", "sweep_drafts", "relock_versions", "reconcile_versions", "reconcile_exports", "recovery", "runner",
 ] as const;
 export type BootStep = (typeof BOOT_STEPS)[number];
 
@@ -77,6 +78,8 @@ export interface BootReport {
   relock: { relocked: string[]; broken: { dir: string; error: string }[] };
   /** `missing.broken` — версии с `broken_reason`: каталог пропал, восстановить нельзя. */
   reconcile: ImportReport & { missing: MissingReport };
+  /** Каталоги `exports/` против таблицы: сироты в карантин, незакрытые корни закрыты (F6). */
+  exports: ExportsReconcile;
 }
 
 export interface Core {
@@ -165,6 +168,8 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     // каталоги версий без строки в БД — до захвата задач: nextNumber считает только строки (H9)
     const reconcile = await reconcileVersions(repo, root);
     log("reconcile_versions");
+    const exportsReport = await reconcileExports(db, root);
+    log("reconcile_exports");
 
     const events = new EventBus(() => current.db);
     // разбор шага reap переиспользуется: неубиваемый процесс не ждём второй раз
@@ -235,7 +240,7 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
       events,
       recovery,
       reaped: { alive, strays },
-      boot: { swept, relock, reconcile },
+      boot: { swept, relock, reconcile, exports: exportsReport },
       async close() {
         if (closed) return;
         closed = true;

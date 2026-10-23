@@ -145,10 +145,12 @@ function pidAlive(pid: number): boolean {
 }
 
 /**
- * Недоделки убитых worker: `bundles/<key>.tmp-<pid>` и `.preview-<pid>.tmp.mp4` версии.
- * Удаляем только те, чей pid мёртв, — параллельный рендер того же содержимого не трогаем.
+ * Недоделки убитых worker: `bundles/<key>.tmp-<pid>` и `.preview-<pid>.tmp.mp4` /
+ * `.export-<pid>.tmp.<ext>` в каталоге вывода (`outDir`: версия у рендера, draft у экспорта —
+ * worker пишет временный файл рядом с итоговым). Удаляем только те, чей pid мёртв, —
+ * параллельный рендер того же содержимого не трогаем.
  */
-async function removeLeftovers(versionDir: string, bundlesDir: string): Promise<void> {
+async function removeLeftovers(outDir: string, bundlesDir: string): Promise<void> {
   const dead = (name: string, re: RegExp) => {
     const m = re.exec(name);
     return m !== null && !pidAlive(Number(m[1]));
@@ -156,8 +158,8 @@ async function removeLeftovers(versionDir: string, bundlesDir: string): Promise<
   for (const n of await readdir(bundlesDir)) {
     if (dead(n, /^[0-9a-f]{64}\.tmp-(\d+)$/)) await rm(join(bundlesDir, n), { recursive: true, force: true });
   }
-  for (const n of await readdir(versionDir)) {
-    if (dead(n, /^\.(?:preview|export)-(\d+)\.tmp\.(?:mp4|mov)$/)) await rm(join(versionDir, n), { force: true });
+  for (const n of await readdir(outDir)) {
+    if (dead(n, /^\.(?:preview|export)-(\d+)\.tmp\.(?:mp4|mov)$/)) await rm(join(outDir, n), { force: true });
   }
 }
 

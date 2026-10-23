@@ -6,10 +6,10 @@
 import { existsSync, renameSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
-  type ExportManifest, ExportManifestSchema, ExportRequestSchema, type RenderEnv, type Settings, failureToJobErrorCode,
+  type ExportManifest, ExportManifestSchema, type ExportRequest, ExportRequestSchema, type RenderEnv, type Settings, failureToJobErrorCode,
 } from "@ms/contracts";
 import { type StorageStatus, safeMkdir } from "@ms/core";
-import { EXPORT_TIMEOUT_MS, type alphaAtCorner, exportDurationFrames, exportFps, type exportVersion } from "@ms/render";
+import { EXPORT_TIMEOUT_MS, FfmpegError, type TempoCheck, type alphaAtCorner, exportDurationFrames, exportFps, type exportVersion } from "@ms/render";
 import { z } from "zod";
 import * as exportsRepo from "../db/repos/exports.js";
 import * as jobs from "../db/repos/jobs.js";
@@ -29,9 +29,13 @@ import { errText, isStorageError } from "./steps.js";
 
 export const SceneExportInputSchema = z.object({ versionId: z.string().min(1), request: ExportRequestSchema }).passthrough();
 
-/** Кадр проверки альфы ProRes: 1 с при 30 fps (план, `09` §1); короче сцена — её последний кадр. */
-const ALPHA_FRAME = 30;
+/** Момент проверки альфы ProRes: 1 с (план, `09` §1) в кадрах fps экспорта; короче сцена — её последний кадр. */
+const ALPHA_AT_S = 1;
 const MANIFEST = "export-manifest.json";
+
+/** MP4 версии с прозрачным фоном: H.264 альфу не хранит (F7). */
+export const TRANSPARENT_MP4_WARNING =
+  "у версии прозрачный фон, а H.264 альфу не хранит: прозрачные области в MP4 залиты; для монтажа поверх видео — ProRes 4444";
 
 export const TRANSPARENT_UNSUPPORTED =
   "transparent_unsupported: версия сделана с непрозрачным фоном; включите прозрачный экспорт до генерации";
@@ -118,6 +122,10 @@ export function sceneExport(d: SceneExportDeps): JobHandler {
       } finally {
         release();
       }
+      if (!r.ok && r.error.stage === "unsupported") {
+        await quarantine(`export: ${r.error.message}`);
+        return fail("export", r.error.message);
+      }
       if (!r.ok) {
         const alive = r.error.stage === "orphaned";
         await quarantine(`${alive ? "stale_process" : "export"}: ${r.error.stage}: ${r.error.message}`);
@@ -129,14 +137,33 @@ export function sceneExport(d: SceneExportDeps): JobHandler {
         await quarantine(`export: gate: ${r.gate.join("; ")}`);
         return fail("export", `экспорт не прошёл ffprobe: ${r.gate.join("; ")}`);
       }
+      if (r.tempo && r.tempo.mismatched.length > 0) {
+        const msg = tempoMismatch(r.tempo, settings, request);
+        await quarantine(`export: ${msg}`);
+        return fail("export", msg);
+      }
       if (request.format === "prores4444") {
-        const frame = Math.min(ALPHA_FRAME, exportDurationFrames(settings, request) - 1);
-        const a = await deps.alpha(outPath, frame);
+        const fps = exportFps(settings, request);
+        const frame = Math.min(Math.round((ALPHA_AT_S * fps.num) / fps.den), exportDurationFrames(settings, request) - 1);
+        let a: number;
+        try {
+          a = await deps.alpha(outPath, frame, undefined, { run: ctx.run, signal: ctx.signal });
+        } catch (e) {
+          // сбой проверки — этап export, не publish (F4); живой ffmpeg — stale_process
+          const alive = e instanceof FfmpegError && e.kind === "orphaned";
+          await quarantine(`${alive ? "stale_process" : "export"}: проверка альфы: ${errText(e)}`);
+          if (alive) return fail("orphaned", `проверка альфы: ${errText(e)}`);
+          if (jobs.get(db, fence.jobId)?.cancel_requested) return fail("cancelled", "экспорт отменён");
+          if (isStorageError(e)) return fail("storage", errText(e));
+          return fail("export", `проверка альфы не удалась: ${errText(e)}`);
+        }
         if (a !== 0) {
           await quarantine(`export: альфа угла кадра ${frame} = ${a}`);
           return fail("export", `экспорт без прозрачности: альфа угла кадра ${frame} = ${a}, ожидался 0`);
         }
       }
+      const warnings = [...r.warnings];
+      if (request.format === "mp4" && settings.transparent_export === true) warnings.push(TRANSPARENT_MP4_WARNING);
 
       ctx.progress(0.9, "publish");
       const exportId = newId("exp");
@@ -153,6 +180,8 @@ export function sceneExport(d: SceneExportDeps): JobHandler {
         sha256,
         render_env: await (d.renderEnv ?? currentRenderEnv)(),
         created_at: new Date().toISOString(),
+        ...(r.tempo ? { tempo_check: r.tempo } : {}),
+        ...(warnings.length ? { warnings } : {}),
       });
       await fsyncWrite(join(draftDir, MANIFEST), JSON.stringify(manifest, null, 2) + "\n");
       const rel = exportRel(scene.project_id, exportId);
@@ -162,7 +191,6 @@ export function sceneExport(d: SceneExportDeps): JobHandler {
       if (!again.ok) throw Object.assign(new Error(`storage_unavailable: ${again.reason}: ${again.detail}`), { storage: true });
 
       const exported = publish(ctx, fence, { draftDir, dest, row: { version_id: row.id, format: request.format, path: `${rel}/scene.${ext}`, sha256, id: exportId } });
-      const warnings: string[] = [];
       try {
         await sealVersion(dest);
       } catch (e) {
@@ -184,6 +212,23 @@ export function sceneExport(d: SceneExportDeps): JobHandler {
       return fail("publish", msg);
     }
   };
+}
+
+/**
+ * Сообщение отказа при расхождении темпа (ruling 2026-10-23): сцена зашила кадры в код, и в
+ * новом fps её зашитые фазы идут быстрее — тихо ускоренный ролик не публикуется.
+ */
+function tempoMismatch(tempo: TempoCheck, settings: Settings, request: Pick<ExportRequest, "fps">): string {
+  const f = (x: { num: number; den: number }) => (x.den === 1 ? `${x.num}` : `${x.num}/${x.den}`);
+  const bad = tempo.samples
+    .filter((s) => tempo.mismatched.includes(s.frame))
+    .map((s) => `кадр ${s.frame} → ${s.exportFrame}: ${s.maxTile.toFixed(2)}`)
+    .join(", ");
+  return (
+    `fps_tempo_mismatch: сцена зашила кадры в код — в ${f(exportFps(settings, request))} fps она идёт не в том темпе, что в исходных ${f(settings.fps)}; ` +
+    `экспортируйте в исходном fps (${f(settings.fps)}) или перегенерируйте сцену. ` +
+    `Расхождение со стоп-кадрами версии выше ${tempo.threshold}: ${bad}`
+  );
 }
 
 /**

@@ -5,7 +5,12 @@ import { RenderEnvSchema, Sha256Schema } from "./manifest.js";
 
 /** Результат ffprobe видеофайла (`@ms/render` реэкспортирует тип). */
 export const ProbeResultSchema = z.object({
+  /** Длительность видеопотока (не `format.duration`: тот — максимум по потокам, с хвостом AAC). */
   durationMs: z.number().nonnegative(),
+  /** Длительность первой звуковой дорожки (AAC добивается до целого кадра в 1024 сэмпла). */
+  audioDurationMs: z.number().nonnegative().optional(),
+  /** Профиль кодека видео (`4444` у ProRes 4444, `High` у H.264). */
+  profile: z.string().min(1).optional(),
   width: z.number().int().positive(),
   height: z.number().int().positive(),
   fps: FpsSchema,
@@ -26,6 +31,20 @@ export const ExportRequestSchema = z.object({
 }).strict();
 export type ExportRequest = z.infer<typeof ExportRequestSchema>;
 
+/** Сверка темпа экспорта со сменой fps: кадр экспорта round(n·k) против стоп-кадра версии n. */
+export const TempoCheckSchema = z.object({
+  factor: z.number().positive(),
+  threshold: z.number().positive(),
+  samples: z.array(z.object({
+    frame: z.number().int().nonnegative(),
+    exportFrame: z.number().int().nonnegative(),
+    maxTile: z.number().nonnegative(),
+    mean: z.number().nonnegative(),
+  }).strict()),
+  mismatched: z.array(z.number().int().nonnegative()),
+}).strict();
+export type TempoCheckRecord = z.infer<typeof TempoCheckSchema>;
+
 /** `export-manifest.json` рядом с файлом экспорта. */
 export const ExportManifestSchema = z.object({
   schema_version: z.literal(1),
@@ -39,5 +58,9 @@ export const ExportManifestSchema = z.object({
   sha256: Sha256Schema,
   render_env: RenderEnvSchema,
   created_at: z.string().datetime(),
+  /** Сверка темпа со стоп-кадрами версии (только при fps экспорта ≠ fps версии). */
+  tempo_check: TempoCheckSchema.optional(),
+  /** Предупреждения экспорта: время вне договора кадров, MP4 прозрачной версии и т. п. */
+  warnings: z.array(z.string()).optional(),
 }).strict();
 export type ExportManifest = z.infer<typeof ExportManifestSchema>;

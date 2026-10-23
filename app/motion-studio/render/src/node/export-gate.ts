@@ -7,6 +7,10 @@ import { h264Size } from "./ffprobe.js";
  * сообщает внутреннюю 12-битную форму `yuva444p12le` того же файла. Оба — альфа есть.
  */
 const PRORES_ALPHA = ["yuva444p10le", "yuva444p12le"];
+/** Профиль ProRes по ffprobe: `4444` (не `4444XQ`, не `HQ`). */
+const PRORES_PROFILE = "4444";
+/** Кадр AAC (1024 сэмпла) при 44,1 кГц — наибольший из типичных: столько звук может перекрыть видео. */
+const AAC_FRAME_MS = (1024 / 44_100) * 1000;
 
 /** fps экспорта: из запроса или версии. */
 export function exportFps(settings: Settings, request: Pick<ExportRequest, "fps">): Fps {
@@ -40,6 +44,8 @@ export function exportGate(probe: ProbeResult, request: ExportRequest, settings:
   } else {
     if (probe.codec !== "prores") problems.push(`codec ${probe.codec}, ожидался prores`);
     if (!PRORES_ALPHA.includes(probe.pixFmt ?? "")) problems.push(`pix_fmt ${probe.pixFmt ?? "неизвестен"}, ожидался yuva444p10le (альфа)`);
+    // 4444 XQ и 422 HQ отличаются только профилем (F5)
+    if (probe.profile !== PRORES_PROFILE) problems.push(`profile ${probe.profile ?? "неизвестен"}, ожидался ${PRORES_PROFILE}`);
   }
 
   const size = (n: number) => (request.format === "mp4" ? h264Size(n, request.scale) : Math.round(n * request.scale));
@@ -56,6 +62,11 @@ export function exportGate(probe: ProbeResult, request: ExportRequest, settings:
   // допуск 1 мкс на округление длительности в выводе ffprobe
   if (Math.abs(probe.durationMs - expectedMs) > frameMs + 0.001) {
     problems.push(`duration ${probe.durationMs} мс, ожидалось ${expectedMs.toFixed(3)} ± ${frameMs.toFixed(3)} мс`);
+  }
+  // звук mp4: не короче видео больше чем на кадр и длиннее не больше чем на кадр AAC
+  const a = probe.audioDurationMs;
+  if (request.format === "mp4" && a !== undefined && (a < probe.durationMs - frameMs - 0.001 || a > probe.durationMs + AAC_FRAME_MS + 0.001)) {
+    problems.push(`audio duration ${a} мс при видео ${probe.durationMs} мс: допустимо от −${frameMs.toFixed(3)} до +${AAC_FRAME_MS.toFixed(3)} мс`);
   }
   return problems;
 }

@@ -1,10 +1,10 @@
 // Обработчик scene.export (Task 19, P1-14): рендер экспорта в draft попытки → gate → под
 // fencing rename в exports/<export-id>/ + export-manifest.json, read-only, строка exports.
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type ExportRequest, ExportManifestSchema, type Settings, defaultSettings } from "@ms/contracts";
-import type { ExportResult, ExportVersionRequest, exportVersion } from "@ms/render";
+import { type ExportResult, type ExportVersionRequest, FfmpegError, type alphaAtCorner, type exportVersion } from "@ms/render";
 import * as exportsRepo from "../../src/db/repos/exports.js";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as versions from "../../src/db/repos/versions.js";
@@ -14,6 +14,7 @@ import { Semaphore } from "../../src/jobs/semaphore.js";
 import type { JobContext } from "../../src/jobs/types.js";
 import { playgroundGenerate } from "../../src/pipeline/playground-generate.js";
 import { sceneExport } from "../../src/pipeline/scene-export.js";
+import { reconcileExports } from "../../src/scenes/reconcile-exports.js";
 import { sha256File } from "../../src/scenes/hash.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
 import { QUARANTINE } from "../../src/scenes/store.js";
@@ -66,9 +67,11 @@ function fakeExport(over: { result?: (req: ExportVersionRequest) => ExportResult
     return {
       ok: true,
       gate: [],
+      tempo: null,
+      warnings: [],
       probe: {
         durationMs: (s.duration_frames * 1000 * s.fps.den) / s.fps.num, width: s.width, height: s.height, fps: s.fps,
-        codec: prores ? "prores" : "h264", ...(prores ? { pixFmt: "yuva444p10le" } : { audioCodec: "aac" }),
+        codec: prores ? "prores" : "h264", ...(prores ? { pixFmt: "yuva444p10le", profile: "4444" } : { audioCodec: "aac" }),
       },
     };
   };
@@ -91,11 +94,13 @@ function ctxOf(jobId: string, attempt: number, signal = new AbortController().si
   };
 }
 
-function handler(exp: ReturnType<typeof fakeExport>, alpha: (p: string, f: number) => Promise<number> = async () => 0) {
+type Alpha = typeof alphaAtCorner;
+
+function handler(exp: ReturnType<typeof fakeExport>, alpha: Alpha = async () => 0) {
   return sceneExport({ repo, deps: () => ({ storage: () => okStatus(env.s.root), export: exp.fn, alpha }) });
 }
 
-async function runExport(versionId: string, request: ExportRequest, exp = fakeExport(), alpha?: (p: string, f: number) => Promise<number>) {
+async function runExport(versionId: string, request: ExportRequest, exp = fakeExport(), alpha?: Alpha) {
   const job = enqueueExport(versionId, request);
   const c = claimNext(env.db, "srv", Date.now(), { running: 0, maxRunning: 2 })!;
   expect(c.job.id).toBe(job.id);
@@ -137,7 +142,7 @@ describe("sceneExport", () => {
     const { r } = await runExport(v.id, { ...MP4, fps: 60 }, fakeExport({
       result: (req) => {
         writeFileSync(req.outPath, "v");
-        return { ok: true, gate: [], probe: { durationMs: 6000, width: 1920, height: 1080, fps: { num: 60, den: 1 }, codec: "h264", audioCodec: "aac" } };
+        return { ok: true, gate: [], tempo: null, warnings: [], probe: { durationMs: 6000, width: 1920, height: 1080, fps: { num: 60, den: 1 }, codec: "h264", audioCodec: "aac" } };
       },
     }));
     expect(r.status, JSON.stringify(r)).toBe("completed");
@@ -178,7 +183,7 @@ describe("sceneExport", () => {
 
   it("gate не пуст → failed, stage export, сообщение с замечаниями, экспорта нет", async () => {
     const v = await readyVersion();
-    const { r } = await runExport(v.id, MP4, fakeExport({ result: (req) => (writeFileSync(req.outPath, "v"), { ok: true, gate: ["audio нет дорожки, ожидалась дорожка aac"], probe: { durationMs: 6000, width: 1920, height: 1080, fps: { num: 30, den: 1 }, codec: "h264" } }) }));
+    const { r } = await runExport(v.id, MP4, fakeExport({ result: (req) => (writeFileSync(req.outPath, "v"), { ok: true, gate: ["audio нет дорожки, ожидалась дорожка aac"], tempo: null, warnings: [], probe: { durationMs: 6000, width: 1920, height: 1080, fps: { num: 30, den: 1 }, codec: "h264" } }) }));
     expect(r).toMatchObject({ status: "failed", error: { code: "pipeline", stage: "export", message: expect.stringMatching(/audio/) } });
     expect(listExports()).toEqual([]);
   });
@@ -253,4 +258,151 @@ describe("sceneExport", () => {
     expect(listExports()).toHaveLength(2);
     expect(exportsRepo.listByVersion(env.db, v.id)).toHaveLength(2);
   });
+
+  it("F2: fps 60 и расхождение темпа со стоп-кадрами → failed, fps_tempo_mismatch, draft в карантине, экспорта нет", async () => {
+    const v = await readyVersion();
+    const { job, r } = await runExport(v.id, { ...MP4, fps: 60 }, fakeExport({
+      result: (req) => {
+        writeFileSync(req.outPath, "v");
+        return {
+          ok: true, gate: [], warnings: [],
+          tempo: { factor: 2, threshold: 0.06, samples: [{ frame: 13, exportFrame: 26, maxTile: 0.31, mean: 0.02 }, { frame: 43, exportFrame: 86, maxTile: 0.01, mean: 0.005 }], mismatched: [13] },
+          probe: { durationMs: 6000, width: 1920, height: 1080, fps: { num: 60, den: 1 }, codec: "h264", audioCodec: "aac" },
+        };
+      },
+    }));
+    expect(r).toMatchObject({ status: "failed", error: { code: "pipeline", stage: "export" } });
+    const msg = (r as { error: { message: string } }).error.message;
+    expect(msg).toMatch(/^fps_tempo_mismatch: сцена зашила кадры в код/);
+    expect(msg).toMatch(/экспортируйте в исходном fps \(30\) или перегенерируйте/);
+    expect(msg).toMatch(/кадр 13 → 26: 0\.31/);
+    expect(listExports()).toEqual([]);
+    expect(readFileSync(join(env.s.root, "workspace/drafts", `${job.id}-a1`, QUARANTINE), "utf8")).toMatch(/fps_tempo_mismatch/);
+  });
+
+  it("F2: отказ fps_change_unsupported от exportVersion → failed export с тем же сообщением", async () => {
+    const v = await readyVersion();
+    const { r } = await runExport(v.id, { ...MP4, fps: 60 }, fakeExport({ result: () => ({ ok: false, error: { stage: "unsupported", message: "fps_change_unsupported: props версии вне договора ScenePropsBase" } }) }));
+    expect(r).toMatchObject({ status: "failed", error: { code: "pipeline", stage: "export", message: expect.stringMatching(/^fps_change_unsupported: props/) } });
+    expect(listExports()).toEqual([]);
+  });
+
+  it("F2: темп совпал → сверка и предупреждения в манифесте и outputRefs", async () => {
+    const v = await readyVersion();
+    const tempo = { factor: 2, threshold: 0.06, samples: [{ frame: 13, exportFrame: 26, maxTile: 0.01, mean: 0.005 }], mismatched: [] };
+    const { r } = await runExport(v.id, { ...MP4, fps: 60 }, fakeExport({
+      result: (req) => {
+        writeFileSync(req.outPath, "v");
+        return { ok: true, gate: [], tempo, warnings: ["время под именами вне договора кадров не масштабировано под 60 fps: content.intro.start"], probe: { durationMs: 6000, width: 1920, height: 1080, fps: { num: 60, den: 1 }, codec: "h264", audioCodec: "aac" } };
+      },
+    }));
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    const refs = (r as { outputRefs: { export_id: string; warnings?: string[] } }).outputRefs;
+    expect(refs.warnings).toEqual([expect.stringMatching(/content\.intro\.start/)]);
+    const m = ExportManifestSchema.parse(JSON.parse(readFileSync(join(exportsDir(), refs.export_id, "export-manifest.json"), "utf8")));
+    expect(m.tempo_check).toEqual(tempo);
+    expect(m.warnings).toEqual(refs.warnings);
+  });
+
+  it("F7: mp4 версии с прозрачным фоном → предупреждение в манифесте (H.264 без альфы)", async () => {
+    const v = await readyVersion({ ...defaultSettings(), transparent_export: true });
+    const { r } = await runExport(v.id, MP4);
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    const refs = (r as { outputRefs: { export_id: string; warnings?: string[] } }).outputRefs;
+    expect(refs.warnings?.join("\n")).toMatch(/прозрачн.*ProRes 4444/s);
+    const m = ExportManifestSchema.parse(JSON.parse(readFileSync(join(exportsDir(), refs.export_id, "export-manifest.json"), "utf8")));
+    expect(m.warnings).toEqual(refs.warnings);
+  });
+
+  it("F4: альфа — через реестр и сигнал попытки; кадр — 1 с в fps экспорта", async () => {
+    const v = await readyVersion({ ...defaultSettings(), transparent_export: true });
+    const seen: { frame: number; opts?: { run?: unknown; signal?: AbortSignal } }[] = [];
+    const exp = fakeExport({
+      result: (req) => {
+        writeFileSync(req.outPath, "v");
+        return { ok: true, gate: [], tempo: null, warnings: [], probe: { durationMs: 6000, width: 1920, height: 1080, fps: { num: 60, den: 1 }, codec: "prores", profile: "4444", pixFmt: "yuva444p12le" } };
+      },
+    });
+    const job = enqueueExport(v.id, { ...PRORES, fps: 60 });
+    const c = claimNext(env.db, "srv", Date.now(), { running: 0, maxRunning: 2 })!;
+    const ctx = ctxOf(job.id, c.attempt);
+    const r = await handler(exp, async (_p, frame, _at, opts) => (seen.push({ frame, opts }), 0))(ctx);
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    expect(seen[0]!.frame).toBe(60);
+    expect(seen[0]!.opts?.run).toBe(ctx.run);
+    expect(seen[0]!.opts?.signal).toBe(ctx.signal);
+  });
+
+  it("F4: сбой проверки альфы → failed stage export (не publish); живой ffmpeg → blocked(stale_process)", async () => {
+    const v = await readyVersion({ ...defaultSettings(), transparent_export: true });
+    const a = await runExport(v.id, PRORES, fakeExport(), async () => {
+      throw new Error("alphaAtCorner: ffmpeg не найден в PATH");
+    });
+    expect(a.r).toMatchObject({ status: "failed", error: { code: "pipeline", stage: "export", message: expect.stringMatching(/проверка альфы.*ffmpeg не найден/) } });
+    expect(existsSync(join(env.s.root, "workspace/drafts", `${a.job.id}-a1`, QUARANTINE))).toBe(true);
+    const b = await runExport(v.id, PRORES, fakeExport(), async () => {
+      throw new FfmpegError("orphaned", "группа ffmpeg не исчезла");
+    });
+    expect(b.r).toMatchObject({ status: "blocked", error: { code: "stale_process", stage: "orphaned" } });
+    expect(listExports()).toEqual([]);
+  });
+
+  it("экспорт ждёт семафор рендеров: пока он занят, exportVersion не вызывается", async () => {
+    const v = await readyVersion();
+    const exp = fakeExport();
+    const job = enqueueExport(v.id, MP4);
+    const c = claimNext(env.db, "srv", Date.now(), { running: 0, maxRunning: 2 })!;
+    const ctx = ctxOf(job.id, c.attempt);
+    const held = await ctx.renders.acquire(new AbortController().signal);
+    const pending = handler(exp)(ctx);
+    await new Promise((res) => setTimeout(res, 100));
+    expect(exp.calls).toHaveLength(0);
+    held();
+    const r = await pending;
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    expect(exp.calls).toHaveLength(1);
+    // семафор отпущен после экспорта
+    const again = await ctx.renders.acquire(new AbortController().signal);
+    again();
+  });
 });
+
+describe("reconcileExports (F6: шаг загрузки)", () => {
+  it("каталог exports/ без строки в БД (сбой между rename и COMMIT) → карантин в drafts/, не удаление", async () => {
+    const v = await readyVersion();
+    const ok = await runExport(v.id, MP4);
+    const keep = (ok.r as { outputRefs: { export_id: string } }).outputRefs.export_id;
+    const orphan = join(exportsDir(), "exp_ORPHAN");
+    mkdirSync(orphan);
+    writeFileSync(join(orphan, "scene.mp4"), "video");
+    chmodSync(join(orphan, "scene.mp4"), 0o444);
+    const rep = await reconcileExports(env.db, env.s.root);
+    expect(rep.quarantined).toEqual([{ dir: orphan, to: join(env.s.root, "workspace/drafts/orphan-export-exp_ORPHAN") }]);
+    expect(listExports()).toEqual([keep]);
+    const moved = join(env.s.root, "workspace/drafts/orphan-export-exp_ORPHAN");
+    expect(readFileSync(join(moved, "scene.mp4"), "utf8")).toBe("video");
+    expect(readFileSync(join(moved, QUARANTINE), "utf8")).toMatch(/orphan_export/);
+    expect(rep.relocked).toEqual([]);
+  });
+
+  it("корень экспорта остался записываемым (сбой sealVersion) → закрывается при старте", async () => {
+    const v = await readyVersion();
+    const { r } = await runExport(v.id, MP4);
+    const dir = join(exportsDir(), (r as { outputRefs: { export_id: string } }).outputRefs.export_id);
+    chmodSync(dir, 0o755);
+    const rep = await reconcileExports(env.db, env.s.root);
+    expect(rep.relocked).toEqual([dir]);
+    expect(statSync(dir).mode & 0o222).toBe(0);
+    // повтор — нечего закрывать
+    expect((await reconcileExports(env.db, env.s.root)).relocked).toEqual([]);
+  });
+
+  it("строка есть, каталога нет → предупреждение missing, строки не трогаются", async () => {
+    const v = await readyVersion();
+    exportsRepo.insert(env.db, { id: "exp_GONE", version_id: v.id, format: "mp4", path: "workspace/projects/playground/exports/exp_GONE/scene.mp4", sha256: "0".repeat(64) });
+    const rep = await reconcileExports(env.db, env.s.root);
+    expect(rep.missing).toEqual(["exp_GONE"]);
+    expect(exportsRepo.get(env.db, "exp_GONE")).toBeDefined();
+  });
+});
+

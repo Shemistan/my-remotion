@@ -1,13 +1,17 @@
 // alphaAtCorner: альфа пикселя кадра ProRes 4444 через системный ffmpeg.
 import { execFileSync } from "node:child_process";
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
+import type { ProcessRegistry, TrackedProcess } from "@ms/core";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { alphaAtCorner } from "../src/node/alpha.js";
+import { FfmpegError } from "../src/node/ffmpeg.js";
 import { findOnPath } from "../src/node/ffprobe.js";
-import { makeTmp, removeTmp } from "./helpers.js";
+import { makeStore, makeTmp, removeTmp } from "./helpers.js";
 
 let tmp: string;
 let ffmpeg: string;
+let root: string;
 
 /** Короткий ProRes 4444: левая половина прозрачная, правая — непрозрачный белый. */
 function makeMov(path: string): void {
@@ -26,6 +30,7 @@ beforeAll(async () => {
   ffmpeg = bin;
   tmp = await makeTmp();
   makeMov(join(tmp, "a.mov"));
+  root = await makeStore(tmp);
 });
 afterAll(() => removeTmp(tmp));
 
@@ -33,6 +38,30 @@ it("прозрачный угол → 0, непрозрачный пиксель
   const mov = join(tmp, "a.mov");
   expect(await alphaAtCorner(mov, 3)).toBe(0);
   expect(await alphaAtCorner(mov, 3, { x: 24, y: 8 })).toBe(255);
+});
+
+it("F4: с run — ffmpeg через реестр попытки, временные файлы в run/tmp убраны", async () => {
+  const added: TrackedProcess[] = [];
+  const ended: TrackedProcess[] = [];
+  const registry: ProcessRegistry = {
+    add: async (p) => void added.push(p),
+    end: async (p) => void ended.push(p),
+    live: async () => [],
+  };
+  expect(await alphaAtCorner(join(tmp, "a.mov"), 3, undefined, { run: { root, runId: "exp1", attempt: 2, registry } })).toBe(0);
+  expect(added).toHaveLength(1);
+  expect(added[0]).toMatchObject({ runId: "exp1", attempt: 2 });
+  expect(added[0]!.cmd).toMatch(/ffmpeg/);
+  expect(ended).toHaveLength(1);
+  expect(readdirSync(join(root, "run/tmp"))).toEqual([]);
+});
+
+it("F4: сигнал отмены вызывающего → FfmpegError aborted, процесс не запускается", async () => {
+  const ac = new AbortController();
+  ac.abort();
+  const e = await alphaAtCorner(join(tmp, "a.mov"), 3, undefined, { run: { root, runId: "exp2", attempt: 1 }, signal: ac.signal }).catch((x: unknown) => x);
+  expect(e).toBeInstanceOf(FfmpegError);
+  expect((e as FfmpegError).kind).toBe("aborted");
 });
 
 it("кадр вне файла — ошибка, а не 0", async () => {

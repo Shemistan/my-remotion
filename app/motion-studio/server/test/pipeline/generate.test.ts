@@ -556,3 +556,15 @@ describe("sweepAbandonedDrafts", () => {
     expect(readFileSync(join(drafts, "run_C-a1", ".quarantined"), "utf8")).toContain("old");
   });
 });
+
+describe("generateScene: кадры литералом (Task 19 F2)", () => {
+  it("литерал в interpolate(frame, …) → предупреждение static в warnings, версия ready", async () => {
+    const scene = GOOD_SCENE.replace("[0, 30]", "[140, 152]");
+    const agents = fakeAgents({ engineer: async () => ({ files: { "src/Scene.tsx": scene } }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r.status).toBe("ready");
+    const lit = r.warnings.filter((w) => w.includes("кадры литералом"));
+    expect(lit).toHaveLength(1);
+    expect(lit[0]).toMatch(/src\/Scene\.tsx:4.*140, 152/);
+  });
+});

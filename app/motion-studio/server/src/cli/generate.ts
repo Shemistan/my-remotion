@@ -209,6 +209,8 @@ export async function runGenerate(
     for (const d of core.boot.swept.quarantined) io.err(`⚠ брошенный draft помечен карантином (abandoned): ${d}`);
     for (const d of core.boot.relock.relocked) io.err(`relock: версия закрыта от записи: ${d}`);
     for (const b of core.boot.relock.broken) io.err(`⚠ повреждённая версия (не тронута): ${b.dir}: ${b.error}`);
+    for (const q of core.boot.exports.quarantined) io.err(`⚠ экспорт без строки в БД — в карантине: ${q.to}`);
+    for (const d of core.boot.exports.relocked) io.err(`relock: экспорт закрыт от записи: ${d}`);
     for (const b of core.boot.reconcile.missing.broken) io.err(`⚠ версия ${b.versionId} недоступна (broken): ${b.reason}`);
 
     try {

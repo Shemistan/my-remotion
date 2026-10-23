@@ -35,7 +35,7 @@ import { specChecks } from "../qa/spec-checks.js";
 import { reconcileMissing, runVisualQA } from "../qa/visual-agent.js";
 import { sha256File } from "../scenes/hash.js";
 import { copyTree } from "../scenes/store.js";
-import type { checkSceneDir } from "../scenes/static-check.js";
+import { type checkSceneDir, frameLiteralsInDir } from "../scenes/static-check.js";
 import type { typecheckVersion } from "../scenes/typecheck.js";
 import { provenanceGate } from "./provenance.js";
 import type { KnowledgeSource } from "./refs.js";
@@ -806,6 +806,12 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
       push({ stage: "static", message: violations.map((v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`).join("\n") });
       rc.log(`static check: ${violations.length} нарушений`);
       continue;
+    }
+    // кадры литералом — не блок, а предупреждение: темп таких мест не масштабируется (Task 19 F2)
+    const literals = await frameLiteralsInDir(dir).catch(() => []);
+    if (literals.length > 0) {
+      const w = `static: кадры литералом (${literals.length}): ${literals.slice(0, 5).map((x) => `${x.file}:${x.line} ${x.message}`).join("; ")}${literals.length > 5 ? "; …" : ""}`;
+      if (!rc.warnings.includes(w)) rc.warnings.push(w);
     }
     const typeErrors = await rc.timed(`${pre}typecheck`, () => deps.typecheck(dir));
     if (typeErrors.length > 0) {

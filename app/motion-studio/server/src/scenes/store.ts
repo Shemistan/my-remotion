@@ -76,7 +76,7 @@ export async function setWritable(path: string): Promise<void> {
 }
 
 /** `chmod -R a-w` для содержимого (без корня): глубина первой; симлинки и спецфайлы — ошибка. */
-async function lockChildren(dir: string): Promise<void> {
+export async function lockChildren(dir: string): Promise<void> {
   for (const n of await readdir(dir)) {
     const p = join(dir, n);
     const st = await lstat(p);
@@ -126,7 +126,7 @@ async function lockRoot(dir: string): Promise<void> {
 }
 
 /** Первый путь внутри версии (включая корень) с правом записи, если есть. */
-async function writablePath(dir: string): Promise<string | undefined> {
+export async function writablePath(dir: string): Promise<string | undefined> {
   const { files, dirs } = await walk(dir);
   for (const rel of [".", ...dirs, ...files]) {
     if ((await lstat(join(dir, rel))).mode & 0o222) return rel;

@@ -3,13 +3,15 @@
 // `/proxy`, TMPDIR попытки, renderId — экспорт защиту не ослабляет (ruling 17).
 import { dirname, extname } from "node:path";
 import {
-  type ExportRequest, ExportRequestSchema, type ProbeResult, ScenePropsBaseSchema, type Settings, scaleContentFrames, scaleTiming,
+  type ExportRequest, ExportRequestSchema, type ProbeResult, ScenePropsBaseSchema, type Settings, scaleContentFrames, scaleTiming, unscaledTimeKeys,
 } from "@ms/contracts";
 import { StorageError } from "@ms/core";
 import { readProps } from "./entry.js";
 import { exportDurationFrames, exportFps, exportGate, fpsFactor } from "./export-gate.js";
+import { FfmpegError } from "./ffmpeg.js";
 import type { WorkerExport } from "./protocol.js";
 import { type RenderDeps, type RenderStage, type RunRef, renderJob } from "./render-version.js";
+import { type TempoCheck, listStills, tempoCheck } from "./tempo.js";
 
 /** Таймаут экспорта по умолчанию (`config.limits.exportTimeoutMs`), мс. */
 export const EXPORT_TIMEOUT_MS = 1_800_000;
@@ -32,8 +34,25 @@ export interface ExportVersionRequest {
  * решение о них принимает вызывающий, это не ошибка рендера (M10).
  */
 export type ExportResult =
-  | { ok: true; probe: ProbeResult; gate: string[] }
-  | { ok: false; error: { stage: RenderStage; message: string } };
+  | {
+      ok: true;
+      probe: ProbeResult;
+      gate: string[];
+      /** Сверка темпа при смене fps (`null` — fps версии или gate не пройден); решение — за вызывающим. */
+      tempo: TempoCheck | null;
+      /** Предупреждения для манифеста экспорта (`unscaledTimeKeys` при смене fps). */
+      warnings: string[];
+    }
+  | { ok: false; error: { stage: ExportStage; message: string } };
+
+/**
+ * Этап сбоя экспорта: словарь рендера (`RenderStage`) и `unsupported` — экспорт в таком виде
+ * невозможен до рендера (смена fps у props вне `ScenePropsBase` или без стоп-кадров версии).
+ */
+export type ExportStage = RenderStage | "unsupported";
+
+/** Подмены для юнит-тестов: рендер и сверка темпа. */
+export type ExportDeps = RenderDeps & { tempo?: typeof tempoCheck };
 
 const EXT = { mp4: ".mp4", prores4444: ".mov" } as const;
 
@@ -42,7 +61,7 @@ const EXT = { mp4: ".mp4", prores4444: ".mov" } as const;
  * (`scaleTiming`) и кадровые величины content (`isContentFrameKey`) умножаются на
  * новый fps / старый, чтобы сцена шла с той же скоростью в секундах. Кадровые токены
  * StyleBible пересчитывает сама сцена: `StyleProvider` берёт fps композиции в `resolveStyle`.
- * Props вне договора (срез, импорт) не меняются.
+ * Props вне договора (срез, импорт) не меняются — `exportVersion` при смене fps такие отклоняет.
  */
 export function exportProps(props: Record<string, unknown>, factor: number): Record<string, unknown> {
   if (factor === 1 || !ScenePropsBaseSchema.safeParse(props).success) return props;
@@ -58,24 +77,42 @@ function workerExport(request: ExportRequest, out: string): WorkerExport {
 
 /**
  * Экспорт версии в `outPath`. fps из запроса ≠ fps версии → композиция с новым fps и
- * длительностью, props — `exportProps`. Бросает, как `renderVersion`, если рендер
- * невозможен в принципе (хранилище, Chrome, ffprobe), и при неверном расширении `outPath`.
+ * длительностью, props — `exportProps`; до рендера — отказ `unsupported`
+ * (`fps_change_unsupported`), если props вне `ScenePropsBase` или у версии нет стоп-кадров;
+ * после рендера и пройденного gate — сверка темпа `tempoCheck` (поле `tempo`: кадры в коде
+ * сцены не масштабируются, такой ролик идёт быстрее). Бросает, как `renderVersion`, если
+ * рендер невозможен в принципе (хранилище, Chrome, ffprobe), и при неверном расширении `outPath`.
  */
-export async function exportVersion(req: ExportVersionRequest, signal?: AbortSignal, deps: RenderDeps = {}): Promise<ExportResult> {
+export async function exportVersion(req: ExportVersionRequest, signal?: AbortSignal, deps: ExportDeps = {}): Promise<ExportResult> {
   const request = ExportRequestSchema.parse(req.request);
   const ext = EXT[request.format];
   if (extname(req.outPath) !== ext) throw new Error(`exportVersion: файл ${request.format} должен иметь расширение ${ext}: ${req.outPath}`);
   if (signal?.aborted) return { ok: false, error: { stage: "aborted", message: "экспорт отменён до запуска worker" } };
 
   const factor = fpsFactor(req.settings, request);
-  let inputProps: Record<string, unknown>;
+  const fps = exportFps(req.settings, request);
+  const fpsText = (f: { num: number; den: number }) => (f.den === 1 ? `${f.num}` : `${f.num}/${f.den}`);
+  const unsupported = (why: string): ExportResult => ({
+    ok: false,
+    error: { stage: "unsupported", message: `fps_change_unsupported: ${why}; экспортируйте в исходном fps (${fpsText(req.settings.fps)}) или перегенерируйте сцену` },
+  });
+  let raw: Record<string, unknown>;
   try {
-    inputProps = exportProps(await readProps(req.versionDir), factor);
+    raw = await readProps(req.versionDir);
   } catch (e) {
     if (e instanceof StorageError) throw e;
     return { ok: false, error: { stage: "bundle", message: (e as Error).message } };
   }
-  const settings: Settings = { ...req.settings, fps: exportFps(req.settings, request), duration_frames: exportDurationFrames(req.settings, request) };
+  const warnings: string[] = [];
+  if (factor !== 1) {
+    // ruling 2026-10-23: темп при смене fps не угадываем — props по договору и сверка по стоп-кадрам
+    if (!ScenePropsBaseSchema.safeParse(raw).success) return unsupported(`props версии вне договора ScenePropsBase — кадры сцены под ${fpsText(fps)} fps не пересчитать`);
+    if ((await listStills(req.versionDir)).length === 0) return unsupported(`у версии нет стоп-кадров frames/ — темп в ${fpsText(fps)} fps не сверить`);
+    const odd = unscaledTimeKeys((raw as { content: unknown }).content);
+    if (odd.length > 0) warnings.push(`время под именами вне договора кадров не масштабировано под ${fpsText(fps)} fps: ${odd.join(", ")}`);
+  }
+  const inputProps = exportProps(raw, factor);
+  const settings: Settings = { ...req.settings, fps, duration_frames: exportDurationFrames(req.settings, request) };
 
   const r = await renderJob(
     {
@@ -94,5 +131,25 @@ export async function exportVersion(req: ExportVersionRequest, signal?: AbortSig
     deps,
   );
   if (!r.ok || !r.probe) return { ok: false, error: r.error ?? { stage: "media", message: "worker не вернул файл экспорта" } };
-  return { ok: true, probe: r.probe, gate: exportGate(r.probe, request, req.settings) };
+  const gate = exportGate(r.probe, request, req.settings);
+  if (factor === 1 || gate.length > 0) return { ok: true, probe: r.probe, gate, tempo: null, warnings };
+  try {
+    const tempo = await (deps.tempo ?? tempoCheck)({
+      exportPath: req.outPath,
+      versionDir: req.versionDir,
+      factor,
+      exportFrames: settings.duration_frames,
+      width: req.settings.width,
+      height: req.settings.height,
+      opaque: request.format === "mp4",
+      run: req.run,
+      ...(signal ? { signal } : {}),
+    });
+    return { ok: true, probe: r.probe, gate, tempo, warnings };
+  } catch (e) {
+    if (e instanceof StorageError) throw e;
+    const message = `сверка темпа: ${(e as Error).message}`;
+    if (e instanceof FfmpegError && e.kind !== "failed") return { ok: false, error: { stage: e.kind, message } };
+    return { ok: false, error: { stage: "media", message } };
+  }
 }
