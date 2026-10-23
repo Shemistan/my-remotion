@@ -1,23 +1,23 @@
 {
-  "scene_id": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
+  "scene_id": "scn_01M5MDJACW4B7868JYT0388198",
   "versions": {
     "v1": {
-      "id": "ver_01M5MBKJY2A5ZRJBJHK2CVKGRR",
+      "id": "ver_01M5MDVYM6YSW0N45V4MWJPJQ0",
       "number": 1,
       "prompt": "Покажи архитектуру AI-агента: пользователь отправляет запрос, оркестратор вызывает три инструмента, данные возвращаются обратно. Световые импульсы движутся по связям"
     },
     "v2": {
-      "id": "ver_01M5MBP2J67F003B15GR449A04",
+      "id": "ver_01M5MDZ15AKZ98X13VBNPM85RQ",
       "number": 2,
       "prompt": "сделай всё в фиолетовых тонах"
     },
     "v3": {
-      "id": "ver_01M5MBRZHC4DX0WBH8Y3MKY6B3",
+      "id": "ver_01M5ME1R3G45T64XMZ5XTJ0DPB",
       "number": 3,
       "prompt": "Уменьши скорость анимации на 25 %, сделай карточки более объёмными, сохрани композицию и верни цветовую палитру из первой версии"
     },
     "v4": {
-      "id": "ver_01M5MBS0SVAYQP4X8C10MZESM1",
+      "id": "ver_01M5ME1VZRFDHPPGV29D2VP2DA",
       "number": 4,
       "prompt": "restore v1"
     }

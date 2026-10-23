@@ -1,8 +1,10 @@
 {
   "warnings": [
-    "spec: scene_signature_repeat (pill, topTitle, staticCamera): сцена повторяет подпись предыдущей «Месячный бюджет семьи» (3 из 4): без таблетки, без полосы заголовка, камера стоит",
-    "spec: план call-response: setup 0–56, call 56–84, return 84–108, payoff 108–132, hold 132–180; вывод с кадра 108, удар 108 (чтение 72, сдвиг 0)",
-    "spec: бит b-graph-build (граф, 5 узлов): окно 56 кадров короче прорисовки рёбер (64) — span: \"phase\" или больше веса фазе setup"
+    "spec: scene_signature_repeat (background, pill, topTitle, staticCamera): сцена повторяет подпись предыдущей «Архитектура AI-агента: запрос → 3 инструмента → ответ» (4 из 4): фон blueprint:11, без таблетки, без полосы заголовка, камера стоит",
+    "spec: план call-response: setup 0–58, call 58–83, tools 83–108, answer 108–132, final 132–180; вывод с кадра 108, удар 108 (чтение 72, сдвиг 0)",
+    "spec: фаза call: биты ведут элементы вне её element_ids (node-search, node-calendar, node-weather)",
+    "spec: фаза tools: биты ведут элементы вне её element_ids (status-orch, node-orch)",
+    "spec: бит b-graph (граф, 5 узлов): окно 58 кадров короче прорисовки рёбер (64) — span: \"phase\" или больше веса фазе setup"
   ],
   "permission_denials": []
 }

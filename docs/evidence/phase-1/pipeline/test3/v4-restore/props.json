@@ -3,28 +3,53 @@
     "duration_frames": 180,
     "beats": [
       {
-        "id": "b-graph-build",
+        "id": "b-graph",
         "start_frame": 0,
-        "end_frame": 56
+        "end_frame": 58
       },
       {
-        "id": "b-quote-in",
+        "id": "b-user-in",
         "start_frame": 6,
-        "end_frame": 30
+        "end_frame": 21
+      },
+      {
+        "id": "b-orch-in",
+        "start_frame": 21,
+        "end_frame": 36
+      },
+      {
+        "id": "b-tools-in",
+        "start_frame": 36,
+        "end_frame": 51
       },
       {
         "id": "b-request",
-        "start_frame": 56,
-        "end_frame": 84
+        "start_frame": 58,
+        "end_frame": 83
       },
       {
-        "id": "b-fan-out",
-        "start_frame": 60,
-        "end_frame": 84
+        "id": "b-fanout",
+        "start_frame": 62,
+        "end_frame": 83
       },
       {
-        "id": "b-return",
-        "start_frame": 84,
+        "id": "b-ret-search",
+        "start_frame": 83,
+        "end_frame": 108
+      },
+      {
+        "id": "b-ret-calendar",
+        "start_frame": 89,
+        "end_frame": 108
+      },
+      {
+        "id": "b-ret-weather",
+        "start_frame": 95,
+        "end_frame": 108
+      },
+      {
+        "id": "b-orch-emphasis",
+        "start_frame": 101,
         "end_frame": 108
       },
       {
@@ -57,102 +82,112 @@
   "content": {
     "background": {
       "variant": "blueprint",
-      "seed": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
+      "seed": "scn_01M5MDJACW4B7868JYT0388198",
       "focus": {
         "x": 0.48,
-        "y": 0.52
+        "y": 0.5
       }
     },
-    "graph_beat": "b-graph-build",
-    "quote": {
-      "text": "«Найди рейсы в Стамбул на пятницу и забронируй самый дешёвый»",
-      "beat": "b-quote-in",
+    "graph": {
+      "id": "agent-graph",
+      "beat": "b-graph",
       "layout": {
         "x": 0,
-        "y": 0.03,
-        "w": 0.33,
-        "h": 0.24
+        "y": 0.04,
+        "w": 1,
+        "h": 0.92
+      },
+      "hold": {
+        "mode": "now-pulse",
+        "beat": "b-hold",
+        "node": "node-user"
       }
     },
     "nodes": [
       {
         "id": "node-user",
         "label": "Пользователь",
-        "caption": "чат-приложение",
+        "caption": "чат с агентом",
         "kind": "client",
         "size": "body",
-        "elevation": 2,
         "slot": true,
+        "elevation": 2,
         "enter": "slide",
+        "enter_beat": "b-user-in",
         "layout": {
           "x": 0,
-          "y": 0.29,
+          "y": 0.35,
           "w": 0.24,
-          "h": 0.42
+          "h": 0.3
         }
       },
       {
         "id": "node-orch",
         "label": "Оркестратор",
-        "caption": "планирует шаги",
+        "caption": "LLM-агент",
         "kind": "llm",
         "size": "h2",
         "elevation": 3,
         "enter": "pop",
+        "enter_beat": "b-orch-in",
         "accentIndex": 0,
         "layout": {
-          "x": 0.365,
+          "x": 0.37,
           "y": 0.32,
-          "w": 0.27,
+          "w": 0.22,
           "h": 0.36
         }
       },
       {
         "id": "node-search",
-        "label": "Поиск рейсов",
-        "caption": "API авиакомпаний",
+        "label": "Поиск",
+        "caption": "API авиабилетов",
         "kind": "service",
         "size": "body",
         "elevation": 2,
         "enter": "rise",
+        "enter_beat": "b-tools-in",
         "layout": {
           "x": 0.76,
-          "y": 0.02,
+          "y": 0.06,
           "w": 0.24,
-          "h": 0.28
+          "h": 0.22
         }
       },
       {
         "id": "node-calendar",
         "label": "Календарь",
-        "caption": "свободные даты",
+        "caption": "расписание",
         "kind": "service",
         "size": "body",
         "elevation": 2,
         "enter": "rise",
+        "enter_beat": "b-tools-in",
         "layout": {
           "x": 0.76,
-          "y": 0.36,
+          "y": 0.39,
           "w": 0.24,
-          "h": 0.28
+          "h": 0.22
         }
       },
       {
-        "id": "node-pay",
-        "label": "Оплата",
-        "caption": "бронирование",
+        "id": "node-weather",
+        "label": "Погода",
+        "caption": "прогноз · Стамбул",
         "kind": "service",
         "size": "body",
         "elevation": 2,
         "enter": "rise",
+        "enter_beat": "b-tools-in",
         "layout": {
           "x": 0.76,
-          "y": 0.7,
+          "y": 0.72,
           "w": 0.24,
-          "h": 0.28
+          "h": 0.22
         }
       }
     ],
+    "tools_stagger_frames": 4,
     "edges": [
       {
         "id": "e-req",
@@ -170,188 +205,111 @@
         "to": "node-calendar"
       },
       {
-        "id": "e-pay",
+        "id": "e-weather",
         "from": "node-orch",
-        "to": "node-pay"
+        "to": "node-weather"
       }
     ],
-    "fan_stagger_frames": 4,
     "flows": [
       {
-        "edge": "e-req",
-        "direction": "forward",
-        "beat": "b-request",
-        "count": 1,
-        "repeat": false,
-        "travel": 18,
-        "stagger_index": 0,
-        "accentIndex": 0,
-        "size": 10
-      },
-      {
         "edge": "e-search",
         "direction": "forward",
-        "beat": "b-fan-out",
-        "count": 1,
-        "repeat": false,
-        "travel": 14,
-        "stagger_index": 0,
-        "accentIndex": 0,
-        "size": 10
-      },
-      {
-        "edge": "e-cal",
-        "direction": "forward",
-        "beat": "b-fan-out",
-        "count": 1,
-        "repeat": false,
-        "travel": 14,
-        "stagger_index": 1,
-        "accentIndex": 0,
-        "size": 10
-      },
-      {
-        "edge": "e-pay",
-        "direction": "forward",
-        "beat": "b-fan-out",
-        "count": 1,
-        "repeat": false,
-        "travel": 14,
-        "stagger_index": 2,
-        "accentIndex": 0,
-        "size": 10
-      },
-      {
-        "edge": "e-search",
-        "direction": "back",
-        "beat": "b-return",
+        "beat": "b-fanout",
         "count": 1,
         "repeat": false,
         "travel": 16,
-        "stagger_index": 0,
-        "accentIndex": 1,
-        "size": 10
-      },
-      {
-        "edge": "e-cal",
-        "direction": "back",
-        "beat": "b-return",
-        "count": 1,
-        "repeat": false,
-        "travel": 16,
-        "stagger_index": 1,
-        "accentIndex": 1,
-        "size": 10
-      },
-      {
-        "edge": "e-pay",
-        "direction": "back",
-        "beat": "b-return",
-        "count": 1,
-        "repeat": false,
-        "travel": 16,
-        "stagger_index": 2,
-        "accentIndex": 1,
-        "size": 10
-      },
-      {
-        "edge": "e-req",
-        "direction": "back",
-        "beat": "b-answer",
-        "count": 1,
-        "repeat": false,
-        "travel": 20,
-        "stagger_index": 0,
-        "accentIndex": 2,
-        "size": 13
-      }
-    ],
-    "tokens": [
-      {
-        "id": "token-request",
-        "label": "Рейсы в Стамбул · пт",
-        "edge": "e-req",
-        "reverse": false,
-        "beat": "b-request",
-        "travel": 18,
-        "stagger_index": 0,
-        "consume": true,
+        "delay": 0,
         "accentIndex": 0
       },
       {
-        "id": "token-flights",
-        "label": "12 рейсов",
-        "edge": "e-search",
-        "reverse": true,
-        "beat": "b-return",
-        "travel": 16,
-        "stagger_index": 0,
-        "consume": true,
-        "accentIndex": 1
-      },
-      {
-        "id": "token-calendar",
-        "label": "пт свободна",
         "edge": "e-cal",
-        "reverse": true,
-        "beat": "b-return",
+        "direction": "forward",
+        "beat": "b-fanout",
+        "count": 1,
+        "repeat": false,
         "travel": 16,
-        "stagger_index": 1,
-        "consume": true,
-        "accentIndex": 1
+        "delay": 4,
+        "accentIndex": 0
       },
       {
-        "id": "token-booking",
-        "label": "бронь ✓",
-        "edge": "e-pay",
-        "reverse": true,
-        "beat": "b-return",
+        "edge": "e-weather",
+        "direction": "forward",
+        "beat": "b-fanout",
+        "count": 1,
+        "repeat": false,
         "travel": 16,
-        "stagger_index": 2,
-        "consume": true,
-        "accentIndex": 1
-      },
-      {
-        "id": "token-answer",
-        "label": "TK 421 · 14:20 · 8 900 ₽",
-        "edge": "e-req",
-        "reverse": true,
-        "beat": "b-answer",
-        "travel": 20,
-        "stagger_index": 0,
-        "dock": "slot",
-        "stay": true,
-        "accentIndex": 2
+        "delay": 8,
+        "accentIndex": 0
       }
     ],
+    "tokens": {
+      "request": {
+        "id": "token-request",
+        "label": "Рейсы MOW→IST · пт",
+        "edge": "e-req",
+        "beat": "b-request",
+        "travel": 20,
+        "reverse": false,
+        "accentIndex": 0
+      },
+      "returns": [
+        {
+          "id": "token-flights",
+          "label": "12 рейсов",
+          "edge": "e-search",
+          "beat": "b-ret-search",
+          "travel": 14,
+          "reverse": true,
+          "accentIndex": 2
+        },
+        {
+          "id": "token-calendar",
+          "label": "пт свободна",
+          "edge": "e-cal",
+          "beat": "b-ret-calendar",
+          "travel": 14,
+          "reverse": true,
+          "accentIndex": 2
+        },
+        {
+          "id": "token-weather",
+          "label": "+21 °C, ясно",
+          "edge": "e-weather",
+          "beat": "b-ret-weather",
+          "travel": 14,
+          "reverse": true,
+          "accentIndex": 2
+        }
+      ],
+      "answer": {
+        "id": "token-answer",
+        "label": "Рейс 09:40 · +21 °C",
+        "edge": "e-req",
+        "beat": "b-answer",
+        "travel": 20,
+        "reverse": true,
+        "accentIndex": 2
+      }
+    },
     "status": {
+      "id": "status-orch",
       "node": "node-orch",
-      "size": "caption",
       "states": [
         {
           "text": "Планирует",
           "tone": "accent"
         },
         {
-          "text": "3 вызова параллельно",
-          "tone": "neutral"
+          "text": "Ждёт данные",
+          "tone": "warning"
         },
         {
-          "text": "Собирает ответ",
-          "tone": "neutral"
-        },
-        {
-          "text": "Бронь готова",
+          "text": "Ответ готов",
           "tone": "positive"
         }
       ]
     },
-    "final": {
-      "node": "node-user",
-      "emphasis_beat": "b-final-emphasis",
-      "ring": "strike",
-      "hold_mode": "now-pulse",
-      "hold_beat": "b-hold"
-    }
+    "orch_emphasis_beat": "b-orch-emphasis",
+    "user_emphasis_beat": "b-final-emphasis"
   }
 }

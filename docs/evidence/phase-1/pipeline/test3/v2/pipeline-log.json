@@ -1,13 +1,13 @@
 {
-  "run_id": "job_01M5MBKK5WB1KTERRE1AMYS60Y",
+  "run_id": "job_01M5MDVZN2TF6B8X3HWY7KQNM5",
   "attempt": 1,
-  "cost_usd": 0.214785,
+  "cost_usd": 0.2282936,
   "engineer_calls": 0,
   "visual_qa": [
     {
       "call": 1,
-      "wall_ms": 34486,
-      "cost_usd": 0.140163,
+      "wall_ms": 38864,
+      "cost_usd": 0.1782033,
       "status": "completed",
       "gate": {
         "technical": "pass",
@@ -22,53 +22,60 @@
       "n": 1,
       "take": 1,
       "call": 1,
-      "overall": 7,
+      "overall": 6.5,
       "scores": {
-        "overall": 7,
-        "hierarchy": 7,
+        "overall": 6.5,
+        "hierarchy": 6,
         "composition": 7.5,
         "entrance": 7,
-        "choreography": 6.5,
+        "choreography": 5.5,
         "hold": 7.5,
-        "legibility": 7.5,
-        "meaning": 7.5
+        "legibility": 6.5,
+        "meaning": 7
       },
       "blocking": [],
-      "cost_usd": 0.1402,
+      "cost_usd": 0.1782,
       "published": true
     }
   ],
   "timings": {
-    "queue_wait": 0,
-    "edit_planner": 10414,
-    "static": 34,
-    "typecheck": 11353,
-    "render_1": 22177,
-    "qa_programmatic": 2471,
-    "visual_qa_1": 34500
+    "queue_wait": 1,
+    "edit_planner": 15285,
+    "static": 35,
+    "typecheck": 14969,
+    "render_1": 25438,
+    "qa_programmatic": 3377,
+    "preserve_hold_base": 1483,
+    "visual_qa_1": 38884
   },
   "stage_wall_ms": {
-    "edit_planner": 10414,
-    "check": 11387,
-    "render": 22177,
-    "qa": 36971,
-    "total": 81147
+    "edit_planner": 15285,
+    "check": 15004,
+    "render": 25438,
+    "qa": 42261,
+    "preserve_hold_base": 1483,
+    "total": 99733
   },
   "history": [
     {
-      "at": "2026-10-23T12:27:30.653Z",
+      "at": "2026-10-23T13:06:42.336Z",
       "stage": "qa",
-      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"warn\",\"style\":\"pass\"}; overall 7; blocking: —"
+      "message": "сверка кадра hold базы 179 ↔ 179: 7 → 7 текстов, расхождений 0"
     },
     {
-      "at": "2026-10-23T12:27:30.670Z",
+      "at": "2026-10-23T13:07:21.228Z",
+      "stage": "qa",
+      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"warn\",\"style\":\"pass\"}; overall 6.5; blocking: —"
+    },
+    {
+      "at": "2026-10-23T13:07:21.270Z",
       "stage": "gate",
-      "message": "gate пройден с вызова 1, overall 7"
+      "message": "gate пройден с вызова 1, overall 6.5"
     },
     {
-      "at": "2026-10-23T12:27:30.688Z",
+      "at": "2026-10-23T13:07:21.302Z",
       "stage": "ready",
-      "message": "опубликована попытка 1 (дубль 1, вызов 1, overall 7) из 1"
+      "message": "опубликована попытка 1 (дубль 1, вызов 1, overall 6.5) из 1"
     }
   ]
 }

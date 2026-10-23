@@ -2,17 +2,17 @@
   "id": "dark-premium",
   "name": "Dark Premium",
   "palette": {
-    "bg": "#0e0a1a",
-    "surface": "#1a1430",
-    "text": "#f1ecff",
-    "muted": "#9d8fc4",
+    "bg": "#120a1f",
+    "surface": "#1e1432",
+    "text": "#f3eefe",
+    "muted": "#a597c7",
     "accent": [
-      "#7c5cff",
-      "#e879f9",
-      "#d4c4ff"
+      "#8b7cff",
+      "#c77dff",
+      "#f0abfc"
     ],
-    "positive": "#b794f6",
-    "negative": "#ff7ab8"
+    "positive": "#d8b4fe",
+    "negative": "#ff7ac6"
   },
   "typography": {
     "display": {

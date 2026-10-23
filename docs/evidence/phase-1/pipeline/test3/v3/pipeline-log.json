@@ -1,13 +1,13 @@
 {
-  "run_id": "job_01M5MBP3KKSAPTQQKH4D5Y0QR9",
+  "run_id": "job_01M5MDZ29D55XFN79CMETGT14Z",
   "attempt": 1,
-  "cost_usd": 0.2043806,
+  "cost_usd": 0.18946590000000002,
   "engineer_calls": 0,
   "visual_qa": [
     {
       "call": 1,
-      "wall_ms": 47149,
-      "cost_usd": 0.1526383,
+      "wall_ms": 33398,
+      "cost_usd": 0.1398956,
       "status": "completed",
       "gate": {
         "technical": "pass",
@@ -25,48 +25,55 @@
       "overall": 6.5,
       "scores": {
         "overall": 6.5,
-        "hierarchy": 6.5,
-        "composition": 6.5,
-        "entrance": 6.5,
-        "choreography": 6,
-        "hold": 7.5,
+        "hierarchy": 6,
+        "composition": 7,
+        "entrance": 7,
+        "choreography": 6.5,
+        "hold": 7,
         "legibility": 7,
         "meaning": 7
       },
       "blocking": [],
-      "cost_usd": 0.1526,
+      "cost_usd": 0.1399,
       "published": true
     }
   ],
   "timings": {
     "queue_wait": 0,
-    "edit_planner": 6169,
-    "static": 30,
-    "typecheck": 11723,
-    "render_1": 26243,
-    "qa_programmatic": 2442,
-    "visual_qa_1": 47163
+    "edit_planner": 5727,
+    "static": 37,
+    "typecheck": 14305,
+    "render_1": 29274,
+    "qa_programmatic": 3236,
+    "preserve_hold_base": 1522,
+    "visual_qa_1": 33416
   },
   "stage_wall_ms": {
-    "edit_planner": 6169,
-    "check": 11753,
-    "render": 26243,
-    "qa": 49605,
-    "total": 93982
+    "edit_planner": 5727,
+    "check": 14342,
+    "render": 29274,
+    "qa": 36652,
+    "preserve_hold_base": 1522,
+    "total": 87727
   },
   "history": [
     {
-      "at": "2026-10-23T12:29:05.846Z",
+      "at": "2026-10-23T13:08:16.893Z",
+      "stage": "qa",
+      "message": "сверка кадра hold базы 179 ↔ 239: 7 → 7 текстов, расхождений 0"
+    },
+    {
+      "at": "2026-10-23T13:08:50.317Z",
       "stage": "qa",
       "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"warn\",\"style\":\"pass\"}; overall 6.5; blocking: —"
     },
     {
-      "at": "2026-10-23T12:29:05.868Z",
+      "at": "2026-10-23T13:08:50.337Z",
       "stage": "gate",
       "message": "gate пройден с вызова 1, overall 6.5"
     },
     {
-      "at": "2026-10-23T12:29:05.893Z",
+      "at": "2026-10-23T13:08:50.356Z",
       "stage": "ready",
       "message": "опубликована попытка 1 (дубль 1, вызов 1, overall 6.5) из 1"
     }

@@ -1,9 +1,9 @@
 {
   "job": {
-    "id": "job_01M5MBS03KZZPG3Z0FAW9RS43Z",
+    "id": "job_01M5ME1VK9BR6Z38S1NE8KW4S9",
     "type": "scene.restore",
     "project_id": "playground",
-    "scene_id": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
+    "scene_id": "scn_01M5MDJACW4B7868JYT0388198",
     "version_id": null,
     "parent_job_id": null,
     "status": "completed",
@@ -13,65 +13,65 @@
     "max_attempts": 3,
     "interrupts": 0,
     "input": {
-      "sceneId": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
-      "versionId": "ver_01M5MBKJY2A5ZRJBJHK2CVKGRR"
+      "sceneId": "scn_01M5MDJACW4B7868JYT0388198",
+      "versionId": "ver_01M5MDVYM6YSW0N45V4MWJPJQ0"
     },
-    "input_hash": "f7b85f8b0a4b079ca7b5e70806a0e506315e83ae46feb304d50754e65ac25018",
+    "input_hash": "bf01fd64bbadf7851cf21ce67574e6d7a4d2092ce742bd01a1d47c6a78eb8312",
     "output_refs": {
-      "scene_id": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
-      "version_id": "ver_01M5MBS0SVAYQP4X8C10MZESM1",
+      "scene_id": "scn_01M5MDJACW4B7868JYT0388198",
+      "version_id": "ver_01M5ME1VZRFDHPPGV29D2VP2DA",
       "version_number": 4,
-      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5MB7SAQNKEGPQMEHTTC29EK/versions/ver_01M5MBS0SVAYQP4X8C10MZESM1",
-      "restored_from": "ver_01M5MBKJY2A5ZRJBJHK2CVKGRR",
+      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5MDJACW4B7868JYT0388198/versions/ver_01M5ME1VZRFDHPPGV29D2VP2DA",
+      "restored_from": "ver_01M5MDVYM6YSW0N45V4MWJPJQ0",
       "rerendered": false
     },
     "error": null,
-    "idempotency_key": "e2e-t18-run_01M5MBS03KZZPG3Z0FAW9RS43Y",
+    "idempotency_key": "e2e-t18-run_01M5ME1VK9BR6Z38S1NE8KW4S8",
     "lease_owner": null,
     "lease_until": null,
     "cancel_requested": false,
-    "created_at": "2026-10-23T12:29:06.548Z",
-    "started_at": "2026-10-23T12:29:06.953Z",
-    "finished_at": "2026-10-23T12:29:07.278Z"
+    "created_at": "2026-10-23T13:08:53.994Z",
+    "started_at": "2026-10-23T13:08:54.063Z",
+    "finished_at": "2026-10-23T13:08:54.415Z"
   },
-  "wall_ms": 2153,
+  "wall_ms": 2161,
   "cost_usd": 0,
   "agent_runs": [],
   "render_jobs": [],
   "chat": [
     {
-      "id": "msg_01M5MBKK5T4PZKSHZDB0AFA7YB",
-      "scene_id": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
+      "id": "msg_01M5MDVZMY23HT8B6YZA95ZPCF",
+      "scene_id": "scn_01M5MDJACW4B7868JYT0388198",
       "role": "user",
       "text": "сделай всё в фиолетовых тонах",
-      "created_at": "2026-10-23T12:26:09.467Z"
+      "created_at": "2026-10-23T13:05:41.535Z"
     },
     {
-      "id": "msg_01M5MBP3KJ1V9RDK7DVJYB6JYG",
-      "scene_id": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
+      "id": "msg_01M5MDZ29CZJCQY3HN7D9XY3EN",
+      "scene_id": "scn_01M5MDJACW4B7868JYT0388198",
       "role": "user",
       "text": "Уменьши скорость анимации на 25 %, сделай карточки более объёмными, сохрани композицию и верни цветовую палитру из первой версии",
-      "created_at": "2026-10-23T12:27:31.826Z"
+      "created_at": "2026-10-23T13:07:22.541Z"
     },
     {
-      "id": "msg_01M5MBS0TBEND06BAB03X30YF1",
-      "scene_id": "scn_01M5MB7SAQNKEGPQMEHTTC29EK",
+      "id": "msg_01M5ME1W0CH96WEFN16BXHY6NZ",
+      "scene_id": "scn_01M5MDJACW4B7868JYT0388198",
       "role": "assistant",
       "text": "Версия 1 восстановлена как версия 4.",
-      "version_id": "ver_01M5MBS0SVAYQP4X8C10MZESM1",
-      "job_id": "job_01M5MBS03KZZPG3Z0FAW9RS43Z",
-      "created_at": "2026-10-23T12:29:07.275Z"
+      "version_id": "ver_01M5ME1VZRFDHPPGV29D2VP2DA",
+      "job_id": "job_01M5ME1VK9BR6Z38S1NE8KW4S9",
+      "created_at": "2026-10-23T13:08:54.412Z"
     }
   ],
   "events": [
     {
-      "ts": "2026-10-23T12:29:06.964Z",
+      "ts": "2026-10-23T13:08:54.066Z",
       "level": "info",
       "kind": "started",
       "message": "scene.restore: попытка 1"
     },
     {
-      "ts": "2026-10-23T12:29:07.281Z",
+      "ts": "2026-10-23T13:08:54.418Z",
       "level": "info",
       "kind": "completed",
       "message": "completed"
