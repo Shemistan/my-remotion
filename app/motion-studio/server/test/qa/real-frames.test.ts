@@ -7,7 +7,8 @@
 // Кадры среза — fixtures/slice/test{1,2}/{frames,spec.json,settings.json}: копия
 // docs/evidence/phase-1/slice (960×540, как есть; settings — из manifest.json). Evidence
 // перезаписывают новые прогоны — регрессия не должна от них зависеть.
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { MotionSpecSchema, type QAIssue, type Settings, SettingsSchema, defaultSettings } from "@ms/contracts";
 import { resolveStyle } from "@ms/render";
@@ -15,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { selectQaFrames, uncoveredElements } from "../../src/pipeline/qa-frames.js";
 import { loadPng, lumaStats } from "../../src/qa/image.js";
 import { POSTER_INK, posterInk, programmaticChecks } from "../../src/qa/programmatic.js";
-import { beat, renderResult, spec } from "./helpers.js";
+import { Canvas, beat, makeTmp, removeTmp, renderResult, spec } from "./helpers.js";
 
 const FRAMES = fileURLToPath(new URL("../fixtures/qa-frames/", import.meta.url));
 const SLICE = fileURLToPath(new URL("../fixtures/slice/", import.meta.url));
@@ -68,12 +69,41 @@ describe("S5: сцена-мир — крупные фоновые объекты
       render: renderResult(), previewBytes: 1000,
     });
 
-  it("кадр-мир (слои у трёх краёв) и кадр с облаком у левого края — clipping только warning", async () => {
-    const r = await run([[354, "world-rain-354.png"], [1251, "world-rain-1251.png"]]);
-    const clips = r.filter((i) => i.code === "clipping");
-    expect(clips.length).toBeGreaterThan(0);
-    expect(clips.every((i) => i.severity === "warning")).toBe(true);
-    expect(clips[0]!.description).toContain("сцена-мир");
+  it("кадр-мир user-06 (слои у трёх краёв) — его clipping только warning, и отдельно, и в сцене", async () => {
+    for (const files of [[[1251, "world-rain-1251.png"]], [[354, "world-rain-354.png"], [1251, "world-rain-1251.png"]]] as [number, string][][]) {
+      const clips = (await run(files)).filter((i) => i.code === "clipping" && i.frame === 1251);
+      expect(clips.length).toBeGreaterThan(0);
+      expect(clips.every((i) => i.severity === "warning")).toBe(true);
+      expect(clips[0]!.description).toContain("сцена-мир");
+    }
+  });
+
+  it("I3: исключение покадровое — кадр-мир в сцене не смягчает обрезку на других кадрах", async () => {
+    const withText = await run([[67, "clipped-text-67.png"], [1251, "world-rain-1251.png"]], { safe_area: { x: 0.05, y: 0.05 } });
+    expect(withText).toContainEqual(expect.objectContaining({ code: "clipping", severity: "blocking", frame: 67, area: "right" }));
+    // кадр 354 (облако у края, тёмная палитра) сам миром не распознан — его обрезка не смягчается
+    const withCloud = await run([[354, "world-rain-354.png"], [1251, "world-rain-1251.png"]]);
+    expect(withCloud).toContainEqual(expect.objectContaining({ code: "clipping", severity: "blocking", frame: 354, area: "left" }));
+  });
+
+  it("I3: крупная карточка 60 %×60 %, срезанная углом кадра, сама «миром» не делает — blocking", async () => {
+    const tmp = await makeTmp();
+    try {
+      // светлая карточка уходит за левый и верхний край (как герой, пересекающий угол)
+      const c = new Canvas(960, 540, "#151820").rect(-40, -30, 576, 324, "#e6e6ea");
+      writeFileSync(join(tmp, "corner-card.png"), c.png());
+      for (const files of [[[25, join(tmp, "corner-card.png")]], [[25, join(tmp, "corner-card.png")], [1251, FRAMES + "world-rain-1251.png"]]] as [number, string][][]) {
+        const r = await programmaticChecks({
+          frames: files.map(([frame, path]) => ({ frame, path })), spec: sp, settings,
+          style: resolveStyle({ preset: settings.style_preset, intensity: settings.animation_intensity }),
+          render: renderResult(), previewBytes: 1000,
+        });
+        const at25 = r.filter((i) => i.code === "clipping" && i.frame === 25);
+        expect(at25.map((i) => [i.area, i.severity]).sort()).toEqual([["left", "blocking"], ["top", "blocking"]]);
+      }
+    } finally {
+      await removeTmp(tmp);
+    }
   });
 
   it("тот же кадр с облаком у края без кадра-мира в сцене — blocking (одиночный объект у края)", async () => {

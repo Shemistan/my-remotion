@@ -176,7 +176,7 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
   const dur = input.spec.duration_frames;
   const beatsAt = (f: number) => input.spec.beats.filter((b) => inBeat(b, f, dur)).map((b) => b.id).sort().join(",");
   const from = blankCheckFrom(input.spec, input.style);
-  const edges: { frame: number; issues: Issue[]; world: boolean }[] = [];
+  const edges: { frame: number; issues: Issue[]; bleed: Edge[] }[] = [];
   frames.forEach((f, i) => {
     const img = imgs[i]!;
     // пустой кадр: только внутри битов и после входа первого бита (кадр 0 может быть пустым фоном)
@@ -195,12 +195,13 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
     if (!fullBleedAt(input.spec, f.frame)) edges.push({ frame: f.frame, ...edgeIssues(img, f.frame, input.settings) });
     if (!input.settings.transparent_export && !input.style.transparent) out.push(...exposedIssues(img, f.frame));
   });
-  // сцена-мир (S5): хотя бы на одном кадре слои мира занимают ≥ BLEED_SHARE двух краёв —
-  // иллюстрация во весь кадр; объекты мира (облака, дома), уходящие за край, в ней задуманы,
-  // и пиксельная обрезка — warning. Обрезанный текст остаётся blocking (textClipIssues).
-  const world = edges.find((e) => e.world);
+  // кадр-мир (S5, S5-fix I3): на ЭТОМ кадре слои мира занимают ≥ BLEED_SHARE противоположных
+  // краёв или трёх — иллюстрация во весь кадр; объект мира, уходящий за такой край, задуман, и
+  // пиксельная обрезка на этом крае — warning. Другие кадры сцены и другие края — как были;
+  // обрезанный текст остаётся blocking (textClipIssues по пробе раскладки).
   for (const e of edges) {
-    out.push(...(world ? e.issues.map((x) => (x.code === "clipping" ? worldClip(x, world.frame) : x)) : e.issues));
+    const world = isWorld(e.bleed);
+    out.push(...e.issues.map((x) => (world && x.code === "clipping" && e.bleed.includes(x.area as Edge) ? worldClip(x, e.frame) : x)));
   }
 
   out.push(...frozenIssues(frames.map((f) => f.frame), imgs, beatsAt));
@@ -292,9 +293,9 @@ function textClipIssues(frames: LayoutFrame[], settings: Settings): Issue[] {
  * крупный объект у края (карточка 600 px, график) фоном не становится. Обрезка — «сплошные» чернила у края (`edgeClip`): тонкие
  * линии фона, пересекающие край, не считаются. Поля масштабируются к размеру кадра.
  */
-function edgeIssues(img: Img, frame: number, settings: Settings): { issues: Issue[]; world: boolean } {
+function edgeIssues(img: Img, frame: number, settings: Settings): { issues: Issue[]; bleed: Edge[] } {
   const out: Issue[] = [];
-  let bleed = 0;
+  const bleed: Edge[] = [];
   const { width: w, height: h } = img;
   const safe = safeRect({ width: w, height: h, safe_area: settings.safe_area });
   const margin: Record<Edge, number> = { top: safe.y, bottom: h - safe.y - safe.h, left: safe.x, right: w - safe.x - safe.w };
@@ -310,7 +311,7 @@ function edgeIssues(img: Img, frame: number, settings: Settings): { issues: Issu
     const bg = edgeBackground(img, e, band(e), ref);
     const c = edgeClip(img, e, bg);
     if (c.fraction > CLIP_INK) clipped.push(e);
-    if (c.fraction >= BLEED_SHARE) bleed++;
+    if (c.fraction >= BLEED_SHARE) bleed.push(e);
     // поле за safe area (у боковых краёв — без углов, их считают верх и низ), кроме
     // внутренней полосы допуска у границы safe area (тень и свечение карточки на границе);
     // пиксель — чернила, только если они есть и на ±2 px по обеим осям (тонкие линии фона —
@@ -345,15 +346,22 @@ function edgeIssues(img: Img, frame: number, settings: Settings): { issues: Issu
       fix_hint: "держи элементы внутри SafeArea (поля settings.safe_area); фон и атмосфера могут выходить, текст и данные — нет",
     });
   }
-  return { issues: out, world: bleed >= BLEED_EDGES };
+  return { issues: out, bleed };
 }
 
 /** Край — в слоях мира: «сплошные» чернила на этой доле его длины и больше (фон-объект во весь край). */
 const BLEED_SHARE = 0.4;
-/** Кадр-мир: столько краёв и больше в слоях мира (пейзаж, улица, небо во весь кадр). */
-const BLEED_EDGES = 2;
+/**
+ * Кадр-мир: слои мира у противоположных краёв (пейзаж, улица от края до края) или у трёх
+ * краёв. Два соседних края (верх и левый) — это и крупный объект, срезанный углом кадра
+ * (карточка, герой): его обрезка — дефект, а не мир (S5-fix I3).
+ */
+function isWorld(bleed: readonly Edge[]): boolean {
+  const has = (e: Edge) => bleed.includes(e);
+  return bleed.length >= 3 || (has("left") && has("right")) || (has("top") && has("bottom"));
+}
 
-/** clipping в сцене-мире — warning: объект мира за краем задуман, обрезка по пикселям не доказана. */
+/** clipping на крае кадра-мира — warning: объект мира за краем задуман, обрезка по пикселям не доказана. */
 function worldClip(x: Issue, worldFrame: number): Issue {
   return {
     ...x,
