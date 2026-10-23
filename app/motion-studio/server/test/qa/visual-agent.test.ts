@@ -52,6 +52,8 @@ const out = (seen: VisualQAOutput["elements_seen"]): VisualQAOutput => ({
   checked_frames: [15, 72],
   ocr: [],
   elements_seen: seen,
+  scores: { overall: 6, hierarchy: 6, composition: 6, entrance: 6, choreography: 6, hold: 6, legibility: 6, meaning: 6 },
+  score_notes: [],
 });
 
 describe("runVisualQA", () => {

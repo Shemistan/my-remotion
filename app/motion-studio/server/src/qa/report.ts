@@ -19,7 +19,23 @@ export function mergeQA(parts: { technical: QAIssue[]; programmatic: QAIssue[]; 
     issues: [...parts.technical, ...parts.programmatic, ...(agent?.issues ?? []).map((i): QAIssue => ({ source: "agent", ...i }))],
     checked_frames: agent?.checked_frames ?? [],
     ocr: agent?.ocr ?? [],
+    ...(agent?.scores ? { scores: agent.scores } : {}),
     automated: true,
+  };
+}
+
+/**
+ * Лучшая попытка, принятая после исчерпания исправлений (S5, R2 #10): автоматический QA —
+ * вспомогательный (ТЗ §8.5), решение за человеком. Blocking становится warning с пометкой
+ * «не исправлено …», вердикты visual/semantic/style `fail` — `warn`; technical не меняется
+ * (его неудача до QA не доходит).
+ */
+export function acceptedAsWarn(report: QAReport, why: string): QAReport {
+  const soft = (v: Verdict): Verdict => (v === "fail" ? "warn" : v);
+  return {
+    ...report,
+    gate: { technical: report.gate.technical, visual: soft(report.gate.visual), semantic: soft(report.gate.semantic), style: soft(report.gate.style) },
+    issues: report.issues.map((i) => (i.severity === "blocking" ? { ...i, severity: "warning" as const, description: `[не исправлено ${why}] ${i.description}` } : i)),
   };
 }
 

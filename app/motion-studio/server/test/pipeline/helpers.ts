@@ -163,6 +163,11 @@ export function conceptOutput(over: Partial<ConceptOutput> = {}): ConceptOutput 
   };
 }
 
+/** Оценки Visual QA: все оси и overall — `overall` (по умолчанию 7, выше порога второго дубля). */
+export const scores = (overall: number, over: Partial<VisualQAOutput["scores"]> = {}): VisualQAOutput["scores"] => ({
+  overall, hierarchy: overall, composition: overall, entrance: overall, choreography: overall, hold: overall, legibility: overall, meaning: overall, ...over,
+});
+
 /** Ответ Visual QA: все элементы spec найдены на первом кадре; `issues` — по желанию теста. */
 export function visualOutput(frames: number[], spec: MotionSpec | undefined, over: Partial<VisualQAOutput> = {}): VisualQAOutput {
   return {
@@ -171,6 +176,8 @@ export function visualOutput(frames: number[], spec: MotionSpec | undefined, ove
     checked_frames: frames,
     ocr: frames.map((frame) => ({ frame, texts: [] })),
     elements_seen: (spec?.elements ?? []).map((e) => ({ id: e.id, frame: frames[0], seen: true })),
+    scores: scores(7),
+    score_notes: [],
     ...over,
   };
 }
