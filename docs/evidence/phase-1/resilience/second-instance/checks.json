@@ -18,6 +18,6 @@
     "title": "npm start останавливается по SIGTERM",
     "kind": "A",
     "pass": true,
-    "detail": "[\"{\\\"level\\\":30,\\\"time\\\":1792783343300,\\\"pid\\\":75525,\\\"hostname\\\":\\\"MSK-XG4YM0V7DK.local\\\",\\\"reqId\\\":\\\"req-1\\\",\\\"res\\\":{\\\"statusCode\\\":200},\\\"responseTime\\\":19.800624999999854,\\\"msg\\\":\\\"request completed\\\"}\",\"[motion-studio] SIGTERM: остановка — API, раннер (abort попыток), БД, owner-lock\",\"[motion-studio] остановлен\"]"
+    "detail": "[\"{\\\"level\\\":30,\\\"time\\\":1792783343300,\\\"pid\\\":75525,\\\"reqId\\\":\\\"req-1\\\",\\\"res\\\":{\\\"statusCode\\\":200},\\\"responseTime\\\":19.800624999999854,\\\"msg\\\":\\\"request completed\\\"}\",\"[motion-studio] SIGTERM: остановка — API, раннер (abort попыток), БД, owner-lock\",\"[motion-studio] остановлен\"]"
   }
 ]

@@ -4,7 +4,8 @@
     "title": "задача playground.generate completed, версия есть",
     "kind": "A",
     "pass": true,
-    "detail": "{\"sceneId\":\"scn_01M5N0BWY51B61QQBH3BM0NJ2F\",\"jobId\":\"job_01M5N0BWY93KW6VP6SHNNKKP7E\",\"versionId\":\"ver_01M5N0KBZXHRTZEAE0YRKR5AWQ\",\"status\":\"completed\",\"wallMs\":246710,\"exportId\":\"exp_01M5N3KCB62NTWSNPXNSP7NJY1\"}"
+    "detail": "{\"sceneId\":\"scn_01M5N0BWY51B61QQBH3BM0NJ2F\",\"jobId\":\"job_01M5N0BWY93KW6VP6SHNNKKP7E\",\"versionId\":\"ver_01M5N0KBZXHRTZEAE0YRKR5AWQ\",\"status\":\"completed\",\"wallMs\":246710,\"exportId\":\"exp_01M5N3VARR8ZH9X94JWDET2KY6\"}",
+    "edited": "2026-10-23, вручную по ревью: exportId заменён на экспорт прогона full3 (exp_01M5N3VARR…, как в summary.json и export/export.json); в detail был id экспорта full1 (exp_01M5N3KCB6…), перенесённый из state.json при MS_ACC_REUSE=1. Генерация (job, версия) — из full1, в full3 взята из state.json (статус тогда не перечитывался через API)."
   },
   {
     "id": "ui.player",

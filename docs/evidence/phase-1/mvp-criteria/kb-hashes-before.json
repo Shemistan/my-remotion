@@ -1,7 +1,7 @@
 {
   "created_at": "2026-10-23T18:28:26.600Z",
-  "source_root": "/Users/stalyzade/my_track/01_It_development/my-remotion",
-  "kb_root": "/Users/stalyzade/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/knowledge",
+  "source_root": "~/my_track/01_It_development/my-remotion",
+  "kb_root": "~/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/knowledge",
   "sources_total": 25940,
   "sampled": 200,
   "files": {

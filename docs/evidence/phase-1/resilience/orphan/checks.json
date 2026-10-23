@@ -4,7 +4,7 @@
     "title": "процесс попытки в реестре (job_processes), жив",
     "kind": "A",
     "pass": true,
-    "detail": "[{\"pid\":68724,\"pgid\":68724,\"attempt\":1,\"cmd\":\"/Users/stalyzade/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/app/motion-studio/server/test/fixtures/bin/orphan-render.sh /Users/stalyzade/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/tmp/acceptance/run-2026-10-23T18-28-26-127Z/orphan-1792783254237.pid\",\"started_at\":\"Fri Oct 23 19:20:54 2026\",\"alive\":true}]"
+    "detail": "[{\"pid\":68724,\"pgid\":68724,\"attempt\":1,\"cmd\":\"~/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/app/motion-studio/server/test/fixtures/bin/orphan-render.sh ~/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/tmp/acceptance/run-2026-10-23T18-28-26-127Z/orphan-1792783254237.pid\",\"started_at\":\"Fri Oct 23 19:20:54 2026\",\"alive\":true}]"
   },
   {
     "id": "p8.alive-after-kill",
