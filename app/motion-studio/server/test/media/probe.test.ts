@@ -2,6 +2,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { MediaInvalidError, demuxerFor, demuxerForExt, parseProbe, parsePtsCsv, vfrTimelineFps } from "../../src/media/probe.js";
+import { detectVfr } from "../../src/media/vfr.js";
 
 const fx = (name: string): unknown => JSON.parse(readFileSync(new URL(`../fixtures/ffprobe/${name}`, import.meta.url), "utf8"));
 const ptsCfr = Array.from({ length: 300 }, (_, i) => Math.round((i * 1_000_000) / 30));
@@ -61,6 +62,20 @@ describe("parseProbe", () => {
     expect(vfrTimelineFps(1e6 / 27, { num: 25, den: 1 })).toEqual({ num: 25, den: 1 });
     expect(vfrTimelineFps(1e6 / 27, { num: 90_000, den: 1 })).toEqual({ num: 30, den: 1 });
     expect(vfrTimelineFps(0, { num: 90_000, den: 1 })).toEqual({ num: 30, den: 1 });
+  });
+
+  it("N1 (ревью Task 25): VFR около 24 с фликером pts — 24/1, не 25/1; средняя частота в симметричном допуске 2 %", () => {
+    // номинал 24, pts дрожат ±1 667 µs: p10(Δ) ≈ 40 000 (25 fps), среднее 41 667 (24 fps)
+    const pts = Array.from({ length: 240 }, (_, i) => Math.round((i * 1e6) / 24) + (i % 2 ? 1_667 : 0));
+    const v = detectVfr(pts);
+    expect(v.vfr).toBe(true);
+    expect(vfrTimelineFps(v.p10DeltaUs, { num: 90_000, den: 1 }, v.meanDeltaUs)).toEqual({ num: 24, den: 1 });
+    // 23,976 с фликером — 24000/1001
+    expect(vfrTimelineFps(40_000, { num: 90_000, den: 1 }, 1e6 / (24000 / 1001))).toEqual({ num: 24000, den: 1001 });
+    // 30 с выпавшими кадрами: среднее 29,5 — кандидаты 29,97 и 30, рабочая частота p10 решает → 30/1
+    expect(vfrTimelineFps(33_333, { num: 30, den: 1 }, 1e6 / 29.5)).toEqual({ num: 30, den: 1 });
+    // смесь 25 + 30: среднее 27,5 ни к чему не ближе 2 % → прежнее правило по p10 → 30/1
+    expect(vfrTimelineFps(33_333, { num: 90_000, den: 1 }, 1e6 / 27.5)).toEqual({ num: 30, den: 1 });
   });
 
   it("pts из csv ffprobe: пустые строки и N/A не превращаются в 0 (иначе видео с началом 0,5 с — «VFR»)", () => {

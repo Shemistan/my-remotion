@@ -48,16 +48,30 @@ const ABOVE = 0.05;
 const FALLBACK_FPS: Fps = { num: 30, den: 1 };
 const isStandard = (f: Fps) => STANDARD_FPS.some((s) => s.num === f.num && s.den === f.den);
 
+/** Средняя частота кадров близка к стандарту (фликер pts около номинала), доля в обе стороны. */
+const NEAR_MEAN = 0.02;
+
 /**
- * `timeline_fps` VFR-исходника (ревью I2): рабочая частота `1e6 / p10(Δpts)` (самые частые кадры) →
+ * `timeline_fps` VFR-исходника (ревью I2, N1). Сначала средняя частота `1e6 / mean(Δpts)`:
+ * стандарты в симметричном допуске 2 % — кандидаты; из них совпадающий с рабочей частотой
+ * (±0,5 %) или ближайший к средней (24 fps с дрожью pts: p10 даёт 25, среднее — 24). Нет
+ * кандидатов (смесь 25 + 30) — рабочая частота `1e6 / p10(Δpts)` (самые частые кадры):
  * стандарт, совпадающий с ней (±0,5 %), иначе ближайший стандарт сверху в пределах 5 %;
  * иначе `snapFps(r_frame_rate)`, если это стандарт; в крайнем случае 30/1. Несокращённая дробь
  * вида 41250/1501 таймлайну не годится.
  */
-export function vfrTimelineFps(p10DeltaUs: number, rFrameRate: Fps): Fps {
-  if (p10DeltaUs > 0) {
-    const f = 1e6 / p10DeltaUs;
-    const val = (s: Fps) => s.num / s.den;
+export function vfrTimelineFps(p10DeltaUs: number, rFrameRate: Fps, meanDeltaUs = 0): Fps {
+  const val = (s: Fps) => s.num / s.den;
+  const work = p10DeltaUs > 0 ? 1e6 / p10DeltaUs : undefined;
+  if (meanDeltaUs > 0) {
+    const m = 1e6 / meanDeltaUs;
+    const near = STANDARD_FPS.filter((s) => Math.abs(val(s) - m) / val(s) <= NEAR_MEAN);
+    const byWork = work === undefined ? [] : near.filter((s) => Math.abs(val(s) - work) / val(s) <= EXACT).sort((a, b) => Math.abs(val(a) - work) - Math.abs(val(b) - work));
+    const pick = byWork[0] ?? [...near].sort((a, b) => Math.abs(val(a) - m) - Math.abs(val(b) - m))[0];
+    if (pick) return { ...pick };
+  }
+  if (work !== undefined) {
+    const f = work;
     const exact = STANDARD_FPS.filter((s) => Math.abs(val(s) - f) / val(s) <= EXACT).sort((a, b) => Math.abs(val(a) - f) - Math.abs(val(b) - f))[0];
     if (exact) return { ...exact };
     const above = STANDARD_FPS.filter((s) => val(s) >= f && val(s) <= f * (1 + ABOVE)).sort((a, b) => val(a) - val(b))[0];
@@ -175,7 +189,7 @@ export function parseProbe(json: unknown, ptsUs: number[]): ProbeSummary {
       ? { audio: { codec: a.codec_name!, sample_rate: sampleRate, channels: a.channels && a.channels > 0 ? a.channels : 1, ...(aStart !== undefined ? { start_time_us: aStart } : {}) } }
       : {}),
     vfr: vfr.vfr,
-    timeline_fps: vfr.vfr ? vfrTimelineFps(vfr.p10DeltaUs, r) : snapFps(avg),
+    timeline_fps: vfr.vfr ? vfrTimelineFps(vfr.p10DeltaUs, r, vfr.meanDeltaUs) : snapFps(avg),
   };
   const parsed = ProbeSummarySchema.safeParse(summary);
   if (!parsed.success) throw new MediaInvalidError(`сводка ffprobe не прошла схему: ${parsed.error.message}`);
