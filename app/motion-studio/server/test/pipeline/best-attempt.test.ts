@@ -6,6 +6,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type MotionSpec, defaultSettings } from "@ms/contracts";
+import { procInfo } from "@ms/core";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as versions from "../../src/db/repos/versions.js";
 import { enqueue } from "../../src/jobs/queue.js";
@@ -367,7 +368,7 @@ describe("S5-fix: второй дубль — выбор, отмена, сбой
     expect(render.calls.filter((r) => r.versionDir.endsWith("take2"))).toHaveLength(0);
   });
 
-  it("I6: вызов Engineer дубля 2 отклонён (обрыв сети) — задача ready с годной попыткой дубля 1, каталог дубля 2 оставлен", async () => {
+  it("I6: вызов Engineer дубля 2 отклонён (обрыв сети) — задача ready с годной попыткой дубля 1; разбор попытки чистый — каталог дубля 2 убран", async () => {
     const base = fakeAgents({
       engineer: async (_t, n) => ({ files: { "src/Scene.tsx": scene(`call ${n}`) } }),
       visualQa: qaBy({ 1: { overall: 5 } }),
@@ -381,9 +382,34 @@ describe("S5-fix: второй дубль — выбор, отмена, сбой
     expect(v).toMatchObject({ status: "ready" });
     expect(readFileSync(join(dir!, "src", "Scene.tsx"), "utf8")).toContain("// call 1");
     expect(res.warnings.join("\n")).toMatch(/второй дубль/);
-    // процесс дубля 2 не подтверждён мёртвым — его каталог не трогаем до разбора
-    expect(existsSync(join(runTmpOf(res), "take2"))).toBe(true);
+    // m2: процесс дубля 2 не подтверждён мёртвым — после итога попытка разобрана
+    // (живых записей нет), только тогда каталог дубля 2 убран
+    expect(existsSync(join(runTmpOf(res), "take2"))).toBe(false);
     expect(existsSync(join(runTmpOf(res), "attempts"))).toBe(false);
+  });
+
+  it("m2: Visual QA дубля 2 отклонён, его процесс не разбирается — take2 и qa-t2 остаются, предупреждение с PID", async () => {
+    let qa2 = false;
+    const base = fakeAgents({
+      engineer: async (_t, n) => ({ files: { "src/Scene.tsx": scene(`call ${n}`) } }),
+      visualQa: qaBy({ 1: { overall: 5 } }),
+    });
+    const agents = withSignal(base, async (task) => {
+      if (task.role !== "visual_qa" || !isTake2(task)) return undefined;
+      qa2 = true;
+      // «процесс» вызова — живой процесс теста; kill разбора — пустой, так что разбор не чистый
+      const r = task.run;
+      await r.registry!.add({ runId: r.runId, attempt: r.attempt, pid: process.pid, pgid: process.pid, startedAt: (await procInfo(process.pid))!.startedAt, cmd: "fake visual qa" });
+      throw new Error("socket hang up");
+    });
+    const { job, v, res } = await runJob({ agents, reapOptions: { kill: () => undefined, graceMs: 20, waitMs: 20 } }, "revise");
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(v).toMatchObject({ status: "ready" });
+    expect(qa2).toBe(true);
+    expect(existsSync(join(runTmpOf(res), "take2"))).toBe(true);
+    expect(existsSync(join(runTmpOf(res), "qa-t2"))).toBe(true);
+    expect(existsSync(join(runTmpOf(res), "attempts"))).toBe(false);
+    expect(res.warnings.join("\n")).toContain(`PID ${process.pid}`);
   });
 
   it("I7: общий бюджет двух дублей — резерв до вызова, лимит вызова не больше свободного остатка, итог ≤ лимита задачи", async () => {

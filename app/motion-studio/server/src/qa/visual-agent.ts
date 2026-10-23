@@ -5,7 +5,7 @@
 import { copyFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { type MotionSpec, type VisualQAOutput, VisualQAOutputSchema, holdModeExplicit, holdModeFor } from "@ms/contracts";
-import { safeMkdir } from "@ms/core";
+import { type ProcessRegistry, safeMkdir } from "@ms/core";
 import type { ResolvedStyle } from "@ms/render";
 import type { AgentResult, AgentRuntimeAdapter, AgentTask } from "../agents/runtime.js";
 import type { AppConfig } from "../config.js";
@@ -22,7 +22,8 @@ export interface VisualQAInput {
   durationFrames?: number;
   /** brief.json сцены (запрос и настройки) — для семантического gate. */
   brief: unknown;
-  runRef: { root: string; runId: string; attempt: number };
+  /** Прогон задачи; `registry` — реестр попытки (без него — файловый, как у среза). */
+  runRef: { root: string; runId: string; attempt: number; registry?: ProcessRegistry };
   signal: AbortSignal;
   /** Каталог QA дубля (S5): `qa` — первый, `qa-t2` — второй; параллельные дубли не делят кадры. */
   dirName?: string;

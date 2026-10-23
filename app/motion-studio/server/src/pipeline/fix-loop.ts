@@ -26,7 +26,7 @@ import {
   type Settings,
   type VisualQAOutput,
 } from "@ms/contracts";
-import { safeMkdir } from "@ms/core";
+import { type ReapOptions, fileProcessRegistry, reapAttempt, safeMkdir } from "@ms/core";
 import { type RenderRequest, type RenderResult, type renderVersion, probeGate } from "@ms/render";
 import { ACCENT_HOLD_GAP, programmaticChecks } from "../qa/programmatic.js";
 import { parseLayout } from "../qa/layout.js";
@@ -96,6 +96,8 @@ export interface LoopDeps {
   render: typeof renderVersion;
   check: typeof checkSceneDir;
   typecheck: typeof typecheckVersion;
+  /** Опции разбора процессов дубля 2 после итога (m2; подменяются в тестах). */
+  reapOptions?: Omit<ReapOptions, "registry">;
 }
 
 export interface LoopInput {
@@ -385,11 +387,12 @@ export function pickBest<T extends { n: number; qa?: QAReport; blocking: boolean
 }
 
 /**
- * Уборка снимков попыток и каталога второго дубля (M1: на любом выходе, кроме живых
- * процессов первого дубля). `keepTake2` — процесс дубля 2 не подтверждён мёртвым.
+ * Уборка снимков попыток и каталогов второго дубля (M1: на любом выходе, кроме живых
+ * процессов первого дубля). `keepTake2` — процесс дубля 2 не подтверждён мёртвым: его
+ * рабочие каталоги (`take2` у Engineer, `qa-t2` у Visual QA) остаются до разбора.
  */
 async function dropTakeDirs(rc: RunCtx, keepTake2: boolean): Promise<void> {
-  for (const x of ["attempts", "qa-t2", ...(keepTake2 ? [] : ["take2"])]) {
+  for (const x of ["attempts", ...(keepTake2 ? [] : ["take2", "qa-t2"])]) {
     await rm(join(rc.root, "run", "tmp", `${rc.runId}-a${rc.attempt}`, x), { recursive: true, force: true }).catch((e: unknown) => rc.warnings.push(`run/tmp/${x} не убран: ${errText(e)}`));
   }
 }
@@ -403,6 +406,43 @@ async function dropTakeDirs(rc: RunCtx, keepTake2: boolean): Promise<void> {
  * второй дубль в своём каталоге, параллельно с исправлениями первого.
  */
 export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> {
+  const t2 = { alive: false };
+  const exit = await fixLoop(i, state, t2);
+  // m2: процесс дубля 2 не подтверждён мёртвым, а итог его не несёт (`alive` итога — карантин,
+  // разбор за восстановлением) — разбираем попытку сами: процессы дубля 1 к этому моменту
+  // подтверждённо мертвы, так что разбор касается только дубля 2 (ADR 0007, «до разбора»)
+  if (!t2.alive || (!exit.ok && exit.alive)) return exit;
+  if (await reapTake2(i)) return exit;
+  // опубликованная версия остаётся (процесс дубля 2 в неё не пишет), неудача — в карантин
+  return exit.ok ? exit : { ...exit, alive: true };
+}
+
+/**
+ * Разбор процессов попытки после итога (m2): чисто — каталоги дубля 2 убираются; нет —
+ * остаются, предупреждение с PID.
+ */
+async function reapTake2(i: LoopInput): Promise<boolean> {
+  const { rc } = i;
+  let r: Awaited<ReturnType<typeof reapAttempt>>;
+  try {
+    r = await reapAttempt(rc.registry ?? fileProcessRegistry(rc.root), { runId: rc.runId, attempt: rc.attempt }, i.deps.reapOptions);
+  } catch (e) {
+    rc.warnings.push(`разбор процессов дубля 2 не удался: ${errText(e)} — каталоги take2 и qa-t2 оставлены`);
+    return false;
+  }
+  if (!r.clean) {
+    const pids = r.alive.map((p) => p.pid).join(", ");
+    rc.warnings.push(`процессы дубля 2 не завершились (PID ${pids}) — каталоги take2 и qa-t2 оставлены до разбора`);
+    rc.note("second_take", `разбор после итога: живы PID ${pids}`);
+    return false;
+  }
+  rc.note("second_take", "разбор после итога: процессов дубля 2 нет");
+  await dropTakeDirs(rc, false);
+  return true;
+}
+
+/** Тело цикла; `t2.alive` — процесс дубля 2 не подтверждён мёртвым (разбор — в `runFixLoop`). */
+async function fixLoop(i: LoopInput, state: LoopState, t2out: { alive: boolean }): Promise<Exit> {
   const { rc } = i;
   const maxCalls = 1 + rc.config.scene.maxAutoFixes;
   const st = rc.config.scene.secondTake;
@@ -451,6 +491,7 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
   const t2 = take2 ? await take2 : undefined;
   // процесс дубля 2 не подтверждён мёртвым — его каталог не трогаем до разбора
   const t2alive = t2?.exit?.alive === true;
+  t2out.alive = t2alive;
   if (hardExit(t1.exit)) {
     if (!t1.exit!.alive && !t2alive) await dropTakeDirs(rc, false);
     return t1.exit!;
@@ -459,7 +500,7 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
     if (!t2alive) await dropTakeDirs(rc, false);
     return t2!.exit!;
   }
-  if (t2?.exit) rc.warnings.push(`второй дубль: ${t2.exit.stage}: ${clip(t2.exit.message, 300)}${t2alive ? " (процесс не подтверждён мёртвым — каталог take2 оставлен)" : ""}`);
+  if (t2?.exit) rc.warnings.push(`второй дубль: ${t2.exit.stage}: ${clip(t2.exit.message, 300)}${t2alive ? " (процесс не подтверждён мёртвым — разбор после итога)" : ""}`);
 
   const best = pickBest(ctl.attempts);
   state.attempts = ctl.attempts.map((a) => attemptRecord(a, a === best));
@@ -899,7 +940,7 @@ async function runQa(
     const v = await rc.timed(`${pre}visual_qa_${call}`, () =>
       rc.underWatch((sig) =>
         runVisualQA(
-          { workdir: dir, frames, spec, style, durationFrames: end, brief: i.qa!.brief, runRef: { root: rc.root, runId: rc.runId, attempt: rc.attempt }, signal: sig, ...(pre ? { dirName: "qa-t2" } : {}) },
+          { workdir: dir, frames, spec, style, durationFrames: end, brief: i.qa!.brief, runRef: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry }, signal: sig, ...(pre ? { dirName: "qa-t2" } : {}) },
           { agents: rc.recording, config: rc.config, log: (m) => rc.warnings.push(m) },
         ),
       t.signal),

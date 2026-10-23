@@ -27,7 +27,7 @@ import {
   type Settings,
   type VersionManifest,
 } from "@ms/contracts";
-import { type ProcessRegistry, type StorageStatus, safeMkdir } from "@ms/core";
+import { type ProcessRegistry, type ReapOptions, type StorageStatus, safeMkdir } from "@ms/core";
 import { MOTION_KIT_DIR, type renderVersion } from "@ms/render";
 import type { AgentRuntimeAdapter } from "../agents/runtime.js";
 import type { AppConfig } from "../config.js";
@@ -97,6 +97,8 @@ export interface GenerateDeps {
   publish?: (draft: Draft, meta: PublishMeta) => Promise<PublishedRef>;
   /** Места семафоров раннера (задача). */
   permits?: { agents: Permits; renders: Permits };
+  /** Опции разбора процессов дубля 2 после итога цикла (m2; подменяются в тестах). */
+  reapOptions?: Omit<ReapOptions, "registry">;
   /** Прогресс задачи 0..1 и этап. */
   progress?: (p: number, stage: string) => void;
 }
