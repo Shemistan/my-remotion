@@ -54,4 +54,27 @@ describe("RunCtx.reserve", () => {
     expect(r.error).toBeUndefined();
     expect(called).toBe(0);
   });
+
+  it("m4: ожидание резерва не входит во время этапа вызова — отдельная метка budget_wait", async () => {
+    const now = new Date().toISOString();
+    const agents = {
+      capabilities: async () => ({ available: true }),
+      run: async () => ({ status: "completed", usage: { model: "fake", inputTokens: 0, outputTokens: 0, costUsd: 0.1 }, permissionDenials: [], stdoutPath: "", stderrPath: "", startedAt: now, finishedAt: now }),
+    };
+    const rc = new RunCtx({ config: { scene: { maxCostUsd: 5 } }, agents } as unknown as StepDeps, undefined, "/r", "run", 1, undefined);
+    rc.spent = 3;
+    // другой вызов задачи держит резерв на весь остаток
+    await rc.reserve(2, sig());
+    const task = { role: "engineer", limits: { timeoutMs: 1, maxBudgetUsd: 2 } } as never;
+    const p = rc.timed("t2_engineer_1", () => rc.recording.run(task, {} as never, sig()));
+    await new Promise((r) => setTimeout(r, 200));
+    (rc as unknown as { unreserve(x: number): void }).unreserve(2);
+    await p;
+    expect(rc.timings.t2_engineer_1).toBeLessThan(100);
+    expect(rc.timings.budget_wait).toBeGreaterThanOrEqual(150);
+    const eng = rc.spans.filter((x) => x.key === "t2_engineer_1");
+    const wait = rc.spans.find((x) => x.key === "budget_wait")!;
+    expect(wait.end - wait.start).toBeGreaterThanOrEqual(150);
+    for (const x of eng) expect(x.start >= wait.end || x.end <= wait.start).toBe(true);
+  });
 });

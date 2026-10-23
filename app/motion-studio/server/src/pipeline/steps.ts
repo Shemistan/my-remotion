@@ -2,6 +2,7 @@
 // агентов), задачи ролей Concept / Motion Director / Engineer и их тексты. Из шагов
 // собираются `generateScene` (срез: поиск по запросу → Director → Engineer) и обработчик
 // задачи `playground.generate` (Concept → кандидаты → Director → Engineer → QA).
+import { AsyncLocalStorage } from "node:async_hooks";
 import { readFileSync } from "node:fs";
 import { rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
@@ -102,6 +103,9 @@ export interface Called<T> {
  */
 export const MIN_CALL_USD = 0.5;
 
+/** Интервалы ожидания резерва бюджета внутри текущего `timed` (m4): не время этапа. */
+const budgetWaits = new AsyncLocalStorage<[number, number][]>();
+
 /**
  * Контекст одного прогона: хранилище, сторож, бюджет (фактический `usage.costUsd`, R15),
  * журнал вызовов агентов и этапов. Все агентные вызовы идут через `call` / `recording`.
@@ -190,14 +194,31 @@ export class RunCtx {
     this.history.push({ at: new Date().toISOString(), stage, message });
   }
 
+  /**
+   * Замер этапа. Ожидание резерва бюджета внутри (`reserve`, m4) из этапа вычитается и
+   * пишется своей меткой `budget_wait`: этап, ждавший чужой вызов, не выглядит медленным.
+   */
   async timed<T>(key: string, fn: () => Promise<T>): Promise<T> {
     const s = Date.now();
+    const waits: [number, number][] = [];
     try {
-      return await fn();
+      return await budgetWaits.run(waits, fn);
     } finally {
       const e = Date.now();
-      this.timings[key] = (this.timings[key] ?? 0) + e - s;
-      this.spans.push({ key, start: s, end: e });
+      // объемлющий timed тоже не считает эти ожидания своим временем
+      budgetWaits.getStore()?.push(...waits);
+      let cur = s;
+      let waited = 0;
+      for (const [a, b] of [...waits].sort((x, y) => x[0] - y[0])) {
+        const from = Math.max(a, cur);
+        const to = Math.min(b, e);
+        if (to <= from) continue;
+        if (from > cur) this.spans.push({ key, start: cur, end: from });
+        waited += to - from;
+        cur = to;
+      }
+      if (waits.length === 0 || e > cur) this.spans.push({ key, start: cur, end: e });
+      this.timings[key] = (this.timings[key] ?? 0) + e - s - waited;
     }
   }
 
@@ -295,6 +316,7 @@ export class RunCtx {
         return cap;
       }
       if (this.reserved > 1e-9) {
+        const ws = Date.now();
         await new Promise<void>((resolve) => {
           const done = () => {
             sig.removeEventListener("abort", done);
@@ -303,6 +325,10 @@ export class RunCtx {
           this.budgetWaiters.push(done);
           sig.addEventListener("abort", done, { once: true });
         });
+        const we = Date.now();
+        this.timings.budget_wait = (this.timings.budget_wait ?? 0) + we - ws;
+        this.spans.push({ key: "budget_wait", start: ws, end: we });
+        budgetWaits.getStore()?.push([ws, we]);
         continue;
       }
       if (free >= MIN_CALL_USD) {
