@@ -56,6 +56,37 @@ describe("реальный кадр с обрезкой", () => {
   });
 });
 
+// S5: user-06 (user3-32243aa) упал на blocking clipping облаков и домов, уходящих за край в
+// иллюстрации на 60 с; ни один элемент spec не имел раскладки во весь кадр (fullBleedAt молчал).
+describe("S5: сцена-мир — крупные фоновые объекты за краем кадра", () => {
+  const settings: Settings = { ...defaultSettings(), width: 960, height: 540 };
+  const sp = spec({ beats: [beat("b0", 0, 10, ["a"]), beat("b1", 10, 2000, ["a"], "hold")] });
+  const run = (files: [number, string][], extra: Partial<Settings> = {}) =>
+    programmaticChecks({
+      frames: files.map(([frame, f]) => ({ frame, path: FRAMES + f })), spec: sp, settings: { ...settings, ...extra },
+      style: resolveStyle({ preset: settings.style_preset, intensity: settings.animation_intensity }),
+      render: renderResult(), previewBytes: 1000,
+    });
+
+  it("кадр-мир (слои у трёх краёв) и кадр с облаком у левого края — clipping только warning", async () => {
+    const r = await run([[354, "world-rain-354.png"], [1251, "world-rain-1251.png"]]);
+    const clips = r.filter((i) => i.code === "clipping");
+    expect(clips.length).toBeGreaterThan(0);
+    expect(clips.every((i) => i.severity === "warning")).toBe(true);
+    expect(clips[0]!.description).toContain("сцена-мир");
+  });
+
+  it("тот же кадр с облаком у края без кадра-мира в сцене — blocking (одиночный объект у края)", async () => {
+    const r = await run([[354, "world-rain-354.png"]]);
+    expect(r).toContainEqual(expect.objectContaining({ code: "clipping", severity: "blocking", area: "left" }));
+  });
+
+  it("обрезанный заголовок на тёмном фоне остаётся blocking рядом с обычными кадрами kit", async () => {
+    const r = await run([[67, "clipped-text-67.png"], [100, "dark-choreo-16.png"]], { safe_area: { x: 0.05, y: 0.05 } });
+    expect(r).toContainEqual(expect.objectContaining({ code: "clipping", severity: "blocking", area: "right" }));
+  });
+});
+
 describe("кадры среза (Test 1, Test 2) с их spec — без blocking программных замечаний", () => {
   it.each(["test1", "test2"])("%s", async (t) => {
     const dir = `${SLICE}${t}/`;

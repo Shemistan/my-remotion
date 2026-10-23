@@ -10,6 +10,7 @@ import type { ResolvedStyle } from "@ms/render";
 import type { AgentResult, AgentRuntimeAdapter, AgentTask } from "../agents/runtime.js";
 import type { AppConfig } from "../config.js";
 import { type MotionTokens, inBeat, uncoveredElements } from "../pipeline/qa-frames.js";
+import type { LayoutFrame } from "./layout.js";
 
 export interface VisualQAInput {
   /** draft-каталог версии: кадры берутся из `<workdir>/frames/<n>.png`. */
@@ -186,5 +187,60 @@ function withMissing(out: VisualQAOutput, spec: MotionSpec, frames: number[], st
       warn();
     }
   }
+  return { ...out, issues, gate: { ...out.gate, visual } };
+}
+
+/** Нормализация текста для сверки с пробой: регистр, пробелы (в т. ч. неразрывные). */
+const norm = (t: string) => t.toLowerCase().replace(/[\s\u00a0\u202f]+/g, " ").trim();
+const compact = (t: string) => norm(t).replace(/ /g, "");
+
+/** Тексты из content элемента spec: строки от 2 знаков и числа (рекурсивно). */
+function contentTexts(v: unknown, out: string[] = []): string[] {
+  if (typeof v === "string") {
+    if (v.trim().length >= 2) out.push(v);
+  } else if (typeof v === "number" && Number.isFinite(v)) out.push(String(v));
+  else if (Array.isArray(v)) for (const x of v) contentTexts(x, out);
+  else if (v && typeof v === "object") for (const x of Object.values(v)) contentTexts(x, out);
+  return out;
+}
+
+/**
+ * Кадр, на котором проба раскладки видит текст элемента внутри его битов: id элемента в
+ * ключе владельца (`<роль>:<data-ms-id>:<n>`) или текст из `content` в тексте пробы.
+ */
+function registryFrame(e: MotionSpec["elements"][number], spec: MotionSpec, layout: LayoutFrame[], durationFrames: number): number | undefined {
+  const beats = spec.beats.filter((b) => b.element_ids.includes(e.id));
+  const texts = contentTexts(e.content).map(compact).filter((t) => t.length >= 2);
+  for (const f of layout) {
+    if (!beats.some((b) => inBeat(b, f.frame, durationFrames))) continue;
+    for (const it of f.items) {
+      if (it.id.split(":")[1] === e.id) return f.frame;
+      const t = compact(it.text);
+      if (t && texts.some((x) => t.includes(x) || (t.length >= 4 && x.includes(t)))) return f.frame;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * S5: blocking `missing_element` по одному зрению, который опровергает реестр раскладки
+ * (проба видит текст элемента на кадре его битов), — warning: элемент построен, агент его
+ * не узнал. Если других blocking-замечаний агента не осталось, `gate.visual` fail → warn.
+ * Элементы без текста реестр не видит — их замечания не меняются.
+ */
+export function reconcileMissing(out: VisualQAOutput, spec: MotionSpec, layout: LayoutFrame[], durationFrames: number): VisualQAOutput {
+  if (layout.length === 0) return out;
+  const byId = new Map(spec.elements.map((e) => [e.id, e]));
+  let changed = false;
+  const issues = out.issues.map((i) => {
+    if (i.code !== "missing_element" || i.severity !== "blocking" || !i.area) return i;
+    const e = byId.get(i.area);
+    const f = e ? registryFrame(e, spec, layout, durationFrames) : undefined;
+    if (f === undefined) return i;
+    changed = true;
+    return { ...i, severity: "warning" as const, description: `${i.description} (реестр раскладки видит его текст на кадре ${f} — замечание только зрения)` };
+  });
+  if (!changed) return out;
+  const visual = out.gate.visual === "fail" && !issues.some((i) => i.severity === "blocking") ? "warn" : out.gate.visual;
   return { ...out, issues, gate: { ...out.gate, visual } };
 }

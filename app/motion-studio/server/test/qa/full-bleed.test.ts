@@ -39,14 +39,23 @@ describe("clipping под полноэкранным слоем", () => {
     const r = await programmaticChecks(await withFrames(tmp, [landscape()], { spec: sceneSpec() }));
     expect(clips(r)).toEqual([]);
   });
-  it("тот же кадр без полноэкранного слоя в spec — clipping blocking (как раньше)", async () => {
+  // S5: пейзаж, у которого слои мира занимают ≥ 40 % двух краёв и больше, — сцена-мир и без
+  // признака в spec: пиксельная обрезка в ней — warning (текст меряет проба раскладки)
+  it("тот же кадр без полноэкранного слоя в spec — clipping warning (сцена-мир по пикселям, S5)", async () => {
     const plain = spec({ elements: [el("title", { kind: "text" })], beats: [beat("b-title", 0, 90, ["title"])] });
     const r = await programmaticChecks(await withFrames(tmp, [landscape()], { spec: plain }));
-    expect(clips(r)).toContainEqual(expect.objectContaining({ severity: "blocking" }));
+    expect(clips(r).length).toBeGreaterThan(0);
+    expect(clips(r).every((i) => i.severity === "warning")).toBe(true);
   });
-  it("слой ещё не вошёл (его бит позже кадра) — clipping blocking", async () => {
+  it("слой ещё не вошёл (его бит позже кадра) — clipping меряется (warning: кадр — мир по пикселям)", async () => {
     const r = await programmaticChecks(await withFrames(tmp, [landscape()], { spec: sceneSpec(40) }));
     expect(clips(r).length).toBeGreaterThan(0);
+  });
+  it("S5: одна крупная плашка у одного края (не мир) — clipping blocking", async () => {
+    const panel = new Canvas(W, H, "#101010").rect(W - 50, 20, 50, 60, "#e6e6eb");
+    const plain = spec({ elements: [el("title", { kind: "text" })], beats: [beat("b-title", 0, 90, ["title"])] });
+    const r = await programmaticChecks(await withFrames(tmp, [panel], { spec: plain }));
+    expect(clips(r)).toContainEqual(expect.objectContaining({ severity: "blocking", area: "right" }));
   });
   it("текст за краем кадра — blocking и под полноэкранным слоем (проба раскладки)", async () => {
     const r = await programmaticChecks(await withFrames(tmp, [landscape()], { spec: sceneSpec(), logs: [probe({ x: W - 60, y: 50, w: 120, h: 20 })] }));
