@@ -162,3 +162,5 @@ R1→R2), held-mobile, held-queue; остальное — train. Правила 
 оценки holdout переведи в train и сними `HOLDOUT_SEEN_BY_RUBRIC`. MAE > 0.8
 — перекалибруй судью (по train), прежде чем ему верить. Новые якоря меняют отпечаток судьи:
 прогоны до и после правки `reference.ts` сравниваются только после `--rejudge`.
+
+Ночной цикл (`./night`, `scripts/NIGHT.md`) применяет более строгое правило: рост explainer ≥ +0.1 и без потерь по набору user, стоимости, времени и failed (`server/src/bench/night-accept.ts`).
