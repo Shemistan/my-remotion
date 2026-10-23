@@ -425,6 +425,10 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
   if (best.spec !== i.spec) i.files.set("spec.json", JSON.stringify(best.spec, null, 2) + "\n");
   if (best.report) state.report = best.report;
   await i.files.write();
+  // снимки попыток и каталог второго дубля больше не нужны: лучшая — в draft
+  for (const x of ["attempts", "take2", "qa-t2"]) {
+    await rm(join(rc.root, "run", "tmp", `${rc.runId}-a${rc.attempt}`, x), { recursive: true, force: true }).catch((e: unknown) => rc.warnings.push(`run/tmp/${x} не убран: ${errText(e)}`));
+  }
 
   let qa = best.qa;
   if (qa && best.blocking) {

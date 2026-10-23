@@ -173,6 +173,10 @@ describe("S5: второй дубль", () => {
     expect(readFileSync(join(dir!, "src", "Scene.tsx"), "utf8")).toContain("take 2 from take 1");
     expect(qaOf(dir!).scores.overall).toBe(7);
     expect(res.attempts?.map((a) => [a.take, a.overall, a.published])).toEqual([[1, 5.5, false], [2, 7, true]]);
+    // снимки попыток и каталог второго дубля после публикации убраны (хранилище на SSD не копит их)
+    const runTmp = join(env.s.root, "run", "tmp", `${res.runId}-a1`);
+    expect(existsSync(join(runTmp, "attempts"))).toBe(false);
+    expect(existsSync(join(runTmp, "take2"))).toBe(false);
   });
 
   it("дубль хуже первой попытки → публикуется первая (оценка не падает)", async () => {
