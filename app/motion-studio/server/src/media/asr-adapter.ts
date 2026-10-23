@@ -3,12 +3,12 @@
 // аргументами массивом (без shell). Процесс — через spawnTracked: своя группа, запись в реестре
 // попытки, отмена — SIGTERM группе и SIGKILL после паузы (ADR 0007). Env — allowlist childEnv +
 // PYTHONNOUSERSITE и офлайн-флаги Hugging Face; веса — только локальный каталог модели.
-import { readFile } from "node:fs/promises";
+import { open, readFile, stat } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import { type ProcessRegistry, spawnTracked } from "@ms/core";
 import { childEnv } from "../agents/env.js";
 import type { AsrConfig } from "../config.js";
-import { type AsrWorkerOutput, parseAsrOutput } from "./asr-contract.js";
+import { AsrContractError, type AsrWorkerOutput, parseAsrOutput } from "./asr-contract.js";
 import type { RunRef } from "./ffmpeg.js";
 
 /** Путь воркера в ai-platform (контракт закреплён sha256 этого файла). */
@@ -39,16 +39,50 @@ export function checkHotwords(list: string[]): string[] {
   if (out.length > MAX_HOTWORDS) throw new AsrInputError(`hotwords: не больше ${MAX_HOTWORDS} (передано ${out.length})`);
   for (const w of out) {
     if (w.includes(HOTWORDS_SEP)) throw new AsrInputError(`hotwords: «|» — разделитель воркера, в слове недопустим: ${JSON.stringify(w)}`);
-    if (/\p{Cc}|\p{Cf}/u.test(w)) throw new AsrInputError(`hotwords: управляющие символы недопустимы: ${JSON.stringify(w)}`);
+    if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(w)) throw new AsrInputError(`hotwords: управляющие символы недопустимы: ${JSON.stringify(w)}`);
     if (w.startsWith("-")) throw new AsrInputError(`hotwords: слово не может начинаться с «-»: ${JSON.stringify(w)}`);
     if ([...w].length > MAX_HOTWORD_CHARS) throw new AsrInputError(`hotwords: слово длиннее ${MAX_HOTWORD_CHARS} символов: ${JSON.stringify(w.slice(0, 80))}`);
   }
   return out;
 }
 
-/** Код языка whisper: 2–3 строчные латинские буквы (`ru`, `en`). */
+/**
+ * Сумма hotwords в промпте whisper, оценка в токенах (ревью Task 26, m9). mlx-audio склеивает
+ * hotwords через «, » в `initial_prompt`, а декодер оставляет от промпта последние
+ * `n_text_ctx // 2 − 1` = 223 токена (`decoding.py`, n_text_ctx = 448) — лишнее начало
+ * отбрасывается молча. Оценка — байты UTF-8 строки `" " + слова.join(", ")`: токен byte-level BPE
+ * не короче байта, так что оценка не занижает (латиница ≈ 3 символа на токен, кириллица ≈ 2).
+ */
+export const HOTWORDS_PROMPT_BUDGET = 223;
+const HOTWORDS_JOIN = ", ";
+const promptCost = (words: string[]) => Buffer.byteLength(" " + words.join(HOTWORDS_JOIN), "utf8");
+
+/** Hotwords в окне промпта: первые по списку (порядок — приоритет), хвост сверх окна — `dropped`. */
+export function fitHotwords(list: string[]): { kept: string[]; dropped: string[] } {
+  const kept: string[] = [];
+  for (const w of list) {
+    if (promptCost([...kept, w]) > HOTWORDS_PROMPT_BUDGET) break;
+    kept.push(w);
+  }
+  return { kept, dropped: list.slice(kept.length) };
+}
+
+/**
+ * Языки whisper — `LANGUAGES` из `mlx_audio/stt/models/whisper/tokenizer.py` (mlx-audio 0.5.8,
+ * окружение воркера), 100 кодов. Другой код воркер передал бы модели как есть.
+ */
+export const WHISPER_LANGUAGES = [
+  "en", "zh", "de", "es", "ru", "ko", "fr", "ja", "pt", "tr", "pl", "ca", "nl", "ar", "sv", "it", "id", "hi", "fi", "vi",
+  "he", "uk", "el", "ms", "cs", "ro", "da", "hu", "ta", "no", "th", "ur", "hr", "bg", "lt", "la", "mi", "ml", "cy", "sk",
+  "te", "fa", "lv", "bn", "sr", "az", "sl", "kn", "et", "mk", "br", "eu", "is", "hy", "ne", "mn", "bs", "kk", "sq", "sw",
+  "gl", "mr", "pa", "si", "km", "sn", "yo", "so", "af", "oc", "ka", "be", "tg", "sd", "gu", "am", "yi", "lo", "uz", "fo",
+  "ht", "ps", "tk", "nn", "mt", "sa", "lb", "my", "bo", "tl", "mg", "as", "tt", "haw", "ln", "ha", "ba", "jw", "su", "yue",
+] as const;
+const LANG_SET: ReadonlySet<string> = new Set(WHISPER_LANGUAGES);
+
+/** Код языка whisper из `WHISPER_LANGUAGES` (`ru`, `en`, `yue`). */
 export function checkLanguage(lang: string): string {
-  if (!/^[a-z]{2,3}$/.test(lang)) throw new AsrInputError(`язык ASR — код из 2–3 латинских строчных букв (ru, en): ${JSON.stringify(lang)}`);
+  if (!LANG_SET.has(lang)) throw new AsrInputError(`язык ASR — код whisper (ru, en, uk…), не ${JSON.stringify(lang)}`);
   return lang;
 }
 
@@ -75,6 +109,7 @@ export function buildAsrArgs(cfg: AsrConfig, i: AsrArgsInput): string[] {
   }
   const lang = checkLanguage(i.language);
   const hot = checkHotwords(i.hotwords);
+  if (fitHotwords(hot).dropped.length > 0) throw new AsrInputError(`hotwords не помещаются в окно промпта whisper (${HOTWORDS_PROMPT_BUDGET} токенов): сначала fitHotwords`);
   for (const s of i.splits) if (!Number.isFinite(s) || s <= 0) throw new AsrInputError(`разрез ASR не годится: ${s}`);
   return [
     workerPath(cfg), "--kind", "whisper", "--model", modelDir(cfg, i.model ?? cfg.model),
@@ -168,11 +203,26 @@ export interface TranscribeResult {
 }
 
 const STDERR_TAIL = 4000;
+/** Предел `words.json`, байт (ревью Task 26, m5): больше — нарушение контракта, файл не читается. */
+export const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
+const HEAD_BYTES = 2000;
+
+/** Начало файла для журнала (без чтения целиком). */
+async function headOf(path: string): Promise<string> {
+  const fh = await open(path, "r");
+  try {
+    const buf = Buffer.alloc(HEAD_BYTES);
+    const { bytesRead } = await fh.read(buf, 0, HEAD_BYTES, 0);
+    return buf.subarray(0, bytesRead).toString("utf8");
+  } finally {
+    await fh.close();
+  }
+}
 
 export class AsrAdapter {
   constructor(
     private readonly cfg: AsrConfig,
-    private readonly deps: { spawn?: typeof spawnTracked; killGraceMs?: number; parentEnv?: NodeJS.ProcessEnv } = {},
+    private readonly deps: { spawn?: typeof spawnTracked; killGraceMs?: number; parentEnv?: NodeJS.ProcessEnv; maxOutputBytes?: number } = {},
   ) {}
 
   /**
@@ -231,10 +281,13 @@ export class AsrAdapter {
       const how = r.code === null ? `сигнал ${r.signal}` : `код ${r.code}`;
       throw new AsrRunError("failed", `воркер ASR завершился: ${how}: ${stderrTail.trim().slice(-1500) || "stderr пуст"}`, stderrTail);
     }
-    const raw = await readFile(outPath, "utf8").catch((e: NodeJS.ErrnoException) => {
-      if (e.code === "ENOENT") return "";
+    const size = await stat(outPath).then((st) => st.size, (e: NodeJS.ErrnoException) => {
+      if (e.code === "ENOENT") return 0;
       throw e;
     });
+    const max = this.deps.maxOutputBytes ?? MAX_OUTPUT_BYTES;
+    if (size > max) throw new AsrContractError(`вывод воркера ${size} байт — больше ${max} байт`, await headOf(outPath));
+    const raw = size === 0 ? "" : await readFile(outPath, "utf8");
     const output = parseAsrOutput(raw, { audioDurationS: i.audioDurationS });
     return { output, raw, outPath, splits: i.splits, elapsedMs, stderrTail };
   }

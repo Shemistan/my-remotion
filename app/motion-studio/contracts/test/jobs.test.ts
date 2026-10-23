@@ -21,9 +21,12 @@ describe("jobs", () => {
     ]);
   });
   it("JobError: коды Phase 2–3 без этапа", () => {
-    for (const code of ["approval_required", "asr_unavailable", "asr_contract_changed", "asr_contract_violation", "low_space", "media_invalid", "media_exists", "no_audio"]) {
+    for (const code of ["approval_required", "asr_unavailable", "asr_contract_changed", "asr_contract_violation", "asr_failed", "low_space", "media_invalid", "media_exists", "no_audio"]) {
       expect(JobErrorSchema.safeParse({ code, message: "x" }).success, code).toBe(true);
     }
+    // сбой воркера ASR (ревью Task 26, m4): этап transcribe, код asr_failed — не «ASR не установлен»
+    expect(JobErrorSchema.safeParse({ code: "asr_failed", stage: "transcribe", message: "код 3" }).success).toBe(true);
+    expect(JobErrorSchema.safeParse({ code: "asr_unavailable", stage: "transcribe", message: "код 3" }).success).toBe(false);
   });
   it("Job: корректная задача, interrupts обязателен", () => {
     expect(JobSchema.safeParse(job()).success).toBe(true);

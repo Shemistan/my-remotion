@@ -1,7 +1,7 @@
 // Task 26: контракт вывода воркера ASR ai-platform (Review Focus 7): нарушение — отказ, не «починка».
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { AsrContractError, AsrWorkerOutputSchema, parseAsrOutput, toTranscriptWords } from "../../src/media/asr-contract.js";
+import { AsrContractError, AsrWorkerOutputSchema, parseAsrOutput, toTranscriptWords, trimToDuration } from "../../src/media/asr-contract.js";
 
 const raw = (name: string): string => readFileSync(new URL(`../fixtures/asr/${name}`, import.meta.url), "utf8");
 const fx = (name: string): unknown => JSON.parse(raw(name));
@@ -88,5 +88,23 @@ describe("toTranscriptWords", () => {
     const ws = toTranscriptWords({ language: "ru", duration: 3, elapsed_s: 1, words: [{ w: "a", s: 0.1234565, e: 0.1234565 }, { w: "b", s: 0.1234566, e: 0.2 }] });
     expect(ws[0]!.start_us).toBeLessThanOrEqual(ws[0]!.end_us);
     expect(ws[1]!.start_us).toBeGreaterThanOrEqual(ws[0]!.start_us);
+  });
+});
+
+describe("ревью Task 26", () => {
+  const out = (ws: [string, number, number][]) => ({ language: "ru", duration: 3, elapsed_s: 1, words: ws.map(([w, s, e]) => ({ w, s, e })) });
+
+  it("m10: слова пустые после удаления \\p{Cf} отброшены; \\p{Cc} — пробел; пробелы схлопнуты", () => {
+    const ws = toTranscriptWords(out([["\u200b", 0, 0.1], ["\u202e\u2066", 0.1, 0.2], ["a\nb", 0.2, 0.3], ["\u0007", 0.3, 0.4], ["при\u00adвет", 0.4, 0.5], ["x\t\ty", 0.5, 0.6], ["\u2028", 0.6, 0.7]]));
+    expect(ws.map((w) => w.text)).toEqual(["a b", "привет", "x y"]);
+    expect(ws.map((w) => w.id)).toEqual(["w_000001", "w_000002", "w_000003"]);
+  });
+
+  it("m6: trimToDuration — слова после конца видео отброшены, пересекающие конец обрезаны", () => {
+    const ws = toTranscriptWords(out([["a", 0.1, 0.5], ["b", 2.8, 3.2], ["c", 3.0, 3.1], ["d", 3.4, 3.6]]));
+    const t = trimToDuration(ws, 3_000_000);
+    expect(t.words.map((w) => [w.id, w.start_us, w.end_us])).toEqual([["w_000001", 100_000, 500_000], ["w_000002", 2_800_000, 3_000_000]]);
+    expect(t).toMatchObject({ dropped: 2, clamped: 1 });
+    expect(trimToDuration(ws, 10_000_000)).toMatchObject({ dropped: 0, clamped: 0, words: ws });
   });
 });

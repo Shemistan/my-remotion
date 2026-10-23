@@ -1,7 +1,7 @@
 // Task 26: аргументы воркера ASR — массивом, без shell; hotwords и язык проверяются.
 import { describe, expect, it } from "vitest";
 import type { AsrConfig } from "../../src/config.js";
-import { AsrInputError, asrEnv, buildAsrArgs, checkHotwords, checkLanguage, workerPath } from "../../src/media/asr-adapter.js";
+import { AsrInputError, HOTWORDS_PROMPT_BUDGET, WHISPER_LANGUAGES, asrEnv, buildAsrArgs, checkHotwords, checkLanguage, fitHotwords, workerPath } from "../../src/media/asr-adapter.js";
 
 const cfg: AsrConfig = {
   python: "/py/bin/python", aiPlatformRoot: "/AIP", modelsDir: "/M", model: "whisper-large-v3-turbo", language: "ru",
@@ -30,16 +30,29 @@ describe("buildAsrArgs", () => {
 describe("checkHotwords / checkLanguage", () => {
   it("hotwords: обрезка пробелов, пустые выкинуты, без `|`, управляющих символов, ведущего «-», ограничения длины и числа", () => {
     expect(checkHotwords([" Claude Code ", "", "C++", "ёжик"])).toEqual(["Claude Code", "C++", "ёжик"]);
-    for (const bad of [["a|b"], ["a\nb"], ["a\u0000"], ["\u001b[31m"], ["-rf"], ["x".repeat(65)]]) {
+    for (const bad of [["a|b"], ["a\nb"], ["a\u0000"], ["\u001b[31m"], ["-rf"], ["x".repeat(65)], ["a\u2028b"], ["a\u2029b"]]) {
       expect(() => checkHotwords(bad), JSON.stringify(bad)).toThrow(AsrInputError);
     }
     expect(() => checkHotwords(Array.from({ length: 51 }, (_, i) => `w${i}`))).toThrow(/не больше 50/);
     expect(checkHotwords(Array.from({ length: 50 }, (_, i) => `w${i}`))).toHaveLength(50);
   });
 
-  it("язык — код из 2–3 латинских строчных букв", () => {
-    expect(checkLanguage("ru")).toBe("ru");
-    for (const bad of ["", "RU", "russian", "-h", "r u", "ru\n", "../x"]) expect(() => checkLanguage(bad), bad).toThrow(AsrInputError);
+  it("язык — код из списка языков whisper (mlx-audio)", () => {
+    for (const ok of ["ru", "en", "uk", "yue", "haw"]) expect(checkLanguage(ok)).toBe(ok);
+    expect(WHISPER_LANGUAGES).toHaveLength(100);
+    for (const bad of ["", "RU", "russian", "-h", "r u", "ru\n", "../x", "xx", "rus", "eng", "zz"]) expect(() => checkLanguage(bad), bad).toThrow(AsrInputError);
+  });
+
+  it("ревью Task 26 (m9): hotwords укладываются в окно промпта whisper — хвост отбрасывается, оценка по байтам UTF-8", () => {
+    expect(fitHotwords(["Claude Code", "Remotion"])).toEqual({ kept: ["Claude Code", "Remotion"], dropped: [] });
+    const many = Array.from({ length: 50 }, (_, i) => `слово${i}`);
+    const f = fitHotwords(many);
+    expect(f.kept).toEqual(many.slice(0, f.kept.length));
+    expect(f.dropped).toEqual(many.slice(f.kept.length));
+    expect(Buffer.byteLength(" " + f.kept.join(", "))).toBeLessThanOrEqual(HOTWORDS_PROMPT_BUDGET);
+    expect(Buffer.byteLength(" " + [...f.kept, f.dropped[0]].join(", "))).toBeGreaterThan(HOTWORDS_PROMPT_BUDGET);
+    // buildAsrArgs не режет молча — отказ
+    expect(() => buildAsrArgs(cfg, { audio: "/d/a.wav", out: "/d/w.json", language: "ru", splits: [], hotwords: many })).toThrow(/окно промпта/);
   });
 });
 

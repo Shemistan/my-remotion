@@ -67,16 +67,36 @@ export function parseAsrOutput(text: string, o: { audioDurationS: number }): Asr
 
 /**
  * Слова воркера → слова транскрипта: `w_000001…` по порядку, µs (`round(s·1e6)`),
- * `timing: "asr"`, `confidence: null` (V10); пустые после обрезки пробелов — отбрасываются.
+ * `timing: "asr"`, `confidence: null` (V10). Текст: NFC, невидимые форматирующие `\p{Cf}`
+ * (ZWSP, bidi, мягкий перенос) убираются, управляющие `\p{Cc}` и разделители строк — пробел,
+ * пробелы схлопываются и обрезаются; пустое слово отбрасывается (ревью Task 26, m10).
  */
 export function toTranscriptWords(out: AsrWorkerOutput): TranscriptWord[] {
   const words: TranscriptWord[] = [];
   for (const x of out.words) {
-    const text = x.w.normalize("NFC").trim();
+    const text = x.w.normalize("NFC").replace(/\p{Cf}/gu, "").replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ").replace(/\s+/gu, " ").trim();
     if (text === "") continue;
     const start = Math.round(x.s * 1e6);
     const end = Math.max(start, Math.round(x.e * 1e6));
     words.push({ id: `w_${String(words.length + 1).padStart(6, "0")}`, text, start_us: start, end_us: end, timing: "asr", confidence: null });
   }
   return words;
+}
+
+/**
+ * Слова в пределах видео (ревью Task 26, m6): звук бывает длиннее видеодорожки — слова,
+ * начинающиеся не раньше конца видео, отбрасываются, пересекающие конец — обрезаются по нему.
+ * id не меняются (по порядку, отброшен только хвост).
+ */
+export function trimToDuration(words: TranscriptWord[], durationUs: number): { words: TranscriptWord[]; dropped: number; clamped: number } {
+  let clamped = 0;
+  const kept: TranscriptWord[] = [];
+  for (const w of words) {
+    if (w.start_us >= durationUs) continue;
+    if (w.end_us > durationUs) {
+      clamped++;
+      kept.push({ ...w, end_us: durationUs });
+    } else kept.push(w);
+  }
+  return { words: kept.length === words.length && clamped === 0 ? words : kept, dropped: words.length - kept.length, clamped };
 }

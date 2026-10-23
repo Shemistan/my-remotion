@@ -305,6 +305,7 @@ export const ru = {
   "job.errorCode.fenced_out": "Попытка устарела, её результат не записан.",
   "job.errorCode.budget": "Исчерпан бюджет задачи.",
   "job.errorCode.cancelled": "Задача отменена.",
+  "job.errorCode.asr_failed": "Распознавание речи не удалось: воркер ASR упал, завис или не уложился во время.",
 
   "stage.unknown": "—",
   "stage.storage": "хранилище",
@@ -327,6 +328,7 @@ export const ru = {
   "stage.edit_planner": "план правки",
   "stage.export": "экспорт",
   "stage.timeout": "таймаут",
+  "stage.transcribe": "распознавание речи",
   // импорт видео (Task 25)
   "stage.hash": "сверка файла",
   "stage.space": "проверка места",

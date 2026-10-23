@@ -6,7 +6,7 @@ import { copyFileSync, existsSync, readFileSync, readdirSync, rmSync, statSync, 
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { type Job, TranscriptRevisionDocSchema } from "@ms/contracts";
+import { type Job, JobErrorSchema, TranscriptRevisionDocSchema } from "@ms/contracts";
 import { fileProcessRegistry, groupExists, spawnTracked } from "@ms/core";
 import type { AsrConfig } from "../../src/config.js";
 import { openDb, type Db } from "../../src/db/open.js";
@@ -200,10 +200,19 @@ describe("asr.transcribe", () => {
     const trnId = transcriptIdFor(first.job.id);
     releaseLocks(db, jobs.update(db, first.job.id, { status: "pending", lease_owner: null, lease_until: null }));
     rmSync(join(montage, "calls.jsonl"), { force: true });
+    // рабочий каталог попытки 1, оставленный kill -9 (ревью Task 26, m8), и чужой задачи
+    const left = join(s.root, "run/tmp", `${first.job.id}-a1-asr-XXXX`);
+    const foreign = join(s.root, "run/tmp", "job_01OTHER-a1-asr-YYYY");
+    await mkdir(left, { recursive: true });
+    await mkdir(foreign, { recursive: true });
+    writeFileSync(join(left, "words.json"), "{}");
     const second = await runAsr(projectId, mediaId, { jobId: first.job.id });
     expect(second.attempt).toBe(2);
     expect(second.r).toMatchObject({ status: "completed", outputRefs: { transcript_id: trnId, revision: 1, reused: true } });
     expect(calls()).toEqual([]);
+    expect(existsSync(left)).toBe(false);
+    expect(existsSync(foreign)).toBe(true);
+    rmSync(foreign, { recursive: true, force: true });
     expect(db.prepare("SELECT COUNT(*) FROM transcript_revisions WHERE transcript_id = ?").pluck().get(trnId)).toBe(1);
     expect(db.prepare("SELECT job_id, attempt FROM artifact_publications WHERE dest_rel LIKE ?").all(`%/transcript/${trnId}/%`)).toEqual([{ job_id: first.job.id, attempt: 1 }]);
     expect(draftsOf(first.job.id)).toEqual([]);
@@ -227,17 +236,21 @@ describe("asr.transcribe", () => {
     const heavy = new Semaphore(1);
     let acA: AbortController | undefined;
     let acB: AbortController | undefined;
-    let jobB: Job | undefined;
+    const stagesB: string[] = [];
     const pa = runAsr(a.projectId, a.mediaId, { heavy, onStart: (ac) => (acA = ac) });
     await waitFor(() => calls().length === 1);
-    const pb = runAsr(b.projectId, b.mediaId, { heavy, onStart: (ac, j) => ((acB = ac), (jobB = j)) });
+    const pb = runAsr(b.projectId, b.mediaId, { heavy, onStart: (ac) => (acB = ac), deps: { onStage: (st) => void stagesB.push(st) } });
+    await waitFor(() => stagesB.includes("heavy_wait"));
     await new Promise((r) => setTimeout(r, 1500));
+    // вторая задача стоит на семафоре: до этапа transcribe не дошла, воркер не запущен
+    expect(stagesB.at(-1)).toBe("heavy_wait");
+    expect(stagesB).not.toContain("transcribe");
     expect(calls()).toHaveLength(1);
-    expect(jobs.get(db, jobB!.id)!.stage ?? "").not.toBe("transcribe");
     acA!.abort();
     const ra = await pa;
     expect(ra.r.status).toBe("failed");
     await waitFor(() => calls().length === 2);
+    expect(stagesB).toContain("transcribe");
     acB!.abort();
     const rb = await pb;
     expect(rb.r.status).toBe("failed");
@@ -290,27 +303,28 @@ describe("asr.transcribe", () => {
     expect(transcripts.byProject(db, projectId)).toBeUndefined();
   });
 
-  it("нет вывода дольше noOutputTimeoutMs → failed asr_unavailable, группа убита", async () => {
+  it("нет вывода дольше noOutputTimeoutMs → failed asr_failed (transcribe), группа убита", async () => {
     const { projectId, mediaId } = await videoProject();
     mode({ hang: true, stdout: [] });
     const { r } = await runAsr(projectId, mediaId, { deps: { asr: { ...cfg, noOutputTimeoutMs: 700 }, killGraceMs: 200 } });
-    expect(r).toMatchObject({ status: "failed", error: { code: "asr_unavailable", message: expect.stringMatching(/нет вывода/) } });
+    expect(r).toMatchObject({ status: "failed", error: { code: "asr_failed", stage: "transcribe", message: expect.stringMatching(/нет вывода/) } });
     expect(pidAlive(calls()[0]!.pid)).toBe(false);
     expect(await live()).toEqual([]);
   });
 
-  it("общий таймаут timeoutMs при живом прогрессе → failed asr_unavailable", async () => {
+  it("общий таймаут timeoutMs при живом прогрессе → failed asr_failed (transcribe)", async () => {
     const { projectId, mediaId } = await videoProject();
     mode({ hang: true });
     const { r } = await runAsr(projectId, mediaId, { deps: { asr: { ...cfg, timeoutMs: 800 }, killGraceMs: 200 } });
-    expect(r).toMatchObject({ status: "failed", error: { code: "asr_unavailable", message: expect.stringMatching(/не уложился/) } });
+    expect(r).toMatchObject({ status: "failed", error: { code: "asr_failed", stage: "transcribe", message: expect.stringMatching(/не уложился/) } });
   });
 
-  it("воркер упал с кодом ≠ 0 и stderr → failed asr_unavailable с хвостом stderr, транскрипта нет", async () => {
+  it("воркер упал с кодом ≠ 0 и stderr → failed asr_failed (transcribe) с хвостом stderr, транскрипта нет — не «ASR не установлен»", async () => {
     const { projectId, mediaId } = await videoProject();
     mode({ stderr: "Traceback (most recent call last):\nMemoryError: Metal OOM\n", exit: 3 });
     const { r, job } = await runAsr(projectId, mediaId);
-    expect(r).toMatchObject({ status: "failed", error: { code: "asr_unavailable", message: expect.stringMatching(/код 3.*Metal OOM/s) } });
+    expect(r).toMatchObject({ status: "failed", error: { code: "asr_failed", stage: "transcribe", message: expect.stringMatching(/код 3.*Metal OOM/s) } });
+    expect(JobErrorSchema.safeParse((r as { error: unknown }).error).success).toBe(true);
     expect(transcripts.byProject(db, projectId)).toBeUndefined();
     expect(draftsOf(job.id)).toEqual([]);
   });
@@ -371,7 +385,7 @@ describe("asr.transcribe", () => {
 
   it("вход: hotwords с `|` или управляющими символами, чужой mediaId, projectId не тот → failed до воркера", async () => {
     const { projectId, mediaId } = await videoProject();
-    for (const input of [{ hotwords: ["a|b"] }, { hotwords: ["x\u0007"] }, { language: "-h" }, { mediaId: "med_NOPE" }, { model: "large" }]) {
+    for (const input of [{ hotwords: ["a|b"] }, { hotwords: ["x\u0007"] }, { language: "-h" }, { language: "xx" }, { language: "rus" }, { mediaId: "med_NOPE" }, { model: "large" }]) {
       const { r } = await runAsr(projectId, mediaId, { input });
       expect(r, JSON.stringify(input)).toMatchObject({ status: "failed", error: { code: "pipeline", stage: "prepare" } });
     }
@@ -393,4 +407,62 @@ describe("asr.transcribe", () => {
     expect(r.status).toBe("completed");
     expect(events.find((e) => e.kind === "gpu_contention")?.message).toMatch(/8780/);
   });
+
+  it("ревью Task 26 (m7): sha256 воркера пересчитывается перед запуском (после heavy) — подмена → asr_contract_changed, воркер не запущен", async () => {
+    const { projectId, mediaId } = await videoProject();
+    let k = 0;
+    const sha256 = async () => (++k === 1 ? cfg.expectedWorkerSha256 : "c".repeat(64));
+    const { r } = await runAsr(projectId, mediaId, { deps: { capability: { sha256File: sha256 } } });
+    expect(k).toBe(2);
+    expect(r).toMatchObject({ status: "failed", error: { code: "asr_contract_changed", message: expect.stringMatching(/c{64}/) } });
+    expect(calls()).toEqual([]);
+  });
+
+  it("ревью Task 26 (m5): words.json больше лимита → asr_contract_violation по stat, файл не читается и не копируется", async () => {
+    const { projectId, mediaId } = await videoProject();
+    mode({ raw: JSON.stringify({ language: "ru", duration: 6, elapsed_s: 1, words: Array.from({ length: 100 }, (_, i) => ({ w: "слово", s: i * 0.01, e: i * 0.01 })) }) });
+    const { r, job } = await runAsr(projectId, mediaId, { deps: { maxOutputBytes: 1024 } });
+    expect(r).toMatchObject({ status: "failed", error: { code: "asr_contract_violation", message: expect.stringMatching(/больше 1024 байт/) } });
+    const d = draftsOf(job.id);
+    expect(d).toHaveLength(1);
+    expect(existsSync(join(s.root, "workspace/drafts", d[0]!, "asr-worker.json"))).toBe(false);
+  });
+
+  it("ревью Task 26 (m6): звук длиннее видео → audio_duration_mismatch; слова за концом видео обрезаны с предупреждением", async () => {
+    const { projectId, mediaId } = await videoProject();
+    // видео «короче» звука: 3,5 с против 6 с
+    db.prepare("UPDATE media_assets SET probe_json = json_set(probe_json, '$.duration_us', 3500000), duration_us = 3500000 WHERE id = ?").run(mediaId);
+    mode({ output: { language: "ru", duration: "auto", elapsed_s: 1, words: [{ w: "a", s: 0.1, e: 0.5 }, { w: "b", s: 3.2, e: 3.9 }, { w: "c", s: 4.2, e: 4.6 }] } });
+    const { r, job, events } = await runAsr(projectId, mediaId);
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    expect(events.find((e) => e.kind === "audio_duration_mismatch")?.message).toMatch(/длиннее/);
+    expect(events.find((e) => e.kind === "words_trimmed")?.data).toMatchObject({ dropped: 1, clamped: 1 });
+    const rev = transcripts.revision(db, transcriptIdFor(job.id), 1)!;
+    const doc = TranscriptRevisionDocSchema.parse(JSON.parse(readFileSync(join(s.root, rev.rel_path), "utf8")));
+    expect(doc.words.map((w) => [w.text, w.end_us])).toEqual([["a", 500_000], ["b", 3_500_000]]);
+  });
+
+  it("ревью Task 26 (m6): звук короче видео → audio_duration_mismatch «короче»", async () => {
+    const { projectId, mediaId } = await videoProject();
+    db.prepare("UPDATE media_assets SET probe_json = json_set(probe_json, '$.duration_us', 9000000), duration_us = 9000000 WHERE id = ?").run(mediaId);
+    const { r, events } = await runAsr(projectId, mediaId);
+    expect(r.status).toBe("completed");
+    expect(events.find((e) => e.kind === "audio_duration_mismatch")?.message).toMatch(/короче/);
+    expect(events.some((e) => e.kind === "words_trimmed")).toBe(false);
+  });
+
+  it("ревью Task 26 (m9): hotwords сверх окна промпта whisper — хвост списка отброшен с предупреждением", async () => {
+    const { projectId, mediaId } = await videoProject();
+    const many = Array.from({ length: 40 }, (_, i) => `термин${i}`);
+    const { r, events } = await runAsr(projectId, mediaId, { input: { hotwords: many } });
+    expect(r.status).toBe("completed");
+    const ev = events.find((e) => e.kind === "hotwords_truncated");
+    expect(ev).toBeTruthy();
+    const argv = calls()[0]!.argv;
+    const sent = argv[argv.indexOf("--hotwords") + 1]!.split("|");
+    expect(sent).toEqual(many.slice(0, sent.length));
+    expect(sent.length).toBeLessThan(many.length);
+    expect((ev!.data as { dropped: string[] }).dropped).toEqual(many.slice(sent.length));
+  });
 });
+

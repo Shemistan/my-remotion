@@ -78,6 +78,26 @@ describe("parseProbe", () => {
     expect(vfrTimelineFps(33_333, { num: 90_000, den: 1 }, 1e6 / 27.5)).toEqual({ num: 30, den: 1 });
   });
 
+  it("ревью Task 26 (m3): допуск — от средней; кандидат, совпадающий с p10, не теряется на границе 2 %", () => {
+    // p10 = 30: средние 29,3 / 29,38 / 29,41 — один и тот же ответ (было 30 / 29,97 / 30)
+    for (const m of [29.3, 29.38, 29.41]) expect(vfrTimelineFps(1e6 / 30, { num: 30, den: 1 }, 1e6 / m), String(m)).toEqual({ num: 30, den: 1 });
+    // p10 = 24: средние 23,5 / 23,53 — 24/1 (было 24000/1001 / 24)
+    for (const m of [23.5, 23.53]) expect(vfrTimelineFps(1e6 / 24, { num: 24, den: 1 }, 1e6 / m), String(m)).toEqual({ num: 24, den: 1 });
+    // фликер около 24 по-прежнему 24/1
+    expect(vfrTimelineFps(40_000, { num: 24, den: 1 }, 1e6 / 24.1)).toEqual({ num: 24, den: 1 });
+  });
+
+  it("ревью Task 26 (m3): смесь 25 + 30 с 10–12 % кадров 30 fps → 30/1 (кадры не теряются)", () => {
+    for (const share of [0.1, 0.11, 0.12]) {
+      // 600 интервалов 25 fps, доля share из них (равномерно) — 30 fps
+      const pts: number[] = [0];
+      for (let j = 0; j < 600; j++) pts.push(pts[j]! + (Math.floor((j + 1) * share) > Math.floor(j * share) ? 33_333 : 40_000));
+      const v = detectVfr(pts);
+      expect(v.p10DeltaUs, String(share)).toBe(33_333);
+      expect(vfrTimelineFps(v.p10DeltaUs, { num: 90_000, den: 1 }, v.meanDeltaUs), String(share)).toEqual({ num: 30, den: 1 });
+    }
+  });
+
   it("pts из csv ffprobe: пустые строки и N/A не превращаются в 0 (иначе видео с началом 0,5 с — «VFR»)", () => {
     expect(parsePtsCsv("0.500000\n0.533333,\nN/A\n\n0.566667\n")).toEqual([500_000, 533_333, 566_667]);
   });

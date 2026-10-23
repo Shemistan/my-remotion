@@ -9,7 +9,7 @@
 // находит опубликованную попыткой N ревизию и завершает задачу по ней, воркер не запускает и
 // `r2` не создаёт.
 import { existsSync } from "node:fs";
-import { copyFile, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { type JobError, type TranscriptRevisionDoc, TranscriptRevisionDocSchema } from "@ms/contracts";
 import { type StorageStatus, safeMkdir, spawnTracked } from "@ms/core";
@@ -23,9 +23,9 @@ import * as media from "../db/repos/media.js";
 import * as projects from "../db/repos/projects.js";
 import * as transcripts from "../db/repos/transcripts.js";
 import type { HandlerResult, JobContext, JobHandler } from "../jobs/types.js";
-import { AsrAdapter, AsrInputError, AsrRunError, checkHotwords, checkLanguage } from "../media/asr-adapter.js";
+import { AsrAdapter, AsrInputError, AsrRunError, HOTWORDS_PROMPT_BUDGET, MAX_OUTPUT_BYTES, checkHotwords, checkLanguage, fitHotwords, workerPath } from "../media/asr-adapter.js";
 import { type AsrCapabilityDeps, AI_PLATFORM_PORT, asrCapability, defaultCapabilityDeps } from "../media/asr-capability.js";
-import { AsrContractError, toTranscriptWords } from "../media/asr-contract.js";
+import { AsrContractError, toTranscriptWords, trimToDuration } from "../media/asr-contract.js";
 import { MAX_CHUNK_S, chooseSplits, detectSilences } from "../media/asr-splits.js";
 import { wavDurationS } from "../media/audio.js";
 import { FfmpegError } from "../media/ffmpeg.js";
@@ -59,6 +59,8 @@ export interface AsrTranscribeDeps {
   portBusy?: AsrCapabilityDeps["portBusy"];
   spawn?: typeof spawnTracked;
   killGraceMs?: number;
+  /** Предел words.json, байт (64 МиБ). */
+  maxOutputBytes?: number;
   onStage?: (stage: AsrStage) => void | Promise<void>;
   log?: (line: string) => void;
 }
@@ -99,6 +101,19 @@ export function transcriptIdFor(jobId: string): string {
 const DOC_FILE = "transcript.json";
 const RAW_FILE = "asr-worker.json";
 
+/**
+ * Рабочие каталоги `run/tmp/<job>-a<N>-asr-*` прежних попыток задачи (kill -9: их процессы уже
+ * разобраны восстановлением). Только своей задачи и только попыток раньше `attempt`.
+ */
+async function dropStaleWorkdirs(tmpRoot: string, jobId: string, attempt: number): Promise<void> {
+  if (!existsSync(tmpRoot)) return;
+  const re = new RegExp(`^${jobId}-a(\\d+)-asr-`);
+  for (const name of await readdir(tmpRoot)) {
+    const m = re.exec(name);
+    if (m && Number(m[1]) < attempt) await rm(join(tmpRoot, name), { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
 async function dropDir(dir: string | undefined): Promise<void> {
   if (!dir || !existsSync(dir) || existsSync(join(dir, QUARANTINE))) return;
   await setWritable(dir).catch(() => undefined);
@@ -121,6 +136,11 @@ export function asrTranscribe(depsOf: (ctx: JobContext) => AsrTranscribeDeps): J
       hotwords = checkHotwords(input.hotwords ?? []);
     } catch (e) {
       return prep(errText(e));
+    }
+    const fit = fitHotwords(hotwords);
+    if (fit.dropped.length > 0) {
+      ctx.emit("hotwords_truncated", `hotwords не помещаются в окно промпта whisper (~${HOTWORDS_PROMPT_BUDGET} токенов): отброшены последние ${fit.dropped.length} из ${hotwords.length}`, { kept: fit.kept, dropped: fit.dropped });
+      hotwords = fit.kept;
     }
     const project = projects.get(ctx.db, input.projectId);
     if (!project) return prep(`проекта ${input.projectId} нет`);
@@ -155,6 +175,7 @@ export function asrTranscribe(depsOf: (ctx: JobContext) => AsrTranscribeDeps): J
       if (existing?.current_revision) {
         const rev = transcripts.revision(ctx.db, trnId, existing.current_revision)!;
         ctx.emit("transcript_reused", `ревизия r${rev.revision} опубликована прошлой попыткой: воркер не запускается`);
+        await dropStaleWorkdirs(join(root, "run/tmp"), fence.jobId, fence.attempt).catch(() => undefined);
         return done({
           transcript_id: trnId, revision: rev.revision, rel_path: rev.rel_path, reused: true,
           words: transcripts.words(ctx.db, trnId, rev.revision).length,
@@ -180,15 +201,14 @@ export function asrTranscribe(depsOf: (ctx: JobContext) => AsrTranscribeDeps): J
       if ((await sha256File(audio, { signal })) !== audioRow.sha256) throw new Error(`audio16k ${audioRow.rel_path} не совпадает с sha256 в БД`);
       const audioS = await wavDurationS(audio);
       if (Math.abs(audioS * 1e6 - asset.probe.duration_us) > 100_000) {
-        ctx.emit("audio_shorter", `звук ${audioS.toFixed(2)} с, видео ${(asset.probe.duration_us / 1e6).toFixed(2)} с: таймкоды слов — по звуку от начала файла`);
+        const longer = audioS * 1e6 > asset.probe.duration_us;
+        ctx.emit("audio_duration_mismatch", `звук ${audioS.toFixed(2)} с ${longer ? "длиннее" : "короче"} видео ${(asset.probe.duration_us / 1e6).toFixed(2)} с: таймкоды слов — по звуку от начала файла${longer ? ", слова за концом видео будут обрезаны" : ""}`, {
+          audio_s: Math.round(audioS * 1000) / 1000, video_s: asset.probe.duration_us / 1e6,
+        });
       }
       draftDir = (await createJobDraft(root, { runId: fence.jobId, attempt: fence.attempt })).dir;
       const tmpRoot = await safeMkdir(root, "run/tmp");
-      // рабочие каталоги прежних попыток (kill -9): их процессы уже разобраны восстановлением
-      for (const name of await readdir(tmpRoot)) {
-        const m = new RegExp(`^${fence.jobId}-a(\\d+)-asr-`).exec(name);
-        if (m && Number(m[1]) < fence.attempt) await rm(join(tmpRoot, name), { recursive: true, force: true }).catch(() => undefined);
-      }
+      await dropStaleWorkdirs(tmpRoot, fence.jobId, fence.attempt);
       workdir = await mkdtemp(join(tmpRoot, `${fence.jobId}-a${fence.attempt}-asr-`));
 
       await enter("silence", 0.03);
@@ -201,10 +221,18 @@ export function asrTranscribe(depsOf: (ctx: JobContext) => AsrTranscribeDeps): J
       let result;
       try {
         await enter("transcribe", 0.08);
+        // воркер мог смениться за время ожидания heavy: сверка sha256 прямо перед запуском (m7)
+        const shaNow = await capDeps.sha256File(workerPath(d.asr));
+        if (shaNow !== cap.workerSha256) {
+          throw new AsrFail({ code: "asr_contract_changed", message: `asr_contract_changed: sha256 ${workerPath(d.asr)} перед запуском = ${shaNow}, при проверке было ${cap.workerSha256}` });
+        }
         if (cap.gpuContention) {
           ctx.emit("gpu_contention", `порт ai-platform ${AI_PLATFORM_PORT} занят: её модели могут занимать GPU — ASR может идти медленнее`);
         }
-        const adapter = new AsrAdapter(d.asr, { ...(d.spawn ? { spawn: d.spawn } : {}), ...(d.killGraceMs !== undefined ? { killGraceMs: d.killGraceMs } : {}) });
+        const adapter = new AsrAdapter(d.asr, {
+          ...(d.spawn ? { spawn: d.spawn } : {}), ...(d.killGraceMs !== undefined ? { killGraceMs: d.killGraceMs } : {}),
+          ...(d.maxOutputBytes !== undefined ? { maxOutputBytes: d.maxOutputBytes } : {}),
+        });
         result = await adapter.transcribe({
           audio16k: audio, audioDurationS: audioS, language, hotwords, splits, model, workdir, tmpdir: workdir,
           run: ctx.run, signal, onProgress: (p, st) => ctx.progress(0.08 + 0.84 * (p / 100), st || "transcribe"),
@@ -213,7 +241,11 @@ export function asrTranscribe(depsOf: (ctx: JobContext) => AsrTranscribeDeps): J
         release();
       }
 
-      const words = toTranscriptWords(result.output);
+      const trimmed = trimToDuration(toTranscriptWords(result.output), asset.probe.duration_us);
+      if (trimmed.dropped > 0 || trimmed.clamped > 0) {
+        ctx.emit("words_trimmed", `слова за концом видео (${(asset.probe.duration_us / 1e6).toFixed(2)} с): отброшено ${trimmed.dropped}, обрезано ${trimmed.clamped}`, { dropped: trimmed.dropped, clamped: trimmed.clamped });
+      }
+      const words = trimmed.words;
       if (words.length === 0) {
         throw new AsrFail({ code: "pipeline", message: `речь не распознана: воркер вернул 0 слов на ${audioS.toFixed(1)} с звука` });
       }
@@ -266,7 +298,9 @@ export function asrTranscribe(depsOf: (ctx: JobContext) => AsrTranscribeDeps): J
         ctx.emit("asr_output_rejected", msg, { head: e.head });
         const raw = workdir ? join(workdir, "words.json") : undefined;
         if (draftDir && existsSync(draftDir)) {
-          if (raw && existsSync(raw)) await copyFile(raw, join(draftDir, RAW_FILE)).catch(() => undefined);
+          // сверх предела (m5) — только начало в событии, файл не копируется
+          const size = raw ? await stat(raw).then((x) => x.size, () => -1) : -1;
+          if (raw && size >= 0 && size <= (d.maxOutputBytes ?? MAX_OUTPUT_BYTES)) await copyFile(raw, join(draftDir, RAW_FILE)).catch(() => undefined);
           await quarantineDir(draftDir, `asr_contract_violation: ${msg}`).catch(() => undefined);
         }
         await dropWork();
@@ -286,8 +320,9 @@ export function asrTranscribe(depsOf: (ctx: JobContext) => AsrTranscribeDeps): J
       const now = await d.storage().catch(() => undefined);
       if (!now || !now.ok) return fail({ code: "storage_unavailable", stage: "storage", message: `${now ? `${now.reason}: ${now.detail}; ` : ""}${stage}: ${msg}` });
       if (e instanceof AsrRunError) {
+        // ASR установлен, но воркер упал / завис / не уложился — не «ASR не установлен» (m4)
         ctx.emit("asr_worker_failed", msg, { kind: e.kind, stderr_tail: e.stderrTail.slice(-2000) });
-        return fail({ code: "asr_unavailable", message: `asr_unavailable: ${msg}` });
+        return fail({ code: "asr_failed", stage: "transcribe", message: `asr_failed (${e.kind}): ${msg}` });
       }
       if (stage === "publish") return fail({ code: "pipeline", stage: "publish", message: msg });
       return fail({ code: "pipeline", message: `${stage}: ${msg}` });

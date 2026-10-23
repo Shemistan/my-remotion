@@ -48,27 +48,32 @@ const ABOVE = 0.05;
 const FALLBACK_FPS: Fps = { num: 30, den: 1 };
 const isStandard = (f: Fps) => STANDARD_FPS.some((s) => s.num === f.num && s.den === f.den);
 
-/** Средняя частота кадров близка к стандарту (фликер pts около номинала), доля в обе стороны. */
+/** Средняя частота кадров близка к стандарту (фликер pts около номинала), доля от средней. */
 const NEAR_MEAN = 0.02;
 
 /**
- * `timeline_fps` VFR-исходника (ревью I2, N1). Сначала средняя частота `1e6 / mean(Δpts)`:
- * стандарты в симметричном допуске 2 % — кандидаты; из них совпадающий с рабочей частотой
- * (±0,5 %) или ближайший к средней (24 fps с дрожью pts: p10 даёт 25, среднее — 24). Нет
- * кандидатов (смесь 25 + 30) — рабочая частота `1e6 / p10(Δpts)` (самые частые кадры):
- * стандарт, совпадающий с ней (±0,5 %), иначе ближайший стандарт сверху в пределах 5 %;
- * иначе `snapFps(r_frame_rate)`, если это стандарт; в крайнем случае 30/1. Несокращённая дробь
- * вида 41250/1501 таймлайну не годится.
+ * `timeline_fps` VFR-исходника (ревью I2, N1; ревью Task 26, m3). Рабочая частота `work =
+ * 1e6 / p10(Δpts)` (самые частые кадры), средняя `m = 1e6 / mean(Δpts)`.
+ * 1. По средней: кандидаты — стандарты в допуске 2 % от `m`; стандарт, совпадающий с `work`
+ *    (±0,5 %), остаётся кандидатом и на границе (2 % + 0,5 %) и выигрывает; иначе — ближайший к
+ *    `m` (24 fps с дрожью pts: p10 даёт 25, средняя — 24). Выбор по средней годится, только если
+ *    `work` не выше него больше чем на 5 % (дрожь); выше — в записи есть настоящие быстрые кадры
+ *    (смесь 25 + 30), и таймлайн по средней их бы потерял.
+ * 2. По `work`: стандарт, совпадающий с ней (±0,5 %), иначе ближайший сверху в пределах 5 %;
+ *    иначе `snapFps(r_frame_rate)`, если это стандарт; в крайнем случае 30/1. Несокращённая
+ *    дробь вида 41250/1501 таймлайну не годится.
  */
 export function vfrTimelineFps(p10DeltaUs: number, rFrameRate: Fps, meanDeltaUs = 0): Fps {
   const val = (s: Fps) => s.num / s.den;
   const work = p10DeltaUs > 0 ? 1e6 / p10DeltaUs : undefined;
+  const matchesWork = (s: Fps) => work !== undefined && Math.abs(val(s) - work) / val(s) <= EXACT;
   if (meanDeltaUs > 0) {
     const m = 1e6 / meanDeltaUs;
-    const near = STANDARD_FPS.filter((s) => Math.abs(val(s) - m) / val(s) <= NEAR_MEAN);
-    const byWork = work === undefined ? [] : near.filter((s) => Math.abs(val(s) - work) / val(s) <= EXACT).sort((a, b) => Math.abs(val(a) - work) - Math.abs(val(b) - work));
-    const pick = byWork[0] ?? [...near].sort((a, b) => Math.abs(val(a) - m) - Math.abs(val(b) - m))[0];
-    if (pick) return { ...pick };
+    const off = (s: Fps) => Math.abs(val(s) - m) / m;
+    const byWork = STANDARD_FPS.filter((s) => matchesWork(s) && off(s) <= NEAR_MEAN + EXACT).sort((a, b) => Math.abs(val(a) - work!) - Math.abs(val(b) - work!));
+    const near = STANDARD_FPS.filter((s) => off(s) <= NEAR_MEAN).sort((a, b) => off(a) - off(b));
+    const pick = byWork[0] ?? near[0];
+    if (pick && (work === undefined || work <= val(pick) * (1 + ABOVE))) return { ...pick };
   }
   if (work !== undefined) {
     const f = work;

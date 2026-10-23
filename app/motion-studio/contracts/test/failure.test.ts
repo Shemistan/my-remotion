@@ -25,6 +25,7 @@ describe("FailureStage", () => {
     expect(failureToJobErrorCode("cancelled")).toBe("cancelled");
     expect(failureToJobErrorCode("interrupted")).toBe("interrupted");
     expect(failureToJobErrorCode("fenced_out")).toBe("fenced_out");
+    expect(failureToJobErrorCode("transcribe")).toBe("asr_failed");
     for (const st of ["prepare", "director", "engineer", "static", "typecheck", "render", "probe", "publish", "concept", "edit_planner", "qa", "export"] as const) {
       expect(failureToJobErrorCode(st), st).toBe("pipeline");
     }
