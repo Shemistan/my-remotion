@@ -1,6 +1,6 @@
 ---
 тип: plan
-статус: запланировано
+статус: в работе
 обновлено: 2026-10-23
 спека: 2026-10-20-motion-studio-phase1-rest.md
 ---
@@ -708,7 +708,7 @@ expect(exportGate({ ...ok, width: h264Size(1080, 0.5), height: h264Size(1920, 0.
 - Chrome рендера не достаёт до `127.0.0.1:8790`: уже сделано в срезе — `chrome-wrapper.sh` гонит весь трафик, включая loopback (`--proxy-bypass-list=<-loopback>`), в `127.0.0.1:9`, напрямую пускает только сервер бандла Remotion на порту, который worker выбирает сам и передаёт в `MS_BUNDLE_PORT` (`port` в `selectComposition`/`renderStill`/`renderMedia`). Проверено e2e `render.e2e.test.ts` («Chrome cannot reach local services on loopback»): `127.0.0.1`, `localhost` и `[::1]` на порту тестового сервера — `blocked`, ноль запросов, ассеты бандла грузятся. В Task 20 — повторить проверку против настоящего сервера на 8790 (e2e: сцена с `fetch("http://127.0.0.1:8790/api/health")` → `blocked`, в журнале сервера запроса нет).
 - **`/proxy` сервера бандла Remotion — закрыто H1** (ruling 17; `render/src/node/asset-guard.ts`, `MSG_PROXY` в static check, e2e proxy-scene; отчёт `.superpowers/sdd/2026-10-20-motion-playground-mvp/h1-report.md`). Task 20 код рендера и `worker.ts` не меняет (M13). **Остаётся только e2e** `server/test/api/loopback.e2e.test.ts` против настоящего Control API на 8790: сцена с `fetch("http://127.0.0.1:8790/api/health")` → `blocked`; версия, собранная в обход static check (рукописная фикстура), с `/proxy?src=http://127.0.0.1:8790/api/health` и `<Audio src="http://127.0.0.1:8790/…">` → рендер отказывает (`ASSET_BLOCKED`), в журнале сервера запросов нет.
 
-- [ ] **Step 1: Тесты (падают),** `app.inject`, `Core` на `tmp/` с фейковыми обработчиками задач (только контракт API):
+- [x] **Step 1: Тесты (падают),** `app.inject`, `Core` на `tmp/` с фейковыми обработчиками задач (только контракт API):
 
 ```ts
 expect((await inj("POST", "/api/projects", { host: "evil.example:8790" })).statusCode).toBe(403);
@@ -737,9 +737,10 @@ expect((await inj("GET", "/api/health")).json().storage).toBe("storage_offline")
 // doctor: фейковый PATH без claude → строка claude "missing", код 1; без MS_DATA_DIR → env_missing
 ```
 
-- [ ] **Step 2–3:** FAIL → реализовать → PASS.
-- [ ] **Step 4: Ручная проверка:** `npm run doctor` на реальном хранилище — всё `ok`; `npm start` → `curl -H 'Host: 127.0.0.1:8790' 127.0.0.1:8790/api/health`; `lsof -iTCP:8790 -sTCP:LISTEN` показывает только `127.0.0.1`.
-- [ ] **Step 5:** `./check`; коммит `feat(motion-studio): Control API, точка входа сервера и doctor`.
+- [x] **Step 2–3:** FAIL → реализовать → PASS.
+- [x] **Step 4: Ручная проверка:** `npm run doctor` на реальном хранилище — всё `ok`; `npm start` → `curl -H 'Host: 127.0.0.1:8790' 127.0.0.1:8790/api/health`; `lsof -iTCP:8790 -sTCP:LISTEN` показывает только `127.0.0.1`.
+- [x] **Step 5:** `./check`; коммит `feat(motion-studio): Control API, точка входа сервера и doctor`.
+- [x] **Сделано (2026-10-23, `task-20-report.md`):** лимиты по коду семафоров S5 — `agentCalls` 5, `renders` 2 (не 2/2/1); 503 `storage_offline` — только на `/api/*` (UI с диска приложения показывает баннер); `GET /projects` скрывает bench-проекты (`?includeBench=1`); `npm start` в Step 4 — на отдельном tmp-хранилище: в реальном две старые `pending`-задачи `playground.generate` (2026-10-21), сервер запустил бы их платно; doctor на реальном хранилище — всё `ok`. Loopback e2e против 8790 — 5/5, в журнале сервера ноль запросов.
 
 ### Task 21: Web UI Playground на русском (P1-16, Jobs Monitor из P1-17)
 

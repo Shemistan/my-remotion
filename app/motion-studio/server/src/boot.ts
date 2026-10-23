@@ -84,6 +84,8 @@ export interface BootReport {
 
 export interface Core {
   root: string;
+  /** Владелец хранилища (`run/owner.lock`): этот процесс. */
+  owner: { pid: number; kind: BootOptions["kind"] };
   config: AppConfig;
   /** Текущая база (после `storage_offline` переоткрывается). */
   readonly db: Db;
@@ -184,7 +186,9 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     const agents = opts.agents ?? new ClaudeCodeRuntime({ bin: config.claudeBin, logRoot: join(root, "logs", "agent-runs"), promptLoader: loadPrompt });
     const svc: CoreServices = { root, config, repo, kb, agents, processes, storageCheck };
     const handlers = typeof opts.handlers === "function" ? opts.handlers(svc) : (opts.handlers ?? {});
-    runner = new JobRunner({ ...opts.runner, db, root, owner: `${opts.kind}:${process.pid}`, handlers, registry: processes, events });
+    // лимиты из config.json (M12); подмены тестов — поверх
+    const { maxRunning, agentCalls, renders } = config.limits;
+    runner = new JobRunner({ maxRunning, agentCalls, renders, ...opts.runner, db, root, owner: `${opts.kind}:${process.pid}`, handlers, registry: processes, events });
     const kind = opts.kind;
     storage = new StorageSupervisor({
       check: storageCheck,
@@ -226,6 +230,7 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     let closed = false;
     return {
       root,
+      owner: { pid: process.pid, kind },
       config,
       get db() {
         return current.db;

@@ -1,6 +1,6 @@
 export { ensureRenderBrowser, findRenderBrowser } from "./browser.js";
 export { APP_NODE_MODULES, MOTION_KIT_DIR, contentKey, writeEntry } from "./entry.js";
-export { type ProbeResult, ffprobe, h264Size, probeGate } from "./ffprobe.js";
+export { type ProbeResult, ffprobe, findOnPath, h264Size, probeGate } from "./ffprobe.js";
 export { type Proc, reapStrayRenderers } from "./processes.js";
 export { type RenderRequest, type RenderResult, type RenderStage, type RunRef, renderVersion } from "./render-version.js";
 export { EXPORT_TIMEOUT_MS, type ExportResult, type ExportStage, type ExportVersionRequest, exportProps, exportVersion } from "./export-version.js";

@@ -17,7 +17,7 @@ export interface HandlerOptions {
   render?: typeof renderVersion;
   exportVersion?: typeof exportVersion;
   alpha?: typeof alphaAtCorner;
-  /** Таймаут экспорта, мс (`config.limits.exportTimeoutMs`, Task 20). */
+  /** Таймаут экспорта, мс; по умолчанию `config.limits.exportTimeoutMs` (Task 20). */
   exportTimeoutMs?: number;
   check?: typeof checkSceneDir;
   typecheck?: typeof typecheckVersion;
@@ -50,7 +50,7 @@ export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extr
         storage: svc.storageCheck,
         export: o.exportVersion ?? exportVersion,
         alpha: o.alpha ?? alphaAtCorner,
-        ...(o.exportTimeoutMs ? { timeoutMs: o.exportTimeoutMs } : {}),
+        timeoutMs: o.exportTimeoutMs ?? svc.config.limits.exportTimeoutMs,
         ...(o.log ? { log: o.log } : {}),
       }),
     }),

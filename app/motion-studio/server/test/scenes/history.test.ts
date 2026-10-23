@@ -51,4 +51,12 @@ describe("versionHistoryDigest", () => {
     // без файлов — палитра пресета настроек
     expect(h[1]!.palette).toEqual(resolveStyle({ preset: "dark-premium", intensity: "balanced" }).palette);
   });
+
+  it("версия среза: длительность и интенсивность — из settings.json версии (источник правды, M18), строка БД — запасной вариант", () => {
+    const s = { ...defaultSettings(), duration_frames: 210, animation_intensity: "energetic" as const };
+    addVersion("ver_1", 1, { "spec.json": { ...spec180, style_preset: "light-clean" }, "props.json": { nodes: 5 }, "settings.json": s }, { settings: { ...defaultSettings(), duration_frames: 150 } });
+    const [h] = versionHistoryDigest(env.db, env.s.root, "scn_1");
+    expect(h).toMatchObject({ depth: 1, duration_frames: 210 });
+    expect(h!.palette).toEqual(resolveStyle({ preset: "light-clean", intensity: "energetic" }).palette);
+  });
 });

@@ -1,11 +1,11 @@
 // История версий сцены для Edit Planner и UI (Task 18; Task 20 — `GET /scenes/:id`):
 // строка на версию с разрешённой палитрой (H3), глубиной и длительностью. Источник —
 // props.json по контракту (ScenePropsBase); у версий среза и импортированных — spec.json и
-// settings (depth 1, M18). Файл не прочитан (failed без файлов, версия пропала) — палитра
+// settings.json версии (depth 1, M18; строка БД — если файла нет). Файл не прочитан (failed без файлов, версия пропала) — палитра
 // пресета настроек: история показывает все номера.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { type HistoryEntry, MotionSpecSchema, QaGateSchema, ScenePropsBaseSchema } from "@ms/contracts";
+import { type HistoryEntry, MotionSpecSchema, QaGateSchema, ScenePropsBaseSchema, SettingsSchema } from "@ms/contracts";
 import { resolveStyle } from "@ms/render";
 import type { Db } from "../db/open.js";
 import * as versions from "../db/repos/versions.js";
@@ -24,7 +24,9 @@ export function versionHistoryDigest(db: Db, root: string, sceneId: string): His
     const props = ScenePropsBaseSchema.safeParse(readJson(dir, "props.json"));
     const spec = MotionSpecSchema.safeParse(readJson(dir, "spec.json"));
     const qa = QaGateSchema.safeParse((readJson(dir, "manifest.json") as { qa?: unknown } | undefined)?.qa);
-    const s = v.settings;
+    // settings.json версии — источник правды (H4); строка БД — если файла нет
+    const file = SettingsSchema.safeParse(readJson(dir, "settings.json"));
+    const s = file.success ? file.data : v.settings;
     let palette: HistoryEntry["palette"];
     let depth: HistoryEntry["depth"] = 1;
     let duration = s.duration_frames;

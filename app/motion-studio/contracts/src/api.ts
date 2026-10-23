@@ -149,3 +149,83 @@ export const AppSettingsDtoSchema = z.object({
   defaults: SettingsSchema,
 }).strict();
 export type AppSettingsDto = z.infer<typeof AppSettingsDtoSchema>;
+
+/** Доступность внешнего инструмента для `GET /health`: без запуска моделей и загрузок. */
+export const CapabilitySchema = z.object({
+  status: z.enum(["ok", "unavailable"]),
+  detail: z.string().optional(),
+}).strict();
+export type Capability = z.infer<typeof CapabilitySchema>;
+
+export const HealthDtoSchema = z.object({
+  storage: z.enum(["online", "storage_offline"]),
+  /** Причина `storage_offline`. */
+  storage_reason: z.string().optional(),
+  claude: CapabilitySchema,
+  chrome: CapabilitySchema,
+  ffmpeg: CapabilitySchema,
+  owner: z.object({ pid: z.number().int().positive(), kind: z.enum(["server", "cli"]) }).strict(),
+}).strict();
+export type HealthDto = z.infer<typeof HealthDtoSchema>;
+
+/** Строка `exports` (+ сцена версии); `path` — относительно корня хранилища. */
+export const ExportDtoSchema = z.object({
+  id: Id,
+  version_id: Id,
+  scene_id: Id,
+  job_id: Id.nullable(),
+  format: z.enum(["mp4", "prores4444"]),
+  path: z.string().min(1),
+  sha256: z.string(),
+  created_at: Ts,
+}).strict();
+export type ExportDto = z.infer<typeof ExportDtoSchema>;
+
+/** `GET /projects/:id`: сцены с текущей версией (строка истории) и последние экспорты проекта. */
+export const ProjectDetailDtoSchema = z.object({
+  project: ProjectDtoSchema,
+  scenes: z.array(SceneDtoSchema.extend({ current_version: HistoryEntrySchema.nullable() })),
+  exports: z.array(ExportDtoSchema),
+}).strict();
+export type ProjectDetailDto = z.infer<typeof ProjectDetailDtoSchema>;
+
+/** `GET /scenes/:id`: история версий и незавершённая задача сцены (последняя). */
+export const SceneDetailDtoSchema = z.object({
+  scene: SceneDtoSchema,
+  versions: z.array(HistoryEntrySchema),
+  active_job: JobSchema.nullable(),
+}).strict();
+export type SceneDetailDto = z.infer<typeof SceneDetailDtoSchema>;
+
+/** Процесс попытки из реестра (`blocked`: UI показывает PID и команду). */
+export const JobProcessDtoSchema = z.object({
+  pid: z.number().int().positive(),
+  pgid: z.number().int().positive(),
+  attempt: z.number().int().nonnegative(),
+  cmd: z.string(),
+  started_at: z.string(),
+  alive: z.boolean(),
+}).strict();
+
+export const JobDetailDtoSchema = z.object({
+  job: JobSchema,
+  events: z.array(JobEventDtoSchema),
+  processes: z.array(JobProcessDtoSchema),
+}).strict();
+export type JobDetailDto = z.infer<typeof JobDetailDtoSchema>;
+
+/** `GET /kb/:id`: запись KB (CapabilityView, поля — `02` §4.1) и карточка markdown. */
+export const KbCardDtoSchema = z.object({
+  capability: z.object({ id: Id, name: z.string(), kind: z.string(), license_class: KnowledgeRefSchema.shape.license_class }).passthrough(),
+  card: z.string(),
+}).strict();
+export type KbCardDto = z.infer<typeof KbCardDtoSchema>;
+
+/** Ответы POST, создающих задачи: 202 (новая) или 200 (повтор с тем же Idempotency-Key). */
+export const CreatedSceneDtoSchema = z.object({ scene: SceneDtoSchema, job: JobSchema }).strict();
+export const CreatedMessageDtoSchema = z.object({ message: ChatMessageSchema, job: JobSchema }).strict();
+export const CreatedJobDtoSchema = z.object({ job: JobSchema }).strict();
+
+/** Ошибка API: машинный код и сообщение (+ поля по коду: `issues`, `pids`, `cmds`). */
+export const ApiErrorSchema = z.object({ error: z.string().min(1), message: z.string() }).passthrough();
+export type ApiError = z.infer<typeof ApiErrorSchema>;

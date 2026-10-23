@@ -127,8 +127,8 @@ export function normalizePlan(p: EditPlan, baseId: string, history: HistoryEntry
   return { plan: { ...p, base_version_id: baseId, borrow, preserve }, notes };
 }
 
-/** План из одного патча настроек (кнопка Render без плана): геометрия — путь spec. */
-function planFromPatch(patch: Partial<Settings>, baseId: string): EditPlan {
+/** План из одного патча настроек (кнопка Render, `POST /scenes/:id/render`): геометрия — путь spec (H8). */
+export function planFromPatch(patch: Partial<Settings>, baseId: string): EditPlan {
   const path = touchesGeometry(patch) ? "spec" : "param";
   return {
     base_version_id: baseId,

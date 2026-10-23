@@ -1,7 +1,8 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { loadConfig, readConfigFile } from "../../src/config.js";
+import { defaultSettings } from "@ms/contracts";
+import { configFileIssues, loadConfig, readConfigFile } from "../../src/config.js";
 import { makeTmp, removeTmp } from "./helpers.js";
 
 const root = "/Volumes/Test/MotionStudio";
@@ -89,4 +90,24 @@ it("model names are validated; maxBudgetUsd has an upper bound", () => {
   expect(() => load({ model: "-opus" })).toThrow(/config\.json/);
   expect(load({ maxBudgetUsd: 50 }).agents.engineer.maxBudgetUsd).toBe(50);
   expect(() => load({ maxBudgetUsd: 51 })).toThrow(/config\.json/);
+});
+
+it("Task 20: limits (агенты 5, рендеры 2 — по коду семафоров S5) и defaults: Settings; config.json их меняет", () => {
+  const c = loadConfig({ MS_DATA_DIR: root });
+  expect(c.limits).toEqual({ maxRunning: 2, agentCalls: 5, renders: 2, exportTimeoutMs: 1_800_000 });
+  expect(c.defaults).toEqual(defaultSettings());
+  const d = { ...defaultSettings(), duration_frames: 300 };
+  const f = loadConfig({ MS_DATA_DIR: root }, { limits: { maxRunning: 1, renders: 1 }, defaults: d });
+  expect(f.limits).toEqual({ maxRunning: 1, agentCalls: 5, renders: 1, exportTimeoutMs: 1_800_000 });
+  expect(f.defaults).toEqual(d);
+  expect(() => loadConfig({ MS_DATA_DIR: root }, { limits: { nope: 1 } })).toThrow(/limits/);
+  expect(() => loadConfig({ MS_DATA_DIR: root }, { limits: { agentCalls: 0 } })).toThrow(/limits\.agentCalls/);
+  expect(() => loadConfig({ MS_DATA_DIR: root }, { limits: { renders: 1.5 } })).toThrow(/limits\.renders/);
+  expect(() => loadConfig({ MS_DATA_DIR: root }, { defaults: { ...defaultSettings(), width: 100 } })).toThrow(/defaults/);
+});
+
+it("Task 20: configFileIssues — пути полей для ответа API 400", () => {
+  expect(configFileIssues({ limits: { maxRunning: 1 } })).toEqual([]);
+  expect(configFileIssues({ agents: { engineer: { model: "bad model!" } } }).map((i) => i.path)).toEqual(["agents.engineer.model"]);
+  expect(configFileIssues({ limits: { nope: 1 } })[0]!.path).toBe("limits");
 });

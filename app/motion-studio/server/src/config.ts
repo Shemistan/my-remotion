@@ -3,8 +3,11 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { type Settings, SettingsSchema, defaultSettings } from "@ms/contracts";
+import { EXPORT_TIMEOUT_MS } from "@ms/render";
 import { z } from "zod";
 import { MAX_CALL_BUDGET_USD, MODEL_RE, ROLES, type Role } from "./agents/runtime.js";
+import { AGENT_CALLS, MAX_RUNNING, RENDERS } from "./jobs/limits.js";
 
 export interface AgentSettings {
   model: string;
@@ -28,6 +31,21 @@ const SECOND_TAKE_MODES = ["revise", "fresh", "off"] as const;
 const SecondTakeSchema = z.object({ mode: z.enum(SECOND_TAKE_MODES), threshold: z.number().min(1).max(10), fixes: z.number().int().min(0).max(3) }).partial().strict();
 const SECOND_TAKE: SecondTake = { mode: "revise", threshold: 6.5, fixes: 1 };
 
+/**
+ * Лимиты раннера (`03` §8, M12): задач в работе, мест семафоров агентов и рендеров, таймаут
+ * экспорта. Умолчания — по коду (S5: агенты 5, рендеры 2), не 2/2/1 из исходного плана.
+ * Новые значения действуют после перезапуска сервера.
+ */
+export interface Limits {
+  maxRunning: number;
+  agentCalls: number;
+  renders: number;
+  exportTimeoutMs: number;
+}
+const LIMITS: Limits = { maxRunning: MAX_RUNNING, agentCalls: AGENT_CALLS, renders: RENDERS, exportTimeoutMs: EXPORT_TIMEOUT_MS };
+const Count = z.number().int().min(1).max(16);
+const LimitsSchema = z.object({ maxRunning: Count, agentCalls: Count, renders: Count, exportTimeoutMs: z.number().int().min(10_000) }).partial().strict();
+
 export interface AppConfig {
   dataDir: string;
   claudeBin: string;
@@ -35,6 +53,9 @@ export interface AppConfig {
   agents: Record<Role, AgentSettings>;
   scene: { maxCostUsd: number; maxAutoFixes: number; secondTake: SecondTake };
   kb: { root: string; sourceRoot: string };
+  limits: Limits;
+  /** Настройки новой сцены по умолчанию (форма в UI). */
+  defaults: Settings;
 }
 
 const OPUS_ROLES: readonly Role[] = ["motion_director", "engineer"];
@@ -62,10 +83,18 @@ const FileSchema = z
     agents: z.object(Object.fromEntries(ROLES.map((r) => [r, AgentOverride.optional()]))).strict(),
     scene: z.object({ maxCostUsd: z.number().positive(), maxAutoFixes: z.number().int().min(0), secondTake: SecondTakeSchema }).partial().strict(),
     kb: z.object({ root: z.string().min(1), sourceRoot: z.string().min(1) }).partial().strict(),
+    limits: LimitsSchema,
+    defaults: SettingsSchema,
   })
   .partial()
   .strict();
 type FileConfig = z.infer<typeof FileSchema>;
+
+/** Ошибки `config.json` по полям (`PUT /settings` → 400 с путём поля); пусто — годится. */
+export function configFileIssues(fileJson: unknown): { path: string; message: string }[] {
+  const parsed = FileSchema.safeParse(fileJson ?? {});
+  return parsed.success ? [] : parsed.error.issues.map((i) => ({ path: i.path.join(".") || "<root>", message: i.message }));
+}
 
 /** `fileJson` — разобранный `$MS_DATA_DIR/config.json` (см. `readConfigFile`). */
 export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfig {
@@ -73,7 +102,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfi
   if (!dataDir) throw new Error("config: MS_DATA_DIR не задан");
   const parsed = FileSchema.safeParse(fileJson ?? {});
   if (!parsed.success) {
-    const where = parsed.error.issues.map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`).join("; ");
+    const where = configFileIssues(fileJson).map((i) => `${i.path}: ${i.message}`).join("; ");
     throw new Error(`config: config.json не годится: ${where}`);
   }
   const file: FileConfig = parsed.data;
@@ -104,6 +133,8 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfi
       root: file.kb?.root ?? env.KB_ROOT ?? join(REPO_ROOT, "knowledge"),
       sourceRoot: file.kb?.sourceRoot ?? env.KB_SOURCE_ROOT ?? MAIN_CHECKOUT,
     },
+    limits: { ...LIMITS, ...file.limits },
+    defaults: file.defaults ?? defaultSettings(),
   };
 }
 

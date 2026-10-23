@@ -16,6 +16,9 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "test:e2e": "MS_E2E=1 vitest run --passWithNoTests",
+    "start": "tsx server/src/main.ts",
+    "dev": "tsx server/src/main.ts --dev",
+    "build": "npm run build --workspaces --if-present",
     "doctor": "tsx server/src/cli/doctor.ts",
     "generate": "tsx server/src/cli/generate.ts",
     "bench": "tsx scripts/bench-set.mts"

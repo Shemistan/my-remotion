@@ -1,0 +1,126 @@
+// Версии: manifest и файлы версии с provenance KB и признаком другого окружения рендера;
+// превью и кадры — только по id из БД и списку файлов manifest (путь клиента не принимается);
+// сравнение двух версий; экспорт (`scene.export`).
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import {
+  CreatedJobDtoSchema,
+  ExportRequestSchema,
+  type KnowledgeRef,
+  KnowledgeRefSchema,
+  QAReportSchema,
+  type VersionManifest,
+  VersionDiffSchema,
+  VersionDtoSchema,
+  VersionManifestSchema,
+} from "@ms/contracts";
+import { z } from "zod";
+import * as scenes from "../../db/repos/scenes.js";
+import * as versions from "../../db/repos/versions.js";
+import { tx } from "../../db/tx.js";
+import { enqueue } from "../../jobs/queue.js";
+import { renderEnv } from "../../pipeline/render-env.js";
+import { readKnowledgeRefs } from "../../scenes/repo.js";
+import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "../context.js";
+import { ApiError, notFound } from "../errors.js";
+import { sendFile } from "../range.js";
+
+const FRAME_RE = /^(0|[1-9]\d{0,6})\.png$/;
+
+export function versionRoutes(app: ZApp, { core }: ApiContext): void {
+  // окружение рендера сервера не меняется без перезапуска (lockfile, motion-kit)
+  let lockSha: Promise<string> | undefined;
+  const currentLock = () => (lockSha ??= renderEnv().then((e) => e.render_lock_sha256));
+
+  const versionOr404 = (id: string) => {
+    const v = versions.get(core.db, id);
+    if (!v) throw notFound(`версия ${id}`);
+    if (v.broken_reason) throw new ApiError(410, "version_broken", `версия ${id} недоступна: ${v.broken_reason}`);
+    return v;
+  };
+  const manifestOf = async (dir: string): Promise<VersionManifest> => VersionManifestSchema.parse(JSON.parse(await readFile(join(dir, "manifest.json"), "utf8")));
+  const json = async (dir: string, m: VersionManifest, name: string): Promise<unknown> =>
+    m.files.some((f) => f.path === name) ? JSON.parse(await readFile(join(dir, name), "utf8")) : null;
+
+  /** Полные ссылки KB: из knowledge-refs.json; у старых версий (только manifest) — дополнены из KB. */
+  const fullRefs = async (dir: string, m: VersionManifest): Promise<KnowledgeRef[]> =>
+    (await readKnowledgeRefs(dir, m)).map((r) => {
+      const full = KnowledgeRefSchema.safeParse(r);
+      if (full.success) return full.data;
+      const view = core.kb.getCapability(r.kb_id);
+      return {
+        kb_id: r.kb_id,
+        repository: view?.repository || "unknown",
+        repository_url: view?.repository_url || "unknown",
+        commit: r.commit,
+        license: r.license,
+        license_class: view?.license_class ?? "unknown",
+        strategy: r.strategy,
+        source_paths: view?.source_paths ?? [],
+      };
+    });
+
+  app.get("/api/versions/:id", { schema: { params: IdParams, response: { 200: VersionDtoSchema } } }, async (req) => {
+    const v = versionOr404(req.params.id);
+    const dir = join(core.root, v.path);
+    const manifest = await manifestOf(dir);
+    const qa = QAReportSchema.safeParse(await json(dir, manifest, "qa.json"));
+    return {
+      manifest,
+      spec: await json(dir, manifest, "spec.json"),
+      props: await json(dir, manifest, "props.json"),
+      settings: manifest.settings,
+      qa: qa.success ? qa.data : null,
+      knowledge_refs: await fullRefs(dir, manifest),
+      render_env_mismatch: manifest.render_env.render_lock_sha256 !== (await currentLock()),
+    };
+  });
+
+  /** Файл версии по имени из manifest (не путь клиента). */
+  const sendVersionFile = async (id: string, name: string, contentType: string, req: Parameters<typeof sendFile>[0], reply: Parameters<typeof sendFile>[1]) => {
+    const v = versionOr404(id);
+    const dir = join(core.root, v.path);
+    const manifest = await manifestOf(dir);
+    if (!manifest.files.some((f) => f.path === name)) throw notFound(`${name} версии ${id}`);
+    return sendFile(req, reply, join(dir, name), { contentType });
+  };
+
+  app.get("/api/versions/:id/preview.mp4", { schema: { params: IdParams } }, async (req, reply) => {
+    const v = versionOr404(req.params.id);
+    const m = await manifestOf(join(core.root, v.path));
+    if (!m.preview) throw notFound(`превью версии ${req.params.id}`);
+    return sendVersionFile(req.params.id, m.preview.path, "video/mp4", req, reply);
+  });
+
+  app.get("/api/versions/:id/frames/:file", {
+    schema: { params: z.object({ id: IdParams.shape.id, file: z.string() }).strict() },
+  }, async (req, reply) => {
+    if (!FRAME_RE.test(req.params.file)) throw notFound(`кадр ${req.params.file}`);
+    return sendVersionFile(req.params.id, `frames/${req.params.file}`, "image/png", req, reply);
+  });
+
+  app.get("/api/versions/:a/diff/:b", {
+    schema: { params: z.object({ a: IdParams.shape.id, b: IdParams.shape.id }).strict(), response: { 200: VersionDiffSchema } },
+  }, async (req) => {
+    versionOr404(req.params.a);
+    versionOr404(req.params.b);
+    return core.repo.diff(req.params.a, req.params.b);
+  });
+
+  app.post("/api/versions/:id/exports", {
+    schema: { params: IdParams, body: ExportRequestSchema, response: { 200: CreatedJobDtoSchema, 202: CreatedJobDtoSchema } },
+  }, async (req, reply) => {
+    const key = idempotencyKey(req);
+    const db = core.db;
+    const input = { versionId: req.params.id, request: req.body };
+    const out = tx(db, () => {
+      const prev = replay(db, key, "scene.export", () => input);
+      if (prev) return { status: 200 as const, job: prev };
+      const v = versionOr404(req.params.id);
+      if (v.status !== "ready") throw new ApiError(409, "export_not_ready", `экспортировать можно только ready-версию (v${v.number} — ${v.status})`);
+      const scene = scenes.get(db, v.scene_id)!;
+      return { status: 202 as const, job: enqueue(db, { type: "scene.export", projectId: scene.project_id, versionId: v.id, input, idempotencyKey: key }).job };
+    });
+    return reply.status(out.status).send({ job: out.job });
+  });
+}

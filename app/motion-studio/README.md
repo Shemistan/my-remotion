@@ -11,7 +11,7 @@
 | `core` (`@ms/core`) | StorageGuard: проверка хранилища, `safeMkdir`, сторож `watchStorage`, macOS-проба тома |
 | `contracts` (`@ms/contracts`) | Схемы и типы: настройки сцены, время, контракты агентов |
 | `render` (`@ms/render`) | Рендер версии на Remotion 4.0.537: бандл, кадры, превью, ffprobe-gate (`render/README.md`) |
-| `server` (`@ms/server`) | CLI `doctor` |
+| `server` (`@ms/server`) | Сервер: Control API (Fastify), очередь задач, пайплайны; CLI `doctor`, `generate` |
 
 ## Node
 
@@ -45,10 +45,39 @@ Evidence в `docs/evidence/` закоммичено и само по себе н
 
 ```sh
 export MS_DATA_DIR="/Volumes/External SSD/MotionStudio"
-./scripts/with-node.sh npm run doctor             # хранилище + Chrome Headless Shell (качает при отсутствии); код 1 при сбое
+./scripts/with-node.sh npm run doctor             # полная проверка окружения (ниже); код 1 при любой ошибке
+./scripts/with-node.sh npm run doctor -- --json   # то же в JSON
 ./scripts/with-node.sh npm run doctor -- --init   # создать корень и маркер (родитель должен существовать)
 ./scripts/with-node.sh npm run doctor -- --adopt  # после переноса данных на другой том
 ```
 
 Переменные: `MS_ALLOW_SYSTEM_DISK=1` разрешает хранилище на системном томе,
 `MS_MIN_FREE_GB` — порог свободного места (по умолчанию 10 ГиБ).
+
+`doctor` (`03` §7) проверяет: Node ≥ 22; `claude --version` и вход (короткий `claude -p`
+модели haiku без инструментов, стоимость < $0,01 — реальный вызов); `ffmpeg`/`ffprobe` и
+энкодеры `libx264`, `aac`, `prores_ks`; `KB_ROOT`/`KB_SOURCE_ROOT`; StorageGuard; Chrome Headless
+Shell (качает при отсутствии); `quick_check` `studio.db`; свободен ли owner-lock (при запущенном
+сервере — `busy`).
+
+## Сервер
+
+```sh
+export MS_DATA_DIR="/Volumes/External SSD/MotionStudio"
+./scripts/with-node.sh npm start      # Control API + UI (web/dist) на http://127.0.0.1:8790
+./scripts/with-node.sh npm run dev    # то же, UI через Vite middleware на том же порту (Q7)
+```
+
+Сервер слушает только `127.0.0.1:8790`. Запросы с `Host` не из {`127.0.0.1:8790`,
+`localhost:8790`} — 403 `forbidden_host`; мутации (не GET/HEAD) без `Origin`
+`http://127.0.0.1:8790` / `http://localhost:8790` — 403 `forbidden_origin` (защита от DNS
+rebinding и CSRF, `03` §6). Хранилище недоступно — 503 `storage_offline` на `/api/*`, кроме
+`GET /api/health`. POST, создающие задачи, требуют `Idempotency-Key`. Остановка — SIGTERM/SIGINT:
+API и SSE закрываются, попытки прерываются, БД закрывается, owner-lock освобождается.
+
+Лимиты (`config.json` → `limits`, действуют после перезапуска): `maxRunning` 2 задачи,
+`agentCalls` 5, `renders` 2, `exportTimeoutMs` 1 800 000. Настройки — `GET/PUT /api/settings`.
+
+```sh
+curl -H 'Host: 127.0.0.1:8790' http://127.0.0.1:8790/api/health
+```
