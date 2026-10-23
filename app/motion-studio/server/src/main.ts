@@ -6,17 +6,24 @@
 import { pathToFileURL } from "node:url";
 import { PORT, buildApp } from "./api/app.js";
 import { bootCore } from "./boot.js";
+import { exportVersion } from "@ms/render";
 import { registerHandlers } from "./jobs/handlers.js";
+import { testHooks } from "./jobs/test-hooks.js";
 
 export const HOST = "127.0.0.1";
 
 export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<void> {
   const dev = argv.includes("--dev");
   const log = (line: string) => console.log(`[motion-studio] ${line}`);
+  // только приёмка (Task 22): MS_TEST_HOOKS=1 — хуки в обработчике экспорта, без маршрутов
+  const hooks = testHooks(env, log);
   const core = await bootCore({
     env,
     kind: "server",
-    handlers: (svc) => registerHandlers(svc, { log }),
+    handlers: (svc) => {
+      const h = registerHandlers(svc, { log, ...(hooks ? { exportVersion: hooks.exportVersion(exportVersion) } : {}) });
+      return hooks ? hooks.wrap(h) : h;
+    },
     storageLog: (l) => log(`storage: ${l}`),
     log: (step) => log(`boot: ${step}`),
   });

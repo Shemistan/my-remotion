@@ -96,3 +96,22 @@ API и SSE закрываются, попытки прерываются, БД �
 ```sh
 curl -H 'Host: 127.0.0.1:8790' http://127.0.0.1:8790/api/health
 ```
+
+## Приёмка Phase 1
+
+```sh
+make acceptance                                           # весь прогон (Task 22)
+MS_ACC_REUSE=1 MS_ACC_ONLY=resilience,mvp make acceptance # продолжить прошлый прогон
+```
+
+Playwright через настоящий UI (`web/playwright.acceptance.config.ts`, шаги по порядку —
+`web/e2e/acceptance/acceptance.list.ts`): Test 1–3 из `docs/architecture/09-acceptance-tests.md`
+с реальным `claude` и рендером, перезапуск сервера, тесты устойчивости, критерии MVP. Хранилище —
+отдельное `/Volumes/External SSD/MotionStudio-acceptance` (нет — создаёт `doctor --init`;
+`doctor` обязан пройти). Сервер запускается с `MS_TEST_HOOKS=1`: тестовые хуки экспорта для
+`09` §5 п. 8–9 включаются только этой переменной, маршрутов не добавляют, взвод — файл
+`arm.json` в `MS_TEST_HOOKS_DIR`. Порт 8790 должен быть свободен. Итоги проверок —
+`docs/evidence/phase-1/<шаг>/checks.json`, сводка — `docs/evidence/phase-1/REPORT.md`; служебное
+(логи сервера, скачанные файлы, проверочные рендеры) — `tmp/acceptance/`.
+
+Время и стоимость — справочно (подписка): раздел «Стоимость и время» в `REPORT.md`.

@@ -2,7 +2,7 @@
 # Все команды — в Node из .nvmrc через scripts/with-node.sh.
 NODE := ./scripts/with-node.sh
 
-.PHONY: check lint typecheck test e2e e2e-ui web-build install
+.PHONY: check lint typecheck test e2e e2e-ui acceptance web-build install
 
 check: lint typecheck test
 
@@ -38,3 +38,10 @@ web-build: install
 # свободен. Скриншоты — docs/evidence/phase-1/ui/.
 e2e-ui: web-build
 	$(NODE) npx playwright test -c web/playwright.config.ts
+
+# Приёмка Phase 1 (Task 22): UI → настоящий сервер на 127.0.0.1:8790, реальный claude и рендер,
+# хранилище /Volumes/External SSD/MotionStudio-acceptance (создаётся `doctor --init`). Долго
+# (≈ 1,5–3 ч) и платно (справочно ≈ $10–25 по подписке). Evidence — docs/evidence/phase-1/.
+# Продолжить прогон: MS_ACC_REUSE=1 MS_ACC_ONLY=resilience,mvp make acceptance.
+acceptance: web-build
+	$(NODE) npx playwright test -c web/playwright.acceptance.config.ts
