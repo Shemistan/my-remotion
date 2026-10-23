@@ -1,0 +1,33 @@
+{
+  "id": "ver_01M5N3AV72AC28KPSGFN5D0SJ4",
+  "scene_id": "scn_01M5N1PSP7DAHSAR2TXKYFWHHV",
+  "parent_version_id": null,
+  "number": 1,
+  "status": "ready",
+  "prompt": "Объясни, как работает очередь сообщений между сервисом заказов и складом",
+  "edit_plan_json": null,
+  "settings_json": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 180,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "path": "workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N1PSP7DAHSAR2TXKYFWHHV/versions/ver_01M5N3AV72AC28KPSGFN5D0SJ4",
+  "manifest_sha256": "e416e271941a9fdf7474a6ffc92d16b92ec920ff109b68fefee0c88c7fe0ec77",
+  "created_by_job_id": "job_01M5N1PSPBPN6AW3V436ZDD4HV",
+  "created_at": "2026-10-23T19:20:48.611Z",
+  "broken_reason": null,
+  "dir": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N1PSP7DAHSAR2TXKYFWHHV/versions/ver_01M5N3AV72AC28KPSGFN5D0SJ4"
+}

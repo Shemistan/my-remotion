@@ -10,7 +10,7 @@
 /* global process, URL, console */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -21,6 +21,18 @@ const Database = require("better-sqlite3");
 const MAX_MEDIA = 10 * 1024 * 1024;
 const FRAME_WIDTH = "960";
 const VERSION_FILES = ["manifest.json", "spec.json", "props.json", "settings.json", "style.json", "qa.json", "knowledge-refs.json", "selection.json", "warnings.json", "pipeline-log.json"];
+
+/**
+ * Копия содержимого без прав источника: файлы версии read-only (chmod a-w), copyFile перенёс бы
+ * это и повторный сбор упал бы EACCES. Старая копия делается записываемой.
+ */
+function copyFileSync(src, dest) {
+  writable(dest);
+  writeFileSync(dest, readFileSync(src));
+}
+function writable(path) {
+  if (existsSync(path)) chmodSync(path, 0o644);
+}
 
 const sha = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const json = (v) => JSON.stringify(v, null, 2) + "\n";
@@ -72,6 +84,7 @@ function collectVersion(db, root, id, dest) {
   if (existsSync(join(dir, "src/Scene.tsx"))) copyFileSync(join(dir, "src/Scene.tsx"), join(dest, "Scene.tsx"));
   const frames = existsSync(join(dir, "frames")) ? readdirSync(join(dir, "frames")).filter((f) => f.endsWith(".png")) : [];
   if (frames.length > 0) mkdirSync(join(dest, "frames"), { recursive: true });
+  for (const f of frames) writable(join(dest, "frames", f));
   for (const f of frames) execFileSync("/usr/bin/sips", ["-Z", FRAME_WIDTH, join(dir, "frames", f), "--out", join(dest, "frames", f)], { stdio: "ignore" });
   const preview = existsSync(join(dir, "preview.mp4")) ? media(join(dir, "preview.mp4"), dest, "preview.mp4") : null;
   const job = jobInfo(db, v.created_by_job_id);

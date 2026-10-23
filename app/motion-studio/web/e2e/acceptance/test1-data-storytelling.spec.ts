@@ -12,7 +12,7 @@ import { countStarts, inBeat } from "../../../server/src/pipeline/qa-frames.js";
 import { loadPng, lumaStats } from "../../../server/src/qa/image.js";
 import type { LayoutFrame } from "../../../server/src/qa/layout.js";
 import {
-  Checks, EVIDENCE, TEST1, collect, exportViaUi, generateViaUi, jobCost, plays, renderFrames, saveState, shot, versionDir, writeEvidence,
+  Checks, EVIDENCE, type Generated, REUSE, TEST1, collect, exportViaUi, generateViaUi, jobCost, plays, renderFrames, saveState, shot, state, versionDir, writeEvidence,
 } from "./helpers.js";
 
 const sha = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
@@ -29,25 +29,30 @@ export default function test1(): void {
     test.setTimeout(75 * 60_000);
     const c = new Checks("test1");
 
-    // Dashboard → новый проект «Приёмка» → страница проекта
-    await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Проекты", exact: true })).toBeVisible();
-    await page.getByLabel("Название проекта").fill("Приёмка");
-    await page.getByRole("button", { name: "Создать" }).click();
-    await page.waitForURL(/\/projects\/[^/]+$/);
-    const projectId = /\/projects\/([^/?#]+)/.exec(page.url())![1]!;
-    saveState({ projectId });
-    await expect(page.getByRole("heading", { name: "Приёмка", level: 1 })).toBeVisible();
-    await shot(page, "test1", "01-project");
-
-    const g = await generateViaUi(page, TEST1);
-    saveState({ test1: g });
+    const prev = state().test1;
+    let g: Generated;
+    if (REUSE && prev?.versionId) {
+      g = prev; // продолжение прогона: генерация уже прошла через UI
+    } else {
+      // Dashboard → новый проект «Приёмка» → страница проекта
+      await page.goto("/");
+      await expect(page.getByRole("heading", { name: "Проекты", exact: true })).toBeVisible();
+      await page.getByLabel("Название проекта").fill("Приёмка");
+      await page.getByRole("button", { name: "Создать" }).click();
+      await page.waitForURL(/\/projects\/[^/]+$/);
+      const projectId = /\/projects\/([^/?#]+)/.exec(page.url())![1]!;
+      saveState({ projectId });
+      await expect(page.getByRole("heading", { name: "Приёмка", level: 1 })).toBeVisible();
+      await shot(page, "test1", "01-project");
+      g = await generateViaUi(page, TEST1);
+      saveState({ test1: g });
+    }
     c.check("job", "задача playground.generate completed, версия есть", g.status === "completed" && g.versionId !== null, g);
     expect(g.versionId, `генерация Test 1: ${JSON.stringify(g)}`).not.toBeNull();
     const vid = g.versionId!;
 
     // UI: плеер, длительность, компоненты KB, QA
-    await page.goto(`/scenes/${g.sceneId}`);
+    await page.goto(`/scenes/${g.sceneId}?v=${g.versionId}`);
     await expect(page.getByRole("heading", { name: "v1", level: 1 })).toBeVisible();
     const t = await plays(page);
     c.check("ui.player", "плеер играет (currentTime растёт)", t > 0.5, `currentTime ${t.toFixed(2)} с`);
@@ -82,6 +87,17 @@ export default function test1(): void {
     const first = firstNumberFrame === undefined ? [] : ocr(qa, firstNumberFrame);
     c.check("t1.ocr-from", "OCR «10 000» на кадре начала счёта", first.some((s) => /10\s?000/.test(s) && !/100\s?000/.test(s)), { frame: firstNumberFrame, texts: first });
     c.check("t1.ocr-to", "OCR «1 000 000» на последнем QA-кадре", ocr(qa, last).some((s) => /1\s?000\s?000/.test(s)), { frame: last, texts: ocr(qa, last) });
+
+    // то же по данным: реестр раскладки кадров бита счёта — первое и последнее видимое число
+    if (count) {
+      const span = [...new Set([...Array.from({ length: 8 }, (_, i) => count.start_frame + i), ...Array.from({ length: 8 }, (_, i) => Math.min(count.end_frame, count.start_frame + 8 + i * 4))])];
+      const cr = await renderFrames(vid, span, "t1-count");
+      // герой-счётчик — число кеглем дисплея (≥ 6 % высоты кадра); подписи оси мельче
+      const nums = cr.layout.map((f) => ({ frame: f.frame, hero: visible(f).find((i) => /\d/.test(i.text) && i.fontPx >= 0.06 * f.height)?.text ?? null }));
+      const firstSeen = nums.find((n) => n.hero !== null);
+      const is10k = (t: string) => digits(t) === "10000" || /^10\s?тыс/.test(t.trim());
+      c.check("t1.count-from", "реестр раскладки: первое видимое значение счётчика — 10 000", !!firstSeen && is10k(firstSeen.hero!), nums);
+    }
 
     const emph = spec.beats.filter((b) => /emphas|accent|payoff|strike|hero|final|акцент|финал/i.test(`${b.id} ${b.action}`) && b.start_frame >= dur * 0.5);
     c.check("t1.emphasis-beat", "spec: отдельный бит акцента во второй половине", emph.length > 0, spec.beats.map((b) => `${b.id}:${b.action}@${b.start_frame}`), "A+H");

@@ -12,14 +12,14 @@ import { type Img, frameDelta, loadPng } from "../../../server/src/qa/image.js";
 import type { LayoutFrame, LayoutItem } from "../../../server/src/qa/layout.js";
 import { specChecks } from "../../../server/src/qa/spec-checks.js";
 import {
-  Checks, EVIDENCE, REPO, TEST2, collect, generateViaUi, jobCost, plays, renderFrames, saveState, shot, state, version, versionDir, writeEvidence,
+  Checks, EVIDENCE, REPO, REUSE, TEST2, collect, generateViaUi, jobCost, plays, renderFrames, saveState, shot, state, version, versionDir, writeEvidence,
 } from "./helpers.js";
 
 const readJson = <T>(p: string) => JSON.parse(readFileSync(p, "utf8")) as T;
 
 interface Node { id: string; label?: string }
 interface Edge { id: string; from: string; to: string }
-interface Flow { edge: string; direction?: "forward" | "back"; beat?: string; travel?: number }
+interface Flow { edge: string; direction?: "forward" | "back"; beat?: string; travel?: number; delay?: number }
 interface Graph { nodes?: Node[]; edges?: Edge[]; flows?: Flow[] }
 
 const USER = /польз|user|client|клиент/i;
@@ -45,7 +45,8 @@ function directed(g: Graph, spec: MotionSpec, timing: Parameters<typeof beatStar
     const e = g.edges?.find((x) => x.id === f.edge);
     const b = beatStart(spec, timing, f.beat);
     const [from, to] = f.direction === "back" ? [e?.to, e?.from] : [e?.from, e?.to];
-    return { from, to, start: b?.start_frame ?? i, end: b?.end_frame, travel: f.travel, beat: f.beat, resolved: !!b };
+    const start = (b?.start_frame ?? i) + (f.delay ?? 0);
+    return { from, to, start, arrive: start + (f.travel ?? 0), end: b?.end_frame, travel: f.travel, beat: f.beat, resolved: !!b };
   });
 }
 
@@ -79,13 +80,14 @@ export default function test2(): void {
     await page.goto(`/projects/${projectId}`);
     await expect(page.getByRole("heading", { name: "Приёмка", level: 1 })).toBeVisible();
 
-    const g = await generateViaUi(page, TEST2);
+    const prev = state().test2;
+    const g = REUSE && prev?.versionId ? prev : await generateViaUi(page, TEST2);
     saveState({ test2: g });
     c.check("job", "задача playground.generate completed, версия есть", g.status === "completed" && g.versionId !== null, g);
     expect(g.versionId, `генерация Test 2: ${JSON.stringify(g)}`).not.toBeNull();
     const vid = g.versionId!;
 
-    await page.goto(`/scenes/${g.sceneId}`);
+    await page.goto(`/scenes/${g.sceneId}?v=${g.versionId}`);
     await expect(page.getByRole("heading", { name: "v1", level: 1 })).toBeVisible();
     const t = await plays(page);
     c.check("ui.player", "плеер играет", t > 0.5, `currentTime ${t.toFixed(2)} с`);
@@ -98,7 +100,11 @@ export default function test2(): void {
     const qa = readJson<QAReport>(join(dir, "qa.json"));
     const refs = readJson<KnowledgeRef[]>(join(dir, "knowledge-refs.json"));
     const dto = await version(page.request, vid);
-    const graph: Graph = props.content ?? {};
+    // FlowGraph: граф в content.graph (kit 0.5+) или прямо в content; жетон ответа (content.token)
+    // летит по ребру — это тоже поток
+    const content = (props.content ?? {}) as Graph & { graph?: Graph; token?: { edge: string; reverse?: boolean; beat?: string; travel?: number } };
+    const graph: Graph = content.graph ?? content;
+    if (content.token?.edge) graph.flows = [...(graph.flows ?? []), { edge: content.token.edge, direction: content.token.reverse ? "back" : "forward", beat: content.token.beat, travel: content.token.travel }];
     const nodes: Node[] = graph.nodes ?? spec.elements.filter((e) => e.kind === "card" || e.role.startsWith("node")).map((e) => ({ id: e.id, label: e.role }));
     const r = roles(nodes);
     c.check("t2.nodes", "≥ 5 узлов: пользователь, оркестратор, ≥ 3 инструмента", nodes.length >= 5 && !!r.user && !!r.orch && r.tools.length >= 3,
@@ -118,7 +124,19 @@ export default function test2(): void {
     const ordered = req.length > 0 && fan.length >= 3 && ret.length > 0 && ans.length > 0 &&
       minS(req) < minS(fan) && fan.every((f) => ret.filter((x) => x.from === f.to).every((x) => x.start > f.start)) && minS(ans) > maxS(ret);
     c.check("t2.order", "потоки упорядочены: запрос → оркестратор → 3 инструмента → обратно → ответ", ordered,
-      { flows: flows.map((f) => `${f.from}→${f.to}@${f.start}${f.resolved ? "" : "(порядок)"}`) }, "A+H");
+      { flows: flows.map((f) => `${f.from}→${f.to}@${f.start}–${f.arrive}${f.resolved ? "" : "(порядок)"}`) }, "A+H");
+    // причинность: вызов инструмента — после прихода запроса; возврат — после прихода вызова;
+    // ответ — после прихода последнего возврата (импульсы не обгоняют причину)
+    const firstArrive = (xs: typeof flows) => Math.min(...xs.map((f) => f.arrive));
+    const causal = req.length > 0 && fan.length > 0 && ans.length > 0 &&
+      fan.every((f) => f.start >= firstArrive(req)) &&
+      ret.every((x) => fan.filter((f) => f.to === x.from).every((f) => x.start >= f.arrive)) &&
+      ans.every((a) => ret.every((x) => a.start >= x.arrive));
+    const why = [
+      ...fan.filter((f) => f.start < firstArrive(req)).map((f) => `вызов ${f.to} @${f.start} раньше прихода запроса @${firstArrive(req)}`),
+      ...ret.flatMap((x) => fan.filter((f) => f.to === x.from && x.start < f.arrive).map((f) => `возврат ${x.from} @${x.start} раньше прихода вызова @${f.arrive}`)),
+    ];
+    c.check("t2.causal", "импульсы не обгоняют причину: вызов после прихода запроса, возврат после прихода вызова", causal, why.length ? why : "ок", "A+H");
 
     // импульсы: PulseAlongPath (FlowGraph рисует потоки через него) или magicui/animated-beam
     const pulseKit = dto.kit_components.includes("PulseAlongPath") || (dto.kit_components.includes("FlowGraph") && (graph.flows?.length ?? 0) > 0);

@@ -10,7 +10,7 @@ import { expect, test } from "@playwright/test";
 import { type MotionSpec, type ScenePropsBase, type StyleBible, type VersionManifest, scaleContentFrames } from "@ms/contracts";
 import { checkPreserve, compareHoldLayout } from "../../../server/src/pipeline/preserve.js";
 import {
-  Checks, EVIDENCE, PURPLE, TEST3, chatEditViaUi, collect, exportViaUi, jobCost, plays, probe, renderFrames, saveState, shot, state, versionDir, writeEvidence,
+  Checks, EVIDENCE, PURPLE, REUSE, TEST3, chatEditViaUi, collect, exportViaUi, jobCost, plays, probe, renderFrames, saveState, shot, state, versionDir, writeEvidence,
 } from "./helpers.js";
 
 const readJson = <T>(p: string) => JSON.parse(readFileSync(p, "utf8")) as T;
@@ -47,12 +47,13 @@ export default function test3(): void {
     expect(t2?.versionId, "Test 3 идёт на сцене Test 2").toBeTruthy();
     const sceneId = t2!.sceneId;
     await page.goto(`/scenes/${sceneId}`);
-    await expect(page.getByRole("heading", { name: "v1", level: 1 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^v\d+$/, level: 1 })).toBeVisible();
 
-    const e2 = await chatEditViaUi(page, sceneId, PURPLE);
+    const prev = state().test3;
+    const e2 = REUSE && prev?.v2?.versionId ? prev.v2 : await chatEditViaUi(page, sceneId, PURPLE);
     c.check("v2.job", "правка «фиолетовые тона» completed", e2.status === "completed" && !!e2.versionId, e2);
     expect(e2.versionId).toBeTruthy();
-    const e3 = await chatEditViaUi(page, sceneId, TEST3);
+    const e3 = REUSE && prev?.v3?.versionId ? prev.v3 : await chatEditViaUi(page, sceneId, TEST3);
     saveState({ test3: { v2: e2, v3: e3 } });
     c.check("v3.job", "правка Test 3 completed", e3.status === "completed" && !!e3.versionId, e3);
     expect(e3.versionId).toBeTruthy();
@@ -91,7 +92,8 @@ export default function test3(): void {
     }
     c.check("t3.gate", "технический gate pass", v3.manifest.qa?.technical === "pass", v3.manifest.qa);
     const p3 = probe(join(v3.dir, "preview.mp4"));
-    c.check("t3.duration", "превью v3: длительность ± 1 кадр, 1920×1080", Math.abs(p3.durationS * 30 - v3.spec.duration_frames) <= 1 && p3.video.width === 1920 && p3.video.height === 1080, p3);
+    // превью — в половинном разрешении (docs/architecture/README.md); полный размер — у экспорта
+    c.check("t3.duration", "превью v3: длительность ± 1 кадр, размер = настройки × 0,5", Math.abs(p3.durationS * 30 - v3.spec.duration_frames) <= 1 && p3.video.width === 960 && p3.video.height === 540, p3);
 
     // кадры hold v1/v2/v3 рядом (по 640 px)
     const holdPng = join(EVIDENCE, "test3/hold-v1-v2-v3.png");

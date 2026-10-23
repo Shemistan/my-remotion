@@ -1,0 +1,33 @@
+{
+  "id": "ver_01M5N0ZD9S4ASRX8P0P9KDF314",
+  "scene_id": "scn_01M5N0KGPKY44E27KDYK57THCS",
+  "parent_version_id": null,
+  "number": 1,
+  "status": "ready",
+  "prompt": "Покажи архитектуру AI-агента: пользователь отправляет запрос, оркестратор вызывает три инструмента, данные возвращаются обратно. Световые импульсы движутся по связям",
+  "edit_plan_json": null,
+  "settings_json": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 180,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "path": "workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N0KGPKY44E27KDYK57THCS/versions/ver_01M5N0ZD9S4ASRX8P0P9KDF314",
+  "manifest_sha256": "05e41d57b0d80f22d6c1b265ec9b10798509bde426f7b21bf9a4bdfc9c4555bc",
+  "created_by_job_id": "job_01M5N0KGPR7XT3F1ZAYPA8CTP0",
+  "created_at": "2026-10-23T18:39:36.762Z",
+  "broken_reason": null,
+  "dir": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N0KGPKY44E27KDYK57THCS/versions/ver_01M5N0ZD9S4ASRX8P0P9KDF314"
+}

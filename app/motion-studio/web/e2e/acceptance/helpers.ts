@@ -64,7 +64,10 @@ export function saveState(patch: Partial<AccState>): AccState {
   return next;
 }
 
-export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Продолжение прогона (MS_ACC_REUSE=1): готовые шаги берутся из state.json, не повторяются. */
+export const REUSE = process.env.MS_ACC_REUSE === "1";
+
+export const sleep =(ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function portBusy(): Promise<boolean> {
   return new Promise((resolve) => {
@@ -262,6 +265,7 @@ export async function renderFrames(versionId: string, frames: number[], tag: str
   const settings = JSON.parse(readFileSync(join(dir, "settings.json"), "utf8")) as Settings;
   const out = join(state().runDir, "renders", `${tag}-${Date.now()}`);
   mkdirSync(out, { recursive: true });
+  mkdirSync(join(scratchRoot, "cache"), { recursive: true });
   const r = await renderVersion({
     versionDir: dir, outDir: out, settings, cacheDir: join(scratchRoot, "cache"), stills: frames, preview: null, timeoutMs: 10 * 60_000,
     run: { root: scratchRoot, runId: `acc-${tag}-${Date.now()}`, attempt: 1 },

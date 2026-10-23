@@ -1,0 +1,158 @@
+{
+  "scene": {
+    "id": "scn_01M5N0BWY51B61QQBH3BM0NJ2F",
+    "project_id": "prj_01M5N0BWTSM3KQC4PHMB6V6TQ5",
+    "title": "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три год",
+    "current_version_id": "ver_01M5N1PR16NB511BVV1G2GWRMD",
+    "approved_version_id": null,
+    "created_at": "2026-10-23T18:28:57.413Z"
+  },
+  "versions": [
+    {
+      "version_id": "ver_01M5N0KBZXHRTZEAE0YRKR5AWQ",
+      "number": 1,
+      "status": "ready",
+      "parent_version_id": null,
+      "prompt": "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении",
+      "palette": {
+        "bg": "#07080d",
+        "surface": "#12141c",
+        "text": "#f3f4f8",
+        "muted": "#8b91a5",
+        "accent": [
+          "#8b7cff",
+          "#45d6c0",
+          "#f4b56a"
+        ],
+        "positive": "#45d6c0",
+        "negative": "#ff6b81"
+      },
+      "depth": 1,
+      "duration_frames": 180,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "pass"
+      },
+      "created_at": "2026-10-23T18:33:02.206Z"
+    },
+    {
+      "version_id": "ver_01M5N182JZ21T4NSQ8K7311S01",
+      "number": 2,
+      "status": "ready",
+      "parent_version_id": "ver_01M5N0KBZXHRTZEAE0YRKR5AWQ",
+      "prompt": "сделай анимацию на 10 % быстрее",
+      "palette": {
+        "bg": "#07080d",
+        "surface": "#12141c",
+        "text": "#f3f4f8",
+        "muted": "#8b91a5",
+        "accent": [
+          "#8b7cff",
+          "#45d6c0",
+          "#f4b56a"
+        ],
+        "positive": "#45d6c0",
+        "negative": "#ff6b81"
+      },
+      "depth": 1,
+      "duration_frames": 164,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "pass"
+      },
+      "created_at": "2026-10-23T18:44:20.704Z"
+    },
+    {
+      "version_id": "ver_01M5N1MAPRTVQ4QGKHV6SR8E8D",
+      "number": 3,
+      "status": "ready",
+      "parent_version_id": "ver_01M5N0KBZXHRTZEAE0YRKR5AWQ",
+      "prompt": "Применяю новые настройки сцены.",
+      "palette": {
+        "bg": "#03050c",
+        "surface": "#0a1022",
+        "text": "#e6f3ff",
+        "muted": "#7487a8",
+        "accent": [
+          "#00e5ff",
+          "#ff2bd6",
+          "#b6ff3b"
+        ],
+        "positive": "#b6ff3b",
+        "negative": "#ff4d6d"
+      },
+      "depth": 1,
+      "duration_frames": 180,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "pass"
+      },
+      "created_at": "2026-10-23T18:51:02.233Z"
+    },
+    {
+      "version_id": "ver_01M5N1PQQ06B9AZEAND381NZ8C",
+      "number": 4,
+      "status": "ready",
+      "parent_version_id": "ver_01M5N1MAPRTVQ4QGKHV6SR8E8D",
+      "prompt": "сделай всё в бирюзовых тонах",
+      "palette": {
+        "bg": "#031314",
+        "surface": "#0a2224",
+        "text": "#e6fffb",
+        "muted": "#6fa8a6",
+        "accent": [
+          "#1de9d0",
+          "#7df9ff",
+          "#0e9aa7"
+        ],
+        "positive": "#2ee6a6",
+        "negative": "#ff6b81"
+      },
+      "depth": 1,
+      "duration_frames": 180,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "pass"
+      },
+      "created_at": "2026-10-23T18:52:21.089Z"
+    },
+    {
+      "version_id": "ver_01M5N1PR16NB511BVV1G2GWRMD",
+      "number": 5,
+      "status": "ready",
+      "parent_version_id": "ver_01M5N0KBZXHRTZEAE0YRKR5AWQ",
+      "prompt": "restore v1",
+      "palette": {
+        "bg": "#07080d",
+        "surface": "#12141c",
+        "text": "#f3f4f8",
+        "muted": "#8b91a5",
+        "accent": [
+          "#8b7cff",
+          "#45d6c0",
+          "#f4b56a"
+        ],
+        "positive": "#45d6c0",
+        "negative": "#ff6b81"
+      },
+      "depth": 1,
+      "duration_frames": 180,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "pass"
+      },
+      "created_at": "2026-10-23T18:52:21.415Z"
+    }
+  ],
+  "active_job": null
+}

@@ -1,0 +1,81 @@
+{
+  "run_id": "job_01M5N12FATA8K81DZQHS4X1XSX",
+  "attempt": 1,
+  "cost_usd": 0.18650930000000002,
+  "engineer_calls": 0,
+  "visual_qa": [
+    {
+      "call": 1,
+      "wall_ms": 31127,
+      "cost_usd": 0.1400586,
+      "status": "completed",
+      "gate": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "pass"
+      }
+    }
+  ],
+  "attempts": [
+    {
+      "n": 1,
+      "take": 1,
+      "call": 1,
+      "overall": 7,
+      "scores": {
+        "overall": 7,
+        "hierarchy": 7.5,
+        "composition": 7,
+        "entrance": 7,
+        "choreography": 6.5,
+        "hold": 7.5,
+        "legibility": 8,
+        "meaning": 7
+      },
+      "blocking": [],
+      "cost_usd": 0.1401,
+      "published": true
+    }
+  ],
+  "timings": {
+    "queue_wait": 0,
+    "edit_planner": 5685,
+    "static": 37,
+    "typecheck": 15382,
+    "render_1": 29908,
+    "qa_programmatic": 3548,
+    "preserve_hold_base": 1475,
+    "visual_qa_1": 31147
+  },
+  "stage_wall_ms": {
+    "edit_planner": 5685,
+    "check": 15419,
+    "render": 29908,
+    "qa": 34695,
+    "preserve_hold_base": 1475,
+    "total": 87444
+  },
+  "history": [
+    {
+      "at": "2026-10-23T18:42:13.794Z",
+      "stage": "qa",
+      "message": "сверка кадра hold базы 179 ↔ 239: 8 → 8 текстов, расхождений 0"
+    },
+    {
+      "at": "2026-10-23T18:42:44.947Z",
+      "stage": "qa",
+      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; overall 7; blocking: —"
+    },
+    {
+      "at": "2026-10-23T18:42:44.993Z",
+      "stage": "gate",
+      "message": "gate пройден с вызова 1, overall 7"
+    },
+    {
+      "at": "2026-10-23T18:42:45.014Z",
+      "stage": "ready",
+      "message": "опубликована попытка 1 (дубль 1, вызов 1, overall 7) из 1"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "aspect_ratio": "16:9",
+  "width": 1920,
+  "height": 1080,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "duration_frames": 240,
+  "style_preset": "dark-premium",
+  "animation_intensity": "balanced",
+  "background": "#0b0d12",
+  "transparent_export": false,
+  "safe_area": {
+    "x": 0.05,
+    "y": 0.05
+  }
+}
