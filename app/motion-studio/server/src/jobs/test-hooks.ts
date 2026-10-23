@@ -7,14 +7,24 @@
 //   её отклоняет fencing (`fenced_out`), draft уходит в карантин; новая попытка экспортирует;
 // - `{"hook":"orphan","cmd":…,"args":[…]}` — вместо экспорта попытка запускает `cmd` через
 //   spawnTracked (реестр попытки) и ждёт отмены: «живой рендер» для `kill -9` сервера.
-import { readFileSync, renameSync } from "node:fs";
-import { join } from "node:path";
+// Предохранители: хуки отказываются стартовать, если MS_DATA_DIR — не хранилище приёмки
+// (`…-acceptance`) и не временный каталог (os.tmpdir() или tmp/ репозитория, юнит-тесты);
+// arm.json проверяется схемой — неизвестный хук или лишнее поле → задача failed с причиной.
+import { readFileSync, realpathSync, renameSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { isAbsolute, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { z } from "zod";
 import { spawnTracked } from "@ms/core";
 import type { exportVersion } from "@ms/render";
 import * as jobs from "../db/repos/jobs.js";
 import type { Handlers, JobContext } from "./types.js";
 
-export type TestHookArm = { hook: "stale-attempt" } | { hook: "orphan"; cmd: string; args: string[] };
+export const TestHookArmSchema = z.discriminatedUnion("hook", [
+  z.object({ hook: z.literal("stale-attempt") }).strict(),
+  z.object({ hook: z.literal("orphan"), cmd: z.string().min(1), args: z.array(z.string()) }).strict(),
+]);
+export type TestHookArm = z.infer<typeof TestHookArmSchema>;
 
 export interface TestHooks {
   /** Обёртка обработчика `scene.export`: забирает взвод на попытку. */
@@ -27,11 +37,55 @@ const ARM = "arm.json";
 /** Сколько ждать захвата новой попытки (опрос раннера — доли секунды). */
 const TAKEOVER_MS = 60_000;
 const key = (runId: string, attempt: number) => `${runId}#${attempt}`;
+/** tmp/ репозитория (этот файл — app/motion-studio/server/src/jobs/). */
+const REPO_TMP = fileURLToPath(new URL("../../../../../tmp/", import.meta.url));
+
+const inside = (dir: string, root: string) => {
+  const r = relative(root, dir);
+  return r !== "" && !r.startsWith("..") && !isAbsolute(r);
+};
+const real = (p: string) => {
+  try {
+    return realpathSync(p);
+  } catch {
+    return p;
+  }
+};
+
+/** Хранилище, на котором хуки допустимы: `…-acceptance` или временный каталог. */
+function allowedDataDir(dataDir: string | undefined): void {
+  const d = dataDir?.trim();
+  if (!d) throw new Error("MS_TEST_HOOKS=1 требует MS_DATA_DIR (хранилище приёмки …-acceptance)");
+  const abs = resolve(d);
+  if (abs.endsWith("-acceptance")) return;
+  const temp = [tmpdir(), REPO_TMP].flatMap((t) => [resolve(t), real(t)]);
+  if (temp.some((t) => inside(abs, t) || inside(real(abs), t))) return;
+  throw new Error(`MS_TEST_HOOKS=1 разрешён только на хранилище приёмки (MS_DATA_DIR оканчивается на -acceptance) или во временном каталоге, а не на ${abs}`);
+}
+
+/** Разбор взвода: неизвестный хук или лишнее поле — явная ошибка. */
+function parseArm(text: string, file: string): TestHookArm {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`тестовый хук: ${file} — не JSON: ${(e as Error).message}`, { cause: e });
+  }
+  const r = TestHookArmSchema.safeParse(raw);
+  if (r.success) return r.data;
+  const hook = (raw as { hook?: unknown } | null)?.hook;
+  const known: string[] = TestHookArmSchema.options.map((o) => o.shape.hook.value);
+  const why = typeof hook === "string" && !known.includes(hook)
+    ? `неизвестный хук «${hook}» (есть: ${known.join(", ")})`
+    : r.error.issues.map((i) => `${i.path.join(".") || "(корень)"}: ${i.message}`).join("; ");
+  throw new Error(`тестовый хук: ${file} не по форме — ${why}`);
+}
 
 export function testHooks(env: NodeJS.ProcessEnv, log?: (line: string) => void): TestHooks | undefined {
   if (env.MS_TEST_HOOKS !== "1") return undefined;
   const dir = env.MS_TEST_HOOKS_DIR;
   if (!dir) throw new Error("MS_TEST_HOOKS=1 требует MS_TEST_HOOKS_DIR (каталог взвода arm.json)");
+  allowedDataDir(env.MS_DATA_DIR);
   log?.(`внимание: тестовые хуки включены (MS_TEST_HOOKS=1, взвод — ${join(dir, ARM)})`);
   const armed = new Map<string, { ctx: JobContext; arm: TestHookArm }>();
 
@@ -43,7 +97,7 @@ export function testHooks(env: NodeJS.ProcessEnv, log?: (line: string) => void):
     } catch {
       return undefined;
     }
-    return JSON.parse(readFileSync(taken, "utf8")) as TestHookArm;
+    return parseArm(readFileSync(taken, "utf8"), ARM);
   };
 
   return {
