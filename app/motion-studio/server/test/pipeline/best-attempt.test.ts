@@ -10,6 +10,7 @@ import * as jobs from "../../src/db/repos/jobs.js";
 import * as versions from "../../src/db/repos/versions.js";
 import { enqueue } from "../../src/jobs/queue.js";
 import { JobRunner } from "../../src/jobs/runner.js";
+import type { AgentResult, AgentTask } from "../../src/agents/runtime.js";
 import type { GenerateDeps, GenerateResult } from "../../src/pipeline/generate.js";
 import { playgroundGenerate } from "../../src/pipeline/playground-generate.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
@@ -57,13 +58,13 @@ async function runJob(over: Partial<GenerateDeps> = {}, mode?: "revise" | "fresh
 
 const blocking = (code = "clipping") => ({ code, severity: "blocking" as const, frame: 30, area: "заголовок", description: "заголовок обрезан", fix_hint: "сдвинь заголовок" });
 /** Visual QA по вызову n: оценка overall и (по желанию) blocking. */
-const qaBy = (plan: Record<number, { overall: number; block?: boolean; notes?: boolean }>) =>
+const qaBy = (plan: Record<number, { overall: number; block?: boolean; notes?: boolean; semantic?: boolean }>) =>
   async (frames: number[], spec: MotionSpec | undefined, n: number) => {
     const p = plan[n] ?? { overall: 7 };
     return {
       output: visualOutput(frames, spec, {
-        gate: { visual: p.block ? "fail" : "pass", semantic: "pass", style: "pass" },
-        issues: p.block ? [blocking()] : [],
+        gate: { visual: p.block ? "fail" : "pass", semantic: p.semantic ? "fail" : "pass", style: "pass" },
+        issues: [...(p.block ? [blocking()] : []), ...(p.semantic ? [{ ...blocking("wrong_number"), description: "на кадре 12%, в запросе 21%" }] : [])],
         scores: scores(p.overall, { hold: p.overall - 1, entrance: p.overall - 0.5, legibility: p.overall + 1 }),
         score_notes: p.notes ? [{ axis: "hold", frame: frames.at(-1)!, note: "финал стоит" }, { axis: "entrance", frame: frames[0]!, note: "кадр 0 пуст" }] : [],
       }),
@@ -94,7 +95,7 @@ describe("S5: лучшая попытка после исчерпания исп
     expect(res.attempts?.find((a) => a.published)?.n).toBe(2);
   });
 
-  it("опубликованная оценка ≥ первой: попытка 1 blocking 8, попытка 2 чистая 6.5 → публикуется попытка 1 (warn)", async () => {
+  it("rulings 2026-10-23: попытка 1 blocking 8, попытка 2 чистая 6.5 → публикуется чистая попытка 2 (blocking не выигрывает оценкой)", async () => {
     const agents = fakeAgents({
       engineer: async (_t, n) => ({ files: { "src/Scene.tsx": scene(`call ${n}`) } }),
       visualQa: qaBy({ 1: { overall: 8, block: true }, 2: { overall: 6.5 } }),
@@ -102,9 +103,35 @@ describe("S5: лучшая попытка после исчерпания исп
     const { job, dir } = await runJob({ agents }, "off");
     expect(job.status).toBe("completed");
     expect(agents.engineerCalls).toHaveLength(2);
-    expect(readFileSync(join(dir!, "src", "Scene.tsx"), "utf8")).toContain("// call 1");
-    expect(qaOf(dir!).scores.overall).toBe(8);
-    expect(qaOf(dir!).gate.visual).toBe("warn");
+    expect(readFileSync(join(dir!, "src", "Scene.tsx"), "utf8")).toContain("// call 2");
+    expect(qaOf(dir!).scores.overall).toBe(6.5);
+    expect(qaOf(dir!).gate.visual).toBe("pass");
+  });
+
+  it("rulings 2026-10-23: semantic fail не переводится в warn — версия failed, даже когда исправления кончились", async () => {
+    const agents = fakeAgents({
+      engineer: async (_t, n) => ({ files: { "src/Scene.tsx": scene(`call ${n}`) } }),
+      visualQa: qaBy({ 1: { overall: 7, semantic: true }, 2: { overall: 7.5, semantic: true }, 3: { overall: 6, semantic: true } }),
+    });
+    const { job, v, dir } = await runJob({ agents }, "off");
+    expect(job.status).toBe("failed");
+    expect(job.error).toMatchObject({ stage: "qa" });
+    expect(v).toMatchObject({ status: "failed" });
+    const qa = qaOf(dir!);
+    expect(qa.gate.semantic).toBe("fail");
+    expect(qa.issues).toContainEqual(expect.objectContaining({ code: "wrong_number", severity: "blocking" }));
+  });
+
+  it("rulings 2026-10-23: среди попыток с blocking попытка только с visual blocking выигрывает у semantic fail с большей оценкой", async () => {
+    const agents = fakeAgents({
+      engineer: async (_t, n) => ({ files: { "src/Scene.tsx": scene(`call ${n}`) } }),
+      visualQa: qaBy({ 1: { overall: 8, semantic: true }, 2: { overall: 6, block: true }, 3: { overall: 7.5, semantic: true } }),
+    });
+    const { job, v, dir } = await runJob({ agents }, "off");
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(v).toMatchObject({ status: "ready" });
+    expect(readFileSync(join(dir!, "src", "Scene.tsx"), "utf8")).toContain("// call 2");
+    expect(qaOf(dir!).gate).toMatchObject({ visual: "warn", semantic: "pass" });
   });
 
   it("равные оценки — чистая попытка выигрывает у blocking", async () => {
@@ -235,6 +262,185 @@ describe("S5: второй дубль", () => {
     const { job } = await runJob({ agents }, "revise");
     expect(job.status, JSON.stringify(job.error)).toBe("completed");
     expect(overlapped).toBe(true);
+  });
+});
+
+/** fakeAgents с доступом к сигналу вызова: `hook` перехватывает вызов (undefined — обычный ответ). */
+function withSignal(
+  base: ReturnType<typeof fakeAgents>,
+  hook: (task: AgentTask<unknown>, sig: AbortSignal) => Promise<AgentResult<unknown> | undefined>,
+): ReturnType<typeof fakeAgents> {
+  return {
+    ...base,
+    run: (async (task: AgentTask<unknown>, schema: unknown, sig: AbortSignal) => {
+      const r = await hook(task, sig);
+      return r ?? base.run(task as AgentTask<never>, schema as never, sig);
+    }) as ReturnType<typeof fakeAgents>["run"],
+  };
+}
+const cancelledResult = (): AgentResult<unknown> => ({
+  status: "cancelled", error: { kind: "cancelled", message: "отменено" }, usage: { model: "fake", inputTokens: 0, outputTokens: 0, costUsd: 0 },
+  permissionDenials: [], stdoutPath: "", stderrPath: "", startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(),
+});
+const isTake2 = (t: AgentTask<unknown>) => t.workdir.endsWith("take2") || t.workdir.endsWith("qa-t2");
+const runTmpOf = (res: GenerateResult) => join(env.s.root, "run", "tmp", `${res.runId}-a1`);
+
+describe("S5-fix: второй дубль — выбор, отмена, сбой, бюджет", () => {
+  it("I1: дубль 2 с оценкой выше, но с blocking → публикуется чистая первая попытка", async () => {
+    const agents = fakeAgents({
+      engineer: async (_t, n) => ({ files: { "src/Scene.tsx": scene(`call ${n}`) } }),
+      visualQa: qaBy({ 1: { overall: 6 }, 2: { overall: 9, block: true }, 3: { overall: 9, block: true } }),
+    });
+    const { job, dir } = await runJob({ agents }, "revise");
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(readFileSync(join(dir!, "src", "Scene.tsx"), "utf8")).toContain("// call 1");
+    expect(qaOf(dir!).gate.visual).toBe("pass");
+  });
+
+  it("I5: исключение в дубле 1 отменяет дубль 2 (сигнал до агентного вызова) и задача ждёт его конца", async () => {
+    let take2Aborted = false;
+    let take2Running = false;
+    let take2Done = false;
+    const base = fakeAgents({
+      engineer: async (_t, n) => ({ files: { "src/Scene.tsx": scene(`call ${n}`) } }),
+      visualQa: qaBy({ 1: { overall: 5, block: true } }),
+    });
+    const agents = withSignal(base, async (task, sig) => {
+      if (task.role !== "engineer" || !isTake2(task)) return undefined;
+      take2Running = true;
+      // дубль 2 «работает», пока его не отменят (до 5 с)
+      for (let k = 0; k < 100 && !sig.aborted; k++) await new Promise((r) => setTimeout(r, 50));
+      take2Aborted = sig.aborted;
+      take2Done = true;
+      return cancelledResult();
+    });
+    // static check второго вызова первого дубля падает исключением (не нарушением)
+    let checks = 0;
+    const check = async (dir: string) => {
+      if (!dir.endsWith("take2") && ++checks === 2) {
+        for (let k = 0; k < 60 && !take2Running; k++) await new Promise((r) => setTimeout(r, 50));
+        throw new Error("static check упал");
+      }
+      return [];
+    };
+    const { job, res } = await runJob({ agents, check }, "revise");
+    expect(job.status).toBe("failed");
+    expect(take2Running).toBe(true);
+    expect(take2Aborted).toBe(true);
+    // runFixLoop не вернулся раньше дубля 2: к итогу задачи он уже закончил
+    expect(take2Done).toBe(true);
+    // после отмены дубль 2 ничего не рендерил и не звал Visual QA
+    expect(base.tasks.filter((t) => t.role === "visual_qa" && isTake2(t))).toHaveLength(0);
+    expect(existsSync(join(runTmpOf(res), "attempts"))).toBe(false);
+  });
+
+  it("I5: жёсткий выход дубля 1 (рендер orphaned) отменяет дубль 2 до его рендера", async () => {
+    let take2Aborted = false;
+    const base = fakeAgents({
+      engineer: async (_t, n) => ({ files: { "src/Scene.tsx": scene(`call ${n}`) } }),
+      visualQa: qaBy({ 1: { overall: 5, block: true } }),
+    });
+    let take2Engineer = false;
+    const agents = withSignal(base, async (task, sig) => {
+      if (task.role !== "engineer" || !isTake2(task)) return undefined;
+      take2Engineer = true;
+      for (let k = 0; k < 100 && !sig.aborted; k++) await new Promise((r) => setTimeout(r, 50));
+      take2Aborted = sig.aborted;
+      return cancelledResult();
+    });
+    const fr = fakeRender({ png: true });
+    let draftRenders = 0;
+    const render = fakeRender({
+      png: true,
+      onCall: async (req, sig) => {
+        if (req.versionDir.endsWith("take2")) return undefined;
+        if (++draftRenders === 2) {
+          for (let k = 0; k < 60 && !take2Engineer; k++) await new Promise((r) => setTimeout(r, 50));
+          return { ok: false, stills: [], browserLogs: [], error: { stage: "orphaned", message: "Chrome не исчез" } };
+        }
+        return fr.render(req, sig);
+      },
+    });
+    const { job } = await runJob({ agents, render: render.render }, "revise");
+    expect(job.status).not.toBe("completed");
+    expect(take2Aborted).toBe(true);
+    expect(render.calls.filter((r) => r.versionDir.endsWith("take2"))).toHaveLength(0);
+  });
+
+  it("I6: вызов Engineer дубля 2 отклонён (обрыв сети) — задача ready с годной попыткой дубля 1, каталог дубля 2 оставлен", async () => {
+    const base = fakeAgents({
+      engineer: async (_t, n) => ({ files: { "src/Scene.tsx": scene(`call ${n}`) } }),
+      visualQa: qaBy({ 1: { overall: 5 } }),
+    });
+    const agents = withSignal(base, async (task) => {
+      if (task.role === "engineer" && isTake2(task)) throw new Error("socket hang up");
+      return undefined;
+    });
+    const { job, v, dir, res } = await runJob({ agents }, "revise");
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(v).toMatchObject({ status: "ready" });
+    expect(readFileSync(join(dir!, "src", "Scene.tsx"), "utf8")).toContain("// call 1");
+    expect(res.warnings.join("\n")).toMatch(/второй дубль/);
+    // процесс дубля 2 не подтверждён мёртвым — его каталог не трогаем до разбора
+    expect(existsSync(join(runTmpOf(res), "take2"))).toBe(true);
+    expect(existsSync(join(runTmpOf(res), "attempts"))).toBe(false);
+  });
+
+  it("I7: общий бюджет двух дублей — резерв до вызова, лимит вызова не больше свободного остатка, итог ≤ лимита задачи", async () => {
+    const costs = { concept: 0.5, motion_director: 1, engineer: 1.2, visual_qa: 0.3 };
+    const base = fakeAgents({
+      engineer: async (_t, n) => ({ files: { "src/Scene.tsx": scene(`call ${n}`) } }),
+      // все попытки blocking и ниже порога: оба дубля хотят исправляться до конца
+      visualQa: async (frames, spec, n) => qaBy({ [n]: { overall: 5, block: true } })(frames, spec, n),
+    });
+    const caps: number[] = [];
+    let spent = 0;
+    // как CLI: `--max-budget-usd` вызова режет его цену
+    const agents = withSignal(base, async (task, sig) => {
+      const r = await base.run(task as AgentTask<never>, undefined as never, sig);
+      caps.push(task.limits.maxBudgetUsd);
+      const cost = Math.min(costs[task.role as keyof typeof costs], task.limits.maxBudgetUsd);
+      spent += cost;
+      return { ...r, usage: { ...r.usage, costUsd: cost } } as AgentResult<unknown>;
+    });
+    const { job, res } = await runJob({ agents }, "revise");
+    expect(TERMINAL).toContain(job.status);
+    // второй дубль запускался: вызовов Engineer больше, чем у одного дубля без исправлений
+    expect(base.tasks.some((t) => t.role === "engineer" && isTake2(t))).toBe(true);
+    expect(spent).toBeLessThanOrEqual(5 + 1e-9);
+    expect(res.costUsd).toBeLessThanOrEqual(5 + 1e-9);
+    for (const c of caps) expect(c).toBeGreaterThan(0);
+  });
+
+  it("M2: cost_usd попытки — только её вызовы, без трат параллельного дубля", async () => {
+    let take2Started = false;
+    const agents = fakeAgents({
+      costs: { engineer: 0.4, visual_qa: 0.1 },
+      engineer: async (t, n) => {
+        if (t.workdir.endsWith("take2")) take2Started = true;
+        else if (n > 1) for (let k = 0; k < 60 && !take2Started; k++) await new Promise((r) => setTimeout(r, 50));
+        return { files: { "src/Scene.tsx": scene(`call ${n}`) } };
+      },
+      visualQa: async (frames, spec, n) => qaBy({ 1: { overall: 5, block: true } })(frames, spec, n === 1 ? 1 : 99),
+    });
+    const { job, dir } = await runJob({ agents }, "revise");
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    const attempts = log(dir!).attempts as { cost_usd: number }[];
+    expect(attempts.length).toBeGreaterThanOrEqual(3);
+    for (const a of attempts) expect(a.cost_usd).toBeCloseTo(0.5, 6);
+  });
+
+  it("M1: отказ прав в исправлении (failed, процессы мертвы) — снимки попыток убраны", async () => {
+    const agents = fakeAgents({
+      engineer: async (_t, n) => ({
+        files: { "src/Scene.tsx": scene(`call ${n}`) },
+        ...(n === 2 ? { permissionDenials: [{ tool_name: "Write", tool_input: { file_path: "src/Other.tsx" } }] } : {}),
+      }),
+      visualQa: qaBy({ 1: { overall: 7, block: true } }),
+    });
+    const { job, res } = await runJob({ agents }, "off");
+    expect(job.status).toBe("failed");
+    expect(existsSync(join(runTmpOf(res), "attempts"))).toBe(false);
   });
 });
 

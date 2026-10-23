@@ -25,16 +25,23 @@ describe("S5: оценки и публикация лучшей попытки",
     expect(mergeQA({ technical: [], programmatic: [] })).not.toHaveProperty("scores");
   });
 
-  it("acceptedAsWarn: blocking → warning с пометкой, visual/semantic/style fail → warn, technical не трогается; отчёт проходит схему и не блокирует", () => {
-    const r = mergeQA({ technical: [], programmatic: [block("clipping")], agent: { ...agentPass, gate: { visual: "fail", semantic: "fail", style: "warn" } } });
+  it("acceptedAsWarn: blocking → warning с пометкой, visual fail → warn, technical не трогается; отчёт проходит схему и не блокирует", () => {
+    const r = mergeQA({ technical: [], programmatic: [block("clipping")], agent: { ...agentPass, gate: { visual: "fail", semantic: "pass", style: "warn" } } });
     expect(qaBlocks(r)).toBe(true);
     const w = acceptedAsWarn(r, "после 2 исправлений");
     expect(qaBlocks(w)).toBe(false);
-    expect(w.gate).toEqual({ technical: "pass", visual: "warn", semantic: "warn", style: "warn" });
+    expect(w.gate).toEqual({ technical: "pass", visual: "warn", semantic: "pass", style: "warn" });
     expect(w.issues[0]).toMatchObject({ code: "clipping", severity: "warning" });
     expect(w.issues[0]!.description).toContain("не исправлено после 2 исправлений");
     expect(w.scores).toEqual(agentPass.scores);
     expect(QAReportSchema.parse(w)).toEqual(w);
+  });
+
+  it("rulings 2026-10-23: acceptedAsWarn не смягчает semantic/style fail — отчёт по-прежнему блокирует", () => {
+    const r = mergeQA({ technical: [], programmatic: [], agent: { ...agentPass, gate: { visual: "fail", semantic: "fail", style: "fail" } } });
+    const w = acceptedAsWarn(r, "после 2 исправлений");
+    expect(w.gate).toEqual({ technical: "pass", visual: "warn", semantic: "fail", style: "fail" });
+    expect(qaBlocks(w)).toBe(true);
   });
 });
 

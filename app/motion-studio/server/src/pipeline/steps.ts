@@ -92,7 +92,15 @@ export interface Called<T> {
   error?: unknown;
   lost?: string;
   skipped?: boolean;
+  /** Бюджет задачи не дал места вызову (резерв, S5-fix I7): процесс не запускался. */
+  budget?: string;
 }
+
+/**
+ * Меньше этого свободного остатка бюджета вызов агента не запускается: с таким лимитом он
+ * почти наверняка оборвётся на `--max-budget-usd`, не дав результата.
+ */
+export const MIN_CALL_USD = 0.5;
 
 /**
  * Контекст одного прогона: хранилище, сторож, бюджет (фактический `usage.costUsd`, R15),
@@ -138,6 +146,12 @@ export function stageWall(spans: readonly { key: string; start: number; end: num
 
 export class RunCtx {
   spent = 0;
+  /**
+   * Резерв бюджета под идущие вызовы агентов (S5-fix I7): два дубля зовут агентов
+   * параллельно, и без резерва оба проходили проверку `spent < max` одновременно.
+   */
+  reserved = 0;
+  private budgetWaiters: (() => void)[] = [];
   readonly warnings: string[] = [];
   readonly timings: Record<string, number> = {};
   /** Интервалы этапов по часам (S5): из них — время этапов с учётом параллельности. */
@@ -220,9 +234,11 @@ export class RunCtx {
    * Вызов под сторожем хранилища: сигнал прерывается при сбое хранилища или отмене.
    * `lost` — сбой, замеченный сторожем; `error` — отказ самого вызова.
    */
-  async underWatch<T>(fn: (sig: AbortSignal) => Promise<T>): Promise<Called<T>> {
+  async underWatch<T>(fn: (sig: AbortSignal) => Promise<T>, extra?: AbortSignal): Promise<Called<T>> {
     const w = watchStorage(this.deps.storage, this.deps.watchIntervalMs ?? WATCH_MS);
-    const sig = this.signal ? AbortSignal.any([w.signal, this.signal]) : w.signal;
+    // extra — отмена дубля (S5-fix I5): второй дубль останавливают, задача продолжается
+    const sigs = [w.signal, this.signal, extra].filter((x): x is AbortSignal => x !== undefined);
+    const sig = sigs.length > 1 ? AbortSignal.any(sigs) : w.signal;
     const lost = () => {
       const f = w.lastFailure();
       return f && !f.ok ? `${f.reason}: ${f.detail}` : undefined;
@@ -232,6 +248,7 @@ export class RunCtx {
       return { value, lost: lost() };
     } catch (e) {
       if (e instanceof NotStarted) return { skipped: true, lost: lost() };
+      if (e instanceof BudgetExhausted) return { budget: e.message, lost: lost() };
       return { error: e, lost: lost() };
     } finally {
       w.stop();
@@ -242,20 +259,68 @@ export class RunCtx {
   readonly recording: AgentRuntimeAdapter = {
     capabilities: () => this.deps.agents.capabilities(),
     run: async <I, O>(task: AgentTask<I>, schema: ZodType<O>, sig: AbortSignal): Promise<AgentResult<O>> => {
-      const release = await this.acquire(this.deps.permits?.agents, sig);
+      // резерв — до места семафора: лимит вызова не больше свободного остатка бюджета задачи
+      const cap = await this.reserve(task.limits.maxBudgetUsd, sig);
       try {
-        const r = await this.deps.agents.run(task, schema, sig);
-        this.record(task.role, r);
-        return r;
+        const release = await this.acquire(this.deps.permits?.agents, sig);
+        try {
+          const limited = cap < task.limits.maxBudgetUsd ? { ...task, limits: { ...task.limits, maxBudgetUsd: cap } } : task;
+          const r = await this.deps.agents.run(limited, schema, sig);
+          this.record(task.role, r);
+          return r;
+        } finally {
+          release();
+        }
       } finally {
-        release();
+        this.unreserve(cap);
       }
     },
   };
 
-  /** Агентный вызов под сторожем хранилища (с местом семафора и записью). */
-  call<O>(task: AgentTask<unknown>, schema: ZodType<O>): Promise<Called<AgentResult<O>>> {
-    return this.underWatch((sig) => this.recording.run(task, schema, sig));
+  /**
+   * Резерв бюджета задачи под вызов агента (S5-fix I7). Свободно `max − spent − reserved`:
+   * хватает на лимит вызова — резерв на весь лимит; не хватает, а другие вызовы идут —
+   * ждём их конца (их фактическая цена обычно меньше резерва); никто не идёт — вызов с
+   * лимитом в остаток, если остаток не меньше `MIN_CALL_USD`, иначе `BudgetExhausted`.
+   * Так параллельные дубли вместе не выходят за `scene.maxCostUsd` (с точностью до хода,
+   * который CLI не режет, — rulings п. 15).
+   */
+  async reserve(cap: number, sig: AbortSignal): Promise<number> {
+    const max = this.config.scene.maxCostUsd;
+    for (;;) {
+      if (sig.aborted) throw new NotStarted();
+      const free = Math.round((max - this.spent - this.reserved) * 1e6) / 1e6;
+      if (free >= cap) {
+        this.reserved += cap;
+        return cap;
+      }
+      if (this.reserved > 1e-9) {
+        await new Promise<void>((resolve) => {
+          const done = () => {
+            sig.removeEventListener("abort", done);
+            resolve();
+          };
+          this.budgetWaiters.push(done);
+          sig.addEventListener("abort", done, { once: true });
+        });
+        continue;
+      }
+      if (free >= MIN_CALL_USD) {
+        this.reserved += free;
+        return free;
+      }
+      throw new BudgetExhausted(`бюджет сцены исчерпан: $${this.spent.toFixed(2)} из $${max}, свободно $${Math.max(0, free).toFixed(2)} — меньше $${MIN_CALL_USD} на вызов`);
+    }
+  }
+
+  private unreserve(x: number): void {
+    this.reserved = Math.max(0, this.reserved - x);
+    for (const w of this.budgetWaiters.splice(0)) w();
+  }
+
+  /** Агентный вызов под сторожем хранилища (с местом семафора и записью); `extra` — отмена дубля. */
+  call<O>(task: AgentTask<unknown>, schema: ZodType<O>, extra?: AbortSignal): Promise<Called<AgentResult<O>>> {
+    return this.underWatch((sig) => this.recording.run(task, schema, sig), extra);
   }
 
   /** Место семафора: прерванное ожидание — `NotStarted` (процесс не запускался). */
@@ -286,6 +351,9 @@ export class RunCtx {
     });
   }
 }
+
+/** Бюджет задачи не даёт места вызову агента: процесс не запускался (S5-fix I7). */
+export class BudgetExhausted extends Error {}
 
 /** Ожидание места семафора прервано: вызов не начинался. */
 export class NotStarted extends Error {
@@ -599,6 +667,10 @@ async function toolless<O>(
   rc.log(`${label}…`);
   const d = await rc.timed(role, () => rc.call(task, schema));
   // порядок проверок: отказ вызова → orphaned → хранилище → отмена → статус
+  if (d.budget !== undefined) {
+    await drop(); // резерв бюджета не дан: процесс не запускался
+    return fail("budget", `${d.budget} (до ${label})`);
+  }
   if (d.skipped) {
     await drop(); // место семафора не дали: процесс не запускался
     return fail("cancelled", `отменено до ${label}`);

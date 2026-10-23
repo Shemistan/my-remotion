@@ -27,16 +27,22 @@ export function mergeQA(parts: { technical: QAIssue[]; programmatic: QAIssue[]; 
 /**
  * Лучшая попытка, принятая после исчерпания исправлений (S5, R2 #10): автоматический QA —
  * вспомогательный (ТЗ §8.5), решение за человеком. Blocking становится warning с пометкой
- * «не исправлено …», вердикты visual/semantic/style `fail` — `warn`; technical не меняется
- * (его неудача до QA не доходит).
+ * «не исправлено …», вердикт visual `fail` — `warn`. semantic и style не смягчаются
+ * (rulings 2026-10-23): неверные числа или смысл не публикуются как ready — такой отчёт
+ * по-прежнему блокирует (`qaBlocks`). technical не меняется (его неудача до QA не доходит).
  */
 export function acceptedAsWarn(report: QAReport, why: string): QAReport {
   const soft = (v: Verdict): Verdict => (v === "fail" ? "warn" : v);
   return {
     ...report,
-    gate: { technical: report.gate.technical, visual: soft(report.gate.visual), semantic: soft(report.gate.semantic), style: soft(report.gate.style) },
+    gate: { ...report.gate, visual: soft(report.gate.visual) },
     issues: report.issues.map((i) => (i.severity === "blocking" ? { ...i, severity: "warning" as const, description: `[не исправлено ${why}] ${i.description}` } : i)),
   };
+}
+
+/** semantic или style `fail` — смысл или стиль: такую попытку не публикуют даже с warn. */
+export function meaningFails(report: QAReport): boolean {
+  return report.gate.semantic === "fail" || report.gate.style === "fail";
 }
 
 /** Блокирует публикацию как ready: есть blocking-замечание или любой gate `fail`. */

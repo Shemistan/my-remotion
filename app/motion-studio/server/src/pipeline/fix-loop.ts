@@ -30,7 +30,7 @@ import { safeMkdir } from "@ms/core";
 import { type RenderRequest, type RenderResult, type renderVersion, probeGate } from "@ms/render";
 import { ACCENT_HOLD_GAP, programmaticChecks } from "../qa/programmatic.js";
 import { parseLayout } from "../qa/layout.js";
-import { acceptedAsWarn, fixHints, mergeQA, qaBlocks } from "../qa/report.js";
+import { acceptedAsWarn, fixHints, meaningFails, mergeQA, qaBlocks } from "../qa/report.js";
 import { specChecks } from "../qa/spec-checks.js";
 import { reconcileMissing, runVisualQA } from "../qa/visual-agent.js";
 import { sha256File } from "../scenes/hash.js";
@@ -140,7 +140,7 @@ export interface Attempt {
   notes: QaScoreNote[];
   style?: ScenePropsStyle;
   report?: EngineerReport;
-  /** Цена попытки: Engineer, исправления этой попытки нет — один вызов и его QA. */
+  /** Цена попытки: её вызов Engineer и её Visual QA (без трат параллельного дубля). */
   costUsd: number;
   blocking: boolean;
 }
@@ -338,6 +338,8 @@ interface Take {
   /** Заголовок первого вызова (второй дубль: критика или новое кадрирование). */
   brief?: string;
   onScored?: (a: Attempt) => void;
+  /** Отмена дубля (второй — при исключении или жёстком выходе первого, S5-fix I5). */
+  signal?: AbortSignal;
 }
 
 /** Итог дубля: чистая попытка, последняя причина исправления или выход до конца цикла. */
@@ -347,21 +349,49 @@ interface TakeEnd {
   exit?: Exit & { ok: false };
 }
 
-/** Выход, после которого публиковать нельзя ни одну попытку: процесс жив, хранилище, отмена. */
-function hardExit(e: (Exit & { ok: false }) | undefined, take: 1 | 2): boolean {
+/**
+ * Выход первого дубля, после которого публиковать нельзя ни одну попытку: процесс жив
+ * (его draft), хранилище, отмена, отказ прав внутри draft.
+ */
+function hardExit(e: (Exit & { ok: false }) | undefined): boolean {
   if (!e) return false;
   if (e.alive || e.stage === "storage" || e.stage === "cancelled" || e.stage === "orphaned") return true;
-  return take === 1 && e.message.startsWith("denied:");
+  return e.message.startsWith("denied:");
 }
 
 /**
- * Лучшая попытка (S5): наибольший `overall` среди прошедших технический gate и QA по кадрам;
- * при равной оценке — без blocking, затем ранняя. Попытки без оценки (срез без QA) — по
- * порядку.
+ * Выход второго дубля, который роняет задачу (S5-fix I6): только хранилище и отмена самой
+ * задачи. Остальное (отказ вызова, orphaned, отмена дубля) — предупреждение: дубль 2
+ * работает в своём каталоге `take2`, draft первого дубля его процессы не трогают.
+ */
+function take2Fatal(e: (Exit & { ok: false }) | undefined, rc: RunCtx): boolean {
+  return e !== undefined && (e.stage === "storage" || rc.aborted);
+}
+
+/**
+ * Группа попытки (rulings 2026-10-23): 0 — без blocking, 1 — blocking только визуальные
+ * (публикуется с warn), 2 — semantic/style fail (не публикуется как ready).
+ */
+const group = (a: { qa?: QAReport; blocking: boolean }) => (!a.blocking ? 0 : a.qa && meaningFails(a.qa) ? 2 : 1);
+
+/**
+ * Лучшая попытка (S5, rulings 2026-10-23): попытка без blocking всегда выигрывает у попытки
+ * с blocking; внутри группы — наибольший `overall`, затем ранняя. Попытки без оценки (срез
+ * без QA) — по порядку.
  */
 export function pickBest<T extends { n: number; qa?: QAReport; blocking: boolean }>(attempts: readonly T[]): T | undefined {
   const score = (a: T) => a.qa?.scores?.overall ?? -1;
-  return [...attempts].sort((a, b) => score(b) - score(a) || Number(a.blocking) - Number(b.blocking) || a.n - b.n)[0];
+  return [...attempts].sort((a, b) => group(a) - group(b) || score(b) - score(a) || a.n - b.n)[0];
+}
+
+/**
+ * Уборка снимков попыток и каталога второго дубля (M1: на любом выходе, кроме живых
+ * процессов первого дубля). `keepTake2` — процесс дубля 2 не подтверждён мёртвым.
+ */
+async function dropTakeDirs(rc: RunCtx, keepTake2: boolean): Promise<void> {
+  for (const x of ["attempts", "qa-t2", ...(keepTake2 ? [] : ["take2"])]) {
+    await rm(join(rc.root, "run", "tmp", `${rc.runId}-a${rc.attempt}`, x), { recursive: true, force: true }).catch((e: unknown) => rc.warnings.push(`run/tmp/${x} не убран: ${errText(e)}`));
+  }
 }
 
 /**
@@ -378,13 +408,16 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
   const st = rc.config.scene.secondTake;
   const ctl: TakeCtl = { attempts: [], next: 0 };
   let take2: Promise<TakeEnd> | undefined;
+  // отмена второго дубля: исключение или жёсткий выход первого (S5-fix I5)
+  const stop2 = new AbortController();
 
   const onScored = (a: Attempt) => {
     if (take2 || a.take !== 1 || !i.qa || !i.takeDir || st.mode === "off") return;
     const overall = a.qa?.scores?.overall;
     if (overall === undefined || overall >= st.threshold) return;
-    if (rc.spent + a.costUsd > rc.config.scene.maxCostUsd) {
-      rc.note("second_take", `пропущен: $${rc.spent.toFixed(2)} + цена попытки $${a.costUsd.toFixed(2)} > $${rc.config.scene.maxCostUsd}`);
+    // свободный бюджет — за вычетом резерва идущих вызовов (первый дубль исправляется)
+    if (rc.spent + rc.reserved + a.costUsd > rc.config.scene.maxCostUsd) {
+      rc.note("second_take", `пропущен: $${rc.spent.toFixed(2)} + резерв $${rc.reserved.toFixed(2)} + цена попытки $${a.costUsd.toFixed(2)} > $${rc.config.scene.maxCostUsd}`);
       return;
     }
     rc.log(`второй дубль (${st.mode}): overall ${overall} < ${st.threshold}`);
@@ -394,7 +427,7 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
       const t = await i.takeDir!(spec2);
       if (st.mode === "revise") await copyAttemptFiles(rc.root, a, t.dir, ["src", "props.json"]);
       const brief = st.mode === "revise" ? critique(a) : freshBrief(i.spec, spec2, a);
-      return runTake(i, state, ctl, { no: 2, dir: t.dir, spec: spec2, files: t.files, maxCalls: 1 + st.fixes, brief });
+      return runTake(i, state, ctl, { no: 2, dir: t.dir, spec: spec2, files: t.files, maxCalls: 1 + st.fixes, brief, signal: stop2.signal });
     })().catch((e: unknown): TakeEnd => {
       const storage = isStorageError(e);
       rc.warnings.push(`второй дубль не состоялся: ${errText(e)}`);
@@ -402,15 +435,35 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
     });
   };
 
-  const t1 = await runTake(i, state, ctl, { no: 1, dir: i.draftDir, spec: i.spec, files: i.files, maxCalls, onScored });
+  let t1: TakeEnd;
+  try {
+    t1 = await runTake(i, state, ctl, { no: 1, dir: i.draftDir, spec: i.spec, files: i.files, maxCalls, onScored });
+  } catch (e) {
+    // первый дубль упал исключением: второй отменяем и дожидаемся — после итога задачи он
+    // не должен ни звать агентов, ни рендерить, ни писать в run/tmp
+    stop2.abort();
+    const t2 = take2 ? await take2 : undefined;
+    if (!t2?.exit?.alive) await dropTakeDirs(rc, false);
+    throw e;
+  }
+  if (hardExit(t1.exit)) stop2.abort();
   const t2 = take2 ? await take2 : undefined;
-  if (hardExit(t1.exit, 1)) return t1.exit!;
-  if (hardExit(t2?.exit, 2)) return t2!.exit!;
-  if (t2?.exit) rc.warnings.push(`второй дубль: ${t2.exit.stage}: ${clip(t2.exit.message, 300)}`);
+  // процесс дубля 2 не подтверждён мёртвым — его каталог не трогаем до разбора
+  const t2alive = t2?.exit?.alive === true;
+  if (hardExit(t1.exit)) {
+    if (!t1.exit!.alive && !t2alive) await dropTakeDirs(rc, false);
+    return t1.exit!;
+  }
+  if (take2Fatal(t2?.exit, rc)) {
+    if (!t2alive) await dropTakeDirs(rc, false);
+    return t2!.exit!;
+  }
+  if (t2?.exit) rc.warnings.push(`второй дубль: ${t2.exit.stage}: ${clip(t2.exit.message, 300)}${t2alive ? " (процесс не подтверждён мёртвым — каталог take2 оставлен)" : ""}`);
 
   const best = pickBest(ctl.attempts);
   state.attempts = ctl.attempts.map((a) => attemptRecord(a, a === best));
   if (!best) {
+    await dropTakeDirs(rc, t2alive);
     if (t1.exit) return t1.exit;
     const last = t1.issue!;
     return { ok: false, stage: last.stage, message: clip(last.message, 4000) };
@@ -426,15 +479,23 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
   if (best.report) state.report = best.report;
   await i.files.write();
   // снимки попыток и каталог второго дубля больше не нужны: лучшая — в draft
-  for (const x of ["attempts", "take2", "qa-t2"]) {
-    await rm(join(rc.root, "run", "tmp", `${rc.runId}-a${rc.attempt}`, x), { recursive: true, force: true }).catch((e: unknown) => rc.warnings.push(`run/tmp/${x} не убран: ${errText(e)}`));
-  }
+  await dropTakeDirs(rc, t2alive);
 
   let qa = best.qa;
+  if (qa && best.blocking && meaningFails(qa)) {
+    // rulings 2026-10-23: semantic/style fail не смягчается — версия failed с отчётом QA
+    const what = (["semantic", "style"] as const).filter((k) => qa!.gate[k] === "fail").join(", ");
+    rc.note("qa", `лучшая попытка ${best.n}: ${what} fail — не ready`);
+    return { ok: false, stage: "qa", message: `QA: ${what} fail у лучшей попытки ${best.n} из ${ctl.attempts.length} — неверные данные или смысл не публикуются как ready\n${clip(fixHints(qa), 3000)}`, qa };
+  }
   if (qa && best.blocking) {
-    const why = t1.clean
-      ? `— оценка ${best.qa?.scores?.overall} выше, чем у попыток без blocking`
-      : t1.exit?.stage === "budget" ? "— бюджет сцены исчерпан" : `после ${maxCalls - 1} исправлений`;
+    const why = t1.exit?.stage === "budget"
+      ? "— бюджет сцены исчерпан"
+      : t1.exit?.stage === "qa"
+        ? "— Visual QA не оценил следующую попытку"
+        : t1.exit
+          ? `— ${t1.exit.stage}`
+          : `после ${maxCalls - 1} исправлений`;
     qa = acceptedAsWarn(qa, why);
     rc.warnings.push(`опубликована лучшая попытка ${best.n} с blocking QA (${why}): visual = warn, решение за человеком`);
   }
@@ -584,6 +645,7 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
     issue = x;
     rc.note(first ? x.stage : `t2_${x.stage}`, x.message);
   };
+  const stopped = () => rc.aborted || t.signal?.aborted === true;
 
   for (let call = 1; call <= maxCalls; call++) {
     if (rc.spent >= rc.config.scene.maxCostUsd) {
@@ -592,14 +654,13 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
     }
     const p = await rc.storageProblem();
     if (p) return end("storage", p);
-    if (rc.aborted) return end("cancelled", "отменено");
+    if (stopped()) return end("cancelled", rc.aborted ? "отменено" : "дубль отменён");
 
     state.engineerCalls++;
     if (first) {
       i.progress?.(0.3 + 0.15 * (call - 1), call === 1 ? "engineer" : `engineer_fix_${call - 1}`);
       ctl.draftHead = undefined;
     }
-    const spent0 = rc.spent;
     const zoneBefore = await snapshotOutsideZone(dir);
     const fix = call > 1 && issue
       ? [
@@ -613,7 +674,8 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
         ].join("\n")
       : call === 1 ? t.brief : undefined;
     rc.log(`${first ? "" : "дубль 2: "}${call === 1 ? "Engineer…" : `Engineer: исправление ${call - 1} из ${maxCalls - 1} (${issue?.stage})…`}`);
-    const e = await rc.timed(`${pre}engineer_${call}`, () => rc.call(buildEngineerTask({ draftDir: dir, ...(fix ? { fix } : {}), spec }, { ...rc.taskRun, seq: first ? call : 100 + call }), EngineerReportSchema));
+    const e = await rc.timed(`${pre}engineer_${call}`, () => rc.call(buildEngineerTask({ draftDir: dir, ...(fix ? { fix } : {}), spec }, { ...rc.taskRun, seq: first ? call : 100 + call }), EngineerReportSchema, t.signal));
+    if (e.budget !== undefined) return end("budget", `${e.budget}${issue ? `; последняя ошибка (${issue.stage}): ${clip(issue.message, 1000)}` : ""}`);
     if (e.skipped) return end("cancelled", "отменено до Engineer");
     if (e.error !== undefined) {
       // процесс агента мог остаться: подтверждения его смерти нет
@@ -621,9 +683,10 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
       return end(storage ? "storage" : "engineer", `вызов Engineer отклонён: ${errText(e.error)}`, { alive: true });
     }
     const er = e.value!;
+    const engineerCost = er.usage.costUsd;
     if (er.error?.kind === "orphaned") return end("orphaned", `Engineer: ${er.error.message}`, { alive: true });
     if (e.lost) return end("storage", `хранилище пропало во время Engineer: ${e.lost}`);
-    if (rc.aborted) return end("cancelled", "отменено во время Engineer");
+    if (stopped()) return end("cancelled", rc.aborted ? "отменено во время Engineer" : "дубль отменён во время Engineer");
 
     // Граница каталога: Engineer правит только src/** и props.json. Остальное (файлы
     // пайплайна, refs/, node_modules, package.json рядом с src/) меняло бы сборку
@@ -701,6 +764,7 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
 
     const rp = await rc.storageProblem();
     if (rp) return end("storage", rp);
+    if (stopped()) return end("cancelled", rc.aborted ? "отменено до рендера" : "дубль отменён до рендера");
     if (first) i.progress?.(0.55, "render");
     rc.log(`рендер${first ? "" : " (дубль 2)"}: кадры ${frames.join(", ")} + превью…`);
     // кадр N−20 для «финальный акцент жив» (accent_static) — только для программной проверки
@@ -718,7 +782,7 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
         } finally {
           release();
         }
-      }),
+      }, t.signal),
     );
     if (r.skipped) return end("cancelled", "отменено до рендера");
     if (r.error !== undefined) {
@@ -730,7 +794,7 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
     try {
       if (rr.error?.stage === "orphaned") return end("orphaned", `рендер: ${rr.error.message}`, { alive: true });
       if (r.lost) return end("storage", `хранилище пропало во время рендера: ${r.lost}`);
-      if (rc.aborted) return end("cancelled", "отменено во время рендера");
+      if (stopped()) return end("cancelled", rc.aborted ? "отменено во время рендера" : "дубль отменён во время рендера");
       const consoleErrors = rr.browserLogs.filter((l) => l.startsWith("[error]"));
       if (!rr.ok || !rr.probe || !rr.previewPath) {
         const err = rr.error ?? { stage: "media", message: "рендер не вернул превью" };
@@ -754,16 +818,18 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
       // QA по реальным кадрам (Task 16)
       let report_: QAReport | undefined;
       let notes: QaScoreNote[] = [];
+      let qaCost = 0;
       if (i.qa) {
         if (first) i.progress?.(0.7, "qa");
         const q = await runQa(i, state, t, rr, techWarnings, call, extra, style);
         if ("exit" in q) return { exit: q.exit, ...(issue ? { issue } : {}) };
         lastQa = report_ = q.report;
         notes = q.notes;
+        qaCost = q.costUsd;
       }
       const a: Attempt = {
         n: ++ctl.next, take: t.no, call, snapshot: "", spec, ...(report_ ? { qa: report_ } : {}), ...(style ? { style } : {}), report,
-        notes, costUsd: rc.spent - spent0, blocking: report_ ? qaBlocks(report_) : false,
+        notes, costUsd: engineerCost + qaCost, blocking: report_ ? qaBlocks(report_) : false,
       };
       a.snapshot = await snapshotAttempt(rc, dir, frames, a.n);
       ctl.attempts.push(a);
@@ -796,7 +862,7 @@ export function renderTimeoutMs(settings: Pick<Settings, "duration_frames" | "fp
 /** Программные проверки, проверки spec и Visual QA по кадрам рендера → QAReport (или выход). */
 async function runQa(
   i: LoopInput, state: LoopState, t: Take, rr: RenderResult, techWarnings: QAIssue[], call: number, extra: number[], styleOverride: ScenePropsStyle | undefined,
-): Promise<{ report: QAReport; notes: QaScoreNote[] } | { exit: Exit & { ok: false } }> {
+): Promise<{ report: QAReport; notes: QaScoreNote[]; costUsd: number } | { exit: Exit & { ok: false } }> {
   const { rc, settings, frames } = i;
   const { spec, dir } = t;
   const pre = t.no === 1 ? "" : "t2_";
@@ -819,22 +885,25 @@ async function runQa(
   // неудачи публикуют failed-версию с отчётом программных проверок (если лучшей попытки нет).
   const partial = () => mergeQA({ technical: techWarnings, programmatic: [...programmatic, ...fromSpec] });
   let agent: VisualQAOutput | undefined;
+  let cost = 0;
+  const stopped = () => rc.aborted || t.signal?.aborted === true;
   for (let attempt = 1; agent === undefined; attempt++) {
     if (rc.spent >= rc.config.scene.maxCostUsd) {
       return { exit: { ok: false, stage: "budget", message: `бюджет сцены исчерпан до Visual QA: $${rc.spent.toFixed(2)} из $${rc.config.scene.maxCostUsd}`, qa: partial() } };
     }
     const p = await rc.storageProblem();
     if (p) return { exit: { ok: false, stage: "storage", message: p } };
+    if (stopped()) return { exit: { ok: false, stage: "cancelled", message: rc.aborted ? "отменено до Visual QA" : "дубль отменён до Visual QA" } };
     rc.log(attempt === 1 ? `Visual QA${pre ? " (дубль 2)" : ""}…` : "Visual QA: повтор…");
-    const before = rc.spent;
     const v = await rc.timed(`${pre}visual_qa_${call}`, () =>
       rc.underWatch((sig) =>
         runVisualQA(
           { workdir: dir, frames, spec, style, durationFrames: end, brief: i.qa!.brief, runRef: { root: rc.root, runId: rc.runId, attempt: rc.attempt }, signal: sig, ...(pre ? { dirName: "qa-t2" } : {}) },
           { agents: rc.recording, config: rc.config, log: (m) => rc.warnings.push(m) },
         ),
-      ),
+      t.signal),
     );
+    if (v.budget !== undefined) return { exit: { ok: false, stage: "budget", message: `${v.budget} (до Visual QA)`, qa: partial() } };
     if (v.skipped) return { exit: { ok: false, stage: "cancelled", message: "отменено до Visual QA" } };
     if (v.error !== undefined) {
       // вызов отклонён: процесс агента не подтверждён мёртвым — без повтора, draft в карантин
@@ -844,10 +913,11 @@ async function runQa(
       return { exit: { ok: false, stage: storage ? "storage" : "qa", message: `вызов Visual QA отклонён: ${errText(v.error)}`, alive: true, ...(net ? { transient: true as const } : {}) } };
     }
     const vr = v.value!;
-    state.visualQa.push({ call: pre ? 100 + call : call, wall_ms: vr.wallMs, cost_usd: rc.spent - before, status: vr.status, ...(vr.output ? { gate: { technical: "pass", ...vr.output.gate } } : {}) });
+    cost += vr.usage.costUsd;
+    state.visualQa.push({ call: pre ? 100 + call : call, wall_ms: vr.wallMs, cost_usd: vr.usage.costUsd, status: vr.status, ...(vr.output ? { gate: { technical: "pass", ...vr.output.gate } } : {}) });
     if (vr.error?.kind === "orphaned") return { exit: { ok: false, stage: "orphaned", message: `Visual QA: ${vr.error.message}`, alive: true } };
     if (v.lost) return { exit: { ok: false, stage: "storage", message: `хранилище пропало во время Visual QA: ${v.lost}` } };
-    if (rc.aborted) return { exit: { ok: false, stage: "cancelled", message: "отменено во время Visual QA" } };
+    if (stopped()) return { exit: { ok: false, stage: "cancelled", message: rc.aborted ? "отменено во время Visual QA" : "дубль отменён во время Visual QA" } };
     if (vr.status === "completed" && vr.output) {
       agent = vr.output;
       break;
@@ -864,5 +934,5 @@ async function runQa(
   agent = reconcileMissing(agent, spec, parseLayout(rr.browserLogs), end);
   const report = mergeQA({ technical: techWarnings, programmatic: [...programmatic, ...fromSpec], agent });
   rc.note("qa", `QA ${pre ? "дубля 2 " : ""}вызова ${call}: ${JSON.stringify(report.gate)}; overall ${agent.scores.overall}; blocking: ${report.issues.filter((x) => x.severity === "blocking").map((x) => x.code).join(", ") || "—"}`);
-  return { report, notes: agent.score_notes };
+  return { report, notes: agent.score_notes, costUsd: cost };
 }
