@@ -77,12 +77,15 @@ export function nextItem(b: Backlog, id?: string): BacklogItem | undefined {
   return it;
 }
 
-/** Новый статус пункта со строкой истории; `toEnd` — пункт уходит вниз списка. */
-export function markItem(md: string, id: string, status: string, opts: { date: string; toEnd?: boolean }): string {
+/**
+ * Новый статус пункта со строкой истории; `toEnd` — пункт уходит вниз списка, `history` — текст
+ * строки истории вместо статуса (сбой инфраструктуры: статус прежний, только запись).
+ */
+export function markItem(md: string, id: string, status: string, opts: { date: string; toEnd?: boolean; history?: string }): string {
   const b = parseBacklog(md);
   const i = b.items.findIndex((x) => x.id === id);
   if (i < 0) throw new Error(`бэклог: пункта ${id} нет`);
-  const it: BacklogItem = { ...b.items[i]!, status, history: [...b.items[i]!.history, `${opts.date}: ${status}`] };
+  const it: BacklogItem = { ...b.items[i]!, status, history: [...b.items[i]!.history, `${opts.date}: ${opts.history ?? status}`] };
   const items = b.items.filter((_, k) => k !== i);
   if (opts.toEnd) items.push(it);
   else items.splice(i, 0, it);

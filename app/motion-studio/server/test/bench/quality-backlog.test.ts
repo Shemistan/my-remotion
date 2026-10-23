@@ -98,4 +98,12 @@ describe("markItem", () => {
   it("неизвестный id — ошибка", () => {
     expect(() => markItem(MD, "Q09", "открыт", { date: "2026-10-24" })).toThrow(/Q09/);
   });
+
+  it("сбой инфраструктуры: статус «открыт» остаётся, пишется только строка истории (history)", () => {
+    const md = markItem(MD, "Q01", "открыт", { date: "2026-10-24", history: "сбой инфраструктуры (ночь 2026-10-24, #1): EPERM" });
+    const b = parseBacklog(md);
+    expect(b.items.map((i) => [i.id, i.status])).toEqual([["Q01", "открыт"], ["Q02", "принято (ночь 2026-10-20)"], ["Q03", "открыт"]]);
+    expect(b.items[0]!.history).toEqual(["2026-10-24: сбой инфраструктуры (ночь 2026-10-24, #1): EPERM"]);
+    expect(nextItem(b)?.id).toBe("Q01");
+  });
 });
