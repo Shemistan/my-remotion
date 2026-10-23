@@ -1,5 +1,5 @@
 {
-  "durationMs": 2005,
+  "durationMs": 2000,
   "width": 640,
   "height": 360,
   "fps": {
@@ -7,6 +7,8 @@
     "den": 1
   },
   "codec": "h264",
+  "profile": "High",
   "pixFmt": "yuv420p",
-  "audioCodec": "aac"
+  "audioCodec": "aac",
+  "audioDurationMs": 2005
 }

@@ -15,6 +15,7 @@ import { alphaAtCorner } from "../src/node/alpha.js";
 import { ensureRenderBrowser } from "../src/node/browser.js";
 import { type ExportResult, type ExportVersionRequest, exportVersion } from "../src/node/export-version.js";
 import { ffprobe, findOnPath } from "../src/node/ffprobe.js";
+import { renderVersion } from "../src/node/render-version.js";
 import { copyFixture, fixtureSettings, makeStore, makeTmp, removeTmp } from "./helpers.js";
 
 const T = 600_000;
@@ -63,9 +64,17 @@ afterAll(async () => {
 });
 
 let n = 0;
-async function run(name: string, fixture: string, request: ExportRequest, o: { settings?: Settings; props?: (p: Record<string, unknown>) => Record<string, unknown>; note?: string } = {}) {
+async function run(name: string, fixture: string, request: ExportRequest, o: { settings?: Settings; props?: (p: Record<string, unknown>) => Record<string, unknown>; note?: string; stills?: number[] } = {}) {
   const versionDir = await copyFixture(fixture, join(tmp, `${name}-v`));
   if (o.props) writeFileSync(join(versionDir, "props.json"), JSON.stringify(o.props(JSON.parse(readFileSync(join(versionDir, "props.json"), "utf8")) as Record<string, unknown>)));
+  if (o.stills) {
+    // стоп-кадры версии в её fps — как у опубликованной версии (по ним сверяется темп)
+    const s = await renderVersion({
+      versionDir, settings: o.settings ?? (await fixtureSettings(fixture)), cacheDir, stills: o.stills, preview: null, timeoutMs: T - 60_000,
+      run: { root, runId: `st${++n}`, attempt: 1 },
+    });
+    expect(s.ok ? undefined : s.error).toBeUndefined();
+  }
   const outDir = join(tmp, `${name}-out`);
   await mkdir(outDir);
   const outPath = join(outDir, request.format === "prores4444" ? "scene.mov" : "scene.mp4");
@@ -133,11 +142,45 @@ it("09 §1 п.5: повторный экспорт той же версии → 
   expect({ d: r.probe.durationMs, w: r.probe.width, h: r.probe.height }).toEqual({ d: kit30.durationMs, w: kit30.width, h: kit30.height });
 }, T);
 
-it("kit-gallery → mp4 60 fps: fps 60/1, длительность прежняя ± 1 кадр", async () => {
-  const { r } = await run("kit-gallery-60", "kit-gallery", { ...MP4, fps: 60 }, { note: "биты сцены зашиты в коде кадрами 30 fps — темп меняется, сверка кадров — на transparent-scene" });
+it("F2: kit-gallery (props вне ScenePropsBase) → mp4 60 fps: отказ fps_change_unsupported до рендера", async () => {
+  const { r } = await run("kit-gallery-60", "kit-gallery", { ...MP4, fps: 60 }, { note: "props вне ScenePropsBase — отказ до рендера" });
+  expect(r).toMatchObject({ ok: false, error: { stage: "unsupported" } });
+  if (!r.ok) expect(r.error.message).toMatch(/^fps_change_unsupported: props версии вне договора ScenePropsBase/);
+}, T);
+
+/** Тайминги kit-gallery зашиты в код: props по договору ничего не масштабируют. */
+const kitBase = () => ({
+  timing: { duration_frames: 150, beats: [] },
+  style: { preset: "dark-premium", intensity: "balanced", depth: 1, transparent: false },
+  content: {},
+});
+
+it("F2: kit-gallery с props по договору → mp4 60 fps: файл верный по gate, но сверка темпа → расхождение (кадры в коде)", async () => {
+  const stills = [15, 40, 70, 100, 130];
+  const { r } = await run("kit-gallery-60-tempo", "kit-gallery", { ...MP4, fps: 60 }, { props: kitBase, stills, note: "кадры зашиты в код — fps_tempo_mismatch" });
   expectOk(r);
   expect(r.probe.fps).toEqual({ num: 60, den: 1 });
-  expect(Math.abs(r.probe.durationMs - kit30.durationMs)).toBeLessThanOrEqual(1000 / 60 + 0.001);
+  expect(Math.abs(r.probe.durationMs - 5000)).toBeLessThanOrEqual(1000 / 60 + 0.001);
+  expect(r.tempo).not.toBeNull();
+  const samples = r.tempo!.samples.map((s) => `${s.frame}→${s.exportFrame}: ${s.maxTile}`).join(", ");
+  console.log(`kit-gallery 60 fps, сверка темпа: ${samples}`);
+  rows.push({ name: "kit-gallery-60-tempo: сверка", request: { ...MP4, fps: 60 }, ms: 0, note: `худшая клетка по стоп-кадрам: ${samples}; порог ${r.tempo!.threshold}; расхождение: ${r.tempo!.mismatched.join(", ")}` });
+  writeFileSync(join(EVIDENCE, "kit-gallery-60-tempo.json"), JSON.stringify(r.tempo, null, 2) + "\n");
+  expect(r.tempo!.mismatched.length).toBeGreaterThan(0);
+}, T);
+
+it("F1: 7 с (210 кадров при 30 fps) → mp4 60 fps: gate по видеопотоку проходит, звук AAC длиннее на хвост кадра", async () => {
+  const s7 = { ...(await fixtureSettings("transparent-scene")), transparent_export: false, duration_frames: 210 };
+  const props = (p: Record<string, unknown>) => ({
+    ...p,
+    timing: { duration_frames: 210, beats: [{ id: "cards", start_frame: 15, end_frame: 60 }, { id: "title", start_frame: 0, end_frame: 210 }] },
+    style: { ...(p.style as object), transparent: false },
+  });
+  const { r } = await run("seven-60", "transparent-scene", { ...MP4, fps: 60 }, { settings: s7, props, stills: [30, 105, 180], note: "F1: до исправления gate давал duration 7019 мс против 7000 ± 16,667" });
+  expectOk(r);
+  expect(r.probe.durationMs).toBe(7000);
+  expect(r.probe.audioDurationMs).toBeGreaterThan(7000);
+  expect(r.tempo?.mismatched).toEqual([]);
 }, T);
 
 it("M11: сцена с props.timing — кадр 60 из 60 fps совпадает с кадром 30 из 30 fps в области элемента", async () => {
@@ -145,8 +188,12 @@ it("M11: сцена с props.timing — кадр 60 из 60 fps совпадае
   const props = (p: Record<string, unknown>) => ({ ...p, style: { ...(p.style as object), transparent: false } });
   const a = await run("timed-30", "transparent-scene", MP4, { settings: opaque, props });
   expectOk(a.r);
-  const b = await run("timed-60", "transparent-scene", { ...MP4, fps: 60 }, { settings: opaque, props });
+  expect(a.r.tempo).toBeNull();
+  const b = await run("timed-60", "transparent-scene", { ...MP4, fps: 60 }, { settings: opaque, props, stills: [15, 30, 45, 60, 75] });
   expectOk(b.r);
+  // сверка темпа по стоп-кадрам версии: темп из props — расхождений нет
+  expect(b.r.tempo?.mismatched).toEqual([]);
+  rows.push({ name: "timed-60: сверка", request: { ...MP4, fps: 60 }, ms: 0, note: `худшая клетка: ${b.r.tempo!.samples.map((s) => `${s.frame}→${s.exportFrame}: ${s.maxTile}`).join(", ")}` });
   expect(b.r.probe.fps).toEqual({ num: 60, den: 1 });
   expect(Math.abs(b.r.probe.durationMs - a.r.probe.durationMs)).toBeLessThanOrEqual(1000 / 60 + 0.001);
   // ряд карточек (вход 15..60 кадров при 30 fps): кадр 30 — середина входа первой карточки
@@ -168,7 +215,7 @@ it("transparent-scene → prores4444: альфа-формат (yuva444p10le / yu
   const { r, outPath } = await run("transparent-prores", "transparent-scene", { format: "prores4444", crf: 18, scale: 1 });
   expectOk(r);
   expect(r.probe.pixFmt).toMatch(/^yuva444p1[02]le$/);
-  expect(r.probe).toMatchObject({ codec: "prores", width: 1280, height: 720, fps: { num: 30, den: 1 } });
+  expect(r.probe).toMatchObject({ codec: "prores", profile: "4444", width: 1280, height: 720, fps: { num: 30, den: 1 } });
   expect(await alphaAtCorner(outPath, 30)).toBe(0);
   // центр средней карточки на кадре 75 (вход завершён) — непрозрачен
   expect(await alphaAtCorner(outPath, 75, { x: 640, y: 470 })).toBe(255);

@@ -1,0 +1,42 @@
+{
+  "factor": 2,
+  "threshold": 0.06,
+  "samples": [
+    {
+      "frame": 15,
+      "exportFrame": 30,
+      "maxTile": 0.3935,
+      "mean": 0.0205
+    },
+    {
+      "frame": 40,
+      "exportFrame": 80,
+      "maxTile": 0.2583,
+      "mean": 0.0216
+    },
+    {
+      "frame": 70,
+      "exportFrame": 140,
+      "maxTile": 0.3162,
+      "mean": 0.0194
+    },
+    {
+      "frame": 100,
+      "exportFrame": 200,
+      "maxTile": 0.1338,
+      "mean": 0.0084
+    },
+    {
+      "frame": 130,
+      "exportFrame": 260,
+      "maxTile": 0.0473,
+      "mean": 0.0069
+    }
+  ],
+  "mismatched": [
+    15,
+    40,
+    70,
+    100
+  ]
+}

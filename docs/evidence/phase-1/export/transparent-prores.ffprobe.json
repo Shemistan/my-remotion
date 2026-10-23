@@ -7,5 +7,6 @@
     "den": 1
   },
   "codec": "prores",
+  "profile": "4444",
   "pixFmt": "yuva444p12le"
 }

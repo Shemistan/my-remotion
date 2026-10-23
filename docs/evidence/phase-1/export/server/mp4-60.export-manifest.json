@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "export_id": "exp_01M5MGP12N1X0PY01WSWB2715F",
+  "export_id": "exp_01M5MK86N89MDVX0WQTKW5P7QE",
   "version_id": "ver_01M5ME1VZRFDHPPGV29D2VP2DA",
   "version_manifest_sha256": "f28d0b1a98ec7ebdd5e996cd56508e129bcc0bf1c7cc09a1f9510aca92d013d1",
   "format": "mp4",
@@ -29,7 +29,9 @@
     }
   },
   "ffprobe": {
-    "durationMs": 6016,
+    "durationMs": 6000,
+    "audioDurationMs": 6016,
+    "profile": "High",
     "width": 1920,
     "height": 1080,
     "fps": {
@@ -40,13 +42,68 @@
     "audioCodec": "aac",
     "pixFmt": "yuv420p"
   },
-  "sha256": "f4d67e069555598f87b71ba8295514359f943ce8751f00b8ae1a06b83de0a170",
+  "sha256": "721f0bd06536ca2103c03a1856050843ed892fcc5d234e81d7358cbd27da6548",
   "render_env": {
     "remotion": "4.0.537",
     "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
-    "motion_kit": "sha256:26e090d8af99df42",
+    "motion_kit": "sha256:c7a99a90548f2fe4",
     "chrome_headless_shell": "157.0.8080.0-remotion-v3",
     "node": "22.21.1"
   },
-  "created_at": "2026-10-23T13:54:52.131Z"
+  "created_at": "2026-10-23T14:39:44.821Z",
+  "tempo_check": {
+    "factor": 2,
+    "threshold": 0.06,
+    "samples": [
+      {
+        "frame": 13,
+        "exportFrame": 26,
+        "maxTile": 0.0065,
+        "mean": 0.0056
+      },
+      {
+        "frame": 43,
+        "exportFrame": 86,
+        "maxTile": 0.0077,
+        "mean": 0.0055
+      },
+      {
+        "frame": 70,
+        "exportFrame": 140,
+        "maxTile": 0.0203,
+        "mean": 0.0057
+      },
+      {
+        "frame": 102,
+        "exportFrame": 204,
+        "maxTile": 0.0123,
+        "mean": 0.0063
+      },
+      {
+        "frame": 120,
+        "exportFrame": 240,
+        "maxTile": 0.0092,
+        "mean": 0.0056
+      },
+      {
+        "frame": 132,
+        "exportFrame": 264,
+        "maxTile": 0.0088,
+        "mean": 0.0054
+      },
+      {
+        "frame": 156,
+        "exportFrame": 312,
+        "maxTile": 0.0093,
+        "mean": 0.0055
+      },
+      {
+        "frame": 179,
+        "exportFrame": 358,
+        "maxTile": 0.012,
+        "mean": 0.0059
+      }
+    ],
+    "mismatched": []
+  }
 }

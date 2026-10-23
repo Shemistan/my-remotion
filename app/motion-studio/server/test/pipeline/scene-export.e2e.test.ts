@@ -5,7 +5,7 @@
 // Запуск: `MS_E2E=1 vitest run server/test/pipeline/scene-export.e2e.test.ts` (или `make e2e`).
 // Evidence — tmp/export-evidence/server/; в docs/evidence/phase-1/export/server/ — с
 // MS_WRITE_EVIDENCE=1 (README с временем экспорта, export-manifest.json).
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it } from "vitest";
@@ -30,7 +30,7 @@ const FILES = join(REPO, "tmp/export-evidence/files");
 let core: Core;
 const mine = new Set<string>();
 let version: versions.VersionRow;
-const rows: { name: string; request: ExportRequest; ms: number; job: Job; manifest?: ExportManifest }[] = [];
+const rows: { name: string; versionId: string; request: ExportRequest; ms: number; job: Job; manifest?: ExportManifest }[] = [];
 
 beforeAll(async () => {
   expect(existsSync("/Volumes/External SSD"), "внешний SSD не подключён").toBe(true);
@@ -58,12 +58,14 @@ afterAll(async () => {
       `Прогон ${new Date().toISOString()}, версия ${version?.id} (v${version?.number}), ${version?.prompt?.slice(0, 120) ?? ""}`,
       "Время — стена задачи от постановки в очередь до итога (рендер под семафором, gate, публикация).",
       "",
-      "| Экспорт | Запрос | Итог | Время, с | ffprobe | export_id |",
-      "|---|---|---|---|---|---|",
+      "| Экспорт | Версия | Запрос | Итог | Время, с | ffprobe / ошибка | Сверка темпа (кадр → кадр экспорта: худшая клетка) | export_id |",
+      "|---|---|---|---|---|---|---|---|",
       ...rows.map((r) => {
         const p = r.manifest?.ffprobe;
         const probe = p ? `${p.codec}${p.audioCodec ? `+${p.audioCodec}` : ""} ${p.width}×${p.height} ${p.fps.num}/${p.fps.den} ${p.durationMs} мс` : (r.job.error?.message ?? "—");
-        return `| ${r.name} | ${JSON.stringify(r.request)} | ${r.job.status} | ${(r.ms / 1000).toFixed(1)} | ${probe} | ${r.manifest?.export_id ?? "—"} |`;
+        const tc = r.manifest?.tempo_check;
+        const tempo = tc ? tc.samples.map((s) => `${s.frame}→${s.exportFrame}: ${s.maxTile}`).join(", ") : "—";
+        return `| ${r.name} | ${r.versionId} | ${JSON.stringify(r.request)} | ${r.job.status} | ${(r.ms / 1000).toFixed(1)} | ${probe.replaceAll("|", "/")} | ${tempo} | ${r.manifest?.export_id ?? "—"} |`;
       }),
       "",
     ];
@@ -82,14 +84,14 @@ async function wait(id: string): Promise<Job> {
   }
 }
 
-async function exportJob(name: string, request: ExportRequest) {
-  const projectId = scenes.get(core.db, version.scene_id)!.project_id;
+async function exportJob(name: string, request: ExportRequest, v: versions.VersionRow = version) {
+  const projectId = scenes.get(core.db, v.scene_id)!.project_id;
   const t0 = Date.now();
-  const id = enqueue(core.db, { type: "scene.export", projectId, versionId: version.id, input: { versionId: version.id, request }, idempotencyKey: `e2e-t19-${newId("run")}` }).job.id;
+  const id = enqueue(core.db, { type: "scene.export", projectId, versionId: v.id, input: { versionId: v.id, request }, idempotencyKey: `e2e-t19-${newId("run")}` }).job.id;
   const job = await wait(id);
   const ms = Date.now() - t0;
   console.log(`${name}: ${job.status} за ${(ms / 1000).toFixed(1)} с; ${JSON.stringify(job.error ?? job.output_refs)}`);
-  const row = { name, request, ms, job } as (typeof rows)[number];
+  const row = { name, versionId: v.id, request, ms, job } as (typeof rows)[number];
   rows.push(row);
   if (job.status !== "completed") return { job };
   const ex = exportsRepo.get(core.db, (job.output_refs as { export_id: string }).export_id)!;
@@ -97,7 +99,11 @@ async function exportJob(name: string, request: ExportRequest) {
   const manifest = ExportManifestSchema.parse(JSON.parse(readFileSync(join(dirname(file), "export-manifest.json"), "utf8")));
   row.manifest = manifest;
   writeFileSync(join(EVIDENCE, `${name}.export-manifest.json`), JSON.stringify(manifest, null, 2) + "\n");
-  copyFileSync(file, join(FILES, `server-${name}.${ex.path.endsWith(".mov") ? "mov" : "mp4"}`));
+  // копия экспорта read-only (chmod a-w переносится): прежнюю копию прогона убрать, новую открыть
+  const keep = join(FILES, `server-${name}.${ex.path.endsWith(".mov") ? "mov" : "mp4"}`);
+  rmSync(keep, { force: true });
+  copyFileSync(file, keep);
+  chmodSync(keep, 0o644);
   return { job, ex, file, manifest };
 }
 
@@ -133,6 +139,42 @@ it("mp4 60 fps: fps 60/1, длительность прежняя ± 1 кадр,
   expect(manifest!.ffprobe.fps).toEqual({ num: 60, den: 1 });
   expect(manifest!.settings.fps).toEqual({ num: 60, den: 1 });
   expect(Math.abs(manifest!.ffprobe.durationMs - first.ffprobe.durationMs)).toBeLessThanOrEqual(1000 / 60 + 0.001);
+  // F2: сверка темпа со стоп-кадрами версии прошла — кадры сцены идут через props и kit
+  expect(manifest!.tempo_check?.mismatched).toEqual([]);
+  console.log(`сверка темпа v${version.number}: ${manifest!.tempo_check!.samples.map((s) => `${s.frame}→${s.exportFrame}: ${s.maxTile}`).join(", ")}`);
+}, T);
+
+it("F6: шаг загрузки reconcile_exports на реальном хранилище — без ошибок", () => {
+  console.log(`reconcile_exports: ${JSON.stringify(core.boot.exports)}`);
+  expect(core.boot.exports.errors).toEqual([]);
+}, T);
+
+/** Версия по id, если она есть и ready (иначе проверка пропускается). */
+function readyById(id: string): versions.VersionRow | undefined {
+  const v = versions.get(core.db, id);
+  return v?.status === "ready" ? v : undefined;
+}
+
+/** Ранняя сцена: кадры в коде, props вне ScenePropsBase. */
+const LEGACY_LITERAL = "ver_01M5DMCGPHDYW1PHKNF5MDW7M2";
+/** Сцена по договору, но с литералами в interpolate (10 и 6 кадров). */
+const BASE_LITERAL = "ver_01M5HCCPW99S3B0B3H1KC8TR4H";
+
+it("F2: ранняя сцена с кадрами в коде и props вне ScenePropsBase → 60 fps: failed fps_change_unsupported", async () => {
+  const v = readyById(LEGACY_LITERAL);
+  if (!v) return;
+  const { job } = await exportJob("legacy-literal-60", { format: "mp4", crf: 18, scale: 1, fps: 60 }, v);
+  expect(job.status).toBe("failed");
+  expect(job.error).toMatchObject({ code: "pipeline", stage: "export", message: expect.stringMatching(/^fps_change_unsupported: props версии вне договора ScenePropsBase/) });
+}, T);
+
+it("F2: сцена по договору с литералами в interpolate → 60 fps: итог по сверке темпа (evidence)", async () => {
+  const v = readyById(BASE_LITERAL);
+  if (!v) return;
+  const { job, manifest } = await exportJob("base-literal-60", { format: "mp4", crf: 18, scale: 1, fps: 60 }, v);
+  console.log(`base-literal-60: ${job.status} ${JSON.stringify(job.error ?? manifest?.tempo_check)}`);
+  if (job.status === "failed") expect(job.error?.message).toMatch(/^fps_tempo_mismatch: сцена зашила кадры в код/);
+  else expect(manifest!.tempo_check!.mismatched).toEqual([]);
 }, T);
 
 it("prores4444 у версии с непрозрачным фоном → failed transparent_unsupported, файла нет", async () => {

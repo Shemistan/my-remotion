@@ -663,6 +663,7 @@ expect(exportGate({ ...ok, width: h264Size(1080, 0.5), height: h264Size(1920, 0.
 - [x] **Step 2–3:** FAIL → реализовать → PASS.
 - [x] **Step 4: e2e (`make e2e`):** версия `kit-gallery` (1920×1080, 30 fps) → `mp4` → `exportGate` пуст, ffprobe: `h264`, `aac`, 1920×1080, 30/1; повторный экспорт той же версии → та же длительность и размеры (`09` §1 п.5); `fps: 60` → длительность прежняя ± 1 кадр, fps 60/1, кадр середины входа первого элемента (кадр 60 из 120 на 60 fps) совпадает с кадром 30 экспорта на 30 fps по `frameDelta < 0.01` в области элемента (M11); `transparent-scene` → `prores4444` → `pixFmt yuva444p10le`, `alphaAtCorner(…, 30) === 0`. Время экспорта — в README пакета.
 - [x] **Step 5:** `./check`; коммит `feat(motion-studio): экспорт MP4 и ProRes 4444`.
+- [x] **Fix round (ревью `task-19-review.md`, ruling 2026-10-23 «экспорт со сменой fps»):** gate — длительность видеопотока, звук отдельно (F1); смена fps — отказ `fps_change_unsupported` вне `ScenePropsBase` или без стоп-кадров, сверка `round(n·k)` со стоп-кадрами → `fps_tempo_mismatch`, `unscaledTimeKeys` в манифесте, предупреждение static о кадрах литералом (F2); kit в секундах при любом fps (F3); альфа через реестр, сбой — `export` (F4); профиль `4444`, `yuva444p12le` принят (F5); шаг загрузки `reconcile_exports` (F6). Приёмка M11 — на `transparent-scene`, kit-gallery в 60 fps — `fps_change_unsupported` / `fps_tempo_mismatch`.
 
 ### Task 20: Control API (Fastify), точка входа сервера, doctor (P1-15, P1-17)
 
