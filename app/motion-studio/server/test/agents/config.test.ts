@@ -49,6 +49,9 @@ it("S5: второй дубль — по умолчанию revise при overal
   expect(loadConfig({ MS_DATA_DIR: root }, { scene: { secondTake: { mode: "fresh" } } }).scene.secondTake).toEqual({ mode: "fresh", threshold: 6.5, fixes: 1 });
   expect(loadConfig({ MS_DATA_DIR: root, MS_SECOND_TAKE: "off" }, { scene: { secondTake: { mode: "fresh" } } }).scene.secondTake.mode).toBe("off");
   expect(() => loadConfig({ MS_DATA_DIR: root, MS_SECOND_TAKE: "twice" })).toThrow(/MS_SECOND_TAKE/);
+  // порог для A/B: Visual QA ставит выше судьи, при 6.5 дубль почти не включается
+  expect(loadConfig({ MS_DATA_DIR: root, MS_SECOND_TAKE_THRESHOLD: "7.5" }).scene.secondTake).toEqual({ mode: "revise", threshold: 7.5, fixes: 1 });
+  expect(() => loadConfig({ MS_DATA_DIR: root, MS_SECOND_TAKE_THRESHOLD: "11" })).toThrow(/MS_SECOND_TAKE_THRESHOLD/);
   expect(() => loadConfig({ MS_DATA_DIR: root }, { scene: { secondTake: { mode: "x" } } })).toThrow(/config/);
 });
 

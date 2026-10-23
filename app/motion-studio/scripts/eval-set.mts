@@ -18,7 +18,8 @@
 //   --runs N (прогонов судьи, 3), --parallel N (задач генерации, 3), --judge-parallel N (6),
 //   --judge-model M (opus), --gen-timeout-min N (60), --no-judge, --write-evidence,
 //   --allow-dirty (генерировать при незакоммиченных правках app/motion-studio; сцены — -dirty),
-//   --second-take revise|fresh|off (режим второго дубля, S5; A/B — два прогона и --compare).
+//   --second-take revise|fresh|off (режим второго дубля, S5; A/B — два прогона и --compare),
+//   --second-take-threshold N (порог overall Visual QA для второго дубля, 6.5).
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -95,6 +96,8 @@ if (secondTake !== undefined) {
   if (!["revise", "fresh", "off"].includes(secondTake)) throw new Error(`--second-take: revise, fresh или off: ${secondTake}`);
   process.env.MS_SECOND_TAKE = secondTake;
 }
+const secondTakeThreshold = opt("--second-take-threshold");
+if (secondTakeThreshold !== undefined) process.env.MS_SECOND_TAKE_THRESHOLD = secondTakeThreshold;
 /** Дерево сейчас: незакоммиченные правки приложения и хэш kit (рендер хэширует kit живьём). */
 const treeNow = async (): Promise<TreeState> => ({ dirty: isDirty(), kit_hash: await motionKitHash() });
 const stamp = new Date().toISOString().slice(0, 16).replace(/[-:]/g, "").replace("T", "-");

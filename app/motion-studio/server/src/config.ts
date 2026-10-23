@@ -109,10 +109,20 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfi
 
 /** `MS_SECOND_TAKE=revise|fresh|off` — режим второго дубля поверх config.json (eval A/B). */
 function secondTakeEnv(env: NodeJS.ProcessEnv): Partial<SecondTake> {
+  const out: Partial<SecondTake> = {};
   const v = env.MS_SECOND_TAKE?.trim();
-  if (!v) return {};
-  if (!(SECOND_TAKE_MODES as readonly string[]).includes(v)) throw new Error(`config: MS_SECOND_TAKE — одно из ${SECOND_TAKE_MODES.join(", ")}: ${v}`);
-  return { mode: v as SecondTake["mode"] };
+  if (v) {
+    if (!(SECOND_TAKE_MODES as readonly string[]).includes(v)) throw new Error(`config: MS_SECOND_TAKE — одно из ${SECOND_TAKE_MODES.join(", ")}: ${v}`);
+    out.mode = v as SecondTake["mode"];
+  }
+  // `MS_SECOND_TAKE_THRESHOLD` — порог overall (1–10) для A/B
+  const t = env.MS_SECOND_TAKE_THRESHOLD?.trim();
+  if (t) {
+    const n = Number(t);
+    if (!Number.isFinite(n) || n < 1 || n > 10) throw new Error(`config: MS_SECOND_TAKE_THRESHOLD — число 1–10: ${t}`);
+    out.threshold = n;
+  }
+  return out;
 }
 
 /** Читает `<dataDir>/config.json`; нет файла — `undefined`, битый JSON — ошибка. */

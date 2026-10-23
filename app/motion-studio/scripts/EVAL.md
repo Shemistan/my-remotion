@@ -66,6 +66,9 @@ $N npx tsx scripts/eval-set.mts --set user --run user-<sha> --gen-timeout-min 18
 `--second-take revise|fresh|off` — режим второго дубля пайплайна (S5; без флага — из
 `config.json` хранилища, по умолчанию `revise`; то же — env `MS_SECOND_TAKE`). Для A/B
 режимов — два прогона одного набора с разными `--second-take` и `--compare`.
+`--second-take-threshold N` (env `MS_SECOND_TAKE_THRESHOLD`) — порог `overall` Visual QA
+(6.5): Visual QA ставит в среднем на ~1 балл выше судьи, и при 6.5 дубль включается редко —
+для A/B порог поднимают (7–7.5), чтобы дубль шёл на большинстве сцен.
 
 **Грязное дерево.** Генерация не стартует, если в `app/motion-studio` есть незакоммиченные
 правки: рендер хэширует motion-kit живьём, и правка в окне генерации попадала в превью, а
