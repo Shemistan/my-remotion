@@ -16,13 +16,13 @@ afterEach(() => {
 it("создающие POST шлют уникальный Idempotency-Key, GET — без него", async () => {
   const { calls } = fakeFetch([on("POST", /\/api\/scenes\/s1\/(restore|render)$/, { job: job() }, 202), on("GET", "/api/projects", [])]);
   await api.restore("s1", "v1");
-  await api.render("s1", { duration_frames: 240 });
+  await api.render("s1", { duration_frames: 240 }, "v1");
   await api.projects();
   const [a, b, c] = calls;
   expect(a!.headers["idempotency-key"]).toMatch(/^[0-9a-f-]{36}$/);
   expect(b!.headers["idempotency-key"]).toMatch(/^[0-9a-f-]{36}$/);
   expect(a!.headers["idempotency-key"]).not.toBe(b!.headers["idempotency-key"]);
-  expect(b!.body).toEqual({ settings_patch: { duration_frames: 240 } });
+  expect(b!.body).toEqual({ settings_patch: { duration_frames: 240 }, base_version_id: "v1" });
   expect(c!.headers["idempotency-key"]).toBeUndefined();
   expect(a!.headers["content-type"]).toBe("application/json");
 });

@@ -21,6 +21,8 @@ async function playsAndSteps(page: Page) {
 }
 
 test("v2 и v1 проигрываются, шаг кадра ±1; сравнение и восстановление", async ({ page }) => {
+  // восстановление и «Рендер» — два настоящих рендера сервера
+  test.setTimeout(600_000);
   const { versions } = state();
   const [v1, v2] = versions.versionIds as [string, string];
   await page.goto(`/scenes/${versions.sceneId}`);
@@ -62,4 +64,41 @@ test("v2 и v1 проигрываются, шаг кадра ±1; сравнен
   await expect(history.locator(`[data-version-id="${v1}"]`)).toBeVisible();
   await expect(history.locator(`[data-version-id="${v2}"]`)).toBeVisible();
   await shot(page, "restore");
+
+  // «Рендер» от явно выбранной нетекущей версии: текущая — v3 (копия v1), открываем v2,
+  // база по умолчанию — текущая; выбираем «открытой v2», меняем тему → v4 «от v2»
+  await page.locator(`[data-version-id="${v2}"] button[data-action="open"]`).click();
+  await expect(page.getByRole("heading", { name: "v2", level: 1 })).toBeVisible();
+  const base = page.getByRole("radiogroup", { name: "База правки" });
+  await expect(base.getByRole("radio", { name: "текущей версии v3" })).toBeChecked();
+  await base.getByRole("radio", { name: "открытой версии v2" }).check();
+  await expect(page.getByTestId("base-note")).toHaveText("Правка от v2 (не текущей)");
+  await expect(page.getByLabel("Тема")).toHaveValue("dark-premium");
+  await page.getByLabel("Тема").selectOption("tech-neon");
+  await expect(page.getByText("«Рендер» создаст новую версию от v2")).toBeVisible();
+  await shot(page, "edit-base");
+  const [req] = await Promise.all([
+    page.waitForRequest((r) => r.method() === "POST" && r.url().endsWith(`/api/scenes/${versions.sceneId}/render`)),
+    page.getByRole("button", { name: "Рендер" }).click(),
+  ]);
+  expect(req.postDataJSON()).toEqual({ settings_patch: { style_preset: "tech-neon" }, base_version_id: v2 });
+  await expect(history.getByRole("listitem")).toHaveCount(4, { timeout: 240_000 });
+  const v4 = history.getByRole("listitem").first();
+  await expect(v4).toContainText("v4");
+  await expect(v4).toContainText("от v2");
+  // рендер прошёл, но без Visual QA (агенты в UI-e2e отключены) версия не ready — конвейер
+  // честно публикует failed с этапом и причиной; это же проверка баннера «последняя правка не
+  // удалась» после перезагрузки
+  await expect(v4).toContainText("не удалась");
+  await page.goto(`/scenes/${versions.sceneId}`);
+  const failedBanner = page.getByRole("alert", { name: "Последняя правка v4 не удалась" });
+  await expect(failedBanner).toBeVisible();
+  await expect(page.getByRole("heading", { name: "v3", level: 1 })).toBeVisible();
+  await shot(page, "last-failed");
+  await failedBanner.getByRole("button", { name: "Открыть" }).click();
+  await expect(page.getByRole("heading", { name: "v4", level: 1 })).toBeVisible();
+  await expect(page.getByTestId("failure-log")).toContainText("Visual QA");
+  await page.getByRole("tab", { name: "Настройки" }).click();
+  await expect(page.getByRole("region", { name: "Spec и данные версии" })).toContainText('"style_preset": "tech-neon"');
+  await shot(page, "render-v4");
 });

@@ -27,6 +27,15 @@ it("«следующий кадр» на кадре 10 → currentTime = frameTo
   expect(screen.getByTestId("frame").textContent).toBe(t("player.frame", { frame: 9, total: 150 }));
 });
 
+it("пауза сразу фиксирует кадр по currentTime; шаг — от него", () => {
+  const { video } = setup();
+  video.currentTime = 2.01;
+  fireEvent.pause(video);
+  expect(screen.getByTestId("frame").textContent).toBe(t("player.frame", { frame: 60, total: 150 }));
+  fireEvent.click(screen.getByRole("button", { name: t("player.next") }));
+  expect(screen.getByTestId("frame").textContent).toBe(t("player.frame", { frame: 61, total: 150 }));
+});
+
 it("шаг назад на кадре 0 и вперёд на последнем — без выхода за границы", () => {
   const { ref } = setup();
   fireEvent.click(screen.getByRole("button", { name: t("player.prev") }));

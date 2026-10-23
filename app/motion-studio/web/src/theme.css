@@ -111,6 +111,12 @@ fieldset { border: none; margin: 0; padding: 0; min-width: 0; }
 .banner { padding: 10px 20px; display: flex; gap: 12px; flex-wrap: wrap; }
 .banner-error { background: color-mix(in srgb, var(--error) 18%, var(--bg)); border-bottom: 1px solid var(--error); }
 .banner-warn { background: color-mix(in srgb, var(--warn) 15%, var(--bg)); border: 1px solid var(--warn); border-radius: var(--radius); margin-bottom: 8px; padding: 8px 12px; }
+.banner-fail { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; background: color-mix(in srgb, var(--error) 14%, var(--bg)); border: 1px solid var(--error); border-radius: var(--radius); margin-bottom: 8px; padding: 8px 12px; }
+.tabs { gap: 4px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+.tab { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 6px 10px; }
+.tab.active { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
+.spec-json { max-height: 360px; overflow: auto; }
+.base-note { margin: 0 0 6px; padding: 4px 8px; border-left: 3px solid var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--bg)); font-size: 0.9em; }
 .notice.warn { color: var(--warn); }
 .log { font-family: var(--mono); font-size: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow: auto; margin: 6px 0; }
 

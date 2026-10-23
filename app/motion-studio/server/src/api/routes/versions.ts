@@ -75,12 +75,20 @@ export function versionRoutes(app: ZApp, { core }: ApiContext): void {
       };
     });
 
-  /** Примитивы motion-kit из импортов `src/**` версии (файлы — из manifest). */
-  const kitComponents = async (dir: string, m: VersionManifest): Promise<string[]> => {
+  /**
+   * Примитивы motion-kit из импортов `src/**` версии (файлы — из manifest). Нечитаемый файл не
+   * роняет карточку версии: он пропускается и попадает в `unreadable`.
+   */
+  const kitComponents = async (dir: string, m: VersionManifest, unreadable: string[]): Promise<string[]> => {
     const names = new Set<string>();
     for (const f of m.files) {
       if (!/^src\/.+\.(tsx|ts|jsx|js)$/.test(f.path)) continue;
-      for (const name of kitImports(await readFile(join(dir, f.path), "utf8"))) names.add(name);
+      const text = await readFile(join(dir, f.path), "utf8").catch(() => null);
+      if (text === null) {
+        unreadable.push(f.path);
+        continue;
+      }
+      for (const name of kitImports(text)) names.add(name);
     }
     return [...names].sort();
   };
@@ -98,6 +106,7 @@ export function versionRoutes(app: ZApp, { core }: ApiContext): void {
     const dir = join(core.root, v.path);
     const manifest = await manifestOf(dir);
     const qa = QAReportSchema.safeParse(await json(dir, manifest, "qa.json"));
+    const unreadable: string[] = [];
     return {
       manifest,
       spec: await json(dir, manifest, "spec.json"),
@@ -106,7 +115,8 @@ export function versionRoutes(app: ZApp, { core }: ApiContext): void {
       qa: qa.success ? qa.data : null,
       knowledge_refs: await fullRefs(dir, manifest),
       render_env_mismatch: manifest.render_env.render_lock_sha256 !== (await currentLock()),
-      kit_components: await kitComponents(dir, manifest),
+      kit_components: await kitComponents(dir, manifest, unreadable),
+      unreadable_files: unreadable,
       generation: await generation(dir, manifest),
     };
   });

@@ -46,6 +46,9 @@ export const VersionDiffSchema = z.object({
 }).strict();
 export type VersionDiff = z.infer<typeof VersionDiffSchema>;
 
+/** Поиск KB (`GET /kb/search`) отдаёт не больше стольких лучших совпадений. */
+export const KB_SEARCH_TOP = 30;
+
 export const KbHitDtoSchema = z.object({
   id: Id,
   name: z.string(),
@@ -91,6 +94,8 @@ export const VersionDtoSchema = z.object({
   render_env_mismatch: z.boolean(),
   /** Примитивы motion-kit, которые импортирует код версии (`src/**`), по алфавиту (Task 21). */
   kit_components: z.array(z.string()),
+  /** Файлы версии из manifest, которые не удалось прочитать (остальное отдано как есть). */
+  unreadable_files: z.array(z.string()),
   /** Время и стоимость генерации из `pipeline-log.json` версии; у версий без журнала — null. */
   generation: z.object({
     cost_usd: z.number().nonnegative().nullable(),
@@ -129,14 +134,18 @@ export type CreateSceneBody = z.infer<typeof CreateSceneBodySchema>;
 export const ChatBodySchema = z.object({ text: z.string().min(1), baseVersionId: Id.optional() }).strict();
 export type ChatBody = z.infer<typeof ChatBodySchema>;
 
-/** Кнопка Render: патч настроек; итог проверяется `SettingsSchema` после слияния. */
-export const RenderBodySchema = z.object({ settings_patch: SettingsFieldsSchema.partial() }).strict();
+/**
+ * Кнопка Render: патч настроек; итог проверяется `SettingsSchema` после слияния. `base_version_id` —
+ * версия, относительно настроек которой UI посчитал патч (как `baseVersionId` у чата); без
+ * него — текущая версия сцены.
+ */
+export const RenderBodySchema = z.object({ settings_patch: SettingsFieldsSchema.partial(), base_version_id: Id.optional() }).strict();
 export type RenderBody = z.infer<typeof RenderBodySchema>;
 
 export const RestoreBodySchema = z.object({ versionId: Id }).strict();
 export type RestoreBody = z.infer<typeof RestoreBodySchema>;
 
-/** Ответ на уточнения Concept: ответы по индексу вопроса или пропуск (умолчания). */
+/** Ответ на уточнения Concept: ответы с ключом — текстом вопроса (индекс тоже принимается) или пропуск (умолчания). */
 export const JobInputBodySchema = z.union([
   z.object({ answers: z.record(z.string()) }).strict(),
   z.object({ skip: z.literal(true) }).strict(),

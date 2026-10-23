@@ -1,9 +1,10 @@
 // Подготовка Playwright UI: порт 8790 свободен → tmp-хранилище (`doctor --init`,
 // MS_ALLOW_SYSTEM_DISK=1 — только для него) → засев версий реальным рендером (`seed-cli.ts`) →
-// `server/src/main.ts` (production, `web/dist`) → ждём `/api/health`. Реальное хранилище на SSD
+// `server/src/main.ts` (production, `web/dist`) → ждём `/api/health`. claudeBin — заглушка:
+// платных вызовов агентов в UI-e2e нет. Реальное хранилище на SSD
 // не трогается: в нём могут быть pending-задачи, которые сервер начал бы выполнять платно.
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdirSync, openSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { connect } from "node:net";
 import { join } from "node:path";
 import { APP, type E2EState, PORT, RUN_DIR, STATE_FILE } from "./helpers.js";
@@ -40,6 +41,13 @@ export default async function globalSetup(): Promise<void> {
   const root = join(run, "store");
   const env = { ...process.env, MS_DATA_DIR: root, MS_ALLOW_SYSTEM_DISK: "1", MS_LOG_LEVEL: "warn" };
   execFileSync(TSX, ["server/src/cli/doctor.ts", "--init"], { cwd: APP, env, stdio: "ignore" });
+  // агенты Claude в UI-e2e не вызываются никогда: claudeBin — заглушка, которая сразу падает
+  // (Visual QA после «Рендера» получает ошибку агента, версия публикуется без его оценки)
+  const fakeClaude = join(run, "claude-disabled");
+  writeFileSync(fakeClaude, "#!/bin/sh\necho 'claude отключён в UI-e2e' >&2\nexit 1\n", { mode: 0o755 });
+  const configPath = join(root, "config.json");
+  const config = existsSync(configPath) ? (JSON.parse(readFileSync(configPath, "utf8")) as object) : {};
+  writeFileSync(configPath, JSON.stringify({ ...config, claudeBin: fakeClaude }, null, 2));
   const out = execFileSync(TSX, ["web/e2e/seed-cli.ts"], { cwd: APP, env, encoding: "utf8", timeout: 600_000 });
   const seeded = JSON.parse(out.trim().split("\n").at(-1)!) as Omit<E2EState, "root" | "serverPid" | "serverLog">;
 

@@ -25,6 +25,16 @@ it("issue frame 72 → клик вызывает seek(72); подпись «ав
   expect(seek).toHaveBeenCalledWith(72);
   expect(screen.getByText(t("qa.automated"))).toBeTruthy();
   expect(screen.getByText("Подпись наезжает на узел")).toBeTruthy();
+  // код замечания — по-русски; код из данных без перевода — «замечание», сырой код в подсказке
+  expect(screen.getByText(t("qa.code.text_overlap"))).toBeTruthy();
+  expect(screen.queryByText("text_overlap")).toBeNull();
+});
+
+it("неизвестный код замечания не показывается латиницей", () => {
+  const r: QAReport = { ...report, issues: [{ source: "agent", code: "weird_new_code", severity: "warning", description: "что-то", fix_hint: "-" }] };
+  render(<QAPanel versionId="v1" gate={r.gate} report={r} qaFrames={[]} onSeek={() => undefined} />);
+  expect(screen.getByText(t("qa.code.other")).getAttribute("title")).toBe("weird_new_code");
+  expect(screen.queryByText("weird_new_code")).toBeNull();
 });
 
 it("четыре gate с вердиктами по-русски; visual warn — «опубликована с замечаниями»", () => {

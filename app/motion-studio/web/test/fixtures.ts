@@ -20,6 +20,7 @@ export function versionDto(id: string, n: number, over: Record<string, unknown> 
     knowledge_refs: [],
     render_env_mismatch: false,
     kit_components: [],
+    unreadable_files: [],
     generation: null,
     ...over,
   };

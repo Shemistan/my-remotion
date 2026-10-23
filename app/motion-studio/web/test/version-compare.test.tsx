@@ -56,3 +56,28 @@ it("unified diff файлов — как текст, одинаковые фай
   expect(document.querySelector("pre b")).toBeNull();
   expect(screen.getByText(t("compare.file.same"))).toBeTruthy();
 });
+
+it("воспроизведение: счётчик и ползунок идут за видео, второе видео подтягивается; конец → «Воспроизвести»; шаг от фактического кадра", async () => {
+  const view = setup();
+  await screen.findByText("/timing/duration_frames");
+  const [a, b] = view.container.querySelectorAll("video");
+  fireEvent.click(screen.getByRole("button", { name: t("player.play") }));
+  expect(screen.getByRole("button", { name: t("player.pause") })).toBeTruthy();
+  // видео A ушло на 2 с (кадр 60 при 30 fps), B отстало
+  a!.currentTime = 2.01;
+  b!.currentTime = 1.5;
+  fireEvent.timeUpdate(a!);
+  expect(screen.getByText(t("player.frame", { frame: 60, total: 180 }))).toBeTruthy();
+  expect((screen.getByRole("slider", { name: t("player.seek") }) as HTMLInputElement).value).toBe("60");
+  expect(b!.currentTime).toBeCloseTo(2.01, 2);
+  // пауза фиксирует фактический кадр; шаг вперёд — от него, а не от устаревшего
+  a!.currentTime = 2.5;
+  fireEvent.click(screen.getByRole("button", { name: t("player.pause") }));
+  fireEvent.click(screen.getByRole("button", { name: t("player.next") }));
+  expect(screen.getByText(t("player.frame", { frame: 76, total: 180 }))).toBeTruthy();
+  expect(a!.currentTime).toBeCloseTo(frameToTime(76, { num: 30, den: 1 }), 6);
+  // конец ролика: кнопка снова «Воспроизвести»
+  fireEvent.click(screen.getByRole("button", { name: t("player.play") }));
+  fireEvent.ended(a!);
+  expect(screen.getByRole("button", { name: t("player.play") })).toBeTruthy();
+});

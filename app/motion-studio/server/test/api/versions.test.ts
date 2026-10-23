@@ -1,5 +1,5 @@
 // Версии: файлы версии с provenance KB, окружение рендера, сравнение, экспорт.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { VersionDiffSchema, VersionDtoSchema } from "@ms/contracts";
@@ -130,4 +130,21 @@ it("GET /versions/:id: kit_components из импортов motion-kit в src/, 
   const plain = VersionDtoSchema.parse((await api.inj("GET", `/api/versions/${versionId}`, getHeaders)).json());
   expect(plain.kit_components).toEqual([]);
   expect(plain.generation).toBeNull();
+  expect(plain.unreadable_files).toEqual([]);
+});
+
+it("GET /versions/:id: нечитаемый файл src/ — 200, файл помечен в unreadable_files", async () => {
+  const { versionId, dir } = await seedVersion(api);
+  const dto0 = VersionDtoSchema.parse((await api.inj("GET", `/api/versions/${versionId}`, getHeaders)).json());
+  const srcFile = dto0.manifest.files.find((f) => f.path.startsWith("src/"))!.path;
+  chmodSync(join(dir, srcFile), 0o000);
+  try {
+    const r = await api.inj("GET", `/api/versions/${versionId}`, getHeaders);
+    expect(r.statusCode).toBe(200);
+    const dto = VersionDtoSchema.parse(r.json());
+    expect(dto.unreadable_files).toEqual([srcFile]);
+    expect(dto.kit_components).toEqual([]);
+  } finally {
+    chmodSync(join(dir, srcFile), 0o644);
+  }
 });

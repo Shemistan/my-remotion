@@ -58,7 +58,7 @@ export function QAPanel({ versionId, gate, report, qaFrames, onSeek }: QAPanelPr
                 {i.frame !== undefined ? (
                   <button type="button" className="link mono" onClick={() => onSeek(i.frame!)}>{t("qa.frame", { frame: i.frame })}</button>
                 ) : null}
-                <span className="issue-code mono">{tk(`qa.code.${i.code}`, i.code)}</span>
+                <span className="issue-code" title={i.code}>{tk(`qa.code.${i.code}`, t("qa.code.other"))}</span>
                 <p>{i.description}</p>
                 {i.fix_hint && i.fix_hint !== "-" ? <p className="hint">{t("qa.fixHint", { hint: i.fix_hint })}</p> : null}
               </li>

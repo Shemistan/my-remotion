@@ -449,7 +449,23 @@ describe("playgroundGenerate: уточнения", () => {
     const concepts = agents.tasks.filter((t) => t.role === "concept");
     expect(concepts).toHaveLength(2);
     expect(String(concepts[1]!.input)).toContain("Ответы пользователя");
+    // пропуск: Concept видит свой вопрос и умолчание, а не голое «skip»
+    expect(String(concepts[1]!.input)).toContain("«За какой период рост?» → три года (по умолчанию, вопрос пропущен)");
     expect(versionRows(scene.id)).toHaveLength(1);
+  });
+
+  it("ответ на один из двух вопросов: Concept получает пары «вопрос → ответ», для пропущенного — default_if_skipped", async () => {
+    const qs = [{ question: "Сколько лет на графике?", default_if_skipped: "пять" }, { question: "Валюта?", default_if_skipped: "рубли" }];
+    const agents = fakeAgents({ concept: async (n) => (n === 1 ? { output: conceptOutput({ needs_clarification: qs }) } : {}) });
+    const { job } = await runJob({ agents });
+    expect(job.status).toBe("awaiting_input");
+    // тело POST /jobs/:id/input от UI: ключ — текст вопроса
+    provideInput(env.db, job.id, { "Сколько лет на графике?": "3" });
+    await until(() => jobs.get(env.db, job.id)!.status === "completed", "completed", 20_000);
+    const second = String(agents.tasks.filter((t) => t.role === "concept")[1]!.input);
+    expect(second).toContain("«Сколько лет на графике?» → 3");
+    expect(second).toContain("«Валюта?» → рубли (по умолчанию, вопрос пропущен)");
+    expect(second).not.toMatch(/"0"/);
   });
 });
 

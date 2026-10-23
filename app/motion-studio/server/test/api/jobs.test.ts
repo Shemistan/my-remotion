@@ -75,11 +75,11 @@ it("POST /jobs/:id/input: ответы или skip → pending; не awaiting_in
   scene();
   const a = put("a");
   expect((await api.inj("POST", `/api/jobs/${a.id}/input`, okHeaders, { skip: true })).statusCode).toBe(409);
-  jobs.update(api.core.db, a.id, { status: "awaiting_input" });
+  jobs.update(api.core.db, a.id, { status: "awaiting_input", output_refs: { questions: [{ question: "Период?", default_if_skipped: "пять лет" }, { question: "Валюта?", default_if_skipped: "рубли" }] } });
   expect((await api.inj("POST", `/api/jobs/${a.id}/input`, okHeaders, { skip: false })).statusCode).toBe(400);
-  const r = await api.inj("POST", `/api/jobs/${a.id}/input`, okHeaders, { answers: { "0": "три года" } });
+  const r = await api.inj("POST", `/api/jobs/${a.id}/input`, okHeaders, { answers: { "Период?": "три года" } });
   expect(r.statusCode).toBe(200);
-  expect(r.json()).toMatchObject({ status: "pending", input: { answers: { "0": "три года" } } });
+  expect(r.json()).toMatchObject({ status: "pending", input: { answers: { "Период?": "три года", "Валюта?": "рубли (по умолчанию, вопрос пропущен)" } } });
   const b = put("b");
   jobs.update(api.core.db, b.id, { status: "awaiting_input" });
   expect((await api.inj("POST", `/api/jobs/${b.id}/input`, okHeaders, { skip: true })).json().input.answers).toBe("skip");

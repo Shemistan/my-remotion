@@ -45,12 +45,20 @@ function NewProject() {
   );
 }
 
-function ActiveJobs({ jobs }: { jobs: Job[] }) {
-  const active = jobs.filter((j) => isActive(j.status));
+type JobsQuery = ReturnType<typeof useJobs>;
+
+/** Загрузка или ошибка запроса задач: «пусто» показывается только по данным. */
+function JobsState({ q }: { q: JobsQuery }) {
+  if (q.isError) return <p className="error">{errorText(q.error)}</p>;
+  return <p className="muted">{t("common.loading")}</p>;
+}
+
+function ActiveJobs({ q }: { q: JobsQuery }) {
+  const active = (q.data ?? []).filter((j) => isActive(j.status));
   return (
     <section className="panel">
       <h2>{t("dashboard.activeJobs")}</h2>
-      {active.length === 0 ? <p className="muted">{t("dashboard.noActiveJobs")}</p> : (
+      {!q.data || q.isError ? <JobsState q={q} /> : active.length === 0 ? <p className="muted">{t("dashboard.noActiveJobs")}</p> : (
         <ul className="job-list">
           {active.map((j) => (
             <li key={j.id}>
@@ -68,12 +76,12 @@ function ActiveJobs({ jobs }: { jobs: Job[] }) {
   );
 }
 
-function RecentExports({ jobs }: { jobs: Job[] }) {
-  const done = jobs.filter((j) => j.type === "scene.export" && j.status === "completed" && exportIdOf(j)).slice(-10).reverse();
+function RecentExports({ q }: { q: JobsQuery }) {
+  const done = (q.data ?? []).filter((j) => j.type === "scene.export" && j.status === "completed" && exportIdOf(j)).slice(-10).reverse();
   return (
     <section className="panel">
       <h2>{t("dashboard.recentExports")}</h2>
-      {done.length === 0 ? <p className="muted">{t("dashboard.noExports")}</p> : (
+      {!q.data || q.isError ? <JobsState q={q} /> : done.length === 0 ? <p className="muted">{t("dashboard.noExports")}</p> : (
         <ul className="job-list">
           {done.map((j) => {
             const format = (j.output_refs as { format?: string } | null)?.format ?? "";
@@ -101,7 +109,8 @@ export function Dashboard() {
         <section className="panel">
           <h2>{t("dashboard.projects")}</h2>
           {projects.isError ? <p className="error">{errorText(projects.error)}</p> : null}
-          {projects.data?.length === 0 ? <p className="muted">{t("dashboard.noProjects")}</p> : null}
+          {projects.isPending ? <p className="muted">{t("common.loading")}</p> : null}
+          {projects.data?.length === 0 && !projects.isError ? <p className="muted">{t("dashboard.noProjects")}</p> : null}
           <ul className="project-list">
             {(projects.data ?? []).map((p) => (
               <li key={p.id} data-project-id={p.id}>
@@ -114,8 +123,8 @@ export function Dashboard() {
         </section>
         <div className="stack">
           <NewProject />
-          <ActiveJobs jobs={jobs.data ?? []} />
-          <RecentExports jobs={jobs.data ?? []} />
+          <ActiveJobs q={jobs} />
+          <RecentExports q={jobs} />
         </div>
       </div>
     </div>

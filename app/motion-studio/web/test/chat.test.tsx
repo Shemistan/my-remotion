@@ -76,7 +76,7 @@ it("пустое сообщение не отправляется; отказ с
   expect(calls.filter((c) => c.method === "POST")).toHaveLength(1);
 });
 
-it("вопросы Concept: ответы по индексу → POST /jobs/:id/input; «Пропустить» → skip", async () => {
+it("вопросы Concept: ответы по тексту вопроса → POST /jobs/:id/input; «Пропустить» → skip", async () => {
   const { calls } = fakeFetch([on("POST", "/api/jobs/job_1/input", job({ status: "pending" }))]);
   const questions = [{ question: "Сколько узлов?", default_if_skipped: "пять" }, { question: "Какая палитра?", default_if_skipped: "по пресету" }];
   renderQ(<ClarifyQuestions jobId="job_1" questions={questions} />);
@@ -85,7 +85,8 @@ it("вопросы Concept: ответы по индексу → POST /jobs/:id/
   fireEvent.change(screen.getByLabelText("Сколько узлов?"), { target: { value: "три" } });
   fireEvent.click(screen.getByRole("button", { name: t("clarify.answer") }));
   await waitFor(() => expect(calls).toHaveLength(1));
-  expect(calls[0]!.body).toEqual({ answers: { "0": "три" } });
+  // ключ — текст вопроса; пропущенный вопрос сервер дополнит default_if_skipped
+  expect(calls[0]!.body).toEqual({ answers: { "Сколько узлов?": "три" } });
   fireEvent.click(screen.getByRole("button", { name: t("clarify.skip") }));
   await waitFor(() => expect(calls).toHaveLength(2));
   expect(calls[1]!.body).toEqual({ skip: true });

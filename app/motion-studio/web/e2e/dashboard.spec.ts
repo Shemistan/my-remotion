@@ -57,11 +57,17 @@ test("хранилище недоступно → баннер; вернулос
     await page.reload();
     const banner = page.getByRole("alert");
     await expect(banner).toContainText("Хранилище недоступно");
+    // блоки Dashboard — ошибка, а не «пусто»
+    await expect(page.getByText("Хранилище недоступно: подключите SSD.").first()).toBeVisible();
+    await expect(page.getByText("Сейчас ничего не выполняется.")).toHaveCount(0);
+    await expect(page.getByText("Экспортов пока нет.")).toHaveCount(0);
     await shot(page, "storage-offline");
   } finally {
     renameSync(away, root);
   }
   await waitHealth(request, "online", 90_000);
+  // без перезагрузки: баннер снимается по health, данные перечитываются
+  await expect(page.getByRole("link", { name: "Демо UI" })).toBeVisible({ timeout: 30_000 });
   await page.reload();
   await expect(page.getByRole("link", { name: "Демо UI" })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);

@@ -37,6 +37,16 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Повтор запроса TanStack Query: 4xx — ошибка запроса, 503 storage_offline — хранилище
+ * отключено (баннер, health и перечитывание после возврата); сеть и прочие 5xx — до двух раз.
+ */
+export function shouldRetry(failures: number, e: unknown): boolean {
+  if (failures >= 2) return false;
+  if (e instanceof ApiError && ((e.status >= 400 && e.status < 500) || e.code === "storage_offline")) return false;
+  return true;
+}
+
 type Listener = (offline: boolean) => void;
 
 /** Признак «хранилище недоступно» для баннера (одно значение на вкладку). */
@@ -118,8 +128,8 @@ export const api = {
     request<{ message: ChatMessage; job: Job }>("POST", `/api/scenes/${enc(sceneId)}/messages`, { body, idempotency: key }),
   restore: (sceneId: string, versionId: string, key: string = newKey()) =>
     request<{ job: Job }>("POST", `/api/scenes/${enc(sceneId)}/restore`, { body: { versionId }, idempotency: key }),
-  render: (sceneId: string, patch: RenderBody["settings_patch"], key: string = newKey()) =>
-    request<{ job: Job }>("POST", `/api/scenes/${enc(sceneId)}/render`, { body: { settings_patch: patch }, idempotency: key }),
+  render: (sceneId: string, patch: RenderBody["settings_patch"], baseVersionId: string, key: string = newKey()) =>
+    request<{ job: Job }>("POST", `/api/scenes/${enc(sceneId)}/render`, { body: { settings_patch: patch, base_version_id: baseVersionId }, idempotency: key }),
   version: (id: string) => request<VersionDto>("GET", `/api/versions/${enc(id)}`),
   diff: (a: string, b: string) => request<VersionDiff>("GET", `/api/versions/${enc(a)}/diff/${enc(b)}`),
   exportVersion: (versionId: string, req: ExportRequest, key: string = newKey()) =>

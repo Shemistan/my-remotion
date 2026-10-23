@@ -59,17 +59,26 @@ export function sceneRoutes(app: ZApp, { core }: ApiContext): void {
     const key = idempotencyKey(req);
     const db = core.db;
     const patch = req.body.settings_patch as Partial<Settings>;
+    const asked = req.body.base_version_id;
     const out = tx(db, () => {
-      // план зависит от текущей версии: повтор сверяется с базой, взятой в первый раз
+      // без base_version_id план зависит от текущей версии: повтор сверяется с базой, взятой в
+      // первый раз; с ним — с переданной (другая база под тем же ключом → 422)
       const prev = replay(db, key, "playground.edit", (j) => {
-        const base = (j.input as { plan?: { base_version_id?: string } } | null)?.plan?.base_version_id;
+        const base = asked ?? (j.input as { plan?: { base_version_id?: string } } | null)?.plan?.base_version_id;
         return base ? { sceneId: req.params.id, plan: planFromPatch(patch, base), settings_patch: patch } : undefined;
       });
       if (prev) return { status: 200 as const, job: prev };
       const scene = sceneOr404(req.params.id);
       if (Object.keys(patch).length === 0) throw new ApiError(400, "empty_patch", "settings_patch пуст — менять нечего");
-      if (!scene.current_version_id) throw new ApiError(409, "no_current_version", `у сцены ${scene.id} нет готовой версии — Render нечего перерисовывать`);
-      const base = versions.get(db, scene.current_version_id)!;
+      let base;
+      if (asked !== undefined) {
+        base = versions.get(db, asked);
+        if (!base || base.scene_id !== scene.id) throw notFound(`версия ${asked} сцены ${scene.id}`);
+        if (base.status !== "ready") throw new ApiError(409, "version_not_ready", `Render строится только от ready-версии (v${base.number} — ${base.status})`);
+      } else {
+        if (!scene.current_version_id) throw new ApiError(409, "no_current_version", `у сцены ${scene.id} нет готовой версии — Render нечего перерисовывать`);
+        base = versions.get(db, scene.current_version_id)!;
+      }
       const merged = SettingsSchema.safeParse({ ...base.settings, ...patch });
       if (!merged.success) {
         const issues = merged.error.issues.map((i) => ({ path: ["settings", ...i.path].join("."), message: i.message }));

@@ -11,6 +11,7 @@ import { type BuildAppOptions, buildApp } from "../../src/api/app.js";
 import { type BootOptions, type Core, bootCore } from "../../src/boot.js";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as projects from "../../src/db/repos/projects.js";
+import * as scenes from "../../src/db/repos/scenes.js";
 import { KnowledgeAdapter } from "../../src/knowledge/adapter.js";
 import { makeStore, probe, removeStore, type TestStore } from "../db/helpers.js";
 import { makeDraft, meta } from "../scenes/helpers.js";
@@ -84,12 +85,14 @@ export async function makeApi(opts: { boot?: Partial<BootOptions>; app?: Partial
 }
 
 /** Проект + сцена + опубликованная ready-версия (превью `previewBytes` байт, кадр 0). */
-export async function seedVersion(api: Api, opts: { projectId?: string; previewBytes?: number; props?: unknown } = {}) {
+let seedJobs = 0;
+/** Готовая версия: в новой сцене или (`scene`) следующая версия существующей. */
+export async function seedVersion(api: Api, opts: { projectId?: string; previewBytes?: number; props?: unknown; scene?: { id: string } } = {}) {
   const { core } = api;
   const projectId = opts.projectId ?? "playground";
   if (!projects.get(core.db, projectId)) projects.create(core.db, { id: projectId, title: projectId });
-  const scene = core.repo.createScene(projectId, { prompt: "Рост выручки", settings: defaultSettings() });
-  const jobId = `job_seed_${scene.id}`;
+  const scene = opts.scene ? scenes.get(core.db, opts.scene.id)! : core.repo.createScene(projectId, { prompt: "Рост выручки", settings: defaultSettings() });
+  const jobId = `job_seed_${scene.id}_${++seedJobs}`;
   jobs.insert(core.db, { id: jobId, type: "playground.generate", project_id: projectId, scene_id: scene.id, input: {}, status: "completed", attempt: 1 });
   const preview = "v".repeat(opts.previewBytes ?? 1000);
   const draft = await makeDraft(core.root, { runId: jobId, attempt: 1, sceneId: scene.id, projectId }, { preview, ...(opts.props ? { props: opts.props } : {}) });

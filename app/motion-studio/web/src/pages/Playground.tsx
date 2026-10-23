@@ -16,6 +16,7 @@ import { Player, type PlayerHandle } from "../components/Player.js";
 import { QAPanel } from "../components/QAPanel.js";
 import { SceneTimeline, beatsOf } from "../components/SceneTimeline.js";
 import { SettingsForm } from "../components/SettingsForm.js";
+import { SpecView } from "../components/SpecView.js";
 import { VersionHistory } from "../components/VersionHistory.js";
 import { errorText, t, tk } from "../i18n/index.js";
 import { formatNumber } from "../lib/player-math.js";
@@ -84,8 +85,16 @@ export function Playground({ id, version }: { id: string; version?: string }) {
   const scene = useScene(id);
   const versions = scene.data?.versions ?? [];
   const latest = [...versions].sort((a, b) => b.number - a.number)[0];
-  const openId = version ?? scene.data?.scene.current_version_id ?? latest?.version_id;
+  const currentId = scene.data?.scene.current_version_id ?? undefined;
+  const openId = version ?? currentId ?? latest?.version_id;
   const dto = useVersion(openId);
+  // База правки и «Рендера» (ruling 2026-10-23): по умолчанию текущая версия; открытая
+  // нетекущая — только явным выбором. Форма параметров показывает настройки базы: патч
+  // считается от той же версии, от которой сервер строит план.
+  const notCurrent = openId !== undefined && currentId !== undefined && openId !== currentId;
+  const [fromOpen, setFromOpen] = useState(false);
+  const baseId = notCurrent && fromOpen ? openId : (currentId ?? openId);
+  const baseDto = useVersion(baseId);
   const player = useRef<PlayerHandle>(null);
   const [frame, setFrame] = useState(0);
   const [draft, setDraft] = useState<Settings | null>(null);
@@ -93,16 +102,19 @@ export function Playground({ id, version }: { id: string; version?: string }) {
   const [exportJob, setExportJob] = useState<string | null>(null);
   const [lastJob, setLastJob] = useState<string | null>(null);
 
-  const settings = dto.data?.settings;
+  useEffect(() => {
+    setFromOpen(false);
+    setFrame(0);
+  }, [openId]);
+  const settings = baseDto.data?.settings;
   useEffect(() => {
     setDraft(settings ?? null);
-    setFrame(0);
-  }, [openId, settings]);
+  }, [baseId, settings]);
 
   const patch = useMemo(() => (settings && draft ? settingsPatch(settings, draft) : {}), [settings, draft]);
   const dirty = Object.keys(patch).length > 0;
   const render = useMutation({
-    mutationFn: () => api.render(id, patch, newKey()),
+    mutationFn: () => api.render(id, patch, baseId!, newKey()),
     onSuccess: (r) => {
       setLastJob(r.job.id);
       void client.invalidateQueries({ queryKey: ["scene", id] });
@@ -121,6 +133,11 @@ export function Playground({ id, version }: { id: string; version?: string }) {
   const m = dto.data?.manifest;
   const ready = m?.status === "ready" && m.preview;
   const onJob = (j: Job) => setLastJob(j.id);
+  const num = (vid: string | undefined) => versions.find((v) => v.version_id === vid)?.number;
+  const baseReady = baseDto.data?.manifest.status === "ready";
+  // последняя версия новее текущей и не удалась: видно и после перезагрузки страницы
+  const currentNumber = num(s.current_version_id ?? undefined) ?? 0;
+  const lastFailed = latest && latest.status === "failed" && latest.number > currentNumber && latest.version_id !== openId ? latest : undefined;
 
   return (
     <div className="page playground">
@@ -130,7 +147,28 @@ export function Playground({ id, version }: { id: string; version?: string }) {
       </nav>
       <div className="playground-grid">
         <aside className="left">
-          <Chat sceneId={id} {...(openId ? { baseVersionId: openId } : {})} versions={versions} onOpenVersion={open} />
+          {notCurrent ? (
+            <section className="panel edit-base">
+              <h2 id="edit-base-title">{t("base.title")}</h2>
+              <p className="hint">{t("base.hint", { open: num(openId) ?? "?", current: num(currentId) ?? "?" })}</p>
+              <div role="radiogroup" aria-labelledby="edit-base-title" className="row wrap">
+                <label className="inline">
+                  <input type="radio" name="edit-base" checked={!fromOpen} onChange={() => setFromOpen(false)} />
+                  <span>{t("base.current", { n: num(currentId) ?? "?" })}</span>
+                </label>
+                <label className="inline">
+                  <input type="radio" name="edit-base" checked={fromOpen} onChange={() => setFromOpen(true)} />
+                  <span>{t("base.open", { n: num(openId) ?? "?" })}</span>
+                </label>
+              </div>
+            </section>
+          ) : null}
+          <Chat
+            sceneId={id}
+            {...(notCurrent && fromOpen && openId ? { baseVersionId: openId, baseNote: t("base.editFrom", { n: num(openId) ?? "?" }) } : {})}
+            versions={versions}
+            onOpenVersion={open}
+          />
           {active_job && questions.length > 0 ? <ClarifyQuestions jobId={active_job.id} questions={questions} /> : null}
           {jobToShow ? (
             <section className="panel">
@@ -151,11 +189,22 @@ export function Playground({ id, version }: { id: string; version?: string }) {
           {draft ? (
             <section className="panel">
               <h2>{t("settings.title")}</h2>
+              {baseId !== openId ? <p className="hint" data-testid="settings-base">{t("settings.ofBase", { n: num(baseId) ?? "?" })}</p> : null}
               <SettingsForm value={draft} onChange={setDraft} />
             </section>
           ) : null}
         </aside>
         <main className="right">
+          {lastFailed ? (
+            <div className="banner-fail" role="alert" aria-label={t("playground.lastFailed", { n: lastFailed.number })}>
+              <strong>{t("playground.lastFailed", { n: lastFailed.number })}</strong>
+              <span className="muted">{t("playground.lastFailedHint")}</span>
+              <button type="button" onClick={() => open(lastFailed.version_id)}>{t("versions.open")}</button>
+            </div>
+          ) : null}
+          {dto.data && dto.data.unreadable_files.length > 0 ? (
+            <div className="banner banner-warn" role="status" data-testid="unreadable">{t("version.unreadable", { files: dto.data.unreadable_files.join(", ") })}</div>
+          ) : null}
           {dto.data?.render_env_mismatch ? <div className="banner banner-warn" role="status">{t("version.envMismatch")}</div> : null}
           <div className="version-head row wrap">
             {m ? <h1>{t("versions.label", { n: m.number })}</h1> : <h1>{s.title}</h1>}
@@ -200,18 +249,20 @@ export function Playground({ id, version }: { id: string; version?: string }) {
               </label>
               <span className="spacer" />
               {dirty ? <button type="button" onClick={() => setDraft(settings)}>{t("playground.resetSettings")}</button> : null}
-              <button type="button" className="primary" disabled={!dirty || render.isPending || !s.current_version_id} title={dirty ? t("playground.renderHint") : t("playground.renderNoChanges")} onClick={() => render.mutate()}>
+              <button type="button" className="primary" disabled={!dirty || render.isPending || !baseId || !baseReady} title={dirty ? t("playground.renderHint", { n: num(baseId) ?? "?" }) : t("playground.renderNoChanges")} onClick={() => render.mutate()}>
                 {t("playground.render")}
               </button>
               <button type="button" disabled={!ready} onClick={() => setExportOpen(true)}>{t("playground.export")}</button>
             </div>
           ) : null}
           {render.isError ? <p className="error">{errorText(render.error)}</p> : null}
-          {dirty ? <p className="hint">{t("playground.dirty", { fields: Object.keys(patch).map((k) => tk(`settings.${k}`, k)).join(", ") })}</p> : null}
+          {dirty ? <p className="hint">{t("playground.dirty", { fields: Object.keys(patch).map((k) => tk(`settings.${k}`, k)).join(", "), n: num(baseId) ?? "?" })}</p> : null}
+          {baseDto.data && !baseReady ? <p className="hint">{t("base.notReady", { n: baseDto.data.manifest.number })}</p> : null}
           {exportJob ? <ExportJob jobId={exportJob} onClose={() => setExportJob(null)} /> : null}
           {dto.data && openId ? (
             <QAPanel versionId={openId} gate={dto.data.manifest.qa ?? null} report={dto.data.qa} qaFrames={dto.data.manifest.qa_frames} onSeek={seek} />
           ) : null}
+          {dto.data ? <SpecView dto={dto.data} /> : null}
         </main>
       </div>
       {dto.data ? (

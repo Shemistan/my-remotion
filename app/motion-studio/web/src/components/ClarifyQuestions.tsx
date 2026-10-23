@@ -1,5 +1,6 @@
 // Уточняющие вопросы Concept (задача `awaiting_input`): ответ по каждому вопросу или
-// «Пропустить» — тогда агент берёт значения по умолчанию. Ответы — по индексу вопроса.
+// «Пропустить» — тогда агент берёт значения по умолчанию. Ключ ответа — текст вопроса:
+// сервер передаёт Concept пары «вопрос → ответ» и подставляет default_if_skipped пропущенным.
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { api } from "../api/client.js";
@@ -30,7 +31,7 @@ export function ClarifyQuestions({ jobId, questions }: ClarifyQuestionsProps) {
       {questions.map((q, i) => (
         <div key={i} className="form-row">
           <label htmlFor={`${id}-${i}`}>{q.question}</label>
-          <input id={`${id}-${i}`} value={answers[String(i)] ?? ""} onChange={(e) => setAnswers((a) => ({ ...a, [String(i)]: e.target.value }))} />
+          <input id={`${id}-${i}`} value={answers[q.question] ?? ""} onChange={(e) => setAnswers((a) => ({ ...a, [q.question]: e.target.value }))} />
           <span className="hint">{t("clarify.default", { value: q.default_if_skipped })}</span>
         </div>
       ))}

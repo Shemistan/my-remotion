@@ -70,6 +70,8 @@ export function Player({ ref, src, fps, durationFrames, width, height, aspectRat
     } else {
       v.pause();
       setPlaying(false);
+      // кадр паузы — сразу по currentTime: шаг ±1 считается от него, а не от последнего rVFC
+      show(clampFrame(timeToFrame(v.currentTime, fps), durationFrames));
     }
   };
 
@@ -85,7 +87,10 @@ export function Player({ ref, src, fps, durationFrames, width, height, aspectRat
           muted
           onClick={toggle}
           onTimeUpdate={(e) => show(clampFrame(timeToFrame(e.currentTarget.currentTime, fps), durationFrames))}
-          onPause={() => setPlaying(false)}
+          onPause={(e) => {
+            setPlaying(false);
+            show(clampFrame(timeToFrame(e.currentTarget.currentTime, fps), durationFrames));
+          }}
           onPlay={() => setPlaying(true)}
           onEnded={() => setPlaying(false)}
         />

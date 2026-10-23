@@ -473,7 +473,11 @@ export function buildConceptTask(i: { prompt: string; settings: Settings; answer
       "# Ответы пользователя",
       i.answers === "skip"
         ? "Пользователь пропустил уточнения: возьми `default_if_skipped` и больше не спрашивай (`needs_clarification: []`)."
-        : json(i.answers) + "\nБольше не спрашивай (`needs_clarification: []`).",
+        : [
+            "Ты задавал уточняющие вопросы; ниже пары «вопрос → ответ». Пометка «по умолчанию» — пользователь вопрос пропустил, взято твоё `default_if_skipped`.",
+            ...Object.entries(i.answers).map(([q, a]) => `- «${q}» → ${a}`),
+            "Больше не спрашивай (`needs_clarification: []`).",
+          ].join("\n"),
     );
   }
   return agentTask("concept", parts.join("\n"), i.workdir, [], run);

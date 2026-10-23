@@ -1,10 +1,9 @@
 // База визуальных возможностей: поиск (по умолчанию только permissive, top 30) и карточка.
-import { KbCardDtoSchema, KbHitDtoSchema } from "@ms/contracts";
+import { KB_SEARCH_TOP, KbCardDtoSchema, KbHitDtoSchema } from "@ms/contracts";
 import { z } from "zod";
 import { type ApiContext, QueryBool, type ZApp } from "../context.js";
 import { notFound } from "../errors.js";
 
-const TOP = 30;
 const Csv = z.string().transform((s) => s.split(",").map((x) => x.trim()).filter(Boolean));
 
 export function kbRoutes(app: ZApp, { core }: ApiContext): void {
@@ -19,7 +18,7 @@ export function kbRoutes(app: ZApp, { core }: ApiContext): void {
       ...(patterns?.length ? { patterns } : {}),
       ...(kinds?.length ? { kinds } : {}),
       allowRestricted: allowRestricted ?? false,
-    }, TOP);
+    }, KB_SEARCH_TOP);
     return hits.map(({ view: v, score }) => ({
       id: v.id, name: v.name, kind: v.kind, patterns: v.patterns, license: v.license, license_class: v.license_class,
       compatibility: v.compatibility_status, repository_url: v.repository_url, commit: v.commit, score,

@@ -1,7 +1,8 @@
 // Строки интерфейса — только через `t(key)` из `src/i18n/ru.ts` (Global Constraints Phase 1):
 // кириллица в коде UI вне словаря — ошибка; каждый ключ `t("…")` есть в словаре; данные не
 // попадают в разметку как HTML.
-import { readFileSync, readdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { expect, it } from "vitest";
 import { t } from "../src/i18n/index.js";
@@ -26,7 +27,7 @@ export function stripImports(src: string): string {
 /** Ключи из вызовов `t("…")` и `tk("…")` (строковые литералы). */
 export function usedKeys(files: string[]): string[] {
   const keys = new Set<string>();
-  for (const f of files) for (const m of readFileSync(f, "utf8").matchAll(/\bt\(\s*["']([a-zA-Z0-9_.]+)["']/g)) keys.add(m[1]!);
+  for (const f of files) for (const m of readFileSync(f, "utf8").matchAll(/\b(?:t|tk)\(\s*["']([a-zA-Z0-9_.]+)["']/g)) keys.add(m[1]!);
   return [...keys];
 }
 
@@ -68,4 +69,38 @@ it("данные не попадают в разметку как HTML", () => {
     const src = readFileSync(f, "utf8");
     expect(src, relative(SRC, f)).not.toMatch(/dangerouslySetInnerHTML|\.innerHTML\s*=|insertAdjacentHTML|outerHTML\s*=/);
   }
+});
+
+it("usedKeys ловит и литеральные tk(\"…\")", () => {
+  const f = join(mkdtempSync(join(tmpdir(), "i18n-")), "x.tsx");
+  writeFileSync(f, 'const a = t("a.b"); const b = tk("c.d", "x"); const c = tk(`e.${x}`, x);');
+  expect(usedKeys([f]).sort()).toEqual(["a.b", "c.d"]);
+});
+
+const APP = join(import.meta.dirname, "../..");
+/** Коды замечаний QA, которые порождает сервер (`code: "…", severity`) и просит промпт Visual QA. */
+function qaCodes(): string[] {
+  const codes = new Set<string>();
+  const files = [...walk(join(APP, "server/src/qa")), join(APP, "server/src/pipeline/provenance.ts")];
+  for (const f of files) for (const m of readFileSync(f, "utf8").matchAll(/code: "([a-z_]+)",\s*severity/g)) codes.add(m[1]!);
+  const prompt = readFileSync(join(APP, "prompts/visual-qa.md"), "utf8");
+  const list = /`code` \(коротко, латиницей:([\s\S]*?)\),/.exec(prompt)?.[1] ?? "";
+  for (const m of list.matchAll(/`([a-z_]+)`/g)) codes.add(m[1]!);
+  return [...codes].sort();
+}
+
+it("коды замечаний QA (сервер и промпт Visual QA) переведены: qa.code.*", () => {
+  const codes = qaCodes();
+  expect(codes.length).toBeGreaterThan(30);
+  expect(codes.filter((c) => !(`qa.code.${c}` in ru))).toEqual([]);
+});
+
+it("этапы задач (FailureStage и прогресс) переведены: stage.*", () => {
+  const src = walk(join(APP, "server/src")).filter((f) => f.endsWith(".ts")).map((f) => readFileSync(f, "utf8")).join("\n");
+  const stages = new Set<string>();
+  for (const m of src.matchAll(/stage: "([a-z_]+)"/g)) stages.add(m[1]!);
+  for (const m of src.matchAll(/progress\([^)]*?"([a-z_]+)"\)/g)) stages.add(m[1]!);
+  for (const m of readFileSync(join(APP, "contracts/src/failure.ts"), "utf8").matchAll(/^\s*"([a-z_]+)",?$/gm)) stages.add(m[1]!);
+  expect(stages.size).toBeGreaterThan(15);
+  expect([...stages].filter((s) => !(`stage.${s}` in ru))).toEqual([]);
 });

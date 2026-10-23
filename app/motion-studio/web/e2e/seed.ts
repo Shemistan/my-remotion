@@ -24,6 +24,8 @@ export interface SeedFixture {
   /** Поверх `settings.json` фикстуры (например, `transparent_export: true`). */
   settings?: Partial<Settings>;
   prompt?: string;
+  /** Motion Spec вместо `spec.json` фикстуры (рукописная фикстура без него — для «Рендера»). */
+  specFile?: string;
 }
 
 export interface SeedOptions {
@@ -64,7 +66,7 @@ export async function seedScene(core: Core, fixtures: SeedFixture[], opts: SeedO
     await cp(join(fx.dir, "src"), join(draft.dir, "src"), { recursive: true });
     await cp(join(fx.dir, "props.json"), join(draft.dir, "props.json"));
     await writeFile(join(draft.dir, "settings.json"), JSON.stringify(settings, null, 2) + "\n");
-    const spec = existsSync(join(fx.dir, "spec.json")) ? await readJson(join(fx.dir, "spec.json")) : { title: fx.prompt ?? "сцена", duration_frames: settings.duration_frames };
+    const spec = fx.specFile ? await readJson(fx.specFile) : existsSync(join(fx.dir, "spec.json")) ? await readJson(join(fx.dir, "spec.json")) : { title: fx.prompt ?? "сцена", duration_frames: settings.duration_frames };
     await writeFile(join(draft.dir, "spec.json"), JSON.stringify(spec, null, 2) + "\n");
     await writeFile(join(draft.dir, "knowledge-refs.json"), "[]\n");
     await mkdir(join(draft.dir, "frames"), { recursive: true });

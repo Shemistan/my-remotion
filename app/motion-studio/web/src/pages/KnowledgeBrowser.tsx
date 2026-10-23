@@ -1,7 +1,7 @@
 // Knowledge Browser: поиск по KB, фильтры паттернов и видов, переключатель «показывать
 // restricted/unknown», бейджи лицензии и совместимости, карточка компонента (markdown
 // показывается как текст — разметка карточки не исполняется).
-import { PATTERN_SLUGS } from "@ms/contracts";
+import { KB_SEARCH_TOP, PATTERN_SLUGS } from "@ms/contracts";
 import { useId, useState } from "react";
 import { useKbCard, useKbSearch } from "../api/queries.js";
 import { LicenseBadge, safeHttpUrl } from "../components/ComponentsPanel.js";
@@ -93,7 +93,7 @@ export function KnowledgeBrowser({ q: initialQ, id }: { q?: string; id?: string 
           <p className="hint">{t("kb.restrictedHint")}</p>
         </aside>
         <section className="panel results">
-          <h2>{t("kb.results", { n: hits.data?.length ?? 0 })}</h2>
+          <h2>{(hits.data?.length ?? 0) >= KB_SEARCH_TOP ? t("kb.resultsTop", { n: KB_SEARCH_TOP }) : t("kb.results", { n: hits.data?.length ?? 0 })}</h2>
           {hits.isError ? <p className="error">{errorText(hits.error)}</p> : null}
           {hits.data?.length === 0 ? <p className="muted">{t("kb.nothing")}</p> : null}
           <ul className="kb-hits">

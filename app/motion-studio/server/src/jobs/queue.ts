@@ -189,13 +189,35 @@ function mustGet(db: Db, jobId: string): Job {
   return j;
 }
 
-/** Ответы на уточнения: `awaiting_input → pending`, ответы в `input.answers`. */
+/** Пометка ответа, подставленного из `default_if_skipped`. */
+export const SKIPPED_MARK = " (по умолчанию, вопрос пропущен)";
+
+/**
+ * Пары «вопрос → ответ» для Concept: новый вызов агента своих вопросов не видит, поэтому ключ —
+ * текст вопроса (индекс от старого клиента сопоставляется), пустой или пропущенный ответ —
+ * `default_if_skipped` с пометкой. Без вопросов в `output_refs` ответы остаются как пришли.
+ */
+export function pairAnswers(questions: readonly { question: string; default_if_skipped: string }[], answers: Record<string, string> | "skip"): Record<string, string> | "skip" {
+  if (questions.length === 0) return answers;
+  const given = answers === "skip" ? {} : answers;
+  const out: Record<string, string> = {};
+  questions.forEach((q, i) => {
+    const a = (given[q.question] ?? given[String(i)] ?? "").trim();
+    out[q.question] = a !== "" ? a : q.default_if_skipped + SKIPPED_MARK;
+  });
+  for (const [k, v] of Object.entries(given)) if (!(k in out) && !/^\d+$/.test(k) && v.trim() !== "") out[k] = v.trim();
+  return out;
+}
+
+/** Ответы на уточнения: `awaiting_input → pending`, пары «вопрос → ответ» в `input.answers`. */
 export function provideInput(db: Db, jobId: string, answers: Record<string, string> | "skip"): Job {
   return tx(db, () => {
     const j = mustGet(db, jobId);
     if (j.status !== "awaiting_input") throw new Error(`job_not_awaiting_input: ${jobId} в статусе ${j.status}`);
     const input = j.input !== null && typeof j.input === "object" && !Array.isArray(j.input) ? (j.input as Record<string, unknown>) : { value: j.input };
-    return jobs.update(db, jobId, { status: "pending", input: { ...input, answers } });
+    const qs = (j.output_refs as { questions?: unknown } | null)?.questions;
+    const questions = Array.isArray(qs) ? (qs as { question: string; default_if_skipped: string }[]) : [];
+    return jobs.update(db, jobId, { status: "pending", input: { ...input, answers: pairAnswers(questions, answers) } });
   });
 }
 

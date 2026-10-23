@@ -45,6 +45,23 @@ it("POST /scenes/:id/render: длительность → playground.edit, plan.
   }
 });
 
+it("POST /scenes/:id/render: base_version_id — план от выбранной версии; чужая → 404, не ready → 409; без поля — от текущей", async () => {
+  const { scene, versionId: v1 } = await seedVersion(api);
+  const { versionId: v2 } = await seedVersion(api, { scene });
+  expect((await api.inj("GET", `/api/scenes/${scene.id}`, getHeaders)).json().scene.current_version_id).toBe(v2);
+  const fromV1 = await api.inj("POST", `/api/scenes/${scene.id}/render`, key(), { settings_patch: { duration_frames: 240 }, base_version_id: v1 });
+  expect(fromV1.statusCode).toBe(202);
+  expect(fromV1.json().job.input.plan).toMatchObject({ base_version_id: v1 });
+  const def = await api.inj("POST", `/api/scenes/${scene.id}/render`, key(), { settings_patch: { duration_frames: 240 } });
+  expect(def.json().job.input.plan).toMatchObject({ base_version_id: v2 });
+  const other = await seedVersion(api);
+  expect((await api.inj("POST", `/api/scenes/${scene.id}/render`, key(), { settings_patch: { duration_frames: 240 }, base_version_id: other.versionId })).statusCode).toBe(404);
+  api.core.db.prepare("UPDATE scene_versions SET status = 'failed' WHERE id = ?").run(v1);
+  const failed = await api.inj("POST", `/api/scenes/${scene.id}/render`, key(), { settings_patch: { duration_frames: 240 }, base_version_id: v1 });
+  expect(failed.statusCode).toBe(409);
+  expect(failed.json()).toMatchObject({ error: "version_not_ready" });
+});
+
 it("POST /scenes/:id/render: пустой патч → 400, итог не проходит SettingsSchema → 400, сцена без версии → 409", async () => {
   const { scene } = await seedVersion(api);
   expect((await api.inj("POST", `/api/scenes/${scene.id}/render`, key(), { settings_patch: {} })).statusCode).toBe(400);

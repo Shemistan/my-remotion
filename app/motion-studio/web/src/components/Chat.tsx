@@ -10,8 +10,10 @@ import { errorText, t } from "../i18n/index.js";
 
 export interface ChatProps {
   sceneId: string;
-  /** Версия, от которой считать правку (открытая в плеере). */
+  /** Версия, от которой считать правку; без неё — текущая версия сцены (на сервере). */
   baseVersionId?: string;
+  /** Пометка над полем ввода, если правка строится не от текущей версии. */
+  baseNote?: string;
   versions?: HistoryEntry[];
   onOpenVersion?: (versionId: string) => void;
   disabled?: boolean;
@@ -34,7 +36,7 @@ function MessageText({ text, role }: { text: string; role: ChatMessage["role"] }
   );
 }
 
-export function Chat({ sceneId, baseVersionId, versions = [], onOpenVersion, disabled }: ChatProps) {
+export function Chat({ sceneId, baseVersionId, baseNote, versions = [], onOpenVersion, disabled }: ChatProps) {
   const id = useId();
   const client = useQueryClient();
   const messages = useMessages(sceneId);
@@ -84,6 +86,7 @@ export function Chat({ sceneId, baseVersionId, versions = [], onOpenVersion, dis
         <div ref={end} />
       </div>
       <form className="chat-form" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+        {baseNote ? <p className="base-note" data-testid="base-note">{baseNote}</p> : null}
         <label htmlFor={id} className="sr-only">{t("chat.input")}</label>
         <textarea
           id={id}
