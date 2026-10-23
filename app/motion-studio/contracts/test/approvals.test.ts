@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ApprovalKindSchema, ApprovalSchema, parseSubjectRef, subjectRef } from "../src/index.js";
+import { ApprovalKindSchema, ApprovalSchema, ProjectApprovalsDtoSchema, parseSubjectRef, subjectRef } from "../src/index.js";
 import { SHA, TS } from "./video-fixtures.js";
 
 function appr(over: Record<string, unknown> = {}): Record<string, unknown> {
@@ -34,5 +34,12 @@ describe("approvals", () => {
     expect(parseSubjectRef("plan:pl_1@r12")).toEqual({ type: "plan", id: "pl_1", revision: 12 });
     expect(parseSubjectRef("plan:pl_1")).toBeNull();
     expect(() => subjectRef("edl", "edl_1", 0)).toThrow(RangeError);
+  });
+});
+
+describe("ProjectApprovalsDto", () => {
+  it("состояния как у approvalState (Task 24): missing | valid | stale", () => {
+    expect(ProjectApprovalsDtoSchema.safeParse({ A: { state: "missing" }, B: { state: "stale", reason: "upstream_A" } }).success).toBe(true);
+    expect(ProjectApprovalsDtoSchema.safeParse({ A: { state: "none" }, B: { state: "missing" } }).success).toBe(false);
   });
 });

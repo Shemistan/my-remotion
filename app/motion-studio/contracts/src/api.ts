@@ -121,7 +121,12 @@ export type JobEventDto = z.infer<typeof JobEventDtoSchema>;
 
 export const ChatMessageDtoSchema = ChatMessageSchema;
 
-export const CreateProjectBodySchema = z.object({ title: z.string().min(1), settings: SettingsSchema.optional() }).strict();
+/** `kind` не задан — `playground` (поведение Phase 1); `video` — видеопроект (Task 29). */
+export const CreateProjectBodySchema = z.object({
+  title: z.string().min(1),
+  kind: ProjectDtoSchema.shape.kind.optional(),
+  settings: SettingsSchema.optional(),
+}).strict();
 export type CreateProjectBody = z.infer<typeof CreateProjectBodySchema>;
 
 export const CreateSceneBodySchema = z.object({

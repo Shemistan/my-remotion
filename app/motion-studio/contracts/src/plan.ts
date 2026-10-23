@@ -11,6 +11,9 @@ const Score = z.number().int().min(1).max(5);
 
 const UsRangeSchema = z.object({ start_us: Us, end_us: Us }).strict()
   .refine((r) => r.start_us < r.end_us, { message: "пустой диапазон", path: ["end_us"] });
+/** Диапазон цитаты: допускает нулевую длину (вставленное слово с интерполированным временем, Task 27). */
+const QuoteRangeSchema = z.object({ start_us: Us, end_us: Us }).strict()
+  .refine((r) => r.start_us <= r.end_us, { message: "start_us > end_us", path: ["end_us"] });
 
 /** Режим запланированной сцены (`CompositionMode` из Concept): `none` — только у пропуска. */
 export const PlannedCompositionModeSchema = CompositionModeSchema.exclude(["none"]);
@@ -45,7 +48,7 @@ export const ScenePlanItemSchema = z.object({
     quote: z.string().min(1),
     start_word_id: WordIdSchema,
     end_word_id: WordIdSchema,
-    edited: UsRangeSchema,
+    edited: QuoteRangeSchema,
   }).strict()).min(1),
   face_overlap: z.object({ ratio: z.number().min(0).max(1), override_reason: z.string().min(1).optional() }).strict(),
   style_id: z.string().min(1),

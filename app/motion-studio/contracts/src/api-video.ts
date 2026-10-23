@@ -1,6 +1,6 @@
 // DTO Control API видеопроекта (Task 29, 33): тела запросов и ответы; типы server — z.infer от них.
 import { z } from "zod";
-import { ApprovalKindSchema, ApprovalSchema } from "./approvals.js";
+import { ApprovalKindSchema, ApprovalSchema, ApprovalStaleReasonSchema } from "./approvals.js";
 import { EdlOpSchema, EdlRevisionDocSchema } from "./edl.js";
 import { FootageAnalysisSchema } from "./footage.js";
 import { DerivativeKindSchema, MediaAssetSchema } from "./media.js";
@@ -74,10 +74,11 @@ export type EdlRevisionBody = z.infer<typeof EdlRevisionBodySchema>;
 export const ApprovalDtoSchema = ApprovalSchema;
 export type ApprovalDto = z.infer<typeof ApprovalDtoSchema>;
 
-/** `GET /projects/:id/approvals`: состояние A и B. */
+/** `GET /projects/:id/approvals`: состояние A и B — как `approvalState` (Task 24). */
 export const ApprovalStateDtoSchema = z.object({
-  state: z.enum(["none", "valid", "stale", "revoked"]),
+  state: z.enum(["missing", "valid", "stale"]),
   approval: ApprovalSchema.optional(),
+  reason: ApprovalStaleReasonSchema.optional(),
 }).strict();
 export const ProjectApprovalsDtoSchema = z.object({ A: ApprovalStateDtoSchema, B: ApprovalStateDtoSchema }).strict();
 export type ProjectApprovalsDto = z.infer<typeof ProjectApprovalsDtoSchema>;

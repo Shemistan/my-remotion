@@ -130,6 +130,13 @@ describe("mapRange / mapWords", () => {
     expect(m.e).toEqual({ state: "clipped", edited_start_us: 5_400_000, edited_end_us: 5_600_000 });
   });
 
+  it("слово целиком за концом исходника — removed", () => {
+    expect(mapWords(tl, [w("x", 10_100_000, 10_300_000), w("e", 10_000_000, 10_200_000), w("p", 10_500_000, 10_500_000)])).toEqual({
+      x: { state: "removed" }, e: { state: "removed" }, p: { state: "removed" } });
+    expect(mapRange(tl, { start_us: 10_100_000, end_us: 10_300_000 })).toBeNull();
+    expect(mapWords(tl, [w("z", 10_000_000, 10_000_000)])).toEqual({ z: { state: "kept", edited_start_us: 8_000_000, edited_end_us: 8_000_000 } });
+  });
+
   it("слово нулевой длительности", () => {
     expect(mapWords(tl, [w("z", 1_000_000, 1_000_000), w("y", 3_000_000, 3_000_000)])).toEqual({
       z: { state: "kept", edited_start_us: 1_000_000, edited_end_us: 1_000_000 }, y: { state: "removed" } });
@@ -180,6 +187,9 @@ describe("rangeFromWords", () => {
     const pad = { preUs: 0, postUs: 0 };
     expect(code(() => rangeFromWords(tl, words, "x", "b", pad))).toBe("unknown_word");
     expect(code(() => rangeFromWords(tl, words, "b", "a", pad))).toBe("order");
+    // порядок в массиве верный, но конец раньше начала — тоже order, не TypeError
+    const swapped = [w("p", 5_000_000, 5_300_000), w("q", 1_000_000, 1_200_000)];
+    expect(code(() => rangeFromWords(tl, swapped, "p", "q", pad))).toBe("order");
     expect(code(() => rangeFromWords(tl, words, "cut", "b", pad))).toBe("anchor_in_cut");
     expect(code(() => rangeFromWords(tl, words, "a", "cut", pad))).toBe("anchor_in_cut");
     // вырезанное слово в середине диапазона — допустимо

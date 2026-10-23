@@ -55,19 +55,30 @@ export const TranscriptRevisionDocSchema = z.object({
   d.words.forEach((w, i) => {
     if (ids.has(w.id)) ctx.addIssue({ code: "custom", path: ["words", i, "id"], message: `повтор id ${w.id}` });
     ids.add(w.id);
+    const prev = d.words[i - 1];
+    if (prev && w.start_us < prev.start_us) ctx.addIssue({ code: "custom", path: ["words", i, "start_us"], message: `start_us слов убывает: ${w.id}` });
   });
   d.segments.forEach((s, i) => s.word_ids.forEach((id, j) => {
     if (!ids.has(id)) ctx.addIssue({ code: "custom", path: ["segments", i, "word_ids", j], message: `нет слова ${id}` });
   }));
+  // удалённые слова (Task 27) из words исключены: их id — только здесь, без повторов
+  const removed = new Set<string>();
   d.removed_word_ids.forEach((id, i) => {
-    if (!ids.has(id)) ctx.addIssue({ code: "custom", path: ["removed_word_ids", i], message: `нет слова ${id}` });
+    if (ids.has(id)) ctx.addIssue({ code: "custom", path: ["removed_word_ids", i], message: `удалённое слово ${id} осталось в words` });
+    if (removed.has(id)) ctx.addIssue({ code: "custom", path: ["removed_word_ids", i], message: `повтор id ${id}` });
+    removed.add(id);
   });
 });
 export type TranscriptRevisionDoc = z.infer<typeof TranscriptRevisionDocSchema>;
 
-/** Токен для сравнения цитат: нижний регистр, `ё → е`, без пунктуации, пробелов и ударений. */
+/**
+ * Токен для сравнения цитат: нижний регистр, `ё → е`, без пунктуации, пробелов и ударений.
+ * Знаки, меняющие смысл чисел, остаются: `%`, `+` и минус перед цифрой (`−` U+2212 → `-`).
+ * Дефис внутри слова и тире — пунктуация («кто-то» → «ктото» и в словах ASR, и в цитате).
+ */
 export function normalizeToken(s: string): string {
-  return s.normalize("NFC").toLowerCase().replace(/ё/g, "е").replace(/[\p{P}\ś]/gu, "");
+  return s.normalize("NFC").toLowerCase().replace(/ё/g, "е").replace(/−/g, "-")
+    .replace(/(?!%|-\d)[\p{P}\ś]/gu, "");
 }
 
 export type VerifyQuoteResult = { ok: true } | { ok: false; code: "quote_mismatch" | "unknown_word" | "order"; message: string };
@@ -81,7 +92,8 @@ export function verifyQuote(words: Pick<TranscriptWord, "id" | "text">[], startW
   const ei = words.findIndex((w) => w.id === endWordId);
   if (si < 0 || ei < 0) return { ok: false, code: "unknown_word", message: `нет слова ${si < 0 ? startWordId : endWordId}` };
   if (si > ei) return { ok: false, code: "order", message: `слово ${startWordId} идёт после ${endWordId}` };
-  const expected = words.slice(si, ei + 1).map((w) => normalizeToken(w.text)).join("");
+  // слова — через пробел, как цитата: «-» отдельным словом перед числом не склеивается в минус
+  const expected = normalizeToken(words.slice(si, ei + 1).map((w) => w.text).join(" "));
   const got = normalizeToken(quote);
   if (got === "" || got !== expected) return { ok: false, code: "quote_mismatch", message: "цитата не совпадает со словами диапазона" };
   return { ok: true };

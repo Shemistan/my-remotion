@@ -51,6 +51,9 @@ const clipEnd = (c: TimelineClip): number => c.edited_start_us + (c.source_end_u
  * Строит таймлайн: вырезки сортируются, границы выравниваются `snapUsToFrame` (конец, совпадающий с
  * концом исходника или за ним, — конец исходника), пересекающиеся и соприкасающиеся сливаются,
  * пустые после выравнивания отбрасываются. Восстановленная вырезка даёт таймлайн байт-в-байт как до неё.
+ * Клип короче кадра возможен (между близкими вырезками или у конца исходника не на кадре) — это не
+ * ошибка. Слово, задетое вырезкой (`mapWords` → `clipped`), остаётся на таймлайне: это не `anchor_cut`
+ * (Task 32 помечает `anchor_cut`, только если граничное слово сцены `removed`).
  */
 export function buildTimeline(sourceDurationUs: number, cuts: UsRange[], fps: Fps): EditedTimeline {
   checkUs(sourceDurationUs, Number.MAX_SAFE_INTEGER, "длительность исходника");
@@ -163,13 +166,16 @@ function keptLength(tl: EditedTimeline, s: number, e: number): number {
   return total;
 }
 
-function clampRange(tl: EditedTimeline, r: UsRange): UsRange {
+/** Пересечение с исходником; диапазон целиком за его концом (кроме точки ровно на конце) — `null`. */
+function clampRange(tl: EditedTimeline, r: UsRange): UsRange | null {
   checkRange(r);
   const max = tl.source_duration_us;
-  return { start_us: Math.min(r.start_us, max), end_us: Math.min(r.end_us, max) };
+  if (r.start_us > max || (r.start_us === max && r.end_us > max)) return null;
+  return { start_us: r.start_us, end_us: Math.min(r.end_us, max) };
 }
 
-function mapClamped(tl: EditedTimeline, r: UsRange): { range: UsRange; whole: boolean } | null {
+function mapClamped(tl: EditedTimeline, r: UsRange | null): { range: UsRange; whole: boolean } | null {
+  if (!r) return null;
   if (r.start_us === r.end_us) {
     const p = sourceToEdited(tl, r.start_us);
     return p.inCut ? null : { range: { start_us: p.us, end_us: p.us }, whole: true };
@@ -211,7 +217,10 @@ export function mapWords(
 /**
  * Диапазон сцены по словам: edited-диапазон слов `[start.start_us, end.end_us)` с полями `pad`
  * (в edited, в пределах `[0, duration_us]`), его границы в source и покрывающие кадры
- * `[floor(start), ceil(end))` на `tl.fps`. Граничное слово вырезано целиком → `anchor_in_cut`.
+ * `[floor(start), ceil(end))` на `tl.fps`. Граничное слово вырезано целиком → `anchor_in_cut`;
+ * конец последнего слова раньше начала первого → `order`. Вставленное слово нулевой длины без полей
+ * даёт пустой диапазон (`start_us === end_us`), который `ScenePlanItem.edited` не примет: вызывающий
+ * задаёт `pad` или отклоняет сцену с понятным кодом (Task 32).
  */
 export function rangeFromWords(
   tl: EditedTimeline, words: Pick<TranscriptWord, "id" | "start_us" | "end_us">[],
@@ -223,15 +232,17 @@ export function rangeFromWords(
   const si = words.findIndex((x) => x.id === startWordId);
   const ei = words.findIndex((x) => x.id === endWordId);
   if (si < 0 || ei < 0) throw new TimelineError("unknown_word", `нет слова ${si < 0 ? startWordId : endWordId}`);
-  if (si > ei) throw new TimelineError("order", `слово ${startWordId} идёт после ${endWordId}`);
   const sw = words[si]!;
   const ew = words[ei]!;
+  if (si > ei || ew.end_us < sw.start_us) throw new TimelineError("order", `слово ${startWordId} идёт после ${endWordId}`);
   for (const x of [sw, ew]) {
     if (!mapClamped(tl, clampRange(tl, { start_us: x.start_us, end_us: x.end_us }))) {
       throw new TimelineError("anchor_in_cut", `граничное слово ${x.id} вырезано`);
     }
   }
-  const core = mapRange(tl, { start_us: sw.start_us, end_us: Math.max(sw.start_us, ew.end_us) })!;
+  const core = mapRange(tl, { start_us: sw.start_us, end_us: ew.end_us });
+  // слова перекрываются так, что между началом первого и концом последнего всё вырезано
+  if (!core) throw new TimelineError("anchor_in_cut", `диапазон ${startWordId}–${endWordId} вырезан`);
   const edited = { start_us: Math.max(0, core.start_us - pad.preUs), end_us: Math.min(tl.duration_us, core.end_us + pad.postUs) };
   return {
     edited,

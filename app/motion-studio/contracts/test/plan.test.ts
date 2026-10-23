@@ -44,6 +44,10 @@ describe("plan", () => {
     expect(ScenePlanItemSchema.safeParse(item({ frames: { start: 10, end: 9 } })).success).toBe(false);
     expect(ScenePlanItemSchema.safeParse(item({ face_overlap: { ratio: 0.3, override_reason: "крупный план" } })).success).toBe(true);
     expect(ScenePlanItemSchema.safeParse(item({ face_overlap: { ratio: 1.3 } })).success).toBe(false);
+    // цитата на вставленном слове нулевой длины — пустой edited у evidence допустим, у сцены — нет
+    const ev = { quote: "да", start_word_id: "w_000005.1", end_word_id: "w_000005.1", edited: { start_us: 2_500_000, end_us: 2_500_000 } };
+    expect(ScenePlanItemSchema.safeParse(item({ evidence: [ev] })).success).toBe(true);
+    expect(ScenePlanItemSchema.safeParse(item({ evidence: [{ ...ev, edited: { start_us: 2, end_us: 1 } }] })).success).toBe(false);
   });
 
   it("ScenePlanItem: stale ⇔ причина", () => {

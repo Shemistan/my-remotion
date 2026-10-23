@@ -23,6 +23,22 @@ describe("transcript", () => {
     expect(normalizeToken("—")).toBe("");
     expect(normalizeToken("ЁЛКА")).toBe("елка");
     expect(normalizeToken("ёж")).toBe("еж"); // ё в разложенной форме
+    // знаки, меняющие смысл числа, сохраняются
+    expect(normalizeToken("5%")).toBe("5%");
+    expect(normalizeToken("+5,")).toBe("+5");
+    expect(normalizeToken("-5")).toBe("-5");
+    expect(normalizeToken("\u22125")).toBe("-5"); // знак минус U+2212
+    // дефис внутри слова и тире — пунктуация: «кто-то» = «ктото» с обеих сторон
+    expect(normalizeToken("кто-то")).toBe("ктото");
+    expect(normalizeToken("— да")).toBe("да");
+  });
+
+  it("verifyQuote: проценты и знак числа значимы", () => {
+    expect(verifyQuote(ws("рост", "на", "5%"), "w1", "w3", "рост на 5")).toMatchObject({ ok: false, code: "quote_mismatch" });
+    expect(verifyQuote(ws("рост", "на", "5%"), "w1", "w3", "рост на 5%")).toEqual({ ok: true });
+    expect(verifyQuote(ws("было", "-5"), "w1", "w2", "было 5")).toMatchObject({ ok: false, code: "quote_mismatch" });
+    expect(verifyQuote(ws("было", "-5"), "w1", "w2", "было \u22125")).toEqual({ ok: true });
+    expect(verifyQuote(ws("кто-то", "пришёл"), "w1", "w2", "Кто-то пришел")).toEqual({ ok: true });
   });
 
   it("verifyQuote: совпадение по нормализованным словам", () => {
@@ -56,11 +72,33 @@ describe("transcript", () => {
       revision: 2, parent_revision: 1, author: "user", asr: undefined, ops: [{ op: "replace_text", word_id: "w_000001", text: "Здравствуйте" }],
     })).success).toBe(true);
     // ссылки сегментов и удалённых слов — только на существующие слова; id уникальны
-    expect(TranscriptRevisionDocSchema.safeParse(doc({ removed_word_ids: ["w_000009"] })).success).toBe(false);
     expect(TranscriptRevisionDocSchema.safeParse(doc({ segments: [{ id: "seg_0001", word_ids: ["w_000009"], start_us: 0, end_us: 1 }] })).success).toBe(false);
     const d = doc();
     const words = d.words as Array<Record<string, unknown>>;
     expect(TranscriptRevisionDocSchema.safeParse({ ...d, words: [words[0], words[0]] }).success).toBe(false);
+  });
+
+  it("TranscriptRevisionDoc: удалённые слова — вне words (пример Task 27)", () => {
+    const word = (id: string, s: number): Record<string, unknown> => ({ id, text: id, start_us: s, end_us: s + 300_000, timing: "asr", confidence: null });
+    const del = doc({
+      revision: 2, parent_revision: 1, author: "user", asr: undefined,
+      words: [word("w_000001", 0), word("w_000003", 600_000)],
+      segments: [{ id: "seg_0001", word_ids: ["w_000001", "w_000003"], start_us: 0, end_us: 900_000 }],
+      removed_word_ids: ["w_000002"],
+    });
+    expect(TranscriptRevisionDocSchema.safeParse(del).success).toBe(true);
+    // удалённое слово не может оставаться в words; повтор в removed_word_ids — ошибка
+    expect(TranscriptRevisionDocSchema.safeParse({ ...del, removed_word_ids: ["w_000003"] }).success).toBe(false);
+    expect(TranscriptRevisionDocSchema.safeParse({ ...del, removed_word_ids: ["w_000002", "w_000002"] }).success).toBe(false);
+  });
+
+  it("TranscriptRevisionDoc: start_us слов не убывает", () => {
+    const d = doc();
+    const [a, b] = d.words as Array<Record<string, unknown>>;
+    expect(TranscriptRevisionDocSchema.safeParse({ ...d, words: [b, a] }).success).toBe(false);
+    // вставленное слово нулевой длины на стыке — допустимо
+    const z = { ...b, id: "w_000001.2", start_us: 600_000, end_us: 600_000, timing: "interpolated" };
+    expect(TranscriptRevisionDocSchema.safeParse({ ...d, words: [a, b, z] }).success).toBe(true);
   });
 
   it("TranscriptOp", () => {
