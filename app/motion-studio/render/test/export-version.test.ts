@@ -1,8 +1,8 @@
 // exportVersion на подменённом spawnTracked: задание worker в режиме export, fps из
 // запроса, ошибки рендера словарём RenderStage, gate отдельным полем.
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import type { SpawnTrackedOptions, SpawnTrackedResult } from "@ms/core";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { CHROME_WRAPPER } from "../src/node/browser.js";
@@ -110,7 +110,8 @@ async function withStills(...frames: number[]): Promise<void> {
   await mkdir(join(req.versionDir, "frames"), { recursive: true });
   for (const f of frames) await writeFile(join(req.versionDir, "frames", `${f}.png`), "png");
 }
-const cleanTempo = (r: TempoCheckRequest): Promise<TempoCheck> => Promise.resolve({ factor: r.factor, threshold: 0.06, samples: [], mismatched: [] });
+const TEMPO = { threshold: 0.06, hotTile: 0.03, hotTilesMin: 3, compare: { width: 480, height: 270 } };
+const cleanTempo = (r: TempoCheckRequest): Promise<TempoCheck> => Promise.resolve({ factor: r.exportFps.num / r.versionFps.num, ...TEMPO, samples: [], mismatched: [] });
 
 it("M11: fps 60 ≠ 30 версии → композиция 60 fps, props.timing и кадровые ключи content ×2", async () => {
   await withStills(15, 45);
@@ -133,11 +134,66 @@ it("F2: смена fps → сверка темпа по стоп-кадрам в
     ...deps(exporting, () => ({ stdout: probeJson({ fps: "60/1" }) })),
     tempo: async (x) => {
       seen.push(x);
-      return { factor: 2, threshold: 0.06, samples: [{ frame: 45, exportFrame: 90, maxTile: 0.2, mean: 0.02 }], mismatched: [45] };
+      return { factor: 2, ...TEMPO, samples: [{ frame: 45, exportFrame: 90, maxTile: 0.2, hotTiles: 9, mean: 0.02 }], mismatched: [45] };
     },
   });
   expect(r).toMatchObject({ ok: true, gate: [], tempo: { mismatched: [45] } });
-  expect(seen[0]).toMatchObject({ exportPath: req.outPath, versionDir: req.versionDir, factor: 2, exportFrames: 180, width: 1280, height: 720, opaque: true, run: req.run, signal: ac.signal });
+  expect(seen[0]).toMatchObject({
+    exportPath: req.outPath, versionDir: req.versionDir, versionFps: { num: 30, den: 1 }, exportFps: { num: 60, den: 1 },
+    versionFrames: 90, exportFrames: 180, width: 1280, height: 720, scale: 1, opaque: true, run: req.run, signal: ac.signal,
+  });
+});
+
+/** Worker: экспорт пишет файл, рендер — стоп-кадры (`renderStills` сверки темпа). */
+const exportingOrStills: Responder = async (c) => {
+  const job = jobOf(c);
+  if (job.mode === "export") return exporting(c);
+  for (const s of job.stills) await writeFile(s.out, "png");
+  return { stdout: JSON.stringify({ ok: true, stills: job.stills.map((s) => s.out), browserLogs: [] }) + "\n" };
+};
+
+it("R1: дорендер стоп-кадров для сверки — рендер версии в её fps в каталог внутри draft, без превью; каталог убран", async () => {
+  await withStills(13, 43);
+  let dir = "";
+  let files: string[] = [];
+  const r = await exportVersion({ ...req, request: { ...req.request, fps: 24 } }, undefined, {
+    ...deps(exportingOrStills, () => ({ stdout: probeJson({ fps: "24/1" }) })),
+    tempo: async (x) => {
+      dir = await x.renderStills!([15, 45]);
+      files = await readdir(join(dir, "frames"));
+      return cleanTempo(x);
+    },
+  });
+  expect(r).toMatchObject({ ok: true, gate: [], tempo: { mismatched: [] } });
+  expect(dirname(dir)).toBe(join(tmp, "draft"));
+  expect(files.sort()).toEqual(["15.png", "45.png"]);
+  const job = jobOf(calls.find((c) => c.cmd === process.execPath && jobOf(c).mode === "render")!);
+  expect(job.composition).toEqual({ width: 1280, height: 720, fps: 30, durationInFrames: 90 });
+  expect(job.preview).toBeNull();
+  expect(job.stills.map((s) => s.frame)).toEqual([15, 45]);
+  // props версии как есть (не пересчитанные под 24 fps)
+  expect((job.inputProps as { timing: { duration_frames: number } }).timing.duration_frames).toBe(90);
+  expect(job.run.renderId).toMatch(/^job1-a1-/);
+  // в draft ничего не осталось, кроме файла экспорта
+  expect(existsSync(dir)).toBe(false);
+  expect(await readdir(join(tmp, "draft"))).toEqual(["scene.mp4"]);
+});
+
+it("R1: дорендер не удался → сверка падает с этапом рендера (orphaned остаётся orphaned)", async () => {
+  await withStills(13);
+  const run = (worker: Responder) => exportVersion({ ...req, request: { ...req.request, fps: 24 } }, undefined, {
+    ...deps(worker, () => ({ stdout: probeJson({ fps: "24/1" }) })),
+    tempo: async (x) => {
+      await x.renderStills!([15]);
+      return cleanTempo(x);
+    },
+  });
+  const failing: Responder = async (c) => (jobOf(c).mode === "export" ? exporting(c) : { code: 1, stdout: JSON.stringify({ ok: false, stills: [], browserLogs: [], error: { stage: "still", message: "кадр не снят" } }) + "\n" });
+  expect(await run(failing)).toMatchObject({ ok: false, error: { stage: "media", message: expect.stringMatching(/сверка темпа.*still.*кадр не снят/) } });
+  const orphan: Responder = async (c) => (jobOf(c).mode === "export" ? exporting(c) : { ...(await exportingOrStills(c)), orphaned: true });
+  expect(await run(orphan)).toMatchObject({ ok: false, error: { stage: "orphaned" } });
+  // каталог живого дорендера не удаляется (draft уйдёт в карантин целиком)
+  expect((await readdir(join(tmp, "draft"))).filter((n) => n.startsWith(".tempo-stills-"))).toHaveLength(1);
 });
 
 it("F2: props вне ScenePropsBase при смене fps → отказ fps_change_unsupported до рендера", async () => {

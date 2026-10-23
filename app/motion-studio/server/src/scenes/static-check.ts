@@ -1099,12 +1099,16 @@ export interface FrameLiteral {
 
 /** Число кадров, начиная с которого литерал считается зашитым моментом (меньше — сдвиги в пару кадров). */
 const FRAME_LITERAL_MIN = 6;
-/** Кадровые пропы JSX (Remotion и motion-kit). */
-const FRAME_PROPS = new Set(["from", "durationInFrames", "travel", "delay", "enterAt", "until", "at", "stagger", "duration", "exitAt", "hold"]);
+/**
+ * Кадровые пропы JSX (Remotion и motion-kit). Общие имена (`at`, `duration`, `hold`) сюда не
+ * входят: у них бывает и не кадровый смысл, ложное предупреждение только сбивает Engineer.
+ */
+const FRAME_PROPS = new Set(["from", "durationInFrames", "travel", "delay", "enterAt", "until", "stagger", "exitAt"]);
 
 const MSG_FRAME_LITERAL = (what: string, n: string) =>
   `кадры литералом (${what}: ${n}): правка темпа и экспорт в другом fps это место не масштабируют — ` +
-  "в 60 fps сцена пойдёт быстрее, экспорт откажет с fps_tempo_mismatch. Бери моменты из props.timing.beats, " +
+  "в другом fps это место может пойти быстрее или медленнее, экспорт в другой fps может отказать (fps_tempo_mismatch). " +
+  "Бери моменты из props.timing.beats, " +
   "длительности — из props.content (travel, delay, *_frames) или токенов style.motion.*.";
 
 /** Числовые литералы ≥ порога в выражении, кроме аргументов вызовов (`frames(s, 20)` уже масштабирован). */

@@ -211,6 +211,8 @@ export async function runGenerate(
     for (const b of core.boot.relock.broken) io.err(`⚠ повреждённая версия (не тронута): ${b.dir}: ${b.error}`);
     for (const q of core.boot.exports.quarantined) io.err(`⚠ экспорт без строки в БД — в карантине: ${q.to}`);
     for (const d of core.boot.exports.relocked) io.err(`relock: экспорт закрыт от записи: ${d}`);
+    for (const id of core.boot.exports.missing) io.err(`⚠ экспорт ${id}: строка в БД есть, нет каталога (файл недоступен)`);
+    for (const e of core.boot.exports.errors) io.err(`⚠ сверка экспортов: ${e.dir}: ${e.error}`);
     for (const b of core.boot.reconcile.missing.broken) io.err(`⚠ версия ${b.versionId} недоступна (broken): ${b.reason}`);
 
     try {

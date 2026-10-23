@@ -57,7 +57,7 @@ function steps(over: Partial<FakeSteps> = {}) {
         return {
           root: "/store",
           reaped: { alive, strays },
-          boot: { swept, relock, reconcile: { imported: 0, skipped: [], missing: { restored: [], broken: [] } }, exports: { relocked: [], quarantined: [], missing: [], errors: [] } },
+          boot: { swept, relock, reconcile: { imported: 0, skipped: [], missing: { restored: [], broken: [] } }, exports: { relocked: [], quarantined: [], missing: ["exp_lost"], errors: [{ dir: "/store/x/exports/exp_bad", error: "EACCES" }] } },
           close: () => lock.release(),
           generate: () => s.generate(),
         };
@@ -100,6 +100,9 @@ describe("runGenerate", () => {
     expect(await runGenerate(["Рост"], env, o.io, s)).toBe(0);
     expect(calls).toEqual(["lock", "storage", "leftovers", "reap:run_old", "strays", "sweep", "relock", "browser", "generate", "release"]);
     expect(o.err.join("\n")).toContain("abandoned");
+    // R4: строка экспорта без каталога и сбой сверки экспортов видны человеку
+    expect(o.err.join("\n")).toMatch(/экспорт exp_lost.*нет каталога/);
+    expect(o.err.join("\n")).toMatch(/exp_bad.*EACCES/);
     expect(o.out).toContain("status: ready");
     expect(o.out).toContain("preview: /v/preview.mp4");
     expect(o.out.join("\n")).toContain("cost: $1.50");

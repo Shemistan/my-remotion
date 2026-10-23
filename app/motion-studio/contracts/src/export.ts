@@ -31,15 +31,23 @@ export const ExportRequestSchema = z.object({
 }).strict();
 export type ExportRequest = z.infer<typeof ExportRequestSchema>;
 
-/** Сверка темпа экспорта со сменой fps: кадр экспорта round(n·k) против стоп-кадра версии n. */
+/**
+ * Сверка темпа экспорта со сменой fps: кадр экспорта n·k (только точно совпадающие моменты,
+ * n·k целое) против стоп-кадра версии n. Новые поля необязательны — манифесты первых экспортов.
+ */
 export const TempoCheckSchema = z.object({
   factor: z.number().positive(),
   threshold: z.number().positive(),
+  hotTile: z.number().positive().optional(),
+  hotTilesMin: z.number().int().positive().optional(),
+  compare: z.object({ width: z.number().int().positive(), height: z.number().int().positive() }).strict().optional(),
   samples: z.array(z.object({
     frame: z.number().int().nonnegative(),
     exportFrame: z.number().int().nonnegative(),
     maxTile: z.number().nonnegative(),
+    hotTiles: z.number().int().nonnegative().optional(),
     mean: z.number().nonnegative(),
+    rendered: z.boolean().optional(),
   }).strict()),
   mismatched: z.array(z.number().int().nonnegative()),
 }).strict();

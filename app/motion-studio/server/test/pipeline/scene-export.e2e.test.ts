@@ -58,13 +58,15 @@ afterAll(async () => {
       `Прогон ${new Date().toISOString()}, версия ${version?.id} (v${version?.number}), ${version?.prompt?.slice(0, 120) ?? ""}`,
       "Время — стена задачи от постановки в очередь до итога (рендер под семафором, gate, публикация).",
       "",
-      "| Экспорт | Версия | Запрос | Итог | Время, с | ffprobe / ошибка | Сверка темпа (кадр → кадр экспорта: худшая клетка) | export_id |",
+      "Сверка темпа: кадр версии → кадр экспорта в тот же момент: худшая клетка / клеток > 0,03 (* — стоп-кадр дорендерен). Расходится: худшая > 0,06 или ≥ 3 клеток > 0,03.",
+      "",
+      "| Экспорт | Версия | Запрос | Итог | Время, с | ffprobe / ошибка | Сверка темпа | export_id |",
       "|---|---|---|---|---|---|---|---|",
       ...rows.map((r) => {
         const p = r.manifest?.ffprobe;
         const probe = p ? `${p.codec}${p.audioCodec ? `+${p.audioCodec}` : ""} ${p.width}×${p.height} ${p.fps.num}/${p.fps.den} ${p.durationMs} мс` : (r.job.error?.message ?? "—");
         const tc = r.manifest?.tempo_check;
-        const tempo = tc ? tc.samples.map((s) => `${s.frame}→${s.exportFrame}: ${s.maxTile}`).join(", ") : "—";
+        const tempo = tc ? tempoText(tc) : (r.job.error?.message.match(/Расхождение.*$/)?.[0] ?? "—");
         return `| ${r.name} | ${r.versionId} | ${JSON.stringify(r.request)} | ${r.job.status} | ${(r.ms / 1000).toFixed(1)} | ${probe.replaceAll("|", "/")} | ${tempo} | ${r.manifest?.export_id ?? "—"} |`;
       }),
       "",
@@ -107,6 +109,10 @@ async function exportJob(name: string, request: ExportRequest, v: versions.Versi
   return { job, ex, file, manifest };
 }
 
+/** Сэмплы сверки: «кадр→кадр экспорта: худшая/клеток», * — стоп-кадр дорендерен. */
+const tempoText = (t: NonNullable<ExportManifest["tempo_check"]>) =>
+  t.samples.map((s) => `${s.frame}${s.rendered ? "*" : ""}→${s.exportFrame}: ${s.maxTile}/${s.hotTiles ?? "?"}`).join(", ");
+
 let first: ExportManifest;
 
 it("mp4 версии: каталог exports/<id>/ read-only, export-manifest, ffprobe файла = манифест, gate пуст", async () => {
@@ -141,7 +147,32 @@ it("mp4 60 fps: fps 60/1, длительность прежняя ± 1 кадр,
   expect(Math.abs(manifest!.ffprobe.durationMs - first.ffprobe.durationMs)).toBeLessThanOrEqual(1000 / 60 + 0.001);
   // F2: сверка темпа со стоп-кадрами версии прошла — кадры сцены идут через props и kit
   expect(manifest!.tempo_check?.mismatched).toEqual([]);
-  console.log(`сверка темпа v${version.number}: ${manifest!.tempo_check!.samples.map((s) => `${s.frame}→${s.exportFrame}: ${s.maxTile}`).join(", ")}`);
+  console.log(`сверка темпа v${version.number}: ${tempoText(manifest!.tempo_check!)}`);
+}, T);
+
+// R1: дробный k — сверка только в точно совпадающие моменты, недостающие стоп-кадры дорендерены
+for (const fps of [50, 25, 24] as const) {
+  it(`R1: mp4 ${fps} fps правильной сцены → completed, сверка по кратным моментам без расхождений`, async () => {
+    const { job, manifest } = await exportJob(`mp4-${fps}`, { format: "mp4", crf: 18, scale: 1, fps }, version);
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(manifest!.ffprobe.fps).toEqual({ num: fps, den: 1 });
+    const step = { 50: 3, 25: 6, 24: 5 }[fps];
+    for (const s of manifest!.tempo_check!.samples) {
+      expect(s.frame % step).toBe(0);
+      expect(s.exportFrame).toBe((s.frame * fps) / 30);
+    }
+    expect(manifest!.tempo_check!.mismatched).toEqual([]);
+    expect(readdirSync(dirname(join(DATA_DIR, exportsRepo.get(core.db, manifest!.export_id)!.path))).sort()).toEqual(["export-manifest.json", "scene.mp4"]);
+  }, T);
+}
+
+it("R3: mp4 60 fps со scale 0.5 → сверка в размере экспорта, без расхождений", async () => {
+  const { job, manifest } = await exportJob("mp4-60-half", { format: "mp4", crf: 18, scale: 0.5, fps: 60 }, version);
+  expect(job.status, JSON.stringify(job.error)).toBe("completed");
+  const settings = (await readVersion(join(DATA_DIR, version.path))).settings;
+  expect(manifest!.ffprobe.width).toBe(settings.width / 2);
+  expect(manifest!.tempo_check!.compare!.width).toBe(Math.min(480, settings.width / 2));
+  expect(manifest!.tempo_check!.mismatched).toEqual([]);
 }, T);
 
 it("F6: шаг загрузки reconcile_exports на реальном хранилище — без ошибок", () => {
@@ -168,13 +199,16 @@ it("F2: ранняя сцена с кадрами в коде и props вне Sc
   expect(job.error).toMatchObject({ code: "pipeline", stage: "export", message: expect.stringMatching(/^fps_change_unsupported: props версии вне договора ScenePropsBase/) });
 }, T);
 
-it("F2: сцена по договору с литералами в interpolate → 60 fps: итог по сверке темпа (evidence)", async () => {
+it("R2: сцена по договору с кадрами в коде (каскад частиц сжат в 60 fps) → failed fps_tempo_mismatch, экспорта нет", async () => {
   const v = readyById(BASE_LITERAL);
+  expect(v, `версия ${BASE_LITERAL} не ready на SSD`).toBeDefined();
   if (!v) return;
-  const { job, manifest } = await exportJob("base-literal-60", { format: "mp4", crf: 18, scale: 1, fps: 60 }, v);
-  console.log(`base-literal-60: ${job.status} ${JSON.stringify(job.error ?? manifest?.tempo_check)}`);
-  if (job.status === "failed") expect(job.error?.message).toMatch(/^fps_tempo_mismatch: сцена зашила кадры в код/);
-  else expect(manifest!.tempo_check!.mismatched).toEqual([]);
+  const before = exportsRepo.listByVersion(core.db, v.id).length;
+  const { job } = await exportJob("base-literal-60", { format: "mp4", crf: 18, scale: 1, fps: 60 }, v);
+  console.log(`base-literal-60: ${job.status} ${job.error?.message}`);
+  expect(job.status).toBe("failed");
+  expect(job.error).toMatchObject({ code: "pipeline", stage: "export", message: expect.stringMatching(/^fps_tempo_mismatch: сцена зашила кадры в код/) });
+  expect(exportsRepo.listByVersion(core.db, v.id)).toHaveLength(before);
 }, T);
 
 it("prores4444 у версии с непрозрачным фоном → failed transparent_unsupported, файла нет", async () => {

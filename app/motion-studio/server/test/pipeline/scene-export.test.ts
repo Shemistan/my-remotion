@@ -259,6 +259,8 @@ describe("sceneExport", () => {
     expect(exportsRepo.listByVersion(env.db, v.id)).toHaveLength(2);
   });
 
+  const TEMPO = { factor: 2, threshold: 0.06, hotTile: 0.03, hotTilesMin: 3, compare: { width: 480, height: 270 } };
+
   it("F2: fps 60 и расхождение темпа со стоп-кадрами → failed, fps_tempo_mismatch, draft в карантине, экспорта нет", async () => {
     const v = await readyVersion();
     const { job, r } = await runExport(v.id, { ...MP4, fps: 60 }, fakeExport({
@@ -266,7 +268,7 @@ describe("sceneExport", () => {
         writeFileSync(req.outPath, "v");
         return {
           ok: true, gate: [], warnings: [],
-          tempo: { factor: 2, threshold: 0.06, samples: [{ frame: 13, exportFrame: 26, maxTile: 0.31, mean: 0.02 }, { frame: 43, exportFrame: 86, maxTile: 0.01, mean: 0.005 }], mismatched: [13] },
+          tempo: { ...TEMPO, samples: [{ frame: 13, exportFrame: 26, maxTile: 0.31, hotTiles: 9, mean: 0.02 }, { frame: 43, exportFrame: 86, maxTile: 0.05, hotTiles: 4, mean: 0.005 }, { frame: 70, exportFrame: 140, maxTile: 0.01, hotTiles: 0, mean: 0.005 }], mismatched: [13, 43] },
           probe: { durationMs: 6000, width: 1920, height: 1080, fps: { num: 60, den: 1 }, codec: "h264", audioCodec: "aac" },
         };
       },
@@ -275,7 +277,8 @@ describe("sceneExport", () => {
     const msg = (r as { error: { message: string } }).error.message;
     expect(msg).toMatch(/^fps_tempo_mismatch: сцена зашила кадры в код/);
     expect(msg).toMatch(/экспортируйте в исходном fps \(30\) или перегенерируйте/);
-    expect(msg).toMatch(/кадр 13 → 26: 0\.31/);
+    expect(msg).toMatch(/худшая клетка > 0\.06 или ≥ 3 клеток > 0\.03/);
+    expect(msg).toMatch(/кадр 13 → 26: 0\.31, клеток 9; кадр 43 → 86: 0\.05, клеток 4$/);
     expect(listExports()).toEqual([]);
     expect(readFileSync(join(env.s.root, "workspace/drafts", `${job.id}-a1`, QUARANTINE), "utf8")).toMatch(/fps_tempo_mismatch/);
   });
@@ -289,7 +292,7 @@ describe("sceneExport", () => {
 
   it("F2: темп совпал → сверка и предупреждения в манифесте и outputRefs", async () => {
     const v = await readyVersion();
-    const tempo = { factor: 2, threshold: 0.06, samples: [{ frame: 13, exportFrame: 26, maxTile: 0.01, mean: 0.005 }], mismatched: [] };
+    const tempo = { ...TEMPO, samples: [{ frame: 15, exportFrame: 12, maxTile: 0.01, hotTiles: 0, mean: 0.005, rendered: true }], mismatched: [] };
     const { r } = await runExport(v.id, { ...MP4, fps: 60 }, fakeExport({
       result: (req) => {
         writeFileSync(req.outPath, "v");

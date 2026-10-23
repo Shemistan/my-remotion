@@ -4,7 +4,7 @@ export { type ProbeResult, ffprobe, h264Size, probeGate } from "./ffprobe.js";
 export { type Proc, reapStrayRenderers } from "./processes.js";
 export { type RenderRequest, type RenderResult, type RenderStage, type RunRef, renderVersion } from "./render-version.js";
 export { EXPORT_TIMEOUT_MS, type ExportResult, type ExportStage, type ExportVersionRequest, exportProps, exportVersion } from "./export-version.js";
-export { TEMPO_TILE_THRESHOLD, type TempoCheck, type TempoSample, tempoCheck } from "./tempo.js";
+export { TEMPO_HOT_TILE, TEMPO_HOT_TILES_MIN, TEMPO_TILE_THRESHOLD, type TempoCheck, type TempoSample, tempoCheck } from "./tempo.js";
 export { FfmpegError, type FfmpegOptions } from "./ffmpeg.js";
 export { exportDurationFrames, exportFps, exportGate } from "./export-gate.js";
 export { alphaAtCorner } from "./alpha.js";

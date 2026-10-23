@@ -19,6 +19,10 @@ describe("frameLiterals", () => {
     expect(w).toMatchObject({ file: "src/Scene.tsx", line: 1 });
     expect(w.message).toMatch(/140/);
     expect(w.message).toMatch(/props\.timing/);
+    // R5: сверка темпа видит только стоп-кадры — отказ не гарантирован
+    expect(w.message).toMatch(/может пойти быстрее/);
+    expect(w.message).toMatch(/может отказать/);
+    expect(w.message).not.toMatch(/экспорт откажет/);
   });
 
   it("кадровые пропы JSX с числом: Sequence from/durationInFrames, travel, until", () => {
@@ -44,6 +48,8 @@ describe("frameLiterals", () => {
       "<PulseAlongPath travel={props.content.travel} delay={s.motion.enter_frames} />",
       "const e = frame - 1;",
       "<Card width={480} height={320} />",
+      // R5: общие имена без кадрового смысла не считаются кадровыми пропами
+      "<Badge at={30} duration={20} hold={40} />",
     ].join("\n");
     expect(lines(text)).toEqual([]);
   });

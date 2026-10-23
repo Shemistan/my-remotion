@@ -14,6 +14,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { alphaAtCorner } from "../src/node/alpha.js";
 import { ensureRenderBrowser } from "../src/node/browser.js";
 import { type ExportResult, type ExportVersionRequest, exportVersion } from "../src/node/export-version.js";
+import type { TempoCheck } from "../src/node/tempo.js";
 import { ffprobe, findOnPath } from "../src/node/ffprobe.js";
 import { renderVersion } from "../src/node/render-version.js";
 import { copyFixture, fixtureSettings, makeStore, makeTmp, removeTmp } from "./helpers.js";
@@ -162,12 +163,40 @@ it("F2: kit-gallery с props по договору → mp4 60 fps: файл ве
   expect(r.probe.fps).toEqual({ num: 60, den: 1 });
   expect(Math.abs(r.probe.durationMs - 5000)).toBeLessThanOrEqual(1000 / 60 + 0.001);
   expect(r.tempo).not.toBeNull();
-  const samples = r.tempo!.samples.map((s) => `${s.frame}→${s.exportFrame}: ${s.maxTile}`).join(", ");
+  const samples = tempoText(r.tempo!);
   console.log(`kit-gallery 60 fps, сверка темпа: ${samples}`);
-  rows.push({ name: "kit-gallery-60-tempo: сверка", request: { ...MP4, fps: 60 }, ms: 0, note: `худшая клетка по стоп-кадрам: ${samples}; порог ${r.tempo!.threshold}; расхождение: ${r.tempo!.mismatched.join(", ")}` });
+  rows.push({ name: "kit-gallery-60-tempo: сверка", request: { ...MP4, fps: 60 }, ms: 0, note: `кадр→кадр экспорта: худшая клетка / клеток > 0,03: ${samples}; расхождение: ${r.tempo!.mismatched.join(", ")}` });
   writeFileSync(join(EVIDENCE, "kit-gallery-60-tempo.json"), JSON.stringify(r.tempo, null, 2) + "\n");
   expect(r.tempo!.mismatched.length).toBeGreaterThan(0);
 }, T);
+
+/** Сэмплы сверки: «кадр→кадр экспорта: худшая/клеток», * — стоп-кадр дорендерен. */
+const tempoText = (t: TempoCheck) => t.samples.map((s) => `${s.frame}${s.rendered ? "*" : ""}→${s.exportFrame}: ${s.maxTile}/${s.hotTiles}`).join(", ");
+
+it("R1: kit-gallery с props по договору → mp4 24 fps: только точные моменты (n кратно 5), расхождение — кадры в коде", async () => {
+  const { r } = await run("kit-gallery-24-tempo", "kit-gallery", { ...MP4, fps: 24 }, { props: kitBase, stills: [15, 40, 70, 100, 130], note: "кадры зашиты в код — fps_tempo_mismatch" });
+  expectOk(r);
+  for (const s of r.tempo!.samples) expect(s.frame % 5).toBe(0);
+  rows.push({ name: "kit-gallery-24-tempo: сверка", request: { ...MP4, fps: 24 }, ms: 0, note: `${tempoText(r.tempo!)}; расхождение: ${r.tempo!.mismatched.join(", ")}` });
+  expect(r.tempo!.mismatched.length).toBeGreaterThan(0);
+}, T);
+
+for (const fps of [24, 25, 50] as const) {
+  it(`R1: сцена с props.timing → mp4 ${fps} fps: стоп-кадры 13/43/70 не кратны — дорендер ближайших кратных, темп совпал`, async () => {
+    const opaque = { ...(await fixtureSettings("transparent-scene")), transparent_export: false };
+    const props = (p: Record<string, unknown>) => ({ ...p, style: { ...(p.style as object), transparent: false } });
+    const { r } = await run(`timed-${fps}`, "transparent-scene", { ...MP4, fps }, { settings: opaque, props, stills: [13, 43, 70] });
+    expectOk(r);
+    const step = { 24: 5, 25: 6, 50: 3 }[fps];
+    for (const s of r.tempo!.samples) {
+      expect(s.frame % step).toBe(0);
+      expect(s.exportFrame).toBe((s.frame * fps) / 30);
+    }
+    expect(r.tempo!.samples.some((s) => s.rendered)).toBe(true);
+    rows.push({ name: `timed-${fps}: сверка`, request: { ...MP4, fps }, ms: 0, note: tempoText(r.tempo!) });
+    expect(r.tempo!.mismatched).toEqual([]);
+  }, T);
+}
 
 it("F1: 7 с (210 кадров при 30 fps) → mp4 60 fps: gate по видеопотоку проходит, звук AAC длиннее на хвост кадра", async () => {
   const s7 = { ...(await fixtureSettings("transparent-scene")), transparent_export: false, duration_frames: 210 };
@@ -193,7 +222,7 @@ it("M11: сцена с props.timing — кадр 60 из 60 fps совпадае
   expectOk(b.r);
   // сверка темпа по стоп-кадрам версии: темп из props — расхождений нет
   expect(b.r.tempo?.mismatched).toEqual([]);
-  rows.push({ name: "timed-60: сверка", request: { ...MP4, fps: 60 }, ms: 0, note: `худшая клетка: ${b.r.tempo!.samples.map((s) => `${s.frame}→${s.exportFrame}: ${s.maxTile}`).join(", ")}` });
+  rows.push({ name: "timed-60: сверка", request: { ...MP4, fps: 60 }, ms: 0, note: tempoText(b.r.tempo!) });
   expect(b.r.probe.fps).toEqual({ num: 60, den: 1 });
   expect(Math.abs(b.r.probe.durationMs - a.r.probe.durationMs)).toBeLessThanOrEqual(1000 / 60 + 0.001);
   // ряд карточек (вход 15..60 кадров при 30 fps): кадр 30 — середина входа первой карточки

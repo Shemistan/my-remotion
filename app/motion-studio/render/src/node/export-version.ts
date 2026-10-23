@@ -1,7 +1,8 @@
 // Экспорт версии (P1-14): MP4 H.264/AAC или ProRes 4444 с альфой в полном разрешении.
 // Тот же путь, что у рендера (renderJob): spawnTracked, обёртка Chrome без сети, asset-guard
 // `/proxy`, TMPDIR попытки, renderId — экспорт защиту не ослабляет (ruling 17).
-import { dirname, extname } from "node:path";
+import { mkdtemp, rm } from "node:fs/promises";
+import { dirname, extname, join } from "node:path";
 import {
   type ExportRequest, ExportRequestSchema, type ProbeResult, ScenePropsBaseSchema, type Settings, scaleContentFrames, scaleTiming, unscaledTimeKeys,
 } from "@ms/contracts";
@@ -79,8 +80,10 @@ function workerExport(request: ExportRequest, out: string): WorkerExport {
  * Экспорт версии в `outPath`. fps из запроса ≠ fps версии → композиция с новым fps и
  * длительностью, props — `exportProps`; до рендера — отказ `unsupported`
  * (`fps_change_unsupported`), если props вне `ScenePropsBase` или у версии нет стоп-кадров;
- * после рендера и пройденного gate — сверка темпа `tempoCheck` (поле `tempo`: кадры в коде
- * сцены не масштабируются, такой ролик идёт быстрее). Бросает, как `renderVersion`, если
+ * после рендера и пройденного gate — сверка темпа `tempoCheck` в точно совпадающие моменты
+ * (поле `tempo`: кадры в коде сцены не масштабируются, такой ролик идёт в другом темпе);
+ * недостающие стоп-кадры версии дорендериваются в `.tempo-stills-*` рядом с `outPath` и
+ * удаляются после сверки (вызывающий держит семафор рендеров). Бросает, как `renderVersion`, если
  * рендер невозможен в принципе (хранилище, Chrome, ffprobe), и при неверном расширении `outPath`.
  */
 export async function exportVersion(req: ExportVersionRequest, signal?: AbortSignal, deps: ExportDeps = {}): Promise<ExportResult> {
@@ -133,15 +136,38 @@ export async function exportVersion(req: ExportVersionRequest, signal?: AbortSig
   if (!r.ok || !r.probe) return { ok: false, error: r.error ?? { stage: "media", message: "worker не вернул файл экспорта" } };
   const gate = exportGate(r.probe, request, req.settings);
   if (factor === 1 || gate.length > 0) return { ok: true, probe: r.probe, gate, tempo: null, warnings };
+  // R1: стоп-кадры точно совпадающих моментов, которых у версии нет, — рендер версии в её fps
+  // (бандл в кэше, без LLM) в каталог внутри draft; вызывающий держит семафор рендеров
+  const extra: string[] = [];
+  let orphanedStills = false;
+  const renderStills = async (frames: number[]): Promise<string> => {
+    const dir = await mkdtemp(join(dirname(req.outPath), ".tempo-stills-"));
+    extra.push(dir);
+    const s = await renderJob(
+      { versionDir: req.versionDir, outDir: dir, settings: req.settings, cacheDir: req.cacheDir, stills: frames, preview: null, timeoutMs: req.timeoutMs, run: req.run },
+      signal,
+      deps,
+    );
+    if (!s.ok) {
+      const e = s.error ?? { stage: "still" as const, message: "worker не снял кадры" };
+      orphanedStills = e.stage === "orphaned";
+      throw new StillsError(e.stage, `дорендер стоп-кадров ${frames.join(", ")}: ${e.stage}: ${e.message}`);
+    }
+    return dir;
+  };
   try {
     const tempo = await (deps.tempo ?? tempoCheck)({
       exportPath: req.outPath,
       versionDir: req.versionDir,
-      factor,
+      versionFps: req.settings.fps,
+      exportFps: fps,
+      versionFrames: req.settings.duration_frames,
       exportFrames: settings.duration_frames,
       width: req.settings.width,
       height: req.settings.height,
+      scale: request.scale,
       opaque: request.format === "mp4",
+      renderStills,
       run: req.run,
       ...(signal ? { signal } : {}),
     });
@@ -150,6 +176,19 @@ export async function exportVersion(req: ExportVersionRequest, signal?: AbortSig
     if (e instanceof StorageError) throw e;
     const message = `сверка темпа: ${(e as Error).message}`;
     if (e instanceof FfmpegError && e.kind !== "failed") return { ok: false, error: { stage: e.kind, message } };
+    if (e instanceof StillsError && INTERRUPTED.has(e.stage)) return { ok: false, error: { stage: e.stage, message } };
     return { ok: false, error: { stage: "media", message } };
+  } finally {
+    // живые процессы дорендера пишут в свой каталог — его не трогаем, draft уйдёт в карантин
+    if (!orphanedStills) for (const d of extra) await rm(d, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+/** Этапы рендера, которые и у дорендера стоп-кадров значат не «сбой», а прерывание или живые процессы. */
+const INTERRUPTED: ReadonlySet<RenderStage> = new Set<RenderStage>(["orphaned", "aborted", "timeout"]);
+
+class StillsError extends Error {
+  constructor(readonly stage: RenderStage, message: string) {
+    super(message);
   }
 }

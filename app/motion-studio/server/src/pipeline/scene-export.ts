@@ -222,12 +222,13 @@ function tempoMismatch(tempo: TempoCheck, settings: Settings, request: Pick<Expo
   const f = (x: { num: number; den: number }) => (x.den === 1 ? `${x.num}` : `${x.num}/${x.den}`);
   const bad = tempo.samples
     .filter((s) => tempo.mismatched.includes(s.frame))
-    .map((s) => `кадр ${s.frame} → ${s.exportFrame}: ${s.maxTile.toFixed(2)}`)
-    .join(", ");
+    .map((s) => `кадр ${s.frame} → ${s.exportFrame}: ${s.maxTile.toFixed(2)}${s.hotTiles !== undefined ? `, клеток ${s.hotTiles}` : ""}`)
+    .join("; ");
+  const rule = tempo.hotTile !== undefined ? `худшая клетка > ${tempo.threshold} или ≥ ${tempo.hotTilesMin} клеток > ${tempo.hotTile}` : `худшая клетка > ${tempo.threshold}`;
   return (
     `fps_tempo_mismatch: сцена зашила кадры в код — в ${f(exportFps(settings, request))} fps она идёт не в том темпе, что в исходных ${f(settings.fps)}; ` +
     `экспортируйте в исходном fps (${f(settings.fps)}) или перегенерируйте сцену. ` +
-    `Расхождение со стоп-кадрами версии выше ${tempo.threshold}: ${bad}`
+    `Расхождение со стоп-кадрами версии в те же моменты (${rule}): ${bad}`
   );
 }
 
