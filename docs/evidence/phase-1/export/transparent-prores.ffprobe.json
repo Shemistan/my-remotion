@@ -1,0 +1,11 @@
+{
+  "durationMs": 3000,
+  "width": 1280,
+  "height": 720,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "codec": "prores",
+  "pixFmt": "yuva444p12le"
+}

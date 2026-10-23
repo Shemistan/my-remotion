@@ -1,0 +1,210 @@
+// Реальный экспорт (Task 19, P1-14): Remotion renderMedia → MP4 H.264/AAC и ProRes 4444 с
+// альфой, ffprobe и ffmpeg. Запуск: `make e2e`. Пишет только в tmp/ репозитория.
+// Evidence — tmp/export-evidence/; в docs/evidence/phase-1/export/ — с MS_WRITE_EVIDENCE=1
+// (README с временем экспорта, ffprobe, кадры сверки; сами ролики туда не кладутся).
+import { execFileSync } from "node:child_process";
+import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import { mkdir } from "node:fs/promises";
+import { type AddressInfo } from "node:net";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { ExportRequest, ProbeResult, Settings } from "@ms/contracts";
+import { afterAll, beforeAll, expect, it } from "vitest";
+import { alphaAtCorner } from "../src/node/alpha.js";
+import { ensureRenderBrowser } from "../src/node/browser.js";
+import { type ExportResult, type ExportVersionRequest, exportVersion } from "../src/node/export-version.js";
+import { ffprobe, findOnPath } from "../src/node/ffprobe.js";
+import { copyFixture, fixtureSettings, makeStore, makeTmp, removeTmp } from "./helpers.js";
+
+const T = 600_000;
+const REPO = fileURLToPath(new URL("../../../../", import.meta.url));
+const EVIDENCE = join(REPO, process.env.MS_WRITE_EVIDENCE === "1" ? "docs/evidence/phase-1/export" : "tmp/export-evidence");
+/** Каталог с роликами прогона (для ручного просмотра), не удаляется в конце. */
+const OUT = join(REPO, "tmp/export-evidence/files");
+
+let tmp: string;
+let root: string;
+let cacheDir: string;
+let ffmpeg: string;
+const rows: { name: string; request: ExportRequest; ms: number; probe?: ProbeResult; sizeMb?: number; note?: string }[] = [];
+
+beforeAll(async () => {
+  await ensureRenderBrowser();
+  ffmpeg = (await findOnPath("ffmpeg"))!;
+  expect(ffmpeg, "ffmpeg не найден в PATH").toBeTruthy();
+  tmp = await makeTmp();
+  root = await makeStore(tmp);
+  cacheDir = join(tmp, "cache");
+  await mkdir(cacheDir);
+  mkdirSync(OUT, { recursive: true });
+  mkdirSync(EVIDENCE, { recursive: true });
+}, T);
+
+afterAll(async () => {
+  const lines = [
+    "# Экспорт сцены (Task 19, P1-14) — e2e",
+    "",
+    `Прогон ${new Date().toISOString()}, Remotion renderMedia, Chrome Headless Shell, ffprobe/ffmpeg системные.`,
+    "Время — стена экспорта целиком (бандл из кэша, если уже собран, рендер кадров, кодирование, ffprobe).",
+    "",
+    "| Экспорт | Запрос | Время, с | Файл | ffprobe | Заметка |",
+    "|---|---|---|---|---|---|",
+    ...rows.map((r) => {
+      const p = r.probe;
+      const probe = p ? `${p.codec}${p.audioCodec ? `+${p.audioCodec}` : ""} ${p.pixFmt ?? ""} ${p.width}×${p.height} ${p.fps.num}/${p.fps.den} ${p.durationMs} мс` : "—";
+      return `| ${r.name} | ${JSON.stringify(r.request)} | ${(r.ms / 1000).toFixed(1)} | ${r.sizeMb !== undefined ? `${r.sizeMb.toFixed(1)} МБ` : "—"} | ${probe} | ${r.note ?? ""} |`;
+    }),
+    "",
+  ];
+  writeFileSync(join(EVIDENCE, "README.md"), lines.join("\n"));
+  console.log(lines.join("\n"));
+  if (tmp) await removeTmp(tmp);
+});
+
+let n = 0;
+async function run(name: string, fixture: string, request: ExportRequest, o: { settings?: Settings; props?: (p: Record<string, unknown>) => Record<string, unknown>; note?: string } = {}) {
+  const versionDir = await copyFixture(fixture, join(tmp, `${name}-v`));
+  if (o.props) writeFileSync(join(versionDir, "props.json"), JSON.stringify(o.props(JSON.parse(readFileSync(join(versionDir, "props.json"), "utf8")) as Record<string, unknown>)));
+  const outDir = join(tmp, `${name}-out`);
+  await mkdir(outDir);
+  const outPath = join(outDir, request.format === "prores4444" ? "scene.mov" : "scene.mp4");
+  const req: ExportVersionRequest = {
+    versionDir, settings: o.settings ?? (await fixtureSettings(fixture)), request, cacheDir, outPath, timeoutMs: T - 60_000,
+    run: { root, runId: `exp${++n}`, attempt: 1 },
+  };
+  const t0 = performance.now();
+  const r = await exportVersion(req);
+  const ms = Math.round(performance.now() - t0);
+  let sizeMb: number | undefined;
+  if (r.ok) {
+    const keep = join(OUT, `${name}.${request.format === "prores4444" ? "mov" : "mp4"}`);
+    copyFileSync(outPath, keep);
+    sizeMb = readFileSync(outPath).length / 1024 / 1024;
+    writeFileSync(join(EVIDENCE, `${name}.ffprobe.json`), JSON.stringify(r.probe, null, 2) + "\n");
+  }
+  rows.push({ name, request, ms, ...(r.ok ? { probe: r.probe } : {}), ...(sizeMb !== undefined ? { sizeMb } : {}), ...(o.note ? { note: o.note } : {}) });
+  return { r, outPath, req };
+}
+
+function expectOk(r: ExportResult): asserts r is Extract<ExportResult, { ok: true }> {
+  expect(r.ok ? undefined : r.error).toBeUndefined();
+  if (!r.ok) throw new Error("экспорт не удался");
+  expect(r.gate).toEqual([]);
+}
+
+/** RGBA прямоугольника кадра `frame` видео (ffmpeg → rawvideo). */
+function region(path: string, frame: number, rect: { x: number; y: number; w: number; h: number }): Buffer {
+  return execFileSync(ffmpeg, [
+    "-v", "error", "-nostdin", "-i", path, "-vf", `select=eq(n\\,${frame}),crop=${rect.w}:${rect.h}:${rect.x}:${rect.y}`,
+    "-fps_mode", "passthrough", "-frames:v", "1", "-pix_fmt", "rgba", "-f", "rawvideo", "-",
+  ], { maxBuffer: 64 * 1024 * 1024 });
+}
+
+/** Средняя абсолютная разница RGB, 0..1 (как frameDelta QA). */
+function delta(a: Buffer, b: Buffer): number {
+  expect(a.length).toBe(b.length);
+  let sum = 0;
+  for (let i = 0; i < a.length; i += 4) sum += Math.abs(a[i]! - b[i]!) + Math.abs(a[i + 1]! - b[i + 1]!) + Math.abs(a[i + 2]! - b[i + 2]!);
+  return sum / ((a.length / 4) * 3 * 255);
+}
+
+/** Кадр в PNG для evidence. */
+function png(path: string, frame: number, out: string): void {
+  execFileSync(ffmpeg, ["-v", "error", "-nostdin", "-y", "-i", path, "-vf", `select=eq(n\\,${frame})`, "-fps_mode", "passthrough", "-frames:v", "1", out]);
+}
+
+const MP4: ExportRequest = { format: "mp4", crf: 18, scale: 1 };
+let kit30: ProbeResult;
+
+it("kit-gallery → mp4: gate пуст, ffprobe h264 + aac, 1920×1080, 30/1", async () => {
+  const { r, outPath } = await run("kit-gallery-30", "kit-gallery", MP4);
+  expectOk(r);
+  expect(r.probe).toMatchObject({ codec: "h264", audioCodec: "aac", width: 1920, height: 1080, fps: { num: 30, den: 1 } });
+  expect(Math.abs(r.probe.durationMs - 5000)).toBeLessThanOrEqual(1000 / 30 + 0.001);
+  // ffprobe вне реестра даёт то же
+  expect(await ffprobe(outPath)).toEqual(r.probe);
+  kit30 = r.probe;
+}, T);
+
+it("09 §1 п.5: повторный экспорт той же версии → та же длительность и размеры", async () => {
+  const { r } = await run("kit-gallery-30-repeat", "kit-gallery", MP4, { note: "повтор: бандл из кэша" });
+  expectOk(r);
+  expect({ d: r.probe.durationMs, w: r.probe.width, h: r.probe.height }).toEqual({ d: kit30.durationMs, w: kit30.width, h: kit30.height });
+}, T);
+
+it("kit-gallery → mp4 60 fps: fps 60/1, длительность прежняя ± 1 кадр", async () => {
+  const { r } = await run("kit-gallery-60", "kit-gallery", { ...MP4, fps: 60 }, { note: "биты сцены зашиты в коде кадрами 30 fps — темп меняется, сверка кадров — на transparent-scene" });
+  expectOk(r);
+  expect(r.probe.fps).toEqual({ num: 60, den: 1 });
+  expect(Math.abs(r.probe.durationMs - kit30.durationMs)).toBeLessThanOrEqual(1000 / 60 + 0.001);
+}, T);
+
+it("M11: сцена с props.timing — кадр 60 из 60 fps совпадает с кадром 30 из 30 fps в области элемента", async () => {
+  const opaque = { ...(await fixtureSettings("transparent-scene")), transparent_export: false };
+  const props = (p: Record<string, unknown>) => ({ ...p, style: { ...(p.style as object), transparent: false } });
+  const a = await run("timed-30", "transparent-scene", MP4, { settings: opaque, props });
+  expectOk(a.r);
+  const b = await run("timed-60", "transparent-scene", { ...MP4, fps: 60 }, { settings: opaque, props });
+  expectOk(b.r);
+  expect(b.r.probe.fps).toEqual({ num: 60, den: 1 });
+  expect(Math.abs(b.r.probe.durationMs - a.r.probe.durationMs)).toBeLessThanOrEqual(1000 / 60 + 0.001);
+  // ряд карточек (вход 15..60 кадров при 30 fps): кадр 30 — середина входа первой карточки
+  const cards = { x: 200, y: 300, w: 880, h: 340 };
+  const at30 = region(a.outPath, 30, cards);
+  const d = delta(at30, region(b.outPath, 60, cards));
+  // контроль: тот же номер кадра на 60 fps — это 0,5 с, вход в другой фазе
+  const wrong = delta(at30, region(b.outPath, 30, cards));
+  console.log(`frameDelta 30@30 vs 60@60 = ${d.toFixed(5)}, vs 30@60 = ${wrong.toFixed(5)}`);
+  rows.push({ name: "сверка M11", request: { ...MP4, fps: 60 }, ms: 0, note: `frameDelta кадр 30@30 fps vs 60@60 fps = ${d.toFixed(5)} (< 0.01); тот же номер кадра 30@60 fps = ${wrong.toFixed(5)}` });
+  expect(d).toBeLessThan(0.01);
+  expect(wrong).toBeGreaterThan(d * 3);
+  png(a.outPath, 30, join(EVIDENCE, "timed-30-f30.png"));
+  png(b.outPath, 60, join(EVIDENCE, "timed-60-f60.png"));
+  png(b.outPath, 30, join(EVIDENCE, "timed-60-f30.png"));
+}, T);
+
+it("transparent-scene → prores4444: альфа-формат (yuva444p10le / yuva444p12le по ffprobe), альфа угла кадра 30 = 0, карточки непрозрачны", async () => {
+  const { r, outPath } = await run("transparent-prores", "transparent-scene", { format: "prores4444", crf: 18, scale: 1 });
+  expectOk(r);
+  expect(r.probe.pixFmt).toMatch(/^yuva444p1[02]le$/);
+  expect(r.probe).toMatchObject({ codec: "prores", width: 1280, height: 720, fps: { num: 30, den: 1 } });
+  expect(await alphaAtCorner(outPath, 30)).toBe(0);
+  // центр средней карточки на кадре 75 (вход завершён) — непрозрачен
+  expect(await alphaAtCorner(outPath, 75, { x: 640, y: 470 })).toBe(255);
+  png(outPath, 75, join(EVIDENCE, "transparent-prores-f75.png"));
+}, T);
+
+/** Локальный сервис (как Control API): число запросов к нему за время `fn`. */
+async function withService<T>(fn: (port: number) => Promise<T>): Promise<{ v: T; hits: number }> {
+  let hits = 0;
+  const server = createServer((_req, res) => {
+    hits++;
+    res.end("ok");
+  });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+  try {
+    const v = await fn((server.address() as AddressInfo).port);
+    return { v, hits };
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+}
+
+it("ruling 17: в режиме export Chrome не достаёт loopback, а Node-сторона /proxy и звук — под asset-guard", async () => {
+  const loop = await withService((port) => run("loopback-export", "loopback-scene", MP4, { props: () => ({ port }) }));
+  expect(loop.hits).toBe(0);
+  expectOk(loop.v.r); // ассет бандла загрузился
+
+  const fetchP = await withService((port) => run("proxy-fetch-export", "proxy-scene", MP4, { props: () => ({ port, mode: "fetch" }) }));
+  expect(fetchP.hits).toBe(0);
+  expectOk(fetchP.v.r);
+
+  // звук с URL Node скачивает при сборке дорожки AAC — экспорт падает, сервис не тронут
+  const audio = await withService((port) => run("proxy-audio-export", "proxy-scene", MP4, { props: () => ({ port, mode: "audio" }) }));
+  expect(audio.hits).toBe(0);
+  expect(audio.v.r).toMatchObject({ ok: false, error: { stage: "media" } });
+  if (!audio.v.r.ok) expect(audio.v.r.error.message).toMatch(/ассет заблокирован/);
+  // в run/processes не осталось записей
+  expect(readdirSync(join(root, "run/processes"))).toEqual([]);
+}, T);

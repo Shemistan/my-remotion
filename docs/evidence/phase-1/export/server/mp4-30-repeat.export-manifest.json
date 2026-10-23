@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "export_id": "exp_01M5MGNHG3BKBVAPGCQSA236S6",
+  "version_id": "ver_01M5ME1VZRFDHPPGV29D2VP2DA",
+  "version_manifest_sha256": "f28d0b1a98ec7ebdd5e996cd56508e129bcc0bf1c7cc09a1f9510aca92d013d1",
+  "format": "mp4",
+  "request": {
+    "format": "mp4",
+    "crf": 18,
+    "scale": 1
+  },
+  "settings": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 180,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "ffprobe": {
+    "durationMs": 6016,
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "codec": "h264",
+    "audioCodec": "aac",
+    "pixFmt": "yuv420p"
+  },
+  "sha256": "ea65547dd2ea109658fc25b6bcdcda24b775d658432b894293e017059968c1bf",
+  "render_env": {
+    "remotion": "4.0.537",
+    "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
+    "motion_kit": "sha256:26e090d8af99df42",
+    "chrome_headless_shell": "157.0.8080.0-remotion-v3",
+    "node": "22.21.1"
+  },
+  "created_at": "2026-10-23T13:54:36.178Z"
+}

@@ -33,6 +33,13 @@ export type PublishMeta = Omit<VersionManifest, "files" | "version_id" | "number
 function checkId(kind: string, id: string): void {
   if (!SAFE_ID.test(id)) throw new Error(`scenes: ${kind} не годится для имени файла: ${JSON.stringify(id)}`);
 }
+/** Каталог экспорта относительно корня хранилища (`05` §1). */
+export function exportRel(projectId: string, exportId: string): string {
+  checkId("projectId", projectId);
+  checkId("exportId", exportId);
+  return `workspace/projects/${projectId}/exports/${exportId}`;
+}
+
 /** Каталог сцены относительно корня хранилища. */
 export function sceneRel(projectId: string, sceneId: string): string {
   checkId("projectId", projectId);
@@ -86,7 +93,7 @@ async function lockChildren(dir: string): Promise<void> {
 
 const sameSnapshot = (a: Map<string, string>, b: Map<string, string>) => a.size === b.size && [...a].every(([k, v]) => b.get(k) === v);
 
-function setWritableSync(path: string): void {
+export function setWritableSync(path: string): void {
   const st = lstatSync(path);
   if (st.isDirectory()) {
     chmodSync(path, 0o755);
@@ -96,7 +103,8 @@ function setWritableSync(path: string): void {
   }
 }
 
-function lockChildrenSync(dir: string): void {
+/** `chmod -R a-w` содержимого (без корня), синхронно — годится внутри транзакции. */
+export function lockChildrenSync(dir: string): void {
   for (const n of readdirSync(dir)) {
     const p = join(dir, n);
     const st = lstatSync(p);
@@ -126,7 +134,7 @@ async function writablePath(dir: string): Promise<string | undefined> {
   return undefined;
 }
 
-async function fsyncWrite(path: string, data: string): Promise<void> {
+export async function fsyncWrite(path: string, data: string): Promise<void> {
   const fh = await open(path, "w");
   try {
     await fh.writeFile(data);
@@ -146,7 +154,7 @@ function fsyncWriteSync(path: string, data: string): void {
   }
 }
 
-function fsyncDirSync(dir: string): void {
+export function fsyncDirSync(dir: string): void {
   const fd = openSync(dir, constants.O_RDONLY);
   try {
     fsyncSync(fd);

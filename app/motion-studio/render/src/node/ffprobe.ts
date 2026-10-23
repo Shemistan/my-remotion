@@ -4,7 +4,7 @@ import { access, constants } from "node:fs/promises";
 import { delimiter, isAbsolute, join } from "node:path";
 import type { Fps, ProbeResult, Settings } from "@ms/contracts";
 
-// Тип — из `@ms/contracts` (ProbeResultSchema); `audioCodec`/`pixFmt` заполнит экспорт (Task 19).
+// Тип — из `@ms/contracts` (ProbeResultSchema); `audioCodec` и `pixFmt` нужны gate экспорта.
 export type { ProbeResult };
 
 export const FFPROBE_ARGS = ["-v", "error", "-print_format", "json", "-show_streams", "-show_format"];
@@ -17,6 +17,7 @@ interface RawStream {
   height?: number;
   r_frame_rate?: string;
   duration?: string;
+  pix_fmt?: string;
 }
 
 function gcd(a: number, b: number): number {
@@ -32,19 +33,22 @@ function parseRate(rate: string | undefined): Fps {
   return { num: num / g, den: den / g };
 }
 
-/** Разбор JSON `ffprobe -show_streams -show_format`: первый видеопоток. */
+/** Разбор JSON `ffprobe -show_streams -show_format`: первый видеопоток и кодек первого звукового. */
 export function parseProbe(json: string): ProbeResult {
   const data = JSON.parse(json) as { streams?: RawStream[]; format?: { duration?: string } };
   const v = data.streams?.find((s) => s.codec_type === "video");
   if (!v || !v.codec_name || !v.width || !v.height) throw new Error("ffprobe: в файле нет видеопотока");
   const seconds = Number(data.format?.duration ?? v.duration);
   if (!Number.isFinite(seconds) || seconds <= 0) throw new Error("ffprobe: длительность не определена");
+  const audio = data.streams?.find((s) => s.codec_type === "audio" && s.codec_name);
   return {
     durationMs: Math.round(seconds * 1_000_000) / 1000,
     width: v.width,
     height: v.height,
     fps: parseRate(v.r_frame_rate),
     codec: v.codec_name,
+    ...(v.pix_fmt ? { pixFmt: v.pix_fmt } : {}),
+    ...(audio?.codec_name ? { audioCodec: audio.codec_name } : {}),
   };
 }
 

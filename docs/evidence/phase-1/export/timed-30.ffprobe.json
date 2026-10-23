@@ -1,0 +1,12 @@
+{
+  "durationMs": 3008,
+  "width": 1280,
+  "height": 720,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "codec": "h264",
+  "pixFmt": "yuv420p",
+  "audioCodec": "aac"
+}

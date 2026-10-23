@@ -9,7 +9,7 @@ import { CHROME_WRAPPER, findRenderBrowser } from "./browser.js";
 import { APP_NODE_MODULES, MOTION_KIT_DIR, mkdirOne, readProps, writeEntry } from "./entry.js";
 import { FFPROBE_ARGS, type ProbeResult, ffprobeBin, parseProbe } from "./ffprobe.js";
 import { reapByMarker, settleBrowserRecords } from "./processes.js";
-import type { WorkerJob, WorkerResult, WorkerStage } from "./protocol.js";
+import type { WorkerExport, WorkerJob, WorkerResult, WorkerStage } from "./protocol.js";
 
 export interface RenderRequest {
   versionDir: string;
@@ -52,10 +52,24 @@ export interface RenderRequest {
  */
 export type RenderStage = WorkerStage | "ffprobe" | "timeout" | "aborted" | "orphaned";
 
+/** Контекст прогона рендера (M10): хранилище, попытка, реестр процессов. */
+export type RunRef = RenderRequest["run"];
+
+/**
+ * Внутренний запрос: рендер версии или экспорт (`export` — режим export worker, Task 19).
+ * `inputProps` — props вместо `props.json` версии (экспорт в другом fps).
+ */
+export interface RenderJobRequest extends RenderRequest {
+  inputProps?: Record<string, unknown>;
+  export?: WorkerExport;
+}
+
 export interface RenderResult {
   ok: boolean;
   stills: string[];
   previewPath?: string;
+  /** Файл экспорта (режим export). */
+  exportPath?: string;
   probe?: ProbeResult;
   browserLogs: string[];
   error?: { stage: RenderStage; message: string };
@@ -143,7 +157,7 @@ async function removeLeftovers(versionDir: string, bundlesDir: string): Promise<
     if (dead(n, /^[0-9a-f]{64}\.tmp-(\d+)$/)) await rm(join(bundlesDir, n), { recursive: true, force: true });
   }
   for (const n of await readdir(versionDir)) {
-    if (dead(n, /^\.preview-(\d+)\.tmp\.mp4$/)) await rm(join(versionDir, n), { force: true });
+    if (dead(n, /^\.(?:preview|export)-(\d+)\.tmp\.(?:mp4|mov)$/)) await rm(join(versionDir, n), { force: true });
   }
 }
 
@@ -172,6 +186,16 @@ function childEnv(tmpdir: string): NodeJS.ProcessEnv {
  * типов. `versionDir`, `cacheDir` и `outDir` (если задан) должны существовать.
  */
 export async function renderVersion(req: RenderRequest, signal?: AbortSignal, deps: RenderDeps = {}): Promise<RenderResult> {
+  return renderJob(req, signal, deps);
+}
+
+/**
+ * Общая часть рендера и экспорта: одна и та же изоляция (spawnTracked, обёртка Chrome без
+ * сети, asset-guard `/proxy` в worker, TMPDIR попытки, renderId для уборки Chrome),
+ * таймаут, отмена и `orphaned`. С `req.export` worker вместо кадров и превью пишет файл
+ * экспорта, ffprobe идёт по нему; `frames/` не создаётся.
+ */
+export async function renderJob(req: RenderJobRequest, signal?: AbortSignal, deps: RenderDeps = {}): Promise<RenderResult> {
   const spawn = deps.spawn ?? spawnTracked;
   const fail = (stage: RenderStage, message: string, extra: Partial<RenderResult> = {}): RenderResult => ({
     ok: false,
@@ -202,7 +226,7 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
   let inputProps: Record<string, unknown>;
   try {
     entryPoint = await writeEntry(req.versionDir, req.cacheDir, req.settings);
-    inputProps = await readProps(req.versionDir);
+    inputProps = req.inputProps ?? (await readProps(req.versionDir));
   } catch (e) {
     if (e instanceof StorageError) throw e;
     return fail("bundle", (e as Error).message);
@@ -210,7 +234,7 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
   const key = basename(dirname(entryPoint));
 
   const outDir = req.outDir ?? req.versionDir;
-  const framesDir = await mkdirOne(join(outDir, "frames"));
+  const framesDir = req.export ? undefined : await mkdirOne(join(outDir, "frames"));
   const bundlesDir = await mkdirOne(join(req.cacheDir, "bundles"));
   const { root, runId, attempt, registry } = req.run;
   const ref = { runId, attempt };
@@ -223,6 +247,7 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
 
   const { num, den } = req.settings.fps;
   const job: WorkerJob = {
+    mode: req.export ? "export" : "render",
     entryPoint,
     bundleDir: join(bundlesDir, key),
     rootDir: dirname(entryPoint),
@@ -233,8 +258,9 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
     run: { root, runId, attempt, renderId },
     inputProps,
     composition: { width: req.settings.width, height: req.settings.height, fps: num / den, durationInFrames: frames },
-    stills: req.stills.map((frame) => ({ frame, out: join(framesDir, `${frame}.png`) })),
-    preview: req.preview ? { out: join(outDir, "preview.mp4"), scale: req.preview.scale, crf: req.preview.crf } : null,
+    stills: framesDir ? req.stills.map((frame) => ({ frame, out: join(framesDir, `${frame}.png`) })) : [],
+    preview: !req.export && req.preview ? { out: join(outDir, "preview.mp4"), scale: req.preview.scale, crf: req.preview.crf } : null,
+    export: req.export ?? null,
     timeoutMs: innerTimeoutMs(req.timeoutMs),
   };
 
@@ -300,13 +326,14 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
       });
     }
     const browserLogs = out.logs.length > 0 ? out.logs : r.browserLogs;
-    if (req.preview === null) return r.ok ? { ok: true, stills: r.stills, browserLogs } : { ok: false, stills: r.stills, browserLogs, error: r.error ?? { stage: out.stage ?? "still", message: "worker не снял кадры" } };
-    if (!r.ok || !r.previewPath) {
-      const error = r.error ?? { stage: out.stage ?? "media", message: "worker не вернул превью" };
+    if (!req.export && req.preview === null) return r.ok ? { ok: true, stills: r.stills, browserLogs } : { ok: false, stills: r.stills, browserLogs, error: r.error ?? { stage: out.stage ?? "still", message: "worker не снял кадры" } };
+    const media = req.export ? r.exportPath : r.previewPath;
+    if (!r.ok || !media) {
+      const error = r.error ?? { stage: out.stage ?? "media", message: req.export ? "worker не вернул файл экспорта" : "worker не вернул превью" };
       return { ok: false, stills: r.stills, browserLogs, error };
     }
 
-    const p = await spawn(root, ref, ffprobe, [...FFPROBE_ARGS, r.previewPath], { cwd: runTmp, env, signal: ac.signal, registry });
+    const p = await spawn(root, ref, ffprobe, [...FFPROBE_ARGS, media], { cwd: runTmp, env, signal: ac.signal, registry });
     if (p.orphaned) {
       orphaned = true;
       return fail("orphaned", "группа ffprobe не исчезла после SIGKILL; её запись оставлена в run/processes/, попытка не завершена (stale_process)", {
@@ -314,7 +341,7 @@ export async function renderVersion(req: RenderRequest, signal?: AbortSignal, de
       });
     }
     if (why) return interrupted(browserLogs);
-    const base = { stills: r.stills, previewPath: r.previewPath, browserLogs };
+    const base = req.export ? { stills: r.stills, exportPath: media, browserLogs } : { stills: r.stills, previewPath: media, browserLogs };
     if (p.code !== 0) return fail("ffprobe", `ffprobe завершился с кодом ${p.code}: ${tail(p.stderr)}`, base);
     try {
       return { ok: true, ...base, probe: parseProbe(p.stdout) };

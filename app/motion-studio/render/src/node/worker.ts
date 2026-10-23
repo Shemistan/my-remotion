@@ -1,5 +1,6 @@
 // Дочерний процесс рендера: bundle → selectComposition → renderStill по кадрам →
-// renderMedia (H.264). Запускается renderVersion через spawnTracked как
+// renderMedia (H.264); в режиме export — один renderMedia файла экспорта (MP4 H.264/AAC или
+// ProRes 4444 с альфой) с той же защитой. Запускается renderVersion через spawnTracked как
 // `node --disable-warning=ExperimentalWarning worker.ts` — встроенное в Node 22.18+
 // стирание типов, без сборки и загрузчиков. Поэтому локальные модули — `import type`
 // (стираются целиком) или явный `.ts` без зависимостей кроме node:* (resolve-jail.ts);
@@ -73,8 +74,12 @@ function parseJob(text: string): WorkerJob {
   const job = JSON.parse(text) as Partial<WorkerJob>;
   const need = ["entryPoint", "bundleDir", "rootDir", "nodeModules", "motionKitDir", "browserExecutable", "chrome"] as const;
   for (const k of need) if (typeof job[k] !== "string") throw new Error(`worker: в задании нет ${k}`);
-  if (!job.composition || job.preview === undefined || !job.run || !Array.isArray(job.stills) || typeof job.timeoutMs !== "number") {
+  if (!job.composition || job.preview === undefined || job.export === undefined || !job.run || !Array.isArray(job.stills) || typeof job.timeoutMs !== "number") {
     throw new Error("worker: неполное задание");
+  }
+  if (job.mode !== "render" && job.mode !== "export") throw new Error(`worker: неизвестный режим ${JSON.stringify(job.mode)}`);
+  if (job.mode === "export" && (!job.export || job.preview !== null || job.stills.length > 0)) {
+    throw new Error("worker: режим export — только export, без стоп-кадров и превью");
   }
   return job as WorkerJob;
 }
@@ -168,6 +173,22 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
   const selected = await selectComposition({ ...common, id: "Scene" });
   // настройки сцены — поверх композиции из бандла: бандл кэшируется по содержимому
   const composition = { ...selected, ...job.composition };
+
+  if (job.mode === "export" && job.export) {
+    // Экспорт: один renderMedia с настройками кодека, защита та же, что у превью (common —
+    // обёртка Chrome и порт бандла, onDownload — asset-guard). Временное имя рядом с `out`
+    // и rename: недописанный файл не выглядит готовым.
+    const ex = job.export;
+    startStage("media");
+    const tmpOut = join(ex.out, "..", `.export-${process.pid}.tmp.${ex.codec === "prores" ? "mov" : "mp4"}`);
+    const codecOptions =
+      ex.codec === "prores"
+        ? { codec: "prores", proResProfile: ex.proResProfile, pixelFormat: ex.pixelFormat, imageFormat: ex.imageFormat } as const
+        : { codec: "h264", crf: ex.crf, audioCodec: ex.audioCodec, enforceAudioTrack: ex.enforceAudioTrack } as const;
+    await renderMedia({ ...common, onDownload, composition, ...codecOptions, scale: ex.scale, outputLocation: tmpOut, overwrite: true });
+    await rename(tmpOut, ex.out);
+    return { ok: true, stills: [], exportPath: ex.out, browserLogs };
+  }
 
   const stills: string[] = [];
   for (const s of job.stills) {

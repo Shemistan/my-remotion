@@ -35,7 +35,7 @@ it("parses ffprobe JSON of an H.264 stream", () => {
     format: { duration: "2.000000" },
   };
   expect(parseProbe(JSON.stringify(json))).toEqual({
-    durationMs: 2000, width: 640, height: 360, fps: { num: 30, den: 1 }, codec: "h264",
+    durationMs: 2000, width: 640, height: 360, fps: { num: 30, den: 1 }, codec: "h264", audioCodec: "aac",
   });
   expect(() => parseProbe(JSON.stringify({ streams: [], format: {} }))).toThrow(/видеопоток/);
 });
