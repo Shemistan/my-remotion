@@ -277,7 +277,7 @@ expect(loadConfig({ MS_DATA_DIR: root }).agents.visual_planner.model).toBe("sonn
   - `thumbsArgs(input, outDir, everyUs, height: 180)` — `fps=1/<s>` JPEG `thumbs/%06d.jpg`; `thumbs.json = { every_us; count }`
   - `mediaImport: JobHandler` — вход `{ projectId; method: "path"; path } | { projectId; method: "upload"; uploadPath /* draft-файл из API */; originalName }`; шаги и прогресс: `probe` (битый файл → `media_invalid`, без видео → `media_invalid`) → `space` (`estimateImportBytes` + `checkStorage`) → `copy` → `proxy` → `audio16k` (нет аудио → пропуск, `has_audio = 0`) → `waveform` → `thumbs` → публикация `source/<med>/` и `proxy/<med>/` с fencing → `media_assets`, `media_derivatives`; повторный sha256 в проекте → существующий ассет; при первом импорте `projects.settings_json.timeline_fps = probe.timeline_fps`, `aspect_ratio` по `display_*`
 
-- [ ] **Step 1: Юнит-тесты (падают):**
+- [x] **Step 1: Юнит-тесты (падают):**
 
 ```ts
 const cfr = parseProbe(fx("cfr.json"), ptsCfr);
@@ -299,7 +299,7 @@ expect(Array.from(peaksFromPcm(alternating(1600, 16384), 16000, 10)).slice(0, 4)
 expect(peaksFromPcm(alternating(1600, 16384), 16000, 10).length).toBe(20);
 ```
 
-- [ ] **Step 2: e2e (`make e2e`),** `node scripts/make-media-fixtures.mjs`, хранилище `tmp/` с `MS_ALLOW_SYSTEM_DISK=1`, реальный `bootCore` и задача:
+- [x] **Step 2: e2e (`make e2e`),** `node scripts/make-media-fixtures.mjs`, хранилище `tmp/` с `MS_ALLOW_SYSTEM_DISK=1`, реальный `bootCore` и задача:
 
 ```ts
 const before = await sha256File(fixture("talk-ru-cfr.mp4"));
@@ -321,8 +321,22 @@ expect((await probeMedia(derivative(await importFixture("rotated.mov"), "proxy")
 // kill: abort во время proxy → группа ffmpeg убита, run/processes пуст, source/ проекта пуст, draft удалён или .quarantined
 ```
 
-- [ ] **Step 3: Запустить** — FAIL. **Step 4: Реализовать.** **Step 5: Запустить** — PASS; время импорта и размер прокси фикстур — в отчёт.
-- [ ] **Step 6:** `./check`; `make e2e` (media); коммит `feat(motion-studio): импорт видео, прокси, waveform и миниатюры`.
+- [x] **Step 3: Запустить** — FAIL. **Step 4: Реализовать.** **Step 5: Запустить** — PASS; время импорта и размер прокси фикстур — в отчёт.
+- [x] **Step 6:** `./check`; `make e2e` (media); коммит `feat(motion-studio): импорт видео, прокси, waveform и миниатюры`.
+
+Уточнения при реализации (2026-10-24):
+- Публикация — два каталога с fencing: сначала `proxy/<med>/` (`proxy.mp4`, `audio16k.wav`, `waveform.bin` + `waveform.json`, `thumbs/` + `thumbs.json`, `manifest.json` = `MediaManifest`), затем `source/<med>/` (`original.<ext>`, 0444, каталог a-w); строки `media_assets`, `media_derivatives` и настройки проекта пишет `register` последней публикации. Пока строки нет, `source/` проекта пуст (abort на любом этапе, битый файл, low_space). Копия оригинала до публикации лежит в `drafts/<job>-src-a<N>/` (форма `-a<N>` — её видит `sweepAbandonedDrafts`), перед публикацией переносится в `drafts/<job>-a<N>/` (имя, которого требует fencing `ArtifactStore`).
+- M3: id исходника выводится из id задачи (`med_<ULID задачи>`). Повторная попытка: прокси этой задачи в `artifact_publications` → не строится и не публикуется второй раз (`manifest.json` сверяется по sha256 с копией), `proxy_reused: true`; исходник уже в `media_assets` → задача завершается по нему. Тест: попытка 1 падает после публикации прокси, попытка 2 публикует только `source/`.
+- Один исходник на проект: при уже существующем исходнике файл хешируется до probe; тот же sha256 → `completed { deduplicated: true }` (`false`, если исходник создала эта же задача), другой — `failed media_exists` с понятным сообщением; гонка на `UNIQUE(project_id)` в `register` → тоже `media_exists`.
+- Код ошибки без этапа пайплайна (`media_invalid`, `media_exists`, `low_space`) пишется без `stage` (схема `JobError` требует `code = failureToJobErrorCode(stage)`). `ENOSPC` посреди импорта → `low_space`.
+- Импорт по пути: только абсолютный путь, realpath регулярного файла, внутри realpath одного из `media.importRoots` (по сегментам, не по префиксу строки), расширение mov/mp4/m4v/mkv/webm. ffprobe/ffmpeg — с `-protocol_whitelist file` и входом `file:<путь>`; после ffprobe контейнер обязан быть `mov,mp4,…` или `matroska,webm` (плейлисты hls/concat и подобное → `media_invalid`). Загрузка (`upload`) — файл только из `workspace/drafts` хранилища (по realpath), имя и расширение — из `originalName`.
+- `rotation` в `ProbeSummary` — как в матрице отображения ffprobe (против часовой; `-display_rotation 90` → 90), старый тег `rotate` переводится в ту же систему.
+- APFS-клон: `COPYFILE_FICLONE_FORCE` на macOS в libuv не реализован (ENOSYS), поэтому копия — `COPYFILE_FICLONE` (libuv → `copyfile(COPYFILE_CLONE)`: клон на том же томе, иначе копия), а `import.cloned` = источник на том же устройстве, что и хранилище.
+- Прокси: к аргументам плана добавлены `-t <длительность исходника>` (CFR-конверсия VFR добивала 2 кадра за концом: 20,086 с против 20,0 с) и `-map_metadata -1`; выход без `-y` (`-n`). Проверка прокси в обработчике: не VFR и расхождение длительности ≤ max(2 кадра, 100 мс). ffmpeg прокси, audio16k и миниатюр — под семафором `renders`. Миниатюры строятся из прокси (уже повёрнут), audio16k — из копии оригинала с `aresample=async=1:first_pts=0`.
+- Настройки проекта после импорта: `fps = timeline_fps`, `aspect_ratio` — ближайший из 16:9 / 9:16 / 1:1 по `display_*` (в логарифмах), `width/height` — канонические 1920×1080 / 1080×1920 / 1080×1080; поля `timeline_fps` в `Settings` нет (схема strict) — точный `timeline_fps` хранится в `media_assets`.
+- `spawnTracked` (core) получил `onStdout` — куски stdout по мере поступления (прогресс `-progress pipe:1`); `minFreeBytes` экспортирован из core, `CoreServices.minFreeBytes` — порог для `checkImportSpace`. `doctor` проверяет фильтры `silencedetect`, `scdet` (строка `filters`); энкодер `libx264` уже проверялся.
+- Фикстуры: `node scripts/make-media-fixtures.mjs [--force] [--ffprobe-fixtures]` (`say -v Milena` есть; без него — тон 440 Гц с пометкой). VFR-фикстура: части 25 и 30 fps → `avg_frame_rate 41250/1501`, `timeline_fps` — та же несокращаемая дробь (в пределах 1 % стандарта нет).
+- e2e (`MS_E2E=1 vitest run server/test/media/import.e2e.test.ts`, tmp-хранилище, `MS_ALLOW_SYSTEM_DISK=1`): 20-секундные фикстуры импортируются за 1,8–2,8 с (talk-ru-cfr 2,77 с; кириллица и пробелы 1,84 с; VFR 2,06 с; rotated 2,45 с; no-audio 5 с — 1,34 с); прокси 4,98 МБ (cfr), 4,82 МБ (vfr), 5,10 МБ (rotated, 720×1280), 1,15 МБ (no-audio) — ≈ 2 Мбит/с, в пределах оценки `estimateImportBytes` (312 500 Б/с). Этапы cfr: probe 0,2 с, копия 0,03 с, прокси ≈ 1 с, audio16k 0,1 с, миниатюры 0,25 с, публикация 0,1 с. Полный `make e2e` не запускался (он включает рендер, агентов и реальный SSD) — только media-файл.
 
 ### Task 26: ASR через CLI-воркер ai-platform (`asr.transcribe`) и сегментация
 

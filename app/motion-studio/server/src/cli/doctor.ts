@@ -1,6 +1,6 @@
 // doctor (`03` §7): проверка окружения перед запуском сервера и генерацией. Строки: Node ≥ 22;
 // `claude --version` и вход (короткий `claude -p` модели haiku без инструментов, стоимость
-// < $0,01); ffmpeg/ffprobe и энкодеры libx264, aac, prores_ks; KB_ROOT/KB_SOURCE_ROOT; StorageGuard
+// < $0,01); ffmpeg/ffprobe, энкодеры libx264, aac, prores_ks и фильтры silencedetect, scdet; KB_ROOT/KB_SOURCE_ROOT; StorageGuard
 // MS_DATA_DIR; Chrome Headless Shell (скачивается при отсутствии); `quick_check` studio.db;
 // owner-lock свободен. Итог — таблица (или `--json`), код 1 при любой ошибке.
 // `--init` создаёт хранилище, `--adopt` привязывает его к новому тому после переноса (вывод —
@@ -41,6 +41,8 @@ const USAGE = "usage: doctor [--json] | --init | --adopt | --import-slice";
 /** Порог стоимости проверочного вызова Claude (`03` §7). */
 export const LOGIN_MAX_USD = 0.01;
 const ENCODERS = ["libx264", "aac", "prores_ks"] as const;
+/** Фильтры ffmpeg для импорта и чернового монтажа (Phase 2–3): тишина, смена сцены. */
+const FILTERS = ["silencedetect", "scdet"] as const;
 
 export type BrowserCheck = () => Promise<{ path: string }>;
 
@@ -140,6 +142,17 @@ async function fullCheck(env: NodeJS.ProcessEnv, probe: VolumeProbe, browser: Br
       row("encoders", missing.length === 0, "missing", missing.length === 0 ? ENCODERS.join(", ") : `нет энкодеров: ${missing.join(", ")}`);
     } catch (e) {
       row("encoders", false, "error", errText(e));
+    }
+  }
+  if (!ffmpeg) row("filters", false, "skipped", "нет ffmpeg");
+  else {
+    try {
+      const out = await exec(ffmpeg, ["-hide_banner", "-filters"], { PATH: env.PATH }, 15_000);
+      const have = new Set([...out.matchAll(/^\s*[T.][S.][C.]\s+(\S+)\s+\S+->\S+/gm)].map((m) => m[1]!));
+      const missing = FILTERS.filter((f) => !have.has(f));
+      row("filters", missing.length === 0, "missing", missing.length === 0 ? FILTERS.join(", ") : `нет фильтров: ${missing.join(", ")}`);
+    } catch (e) {
+      row("filters", false, "error", errText(e));
     }
   }
 

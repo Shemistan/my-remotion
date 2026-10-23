@@ -327,6 +327,15 @@ export const ru = {
   "stage.edit_planner": "план правки",
   "stage.export": "экспорт",
   "stage.timeout": "таймаут",
+  // импорт видео (Task 25)
+  "stage.hash": "сверка файла",
+  "stage.space": "проверка места",
+  "stage.copy": "копия оригинала",
+  "stage.proxy": "прокси",
+  "stage.audio16k": "звук для расшифровки",
+  "stage.waveform": "волна звука",
+  "stage.thumbs": "миниатюры",
+  "stage.done": "готово",
 
   "timeline.title": "Таймлайн сцены",
   "timeline.beats": "Биты",

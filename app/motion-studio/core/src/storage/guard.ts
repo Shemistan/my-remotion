@@ -219,7 +219,8 @@ async function writeTest(root: string): Promise<void> {
   }
 }
 
-function minFreeBytes(env: StorageEnv): number {
+/** Порог свободного места (`MS_MIN_FREE_GB`, по умолчанию 10 ГиБ), байт. */
+export function minFreeBytes(env: StorageEnv): number {
   const raw = env.MS_MIN_FREE_GB?.trim();
   if (!raw) return DEFAULT_MIN_FREE_GB * GiB;
   const gb = Number(raw);

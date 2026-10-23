@@ -136,7 +136,7 @@ export async function writablePath(dir: string): Promise<string | undefined> {
   return undefined;
 }
 
-export async function fsyncWrite(path: string, data: string): Promise<void> {
+export async function fsyncWrite(path: string, data: string | Uint8Array): Promise<void> {
   const fh = await open(path, "w");
   try {
     await fh.writeFile(data);

@@ -26,6 +26,13 @@ export function get(db: Db, id: string): ProjectRow | undefined {
   return r && row(r);
 }
 
+/** Настройки проекта (первый импорт видео задаёт fps и формат кадра). */
+export function setSettings(db: Db, id: string, settings: Settings): void {
+  const s = SettingsSchema.parse(settings);
+  const r = db.prepare("UPDATE projects SET settings_json = ?, updated_at = ? WHERE id = ?").run(toJson(s), nowIso(), id);
+  if (r.changes !== 1) throw new Error(`projects: проекта ${id} нет`);
+}
+
 /**
  * Служебные проекты харнесса качества (`scripts/bench-set.mts`): `bench-<run>`, у прогонов до
  * переименования харнесса (2026-10-23) — старый префикс. UI (Task 21) их не показывает.

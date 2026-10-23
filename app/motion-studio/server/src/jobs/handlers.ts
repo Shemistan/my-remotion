@@ -1,9 +1,11 @@
 // Обработчики задач, общие для сервера и CLI: оба регистрируют одни и те же обработчики
-// (`playground.generate`, `playground.edit`, `scene.restore`, `scene.export`).
+// (`playground.generate`, `playground.edit`, `scene.restore`, `scene.export`, `media.import`).
 import type { Job } from "@ms/contracts";
+import { DEFAULT_MIN_FREE_GB } from "@ms/core";
 import { alphaAtCorner, exportVersion, renderVersion } from "@ms/render";
 import type { CoreServices } from "../boot.js";
 import type { GenerateResult } from "../pipeline/generate.js";
+import { type MediaImportDeps, mediaImport } from "../pipeline/media-import.js";
 import { playgroundEdit } from "../pipeline/playground-edit.js";
 import { type PlaygroundDeps, playgroundGenerate } from "../pipeline/playground-generate.js";
 import { sceneExport } from "../pipeline/scene-export.js";
@@ -25,6 +27,8 @@ export interface HandlerOptions {
   watchIntervalMs?: number;
   log?: (line: string) => void;
   onGenerateResult?: (job: Job, r: GenerateResult) => void;
+  /** `media.import`: начало этапа (тесты прерывают попытку). */
+  onImportStage?: MediaImportDeps["onStage"];
 }
 
 export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extra: Handlers = {}): Handlers {
@@ -54,6 +58,14 @@ export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extr
         ...(o.log ? { log: o.log } : {}),
       }),
     }),
+    "media.import": mediaImport(() => ({
+      root: svc.root,
+      media: svc.config.media,
+      storage: svc.storageCheck,
+      minFreeBytes: svc.minFreeBytes ?? DEFAULT_MIN_FREE_GB * 1024 ** 3,
+      ...(o.onImportStage ? { onStage: o.onImportStage } : {}),
+      ...(o.log ? { log: o.log } : {}),
+    })),
     ...extra,
   };
 }

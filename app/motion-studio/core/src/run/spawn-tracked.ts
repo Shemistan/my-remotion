@@ -28,6 +28,8 @@ export interface SpawnTrackedOptions {
    * строкой `…[обрезано N символов]`.
    */
   maxOutputChars?: number;
+  /** Куски stdout по мере поступления (прогресс `ffmpeg -progress pipe:1`); хвост копится как обычно. */
+  onStdout?: (chunk: string) => void;
 }
 
 /** Хвост потока ограниченной длины; амортизированно O(1) на кусок. */
@@ -108,7 +110,10 @@ export async function spawnTracked(
   const maxOut = opts.maxOutputChars ?? MAX_OUTPUT_CHARS;
   const stdout = new Tail(maxOut);
   const stderr = new Tail(maxOut);
-  child.stdout!.setEncoding("utf8").on("data", (d: string) => stdout.push(d));
+  child.stdout!.setEncoding("utf8").on("data", (d: string) => {
+    stdout.push(d);
+    opts.onStdout?.(d);
+  });
   child.stderr!.setEncoding("utf8").on("data", (d: string) => stderr.push(d));
   const gate = child.stdio[3] as Writable;
   // EPIPE и т.п., если процесс умер раньше, — не повод ронять сервер

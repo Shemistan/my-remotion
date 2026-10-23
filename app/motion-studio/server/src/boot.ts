@@ -12,6 +12,7 @@ import {
   checkStorage,
   fileProcessRegistry,
   macosProbe,
+  minFreeBytes,
   reapAttempt,
   verifyOwnerLock,
 } from "@ms/core";
@@ -50,6 +51,8 @@ export interface CoreServices {
   /** Слияние `job_processes` и бокового файлового реестра Chrome. */
   processes: ProcessRegistry;
   storageCheck: () => ReturnType<typeof checkStorage>;
+  /** Порог свободного места StorageGuard (`MS_MIN_FREE_GB`), байт: импорт видео оставляет его свободным. */
+  minFreeBytes?: number;
 }
 
 export interface BootOptions {
@@ -196,7 +199,7 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
 
     const kb = opts.kb ?? (await KnowledgeAdapter.load({ kbRoot: config.kb.root, sourceRoot: config.kb.sourceRoot }));
     const agents = opts.agents ?? new ClaudeCodeRuntime({ bin: config.claudeBin, logRoot: join(root, "logs", "agent-runs"), promptLoader: loadPrompt });
-    const svc: CoreServices = { root, config, repo, kb, agents, processes, storageCheck };
+    const svc: CoreServices = { root, config, repo, kb, agents, processes, storageCheck, minFreeBytes: minFreeBytes(env) };
     const handlers = typeof opts.handlers === "function" ? opts.handlers(svc) : (opts.handlers ?? {});
     // лимиты из config.json (M12); подмены тестов — поверх
     const { maxRunning, agentCalls, renders } = config.limits;

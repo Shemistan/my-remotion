@@ -35,7 +35,7 @@ afterEach(async () => {
 });
 
 /** Каталог фейковых бинарников для PATH: claude, ffmpeg, ffprobe (только те, что в `only`). */
-function fakeBin(opts: { only?: string[]; cost?: number; encoders?: string[] } = {}): string {
+function fakeBin(opts: { only?: string[]; cost?: number; encoders?: string[]; filters?: string[] } = {}): string {
   const dir = join(tmp, `bin-${Math.random().toString(36).slice(2)}`);
   mkdirSync(dir);
   const scripts: Record<string, string> = {
@@ -50,6 +50,7 @@ function fakeBin(opts: { only?: string[]; cost?: number; encoders?: string[] } =
     ffmpeg: [
       "#!/bin/sh",
       'if [ "$1" = "-version" ]; then echo "ffmpeg version 7.1.1 Copyright"; exit 0; fi',
+      `if [ "$2" = "-filters" ]; then ${(opts.filters ?? ["silencedetect", "scdet"]).map((f) => `echo " ... ${f}             A->A       x";`).join(" ")} exit 0; fi`,
       ...(opts.encoders ?? ["libx264", "aac", "prores_ks"]).map((e) => `echo " V....D ${e}             encoder"`),
     ].join("\n"),
     ffprobe: ["#!/bin/sh", 'echo "ffprobe version 7.1.1 Copyright"'].join("\n"),
@@ -137,7 +138,7 @@ describe("полный doctor (03 §7)", () => {
     const root = await store();
     const r = await runDoctor(["--json"], { MS_DATA_DIR: root, PATH: fakeBin() }, probe, browser);
     const c = checks(r.output);
-    expect(Object.keys(c)).toEqual(["node", "claude", "claude_login", "ffmpeg", "ffprobe", "encoders", "kb", "storage", "chrome", "db", "owner_lock"]);
+    expect(Object.keys(c)).toEqual(["node", "claude", "claude_login", "ffmpeg", "ffprobe", "encoders", "filters", "kb", "storage", "chrome", "db", "owner_lock"]);
     for (const x of Object.values(c)) expect(x, x.name).toMatchObject({ ok: true, status: "ok" });
     expect(c.claude!.detail).toContain("2.1.0");
     expect(c.claude_login!.detail).toMatch(/\$0\.002/);
@@ -179,6 +180,14 @@ describe("полный doctor (03 §7)", () => {
     const c = checks(r.output);
     expect(c.claude_login).toMatchObject({ ok: false, status: "expensive" });
     expect(c.encoders).toMatchObject({ ok: false, status: "missing", detail: expect.stringContaining("prores_ks") });
+    expect(r.code).toBe(1);
+  });
+
+  it("нет фильтра scdet (Phase 2–3) → filters не ok, код 1", async () => {
+    const root = await store();
+    const r = await runDoctor(["--json"], { MS_DATA_DIR: root, PATH: fakeBin({ filters: ["silencedetect"] }) }, probe, browser);
+    const c = checks(r.output);
+    expect(c.filters).toMatchObject({ ok: false, status: "missing", detail: expect.stringContaining("scdet") });
     expect(r.code).toBe(1);
   });
 

@@ -37,6 +37,12 @@ export function byProject(db: Db, projectId: string): MediaAsset | undefined {
   return r && row(r);
 }
 
+/** Задача, создавшая исходник (`created_by_job_id`). */
+export function createdByJob(db: Db, id: string): string | null | undefined {
+  const r = db.prepare("SELECT created_by_job_id AS j FROM media_assets WHERE id = ?").get(id) as { j: string | null } | undefined;
+  return r?.j;
+}
+
 export interface DerivativeRow {
   kind: DerivativeKind;
   rel_path: string;

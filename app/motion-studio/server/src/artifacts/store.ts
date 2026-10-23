@@ -289,6 +289,15 @@ export function isPublished(db: Db, destRel: string): boolean {
   return db.prepare("SELECT 1 FROM artifact_publications WHERE dest_rel = ?").get(destRel) !== undefined;
 }
 
+/**
+ * Кто опубликовал каталог `destRel` (строка `artifact_publications`): восстановление после
+ * сбоя отличает «опубликовано попыткой N этой задачи» от «не опубликовано» (ревью Task 24, M3).
+ */
+export function publicationOf(db: Db, destRel: string): { job_id: string | null; attempt: number | null } | undefined {
+  return db.prepare("SELECT job_id, attempt FROM artifact_publications WHERE dest_rel = ?").get(destRel) as
+    { job_id: string | null; attempt: number | null } | undefined;
+}
+
 /** Корень карантина каталогов-сирот (относительно хранилища). */
 export const ORPHANS_REL = "workspace/quarantine/artifacts";
 
