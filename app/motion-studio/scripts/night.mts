@@ -58,11 +58,11 @@ const resume = flag("--resume");
 const NIGHT_ROOT = join(REPO, "tmp", "night");
 // smoke — своя «дата» с суффиксом: не мешает настоящей ночи того же дня
 let date = opt("--date") ?? `${localDate(now)}${smoke ? "-smoke" : ""}`;
-if (!/^\d{4}-\d{2}-\d{2}(-smoke)?$/.test(date)) fail(`--date: ГГГГ-ММ-ДД[-smoke], получено ${date}`);
+if (!/^\d{4}-\d{2}-\d{2}(-smoke\d*)?$/.test(date)) fail(`--date: ГГГГ-ММ-ДД[-smoke[N]], получено ${date}`);
 if (resume && !opt("--date")) {
   // ночь, начатая до полуночи, продолжается под своей датой
   const nights = existsSync(NIGHT_ROOT)
-    ? readdirSync(NIGHT_ROOT).filter((d) => d.endsWith("-smoke") === smoke && existsSync(join(NIGHT_ROOT, d, "state.json"))).sort()
+    ? readdirSync(NIGHT_ROOT).filter((d) => /-smoke\d*$/.test(d) === smoke && existsSync(join(NIGHT_ROOT, d, "state.json"))).sort()
     : [];
   if (!nights.length) fail("--resume: нет начатых ночей в tmp/night");
   date = nights.at(-1)!;
