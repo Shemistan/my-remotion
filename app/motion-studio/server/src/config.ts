@@ -12,12 +12,28 @@ export interface AgentSettings {
   maxBudgetUsd: number;
 }
 
+/**
+ * Второй дубль (S5): первая оценённая попытка ниже `threshold` по `overall` и бюджет
+ * позволяет — ещё один проход Engineer параллельно с исправлениями первого дубля.
+ * `revise` — доработка лучшей попытки по трём слабым осям оценки с их кадрами;
+ * `fresh` — новый дубль с другим кадрированием (archetype); `off` — без него.
+ * `fixes` — исправлений технического gate и QA внутри второго дубля.
+ */
+export interface SecondTake {
+  mode: "revise" | "fresh" | "off";
+  threshold: number;
+  fixes: number;
+}
+const SECOND_TAKE_MODES = ["revise", "fresh", "off"] as const;
+const SecondTakeSchema = z.object({ mode: z.enum(SECOND_TAKE_MODES), threshold: z.number().min(1).max(10), fixes: z.number().int().min(0).max(3) }).partial().strict();
+const SECOND_TAKE: SecondTake = { mode: "revise", threshold: 6.5, fixes: 1 };
+
 export interface AppConfig {
   dataDir: string;
   claudeBin: string;
   agentRuntime: "claude-code";
   agents: Record<Role, AgentSettings>;
-  scene: { maxCostUsd: number; maxAutoFixes: number };
+  scene: { maxCostUsd: number; maxAutoFixes: number; secondTake: SecondTake };
   kb: { root: string; sourceRoot: string };
 }
 
@@ -44,7 +60,7 @@ const FileSchema = z
     claudeBin: z.string().min(1),
     agentRuntime: z.literal("claude-code"),
     agents: z.object(Object.fromEntries(ROLES.map((r) => [r, AgentOverride.optional()]))).strict(),
-    scene: z.object({ maxCostUsd: z.number().positive(), maxAutoFixes: z.number().int().min(0) }).partial().strict(),
+    scene: z.object({ maxCostUsd: z.number().positive(), maxAutoFixes: z.number().int().min(0), secondTake: SecondTakeSchema }).partial().strict(),
     kb: z.object({ root: z.string().min(1), sourceRoot: z.string().min(1) }).partial().strict(),
   })
   .partial()
@@ -79,12 +95,24 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfi
     claudeBin: file.claudeBin ?? "claude",
     agentRuntime: "claude-code",
     agents,
-    scene: { maxCostUsd: 5, maxAutoFixes: 2, ...file.scene },
+    scene: {
+      maxCostUsd: file.scene?.maxCostUsd ?? 5,
+      maxAutoFixes: file.scene?.maxAutoFixes ?? 2,
+      secondTake: { ...SECOND_TAKE, ...file.scene?.secondTake, ...secondTakeEnv(env) },
+    },
     kb: {
       root: file.kb?.root ?? env.KB_ROOT ?? join(REPO_ROOT, "knowledge"),
       sourceRoot: file.kb?.sourceRoot ?? env.KB_SOURCE_ROOT ?? MAIN_CHECKOUT,
     },
   };
+}
+
+/** `MS_SECOND_TAKE=revise|fresh|off` — режим второго дубля поверх config.json (eval A/B). */
+function secondTakeEnv(env: NodeJS.ProcessEnv): Partial<SecondTake> {
+  const v = env.MS_SECOND_TAKE?.trim();
+  if (!v) return {};
+  if (!(SECOND_TAKE_MODES as readonly string[]).includes(v)) throw new Error(`config: MS_SECOND_TAKE — одно из ${SECOND_TAKE_MODES.join(", ")}: ${v}`);
+  return { mode: v as SecondTake["mode"] };
 }
 
 /** Читает `<dataDir>/config.json`; нет файла — `undefined`, битый JSON — ошибка. */

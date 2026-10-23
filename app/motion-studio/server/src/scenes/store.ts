@@ -182,7 +182,7 @@ async function fsyncDir(dir: string): Promise<void> {
   }
 }
 
-async function copyTree(root: string, from: string, toRel: string): Promise<void> {
+export async function copyTree(root: string, from: string, toRel: string): Promise<void> {
   const st = await lstat(from);
   if (st.isDirectory()) {
     await safeMkdir(root, toRel);

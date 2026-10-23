@@ -39,12 +39,12 @@ import type { checkSceneDir } from "../scenes/static-check.js";
 import { type Draft, type PublishMeta, createDraft, publishVersion, quarantineDraft, writeBrief, writeSceneFailure } from "../scenes/store.js";
 import type { typecheckVersion } from "../scenes/typecheck.js";
 import { type StepRef } from "./checkpoints.js";
-import { type DraftFiles, type Exit, type LoopState, type RenderRecord, type VisualQaRun, type ZoneDiff, describeDiff, diffSnapshots, runFixLoop, snapshotOutsideZone } from "./fix-loop.js";
+import { type AttemptRecord, type DraftFiles, type Exit, type LoopState, type RenderRecord, type VisualQaRun, type ZoneDiff, describeDiff, diffSnapshots, runFixLoop, snapshotOutsideZone } from "./fix-loop.js";
 import { type KnowledgeSource, SKILLS_REL, filterSelection, knowledgeRefs, prepareRefs, topPatterns } from "./refs.js";
 import { selectQaFrames } from "./qa-frames.js";
 import { cameraBrief } from "../qa/visual-agent.js";
 import { renderEnv } from "./render-env.js";
-import { type AgentRunRecord, RunCtx, clip, directorStep, errText, isStorageError, scenePropsStyle, sceneStyle, withSceneSeed } from "./steps.js";
+import { type AgentRunRecord, RunCtx, clip, directorStep, errText, isStorageError, scenePropsStyle, sceneStyle, stageWall, withSceneSeed } from "./steps.js";
 import { PROMPTS_DIR } from "../agents/prompts.js";
 
 /** Словарь этапов неудачи — `@ms/contracts` (`FailureStageSchema`). */
@@ -124,8 +124,15 @@ export interface GenerateResult {
   failure?: { stage: FailureStage; message: string; transient?: true };
   /** Предупреждения (отказы прав Engineer, неизвестные kb_id, ошибки консоли браузера). */
   warnings: string[];
-  /** Длительность этапов, мс. */
+  /** Длительность этапов, мс (сумма вызовов по ключам `timed`). */
   timings: Record<string, number>;
+  /**
+   * Время этапов по часам, мс (S5): concept, director, engineer, check, render, qa, publish
+   * (параллельные вызовы этапа не складываются) и total — постоянная метрика генерации.
+   */
+  stageWallMs?: Record<string, number>;
+  /** Попытки с оценкой Visual QA и какая опубликована (S5). */
+  attempts?: AttemptRecord[];
   /** Уточнения Concept (`awaiting_input`). */
   questions?: ConceptOutput["needs_clarification"];
   concept?: ConceptOutput;
@@ -178,6 +185,8 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
   const state: LoopState = { engineerCalls: 0, renders: [], visualQa: [], deniedLog: [] };
   const log = deps.log ?? (() => undefined);
   const fallbackWarnings: string[] = [];
+  /** Время этапов, записанное в pipeline-log.json (то же число — в результате). */
+  let wall: Record<string, number> | undefined;
 
   const result = (status: GenerateResult["status"], extra: Partial<GenerateResult> = {}): GenerateResult => {
     const timings = rc?.timings ?? {};
@@ -186,6 +195,8 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
       status, runId, sceneId, versionDir: draft?.dir, costUsd: rc?.spent ?? 0, engineerCalls: state.engineerCalls,
       warnings: rc?.warnings ?? fallbackWarnings, timings, refs, agentRuns: rc?.records ?? [], renders: state.renders,
       visualQa: state.visualQa, steps: req.steps ?? {},
+      ...(rc ? { stageWallMs: wall ?? stageWall(rc.spans, timings.total) } : {}),
+      ...(state.attempts ? { attempts: state.attempts } : {}),
       ...(spec ? { spec } : {}), ...(concept ? { concept } : {}), ...(state.report ? { report: state.report } : {}),
       ...extra,
     };
@@ -277,46 +288,50 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
     "knowledge-refs.json": JSON.stringify(refs satisfies KnowledgeRef[], null, 2) + "\n",
   };
   const skillsRoot = deps.skillsRoot ?? join(deps.config.kb.sourceRoot, SKILLS_REL);
-  const files: DraftFiles = {
-    set: (name, text) => {
-      owned[name] = text;
-    },
-    async write() {
-      for (const [name, text] of Object.entries(owned)) {
-        await rm(join(draftDir, name), { recursive: true, force: true });
-        await writeFile(join(draftDir, name), text);
-      }
-    },
-    /**
-     * Возвращает draft вне зоны Engineer к снимку `before`: добавленное удаляется, файлы
-     * пайплайна пишутся из памяти, `refs/` готовится заново, прочее (кадры и превью
-     * прошлого рендера) удаляется — рендер создаст их снова. Не сошлось — исключение.
-     */
-    async restore(before: Map<string, string>, d: ZoneDiff) {
-      for (const p of d.added) await rm(join(draftDir, p), { recursive: true, force: true });
-      let refsDirty = false;
-      const dropped: string[] = [];
-      for (const p of [...d.changed, ...d.removed]) {
-        if (p in owned) continue; // ниже — write
-        if (p === "refs" || p.startsWith("refs/")) refsDirty = true;
-        else {
-          await rm(join(draftDir, p), { recursive: true, force: true });
-          dropped.push(p);
+  const filesFor = (dir: string, own: Record<string, string>): DraftFiles => {
+    const f: DraftFiles = {
+      set: (name, text) => {
+        own[name] = text;
+      },
+      async write() {
+        for (const [name, text] of Object.entries(own)) {
+          await rm(join(dir, name), { recursive: true, force: true });
+          await writeFile(join(dir, name), text);
         }
-      }
-      if (refsDirty) {
-        await rm(join(draftDir, "refs"), { recursive: true, force: true });
-        await prepareRefs(draftDir, selection, deps.kb, skillsRoot);
-      }
-      await files.write();
-      const gone = (p: string) => dropped.some((x) => p === x || p.startsWith(`${x}/`));
-      const expected = new Map([...before].filter(([p]) => !gone(p)));
-      const left = diffSnapshots(expected, await snapshotOutsideZone(draftDir));
-      if (left.added.length + left.changed.length + left.removed.length > 0) {
-        throw new Error(`draft вне src/ и props.json не восстановлен: ${describeDiff(left)}`);
-      }
-    },
+      },
+      /**
+       * Возвращает draft вне зоны Engineer к снимку `before`: добавленное удаляется, файлы
+       * пайплайна пишутся из памяти, `refs/` готовится заново, прочее (кадры и превью
+       * прошлого рендера) удаляется — рендер создаст их снова. Не сошлось — исключение.
+       */
+      async restore(before: Map<string, string>, d: ZoneDiff) {
+        for (const p of d.added) await rm(join(dir, p), { recursive: true, force: true });
+        let refsDirty = false;
+        const dropped: string[] = [];
+        for (const p of [...d.changed, ...d.removed]) {
+          if (p in own) continue; // ниже — write
+          if (p === "refs" || p.startsWith("refs/")) refsDirty = true;
+          else {
+            await rm(join(dir, p), { recursive: true, force: true });
+            dropped.push(p);
+          }
+        }
+        if (refsDirty) {
+          await rm(join(dir, "refs"), { recursive: true, force: true });
+          await prepareRefs(dir, selection, deps.kb, skillsRoot);
+        }
+        await f.write();
+        const gone = (p: string) => dropped.some((x) => p === x || p.startsWith(`${x}/`));
+        const expected = new Map([...before].filter(([p]) => !gone(p)));
+        const left = diffSnapshots(expected, await snapshotOutsideZone(dir));
+        if (left.added.length + left.changed.length + left.removed.length > 0) {
+          throw new Error(`draft вне src/ и props.json не восстановлен: ${describeDiff(left)}`);
+        }
+      },
+    };
+    return f;
   };
+  const files = filesFor(draftDir, owned);
 
   const afterDraft = async (): Promise<Exit> => {
     await files.write();
@@ -329,6 +344,16 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
         ...(req.qa ? { qa: { brief: { prompt, settings, camera: cameraBrief(spec!) }, allowRestricted: req.qa.allowRestricted } } : {}),
         ...(req.previous ? { previous: req.previous } : {}),
         progress: deps.progress,
+        // второй дубль (S5): свой каталог попытки задачи вне draft (граница draft первого дубля
+        // не видит его файлов), файлы пайплайна со своим spec и refs/
+        takeDir: async (spec2) => {
+          const dir = await safeMkdir(root, `run/tmp/${runId}-a${attempt}/take2`);
+          const own: Record<string, string> = { ...owned, "spec.json": JSON.stringify(spec2, null, 2) + "\n" };
+          const f = filesFor(dir, own);
+          await f.write();
+          await prepareRefs(dir, selection, deps.kb, skillsRoot);
+          return { dir, files: f };
+        },
       },
       state,
     );
@@ -344,9 +369,13 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
       if (ctx.warnings.length > 0 || state.deniedLog.length > 0) {
         await writeFile(join(draftDir, "warnings.json"), JSON.stringify({ warnings: ctx.warnings, permission_denials: state.deniedLog }, null, 2) + "\n");
       }
+      wall = stageWall(ctx.spans, Date.now() - t0);
       await writeFile(
         join(draftDir, "pipeline-log.json"),
-        JSON.stringify({ run_id: runId, attempt, cost_usd: ctx.spent, engineer_calls: state.engineerCalls, visual_qa: state.visualQa, timings: ctx.timings, history: ctx.history }, null, 2) + "\n",
+        JSON.stringify({
+          run_id: runId, attempt, cost_usd: ctx.spent, engineer_calls: state.engineerCalls, visual_qa: state.visualQa,
+          ...(state.attempts ? { attempts: state.attempts } : {}), timings: ctx.timings, stage_wall_ms: wall, history: ctx.history,
+        }, null, 2) + "\n",
       );
       const changed = [...(await listFiles(draftDir, "src")), ...(existsSync(join(draftDir, "props.json")) ? ["props.json"] : [])];
       const previewFile = join(draftDir, "preview.mp4");
@@ -425,6 +454,8 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
     const storage = isStorageError(e) || (await ctx.storageProblem()) !== undefined;
     exit = { ok: false, stage: storage ? "storage" : phase, message: `${phase}: ${errText(e)}` };
   }
+  // второй дубль `fresh` с другим кадрированием выиграл — версия несёт его spec
+  if (exit.ok && exit.spec) spec = exit.spec;
   if (!exit.ok && signal?.aborted) {
     // прерывание (отмена, fencing, остановка): отменённая или устаревшая попытка версию не
     // публикует, draft — в карантин с причиной (`cancelled`/`interrupted` — одноразовые, H6)

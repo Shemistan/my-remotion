@@ -5,8 +5,8 @@
 // проверки, проверки spec, Visual QA; исправление вызывают только blocking-замечания,
 // warnings идут Engineer подсказками вместе с ними, но цикл не запускают.
 import { existsSync } from "node:fs";
-import { readFile, readdir, readlink, rm, stat, writeFile } from "node:fs/promises";
-import { join, resolve, sep } from "node:path";
+import { copyFile, readFile, readdir, readlink, rm, stat, writeFile } from "node:fs/promises";
+import { join, relative, resolve, sep } from "node:path";
 import {
   type EngineerReport,
   EngineerReportSchema,
@@ -15,18 +15,26 @@ import {
   type MotionSpec,
   type QAIssue,
   type QAReport,
+  QA_SCORE_AXES,
+  type QaScoreAxis,
+  type QaScoreNote,
+  type QaScores,
   type ScenePropsBase,
   ScenePropsBaseSchema,
   type ScenePropsStyle,
   ScenePropsStyleSchema,
   type Settings,
+  type VisualQAOutput,
 } from "@ms/contracts";
+import { safeMkdir } from "@ms/core";
 import { type RenderRequest, type RenderResult, type renderVersion, probeGate } from "@ms/render";
 import { ACCENT_HOLD_GAP, programmaticChecks } from "../qa/programmatic.js";
-import { fixHints, mergeQA, qaBlocks } from "../qa/report.js";
+import { parseLayout } from "../qa/layout.js";
+import { acceptedAsWarn, fixHints, mergeQA, qaBlocks } from "../qa/report.js";
 import { specChecks } from "../qa/spec-checks.js";
-import { runVisualQA } from "../qa/visual-agent.js";
+import { reconcileMissing, runVisualQA } from "../qa/visual-agent.js";
 import { sha256File } from "../scenes/hash.js";
+import { copyTree } from "../scenes/store.js";
 import type { checkSceneDir } from "../scenes/static-check.js";
 import type { typecheckVersion } from "../scenes/typecheck.js";
 import { provenanceGate } from "./provenance.js";
@@ -35,6 +43,7 @@ import { isNetworkError } from "./transient.js";
 import { type RunCtx, buildEngineerTask, clip, errText, isStorageError, scenePropsStyle, sceneStyle } from "./steps.js";
 
 export const PREVIEW = { scale: 0.5, crf: 23 };
+/** Время рендера по умолчанию; длинные сцены — `renderTimeoutMs`. */
 const RENDER_TIMEOUT_MS = 5 * 60_000;
 /** Вызовов Visual QA на один рендер: первый и один повтор (ruling P5). */
 const VISUAL_QA_TRIES = 2;
@@ -72,7 +81,7 @@ export interface VisualQaRun {
  * подтверждённо (отказ вызова, orphaned): draft только в карантин.
  */
 export type Exit =
-  | { ok: true; previewSha: string; framesSha: string[]; qa?: QAReport }
+  | { ok: true; previewSha: string; framesSha: string[]; qa?: QAReport; spec?: MotionSpec }
   | { ok: false; stage: FailureStage; message: string; alive?: boolean; qa?: QAReport; transient?: true };
 
 /** Файлы пайплайна в draft: пишутся из памяти, восстанавливаются после нарушения границы. */
@@ -107,6 +116,46 @@ export interface LoopInput {
   /** Spec последних версий других сцен проекта: проверка повтора подписи кадра. */
   previous?: readonly MotionSpec[];
   progress?: (p: number, stage: string) => void;
+  /**
+   * Каталог второго дубля (S5) со своим spec: файлы пайплайна и refs/ (generate.ts). Без
+   * него второго дубля нет.
+   */
+  takeDir?: (spec: MotionSpec) => Promise<{ dir: string; files: DraftFiles }>;
+}
+
+/**
+ * Попытка, прошедшая технический gate (и QA по кадрам, если он есть): снимок файлов сцены,
+ * кадров и превью в `run/tmp/<runId>-a<attempt>/attempts/<n>/` и оценка Visual QA.
+ */
+export interface Attempt {
+  /** Сквозной номер попытки в задаче (оба дубля). */
+  n: number;
+  take: 1 | 2;
+  /** Вызов Engineer в дубле. */
+  call: number;
+  /** Каталог снимка относительно корня хранилища. */
+  snapshot: string;
+  spec: MotionSpec;
+  qa?: QAReport;
+  notes: QaScoreNote[];
+  style?: ScenePropsStyle;
+  report?: EngineerReport;
+  /** Цена попытки: Engineer, исправления этой попытки нет — один вызов и его QA. */
+  costUsd: number;
+  blocking: boolean;
+}
+
+/** Попытка в журнале (pipeline-log.json, GenerateResult). */
+export interface AttemptRecord {
+  n: number;
+  take: 1 | 2;
+  call: number;
+  overall?: number;
+  scores?: QaScores;
+  /** Коды blocking-замечаний попытки (до публикации с warn). */
+  blocking: string[];
+  cost_usd: number;
+  published: boolean;
 }
 
 /** Итоги цикла для журнала и публикации. */
@@ -118,6 +167,8 @@ export interface LoopState {
   /** `props.style` после нормализации (для style.json). */
   style?: ScenePropsStyle;
   deniedLog: unknown[];
+  /** Попытки с оценкой (S5). */
+  attempts?: AttemptRecord[];
 }
 
 /** Кадры только для программных проверок, если их нет среди QA-кадров: N−20 (акцент жив, застывшая схема; N−1 там всегда), 0 и 4 (кадр-постер). */
@@ -269,29 +320,283 @@ export function checkProps(text: string | undefined, spec: MotionSpec, settings:
 
 const asText = (issues: QAIssue[]) => issues.map((i) => `- [${i.severity}] ${i.code}${i.area ? ` (${i.area})` : ""}: ${i.description} → ${i.fix_hint}`).join("\n");
 
+/** Сквозное состояние дублей одной попытки задачи: номера попыток и что лежит в draft. */
+interface TakeCtl {
+  attempts: Attempt[];
+  next: number;
+  /** Оценённая попытка, чьи файлы сейчас в draft (первый дубль); новый вызов Engineer в draft её сбрасывает. */
+  draftHead?: Attempt;
+}
+
+/** Дубль: каталог, spec, файлы пайплайна, лимит вызовов Engineer. */
+interface Take {
+  no: 1 | 2;
+  dir: string;
+  spec: MotionSpec;
+  files: DraftFiles;
+  maxCalls: number;
+  /** Заголовок первого вызова (второй дубль: критика или новое кадрирование). */
+  brief?: string;
+  onScored?: (a: Attempt) => void;
+}
+
+/** Итог дубля: чистая попытка, последняя причина исправления или выход до конца цикла. */
+interface TakeEnd {
+  clean?: Attempt;
+  issue?: Issue;
+  exit?: Exit & { ok: false };
+}
+
+/** Выход, после которого публиковать нельзя ни одну попытку: процесс жив, хранилище, отмена. */
+function hardExit(e: (Exit & { ok: false }) | undefined, take: 1 | 2): boolean {
+  if (!e) return false;
+  if (e.alive || e.stage === "storage" || e.stage === "cancelled" || e.stage === "orphaned") return true;
+  return take === 1 && e.message.startsWith("denied:");
+}
+
+/**
+ * Лучшая попытка (S5): наибольший `overall` среди прошедших технический gate и QA по кадрам;
+ * при равной оценке — без blocking, затем ранняя. Попытки без оценки (срез без QA) — по
+ * порядку.
+ */
+export function pickBest<T extends { n: number; qa?: QAReport; blocking: boolean }>(attempts: readonly T[]): T | undefined {
+  const score = (a: T) => a.qa?.scores?.overall ?? -1;
+  return [...attempts].sort((a, b) => score(b) - score(a) || Number(a.blocking) - Number(b.blocking) || a.n - b.n)[0];
+}
+
+/**
+ * Цикл генерации (04 §2) с попытками и вторым дублем (S5). Первый дубль — в draft: Engineer →
+ * технический gate → рендер → QA, исправления до `maxAutoFixes`. Каждая попытка с QA по кадрам
+ * хранится снимком с оценкой; публикуется лучшая (`pickBest`). Если у лучшей остались blocking
+ * (исправления или бюджет кончились), она публикуется с `qa.visual = warn` — решение за
+ * человеком. Первая оценённая попытка ниже порога (`scene.secondTake`) и бюджет позволяет —
+ * второй дубль в своём каталоге, параллельно с исправлениями первого.
+ */
 export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> {
-  const { rc, deps, draftDir, settings, spec, frames } = i;
+  const { rc } = i;
   const maxCalls = 1 + rc.config.scene.maxAutoFixes;
+  const st = rc.config.scene.secondTake;
+  const ctl: TakeCtl = { attempts: [], next: 0 };
+  let take2: Promise<TakeEnd> | undefined;
+
+  const onScored = (a: Attempt) => {
+    if (take2 || a.take !== 1 || !i.qa || !i.takeDir || st.mode === "off") return;
+    const overall = a.qa?.scores?.overall;
+    if (overall === undefined || overall >= st.threshold) return;
+    if (rc.spent + a.costUsd > rc.config.scene.maxCostUsd) {
+      rc.note("second_take", `пропущен: $${rc.spent.toFixed(2)} + цена попытки $${a.costUsd.toFixed(2)} > $${rc.config.scene.maxCostUsd}`);
+      return;
+    }
+    rc.log(`второй дубль (${st.mode}): overall ${overall} < ${st.threshold}`);
+    rc.note("second_take", `${st.mode}: overall попытки ${a.n} — ${overall} < ${st.threshold}`);
+    take2 = (async (): Promise<TakeEnd> => {
+      const spec2 = st.mode === "fresh" ? freshSpec(i.spec) : a.spec;
+      const t = await i.takeDir!(spec2);
+      if (st.mode === "revise") await copyAttemptFiles(rc.root, a, t.dir, ["src", "props.json"]);
+      const brief = st.mode === "revise" ? critique(a) : freshBrief(i.spec, spec2, a);
+      return runTake(i, state, ctl, { no: 2, dir: t.dir, spec: spec2, files: t.files, maxCalls: 1 + st.fixes, brief });
+    })().catch((e: unknown): TakeEnd => {
+      const storage = isStorageError(e);
+      rc.warnings.push(`второй дубль не состоялся: ${errText(e)}`);
+      return { exit: { ok: false, stage: storage ? "storage" : "engineer", message: `второй дубль: ${errText(e)}` } };
+    });
+  };
+
+  const t1 = await runTake(i, state, ctl, { no: 1, dir: i.draftDir, spec: i.spec, files: i.files, maxCalls, onScored });
+  const t2 = take2 ? await take2 : undefined;
+  if (hardExit(t1.exit, 1)) return t1.exit!;
+  if (hardExit(t2?.exit, 2)) return t2!.exit!;
+  if (t2?.exit) rc.warnings.push(`второй дубль: ${t2.exit.stage}: ${clip(t2.exit.message, 300)}`);
+
+  const best = pickBest(ctl.attempts);
+  state.attempts = ctl.attempts.map((a) => attemptRecord(a, a === best));
+  if (!best) {
+    if (t1.exit) return t1.exit;
+    const last = t1.issue!;
+    return { ok: false, stage: last.stage, message: clip(last.message, 4000) };
+  }
+
+  // лучшая попытка — в draft (файлы сцены, кадры, превью) и в файлы пайплайна
+  if (best !== ctl.draftHead) await restoreAttempt(rc.root, best, i.draftDir);
+  if (best.style) {
+    state.style = best.style;
+    i.files.set("style.json", JSON.stringify(sceneStyle(best.style, i.settings), null, 2) + "\n");
+  }
+  if (best.spec !== i.spec) i.files.set("spec.json", JSON.stringify(best.spec, null, 2) + "\n");
+  if (best.report) state.report = best.report;
+  await i.files.write();
+
+  let qa = best.qa;
+  if (qa && best.blocking) {
+    const why = t1.clean
+      ? `— оценка ${best.qa?.scores?.overall} выше, чем у попыток без blocking`
+      : t1.exit?.stage === "budget" ? "— бюджет сцены исчерпан" : `после ${maxCalls - 1} исправлений`;
+    qa = acceptedAsWarn(qa, why);
+    rc.warnings.push(`опубликована лучшая попытка ${best.n} с blocking QA (${why}): visual = warn, решение за человеком`);
+  }
+  const framesSha: string[] = [];
+  for (const f of i.frames) framesSha.push(await sha256File(join(i.draftDir, "frames", `${f}.png`)));
+  const previewSha = await sha256File(join(i.draftDir, "preview.mp4"));
+  const sc = best.qa?.scores?.overall;
+  rc.note("ready", `опубликована попытка ${best.n} (дубль ${best.take}, вызов ${best.call}${sc !== undefined ? `, overall ${sc}` : ""}) из ${ctl.attempts.length}`);
+  return { ok: true, previewSha, framesSha, ...(qa ? { qa } : {}), ...(best.spec !== i.spec ? { spec: best.spec } : {}) };
+}
+
+/** Строка журнала попыток. */
+function attemptRecord(a: Attempt, published: boolean): AttemptRecord {
+  return {
+    n: a.n, take: a.take, call: a.call,
+    ...(a.qa?.scores ? { overall: a.qa.scores.overall, scores: a.qa.scores } : {}),
+    blocking: (a.qa?.issues ?? []).filter((x) => x.severity === "blocking").map((x) => x.code),
+    cost_usd: Math.round(a.costUsd * 10000) / 10000,
+    published,
+  };
+}
+
+/** Файлы попытки в снимке: код сцены, props, превью, QA-кадры. */
+const ATTEMPT_FILES = ["src", "props.json", "preview.mp4", "frames"];
+const posixRel = (root: string, p: string) => relative(root, p).split(sep).join("/");
+
+/** Снимок попытки: `run/tmp/<runId>-a<attempt>/attempts/<n>/` (каталоги — через safeMkdir). */
+async function snapshotAttempt(rc: RunCtx, dir: string, frames: number[], n: number): Promise<string> {
+  const rel = `run/tmp/${rc.runId}-a${rc.attempt}/attempts/${n}`;
+  await rm(join(rc.root, rel), { recursive: true, force: true });
+  await safeMkdir(rc.root, rel);
+  for (const x of ["src", "props.json", "preview.mp4"]) if (existsSync(join(dir, x))) await copyTree(rc.root, join(dir, x), `${rel}/${x}`);
+  await safeMkdir(rc.root, `${rel}/frames`);
+  for (const f of frames) {
+    const p = join(dir, "frames", `${f}.png`);
+    if (existsSync(p)) await copyFile(p, join(rc.root, rel, "frames", `${f}.png`));
+  }
+  return rel;
+}
+
+/** Файлы снимка в каталог (прежние — удаляются). */
+async function copyAttemptFiles(root: string, a: Attempt, to: string, items: string[]): Promise<void> {
+  const toRel = posixRel(root, to);
+  for (const x of items) {
+    await rm(join(to, x), { recursive: true, force: true });
+    if (existsSync(join(root, a.snapshot, x))) await copyTree(root, join(root, a.snapshot, x), `${toRel}/${x}`);
+  }
+}
+
+/** Лучшая попытка — в draft: её код, props, кадры и превью. */
+const restoreAttempt = (root: string, a: Attempt, draftDir: string) => copyAttemptFiles(root, a, draftDir, ATTEMPT_FILES);
+
+/** Кадрирование второго дубля `fresh`: другой archetype вместо выбранного Director. */
+const OTHER_FRAMING: Record<NonNullable<MotionSpec["composition"]>["archetype"], NonNullable<MotionSpec["composition"]>["archetype"]> = {
+  "centered-hero": "split",
+  split: "centered-hero",
+  diagonal: "centered-hero",
+  "full-bleed-data": "split",
+  "network-centric": "orbit",
+  stacked: "split",
+  orbit: "network-centric",
+  other: "centered-hero",
+};
+
+/** Раскладка во всю safe area (фон, мир) — не кадрирование: её второй дубль сохраняет. */
+const fullLayout = (l: NonNullable<MotionSpec["elements"][number]["layout"]>) => l.x <= 0.01 && l.y <= 0.01 && l.x + l.w >= 0.99 && l.y + l.h >= 0.99;
+
+/** Spec дубля `fresh`: другой archetype, раскладки элементов (кроме слоёв во весь кадр) — на Engineer. */
+export function freshSpec(spec: MotionSpec): MotionSpec {
+  if (!spec.composition) return spec;
+  return {
+    ...spec,
+    composition: { ...spec.composition, archetype: OTHER_FRAMING[spec.composition.archetype] },
+    elements: spec.elements.map((e) => {
+      if (!e.layout || fullLayout(e.layout)) return e;
+      const rest = { ...e };
+      delete rest.layout;
+      return rest;
+    }),
+  };
+}
+
+/** Что значит ось оценки — для критики второго дубля. */
+const AXIS_HINT: Record<QaScoreAxis, string> = {
+  hierarchy: "один герой крупнее и заметнее всего, итог владеет кадром",
+  composition: "кадр заполнен и уравновешен, без пустых третей и мёртвой полосы под заголовком",
+  entrance: "кадр 0 уже собран (фон, якорь героя), входы чистые",
+  choreography: "причина → следствие, синхронность, кульминация в верном порядке, без двоящегося текста",
+  hold: "финал живёт в смысле сцены, а не застыл и не приглушён",
+  legibility: "текст читается на телефоне, контраст, без наложений",
+  meaning: "числа и имена запроса на экране, «почему» процесса видно",
+};
+
+/** Три слабейшие оси оценки попытки с кадрами-доказательствами. */
+function weakest(a: Attempt): string[] {
+  const s = a.qa!.scores!;
+  return QA_SCORE_AXES.map((ax) => [ax, s[ax]] as const)
+    .sort((x, y) => x[1] - y[1])
+    .slice(0, 3)
+    .map(([ax, v]) => {
+      const notes = a.notes.filter((x) => x.axis === ax).map((x) => `кадр ${x.frame}: ${x.note}`);
+      return `- **${ax}** ${v}/10 — ${AXIS_HINT[ax]}${notes.length > 0 ? `. Видно: ${notes.join("; ")}` : ""}`;
+    });
+}
+
+/** Заголовок дубля `revise`: доработка по трём слабым осям и замечаниям QA. */
+export function critique(a: Attempt): string {
+  const hints = a.qa ? fixHints(a.qa) : "";
+  return [
+    "# Второй дубль: доработка",
+    `Сцена в текущем каталоге собрана и прошла технический gate; Visual QA оценил её на ${a.qa?.scores?.overall}/10 — ниже планки.`,
+    "Прочитай src/ и props.json и доработай сцену: подними три самые слабые оси оценки, не ломая то, что уже работает. Замысел, данные и тайминги spec не меняй; с нуля не переписывай.",
+    "",
+    "## Слабые оси",
+    ...weakest(a),
+    ...(hints ? ["", "## Замечания QA", "```", clip(hints, 3000), "```"] : []),
+  ].join("\n");
+}
+
+/** Заголовок дубля `fresh`: та же сцена заново в другом кадрировании. */
+export function freshBrief(spec: MotionSpec, spec2: MotionSpec, a: Attempt): string {
+  const was = spec.composition?.archetype;
+  const now = spec2.composition?.archetype;
+  return [
+    "# Второй дубль: другое кадрирование",
+    `Первый дубль${was ? ` (кадрирование ${was})` : ""} Visual QA оценил на ${a.qa?.scores?.overall}/10. Собери сцену заново, с нуля, в другом кадрировании${now ? `: composition.archetype = ${now} (spec.json)` : ""}.`,
+    "Раскладку элементов выбери сама под новое кадрирование; данные, биты и тайминги spec — те же. Слабые оси первого дубля — не повторяй их:",
+    ...weakest(a),
+  ].join("\n");
+}
+
+/** Один дубль: Engineer → технический gate → рендер → QA; исправления до `t.maxCalls`. */
+async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): Promise<TakeEnd> {
+  const { rc, deps, settings, frames } = i;
+  const { dir, spec, maxCalls } = t;
+  const pre = t.no === 1 ? "" : "t2_";
+  const first = t.no === 1;
   let issue: Issue | undefined;
   let lastQa: QAReport | undefined;
-  const failed = (stage: FailureStage, message: string, extra: { alive?: boolean } = {}): Exit => ({ ok: false, stage, message, ...extra, ...(lastQa ? { qa: lastQa } : {}) });
+  let style: ScenePropsStyle | undefined;
+  let scored = false;
+  const end = (stage: FailureStage, message: string, extra: { alive?: boolean; transient?: true } = {}): TakeEnd => ({
+    exit: { ok: false, stage, message, ...extra, ...(lastQa ? { qa: lastQa } : {}) },
+    ...(issue ? { issue } : {}),
+  });
   const push = (x: Issue) => {
     issue = x;
-    rc.note(x.stage, x.message);
+    rc.note(first ? x.stage : `t2_${x.stage}`, x.message);
   };
 
   for (let call = 1; call <= maxCalls; call++) {
     if (rc.spent >= rc.config.scene.maxCostUsd) {
       const why = issue ? `; последняя ошибка (${issue.stage}): ${clip(issue.message, 1000)}` : "";
-      return failed("budget", `бюджет сцены исчерпан: $${rc.spent.toFixed(2)} из $${rc.config.scene.maxCostUsd}${why}`);
+      return end("budget", `бюджет сцены исчерпан: $${rc.spent.toFixed(2)} из $${rc.config.scene.maxCostUsd}${why}`);
     }
     const p = await rc.storageProblem();
-    if (p) return failed("storage", p);
-    if (rc.aborted) return failed("cancelled", "отменено");
+    if (p) return end("storage", p);
+    if (rc.aborted) return end("cancelled", "отменено");
 
     state.engineerCalls++;
-    i.progress?.(0.3 + 0.15 * (call - 1), call === 1 ? "engineer" : `engineer_fix_${call - 1}`);
-    const zoneBefore = await snapshotOutsideZone(draftDir);
+    if (first) {
+      i.progress?.(0.3 + 0.15 * (call - 1), call === 1 ? "engineer" : `engineer_fix_${call - 1}`);
+      ctl.draftHead = undefined;
+    }
+    const spent0 = rc.spent;
+    const zoneBefore = await snapshotOutsideZone(dir);
     const fix = call > 1 && issue
       ? [
           `# Исправление ${call - 1} из ${maxCalls - 1}`,
@@ -302,27 +607,27 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
           clip(issue.message),
           "```",
         ].join("\n")
-      : undefined;
-    rc.log(call === 1 ? "Engineer…" : `Engineer: исправление ${call - 1} из ${maxCalls - 1} (${issue?.stage})…`);
-    const e = await rc.timed(`engineer_${call}`, () => rc.call(buildEngineerTask({ draftDir, fix, spec }, { ...rc.taskRun, seq: call }), EngineerReportSchema));
-    if (e.skipped) return failed("cancelled", "отменено до Engineer");
+      : call === 1 ? t.brief : undefined;
+    rc.log(`${first ? "" : "дубль 2: "}${call === 1 ? "Engineer…" : `Engineer: исправление ${call - 1} из ${maxCalls - 1} (${issue?.stage})…`}`);
+    const e = await rc.timed(`${pre}engineer_${call}`, () => rc.call(buildEngineerTask({ draftDir: dir, ...(fix ? { fix } : {}), spec }, { ...rc.taskRun, seq: first ? call : 100 + call }), EngineerReportSchema));
+    if (e.skipped) return end("cancelled", "отменено до Engineer");
     if (e.error !== undefined) {
       // процесс агента мог остаться: подтверждения его смерти нет
       const storage = isStorageError(e.error) || e.lost !== undefined || (await rc.storageProblem()) !== undefined;
-      return failed(storage ? "storage" : "engineer", `вызов Engineer отклонён: ${errText(e.error)}`, { alive: true });
+      return end(storage ? "storage" : "engineer", `вызов Engineer отклонён: ${errText(e.error)}`, { alive: true });
     }
     const er = e.value!;
-    if (er.error?.kind === "orphaned") return failed("orphaned", `Engineer: ${er.error.message}`, { alive: true });
-    if (e.lost) return failed("storage", `хранилище пропало во время Engineer: ${e.lost}`);
-    if (rc.aborted) return failed("cancelled", "отменено во время Engineer");
+    if (er.error?.kind === "orphaned") return end("orphaned", `Engineer: ${er.error.message}`, { alive: true });
+    if (e.lost) return end("storage", `хранилище пропало во время Engineer: ${e.lost}`);
+    if (rc.aborted) return end("cancelled", "отменено во время Engineer");
 
-    // Граница draft: Engineer правит только src/** и props.json. Остальное (файлы
+    // Граница каталога: Engineer правит только src/** и props.json. Остальное (файлы
     // пайплайна, refs/, node_modules, package.json рядом с src/) меняло бы сборку
     // или опубликованные данные в обход static check — откат и причина на исправление.
-    const zoneDiff = diffSnapshots(zoneBefore, await snapshotOutsideZone(draftDir));
+    const zoneDiff = diffSnapshots(zoneBefore, await snapshotOutsideZone(dir));
     if (zoneDiff.added.length + zoneDiff.changed.length + zoneDiff.removed.length > 0) {
       const what = describeDiff(zoneDiff);
-      await i.files.restore(zoneBefore, zoneDiff);
+      await t.files.restore(zoneBefore, zoneDiff);
       rc.warnings.push(`Engineer писал вне src/ и props.json (откачено): ${what}`);
       push({
         stage: "static",
@@ -338,27 +643,28 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
       const w = `Engineer: отказано в доступе (${er.permissionDenials.length}): ${er.permissionDenials.map(describeDenial).join("; ")}`;
       rc.warnings.push(w);
       rc.log(`⚠ ${w}`);
-      const inside = er.permissionDenials.filter((x) => deniedWriteInside(x, draftDir));
-      if (inside.length > 0) return failed("engineer", `denied: запись внутри draft отклонена: ${inside.map(describeDenial).join("; ")}`);
+      const inside = er.permissionDenials.filter((x) => deniedWriteInside(x, dir));
+      if (inside.length > 0) return end("engineer", `denied: запись внутри draft отклонена: ${inside.map(describeDenial).join("; ")}`);
     }
     if (er.status !== "completed" || !er.output) {
       push({ stage: "engineer", message: `вызов Engineer завершился ${er.status}${er.error ? ` (${er.error.kind}): ${er.error.message}` : ""}` });
       continue;
     }
-    state.report = er.output;
-    const missing = missingWritten(er.output, draftDir);
-    if (missing.length > 0) return failed("engineer", `denied: files_written ссылается на несуществующие файлы: ${missing.join(", ")}`);
+    const report = er.output;
+    if (first) state.report = report;
+    const missing = missingWritten(report, dir);
+    if (missing.length > 0) return end("engineer", `denied: files_written ссылается на несуществующие файлы: ${missing.join(", ")}`);
 
     // static check — до typecheck и бандла (rulings п. 16)
-    const violations = await rc.timed("static", () => deps.check(draftDir));
+    const violations = await rc.timed(`${pre}static`, () => deps.check(dir));
     if (violations.length > 0) {
       push({ stage: "static", message: violations.map((v) => `${v.file}:${v.line} [${v.rule}] ${v.message}`).join("\n") });
       rc.log(`static check: ${violations.length} нарушений`);
       continue;
     }
-    const typeErrors = await rc.timed("typecheck", () => deps.typecheck(draftDir));
+    const typeErrors = await rc.timed(`${pre}typecheck`, () => deps.typecheck(dir));
     if (typeErrors.length > 0) {
-      push({ stage: "typecheck", message: typeErrors.map((t) => `${t.file}:${t.line} ${t.message}`).join("\n") });
+      push({ stage: "typecheck", message: typeErrors.map((x) => `${x.file}:${x.line} ${x.message}`).join("\n") });
       rc.log(`typecheck: ${typeErrors.length} ошибок`);
       continue;
     }
@@ -366,13 +672,13 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
     // provenance и контракт props (H4) — технический gate до рендера
     const techWarnings: QAIssue[] = [];
     if (i.qa) {
-      const prov = provenanceGate(er.output, i.refs, deps.kb, i.qa.allowRestricted);
+      const prov = provenanceGate(report, i.refs, deps.kb, i.qa.allowRestricted);
       if (prov.length > 0) {
         push({ stage: "static", message: asText(prov) });
         rc.log(`provenance: ${prov.map((x) => x.code).join(", ")}`);
         continue;
       }
-      const propsPath = join(draftDir, "props.json");
+      const propsPath = join(dir, "props.json");
       const checked = checkProps(existsSync(propsPath) ? await readFile(propsPath, "utf8") : undefined, spec, settings);
       const blocking = checked.issues.filter((x) => x.severity === "blocking");
       if (blocking.length > 0 || !checked.props) {
@@ -383,23 +689,24 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
       techWarnings.push(...checked.issues);
       // нормализованный props.style — в props.json и style.json (что сцена увидит, то и QA)
       await writeFile(propsPath, checked.text!);
-      state.style = checked.props.style;
-      i.files.set("style.json", JSON.stringify(sceneStyle(checked.props.style, settings), null, 2) + "\n");
-      await i.files.write();
+      style = checked.props.style;
+      if (first) state.style = style;
+      t.files.set("style.json", JSON.stringify(sceneStyle(style, settings), null, 2) + "\n");
+      await t.files.write();
     }
 
     const rp = await rc.storageProblem();
-    if (rp) return failed("storage", rp);
-    i.progress?.(0.55, "render");
-    rc.log(`рендер: кадры ${frames.join(", ")} + превью…`);
+    if (rp) return end("storage", rp);
+    if (first) i.progress?.(0.55, "render");
+    rc.log(`рендер${first ? "" : " (дубль 2)"}: кадры ${frames.join(", ")} + превью…`);
     // кадр N−20 для «финальный акцент жив» (accent_static) — только для программной проверки
     const extra = i.qa ? accentExtra(settings.duration_frames, frames) : [];
     const req: RenderRequest = {
-      versionDir: draftDir, settings, cacheDir: i.cacheDir, stills: [...frames, ...extra], preview: PREVIEW, timeoutMs: RENDER_TIMEOUT_MS,
+      versionDir: dir, settings, cacheDir: i.cacheDir, stills: [...frames, ...extra], preview: PREVIEW, timeoutMs: renderTimeoutMs(settings),
       run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry },
     };
     const t0 = Date.now();
-    const r = await rc.timed(`render_${call}`, () =>
+    const r = await rc.timed(`${pre}render_${call}`, () =>
       rc.underWatch(async (sig) => {
         const release = await rc.acquire(rc.deps.permits?.renders, sig);
         try {
@@ -409,17 +716,17 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
         }
       }),
     );
-    if (r.skipped) return failed("cancelled", "отменено до рендера");
+    if (r.skipped) return end("cancelled", "отменено до рендера");
     if (r.error !== undefined) {
       const storage = isStorageError(r.error) || r.lost !== undefined || (await rc.storageProblem()) !== undefined;
-      return failed(storage ? "storage" : "render", `рендер отклонён: ${errText(r.error)}`, { alive: true });
+      return end(storage ? "storage" : "render", `рендер отклонён: ${errText(r.error)}`, { alive: true });
     }
     const rr = r.value!;
     // лишний кадр N−20 (accent_static) — не QA-кадр: удаляется на любом исходе этого рендера
     try {
-      if (rr.error?.stage === "orphaned") return failed("orphaned", `рендер: ${rr.error.message}`, { alive: true });
-      if (r.lost) return failed("storage", `хранилище пропало во время рендера: ${r.lost}`);
-      if (rc.aborted) return failed("cancelled", "отменено во время рендера");
+      if (rr.error?.stage === "orphaned") return end("orphaned", `рендер: ${rr.error.message}`, { alive: true });
+      if (r.lost) return end("storage", `хранилище пропало во время рендера: ${r.lost}`);
+      if (rc.aborted) return end("cancelled", "отменено во время рендера");
       const consoleErrors = rr.browserLogs.filter((l) => l.startsWith("[error]"));
       if (!rr.ok || !rr.probe || !rr.previewPath) {
         const err = rr.error ?? { stage: "media", message: "рендер не вернул превью" };
@@ -430,7 +737,7 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
       }
       const ms = Date.now() - t0;
       state.renders.push(
-        { kind: "still", frames: frames.length, width: settings.width, height: settings.height, fps: settings.fps, outputPath: join(draftDir, "frames"), durationMs: ms },
+        { kind: "still", frames: frames.length, width: settings.width, height: settings.height, fps: settings.fps, outputPath: join(dir, "frames"), durationMs: ms },
         { kind: "preview", frames: settings.duration_frames, width: rr.probe.width, height: rr.probe.height, fps: settings.fps, outputPath: rr.previewPath, ffprobe: rr.probe, durationMs: ms },
       );
       const gate = probeGate(rr.probe, settings, PREVIEW.scale);
@@ -441,47 +748,62 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
       if (consoleErrors.length > 0) rc.warnings.push(`консоль браузера: ${consoleErrors.slice(0, 5).join(" | ")}`);
 
       // QA по реальным кадрам (Task 16)
+      let report_: QAReport | undefined;
+      let notes: QaScoreNote[] = [];
       if (i.qa) {
-        i.progress?.(0.7, "qa");
-        const q = await runQa(i, state, rr, techWarnings, call, extra);
-        if ("exit" in q) return q.exit;
-        lastQa = q.report;
-        if (qaBlocks(q.report)) {
-          const blocking = q.report.issues.filter((x) => x.severity === "blocking");
-          push({ stage: "qa", message: fixHints(q.report) });
-          rc.log(`QA: blocking ${blocking.map((x) => `${x.code}${x.frame !== undefined ? `@${x.frame}` : ""}`).join(", ") || Object.entries(q.report.gate).filter(([, v]) => v === "fail").map(([k]) => `gate.${k}`).join(", ")}`);
-          continue;
-        }
+        if (first) i.progress?.(0.7, "qa");
+        const q = await runQa(i, state, t, rr, techWarnings, call, extra, style);
+        if ("exit" in q) return { exit: q.exit, ...(issue ? { issue } : {}) };
+        lastQa = report_ = q.report;
+        notes = q.notes;
       }
-
-      const framesSha: string[] = [];
-      for (const s of rr.stills.slice(0, frames.length)) framesSha.push(await sha256File(s));
-      const previewSha = await sha256File(rr.previewPath);
-      rc.note("ready", `gate пройден с вызова ${call}`);
-      return { ok: true, previewSha, framesSha, ...(lastQa ? { qa: lastQa } : {}) };
+      const a: Attempt = {
+        n: ++ctl.next, take: t.no, call, snapshot: "", spec, ...(report_ ? { qa: report_ } : {}), ...(style ? { style } : {}), report,
+        notes, costUsd: rc.spent - spent0, blocking: report_ ? qaBlocks(report_) : false,
+      };
+      a.snapshot = await snapshotAttempt(rc, dir, frames, a.n);
+      ctl.attempts.push(a);
+      if (first) ctl.draftHead = a;
+      if (!scored && report_) {
+        scored = true;
+        t.onScored?.(a);
+      }
+      if (report_ && a.blocking) {
+        const blocking = report_.issues.filter((x) => x.severity === "blocking");
+        push({ stage: "qa", message: fixHints(report_) });
+        rc.log(`QA${first ? "" : " (дубль 2)"}: blocking ${blocking.map((x) => `${x.code}${x.frame !== undefined ? `@${x.frame}` : ""}`).join(", ") || Object.entries(report_.gate).filter(([, v]) => v === "fail").map(([k]) => `gate.${k}`).join(", ")}`);
+        continue;
+      }
+      rc.note(first ? "gate" : "t2_gate", `gate пройден с вызова ${call}${report_?.scores ? `, overall ${report_.scores.overall}` : ""}`);
+      return { clean: a };
     } finally {
-      for (const p of rr.stills.slice(frames.length)) await rm(p, { force: true });
+      for (const x of rr.stills.slice(frames.length)) await rm(x, { force: true });
     }
   }
-  const last = issue!;
-  if (last.stage === "qa" && lastQa) {
-    const blocking = lastQa.issues.filter((x) => x.severity === "blocking");
-    return failed("qa", `QA: blocking после ${maxCalls - 1} исправлений: ${clip(blocking.map((x) => `${x.code}${x.frame !== undefined ? ` (кадр ${x.frame})` : ""}: ${x.description}`).join("; ") || "gate fail", 4000)}`);
-  }
-  return failed(last.stage, clip(last.message, 4000));
+  return issue ? { issue } : {};
+}
+
+/** Время рендера: 5 мин, на длинных сценах — 10 с на секунду сцены (60 с → 10 мин), потолок 20 мин. */
+export function renderTimeoutMs(settings: Pick<Settings, "duration_frames" | "fps">): number {
+  const sec = (settings.duration_frames * settings.fps.den) / settings.fps.num;
+  return Math.min(4 * RENDER_TIMEOUT_MS, Math.max(RENDER_TIMEOUT_MS, Math.round(sec * 10_000)));
 }
 
 /** Программные проверки, проверки spec и Visual QA по кадрам рендера → QAReport (или выход). */
-async function runQa(i: LoopInput, state: LoopState, rr: RenderResult, techWarnings: QAIssue[], call: number, extra: number[]): Promise<{ report: QAReport } | { exit: Exit }> {
-  const { rc, settings, spec, frames, draftDir } = i;
-  const style = sceneStyle(state.style ?? scenePropsStyle(settings), settings);
+async function runQa(
+  i: LoopInput, state: LoopState, t: Take, rr: RenderResult, techWarnings: QAIssue[], call: number, extra: number[], styleOverride: ScenePropsStyle | undefined,
+): Promise<{ report: QAReport; notes: QaScoreNote[] } | { exit: Exit & { ok: false } }> {
+  const { rc, settings, frames } = i;
+  const { spec, dir } = t;
+  const pre = t.no === 1 ? "" : "t2_";
+  const style = sceneStyle(styleOverride ?? scenePropsStyle(settings), settings);
   const all = [...frames, ...extra].map((f, k) => ({ frame: f, path: rr.stills[k]! }));
   const stills = all.slice(0, frames.length);
   const end = settings.duration_frames;
   const pair = [end - ACCENT_HOLD_GAP, end - 1].flatMap((f) => all.filter((x) => x.frame === f && x.path !== undefined).slice(0, 1));
   const poster = POSTER_FRAMES.flatMap((f) => all.filter((x) => x.frame === f && x.path !== undefined).slice(0, 1));
   const previewBytes = rr.previewPath ? (await stat(rr.previewPath)).size : 0;
-  const programmatic = await rc.timed("qa_programmatic", () =>
+  const programmatic = await rc.timed(`${pre}qa_programmatic`, () =>
     programmaticChecks({ frames: stills, spec, settings, style, render: rr, previewBytes, ...(pair.length === 2 ? { accentFrames: pair } : {}), ...(poster.length > 0 ? { posterFrames: poster } : {}) }),
   );
   // лишний кадр — не QA-кадр: Visual QA его не видит, в версию он не публикуется
@@ -490,21 +812,21 @@ async function runQa(i: LoopInput, state: LoopState, rr: RenderResult, techWarni
 
   // ruling P5: QA по реальным кадрам обязателен. Бюджет кончился до Visual QA — `budget`;
   // Visual QA не дал оценки — один повтор (без исправления Engineer), затем `qa`. Обе
-  // неудачи публикуют failed-версию с отчётом программных проверок.
+  // неудачи публикуют failed-версию с отчётом программных проверок (если лучшей попытки нет).
   const partial = () => mergeQA({ technical: techWarnings, programmatic: [...programmatic, ...fromSpec] });
-  let agent: Parameters<typeof mergeQA>[0]["agent"];
+  let agent: VisualQAOutput | undefined;
   for (let attempt = 1; agent === undefined; attempt++) {
     if (rc.spent >= rc.config.scene.maxCostUsd) {
       return { exit: { ok: false, stage: "budget", message: `бюджет сцены исчерпан до Visual QA: $${rc.spent.toFixed(2)} из $${rc.config.scene.maxCostUsd}`, qa: partial() } };
     }
     const p = await rc.storageProblem();
     if (p) return { exit: { ok: false, stage: "storage", message: p } };
-    rc.log(attempt === 1 ? "Visual QA…" : "Visual QA: повтор…");
+    rc.log(attempt === 1 ? `Visual QA${pre ? " (дубль 2)" : ""}…` : "Visual QA: повтор…");
     const before = rc.spent;
-    const v = await rc.timed(`visual_qa_${call}`, () =>
+    const v = await rc.timed(`${pre}visual_qa_${call}`, () =>
       rc.underWatch((sig) =>
         runVisualQA(
-          { workdir: draftDir, frames, spec, style, durationFrames: end, brief: i.qa!.brief, runRef: { root: rc.root, runId: rc.runId, attempt: rc.attempt }, signal: sig },
+          { workdir: dir, frames, spec, style, durationFrames: end, brief: i.qa!.brief, runRef: { root: rc.root, runId: rc.runId, attempt: rc.attempt }, signal: sig, ...(pre ? { dirName: "qa-t2" } : {}) },
           { agents: rc.recording, config: rc.config, log: (m) => rc.warnings.push(m) },
         ),
       ),
@@ -518,7 +840,7 @@ async function runQa(i: LoopInput, state: LoopState, rr: RenderResult, techWarni
       return { exit: { ok: false, stage: storage ? "storage" : "qa", message: `вызов Visual QA отклонён: ${errText(v.error)}`, alive: true, ...(net ? { transient: true as const } : {}) } };
     }
     const vr = v.value!;
-    state.visualQa.push({ call, wall_ms: vr.wallMs, cost_usd: rc.spent - before, status: vr.status, ...(vr.output ? { gate: { technical: "pass", ...vr.output.gate } } : {}) });
+    state.visualQa.push({ call: pre ? 100 + call : call, wall_ms: vr.wallMs, cost_usd: rc.spent - before, status: vr.status, ...(vr.output ? { gate: { technical: "pass", ...vr.output.gate } } : {}) });
     if (vr.error?.kind === "orphaned") return { exit: { ok: false, stage: "orphaned", message: `Visual QA: ${vr.error.message}`, alive: true } };
     if (v.lost) return { exit: { ok: false, stage: "storage", message: `хранилище пропало во время Visual QA: ${v.lost}` } };
     if (rc.aborted) return { exit: { ok: false, stage: "cancelled", message: "отменено во время Visual QA" } };
@@ -534,7 +856,9 @@ async function runQa(i: LoopInput, state: LoopState, rr: RenderResult, techWarni
       return { exit: { ok: false, stage: "qa", message: `${why} (вызовов: ${attempt}); без оценки по кадрам версия не ready`, qa: partial(), ...(net ? { transient: true as const } : {}) } };
     }
   }
+  // S5: missing_element только по зрению, который опровергает реестр раскладки, — warning
+  agent = reconcileMissing(agent, spec, parseLayout(rr.browserLogs), end);
   const report = mergeQA({ technical: techWarnings, programmatic: [...programmatic, ...fromSpec], agent });
-  rc.note("qa", `QA вызова ${call}: ${JSON.stringify(report.gate)}; blocking: ${report.issues.filter((x) => x.severity === "blocking").map((x) => x.code).join(", ") || "—"}`);
-  return { report };
+  rc.note("qa", `QA ${pre ? "дубля 2 " : ""}вызова ${call}: ${JSON.stringify(report.gate)}; overall ${agent.scores.overall}; blocking: ${report.issues.filter((x) => x.severity === "blocking").map((x) => x.code).join(", ") || "—"}`);
+  return { report, notes: agent.score_notes };
 }

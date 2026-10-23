@@ -195,6 +195,9 @@ function toHandlerResult(r: GenerateResult, sceneId: string): HandlerResult {
         cost_usd: r.costUsd,
         engineer_calls: r.engineerCalls,
         qa: r.qa?.gate ?? null,
+        // S5: время этапов по часам и итог — постоянная метрика генерации
+        stage_wall_ms: r.stageWallMs ?? null,
+        attempts: r.attempts ?? null,
         warnings: r.warnings,
         steps: stepRefs(r.steps),
       },

@@ -40,8 +40,16 @@ it("config.json overrides scene, claudeBin and kb; env KB_* wins over defaults",
     { claudeBin: "/opt/claude", scene: { maxCostUsd: 1 }, kb: { root: "/kb" } },
   );
   expect(c.claudeBin).toBe("/opt/claude");
-  expect(c.scene).toEqual({ maxCostUsd: 1, maxAutoFixes: 2 });
+  expect(c.scene).toMatchObject({ maxCostUsd: 1, maxAutoFixes: 2 });
   expect(c.kb).toEqual({ root: "/kb", sourceRoot: "/src" });
+});
+
+it("S5: второй дубль — по умолчанию revise при overall < 6.5; config.json и env MS_SECOND_TAKE его меняют", () => {
+  expect(loadConfig({ MS_DATA_DIR: root }).scene.secondTake).toEqual({ mode: "revise", threshold: 6.5, fixes: 1 });
+  expect(loadConfig({ MS_DATA_DIR: root }, { scene: { secondTake: { mode: "fresh" } } }).scene.secondTake).toEqual({ mode: "fresh", threshold: 6.5, fixes: 1 });
+  expect(loadConfig({ MS_DATA_DIR: root, MS_SECOND_TAKE: "off" }, { scene: { secondTake: { mode: "fresh" } } }).scene.secondTake.mode).toBe("off");
+  expect(() => loadConfig({ MS_DATA_DIR: root, MS_SECOND_TAKE: "twice" })).toThrow(/MS_SECOND_TAKE/);
+  expect(() => loadConfig({ MS_DATA_DIR: root }, { scene: { secondTake: { mode: "x" } } })).toThrow(/config/);
 });
 
 it("MS_DATA_DIR is required", () => {

@@ -282,21 +282,20 @@ describe("playgroundGenerate: неудачи по этапам", () => {
     expect(agents.tasks.map((t) => t.role)).toEqual(["concept"]);
   });
 
-  it("QA blocking после 2 исправлений → failed, failure.stage qa; версия failed с qa.json, не current", async () => {
+  // S5 (R2 #10): после исчерпания исправлений публикуется лучшая попытка с qa.visual = warn
+  it("QA blocking после 2 исправлений → лучшая попытка ready с qa.visual warn (S5), blocking — подсказки Engineer", async () => {
     const agents = fakeAgents({ visualQa: async (frames) => blockingQa(frames) });
     const { job, scene } = await runJob({ agents });
-    expect(job.status).toBe("failed");
-    expect(job.error).toMatchObject({ stage: "qa" });
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
     expect(agents.engineerCalls).toHaveLength(3);
     // замечание QA ушло Engineer подсказкой (кадр, область, что поменять)
     expect(agents.engineerCalls[1]!.input).toContain("clipping");
     expect(agents.engineerCalls[1]!.input).toContain("сдвинь заголовок внутрь safe area");
     const [v] = versionRows(scene.id);
-    expect(v).toMatchObject({ status: "failed" });
-    expect(scenes.get(env.db, scene.id)!.current_version_id).toBeNull();
+    expect(v).toMatchObject({ status: "ready" });
+    expect(scenes.get(env.db, scene.id)!.current_version_id).toBe(v!.id);
     expect(existsSync(join(env.s.root, v!.path, "qa.json"))).toBe(true);
-    expect((await readVersion(join(env.s.root, v!.path))).qa?.visual).toBe("fail");
-    expect(env.db.prepare("SELECT kb_id, result FROM component_tests").all()).toEqual([{ kb_id: "fake/line-chart", result: "rendered-fail" }]);
+    expect((await readVersion(join(env.s.root, v!.path))).qa?.visual).toBe("warn");
   });
 
   it("технический gate 1 раз fail + QA 1 раз blocking → Engineer вызван 3 раза, версия ready", async () => {
@@ -363,12 +362,14 @@ describe("playgroundGenerate: неудачи по этапам", () => {
     expect(agents.engineerCalls[1]!.input).toContain("magicui/animated-beam");
   });
 
-  it("бюджет: Concept 0.5 + Director 2 + Engineer 2 + QA 0.6 = 5.1 → следующий вызов не делается, failure.stage budget", async () => {
-    const agents = fakeAgents({ costs: { concept: 0.5, motion_director: 2, engineer: 2, visual_qa: 0.6 }, visualQa: async (frames) => blockingQa(frames) });
-    const { job } = await runJob({ agents });
+  // S5: бюджет после оценённой попытки — публикация лучшей (best-attempt.test.ts); здесь — без неё
+  it("бюджет: Concept 0.5 + Director 2 + Engineer 2.6 = 5.1 после technical fail → следующий вызов не делается, failure.stage budget", async () => {
+    const typecheck = async () => [{ file: "src/Scene.tsx", line: 1, message: "TS2322" }];
+    const agents = fakeAgents({ costs: { concept: 0.5, motion_director: 2, engineer: 2.6 } });
+    const { job } = await runJob({ agents, typecheck });
     expect(job.status).toBe("failed");
     expect(job.error).toMatchObject({ code: "budget", stage: "budget" });
-    expect(agents.tasks.map((t) => t.role)).toEqual(["concept", "motion_director", "engineer", "visual_qa"]);
+    expect(agents.tasks.map((t) => t.role)).toEqual(["concept", "motion_director", "engineer"]);
     expect(job.error!.message).toContain("5.10");
   });
 

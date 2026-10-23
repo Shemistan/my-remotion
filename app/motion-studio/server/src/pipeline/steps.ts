@@ -98,10 +98,50 @@ export interface Called<T> {
  * Контекст одного прогона: хранилище, сторож, бюджет (фактический `usage.costUsd`, R15),
  * журнал вызовов агентов и этапов. Все агентные вызовы идут через `call` / `recording`.
  */
+/** Этап по ключу `timed` (`t2_` — второй дубль): одна строка метрики времени. */
+export function stageOf(key: string): string {
+  const k = key.replace(/^t2_/, "");
+  if (k.startsWith("engineer")) return "engineer";
+  if (k.startsWith("render")) return "render";
+  if (k.startsWith("visual_qa") || k.startsWith("qa_")) return "qa";
+  if (k === "static" || k === "typecheck") return "check";
+  if (k === "motion_director" || k.startsWith("director")) return "director";
+  return k;
+}
+
+/**
+ * Время этапов по часам (S5): объединение интервалов этапа — параллельные вызовы одного
+ * этапа (два дубля) не складываются; `total` — от старта задачи до конца.
+ */
+export function stageWall(spans: readonly { key: string; start: number; end: number }[], total: number): Record<string, number> {
+  const by = new Map<string, [number, number][]>();
+  for (const sp of spans) {
+    const st = stageOf(sp.key);
+    by.set(st, [...(by.get(st) ?? []), [sp.start, sp.end]]);
+  }
+  const out: Record<string, number> = {};
+  for (const [st, xs] of by) {
+    xs.sort((x, y) => x[0] - y[0]);
+    let sum = 0;
+    let [a, b] = xs[0]!;
+    for (const [s, e] of xs.slice(1)) {
+      if (s > b) {
+        sum += b - a;
+        [a, b] = [s, e];
+      } else b = Math.max(b, e);
+    }
+    out[st] = sum + b - a;
+  }
+  out.total = total;
+  return out;
+}
+
 export class RunCtx {
   spent = 0;
   readonly warnings: string[] = [];
   readonly timings: Record<string, number> = {};
+  /** Интервалы этапов по часам (S5): из них — время этапов с учётом параллельности. */
+  readonly spans: { key: string; start: number; end: number }[] = [];
   readonly history: { at: string; stage: string; message: string }[] = [];
   /** Журналы вызовов агентов (пути относительно корня) — для manifest.agent_runs. */
   readonly agentLogs: string[] = [];
@@ -141,7 +181,9 @@ export class RunCtx {
     try {
       return await fn();
     } finally {
-      this.timings[key] = (this.timings[key] ?? 0) + Date.now() - s;
+      const e = Date.now();
+      this.timings[key] = (this.timings[key] ?? 0) + e - s;
+      this.spans.push({ key, start: s, end: e });
     }
   }
 
@@ -219,10 +261,14 @@ export class RunCtx {
   /** Место семафора: прерванное ожидание — `NotStarted` (процесс не запускался). */
   async acquire(p: Permits | undefined, sig: AbortSignal): Promise<() => void> {
     if (!p) return () => undefined;
+    const s = Date.now();
     try {
       return await p.acquire(sig);
     } catch {
       throw new NotStarted();
+    } finally {
+      // ожидание места семафора входит в этап; отдельно — сколько из него очередь
+      this.timings.queue_wait = (this.timings.queue_wait ?? 0) + Date.now() - s;
     }
   }
 

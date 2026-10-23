@@ -24,6 +24,8 @@ export interface VisualQAInput {
   brief: unknown;
   runRef: { root: string; runId: string; attempt: number };
   signal: AbortSignal;
+  /** Каталог QA дубля (S5): `qa` — первый, `qa-t2` — второй; параллельные дубли не делят кадры. */
+  dirName?: string;
 }
 
 export interface VisualQADeps {
@@ -105,10 +107,11 @@ function prompt(frames: number[]): string {
 export async function runVisualQA(input: VisualQAInput, deps: VisualQADeps): Promise<VisualQAResult> {
   const { root, runId, attempt } = input.runRef;
   const frames = [...new Set(input.frames)].sort((a, b) => a - b);
-  const dir = await safeMkdir(root, join("run", "tmp", `${runId}-a${attempt}`, "qa"));
+  const qaName = input.dirName ?? "qa";
+  const dir = await safeMkdir(root, join("run", "tmp", `${runId}-a${attempt}`, qaName));
   // повторный QA в той же попытке (после исправления) видит только свои кадры
   await rm(join(dir, "frames"), { recursive: true, force: true });
-  const framesDir = await safeMkdir(root, join("run", "tmp", `${runId}-a${attempt}`, "qa", "frames"));
+  const framesDir = await safeMkdir(root, join("run", "tmp", `${runId}-a${attempt}`, qaName, "frames"));
   for (const f of frames) await copyFile(join(input.workdir, "frames", `${f}.png`), join(framesDir, `${f}.png`));
   await writeFile(join(dir, "spec.json"), json(input.spec));
   await writeFile(join(dir, "style.json"), json(input.style));
@@ -126,7 +129,7 @@ export async function runVisualQA(input: VisualQAInput, deps: VisualQADeps): Pro
     tools: ["Read"],
     model: s.model,
     limits: { timeoutMs: s.timeoutMs, maxBudgetUsd: s.maxBudgetUsd },
-    idempotencyKey: `${runId}-a${attempt}-visual_qa-${frames.join("_")}`,
+    idempotencyKey: `${runId}-a${attempt}-visual_qa${qaName === "qa" ? "" : `-${qaName}`}-${frames.join("_")}`,
     run: input.runRef,
   };
   const r = await deps.agents.run(task, VisualQAOutputSchema, input.signal);
