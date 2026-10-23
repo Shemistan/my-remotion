@@ -4,8 +4,8 @@
 //   ./night --dry-run                       # предпроверки и план ночи, ничего не создаёт и не тратит
 //   ./night                                 # ночь до 07:00, бюджет $150
 //   ./night --until 06:30 --budget-usd 120
-//   ./night --smoke --until 15:30           # короткая проверка: 2+2 сцены, одна итерация
-//   ./night --resume [--date ГГГГ-ММ-ДД]    # продолжить прерванную ночь
+//   ./night --smoke --until 15:30           # короткая проверка: 2+2 сцены, одна итерация (дата <день>-smoke)
+//   ./night --resume [--smoke] [--date ГГГГ-ММ-ДД]   # продолжить прерванную ночь
 // Флаги: --item Q07 (только этот пункт), --max-iterations N, --agent-min N (потолок агента, мин),
 //   --agent-usd N (потолок агента, $), --date ГГГГ-ММ-ДД (по умолчанию — сегодня).
 import { type ChildProcess, execFileSync, spawn } from "node:child_process";
@@ -56,11 +56,14 @@ const dryRun = flag("--dry-run");
 const smoke = flag("--smoke");
 const resume = flag("--resume");
 const NIGHT_ROOT = join(REPO, "tmp", "night");
-let date = opt("--date") ?? localDate(now);
-if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) fail(`--date: ГГГГ-ММ-ДД, получено ${date}`);
+// smoke — своя «дата» с суффиксом: не мешает настоящей ночи того же дня
+let date = opt("--date") ?? `${localDate(now)}${smoke ? "-smoke" : ""}`;
+if (!/^\d{4}-\d{2}-\d{2}(-smoke)?$/.test(date)) fail(`--date: ГГГГ-ММ-ДД[-smoke], получено ${date}`);
 if (resume && !opt("--date")) {
   // ночь, начатая до полуночи, продолжается под своей датой
-  const nights = existsSync(NIGHT_ROOT) ? readdirSync(NIGHT_ROOT).filter((d) => existsSync(join(NIGHT_ROOT, d, "state.json"))).sort() : [];
+  const nights = existsSync(NIGHT_ROOT)
+    ? readdirSync(NIGHT_ROOT).filter((d) => d.endsWith("-smoke") === smoke && existsSync(join(NIGHT_ROOT, d, "state.json"))).sort()
+    : [];
   if (!nights.length) fail("--resume: нет начатых ночей в tmp/night");
   date = nights.at(-1)!;
 }
