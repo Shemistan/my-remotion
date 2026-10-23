@@ -1,19 +1,22 @@
 // Иммутабельные ревизии артефактов видеопроекта (Global Constraints Phase 2–3): каталог draft
 // публикуется в `workspace/projects/<p>/…` переносом `rename` в транзакции БД с fencing
 // попытки (как `SceneRepo.publish`), содержимое и корень закрываются от записи (`chmod -R a-w`).
-import { existsSync, lstatSync, mkdirSync, readdirSync, renameSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, realpathSync, renameSync } from "node:fs";
 import { chmod, lstat, open, rm } from "node:fs/promises";
 import { basename, dirname, join, posix } from "node:path";
 import { constants } from "node:fs";
-import { SAFE_ID, safeMkdir, type StorageStatus } from "@ms/core";
+import { SAFE_ID, safeMkdir, safeMkdirSync, type StorageStatus } from "@ms/core";
 import type { Db } from "../db/open.js";
 import * as jobs from "../db/repos/jobs.js";
 import { tx } from "../db/tx.js";
 import { resourceBusy } from "../jobs/locks.js";
+import { fenceOk } from "../jobs/queue.js";
 import { sha256File } from "../scenes/hash.js";
 import { newId } from "../scenes/ids.js";
 import { FencedOutError, PublishCancelledError, type Fence } from "../scenes/repo.js";
-import { QUARANTINE, attachCause, fsyncDirSync, fsyncWrite, lockChildrenSync, quarantineDraft, setWritableSync } from "../scenes/store.js";
+import {
+  QUARANTINE, SYNC_DRAFT_PREFIX, attachCause, fsyncDirSync, fsyncWrite, fsyncWriteSync, lockChildrenSync, quarantineDraft, setWritableSync,
+} from "../scenes/store.js";
 import { PROJECTS_REL } from "./paths.js";
 
 export interface ArtifactFile {
@@ -49,7 +52,6 @@ export class ArtifactExistsError extends Error {
 }
 
 const DRAFTS_REL = "workspace/drafts";
-const SYNC_PREFIX = "sync-";
 
 function requireStorage(status: StorageStatus): void {
   if (!status.ok) throw new Error(`storage_unavailable: ${status.reason}: ${status.detail}`);
@@ -113,26 +115,31 @@ export class ArtifactStore {
     this.dbRef = db;
   }
 
-  /** Fencing и отмена (как `SceneRepo`): устаревшая попытка — `fenced_out`, запрошенная отмена — `cancelled`. */
+  /**
+   * Fencing и отмена: попытка не текущая (`fenceOk` очереди — тот же `attempt` и задача
+   * `running`) — `fenced_out`, запрошенная отмена — `cancelled`.
+   */
   private gate(fence: Fence): Error | undefined {
-    const job = jobs.get(this.db, fence.jobId);
-    if (job?.attempt !== fence.attempt) return new FencedOutError(fence, job?.attempt);
-    if (job.cancel_requested) return new PublishCancelledError(fence);
+    if (!fenceOk(this.db, fence.jobId, fence.attempt)) return new FencedOutError(fence, jobs.get(this.db, fence.jobId)?.attempt);
+    if (jobs.get(this.db, fence.jobId)?.cancel_requested) return new PublishCancelledError(fence);
     return undefined;
   }
 
   /**
    * Публикация каталога draft попытки в `destRel` (ADR 0007, H9). До транзакции, асинхронно:
    * карантин, fencing, `guard()`, снимок дерева, sha256 + fsync файлов и каталогов, снова
-   * `guard()` и сверка снимка. Затем `BEGIN IMMEDIATE`: fencing (`jobs.attempt`, отмена) →
-   * `destRel` ещё не существует → содержимое read-only → `renameSync` → `register`. Устаревшая
-   * попытка — `fenced_out` и `.quarantined`; сбой `register` — обратный `renameSync`, draft
-   * снова записываемый. После COMMIT закрывается корень ревизии.
+   * `guard()` и сверка снимка. Затем `BEGIN IMMEDIATE`: fencing (`fenceOk`, отмена) →
+   * место назначения свободно (зарегистрированное — `artifact_exists`, сирота без строки
+   * `artifact_publications` — в `workspace/quarantine/artifacts/`) → содержимое read-only →
+   * `renameSync` → строка реестра → `register`. Устаревшая попытка — `fenced_out` и
+   * `.quarantined`; сбой `register` — обратный `renameSync`, draft снова записываемый. После
+   * COMMIT закрывается корень ревизии. Draft — настоящий каталог в `workspace/drafts`.
    */
   async publish(draftDir: string, destRel: string, register: Register, fence?: Fence): Promise<PublishedArtifact> {
     if (fence && basename(draftDir) !== `${fence.jobId}-a${fence.attempt}`) {
       throw new Error(`artifacts: draft ${draftDir} не принадлежит попытке ${fence.attempt} задачи ${fence.jobId}`);
     }
+    checkDraftDir(draftDir, join(this.root, DRAFTS_REL)); // до маркера карантина: он пишется в draft
     if (fence) {
       const refused = this.gate(fence);
       if (refused) {
@@ -140,7 +147,7 @@ export class ArtifactStore {
         throw refused;
       }
     }
-    return this.publishDir(draftDir, destRel, register, fence ? () => this.gate(fence) : () => undefined, Boolean(fence));
+    return this.publishDir(draftDir, destRel, register, fence ? () => this.gate(fence) : () => undefined, fence);
   }
 
   /**
@@ -153,7 +160,7 @@ export class ArtifactStore {
     if (!SAFE_ID.test(file) || file === QUARANTINE) throw new Error(`artifacts: имя файла ревизии не годится: ${JSON.stringify(file)}`);
     checkDestRel(destRel);
     requireStorage(await this.guard());
-    const dir = join(await safeMkdir(this.root, DRAFTS_REL), `${SYNC_PREFIX}${newId("syn")}`);
+    const dir = join(await safeMkdir(this.root, DRAFTS_REL), `${SYNC_DRAFT_PREFIX}${newId("syn")}`);
     mkdirSync(dir);
     try {
       await fsyncWrite(join(dir, file), JSON.stringify(doc, null, 2) + "\n");
@@ -161,7 +168,7 @@ export class ArtifactStore {
         const held = opts.lockKey === undefined ? undefined : resourceBusy(this.db, opts.lockKey);
         return held ? new ResourceBusyError(opts.lockKey!, held.jobId) : undefined;
       };
-      return await this.publishDir(dir, destRel, register, busy, false);
+      return await this.publishDir(dir, destRel, register, busy, undefined);
     } finally {
       if (existsSync(dir)) {
         try {
@@ -178,11 +185,11 @@ export class ArtifactStore {
     destRel: string,
     register: Register,
     gateInTx: () => Error | undefined,
-    quarantineOnGate: boolean,
+    fence: Fence | undefined,
   ): Promise<PublishedArtifact> {
     checkDestRel(destRel);
     const draftsDir = join(this.root, DRAFTS_REL);
-    if (dirname(draftDir) !== draftsDir) throw new Error(`artifacts: draft вне ${DRAFTS_REL}: ${draftDir}`);
+    checkDraftDir(draftDir, draftsDir);
     const quarantined = () => existsSync(join(draftDir, QUARANTINE));
     if (quarantined()) throw new Error(`artifacts: draft в карантине (quarantined), публикация запрещена: ${draftDir}`);
     requireStorage(await this.guard());
@@ -208,9 +215,16 @@ export class ArtifactStore {
       tx(this.db, () => {
         const refused = gateInTx();
         if (refused) throw refused;
-        // rename поверх пустого каталога прошёл бы молча — проверка под write-lock БД
-        if (lstatSafe(dest)) throw new ArtifactExistsError(destRel);
+        // rename поверх пустого каталога прошёл бы молча — проверка под write-lock БД.
+        // Зарегистрированный каталог — опубликованная ревизия; без строки реестра — сирота
+        // прерванной публикации (rename прошёл, COMMIT нет): в карантин, место свободно.
+        if (lstatSafe(dest)) {
+          if (isPublished(this.db, destRel)) throw new ArtifactExistsError(destRel);
+          quarantineOrphanSync(this.root, dest, destRel);
+          fsyncDirSync(parent);
+        }
         if (quarantined()) throw new Error(`artifacts: draft в карантине (quarantined), публикация запрещена: ${draftDir}`);
+        checkDraftDir(draftDir, draftsDir); // каталог могли подменить симлинком после снимка
         if (!sameSnapshot(snapshotSync(draftDir), snapshot)) throw new Error(`artifacts: draft изменился после подготовки публикации: ${draftDir}`);
         // Содержимое закрываем до rename: каталог 0555 на этой машине не переносится в другой родитель.
         locked = true;
@@ -220,6 +234,8 @@ export class ArtifactStore {
         // rename устойчив до COMMIT: иначе после сбоя питания строка в БД есть, а каталога нет
         fsyncDirSync(parent);
         fsyncDirSync(draftsDir);
+        this.db.prepare("INSERT INTO artifact_publications (dest_rel, job_id, attempt, published_at) VALUES (?, ?, ?, ?)")
+          .run(destRel, fence?.jobId ?? null, fence?.attempt ?? null, new Date().toISOString());
         register(this.db, files);
       });
     } catch (e) {
@@ -233,7 +249,7 @@ export class ArtifactStore {
       } catch (u) {
         attachCause(e, u);
       }
-      if (quarantineOnGate && (e instanceof FencedOutError || e instanceof PublishCancelledError)) await quarantineDraft({ dir: draftDir }, e.message);
+      if (fence && (e instanceof FencedOutError || e instanceof PublishCancelledError)) await quarantineDraft({ dir: draftDir }, e.message);
       throw e;
     }
     const warnings: string[] = [];
@@ -245,6 +261,47 @@ export class ArtifactStore {
     }
     return { dir: dest, files, warnings };
   }
+}
+
+/** Каталог `destRel` опубликован (строка реестра `artifact_publications`). */
+export function isPublished(db: Db, destRel: string): boolean {
+  return db.prepare("SELECT 1 FROM artifact_publications WHERE dest_rel = ?").get(destRel) !== undefined;
+}
+
+/** Корень карантина каталогов-сирот (относительно хранилища). */
+export const ORPHANS_REL = "workspace/quarantine/artifacts";
+
+/**
+ * Сирота на месте назначения → `workspace/quarantine/artifacts/<qrn_…>/` с маркером
+ * `.quarantined` (причина, исходный `dest_rel`). Синхронно — внутри транзакции публикации.
+ * Read-only снимается: каталог 0555 не переносится в другой родитель.
+ */
+function quarantineOrphanSync(root: string, dest: string, destRel: string): string {
+  const qdir = join(safeMkdirSync(root, ORPHANS_REL), newId("qrn"));
+  if (lstatSync(dest).isDirectory()) setWritableSync(dest);
+  renameSync(dest, qdir);
+  const reason = { reason: "orphan_artifact: каталог без записи в реестре (публикация прервана до COMMIT)", dest_rel: destRel, at: new Date().toISOString() };
+  if (lstatSync(qdir).isDirectory()) fsyncWriteSync(join(qdir, QUARANTINE), JSON.stringify(reason, null, 2) + "\n");
+  else fsyncWriteSync(`${qdir}${QUARANTINE}`, JSON.stringify(reason, null, 2) + "\n");
+  fsyncDirSync(dirname(qdir));
+  return qdir;
+}
+
+/**
+ * Draft — настоящий каталог (не симлинк) прямо в `workspace/drafts`, и по realpath тоже:
+ * иначе `chmod -R a-w` и rename ушли бы по ссылке наружу.
+ */
+function checkDraftDir(draftDir: string, draftsDir: string): void {
+  const bad = (why: string) => new Error(`artifacts: draft не годится (${why}): ${draftDir}`);
+  if (dirname(draftDir) !== draftsDir) throw bad(`вне ${DRAFTS_REL}`);
+  let st;
+  try {
+    st = lstatSync(draftDir);
+  } catch (e) {
+    throw bad((e as Error).message);
+  }
+  if (st.isSymbolicLink() || !st.isDirectory()) throw bad("не каталог или симлинк");
+  if (dirname(realpathSync(draftDir)) !== realpathSync(draftsDir)) throw bad(`realpath вне ${DRAFTS_REL}`);
 }
 
 /** Путь занят чем угодно, включая битый симлинк. */

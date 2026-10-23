@@ -6,7 +6,9 @@ const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 export type IdPrefix =
   | "scn" | "ver" | "run" | "prj" | "job" | "msg" | "exp"
   // Phase 2–3: исходник, транскрипт, EDL, approval, footage, semantic, StyleBible, план, синхронная правка
-  | "med" | "trn" | "edl" | "apr" | "ftg" | "sem" | "sty" | "pln" | "syn";
+  | "med" | "trn" | "edl" | "apr" | "ftg" | "sem" | "sty" | "pln" | "syn"
+  // карантин каталога-сироты артефакта
+  | "qrn";
 
 let lastTime = -1;
 let lastRand = 0n;

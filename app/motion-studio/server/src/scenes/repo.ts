@@ -19,7 +19,7 @@ import { jsonDiff, srcFilesDiff } from "./diff.js";
 import { sha256, sha256File } from "./hash.js";
 import { newId } from "./ids.js";
 import {
-  QUARANTINE, attachCause, commitVersionFiles, createDraft, manifestText, prepareVersion, quarantineDraft, readVersion, sceneRel,
+  QUARANTINE, SYNC_DRAFT_PREFIX, attachCause, commitVersionFiles, createDraft, manifestText, prepareVersion, quarantineDraft, readVersion, sceneRel,
   sealVersion, setWritable, undoCommitVersionFiles, writeBriefSync, type Draft, type PublishMeta,
 } from "./store.js";
 
@@ -326,7 +326,9 @@ export class SceneRepo {
     for (const name of entries) {
       const dir = join(draftsDir, name);
       const m = /^(.+)-a(\d+)$/.exec(name);
-      if (!m || alive.has(key(m[1]!, Number(m[2]))) || !(await disposable(dir))) {
+      // sync-<id> (синхронная правка) процессов не имеет: удаляется по одноразовому карантину
+      const sync = name.startsWith(SYNC_DRAFT_PREFIX);
+      if ((!sync && (!m || alive.has(key(m[1]!, Number(m[2]))))) || !(await disposable(dir))) {
         out.kept.push(dir);
         continue;
       }

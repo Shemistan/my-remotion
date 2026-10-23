@@ -1,5 +1,5 @@
 import type { Db } from "../open.js";
-import { nowIso } from "./util.js";
+import { advanceCurrent, nowIso } from "./util.js";
 
 export interface StyleRow {
   id: string;
@@ -36,9 +36,7 @@ export function byProject(db: Db, projectId: string): StyleRow | undefined {
 export function insertRevision(db: Db, r: Omit<StyleRevisionRow, "created_at">): void {
   db.prepare("INSERT INTO style_revisions (style_id, revision, rel_path, sha256, hash, author, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
     .run(r.style_id, r.revision, r.rel_path, r.sha256, r.hash, r.author, nowIso());
-  if (db.prepare("UPDATE style_bibles SET current_revision = ? WHERE id = ?").run(r.revision, r.style_id).changes !== 1) {
-    throw new Error(`db: StyleBible нет: ${r.style_id}`);
-  }
+  advanceCurrent(db, "style_bibles", r.style_id, r.revision, "StyleBible");
 }
 
 export function revision(db: Db, id: string, rev: number): StyleRevisionRow | undefined {

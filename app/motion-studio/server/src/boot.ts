@@ -139,10 +139,12 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     const storageCheck = () => checkStorage(env, probe, storeId);
     log("storage");
 
-    const reopen = (): Db => {
+    // quick_check до миграций: повреждённую базу не мигрировать и не копировать поверх (ревью M9)
+    const reopen = async (): Promise<Db> => {
       const d = openDb(root);
       try {
-        migrate(d);
+        if (!quickCheck(d)) throw new Error("db: quick_check не прошёл — studio.db повреждена");
+        await migrate(d, { log: opts.storageLog });
         bindStoreId(d, status.marker);
       } catch (e) {
         d.close();
@@ -150,8 +152,7 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
       }
       return d;
     };
-    db = reopen();
-    if (!quickCheck(db)) throw new Error("db: quick_check не прошёл — studio.db повреждена");
+    db = await reopen();
     const config = loadConfig(env, await readConfigFile(root));
     log("db");
 

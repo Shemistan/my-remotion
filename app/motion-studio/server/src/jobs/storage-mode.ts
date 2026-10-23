@@ -17,7 +17,7 @@ export interface StorageSupervisorDeps {
   runner: JobRunner;
   registry: SqliteProcessRegistry;
   /** Открывает `studio.db` заново (миграции, сверка `store_id`); `quick_check` делает супервизор. */
-  reopen: () => Db;
+  reopen: () => Db | Promise<Db>;
   /** Текущая база (закрывается при сбое). */
   db: Db;
   /** Период проверки, мс (10 000); окончательный отказ — offline сразу, неокончательный (`storage_watch_timeout`, `volume_probe_failed`) — после серии подряд (`watchStorage`). */
@@ -145,7 +145,7 @@ export class StorageSupervisor {
     }
     let db: Db;
     try {
-      db = this.deps.reopen();
+      db = await this.deps.reopen();
     } catch (e) {
       this.why = `studio.db не открылась: ${(e as Error).message}`;
       return;

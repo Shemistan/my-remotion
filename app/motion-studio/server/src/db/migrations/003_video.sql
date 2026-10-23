@@ -300,3 +300,15 @@ CREATE TABLE scene_plans (
   PRIMARY KEY (plan_id, revision, item_id),
   FOREIGN KEY (plan_id, revision) REFERENCES visual_plan_revisions (plan_id, revision)
 ) STRICT;
+
+-- 9. Реестр опубликованных каталогов артефактов (ArtifactStore): строка пишется в той же
+--    транзакции, что rename и register. Каталог на месте назначения без строки — сирота
+--    (rename прошёл, COMMIT нет) и уходит в карантин; со строкой — artifact_exists.
+--    job_id/attempt — какой попыткой опубликован (NULL у синхронной правки пользователя).
+CREATE TABLE artifact_publications (
+  dest_rel     TEXT PRIMARY KEY,
+  job_id       TEXT REFERENCES jobs (id),
+  attempt      INTEGER CHECK (attempt >= 1),
+  published_at TEXT NOT NULL,
+  CHECK ((job_id IS NULL) = (attempt IS NULL))
+) STRICT;

@@ -1,9 +1,12 @@
 // Task 24: ArtifactStore — иммутабельные ревизии артефактов проекта с fencing (как SceneRepo.publish).
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Job } from "@ms/contracts";
+import type { ProcessRegistry } from "@ms/core";
+import { SceneRepo } from "../../src/scenes/repo.js";
+import { sweepAbandonedDrafts } from "../../src/scenes/store.js";
 import { createJobDraft } from "../../src/artifacts/job-draft.js";
 import { artifactPaths } from "../../src/artifacts/paths.js";
 import { ArtifactStore, ResourceBusyError } from "../../src/artifacts/store.js";
@@ -40,7 +43,7 @@ async function draftWith(attempt: number, files: Record<string, string> = { "tra
 beforeEach(async () => {
   s = await makeStore("ms-artifacts-");
   db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   projects.create(db, { id: "p1", kind: "video", title: "Видео" });
   store = new ArtifactStore({ root: s.root, db, guard: s.guard });
   enqueue(db, { type: "asr.transcribe", projectId: "p1", input: {}, idempotencyKey: "t1" });
@@ -162,10 +165,71 @@ describe("publish", () => {
     expect(readFileSync(join(pub.dir, "transcript.json"), "utf8")).toBe(before);
     expect(readFileSync(join(d2.dir, "transcript.json"), "utf8")).toBe("другое");
     expect(published()).toBeUndefined();
-    // пустой каталог на месте назначения rename заменил бы молча — тоже отказ
+  });
+
+  // Ревью Task 24, I2: rename прошёл, COMMIT нет (kill -9) — каталог-сирота без записи в реестре.
+  it("сирота на месте назначения (не зарегистрирована) — в карантин с причиной, публикация проходит", async () => {
+    const orphan = join(s.root, dest());
+    await mkdir(join(orphan, "sub"), { recursive: true });
+    await writeFile(join(orphan, "transcript.json"), "старое");
+    await writeFile(join(orphan, "sub/x"), "x");
+    await chmod(join(orphan, "sub/x"), 0o444);
+    await chmod(join(orphan, "sub"), 0o555);
+    await chmod(join(orphan, "transcript.json"), 0o444);
+    await chmod(orphan, 0o555);
+    const d = await draftWith(1, { "transcript.json": "новое" });
+    const pub = await store.publish(d.dir, dest(), reg, { jobId: job.id, attempt: 1 });
+    expect(readFileSync(join(pub.dir, "transcript.json"), "utf8")).toBe("новое");
+    expect(published()).toEqual(pub.files);
+    const qroot = join(s.root, "workspace/quarantine/artifacts");
+    const moved = await readdir(qroot);
+    expect(moved).toHaveLength(1);
+    const q = join(qroot, moved[0]!);
+    expect(readFileSync(join(q, "transcript.json"), "utf8")).toBe("старое");
+    expect(readFileSync(join(q, "sub/x"), "utf8")).toBe("x");
+    expect(JSON.parse(readFileSync(join(q, ".quarantined"), "utf8"))).toMatchObject({ reason: expect.stringMatching(/^orphan_artifact/), dest_rel: dest() });
+    // опубликованная (зарегистрированная) ревизия — по-прежнему artifact_exists
+    jobs.update(db, job.id, { attempt: 2 });
+    const d2 = await draftWith(2);
+    await expect(store.publish(d2.dir, dest(), reg, { jobId: job.id, attempt: 2 })).rejects.toThrow(/artifact_exists/);
+    expect(await readdir(qroot)).toHaveLength(1);
+  });
+
+  it("пустой незарегистрированный каталог на месте назначения — тоже сирота, не молчаливая замена", async () => {
     const empty = P(s.root, "p1").transcriptRev("trn_1", 2);
     await mkdir(join(s.root, empty), { recursive: true });
-    await expect(store.publish(d2.dir, empty, reg, { jobId: job.id, attempt: 2 })).rejects.toThrow(/artifact_exists/);
+    const d = await draftWith(1);
+    await store.publish(d.dir, empty, reg, { jobId: job.id, attempt: 1 });
+    expect(await readdir(join(s.root, "workspace/quarantine/artifacts"))).toHaveLength(1);
+  });
+
+  // Ревью M1: draft — настоящий каталог внутри workspace/drafts, не симлинк наружу.
+  it("draft-симлинк наружу — отказ, файлы снаружи не закрываются от записи", async () => {
+    const outside = join(s.tmp, "outside");
+    await mkdir(outside, { recursive: true });
+    await writeFile(join(outside, "f.txt"), "чужое");
+    await mkdir(join(s.root, "workspace/drafts"), { recursive: true });
+    const link = join(s.root, "workspace/drafts", `${job.id}-a1`);
+    await symlink(outside, link);
+    await expect(store.publish(link, dest(), reg, { jobId: job.id, attempt: 1 })).rejects.toThrow(/draft/);
+    expect(statSync(join(outside, "f.txt")).mode & 0o222).not.toBe(0);
+    expect(statSync(outside).mode & 0o222).not.toBe(0);
+    expect(existsSync(join(outside, ".quarantined"))).toBe(false);
+    // и при отказе fencing маркер карантина не пишется по ссылке наружу
+    jobs.update(db, job.id, { attempt: 2 });
+    await expect(store.publish(link, dest(), reg, { jobId: job.id, attempt: 1 })).rejects.toThrow(/draft/);
+    expect(existsSync(join(outside, ".quarantined"))).toBe(false);
+    expect(existsSync(join(s.root, dest()))).toBe(false);
+    expect(published()).toBeUndefined();
+  });
+
+  // Ревью M2: fencing — через fenceOk (status = 'running'), не только номер попытки.
+  it("задача не running (pending с тем же attempt) — fenced_out", async () => {
+    const d = await draftWith(1);
+    db.prepare("UPDATE jobs SET status = 'pending', lease_owner = NULL, lease_until = NULL WHERE id = ?").run(job.id);
+    await expect(store.publish(d.dir, dest(), reg, { jobId: job.id, attempt: 1 })).rejects.toThrow(/fenced_out/);
+    expect(existsSync(join(d.dir, ".quarantined"))).toBe(true);
+    expect(existsSync(join(s.root, dest()))).toBe(false);
   });
 
   it("draft чужой попытки, карантин, путь вне проекта — отказ", async () => {
@@ -214,6 +278,19 @@ describe("writeRevision (синхронные правки пользовате�
     expect(existsSync(join(s.root, dest()))).toBe(false);
     expect(published()).toBeUndefined();
     expect((await readdir(join(s.root, "workspace/drafts"))).filter((n) => n.startsWith("sync-"))).toEqual([]);
+  });
+
+  // Ревью M4: брошенный sync-draft (сервер умер посреди правки) убирает восстановление при старте.
+  it("брошенный drafts/sync-<id> — карантин abandoned на старте и удаление уборкой", async () => {
+    const dir = join(s.root, "workspace/drafts", "sync-syn_01ABANDONED");
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, "edl.json"), "{}");
+    const none = { live: async () => [] } as unknown as ProcessRegistry;
+    const swept = await sweepAbandonedDrafts(s.root, none);
+    expect(swept.quarantined).toContain(dir);
+    const repo = new SceneRepo({ root: s.root, db, guard: s.guard, registry: none });
+    expect((await repo.cleanupDrafts([])).removed).toContain(dir);
+    expect(existsSync(dir)).toBe(false);
   });
 
   it("сбой register (409 revision_conflict у вызывающего) — временный draft удалён", async () => {

@@ -1,6 +1,6 @@
 import { TranscriptRevisionDocSchema, type TranscriptRevisionDoc } from "@ms/contracts";
 import type { Db } from "../open.js";
-import { nowIso } from "./util.js";
+import { advanceCurrent, nowIso } from "./util.js";
 
 export interface TranscriptRow {
   id: string;
@@ -45,7 +45,7 @@ export function byProject(db: Db, projectId: string): TranscriptRow | undefined 
 
 /**
  * Индекс опубликованной ревизии (вызывать в `register` публикации): строка ревизии, слова,
- * сегменты, `current_revision`. Повтор номера — ошибка PRIMARY KEY.
+ * сегменты, `current_revision` (только вперёд). Повтор номера — ошибка PRIMARY KEY.
  */
 export function insertRevision(db: Db, r: { doc: TranscriptRevisionDoc; rel_path: string; sha256: string }): void {
   const doc = TranscriptRevisionDocSchema.parse(r.doc);
@@ -66,9 +66,7 @@ export function insertRevision(db: Db, r: { doc: TranscriptRevisionDoc; rel_path
     const idxs = s.word_ids.map((wid) => index.get(wid)!);
     sg.run(id, doc.revision, s.id, idxs.length ? Math.min(...idxs) : -1, idxs.length ? Math.max(...idxs) : -1, s.start_us, s.end_us);
   }
-  if (db.prepare("UPDATE transcripts SET current_revision = ? WHERE id = ?").run(doc.revision, id).changes !== 1) {
-    throw new Error(`db: транскрипта нет: ${id}`);
-  }
+  advanceCurrent(db, "transcripts", id, doc.revision, "транскрипта");
 }
 
 export function revision(db: Db, id: string, rev: number): TranscriptRevisionRow | undefined {

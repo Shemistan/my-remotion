@@ -1,8 +1,14 @@
 // Настройки приложения: значения по умолчанию (Global Constraints плана) +
-// переопределения из `$MS_DATA_DIR/config.json` + KB_ROOT/KB_SOURCE_ROOT из env.
+// переопределения из `$MS_DATA_DIR/config.json` + env.
+//
+// Приоритет источников (фактическое правило кода):
+// - `kb.root`/`kb.sourceRoot` и пути `asr.*`: config.json > env (`KB_ROOT`, `KB_SOURCE_ROOT`,
+//   `AIP_MONTAGE_ASR_PYTHON`, `AI_PLATFORM_ROOT`, `AIP_MODELS_DIR`) > умолчание;
+// - второй дубль: env (`MS_SECOND_TAKE`, `MS_SECOND_TAKE_THRESHOLD`, для bench A/B) > config.json > умолчание;
+// - остальное (агенты, лимиты, сцена, media, roughcut, planning, analysis): config.json > умолчание, env не читается.
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Settings, SettingsSchema, defaultSettings } from "@ms/contracts";
 import { EXPORT_TIMEOUT_MS } from "@ms/render";
@@ -241,27 +247,50 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfi
 
 const env1 = (env: NodeJS.ProcessEnv, k: string): string | undefined => env[k]?.trim() || undefined;
 
-/** Разделы Phase 2–3: config.json > env > умолчания (как `kb`). */
+/**
+ * Разделы Phase 2–3: config.json > env > умолчания (как `kb`). Пути (`asr.python`,
+ * `asr.aiPlatformRoot`, `asr.modelsDir`, `media.importRoots`) после раскрытия `~` / `~/…`
+ * (домашний каталог из `HOME`) обязаны быть абсолютными — относительный путь зависел бы от
+ * cwd процесса. Перекрёстные проверки планирования — после слияния всех источников.
+ */
 function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig): Pick<AppConfig, "asr" | "media" | "roughcut" | "planning" | "analysis"> {
   const home = env1(env, "HOME") ?? homedir();
+  const asr: AsrConfig = {
+    python: join(home, ".local/share/montage/mlx-audio-0.5.8/.venv/bin/python"),
+    aiPlatformRoot: AI_PLATFORM_ROOT,
+    modelsDir: "/Volumes/External SSD/local_models",
+    model: "whisper-large-v3-turbo",
+    language: "ru",
+    expectedWorkerSha256: ASR_WORKER_SHA256,
+    timeoutMs: 14_400_000,
+    noOutputTimeoutMs: 1_800_000,
+    ...definedOnly({ python: env1(env, "AIP_MONTAGE_ASR_PYTHON"), aiPlatformRoot: env1(env, "AI_PLATFORM_ROOT"), modelsDir: env1(env, "AIP_MODELS_DIR") }),
+    ...file.asr,
+  };
+  for (const k of ["python", "aiPlatformRoot", "modelsDir"] as const) asr[k] = absPath(`asr.${k}`, asr[k], home);
+  const media: MediaConfig = { importRoots: ["/Volumes/External SSD", join(home, "Movies")], proxyShortSide: 720, thumbEveryUs: 2_000_000, ...file.media };
+  media.importRoots = media.importRoots.map((p, i) => absPath(`media.importRoots[${i}]`, p, home));
+  const planning: PlanningConfig = { ...PLANNING, ...file.planning };
+  if (planning.minSceneUs > planning.maxSceneUs) {
+    throw new Error(`config: planning.minSceneUs (${planning.minSceneUs}) больше planning.maxSceneUs (${planning.maxSceneUs})`);
+  }
+  if (planning.maxFullscreenCoverage > planning.maxCoverage) {
+    throw new Error(`config: planning.maxFullscreenCoverage (${planning.maxFullscreenCoverage}) больше planning.maxCoverage (${planning.maxCoverage})`);
+  }
   return {
-    asr: {
-      python: join(home, ".local/share/montage/mlx-audio-0.5.8/.venv/bin/python"),
-      aiPlatformRoot: AI_PLATFORM_ROOT,
-      modelsDir: "/Volumes/External SSD/local_models",
-      model: "whisper-large-v3-turbo",
-      language: "ru",
-      expectedWorkerSha256: ASR_WORKER_SHA256,
-      timeoutMs: 14_400_000,
-      noOutputTimeoutMs: 1_800_000,
-      ...definedOnly({ python: env1(env, "AIP_MONTAGE_ASR_PYTHON"), aiPlatformRoot: env1(env, "AI_PLATFORM_ROOT"), modelsDir: env1(env, "AIP_MODELS_DIR") }),
-      ...file.asr,
-    },
-    media: { importRoots: ["/Volumes/External SSD", join(home, "Movies")], proxyShortSide: 720, thumbEveryUs: 2_000_000, ...file.media },
+    asr,
+    media,
     roughcut: { ...ROUGHCUT, ...file.roughcut },
-    planning: { ...PLANNING, ...file.planning },
+    planning,
     analysis: { maxCostUsd: 3, ...file.analysis },
   };
+}
+
+/** `~` и `~/…` → домашний каталог; результат — абсолютный путь, иначе ошибка (`~user` не поддерживается). */
+function absPath(field: string, p: string, home: string): string {
+  const out = p === "~" ? home : p.startsWith("~/") ? join(home, p.slice(2)) : p;
+  if (!isAbsolute(out)) throw new Error(`config: ${field} должен быть абсолютным путём (допускается ~/…): ${JSON.stringify(p)}`);
+  return out;
 }
 
 function definedOnly<T extends Record<string, string | undefined>>(o: T): Partial<Record<keyof T, string>> {

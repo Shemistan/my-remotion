@@ -55,9 +55,9 @@ afterEach(async () => {
   await teardownDb(env);
 });
 
-function reopen(): Db {
+async function reopen(): Promise<Db> {
   const db = openDb(env.s.root);
-  migrate(db);
+  await migrate(db);
   return db;
 }
 
@@ -188,8 +188,8 @@ it("return after remount: the owner.lock file is new and held by another process
 
 it("quick_check fails after return → stays storage_offline", async () => {
   server(async () => ({ status: "completed", outputRefs: {} }), {
-    reopen: () => {
-      const db = reopen();
+    reopen: async () => {
+      const db = await reopen();
       // подмена: база «повреждена»
       db.pragma = (() => "*** in database main ***\nPage 2: never used") as unknown as Db["pragma"];
       return db;
@@ -208,8 +208,8 @@ it("fix 4: return fails mid-switch (recover throws) → new db closed, registry 
   const opened: Db[] = [];
   let fail = true;
   const { sql } = server(async () => ({ status: "completed", outputRefs: {} }), {
-    reopen: () => {
-      const db = reopen();
+    reopen: async () => {
+      const db = await reopen();
       opened.push(db);
       return db;
     },

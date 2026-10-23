@@ -151,9 +151,17 @@ describe("testHooks", () => {
     expect(exp.calls.map((c) => c.run.attempt)).toEqual([1, 2]);
     // попытка 1 дошла до публикации позже попытки 2: её отказ — карантин draft с причиной
     const marker = join(env.s.root, "workspace/drafts", `${job.id}-a1`, QUARANTINE);
-    // маркер появляется пустым (open "w") и дописывается: ждём содержимое, а не только файл
-    await until(() => existsSync(marker) && readFileSync(marker, "utf8").length > 0, "карантин draft попытки 1", 10_000);
-    expect(readFileSync(marker, "utf8")).toMatch(/fenced_out: попытка 1 задачи \S+ устарела \(текущая: 2\)/);
+    // маркер появляется пустым (open "w") и дописывается: ждём разобранный JSON с причиной, а не только файл
+    const reason = (): string | undefined => {
+      try {
+        const r = (JSON.parse(readFileSync(marker, "utf8")) as { reason?: unknown }).reason;
+        return typeof r === "string" ? r : undefined;
+      } catch {
+        return undefined; // нет файла или запись ещё не закончена
+      }
+    };
+    await until(() => reason() !== undefined, "карантин draft попытки 1", 10_000);
+    expect(reason()).toMatch(/fenced_out: попытка 1 задачи \S+ устарела \(текущая: 2\)/);
     // раннер тоже видит устаревшую попытку (heartbeat): событие fenced_out в журнале задачи
     expect(events(job.id).some((k) => k.startsWith("fenced_out: попытка 1 устарела"))).toBe(true);
     expect(events(job.id).some((k) => k.startsWith("test_hook:"))).toBe(true);

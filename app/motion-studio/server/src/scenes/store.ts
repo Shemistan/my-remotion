@@ -12,6 +12,8 @@ import { newId } from "./ids.js";
 export const DEFAULT_PROJECT = "playground";
 const MANIFEST = "manifest.json";
 export const QUARANTINE = ".quarantined";
+/** Временный draft синхронной правки (`ArtifactStore.writeRevision`): `workspace/drafts/sync-<id>/`. */
+export const SYNC_DRAFT_PREFIX = "sync-";
 const COPIED_FROM_PARENT = ["src", "props.json", "spec.json", "settings.json"];
 
 export interface DraftRef {
@@ -144,7 +146,7 @@ export async function fsyncWrite(path: string, data: string): Promise<void> {
   }
 }
 
-function fsyncWriteSync(path: string, data: string): void {
+export function fsyncWriteSync(path: string, data: string): void {
   const fd = openSync(path, "w");
   try {
     writeSync(fd, data);
@@ -281,7 +283,9 @@ export async function writeSceneFailure(
  * карантина, у попытки которого нет живых записей в реестре (сервер — слияние
  * `job_processes` и бокового `run/processes/`), брошен — прогон умер или хранилище
  * пропало до записи маркера. Такие draft помечаются карантином с причиной `abandoned`;
- * draft с живыми записями процессов не трогаются.
+ * draft с живыми записями процессов не трогаются. Временный `sync-<id>` синхронной правки
+ * (процессов у него нет) на старте брошен всегда: правка живёт внутри запроса сервера, а
+ * восстановление идёт под owner lock до приёма запросов.
  */
 export async function sweepAbandonedDrafts(
   root: string,
@@ -293,8 +297,14 @@ export async function sweepAbandonedDrafts(
   const live = new Set((await registry.live()).map((p) => `${p.runId}-a${p.attempt}`));
   for (const e of await readdir(draftsDir, { withFileTypes: true })) {
     if (!e.isDirectory()) continue;
-    const m = /^(.+)-a(\d+)$/.exec(e.name);
     const dir = join(draftsDir, e.name);
+    if (e.name.startsWith(SYNC_DRAFT_PREFIX)) {
+      if (existsSync(join(dir, QUARANTINE))) continue;
+      await fsyncWrite(join(dir, QUARANTINE), JSON.stringify({ reason: "abandoned: синхронная правка не завершена", at: new Date().toISOString() }, null, 2) + "\n");
+      out.quarantined.push(dir);
+      continue;
+    }
+    const m = /^(.+)-a(\d+)$/.exec(e.name);
     if (!m || existsSync(join(dir, QUARANTINE))) continue;
     if (live.has(e.name)) {
       out.skipped.push(dir);

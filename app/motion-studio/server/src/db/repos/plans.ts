@@ -1,6 +1,7 @@
-import type { ScenePlanItem } from "@ms/contracts";
+import { VisualPlanRevisionDocSchema, type ScenePlanItem, type VisualPlanRevisionDoc } from "@ms/contracts";
+import { canonicalHash } from "@ms/contracts/canonical";
 import type { Db } from "../open.js";
-import { nowIso } from "./util.js";
+import { advanceCurrent, nowIso } from "./util.js";
 
 export interface PlanRow {
   id: string;
@@ -44,24 +45,24 @@ export function byProject(db: Db, projectId: string): PlanRow | undefined {
   return db.prepare("SELECT * FROM visual_plans WHERE project_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1").get(projectId) as PlanRow | undefined;
 }
 
-/** Индекс опубликованной ревизии плана (в `register`): ревизия, сцены, возможности, `current_revision`. */
-export function insertRevision(db: Db, r: Omit<PlanRevisionRow, "created_at" | "parent_revision"> & {
-  parent_revision?: number;
-  items: ScenePlanItem[];
-  opportunities: OpportunityRow[];
-}): void {
+/**
+ * Индекс опубликованной ревизии плана (в `register`): ревизия, сцены, возможности,
+ * `current_revision` (только вперёд). Документ (и сцены в нём) проверяется схемой; `hash`
+ * (субъект Approval B) — `canonicalHash` проверенного документа, считается здесь.
+ */
+export function insertRevision(db: Db, r: { doc: VisualPlanRevisionDoc; rel_path: string; sha256: string; opportunities: OpportunityRow[] }): void {
+  const doc = VisualPlanRevisionDocSchema.parse(r.doc);
+  const id = doc.plan_id;
   db.prepare("INSERT INTO visual_plan_revisions (plan_id, revision, parent_revision, rel_path, sha256, hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-    .run(r.plan_id, r.revision, r.parent_revision ?? null, r.rel_path, r.sha256, r.hash, nowIso());
+    .run(id, doc.revision, doc.parent_revision ?? null, r.rel_path, r.sha256, canonicalHash(doc), nowIso());
   const s = db.prepare(`INSERT INTO scene_plans (plan_id, revision, item_id, status, composition_mode, zone, edited_start_us, edited_end_us,
       start_word_id, end_word_id, visual_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-  for (const i of r.items) {
-    s.run(r.plan_id, r.revision, i.id, i.status, i.composition_mode, i.zone, i.edited.start_us, i.edited.end_us, i.start_word_id, i.end_word_id, i.visual_type);
+  for (const i of doc.items) {
+    s.run(id, doc.revision, i.id, i.status, i.composition_mode, i.zone, i.edited.start_us, i.edited.end_us, i.start_word_id, i.end_word_id, i.visual_type);
   }
   const o = db.prepare("INSERT INTO visual_opportunities (plan_id, revision, opp_id, decision, anchor_ids_json, skip_reason) VALUES (?, ?, ?, ?, ?, ?)");
-  for (const x of r.opportunities) o.run(r.plan_id, r.revision, x.opp_id, x.decision, JSON.stringify(x.anchor_ids), x.skip_reason);
-  if (db.prepare("UPDATE visual_plans SET current_revision = ? WHERE id = ?").run(r.revision, r.plan_id).changes !== 1) {
-    throw new Error(`db: плана нет: ${r.plan_id}`);
-  }
+  for (const x of r.opportunities) o.run(id, doc.revision, x.opp_id, x.decision, JSON.stringify(x.anchor_ids), x.skip_reason);
+  advanceCurrent(db, "visual_plans", id, doc.revision, "плана");
 }
 
 export function revision(db: Db, id: string, rev: number): PlanRevisionRow | undefined {

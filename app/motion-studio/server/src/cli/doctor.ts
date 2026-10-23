@@ -251,13 +251,14 @@ async function importSlice(env: StorageEnv, probe: VolumeProbe): Promise<{ code:
   try {
     const db = openDb(root);
     try {
-      migrate(db);
+      if (!quickCheck(db)) throw new Error("db: quick_check не прошёл — studio.db повреждена");
+      const migration = await migrate(db, { log: () => undefined }); // путь копии — в отчёте (migration.backup)
       bindStoreId(db, status.marker);
       const relock = await relockVersions(root);
       const repo = new SceneRepo({ root, db, guard: () => checkStorage(env, probe, status.marker.store_id) });
       const imported = await reconcileVersions(repo, root);
       const ok = imported.skipped.length === 0 && imported.missing.broken.length === 0 && relock.broken.length === 0;
-      return { code: ok ? 0 : 1, output: JSON.stringify({ ok, root, relock, import: imported }, null, 2) };
+      return { code: ok ? 0 : 1, output: JSON.stringify({ ok, root, migration, relock, import: imported }, null, 2) };
     } finally {
       db.close();
     }

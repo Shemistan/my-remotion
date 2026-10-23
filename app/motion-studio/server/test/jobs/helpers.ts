@@ -14,7 +14,7 @@ export interface JobsEnv {
 export async function setupDb(prefix: string): Promise<JobsEnv> {
   const s = await makeStore(prefix);
   const db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   scenes.create(db, { id: "scn_1", project_id: "playground", title: "Первая" });
   scenes.create(db, { id: "scn_2", project_id: "playground", title: "Вторая" });
   return { s, db };

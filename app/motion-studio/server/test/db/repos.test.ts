@@ -35,7 +35,7 @@ function version(id: string, number: number, status: "ready" | "failed" = "ready
 beforeEach(async () => {
   s = await makeStore("ms-db-repos-");
   db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   scenes.create(db, { id: "scn_1", project_id: "playground", title: "Сцена" });
 });
 afterEach(async () => {

@@ -27,16 +27,20 @@ export function list(db: Db, projectId: string, kind?: ApprovalKind): Approval[]
   return (rows as Raw[]).map(row);
 }
 
-/** Последнее не отозванное решение вида `kind` (valid или stale). */
+/**
+ * Последнее не отозванное решение вида `kind` (valid или stale) — по порядку вставки
+ * (rowid), а не по `decided_at`: часы машины могут идти назад.
+ */
 export function latestActive(db: Db, projectId: string, kind: ApprovalKind): Approval | undefined {
-  const r = db.prepare("SELECT * FROM approvals WHERE project_id = ? AND kind = ? AND status != 'revoked' ORDER BY decided_at DESC, rowid DESC LIMIT 1")
+  const r = db.prepare("SELECT * FROM approvals WHERE project_id = ? AND kind = ? AND status != 'revoked' ORDER BY rowid DESC LIMIT 1")
     .get(projectId, kind) as Raw | undefined;
   return r && row(r);
 }
 
-/** valid → revoked для вида `kind` проекта; число отозванных. */
-export function revokeValid(db: Db, projectId: string, kind: ApprovalKind): number {
-  return db.prepare("UPDATE approvals SET status = 'revoked' WHERE project_id = ? AND kind = ? AND status = 'valid'").run(projectId, kind).changes;
+/** Все не отозванные (valid и stale) вида `kind` проекта → revoked; число отозванных. */
+export function revokeActive(db: Db, projectId: string, kind: ApprovalKind): number {
+  return db.prepare("UPDATE approvals SET status = 'revoked', stale_reason = NULL WHERE project_id = ? AND kind = ? AND status != 'revoked'")
+    .run(projectId, kind).changes;
 }
 
 /** valid → stale(reason): по id или для всех valid вида `kind` проекта; число изменённых. */

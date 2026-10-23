@@ -59,6 +59,27 @@ it("config.json переопределяет разделы Phase 2–3 по к�
   expect(configFileIssues({ roughcut: { bogus: 1 } })).not.toEqual([]);
 });
 
+// Ревью Task 24, M8: пути — абсолютные после раскрытия `~`; согласованность порогов плана.
+it("пути ASR и корни импорта: `~` раскрывается, относительный путь — ошибка", () => {
+  const c = loadConfig({ MS_DATA_DIR: root, HOME: "/Users/u", AIP_MODELS_DIR: "~/models" }, {
+    asr: { python: "~/py/bin/python", aiPlatformRoot: "~" }, media: { importRoots: ["~/Movies", "/Volumes/X"] },
+  });
+  expect(c.asr).toMatchObject({ python: "/Users/u/py/bin/python", aiPlatformRoot: "/Users/u", modelsDir: "/Users/u/models" });
+  expect(c.media.importRoots).toEqual(["/Users/u/Movies", "/Volumes/X"]);
+  expect(() => loadConfig({ MS_DATA_DIR: root }, { asr: { python: "venv/bin/python" } })).toThrow(/asr\.python.*абсолютн/);
+  expect(() => loadConfig({ MS_DATA_DIR: root, AI_PLATFORM_ROOT: "ai-platform" })).toThrow(/asr\.aiPlatformRoot.*абсолютн/);
+  expect(() => loadConfig({ MS_DATA_DIR: root, AIP_MODELS_DIR: "./m" })).toThrow(/asr\.modelsDir.*абсолютн/);
+  expect(() => loadConfig({ MS_DATA_DIR: root }, { media: { importRoots: ["/ok", "Movies"] } })).toThrow(/media\.importRoots.*абсолютн/);
+  expect(() => loadConfig({ MS_DATA_DIR: root }, { asr: { python: "~other/bin/python" } })).toThrow(/asr\.python/);
+});
+
+it("планирование: minSceneUs ≤ maxSceneUs, maxFullscreenCoverage ≤ maxCoverage", () => {
+  expect(() => loadConfig({ MS_DATA_DIR: root }, { planning: { minSceneUs: 13_000_000 } })).toThrow(/minSceneUs.*maxSceneUs/);
+  expect(() => loadConfig({ MS_DATA_DIR: root }, { planning: { maxCoverage: 0.2 } })).toThrow(/maxFullscreenCoverage.*maxCoverage/);
+  expect(loadConfig({ MS_DATA_DIR: root }, { planning: { minSceneUs: 2_000_000, maxSceneUs: 2_000_000, maxCoverage: 0.25 } }).planning)
+    .toMatchObject({ minSceneUs: 2_000_000, maxSceneUs: 2_000_000, maxCoverage: 0.25 });
+});
+
 it("из браузера (PUT /settings) пути ASR и медиа не меняются", () => {
   expect(SettingsPutSchema.safeParse({ asr: { python: "/tmp/evil" } }).success).toBe(false);
   expect(SettingsPutSchema.safeParse({ media: { importRoots: ["/"] } }).success).toBe(false);

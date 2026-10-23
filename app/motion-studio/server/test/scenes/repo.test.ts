@@ -28,7 +28,7 @@ function addJob(id: string, attempt: number, sceneId: string) {
 beforeEach(async () => {
   s = await makeStore("ms-scene-repo-");
   db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   repo = new SceneRepo({ root: s.root, db, guard: s.guard });
 });
 afterEach(async () => {

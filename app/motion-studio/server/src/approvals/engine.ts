@@ -15,7 +15,7 @@ export interface ApprovalInput {
   subjectHash: string;
 }
 
-/** Новое решение `valid`; прежние `valid` того же вида проекта → `revoked`. */
+/** Новое решение `valid`; все прежние не отозванные (valid и stale) того же вида проекта → `revoked`. */
 export function approve(db: Db, input: ApprovalInput): Approval {
   return tx(db, () => {
     const a: Approval = {
@@ -27,7 +27,7 @@ export function approve(db: Db, input: ApprovalInput): Approval {
       status: "valid",
       decided_at: nowIso(),
     };
-    approvals.revokeValid(db, input.projectId, input.kind);
+    approvals.revokeActive(db, input.projectId, input.kind);
     approvals.insert(db, a); // схема проверяет тип субъекта и хеш; сбой откатывает и отзыв
     return approvals.get(db, a.id)!;
   });

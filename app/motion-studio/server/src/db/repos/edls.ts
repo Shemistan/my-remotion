@@ -1,6 +1,7 @@
 import { EdlRevisionDocSchema, EditedTimelineSchema, type EditDecision, type EditedTimeline, type EdlRevisionDoc } from "@ms/contracts";
+import { canonicalHash } from "@ms/contracts/canonical";
 import type { Db } from "../open.js";
-import { nowIso } from "./util.js";
+import { advanceCurrent, nowIso } from "./util.js";
 
 export interface EdlRow {
   id: string;
@@ -41,13 +42,17 @@ export function byProject(db: Db, projectId: string): EdlRow | undefined {
   return db.prepare("SELECT * FROM edls WHERE project_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1").get(projectId) as EdlRow | undefined;
 }
 
-/** Индекс опубликованной ревизии EDL (в `register`): ревизия, решения, таймлайн, `current_revision`. */
-export function insertRevision(db: Db, r: { doc: EdlRevisionDoc; rel_path: string; sha256: string; hash: string; timeline: EditedTimeline }): void {
+/**
+ * Индекс опубликованной ревизии EDL (в `register`): ревизия, решения, таймлайн,
+ * `current_revision` (только вперёд). `hash` (субъект Approval A) считается здесь —
+ * `canonicalHash` проверенного документа, вызывающий его не передаёт.
+ */
+export function insertRevision(db: Db, r: { doc: EdlRevisionDoc; rel_path: string; sha256: string; timeline: EditedTimeline }): void {
   const doc = EdlRevisionDocSchema.parse(r.doc);
   const tl = EditedTimelineSchema.parse(r.timeline);
   const id = doc.edl_id;
   db.prepare("INSERT INTO edl_revisions (edl_id, revision, parent_revision, rel_path, sha256, hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-    .run(id, doc.revision, doc.parent_revision ?? null, r.rel_path, r.sha256, r.hash, nowIso());
+    .run(id, doc.revision, doc.parent_revision ?? null, r.rel_path, r.sha256, canonicalHash(doc), nowIso());
   const d = db.prepare(`INSERT INTO edit_decisions (edl_id, revision, decision_id, reason, origin, status, start_word_id, end_word_id,
       source_start_us, source_end_us, confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   for (const x of doc.decisions) {
@@ -57,7 +62,7 @@ export function insertRevision(db: Db, r: { doc: EdlRevisionDoc; rel_path: strin
     .run(id, doc.revision, tl.fps.num, tl.fps.den, tl.source_duration_us, tl.duration_us);
   const c = db.prepare("INSERT INTO timeline_clips (edl_id, revision, idx, source_start_us, source_end_us, edited_start_us) VALUES (?, ?, ?, ?, ?, ?)");
   for (const x of tl.clips) c.run(id, doc.revision, x.idx, x.source_start_us, x.source_end_us, x.edited_start_us);
-  if (db.prepare("UPDATE edls SET current_revision = ? WHERE id = ?").run(doc.revision, id).changes !== 1) throw new Error(`db: EDL нет: ${id}`);
+  advanceCurrent(db, "edls", id, doc.revision, "EDL");
 }
 
 export function revision(db: Db, id: string, rev: number): EdlRevisionRow | undefined {

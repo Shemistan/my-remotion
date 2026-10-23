@@ -20,7 +20,7 @@ let db: Db;
 beforeEach(async () => {
   s = await makeStore("ms-approvals-");
   db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   projects.create(db, { id: "p1", kind: "video", title: "Видео" });
   projects.create(db, { id: "p2", kind: "video", title: "Другое" });
 });
@@ -50,15 +50,24 @@ describe("approve / approvalState / cascadeStale", () => {
     expect(approvalState(db, "p1", "A", { ref: "edl:edl_1@r1", hash: h(1) })).toMatchObject({ state: "stale" });
   });
 
-  it("повторное утверждение того же kind отзывает прежнее valid; stale остаётся stale", () => {
+  it("повторное утверждение того же kind отзывает все прежние не отозванные (valid и stale)", () => {
     const a1 = approve(db, { projectId: "p1", kind: "A", subjectRef: "edl:edl_1@r1", subjectHash: h(1) });
     const a2 = approve(db, { projectId: "p1", kind: "A", subjectRef: "edl:edl_1@r2", subjectHash: h(2) });
     expect(approvals.get(db, a1.id)!.status).toBe("revoked");
     expect(approvalState(db, "p1", "A", { ref: "edl:edl_1@r2", hash: h(2) })).toMatchObject({ state: "valid", approval: a2 });
     approvalState(db, "p1", "A", { ref: "edl:edl_1@r3", hash: h(3) }); // → stale
     const a3 = approve(db, { projectId: "p1", kind: "A", subjectRef: "edl:edl_1@r3", subjectHash: h(3) });
-    expect(approvals.get(db, a2.id)).toMatchObject({ status: "stale", stale_reason: "subject_changed" });
+    // ревью M6: stale тоже отзывается — активное решение одно
+    expect(approvals.get(db, a2.id)).toEqual({ ...a2, status: "revoked" });
+    expect(approvals.list(db, "p1", "A").filter((a) => a.status !== "revoked").map((a) => a.id)).toEqual([a3.id]);
     expect(approvalState(db, "p1", "A", { ref: "edl:edl_1@r3", hash: h(3) })).toMatchObject({ state: "valid", approval: a3 });
+  });
+
+  it("latestActive — последнее по порядку вставки, а не по decided_at (часы могут идти назад)", () => {
+    const base = { project_id: "p1", kind: "A" as const, subject_ref: "edl:edl_1@r1", subject_hash: h(1), status: "stale" as const, stale_reason: "subject_changed" as const };
+    approvals.insert(db, { ...base, id: "apr_1", decided_at: "2026-10-24T12:00:00.000Z" });
+    approvals.insert(db, { ...base, id: "apr_2", decided_at: "2026-10-24T11:00:00.000Z" });
+    expect(approvals.latestActive(db, "p1", "A")?.id).toBe("apr_2");
   });
 
   it("каскад style → B stale(style_changed); только свой проект; без валидного B — 0", () => {
@@ -88,12 +97,20 @@ describe("currentSubject", () => {
       timeline_fps: { num: 30, den: 1 }, decisions: [],
     });
     const tl = { fps: { num: 30, den: 1 }, source_duration_us: 1, duration_us: 1, clips: [] };
-    edls.insertRevision(db, { doc: doc(1), rel_path: "r1", sha256: SHA, hash: h(doc(1)), timeline: tl });
-    edls.insertRevision(db, { doc: { ...doc(2), parent_revision: 1 }, rel_path: "r2", sha256: SHA, hash: h(doc(2)), timeline: tl });
-    expect(currentSubject(db, "p1", "A")).toEqual({ ref: "edl:edl_1@r2", hash: h(doc(2)) });
+    edls.insertRevision(db, { doc: doc(1), rel_path: "r1", sha256: SHA, timeline: tl });
+    edls.insertRevision(db, { doc: { ...doc(2), parent_revision: 1 }, rel_path: "r2", sha256: SHA, timeline: tl });
+    expect(currentSubject(db, "p1", "A")).toEqual({ ref: "edl:edl_1@r2", hash: h({ ...doc(2), parent_revision: 1 }) });
     plans.create(db, { id: "pln_1", project_id: "p1" });
-    plans.insertRevision(db, { plan_id: "pln_1", revision: 1, rel_path: "p", sha256: SHA, hash: h("plan"), items: [], opportunities: [] });
-    expect(currentSubject(db, "p1", "B")).toEqual({ ref: "plan:pln_1@r1", hash: h("plan") });
+    const pdoc = {
+      schema_version: 1 as const, plan_id: "pln_1", revision: 1,
+      inputs: {
+        edl: { id: "edl_1", revision: 2, hash: SHA }, transcript: { id: "trn_1", revision: 1 }, semantic_id: "sem_1", footage_id: "ftg_1",
+        style: { id: "sty_1", revision: 1, hash: SHA },
+      },
+      items: [], skipped: [], issues: [],
+    };
+    plans.insertRevision(db, { doc: pdoc, rel_path: "p", sha256: SHA, opportunities: [] });
+    expect(currentSubject(db, "p1", "B")).toEqual({ ref: "plan:pln_1@r1", hash: h(pdoc) });
     expect(currentSubject(db, "p2", "A")).toBeUndefined();
   });
 });

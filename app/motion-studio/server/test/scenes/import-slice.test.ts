@@ -22,7 +22,7 @@ const refs = [{ kb_id: "remotion-bits/counter", repository: "remotion-bits", rep
 beforeEach(async () => {
   s = await makeStore("ms-import-slice-");
   db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   repo = new SceneRepo({ root: s.root, db, guard: s.guard });
 });
 afterEach(async () => {

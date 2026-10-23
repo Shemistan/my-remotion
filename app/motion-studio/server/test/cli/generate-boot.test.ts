@@ -84,7 +84,7 @@ it("failed pipeline → exit 1 with the stage; the job is failed", async () => {
 
 it("leftover process of an earlier CLI run (grandchild ignores SIGTERM) is killed at boot, then generation runs", async () => {
   const db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   const orphan = await spawnOrphan(new SqliteProcessRegistry(db), { runId: "run_old", attempt: 1 }, s.tmp);
   db.close();
   const o = io();
@@ -102,7 +102,7 @@ it("second owner: CLI refuses with owner_busy while another process holds the st
 
 it("fix 1: a requeued leftover playground.generate job is not claimed by the CLI — it stays pending", async () => {
   const db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   scenes.create(db, { id: "scn_old", project_id: "playground", title: "old" });
   const old = enqueue(db, { type: "playground.generate", projectId: "playground", sceneId: "scn_old", input: { sceneId: "scn_old", prompt: "old", settings: defaultSettings() }, idempotencyKey: "old" }).job;
   // прежний процесс умер посреди попытки — при старте CLI восстановление вернёт её в очередь

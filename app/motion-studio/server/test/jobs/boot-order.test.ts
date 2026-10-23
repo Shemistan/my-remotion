@@ -69,7 +69,7 @@ it("lock taken, storage check fails (marker of another store/volume) → no stud
 
 it("reap: every unique (runId, attempt) of SQLite and side registries, then reapStrayRenderers", async () => {
   const db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   const sql = new SqliteProcessRegistry(db);
   await sql.add({ runId: "job_1", attempt: 1, pid: 999_991, pgid: 999_991, startedAt: "x", cmd: "claude" });
   await sql.add({ runId: "job_1", attempt: 1, pid: 999_992, pgid: 999_992, startedAt: "x", cmd: "worker" });
@@ -91,7 +91,7 @@ it("reap: every unique (runId, attempt) of SQLite and side registries, then reap
 
 it("kill -9 leftovers: a live grandchild ignoring SIGTERM is killed before recovery; job requeued; runner then claims", async () => {
   const db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   scenes.create(db, { id: "scn_1", project_id: "playground", title: "x" });
   const j = enqueue(db, req()).job;
   jobs.update(db, j.id, { status: "running", attempt: 1, lease_owner: "dead", lease_until: new Date().toISOString() });
@@ -108,7 +108,7 @@ it("kill -9 leftovers: a live grandchild ignoring SIGTERM is killed before recov
 
 it("unkillable leftovers are reported in core.reaped and the job is blocked (reap result reused, no second wait)", async () => {
   const db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   scenes.create(db, { id: "scn_1", project_id: "playground", title: "x" });
   const j = enqueue(db, req()).job;
   jobs.update(db, j.id, { status: "running", attempt: 1 });
@@ -135,7 +135,7 @@ it("relock → reconcile before recovery: a version directory without a row is r
 
 it("broken version rows (broken_reason) are exposed in core.boot.reconcile.missing.broken", async () => {
   const db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   scenes.create(db, { id: "scn_1", project_id: "playground", title: "x" });
   versions.insert(db, {
     id: "ver_gone", scene_id: "scn_1", parent_version_id: null, number: 1, status: "ready", prompt: "p", edit_plan: null,
@@ -150,7 +150,7 @@ it("broken version rows (broken_reason) are exposed in core.boot.reconcile.missi
 
 it("fix 5: periodic lock sweep — a cancelled blocked job's scene lock is released during the session once its process dies", async () => {
   const db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   scenes.create(db, { id: "scn_1", project_id: "playground", title: "x" });
   const j = enqueue(db, req()).job;
   jobs.update(db, j.id, { status: "running", attempt: 1 });
