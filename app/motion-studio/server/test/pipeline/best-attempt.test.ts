@@ -335,6 +335,34 @@ describe("S5-fix: второй дубль — выбор, отмена, сбой
     expect(existsSync(join(runTmpOf(res), "attempts"))).toBe(false);
   });
 
+  it("m3: исключение в дубле 1, а процесс дубля 2 не подтверждён мёртвым — карантин draft, failed-версии нет", async () => {
+    let take2Done = false;
+    const base = fakeAgents({
+      engineer: async (_t, n) => ({ files: { "src/Scene.tsx": scene(`call ${n}`) } }),
+      visualQa: qaBy({ 1: { overall: 5, block: true } }),
+    });
+    const agents = withSignal(base, async (task) => {
+      if (task.role !== "engineer" || !isTake2(task)) return undefined;
+      take2Done = true;
+      throw new Error("socket hang up");
+    });
+    let checks = 0;
+    const check = async (dir: string) => {
+      if (!dir.endsWith("take2") && ++checks === 2) {
+        for (let k = 0; k < 60 && !take2Done; k++) await new Promise((r) => setTimeout(r, 50));
+        throw new Error("static check упал");
+      }
+      return [];
+    };
+    const { job, v, res } = await runJob({ agents, check }, "revise");
+    expect(take2Done).toBe(true);
+    expect(job.status).toBe("failed");
+    expect(v).toBeUndefined();
+    expect(res.warnings.join("\n")).toMatch(/второй дубль/);
+    // каталог дубля 2 не тронут до разбора
+    expect(existsSync(join(runTmpOf(res), "take2"))).toBe(true);
+  });
+
   it("I5: жёсткий выход дубля 1 (рендер orphaned) отменяет дубль 2 до его рендера", async () => {
     let take2Aborted = false;
     const base = fakeAgents({

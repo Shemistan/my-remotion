@@ -484,8 +484,14 @@ async function fixLoop(i: LoopInput, state: LoopState, t2out: { alive: boolean }
     // не должен ни звать агентов, ни рендерить, ни писать в run/tmp
     stop2.abort();
     const t2 = take2 ? await take2 : undefined;
-    if (!t2?.exit?.alive) await dropTakeDirs(rc, false);
-    throw e;
+    if (!t2?.exit?.alive) {
+      await dropTakeDirs(rc, false);
+      throw e;
+    }
+    // m3: процесс дубля 2 не подтверждён мёртвым — исключение несёт `alive`, задача уходит
+    // в карантин (generate.ts), а не публикует failed-версию; каталоги дубля 2 — до разбора
+    rc.warnings.push(`второй дубль: ${t2.exit.stage}: ${clip(t2.exit.message, 300)} (процесс не подтверждён мёртвым — take2 и qa-t2 оставлены до разбора)`);
+    throw Object.assign(e instanceof Error ? e : new Error(errText(e)), { alive: true });
   }
   if (hardExit(t1.exit)) stop2.abort();
   const t2 = take2 ? await take2 : undefined;

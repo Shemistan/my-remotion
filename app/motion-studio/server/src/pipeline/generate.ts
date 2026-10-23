@@ -454,7 +454,9 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
     exit = await afterDraft();
   } catch (e) {
     const storage = isStorageError(e) || (await ctx.storageProblem()) !== undefined;
-    exit = { ok: false, stage: storage ? "storage" : phase, message: `${phase}: ${errText(e)}` };
+    // `alive` — процесс второго дубля не подтверждён мёртвым (runFixLoop, m3): только карантин
+    const alive = (e as { alive?: unknown } | undefined)?.alive === true;
+    exit = { ok: false, stage: storage ? "storage" : phase, message: `${phase}: ${errText(e)}`, ...(alive ? { alive: true } : {}) };
   }
   // второй дубль `fresh` с другим кадрированием выиграл — версия несёт его spec
   if (exit.ok && exit.spec) spec = exit.spec;
