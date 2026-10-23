@@ -9,6 +9,7 @@ import {
   type KnowledgeRef,
   KnowledgeRefSchema,
   QAReportSchema,
+  type VersionDto,
   type VersionManifest,
   VersionDiffSchema,
   VersionDtoSchema,
@@ -27,6 +28,20 @@ import { memoOnSuccess } from "../memo.js";
 import { sendFile } from "../range.js";
 
 const FRAME_RE = /^(0|[1-9]\d{0,6})\.png$/;
+const KIT_IMPORT_RE = /import\s+(type\s+)?\{([^}]*)\}\s*from\s*["']@ms\/motion-kit["']/g;
+
+/** Имена значений из `import { A, B as C } from "@ms/motion-kit"` (без `import type`). */
+export function kitImports(src: string): string[] {
+  const out: string[] = [];
+  for (const m of src.matchAll(KIT_IMPORT_RE)) {
+    if (m[1]) continue;
+    for (const part of m[2]!.split(",")) {
+      const name = part.trim().replace(/^type\s+/, "").split(/\s+as\s+/)[0]!.trim();
+      if (/^[A-Za-z_$][\w$]*$/.test(name) && !/^type\s/.test(part.trim())) out.push(name);
+    }
+  }
+  return out;
+}
 
 export function versionRoutes(app: ZApp, { core }: ApiContext): void {
   // окружение рендера сервера не меняется без перезапуска (lockfile, motion-kit); отказ не кэшируется
@@ -60,6 +75,24 @@ export function versionRoutes(app: ZApp, { core }: ApiContext): void {
       };
     });
 
+  /** Примитивы motion-kit из импортов `src/**` версии (файлы — из manifest). */
+  const kitComponents = async (dir: string, m: VersionManifest): Promise<string[]> => {
+    const names = new Set<string>();
+    for (const f of m.files) {
+      if (!/^src\/.+\.(tsx|ts|jsx|js)$/.test(f.path)) continue;
+      for (const name of kitImports(await readFile(join(dir, f.path), "utf8"))) names.add(name);
+    }
+    return [...names].sort();
+  };
+
+  /** Время и стоимость генерации из `pipeline-log.json` (S5: `stage_wall_ms.total`). */
+  const generation = async (dir: string, m: VersionManifest): Promise<VersionDto["generation"]> => {
+    const log = (await json(dir, m, "pipeline-log.json").catch(() => null)) as { cost_usd?: unknown; stage_wall_ms?: { total?: unknown } } | null;
+    if (!log || typeof log !== "object") return null;
+    const num = (x: unknown) => (typeof x === "number" && Number.isFinite(x) && x >= 0 ? x : null);
+    return { cost_usd: num(log.cost_usd), wall_ms: num(log.stage_wall_ms?.total) };
+  };
+
   app.get("/api/versions/:id", { schema: { params: IdParams, response: { 200: VersionDtoSchema } } }, async (req) => {
     const v = versionOr404(req.params.id);
     const dir = join(core.root, v.path);
@@ -73,6 +106,8 @@ export function versionRoutes(app: ZApp, { core }: ApiContext): void {
       qa: qa.success ? qa.data : null,
       knowledge_refs: await fullRefs(dir, manifest),
       render_env_mismatch: manifest.render_env.render_lock_sha256 !== (await currentLock()),
+      kit_components: await kitComponents(dir, manifest),
+      generation: await generation(dir, manifest),
     };
   });
 

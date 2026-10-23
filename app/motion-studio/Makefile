@@ -2,7 +2,7 @@
 # Все команды — в Node из .nvmrc через scripts/with-node.sh.
 NODE := ./scripts/with-node.sh
 
-.PHONY: check lint typecheck test e2e install
+.PHONY: check lint typecheck test e2e e2e-ui web-build install
 
 check: lint typecheck test
 
@@ -28,3 +28,13 @@ test: install
 # Интеграционные тесты с сетью, рендером и реальным SSD (`*.e2e.test.ts`).
 e2e: install
 	$(NODE) npm run --silent test:e2e
+
+# UI: production-сборка `web/dist` (её отдаёт `npm start`).
+web-build: install
+	$(NODE) npm run --silent build -w web
+
+# Playwright UI (Task 21): настоящий сервер на tmp-хранилище (MS_ALLOW_SYSTEM_DISK=1 только
+# для него), версии из рукописных фикстур с реальным рендером, без LLM. Порт 8790 должен быть
+# свободен. Скриншоты — docs/evidence/phase-1/ui/.
+e2e-ui: web-build
+	$(NODE) npx playwright test -c web/playwright.config.ts

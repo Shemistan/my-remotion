@@ -65,7 +65,7 @@ export async function buildApp(core: Core, opts: BuildAppOptions = { port: PORT 
   settingsRoutes(app, ctx);
   eventRoutes(app, ctx, sse);
 
-  if (opts.dev) await installViteDev(app, WEB_ROOT);
+  if (opts.dev) await installViteDev(app, WEB_ROOT, opts.port);
   else if (serveDist) await app.register(fastifyStatic, { root: dist, prefix: "/", wildcard: false, index: ["index.html"] });
   return app;
 }

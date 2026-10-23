@@ -105,3 +105,29 @@ it("POST exports для failed-версии → 409 export_not_ready", async () 
   expect(r.json()).toMatchObject({ error: "export_not_ready" });
   expect((await api.inj("GET", `/api/versions/${v.versionId}/preview.mp4`, getHeaders)).statusCode).toBe(404);
 });
+
+it("GET /versions/:id: kit_components из импортов motion-kit в src/, generation из pipeline-log.json (Task 21)", async () => {
+  const { core } = api;
+  const { scene } = await seedVersion(api);
+  const { makeDraft, meta } = await import("../scenes/helpers.js");
+  const jobs = await import("../../src/db/repos/jobs.js");
+  jobs.insert(core.db, { id: "job_kit", type: "playground.edit", project_id: "playground", scene_id: scene.id, input: {}, status: "completed", attempt: 1 });
+  const src = [
+    'import { FlowGraph, PulseAlongPath as Pulse } from "@ms/motion-kit";',
+    "import type { NodeSpec } from '@ms/motion-kit';",
+    'import { useCurrentFrame } from "remotion";',
+    'import {\n  Card,\n  FlowGraph as FG2,\n} from "@ms/motion-kit";',
+    "export const Scene = () => null;",
+  ].join("\n");
+  const draft = await makeDraft(core.root, { runId: "job_kit", attempt: 1, sceneId: scene.id }, { scene: src });
+  writeFileSync(join(draft.dir, "pipeline-log.json"), JSON.stringify({ run_id: "r", attempt: 1, cost_usd: 2.7345, stage_wall_ms: { total: 312_000, engineer: 100 } }));
+  const v = await core.repo.publish(draft, meta(scene.id), { jobId: "job_kit", attempt: 1 });
+  const dto = VersionDtoSchema.parse((await api.inj("GET", `/api/versions/${v.versionId}`, getHeaders)).json());
+  expect(dto.kit_components).toEqual(["Card", "FlowGraph", "PulseAlongPath"]);
+  expect(dto.generation).toEqual({ cost_usd: 2.7345, wall_ms: 312_000 });
+  // без журнала и без импортов kit
+  const { versionId } = await seedVersion(api);
+  const plain = VersionDtoSchema.parse((await api.inj("GET", `/api/versions/${versionId}`, getHeaders)).json());
+  expect(plain.kit_components).toEqual([]);
+  expect(plain.generation).toBeNull();
+});

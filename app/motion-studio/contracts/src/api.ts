@@ -89,6 +89,13 @@ export const VersionDtoSchema = z.object({
   qa: QAReportSchema.nullable(),
   knowledge_refs: z.array(KnowledgeRefSchema),
   render_env_mismatch: z.boolean(),
+  /** Примитивы motion-kit, которые импортирует код версии (`src/**`), по алфавиту (Task 21). */
+  kit_components: z.array(z.string()),
+  /** Время и стоимость генерации из `pipeline-log.json` версии; у версий без журнала — null. */
+  generation: z.object({
+    cost_usd: z.number().nonnegative().nullable(),
+    wall_ms: z.number().nonnegative().nullable(),
+  }).strict().nullable(),
 }).strict();
 export type VersionDto = z.infer<typeof VersionDtoSchema>;
 

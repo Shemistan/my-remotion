@@ -9,7 +9,8 @@
     "contracts",
     "core",
     "render",
-    "server"
+    "server",
+    "web"
   ],
   "scripts": {
     "lint": "eslint .",

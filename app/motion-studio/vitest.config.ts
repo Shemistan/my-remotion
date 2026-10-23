@@ -36,13 +36,29 @@ export default defineConfig({
     // e2e — по одному файлу: параллельные рендеры и агенты делят CPU, и тайминговые
     // проверки (hang-scene: логи браузера до kill по таймауту) начинают флаковать.
     fileParallelism: !e2e,
-    projects: packages.flatMap((name) => {
-      if (e2e) return [project(name, [E2E], [], 0)];
-      const heavy = HEAVY[name] ?? [];
-      return [
-        project(name, ["test/**/*.test.ts"], [E2E, ...heavy], UNIT_TIMEOUT),
-        ...(heavy.length > 0 ? [project(`${name}-heavy`, heavy, [], HEAVY_TIMEOUT)] : []),
-      ];
-    }),
+    projects: [
+      ...packages.flatMap((name) => {
+        if (e2e) return [project(name, [E2E], [], 0)];
+        const heavy = HEAVY[name] ?? [];
+        return [
+          project(name, ["test/**/*.test.ts"], [E2E, ...heavy], UNIT_TIMEOUT),
+          ...(heavy.length > 0 ? [project(`${name}-heavy`, heavy, [], HEAVY_TIMEOUT)] : []),
+        ];
+      }),
+      // UI (Task 21): jsdom и React; e2e UI — Playwright (`make e2e-ui`), не Vitest
+      ...(e2e ? [] : [{
+        oxc: { jsx: { runtime: "automatic" as const } },
+        test: {
+          name: "web",
+          root: "./web",
+          include: ["test/**/*.test.{ts,tsx}"],
+          environment: "jsdom",
+          setupFiles: ["./test/setup.ts"],
+          isolate: true,
+          testTimeout: UNIT_TIMEOUT,
+          hookTimeout: UNIT_TIMEOUT,
+        },
+      }]),
+    ],
   },
 });
