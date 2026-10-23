@@ -25,6 +25,14 @@ describe("loadPrompt", () => {
     expect(p).not.toContain("{{>");
   });
 
+  it("правки (Task 18 fix2): замена текста не снимает composition, перекладка от текста — не нарушение; договор кадров content знает пропы kit", () => {
+    const planner = loadPrompt("edit_planner");
+    expect(planner).toMatch(/Замена текста и композиция/);
+    expect(planner).toMatch(/перенос строки/);
+    const engineer = loadPrompt("engineer");
+    for (const k of ["enterAt", "until", "duration", "`at`"]) expect(engineer, k).toContain(k);
+  });
+
   it("visual_qa, motion_director: рубрика подставлена; concept — без вставок", () => {
     for (const role of ["visual_qa", "motion_director"] as const) {
       expect(loadPrompt(role), role).toContain("Рубрика качества");

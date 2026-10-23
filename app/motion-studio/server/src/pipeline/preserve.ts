@@ -152,36 +152,66 @@ function holdKey(it: LayoutItem): string {
 const MOVING_ROLES = new Set(["token"]);
 
 /**
- * Кадр hold базы и новой версии по реестру раскладки (`09` §4): каждый видимый текст базы —
- * на том же месте ± tol кадра (центр), текст того же содержания — того же размера. Пары — по
- * `holdKey`; текст, сменивший содержание, но оставшийся на месте той же роли, — норма.
- * Пропавший или сдвинутый — blocking `composition_changed` (кадр — новой версии).
+ * Сдвиг якоря текста в долях кадра (I-R1). Реестр kit даёт объединение прямоугольников глифов,
+ * а не бокс элемента, и выравнивания не знает: новый текст другой длины растёт от своего якоря
+ * (левый край, центр или правый — по text-align/привязке), перенос строки — от верха, центра или
+ * низа. Поэтому по x берётся наименьший из сдвигов левого края, центра и правого края, по y — верха,
+ * центра и низа. Тот же текст на новом месте сдвигает все якоря одинаково — сдвиг виден.
  */
-export function compareHoldLayout(base: LayoutFrame, next: LayoutFrame, size: { width: number; height: number }, tol = 0.02): QAIssue[] {
+function anchorMove(a: LayoutItem, b: LayoutItem, size: { width: number; height: number }): number {
+  const along = (p: number, l: number, q: number, m: number, full: number) => Math.min(Math.abs(p - q), Math.abs(p + l / 2 - (q + m / 2)), Math.abs(p + l - (q + m))) / full;
+  return Math.max(along(a.rect.x, a.rect.w, b.rect.x, b.rect.w, size.width), along(a.rect.y, a.rect.h, b.rect.y, b.rect.h, size.height));
+}
+
+/**
+ * Кадр hold базы и новой версии по реестру раскладки (`09` §4): каждый видимый текст базы —
+ * якорем на том же месте ± tol кадра (`anchorMove`), текст того же содержания — того же размера.
+ * Пары: по `holdKey` (владелец с `data-ms-id`; иначе роль и текст); текст, сменивший содержание
+ * (замена подписи правкой, текст сцены без id), — ближайший свободный той же роли с якорем в
+ * допуске, а нет такого — следующий свободный той же роли по порядку чтения (тогда сдвиг виден
+ * как сдвиг). Строка текста сцены, чей элемент (`el`) в кадре уже сопоставлен, — перенос, не
+ * пропажа. Пропавший или сдвинутый — blocking `composition_changed` (кадр — новой версии).
+ * Сверяется только текст: форма без подписи (иконка, линия, фон-карточка) сюда не попадает (M-R3).
+ */
+export function compareHoldLayout(base: LayoutFrame, next: LayoutFrame, size: { width: number; height: number }, tol = 0.02, opts: { removed?: string[] } = {}): QAIssue[] {
   const keep = (f: LayoutFrame) => f.items.filter((i) => !MOVING_ROLES.has(i.role)).sort((a, b) => a.rect.y - b.rect.y || a.rect.x - b.rect.x);
-  const cx = (i: LayoutItem) => (i.rect.x + i.rect.w / 2) / size.width;
-  const cy = (i: LayoutItem) => (i.rect.y + i.rect.h / 2) / size.height;
-  const move = (a: LayoutItem, b: LayoutItem) => Math.max(Math.abs(cx(a) - cx(b)), Math.abs(cy(a) - cy(b)));
+  const move = (a: LayoutItem, b: LayoutItem) => anchorMove(a, b, size);
+  // текст элементов, убранных по плану правки (M-R1), — не часть сохраняемой композиции
+  const removed = new Set(opts.removed ?? []);
   const free = keep(next);
   const pairs: [LayoutItem, LayoutItem | undefined][] = [];
   const left: LayoutItem[] = [];
-  for (const a of keep(base)) {
+  for (const a of keep(base).filter((i) => !removed.has(i.text))) {
     const k = free.findIndex((b) => holdKey(b) === holdKey(a));
     if (k >= 0) pairs.push([a, free.splice(k, 1)[0]]);
     else left.push(a);
   }
-  // текст сменился, место то же: ближайший свободный той же роли в пределах допуска
+  // текст сменился, место то же: ближайший свободный той же роли с якорем в пределах допуска
+  const rest: LayoutItem[] = [];
   for (const a of left) {
     const near = free.filter((b) => b.role === a.role && move(a, b) <= tol + 1e-9).sort((x, y) => move(a, x) - move(a, y))[0];
-    if (near) free.splice(free.indexOf(near), 1);
-    pairs.push([a, near]);
+    if (near) {
+      free.splice(free.indexOf(near), 1);
+      pairs.push([a, near]);
+    } else rest.push(a);
+  }
+  // строка уже сопоставленного элемента сцены (перенос стал короче) — не пропажа
+  const matchedEl = new Set(pairs.map(([a]) => a.el).filter((e): e is string => e !== undefined));
+  for (const a of rest) {
+    if (a.el !== undefined && matchedEl.has(a.el)) continue;
+    // по порядку чтения: следующий свободный той же роли — пара, сдвиг проверится ниже
+    const k = free.findIndex((b) => b.role === a.role);
+    pairs.push([a, k >= 0 ? free.splice(k, 1)[0] : undefined]);
   }
   const out: QAIssue[] = [];
   const box = (i: LayoutItem) => `(${Math.round(i.rect.x)}, ${Math.round(i.rect.y)}, ${Math.round(i.rect.w)}×${Math.round(i.rect.h)})`;
   for (const [a, b] of pairs) {
     const key = holdKey(a).split("|")[0]!;
     const where = holdKey(a).includes("|") ? `${key} «${a.text.slice(0, 40)}»` : key;
-    const hint = `верни «${a.text.slice(0, 40)}» на место базовой версии (кадр hold ${base.frame}: ${box(a)}) — правка обещала сохранить композицию; меняй стиль, а не раскладку`;
+    // текст сменила правка: вернуть место, не старый текст
+    const hint = b && b.text !== a.text
+      ? `оставь новый текст «${b.text.slice(0, 40)}» (его меняет правка), но верни его на место «${a.text.slice(0, 40)}» базовой версии (кадр hold ${base.frame}: ${box(a)}) — тот же левый край, центр или правый край по выравниванию и тот же верх; правка обещала сохранить композицию`
+      : `верни «${a.text.slice(0, 40)}» на место базовой версии (кадр hold ${base.frame}: ${box(a)}) — правка обещала сохранить композицию; меняй стиль, а не раскладку`;
     let what: string | undefined;
     if (!b) what = "пропал из кадра hold";
     else if (move(a, b) > tol + 1e-9) what = `сдвинут на ${pct(move(a, b))} кадра: ${box(a)} → ${box(b)}`;

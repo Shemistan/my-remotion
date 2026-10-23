@@ -8,7 +8,7 @@
 // план обещал сохранить, сверяет `checkPreserve` (spec и раскладка props.content), а «сохрани
 // композицию» — ещё и реестр раскладки кадра hold базы и правки (`compareHoldLayout`). Публикация — от базы (`parent_version_id`),
 // с `edit_plan` и `changed_files`; ответ Edit Planner — в чат.
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import {
   ComponentSelectionSchema,
@@ -32,7 +32,7 @@ import type { CapabilityView } from "../knowledge/types.js";
 import { versionHistoryDigest } from "../scenes/history.js";
 import type { StepRef } from "./checkpoints.js";
 import { type EditRequest, type GenerateDeps, type PlanOutcome, readKitApi, runGeneration } from "./generate.js";
-import { applyParamEdit, touchesGeometry } from "./param-edit.js";
+import { applyParamEdit, hardcodedFrameProps, touchesGeometry } from "./param-edit.js";
 import { type PlaygroundDeps, abortKind, record, toHandlerResult } from "./playground-generate.js";
 import { checkPreserve, compareHoldLayout } from "./preserve.js";
 import { type CheckpointOpts, type RunCtx, directorStep, errText, scenePropsStyle, sceneStyle, toolless } from "./steps.js";
@@ -69,6 +69,17 @@ async function loadBase(root: string, row: versions.VersionRow): Promise<Base> {
   return { row, dir, spec, props, selection: sel.success ? sel.data : { items: [] } };
 }
 
+/** Кадры числом в коде сцены базы (`src/**.tsx`, M-R2); каталог не прочитан — пусто. */
+async function codeFramesOf(dir: string): Promise<string[]> {
+  const files = await readdir(join(dir, "src"), { recursive: true }).catch(() => [] as string[]);
+  const out: string[] = [];
+  for (const f of files.filter((x) => /\.(tsx|ts|jsx|js)$/.test(x)).sort()) {
+    const code = await readFile(join(dir, "src", f), "utf8").catch(() => "");
+    out.push(...hardcodedFrameProps(code));
+  }
+  return [...new Set(out)];
+}
+
 /** Исходный запрос сцены: промпт корня цепочки версий (правки и восстановления — его потомки). */
 function rootPrompt(db: JobContext["db"], row: versions.VersionRow): string {
   let r = row;
@@ -91,7 +102,7 @@ function nearestReady(history: HistoryEntry[], n: number): HistoryEntry | undefi
  * `preserve` убирается то, что меняет план или патч настроек (кнопка Render: пресет и палитра
  * настроек — палитра, длительность — тайминги, M5).
  */
-export function normalizePlan(p: EditPlan, baseId: string, history: HistoryEntry[], patch: Partial<Settings> = {}): { plan: EditPlan; notes: string[] } {
+export function normalizePlan(p: EditPlan, baseId: string, history: HistoryEntry[], patch: Partial<Settings> = {}, baseSpec?: MotionSpec): { plan: EditPlan; notes: string[] } {
   const notes: string[] = [];
   const borrow = p.borrow.map((b) => {
     const donor = history.find((h) => h.version_id === b.from_version_id);
@@ -107,7 +118,11 @@ export function normalizePlan(p: EditPlan, baseId: string, history: HistoryEntry
   if (patch.style_preset !== undefined || patch.color_palette !== undefined) changes.add("palette");
   if (patch.duration_frames !== undefined) changes.add("timing");
   if (borrow.some((b) => b.what === "timing")) changes.add("timing");
+  // замена текста снимает `text`, но не `composition` (I-R1): место подписи сохраняется, а рост
+  // ширины и перенос строки от нового текста сверка кадра hold терпит (якорь, не центр)
   if (p.param_patch?.content) changes.add("text");
+  const textIds = baseSpec?.elements.filter((e) => e.kind === "text").map((e) => e.id) ?? [];
+  if (p.changes.some((c) => c.target.startsWith("content.")) || textIds.some((id) => planTargets(p, id))) changes.add("text");
   const preserve = p.preserve.filter((x) => !changes.has(x));
   return { plan: { ...p, base_version_id: baseId, borrow, preserve }, notes };
 }
@@ -136,13 +151,22 @@ function codeSettings(base: Settings, plan: EditPlan, patch: Partial<Settings>):
   return SettingsSchema.parse(s);
 }
 
+/** Изменение плана нацелено на элемент `id` (цель — сам id или путь с ним: `badge`, `elements.badge`). */
+const planTargets = (plan: EditPlan, id: string) => plan.changes.some((c) => c.target.split(/[^\p{L}\p{N}_-]+/u).includes(id));
+
 /**
  * Что Director обещал не трогать (`preserve`): раскладка и тексты элементов базы
  * возвращаются в spec (Engineer spec не правит — исправить это в цикле было бы некому).
+ * Элемент базы с раскладкой, которого нет в новом spec (M-R1): правка нацелена на него — убран
+ * по плану (`dropped`, сверка композиции его не ждёт); иначе при `composition` он возвращается из
+ * базы вместе с местом в битах (бит с тем же id, иначе — наибольшее пересечение по кадрам) и
+ * фазах — Engineer этого не исправит, и каждая попытка цикла падала бы на одной и той же сверке.
  */
-function keepFromBase(spec: MotionSpec, base: MotionSpec, preserve: EditPlan["preserve"]): { spec: MotionSpec; restored: string[] } {
+function keepFromBase(spec: MotionSpec, base: MotionSpec, plan: EditPlan): { spec: MotionSpec; restored: string[]; dropped: string[] } {
+  const preserve = plan.preserve;
   const byId = new Map(base.elements.map((e) => [e.id, e]));
   const restored: string[] = [];
+  const dropped: string[] = [];
   const elements = spec.elements.map((e) => {
     const b = byId.get(e.id);
     if (!b) return e;
@@ -157,11 +181,48 @@ function keepFromBase(spec: MotionSpec, base: MotionSpec, preserve: EditPlan["pr
     }
     return next;
   });
-  if (preserve.includes("composition")) {
-    const ids = new Set(spec.elements.map((e) => e.id));
-    for (const b of base.elements) if (b.layout && !ids.has(b.id)) restored.push(`${b.id}: убран Director — не возвращён`);
+  let beats = spec.beats;
+  let phases = spec.phases;
+  const ids = new Set(spec.elements.map((e) => e.id));
+  for (const b of base.elements) {
+    if (!b.layout || ids.has(b.id)) continue;
+    if (planTargets(plan, b.id)) {
+      dropped.push(b.id);
+      continue;
+    }
+    if (!preserve.includes("composition")) continue;
+    // бит элемента в базе → бит нового spec: тот же id, иначе наибольшее пересечение по кадрам
+    const homes = base.beats.filter((x) => x.element_ids.includes(b.id)).map((hb) => {
+      const same = beats.find((x) => x.id === hb.id);
+      if (same) return same.id;
+      const overlap = (x: (typeof beats)[number]) => Math.min(x.end_frame, hb.end_frame) - Math.max(x.start_frame, hb.start_frame);
+      return [...beats].sort((x, y) => overlap(y) - overlap(x))[0]?.id;
+    });
+    const target = new Set(homes.filter((x): x is string => x !== undefined));
+    if (target.size === 0) {
+      restored.push(`${b.id}: убран Director — не возвращён (в базе он не стоял в битах)`);
+      continue;
+    }
+    elements.push(structuredClone(b));
+    ids.add(b.id);
+    beats = beats.map((x) => (target.has(x.id) && !x.element_ids.includes(b.id) ? { ...x, element_ids: [...x.element_ids, b.id] } : x));
+    const basePhases = new Set(base.phases?.filter((p) => p.element_ids.includes(b.id)).map((p) => p.id));
+    phases = phases?.map((p) => (basePhases.has(p.id) && !p.element_ids.includes(b.id) ? { ...p, element_ids: [...p.element_ids, b.id] } : p));
+    restored.push(`${b.id}: возвращён (Director его убрал)`);
   }
-  return { spec: { ...spec, elements }, restored };
+  return { spec: { ...spec, elements, beats, ...(phases ? { phases } : {}) }, restored, dropped };
+}
+
+/** Строки текста элементов spec (для сверки кадра hold: убранный по плану текст не ждём). */
+function elementTexts(spec: MotionSpec, ids: string[]): string[] {
+  const out: string[] = [];
+  const walk = (v: unknown) => {
+    if (typeof v === "string" && v.trim()) out.push(v.trim());
+    else if (Array.isArray(v)) v.forEach(walk);
+    else if (v && typeof v === "object") Object.values(v).forEach(walk);
+  };
+  for (const e of spec.elements) if (ids.includes(e.id)) walk(e.content);
+  return out;
 }
 
 /** Заголовок первого вызова Engineer в правке кода: копия базы и что менять. */
@@ -174,8 +235,9 @@ function editBrief(plan: EditPlan, baseNumber: number): string {
     ...plan.changes.map((c) => `- ${c.target} (${c.kind}): ${c.description}`),
     ...(plan.preserve.length > 0 ? ["", `## Сохранить как в базе: ${plan.preserve.join(", ")}`] : []),
     ...(plan.preserve.includes("composition") ? ["Композиция: `layout` в props.json и координаты в коде — как в базе; пайплайн сверит раскладку props и кадр hold с базой (± 2 % кадра)."] : []),
+    ...(plan.preserve.includes("composition") && !plan.preserve.includes("text") ? ["Новый текст может стать шире или перенестись на другую строку — это не нарушение композиции: якорь подписи (левый край, центр или правый край по выравниванию и верх) оставь как в базе; новый текст не откатывай."] : []),
     ...(plan.timing_scale !== undefined && plan.timing_scale !== 1
-      ? ["", `## Темп × ${Math.round(plan.timing_scale * 1000) / 1000}`, "Биты spec уже пересчитаны. Кадровые величины props.content (`travel`, `delay`, `stagger`, `hold`, `frame`, `*_frames`) умножь на тот же множитель."]
+      ? ["", `## Темп × ${Math.round(plan.timing_scale * 1000) / 1000}`, "Биты spec уже пересчитаны. Кадровые величины props.content (`travel`, `delay`, `stagger`, `hold`, `frame`, `enterAt`, `until`, `at`, `duration`, `flash`, `writes`, `frames`, `*_frames`, `*At`) умножь на тот же множитель; кадры числом в коде (`until={150}`) вынеси в props.content под этими ключами."]
       : []),
     ...(plan.param_patch ? ["", "## Параметры (props.json)", "```json", JSON.stringify(plan.param_patch, null, 2), "```"] : []),
   ].join("\n");
@@ -239,10 +301,10 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
      * «Сохрани композицию» — ещё и кадр hold базы и правки по реестру раскладки (`09` §4).
      * Другой размер кадра (путь spec) — позиции в px несравнимы, сверки кадра нет.
      */
-    const holdFor = (preserve: EditPlan["preserve"], next: Settings): Pick<EditRequest, "preserveHold"> => {
+    const holdFor = (preserve: EditPlan["preserve"], next: Settings, removed: string[] = []): Pick<EditRequest, "preserveHold"> => {
       const s = base.row.settings;
       if (!preserve.includes("composition") || s.width !== next.width || s.height !== next.height) return {};
-      return { preserveHold: { versionDir: base.dir, settings: s, check: (a, b, size) => compareHoldLayout(a, b, size) } };
+      return { preserveHold: { versionDir: base.dir, settings: s, check: (a, b, size) => compareHoldLayout(a, b, size, 0.02, { removed }) } };
     };
 
     const planEdit = async (rc: RunCtx): Promise<PlanOutcome> => {
@@ -268,7 +330,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
         }
       }
       if (touchesGeometry(patch) && raw.path === "param") raw = { ...raw, path: "spec", changes: raw.changes.map((c) => ({ ...c, kind: "spec" })) };
-      const norm = normalizePlan(raw, base.row.id, history, patch);
+      const norm = normalizePlan(raw, base.row.id, history, patch, base.spec);
       let plan = norm.plan;
       notes = norm.notes;
       for (const n of notes) rc.warnings.push(n);
@@ -290,6 +352,11 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
           const baseSpec = base.spec;
           const baseProps = base.props;
           rc.log(`правка параметров: ${r.changed.join(", ") || "без изменений"}`);
+          for (const w of r.warnings) rc.warnings.push(w);
+          if (r.spec.duration_frames !== base.spec.duration_frames) {
+            const hard = await codeFramesOf(base.dir);
+            if (hard.length > 0) rc.warnings.push(`Темп изменён параметрами, но в коде сцены кадры заданы числом (${hard.join(", ")}) — эти моменты не масштабированы; держи их в props.content под кадровыми ключами.`);
+          }
           return {
             kind: "plan",
             director: { selection: base.selection, rationale: `правка параметров версии ${base.row.number}` },
@@ -316,8 +383,9 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
       ctx.progress(0.15, "director");
       const dr = await directorStep(rc, { prompt, settings, candidates, patternTexts: [], kitApi: await readKitApi(), style, base: { spec: base.spec, props: base.props }, editPlan: plan }, cp);
       if (!dr.ok) return { kind: "failed", stage: dr.stage, message: dr.message };
-      const kept = keepFromBase(dr.spec, base.spec, plan.preserve);
+      const kept = keepFromBase(dr.spec, base.spec, plan);
       if (kept.restored.length > 0) rc.warnings.push(`Director изменил то, что правка обещала сохранить — возвращено из базы: ${kept.restored.join("; ")}`);
+      if (kept.dropped.length > 0) rc.log(`убраны по плану: ${kept.dropped.join(", ")} — сверка композиции их не ждёт`);
       // «темп тот же» (M2): биты строит Director, Engineer их не исправит — честное предупреждение
       if (plan.preserve.includes("timing") && checkPreserve(base.spec, kept.spec, undefined, undefined, ["timing"]).length > 0) {
         const n = `Темп не сохранён: Director перестроил тайминги (${base.spec.duration_frames} → ${kept.spec.duration_frames} кадров или границы битов), хотя правка просила оставить темп.`;
@@ -325,7 +393,9 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
         notes = [...notes, n];
       }
       final = plan;
-      const baseSpec = base.spec;
+      // убранное по плану — не часть сохраняемой композиции
+      const baseSpec = kept.dropped.length > 0 ? { ...base.spec, elements: base.spec.elements.filter((e) => !kept.dropped.includes(e.id)) } : base.spec;
+      const removedTexts = elementTexts(base.spec, kept.dropped);
       const baseProps = base.props;
       // тайминги после Director пересчитаны планировщиком битов — их сверка тут не исправима Engineer
       const loopPreserve = plan.preserve.filter((x) => x !== "timing");
@@ -335,7 +405,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
         spec: kept.spec,
         candidates,
         settings,
-        edit: { ...common, plan, brief: editBrief(plan, base.row.number), preserveCheck: (props, spec) => checkPreserve(baseSpec, spec, baseProps, props, loopPreserve, 0.02, { size: settings }), ...holdFor(loopPreserve, settings) },
+        edit: { ...common, plan, brief: editBrief(plan, base.row.number), preserveCheck: (props, spec) => checkPreserve(baseSpec, spec, baseProps, props, loopPreserve, 0.02, { size: settings }), ...holdFor(loopPreserve, settings, removedTexts) },
       };
     };
 

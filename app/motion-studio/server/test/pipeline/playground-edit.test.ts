@@ -19,7 +19,7 @@ import { readVersion } from "../../src/scenes/store.js";
 import { removeStore } from "../db/helpers.js";
 import { setupDb, until, type JobsEnv } from "../jobs/helpers.js";
 import { BAD_SCENE, directorOutput, fakeAgents, fakeRender, makeDeps, makeSkills } from "./helpers.js";
-import { history as fixtureHistory, plan } from "./edit-fixtures.js";
+import { history as fixtureHistory, plan, spec180 } from "./edit-fixtures.js";
 
 let env: JobsEnv;
 let repo: SceneRepo;
@@ -45,6 +45,14 @@ function laidOut(dx = 0) {
   const o = directorOutput();
   o.spec.elements[0]!.layout = { x: 0.1, y: 0.05, w: 0.8, h: 0.1 };
   o.spec.elements[1]!.layout = { x: 0.1 + dx, y: 0.3, w: 0.8 - dx, h: 0.6 };
+  return o;
+}
+
+/** Второстепенный элемент базы с раскладкой (вне битов): его Director может выкинуть при пересборке. */
+const BADGE = { id: "badge", kind: "text" as const, role: "бейдж", entrance: "fade" as const, content: { text: "beta" }, layout: { x: 0.7, y: 0.9, w: 0.2, h: 0.05 } };
+function withBadge(o: ReturnType<typeof laidOut>) {
+  o.spec.elements.push(structuredClone(BADGE));
+  o.spec.beats[0]!.element_ids.push(BADGE.id);
   return o;
 }
 
@@ -235,6 +243,43 @@ describe("playgroundEdit: path code и spec", () => {
     expect(json<{ style: { palette_overrides?: unknown } }>(v2.path, "props.json").style.palette_overrides).toBeUndefined();
   });
 
+  it("M-R1: Director при пересборке выкинул элемент базы, правка его не трогает → возвращён из базы, без провала цикла", async () => {
+    let editing = false;
+    const agents = fakeAgents({
+      director: async () => ({ output: editing ? laidOut() : withBadge(laidOut()) }),
+      editPlanner: async () => ({ output: plan({ path: "code", changes: [{ target: "chart", kind: "code", description: "линии толще" }], preserve: ["composition"], reply: "ок" }) }),
+    });
+    const { scene, gen, edit } = await start({ agents });
+    await gen();
+    expect(json<MotionSpec>(rows(scene.id)[0]!.path, "spec.json").elements.map((e) => e.id)).toContain("badge");
+    editing = true;
+    const before = agents.engineerCalls.length;
+    const job = await edit({}, "сделай линии толще, сохрани композицию");
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(agents.engineerCalls.length - before).toBe(1);
+    const v2 = rows(scene.id)[1]!;
+    expect(json<MotionSpec>(v2.path, "spec.json").elements.find((e) => e.id === "badge")?.layout).toEqual(BADGE.layout);
+    expect(readFileSync(join(env.s.root, v2.path, "warnings.json"), "utf8")).toMatch(/badge: возвращён/);
+  });
+
+  it("M-R1: правка по плану убирает элемент → его пропажа не blocking, элемент не возвращается", async () => {
+    let editing = false;
+    const agents = fakeAgents({
+      director: async () => ({ output: editing ? laidOut() : withBadge(laidOut()) }),
+      editPlanner: async () => ({ output: plan({ path: "spec", changes: [{ target: "badge", kind: "spec", description: "убрать бейдж" }], preserve: ["composition"], reply: "Убираю бейдж." }) }),
+    });
+    const { scene, gen, edit } = await start({ agents });
+    await gen();
+    expect(json<MotionSpec>(rows(scene.id)[0]!.path, "spec.json").elements.map((e) => e.id)).toContain("badge");
+    editing = true;
+    const before = agents.engineerCalls.length;
+    const job = await edit({}, "убери бейдж, остальное не трогай");
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(agents.engineerCalls.length - before).toBe(1);
+    const v2 = rows(scene.id)[1]!;
+    expect(json<MotionSpec>(v2.path, "spec.json").elements.map((e) => e.id)).not.toContain("badge");
+  });
+
   it("settings_patch { aspect_ratio 9:16, 1080×1920 } → path spec, Director и Engineer вызваны", async () => {
     const agents = fakeAgents({});
     const { scene, gen, edit } = await start({ agents });
@@ -355,6 +400,37 @@ describe("playgroundEdit: мелкие правила (M2–M5)", () => {
     const p = normalizePlan(plan({ preserve: ["palette", "timing", "composition"] }), "f", h, { style_preset: "light-clean", duration_frames: 240 });
     expect(p.plan.preserve).toEqual(["composition"]);
     expect(normalizePlan(plan({ preserve: ["palette"] }), "f", h, { color_palette: ["#ffffff"] }).plan.preserve).toEqual([]);
+  });
+
+  it("замена текста (param_patch.content или цель content.*) снимает text, но не composition: место подписи сверяется, перекладку от текста терпит сверка (I-R1)", () => {
+    const h = fixtureHistory;
+    const viaParam = normalizePlan(plan({ param_patch: { content: { title: "Бронирование отеля за три шага" } }, preserve: ["composition", "text", "palette"] }), "f", h);
+    expect(viaParam.plan.preserve).toEqual(["composition", "palette"]);
+    const viaCode = normalizePlan(plan({ path: "code", changes: [{ target: "content.title", kind: "code", description: "новый заголовок" }], preserve: ["composition", "text"] }), "f", h);
+    expect(viaCode.plan.preserve).toEqual(["composition"]);
+    const viaElement = normalizePlan(plan({ path: "spec", changes: [{ target: "title", kind: "spec", description: "текст заголовка: «Бронирование»" }], preserve: ["composition", "text"] }), "f", h, {}, spec180);
+    expect(viaElement.plan.preserve).toEqual(["composition"]);
+  });
+
+  it("M-R2: темп на пути param — кадры числом в коде сцены и числа вне договора content → предупреждение в warnings", async () => {
+    const { contractProps, GOOD_SCENE } = await import("./helpers.js");
+    const agents = fakeAgents({
+      engineer: async (task) => {
+        const props = JSON.parse(await contractProps(task.workdir));
+        props.content = { intro: { start: 12 }, tokens: [{ edge: "e1", until: 150 }] };
+        return { files: { "src/Scene.tsx": `${GOOD_SCENE}\n// <DataToken until={150} enterAt={20} />\n`, "props.json": JSON.stringify(props) } };
+      },
+    });
+    const { scene, gen, edit } = await start({ agents });
+    await gen();
+    const [v1] = rows(scene.id);
+    const job = await edit({ plan: plan({ base_version_id: v1!.id, path: "param", timing_scale: 2, reply: "медленнее" }) });
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    const v2 = rows(scene.id)[1]!;
+    const warnings = readFileSync(join(env.s.root, v2.path, "warnings.json"), "utf8");
+    expect(warnings).toContain("content.intro.start");
+    expect(warnings).toMatch(/until=\{150\}/);
+    expect(json<{ content: { tokens: { until: number }[] } }>(v2.path, "props.json").content.tokens[0]!.until).toBe(300);
   });
 
   it("M2: «темп тот же» на пути code — Director перестроил биты → предупреждение в warnings и ответе", async () => {
