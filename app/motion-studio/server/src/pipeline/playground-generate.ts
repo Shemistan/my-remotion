@@ -41,7 +41,7 @@ export interface PlaygroundDeps {
 }
 
 /** Почему прерван сигнал попытки: отмена пользователя, fencing или остановка/хранилище. */
-function abortKind(ctx: JobContext): AbortKind {
+export function abortKind(ctx: JobContext): AbortKind {
   try {
     const j = jobs.get(ctx.db, ctx.job.id);
     if (j?.cancel_requested) return "cancelled";
@@ -155,17 +155,18 @@ function stepRefs(steps: Partial<Record<"concept" | "motion_director", StepRef>>
   return { ...(steps.concept ? { concept: steps.concept } : {}), ...(steps.motion_director ? { director: steps.motion_director } : {}) };
 }
 
-/** Журнал попытки в БД (fencing внутри); сбой записи — событие, не отказ задачи. */
-function record(ctx: JobContext, root: string, sceneId: string, r: GenerateResult): void {
+/**
+ * Журнал попытки в БД (fencing внутри); сбой записи — событие, не отказ задачи. `text` —
+ * своё сообщение ассистента (правка: ответ Edit Planner и итог); без него — итог генерации.
+ */
+export function record(ctx: JobContext, root: string, sceneId: string, r: GenerateResult, text?: (auto: string) => string): void {
   const silent = r.failure && ["cancelled", "fenced_out", "interrupted"].includes(r.failure.stage);
   const messages: { role: "assistant" | "system"; text: string }[] = [];
   if (r.status === "awaiting_input") {
     for (const q of r.questions ?? []) messages.push({ role: "system", text: `${q.question}\n(если пропустить: ${q.default_if_skipped})` });
   } else if (!silent) {
-    messages.push({
-      role: "assistant",
-      text: assistantMessage({ version: r.version, concept: r.concept, refs: r.refs, kitComponents: r.report?.kit_components_used, qa: r.qa, failure: r.failure }),
-    });
+    const auto = assistantMessage({ version: r.version, concept: r.concept, refs: r.refs, kitComponents: r.report?.kit_components_used, qa: r.qa, failure: r.failure });
+    messages.push({ role: "assistant", text: text ? text(auto) : auto });
   }
   const version = r.version?.id && r.versionDir
     ? { id: r.version.id, number: r.version.number, status: r.version.status, path: relative(root, r.versionDir).split(sep).join("/") }
@@ -181,7 +182,7 @@ function record(ctx: JobContext, root: string, sceneId: string, r: GenerateResul
   }
 }
 
-function toHandlerResult(r: GenerateResult, sceneId: string): HandlerResult {
+export function toHandlerResult(r: GenerateResult, sceneId: string): HandlerResult {
   if (r.status === "awaiting_input") return { status: "awaiting_input", questions: r.questions ?? [] };
   if (r.status === "ready") {
     return {

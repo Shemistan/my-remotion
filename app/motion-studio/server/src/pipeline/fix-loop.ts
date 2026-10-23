@@ -123,6 +123,17 @@ export interface LoopInput {
    * него второго дубля нет.
    */
   takeDir?: (spec: MotionSpec) => Promise<{ dir: string; files: DraftFiles }>;
+  /**
+   * Правка параметров (Task 18): первый проход первого дубля — без Engineer (код базы и
+   * новый props.json уже в draft); исправления — обычным циклом.
+   */
+  skipFirstEngineer?: boolean;
+  /** Заголовок первого вызова Engineer первого дубля (правка: что менять в копии базы). */
+  brief?: string;
+  /** Сверка с базой того, что правка обещала сохранить (`checkPreserve`); blocking — исправление. */
+  preserveCheck?: (props: ScenePropsBase, spec: MotionSpec) => QAIssue[];
+  /** Второй дубль только `revise` (правка: новое кадрирование `fresh` сломало бы композицию базы). */
+  reviseOnly?: boolean;
 }
 
 /**
@@ -445,7 +456,8 @@ async function reapTake2(i: LoopInput): Promise<boolean> {
 async function fixLoop(i: LoopInput, state: LoopState, t2out: { alive: boolean }): Promise<Exit> {
   const { rc } = i;
   const maxCalls = 1 + rc.config.scene.maxAutoFixes;
-  const st = rc.config.scene.secondTake;
+  const cfg = rc.config.scene.secondTake;
+  const st = i.reviseOnly && cfg.mode === "fresh" ? { ...cfg, mode: "revise" as const } : cfg;
   const ctl: TakeCtl = { attempts: [], next: 0 };
   let take2: Promise<TakeEnd> | undefined;
   // отмена второго дубля: исключение или жёсткий выход первого (S5-fix I5)
@@ -478,7 +490,7 @@ async function fixLoop(i: LoopInput, state: LoopState, t2out: { alive: boolean }
 
   let t1: TakeEnd;
   try {
-    t1 = await runTake(i, state, ctl, { no: 1, dir: i.draftDir, spec: i.spec, files: i.files, maxCalls, onScored });
+    t1 = await runTake(i, state, ctl, { no: 1, dir: i.draftDir, spec: i.spec, files: i.files, maxCalls, onScored, ...(i.brief ? { brief: i.brief } : {}) });
   } catch (e) {
     // первый дубль упал исключением: второй отменяем и дожидаемся — после итога задачи он
     // не должен ни звать агентов, ни рендерить, ни писать в run/tmp
@@ -704,71 +716,79 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
     if (p) return end("storage", p);
     if (stopped()) return end("cancelled", rc.aborted ? "отменено" : "дубль отменён");
 
-    state.engineerCalls++;
+    // правка параметров (Task 18): первый проход — код базы с новым props.json, без Engineer;
+    // Engineer зовётся только исправлять то, что не прошло gate или QA
+    const noEngineer = first && call === 1 && i.skipFirstEngineer === true;
+    let report: EngineerReport | undefined;
+    let engineerCost = 0;
     if (first) {
-      i.progress?.(0.3 + 0.15 * (call - 1), call === 1 ? "engineer" : `engineer_fix_${call - 1}`);
+      i.progress?.(0.3 + 0.15 * (call - 1), noEngineer ? "check" : call === 1 ? "engineer" : `engineer_fix_${call - 1}`);
       ctl.draftHead = undefined;
     }
-    const zoneBefore = await snapshotOutsideZone(dir);
-    const fix = call > 1 && issue
-      ? [
-          `# Исправление ${call - 1} из ${maxCalls - 1}`,
-          `Предыдущая версия не прошла этап «${issue.stage}». Прочитай текущие файлы src/ и props.json, исправь причины и всё, что им подобно. Не переписывай сцену с нуля без нужды и не упрощай замысел.`,
-          "",
-          "## Причины",
-          "```",
-          clip(issue.message),
-          "```",
-        ].join("\n")
-      : call === 1 ? t.brief : undefined;
-    rc.log(`${first ? "" : "дубль 2: "}${call === 1 ? "Engineer…" : `Engineer: исправление ${call - 1} из ${maxCalls - 1} (${issue?.stage})…`}`);
-    const e = await rc.timed(`${pre}engineer_${call}`, () => rc.call(buildEngineerTask({ draftDir: dir, ...(fix ? { fix } : {}), spec }, { ...rc.taskRun, seq: first ? call : 100 + call }), EngineerReportSchema, t.signal));
-    if (e.budget !== undefined) return end("budget", `${e.budget}${issue ? `; последняя ошибка (${issue.stage}): ${clip(issue.message, 1000)}` : ""}`);
-    if (e.skipped) return end("cancelled", "отменено до Engineer");
-    if (e.error !== undefined) {
-      // процесс агента мог остаться: подтверждения его смерти нет
-      const storage = isStorageError(e.error) || e.lost !== undefined || (await rc.storageProblem()) !== undefined;
-      return end(storage ? "storage" : "engineer", `вызов Engineer отклонён: ${errText(e.error)}`, { alive: true });
-    }
-    const er = e.value!;
-    const engineerCost = er.usage.costUsd;
-    if (er.error?.kind === "orphaned") return end("orphaned", `Engineer: ${er.error.message}`, { alive: true });
-    if (e.lost) return end("storage", `хранилище пропало во время Engineer: ${e.lost}`);
-    if (stopped()) return end("cancelled", rc.aborted ? "отменено во время Engineer" : "дубль отменён во время Engineer");
+    if (noEngineer) rc.log("правка параметров: код базы, новый props.json — без Engineer");
+    else {
+      state.engineerCalls++;
+      const zoneBefore = await snapshotOutsideZone(dir);
+      const fix = call > 1 && issue
+        ? [
+            `# Исправление ${call - 1} из ${maxCalls - 1}`,
+            `Предыдущая версия не прошла этап «${issue.stage}». Прочитай текущие файлы src/ и props.json, исправь причины и всё, что им подобно. Не переписывай сцену с нуля без нужды и не упрощай замысел.`,
+            "",
+            "## Причины",
+            "```",
+            clip(issue.message),
+            "```",
+          ].join("\n")
+        : call === 1 ? t.brief : undefined;
+      rc.log(`${first ? "" : "дубль 2: "}${call === 1 ? "Engineer…" : `Engineer: исправление ${call - 1} из ${maxCalls - 1} (${issue?.stage})…`}`);
+      const e = await rc.timed(`${pre}engineer_${call}`, () => rc.call(buildEngineerTask({ draftDir: dir, ...(fix ? { fix } : {}), spec }, { ...rc.taskRun, seq: first ? call : 100 + call }), EngineerReportSchema, t.signal));
+      if (e.budget !== undefined) return end("budget", `${e.budget}${issue ? `; последняя ошибка (${issue.stage}): ${clip(issue.message, 1000)}` : ""}`);
+      if (e.skipped) return end("cancelled", "отменено до Engineer");
+      if (e.error !== undefined) {
+        // процесс агента мог остаться: подтверждения его смерти нет
+        const storage = isStorageError(e.error) || e.lost !== undefined || (await rc.storageProblem()) !== undefined;
+        return end(storage ? "storage" : "engineer", `вызов Engineer отклонён: ${errText(e.error)}`, { alive: true });
+      }
+      const er = e.value!;
+      engineerCost = er.usage.costUsd;
+      if (er.error?.kind === "orphaned") return end("orphaned", `Engineer: ${er.error.message}`, { alive: true });
+      if (e.lost) return end("storage", `хранилище пропало во время Engineer: ${e.lost}`);
+      if (stopped()) return end("cancelled", rc.aborted ? "отменено во время Engineer" : "дубль отменён во время Engineer");
 
-    // Граница каталога: Engineer правит только src/** и props.json. Остальное (файлы
-    // пайплайна, refs/, node_modules, package.json рядом с src/) меняло бы сборку
-    // или опубликованные данные в обход static check — откат и причина на исправление.
-    const zoneDiff = diffSnapshots(zoneBefore, await snapshotOutsideZone(dir));
-    if (zoneDiff.added.length + zoneDiff.changed.length + zoneDiff.removed.length > 0) {
-      const what = describeDiff(zoneDiff);
-      await t.files.restore(zoneBefore, zoneDiff);
-      rc.warnings.push(`Engineer писал вне src/ и props.json (откачено): ${what}`);
-      push({
-        stage: "static",
-        message: `[draft-boundary] изменения вне src/ и props.json запрещены и откачены пайплайном: ${what}. ` +
-          "Код сцены и ассеты — только в src/ (без node_modules и package.json), данные — в props.json; spec.json, settings.json, style.json, selection.json, knowledge-refs.json и refs/ не трогай.",
-      });
-      rc.log(`граница draft: ${what}`);
-      continue;
-    }
+      // Граница каталога: Engineer правит только src/** и props.json. Остальное (файлы
+      // пайплайна, refs/, node_modules, package.json рядом с src/) меняло бы сборку
+      // или опубликованные данные в обход static check — откат и причина на исправление.
+      const zoneDiff = diffSnapshots(zoneBefore, await snapshotOutsideZone(dir));
+      if (zoneDiff.added.length + zoneDiff.changed.length + zoneDiff.removed.length > 0) {
+        const what = describeDiff(zoneDiff);
+        await t.files.restore(zoneBefore, zoneDiff);
+        rc.warnings.push(`Engineer писал вне src/ и props.json (откачено): ${what}`);
+        push({
+          stage: "static",
+          message: `[draft-boundary] изменения вне src/ и props.json запрещены и откачены пайплайном: ${what}. ` +
+            "Код сцены и ассеты — только в src/ (без node_modules и package.json), данные — в props.json; spec.json, settings.json, style.json, selection.json, knowledge-refs.json и refs/ не трогай.",
+        });
+        rc.log(`граница draft: ${what}`);
+        continue;
+      }
 
-    if (er.permissionDenials.length > 0) {
-      state.deniedLog.push(...er.permissionDenials);
-      const w = `Engineer: отказано в доступе (${er.permissionDenials.length}): ${er.permissionDenials.map(describeDenial).join("; ")}`;
-      rc.warnings.push(w);
-      rc.log(`⚠ ${w}`);
-      const inside = er.permissionDenials.filter((x) => deniedWriteInside(x, dir));
-      if (inside.length > 0) return end("engineer", `denied: запись внутри draft отклонена: ${inside.map(describeDenial).join("; ")}`);
+      if (er.permissionDenials.length > 0) {
+        state.deniedLog.push(...er.permissionDenials);
+        const w = `Engineer: отказано в доступе (${er.permissionDenials.length}): ${er.permissionDenials.map(describeDenial).join("; ")}`;
+        rc.warnings.push(w);
+        rc.log(`⚠ ${w}`);
+        const inside = er.permissionDenials.filter((x) => deniedWriteInside(x, dir));
+        if (inside.length > 0) return end("engineer", `denied: запись внутри draft отклонена: ${inside.map(describeDenial).join("; ")}`);
+      }
+      if (er.status !== "completed" || !er.output) {
+        push({ stage: "engineer", message: `вызов Engineer завершился ${er.status}${er.error ? ` (${er.error.kind}): ${er.error.message}` : ""}` });
+        continue;
+      }
+      report = er.output;
+      if (first) state.report = report;
+      const missing = missingWritten(report, dir);
+      if (missing.length > 0) return end("engineer", `denied: files_written ссылается на несуществующие файлы: ${missing.join(", ")}`);
     }
-    if (er.status !== "completed" || !er.output) {
-      push({ stage: "engineer", message: `вызов Engineer завершился ${er.status}${er.error ? ` (${er.error.kind}): ${er.error.message}` : ""}` });
-      continue;
-    }
-    const report = er.output;
-    if (first) state.report = report;
-    const missing = missingWritten(report, dir);
-    if (missing.length > 0) return end("engineer", `denied: files_written ссылается на несуществующие файлы: ${missing.join(", ")}`);
 
     // static check — до typecheck и бандла (rulings п. 16)
     const violations = await rc.timed(`${pre}static`, () => deps.check(dir));
@@ -787,7 +807,8 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
     // provenance и контракт props (H4) — технический gate до рендера
     const techWarnings: QAIssue[] = [];
     if (i.qa) {
-      const prov = provenanceGate(report, i.refs, deps.kb, i.qa.allowRestricted);
+      // без вызова Engineer (правка параметров) код — базы, её provenance уже проверен
+      const prov = report ? provenanceGate(report, i.refs, deps.kb, i.qa.allowRestricted) : [];
       if (prov.length > 0) {
         push({ stage: "static", message: asText(prov) });
         rc.log(`provenance: ${prov.map((x) => x.code).join(", ")}`);
@@ -801,7 +822,14 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
         rc.log(`props: ${checked.issues.map((x) => x.code).join(", ")}`);
         continue;
       }
-      techWarnings.push(...checked.issues);
+      // правка (Task 18): что план обещал сохранить — сверка с базой до рендера
+      const kept = i.preserveCheck?.(checked.props, spec) ?? [];
+      if (kept.some((x) => x.severity === "blocking")) {
+        push({ stage: "static", message: asText(kept) });
+        rc.log(`preserve: ${kept.map((x) => x.code).join(", ")}`);
+        continue;
+      }
+      techWarnings.push(...checked.issues, ...kept);
       // нормализованный props.style — в props.json и style.json (что сцена увидит, то и QA)
       await writeFile(propsPath, checked.text!);
       style = checked.props.style;

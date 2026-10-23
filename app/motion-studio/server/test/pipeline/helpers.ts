@@ -3,7 +3,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type ConceptOutput, type DirectorOutput, type EngineerReport, type MotionSpec, type Settings, type VisualQAOutput, defaultSettings } from "@ms/contracts";
+import { type ConceptOutput, type DirectorOutput, type EditPlan, type EngineerReport, type MotionSpec, type Settings, type VisualQAOutput, defaultSettings } from "@ms/contracts";
 import { PNG } from "pngjs";
 import { type StorageStatus, type VolumeProbe, initStore, readMarker } from "@ms/core";
 import type { RenderRequest, RenderResult } from "@ms/render";
@@ -221,6 +221,8 @@ export function fakeAgents(opts: {
   director?: () => Promise<Partial<AgentResult<DirectorOutput>>>;
   engineer?: EngineerFn;
   visualQa?: (frames: number[], spec: MotionSpec | undefined, n: number) => Promise<Partial<AgentResult<VisualQAOutput>>>;
+  /** Edit Planner (Task 18): ответ теста; без него — вызов завершается `failed`. */
+  editPlanner?: (task: AgentTask<unknown>, n: number) => Promise<Partial<AgentResult<EditPlan>>>;
 }): AgentRuntimeAdapter & { engineerCalls: EngineerCall[]; tasks: AgentTask<unknown>[] } {
   const engineerCalls: EngineerCall[] = [];
   const tasks: AgentTask<unknown>[] = [];
@@ -251,6 +253,10 @@ export function fakeAgents(opts: {
         const spec = JSON.parse(await readFile(join(task.workdir, "spec.json"), "utf8").catch(() => "null")) as MotionSpec | undefined;
         const over = opts.visualQa ? await opts.visualQa(frames, spec ?? undefined, n) : {};
         return { ...base(cost), output: visualOutput(frames, spec ?? undefined), ...over } as AgentResult<O>;
+      }
+      if (task.role === "edit_planner") {
+        const over = opts.editPlanner ? await opts.editPlanner(task as AgentTask<unknown>, n) : { status: "failed" as const, error: { kind: "schema" as const, message: "нет ответа" } };
+        return { ...base(cost), ...over } as AgentResult<O>;
       }
       if (task.role === "motion_director") {
         const over = opts.director ? await opts.director() : {};

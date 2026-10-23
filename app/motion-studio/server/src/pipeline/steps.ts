@@ -408,7 +408,7 @@ export interface TaskRun {
   seq?: number;
 }
 
-function agentTask(role: Role, input: string, workdir: string, tools: AgentTool[], run: TaskRun, limits?: AgentTask<string>["limits"]): AgentTask<string> {
+export function agentTask(role: Role, input: string, workdir: string, tools: AgentTool[], run: TaskRun, limits?: AgentTask<string>["limits"]): AgentTask<string> {
   const s = run.config.agents[role];
   return {
     role,
@@ -651,7 +651,7 @@ export interface CheckpointOpts {
  * каталог в карантин. С `cp` — чекпоинт по `input_hash`: найден — агент не зовётся.
  * `save: false` — результат не сохраняется здесь (Director сохраняет принятый ответ сам).
  */
-async function toolless<O>(
+export async function toolless<O>(
   rc: RunCtx,
   role: Role,
   stage: FailureStage,

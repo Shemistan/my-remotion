@@ -19,6 +19,7 @@ import { join } from "node:path";
 import {
   type ConceptOutput,
   type DirectorOutput,
+  type EditPlan,
   type EngineerReport,
   type FailureStage,
   type KnowledgeRef,
@@ -39,7 +40,7 @@ import type { checkSceneDir } from "../scenes/static-check.js";
 import { type Draft, type PublishMeta, createDraft, publishVersion, quarantineDraft, writeBrief, writeSceneFailure } from "../scenes/store.js";
 import type { typecheckVersion } from "../scenes/typecheck.js";
 import { type StepRef } from "./checkpoints.js";
-import { type AttemptRecord, type DraftFiles, type Exit, type LoopState, type RenderRecord, type VisualQaRun, type ZoneDiff, describeDiff, diffSnapshots, runFixLoop, snapshotOutsideZone } from "./fix-loop.js";
+import { type AttemptRecord, type DraftFiles, type Exit, type LoopInput, type LoopState, type RenderRecord, type VisualQaRun, type ZoneDiff, describeDiff, diffSnapshots, runFixLoop, snapshotOutsideZone } from "./fix-loop.js";
 import { type KnowledgeSource, SKILLS_REL, filterSelection, knowledgeRefs, prepareRefs, topPatterns } from "./refs.js";
 import { selectQaFrames } from "./qa-frames.js";
 import { cameraBrief } from "../qa/visual-agent.js";
@@ -153,7 +154,17 @@ export interface GenerateResult {
 
 /** План сцены до draft. */
 export type PlanOutcome =
-  | { kind: "plan"; director: DirectorOutput; spec: MotionSpec; candidates: CapabilityView[]; concept?: ConceptOutput }
+  | {
+      kind: "plan";
+      director: Pick<DirectorOutput, "selection" | "rationale">;
+      spec: MotionSpec;
+      candidates: CapabilityView[];
+      concept?: ConceptOutput;
+      /** Настройки версии, если план их меняет (правка); иначе — настройки запроса. */
+      settings?: Settings;
+      /** Правка версии (Task 18): draft — копия базы, версия публикуется от неё. */
+      edit?: EditRequest;
+    }
   | { kind: "awaiting_input"; concept: ConceptOutput }
   | { kind: "failed"; stage: FailureStage; message: string };
 
@@ -168,11 +179,31 @@ export interface GenerationRequest {
   steps?: GenerateResult["steps"];
   /** Spec последних версий других сцен проекта (QA spec: повтор подписи кадра). */
   previous?: readonly MotionSpec[];
+  /** Не переписывать brief.json сцены (правка: brief — исходный запрос сцены). */
+  keepBrief?: boolean;
+}
+
+/** Правка: база, план и как вести цикл (`playground-edit.ts`). */
+export interface EditRequest {
+  /** Версия-основа: её src/ и props.json копируются в draft (createDraft с parentVersionId). */
+  baseVersionId: string;
+  /** Каталог базы — для `changed_files` (что правка изменила относительно неё). */
+  baseDir: string;
+  /** План правки — в manifest (`edit_plan`). */
+  plan: EditPlan;
+  /** props.json правки параметров: пишется в draft, первый проход — без Engineer. */
+  props?: string;
+  /** Заголовок первого вызова Engineer (правка кода). */
+  brief?: string;
+  /** Запрос сцены для Visual QA: исходный запрос и правка (manifest.prompt — сообщение правки). */
+  qaPrompt?: string;
+  preserveCheck?: LoopInput["preserveCheck"];
 }
 
 export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, signal?: AbortSignal): Promise<GenerateResult> {
   const t0 = Date.now();
-  const { prompt, settings } = req;
+  const { prompt } = req;
+  let settings = req.settings;
   const runId = deps.run?.runId ?? newId("run");
   const attempt = deps.run?.attempt ?? 1;
   const sceneId = deps.sceneId ?? newId("scn");
@@ -232,12 +263,15 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
   root = status.root;
   rc = new RunCtx(deps, signal, root, runId, attempt, deps.run?.registry);
 
-  try {
-    await writeBrief(root, sceneId, { prompt, settings, created_at: new Date().toISOString() }, projectId);
-    briefWritten = true;
-  } catch (e) {
-    if (isStorageError(e)) return failed("storage", errText(e));
-    throw e;
+  // правка: brief.json сцены — исходный запрос, его не переписываем
+  if (!req.keepBrief) {
+    try {
+      await writeBrief(root, sceneId, { prompt, settings, created_at: new Date().toISOString() }, projectId);
+      briefWritten = true;
+    } catch (e) {
+      if (isStorageError(e)) return failed("storage", errText(e));
+      throw e;
+    }
   }
 
   // --- 2. План: (Concept,) кандидаты KB, Motion Director ---
@@ -254,6 +288,8 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
     return result("awaiting_input", { questions: plan.concept.needs_clarification });
   }
   concept = plan.concept;
+  if (plan.settings) settings = plan.settings;
+  const edit = plan.edit;
   spec = withSceneSeed(plan.spec, sceneId);
   const director = plan.director;
   // выбор Director — только из предложенных кандидатов и только permissive (или с разрешением)
@@ -271,7 +307,7 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
 
   // --- 3. Draft. С этого места любой выход — публикация failed или карантин ---
   try {
-    draft = await createDraft(root, { runId, attempt, sceneId, projectId });
+    draft = await createDraft(root, { runId, attempt, sceneId, projectId, ...(edit ? { parentVersionId: edit.baseVersionId } : {}) });
   } catch (e) {
     const storage = isStorageError(e) || (await rc.storageProblem()) !== undefined;
     return failed(storage ? "storage" : "prepare", `draft не создан: ${errText(e)}`);
@@ -338,17 +374,22 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
   const afterDraft = async (): Promise<Exit> => {
     await files.write();
     await prepareRefs(draftDir, selection, deps.kb, skillsRoot);
+    const ed = edit;
+    if (ed?.props !== undefined) await writeFile(join(draftDir, "props.json"), ed.props);
     const cacheDir = await safeMkdir(root, "cache");
     phase = "engineer";
+    // правка параметров — без второго дубля: код базы не переписывается ради оценки
+    const paramEdit = ed?.props !== undefined;
     return runFixLoop(
       {
         rc: ctx, deps, draftDir, cacheDir, settings, spec: spec!, refs, frames, files,
-        ...(req.qa ? { qa: { brief: { prompt, settings, camera: cameraBrief(spec!) }, allowRestricted: req.qa.allowRestricted } } : {}),
+        ...(req.qa ? { qa: { brief: { prompt: ed?.qaPrompt ?? prompt, settings, camera: cameraBrief(spec!) }, allowRestricted: req.qa.allowRestricted } } : {}),
         ...(req.previous ? { previous: req.previous } : {}),
         progress: deps.progress,
+        ...(ed ? { reviseOnly: true, ...(paramEdit ? { skipFirstEngineer: true } : {}), ...(ed.brief ? { brief: ed.brief } : {}), ...(ed.preserveCheck ? { preserveCheck: ed.preserveCheck } : {}) } : {}),
         // второй дубль (S5): свой каталог попытки задачи вне draft (граница draft первого дубля
         // не видит его файлов), файлы пайплайна со своим spec и refs/
-        takeDir: async (spec2) => {
+        takeDir: paramEdit ? undefined : async (spec2) => {
           const dir = await safeMkdir(root, `run/tmp/${runId}-a${attempt}/take2`);
           const own: Record<string, string> = { ...owned, "spec.json": JSON.stringify(spec2, null, 2) + "\n" };
           const f = filesFor(dir, own);
@@ -379,7 +420,9 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
           ...(state.attempts ? { attempts: state.attempts } : {}), timings: ctx.timings, stage_wall_ms: wall, history: ctx.history,
         }, null, 2) + "\n",
       );
-      const changed = [...(await listFiles(draftDir, "src")), ...(existsSync(join(draftDir, "props.json")) ? ["props.json"] : [])];
+      const changed = edit
+        ? await changedFromBase(edit.baseDir, draftDir)
+        : [...(await listFiles(draftDir, "src")), ...(existsSync(join(draftDir, "props.json")) ? ["props.json"] : [])];
       const previewFile = join(draftDir, "preview.mp4");
       const preview = exit.ok
         ? { path: "preview.mp4", sha256: exit.previewSha }
@@ -391,9 +434,9 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
       const meta = {
         schema_version: 1 as const,
         scene_id: sceneId,
-        parent_version_id: null,
+        parent_version_id: edit?.baseVersionId ?? null,
         prompt,
-        edit_plan: null,
+        edit_plan: edit?.plan ?? null,
         settings,
         changed_files: changed,
         render_env: await renderEnv(),
@@ -498,6 +541,18 @@ async function listFiles(dir: string, rel = ""): Promise<string[]> {
     else if (e.isFile()) out.push(r);
   }
   return out.sort();
+}
+
+/** Файлы сцены (src/**, props.json), которые правка добавила, изменила или удалила относительно базы. */
+async function changedFromBase(baseDir: string, draftDir: string): Promise<string[]> {
+  const scene = async (dir: string) => [...(await listFiles(dir, "src")), ...(existsSync(join(dir, "props.json")) ? ["props.json"] : [])];
+  const before = new Set(await scene(baseDir));
+  const out: string[] = [];
+  for (const p of await scene(draftDir)) {
+    if (!before.delete(p)) out.push(p);
+    else if ((await sha256File(join(baseDir, p))) !== (await sha256File(join(draftDir, p)))) out.push(p);
+  }
+  return [...out, ...before].sort();
 }
 
 /** Справка motion-kit для Director (то же, что Engineer получит в `refs/`). */

@@ -1,10 +1,12 @@
 // Обработчики задач, общие для сервера и CLI: оба регистрируют одни и те же обработчики
-// (`playground.generate` → `playgroundGenerate`). Task 18–19 дописывают сюда свои типы.
+// (`playground.generate`, `playground.edit`, `scene.restore`). Task 19 дописывает сюда экспорт.
 import type { Job } from "@ms/contracts";
 import { renderVersion } from "@ms/render";
 import type { CoreServices } from "../boot.js";
 import type { GenerateResult } from "../pipeline/generate.js";
-import { playgroundGenerate } from "../pipeline/playground-generate.js";
+import { playgroundEdit } from "../pipeline/playground-edit.js";
+import { type PlaygroundDeps, playgroundGenerate } from "../pipeline/playground-generate.js";
+import { sceneRestore } from "../pipeline/scene-restore.js";
 import { checkSceneDir } from "../scenes/static-check.js";
 import { typecheckVersion } from "../scenes/typecheck.js";
 import type { Handlers } from "./types.js";
@@ -21,23 +23,22 @@ export interface HandlerOptions {
 }
 
 export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extra: Handlers = {}): Handlers {
+  const deps: PlaygroundDeps["deps"] = () => ({
+    storage: svc.storageCheck,
+    kb: svc.kb,
+    agents: svc.agents,
+    render: o.render ?? renderVersion,
+    check: o.check ?? checkSceneDir,
+    typecheck: o.typecheck ?? typecheckVersion,
+    config: svc.config,
+    ...(o.skillsRoot ? { skillsRoot: o.skillsRoot } : {}),
+    ...(o.watchIntervalMs ? { watchIntervalMs: o.watchIntervalMs } : {}),
+    ...(o.log ? { log: o.log } : {}),
+  });
   return {
-    "playground.generate": playgroundGenerate({
-      deps: () => ({
-        storage: svc.storageCheck,
-        kb: svc.kb,
-        agents: svc.agents,
-        render: o.render ?? renderVersion,
-        check: o.check ?? checkSceneDir,
-        typecheck: o.typecheck ?? typecheckVersion,
-        config: svc.config,
-        ...(o.skillsRoot ? { skillsRoot: o.skillsRoot } : {}),
-        ...(o.watchIntervalMs ? { watchIntervalMs: o.watchIntervalMs } : {}),
-        ...(o.log ? { log: o.log } : {}),
-      }),
-      repo: svc.repo,
-      ...(o.onGenerateResult ? { onResult: o.onGenerateResult } : {}),
-    }),
+    "playground.generate": playgroundGenerate({ deps, repo: svc.repo, ...(o.onGenerateResult ? { onResult: o.onGenerateResult } : {}) }),
+    "playground.edit": playgroundEdit({ deps, repo: svc.repo, ...(o.onGenerateResult ? { onResult: o.onGenerateResult } : {}) }),
+    "scene.restore": sceneRestore({ repo: svc.repo, deps: (ctx) => deps(ctx) }),
     ...extra,
   };
 }
