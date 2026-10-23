@@ -17,7 +17,8 @@
 // Флаги: --set explainer|user (набор, explainer; user — 6 кейсов пользователя, 60 с, информативно),
 //   --runs N (прогонов судьи, 3), --parallel N (задач генерации, 3), --judge-parallel N (6),
 //   --judge-model M (opus), --gen-timeout-min N (60), --no-judge, --write-evidence,
-//   --allow-dirty (генерировать при незакоммиченных правках app/motion-studio; сцены — -dirty).
+//   --allow-dirty (генерировать при незакоммиченных правках app/motion-studio; сцены — -dirty),
+//   --second-take revise|fresh|off (режим второго дубля, S5; A/B — два прогона и --compare).
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -37,6 +38,7 @@ import { type Agreement, type Aggregate, CRITERIA, type FrameMetrics, type Split
 import { type JudgeFingerprint, judgeFingerprint, promptHashes, sameFingerprint, short } from "../server/src/eval/provenance.js";
 import { HOLDOUT_SEEN_BY_RUBRIC, REFERENCE, anchorsFor } from "../server/src/eval/reference.js";
 import { isTransientFailure } from "../server/src/eval/resume.js";
+import { type AttemptLine, genStats, stageWallOf } from "../server/src/eval/gen-stats.js";
 import { EXPLAINER_SET, HELD_OUT, type SetName, parseSetName, setItems } from "../server/src/eval/sets.js";
 import { registerHandlers } from "../server/src/jobs/handlers.js";
 import { cancelJob, enqueue, provideInput } from "../server/src/jobs/queue.js";
@@ -87,6 +89,12 @@ const sha = git("rev-parse", "--short", "HEAD");
 const isDirty = () => git("status", "--porcelain", "--", "app/motion-studio") !== "";
 const commit = isDirty() ? `${sha}-dirty` : sha;
 const allowDirty = flag("--allow-dirty");
+// второй дубль (S5): режим для A/B — поверх config.json хранилища
+const secondTake = opt("--second-take");
+if (secondTake !== undefined) {
+  if (!["revise", "fresh", "off"].includes(secondTake)) throw new Error(`--second-take: revise, fresh или off: ${secondTake}`);
+  process.env.MS_SECOND_TAKE = secondTake;
+}
 /** Дерево сейчас: незакоммиченные правки приложения и хэш kit (рендер хэширует kit живьём). */
 const treeNow = async (): Promise<TreeState> => ({ dirty: isDirty(), kit_hash: await motionKitHash() });
 const stamp = new Date().toISOString().slice(0, 16).replace(/[-:]/g, "").replace("T", "-");
@@ -184,6 +192,12 @@ interface GenInfo {
   prompts_sha256: Record<string, string> | null;
   /** Прежние неудачные попытки сцены (без превью): их стоимость входит в итог прогона. */
   prior_attempts?: GenInfo[];
+  /** Время этапов по часам, мс (S5; у старых журналов — сумма timings), и total. */
+  stage_wall_ms?: Record<string, number> | null;
+  /** Попытки с оценкой Visual QA и опубликованная (S5). */
+  attempts?: AttemptLine[];
+  /** Режим второго дубля, с которым шла генерация (S5). */
+  second_take?: string;
 }
 
 const KIT_INDEX = "app/motion-studio/render/src/motion-kit/index.ts";
@@ -286,10 +300,13 @@ async function generateMissing(todo: Item[]): Promise<void> {
         }
         if (existsSync(join(vdir, "src", "Scene.tsx"))) copyFileSync(join(vdir, "src", "Scene.tsx"), join(out, "Scene.tsx"));
       }
+      const plog = existsSync(join(out, "pipeline-log.json")) ? readJson<Parameters<typeof stageWallOf>[0] & { attempts?: AttemptLine[] }>(join(out, "pipeline-log.json")) : undefined;
       const info: GenInfo = {
         status: timedOut ? "timeout" : existsSync(join(out, "preview.mp4")) ? (r?.status ?? j?.status ?? "unknown") : "no_preview",
         job_status: j?.status, failure: r?.failure ?? j?.error ?? undefined, version_status: v?.status,
         cost_usd: runsCost, wall_ms: Date.now() - t0, engineer_calls: r?.engineerCalls,
+        stage_wall_ms: r?.stageWallMs ?? stageWallOf(plog), ...(r?.attempts ?? plog?.attempts ? { attempts: r?.attempts ?? plog?.attempts } : {}),
+        second_take: core.config.scene.secondTake.mode,
         duration_frames: settings.duration_frames, fps: settings.fps.num / settings.fps.den, source: vdir ?? "",
         ...provenance, ...sceneTree(sha, treeStart, await treeNow()), motion_kit_sha256: kitSha(join(out, "manifest.json")),
         ...(prior.length ? { prior_attempts: prior } : {}),
@@ -529,6 +546,29 @@ function report(rows: Row[], judge: JudgeFingerprint | null): { md: string; summ
   for (const r of rows) {
     const j = r.judge;
     lines.push(`| ${r.id}${r.held_out ? " (отл.)" : ""} | ${withRef.length ? `${r.split ?? "—"} | ${f1(r.ref)} | ` : ""}${f1(j?.overall)} | ${j ? j.runs.join(" / ") : "—"} | ${f1(j?.spread)} | ${CRITERIA.map((c) => f1(j?.criteria[c])).join(" | ")} | ${f1(r.gen_cost_total_usd, 2)} | ${r.gen?.job_status ?? r.gen?.status ?? "нет"} | ${f1(r.frames?.frame0Content, 3)} | ${f1(r.frames?.holdDelta, 4)} | ${f1(r.frames?.emptyThirdShare, 2)} |`);
+  }
+  // S5: время генерации по этапам (по часам) и стоимость — постоянная метрика прогона
+  const genRows = rows.flatMap((r) => (r.gen ? [{ id: r.id, cost_usd: r.gen_cost_total_usd, stage_wall_ms: r.gen.stage_wall_ms ?? null, attempts: r.gen.attempts, gen: r.gen }] : []));
+  const gs = genStats(genRows);
+  summary.gen_stats = gs;
+  if (genRows.length > 0) {
+    const STAGES = ["concept", "director", "engineer", "check", "render", "qa", "publish"];
+    const min = (ms: number | undefined) => (ms === undefined ? "—" : (ms / 60_000).toFixed(1));
+    const sh = ["Сцена", "Итог, мин", ...STAGES, "Попыток", "Overall 1-я → опубл.", "Дубль 2", "$"];
+    lines.push("", "## Время генерации (мин, по часам) и стоимость", "", `| ${sh.join(" | ")} |`, `|${sh.map(() => "---").join("|")}|`);
+    for (const g of genRows) {
+      const w = g.stage_wall_ms ?? {};
+      const sc = (g.attempts ?? []).filter((a) => a.overall !== undefined).sort((a, b) => a.n - b.n);
+      const pub = sc.find((a) => a.published);
+      const t2 = (g.attempts as (AttemptLine & { take?: number })[] | undefined)?.some((a) => a.take === 2);
+      lines.push(`| ${g.id} | ${min(w.total)} | ${STAGES.map((s) => min(w[s])).join(" | ")} | ${g.attempts?.length ?? "—"} | ${sc.length ? `${sc[0]!.overall} → ${pub?.overall ?? "—"}` : "—"} | ${t2 ? g.gen.second_take ?? "да" : "—"} | ${g.cost_usd.toFixed(2)} |`);
+    }
+    const st = (k: string) => (gs.stages[k] ? `${min(gs.stages[k]!.p50)} / ${min(gs.stages[k]!.mean)}` : "—");
+    lines.push(
+      "",
+      `Медиана / среднее по сценам, мин: итог ${st("total")}; ${STAGES.map((s) => `${s} ${st(s)}`).join("; ")}.`,
+      `Стоимость генерации на сцену: p50 $${f1(gs.cost_p50, 2)}, p90 $${f1(gs.cost_p90, 2)}. Опубликованная оценка Visual QA ≥ первой попытки: ${gs.published_ge_first.ok}/${gs.published_ge_first.of}${gs.published_ge_first.misses.length ? ` (ниже: ${gs.published_ge_first.misses.join(", ")})` : ""}.`,
+    );
   }
   // дефекты holdout не печатаются: по ним нельзя править рубрику
   const shown = rows.filter((r) => r.split !== "holdout" && r.top_defects.length);

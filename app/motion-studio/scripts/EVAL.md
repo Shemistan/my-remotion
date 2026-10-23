@@ -62,7 +62,10 @@ $N npx tsx scripts/eval-set.mts --set user --run user-<sha> --gen-timeout-min 18
 генерации одновременно (3), `--judge-parallel N` (6), `--judge-model M` (`opus`), `--gen-timeout-min N` — общий
 таймаут задачи генерации (60; по истечении задача отменяется, сцена пишется в `gen-failed.json`),
 `--write-evidence` — копия `scores.{json,md}`, `run.json` и по сценам `gen.json` и
-`judge-runs/` в `docs/evidence/phase-1/eval/<run>/` (ответы судьи holdout не копируются).
+`judge-runs/` в `docs/evidence/phase-1/eval/<run>/` (ответы судьи holdout не копируются),
+`--second-take revise|fresh|off` — режим второго дубля пайплайна (S5; без флага — из
+`config.json` хранилища, по умолчанию `revise`; то же — env `MS_SECOND_TAKE`). Для A/B
+режимов — два прогона одного набора с разными `--second-take` и `--compare`.
 
 **Грязное дерево.** Генерация не стартует, если в `app/motion-studio` есть незакоммиченные
 правки: рендер хэширует motion-kit живьём, и правка в окне генерации попадала в превью, а
@@ -87,7 +90,11 @@ $N npx tsx scripts/eval-set.mts --set user --run user-<sha> --gen-timeout-min 18
   `kit_hash` (хэш motion-kit после сцены, формат manifest), `motion_kit_version`,
   `motion_kit_sha256` (из манифеста версии), `prompts_sha256` (sha256 каждого
   `prompts/**/*.md` на момент постановки задачи); `prior_attempts` — прежние неудачные
-  попытки сцены, их стоимость входит в итог; `preview.mp4`, `spec.json`,
+  попытки сцены, их стоимость входит в итог; `stage_wall_ms` — время этапов по часам
+  (concept, director, engineer, check, render, qa, publish и `total`; параллельные вызовы
+  этапа не складываются; у журналов до S5 — сумма `timings`); `attempts` — попытки с оценкой
+  Visual QA (`overall`, `take` — дубль, `published`); `second_take` — режим второго дубля;
+  `pipeline-log.json` — журнал пайплайна версии; `preview.mp4`, `spec.json`,
   `qa.json`, `manifest.json`, `Scene.tsx` из версии (у неопубликованной — из версии `failed`).
   Нет превью — `gen-failed.json`, повторный запуск сгенерирует сцену заново.
 - `<scene>/judge/` — вход судьи: `brief.json`, `sheets/sheet-{a,b,c,d}.png` (раскладка
@@ -98,7 +105,11 @@ $N npx tsx scripts/eval-set.mts --set user --run user-<sha> --gen-timeout-min 18
 - `<scene>/metrics.json` — содержимое кадров 0 и 4, движение в удержании, доля кадров с
   пустой третью.
 - `scores.json`, `scores.md` — таблица по сценам и критериям, среднее (всё, настроенные,
-  отложенные), стоимость; в калибровке — MAE, Spearman, смещение и порядок R1→R2.
+  отложенные), стоимость; в калибровке — MAE, Spearman, смещение и порядок R1→R2. Раздел
+  «Время генерации и стоимость» (постоянная метрика, S5): по сцене — итог и этапы в минутах,
+  число попыток, `overall` первой и опубликованной попытки, был ли второй дубль; по прогону —
+  медиана и среднее этапов, стоимость p50/p90 и доля сцен, где опубликованная оценка не ниже
+  первой (`summary.gen_stats` в `scores.json`).
 
 Возобновление: готовые `gen.json` и `judge-runs/<k>.json` не переделываются. Исключение — сцена,
 упавшая на обрыве сети (`ECONNRESET` и т. п., `server/src/eval/resume.ts`): её превью — недоделанная
