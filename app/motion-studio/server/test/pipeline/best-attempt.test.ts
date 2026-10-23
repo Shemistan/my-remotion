@@ -387,7 +387,9 @@ describe("S5-fix: второй дубль — выбор, отмена, сбой
   });
 
   it("I7: общий бюджет двух дублей — резерв до вызова, лимит вызова не больше свободного остатка, итог ≤ лимита задачи", async () => {
-    const costs = { concept: 0.5, motion_director: 1, engineer: 1.2, visual_qa: 0.3 };
+    // к оценке попытки 1 потрачено 0.4 + 0.6 + 1.3 = 2.3; допуск дубля 2: 2.3 + 2 × 1.3 = 4.9 ≤ 5
+    // (rulings 2026-10-23), дальше исправления обоих дублей упираются в общий бюджет
+    const costs = { concept: 0.4, motion_director: 0.6, engineer: 1, visual_qa: 0.3 };
     const base = fakeAgents({
       engineer: async (_t, n) => ({ files: { "src/Scene.tsx": scene(`call ${n}`) } }),
       // все попытки blocking и ниже порога: оба дубля хотят исправляться до конца
@@ -410,6 +412,29 @@ describe("S5-fix: второй дубль — выбор, отмена, сбой
     expect(spent).toBeLessThanOrEqual(5 + 1e-9);
     expect(res.costUsd).toBeLessThanOrEqual(5 + 1e-9);
     for (const c of caps) expect(c).toBeGreaterThan(0);
+  });
+
+  describe("rulings 2026-10-23: допуск дубля 2 — spent + reserved + 2 × цена попытки ≤ лимита", () => {
+    // цена попытки = Engineer 1 + Visual QA 0.25 = 1.25; лимит задачи 5; к оценке попытки 1
+    // потрачено concept 0.5 + director + 1.25
+    const take2Ran = async (director: number) => {
+      const base = fakeAgents({ costUsd: 0, costs: { concept: 0.5, motion_director: director, engineer: 1, visual_qa: 0.25 }, visualQa: qaBy({ 1: { overall: 5 } }) });
+      const { job, dir } = await runJob({ agents: base }, "revise");
+      expect(job.status, JSON.stringify(job.error)).toBe("completed");
+      const notes = (log(dir!).history as { stage: string; message: string }[]).filter((h) => h.stage === "second_take").map((h) => h.message);
+      return { ran: base.tasks.some((t) => t.role === "engineer" && isTake2(t)), notes };
+    };
+    it("ниже порога: 2.25 + 2 × 1.25 = 4.75 < 5 → дубль 2 запущен", async () => {
+      expect((await take2Ran(0.5)).ran).toBe(true);
+    });
+    it("ровно на пороге: 2.5 + 2 × 1.25 = 5 → дубль 2 запущен (строго больше — пропуск)", async () => {
+      expect((await take2Ran(0.75)).ran).toBe(true);
+    });
+    it("выше порога: 2.75 + 2 × 1.25 = 5.25 > 5 → дубль 2 не запускается, заметка с 2 × цена попытки", async () => {
+      const r = await take2Ran(1);
+      expect(r.ran).toBe(false);
+      expect(r.notes.join("\n")).toMatch(/пропущен: \$2\.75 \+ резерв \$0\.00 \+ 2 × цена попытки \$1\.25 > \$5/);
+    });
   });
 
   it("M2: cost_usd попытки — только её вызовы, без трат параллельного дубля", async () => {

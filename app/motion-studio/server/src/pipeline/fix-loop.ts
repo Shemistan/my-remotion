@@ -415,9 +415,10 @@ export async function runFixLoop(i: LoopInput, state: LoopState): Promise<Exit> 
     if (take2 || a.take !== 1 || !i.qa || !i.takeDir || st.mode === "off") return;
     const overall = a.qa?.scores?.overall;
     if (overall === undefined || overall >= st.threshold) return;
-    // свободный бюджет — за вычетом резерва идущих вызовов (первый дубль исправляется)
-    if (rc.spent + rc.reserved + a.costUsd > rc.config.scene.maxCostUsd) {
-      rc.note("second_take", `пропущен: $${rc.spent.toFixed(2)} + резерв $${rc.reserved.toFixed(2)} + цена попытки $${a.costUsd.toFixed(2)} > $${rc.config.scene.maxCostUsd}`);
+    // допуск по бюджету (rulings 2026-10-23): свободного остатка за вычетом резерва идущих
+    // вызовов хватает на две попытки — дубль 2 и исправление первого; иначе лучше не начинать
+    if (rc.spent + rc.reserved + 2 * a.costUsd > rc.config.scene.maxCostUsd) {
+      rc.note("second_take", `пропущен: $${rc.spent.toFixed(2)} + резерв $${rc.reserved.toFixed(2)} + 2 × цена попытки $${a.costUsd.toFixed(2)} > $${rc.config.scene.maxCostUsd}`);
       return;
     }
     rc.log(`второй дубль (${st.mode}): overall ${overall} < ${st.threshold}`);
