@@ -7,19 +7,22 @@
 //   ./night --smoke --until 15:30           # короткая проверка: 2+2 сцены, одна итерация (дата <день>-smoke)
 //   ./night --resume [--smoke] [--date ГГГГ-ММ-ДД]   # продолжить прерванную ночь
 // Флаги: --item Q07 (только этот пункт), --max-iterations N, --agent-min N (потолок агента, мин),
-//   --agent-usd N (потолок агента, $), --date ГГГГ-ММ-ДД (по умолчанию — сегодня).
-import { type ChildProcess, execFileSync, spawn } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+//   --agent-usd N (потолок агента, $), --date ГГГГ-ММ-ДД (по умолчанию — сегодня),
+//   --skip-probe (без пробного агента предпроверки — только для проверки механики с тестовым
+//   двойником агента MS_NIGHT_CLAUDE_BIN, см. NIGHT.md).
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { MARKER_FILE, OwnerBusyError, acquireOwnerLock } from "@ms/core";
+import { MARKER_FILE, OwnerBusyError, acquireOwnerLock, procInfo } from "@ms/core";
 import type { BenchScores } from "../server/src/bench/night-accept.js";
 import { missingScenes } from "../server/src/bench/night-accept.js";
+import { PROBE_MARK, benchRunSpent, children, createNightGit, killGroupOf, parseAgentOutput, parseLsofCwd, probeVerdict, runProcess } from "../server/src/bench/night-io.js";
 import { nightReport } from "../server/src/bench/night-report.js";
 import {
-  type AgentResult, BACKLOG, type NightConfig, type NightDeps, type NightGit, type NightState, SMOKE_SETS, type Sets,
-  describePlan, parseUntil, runNight,
+  type AgentResult, BACKLOG, type NightConfig, type NightDeps, type NightState, SMOKE_SETS, type Sets,
+  describePlan, latestNight, parseUntil, runNight,
 } from "../server/src/bench/night.js";
 import { setItems } from "../server/src/bench/sets.js";
 
@@ -55,17 +58,17 @@ const now = new Date();
 const dryRun = flag("--dry-run");
 const smoke = flag("--smoke");
 const resume = flag("--resume");
+const skipProbe = flag("--skip-probe");
 const NIGHT_ROOT = join(REPO, "tmp", "night");
 // smoke — своя «дата» с суффиксом: не мешает настоящей ночи того же дня
 let date = opt("--date") ?? `${localDate(now)}${smoke ? "-smoke" : ""}`;
 if (!/^\d{4}-\d{2}-\d{2}(-smoke\d*)?$/.test(date)) fail(`--date: ГГГГ-ММ-ДД[-smoke[N]], получено ${date}`);
 if (resume && !opt("--date")) {
-  // ночь, начатая до полуночи, продолжается под своей датой
-  const nights = existsSync(NIGHT_ROOT)
-    ? readdirSync(NIGHT_ROOT).filter((d) => /-smoke\d*$/.test(d) === smoke && existsSync(join(NIGHT_ROOT, d, "state.json"))).sort()
-    : [];
-  if (!nights.length) fail("--resume: нет начатых ночей в tmp/night");
-  date = nights.at(-1)!;
+  // ночь, начатая до полуночи, продолжается под своей датой; -smoke10 позже -smoke2
+  const started = existsSync(NIGHT_ROOT) ? readdirSync(NIGHT_ROOT).filter((d) => existsSync(join(NIGHT_ROOT, d, "state.json"))) : [];
+  const last = latestNight(started, smoke);
+  if (!last) fail("--resume: нет начатых ночей в tmp/night");
+  date = last!;
 }
 const stateDir = join(NIGHT_ROOT, date);
 const statePath = join(stateDir, "state.json");
@@ -96,6 +99,7 @@ const cfg: NightConfig = {
   briefTemplate: readFileSync(join(REPO, "app", "motion-studio", "scripts", "night-brief.md"), "utf8"),
 };
 const settingsFile = join(MAIN, ".claude", "settings.json");
+// MS_NIGHT_CLAUDE_BIN — только тестовый двойник агента для проверки механики (NIGHT.md)
 const claudeBin = process.env.MS_NIGHT_CLAUDE_BIN ?? "claude";
 const agentArgs = (budgetUsd: number, name: string) => [
   "-p", "--output-format", "json",
@@ -107,18 +111,10 @@ const agentArgs = (budgetUsd: number, name: string) => [
 ];
 
 // ---------- процессы ----------
-const children = new Set<ChildProcess>();
-const killGroup = (c: ChildProcess, sig: NodeJS.Signals) => {
-  try {
-    if (c.pid) process.kill(-c.pid, sig);
-  } catch {
-    // уже завершён
-  }
-};
 for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
   process.on(sig, () => {
     say(`${sig}: останавливаю дочерние процессы; продолжить — ./night --resume --date ${date}`);
-    for (const c of children) killGroup(c, "SIGTERM");
+    for (const c of children) killGroupOf(c, "SIGTERM");
     setTimeout(() => process.exit(130), 3000).unref();
   });
 }
@@ -131,80 +127,76 @@ const alive = (pid: number) => {
     return false;
   }
 };
-
-/** Процесс в своей группе (таймаут гасит всё дерево), вывод — в файлы. */
-function run(cmd: string, args: string[], o: { cwd: string; out: string; err?: string; input?: string; timeoutMs: number; pidFile?: string; graceSignal?: NodeJS.Signals }): Promise<{ code: number | null; timedOut: boolean; ms: number }> {
-  mkdirSync(dirname(o.out), { recursive: true });
-  const out = openSync(o.out, "a");
-  const err = o.err ? openSync(o.err, "a") : out;
-  const t0 = Date.now();
-  return new Promise((res) => {
-    const c = spawn(cmd, args, { cwd: o.cwd, detached: true, env: process.env, stdio: [o.input === undefined ? "ignore" : "pipe", out, err] });
-    children.add(c);
-    if (o.pidFile && c.pid) writeFileSync(o.pidFile, String(c.pid));
-    if (o.input !== undefined) c.stdin!.end(o.input);
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      killGroup(c, o.graceSignal ?? "SIGTERM");
-      setTimeout(() => killGroup(c, "SIGTERM"), 120_000).unref();
-      setTimeout(() => killGroup(c, "SIGKILL"), 180_000).unref();
-    }, o.timeoutMs);
-    const done = (code: number | null) => {
-      clearTimeout(timer);
-      children.delete(c);
-      closeSync(out);
-      if (err !== out) closeSync(err);
-      res({ code, timedOut, ms: Date.now() - t0 });
-    };
-    c.on("error", () => done(127));
-    c.on("exit", (code) => done(code));
-  });
-}
-
-const gitImpl: NightGit = {
-  worktreeExists: (p) => existsSync(join(p, ".git")),
-  addWorktree: (from, path, branch, at) => {
-    git(from, "worktree", "add", "-b", branch, path, at);
-  },
-  head: (cwd) => git(cwd, "rev-parse", "HEAD"),
-  branch: (cwd) => git(cwd, "symbolic-ref", "--short", "HEAD"),
-  isClean: (cwd) => git(cwd, "status", "--porcelain") === "",
-  switchNew: (cwd, b, from) => {
-    git(cwd, "switch", "-c", b, from);
-  },
-  switchTo: (cwd, b) => {
-    git(cwd, "switch", b);
-  },
-  ffMerge: (cwd, ref) => {
-    git(cwd, "merge", "--ff-only", ref);
-  },
-  log: (cwd, from) => {
-    const s = git(cwd, "log", "--format=%h %s", `${from}..HEAD`);
-    return s ? s.split("\n") : [];
-  },
-  commitFile: (cwd, file, message) => {
-    git(cwd, "add", "--", file);
-    git(cwd, "commit", "-q", "-m", message);
-  },
-  stashLeftover: (cwd, tag) => {
-    // правки не удаляются: stash с уникальной меткой, sha — в отчёт; pop/drop ночь не делает
-    git(cwd, "stash", "push", "-u", "-m", tag);
-    const line = git(cwd, "stash", "list", "--format=%H %gs").split("\n").find((l) => l.endsWith(tag));
-    return line ? line.split(" ")[0]! : null;
-  },
-  push: (cwd, branches) => {
-    try {
-      git(cwd, "push", "-q", "-u", "origin", ...branches);
-      return null;
-    } catch (e) {
-      return ((e as { stderr?: string }).stderr || (e as Error).message).trim();
-    }
-  },
-};
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const dataDir = process.env.MS_DATA_DIR?.trim();
 const storageOnline = () => !!dataDir && existsSync(join(dataDir, MARKER_FILE));
+
+/** Хранилище занято (owner lock ADR 0007): причина или null. */
+async function ownerBusy(): Promise<string | null> {
+  try {
+    const lock = await acquireOwnerLock(dataDir!, "cli");
+    await lock.release();
+    return null;
+  } catch (e) {
+    if (e instanceof OwnerBusyError) return e.message;
+    throw e;
+  }
+}
+
+/**
+ * Остатки агента после итерации (ревью ночи M1): его группа процесса и процессы, запущенные
+ * после старта итерации с рабочим каталогом в worktree ночи (например, забытый `npm run dev`,
+ * который держит owner lock). Адресно, по pid: SIGTERM, через 5 с — SIGKILL тем, кто жив.
+ * Записи реестра процессов хранилища разбирает reap ADR 0007 при старте bench (`bootCore`).
+ */
+async function cleanupAgent(a: { cwd: string; pid?: number; since: Date }): Promise<string[]> {
+  const notes: string[] = [];
+  if (a.pid) {
+    try {
+      process.kill(-a.pid, "SIGTERM");
+      notes.push(`группа агента ${a.pid}: SIGTERM`);
+    } catch {
+      // группы уже нет
+    }
+  }
+  let txt: string;
+  try {
+    txt = execFileSync("lsof", ["-n", "-d", "cwd", "-Fpn"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 });
+  } catch (e) {
+    // lsof отдаёт код 1, если к части процессов нет доступа, — вывод при этом есть
+    txt = String((e as { stdout?: string }).stdout ?? "");
+  }
+  const victims: { pid: number; startedAt: string }[] = [];
+  for (const pid of parseLsofCwd(txt, a.cwd)) {
+    if (pid === process.pid) continue;
+    const info = await procInfo(pid).catch(() => undefined);
+    if (!info || new Date(`${info.startedAt} UTC`).getTime() < a.since.getTime() - 1000) continue;
+    let cmd: string;
+    try {
+      cmd = execFileSync("ps", ["-o", "command=", "-p", String(pid)], { encoding: "utf8" }).trim().slice(0, 80);
+      process.kill(pid, "SIGTERM");
+    } catch {
+      continue;
+    }
+    victims.push(info);
+    notes.push(`pid ${pid} (${cmd}) — cwd в worktree ночи`);
+  }
+  if (victims.length) {
+    await pause(5000);
+    for (const v of victims) {
+      if ((await procInfo(v.pid).catch(() => undefined))?.startedAt === v.startedAt) {
+        try {
+          process.kill(v.pid, "SIGKILL");
+          notes.push(`pid ${v.pid}: SIGKILL`);
+        } catch {
+          // уже завершён
+        }
+      }
+    }
+  }
+  return notes;
+}
 
 function findBaseline(a: { commit: string; sets: Sets }): { explainer: string; user: string } | null {
   const root = join(REPO, "docs", "evidence", "phase-1", "bench");
@@ -224,63 +216,59 @@ function findBaseline(a: { commit: string; sets: Sets }): { explainer: string; u
   return e && u ? { explainer: e, user: u } : null;
 }
 
-async function runAgent(a: { cwd: string; brief: string; logDir: string; timeoutMs: number; budgetUsd: number }): Promise<AgentResult> {
+async function runAgent(a: { cwd: string; brief: string; logDir: string; timeoutMs: number; budgetUsd: number; name?: string }): Promise<AgentResult> {
   const out = join(a.logDir, "agent.json");
-  const r = await run(claudeBin, agentArgs(a.budgetUsd, `night-${date}-${a.logDir.split("/").at(-1)}`), {
-    cwd: a.cwd, out, err: join(a.logDir, "agent.err"), input: a.brief, timeoutMs: a.timeoutMs, pidFile: join(a.logDir, "agent.pid"),
+  const errFile = join(a.logDir, "agent.err");
+  const r = await runProcess(claudeBin, agentArgs(a.budgetUsd, a.name ?? `night-${date}-${a.logDir.split("/").at(-1)}`), {
+    cwd: a.cwd, out, err: errFile, input: a.brief, timeoutMs: a.timeoutMs, pidFile: join(a.logDir, "agent.pid"),
   });
-  let j: Record<string, unknown> = {};
-  try {
-    const txt = readFileSync(out, "utf8").trim();
-    j = JSON.parse(txt.slice(txt.lastIndexOf("\n{") + 1)) as Record<string, unknown>;
-  } catch {
-    // таймаут или падение до ответа: JSON нет
-  }
-  const denials = ((j.permission_denials as { tool_name?: string; tool_input?: Record<string, unknown> }[] | undefined) ?? [])
-    .map((d) => `${d.tool_name ?? "?"}: ${String(d.tool_input?.command ?? d.tool_input?.file_path ?? JSON.stringify(d.tool_input ?? {})).replace(/\s+/g, " ").slice(0, 160)}`);
-  const cost = typeof j.total_cost_usd === "number" ? j.total_cost_usd : r.timedOut ? a.budgetUsd : 0;
-  const isErr = j.is_error === true || (r.code !== 0 && !r.timedOut);
-  return {
-    status: r.timedOut ? "timeout" : isErr ? "error" : "ok",
-    cost_usd: cost, wall_ms: r.ms,
-    ...(typeof j.num_turns === "number" ? { turns: j.num_turns } : {}),
-    ...(typeof j.session_id === "string" ? { session_id: j.session_id } : {}),
-    ...(typeof j.result === "string" ? { summary: j.result } : {}),
-    denials,
-    ...(isErr ? { error: `${String(j.subtype ?? `код ${r.code}`)}${existsSync(join(a.logDir, "agent.err")) ? `; ${readFileSync(join(a.logDir, "agent.err"), "utf8").trim().slice(-300)}` : ""}` } : {}),
-  };
+  const res = parseAgentOutput(existsSync(out) ? readFileSync(out, "utf8") : "", {
+    code: r.code, timedOut: r.timedOut, budgetUsd: a.budgetUsd, errText: existsSync(errFile) ? readFileSync(errFile, "utf8") : "",
+  });
+  const pid = Number(existsSync(join(a.logDir, "agent.pid")) ? readFileSync(join(a.logDir, "agent.pid"), "utf8") : "0");
+  return { ...res, wall_ms: r.ms, ...(pid > 0 ? { pid } : {}) };
 }
 
 const deps: NightDeps = {
   now: () => new Date(),
   log: say,
   storageOnline,
-  git: gitImpl,
+  git: createNightGit(),
   runAgent,
-  runCheck: async ({ cwd, logFile }) => (await run("./check", [], { cwd, out: logFile, timeoutMs: 45 * 60_000 })).code === 0,
-  runBench: async ({ cwd, runId, set, only, logFile, timeoutMs }) => {
+  runCheck: async ({ cwd, logFile }) => (await runProcess("./check", [], { cwd, out: logFile, timeoutMs: 45 * 60_000 })).code === 0,
+  runBench: async ({ cwd, runId, set, only, logFile, timeoutMs, maxCostUsd }) => {
     const args = ["npx", "tsx", "scripts/bench-set.mts", "--run", runId, ...(set === "user" ? ["--set", "user", "--gen-timeout-min", "180"] : []), ...(only ? ["--only", only.join(",")] : [])];
-    const r = await run("./scripts/with-node.sh", args, { cwd: join(cwd, "app", "motion-studio"), out: logFile, timeoutMs, graceSignal: "SIGINT" });
-    return r.code === 0 ? { ok: true } : { ok: false, error: r.timedOut ? `таймаут ${Math.round(timeoutMs / 60_000)} мин` : `код выхода ${r.code} (журнал ${logFile})` };
+    const runDir = join(cwd, "tmp", "bench", runId);
+    // потолок трат (M3): bench сам его не знает — ночь следит по файлам сцен и гасит прогон
+    const r = await runProcess("./scripts/with-node.sh", args, {
+      cwd: join(cwd, "app", "motion-studio"), out: logFile, timeoutMs, graceSignal: "SIGINT", watchMs: 60_000,
+      watch: () => (benchRunSpent(runDir) > maxCostUsd ? "budget" : null),
+    });
+    if (r.stopped) return { ok: false, stopped: "budget", error: `потолок трат $${maxCostUsd.toFixed(0)}` };
+    if (r.timedOut) return { ok: false, stopped: "timeout", error: `таймаут ${Math.round(timeoutMs / 60_000)} мин` };
+    return r.code === 0 ? { ok: true } : { ok: false, error: `код выхода ${r.code} (журнал ${logFile})` };
   },
   findBaseline,
-  prepareWorktree: async (cwd) => (await run("make", ["-C", "app/motion-studio", "install"], { cwd, out: join(stateDir, "prepare.log"), timeoutMs: 30 * 60_000 })).code === 0,
+  prepareWorktree: async (cwd) => (await runProcess("make", ["-C", "app/motion-studio", "install"], { cwd, out: join(stateDir, "prepare.log"), timeoutMs: 30 * 60_000 })).code === 0,
+  cleanupAgent,
+  ownerBusy: () => (dataDir ? ownerBusy() : Promise.resolve(null)),
 };
 
 // ---------- предпроверки ----------
+const PROBE_BRIEF = `Это пробный запуск ночного цикла качества, а не задача. Ничего не меняй и не коммить.
+Выполни инструментом Bash ровно одну команду в текущем каталоге: \`./check\` (таймаут Bash — 600000 мс).
+Последней строкой ответа напиши \`${PROBE_MARK}<код выхода ./check>\`. Если команду не дали выполнить,
+напиши \`${PROBE_MARK}blocked\` и дословно текст блока. Если в выводе есть \`EPERM\` — процитируй
+одну такую строку.`;
+
 async function preflight(): Promise<string[]> {
   const ok: string[] = [];
   if (!dataDir) fail("MS_DATA_DIR не задан (export MS_DATA_DIR=\"/Volumes/External SSD/MotionStudio\")");
   if (!storageOnline()) fail(`хранилище недоступно: нет ${join(dataDir!, MARKER_FILE)} — подключи SSD`);
   ok.push(`SSD: ${dataDir}`);
-  try {
-    const lock = await acquireOwnerLock(dataDir!, "cli");
-    await lock.release();
-    ok.push("хранилище свободно (owner lock, ADR 0007): bench и сервер не запущены");
-  } catch (e) {
-    if (e instanceof OwnerBusyError) fail(`${e.message} — дождись конца bench или останови сервер`);
-    throw e;
-  }
+  const busy = await ownerBusy();
+  if (busy) fail(`${busy} — дождись конца bench или останови сервер`);
+  ok.push("хранилище свободно (owner lock, ADR 0007): bench и сервер не запущены");
   const lockFile = join(stateDir, "night.pid");
   if (existsSync(lockFile) && alive(Number(readFileSync(lockFile, "utf8").trim() || "0"))) fail(`ночь ${date} уже идёт (pid ${readFileSync(lockFile, "utf8").trim()})`);
   for (const it of prior?.iterations ?? []) {
@@ -289,7 +277,7 @@ async function preflight(): Promise<string[]> {
   }
   if (git(REPO, "status", "--porcelain", "--untracked-files=no") !== "") fail("рабочее дерево не чистое — закоммить правки");
   ok.push("рабочее дерево чистое");
-  if (!prior && gitImpl.worktreeExists(worktree)) fail(`worktree ${worktree} уже есть, а tmp/night/${date}/state.json нет — разбери руками`);
+  if (!prior && existsSync(join(worktree, ".git"))) fail(`worktree ${worktree} уже есть, а tmp/night/${date}/state.json нет — разбери руками`);
   if (!prior && (() => { try { git(REPO, "rev-parse", "--verify", "-q", `refs/heads/night/${date}`); return true; } catch { return false; } })()) {
     fail(`ветка night/${date} уже есть без state.json — разбери руками (ночь ничего не удаляет)`);
   }
@@ -301,19 +289,32 @@ async function preflight(): Promise<string[]> {
   const checkLog = dryRun ? join(tmpdir(), `night-${date}-preflight-check.log`) : join(stateDir, "preflight-check.log");
   if (!dryRun) mkdirSync(stateDir, { recursive: true });
   say("./check в worktree запуска…");
-  const c = await run("./check", [], { cwd: REPO, out: checkLog, timeoutMs: 45 * 60_000 });
+  const c = await runProcess("./check", [], { cwd: REPO, out: checkLog, timeoutMs: 45 * 60_000 });
   if (c.code !== 0) fail(`./check красный (журнал ${checkLog})`);
   ok.push(`./check зелёный (${Math.round(c.ms / 1000)} с)`);
+  // пробный агент (B1): ./check в песочнице агента — иначе агент не сможет коммитить (pre-commit),
+  // и ночь сожжёт бэклог сбоями. Стоит центы, поэтому не в --dry-run.
+  if (dryRun) ok.push("пробный агент (./check в песочнице агента): при запуске ночи, ~$0.1–0.5");
+  else if (skipProbe) ok.push("пробный агент пропущен (--skip-probe)");
+  else {
+    const dir = join(stateDir, "probe");
+    mkdirSync(dir, { recursive: true });
+    say("пробный агент: ./check в песочнице агента…");
+    const a = await runAgent({ cwd: REPO, brief: PROBE_BRIEF, logDir: dir, timeoutMs: 25 * 60_000, budgetUsd: 2, name: `night-${date}-probe` });
+    const v = probeVerdict(a);
+    if (!v.ok) fail(`${v.reason} — ночь не начата, траты на bench не сделаны. Журнал ${dir}; что делать — NIGHT.md, «EPERM»`);
+    ok.push(`пробный агент: ./check в песочнице агента зелёный ($${a.cost_usd.toFixed(2)})`);
+  }
   return ok;
 }
 
 const checks = await preflight();
 if (dryRun) {
-  const backlogFile = gitImpl.worktreeExists(worktree) ? join(worktree, BACKLOG) : join(REPO, BACKLOG);
+  const backlogFile = existsSync(join(worktree, ".git")) ? join(worktree, BACKLOG) : join(REPO, BACKLOG);
   console.log(describePlan(cfg, {
     now, backlogMd: readFileSync(backlogFile, "utf8"), state: prior,
     baseline: prior ? null : findBaseline({ commit: cfg.source.commit, sets: cfg.sets }),
-    worktreeExists: gitImpl.worktreeExists(worktree),
+    worktreeExists: existsSync(join(worktree, ".git")),
     agentCommand: `${claudeBin} ${agentArgs(cfg.agentBudgetUsd, `night-${date}-<n>`).join(" ")} < бриф (scripts/night-brief.md)`,
     preflight: checks,
   }));
@@ -321,7 +322,7 @@ if (dryRun) {
 }
 mkdirSync(stateDir, { recursive: true });
 writeFileSync(join(stateDir, "night.pid"), String(process.pid));
-say(`${prior ? "продолжение" : "старт"} ночи ${date}${cfg.smoke ? " (smoke)" : ""}: до ${cfg.until}, бюджет $${cfg.budgetUsd}; ${checks.join("; ")}`);
+say(`${prior ? "продолжение" : "старт"} ночи ${date}${cfg.smoke ? " (smoke)" : ""}: до ${new Date(cfg.until).toLocaleString("ru-RU")}, бюджет $${cfg.budgetUsd}; ${checks.join("; ")}`);
 try {
   const st = await runNight(cfg, deps);
   say(`итог: ${st.stop?.reason ?? "—"}; потрачено $${st.spent_usd.toFixed(2)}; отчёт ${join(stateDir, "REPORT.md")}`);

@@ -30,10 +30,15 @@ user с судьёй и примет изменение, только если �
   `generate`, e2e с реальными моделями. bench после тебя запустит оркестратор (у хранилища один
   владелец — owner lock). Бесплатное — можно: юнит-тесты, `scripts/kit-evidence.mts`, локальные
   рендеры галерей. Данные приложения — только в `MS_DATA_DIR`.
-- Не меняй: `docs/quality-backlog.md` (статус пункта ставит оркестратор), рубрику судьи
-  `app/motion-studio/prompts/rubric-judge.md`, `app/motion-studio/server/src/bench/reference.ts`,
-  состав наборов bench (`server/src/bench/sets.ts`, `user-cases.ts`), харнесс bench и ночи,
-  `.claude/`, настройки, хуки, guard.
+- Не меняй (оркестратор проверяет диф: итерация с правкой этих путей отклоняется целиком, до
+  bench): `docs/quality-backlog.md` (статус пункта ставит оркестратор); всё в
+  `app/motion-studio/server/src/bench/` и `server/test/bench/` (судья, рубрика и якоря, наборы,
+  метрики, ночь), `scripts/bench-set.mts`, `scripts/BENCH.md`, `scripts/night*`, `scripts/NIGHT.md`,
+  `scripts/with-node.sh`, `prompts/rubric-judge.md`; проверки и хуки — `check`, `.githooks/`,
+  `bootstrap.sh`, `finish`, `night`, `tools/`, `Makefile`, `vitest.config.ts`, `eslint.config.js`,
+  `.nvmrc`; зависимости — `package.json`, `package-lock.json`; `.claude/`, настройки, guard.
+  `./check` упал из-за окружения (например, `spawn EPERM`) — не чини проверки и хуки, опиши это
+  в итоге.
 - Блок guard или песочницы не обходи никак: никаких склеек слов, глобов под слово, обёрток,
   поштучного `rm` вместо `rm -rf`. Заблокировано — сделай иначе разрешённым инструментом
   (Read/Edit/Write, хелпер-скрипт с путём аргументом) или опиши блок в итоговом сообщении.

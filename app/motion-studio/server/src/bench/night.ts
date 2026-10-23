@@ -8,9 +8,10 @@
 // fast-forward `night/<дата>`; не принято — ветка итерации остаётся для разбора. Ничего не
 // удаляется и не переписывается.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { CRITERIA } from "./metrics.js";
-import { type BenchScores, type NightVerdict, acceptNight } from "./night-accept.js";
+import { type BenchScores, type NightBench, type NightVerdict, acceptNight, averageScores } from "./night-accept.js";
+import { benchRunSpent, readAgentLog } from "./night-io.js";
 import { nightReport } from "./night-report.js";
 import { type Acceptance, OPEN, markItem, nextItem, parseBacklog } from "./quality-backlog.js";
 
@@ -85,12 +86,26 @@ export interface NightGit {
   ffMerge(cwd: string, ref: string): void;
   /** Коммиты `from..HEAD`, строки «sha тема». */
   log(cwd: string, from: string): string[];
+  /** Пути, изменённые коммитами `from..HEAD` (переименование — оба имени). */
+  changedFiles(cwd: string, from: string): string[];
+  /** Снимок защищённых веток (main/staging, локальные и origin): ref → sha. */
+  refs(cwd: string): Record<string, string>;
   /** Коммит одного файла (хуки работают); ошибка — исключение. */
   commitFile(cwd: string, file: string, message: string): void;
-  /** Незакоммиченные правки — в stash с меткой (не удаляются); sha записи или null. */
-  stashLeftover(cwd: string, tag: string): string | null;
+  /**
+   * Незакоммиченные правки — патч `<dir>/wip.patch` и копии неотслеживаемых файлов в
+   * `<dir>/wip-untracked/`, дерево возвращается к HEAD; null — дерево было чистым. Не stash:
+   * его стек общий для всех worktree и сессий.
+   */
+  saveLeftover(cwd: string, dir: string): Leftover | null;
   /** Резервная копия веток в origin; текст ошибки или null. */
   push(cwd: string, branches: string[]): string | null;
+}
+
+export interface Leftover {
+  dir: string;
+  patch: boolean;
+  untracked: string[];
 }
 
 export interface NightDeps {
@@ -101,11 +116,24 @@ export interface NightDeps {
   git: NightGit;
   runAgent(a: { cwd: string; brief: string; logDir: string; timeoutMs: number; budgetUsd: number }): Promise<AgentResult>;
   runCheck(a: { cwd: string; logFile: string }): Promise<boolean>;
-  runBench(a: { cwd: string; runId: string; set: SetKey; only?: string[]; logFile: string; timeoutMs: number }): Promise<{ ok: boolean; error?: string }>;
+  /**
+   * Прогон bench набора. `maxCostUsd` — потолок трат прогона (с уже потраченным им при
+   * продолжении): выше — остановка, `stopped: "budget"`; таймаут — `stopped: "timeout"`.
+   */
+  runBench(a: { cwd: string; runId: string; set: SetKey; only?: string[]; logFile: string; timeoutMs: number; maxCostUsd: number }): Promise<{ ok: boolean; error?: string; stopped?: "budget" | "timeout" }>;
   /** Принятый прогон из docs/evidence на коммите старта: пути к scores.json обоих наборов. */
   findBaseline(a: { commit: string; sets: Sets }): { explainer: string; user: string } | null;
   /** Зависимости worktree ночи (`make install`: npm ci + браузер рендера); false — не вышло. */
   prepareWorktree?(cwd: string): Promise<boolean>;
+  /**
+   * После агента (M1): погасить его остатки — группу процесса и процессы, запущенные после
+   * `since` с рабочим каталогом в worktree ночи (их держатель owner lock освобождает
+   * хранилище; записи реестра процессов разберёт reap ADR 0007 при старте bench). Строки — что
+   * погашено.
+   */
+  cleanupAgent?(a: { cwd: string; pid?: number; since: Date }): Promise<string[]>;
+  /** Хранилище занято другим владельцем (owner lock, ADR 0007): причина или null. */
+  ownerBusy?(): Promise<string | null>;
 }
 
 export interface Baseline {
@@ -116,25 +144,48 @@ export interface Baseline {
   scores: { explainer: string; user: string };
   done: boolean;
   wall_ms?: number;
+  /** Принято по одному прогону без подтверждающего (не уместился): среднее может быть завышено. */
+  single_run?: boolean;
 }
 
-export type Outcome = "принято" | "не дало роста" | "сбой";
+export type Outcome = "принято" | "не дало роста" | "отклонено" | "сбой";
+/**
+ * Род сбоя итерации. `infra` — сбой окружения (песочница, хранилище, судья, обрыв ночи), а не
+ * изменения: пункт остаётся «открыт», пишется только строка истории.
+ */
+export interface Failure {
+  kind: string;
+  infra: boolean;
+}
+type Runs = { explainer: string; user: string };
 export interface Iteration {
   n: number;
   item: { id: string; title: string; acceptance: Acceptance };
   branch: string;
   start_commit: string;
   head_commit?: string;
-  phase: "agent" | "check" | "bench" | "done";
+  phase: "agent" | "check" | "bench" | "confirm" | "done";
   started_at: string;
   ended_at?: string;
   limits?: { agent_ms: number; agent_usd: number };
   agent?: AgentResult;
+  /** Снимок защищённых веток до агента (M5). */
+  refs_before?: Record<string, string>;
+  /** Что погашено после агента (M1). */
+  cleanup?: string[];
   commits?: string[];
-  leftover?: string | null;
-  bench?: { runs: { explainer: string; user: string }; wall_ms?: number; error?: string };
-  verdict?: Pick<NightVerdict, "accepted" | "reasons" | "metrics">;
+  /** Незакоммиченные правки агента: патч и копии в `tmp/night/<дата>/<n>/`. */
+  leftover?: Leftover | null;
+  /** Изменённые агентом запрещённые пути (I2). */
+  forbidden?: string[];
+  bench?: { runs: Runs; wall_ms?: number; error?: string };
+  /** Подтверждающий прогон кандидата (I4) и среднее двух прогонов. */
+  confirm?: { runs: Runs; avg: Runs; wall_ms?: number; error?: string };
+  verdict?: Pick<NightVerdict, "accepted" | "reasons" | "metrics" | "borderline">;
+  /** Вердикт первого прогона, если решение принималось по среднему двух. */
+  first_verdict?: Pick<NightVerdict, "accepted" | "reasons" | "metrics" | "borderline">;
   outcome?: Outcome;
+  failure?: Failure;
   note?: string;
   videos?: string;
   push_error?: string;
@@ -205,6 +256,67 @@ function verdictShort(v: Pick<NightVerdict, "metrics">): string {
   return [m.explainer ? `explainer ${sg(m.explainer.delta)}` : null, m.user ? `user ${sg(m.user.delta)}` : null].filter(Boolean).join(", ");
 }
 
+/**
+ * Пути, которые агент ночи менять не вправе (ревью ночи I2, rulings 2026-10-23): измеритель
+ * (bench, судья, наборы), проверки и хуки, сама ночь, бэклог, настройки, зависимости. Итерация
+ * с их изменением отклоняется до любых commit/push оркестратора и до запуска её кода.
+ * `…/` — каталог целиком; `package.json`/`package-lock.json` — на любом уровне.
+ */
+export const FORBIDDEN_PATHS = [
+  ".githooks/", "check", "bootstrap.sh", "finish", "night", ".claude/", "tools/", "global/", ".nvmrc",
+  BACKLOG,
+  "app/motion-studio/server/src/bench/", "app/motion-studio/server/test/bench/",
+  "app/motion-studio/scripts/bench-set.mts", "app/motion-studio/scripts/BENCH.md",
+  "app/motion-studio/scripts/night.mts", "app/motion-studio/scripts/night-brief.md", "app/motion-studio/scripts/NIGHT.md",
+  "app/motion-studio/scripts/with-node.sh", "app/motion-studio/prompts/rubric-judge.md",
+  "app/motion-studio/Makefile", "app/motion-studio/vitest.config.ts", "app/motion-studio/eslint.config.js", "app/motion-studio/.nvmrc",
+] as const;
+const ANY_LEVEL = new Set(["package.json", "package-lock.json"]);
+
+/** Запрещённые пути среди изменённых. */
+export function forbiddenTouched(paths: readonly string[]): string[] {
+  return paths.filter((p) => ANY_LEVEL.has(p.split("/").at(-1)!) || FORBIDDEN_PATHS.some((f) => (f.endsWith("/") ? p.startsWith(f) : p === f)));
+}
+
+/** Признаки сбоя окружения в тексте (журнал, отчёт агента): род или null. */
+export function infraKind(text: string): string | null {
+  if (/\bEPERM\b/.test(text)) return "eperm";
+  if (/owner_busy|OwnerBusy/.test(text)) return "owner_busy";
+  if (/storage_unavailable|storage_offline|StorageError|ENOSPC/.test(text)) return "storage";
+  return null;
+}
+const API_TROUBLE = /overloaded|rate.?limit|\b5\d\d\b|ECONNRESET|ETIMEDOUT|ENOTFOUND|api_error/i;
+
+const KIND_TEXT: Record<string, string> = {
+  eperm: "песочница не даёт запускать дочерние процессы (spawn EPERM) — см. NIGHT.md, «EPERM»",
+  owner_busy: "хранилище занято другим владельцем (owner_busy)",
+  storage: "хранилище недоступно",
+  interrupted: "ночь прерывалась во время агента",
+  no_commits: "агент не сделал ни одного коммита",
+  check_red: "./check красный",
+  bench: "bench не дал полного прогона",
+  agent_timeout: "агент не уложился во время",
+  agent_error: "агент завершился с ошибкой",
+  api: "сбой API модели",
+  judge: "разные судьи у прогонов",
+};
+
+/** Последняя начатая ночь среди каталогов `tmp/night` (`-smokeN` — по числу, L3). */
+export function latestNight(names: readonly string[], smoke: boolean): string | undefined {
+  const key = (d: string): readonly [string, number] | null => {
+    const m = /^(\d{4}-\d{2}-\d{2})(?:-smoke(\d*))?$/.exec(d);
+    return m ? ([m[1]!, m[2] === undefined ? -1 : m[2] === "" ? 1 : Number(m[2])] as const) : null;
+  };
+  return names
+    .filter((d) => key(d) !== null && /-smoke\d*$/.test(d) === smoke)
+    .sort((a, b) => {
+      const ka = key(a)!;
+      const kb = key(b)!;
+      return ka[0] === kb[0] ? ka[1] - kb[1] : ka[0] < kb[0] ? -1 : 1;
+    })
+    .at(-1);
+}
+
 export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<NightState> {
   const { git } = deps;
   const wt = cfg.worktree;
@@ -226,6 +338,8 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
       baseline: null, bench_cost: {}, iterations: [], spent_usd: 0,
     };
   }
+  // серия сбоев считается с этого запуска: продолжение после остановки по серии даёт новый запас
+  const runFrom = st.iterations.filter((i) => i.phase === "done").length;
   const recount = () => {
     st.spent_usd = Math.round((st.iterations.reduce((a, i) => a + (i.agent?.cost_usd ?? 0), 0) + Object.values(st.bench_cost).reduce((a, b) => a + b, 0)) * 100) / 100;
   };
@@ -242,6 +356,9 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
     return st;
   };
   const SSD_OFF = "SSD отключён (MS_DATA_DIR недоступен) — ночь остановлена, данные на системный диск не пишутся";
+  const untilMs = () => new Date(st.until).getTime();
+  const untilText = () => fmtTime(localIso(new Date(st.until)));
+  const readLog = (p: string) => (existsSync(p) ? readFileSync(p, "utf8").slice(-200_000) : "");
 
   // ---------- изоляция ----------
   if (!git.worktreeExists(wt)) {
@@ -252,28 +369,47 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
   // зависимости и браузер рендера в worktree ночи (идемпотентно): без них bench упадёт после трат
   if (deps.prepareWorktree && !(await deps.prepareWorktree(wt))) return stop(`worktree ночи не подготовлен (npm ci, браузер рендера) — журнал ${join(cfg.stateDir, "prepare.log")}`);
 
-  // ---------- прогон обоих наборов ----------
-  const benchBoth = async (runs: { explainer: string; user: string }, tag: string): Promise<{ ok: boolean; error?: string; wall_ms: number }> => {
-    const t0 = deps.now().getTime();
-    const timeoutMs = Math.max(2 * (st.baseline?.wall_ms ?? cfg.benchEstimateMs), 60 * 60_000);
-    for (const set of ["explainer", "user"] as const) {
-      if (!deps.storageOnline()) return { ok: false, error: "SSD отключён", wall_ms: deps.now().getTime() - t0 };
-      deps.log(`bench ${set} ${runs[set]} (${tag})`);
-      const r = await deps.runBench({
-        cwd: wt, runId: runs[set], set, ...(cfg.smoke ? { only: cfg.sets[set] } : {}),
-        logFile: join(cfg.stateDir, `${tag}-bench-${set}.log`), timeoutMs: Math.max(timeoutMs - (deps.now().getTime() - t0), 10 * 60_000),
-      });
-      st.bench_cost[runs[set]] = runCost(benchScoresPath(wt, runs[set]));
-      save();
-      if (!r.ok) return { ok: false, error: `bench ${set}: ${r.error ?? "ошибка"}`, wall_ms: deps.now().getTime() - t0 };
-    }
-    return { ok: true, wall_ms: deps.now().getTime() - t0 };
+  // ---------- перед bench: SSD и владелец хранилища (M1) ----------
+  const preBench = async (): Promise<NightState | null> => {
+    if (!deps.storageOnline()) return stop(SSD_OFF);
+    const busy = await deps.ownerBusy?.();
+    if (busy) return stop(`хранилище занято: ${busy} — bench не запущен (останови сервер или bench и продолжи: ./night --resume --date ${cfg.date})`);
+    return null;
   };
-  const scoresOf = (p: { explainer: string; user: string }) => {
+
+  // ---------- прогон обоих наборов: окно и бюджет ограничивают и сам bench (M3) ----------
+  type BenchRes = { ok: boolean; error?: string; stopped?: string; wall_ms: number; logs: string[] };
+  const benchBoth = async (runs: Runs, tag: string): Promise<BenchRes> => {
+    const t0 = deps.now().getTime();
+    const base = Math.max(2 * (st.baseline?.wall_ms ?? cfg.benchEstimateMs), 60 * 60_000);
+    const logs: string[] = [];
+    const res = (o: Omit<BenchRes, "wall_ms" | "logs">): BenchRes => ({ ...o, wall_ms: deps.now().getTime() - t0, logs });
+    for (const set of ["explainer", "user"] as const) {
+      if (!deps.storageOnline()) return res({ ok: false, error: "SSD отключён" });
+      const left = untilMs() - deps.now().getTime();
+      if (left <= 0) return res({ ok: false, stopped: `окно до ${untilText()} закончилось перед bench ${set}` });
+      const maxCostUsd = Math.round((st.budget_usd - st.spent_usd + (st.bench_cost[runs[set]] ?? 0)) * 100) / 100;
+      if (maxCostUsd <= 0) return res({ ok: false, stopped: `бюджет $${st.budget_usd} исчерпан перед bench ${set}` });
+      const logFile = join(cfg.stateDir, `${tag}-bench-${set}.log`);
+      logs.push(logFile);
+      const timeoutMs = Math.min(Math.max(base - (deps.now().getTime() - t0), 10 * 60_000), left);
+      deps.log(`bench ${set} ${runs[set]} (${tag}), до $${maxCostUsd.toFixed(0)}, ≤ ${Math.round(timeoutMs / 60_000)} мин`);
+      const r = await deps.runBench({ cwd: wt, runId: runs[set], set, ...(cfg.smoke ? { only: cfg.sets[set] } : {}), logFile, timeoutMs, maxCostUsd });
+      // траты прогона — по итогу или по файлам сцен (остановленный прогон итога не пишет)
+      st.bench_cost[runs[set]] = Math.round(Math.max(runCost(benchScoresPath(wt, runs[set])), benchRunSpent(join(wt, "tmp", "bench", runs[set]))) * 100) / 100;
+      save();
+      if (r.stopped === "budget") return res({ ok: false, stopped: `бюджет $${st.budget_usd} исчерпан во время bench ${set} (${runs[set]})` });
+      if (r.stopped === "timeout" && deps.now().getTime() >= untilMs() - 60_000) return res({ ok: false, stopped: `окно до ${untilText()} закончилось во время bench ${set} (${runs[set]})` });
+      if (!r.ok) return res({ ok: false, error: `bench ${set}: ${r.error ?? "ошибка"}` });
+    }
+    return res({ ok: true });
+  };
+  const scoresOf = (p: Runs): NightBench | null => {
     const e = readScores(p.explainer);
     const u = readScores(p.user);
     return e && u ? { explainer: e, user: u } : null;
   };
+  const scorePaths = (runs: Runs): Runs => ({ explainer: benchScoresPath(wt, runs.explainer), user: benchScoresPath(wt, runs.user) });
 
   // ---------- базовая линия ----------
   if (!st.baseline?.done) {
@@ -285,10 +421,13 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
     } else {
       const sha = git.head(wt);
       const runs = st.baseline?.runs ?? { explainer: runIdOf(cfg.date, 0, sha, "explainer"), user: runIdOf(cfg.date, 0, sha, "user") };
-      st.baseline = { commit: sha, source: "ночь", runs, scores: { explainer: benchScoresPath(wt, runs.explainer), user: benchScoresPath(wt, runs.user) }, done: false };
+      st.baseline = { commit: sha, source: "ночь", runs, scores: scorePaths(runs), done: false };
       save();
+      const pre = await preBench();
+      if (pre) return pre;
       const r = await benchBoth(runs, "0");
       if (!deps.storageOnline()) return stop(SSD_OFF);
+      if (r.stopped) return stop(`базовая линия не снята: ${r.stopped}`);
       if (!r.ok) return stop(`базовая линия не снята: ${r.error}`);
       st.baseline.wall_ms = r.wall_ms;
       const sc = scoresOf(st.baseline.scores);
@@ -300,15 +439,27 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
   }
 
   // ---------- итог итерации ----------
-  const finish = (it: Iteration, outcome: Outcome, note?: string) => {
-    if (note) it.note = note;
+  const finish = (it: Iteration, outcome: Outcome, note?: string, failure?: Failure) => {
+    if (note && !it.note?.includes(note)) it.note = it.note ? `${it.note}; ${note}` : note;
+    if (failure) it.failure = failure;
     if (git.branch(wt) !== st.branch) git.switchTo(wt, st.branch);
+    const tag = `(ночь ${cfg.date}, #${it.n})`;
+    const infra = outcome === "сбой" && failure?.infra === true;
     const tail = outcome === "принято" ? "" : `: ${note ?? (it.verdict ? verdictShort(it.verdict) : "")}`.replace(/\s+/g, " ").slice(0, 200);
-    const status = `${outcome} (ночь ${cfg.date})${tail}`;
+    const status = `${outcome} ${tag}${tail}`;
     try {
       const file = join(wt, BACKLOG);
-      writeFileSync(file, markItem(readFileSync(file, "utf8"), it.item.id, status, { date: cfg.date, toEnd: outcome !== "принято" }));
-      git.commitFile(wt, BACKLOG, `docs(night): ${it.item.id} — ${outcome}`);
+      const md = readFileSync(file, "utf8");
+      // продолжение после обрыва между коммитом пометки и записью состояния — без второго коммита (L1)
+      const marked = parseBacklog(md).items.find((i) => i.id === it.item.id)?.history.some((h) => h.includes(tag));
+      if (!marked) {
+        // сбой окружения пункт не «сжигает»: статус прежний, только строка истории (B1)
+        const next = infra
+          ? markItem(md, it.item.id, OPEN, { date: cfg.date, history: `сбой инфраструктуры ${tag}${tail}` })
+          : markItem(md, it.item.id, status, { date: cfg.date, toEnd: outcome !== "принято" });
+        writeFileSync(file, next);
+        git.commitFile(wt, BACKLOG, `docs(night): ${it.item.id} — ${infra ? "сбой инфраструктуры" : outcome}`);
+      }
       st.accepted_commit = git.head(wt);
     } catch (e) {
       it.note = `${it.note ? `${it.note}; ` : ""}пометка бэклога не закоммичена: ${(e as Error).message.slice(0, 300)}`;
@@ -318,37 +469,113 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
     it.outcome = outcome;
     it.phase = "done";
     it.ended_at = nowIso();
-    deps.log(`итерация ${it.n} (${it.item.id}): ${status}`);
+    deps.log(`итерация ${it.n} (${it.item.id}): ${infra ? `сбой инфраструктуры, пункт остаётся открытым${tail}` : status}`);
     save();
+  };
+  /** Два сбоя подряд одного рода в этом запуске — род, иначе null (B1). */
+  const streak = (): Failure | null => {
+    const [a, b] = st.iterations.slice(runFrom).slice(-2);
+    return a?.outcome === "сбой" && b?.outcome === "сбой" && a.failure && b.failure && a.failure.kind === b.failure.kind ? b.failure : null;
+  };
+  const accept = (it: Iteration, scores: Runs, single: boolean) => {
+    git.switchTo(wt, st.branch);
+    git.ffMerge(wt, it.branch);
+    st.accepted_commit = git.head(wt);
+    st.baseline = {
+      commit: it.head_commit!, source: `итерация ${it.n}${single ? " (один прогон)" : " (среднее двух прогонов)"}`, runs: it.bench!.runs,
+      scores, done: true, ...(it.bench!.wall_ms === undefined ? {} : { wall_ms: it.bench!.wall_ms }), ...(single ? { single_run: true } : {}),
+    };
+    finish(it, "принято");
+  };
+  const pickVerdict = (v: NightVerdict) => ({ accepted: v.accepted, reasons: v.reasons, borderline: v.borderline, metrics: { ...v.metrics, compare: null } });
+
+  /** Разбор итерации после агента: остатки, ветка, защищённые ветки, запрещённые пути, коммиты. */
+  const afterAgent = async (it: Iteration, interrupted: boolean): Promise<NightState | "next" | "check"> => {
+    const ar = it.agent!;
+    it.cleanup = (await deps.cleanupAgent?.({ cwd: wt, ...(ar.pid ? { pid: ar.pid } : {}), since: new Date(it.started_at) })) ?? [];
+    if (!git.isClean(wt)) it.leftover = git.saveLeftover(wt, join(cfg.stateDir, String(it.n)));
+    const onBranch = git.branch(wt);
+    if (onBranch !== it.branch) {
+      it.note = `агент оставил ветку ${onBranch} вместо ${it.branch}`;
+      git.switchTo(wt, it.branch);
+    }
+    it.head_commit = git.head(wt);
+    it.commits = git.log(wt, it.start_commit);
+    save();
+    // M5: агент не вправе двигать main/staging — сдвиг останавливает ночь
+    if (it.refs_before) {
+      const before = it.refs_before;
+      const after = git.refs(wt);
+      const moved = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter((k) => before[k] !== after[k]);
+      if (moved.length) {
+        const what = moved.map((k) => `${k.replace(/^refs\/(heads|remotes)\//, "")} ${before[k]?.slice(0, 7) ?? "—"} → ${after[k]?.slice(0, 7) ?? "—"}`).join(", ");
+        finish(it, "сбой", `во время агента сдвинуты защищённые ветки: ${what}`, { kind: "refs", infra: true });
+        return stop(`во время агента итерации ${it.n} сдвинуты защищённые ветки (${what}) — ночь остановлена, разбери руками`);
+      }
+    }
+    // I2: правки измерителя, проверок, хуков и самой ночи — отклонение до любых commit/push и до запуска кода
+    const bad = forbiddenTouched(git.changedFiles(wt, it.start_commit));
+    if (bad.length) {
+      it.forbidden = bad;
+      finish(it, "отклонено", `запрещённые пути: ${bad.slice(0, 8).join(", ")}${bad.length > 8 ? ` и ещё ${bad.length - 8}` : ""}`, { kind: "forbidden", infra: false });
+      return "next";
+    }
+    if (interrupted) {
+      finish(it, "сбой", "ночь прервана во время работы агента", { kind: "interrupted", infra: true });
+      return "next";
+    }
+    const said = `${ar.summary ?? ""}\n${ar.error ?? ""}\n${ar.denials.join("\n")}`;
+    if (ar.status !== "ok") {
+      const k = ar.status === "timeout" ? null : (infraKind(said) ?? (API_TROUBLE.test(ar.error ?? "") ? "api" : null));
+      finish(it, "сбой", `агент: ${ar.status}${ar.error ? ` (${ar.error.slice(0, 160)})` : ""}`, { kind: k ?? (ar.status === "timeout" ? "agent_timeout" : "agent_error"), infra: k !== null });
+      return "next";
+    }
+    if (it.commits.length === 0) {
+      const k = infraKind(said);
+      finish(it, "сбой", k ? `агент не сделал ни одного коммита: ${KIND_TEXT[k]}` : "агент не сделал ни одного коммита", { kind: k ?? "no_commits", infra: k !== null });
+      return "next";
+    }
+    it.phase = "check";
+    save();
+    return "check";
   };
 
   // ---------- итерации ----------
   for (;;) {
     let it = st.iterations.at(-1);
     if (it?.phase === "agent") {
-      // прерванный агент не продолжается: итог неизвестен, правки (если есть) — в stash
-      if (!git.isClean(wt)) it.leftover = git.stashLeftover(wt, `night-${cfg.date}-${it.n}`);
-      it.head_commit = git.branch(wt) === it.branch ? git.head(wt) : it.head_commit;
-      finish(it, "сбой", "ночь прервана во время работы агента");
-      continue;
+      // прерванный агент не продолжается. Траты — по его итогу, если он успел его записать,
+      // иначе по лимиту итерации (оценка сверху, M2); итог есть — итерация идёт дальше обычным путём
+      const rec = readAgentLog(join(cfg.stateDir, String(it.n)));
+      it.agent = rec ?? { status: "error", cost_usd: it.limits?.agent_usd ?? cfg.agentBudgetUsd, wall_ms: 0, denials: [], error: "ночь прервана во время работы агента" };
+      save();
+      const r = await afterAgent(it, rec === null);
+      if (typeof r === "object") return r;
+      if (r === "next") continue;
     }
     if (!it || it.phase === "done") {
+      const s = streak();
+      if (s) return stop(`два сбоя подряд одного рода: ${KIND_TEXT[s.kind] ?? s.kind} — дальше ночь тратила бы деньги впустую; причина в REPORT.md, продолжение — ./night --resume --date ${cfg.date}`);
       if (cfg.maxIterations !== undefined && st.iterations.length >= cfg.maxIterations) return stop(`достигнут предел итераций (${cfg.maxIterations})`);
       if (!deps.storageOnline()) return stop(SSD_OFF);
       const backlog = parseBacklog(readFileSync(join(wt, BACKLOG), "utf8"));
       let item;
       if (cfg.item) {
         if (st.iterations.some((i) => i.item.id === cfg.item)) return stop(`выбранный пункт ${cfg.item} пройден`);
-        item = nextItem(backlog, cfg.item);
+        try {
+          item = nextItem(backlog, cfg.item);
+        } catch (e) {
+          return stop(`--item: ${(e as Error).message}`);
+        }
       } else item = nextItem(backlog);
       if (!item) return stop(`в бэклоге нет открытых пунктов (статус «${OPEN}»)`);
-      const left = new Date(st.until).getTime() - deps.now().getTime();
+      const left = untilMs() - deps.now().getTime();
       const benchMs = st.baseline!.wall_ms ?? cfg.benchEstimateMs;
       const agentMs = Math.min(cfg.agentTimeoutMs, left - benchMs - CHECK_ESTIMATE_MS);
       if (agentMs < cfg.minAgentMs) {
-        return stop(`окно до ${fmtTime(localIso(new Date(st.until)))} не вмещает итерацию (агент ≥ ${Math.round(cfg.minAgentMs / 60_000)} мин + bench ~${Math.round(benchMs / 60_000)} мин)`);
+        return stop(`окно до ${untilText()} не вмещает итерацию (агент ≥ ${Math.round(cfg.minAgentMs / 60_000)} мин + bench ~${Math.round(benchMs / 60_000)} мин)`);
       }
-      const benchUsd = (st.baseline!.source === "evidence" ? 0 : st.bench_cost[st.baseline!.runs.explainer]! + st.bench_cost[st.baseline!.runs.user]!) || cfg.benchCostEstimateUsd;
+      const benchUsd = baselineBenchUsd(st) || cfg.benchCostEstimateUsd;
       const agentUsd = Math.min(cfg.agentBudgetUsd, st.budget_usd - st.spent_usd - benchUsd);
       if (agentUsd < MIN_AGENT_USD) return stop(`бюджет $${st.budget_usd}: потрачено $${st.spent_usd.toFixed(2)}, на итерацию (агент ≥ $${MIN_AGENT_USD} + bench ~$${benchUsd.toFixed(0)}) не хватает`);
       const n = st.iterations.length + 1;
@@ -356,7 +583,7 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
       git.switchNew(wt, branch, st.accepted_commit);
       it = {
         n, item: { id: item.id, title: item.title, acceptance: item.acceptance }, branch, start_commit: st.accepted_commit, phase: "agent",
-        started_at: nowIso(), limits: { agent_ms: agentMs, agent_usd: Math.round(agentUsd * 100) / 100 },
+        started_at: nowIso(), limits: { agent_ms: agentMs, agent_usd: Math.round(agentUsd * 100) / 100 }, refs_before: git.refs(wt),
       };
       st.iterations.push(it);
       save();
@@ -370,33 +597,19 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
       mkdirSync(logDir, { recursive: true });
       writeFileSync(join(logDir, "brief.md"), brief);
       deps.log(`итерация ${n}: ${item.id} «${item.title}», агент до ${fmtTime(deadline)}, $${agentUsd.toFixed(0)}`);
-      const ar = await deps.runAgent({ cwd: wt, brief, logDir, timeoutMs: agentMs, budgetUsd: agentUsd });
-      it.agent = ar;
-      if (!git.isClean(wt)) it.leftover = git.stashLeftover(wt, `night-${cfg.date}-${n}`);
-      const onBranch = git.branch(wt);
-      if (onBranch !== branch) {
-        it.note = `агент оставил ветку ${onBranch} вместо ${branch}`;
-        git.switchTo(wt, branch);
-      }
-      it.head_commit = git.head(wt);
-      it.commits = git.log(wt, it.start_commit);
+      it.agent = await deps.runAgent({ cwd: wt, brief, logDir, timeoutMs: agentMs, budgetUsd: agentUsd });
       save();
-      if (ar.status !== "ok") {
-        finish(it, "сбой", `агент: ${ar.status}${ar.error ? ` (${ar.error.slice(0, 160)})` : ""}`);
-        continue;
-      }
-      if (it.commits.length === 0) {
-        finish(it, "сбой", "агент не сделал ни одного коммита");
-        continue;
-      }
-      it.phase = "check";
-      save();
+      const r = await afterAgent(it, false);
+      if (typeof r === "object") return r;
+      if (r === "next") continue;
     }
     if (it.phase === "check") {
       deps.log(`итерация ${it.n}: ./check`);
-      const ok = await deps.runCheck({ cwd: wt, logFile: join(cfg.stateDir, String(it.n), "check.log") });
+      const logFile = join(cfg.stateDir, String(it.n), "check.log");
+      const ok = await deps.runCheck({ cwd: wt, logFile });
       if (!ok) {
-        finish(it, "сбой", "./check красный на ветке итерации");
+        const k = infraKind(readLog(logFile));
+        finish(it, "сбой", k ? `./check красный из-за окружения: ${KIND_TEXT[k]}` : "./check красный на ветке итерации", { kind: k ?? "check_red", infra: k !== null });
         continue;
       }
       const sha = it.head_commit ?? git.head(wt);
@@ -404,39 +617,79 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
       it.phase = "bench";
       save();
     }
-    if (it.phase === "bench") {
+    if (it.phase === "bench" || it.phase === "confirm") {
+      const cur = it;
+      const confirming = cur.phase === "confirm";
+      const pre = await preBench();
+      if (pre) return pre;
+      if (git.branch(wt) !== cur.branch) git.switchTo(wt, cur.branch);
+      const runs = confirming ? cur.confirm!.runs : cur.bench!.runs;
+      const r = await benchBoth(runs, confirming ? `${cur.n}-r2` : String(cur.n));
+      // SSD пропал, кончились окно или бюджет посреди bench — остановка; продолжение доведёт эту же итерацию
       if (!deps.storageOnline()) return stop(SSD_OFF);
-      if (git.branch(wt) !== it.branch) git.switchTo(wt, it.branch);
-      const runs = it.bench!.runs;
-      const r = await benchBoth(runs, String(it.n));
-      // SSD пропал посреди bench — остановка; продолжение доведёт эту же итерацию
-      if (!deps.storageOnline()) return stop(SSD_OFF);
-      it.bench!.wall_ms = r.wall_ms;
-      if (!r.ok) it.bench!.error = r.error;
-      const cand = scoresOf({ explainer: benchScoresPath(wt, runs.explainer), user: benchScoresPath(wt, runs.user) });
+      if (r.stopped) return stop(r.stopped);
+      const slot = confirming ? cur.confirm! : cur.bench!;
+      slot.wall_ms = r.wall_ms;
+      if (!r.ok) slot.error = r.error;
+      const cand = scoresOf(scorePaths(runs));
       const base = scoresOf(st.baseline!.scores);
+      const benchFail = (what: string) => {
+        const k = infraKind(r.logs.map(readLog).join("\n"));
+        finish(cur, "сбой", `${what}${k ? ` (${KIND_TEXT[k]})` : ""}`, { kind: k ?? "bench", infra: k !== null || confirming });
+      };
       if (!cand || !base) {
-        finish(it, "сбой", r.error ?? "нет scores.json прогона");
+        benchFail(`${confirming ? "подтверждающий прогон: " : ""}${r.error ?? "нет scores.json прогона"}`);
         continue;
       }
-      const v = acceptNight(base, cand, cfg.sets, { requireGain: it.item.acceptance === "рост" });
-      it.verdict = { accepted: v.accepted, reasons: v.reasons, metrics: { ...v.metrics, compare: null } };
-      if (v.accepted) {
-        git.switchTo(wt, st.branch);
-        git.ffMerge(wt, it.branch);
-        st.accepted_commit = git.head(wt);
-        st.baseline = {
-          commit: it.head_commit!, source: `итерация ${it.n}`, runs,
-          scores: { explainer: benchScoresPath(wt, runs.explainer), user: benchScoresPath(wt, runs.user) }, done: true, wall_ms: r.wall_ms,
-        };
-        finish(it, "принято");
-      } else if (v.reasons.some((x) => x.startsWith("неполн")) || !r.ok) {
-        finish(it, "сбой", `${r.error ? `${r.error}; ` : ""}${v.reasons.join("; ")}`);
+      let v: NightVerdict;
+      let candPaths = scorePaths(runs);
+      if (confirming) {
+        // решение — по среднему двух прогонов кандидата: базовая линия не завышается удачным прогоном (I4)
+        const first = scoresOf(scorePaths(cur.bench!.runs))!;
+        const avg = cur.confirm!.avg;
+        for (const set of ["explainer", "user"] as const) {
+          const p = benchScoresPath(wt, avg[set]);
+          mkdirSync(dirname(p), { recursive: true });
+          writeFileSync(p, JSON.stringify(averageScores(first[set], cand[set], avg[set]), null, 2) + "\n");
+        }
+        candPaths = scorePaths(avg);
+        v = acceptNight(base, scoresOf(candPaths)!, cfg.sets, { requireGain: cur.item.acceptance === "рост" });
+        cur.first_verdict = cur.verdict;
       } else {
-        finish(it, "не дало роста");
+        v = acceptNight(base, cand, cfg.sets, { requireGain: cur.item.acceptance === "рост" });
+      }
+      cur.verdict = pickVerdict(v);
+      if (v.infra) {
+        finish(cur, "сбой", v.infra, { kind: "judge", infra: true });
+      } else if (!v.accepted) {
+        if (v.reasons.some((x) => x.startsWith("неполн")) || !r.ok) benchFail(`${r.error ? `${r.error}; ` : ""}${v.reasons.join("; ")}`);
+        else finish(cur, "не дало роста", confirming ? `не подтвердилось повтором: ${verdictShort(v)}` : undefined);
+      } else if (confirming) {
+        accept(cur, candPaths, false);
+      } else {
+        // принято по одному прогону: подтверждающий повтор, если помещается в бюджет и окно
+        const costUsd = (st.bench_cost[runs.explainer] ?? 0) + (st.bench_cost[runs.user] ?? 0);
+        const fits = st.budget_usd - st.spent_usd >= costUsd && untilMs() - deps.now().getTime() >= r.wall_ms;
+        if (fits) {
+          cur.confirm = { runs: { explainer: `${runs.explainer}-r2`, user: `${runs.user}-r2` }, avg: { explainer: `${runs.explainer}-avg`, user: `${runs.user}-avg` } };
+          cur.phase = "confirm";
+          deps.log(`итерация ${cur.n}: принято по первому прогону${v.borderline ? " (у порога)" : ""} — подтверждающий прогон`);
+          save();
+        } else if (v.borderline) {
+          finish(cur, "сбой", `пограничное «принято» (${verdictShort(v)}), а подтверждающий прогон не помещается в бюджет или окно — пункт остаётся открытым`, { kind: "unconfirmed", infra: true });
+        } else {
+          accept(cur, candPaths, true);
+        }
       }
     }
   }
+}
+
+/** Стоимость прогона базовой линии (оценка стоимости bench итерации). */
+function baselineBenchUsd(st: NightState): number {
+  const b = st.baseline!;
+  if (b.source === "evidence") return 0;
+  return (st.bench_cost[b.runs.explainer] ?? 0) + (st.bench_cost[b.runs.user] ?? 0);
 }
 
 function baselineLine(st: NightState): string {
