@@ -645,7 +645,7 @@ for (const v of [v1, v2]) expect((await readVersion(v.dir)).files.length).toBeGr
 - Produces (server):
   - `sceneExport: JobHandler` — вход `{ versionId; request: ExportRequest }`; `prores4444` при `settings.transparent_export !== true` у версии (H4) → `failed` с `error.code = "pipeline"`, `stage: "export"` (H1), сообщение `transparent_unsupported: версия сделана с непрозрачным фоном; включите прозрачный экспорт до генерации` (Q4); рендер в `drafts/<job>-a<attempt>/` → `gate` пуст (+ `alphaAtCorner === 0` для ProRes), иначе `failed`, `stage: "export"`; ошибка `orphaned` → `blocked(stale_process)` → транзакция с fencing: `renameSync` в `workspace/projects/<p>/exports/<export-id>/scene.{mp4,mov}` + `export-manifest.json`, `chmod -R a-w`, строка `exports`
 
-- [ ] **Step 1: Юнит-тесты (падают):**
+- [x] **Step 1: Юнит-тесты (падают):**
 
 ```ts
 const s = { ...defaultSettings(), duration_frames: 180 };
@@ -660,9 +660,9 @@ expect(exportGate({ ...ok, width: h264Size(1080, 0.5), height: h264Size(1920, 0.
 // устаревшая попытка → fenced_out, exports/ пуст
 ```
 
-- [ ] **Step 2–3:** FAIL → реализовать → PASS.
-- [ ] **Step 4: e2e (`make e2e`):** версия `kit-gallery` (1920×1080, 30 fps) → `mp4` → `exportGate` пуст, ffprobe: `h264`, `aac`, 1920×1080, 30/1; повторный экспорт той же версии → та же длительность и размеры (`09` §1 п.5); `fps: 60` → длительность прежняя ± 1 кадр, fps 60/1, кадр середины входа первого элемента (кадр 60 из 120 на 60 fps) совпадает с кадром 30 экспорта на 30 fps по `frameDelta < 0.01` в области элемента (M11); `transparent-scene` → `prores4444` → `pixFmt yuva444p10le`, `alphaAtCorner(…, 30) === 0`. Время экспорта — в README пакета.
-- [ ] **Step 5:** `./check`; коммит `feat(motion-studio): экспорт MP4 и ProRes 4444`.
+- [x] **Step 2–3:** FAIL → реализовать → PASS.
+- [x] **Step 4: e2e (`make e2e`):** версия `kit-gallery` (1920×1080, 30 fps) → `mp4` → `exportGate` пуст, ffprobe: `h264`, `aac`, 1920×1080, 30/1; повторный экспорт той же версии → та же длительность и размеры (`09` §1 п.5); `fps: 60` → длительность прежняя ± 1 кадр, fps 60/1, кадр середины входа первого элемента (кадр 60 из 120 на 60 fps) совпадает с кадром 30 экспорта на 30 fps по `frameDelta < 0.01` в области элемента (M11); `transparent-scene` → `prores4444` → `pixFmt yuva444p10le`, `alphaAtCorner(…, 30) === 0`. Время экспорта — в README пакета.
+- [x] **Step 5:** `./check`; коммит `feat(motion-studio): экспорт MP4 и ProRes 4444`.
 
 ### Task 20: Control API (Fastify), точка входа сервера, doctor (P1-15, P1-17)
 
