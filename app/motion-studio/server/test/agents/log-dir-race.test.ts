@@ -28,4 +28,8 @@ it("4 одновременных вызова одной роли в одной 
   const rs = await Promise.all([1, 2, 3, 4].map(() => rt.run(task, Ok, new AbortController().signal)));
   const dirs = rs.map((r) => dirname(r.stdoutPath));
   expect(new Set(dirs).size).toBe(4);
+  // M5: выданные каталоги уже на диске — память рантайма о них не копится
+  expect((rt as unknown as { claimed: Set<string> }).claimed.size).toBe(0);
+  const again = await rt.run(task, Ok, new AbortController().signal);
+  expect(dirs).not.toContain(dirname(again.stdoutPath));
 });

@@ -315,15 +315,22 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
     for (let seq = 1; ; seq++) {
       const leaf = join(base, `a${task.run.attempt}-${task.role}-${seq}`);
       const full = join(task.run.root, leaf);
-      if (this.claimed.has(full) || (await exists(full))) continue;
+      if (await exists(full)) continue;
       // одновременные вызовы роли (два дубля, S5): после await место мог занять другой
       if (this.claimed.has(full)) continue;
       this.claimed.add(full);
-      return safeMkdir(task.run.root, leaf);
+      try {
+        // пока мы ждали, владелец этого места мог уже создать каталог и снять заявку
+        if (await exists(full)) continue;
+        return await safeMkdir(task.run.root, leaf);
+      } finally {
+        // каталог уже на диске (или не создан) — дальше его видит `exists`, память не копится
+        this.claimed.delete(full);
+      }
     }
   }
 
-  /** Каталоги журналов, уже выданные этим рантаймом (проверка «свободен» не атомарна). */
+  /** Каталоги журналов, выдаваемые сейчас (между проверкой «свободен» и mkdir). */
   private readonly claimed = new Set<string>();
 
   private async systemPrompt(role: Role): Promise<string> {
