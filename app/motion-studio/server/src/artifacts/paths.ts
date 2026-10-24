@@ -22,12 +22,12 @@ function rev(n: number): string {
 export const PROJECTS_REL = "workspace/projects";
 
 /**
- * Ровно формы `artifactPaths`: `<p>/(source|proxy)/<id>`, `<p>/(transcript|edits|style|plan)/<id>/r<N>`,
+ * Ровно формы `artifactPaths`: `<p>/(source|proxy)/<id>`, `<p>/(transcript|edits|preview|style|plan)/<id>/r<N>`,
  * `<p>/analysis/(footage|semantic)/<id>`. Остальное в каталоге проекта (сцены Phase 1,
  * `project.json`, родители ревизий) публикацией и карантином сирот не затрагивается.
  */
 const DEST_REL_RE = new RegExp(
-  `^${PROJECTS_REL}/${ART_ID}/(?:(?:source|proxy)/${ART_ID}|(?:transcript|edits|style|plan)/${ART_ID}/r[1-9][0-9]*|analysis/(?:footage|semantic)/${ART_ID})$`,
+  `^${PROJECTS_REL}/${ART_ID}/(?:(?:source|proxy)/${ART_ID}|(?:transcript|edits|preview|style|plan)/${ART_ID}/r[1-9][0-9]*|analysis/(?:footage|semantic)/${ART_ID})$`,
 );
 
 /** destRel публикации — путь формы `artifactPaths`; иначе ошибка до любых изменений ФС. */
@@ -44,6 +44,11 @@ export interface ArtifactPaths {
   proxy(mediaId: string): string;
   transcriptRev(id: string, n: number): string;
   edlRev(id: string, n: number): string;
+  /**
+   * Превью ревизии EDL (Task 28): отдельный каталог — `edits/<edl>/r<N>` уже опубликован
+   * документом EDL и закрыт от записи, дописать в него превью нельзя.
+   */
+  previewRev(edlId: string, n: number): string;
   footage(id: string): string;
   semantic(id: string): string;
   styleRev(id: string, n: number): string;
@@ -52,7 +57,7 @@ export interface ArtifactPaths {
   abs(rel: string): string;
 }
 
-/** Пути `workspace/projects/<p>/{source,proxy,transcript,edits,analysis/footage,analysis/semantic,style,plan}/…`. */
+/** Пути `workspace/projects/<p>/{source,proxy,transcript,edits,preview,analysis/footage,analysis/semantic,style,plan}/…`. */
 export function artifactPaths(root: string, projectId: string): ArtifactPaths {
   const p = `${PROJECTS_REL}/${checkId("projectId", projectId)}`;
   return {
@@ -61,6 +66,7 @@ export function artifactPaths(root: string, projectId: string): ArtifactPaths {
     proxy: (mediaId) => `${p}/proxy/${checkId("mediaId", mediaId)}`,
     transcriptRev: (id, n) => `${p}/transcript/${checkId("transcriptId", id)}/${rev(n)}`,
     edlRev: (id, n) => `${p}/edits/${checkId("edlId", id)}/${rev(n)}`,
+    previewRev: (id, n) => `${p}/preview/${checkId("edlId", id)}/${rev(n)}`,
     footage: (id) => `${p}/analysis/footage/${checkId("footageId", id)}`,
     semantic: (id) => `${p}/analysis/semantic/${checkId("semanticId", id)}`,
     styleRev: (id, n) => `${p}/style/${checkId("styleId", id)}/${rev(n)}`,

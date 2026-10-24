@@ -6,6 +6,7 @@
 //   rotated.mov      копия cfr с `-display_rotation 90`
 //   no-audio.mp4     только видео
 //   broken.mp4       обрезанный cfr (moov в конце — файл не открывается)
+//   talk-ru-takes.mp4  черновой монтаж (Task 28): фальстарт, неудачный дубль, «ну вот, как бы», ≈ 16 с
 // `--ffprobe-fixtures` — ещё и JSON ffprobe cfr/vfr/rotated/no-audio в
 // `app/motion-studio/server/test/fixtures/ffprobe/` (пути очищены до имени файла).
 // Печатает сводку ffprobe каждого файла. Без `say` речь заменяется тоном (отмечается в выводе).
@@ -105,6 +106,29 @@ make("av-alate.mp4", (out) => ff([
   "-itsoffset", "0.5", "-f", "lavfi", "-t", "5.5", "-i", BEEP(2.5), "-map", "0:v", "-map", "1:a", ...AV, out,
 ]));
 
+// Черновой монтаж (Task 28): фальстарт, оборванный и повторённый дубль, пустые «ну вот, как бы».
+const TAKES = [
+  "Мы в прошлом [[slnc 400]] Мы в прошлом году запустили сервис доставки.",
+  "[[slnc 900]] Ну вот, как бы, первые заказы пришли через неделю.",
+  "[[slnc 900]] Главное, что мы поняли, это то что [[slnc 500]] Главное, что мы поняли: клиентам важна скорость.",
+].join(" ");
+make("talk-ru-takes.mp4", (out) => {
+  const aiff = p("takes.aiff");
+  try {
+    run("say", ["-v", "Milena", "-o", aiff, TAKES]);
+  } catch (e) {
+    console.warn(`say -v Milena недоступен (${e.message.split("\n")[0]}): talk-ru-takes — тон 440 Гц`);
+    ff(["-f", "lavfi", "-i", "sine=frequency=440:duration=16", "-ar", "22050", aiff]);
+  }
+  ff([
+    "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=30", "-i", aiff,
+    "-af", "apad=pad_dur=1", "-shortest", "-map", "0:v", "-map", "1:a",
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p", "-g", "60",
+    "-c:a", "aac", "-b:a", "96k", "-ar", "48000", "-ac", "1", out,
+  ]);
+  rmSync(aiff, { force: true });
+});
+
 make("broken.mp4", (out) => {
   const buf = readFileSync(p("talk-ru-cfr.mp4"));
   writeFileSync(out, buf.subarray(0, Math.floor(buf.length * 0.4)));
@@ -115,7 +139,7 @@ function probeJson(file) {
 }
 
 const summary = [];
-for (const name of ["talk-ru-cfr.mp4", "talk-ru-vfr.mov", "rotated.mov", "no-audio.mp4", "av-vlate.mp4", "av-alate.mp4", "broken.mp4"]) {
+for (const name of ["talk-ru-cfr.mp4", "talk-ru-vfr.mov", "rotated.mov", "no-audio.mp4", "av-vlate.mp4", "av-alate.mp4", "talk-ru-takes.mp4", "broken.mp4"]) {
   let line;
   try {
     const j = probeJson(p(name));

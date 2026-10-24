@@ -121,8 +121,8 @@ export function cutForWords(
   return { source_start_us: start, source_end_us: end, start_word_id: first.id, end_word_id: last.id };
 }
 
-/** Документ без полей ревизии — сравнение «правка что-то изменила». */
-function content(doc: EdlRevisionDoc): string {
+/** Документ без полей ревизии — сравнение «правка что-то изменила» (и повторный `roughcut.propose`). */
+export function edlContent(doc: EdlRevisionDoc): string {
   return canonicalJson({ ...doc, revision: 0, parent_revision: undefined, ops: undefined });
 }
 
@@ -179,7 +179,7 @@ export function applyEdlOps(doc: EdlRevisionDoc, ops: EdlOp[], words: Transcript
     }
   }
   const next: EdlRevisionDoc = { ...doc, revision, parent_revision: doc.revision, decisions, ops: ops.map((o) => ({ ...o })) };
-  if (content(next) === content(doc)) throw new EditError("no_change", "правка не меняет решения EDL — новая ревизия не создаётся");
+  if (edlContent(next) === edlContent(doc)) throw new EditError("no_change", "правка не меняет решения EDL — новая ревизия не создаётся");
   return next;
 }
 

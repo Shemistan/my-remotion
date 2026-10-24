@@ -27,7 +27,7 @@ import {
 import { INCONCLUSIVE_LIMIT, type ProcessRegistry, StorageError, StoragePathError, type StorageStatus, isInconclusive, safeMkdir, watchStorage } from "@ms/core";
 import { type ResolvedStyle, resolveStyle, typeSize } from "@ms/render";
 import type { ZodType } from "zod";
-import type { AgentResult, AgentRuntimeAdapter, AgentTask, AgentTool, AgentUsage, Role } from "../agents/runtime.js";
+import type { AgentErrorKind, AgentResult, AgentRuntimeAdapter, AgentTask, AgentTool, AgentUsage, Role } from "../agents/runtime.js";
 import type { AppConfig } from "../config.js";
 import type { Permits } from "../jobs/semaphore.js";
 import type { CapabilityView } from "../knowledge/types.js";
@@ -85,6 +85,8 @@ export interface StepDeps {
   log?: (line: string) => void;
   /** Места семафоров раннера (задача): агентные вызовы и рендеры. */
   permits?: { agents: Permits; renders: Permits };
+  /** Бюджет задачи, $ (по умолчанию `scene.maxCostUsd`; задачи Phase 2–3 — `analysis.maxCostUsd`). */
+  budgetUsd?: number;
 }
 
 /** Итог вызова под сторожем хранилища. `skipped` — место семафора не дали (прерывание). */
@@ -179,6 +181,11 @@ export class RunCtx {
 
   get config(): AppConfig {
     return this.deps.config;
+  }
+
+  /** Бюджет задачи: `deps.budgetUsd` или `scene.maxCostUsd`. */
+  get maxCostUsd(): number {
+    return this.deps.budgetUsd ?? this.config.scene.maxCostUsd;
   }
 
   get aborted(): boolean {
@@ -307,7 +314,7 @@ export class RunCtx {
    * который CLI не режет, — rulings п. 15).
    */
   async reserve(cap: number, sig: AbortSignal): Promise<number> {
-    const max = this.config.scene.maxCostUsd;
+    const max = this.maxCostUsd;
     for (;;) {
       if (sig.aborted) throw new NotStarted();
       const free = Math.round((max - this.spent - this.reserved) * 1e6) / 1e6;
@@ -640,7 +647,8 @@ export function sceneStyle(style: ScenePropsStyle, settings: Settings): Resolved
 
 // --- Шаги Concept и Director ---
 
-export type StepFail = { ok: false; stage: FailureStage; message: string };
+/** `kind` — вид отказа рантайма агента (`schema` — ответ не прошёл схему: повод переотправить). */
+export type StepFail = { ok: false; stage: FailureStage; message: string; kind?: AgentErrorKind };
 
 /** Чекпоинты задачи (M7): ключ — id задачи; `onStep` пишет ссылку в `output_refs.steps`. */
 export interface CheckpointOpts {
@@ -680,7 +688,7 @@ export async function toolless<O>(
       return { ok: true, output: parsed.data, reused: true, hash };
     }
   }
-  if (!canSpendNow(rc)) return fail("budget", `бюджет сцены исчерпан до ${label}: $${rc.spent.toFixed(2)} из $${rc.config.scene.maxCostUsd}`);
+  if (!canSpendNow(rc)) return fail("budget", `бюджет сцены исчерпан до ${label}: $${rc.spent.toFixed(2)} из $${rc.maxCostUsd}`);
   const problem = await rc.storageProblem();
   if (problem) return fail("storage", problem);
   if (rc.aborted) return fail("cancelled", `отменено до ${label}`);
@@ -720,7 +728,7 @@ export async function toolless<O>(
   if (d.lost) return fail("storage", `хранилище пропало во время ${label}: ${d.lost}`);
   if (rc.aborted) return fail("cancelled", `отменено во время ${label}`);
   if (r.status !== "completed" || r.output === undefined) {
-    return fail(stage, `${label}: ${r.status}${r.error ? ` (${r.error.kind}): ${r.error.message}` : ""}`);
+    return { ...fail(stage, `${label}: ${r.status}${r.error ? ` (${r.error.kind}): ${r.error.message}` : ""}`), ...(r.error ? { kind: r.error.kind } : {}) };
   }
   if (cp && cp.save !== false) await saveCheckpoint(rc, cp, role, hash, r.output);
   return { ok: true, output: r.output, reused: false, hash };
@@ -736,7 +744,7 @@ async function saveCheckpoint(rc: RunCtx, cp: CheckpointOpts, role: Role, hash: 
   }
 }
 
-const canSpendNow = (rc: RunCtx) => rc.spent < rc.config.scene.maxCostUsd;
+const canSpendNow = (rc: RunCtx) => rc.spent < rc.maxCostUsd;
 
 /** Структура, выбранная Concept (правило → структура); старый ответ без выбора — нет. */
 export function conceptStructure(c: ConceptOutput | undefined): { value: SceneStructure; rule: StructureRule; runner_up: SceneStructure; reason: string } | undefined {

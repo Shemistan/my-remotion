@@ -1,6 +1,6 @@
 // Обработчики задач, общие для сервера и CLI: оба регистрируют одни и те же обработчики
 // (`playground.generate`, `playground.edit`, `scene.restore`, `scene.export`, `media.import`,
-// `asr.transcribe`).
+// `asr.transcribe`, `roughcut.propose`, `roughcut.preview`).
 import type { Job } from "@ms/contracts";
 import { DEFAULT_MIN_FREE_GB } from "@ms/core";
 import { alphaAtCorner, exportVersion, renderVersion } from "@ms/render";
@@ -10,6 +10,8 @@ import type { GenerateResult } from "../pipeline/generate.js";
 import { type MediaImportDeps, mediaImport } from "../pipeline/media-import.js";
 import { playgroundEdit } from "../pipeline/playground-edit.js";
 import { type PlaygroundDeps, playgroundGenerate } from "../pipeline/playground-generate.js";
+import { type RoughcutPreviewDeps, roughcutPreview } from "../pipeline/roughcut-preview.js";
+import { type RoughcutProposeDeps, roughcutPropose } from "../pipeline/roughcut-propose.js";
 import { sceneExport } from "../pipeline/scene-export.js";
 import { sceneRestore } from "../pipeline/scene-restore.js";
 import { checkSceneDir } from "../scenes/static-check.js";
@@ -33,6 +35,9 @@ export interface HandlerOptions {
   onImportStage?: MediaImportDeps["onStage"];
   /** `asr.transcribe`: начало этапа (e2e убивает процесс на этапе). */
   onAsrStage?: AsrTranscribeDeps["onStage"];
+  /** `roughcut.propose` / `roughcut.preview`: начало этапа (тесты отменяют на этапе). */
+  onRoughcutStage?: RoughcutProposeDeps["onStage"];
+  onPreviewStage?: RoughcutPreviewDeps["onStage"];
 }
 
 export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extra: Handlers = {}): Handlers {
@@ -75,6 +80,22 @@ export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extr
       asr: svc.config.asr,
       storage: svc.storageCheck,
       ...(o.onAsrStage ? { onStage: o.onAsrStage } : {}),
+      ...(o.log ? { log: o.log } : {}),
+    })),
+    "roughcut.propose": roughcutPropose(() => ({
+      root: svc.root,
+      config: svc.config,
+      storage: svc.storageCheck,
+      agents: svc.agents,
+      ...(o.watchIntervalMs ? { watchIntervalMs: o.watchIntervalMs } : {}),
+      ...(o.onRoughcutStage ? { onStage: o.onRoughcutStage } : {}),
+      ...(o.log ? { log: o.log } : {}),
+    })),
+    "roughcut.preview": roughcutPreview(() => ({
+      root: svc.root,
+      roughcut: svc.config.roughcut,
+      storage: svc.storageCheck,
+      ...(o.onPreviewStage ? { onStage: o.onPreviewStage } : {}),
       ...(o.log ? { log: o.log } : {}),
     })),
     ...extra,

@@ -338,6 +338,10 @@ export const ru = {
   "stage.waveform": "волна звука",
   "stage.thumbs": "миниатюры",
   "stage.done": "готово",
+  "stage.detect": "поиск пауз и повторов",
+  "stage.agent": "монтажёр-агент",
+  "stage.concat": "склейка превью",
+  "stage.check": "проверка превью",
 
   "timeline.title": "Таймлайн сцены",
   "timeline.beats": "Биты",

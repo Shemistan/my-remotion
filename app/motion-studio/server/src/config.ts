@@ -113,7 +113,8 @@ export interface AnalysisConfig {
   maxCostUsd: number;
 }
 
-const ROUGHCUT: RoughcutConfig = { pauseMinUs: 800_000, keepAfterWordUs: 100_000, sentenceKeepAfterUs: 300_000, keepBeforeWordUs: 100_000, fillerPadUs: 50_000, loudDbfs: -30, fadeUs: 8_000 };
+/** Умолчания `roughcut` (детекторы и превью чернового монтажа, Task 28). */
+export const ROUGHCUT_DEFAULTS: RoughcutConfig = { pauseMinUs: 800_000, keepAfterWordUs: 100_000, sentenceKeepAfterUs: 300_000, keepBeforeWordUs: 100_000, fillerPadUs: 50_000, loudDbfs: -30, fadeUs: 8_000 };
 const PLANNING: PlanningConfig = { maxCoverage: 0.4, maxFullscreenCoverage: 0.25, minGapUs: 1_500_000, minSceneUs: 1_500_000, maxSceneUs: 12_000_000, padPreUs: 200_000, padPostUs: 300_000, faceMargin: 0.25, faceOverlapMax: 0.02 };
 const Us = z.number().int().min(0);
 const Share = z.number().min(0).max(1);
@@ -286,7 +287,7 @@ function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig): Pick<AppConfig, 
   return {
     asr,
     media,
-    roughcut: { ...ROUGHCUT, ...file.roughcut },
+    roughcut: { ...ROUGHCUT_DEFAULTS, ...file.roughcut },
     planning,
     analysis: { maxCostUsd: 3, ...file.analysis },
   };
