@@ -77,4 +77,5 @@ it("ревью Task 33 V3: токены с дефиса и пунктуация 
   const tr = transcriptDto({ words, segments: [{ id: "seg_0001", word_ids: words.map((x) => x.id), start_us: 0, end_us: 6 }] });
   const { container } = renderQ(<TranscriptEditor {...props({ transcript: tr, wordMap: {}, readOnly: true })} />);
   expect(container.querySelector(".segment-text")!.textContent).toBe("MAC-адреса что-то, дальше");
+  expect([...container.querySelectorAll(".glued .word")].map((x) => x.textContent)).toEqual(["-адреса", "-то", ","]);
 });

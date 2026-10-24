@@ -128,10 +128,12 @@ export function TranscriptEditor({ transcript, wordMap, currentUs, readOnly, onS
                 <p className="segment-text">
                   {words.map((w, k) => {
                     const i = byId.get(w.id)!.i;
-                    // «MAC» + «-адреса», «что» + «-то», пунктуация — без пробела (ревью Task 33 V3)
+                    // «MAC» + «-адреса», «что» + «-то», пунктуация — без пробела и без зазора отступов
+                    // слов (`.glued`, ревью Task 33 V3)
+                    const glued = k > 0 && gluesToPrevious(w.text);
                     return (
-                      <span key={w.id}>
-                        {k > 0 && !gluesToPrevious(w.text) ? " " : null}
+                      <span key={w.id} className={glued ? "glued" : undefined}>
+                        {k > 0 && !glued ? " " : null}
                         <WordSpan word={w} mapping={wordMap?.[w.id]} current={i === current} selected={sel !== null && i >= sel.a && i <= sel.b} tabStop={i === stop} onClick={click} onNav={nav} onFocus={onWordFocus} />
                       </span>
                     );
