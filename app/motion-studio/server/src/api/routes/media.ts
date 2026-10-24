@@ -20,27 +20,27 @@ import * as transcripts from "../../db/repos/transcripts.js";
 import { tx } from "../../db/tx.js";
 import { asrCapability } from "../../media/asr-capability.js";
 import { resolveImportPath } from "../../media/guards.js";
-import { MediaInvalidError } from "../../media/probe.js";
+import { MediaInvalidError, type MediaInvalidReason } from "../../media/probe.js";
 import { enqueue } from "../../jobs/queue.js";
 import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "../context.js";
 import { ApiError, notFound } from "../errors.js";
+import { publicJob } from "../job-dto.js";
 import { sendFile } from "../range.js";
 import { uploadRoute } from "../upload.js";
 
 const THUMB_RE = /^(0|[1-9]\d{0,5})\.jpg$/;
 const ACTIVE_IMPORT: ReadonlySet<Job["status"]> = new Set(["pending", "running", "blocked"]);
 
-/** Причина отказа импорта без путей (сообщение `MediaInvalidError` их содержит). */
-function importReason(e: MediaInvalidError): string {
-  const m = e.message;
-  if (/абсолютным/.test(m)) return "нужен абсолютный путь к видеофайлу";
-  if (/не найден/.test(m)) return "файл не найден";
-  if (/не обычный/.test(m)) return "это не обычный файл";
-  if (/расширение/.test(m)) return "расширение не видео (mov, mp4, m4v, mkv, webm)";
-  if (/хранилища/.test(m)) return "файл внутри хранилища Motion Studio — импорт оттуда запрещён";
-  if (/вне разрешённых/.test(m)) return "файл вне разрешённых каталогов импорта (media.importRoots в config.json)";
-  return "файл не годится для импорта";
-}
+/** Текст отказа импорта по коду причины — без путей (сообщение `MediaInvalidError` их содержит). */
+const IMPORT_REASON: Record<MediaInvalidReason, string> = {
+  not_absolute: "нужен абсолютный путь к видеофайлу",
+  not_found: "файл не найден",
+  not_file: "это не обычный файл",
+  bad_extension: "расширение не видео (mov, mp4, m4v, mkv, webm)",
+  in_storage: "файл внутри хранилища Motion Studio — импорт оттуда запрещён",
+  outside_roots: "файл вне разрешённых каталогов импорта (media.importRoots в config.json)",
+  invalid: "файл не годится для импорта",
+};
 
 export function mediaDto(db: Parameters<typeof media.get>[0], id: string): MediaDto | undefined {
   const asset = media.get(db, id);
@@ -76,12 +76,12 @@ export function mediaRoutes(app: ZApp, ctx: ApiContext): void {
     const projectId = req.params.id;
     const input = { projectId, method: "path" as const, path: req.body.path };
     const prev = replay(core.db, key, "media.import", () => input);
-    if (prev) return reply.status(200).send({ job: prev });
+    if (prev) return reply.status(200).send({ job: publicJob(prev, core.root) });
     importTarget(core.db, projectId);
     try {
       await resolveImportPath(req.body.path, core.config.media.importRoots, { forbidden: [core.root] });
     } catch (e) {
-      if (e instanceof MediaInvalidError) throw new ApiError(400, "media_invalid", importReason(e));
+      if (e instanceof MediaInvalidError) throw new ApiError(400, "media_invalid", IMPORT_REASON[e.reason], { reason: e.reason });
       throw e;
     }
     const out = tx(core.db, () => {
@@ -90,7 +90,7 @@ export function mediaRoutes(app: ZApp, ctx: ApiContext): void {
       importTarget(core.db, projectId);
       return { status: 202 as const, job: enqueue(core.db, { type: "media.import", projectId, input, idempotencyKey: key }).job };
     });
-    return reply.status(out.status).send({ job: out.job });
+    return reply.status(out.status).send({ job: publicJob(out.job, core.root) });
   });
 
   uploadRoute(app, ctx);

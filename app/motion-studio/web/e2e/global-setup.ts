@@ -49,7 +49,7 @@ export default async function globalSetup(): Promise<void> {
   const config = existsSync(configPath) ? (JSON.parse(readFileSync(configPath, "utf8")) as object) : {};
   // видеопроект (Task 29): импорт по пути — только из каталога фикстур (ffmpeg + say), ASR —
   // настоящий воркер ai-platform по умолчаниям config.ts
-  if (!existsSync(join(MEDIA_FIXTURES, "talk-ru-cfr.mp4"))) {
+  if (!["talk-ru-cfr.mp4", "Запись экрана 1.mp4"].every((f) => existsSync(join(MEDIA_FIXTURES, f)))) {
     execFileSync(process.execPath, [join(APP, "scripts/make-media-fixtures.mjs")], { cwd: APP, stdio: "ignore", timeout: 300_000 });
   }
   writeFileSync(configPath, JSON.stringify({ ...config, claudeBin: fakeClaude, media: { importRoots: [MEDIA_FIXTURES] } }, null, 2));

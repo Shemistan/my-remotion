@@ -1,10 +1,12 @@
 // Волна звука исходника (пары min/max Int8 на ведро 10 мс из `waveform.bin`) с отметками
-// вырезок (принятые — сплошные, предложенные — штриховка) и курсором; клик — переход.
+// вырезок (принятые — сплошные, предложенные — штриховка) и курсором; клик — переход. С
+// клавиатуры — ползунок: ←/→ ± 1 с (Shift — ± 5 с), Home/End (ревью Task 29 M6).
 import type { EditDecision } from "@ms/contracts";
 import { useQuery } from "@tanstack/react-query";
-import type { MouseEvent } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 import { urls } from "../../api/client.js";
 import { t } from "../../i18n/index.js";
+import { formatTimecode } from "../../video/use-timeline.js";
 
 const COLUMNS = 600;
 
@@ -48,8 +50,33 @@ export function Waveform({ mediaId, hasWaveform, durationUs, decisions, currentU
     const r = e.currentTarget.getBoundingClientRect();
     if (r.width > 0) onSeek(Math.round(((e.clientX - r.left) / r.width) * durationUs));
   };
+  const onKeyDown = (e: KeyboardEvent<SVGSVGElement>) => {
+    const step = e.shiftKey ? 5_000_000 : 1_000_000;
+    const to = e.key === "ArrowRight" || e.key === "ArrowUp" ? currentUs + step
+      : e.key === "ArrowLeft" || e.key === "ArrowDown" ? currentUs - step
+      : e.key === "Home" ? 0
+      : e.key === "End" ? durationUs
+      : undefined;
+    if (to === undefined) return;
+    e.preventDefault();
+    onSeek(Math.min(Math.max(0, to), durationUs));
+  };
   return (
-    <svg className="waveform" viewBox="0 0 1000 60" preserveAspectRatio="none" role="img" aria-label={t("video.waveform")} onClick={click} data-testid="waveform">
+    <svg
+      className="waveform"
+      viewBox="0 0 1000 60"
+      preserveAspectRatio="none"
+      role="slider"
+      tabIndex={0}
+      aria-label={t("video.waveform")}
+      aria-valuemin={0}
+      aria-valuemax={Math.round(durationUs / 1_000_000)}
+      aria-valuenow={Math.round(currentUs / 1_000_000)}
+      aria-valuetext={formatTimecode(currentUs)}
+      onClick={click}
+      onKeyDown={onKeyDown}
+      data-testid="waveform"
+    >
       {decisions.filter((d) => d.status !== "rejected").map((d) => (
         <rect key={d.id} className={`wf-cut ${d.status}`} x={x(d.source_start_us)} y={0} width={Math.max(1, x(d.source_end_us) - x(d.source_start_us))} height={60} />
       ))}

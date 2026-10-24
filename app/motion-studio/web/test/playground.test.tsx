@@ -104,6 +104,20 @@ it("смена базы и сразу правка темы (до эффекто
   expect(posts(c2, "/api/scenes/s1/render")[0]!.body).toEqual({ settings_patch: { style_preset: "light-clean" }, base_version_id: "v1" });
 });
 
+it("смена базы сбрасывает черновик: возврат к прежней базе показывает её настройки, а не старую правку", async () => {
+  routes();
+  renderQ(<Playground id="s1" version="v1" />);
+  const theme = () => screen.getByLabelText(t("playground.theme")) as HTMLSelectElement;
+  await waitFor(() => expect(theme().value).toBe("tech-neon"));
+  fireEvent.change(theme(), { target: { value: "light-clean" } });
+  expect(theme().value).toBe("light-clean");
+  fireEvent.click(screen.getByRole("radio", { name: t("base.open", { n: 1 }) }));
+  await waitFor(() => expect(theme().value).toBe("dark-premium"));
+  fireEvent.click(screen.getByRole("radio", { name: t("base.current", { n: 2 }) }));
+  await waitFor(() => expect(theme().value).toBe("tech-neon"));
+  expect((screen.getByRole("button", { name: t("playground.render") }) as HTMLButtonElement).disabled).toBe(true);
+});
+
 it("вкладка «Spec и данные» одной версии: spec, props, settings — JSON текстом; нечитаемые файлы помечены", async () => {
   routes();
   vi.unstubAllGlobals();

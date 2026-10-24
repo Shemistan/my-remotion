@@ -9,6 +9,7 @@ import * as projects from "../../db/repos/projects.js";
 import * as transcripts from "../../db/repos/transcripts.js";
 import { type ApiContext, IdParams, type ZApp } from "../context.js";
 import { ApiError, notFound } from "../errors.js";
+import { publicJob } from "../job-dto.js";
 import { projectApprovals } from "./approvals.js";
 import { previewReady } from "./edls.js";
 import { mediaDto } from "./media.js";
@@ -32,7 +33,7 @@ export function videoProjectRoutes(app: ZApp, { core }: ApiContext): void {
         ? { id: e.id, current_revision: e.current_revision, preview_ready: previewReady(db, core.root, project.id, e.id, e.current_revision) }
         : null,
       approvals: projectApprovals(db, project.id),
-      jobs: [...latest.values()],
+      jobs: [...latest.values()].map((j) => publicJob(j, core.root)),
     };
   });
 }

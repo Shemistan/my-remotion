@@ -507,6 +507,7 @@ export const ru = {
   "video.waveform": "Волна звука",
   "video.noWaveform": "Волны нет: у видео нет звука.",
   "video.thumbs": "Миниатюры",
+  "video.thumbAt": "Перейти к {tc}",
   "video.seconds": "{s} с",
 
   "media.import": "Импорт видео",

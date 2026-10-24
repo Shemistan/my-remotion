@@ -287,6 +287,7 @@ label.check { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
 .word.interpolated { border-bottom: 1px dashed var(--warn); }
 .word.removed { text-decoration: line-through; color: var(--muted); }
 .word.clipped { text-decoration: underline wavy var(--warn); }
+.word:focus-visible, .waveform:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .selection-bar { margin: 6px 0; }
 .cut-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 56vh; overflow: auto; }
 .cut-row { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }

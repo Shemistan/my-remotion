@@ -7,9 +7,15 @@ import { type RunRef, runTool } from "./ffmpeg.js";
 import { detectVfr } from "./vfr.js";
 
 /** Файл не годится как исходник (битый, не видео, чужой контейнер, путь вне корней). */
+/**
+ * Код причины `MediaInvalidError` (ревью Task 29 M3): API выбирает текст ответа по коду, а не
+ * по подстрокам сообщения (в нём пути). `invalid` — прочее (ffprobe, контейнер, подмена).
+ */
+export type MediaInvalidReason = "not_absolute" | "not_found" | "not_file" | "bad_extension" | "outside_roots" | "in_storage" | "invalid";
+
 export class MediaInvalidError extends Error {
   readonly code = "media_invalid";
-  constructor(message: string) {
+  constructor(message: string, readonly reason: MediaInvalidReason = "invalid") {
     super(`media_invalid: ${message}`);
     this.name = "MediaInvalidError";
   }

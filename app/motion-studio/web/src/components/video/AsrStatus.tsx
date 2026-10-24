@@ -11,13 +11,15 @@ export function AsrStatus({ mediaId, busy, onJob }: { mediaId: string; busy: boo
   const cap = useAsrCapability();
   const [language, setLanguage] = useState("ru");
   const [hotwords, setHotwords] = useState("");
-  const [key] = useState(newKey);
+  // ключ на попытку (только ASCII, ревью C1/I2): повтор после ответа — новая задача
+  const [key, setKey] = useState(newKey);
   const run = useMutation({
     mutationFn: () => {
       const list = hotwords.split(",").map((s) => s.trim()).filter(Boolean);
-      return api.transcribe(mediaId, { language, ...(list.length ? { hotwords: list } : {}) }, `${key}-${language}-${list.join("|")}`);
+      return api.transcribe(mediaId, { language, ...(list.length ? { hotwords: list } : {}) }, key);
     },
     onSuccess: (r) => onJob(r.job.id),
+    onSettled: () => setKey(newKey()),
   });
   const c = cap.data;
   return (

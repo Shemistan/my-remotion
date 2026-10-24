@@ -2,6 +2,7 @@
 // идемпотентность, один исходник на проект), карточка медиа, файлы производных только по id
 // (Range, без путей клиента), запуск ASR и capability без путей.
 import { mkdir, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import * as jobs from "../../src/db/repos/jobs.js";
@@ -37,10 +38,14 @@ it("POST /projects { kind: video } → видеопроект; без kind — p
 
 it("импорт по пути: вне корней → 400 media_invalid без путей; идемпотентность; повтор после импорта → 409 media_exists", async () => {
   const p = await newVideo();
-  for (const path of ["/etc/hosts", "relative.mp4", join(api.core.root, "studio.db"), join(importRoot, "нет.mp4")]) {
-    const r = await api.inj("POST", `/api/projects/${p}/media/import`, ok(`bad-${path}`), { path });
+  await writeFile(join(api.s.tmp, "outside.mp4"), "x");
+  const bad: [string, string][] = [
+    ["/etc/hosts", "bad_extension"], [join(api.s.tmp, "outside.mp4"), "outside_roots"], ["relative.mp4", "not_absolute"], [join(api.core.root, "studio.db"), "bad_extension"], [join(importRoot, "нет.mp4"), "not_found"],
+  ];
+  for (const [path, reason] of bad) {
+    const r = await api.inj("POST", `/api/projects/${p}/media/import`, ok(`bad-${reason}`), { path });
     expect(r.statusCode, path).toBe(400);
-    expect(r.json().error).toBe("media_invalid");
+    expect(r.json()).toMatchObject({ error: "media_invalid", reason });
     expect(JSON.stringify(r.json())).not.toContain(api.core.root);
     expect(JSON.stringify(r.json())).not.toContain(importRoot);
   }
@@ -105,4 +110,35 @@ it("POST /media/:id/transcribe → 202 asr.transcribe с Idempotency-Key; GET /a
   expect(cap.statusCode).toBe(200);
   expect(cap.json()).toMatchObject({ available: false, reason: "python_missing" });
   expect(JSON.stringify(cap.json())).not.toContain(api.s.tmp);
+});
+
+it("задачи наружу без абсолютных путей: media.import — только имя файла, сообщения ошибок — «хранилище» и «~»", async () => {
+  const p = await newVideo();
+  const a = await api.inj("POST", `/api/projects/${p}/media/import`, ok("leak"), { path: clip });
+  expect(a.statusCode).toBe(202);
+  expect(a.json().job.input).toMatchObject({ method: "path", path: "Мой ролик.mp4" });
+  const id = a.json().job.id as string;
+  const home = homedir();
+  jobs.update(api.core.db, id, {
+    status: "failed",
+    finished_at: new Date().toISOString(),
+    error: { code: "media_invalid", message: `не открылся ${api.core.root}/workspace/drafts/x.mp4 и ${home}/Movies/a.mov`, cmds: [`ffprobe ${clip}`] },
+  });
+  const bodies = [
+    (await api.inj("GET", "/api/jobs", getHeaders)).json(),
+    (await api.inj("GET", `/api/jobs/${id}`, getHeaders)).json().job,
+    (await api.inj("GET", `/api/projects/${p}/video`, getHeaders)).json().jobs,
+    (await api.inj("POST", `/api/projects/${p}/media/import`, ok("leak"), { path: clip })).json().job,
+  ];
+  for (const b of bodies) {
+    const text = JSON.stringify(b);
+    expect(text).not.toContain(api.core.root);
+    expect(text).not.toContain(importRoot);
+    expect(text).not.toContain(home);
+    expect(text).toContain("Мой ролик.mp4");
+  }
+  const j = (await api.inj("GET", `/api/jobs/${id}`, getHeaders)).json().job;
+  expect(j.error.message).toBe("не открылся хранилище/workspace/drafts/x.mp4 и ~/Movies/a.mov");
+  // в БД вход не изменён: повтор того же запроса — та же задача
+  expect((jobs.get(api.core.db, id)!.input as { path: string }).path).toBe(clip);
 });

@@ -18,6 +18,7 @@ import { planFromPatch } from "../../pipeline/playground-edit.js";
 import { versionHistoryDigest } from "../../scenes/history.js";
 import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "../context.js";
 import { ApiError, notFound } from "../errors.js";
+import { publicJob } from "../job-dto.js";
 
 /** Задача сцены, которую UI показывает как текущую: не завершённая (последняя по времени). */
 const ACTIVE: ReadonlySet<Job["status"]> = new Set(["pending", "running", "awaiting_input", "awaiting_approval", "blocked"]);
@@ -32,7 +33,7 @@ export function sceneRoutes(app: ZApp, { core }: ApiContext): void {
   app.get("/api/scenes/:id", { schema: { params: IdParams, response: { 200: SceneDetailDtoSchema } } }, async (req) => {
     const scene = sceneOr404(req.params.id);
     const active = jobs.list(core.db, { sceneId: scene.id }).filter((j) => ACTIVE.has(j.status));
-    return { scene, versions: versionHistoryDigest(core.db, core.root, scene.id), active_job: active.at(-1) ?? null };
+    return { scene, versions: versionHistoryDigest(core.db, core.root, scene.id), active_job: active.length ? publicJob(active.at(-1)!, core.root) : null };
   });
 
   app.post("/api/scenes/:id/restore", {

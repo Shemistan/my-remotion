@@ -2,6 +2,7 @@
 // Тестовые медиа Task 25 (импорт видео): ffmpeg + `say -v Milena` → `tmp/media-fixtures/`
 // репозитория. В git — только этот скрипт; файлы пересоздаются (`--force` — заново).
 //   talk-ru-cfr.mp4  1280×720, 30/1, testsrc2 + речь с паузами [[slnc 1500]], ≈ 20 с
+//   «Запись экрана 1.mp4»  копия cfr: кириллица и пробел в имени (UI-e2e импорта, ревью Task 29 C1)
 //   talk-ru-vfr.mov  части 25 и 30 fps, склейка concat-демуксером `-c copy`
 //   rotated.mov      копия cfr с `-display_rotation 90`
 //   no-audio.mp4     только видео
@@ -12,7 +13,7 @@
 // Печатает сводку ffprobe каждого файла. Без `say` речь заменяется тоном (отмечается в выводе).
 /* global process, URL, console */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -65,6 +66,8 @@ make("talk-ru-cfr.mp4", (out) => ff([
   "-c:a", "aac", "-b:a", "96k", "-ar", "48000", "-ac", "1",
   out,
 ]));
+
+make("Запись экрана 1.mp4", (out) => copyFileSync(p("talk-ru-cfr.mp4"), out));
 
 make("talk-ru-vfr.mov", (out) => {
   const parts = [["part-25.mov", 25, 0], ["part-30.mov", 30, 10]];

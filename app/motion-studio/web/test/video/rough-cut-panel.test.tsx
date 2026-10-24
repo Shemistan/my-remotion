@@ -25,6 +25,19 @@ it("«Утвердить (A)» недоступна при proposed, подск�
   const btn = screen.getByRole("button", { name: t("roughcut.approve") });
   expect((btn as HTMLButtonElement).disabled).toBe(true);
   expect(btn.getAttribute("title")).toBe(t("approval.a.proposedLeft", { n: 2 }));
+  // подсказка видна рядом с кнопкой и связана с ней (aria-describedby), не только в title
+  const hint = document.getElementById(btn.getAttribute("aria-describedby") ?? "")!;
+  expect(hint).toBeTruthy();
+  expect(hint.textContent).toBe(t("approval.a.proposedLeft", { n: 2 }));
+});
+
+it("нет proposed — подсказки нет, «Утвердить (A)» доступна", () => {
+  fakeFetch();
+  renderQ(<RoughCutPanel {...props({ edl: edlDto([dec("x", { status: "accepted" })]) })} />);
+  const btn = screen.getByRole("button", { name: t("roughcut.approve") });
+  expect((btn as HTMLButtonElement).disabled).toBe(false);
+  expect(btn.getAttribute("aria-describedby")).toBeNull();
+  expect(screen.queryByTestId("approve-hint")).toBeNull();
 });
 
 it("«Принять все ≥ 0,8» — set_status accepted только для proposed с confidence ≥ 0.8, от текущей ревизии", async () => {

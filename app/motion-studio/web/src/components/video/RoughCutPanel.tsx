@@ -4,7 +4,7 @@
 // 409 — сообщение и перезагрузка.
 import type { EditDecision, EdlDto, EdlOp, ProjectApprovalsDto } from "@ms/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ApiError, api, newKey } from "../../api/client.js";
 import { errorText, t } from "../../i18n/index.js";
 import { formatSecondsUs } from "../../video/use-timeline.js";
@@ -26,6 +26,7 @@ export interface RoughCutPanelProps {
 
 export function RoughCutPanel({ projectId, edl, approvals, onListen, onChanged, onPreviewJob }: RoughCutPanelProps) {
   const client = useQueryClient();
+  const hintId = useId();
   const [conflict, setConflict] = useState(false);
   const [previewKey] = useState(newKey);
   const decisions = [...edl.doc.decisions].sort((a, b) => a.source_start_us - b.source_start_us);
@@ -87,10 +88,12 @@ export function RoughCutPanel({ projectId, edl, approvals, onListen, onChanged, 
           className="primary"
           disabled={!isCurrent || approveBlocked || approve.isPending || approvals.A.state === "valid"}
           title={approveBlocked ? t("approval.a.proposedLeft", { n: proposed.length }) : undefined}
+          aria-describedby={approveBlocked ? hintId : undefined}
           onClick={() => approve.mutate()}
         >
           {t("roughcut.approve")}
         </button>
+        {approveBlocked ? <span id={hintId} className="hint small" data-testid="approve-hint">{t("approval.a.proposedLeft", { n: proposed.length })}</span> : null}
       </div>
       {decisions.length === 0 ? <p className="muted">{t("roughcut.empty")}</p> : (
         <ul className="cut-list">

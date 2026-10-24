@@ -113,6 +113,11 @@ export function Playground({ id, version }: { id: string; version?: string }) {
   const setDraft = (value: Settings) => {
     if (baseId) setEdit({ base: baseId, value });
   };
+  // смена базы сбрасывает черновик (ревью Task 29 M8): возврат к прежней базе — её настройки
+  const chooseBase = (open: boolean) => {
+    setEdit(null);
+    setFromOpen(open);
+  };
 
   const patch = useMemo(() => (settings && draft ? settingsPatch(settings, draft) : {}), [settings, draft]);
   const dirty = Object.keys(patch).length > 0;
@@ -156,11 +161,11 @@ export function Playground({ id, version }: { id: string; version?: string }) {
               <p className="hint">{t("base.hint", { open: num(openId) ?? "?", current: num(currentId) ?? "?" })}</p>
               <div role="radiogroup" aria-labelledby="edit-base-title" className="row wrap">
                 <label className="inline">
-                  <input type="radio" name="edit-base" checked={!fromOpen} onChange={() => setFromOpen(false)} />
+                  <input type="radio" name="edit-base" checked={!fromOpen} onChange={() => chooseBase(false)} />
                   <span>{t("base.current", { n: num(currentId) ?? "?" })}</span>
                 </label>
                 <label className="inline">
-                  <input type="radio" name="edit-base" checked={fromOpen} onChange={() => setFromOpen(true)} />
+                  <input type="radio" name="edit-base" checked={fromOpen} onChange={() => chooseBase(true)} />
                   <span>{t("base.open", { n: num(openId) ?? "?" })}</span>
                 </label>
               </div>

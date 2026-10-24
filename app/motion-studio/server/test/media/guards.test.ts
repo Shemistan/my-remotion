@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { assertOutsideSource, resolveImportFile, resolveImportPath } from "../../src/media/guards.js";
 import { copyOriginal } from "../../src/media/import.js";
+import type { MediaInvalidError } from "../../src/media/probe.js";
 import { sha256File } from "../../src/scenes/hash.js";
 import { REPO_TMP } from "../db/helpers.js";
 
@@ -43,6 +44,22 @@ describe("resolveImportPath", () => {
     await mkdir(`${tmpRoot}-evil`, { recursive: true });
     await writeFile(`${tmpRoot}-evil/a.mp4`, "x");
     await expect(resolveImportPath(`${tmpRoot}-evil/a.mp4`, [tmpRoot])).rejects.toThrow(/media_invalid/);
+  });
+
+  it("код причины отказа (`reason`) — без разбора текста сообщения", async () => {
+    const reason = (p: string, o?: { forbidden: string[] }) => resolveImportPath(p, [tmpRoot], o).then(() => "ok", (e: MediaInvalidError) => e.reason);
+    expect(await reason("video.mp4")).toBe("not_absolute");
+    expect(await reason(join(tmpRoot, "нет.mp4"))).toBe("not_found");
+    await mkdir(join(tmpRoot, "d2.mp4"), { recursive: true });
+    expect(await reason(join(tmpRoot, "d2.mp4"))).toBe("not_file");
+    await writeFile(join(tmpRoot, "n2.txt"), "x");
+    expect(await reason(join(tmpRoot, "n2.txt"))).toBe("bad_extension");
+    await mkdir(`${tmpRoot}-out`, { recursive: true });
+    await writeFile(`${tmpRoot}-out/a.mp4`, "x");
+    expect(await reason(`${tmpRoot}-out/a.mp4`)).toBe("outside_roots");
+    await mkdir(join(tmpRoot, "store"), { recursive: true });
+    await writeFile(join(tmpRoot, "store", "a.mp4"), "x");
+    expect(await reason(join(tmpRoot, "store", "a.mp4"), { forbidden: [join(tmpRoot, "store")] })).toBe("in_storage");
   });
 
   it("файл с пробелами и кириллицей, симлинк внутри корня → realpath", async () => {

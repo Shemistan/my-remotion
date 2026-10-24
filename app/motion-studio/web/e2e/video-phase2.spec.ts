@@ -1,9 +1,10 @@
 // Video Workspace Phase 2 (Task 29): настоящий сервер на tmp-хранилище, реальные ffmpeg и
-// ASR-воркер ai-platform, без LLM. Новый видеопроект → импорт `talk-ru-cfr.mp4` по пути →
-// распознавание → правка слова (r2, r1 доступна) → предложение монтажа без агента → принять /
+// ASR-воркер ai-platform, без LLM. Новый видеопроект → импорт «Запись экрана 1.mp4» (копия
+// `talk-ru-cfr.mp4`: кириллица и пробел в имени, ревью C1) по пути → распознавание с подсказками
+// на кириллице → правка слова (r2, r1 доступна) → предложение монтажа без агента → принять /
 // восстановить → принять всё → превью → «После монтажа» играет → Approval A → `kill -9` сервера и
 // старт → всё на месте, A валиден → правка статуса вырезки → A «устарело». Скриншоты —
-// docs/evidence/phase-2/ui/.
+// docs/evidence/phase-2/ui/. Отдельный тест — загрузка того же файла через выбор файла.
 import { spawn } from "node:child_process";
 import { openSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -11,6 +12,8 @@ import { type Locator, type Page, expect, test } from "@playwright/test";
 import { APP, EVIDENCE_VIDEO, MEDIA_FIXTURES, PORT, STATE_FILE, shot, state } from "./helpers.js";
 
 const JOB_TIMEOUT = 180_000;
+/** Копия `talk-ru-cfr.mp4` с кириллицей и пробелом в имени (`make-media-fixtures.mjs`). */
+const CYRILLIC = "Запись экрана 1.mp4";
 const snap = (page: Page, name: string) => shot(page, name, EVIDENCE_VIDEO);
 
 const alive = (pid: number) => {
@@ -63,7 +66,7 @@ test("Video Workspace: импорт → ASR → правка → черново�
   await page.getByRole("button", { name: "Импортировать" }).click();
   await expect(page.locator(".media-import .error")).toContainText("Файл не годится для импорта");
 
-  await page.getByLabel("Путь к файлу на этом Mac").fill(join(MEDIA_FIXTURES, "talk-ru-cfr.mp4"));
+  await page.getByLabel("Путь к файлу на этом Mac").fill(join(MEDIA_FIXTURES, CYRILLIC));
   await page.getByRole("button", { name: "Импортировать" }).click();
   await jobDone(page, "Импорт видео");
   await expect(page.getByTestId("media-info")).toContainText("кадр/с", { timeout: 30_000 });
@@ -72,6 +75,7 @@ test("Video Workspace: импорт → ASR → правка → черново�
   await expect(page.locator(".thumb img").first()).toBeVisible();
   await snap(page, "02-media-imported");
 
+  await page.getByLabel("Подсказки (имена, термины — через запятую)").fill("выручка, гипотеза, инвестиции");
   await page.getByRole("button", { name: "Распознать речь", exact: true }).click();
   await jobDone(page, "Распознавание речи");
   await tab(page, "Транскрипт");
@@ -211,4 +215,17 @@ test("Video Workspace: импорт → ASR → правка → черново�
   await expect(page.getByTestId("approval-A")).toContainText("устарело — монтаж изменился после утверждения");
   await expect(page.getByRole("button", { name: "Собрать превью" })).toBeEnabled();
   await snap(page, "10-A-stale");
+});
+
+test("загрузка файла с кириллицей и пробелами в имени: прогресс, импорт, данные медиа", async ({ page }) => {
+  test.setTimeout(300_000);
+  await page.goto("/");
+  await page.getByLabel("Название проекта").fill(`Загрузка e2e ${Date.now()}`);
+  await page.getByRole("button", { name: "Новый видеопроект" }).click();
+  await expect(page.getByLabel("Путь к файлу на этом Mac")).toBeVisible();
+  await page.locator(".media-import input[type=file]").setInputFiles(join(MEDIA_FIXTURES, CYRILLIC));
+  await jobDone(page, "Импорт видео");
+  await expect(page.locator(".media-import .error")).toHaveCount(0);
+  await expect(page.getByTestId("media-info")).toContainText(CYRILLIC, { timeout: 30_000 });
+  await expect(page.getByTestId("media-info")).toContainText("кадр/с");
 });

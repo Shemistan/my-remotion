@@ -1,7 +1,8 @@
 // Загрузки видео через браузер (Task 29, ревью Task 25 M4): тело запроса пишется в
 // `workspace/uploads/<upl_id>/upload.<ext>` (имя на диске — серверное), оттуда `media.import`
 // копирует оригинал как при импорте по пути. Каталог загрузки удаляется после `completed` или
-// `cancelled` импорта; при старте — уборка загрузок без живой задачи.
+// `cancelled` импорта; при старте — уборка загрузок без живой задачи и загрузок задач `failed`
+// старше 7 дней (`sweepUploads`).
 import { existsSync } from "node:fs";
 import { lstat, readdir, realpath, rm } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
@@ -63,16 +64,26 @@ export async function removeUpload(root: string, uploadPath: string): Promise<vo
   await rm(dir, { recursive: true, force: true }).catch(() => undefined);
 }
 
+/** Сколько хранится загрузка задачи `failed` (для повтора): 7 дней (ревью Task 29 M2). */
+export const FAILED_UPLOAD_MAX_AGE_MS = 7 * 86_400_000;
+
+const LIVE: ReadonlySet<string> = new Set(["pending", "running", "blocked", "awaiting_input", "awaiting_approval"]);
+
 /**
  * Уборка при старте: каталог загрузки остаётся, только если на него ссылается задача
- * `media.import`, которую ещё можно выполнить или повторить (pending, running, blocked, failed);
- * сироты (обрыв до создания задачи), завершённые и отменённые — удаляются. Список удалённых.
+ * `media.import`, которую ещё можно выполнить (pending, running, blocked) или повторить
+ * (failed, завершилась не раньше `failedMaxAgeMs` назад, по умолчанию 7 дней). Сироты (обрыв
+ * до создания задачи), завершённые, отменённые и старые failed — удаляются (повтор такой
+ * задачи упадёт с «загруженный файл не найден» — файл загружают заново). Список удалённых.
  */
-export async function sweepUploads(db: Db, root: string): Promise<string[]> {
+export async function sweepUploads(db: Db, root: string, o: { failedMaxAgeMs?: number; now?: number } = {}): Promise<string[]> {
   const dir = join(root, UPLOADS_REL);
   if (!existsSync(dir)) return [];
+  const maxAge = o.failedMaxAgeMs ?? FAILED_UPLOAD_MAX_AGE_MS;
+  const now = o.now ?? Date.now();
+  const retryable = (finished: string | null, created: string) => now - Date.parse(finished ?? created) < maxAge;
   const keep = new Set<string>();
-  for (const j of jobs.list(db).filter((x) => x.type === "media.import" && ["pending", "running", "blocked", "failed"].includes(x.status))) {
+  for (const j of jobs.list(db).filter((x) => x.type === "media.import" && (LIVE.has(x.status) || (x.status === "failed" && retryable(x.finished_at, x.created_at))))) {
     const p = (j.input as { uploadPath?: unknown } | null)?.uploadPath;
     if (typeof p === "string") keep.add(basename(dirname(p)));
   }

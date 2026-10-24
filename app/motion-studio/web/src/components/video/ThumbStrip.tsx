@@ -1,8 +1,9 @@
 // Лента миниатюр исходника (кадр раз в `every_us`) с отметками принятых вырезок; клик —
-// переход к кадру миниатюры.
+// переход к кадру миниатюры; подпись кнопки — время кадра (ревью Task 29 M6).
 import type { EditDecision } from "@ms/contracts";
 import { urls } from "../../api/client.js";
 import { t } from "../../i18n/index.js";
+import { formatTimecode } from "../../video/use-timeline.js";
 
 const MAX_THUMBS = 24;
 
@@ -24,7 +25,7 @@ export function ThumbStrip({ mediaId, count, everyUs, durationUs, decisions, onS
     <div className="thumb-strip" aria-label={t("video.thumbs")}>
       <div className="thumbs">
         {shown.map((n) => (
-          <button key={n} type="button" className="thumb" onClick={() => onSeek(n * everyUs)} title={String(n)}>
+          <button key={n} type="button" className="thumb" onClick={() => onSeek(n * everyUs)} aria-label={t("video.thumbAt", { tc: formatTimecode(n * everyUs) })} title={formatTimecode(n * everyUs)}>
             <img src={urls.thumb(mediaId, n)} alt="" loading="lazy" />
           </button>
         ))}

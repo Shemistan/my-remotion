@@ -8,6 +8,7 @@ import type { JobEventDto } from "@ms/contracts";
 import type { Core } from "../boot.js";
 import * as jobEvents from "../db/repos/job-events.js";
 import { ApiError } from "./errors.js";
+import { publicEvent } from "./job-dto.js";
 
 export const SSE_HEARTBEAT_MS = 15_000;
 /** Байт в буфере сокета, после которых клиент считается зависшим. */
@@ -43,7 +44,7 @@ export function sseStreams(core: Core, heartbeatMs: number) {
       res.write(chunk);
       if (res.writableLength > MAX_BUFFERED) close();
     };
-    const send = (ev: JobEventDto) => write(`id: ${ev.id}\nevent: job\ndata: ${JSON.stringify(ev)}\n\n`);
+    const send = (ev: JobEventDto) => write(`id: ${ev.id}\nevent: job\ndata: ${JSON.stringify(publicEvent(ev, core.root))}\n\n`);
     write(": connected\n\n");
     let unsubscribe: (() => void) | undefined;
     const timer = setInterval(() => write(`: hb ${Date.now()}\n\n`), heartbeatMs);

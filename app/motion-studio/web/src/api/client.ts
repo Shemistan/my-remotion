@@ -78,6 +78,11 @@ export const storageStatus = (() => {
   };
 })();
 
+/**
+ * Ключ идемпотентности — только ASCII (UUID): заголовок fetch/XHR не принимает кириллицу, сервер —
+ * длиннее 200 символов. Из пути, имени файла и других пользовательских данных ключ не строится:
+ * один ключ на одну попытку (ревью Task 29 C1).
+ */
 export const newKey = (): string => crypto.randomUUID();
 
 interface RequestOpts {

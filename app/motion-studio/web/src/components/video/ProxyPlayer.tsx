@@ -84,18 +84,6 @@ export function ProxyPlayer({ ref, mediaId, durationUs, fps, width, height, edl,
     onTime?.(s);
   }, [preview, tl, durationUs, mode, onTime]);
 
-  useImperativeHandle(ref, () => ({
-    seekSource,
-    playRange(r) {
-      setMode("source");
-      setRange(r);
-      const v = video.current;
-      if (!v) return;
-      v.currentTime = r.start_us / 1_000_000;
-      void v.play()?.catch(() => setPlaying(false));
-    },
-  }), [seekSource]);
-
   const toggle = () => {
     const v = video.current;
     if (!v) return;
@@ -103,20 +91,32 @@ export function ProxyPlayer({ ref, mediaId, durationUs, fps, width, height, edl,
     else v.pause();
   };
 
-  // смена режима: то же место в source — когда новый src готов (или сразу, если src тот же)
-  const pending = useRef<number | null>(null);
+  // смена режима и «Прослушать фрагмент»: то же место в source — когда новый src готов (или
+  // сразу, если src тот же); фрагмент после перехода ещё и запускается
+  const pending = useRef<{ us: number; play: boolean } | null>(null);
   const applyPending = () => {
     const v = video.current;
     if (pending.current === null || !v || v.readyState < 1 || !v.currentSrc.endsWith(src)) return;
-    const s = pending.current;
+    const p = pending.current;
     pending.current = null;
-    seekSource(s);
+    seekSource(p.us);
+    if (p.play) void v.play()?.catch(() => setPlaying(false));
   };
   useEffect(applyPending);
 
+  useImperativeHandle(ref, () => ({
+    seekSource,
+    playRange(r) {
+      video.current?.pause();
+      pending.current = { us: r.start_us, play: true };
+      setRange(r);
+      setMode("source");
+    },
+  }), [seekSource]);
+
   const switchMode = (m: PlayerMode) => {
     const v = video.current;
-    pending.current = v ? sourceOf(v.currentTime) : 0;
+    pending.current = { us: v ? sourceOf(v.currentTime) : 0, play: false };
     v?.pause();
     setRange(null);
     setMode(m);

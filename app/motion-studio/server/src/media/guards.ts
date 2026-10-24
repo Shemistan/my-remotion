@@ -43,16 +43,16 @@ export async function resolveImportPath(p: string, roots: string[], o: ResolveIm
  * спецфайл, чужое расширение, путь вне корней или в хранилище — `MediaInvalidError`.
  */
 export async function resolveImportFile(p: string, roots: string[], o: ResolveImportOptions = {}): Promise<ImportFile> {
-  if (!isAbsolute(p)) throw new MediaInvalidError(`путь импорта должен быть абсолютным путём к файлу: ${JSON.stringify(p)}`);
+  if (!isAbsolute(p)) throw new MediaInvalidError(`путь импорта должен быть абсолютным путём к файлу: ${JSON.stringify(p)}`, "not_absolute");
   let real: string;
   try {
     real = await realpath(p);
   } catch (e) {
-    throw new MediaInvalidError(`файл не найден: ${p} (${(e as NodeJS.ErrnoException).code ?? (e as Error).message})`);
+    throw new MediaInvalidError(`файл не найден: ${p} (${(e as NodeJS.ErrnoException).code ?? (e as Error).message})`, "not_found");
   }
   const st = await lstat(real);
-  if (!st.isFile()) throw new MediaInvalidError(`не обычный файл: ${p}`);
-  if (!videoExt(real)) throw new MediaInvalidError(`расширение не видео (${VIDEO_EXTENSIONS.join(", ")}): ${p}`);
+  if (!st.isFile()) throw new MediaInvalidError(`не обычный файл: ${p}`, "not_file");
+  if (!videoExt(real)) throw new MediaInvalidError(`расширение не видео (${VIDEO_EXTENSIONS.join(", ")}): ${p}`, "bad_extension");
   const realRoots: string[] = [];
   for (const r of roots) {
     try {
@@ -62,11 +62,11 @@ export async function resolveImportFile(p: string, roots: string[], o: ResolveIm
     }
   }
   if (!realRoots.some((r) => isInside(real, r))) {
-    throw new MediaInvalidError(`файл вне разрешённых каталогов импорта (media.importRoots: ${roots.join(", ")}): ${p}`);
+    throw new MediaInvalidError(`файл вне разрешённых каталогов импорта (media.importRoots: ${roots.join(", ")}): ${p}`, "outside_roots");
   }
   for (const f of o.forbidden ?? []) {
     const rf = await realpath(f).catch(() => resolve(f));
-    if (isInside(real, rf)) throw new MediaInvalidError(`файл внутри хранилища Motion Studio — импорт оттуда запрещён: ${p}`);
+    if (isInside(real, rf)) throw new MediaInvalidError(`файл внутри хранилища Motion Studio — импорт оттуда запрещён: ${p}`, "in_storage");
   }
   return { path: real, dev: st.dev, ino: st.ino, size: st.size };
 }

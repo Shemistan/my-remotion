@@ -8,13 +8,23 @@ import { errorText, t } from "../../i18n/index.js";
 export function MediaImport({ projectId, onJob }: { projectId: string; onJob: (jobId: string) => void }) {
   const id = useId();
   const [path, setPath] = useState("");
-  const [key] = useState(newKey);
+  // ключ на попытку (только ASCII, ревью C1): двойное нажатие — та же задача, следующая попытка
+  // после ответа (успех или ошибка) — новый ключ
+  const [pathKey, setPathKey] = useState(newKey);
+  const [uploadKey, setUploadKey] = useState(newKey);
   const [progress, setProgress] = useState<{ sent: number; total: number } | null>(null);
-  const byPath = useMutation({ mutationFn: () => api.importMedia(projectId, path.trim(), `${key}-path-${path.trim()}`), onSuccess: (r) => onJob(r.job.id) });
-  const upload = useMutation({
-    mutationFn: (file: File) => uploadMedia(projectId, file, `${key}-upload-${file.name}-${file.size}`, (sent, total) => setProgress({ sent, total })),
+  const byPath = useMutation({
+    mutationFn: () => api.importMedia(projectId, path.trim(), pathKey),
     onSuccess: (r) => onJob(r.job.id),
-    onSettled: () => setProgress(null),
+    onSettled: () => setPathKey(newKey()),
+  });
+  const upload = useMutation({
+    mutationFn: (file: File) => uploadMedia(projectId, file, uploadKey, (sent, total) => setProgress({ sent, total })),
+    onSuccess: (r) => onJob(r.job.id),
+    onSettled: () => {
+      setProgress(null);
+      setUploadKey(newKey());
+    },
   });
   const drop = (e: DragEvent) => {
     e.preventDefault();

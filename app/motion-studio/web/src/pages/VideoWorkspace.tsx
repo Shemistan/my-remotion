@@ -43,10 +43,8 @@ export function VideoWorkspace({ id, scenes = [] }: { id: string; scenes?: Pick<
   };
   const propose = useMutation({
     mutationFn: () => api.proposeRoughCut(id, useAgent, proposeKey),
-    onSuccess: () => {
-      setProposeKey(newKey());
-      refresh();
-    },
+    onSuccess: refresh,
+    onSettled: () => setProposeKey(newKey()),
   });
   const cut = useMutation({
     mutationFn: (v: { start: string; end: string }) => api.saveEdl(edl.data!.id, edl.data!.current_revision, [{ op: "add_cut", start_word_id: v.start, end_word_id: v.end }]),
