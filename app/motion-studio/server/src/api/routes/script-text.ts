@@ -1,12 +1,17 @@
 // Текст и план сценария (спека §7, трек A): PUT/GET текста, `script.plan`, правки плана.
 // GET собирает состояние (`scriptState`, S1); PUT — новая ревизия текста (`saveScriptText`, S2);
-// план и правки плана — пока схемы тел и ответов, 501.
+// POST plan — задача `script.plan` (S3); правки плана — пока схемы тел и ответов, 501.
 import { CreatedJobDtoSchema, PlanOpsBodySchema, PutScriptBodySchema, ScriptDtoSchema, ScriptPlanBodySchema, ScriptPlanDtoSchema, ScriptStateDtoSchema } from "@ms/contracts";
 import { ArtifactStore } from "../../artifacts/store.js";
+import * as projects from "../../db/repos/projects.js";
+import { scripts } from "../../db/repos/script.js";
+import { tx } from "../../db/tx.js";
+import { enqueue } from "../../jobs/queue.js";
 import { scriptState } from "../../script/state.js";
 import { saveScriptText, scriptReading } from "../../script/text.js";
-import { type ApiContext, IdParams, type ZApp, idempotencyKey } from "../context.js";
-import { ApiError } from "../errors.js";
+import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "../context.js";
+import { ApiError, notFound } from "../errors.js";
+import { publicJob } from "../job-dto.js";
 
 const notImplemented = (what: string): ApiError => new ApiError(501, "not_implemented", `${what}: ещё не реализовано`);
 
@@ -23,11 +28,27 @@ export function scriptTextRoutes(app: ZApp, { core }: ApiContext): void {
     schema: { params: IdParams, response: { 200: ScriptStateDtoSchema } },
   }, async (req) => scriptState(core.db, core.root, req.params.id));
 
+  // план сценария: каждый запуск — полное перестроение (новый plan_id); без текста — 409 no_script
   app.post("/api/projects/:id/script/plan", {
     schema: { params: IdParams, body: ScriptPlanBodySchema, response: { 200: CreatedJobDtoSchema, 202: CreatedJobDtoSchema } },
-  }, async (req) => {
-    idempotencyKey(req);
-    throw notImplemented("план сценария");
+  }, async (req, reply) => {
+    const key = idempotencyKey(req);
+    const projectId = req.params.id;
+    const input = {
+      projectId,
+      ...(req.body.useAgent === undefined ? {} : { useAgent: req.body.useAgent }),
+      ...(req.body.reading === undefined ? {} : { reading: req.body.reading }),
+    };
+    const out = tx(core.db, () => {
+      const prev = replay(core.db, key, "script.plan", () => input);
+      if (prev) return { status: 200 as const, job: prev };
+      const project = projects.get(core.db, projectId);
+      if (!project) throw notFound(`проект ${projectId}`);
+      if (project.kind !== "script") throw new ApiError(409, "not_script_project", "проект не сценарный");
+      if (scripts.byProject(core.db, projectId)?.current_revision == null) throw new ApiError(409, "no_script", "сначала сохраните текст сценария");
+      return { status: 202 as const, job: enqueue(core.db, { type: "script.plan", projectId, input, idempotencyKey: key }).job };
+    });
+    return reply.status(out.status).send({ job: publicJob(out.job, core.root) });
   });
 
   app.post("/api/projects/:id/script/plan/ops", {
