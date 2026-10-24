@@ -5,8 +5,12 @@ import { t, tk } from "../../i18n/index.js";
 
 type State = ProjectApprovalsDto["A"];
 
-const label = (s: State) =>
-  s.state === "stale" ? tk(`approval.stale.${s.reason ?? "subject_changed"}`, t("approval.state.stale")) : t(`approval.state.${s.state}`);
+/** Причина «устарело»: у B своя формулировка `subject_changed` (изменился план, а не монтаж). */
+const label = (kind: "A" | "B", s: State) => {
+  if (s.state !== "stale") return t(`approval.state.${s.state}`);
+  const reason = s.reason ?? "subject_changed";
+  return tk(`approval.stale.${kind}.${reason}`, tk(`approval.stale.${reason}`, t("approval.state.stale")));
+};
 
 export function ApprovalBar({ approvals, onRevoke }: { approvals: ProjectApprovalsDto; onRevoke?: (id: string) => void }) {
   return (
@@ -16,7 +20,7 @@ export function ApprovalBar({ approvals, onRevoke }: { approvals: ProjectApprova
         return (
           <span key={k} className="row" data-testid={`approval-${k}`} data-state={s.state}>
             <span className="muted">{t(`approval.${k}`)}</span>
-            <span className={`badge approval-${s.state}`}>{label(s)}</span>
+            <span className={`badge approval-${s.state}`}>{label(k, s)}</span>
             {onRevoke && s.approval && s.state !== "missing" ? (
               <button type="button" className="link-button small" onClick={() => onRevoke(s.approval!.id)}>{t("approval.revoke")}</button>
             ) : null}

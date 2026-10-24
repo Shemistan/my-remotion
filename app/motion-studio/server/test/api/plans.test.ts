@@ -148,5 +148,9 @@ describe("ревизии плана и Approval B", () => {
     const changed = [{ item_id: "sp_001", change: "anchor_cut" }, { item_id: "sp_002", change: "remapped" }];
     jobsRepo.update(api.core.db, r.json().job.id, { status: "completed", output_refs: { plan_id: "pln_1", revision: 1, changed } });
     expect((await api.inj("GET", "/api/plans/pln_1", getHeaders)).json().recheck).toEqual({ changed });
+    // повторная перепроверка без изменений не затирает итог
+    const again = await api.inj("POST", "/api/plans/pln_1/recheck", { ...okHeaders, ...k("rc-3") }, {});
+    jobsRepo.update(api.core.db, again.json().job.id, { status: "completed", output_refs: { no_change: true, plan_id: "pln_1", revision: 1, changed: [] } });
+    expect((await api.inj("GET", "/api/plans/pln_1", getHeaders)).json().recheck).toEqual({ changed });
   });
 });

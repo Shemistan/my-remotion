@@ -22,14 +22,17 @@ import { publicJob } from "../job-dto.js";
 import { RevisionQuery, checkOps, EDIT_BODY_LIMIT } from "./transcripts.js";
 import { requireApprovalA, semanticFresh } from "./semantic.js";
 
-interface PlanRefs { plan_id?: unknown; revision?: unknown; changed?: unknown }
+interface PlanRefs { plan_id?: unknown; revision?: unknown; changed?: unknown; no_change?: unknown }
 
-/** Итоги завершённых задач проекта типа `type`, относящиеся к плану `planId`. */
+/**
+ * Итоги завершённых задач проекта типа `type`, опубликовавших ревизию плана `planId` (перепроверка
+ * без изменений — `no_change` — ревизию не публикует и итог прошлой перепроверки не затирает).
+ */
 function planJobRefs(db: Db, projectId: string, type: "plan.visual" | "plan.recheck", planId: string): (PlanRefs & { revision: number })[] {
   return jobs.list(db, { projectId })
     .filter((j) => j.type === type && j.status === "completed")
     .map((j) => (j.output_refs ?? {}) as PlanRefs)
-    .filter((o): o is PlanRefs & { revision: number } => o.plan_id === planId && typeof o.revision === "number");
+    .filter((o): o is PlanRefs & { revision: number } => o.plan_id === planId && typeof o.revision === "number" && o.no_change !== true);
 }
 
 /**

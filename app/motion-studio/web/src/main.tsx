@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { shouldRetry } from "./api/client.js";
 import { App } from "./App.js";
 import "./theme.css";
+import "./fonts.css";
 
 const client = new QueryClient({
   defaultOptions: {

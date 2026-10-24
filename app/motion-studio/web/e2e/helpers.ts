@@ -1,6 +1,6 @@
 // Общее для Playwright UI: пути, состояние засева, скриншоты в evidence, запросы к API.
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { APIRequestContext, Page } from "@playwright/test";
 
@@ -13,6 +13,19 @@ export const EVIDENCE = join(REPO, "docs/evidence/phase-1/ui");
 export const EVIDENCE_VIDEO = join(REPO, "docs/evidence/phase-2/ui");
 /** Медиа-фикстуры (`scripts/make-media-fixtures.mjs`): корень импорта по пути в UI-e2e. */
 export const MEDIA_FIXTURES = join(REPO, "tmp/media-fixtures");
+/** Скриншоты анализа и визуального плана (Task 33): в репозиторий — уменьшенные до 480 px (V4). */
+export const EVIDENCE_PHASE3 = join(REPO, "docs/evidence/phase-3/ui");
+
+/**
+ * Ролик с лицом автора (`MS_TEST_TALKING_HEAD`, Task 33): абсолютный путь или путь от корня
+ * репозитория; нет переменной или файла — `undefined`. Оригинал только читается (импорт копирует).
+ */
+export function talkingHead(): string | undefined {
+  const v = process.env.MS_TEST_TALKING_HEAD;
+  if (!v) return undefined;
+  const p = isAbsolute(v) ? v : join(REPO, v);
+  return existsSync(p) ? p : undefined;
+}
 export const PORT = 8790;
 
 export interface SeededScene {

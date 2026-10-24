@@ -1,9 +1,10 @@
 // Плеер видеопроекта со звуком: «Исходник» — прокси; «После монтажа» — превью ревизии EDL, а
 // пока его нет — прокси с пропуском вырезок (`cutAt` → переход на конец вырезки). Наружу —
 // время в source (µs) для подсветки слова и курсоров; `seekSource` и `playRange` (прослушать
-// фрагмент вокруг вырезки). Время плеера округляется и ограничивается до перевода (m7).
+// фрагмент вокруг вырезки — в исходнике; цитату сцены плана — «после монтажа», Task 33). Время
+// плеера округляется и ограничивается до перевода (m7). Поверх кадра — `overlay` (зоны, Task 33).
 import type { EdlDto, Fps } from "@ms/contracts";
-import { type Ref, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { type ReactNode, type Ref, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { urls } from "../../api/client.js";
 import { t } from "../../i18n/index.js";
 import { cutAt, formatTimecode, frameOf, playerUs, toEdited, toSource } from "../../video/use-timeline.js";
@@ -12,7 +13,8 @@ export type PlayerMode = "source" | "edited";
 
 export interface ProxyPlayerHandle {
   seekSource(us: number): void;
-  playRange(range: { start_us: number; end_us: number }): void;
+  /** Проиграть фрагмент (границы — source µs) в режиме `mode` (по умолчанию «Исходник»). */
+  playRange(range: { start_us: number; end_us: number }, mode?: PlayerMode): void;
 }
 
 export interface ProxyPlayerProps {
@@ -24,9 +26,11 @@ export interface ProxyPlayerProps {
   height: number;
   edl?: EdlDto | undefined;
   onTime?: (sourceUs: number) => void;
+  /** Слой поверх кадра (внутри области плеера). */
+  overlay?: ReactNode;
 }
 
-export function ProxyPlayer({ ref, mediaId, durationUs, fps, width, height, edl, onTime }: ProxyPlayerProps) {
+export function ProxyPlayer({ ref, mediaId, durationUs, fps, width, height, edl, onTime, overlay }: ProxyPlayerProps) {
   const video = useRef<HTMLVideoElement>(null);
   const [mode, setMode] = useState<PlayerMode>("source");
   const [playing, setPlaying] = useState(false);
@@ -106,13 +110,13 @@ export function ProxyPlayer({ ref, mediaId, durationUs, fps, width, height, edl,
 
   useImperativeHandle(ref, () => ({
     seekSource,
-    playRange(r) {
+    playRange(r, m = "source") {
       video.current?.pause();
       pending.current = { us: r.start_us, play: true };
       setRange(r);
-      setMode("source");
+      setMode(m === "edited" && !tl ? "source" : m);
     },
-  }), [seekSource]);
+  }), [seekSource, tl]);
 
   const switchMode = (m: PlayerMode) => {
     const v = video.current;
@@ -154,6 +158,7 @@ export function ProxyPlayer({ ref, mediaId, durationUs, fps, width, height, edl,
           onPause={() => { setPlaying(false); tick(); }}
           onEnded={() => setPlaying(false)}
         />
+        {overlay}
       </div>
       <div className="player-controls">
         <button type="button" className="primary" onClick={toggle} aria-label={playing ? t("player.pause") : t("player.play")}>

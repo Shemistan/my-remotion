@@ -6,8 +6,8 @@
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { connect } from "node:net";
-import { join } from "node:path";
-import { APP, type E2EState, MEDIA_FIXTURES, PORT, RUN_DIR, STATE_FILE } from "./helpers.js";
+import { dirname, join } from "node:path";
+import { APP, type E2EState, MEDIA_FIXTURES, PORT, RUN_DIR, STATE_FILE, talkingHead } from "./helpers.js";
 
 const TSX = join(APP, "node_modules/.bin/tsx");
 
@@ -52,7 +52,10 @@ export default async function globalSetup(): Promise<void> {
   if (!["talk-ru-cfr.mp4", "Запись экрана 1.mp4"].every((f) => existsSync(join(MEDIA_FIXTURES, f)))) {
     execFileSync(process.execPath, [join(APP, "scripts/make-media-fixtures.mjs")], { cwd: APP, stdio: "ignore", timeout: 300_000 });
   }
-  writeFileSync(configPath, JSON.stringify({ ...config, claudeBin: fakeClaude, media: { importRoots: [MEDIA_FIXTURES] } }, null, 2));
+  // Task 33: ролик с лицом (`MS_TEST_TALKING_HEAD`) импортируется по пути — его каталог тоже корень импорта
+  const head = talkingHead();
+  const importRoots = head ? [MEDIA_FIXTURES, dirname(head)] : [MEDIA_FIXTURES];
+  writeFileSync(configPath, JSON.stringify({ ...config, claudeBin: fakeClaude, media: { importRoots } }, null, 2));
   const out = execFileSync(TSX, ["web/e2e/seed-cli.ts"], { cwd: APP, env, encoding: "utf8", timeout: 600_000 });
   const seeded = JSON.parse(out.trim().split("\n").at(-1)!) as Omit<E2EState, "root" | "serverPid" | "serverLog">;
 

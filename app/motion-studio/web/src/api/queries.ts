@@ -55,3 +55,12 @@ export const useTranscriptRevisions = (id: string | undefined) =>
 export const useEdl = (id: string | undefined, revision?: number) =>
   useQuery({ queryKey: ["edl", id, revision ?? "current"], queryFn: () => api.edl(id!, revision), enabled: Boolean(id) });
 export const useAsrCapability = () => useQuery({ queryKey: ["asrCapability"], queryFn: api.asrCapability, staleTime: 60_000 });
+
+// анализ и визуальный план (Task 33): документы иммутабельны по id; план и стиль — по текущей ревизии
+export const useFootage = (id: string | undefined) =>
+  useQuery({ queryKey: ["footage", id], queryFn: () => api.footage(id!), enabled: Boolean(id), staleTime: Infinity });
+export const useSemantic = (id: string | undefined) =>
+  useQuery({ queryKey: ["semantic", id], queryFn: () => api.semantic(id!), enabled: Boolean(id), staleTime: Infinity });
+export const usePlan = (id: string | undefined) => useQuery({ queryKey: ["plan", id], queryFn: () => api.plan(id!), enabled: Boolean(id) });
+export const useProjectStyle = (projectId: string, enabled: boolean) =>
+  useQuery({ queryKey: ["style", projectId], queryFn: () => api.projectStyle(projectId), enabled });

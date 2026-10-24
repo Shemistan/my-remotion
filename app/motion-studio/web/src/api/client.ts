@@ -8,6 +8,12 @@ import type {
   AsrCapabilityDto,
   EdlDto,
   EdlOp,
+  FootageDto,
+  PlanDto,
+  PlanOp,
+  ProjectStyleBase,
+  ProjectStyleDto,
+  SemanticDto,
   MediaDto,
   ProjectApprovalsDto,
   RevisionEntry,
@@ -197,6 +203,23 @@ export const api = {
   approvals: (projectId: string) => request<ProjectApprovalsDto>("GET", `/api/projects/${enc(projectId)}/approvals`),
   approve: (projectId: string, kind: "A" | "B") => request<Approval>("POST", `/api/projects/${enc(projectId)}/approvals`, { body: { kind } }),
   revokeApproval: (id: string) => request<Approval>("POST", `/api/approvals/${enc(id)}/revoke`, { body: {} }),
+
+  // анализ и визуальный план (Task 33)
+  analyzeFootage: (projectId: string, useAgent: boolean, key: string = newKey()) =>
+    request<{ job: Job }>("POST", `/api/projects/${enc(projectId)}/footage/analyze`, { body: { useAgent }, idempotency: key }),
+  footage: (id: string) => request<FootageDto>("GET", `/api/footage/${enc(id)}`),
+  analyzeSemantic: (projectId: string, useAgent: boolean, key: string = newKey()) =>
+    request<{ job: Job }>("POST", `/api/projects/${enc(projectId)}/semantic/analyze`, { body: { useAgent }, idempotency: key }),
+  semantic: (id: string) => request<SemanticDto>("GET", `/api/semantic/${enc(id)}`),
+  generatePlan: (projectId: string, useAgent: boolean, key: string = newKey()) =>
+    request<{ job: Job }>("POST", `/api/projects/${enc(projectId)}/plan/generate`, { body: { useAgent }, idempotency: key }),
+  plan: (id: string, revision?: number) => request<PlanDto>("GET", `/api/plans/${enc(id)}${revision ? `?revision=${revision}` : ""}`),
+  savePlan: (id: string, baseRevision: number, ops: PlanOp[]) =>
+    request<PlanDto>("POST", `/api/plans/${enc(id)}/revisions`, { body: { base_revision: baseRevision, ops } }),
+  recheckPlan: (id: string, key: string = newKey()) => request<{ job: Job }>("POST", `/api/plans/${enc(id)}/recheck`, { body: {}, idempotency: key }),
+  projectStyle: (projectId: string) => request<ProjectStyleDto>("GET", `/api/projects/${enc(projectId)}/style`),
+  saveProjectStyle: (projectId: string, base: ProjectStyleBase, baseRevision?: number) =>
+    request<ProjectStyleDto>("PUT", `/api/projects/${enc(projectId)}/style`, { body: { base, ...(baseRevision ? { base_revision: baseRevision } : {}) } }),
 };
 
 /**
@@ -241,4 +264,5 @@ export const urls = {
   waveform: (mediaId: string) => `/api/media/${enc(mediaId)}/waveform.bin`,
   thumb: (mediaId: string, n: number) => `/api/media/${enc(mediaId)}/thumbs/${n}.jpg`,
   edlPreview: (edlId: string, revision: number) => `/api/edls/${enc(edlId)}/revisions/${revision}/preview.mp4`,
+  footageFrame: (footageId: string, us: number) => `/api/footage/${enc(footageId)}/frames/${us}.png`,
 };

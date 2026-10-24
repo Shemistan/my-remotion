@@ -1,6 +1,7 @@
 // Транскрипт по сегментам: слово — спан (клик → переход, Shift+клик — выделение диапазона для
 // «Вырезать»); правка текста сегмента → `replace_span` от текущей ревизии (новая ревизия на
 // сервере, таймкоды сохраняются). 409 — сообщение и перезагрузка. Старая ревизия — только чтение.
+// Во вкладке «План» (Task 33) выделение слов — «Добавить сцену» (`onAddScene`), даже только для чтения.
 // Клавиатура: в порядке Tab одно слово (roving tabindex), ←/→ и Home/End — по словам, Enter/Space —
 // переход.
 import type { TranscriptDto, TranscriptWord, WordMapping } from "@ms/contracts";
@@ -21,11 +22,13 @@ export interface TranscriptEditorProps {
   readOnly?: boolean;
   onSeek: (sourceUs: number) => void;
   onCut?: (startWordId: string, endWordId: string) => void;
+  /** Сцена плана по выделенным словам (Task 33). */
+  onAddScene?: (startWordId: string, endWordId: string) => void;
   onSaved?: (t: TranscriptDto) => void;
   onConflict?: () => void;
 }
 
-export function TranscriptEditor({ transcript, wordMap, currentUs, readOnly, onSeek, onCut, onSaved, onConflict }: TranscriptEditorProps) {
+export function TranscriptEditor({ transcript, wordMap, currentUs, readOnly, onSeek, onCut, onAddScene, onSaved, onConflict }: TranscriptEditorProps) {
   const { doc } = transcript;
   const byId = useMemo(() => new Map(doc.words.map((w, i) => [w.id, { w, i }])), [doc.words]);
   const current = wordAt(doc.words, currentUs);
@@ -82,11 +85,18 @@ export function TranscriptEditor({ transcript, wordMap, currentUs, readOnly, onS
       <p className="hint">{t("transcript.selectHint")} {t("transcript.noConfidence")}</p>
       {conflict ? <p className="error" role="alert">{t("transcript.conflict")}</p> : null}
       {save.isError && !conflict ? <p className="error">{errorText(save.error)}</p> : null}
-      {sel && onCut && !readOnly ? (
+      {sel && ((onCut && !readOnly) || onAddScene) ? (
         <div className="row selection-bar">
-          <button type="button" className="primary" onClick={() => { onCut(doc.words[sel.a]!.id, doc.words[sel.b]!.id); setSel(null); }}>
-            {t("transcript.cutSelection", { n: selCount })}
-          </button>
+          {onCut && !readOnly ? (
+            <button type="button" className="primary" onClick={() => { onCut(doc.words[sel.a]!.id, doc.words[sel.b]!.id); setSel(null); }}>
+              {t("transcript.cutSelection", { n: selCount })}
+            </button>
+          ) : null}
+          {onAddScene ? (
+            <button type="button" className="primary" onClick={() => { onAddScene(doc.words[sel.a]!.id, doc.words[sel.b]!.id); setSel(null); }}>
+              {t("plan.addScene", { n: selCount })}
+            </button>
+          ) : null}
           <button type="button" onClick={() => setSel(null)}>{t("transcript.clearSelection")}</button>
         </div>
       ) : null}

@@ -27,6 +27,9 @@ export function invalidateForEvent(client: Invalidator, ev: EventSignal): void {
   client.invalidateQueries({ queryKey: ["transcript"] });
   client.invalidateQueries({ queryKey: ["transcriptRevisions"] });
   client.invalidateQueries({ queryKey: ["edl"] });
+  // анализ и план (Task 33): задачи публикуют анализ видеоряда, разметку, план и стиль
+  client.invalidateQueries({ queryKey: ["plan"] });
+  client.invalidateQueries({ queryKey: ["style"] });
 }
 
 /** Подписка на `/api/events` на всё время жизни приложения. */
