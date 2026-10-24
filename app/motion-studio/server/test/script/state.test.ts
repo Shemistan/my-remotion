@@ -1,7 +1,7 @@
 // S1 «сценарий → моушн»: состояние сценарного проекта (scriptState) и отпечаток сцены плана.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { DEFAULT_READING, type ScriptPlanRevisionDoc, type ScriptSceneItem } from "@ms/contracts";
+import { DEFAULT_READING, type Job, type ScriptPlanRevisionDoc, type ScriptSceneItem } from "@ms/contracts";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { artifactPaths } from "../../src/artifacts/paths.js";
 import { openDb, type Db } from "../../src/db/open.js";
@@ -12,7 +12,7 @@ import { scriptPlans, scriptScenes } from "../../src/db/repos/script.js";
 import { enqueue } from "../../src/jobs/queue.js";
 import { itemFingerprint } from "../../src/script/fingerprint.js";
 import { SCRIPT_PLAN_FILE } from "../../src/script/read.js";
-import { scriptState } from "../../src/script/state.js";
+import { sceneStatus, scriptState } from "../../src/script/state.js";
 import { makeStore, removeStore, type TestStore } from "../db/helpers.js";
 
 const SHA = "a".repeat(64);
@@ -64,11 +64,25 @@ it("scriptState: план, сцены по форматам, статус и у�
   scriptScenes.setJob(db, "scn_2", j.id);
 
   const st = scriptState(db, s.root, "p1");
-  expect(st.plan).toEqual(doc);
+  expect(st.plan).toEqual({ plan_id: "pln_1", doc, approval: { state: "missing" } });
   expect(st.plan_outdated).toBe(false); // текста нет
   expect(st.approval).toEqual({ state: "missing" });
   expect(st.scenes.map((x) => [x.item_id, x.aspect, x.status, x.stale, x.job?.id ?? null])).toEqual([
-    ["ss_001", "16:9", "pending", false, null],
+    ["ss_001", "16:9", "none", false, null],
     ["ss_002", "9:16", "pending", true, j.id],
   ]);
+});
+
+it("sceneStatus: нет задачи — none, ждёт ввода — running", () => {
+  const job = (status: Job["status"]) => ({ status }) as Job;
+  expect(sceneStatus(null, null)).toBe("none");
+  expect(sceneStatus(job("awaiting_input"), null)).toBe("running");
+  expect(sceneStatus(job("running"), null)).toBe("running");
+  expect(sceneStatus(job("pending"), null)).toBe("pending");
+  expect(sceneStatus(job("completed"), "ver_1")).toBe("ready");
+  expect(sceneStatus(job("completed"), null)).toBe("failed");
+});
+
+it("scriptState без плана: plan null", () => {
+  expect(scriptState(db, s.root, "p1").plan).toBeNull();
 });

@@ -9,6 +9,7 @@ import { DEFAULT_READING } from "@ms/contracts";
 import { canonicalHash } from "@ms/contracts/canonical";
 import { scriptBatches, scriptPackages, scriptPlans, scriptRevisions, scriptScenes, scripts } from "../../src/db/repos/script.js";
 import { enqueue } from "../../src/jobs/queue.js";
+import { currentSubject } from "../../src/approvals/subjects.js";
 import { makeStore, removeStore, type TestStore } from "./helpers.js";
 
 const SHA = "a".repeat(64);
@@ -85,4 +86,28 @@ it("scriptPlans: ревизия сценарного плана в visual_plan_r
   expect(plans.get(db, "pln_2")!.current_revision).toBe(1);
   expect(plans.scenePlans(db, "pln_2", 1)).toEqual([]);
   expect(() => scriptPlans.insertRevision(db, { doc: { ...doc, revision: 2, items: [{} as never] }, rel_path: "x", sha256: SHA })).toThrow();
+  // Approval B: субъект — текущая ревизия сценарного плана.
+  expect(currentSubject(db, "p1", "B")).toEqual({ ref: "plan:pln_2@r1", hash: canonicalHash(doc) });
+});
+
+it("scriptPlans.insertRevision: rel_path только на script-plan.json", () => {
+  scriptPlans.create(db, { id: "pln_3", project_id: "p1" });
+  const doc = {
+    schema_version: 1 as const, plan_id: "pln_3", revision: 1,
+    inputs: { script: { id: "scr_1", revision: 1, hash: SHA }, style: { id: "sty_1", revision: 1, hash: SHA } },
+    fps: { num: 30, den: 1 }, aspect: "16:9" as const, reading: DEFAULT_READING,
+    analysis: { chapters: [], anchors: [], entities: [], numbers: [], causal: [], disputed: [] },
+    items: [], skipped: [], issues: [], diversity: { techniques: {}, adjacent_repeats: 0, kinetic_share: 0 },
+  };
+  expect(() => scriptPlans.insertRevision(db, { doc, rel_path: "workspace/projects/p1/plan/pln_3/r1/plan.json", sha256: SHA })).toThrow(/script-plan\.json/);
+  expect(plans.revision(db, "pln_3", 1)).toBeUndefined();
+});
+
+it("scriptScenes.listByPlan: по числовой части id сцены плана", () => {
+  for (const id of ["scn_1", "scn_2", "scn_3"]) scenes.create(db, { id, project_id: "p1", title: id });
+  const row = { project_id: "p1", plan_id: "pln_1", aspect: "16:9" as const, batch_id: null, job_id: null, item_fingerprint: "f" };
+  scriptScenes.insert(db, { ...row, item_id: "ss_1000", scene_id: "scn_1" });
+  scriptScenes.insert(db, { ...row, item_id: "ss_999", scene_id: "scn_2" });
+  scriptScenes.insert(db, { ...row, item_id: "ss_002", scene_id: "scn_3" });
+  expect(scriptScenes.listByPlan(db, "pln_1", "16:9").map((x) => x.item_id)).toEqual(["ss_002", "ss_999", "ss_1000"]);
 });

@@ -217,9 +217,17 @@ export const ScriptDirectorSceneSchema = z.object({
 }).strict();
 export type ScriptDirectorScene = z.infer<typeof ScriptDirectorSceneSchema>;
 
-/** Ответ Script Director: смысловая разметка, сцены и стиль (как у Visual Planner). */
+/**
+ * Ответ Script Director: смысловая разметка, сцены и стиль (как у Visual Planner). Р24: из
+ * разметки обязательны `chapters` и `numbers`; `anchors`, `entities`, `causal`, `disputed` —
+ * пустые по умолчанию.
+ */
 export const ScriptDirectorOutputSchema = z.object({
   ...semanticFields,
+  anchors: semanticFields.anchors.default([]),
+  entities: semanticFields.entities.default([]),
+  causal: semanticFields.causal.default([]),
+  disputed: semanticFields.disputed.default([]),
   scenes: z.array(ScriptDirectorSceneSchema),
   style: z.object({
     preset: StylePresetSchema,

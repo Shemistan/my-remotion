@@ -18,7 +18,7 @@ import type { StepRef } from "./checkpoints.js";
 import { type AbortKind, type GenerateDeps, type GenerateResult, patternTexts, readKitApi, runGeneration } from "./generate.js";
 import { selectCandidates } from "./kb-select.js";
 import { assistantMessage, recordRun } from "./record.js";
-import { type CheckpointOpts, conceptStep, directorStep, errText, scenePropsStyle, sceneStyle } from "./steps.js";
+import { type CheckpointOpts, conceptStep, directorStep, errText, sceneStyle, startPropsStyle } from "./steps.js";
 
 export const PlaygroundGenerateInputSchema = z.object({
   sceneId: z.string().min(1),
@@ -115,7 +115,7 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
           const candidates = selectCandidates(deps.kb, prompt, concept, 12, { allowRestricted }).map((h) => h.view);
           rc.log(`KB: ${candidates.length} кандидатов по ключам Concept`);
           const texts = await patternTexts(deps.kb, concept.patterns, rc.warnings);
-          const style = sceneStyle({ ...scenePropsStyle(settings), ...(concept.style_hint.palette_overrides ? { palette_overrides: concept.style_hint.palette_overrides } : {}) }, settings);
+          const style = sceneStyle(startPropsStyle(settings, concept.style_hint.palette_overrides), settings);
           ctx.progress(0.15, "director");
           const dr = await directorStep(rc, { prompt, settings, concept, candidates, patternTexts: texts, kitApi: await readKitApi(), style, previous }, cp);
           if (!dr.ok) return { kind: "failed", stage: dr.stage, message: dr.message };

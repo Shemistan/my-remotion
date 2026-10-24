@@ -45,7 +45,7 @@ import { type KnowledgeSource, SKILLS_REL, filterSelection, knowledgeRefs, prepa
 import { selectQaFrames } from "./qa-frames.js";
 import { cameraBrief } from "../qa/visual-agent.js";
 import { renderEnv } from "./render-env.js";
-import { type AgentRunRecord, RunCtx, clip, directorStep, errText, isStorageError, scenePropsStyle, sceneStyle, stageWall, withSceneSeed } from "./steps.js";
+import { type AgentRunRecord, RunCtx, clip, directorStep, errText, isStorageError, scenePropsStyle, sceneStyle, stageWall, startPropsStyle, withSceneSeed } from "./steps.js";
 import { PROMPTS_DIR } from "../agents/prompts.js";
 
 /** Словарь этапов неудачи — `@ms/contracts` (`FailureStageSchema`). */
@@ -303,7 +303,7 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
   if (refs.length === 0) rc.warnings.push("knowledge-refs пуст: Director не выбрал ни одной допустимой записи KB");
   const selection = { items: filtered.selection.items.filter((i) => refs.some((r) => r.kb_id === i.kb_id)) };
   log(`Director: «${spec.title}» (${spec.composition?.archetype ?? "—"}), ${spec.beats.length} битов, KB: ${refs.map((r) => `${r.kb_id} (${r.strategy})`).join(", ") || "—"}`);
-  const startStyle = { ...scenePropsStyle(settings), ...(spec.palette_overrides ? { palette_overrides: spec.palette_overrides } : {}) };
+  const startStyle = startPropsStyle(settings, spec.palette_overrides);
   const frames = selectQaFrames(spec, settings.duration_frames, sceneStyle(startStyle, settings));
   if (signal?.aborted) return failed(aborted().stage, "отменено до draft");
 

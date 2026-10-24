@@ -72,7 +72,14 @@ export const ExportManifestSchema = z.object({
   tempo_check: TempoCheckSchema.optional(),
   /** Предупреждения экспорта: время вне договора кадров, MP4 прозрачной версии и т. п. */
   warnings: z.array(z.string()).optional(),
-  /** `overlay: true` (сценарий, спека §9): доля непрозрачных пикселей на кадре проверки. */
-  overlay: z.object({ coverage: z.number().min(0).max(1), frame: z.number().int().nonnegative() }).strict().optional(),
+  /**
+   * `overlay: true` (сценарий, спека §9): доля непрозрачных пикселей (`coverage`) и доля
+   * полупрозрачной «дымки» (`haze`) по кадрам проверки `frames`.
+   */
+  overlay: z.object({
+    coverage: z.number().min(0).max(1),
+    haze: z.number().min(0).max(1),
+    frames: z.array(z.number().int().nonnegative()),
+  }).strict().optional(),
 }).strict();
 export type ExportManifest = z.infer<typeof ExportManifestSchema>;

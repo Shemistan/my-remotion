@@ -14,6 +14,7 @@ import {
   type EditPlan,
   type FailureStage,
   type MotionSpec,
+  KIT_FONTS,
   PATTERN_SLUGS,
   type SceneStructure,
   type StructureRule,
@@ -634,8 +635,8 @@ export function engineerLimits(base: { timeoutMs: number; maxBudgetUsd: number }
 
 // --- Стиль сцены ---
 
-/** Шрифты motion-kit (render/src/motion-kit/fonts): другой шрифт сцена не загрузит. */
-const KIT_FONTS = new Set(["Inter", "Manrope", "JetBrains Mono"]);
+/** Шрифты motion-kit (`KIT_FONTS` контрактов): другой шрифт сцена не загрузит. */
+const KIT_FONT_SET = new Set<string>(KIT_FONTS);
 
 /**
  * `props.style` сцены из настроек: единственный источник пресета, интенсивности, полей
@@ -649,7 +650,7 @@ export function scenePropsStyle(settings: Settings): ScenePropsStyle {
     depth: 1,
     transparent: settings.transparent_export,
     safe_area: { x: settings.safe_area.x, y: settings.safe_area.y },
-    ...(font && KIT_FONTS.has(font) ? { font } : {}),
+    ...(font && KIT_FONT_SET.has(font) ? { font } : {}),
     ...styleLockOf(settings),
   };
 }
@@ -662,8 +663,16 @@ export function styleLockOf(settings: Settings): Partial<Pick<ScenePropsStyle, "
   return {
     ...(lock.palette_overrides ? { palette_overrides: lock.palette_overrides } : {}),
     ...(lock.depth !== undefined ? { depth: lock.depth } : {}),
-    ...(font && KIT_FONTS.has(font) ? { font } : {}),
+    ...(font && KIT_FONT_SET.has(font) ? { font } : {}),
   };
+}
+
+/**
+ * Стартовый props.style сцены до Engineer (generate, playground generate/edit): настройки,
+ * поверх — палитра агента (Concept, spec Director или базы правки), последним — `style_lock`.
+ */
+export function startPropsStyle(settings: Settings, palette: ScenePropsStyle["palette_overrides"] | undefined): ScenePropsStyle {
+  return { ...scenePropsStyle(settings), ...(palette ? { palette_overrides: palette } : {}), ...styleLockOf(settings) };
 }
 
 /** Разрешённый стиль сцены (`style.json`): props.style под fps настроек. */

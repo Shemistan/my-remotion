@@ -83,12 +83,19 @@ export const scriptRevisions = {
  * План сценария в таблицах visual_plans / visual_plan_revisions (без scene_plans и
  * visual_opportunities — их столбцы для видео): `plans.insertRevision` сценарный документ не примет.
  */
+/** Числовая часть id (`ss_012` → 12); без цифр — бесконечность (в конец). */
+const idNum = (id: string): number => {
+  const m = /(\d+)$/.exec(id);
+  return m ? Number(m[1]) : Number.POSITIVE_INFINITY;
+};
+
 export const scriptPlans = {
   create(db: Db, p: { id: string; project_id: string }): plans.PlanRow {
     return plans.create(db, p);
   },
   /** Индекс опубликованной ревизии: `hash = canonicalHash(doc)` (субъект Approval B), `current_revision` вперёд. */
   insertRevision(db: Db, r: { doc: ScriptPlanRevisionDoc; rel_path: string; sha256: string }): plans.PlanRevisionRow {
+    if (!r.rel_path.endsWith("/script-plan.json")) throw new Error(`db: ревизия плана сценария — только файл script-plan.json, не ${r.rel_path}`);
     const doc = ScriptPlanRevisionDocSchema.parse(r.doc);
     db.prepare("INSERT INTO visual_plan_revisions (plan_id, revision, parent_revision, rel_path, sha256, hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
       .run(doc.plan_id, doc.revision, doc.parent_revision ?? null, r.rel_path, r.sha256, canonicalHash(doc), nowIso());
@@ -122,9 +129,10 @@ export const scriptScenes = {
   get(db: Db, planId: string, itemId: string, aspect: Aspect): ScriptSceneRow | undefined {
     return db.prepare("SELECT * FROM script_scenes WHERE plan_id = ? AND item_id = ? AND aspect = ?").get(planId, itemId, aspect) as ScriptSceneRow | undefined;
   },
-  /** Сцены плана одного формата по id сцены плана (`ss_NNN` — порядок создания, не текста). */
+  /** Сцены плана одного формата по числовой части id сцены плана (`ss_NNN` — порядок создания, не текста). */
   listByPlan(db: Db, planId: string, aspect: Aspect): ScriptSceneRow[] {
-    return db.prepare("SELECT * FROM script_scenes WHERE plan_id = ? AND aspect = ? ORDER BY item_id").all(planId, aspect) as ScriptSceneRow[];
+    const rows = db.prepare("SELECT * FROM script_scenes WHERE plan_id = ? AND aspect = ?").all(planId, aspect) as ScriptSceneRow[];
+    return rows.sort((a, b) => idNum(a.item_id) - idNum(b.item_id) || a.item_id.localeCompare(b.item_id));
   },
   /** Последняя задача генерации сцены (и отпечаток сцены плана, по которому она поставлена); нет строки — ошибка. */
   setJob(db: Db, sceneId: string, jobId: string, itemFingerprint?: string): void {

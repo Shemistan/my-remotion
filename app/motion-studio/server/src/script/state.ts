@@ -2,7 +2,7 @@
 // стиль, Approval B, сцены по форматам; пакеты генерации, пакеты экспорта и предупреждения
 // разнообразия дают поставщики в файлах треков (`batchesForState`, `packagesForState`,
 // `warningsForState`) — треки меняют их тела, не этот файл.
-import type { Aspect, Job, ScriptBatchItemStatus, ScriptSceneDto, ScriptStateDto } from "@ms/contracts";
+import type { Aspect, Job, ScriptApproval, ScriptItemStatus, ScriptSceneDto, ScriptStateDto } from "@ms/contracts";
 import { publicJob } from "../api/job-dto.js";
 import { ApiError, notFound } from "../api/errors.js";
 import { currentProjectStyle } from "../analysis/project-style.js";
@@ -21,15 +21,15 @@ import { currentScript, currentScriptPlan } from "./read.js";
 
 const ASPECTS: Aspect[] = ["16:9", "9:16"];
 
-/** Статус сцены плана по последней задаче генерации и наличию версии. */
-export function sceneStatus(job: Job | null, versionId: string | null): ScriptBatchItemStatus {
-  if (!job) return versionId ? "ready" : "pending";
+/** Статус сцены плана по последней задаче генерации и наличию версии; задачи не было — `none`. */
+export function sceneStatus(job: Job | null, versionId: string | null): ScriptItemStatus {
+  if (!job) return versionId ? "ready" : "none";
   switch (job.status) {
     case "pending":
-    case "awaiting_input":
     case "awaiting_approval":
       return "pending";
     case "running":
+    case "awaiting_input":
       return "running";
     case "completed":
       return versionId ? "ready" : "failed";
@@ -44,11 +44,11 @@ export function scriptState(db: Db, root: string, projectId: string): ScriptStat
   if (project.kind !== "script") throw new ApiError(409, "not_script_project", "проект не сценарный");
   const script = currentScript(db, root, projectId) ?? null;
   const cur = currentScriptPlan(db, root, projectId);
-  const plan = cur?.doc ?? null;
+  const doc = cur?.doc ?? null;
   const style = currentProjectStyle(db, root, projectId) ?? null;
   const peek = peekApprovalState(db, projectId, "B", cur ? currentSubject(db, projectId, "B") : undefined);
-  const warnings = warningsForState(db, root, projectId, plan);
-  const items = new Map((plan?.items ?? []).map((i) => [i.id, i]));
+  const warnings = warningsForState(db, root, projectId, doc);
+  const items = new Map((doc?.items ?? []).map((i) => [i.id, i]));
   const styleRef = style ? { id: style.style_id, revision: style.revision } : null;
 
   const sceneDtos: ScriptSceneDto[] = cur
@@ -70,17 +70,18 @@ export function scriptState(db: Db, root: string, projectId: string): ScriptStat
     }))
     : [];
 
+  const approval: ScriptApproval = {
+    state: peek.state,
+    ...(peek.approval ? { ref: peek.approval.subject_ref } : {}),
+    ...(peek.reason ? { reason: peek.reason } : {}),
+  };
   return {
     project,
     script,
-    plan,
-    plan_outdated: !!(script && plan && plan.inputs.script.revision !== script.revision),
+    plan: cur && doc ? { plan_id: cur.planId, doc, approval } : null,
+    plan_outdated: !!(script && doc && doc.inputs.script.revision !== script.revision),
     style,
-    approval: {
-      state: peek.state,
-      ...(peek.approval ? { ref: peek.approval.subject_ref } : {}),
-      ...(peek.reason ? { reason: peek.reason } : {}),
-    },
+    approval,
     scenes: sceneDtos,
     batches: batchesForState(db, root, projectId),
     packages: packagesForState(db, root, projectId),

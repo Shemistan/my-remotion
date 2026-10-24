@@ -5,7 +5,9 @@ import { ProjectDtoSchema } from "./api.js";
 import { ApprovalStaleReasonSchema } from "./approvals.js";
 import { JobSchema } from "./jobs.js";
 import { Sha256Schema } from "./manifest.js";
+import { PlanIssueSchema } from "./plan.js";
 import { ProjectStyleDocSchema } from "./project-style.js";
+import { QAIssueSchema } from "./qa.js";
 import {
   AspectSchema,
   ReadingSettingsSchema,
@@ -78,9 +80,15 @@ export type PackageBody = z.infer<typeof PackageBodySchema>;
 export const CheatsheetQuerySchema = z.object({ format: z.enum(["md", "csv", "txt"]).default("md") }).strict();
 export type CheatsheetQuery = z.infer<typeof CheatsheetQuerySchema>;
 
-/** Статус сцены плана в пакете генерации. */
-export const ScriptBatchItemStatusSchema = z.enum(["pending", "running", "ready", "failed", "cancelled", "blocked"]);
-export type ScriptBatchItemStatus = z.infer<typeof ScriptBatchItemStatusSchema>;
+/**
+ * Статус сцены плана (карточка сцены и пакет генерации): `none` — задачи генерации ещё не было;
+ * `running` — задача идёт или ждёт ввода; `pending` — в очереди или ждёт утверждения.
+ */
+export const ScriptItemStatusSchema = z.enum(["none", "pending", "running", "ready", "failed", "cancelled", "blocked"]);
+export type ScriptItemStatus = z.infer<typeof ScriptItemStatusSchema>;
+/** Прежнее имя (S1) — алиас `ScriptItemStatusSchema`. */
+export const ScriptBatchItemStatusSchema = ScriptItemStatusSchema;
+export type ScriptBatchItemStatus = ScriptItemStatus;
 
 /** Пакет генерации (`script_batches`) и его сцены. */
 export const ScriptBatchDtoSchema = z.object({
@@ -92,7 +100,7 @@ export const ScriptBatchDtoSchema = z.object({
     scene_id: Id,
     job: JobSchema.nullable(),
     version_id: Id.nullable(),
-    status: ScriptBatchItemStatusSchema,
+    status: ScriptItemStatusSchema,
   }).strict()),
   counts: z.object({ total: Count, pending: Count, running: Count, ready: Count, failed: Count, cancelled: Count, blocked: Count }).strict(),
   /** Сцены, не попавшие в пакет (9:16 без готовой 16:9-версии и т. п.), с причиной. */
@@ -109,11 +117,11 @@ export const ScriptSceneDtoSchema = z.object({
   version_id: Id.nullable(),
   /** Последняя задача генерации сцены. */
   job: JobSchema.nullable(),
-  status: ScriptBatchItemStatusSchema,
-  /** Коды warn-замечаний QA текущей версии. */
-  qa_warnings: z.array(z.string()),
-  /** Предупреждения разнообразия пакета (`packageDiversity`). */
-  warnings: z.array(z.string()),
+  status: ScriptItemStatusSchema,
+  /** Замечания QA уровня warning текущей версии. */
+  qa_warnings: z.array(QAIssueSchema),
+  /** Предупреждения разнообразия пакета (`packageDiversity` → `warningsForState`). */
+  warnings: z.array(PlanIssueSchema),
   /** Отпечаток сцены плана изменился после генерации: версия не по текущему плану. */
   stale: z.boolean(),
 }).strict();
@@ -145,8 +153,9 @@ export type ScriptPackageDto = z.infer<typeof ScriptPackageDtoSchema>;
 export const ScriptStateDtoSchema = z.object({
   project: ProjectDtoSchema,
   script: ScriptRevisionDocSchema.nullable(),
-  plan: ScriptPlanRevisionDocSchema.nullable(),
-  /** Текст новее плана (`plan.inputs.script.revision ≠ script.revision`). */
+  /** Текущая ревизия плана с id и Approval B; плана нет — null. */
+  plan: ScriptPlanDtoSchema.nullable(),
+  /** Текст новее плана (`plan.doc.inputs.script.revision ≠ script.revision`). */
   plan_outdated: z.boolean(),
   style: ProjectStyleDocSchema.nullable(),
   approval: ScriptApprovalSchema,

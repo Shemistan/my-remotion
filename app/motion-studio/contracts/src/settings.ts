@@ -8,10 +8,15 @@ export const IntensitySchema = z.enum(["calm", "balanced", "energetic"]);
 const Half = z.number().min(0).lt(0.5);
 /** Безопасная зона — доли кадра по x и y (поле с каждой стороны). */
 export const SafeAreaSchema = z.object({ x: Half, y: Half }).strict();
+/** Шрифты motion-kit (render/src/motion-kit/fonts): другой шрифт сцена не загрузит. */
+export const KIT_FONTS = ["Inter", "Manrope", "JetBrains Mono"] as const;
+export const KitFontSchema = z.enum(KIT_FONTS);
+
 /**
  * Стиль проекта, зафиксированный для сцены (сценарий, спека §6.2): палитра, глубина и шрифт
  * берутся отсюда и важнее того, что предложили агенты (`scenePropsStyle`, `checkProps`).
- * Палитра — форма `PaletteOverrides` (motion-spec.ts импортирует этот файл — без цикла).
+ * Палитра — форма `PaletteOverrides` (motion-spec.ts импортирует этот файл — без цикла; равенство
+ * форм проверяет тест контрактов).
  */
 export const StyleLockSchema = z.object({
   palette_overrides: z.object({
@@ -19,7 +24,7 @@ export const StyleLockSchema = z.object({
     accent: z.array(z.string()).min(1), positive: z.string(), negative: z.string(),
   }).partial().strict().optional(),
   depth: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]).optional(),
-  font: z.string().min(1).optional(),
+  font: KitFontSchema.optional(),
 }).strict();
 export type StyleLock = z.infer<typeof StyleLockSchema>;
 

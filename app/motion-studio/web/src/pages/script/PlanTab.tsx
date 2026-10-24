@@ -1,6 +1,6 @@
 // Вкладка «План» сценария (S8): текст с подсветкой, карточки сцен, проблемы, «Утвердить и сгенерировать».
-// S1 — заглушка без содержимого; сигнатуру не менять.
+// S1 — заглушка без содержимого; сигнатуру не менять. Состояние — от ScriptWorkspace (`useScriptState`).
 import type { ReactElement } from "react";
-import type { ProjectDto } from "@ms/contracts";
+import type { ScriptStateDto } from "@ms/contracts";
 
-export const PlanTab: (props: { project: ProjectDto; onGenerated: () => void }) => ReactElement = () => <div data-tab="plan" />;
+export const PlanTab: (props: { state: ScriptStateDto; onGenerated: () => void }) => ReactElement = () => <div data-tab="plan" />;

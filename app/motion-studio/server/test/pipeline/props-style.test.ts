@@ -29,6 +29,17 @@ describe("scenePropsStyle", () => {
   });
 });
 
+describe("startPropsStyle", () => {
+  it("палитра агента поверх настроек, style_lock — последним (generate, playground generate/edit)", async () => {
+    const { startPropsStyle } = await import("../../src/pipeline/steps.js");
+    const agent = { bg: "#ffffff", accent: ["#a855f7"] };
+    expect(startPropsStyle(settings, agent)).toEqual({ ...scenePropsStyle(settings), palette_overrides: agent });
+    expect(startPropsStyle(settings, undefined)).toEqual(scenePropsStyle(settings));
+    const lock = { palette_overrides: { bg: "#101418", accent: ["#22c55e"] }, depth: 2 as const, font: "Inter" as const };
+    expect(startPropsStyle({ ...settings, style_lock: lock }, agent)).toMatchObject({ palette_overrides: lock.palette_overrides, depth: 2, font: "Inter" });
+  });
+});
+
 describe("withSceneSeed", () => {
   it("seed фона — id сцены; вариант и фокус Director сохраняются; без composition — как есть", async () => {
     const { withSceneSeed } = await import("../../src/pipeline/steps.js");
@@ -39,7 +50,7 @@ describe("withSceneSeed", () => {
   });
 
   it("сценарий: settings.style_lock (стиль проекта) важнее палитры, глубины и шрифта сцены", () => {
-    const lock = { palette_overrides: { bg: "#101418", accent: ["#22c55e"] }, depth: 2 as const, font: "Inter" };
+    const lock = { palette_overrides: { bg: "#101418", accent: ["#22c55e"] }, depth: 2 as const, font: "Inter" as const };
     const locked = { ...settings, duration_frames: 180, style_lock: lock };
     expect(scenePropsStyle(locked)).toMatchObject({ palette_overrides: lock.palette_overrides, depth: 2, font: "Inter" });
     const spec = { duration_frames: 180, beats: [{ id: "b1", start_frame: 0, end_frame: 180 }], palette_overrides: { bg: "#ffffff" } } as never;

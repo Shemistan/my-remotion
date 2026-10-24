@@ -4,21 +4,31 @@ import { describe, expect, it } from "vitest";
 import {
   AspectSchema,
   DEFAULT_READING,
+  ExportManifestSchema,
   ExportRequestSchema,
   GenerateBodySchema,
   JobTypeSchema,
+  PaletteOverridesSchema,
+  PlanIssueSchema,
   PlanOpsBodySchema,
   ProjectDtoSchema,
   PutScriptBodySchema,
+  QAIssueSchema,
   ReadingSettingsSchema,
+  ScriptBatchItemStatusSchema,
   ScriptDirectorOutputSchema,
+  ScriptItemStatusSchema,
   ScriptPackageManifestSchema,
+  ScriptPlanDtoSchema,
   ScriptPlanOpSchema,
   ScriptPlanRevisionDocSchema,
   ScriptRevisionDocSchema,
   ScriptSceneContextSchema,
+  ScriptSceneDtoSchema,
   ScriptSceneItemSchema,
+  ScriptStateDtoSchema,
   SceneFramesSchema,
+  StyleLockSchema,
   TECHNIQUES,
   TechniqueSchema,
 } from "../src/index.js";
@@ -179,5 +189,48 @@ describe("изменения общих контрактов", () => {
     expect(ProjectDtoSchema.shape.kind.options).toContain("script");
     expect(PutScriptBodySchema.safeParse({ blocks: [{ title: "", text: "a" }] }).success).toBe(true);
     expect(PutScriptBodySchema.safeParse({ blocks: [] }).success).toBe(false);
+  });
+});
+
+describe("ревью S1: формы контрактов", () => {
+  it("ExportManifest.overlay — покрытие, дымка, кадры проверки", () => {
+    const shape = ExportManifestSchema.shape.overlay.unwrap();
+    expect(shape.parse({ coverage: 0.3, haze: 0, frames: [120, 200] })).toEqual({ coverage: 0.3, haze: 0, frames: [120, 200] });
+    expect(shape.safeParse({ coverage: 0.3, frame: 120 }).success).toBe(false);
+    expect(shape.safeParse({ coverage: 0.3, haze: 1.2, frames: [] }).success).toBe(false);
+    expect(shape.safeParse({ coverage: 0.3, haze: 0, frames: [-1] }).success).toBe(false);
+  });
+
+  it("статус сцены сценария: none — задачи ещё не было; старое имя — алиас", () => {
+    expect(ScriptItemStatusSchema.options).toContain("none");
+    expect(ScriptBatchItemStatusSchema).toBe(ScriptItemStatusSchema);
+  });
+
+  it("ScriptStateDto.plan — ScriptPlanDto или null", () => {
+    expect(ScriptStateDtoSchema.shape.plan.unwrap()).toBe(ScriptPlanDtoSchema);
+    expect(ScriptStateDtoSchema.shape.plan.safeParse(null).success).toBe(true);
+  });
+
+  it("ответ Script Director: достаточно chapters и numbers (Р24)", () => {
+    const o = ScriptDirectorOutputSchema.parse({ chapters: [], numbers: [], scenes: [scene], style });
+    expect([o.anchors, o.entities, o.causal, o.disputed]).toEqual([[], [], [], []]);
+  });
+
+  it("предупреждения сцены — PlanIssue и QAIssue", () => {
+    const s = ScriptSceneDtoSchema.shape;
+    expect(s.warnings.element).toBe(PlanIssueSchema);
+    expect(s.qa_warnings.element).toBe(QAIssueSchema);
+  });
+
+  it("style_lock: шрифт только из kit, палитра — форма PaletteOverrides", () => {
+    expect(StyleLockSchema.safeParse({ font: "Manrope" }).success).toBe(true);
+    expect(StyleLockSchema.safeParse({ font: "Comic Sans" }).success).toBe(false);
+    const lock = StyleLockSchema.shape.palette_overrides.unwrap();
+    expect(Object.keys(lock.shape)).toEqual(Object.keys(PaletteOverridesSchema.shape));
+    const sample = { bg: "#000", accent: ["#f00"] };
+    expect(lock.parse(sample)).toEqual(PaletteOverridesSchema.parse(sample));
+    for (const bad of [{ accent: [] }, { extra: "x" }, { bg: 1 }]) {
+      expect(lock.safeParse(bad).success).toBe(PaletteOverridesSchema.safeParse(bad).success);
+    }
   });
 });

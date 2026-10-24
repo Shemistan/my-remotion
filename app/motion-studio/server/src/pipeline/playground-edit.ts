@@ -35,7 +35,7 @@ import { type EditRequest, type GenerateDeps, type PlanOutcome, readKitApi, runG
 import { applyParamEdit, hardcodedFrameProps, touchesGeometry } from "./param-edit.js";
 import { type PlaygroundDeps, abortKind, record, toHandlerResult } from "./playground-generate.js";
 import { checkPreserve, compareHoldLayout } from "./preserve.js";
-import { type CheckpointOpts, type RunCtx, directorStep, errText, scenePropsStyle, sceneStyle, toolless } from "./steps.js";
+import { type CheckpointOpts, type RunCtx, directorStep, errText, sceneStyle, startPropsStyle, toolless } from "./steps.js";
 
 export const PlaygroundEditInputSchema = z.object({
   sceneId: z.string().min(1),
@@ -379,7 +379,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
       }
       const extra = message ? gd.kb.search(message, {}, 8).map((h) => h.view).filter((v) => !baseCaps.some((c) => c.id === v.id)) : [];
       const candidates = [...baseCaps, ...extra];
-      const style = sceneStyle({ ...scenePropsStyle(settings), ...(base.spec.palette_overrides ? { palette_overrides: base.spec.palette_overrides } : {}) }, settings);
+      const style = sceneStyle(startPropsStyle(settings, base.spec.palette_overrides), settings);
       ctx.progress(0.15, "director");
       const dr = await directorStep(rc, { prompt, settings, candidates, patternTexts: [], kitApi: await readKitApi(), style, base: { spec: base.spec, props: base.props }, editPlan: plan }, cp);
       if (!dr.ok) return { kind: "failed", stage: dr.stage, message: dr.message };

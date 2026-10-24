@@ -152,6 +152,20 @@ describe("playgroundGenerate: успех и журнал", () => {
   });
 });
 
+describe("playgroundGenerate: style_lock сценария", () => {
+  it("стартовый style.json — палитра стиля проекта, а не палитра spec Director", async () => {
+    const lock = { palette_overrides: { bg: "#101418", accent: ["#22c55e"] } };
+    const out = directorOutput();
+    const agents = fakeAgents({ director: async () => ({ output: { ...out, spec: { ...out.spec, palette_overrides: { bg: "#ffffff", accent: ["#a855f7"] } } } }) });
+    const { job, scene } = await runJob({ agents }, { settings: { ...settings, style_lock: lock } });
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    const style = JSON.parse(readFileSync(join(env.s.root, versionRows(scene.id)[0]!.path, "style.json"), "utf8"));
+    // resolveStyle дополняет accent до трёх цветов пресета — первый из lock
+    expect(style.palette.bg).toBe("#101418");
+    expect(style.palette.accent[0]).toBe("#22c55e");
+  });
+});
+
 describe("playgroundGenerate: подпись кадра сверяется с другими сценами проекта", () => {
   it("вторая сцена с той же spec: scene_signature_repeat — подсказка Director (warnings) и warning в qa.json; первая — без него", async () => {
     const first = await runJob();
