@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { EdlRevisionDocSchema, acceptedCuts, buildTimeline, snapUsToFrame, type EdlOp, type EdlRevisionDoc, type Fps, type TranscriptWord } from "@ms/contracts";
+import { EdlRevisionDocSchema, acceptedCuts, buildTimeline, mapWords, snapUsToFrame, type EdlOp, type EdlRevisionDoc, type Fps, type TranscriptWord } from "@ms/contracts";
 import { approvalState, approve } from "../../src/approvals/engine.js";
 import { currentSubject } from "../../src/approvals/subjects.js";
 import { artifactPaths } from "../../src/artifacts/paths.js";
@@ -77,6 +77,15 @@ describe("applyEdlOps: add_cut", () => {
     expect(cutForWords(words, "w_000002", "w_000002", F30, cfg)).toEqual({ source_start_us: 500_000, source_end_us: 900_000, start_word_id: "w_000002", end_word_id: "w_000002" });
     expect(cutForWords(words, "w_000003", "w_000003", F30, cfg)).toEqual({ source_start_us: 1_000_000, source_end_us: 1_200_000, start_word_id: "w_000003", end_word_id: "w_000003" });
     expect(() => cutForWords(words, "w_000003", "w_000002", F30, cfg)).toThrow(/order/);
+  });
+
+  it("add_cut одного слова не на сетке кадров: от слова остаётся полоска < кадра — оно removed, не clipped", () => {
+    // 1,01–1,38 с при 30 fps: начало → 1,0 с, конец → 1,3667 с (ближайший кадр), хвост 13,3 мс слышен
+    const ws = [w("w_000001", "так", 0, 700_000), w("w_000002", "выросли", 1_010_000, 1_380_000), w("w_000003", "дальше", 4_000_000, 4_500_000)];
+    const cut = cutForWords(ws, "w_000002", "w_000002", F30, { sourceDurationUs: DUR });
+    expect(cut.source_end_us).toBeLessThan(1_380_000);
+    const map = mapWords(buildTimeline(DUR, [{ start_us: cut.source_start_us, end_us: cut.source_end_us }], F30), ws);
+    expect(map.w_000002).toEqual({ state: "removed" });
   });
 
   it("последнее слово транскрипта — до его конца", () => {

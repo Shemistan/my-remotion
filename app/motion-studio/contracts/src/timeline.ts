@@ -52,8 +52,9 @@ const clipEnd = (c: TimelineClip): number => c.edited_start_us + (c.source_end_u
  * концом исходника или за ним, — конец исходника), пересекающиеся и соприкасающиеся сливаются,
  * пустые после выравнивания отбрасываются. Восстановленная вырезка даёт таймлайн байт-в-байт как до неё.
  * Клип короче кадра возможен (между близкими вырезками или у конца исходника не на кадре) — это не
- * ошибка. Слово, задетое вырезкой (`mapWords` → `clipped`), остаётся на таймлайне: это не `anchor_cut`
- * (Task 32 помечает `anchor_cut`, только если граничное слово сцены `removed`).
+ * ошибка. Слово, задетое вырезкой с заметным остатком (`mapWords` → `clipped`), остаётся на таймлайне:
+ * это не `anchor_cut` (Task 32 помечает `anchor_cut`, только если граничное слово сцены `removed`;
+ * полоска слова после выравнивания по кадрам — тоже `removed`, см. `WordMapping`).
  */
 export function buildTimeline(sourceDurationUs: number, cuts: UsRange[], fps: Fps): EditedTimeline {
   checkUs(sourceDurationUs, Number.MAX_SAFE_INTEGER, "длительность исходника");
@@ -174,17 +175,18 @@ function clampRange(tl: EditedTimeline, r: UsRange): UsRange | null {
   return { start_us: r.start_us, end_us: Math.min(r.end_us, max) };
 }
 
-function mapClamped(tl: EditedTimeline, r: UsRange | null): { range: UsRange; whole: boolean } | null {
+function mapClamped(tl: EditedTimeline, r: UsRange | null): { range: UsRange; whole: boolean; kept: number } | null {
   if (!r) return null;
   if (r.start_us === r.end_us) {
     const p = sourceToEdited(tl, r.start_us);
-    return p.inCut ? null : { range: { start_us: p.us, end_us: p.us }, whole: true };
+    return p.inCut ? null : { range: { start_us: p.us, end_us: p.us }, whole: true, kept: 0 };
   }
   const kept = keptLength(tl, r.start_us, r.end_us);
   if (kept === 0) return null;
   return {
     range: { start_us: sourceToEdited(tl, r.start_us).us, end_us: sourceEndToEdited(tl, r.end_us) },
     whole: kept === r.end_us - r.start_us,
+    kept,
   };
 }
 
@@ -196,18 +198,30 @@ export function mapRange(tl: EditedTimeline, r: UsRange): UsRange | null {
   return mapClamped(tl, clampRange(tl, r))?.range ?? null;
 }
 
+/**
+ * Положение слова в edited:
+ * - `kept` — слово оставлено целиком (в том числе короче кадра);
+ * - `clipped` — вырезка задевает слово, но на таймлайне осталась не меньше половины его длительности
+ *   и больше одного кадра `tl.fps`;
+ * - `removed` — вырезано целиком ИЛИ от него осталась полоска: меньше половины длительности или
+ *   не больше кадра. Границы вырезок выравниваются к ближайшему кадру (`buildTimeline`, `cutForWords`),
+ *   поэтому от слова, вырезанного пользователем целиком, может остаться до ½ кадра с каждого края —
+ *   зритель его не слышит, и для цитат, якорей сцен (`anchor_cut`) и входа агентов оно вырезано.
+ */
 export type WordMapping =
   | { state: "kept" | "clipped"; edited_start_us: number; edited_end_us: number }
   | { state: "removed" };
 
-/** Положение слов в edited: `kept` — целиком, `clipped` — вырезка задевает слово, `removed` — вырезано целиком. */
+/** Положение слов в edited (`WordMapping`): `kept` — целиком, `clipped` — заметная часть, `removed` — вырезано или полоска. */
 export function mapWords(
   tl: EditedTimeline, words: Pick<TranscriptWord, "id" | "start_us" | "end_us">[],
 ): Record<string, WordMapping> {
   const out: Record<string, WordMapping> = {};
+  const frameUs = Math.ceil((1_000_000 * tl.fps.den) / tl.fps.num);
   for (const word of words) {
     const m = mapClamped(tl, clampRange(tl, { start_us: word.start_us, end_us: word.end_us }));
-    out[word.id] = m
+    const strip = m !== null && !m.whole && (2 * m.kept < word.end_us - word.start_us || m.kept <= frameUs);
+    out[word.id] = m && !strip
       ? { state: m.whole ? "kept" : "clipped", edited_start_us: m.range.start_us, edited_end_us: m.range.end_us }
       : { state: "removed" };
   }

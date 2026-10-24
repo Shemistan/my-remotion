@@ -51,8 +51,8 @@ afterAll(async () => {
   if (s) await removeStore(s);
 });
 
-/** Вырезка 2,0–3,5 с (слово 3 целиком) — как в `semantic-helpers`. */
-const CUT = dec("d1", { status: "accepted", source_start_us: 2_000_000, source_end_us: 3_500_000 });
+/** Вырезка 2,0–3,4 с (слово 3 целиком, слово 4 — clipped) — как в `semantic-helpers`. */
+const CUT = dec("d1", { status: "accepted", source_start_us: 2_000_000, source_end_us: 3_400_000 });
 
 /** Видеопроект: исходник, транскрипт r1, EDL r1 с решениями; `approve` — Approval A. */
 async function videoProject(o: { words?: TranscriptWord[]; decisions?: EditDecision[]; durationUs?: number; approve?: boolean } = {}): Promise<string> {

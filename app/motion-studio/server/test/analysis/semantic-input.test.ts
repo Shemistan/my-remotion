@@ -24,11 +24,11 @@ describe("semanticInput", () => {
     ]);
   });
 
-  it("время — edited, секунды с одним знаком (ориентир): после вырезки 1,5 с слово 6 (5,0 с) → 3,5 с", () => {
+  it("время — edited, секунды с одним знаком (ориентир): после вырезки 1,4 с слово 6 (5,0 с) → 3,6 с", () => {
     const inp = semanticInput(words10, segs, tl10);
     const byId = Object.fromEntries(inp.words.map((x) => [x.id, x]));
     expect(byId[id(1)]!.edited_s).toBe(0);
-    expect(byId[id(6)]!.edited_s).toBe(3.5);
+    expect(byId[id(6)]!.edited_s).toBe(3.6);
     expect(byId[id(4)]!.edited_s).toBe(2); // начало оставленной части
     for (const x of inp.words) expect(Object.keys(x).sort()).toEqual(["edited_s", "id", "text"]);
   });

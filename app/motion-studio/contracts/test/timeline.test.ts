@@ -121,13 +121,13 @@ describe("mapRange / mapWords", () => {
       w("b", 3_500_000, 3_800_000), // начинается ровно на конце вырезки — целиком оставлено
       w("c", 1_900_000, 2_100_000), // заходит в вырезку
       w("d", 2_000_000, 3_500_000), // совпадает с вырезкой
-      w("e", 6_900_000, 7_600_000), // вырезка внутри слова
+      w("e", 6_700_000, 7_800_000), // вырезка внутри слова: осталось 0,6 из 1,1 с
     ]);
     expect(m.a).toEqual({ state: "kept", edited_start_us: 1_700_000, edited_end_us: 2_000_000 });
     expect(m.b).toEqual({ state: "kept", edited_start_us: 2_000_000, edited_end_us: 2_300_000 });
     expect(m.c).toEqual({ state: "clipped", edited_start_us: 1_900_000, edited_end_us: 2_000_000 });
     expect(m.d).toEqual({ state: "removed" });
-    expect(m.e).toEqual({ state: "clipped", edited_start_us: 5_400_000, edited_end_us: 5_600_000 });
+    expect(m.e).toEqual({ state: "clipped", edited_start_us: 5_200_000, edited_end_us: 5_800_000 });
   });
 
   it("слово целиком за концом исходника — removed", () => {
@@ -135,6 +135,21 @@ describe("mapRange / mapWords", () => {
       x: { state: "removed" }, e: { state: "removed" }, p: { state: "removed" } });
     expect(mapRange(tl, { start_us: 10_100_000, end_us: 10_300_000 })).toBeNull();
     expect(mapWords(tl, [w("z", 10_000_000, 10_000_000)])).toEqual({ z: { state: "kept", edited_start_us: 8_000_000, edited_end_us: 8_000_000 } });
+  });
+
+  it("остаток слова меньше половины его длины или не длиннее кадра — removed", () => {
+    // вырезка 2,0–3,5 с, кадр 30 fps = 33 333 мкс
+    expect(mapWords(tl, [
+      w("strip", 1_980_000, 2_300_000), // остаток 20 мс ≤ кадра
+      w("frame", 1_966_667, 2_100_000), // остаток ровно кадр
+      w("half", 1_850_000, 2_200_000), // остаток 150 из 350 мс < половины
+      w("tail", 3_480_000, 3_520_000), // остаток 20 мс из 40 (= половина), но ≤ кадра
+      w("short", 1_990_000, 2_000_000), // целиком оставлено, хоть и короче кадра — kept
+    ])).toEqual({
+      strip: { state: "removed" }, frame: { state: "removed" }, half: { state: "removed" }, tail: { state: "removed" },
+      short: { state: "kept", edited_start_us: 1_990_000, edited_end_us: 2_000_000 } });
+    // половина ровно и больше кадра — clipped
+    expect(mapWords(tl, [w("h", 1_800_000, 2_200_000)])).toEqual({ h: { state: "clipped", edited_start_us: 1_800_000, edited_end_us: 2_000_000 } });
   });
 
   it("слово нулевой длительности", () => {
@@ -206,9 +221,9 @@ describe("rangeFromWords", () => {
 });
 
 describe("checkHeardRange: цитата = то, что слышит зритель", () => {
-  // 5 слов по 1 с; вырезка 2,0–3,5 с: «эээ» (2,0–2,9) — целиком, «покажем,» (3,0–3,9) — частично
+  // 5 слов по 1 с; вырезка 2,0–3,4 с: «эээ» (2,0–2,9) — целиком, «покажем,» (3,0–3,9) — частично (0,5 из 0,9 с)
   const ws5 = ["Сегодня", "мы", "эээ", "покажем,", "рост"].map((t, i) => w(`w${i + 1}`, i * 1_000_000, i * 1_000_000 + 900_000, t));
-  const map = mapWords(buildTimeline(5_000_000, [{ start_us: 2_000_000, end_us: 3_500_000 }], F30), ws5);
+  const map = mapWords(buildTimeline(5_000_000, [{ start_us: 2_000_000, end_us: 3_400_000 }], F30), ws5);
 
   it("оставленные слова диапазона — ok; вырезанное внутри диапазона без цитаты его — ok", () => {
     expect(checkHeardRange(ws5, map, "w1", "w2", "Сегодня мы")).toEqual({ ok: true });
