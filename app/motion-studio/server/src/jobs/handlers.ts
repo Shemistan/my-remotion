@@ -149,7 +149,15 @@ export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extr
       ...(o.log ? { log: o.log } : {}),
     })),
     // сценарный проект (S1 — заглушки; S3 и S7 задают зависимости)
-    "script.plan": scriptPlan(() => ({})),
+    "script.plan": scriptPlan(() => ({
+      root: svc.root,
+      config: svc.config,
+      storage: svc.storageCheck,
+      agents: svc.agents,
+      kb: svc.kb,
+      ...(o.watchIntervalMs ? { watchIntervalMs: o.watchIntervalMs } : {}),
+      ...(o.log ? { log: o.log } : {}),
+    })),
     "script.package": scriptPackage(() => ({})),
     ...extra,
   };
