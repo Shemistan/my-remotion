@@ -44,6 +44,15 @@ describe("buildScriptDirectorTask", () => {
     expect(buildScriptDirectorTask({ ...base, script: DOC, fix: "- сцена 2: adjacent_technique_repeat" }, run).input).toMatch(/Прошлый ответ[^]*adjacent_technique_repeat/);
   });
 
+  it("бюджет покрытия на блок: «в блоке N слов; сценами ≈ 0,5N–0,75N»", () => {
+    const t = buildScriptDirectorTask({ ...base, script: DOC }, run).input;
+    expect(t).toMatch(/в блоке b1 40 слов; сценами ≈ 20–30 слов/);
+    const two = docOf([{ title: "А", text: "Раз два три четыре пять шесть семь восемь девять десять одиннадцать." }, { title: "Б", text: "Раз два три." }]);
+    const t2 = buildScriptDirectorTask({ ...base, script: two }, run).input;
+    expect(t2).toMatch(/в блоке b1 11 слов; сценами ≈ 6–8 слов/);
+    expect(t2).toMatch(/в блоке b2 3 слов; сценами ≈ 2–2 слов|в блоке b2 3 слов; сценами ≈ 2 слов/);
+  });
+
   it("схема ответа сводится к JSON Schema", () => {
     expect(() => toJsonSchema(ScriptDirectorOutputSchema)).not.toThrow();
   });
@@ -57,5 +66,21 @@ describe("промпт script_director", () => {
     expect(p).toMatch(/Контракт доказательств/);
     expect(p).toMatch(/skip_reason/);
     expect(p).not.toMatch(/\{\{>/);
+  });
+
+  it("мета-речь о ролике — пропуск; сцена только с рисуемым; самопроверка покрытия", () => {
+    const p = loadPrompt("script_director");
+    expect(p).toMatch(/[Мм]ета-речь о ролике/);
+    for (const x of ["план ролика", "ссылки в описании", "досмотрите до конца", "подписаться"]) expect(p).toContain(x);
+    expect(p).toMatch(/только анонс[^\n]*skip/i);
+    expect(p).toMatch(/посчитай покрытие/i);
+    expect(p).toMatch(/50–75 %/);
+  });
+
+  it("callout-diagram — только при устройстве с деталью; split-versus — для опровержений", () => {
+    const p = loadPrompt("script_director");
+    expect(p).toMatch(/`callout-diagram` — только когда во фрагменте есть устройство, к детали которого нужна выноска/);
+    expect(p).toMatch(/`split-versus`[^\n]*опровержени/);
+    expect(p).toMatch(/6,5 ✓ против 6,2 ✗/);
   });
 });

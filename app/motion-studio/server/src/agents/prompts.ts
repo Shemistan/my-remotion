@@ -47,6 +47,14 @@ export function loadPrompt(role: Role, dir: string = PROMPTS_DIR): string {
   return expand(text, dir, []);
 }
 
+/**
+ * Partial как отдельный текст — для правил, которые нужны не каждой задаче роли (S5 fix M1:
+ * правила сцены сценария идут в задачу, а не в системный промпт Playground).
+ */
+export function loadPartial(name: string, dir: string = PROMPTS_DIR): string {
+  return expand(`{{> ${name}}}`, dir, []);
+}
+
 // --- Задача Edit Planner (Task 18) ---
 
 /** Вход Edit Planner: сообщение, текущая версия (база по умолчанию) и история версий. */

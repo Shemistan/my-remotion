@@ -17,13 +17,16 @@ import {
   type HistoryEntry,
   type MotionSpec,
   MotionSpecSchema,
+  ScriptSceneContextSchema,
   type Settings,
   SettingsFieldsSchema,
   SettingsSchema,
 } from "@ms/contracts";
 import { z } from "zod";
 import { buildEditPlannerTask } from "../agents/prompts.js";
+import type { Db } from "../db/open.js";
 import * as chat from "../db/repos/chat.js";
+import * as jobs from "../db/repos/jobs.js";
 import * as scenes from "../db/repos/scenes.js";
 import * as versions from "../db/repos/versions.js";
 import { setOutputRefs } from "../jobs/queue.js";
@@ -35,7 +38,7 @@ import { type EditRequest, type GenerateDeps, type PlanOutcome, readKitApi, runG
 import { applyParamEdit, hardcodedFrameProps, touchesGeometry } from "./param-edit.js";
 import { type PlaygroundDeps, abortKind, record, toHandlerResult } from "./playground-generate.js";
 import { checkPreserve, compareHoldLayout } from "./preserve.js";
-import { type CheckpointOpts, type RunCtx, directorStep, errText, sceneStyle, startPropsStyle, toolless } from "./steps.js";
+import { type CheckpointOpts, type RunCtx, type SpeechWindow, directorStep, errText, sceneStyle, startPropsStyle, toolless } from "./steps.js";
 
 export const PlaygroundEditInputSchema = z.object({
   sceneId: z.string().min(1),
@@ -243,6 +246,21 @@ function editBrief(plan: EditPlan, baseNumber: number): string {
   ].join("\n");
 }
 
+/**
+ * Окно речи сцены сценария (S5 fix M3): `lead`/`tail` из входа `script` последней генерации
+ * сцены, речь — остаток длины правки. Сцена не сценарная (или окна нет) — `undefined`.
+ */
+export function scriptSpeechWindow(db: Db, sceneId: string, total: number): SpeechWindow | undefined {
+  const gens = jobs.list(db, { sceneId }).filter((j) => j.type === "playground.generate").reverse();
+  for (const j of gens) {
+    const p = ScriptSceneContextSchema.safeParse((j.input as { script?: unknown } | null)?.script);
+    if (!p.success) continue;
+    const speech = total - p.data.lead_frames - p.data.tail_frames;
+    return speech > 0 ? { lead: p.data.lead_frames, speech, tail: p.data.tail_frames } : undefined;
+  }
+  return undefined;
+}
+
 export function playgroundEdit(d: PlaygroundDeps): JobHandler {
   return async (ctx) => {
     const fail = (message: string, stage: "prepare" | "edit_planner" = "prepare"): HandlerResult => ({ status: "failed", error: { code: "pipeline", stage, message } });
@@ -381,7 +399,10 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
       const candidates = [...baseCaps, ...extra];
       const style = sceneStyle(startPropsStyle(settings, base.spec.palette_overrides), settings);
       ctx.progress(0.15, "director");
-      const dr = await directorStep(rc, { prompt, settings, candidates, patternTexts: [], kitApi: await readKitApi(), style, base: { spec: base.spec, props: base.props }, editPlan: plan }, cp);
+      // сцена сценария (S5 fix M3): окно речи исходной генерации — и в правке
+      const speechWindow = scriptSpeechWindow(ctx.db, sceneId, settings.duration_frames);
+      if (speechWindow) rc.log(`сцена сценария: окно речи [${speechWindow.lead}; ${speechWindow.lead + speechWindow.speech}), удержание ≥ ${speechWindow.tail}`);
+      const dr = await directorStep(rc, { prompt, settings, candidates, patternTexts: [], kitApi: await readKitApi(), style, base: { spec: base.spec, props: base.props }, editPlan: plan, ...(speechWindow ? { speechWindow } : {}) }, cp);
       if (!dr.ok) return { kind: "failed", stage: dr.stage, message: dr.message };
       const kept = keepFromBase(dr.spec, base.spec, plan);
       if (kept.restored.length > 0) rc.warnings.push(`Director изменил то, что правка обещала сохранить — возвращено из базы: ${kept.restored.join("; ")}`);

@@ -1,8 +1,10 @@
 // Русские числительные словами (спека §6.1, Р21): «один к двумстам пятидесяти шести» → [1, 256].
 // Тексты человека пишут числа словами, а `numberMatchesQuote` без цифр сверку пропускает — здесь
 // разбор для сверки `data.value` с цитатой. Словарь — основы 0–999 во всех падежах (количественные и
-// порядковые: «двадцать пятого»), «тысяча» — множитель, «с половиной» — +0,5. Нераспознанное
-// («пара», «полтора», «миллион») не возвращается: сверка тогда — warning `value_unverified`.
+// порядковые: «двадцать пятого»), «полтора»; множители «тысяча», «миллион», «миллиард»; «с половиной» —
+// +0,5; десятичные дроби «шесть и две десятых», «три целых четырнадцать сотых». Неточные количества и
+// доли («десятки тысяч», «тысячи», «пара», «несколько», «треть», «четверть», «половина») числом не
+// выдаются: разбор помечает их `vague` — сверка тогда не отказ, а warning `value_unverified`.
 
 /** Разряд слова: 0 — единицы и 10–19, 1 — десятки, 2 — сотни. */
 type Place = 0 | 1 | 2;
@@ -15,6 +17,7 @@ const CASE5 = "(ь|и|ью)";
 const TABLE: [string, number, Place, boolean?][] = [
   ["нол(ь|я|ю|ем|е)|нул(ь|я|ю|ем|е)", 0, 0],
   ["один|одн(а|о|и|ого|ой|ому|им|ом|ою|у|их|ими)", 1, 0],
+  ["полтора|полторы|полутора", 1.5, 0],
   ["два|две|двух|двум|двумя", 2, 0],
   ["три|трех|трем|тремя", 3, 0],
   ["четыр(е|ех|ем|ьмя)", 4, 0],
@@ -42,8 +45,20 @@ const TABLE: [string, number, Place, boolean?][] = [
 ];
 const TEENS = ["одиннадцат", "двенадцат", "тринадцат", "четырнадцат", "пятнадцат", "шестнадцат", "семнадцат", "восемнадцат", "девятнадцат"];
 const COMPILED = TABLE.map(([re, value, place, ordinal]) => ({ re: new RegExp(`^(?:${re})$`), value, place, ordinal: ordinal === true }));
-const THOUSAND = /^тысяч(а|и|е|у|ей|ею|ам|ами|ах)?$/;
+/** Множители: шаблон единственного числа (без счёта — ×1), множественного (без счёта — неточно), значение. */
+const SCALES: { one: RegExp; many: RegExp; value: number }[] = [
+  { one: /^тысяч(а|у|е|ей|ею)$/, many: /^тысяч(и|ам|ами|ах)?$/, value: 1e3 },
+  { one: /^миллион(а|у|ом|е)?$/, many: /^миллион(ы|ов|ам|ами|ах)$/, value: 1e6 },
+  { one: /^миллиард(а|у|ом|е)?$/, many: /^миллиард(ы|ов|ам|ами|ах)$/, value: 1e9 },
+];
 const HALF = /^половин(ой|ою)$/;
+/** Знаменатель дроби: «десятых» — 10, «сотых» — 100, «тысячных» — 1000. */
+const FRACTION = /^(десят|сот|тысячн)(ая|ой|ую|ые|ых|ым|ыми)$/;
+const FRACTION_POW: Record<string, number> = { десят: 1, сот: 2, тысячн: 3 };
+/** Связка целой и дробной части: «шесть и две десятых», «три целых четырнадцать сотых». */
+const FRACTION_JOIN = /^(и|целых|целая|целой|целую)$/;
+/** Неточные количества и доли: число по ним не восстановить. */
+const VAGUE = /^(десят(ок|ка|ки|ков|кам|ками|ках)|сот(ня|ни|ню|ней|ням|нями|нях|ен)|дюжин\p{L}*|пар(а|ы|у|ой|е)|нескольк(о|их|им|ими)|много|многих|немного|трет(ь|и)|четверт(ь|и|ью)|половин\p{L}*)$/u;
 
 function lookup(token: string): Word | undefined {
   for (const c of COMPILED) {
@@ -54,39 +69,93 @@ function lookup(token: string): Word | undefined {
   return undefined;
 }
 
+/** Разбор цитаты: числа словами по порядку и признак неточного количества или доли в ней. */
+export interface RuNumbers {
+  values: number[];
+  /** В цитате есть неточное количество или доля («десятки тысяч», «треть») — его значения нет в `values`. */
+  vague: boolean;
+}
+
 /**
  * Числа, записанные словами, по порядку появления. Слова одного числа идут подряд по убыванию
- * разряда («двумстам пятидесяти шести» = 256); «тысяча» умножает набранное (одна «тысяча» — 1000);
- * «с половиной» после числа — +0,5; порядковое слово завершает число. Любое другое слово
- * (и цифры) заканчивает текущее число.
+ * разряда («двумстам пятидесяти шести» = 256); множитель («тысяча», «миллион») умножает набранное
+ * (без счёта: «тысяча» — 1000, «тысячи» — неточно); «с половиной» после числа — +0,5 (после
+ * множителя — его половина); «N и M десятых» — N + M/10; порядковое слово завершает число. Любое
+ * другое слово (и цифры) заканчивает текущее число.
  */
-export function ruNumberValues(quote: string): number[] {
+export function ruNumberParse(quote: string): RuNumbers {
   const tokens = quote.normalize("NFC").toLowerCase().replace(/ё/g, "е").split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   const out: number[] = [];
-  let thousands = 0; // набранные тысячи
-  let cur = 0; // набранное после последней «тысячи»
-  let last: Place | 3 | undefined; // разряд последнего слова числа; 3 — после «тысячи»; undefined — числа нет
+  let vague = false;
+  let total = 0; // набранное множителями
+  let cur = 0; // набранное после последнего множителя
+  let last: Place | 3 | undefined; // разряд последнего слова числа; 3 — после множителя; undefined — числа нет
+  let lastScale = 1; // последний множитель
   let closed = false; // число завершено порядковым словом
-  const flush = () => {
-    if (last !== undefined) out.push(thousands + cur);
-    thousands = 0;
+  let whole: number | undefined; // целая часть перед «и M десятых»
+  let skipScale = false; // множитель после неточного слова («десятки тысяч») — часть неточного
+  const reset = () => {
+    total = 0;
     cur = 0;
     last = undefined;
+    lastScale = 1;
     closed = false;
+    whole = undefined;
+  };
+  const flush = () => {
+    if (whole !== undefined) out.push(whole);
+    else if (last !== undefined) out.push(total + cur);
+    reset();
   };
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i]!;
-    if (THOUSAND.test(t)) {
-      if (closed) flush();
-      thousands += (last === undefined || last === 3 ? 1 : cur) * 1000;
+    const scale = SCALES.find((x) => x.one.test(t) || x.many.test(t));
+    if (scale) {
+      if (skipScale) continue;
+      if (closed || whole !== undefined) flush();
+      if (last === undefined) {
+        if (scale.many.test(t)) {
+          vague = true;
+          skipScale = true;
+          continue;
+        }
+        total += scale.value;
+      } else {
+        total += (last === 3 ? 1 : cur) * scale.value;
+      }
       cur = 0;
       last = 3;
+      lastScale = scale.value;
       continue;
     }
-    if (t === "с" && last !== undefined && !closed && HALF.test(tokens[i + 1] ?? "")) {
-      cur += 0.5;
+    skipScale = false;
+    if (t === "с" && last !== undefined && !closed && whole === undefined && HALF.test(tokens[i + 1] ?? "")) {
+      cur += last === 3 ? lastScale / 2 : 0.5;
       i++;
       flush();
+      continue;
+    }
+    const frac = FRACTION.exec(t);
+    if (frac && last !== undefined && last !== 3 && !closed) {
+      const k = 10 ** FRACTION_POW[frac[1]!]!;
+      out.push(((whole ?? 0) * k + total + cur) / k);
+      reset();
+      continue;
+    }
+    if (FRACTION_JOIN.test(t) && last !== undefined && !closed && whole === undefined) {
+      let j = i + 1;
+      while (j < tokens.length && lookup(tokens[j]!) && !lookup(tokens[j]!)!.ordinal && !FRACTION.test(tokens[j]!)) j++;
+      if (j > i + 1 && FRACTION.test(tokens[j] ?? "")) {
+        const w = total + cur;
+        reset();
+        whole = w;
+        continue;
+      }
+    }
+    if (VAGUE.test(t)) {
+      flush();
+      vague = true;
+      skipScale = true;
       continue;
     }
     const wd = lookup(t);
@@ -96,11 +165,16 @@ export function ruNumberValues(quote: string): number[] {
     }
     // разряд должен убывать; «десять–девятнадцать» после десятков не идут
     const joins = last !== undefined && !closed && (last === 3 || wd.place < last) && !(last === 1 && wd.value >= 10);
-    if (!joins) flush();
+    if (!joins && whole === undefined) flush();
     cur += wd.value;
     last = wd.place;
     closed = wd.ordinal;
   }
   flush();
-  return out;
+  return { values: out, vague };
+}
+
+/** Числа, записанные словами, по порядку появления (см. `ruNumberParse`). */
+export function ruNumberValues(quote: string): number[] {
+  return ruNumberParse(quote).values;
 }

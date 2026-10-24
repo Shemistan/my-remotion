@@ -476,9 +476,10 @@ const settingsBrief = (s: Settings) => ({
 });
 
 /** Задача Concept: запрос, настройки, 12 паттернов; ответы пользователя — если были уточнения. */
-export function buildConceptTask(i: { prompt: string; settings: Settings; answers?: Record<string, string> | "skip"; workdir: string }, run: TaskRun): AgentTask<string> {
+export function buildConceptTask(i: { prompt: string; settings: Settings; answers?: Record<string, string> | "skip"; scriptRules?: string; workdir: string }, run: TaskRun): AgentTask<string> {
   const patterns = readPatternIndex(run.config.kb.root);
   const parts = [
+    ...scriptRulesBlock(i.scriptRules),
     "# Запрос пользователя",
     i.prompt,
     "",
@@ -522,8 +523,13 @@ export function styleBrief(style: ResolvedStyle, settings: Settings) {
   };
 }
 
+/** Правила сцены сценария (S5 fix M1) — разделом в начале задачи, только у сцены сценария. */
+const scriptRulesBlock = (rules: string | undefined): string[] => (rules ? ["# Правила сцены сценария", rules, ""] : []);
+
 export interface DirectorTaskInput {
   prompt: string;
+  /** Сцена сценария (S5): правила `partials/script-scene.md` — в задачу, не в системный промпт. */
+  scriptRules?: string;
   settings: Settings;
   /** Концепция (задача); срез обходится без неё. */
   concept?: ConceptOutput;
@@ -543,6 +549,7 @@ export function buildDirectorTask(i: DirectorTaskInput, run: TaskRun): AgentTask
   const s = i.settings;
   const parts: string[] = [];
   if (i.fix) parts.push("# Исправление spec", "Прошлая spec не прошла проверку. Исправь причины и верни spec целиком.", "```", clip(i.fix), "```", "");
+  parts.push(...scriptRulesBlock(i.scriptRules));
   parts.push(
     "# Запрос пользователя",
     i.prompt,
@@ -844,7 +851,7 @@ export function withConceptStructure(director: DirectorOutput, concept: ConceptO
 /** Concept: идея, паттерны, ключи поиска KB, уточнения. Сбой — этап `concept`. */
 export async function conceptStep(
   rc: RunCtx,
-  i: { prompt: string; settings: Settings; answers?: Record<string, string> | "skip" },
+  i: { prompt: string; settings: Settings; answers?: Record<string, string> | "skip"; scriptRules?: string },
   cp?: CheckpointOpts,
 ): Promise<{ ok: true; concept: ConceptOutput } | StepFail> {
   const r = await toolless(rc, "concept", "concept", "Concept", (workdir) => buildConceptTask({ ...i, workdir }, rc.taskRun), ConceptOutputSchema, cp);
@@ -861,10 +868,10 @@ export async function conceptStep(
  */
 export async function directorStep(
   rc: RunCtx,
-  input: Omit<DirectorTaskInput, "workdir" | "fix"> & { previous?: readonly MotionSpec[] },
+  input: Omit<DirectorTaskInput, "workdir" | "fix"> & { previous?: readonly MotionSpec[]; speechWindow?: SpeechWindow },
   cp?: CheckpointOpts,
 ): Promise<{ ok: true; director: DirectorOutput; spec: MotionSpec } | StepFail> {
-  const { previous = [], ...i } = input;
+  const { previous = [], speechWindow, ...i } = input;
   const s = i.settings;
   let fix: string | undefined;
   // чекпоинт — принятый ответ (после проверок spec) под ключом входа первого раунда (без
@@ -881,7 +888,7 @@ export async function directorStep(
     // уже здесь: минимум setup графа (прорисовка рёбер) считается по токенам того пресета, что
     // пойдёт в рендер (s3afix2-rereview m2)
     const presetSwap = director.spec.style_preset !== s.style_preset ? director.spec.style_preset : undefined;
-    const planned = planSpecBeats({ ...director.spec, composition: director.composition, style_preset: s.style_preset }, s);
+    const planned = planInWindow({ ...director.spec, composition: director.composition, style_preset: s.style_preset }, s, speechWindow);
     if (!planned.ok) {
       rc.note("director", `план битов не построен (раунд ${round}): ${planned.message}`);
       if (round === 2) return { ok: false, stage: "director", message: planned.message };
@@ -901,7 +908,7 @@ export async function directorStep(
     }
     if (presetSwap) rc.warnings.push(`Director выбрал пресет ${presetSwap}, в настройках ${s.style_preset}: оставлен пресет настроек`);
     const concept = conceptStructure(i.concept)?.value;
-    const checks = specChecks(spec, s, { previous, ...(concept ? { concept } : {}) });
+    const checks = specChecks(spec, s, { previous, ...(concept ? { concept } : {}), ...(speechWindow ? { speechWindow } : {}) });
     const blocking = checks.filter((x) => x.severity === "blocking");
     // подсказки Director (ruling P10): видны в журнале и идут в раунд исправления вместе с blocking
     const hints = checks.filter((x) => DIRECTOR_HINTS.has(x.code));
@@ -921,6 +928,79 @@ export async function directorStep(
     rc.log(`spec: ${blocking.length} blocking — Director исправляет`);
   }
   return { ok: false, stage: "director", message: "spec не получена" };
+}
+
+/** Окно речи сцены сценария (S5, §5.2): запас до речи, речь, запас после — в кадрах. */
+export interface SpeechWindow {
+  lead: number;
+  speech: number;
+  tail: number;
+}
+
+/**
+ * План битов по фазам; у сцены сценария (S5, Р19) — внутри `[lead; total)`: первые `lead`
+ * кадров — запас под подрезку (только фон), фазы планировщик раскладывает в оставшееся окно, и
+ * их биты сдвигаются на `lead`. Иначе count-up и cold-open (счёт и постер итога с кадра 0)
+ * нарушали бы окно речи при любых весах. Биты без фазы (кадры Director) и камера — как есть.
+ */
+export function planInWindow(spec: Parameters<typeof planSpecBeats>[0], settings: Settings, window: SpeechWindow | undefined): ReturnType<typeof planSpecBeats> {
+  const lead = window?.lead ?? 0;
+  if (!spec.phases || lead <= 0 || lead >= spec.duration_frames) return planSpecBeats(spec, settings);
+  // кадры Director (биты без фазы, ключи камеры) — на полную длину: в план окна не идут
+  const own = spec.beats.filter((b) => b.phase === undefined);
+  const { camera, ...rest } = spec as typeof spec & { camera?: unknown };
+  const r = planSpecBeats({ ...rest, beats: spec.beats.filter((b) => b.phase !== undefined), duration_frames: spec.duration_frames - lead } as typeof spec, settings);
+  if (!r.ok) return r;
+  const total = spec.duration_frames;
+  let shifted = r.spec.beats.map((b) => ({ ...b, start_frame: b.start_frame + lead, end_frame: b.end_frame + lead }));
+  const changes = [...r.changes, `окно речи: фазы разложены в [${lead}; ${total}), первые ${lead} кадров — запас (фон)`];
+  const tail = window?.tail ?? 0;
+  const fitted = fitHold(shifted, r.spec.phases ?? [], lead, total, tail);
+  if (fitted) {
+    shifted = fitted;
+    changes.push(`окно речи: фазы сжаты в [${lead}; ${total - tail}), удержание — [${total - tail}; ${total}) (≥ tail ${tail})`);
+  }
+  // биты без фазы — кадры Director, но тоже не раньше lead (M4): сдвиг с сохранением длины
+  const ownIn = own.map((b) => {
+    if (b.start_frame === undefined || b.start_frame >= lead) return b;
+    const d = lead - b.start_frame;
+    const s = lead;
+    const e = Math.min(total, (b.end_frame ?? s) + d);
+    changes.push(`окно речи: бит ${b.id} без фазы сдвинут на ${d} кадров — начало не раньше ${lead}`);
+    return { ...b, start_frame: s, end_frame: Math.max(e, s + 1) };
+  });
+  return {
+    ...r,
+    spec: { ...r.spec, duration_frames: total, beats: [...(ownIn as typeof shifted), ...shifted], ...(camera !== undefined ? { camera } : {}) } as typeof r.spec,
+    changes,
+  };
+}
+
+/**
+ * Удержание ≥ tail (S5, I1): у планировщика hold ограничен (≤ 4 с, ~15 % длины), при длинном
+ * запасе после речи он короче `tail` или начинается позже `total − tail`. Тогда биты фаз из
+ * `[lead; holdStart)` линейно сжимаются в `[lead; total − tail)`, а биты последнего hold —
+ * в `[total − tail; total)`. Поправка не нужна или невозможна — `undefined`.
+ */
+function fitHold<B extends { phase?: string | undefined; start_frame: number; end_frame: number }>(beats: B[], phases: readonly { id: string; role: string }[], lead: number, total: number, tail: number): B[] | undefined {
+  const holdEnd = total - tail;
+  if (tail <= 0 || holdEnd <= lead) return undefined;
+  const holdIds = phases.filter((p) => p.role === "hold").map((p) => p.id);
+  const windows = holdIds.map((id) => {
+    const own = beats.filter((b) => b.phase === id);
+    return own.length ? { id, s: Math.min(...own.map((b) => b.start_frame)), e: Math.max(...own.map((b) => b.end_frame)) } : undefined;
+  }).filter((x) => x !== undefined);
+  if (windows.length === 0) return undefined;
+  const last = windows.reduce((a, x) => (x.e > a.e ? x : a));
+  if (last.s <= holdEnd && last.e - last.s >= tail) return undefined;
+  const k = last.s > lead ? (holdEnd - lead) / (last.s - lead) : 0;
+  const squeeze = (x: number) => Math.round(lead + (Math.min(x, last.s) - lead) * k);
+  const span = Math.max(1, last.e - last.s);
+  const stretch = (x: number) => Math.round(holdEnd + ((x - last.s) * tail) / span);
+  return beats.map((b) => {
+    const [s, e] = b.phase === last.id ? [stretch(b.start_frame), b.end_frame >= last.e ? total : stretch(b.end_frame)] : [squeeze(b.start_frame), squeeze(b.end_frame)];
+    return { ...b, start_frame: s, end_frame: Math.max(e, s + 1) };
+  });
 }
 
 /**

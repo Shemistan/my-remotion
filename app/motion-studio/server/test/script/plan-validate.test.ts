@@ -76,8 +76,14 @@ describe("validateScriptPlan", () => {
     expect(half.rejected).toEqual([]);
   });
 
-  it("покрытие текста сценами: < 30 % и > 90 % — warning", () => {
+  it("покрытие текста сценами: < 35 % и > 85 % — warning", () => {
     expect(issueCodes(validateScriptPlan(out(doc, [scene(doc, w(1), w(10))]), doc, R, F30))).toContain("coverage_low");
+    expect(issueCodes(validateScriptPlan(out(doc, [scene(doc, w(1), w(13))]), doc, R, F30))).toContain("coverage_low"); // 32,5 %
+    expect(issueCodes(validateScriptPlan(out(doc, [scene(doc, w(1), w(14))]), doc, R, F30))).not.toContain("coverage_low"); // 35 %
+    const mid = validateScriptPlan(out(doc, [cleanScenes()[0]!, cleanScenes()[1]!]), doc, R, F30); // 70 %
+    expect(issueCodes(mid).filter((c) => c.startsWith("coverage"))).toEqual([]);
+    const most = validateScriptPlan(out(doc, [cleanScenes()[0]!, cleanScenes()[1]!, scene(doc, w(29), w(35), { technique: "race", pattern: "comparison" })]), doc, R, F30);
+    expect(issueCodes(most)).toContain("coverage_high"); // 87,5 %
     const full = validateScriptPlan(out(doc, cleanScenes()), doc, R, F30);
     expect(issueCodes(full)).toContain("coverage_high");
     expect(full.issues.filter((x) => x.severity === "blocking")).toEqual([]);
@@ -102,5 +108,33 @@ describe("validateScriptPlan", () => {
     const v = validateScriptPlan(out(longDoc, [scene(longDoc, w(1), w(60))]), longDoc, R, F30);
     expect(itemIssues(v.items, R, F30).map((x) => x.code)).toEqual(["scene_too_long"]);
     expect(itemIssues(v.items.map((x) => ({ ...x, status: "rejected" as const })), R, F30)).toEqual([]);
+  });
+
+  it("цитата числа сверяется по границам слов, а не по символам; пробелы и переносы не важны", () => {
+    // «o 1.24» и «1.2» символами входят во фрагмент «С Go 1.24 …», словами — нет
+    expect(rejectedCodes(validateScriptPlan(out(doc, [scene(doc, w(1), w(12), { data: [{ label: "версия", value: 1.24, quote: "o 1.24" }] })]), doc, R, F30))).toEqual(["quote_mismatch"]);
+    expect(rejectedCodes(validateScriptPlan(out(doc, [scene(doc, w(1), w(12), { data: [{ label: "версия", value: 1.2, quote: "1.2" }] })]), doc, R, F30))).toEqual(["quote_mismatch"]);
+    const ok = validateScriptPlan(out(doc, [scene(doc, w(1), w(12), { data: [{ label: "версия", value: 1.24, quote: "Go\n   1.24" }] })]), doc, R, F30);
+    expect(ok.rejected).toEqual([]);
+  });
+
+  it("«шесть и две десятых» из block-2 — value 6.2 принят, 6.5 — value_mismatch", () => {
+    const d = docOf([{ title: "", text: "Если в чужих видео встретите «шесть и две десятых» — в моих источниках такого числа нет." }]);
+    const n = d.words.length;
+    const v = validateScriptPlan(out(d, [scene(d, w(1), w(n), { technique: "split-versus", data: [{ label: "чужое число", value: 6.2, quote: "шесть и две десятых" }] })]), d, R, F30);
+    expect(v.rejected).toEqual([]);
+    expect(issueCodes(v)).not.toContain("value_unverified");
+    expect(rejectedCodes(validateScriptPlan(out(d, [scene(d, w(1), w(n), { data: [{ label: "x", value: 6.5, quote: "шесть и две десятых" }] })]), d, R, F30))).toEqual(["value_mismatch"]);
+  });
+
+  it("пропуск агента с неверной цитатой или через границу блоков — отброшен (dropped), не отклонение", () => {
+    const v = validateScriptPlan(out(doc, [
+      scene(doc, w(1), w(14), { technique: "hero-number", pattern: "quantities" }),
+      scene(doc, w(15), w(28), { decision: "skip", skip_reason: "переход", technique: undefined, pattern: undefined, quote: "не те слова" }),
+    ]), doc, R, F30);
+    expect(v.rejected).toEqual([]);
+    expect(v.skipped).toEqual([]);
+    expect(v.dropped).toEqual([expect.objectContaining({ code: "quote_mismatch", id: expect.stringMatching(/^пропуск 2 /) })]);
+    expect(v.items).toHaveLength(1);
   });
 });

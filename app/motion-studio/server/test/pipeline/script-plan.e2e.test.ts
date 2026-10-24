@@ -3,8 +3,9 @@
 // каталог SSD (`MS_DATA_DIR`, по умолчанию /Volumes/External SSD/MotionStudio-e2e-script): там
 // новый проект на каждый прогон, рабочее хранилище человека не трогается.
 // [A] block-1: completed ≤ 5 мин; цитаты проходят `verifyQuote`; blocking = 0; ≥ 3 сцены и ≥ 3
-// приёма; есть число 1.24 или 2025. План → docs/evidence/script-mvp/plan-block-1.json.
-// [A] block-2: числа словами (256, 6,5, 8) не отклонены (`value_mismatch` = 0). План — tmp/s3/.
+// приёма; есть число 1.24 или 2025; покрытие ≤ 85 % и нет сцен на мета-речи о ролике (ревью S3).
+// [A] block-2: числа словами (256, 6,5, 8) не отклонены (`value_mismatch` = 0), ≥ 8 разных приёмов.
+// Планы → docs/evidence/script-mvp/plan-block-{1,2}.json, читаемые — tmp/s3-fix/.
 // Запуск: `MS_E2E=1 npx vitest run server/test/pipeline/script-plan.e2e.test.ts`.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -27,7 +28,7 @@ const T = 15 * 60_000;
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
 const ROOT = process.env.MS_DATA_DIR ?? "/Volumes/External SSD/MotionStudio-e2e-script";
 const EVIDENCE = join(REPO, "docs/evidence/script-mvp");
-const TMP = join(REPO, "tmp/s3");
+const TMP = join(REPO, "tmp/s3-fix");
 
 let core: Core;
 let guard: ConstructorParameters<typeof ArtifactStore>[0]["guard"];
@@ -99,7 +100,11 @@ async function planOf(n: number): Promise<{ doc: ScriptPlanRevisionDoc; res: Scr
   return { doc, res, s, words: script.words };
 }
 
-it("[A] block-1: план за ≤ 5 мин, цитаты дословны, без blocking, ≥ 3 сцены и приёма, число 1.24 или 2025", async () => {
+/** Мета-речь о ролике в block-1 (ревью S3): на этих фразах сцен быть не должно. */
+const META = ["План такой", "ссылки будут в описании", "И чек-лист", "не буду угадывать"];
+const norm = (x: string) => x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+it("[A] block-1: план за ≤ 5 мин, цитаты дословны, без blocking, ≥ 3 сцены и приёма, число 1.24 или 2025, покрытие ≤ 85 %, без мета-речи", async () => {
   const { doc, s, words } = await planOf(1);
   expect(s).toBeLessThanOrEqual(300);
   for (const x of doc.items) expect(verifyQuote(words, x.start_word_id, x.end_word_id, x.quote), x.id).toEqual({ ok: true });
@@ -107,13 +112,19 @@ it("[A] block-1: план за ≤ 5 мин, цитаты дословны, бе
   expect(doc.items.length).toBeGreaterThanOrEqual(3);
   expect(new Set(doc.items.map((x) => x.technique)).size).toBeGreaterThanOrEqual(3);
   expect(doc.items.some((x) => x.data.some((d) => d.value === 1.24 || d.value === 2025))).toBe(true);
+  const covered = doc.items.reduce((a, x) => a + x.words, 0) / words.length;
+  expect(covered, `покрытие ${Math.round(covered * 100)} %`).toBeLessThanOrEqual(0.85);
+  for (const m of META) expect(doc.items.filter((x) => norm(x.quote).includes(norm(m))).map((x) => x.id), m).toEqual([]);
   mkdirSync(EVIDENCE, { recursive: true });
   writeFileSync(join(EVIDENCE, "plan-block-1.json"), JSON.stringify(doc, null, 2) + "\n");
 }, T);
 
-it("[A] block-2: числа словами не отклонены (value_mismatch = 0)", async () => {
+it("[A] block-2: числа словами не отклонены (value_mismatch = 0), ≥ 8 разных приёмов", async () => {
   const { doc } = await planOf(2);
   expect(doc.skipped.filter((x) => x.reason.startsWith("отклонено проверкой (value_mismatch)"))).toEqual([]);
   expect(doc.items.length).toBeGreaterThanOrEqual(3);
+  expect(new Set(doc.items.map((x) => x.technique)).size).toBeGreaterThanOrEqual(8);
   expect(doc.issues.filter((x) => x.severity === "blocking")).toEqual([]);
+  mkdirSync(EVIDENCE, { recursive: true });
+  writeFileSync(join(EVIDENCE, "plan-block-2.json"), JSON.stringify(doc, null, 2) + "\n");
 }, T);

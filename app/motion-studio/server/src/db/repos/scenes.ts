@@ -24,3 +24,9 @@ export function setCurrent(db: Db, sceneId: string, versionId: string): void {
   const r = db.prepare("UPDATE scenes SET current_version_id = ? WHERE id = ?").run(versionId, sceneId);
   if (r.changes !== 1) throw new Error(`db: сцены нет: ${sceneId}`);
 }
+
+/** Название сцены (S5 fix M7: «NN · цитата» сцены сценария при новой ревизии плана). */
+export function setTitle(db: Db, sceneId: string, title: string): void {
+  const r = db.prepare("UPDATE scenes SET title = ? WHERE id = ?").run(title, sceneId);
+  if (r.changes !== 1) throw new Error(`db: сцены нет: ${sceneId}`);
+}
