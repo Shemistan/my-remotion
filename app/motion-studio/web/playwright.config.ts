@@ -7,8 +7,8 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "*.spec.ts",
-  // приёмка Task 22 — свой конфиг (playwright.acceptance.config.ts), реальные агенты и SSD
-  testIgnore: "acceptance/**",
+  // приёмки Task 22 и Task 34 — свои конфиги (playwright.acceptance*.config.ts), реальные агенты и SSD
+  testIgnore: ["acceptance/**", "acceptance-video/**"],
   workers: 1,
   fullyParallel: false,
   retries: 0,
