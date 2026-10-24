@@ -123,7 +123,8 @@ Playwright через настоящий UI (`web/playwright.acceptance.config.t
 ## Приёмка Phase 2–3 (видео)
 
 ```sh
-make acceptance-video                                         # Phase 2: импорт, ASR, монтаж, рестарт, устойчивость
+make acceptance-video                                         # Phase 2 и Phase 3 по порядку на одном проекте
+MS_ACC_REUSE=1 MS_ACC_ONLY=phase3-analysis,phase3-plan,phase3-recheck make acceptance-video # только Phase 3
 MS_ACC_REUSE=1 MS_ACC_ONLY=stress make acceptance-video       # стресс: весь 66-минутный исходник (долго)
 MS_ACC_REUSE=1 MS_ACC_ONLY=roughcut,restart make acceptance-video # продолжить с нужного шага
 ```
@@ -137,5 +138,8 @@ ai-platform, ffmpeg и Apple Vision; хранилище — то же `/Volumes/
 читается, sha256 до/после сверяется. Скрипты evidence: `scripts/collect-video-evidence.mjs
 <projectId> <каталог>` (JSON артефактов, видео — только sha256 и ffprobe, кадры ≤ 480 px),
 `node --import tsx scripts/timing-audit.mjs <projectId>` (source↔edited и смещение звука превью
-по 10 словам). Итоги — `docs/evidence/phase-2/<шаг>/checks.json` и `docs/evidence/phase-2/REPORT.md`
-(там же время и стоимость шагов); служебное — `tmp/acceptance-video/`.
+по 10 словам), `scripts/draw-zones.mjs` и `scripts/draw-plan.mjs` (кадры с зонами и раскладкой
+сцен). Итоги — `docs/evidence/phase-{2,3}/<шаг>/checks.json` и `REPORT.md` там же (время и
+стоимость шагов); служебное — `tmp/acceptance-video/`. Phase 3 (анализ видеоряда, смысл, план,
+перепроверка) — ≈ 3 мин задач и ≈ $0,2 справочно; фрагменты и кадры для просмотра человеком —
+в `MotionStudio-примеры/task34-phase3/` рядом с роликом.

@@ -1,0 +1,87 @@
+{
+  "job": {
+    "id": "job_01M5Q9M2EDFZ5T091SJDSRRVHE",
+    "type": "footage.analyze",
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "scene_id": null,
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "done",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "projectId": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+      "mediaId": "med_01M5Q5QXD2ANNG55C9C25XYKE7",
+      "useAgent": true
+    },
+    "input_hash": "d6bbab951dca61ba76eeadd7e48abe9677fd1c36413075d75ec27e6a7c24f578",
+    "output_refs": {
+      "footage_id": "ftg_01M5Q9M2EDFZ5T091SJDSRRVHE",
+      "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/analysis/footage/ftg_01M5Q9M2EDFZ5T091SJDSRRVHE/footage.json",
+      "mode": "vision+llm",
+      "reused": false,
+      "shots": 1,
+      "keyframes": 30,
+      "faces": {
+        "shots_with_face": 1,
+        "min_ratio": 1
+      },
+      "vision": {
+        "status": "ok"
+      },
+      "agent": {
+        "status": "completed",
+        "calls": 1,
+        "batches": 1,
+        "cost_usd": 0.0832,
+        "retried": 0,
+        "from_checkpoint": 0,
+        "dropped_objects": 0,
+        "permission_denials": 0
+      },
+      "timings_ms": {
+        "prepare": 11,
+        "shots": 3469,
+        "keyframes": 3804,
+        "vision": 6174,
+        "agent": 30046,
+        "publish": 65
+      }
+    },
+    "error": null,
+    "idempotency_key": "500b217a-f5e5-473b-a772-1b477d6af939",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-24T15:49:11.245Z",
+    "started_at": "2026-10-24T15:49:11.371Z",
+    "finished_at": "2026-10-24T15:49:54.954Z"
+  },
+  "agent_runs": [],
+  "events": [
+    {
+      "ts": "2026-10-24T15:49:11.375Z",
+      "level": "info",
+      "kind": "started",
+      "message": "footage.analyze: попытка 1",
+      "data_json": "{\"attempt\":1}"
+    },
+    {
+      "ts": "2026-10-24T15:49:14.856Z",
+      "level": "info",
+      "kind": "shots",
+      "message": "смен сцен 0, шотов 1",
+      "data_json": "{\"cuts_us\":[]}"
+    },
+    {
+      "ts": "2026-10-24T15:49:54.958Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed",
+      "data_json": null
+    }
+  ]
+}

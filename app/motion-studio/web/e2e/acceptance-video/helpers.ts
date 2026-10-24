@@ -25,6 +25,8 @@ export const ORIGINAL_SHA256 = "9df29c1e5c9f26ce3d43a4adda99f4240023e115b65ad6c5
 export const RUN_ROOT = join(REPO, "tmp/acceptance-video");
 export const STATE_FILE = join(RUN_ROOT, "state.json");
 export const EVIDENCE = join(REPO, "docs/evidence/phase-2");
+/** Evidence Phase 3 (Task 34, Steps 7–10): `writeEvidence`/`shot`/`Checks` с корнем `EVIDENCE3`. */
+export const EVIDENCE3 = join(REPO, "docs/evidence/phase-3");
 export const PORT = 8790;
 export const BASE = `http://127.0.0.1:${PORT}`;
 export const ORIGIN = BASE;
@@ -193,14 +195,14 @@ export function ffprobe(path: string, extra: string[] = []): ProbeJson {
 
 // --- evidence ---
 
-export function writeEvidence(dir: string, name: string, data: unknown): void {
-  mkdirSync(join(EVIDENCE, dir), { recursive: true });
-  writeFileSync(join(EVIDENCE, dir, name), redact(typeof data === "string" ? data : JSON.stringify(data, null, 2) + "\n"));
+export function writeEvidence(dir: string, name: string, data: unknown, root = EVIDENCE): void {
+  mkdirSync(join(root, dir), { recursive: true });
+  writeFileSync(join(root, dir, name), redact(typeof data === "string" ? data : JSON.stringify(data, null, 2) + "\n"));
 }
 
 /** Скриншот страницы в `<evidence>/<dir>/ui/<name>.png`, уменьшенный до 480 px (лицо автора, V4). */
-export async function shot(page: Page, dir: string, name: string): Promise<void> {
-  const out = join(EVIDENCE, dir, "ui");
+export async function shot(page: Page, dir: string, name: string, root = EVIDENCE): Promise<void> {
+  const out = join(root, dir, "ui");
   mkdirSync(out, { recursive: true });
   const path = join(out, `${name}.png`);
   await page.screenshot({ path, fullPage: false });
@@ -210,7 +212,7 @@ export async function shot(page: Page, dir: string, name: string): Promise<void>
 /** Проверки [A] с итогом в `<evidence>/<dir>/checks.json`; провал — мягкий (видны все). */
 export class Checks {
   readonly rows: { id: string; title: string; kind: string; pass: boolean; detail: string }[] = [];
-  constructor(private readonly dir: string) {}
+  constructor(private readonly dir: string, private readonly root = EVIDENCE) {}
   check(id: string, title: string, pass: boolean, detail: unknown = "", kind = "A"): boolean {
     const d = typeof detail === "string" ? detail : JSON.stringify(detail);
     this.rows.push({ id, title, kind, pass, detail: d });
@@ -223,8 +225,8 @@ export class Checks {
     this.save();
   }
   save(): void {
-    mkdirSync(join(EVIDENCE, this.dir), { recursive: true });
-    writeFileSync(join(EVIDENCE, this.dir, "checks.json"), redact(JSON.stringify(this.rows, null, 2) + "\n"));
+    mkdirSync(join(this.root, this.dir), { recursive: true });
+    writeFileSync(join(this.root, this.dir, "checks.json"), redact(JSON.stringify(this.rows, null, 2) + "\n"));
   }
 }
 

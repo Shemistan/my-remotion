@@ -1,0 +1,16 @@
+{
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "source_duration_us": 420120000,
+  "duration_us": 420120000,
+  "clips": [
+    {
+      "idx": 0,
+      "source_start_us": 0,
+      "source_end_us": 420120000,
+      "edited_start_us": 0
+    }
+  ]
+}

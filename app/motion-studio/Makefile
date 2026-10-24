@@ -67,7 +67,8 @@ acceptance: web-build
 # claude, ASR-воркер ai-platform, ffmpeg и Apple Vision; хранилище MotionStudio-acceptance, копия-
 # отрезок IMG_0685.MOV (`scripts/pick-test-video.mjs --raw`) в MotionStudio-acceptance-src.
 # Phase 2 ≈ 15 мин, $0,1; стресс на всём 66-минутном ролике (≈ 45 мин) — отдельно: MS_ACC_ONLY=stress
-# MS_ACC_REUSE=1 make acceptance-video. Evidence — docs/evidence/phase-2/ (и phase-3/).
+# MS_ACC_REUSE=1 make acceptance-video. Phase 3 (≈ 3 мин, $0,2): MS_ACC_ONLY=phase3-analysis,phase3-plan,phase3-recheck.
+# Evidence — docs/evidence/phase-2/ и phase-3/.
 acceptance-video: web-build
 	$(NODE) npm run --silent build:vision
 	$(NODE) npx playwright test -c web/playwright.acceptance-video.config.ts

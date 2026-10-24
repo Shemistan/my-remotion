@@ -1,0 +1,95 @@
+{
+  "job": {
+    "id": "job_01M5Q9QE1DQRDGY5Q5KA57G3TM",
+    "type": "plan.visual",
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "scene_id": null,
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "done",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "projectId": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+      "useAgent": true
+    },
+    "input_hash": "039c82eb4ac09d3d34577830527ce9dd043634cd8bc9cb58b9b7fa331a1fc05c",
+    "output_refs": {
+      "plan_id": "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM",
+      "revision": 1,
+      "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/plan/pln_01M5Q9QE1DQRDGY5Q5KA57G3TM/r1/plan.json",
+      "reused": false,
+      "inputs": {
+        "edl": {
+          "id": "edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C",
+          "revision": 13,
+          "hash": "e2cec4bb1fb6ac36c1e1ae99328006245ae48c7c212238e613847baf7ea36843"
+        },
+        "transcript": {
+          "id": "trn_01M5Q5WS2K6KVYV1X1G2X6TMZP",
+          "revision": 2
+        },
+        "semantic_id": "sem_01M5Q9NFFWHS3X3WD2QRPTYQBJ",
+        "footage_id": "ftg_01M5Q9M2EDFZ5T091SJDSRRVHE",
+        "style": {
+          "id": "sty_01M5Q9RJHHY72N7GB521ERX9KT",
+          "revision": 1,
+          "hash": "5058f0efdb11a01d0ca6ac67db43cec1c9e2816c4783c3af6b0f1045329bb67c"
+        }
+      },
+      "counts": {
+        "items": 8,
+        "skipped": 3,
+        "rejected": 0,
+        "blocking": 0
+      },
+      "style": {
+        "style_id": "sty_01M5Q9RJHHY72N7GB521ERX9KT",
+        "revision": 1,
+        "author": "agent",
+        "kept": false,
+        "issues": 0
+      },
+      "agent": {
+        "status": "completed",
+        "calls": 1,
+        "cost_usd": 0.1105,
+        "retried": 0,
+        "from_checkpoint": 0
+      },
+      "timings_ms": {
+        "prepare": 39,
+        "agent": 37299,
+        "publish": 68
+      }
+    },
+    "error": null,
+    "idempotency_key": "f127e6f7-36f5-423b-9ecd-64b28e0c1e8c",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-24T15:51:01.421Z",
+    "started_at": "2026-10-24T15:51:01.445Z",
+    "finished_at": "2026-10-24T15:51:38.868Z"
+  },
+  "agent_runs": [],
+  "events": [
+    {
+      "ts": "2026-10-24T15:51:01.450Z",
+      "level": "info",
+      "kind": "started",
+      "message": "plan.visual: попытка 1",
+      "data_json": "{\"attempt\":1}"
+    },
+    {
+      "ts": "2026-10-24T15:51:38.871Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed",
+      "data_json": null
+    }
+  ]
+}
