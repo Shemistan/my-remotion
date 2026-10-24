@@ -1,5 +1,9 @@
 // Словарь интерфейса (русский). Плоские ключи `раздел.ключ`, параметры — `{name}`.
-// Вся видимая пользователю строка UI берётся отсюда через `t(key)`.
+// Вся видимая пользователю строка UI берётся отсюда через `t(key)`. Сценарный проект — в своих
+// словарях (`ru-script-plan.ts`, `ru-script-output.ts`), подмешанных сюда.
+import { ruScriptOutput } from "./ru-script-output.js";
+import { ruScriptPlan } from "./ru-script-plan.js";
+
 export const ru = {
   "app.title": "AI Motion Studio",
 
@@ -874,4 +878,6 @@ export const ru = {
   "style.history": "Ревизии: {list}",
   "style.pairs": "Нечитаемые пары: {list}",
   "style.presetChanged": "Палитра и шрифт нового пресета появятся после сохранения.",
+  ...ruScriptPlan,
+  ...ruScriptOutput,
 } as const satisfies Record<string, string>;

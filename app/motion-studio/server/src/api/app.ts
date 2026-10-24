@@ -25,6 +25,8 @@ import { planRoutes } from "./routes/plans.js";
 import { projectStyleRoutes } from "./routes/project-style.js";
 import { projectRoutes } from "./routes/projects.js";
 import { sceneRoutes } from "./routes/scenes.js";
+import { scriptBatchRoutes } from "./routes/script-batch.js";
+import { scriptTextRoutes } from "./routes/script-text.js";
 import { semanticRoutes } from "./routes/semantic.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { transcriptRoutes } from "./routes/transcripts.js";
@@ -83,6 +85,9 @@ export async function buildApp(core: Core, opts: BuildAppOptions = { port: PORT 
   semanticRoutes(app, ctx);
   planRoutes(app, ctx);
   projectStyleRoutes(app, ctx);
+  // сценарный проект
+  scriptTextRoutes(app, ctx);
+  scriptBatchRoutes(app, ctx);
   eventRoutes(app, ctx, sse);
 
   if (opts.dev) await installViteDev(app, WEB_ROOT, opts.port);

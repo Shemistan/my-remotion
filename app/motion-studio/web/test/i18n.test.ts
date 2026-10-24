@@ -14,7 +14,9 @@ function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
 }
 
-const sources = walk(SRC).filter((f) => /\.(ts|tsx)$/.test(f) && !f.endsWith(join("i18n", "ru.ts")));
+/** Словари: `ru.ts` и подмешанные в него `ru-*.ts` (сценарный проект). */
+const isDictionary = (f: string) => /[\\/]i18n[\\/]ru(-[a-z-]+)?\.ts$/.test(f);
+const sources = walk(SRC).filter((f) => /\.(ts|tsx)$/.test(f) && !isDictionary(f));
 
 /** Импорты и комментарии: в них кириллица допустима (комментарии — по-русски, ruling 8). */
 export function stripImports(src: string): string {

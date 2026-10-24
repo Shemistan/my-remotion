@@ -22,12 +22,12 @@ function rev(n: number): string {
 export const PROJECTS_REL = "workspace/projects";
 
 /**
- * Ровно формы `artifactPaths`: `<p>/(source|proxy)/<id>`, `<p>/(transcript|edits|preview|style|plan)/<id>/r<N>`,
+ * Ровно формы `artifactPaths`: `<p>/(source|proxy|packages)/<id>`, `<p>/(transcript|edits|preview|style|plan|script)/<id>/r<N>`,
  * `<p>/analysis/(footage|semantic)/<id>`. Остальное в каталоге проекта (сцены Phase 1,
  * `project.json`, родители ревизий) публикацией и карантином сирот не затрагивается.
  */
 const DEST_REL_RE = new RegExp(
-  `^${PROJECTS_REL}/${ART_ID}/(?:(?:source|proxy)/${ART_ID}|(?:transcript|edits|preview|style|plan)/${ART_ID}/r[1-9][0-9]*|analysis/(?:footage|semantic)/${ART_ID})$`,
+  `^${PROJECTS_REL}/${ART_ID}/(?:(?:source|proxy|packages)/${ART_ID}|(?:transcript|edits|preview|style|plan|script)/${ART_ID}/r[1-9][0-9]*|analysis/(?:footage|semantic)/${ART_ID})$`,
 );
 
 /** destRel публикации — путь формы `artifactPaths`; иначе ошибка до любых изменений ФС. */
@@ -53,11 +53,15 @@ export interface ArtifactPaths {
   semantic(id: string): string;
   styleRev(id: string, n: number): string;
   planRev(id: string, n: number): string;
+  /** Ревизия текста сценария `script/<id>/r<N>`. */
+  scriptRev(id: string, n: number): string;
+  /** Папка пакета экспорта сценария `packages/<id>`. */
+  package(id: string): string;
   /** Абсолютный путь в хранилище `root`. */
   abs(rel: string): string;
 }
 
-/** Пути `workspace/projects/<p>/{source,proxy,transcript,edits,preview,analysis/footage,analysis/semantic,style,plan}/…`. */
+/** Пути `workspace/projects/<p>/{source,proxy,transcript,edits,preview,analysis/footage,analysis/semantic,style,plan,script,packages}/…`. */
 export function artifactPaths(root: string, projectId: string): ArtifactPaths {
   const p = `${PROJECTS_REL}/${checkId("projectId", projectId)}`;
   return {
@@ -71,6 +75,8 @@ export function artifactPaths(root: string, projectId: string): ArtifactPaths {
     semantic: (id) => `${p}/analysis/semantic/${checkId("semanticId", id)}`,
     styleRev: (id, n) => `${p}/style/${checkId("styleId", id)}/${rev(n)}`,
     planRev: (id, n) => `${p}/plan/${checkId("planId", id)}/${rev(n)}`,
+    scriptRev: (id, n) => `${p}/script/${checkId("scriptId", id)}/${rev(n)}`,
+    package: (id) => `${p}/packages/${checkId("packageId", id)}`,
     abs: (rel) => join(root, rel),
   };
 }

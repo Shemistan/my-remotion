@@ -1,7 +1,7 @@
 // Dashboard (ТЗ §11.1): проекты, активные задачи, последние экспорты, «Новый проект».
 // Служебные проекты bench скрывает сервер (`GET /projects`). Страница проекта — сцены,
 // экспорты проекта и новая сцена по промпту.
-import { type HistoryEntry, type Job, type Settings, defaultSettings } from "@ms/contracts";
+import { type HistoryEntry, type Job, type ProjectDto, type Settings, defaultSettings } from "@ms/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { api, newKey, urls } from "../api/client.js";
@@ -13,6 +13,7 @@ import { versionState } from "../components/VersionHistory.js";
 import { errorText, t, tk } from "../i18n/index.js";
 import { navigate } from "../router.js";
 import { VideoWorkspace } from "./VideoWorkspace.js";
+import { ScriptWorkspace } from "./script/ScriptWorkspace.js";
 
 export const dateTime = (iso: string) => new Date(iso).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
 
@@ -26,7 +27,7 @@ function NewProject() {
   const client = useQueryClient();
   const [title, setTitle] = useState("");
   const create = useMutation({
-    mutationFn: (kind: "playground" | "video") => api.createProject(title.trim(), kind),
+    mutationFn: (kind: ProjectDto["kind"]) => api.createProject(title.trim(), kind),
     onSuccess: (p) => {
       setTitle("");
       void client.invalidateQueries({ queryKey: ["projects"] });
@@ -41,6 +42,7 @@ function NewProject() {
         <input id={id} className="grow" value={title} placeholder={t("dashboard.projectTitlePlaceholder")} onChange={(e) => setTitle(e.target.value)} />
         <button type="submit" className="primary" disabled={!title.trim() || create.isPending}>{t("dashboard.create")}</button>
         <button type="button" disabled={!title.trim() || create.isPending} onClick={() => create.mutate("video")}>{t("dashboard.createVideo")}</button>
+        <button type="button" disabled={!title.trim() || create.isPending} onClick={() => create.mutate("script")}>{t("dashboard.createScript")}</button>
       </div>
       {create.isError ? <p className="error">{errorText(create.error)}</p> : null}
     </form>
@@ -169,6 +171,8 @@ export function ProjectPage({ id }: { id: string }) {
   const { project, scenes, exports } = q.data;
   // видеопроект (Task 29): Video Workspace; сцены проекта (если есть) — списком внизу
   if (project.kind === "video") return <VideoWorkspace id={project.id} scenes={scenes} />;
+  // сценарный проект: текст → план → сцены → экспорт
+  if (project.kind === "script") return <ScriptWorkspace project={project} />;
   const initial = project.settings ?? app.data?.defaults ?? defaultSettings();
   return (
     <div className="page project">

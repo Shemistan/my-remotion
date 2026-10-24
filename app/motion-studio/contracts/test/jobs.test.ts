@@ -18,6 +18,7 @@ describe("jobs", () => {
     expect(JobTypeSchema.options).toEqual([
       "playground.generate", "playground.edit", "scene.restore", "scene.export",
       "media.import", "asr.transcribe", "roughcut.propose", "roughcut.preview", "footage.analyze", "semantic.analyze", "plan.visual", "plan.recheck",
+      "script.plan", "script.package",
     ]);
   });
   it("JobError: коды Phase 2–3 без этапа", () => {

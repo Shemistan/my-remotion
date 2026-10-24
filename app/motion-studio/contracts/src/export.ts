@@ -28,6 +28,8 @@ export const ExportRequestSchema = z.object({
   fps: z.union([z.literal(24), z.literal(25), z.literal(30), z.literal(50), z.literal(60)]).optional(),
   crf: z.number().int().min(14).max(28).default(18),
   scale: z.union([z.literal(1), z.literal(0.5)]).default(1),
+  /** ProRes 4444 с альфой из непрозрачной версии (сценарий, спека §9): фон сцены не рисуется. */
+  overlay: z.boolean().optional(),
 }).strict();
 export type ExportRequest = z.infer<typeof ExportRequestSchema>;
 
@@ -70,5 +72,7 @@ export const ExportManifestSchema = z.object({
   tempo_check: TempoCheckSchema.optional(),
   /** Предупреждения экспорта: время вне договора кадров, MP4 прозрачной версии и т. п. */
   warnings: z.array(z.string()).optional(),
+  /** `overlay: true` (сценарий, спека §9): доля непрозрачных пикселей на кадре проверки. */
+  overlay: z.object({ coverage: z.number().min(0).max(1), frame: z.number().int().nonnegative() }).strict().optional(),
 }).strict();
 export type ExportManifest = z.infer<typeof ExportManifestSchema>;

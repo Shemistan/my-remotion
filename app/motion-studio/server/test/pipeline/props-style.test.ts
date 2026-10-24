@@ -37,4 +37,15 @@ describe("withSceneSeed", () => {
     expect(withSceneSeed({ ...base, composition }, "scn_1").composition?.background).toEqual({ variant: "blueprint", focus: { x: 0.6, y: 0.4 }, seed: "scn_1" });
     expect(withSceneSeed(base, "scn_1")).toEqual(base);
   });
+
+  it("сценарий: settings.style_lock (стиль проекта) важнее палитры, глубины и шрифта сцены", () => {
+    const lock = { palette_overrides: { bg: "#101418", accent: ["#22c55e"] }, depth: 2 as const, font: "Inter" };
+    const locked = { ...settings, duration_frames: 180, style_lock: lock };
+    expect(scenePropsStyle(locked)).toMatchObject({ palette_overrides: lock.palette_overrides, depth: 2, font: "Inter" });
+    const spec = { duration_frames: 180, beats: [{ id: "b1", start_frame: 0, end_frame: 180 }], palette_overrides: { bg: "#ffffff" } } as never;
+    const engineer = { timing: { duration_frames: 180, beats: [{ id: "b1", start_frame: 0, end_frame: 180 }] }, style: { preset: "dark-premium", intensity: "calm", depth: 3, transparent: true, palette_overrides: { accent: ["#a855f7"] }, safe_area: { x: 0, y: 0 } }, content: {} };
+    const r = checkProps(JSON.stringify(engineer), spec, locked);
+    expect(r.issues).toEqual([]);
+    expect(r.props!.style).toMatchObject({ palette_overrides: lock.palette_overrides, depth: 2, font: "Inter" });
+  });
 });

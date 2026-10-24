@@ -1,7 +1,7 @@
 // Обработчики задач, общие для сервера и CLI: оба регистрируют одни и те же обработчики
 // (`playground.generate`, `playground.edit`, `scene.restore`, `scene.export`, `media.import`,
 // `asr.transcribe`, `roughcut.propose`, `roughcut.preview`, `footage.analyze`, `semantic.analyze`,
-// `plan.visual`, `plan.recheck`).
+// `plan.visual`, `plan.recheck`, `script.plan`, `script.package`).
 import type { Job } from "@ms/contracts";
 import { DEFAULT_MIN_FREE_GB } from "@ms/core";
 import { alphaAtCorner, exportVersion, renderVersion } from "@ms/render";
@@ -19,6 +19,8 @@ import { type RoughcutProposeDeps, roughcutPropose } from "../pipeline/roughcut-
 import { sceneExport } from "../pipeline/scene-export.js";
 import { type SemanticAnalyzeDeps, semanticAnalyze } from "../pipeline/semantic-analyze.js";
 import { sceneRestore } from "../pipeline/scene-restore.js";
+import { scriptPackage } from "../pipeline/script-package.js";
+import { scriptPlan } from "../pipeline/script-plan.js";
 import { checkSceneDir } from "../scenes/static-check.js";
 import { typecheckVersion } from "../scenes/typecheck.js";
 import type { Handlers } from "./types.js";
@@ -146,6 +148,9 @@ export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extr
       ...(o.onPlanStage ? { onStage: o.onPlanStage } : {}),
       ...(o.log ? { log: o.log } : {}),
     })),
+    // сценарный проект (S1 — заглушки; S3 и S7 задают зависимости)
+    "script.plan": scriptPlan(() => ({})),
+    "script.package": scriptPackage(() => ({})),
     ...extra,
   };
 }

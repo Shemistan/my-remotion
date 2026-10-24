@@ -9,6 +9,7 @@ import {
   ProjectDetailDtoSchema,
   ProjectDtoSchema,
   type SceneDto,
+  defaultSettings,
 } from "@ms/contracts";
 import { z } from "zod";
 import * as exportsRepo from "../../db/repos/exports.js";
@@ -34,7 +35,9 @@ export function projectRoutes(app: ZApp, { core }: ApiContext): void {
 
   app.post("/api/projects", { schema: { body: CreateProjectBodySchema, response: { 201: ProjectDtoSchema } } }, async (req, reply) => {
     const { title, kind, settings } = req.body;
-    const p = projects.create(core.db, { title, kind: kind ?? "playground", ...(settings ? { settings } : {}) });
+    // сценарий: настройки по умолчанию 16:9 1920×1080 30 fps (спека §1), если не заданы
+    const s = settings ?? (kind === "script" ? defaultSettings() : undefined);
+    const p = projects.create(core.db, { title, kind: kind ?? "playground", ...(s ? { settings: s } : {}) });
     return reply.status(201).send(p);
   });
 

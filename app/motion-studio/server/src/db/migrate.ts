@@ -43,8 +43,16 @@ const JOBS_V2_COLUMNS = [
  * миграции. Поэтому сверяемая таблица не должна меняться предыдущими миграциями из тех,
  * что могут оказаться недостающими (для 3: `002` таблицу `jobs` не трогает).
  */
+/** Колонки `projects` после 001 — те, что 005 переносит в `projects_new`. */
+const PROJECTS_V1_COLUMNS = ["id", "kind", "title", "settings_json", "created_at", "updated_at"];
+
+/** 005 пересобирает `jobs` с теми же колонками, что 003, и `projects` (не менялась с 001). */
 const PRECHECKS: Record<number, (db: Db) => void> = {
   3: (db) => expectColumns(db, "jobs", JOBS_V2_COLUMNS),
+  5: (db) => {
+    expectColumns(db, "jobs", JOBS_V2_COLUMNS);
+    expectColumns(db, "projects", PROJECTS_V1_COLUMNS);
+  },
 };
 
 function expectColumns(db: Db, table: string, want: string[]): void {

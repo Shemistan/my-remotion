@@ -40,7 +40,7 @@ import type { typecheckVersion } from "../scenes/typecheck.js";
 import { provenanceGate } from "./provenance.js";
 import type { KnowledgeSource } from "./refs.js";
 import { isNetworkError } from "./transient.js";
-import { type RunCtx, buildEngineerTask, clip, errText, isStorageError, scenePropsStyle, sceneStyle } from "./steps.js";
+import { type RunCtx, buildEngineerTask, clip, errText, isStorageError, scenePropsStyle, sceneStyle, styleLockOf } from "./steps.js";
 
 export const PREVIEW = { scale: 0.5, crf: 23 };
 /** Время рендера по умолчанию; длинные сцены — `renderTimeoutMs`. */
@@ -307,6 +307,8 @@ export function checkProps(text: string | undefined, spec: MotionSpec, settings:
     ...scenePropsStyle(settings),
     ...(kept.palette_overrides ? { palette_overrides: kept.palette_overrides } : spec.palette_overrides ? { palette_overrides: spec.palette_overrides } : {}),
     ...(kept.depth !== undefined ? { depth: kept.depth } : {}),
+    // стиль проекта сценария (`settings.style_lock`) важнее палитры и глубины сцены
+    ...styleLockOf(settings),
   };
   const parsed = ScenePropsBaseSchema.safeParse({ ...obj, style });
   if (!parsed.success) {

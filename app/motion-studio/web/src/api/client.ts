@@ -91,13 +91,14 @@ export const storageStatus = (() => {
  */
 export const newKey = (): string => crypto.randomUUID();
 
-interface RequestOpts {
+export interface RequestOpts {
   body?: unknown;
   /** Ключ идемпотентности: `true` — новый, строка — заданный (повтор того же действия). */
   idempotency?: true | string;
 }
 
-async function request<T>(method: string, path: string, opts: RequestOpts = {}): Promise<T> {
+/** Запрос к Control API (общий для `client.ts` и `script-client.ts`). */
+export async function request<T>(method: string, path: string, opts: RequestOpts = {}): Promise<T> {
   const headers: Record<string, string> = { accept: "application/json" };
   if (opts.body !== undefined) headers["content-type"] = "application/json";
   if (opts.idempotency) headers["idempotency-key"] = opts.idempotency === true ? newKey() : opts.idempotency;

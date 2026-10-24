@@ -65,7 +65,7 @@ export type KbHitDto = z.infer<typeof KbHitDtoSchema>;
 
 export const ProjectDtoSchema = z.object({
   id: Id,
-  kind: z.enum(["playground", "video"]),
+  kind: z.enum(["playground", "video", "script"]),
   title: z.string(),
   settings: SettingsSchema.nullable(),
   created_at: Ts,
@@ -121,7 +121,7 @@ export type JobEventDto = z.infer<typeof JobEventDtoSchema>;
 
 export const ChatMessageDtoSchema = ChatMessageSchema;
 
-/** `kind` не задан — `playground` (поведение Phase 1); `video` — видеопроект (Task 29). */
+/** `kind` не задан — `playground` (поведение Phase 1); `video` — видеопроект (Task 29); `script` — сценарий. */
 export const CreateProjectBodySchema = z.object({
   title: z.string().min(1),
   kind: ProjectDtoSchema.shape.kind.optional(),

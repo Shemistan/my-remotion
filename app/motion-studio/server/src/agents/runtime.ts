@@ -8,6 +8,8 @@ export const ROLES = [
   "concept", "motion_director", "engineer", "visual_qa", "edit_planner",
   // Phase 2–3: черновой монтаж, видеоряд, смысловая разметка, визуальный план
   "rough_cut_editor", "footage_analyst", "semantic_director", "visual_planner",
+  // сценарный проект: план сценария
+  "script_director",
 ] as const;
 export type Role = (typeof ROLES)[number];
 

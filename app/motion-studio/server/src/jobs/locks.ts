@@ -17,7 +17,7 @@ export function sceneLockFor(job: Job): string | undefined {
 }
 
 /** Ресурс проекта, который пишет задача Phase 2–3. */
-export type ProjectResource = "media" | "transcript" | "edl" | "footage" | "semantic" | "plan";
+export type ProjectResource = "media" | "transcript" | "edl" | "footage" | "semantic" | "plan" | "package";
 
 /** Ключ замка ресурса проекта: `project:<id>:<ресурс>`. */
 export const projectLockKey = (projectId: string, resource: ProjectResource): string => `project:${projectId}:${resource}`;
@@ -48,7 +48,10 @@ export function lockKeyFor(job: Job): string | undefined {
       return key("semantic");
     case "plan.visual":
     case "plan.recheck":
+    case "script.plan":
       return key("plan");
+    case "script.package":
+      return key("package");
   }
 }
 

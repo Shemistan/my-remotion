@@ -230,7 +230,9 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfi
         timeoutMs: AGENT_TIMEOUT_MS,
         maxBudgetUsd: AGENT_BUDGET_USD,
       };
-      return [role, { ...base, ...fileAgents[role] }];
+      // Script Director по умолчанию — модель и лимиты Visual Planner (спека сценария §6.1)
+      const inherit = role === "script_director" ? fileAgents.visual_planner : undefined;
+      return [role, { ...base, ...inherit, ...fileAgents[role] }];
     }),
   ) as Record<Role, AgentSettings>;
 

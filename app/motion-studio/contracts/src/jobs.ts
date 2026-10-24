@@ -8,6 +8,8 @@ export const JobTypeSchema = z.enum([
   "playground.generate", "playground.edit", "scene.restore", "scene.export",
   // Phase 2–3: видеопроект
   "media.import", "asr.transcribe", "roughcut.propose", "roughcut.preview", "footage.analyze", "semantic.analyze", "plan.visual", "plan.recheck",
+  // сценарный проект: план сценария, пакет экспорта
+  "script.plan", "script.package",
 ]);
 export type JobType = z.infer<typeof JobTypeSchema>;
 

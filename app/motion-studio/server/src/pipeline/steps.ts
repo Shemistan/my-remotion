@@ -650,6 +650,19 @@ export function scenePropsStyle(settings: Settings): ScenePropsStyle {
     transparent: settings.transparent_export,
     safe_area: { x: settings.safe_area.x, y: settings.safe_area.y },
     ...(font && KIT_FONTS.has(font) ? { font } : {}),
+    ...styleLockOf(settings),
+  };
+}
+
+/** Поля `settings.style_lock` для props.style (сценарий): важнее предложенного агентами. */
+export function styleLockOf(settings: Settings): Partial<Pick<ScenePropsStyle, "palette_overrides" | "depth" | "font">> {
+  const lock = settings.style_lock;
+  if (!lock) return {};
+  const font = lock.font?.trim();
+  return {
+    ...(lock.palette_overrides ? { palette_overrides: lock.palette_overrides } : {}),
+    ...(lock.depth !== undefined ? { depth: lock.depth } : {}),
+    ...(font && KIT_FONTS.has(font) ? { font } : {}),
   };
 }
 
