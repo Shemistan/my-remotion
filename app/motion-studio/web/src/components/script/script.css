@@ -45,3 +45,51 @@
 .plan-skipped-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .generate-bar { display: flex; flex-direction: column; gap: 4px; padding: 8px 12px; }
 .generate-bar .hint { margin: 0; }
+
+/* Сценарий: вкладки «Сцены» и «Экспорт» (S9). */
+.script-scenes, .script-export { display: flex; flex-direction: column; gap: var(--gap); margin-top: 10px; }
+.aspect-switch { border: 0; margin: 0; padding: 0; gap: 6px; align-items: center; }
+.aspect-switch legend { float: left; margin-right: 6px; padding: 0; }
+.aspect-option { border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; cursor: pointer; background: var(--surface); }
+.aspect-option.selected { border-color: var(--accent); color: var(--accent); }
+.aspect-option input { margin: 0 4px 0 0; }
+.batch-bar { display: flex; flex-direction: column; gap: 6px; }
+.scene-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: var(--gap); align-items: start; }
+.scene-tile { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; display: flex; flex-direction: column; gap: 6px; background: var(--surface); min-width: 0; }
+.scene-tile.status-failed { border-color: color-mix(in srgb, var(--error) 60%, var(--border)); }
+.scene-tile.stale { border-style: dashed; border-color: var(--warn); }
+.scene-tile .card-quote { margin: 0; font-style: italic; border-left: 3px solid var(--accent); padding-left: 8px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.scene-tile .card-issues { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.scene-tile .job-status { margin: 0; padding: 6px 8px; }
+.scene-tile .player-info { flex-wrap: wrap; }
+.tile-preview .player-stage { max-height: 360px; margin: 0 auto; }
+.tile-preview .tall .player-stage { height: 360px; width: auto; max-width: 100%; }
+.tile-empty { aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center; text-align: center; padding: 8px; border: 1px dashed var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.badge.stale-badge { border-color: var(--warn); color: var(--warn); }
+.tile-actions { margin-top: auto; }
+.reframe-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 240px; overflow: auto; }
+.reframe-list label { align-items: baseline; }
+.reframe-quote { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60ch; display: inline-block; vertical-align: bottom; }
+.script-packages { display: flex; flex-direction: column; gap: var(--gap); }
+.script-packages > h2 { margin: 0; }
+.package-card { display: flex; flex-direction: column; gap: 8px; }
+.package-card h3 { margin: 0; font-size: 15px; color: var(--text); }
+.package-path { margin: 0; }
+.table-scroll { overflow-x: auto; max-width: 100%; }
+.package-files, .cheatsheet-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.package-files caption { text-align: left; caption-side: top; padding-bottom: 4px; }
+.package-files th, .package-files td, .cheatsheet-table th, .cheatsheet-table td { border-bottom: 1px solid var(--border); padding: 4px 8px; text-align: left; vertical-align: top; }
+.package-files th, .cheatsheet-table th { font-weight: 600; color: var(--muted); white-space: nowrap; }
+.package-quote { font-style: italic; min-width: 200px; }
+.package-missing { border-left: 3px solid var(--warn); padding: 4px 10px; background: color-mix(in srgb, var(--warn) 8%, transparent); border-radius: 4px; }
+.package-missing h4 { margin: 0 0 4px; color: var(--warn); }
+.package-missing ul { margin: 0; padding-left: 18px; }
+.cheatsheet { border-top: 1px solid var(--border); padding-top: 8px; }
+.cheatsheet h4 { margin: 0; }
+.cheatsheet summary { cursor: pointer; font-size: 13px; color: var(--muted); margin: 4px 0; }
+.cheatsheet-block { margin: 10px 0 4px; font-size: 13px; }
+/* узкое окно: таблица шпаргалки прокручивается вбок, слова не рвутся посередине */
+.cheatsheet-table { width: max-content; min-width: 100%; }
+.cheatsheet-table td { word-break: normal; overflow-wrap: normal; }
+.cheatsheet-table td:first-child, .cheatsheet-table td:nth-child(4) { white-space: nowrap; }
+.cheatsheet-table td:nth-child(5) { min-width: 24ch; max-width: 48ch; }
