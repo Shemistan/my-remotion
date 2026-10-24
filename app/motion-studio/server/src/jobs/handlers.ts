@@ -16,7 +16,7 @@ import { playgroundEdit } from "../pipeline/playground-edit.js";
 import { type PlaygroundDeps, playgroundGenerate } from "../pipeline/playground-generate.js";
 import { type RoughcutPreviewDeps, roughcutPreview } from "../pipeline/roughcut-preview.js";
 import { type RoughcutProposeDeps, roughcutPropose } from "../pipeline/roughcut-propose.js";
-import { sceneExport } from "../pipeline/scene-export.js";
+import { type SceneExportDeps, sceneExport } from "../pipeline/scene-export.js";
 import { type SemanticAnalyzeDeps, semanticAnalyze } from "../pipeline/semantic-analyze.js";
 import { sceneRestore } from "../pipeline/scene-restore.js";
 import { scriptPackage } from "../pipeline/script-package.js";
@@ -67,20 +67,22 @@ export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extr
     ...(o.watchIntervalMs ? { watchIntervalMs: o.watchIntervalMs } : {}),
     ...(o.log ? { log: o.log } : {}),
   });
+  // экспорт версии: задача scene.export и экспорты сцен пакета script.package (S7)
+  const exporter: SceneExportDeps = {
+    repo: svc.repo,
+    deps: () => ({
+      storage: svc.storageCheck,
+      export: o.exportVersion ?? exportVersion,
+      alpha: o.alpha ?? alphaAtCorner,
+      timeoutMs: o.exportTimeoutMs ?? svc.config.limits.exportTimeoutMs,
+      ...(o.log ? { log: o.log } : {}),
+    }),
+  };
   return {
     "playground.generate": playgroundGenerate({ deps, repo: svc.repo, ...(o.onGenerateResult ? { onResult: o.onGenerateResult } : {}) }),
     "playground.edit": playgroundEdit({ deps, repo: svc.repo, ...(o.onGenerateResult ? { onResult: o.onGenerateResult } : {}) }),
     "scene.restore": sceneRestore({ repo: svc.repo, deps: (ctx) => deps(ctx) }),
-    "scene.export": sceneExport({
-      repo: svc.repo,
-      deps: () => ({
-        storage: svc.storageCheck,
-        export: o.exportVersion ?? exportVersion,
-        alpha: o.alpha ?? alphaAtCorner,
-        timeoutMs: o.exportTimeoutMs ?? svc.config.limits.exportTimeoutMs,
-        ...(o.log ? { log: o.log } : {}),
-      }),
-    }),
+    "scene.export": sceneExport(exporter),
     "media.import": mediaImport(() => ({
       root: svc.root,
       media: svc.config.media,
@@ -158,7 +160,7 @@ export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extr
       ...(o.watchIntervalMs ? { watchIntervalMs: o.watchIntervalMs } : {}),
       ...(o.log ? { log: o.log } : {}),
     })),
-    "script.package": scriptPackage(() => ({})),
+    "script.package": scriptPackage(() => ({ root: svc.root, storage: svc.storageCheck, exporter, ...(o.log ? { log: o.log } : {}) })),
     ...extra,
   };
 }

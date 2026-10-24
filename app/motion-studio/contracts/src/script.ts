@@ -292,7 +292,8 @@ export const ScriptPackageManifestSchema = z.object({
     technique: TechniqueSchema,
     frames: SceneFramesSchema,
     mp4: ScriptPackageFileSchema,
-    alpha: ScriptPackageFileSchema,
+    // S7: альфы нет (сцена закрывает кадр или экспорт не удался) — null, причина в `missing` (C6)
+    alpha: ScriptPackageFileSchema.nullable(),
     warnings: z.array(z.string()),
   }).strict()),
   missing: z.array(z.object({ item_id: Id, quote: z.string().optional(), reason: z.string().min(1) }).strict()),

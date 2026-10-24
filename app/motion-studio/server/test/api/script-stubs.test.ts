@@ -6,7 +6,7 @@ import { ROLES } from "../../src/agents/runtime.js";
 import { loadConfig } from "../../src/config.js";
 import { lockKeyFor } from "../../src/jobs/locks.js";
 import type { JobContext } from "../../src/jobs/types.js";
-import { scriptPackage } from "../../src/pipeline/script-package.js";
+import { type ScriptPackageDeps, scriptPackage } from "../../src/pipeline/script-package.js";
 import { type Api, makeApi, okHeaders } from "./helpers.js";
 
 const key = (k: string) => ({ ...okHeaders, "idempotency-key": k });
@@ -57,29 +57,28 @@ describe("API сценария", () => {
     expect(again.json().job.id).toBe(r.json().job.id);
   });
 
-  it("маршруты генерации, пакетов и экспорта: схема тела (400); генерация и пакеты — S5 (409/404), прочее — 501", async () => {
+  it("маршруты генерации, пакетов и экспорта: схема тела (400); генерация и пакеты — S5 (409/404), экспорт — S7 (202/404), двойники — 501", async () => {
     expect((await api.inj("POST", `/api/projects/${id}/script/generate`, key("g1"), { revision: 1 })).statusCode).toBe(409); // S5: текста нет
     expect((await api.inj("POST", `/api/projects/${id}/script/generate`, key("g2"), { revision: 1, aspect: "1:1" })).statusCode).toBe(400);
     expect((await api.inj("GET", "/api/script-batches/sb_1")).statusCode).toBe(404);
     expect((await api.inj("POST", "/api/script-batches/sb_1/cancel", okHeaders)).statusCode).toBe(404);
     expect((await api.inj("POST", `/api/projects/${id}/script/reframe`, key("r1"), { aspect: "9:16" })).statusCode).toBe(501);
     expect((await api.inj("POST", `/api/projects/${id}/script/reframe`, key("r2"), { aspect: "16:9" })).statusCode).toBe(400);
-    expect((await api.inj("POST", `/api/projects/${id}/script/package`, key("k1"), { aspect: "16:9" })).statusCode).toBe(501);
+    expect((await api.inj("POST", `/api/projects/${id}/script/package`, key("k1"), { aspect: "16:9" })).statusCode).toBe(202); // S7
     expect((await api.inj("POST", `/api/projects/${id}/script/package`, key("k2"), {})).statusCode).toBe(400);
-    expect((await api.inj("GET", "/api/script-packages/pkg_1")).statusCode).toBe(501);
-    expect((await api.inj("GET", "/api/script-packages/pkg_1/cheatsheet?format=csv")).statusCode).toBe(501);
+    expect((await api.inj("GET", "/api/script-packages/pkg_1")).statusCode).toBe(404);
+    expect((await api.inj("GET", "/api/script-packages/pkg_1/cheatsheet?format=csv")).statusCode).toBe(404);
     expect((await api.inj("GET", "/api/script-packages/pkg_1/cheatsheet?format=pdf")).statusCode).toBe(400);
-    expect((await api.inj("POST", "/api/script-packages/pkg_1/reveal", okHeaders)).statusCode).toBe(501);
+    expect((await api.inj("POST", "/api/script-packages/pkg_1/reveal", okHeaders)).statusCode).toBe(404);
   });
 });
 
 describe("задачи, замки, роль", () => {
   const job = (type: Job["type"]): Job => ({ id: "j", type, project_id: "prj_1" } as Job);
 
-  it("заглушка обработчика script.package: failed pipeline/prepare not_implemented", async () => {
-    for (const h of [scriptPackage(() => ({}))]) {
-      expect(await h({} as JobContext)).toEqual({ status: "failed", error: { code: "pipeline", stage: "prepare", message: "not_implemented" } });
-    }
+  it("обработчик script.package (S7): вход не по схеме — failed pipeline/prepare", async () => {
+    const h = scriptPackage(() => ({}) as ScriptPackageDeps);
+    expect(await h({ job: { input: {} } } as unknown as JobContext)).toMatchObject({ status: "failed", error: { code: "pipeline", stage: "prepare" } });
   });
 
   it("замки: script.plan — project:<id>:plan, script.package — project:<id>:package", () => {
