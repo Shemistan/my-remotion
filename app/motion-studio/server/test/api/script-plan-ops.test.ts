@@ -7,10 +7,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { approve } from "../../src/approvals/engine.js";
 import { currentSubject } from "../../src/approvals/subjects.js";
 import { artifactPaths } from "../../src/artifacts/paths.js";
+import { ArtifactStore, ResourceBusyError } from "../../src/artifacts/store.js";
+import * as plans from "../../src/db/repos/plans.js";
 import * as resourceLocks from "../../src/db/repos/resource-locks.js";
 import { scriptPlans } from "../../src/db/repos/script.js";
 import { projectLockKey } from "../../src/jobs/locks.js";
 import { enqueue } from "../../src/jobs/queue.js";
+import { savePlanOps } from "../../src/script/plan-ops.js";
 import { SCRIPT_PLAN_FILE } from "../../src/script/read.js";
 import { PLAN, SCRIPT, SHA, w } from "../script/plan-ops-fixtures.js";
 import { type Api, makeApi, okHeaders } from "./helpers.js";
@@ -69,6 +72,21 @@ describe("POST /api/projects/:id/script/plan/ops", () => {
     expect(r.statusCode).toBe(409);
     expect(r.json()).toMatchObject({ error: "resource_busy", job_id: job.id });
     expect((await api.inj("GET", `/api/projects/${id}/script`)).json().plan.doc.revision).toBe(1);
+  });
+
+  it("fix M7: замок взят после ранней проверки (гонка) — resource_busy в транзакции публикации", async () => {
+    const { db, root } = api.core;
+    const job = enqueue(db, { type: "script.plan", projectId: id, input: { projectId: id }, idempotencyKey: "k2" }).job;
+    const store = new ArtifactStore({ root, db, guard: api.core.storageCheck });
+    const write = store.writeRevision.bind(store);
+    // задача берёт замок между ранней проверкой savePlanOps и транзакцией публикации
+    store.writeRevision = (...args) => {
+      expect(resourceLocks.acquire(db, projectLockKey(id, "plan"), job.id)).toBe(true);
+      return write(...args);
+    };
+    await expect(savePlanOps({ db, store, root }, id, { base_revision: 1, ops: [{ op: "set_status", item_id: "ss_002", status: "rejected" }] }))
+      .rejects.toBeInstanceOf(ResourceBusyError);
+    expect(plans.byProject(db, id)!.current_revision).toBe(1);
   });
 
   it("текст новее плана — 409 plan_outdated", async () => {

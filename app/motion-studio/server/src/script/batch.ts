@@ -8,11 +8,8 @@ import { join } from "node:path";
 import {
   type Aspect,
   type Job,
-  type PlanIssue,
   type ScriptBatchDto,
   type ScriptItemStatus,
-  type ScriptPlanRevisionDoc,
-  type ScriptRevisionDoc,
   type ScriptSceneContext,
   type ScriptSceneItem,
   type Settings,
@@ -39,6 +36,7 @@ import { newId } from "../scenes/ids.js";
 import { sceneRel, writeBriefSync } from "../scenes/store.js";
 import { buildSceneBrief, sceneSettings, sceneTitle, sentenceWindows } from "./brief.js";
 import { itemFingerprint } from "./fingerprint.js";
+import { type PlanApprovable, planApprovable } from "./plan-state.js";
 import { currentScript, currentScriptPlan } from "./read.js";
 import { sceneStatus } from "./state.js";
 
@@ -60,22 +58,7 @@ export interface StartBatchInput {
   idempotencyKey: string;
 }
 
-type Approvable = { ok: true } | { ok: false; code: "plan_outdated" | "blocking_issues" | "no_items"; issues?: PlanIssue[] };
-
-/**
- * Можно ли утвердить план (контракт `planApprovable` S4): текст не новее плана, нет blocking,
- * есть принятые сцены. Стиль не сверяется — сцены берут текущий стиль проекта (Р15).
- * TODO S4: заменить импортом `planApprovable` из `plan-state.ts`.
- */
-function planApprovable(doc: ScriptPlanRevisionDoc, script: ScriptRevisionDoc): Approvable {
-  if (doc.inputs.script.id !== script.script_id || doc.inputs.script.revision !== script.revision) return { ok: false, code: "plan_outdated" };
-  const blocking = doc.issues.filter((i) => i.severity === "blocking");
-  if (blocking.length > 0) return { ok: false, code: "blocking_issues", issues: blocking };
-  if (!doc.items.some((i) => i.status === "accepted")) return { ok: false, code: "no_items" };
-  return { ok: true };
-}
-
-const APPROVABLE_ERR: Record<Exclude<Approvable, { ok: true }>["code"], [number, string]> = {
+const APPROVABLE_ERR: Record<Exclude<PlanApprovable, { ok: true }>["code"], [number, string]> = {
   plan_outdated: [409, "текст сценария изменился после плана — перестройте план"],
   blocking_issues: [422, "в плане есть блокирующие проблемы"],
   no_items: [422, "в плане нет принятых сцен"],
@@ -228,7 +211,7 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
     tx(db, () => {
       const now = plans.byProject(db, i.projectId);
       if (now?.id !== cur.planId || now.current_revision !== doc.revision) throw new ApiError(409, "plan_outdated", "план изменился, пока ставился пакет");
-      const ok = planApprovable(doc, script); // TODO S4: planApprovable из plan-state.ts
+      const ok = planApprovable(doc, script);
       if (!ok.ok) {
         const [status, message] = APPROVABLE_ERR[ok.code];
         throw new ApiError(status, ok.code, message, ok.issues ? { issues: ok.issues } : {});

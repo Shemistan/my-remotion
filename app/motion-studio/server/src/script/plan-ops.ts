@@ -1,11 +1,11 @@
 // Правка плана сценария человеком (спека §5.3, §7; трек A, S4): операции `ScriptPlanOp` →
 // следующая ревизия того же плана. Цитату, слова, кадры и `at_s` считает код (`quoteOf`,
-// `readingFrames`, `atSeconds`), проверки и разнообразие — заново, теми же функциями, что у
-// S3 (`itemIssues`, `planDiversity`, `valueMatches`). Правка сцены меняет её отпечаток
+// `readingFrames`, `atSeconds`), проверки и разнообразие — заново, той же функцией, что у
+// S3 (`planIssues`). Правка сцены меняет её отпечаток
 // (`itemFingerprint`) — готовая сцена становится stale (§5.4). Синхронная публикация —
 // `ArtifactStore.writeRevision` с замком `project:<id>:plan` (идёт `script.plan` — 409 `resource_busy`).
 import {
-  type PatternSlug, type PlanIssue, type ReadingSettings, type ScriptPlanOp, type ScriptPlanRevisionDoc, type ScriptRevisionDoc,
+  type PatternSlug, type ScriptPlanOp, type ScriptPlanRevisionDoc, type ScriptRevisionDoc,
   type ScriptSceneItem, ScriptPlanRevisionDocSchema, type Technique, atSeconds, normalizeToken, quoteOf, readingFrames,
 } from "@ms/contracts";
 import { canonicalJson } from "@ms/contracts/canonical";
@@ -21,9 +21,9 @@ import { scriptPlans, scripts } from "../db/repos/script.js";
 import { RevisionConflictError } from "../edit/errors.js";
 import type { EditDeps } from "../edit/transcript-ops.js";
 import { projectLockKey, resourceBusy } from "../jobs/locks.js";
-import { planDiversity } from "./diversity.js";
-import { COVERAGE_HIGH, COVERAGE_LOW, itemIssues, valueMatches } from "./plan-validate.js";
+import { planIssues, quoteInFragment } from "./plan-validate.js";
 import { planOutdated } from "./plan-state.js";
+import { ruNumberParse } from "./ru-numbers.js";
 import { SCRIPT_PLAN_FILE, currentScript, currentScriptPlan } from "./read.js";
 import { TECHNIQUE_BY_PATTERN, pickTechnique } from "./technique.js";
 
@@ -43,48 +43,49 @@ function patternOf(t: Technique): PatternSlug {
   return (all.find(([, ts]) => ts[0] === t) ?? all.find(([, ts]) => ts.includes(t)))?.[0] ?? "abstract-concepts";
 }
 
+/** 409 `plan_outdated`: план построен не по текущей ревизии текста. */
+const planOutdatedError = (): ApiError => new ApiError(409, "plan_outdated", "текст сценария изменился после плана — перестройте план");
+
 const clip = (s: string, n = 60): string => (s.length > n ? `${s.slice(0, n)}…` : s);
 
-/**
- * Проблемы плана после правки (как у S3): длительности принятых сцен, числа словами без
- * проверки (`value_unverified`), разнообразие, покрытие текста принятыми сценами.
- */
-export function scriptPlanIssues(items: readonly ScriptSceneItem[], script: ScriptRevisionDoc, reading: ReadingSettings, fps: ScriptPlanRevisionDoc["fps"]): {
-  issues: PlanIssue[]; diversity: ScriptPlanRevisionDoc["diversity"];
-} {
-  const accepted = items.filter((x) => x.status === "accepted");
-  const issues: PlanIssue[] = [];
-  for (const x of accepted) {
-    const unverified = x.data.filter((d) => valueMatches(d.value, d.quote) === undefined).map((d) => `${d.label} = ${d.value} («${clip(d.quote)}»)`);
-    if (unverified.length > 0) {
-      issues.push({ item_id: x.id, code: "value_unverified", severity: "warning", message: `число не проверено по цитате (записано словами, не распознано): ${unverified.join("; ")}` });
-    }
+/** Во фрагменте есть число: слово из цифр («1.24», «25%») или числительное словами («восемь»). */
+function hasNumber(fragment: readonly string[]): boolean {
+  return fragment.some((t) => /^-?\d+%?$/u.test(normalizeToken(t))) || ruNumberParse(fragment.join(" ")).values.length > 0;
+}
+
+/** Текст термина — слова текста с `word_id` подряд (по `normalizeToken`, без знаков и регистра). */
+function termMatches(text: string, words: readonly { text: string }[], p: number, ei: number): boolean {
+  const q = text.split(/\s+/u).map(normalizeToken).join("");
+  if (q === "") return false;
+  let acc = "";
+  for (let j = p; j <= ei && acc.length < q.length; j++) {
+    acc += normalizeToken(words[j]!.text);
+    if (!q.startsWith(acc)) return false;
   }
-  const div = planDiversity(items);
-  issues.push(...itemIssues(items, reading, fps), ...div.issues);
-  const covered = accepted.reduce((a, x) => a + x.words, 0);
-  const share = script.words.length === 0 ? 0 : covered / script.words.length;
-  const pct = `${Math.round(share * 100)} %`;
-  if (accepted.length > 0 && share < COVERAGE_LOW) issues.push({ code: "coverage_low", severity: "warning", message: `сцены покрывают ${pct} слов текста (меньше ${COVERAGE_LOW * 100} %)` });
-  if (share > COVERAGE_HIGH) issues.push({ code: "coverage_high", severity: "warning", message: `сцены покрывают ${pct} слов текста (больше ${COVERAGE_HIGH * 100} %): паузам без графики места нет` });
-  return { issues, diversity: { techniques: div.techniques, adjacent_repeats: div.adjacent_repeats, kinetic_share: div.kinetic_share } };
+  return acc === q;
 }
 
 /**
  * Операции над ревизией плана → следующая ревизия (`revision + 1`, `parent_revision`, `ops`).
  * `set_status` — снять/вернуть (вернуть сцену, пересекающую принятую, — `overlap`); `modify` —
- * приём (прежняя `structure_rule` снимается), паттерн, идея, назначение, термины, границы
- * (пересчёт цитаты, слов, кадров, `at_s`; термины и числа вне нового фрагмента отпадают);
+ * приём (прежняя `structure_rule` снимается; паттерн, которому приём чужой, без явного
+ * `pattern` — паттерн приёма), паттерн, идея, назначение, термины (по словам текста), границы
+ * (пересчёт цитаты, слов, кадров, `at_s`; термины, числа и якоря вне нового фрагмента отпадают);
  * `add` — принятая сцена пользователя, следующий свободный `ss_NNN`, приём из запроса или
- * `pickTechnique` по соседям; `set_reading` — кадры и `at_s` всех сцен. Сцены — по порядку
- * текста. Ошибки (`ScriptPlanError`, 422): `unknown_item`, `bad_range` (нет слова, обратный
- * порядок, другой блок, термин вне сцены), `overlap` (с принятой сценой), `no_change`.
+ * `pickTechnique` по паттерну (число во фрагменте — `quantities`) и соседям; пропуски агента под
+ * ней обрезаются; `set_reading` — кадры и `at_s` всех сцен. Сцены — по порядку текста. План не по
+ * текущему тексту — 409 `plan_outdated`. Ошибки (`ScriptPlanError`, 422): `unknown_item`,
+ * `bad_range` (нет слова, обратный порядок, другой блок, термин вне сцены или не по словам
+ * текста), `overlap` (с принятой сценой), `no_change`.
  */
 export function applyScriptPlanOps(doc: ScriptPlanRevisionDoc, ops: ScriptPlanOp[], script: ScriptRevisionDoc): ScriptPlanRevisionDoc {
+  if (planOutdated(doc, script)) throw planOutdatedError();
   const words = script.words;
   const pos = new Map(words.map((x, i) => [x.id, i]));
+  const anchors = new Map(doc.analysis.anchors.map((a) => [a.id, a]));
   let reading = doc.reading;
   let items = doc.items.map((x) => structuredClone(x));
+  let skipped = doc.skipped.map((x) => ({ ...x }));
 
   const span = (x: Pick<ScriptSceneItem, "start_word_id" | "end_word_id">): { si: number; ei: number } => ({
     si: pos.get(x.start_word_id) ?? -1, ei: pos.get(x.end_word_id) ?? -1,
@@ -137,24 +138,32 @@ export function applyScriptPlanOps(doc: ScriptPlanRevisionDoc, ops: ScriptPlanOp
       if (technique !== undefined && technique !== x.technique) {
         next.technique = technique;
         delete next.structure_rule;
+        // паттерн не задан, а новый приём ему чужой — паттерн приёма
+        if (fields.pattern === undefined && !TECHNIQUE_BY_PATTERN[next.pattern].includes(technique)) next.pattern = patternOf(technique);
       }
       const s = start_word_id ?? x.start_word_id;
       const e = end_word_id ?? x.end_word_id;
       const { si, ei } = range(s, e);
       if (s !== x.start_word_id || e !== x.end_word_id) {
         if (x.status === "accepted") assertFree(si, ei, x.id);
-        const fragment = normalizeToken(quoteOf(script, s, e));
+        const fragment = words.slice(si, ei + 1).map((w) => w.text);
         next.start_word_id = s;
         next.end_word_id = e;
         next.key_terms = next.key_terms.filter((k) => inRange(k.word_id, si, ei));
-        next.data = next.data.filter((d) => {
-          const q = normalizeToken(d.quote);
-          return q !== "" && fragment.includes(q);
+        next.data = next.data.filter((d) => quoteInFragment(d.quote, fragment));
+        // якорь разбора остаётся, если хоть одно его слово во фрагменте
+        next.anchor_ids = next.anchor_ids.filter((id) => {
+          const a = anchors.get(id);
+          const as = a ? pos.get(a.start_word_id) : undefined;
+          const ae = a ? pos.get(a.end_word_id) : undefined;
+          return as !== undefined && ae !== undefined && as <= ei && si <= ae;
         });
       }
       if (key_terms !== undefined) {
         const out = key_terms.find((k) => !inRange(k.word_id, si, ei));
         if (out) throw new ScriptPlanError("bad_range", `термин «${clip(out.text)}» (${out.word_id}) вне сцены ${x.id}`);
+        const wrong = key_terms.find((k) => !termMatches(k.text, words, pos.get(k.word_id)!, ei));
+        if (wrong) throw new ScriptPlanError("bad_range", `термин «${clip(wrong.text)}» не совпадает со словами текста с ${wrong.word_id} («${clip(words[pos.get(wrong.word_id)!]!.text)}»)`);
         next.key_terms = key_terms;
       }
       items[i] = next;
@@ -162,12 +171,23 @@ export function applyScriptPlanOps(doc: ScriptPlanRevisionDoc, ops: ScriptPlanOp
       const { si, ei } = range(op.start_word_id, op.end_word_id);
       assertFree(si, ei);
       const n = items.reduce((m, x) => Math.max(m, Number(x.id.slice(3))), 0) + 1;
-      const technique = op.technique ?? pickTechnique(undefined, neighbours(si));
+      // без приёма: число во фрагменте — паттерн quantities, приём по нему и соседям
+      const numeric = op.technique === undefined && hasNumber(words.slice(si, ei + 1).map((w) => w.text));
+      const technique = op.technique ?? pickTechnique(numeric ? "quantities" : undefined, neighbours(si));
+      const pattern: PatternSlug = numeric ? "quantities" : patternOf(technique);
+      // пропуски агента под новой сценой обрезаются: остаются части вне её слов
+      skipped = skipped.flatMap((k) => {
+        const ks = pos.get(k.start_word_id);
+        const ke = pos.get(k.end_word_id);
+        if (ks === undefined || ke === undefined || ke < si || ei < ks) return [k];
+        const part = (a: number, b: number) => ({ ...k, start_word_id: words[a]!.id, end_word_id: words[b]!.id, quote: quoteOf(script, words[a]!.id, words[b]!.id) });
+        return [...(ks < si ? [part(ks, si - 1)] : []), ...(ei < ke ? [part(ei + 1, ke)] : [])];
+      });
       items.push({
         id: `ss_${String(n).padStart(3, "0")}`, status: "accepted", origin: "user",
         start_word_id: op.start_word_id, end_word_id: op.end_word_id, quote: "", block_id: words[si]!.block_id, words: 1, at_s: 0,
         frames: readingFrames(1, reading, doc.fps),
-        technique, pattern: patternOf(technique), purpose: op.purpose ?? "", idea: "", key_terms: [], data: [], importance: 2, anchor_ids: [],
+        technique, pattern, purpose: op.purpose ?? "", idea: "", key_terms: [], data: [], importance: 2, anchor_ids: [],
       });
     } else {
       reading = op.reading;
@@ -184,12 +204,12 @@ export function applyScriptPlanOps(doc: ScriptPlanRevisionDoc, ops: ScriptPlanOp
   });
   items = items.map((x, k) => ({ x, k, si: span(x).si })).sort((a, b) => a.si - b.si || a.k - b.k).map((r) => r.x);
 
-  if (canonicalJson(items) === canonicalJson(doc.items) && canonicalJson(reading) === canonicalJson(doc.reading)) {
+  if (canonicalJson(items) === canonicalJson(doc.items) && canonicalJson(reading) === canonicalJson(doc.reading) && canonicalJson(skipped) === canonicalJson(doc.skipped)) {
     throw new ScriptPlanError("no_change", "правка не меняет план — новая ревизия не создаётся");
   }
-  const { issues, diversity } = scriptPlanIssues(items, script, reading, doc.fps);
+  const { issues, diversity } = planIssues(items, script, reading, doc.fps);
   return ScriptPlanRevisionDocSchema.parse({
-    ...doc, revision: doc.revision + 1, parent_revision: doc.revision, reading, items, issues, diversity, ops,
+    ...doc, revision: doc.revision + 1, parent_revision: doc.revision, reading, items, skipped, issues, diversity, ops,
   });
 }
 
@@ -211,7 +231,7 @@ export async function savePlanOps(deps: EditDeps, projectId: string, body: { bas
   if (!cur) throw new ApiError(409, "no_plan", "плана сценария нет");
 
   const lockKey = projectLockKey(projectId, "plan");
-  const outdated = (): ApiError => new ApiError(409, "plan_outdated", "текст сценария изменился после плана — перестройте план");
+  const outdated = planOutdatedError;
   const conflict = (d: Db): Error | undefined => {
     const p = plans.byProject(d, projectId);
     const now = p?.current_revision ?? null;

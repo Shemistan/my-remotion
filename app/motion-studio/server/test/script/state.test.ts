@@ -51,6 +51,17 @@ it("отпечаток меняется от приёма, границ, дли�
   expect(itemFingerprint(item, { id: "sty_1", revision: 2 })).not.toBe(f);
 });
 
+it("fix I1: отпечаток — кадры целиком, термины, числа, форма времени; цитата и статус — нет", () => {
+  const f = itemFingerprint(item, null);
+  expect(itemFingerprint({ ...item, key_terms: [{ text: "Раз", word_id: "w_000001" }] }, null)).not.toBe(f);
+  // lead ↔ tail при той же длине
+  expect(itemFingerprint({ ...item, frames: { lead: 39, speech: 36, tail: 15, total: 90 } }, null)).not.toBe(f);
+  expect(itemFingerprint({ ...item, data: [{ label: "n", value: 3, quote: "три" }] }, null)).not.toBe(f);
+  expect(itemFingerprint({ ...item, structure_rule: "one-number" }, null)).not.toBe(f);
+  expect(itemFingerprint({ ...item, quote: "раз два три" }, null)).toBe(f);
+  expect(itemFingerprint({ ...item, status: "rejected" }, null)).toBe(f);
+});
+
 it("scriptState: план, сцены по форматам, статус и устаревание по отпечатку", () => {
   scriptPlans.create(db, { id: "pln_1", project_id: "p1" });
   const rel = `${artifactPaths(s.root, "p1").planRev("pln_1", 1)}/${SCRIPT_PLAN_FILE}`;

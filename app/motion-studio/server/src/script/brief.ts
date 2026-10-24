@@ -105,8 +105,11 @@ export interface SceneBriefInput {
 }
 
 const techniqueOf = (slug: string) => TECHNIQUES.find((t) => t.slug === slug);
-const neighbor = (x: ScriptSceneItem | undefined): string =>
-  x ? `${x.technique} («${clipWords(clean(x.idea), NEIGHBOR_MAX)}»)` : "нет";
+const neighbor = (x: ScriptSceneItem | undefined): string => {
+  if (!x) return "нет";
+  const idea = clipWords(clean(x.idea) || clean(x.purpose), NEIGHBOR_MAX);
+  return idea ? `${x.technique} («${idea}»)` : x.technique;
+};
 
 /** Бриф сцены (§6.2) для Concept и Director, ≤ `BRIEF_MAX` символов. */
 export function buildSceneBrief(i: SceneBriefInput): string {
@@ -119,7 +122,7 @@ export function buildSceneBrief(i: SceneBriefInput): string {
   const lines = (sentences: string) => [
     `Сцена ${i.index} из ${i.total} сценария «${clipWords(clean(i.projectTitle), NEIGHBOR_MAX)}». Приём: ${item.technique} — ${t?.ru ?? ""} (ключевой компонент kit: ${t?.kit.join(", ") ?? "—"}; типичная структура ${t?.structure ?? "—"}). Паттерн: ${item.pattern}.`,
     ...(rule ? [`Форма времени: ${rule[0]} (структура ${rule[1]}).`] : []),
-    `Назначение: ${clipWords(clean(item.purpose), FIELD_MAX)}. Идея: ${clipWords(clean(item.idea), FIELD_MAX)}`,
+    `Назначение: ${clipWords(clean(item.purpose), FIELD_MAX) || "нет"}. Идея: ${clipWords(clean(item.idea) || clean(item.purpose), FIELD_MAX) || "нет"}`,
     `Числа (показать точно): ${data.length > 0 ? data.join("; ") : "нет"}. Ключевые термины: ${terms || "нет"}.`,
     `Длительность: ${total} кадров @ ${fpsText(i.fps)}: первые ${lead} кадров — запас (фон, мягкий вход, можно обрезать), основное действие в окне речи [${lead}; ${lead + speech}), финальное удержание ≥ ${tail} кадров.`,
     `Предложения (биты по фразам): ${sentences}.`,

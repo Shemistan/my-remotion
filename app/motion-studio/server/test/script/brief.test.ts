@@ -50,6 +50,14 @@ describe("buildSceneBrief", () => {
     expect(b).toContain("удержание ≥ 30 кадров");
   });
 
+  it("fix M2: пустая идея — назначение вместо неё; пустые оба — «нет», без «Идея: .»", () => {
+    const one = buildSceneBrief({ item: item({ idea: "" }), index: 1, total: 1, projectTitle: "p", fps: F30, windows: [] });
+    expect(one).toContain("Идея: зритель понимает, с какой версии всё поменялось");
+    expect(one).not.toMatch(/Идея: *\.?\n/);
+    const none = buildSceneBrief({ item: item({ idea: " ", purpose: "" }), index: 1, total: 1, projectTitle: "p", fps: F30, windows: [] });
+    expect(none).toContain("Назначение: нет. Идея: нет");
+  });
+
   it("форма времени — только если задана планом", () => {
     expect(b).not.toContain("Форма времени");
     const withRule = buildSceneBrief({ item: item({ structure_rule: "one-number" }), index: 1, total: 1, projectTitle: "p", fps: F30, windows: [] });

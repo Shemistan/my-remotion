@@ -114,7 +114,7 @@ export function itemIssues(items: readonly ScriptSceneItem[], _reading: ReadingS
   return out;
 }
 
-interface Candidate { n: number; scene: ScriptDirectorScene; si: number; ei: number; unverified: string[] }
+interface Candidate { n: number; scene: ScriptDirectorScene; si: number; ei: number }
 
 export function validateScriptPlan(out: ScriptDirectorOutput, doc: ScriptRevisionDoc, reading: ReadingSettings, fps: Fps): ScriptPlanValidation {
   const words = doc.words;
@@ -155,14 +155,12 @@ export function validateScriptPlan(out: ScriptDirectorOutput, doc: ScriptRevisio
       return;
     }
     const fragment = words.slice(si, ei + 1).map((x) => x.text);
-    const unverified: string[] = [];
     for (const d of scene.data) {
       if (!quoteInFragment(d.quote, fragment)) return reject(c, "quote_mismatch", `цитата числа «${clip(d.quote)}» не из фрагмента сцены`);
       const m = valueMatches(d.value, d.quote);
       if (m === false) return reject(c, "value_mismatch", `значение ${d.value} не совпадает с числом цитаты «${clip(d.quote)}»`);
-      if (m === undefined) unverified.push(`${d.label} = ${d.value} («${clip(d.quote, 60)}»)`);
     }
-    plan.push({ ...c, si, ei, unverified });
+    plan.push({ ...c, si, ei });
   });
 
   // порядок текста; пересечение — отклоняется поздняя
@@ -177,16 +175,12 @@ export function validateScriptPlan(out: ScriptDirectorOutput, doc: ScriptRevisio
     kept.push(c);
   }
 
-  const issues: PlanIssue[] = [];
   const items: ScriptSceneItem[] = kept.map((c, k) => {
     const s = c.scene;
     const id = `ss_${String(k + 1).padStart(3, "0")}`;
     const n = c.ei - c.si + 1;
     const blockId = words[c.si]!.block_id;
     const before = words.slice(0, c.si).filter((w) => w.block_id === blockId).length;
-    if (c.unverified.length > 0) {
-      issues.push({ item_id: id, code: "value_unverified", severity: "warning", message: `число не проверено по цитате (записано словами, не распознано): ${c.unverified.join("; ")}` });
-    }
     return {
       id, status: "accepted", origin: "agent",
       start_word_id: s.start_word_id, end_word_id: s.end_word_id, quote: quoteOf(doc, s.start_word_id, s.end_word_id),
@@ -201,11 +195,31 @@ export function validateScriptPlan(out: ScriptDirectorOutput, doc: ScriptRevisio
     };
   });
 
-  issues.push(...itemIssues(items, reading, fps), ...planDiversity(items).issues);
-  const covered = items.reduce((a, x) => a + x.words, 0);
-  const share = words.length === 0 ? 0 : covered / words.length;
+  return { items, skipped, issues: planIssues(items, doc, reading, fps).issues, analysis, rejected, dropped };
+}
+
+/**
+ * Проблемы плана — общие для ответа агента (S3) и правки человека (S4), по принятым сценам:
+ * числа словами без проверки (`value_unverified`), длительность (`itemIssues`), разнообразие
+ * (`planDiversity`), покрытие текста (`coverage_low`/`coverage_high`).
+ */
+export function planIssues(items: readonly ScriptSceneItem[], script: ScriptRevisionDoc, reading: ReadingSettings, fps: Fps): {
+  issues: PlanIssue[]; diversity: ScriptPlanRevisionDoc["diversity"];
+} {
+  const accepted = items.filter((x) => x.status === "accepted");
+  const issues: PlanIssue[] = [];
+  for (const x of accepted) {
+    const unverified = x.data.filter((d) => valueMatches(d.value, d.quote) === undefined).map((d) => `${d.label} = ${d.value} («${clip(d.quote, 60)}»)`);
+    if (unverified.length > 0) {
+      issues.push({ item_id: x.id, code: "value_unverified", severity: "warning", message: `число не проверено по цитате (записано словами, не распознано): ${unverified.join("; ")}` });
+    }
+  }
+  const div = planDiversity(items);
+  issues.push(...itemIssues(items, reading, fps), ...div.issues);
+  const covered = accepted.reduce((a, x) => a + x.words, 0);
+  const share = script.words.length === 0 ? 0 : covered / script.words.length;
   const pct = `${Math.round(share * 100)} %`;
-  if (items.length > 0 && share < COVERAGE_LOW) issues.push({ code: "coverage_low", severity: "warning", message: `сцены покрывают ${pct} слов текста (меньше ${COVERAGE_LOW * 100} %)` });
+  if (accepted.length > 0 && share < COVERAGE_LOW) issues.push({ code: "coverage_low", severity: "warning", message: `сцены покрывают ${pct} слов текста (меньше ${COVERAGE_LOW * 100} %)` });
   if (share > COVERAGE_HIGH) issues.push({ code: "coverage_high", severity: "warning", message: `сцены покрывают ${pct} слов текста (больше ${COVERAGE_HIGH * 100} %): паузам без графики места нет` });
-  return { items, skipped, issues, analysis, rejected, dropped };
+  return { issues, diversity: { techniques: div.techniques, adjacent_repeats: div.adjacent_repeats, kinetic_share: div.kinetic_share } };
 }
