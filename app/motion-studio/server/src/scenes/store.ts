@@ -108,6 +108,18 @@ export async function setWritable(path: string): Promise<void> {
   }
 }
 
+/**
+ * Перед удалением дерева: права записи только каталогам (удаление файла требует прав на
+ * каталог, не на файл). Права файлов не трогаются: в draft могут лежать жёсткие ссылки на
+ * опубликованные файлы (пакет экспорта S7), и chmod файла сделал бы записываемым оригинал.
+ */
+export async function unlockDirs(path: string): Promise<void> {
+  const st = await lstat(path);
+  if (!st.isDirectory()) return;
+  await chmod(path, 0o755);
+  for (const n of await readdir(path)) await unlockDirs(join(path, n));
+}
+
 /** `chmod -R a-w` для содержимого (без корня): глубина первой; симлинки и спецфайлы — ошибка. */
 export async function lockChildren(dir: string): Promise<void> {
   for (const n of await readdir(dir)) {

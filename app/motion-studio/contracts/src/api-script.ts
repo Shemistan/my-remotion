@@ -141,8 +141,9 @@ export const ScriptPackageDtoSchema = z.object({
     item_id: Id,
     /** Имена файлов в папке. */
     mp4: z.string().min(1),
-    alpha: z.string().min(1),
-    sha256: z.object({ mp4: Sha256Schema, alpha: Sha256Schema }).strict(),
+    // S7: альфа-версия невозможна (сцена закрывает кадр) или не удалась — null, сцена и в `missing` (C6)
+    alpha: z.string().min(1).nullable(),
+    sha256: z.object({ mp4: Sha256Schema, alpha: Sha256Schema.nullable() }).strict(),
   }).strict()),
   missing: z.array(z.object({ item_id: Id, reason: z.string().min(1) }).strict()),
   created_at: Ts,

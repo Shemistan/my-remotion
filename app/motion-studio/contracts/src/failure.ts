@@ -51,7 +51,8 @@ export type FailureStage = z.infer<typeof FailureStageSchema>;
 export const JobErrorCodeSchema = z.enum([
   "interrupted", "stale_process", "storage_unavailable", "fenced_out", "budget", "cancelled", "pipeline",
   "approval_required", "asr_unavailable", "asr_contract_changed", "asr_contract_violation", "asr_failed", "low_space", "media_invalid", "media_exists", "no_audio",
-  "plan_exists", "semantic_skipped",
+  // S7: package_empty — в папку пакета экспорта не вошло ни одной сцены (C10)
+  "plan_exists", "semantic_skipped", "package_empty",
 ]);
 export type JobErrorCode = z.infer<typeof JobErrorCodeSchema>;
 

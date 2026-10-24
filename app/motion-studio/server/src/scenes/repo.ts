@@ -20,7 +20,7 @@ import { sha256, sha256File } from "./hash.js";
 import { newId } from "./ids.js";
 import {
   QUARANTINE, SYNC_DRAFT_PREFIX, attachCause, commitVersionFiles, draftAttempt, createDraft, manifestText, prepareVersion, quarantineDraft, readVersion, sceneRel,
-  sealVersion, setWritable, undoCommitVersionFiles, writeBriefSync, type Draft, type PublishMeta,
+  sealVersion, setWritable, undoCommitVersionFiles, unlockDirs, writeBriefSync, type Draft, type PublishMeta,
 } from "./store.js";
 
 /** Предупреждение публикации: `unsealed` — корень версии не закрыт после COMMIT (закроет `relockVersions`). */
@@ -306,7 +306,8 @@ export class SceneRepo {
 
   /**
    * Уборка draft (H6): draft без живой попытки с карантином `cancelled` / `abandoned…` /
-   * `interrupted` удаляется (сначала снимается read-only). Карантин `fenced_out` /
+   * `interrupted` удаляется (сначала права записи каталогам; файлы не трогаются — в draft
+   * пакета S7 жёсткие ссылки на экспорты). Карантин `fenced_out` /
    * `stale_process` / `publish` и прочие, draft живых попыток и draft без карантина
    * остаются до решения человека (или `sweepAbandonedDrafts`). Попытка живая, если она в
    * `live` или у неё есть незавершённые процессы в `job_processes` или файловом реестре.
@@ -333,7 +334,7 @@ export class SceneRepo {
         out.kept.push(dir);
         continue;
       }
-      await setWritable(dir);
+      await unlockDirs(dir);
       await rm(dir, { recursive: true, force: true });
       out.removed.push(dir);
     }

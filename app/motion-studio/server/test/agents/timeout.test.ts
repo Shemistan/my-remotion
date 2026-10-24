@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, readdir } from "node:fs/promises";
+import { mkdir, readdir, rm } from "node:fs/promises";
 import { isAbsolute, join, relative } from "node:path";
 import { StorageError, type spawnTracked } from "@ms/core";
 import { afterEach, beforeEach, expect, it } from "vitest";
@@ -46,7 +46,7 @@ it("already aborted signal: cancelled without spawning", async () => {
   ctrl.abort();
   const r = await new ClaudeCodeRuntime({ bin: sleepy, logRoot }).run(task(60_000), Ok, ctrl.signal);
   expect(r.status).toBe("cancelled");
-  expect(existsSync(join(store, "run", "processes"))).toBe(false);
+  expect(await readdir(join(store, "run", "processes"))).toEqual([]);
 });
 
 it("happy path: prompt via stdin, allowlisted env, logs written", async () => {
@@ -142,7 +142,7 @@ it("spawnTracked throws (registry not written / child error): run() rethrows, no
 });
 
 it("real spawnTracked: registry write fails (run/processes is a file) → StorageError is thrown", async () => {
-  await mkdir(join(store, "run"), { recursive: true });
+  await rm(join(store, "run", "processes"), { recursive: true, force: true });
   const { writeFile } = await import("node:fs/promises");
   await writeFile(join(store, "run", "processes"), "not a dir");
   const err = await new ClaudeCodeRuntime({ bin: bin("fake-claude.sh"), logRoot }).run(task(60_000, "reg"), Ok, new AbortController().signal).catch((e: unknown) => e);
@@ -159,7 +159,7 @@ it("missing binary: failed cli without spawning", async () => {
   const r = await new ClaudeCodeRuntime({ bin: join(tmp, "no-such-claude"), logRoot }).run(task(60_000), Ok, new AbortController().signal);
   expect(r).toMatchObject({ status: "failed", error: { kind: "cli" } });
   expect(r.error!.message).toMatch(/не найден/);
-  expect(existsSync(join(store, "run", "processes"))).toBe(false);
+  expect(await readdir(join(store, "run", "processes"))).toEqual([]);
 });
 
 it("capabilities: missing binary is unavailable", async () => {

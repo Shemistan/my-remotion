@@ -85,6 +85,17 @@ it("orphaned ffprobe is reported as stage orphaned", async () => {
   expect(r).toMatchObject({ ok: false, error: { stage: "orphaned" } });
 });
 
+it("fresh store without run/processes: the directory exists before the worker (Chrome wrapper) starts", async () => {
+  await rm(join(req.run.root, "run/processes"), { recursive: true, force: true });
+  let seen: boolean | undefined;
+  const r = await renderVersion(req, undefined, deps(() => {
+    seen = existsSync(join(req.run.root, "run/processes"));
+    return { stdout: workerOut(okResult(req)) };
+  }));
+  expect(seen).toBe(true);
+  expect(r.ok).toBe(true);
+});
+
 it("success: parses the last stdout line, streams browser logs and probes the preview", async () => {
   const r = await renderVersion(req, undefined, deps(() => ({
     stdout: workerOut(okResult(req), [

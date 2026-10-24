@@ -1,7 +1,7 @@
 // bootCore (ADR 0007 п. 5, H6, H9, M6): owner_lock → storage → db → registry → reap →
 // sweep_drafts → relock_versions → reconcile_versions → reconcile_exports → recovery → sweep_uploads → runner.
 import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { OwnerBusyError, type VolumeProbe, acquireOwnerLock, fileProcessRegistry, initStore, procInfo, reapAttempt } from "@ms/core";
@@ -48,6 +48,12 @@ it("step order (ADR 0007 п.5)", async () => {
   await core.close();
   core = undefined;
   await (await acquireOwnerLock(s.root, "cli")).release();
+});
+
+it("existing store without run/processes (made before init created it): the directory exists after boot", async () => {
+  await rm(join(s.root, "run/processes"), { recursive: true, force: true });
+  core = await bootCore(opts());
+  expect(existsSync(join(s.root, "run/processes"))).toBe(true);
 });
 
 it("no MS_DATA_DIR → fails at owner_lock already (the lock lives in the store root, L4)", async () => {

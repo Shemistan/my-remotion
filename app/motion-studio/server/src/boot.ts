@@ -14,6 +14,7 @@ import {
   macosProbe,
   minFreeBytes,
   reapAttempt,
+  safeMkdir,
   verifyOwnerLock,
 } from "@ms/core";
 import { type Proc, reapStrayRenderers } from "@ms/render";
@@ -147,6 +148,8 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     if (!status.ok) throw new StorageError(status.reason, status.detail);
     const storeId = status.marker.store_id;
     const storageCheck = () => checkStorage(env, probe, storeId);
+    // боковой реестр Chrome: хранилище старше init с `run/processes` получает каталог здесь
+    await safeMkdir(root, "run/processes");
     log("storage");
 
     // quick_check до миграций: повреждённую базу не мигрировать и не копировать поверх (ревью M9)
