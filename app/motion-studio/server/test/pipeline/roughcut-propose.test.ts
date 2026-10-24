@@ -174,9 +174,10 @@ describe("roughcut.propose", () => {
       ],
       reviews: [{ decision_id: "pau_r1_1", verdict: "drop_cut", why: "пауза после приветствия" }, { decision_id: "pau_r9_9", verdict: "drop_cut", why: "?" }],
     })]);
-    const { r, events, out } = await propose(p, { agents });
+    const { r, job, events, out } = await propose(p, { agents });
     expect(r.status, JSON.stringify(r)).toBe("completed");
     expect(agents.tasks).toHaveLength(1);
+    expect(db.prepare("SELECT role FROM agent_runs WHERE job_id = ?").pluck().all(job.id)).toEqual(["rough_cut_editor"]); // F1
     const t = agents.tasks[0]!;
     expect(t).toMatchObject({ role: "rough_cut_editor", tools: [], model: "sonnet" });
     expect(String(t.input)).not.toMatch(/_us|\b\d{6,}\b/);

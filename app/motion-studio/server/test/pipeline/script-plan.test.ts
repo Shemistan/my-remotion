@@ -131,6 +131,12 @@ describe("script.plan", () => {
     expect(again.out!.plan_id).not.toBe(r.out!.plan_id);
     expect(currentScriptPlan(db, s.root, p)!.planId).toBe(again.out!.plan_id);
     expect(again.out!.agent).toMatchObject({ calls: 1, retried: 0 });
+    // F1: каждый вызов агента — строка agent_runs (2 вызова первой задачи)
+    const rows = db.prepare("SELECT role, model, status, input_tokens, cost_usd FROM agent_runs WHERE job_id = ?").all(r.job.id);
+    expect(rows).toEqual([
+      { role: "script_director", model: "sonnet", status: "completed", input_tokens: 1000, cost_usd: 0.05 },
+      { role: "script_director", model: "sonnet", status: "completed", input_tokens: 1000, cost_usd: 0.05 },
+    ]);
   });
 
   it("агент упорно повторяет ошибку → переотправок maxAutoFixes, лучший ответ; blocking остаётся видимым", async () => {

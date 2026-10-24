@@ -44,6 +44,7 @@ import { SCRIPT_PLAN_FILE, currentScript } from "../script/read.js";
 import { scriptReading } from "../script/text.js";
 import { checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
 import { planFailure, planIdFor, planPublications } from "./plan-visual.js";
+import { recordAgentRuns } from "./record.js";
 import { RunCtx, errText, toolless } from "./steps.js";
 
 /** Вход задачи: `useAgent: false` — план без сцен (UI-тесты без LLM); `reading` нет — как у прошлого плана. */
@@ -241,6 +242,7 @@ export const scriptPlan: (depsOf: () => ScriptPlanDeps) => JobHandler = (depsOf)
       items: doc.items.length, skipped: doc.skipped.length, rejected: ev.v.rejected.length, issues: counts(doc.issues),
       style: { style_id: style.style_id, revision: style.revision, author: style.author }, agent: agentInfo,
     };
+    recordAgentRuns(ctx.db, ctx.job.id, ctx.attempt, rc.records);
     d.log?.(`script.plan ${planId}: сцен ${res.items}, пропусков ${res.skipped} (отклонено ${res.rejected}), blocking ${res.issues.blocking}, $${agentInfo.cost_usd}`);
     return done(res);
   } catch (e) {

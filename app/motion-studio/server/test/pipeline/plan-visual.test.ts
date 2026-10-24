@@ -194,9 +194,10 @@ describe("plan.visual", () => {
   it("чистый ответ: план r1 (сцены proposed, пропуски с причинами), стиль проекта r1 от агента; вход — без µs; B после принятия", async () => {
     const { p } = await ready();
     const agents = fakeAgents([ok(CLEAN)]);
-    const { r, out: res } = await run<PlanVisualResult>("plan.visual", p, { agents });
+    const { r, job, out: res } = await run<PlanVisualResult>("plan.visual", p, { agents });
     expect(r.status, JSON.stringify(r)).toBe("completed");
     expect(agents.tasks).toHaveLength(1);
+    expect(db.prepare("SELECT role FROM agent_runs WHERE job_id = ?").pluck().all(job.id)).toEqual(["visual_planner"]); // F1
     const t = agents.tasks[0]!;
     expect(t.role).toBe("visual_planner");
     expect(t.tools).toEqual([]);
