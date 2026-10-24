@@ -1,6 +1,6 @@
 // Обработчики задач, общие для сервера и CLI: оба регистрируют одни и те же обработчики
 // (`playground.generate`, `playground.edit`, `scene.restore`, `scene.export`, `media.import`,
-// `asr.transcribe`, `roughcut.propose`, `roughcut.preview`, `footage.analyze`).
+// `asr.transcribe`, `roughcut.propose`, `roughcut.preview`, `footage.analyze`, `semantic.analyze`).
 import type { Job } from "@ms/contracts";
 import { DEFAULT_MIN_FREE_GB } from "@ms/core";
 import { alphaAtCorner, exportVersion, renderVersion } from "@ms/render";
@@ -14,6 +14,7 @@ import { type PlaygroundDeps, playgroundGenerate } from "../pipeline/playground-
 import { type RoughcutPreviewDeps, roughcutPreview } from "../pipeline/roughcut-preview.js";
 import { type RoughcutProposeDeps, roughcutPropose } from "../pipeline/roughcut-propose.js";
 import { sceneExport } from "../pipeline/scene-export.js";
+import { type SemanticAnalyzeDeps, semanticAnalyze } from "../pipeline/semantic-analyze.js";
 import { sceneRestore } from "../pipeline/scene-restore.js";
 import { checkSceneDir } from "../scenes/static-check.js";
 import { typecheckVersion } from "../scenes/typecheck.js";
@@ -42,6 +43,8 @@ export interface HandlerOptions {
   /** `footage.analyze`: начало этапа (тесты отменяют на этапе); путь `vision-detect` (тесты). */
   onFootageStage?: FootageAnalyzeDeps["onStage"];
   visionBin?: string;
+  /** `semantic.analyze`: начало этапа (тесты отменяют на этапе). */
+  onSemanticStage?: SemanticAnalyzeDeps["onStage"];
 }
 
 export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extra: Handlers = {}): Handlers {
@@ -110,6 +113,15 @@ export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extr
       ...(o.visionBin ? { visionBin: o.visionBin } : {}),
       ...(o.watchIntervalMs ? { watchIntervalMs: o.watchIntervalMs } : {}),
       ...(o.onFootageStage ? { onStage: o.onFootageStage } : {}),
+      ...(o.log ? { log: o.log } : {}),
+    })),
+    "semantic.analyze": semanticAnalyze(() => ({
+      root: svc.root,
+      config: svc.config,
+      storage: svc.storageCheck,
+      agents: svc.agents,
+      ...(o.watchIntervalMs ? { watchIntervalMs: o.watchIntervalMs } : {}),
+      ...(o.onSemanticStage ? { onStage: o.onSemanticStage } : {}),
       ...(o.log ? { log: o.log } : {}),
     })),
     ...extra,

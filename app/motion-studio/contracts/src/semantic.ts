@@ -62,6 +62,29 @@ export function checkSemantic(d: SemanticFields, ctx: z.RefinementCtx): void {
   });
 }
 
+/**
+ * Коды отклонения предложений Semantic Director (Task 31): цитата не дословна (`quote_mismatch`),
+ * id слова нет (`unknown_word`), обратный порядок (`order`), граничное слово вырезано или цитата
+ * опирается на вырезанные слова (`anchor_in_cut`), главы не покрывают оставленные слова
+ * (`chapter_gap`) или пересекаются (`chapter_overlap`), акцент вне диапазона якоря
+ * (`emphasis_out_of_range`), связь ссылается на отклонённый якорь (`unknown_anchor`).
+ */
+export const SemanticRejectCodeSchema = z.enum([
+  "quote_mismatch", "unknown_word", "order", "anchor_in_cut", "chapter_gap", "chapter_overlap", "emphasis_out_of_range", "unknown_anchor",
+]);
+export type SemanticRejectCode = z.infer<typeof SemanticRejectCodeSchema>;
+
+/** Отклонённое кодом предложение агента (`kind` — раздел ответа, `id` — id агента в окне). */
+export const SemanticRejectedSchema = z.object({
+  kind: z.enum(["chapter", "anchor", "number", "entity", "causal", "disputed"]),
+  id: z.string().optional(),
+  code: SemanticRejectCodeSchema,
+  detail: z.string().optional(),
+  /** Номер окна транскрипта (с 1), если окон больше одного. */
+  window: z.number().int().positive().optional(),
+}).strict();
+export type SemanticRejected = z.infer<typeof SemanticRejectedSchema>;
+
 /** Смысловая разметка (ТЗ §4 Semantic Director): всё — на id слов, без времени. */
 export const SemanticTimelineSchema = z.object({
   schema_version: z.literal(1),
@@ -69,5 +92,7 @@ export const SemanticTimelineSchema = z.object({
   transcript_ref: Ref,
   edl_ref: Ref,
   ...semanticFields,
+  /** Предложения агента, отклонённые кодом после переотправки (Task 31). */
+  rejected: z.array(SemanticRejectedSchema).optional(),
 }).strict().superRefine(checkSemantic);
 export type SemanticTimeline = z.infer<typeof SemanticTimelineSchema>;

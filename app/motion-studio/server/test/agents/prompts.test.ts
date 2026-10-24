@@ -61,8 +61,8 @@ describe("loadPrompt", () => {
   });
 
   it("промпт есть у каждой роли пайплайна генерации", () => {
-    // edit_planner — короткий; промпты ролей Phase 2–3 появятся с их задачами (Task 31–32)
-    const later = new Set(["edit_planner", "semantic_director", "visual_planner"]);
+    // edit_planner — короткий; промпт Visual Planner появится с Task 32
+    const later = new Set(["edit_planner", "visual_planner"]);
     for (const role of ROLES.filter((r) => !later.has(r))) expect(loadPrompt(role).length, role).toBeGreaterThan(500);
   });
 
