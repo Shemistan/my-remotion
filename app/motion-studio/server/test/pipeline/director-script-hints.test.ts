@@ -1,5 +1,6 @@
-// S11: подсказки сцены сценария (`key_term_early`, `foreign_label`) дают Director ещё один
-// раунд, даже без blocking; второй ответ хуже (blocking) — остаётся первый, принятый.
+// S11 → S14: подсказки сцены сценария (`foreign_label`, `placeholder_label`, `empty_container`)
+// дают Director ещё один раунд, даже без blocking; второй ответ хуже (blocking) — остаётся
+// первый, принятый. `key_term_early` раунда не стоит — раскрытие под слово ставят якоря планировщика.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { MotionSpec } from "@ms/contracts";
 import { readFileSync } from "node:fs";
@@ -27,6 +28,13 @@ const early = () => {
   out.spec.beats = [...out.spec.beats, { id: "b-count", kind: "count", start_frame: 0, end_frame: 40, action: "count", description: "", element_ids: ["num"] }];
   return out;
 };
+/** Ответ Director с подписями-заглушками: три узла «вопрос» (ss_005 смоука S11). */
+const stub = () => {
+  const out = directorOutput();
+  out.spec.elements = [...out.spec.elements, ...["q1", "q2", "q3"].map((id) => ({ id, kind: "card" as const, role: "узел", entrance: "rise" as const, content: { label: "вопрос" } }))];
+  out.spec.beats = out.spec.beats.map((b, k) => (k === 0 ? { ...b, element_ids: [...b.element_ids, "q1", "q2", "q3"] } : b));
+  return out;
+};
 const uniform = () => {
   const out = directorOutput();
   out.spec.elements = ["a", "b", "c"].map((id) => ({ id, kind: "text" as const, role: "текст", entrance: "fade" as const, content: {} }));
@@ -49,38 +57,47 @@ function run(agents: ReturnType<typeof fakeAgents>, script?: ScriptHints, cp?: {
 }
 
 describe("directorStep: подсказки сцены сценария", () => {
-  it("key_term_early без blocking — второй раунд Director с замечанием", async () => {
+  it("подписи-заглушки без blocking — второй раунд Director с замечанием", async () => {
     let n = 0;
-    const agents = fakeAgents({ director: async () => ({ output: ++n === 1 ? early() : directorOutput() }) });
+    const agents = fakeAgents({ director: async () => ({ output: ++n === 1 ? stub() : directorOutput() }) });
     const r = await run(agents, hints);
     expect(r.status).toBe("ready");
     const directors = agents.tasks.filter((t) => t.role === "motion_director");
     expect(directors).toHaveLength(2);
-    expect(String(directors[1]!.input)).toContain("key_term_early");
+    expect(String(directors[1]!.input)).toContain("placeholder_label");
     const spec = JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8")) as MotionSpec;
-    expect(spec.elements.map((e) => e.id)).not.toContain("num");
+    expect(spec.elements.map((e) => e.id)).not.toContain("q1");
+  });
+
+  // S14: key_term_early — только предупреждение (раскрытие под слово — якоря планировщика)
+  it("раннее раскрытие числа — без второго раунда, предупреждение в версии", async () => {
+    const agents = fakeAgents({ director: async () => ({ output: early() }) });
+    const r = await run(agents, hints);
+    expect(r.status).toBe("ready");
+    expect(agents.tasks.filter((t) => t.role === "motion_director")).toHaveLength(1);
+    expect(r.warnings.join("\n")).toContain("key_term_early");
   });
 
   it("второй ответ с blocking — остаётся первый, подсказка — в предупреждениях", async () => {
     let n = 0;
-    const agents = fakeAgents({ director: async () => ({ output: ++n === 1 ? early() : uniform() }) });
+    const agents = fakeAgents({ director: async () => ({ output: ++n === 1 ? stub() : uniform() }) });
     const r = await run(agents, hints);
     expect(r.status).toBe("ready");
     expect(agents.tasks.filter((t) => t.role === "motion_director")).toHaveLength(2);
     const spec = JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8")) as MotionSpec;
-    expect(spec.elements.map((e) => e.id)).toContain("num");
-    expect(r.warnings.join("\n")).toContain("key_term_early");
+    expect(spec.elements.map((e) => e.id)).toContain("q1");
+    expect(r.warnings.join("\n")).toContain("placeholder_label");
   });
 
   // S11-fix I1: предупреждение не превращается в провал — любой сбой второго раунда оставляет первый ответ
   it("второй раунд упал (отказ агента) — сцена идёт с ответом первого раунда", async () => {
     let n = 0;
-    const agents = fakeAgents({ director: async () => (++n === 1 ? { output: early() } : { status: "failed", error: { kind: "timeout", message: "таймаут" } }) });
+    const agents = fakeAgents({ director: async () => (++n === 1 ? { output: stub() } : { status: "failed", error: { kind: "timeout", message: "таймаут" } }) });
     const r = await run(agents, hints);
     expect(r.status).toBe("ready");
     expect(agents.tasks.filter((t) => t.role === "motion_director")).toHaveLength(2);
     const spec = JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8")) as MotionSpec;
-    expect(spec.elements.map((e) => e.id)).toContain("num");
+    expect(spec.elements.map((e) => e.id)).toContain("q1");
     expect(r.warnings.join("\n")).toMatch(/оставлен ответ первого раунда/);
   });
 
@@ -88,7 +105,7 @@ describe("directorStep: подсказки сцены сценария", () => {
     let n = 0;
     const agents = fakeAgents({
       director: async () => {
-        if (++n === 1) return { output: early() };
+        if (++n === 1) return { output: stub() };
         const out = directorOutput();
         out.spec.duration_frames = s.duration_frames + 30;
         return { output: out };
@@ -97,20 +114,20 @@ describe("directorStep: подсказки сцены сценария", () => {
     const r = await run(agents, hints);
     expect(r.status).toBe("ready");
     const spec = JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8")) as MotionSpec;
-    expect(spec.elements.map((e) => e.id)).toContain("num");
+    expect(spec.elements.map((e) => e.id)).toContain("q1");
   });
 
   // S11-fix I3: чекпоинт хранит уже принятый ответ — повтор задачи не гоняет раунд подсказок заново
   it("повтор задачи (ответ из чекпоинта) — без второго раунда по подсказкам", async () => {
     let n = 0;
-    const first = fakeAgents({ director: async () => ({ output: ++n === 1 ? early() : uniform() }) });
+    const first = fakeAgents({ director: async () => ({ output: ++n === 1 ? stub() : uniform() }) });
     expect((await run(first, hints, { jobId: "job_s11" })).status).toBe("ready");
     const again = fakeAgents({ director: async () => ({ output: directorOutput() }) });
     const r = await run(again, hints, { jobId: "job_s11" });
     expect(r.status).toBe("ready");
     expect(again.tasks.filter((t) => t.role === "motion_director")).toHaveLength(0);
     const spec = JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8")) as MotionSpec;
-    expect(spec.elements.map((e) => e.id)).toContain("num");
+    expect(spec.elements.map((e) => e.id)).toContain("q1");
   });
 
   // S11-fix I2a: короткий термин (< 4 букв) — только подсказка, не повод для раунда

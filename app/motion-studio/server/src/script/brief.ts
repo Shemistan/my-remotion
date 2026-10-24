@@ -162,11 +162,13 @@ export function buildSceneBrief(i: SceneBriefInput): string {
   const data = item.data.slice(0, DATA_MAX).map((d) => clipWords(clean(`${d.label} = ${d.value}${d.unit ? ` ${d.unit}` : ""} («${d.quote}»)`), NEIGHBOR_MAX));
   const terms = clipWords(item.key_terms.map((k) => clean(k.text)).filter(Boolean).join(", "), FIELD_MAX);
   const moments = i.moments && i.moments.length > 0
-    ? `${clipWords(`Моменты слов (кадр, когда звучит): ${i.moments.slice(0, DATA_MAX).map((m) => `«${clipWords(clean(m.text), 40)}» — ${m.frame}`).join("; ")}`, FIELD_MAX)}. Раскрытие числа или термина (итог счёта, удар, payoff) — не раньше его кадра.`
+    ? `${clipWords(`Моменты слов (кадр, когда звучит): ${i.moments.slice(0, DATA_MAX).map((m) => `«${clipWords(clean(m.text), 40)}» — ${m.frame}`).join("; ")}`, FIELD_MAX)}. Раскрытие числа или термина (итог счёта, удар, payoff) — у его кадра: планировщик ставит его за 3–6 кадров до слова.`
     : undefined;
   const lines = (sentences: string) => [
     `Сцена ${i.index} из ${i.total} сценария «${clipWords(clean(i.projectTitle), NEIGHBOR_MAX)}». Приём: ${item.technique} — ${t?.ru ?? ""} (ключевой компонент kit: ${t?.kit.join(", ") ?? "—"}; типичная структура ${t?.structure ?? "—"}). Паттерн: ${item.pattern}.`,
     ...(rule ? [`Форма времени: ${rule[0]} (структура ${rule[1]}).`] : []),
+    // S14: сцена — картинка из данных, а не «иллюстрированная подпись»
+    `Визуальный герой: ${t?.kit.join(" или ") ?? "графика"} из чисел и терминов фразы, ≥ 30–40 % кадра; текст — подписи к нему; без пустых карточек и подписей-заглушек; один акцент в момент.`,
     `Назначение: ${clipWords(clean(item.purpose), FIELD_MAX) || "нет"}. Идея: ${clipWords(clean(item.idea) || clean(item.purpose), FIELD_MAX) || "нет"}`,
     `Числа (показать точно): ${data.length > 0 ? data.join("; ") : "нет"}. Ключевые термины: ${terms || "нет"}.`,
     `Длительность: ${total} кадров @ ${fpsText(i.fps)}: первые ${lead} кадров — запас (фон, мягкий вход, можно обрезать), основное действие в окне речи [${lead}; ${lead + speech}), финальное удержание ≥ ${tail} кадров.`,

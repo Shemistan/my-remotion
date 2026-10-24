@@ -44,11 +44,13 @@ describe("keyMoments: числительное словами", () => {
 });
 
 describe("бриф: моменты слов", () => {
-  it("строка «Моменты слов» с кадрами и правилом «не раньше слова»", () => {
+  it("строка «Моменты слов» с кадрами и правилом «раскрытие у слова» (S14: якоря планировщика)", () => {
     const moments = keyMoments(item(), doc, DEFAULT_READING, F30);
     const b = buildSceneBrief({ item: item(), index: 1, total: 3, projectTitle: "Go map", fps: F30, windows: [], moments });
     expect(b).toContain(`Моменты слов (кадр, когда звучит): «1,24» — ${frameAfter(2)}; «2025» — ${frameAfter(9)}; «Карта» — ${frameAfter(11)}`);
-    expect(b).toMatch(/не раньше его кадра/);
+    expect(b).toMatch(/за 3–6 кадров до слова/);
+    // S14: визуальный герой — ключевой компонент приёма из данных фразы
+    expect(b).toMatch(/Визуальный герой: .*≥ 30–40 % кадра/);
     // без моментов строки нет
     expect(buildSceneBrief({ item: item(), index: 1, total: 3, projectTitle: "Go map", fps: F30, windows: [] })).not.toContain("Моменты слов");
   });

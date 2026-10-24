@@ -21,6 +21,8 @@ import {
   type StructureRule,
   type ScenePropsStyle,
   type Settings,
+  TECHNIQUES,
+  type Technique,
   holdModeFor,
   isAccentBeat,
   isHoldBeat,
@@ -33,7 +35,7 @@ import type { AgentErrorKind, AgentResult, AgentRuntimeAdapter, AgentTask, Agent
 import type { AppConfig } from "../config.js";
 import type { Permits } from "../jobs/semaphore.js";
 import type { CapabilityView } from "../knowledge/types.js";
-import { type KeyMoment, keyTermEarly, roundWorthyMoment, specChecks } from "../qa/spec-checks.js";
+import { type KeyMoment, momentReveals, roundWorthyMoment, specChecks } from "../qa/spec-checks.js";
 import { type StepRef, checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
 import { planSpecBeats, structureFit } from "./beat-plan.js";
 import { normalizeBoundCounters } from "./bound-counters.js";
@@ -609,6 +611,20 @@ function holdHero(spec: MotionSpec): string | undefined {
   });
 }
 
+/**
+ * Сцена сценария (S14): визуальный герой — графика из данных фразы на ключевом компоненте
+ * приёма; без пустых контейнеров и подписей-заглушек; один акцент в момент.
+ */
+function scriptEngineerLines(technique: Technique | undefined): string[] {
+  const t = technique ? TECHNIQUES.find((x) => x.slug === technique) : undefined;
+  return [
+    ...(t ? [`- приём «${t.slug}» (${t.ru}): герой сцены — ${(t.kit as readonly string[]).map((c) => `<${c}>`).join(" или ")} из @ms/motion-kit с данными spec; без него сцена не принимается (technique_not_realized);`] : []),
+    "- визуальный герой — одна не-текстовая графика из данных фразы (ось, схема, столбцы, сетка, число со счётом) на 30–40 % кадра и больше; текст — подписи к ней, не наоборот;",
+    "- ни одной пустой карточки или рамки и ни одной подписи-заглушки («?», «вопрос» ×3): у каждого объекта — своё содержимое из spec (empty_container, placeholder_label — брак);",
+    "- один акцент в момент: светится (ореол, обводка акцентом, Emphasis/Highlight) только объект текущего бита, остальные — спокойные (accent_conflict — брак);",
+  ];
+}
+
 /** Инструменты Engineer: только файлы draft (Bash и сеть — никогда). */
 export const ENGINEER_TOOLS: AgentTool[] = ["Read", "Write", "Edit", "Glob", "Grep"];
 
@@ -616,13 +632,14 @@ export const ENGINEER_TOOLS: AgentTool[] = ["Read", "Write", "Edit", "Glob", "Gr
  * Задача Engineer: всё о сцене — в файлах draft (spec, settings, style, selection,
  * knowledge-refs, refs/); `fix` — замечания прошлой проверки (с заголовком «Исправление N»).
  */
-export function buildEngineerTask(i: { draftDir: string; fix?: string; spec?: MotionSpec; script?: boolean }, run: TaskRun): AgentTask<string> {
+export function buildEngineerTask(i: { draftDir: string; fix?: string; spec?: MotionSpec; script?: boolean; technique?: Technique }, run: TaskRun): AgentTask<string> {
   const parts: string[] = [];
   if (i.fix) parts.push(i.fix, "");
   parts.push(
     "# Задача",
     "Собери Remotion-сцену в текущем каталоге (draft) по `spec.json`:",
     ...(i.spec ? [finaleLine(i.spec, i.script === true)] : []),
+    ...(i.script ? scriptEngineerLines(i.technique) : []),
     "- `src/Scene.tsx` с `export const Scene` (можно добавить модули в `src/`);",
     "- `props.json` по контракту сцены: `timing` (биты spec), `style` (из `settings.json`), `content` (данные spec).",
     "Прочитай первым `refs/motion-kit/API.md`, затем `spec.json`, `style.json`, `settings.json`, `selection.json`, `knowledge-refs.json`;",
@@ -912,7 +929,7 @@ export async function directorStep(
     // уже здесь: минимум setup графа (прорисовка рёбер) считается по токенам того пресета, что
     // пойдёт в рендер (s3afix2-rereview m2)
     const presetSwap = director.spec.style_preset !== s.style_preset ? director.spec.style_preset : undefined;
-    const planned = planInWindow({ ...director.spec, composition: director.composition, style_preset: s.style_preset }, s, speechWindow);
+    const planned = planInWindow({ ...director.spec, composition: director.composition, style_preset: s.style_preset }, s, speechWindow, scriptHints?.keyMoments);
     if (!planned.ok) {
       rc.note("director", `план битов не построен (раунд ${round}): ${planned.message}`);
       if (round === 2 && accepted) return keepFirst(rc, accepted, acceptedWarnings, planned.message);
@@ -954,7 +971,7 @@ export async function directorStep(
       const ok = { ok: true as const, director: { ...director, spec }, spec };
       // сцена сценария (S11): раскрытие раньше слова и чужие подписи стоят ещё одного раунда;
       // ответ из чекпоинта уже принят (после раунда подсказок) — повтор задачи его не переделывает
-      const redo = round === 1 && !key?.reused ? scriptRedo(spec, checks, scriptHints, speechWindow) : [];
+      const redo = round === 1 && !key?.reused ? scriptRedo(checks, scriptHints) : [];
       if (redo.length > 0) {
         accepted = ok;
         acceptedWarnings = warnings;
@@ -996,20 +1013,21 @@ export interface ScriptHints {
   sourceText?: string;
 }
 
-/** Подсказки сцены сценария, ради которых Director отвечает ещё раз даже без blocking (S11). */
-const SCRIPT_ROUND_HINTS = new Set(["key_term_early", "foreign_label"]);
+/**
+ * Подсказки сцены сценария без id элементов в предупреждениях версии (S11-fix M6).
+ * `key_term_early` — только предупреждение: раскрытие под слово ставят якоря планировщика (S14).
+ */
+const SCRIPT_ROUND_HINTS = new Set(["key_term_early", "foreign_label", "placeholder_label", "empty_container"]);
+/** Подсказки, ради которых Director сцены сценария отвечает ещё раз даже без blocking (S11 → S14). */
+const SCRIPT_REDO = new Set(["foreign_label", "placeholder_label", "empty_container"]);
 
 /**
- * Замечания, ради которых Director сцены сценария отвечает ещё раз: чужие подписи и раннее
- * раскрытие числа или термина от 4 букв (S11-fix I2a); короткий термин — только подсказка.
+ * Замечания, ради которых Director сцены сценария отвечает ещё раз: чужие подписи, подписи-
+ * заглушки и пустые контейнеры (S14: сцена — не «иллюстрированные подписи»). Раннее раскрытие
+ * числа или термина раунда больше не стоит: его исправляют якоря `planInWindow`.
  */
-function scriptRedo(spec: MotionSpec, checks: readonly QAIssue[], hints: ScriptHints | undefined, window: SpeechWindow | undefined): QAIssue[] {
-  const foreign = checks.filter((x) => x.code === "foreign_label");
-  const worthy = hints?.keyMoments?.filter(roundWorthyMoment) ?? [];
-  const early = checks.some((x) => x.code === "key_term_early") && worthy.length > 0
-    ? keyTermEarly(spec, worthy, window).map((x) => ({ ...x, source: "programmatic" as const }))
-    : [];
-  return [...early, ...foreign];
+function scriptRedo(checks: readonly QAIssue[], hints: ScriptHints | undefined): QAIssue[] {
+  return hints ? checks.filter((x) => SCRIPT_REDO.has(x.code)) : [];
 }
 
 /** Окно речи сцены сценария (S5, §5.2): запас до речи, речь, запас после — в кадрах. */
@@ -1025,7 +1043,7 @@ export interface SpeechWindow {
  * их биты сдвигаются на `lead`. Иначе count-up и cold-open (счёт и постер итога с кадра 0)
  * нарушали бы окно речи при любых весах. Биты без фазы (кадры Director) и камера — как есть.
  */
-export function planInWindow(spec: Parameters<typeof planSpecBeats>[0], settings: Settings, window: SpeechWindow | undefined): ReturnType<typeof planSpecBeats> {
+export function planInWindow(spec: Parameters<typeof planSpecBeats>[0], settings: Settings, window: SpeechWindow | undefined, moments?: readonly KeyMoment[]): ReturnType<typeof planSpecBeats> {
   const lead = window?.lead ?? 0;
   if (!spec.phases || lead <= 0 || lead >= spec.duration_frames) return planSpecBeats(spec, settings);
   // кадры Director (биты без фазы, ключи камеры) — на полную длину: в план окна не идут
@@ -1042,6 +1060,14 @@ export function planInWindow(spec: Parameters<typeof planSpecBeats>[0], settings
     shifted = fitted;
     changes.push(`окно речи: фазы сжаты в [${lead}; ${total - tail}), удержание — [${total - tail}; ${total}) (≥ tail ${tail})`);
   }
+  // S14: моменты слов — якоря: раскрытие ключевого числа и термина — за 3…6 кадров до слова
+  if (moments?.length && window) {
+    const a = anchorMoments({ ...r.spec, duration_frames: total, beats: shifted } as MotionSpec, moments, window);
+    if (a) {
+      shifted = a.beats as typeof shifted;
+      changes.push(...a.changes);
+    }
+  }
   // биты без фазы — кадры Director, но тоже не раньше lead (M4): сдвиг с сохранением длины
   const ownIn = own.map((b) => {
     if (b.start_frame === undefined || b.start_frame >= lead) return b;
@@ -1056,6 +1082,63 @@ export function planInWindow(spec: Parameters<typeof planSpecBeats>[0], settings
     spec: { ...r.spec, duration_frames: total, beats: [...(ownIn as typeof shifted), ...shifted], ...(camera !== undefined ? { camera } : {}) } as typeof r.spec,
     changes,
   };
+}
+
+/** Раскрытие момента — за столько кадров до слова (окно `кадр слова − 3…6`, S14). */
+export const ANCHOR_LEAD = 4;
+/** Предел растяжения и сжатия отрезка времени между якорями: движение не вырождается. */
+const ANCHOR_MIN_K = 0.35;
+const ANCHOR_MAX_K = 3;
+
+/**
+ * Якоря моментов слов (S14): кусочно-линейное перераспределение времени фаз — то же, что
+ * сдвиг весов фаз, но под кадр слова, а не через раунд Director. Опорные точки: `lead` и
+ * `total − tail` неподвижны (удержание сжимается, но ≥ tail); раскрытие каждого весомого момента
+ * (`roundWorthyMoment`, `momentReveals`: конец счёта, начало payoff/акцента) переходит в
+ * `кадр слова − ANCHOR_LEAD`. Отрезки между точками растягиваются не больше чем в 3 раза и
+ * сжимаются не сильнее 0,35 — недостижимый якорь подходит к цели насколько можно.
+ * Моменты, чьи раскрытия идут не по порядку слов, пропускаются. Двигаются только биты фаз.
+ */
+export function anchorMoments(spec: MotionSpec, moments: readonly KeyMoment[], window: SpeechWindow): { beats: MotionSpec["beats"]; changes: string[] } | undefined {
+  const { lead } = window;
+  // правая опора — начало запаса после речи: удержание может начаться позже, но не позже неё
+  const end = spec.duration_frames - window.tail;
+  if (end - lead < 4) return undefined;
+  const phased = new Set(spec.beats.filter((b) => b.phase !== undefined).map((b) => b.id));
+  const reveals = momentReveals(spec, moments.filter(roundWorthyMoment), window)
+    .filter((x) => phased.has(x.beat) && x.at > lead && x.at < end)
+    .sort((a, b) => a.at - b.at || a.m.frame - b.m.frame);
+  const points: { r: number; t: number; m: KeyMoment }[] = [];
+  for (const x of reveals) {
+    const prev = points.at(-1) ?? { r: lead, t: lead };
+    if (x.at <= prev.r) continue;
+    const dr = x.at - prev.r;
+    // цель в пределах растяжения от предыдущей точки и до конца отрезка
+    const lo = Math.max(prev.t + ANCHOR_MIN_K * dr, end - ANCHOR_MAX_K * (end - x.at));
+    const hi = Math.min(prev.t + ANCHOR_MAX_K * dr, end - ANCHOR_MIN_K * (end - x.at));
+    if (lo > hi) continue;
+    const want = x.m.frame - ANCHOR_LEAD;
+    // слово раньше предыдущего якоря — порядок раскрытий расходится с речью: мимо
+    if (want <= prev.t) continue;
+    points.push({ r: x.at, t: Math.round(Math.min(hi, Math.max(lo, want))), m: x.m });
+  }
+  const moved = points.filter((p) => p.t !== p.r);
+  if (moved.length === 0) return undefined;
+  const knots = [{ r: lead, t: lead }, ...points, { r: end, t: end }];
+  const warp = (x: number) => {
+    if (x <= lead || x >= end) return x;
+    const k = knots.findIndex((p) => p.r >= x);
+    const a = knots[k - 1]!;
+    const b = knots[k]!;
+    return Math.round(a.t + ((x - a.r) * (b.t - a.t)) / (b.r - a.r));
+  };
+  const beats = spec.beats.map((b) => {
+    if (!phased.has(b.id)) return b;
+    const s = warp(b.start_frame);
+    return { ...b, start_frame: s, end_frame: Math.max(s + 1, warp(b.end_frame)) };
+  });
+  const changes = moved.map((p) => `якорь «${p.m.text}»: раскрытие ${p.r} → ${p.t} (слово — кадр ${p.m.frame})`);
+  return { beats, changes };
 }
 
 /**
@@ -1095,7 +1178,7 @@ export function withSceneSeed(spec: MotionSpec, sceneId: string): MotionSpec {
 }
 
 /** Замечания specChecks — подсказки Director, не причина нового раунда (ruling P10). */
-const DIRECTOR_HINTS = new Set(["placeholder_label", "purpose_claim", "scene_signature_repeat", "structure_mismatch", "key_term_early", "foreign_label"]);
+const DIRECTOR_HINTS = new Set(["placeholder_label", "empty_container", "purpose_claim", "scene_signature_repeat", "structure_mismatch", "key_term_early", "foreign_label"]);
 
 /** Самопроверка spec без LLM: удержание в конце и акцент. Нарушения — предупреждения. */
 export function specWarnings(spec: MotionSpec): string[] {

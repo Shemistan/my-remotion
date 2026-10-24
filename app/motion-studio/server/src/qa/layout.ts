@@ -30,6 +30,73 @@ export interface LayoutFrame {
   ghosts: { text: string; count: number }[];
   /** Режимы, которые в кадре ведёт hold engine (kit 0.5.2+); нет поля — старая проба. */
   holds?: string[];
+  /** Контейнеры kit (`data-ms-box`) с признаком содержимого (kit 0.5.5+). */
+  boxes?: { id: string; kind: string; rect: Box; filled: boolean; graphic: boolean }[];
+  /** Доли кадра под текстом и под графикой (kit 0.5.5+). */
+  areas?: { text: number; graphic: number };
+}
+
+/** Графики в hold меньше этой доли кадра при тексте вдвое больше — «текст вместо героя» (S14). */
+export const HERO_GRAPHIC_MIN = 0.12;
+/** Повтор одной общей подписи у стольких объектов — заглушки (как в specChecks). */
+const PLACEHOLDER_REPEAT = 3;
+/** Знак вместо подписи: вопрос или многоточие. */
+const GLYPH_ONLY = /^\s*(?:[?？]+|…|\.{3})\s*$/u;
+/** Общая подпись: 1–2 слова без цифр. */
+const GENERIC = /^[\p{L}]+(?: [\p{L}]+)?$/u;
+const pctOf = (v: number) => `${Math.round(v * 100)} %`;
+
+/**
+ * Сцена сценария (S14): «иллюстрированные подписи» по реестру финального кадра (последний
+ * QA-кадр, hold). Пустой контейнер kit и подписи-заглушки (одна общая подпись у ≥ 3 объектов,
+ * знак вместо подписи у ≥ 2) — blocking: Engineer исправляет. Графики меньше 12 % кадра при
+ * тексте вдвое больше — warning `text_dominant` (подсказка «визуальный герой»). Проба без
+ * полей kit 0.5.5 — только заглушки по тексту.
+ */
+export function scriptLayoutIssues(frames: LayoutFrame[]): Issue[] {
+  const last = frames.reduce<LayoutFrame | undefined>((a, f) => (!a || f.frame > a.frame ? f : a), undefined);
+  if (!last) return [];
+  const out: Issue[] = [];
+  const empty = (last.boxes ?? []).filter((b) => !b.filled);
+  if (empty.length > 0) {
+    out.push({
+      code: "empty_container", severity: "blocking", frame: last.frame, area: empty.map((b) => b.kind).join(", "),
+      description: `в финальном кадре ${empty.length === 1 ? "пустой контейнер" : `${empty.length} пустых контейнера`} (${empty.map((b) => b.kind).join(", ")}): рамка без текста и графики читается заглушкой`,
+      fix_hint: "положи в каждую карточку содержимое из spec (число, имя, термин, мини-график) или убери её; герой сцены — графика из данных фразы",
+    });
+  }
+  const own = last.items.filter((it) => it.role !== "status" && it.role !== "token" && it.role !== "hold-tick");
+  // подпись-тип в карточке со своим именем («Веб-поиск» · «инструмент») — не заглушка: считаем
+  // только подписи, у которых в их контейнере нет другого текста
+  const mid = (b: Box) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
+  const inBox = (p: { x: number; y: number }, b: Box) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
+  const alone = (it: LayoutItem) => {
+    const box = (last.boxes ?? []).find((b) => inBox(mid(it.rect), b.rect));
+    return !box || !last.items.some((o) => o !== it && o.text.trim() !== it.text.trim() && inBox(mid(o.rect), box.rect));
+  };
+  const groups = new Map<string, Set<string>>();
+  for (const it of own) {
+    const t = it.text.trim().toLowerCase().replace(/ё/g, "е");
+    if ((!GENERIC.test(t) && !GLYPH_ONLY.test(t)) || !alone(it)) continue;
+    groups.set(t, (groups.get(t) ?? new Set()).add(it.id));
+  }
+  const stubs = [...groups].filter(([t, ids]) => ids.size >= (GLYPH_ONLY.test(t) ? 2 : PLACEHOLDER_REPEAT));
+  if (stubs.length > 0) {
+    out.push({
+      code: "placeholder_label", severity: "blocking", frame: last.frame, area: stubs.map(([t]) => q(t)).join(", "),
+      description: `подписи-заглушки в финальном кадре: ${stubs.map(([t, ids]) => `${q(t)} ×${ids.size}`).join(", ")} — у объектов нет своего содержимого`,
+      fix_hint: "у каждого объекта — своё содержимое из spec (имя, число, термин фразы), не одна общая подпись и не «?»; нет различий — один объект с числом вместо копий",
+    });
+  }
+  const a = last.areas;
+  if (a && a.graphic < HERO_GRAPHIC_MIN && a.text > 2 * a.graphic) {
+    out.push({
+      code: "text_dominant", severity: "warning", frame: last.frame, area: "hold",
+      description: `в финале текст занимает ${pctOf(a.text)} кадра, графика — ${pctOf(a.graphic)}: сцена читается подписью, а не картинкой`,
+      fix_hint: "визуальный герой — одна не-текстовая графика из данных фразы (ось, схема, столбцы, сетка, число со счётом) на 30–40 % кадра; текст — подписи к ней",
+    });
+  }
+  return out;
 }
 
 const TAG = "[motion-kit:layout]";

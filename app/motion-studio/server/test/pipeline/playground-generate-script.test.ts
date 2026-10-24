@@ -98,9 +98,13 @@ async function seedNeighbor(itemId: string, spec: MotionSpec) {
   await repo.publish(draft, meta(scene.id), { jobId, attempt: 1 });
 }
 
+/** Код сцены с ключевым компонентом приёма hero-number (S14: приём проверяется до рендера). */
+const HERO_SCENE = `import { AnimatedNumber } from "@ms/motion-kit";\n${GOOD_SCENE}`;
+const heroEngineer = async () => ({ files: { "src/Scene.tsx": HERO_SCENE } });
+
 describe("playground.generate со script", () => {
   it("Concept без уточнений (answers skip): вопросы Concept не останавливают задачу; роли как у Playground", async () => {
-    const agents = fakeAgents({ concept: async () => ({ output: conceptOutput({ needs_clarification: [{ question: "какой цвет?", default_if_skipped: "синий" }] }) }) });
+    const agents = fakeAgents({ concept: async () => ({ output: conceptOutput({ needs_clarification: [{ question: "какой цвет?", default_if_skipped: "синий" }] }) }), engineer: heroEngineer });
     const { job } = await run({ agents }, { script });
     expect(job.status, JSON.stringify(job.error)).toBe("completed");
     const concept = agents.tasks.find((t) => t.role === "concept")!;
@@ -167,8 +171,8 @@ describe("playground.generate со script", () => {
   });
 
   it("S6: заливка корня → overlay_root_fill в раунд Engineer; кадр hold с transparent = true рендерится отдельно", async () => {
-    const fill = GOOD_SCENE.replace("{{ opacity: o }}", '{{ opacity: o, background: "#000" }}');
-    const agents = fakeAgents({ engineer: async (_t, n) => ({ files: { "src/Scene.tsx": n === 1 ? fill : GOOD_SCENE } }) });
+    const fill = HERO_SCENE.replace("{{ opacity: o }}", '{{ opacity: o, background: "#000" }}');
+    const agents = fakeAgents({ engineer: async (_t, n) => ({ files: { "src/Scene.tsx": n === 1 ? fill : HERO_SCENE } }) });
     const r0 = fakeRender({ png: true });
     const { job } = await run({ agents, render: r0.render }, { script });
     expect(job.status, JSON.stringify(job.error)).toBe("completed");

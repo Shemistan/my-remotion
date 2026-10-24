@@ -149,6 +149,7 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
   out.push(...accentConflicts(spec, settings));
   out.push(...structureMismatch(spec, opts.concept));
   out.push(...placeholderIssues(spec));
+  out.push(...emptyContainerIssues(spec));
   out.push(...purposeClaimIssues(spec));
   for (const prev of [opts.previous ?? []].flat()) {
     const repeat = signatureRepeat(spec, prev);
@@ -217,6 +218,9 @@ const numberRe = (v: number) => {
 /** Термин целым словом (граница по буквам и цифрам Unicode): «нет» не находится в «интернет». */
 const termRe = (t: string) => new RegExp(String.raw`(?<![\p{L}\p{N}])${escapeRe(t)}(?![\p{L}\p{N}])`, "u");
 
+/** Ключи content — пометки для исполнителя, а не текст кадра. */
+const NOTE_KEY = /^(note|notes|comment|comments|description|hint|reason|rationale|component|[a-z]+_note)$/i;
+
 /** Элемент, чьё появление — раскрытие: герой, акцент или число (подписи и кикеры — нет). */
 const revealsMoments = (e: Element) => e.kind === "number" || isEmphasisRole(e.role) || /^\s*(hero|герой)/i.test(e.role);
 
@@ -230,7 +234,8 @@ function showsMoment(e: Element, m: KeyMoment): boolean {
   const c = (e.content ?? {}) as Record<string, unknown>;
   if (m.value !== undefined && (c.to === m.value || c.value === m.value)) return true;
   if (!revealsMoments(e)) return false;
-  const strings = contentStrings(c, /.*/).map((x) => norm(x.value));
+  // пометки Director для Engineer («слово встаёт отдельно в payoff») — не текст на экране (S14)
+  const strings = contentStrings(c, /.*/, NOTE_KEY).filter((x) => !NOTE_KEY.test(x.key)).map((x) => norm(x.value));
   if (m.value !== undefined) {
     const re = numberRe(m.value);
     return strings.some((x) => re.test(x));
@@ -241,6 +246,49 @@ function showsMoment(e: Element, m: KeyMoment): boolean {
   return strings.some((x) => re.test(x));
 }
 
+/** Раскрытие момента слова в spec: самый ранний кадр (`at`), бит, который его даёт, и элементы. */
+export interface MomentReveal {
+  m: KeyMoment;
+  at: number;
+  /** Бит самого раннего раскрытия и что в нём раскрывает: конец счёта или начало бита. */
+  beat: string;
+  edge: "start" | "end";
+  /** Раннее раскрытие по каждому элементу с моментом. */
+  elements: { id: string; at: number }[];
+}
+
+/**
+ * Где spec раскрывает моменты слов (S11 → S14): у элемента с моментом (`showsMoment`) —
+ * конец бита счёта, начало бита акцента или бита фазы payoff, у числа в тексте — ещё начало
+ * входа. Момент позже конца речи − 15 кадров пропускается (перестановкой фаз не исправить);
+ * момент без раскрытия — тоже. Общая мера для `key_term_early` и якорей планировщика.
+ */
+export function momentReveals(spec: MotionSpec, moments: readonly KeyMoment[], window?: { lead: number; speech: number }): MomentReveal[] {
+  const payoff = new Set(phasesOf(spec).filter((p) => p.role === "payoff").map((p) => p.id));
+  const last = window ? window.lead + window.speech - KEY_TERM_LATE_MARGIN : Infinity;
+  const out: MomentReveal[] = [];
+  for (const m of moments) {
+    if (m.frame > last) continue;
+    let best: { at: number; beat: string; edge: "start" | "end" } | undefined;
+    const elements: { id: string; at: number }[] = [];
+    for (const e of spec.elements.filter((x) => showsMoment(x, m))) {
+      const reveals = spec.beats.filter((b) => b.element_ids.includes(e.id)).flatMap((b): { at: number; beat: string; edge: "start" | "end" }[] => {
+        const k = beatKind(b);
+        if (k === "count") return [{ at: b.end_frame, beat: b.id, edge: "end" as const }];
+        if (k === "accent" || (b.phase !== undefined && payoff.has(b.phase))) return [{ at: b.start_frame, beat: b.id, edge: "start" as const }];
+        if (k === "enter" && m.value !== undefined && e.kind !== "number") return [{ at: b.start_frame, beat: b.id, edge: "start" as const }];
+        return [];
+      });
+      if (reveals.length === 0) continue;
+      const first = reveals.reduce((a, x) => (x.at < a.at ? x : a));
+      elements.push({ id: e.id, at: first.at });
+      if (!best || first.at < best.at) best = first;
+    }
+    if (best) out.push({ m, ...best, elements });
+  }
+  return out;
+}
+
 /**
  * Ключевое число или термин раскрыты раньше, чем их произносят (S11, находка ss_004: «256»
  * досчитан к кадру 60, звучит ~140). Раскрытие элемента с моментом: конец бита счёта, начало
@@ -248,24 +296,7 @@ function showsMoment(e: Element, m: KeyMoment): boolean {
  * warning (подсказка Director). Момент позже конца речи − 15 кадров не исправить — мимо.
  */
 export function keyTermEarly(spec: MotionSpec, moments: readonly KeyMoment[], window?: { lead: number; speech: number }): Omit<QAIssue, "source">[] {
-  const payoff = new Set(phasesOf(spec).filter((p) => p.role === "payoff").map((p) => p.id));
-  const last = window ? window.lead + window.speech - KEY_TERM_LATE_MARGIN : Infinity;
-  const hits: { id: string; m: KeyMoment; at: number }[] = [];
-  for (const m of moments) {
-    if (m.frame > last) continue;
-    const limit = m.frame - KEY_TERM_TOLERANCE;
-    for (const e of spec.elements.filter((x) => showsMoment(x, m))) {
-      const reveals = spec.beats.filter((b) => b.element_ids.includes(e.id)).flatMap((b) => {
-        const k = beatKind(b);
-        if (k === "count") return [b.end_frame];
-        if (k === "accent" || (b.phase !== undefined && payoff.has(b.phase))) return [b.start_frame];
-        if (k === "enter" && m.value !== undefined && e.kind !== "number") return [b.start_frame];
-        return [];
-      });
-      const at = Math.min(...reveals);
-      if (reveals.length > 0 && at < limit) hits.push({ id: e.id, m, at });
-    }
-  }
+  const hits = momentReveals(spec, moments, window).flatMap((r) => r.elements.filter((x) => x.at < r.m.frame - KEY_TERM_TOLERANCE).map((x) => ({ id: x.id, m: r.m, at: x.at })));
   if (hits.length === 0) return [];
   const first = hits[0]!;
   const said = [...new Map(hits.map((h) => [h.m.text, h])).values()];
@@ -678,12 +709,84 @@ const PLACEHOLDER = /^(инструмент|сервис|элемент|объе
 
 /** Ruling P10: эвристика по тексту — подсказка Director (warning), не blocking. */
 function placeholderIssues(spec: MotionSpec): Omit<QAIssue, "source">[] {
+  const out: Omit<QAIssue, "source">[] = [];
   const hits = spec.elements.flatMap((e) => contentStrings(e.content, LABEL_KEY, CHART_DATA_KEY).filter((x) => PLACEHOLDER.test(x.value.trim())).map((x) => ({ id: e.id, text: x.value.trim() })));
+  if (hits.length > 0) {
+    out.push({
+      code: "placeholder_label", severity: "warning", area: [...new Set(hits.map((h) => h.id))].join(", "),
+      description: `похоже на нумерованные заглушки вместо конкретных экземпляров: ${hits.map((h) => `«${h.text}» (${h.id})`).join(", ")}`,
+      fix_hint: "если запрос назвал количество без имён — дай правдоподобные конкретные экземпляры с ролями (Веб-поиск · search(), База знаний · retrieve(), Калькулятор · calc()); номер оставь, только если экземпляры и правда неотличимы",
+    });
+  }
+  // S14 (ss_005 «вопрос» ×3, ss_001 карточки «?»): у нескольких объектов все подписи — одна
+  // общая подпись без числа и сущности, или вместо подписи — знак. Объект — элемент или запись
+  // списка в нём (узел `nodes`); подпись-тип при своём имени («Веб-поиск» · «инструмент») — норма
+  const units = spec.elements.filter((e) => !STATUS_ROLE.test(e.role)).flatMap((e) => labelUnits(e));
+  const groups = new Map<string, { text: string; ids: string[] }>();
+  for (const u of units) {
+    const sig = [...new Set(u.texts.map(norm))].sort();
+    if (sig.length !== 1 || !GENERIC_LABEL.test(sig[0]!)) continue;
+    const g = groups.get(sig[0]!) ?? { text: u.texts[0]!, ids: [] };
+    g.ids.push(u.id);
+    groups.set(sig[0]!, g);
+  }
+  const repeats = [...groups.values()].filter((g) => g.ids.length >= REPEAT_MIN).map((g) => ({ ...g, ids: [...new Set(g.ids)] }));
+  const glyphs = units.flatMap((u) => (u.texts.length > 0 && u.texts.every((t) => GLYPH_ONLY.test(t)) ? [{ id: u.id, text: u.texts[0]!.trim() }] : []));
+  if (repeats.length > 0 || glyphs.length > 0) {
+    const what = [...repeats.map((g) => `«${g.text}» ×${g.ids.length}`), ...[...new Set(glyphs.map((g) => g.text))].map((t) => `«${t}» вместо подписи`)];
+    out.push({
+      code: "placeholder_label", severity: "warning", area: [...new Set([...repeats.flatMap((g) => g.ids), ...glyphs.map((g) => g.id)])].join(", "),
+      description: `подписи-заглушки: ${what.join(", ")} — у объектов нет своего содержимого`,
+      fix_hint: "каждый объект — своё содержимое из фразы: имя, число, термин («Зачем выделять память?», «Случайный обход»); нет различий — один объект с числом вместо копий",
+    });
+  }
+  return out;
+}
+
+/**
+ * Объекты с подписями (S14): сам элемент (строки content вне списков) и каждая запись-объект
+ * его списков (`nodes: [{ label }]`) — со своими подписями (`GLYPH_KEY`). id — элемента.
+ */
+function labelUnits(e: Element): { id: string; texts: string[] }[] {
+  const c = (e.content ?? {}) as Record<string, unknown>;
+  const own: Record<string, unknown> = {};
+  const out: { id: string; texts: string[] }[] = [];
+  for (const [k, v] of Object.entries(c)) {
+    if (CHART_DATA_KEY.test(k)) continue;
+    if (Array.isArray(v) && v.some((x) => x && typeof x === "object")) {
+      for (const x of v) if (x && typeof x === "object") out.push({ id: e.id, texts: contentStrings(x, GLYPH_KEY).map((s) => s.value.trim()).filter(Boolean) });
+    } else own[k] = v;
+  }
+  out.unshift({ id: e.id, texts: contentStrings(own, GLYPH_KEY, CHART_DATA_KEY).map((s) => s.value.trim()).filter(Boolean) });
+  return out.filter((u) => u.texts.length > 0);
+}
+
+/** Подписи и знаки объектов (S14): плюс `glyph`/`icon`/`symbol`/`caption`. */
+const GLYPH_KEY = /^(label|text|title|name|heading|headline|caption|glyph|icon|symbol)$/i;
+/** Знак вместо подписи: вопрос или многоточие. */
+const GLYPH_ONLY = /^\s*(?:[?？]+|…|\.{3})\s*$/u;
+/** Общая подпись: 1–2 слова без цифр. */
+const GENERIC_LABEL = /^[\p{L}]+(?: [\p{L}]+)?$/u;
+/** Повтор общей подписи у стольких объектов — заглушки. */
+const REPEAT_MIN = 3;
+/** Статусы (StatusChip) законно повторяются: «актуален» у трёх строк. */
+const STATUS_ROLE = /статус|status|chip|чип/i;
+
+/** Признак пустого контейнера в spec: `content.empty` или роль «пустые …». */
+const EMPTY_ROLE = /(^|[^\p{L}])(пуст\p{L}*|empty|blank|заглушк\p{L}*)/iu;
+
+/**
+ * Пустой контейнер (S14, ss_001 «три пустые карточки»): карточка или группа, задуманная без
+ * содержимого — `content.empty: true` или роль «пустые/заглушка». Warning — подсказка Director
+ * (сцене сценария — раунд); по кадрам то же ловит проба раскладки (`empty_container` QA).
+ */
+function emptyContainerIssues(spec: MotionSpec): Omit<QAIssue, "source">[] {
+  const hits = spec.elements.filter((e) => (e.kind === "card" || e.kind === "group" || e.kind === "shape") && ((e.content as Record<string, unknown>).empty === true || EMPTY_ROLE.test(e.role)));
   if (hits.length === 0) return [];
   return [{
-    code: "placeholder_label", severity: "warning", area: [...new Set(hits.map((h) => h.id))].join(", "),
-    description: `похоже на нумерованные заглушки вместо конкретных экземпляров: ${hits.map((h) => `«${h.text}» (${h.id})`).join(", ")}`,
-    fix_hint: "если запрос назвал количество без имён — дай правдоподобные конкретные экземпляры с ролями (Веб-поиск · search(), База знаний · retrieve(), Калькулятор · calc()); номер оставь, только если экземпляры и правда неотличимы",
+    code: "empty_container", severity: "warning", area: hits.map((e) => e.id).join(", "),
+    description: `контейнеры без содержимого: ${hits.map((e) => `«${e.role}»`).join(", ")} — пустая рамка читается заглушкой`,
+    fix_hint: "у каждой карточки и рамки — содержимое из фразы (число, имя, термин, мини-график); нечего положить — убери контейнер, герой сцены — графика из данных",
   }];
 }
 

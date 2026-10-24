@@ -134,7 +134,7 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
         previous,
         // сцена сценария (S6, Р16): альфа-версия — перерендер с transparent, фон только <Background>
         // S11: подписи-примеры kit в props.json (код Engineer) — warning QA версии
-        ...(sc ? { script: true } : {}),
+        ...(sc ? { script: true, technique: sc.item.technique } : {}),
         ...(sc ? { extraQa: async (v) => [...(await overlayChecks(v)), ...(await propsForeignLabels(v.versionDir, scriptHints!.sourceText))] } : {}),
         plan: async (rc) => {
           ctx.progress(0.05, "concept");

@@ -24,16 +24,19 @@ import {
   type ScenePropsStyle,
   ScenePropsStyleSchema,
   type Settings,
+  TECHNIQUES,
+  type Technique,
   type VisualQAOutput,
 } from "@ms/contracts";
 import { type ReapOptions, fileProcessRegistry, reapAttempt, safeMkdir } from "@ms/core";
 import { type RenderRequest, type RenderResult, type renderVersion, probeGate } from "@ms/render";
 import { ACCENT_HOLD_GAP, programmaticChecks } from "../qa/programmatic.js";
-import { type LayoutFrame, parseLayout } from "../qa/layout.js";
+import { type LayoutFrame, parseLayout, scriptLayoutIssues } from "../qa/layout.js";
 import { acceptedAsWarn, fixHints, meaningFails, mergeQA, qaBlocks } from "../qa/report.js";
 import { specChecks } from "../qa/spec-checks.js";
 import { reconcileMissing, runVisualQA } from "../qa/visual-agent.js";
 import { sha256File } from "../scenes/hash.js";
+import { kitImportsInDir } from "../scenes/kit-imports.js";
 import { copyTree } from "../scenes/store.js";
 import { type checkSceneDir, frameLiteralsInDir } from "../scenes/static-check.js";
 import type { typecheckVersion } from "../scenes/typecheck.js";
@@ -148,6 +151,12 @@ export interface LoopInput {
   extraQa?: ExtraQa;
   /** Сцена сценария (S11): Engineer получает носителя финала (`finaleLine`). */
   script?: boolean;
+  /**
+   * Приём сцены сценария (S14): код без ключевого компонента приёма (`TECHNIQUES[t].kit`) —
+   * исправление до рендера (`technique_not_realized`, этап static); на последнем вызове —
+   * предупреждение (сцена не падает из-за вкуса).
+   */
+  technique?: Technique;
 }
 
 /**
@@ -774,7 +783,7 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
           ].join("\n")
         : call === 1 ? t.brief : undefined;
       rc.log(`${first ? "" : "дубль 2: "}${call === 1 ? "Engineer…" : `Engineer: исправление ${call - 1} из ${maxCalls - 1} (${issue?.stage})…`}`);
-      const e = await rc.timed(`${pre}engineer_${call}`, () => rc.call(buildEngineerTask({ draftDir: dir, ...(fix ? { fix } : {}), spec, ...(i.script ? { script: true } : {}) }, { ...rc.taskRun, seq: first ? call : 100 + call }), EngineerReportSchema, t.signal));
+      const e = await rc.timed(`${pre}engineer_${call}`, () => rc.call(buildEngineerTask({ draftDir: dir, ...(fix ? { fix } : {}), spec, ...(i.script ? { script: true } : {}), ...(i.technique ? { technique: i.technique } : {}) }, { ...rc.taskRun, seq: first ? call : 100 + call }), EngineerReportSchema, t.signal));
       if (e.budget !== undefined) return end("budget", `${e.budget}${issue ? `; последняя ошибка (${issue.stage}): ${clip(issue.message, 1000)}` : ""}`);
       if (e.skipped) return end("cancelled", "отменено до Engineer");
       if (e.error !== undefined) {
@@ -841,6 +850,18 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
       push({ stage: "typecheck", message: typeErrors.map((x) => `${x.file}:${x.line} ${x.message}`).join("\n") });
       rc.log(`typecheck: ${typeErrors.length} ошибок`);
       continue;
+    }
+    // приём сцены сценария (S14): герой — ключевой компонент приёма, а не «заголовок и плашка»
+    if (i.technique && !noEngineer) {
+      const miss = await techniqueMissing(dir, i.technique);
+      if (miss) {
+        if (call < maxCalls) {
+          push({ stage: "static", message: miss });
+          rc.log(`приём: technique_not_realized (${i.technique})`);
+          continue;
+        }
+        if (!rc.warnings.includes(miss)) rc.warnings.push(miss);
+      }
     }
 
     // provenance и контракт props (H4) — технический gate до рендера
@@ -966,6 +987,35 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
     }
   }
   return issue ? { issue } : {};
+}
+
+/**
+ * Сцена сценария (S14): два акцента сразу (`accent_conflict` Visual QA) — исправляемый брак, а
+ * не предупреждение: Engineer гасит лишнее свечение, акцент — один в момент. После
+ * исчерпания исправлений лучшая попытка публикуется с warn, как прочие visual.
+ */
+export function scriptAccentFixable(agent: VisualQAOutput): VisualQAOutput {
+  if (!agent.issues.some((x) => x.code === "accent_conflict" && x.severity === "warning")) return agent;
+  return {
+    ...agent,
+    issues: agent.issues.map((x) => (x.code === "accent_conflict" && x.severity === "warning"
+      ? { ...x, severity: "blocking" as const, fix_hint: `${x.fix_hint}; один акцент в момент: свечение, обводка акцентом и Emphasis/Highlight — только у объекта текущего бита, остальные спокойные` }
+      : x)),
+  };
+}
+
+/**
+ * Код без ключевого компонента приёма (S14): строка замечания для Engineer (имена kit — ему
+ * можно) или `undefined`, если компонент приёма импортирован.
+ */
+export async function techniqueMissing(dir: string, technique: Technique): Promise<string | undefined> {
+  const t = TECHNIQUES.find((x) => x.slug === technique);
+  if (!t) return undefined;
+  const used = await kitImportsInDir(dir);
+  const kit = t.kit as readonly string[];
+  if (kit.some((c) => used.includes(c))) return undefined;
+  return `[technique_not_realized] приём сцены «${t.slug}» (${t.ru}) не реализован: в src/ нет ${kit.map((c) => `<${c}>`).join(" или ")} из @ms/motion-kit (импортировано: ${used.join(", ") || "—"}). ` +
+    `Построй героя сцены на ${kit.map((c) => `<${c}>`).join(" / ")} по refs/motion-kit/API.md с данными spec; текст — подписи к нему, не замена.`;
 }
 
 /** Время рендера: 5 мин, на длинных сценах — 10 с на секунду сцены (60 с → 10 мин), потолок 20 мин. */
@@ -1104,6 +1154,9 @@ async function runQa(
   // лишний кадр — не QA-кадр: Visual QA его не видит, в версию он не публикуется
   for (const x of all.slice(frames.length)) if (x.path) await rm(x.path, { force: true });
   const fromSpec = specChecks(spec, settings, { previous: i.previous ?? [] });
+  // сцена сценария (S14): пустые контейнеры и подписи-заглушки в финале — брак, текст вместо
+  // графики — подсказка (реестр раскладки kit 0.5.5)
+  if (i.script) programmatic.push(...scriptLayoutIssues(parseLayout(rr.browserLogs)).map((x) => ({ source: "programmatic" as const, ...x })));
   const hold = await preserveHoldIssues(i, rr);
   if ("orphaned" in hold) return { exit: { ok: false, stage: "orphaned", message: hold.orphaned, alive: true } };
   programmatic.push(...hold.issues);
@@ -1165,6 +1218,7 @@ async function runQa(
   }
   // S5: missing_element только по зрению, который опровергает реестр раскладки, — warning
   agent = reconcileMissing(agent, spec, parseLayout(rr.browserLogs), end, settings);
+  if (i.script) agent = scriptAccentFixable(agent);
   const report = mergeQA({ technical: techWarnings, programmatic: [...programmatic, ...fromSpec], agent });
   rc.note("qa", `QA ${pre ? "дубля 2 " : ""}вызова ${call}: ${JSON.stringify(report.gate)}; overall ${agent.scores.overall}; blocking: ${report.issues.filter((x) => x.severity === "blocking").map((x) => x.code).join(", ") || "—"}`);
   return { report, notes: agent.score_notes, costUsd: cost };
