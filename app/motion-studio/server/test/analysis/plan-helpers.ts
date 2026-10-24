@@ -70,7 +70,10 @@ export const skipOpp = (oid: string, reason = "мысль понятна без 
 export function out(opps: Opp[], style: Partial<VisualPlannerOutput["style"]> = {}): VisualPlannerOutput {
   return { style: { preset: "dark-premium", intensity: "balanced", depth: 1, rationale: "спокойная деловая тема", ...style }, opportunities: opps };
 }
-export function ctx(timeline: EditedTimeline = tl, face: NormRect | undefined = FACE, o: { footage?: FootageAnalysis } = {}) {
+/** `ctx(tl, undefined)` — кадр без лица (явный `undefined` не подменяется на `FACE`). */
+export function ctx(timeline: EditedTimeline = tl, ...rest: [face?: NormRect | undefined, o?: { footage?: FootageAnalysis }]) {
+  const face = rest.length > 0 ? rest[0] : FACE;
+  const o = rest[1] ?? {};
   return { words, tl: timeline, footage: o.footage ?? footage(face), styleId: "sty_1", cfg: P };
 }
 

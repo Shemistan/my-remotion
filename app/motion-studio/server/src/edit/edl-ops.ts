@@ -14,8 +14,10 @@ import type { RoughcutConfig } from "../config.js";
 import type { Db } from "../db/open.js";
 import * as edls from "../db/repos/edls.js";
 import * as media from "../db/repos/media.js";
+import * as plans from "../db/repos/plans.js";
 import * as transcripts from "../db/repos/transcripts.js";
 import { projectLockKey } from "../jobs/locks.js";
+import { enqueue } from "../jobs/queue.js";
 import { EditError, RevisionConflictError } from "./errors.js";
 import type { EditDeps } from "./transcript-ops.js";
 
@@ -214,6 +216,7 @@ function currentWords(db: Db, transcriptId: string): TranscriptWord[] {
  * `approvalState(…, "A", currentSubject)` (валидное A → `stale(subject_changed)`) и
  * `cascadeStale(…, "A")` безусловно (ревью Task 24, M7): новая ревизия EDL всегда меняет субъект
  * A, а B зависит от EDL, даже если A уже `stale`. `timeline` — `buildTimeline(acceptedCuts(doc))`.
+ * Есть план проекта — в той же транзакции `enqueue("plan.recheck")` (Task 32).
  */
 export function registerEdlRevision(
   db: Db, r: { projectId: string; doc: EdlRevisionDoc; relPath: string; sha256: string; timeline: EditedTimeline },
@@ -221,6 +224,10 @@ export function registerEdlRevision(
   edls.insertRevision(db, { doc: r.doc, rel_path: r.relPath, sha256: r.sha256, timeline: r.timeline });
   approvalState(db, r.projectId, "A", currentSubject(db, r.projectId, "A"));
   cascadeStale(db, r.projectId, "A");
+  // план есть — перепроверить его на новом монтаже (Task 32, без LLM); ключ — ревизия EDL
+  if (plans.byProject(db, r.projectId)?.current_revision != null) {
+    enqueue(db, { type: "plan.recheck", projectId: r.projectId, input: { projectId: r.projectId }, idempotencyKey: `plan.recheck:${r.doc.edl_id}@r${r.doc.revision}` });
+  }
 }
 
 /**
