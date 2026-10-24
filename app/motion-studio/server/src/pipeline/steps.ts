@@ -32,7 +32,7 @@ import type { AgentErrorKind, AgentResult, AgentRuntimeAdapter, AgentTask, Agent
 import type { AppConfig } from "../config.js";
 import type { Permits } from "../jobs/semaphore.js";
 import type { CapabilityView } from "../knowledge/types.js";
-import { specChecks } from "../qa/spec-checks.js";
+import { type KeyMoment, specChecks } from "../qa/spec-checks.js";
 import { type StepRef, checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
 import { planSpecBeats, structureFit } from "./beat-plan.js";
 import { normalizeBoundCounters } from "./bound-counters.js";
@@ -590,7 +590,10 @@ export function buildDirectorTask(i: DirectorTaskInput, run: TaskRun): AgentTask
 export function finaleLine(spec: MotionSpec): string {
   const holds = spec.beats.filter((b) => isHoldBeat(b));
   const beat = holds.find((b) => b.end_frame === spec.duration_frames) ?? holds.at(-1);
-  return `- финал: hold_mode ${holdModeFor(spec)}, ${beat ? `бит hold \`${beat.id}\`` : "бита hold нет — финал на последнем бите"} (hold-проп компонентов, refs/motion-kit/API.md «Фазы и финал»);`;
+  // S11 (ss_004): режим на мелкой детали читается как стоп-кадр — носитель называется явно
+  const hero = spec.phases?.find((p) => p.role === "hold")?.element_ids ?? [];
+  const carrier = hero.length > 0 ? `; носитель — герой: ${hero.join(", ")} — движение режима на нём самом и заметное, не на мелкой детали` : "";
+  return `- финал: hold_mode ${holdModeFor(spec)}, ${beat ? `бит hold \`${beat.id}\`` : "бита hold нет — финал на последнем бите"} (hold-проп компонентов, refs/motion-kit/API.md «Фазы и финал»)${carrier};`;
 }
 
 /** Инструменты Engineer: только файлы draft (Bash и сеть — никогда). */
@@ -868,12 +871,15 @@ export async function conceptStep(
  */
 export async function directorStep(
   rc: RunCtx,
-  input: Omit<DirectorTaskInput, "workdir" | "fix"> & { previous?: readonly MotionSpec[]; speechWindow?: SpeechWindow },
+  input: Omit<DirectorTaskInput, "workdir" | "fix"> & { previous?: readonly MotionSpec[]; speechWindow?: SpeechWindow; scriptHints?: ScriptHints },
   cp?: CheckpointOpts,
 ): Promise<{ ok: true; director: DirectorOutput; spec: MotionSpec } | StepFail> {
-  const { previous = [], speechWindow, ...i } = input;
+  const { previous = [], speechWindow, scriptHints, ...i } = input;
   const s = i.settings;
   let fix: string | undefined;
+  // принятый ответ первого раунда, если второй раунд дан только ради подсказок сцены сценария
+  let accepted: { ok: true; director: DirectorOutput; spec: MotionSpec } | undefined;
+  let acceptedWarnings: string[] = [];
   // чекпоинт — принятый ответ (после проверок spec) под ключом входа первого раунда (без
   // замечаний): новая попытка с тем же входом сразу получает spec, прошедшую проверку
   let key: { hash: string; reused: boolean } | undefined;
@@ -891,6 +897,7 @@ export async function directorStep(
     const planned = planInWindow({ ...director.spec, composition: director.composition, style_preset: s.style_preset }, s, speechWindow);
     if (!planned.ok) {
       rc.note("director", `план битов не построен (раунд ${round}): ${planned.message}`);
+      if (round === 2 && accepted) return keepFirst(rc, accepted, acceptedWarnings, planned.message);
       if (round === 2) return { ok: false, stage: "director", message: planned.message };
       // проверка фаз уже говорит, что исправить; общий хвост — только когда spec не собрать
       const line = planned.reason === "schema"
@@ -908,20 +915,41 @@ export async function directorStep(
     }
     if (presetSwap) rc.warnings.push(`Director выбрал пресет ${presetSwap}, в настройках ${s.style_preset}: оставлен пресет настроек`);
     const concept = conceptStructure(i.concept)?.value;
-    const checks = specChecks(spec, s, { previous, ...(concept ? { concept } : {}), ...(speechWindow ? { speechWindow } : {}) });
+    const checks = specChecks(spec, s, {
+      previous, ...(concept ? { concept } : {}), ...(speechWindow ? { speechWindow } : {}),
+      ...(scriptHints?.keyMoments ? { keyMoments: scriptHints.keyMoments } : {}), ...(scriptHints?.sourceText !== undefined ? { sourceText: scriptHints.sourceText } : {}),
+    });
     const blocking = checks.filter((x) => x.severity === "blocking");
     // подсказки Director (ruling P10): видны в журнале и идут в раунд исправления вместе с blocking
     const hints = checks.filter((x) => DIRECTOR_HINTS.has(x.code));
-    if (blocking.length === 0) {
-      for (const w of specWarnings(spec)) rc.warnings.push(`spec: ${w}`);
-      for (const h of hints) rc.warnings.push(`spec: ${h.code} (${h.area ?? "spec"}): ${h.description}`);
-      for (const c of [...(chosen.warning ? [chosen.warning] : []), ...planned.changes, ...planned.warnings, ...bound.changes, ...bound.warnings]) rc.warnings.push(`spec: ${c}`);
-      if (cp && key && !(round === 1 && key.reused)) await saveCheckpoint(rc, cp, "motion_director", key.hash, director);
-      return { ok: true, director: { ...director, spec }, spec };
-    }
     const line = (x: (typeof checks)[number]) => `- ${x.code} (${x.area ?? "spec"}): ${x.description} → ${x.fix_hint}`;
+    if (blocking.length === 0) {
+      const warnings = [
+        ...specWarnings(spec),
+        ...hints.map((h) => `${h.code} (${h.area ?? "spec"}): ${h.description}`),
+        ...(chosen.warning ? [chosen.warning] : []), ...planned.changes, ...planned.warnings, ...bound.changes, ...bound.warnings,
+      ].map((w) => `spec: ${w}`);
+      const ok = { ok: true as const, director: { ...director, spec }, spec };
+      // сцена сценария (S11): раскрытие раньше слова и чужие подписи стоят ещё одного раунда
+      const redo = round === 1 ? checks.filter((x) => SCRIPT_ROUND_HINTS.has(x.code)) : [];
+      if (redo.length > 0) {
+        accepted = ok;
+        acceptedWarnings = warnings;
+        if (cp && key && !key.reused) await saveCheckpoint(rc, cp, "motion_director", key.hash, director);
+        const text = redo.map(line).join("\n");
+        rc.note("director", `spec сцены сценария: подсказки (раунд ${round}):\n${text}`);
+        const notes = [...(chosen.note ? [chosen.note] : []), ...hints.filter((h) => !SCRIPT_ROUND_HINTS.has(h.code)).map(line)];
+        fix = `Исправь (сцена сценария, проверка без LLM):\n${text}${notes.length > 0 ? `\nПодсказки (не обязательны):\n${notes.join("\n")}` : ""}`;
+        rc.log(`spec: ${redo.map((x) => x.code).join(", ")} — Director исправляет`);
+        continue;
+      }
+      rc.warnings.push(...warnings);
+      if (cp && key && !(round === 1 && key.reused)) await saveCheckpoint(rc, cp, "motion_director", key.hash, director);
+      return ok;
+    }
     const text = blocking.map(line).join("\n");
     rc.note("director", `spec не прошла проверку (раунд ${round}):\n${text}`);
+    if (round === 2 && accepted) return keepFirst(rc, accepted, acceptedWarnings, text);
     if (round === 2) return { ok: false, stage: "director", message: `spec не прошла проверку после исправления:\n${text}` };
     const notes = [...(chosen.note ? [chosen.note] : []), ...hints.map(line)];
     fix = notes.length > 0 ? `${text}\nПодсказки (не обязательны):\n${notes.join("\n")}` : text;
@@ -929,6 +957,24 @@ export async function directorStep(
   }
   return { ok: false, stage: "director", message: "spec не получена" };
 }
+
+/**
+ * Второй раунд ради подсказок сцены сценария не удался (blocking, план битов): остаётся
+ * принятый ответ первого раунда со своими предупреждениями (его чекпоинт уже сохранён).
+ */
+function keepFirst(rc: RunCtx, first: { ok: true; director: DirectorOutput; spec: MotionSpec }, warnings: readonly string[], why: string): { ok: true; director: DirectorOutput; spec: MotionSpec } {
+  rc.warnings.push(...warnings, `spec: исправление подсказок сцены сценария отклонено (${why.split("\n")[0]}) — оставлен ответ первого раунда`);
+  return first;
+}
+
+/** Сцена сценария (S11): моменты слов и текст-источник подписей для `specChecks`. */
+export interface ScriptHints {
+  keyMoments?: readonly KeyMoment[];
+  sourceText?: string;
+}
+
+/** Подсказки сцены сценария, ради которых Director отвечает ещё раз даже без blocking (S11). */
+const SCRIPT_ROUND_HINTS = new Set(["key_term_early", "foreign_label"]);
 
 /** Окно речи сцены сценария (S5, §5.2): запас до речи, речь, запас после — в кадрах. */
 export interface SpeechWindow {
@@ -1013,7 +1059,7 @@ export function withSceneSeed(spec: MotionSpec, sceneId: string): MotionSpec {
 }
 
 /** Замечания specChecks — подсказки Director, не причина нового раунда (ruling P10). */
-const DIRECTOR_HINTS = new Set(["placeholder_label", "purpose_claim", "scene_signature_repeat", "structure_mismatch"]);
+const DIRECTOR_HINTS = new Set(["placeholder_label", "purpose_claim", "scene_signature_repeat", "structure_mismatch", "key_term_early", "foreign_label"]);
 
 /** Самопроверка spec без LLM: удержание в конце и акцент. Нарушения — предупреждения. */
 export function specWarnings(spec: MotionSpec): string[] {

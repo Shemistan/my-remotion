@@ -3,7 +3,7 @@
 // (motion-review-1) — нумерованные заглушки, ключевая мысль purpose на экране, повтор
 // подписи кадра предыдущей сцены. `layout` элемента — доли safe area, а не кадра
 // (prompts/motion-director.md §8): в кадр он переводится через safeRect настроек.
-import { type Beat, type Element, type MotionSpec, type QAIssue, type SceneStructure, type Settings, isAccentBeat, phasesOf, structureOf } from "@ms/contracts";
+import { type Beat, type Element, type MotionSpec, type QAIssue, type SceneStructure, type Settings, beatKind, isAccentBeat, phasesOf, structureOf } from "@ms/contracts";
 import { arrivalInPass, pulsePass, pulseStarts, resolveStyle } from "@ms/render";
 import { boundCounters } from "../pipeline/bound-counters.js";
 import { isEmphasisRole } from "../pipeline/qa-frames.js";
@@ -12,6 +12,8 @@ type Layout = NonNullable<Element["layout"]>;
 
 const UNIFORM_MIN = 3;
 const UNIFORM_WARN_SHARE = 0.6;
+/** Вход `fade` — самый шаблонный (спека §12 п.2, Р22): warning уже с доли > 0,5. */
+export const UNIFORM_FADE_WARN_SHARE = 0.5;
 /** Перекрытие двух элементов, доля площади кадра. */
 const OVERLAP_MAX = 0.01;
 /** Элемент на (почти) весь кадр — фон или атмосфера: не перекрывает и не выходит за safe area. */
@@ -40,6 +42,23 @@ export interface SpecCheckOpts {
    * финальное удержание ≥ `tail` (`speech_window`, blocking). Нет — проверки нет.
    */
   speechWindow?: { lead: number; speech: number; tail: number };
+  /**
+   * Сцена сценария (S11): кадры, когда звучат ключевые числа и термины (`keyMoments` брифа).
+   * Раскрытие — итог счёта, удар, payoff, вход числа — не раньше слова (`key_term_early`).
+   */
+  keyMoments?: readonly KeyMoment[];
+  /**
+   * Сцена сценария (S11): текст, из которого законно брать подписи — фрагмент, идея,
+   * назначение, термины и числа плана. Подпись-пример kit не из него — `foreign_label`.
+   */
+  sourceText?: string;
+}
+
+/** Момент слова сцены сценария: кадр, с которого звучит число (`value`) или термин. */
+export interface KeyMoment {
+  text: string;
+  value?: number;
+  frame: number;
 }
 
 export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheckOpts = {}): QAIssue[] {
@@ -52,13 +71,13 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
     for (const e of entering) counts.set(e.entrance, [...(counts.get(e.entrance) ?? []), e.id]);
     const [kind, ids] = [...counts].sort((a, b) => b[1].length - a[1].length)[0]!;
     const share = ids.length / entering.length;
-    if (share === 1 || share > UNIFORM_WARN_SHARE) {
+    if (share === 1 || share > (kind === "fade" ? UNIFORM_FADE_WARN_SHARE : UNIFORM_WARN_SHARE)) {
       out.push({
         code: "uniform_entrance", severity: share === 1 ? "blocking" : "warning", area: ids.join(", "),
         description: share === 1
           ? `все ${ids.length} элементов входят одинаково (${kind})`
           : `${ids.length} из ${entering.length} элементов входят одинаково (${kind})`,
-        fix_hint: "разные объекты — разные входы: заголовок rise/mask, число count, график draw, карточки scale/pop, подписи fade",
+        fix_hint: "разные объекты — разные входы: заголовок rise/mask, число count, график draw, карточки scale/pop, подписи fade; разные входы по роли: число — count, линия — draw, карточки — rise/slide, акцент — mask/pop",
       });
     }
   }
@@ -114,6 +133,8 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
   }
 
   if (opts.speechWindow) out.push(...speechWindowIssues(spec, opts.speechWindow));
+  if (opts.keyMoments?.length) out.push(...keyTermEarly(spec, opts.keyMoments));
+  if (opts.sourceText !== undefined) out.push(...foreignLabelIssues(spec, opts.sourceText));
   out.push(...beatReferenceIssues(spec));
   out.push(...accentConflicts(spec, settings));
   out.push(...structureMismatch(spec, opts.concept));
@@ -168,6 +189,106 @@ function speechWindowIssues(spec: MotionSpec, w: { lead: number; speech: number;
     }
   }
   return out;
+}
+
+/** Допуск раскрытия раньше слова, кадров: зритель успевает прочесть к моменту, когда слышит. */
+export const KEY_TERM_TOLERANCE = 6;
+
+/** Строка без регистра и «ё», пробелы схлопнуты. */
+const norm = (v: string) => v.toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
+const numberRe = (v: number) => {
+  const [int, frac] = String(v).split(".");
+  return new RegExp(String.raw`(?<![\p{N}.,])${int}${frac ? String.raw`[.,]${frac}` : ""}(?![\p{N}]|[.,]\p{N})`, "u");
+};
+
+/** Элемент показывает момент: число — `to`/`value` или в строке content; термин — в строке. */
+function showsMoment(e: Element, m: KeyMoment): boolean {
+  const c = (e.content ?? {}) as Record<string, unknown>;
+  const strings = contentStrings(c, /.*/).map((x) => x.value);
+  if (m.value !== undefined) {
+    if (c.to === m.value || c.value === m.value) return true;
+    const re = numberRe(m.value);
+    return strings.some((x) => re.test(x));
+  }
+  const term = norm(m.text);
+  return term.length >= 2 && strings.some((x) => norm(x).includes(term));
+}
+
+/**
+ * Ключевое число или термин раскрыты раньше, чем их произносят (S11, находка ss_004: «256»
+ * досчитан к кадру 60, звучит ~140). Раскрытие элемента с моментом: конец бита счёта, начало
+ * бита акцента или бита фазы payoff, у числа — ещё начало входа. Раньше `frame − допуск` —
+ * warning (подсказка Director, раунд исправления сцены сценария).
+ */
+function keyTermEarly(spec: MotionSpec, moments: readonly KeyMoment[]): Omit<QAIssue, "source">[] {
+  const payoff = new Set(phasesOf(spec).filter((p) => p.role === "payoff").map((p) => p.id));
+  const hits: { id: string; m: KeyMoment; at: number }[] = [];
+  for (const m of moments) {
+    const limit = m.frame - KEY_TERM_TOLERANCE;
+    for (const e of spec.elements.filter((x) => showsMoment(x, m))) {
+      const reveals = spec.beats.filter((b) => b.element_ids.includes(e.id)).flatMap((b) => {
+        const k = beatKind(b);
+        if (k === "count") return [b.end_frame];
+        if (k === "accent" || (b.phase !== undefined && payoff.has(b.phase))) return [b.start_frame];
+        if (k === "enter" && m.value !== undefined && e.kind !== "number") return [b.start_frame];
+        return [];
+      });
+      const at = Math.min(...reveals);
+      if (reveals.length > 0 && at < limit) hits.push({ id: e.id, m, at });
+    }
+  }
+  if (hits.length === 0) return [];
+  const first = hits[0]!;
+  return [{
+    code: "key_term_early", severity: "warning", area: [...new Set(hits.map((h) => h.id))].join(", "),
+    description: `раскрыто раньше, чем звучит: ${hits.map((h) => `«${h.m.text}» (${h.id}) на кадре ${h.at}, слово — кадр ${h.m.frame}`).join("; ")}`,
+    fix_hint: `зритель видит то, что слышит: итог счёта, удар и payoff «${first.m.text}» — не раньше кадра ${first.m.frame - KEY_TERM_TOLERANCE}; перераспредели веса фаз (setup/action до слова длиннее) или раскрой его в фазе после кадра ${first.m.frame}`,
+  }];
+}
+
+/**
+ * Подписи-примеры из refs/motion-kit/API.md: в сцене сценария они законны, только если их
+ * говорит текст (S11, находка ss_009). Тест сверяет список с API.md.
+ */
+export const KIT_EXAMPLE_LABELS = [
+  "sensor:17", "#17", "2 мс", "Рост пользователей", "Данные · 2019–2023", "янв 22", "янв 25", "I кв.", "IV кв.",
+  "Ручной отчёт", "Выгрузка в Excel", "Сверка вручную", "3 дня", "Пайплайн данных", "Данные из DWH", "Проверки в коде", "15 минут",
+  "Прототип", "два основателя", "До трёх попыток", "затем — понятная ошибка", "pipeline.ts", "Запрос", "Контроллер", "База",
+  "С диска", "Из памяти", "чтение файла", "RAM · рядом", "Память · задержка чтения", "Из памяти — в 30 раз быстрее",
+] as const;
+const KIT_EXAMPLES = new Set<string>(KIT_EXAMPLE_LABELS.map(norm));
+/** Ключ записи по образцу примеров DataToken («sensor:17», «#17»): выдуманный пример, если его нет в тексте. */
+const TOKEN_SHAPE = /^(?:[\p{L}_-]+:\d+|#\d+)$/u;
+
+/** Подписи из `labels`, похожие на примеры kit и не взятые из `source` (фрагмент, идея, термины). */
+export function foreignLabels(labels: readonly string[], source: string): string[] {
+  const src = norm(source);
+  return [...new Set(labels.map((x) => x.trim()))].filter((x) => {
+    const n = norm(x);
+    return n.length > 0 && (KIT_EXAMPLES.has(n) || TOKEN_SHAPE.test(n)) && !src.includes(n);
+  });
+}
+
+/** Подписи spec — примеры kit, которых нет в тексте сцены сценария (S11): warning Director. */
+function foreignLabelIssues(spec: MotionSpec, source: string): Omit<QAIssue, "source">[] {
+  const found = spec.elements.flatMap((e) => foreignLabels(contentStrings(e.content, LABEL_KEY).map((x) => x.value), source).map((text) => ({ id: e.id, text })));
+  if (found.length === 0) return [];
+  return [{
+    code: "foreign_label", severity: "warning", area: [...new Set(found.map((f) => f.id))].join(", "),
+    description: `подписи не из текста сцены — похожи на примеры kit: ${found.map((f) => `«${f.text}» (${f.id})`).join(", ")}`,
+    fix_hint: "никаких подписей-примеров: каждая подпись — из фразы или идеи брифа (слова, числа, термины фрагмента); нет подходящей — без подписи",
+  }];
+}
+
+/** То же по props.json версии (подписи, которые написал Engineer): замечание QA версии сцены сценария. */
+export function foreignLabelQa(props: unknown, source: string): QAIssue[] {
+  const found = foreignLabels(contentStrings(props, LABEL_KEY).map((x) => x.value), source);
+  if (found.length === 0) return [];
+  return [{
+    source: "programmatic", code: "foreign_label", severity: "warning", area: "props.json",
+    description: `подписи в props.json не из текста сцены — похожи на примеры kit: ${found.map((f) => `«${f}»`).join(", ")}`,
+    fix_hint: "никаких подписей-примеров: каждая подпись — из фразы или идеи брифа; замени на слова фрагмента или убери",
+  }];
 }
 
 /**

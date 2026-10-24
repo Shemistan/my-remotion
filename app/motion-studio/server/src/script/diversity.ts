@@ -1,10 +1,56 @@
 // Разнообразие сценария: плана до генерации (`planDiversity`, S3) и пакета после (`packageDiversity`, S11).
-// S1 — заглушка поставщика предупреждений карточек сцен для `scriptState`.
-import { type PlanIssue, type SceneStructure, type ScriptPlanRevisionDoc, type ScriptSceneItem, TECHNIQUES, type Technique, structureOfRule } from "@ms/contracts";
+// `warningsForState` — поставщик предупреждений карточек сцен для `scriptState` (S1 → S11).
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { type MotionSpec, MotionSpecSchema, type PlanIssue, type QAIssue, QAReportSchema, type SceneStructure, type ScriptPlanRevisionDoc, type ScriptSceneItem, TECHNIQUES, type Technique, holdModeFor, structureOf, structureOfRule } from "@ms/contracts";
+import { kitImports } from "../api/routes/versions.js";
 import type { Db } from "../db/open.js";
+import * as scenes from "../db/repos/scenes.js";
+import { scriptScenes } from "../db/repos/script.js";
+import * as versions from "../db/repos/versions.js";
+import { currentScriptPlan } from "./read.js";
 
-/** Предупреждения разнообразия пакета по `scene_id` для `ScriptSceneDto.warnings` (S11 заменяет тело). */
-export const warningsForState: (db: Db, root: string, projectId: string, plan: ScriptPlanRevisionDoc | null) => Record<string, PlanIssue[]> = () => ({});
+/**
+ * Предупреждения разнообразия пакета по `scene_id` для `ScriptSceneDto.warnings` (S11):
+ * `packageDiversity` по текущим ready-версиям 16:9 принятых сцен плана, в порядке плана.
+ * Сцена без готовой версии — без проверки; нечитаемая версия — как без версии.
+ */
+export function warningsForState(db: Db, root: string, projectId: string, plan: ScriptPlanRevisionDoc | null): Record<string, PlanIssue[]> {
+  if (!plan) return {};
+  const cur = currentScriptPlan(db, root, projectId);
+  if (!cur || cur.doc.revision !== plan.revision) return {};
+  const rows = plan.items.filter((x) => x.status === "accepted").flatMap((item) => {
+    const row = scriptScenes.get(db, cur.planId, item.id, "16:9");
+    return row ? [{ item, sceneId: row.scene_id, ...readyVersion(db, root, row.scene_id) }] : [];
+  });
+  const d = packageDiversity(rows);
+  return Object.fromEntries(rows.map((r) => [r.sceneId, d.per_item[r.item.id] ?? []]));
+}
+
+/** spec, kit-компоненты кода и замечания QA текущей ready-версии сцены; нет — spec null. */
+function readyVersion(db: Db, root: string, sceneId: string): { spec: MotionSpec | null; kit: string[]; qa?: QAIssue[] } {
+  const id = scenes.get(db, sceneId)?.current_version_id;
+  const v = id ? versions.get(db, id) : undefined;
+  if (!v || v.status !== "ready" || v.broken_reason) return { spec: null, kit: [] };
+  const dir = join(root, v.path);
+  try {
+    const spec = MotionSpecSchema.parse(JSON.parse(readFileSync(join(dir, "spec.json"), "utf8")));
+    const kit = new Set<string>();
+    for (const f of readdirSync(join(dir, "src"), { recursive: true, encoding: "utf8" })) {
+      if (/\.(tsx|ts|jsx|js)$/.test(f)) for (const n of kitImports(readFileSync(join(dir, "src", f), "utf8"))) kit.add(n);
+    }
+    let qa: QAIssue[] | undefined;
+    try {
+      const r = QAReportSchema.safeParse(JSON.parse(readFileSync(join(dir, "qa.json"), "utf8")));
+      if (r.success) qa = r.data.issues;
+    } catch {
+      // отчёта QA нет — доля fade без этой сцены
+    }
+    return { spec, kit: [...kit].sort(), ...(qa ? { qa } : {}) };
+  } catch {
+    return { spec: null, kit: [] };
+  }
+}
 
 // --- planDiversity (S3): разнообразие плана до генерации (спека §5.3)
 
@@ -53,4 +99,59 @@ export function planDiversity(items: readonly ScriptSceneItem[]): ScriptPlanRevi
   const variety = Object.keys(techniques).length;
   if (n >= VARIETY_FROM && variety < MIN_VARIETY) issues.push({ code: "low_variety", severity: "warning", message: `разных приёмов ${variety} на ${n} сцен (нужно не меньше ${MIN_VARIETY})` });
   return { techniques, adjacent_repeats: adjacent, kinetic_share: share, issues };
+}
+
+// --- packageDiversity (S11): разнообразие пакета после генерации (спека §12 п.2)
+
+/** Ключевые компоненты kit всех приёмов в порядке таблицы приёмов. */
+const KEY_COMPONENTS: readonly string[] = [...new Set(TECHNIQUES.flatMap((t) => t.kit as readonly string[]))];
+
+/** Герой сцены по коду: ключевой компонент своего приёма, иначе первый ключевой компонент по таблице. */
+function heroComponent(technique: Technique, kit: readonly string[]): string | undefined {
+  const own = TECHNIQUES.find((t) => t.slug === technique)!.kit as readonly string[];
+  return own.find((c) => kit.includes(c)) ?? KEY_COMPONENTS.find((c) => kit.includes(c));
+}
+
+/** Замечание QA версии — одинаковые входы вида `fade` (описание `uniform_entrance` кончается видом). */
+const fadeUniform = (qa: readonly QAIssue[] | undefined) => (qa ?? []).some((x) => x.code === "uniform_entrance" && /\(fade\)\s*$/.test(x.description));
+
+/**
+ * Разнообразие пакета по spec и коду версий (спека §12 п.2): приём реализован — в `kit` есть
+ * ключевой компонент приёма (`technique_not_realized`); соседние готовые сцены не совпадают
+ * разом по структуре, герою-компоненту и режиму удержания (`adjacent_scene_repeat`, у поздней).
+ * Всё — warning. Сводка: структуры и kit готовых сцен, доля сцен с `uniform_entrance` вида fade
+ * (по QA версии). Сцена без версии (`spec: null`) не проверяется и соседства не рвёт.
+ */
+export function packageDiversity(scenes: readonly { item: ScriptSceneItem; spec: MotionSpec | null; kit: string[]; qa?: readonly QAIssue[] }[]): {
+  per_item: Record<string, PlanIssue[]>;
+  summary: { structures: Record<string, number>; kit: Record<string, number>; fade_share: number };
+} {
+  const per_item: Record<string, PlanIssue[]> = {};
+  const structures: Record<string, number> = {};
+  const kit: Record<string, number> = {};
+  let ready = 0;
+  let fades = 0;
+  let prev: { id: string; form: string } | undefined;
+  for (const s of scenes) {
+    const issues: PlanIssue[] = [];
+    per_item[s.item.id] = issues;
+    if (!s.spec) continue;
+    ready++;
+    if (fadeUniform(s.qa)) fades++;
+    const structure = structureOf(s.spec);
+    structures[structure] = (structures[structure] ?? 0) + 1;
+    for (const c of s.kit) kit[c] = (kit[c] ?? 0) + 1;
+    const t = TECHNIQUES.find((x) => x.slug === s.item.technique)!;
+    if (!(t.kit as readonly string[]).some((c) => s.kit.includes(c))) {
+      issues.push({ item_id: s.item.id, code: "technique_not_realized", severity: "warning", message: `приём ${t.slug} не реализован: в коде нет ${t.kit.join(" / ")} — сцена, скорее всего, «заголовок и плашка»; перегенерируйте` });
+    }
+    const hero = heroComponent(s.item.technique, s.kit) ?? "—";
+    const hold = holdModeFor(s.spec);
+    const form = `${structure}|${hero}|${hold}`;
+    if (prev && prev.form === form) {
+      issues.push({ item_id: s.item.id, code: "adjacent_scene_repeat", severity: "warning", message: `сцены ${prev.id} и ${s.item.id} подряд одинаковы по форме: структура ${structure}, герой ${hero}, удержание ${hold} — перегенерируйте одну из них` });
+    }
+    prev = { id: s.item.id, form };
+  }
+  return { per_item, summary: { structures, kit, fade_share: ready === 0 ? 0 : fades / ready } };
 }

@@ -262,6 +262,8 @@ export const ScriptSceneContextSchema = z.object({
   tail_frames: Int0,
   /** 9:16: эталонная 16:9-версия той же сцены плана. */
   reference_version_id: Id.optional(),
+  // S11: кадры, когда звучат ключевые числа и термины сцены (считает код, `keyMoments`): раскрытие не раньше слова
+  key_moments: z.array(z.object({ text: z.string().min(1), value: z.number().optional(), frame: Int0 }).strict()).optional(),
 }).strict();
 export type ScriptSceneContext = z.infer<typeof ScriptSceneContextSchema>;
 

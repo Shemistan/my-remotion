@@ -7,13 +7,14 @@
 import { readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { readFileSync } from "node:fs";
-import { type Job, type MotionSpec, MotionSpecSchema, type ScriptPlanRevisionDoc, ScriptPlanRevisionDocSchema, type ScriptSceneContext, ScriptSceneContextSchema, type ScriptSceneItem, SettingsSchema, failureToJobErrorCode } from "@ms/contracts";
+import { type Job, type MotionSpec, MotionSpecSchema, type QAIssue, type ScriptPlanRevisionDoc, ScriptPlanRevisionDocSchema, type ScriptSceneContext, ScriptSceneContextSchema, type ScriptSceneItem, SettingsSchema, failureToJobErrorCode } from "@ms/contracts";
 import { z } from "zod";
 import { loadPartial } from "../agents/prompts.js";
 import * as jobs from "../db/repos/jobs.js";
 import * as plans from "../db/repos/plans.js";
 import { scriptScenes } from "../db/repos/script.js";
 import { overlayChecks } from "../script/overlay-check.js";
+import { foreignLabelQa } from "../qa/spec-checks.js";
 import { recordPublishedFingerprint } from "../script/batch.js";
 import * as scenes from "../db/repos/scenes.js";
 import * as versions from "../db/repos/versions.js";
@@ -85,6 +86,8 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
     const kbQuery = sc ? `${sc.item.purpose} ${sc.item.idea} ${sc.item.quote}` : prompt;
     const scriptRules = sc ? loadPartial("script-scene") : undefined;
     const speechWindow = sc ? { lead: sc.ctx.lead_frames, speech: settings.duration_frames - sc.ctx.lead_frames - sc.ctx.tail_frames, tail: sc.ctx.tail_frames } : undefined;
+    // S11: раскрытие не раньше слова и подписи только из текста сцены — подсказки Director
+    const scriptHints = sc ? { ...(sc.ctx.key_moments ? { keyMoments: sc.ctx.key_moments } : {}), sourceText: sceneSourceText(sc.item) } : undefined;
 
     // чекпоинты Concept и Director (M7): файл в logs/agent-runs/<jobId>/checkpoints/, ссылка — в output_refs.steps
     const steps: Partial<Record<"concept" | "motion_director", StepRef>> = {};
@@ -130,7 +133,8 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
         steps,
         previous,
         // сцена сценария (S6, Р16): альфа-версия — перерендер с transparent, фон только <Background>
-        ...(sc ? { extraQa: (v) => overlayChecks(v) } : {}),
+        // S11: подписи-примеры kit в props.json (код Engineer) — warning QA версии
+        ...(sc ? { extraQa: async (v) => [...(await overlayChecks(v)), ...(await propsForeignLabels(v.versionDir, scriptHints!.sourceText))] } : {}),
         plan: async (rc) => {
           ctx.progress(0.05, "concept");
           const c = await conceptStep(rc, { prompt, settings, ...(answers !== undefined ? { answers } : {}), ...(scriptRules ? { scriptRules } : {}) }, cp);
@@ -145,7 +149,7 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
           }
           const style = sceneStyle(startPropsStyle(settings, sc ? undefined : concept.style_hint.palette_overrides), settings);
           ctx.progress(0.15, "director");
-          const dr = await directorStep(rc, { prompt, settings, concept, candidates, patternTexts: texts, kitApi: await readKitApi(), style, previous, ...(speechWindow ? { speechWindow } : {}), ...(scriptRules ? { scriptRules } : {}) }, cp);
+          const dr = await directorStep(rc, { prompt, settings, concept, candidates, patternTexts: texts, kitApi: await readKitApi(), style, previous, ...(speechWindow ? { speechWindow } : {}), ...(scriptRules ? { scriptRules } : {}), ...(scriptHints ? { scriptHints } : {}) }, cp);
           if (!dr.ok) return { kind: "failed", stage: dr.stage, message: dr.message };
           return { kind: "plan", director: dr.director, spec: dr.spec, candidates, concept };
         },
@@ -157,6 +161,21 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
     record(ctx, d.repo.root, sceneId, r);
     return toHandlerResult(r, sceneId);
   };
+}
+
+/** `foreign_label` по props.json версии; файла нет или он не читается — без замечаний (их даст техпроверка). */
+async function propsForeignLabels(versionDir: string, source: string): Promise<QAIssue[]> {
+  try {
+    return foreignLabelQa(JSON.parse(await readFile(join(versionDir, "props.json"), "utf8")), source);
+  } catch {
+    return [];
+  }
+}
+
+/** Текст, из которого сцена сценария законно берёт подписи (S11): фрагмент, идея, назначение, термины, числа. */
+export function sceneSourceText(item: ScriptSceneItem): string {
+  const data = item.data.flatMap((d) => [d.label, String(d.value), String(d.value).replace(".", ","), d.unit ?? "", d.quote]);
+  return [item.quote, item.idea, item.purpose, ...item.key_terms.map((k) => k.text), ...data].join("\n");
 }
 
 /** Сцена сценария задачи: вход `script`, документ плана и сцена плана. */

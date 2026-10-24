@@ -34,7 +34,7 @@ import { cancelJob, enqueue } from "../jobs/queue.js";
 import { sha256 } from "../scenes/hash.js";
 import { newId } from "../scenes/ids.js";
 import { sceneRel, writeBriefSync } from "../scenes/store.js";
-import { buildSceneBrief, sceneSettings, sceneTitle, sentenceWindows } from "./brief.js";
+import { buildSceneBrief, keyMoments, sceneSettings, sceneTitle, sentenceWindows } from "./brief.js";
 import { itemFingerprint } from "./fingerprint.js";
 import { type PlanApprovable, planApprovable } from "./plan-state.js";
 import { currentScript, currentScriptPlan } from "./read.js";
@@ -182,14 +182,17 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
     let tryN = failedLast ? prior : undefined;
     for (let k = keyOf(tryN); jobs.findByIdempotencyKey(db, k) && !ACTIVE.has(jobs.findByIdempotencyKey(db, k)!.status); k = keyOf(tryN)) tryN = (tryN ?? prior) + 1;
     const settings = sceneSettings(base, item, aspect, style.base);
+    // S11: моменты слов ключевых чисел и терминов — в бриф и в проверку spec (`key_term_early`)
+    const moments = keyMoments(item, script, doc.reading, doc.fps);
     const brief = buildSceneBrief({
       item, index: index + 1, total: accepted.length,
       ...(accepted[index - 1] ? { prev: accepted[index - 1] } : {}), ...(accepted[index + 1] ? { next: accepted[index + 1] } : {}),
-      projectTitle: project.title, fps: doc.fps, windows: sentenceWindows(item, script, doc.reading, doc.fps),
+      projectTitle: project.title, fps: doc.fps, windows: sentenceWindows(item, script, doc.reading, doc.fps), moments,
     });
     const ctx: ScriptSceneContext = {
       project_id: i.projectId, plan_id: cur.planId, plan_revision: doc.revision, item_id: item.id, aspect,
       style: style.base, lead_frames: item.frames.lead, tail_frames: item.frames.tail,
+      ...(moments.length > 0 ? { key_moments: moments } : {}),
     };
     work.push({
       item, index, fingerprint, ...(row ? { row } : {}),
