@@ -29,7 +29,6 @@ describe("API сценария", () => {
   });
 
   it("маршруты текста и плана: схема тела проверяется (400), тело — 501 not_implemented", async () => {
-    expect((await api.inj("PUT", `/api/projects/${id}/script`, okHeaders, { blocks: [{ title: "", text: "a" }] })).statusCode).toBe(501);
     expect((await api.inj("PUT", `/api/projects/${id}/script`, okHeaders, { blocks: [] })).statusCode).toBe(400);
     const get = await api.inj("GET", `/api/projects/${id}/script`);
     expect(get.statusCode).toBe(200);

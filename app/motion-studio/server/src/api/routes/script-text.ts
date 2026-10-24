@@ -1,7 +1,10 @@
 // Текст и план сценария (спека §7, трек A): PUT/GET текста, `script.plan`, правки плана.
-// S1: GET собирает состояние (`scriptState`), остальные маршруты — схемы тел и ответов, 501.
+// GET собирает состояние (`scriptState`, S1); PUT — новая ревизия текста (`saveScriptText`, S2);
+// план и правки плана — пока схемы тел и ответов, 501.
 import { CreatedJobDtoSchema, PlanOpsBodySchema, PutScriptBodySchema, ScriptDtoSchema, ScriptPlanBodySchema, ScriptPlanDtoSchema, ScriptStateDtoSchema } from "@ms/contracts";
+import { ArtifactStore } from "../../artifacts/store.js";
 import { scriptState } from "../../script/state.js";
+import { saveScriptText, scriptReading } from "../../script/text.js";
 import { type ApiContext, IdParams, type ZApp, idempotencyKey } from "../context.js";
 import { ApiError } from "../errors.js";
 
@@ -10,8 +13,10 @@ const notImplemented = (what: string): ApiError => new ApiError(501, "not_implem
 export function scriptTextRoutes(app: ZApp, { core }: ApiContext): void {
   app.put("/api/projects/:id/script", {
     schema: { params: IdParams, body: PutScriptBodySchema, response: { 200: ScriptDtoSchema } },
-  }, async () => {
-    throw notImplemented("сохранение текста сценария");
+  }, async (req) => {
+    const store = new ArtifactStore({ root: core.root, db: core.db, guard: core.storageCheck });
+    const script = await saveScriptText({ db: core.db, store, root: core.root }, req.params.id, req.body);
+    return { script, reading: scriptReading(core.db, core.root, req.params.id) };
   });
 
   app.get("/api/projects/:id/script", {
