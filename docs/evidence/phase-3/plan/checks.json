@@ -1,0 +1,142 @@
+[
+  {
+    "id": "8.1",
+    "title": "план с агентом построен (Visual Planner вызван)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null,\"output\":{\"plan_id\":\"pln_01M5Q9QE1DQRDGY5Q5KA57G3TM\",\"revision\":1,\"rel_path\":\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/plan/pln_01M5Q9QE1DQRDGY5Q5KA57G3TM/r1/plan.json\",\"reused\":false,\"inputs\":{\"edl\":{\"id\":\"edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C\",\"revision\":13,\"hash\":\"e2cec4bb1fb6ac36c1e1ae99328006245ae48c7c212238e613847baf7ea36843\"},\"transcript\":{\"id\":\"trn_01M5Q5WS2K6KVYV1X1G2X6TMZP\",\"revision\":2},\"semantic_id\":\"sem_01M5Q9NFFWHS3X3WD2QRPTYQBJ\",\"footage_id\":\"ftg_01M5Q9M2EDFZ5T091SJDSRRVHE\",\"style\":{\"id\":\"sty_01M5Q9RJHHY72N7GB521ERX9KT\",\"revision\":1,\"hash\":\"5058f0efdb11a01d0ca6ac67db43cec1c9e2816c4783c3af6b0f1045329bb67c\"}},\"counts\":{\"items\":8,\"skipped\":3,\"rejected\":0,\"blocking\":0},\"style\":{\"style_id\":\"sty_01M5Q9RJHHY72N7GB521ERX9KT\",\"revision\":1,\"author\":\"agent\",\"kept\":false,\"issues\":0},\"agent\":{\"status\":\"completed\",\"calls\":1,\"cost_usd\":0.1105,\"retried\":0,\"from_checkpoint\":0},\"timings_ms\":{\"prepare\":39,\"agent\":37299,\"publish\":68}}}"
+  },
+  {
+    "id": "8.2",
+    "title": "план опирается на текущую EDL (утверждённую A) и текущий транскрипт",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"edl\":{\"id\":\"edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C\",\"revision\":13,\"hash\":\"e2cec4bb1fb6ac36c1e1ae99328006245ae48c7c212238e613847baf7ea36843\"},\"transcript\":{\"id\":\"trn_01M5Q5WS2K6KVYV1X1G2X6TMZP\",\"revision\":2},\"semantic_id\":\"sem_01M5Q9NFFWHS3X3WD2QRPTYQBJ\",\"footage_id\":\"ftg_01M5Q9M2EDFZ5T091SJDSRRVHE\",\"style\":{\"id\":\"sty_01M5Q9RJHHY72N7GB521ERX9KT\",\"revision\":1,\"hash\":\"5058f0efdb11a01d0ca6ac67db43cec1c9e2816c4783c3af6b0f1045329bb67c\"}}"
+  },
+  {
+    "id": "8.3",
+    "title": "в плане есть сцены агента",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"items\":8,\"skipped\":3}"
+  },
+  {
+    "id": "8.4",
+    "title": "у каждой сцены ≥ 1 цитата с id слов, проходящая verifyQuote",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"id\":\"sp_001\",\"evidence\":[{\"quote\":\"мы отвечаем тоже ошибкой, но при этом указываем request id, чтобы понять, какой запрос вызвал эту ошибку\",\"ids\":[\"w_000068\",\"w_000084\"],\"r\":{\"ok\":true}}]},{\"id\":\"sp_002\",\"evidence\":[{\"quote\":\"Поэтому получатель сначала дочитывает сообщение до конца и только потом смотрит на тип.\",\"ids\":[\"w_000117\",\"w_000129\"],\"r\":{\"ok\":true}}]},{\"id\":\"sp_003\",\"evidence\":[{\"quote\":\"Такая схема называется sequence diagram.\",\"ids\":[\"w_000161\",\"w_000165\"],\"r\":{\"ok\":true}}]},{\"id\":\"sp_004\",\"evidence\":[{\"quote\":\"Потом отправляется сообщение hello,\",\"ids\":[\"w_000195\",\"w_000198\"],\"r\":{\"ok\":true}}]},{\"id\":\"sp_005\",\"evidence\":[{\"quote\":\"Затем у нас уходит ping, чтобы проверить все ли ок И наш воркер отвечает pong,\",\"ids\":[\"w_000254\",\"w_000268\"],\"r\":{\"ok\":true}}]},{\"id\":\"sp_006\",\"evidence\":[{\"quote\":\"Это называется обратная совместимость.\",\"ids\":[\"w_000330\",\"w_000333\"],\"r\":{\"ok\":true}},{\"quote\":\"Magic и версия всегда на своем месте в первых трех байтах.\",\"ids\":[\"w_000336\",\"w_000346\"],\"r\":{\"ok\":true}}]},{\"id\":\"sp_007\",\"evidence\":[{\"quote\":\"их можно добавлять спокойно и это не требует изменения версии.\",\"ids\":[\"w_000379\",\"w_000388\"],\"r\":{\"ok\":true}}]},{\"id\":\"sp_008\",\"evidence\":[{\"quote\":\"включаем только после handshake обе стороны должны объявить нужную фичу\",\"ids\":[\"w_000412\",\"w_000421\"],\"r\":{\"ok\":true}}]}]"
+  },
+  {
+    "id": "8.5",
+    "title": "edited/source/frames согласованы: frames.start = usToFrame(edited.start), editedToSource(edited.start) = source.start",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"id\":\"sp_001\",\"edited\":{\"start_us\":51613333,\"end_us\":61493333},\"source\":{\"start_us\":57480000,\"end_us\":69160000},\"frames\":{\"start\":1548,\"end\":1845},\"frame_start_expected\":1548,\"source_start_expected\":57480000},{\"id\":\"sp_002\",\"edited\":{\"start_us\":87440001,\"end_us\":94980001},\"source\":{\"start_us\":122740000,\"end_us\":132280000},\"frames\":{\"start\":2623,\"end\":2850},\"frame_start_expected\":2623,\"source_start_expected\":122740000},{\"id\":\"sp_003\",\"edited\":{\"start_us\":109546668,\"end_us\":113166668},\"source\":{\"start_us\":163480000,\"end_us\":170200000},\"frames\":{\"start\":3286,\"end\":3396},\"frame_start_expected\":3286,\"source_start_expected\":163480000},{\"id\":\"sp_004\",\"edited\":{\"start_us\":127560001,\"end_us\":132320001},\"source\":{\"start_us\":189226667,\"end_us\":203186667},\"frames\":{\"start\":3826,\"end\":3970},\"frame_start_expected\":3826,\"source_start_expected\":189226667},{\"id\":\"sp_005\",\"edited\":{\"start_us\":159866667,\"end_us\":167706667},\"source\":{\"start_us\":239266667,\"end_us\":248140000},\"frames\":{\"start\":4796,\"end\":5032},\"frame_start_expected\":4796,\"source_start_expected\":239266667},{\"id\":\"sp_006\",\"edited\":{\"start_us\":227543000,\"end_us\":240623000},\"source\":{\"start_us\":324409666,\"end_us\":343423000},\"frames\":{\"start\":6826,\"end\":7219},\"frame_start_expected\":6826,\"source_start_expected\":324409666},{\"id\":\"sp_007\",\"edited\":{\"start_us\":258876333,\"end_us\":267396333},\"source\":{\"start_us\":375143000,\"end_us\":383663000},\"frames\":{\"start\":7766,\"end\":8022},\"frame_start_expected\":7766,\"source_start_expected\":375143000},{\"id\":\"sp_008\",\"edited\":{\"start_us\":280749666,\"end_us\":291349666},\"source\":{\"start_us\":406449667,\"end_us\":418483000},\"frames\":{\"start\":8422,\"end\":8741},\"frame_start_expected\":8422,\"source_start_expected\":406449667}]"
+  },
+  {
+    "id": "8.6",
+    "title": "есть решение skip с причиной (или обоснование, что графика нужна везде)",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"anchor_ids\":[\"a_0001\"],\"reason\":\"мысль понятна без картинки, коротко; зона справа задевает лицо\"},{\"anchor_ids\":[\"a_0003\"],\"reason\":\"вводная фраза; смысл раскрывается в следующей сцене\"},{\"anchor_ids\":[\"a_0006\"],\"reason\":\"рядом уже есть сцена со схемой; шаг короткий\"}]"
+  },
+  {
+    "id": "8.7",
+    "title": "нет overlay/callout/pip поверх лица без override_reason (доля лица > planning.faceOverlapMax)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"over_face\":[],\"max\":0.02,\"all\":[{\"id\":\"sp_001\",\"mode\":\"split_screen\",\"zone\":\"split_left\",\"plan_ratio\":0.458327,\"recomputed\":{\"face\":0.458,\"hands\":0.515}},{\"id\":\"sp_002\",\"mode\":\"split_screen\",\"zone\":\"split_left\",\"plan_ratio\":0.458327,\"recomputed\":{\"face\":0.458,\"hands\":0.506}},{\"id\":\"sp_003\",\"mode\":\"overlay\",\"zone\":\"left_third\",\"plan_ratio\":0,\"recomputed\":{\"face\":0,\"hands\":0.127}},{\"id\":\"sp_004\",\"mode\":\"overlay\",\"zone\":\"left_third\",\"plan_ratio\":0,\"recomputed\":{\"face\":0,\"hands\":0}},{\"id\":\"sp_005\",\"mode\":\"overlay\",\"zone\":\"left_third\",\"plan_ratio\":0,\"recomputed\":{\"face\":0,\"hands\":0}},{\"id\":\"sp_006\",\"mode\":\"split_screen\",\"zone\":\"split_left\",\"plan_ratio\":0.458327,\"recomputed\":{\"face\":0.458,\"hands\":0.509}},{\"id\":\"sp_007\",\"mode\":\"split_screen\",\"zone\":\"split_left\",\"plan_ratio\":0.458327,\"recomputed\":{\"face\":0.458,\"hands\":0.844}},{\"id\":\"sp_008\",\"mode\":\"overlay\",\"zone\":\"left_third\",\"plan_ratio\":0,\"recomputed\":{\"face\":0,\"hands\":0}}]}"
+  },
+  {
+    "id": "8.7b",
+    "title": "пересчёт по рамке лица анализа видеоряда: то же самое",
+    "kind": "A",
+    "pass": true,
+    "detail": "[]"
+  },
+  {
+    "id": "8.8",
+    "title": "покрытие графикой ≤ 40 % ролика (выдача агента, без подгонки)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"coverage\":22.5,\"density_issue\":[],\"agent_retried\":0,\"issues\":[{\"item_id\":\"sp_006\",\"code\":\"too_long\",\"severity\":\"warning\",\"message\":\"сцена 13,1 с длиннее 12,0 с\"}]}"
+  },
+  {
+    "id": "8.9",
+    "title": "есть сцена с числом из речи (если в ролике есть числа)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"numbers\":[{\"value\":2,\"quote\":\"Задача 2\",\"scenes\":[]},{\"value\":3,\"quote\":\"первых трех байтах\",\"scenes\":[\"sp_006\"]}]}"
+  },
+  {
+    "id": "8.10",
+    "title": "StyleBible проекта проходит контраст (нет blocking-проблем стиля)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"contrast\":[{\"key\":\"text\",\"color\":\"#f3f4f8\",\"bg\":\"#07080d\",\"ratio\":18.204129158157098,\"min\":4.5,\"good\":7},{\"key\":\"muted\",\"color\":\"#8b91a5\",\"bg\":\"#07080d\",\"ratio\":6.375199145505917,\"min\":3,\"good\":4.5}],\"issues\":[],\"author\":\"agent\"}"
+  },
+  {
+    "id": "8.11",
+    "title": "[H→агент] ключевые слова звучат внутри диапазона сцены (по таймкодам слов транскрипта)",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"id\":\"sp_001\",\"edited\":[\"51.6\",\"61.5\"],\"terms\":[{\"text\":\"request id\",\"word\":\"request\",\"at_s\":\"55.6\",\"inside\":true,\"plan_at_s\":\"55.6\"}]},{\"id\":\"sp_002\",\"edited\":[\"87.4\",\"95.0\"],\"terms\":[{\"text\":\"тип\",\"word\":\"тип.\",\"at_s\":\"94.4\",\"inside\":true,\"plan_at_s\":\"94.4\"}]},{\"id\":\"sp_003\",\"edited\":[\"109.5\",\"113.2\"],\"terms\":[{\"text\":\"sequence diagram\",\"word\":\"sequence\",\"at_s\":\"111.6\",\"inside\":true,\"plan_at_s\":\"111.6\"}]},{\"id\":\"sp_004\",\"edited\":[\"127.6\",\"132.3\"],\"terms\":[{\"text\":\"hello\",\"word\":\"hello,\",\"at_s\":\"129.4\",\"inside\":true,\"plan_at_s\":\"129.4\"}]},{\"id\":\"sp_005\",\"edited\":[\"159.9\",\"167.7\"],\"terms\":[{\"text\":\"ping\",\"word\":\"ping,\",\"at_s\":\"161.7\",\"inside\":true,\"plan_at_s\":\"161.7\"},{\"text\":\"pong\",\"word\":\"pong,\",\"at_s\":\"167.0\",\"inside\":true,\"plan_at_s\":\"167.0\"}]},{\"id\":\"sp_006\",\"edited\":[\"227.5\",\"240.6\"],\"terms\":[{\"text\":\"обратная совместимость\",\"word\":\"обратная\",\"at_s\":\"228.8\",\"inside\":true,\"plan_at_s\":\"228.8\"},{\"text\":\"3 байта\",\"word\":\"трех\",\"at_s\":\"239.2\",\"inside\":true,\"plan_at_s\":\"239.2\"}]},{\"id\":\"sp_007\",\"edited\":[\"258.9\",\"267.4\"],\"terms\":[{\"text\":\"добавлять\",\"word\":\"добавлять\",\"at_s\":\"259.7\",\"inside\":true,\"plan_at_s\":\"259.7\"}]},{\"id\":\"sp_008\",\"edited\":[\"280.7\",\"291.3\"],\"terms\":[{\"text\":\"handshake\",\"word\":\"handshake\",\"at_s\":\"283.2\",\"inside\":true,\"plan_at_s\":\"283.2\"}]}]"
+  },
+  {
+    "id": "8.H",
+    "title": "раскладка сцен на кадре и фрагменты превью ≤ 30 с с подписью «СЦЕНА» на время сцены — человеку (ключевое слово в интервале, полезно/лишнее, лицо/руки)",
+    "kind": "H→агент",
+    "pass": true,
+    "detail": "{\"layout\":[\"pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r1-sp_001.png\",\"pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r1-sp_002.png\",\"pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r1-sp_003.png\",\"pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r1-sp_004.png\",\"pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r1-sp_005.png\",\"pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r1-sp_006.png\",\"pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r1-sp_007.png\",\"pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r1-sp_008.png\"],\"clips\":[{\"id\":\"sp_001\",\"clip\":\"sp_001-51.6s.mp4\",\"from_s\":48.61,\"scene_in_clip\":[3,12.88]},{\"id\":\"sp_002\",\"clip\":\"sp_002-87.4s.mp4\",\"from_s\":84.44,\"scene_in_clip\":[3,10.54]},{\"id\":\"sp_003\",\"clip\":\"sp_003-109.5s.mp4\",\"from_s\":106.55,\"scene_in_clip\":[3,6.62]},{\"id\":\"sp_004\",\"clip\":\"sp_004-127.6s.mp4\",\"from_s\":124.56,\"scene_in_clip\":[3,7.76]},{\"id\":\"sp_005\",\"clip\":\"sp_005-159.9s.mp4\",\"from_s\":156.87,\"scene_in_clip\":[3,10.84]},{\"id\":\"sp_006\",\"clip\":\"sp_006-227.5s.mp4\",\"from_s\":224.54,\"scene_in_clip\":[3,16.08]},{\"id\":\"sp_007\",\"clip\":\"sp_007-258.9s.mp4\",\"from_s\":255.88,\"scene_in_clip\":[3,11.52]},{\"id\":\"sp_008\",\"clip\":\"sp_008-280.7s.mp4\",\"from_s\":277.75,\"scene_in_clip\":[3,13.6]}]}"
+  },
+  {
+    "id": "8.12",
+    "title": "режим сцены изменён через UI (новая ревизия плана)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"id\":\"sp_003\",\"from\":\"overlay\",\"to\":\"callout\",\"revision\":2}"
+  },
+  {
+    "id": "8.13",
+    "title": "одна сцена отклонена через UI",
+    "kind": "A",
+    "pass": true,
+    "detail": "sp_004"
+  },
+  {
+    "id": "8.14",
+    "title": "своя сцена по выделенным словам добавлена (время и кадры посчитал код)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"id\":\"sp_009\",\"status\":\"accepted\",\"origin\":\"user\",\"anchor_ids\":[],\"start_word_id\":\"w_000088\",\"end_word_id\":\"w_000092\",\"edited\":{\"start_us\":63713333,\"end_us\":66773333},\"source\":{\"start_us\":73480000,\"end_us\":101306666},\"frames\":{\"start\":1911,\"end\":2004},\"segment_ids\":[\"seg_0010\"],\"purpose\":\"ключевая мысль фрагмента крупно рядом с автором\",\"visual_type\":\"key-point-emphasis\",\"composition_mode\":\"overlay\",\"zone\":\"left_third\",\"rect\":{\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84},\"key_terms\":[],\"metaphor\":\"\",\"complexity\":1,\"usefulness\":3,\"effort\":3,\"visual_load\":3,\"evidence\":[{\"quote\":\"работать дальше, не прерывая соединения.\",\"start_word_id\":\"w_000088\",\"end_word_id\":\"w_000092\",\"edited\":{\"start_us\":63913333,\"end_us\":66473333}}],\"face_overlap\":{\"ratio\":0},\"style_id\":\"sty_01M5Q9RJHHY72N7GB521ERX9KT\"}"
+  },
+  {
+    "id": "8.15",
+    "title": "решения по сценам через UI (в т. ч. вынужденные из-за blocking)",
+    "kind": "info",
+    "pass": true,
+    "detail": "[{\"op\":\"modify composition_mode\",\"id\":\"sp_003\",\"detail\":\"overlay → callout\"},{\"op\":\"reject\",\"id\":\"sp_004\",\"detail\":\"полезность 3\"},{\"op\":\"add\",\"id\":\"sp_009\",\"detail\":{\"words\":[\"w_000088\",\"w_000092\"],\"zone\":\"left_third\",\"text\":\"работать дальше, не прерывая соединения.\"}},{\"op\":\"accept\",\"id\":\"sp_001\"},{\"op\":\"accept\",\"id\":\"sp_002\"},{\"op\":\"accept\",\"id\":\"sp_003\"},{\"op\":\"accept\",\"id\":\"sp_005\"},{\"op\":\"accept\",\"id\":\"sp_006\"},{\"op\":\"accept\",\"id\":\"sp_007\"},{\"op\":\"accept\",\"id\":\"sp_008\"}]"
+  },
+  {
+    "id": "8.16",
+    "title": "StyleBible поправлен пользователем, контраст проходит",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"from\":\"calm\",\"base\":{\"preset\":\"dark-premium\",\"intensity\":\"energetic\",\"depth\":2},\"contrast\":[{\"key\":\"text\",\"color\":\"#f3f4f8\",\"bg\":\"#07080d\",\"ratio\":18.204129158157098,\"min\":4.5,\"good\":7},{\"key\":\"muted\",\"color\":\"#8b91a5\",\"bg\":\"#07080d\",\"ratio\":6.375199145505917,\"min\":3,\"good\":4.5}]}"
+  },
+  {
+    "id": "8.17",
+    "title": "план перенесён на новый стиль (inputs.style = текущая ревизия)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"id\":\"sty_01M5Q9RJHHY72N7GB521ERX9KT\",\"revision\":2,\"hash\":\"ead4c86d99d674802c31087df92de62432c20177fcc75221d3beca9963825ef0\"}"
+  },
+  {
+    "id": "8.18",
+    "title": "Approval B valid на текущую ревизию плана",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"revision\":12,\"accepted\":[\"sp_001\",\"sp_002\",\"sp_003\",\"sp_005\",\"sp_006\",\"sp_007\",\"sp_008\",\"sp_009\"],\"coverage\":21.9}"
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "p9.fenced",
+    "title": "публикация попытки 1 отклонена fencing (fenced_out), draft в карантине",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\n  \"reason\": \"fenced_out: попытка 1 задачи job_01M5N3BR840BVSNT608P0NWP03 устарела (текущая: 2)\",\n  \"at\": \"2026-10-23T19:21:28.709Z\"\n}\n"
+  },
+  {
+    "id": "p9.single",
+    "title": "экспорт опубликован один раз — попыткой 2; задача completed",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"attempt\":2,\"exports\":[\"exp_01M5N3CB8XZTYDKQWRGQDWCK79\"]}"
+  },
+  {
+    "id": "p9.events",
+    "title": "журнал: test_hook и fenced_out",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"started: scene.export: попытка 1\",\"test_hook: тестовый хук stale-attempt (MS_TEST_HOOKS=1)\",\"test_hook: попытка 1: рендер готов, задача возвращена в очередь — ждём новую попытку\",\"fenced_out: попытка 1 устарела\",\"started: scene.export: попытка 2\",\"interrupted: попытка 1 прервана\",\"completed: completed\"]"
+  }
+]

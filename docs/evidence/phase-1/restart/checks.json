@@ -1,0 +1,30 @@
+[
+  {
+    "id": "restart.up",
+    "title": "сервер стартовал после kill -9 (owner-lock снят ядром)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"pidBefore\":82185,\"pidAfter\":86865,\"restartMs\":2037}"
+  },
+  {
+    "id": "restart.ui",
+    "title": "сцена открывается, история целиком, текущая версия играет",
+    "kind": "A",
+    "pass": true,
+    "detail": "версий 3"
+  },
+  {
+    "id": "restart.sha",
+    "title": "sha256 всех файлов версий не изменились",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"files\":117,\"changed\":[]}"
+  },
+  {
+    "id": "restart.export",
+    "title": "повторный экспорт v3: та же длительность и размеры",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"before\":{\"d\":8,\"w\":1920,\"h\":1080},\"after\":{\"d\":8,\"w\":1920,\"h\":1080}}"
+  }
+]

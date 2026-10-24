@@ -9,6 +9,7 @@ function concept(over: Record<string, unknown> = {}): Record<string, unknown> {
     kb_queries: { ru: ["график роста"], en: [] },
     composition_mode: "fullscreen",
     style_hint: { preset: "dark-premium" },
+    structure: { rule: "one-number", runner_up: "build-strike", reason: "одна величина от и до" },
     ...over,
   };
 }
@@ -35,6 +36,12 @@ describe("ConceptOutput", () => {
   it("palette_overrides — форма PaletteOverrides (accent — массив)", () => {
     expect(ok(concept({ style_hint: { preset: "tech-neon", palette_overrides: { accent: ["#9B5CFF"] } } }))).toBe(true);
     expect(ok(concept({ style_hint: { preset: "tech-neon", palette_overrides: { accent0: "#9B5CFF" } } }))).toBe(false);
+  });
+  it("structure обязательна: правило из списка, запасная структура, причина", () => {
+    expect(ok(concept({ structure: undefined }))).toBe(false);
+    expect(ok(concept({ structure: { rule: "made-up", runner_up: "count-up", reason: "x" } }))).toBe(false);
+    expect(ok(concept({ structure: { rule: "two-sides", runner_up: "count-up" } }))).toBe(false);
+    expect(ok(concept({ structure: { rule: "two-sides", runner_up: "count-up", reason: "сравни A и B" } }))).toBe(true);
   });
   it("JSON Schema без $ref", () => expect(JSON.stringify(toJsonSchema(ConceptOutputSchema))).not.toContain("$ref"));
 });

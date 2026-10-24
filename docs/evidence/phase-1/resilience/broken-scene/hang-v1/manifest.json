@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "version_id": "ver_01M5N0BSE71DV5EHN0NHQ2J7NT",
+  "scene_id": "scn_01M5N0B8Q9H083RZKRS7QRSGTW",
+  "parent_version_id": null,
+  "number": 1,
+  "created_at": "2026-10-23T18:28:53.831Z",
+  "prompt": "Фикстура: сцена, которая вешает рендер",
+  "edit_plan": null,
+  "settings": {
+    "aspect_ratio": "16:9",
+    "width": 640,
+    "height": 360,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 60,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "files": [
+    {
+      "path": "knowledge-refs.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": "pipeline-log.json",
+      "sha256": "1a2723341cb1877705447996b68ec6ad831c6b6be856e03ede0bfce4840da9ec"
+    },
+    {
+      "path": "props.json",
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    {
+      "path": "settings.json",
+      "sha256": "f10bfa0d22faa05a0ef64155c016d67a97ca2decba27eca75ad89c6daa5aa7fa"
+    },
+    {
+      "path": "spec.json",
+      "sha256": "eeeb9e112a9182f11d4f8014f6c04fd258ae1882ca89fd5c1b5a0df01675dce0"
+    },
+    {
+      "path": "src/Scene.tsx",
+      "sha256": "1f535d30385865f469e0c404ba4a54080acb52f110cbbc3e8bc209d6f42cec9f"
+    }
+  ],
+  "changed_files": [
+    "src/Scene.tsx",
+    "props.json"
+  ],
+  "render_env": {
+    "remotion": "4.0.537",
+    "render_lock_sha256": "540dd0e271797a516aff0589d0665f0fe00362d2c4bc0c33d5913dbbb623e21f",
+    "motion_kit": "sha256:c7a99a90548f2fe4",
+    "chrome_headless_shell": "157.0.8080.0-remotion-v3",
+    "node": "22.21.1"
+  },
+  "knowledge_refs": [],
+  "agent_runs": [],
+  "qa": null,
+  "preview": null,
+  "status": "failed",
+  "failure": {
+    "stage": "render",
+    "message": "timeout: Error: A delayRender() \"hang-scene никогда не продолжит рендер\" was called but not cleared after 16000ms. See https://remotion.dev/docs/timeout for help. The delayRender was called: \n    at delayRenderInternal (http://localhost:59967/bundle.js:19903:18)\n    at delayRender (http://localhost:59967/bundle.js:19935:10)\n    at http://localhost:59967/bundle.js:26:31\n    at mountStateImpl (http://localhost:59967/bundle.js:5230:20)\n    at Object.useState (http://localhost:59967/bundle.js:6026:22)\n    at exports.useState (http://localhost:59967/bundle.js:17394:33)\n    at Scene (http://localhost:59967/bundle.js:24:21)\n    at renderWithHooks (http://localhost:59967/bundle.js:4812:21)\n    at updateFunctionComponent (http://localhost:59967/bundle.js:6958:15)\n    at beginWork (http://localhost:59967/bundle.js:7934:14)\n    at delayRenderInternal (http://localhost:59967/bundle.js:19903:18)\n    at delayRender (http://localhost:59967/bundle.js:19935:10)\n    at http://localhost:59967/bundle.js:26:31\n    at mountStateImpl (http://localhost:59967/bundle.js:5230:20)\n    at Object.useState (http://localhost:59967/bundle.js:6026:22)\n    at exports.useState (http://localhost:59967/bundle.js:17394:33)\n    at Scene (http://localhost:59967/bundle.js:24:21)\n    at renderWithHooks (http://localhost:59967/bundle.js:4812:21)\n    at updateFunctionComponent (http://localhost:59967/bundle.js:6958:15)\n    at beginWork (http://localhost:59967/bundle.js:7934:14)\n    at http://localhost:59967/bundle.js:19923:39\nконсоль браузера:\n[log] hang-scene: delayRender без continueRender\n[log] [motion-kit:layout] {\"frame\":0,\"height\":360,\"items\":[],\"ghosts\":[],\"holds\":[]}"
+  },
+  "qa_frames": [],
+  "qa_frames_sha256": [],
+  "job": {
+    "id": "job_seed_scn_01M5N0B8Q9H083RZKRS7QRSGTW_1",
+    "attempt": 1
+  }
+}

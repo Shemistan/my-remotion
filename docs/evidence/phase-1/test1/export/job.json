@@ -1,0 +1,73 @@
+{
+  "job": {
+    "id": "job_01M5N3V23WNEZ1KVAD6X8AT1SZ",
+    "type": "scene.export",
+    "project_id": "prj_01M5N0BWTSM3KQC4PHMB6V6TQ5",
+    "scene_id": null,
+    "version_id": "ver_01M5N0KBZXHRTZEAE0YRKR5AWQ",
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "publish",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input_refs_json": {
+      "versionId": "ver_01M5N0KBZXHRTZEAE0YRKR5AWQ",
+      "request": {
+        "format": "mp4",
+        "crf": 18,
+        "scale": 1
+      }
+    },
+    "input_hash": "3ee7dab0a3f2fc9ed83b9e3e7e55722b48ba10eaccb063b5b004bf0be211dab8",
+    "output_refs_json": {
+      "export_id": "exp_01M5N3VARR8ZH9X94JWDET2KY6",
+      "version_id": "ver_01M5N0KBZXHRTZEAE0YRKR5AWQ",
+      "format": "mp4",
+      "path": "workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/exports/exp_01M5N3VARR8ZH9X94JWDET2KY6/scene.mp4",
+      "sha256": "4a6605316d5871a8010a43f81d9b429b8d19a46be6e1fc4e9c36ff213b6ca449",
+      "ffprobe": {
+        "durationMs": 6000,
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "codec": "h264",
+        "profile": "High",
+        "pixFmt": "yuv420p",
+        "audioCodec": "aac",
+        "audioDurationMs": 6016
+      }
+    },
+    "error_json": null,
+    "idempotency_key": "5f0cf67b-b3ce-4fbe-901d-ac791e819459",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": 0,
+    "created_at": "2026-10-23T19:29:39.964Z",
+    "started_at": "2026-10-23T19:29:40.404Z",
+    "finished_at": "2026-10-23T19:29:48.863Z"
+  },
+  "cost_usd": 0,
+  "wall_ms": 8899,
+  "agent_runs": [],
+  "render_jobs": [],
+  "chat": [],
+  "events": [
+    {
+      "ts": "2026-10-23T19:29:40.411Z",
+      "level": "info",
+      "kind": "started",
+      "message": "scene.export: попытка 1"
+    },
+    {
+      "ts": "2026-10-23T19:29:48.866Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed"
+    }
+  ]
+}

@@ -1,12 +1,12 @@
 // Логика renderVersion на подменённом spawnTracked: без Chrome, бандла и ffprobe.
-import { spawnSync } from "node:child_process";
+import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { existsSync, readdirSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { SpawnTrackedOptions, SpawnTrackedResult } from "@ms/core";
+import { type SpawnTrackedOptions, type SpawnTrackedResult, groupExists, procInfo, safeMkdir } from "@ms/core";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { CHROME_WRAPPER } from "../src/node/browser.js";
-import { type RenderDeps, type RenderRequest, WORKER_PATH, innerTimeoutMs, renderVersion } from "../src/node/render-version.js";
+import { type RenderDeps, type RenderRequest, type RenderResult, WORKER_PATH, innerTimeoutMs, renderVersion } from "../src/node/render-version.js";
 import { copyFixture, fixtureSettings, makeStore, makeTmp, removeTmp } from "./helpers.js";
 
 const FFPROBE = "/fake/ffprobe";
@@ -269,4 +269,107 @@ it("outDir: stills and preview go to a separate dir, the version dir is only rea
   expect(res.previewPath).toBe(join(out, "preview.mp4"));
   expect(existsSync(join(out, "frames"))).toBe(true);
   expect(existsSync(join(req.versionDir, "frames"))).toBe(false);
+});
+
+it("preview null: только стоп-кадры (проба раскладки) — worker без превью, ffprobe не зовётся", async () => {
+  const out = join(tmp, "probe");
+  await mkdir(out);
+  const res = await renderVersion({ ...req, outDir: out, stills: [59], preview: null }, undefined, deps((c) => {
+    const job = JSON.parse(c.opts.stdin!) as { stills: { out: string }[]; preview: unknown };
+    expect(job.preview).toBeNull();
+    return { stdout: workerOut({ ok: true, stills: job.stills.map((s) => s.out), browserLogs: ["[motion-kit:layout] {}"] }) };
+  }));
+  expect(res).toEqual({ ok: true, stills: [join(out, "frames", "59.png")], browserLogs: ["[motion-kit:layout] {}"] });
+  expect(calls.map((c) => c.cmd)).toEqual([process.execPath]);
+  const bad = await renderVersion({ ...req, outDir: out, stills: [59], preview: null }, undefined, deps(() => ({ stdout: workerOut({ ok: false, stills: [], browserLogs: [], error: { stage: "still", message: "boom" } }) })));
+  expect(bad).toMatchObject({ ok: false, error: { stage: "still", message: "boom" } });
+});
+
+it("run.registry goes to spawnTracked for worker and ffprobe; the worker job gets no registry", async () => {
+  const registry = { add: async () => undefined, end: async () => undefined, live: async () => [] };
+  const r = await renderVersion({ ...req, run: { ...req.run, registry } }, undefined, deps(() => ({ stdout: workerOut(okResult(req)) })));
+  expect(r.ok).toBe(true);
+  expect(calls.map((c) => c.opts.registry)).toEqual([registry, registry]);
+  expect(JSON.parse(calls[0]!.opts.stdin!).run).toEqual({
+    root: req.run.root,
+    runId: "run1",
+    attempt: 1,
+    renderId: expect.stringMatching(/^run1-a1-\w{6}$/),
+  });
+});
+
+it("two parallel renders of one attempt (two takes) do not kill each other's Chrome", async () => {
+  // Chrome запускает настоящий chrome-wrapper.sh с окружением, как у worker; вместо Chrome — sleep
+  const fake = join(tmp, "fake-chrome.sh");
+  await writeFile(fake, "#!/bin/sh\nexec sleep 60\n", { mode: 0o755 });
+  await safeMkdir(req.run.root, "run/processes");
+  const launched: ChildProcess[] = [];
+  const launch = (job: { run: { root: string; runId: string; attempt: number; renderId?: string } }) => {
+    const vars: NodeJS.ProcessEnv = {
+      PATH: process.env.PATH,
+      MS_CHROME: fake,
+      MS_RUN_ROOT: job.run.root,
+      MS_RUN_ID: job.run.runId,
+      MS_RUN_ATTEMPT: String(job.run.attempt),
+      MS_BUNDLE_PORT: "3123",
+    };
+    if (job.run.renderId !== undefined) vars.MS_RENDER_ID = job.run.renderId;
+    const c = spawn(CHROME_WRAPPER, ["about:blank"], { detached: true, stdio: "ignore", env: vars });
+    launched.push(c);
+    return c;
+  };
+  const registered = async (pid: number) => {
+    const end = Date.now() + 5000;
+    while (!existsSync(join(req.run.root, "run/processes", `run1-a1-${pid}.json`)) || (await procInfo(pid)) === undefined) {
+      if (Date.now() > end) throw new Error("Chrome не зарегистрировался");
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  };
+  let bStarted!: () => void;
+  const bReady = new Promise<void>((r) => (bStarted = r));
+  let aDone!: () => void;
+  const aFinished = new Promise<void>((r) => (aDone = r));
+  let bAliveAfterA: boolean | undefined;
+  try {
+    // у дублей разное содержимое — свой кэш, чтобы бандлы не делили одну запись entries/
+    const cacheB = join(tmp, "cache-b");
+    await mkdir(cacheB);
+    const reqB = { ...req, cacheDir: cacheB, versionDir: await copyFixture("hello-scene", join(tmp, "v2")) };
+    const later: { b?: Promise<RenderResult> } = {};
+    const a = renderVersion(req, undefined, deps(async (c) => {
+      const chrome = launch(JSON.parse(c.opts.stdin!));
+      await registered(chrome.pid!);
+      // рендер B уже держит свой Chrome (или сам завершился — тогда тест упадёт ниже)
+      await Promise.race([bReady, later.b]);
+      return { stdout: workerOut(okResult(req)) };
+    }));
+    const b = renderVersion(reqB, undefined, deps(async (c) => {
+      const chrome = launch(JSON.parse(c.opts.stdin!));
+      await registered(chrome.pid!);
+      bStarted();
+      await aFinished; // A закончил и убрал за собой
+      bAliveAfterA = groupExists(chrome.pid!);
+      return { stdout: workerOut(okResult(reqB)) };
+    }));
+    later.b = b;
+    const ra = await a;
+    aDone();
+    const rb = await b;
+    expect(ra.ok).toBe(true);
+    expect(bAliveAfterA).toBe(true);
+    expect(rb.ok).toBe(true);
+    // каждый рендер убрал свой Chrome и закрыл его запись
+    for (const c of launched) expect(groupExists(c.pid!)).toBe(false);
+    expect(readdirSync(join(req.run.root, "run/processes"))).toEqual([]);
+  } finally {
+    aDone();
+    bStarted();
+    for (const c of launched) {
+      try {
+        process.kill(-c.pid!, "SIGKILL");
+      } catch {
+        // уже нет
+      }
+    }
+  }
 });

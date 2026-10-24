@@ -1,0 +1,25 @@
+{
+  "status": "ready",
+  "job_status": "completed",
+  "version_status": "ready",
+  "cost_usd": 1.181647,
+  "wall_ms": 318051,
+  "engineer_calls": 1,
+  "duration_frames": 180,
+  "fps": 30,
+  "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s3-6ef1f76/scenes/scn_01M5J9BXQMYNA4KE7D6A6SGNRE/versions/ver_01M5J9NKK7DFPS48259AH9XDKX",
+  "commit": "6ef1f76",
+  "motion_kit_version": "0.5.2",
+  "prompts_sha256": {
+    "concept.md": "bc093594ad94adca0ee1f35017755ee5912cabd153279ed7be17b3407dd095af",
+    "engineer.md": "8d58f5711af80d7e2ea23e483ff9a388903ac31687d7ee8bad8e6e11604bbdad",
+    "motion-director.md": "5808c563e8b5cd153b8ab99c8da2aa612c2d30452d17e8fa4242a08abacff789",
+    "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+    "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+    "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+    "visual-qa.md": "827c59060ad1b4213ec039c39a505bb70860b66ca210d9f1a95c8a753a4d7549"
+  },
+  "dirty": false,
+  "kit_hash": "sha256:38585e38a3439d65",
+  "motion_kit_sha256": "sha256:38585e38a3439d65"
+}

@@ -1,0 +1,119 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      {
+        "id": "timeline-in",
+        "start_frame": 0,
+        "end_frame": 130
+      },
+      {
+        "id": "final-emphasis",
+        "start_frame": 104,
+        "end_frame": 130
+      },
+      {
+        "id": "conclusion-in",
+        "start_frame": 118,
+        "end_frame": 136
+      },
+      {
+        "id": "hold",
+        "start_frame": 153,
+        "end_frame": 180
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "title_mode": "integrated",
+    "background": {
+      "variant": "aurora",
+      "seed": "scn_01M5FNG1GCMH198FH1N4N8MCSP",
+      "focus": {
+        "x": 0.86,
+        "y": 0.42
+      }
+    },
+    "timeline": {
+      "orientation": "h",
+      "highlightLast": true,
+      "accentIndex": 0,
+      "width": 1520,
+      "height": 620,
+      "layout": {
+        "x": 0.06,
+        "y": 0.06,
+        "w": 0.88,
+        "h": 0.64
+      },
+      "items": [
+        {
+          "date": "2015",
+          "label": "Основание компании",
+          "note": "команда из 3 человек"
+        },
+        {
+          "date": "2018",
+          "label": "Продукт v1.0",
+          "note": "первый крупный клиент"
+        },
+        {
+          "date": "2020",
+          "label": "Офис в Берлине",
+          "note": "международный рынок"
+        },
+        {
+          "date": "2023",
+          "label": "100 000 пользователей",
+          "note": "активная аудитория"
+        },
+        {
+          "date": "2025",
+          "label": "Выход на IPO",
+          "note": "публичная компания"
+        }
+      ]
+    },
+    "conclusion": {
+      "text": "10 лет, 5 вех: от команды из 3 человек до IPO",
+      "size": "h2",
+      "align": "center",
+      "layout": {
+        "x": 0.1,
+        "y": 0.78,
+        "w": 0.8,
+        "h": 0.12
+      }
+    },
+    "camera": [
+      {
+        "frame": 0,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "frame": 120,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "frame": 179,
+        "scale": 1.04,
+        "x": 40,
+        "y": -10
+      }
+    ]
+  }
+}

@@ -40,6 +40,13 @@ export class Canvas {
     }
     return this;
   }
+  /** Прозрачная область (alpha 0): так в PNG выглядит край сцены, открытый камерой. */
+  clear(x: number, y: number, w: number, h: number): this {
+    for (let yy = Math.max(0, y); yy < Math.min(this.height, y + h); yy++) {
+      for (let xx = Math.max(0, x); xx < Math.min(this.width, x + w); xx++) this.data.fill(0, (yy * this.width + xx) * 4, (yy * this.width + xx) * 4 + 4);
+    }
+    return this;
+  }
   png(colorType: 2 | 6 = 6): Buffer {
     const p = new PNG({ width: this.width, height: this.height, colorType, inputColorType: 6, inputHasAlpha: true });
     p.data = Buffer.from(this.data);

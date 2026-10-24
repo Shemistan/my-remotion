@@ -3,8 +3,8 @@
 import type { StyleBible } from "@ms/contracts";
 import { fpsFrames, frames } from "../easing.js";
 
-/** FlowGraph: задержка прорисовки ребра после входа его узлов. */
-export const edgeDelay = (s: StyleBible) => frames(s, 6);
+/** FlowGraph: задержка прорисовки ребра после входа его узлов (расчёт — graph-timing.ts). */
+export { edgeDelay } from "./graph-timing.js";
 
 /**
  * KineticText: шаг между частями (словами или буквами). `stagger` из props — константа

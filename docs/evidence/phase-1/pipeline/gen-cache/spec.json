@@ -1,0 +1,349 @@
+{
+  "title": "Кэш: промах, запись, попадание",
+  "purpose": "Тот же запрос второй раз берётся из кэша: 2 мс вместо 120 мс — в 60 раз быстрее",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "elements": [
+    {
+      "id": "node-client",
+      "kind": "card",
+      "role": "node: клиент, источник запроса",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "label": "Клиент",
+        "caption": "приложение",
+        "size": "body",
+        "elevation": 2,
+        "enter": "slide",
+        "slot": true,
+        "flash_on": "e-req (back)"
+      },
+      "layout": {
+        "x": 0.06,
+        "y": 0.18,
+        "w": 0.2,
+        "h": 0.3
+      }
+    },
+    {
+      "id": "node-cache",
+      "kind": "card",
+      "role": "node: кэш, главный узел схемы",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "label": "Кэш",
+        "caption": "Redis · память",
+        "size": "h2",
+        "elevation": 3,
+        "enter": "pop",
+        "slot": true,
+        "flash_on": "e-req (forward)"
+      },
+      "layout": {
+        "x": 0.38,
+        "y": 0.12,
+        "w": 0.24,
+        "h": 0.42
+      }
+    },
+    {
+      "id": "node-db",
+      "kind": "card",
+      "role": "node: база данных, медленный источник",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "label": "База данных",
+        "caption": "PostgreSQL · диск",
+        "size": "body",
+        "elevation": 1,
+        "enter": "blur",
+        "flash_on": "e-db (forward)",
+        "dim_during": "во время попадания opacity 0.45"
+      },
+      "layout": {
+        "x": 0.72,
+        "y": 0.18,
+        "w": 0.22,
+        "h": 0.3
+      }
+    },
+    {
+      "id": "cache-graph",
+      "kind": "graph",
+      "role": "схема системы: опора сцены",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "FlowGraph",
+        "edges": [
+          {
+            "id": "e-req",
+            "from": "node-client",
+            "to": "node-cache"
+          },
+          {
+            "id": "e-db",
+            "from": "node-cache",
+            "to": "node-db"
+          }
+        ],
+        "flows": [
+          {
+            "edge": "e-req",
+            "direction": "forward",
+            "beat": "miss-request",
+            "repeat": false,
+            "travel": 12
+          },
+          {
+            "edge": "e-db",
+            "direction": "forward",
+            "beat": "miss-to-db",
+            "repeat": false,
+            "travel": 22
+          },
+          {
+            "edge": "e-db",
+            "direction": "back",
+            "beat": "write-cache",
+            "repeat": false,
+            "travel": 22
+          },
+          {
+            "edge": "e-req",
+            "direction": "back",
+            "beat": "miss-response",
+            "repeat": false,
+            "travel": 12
+          },
+          {
+            "edge": "e-req",
+            "direction": "forward",
+            "beat": "hit-request",
+            "repeat": false,
+            "travel": 10
+          },
+          {
+            "edge": "e-req",
+            "direction": "back",
+            "beat": "hit-response",
+            "repeat": false,
+            "travel": 10
+          }
+        ]
+      },
+      "layout": {
+        "x": 0.04,
+        "y": 0.04,
+        "w": 0.92,
+        "h": 0.56
+      }
+    },
+    {
+      "id": "status-cache",
+      "kind": "shape",
+      "role": "статус процесса в кэше",
+      "entrance": "pop",
+      "depth_layer": 2,
+      "content": {
+        "component": "StatusChip",
+        "anchor": {
+          "node": "node-cache",
+          "side": "top"
+        },
+        "states": [
+          {
+            "text": "Запрос",
+            "tone": "neutral",
+            "on": 26
+          },
+          {
+            "text": "Промах",
+            "tone": "negative",
+            "on": "e-req"
+          },
+          {
+            "text": "Запись",
+            "tone": "accent",
+            "on": "e-db"
+          },
+          {
+            "text": "Попадание",
+            "tone": "positive",
+            "on": "e-req"
+          }
+        ]
+      }
+    },
+    {
+      "id": "token-request",
+      "kind": "shape",
+      "role": "данные: запрос",
+      "entrance": "none",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "GET /user/42",
+        "edge": "e-req",
+        "stay": false
+      }
+    },
+    {
+      "id": "token-write",
+      "kind": "shape",
+      "role": "данные: запись в кэш",
+      "entrance": "none",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "Алиса · Pro",
+        "edge": "e-db",
+        "reverse": true,
+        "dock": "slot",
+        "stay": true
+      }
+    },
+    {
+      "id": "token-response",
+      "kind": "shape",
+      "role": "данные: первый ответ",
+      "entrance": "none",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "Алиса · Pro",
+        "edge": "e-req",
+        "reverse": true,
+        "stay": false
+      }
+    },
+    {
+      "id": "token-hit-response",
+      "kind": "shape",
+      "role": "данные: ответ из кэша",
+      "entrance": "none",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "Алиса · Pro",
+        "edge": "e-req",
+        "reverse": true,
+        "dock": "slot",
+        "stay": true
+      }
+    },
+    {
+      "id": "timer-miss",
+      "kind": "number",
+      "role": "контекст: время первого запроса",
+      "entrance": "count",
+      "depth_layer": 1,
+      "content": {
+        "component": "AnimatedNumber",
+        "prefix": "1-й запрос · ",
+        "from": 0,
+        "to": 120,
+        "suffix": " мс",
+        "locale": "ru",
+        "size": "body"
+      },
+      "layout": {
+        "x": 0.06,
+        "y": 0.63,
+        "w": 0.4,
+        "h": 0.08
+      }
+    },
+    {
+      "id": "timer-hit",
+      "kind": "number",
+      "role": "контекст: время повтора",
+      "entrance": "count",
+      "depth_layer": 1,
+      "content": {
+        "component": "AnimatedNumber",
+        "prefix": "Повтор · ",
+        "from": 0,
+        "to": 2,
+        "suffix": " мс",
+        "locale": "ru",
+        "size": "body"
+      },
+      "layout": {
+        "x": 0.54,
+        "y": 0.63,
+        "w": 0.4,
+        "h": 0.08
+      }
+    },
+    {
+      "id": "hero-verdict",
+      "kind": "text",
+      "role": "акцент: герой, вывод",
+      "entrance": "mask",
+      "depth_layer": 1,
+      "content": {
+        "component": "KineticText",
+        "text": "В 60 раз быстрее",
+        "size": "display",
+        "align": "center",
+        "highlight": [
+          "60"
+        ]
+      },
+      "layout": {
+        "x": 0.1,
+        "y": 0.76,
+        "w": 0.8,
+        "h": 0.18
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "nodes-in",
+      "start_frame": 0,
+      "end_frame": 26,
+      "action": "graph-entrance",
+      "description": "Узлы каскадом, затем рёбра.",
+      "element_ids": [
+        "cache-graph",
+        "node-client",
+        "node-cache",
+        "node-db"
+      ]
+    },
+    {
+      "id": "hold",
+      "start_frame": 152,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "Вывод дышит.",
+      "element_ids": [
+        "hero-verdict"
+      ]
+    }
+  ],
+  "composition": {
+    "archetype": "network-centric",
+    "idea": "Схема клиент → кэш → база на чертеже. Один и тот же запрос проходит дважды: сначала долгим путём до базы и обратно, по дороге ответ ложится в ячейку кэша, потом коротким путём только до кэша. Взгляд сначала уходит вправо по длинному пути, потом возвращается по короткому и опускается к выводу.",
+    "focus": "Камера стоит: взгляд ведут импульсы и токены данных. Статус над кэшем меняется на месте, вспышки узлов передают акцент. В конце фокус переходит вниз, на вывод «В 60 раз быстрее».",
+    "transitions": "Узлы и рёбра собираются, затем по ним идёт запрос. Статус над кэшем сменяется в одной точке: Запрос → Промах → Запись → Попадание. Токен «Алиса · Pro» остаётся в ячейке кэша до конца сцены. Во время попадания база гаснет. Таймеры фиксируют 120 мс и 2 мс, после чего шторкой входит вывод.",
+    "title_mode": "none",
+    "background": {
+      "variant": "blueprint",
+      "focus": {
+        "x": 0.5,
+        "y": 0.35
+      },
+      "seed": "scn_01M5FK5TEN8J4CY4TEAN9EN0MW"
+    }
+  }
+}

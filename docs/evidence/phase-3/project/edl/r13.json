@@ -1,0 +1,452 @@
+{
+  "schema_version": 1,
+  "edl_id": "edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C",
+  "revision": 13,
+  "parent_revision": 12,
+  "media_id": "med_01M5Q5QXD2ANNG55C9C25XYKE7",
+  "media_sha256": "9fdeee13d9878f4a90affd60873b84acdd172503e61393dc7319f841b1a9c136",
+  "transcript_id": "trn_01M5Q5WS2K6KVYV1X1G2X6TMZP",
+  "timeline_fps": {
+    "num": 30,
+    "den": 1
+  },
+  "decisions": [
+    {
+      "id": "agt_r1_1",
+      "reason": "bad_take",
+      "origin": "agent",
+      "status": "rejected",
+      "start_word_id": "w_000001",
+      "end_word_id": "w_000022",
+      "source_start_us": 0,
+      "source_end_us": 12566667,
+      "confidence": 0.75,
+      "explanation": "Три дубля одной фразы; оставлен последний, где она идёт дальше без обрыва. — «принято закрывать соединение и отправлять просто ошибку и в таком случае принято просто закрывать соединения и отправлять ошибку и в таком случае»"
+    },
+    {
+      "id": "rep_r1_1",
+      "reason": "repeat",
+      "origin": "detector",
+      "status": "accepted",
+      "start_word_id": "w_000035",
+      "end_word_id": "w_000037",
+      "source_start_us": 21933334,
+      "source_end_us": 24966667,
+      "confidence": 0.8,
+      "explanation": "повтор «например незнакомый флаг»: оставлено последнее"
+    },
+    {
+      "id": "agt_r1_2",
+      "reason": "repeat",
+      "origin": "agent",
+      "status": "rejected",
+      "start_word_id": "w_000046",
+      "end_word_id": "w_000049",
+      "source_start_us": 30000000,
+      "source_end_us": 38033334,
+      "confidence": 0.85,
+      "explanation": "Фраза «или ошибки самой задачи» сказана дважды подряд. — «или ошибки самой задачи»"
+    },
+    {
+      "id": "pau_r1_1",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 53000000,
+      "source_end_us": 55833334,
+      "confidence": 0.9,
+      "explanation": "пауза 3,2 с между словами"
+    },
+    {
+      "id": "pau_r1_2",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 62800000,
+      "source_end_us": 64600000,
+      "confidence": 0.9,
+      "explanation": "пауза 2,0 с между словами"
+    },
+    {
+      "id": "pau_r1_3",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 69166667,
+      "source_end_us": 71266667,
+      "confidence": 0.9,
+      "explanation": "пауза 2,5 с между словами"
+    },
+    {
+      "id": "pau_r1_4",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 76533334,
+      "source_end_us": 101300000,
+      "confidence": 0.9,
+      "explanation": "пауза 25,2 с между словами"
+    },
+    {
+      "id": "pau_r1_5",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 120333334,
+      "source_end_us": 121100000,
+      "confidence": 0.7,
+      "explanation": "пауза 1,2 с между словами"
+    },
+    {
+      "id": "pau_r1_6",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 122833334,
+      "source_end_us": 124833334,
+      "confidence": 0.9,
+      "explanation": "пауза 2,4 с между словами"
+    },
+    {
+      "id": "agt_r1_3",
+      "reason": "false_start",
+      "origin": "agent",
+      "status": "accepted",
+      "start_word_id": "w_000139",
+      "end_word_id": "w_000141",
+      "source_start_us": 135333334,
+      "source_end_us": 138133334,
+      "confidence": 0.85,
+      "explanation": "Оборванная фраза «Это сообщение еще...» без продолжения. — «Это сообщение еще»"
+    },
+    {
+      "id": "pau_r1_7",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 138433334,
+      "source_end_us": 144966667,
+      "confidence": 0.9,
+      "explanation": "пауза 6,9 с между словами"
+    },
+    {
+      "id": "agt_r1_4",
+      "reason": "bad_take",
+      "origin": "agent",
+      "status": "accepted",
+      "start_word_id": "w_000142",
+      "end_word_id": "w_000148",
+      "source_start_us": 145066667,
+      "source_end_us": 151800000,
+      "confidence": 0.85,
+      "explanation": "Первый дубль фразы, следом сказан более чистый. — «Теперь соберем весь наш пройденный разговор целиком»"
+    },
+    {
+      "id": "pau_r1_8",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 152100000,
+      "source_end_us": 152666667,
+      "confidence": 0.7,
+      "explanation": "пауза 1,0 с между словами"
+    },
+    {
+      "id": "pau_r1_9",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 163566667,
+      "source_end_us": 166666667,
+      "confidence": 0.9,
+      "explanation": "пауза 3,5 с между словами"
+    },
+    {
+      "id": "pau_r1_10",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 170200000,
+      "source_end_us": 174366667,
+      "confidence": 0.9,
+      "explanation": "пауза 4,6 с между словами"
+    },
+    {
+      "id": "pau_r1_11",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 177966667,
+      "source_end_us": 178433334,
+      "confidence": 0.7,
+      "explanation": "пауза 0,9 с между словами"
+    },
+    {
+      "id": "rep_r1_2",
+      "reason": "repeat",
+      "origin": "detector",
+      "status": "rejected",
+      "start_word_id": "w_000185",
+      "end_word_id": "w_000185",
+      "source_start_us": 187166667,
+      "source_end_us": 187766667,
+      "confidence": 0.3,
+      "explanation": "повтор «sync,»: оставлено последнее",
+      "agent_note": "«sync, sync, ask, ask» — перечисление шагов рукопожатия, не случайный повтор."
+    },
+    {
+      "id": "rep_r1_3",
+      "reason": "repeat",
+      "origin": "detector",
+      "status": "rejected",
+      "start_word_id": "w_000187",
+      "end_word_id": "w_000187",
+      "source_start_us": 188233334,
+      "source_end_us": 188600000,
+      "confidence": 0.3,
+      "explanation": "повтор «ask,»: оставлено последнее",
+      "agent_note": "«ask, ask» — часть перечисления шагов рукопожатия, убирать не нужно."
+    },
+    {
+      "id": "pau_r1_12",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 189233334,
+      "source_end_us": 191500000,
+      "confidence": 0.9,
+      "explanation": "пауза 2,7 с между словами"
+    },
+    {
+      "id": "agt_r1_5",
+      "reason": "bad_take",
+      "origin": "agent",
+      "status": "accepted",
+      "start_word_id": "w_000189",
+      "end_word_id": "w_000194",
+      "source_start_us": 191600000,
+      "source_end_us": 196166667,
+      "confidence": 0.8,
+      "explanation": "Первый дубль про hello, второй полнее и чище. — «Потом отправляется сообщение, что hello, привет»"
+    },
+    {
+      "id": "agt_r1_6",
+      "reason": "false_start",
+      "origin": "agent",
+      "status": "accepted",
+      "start_word_id": "w_000206",
+      "end_word_id": "w_000208",
+      "source_start_us": 200766667,
+      "source_end_us": 203133334,
+      "confidence": 0.8,
+      "explanation": "Фраза начата и тут же повторена: «И отвечает, и наш воркер отвечает». — «И отвечает, и»"
+    },
+    {
+      "id": "pau_r1_13",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 205466667,
+      "source_end_us": 208066667,
+      "confidence": 0.9,
+      "explanation": "пауза 3,0 с между словами"
+    },
+    {
+      "id": "pau_r1_14",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 218400000,
+      "source_end_us": 219633334,
+      "confidence": 0.9,
+      "explanation": "пауза 1,6 с между словами"
+    },
+    {
+      "id": "agt_r1_7",
+      "reason": "bad_take",
+      "origin": "agent",
+      "status": "accepted",
+      "start_word_id": "w_000228",
+      "end_word_id": "w_000237",
+      "source_start_us": 219733334,
+      "source_end_us": 224433334,
+      "confidence": 0.6,
+      "explanation": "Мысль сказана дважды, второй вариант законченный. — «И тут мы видим, что результат задачи от номер 2,»"
+    },
+    {
+      "id": "pau_r1_15",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 239366667,
+      "source_end_us": 240400000,
+      "confidence": 0.7,
+      "explanation": "пауза 1,4 с между словами"
+    },
+    {
+      "id": "agt_r1_8",
+      "reason": "bad_take",
+      "origin": "agent",
+      "status": "accepted",
+      "start_word_id": "w_000273",
+      "end_word_id": "w_000285",
+      "source_start_us": 251133334,
+      "source_end_us": 258566667,
+      "confidence": 0.7,
+      "explanation": "Первый дубль «Даже пока он спит…», затем исправленный повтор. — «Даже пока он спит, то есть выполняет условно какую-то задачу То есть»"
+    },
+    {
+      "id": "agt_r1_9",
+      "reason": "bad_take",
+      "origin": "agent",
+      "status": "accepted",
+      "start_word_id": "w_000298",
+      "end_word_id": "w_000300",
+      "source_start_us": 269066667,
+      "source_end_us": 271833334,
+      "confidence": 0.7,
+      "explanation": "Фраза о закрытии соединения сказана дважды, оставлен чистый дубль. — «Диспетчер закрывает соединение.»"
+    },
+    {
+      "id": "pau_r1_16",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 272133334,
+      "source_end_us": 274066667,
+      "confidence": 0.9,
+      "explanation": "пауза 2,3 с между словами"
+    },
+    {
+      "id": "pau_r1_17",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 283633334,
+      "source_end_us": 285033334,
+      "confidence": 0.9,
+      "explanation": "пауза 1,8 с между словами"
+    },
+    {
+      "id": "pau_r1_18",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 291433334,
+      "source_end_us": 294333334,
+      "confidence": 0.9,
+      "explanation": "пауза 3,3 с между словами"
+    },
+    {
+      "id": "pau_r1_19",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 324500000,
+      "source_end_us": 325633334,
+      "confidence": 0.9,
+      "explanation": "пауза 1,5 с между словами"
+    },
+    {
+      "id": "pau_r1_20",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 328566667,
+      "source_end_us": 333366667,
+      "confidence": 0.9,
+      "explanation": "пауза 5,2 с между словами"
+    },
+    {
+      "id": "pau_r1_21",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 343433334,
+      "source_end_us": 346666667,
+      "confidence": 0.9,
+      "explanation": "пауза 3,7 с между словами"
+    },
+    {
+      "id": "pau_r1_22",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 351400000,
+      "source_end_us": 355366667,
+      "confidence": 0.9,
+      "explanation": "пауза 4,4 с между словами"
+    },
+    {
+      "id": "rep_r1_4",
+      "reason": "repeat",
+      "origin": "detector",
+      "status": "accepted",
+      "start_word_id": "w_000361",
+      "end_word_id": "w_000361",
+      "source_start_us": 359433334,
+      "source_end_us": 362733334,
+      "confidence": 0.8,
+      "explanation": "повтор «рукопожатие»: оставлено последнее"
+    },
+    {
+      "id": "pau_r1_23",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 365966667,
+      "source_end_us": 367500000,
+      "confidence": 0.9,
+      "explanation": "пауза 1,7 с между словами"
+    },
+    {
+      "id": "agt_r1_10",
+      "reason": "false_start",
+      "origin": "agent",
+      "status": "accepted",
+      "start_word_id": "w_000366",
+      "end_word_id": "w_000368",
+      "source_start_us": 367600000,
+      "source_end_us": 369033334,
+      "confidence": 0.8,
+      "explanation": "Оборванное начало «если есть как», затем фраза начата заново. — «если есть как»"
+    },
+    {
+      "id": "pau_r1_24",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 383666667,
+      "source_end_us": 387333334,
+      "confidence": 0.9,
+      "explanation": "пауза 4,1 с между словами"
+    },
+    {
+      "id": "pau_r1_25",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 395600000,
+      "source_end_us": 401366667,
+      "confidence": 0.9,
+      "explanation": "пауза 6,2 с между словами"
+    },
+    {
+      "id": "pau_r1_26",
+      "reason": "pause",
+      "origin": "detector",
+      "status": "accepted",
+      "source_start_us": 406533334,
+      "source_end_us": 407966667,
+      "confidence": 0.9,
+      "explanation": "пауза 1,7 с между словами"
+    }
+  ],
+  "ops": [
+    {
+      "op": "set_status",
+      "decision_id": "agt_r1_9",
+      "status": "accepted"
+    }
+  ]
+}

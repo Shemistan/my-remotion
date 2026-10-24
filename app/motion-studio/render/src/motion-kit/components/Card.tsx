@@ -5,21 +5,27 @@ import type { Beat, StyleBible } from "@ms/contracts";
 import type { CSSProperties, ReactNode } from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { enterStyle } from "../choreo/enter.js";
-import { springAt } from "../easing.js";
+import { fpsFrames, springAt } from "../easing.js";
 import { CLAMP, clamp01 } from "../internal.js";
 import { amplitudeOf } from "../style/intensity.js";
 import { depthOf } from "../style/resolve.js";
 import { useStyle } from "../style.js";
 import { type Elevation, accent, alpha, isDark, radius, shadow, space, surfaceAt } from "../tokens.js";
 
-export type CardEnter = "rise" | "scale" | "flip" | "none";
+/**
+ * Вход карточки (и узла FlowGraph): rise — подъём с перелётом, scale — из глубины с
+ * фокусом, flip — поворот к зрителю вокруг нижней кромки, pop — «выстрел» из точки с
+ * перелётом, slide — въезд слева, swing — дверца вокруг левой кромки, blur — проявление
+ * из расфокуса, fade — тихое проявление, none — сразу на месте.
+ */
+export type CardEnter = "rise" | "scale" | "flip" | "pop" | "slide" | "swing" | "blur" | "fade" | "none";
 
 export interface CardProps {
   elevation: Elevation;
   children?: ReactNode;
   /** Бит входа; без бита карточка видна сразу. */
   beat?: Pick<Beat, "start_frame" | "end_frame">;
-  /** rise — подъём с перелётом, scale — из глубины, flip — поворот к зрителю (по умолчанию: flip для 2–3, rise для 0–1). */
+  /** Вид входа (CardEnter; по умолчанию: flip для 2–3, rise для 0–1). */
   enter?: CardEnter;
   /** Задержка входа от начала бита, кадры. */
   delay?: number;
@@ -57,7 +63,8 @@ export function cardSurface(s: StyleBible, elevation: number): CSSProperties {
  */
 export function cardEnterStyle(s: StyleBible, frame: number, fps: number, start: number, enter: CardEnter): CSSProperties {
   if (enter === "none") return {};
-  const p = springAt(frame, fps, s, start, enter === "rise" ? "bouncy" : "snappy");
+  const role = enter === "rise" || enter === "swing" ? "bouncy" : enter === "pop" ? "pop" : enter === "blur" || enter === "fade" ? "soft" : "snappy";
+  const p = springAt(frame, fps, s, start, role);
   const fade = clamp01(p * 1.6);
   const amp = amplitudeOf(s);
   const dk = DEPTH_K[depthOf(s)];
@@ -67,6 +74,27 @@ export function cardEnterStyle(s: StyleBible, frame: number, fps: number, start:
     const sc = interpolate(p, [0, 1], [0.78, 1]);
     return { opacity: fade, transform: `scale(${sc.toFixed(4)})`, filter: `blur(${((1 - clamp01(p)) * 10).toFixed(2)}px)` };
   }
+  if (enter === "pop") {
+    // из точки: масштаб от 0.35 с перелётом пружины pop, видимость — почти сразу
+    const sc = Math.max(0, 1 - 0.65 * (1 - p) * Math.min(1.2, amp));
+    return { opacity: clamp01(p * 3), transform: `scale(${sc.toFixed(4)})`, transformOrigin: "50% 50%" };
+  }
+  if (enter === "slide") {
+    // въезд слева с лёгким смазом по ходу
+    const tx = (1 - p) * -110 * amp;
+    return { opacity: fade, transform: `translateX(${tx.toFixed(2)}px)`, filter: `blur(${(Math.abs(1 - clamp01(p)) * 6).toFixed(2)}px)` };
+  }
+  if (enter === "swing") {
+    // дверца: поворот вокруг левой кромки в перспективе, с перелётом
+    const ry = (1 - p) * -78 * dk;
+    return { opacity: fade, transform: `perspective(1200px) rotateY(${ry.toFixed(2)}deg)`, transformOrigin: "0% 50%" };
+  }
+  if (enter === "blur") {
+    // проявление из расфокуса: размытие и лёгкое уменьшение с 1.06
+    const sc = 1 + 0.06 * (1 - clamp01(p));
+    return { opacity: clamp01(p * 1.25), transform: `scale(${sc.toFixed(4)})`, filter: `blur(${((1 - clamp01(p)) * 16).toFixed(2)}px)` };
+  }
+  if (enter === "fade") return { opacity: clamp01(p) };
   const rx = (1 - p) * 28 * dk;
   const ty = (1 - p) * 50 * amp;
   const sc = interpolate(p, [0, 1], [0.9, 1]);
@@ -77,6 +105,11 @@ export function cardEnterStyle(s: StyleBible, frame: number, fps: number, start:
   };
 }
 
+/** Кадры прорисовки линии акцента: +6…+26 при 30 fps от входа, в секундах при любом fps. */
+export function cardAccentLine(s: StyleBible, start: number): [number, number] {
+  return [start + fpsFrames(s, 6), start + fpsFrames(s, 26)];
+}
+
 export function Card({ elevation, children, beat, enter, delay = 0, accentIndex, width, height, padding, style }: CardProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
@@ -84,7 +117,7 @@ export function Card({ elevation, children, beat, enter, delay = 0, accentIndex,
   const mode: CardEnter = beat ? (enter ?? (elevation >= 2 ? "flip" : "rise")) : "none";
   const start = (beat?.start_frame ?? 0) + delay;
   const anim = cardEnterStyle(s, frame, fps, start, mode);
-  const line = accentIndex === undefined ? 0 : interpolate(frame, [start + 6, start + 26], [0, 1], CLAMP);
+  const line = accentIndex === undefined ? 0 : interpolate(frame, cardAccentLine(s, start), [0, 1], CLAMP);
   return (
     <div
       style={{

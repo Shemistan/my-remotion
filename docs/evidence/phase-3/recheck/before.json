@@ -1,0 +1,212 @@
+{
+  "plan_revision": 14,
+  "edl_revision": 14,
+  "target": {
+    "id": "sp_006",
+    "status": "accepted",
+    "origin": "agent",
+    "anchor_ids": [
+      "a_0009",
+      "a_0010"
+    ],
+    "start_word_id": "w_000330",
+    "end_word_id": "w_000346",
+    "edited": {
+      "start_us": 220076333,
+      "end_us": 233156333
+    },
+    "source": {
+      "start_us": 324409666,
+      "end_us": 343423000
+    },
+    "frames": {
+      "start": 6602,
+      "end": 6995
+    },
+    "segment_ids": [
+      "seg_0041",
+      "seg_0042",
+      "seg_0043"
+    ],
+    "purpose": "Понять, что обратную совместимость держат magic и версия в первых 3 байтах заголовка",
+    "visual_type": "system-structure",
+    "composition_mode": "split_screen",
+    "zone": "split_left",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "w": 0.5,
+      "h": 1
+    },
+    "key_terms": [
+      {
+        "text": "обратная совместимость",
+        "word_id": "w_000332",
+        "edited_at_us": 221316333
+      },
+      {
+        "text": "3 байта",
+        "word_id": "w_000345",
+        "edited_at_us": 231776333
+      }
+    ],
+    "metaphor": "полоса байт, первые три выделены",
+    "complexity": 2,
+    "usefulness": 4,
+    "effort": 3,
+    "visual_load": 3,
+    "evidence": [
+      {
+        "quote": "Это называется обратная совместимость.",
+        "start_word_id": "w_000330",
+        "end_word_id": "w_000333",
+        "edited": {
+          "start_us": 220276333,
+          "end_us": 222816333
+        }
+      },
+      {
+        "quote": "Magic и версия всегда на своем месте в первых трех байтах.",
+        "start_word_id": "w_000336",
+        "end_word_id": "w_000346",
+        "edited": {
+          "start_us": 225256333,
+          "end_us": 232856333
+        }
+      }
+    ],
+    "face_overlap": {
+      "ratio": 0.458327
+    },
+    "style_id": "sty_01M5Q9RJHHY72N7GB521ERX9KT"
+  },
+  "others": [
+    {
+      "id": "sp_001",
+      "edited": {
+        "start_us": 51613333,
+        "end_us": 61493333
+      },
+      "source": {
+        "start_us": 57480000,
+        "end_us": 69160000
+      },
+      "frames": {
+        "start": 1548,
+        "end": 1845
+      }
+    },
+    {
+      "id": "sp_002",
+      "edited": {
+        "start_us": 87440001,
+        "end_us": 94980001
+      },
+      "source": {
+        "start_us": 122740000,
+        "end_us": 132280000
+      },
+      "frames": {
+        "start": 2623,
+        "end": 2850
+      }
+    },
+    {
+      "id": "sp_003",
+      "edited": {
+        "start_us": 109546668,
+        "end_us": 113166668
+      },
+      "source": {
+        "start_us": 163480000,
+        "end_us": 170200000
+      },
+      "frames": {
+        "start": 3286,
+        "end": 3396
+      }
+    },
+    {
+      "id": "sp_007",
+      "edited": {
+        "start_us": 251409666,
+        "end_us": 259929666
+      },
+      "source": {
+        "start_us": 375143000,
+        "end_us": 383663000
+      },
+      "frames": {
+        "start": 7542,
+        "end": 7798
+      }
+    },
+    {
+      "id": "sp_008",
+      "edited": {
+        "start_us": 273282999,
+        "end_us": 283882999
+      },
+      "source": {
+        "start_us": 406449667,
+        "end_us": 418483000
+      },
+      "frames": {
+        "start": 8198,
+        "end": 8517
+      }
+    },
+    {
+      "id": "sp_009",
+      "edited": {
+        "start_us": 63713333,
+        "end_us": 66773333
+      },
+      "source": {
+        "start_us": 73480000,
+        "end_us": 101306666
+      },
+      "frames": {
+        "start": 1911,
+        "end": 2004
+      }
+    }
+  ],
+  "agent": {
+    "jobs": 12,
+    "with_agent": [
+      {
+        "id": "job_01M5Q5ZMHG5PVJS73RQEQ2Z75C",
+        "type": "roughcut.propose",
+        "calls": 1
+      },
+      {
+        "id": "job_01M5Q9F8JCFYGW5JT5R4Z694R6",
+        "type": "footage.analyze",
+        "calls": 1
+      },
+      {
+        "id": "job_01M5Q9HD3Z31ZHF08HEHJE5SHP",
+        "type": "semantic.analyze",
+        "calls": 1
+      },
+      {
+        "id": "job_01M5Q9M2EDFZ5T091SJDSRRVHE",
+        "type": "footage.analyze",
+        "calls": 1
+      },
+      {
+        "id": "job_01M5Q9NFFWHS3X3WD2QRPTYQBJ",
+        "type": "semantic.analyze",
+        "calls": 1
+      },
+      {
+        "id": "job_01M5Q9QE1DQRDGY5Q5KA57G3TM",
+        "type": "plan.visual",
+        "calls": 1
+      }
+    ],
+    "agent_calls": 6,
+    "agent_runs": 0
+  }
+}

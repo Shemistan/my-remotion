@@ -1,0 +1,107 @@
+// applyParamEdit (Task 18): правка параметров без агентов кода — тайминги, палитра донора,
+// глубина, патч настроек; props версии среза уводят правку в код (M18).
+import { describe, expect, it } from "vitest";
+import { applyParamEdit, hardcodedFrameProps } from "../../src/pipeline/param-edit.js";
+import { history, plan, props180, settings180, sliceProps, spec180 } from "./edit-fixtures.js";
+
+const v1 = { id: "ver_v1" };
+
+describe("applyParamEdit", () => {
+  it("медленнее на 25 % + палитра v1 + глубина 2: spec, props.timing и settings — 240 кадров, палитра донора, depth 2", () => {
+    const r = applyParamEdit({ spec: spec180, props: props180, settings: settings180 }, plan({ path: "param", timing_scale: 1 / 0.75, borrow: [{ from_version_id: v1.id, what: "palette" }], param_patch: { style: { depth: 2 } } }), history);
+    if (r.kind !== "param") throw new Error("ожидался param");
+    expect(r.spec.duration_frames).toBe(240);
+    expect(r.props.timing.duration_frames).toBe(240);
+    expect(r.settings.duration_frames).toBe(240);
+    expect(r.props.style.palette_overrides).toEqual(history[0]!.palette);
+    expect(r.spec.palette_overrides).toEqual(history[0]!.palette);
+    expect(r.props.style.depth).toBe(2);
+    // границы битов × 4/3 ± 1 кадр, props.timing.beats = биты spec
+    r.spec.beats.forEach((b, i) => expect(Math.abs(b.end_frame - Math.round(spec180.beats[i]!.end_frame / 0.75))).toBeLessThanOrEqual(1));
+    expect(r.props.timing.beats).toEqual(r.spec.beats.map((b) => ({ id: b.id, start_frame: b.start_frame, end_frame: b.end_frame })));
+    // ключи камеры — тоже
+    expect(r.spec.camera!.map((k) => k.frame)).toEqual([0, 200]);
+    expect(r.changed).toEqual(expect.arrayContaining(["timing", "palette", "depth"]));
+    // вход не меняется
+    expect(spec180.duration_frames).toBe(180);
+    expect(props180.style.depth).toBe(1);
+  });
+
+  it("props версии среза (не ScenePropsBase) → kind code, path code (M18)", () => {
+    const r = applyParamEdit({ spec: spec180, props: sliceProps, settings: settings180 }, plan({ path: "param", timing_scale: 2 }), history);
+    expect(r.kind).toBe("code");
+    if (r.kind === "code") expect(r.plan.path).toBe("code");
+  });
+
+  it("settingsPatch: duration_frames 240, style_preset, animation_intensity → props, spec и settings согласованы (H4)", () => {
+    const r = applyParamEdit({ spec: spec180, props: props180, settings: settings180 }, plan({ path: "param", changes: [] }), history, { duration_frames: 240, style_preset: "light-clean", animation_intensity: "calm" });
+    if (r.kind !== "param") throw new Error("ожидался param");
+    expect([r.spec.duration_frames, r.props.timing.duration_frames, r.settings.duration_frames]).toEqual([240, 240, 240]);
+    expect([r.spec.style_preset, r.props.style.preset, r.settings.style_preset]).toEqual(["light-clean", "light-clean", "light-clean"]);
+    expect([r.props.style.intensity, r.settings.animation_intensity]).toEqual(["calm", "calm"]);
+  });
+
+  it("param_patch.style.intensity и palette_overrides → props, settings и spec; content сливается", () => {
+    const r = applyParamEdit({ spec: spec180, props: props180, settings: settings180 }, plan({ param_patch: { style: { intensity: "energetic", palette_overrides: { accent: ["#a06bff"] } }, content: { title: "Агент" } } }), history);
+    if (r.kind !== "param") throw new Error("ожидался param");
+    expect(r.settings.animation_intensity).toBe("energetic");
+    expect(r.props.style.intensity).toBe("energetic");
+    expect(r.props.style.palette_overrides).toEqual({ accent: ["#a06bff"] });
+    expect(r.props.content).toEqual({ title: "Агент" });
+  });
+
+  it("донора нет в истории — ошибка; заимствование раскладки или типографики — код", () => {
+    expect(() => applyParamEdit({ spec: spec180, props: props180, settings: settings180 }, plan({ borrow: [{ from_version_id: "ver_nope", what: "palette" }] }), history)).toThrow(/ver_nope/);
+    expect(applyParamEdit({ spec: spec180, props: props180, settings: settings180 }, plan({ borrow: [{ from_version_id: "ver_v1", what: "layout" }] }), history).kind).toBe("code");
+  });
+
+  it("borrow depth и timing — из донора", () => {
+    const h = [{ ...history[0]!, depth: 3 as const, duration_frames: 240 }, history[1]!];
+    const r = applyParamEdit({ spec: spec180, props: props180, settings: settings180 }, plan({ borrow: [{ from_version_id: "ver_v1", what: "depth" }, { from_version_id: "ver_v1", what: "timing" }] }), h);
+    if (r.kind !== "param") throw new Error("ожидался param");
+    expect(r.props.style.depth).toBe(3);
+    expect(r.settings.duration_frames).toBe(240);
+  });
+
+  it("timing_scale масштабирует кадровые величины props.content (I2): flows[].travel, fan_stagger_frames; раскладка — как была", () => {
+    const props = { ...props180, content: { fan_stagger_frames: 4, flows: [{ edge: "e1", travel: 18, stagger_index: 1 }, { edge: "e2", travel: 14 }], nodes: [{ id: "orch", layout: { x: 0.4, y: 0.4, w: 0.2, h: 0.2 } }] } };
+    const r = applyParamEdit({ spec: spec180, props, settings: settings180 }, plan({ path: "param", timing_scale: 1 / 0.75 }), history);
+    if (r.kind !== "param") throw new Error("ожидался param");
+    const c = r.props.content as { fan_stagger_frames: number; flows: { travel: number; stagger_index?: number }[]; nodes: unknown[] };
+    expect(c.flows.map((f) => f.travel)).toEqual([24, 19]);
+    expect(c.flows[0]!.stagger_index).toBe(1);
+    expect(c.fan_stagger_frames).toBe(5);
+    expect(c.nodes).toEqual(props.content.nodes);
+    // смена длительности патчем (duration_frames) — тот же множитель
+    const p2 = applyParamEdit({ spec: spec180, props, settings: settings180 }, plan({ path: "param", changes: [] }), history, { duration_frames: 360 });
+    if (p2.kind !== "param") throw new Error("ожидался param");
+    expect((p2.props.content as { flows: { travel: number }[] }).flows[0]!.travel).toBe(36);
+  });
+
+  it("M-R2: кадровые пропы kit в content (enterAt, until) масштабируются; числа под временными именами вне договора — предупреждение", () => {
+    const props = { ...props180, content: { nodes: [{ id: "n1", enterAt: 30 }], tokens: [{ edge: "e1", until: 150 }], intro: { start: 12, lead: 4 } } };
+    const r = applyParamEdit({ spec: spec180, props, settings: settings180 }, plan({ path: "param", timing_scale: 1 / 0.75 }), history);
+    if (r.kind !== "param") throw new Error("ожидался param");
+    const c = r.props.content as { nodes: { enterAt: number }[]; tokens: { until: number }[]; intro: { start: number } };
+    expect(c.nodes[0]!.enterAt).toBe(40);
+    expect(c.tokens[0]!.until).toBe(200);
+    expect(c.intro.start).toBe(12);
+    expect(r.warnings.join("\n")).toMatch(/content\.intro\.start.*content\.intro\.lead|content\.intro\.lead.*content\.intro\.start/);
+    // темп не менялся — предупреждения нет
+    const same = applyParamEdit({ spec: spec180, props, settings: settings180 }, plan({ path: "param", param_patch: { style: { depth: 2 } } }), history);
+    if (same.kind !== "param") throw new Error("ожидался param");
+    expect(same.warnings).toEqual([]);
+  });
+
+  it("M-R2: кадры числом прямо в коде сцены (enterAt={20}, until={150}) — найдены для предупреждения; выражения и прочие пропы — нет", () => {
+    const code = [
+      "<FlowGraph nodes={nodes} enterAt={20} />",
+      "<DataToken edge=\"e1\" until={ 150 } travel={t.travel} />",
+      "<Enter duration={12} index={i}>",
+      "<StatusChip states={s} at={x} size={48} />",
+      "<KineticText delay={4} stagger={2} />",
+    ].join("\n");
+    expect(hardcodedFrameProps(code)).toEqual(["enterAt={20}", "until={150}", "duration={12}", "delay={4}", "stagger={2}"]);
+    expect(hardcodedFrameProps("<Card size={3} />")).toEqual([]);
+  });
+});

@@ -3,7 +3,6 @@
 import type { StyleBible } from "@ms/contracts";
 import { Easing, spring } from "remotion";
 import { amplitudeOf, intensityScale } from "./style/intensity.js";
-import { fpsScaleOf } from "./style/resolve.js";
 
 export type EasingFn = (t: number) => number;
 export type EasingRole = keyof StyleBible["motion"]["easing"];
@@ -25,6 +24,8 @@ export const EASE = {
   inOutCubic: Easing.bezier(0.65, 0, 0.35, 1),
   /** Мягкий вход без перелёта. */
   outQuart: Easing.bezier(0.25, 1, 0.5, 1),
+  /** Быстрый старт, долгое торможение (мягче outQuart): шторка mask. */
+  outCubic: Easing.bezier(0.33, 1, 0.68, 1),
   linear: (t: number) => t,
 } as const;
 
@@ -50,16 +51,4 @@ export function springAt(frame: number, fps: number, s: StyleBible, start: numbe
   return spring({ frame: (frame - start) / time, fps, config: springConfig(s, role) });
 }
 
-/**
- * Свои длительности компонента (константы в кадрах при 30 fps) под fps и интенсивность
- * стиля: на 60 fps вдвое больше кадров, calm длиннее, energetic короче. Токены
- * `style.motion.*_frames` из useStyle() уже пересчитаны resolveStyle — их не оборачивать.
- */
-export function frames(s: StyleBible, n: number): number {
-  return Math.max(1, Math.round(n * intensityScale(s.motion.intensity).time * fpsScaleOf(s)));
-}
-
-/** Константа в кадрах при 30 fps → кадры при fps стиля (без интенсивности): ритмы вроде мигания. */
-export function fpsFrames(s: StyleBible, n: number): number {
-  return Math.max(1, Math.round(n * fpsScaleOf(s)));
-}
+export { fpsFrames, frames } from "./style/frames.js";

@@ -1,0 +1,232 @@
+{
+  "title": "10 000 → 1 000 000 пользователей",
+  "purpose": "За три года аудитория выросла в сто раз — от 10 000 до 1 000 000 пользователей.",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "composition": {
+    "archetype": "full-bleed-data",
+    "idea": "Плавная линия на всю ширину кадра поднимается из нижнего левого угла в верхний правый. Над ней крупное число ведёт ту же величину, что и голова линии. Взгляд скользит по годам вдоль кривой, а когда линия дорисована, возвращается к числу «1 000 000». На заднем плане: тёмный aurora-фон с медленно дрейфующими пятнами и редкими пылинками Particles слоя 0.",
+    "focus": "Вход: заголовок и число на «10 000». Рост: фокус на голове линии, число считает синхронно с ней. Финал: акцент переходит на героя-число, оно бьёт и дышит. Камера стоит до кадра 110, затем один медленный наезд до 1.04 к центру: усиливает остановку на итоге.",
+    "transitions": "Сетка и подписи лет проявляются под уже стоящим «10 000». Линия рисуется и тянет за собой счётчик. На финише прорисовки удар числа переходит в его дыхание. Линия, заливка и подписи остаются до конца приглушённой опорой."
+  },
+  "elements": [
+    {
+      "id": "headline",
+      "kind": "text",
+      "role": "опора: заголовок",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "component": "KineticText",
+        "text": "Пользователи за три года",
+        "size": "h2",
+        "mode": "words",
+        "enter": "rise",
+        "color": "text"
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.05,
+        "w": 0.5,
+        "h": 0.08
+      }
+    },
+    {
+      "id": "hero-number",
+      "kind": "number",
+      "role": "акцент: герой — итоговое число пользователей",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "component": "AnimatedNumber",
+        "from": 10000,
+        "to": 1000000,
+        "locale": "ru",
+        "size": "display",
+        "font": "display",
+        "align": "left",
+        "reserveWidth": true,
+        "bound_to": "growth-chart.head",
+        "enterAt": 14,
+        "emphasis": {
+          "component": "Emphasis",
+          "accentIndex": 0,
+          "loop": true,
+          "shape": "pill",
+          "ring": true,
+          "halo": true
+        }
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.14,
+        "w": 0.45,
+        "h": 0.15
+      }
+    },
+    {
+      "id": "ratio-note",
+      "kind": "text",
+      "role": "подпись: масштаб роста",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "component": "KineticText",
+        "text": "×100 за три года",
+        "size": "body",
+        "mode": "words",
+        "enter": "fade",
+        "align": "right",
+        "color": "muted"
+      },
+      "layout": {
+        "x": 0.6,
+        "y": 0.17,
+        "w": 0.35,
+        "h": 0.07
+      }
+    },
+    {
+      "id": "growth-chart",
+      "kind": "chart",
+      "role": "данные: траектория роста по годам",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "LineChart",
+        "points": [
+          {
+            "label": "Старт",
+            "value": 10000
+          },
+          {
+            "label": "Год 1",
+            "value": 80000
+          },
+          {
+            "label": "Год 2",
+            "value": 300000
+          },
+          {
+            "label": "Год 3",
+            "value": 1000000
+          }
+        ],
+        "width": 1550,
+        "height": 580,
+        "area": true,
+        "callout": false,
+        "endpointEmphasis": false,
+        "locale": "ru",
+        "compact": true,
+        "yTicks": 4,
+        "accentIndex": 0
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.33,
+        "w": 0.9,
+        "h": 0.6
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "b-headline-in",
+      "start_frame": 6,
+      "end_frame": 32,
+      "action": "headline-in",
+      "description": "Заголовок «Пользователи за три года» поднимается из маски по словам (rise, enter_frames 24).",
+      "element_ids": [
+        "headline"
+      ]
+    },
+    {
+      "id": "b-number-in",
+      "start_frame": 9,
+      "end_frame": 33,
+      "action": "number-entrance",
+      "description": "Число «10 000» вылетает pop со значением «от» (enterAt=14) и стоит неподвижно до старта линии (~33): ≥15 кадров на прочтение.",
+      "element_ids": [
+        "hero-number"
+      ]
+    },
+    {
+      "id": "b-chart-draw",
+      "start_frame": 18,
+      "end_frame": 140,
+      "action": "chart-draw",
+      "description": "Первые 30 % бита: сетка и подписи осей (Старт, Год 1, Год 2, Год 3) проявляются. Дальше гладкая линия со светящейся головой рисуется слева направо (linear), точки вспыхивают по ходу, заливка открывается следом. Выноски и акцента у конечной точки нет: итоговое значение показывает герой-число.",
+      "element_ids": [
+        "growth-chart"
+      ]
+    },
+    {
+      "id": "b-number-count",
+      "start_frame": 33,
+      "end_frame": 116,
+      "action": "number-count",
+      "description": "Число показывает ровно значение под головой линии: value = lineChartHead(points, b-chart-draw).value. Счёт от 10 000 до 1 000 000, разряды через пробел (ru). Окно выставляется по голове линии.",
+      "element_ids": [
+        "hero-number"
+      ]
+    },
+    {
+      "id": "b-ratio-in",
+      "start_frame": 44,
+      "end_frame": 68,
+      "action": "ratio-in",
+      "description": "Справа вверху приглушённая подпись «×100 за три года» проявляется из размытия (blur). Она уравновешивает число и не светится.",
+      "element_ids": [
+        "ratio-note"
+      ]
+    },
+    {
+      "id": "b-final-emphasis",
+      "start_frame": 118,
+      "end_frame": 150,
+      "action": "final-emphasis",
+      "description": "Линия дорисована, и число «1 000 000» встаёт. Emphasis цветом accent[0]: удар масштаба +6 %, вспышка ореола, кольцо от кромки, затем дыхание (loop: true). Это единственный акцент в кадре.",
+      "element_ids": [
+        "hero-number"
+      ]
+    },
+    {
+      "id": "b-hold",
+      "start_frame": 153,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "Новых входов нет. «1 000 000» дышит ореолом и кольцами (период ~2.4 с), камера медленно наезжает до 1.04, пятна фона дрейфуют. Линия и подписи стоят приглушённой опорой. Движение подтверждает итог: живёт только достигнутое значение.",
+      "element_ids": [
+        "hero-number",
+        "growth-chart",
+        "headline",
+        "ratio-note"
+      ]
+    }
+  ],
+  "camera": [
+    {
+      "frame": 0,
+      "scale": 1,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "frame": 110,
+      "scale": 1,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "frame": 179,
+      "scale": 1.04,
+      "x": 0,
+      "y": 0
+    }
+  ]
+}

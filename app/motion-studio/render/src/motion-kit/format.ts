@@ -70,3 +70,26 @@ export function formatNumber(value: number, opts: FormatOptions): string {
   }
   return value < 0 && !zero ? MINUS + body : body;
 }
+
+/** Формы существительного: ru — [один, два, пять] («релиз», «релиза», «релизов»), en — [one, other]. */
+export type PluralForms = readonly string[];
+
+/**
+ * Форма существительного при числе — по тому, что показано в кадре (`decimals`, `compact`):
+ * `pluralForm(21, ["релиз", "релиза", "релизов"], { locale: "ru" })` → «релиз»;
+ * дробное — «2,5 релиза»; после «тыс.»/«млн» — «1,2 тыс. релизов».
+ */
+export function pluralForm(value: number, forms: PluralForms, opts: FormatOptions): string {
+  const pick = (i: number) => forms[Math.min(i, forms.length - 1)] ?? "";
+  const decimals = Math.max(0, Math.min(6, Math.floor(opts.decimals ?? 0)));
+  const shown = Math.abs(Number(Math.abs(value).toFixed(decimals)));
+  if (opts.locale === "en") return shown === 1 ? pick(0) : pick(1);
+  if (opts.compact && shown >= 1000) return pick(2);
+  if (!Number.isInteger(shown)) return pick(1);
+  const n100 = shown % 100;
+  const n10 = shown % 10;
+  if (n100 >= 11 && n100 <= 14) return pick(2);
+  if (n10 === 1) return pick(0);
+  if (n10 >= 2 && n10 <= 4) return pick(1);
+  return pick(2);
+}

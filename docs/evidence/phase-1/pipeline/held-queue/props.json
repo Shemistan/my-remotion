@@ -1,0 +1,325 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      {
+        "id": "graph-in",
+        "start_frame": 0,
+        "end_frame": 40
+      },
+      {
+        "id": "queued-in",
+        "start_frame": 20,
+        "end_frame": 44
+      },
+      {
+        "id": "publish",
+        "start_frame": 44,
+        "end_frame": 62
+      },
+      {
+        "id": "consume-1",
+        "start_frame": 64,
+        "end_frame": 90
+      },
+      {
+        "id": "consume-2",
+        "start_frame": 90,
+        "end_frame": 116
+      },
+      {
+        "id": "statement-in",
+        "start_frame": 112,
+        "end_frame": 130
+      },
+      {
+        "id": "consume-3",
+        "start_frame": 116,
+        "end_frame": 142
+      },
+      {
+        "id": "final-emphasis",
+        "start_frame": 146,
+        "end_frame": 158
+      },
+      {
+        "id": "hold",
+        "start_frame": 153,
+        "end_frame": 180
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "background": {
+      "variant": "blueprint",
+      "seed": "scn_01M5FK5TF1VSVXBXXJBBRW1WXT",
+      "focus": {
+        "x": 0.5,
+        "y": 0.45
+      }
+    },
+    "graph": {
+      "beat": "graph-in",
+      "layout": {
+        "x": 0,
+        "y": 0.06,
+        "w": 1,
+        "h": 0.7
+      },
+      "edges": [
+        {
+          "id": "e-publish",
+          "from": "node-orders",
+          "to": "node-queue"
+        },
+        {
+          "id": "e-consume",
+          "from": "node-queue",
+          "to": "node-warehouse"
+        }
+      ],
+      "flows": [
+        {
+          "edge": "e-publish",
+          "direction": "forward",
+          "beat": "publish",
+          "count": 1,
+          "repeat": false,
+          "travel": 14
+        },
+        {
+          "edge": "e-consume",
+          "direction": "forward",
+          "beat": "consume-1",
+          "count": 1,
+          "repeat": false,
+          "travel": 22
+        },
+        {
+          "edge": "e-consume",
+          "direction": "forward",
+          "beat": "consume-2",
+          "count": 1,
+          "repeat": false,
+          "travel": 22
+        },
+        {
+          "edge": "e-consume",
+          "direction": "forward",
+          "beat": "consume-3",
+          "count": 1,
+          "repeat": false,
+          "travel": 22
+        }
+      ],
+      "nodes": [
+        {
+          "id": "node-orders",
+          "label": "Сервис заказов",
+          "caption": "публикует событие",
+          "size": "body",
+          "elevation": 2,
+          "enter": "slide",
+          "enter_offset": 0,
+          "slot": true,
+          "align_to": "tail",
+          "layout": {
+            "x": 0,
+            "w": 0.25,
+            "h": 0.26
+          }
+        },
+        {
+          "id": "node-queue",
+          "label": "orders.created",
+          "caption": "очередь сообщений",
+          "size": "h2",
+          "elevation": 3,
+          "enter": "pop",
+          "enter_offset": 6,
+          "slot": true,
+          "slot_capacity": 3,
+          "layout": {
+            "x": 0.3255,
+            "w": 0.324,
+            "h": 0.48
+          }
+        },
+        {
+          "id": "node-warehouse",
+          "label": "Склад",
+          "caption": "резервирует товар",
+          "size": "body",
+          "elevation": 2,
+          "enter": "blur",
+          "enter_offset": 12,
+          "slot": true,
+          "accentIndex": 0,
+          "flash_on": "e-consume",
+          "emphasis": {
+            "beat": "final-emphasis",
+            "loop": true,
+            "ring": "strike"
+          },
+          "align_to": "head",
+          "layout": {
+            "x": 0.7251,
+            "w": 0.26,
+            "h": 0.3
+          }
+        }
+      ]
+    },
+    "queue_node": "node-queue",
+    "queue_empty_label": "пусто",
+    "tokens": [
+      {
+        "id": "token-4819",
+        "label": "#4819 · Puma ×1",
+        "accentIndex": 0,
+        "appear": {
+          "beat": "queued-in",
+          "index": 0,
+          "total": 2
+        },
+        "flights": [
+          {
+            "edge": "e-consume",
+            "beat": "consume-1",
+            "travel": 22,
+            "stay": false
+          }
+        ]
+      },
+      {
+        "id": "token-4820",
+        "label": "#4820 · Asics ×3",
+        "accentIndex": 0,
+        "appear": {
+          "beat": "queued-in",
+          "index": 1,
+          "total": 2
+        },
+        "flights": [
+          {
+            "edge": "e-consume",
+            "beat": "consume-2",
+            "travel": 22,
+            "stay": false
+          }
+        ]
+      },
+      {
+        "id": "token-4821",
+        "label": "#4821 · Nike Air ×2",
+        "accentIndex": 2,
+        "appear": {
+          "edge": "e-publish",
+          "beat": "publish"
+        },
+        "flights": [
+          {
+            "edge": "e-publish",
+            "beat": "publish",
+            "travel": 14,
+            "stay": false
+          },
+          {
+            "edge": "e-consume",
+            "beat": "consume-3",
+            "travel": 22,
+            "stay": true
+          }
+        ]
+      }
+    ],
+    "statuses": [
+      {
+        "id": "status-orders",
+        "anchor": {
+          "node": "node-orders",
+          "side": "top"
+        },
+        "states": [
+          {
+            "text": "Отправка",
+            "tone": "neutral",
+            "at": {
+              "beat": "publish"
+            }
+          },
+          {
+            "text": "Принято ✓",
+            "tone": "positive",
+            "at": {
+              "edge": "e-publish",
+              "beat": "publish"
+            }
+          }
+        ]
+      },
+      {
+        "id": "status-warehouse",
+        "anchor": {
+          "node": "node-warehouse",
+          "side": "top"
+        },
+        "states": [
+          {
+            "text": "В работе · #4819",
+            "tone": "accent",
+            "at": {
+              "edge": "e-consume",
+              "beat": "consume-1"
+            }
+          },
+          {
+            "text": "В работе · #4820",
+            "tone": "accent",
+            "at": {
+              "edge": "e-consume",
+              "beat": "consume-2"
+            }
+          },
+          {
+            "text": "В работе · #4821",
+            "tone": "accent",
+            "at": {
+              "edge": "e-consume",
+              "beat": "consume-3"
+            }
+          },
+          {
+            "text": "Зарезервировано",
+            "tone": "positive",
+            "at": {
+              "beat": "final-emphasis"
+            }
+          }
+        ]
+      }
+    ],
+    "statement": {
+      "text": "Сервисы не ждут друг друга",
+      "beat": "statement-in",
+      "size": "body",
+      "align": "center",
+      "layout": {
+        "x": 0.2,
+        "y": 0.82,
+        "w": 0.6,
+        "h": 0.1
+      }
+    }
+  }
+}

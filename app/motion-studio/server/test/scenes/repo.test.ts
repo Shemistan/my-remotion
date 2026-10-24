@@ -28,7 +28,7 @@ function addJob(id: string, attempt: number, sceneId: string) {
 beforeEach(async () => {
   s = await makeStore("ms-scene-repo-");
   db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   repo = new SceneRepo({ root: s.root, db, guard: s.guard });
 });
 afterEach(async () => {
@@ -144,6 +144,39 @@ describe("SceneRepo", () => {
     await expect(repo.publish(d, meta(sceneId), fence)).resolves.toMatchObject({ manifest: { number: 1 } });
   });
 
+  it("Task 17: отмена, запрошенная во время подготовки публикации, проверяется в транзакции вместе с fencing", async () => {
+    const sceneId = repo.createScene("playground", { prompt: "сцена", settings: defaultSettings() }).id;
+    const fence = addJob("job_1", 1, sceneId);
+    const d = await makeDraft(s.root, { runId: "job_1", attempt: 1, sceneId });
+    // отмена приходит, пока prepareVersion хеширует файлы (guard зовётся внутри неё)
+    const racing = new SceneRepo({
+      root: s.root, db,
+      guard: async () => {
+        jobs.update(db, "job_1", { cancel_requested: true });
+        return s.guard();
+      },
+    });
+    const err = (await racing.publish(d, meta(sceneId), fence).then(() => undefined, (e: unknown) => e)) as (Error & { quarantined?: boolean }) | undefined;
+    expect(err).toBeInstanceOf(Error);
+    expect(err!.message).toMatch(/^cancelled/);
+    expect(err!.quarantined).toBe(true);
+    expect(versions.listByScene(db, sceneId)).toHaveLength(0);
+    expect(scenes.get(db, sceneId)!.current_version_id).toBeNull();
+    // карантин «cancelled» — одноразовый: cleanupDrafts его уберёт
+    expect(JSON.parse(await readFile(join(d.dir, ".quarantined"), "utf8")).reason).toMatch(/^cancelled/);
+    expect((await repo.cleanupDrafts([])).removed).toContain(d.dir);
+  });
+
+  it("Task 17: отмена, запрошенная до публикации, — тот же отказ до подготовки файлов", async () => {
+    const sceneId = repo.createScene("playground", { prompt: "сцена", settings: defaultSettings() }).id;
+    const fence = addJob("job_1", 1, sceneId);
+    jobs.update(db, "job_1", { cancel_requested: true });
+    const d = await makeDraft(s.root, { runId: "job_1", attempt: 1, sceneId });
+    await expect(repo.publish(d, meta(sceneId), fence)).rejects.toThrow(/^cancelled/);
+    expect(versions.listByScene(db, sceneId)).toHaveLength(0);
+    expect(existsSync(join(d.dir, ".quarantined"))).toBe(true);
+  });
+
   it("публикация чужого draft или без задачи отклоняется", async () => {
     const sceneId = repo.createScene("playground", { prompt: "сцена", settings: defaultSettings() }).id;
     const d = await makeDraft(s.root, { runId: "job_1", attempt: 1, sceneId });
@@ -230,5 +263,15 @@ describe("SceneRepo", () => {
     await expect(offline.publish(d, meta(sceneId), fence)).rejects.toThrow(/storage_unavailable/);
     expect(existsSync(d.dir)).toBe(true);
     expect(existsSync(join(d.dir, ".quarantined"))).toBe(false);
+  });
+
+  it("broken version (broken_reason): stays in history, restore and diff refuse it with version_broken", async () => {
+    const sceneId = repo.createScene("playground", { prompt: "сцена", settings: defaultSettings() }).id;
+    const v1 = await repo.publish(await makeDraft(s.root, { runId: "job_1", attempt: 1, sceneId }), meta(sceneId), addJob("job_1", 1, sceneId));
+    const v2 = await repo.publish(await makeDraft(s.root, { runId: "job_2", attempt: 1, sceneId }), meta(sceneId), addJob("job_2", 1, sceneId));
+    versions.markBroken(db, v1.versionId, "каталог версии не найден");
+    expect(versions.listByScene(db, sceneId).map((v) => [v.number, v.broken_reason])).toEqual([[1, "каталог версии не найден"], [2, null]]);
+    await expect(repo.restore(sceneId, v1.versionId, addJob("job_3", 1, sceneId))).rejects.toThrow(/version_broken/);
+    await expect(repo.diff(v1.versionId, v2.versionId)).rejects.toThrow(/version_broken/);
   });
 });

@@ -1,0 +1,6 @@
+{
+  "warnings": [
+    "spec: scene_signature_repeat (pill, topTitle, staticCamera): сцена повторяет подпись предыдущей «Очередь между заказами и складом» (3 из 4): акцент-таблетка, без полосы заголовка, камера стоит"
+  ],
+  "permission_denials": []
+}

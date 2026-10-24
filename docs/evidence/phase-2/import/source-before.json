@@ -1,0 +1,15 @@
+{
+  "original": {
+    "path": "/Volumes/External SSD/Youtube/FinalVideo/MyProtocol/IMG_0685.MOV",
+    "sha256": "9df29c1e5c9f26ce3d43a4adda99f4240023e115b65ad6c5647bd75979e7996f"
+  },
+  "copy": {
+    "path": "/Volumes/External SSD/MotionStudio-acceptance-src/IMG_0685-3330-3750.mov",
+    "sha256": "9fdeee13d9878f4a90affd60873b84acdd172503e61393dc7319f841b1a9c136",
+    "window": {
+      "start_s": 3330,
+      "end_s": 3750
+    }
+  },
+  "at": "2026-10-24T14:41:18.796Z"
+}

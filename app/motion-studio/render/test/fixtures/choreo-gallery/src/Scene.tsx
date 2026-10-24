@@ -82,7 +82,7 @@ function Gallery({ beats, camera, uniform }: { beats: Record<string, Window>; ca
             )}
           </Enter>
 
-          <Enter kind={kind("mask")} beat={beats.headline!} style={abs(REGIONS.headline)}>
+          <Enter kind={kind("mask")} pre="silhouette" beat={beats.headline!} style={abs(REGIONS.headline)}>
             {title}
           </Enter>
 
@@ -92,7 +92,7 @@ function Gallery({ beats, camera, uniform }: { beats: Record<string, Window>; ca
             </div>
           </Enter>
 
-          <Enter kind={kind("pop")} beat={beats.badge!} style={{ ...abs(REGIONS.badge), display: "flex", alignItems: "center", gap: 24, transformOrigin: "15% 50%" }}>
+          <Enter kind={kind("pop")} pre="silhouette" beat={beats.badge!} style={{ ...abs(REGIONS.badge), display: "flex", alignItems: "center", gap: 24, transformOrigin: "15% 50%" }}>
             <div
               style={{
                 padding: "10px 30px",

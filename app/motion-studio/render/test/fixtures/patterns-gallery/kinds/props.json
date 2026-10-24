@@ -1,0 +1,12 @@
+{
+  "timing": {
+    "duration_frames": 150,
+    "beats": [
+      { "id": "title", "start_frame": 0, "end_frame": 24 },
+      { "id": "graph", "start_frame": 6, "end_frame": 56 },
+      { "id": "flow", "start_frame": 60, "end_frame": 150 }
+    ]
+  },
+  "style": { "preset": "dark-premium", "intensity": "balanced", "depth": 2, "transparent": false, "safe_area": { "x": 0.06, "y": 0.08 } },
+  "content": {}
+}

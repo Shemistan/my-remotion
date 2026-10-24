@@ -26,3 +26,27 @@ export function ramp(frame: number, a: number, b: number, easing?: (t: number) =
  * Рисуй элемент только при p > 0 — у штриха нулевой длины круглый торец даёт точку.
  */
 export const drawDash = (p: number) => `${Math.max(0, Math.min(1, p)).toFixed(4)} 2`;
+
+const warned = new Set<string>();
+
+/**
+ * Неверное использование примитива (тихий фолбэк: ноль, точка 0,0, пустой слой) —
+ * сообщение в консоль рендера один раз на ключ. Пишем в console.error: QA рендера
+ * показывает такие строки агенту (console_error), а предупреждения — нет. Рендер не падает.
+ */
+export function kitWarn(key: string, message: string): void {
+  if (warned.has(key)) return;
+  warned.add(key);
+  console.error(`[motion-kit] ${message}`);
+}
+
+/**
+ * Ошибка использования, которая портит кадр (S2-fix): сообщение `[motion-kit:error]` один раз
+ * на ключ. QA превращает такие строки в blocking `kit_misuse` — Engineer видит текст и
+ * правит props, а не получает тихий фолбэк. Рендер не падает.
+ */
+export function kitError(key: string, message: string): void {
+  if (warned.has(key)) return;
+  warned.add(key);
+  console.error(`[motion-kit:error] ${message}`);
+}

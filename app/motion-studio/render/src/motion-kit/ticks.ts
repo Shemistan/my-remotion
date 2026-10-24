@@ -14,3 +14,14 @@ export function niceTicks(min: number, max: number, count: number): number[] {
   for (let v = start, i = 0; v <= end + step / 2 && i < 100; v = start + ++i * step) out.push(Number(v.toPrecision(12)));
   return out;
 }
+
+/**
+ * Деления оси не больше `max` штук (0.4.0: по умолчанию 4): niceTicks с уменьшением числа
+ * шагов, пока делений больше `max` — ось из шести подписей мелькает шумом.
+ */
+export function axisTicks(min: number, max: number, maxTicks: number): number[] {
+  const cap = Math.max(2, Math.round(maxTicks));
+  let t = niceTicks(min, max, cap);
+  for (let c = cap - 1; t.length > cap && c >= 1; c--) t = niceTicks(min, max, c);
+  return t;
+}

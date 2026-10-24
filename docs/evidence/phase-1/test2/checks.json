@@ -1,0 +1,72 @@
+[
+  {
+    "id": "job",
+    "title": "задача playground.generate completed, версия есть",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"sceneId\":\"scn_01M5N0KGPKY44E27KDYK57THCS\",\"jobId\":\"job_01M5N0KGPR7XT3F1ZAYPA8CTP0\",\"versionId\":\"ver_01M5N0ZD9S4ASRX8P0P9KDF314\",\"status\":\"completed\",\"wallMs\":389925}"
+  },
+  {
+    "id": "ui.player",
+    "title": "плеер играет",
+    "kind": "A",
+    "pass": true,
+    "detail": "currentTime 0.91 с"
+  },
+  {
+    "id": "t2.nodes",
+    "title": "≥ 5 узлов: пользователь, оркестратор, ≥ 3 инструмента",
+    "kind": "A+H",
+    "pass": true,
+    "detail": "{\"nodes\":[\"node-user:Пользователь\",\"node-orch:Оркестратор\",\"node-search:Поиск\",\"node-rag:База знаний\",\"node-calc:Калькулятор\"],\"user\":\"node-user\",\"orch\":\"node-orch\",\"tools\":[\"node-search\",\"node-rag\",\"node-calc\"]}"
+  },
+  {
+    "id": "t2.order",
+    "title": "потоки упорядочены: запрос → оркестратор → 3 инструмента → обратно → ответ",
+    "kind": "A+H",
+    "pass": true,
+    "detail": "{\"flows\":[\"node-user→node-orch@64–80\",\"node-orch→node-search@68–80\",\"node-orch→node-rag@72–84\",\"node-orch→node-calc@76–88\",\"node-search→node-orch@72–84\",\"node-rag→node-orch@75–87\",\"node-calc→node-orch@79–91\",\"node-orch→node-user@104–122\"]}"
+  },
+  {
+    "id": "t2.causal",
+    "title": "импульсы не обгоняют причину: вызов после прихода запроса, возврат после прихода вызова",
+    "kind": "A+H",
+    "pass": false,
+    "detail": "[\"вызов node-search @68 раньше прихода запроса @80\",\"вызов node-rag @72 раньше прихода запроса @80\",\"вызов node-calc @76 раньше прихода запроса @80\",\"возврат node-search @72 раньше прихода вызова @80\",\"возврат node-rag @75 раньше прихода вызова @84\",\"возврат node-calc @79 раньше прихода вызова @88\"]"
+  },
+  {
+    "id": "t2.pulse-source",
+    "title": "PulseAlongPath в компонентах или magicui/animated-beam в knowledge-refs",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"kit\":[\"Background\",\"DataToken\",\"FlowGraph\",\"KineticText\",\"PulseAlongPath\",\"SafeArea\",\"StatusChip\",\"StyleProvider\"],\"refs\":[\"magicui/animated-beam\",\"xyflow/react-flow\"]}"
+  },
+  {
+    "id": "t2.pulse-moves",
+    "title": "импульс движется: frameDelta соседних кадров в области ребра > 0,002",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"frames\":[72,73],\"flow\":\"node-user→node-orch\",\"roi\":{\"x\":272.75,\"y\":479.04999999999995,\"w\":763.2,\"h\":157.85000000000002},\"delta\":0.00594,\"whole\":0.00185}"
+  },
+  {
+    "id": "t2.labels",
+    "title": "подписи всех узлов видны на последнем кадре",
+    "kind": "A+H",
+    "pass": true,
+    "detail": "{\"shown\":[\"node-user\",\"node-orch\",\"node-search\",\"node-rag\",\"node-calc\"],\"all\":[\"node-user\",\"node-orch\",\"node-search\",\"node-rag\",\"node-calc\"]}"
+  },
+  {
+    "id": "t2.kb",
+    "title": "knowledge-refs: ≥ 1 запись паттерна system-structure с commit и лицензией",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"magicui/animated-beam@efe76fc5 MIT (LICENSE.md)\",\"xyflow/react-flow@654ba5a5e MIT (LICENSE, packages/react/package.json)\"]"
+  },
+  {
+    "id": "t2.overlap",
+    "title": "нет перекрытий: spec-раскладка без overlap, QA без blocking overlap",
+    "kind": "A+H",
+    "pass": true,
+    "detail": "{\"overlap\":[],\"qaOverlap\":[]}"
+  }
+]

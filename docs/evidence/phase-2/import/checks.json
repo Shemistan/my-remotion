@@ -1,0 +1,135 @@
+[
+  {
+    "id": "2.1",
+    "title": "импорт завершён",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null}"
+  },
+  {
+    "id": "2.2",
+    "title": "sha256 исходника до = после = копии = asset.sha256",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"srcBefore\":\"9fdeee13d9878f4a90affd60873b84acdd172503e61393dc7319f841b1a9c136\",\"srcAfter\":\"9fdeee13d9878f4a90affd60873b84acdd172503e61393dc7319f841b1a9c136\",\"copySha\":\"9fdeee13d9878f4a90affd60873b84acdd172503e61393dc7319f841b1a9c136\",\"asset\":\"9fdeee13d9878f4a90affd60873b84acdd172503e61393dc7319f841b1a9c136\"}"
+  },
+  {
+    "id": "2.3",
+    "title": "копия 0444, каталог без записи (a-w)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"mode\":\"444\",\"dir\":\"555\"}"
+  },
+  {
+    "id": "2.4",
+    "title": "тот же том → APFS-клон (cloned: true)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"method\":\"path\",\"source_path\":\"/Volumes/External SSD/MotionStudio-acceptance-src/IMG_0685-3330-3750.mov\",\"cloned\":true}"
+  },
+  {
+    "id": "2.5",
+    "title": "поворот 180 распознан",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"rotation\":180,\"display\":[3840,2160]}"
+  },
+  {
+    "id": "2.5b",
+    "title": "VFR по детектору (справочно)",
+    "kind": "info",
+    "pass": true,
+    "detail": "{\"vfr\":false,\"r\":{\"num\":30,\"den\":1},\"avg\":{\"num\":1893450,\"den\":63121},\"timeline_fps\":{\"num\":30,\"den\":1}}"
+  },
+  {
+    "id": "2.6",
+    "title": "производные: proxy, waveform, thumbs, audio16k",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"audio16k\",\"proxy\",\"thumbs\",\"waveform\"]"
+  },
+  {
+    "id": "2.7",
+    "title": "прокси CFR: r_frame_rate = avg_frame_rate = timeline_fps",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"r\":\"30/1\",\"avg\":\"30/1\",\"timeline_fps\":{\"num\":30,\"den\":1}}"
+  },
+  {
+    "id": "2.8",
+    "title": "длительность прокси = исходника ± 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"proxy_s\":420.1,\"source_s\":420.12,\"frame_s\":0.03333333333333333}"
+  },
+  {
+    "id": "2.9",
+    "title": "прокси горизонтальный (поворот применён к размеру)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"w\":1280,\"h\":720}"
+  },
+  {
+    "id": "2.10",
+    "title": "кадр прокси не перевёрнут (ближе к исходнику, чем к повороту на 180°)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"mad_direct\":0.13194444444444445,\"mad_flipped\":49.697916666666664}"
+  },
+  {
+    "id": "2.11",
+    "title": "миниатюра отдаётся",
+    "kind": "A",
+    "pass": true,
+    "detail": "200"
+  },
+  {
+    "id": "2.12",
+    "title": "Vision: лицо на кадре прокси и на миниатюре",
+    "kind": "A",
+    "pass": true,
+    "detail": "[[{\"confidence\":0.9030114412307739,\"h\":0.29875609278678894,\"w\":0.16805030405521393,\"x\":0.4018484950065613,\"y\":0.38976502418518066}],[{\"confidence\":0.8926785588264465,\"h\":0.297912061214447,\"w\":0.16757552325725555,\"x\":0.40924081206321716,\"y\":0.39144206047058105}]]"
+  },
+  {
+    "id": "2.13",
+    "title": "ASR завершён",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null}"
+  },
+  {
+    "id": "2.14",
+    "title": "asr.worker_sha256 = закреплённому",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"got\":{\"model\":\"whisper-large-v3-turbo\",\"worker_sha256\":\"59b7e03bf5a8b7f940b2607d357528e7120f5bb6bbe98efa70de4b39bdce1073\",\"ai_platform_commit\":\"99f75d6626a5525b165e8e0f74f99adf3e80cc15\",\"elapsed_s\":32.6},\"expected\":\"59b7e03bf5a8b7f940b2607d357528e7120f5bb6bbe98efa70de4b39bdce1073\"}"
+  },
+  {
+    "id": "2.15",
+    "title": "слова монотонны (start ≤ end, start не убывает)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"words\":421}"
+  },
+  {
+    "id": "2.16",
+    "title": "слова в пределах длительности ± 0,1 с",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"last_end_s\":418.183,\"duration_s\":420.12}"
+  },
+  {
+    "id": "2.17",
+    "title": "confidence слов = null",
+    "kind": "A",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "id": "2.H",
+    "title": "3 сегмента ASR: текст соответствует речи — требует подтверждения человеком (фрагменты в MotionStudio-примеры)",
+    "kind": "H→агент",
+    "pass": true,
+    "detail": "[{\"segment\":\"seg_0011\",\"start_s\":101.4,\"end_s\":111,\"text\":\"Самый интересный случай – это неизвестный тип сообщения. То есть заголовок мы получили,\"},{\"segment\":\"seg_0026\",\"start_s\":200.78,\"end_s\":205.18,\"text\":\"И отвечает, и наш воркер отвечает, договорились.\"},{\"segment\":\"seg_0041\",\"start_s\":325.743,\"end_s\":328.283,\"text\":\"Это называется обратная совместимость.\"}]"
+  }
+]

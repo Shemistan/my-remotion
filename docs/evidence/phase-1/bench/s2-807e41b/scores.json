@@ -1,0 +1,1287 @@
+{
+  "summary": {
+    "run": "s2-807e41b",
+    "report_commit": "7e6590c",
+    "judge_model": "opus",
+    "judge_runs": 3,
+    "scenes": 12,
+    "judged": 12,
+    "judge": {
+      "rubric_sha256": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+      "anchors_sha256": "f1df6bc74e3457c6f29b281652a41fa7de8b77e7860c88d07cb39dd4785137c7"
+    },
+    "judge_commits": [
+      "1689803"
+    ],
+    "gen_commits": [
+      "5b4e6ef",
+      "1689803"
+    ],
+    "motion_kit_versions": [
+      "0.4.0"
+    ],
+    "prompts_sha256": {
+      "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+      "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+      "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+      "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+      "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+      "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+      "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+    },
+    "prompts_mixed": false,
+    "mean": 6.083333333333333,
+    "mean_tuned": 6,
+    "mean_held_out": 6.2,
+    "max_spread": 0.5,
+    "spread_over_target": [
+      "test1",
+      "gen-compare",
+      "gen-timeline",
+      "held-queue",
+      "eval-funnel",
+      "eval-abtest"
+    ],
+    "gen_cost_usd": 41.71664590000001,
+    "gen_cost_failed_attempts_usd": 12.378783900000009,
+    "judge_cost_usd": 20.0530904,
+    "judge_failed_calls": 84
+  },
+  "rows": [
+    {
+      "id": "test1",
+      "scene": "test1",
+      "held_out": false,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6.5,
+          "composition": 6,
+          "entrance": 4.5,
+          "choreography": 6.5,
+          "hold": 4.5,
+          "legibility": 6,
+          "distinctiveness": 4.5
+        },
+        "runs": [
+          6,
+          6.5,
+          6
+        ],
+        "spread": 0.5,
+        "mean": 6.166666666666667
+      },
+      "judge_cost_usd": 3.5992409999999997,
+      "judge_failed_calls": 12,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.2750427,
+        "wall_ms": 318042,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5G6A5NVC183Z77GDN4G4442/versions/ver_01M5G6KTP1VFYSRQ4N8QP1HBJX",
+        "commit": "5b4e6ef",
+        "motion_kit_version": "0.4.0",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+          "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "motion_kit_sha256": "sha256:c4277d4c56100635"
+      },
+      "gen_cost_total_usd": 1.2750427,
+      "frames": {
+        "frame0Content": 0.0009413580246913581,
+        "frame4Content": 0.0009413580246913581,
+        "holdDelta": 0.0024417337408214313,
+        "emptyThirdShare": 1
+      },
+      "top_defects": [
+        "170: Удержание статично 1,5 с: кроме слабой пульсации ореола на вершине ничего не происходит",
+        "0: Кадр 0 — пустой фон с едва видной сеткой. Число и линия появляются только к кадрам 8–24, причём число входит размытым",
+        "96: Нижняя правая четверть пустует до кадра ~125, текстовая колонка не связана в блок: большие разрывы между числом, «пользователей» и выводом"
+      ]
+    },
+    {
+      "id": "test2",
+      "scene": "test2",
+      "held_out": false,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 6.5,
+          "hierarchy": 5.5,
+          "composition": 6,
+          "entrance": 7,
+          "choreography": 6,
+          "hold": 4.5,
+          "legibility": 6,
+          "distinctiveness": 5.5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 2.7978254,
+      "judge_failed_calls": 12,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 4.122110500000001,
+        "wall_ms": 1163107,
+        "engineer_calls": 3,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5G6A5P416PJRXK6QR9CTBK3/versions/ver_01M5G7DKXECDHJDFVWKCHYDBHJ",
+        "commit": "5b4e6ef",
+        "motion_kit_version": "0.4.0",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+          "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "motion_kit_sha256": "sha256:c4277d4c56100635"
+      },
+      "gen_cost_total_usd": 4.122110500000001,
+      "frames": {
+        "frame0Content": 0.03786265432098765,
+        "frame4Content": 0.039969135802469136,
+        "holdDelta": 0.0038849602598240943,
+        "emptyThirdShare": 0
+      },
+      "top_defects": [
+        "165: Финал застыл: по связям больше ничего не идёт, ореол карточки пользователя мигает вместо того, чтобы система продолжала работать",
+        "130: Итог «Столик забронирован на 19:00» мелкий (~9 px, моноширинный) и не владеет кадром",
+        "96: Подпись «3 ресторана рядом» оторвалась от своего чипа и висит над проводами; чипы Календаря и Бронирования без подписей"
+      ]
+    },
+    {
+      "id": "gen-compare",
+      "scene": "gen-compare",
+      "held_out": false,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6.5,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6.5,
+          "composition": 5.5,
+          "entrance": 7,
+          "choreography": 6.5,
+          "hold": 4.5,
+          "legibility": 6,
+          "distinctiveness": 6
+        },
+        "runs": [
+          6.5,
+          6.5,
+          6
+        ],
+        "spread": 0.5,
+        "mean": 6.333333333333333
+      },
+      "judge_cost_usd": 1.8895019999999998,
+      "judge_failed_calls": 12,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 2.9633675999999998,
+        "wall_ms": 847930,
+        "engineer_calls": 2,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5G6A5PG45GWHBFRZZ4NX7PK/versions/ver_01M5G73ZWM2SEF65AHHMT1QCQ8",
+        "commit": "5b4e6ef",
+        "motion_kit_version": "0.4.0",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+          "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "motion_kit_sha256": "sha256:c4277d4c56100635"
+      },
+      "gen_cost_total_usd": 2.9633675999999998,
+      "frames": {
+        "frame0Content": 0.013804012345679012,
+        "frame4Content": 0.020972222222222222,
+        "holdDelta": 0.0012546447591382233,
+        "emptyThirdShare": 0.47619047619047616
+      },
+      "top_defects": [
+        "120: Числа не сходятся: «цикл 2–3 дня» × 4 сервиса за 30 дней дали бы десятки релизов, а на экране 12 и итог ×12; масштаб времени на дорожках микросервисов не совпадает с 30-дневной осью",
+        "170: Застывший финал: потоки остановились на 120, рамка героя появилась на 140 и пропала к 165 (мигание), дальше статика",
+        "72: Нижние ~40 % кадра пустуют около 4 с, там только пятно авроры"
+      ]
+    },
+    {
+      "id": "gen-timeline",
+      "scene": "gen-timeline",
+      "held_out": false,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 6.5,
+          "hierarchy": 5.5,
+          "composition": 6,
+          "entrance": 4,
+          "choreography": 6,
+          "hold": 5,
+          "legibility": 6.5,
+          "distinctiveness": 4.5
+        },
+        "runs": [
+          5.5,
+          6,
+          6
+        ],
+        "spread": 0.5,
+        "mean": 5.833333333333333
+      },
+      "judge_cost_usd": 2.4757041999999996,
+      "judge_failed_calls": 12,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.0290827999999999,
+        "wall_ms": 648933,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5G6A5PQQK111Y12QYSXWTGC/versions/ver_01M5G6XY35125P89HJP9JADKT9",
+        "commit": "5b4e6ef",
+        "motion_kit_version": "0.4.0",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+          "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "motion_kit_sha256": "sha256:c4277d4c56100635"
+      },
+      "gen_cost_total_usd": 1.0290827999999999,
+      "frames": {
+        "frame0Content": 0.0000154320987654321,
+        "frame4Content": 0.0025,
+        "holdDelta": 0.008483700476075204,
+        "emptyThirdShare": 0.19047619047619047
+      },
+      "top_defects": [
+        "179: Вехи 2015/2018/2020/2023/2025 стоят на равном шаге, хотя промежутки 3–2–3–2 года: ось времени искажает темп развития",
+        "179: Герой 2025 не владеет кадром: год того же размера, что остальные, самый крупный текст — итоговая фраза",
+        "0: Кадр 0 — пустой фон с точкой, на кадрах 4–8 только серая линия, постер собирается лишь к 16–24"
+      ]
+    },
+    {
+      "id": "gen-cache",
+      "scene": "gen-cache",
+      "held_out": false,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6.5,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6.5,
+          "composition": 5.5,
+          "entrance": 6,
+          "choreography": 6.5,
+          "hold": 5,
+          "legibility": 6.5,
+          "distinctiveness": 5.5
+        },
+        "runs": [
+          6.5,
+          6.5,
+          6.5
+        ],
+        "spread": 0,
+        "mean": 6.5
+      },
+      "judge_cost_usd": 2.2009781999999998,
+      "judge_failed_calls": 12,
+      "gen": {
+        "status": "failed",
+        "job_status": "failed",
+        "failure": {
+          "stage": "qa",
+          "message": "QA: blocking после 2 исправлений: clipping (кадр 152): кадр 152: объект касается края кадра (right) — вероятно, обрезан; missing_element: элемент tok-resp2 (shape, «данные: мгновенный ответ из кэша») не найден ни на одном QA-кадре внутри его битов"
+        },
+        "version_status": "failed",
+        "cost_usd": 2.7307746,
+        "wall_ms": 1416998,
+        "engineer_calls": 3,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5G6A5Q0B9J5SKAX0X810JP6/versions/ver_01M5G7NCV4915J371S3G6QNFHK",
+        "commit": "5b4e6ef",
+        "motion_kit_version": "0.4.0",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+          "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "motion_kit_sha256": "sha256:c4277d4c56100635"
+      },
+      "gen_cost_total_usd": 2.7307746,
+      "frames": {
+        "frame0Content": 0.027947530864197528,
+        "frame4Content": 0.03435956790123457,
+        "holdDelta": 0.00981927549826515,
+        "emptyThirdShare": 0.047619047619047616
+      },
+      "top_defects": [
+        "60: Нижние ~40 % кадра пусты до кадра 130: схема и счётчики прижаты к верху",
+        "179: Застывшее удержание: живёт только наезд камеры, повторных попаданий нет",
+        "125: Итоговая фраза входит через размытую полосу-кашу; подпись БД на кадре 4 тоже размыта"
+      ]
+    },
+    {
+      "id": "held-mobile",
+      "scene": "held-mobile",
+      "held_out": false,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 5.5,
+        "criteria": {
+          "meaning": 6,
+          "hierarchy": 6.5,
+          "composition": 6,
+          "entrance": 6,
+          "choreography": 5.5,
+          "hold": 5,
+          "legibility": 6.5,
+          "distinctiveness": 5
+        },
+        "runs": [
+          5.5,
+          5.5,
+          5.5
+        ],
+        "spread": 0,
+        "mean": 5.5
+      },
+      "judge_cost_usd": 2.1861348,
+      "judge_failed_calls": 12,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 2.250842,
+        "wall_ms": 1568827,
+        "engineer_calls": 2,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5G6A5Q81MD9Z452V06QJX0V/versions/ver_01M5G7SZW0AMCDRN8590M5ZPK6",
+        "commit": "5b4e6ef",
+        "motion_kit_version": "0.4.0",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+          "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "motion_kit_sha256": "sha256:c4277d4c56100635"
+      },
+      "gen_cost_total_usd": 2.250842,
+      "frames": {
+        "frame0Content": 0,
+        "frame4Content": 0.028425925925925924,
+        "holdDelta": 0.00546037833857823,
+        "emptyThirdShare": 0.14285714285714285
+      },
+      "top_defects": [
+        "108: Пока счётчик растёт до 68 %, под ним стоит «2019», и на экране читается «68 % 2019». Подпись вводит в заблуждение, на 2024 год переключается только на ~120.",
+        "165: Удержание застыло: 155–179 почти идентичны, только небольшой наезд и свечение точки.",
+        "16: Маска заголовка режет «мобильного» пополам, слово въезжает обрезанным."
+      ]
+    },
+    {
+      "id": "held-queue",
+      "scene": "held-queue",
+      "held_out": false,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 5.5,
+        "criteria": {
+          "meaning": 6,
+          "hierarchy": 6,
+          "composition": 5,
+          "entrance": 6.5,
+          "choreography": 5.5,
+          "hold": 4.5,
+          "legibility": 6,
+          "distinctiveness": 5
+        },
+        "runs": [
+          5.5,
+          5.5,
+          6
+        ],
+        "spread": 0.5,
+        "mean": 5.666666666666667
+      },
+      "judge_cost_usd": 0.523166,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "failed",
+        "job_status": "failed",
+        "failure": {
+          "stage": "qa",
+          "message": "QA: blocking после 2 исправлений: text_overlap (кадр 96): тексты «#4811» и «#4812» перекрываются (кадры 96); clipping (кадр 179): Подпись «списание товара» выходит за правый край карточки «Склад» и доходит до x≈1868. Правая граница безопасной зоны — x≈1824, так что текст в поле. На кадрах 37–151 подпись тоже вылезает за карточку (до x≈1826–1832).; overlap (кадр 20): Подпись выходит за правую границу карточки «Заказы» (карточка кончается на x≈522, текст на x≈595) и ложится на ребро к очереди. На кадре 62 летящий токен закрывает конец слова «кофемашина».; missing_element: элемент out-4811 (shape, «данные: склад забирает сообщение») не найден ни на одном QA-кадре внутри его битов; missing_element: элемент out-4812 (shape, «данные: склад забирает заказ #4812») не найден ни на одном QA-кадре внутри его битов"
+        },
+        "version_status": "failed",
+        "cost_usd": 3.8262505,
+        "wall_ms": 1341061,
+        "engineer_calls": 3,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5GYA0G0D0W3GY3A6V1VP2TV/versions/ver_01M5GZJXH3Y0BCXRGFC237W28E",
+        "commit": "1689803",
+        "motion_kit_version": "0.4.0",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+          "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "motion_kit_sha256": "sha256:c4277d4c56100635",
+        "prior_attempts": [
+          {
+            "status": "failed",
+            "job_status": "failed",
+            "failure": {
+              "stage": "engineer",
+              "message": "вызов Engineer завершился failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "version_status": "failed",
+            "cost_usd": 3.6890532999999994,
+            "wall_ms": 2750284,
+            "engineer_calls": 3,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5G6A5QHKEX74P9099SMMN7Q/versions/ver_01M5G8Y2EV9G3KTNFRZ50JP6H1",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": "sha256:c4277d4c56100635"
+          }
+        ]
+      },
+      "gen_cost_total_usd": 7.5153038,
+      "frames": {
+        "frame0Content": 0.0030478395061728394,
+        "frame4Content": 0.004027777777777778,
+        "holdDelta": 0.010945485858952634,
+        "emptyThirdShare": 0.38095238095238093
+      },
+      "top_defects": [
+        "170: Удержание застыло: очередь пуста, поток не идёт, система не работает в своём смысле",
+        "84: Нижние ~40 % кадра пусты первые 4 с, схема прижата к верху",
+        "96: Развязку сервисов не видно временем: склад не тормозит и не падает, очередь не копит сообщения, «независимо» только подписано"
+      ]
+    },
+    {
+      "id": "eval-funnel",
+      "scene": "eval-funnel",
+      "held_out": true,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 6.5,
+          "hierarchy": 5.5,
+          "composition": 6,
+          "entrance": 7,
+          "choreography": 5.5,
+          "hold": 4,
+          "legibility": 7,
+          "distinctiveness": 6
+        },
+        "runs": [
+          5.5,
+          6,
+          6
+        ],
+        "spread": 0.5,
+        "mean": 5.833333333333333
+      },
+      "judge_cost_usd": 2.3033273999999997,
+      "judge_failed_calls": 12,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 2.040362,
+        "wall_ms": 2167619,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5G6A5QSPPPJ7RFXK4D0202Q/versions/ver_01M5G8C9RZK1QPASS72BABKKE2",
+        "commit": "5b4e6ef",
+        "motion_kit_version": "0.4.0",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+          "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "motion_kit_sha256": "sha256:c4277d4c56100635"
+      },
+      "gen_cost_total_usd": 2.040362,
+      "frames": {
+        "frame0Content": 0,
+        "frame4Content": 0.0008873456790123457,
+        "holdDelta": 0.0023867833656096185,
+        "emptyThirdShare": 0.38095238095238093
+      },
+      "top_defects": [
+        "108: Счётчик «Покупка» идёт вниз 7→5→3, пока точки прибывают в ящик: число противоречит движению.",
+        "170: Удержание застыло: с кадра 140 поток стоит, 97 уходящих не проиграны.",
+        "179: Герой «3» мелкий (~40 px), не владеет кадром, воронка визуально тяжелее."
+      ]
+    },
+    {
+      "id": "eval-oauth",
+      "scene": "eval-oauth",
+      "held_out": true,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6.5,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6.5,
+          "composition": 6,
+          "entrance": 7,
+          "choreography": 6,
+          "hold": 4.5,
+          "legibility": 6.5,
+          "distinctiveness": 5.5
+        },
+        "runs": [
+          6.5,
+          6.5,
+          6.5
+        ],
+        "spread": 0,
+        "mean": 6.5
+      },
+      "judge_cost_usd": 0.6171506,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "failed",
+        "job_status": "failed",
+        "failure": {
+          "stage": "qa",
+          "message": "QA: blocking после 2 исправлений: missing_element (кадр 32): Токен «Войти через Google» не виден на кадре 32 (бит b-click). Ребро Анна→приложение пустое, ни токена, ни подписи нет. Других кадров этого бита нет.; missing_element: элемент tok-click (card, «данные: нажатие кнопки входа») не найден ни на одном QA-кадре внутри его битов"
+        },
+        "version_status": "failed",
+        "cost_usd": 3.6297349999999997,
+        "wall_ms": 1083373,
+        "engineer_calls": 3,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5GYA0GF2R0TA63QGMZZZ3F4/versions/ver_01M5GZB0NH7K44FFZ3QP57ZSJT",
+        "commit": "1689803",
+        "motion_kit_version": "0.4.0",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+          "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "motion_kit_sha256": "sha256:c4277d4c56100635",
+        "prior_attempts": [
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "engineer",
+              "message": "вызов Engineer завершился failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "version_status": "failed",
+            "cost_usd": 3.4572731,
+            "wall_ms": 3397138,
+            "engineer_calls": 3,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5G6A5R1J4TBVV8C1FAPFHRZ/versions/ver_01M5G9HT6N0082H1TYTXQM1C4Q",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": "sha256:c4277d4c56100635"
+          },
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "director",
+              "message": "Motion Director: failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "cost_usd": 0.4218988000000001,
+            "wall_ms": 460624,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": null
+          },
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "concept",
+              "message": "Concept: failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "cost_usd": 0.008965800000000001,
+            "wall_ms": 246453,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": null
+          },
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "concept",
+              "message": "Concept: failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "cost_usd": 0.009813199999999998,
+            "wall_ms": 186226,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": null
+          }
+        ]
+      },
+      "gen_cost_total_usd": 7.5276859,
+      "frames": {
+        "frame0Content": 0.011049382716049383,
+        "frame4Content": 0.016041666666666666,
+        "holdDelta": 0.008064910635035907,
+        "emptyThirdShare": 0
+      },
+      "top_defects": [
+        "170: Застывшее удержание: кадры 155–179 идентичны, система не живёт в смысле сцены",
+        "48: Чипы «Войти через Google» и «scope=calendar.read» налезают друг на друга, текст перекрыт",
+        "120: Токен-чип в карточке приложения срезан маской: виден только «· 1 ч»"
+      ]
+    },
+    {
+      "id": "eval-cdn",
+      "scene": "eval-cdn",
+      "held_out": true,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6.5,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6,
+          "composition": 5,
+          "entrance": 6.5,
+          "choreography": 6.5,
+          "hold": 4.5,
+          "legibility": 6,
+          "distinctiveness": 6
+        },
+        "runs": [
+          6.5,
+          6.5,
+          6.5
+        ],
+        "spread": 0,
+        "mean": 6.5
+      },
+      "judge_cost_usd": 0.49187080000000005,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.4042372,
+        "wall_ms": 334650,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5GYA0GSHP0FVRQJDZ8HSPMX/versions/ver_01M5GYM6HFET3ZRXMPYH7JVQR2",
+        "commit": "1689803",
+        "motion_kit_version": "0.4.0",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+          "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "motion_kit_sha256": "sha256:c4277d4c56100635",
+        "prior_attempts": [
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "engineer",
+              "message": "вызов Engineer завершился failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "version_status": "failed",
+            "cost_usd": 1.6889603,
+            "wall_ms": 3665472,
+            "engineer_calls": 3,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5G6A5R8X3TPCFXHDWSX9NNF/versions/ver_01M5G9SZXKBF62SA8FQKPA1H9V",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": "sha256:c4277d4c56100635"
+          },
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "director",
+              "message": "Motion Director: failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "cost_usd": 0.40125170000000004,
+            "wall_ms": 386505,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": null
+          },
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "director",
+              "message": "Motion Director: failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "cost_usd": 0.0766491,
+            "wall_ms": 488752,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": null
+          },
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "concept",
+              "message": "Concept: failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "cost_usd": 0.009843999999999999,
+            "wall_ms": 176187,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": null
+          }
+        ]
+      },
+      "gen_cost_total_usd": 3.5809423000000002,
+      "frames": {
+        "frame0Content": 0.043132716049382715,
+        "frame4Content": 0.054760802469135804,
+        "holdDelta": 0.004952019285080287,
+        "emptyThirdShare": 1
+      },
+      "top_defects": [
+        "175: Застывшее удержание: CDN-поток останавливается, последние ~2 с — статичный кадр, хотя живой поток и был аргументом сцены.",
+        "60: Импульсы стартуют под подписями и проезжают по тексту «Франкфурте» и «Москве»; где пользователь и в какую сторону идёт запрос, не обозначено.",
+        "179: Композиция занимает узкую полосу: нижние ~35 % кадра пустые всю сцену, ×12 слишком мелкий для итога."
+      ]
+    },
+    {
+      "id": "eval-budget",
+      "scene": "eval-budget",
+      "held_out": true,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6.5,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6.5,
+          "composition": 6,
+          "entrance": 7,
+          "choreography": 6.5,
+          "hold": 5,
+          "legibility": 7,
+          "distinctiveness": 6
+        },
+        "runs": [
+          6.5,
+          6.5,
+          6.5
+        ],
+        "spread": 0,
+        "mean": 6.5
+      },
+      "judge_cost_usd": 0.4447952,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 2.9321507,
+        "wall_ms": 1105370,
+        "engineer_calls": 2,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5GYA0H1VKKPQRKXQGDH59FJ/versions/ver_01M5GZBPY3J5B1RTFPM6QW0V8C",
+        "commit": "1689803",
+        "motion_kit_version": "0.4.0",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+          "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "motion_kit_sha256": "sha256:c4277d4c56100635",
+        "prior_attempts": [
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "director",
+              "message": "Motion Director: failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "cost_usd": 0.42946760000000006,
+            "wall_ms": 3186837,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": null
+          },
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "director",
+              "message": "Motion Director: failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "cost_usd": 0.42439019999999994,
+            "wall_ms": 238379,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": null
+          },
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "director",
+              "message": "Motion Director: failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "cost_usd": 0.4135148000000002,
+            "wall_ms": 444705,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": null
+          },
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "director",
+              "message": "Motion Director: failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "cost_usd": 0.427747,
+            "wall_ms": 582791,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": null
+          }
+        ]
+      },
+      "gen_cost_total_usd": 4.627270300000001,
+      "frames": {
+        "frame0Content": 0.002299382716049383,
+        "frame4Content": 0.002013888888888889,
+        "holdDelta": 0.0064164447672072945,
+        "emptyThirdShare": 0.23809523809523808
+      },
+      "top_defects": [
+        "36: Темп неравномерный: жильё заполняется соло почти 2 с, а остальные четыре категории проходят в спешке — механические «часы актов».",
+        "170: Удержание почти статичное: кадры 155–179 практически одинаковы, система не живёт.",
+        "179: Герой-итог (60 %) — подпись средним кеглем, крупнее неё 35 % у одного Жилья; итоговое число не владеет кадром."
+      ]
+    },
+    {
+      "id": "eval-abtest",
+      "scene": "eval-abtest",
+      "held_out": true,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 5.5,
+        "criteria": {
+          "meaning": 6.5,
+          "hierarchy": 6,
+          "composition": 5.5,
+          "entrance": 4.5,
+          "choreography": 5,
+          "hold": 4,
+          "legibility": 6,
+          "distinctiveness": 4.5
+        },
+        "runs": [
+          5.5,
+          5.5,
+          6
+        ],
+        "spread": 0.5,
+        "mean": 5.666666666666667
+      },
+      "judge_cost_usd": 0.5233948,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.1339063999999999,
+        "wall_ms": 1314966,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s2-807e41b/scenes/scn_01M5GYA0H916GDZX8JSP4DS5XT/versions/ver_01M5GZJ425VK1HK8E6ETM2058N",
+        "commit": "1689803",
+        "motion_kit_version": "0.4.0",
+        "prompts_sha256": {
+          "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+          "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+          "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+        },
+        "motion_kit_sha256": "sha256:c4277d4c56100635",
+        "prior_attempts": [
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "director",
+              "message": "Motion Director: failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "cost_usd": 0.4663531000000001,
+            "wall_ms": 3811687,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": null
+          },
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "director",
+              "message": "Motion Director: failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "cost_usd": 0.4339377000000001,
+            "wall_ms": 757067,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": null
+          },
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "concept",
+              "message": "Concept: failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "cost_usd": 0.0098321,
+            "wall_ms": 624928,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": null
+          },
+          {
+            "status": "no_preview",
+            "job_status": "failed",
+            "failure": {
+              "stage": "concept",
+              "message": "Concept: failed (cli): success: API Error: Connection dropped (ECONNRESET)"
+            },
+            "cost_usd": 0.0098321,
+            "wall_ms": 386518,
+            "engineer_calls": 0,
+            "duration_frames": 180,
+            "fps": 30,
+            "source": "",
+            "commit": "5b4e6ef",
+            "motion_kit_version": "0.4.0",
+            "prompts_sha256": {
+              "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+              "engineer.md": "9c022bfa1b61d5749cd3803187dde5caff3f9a442098128bef7373ed174930a0",
+              "motion-director.md": "131aac4007979a6833ff182803f08a3d0d7f04ef26506bb9e225b23286e19369",
+              "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+              "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+              "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+              "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+            },
+            "motion_kit_sha256": null
+          }
+        ]
+      },
+      "gen_cost_total_usd": 2.0538614,
+      "frames": {
+        "frame0Content": 0.00037808641975308637,
+        "frame4Content": 0.001427469135802469,
+        "holdDelta": 0.00512982379165658,
+        "emptyThirdShare": 0.38095238095238093
+      },
+      "top_defects": [
+        "84: Счётчик +0→12 % тикает сам по себе после паузы 48–84 и не связан с разрывом между столбцами; дельта не показана на графике",
+        "0: Кадр 0 — пустой фон с бледной осью, контент появляется только к кадру 16",
+        "165: Удержание застыло (155–179 ≈ одинаковые), пилюля вокруг «12» появилась на 120 и исчезла после 135"
+      ]
+    }
+  ]
+}

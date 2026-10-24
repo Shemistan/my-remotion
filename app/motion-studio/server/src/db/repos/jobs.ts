@@ -63,10 +63,11 @@ export function update(db: Db, id: string, patch: Partial<Omit<Job, "id">>): Job
   return next;
 }
 
-export function list(db: Db, filter: { status?: JobStatus; sceneId?: string } = {}): Job[] {
+export function list(db: Db, filter: { status?: JobStatus; sceneId?: string; projectId?: string } = {}): Job[] {
   const where: string[] = [];
   const args: Record<string, string> = {};
   if (filter.status) { where.push("status = @status"); args.status = filter.status; }
+  if (filter.projectId) { where.push("project_id = @projectId"); args.projectId = filter.projectId; }
   if (filter.sceneId) { where.push("scene_id = @sceneId"); args.sceneId = filter.sceneId; }
   const sql = `SELECT * FROM jobs ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY created_at, rowid`;
   return (db.prepare(sql).all(args) as Raw[]).map(toJob);

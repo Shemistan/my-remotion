@@ -1,0 +1,85 @@
+{
+  "key": "acc-video-import-1792853319681",
+  "first": {
+    "id": "job_01M5Q65808W7GCDKXBMCWGYRMJ",
+    "type": "media.import",
+    "project_id": "prj_01M5Q657ASJVXAVC2Y9S06EK85",
+    "scene_id": null,
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "pending",
+    "progress": 0,
+    "stage": null,
+    "attempt": 0,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "projectId": "prj_01M5Q657ASJVXAVC2Y9S06EK85",
+      "method": "path",
+      "path": "resilience-IMG_0685-1000-1090.mov"
+    },
+    "input_hash": "9083325415b2e291d418652073307c5ac4f5b823f0fd6315cca2e17d7c66c0cd",
+    "output_refs": null,
+    "error": null,
+    "idempotency_key": "acc-video-import-1792853319681",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-24T14:48:39.688Z",
+    "started_at": null,
+    "finished_at": null
+  },
+  "replay_status": [
+    200,
+    200
+  ],
+  "fresh_status": 409,
+  "done": {
+    "id": "job_01M5Q65808W7GCDKXBMCWGYRMJ",
+    "type": "media.import",
+    "project_id": "prj_01M5Q657ASJVXAVC2Y9S06EK85",
+    "scene_id": null,
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "done",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "projectId": "prj_01M5Q657ASJVXAVC2Y9S06EK85",
+      "method": "path",
+      "path": "resilience-IMG_0685-1000-1090.mov"
+    },
+    "input_hash": "9083325415b2e291d418652073307c5ac4f5b823f0fd6315cca2e17d7c66c0cd",
+    "output_refs": {
+      "media_id": "med_01M5Q65808W7GCDKXBMCWGYRMJ",
+      "deduplicated": false,
+      "sha256": "50d7f4576b1a21c43bdf1e4bc168919a627bfea7959b16731398fddad8a1652a",
+      "rel_path": "workspace/projects/prj_01M5Q657ASJVXAVC2Y9S06EK85/source/med_01M5Q65808W7GCDKXBMCWGYRMJ/original.mov",
+      "cloned": true,
+      "proxy_reused": false,
+      "proxy_bytes": 11158642,
+      "timings_ms": {
+        "hash": 8,
+        "space": 9,
+        "copy": 6366,
+        "probe": 326,
+        "proxy": 18236,
+        "audio16k": 189,
+        "waveform": 32,
+        "thumbs": 687,
+        "publish": 230
+      }
+    },
+    "error": null,
+    "idempotency_key": "acc-video-import-1792853319681",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-24T14:48:39.688Z",
+    "started_at": "2026-10-24T14:48:40.040Z",
+    "finished_at": "2026-10-24T14:49:06.145Z"
+  }
+}

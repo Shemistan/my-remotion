@@ -1,0 +1,44 @@
+[
+  {
+    "kb_id": "xyflow/react-flow",
+    "repository": "xyflow (React Flow)",
+    "repository_url": "git@github.com:xyflow/xyflow.git",
+    "commit": "654ba5a5e",
+    "license": "MIT (LICENSE, packages/react/package.json)",
+    "license_class": "permissive",
+    "strategy": "adapt",
+    "source_paths": [
+      "templates/infografika/xyflow/packages/react/src/container/ReactFlow/index.tsx",
+      "templates/infografika/xyflow/packages/react/src/types/component-props.ts",
+      "templates/infografika/xyflow/packages/react/src/components/NodeWrapper/index.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/NodeWrapper/useNodeObserver.ts",
+      "templates/infografika/xyflow/packages/react/src/container/NodeRenderer/useResizeObserver.ts",
+      "templates/infografika/xyflow/packages/react/src/hooks/useResizeHandler.ts",
+      "templates/infografika/xyflow/packages/react/src/hooks/useViewportSync.ts",
+      "templates/infografika/xyflow/packages/system/src/utils/edges/positions.ts",
+      "templates/infografika/xyflow/packages/system/src/styles/init.css"
+    ]
+  },
+  {
+    "kb_id": "xyflow/edge-types",
+    "repository": "xyflow (React Flow)",
+    "repository_url": "git@github.com:xyflow/xyflow.git",
+    "commit": "654ba5a5e",
+    "license": "MIT (LICENSE, packages/react/package.json)",
+    "license_class": "permissive",
+    "strategy": "adapt",
+    "source_paths": [
+      "templates/infografika/xyflow/packages/react/src/components/Edges/BezierEdge.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/Edges/StraightEdge.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/Edges/StepEdge.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/Edges/SmoothStepEdge.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/Edges/SimpleBezierEdge.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/Edges/BaseEdge.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/Edges/EdgeText.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/EdgeWrapper/index.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/EdgeWrapper/utils.ts",
+      "templates/infografika/xyflow/packages/react/src/types/edges.ts",
+      "templates/infografika/xyflow/packages/system/src/styles/init.css"
+    ]
+  }
+]

@@ -12,7 +12,40 @@ import { newId } from "./ids.js";
 export const DEFAULT_PROJECT = "playground";
 const MANIFEST = "manifest.json";
 export const QUARANTINE = ".quarantined";
+/** Временный draft синхронной правки (`ArtifactStore.writeRevision`): `workspace/drafts/sync-<id>/`. */
+export const SYNC_DRAFT_PREFIX = "sync-";
 const COPIED_FROM_PARENT = ["src", "props.json", "spec.json", "settings.json"];
+
+/**
+ * Имя draft попытки: `<job>-a<n>` или с ключом экспорта `<job>-a<n>--<key>` (S6: несколько
+ * экспортов в одной попытке `script.package`). `--` отделяет ключ однозначно: ключ вида
+ * `1-a2` не читается как номер попытки.
+ */
+export const DRAFT_NAME = /^(.+?)-a(\d+)(?:--[A-Za-z0-9_-]+)?$/;
+/** Ключ draft экспорта (S6): латиница, цифры, `_`, `-`, до 64 символов. */
+export const DRAFT_KEY = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** Имя draft попытки (`key` — draft экспорта с ключом, S6). */
+export function draftName(runId: string, attempt: number, key?: string): string {
+  return `${runId}-a${attempt}${key ? `--${key}` : ""}`;
+}
+
+/** Попытка, которой принадлежит draft `name` (`<job>-a<n>` и `<job>-a<n>--<key>`); иначе undefined. */
+export function draftAttempt(name: string): { runId: string; attempt: number } | undefined {
+  const m = DRAFT_NAME.exec(name);
+  return m ? { runId: m[1]!, attempt: Number(m[2]) } : undefined;
+}
+
+/** Все draft попытки: основной `<job>-a<n>` и draft экспортов `<job>-a<n>--<key>` (S6), если есть. */
+export async function attemptDraftDirs(root: string, runId: string, attempt: number): Promise<string[]> {
+  const draftsDir = join(root, "workspace/drafts");
+  if (!existsSync(draftsDir)) return [];
+  const base = draftName(runId, attempt);
+  return (await readdir(draftsDir, { withFileTypes: true }))
+    .filter((e) => e.isDirectory() && (e.name === base || (e.name.startsWith(`${base}--`) && DRAFT_NAME.test(e.name))))
+    .map((e) => join(draftsDir, e.name))
+    .sort();
+}
 
 export interface DraftRef {
   runId: string;
@@ -33,6 +66,13 @@ export type PublishMeta = Omit<VersionManifest, "files" | "version_id" | "number
 function checkId(kind: string, id: string): void {
   if (!SAFE_ID.test(id)) throw new Error(`scenes: ${kind} не годится для имени файла: ${JSON.stringify(id)}`);
 }
+/** Каталог экспорта относительно корня хранилища (`05` §1). */
+export function exportRel(projectId: string, exportId: string): string {
+  checkId("projectId", projectId);
+  checkId("exportId", exportId);
+  return `workspace/projects/${projectId}/exports/${exportId}`;
+}
+
 /** Каталог сцены относительно корня хранилища. */
 export function sceneRel(projectId: string, sceneId: string): string {
   checkId("projectId", projectId);
@@ -69,7 +109,7 @@ export async function setWritable(path: string): Promise<void> {
 }
 
 /** `chmod -R a-w` для содержимого (без корня): глубина первой; симлинки и спецфайлы — ошибка. */
-async function lockChildren(dir: string): Promise<void> {
+export async function lockChildren(dir: string): Promise<void> {
   for (const n of await readdir(dir)) {
     const p = join(dir, n);
     const st = await lstat(p);
@@ -86,7 +126,7 @@ async function lockChildren(dir: string): Promise<void> {
 
 const sameSnapshot = (a: Map<string, string>, b: Map<string, string>) => a.size === b.size && [...a].every(([k, v]) => b.get(k) === v);
 
-function setWritableSync(path: string): void {
+export function setWritableSync(path: string): void {
   const st = lstatSync(path);
   if (st.isDirectory()) {
     chmodSync(path, 0o755);
@@ -96,7 +136,8 @@ function setWritableSync(path: string): void {
   }
 }
 
-function lockChildrenSync(dir: string): void {
+/** `chmod -R a-w` содержимого (без корня), синхронно — годится внутри транзакции. */
+export function lockChildrenSync(dir: string): void {
   for (const n of readdirSync(dir)) {
     const p = join(dir, n);
     const st = lstatSync(p);
@@ -118,7 +159,7 @@ async function lockRoot(dir: string): Promise<void> {
 }
 
 /** Первый путь внутри версии (включая корень) с правом записи, если есть. */
-async function writablePath(dir: string): Promise<string | undefined> {
+export async function writablePath(dir: string): Promise<string | undefined> {
   const { files, dirs } = await walk(dir);
   for (const rel of [".", ...dirs, ...files]) {
     if ((await lstat(join(dir, rel))).mode & 0o222) return rel;
@@ -126,7 +167,7 @@ async function writablePath(dir: string): Promise<string | undefined> {
   return undefined;
 }
 
-async function fsyncWrite(path: string, data: string): Promise<void> {
+export async function fsyncWrite(path: string, data: string | Uint8Array): Promise<void> {
   const fh = await open(path, "w");
   try {
     await fh.writeFile(data);
@@ -136,7 +177,7 @@ async function fsyncWrite(path: string, data: string): Promise<void> {
   }
 }
 
-function fsyncWriteSync(path: string, data: string): void {
+export function fsyncWriteSync(path: string, data: string): void {
   const fd = openSync(path, "w");
   try {
     writeSync(fd, data);
@@ -146,7 +187,7 @@ function fsyncWriteSync(path: string, data: string): void {
   }
 }
 
-function fsyncDirSync(dir: string): void {
+export function fsyncDirSync(dir: string): void {
   const fd = openSync(dir, constants.O_RDONLY);
   try {
     fsyncSync(fd);
@@ -182,7 +223,7 @@ async function fsyncDir(dir: string): Promise<void> {
   }
 }
 
-async function copyTree(root: string, from: string, toRel: string): Promise<void> {
+export async function copyTree(root: string, from: string, toRel: string): Promise<void> {
   const st = await lstat(from);
   if (st.isDirectory()) {
     await safeMkdir(root, toRel);
@@ -269,10 +310,13 @@ export async function writeSceneFailure(
 }
 
 /**
- * Восстановление при старте (под owner lock, после reapStale): draft без маркера карантина,
- * у прогона которого нет записей в `run/processes/`, брошен — прогон умер или хранилище
+ * Восстановление при старте (под owner lock, после разбора реестра): draft без маркера
+ * карантина, у попытки которого нет живых записей в реестре (сервер — слияние
+ * `job_processes` и бокового `run/processes/`), брошен — прогон умер или хранилище
  * пропало до записи маркера. Такие draft помечаются карантином с причиной `abandoned`;
- * draft с живыми записями процессов не трогаются.
+ * draft с живыми записями процессов не трогаются. Временный `sync-<id>` синхронной правки
+ * (процессов у него нет) на старте брошен всегда: правка живёт внутри запроса сервера, а
+ * восстановление идёт под owner lock до приёма запросов.
  */
 export async function sweepAbandonedDrafts(
   root: string,
@@ -281,13 +325,19 @@ export async function sweepAbandonedDrafts(
   const out = { quarantined: [] as string[], skipped: [] as string[] };
   const draftsDir = join(root, "workspace/drafts");
   if (!existsSync(draftsDir)) return out;
-  const live = new Set((await registry.list()).map((p) => `${p.runId}-a${p.attempt}`));
+  const live = new Set((await registry.live()).map((p) => draftName(p.runId, p.attempt)));
   for (const e of await readdir(draftsDir, { withFileTypes: true })) {
     if (!e.isDirectory()) continue;
-    const m = /^(.+)-a(\d+)$/.exec(e.name);
     const dir = join(draftsDir, e.name);
-    if (!m || existsSync(join(dir, QUARANTINE))) continue;
-    if (live.has(e.name)) {
+    if (e.name.startsWith(SYNC_DRAFT_PREFIX)) {
+      if (existsSync(join(dir, QUARANTINE))) continue;
+      await fsyncWrite(join(dir, QUARANTINE), JSON.stringify({ reason: "abandoned: синхронная правка не завершена", at: new Date().toISOString() }, null, 2) + "\n");
+      out.quarantined.push(dir);
+      continue;
+    }
+    const a = draftAttempt(e.name);
+    if (!a || existsSync(join(dir, QUARANTINE))) continue;
+    if (live.has(draftName(a.runId, a.attempt))) {
       out.skipped.push(dir);
       continue;
     }
@@ -298,9 +348,46 @@ export async function sweepAbandonedDrafts(
   return out;
 }
 
+/** Рабочие каталоги вызовов агентов (Concept, Director, Rough Cut Editor, Footage Analyst…). */
+export const AGENT_CWD_DIR = "run/agent-cwd";
+
+/**
+ * Восстановление при старте (ревью Task 30, m6 — приватность): рабочие каталоги агентов
+ * `run/agent-cwd/<runId>-a<attempt>-<role>[-n]` живут только на время вызова (у Footage Analyst
+ * там копии кадров ролика). После kill -9 сервера каталог остаётся — на старте, после разбора
+ * реестра, каталог попытки без живых процессов удаляется целиком (и с маркером карантина:
+ * процессов уже нет). Каталог попытки с живой записью реестра не трогается. Прочее в
+ * `run/agent-cwd` (не каталоги) тоже убирается: туда пишет только `toolless`.
+ */
+export async function sweepAgentCwds(
+  root: string,
+  registry: ProcessRegistry = fileProcessRegistry(root),
+): Promise<{ removed: string[]; skipped: string[] }> {
+  const out = { removed: [] as string[], skipped: [] as string[] };
+  const base = join(root, AGENT_CWD_DIR);
+  if (!existsSync(base)) return out;
+  const live = (await registry.live()).map((p) => `${p.runId}-a${p.attempt}-`);
+  for (const e of await readdir(base, { withFileTypes: true })) {
+    const path = join(base, e.name);
+    if (e.isDirectory() && live.some((prefix) => e.name.startsWith(prefix))) {
+      out.skipped.push(path);
+      continue;
+    }
+    if (e.isDirectory()) await chmod(path, 0o700).catch(() => undefined);
+    await rm(path, { recursive: true, force: true });
+    out.removed.push(path);
+  }
+  return out;
+}
+
 /** Помечает draft карантином: публикация запрещена, каталог не трогать до решения человека. */
-export async function quarantineDraft(draft: Draft, reason: string): Promise<void> {
-  await fsyncWrite(join(draft.dir, QUARANTINE), JSON.stringify({ reason, at: new Date().toISOString() }, null, 2) + "\n");
+export async function quarantineDraft(draft: Pick<Draft, "dir">, reason: string): Promise<void> {
+  await quarantineDir(draft.dir, reason);
+}
+
+/** То же по каталогу draft (восстановление знает только `<job>-a<attempt>`). */
+export async function quarantineDir(dir: string, reason: string): Promise<void> {
+  await fsyncWrite(join(dir, QUARANTINE), JSON.stringify({ reason, at: new Date().toISOString() }, null, 2) + "\n");
 }
 
 function requireStorage(status: StorageStatus): void {

@@ -1,0 +1,4158 @@
+{
+  "schema_version": 1,
+  "transcript_id": "trn_01M5Q5WS2K6KVYV1X1G2X6TMZP",
+  "revision": 1,
+  "media_sha256": "9fdeee13d9878f4a90affd60873b84acdd172503e61393dc7319f841b1a9c136",
+  "language": "ru",
+  "author": "asr",
+  "asr": {
+    "model": "whisper-large-v3-turbo",
+    "worker_sha256": "59b7e03bf5a8b7f940b2607d357528e7120f5bb6bbe98efa70de4b39bdce1073",
+    "ai_platform_commit": "99f75d6626a5525b165e8e0f74f99adf3e80cc15",
+    "elapsed_s": 32.6
+  },
+  "words": [
+    {
+      "id": "w_000001",
+      "text": "принято",
+      "start_us": 0,
+      "end_us": 1780000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000002",
+      "text": "закрывать",
+      "start_us": 1780000,
+      "end_us": 2360000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000003",
+      "text": "соединение",
+      "start_us": 2360000,
+      "end_us": 3040000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000004",
+      "text": "и",
+      "start_us": 3040000,
+      "end_us": 3340000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000005",
+      "text": "отправлять",
+      "start_us": 3340000,
+      "end_us": 3980000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000006",
+      "text": "просто",
+      "start_us": 3980000,
+      "end_us": 4280000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000007",
+      "text": "ошибку",
+      "start_us": 4280000,
+      "end_us": 4920000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000008",
+      "text": "и",
+      "start_us": 4920000,
+      "end_us": 5580000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000009",
+      "text": "в",
+      "start_us": 5580000,
+      "end_us": 5700000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000010",
+      "text": "таком",
+      "start_us": 5700000,
+      "end_us": 6080000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000011",
+      "text": "случае",
+      "start_us": 6080000,
+      "end_us": 6520000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000012",
+      "text": "принято",
+      "start_us": 6520000,
+      "end_us": 7240000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000013",
+      "text": "просто",
+      "start_us": 7240000,
+      "end_us": 7560000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000014",
+      "text": "закрывать",
+      "start_us": 7560000,
+      "end_us": 8160000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000015",
+      "text": "соединения",
+      "start_us": 8160000,
+      "end_us": 8860000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000016",
+      "text": "и",
+      "start_us": 8860000,
+      "end_us": 9120000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000017",
+      "text": "отправлять",
+      "start_us": 9120000,
+      "end_us": 9680000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000018",
+      "text": "ошибку",
+      "start_us": 9680000,
+      "end_us": 10240000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000019",
+      "text": "и",
+      "start_us": 10240000,
+      "end_us": 11800000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000020",
+      "text": "в",
+      "start_us": 11800000,
+      "end_us": 11920000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000021",
+      "text": "таком",
+      "start_us": 11920000,
+      "end_us": 12240000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000022",
+      "text": "случае",
+      "start_us": 12240000,
+      "end_us": 12580000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000023",
+      "text": "принято",
+      "start_us": 12580000,
+      "end_us": 13100000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000024",
+      "text": "отправлять",
+      "start_us": 13100000,
+      "end_us": 13700000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000025",
+      "text": "ошибку",
+      "start_us": 13700000,
+      "end_us": 14540000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000026",
+      "text": "и",
+      "start_us": 14540000,
+      "end_us": 14780000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000027",
+      "text": "сразу",
+      "start_us": 14780000,
+      "end_us": 15080000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000028",
+      "text": "закрывать",
+      "start_us": 15080000,
+      "end_us": 15680000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000029",
+      "text": "соединении",
+      "start_us": 15680000,
+      "end_us": 16460000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000030",
+      "text": "остальные",
+      "start_us": 16460000,
+      "end_us": 20200000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000031",
+      "text": "ошибки",
+      "start_us": 20200000,
+      "end_us": 20740000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000032",
+      "text": "это",
+      "start_us": 20740000,
+      "end_us": 21100000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000033",
+      "text": "не",
+      "start_us": 21100000,
+      "end_us": 21300000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000034",
+      "text": "фатальные",
+      "start_us": 21300000,
+      "end_us": 21940000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000035",
+      "text": "например",
+      "start_us": 21940000,
+      "end_us": 23540000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000036",
+      "text": "незнакомый",
+      "start_us": 23540000,
+      "end_us": 24400000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000037",
+      "text": "флаг",
+      "start_us": 24400000,
+      "end_us": 24980000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000038",
+      "text": "например",
+      "start_us": 24980000,
+      "end_us": 26100000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000039",
+      "text": "незнакомый",
+      "start_us": 26100000,
+      "end_us": 26900000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000040",
+      "text": "флаг",
+      "start_us": 26900000,
+      "end_us": 27300000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000041",
+      "text": "какой",
+      "start_us": 27300000,
+      "end_us": 28100000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000042",
+      "text": "-нибудь",
+      "start_us": 28100000,
+      "end_us": 28400000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000043",
+      "text": "битый",
+      "start_us": 28400000,
+      "end_us": 28840000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000044",
+      "text": "джейсон",
+      "start_us": 28840000,
+      "end_us": 29360000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000045",
+      "text": "пришел",
+      "start_us": 29360000,
+      "end_us": 30000000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000046",
+      "text": "или",
+      "start_us": 30000000,
+      "end_us": 36200000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000047",
+      "text": "ошибки",
+      "start_us": 36200000,
+      "end_us": 36860000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000048",
+      "text": "самой",
+      "start_us": 36860000,
+      "end_us": 37220000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000049",
+      "text": "задачи",
+      "start_us": 37220000,
+      "end_us": 38040000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000050",
+      "text": "или",
+      "start_us": 38040000,
+      "end_us": 41560000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000051",
+      "text": "ошибки",
+      "start_us": 41560000,
+      "end_us": 42040000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000052",
+      "text": "самой",
+      "start_us": 42040000,
+      "end_us": 42360000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000053",
+      "text": "задачи",
+      "start_us": 42360000,
+      "end_us": 42920000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000054",
+      "text": "например",
+      "start_us": 42920000,
+      "end_us": 43380000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000055",
+      "text": "пришла",
+      "start_us": 43380000,
+      "end_us": 45580000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000056",
+      "text": "какая",
+      "start_us": 45580000,
+      "end_us": 45880000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000057",
+      "text": "-то",
+      "start_us": 45880000,
+      "end_us": 46100000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000058",
+      "text": "неизвестная",
+      "start_us": 46100000,
+      "end_us": 46780000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000059",
+      "text": "операция",
+      "start_us": 46780000,
+      "end_us": 47620000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000060",
+      "text": "или",
+      "start_us": 47620000,
+      "end_us": 50220000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000061",
+      "text": "пришли",
+      "start_us": 50220000,
+      "end_us": 50760000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000062",
+      "text": "неправильные",
+      "start_us": 50760000,
+      "end_us": 51580000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000063",
+      "text": "входные",
+      "start_us": 51580000,
+      "end_us": 52080000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000064",
+      "text": "данные.",
+      "start_us": 52080000,
+      "end_us": 52700000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000065",
+      "text": "В",
+      "start_us": 55940000,
+      "end_us": 57000000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000066",
+      "text": "таком",
+      "start_us": 57000000,
+      "end_us": 57340000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000067",
+      "text": "случае",
+      "start_us": 57340000,
+      "end_us": 57680000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000068",
+      "text": "мы",
+      "start_us": 57680000,
+      "end_us": 58000000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000069",
+      "text": "отвечаем",
+      "start_us": 58000000,
+      "end_us": 58840000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000070",
+      "text": "тоже",
+      "start_us": 58840000,
+      "end_us": 59240000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000071",
+      "text": "ошибкой,",
+      "start_us": 59240000,
+      "end_us": 60100000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000072",
+      "text": "но",
+      "start_us": 60260000,
+      "end_us": 60300000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000073",
+      "text": "при",
+      "start_us": 60300000,
+      "end_us": 60480000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000074",
+      "text": "этом",
+      "start_us": 60480000,
+      "end_us": 60720000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000075",
+      "text": "указываем",
+      "start_us": 60720000,
+      "end_us": 61500000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000076",
+      "text": "request",
+      "start_us": 61500000,
+      "end_us": 62240000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000077",
+      "text": "id,",
+      "start_us": 62240000,
+      "end_us": 62700000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000078",
+      "text": "чтобы",
+      "start_us": 64690000,
+      "end_us": 65220000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000079",
+      "text": "понять,",
+      "start_us": 65220000,
+      "end_us": 65760000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000080",
+      "text": "какой",
+      "start_us": 66150000,
+      "end_us": 66680000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000081",
+      "text": "запрос",
+      "start_us": 66680000,
+      "end_us": 67340000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000082",
+      "text": "вызвал",
+      "start_us": 67340000,
+      "end_us": 67900000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000083",
+      "text": "эту",
+      "start_us": 67900000,
+      "end_us": 68240000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000084",
+      "text": "ошибку.",
+      "start_us": 68240000,
+      "end_us": 68860000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000085",
+      "text": "И",
+      "start_us": 71350000,
+      "end_us": 71880000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000086",
+      "text": "мы",
+      "start_us": 71880000,
+      "end_us": 72940000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000087",
+      "text": "продолжаем",
+      "start_us": 72940000,
+      "end_us": 73680000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000088",
+      "text": "работать",
+      "start_us": 73680000,
+      "end_us": 74120000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000089",
+      "text": "дальше,",
+      "start_us": 74120000,
+      "end_us": 74540000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000090",
+      "text": "не",
+      "start_us": 74740000,
+      "end_us": 74840000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000091",
+      "text": "прерывая",
+      "start_us": 74840000,
+      "end_us": 75460000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000092",
+      "text": "соединения.",
+      "start_us": 75460000,
+      "end_us": 76240000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000093",
+      "text": "Самый",
+      "start_us": 101400000,
+      "end_us": 102520000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000094",
+      "text": "интересный",
+      "start_us": 102520000,
+      "end_us": 103040000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000095",
+      "text": "случай",
+      "start_us": 103040000,
+      "end_us": 103600000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000096",
+      "text": "–",
+      "start_us": 103600000,
+      "end_us": 103940000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000097",
+      "text": "это",
+      "start_us": 103940000,
+      "end_us": 106460000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000098",
+      "text": "неизвестный",
+      "start_us": 106460000,
+      "end_us": 107540000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000099",
+      "text": "тип",
+      "start_us": 107540000,
+      "end_us": 107780000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000100",
+      "text": "сообщения.",
+      "start_us": 107780000,
+      "end_us": 108560000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000101",
+      "text": "То",
+      "start_us": 108560000,
+      "end_us": 109080000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000102",
+      "text": "есть",
+      "start_us": 109080000,
+      "end_us": 109200000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000103",
+      "text": "заголовок",
+      "start_us": 109200000,
+      "end_us": 109920000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000104",
+      "text": "мы",
+      "start_us": 109920000,
+      "end_us": 110120000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000105",
+      "text": "получили,",
+      "start_us": 110120000,
+      "end_us": 111000000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000106",
+      "text": "длину",
+      "start_us": 111260000,
+      "end_us": 112000000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000107",
+      "text": "знаем.",
+      "start_us": 112000000,
+      "end_us": 112400000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000108",
+      "text": "Значит",
+      "start_us": 112640000,
+      "end_us": 112920000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000109",
+      "text": "можно",
+      "start_us": 112920000,
+      "end_us": 118220000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000110",
+      "text": "пропустить",
+      "start_us": 118220000,
+      "end_us": 118860000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000111",
+      "text": "ровно",
+      "start_us": 118860000,
+      "end_us": 119240000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000112",
+      "text": "столько",
+      "start_us": 119240000,
+      "end_us": 119560000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000113",
+      "text": "байт.",
+      "start_us": 119560000,
+      "end_us": 120040000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000114",
+      "text": "И",
+      "start_us": 121200000,
+      "end_us": 121680000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000115",
+      "text": "читать",
+      "start_us": 121680000,
+      "end_us": 122160000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000116",
+      "text": "дальше.",
+      "start_us": 122160000,
+      "end_us": 122520000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000117",
+      "text": "Поэтому",
+      "start_us": 124940000,
+      "end_us": 125900000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000118",
+      "text": "получатель",
+      "start_us": 125900000,
+      "end_us": 126720000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000119",
+      "text": "сначала",
+      "start_us": 126720000,
+      "end_us": 127400000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000120",
+      "text": "дочитывает",
+      "start_us": 127400000,
+      "end_us": 128060000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000121",
+      "text": "сообщение",
+      "start_us": 128060000,
+      "end_us": 128560000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000122",
+      "text": "до",
+      "start_us": 128560000,
+      "end_us": 128720000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000123",
+      "text": "конца",
+      "start_us": 128720000,
+      "end_us": 129180000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000124",
+      "text": "и",
+      "start_us": 129180000,
+      "end_us": 129740000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000125",
+      "text": "только",
+      "start_us": 129740000,
+      "end_us": 130080000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000126",
+      "text": "потом",
+      "start_us": 130080000,
+      "end_us": 130480000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000127",
+      "text": "смотрит",
+      "start_us": 130480000,
+      "end_us": 131200000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000128",
+      "text": "на",
+      "start_us": 131200000,
+      "end_us": 131720000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000129",
+      "text": "тип.",
+      "start_us": 131720000,
+      "end_us": 131980000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000130",
+      "text": "К",
+      "start_us": 132220000,
+      "end_us": 132420000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000131",
+      "text": "этому",
+      "start_us": 132420000,
+      "end_us": 132680000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000132",
+      "text": "моменту",
+      "start_us": 132680000,
+      "end_us": 133180000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000133",
+      "text": "сообщение",
+      "start_us": 133180000,
+      "end_us": 133660000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000134",
+      "text": "уже",
+      "start_us": 133660000,
+      "end_us": 133840000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000135",
+      "text": "целиком",
+      "start_us": 133840000,
+      "end_us": 134280000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000136",
+      "text": "вынуто",
+      "start_us": 134280000,
+      "end_us": 134680000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000137",
+      "text": "из",
+      "start_us": 134680000,
+      "end_us": 134800000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000138",
+      "text": "потока.",
+      "start_us": 134800000,
+      "end_us": 135340000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000139",
+      "text": "Это",
+      "start_us": 135340000,
+      "end_us": 136800000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000140",
+      "text": "сообщение",
+      "start_us": 136800000,
+      "end_us": 137360000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000141",
+      "text": "еще...",
+      "start_us": 137360000,
+      "end_us": 138140000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000142",
+      "text": "Теперь",
+      "start_us": 145080000,
+      "end_us": 146400000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000143",
+      "text": "соберем",
+      "start_us": 146400000,
+      "end_us": 147200000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000144",
+      "text": "весь",
+      "start_us": 147200000,
+      "end_us": 149160000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000145",
+      "text": "наш",
+      "start_us": 149160000,
+      "end_us": 149580000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000146",
+      "text": "пройденный",
+      "start_us": 149580000,
+      "end_us": 150280000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000147",
+      "text": "разговор",
+      "start_us": 150280000,
+      "end_us": 151020000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000148",
+      "text": "целиком.",
+      "start_us": 151020000,
+      "end_us": 151800000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000149",
+      "text": "Теперь",
+      "start_us": 152760000,
+      "end_us": 154080000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000150",
+      "text": "соберем",
+      "start_us": 154080000,
+      "end_us": 155080000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000151",
+      "text": "весь",
+      "start_us": 155080000,
+      "end_us": 159580000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000152",
+      "text": "наш",
+      "start_us": 159580000,
+      "end_us": 159860000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000153",
+      "text": "разговор,",
+      "start_us": 159860000,
+      "end_us": 160400000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000154",
+      "text": "то",
+      "start_us": 160540000,
+      "end_us": 160600000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000155",
+      "text": "есть",
+      "start_us": 160600000,
+      "end_us": 160700000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000156",
+      "text": "все",
+      "start_us": 160700000,
+      "end_us": 160940000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000157",
+      "text": "общение",
+      "start_us": 160940000,
+      "end_us": 161440000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000158",
+      "text": "наших",
+      "start_us": 161440000,
+      "end_us": 161820000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000159",
+      "text": "сервисов",
+      "start_us": 161820000,
+      "end_us": 162640000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000160",
+      "text": "целиком.",
+      "start_us": 162640000,
+      "end_us": 163280000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000161",
+      "text": "Такая",
+      "start_us": 166780000,
+      "end_us": 167720000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000162",
+      "text": "схема",
+      "start_us": 167720000,
+      "end_us": 168180000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000163",
+      "text": "называется",
+      "start_us": 168180000,
+      "end_us": 168680000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000164",
+      "text": "sequence",
+      "start_us": 168680000,
+      "end_us": 169180000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000165",
+      "text": "diagram.",
+      "start_us": 169180000,
+      "end_us": 169900000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000166",
+      "text": "Кто",
+      "start_us": 174480000,
+      "end_us": 175420000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000167",
+      "text": "кому",
+      "start_us": 175420000,
+      "end_us": 175780000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000168",
+      "text": "что",
+      "start_us": 175780000,
+      "end_us": 176060000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000169",
+      "text": "отправил",
+      "start_us": 176060000,
+      "end_us": 176720000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000170",
+      "text": "сверху",
+      "start_us": 176720000,
+      "end_us": 177300000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000171",
+      "text": "вниз.",
+      "start_us": 177300000,
+      "end_us": 177660000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000172",
+      "text": "Итак,",
+      "start_us": 178540000,
+      "end_us": 179120000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000173",
+      "text": "поехали.",
+      "start_us": 179340000,
+      "end_us": 179820000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000174",
+      "text": "Сначала",
+      "start_us": 180080000,
+      "end_us": 180620000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000175",
+      "text": "открываем",
+      "start_us": 180620000,
+      "end_us": 181500000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000176",
+      "text": "TCP",
+      "start_us": 181500000,
+      "end_us": 182000000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000177",
+      "text": "соединение.",
+      "start_us": 182000000,
+      "end_us": 183000000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000178",
+      "text": "Ядро",
+      "start_us": 183320000,
+      "end_us": 183940000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000179",
+      "text": "системы",
+      "start_us": 183940000,
+      "end_us": 184700000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000180",
+      "text": "делает",
+      "start_us": 184700000,
+      "end_us": 185280000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000181",
+      "text": "свое",
+      "start_us": 185280000,
+      "end_us": 185600000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000182",
+      "text": "рукопожатие.",
+      "start_us": 185600000,
+      "end_us": 186660000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000183",
+      "text": "То",
+      "start_us": 186960000,
+      "end_us": 187020000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000184",
+      "text": "есть",
+      "start_us": 187020000,
+      "end_us": 187180000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000185",
+      "text": "sync,",
+      "start_us": 187180000,
+      "end_us": 187620000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000186",
+      "text": "sync,",
+      "start_us": 187780000,
+      "end_us": 188020000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000187",
+      "text": "ask,",
+      "start_us": 188220000,
+      "end_us": 188540000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000188",
+      "text": "ask.",
+      "start_us": 188600000,
+      "end_us": 188940000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000189",
+      "text": "Потом",
+      "start_us": 191600000,
+      "end_us": 192440000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000190",
+      "text": "отправляется",
+      "start_us": 192440000,
+      "end_us": 193280000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000191",
+      "text": "сообщение,",
+      "start_us": 193280000,
+      "end_us": 194180000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000192",
+      "text": "что",
+      "start_us": 194240000,
+      "end_us": 194580000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000193",
+      "text": "hello,",
+      "start_us": 194580000,
+      "end_us": 195160000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000194",
+      "text": "привет.",
+      "start_us": 195480000,
+      "end_us": 195720000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000195",
+      "text": "Потом",
+      "start_us": 196260000,
+      "end_us": 196740000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000196",
+      "text": "отправляется",
+      "start_us": 196740000,
+      "end_us": 197320000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000197",
+      "text": "сообщение",
+      "start_us": 197320000,
+      "end_us": 197900000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000198",
+      "text": "hello,",
+      "start_us": 197900000,
+      "end_us": 198240000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000199",
+      "text": "то",
+      "start_us": 198500000,
+      "end_us": 198560000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000200",
+      "text": "есть",
+      "start_us": 198560000,
+      "end_us": 198740000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000201",
+      "text": "привет,",
+      "start_us": 198740000,
+      "end_us": 199160000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000202",
+      "text": "вот",
+      "start_us": 199540000,
+      "end_us": 199640000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000203",
+      "text": "что",
+      "start_us": 199640000,
+      "end_us": 199820000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000204",
+      "text": "я",
+      "start_us": 199820000,
+      "end_us": 199960000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000205",
+      "text": "умею.",
+      "start_us": 199960000,
+      "end_us": 200520000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000206",
+      "text": "И",
+      "start_us": 200780000,
+      "end_us": 201260000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000207",
+      "text": "отвечает,",
+      "start_us": 201260000,
+      "end_us": 202240000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000208",
+      "text": "и",
+      "start_us": 202520000,
+      "end_us": 203120000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000209",
+      "text": "наш",
+      "start_us": 203120000,
+      "end_us": 203420000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000210",
+      "text": "воркер",
+      "start_us": 203420000,
+      "end_us": 203820000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000211",
+      "text": "отвечает,",
+      "start_us": 203820000,
+      "end_us": 204320000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000212",
+      "text": "договорились.",
+      "start_us": 204400000,
+      "end_us": 205180000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000213",
+      "text": "Готов",
+      "start_us": 208180000,
+      "end_us": 209020000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000214",
+      "text": "принимать",
+      "start_us": 209020000,
+      "end_us": 209780000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000215",
+      "text": "задачи.",
+      "start_us": 209780000,
+      "end_us": 210740000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000216",
+      "text": "И",
+      "start_us": 211140000,
+      "end_us": 211820000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000217",
+      "text": "после",
+      "start_us": 211820000,
+      "end_us": 212200000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000218",
+      "text": "этого",
+      "start_us": 212200000,
+      "end_us": 212520000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000219",
+      "text": "отправляется",
+      "start_us": 212520000,
+      "end_us": 213160000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000220",
+      "text": "первая",
+      "start_us": 213160000,
+      "end_us": 213640000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000221",
+      "text": "задача",
+      "start_us": 213640000,
+      "end_us": 214340000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000222",
+      "text": "на",
+      "start_us": 214340000,
+      "end_us": 214900000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000223",
+      "text": "sleep.",
+      "start_us": 214900000,
+      "end_us": 215160000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000224",
+      "text": "Задача",
+      "start_us": 215700000,
+      "end_us": 216540000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000225",
+      "text": "2",
+      "start_us": 216540000,
+      "end_us": 216740000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000226",
+      "text": "на",
+      "start_us": 216740000,
+      "end_us": 217080000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000227",
+      "text": "uppercase.",
+      "start_us": 217080000,
+      "end_us": 218100000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000228",
+      "text": "И",
+      "start_us": 219740000,
+      "end_us": 220560000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000229",
+      "text": "тут",
+      "start_us": 220560000,
+      "end_us": 220980000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000230",
+      "text": "мы",
+      "start_us": 220980000,
+      "end_us": 221160000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000231",
+      "text": "видим,",
+      "start_us": 221160000,
+      "end_us": 221460000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000232",
+      "text": "что",
+      "start_us": 221640000,
+      "end_us": 221800000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000233",
+      "text": "результат",
+      "start_us": 221800000,
+      "end_us": 222500000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000234",
+      "text": "задачи",
+      "start_us": 222500000,
+      "end_us": 223440000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000235",
+      "text": "от",
+      "start_us": 223440000,
+      "end_us": 223560000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000236",
+      "text": "номер",
+      "start_us": 223560000,
+      "end_us": 223920000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000237",
+      "text": "2,",
+      "start_us": 223920000,
+      "end_us": 224160000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000238",
+      "text": "тут",
+      "start_us": 224520000,
+      "end_us": 227300000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000239",
+      "text": "мы",
+      "start_us": 227300000,
+      "end_us": 227440000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000240",
+      "text": "получаем",
+      "start_us": 227440000,
+      "end_us": 228020000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000241",
+      "text": "ответ",
+      "start_us": 228020000,
+      "end_us": 231580000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000242",
+      "text": "от",
+      "start_us": 231580000,
+      "end_us": 231800000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000243",
+      "text": "второй",
+      "start_us": 231800000,
+      "end_us": 232120000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000244",
+      "text": "задачи,",
+      "start_us": 232120000,
+      "end_us": 232780000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000245",
+      "text": "так",
+      "start_us": 232820000,
+      "end_us": 233220000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000246",
+      "text": "как",
+      "start_us": 233220000,
+      "end_us": 233420000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000247",
+      "text": "она",
+      "start_us": 233420000,
+      "end_us": 233740000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000248",
+      "text": "быстро",
+      "start_us": 233740000,
+      "end_us": 235720000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000249",
+      "text": "и",
+      "start_us": 235720000,
+      "end_us": 236220000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000250",
+      "text": "обогнала",
+      "start_us": 236220000,
+      "end_us": 236920000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000251",
+      "text": "более",
+      "start_us": 236920000,
+      "end_us": 237880000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000252",
+      "text": "медленные",
+      "start_us": 237880000,
+      "end_us": 238460000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000253",
+      "text": "задачи.",
+      "start_us": 238460000,
+      "end_us": 239080000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000254",
+      "text": "Затем",
+      "start_us": 240500000,
+      "end_us": 241360000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000255",
+      "text": "у",
+      "start_us": 241360000,
+      "end_us": 241500000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000256",
+      "text": "нас",
+      "start_us": 241500000,
+      "end_us": 241640000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000257",
+      "text": "уходит",
+      "start_us": 241640000,
+      "end_us": 242180000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000258",
+      "text": "ping,",
+      "start_us": 242180000,
+      "end_us": 242700000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000259",
+      "text": "чтобы",
+      "start_us": 243140000,
+      "end_us": 243320000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000260",
+      "text": "проверить",
+      "start_us": 243320000,
+      "end_us": 244060000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000261",
+      "text": "все",
+      "start_us": 244060000,
+      "end_us": 244400000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000262",
+      "text": "ли",
+      "start_us": 244400000,
+      "end_us": 244620000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000263",
+      "text": "ок",
+      "start_us": 244620000,
+      "end_us": 244960000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000264",
+      "text": "И",
+      "start_us": 244960000,
+      "end_us": 245640000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000265",
+      "text": "наш",
+      "start_us": 245640000,
+      "end_us": 246200000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000266",
+      "text": "воркер",
+      "start_us": 246200000,
+      "end_us": 246680000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000267",
+      "text": "отвечает",
+      "start_us": 246680000,
+      "end_us": 247420000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000268",
+      "text": "pong,",
+      "start_us": 247420000,
+      "end_us": 247840000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000269",
+      "text": "то",
+      "start_us": 248080000,
+      "end_us": 248360000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000270",
+      "text": "есть",
+      "start_us": 248360000,
+      "end_us": 248460000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000271",
+      "text": "все",
+      "start_us": 248460000,
+      "end_us": 248700000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000272",
+      "text": "ок",
+      "start_us": 248700000,
+      "end_us": 248980000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000273",
+      "text": "Даже",
+      "start_us": 251120000,
+      "end_us": 251980000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000274",
+      "text": "пока",
+      "start_us": 251980000,
+      "end_us": 252380000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000275",
+      "text": "он",
+      "start_us": 252380000,
+      "end_us": 253060000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000276",
+      "text": "спит,",
+      "start_us": 253060000,
+      "end_us": 253600000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000277",
+      "text": "то",
+      "start_us": 253720000,
+      "end_us": 253800000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000278",
+      "text": "есть",
+      "start_us": 253800000,
+      "end_us": 253880000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000279",
+      "text": "выполняет",
+      "start_us": 253880000,
+      "end_us": 254560000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000280",
+      "text": "условно",
+      "start_us": 254560000,
+      "end_us": 254980000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000281",
+      "text": "какую",
+      "start_us": 254980000,
+      "end_us": 255240000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000282",
+      "text": "-то",
+      "start_us": 255240000,
+      "end_us": 255400000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000283",
+      "text": "задачу",
+      "start_us": 255400000,
+      "end_us": 256080000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000284",
+      "text": "То",
+      "start_us": 256080000,
+      "end_us": 256660000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000285",
+      "text": "есть",
+      "start_us": 256660000,
+      "end_us": 258580000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000286",
+      "text": "даже",
+      "start_us": 258580000,
+      "end_us": 258920000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000287",
+      "text": "пока",
+      "start_us": 258920000,
+      "end_us": 259300000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000288",
+      "text": "он",
+      "start_us": 259300000,
+      "end_us": 259600000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000289",
+      "text": "занят,",
+      "start_us": 259600000,
+      "end_us": 260140000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000290",
+      "text": "выполняет",
+      "start_us": 260180000,
+      "end_us": 261480000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000291",
+      "text": "задачу",
+      "start_us": 261480000,
+      "end_us": 262300000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000292",
+      "text": "sleep",
+      "start_us": 262300000,
+      "end_us": 262720000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000293",
+      "text": "И",
+      "start_us": 262720000,
+      "end_us": 264360000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000294",
+      "text": "получаем",
+      "start_us": 264360000,
+      "end_us": 266580000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000295",
+      "text": "результат",
+      "start_us": 266580000,
+      "end_us": 267100000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000296",
+      "text": "первой",
+      "start_us": 267100000,
+      "end_us": 268260000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000297",
+      "text": "задачи",
+      "start_us": 268260000,
+      "end_us": 268880000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000298",
+      "text": "Диспетчер",
+      "start_us": 269080000,
+      "end_us": 270500000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000299",
+      "text": "закрывает",
+      "start_us": 270500000,
+      "end_us": 271040000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000300",
+      "text": "соединение.",
+      "start_us": 271040000,
+      "end_us": 271840000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000301",
+      "text": "После",
+      "start_us": 274180000,
+      "end_us": 275260000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000302",
+      "text": "этого",
+      "start_us": 275260000,
+      "end_us": 275540000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000303",
+      "text": "диспетчер",
+      "start_us": 275540000,
+      "end_us": 276180000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000304",
+      "text": "закрывает",
+      "start_us": 276180000,
+      "end_us": 278940000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000305",
+      "text": "соединение.",
+      "start_us": 278940000,
+      "end_us": 279720000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000306",
+      "text": "Отдельного",
+      "start_us": 279980000,
+      "end_us": 280820000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000307",
+      "text": "сообщения",
+      "start_us": 280820000,
+      "end_us": 281360000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000308",
+      "text": "пока",
+      "start_us": 281360000,
+      "end_us": 281680000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000309",
+      "text": "у",
+      "start_us": 281680000,
+      "end_us": 282660000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000310",
+      "text": "нас",
+      "start_us": 282660000,
+      "end_us": 282920000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000311",
+      "text": "нет.",
+      "start_us": 282920000,
+      "end_us": 283320000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000312",
+      "text": "Поэтому",
+      "start_us": 285123000,
+      "end_us": 286883000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000313",
+      "text": "диспатчер",
+      "start_us": 286883000,
+      "end_us": 287543000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000314",
+      "text": "просто",
+      "start_us": 287543000,
+      "end_us": 287863000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000315",
+      "text": "дожидается",
+      "start_us": 287863000,
+      "end_us": 288423000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000316",
+      "text": "выполнения",
+      "start_us": 288423000,
+      "end_us": 288943000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000317",
+      "text": "всех",
+      "start_us": 288943000,
+      "end_us": 289143000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000318",
+      "text": "задач",
+      "start_us": 289143000,
+      "end_us": 289563000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000319",
+      "text": "и",
+      "start_us": 289563000,
+      "end_us": 289863000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000320",
+      "text": "закрывает",
+      "start_us": 289863000,
+      "end_us": 290423000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000321",
+      "text": "соединение.",
+      "start_us": 290423000,
+      "end_us": 291123000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000322",
+      "text": "Продолжение",
+      "start_us": 294423000,
+      "end_us": 295823000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000323",
+      "text": "следует...",
+      "start_us": 295823000,
+      "end_us": 295883000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000324",
+      "text": "кто",
+      "start_us": 321123000,
+      "end_us": 321483000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000325",
+      "text": "уже",
+      "start_us": 321483000,
+      "end_us": 322023000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000326",
+      "text": "использует",
+      "start_us": 322023000,
+      "end_us": 322703000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000327",
+      "text": "старую",
+      "start_us": 322703000,
+      "end_us": 323123000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000328",
+      "text": "версию",
+      "start_us": 323123000,
+      "end_us": 323463000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000329",
+      "text": "протокола.",
+      "start_us": 323463000,
+      "end_us": 324203000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000330",
+      "text": "Это",
+      "start_us": 325743000,
+      "end_us": 326263000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000331",
+      "text": "называется",
+      "start_us": 326263000,
+      "end_us": 326783000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000332",
+      "text": "обратная",
+      "start_us": 326783000,
+      "end_us": 327303000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000333",
+      "text": "совместимость.",
+      "start_us": 327303000,
+      "end_us": 328283000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000334",
+      "text": "Правила",
+      "start_us": 333463000,
+      "end_us": 334503000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000335",
+      "text": "простые.",
+      "start_us": 334503000,
+      "end_us": 335143000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000336",
+      "text": "Magic",
+      "start_us": 335523000,
+      "end_us": 336123000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000337",
+      "text": "и",
+      "start_us": 336123000,
+      "end_us": 337103000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000338",
+      "text": "версия",
+      "start_us": 337103000,
+      "end_us": 337903000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000339",
+      "text": "всегда",
+      "start_us": 337903000,
+      "end_us": 338303000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000340",
+      "text": "на",
+      "start_us": 338303000,
+      "end_us": 338543000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000341",
+      "text": "своем",
+      "start_us": 338543000,
+      "end_us": 338883000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000342",
+      "text": "месте",
+      "start_us": 338883000,
+      "end_us": 339303000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000343",
+      "text": "в",
+      "start_us": 339303000,
+      "end_us": 341643000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000344",
+      "text": "первых",
+      "start_us": 341643000,
+      "end_us": 342043000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000345",
+      "text": "трех",
+      "start_us": 342043000,
+      "end_us": 342423000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000346",
+      "text": "байтах.",
+      "start_us": 342423000,
+      "end_us": 343123000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000347",
+      "text": "Например,",
+      "start_us": 346783000,
+      "end_us": 347823000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000348",
+      "text": "меняем",
+      "start_us": 348203000,
+      "end_us": 348663000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000349",
+      "text": "раскладку",
+      "start_us": 348663000,
+      "end_us": 349243000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000350",
+      "text": "заголовка,",
+      "start_us": 349243000,
+      "end_us": 350023000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000351",
+      "text": "это",
+      "start_us": 350163000,
+      "end_us": 350623000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000352",
+      "text": "новая.",
+      "start_us": 350623000,
+      "end_us": 351103000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000353",
+      "text": "и",
+      "start_us": 355483000,
+      "end_us": 356483000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000354",
+      "text": "договориться",
+      "start_us": 356483000,
+      "end_us": 357203000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000355",
+      "text": "о",
+      "start_us": 357203000,
+      "end_us": 357603000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000356",
+      "text": "ней",
+      "start_us": 357603000,
+      "end_us": 357743000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000357",
+      "text": "поможет",
+      "start_us": 357743000,
+      "end_us": 358323000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000358",
+      "text": "handshake",
+      "start_us": 358323000,
+      "end_us": 359023000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000359",
+      "text": "то",
+      "start_us": 359023000,
+      "end_us": 359263000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000360",
+      "text": "есть",
+      "start_us": 359263000,
+      "end_us": 359423000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000361",
+      "text": "рукопожатие",
+      "start_us": 359423000,
+      "end_us": 362723000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000362",
+      "text": "рукопожатие",
+      "start_us": 362723000,
+      "end_us": 364503000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000363",
+      "text": "в",
+      "start_us": 364503000,
+      "end_us": 364703000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000364",
+      "text": "начале",
+      "start_us": 364703000,
+      "end_us": 365023000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000365",
+      "text": "соединения",
+      "start_us": 365023000,
+      "end_us": 365863000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000366",
+      "text": "если",
+      "start_us": 367603000,
+      "end_us": 368603000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000367",
+      "text": "есть",
+      "start_us": 368603000,
+      "end_us": 368863000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000368",
+      "text": "как",
+      "start_us": 368863000,
+      "end_us": 369043000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000369",
+      "text": "если",
+      "start_us": 369043000,
+      "end_us": 369443000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000370",
+      "text": "добавляются",
+      "start_us": 369443000,
+      "end_us": 370043000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000371",
+      "text": "какие",
+      "start_us": 370043000,
+      "end_us": 370423000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000372",
+      "text": "-то",
+      "start_us": 370423000,
+      "end_us": 370623000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000373",
+      "text": "необязательные",
+      "start_us": 370623000,
+      "end_us": 371523000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000374",
+      "text": "поля",
+      "start_us": 371523000,
+      "end_us": 372023000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000375",
+      "text": "в",
+      "start_us": 372023000,
+      "end_us": 372563000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000376",
+      "text": "наш",
+      "start_us": 372563000,
+      "end_us": 372803000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000377",
+      "text": "джейсон",
+      "start_us": 372803000,
+      "end_us": 373443000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000378",
+      "text": "то",
+      "start_us": 373443000,
+      "end_us": 375343000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000379",
+      "text": "их",
+      "start_us": 375343000,
+      "end_us": 375683000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000380",
+      "text": "можно",
+      "start_us": 375683000,
+      "end_us": 375983000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000381",
+      "text": "добавлять",
+      "start_us": 375983000,
+      "end_us": 376463000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000382",
+      "text": "спокойно",
+      "start_us": 376463000,
+      "end_us": 377183000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000383",
+      "text": "и",
+      "start_us": 377183000,
+      "end_us": 381163000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000384",
+      "text": "это",
+      "start_us": 381163000,
+      "end_us": 381503000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000385",
+      "text": "не",
+      "start_us": 381503000,
+      "end_us": 381663000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000386",
+      "text": "требует",
+      "start_us": 381663000,
+      "end_us": 382123000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000387",
+      "text": "изменения",
+      "start_us": 382123000,
+      "end_us": 382723000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000388",
+      "text": "версии.",
+      "start_us": 382723000,
+      "end_us": 383363000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000389",
+      "text": "А",
+      "start_us": 387443000,
+      "end_us": 388323000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000390",
+      "text": "вот",
+      "start_us": 388323000,
+      "end_us": 388543000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000391",
+      "text": "если",
+      "start_us": 388543000,
+      "end_us": 388883000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000392",
+      "text": "удалить",
+      "start_us": 388883000,
+      "end_us": 389403000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000393",
+      "text": "какое",
+      "start_us": 389403000,
+      "end_us": 389723000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000394",
+      "text": "-то",
+      "start_us": 389723000,
+      "end_us": 389883000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000395",
+      "text": "поле",
+      "start_us": 389883000,
+      "end_us": 390323000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000396",
+      "text": "или",
+      "start_us": 390323000,
+      "end_us": 390683000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000397",
+      "text": "поменять",
+      "start_us": 390683000,
+      "end_us": 391763000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000398",
+      "text": "или",
+      "start_us": 391763000,
+      "end_us": 392283000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000399",
+      "text": "изменить",
+      "start_us": 392283000,
+      "end_us": 392723000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000400",
+      "text": "его",
+      "start_us": 392723000,
+      "end_us": 392983000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000401",
+      "text": "смысл,",
+      "start_us": 392983000,
+      "end_us": 393423000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000402",
+      "text": "то",
+      "start_us": 393603000,
+      "end_us": 393703000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000403",
+      "text": "это",
+      "start_us": 393703000,
+      "end_us": 394043000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000404",
+      "text": "уже",
+      "start_us": 394043000,
+      "end_us": 394263000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000405",
+      "text": "новая",
+      "start_us": 394263000,
+      "end_us": 394723000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000406",
+      "text": "версия.",
+      "start_us": 394723000,
+      "end_us": 395303000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000407",
+      "text": "новые",
+      "start_us": 401483000,
+      "end_us": 402883000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000408",
+      "text": "флаги",
+      "start_us": 402883000,
+      "end_us": 403663000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000409",
+      "text": "и",
+      "start_us": 403663000,
+      "end_us": 405303000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000410",
+      "text": "типы",
+      "start_us": 405303000,
+      "end_us": 405623000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000411",
+      "text": "сообщений",
+      "start_us": 405623000,
+      "end_us": 406423000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000412",
+      "text": "включаем",
+      "start_us": 408083000,
+      "end_us": 409483000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000413",
+      "text": "только",
+      "start_us": 409483000,
+      "end_us": 409843000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000414",
+      "text": "после",
+      "start_us": 409843000,
+      "end_us": 410343000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000415",
+      "text": "handshake",
+      "start_us": 410343000,
+      "end_us": 411083000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000416",
+      "text": "обе",
+      "start_us": 411083000,
+      "end_us": 412063000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000417",
+      "text": "стороны",
+      "start_us": 412063000,
+      "end_us": 412383000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000418",
+      "text": "должны",
+      "start_us": 412383000,
+      "end_us": 412903000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000419",
+      "text": "объявить",
+      "start_us": 412903000,
+      "end_us": 417283000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000420",
+      "text": "нужную",
+      "start_us": 417283000,
+      "end_us": 417683000,
+      "timing": "asr",
+      "confidence": null
+    },
+    {
+      "id": "w_000421",
+      "text": "фичу",
+      "start_us": 417683000,
+      "end_us": 418183000,
+      "timing": "asr",
+      "confidence": null
+    }
+  ],
+  "segments": [
+    {
+      "id": "seg_0001",
+      "word_ids": [
+        "w_000001",
+        "w_000002",
+        "w_000003",
+        "w_000004",
+        "w_000005",
+        "w_000006",
+        "w_000007",
+        "w_000008",
+        "w_000009",
+        "w_000010",
+        "w_000011"
+      ],
+      "start_us": 0,
+      "end_us": 6520000
+    },
+    {
+      "id": "seg_0002",
+      "word_ids": [
+        "w_000012",
+        "w_000013",
+        "w_000014",
+        "w_000015",
+        "w_000016",
+        "w_000017",
+        "w_000018",
+        "w_000019",
+        "w_000020",
+        "w_000021",
+        "w_000022",
+        "w_000023"
+      ],
+      "start_us": 6520000,
+      "end_us": 13100000
+    },
+    {
+      "id": "seg_0003",
+      "word_ids": [
+        "w_000024",
+        "w_000025",
+        "w_000026",
+        "w_000027",
+        "w_000028",
+        "w_000029",
+        "w_000030"
+      ],
+      "start_us": 13100000,
+      "end_us": 20200000
+    },
+    {
+      "id": "seg_0004",
+      "word_ids": [
+        "w_000031",
+        "w_000032",
+        "w_000033",
+        "w_000034",
+        "w_000035",
+        "w_000036",
+        "w_000037",
+        "w_000038"
+      ],
+      "start_us": 20200000,
+      "end_us": 26100000
+    },
+    {
+      "id": "seg_0005",
+      "word_ids": [
+        "w_000039",
+        "w_000040",
+        "w_000041",
+        "w_000042",
+        "w_000043",
+        "w_000044",
+        "w_000045",
+        "w_000046",
+        "w_000047",
+        "w_000048",
+        "w_000049"
+      ],
+      "start_us": 26100000,
+      "end_us": 38040000
+    },
+    {
+      "id": "seg_0006",
+      "word_ids": [
+        "w_000050",
+        "w_000051",
+        "w_000052",
+        "w_000053",
+        "w_000054",
+        "w_000055"
+      ],
+      "start_us": 38040000,
+      "end_us": 45580000
+    },
+    {
+      "id": "seg_0007",
+      "word_ids": [
+        "w_000056",
+        "w_000057",
+        "w_000058",
+        "w_000059",
+        "w_000060",
+        "w_000061",
+        "w_000062",
+        "w_000063",
+        "w_000064"
+      ],
+      "start_us": 45580000,
+      "end_us": 52700000
+    },
+    {
+      "id": "seg_0008",
+      "word_ids": [
+        "w_000065",
+        "w_000066",
+        "w_000067",
+        "w_000068",
+        "w_000069",
+        "w_000070",
+        "w_000071",
+        "w_000072",
+        "w_000073",
+        "w_000074",
+        "w_000075",
+        "w_000076",
+        "w_000077"
+      ],
+      "start_us": 55940000,
+      "end_us": 62700000
+    },
+    {
+      "id": "seg_0009",
+      "word_ids": [
+        "w_000078",
+        "w_000079",
+        "w_000080",
+        "w_000081",
+        "w_000082",
+        "w_000083",
+        "w_000084"
+      ],
+      "start_us": 64690000,
+      "end_us": 68860000
+    },
+    {
+      "id": "seg_0010",
+      "word_ids": [
+        "w_000085",
+        "w_000086",
+        "w_000087",
+        "w_000088",
+        "w_000089",
+        "w_000090",
+        "w_000091",
+        "w_000092"
+      ],
+      "start_us": 71350000,
+      "end_us": 76240000
+    },
+    {
+      "id": "seg_0011",
+      "word_ids": [
+        "w_000093",
+        "w_000094",
+        "w_000095",
+        "w_000096",
+        "w_000097",
+        "w_000098",
+        "w_000099",
+        "w_000100",
+        "w_000101",
+        "w_000102",
+        "w_000103",
+        "w_000104",
+        "w_000105"
+      ],
+      "start_us": 101400000,
+      "end_us": 111000000
+    },
+    {
+      "id": "seg_0012",
+      "word_ids": [
+        "w_000106",
+        "w_000107",
+        "w_000108",
+        "w_000109",
+        "w_000110",
+        "w_000111",
+        "w_000112",
+        "w_000113"
+      ],
+      "start_us": 111260000,
+      "end_us": 120040000
+    },
+    {
+      "id": "seg_0013",
+      "word_ids": [
+        "w_000114",
+        "w_000115",
+        "w_000116"
+      ],
+      "start_us": 121200000,
+      "end_us": 122520000
+    },
+    {
+      "id": "seg_0014",
+      "word_ids": [
+        "w_000117",
+        "w_000118",
+        "w_000119",
+        "w_000120",
+        "w_000121",
+        "w_000122",
+        "w_000123",
+        "w_000124",
+        "w_000125",
+        "w_000126",
+        "w_000127",
+        "w_000128",
+        "w_000129"
+      ],
+      "start_us": 124940000,
+      "end_us": 131980000
+    },
+    {
+      "id": "seg_0015",
+      "word_ids": [
+        "w_000130",
+        "w_000131",
+        "w_000132",
+        "w_000133",
+        "w_000134",
+        "w_000135",
+        "w_000136",
+        "w_000137",
+        "w_000138",
+        "w_000139",
+        "w_000140",
+        "w_000141"
+      ],
+      "start_us": 132220000,
+      "end_us": 138140000
+    },
+    {
+      "id": "seg_0016",
+      "word_ids": [
+        "w_000142",
+        "w_000143",
+        "w_000144",
+        "w_000145",
+        "w_000146",
+        "w_000147",
+        "w_000148"
+      ],
+      "start_us": 145080000,
+      "end_us": 151800000
+    },
+    {
+      "id": "seg_0017",
+      "word_ids": [
+        "w_000149",
+        "w_000150",
+        "w_000151",
+        "w_000152",
+        "w_000153",
+        "w_000154",
+        "w_000155",
+        "w_000156",
+        "w_000157",
+        "w_000158",
+        "w_000159",
+        "w_000160"
+      ],
+      "start_us": 152760000,
+      "end_us": 163280000
+    },
+    {
+      "id": "seg_0018",
+      "word_ids": [
+        "w_000161",
+        "w_000162",
+        "w_000163",
+        "w_000164",
+        "w_000165"
+      ],
+      "start_us": 166780000,
+      "end_us": 169900000
+    },
+    {
+      "id": "seg_0019",
+      "word_ids": [
+        "w_000166",
+        "w_000167",
+        "w_000168",
+        "w_000169",
+        "w_000170",
+        "w_000171"
+      ],
+      "start_us": 174480000,
+      "end_us": 177660000
+    },
+    {
+      "id": "seg_0020",
+      "word_ids": [
+        "w_000172",
+        "w_000173"
+      ],
+      "start_us": 178540000,
+      "end_us": 179820000
+    },
+    {
+      "id": "seg_0021",
+      "word_ids": [
+        "w_000174",
+        "w_000175",
+        "w_000176",
+        "w_000177"
+      ],
+      "start_us": 180080000,
+      "end_us": 183000000
+    },
+    {
+      "id": "seg_0022",
+      "word_ids": [
+        "w_000178",
+        "w_000179",
+        "w_000180",
+        "w_000181",
+        "w_000182"
+      ],
+      "start_us": 183320000,
+      "end_us": 186660000
+    },
+    {
+      "id": "seg_0023",
+      "word_ids": [
+        "w_000183",
+        "w_000184",
+        "w_000185",
+        "w_000186",
+        "w_000187",
+        "w_000188"
+      ],
+      "start_us": 186960000,
+      "end_us": 188940000
+    },
+    {
+      "id": "seg_0024",
+      "word_ids": [
+        "w_000189",
+        "w_000190",
+        "w_000191",
+        "w_000192",
+        "w_000193",
+        "w_000194"
+      ],
+      "start_us": 191600000,
+      "end_us": 195720000
+    },
+    {
+      "id": "seg_0025",
+      "word_ids": [
+        "w_000195",
+        "w_000196",
+        "w_000197",
+        "w_000198",
+        "w_000199",
+        "w_000200",
+        "w_000201",
+        "w_000202",
+        "w_000203",
+        "w_000204",
+        "w_000205"
+      ],
+      "start_us": 196260000,
+      "end_us": 200520000
+    },
+    {
+      "id": "seg_0026",
+      "word_ids": [
+        "w_000206",
+        "w_000207",
+        "w_000208",
+        "w_000209",
+        "w_000210",
+        "w_000211",
+        "w_000212"
+      ],
+      "start_us": 200780000,
+      "end_us": 205180000
+    },
+    {
+      "id": "seg_0027",
+      "word_ids": [
+        "w_000213",
+        "w_000214",
+        "w_000215"
+      ],
+      "start_us": 208180000,
+      "end_us": 210740000
+    },
+    {
+      "id": "seg_0028",
+      "word_ids": [
+        "w_000216",
+        "w_000217",
+        "w_000218",
+        "w_000219",
+        "w_000220",
+        "w_000221",
+        "w_000222",
+        "w_000223"
+      ],
+      "start_us": 211140000,
+      "end_us": 215160000
+    },
+    {
+      "id": "seg_0029",
+      "word_ids": [
+        "w_000224",
+        "w_000225",
+        "w_000226",
+        "w_000227"
+      ],
+      "start_us": 215700000,
+      "end_us": 218100000
+    },
+    {
+      "id": "seg_0030",
+      "word_ids": [
+        "w_000228",
+        "w_000229",
+        "w_000230",
+        "w_000231",
+        "w_000232",
+        "w_000233",
+        "w_000234",
+        "w_000235",
+        "w_000236",
+        "w_000237"
+      ],
+      "start_us": 219740000,
+      "end_us": 224160000
+    },
+    {
+      "id": "seg_0031",
+      "word_ids": [
+        "w_000238",
+        "w_000239",
+        "w_000240",
+        "w_000241",
+        "w_000242",
+        "w_000243",
+        "w_000244"
+      ],
+      "start_us": 224520000,
+      "end_us": 232780000
+    },
+    {
+      "id": "seg_0032",
+      "word_ids": [
+        "w_000245",
+        "w_000246",
+        "w_000247",
+        "w_000248",
+        "w_000249",
+        "w_000250",
+        "w_000251",
+        "w_000252",
+        "w_000253"
+      ],
+      "start_us": 232820000,
+      "end_us": 239080000
+    },
+    {
+      "id": "seg_0033",
+      "word_ids": [
+        "w_000254",
+        "w_000255",
+        "w_000256",
+        "w_000257",
+        "w_000258",
+        "w_000259",
+        "w_000260",
+        "w_000261",
+        "w_000262",
+        "w_000263",
+        "w_000264",
+        "w_000265",
+        "w_000266",
+        "w_000267",
+        "w_000268",
+        "w_000269",
+        "w_000270",
+        "w_000271",
+        "w_000272"
+      ],
+      "start_us": 240500000,
+      "end_us": 248980000
+    },
+    {
+      "id": "seg_0034",
+      "word_ids": [
+        "w_000273",
+        "w_000274",
+        "w_000275",
+        "w_000276",
+        "w_000277",
+        "w_000278",
+        "w_000279",
+        "w_000280",
+        "w_000281",
+        "w_000282",
+        "w_000283",
+        "w_000284",
+        "w_000285",
+        "w_000286",
+        "w_000287",
+        "w_000288",
+        "w_000289"
+      ],
+      "start_us": 251120000,
+      "end_us": 260140000
+    },
+    {
+      "id": "seg_0035",
+      "word_ids": [
+        "w_000290",
+        "w_000291",
+        "w_000292",
+        "w_000293",
+        "w_000294",
+        "w_000295",
+        "w_000296",
+        "w_000297",
+        "w_000298",
+        "w_000299",
+        "w_000300"
+      ],
+      "start_us": 260180000,
+      "end_us": 271840000
+    },
+    {
+      "id": "seg_0036",
+      "word_ids": [
+        "w_000301",
+        "w_000302",
+        "w_000303",
+        "w_000304",
+        "w_000305"
+      ],
+      "start_us": 274180000,
+      "end_us": 279720000
+    },
+    {
+      "id": "seg_0037",
+      "word_ids": [
+        "w_000306",
+        "w_000307",
+        "w_000308",
+        "w_000309",
+        "w_000310",
+        "w_000311"
+      ],
+      "start_us": 279980000,
+      "end_us": 283320000
+    },
+    {
+      "id": "seg_0038",
+      "word_ids": [
+        "w_000312",
+        "w_000313",
+        "w_000314",
+        "w_000315",
+        "w_000316",
+        "w_000317",
+        "w_000318",
+        "w_000319",
+        "w_000320",
+        "w_000321"
+      ],
+      "start_us": 285123000,
+      "end_us": 291123000
+    },
+    {
+      "id": "seg_0039",
+      "word_ids": [
+        "w_000322",
+        "w_000323"
+      ],
+      "start_us": 294423000,
+      "end_us": 295883000
+    },
+    {
+      "id": "seg_0040",
+      "word_ids": [
+        "w_000324",
+        "w_000325",
+        "w_000326",
+        "w_000327",
+        "w_000328",
+        "w_000329"
+      ],
+      "start_us": 321123000,
+      "end_us": 324203000
+    },
+    {
+      "id": "seg_0041",
+      "word_ids": [
+        "w_000330",
+        "w_000331",
+        "w_000332",
+        "w_000333"
+      ],
+      "start_us": 325743000,
+      "end_us": 328283000
+    },
+    {
+      "id": "seg_0042",
+      "word_ids": [
+        "w_000334",
+        "w_000335"
+      ],
+      "start_us": 333463000,
+      "end_us": 335143000
+    },
+    {
+      "id": "seg_0043",
+      "word_ids": [
+        "w_000336",
+        "w_000337",
+        "w_000338",
+        "w_000339",
+        "w_000340",
+        "w_000341",
+        "w_000342",
+        "w_000343",
+        "w_000344",
+        "w_000345",
+        "w_000346"
+      ],
+      "start_us": 335523000,
+      "end_us": 343123000
+    },
+    {
+      "id": "seg_0044",
+      "word_ids": [
+        "w_000347",
+        "w_000348",
+        "w_000349",
+        "w_000350",
+        "w_000351",
+        "w_000352"
+      ],
+      "start_us": 346783000,
+      "end_us": 351103000
+    },
+    {
+      "id": "seg_0045",
+      "word_ids": [
+        "w_000353",
+        "w_000354",
+        "w_000355",
+        "w_000356",
+        "w_000357",
+        "w_000358",
+        "w_000359",
+        "w_000360",
+        "w_000361",
+        "w_000362",
+        "w_000363",
+        "w_000364",
+        "w_000365"
+      ],
+      "start_us": 355483000,
+      "end_us": 365863000
+    },
+    {
+      "id": "seg_0046",
+      "word_ids": [
+        "w_000366",
+        "w_000367",
+        "w_000368",
+        "w_000369",
+        "w_000370",
+        "w_000371",
+        "w_000372",
+        "w_000373",
+        "w_000374",
+        "w_000375",
+        "w_000376",
+        "w_000377",
+        "w_000378"
+      ],
+      "start_us": 367603000,
+      "end_us": 375343000
+    },
+    {
+      "id": "seg_0047",
+      "word_ids": [
+        "w_000379",
+        "w_000380",
+        "w_000381",
+        "w_000382",
+        "w_000383",
+        "w_000384",
+        "w_000385",
+        "w_000386",
+        "w_000387",
+        "w_000388"
+      ],
+      "start_us": 375343000,
+      "end_us": 383363000
+    },
+    {
+      "id": "seg_0048",
+      "word_ids": [
+        "w_000389",
+        "w_000390",
+        "w_000391",
+        "w_000392",
+        "w_000393",
+        "w_000394",
+        "w_000395",
+        "w_000396",
+        "w_000397",
+        "w_000398",
+        "w_000399",
+        "w_000400",
+        "w_000401",
+        "w_000402",
+        "w_000403",
+        "w_000404",
+        "w_000405",
+        "w_000406"
+      ],
+      "start_us": 387443000,
+      "end_us": 395303000
+    },
+    {
+      "id": "seg_0049",
+      "word_ids": [
+        "w_000407",
+        "w_000408",
+        "w_000409",
+        "w_000410",
+        "w_000411"
+      ],
+      "start_us": 401483000,
+      "end_us": 406423000
+    },
+    {
+      "id": "seg_0050",
+      "word_ids": [
+        "w_000412",
+        "w_000413",
+        "w_000414",
+        "w_000415",
+        "w_000416",
+        "w_000417",
+        "w_000418",
+        "w_000419",
+        "w_000420",
+        "w_000421"
+      ],
+      "start_us": 408083000,
+      "end_us": 418183000
+    }
+  ],
+  "removed_word_ids": []
+}

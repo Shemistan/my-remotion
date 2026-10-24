@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
-import { chmod, mkdir, readFile, readdir, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, readdir, rename, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { MARKER_FILE, checkStorage, initStore, type StoreMarker } from "../../src/storage/guard.js";
+import { MARKER_FILE, checkStorage, initStore, isInconclusive, type StoreMarker } from "../../src/storage/guard.js";
 import { GiB, fakeProbe, makeTmp, removeTmp } from "../helpers.js";
 
 let tmp: string;
@@ -47,7 +47,7 @@ describe("checkStorage", () => {
 
   it("returns marker and free space when healthy", async () => {
     const status = await checkStorage({ MS_DATA_DIR: root }, probe);
-    expect(status).toEqual({ ok: true, root, marker: await marker(), freeBytes: 100 * GiB });
+    expect(status).toEqual({ ok: true, root, marker: await marker(), freeBytes: 100 * GiB, dev: 2 });
   });
 
   it("leaves no files behind after the write test", async () => {
@@ -128,12 +128,63 @@ describe("checkStorage", () => {
     });
   });
 
-  it("treats a failing probe as a failed check", async () => {
+  // флейк storage-mode.test под нагрузкой: rename корня между шагами проверки давал
+  // marker_missing / not_writable вместо not_found
+  it("root vanishing mid-check (after the root step) is reported as not_found", async () => {
+    const vanishing = { ...probe, volumeUuid: async () => {
+      await rename(root, `${root}.gone`);
+      return "VOL-A";
+    } };
+    try {
+      expect(await checkStorage({ MS_DATA_DIR: root }, vanishing)).toMatchObject({ ok: false, reason: "not_found", detail: expect.stringContaining("not_writable") });
+    } finally {
+      // корень возвращаем при любом исходе: afterEach чистит tmp, следующие тесты ждут root
+      if (existsSync(`${root}.gone`)) await rename(`${root}.gone`, root);
+    }
+  });
+
+  it("system volume is conclusive even while the volume probe is failing", async () => {
+    const broken = { ...sysProbe, volumeUuid: () => Promise.reject(new Error("diskutil failed")) };
+    const st = await checkStorage({ MS_DATA_DIR: root }, broken);
+    expect(st).toMatchObject({ ok: false, reason: "system_volume" });
+    expect(isInconclusive(st)).toBe(false);
+    // с явным разрешением системного диска сбой пробы по-прежнему неокончательный
+    expect(await checkStorage({ MS_DATA_DIR: root, MS_ALLOW_SYSTEM_DISK: "1" }, broken)).toMatchObject({ ok: false, reason: "volume_probe_failed" });
+  });
+
+  it("a failing volume probe (diskutil slow or silent) is an inconclusive failure, not volume_mismatch", async () => {
     const broken = { ...probe, volumeUuid: () => Promise.reject(new Error("diskutil failed")) };
-    expect(await checkStorage({ MS_DATA_DIR: root }, broken)).toMatchObject({
-      ok: false,
-      reason: "volume_mismatch",
-    });
+    const st = await checkStorage({ MS_DATA_DIR: root }, broken);
+    expect(st).toMatchObject({ ok: false, reason: "volume_probe_failed", detail: expect.stringMatching(/diskutil failed/), dev: 2 });
+    expect(isInconclusive(st)).toBe(true);
+  });
+
+  it("classifies failures: only probe trouble and watch timeouts are inconclusive", async () => {
+    const other = await checkStorage({ MS_DATA_DIR: root }, fakeProbe({ uuid: "VOL-B" }));
+    expect(isInconclusive(other)).toBe(false);
+    const gone = await checkStorage({ MS_DATA_DIR: join(tmp, "absent") }, probe);
+    expect(isInconclusive(gone)).toBe(false);
+    expect(isInconclusive({ ok: false, reason: "storage_watch_timeout", detail: "" })).toBe(true);
+    expect(isInconclusive({ ok: false, reason: "marker_mismatch", detail: "" })).toBe(false);
+    expect(isInconclusive(await checkStorage({ MS_DATA_DIR: root }, probe))).toBe(false);
+  });
+
+  it("reports the root st_dev in a passing status", async () => {
+    expect(await checkStorage({ MS_DATA_DIR: root }, probe)).toMatchObject({ ok: true, dev: 2 });
+  });
+
+  it("a probe failure while the root vanishes is still a conclusive not_found", async () => {
+    const vanishing = { ...probe, volumeUuid: async () => {
+      await rename(root, `${root}.gone`);
+      throw new Error("diskutil: no such volume");
+    } };
+    try {
+      const st = await checkStorage({ MS_DATA_DIR: root }, vanishing);
+      expect(st).toMatchObject({ ok: false, reason: "not_found" });
+      expect(isInconclusive(st)).toBe(false);
+    } finally {
+      if (existsSync(`${root}.gone`)) await rename(`${root}.gone`, root);
+    }
   });
 });
 

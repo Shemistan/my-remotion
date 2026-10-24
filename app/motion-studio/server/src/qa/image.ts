@@ -261,7 +261,7 @@ export function edgeClip(img: Img, edge: Edge, bg: RGB[], threshold = INK_THRESH
 }
 
 /** Уменьшение усреднением блоков k×k (RGBA). */
-function downsample(img: Img, k: number): Img {
+export function downsample(img: Img, k: number): Img {
   if (k <= 1) return img;
   const w = Math.floor(img.width / k);
   const h = Math.floor(img.height / k);

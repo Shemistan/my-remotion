@@ -1,0 +1,307 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      {
+        "id": "nodes-in",
+        "start_frame": 0,
+        "end_frame": 26
+      },
+      {
+        "id": "hold",
+        "start_frame": 152,
+        "end_frame": 180
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "locale": "ru",
+    "background": {
+      "variant": "aurora",
+      "seed": "scn_01M5FK5TEN8J4CY4TEAN9EN0MW",
+      "focus": {
+        "x": 0.5,
+        "y": 0.8
+      }
+    },
+    "hold_flow": {
+      "edge": "e-req",
+      "direction": "back",
+      "repeat": true,
+      "travel": 10
+    },
+    "graph": {
+      "layout": {
+        "x": 0.04,
+        "y": 0.04,
+        "w": 0.92,
+        "h": 0.56
+      },
+      "nodes": [
+        {
+          "id": "node-client",
+          "label": "Клиент",
+          "caption": "приложение",
+          "size": "body",
+          "elevation": 2,
+          "enter": "slide",
+          "slot": true,
+          "flash_on": [
+            "miss-response",
+            "hit-response"
+          ],
+          "layout": {
+            "x": 0.06,
+            "y": 0.18,
+            "w": 0.2,
+            "h": 0.3
+          }
+        },
+        {
+          "id": "node-cache",
+          "label": "Кэш",
+          "caption": "Redis · память",
+          "size": "h2",
+          "elevation": 3,
+          "enter": "pop",
+          "slot": true,
+          "flash_on": [
+            "miss-request",
+            "hit-request"
+          ],
+          "layout": {
+            "x": 0.38,
+            "y": 0.12,
+            "w": 0.24,
+            "h": 0.42
+          }
+        },
+        {
+          "id": "node-db",
+          "label": "База данных",
+          "caption": "PostgreSQL · диск",
+          "size": "body",
+          "elevation": 1,
+          "enter": "blur",
+          "slot": false,
+          "flash_on": [
+            "miss-to-db"
+          ],
+          "dim_on": "hit-request",
+          "dim_opacity": 0.65,
+          "layout": {
+            "x": 0.72,
+            "y": 0.18,
+            "w": 0.22,
+            "h": 0.3
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-req",
+          "from": "node-client",
+          "to": "node-cache"
+        },
+        {
+          "id": "e-db",
+          "from": "node-cache",
+          "to": "node-db"
+        }
+      ],
+      "flows": [
+        {
+          "beat": "miss-request",
+          "edge": "e-req",
+          "direction": "forward",
+          "repeat": false,
+          "travel": 12,
+          "span": [
+            0.04,
+            0.135
+          ]
+        },
+        {
+          "beat": "miss-to-db",
+          "edge": "e-db",
+          "direction": "forward",
+          "repeat": false,
+          "travel": 22,
+          "span": [
+            0.143,
+            0.317
+          ]
+        },
+        {
+          "beat": "write-cache",
+          "edge": "e-db",
+          "direction": "back",
+          "repeat": false,
+          "travel": 22,
+          "span": [
+            0.325,
+            0.5
+          ]
+        },
+        {
+          "beat": "miss-response",
+          "edge": "e-req",
+          "direction": "back",
+          "repeat": false,
+          "travel": 12,
+          "span": [
+            0.508,
+            0.603
+          ]
+        },
+        {
+          "beat": "hit-request",
+          "edge": "e-req",
+          "direction": "forward",
+          "repeat": false,
+          "travel": 10,
+          "span": [
+            0.619,
+            0.698
+          ]
+        },
+        {
+          "beat": "hit-response",
+          "edge": "e-req",
+          "direction": "back",
+          "repeat": false,
+          "travel": 10,
+          "span": [
+            0.706,
+            0.786
+          ]
+        }
+      ],
+      "tokens": [
+        {
+          "id": "token-request",
+          "label": "GET /user/42",
+          "flow": "miss-request",
+          "stay": false,
+          "until": "write-cache"
+        },
+        {
+          "id": "token-write",
+          "label": "Алиса · Pro",
+          "flow": "write-cache",
+          "dock": "slot",
+          "stay": true
+        },
+        {
+          "id": "token-response",
+          "label": "Алиса · Pro",
+          "flow": "miss-response",
+          "stay": false,
+          "until": "hit-response"
+        },
+        {
+          "id": "token-request-repeat",
+          "label": "GET /user/42",
+          "flow": "hit-request",
+          "stay": false
+        },
+        {
+          "id": "token-hit-response",
+          "label": "Алиса · Pro",
+          "flow": "hit-response",
+          "dock": "slot",
+          "stay": true
+        }
+      ],
+      "status": {
+        "anchor": {
+          "node": "node-cache",
+          "side": "top"
+        },
+        "states": [
+          {
+            "text": "Запрос",
+            "tone": "neutral",
+            "on": "start"
+          },
+          {
+            "text": "Промах",
+            "tone": "negative",
+            "on": "miss-request"
+          },
+          {
+            "text": "Запись",
+            "tone": "accent",
+            "on": "write-cache"
+          },
+          {
+            "text": "Попадание",
+            "tone": "positive",
+            "on": "hit-request"
+          }
+        ]
+      }
+    },
+    "timers": [
+      {
+        "id": "timer-miss",
+        "prefix": "1-й запрос · ",
+        "from": 0,
+        "to": 120,
+        "suffix": " мс",
+        "size": "body",
+        "number_size": "body",
+        "from_flow": "miss-request",
+        "to_flow": "miss-response",
+        "enter_after": "nodes-in",
+        "layout": {
+          "x": 0.06,
+          "y": 0.63,
+          "w": 0.4,
+          "h": 0.08
+        }
+      },
+      {
+        "id": "timer-hit",
+        "prefix": "Повтор · ",
+        "from": 0,
+        "to": 2,
+        "suffix": " мс",
+        "size": "body",
+        "number_size": "body",
+        "from_flow": "hit-request",
+        "to_flow": "hit-response",
+        "enter_after": "miss-response",
+        "layout": {
+          "x": 0.54,
+          "y": 0.63,
+          "w": 0.4,
+          "h": 0.08
+        }
+      }
+    ],
+    "verdict": {
+      "text": "В 60 раз быстрее",
+      "highlight": [
+        "60"
+      ],
+      "at": 0.794,
+      "layout": {
+        "x": 0.1,
+        "y": 0.76,
+        "w": 0.8,
+        "h": 0.18
+      }
+    }
+  }
+}

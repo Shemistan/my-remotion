@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "export_id": "exp_01M5N3VARR8ZH9X94JWDET2KY6",
+  "version_id": "ver_01M5N0KBZXHRTZEAE0YRKR5AWQ",
+  "version_manifest_sha256": "63d5e61bf3e06b085c2ff31d6ee48d5c27da551aa39ec76d5a06aa7c62746fe1",
+  "format": "mp4",
+  "request": {
+    "format": "mp4",
+    "crf": 18,
+    "scale": 1
+  },
+  "settings": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 180,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "ffprobe": {
+    "durationMs": 6000,
+    "audioDurationMs": 6016,
+    "profile": "High",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "codec": "h264",
+    "audioCodec": "aac",
+    "pixFmt": "yuv420p"
+  },
+  "sha256": "4a6605316d5871a8010a43f81d9b429b8d19a46be6e1fc4e9c36ff213b6ca449",
+  "render_env": {
+    "remotion": "4.0.537",
+    "render_lock_sha256": "540dd0e271797a516aff0589d0665f0fe00362d2c4bc0c33d5913dbbb623e21f",
+    "motion_kit": "sha256:c7a99a90548f2fe4",
+    "chrome_headless_shell": "157.0.8080.0-remotion-v3",
+    "node": "22.21.1"
+  },
+  "created_at": "2026-10-23T19:29:48.843Z"
+}

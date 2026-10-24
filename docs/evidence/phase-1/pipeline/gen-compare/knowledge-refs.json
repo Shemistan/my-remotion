@@ -1,0 +1,15 @@
+[
+  {
+    "kb_id": "remotion-bits/animated-counter",
+    "repository": "Remotion Bits",
+    "repository_url": "git@github.com:av/remotion-bits.git",
+    "commit": "de35fda",
+    "license": "MIT (package.json)",
+    "license_class": "permissive",
+    "strategy": "adapt",
+    "source_paths": [
+      "templates/remotion-components/remotion-bits/src/components/AnimatedCounter.tsx",
+      "templates/remotion-components/remotion-bits/src/utils/motion/index.ts"
+    ]
+  }
+]

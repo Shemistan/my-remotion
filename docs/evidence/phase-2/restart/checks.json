@@ -1,0 +1,30 @@
+[
+  {
+    "id": "5.1",
+    "title": "ревизии транскрипта и EDL, публикации — как до kill -9",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"before\":{\"transcripts\":[{\"id\":\"trn_01M5Q5WS2K6KVYV1X1G2X6TMZP\",\"current_revision\":2}],\"edls\":[{\"id\":\"edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C\",\"current_revision\":13}],\"approvals\":[{\"id\":\"apr_01M5Q617FJ1Y2EVTB32R5BK4GV\",\"kind\":\"A\",\"subject_ref\":\"edl:edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C@r13\",\"subject_hash\":\"e2cec4bb1fb6ac36c1e1ae99328006245ae48c7c212238e613847baf7ea36843\",\"status\":\"valid\"}],\"publications\":[\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r1\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r10\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r11\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r12\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r13\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r2\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r3\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r4\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r5\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r6\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r7\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r8\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r9\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/preview/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r13\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/source/med_01M5Q5QXD2ANNG55C9C25XYKE7\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/transcript/trn_01M5Q5WS2K6KVYV1X1G2X6TMZP/r1\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/transcript/trn_01M5Q5WS2K6KVYV1X1G2X6TMZP/r2\"]},\"after\":{\"transcripts\":[{\"id\":\"trn_01M5Q5WS2K6KVYV1X1G2X6TMZP\",\"current_revision\":2}],\"edls\":[{\"id\":\"edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C\",\"current_revision\":13}],\"approvals\":[{\"id\":\"apr_01M5Q617FJ1Y2EVTB32R5BK4GV\",\"kind\":\"A\",\"subject_ref\":\"edl:edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C@r13\",\"subject_hash\":\"e2cec4bb1fb6ac36c1e1ae99328006245ae48c7c212238e613847baf7ea36843\",\"status\":\"valid\"}],\"publications\":[\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r1\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r10\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r11\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r12\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r13\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r2\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r3\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r4\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r5\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r6\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r7\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r8\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r9\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/preview/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r13\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/source/med_01M5Q5QXD2ANNG55C9C25XYKE7\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/transcript/trn_01M5Q5WS2K6KVYV1X1G2X6TMZP/r1\",\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/transcript/trn_01M5Q5WS2K6KVYV1X1G2X6TMZP/r2\"]}}"
+  },
+  {
+    "id": "5.2",
+    "title": "Approval A на месте и valid",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"A\":{\"state\":\"valid\",\"approval\":{\"id\":\"apr_01M5Q617FJ1Y2EVTB32R5BK4GV\",\"project_id\":\"prj_01M5Q5QWCS597HRDM4X9S74WEJ\",\"kind\":\"A\",\"subject_ref\":\"edl:edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C@r13\",\"subject_hash\":\"e2cec4bb1fb6ac36c1e1ae99328006245ae48c7c212238e613847baf7ea36843\",\"status\":\"valid\",\"decided_at\":\"2026-10-24T14:46:28.082Z\"}},\"B\":{\"state\":\"missing\"}}"
+  },
+  {
+    "id": "5.3",
+    "title": "sha256 артефактов (исходник, прокси, ревизии, превью) прежние",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"files\":236,\"diff\":[]}"
+  },
+  {
+    "id": "5.4",
+    "title": "оригинал IMG_0685.MOV не изменён (sha256)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"before\":\"9df29c1e5c9f26ce3d43a4adda99f4240023e115b65ad6c5647bd75979e7996f\",\"after\":\"9df29c1e5c9f26ce3d43a4adda99f4240023e115b65ad6c5647bd75979e7996f\",\"hash_ms\":9661}"
+  }
+]

@@ -1,0 +1,9 @@
+/* Шрифты motion-kit для образца в StyleBible проекта (Task 33): те же woff2, что у рендера
+   (render/src/motion-kit/fonts, OFL-1.1), начертание заголовков 700, латиница и кириллица. */
+@font-face { font-family: "Inter"; font-weight: 700; font-display: swap; src: url("../../render/src/motion-kit/fonts/Inter-700-latin.woff2") format("woff2"); unicode-range: U+0000-00FF, U+2000-206F; }
+@font-face { font-family: "Inter"; font-weight: 700; font-display: swap; src: url("../../render/src/motion-kit/fonts/Inter-700-cyrillic.woff2") format("woff2"); unicode-range: U+0400-045F, U+0490-0491; }
+@font-face { font-family: "Manrope"; font-weight: 700; font-display: swap; src: url("../../render/src/motion-kit/fonts/Manrope-700-latin.woff2") format("woff2"); unicode-range: U+0000-00FF, U+2000-206F; }
+@font-face { font-family: "Manrope"; font-weight: 700; font-display: swap; src: url("../../render/src/motion-kit/fonts/Manrope-700-cyrillic.woff2") format("woff2"); unicode-range: U+0400-045F, U+0490-0491; }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-display: swap; src: url("../../render/src/motion-kit/fonts/JetBrainsMono-700-latin.woff2") format("woff2"); unicode-range: U+0000-00FF, U+2000-206F; }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-display: swap; src: url("../../render/src/motion-kit/fonts/JetBrainsMono-700-cyrillic.woff2") format("woff2"); unicode-range: U+0400-045F, U+0490-0491; }
+.font-sample { font-weight: 700; }

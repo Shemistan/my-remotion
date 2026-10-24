@@ -1,0 +1,37 @@
+[
+  {
+    "id": "p3.export",
+    "title": "повтор POST экспорта с тем же Idempotency-Key → тот же job.id",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"statuses\":[202,200],\"ids\":[\"job_01M5N15M7A63638ERY3WZCPPNT\",\"job_01M5N15M7A63638ERY3WZCPPNT\"]}"
+  },
+  {
+    "id": "p3.export-once",
+    "title": "экспорт по ключу один",
+    "kind": "A",
+    "pass": true,
+    "detail": "1"
+  },
+  {
+    "id": "p3.chat",
+    "title": "повтор POST правки с тем же ключом → та же задача и одно сообщение",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"statuses\":[202,200],\"jobs\":[\"job_01M5N15Y1PR843WFCEVWFFMTXP\",\"job_01M5N15Y1PR843WFCEVWFFMTXP\"],\"messages\":1}"
+  },
+  {
+    "id": "p10.edits",
+    "title": "две правки одной сцены: вторая pending, пока первая running",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"ok\":true,\"both\":0,\"waited\":true,\"after\":true,\"a\":{\"status\":\"completed\",\"started\":\"2026-10-23T18:43:10.568Z\",\"finished\":\"2026-10-23T18:44:20.726Z\"},\"b\":{\"status\":\"completed\",\"started\":\"2026-10-23T18:44:20.733Z\",\"finished\":\"2026-10-23T18:51:02.352Z\"}}"
+  },
+  {
+    "id": "p10.restore",
+    "title": "правка и «Восстановить»: восстановление ждёт в очереди",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"ok\":true,\"both\":0,\"waited\":true,\"after\":true,\"a\":{\"status\":\"completed\",\"started\":\"2026-10-23T18:51:03.045Z\",\"finished\":\"2026-10-23T18:52:21.110Z\"},\"b\":{\"status\":\"completed\",\"started\":\"2026-10-23T18:52:21.116Z\",\"finished\":\"2026-10-23T18:52:21.433Z\"}}"
+  }
+]

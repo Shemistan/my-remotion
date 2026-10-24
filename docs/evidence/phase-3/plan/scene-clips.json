@@ -1,0 +1,74 @@
+[
+  {
+    "id": "sp_001",
+    "clip": "sp_001-51.6s.mp4",
+    "from_s": 48.61,
+    "scene_in_clip": [
+      3,
+      12.88
+    ]
+  },
+  {
+    "id": "sp_002",
+    "clip": "sp_002-87.4s.mp4",
+    "from_s": 84.44,
+    "scene_in_clip": [
+      3,
+      10.54
+    ]
+  },
+  {
+    "id": "sp_003",
+    "clip": "sp_003-109.5s.mp4",
+    "from_s": 106.55,
+    "scene_in_clip": [
+      3,
+      6.62
+    ]
+  },
+  {
+    "id": "sp_004",
+    "clip": "sp_004-127.6s.mp4",
+    "from_s": 124.56,
+    "scene_in_clip": [
+      3,
+      7.76
+    ]
+  },
+  {
+    "id": "sp_005",
+    "clip": "sp_005-159.9s.mp4",
+    "from_s": 156.87,
+    "scene_in_clip": [
+      3,
+      10.84
+    ]
+  },
+  {
+    "id": "sp_006",
+    "clip": "sp_006-227.5s.mp4",
+    "from_s": 224.54,
+    "scene_in_clip": [
+      3,
+      16.08
+    ]
+  },
+  {
+    "id": "sp_007",
+    "clip": "sp_007-258.9s.mp4",
+    "from_s": 255.88,
+    "scene_in_clip": [
+      3,
+      11.52
+    ]
+  },
+  {
+    "id": "sp_008",
+    "clip": "sp_008-280.7s.mp4",
+    "from_s": 277.75,
+    "scene_in_clip": [
+      3,
+      13.6
+    ]
+  }
+]

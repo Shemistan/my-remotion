@@ -35,7 +35,7 @@ function version(id: string, number: number, status: "ready" | "failed" = "ready
 beforeEach(async () => {
   s = await makeStore("ms-db-repos-");
   db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
   scenes.create(db, { id: "scn_1", project_id: "playground", title: "Сцена" });
 });
 afterEach(async () => {
@@ -46,7 +46,7 @@ afterEach(async () => {
 describe("projects и scenes", () => {
   it("create/get/list", () => {
     const p = projects.create(db, { title: "Видео", settings: defaultSettings() });
-    expect(p).toMatchObject({ kind: "video", title: "Видео", settings: defaultSettings() });
+    expect(p).toMatchObject({ kind: "playground", title: "Видео", settings: defaultSettings() });
     expect(p.id).toMatch(/^prj_/);
     expect(projects.get(db, p.id)).toEqual(p);
     expect(projects.list(db).map((x) => x.id)).toEqual(["playground", p.id]);
@@ -61,6 +61,13 @@ describe("projects и scenes", () => {
     scenes.setCurrent(db, "scn_1", "ver_1");
     expect(scenes.get(db, "scn_1")!.current_version_id).toBe("ver_1");
     expect(() => scenes.setCurrent(db, "scn_1", "ver_nope")).toThrow(/FOREIGN KEY/);
+  });
+
+  it("служебные проекты харнесса: bench-<run> и старый префикс прогонов до переименования", () => {
+    expect(projects.isBenchProject("bench-s5-e0d174b")).toBe(true);
+    expect(projects.isBenchProject("eval-s3-6ef1f76")).toBe(true);
+    expect(projects.isBenchProject("prj_abc")).toBe(false);
+    expect(projects.isBenchProject("playground")).toBe(false);
   });
 });
 

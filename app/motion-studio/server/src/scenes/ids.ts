@@ -3,7 +3,14 @@ import { randomBytes } from "node:crypto";
 // Алфавит Крокфорда: без I, L, O, U.
 const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-export type IdPrefix = "scn" | "ver" | "run" | "prj" | "job" | "msg" | "exp";
+export type IdPrefix =
+  | "scn" | "ver" | "run" | "prj" | "job" | "msg" | "exp"
+  // Phase 2–3: исходник, транскрипт, EDL, approval, footage, semantic, StyleBible, план, синхронная правка
+  | "med" | "trn" | "edl" | "apr" | "ftg" | "sem" | "sty" | "pln" | "syn"
+  // загрузка видео через браузер (Task 29): `workspace/uploads/upl_…`
+  | "upl"
+  // карантин каталога-сироты артефакта
+  | "qrn";
 
 let lastTime = -1;
 let lastRand = 0n;

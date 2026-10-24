@@ -1,0 +1,247 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      {
+        "id": "tracks-in",
+        "start_frame": 0,
+        "end_frame": 24
+      },
+      {
+        "id": "labels-in",
+        "start_frame": 4,
+        "end_frame": 32
+      },
+      {
+        "id": "counters-in",
+        "start_frame": 24,
+        "end_frame": 48
+      },
+      {
+        "id": "race",
+        "start_frame": 36,
+        "end_frame": 124
+      },
+      {
+        "id": "hero-in",
+        "start_frame": 128,
+        "end_frame": 152
+      },
+      {
+        "id": "hold",
+        "start_frame": 153,
+        "end_frame": 180
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "palette_overrides": {},
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "locale": "ru",
+    "background": {
+      "variant": "spotlight",
+      "seed": "scn_01M5FMZVW4F8TV9PS9J6H2NAQA",
+      "focus": {
+        "x": 0.86,
+        "y": 0.48
+      }
+    },
+    "title": {
+      "text": "Релизы за один квартал",
+      "mode": "integrated",
+      "size": "h2",
+      "align": "left",
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 0.6,
+        "h": 0.1
+      }
+    },
+    "mono": {
+      "label": "Монолит",
+      "label_layout": {
+        "x": 0,
+        "y": 0.21,
+        "w": 0.17,
+        "h": 0.1
+      },
+      "stages": [
+        "Сборка",
+        "Регресс",
+        "Окно",
+        "Деплой"
+      ],
+      "stages_layout": {
+        "x": 0.19,
+        "y": 0.15,
+        "w": 0.39,
+        "h": 0.07
+      },
+      "track_layout": {
+        "x": 0.19,
+        "y": 0.23,
+        "w": 0.39,
+        "h": 0.06
+      },
+      "end_mark": "прод",
+      "token": {
+        "label": "релиз 4.0 · всё приложение",
+        "beat": "race",
+        "travel": 76,
+        "count": 1,
+        "repeat": false,
+        "stay": true,
+        "tone": "neutral",
+        "dock": {
+          "dx": 0,
+          "dy": 0
+        }
+      },
+      "counter": {
+        "from": 0,
+        "to": 1,
+        "suffix_forms": [
+          " релиз",
+          " релиза",
+          " релизов"
+        ],
+        "layout": {
+          "x": 0.6,
+          "y": 0.205,
+          "w": 0.17,
+          "h": 0.1
+        }
+      }
+    },
+    "micro": {
+      "label": "Микросервисы",
+      "label_layout": {
+        "x": 0,
+        "y": 0.42,
+        "w": 0.3,
+        "h": 0.08
+      },
+      "services_layout": {
+        "x": 0,
+        "y": 0.53,
+        "w": 0.17,
+        "h": 0.32
+      },
+      "tracks_layout": {
+        "x": 0.19,
+        "y": 0.53,
+        "w": 0.39,
+        "h": 0.32
+      },
+      "tracks": [
+        {
+          "id": "t-pay",
+          "service": "Платежи",
+          "row_center_y": 0.12,
+          "accent_index": 0
+        },
+        {
+          "id": "t-cat",
+          "service": "Каталог",
+          "row_center_y": 0.5,
+          "accent_index": 1
+        },
+        {
+          "id": "t-ntf",
+          "service": "Уведомления",
+          "row_center_y": 0.88,
+          "accent_index": 2
+        }
+      ],
+      "flows": [
+        {
+          "edge": "t-pay",
+          "direction": "forward",
+          "beat": {
+            "start_frame": 36,
+            "end_frame": 110
+          },
+          "count": 1,
+          "repeat": true,
+          "travel": 20
+        },
+        {
+          "edge": "t-cat",
+          "direction": "forward",
+          "beat": {
+            "start_frame": 40,
+            "end_frame": 114
+          },
+          "count": 1,
+          "repeat": true,
+          "travel": 20
+        },
+        {
+          "edge": "t-ntf",
+          "direction": "forward",
+          "beat": {
+            "start_frame": 44,
+            "end_frame": 118
+          },
+          "count": 1,
+          "repeat": true,
+          "travel": 20
+        }
+      ],
+      "counter": {
+        "from": 0,
+        "to": 12,
+        "suffix_forms": [
+          " релиз",
+          " релиза",
+          " релизов"
+        ],
+        "layout": {
+          "x": 0.6,
+          "y": 0.645,
+          "w": 0.17,
+          "h": 0.1
+        }
+      }
+    },
+    "axis": {
+      "items": [
+        "июль",
+        "август",
+        "сентябрь"
+      ],
+      "layout": {
+        "x": 0.19,
+        "y": 0.89,
+        "w": 0.39,
+        "h": 0.07
+      }
+    },
+    "hero": {
+      "text": "×12",
+      "layout": {
+        "x": 0.79,
+        "y": 0.34,
+        "w": 0.21,
+        "h": 0.2
+      },
+      "sub": "релизов чаще",
+      "sub_layout": {
+        "x": 0.79,
+        "y": 0.55,
+        "w": 0.21,
+        "h": 0.08
+      }
+    }
+  }
+}

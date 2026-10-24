@@ -1,0 +1,68 @@
+{
+  "source": {
+    "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/source/med_01M5Q5QXD2ANNG55C9C25XYKE7/original.mov",
+    "size_bytes": 1191485480,
+    "sha256": "9fdeee13d9878f4a90affd60873b84acdd172503e61393dc7319f841b1a9c136"
+  },
+  "derivatives": [
+    {
+      "kind": "audio16k",
+      "recorded_sha256": "89d89db30e750440871a58fcefb85af3ac8915e581c62361d46101c6faf95103",
+      "params": {
+        "sample_rate": 16000,
+        "channels": 1,
+        "codec": "pcm_s16le"
+      },
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7/audio16k.wav",
+      "size_bytes": 13440548,
+      "sha256": "89d89db30e750440871a58fcefb85af3ac8915e581c62361d46101c6faf95103"
+    },
+    {
+      "kind": "proxy",
+      "recorded_sha256": "f05853e35efb9b78b43b460a77014b503f672ee66218d28bd2aa0ca5f434751f",
+      "params": {
+        "short_side": 720,
+        "width": 1280,
+        "height": 720,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "codec": "h264",
+        "crf": 23,
+        "preset": "veryfast",
+        "duration_us": 420100000
+      },
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7/proxy.mp4",
+      "size_bytes": 41830912,
+      "sha256": "f05853e35efb9b78b43b460a77014b503f672ee66218d28bd2aa0ca5f434751f"
+    },
+    {
+      "kind": "thumbs",
+      "recorded_sha256": "0a8356b423f1f13000a9e1a23fe95649f9de9409fe8ee0c2ce391bb648de1525",
+      "params": {
+        "every_us": 2000000,
+        "count": 210,
+        "height": 180,
+        "dir": "thumbs"
+      },
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7/thumbs.json",
+      "size_bytes": 59,
+      "sha256": "0a8356b423f1f13000a9e1a23fe95649f9de9409fe8ee0c2ce391bb648de1525"
+    },
+    {
+      "kind": "waveform",
+      "recorded_sha256": "f60c5cb8f8cf9e16db3a587241969cd4eb3a6241d5bca4c8029d93c789305e90",
+      "params": {
+        "bucket_ms": 10,
+        "sample_rate": 16000,
+        "length": 42002,
+        "file": "waveform.bin",
+        "index": "waveform.json"
+      },
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7/waveform.bin",
+      "size_bytes": 84004,
+      "sha256": "f60c5cb8f8cf9e16db3a587241969cd4eb3a6241d5bca4c8029d93c789305e90"
+    }
+  ]
+}

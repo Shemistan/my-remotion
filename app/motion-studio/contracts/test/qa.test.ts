@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HistoryEntrySchema, QAIssueSchema, QAReportSchema, QaGateSchema, VerdictSchema, VersionManifestSchema, VisualQAOutputSchema, toJsonSchema } from "../src/index.js";
+import { HistoryEntrySchema, QAIssueSchema, QAReportSchema, QaGateSchema, QA_SCORE_AXES, QaScoresSchema, VerdictSchema, VersionManifestSchema, VisualQAOutputSchema, toJsonSchema } from "../src/index.js";
 
 const vqa = {
   gate: { visual: "pass", semantic: "warn", style: "pass" },
@@ -7,6 +7,8 @@ const vqa = {
   checked_frames: [0, 90],
   ocr: [{ frame: 90, texts: ["Рост"] }],
   elements_seen: [{ id: "title", frame: 90, seen: true }, { id: "chart", seen: false }],
+  scores: { overall: 6, hierarchy: 6.5, composition: 5.5, entrance: 6, choreography: 6, hold: 5, legibility: 7, meaning: 6.5 },
+  score_notes: [{ axis: "hold", frame: 90, note: "финал стоит" }],
 };
 
 describe("QA", () => {
@@ -33,6 +35,19 @@ describe("QA", () => {
     expect(QAReportSchema.safeParse(report).success).toBe(true);
     expect(QAReportSchema.safeParse({ ...report, automated: false }).success).toBe(false);
     expect(QAReportSchema.safeParse({ ...report, gate: { ...report.gate, technical: "ok" } }).success).toBe(false);
+  });
+  it("S5: scores — overall и семь осей рубрики 1–10; без scores ответ не принимается", () => {
+    expect(QA_SCORE_AXES).toEqual(["hierarchy", "composition", "entrance", "choreography", "hold", "legibility", "meaning"]);
+    expect(VisualQAOutputSchema.safeParse({ ...vqa, scores: undefined }).success).toBe(false);
+    expect(QaScoresSchema.safeParse({ ...vqa.scores, overall: 11 }).success).toBe(false);
+    expect(QaScoresSchema.safeParse({ ...vqa.scores, overall: 0.5 }).success).toBe(false);
+    expect(QaScoresSchema.safeParse({ ...vqa.scores, distinctiveness: 6 }).success).toBe(false);
+    expect(VisualQAOutputSchema.safeParse({ ...vqa, score_notes: [{ axis: "overall", frame: 1, note: "x" }] }).success).toBe(false);
+  });
+  it("S5: QAReport несёт scores (необязательно — у отчётов до S5 их нет)", () => {
+    const report = { gate: { technical: "pass", visual: "pass", semantic: "pass", style: "pass" }, issues: [], checked_frames: [], ocr: [], automated: true };
+    expect(QAReportSchema.safeParse(report).success).toBe(true);
+    expect(QAReportSchema.safeParse({ ...report, scores: vqa.scores }).success).toBe(true);
   });
   it("JSON Schema без $ref", () => expect(JSON.stringify(toJsonSchema(VisualQAOutputSchema))).not.toContain("$ref"));
   it("гейт из четырёх вердиктов — один объект для QAReport, manifest и HistoryEntry", () => {

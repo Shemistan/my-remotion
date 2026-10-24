@@ -1,0 +1,33 @@
+{
+  "id": "ver_01M5N0KBZXHRTZEAE0YRKR5AWQ",
+  "scene_id": "scn_01M5N0BWY51B61QQBH3BM0NJ2F",
+  "parent_version_id": null,
+  "number": 1,
+  "status": "ready",
+  "prompt": "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении",
+  "edit_plan_json": null,
+  "settings_json": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 180,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "path": "workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N0BWY51B61QQBH3BM0NJ2F/versions/ver_01M5N0KBZXHRTZEAE0YRKR5AWQ",
+  "manifest_sha256": "63d5e61bf3e06b085c2ff31d6ee48d5c27da551aa39ec76d5a06aa7c62746fe1",
+  "created_by_job_id": "job_01M5N0BWY93KW6VP6SHNNKKP7E",
+  "created_at": "2026-10-23T18:33:02.206Z",
+  "broken_reason": null,
+  "dir": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N0BWY51B61QQBH3BM0NJ2F/versions/ver_01M5N0KBZXHRTZEAE0YRKR5AWQ"
+}

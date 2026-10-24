@@ -63,8 +63,8 @@ function fadeResidual(b: Buffer, m: Buffer, f: Buffer, r: Box): { change: number
   return { change: Math.sqrt(dm / n), residual: dm > 0 ? Math.sqrt(rest / dm) : 0 };
 }
 
-/** Кадр середины входа: сдвиг от старта бита под вид входа (mask длиннее, pop быстрее). */
-const MID: Record<Name, number> = { kicker: 12, headline: 14, subtitle: 5, badge: 3, chart: 30, cards: 6 };
+/** Кадр середины входа: сдвиг от старта бита под вид входа (pop быстрее; mask 0.3 — 14–18 кадров, середина шторки — 4-й). */
+const MID: Record<Name, number> = { kicker: 12, headline: 4, subtitle: 5, badge: 3, chart: 30, cards: 6 };
 const FINAL = 150;
 const FADE_LIKE = 0.25;
 

@@ -47,6 +47,15 @@ export function get(db: Db, id: string): VersionRow | undefined {
   return r && row(r);
 }
 
+/** Версии, опубликованные задачей (`created_by_job_id`), по номеру. */
+export function listByJob(db: Db, jobId: string): VersionRow[] {
+  return (db.prepare("SELECT * FROM scene_versions WHERE created_by_job_id = ? ORDER BY number").all(jobId) as Raw[]).map(row);
+}
+
+/**
+ * Все версии сцены по номеру, в том числе помеченные `broken_reason` (каталог пропал):
+ * история показывает и их — номер занят, версия недоступна (restore/diff её отвергают).
+ */
 export function listByScene(db: Db, sceneId: string): VersionRow[] {
   return (db.prepare("SELECT * FROM scene_versions WHERE scene_id = ? ORDER BY number").all(sceneId) as Raw[]).map(row);
 }
@@ -54,4 +63,14 @@ export function listByScene(db: Db, sceneId: string): VersionRow[] {
 /** Следующий номер версии сцены: ready и failed считаются одинаково (`05` §5). */
 export function nextNumber(db: Db, sceneId: string): number {
   return (db.prepare("SELECT coalesce(max(number), 0) + 1 AS n FROM scene_versions WHERE scene_id = ?").get(sceneId) as { n: number }).n;
+}
+
+/**
+ * Последние готовые версии других сцен проекта (новые первыми, по одной на сцену — текущая
+ * версия сцены): с ними сверяется подпись кадра новой сцены (`scene_signature_repeat`).
+ */
+export function recentInProject(db: Db, projectId: string, excludeSceneId: string, limit: number): VersionRow[] {
+  return (db.prepare(`SELECT v.* FROM scenes s JOIN scene_versions v ON v.id = s.current_version_id
+      WHERE s.project_id = ? AND s.id <> ? AND v.status = 'ready' AND v.broken_reason IS NULL
+      ORDER BY v.created_at DESC, v.rowid DESC LIMIT ?`).all(projectId, excludeSceneId, limit) as Raw[]).map(row);
 }

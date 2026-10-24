@@ -2,7 +2,8 @@
 // выноска выводит главную мысль крупно в правую колонку кадра.
 // Варианты (props.content): `sample` — ts (8 строк, по умолчанию) | py-doc (docstring) |
 // ts-jsdoc (JSDoc) — многострочные токены; `callout` — box (рамка на строку) | ring.
-import { Background, Callout, CodeBlock, KineticText, SafeArea, StyleProvider, codeLineRect, typeSize, useSafeArea, useStyle, type ResolveStyleInput } from "@ms/motion-kit";
+import {
+  Enter, Background, Callout, CodeBlock, KineticText, SafeArea, StyleProvider, codeLineRect, typeSize, useSafeArea, useStyle, type ResolveStyleInput } from "@ms/motion-kit";
 import { useVideoConfig } from "remotion";
 import { CODE_POS, CODE_W, FONT } from "./layout.js";
 
@@ -95,7 +96,7 @@ function Content({ b, sample, callout }: { b: Record<string, Window>; sample: Sa
     <>
       <KineticText text="Код сцены" beat={b.kicker!} mode="letters" enter="type" size="caption" font="mono" caps />
       <div style={{ height: 22 }} />
-      <KineticText text="Рендер с повтором" beat={b.headline!} mode="words" enter="scale" size="h1" highlight={["повтором"]} />
+      <Enter kind="none" pre="silhouette" beat={b.headline!}><KineticText text="Рендер с повтором" beat={b.headline!} mode="words" enter="scale" size="h1" highlight={["повтором"]} /></Enter>
       <div style={{ position: "absolute", left: CODE_POS.x, top: CODE_POS.y }}>
         <CodeBlock code={sample.code} lang={sample.lang} beat={b.code!} highlightLines={sample.highlight} title={sample.title} width={CODE_W} fontSize={FONT} />
       </div>

@@ -1,0 +1,64 @@
+// Общее для Playwright UI: пути, состояние засева, скриншоты в evidence, запросы к API.
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { isAbsolute, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { APIRequestContext, Page } from "@playwright/test";
+
+export const APP = fileURLToPath(new URL("../../", import.meta.url));
+export const REPO = join(APP, "../..");
+export const RUN_DIR = join(REPO, "tmp/ui-e2e");
+export const STATE_FILE = join(RUN_DIR, "state.json");
+export const EVIDENCE = join(REPO, "docs/evidence/phase-1/ui");
+/** Скриншоты Video Workspace (Task 29). */
+export const EVIDENCE_VIDEO = join(REPO, "docs/evidence/phase-2/ui");
+/** Медиа-фикстуры (`scripts/make-media-fixtures.mjs`): корень импорта по пути в UI-e2e. */
+export const MEDIA_FIXTURES = join(REPO, "tmp/media-fixtures");
+/** Скриншоты анализа и визуального плана (Task 33): в репозиторий — уменьшенные до 480 px (V4). */
+export const EVIDENCE_PHASE3 = join(REPO, "docs/evidence/phase-3/ui");
+
+/**
+ * Ролик с лицом автора (`MS_TEST_TALKING_HEAD`, Task 33): абсолютный путь или путь от корня
+ * репозитория; нет переменной или файла — `undefined`. Оригинал только читается (импорт копирует).
+ */
+export function talkingHead(): string | undefined {
+  const v = process.env.MS_TEST_TALKING_HEAD;
+  if (!v) return undefined;
+  const p = isAbsolute(v) ? v : join(REPO, v);
+  return existsSync(p) ? p : undefined;
+}
+export const PORT = 8790;
+
+export interface SeededScene {
+  sceneId: string;
+  versionIds: string[];
+}
+
+export interface E2EState {
+  root: string;
+  serverPid: number;
+  serverLog: string;
+  projectId: string;
+  versions: SeededScene;
+  prores: SeededScene;
+  failed: SeededScene;
+}
+
+export function state(): E2EState {
+  return JSON.parse(readFileSync(STATE_FILE, "utf8")) as E2EState;
+}
+
+export async function shot(page: Page, name: string, dir: string = EVIDENCE): Promise<void> {
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  await page.screenshot({ path: join(dir, `${name}.png`), fullPage: true });
+}
+
+/** Ждёт условия по `GET /api/health` (поллинг; хранилище проверяется раз в 10 с). */
+export async function waitHealth(request: APIRequestContext, storage: "online" | "storage_offline", timeoutMs = 60_000): Promise<void> {
+  const until = Date.now() + timeoutMs;
+  for (;;) {
+    const r = await request.get("/api/health").catch(() => null);
+    if (r?.ok() && (await r.json()).storage === storage) return;
+    if (Date.now() > until) throw new Error(`health: нет ${storage} за ${timeoutMs} мс`);
+    await new Promise((res) => setTimeout(res, 1000));
+  }
+}

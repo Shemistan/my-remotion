@@ -1,0 +1,385 @@
+{
+  "job": {
+    "id": "job_01M5FG5KYS73E4BT2E5AFH2TQW",
+    "type": "playground.generate",
+    "project_id": "playground",
+    "scene_id": "scn_01M5FG5KYNQ9PJ0E08YBXEVE4B",
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "publish",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "sceneId": "scn_01M5FG5KYNQ9PJ0E08YBXEVE4B",
+      "prompt": "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении",
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 180,
+        "style_preset": "dark-premium",
+        "animation_intensity": "balanced",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        }
+      }
+    },
+    "input_hash": "e37a85101acbeb4e6b3b55f456e5ce794d23b309dc8c91bdc7ffbc519c34b508",
+    "output_refs": {
+      "scene_id": "scn_01M5FG5KYNQ9PJ0E08YBXEVE4B",
+      "version_id": "ver_01M5FGQ109HRPG5CXAN3NSQ2KV",
+      "version_number": 1,
+      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FG5KYNQ9PJ0E08YBXEVE4B/versions/ver_01M5FGQ109HRPG5CXAN3NSQ2KV",
+      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FG5KYNQ9PJ0E08YBXEVE4B/versions/ver_01M5FGQ109HRPG5CXAN3NSQ2KV/preview.mp4",
+      "cost_usd": 1.1738407999999998,
+      "engineer_calls": 1,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "pass"
+      },
+      "warnings": [
+        "spec: scene_signature_repeat (background, pill, topTitle, staticCamera): сцена повторяет подпись предыдущей «Мобильный трафик: 35 % → 68 %» (4 из 4): фон aurora:20, без таблетки, без полосы заголовка, камера движется",
+        "spec: бит b-number-in 4–28 → 0–20: вход hero-number кончается, когда голова growth-chart трогается"
+      ],
+      "steps": {
+        "concept": {
+          "input_hash": "0136cf4624f47da7f1f7d47d039f5d487cd3339f761717fb190b7d0b7c8c9ce8",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5FG5KYS73E4BT2E5AFH2TQW/checkpoints/concept.json"
+        },
+        "director": {
+          "input_hash": "406b7d542b988f178e5f77ce3b961545b69b9a1ca749088cde4f9526a9627342",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5FG5KYS73E4BT2E5AFH2TQW/checkpoints/motion_director.json"
+        }
+      }
+    },
+    "error": null,
+    "idempotency_key": "e2e-test1-run_01M5FG5KYS73E4BT2E5AFH2TQV",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-21T15:09:42.233Z",
+    "started_at": "2026-10-21T15:15:06.321Z",
+    "finished_at": "2026-10-21T15:19:12.672Z"
+  },
+  "wall_ms": 572005,
+  "cost_usd": 1.1738407999999998,
+  "agent_runs": [
+    {
+      "role": "concept",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 5974,
+      "output_tokens": 695,
+      "cost_usd": 0.0089903,
+      "started_at": "2026-10-21T15:15:06.702Z",
+      "finished_at": "2026-10-21T15:15:16.339Z"
+    },
+    {
+      "role": "motion_director",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 52723,
+      "output_tokens": 6473,
+      "cost_usd": 0.4096894,
+      "started_at": "2026-10-21T15:15:16.523Z",
+      "finished_at": "2026-10-21T15:16:22.484Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 399269,
+      "output_tokens": 8539,
+      "cost_usd": 0.6083869999999999,
+      "started_at": "2026-10-21T15:16:23.109Z",
+      "finished_at": "2026-10-21T15:18:02.496Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 43645,
+      "output_tokens": 4030,
+      "cost_usd": 0.1467741,
+      "started_at": "2026-10-21T15:18:42.604Z",
+      "finished_at": "2026-10-21T15:19:11.864Z"
+    }
+  ],
+  "render_jobs": [
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "frames": 7,
+      "duration_ms": 22279
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "frames": 180,
+      "duration_ms": 22279
+    }
+  ],
+  "qa_reports": [
+    {
+      "id": 56,
+      "version_id": "ver_01M5FGQ109HRPG5CXAN3NSQ2KV",
+      "attempt": 1,
+      "technical": "pass",
+      "visual": "warn",
+      "semantic": "pass",
+      "style": "pass",
+      "report_path": "workspace/projects/playground/scenes/scn_01M5FG5KYNQ9PJ0E08YBXEVE4B/versions/ver_01M5FGQ109HRPG5CXAN3NSQ2KV/qa.json"
+    }
+  ],
+  "component_tests": [
+    {
+      "kb_id": "remotion-video-templates/line-chart-draw",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FFPQDR81GEMDR5WMBMF8TG",
+      "date": "2026-10-21T15:01:34.282Z"
+    },
+    {
+      "kb_id": "motion-primitives/animated-number",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F1ZPVY3YRBAF19KAGY0NHW",
+      "date": "2026-10-21T11:01:48.562Z"
+    },
+    {
+      "kb_id": "magicui/animated-beam",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FGFGDHD4QZYC57MG2BZCKV",
+      "date": "2026-10-21T15:15:06.311Z"
+    },
+    {
+      "kb_id": "xyflow/example-custom-node",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FFQX57ZG7Y9BZ9PS81CGYD",
+      "date": "2026-10-21T15:02:12.923Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-counter-confetti",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5ECYN3BHMXEQ0EFQSQ8VPMY",
+      "date": "2026-10-21T04:54:13.886Z"
+    },
+    {
+      "kb_id": "remotion-bits/animated-counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FE0R7MYP08XCTEZFSN69ED",
+      "date": "2026-10-21T14:32:05.638Z"
+    },
+    {
+      "kb_id": "xyflow/example-floating-edges",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EDHES67C9E4SRQ5HYRQDCE",
+      "date": "2026-10-21T05:04:30.010Z"
+    },
+    {
+      "kb_id": "xyflow/react-flow",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FGFGDHD4QZYC57MG2BZCKV",
+      "date": "2026-10-21T15:15:06.311Z"
+    },
+    {
+      "kb_id": "xyflow/edge-types",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FF4TXZM8QY4YB5Y3W0NX7B",
+      "date": "2026-10-21T14:51:48.051Z"
+    },
+    {
+      "kb_id": "motion-primitives-website/svg-path-draw",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F1FB708Z0CPCB2C7VYE7BC",
+      "date": "2026-10-21T10:52:52.343Z"
+    },
+    {
+      "kb_id": "animata/glowing-card",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
+      "date": "2026-10-21T10:32:20.714Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/chapter-title",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FDX3Y3HD111RSH8YNC8JR2",
+      "date": "2026-10-21T14:30:06.548Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-staggered-fade-in",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5EX0TTC9B6BJPW1ECEZAZFX",
+      "date": "2026-10-21T09:35:02.496Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/split-screen",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EQFZJ986V5EXQ8F0MX1F5N",
+      "date": "2026-10-21T07:58:27.420Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/line-chart-anim",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FGQ109HRPG5CXAN3NSQ2KV",
+      "date": "2026-10-21T15:19:12.669Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/kpi-counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F1NFJA74QYZQS7DYT7B3VG",
+      "date": "2026-10-21T10:56:13.406Z"
+    },
+    {
+      "kb_id": "xyflow/default-nodes",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FF4TXZM8QY4YB5Y3W0NX7B",
+      "date": "2026-10-21T14:51:48.051Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-card-stack",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
+      "date": "2026-10-21T10:32:20.714Z"
+    },
+    {
+      "kb_id": "motion-primitives/text-effect",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FDX3Y3HD111RSH8YNC8JR2",
+      "date": "2026-10-21T14:30:06.548Z"
+    },
+    {
+      "kb_id": "motion-primitives-website/animated-counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FEX67DRJQXX3Y1R72Y5SYZ",
+      "date": "2026-10-21T14:47:37.474Z"
+    },
+    {
+      "kb_id": "motion-primitives-website/number-ticker",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FFPQDR81GEMDR5WMBMF8TG",
+      "date": "2026-10-21T15:01:34.282Z"
+    },
+    {
+      "kb_id": "animata/counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FGQ109HRPG5CXAN3NSQ2KV",
+      "date": "2026-10-21T15:19:12.669Z"
+    }
+  ],
+  "chat": [
+    {
+      "id": "msg_01M5FGQ10XK0Q9X1W82HBVP17H",
+      "scene_id": "scn_01M5FG5KYNQ9PJ0E08YBXEVE4B",
+      "role": "assistant",
+      "text": "Версия 1 готова.\nКонцепция: На тёмном премиальном фоне плавная линия роста пользователей поднимается слева направо за три года: от «10 000» в начале через отметки «Год 1», «Год 2» к «Год 3». Ось по логарифмической шкале (10 тыс. → 100 тыс. → 1 млн), поэтому путь читается ровной дугой, а область под линией мягко заливается акцентным градиентом. Крупный счётчик в верхней части кадра отсчитывает значение вместе с движением кончика линии: 10 000 → 100 000 → «1 000 000». В финале линия упирается в последнюю точку, она вспыхивает, остальные элементы приглушаются, а число «1 000 000» увеличивается и остаётся светиться в центре внимания, рядом подпись «×100 за три года». Путь взгляда: стартовое «10 000» слева внизу → кончик линии и счётчик → финальный миллион справа вверху. Скорость роста видна через смену порядков: каждая веха (10 тыс. → 100 тыс. → 1 млн) подсвечивается в момент пересечения.\nКомпоненты: motion-kit StyleProvider, motion-kit Camera, motion-kit Parallax, motion-kit Background, motion-kit SafeArea, motion-kit SceneTitle, motion-kit LineChart, motion-kit lineChartHead, motion-kit AnimatedNumber, motion-kit Enter, motion-kit typeSize, motion-kit useSafeArea, motion-kit useStyle, free-remotion-templates/line-chart-anim (adapt, MIT (package.json, LICENSE, SPDX-заголовок в файле)), animata/counter (adapt, MIT (LICENSE.md)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — пройден, стиль — пройден; замечаний: blocking 0, warning 6.",
+      "version_id": "ver_01M5FGQ109HRPG5CXAN3NSQ2KV",
+      "job_id": "job_01M5FG5KYS73E4BT2E5AFH2TQW",
+      "created_at": "2026-10-21T15:19:12.669Z"
+    }
+  ],
+  "events": [
+    {
+      "ts": "2026-10-21T15:15:06.325Z",
+      "level": "info",
+      "kind": "started",
+      "message": "playground.generate: попытка 1"
+    },
+    {
+      "ts": "2026-10-21T15:15:06.699Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept…"
+    },
+    {
+      "ts": "2026-10-21T15:15:16.343Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept: На тёмном премиальном фоне плавная линия роста пользователей поднимается слева направо за три года: от «10 000» в начале через отметки «Год 1», «Год 2» к «Год 3». Ось по логарифмической шкале (10 тыс. → 100 тыс. → 1 млн), поэтому путь читается ровной дугой, а область под линией мягко заливается акцентным градиентом. Крупный счётчик в верхней части кадра отсчитывает значение вместе с движением кончика линии: 10 000 → 100 000 → «1 000 000». В финале линия упирается в последнюю точку, она вспыхивает, остальные элементы приглушаются, а число «1 000 000» увеличивается и остаётся светиться в центре внимания, рядом подпись «×100 за три года». Путь взгляда: стартовое «10 000» слева внизу → кончик линии и счётчик → финальный миллион справа вверху. Скорость роста видна через смену порядков: каждая веха (10 тыс. → 100 тыс. → 1 млн) подсвечивается в момент пересечения. [growth-decline, key-point-emphasis, quantities]"
+    },
+    {
+      "ts": "2026-10-21T15:15:16.367Z",
+      "level": "info",
+      "kind": "log",
+      "message": "KB: 12 кандидатов по ключам Concept"
+    },
+    {
+      "ts": "2026-10-21T15:15:16.520Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Motion Director…"
+    },
+    {
+      "ts": "2026-10-21T15:16:22.510Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Director: «Рост пользователей ×100» (diagonal), 8 битов, KB: free-remotion-templates/line-chart-anim (adapt), animata/counter (adapt)"
+    },
+    {
+      "ts": "2026-10-21T15:16:23.106Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer…"
+    },
+    {
+      "ts": "2026-10-21T15:18:17.284Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 10, 20, 69, 120, 134, 166, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-21T15:18:42.581Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA…"
+    },
+    {
+      "ts": "2026-10-21T15:19:12.665Z",
+      "level": "info",
+      "kind": "log",
+      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FG5KYNQ9PJ0E08YBXEVE4B/versions/ver_01M5FGQ109HRPG5CXAN3NSQ2KV"
+    },
+    {
+      "ts": "2026-10-21T15:19:12.676Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed"
+    }
+  ]
+}

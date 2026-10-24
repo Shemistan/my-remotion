@@ -1,0 +1,665 @@
+{
+  "title": "Очередь между заказами и складом",
+  "purpose": "Сервис заказов кладёт заказ в очередь и сразу свободен (5 мс), склад забирает сообщения по одному в своём темпе — заказы не теряются, очередь пустеет до 0.",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "composition": {
+    "archetype": "network-centric",
+    "idea": "Чертёж системы: в центре буфер orders.queue — герой, слева сервис заказов быстро бросает в него три заказа, справа склад медленно вынимает их по одному. Взгляд: заказ → очередь → склад и обратно к счётчику «в очереди: 0» под буфером.",
+    "focus": "Setup — схема собирается слева направо. Action — фокус ведут токены и счётчик под очередью. Payoff — «0» бьёт позитивом. Камера: один медленный наезд 1 → 1.04 к очереди — сводит взгляд на буфер к финалу.",
+    "transitions": "Силуэт схемы наполняется узлами; токены влетают в ячейки и остаются, затем по одному уходят к складу; статусы сменяются на месте; счётчик 0→3→0 остаётся до конца, очередь дышит волной.",
+    "title_mode": "integrated",
+    "background": {
+      "variant": "blueprint",
+      "focus": {
+        "x": 0.5,
+        "y": 0.55
+      },
+      "seed": "scn_01M5N1PSP7DAHSAR2TXKYFWHHV"
+    },
+    "structure": "continuous-flow"
+  },
+  "elements": [
+    {
+      "id": "title",
+      "kind": "text",
+      "role": "заголовок-утверждение у схемы",
+      "entrance": "mask",
+      "depth_layer": 1,
+      "content": {
+        "component": "SceneTitle",
+        "mode": "integrated",
+        "text": "Заказ принят за 5 мс — склад заберёт позже",
+        "size": "body",
+        "align": "center"
+      },
+      "layout": {
+        "x": 0.08,
+        "y": 0.06,
+        "w": 0.84,
+        "h": 0.09
+      }
+    },
+    {
+      "id": "graph",
+      "kind": "graph",
+      "role": "схема: заказы → очередь → склад",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "FlowGraph",
+        "pre": "silhouette",
+        "edges": [
+          {
+            "id": "e-in",
+            "from": "node-orders",
+            "to": "node-queue"
+          },
+          {
+            "id": "e-out",
+            "from": "node-queue",
+            "to": "node-warehouse"
+          }
+        ],
+        "flows": [
+          {
+            "edge": "e-in",
+            "direction": "forward",
+            "beat": "b-in-4812",
+            "count": 1,
+            "repeat": false,
+            "travel": 12
+          },
+          {
+            "edge": "e-in",
+            "direction": "forward",
+            "beat": "b-in-4813",
+            "count": 1,
+            "repeat": false,
+            "travel": 12
+          },
+          {
+            "edge": "e-in",
+            "direction": "forward",
+            "beat": "b-in-4814",
+            "count": 1,
+            "repeat": false,
+            "travel": 12
+          },
+          {
+            "edge": "e-out",
+            "direction": "forward",
+            "beat": "b-out-4812",
+            "count": 1,
+            "repeat": false,
+            "travel": 30
+          },
+          {
+            "edge": "e-out",
+            "direction": "forward",
+            "beat": "b-out-4813",
+            "count": 1,
+            "repeat": false,
+            "travel": 30
+          },
+          {
+            "edge": "e-out",
+            "direction": "forward",
+            "beat": "b-out-4814",
+            "count": 1,
+            "repeat": false,
+            "travel": 30
+          }
+        ],
+        "overlay": [
+          "token-in-4812",
+          "token-in-4813",
+          "token-in-4814",
+          "token-out-4812",
+          "token-out-4813",
+          "token-out-4814",
+          "chip-orders",
+          "chip-warehouse",
+          "counter-queue"
+        ],
+        "hold": {
+          "mode": "now-pulse",
+          "node": "node-queue"
+        },
+        "note": "Скорость видна travel: влёт в очередь 12 кадров (сервис не ждёт), вылет к складу 30 кадров (склад медленный)."
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.18,
+        "w": 0.9,
+        "h": 0.76
+      }
+    },
+    {
+      "id": "node-orders",
+      "kind": "card",
+      "role": "node: сервис заказов (источник)",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "label": "Сервис заказов",
+        "caption": "отвечает сразу",
+        "kind": "service",
+        "size": "body",
+        "enter": "slide",
+        "elevation": 2
+      },
+      "layout": {
+        "x": 0.06,
+        "y": 0.4,
+        "w": 0.26,
+        "h": 0.24
+      }
+    },
+    {
+      "id": "node-queue",
+      "kind": "card",
+      "role": "node: акцент-герой — буфер orders.queue",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "label": "orders.queue",
+        "caption": "буфер сообщений",
+        "kind": "queue",
+        "size": "h2",
+        "cells": 3,
+        "enter": "pop",
+        "elevation": 3,
+        "accentIndex": 0,
+        "emphasis": {
+          "beat": "b-hold",
+          "ring": "every-breath",
+          "loop": true
+        }
+      },
+      "layout": {
+        "x": 0.38,
+        "y": 0.34,
+        "w": 0.31,
+        "h": 0.36
+      }
+    },
+    {
+      "id": "node-warehouse",
+      "kind": "card",
+      "role": "node: склад (потребитель)",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "label": "Склад",
+        "caption": "в своём темпе",
+        "kind": "service",
+        "size": "body",
+        "enter": "blur",
+        "elevation": 2
+      },
+      "layout": {
+        "x": 0.77,
+        "y": 0.4,
+        "w": 0.17,
+        "h": 0.24
+      }
+    },
+    {
+      "id": "token-in-4812",
+      "kind": "shape",
+      "role": "данные: заказ #4812 в очередь",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "component": "DataToken",
+        "label": "#4812",
+        "edge": "e-in",
+        "travel": 12,
+        "cell": 0,
+        "until": "start of b-out-4812"
+      },
+      "layout": {
+        "x": 0.32,
+        "y": 0.48,
+        "w": 0.06,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "token-in-4813",
+      "kind": "shape",
+      "role": "данные: заказ #4813 в очередь",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "component": "DataToken",
+        "label": "#4813",
+        "edge": "e-in",
+        "travel": 12,
+        "cell": 1,
+        "until": "start of b-out-4813"
+      },
+      "layout": {
+        "x": 0.32,
+        "y": 0.48,
+        "w": 0.06,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "token-in-4814",
+      "kind": "shape",
+      "role": "данные: заказ #4814 в очередь",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "component": "DataToken",
+        "label": "#4814",
+        "edge": "e-in",
+        "travel": 12,
+        "cell": 2,
+        "until": "start of b-out-4814"
+      },
+      "layout": {
+        "x": 0.32,
+        "y": 0.48,
+        "w": 0.06,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "token-out-4812",
+      "kind": "shape",
+      "role": "данные: склад забирает #4812",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "component": "DataToken",
+        "label": "#4812",
+        "edge": "e-out",
+        "travel": 30,
+        "consume": true
+      },
+      "layout": {
+        "x": 0.69,
+        "y": 0.48,
+        "w": 0.08,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "token-out-4813",
+      "kind": "shape",
+      "role": "данные: склад забирает #4813",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "component": "DataToken",
+        "label": "#4813",
+        "edge": "e-out",
+        "travel": 30,
+        "consume": true
+      },
+      "layout": {
+        "x": 0.69,
+        "y": 0.48,
+        "w": 0.08,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "token-out-4814",
+      "kind": "shape",
+      "role": "данные: склад забирает #4814",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "component": "DataToken",
+        "label": "#4814",
+        "edge": "e-out",
+        "travel": 30,
+        "consume": true
+      },
+      "layout": {
+        "x": 0.69,
+        "y": 0.48,
+        "w": 0.08,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "chip-orders",
+      "kind": "shape",
+      "role": "статус сервиса заказов",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "component": "StatusChip",
+        "anchor": {
+          "node": "node-orders"
+        },
+        "size": "caption",
+        "states": [
+          {
+            "text": "Принят · 5 мс",
+            "tone": "positive",
+            "on": "arrival e-in #1 (b-in-4812)"
+          },
+          {
+            "text": "Принят · 5 мс",
+            "tone": "positive",
+            "on": "arrival e-in #2 (b-in-4813)"
+          },
+          {
+            "text": "Принят · 5 мс",
+            "tone": "positive",
+            "on": "arrival e-in #3 (b-in-4814)"
+          }
+        ],
+        "until": "start of b-counter-emphasis",
+        "note": "на каждом приходе в очередь статус перезапускается толчком — сервис свободен через 5 мс"
+      },
+      "layout": {
+        "x": 0.09,
+        "y": 0.31,
+        "w": 0.2,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "chip-warehouse",
+      "kind": "shape",
+      "role": "статус склада",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "component": "StatusChip",
+        "anchor": {
+          "node": "node-warehouse"
+        },
+        "size": "caption",
+        "states": [
+          {
+            "text": "Собрано: кроссовки",
+            "tone": "neutral",
+            "on": "arrival e-out (b-out-4812)"
+          },
+          {
+            "text": "Собрано: кофемашина",
+            "tone": "neutral",
+            "on": "arrival e-out (b-out-4813)"
+          },
+          {
+            "text": "Собрано: рюкзак",
+            "tone": "positive",
+            "on": "arrival e-out (b-out-4814)"
+          }
+        ]
+      },
+      "layout": {
+        "x": 0.74,
+        "y": 0.31,
+        "w": 0.2,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "counter-queue",
+      "kind": "number",
+      "role": "счётчик сообщений в очереди под буфером",
+      "entrance": "count",
+      "depth_layer": 1,
+      "content": {
+        "component": "AnimatedNumber",
+        "prefix": "в очереди: ",
+        "from": 0,
+        "to": 0,
+        "locale": "ru",
+        "size": "h1",
+        "bound_to": "graph.arrivals.e-in minus graph.arrivals.e-out",
+        "sequence": "0 → 1 → 2 → 3 → 2 → 1 → 0",
+        "pop_on_arrival": true,
+        "tone_at_zero": "positive",
+        "anchor": "под node-queue внутри graph overlay, ниже полосы ячеек",
+        "note": "значение = приходы по e-in − приходы по e-out (useArrivalCount по обоим рёбрам)"
+      },
+      "layout": {
+        "x": 0.42,
+        "y": 0.76,
+        "w": 0.23,
+        "h": 0.11
+      }
+    }
+  ],
+  "phases": [
+    {
+      "id": "setup",
+      "role": "setup",
+      "weight": 20,
+      "element_ids": [
+        "title",
+        "graph",
+        "node-orders",
+        "node-queue",
+        "node-warehouse",
+        "counter-queue"
+      ]
+    },
+    {
+      "id": "action",
+      "role": "action",
+      "weight": 50,
+      "element_ids": [
+        "token-in-4812",
+        "token-in-4813",
+        "token-in-4814",
+        "chip-orders",
+        "token-out-4812",
+        "token-out-4813",
+        "token-out-4814",
+        "chip-warehouse",
+        "counter-queue"
+      ]
+    },
+    {
+      "id": "payoff",
+      "role": "payoff",
+      "weight": 12,
+      "element_ids": [
+        "counter-queue"
+      ]
+    },
+    {
+      "id": "hold",
+      "role": "hold",
+      "weight": 18,
+      "element_ids": [
+        "graph",
+        "node-queue",
+        "counter-queue"
+      ],
+      "hold_mode": "now-pulse"
+    }
+  ],
+  "beats": [
+    {
+      "id": "b-title-in",
+      "start_frame": 0,
+      "end_frame": 19,
+      "action": "title-in",
+      "description": "Утверждение открывается шторкой над схемой, по центру.",
+      "element_ids": [
+        "title"
+      ],
+      "phase": "setup",
+      "kind": "enter"
+    },
+    {
+      "id": "b-graph-in",
+      "start_frame": 19,
+      "end_frame": 56,
+      "action": "graph-in",
+      "description": "Силуэт схемы виден с кадра 0; узлы входят разными видами: сервис заказов slide слева, orders.queue pop, склад blur; рёбра e-in и e-out дорисованы к концу setup.",
+      "element_ids": [
+        "graph",
+        "node-orders",
+        "node-queue",
+        "node-warehouse"
+      ],
+      "phase": "setup",
+      "span": "phase",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-counter-in",
+      "start_frame": 25,
+      "end_frame": 44,
+      "action": "counter-in",
+      "description": "Под очередью появляется «в очереди: 0» и держит значение ≥ 15 кадров до первого прихода.",
+      "element_ids": [
+        "counter-queue"
+      ],
+      "phase": "setup",
+      "kind": "enter"
+    },
+    {
+      "id": "b-in-4812",
+      "start_frame": 56,
+      "end_frame": 180,
+      "action": "token-in-4812",
+      "description": "Токен «#4812» быстро (travel 12) летит по e-in и ложится в ячейку 0 очереди; на приходе статус сервиса «Принят · 5 мс», счётчик → 1.",
+      "element_ids": [
+        "token-in-4812",
+        "chip-orders"
+      ],
+      "phase": "action",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-in-4813",
+      "start_frame": 61,
+      "end_frame": 180,
+      "action": "token-in-4813",
+      "description": "Следом «#4813» в ячейку 1; статус сервиса вспыхивает снова, счётчик → 2.",
+      "element_ids": [
+        "token-in-4813",
+        "chip-orders"
+      ],
+      "phase": "action",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-in-4814",
+      "start_frame": 66,
+      "end_frame": 180,
+      "action": "token-in-4814",
+      "description": "«#4814» в ячейку 2 — буфер полон, счётчик → 3. Сервис заказов ни разу не ждал склад.",
+      "element_ids": [
+        "token-in-4814",
+        "chip-orders"
+      ],
+      "phase": "action",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-out-4812",
+      "start_frame": 71,
+      "end_frame": 180,
+      "action": "token-out-4812",
+      "description": "Ячейка 0 освобождается, «#4812» медленно (travel 30) едет по e-out и поглощается складом; статус склада «Собрано: кроссовки», счётчик → 2.",
+      "element_ids": [
+        "token-out-4812",
+        "chip-warehouse",
+        "token-in-4812"
+      ],
+      "phase": "action",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-out-4813",
+      "start_frame": 76,
+      "end_frame": 180,
+      "action": "token-out-4813",
+      "description": "Ячейка 1 гаснет, «#4813» едет к складу; статус сменяется на месте «Собрано: кофемашина», счётчик → 1.",
+      "element_ids": [
+        "token-out-4813",
+        "chip-warehouse",
+        "token-in-4813"
+      ],
+      "phase": "action",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-out-4814",
+      "start_frame": 81,
+      "end_frame": 180,
+      "action": "token-out-4814",
+      "description": "Последний «#4814» уходит к складу; статус «Собрано: рюкзак» позитивным тоном, счётчик → 0.",
+      "element_ids": [
+        "token-out-4814",
+        "chip-warehouse",
+        "token-in-4814"
+      ],
+      "phase": "action",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-counter-count",
+      "start_frame": 86,
+      "end_frame": 92,
+      "action": "counter-count",
+      "description": "Счётчик связан с приходами: +1 на каждом приходе по e-in, −1 на каждом приходе по e-out, микро-удар pop на каждом шаге.",
+      "element_ids": [
+        "counter-queue"
+      ],
+      "phase": "action",
+      "span": "phase",
+      "kind": "count"
+    },
+    {
+      "id": "b-counter-emphasis",
+      "start_frame": 92,
+      "end_frame": 132,
+      "action": "final-emphasis-counter",
+      "description": "«в очереди: 0» бьёт ударом и окрашивается позитивным тоном — все заказы обработаны, ни один не потерян; статус сервиса уходит, акцент один. loop:false — передаёт акцент очереди.",
+      "element_ids": [
+        "counter-queue"
+      ],
+      "phase": "payoff",
+      "kind": "accent"
+    },
+    {
+      "id": "b-hold",
+      "start_frame": 132,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "now-pulse: от пустого буфера orders.queue расходится волна радара и дышит ореол (FlowNode.emphasis), камера дотягивает наезд 1.04; потоки не возобновляются — итог «0» подтверждён, кадр живой.",
+      "element_ids": [
+        "graph",
+        "node-queue",
+        "counter-queue"
+      ],
+      "phase": "hold",
+      "kind": "hold"
+    }
+  ],
+  "camera": [
+    {
+      "frame": 0,
+      "scale": 1,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "frame": 170,
+      "scale": 1.04,
+      "x": 0,
+      "y": 10
+    }
+  ]
+}

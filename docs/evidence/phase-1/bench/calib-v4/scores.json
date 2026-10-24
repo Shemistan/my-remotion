@@ -1,0 +1,608 @@
+{
+  "summary": {
+    "run": "calib-v4",
+    "commit": "8b9dbdb",
+    "judge_model": "opus",
+    "judge_runs": 3,
+    "scenes": 12,
+    "judged": 12,
+    "mean": 5.541666666666667,
+    "mean_tuned": 5.541666666666667,
+    "mean_held_out": null,
+    "max_spread": 0.5,
+    "gen_cost_usd": 0,
+    "judge_cost_usd": 6.560963800000001,
+    "agreement": {
+      "n": 12,
+      "mae": 0.20833333333333334,
+      "spearman": 0.8605232931572863,
+      "bias": -0.125,
+      "worst": {
+        "id": "r1-test1",
+        "err": 0.5
+      }
+    },
+    "pair_order": {
+      "correct": 3,
+      "total": 5,
+      "wrong": [
+        "gen-compare",
+        "gen-timeline"
+      ]
+    },
+    "pair_order_mean": {
+      "correct": 3,
+      "total": 5,
+      "wrong": [
+        "gen-compare",
+        "gen-timeline"
+      ]
+    }
+  },
+  "rows": [
+    {
+      "id": "r1-test1",
+      "scene": "test1",
+      "held_out": false,
+      "ref": 6,
+      "judge": {
+        "overall": 5.5,
+        "criteria": {
+          "meaning": 6,
+          "hierarchy": 6,
+          "composition": 5.5,
+          "entrance": 3.5,
+          "choreography": 6,
+          "hold": 4,
+          "legibility": 6,
+          "distinctiveness": 4
+        },
+        "runs": [
+          5,
+          5.5,
+          5.5
+        ],
+        "spread": 0.5,
+        "mean": 5.333333333333333
+      },
+      "judge_cost_usd": 0.7404746,
+      "gen": {
+        "status": "reference",
+        "version_status": "ready",
+        "cost_usd": 0,
+        "wall_ms": 0,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "git 955657f:docs/evidence/phase-1/pipeline/test1"
+      },
+      "frames": {
+        "frame0Content": 0,
+        "frame4Content": 0.00006944444444444444,
+        "holdDelta": 0.004346422879851529,
+        "emptyThirdShare": 0.9047619047619048
+      },
+      "top_defects": [
+        "0: Кадр 0 полностью чёрный, на кадре 4 только размытое полупрозрачное 10 000 — открытие не собрано в постер",
+        "165: Удержание мёртвое и приглушено: линия и заголовок тускнеют, пилюля вокруг 1 000 000 мигает (есть на 155/165, нет на 135/175)",
+        "179: Герой 1 000 000 прижат в правый верхний угол, оторван от конечной точки линии и не крупнее заголовка — «акцент на конечном значении» слабый"
+      ]
+    },
+    {
+      "id": "r1-test2",
+      "scene": "test2",
+      "held_out": false,
+      "ref": 4.5,
+      "judge": {
+        "overall": 4.5,
+        "criteria": {
+          "meaning": 4,
+          "hierarchy": 4,
+          "composition": 5,
+          "entrance": 3,
+          "choreography": 6,
+          "hold": 4,
+          "legibility": 6,
+          "distinctiveness": 3.5
+        },
+        "runs": [
+          4.5,
+          4.5,
+          4.5
+        ],
+        "spread": 0,
+        "mean": 4.5
+      },
+      "judge_cost_usd": 0.5729837999999999,
+      "gen": {
+        "status": "reference",
+        "version_status": "ready",
+        "cost_usd": 0,
+        "wall_ms": 0,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "git 955657f:docs/evidence/phase-1/pipeline/test2"
+      },
+      "frames": {
+        "frame0Content": 0,
+        "frame4Content": 0.0000617283950617284,
+        "holdDelta": 0.004256677156459291,
+        "emptyThirdShare": 0.09523809523809523
+      },
+      "top_defects": [
+        "84: Инструменты — заглушки «Инструмент 1/2/3», данные — безымянные точки: смысл обобщён до шаблона",
+        "0: Кадры 0–8 почти чёрные, только крошки глифов; на кадре 16 заголовок срезан маской",
+        "170: Удержание застыло: импульсов нет, кадры 160–179 одинаковы, светится только пользователь"
+      ]
+    },
+    {
+      "id": "r1-gen-compare",
+      "scene": "gen-compare",
+      "held_out": false,
+      "ref": 5,
+      "judge": {
+        "overall": 5.5,
+        "criteria": {
+          "meaning": 6,
+          "hierarchy": 6,
+          "composition": 5,
+          "entrance": 3.5,
+          "choreography": 4.5,
+          "hold": 6,
+          "legibility": 6,
+          "distinctiveness": 5.5
+        },
+        "runs": [
+          5.5,
+          5.5,
+          5.5
+        ],
+        "spread": 0,
+        "mean": 5.5
+      },
+      "judge_cost_usd": 0.620474,
+      "gen": {
+        "status": "reference",
+        "version_status": "ready",
+        "cost_usd": 0,
+        "wall_ms": 0,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "git 955657f:docs/evidence/phase-1/pipeline/gen-compare"
+      },
+      "frames": {
+        "frame0Content": 0,
+        "frame4Content": 0.013657407407407408,
+        "holdDelta": 0.007619250786734447,
+        "emptyThirdShare": 0.47619047619047616
+      },
+      "top_defects": [
+        "84: Счётчик микросервисов прыгает 1→11→20 быстрее, чем точки доходят до «Деплоя»: он врёт про анимацию",
+        "0: Кадр 0 чёрный, на кадре 4 заголовок срезан маской, схема собирается почти 2 с",
+        "150: Пилюля-акцент вокруг 24 мигает: появляется на 130, пропадает на 150–165, возвращается на 170"
+      ]
+    },
+    {
+      "id": "r1-gen-timeline",
+      "scene": "gen-timeline",
+      "held_out": false,
+      "ref": 6.5,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 6.5,
+          "hierarchy": 5.5,
+          "composition": 6,
+          "entrance": 4,
+          "choreography": 6.5,
+          "hold": 5.5,
+          "legibility": 6,
+          "distinctiveness": 5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.6180076,
+      "gen": {
+        "status": "reference",
+        "version_status": "ready",
+        "cost_usd": 0,
+        "wall_ms": 0,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "git 955657f:docs/evidence/phase-1/pipeline/gen-timeline"
+      },
+      "frames": {
+        "frame0Content": 0.00029320987654320993,
+        "frame4Content": 0.0005092592592592593,
+        "holdDelta": 0.00923396019930606,
+        "emptyThirdShare": 0.2857142857142857
+      },
+      "top_defects": [
+        "0: Кадр 0 чёрный, в нём одна печатающаяся «2»; ось появляется только к кадру ~36–48: больше секунды пустого экрана",
+        "24: Заголовок «Десять лет — пять вех» срезан маской пополам на входе",
+        "179: Финальный год 2025 того же размера, что остальные годы; нет итоговой фразы о том, что дали десять лет"
+      ]
+    },
+    {
+      "id": "r1-gen-cache",
+      "scene": "gen-cache",
+      "held_out": false,
+      "ref": 5,
+      "judge": {
+        "overall": 5,
+        "criteria": {
+          "meaning": 4.5,
+          "hierarchy": 5.5,
+          "composition": 4.5,
+          "entrance": 3.5,
+          "choreography": 5,
+          "hold": 3,
+          "legibility": 5.5,
+          "distinctiveness": 3.5
+        },
+        "runs": [
+          4.5,
+          5,
+          5
+        ],
+        "spread": 0.5,
+        "mean": 4.833333333333333
+      },
+      "judge_cost_usd": 0.4532336,
+      "gen": {
+        "status": "reference",
+        "version_status": "ready",
+        "cost_usd": 0,
+        "wall_ms": 0,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "git 955657f:docs/evidence/phase-1/pipeline/gen-cache"
+      },
+      "frames": {
+        "frame0Content": 0,
+        "frame4Content": 0.000038580246913580246,
+        "holdDelta": 0.0051888742636972485,
+        "emptyThirdShare": 0.38095238095238093
+      },
+      "top_defects": [
+        "108: «Почему» кэша не показано: нет сравнения скорости промаха и попадания, при попадании ответ не возвращается клиенту, нет конкретного ключа или значения",
+        "0: Кадры 0–4 чёрные, в кадре 16 заголовок разрезан маской и Кэш без подписи",
+        "96: «Промах» и «Запись» — плавающие метки без привязки к действию; запись в кэш видна только как подсветка рамки"
+      ]
+    },
+    {
+      "id": "r2-test1",
+      "scene": "test1",
+      "held_out": false,
+      "ref": 6.5,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6.5,
+          "composition": 5.5,
+          "entrance": 4,
+          "choreography": 6,
+          "hold": 5,
+          "legibility": 7,
+          "distinctiveness": 4.5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.47098300000000004,
+      "gen": {
+        "status": "reference",
+        "version_status": "ready",
+        "cost_usd": 0,
+        "wall_ms": 0,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "git d35c69f:docs/evidence/phase-1/pipeline/test1"
+      },
+      "frames": {
+        "frame0Content": 0.0002623456790123457,
+        "frame4Content": 0.0012962962962962963,
+        "holdDelta": 0.00811790426046962,
+        "emptyThirdShare": 0.38095238095238093
+      },
+      "top_defects": [
+        "0: Кадр 0 пустой (только аврора), до кадра 16 зритель видит загрузку: печатающийся заголовок и размытый счётчик",
+        "179: Удержание застывшее: кроме лёгкого наезда и свечения точки, ничего не происходит",
+        "120: «×100» входит, обрезанный маской сверху"
+      ]
+    },
+    {
+      "id": "r2-test2",
+      "scene": "test2",
+      "held_out": false,
+      "ref": 6,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6,
+          "composition": 6,
+          "entrance": 4.5,
+          "choreography": 5.5,
+          "hold": 4.5,
+          "legibility": 5.5,
+          "distinctiveness": 5.5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.5065292,
+      "gen": {
+        "status": "reference",
+        "version_status": "ready",
+        "cost_usd": 0,
+        "wall_ms": 0,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "git d35c69f:docs/evidence/phase-1/pipeline/test2"
+      },
+      "frames": {
+        "frame0Content": 0.00017746913580246913,
+        "frame4Content": 0.01682098765432099,
+        "holdDelta": 0.004732608629871702,
+        "emptyThirdShare": 0
+      },
+      "top_defects": [
+        "108: Возвращаемые чипы данных тянут за собой двоящиеся полупрозрачные копии и наезжают на названия «Оркестратор», «Погодный API», «База знаний» — каша из текста",
+        "125: Чип «база: предпочтения» перекрывает пилюлю статуса «СОБИРАЕТ ОТВЕТ», а возвратный чип с двойником лежит на связи; слово «ответ» в итоговой фразе прыгает по базовой линии",
+        "0: Кадр 0 — пустая сетка без единого элемента, постер собирается только к ~24 кадру"
+      ]
+    },
+    {
+      "id": "r2-gen-compare",
+      "scene": "gen-compare",
+      "held_out": false,
+      "ref": 5.5,
+      "judge": {
+        "overall": 5.5,
+        "criteria": {
+          "meaning": 6,
+          "hierarchy": 6,
+          "composition": 5,
+          "entrance": 3.5,
+          "choreography": 5.5,
+          "hold": 4,
+          "legibility": 5,
+          "distinctiveness": 5.5
+        },
+        "runs": [
+          5.5,
+          5.5,
+          5.5
+        ],
+        "spread": 0,
+        "mean": 5.5
+      },
+      "judge_cost_usd": 0.5538098,
+      "gen": {
+        "status": "reference",
+        "version_status": "ready",
+        "cost_usd": 0,
+        "wall_ms": 0,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "git d35c69f:docs/evidence/phase-1/pipeline/gen-compare"
+      },
+      "frames": {
+        "frame0Content": 0,
+        "frame4Content": 0.0013194444444444445,
+        "holdDelta": 0.0010393720245299766,
+        "emptyThirdShare": 0.5238095238095238
+      },
+      "top_defects": [
+        "120: Групповой счётчик «12 релизов» стоит в строке «Каталог», хотя это сумма трёх сервисов: итог группы приписан одному сервису, цифра вводит в заблуждение.",
+        "0: Кадр 0 пустой (только аврора); заголовок до кадра 24 входит по словам и обрезан маской.",
+        "72: За чипом «релиз 4.0 · всё приложение» при движении тянутся полупрозрачные копии текста («ре», «рел»)."
+      ]
+    },
+    {
+      "id": "r2-gen-timeline",
+      "scene": "gen-timeline",
+      "held_out": false,
+      "ref": 6,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 5.5,
+          "composition": 5.5,
+          "entrance": 4,
+          "choreography": 6.5,
+          "hold": 5,
+          "legibility": 6,
+          "distinctiveness": 4.5
+        },
+        "runs": [
+          6,
+          6.5,
+          6
+        ],
+        "spread": 0.5,
+        "mean": 6.166666666666667
+      },
+      "judge_cost_usd": 0.5469024,
+      "gen": {
+        "status": "reference",
+        "version_status": "ready",
+        "cost_usd": 0,
+        "wall_ms": 0,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "git d35c69f:docs/evidence/phase-1/pipeline/gen-timeline"
+      },
+      "frames": {
+        "frame0Content": 0.0000154320987654321,
+        "frame4Content": 0.0011728395061728395,
+        "holdDelta": 0.014738506616638425,
+        "emptyThirdShare": 0.42857142857142855
+      },
+      "top_defects": [
+        "0: Кадр 0 — пустая аврора с точкой, постер собирается только к ~кадру 24",
+        "96: Нижняя половина кадра пустая около 4 секунд, пока не появится итоговая фраза",
+        "179: Равный шаг между вехами при интервалах 3/2/3/2 года: шкала времени вводит в заблуждение"
+      ]
+    },
+    {
+      "id": "r2-gen-cache",
+      "scene": "gen-cache",
+      "held_out": false,
+      "ref": 6,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6.5,
+          "composition": 5.5,
+          "entrance": 4.5,
+          "choreography": 5.5,
+          "hold": 6.5,
+          "legibility": 5.5,
+          "distinctiveness": 5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.6054374,
+      "gen": {
+        "status": "reference",
+        "version_status": "failed",
+        "cost_usd": 0,
+        "wall_ms": 0,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "git d35c69f:docs/evidence/phase-1/pipeline/gen-cache"
+      },
+      "frames": {
+        "frame0Content": 0,
+        "frame4Content": 0.007530864197530864,
+        "holdDelta": 0.0028730684660695552,
+        "emptyThirdShare": 0.3333333333333333
+      },
+      "top_defects": [
+        "120: При попадании «GET /user/42» и «Алиса · Pro» накладываются друг на друга внутри кэша, а летящий чип наезжает на «Redis · память», и получается текстовая каша.",
+        "84: За каждым движущимся чипом тянутся двоящиеся полупрозрачные копии (кадры 48, 84, 96).",
+        "0: Кадр 0 пустой, узлы влетают размытыми и в половину масштаба до кадра 16."
+      ]
+    },
+    {
+      "id": "r2-held-mobile",
+      "scene": "held-mobile",
+      "held_out": false,
+      "ref": 5,
+      "judge": {
+        "overall": 5,
+        "criteria": {
+          "meaning": 5,
+          "hierarchy": 5.5,
+          "composition": 6,
+          "entrance": 3.5,
+          "choreography": 6,
+          "hold": 4.5,
+          "legibility": 6,
+          "distinctiveness": 4
+        },
+        "runs": [
+          5.5,
+          5,
+          5
+        ],
+        "spread": 0.5,
+        "mean": 5.166666666666667
+      },
+      "judge_cost_usd": 0.4503768,
+      "gen": {
+        "status": "reference",
+        "version_status": "ready",
+        "cost_usd": 0,
+        "wall_ms": 0,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "git d35c69f:docs/evidence/phase-1/pipeline/held-mobile"
+      },
+      "frames": {
+        "frame0Content": 0,
+        "frame4Content": 0.012152777777777778,
+        "holdDelta": 0.016100825566852255,
+        "emptyThirdShare": 0.7619047619047619
+      },
+      "top_defects": [
+        "48: Выдуманные узлы 2020–2023 с конкретными значениями (~44/52/59/64), счётчик показывает их как факт. В запросе только две точки.",
+        "179: Доля показана линией тренда, а не частью целого: «две трети трафика мобильные» не видно.",
+        "16: Маска режет заголовок: «трафика» обрезано по половине высоты строки."
+      ]
+    },
+    {
+      "id": "r2-held-queue",
+      "scene": "held-queue",
+      "held_out": false,
+      "ref": 6,
+      "judge": {
+        "overall": 5.5,
+        "criteria": {
+          "meaning": 6,
+          "hierarchy": 5.5,
+          "composition": 5,
+          "entrance": 4.5,
+          "choreography": 5.5,
+          "hold": 3.5,
+          "legibility": 6,
+          "distinctiveness": 4.5
+        },
+        "runs": [
+          6,
+          5.5,
+          5.5
+        ],
+        "spread": 0.5,
+        "mean": 5.666666666666667
+      },
+      "judge_cost_usd": 0.42175160000000006,
+      "gen": {
+        "status": "reference",
+        "version_status": "ready",
+        "cost_usd": 0,
+        "wall_ms": 0,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "git d35c69f:docs/evidence/phase-1/pipeline/held-queue"
+      },
+      "frames": {
+        "frame0Content": 0.00005401234567901235,
+        "frame4Content": 0.018348765432098766,
+        "holdDelta": 0.004104373436617445,
+        "emptyThirdShare": 0.38095238095238093
+      },
+      "top_defects": [
+        "125: За движущимися токенами (#4819/#4820/#4821) тянутся 2–3 полупрозрачные копии текста, на нормальной скорости это каша",
+        "170: Удержание застыло: 155–179 одинаковы, очередь пуста, сервис заказов больше ничего не публикует, хотя «не ждут друг друга» как раз требует продолжающегося потока",
+        "96: «Почему» не показано движением: продюсер не публикует новых событий, пока склад занят, развязка держится только на итоговой фразе"
+      ]
+    }
+  ]
+}

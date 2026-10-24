@@ -2,7 +2,9 @@
 import type { QAIssue } from "@ms/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { programmaticChecks } from "../../src/qa/programmatic.js";
-import { Canvas, H, W, beat, card, makeTmp, removeTmp, solid, spec, style, withFrames } from "./helpers.js";
+import { writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { Canvas, H, W, beat, card, el, makeTmp, removeTmp, solid, spec, style, withFrames } from "./helpers.js";
 
 let tmp: string;
 beforeEach(async () => (tmp = await makeTmp()));
@@ -41,6 +43,24 @@ describe("programmaticChecks", () => {
     const r = await programmaticChecks(await withFrames(tmp, [rectTouchingRightEdge]));
     expect(issues(r)).toContain("clipping");
     expect(find(r, "clipping")[0]).toMatchObject({ severity: "blocking", area: "right" });
+  });
+
+  it("exposed_edge: камера открыла край сцены (прозрачные полосы сверху и справа) — blocking", async () => {
+    // дефект Task 13: сцена сдвинута камерой, за ней пусто (в превью — чёрные полосы)
+    const shifted = card().clear(0, 0, W, 12).clear(W - 30, 0, 30, H);
+    const r = await programmaticChecks(await withFrames(tmp, [shifted]));
+    const e = find(r, "exposed_edge");
+    expect(e).toHaveLength(1);
+    expect(e[0]).toMatchObject({ severity: "blocking", frame: 25 });
+    expect(e[0]!.area).toContain("top");
+    expect(e[0]!.area).toContain("right");
+    expect(e[0]!.area).not.toContain("left");
+  });
+
+  it("exposed_edge: прозрачный экспорт — прозрачный край не дефект", async () => {
+    const input = await withFrames(tmp, [card().clear(0, 0, W, 12)]);
+    const r = await programmaticChecks({ ...input, settings: { ...input.settings, transparent_export: true } });
+    expect(issues(r)).not.toContain("exposed_edge");
   });
 
   it("плавный свет фона у края (aurora, виньетка) — не clipping и не safe_area", async () => {
@@ -156,5 +176,131 @@ describe("крупные объекты у края", () => {
     const r = await run(big((c) => c.rect(300, 350, 300, 180, "#e0e0e0"))); // низ 530 < 540, поле с 513
     expect(issues(r)).not.toContain("clipping");
     expect(r).toContainEqual(expect.objectContaining({ code: "safe_area", severity: "warning" }));
+  });
+
+  describe("accent_static: финальный акцент жив (кадры N−20 и N−1)", () => {
+    // акцент — бейдж в центре safe area (поля 5 %): регион в px ≈ x 67–125, y 34–74
+    const sp = () => spec({
+      beats: [beat("b0", 0, 60, ["title"]), beat("b1", 60, 90, ["badge"], "final-emphasis"), beat("b2", 90, 120, ["badge", "title"], "hold")],
+      elements: [el("title", { layout: { x: 0, y: 0, w: 0.4, h: 0.1 } }), el("badge", { kind: "card", role: "акцент: итог", entrance: "scale", layout: { x: 0.35, y: 0.3, w: 0.3, h: 0.4 } })],
+    });
+    async function run(a: Canvas, b: Canvas, s = sp()) {
+      const input = await withFrames(tmp, [card()], { spec: s, at: [100] });
+      const pair = [];
+      for (const [frame, c] of [[100, a], [119, b]] as const) {
+        const path = join(tmp, `hold-${frame}.png`);
+        await writeFile(path, c.png());
+        pair.push({ frame, path });
+      }
+      return programmaticChecks({ ...input, accentFrames: pair });
+    }
+
+    it("регион акцента не меняется между N−20 и N−1 — warning с кадром N−1 и id элемента", async () => {
+      const r = await run(card(), card());
+      expect(find(r, "accent_static")).toEqual([expect.objectContaining({ severity: "warning", frame: 119, area: "badge" })]);
+    });
+
+    it("регион акцента дышит (свечение ярче) — замечания нет; изменения вне региона не в счёт", async () => {
+      expect(find(await run(card(), card(0, "#ffffff")), "accent_static")).toEqual([]);
+      const outside = card().rect(0, 90, 30, 10, "#ffffff");
+      expect(find(await run(card(), outside), "accent_static")).toHaveLength(1);
+    });
+
+    it("изменение уровня дрейфа фона (|ΔY'| ≈ 0.007 < планки 0.01) — акцент всё ещё застыл", async () => {
+      expect(find(await run(card(), card(0, "#e2e2e2")), "accent_static")).toHaveLength(1);
+    });
+
+    it("тайловая мера: живая точка в крупном регионе (Timeline на пол-кадра) не разбавляется неподвижной частью", async () => {
+      // регион акцента — 0.9 × 0.66 safe area; дышит только точка 6×6 px
+      const big = spec({
+        beats: [beat("b0", 0, 60, ["title"]), beat("b1", 60, 90, ["tl"], "final-emphasis"), beat("b2", 90, 120, ["tl", "title"], "hold")],
+        elements: [el("title", { layout: { x: 0, y: 0, w: 0.4, h: 0.1 } }), el("tl", { kind: "shape", role: "акцент: шкала", layout: { x: 0.05, y: 0.25, w: 0.9, h: 0.66 } })],
+      });
+      const frame = (dot: string) => new Canvas().rect(30, 60, 130, 2, "#8b91a5").rect(140, 58, 6, 6, dot);
+      expect(find(await run(frame("#6a5cd0"), frame("#b8acff"), big), "accent_static")).toEqual([]);
+      expect(find(await run(frame("#6a5cd0"), frame("#6a5cd0"), big), "accent_static")).toHaveLength(1);
+    });
+
+    it("планка — от фона сцены: акцент меняется не сильнее дрейфа фона вне раскладок (×2) — застыл", async () => {
+      // фон вне раскладок мерцает на |ΔY'| ≈ 0.047 (частицы, аврора), акцент — на ≈ 0.043
+      const drift = (bg: string, badge: string) => {
+        const c = new Canvas(W, H, bg);
+        return c.rect(70, 40, 50, 28, badge);
+      };
+      expect(find(await run(drift("#101010", "#e0e0e0"), drift("#1c1c1c", "#ebebeb")), "accent_static")).toHaveLength(1);
+      // тот же фон, акцент дышит заметно сильнее фона — жив
+      expect(find(await run(drift("#101010", "#c0c0c0"), drift("#1c1c1c", "#ffffff")), "accent_static")).toEqual([]);
+    });
+
+    it("регион — через safeRect (поле 0.05 × 192 → 10 px, не 9.6): столбец 9 вне региона", async () => {
+      const left = spec({
+        beats: [beat("b0", 0, 60, ["title"]), beat("b1", 60, 90, ["badge"], "final-emphasis"), beat("b2", 90, 120, ["badge", "title"], "hold")],
+        elements: [el("title", { layout: { x: 0.6, y: 0, w: 0.3, h: 0.1 } }), el("badge", { kind: "card", role: "акцент: итог", layout: { x: 0, y: 0.3, w: 0.5, h: 0.4 } })],
+      });
+      const edge = card().rect(9, 30, 1, 50, "#ffffff");
+      expect(find(await run(card(), edge, left), "accent_static")).toHaveLength(1);
+      const inside = card().rect(10, 30, 1, 50, "#ffffff");
+      expect(find(await run(card(), inside, left), "accent_static")).toEqual([]);
+    });
+
+    it("акцента нет на последнем кадре (ушёл раньше) или кадров пары нет — проверки нет", async () => {
+      const gone = spec({
+        beats: [beat("b0", 0, 60, ["title"]), beat("b1", 60, 90, ["badge"], "final-emphasis"), beat("b2", 90, 120, ["title"], "hold")],
+        elements: [el("title", { layout: { x: 0, y: 0, w: 0.4, h: 0.1 } }), el("badge", { kind: "card", role: "акцент: итог", layout: { x: 0.35, y: 0.3, w: 0.3, h: 0.4 } })],
+      });
+      expect(find(await run(card(), card(), gone), "accent_static")).toEqual([]);
+      const input = await withFrames(tmp, [card()], { spec: sp(), at: [100] });
+      expect(find(await programmaticChecks(input), "accent_static")).toEqual([]);
+    });
+  });
+
+  describe("0.4.0: реестр раскладки, застывшая схема, кадр-постер", () => {
+    const layout = (items: unknown[]) => `[log] [motion-kit:layout] ${JSON.stringify({ frame: 25, height: 1080, ghosts: [], items })}`;
+    const it2 = (id: string, role: string, text: string, x: number) => ({ id, role, text, rect: { x, y: 100, w: 200, h: 40 }, fontPx: 32, opacity: 1 });
+
+    it("строка реестра в логах → token_on_label (blocking, source programmatic)", async () => {
+      const r = await programmaticChecks(await withFrames(tmp, [card()], { logs: [layout([it2("l", "label", "База", 100), it2("t", "token", "user:42", 150)])] }));
+      expect(find(r, "token_on_label")).toEqual([expect.objectContaining({ source: "programmatic", severity: "blocking", frame: 25 })]);
+    });
+
+    it("[motion-kit:error] в логах → kit_misuse blocking с текстом; в console_error не дублируется", async () => {
+      const logs = ["[error] [motion-kit:error] DataToken: ячейка 2 очереди \"q\" вне буфера", "[error] TypeError: x is undefined"];
+      const r = await programmaticChecks(await withFrames(tmp, [card()], { logs }));
+      expect(find(r, "kit_misuse")).toEqual([expect.objectContaining({ severity: "blocking", source: "programmatic" })]);
+      expect(find(r, "kit_misuse")[0]!.description).toContain("ячейка 2");
+      expect(find(r, "console_error")[0]!.description).not.toContain("ячейка 2");
+    });
+
+    async function hold(a: Canvas, b: Canvas, kind: "graph" | "chart") {
+      const sp = spec({ beats: [beat("b0", 0, 120, ["g"])], elements: [el("g", { kind })] });
+      const input = await withFrames(tmp, [card()], { spec: sp, at: [100] });
+      const pair = [];
+      for (const [frame, c] of [[100, a], [119, b]] as const) {
+        const path = join(tmp, `h-${kind}-${frame}.png`);
+        await writeFile(path, c.png());
+        pair.push({ frame, path });
+      }
+      return programmaticChecks({ ...input, accentFrames: pair });
+    }
+    it("схема (graph) застыла между N−20 и N−1 — frozen blocking; живая — нет; не схема — нет", async () => {
+      expect(find(await hold(card(), card(), "graph"), "frozen")).toEqual([expect.objectContaining({ severity: "blocking", frame: 119 })]);
+      expect(find(await hold(card(), card(12), "graph"), "frozen")).toEqual([]);
+      expect(find(await hold(card(), card(), "chart"), "frozen")).toEqual([]);
+    });
+
+    async function poster(f0: Canvas, f4: Canvas) {
+      const input = await withFrames(tmp, [card().rect(10, 10, 60, 8, "#ffffff").rect(130, 80, 40, 10, "#ffffff")], { at: [25] });
+      const posterFrames = [];
+      for (const [frame, c] of [[0, f0], [4, f4]] as const) {
+        const path = join(tmp, `p-${frame}.png`);
+        await writeFile(path, c.png());
+        posterFrames.push({ frame, path });
+      }
+      return programmaticChecks({ ...input, posterFrames });
+    }
+    it("frame0_coverage: пустой кадр 0 при собранном финале — warning; кадр-постер — нет", async () => {
+      expect(find(await poster(solid("#101010"), solid("#101010")), "frame0_coverage")).toEqual([expect.objectContaining({ severity: "warning", frame: 0 })]);
+      expect(find(await poster(card(), card()), "frame0_coverage")).toEqual([]);
+    });
   });
 });

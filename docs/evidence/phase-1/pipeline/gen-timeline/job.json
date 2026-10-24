@@ -1,0 +1,405 @@
+{
+  "job": {
+    "id": "job_01M5FNG1GMW76X2GTR06C9VQD5",
+    "type": "playground.generate",
+    "project_id": "playground",
+    "scene_id": "scn_01M5FNG1GCMH198FH1N4N8MCSP",
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "publish",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "sceneId": "scn_01M5FNG1GCMH198FH1N4N8MCSP",
+      "prompt": "Таймлайн развития компании 2015–2025 с пятью вехами",
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 180,
+        "style_preset": "dark-premium",
+        "animation_intensity": "balanced",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        }
+      }
+    },
+    "input_hash": "a2c8808570663552ef03b192fa58f851f01f846d37045e4beab2bf7325ca41ca",
+    "output_refs": {
+      "scene_id": "scn_01M5FNG1GCMH198FH1N4N8MCSP",
+      "version_id": "ver_01M5FNP1AX69T555461TS6ZSKG",
+      "version_number": 1,
+      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FNG1GCMH198FH1N4N8MCSP/versions/ver_01M5FNP1AX69T555461TS6ZSKG",
+      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FNG1GCMH198FH1N4N8MCSP/versions/ver_01M5FNP1AX69T555461TS6ZSKG/preview.mp4",
+      "cost_usd": 1.055067,
+      "engineer_calls": 1,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "warn"
+      },
+      "warnings": [
+        "spec: scene_signature_repeat (pill, topTitle, staticCamera): сцена повторяет подпись предыдущей «Мобильный трафик: 35% → 68%» (3 из 4): без таблетки, без полосы заголовка, камера движется"
+      ],
+      "steps": {
+        "concept": {
+          "input_hash": "01cfe8c5a25d7b5a69d03520ec666a09b94f45913d03446e770260cc0b1fcad0",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5FNG1GMW76X2GTR06C9VQD5/checkpoints/concept.json"
+        },
+        "director": {
+          "input_hash": "deb86c688ad527c52bd5b3458d52eff37c80fe72c2c52b2711ecaa38c31b4b7b",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5FNG1GMW76X2GTR06C9VQD5/checkpoints/motion_director.json"
+        }
+      }
+    },
+    "error": null,
+    "idempotency_key": "e2e-gen-timeline-run_01M5FNG1GMW76X2GTR06C9VQD4",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-21T16:42:46.677Z",
+    "started_at": "2026-10-21T16:42:46.866Z",
+    "finished_at": "2026-10-21T16:46:03.137Z"
+  },
+  "wall_ms": 197721,
+  "cost_usd": 1.055067,
+  "agent_runs": [
+    {
+      "role": "concept",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 5930,
+      "output_tokens": 624,
+      "cost_usd": 0.008272,
+      "started_at": "2026-10-21T16:42:48.099Z",
+      "finished_at": "2026-10-21T16:42:57.354Z"
+    },
+    {
+      "role": "motion_director",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 52509,
+      "output_tokens": 4733,
+      "cost_usd": 0.4890152,
+      "started_at": "2026-10-21T16:42:57.977Z",
+      "finished_at": "2026-10-21T16:43:46.873Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 214496,
+      "output_tokens": 5320,
+      "cost_usd": 0.4532876,
+      "started_at": "2026-10-21T16:43:47.533Z",
+      "finished_at": "2026-10-21T16:44:51.050Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 36646,
+      "output_tokens": 2594,
+      "cost_usd": 0.10449220000000001,
+      "started_at": "2026-10-21T16:45:37.105Z",
+      "finished_at": "2026-10-21T16:46:02.291Z"
+    }
+  ],
+  "render_jobs": [
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "frames": 5,
+      "duration_ms": 25779
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "frames": 180,
+      "duration_ms": 25779
+    }
+  ],
+  "qa_reports": [
+    {
+      "id": 66,
+      "version_id": "ver_01M5FNP1AX69T555461TS6ZSKG",
+      "attempt": 1,
+      "technical": "pass",
+      "visual": "warn",
+      "semantic": "pass",
+      "style": "warn",
+      "report_path": "workspace/projects/playground/scenes/scn_01M5FNG1GCMH198FH1N4N8MCSP/versions/ver_01M5FNP1AX69T555461TS6ZSKG/qa.json"
+    }
+  ],
+  "component_tests": [
+    {
+      "kb_id": "remotion-video-templates/line-chart-draw",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FJNHQ0Z5Y81CE53V1X917F",
+      "date": "2026-10-21T15:53:21.395Z"
+    },
+    {
+      "kb_id": "motion-primitives/animated-number",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FKZB022NEK5H1QRBXHERR7",
+      "date": "2026-10-21T16:16:10.777Z"
+    },
+    {
+      "kb_id": "magicui/animated-beam",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FMZP7PR4830YRDCSNXRE84",
+      "date": "2026-10-21T16:33:50.857Z"
+    },
+    {
+      "kb_id": "xyflow/example-custom-node",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FMZP7PR4830YRDCSNXRE84",
+      "date": "2026-10-21T16:33:50.857Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-counter-confetti",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5ECYN3BHMXEQ0EFQSQ8VPMY",
+      "date": "2026-10-21T04:54:13.886Z"
+    },
+    {
+      "kb_id": "remotion-bits/animated-counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FNFZ8RQ55HM5ZAFCSSWT08",
+      "date": "2026-10-21T16:42:44.399Z"
+    },
+    {
+      "kb_id": "xyflow/example-floating-edges",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EDHES67C9E4SRQ5HYRQDCE",
+      "date": "2026-10-21T05:04:30.010Z"
+    },
+    {
+      "kb_id": "xyflow/react-flow",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FKW3N8XEK9KC58PMQG306T",
+      "date": "2026-10-21T16:14:24.958Z"
+    },
+    {
+      "kb_id": "xyflow/edge-types",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FM15E7MZ0CXHW9M5JYDW16",
+      "date": "2026-10-21T16:17:10.620Z"
+    },
+    {
+      "kb_id": "motion-primitives-website/svg-path-draw",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F1FB708Z0CPCB2C7VYE7BC",
+      "date": "2026-10-21T10:52:52.343Z"
+    },
+    {
+      "kb_id": "animata/glowing-card",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
+      "date": "2026-10-21T10:32:20.714Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/chapter-title",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FNP1AX69T555461TS6ZSKG",
+      "date": "2026-10-21T16:46:03.132Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-staggered-fade-in",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FNP1AX69T555461TS6ZSKG",
+      "date": "2026-10-21T16:46:03.132Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/split-screen",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FJFED81E6VE437X34W26YH",
+      "date": "2026-10-21T15:50:01.404Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/line-chart-anim",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FKZB022NEK5H1QRBXHERR7",
+      "date": "2026-10-21T16:16:10.777Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/kpi-counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F1NFJA74QYZQS7DYT7B3VG",
+      "date": "2026-10-21T10:56:13.406Z"
+    },
+    {
+      "kb_id": "xyflow/default-nodes",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FM15E7MZ0CXHW9M5JYDW16",
+      "date": "2026-10-21T16:17:10.620Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-card-stack",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
+      "date": "2026-10-21T10:32:20.714Z"
+    },
+    {
+      "kb_id": "motion-primitives/text-effect",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FDX3Y3HD111RSH8YNC8JR2",
+      "date": "2026-10-21T14:30:06.548Z"
+    },
+    {
+      "kb_id": "motion-primitives-website/animated-counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FEX67DRJQXX3Y1R72Y5SYZ",
+      "date": "2026-10-21T14:47:37.474Z"
+    },
+    {
+      "kb_id": "motion-primitives-website/number-ticker",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FFPQDR81GEMDR5WMBMF8TG",
+      "date": "2026-10-21T15:01:34.282Z"
+    },
+    {
+      "kb_id": "animata/counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FGQ109HRPG5CXAN3NSQ2KV",
+      "date": "2026-10-21T15:19:12.669Z"
+    },
+    {
+      "kb_id": "animata/confirmation-message",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FGXQ2574A47125XPB5Y3VB",
+      "date": "2026-10-21T15:22:51.866Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-3d-step-timing-context",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FJNHQ0Z5Y81CE53V1X917F",
+      "date": "2026-10-21T15:53:21.395Z"
+    },
+    {
+      "kb_id": "animata/donut-chart",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FK13HD5ZASFSM14J1D1MTT",
+      "date": "2026-10-21T15:59:40.098Z"
+    }
+  ],
+  "chat": [
+    {
+      "id": "msg_01M5FNP1BWS61PB868CGV68Q3M",
+      "scene_id": "scn_01M5FNG1GCMH198FH1N4N8MCSP",
+      "role": "assistant",
+      "text": "Версия 1 готова.\nКонцепция: Горизонтальная линия времени 2015–2025 прорисовывается слева направо, и на ней одна за другой вспыхивают пять вех с карточками: 2015 · Основание компании (команда из 3 человек), 2018 · Первый крупный клиент и запуск продукта v1.0, 2020 · Выход на международный рынок (офис в Берлине), 2023 · 100 000 пользователей, 2025 · Выход на IPO. Каждая веха появляется маркером-узлом с годом, карточка с названием выезжает попеременно сверху и снизу, предыдущая приглушается. Герой кадра — последняя веха 2025: она загорается акцентным цветом, и зритель уносит итог — «10 лет, 5 вех: от команды из 3 человек до IPO». Взгляд идёт слева направо по линии и останавливается на светящейся точке 2025.\nКомпоненты: motion-kit StyleProvider, motion-kit Camera, motion-kit Parallax, motion-kit Background, motion-kit SafeArea, motion-kit useSafeArea, motion-kit Timeline, motion-kit Enter, motion-kit SceneTitle, free-remotion-templates/chapter-title (adapt, MIT (package.json, LICENSE, SPDX-заголовок в файле)), remotion-bits/bit-staggered-fade-in (adapt, MIT (package.json)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — пройден, стиль — с замечаниями; замечаний: blocking 0, warning 5.",
+      "version_id": "ver_01M5FNP1AX69T555461TS6ZSKG",
+      "job_id": "job_01M5FNG1GMW76X2GTR06C9VQD5",
+      "created_at": "2026-10-21T16:46:03.132Z"
+    }
+  ],
+  "events": [
+    {
+      "ts": "2026-10-21T16:42:46.873Z",
+      "level": "info",
+      "kind": "started",
+      "message": "playground.generate: попытка 1"
+    },
+    {
+      "ts": "2026-10-21T16:42:48.094Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept…"
+    },
+    {
+      "ts": "2026-10-21T16:42:57.363Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept: Горизонтальная линия времени 2015–2025 прорисовывается слева направо, и на ней одна за другой вспыхивают пять вех с карточками: 2015 · Основание компании (команда из 3 человек), 2018 · Первый крупный клиент и запуск продукта v1.0, 2020 · Выход на международный рынок (офис в Берлине), 2023 · 100 000 пользователей, 2025 · Выход на IPO. Каждая веха появляется маркером-узлом с годом, карточка с названием выезжает попеременно сверху и снизу, предыдущая приглушается. Герой кадра — последняя веха 2025: она загорается акцентным цветом, и зритель уносит итог — «10 лет, 5 вех: от команды из 3 человек до IPO». Взгляд идёт слева направо по линии и останавливается на светящейся точке 2025. [timeline, sequence-steps, key-point-emphasis]"
+    },
+    {
+      "ts": "2026-10-21T16:42:57.390Z",
+      "level": "info",
+      "kind": "log",
+      "message": "KB: 12 кандидатов по ключам Concept"
+    },
+    {
+      "ts": "2026-10-21T16:42:57.973Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Motion Director…"
+    },
+    {
+      "ts": "2026-10-21T16:43:46.890Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Director: «10 лет компании: 2015–2025» (other), 4 битов, KB: free-remotion-templates/chapter-title (adapt), remotion-bits/bit-staggered-fade-in (adapt)"
+    },
+    {
+      "ts": "2026-10-21T16:43:47.529Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer…"
+    },
+    {
+      "ts": "2026-10-21T16:45:07.574Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 65, 117, 136, 166, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-21T16:45:37.080Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA…"
+    },
+    {
+      "ts": "2026-10-21T16:46:03.127Z",
+      "level": "info",
+      "kind": "log",
+      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FNG1GCMH198FH1N4N8MCSP/versions/ver_01M5FNP1AX69T555461TS6ZSKG"
+    },
+    {
+      "ts": "2026-10-21T16:46:03.141Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed"
+    }
+  ]
+}

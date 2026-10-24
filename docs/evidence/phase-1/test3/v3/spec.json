@@ -1,0 +1,549 @@
+{
+  "title": "Архитектура AI-агента",
+  "purpose": "Показать путь запроса: пользователь → оркестратор → три инструмента → данные обратно → готовый ответ у пользователя.",
+  "duration_frames": 240,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "palette_overrides": {
+    "bg": "#07080d",
+    "surface": "#12141c",
+    "text": "#f3f4f8",
+    "muted": "#8b91a5",
+    "accent": [
+      "#8b7cff",
+      "#45d6c0",
+      "#f4b56a"
+    ],
+    "positive": "#45d6c0",
+    "negative": "#ff6b81"
+  },
+  "composition": {
+    "archetype": "network-centric",
+    "idea": "Чертёж агента: оркестратор-ядро в центре, пользователь слева, три инструмента веером справа; взгляд идёт за импульсом туда и обратно.",
+    "focus": "Камера стоит; взгляд ведут импульсы и вспышки узлов, в финале — пульс у ответа пользователя.",
+    "transitions": "Силуэт → схема; статус ядра меняется на месте; акцент переходит от ядра к пользователю с ответом.",
+    "title_mode": "none",
+    "background": {
+      "variant": "blueprint",
+      "focus": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "seed": "scn_01M5N0KGPKY44E27KDYK57THCS"
+    },
+    "structure": "call-response",
+    "structure_reason": "Запрос → опрос инструментов → сборка (turn) → ответ событием."
+  },
+  "elements": [
+    {
+      "id": "request-text",
+      "kind": "text",
+      "role": "контекст: запрос пользователя",
+      "entrance": "type",
+      "depth_layer": 1,
+      "content": {
+        "component": "KineticText",
+        "text": "«Какая погода завтра в Казани?»",
+        "lines": [
+          "«Какая погода",
+          "завтра в Казани?»"
+        ],
+        "size": "body",
+        "mode": "letters",
+        "enter": "type",
+        "pre": "dim",
+        "align": "left"
+      },
+      "layout": {
+        "x": 0.02,
+        "y": 0.12,
+        "w": 0.3,
+        "h": 0.2
+      }
+    },
+    {
+      "id": "node-user",
+      "kind": "card",
+      "role": "node: пользователь — источник запроса и получатель ответа",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "label": "Пользователь",
+        "caption": "чат",
+        "kind": "client",
+        "size": "body",
+        "slot": true,
+        "elevation": 2,
+        "enter": "slide",
+        "emphasis_beat": "answer-emphasis"
+      },
+      "layout": {
+        "x": 0.02,
+        "y": 0.4,
+        "w": 0.26,
+        "h": 0.32
+      }
+    },
+    {
+      "id": "node-orch",
+      "kind": "card",
+      "role": "node: оркестратор — герой схемы",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "label": "Оркестратор",
+        "caption": "план · сборка",
+        "kind": "llm",
+        "size": "h2",
+        "elevation": 3,
+        "enter": "pop",
+        "flash_on": [
+          "e-req",
+          "e-search:back",
+          "e-rag:back",
+          "e-calc:back"
+        ]
+      },
+      "layout": {
+        "x": 0.36,
+        "y": 0.3,
+        "w": 0.28,
+        "h": 0.4
+      }
+    },
+    {
+      "id": "node-search",
+      "kind": "card",
+      "role": "node: инструмент поиска",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Поиск",
+        "caption": "веб",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "flash_on": "e-search",
+        "accentIndex": 1
+      },
+      "layout": {
+        "x": 0.74,
+        "y": 0.04,
+        "w": 0.24,
+        "h": 0.24
+      }
+    },
+    {
+      "id": "node-rag",
+      "kind": "card",
+      "role": "node: база знаний",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "База знаний",
+        "caption": "RAG",
+        "kind": "store",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "flash_on": "e-rag",
+        "accentIndex": 1
+      },
+      "layout": {
+        "x": 0.74,
+        "y": 0.38,
+        "w": 0.24,
+        "h": 0.24
+      }
+    },
+    {
+      "id": "node-calc",
+      "kind": "card",
+      "role": "node: калькулятор",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Калькулятор",
+        "caption": "код",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "flash_on": "e-calc",
+        "accentIndex": 1
+      },
+      "layout": {
+        "x": 0.74,
+        "y": 0.72,
+        "w": 0.24,
+        "h": 0.24
+      }
+    },
+    {
+      "id": "agent-graph",
+      "kind": "graph",
+      "role": "схема агента: узлы и связи с импульсами",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "FlowGraph",
+        "pre": "silhouette",
+        "nodes": [
+          "node-user",
+          "node-orch",
+          "node-search",
+          "node-rag",
+          "node-calc"
+        ],
+        "edges": [
+          {
+            "id": "e-req",
+            "from": "node-user",
+            "to": "node-orch"
+          },
+          {
+            "id": "e-search",
+            "from": "node-orch",
+            "to": "node-search"
+          },
+          {
+            "id": "e-rag",
+            "from": "node-orch",
+            "to": "node-rag"
+          },
+          {
+            "id": "e-calc",
+            "from": "node-orch",
+            "to": "node-calc"
+          }
+        ],
+        "flows": [
+          {
+            "edge": "e-req",
+            "direction": "forward",
+            "beat": "request-flow",
+            "count": 1,
+            "repeat": false,
+            "travel": 16
+          },
+          {
+            "edge": "e-search",
+            "direction": "forward",
+            "beat": "tool-calls",
+            "count": 1,
+            "repeat": false,
+            "travel": 12,
+            "offset": 0
+          },
+          {
+            "edge": "e-rag",
+            "direction": "forward",
+            "beat": "tool-calls",
+            "count": 1,
+            "repeat": false,
+            "travel": 12,
+            "offset": 4
+          },
+          {
+            "edge": "e-calc",
+            "direction": "forward",
+            "beat": "tool-calls",
+            "count": 1,
+            "repeat": false,
+            "travel": 12,
+            "offset": 8
+          },
+          {
+            "edge": "e-search",
+            "direction": "back",
+            "beat": "tool-returns",
+            "count": 1,
+            "repeat": false,
+            "travel": 12,
+            "offset": 0
+          },
+          {
+            "edge": "e-rag",
+            "direction": "back",
+            "beat": "tool-returns",
+            "count": 1,
+            "repeat": false,
+            "travel": 12,
+            "offset": 3
+          },
+          {
+            "edge": "e-calc",
+            "direction": "back",
+            "beat": "tool-returns",
+            "count": 1,
+            "repeat": false,
+            "travel": 12,
+            "offset": 7
+          }
+        ],
+        "pulse_colors": {
+          "forward": "accent[0]",
+          "back": "accent[1]"
+        },
+        "edge_afterglow": "ребро после прохода импульса остаётся мягко подсвеченным",
+        "hold": {
+          "mode": "now-pulse",
+          "node": "node-user"
+        }
+      },
+      "layout": {
+        "x": 0.02,
+        "y": 0.04,
+        "w": 0.96,
+        "h": 0.92
+      }
+    },
+    {
+      "id": "status-orch",
+      "kind": "text",
+      "role": "статус процесса у оркестратора",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "component": "StatusChip",
+        "anchor": {
+          "node": "node-orch"
+        },
+        "size": "caption",
+        "states": [
+          {
+            "text": "План",
+            "tone": "neutral",
+            "on": "e-req"
+          },
+          {
+            "text": "Вызов ×3",
+            "tone": "accent",
+            "on": "tool-calls.start"
+          },
+          {
+            "text": "Сборка",
+            "tone": "warning",
+            "on": "e-calc:back"
+          },
+          {
+            "text": "Готово",
+            "tone": "positive",
+            "on": "token-answer.arrival"
+          }
+        ]
+      },
+      "layout": {
+        "x": 0.4,
+        "y": 0.2,
+        "w": 0.2,
+        "h": 0.08
+      }
+    },
+    {
+      "id": "token-answer",
+      "kind": "card",
+      "role": "данные: ответ пользователю",
+      "entrance": "none",
+      "depth_layer": 1,
+      "content": {
+        "component": "DataToken",
+        "label": "+18 °C, без осадков",
+        "edge": "e-req",
+        "reverse": true,
+        "travel": 18,
+        "dock": "slot",
+        "tone": "accent",
+        "accentIndex": 1,
+        "size": "caption",
+        "mono": true
+      },
+      "layout": {
+        "x": 0.04,
+        "y": 0.62,
+        "w": 0.22,
+        "h": 0.08
+      }
+    }
+  ],
+  "phases": [
+    {
+      "id": "setup",
+      "role": "setup",
+      "weight": 18,
+      "element_ids": [
+        "request-text",
+        "agent-graph",
+        "node-user",
+        "node-orch",
+        "node-search",
+        "node-rag",
+        "node-calc"
+      ]
+    },
+    {
+      "id": "call",
+      "role": "action",
+      "weight": 30,
+      "element_ids": [
+        "agent-graph",
+        "status-orch"
+      ]
+    },
+    {
+      "id": "assemble",
+      "role": "turn",
+      "weight": 10,
+      "element_ids": [
+        "node-orch",
+        "status-orch"
+      ]
+    },
+    {
+      "id": "answer",
+      "role": "payoff",
+      "weight": 22,
+      "element_ids": [
+        "token-answer",
+        "node-user",
+        "status-orch"
+      ]
+    },
+    {
+      "id": "final",
+      "role": "hold",
+      "weight": 20,
+      "element_ids": [
+        "agent-graph",
+        "node-user"
+      ],
+      "hold_mode": "now-pulse"
+    }
+  ],
+  "beats": [
+    {
+      "id": "request-in",
+      "start_frame": 0,
+      "end_frame": 32,
+      "action": "request-type-in",
+      "description": "Вопрос «Какая погода завтра в Казани?» набирается по буквам с кареткой над узлом пользователя; с кадра 0 виден приглушённым (pre dim).",
+      "element_ids": [
+        "request-text"
+      ],
+      "phase": "setup",
+      "kind": "enter"
+    },
+    {
+      "id": "graph-build",
+      "start_frame": 32,
+      "end_frame": 85,
+      "action": "graph-draw-in",
+      "description": "Схема из силуэта: пользователь въезжает слева (slide), оркестратор выстреливает pop, инструменты поднимаются rise каскадом через stagger 4 кадра; рёбра прорисовываются, к концу setup дорисованы.",
+      "element_ids": [
+        "agent-graph",
+        "node-user",
+        "node-orch",
+        "node-search",
+        "node-rag",
+        "node-calc"
+      ],
+      "phase": "setup",
+      "span": "phase",
+      "kind": "sustain"
+    },
+    {
+      "id": "request-flow",
+      "start_frame": 85,
+      "end_frame": 112,
+      "action": "request-pulse-flow",
+      "description": "Один импульс accent[0] по e-req от пользователя к оркестратору, travel 16; на приходе ядро вспыхивает (flash_on e-req), статус «План» встаёт над ядром.",
+      "element_ids": [
+        "agent-graph",
+        "status-orch"
+      ],
+      "phase": "call",
+      "kind": "sustain"
+    },
+    {
+      "id": "tool-calls",
+      "start_frame": 91,
+      "end_frame": 112,
+      "action": "fanout-calls-flow",
+      "description": "Веер: три импульса из ядра к «Поиск», «База знаний», «Калькулятор», старты со сдвигом 0/4/8 кадров, travel 12; каждый инструмент вспыхивает в кадр прихода. Статус сменяется на «Вызов ×3».",
+      "element_ids": [
+        "agent-graph",
+        "status-orch"
+      ],
+      "phase": "call",
+      "kind": "sustain"
+    },
+    {
+      "id": "tool-returns",
+      "start_frame": 96,
+      "end_frame": 112,
+      "action": "returns-back-flow",
+      "description": "Данные возвращаются: три импульса accent[1] reverse от инструментов в ядро, сдвиг 0/3/7, travel 12; ядро вспыхивает на каждом приходе.",
+      "element_ids": [
+        "agent-graph"
+      ],
+      "phase": "call",
+      "kind": "sustain"
+    },
+    {
+      "id": "assemble-emphasis",
+      "start_frame": 112,
+      "end_frame": 139,
+      "action": "orch-emphasis",
+      "description": "Ядро собирает ответ: удар акцента FlowNode.emphasis с loop:false, кромка llm крутится; статус на месте «Сборка». Акцент гаснет к payoff.",
+      "element_ids": [
+        "node-orch",
+        "status-orch"
+      ],
+      "phase": "assemble",
+      "kind": "accent"
+    },
+    {
+      "id": "answer-emphasis",
+      "start_frame": 139,
+      "end_frame": 171,
+      "action": "final-emphasis",
+      "description": "Узел пользователя с ответом получает FlowNode.emphasis: удар с одним кольцом в кадр прихода токена, затем дыхание — акцент теперь только у него.",
+      "element_ids": [
+        "node-user"
+      ],
+      "phase": "answer",
+      "kind": "accent"
+    },
+    {
+      "id": "answer-flight",
+      "start_frame": 139,
+      "end_frame": 171,
+      "action": "answer-token-flow",
+      "description": "Токен «+18 °C, без осадков» летит по e-req от ядра к пользователю (reverse, travel 18) и ложится в полосу данных узла; статус ядра — «Готово» (positive) в кадр записи.",
+      "element_ids": [
+        "token-answer",
+        "status-orch"
+      ],
+      "phase": "answer",
+      "kind": "enter"
+    },
+    {
+      "id": "hold",
+      "start_frame": 171,
+      "end_frame": 240,
+      "action": "hold",
+      "description": "Без новых входов: FlowGraph hold now-pulse на узле пользователя — волна радара и дыхание ореола вокруг готового ответа; рёбра мягко светятся, новых импульсов к инструментам нет.",
+      "element_ids": [
+        "agent-graph",
+        "node-user"
+      ],
+      "phase": "final",
+      "kind": "hold"
+    }
+  ],
+  "camera": []
+}

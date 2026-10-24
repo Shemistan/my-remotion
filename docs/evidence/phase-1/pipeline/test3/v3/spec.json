@@ -1,0 +1,591 @@
+{
+  "title": "Архитектура AI-агента: запрос → инструменты → ответ",
+  "purpose": "Показать, как запрос пользователя проходит через оркестратор к трём инструментам и возвращается готовым ответом.",
+  "duration_frames": 240,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "palette_overrides": {
+    "bg": "#07080d",
+    "surface": "#12141c",
+    "text": "#f3f4f8",
+    "muted": "#8b91a5",
+    "accent": [
+      "#8b7cff",
+      "#45d6c0",
+      "#f4b56a"
+    ],
+    "positive": "#45d6c0",
+    "negative": "#ff6b81"
+  },
+  "composition": {
+    "archetype": "network-centric",
+    "idea": "Чертёж агента: слева пользователь, в центре оркестратор-ядро, справа веер из трёх инструментов. Взгляд идёт слева направо за холодным запросом и возвращается тёплыми данными к ответу пользователя.",
+    "focus": "Камера стоит. Фокус ведут импульсы и токены: запрос → ядро → инструменты → ядро → пользователь. Акцент переходит с ядра на пользователя.",
+    "transitions": "Каркас превращается в схему. Запрос поглощается ядром и рождает три луча, лучи возвращаются тёплыми токенами. Статус на ядре сменяется на месте. Ответ ложится в полосу пользователя и остаётся до конца.",
+    "title_mode": "none",
+    "background": {
+      "variant": "blueprint",
+      "focus": {
+        "x": 0.48,
+        "y": 0.5
+      },
+      "seed": "scn_01M5MDJACW4B7868JYT0388198"
+    },
+    "structure": "call-response",
+    "structure_reason": "Запрос, работа инструментов как пауза и возврат ответа — пара «вопрос — ответ»."
+  },
+  "elements": [
+    {
+      "id": "agent-graph",
+      "kind": "graph",
+      "role": "схема агента: рёбра и потоки",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "FlowGraph",
+        "pre": "silhouette",
+        "nodes": [
+          "node-user",
+          "node-orch",
+          "node-search",
+          "node-calendar",
+          "node-weather"
+        ],
+        "edges": [
+          {
+            "id": "e-req",
+            "from": "node-user",
+            "to": "node-orch"
+          },
+          {
+            "id": "e-search",
+            "from": "node-orch",
+            "to": "node-search"
+          },
+          {
+            "id": "e-cal",
+            "from": "node-orch",
+            "to": "node-calendar"
+          },
+          {
+            "id": "e-weather",
+            "from": "node-orch",
+            "to": "node-weather"
+          }
+        ],
+        "flows": [
+          {
+            "edge": "e-search",
+            "direction": "forward",
+            "beat": "b-fanout",
+            "count": 1,
+            "repeat": false,
+            "travel": 16,
+            "color": "accent[0]"
+          },
+          {
+            "edge": "e-cal",
+            "direction": "forward",
+            "beat": "b-fanout",
+            "count": 1,
+            "repeat": false,
+            "travel": 16,
+            "color": "accent[0]",
+            "start_offset": 4
+          },
+          {
+            "edge": "e-weather",
+            "direction": "forward",
+            "beat": "b-fanout",
+            "count": 1,
+            "repeat": false,
+            "travel": 16,
+            "color": "accent[0]",
+            "start_offset": 8
+          }
+        ],
+        "color_code": "запрос и вызовы — холодный accent[0] (фиолетовый), данные назад — тёплый accent[2] (янтарный)",
+        "hold": {
+          "mode": "now-pulse",
+          "node": "node-user"
+        }
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.04,
+        "w": 1,
+        "h": 0.92
+      }
+    },
+    {
+      "id": "node-user",
+      "kind": "card",
+      "role": "node: пользователь, источник запроса и получатель ответа",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "label": "Пользователь",
+        "caption": "чат с агентом",
+        "kind": "client",
+        "size": "body",
+        "slot": true,
+        "elevation": 2,
+        "enter": "slide",
+        "emphasis_beat": "b-final-emphasis",
+        "flash_on": "e-req (обратный проход ответа)"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.35,
+        "w": 0.24,
+        "h": 0.3
+      }
+    },
+    {
+      "id": "node-orch",
+      "kind": "card",
+      "role": "node: оркестратор — герой схемы",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "label": "Оркестратор",
+        "caption": "LLM-агент",
+        "kind": "llm",
+        "size": "h2",
+        "elevation": 3,
+        "enter": "pop",
+        "accentIndex": 0,
+        "flash_on": "e-req",
+        "emphasis": {
+          "beat": "b-orch-emphasis",
+          "loop": false
+        }
+      },
+      "layout": {
+        "x": 0.37,
+        "y": 0.32,
+        "w": 0.22,
+        "h": 0.36
+      }
+    },
+    {
+      "id": "node-search",
+      "kind": "card",
+      "role": "node: инструмент поиска",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Поиск",
+        "caption": "API авиабилетов",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "flash_on": "e-search"
+      },
+      "layout": {
+        "x": 0.76,
+        "y": 0.06,
+        "w": 0.24,
+        "h": 0.22
+      }
+    },
+    {
+      "id": "node-calendar",
+      "kind": "card",
+      "role": "node: инструмент календаря",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Календарь",
+        "caption": "расписание",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "flash_on": "e-cal"
+      },
+      "layout": {
+        "x": 0.76,
+        "y": 0.39,
+        "w": 0.24,
+        "h": 0.22
+      }
+    },
+    {
+      "id": "node-weather",
+      "kind": "card",
+      "role": "node: инструмент погоды",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Погода",
+        "caption": "прогноз · Стамбул",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "flash_on": "e-weather"
+      },
+      "layout": {
+        "x": 0.76,
+        "y": 0.72,
+        "w": 0.24,
+        "h": 0.22
+      }
+    },
+    {
+      "id": "token-request",
+      "kind": "shape",
+      "role": "данные: запрос пользователя",
+      "entrance": "slide",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "Рейсы MOW→IST · пт",
+        "edge": "e-req",
+        "direction": "forward",
+        "travel": 20,
+        "consume": true,
+        "accentIndex": 0,
+        "layer": "overlay"
+      }
+    },
+    {
+      "id": "token-flights",
+      "kind": "shape",
+      "role": "данные: результат поиска",
+      "entrance": "slide",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "12 рейсов",
+        "edge": "e-search",
+        "direction": "back",
+        "reverse": true,
+        "travel": 14,
+        "consume": true,
+        "accentIndex": 2,
+        "layer": "overlay"
+      }
+    },
+    {
+      "id": "token-calendar",
+      "kind": "shape",
+      "role": "данные: результат календаря",
+      "entrance": "slide",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "пт свободна",
+        "edge": "e-cal",
+        "direction": "back",
+        "reverse": true,
+        "travel": 14,
+        "consume": true,
+        "accentIndex": 2,
+        "layer": "overlay"
+      }
+    },
+    {
+      "id": "token-weather",
+      "kind": "shape",
+      "role": "данные: результат погоды",
+      "entrance": "slide",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "+21 °C, ясно",
+        "edge": "e-weather",
+        "direction": "back",
+        "reverse": true,
+        "travel": 14,
+        "consume": true,
+        "accentIndex": 2,
+        "layer": "overlay"
+      }
+    },
+    {
+      "id": "token-answer",
+      "kind": "shape",
+      "role": "акцент: ответ пользователю",
+      "entrance": "slide",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "Рейс 09:40 · +21 °C",
+        "edge": "e-req",
+        "direction": "back",
+        "reverse": true,
+        "travel": 20,
+        "dock": "slot",
+        "accentIndex": 2,
+        "layer": "overlay",
+        "note": "ложится в полосу данных узла «Пользователь» и остаётся до конца"
+      }
+    },
+    {
+      "id": "status-orch",
+      "kind": "shape",
+      "role": "статус оркестратора на месте",
+      "entrance": "pop",
+      "depth_layer": 2,
+      "content": {
+        "component": "StatusChip",
+        "anchor": {
+          "node": "node-orch"
+        },
+        "size": "caption",
+        "states": [
+          {
+            "text": "Планирует",
+            "tone": "accent",
+            "on": "arrival e-req (token-request)"
+          },
+          {
+            "text": "Ждёт данные",
+            "tone": "warning",
+            "on": "arrival e-search forward (первый вызов)"
+          },
+          {
+            "text": "Ответ готов",
+            "tone": "positive",
+            "on": "arrival e-weather back (token-weather)"
+          }
+        ],
+        "layer": "overlay"
+      }
+    }
+  ],
+  "phases": [
+    {
+      "id": "setup",
+      "role": "setup",
+      "weight": 20,
+      "element_ids": [
+        "agent-graph",
+        "node-user",
+        "node-orch",
+        "node-search",
+        "node-calendar",
+        "node-weather"
+      ]
+    },
+    {
+      "id": "call",
+      "role": "action",
+      "weight": 24,
+      "element_ids": [
+        "token-request",
+        "status-orch",
+        "agent-graph",
+        "node-orch"
+      ]
+    },
+    {
+      "id": "tools",
+      "role": "turn",
+      "weight": 24,
+      "element_ids": [
+        "token-flights",
+        "token-calendar",
+        "token-weather"
+      ]
+    },
+    {
+      "id": "answer",
+      "role": "payoff",
+      "weight": 17,
+      "element_ids": [
+        "token-answer",
+        "node-user"
+      ]
+    },
+    {
+      "id": "final",
+      "role": "hold",
+      "weight": 15,
+      "element_ids": [
+        "agent-graph",
+        "node-user"
+      ],
+      "hold_mode": "now-pulse"
+    }
+  ],
+  "beats": [
+    {
+      "id": "b-graph",
+      "start_frame": 0,
+      "end_frame": 77,
+      "action": "graph-draw",
+      "description": "С кадра 0 каркас схемы виден силуэтом. Узлы входят слева направо, рёбра прорисовываются, когда оба конца на месте, и к концу фазы дорисованы все четыре.",
+      "element_ids": [
+        "agent-graph"
+      ],
+      "phase": "setup",
+      "span": "phase",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-user-in",
+      "start_frame": 8,
+      "end_frame": 28,
+      "action": "user-in",
+      "description": "Узел «Пользователь» въезжает слева со смазом (slide).",
+      "element_ids": [
+        "node-user"
+      ],
+      "phase": "setup",
+      "kind": "enter"
+    },
+    {
+      "id": "b-orch-in",
+      "start_frame": 28,
+      "end_frame": 48,
+      "action": "orch-in",
+      "description": "Оркестратор-ядро выстреливает из центра с перелётом (pop): он крупнее всех узлов, size h2, elevation 3.",
+      "element_ids": [
+        "node-orch"
+      ],
+      "phase": "setup",
+      "kind": "enter"
+    },
+    {
+      "id": "b-tools-in",
+      "start_frame": 48,
+      "end_frame": 68,
+      "action": "tools-in",
+      "description": "Три инструмента поднимаются каскадом сверху вниз со сдвигом stagger 4 кадра: Поиск → Календарь → Погода.",
+      "element_ids": [
+        "node-search",
+        "node-calendar",
+        "node-weather"
+      ],
+      "phase": "setup",
+      "kind": "enter"
+    },
+    {
+      "id": "b-request",
+      "start_frame": 77,
+      "end_frame": 111,
+      "action": "request-token-flight",
+      "description": "Холодный токен «Рейсы MOW→IST · пт» летит по e-req (travel 20) и поглощается ядром. В кадр прихода оркестратор вспыхивает (flash по pulseArrival e-req), а StatusChip над ним входит pop-ом со статусом «Планирует».",
+      "element_ids": [
+        "token-request",
+        "node-orch",
+        "status-orch"
+      ],
+      "phase": "call",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-fanout",
+      "start_frame": 83,
+      "end_frame": 111,
+      "action": "fanout-calls",
+      "description": "Три холодных импульса расходятся веером от ядра к инструментам (travel 16, старты сдвинуты на 0, 4 и 8 кадров, repeat false). Каждый инструмент вспыхивает в кадр своего прихода. Статус сменяется на «Ждёт данные» в кадр первого прихода.",
+      "element_ids": [
+        "agent-graph",
+        "node-search",
+        "node-calendar",
+        "node-weather",
+        "status-orch"
+      ],
+      "phase": "call",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-ret-search",
+      "start_frame": 111,
+      "end_frame": 144,
+      "action": "return-search-flight",
+      "description": "Тёплый токен «12 рейсов» летит обратно по e-search (reverse, travel 14) и растворяется в ядре, ядро коротко вспыхивает.",
+      "element_ids": [
+        "token-flights"
+      ],
+      "phase": "tools",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-ret-calendar",
+      "start_frame": 119,
+      "end_frame": 144,
+      "action": "return-calendar-flight",
+      "description": "Тёплый токен «пт свободна» летит обратно по e-cal (reverse, travel 14) и поглощается ядром. Стартует после поглощения предыдущего, в кадре одна подпись.",
+      "element_ids": [
+        "token-calendar"
+      ],
+      "phase": "tools",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-ret-weather",
+      "start_frame": 127,
+      "end_frame": 144,
+      "action": "return-weather-flight",
+      "description": "Тёплый токен «+21 °C, ясно» летит обратно по e-weather (reverse, travel 14) и поглощается. В кадр прихода статус сменяется на «Ответ готов» (positive), ядро получает emphasis (loop false), удар и затухание.",
+      "element_ids": [
+        "token-weather",
+        "status-orch",
+        "node-orch"
+      ],
+      "phase": "tools",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-orch-emphasis",
+      "start_frame": 135,
+      "end_frame": 144,
+      "action": "orch-emphasis",
+      "description": "Короткий акцент ядра: все данные собраны. loop false, к payoff гаснет и передаёт акцент пользователю.",
+      "element_ids": [
+        "node-orch"
+      ],
+      "phase": "tools",
+      "kind": "accent"
+    },
+    {
+      "id": "b-answer",
+      "start_frame": 144,
+      "end_frame": 176,
+      "action": "answer-token-flight",
+      "description": "Тёплый токен ответа «Рейс 09:40 · +21 °C» идёт из ядра к пользователю по e-req в обратную сторону (travel 20) и ложится в полосу данных узла «Пользователь», где остаётся до конца.",
+      "element_ids": [
+        "token-answer",
+        "node-user"
+      ],
+      "phase": "answer",
+      "kind": "sustain"
+    },
+    {
+      "id": "b-final-emphasis",
+      "start_frame": 144,
+      "end_frame": 176,
+      "action": "final-emphasis",
+      "description": "В кадр прихода ответа узел «Пользователь» получает FlowNode.emphasis: удар с одним кольцом, затем дыхание. Это единственный акцент в кадре.",
+      "element_ids": [
+        "node-user"
+      ],
+      "phase": "answer",
+      "kind": "accent"
+    },
+    {
+      "id": "b-hold",
+      "start_frame": 176,
+      "end_frame": 240,
+      "action": "hold",
+      "description": "Новых входов нет. Узел «Пользователь» с ответом в полосе дышит волной now-pulse: результат получен. Потоки к инструментам не перезапускаются, статус «Ответ готов» стоит.",
+      "element_ids": [
+        "agent-graph",
+        "node-user"
+      ],
+      "phase": "final",
+      "span": "phase",
+      "kind": "hold"
+    }
+  ],
+  "camera": []
+}
