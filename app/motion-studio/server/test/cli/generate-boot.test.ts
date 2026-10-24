@@ -1,6 +1,8 @@
 // CLI generate на настоящем bootCore (Task 13 → 17): старт ядра в tmp-хранилище, сцена и
 // задача playground.generate с настоящим обработчиком `playgroundGenerate` (тот же, что у
 // сервера); агенты, KB и рендер — фейки (без LLM и Chrome), static check — настоящий.
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { acquireOwnerLock, procInfo, reapAttempt } from "@ms/core";
 import { defaultSettings } from "@ms/contracts";
@@ -65,6 +67,15 @@ it("boots the core, runs playground.generate with the real handler in-process, p
   expect(agents.tasks[0]!.run).toMatchObject({ runId: j!.id, attempt: 1 });
   db.close();
   await (await acquireOwnerLock(s.root, "cli")).release();
+});
+
+it("ревью Task 30, m6: старт ядра удаляет рабочие каталоги агентов брошенной попытки (копии кадров после kill -9)", async () => {
+  const dead = join(s.root, "run/agent-cwd/job_01DEAD-a1-footage_analyst");
+  mkdirSync(join(dead, "frames"), { recursive: true });
+  writeFileSync(join(dead, "frames", "000001000000.png"), "кадр ролика");
+  const o = io();
+  expect(await runGenerate(["Рост выручки"], { MS_DATA_DIR: s.root }, o.io, cliSteps())).toBe(0);
+  expect(existsSync(dead)).toBe(false);
 });
 
 it("Concept asks a question → the CLI skips it (defaults) and the job completes", async () => {

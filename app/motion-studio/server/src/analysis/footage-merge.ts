@@ -32,8 +32,11 @@ export const U_NO_MOTION = "движение камеры не оценено";
 export const U_LLM_ONLY = "низкая уверенность зон: нет детектора Vision";
 export const U_NO_DATA = "нет данных о кадре: ни детектора, ни агента";
 export const U_AGENT_MISSING = "агент не описал шот";
+export const U_HUGE_OBJECT = "агент отметил важным объект больше 60 % кадра";
+export const U_VISION_FRAME_ERROR = "детектор не прочитал кадр";
 
-const FACE_LABEL = /лиц|face|голов/i;
+/** Важный объект агента больше этой доли кадра — пометка (подозрительно: закроет все зоны). */
+export const HUGE_OBJECT_AREA = 0.6;
 
 function positionOf(cx: number): "left" | "center" | "right" {
   return cx < 0.4 ? "left" : cx > 0.6 ? "right" : "center";
@@ -65,6 +68,12 @@ function sameRect(a: NormRect, b: NormRect): boolean {
   return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
 }
 
+/** Псевдокадр детектора из объектов агента одного кадра (llm_only): лица и руки, рамки сверху слева. */
+function agentFrame(us: number, objs: AgentShot["objects"]): VisionFrame {
+  const boxes = (kind: "face" | "hands") => objs.filter((x) => x.kind === kind && x.rect).map((x) => ({ ...x.rect!, confidence: 0.5 }));
+  return { path: `agent:${us}`, width: 0, height: 0, faces: boxes("face"), humans: [], hands: boxes("hands"), saliency: [] };
+}
+
 /**
  * Шоты анализа: `vision` — кадры детектора по id шота в порядке ключевых кадров (`undefined` —
  * режим `llm_only`); `agent` — ответ Footage Analyst (нет — без наблюдений).
@@ -84,13 +93,15 @@ export function mergeFootage(shots: readonly ShotInput[], vision: Record<string,
     if (n === 0) add(U_NO_FRAMES);
     else if (n < MIN_SHOT_KEYFRAMES) add(U_FEW_FRAMES);
 
-    const frames = vision ? (vision[shot.id] ?? []) : undefined;
-    const regions = frames && n > 0 ? occupiedRegions(frames, occ) : undefined;
-    for (const u of regions?.uncertain ?? []) add(u);
+    // кадры, которые детектор не прочитал (m7), — не «кадр без лица»: из расчёта долей исключены
+    const all = vision ? (vision[shot.id] ?? []) : undefined;
+    const frames = all?.filter((f) => f.error === undefined);
+    if (all && frames && frames.length < all.length) add(U_VISION_FRAME_ERROR);
 
     const a = byId.get(shot.id);
     if (agent && !a && n > 0) add(U_AGENT_MISSING);
-    const sent = new Set(o.sentUs?.[shot.id] ?? shot.keyframes.map((k) => k.us));
+    const sentList = o.sentUs?.[shot.id] ?? shot.keyframes.map((k) => k.us);
+    const sent = new Set(sentList);
     const objects: AgentShot["objects"] = [];
     for (const obj of a?.objects ?? []) {
       if (!sent.has(obj.frame_us)) {
@@ -100,12 +111,23 @@ export function mergeFootage(shots: readonly ShotInput[], vision: Record<string,
       objects.push(obj);
     }
 
-    // занятое: детектор ∪ важные объекты агента (только добавление)
+    // llm_only (I1): лицо и руки — объекты агента вида face/hands, разложенные по отправленным
+    // кадрам как кадры детектора: те же поля (faceMargin, handMargin), охватывающая рамка, доля
+    // кадров и пометка «лицо найдено менее чем на 30 % кадров»; занятость — независимо от important
+    const body = (x: AgentShot["objects"][number]) => !frames && (x.kind === "face" || x.kind === "hands");
+    const pseudo = frames ? undefined : sentList.map((us) => agentFrame(us, objects.filter((x) => x.frame_us === us)));
+    const detFrames = frames ?? pseudo!;
+    const regions = n > 0 && (frames || a) ? occupiedRegions(detFrames, occ) : undefined;
+    for (const u of regions?.uncertain ?? []) add(u);
+
+    // занятое: детектор (или лицо/руки агента в llm_only) ∪ важные объекты агента (только добавление)
     const occupied: NormRect[] = [...(regions?.occupied ?? [])];
     for (const obj of objects) {
-      if (!obj.important || !obj.rect) continue;
+      if (body(obj) || !obj.important || !obj.rect) continue;
       const r = clipRect(obj.rect);
-      if (r && !occupied.some((x) => sameRect(x, r))) occupied.push(r);
+      if (!r) continue;
+      if (r.w * r.h > HUGE_OBJECT_AREA) add(U_HUGE_OBJECT);
+      if (!occupied.some((x) => sameRect(x, r))) occupied.push(r);
     }
 
     let face: FootageShot["face"];
@@ -118,11 +140,8 @@ export function mergeFootage(shots: readonly ShotInput[], vision: Record<string,
         notes.push(`Позиция автора: детектор: ${author}, агент: ${a.author_position}.`);
       }
     } else {
-      // llm_only: лицо — только из объектов агента, уверенность низкая
-      const faceObjs = objects.filter((x) => FACE_LABEL.test(x.label) && x.rect);
-      const union = bboxOf(faceObjs.map((x) => clipRect(x.rect!)).filter((x): x is NormRect => x !== undefined));
-      const ratio = n === 0 ? 0 : new Set(faceObjs.map((x) => x.frame_us)).size / n;
-      face = { ...(union ? { union } : {}), detected_ratio: Math.min(1, ratio), source: "llm" };
+      // llm_only: лицо — только из объектов агента (уже расширено полем), уверенность низкая
+      face = { ...(regions?.face ? { union: regions.face } : {}), detected_ratio: regions?.faceRatio ?? 0, source: "llm" };
       author = a?.author_position ?? "absent";
       add(U_LLM_ONLY);
       if (!a) add(U_NO_DATA);

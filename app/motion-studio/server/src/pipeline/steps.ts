@@ -4,7 +4,7 @@
 // задачи `playground.generate` (Concept → кандидаты → Director → Engineer → QA).
 import { AsyncLocalStorage } from "node:async_hooks";
 import { readFileSync } from "node:fs";
-import { rm, writeFile } from "node:fs/promises";
+import { readdir, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import {
   type ConceptOutput,
@@ -403,6 +403,12 @@ export class NotStarted extends Error {
 }
 
 /** Карантин рабочего каталога агента (вне drafts): маркер `.quarantined`, каталог не удаляется. */
+/** Удаляет содержимое каталога, сам каталог остаётся. */
+async function clearDir(dir: string): Promise<void> {
+  const names = await readdir(dir).catch(() => [] as string[]);
+  for (const n of names) await rm(join(dir, n), { recursive: true, force: true }).catch(() => undefined);
+}
+
 export async function quarantineCwd(dir: string, reason: string, warnings: string[]): Promise<void> {
   await writeFile(join(dir, ".quarantined"), JSON.stringify({ reason, at: new Date().toISOString() }, null, 2) + "\n").catch((e: unknown) =>
     warnings.push(`карантин ${dir} не записан: ${(e as Error).message}`),
@@ -734,15 +740,22 @@ export async function toolless<O>(
     await drop(); // место семафора не дали: процесс не запускался
     return fail("cancelled", `отменено до ${label}`);
   }
+  // каталог с наполнением (prepare: копии кадров ролика) в карантине не держим — приватность (m6):
+  // роль с prepare только читает, удаление её входа процессу не вредит; маркер остаётся, каталог
+  // целиком уберёт восстановление на старте (`sweepAgentCwds`), когда процессов уже не будет
+  const quarantine = async (reason: string) => {
+    if (prepare) await clearDir(dir);
+    await quarantineCwd(dir, reason, rc.warnings);
+  };
   if (d.error !== undefined) {
     // процесс не подтверждён мёртвым: каталог в карантин, не удаляем
-    await quarantineCwd(dir, `вызов ${label} отклонён: ${errText(d.error)}`, rc.warnings);
+    await quarantine(`вызов ${label} отклонён: ${errText(d.error)}`);
     const storage = isStorageError(d.error) || d.lost !== undefined || (await rc.storageProblem()) !== undefined;
     return fail(storage ? "storage" : stage, `вызов ${label} отклонён: ${errText(d.error)}`);
   }
   const r = d.value!;
   if (r.error?.kind === "orphaned") {
-    await quarantineCwd(dir, `${label} orphaned: ${r.error.message}`, rc.warnings);
+    await quarantine(`${label} orphaned: ${r.error.message}`);
     return fail("orphaned", `${label}: ${r.error.message}`);
   }
   await drop();

@@ -23,6 +23,7 @@ import { claimNext, enqueue, finish, requestCancel } from "../../src/jobs/queue.
 import { AttemptPermits, Semaphore } from "../../src/jobs/semaphore.js";
 import type { HandlerResult, JobContext } from "../../src/jobs/types.js";
 import { type FootageAnalyzeDeps, type FootageAnalyzeResult, agentBatches, footageAnalyze, footageIdFor } from "../../src/pipeline/footage-analyze.js";
+import { sweepAgentCwds } from "../../src/scenes/store.js";
 import { asset } from "../db/video-fixtures.js";
 import { type TestStore, makeStore, removeStore } from "../db/helpers.js";
 
@@ -161,6 +162,7 @@ async function analyze(p: { projectId: string; mediaId: string }, o: RunOpts = {
 
 const docOf = (out: FootageAnalyzeResult) => FootageAnalysisSchema.parse(JSON.parse(readFileSync(join(s.root, out.rel_path), "utf8")));
 const draftsOf = (jobId: string) => (existsSync(join(s.root, "workspace/drafts")) ? readdirSync(join(s.root, "workspace/drafts")).filter((x) => x.startsWith(jobId)) : []);
+const agentCwds = () => (existsSync(join(s.root, "run/agent-cwd")) ? readdirSync(join(s.root, "run/agent-cwd")) : []);
 const liveProcs = async () => (await readdir(join(s.root, "run/processes")).catch(() => [] as string[])).filter((x) => x.endsWith(".json"));
 
 describe("footage.analyze", () => {
@@ -219,7 +221,7 @@ describe("footage.analyze", () => {
       const dir = task.workdir;
       seen = { files: readdirSync(dir).sort(), frames: readdirSync(join(dir, "frames")).sort(), checklist: readFileSync(join(dir, "checklist.md"), "utf8") };
       return { output: answerFromTask(task, (id, first) => (id === "sh_1"
-        ? { author_position: "left", objects: [{ label: "экран", frame_us: first, rect: { x: 0.05, y: 0.5, w: 0.3, h: 0.3 }, important: true }, { label: "призрак", frame_us: first + 1, rect: { x: 0.1, y: 0.1, w: 0.1, h: 0.1 }, important: true }] }
+        ? { author_position: "left", objects: [{ kind: "object", label: "экран", frame_us: first, rect: { x: 0.05, y: 0.5, w: 0.3, h: 0.3 }, important: true }, { kind: "object", label: "призрак", frame_us: first + 1, rect: { x: 0.1, y: 0.1, w: 0.1, h: 0.1 }, important: true }] }
         : {})) };
     }]);
     const { out, events } = await analyze(p, { agents, visionBin: vision });
@@ -334,6 +336,7 @@ describe("footage.analyze", () => {
     expect(r).toMatchObject({ status: "cancelled", error: { code: "cancelled" } });
     expect(footageRepo.latest(db, p.projectId)).toBeUndefined();
     expect(draftsOf(job.id)).toEqual([]);
+    expect(agentCwds()).toEqual([]); // копии кадров порции не остались (m6)
   });
 
   it("вертикальное видео (один шот на весь ролик): кадры 360×640 — длинная сторона 640", async () => {
@@ -345,6 +348,127 @@ describe("footage.analyze", () => {
     expect(doc.shots[0]!.keyframes).toHaveLength(3);
     const png = join(s.root, out!.rel_path, "..", doc.shots[0]!.keyframes[0]!.path);
     expect(execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", png]).toString().trim()).toBe("360,640");
+  });
+
+  it("ревью Task 30: несколько порций, порция 2 сбой → partial; чекпоинт порции 1 переносится в попытку 2, порции 2–3 зовутся заново", async () => {
+    const vision = await bin("vision-face8.sh", echoFrames(FACE_JSON));
+    const p = await videoProject();
+    const ok: Reply = async (task) => ({ output: answerFromTask(task) });
+    const broken: Reply = async () => ({ status: "failed", error: { kind: "cli", message: "claude упал" } });
+    const a1 = fakeAgents([ok, broken]);
+    // порция = один шот (3 кадра); попытка 1 падает до публикации, чтобы проверить перенос чекпоинта
+    const first = await analyze(p, { agents: a1, visionBin: vision, noFinish: true, deps: { agentBatchFrames: 3, onStage: (st) => { if (st === "publish") throw new Error("сбой до публикации"); } } });
+    expect(first.r.status).toBe("failed");
+    expect(a1.tasks).toHaveLength(2); // порция 3 не звалась после сбоя порции 2
+    expect(first.events.find((e) => e.kind === "agent_failed")?.message).toMatch(/часть шотов/);
+    expect(agentCwds()).toEqual([]);
+    releaseLocks(db, jobs.update(db, first.job.id, { status: "pending", lease_owner: null, lease_until: null }));
+    const a2 = fakeAgents([ok, ok]);
+    const second = await analyze(p, { jobId: first.job.id, agents: a2, visionBin: vision, deps: { agentBatchFrames: 3 } });
+    expect(second.out, JSON.stringify(second.r)).toMatchObject({ mode: "vision+llm", agent: { status: "completed", batches: 3, calls: 2, from_checkpoint: 1 } });
+    expect(a2.tasks.map((t) => [...String(t.input).matchAll(/^## (sh_\d+)/gm)].map((m) => m[1]))).toEqual([["sh_2"], ["sh_3"]]);
+    for (const sh of docOf(second.out!).shots) expect(sh.uncertainty).not.toContain("агент не описал шот");
+
+    // без падения публикации: сбой порции 2 → partial, шоты 2–3 по детектору
+    const p2 = await videoProject();
+    const part = await analyze(p2, { agents: fakeAgents([ok, broken]), visionBin: vision, deps: { agentBatchFrames: 3 } });
+    expect(part.out).toMatchObject({ mode: "vision+llm", agent: { status: "partial", calls: 2 } });
+    const doc = docOf(part.out!);
+    expect(doc.shots[0]!.uncertainty).not.toContain("агент не описал шот");
+    expect(doc.shots[1]!.uncertainty).toContain("агент не описал шот");
+  });
+
+  it("ревью Task 30: бюджет кончился между порциями — порция 1 учтена, остальные не зовутся, статус budget", async () => {
+    const vision = await bin("vision-face9.sh", echoFrames(FACE_JSON));
+    const p = await videoProject();
+    const saved = config.analysis.maxCostUsd;
+    config.analysis.maxCostUsd = 0.52; // вызов стоит $0,05; после него свободно $0,47 < MIN_CALL_USD ($0,5)
+    try {
+      const a = fakeAgents([async (task) => ({ output: answerFromTask(task) })]);
+      const { out, events } = await analyze(p, { agents: a, visionBin: vision, deps: { agentBatchFrames: 3 } });
+      expect(a.tasks).toHaveLength(1);
+      expect(out).toMatchObject({ mode: "vision+llm", agent: { status: "budget", calls: 1, cost_usd: 0.05, batches: 3 } });
+      expect(events.find((e) => e.kind === "budget")?.message).toMatch(/часть шотов/);
+      const doc = docOf(out!);
+      expect(doc.shots[0]!.notes).toMatch(/синтетика/);
+      expect(doc.shots[2]!.uncertainty).toContain("агент не описал шот");
+      expect(agentCwds()).toEqual([]);
+    } finally {
+      config.analysis.maxCostUsd = saved;
+    }
+  });
+
+  it("ревью Task 30, m1/m2: шоты чужой порции и повторы отброшены; их объекты не считаются в dropped_objects", async () => {
+    const vision = await bin("vision-face10.sh", echoFrames(FACE_JSON));
+    const p = await videoProject();
+    const intruder = (id: string): FootageAgentOutput["shots"][number] => ({
+      shot_id: id, author_position: "left", motion: "moving", gestures: "high", background: "чужой", notes: "подмена", uncertainty: [],
+      objects: [{ kind: "object", label: "x", frame_us: 1, rect: { x: 0, y: 0, w: 0.1, h: 0.1 }, important: true }],
+    });
+    const a = fakeAgents([
+      // порция 1 (sh_1) отвечает ещё и за sh_2 и sh_9; порция 2 (sh_2) дублирует sh_2
+      async (task) => ({ output: { shots: [...answerFromTask(task).shots, intruder("sh_2"), intruder("sh_9")] } }),
+      async (task) => ({ output: { shots: [...answerFromTask(task).shots, intruder("sh_2")] } }),
+      async (task) => ({ output: answerFromTask(task) }),
+    ]);
+    const { out, events } = await analyze(p, { agents: a, visionBin: vision, deps: { agentBatchFrames: 3 } });
+    expect(out).toMatchObject({ agent: { status: "completed", dropped_objects: 0 } });
+    const doc = docOf(out!);
+    expect(doc.shots[1]!.motion).toBe("static"); // ответ своей порции, не подмена
+    expect(doc.shots[1]!.notes).not.toMatch(/подмена/);
+    const unknown = events.filter((e) => e.kind === "agent_unknown_shots").map((e) => e.message);
+    expect(unknown).toHaveLength(2);
+    expect(unknown[0]).toMatch(/порция 1.*sh_2, sh_9/);
+    expect(unknown[1]).toMatch(/порция 2.*sh_2/);
+  });
+
+  it("ревью Task 30, m6: сбой и отмена вызова агента — run/agent-cwd пуст; вызов отклонён рантаймом — копии кадров удалены, остался только маркер", async () => {
+    const vision = await bin("vision-face11.sh", echoFrames(FACE_JSON));
+    const p = await videoProject();
+    const failing = fakeAgents([async () => ({ status: "failed", error: { kind: "cli", message: "упал" } })]);
+    const f = await analyze(p, { agents: failing, visionBin: vision });
+    expect(f.out).toMatchObject({ agent: { status: "failed" } });
+    expect(agentCwds()).toEqual([]);
+
+    const p2 = await videoProject();
+    const throwing: AgentRuntimeAdapter = { capabilities: async () => ({ available: true }), run: async () => { throw new Error("рантайм отказал"); } };
+    const t = await analyze(p2, { agents: throwing, visionBin: vision });
+    expect(t.out).toMatchObject({ agent: { status: "failed" } });
+    const left = agentCwds();
+    expect(left).toHaveLength(1);
+    expect(readdirSync(join(s.root, "run/agent-cwd", left[0]!))).toEqual([".quarantined"]);
+    // восстановление на старте: процессов нет — каталог удалён целиком
+    const swept = await sweepAgentCwds(s.root, fileProcessRegistry(s.root));
+    expect(swept.removed).toHaveLength(1);
+    expect(agentCwds()).toEqual([]);
+  });
+
+  it("ревью Task 30, m4: длительность исходника 0 → media_invalid, ffmpeg не запускается", async () => {
+    const p = await videoProject({ durationUs: 0 });
+    const { r } = await analyze(p, { useAgent: false });
+    expect(r).toMatchObject({ status: "failed", error: { code: "media_invalid" } });
+    expect(r.status === "failed" && r.error?.message).toMatch(/длительность 0/);
+  });
+
+  it("ревью Task 30, m7: детектор не прочитал кадр — задача не падает, событие, шот помечен", async () => {
+    // первый переданный кадр — с error, остальные — с лицом
+    const vision = await bin("vision-partial.sh", `printf '['
+sep=''
+k=0
+for p in "$@"; do
+  if [ $k -eq 0 ]; then printf '%s{"path":"%s","width":0,"height":0,"faces":[],"humans":[],"hands":[],"saliency":[],"error":"не читается как изображение"}' "$sep" "$p";
+  else printf '%s{"path":"%s","width":640,"height":360,${FACE_JSON},"humans":[],"hands":[],"saliency":[]}' "$sep" "$p"; fi
+  sep=','; k=$((k+1))
+done
+printf ']\\n'`);
+    const p = await videoProject();
+    const { out, events } = await analyze(p, { useAgent: false, visionBin: vision });
+    expect(out).toMatchObject({ mode: "vision", vision: { status: "ok", message: expect.stringMatching(/не прочитано: 1/) } });
+    expect(events.map((e) => e.kind)).toContain("vision_frame_errors");
+    const doc = docOf(out!);
+    expect(doc.shots[0]!.uncertainty).toContain("детектор не прочитал кадр");
+    expect(doc.shots[0]!.face.detected_ratio).toBe(1);
+    expect(doc.shots[1]!.uncertainty).not.toContain("детектор не прочитал кадр");
   });
 
   it("вход: чужой проект, нет прокси — понятный отказ prepare", async () => {

@@ -1,13 +1,15 @@
 // vision-detect (Task 30): лица, люди, руки и салиентность на PNG-кадрах через Apple Vision.
 // `vision-detect <png>…` → stdout JSON-массив по кадрам; `vision-detect --version`.
 // Только чтение переданных файлов, без сети. Координаты — как у Vision: доли кадра,
-// начало слева СНИЗУ (переворот делает сервер, `fromVisionRect`).
+// начало слева СНИЗУ (переворот делает сервер, `fromVisionRect`). Кадр, который не читается
+// или который Vision не обработал, — пустой результат с полем `error` (код 0, остальные кадры
+// выдаются); код ≠ 0 — только ошибка вызова (флаги, не PNG, нет аргументов) или сбой JSON.
 import CoreGraphics
 import Foundation
 import ImageIO
 import Vision
 
-let VERSION = "vision-detect 1"
+let VERSION = "vision-detect 2"
 
 struct Box: Encodable {
   let x: Double
@@ -25,6 +27,8 @@ struct Frame: Encodable {
   let humans: [Box]
   let hands: [Box]
   let saliency: [Box]
+  /// Причина, если кадр не обработан (без поля — кадр прочитан).
+  let error: String?
 }
 
 func fail(_ message: String, code: Int32 = 2) -> Never {
@@ -53,11 +57,18 @@ func handBox(_ o: VNHumanHandPoseObservation) -> Box? {
   return box(r, o.confidence)
 }
 
+/// Пустой кадр с причиной: один нечитаемый кадр не валит весь запуск.
+func broken(_ path: String, _ why: String) -> Frame {
+  return Frame(path: path, width: 0, height: 0, faces: [], humans: [], hands: [], saliency: [], error: why)
+}
+
 func analyze(_ path: String) -> Frame {
+  var isDir: ObjCBool = false
+  if !FileManager.default.fileExists(atPath: path, isDirectory: &isDir) || isDir.boolValue { return broken(path, "нет файла") }
   let url = URL(fileURLWithPath: path)
   guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
         let img = CGImageSourceCreateImageAtIndex(src, 0, nil) else {
-    fail("не читается как изображение: \(path)")
+    return broken(path, "не читается как изображение")
   }
   let faces = VNDetectFaceRectanglesRequest()
   let humans = VNDetectHumanRectanglesRequest()
@@ -69,7 +80,7 @@ func analyze(_ path: String) -> Frame {
   do {
     try handler.perform([faces, humans, hands, saliency])
   } catch {
-    fail("Vision не обработал \(path): \(error.localizedDescription)", code: 3)
+    return broken(path, "Vision не обработал: \(error.localizedDescription)")
   }
   let fb = (faces.results ?? []).map { box($0.boundingBox, $0.confidence) }.filter { $0.w > 0 && $0.h > 0 }
   let hb = (humans.results ?? []).map { box($0.boundingBox, $0.confidence) }.filter { $0.w > 0 && $0.h > 0 }
@@ -81,7 +92,7 @@ func analyze(_ path: String) -> Frame {
       if b.w > 0 && b.h > 0 { sb.append(b) }
     }
   }
-  return Frame(path: path, width: img.width, height: img.height, faces: fb, humans: hb, hands: hd, saliency: sb)
+  return Frame(path: path, width: img.width, height: img.height, faces: fb, humans: hb, hands: hd, saliency: sb, error: nil)
 }
 
 let args = Array(CommandLine.arguments.dropFirst())
@@ -94,8 +105,8 @@ var frames: [Frame] = []
 for a in args {
   if a.hasPrefix("-") { fail("неизвестный флаг: \(a)", code: 64) }
   if !a.lowercased().hasSuffix(".png") { fail("ожидается PNG: \(a)", code: 64) }
-  var isDir: ObjCBool = false
-  if !FileManager.default.fileExists(atPath: a, isDirectory: &isDir) || isDir.boolValue { fail("нет файла: \(a)") }
+}
+for a in args {
   frames.append(analyze(a))
 }
 let enc = JSONEncoder()

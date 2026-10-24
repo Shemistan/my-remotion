@@ -28,6 +28,18 @@ describe("parseVisionOutput", () => {
     expect(f!.saliency).toEqual([{ x: 0.9, y: 0.3, w: 0.1, h: 0.2, confidence: 1 }]);
   });
 
+  it("ревью Task 30, m7: нечитаемый кадр — пустой результат с error, остальные кадры целы", () => {
+    const frames = parseVisionOutput([
+      raw({ path: "/d/frames/a.png", width: 0, height: 0, faces: [], hands: [], error: "не читается как изображение" }),
+      raw({ path: "/d/frames/b.png" }),
+    ]);
+    expect(frames[0]).toEqual({ path: "/d/frames/a.png", width: 0, height: 0, faces: [], humans: [], hands: [], saliency: [], error: "не читается как изображение" });
+    expect(frames[1]!.faces).toHaveLength(1);
+    expect(frames[1]!.error).toBeUndefined();
+    // нулевой размер без error — не по схеме
+    expect(() => parseVisionOutput([raw({ width: 0, height: 0 })])).toThrow();
+  });
+
   it("не тот формат — ошибка, а не тихий пустой результат", () => {
     expect(() => parseVisionOutput({})).toThrow();
     expect(() => parseVisionOutput([raw({ faces: [{ x: "a" }] })])).toThrow();

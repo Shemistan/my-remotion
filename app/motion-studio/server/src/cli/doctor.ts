@@ -4,7 +4,8 @@
 // (python mlx-audio, воркер ai-platform и его sha256, коммит, веса модели, порт 8780); `vision-detect`
 // (Apple Vision, Task 30: собран ли `npm run build:vision`, отвечает ли `--version`); KB_ROOT/KB_SOURCE_ROOT; StorageGuard
 // MS_DATA_DIR; Chrome Headless Shell (скачивается при отсутствии); `quick_check` studio.db;
-// owner-lock свободен. Итог — таблица (или `--json`), код 1 при любой ошибке.
+// owner-lock свободен. Итог — таблица (или `--json`), код 1 при любой ошибке; `degraded`
+// (нет vision-detect) — предупреждение, код 0.
 // `--init` создаёт хранилище, `--adopt` привязывает его к новому тому после переноса (вывод —
 // StorageStatus в JSON). `--import-slice` (Q2): под owner lock открывает studio.db (миграции,
 // сверка store_id), закрывает незакрытые версии, доводит прерванные rename и регистрирует
@@ -54,11 +55,17 @@ export type AsrCheck = (cfg: AppConfig["asr"]) => Promise<AsrCapability>;
 /** Проверка `vision-detect` (Task 30); подменяется в тестах. */
 export type VisionCheck = () => Promise<{ ok: boolean; status: string; detail: string }>;
 
-/** `vision-detect` собран и отвечает `--version`; нет — footage.analyze работает в режиме `llm_only`. */
-export const visionCheck: VisionCheck = async () => {
-  const bin = DEFAULT_VISION_BIN;
+/**
+ * `vision-detect` собран и отвечает `--version`. Нет бинарника — не ошибка, а `degraded`
+ * (ревью Task 30, m8): footage.analyze работает в режиме `llm_only`, doctor не падает. Бинарник
+ * есть, но не отвечает — ошибка (сломанная сборка).
+ */
+export const visionCheck: VisionCheck = () => checkVisionBin(DEFAULT_VISION_BIN);
+
+/** Проверка бинарника `vision-detect` по пути (тесты — несуществующий путь). */
+export async function checkVisionBin(bin: string): ReturnType<VisionCheck> {
   if (!(await visionAvailable(bin))) {
-    return { ok: false, status: "missing", detail: `нет ${bin} — собрать: npm run build:vision (swiftc из Command Line Tools); без него анализ видеоряда — llm_only` };
+    return { ok: true, status: "degraded", detail: `нет ${bin} — анализ видеоряда в режиме llm_only (низкая уверенность зон); собрать: make install или npm run build:vision (swiftc из Command Line Tools)` };
   }
   try {
     const { stdout } = await promisify(execFile)(bin, ["--version"], { timeout: 15_000 });
@@ -66,12 +73,12 @@ export const visionCheck: VisionCheck = async () => {
   } catch (e) {
     return { ok: false, status: "error", detail: `${bin} --version: ${(e as Error).message.split("\n")[0]}` };
   }
-};
+}
 
 export interface CheckRow {
   name: string;
   ok: boolean;
-  /** `ok` или код неудачи: `missing`, `error`, `busy`, `skipped`, `expensive`, причина StorageGuard… */
+  /** `ok`, `degraded` (работает с ограничением, `ok: true`) или код неудачи: `missing`, `error`, `busy`, `skipped`, `expensive`, причина StorageGuard… */
   status: string;
   detail: string;
 }
@@ -194,7 +201,8 @@ async function fullCheck(env: NodeJS.ProcessEnv, probe: VolumeProbe, browser: Br
   // Apple Vision (Task 30): детектор лиц и рук для безопасных зон
   try {
     const v = await vision();
-    row("vision", v.ok, v.status, v.detail);
+    // degraded — предупреждение: строка ok (код 0), статус виден в таблице и JSON
+    rows.push({ name: "vision", ok: v.ok, status: v.ok && v.status === "degraded" ? "degraded" : v.ok ? "ok" : v.status, detail: v.detail });
   } catch (e) {
     row("vision", false, "error", errText(e));
   }
@@ -291,7 +299,9 @@ async function dbAndLock(root: string): Promise<CheckRow[]> {
 function table(rows: CheckRow[], ok: boolean): string {
   const w = Math.max(...rows.map((r) => r.name.length));
   const lines = rows.map((r) => `${r.status.padEnd(10)} ${r.name.padEnd(w)}  ${r.detail}`);
-  return [...lines, "", ok ? "doctor: всё в порядке" : `doctor: есть проблемы (${rows.filter((r) => !r.ok).map((r) => r.name).join(", ")})`].join("\n");
+  const degraded = rows.filter((r) => r.ok && r.status === "degraded").map((r) => r.name);
+  const note = degraded.length > 0 ? ` (с ограничениями: ${degraded.join(", ")})` : "";
+  return [...lines, "", ok ? `doctor: всё в порядке${note}` : `doctor: есть проблемы (${rows.filter((r) => !r.ok).map((r) => r.name).join(", ")})`].join("\n");
 }
 
 async function importSlice(env: StorageEnv, probe: VolumeProbe): Promise<{ code: number; output: string }> {

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { acquireOwnerLock, type VolumeProbe } from "@ms/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { defaultSettings } from "@ms/contracts";
-import { type AsrCheck, type VisionCheck, runDoctor } from "../../src/cli/doctor.js";
+import { type AsrCheck, type VisionCheck, checkVisionBin, runDoctor } from "../../src/cli/doctor.js";
 import { openDb } from "../../src/db/open.js";
 import * as scenes from "../../src/db/repos/scenes.js";
 import * as versions from "../../src/db/repos/versions.js";
@@ -205,12 +205,24 @@ describe("полный doctor (03 §7)", () => {
     expect(checks(r2.output).asr).toMatchObject({ ok: true, detail: expect.stringContaining("8780") });
   });
 
-  it("vision-detect (Task 30): не собран → строка vision missing с подсказкой build:vision, код 1", async () => {
+  it("vision-detect (Task 30, ревью m8): не собран → vision degraded с подсказкой, не ошибка (код 0); сломан → ошибка, код 1", async () => {
     const root = await store();
-    const missing: VisionCheck = async () => ({ ok: false, status: "missing", detail: "нет /x/vision-detect — собрать: npm run build:vision" });
+    const missing: VisionCheck = async () => ({ ok: true, status: "degraded", detail: "нет /x/vision-detect — анализ видеоряда в режиме llm_only; собрать: make install или npm run build:vision" });
     const r = await runDoctor(["--json"], { MS_DATA_DIR: root, PATH: fakeBin() }, probe, browser, asrOk, missing);
-    expect(checks(r.output).vision).toMatchObject({ ok: false, status: "missing", detail: expect.stringContaining("build:vision") });
-    expect(r.code).toBe(1);
+    expect(checks(r.output).vision).toMatchObject({ ok: true, status: "degraded", detail: expect.stringContaining("build:vision") });
+    expect(r.code).toBe(0);
+    const t = await runDoctor([], { MS_DATA_DIR: root, PATH: fakeBin() }, probe, browser, asrOk, missing);
+    expect(t.output).toMatch(/^degraded\s+vision/m);
+    expect(t.output).toMatch(/всё в порядке \(с ограничениями: vision\)/);
+    const broken: VisionCheck = async () => ({ ok: false, status: "error", detail: "/x/vision-detect --version: killed" });
+    const b = await runDoctor(["--json"], { MS_DATA_DIR: root, PATH: fakeBin() }, probe, browser, asrOk, broken);
+    expect(checks(b.output).vision).toMatchObject({ ok: false, status: "error" });
+    expect(b.code).toBe(1);
+  });
+
+  it("checkVisionBin: нет бинарника — degraded (ok: true) с подсказкой, а не missing", async () => {
+    const v = await checkVisionBin(join(await store(), "no-such-vision-detect"));
+    expect(v).toMatchObject({ ok: true, status: "degraded", detail: expect.stringContaining("llm_only") });
   });
 
   it("без MS_DATA_DIR → storage env_missing, БД и lock пропущены, код 1", async () => {

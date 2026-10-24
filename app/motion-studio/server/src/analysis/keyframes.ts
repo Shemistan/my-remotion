@@ -32,14 +32,24 @@ export function thin<T>(xs: readonly T[], q: number): T[] {
 /**
  * Моменты кадров шота: `start + everyUs/2 + k·everyUs < end`; меньше трёх — ¼, ½, ¾ шота;
  * больше `max` — равномерное прореживание. Целые µs по возрастанию.
+ *
+ * `frameUs` — длительность кадра прокси (fps прокси = `timeline_fps`; ревью Task 30, I2): ffmpeg
+ * по `-ss t` выдаёт первый кадр с pts ≥ t, и момент в последнем кадре шота (t > end − кадр)
+ * дал бы ПЕРВЫЙ кадр следующего шота. Поэтому t ≤ end − frameUs (шот короче кадра — его начало).
  */
-export function sampleKeyframes(shot: { start_us: number; end_us: number }, everyUs = 2_000_000, max = 30): number[] {
+export function sampleKeyframes(shot: { start_us: number; end_us: number }, everyUs = 2_000_000, max = 30, frameUs = 0): number[] {
   const len = shot.end_us - shot.start_us;
   if (len <= 0) return [];
   let us: number[] = [];
   for (let t = shot.start_us + everyUs / 2; t < shot.end_us; t += everyUs) us.push(Math.round(t));
   if (us.length < MIN_SHOT_KEYFRAMES) us = [1, 2, 3].map((k) => Math.round(shot.start_us + (len * k) / 4));
-  return thin([...new Set(us)], max);
+  const last = Math.max(shot.start_us, Math.floor(shot.end_us - frameUs));
+  return thin([...new Set(us.map((t) => Math.min(t, last)))], max);
+}
+
+/** Длительность кадра, µs, по fps `{num, den}` (вверх: граница «t ≤ end − кадр» не размывается). */
+export function frameDurationUs(fps: { num: number; den: number }): number {
+  return Math.ceil((1e6 * fps.den) / fps.num);
 }
 
 /** Раздача `rest` мест пропорционально ёмкостям (наибольший остаток). */

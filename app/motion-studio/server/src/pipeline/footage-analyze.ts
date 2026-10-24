@@ -18,7 +18,7 @@ import { z } from "zod";
 import { type FootageTaskShot, buildFootageTask, footageChecklist, footageDetectionsJson } from "../agents/prompts.js";
 import type { AgentRuntimeAdapter } from "../agents/runtime.js";
 import { type ShotInput, mergeFootage } from "../analysis/footage-merge.js";
-import { MAX_KEYFRAMES_TOTAL, budgetKeyframes, extractKeyframes, sampleKeyframes, thin } from "../analysis/keyframes.js";
+import { MAX_KEYFRAMES_TOTAL, budgetKeyframes, extractKeyframes, frameDurationUs, sampleKeyframes, thin } from "../analysis/keyframes.js";
 import { detectCuts, shotsFromCuts } from "../analysis/shots.js";
 import { DEFAULT_VISION_BIN, VisionError, type VisionFrame, runVisionDetect, visionAvailable } from "../analysis/vision.js";
 import { createJobDraft } from "../artifacts/job-draft.js";
@@ -48,7 +48,7 @@ export type FootageAnalyzeInput = z.infer<typeof FootageAnalyzeInputSchema>;
 export const FOOTAGE_STAGES = ["prepare", "shots", "keyframes", "vision", "agent", "publish"] as const;
 export type FootageStage = (typeof FOOTAGE_STAGES)[number];
 
-/** Кадров в одном вызове Footage Analyst. */
+/** Кадров в одном вызове Footage Analyst (шотов в порции не больше — `FOOTAGE_AGENT_LIMITS.shots`). */
 export const AGENT_BATCH_FRAMES = 24;
 export const FOOTAGE_FILE = "footage.json";
 export const DETECTIONS_FILE = "detections.json";
@@ -62,6 +62,8 @@ export interface FootageAnalyzeDeps {
   visionBin?: string;
   /** Таймаут одного запуска vision-detect, мс (тесты). */
   visionTimeoutMs?: number;
+  /** Кадров в порции агента (по умолчанию `AGENT_BATCH_FRAMES`; тесты — несколько порций на коротком ролике). */
+  agentBatchFrames?: number;
   watchIntervalMs?: number;
   onStage?: (stage: FootageStage) => void | Promise<void>;
   log?: (line: string) => void;
@@ -191,6 +193,12 @@ export function footageAnalyze(depsOf: (ctx: JobContext) => FootageAnalyzeDeps):
       if (!status.ok) throw new FootageFail({ code: "storage_unavailable", stage: "storage", message: `${status.reason}: ${status.detail}` });
       const proxy = join(root, proxyRow.rel_path);
       const durationUs = asset.probe.duration_us;
+      // m4: длительность 0/NaN — шотов и кадров не будет, а анализ «пустого» ролика ничего не значит
+      if (!Number.isFinite(durationUs) || durationUs <= 0) {
+        throw new FootageFail({ code: "media_invalid", message: `у исходника ${asset.id} длительность ${durationUs} µs — не видео для анализа; переимпортируйте файл` });
+      }
+      // I2: длительность кадра прокси (fps прокси = timeline_fps): момент кадра — не в последнем кадре шота
+      const frameUs = frameDurationUs(asset.probe.timeline_fps);
       draftDir = (await createJobDraft(root, { runId: fence.jobId, attempt: fence.attempt })).dir;
 
       // шоты и кадры: ffmpeg под семафором renders
@@ -203,7 +211,7 @@ export function footageAnalyze(depsOf: (ctx: JobContext) => FootageAnalyzeDeps):
         const shots = shotsFromCuts(cuts, durationUs);
         ctx.emit("shots", `смен сцен ${cuts.length}, шотов ${shots.length}`, { cuts_us: cuts });
         await enter("keyframes", 0.15);
-        const per = budgetKeyframes(shots.map((s) => sampleKeyframes(s)), MAX_KEYFRAMES_TOTAL);
+        const per = budgetKeyframes(shots.map((s) => sampleKeyframes(s, undefined, undefined, frameUs)), MAX_KEYFRAMES_TOTAL);
         const all = per.flat();
         let k = 0;
         for (const [i, s] of shots.entries()) {
@@ -215,7 +223,7 @@ export function footageAnalyze(depsOf: (ctx: JobContext) => FootageAnalyzeDeps):
           shotInputs.push({ ...s, keyframes: frames });
         }
         keyframeCount = shotInputs.reduce((a, s) => a + s.keyframes.length, 0);
-        if (all.length < shots.reduce((a, s) => a + sampleKeyframes(s).length, 0)) {
+        if (all.length < shots.reduce((a, s) => a + sampleKeyframes(s, undefined, undefined, frameUs).length, 0)) {
           ctx.emit("keyframes_limited", `кадров на ролик не больше ${MAX_KEYFRAMES_TOTAL}: взято ${all.length}`);
         }
       } finally {
@@ -239,7 +247,9 @@ export function footageAnalyze(depsOf: (ctx: JobContext) => FootageAnalyzeDeps):
           const frames = await runVisionDetect(bin, paths, { run, signal, ...(d.visionTimeoutMs ? { timeoutMs: d.visionTimeoutMs } : {}) });
           const byPath = new Map(frames.map((f) => [f.path, f]));
           vision = Object.fromEntries(shotInputs.map((s) => [s.id, s.keyframes.map((f) => ({ ...byPath.get(join(draftDir!, f.path))!, path: f.path }))]));
-          visionInfo = { status: "ok" };
+          const unread = frames.filter((f) => f.error !== undefined);
+          visionInfo = unread.length > 0 ? { status: "ok", message: `кадров не прочитано: ${unread.length} из ${frames.length}` } : { status: "ok" };
+          if (unread.length > 0) ctx.emit("vision_frame_errors", `детектор не прочитал ${unread.length} из ${frames.length} кадров: ${unread[0]!.error}`, { count: unread.length });
         } catch (e) {
           if (e instanceof VisionError && e.kind === "orphaned") throw new FootageFail({ code: "stale_process", stage: "orphaned", message: `vision: ${e.message}` }, "blocked");
           if (signal.aborted || (e instanceof VisionError && e.kind === "aborted")) throw new DOMException(errText(e), "AbortError");
@@ -252,7 +262,7 @@ export function footageAnalyze(depsOf: (ctx: JobContext) => FootageAnalyzeDeps):
 
       // агент
       const taskShots: FootageTaskShot[] = shotInputs.map((s) => ({ shot_id: s.id, frames: s.keyframes, ...(vision ? { detections: vision[s.id] } : {}) }));
-      const batches = agentBatches(taskShots);
+      const batches = agentBatches(taskShots, d.agentBatchFrames ?? AGENT_BATCH_FRAMES);
       const sentUs: Record<string, number[]> = {};
       for (const b of batches) for (const s of b.shots) sentUs[s.shot_id] = s.frames.map((f) => f.us);
       let agentOut: FootageAgentOutput | undefined;
@@ -275,9 +285,7 @@ export function footageAnalyze(depsOf: (ctx: JobContext) => FootageAnalyzeDeps):
         faceMargin: d.config.planning.faceMargin, sentUs,
       });
       if (agentOut) {
-        const known = new Set(shotInputs.map((s) => s.id));
-        const unknown = agentOut.shots.filter((s) => !known.has(s.shot_id)).map((s) => s.shot_id);
-        if (unknown.length > 0) ctx.emit("agent_unknown_shots", `шоты агента вне списка пропущены: ${unknown.join(", ")}`);
+        // m2: ответ уже отфильтрован по шотам порций (runAgent): считаются только объекты своих шотов
         const dropped = agentOut.shots.reduce((a, s) => a + s.objects.filter((o) => !(sentUs[s.shot_id] ?? []).includes(o.frame_us)).length, 0);
         agentInfo.dropped_objects = dropped;
         if (dropped > 0) ctx.emit("agent_objects_dropped", `${dropped} объектов агента отброшено: frame_us не из отправленных кадров`);
@@ -329,11 +337,31 @@ export function footageAnalyze(depsOf: (ctx: JobContext) => FootageAnalyzeDeps):
         }
       }
       const shots: FootageAgentOutput["shots"] = [];
+      /**
+       * m1: из ответа порции — только её шоты, по одному на id (первый); чужие и повторы — событие.
+       * Иначе агент порции 2 мог бы переписать шот порции 1 или подставить шот, кадров которого не видел.
+       */
+      const own = (b: Batch, out: FootageAgentOutput, k: number): FootageAgentOutput["shots"] => {
+        const ids = new Set(b.shots.map((x) => x.shot_id));
+        const seen = new Set<string>();
+        const kept: FootageAgentOutput["shots"] = [];
+        const extra: string[] = [];
+        for (const sh of out.shots) {
+          if (!ids.has(sh.shot_id) || seen.has(sh.shot_id)) {
+            extra.push(sh.shot_id);
+            continue;
+          }
+          seen.add(sh.shot_id);
+          kept.push(sh);
+        }
+        if (extra.length > 0) ctx.emit("agent_unknown_shots", `${label}, порция ${k + 1}: шоты вне порции или повторы пропущены: ${[...new Set(extra)].join(", ")}`);
+        return kept;
+      };
       for (const [k, b] of batches.entries()) {
         const h = hashes[k]!;
         if (answers[h]) {
           info.from_checkpoint++;
-          shots.push(...answers[h]!.shots);
+          shots.push(...own(b, answers[h]!, k));
           continue;
         }
         ctx.progress(0.45 + 0.45 * (k / batches.length), "agent");
@@ -363,7 +391,7 @@ export function footageAnalyze(depsOf: (ctx: JobContext) => FootageAnalyzeDeps):
         }
         if (r.ok) {
           answers[h] = r.output;
-          shots.push(...r.output.shots);
+          shots.push(...own(b, r.output, k));
           try {
             await writeCheckpoint(root, ctx.job.id, "footage_analyst", { input_hash: allHash, output: answers });
           } catch (e) {

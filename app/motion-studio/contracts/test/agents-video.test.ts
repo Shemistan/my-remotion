@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  FootageAgentOutputSchema, ROUGH_CUT_TEXT_MAX, RoughCutAgentOutputSchema, SemanticAgentOutputSchema, VisualPlannerOutputSchema, toJsonSchema,
+  FOOTAGE_AGENT_LIMITS, FootageAgentOutputSchema, ROUGH_CUT_TEXT_MAX, RoughCutAgentOutputSchema, SemanticAgentOutputSchema, VisualPlannerOutputSchema, toJsonSchema,
 } from "../src/index.js";
 import { planner } from "./video-fixtures.js";
 
@@ -61,9 +61,30 @@ describe("агенты Phase 2–3", () => {
   });
 
   it("FootageAgentOutput", () => {
-    const shot = { shot_id: "shot_001", author_position: "left", motion: "static", gestures: "low", objects: [{ label: "доска", frame_us: 0, important: true }], background: "офис", notes: "", uncertainty: [] };
+    const obj = { kind: "object", label: "доска", frame_us: 0, important: true };
+    const shot = { shot_id: "shot_001", author_position: "left", motion: "static", gestures: "low", objects: [obj], background: "офис", notes: "", uncertainty: [] };
     expect(FootageAgentOutputSchema.safeParse({ shots: [shot] }).success).toBe(true);
     expect(FootageAgentOutputSchema.safeParse({ shots: [{ ...shot, gestures: "wild" }] }).success).toBe(false);
+    // ревью Task 30, I1: вид объекта явный — лицо в llm_only распознаётся не по подписи
+    expect(FootageAgentOutputSchema.safeParse({ shots: [{ ...shot, objects: [{ ...obj, kind: "face" }] }] }).success).toBe(true);
+    expect(FootageAgentOutputSchema.safeParse({ shots: [{ ...shot, objects: [{ ...obj, kind: "head" }] }] }).success).toBe(false);
+    const noKind = { label: obj.label, frame_us: obj.frame_us, important: obj.important };
+    expect(FootageAgentOutputSchema.safeParse({ shots: [{ ...shot, objects: [noKind] }] }).success).toBe(false);
+    // m3: длины текстов и число элементов ограничены
+    const L = FOOTAGE_AGENT_LIMITS;
+    expect(FootageAgentOutputSchema.safeParse({ shots: [{ ...shot, notes: "я".repeat(L.text) }] }).success).toBe(true);
+    expect(FootageAgentOutputSchema.safeParse({ shots: [{ ...shot, notes: "я".repeat(L.text + 1) }] }).success).toBe(false);
+    expect(FootageAgentOutputSchema.safeParse({ shots: [{ ...shot, background: "я".repeat(L.text + 1) }] }).success).toBe(false);
+    expect(FootageAgentOutputSchema.safeParse({ shots: [{ ...shot, objects: [{ ...obj, label: "я".repeat(L.label + 1) }] }] }).success).toBe(false);
+    expect(FootageAgentOutputSchema.safeParse({ shots: [{ ...shot, objects: Array.from({ length: L.objects + 1 }, () => obj) }] }).success).toBe(false);
+    expect(FootageAgentOutputSchema.safeParse({ shots: [{ ...shot, uncertainty: Array.from({ length: L.uncertainty + 1 }, () => "x") }] }).success).toBe(false);
+    expect(FootageAgentOutputSchema.safeParse({ shots: [{ ...shot, uncertainty: ["я".repeat(L.uncertaintyText + 1)] }] }).success).toBe(false);
+    expect(FootageAgentOutputSchema.safeParse({ shots: Array.from({ length: L.shots + 1 }, () => shot) }).success).toBe(false);
+    const js = JSON.stringify(toJsonSchema(FootageAgentOutputSchema));
+    expect(js).not.toContain("$ref");
+    expect(js).toContain(`"maxLength":${L.text}`);
+    expect(js).toContain(`"maxItems":${L.objects}`);
+    expect(js).toContain('"enum":["face","hands","object"]');
   });
 
   it("SemanticAgentOutput — без id и ссылок", () => {

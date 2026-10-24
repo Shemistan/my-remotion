@@ -1,5 +1,5 @@
 // Старт ядра сервера и CLI (ADR 0007 п. 5): owner_lock → storage → db → registry → reap →
-// sweep_drafts → relock_versions → reconcile_versions → reconcile_exports → recovery → runner. Новые задачи
+// sweep_drafts (и рабочие каталоги агентов) → relock_versions → reconcile_versions → reconcile_exports → recovery → runner. Новые задачи
 // захватываются только после разбора реестра процессов и восстановления.
 import { isAbsolute, join } from "node:path";
 import {
@@ -35,7 +35,7 @@ import { KnowledgeAdapter } from "./knowledge/adapter.js";
 import { type ImportReport, type MissingReport, reconcileVersions } from "./scenes/import-slice.js";
 import { type ExportsReconcile, reconcileExports } from "./scenes/reconcile-exports.js";
 import { SceneRepo } from "./scenes/repo.js";
-import { relockVersions, sweepAbandonedDrafts } from "./scenes/store.js";
+import { relockVersions, sweepAbandonedDrafts, sweepAgentCwds } from "./scenes/store.js";
 
 export const BOOT_STEPS = [
   "owner_lock", "storage", "db", "registry", "reap", "sweep_drafts", "relock_versions", "reconcile_versions", "reconcile_exports", "recovery", "sweep_uploads", "runner",
@@ -79,6 +79,8 @@ export interface BootOptions {
 /** Отчёт шагов загрузки до восстановления (CLI печатает предупреждения). */
 export interface BootReport {
   swept: { quarantined: string[]; skipped: string[] };
+  /** Рабочие каталоги агентов попыток без живых процессов, удалённые на старте (m6). */
+  agentCwds: { removed: string[]; skipped: string[] };
   relock: { relocked: string[]; broken: { dir: string; error: string }[] };
   /** `missing.broken` — версии с `broken_reason`: каталог пропал, восстановить нельзя. */
   reconcile: ImportReport & { missing: MissingReport };
@@ -182,6 +184,8 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     log("reap");
 
     const swept = await sweepAbandonedDrafts(root, processes);
+    // рабочие каталоги агентов брошенных попыток (копии кадров Footage Analyst) — удалить (m6)
+    const agentCwds = await sweepAgentCwds(root, processes);
     log("sweep_drafts");
     const relock = await relockVersions(root);
     log("relock_versions");
@@ -278,7 +282,7 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
       events,
       recovery,
       reaped: { alive, strays },
-      boot: { swept, relock, reconcile, exports: exportsReport, queued },
+      boot: { swept, agentCwds, relock, reconcile, exports: exportsReport, queued },
       async close() {
         if (closed) return;
         closed = true;

@@ -8,7 +8,7 @@ import { StorageError, type StorageStatus } from "@ms/core";
 import { graphSetupMin, resolveStyle } from "@ms/render";
 import { canSpend } from "../../src/pipeline/budget.js";
 import { generateScene } from "../../src/pipeline/generate.js";
-import { readVersion, sweepAbandonedDrafts } from "../../src/scenes/store.js";
+import { readVersion, sweepAbandonedDrafts, sweepAgentCwds } from "../../src/scenes/store.js";
 import {
   BAD_SCENE, GOOD_SCENE, OFFLINE, directorOutput, fakeAgents, fakeKb, fakeRender, makeDeps, makeSkills, makeStore, makeTmp,
   okStatus, removeTmp, settings, view,
@@ -554,6 +554,23 @@ describe("sweepAbandonedDrafts", () => {
     expect(r.skipped).toEqual([join(drafts, "run_B-a1")]);
     expect(JSON.parse(readFileSync(join(drafts, "run_A-a1", ".quarantined"), "utf8")).reason).toBe("abandoned");
     expect(readFileSync(join(drafts, "run_C-a1", ".quarantined"), "utf8")).toContain("old");
+  });
+});
+
+describe("sweepAgentCwds (ревью Task 30, m6)", () => {
+  it("рабочие каталоги агентов попыток без живых процессов удаляются (и с маркером карантина); с живым процессом — нет", async () => {
+    const base = join(root, "run/agent-cwd");
+    mkdirSync(join(base, "job_X-a1-footage_analyst", "frames"), { recursive: true });
+    writeFileSync(join(base, "job_X-a1-footage_analyst", "frames", "000001000000.png"), "кадр");
+    mkdirSync(join(base, "run_Q-a2-director"), { recursive: true });
+    writeFileSync(join(base, "run_Q-a2-director", ".quarantined"), "{\"reason\":\"orphaned\"}");
+    mkdirSync(join(base, "run_L-a1-concept"), { recursive: true });
+    mkdirSync(join(base, "run_L-a12-concept"), { recursive: true }); // другая попытка той же задачи
+    const registry = { add: async () => undefined, end: async () => undefined, live: async () => [{ runId: "run_L", attempt: 1, pid: 1, pgid: 1, startedAt: "", cmd: "x" }] };
+    const r = await sweepAgentCwds(root, registry);
+    expect(r.skipped).toEqual([join(base, "run_L-a1-concept")]);
+    expect(r.removed.sort()).toEqual([join(base, "job_X-a1-footage_analyst"), join(base, "run_L-a12-concept"), join(base, "run_Q-a2-director")]);
+    expect(readdirSync(base)).toEqual(["run_L-a1-concept"]);
   });
 });
 

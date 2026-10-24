@@ -35,23 +35,46 @@ export const RoughCutAgentOutputSchema = z.object({
 }).strict();
 export type RoughCutAgentOutput = z.infer<typeof RoughCutAgentOutputSchema>;
 
+/**
+ * Пределы ответа Footage Analyst (ревью Task 30, m3): тексты — строки в UI и подсказки
+ * планировщику, не сочинения; списки — не больше, чем осмысленно на шот. `shots` — не больше
+ * кадров порции (`AGENT_BATCH_FRAMES` = 24: у шота в порции ≥ 1 кадра).
+ */
+export const FOOTAGE_AGENT_LIMITS = {
+  shots: 24,
+  objects: 20,
+  uncertainty: 8,
+  label: 80,
+  text: ROUGH_CUT_TEXT_MAX,
+  uncertaintyText: 200,
+} as const;
+
+/**
+ * Вид объекта Footage Analyst: `face` / `hands` — лицо и руки автора (их агент отмечает только в
+ * режиме `llm_only`, без детектора; код расширяет их полем и считает занятыми), `object` — всё
+ * остальное (экран, продукт, надпись, второй человек).
+ */
+export const FootageObjectKindSchema = z.enum(["face", "hands", "object"]);
+export type FootageObjectKind = z.infer<typeof FootageObjectKindSchema>;
+
 /** Footage Analyst: наблюдения по шотам; лицо и безопасные зоны — не его (детектор Vision). */
 export const FootageAgentOutputSchema = z.object({
   shots: z.array(z.object({
-    shot_id: z.string().min(1),
+    shot_id: z.string().min(1).max(64),
     author_position: AuthorPositionSchema,
     motion: CameraMotionSchema,
     gestures: z.enum(["low", "medium", "high"]),
     objects: z.array(z.object({
-      label: z.string().min(1),
+      kind: FootageObjectKindSchema,
+      label: z.string().min(1).max(FOOTAGE_AGENT_LIMITS.label),
       frame_us: z.number().int().nonnegative(),
       rect: NormRectSchema.optional(),
       important: z.boolean(),
-    }).strict()),
-    background: z.string(),
-    notes: z.string(),
-    uncertainty: z.array(z.string()),
-  }).strict()),
+    }).strict()).max(FOOTAGE_AGENT_LIMITS.objects),
+    background: z.string().max(FOOTAGE_AGENT_LIMITS.text),
+    notes: z.string().max(FOOTAGE_AGENT_LIMITS.text),
+    uncertainty: z.array(z.string().max(FOOTAGE_AGENT_LIMITS.uncertaintyText)).max(FOOTAGE_AGENT_LIMITS.uncertainty),
+  }).strict()).max(FOOTAGE_AGENT_LIMITS.shots),
 }).strict();
 export type FootageAgentOutput = z.infer<typeof FootageAgentOutputSchema>;
 

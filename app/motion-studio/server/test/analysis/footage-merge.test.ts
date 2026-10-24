@@ -17,7 +17,7 @@ const agentShot = (over: Partial<FootageAgentOutput["shots"][number]> = {}): Foo
 
 describe("mergeFootage", () => {
   it("занято = Vision ∪ важные объекты агента; агент не может удалить лицо; расхождение позиции", () => {
-    const merged = mergeFootage(shots1, vision1, { shots: [agentShot({ author_position: "left", objects: [{ label: "ноутбук", frame_us: 1_000_000, rect: laptop, important: true }] })] });
+    const merged = mergeFootage(shots1, vision1, { shots: [agentShot({ author_position: "left", objects: [{ kind: "object", label: "ноутбук", frame_us: 1_000_000, rect: laptop, important: true }] })] });
     expect(merged[0]!.occupied).toContainEqual(laptop);
     expect(merged[0]!.uncertainty).toContain("расхождение детектора и агента");
     expect(merged[0]!.occupied).toContainEqual(expect.objectContaining({ x: 0.4875 }));
@@ -28,7 +28,7 @@ describe("mergeFootage", () => {
   });
 
   it("агент согласен — без пометки; неважный объект не занимает места; свободные зоны по занятому", () => {
-    const [s] = mergeFootage(shots1, vision1, { shots: [agentShot({ objects: [{ label: "кружка", frame_us: 3_000_000, rect: laptop, important: false }] })] });
+    const [s] = mergeFootage(shots1, vision1, { shots: [agentShot({ objects: [{ kind: "object", label: "кружка", frame_us: 3_000_000, rect: laptop, important: false }] })] });
     expect(s!.uncertainty).not.toContain("расхождение детектора и агента");
     expect(s!.occupied).toEqual([{ x: 0.4875, y: 0.0375, w: 0.375, h: 0.675 }]);
     expect(s!.objects).toEqual([{ label: "кружка", rect: laptop, important: false }]);
@@ -37,12 +37,12 @@ describe("mergeFootage", () => {
   });
 
   it("frame_us не из отправленных кадров — объект отброшен с пометкой (агент не выдаёт время)", () => {
-    const [s] = mergeFootage(shots1, vision1, { shots: [agentShot({ objects: [{ label: "доска", frame_us: 2_000_000, rect: laptop, important: true }] })] });
+    const [s] = mergeFootage(shots1, vision1, { shots: [agentShot({ objects: [{ kind: "object", label: "доска", frame_us: 2_000_000, rect: laptop, important: true }] })] });
     expect(s!.occupied).not.toContainEqual(laptop);
     expect(s!.objects).toEqual([]);
     expect(s!.uncertainty).toContain("агент указал кадр не из списка");
     // отправлен только поднабор кадров — проверяется по нему
-    const [t] = mergeFootage(shots1, vision1, { shots: [agentShot({ objects: [{ label: "доска", frame_us: 5_000_000, rect: laptop, important: true }] })] }, { sentUs: { sh_1: [1_000_000, 3_000_000] } });
+    const [t] = mergeFootage(shots1, vision1, { shots: [agentShot({ objects: [{ kind: "object", label: "доска", frame_us: 5_000_000, rect: laptop, important: true }] })] }, { sentUs: { sh_1: [1_000_000, 3_000_000] } });
     expect(t!.objects).toEqual([]);
   });
 
@@ -66,17 +66,73 @@ describe("mergeFootage", () => {
   });
 
   it("llm_only (нет детектора): лицо — из объекта агента, источник llm, пометка низкой уверенности", () => {
-    const faceRect = { x: 0.4, y: 0.1, w: 0.2, h: 0.35 };
+    const faceRect = { x: 0.4, y: 0.1, w: 0.2, h: 0.36 };
     const [s] = mergeFootage(shots1, undefined, { shots: [agentShot({ author_position: "center", objects: [
-      { label: "лицо", frame_us: 1_000_000, rect: faceRect, important: true },
-      { label: "лицо", frame_us: 3_000_000, rect: faceRect, important: true },
+      { kind: "face", label: "лицо", frame_us: 1_000_000, rect: faceRect, important: true },
+      { kind: "face", label: "лицо", frame_us: 3_000_000, rect: faceRect, important: true },
     ] })] });
+    const grown = { x: 0.35, y: 0.01, w: 0.3, h: 0.54 }; // +25 % размера с каждой стороны, как у детектора
     expect(s!.face.source).toBe("llm");
-    expect(s!.face.union).toEqual(faceRect);
+    expect(s!.face.union).toEqual(grown);
     expect(s!.face.detected_ratio).toBeCloseTo(2 / 3, 9);
-    expect(s!.occupied).toContainEqual(faceRect);
+    expect(s!.occupied).toEqual([grown]);
     expect(s!.uncertainty).toContain("низкая уверенность зон: нет детектора Vision");
+    expect(s!.uncertainty).not.toContain("лицо найдено менее чем на 30 % кадров");
     expect(s!.author_position).toBe("center");
+  });
+
+  it("ревью Task 30, I1: llm_only — лицо агента расширено на faceMargin и занято, даже если important: false", () => {
+    const faceR = { x: 0.55, y: 0.15, w: 0.25, h: 0.45 };
+    const [a] = mergeFootage(shots1, undefined, { shots: [agentShot({ objects: [{ kind: "face", label: "лицо", frame_us: 1_000_000, rect: faceR, important: true }] })] });
+    expect(a!.occupied).toEqual([{ x: 0.4875, y: 0.0375, w: 0.375, h: 0.675 }]);
+    expect(a!.free_zones.find((z) => z.zone === "right_third")!.free_ratio).toBeLessThan(0.75);
+    const [b] = mergeFootage(shots1, undefined, { shots: [agentShot({ objects: [{ kind: "face", label: "Лицо автора", frame_us: 1_000_000, rect: faceR, important: false }] })] });
+    expect(b!.occupied).toEqual([{ x: 0.4875, y: 0.0375, w: 0.375, h: 0.675 }]);
+    // поле — из настроек (planning.faceMargin)
+    const [c] = mergeFootage(shots1, undefined, { shots: [agentShot({ objects: [{ kind: "face", label: "лицо", frame_us: 1_000_000, rect: faceR, important: true }] })] }, { faceMargin: 0 });
+    expect(c!.occupied).toEqual([faceR]);
+  });
+
+  it("ревью Task 30, I1: llm_only — лицо на 1 кадре из 10 → пометка «лицо найдено менее чем на 30 % кадров»; руки агента — с полем рук", () => {
+    const ten: ShotInput[] = [{ id: "sh_1", start_us: 0, end_us: 20_000_000, keyframes: kf(Array.from({ length: 10 }, (_, k) => 1_000_000 + k * 2_000_000)) }];
+    const faceR = { x: 0.4, y: 0.1, w: 0.2, h: 0.3 };
+    const hand = { x: 0.3, y: 0.6, w: 0.2, h: 0.2 };
+    const [s] = mergeFootage(ten, undefined, { shots: [agentShot({ objects: [
+      { kind: "face", label: "лицо", frame_us: 1_000_000, rect: faceR, important: true },
+      { kind: "hands", label: "руки", frame_us: 3_000_000, rect: hand, important: false },
+    ] })] });
+    expect(s!.face.detected_ratio).toBeCloseTo(0.1, 9);
+    expect(s!.uncertainty).toContain("лицо найдено менее чем на 30 % кадров");
+    expect(s!.hands).toEqual({ union: { x: 0.28, y: 0.58, w: 0.24, h: 0.24 }, detected_ratio: 0.1 });
+    expect(s!.occupied).toContainEqual({ x: 0.28, y: 0.58, w: 0.24, h: 0.24 });
+    // доля — от отправленных агенту кадров шота
+    const [t] = mergeFootage(ten, undefined, { shots: [agentShot({ objects: [{ kind: "face", label: "лицо", frame_us: 1_000_000, rect: faceR, important: true }] })] }, { sentUs: { sh_1: [1_000_000, 3_000_000] } });
+    expect(t!.face.detected_ratio).toBe(0.5);
+    expect(t!.uncertainty).not.toContain("лицо найдено менее чем на 30 % кадров");
+  });
+
+  it("с детектором объект-лицо агента — обычный объект: лицо по Vision, важный — занят как объект", () => {
+    const [s] = mergeFootage(shots1, vision1, { shots: [agentShot({ objects: [{ kind: "face", label: "лицо", frame_us: 1_000_000, rect: laptop, important: true }] })] });
+    expect(s!.face.source).toBe("vision");
+    expect(s!.face.union).toEqual({ x: 0.4875, y: 0.0375, w: 0.375, h: 0.675 });
+    expect(s!.occupied).toContainEqual(laptop);
+  });
+
+  it("ревью Task 30, m3: важный объект больше 60 % кадра — пометка (занятость не снимается)", () => {
+    const big = { x: 0, y: 0, w: 0.9, h: 0.9 };
+    const [s] = mergeFootage(shots1, vision1, { shots: [agentShot({ objects: [{ kind: "object", label: "экран", frame_us: 1_000_000, rect: big, important: true }] })] });
+    expect(s!.uncertainty).toContain("агент отметил важным объект больше 60 % кадра");
+    expect(s!.occupied).toContainEqual(big);
+    const [t] = mergeFootage(shots1, vision1, { shots: [agentShot({ objects: [{ kind: "object", label: "стена", frame_us: 1_000_000, rect: big, important: false }] })] });
+    expect(t!.uncertainty).not.toContain("агент отметил важным объект больше 60 % кадра");
+  });
+
+  it("ревью Task 30, m7: кадр, который детектор не прочитал, не считается кадром без лица", () => {
+    const frames = framesWithFace(face, 3);
+    frames[1] = { ...frames[1]!, faces: [], error: "не читается как изображение" };
+    const [s] = mergeFootage(shots1, { sh_1: frames });
+    expect(s!.face.detected_ratio).toBe(1);
+    expect(s!.uncertainty).toContain("детектор не прочитал кадр");
   });
 
   it("llm_only без ответа агента — зоны не оцениваются (не «всё свободно»)", () => {

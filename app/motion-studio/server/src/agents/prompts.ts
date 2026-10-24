@@ -178,6 +178,7 @@ const rectText = (r: { x: number; y: number; w: number; h: number }): string => 
 /** Строка кадра: путь, `frame_us` и что нашёл детектор. */
 function frameLine(f: { us: number; path: string }, v: VisionFrame | undefined): string {
   if (!v) return `- frame_us ${f.us} → \`${f.path}\``;
+  if (v.error !== undefined) return `- frame_us ${f.us} → \`${f.path}\` — детектор: кадр не прочитан`;
   const part = (name: string, ds: VisionFrame["faces"]) => (ds.length === 0 ? `${name}: нет` : `${name}: ${ds.map(rectText).join(", ")}`);
   return `- frame_us ${f.us} → \`${f.path}\` — детектор: ${part("лица", v.faces)}; ${part("руки", v.hands)}; ${part("люди", v.humans)}`;
 }
@@ -186,7 +187,7 @@ function frameLine(f: { us: number; path: string }, v: VisionFrame | undefined):
 export function footageChecklist(i: Pick<FootageTaskInput, "shots">): string {
   const llmOnly = i.shots.every((s) => s.detections === undefined);
   const lines: string[] = [
-    `Режим: ${llmOnly ? "llm_only — детектора Vision нет: лицо автора отмечай объектом «лицо»" : "vision — лица и руки нашёл детектор, их не отмечай"}.`,
+    `Режим: ${llmOnly ? "llm_only — детектора Vision нет: лицо автора на каждом кадре отмечай объектом kind: face, руки — kind: hands" : "vision — лица и руки нашёл детектор, их не отмечай"}.`,
     "",
   ];
   for (const s of i.shots) {
@@ -201,7 +202,7 @@ export function footageChecklist(i: Pick<FootageTaskInput, "shots">): string {
 export function footageDetectionsJson(i: Pick<FootageTaskInput, "shots">): string {
   const frames = i.shots.flatMap((s) => s.frames.map((f, k) => {
     const v = s.detections?.[k];
-    return { shot_id: s.shot_id, frame_us: f.us, path: f.path, ...(v ? { faces: v.faces, hands: v.hands, humans: v.humans, saliency: v.saliency } : { detector: "нет" }) };
+    return { shot_id: s.shot_id, frame_us: f.us, path: f.path, ...(v ? { faces: v.faces, hands: v.hands, humans: v.humans, saliency: v.saliency, ...(v.error !== undefined ? { error: v.error } : {}) } : { detector: "нет" }) };
   }));
   return JSON.stringify({ coords: "доли кадра, начало слева сверху", frames }, null, 2) + "\n";
 }

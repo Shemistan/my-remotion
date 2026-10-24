@@ -28,19 +28,23 @@ export interface VisionFrame {
   humans: Detection[];
   hands: Detection[];
   saliency: Detection[];
+  /** Кадр не прочитан (не изображение, Vision отказал): детекций нет, это не «кадр без лица». */
+  error?: string;
 }
 
 const Num = z.number().finite();
 const RawBox = z.object({ x: Num, y: Num, w: Num, h: Num, confidence: Num }).strict();
 const RawFrame = z.object({
   path: z.string().min(1),
-  width: z.number().int().positive(),
-  height: z.number().int().positive(),
+  width: z.number().int().nonnegative(),
+  height: z.number().int().nonnegative(),
   faces: z.array(RawBox),
   humans: z.array(RawBox),
   hands: z.array(RawBox),
   saliency: z.array(RawBox),
-}).strict();
+  /** Сбой одного кадра (m7): утилита не падает целиком, а отдаёт пустой кадр с причиной. */
+  error: z.string().min(1).optional(),
+}).strict().refine((f) => f.error !== undefined || (f.width > 0 && f.height > 0), { message: "размер кадра без error должен быть > 0" });
 const RawOutput = z.array(RawFrame);
 
 /** Vision (начало снизу слева) → наше (сверху слева): `y' = 1 − y − h`. */
@@ -60,10 +64,12 @@ function toDetections(boxes: z.infer<typeof RawBox>[]): Detection[] {
 
 /** Вывод `vision-detect` (Zod) → кадры в наших координатах; не та форма — исключение. */
 export function parseVisionOutput(json: unknown): VisionFrame[] {
-  return RawOutput.parse(json).map((f) => ({
-    path: f.path, width: f.width, height: f.height,
-    faces: toDetections(f.faces), humans: toDetections(f.humans), hands: toDetections(f.hands), saliency: toDetections(f.saliency),
-  }));
+  return RawOutput.parse(json).map((f) => (f.error !== undefined
+    ? { path: f.path, width: f.width, height: f.height, faces: [], humans: [], hands: [], saliency: [], error: f.error.slice(0, 500) }
+    : {
+      path: f.path, width: f.width, height: f.height,
+      faces: toDetections(f.faces), humans: toDetections(f.humans), hands: toDetections(f.hands), saliency: toDetections(f.saliency),
+    }));
 }
 
 /** Бинарник есть и исполняемый (иначе анализ — `llm_only`). */

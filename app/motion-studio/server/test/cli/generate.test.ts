@@ -57,7 +57,7 @@ function steps(over: Partial<FakeSteps> = {}) {
         return {
           root: "/store",
           reaped: { alive, strays },
-          boot: { swept, relock, reconcile: { imported: 0, skipped: [], missing: { restored: [], broken: [] } }, exports: { relocked: [], quarantined: [], missing: ["exp_lost"], errors: [{ dir: "/store/x/exports/exp_bad", error: "EACCES" }] }, queued: { pending: 0, running: 0, jobs: [] } },
+          boot: { swept, agentCwds: { removed: [], skipped: [] }, relock, reconcile: { imported: 0, skipped: [], missing: { restored: [], broken: [] } }, exports: { relocked: [], quarantined: [], missing: ["exp_lost"], errors: [{ dir: "/store/x/exports/exp_bad", error: "EACCES" }] }, queued: { pending: 0, running: 0, jobs: [] } },
           close: () => lock.release(),
           generate: () => s.generate(),
         };

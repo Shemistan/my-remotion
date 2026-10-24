@@ -317,6 +317,38 @@ export async function sweepAbandonedDrafts(
   return out;
 }
 
+/** Рабочие каталоги вызовов агентов (Concept, Director, Rough Cut Editor, Footage Analyst…). */
+export const AGENT_CWD_DIR = "run/agent-cwd";
+
+/**
+ * Восстановление при старте (ревью Task 30, m6 — приватность): рабочие каталоги агентов
+ * `run/agent-cwd/<runId>-a<attempt>-<role>[-n]` живут только на время вызова (у Footage Analyst
+ * там копии кадров ролика). После kill -9 сервера каталог остаётся — на старте, после разбора
+ * реестра, каталог попытки без живых процессов удаляется целиком (и с маркером карантина:
+ * процессов уже нет). Каталог попытки с живой записью реестра не трогается. Прочее в
+ * `run/agent-cwd` (не каталоги) тоже убирается: туда пишет только `toolless`.
+ */
+export async function sweepAgentCwds(
+  root: string,
+  registry: ProcessRegistry = fileProcessRegistry(root),
+): Promise<{ removed: string[]; skipped: string[] }> {
+  const out = { removed: [] as string[], skipped: [] as string[] };
+  const base = join(root, AGENT_CWD_DIR);
+  if (!existsSync(base)) return out;
+  const live = (await registry.live()).map((p) => `${p.runId}-a${p.attempt}-`);
+  for (const e of await readdir(base, { withFileTypes: true })) {
+    const path = join(base, e.name);
+    if (e.isDirectory() && live.some((prefix) => e.name.startsWith(prefix))) {
+      out.skipped.push(path);
+      continue;
+    }
+    if (e.isDirectory()) await chmod(path, 0o700).catch(() => undefined);
+    await rm(path, { recursive: true, force: true });
+    out.removed.push(path);
+  }
+  return out;
+}
+
 /** Помечает draft карантином: публикация запрещена, каталог не трогать до решения человека. */
 export async function quarantineDraft(draft: Pick<Draft, "dir">, reason: string): Promise<void> {
   await quarantineDir(draft.dir, reason);

@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { extractKeyframes } from "../../src/analysis/keyframes.js";
+import { extractKeyframes, frameDurationUs, sampleKeyframes } from "../../src/analysis/keyframes.js";
 import { detectCuts, shotsFromCuts } from "../../src/analysis/shots.js";
 import { REPO_TMP } from "../db/helpers.js";
 
@@ -46,6 +46,29 @@ describe("ffmpeg: смены сцен и кадры", () => {
     }
     const size = execFileSync("ffprobe", ["-v", "error", "-show_entries", "stream=width,height", "-of", "csv=p=0", join(dir, got[0]!.path)]).toString().trim();
     expect(size).toBe("640,360");
+  });
+
+  it("ревью Task 30, I2: NTSC, смена сцены на кадре 150 — последний ключевой кадр шота из этого шота (кадр 149), не из следующего", async () => {
+    const ntsc = join(dir, "ntsc.mp4");
+    execFileSync("ffmpeg", [
+      "-v", "error", "-f", "lavfi", "-i", "testsrc2=s=640x360:r=30000/1001", "-f", "lavfi", "-i", "smptebars=s=640x360:r=30000/1001",
+      "-filter_complex", "[0:v]trim=end_frame=150,setpts=PTS-STARTPTS[a];[1:v]trim=end_frame=90,setpts=PTS-STARTPTS[b];[a][b]concat=n=2:v=1:a=0",
+      "-c:v", "libx264", "-bf", "3", "-pix_fmt", "yuv420p", ntsc,
+    ]);
+    const cuts = await detectCuts(ntsc, { signal: new AbortController().signal });
+    expect(cuts).toEqual([5_005_000]);
+    const [first] = shotsFromCuts(cuts, 8_008_000);
+    const us = sampleKeyframes(first!, 2_000_000, 30, frameDurationUs({ num: 30000, den: 1001 }));
+    expect(us.at(-1)).toBe(4_971_633);
+    const got = await extractKeyframes(ntsc, [us.at(-1)!], join(dir, "ntsc-out"), { signal: new AbortController().signal });
+    const frame = async (n: number) => {
+      const ref = join(dir, `ntsc-ref-${n}.png`);
+      execFileSync("ffmpeg", ["-v", "error", "-i", ntsc, "-vf", `select=eq(n\\,${n}),scale=640:-2`, "-frames:v", "1", ref]);
+      return md5(ref);
+    };
+    const mine = await md5(join(dir, "ntsc-out", got[0]!.path));
+    expect(mine).toBe(await frame(149));
+    expect(mine).not.toBe(await frame(150));
   });
 
   it("отмена прерывает ffmpeg", async () => {

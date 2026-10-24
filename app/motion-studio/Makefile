@@ -1,6 +1,7 @@
 # Проверки AI Motion Studio. `check` зовётся `./check` репозитория (и pre-commit).
 # Все команды — в Node из .nvmrc через scripts/with-node.sh.
 NODE := ./scripts/with-node.sh
+VISION_BIN := tools/vision-detect/bin/vision-detect
 
 .PHONY: check lint typecheck test e2e e2e-footage e2e-ui acceptance web-build install
 
@@ -14,7 +15,16 @@ node_modules/.package-lock.json: package.json package-lock.json $(wildcard */pac
 	$(NODE) npx tsx scripts/ensure-browser.mts
 	@touch $@
 
-install: node_modules/.package-lock.json
+install: node_modules/.package-lock.json $(VISION_BIN)
+
+# Детектор Apple Vision (Task 30, ревью m8): пересборка при изменении main.swift. Нет swiftc или
+# сборка не удалась — сообщение, install не падает: анализ видеоряда работает в режиме llm_only.
+$(VISION_BIN): tools/vision-detect/main.swift
+	@if command -v swiftc >/dev/null 2>&1; then \
+	  $(NODE) npm run --silent build:vision || echo "vision-detect не собран (сборка swiftc не удалась): анализ видеоряда — llm_only; повторить: npm run build:vision"; \
+	else \
+	  echo "vision-detect не собран: нет swiftc (xcode-select --install); анализ видеоряда — llm_only, doctor: vision degraded"; \
+	fi
 
 lint: install
 	$(NODE) npm run --silent lint
