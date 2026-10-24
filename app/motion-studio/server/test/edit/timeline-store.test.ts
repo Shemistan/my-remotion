@@ -36,8 +36,9 @@ describe("timelineFor", () => {
       expect(timelineFor(db, "edl_1", rev)).toEqual(buildTimeline(10_000_000, acceptedCuts(doc), F30));
     }
     const tl = timelineFor(db, "edl_1");
-    expect(tl.duration_us).toBe(10_000_000 - 1_000_000 - (6_900_000 - 2_100_000) - 2_000_000);
-    expect(mapWords(tl, words)).toMatchObject({ w_000001: { state: "kept" }, w_000002: { state: "removed" }, w_000003: { state: "kept", edited_start_us: 7_000_000 - 1_000_000 - 4_800_000 } });
+    // пауза 4,5 с после «два» ≥ pauseMinUs — вырезка только слова
+    expect(tl.duration_us).toBe(10_000_000 - 1_000_000 - (2_500_000 - 2_100_000) - 2_000_000);
+    expect(mapWords(tl, words)).toMatchObject({ w_000001: { state: "kept" }, w_000002: { state: "removed" }, w_000003: { state: "kept", edited_start_us: 7_000_000 - 1_000_000 - 400_000 } });
   });
 
   it("неизвестный EDL или ревизия — edl_not_found", () => {

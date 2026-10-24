@@ -11,48 +11,80 @@ import { EditError } from "./errors.js";
 export const MAX_LCS_CELLS = 4_000_000;
 
 export interface EditTokens {
-  /** Слова нового текста; пунктуация отдельным токеном приклеена к соседу (через пробел). */
+  /** Слова нового текста; пунктуация отдельным токеном приклеена к соседу (`attachAfter`/`attachBefore`). */
   tokens: string[];
   /** Текст без слов, только пунктуация («!»): вызывающий приклеивает её к слову рядом с участком. */
   punctuation: string;
 }
 
 /**
+ * Вид отдельного знака (токен, пустой после `normalizeToken`): `dash` — только тире и дефисы
+ * (`\p{Pd}`: в речи «—» отдельный токен, остаётся через пробел); `opening` — только открывающие
+ * (`\p{Ps}`, `\p{Pi}`: `«(“„[`); остальное — `closing` (`,.!?…:;»)”` и прочие, в т. ч. прямая
+ * кавычка `"`). `normalizeToken` такие знаки отбрасывает, поэтому склейка на выравнивание не влияет.
+ */
+export function punctKind(p: string): "dash" | "opening" | "closing" {
+  if (/^\p{Pd}+$/u.test(p)) return "dash";
+  if (/^[\p{Ps}\p{Pi}]+$/u.test(p)) return "opening";
+  return "closing";
+}
+
+/** Знак справа от слова: закрывающий — без пробела («привет,»), тире и открывающий — через пробел. */
+export function attachAfter(word: string, p: string): string {
+  return punctKind(p) === "closing" ? `${word}${p}` : `${word} ${p}`;
+}
+
+/** Знак слева от слова: открывающий — без пробела («(мир»), тире и закрывающий — через пробел. */
+export function attachBefore(p: string, word: string): string {
+  return punctKind(p) === "opening" ? `${p}${word}` : `${p} ${word}`;
+}
+
+/**
  * Токены текста правки: NFC, невидимые форматирующие символы (`\p{Cf}`) убраны, управляющие и
- * разделители строк — пробел, деление по пробельным. Токен, пустой после `normalizeToken`
- * (пунктуация, тире), приклеивается к предыдущему слову, в начале — к следующему.
+ * разделители строк — пробел, деление по пробельным. Токен, пустой после `normalizeToken`, — знак
+ * (`punctKind`): закрывающий и тире — к предыдущему слову, открывающий — к следующему; нет соседа
+ * с этой стороны — к соседу с другой. Знаки подряд сохраняют порядок («да ) » ;» → «да)»;»).
  */
 export function tokenizeEdit(text: string): EditTokens {
   const clean = text.normalize("NFC").replace(/\p{Cf}/gu, "").replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ");
   const tokens: string[] = [];
-  let lead = "";
+  const lead: string[] = []; // знаки, ждущие следующего слова
   for (const t of clean.split(/\s+/u)) {
     if (t === "") continue;
     if (normalizeToken(t) === "") {
-      if (tokens.length > 0) tokens[tokens.length - 1] += ` ${t}`;
-      else lead = lead ? `${lead} ${t}` : t;
+      if (tokens.length > 0 && lead.length === 0 && punctKind(t) !== "opening") tokens[tokens.length - 1] = attachAfter(tokens[tokens.length - 1]!, t);
+      else lead.push(t);
       continue;
     }
-    tokens.push(lead ? `${lead} ${t}` : t);
-    lead = "";
+    tokens.push(lead.reduceRight((acc, p) => attachBefore(p, acc), t));
+    lead.length = 0;
   }
-  return { tokens, punctuation: tokens.length > 0 ? "" : lead };
+  if (lead.length > 0 && tokens.length > 0) {
+    // открывающий знак в конце текста — к последнему слову (через пробел)
+    for (const p of lead) tokens[tokens.length - 1] = attachAfter(tokens[tokens.length - 1]!, p);
+    lead.length = 0;
+  }
+  return { tokens, punctuation: lead.slice(1).reduce((acc, p) => attachAfter(acc, p), lead[0] ?? "") };
 }
 
 /**
- * Шаг выравнивания по порядку текста: слово осталось (с новым текстом), удалено или вставлено.
- * В серии между соседними оставшимися словами удалённые идут перед вставленными.
+ * Шаг выравнивания по порядку текста: слово осталось (с новым текстом, время прежнее), заменено
+ * (id прежний, время пересчитывается из диапазона заменённых слов серии), удалено или вставлено.
+ * В серии между соседними оставшимися словами: заменённые, затем удалённые, затем вставленные.
  */
 export type AlignStep =
   | { kind: "kept"; word_id: string; text: string }
+  | { kind: "replaced"; word_id: string; text: string }
   | { kind: "removed"; word_id: string }
   | { kind: "inserted"; text: string };
 
 /**
  * Выравнивание слов `old` и токенов `tokens`: общее начало и конец, затем LCS по
  * `normalizeToken` на середине. Между соседними совпадениями поровну удалённых и вставленных —
- * замена один к одному (то же слово, новый текст: исправление ошибки ASR не теряет время),
- * иначе — удаление и вставка. `removed` — id удалённых по порядку (те же, что шаги `removed`).
+ * замена один к одному (то же слово, новый текст: исправление ошибки ASR не теряет время).
+ * N удалённых и M вставленных (N ≠ M, оба > 0) — первые min(N, M) id сохраняются по порядку
+ * (`replaced`), лишние старые — `removed`, лишние новые — `inserted`: слияние «семь сот» →
+ * «семьсот» и разбиение не рвут якоря EDL и плана. `removed` — id удалённых по порядку.
  */
 export function alignTokenList(old: Pick<TranscriptWord, "id" | "text">[], tokens: string[]): { steps: AlignStep[]; removed: string[] } {
   const a = old.map((x) => normalizeToken(x.text));
@@ -117,17 +149,20 @@ export function alignTokenList(old: Pick<TranscriptWord, "id" | "text">[], token
     if (dels.length === ins.length) {
       dels.forEach((i, x) => steps.push({ kind: "kept", word_id: old[i]!.id, text: tokens[ins[x]!]! }));
     } else {
-      for (const i of dels) {
+      const r = Math.min(dels.length, ins.length);
+      for (let x = 0; x < r; x++) steps.push({ kind: "replaced", word_id: old[dels[x]!]!.id, text: tokens[ins[x]!]! });
+      for (const i of dels.slice(r)) {
         removed.push(old[i]!.id);
         steps.push({ kind: "removed", word_id: old[i]!.id });
       }
-      for (const j of ins) steps.push({ kind: "inserted", text: tokens[j]! });
+      for (const j of ins.slice(r)) steps.push({ kind: "inserted", text: tokens[j]! });
     }
   }
   return { steps, removed };
 }
 
 export interface AlignResult {
+  /** Слова с сохранённым id, включая заменённые при N → M (`replaced`). */
   kept: { word_id: string; text: string }[];
   /** `after_word_id` — оставшееся слово перед вставкой; `null` — перед первым оставшимся. */
   inserted: { after_word_id: string | null; text: string }[];
@@ -140,7 +175,7 @@ export function alignTokens(oldWords: Pick<TranscriptWord, "id" | "text">[], new
   const out: AlignResult = { kept: [], inserted: [], removed };
   let after: string | null = null;
   for (const s of steps) {
-    if (s.kind === "kept") {
+    if (s.kind === "kept" || s.kind === "replaced") {
       out.kept.push({ word_id: s.word_id, text: s.text });
       after = s.word_id;
     } else if (s.kind === "inserted") out.inserted.push({ after_word_id: after, text: s.text });

@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { EdlRevisionDocSchema, acceptedCuts, buildTimeline, snapUsToFrame, type EdlOp, type Fps, type TranscriptWord } from "@ms/contracts";
+import { EdlRevisionDocSchema, acceptedCuts, buildTimeline, snapUsToFrame, type EdlOp, type EdlRevisionDoc, type Fps, type TranscriptWord } from "@ms/contracts";
 import { approvalState, approve } from "../../src/approvals/engine.js";
 import { currentSubject } from "../../src/approvals/subjects.js";
 import { artifactPaths } from "../../src/artifacts/paths.js";
@@ -11,12 +11,14 @@ import { ArtifactStore } from "../../src/artifacts/store.js";
 import { openDb, type Db } from "../../src/db/open.js";
 import { migrate } from "../../src/db/migrate.js";
 import * as edls from "../../src/db/repos/edls.js";
-import { applyEdlOps, currentEdl, reanchorDecisions, saveEdlRevision } from "../../src/edit/edl-ops.js";
-import { saveTranscriptRevision } from "../../src/edit/transcript-ops.js";
+import { EDL_FILE, applyEdlOps, currentEdl, cutForWords, reanchorDecisions, registerEdlRevision, saveEdlRevision } from "../../src/edit/edl-ops.js";
+import { applyTranscriptOps, saveTranscriptRevision } from "../../src/edit/transcript-ops.js";
 import { timelineFor } from "../../src/edit/timeline-store.js";
 import { claimNext, enqueue } from "../../src/jobs/queue.js";
 import { makeStore, removeStore, type TestStore } from "../db/helpers.js";
-import { F30, dec, edlDoc, seedVideo, w } from "./helpers.js";
+import { F30, dec, edlDoc, seedVideo, trDoc, w } from "./helpers.js";
+
+const F2997: Fps = { num: 30000, den: 1001 };
 
 const words: TranscriptWord[] = [
   w("w_000001", "привет", 0, 400_000),
@@ -49,11 +51,32 @@ describe("applyEdlOps (план)", () => {
 });
 
 describe("applyEdlOps: add_cut", () => {
-  it("пауза после последнего слова вырезки уходит в вырезку, keepBeforeWordUs до следующего слова", () => {
-    const d = applyEdlOps(e1, [{ op: "add_cut", start_word_id: "w_000002", end_word_id: "w_000003" }], words, F30);
-    expect(d.decisions.at(-1)).toMatchObject({ source_start_us: 500_000, source_end_us: 2_900_000 });
-    const d2 = applyEdlOps(e1, [{ op: "add_cut", start_word_id: "w_000003", end_word_id: "w_000003" }], words, F30, { keepBeforeWordUs: 500_000 });
-    expect(d2.decisions.at(-1)).toMatchObject({ source_start_us: 1_000_000, source_end_us: 2_500_000 });
+  it("пауза короче pauseMinUs после последнего слова уходит в вырезку, keepBeforeWordUs до следующего слова", () => {
+    const ws = [w("w_000001", "а", 0, 400_000), w("w_000002", "б", 500_000, 900_000), w("w_000003", "в", 1_600_000, 2_000_000), w("w_000004", "г", 4_000_000, 4_400_000)];
+    const d = applyEdlOps(e1, [{ op: "add_cut", start_word_id: "w_000001", end_word_id: "w_000002" }], ws, F30);
+    expect(d.decisions.at(-1)).toMatchObject({ source_start_us: 0, source_end_us: 1_500_000 });
+    const d2 = applyEdlOps(e1, [{ op: "add_cut", start_word_id: "w_000002", end_word_id: "w_000002" }], ws, F30, { keepBeforeWordUs: 500_000 });
+    expect(d2.decisions.at(-1)).toMatchObject({ source_start_us: 500_000, source_end_us: 1_100_000 });
+    // пауза ≥ pauseMinUs (2 с) — не забирается; с порогом выше паузы — забирается
+    const d3 = applyEdlOps(e1, [{ op: "add_cut", start_word_id: "w_000003", end_word_id: "w_000003" }], ws, F30);
+    expect(d3.decisions.at(-1)).toMatchObject({ source_start_us: 1_600_000, source_end_us: 2_000_000 });
+    const d4 = applyEdlOps(e1, [{ op: "add_cut", start_word_id: "w_000003", end_word_id: "w_000003" }], ws, F30, { pauseMinUs: 3_000_000 });
+    expect(d4.decisions.at(-1)).toMatchObject({ source_start_us: 1_600_000, source_end_us: 3_900_000 });
+  });
+
+  it("слово перед паузой 4,1 с — вырезка ≈ длине слова (пауза — решение детектора пауз)", () => {
+    const ws = [w("w_000001", "так", 0, 700_000), w("w_000002", "вот", 1_000_000, 1_300_000), w("w_000003", "дальше", 5_400_000, 5_900_000)];
+    const cut = applyEdlOps(e1, [{ op: "add_cut", start_word_id: "w_000002", end_word_id: "w_000002" }], ws, F2997).decisions.at(-1)!;
+    expect(cut.source_start_us).toBe(snapUsToFrame(1_000_000, F2997));
+    expect(cut.source_end_us).toBe(snapUsToFrame(1_300_000, F2997));
+    expect(Math.abs(cut.source_end_us - cut.source_start_us - 300_000)).toBeLessThanOrEqual(33_367);
+  });
+
+  it("cutForWords — те же границы, что у add_cut", () => {
+    const cfg = { keepBeforeWordUs: 100_000, pauseMinUs: 800_000, sourceDurationUs: DUR };
+    expect(cutForWords(words, "w_000002", "w_000002", F30, cfg)).toEqual({ source_start_us: 500_000, source_end_us: 900_000, start_word_id: "w_000002", end_word_id: "w_000002" });
+    expect(cutForWords(words, "w_000003", "w_000003", F30, cfg)).toEqual({ source_start_us: 1_000_000, source_end_us: 1_200_000, start_word_id: "w_000003", end_word_id: "w_000003" });
+    expect(() => cutForWords(words, "w_000003", "w_000002", F30, cfg)).toThrow(/order/);
   });
 
   it("последнее слово транскрипта — до его конца", () => {
@@ -134,6 +157,16 @@ describe("applyEdlOps: add_cut_range, remove, set_status", () => {
     expect(b.decisions).toEqual([{ ...e1.decisions[0], status: "rejected" }]);
   });
 
+  it("холостая правка (решения те же) — no_change", () => {
+    const acc = applyEdlOps(e1, [{ op: "set_status", decision_id: "d1", status: "accepted" }], words, F30);
+    expect(() => applyEdlOps(acc, [{ op: "set_status", decision_id: "d1", status: "accepted" }], words, F30)).toThrow(/no_change/);
+    const r = applyEdlOps(e1, [{ op: "remove", decision_id: "d1" }], words, F30);
+    expect(() => applyEdlOps(r, [{ op: "set_status", decision_id: "d1", status: "rejected" }], words, F30)).toThrow(/no_change/);
+    expect(() => applyEdlOps(r, [{ op: "remove", decision_id: "d1" }], words, F30)).toThrow(/no_change/);
+    expect(() => applyEdlOps(acc, [{ op: "set_status", decision_id: "d1", status: "rejected" }, { op: "set_status", decision_id: "d1", status: "accepted" }], words, F30))
+      .toThrow(/no_change/);
+  });
+
   it("неизвестное решение и пустая правка — ошибки", () => {
     expect(() => applyEdlOps(e1, [{ op: "set_status", decision_id: "dX", status: "accepted" }], words, F30)).toThrow(/unknown_decision/);
     expect(() => applyEdlOps(e1, [], words, F30)).toThrow(/empty_ops/);
@@ -147,16 +180,43 @@ describe("слова-якоря после правки транскрипта",
     // «мир» заменён на «Claude Code» (вставки в промежутке 400–1000 мс), «дела» удалено
     const edited = [w("w_000001", "привет", 0, 400_000), w("w_000001.1", "Claude", 400_000, 700_000, "interpolated"),
       w("w_000001.2", "Code", 700_000, 1_000_000, "interpolated"), w("w_000003", "как", 1_000_000, 1_200_000), w("w_000005", "пока", 9_500_000, 9_900_000)];
-    const r = reanchorDecisions(e.decisions, edited);
+    const r = reanchorDecisions(e.decisions, edited, F30);
     expect(r[0]).toMatchObject({ start_word_id: "w_000001.1", end_word_id: "w_000001.2", source_start_us: 400_000, source_end_us: 1_000_000 });
     expect(r[1]).toMatchObject({ start_word_id: "w_000003", end_word_id: "w_000003", source_start_us: 1_000_000, source_end_us: 3_400_000 });
     // внутри вырезки слов не осталось — якоря сняты, вырезка по времени
-    const r2 = reanchorDecisions([dec("d3", { start_word_id: "w_000004", end_word_id: "w_000004", source_start_us: 3_000_000, source_end_us: 3_400_000 })], edited);
+    const r2 = reanchorDecisions([dec("d3", { start_word_id: "w_000004", end_word_id: "w_000004", source_start_us: 3_000_000, source_end_us: 3_400_000 })], edited, F30);
     expect(r2[0]!.start_word_id).toBeUndefined();
     expect(r2[0]!.end_word_id).toBeUndefined();
     expect(r2[0]).toMatchObject({ source_start_us: 3_000_000, source_end_us: 3_400_000 });
     // якоря на месте — решение не меняется (тот же объект)
-    expect(reanchorDecisions(e.decisions, words)[0]).toBe(e.decisions[0]);
+    expect(reanchorDecisions(e.decisions, words, F30)[0]).toBe(e.decisions[0]);
+    // слово нулевой длины ровно в конце вырезки — не внутри
+    const r3 = reanchorDecisions([dec("d4", { start_word_id: "w_gone", end_word_id: "w_gone", source_start_us: 3_000_000, source_end_us: 3_400_000 })],
+      [w("w_000004", "дела", 3_000_000, 3_200_000), w("w_000004.1", "же", 3_400_000, 3_400_000, "interpolated")], F30);
+    expect(r3[0]).toMatchObject({ start_word_id: "w_000004", end_word_id: "w_000004" });
+  });
+
+  it("допуск ½ кадра: слияние «семь»+«сот» → «семьсот» при 29,97 fps — якорь на сохранённом слове", () => {
+    const ws = [w("w_000001", "было", 0, 900_000), w("w_000002", "семь", 1_025_000, 1_300_000), w("w_000003", "сот", 1_300_000, 1_700_000),
+      w("w_000004", "рублей", 1_800_000, 2_300_000)];
+    const e = applyEdlOps(edlDoc([], { timeline_fps: F2997 }), [{ op: "add_cut", start_word_id: "w_000002", end_word_id: "w_000003" }], ws, F2997);
+    const cut = e.decisions[0]!;
+    expect(cut.source_start_us).toBeGreaterThan(1_025_000); // начало сдвинуто к кадру внутрь слова
+    const merged = applyTranscriptOps(trDoc(ws), [{ op: "replace_span", start_word_id: "w_000002", end_word_id: "w_000003", text: "семьсот" }]);
+    expect(merged.removed_word_ids).toEqual(["w_000003"]);
+    expect(reanchorDecisions(e.decisions, merged.words, F2997)[0]).toMatchObject({
+      start_word_id: "w_000002", end_word_id: "w_000002", source_start_us: cut.source_start_us, source_end_us: cut.source_end_us,
+    });
+    const e2 = applyEdlOps(e, [{ op: "add_cut_range", source_start_us: 2_000_000, source_end_us: 2_200_000 }], merged.words, F2997);
+    expect(e2.decisions[0]).toMatchObject({ start_word_id: "w_000002", end_word_id: "w_000002" });
+  });
+
+  it("якоря на сохранённых при замене N → M id живы: решение не меняется", () => {
+    const ws = [w("w_000001", "было", 0, 900_000), w("w_000002", "семь", 1_000_000, 1_300_000), w("w_000003", "сот", 1_300_000, 1_700_000)];
+    const d = [dec("d1", { start_word_id: "w_000002", end_word_id: "w_000002", source_start_us: 1_000_000, source_end_us: 1_300_000 })];
+    const split = applyTranscriptOps(trDoc(ws), [{ op: "replace_text", word_id: "w_000002", text: "семь-с половиной" }]);
+    expect(split.words.map((x) => x.id)).toEqual(["w_000001", "w_000002", "w_000002.1", "w_000003"]);
+    expect(reanchorDecisions(d, split.words, F30)[0]).toBe(d[0]);
   });
 });
 
@@ -215,25 +275,60 @@ describe("saveEdlRevision / timelineFor", () => {
   });
 
   it("add_cut — по словам текущей ревизии транскрипта; удалённые правкой слова — unknown_word", async () => {
-    await saveTranscriptRevision(deps(), "trn_1", { base_revision: 1, ops: [{ op: "replace_text", word_id: "w_000002", text: "Claude Code" }] });
-    await expect(saveEdlRevision(deps(), "edl_1", { base_revision: 1, ops: [{ op: "add_cut", start_word_id: "w_000002", end_word_id: "w_000002" }] }))
+    await saveTranscriptRevision(deps(), "trn_1", { base_revision: 1, ops: [
+      { op: "replace_text", word_id: "w_000002", text: "Claude Code" }, { op: "replace_span", start_word_id: "w_000003", end_word_id: "w_000004", text: "дела" }] });
+    await expect(saveEdlRevision(deps(), "edl_1", { base_revision: 1, ops: [{ op: "add_cut", start_word_id: "w_000003", end_word_id: "w_000003" }] }))
       .rejects.toThrow(/unknown_word/);
-    const out = await saveEdlRevision(deps(), "edl_1", { base_revision: 1, ops: [{ op: "add_cut", start_word_id: "w_000001.1", end_word_id: "w_000001.2" }] });
-    expect(out.doc.decisions.at(-1)).toMatchObject({ start_word_id: "w_000001.1", end_word_id: "w_000001.2", source_start_us: 500_000, source_end_us: 900_000 });
+    const out = await saveEdlRevision(deps(), "edl_1", { base_revision: 1, ops: [{ op: "add_cut", start_word_id: "w_000002", end_word_id: "w_000002.1" }] });
+    expect(out.doc.decisions.at(-1)).toMatchObject({ start_word_id: "w_000002", end_word_id: "w_000002.1", source_start_us: 500_000, source_end_us: 900_000 });
   });
 
   it("якорь удалён правкой транскрипта: EDL и Approval A не меняются, следующая ревизия EDL пересчитывает якорь", async () => {
-    const r2 = await saveEdlRevision(deps(), "edl_1", { base_revision: 1, ops: [{ op: "set_status", decision_id: "d1", status: "accepted" }, { op: "add_cut", start_word_id: "w_000004", end_word_id: "w_000004" }] });
+    const r2 = await saveEdlRevision(deps(), "edl_1", { base_revision: 1, ops: [{ op: "set_status", decision_id: "d1", status: "accepted" }, { op: "add_cut", start_word_id: "w_000002", end_word_id: "w_000003" }] });
     const cur = currentSubject(db, "p1", "A")!;
     approve(db, { projectId: "p1", kind: "A", subjectRef: cur.ref, subjectHash: cur.hash });
-    expect(r2.doc.decisions.at(-1)).toMatchObject({ start_word_id: "w_000004", end_word_id: "w_000004", source_start_us: 3_000_000, source_end_us: 9_400_000 });
-    await saveTranscriptRevision(deps(), "trn_1", { base_revision: 1, ops: [{ op: "replace_text", word_id: "w_000004", text: "дела-то идут" }] });
+    // пауза после «как» 1,8 с ≥ pauseMinUs — не забирается
+    expect(r2.doc.decisions.at(-1)).toMatchObject({ start_word_id: "w_000002", end_word_id: "w_000003", source_start_us: 500_000, source_end_us: 1_200_000 });
+    await saveTranscriptRevision(deps(), "trn_1", { base_revision: 1, ops: [{ op: "replace_span", start_word_id: "w_000001", end_word_id: "w_000002", text: "привет" }] });
     expect(edls.get(db, "edl_1")!.current_revision).toBe(2);
     expect(approvalState(db, "p1", "A", currentSubject(db, "p1", "A")).state).toBe("valid");
+    // операция сама по себе холостая, но пересчёт якоря меняет документ — ревизия есть
     const r3 = await saveEdlRevision(deps(), "edl_1", { base_revision: 2, ops: [{ op: "set_status", decision_id: "d1", status: "accepted" }] });
-    // «дела» удалено, «дела-то идут» вставлены на его время (3,0–3,4 с); вырезка по времени не сдвинулась
-    expect(r3.doc.decisions.at(-1)).toMatchObject({ start_word_id: "w_000003.1", end_word_id: "w_000003.2", source_start_us: 3_000_000, source_end_us: 9_400_000 });
+    expect(r3.doc.decisions.at(-1)).toMatchObject({ start_word_id: "w_000003", end_word_id: "w_000003", source_start_us: 500_000, source_end_us: 1_200_000 });
     expect(timelineFor(db, "edl_1", 3)).toEqual(timelineFor(db, "edl_1", 2));
+  });
+
+  it("холостая правка — no_change (422): ревизии нет, approvals не тронуты", async () => {
+    await saveEdlRevision(deps(), "edl_1", { base_revision: 1, ops: accept });
+    const cur = currentSubject(db, "p1", "A")!;
+    approve(db, { projectId: "p1", kind: "A", subjectRef: cur.ref, subjectHash: cur.hash });
+    approve(db, { projectId: "p1", kind: "B", subjectRef: "plan:pln_1@r1", subjectHash: cur.hash });
+    await expect(saveEdlRevision(deps(), "edl_1", { base_revision: 2, ops: accept })).rejects.toMatchObject({ code: "no_change", status: 422 });
+    expect(edls.get(db, "edl_1")!.current_revision).toBe(2);
+    expect(edls.revision(db, "edl_1", 3)).toBeUndefined();
+    expect(approvalState(db, "p1", "A", currentSubject(db, "p1", "A")).state).toBe("valid");
+    expect(approvalState(db, "p1", "B", { ref: "plan:pln_1@r1", hash: cur.hash }).state).toBe("valid");
+  });
+
+  it("registerEdlRevision — публикация ревизии вне saveEdlRevision (roughcut.propose): индекс, таймлайн, A stale, каскад на B", async () => {
+    await saveEdlRevision(deps(), "edl_1", { base_revision: 1, ops: accept });
+    const cur = currentSubject(db, "p1", "A")!;
+    approve(db, { projectId: "p1", kind: "A", subjectRef: cur.ref, subjectHash: cur.hash });
+    approve(db, { projectId: "p1", kind: "B", subjectRef: "plan:pln_1@r1", subjectHash: cur.hash });
+    const base = currentEdl(db, s.root, "edl_1");
+    const doc: EdlRevisionDoc = {
+      ...base, revision: 3, parent_revision: 2, ops: undefined,
+      decisions: [...base.decisions, dec("det_2", { status: "accepted", source_start_us: 6_000_000, source_end_us: 7_000_000 })],
+    };
+    const timeline = buildTimeline(DUR, acceptedCuts(doc), F30);
+    const rel = artifactPaths(s.root, "p1").edlRev("edl_1", 3);
+    await store.writeRevision(rel, EDL_FILE, doc, (d, files) => {
+      registerEdlRevision(d, { projectId: "p1", doc, relPath: `${rel}/${EDL_FILE}`, sha256: files[0]!.sha256, timeline });
+    });
+    expect(edls.get(db, "edl_1")!.current_revision).toBe(3);
+    expect(timelineFor(db, "edl_1")).toEqual(timeline);
+    expect(approvalState(db, "p1", "A", currentSubject(db, "p1", "A"))).toMatchObject({ state: "stale", reason: "subject_changed" });
+    expect(approvalState(db, "p1", "B", { ref: "plan:pln_1@r1", hash: cur.hash })).toMatchObject({ state: "stale", reason: "upstream_A" });
   });
 
   it("новая ревизия EDL: Approval A → stale(subject_changed), B → stale(upstream_A) в той же транзакции", async () => {

@@ -3,6 +3,7 @@
 // интерполированное в промежутке соседей, удалённые id уходят в `removed_word_ids` навсегда.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { canonicalJson } from "@ms/contracts/canonical";
 import { TranscriptRevisionDocSchema, type TranscriptOp, type TranscriptRevisionDoc, type TranscriptWord } from "@ms/contracts";
 import { artifactPaths } from "../artifacts/paths.js";
 import type { ArtifactStore } from "../artifacts/store.js";
@@ -10,7 +11,7 @@ import type { Db } from "../db/open.js";
 import * as transcripts from "../db/repos/transcripts.js";
 import { projectLockKey } from "../jobs/locks.js";
 import { buildSegments } from "../media/segments.js";
-import { alignTokenList, tokenizeEdit } from "./align.js";
+import { alignTokenList, attachAfter, attachBefore, tokenizeEdit } from "./align.js";
 import { EditError, RevisionConflictError } from "./errors.js";
 
 /** Файл документа ревизии транскрипта (как у `asr.transcribe`). */
@@ -62,7 +63,9 @@ function indexOf(words: TranscriptWord[], id: string): number {
  * `author: "user"`, `ops`), сегменты пересчитаны `buildSegments`. Операции — по очереди, каждая
  * видит результат предыдущих. `replace_text` — участок из одного слова. Пустой текст удаляет слова
  * участка; текст из одной пунктуации приклеивается к слову перед участком (в начале — после).
- * Удалённые id не переиспользуются (`removed_word_ids` накапливается по ревизиям).
+ * Замена N слов на M (N ≠ M): первые min(N, M) id сохраняются, время всех — поровну из диапазона
+ * заменённых. Удалённые id не переиспользуются (`removed_word_ids` накапливается по ревизиям).
+ * Слова после правки те же (id, тексты, время) — `no_change`: холостой ревизии нет.
  */
 export function applyTranscriptOps(doc: TranscriptRevisionDoc, ops: TranscriptOp[]): TranscriptRevisionDoc {
   if (ops.length === 0) throw new EditError("empty_ops", "правка без операций");
@@ -90,26 +93,35 @@ export function applyTranscriptOps(doc: TranscriptRevisionDoc, ops: TranscriptOp
         k++;
         continue;
       }
-      // серия до следующего оставшегося слова: удалённые, затем вставленные
-      const run: string[] = [];
-      const gone: TranscriptWord[] = [];
+      // серия до следующего оставшегося слова: заменённые (id сохраняется), удалённые, вставленные
+      const run: { text: string; keep?: TranscriptWord }[] = [];
+      const gone: TranscriptWord[] = []; // старые слова серии (заменённые и удалённые) — источник времени
       for (; k < steps.length && steps[k]!.kind !== "kept"; k++) {
         const s = steps[k]!;
-        if (s.kind === "inserted") run.push(s.text);
-        else if (s.kind === "removed") gone.push(byId.get(s.word_id)!);
+        if (s.kind === "inserted") run.push({ text: s.text });
+        else if (s.kind === "replaced") {
+          const o = byId.get(s.word_id)!;
+          gone.push(o);
+          run.push({ text: s.text, keep: o });
+        } else if (s.kind === "removed") gone.push(byId.get(s.word_id)!);
       }
       if (run.length === 0) continue;
       const prev = out.length > 0 ? out[out.length - 1] : words[si - 1];
       const nextKept = steps[k] as { kind: "kept"; word_id: string } | undefined;
       const next = nextKept ? byId.get(nextKept.word_id) : words[ei + 1];
-      const base = prev?.id ?? BEFORE_FIRST;
-      // замена: время удалённых слов (не паузы вокруг); конец — не позже начала следующего слова,
-      // иначе у перекрытых слов ASR start_us вставок обогнал бы его
+      // id вставок — от последнего сохранённого слова серии, иначе от слова перед ней
+      const base = run.filter((r) => r.keep).at(-1)?.keep!.id ?? prev?.id ?? BEFORE_FIRST;
+      // замена: время старых слов серии (не паузы вокруг); конец — не позже начала следующего
+      // слова, иначе у перекрытых слов ASR start_us вставок обогнал бы его
       const goneEnd = Math.max(...gone.map((x) => x.end_us));
       const times = gone.length > 0
         ? spread(gone[0]!.start_us, next ? Math.min(goneEnd, next.start_us) : goneEnd, run.length)
         : interpolate(prev, next, run.length);
-      run.forEach((text, x) => out.push({ id: freeId(base, used), text, ...times[x]!, timing: "interpolated", confidence: null }));
+      // слияние в одно слово: его границы — границы ASR первого и последнего старого слова
+      const asrBounds = run.length === 1 && gone.every((x) => x.timing === "asr");
+      run.forEach((r, x) => out.push(r.keep
+        ? { ...r.keep, text: r.text, ...times[x]!, timing: asrBounds ? "asr" : "interpolated" }
+        : { id: freeId(base, used), text: r.text, ...times[x]!, timing: "interpolated", confidence: null }));
     }
     removed.push(...gone);
     const before = words.slice(0, si);
@@ -121,9 +133,12 @@ export function applyTranscriptOps(doc: TranscriptRevisionDoc, ops: TranscriptOp
       if (!at) throw new EditError("invalid_text", "в транскрипте не осталось слов, к которым отнести пунктуацию");
       const i = at === before ? before.length - 1 : 0;
       const wd = at[i]!;
-      at[i] = { ...wd, text: at === before ? `${wd.text} ${punctuation}` : `${punctuation} ${wd.text}` };
+      at[i] = { ...wd, text: at === before ? attachAfter(wd.text, punctuation) : attachBefore(punctuation, wd.text) };
     }
     words = [...before, ...out, ...after];
+  }
+  if (canonicalJson(words) === canonicalJson(doc.words)) {
+    throw new EditError("no_change", "правка не меняет транскрипт — новая ревизия не создаётся");
   }
   return {
     ...doc,

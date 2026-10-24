@@ -13,12 +13,12 @@ export class RevisionConflictError extends Error {
 
 export type EditErrorCode =
   | "empty_ops" | "unknown_word" | "order" | "span_too_large" | "invalid_text"
-  | "unknown_decision" | "empty_cut" | "word_out_of_range"
+  | "unknown_decision" | "empty_cut" | "word_out_of_range" | "no_change"
   | "transcript_not_found" | "edl_not_found" | "media_not_found" | "no_edl";
 
 const STATUS: Record<EditErrorCode, number> = {
   empty_ops: 422, unknown_word: 422, order: 422, span_too_large: 422, invalid_text: 422,
-  unknown_decision: 422, empty_cut: 422, word_out_of_range: 422,
+  unknown_decision: 422, empty_cut: 422, word_out_of_range: 422, no_change: 422,
   transcript_not_found: 404, edl_not_found: 404, media_not_found: 404, no_edl: 409,
 };
 

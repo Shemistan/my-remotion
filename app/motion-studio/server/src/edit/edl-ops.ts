@@ -6,6 +6,7 @@ import {
   EdlRevisionDocSchema, acceptedCuts, buildTimeline, snapUsToFrame,
   type EditDecision, type EditedTimeline, type EdlOp, type EdlRevisionDoc, type Fps, type TranscriptWord,
 } from "@ms/contracts";
+import { canonicalJson } from "@ms/contracts/canonical";
 import { approvalState, cascadeStale } from "../approvals/engine.js";
 import { currentSubject } from "../approvals/subjects.js";
 import { artifactPaths } from "../artifacts/paths.js";
@@ -21,28 +22,46 @@ import type { EditDeps } from "./transcript-ops.js";
 /** Файл документа ревизии EDL. */
 export const EDL_FILE = "edl.json";
 
-/** Умолчание `roughcut.keepBeforeWordUs` (config.ts). */
+/** Умолчания `roughcut.keepBeforeWordUs` и `roughcut.pauseMinUs` (config.ts). */
 const KEEP_BEFORE_WORD_US = 100_000;
+const PAUSE_MIN_US = 800_000;
 
-export interface EdlOpsOptions {
-  /** Сколько оставить перед следующим словом, когда вырезка по словам забирает паузу после них, µs. */
+/** Параметры вырезки по словам (`add_cut`, агентские вырезки Task 28). */
+export interface CutConfig {
+  /** Сколько оставить перед следующим словом, когда вырезка забирает паузу после слов, µs. */
   keepBeforeWordUs?: number;
+  /** Пауза после последнего слова не короче этой — не забирается (её режет детектор пауз), µs. */
+  pauseMinUs?: number;
   /** Длительность исходника: вырезки обрезаются ею, слово за концом — `word_out_of_range`. */
   sourceDurationUs?: number;
+}
+
+export type EdlOpsOptions = CutConfig;
+
+/** ½ кадра в µs: настолько граница вырезки сдвигается выравниванием `snapUsToFrame`. */
+function halfFrameUs(fps: Fps): number {
+  return (1e6 * fps.den) / fps.num / 2;
 }
 
 /**
  * Якоря-слова решений после правки транскрипта. Вырезка определяется source-временем и при правке
  * текста не двигается (таймлайн тот же, Approval A не устаревает от исправления опечатки). Если
  * слово-якорь удалено правкой, якорь пересчитывается: первое и последнее слово текущей ревизии,
- * целиком лежащие внутри `[source_start_us, source_end_us]`; таких нет — якоря снимаются (вырезка
- * по времени, как `add_cut_range`). Решение с живыми якорями возвращается тем же объектом.
+ * лежащие внутри вырезки с допуском ½ кадра (`snapUsToFrame` сдвигает границы вырезки внутрь
+ * слова на столько же): `start_us ≥ source_start_us − ½ кадра`, `end_us ≤ source_end_us + ½ кадра`
+ * и `start_us < source_end_us` (слово нулевой длины ровно на конце — уже за вырезкой). Таких нет —
+ * якоря снимаются (вырезка по времени, как `add_cut_range`). Решение с живыми якорями
+ * возвращается тем же объектом.
  */
-export function reanchorDecisions(decisions: EditDecision[], words: Pick<TranscriptWord, "id" | "start_us" | "end_us">[]): EditDecision[] {
+export function reanchorDecisions(
+  decisions: EditDecision[], words: Pick<TranscriptWord, "id" | "start_us" | "end_us">[], fps: Fps,
+): EditDecision[] {
   const ids = new Set(words.map((x) => x.id));
+  const half = halfFrameUs(fps);
   return decisions.map((d) => {
     if (d.start_word_id === undefined || (ids.has(d.start_word_id) && ids.has(d.end_word_id!))) return d;
-    const inside = words.filter((x) => x.start_us >= d.source_start_us && x.end_us <= d.source_end_us);
+    const inside = words.filter((x) =>
+      x.start_us >= d.source_start_us - half && x.end_us <= d.source_end_us + half && x.start_us < d.source_end_us);
     if (inside.length > 0) return { ...d, start_word_id: inside[0]!.id, end_word_id: inside[inside.length - 1]!.id };
     const bare = { ...d };
     delete bare.start_word_id;
@@ -69,29 +88,60 @@ function snapCut(startUs: number, endUs: number, fps: Fps, durationUs: number | 
   return { start, end };
 }
 
+function wordIndex(words: Pick<TranscriptWord, "id">[], id: string): number {
+  const i = words.findIndex((x) => x.id === id);
+  if (i < 0) throw new EditError("unknown_word", `нет слова ${id}`);
+  return i;
+}
+
+/**
+ * Границы вырезки слов `[startId, endId]` (общая для `add_cut` и агентских вырезок Task 28):
+ * начало — `first.start_us`; конец — `last.end_us`, если после него последнее слово транскрипта
+ * или пауза до следующего слова `≥ pauseMinUs` (длинная пауза — зона детектора пауз и отдельного
+ * решения человека), иначе `max(last.end_us, next.start_us − keepBeforeWordUs)`. Границы —
+ * `snapUsToFrame` (ближайший кадр: соседнее слово задевается не больше чем на ½ кадра), конец не
+ * дальше исходника. Ошибки: `unknown_word`, `order`, `word_out_of_range`, `empty_cut`.
+ */
+export function cutForWords(
+  words: Pick<TranscriptWord, "id" | "start_us" | "end_us">[], startId: string, endId: string, fps: Fps, cfg: CutConfig = {},
+): Required<Pick<EditDecision, "source_start_us" | "source_end_us" | "start_word_id" | "end_word_id">> {
+  const keepBefore = cfg.keepBeforeWordUs ?? KEEP_BEFORE_WORD_US;
+  const pauseMin = cfg.pauseMinUs ?? PAUSE_MIN_US;
+  const si = wordIndex(words, startId);
+  const ei = wordIndex(words, endId);
+  if (si > ei) throw new EditError("order", `слово ${startId} идёт после ${endId}`);
+  const first = words[si]!;
+  const last = words[ei]!;
+  if (cfg.sourceDurationUs !== undefined && first.start_us >= cfg.sourceDurationUs) {
+    throw new EditError("word_out_of_range", `слово ${first.id} начинается за концом исходника`);
+  }
+  const next = words[ei + 1];
+  const rawEnd = next && next.start_us - last.end_us < pauseMin ? Math.max(last.end_us, next.start_us - keepBefore) : last.end_us;
+  const { start, end } = snapCut(first.start_us, rawEnd, fps, cfg.sourceDurationUs);
+  return { source_start_us: start, source_end_us: end, start_word_id: first.id, end_word_id: last.id };
+}
+
+/** Документ без полей ревизии — сравнение «правка что-то изменила». */
+function content(doc: EdlRevisionDoc): string {
+  return canonicalJson({ ...doc, revision: 0, parent_revision: undefined, ops: undefined });
+}
+
 /**
  * Применяет операции к ревизии EDL: результат — `revision + 1` с `parent_revision` и `ops`.
- * `add_cut` по словам — `[first.start_us, max(last.end_us, next.start_us − keepBeforeWordUs)]`
- * (у последнего слова транскрипта — `last.end_us`), границы — `snapUsToFrame` (ближайший кадр:
- * соседнее слово задевается не больше чем на ½ кадра), `origin: "user"`, `accepted`, `manual`.
- * `add_cut_range` — то же по времени без якорей. `set_status` — accepted/rejected. `remove` —
- * удаляет решение пользователя, чужое (детектор, агент) — `rejected`. Решения с удалёнными
- * правкой транскрипта якорями пересчитываются (`reanchorDecisions`).
+ * `add_cut` по словам — `cutForWords`, `origin: "user"`, `accepted`, `manual`. `add_cut_range` —
+ * то же по времени без якорей. `set_status` — accepted/rejected. `remove` — удаляет решение
+ * пользователя, чужое (детектор, агент) — `rejected`. Решения с удалёнными правкой транскрипта
+ * якорями пересчитываются (`reanchorDecisions`). Документ без изменений (решения канонически те
+ * же) — `no_change`: холостая ревизия не создаётся и Approval A не устаревает.
  */
 export function applyEdlOps(doc: EdlRevisionDoc, ops: EdlOp[], words: TranscriptWord[], fps: Fps, opts: EdlOpsOptions = {}): EdlRevisionDoc {
   if (ops.length === 0) throw new EditError("empty_ops", "правка без операций");
-  const keepBefore = opts.keepBeforeWordUs ?? KEEP_BEFORE_WORD_US;
   const revision = doc.revision + 1;
-  let decisions = reanchorDecisions(doc.decisions, words);
+  let decisions = reanchorDecisions(doc.decisions, words, fps);
   const taken = new Set(decisions.map((d) => d.id));
   const find = (id: string): number => {
     const i = decisions.findIndex((d) => d.id === id);
     if (i < 0) throw new EditError("unknown_decision", `нет решения ${id}`);
-    return i;
-  };
-  const wordIndex = (id: string): number => {
-    const i = words.findIndex((x) => x.id === id);
-    if (i < 0) throw new EditError("unknown_word", `нет слова ${id}`);
     return i;
   };
   const manual = (start: number, end: number, explanation: string, anchors: Pick<EditDecision, "start_word_id" | "end_word_id">): EditDecision => ({
@@ -113,19 +163,9 @@ export function applyEdlOps(doc: EdlRevisionDoc, ops: EdlOp[], words: Transcript
         break;
       }
       case "add_cut": {
-        const si = wordIndex(op.start_word_id);
-        const ei = wordIndex(op.end_word_id);
-        if (si > ei) throw new EditError("order", `слово ${op.start_word_id} идёт после ${op.end_word_id}`);
-        const first = words[si]!;
-        const last = words[ei]!;
-        if (opts.sourceDurationUs !== undefined && first.start_us >= opts.sourceDurationUs) {
-          throw new EditError("word_out_of_range", `слово ${first.id} начинается за концом исходника`);
-        }
-        const next = words[ei + 1];
-        const rawEnd = next ? Math.max(last.end_us, next.start_us - keepBefore) : last.end_us;
-        const { start, end } = snapCut(first.start_us, rawEnd, fps, opts.sourceDurationUs);
-        const quote = words.slice(si, ei + 1).map((x) => x.text).join(" ");
-        decisions = [...decisions, manual(start, end, `вырезано вручную: «${quote}»`, { start_word_id: first.id, end_word_id: last.id })];
+        const c = cutForWords(words, op.start_word_id, op.end_word_id, fps, opts);
+        const quote = words.slice(wordIndex(words, c.start_word_id), wordIndex(words, c.end_word_id) + 1).map((x) => x.text).join(" ");
+        decisions = [...decisions, manual(c.source_start_us, c.source_end_us, `вырезано вручную: «${quote}»`, { start_word_id: c.start_word_id, end_word_id: c.end_word_id })];
         break;
       }
       case "add_cut_range": {
@@ -138,7 +178,9 @@ export function applyEdlOps(doc: EdlRevisionDoc, ops: EdlOp[], words: Transcript
       }
     }
   }
-  return { ...doc, revision, parent_revision: doc.revision, decisions, ops: ops.map((o) => ({ ...o })) };
+  const next: EdlRevisionDoc = { ...doc, revision, parent_revision: doc.revision, decisions, ops: ops.map((o) => ({ ...o })) };
+  if (content(next) === content(doc)) throw new EditError("no_change", "правка не меняет решения EDL — новая ревизия не создаётся");
+  return next;
 }
 
 /** Документ ревизии EDL (по умолчанию текущей) из хранилища, проверенный схемой. */
@@ -159,14 +201,29 @@ function currentWords(db: Db, transcriptId: string): TranscriptWord[] {
 }
 
 /**
+ * Регистрация опубликованной ревизии EDL — вызывать в `register` транзакции
+ * `ArtifactStore.writeRevision` (правка пользователя и `roughcut.propose`, Task 28):
+ * `edls.insertRevision` (решения, `timelines`/`timeline_clips`, `current_revision`), затем
+ * `approvalState(…, "A", currentSubject)` (валидное A → `stale(subject_changed)`) и
+ * `cascadeStale(…, "A")` безусловно (ревью Task 24, M7): новая ревизия EDL всегда меняет субъект
+ * A, а B зависит от EDL, даже если A уже `stale`. `timeline` — `buildTimeline(acceptedCuts(doc))`.
+ */
+export function registerEdlRevision(
+  db: Db, r: { projectId: string; doc: EdlRevisionDoc; relPath: string; sha256: string; timeline: EditedTimeline },
+): void {
+  edls.insertRevision(db, { doc: r.doc, rel_path: r.relPath, sha256: r.sha256, timeline: r.timeline });
+  approvalState(db, r.projectId, "A", currentSubject(db, r.projectId, "A"));
+  cascadeStale(db, r.projectId, "A");
+}
+
+/**
  * Синхронная правка EDL: `base_revision ≠ current` → `revision_conflict`, замок
- * `project:<p>:edl` у задачи → `resource_busy`. Одной транзакцией публикации: файл ревизии,
- * `edl_revisions`, `edit_decisions`, `timelines`/`timeline_clips`, `current_revision`, устаревание
- * Approval A (`approvalState` → `stale(subject_changed)`) и каскад на B (`cascadeStale(…, "A")`,
- * ревью Task 24, M7). Слова — текущей ревизии транскрипта EDL.
+ * `project:<p>:edl` у задачи → `resource_busy`, холостая правка → `no_change`. Одной транзакцией
+ * публикации: файл ревизии и `registerEdlRevision`. Отказ approvals не трогает. Слова — текущей
+ * ревизии транскрипта EDL.
  */
 export async function saveEdlRevision(
-  deps: EditDeps & { roughcut?: Pick<RoughcutConfig, "keepBeforeWordUs"> },
+  deps: EditDeps & { roughcut?: Pick<RoughcutConfig, "keepBeforeWordUs" | "pauseMinUs"> },
   edlId: string,
   body: { base_revision: number; ops: EdlOp[] },
 ): Promise<{ doc: EdlRevisionDoc; timeline: EditedTimeline }> {
@@ -184,14 +241,12 @@ export async function saveEdlRevision(
   if (!asset) throw new EditError("media_not_found", `нет исходника ${base.media_id}`);
   const durationUs = asset.probe.duration_us;
   const doc = EdlRevisionDocSchema.parse(applyEdlOps(base, body.ops, currentWords(db, base.transcript_id), base.timeline_fps, {
-    keepBeforeWordUs: deps.roughcut?.keepBeforeWordUs, sourceDurationUs: durationUs,
+    keepBeforeWordUs: deps.roughcut?.keepBeforeWordUs, pauseMinUs: deps.roughcut?.pauseMinUs, sourceDurationUs: durationUs,
   }));
   const timeline = buildTimeline(durationUs, acceptedCuts(doc), doc.timeline_fps);
   const destRel = artifactPaths(deps.root, e.project_id).edlRev(edlId, doc.revision);
   await store.writeRevision(destRel, EDL_FILE, doc, (d, files) => {
-    edls.insertRevision(d, { doc, rel_path: `${destRel}/${EDL_FILE}`, sha256: files[0]!.sha256, timeline });
-    approvalState(d, e.project_id, "A", currentSubject(d, e.project_id, "A"));
-    cascadeStale(d, e.project_id, "A");
+    registerEdlRevision(d, { projectId: e.project_id, doc, relPath: `${destRel}/${EDL_FILE}`, sha256: files[0]!.sha256, timeline });
   }, { lockKey: projectLockKey(e.project_id, "edl"), check: conflict });
   return { doc, timeline };
 }

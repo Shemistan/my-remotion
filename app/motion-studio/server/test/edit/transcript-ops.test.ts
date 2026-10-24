@@ -65,7 +65,7 @@ describe("applyTranscriptOps (края)", () => {
     const d1 = trDoc([w("w_000001", "а", 0, 500_000), w("w_000002", "б", 400_000, 900_000), w("w_000003", "в", 800_000, 1_000_000)]);
     const r = applyTranscriptOps(d1, [{ op: "replace_text", word_id: "w_000002", text: "х у" }]);
     expect(r.words.map((x) => [x.id, x.start_us, x.end_us])).toEqual([
-      ["w_000001", 0, 500_000], ["w_000001.1", 400_000, 600_000], ["w_000001.2", 600_000, 800_000], ["w_000003", 800_000, 1_000_000]]);
+      ["w_000001", 0, 500_000], ["w_000002", 400_000, 600_000], ["w_000002.1", 600_000, 800_000], ["w_000003", 800_000, 1_000_000]]);
     expect(TranscriptRevisionDocSchema.safeParse(r).success).toBe(true);
   });
 
@@ -74,14 +74,30 @@ describe("applyTranscriptOps (края)", () => {
     expect(d.words.slice(1, 3).map((x) => [x.id, x.start_us, x.end_us])).toEqual([["w_000001.1", 400_000, 450_000], ["w_000001.2", 450_000, 500_000]]);
   });
 
-  it("замена слова на несколько — вставки занимают время удалённого слова, а не паузы вокруг", () => {
+  it("замена N → M: первые min(N, M) id сохраняются, время всех — из диапазона заменённых слов", () => {
+    // разбиение 1 → 2: id w_000002 сохраняется, вставка — после него
     const d = applyTranscriptOps(doc, [{ op: "replace_text", word_id: "w_000002", text: "Claude Code" }]);
-    expect(d.words.map((x) => [x.id, x.text, x.start_us, x.end_us])).toEqual([
-      ["w_000001", "привет", 0, 400_000], ["w_000001.1", "Claude", 500_000, 700_000], ["w_000001.2", "Code", 700_000, 900_000], ["w_000003", "как", 1_000_000, 1_200_000]]);
-    expect(d.removed_word_ids).toEqual(["w_000002"]);
-    // два слова → одно: время обоих удалённых
+    expect(d.words.map((x) => [x.id, x.text, x.start_us, x.end_us, x.timing])).toEqual([
+      ["w_000001", "привет", 0, 400_000, "asr"], ["w_000002", "Claude", 500_000, 700_000, "interpolated"],
+      ["w_000002.1", "Code", 700_000, 900_000, "interpolated"], ["w_000003", "как", 1_000_000, 1_200_000, "asr"]]);
+    expect(d.removed_word_ids).toEqual([]);
+    // слияние 2 → 1: первое id на всё время обоих (границы ASR — timing остаётся asr), второе удалено
     const d2 = applyTranscriptOps(doc, [{ op: "replace_span", start_word_id: "w_000002", end_word_id: "w_000003", text: "мирок" }]);
-    expect(d2.words.at(-1)).toMatchObject({ id: "w_000001.1", start_us: 500_000, end_us: 1_200_000, timing: "interpolated" });
+    expect(d2.words.at(-1)).toMatchObject({ id: "w_000002", text: "мирок", start_us: 500_000, end_us: 1_200_000, timing: "asr" });
+    expect(d2.removed_word_ids).toEqual(["w_000003"]);
+    // 3 → 2: два первых id, время — поровну на диапазоне трёх
+    const d3 = applyTranscriptOps(doc, [{ op: "replace_span", start_word_id: "w_000001", end_word_id: "w_000003", text: "семь сот" }]);
+    expect(d3.words.map((x) => [x.id, x.text, x.start_us, x.end_us])).toEqual([["w_000001", "семь", 0, 600_000], ["w_000002", "сот", 600_000, 1_200_000]]);
+    expect(d3.removed_word_ids).toEqual(["w_000003"]);
+    expect(TranscriptRevisionDocSchema.safeParse(d3).success).toBe(true);
+  });
+
+  it("холостая правка (слова и тексты те же) — no_change", () => {
+    expect(() => applyTranscriptOps(doc, [{ op: "replace_text", word_id: "w_000002", text: "мир" }])).toThrow(/no_change/);
+    expect(() => applyTranscriptOps(doc, [{ op: "replace_span", start_word_id: "w_000001", end_word_id: "w_000003", text: "привет  мир как" }])).toThrow(/no_change/);
+    // правка и её отмена в одной ревизии — тоже холостая
+    expect(() => applyTranscriptOps(doc, [{ op: "replace_text", word_id: "w_000002", text: "Мир" }, { op: "replace_text", word_id: "w_000002", text: "мир" }]))
+      .toThrow(/no_change/);
   });
 
   it("удалённые id не переиспользуются, removed_word_ids накапливается по ревизиям", () => {
@@ -102,9 +118,11 @@ describe("applyTranscriptOps (края)", () => {
 
   it("только пунктуация — к соседнему слову вне участка, слова участка удалены", () => {
     const d = applyTranscriptOps(doc, [{ op: "replace_text", word_id: "w_000002", text: "!" }]);
-    expect(d.words.map((x) => [x.id, x.text])).toEqual([["w_000001", "привет !"], ["w_000003", "как"]]);
+    expect(d.words.map((x) => [x.id, x.text])).toEqual([["w_000001", "привет!"], ["w_000003", "как"]]);
     const d1 = applyTranscriptOps(doc, [{ op: "replace_text", word_id: "w_000001", text: "«" }]);
-    expect(d1.words.map((x) => [x.id, x.text])).toEqual([["w_000002", "« мир"], ["w_000003", "как"]]);
+    expect(d1.words.map((x) => [x.id, x.text])).toEqual([["w_000002", "«мир"], ["w_000003", "как"]]);
+    const d2 = applyTranscriptOps(doc, [{ op: "replace_text", word_id: "w_000002", text: "—" }]);
+    expect(d2.words.map((x) => [x.id, x.text])).toEqual([["w_000001", "привет —"], ["w_000003", "как"]]);
   });
 
   it("юникод: эмодзи, латиница, NFD — сохраняются как текст, совпадение по нормализации", () => {
@@ -202,6 +220,13 @@ describe("saveTranscriptRevision", () => {
     claimNext(db, "srv", 0, { running: 0, maxRunning: 2 });
     await expect(saveTranscriptRevision(deps(), "trn_1", { base_revision: 1, ops })).rejects.toMatchObject({ code: "resource_busy" });
     expect(transcripts.get(db, "trn_1")!.current_revision).toBe(1);
+  });
+
+  it("холостая правка — no_change (422), ревизии нет", async () => {
+    await expect(saveTranscriptRevision(deps(), "trn_1", { base_revision: 1, ops: [{ op: "replace_text", word_id: "w_000002", text: "мир" }] }))
+      .rejects.toMatchObject({ code: "no_change", status: 422 });
+    expect(transcripts.get(db, "trn_1")!.current_revision).toBe(1);
+    expect(transcripts.revision(db, "trn_1", 2)).toBeUndefined();
   });
 
   it("невалидная правка — ошибка до записи; неизвестный транскрипт — not_found", async () => {

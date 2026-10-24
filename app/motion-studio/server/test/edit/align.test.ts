@@ -6,9 +6,19 @@ import { w } from "./helpers.js";
 const words = [w("w_000001", "привет", 0, 400_000), w("w_000002", "мир", 500_000, 900_000), w("w_000003", "как", 1_000_000, 1_200_000)];
 
 describe("tokenizeEdit", () => {
-  it("пунктуация отдельным токеном — к предыдущему слову, в начале — к следующему", () => {
-    expect(tokenizeEdit("Привет , мир —  да")).toEqual({ tokens: ["Привет ,", "мир —", "да"], punctuation: "" });
-    expect(tokenizeEdit("« Привет»")).toEqual({ tokens: ["« Привет»"], punctuation: "" });
+  it("закрывающие знаки — к предыдущему слову без пробела, открывающие — к следующему, тире — через пробел", () => {
+    expect(tokenizeEdit("Привет , мир —  да")).toEqual({ tokens: ["Привет,", "мир —", "да"], punctuation: "" });
+    expect(tokenizeEdit("« Привет»")).toEqual({ tokens: ["«Привет»"], punctuation: "" });
+    expect(tokenizeEdit("привет ,")).toEqual({ tokens: ["привет,"], punctuation: "" });
+    expect(tokenizeEdit("мир . »")).toEqual({ tokens: ["мир.»"], punctuation: "" });
+    expect(tokenizeEdit("« мир")).toEqual({ tokens: ["«мир"], punctuation: "" });
+    expect(tokenizeEdit("сказал « ( да ) » ;")).toEqual({ tokens: ["сказал", "«(да)»;"], punctuation: "" });
+    expect(tokenizeEdit("да - нет")).toEqual({ tokens: ["да -", "нет"], punctuation: "" });
+  });
+
+  it("знак без соседа с нужной стороны: закрывающий в начале — к следующему через пробел, открывающий в конце — к предыдущему", () => {
+    expect(tokenizeEdit(", мир")).toEqual({ tokens: [", мир"], punctuation: "" });
+    expect(tokenizeEdit("мир «")).toEqual({ tokens: ["мир «"], punctuation: "" });
   });
 
   it("пустой текст и одна пунктуация — без слов; управляющие и невидимые символы убраны", () => {
@@ -53,10 +63,15 @@ describe("alignTokens", () => {
     });
   });
 
-  it("замена другим числом слов — удаление и вставка", () => {
+  it("замена N → M: первые min(N, M) id сохраняются, остальные удалены или вставлены", () => {
     expect(alignTokens(words, "привет Claude Code как")).toEqual({
-      kept: [{ word_id: "w_000001", text: "привет" }, { word_id: "w_000003", text: "как" }],
-      inserted: [{ after_word_id: "w_000001", text: "Claude" }, { after_word_id: "w_000001", text: "Code" }],
+      kept: [{ word_id: "w_000001", text: "привет" }, { word_id: "w_000002", text: "Claude" }, { word_id: "w_000003", text: "как" }],
+      inserted: [{ after_word_id: "w_000002", text: "Code" }],
+      removed: [],
+    });
+    expect(alignTokens(words, "приветмир как")).toEqual({
+      kept: [{ word_id: "w_000001", text: "приветмир" }, { word_id: "w_000003", text: "как" }],
+      inserted: [],
       removed: ["w_000002"],
     });
   });
