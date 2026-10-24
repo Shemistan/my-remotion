@@ -253,15 +253,16 @@ Script Director обязан варьировать `structure_rule`).
 - `script_packages (id, project_id, job_id, aspect, rel_path, manifest_sha256, created_at)`.
 
 **Отпечаток сцены** (по ревью плана, Р13): `item_fingerprint = canonicalHash(start_word_id,
-end_word_id, technique, pattern, idea, purpose, frames.total, ревизия стиля проекта)`
-(`itemFingerprint` в `contracts/src/script.ts`). Правка плана (`modify`, `set_reading`) или новая
+end_word_id, technique, pattern, idea, purpose, frames.total, стиль проекта { id, revision })`
+(`itemFingerprint(item, style: { id, revision } | null)` в `server/src/script/fingerprint.ts`). Правка плана (`modify`, `set_reading`) или новая
 ревизия стиля меняет отпечаток: сцена в DTO `stale: true`, при генерации считается «без готовой
 версии» (ставится новая задача), в пакет не идёт (`missing` «сцена устарела»). Полное перестроение
 `script.plan` создаёт новый `plan_id` (правки — новые ревизии того же `plan_id`).
 
 **Индекс ревизий плана сценария** (Р14): `db/repos/script.ts` `scriptPlans.create` и
 `scriptPlans.insertRevision(db, { doc, rel_path, sha256 })` пишут только `visual_plans` и
-`visual_plan_revisions` (`hash = canonicalHash(doc)`, `advanceCurrent`). `plans.insertRevision`
+`visual_plan_revisions` (`hash = canonicalHash(doc)`, `advanceCurrent`; `rel_path` — только
+`…/script-plan.json`). `scriptScenes.listByPlan` — по числовой части id сцены плана. `plans.insertRevision`
 видеоплана не годится: он разбирает `VisualPlanRevisionDoc` и пишет `scene_plans` с видеополями
 `NOT NULL`. `currentSubject(…, "B")` и `approve` работают с этими ревизиями без правки.
 
@@ -328,9 +329,10 @@ Concept при `reference_version_id` не вызывается — берутс
 **Стиль проекта до рендера** (по ревью плана, Р15). Сейчас `scenePropsStyle` (вызовы в
 `generate.ts`, `fix-loop.ts` `checkProps`, `playground-edit.ts`, `playground-generate.ts`) берёт
 стиль только из настроек, `depth` зашит `1`. Новое необязательное поле настроек
-`SettingsFieldsSchema.style_lock?: { palette_overrides?, depth?, font? }`: `scenePropsStyle` и
-`checkProps` дают ему приоритет, так стиль проекта доходит до `props.style` на генерации,
-исправлениях и правках в чате. `sceneSettings` сценария заполняет `style_lock` из стиля проекта.
+`SettingsFieldsSchema.style_lock?: { palette_overrides?, depth?, font?: KIT_FONTS }`: `scenePropsStyle`,
+`checkProps` и стартовый стиль `startPropsStyle` (generate, playground generate/edit — lock
+последним, поверх палитры агента) дают ему приоритет, так стиль проекта доходит до `style.json` и
+`props.style` на генерации, исправлениях и правках в чате. `sceneSettings` сценария заполняет `style_lock` из стиля проекта.
 Сцены берут **текущий** стиль проекта на момент постановки: Approval B (`planApprovable`) стиль не
 сверяет, ревизия стиля входит в отпечаток сцены (Р13) и в ключ идемпотентности (§11).
 
@@ -396,16 +398,20 @@ DTO — `contracts/src/api-script.ts`. Все создающие POST — с `Id
 
 Поля DTO (по ревью плана, фиксирует S1):
 
-- `ScriptPlanDto { plan_id, doc, approval: { state, ref? } }`.
-- `ScriptSceneDto { item_id, aspect, scene_id, version_id | null, job | null, status, qa_warnings,
-  warnings, stale }`; `status` — `none | pending | running | ready | failed | cancelled | blocked`
-  (`awaiting_input` задачи показывается как `running`); `warnings` — разнообразие пакета.
+- `ScriptPlanDto { plan_id, doc, approval: { state, ref?, reason? } }`; `ScriptStateDto.plan` —
+  `ScriptPlanDto | null`.
+- `ScriptSceneDto { item_id, aspect, scene_id, version_id | null, job | null, status,
+  qa_warnings: QAIssue[], warnings: PlanIssue[], stale }`; `status` (`ScriptItemStatus`) —
+  `none | pending | running | ready | failed | cancelled | blocked` (`none` — задачи ещё не было;
+  `awaiting_input` задачи показывается как `running`); `warnings` — разнообразие пакета.
 - `ScriptBatchDto { id, aspect, plan_revision, items: [{ item_id, scene_id, job | null,
   version_id | null, status }], counts }` — тот же перечень `status`.
 - `ScriptPackageDto { id, aspect, rel_path, abs_path, display_name, files: [{ n, item_id, mp4,
-  alpha, sha256 }], missing: [{ item_id, reason }], created_at }`.
-- `GET /script` собирает `scriptState()` (`server/src/script/state.ts`) из своих частей и
-  поставщиков треков (`batchesForState`, `packagesForState`, `warningsForState`).
+  alpha, sha256: { mp4, alpha } }], missing: [{ item_id, reason }], created_at }`.
+- `GET /script` собирает `scriptState(db, root, projectId)` (`server/src/script/state.ts`) из
+  своих частей и поставщиков треков: `batchesForState(db, root, projectId)`,
+  `packagesForState(db, root, projectId)`, `warningsForState(db, root, projectId, plan)` →
+  `Record<sceneId, PlanIssue[]>`.
 - «Повторить» упавшую сцену — `generate { item_ids: [id] }` (новый ключ `:try-<n>`, §11), а не
   `POST /jobs/:id/retry`.
 
@@ -420,7 +426,11 @@ technique?, purpose?}` (без приёма — `kinetic-quote` не стави�
 `ScriptWorkspace` открывается для `kind = "script"` вместо `ProjectPage`/`VideoWorkspace`.
 Строки — `web/src/i18n/ru-script-plan.ts` и `ru-script-output.ts` (подмешиваются в `ru`).
 Каркас (`ScriptWorkspace`, заглушки вкладок, `script-client.ts` со всеми хуками) делает S1,
-вкладки наполняют S8/S9. Сцена `stale` — значок «сцена устарела» и «Перегенерировать».
+вкладки наполняют S8/S9. `ScriptWorkspace` один раз читает состояние (`useScriptState`),
+показывает загрузку/ошибку и отдаёт вкладкам `{ state }` (+ колбэки переключения вкладок);
+вкладки меняют данные мутациями `script-client.ts` (`useSaveText`, `useBuildPlan`, `usePlanOps`,
+`useGenerate`, `useCancelBatch`, `useReframe`, `useBuildPackage`, `useReveal`; чтение пакетов —
+`useScriptBatch`, `useScriptPackage`, шпаргалка — `scriptUrls.cheatsheet`). Сцена `stale` — значок «сцена устарела» и «Перегенерировать».
 
 - **Текст**: блоки (textarea + заголовок, «добавить блок»), счётчик слов и время чтения,
   скорость и запас, «Сохранить», «Построить план» (активна при сохранённом тексте). Текст с
