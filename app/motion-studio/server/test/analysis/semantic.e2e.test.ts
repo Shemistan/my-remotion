@@ -131,6 +131,9 @@ function expectQuotes(doc: SemanticTimeline, visible: TranscriptWord[]): void {
   }
 }
 
+/** Цифра или числительное (корень из списка, с начала слова); «полгода», «пара» и т. п. — не числа. */
+const NUMERAL = /\d|(?<!\p{L})(?:один|одна|одно|одного|два|две|двух|три|трёх|трех|четыр\p{L}*|пят\p{L}*|шест\p{L}*|сем(?:ь|и|ью)|восем\p{L}*|девят\p{L}*|десят\p{L}*|сорок\p{L}*|сто|сотн\p{L}*|тысяч\p{L}*|миллион\p{L}*|миллиард\p{L}*)(?!\p{L})/iu;
+
 const sec = (us: number) => `${(us / 1e6).toFixed(1).replace(".", ",")} с`;
 const CLAIM: Record<string, string> = { fact: "факт", assumption: "предположение", opinion: "мнение" };
 
@@ -193,10 +196,12 @@ it("talk-ru-cfr: Approval A → semantic.analyze (sonnet): главы, якор�
   expect(doc.chapters.length).toBeGreaterThanOrEqual(1);
   const visible = heard(p.words, p.tl);
   expectQuotes(doc, visible);
-  // в речи фикстуры числа — «миллиона», «10» (ASR пишет цифрами), «пяти», «полгода»; «тысяч»/«000» плана здесь нет
+  // в речи фикстуры числа — «миллиона», «10» (ASR пишет цифрами), «пяти», «полгода»; «тысяч»/«000» плана здесь нет.
+  // Критерий (уточнение Task 31): ≥ 1 якорь `number`, цитата которого содержит цифру или числительное
+  // из списка `NUMERAL`; «полгода» без числа числом не считается
   const numberAnchors = doc.anchors.filter((a) => a.kind === "number");
   expect(numberAnchors.length, JSON.stringify(doc.anchors)).toBeGreaterThanOrEqual(1);
-  expect(numberAnchors.some((a) => /\d|миллион|тысяч|пят|десят|полгод/i.test(a.quote)), JSON.stringify(numberAnchors)).toBe(true);
+  expect(numberAnchors.some((a) => NUMERAL.test(a.quote)), JSON.stringify(numberAnchors)).toBe(true);
   for (const x of doc.rejected ?? []) expect(x.code).toBeTruthy();
   notes.push(`- semantic.analyze (sonnet): ${r.s.toFixed(1)} с, $${o.agent!.cost_usd} (справочно, подписка), вызовов ${o.agent!.calls}, переотправок ${o.agent!.retried}; ` +
     `глав ${o.counts.chapters}, якорей ${o.counts.anchors}, чисел ${o.counts.numbers}, сущностей ${o.counts.entities}, связей ${o.counts.causal}, спорного ${o.counts.disputed}, отклонено ${o.counts.rejected}; события: ${events.map((e) => e.kind).join(", ") || "—"}`);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  TimelineError, buildTimeline, editedToSource, frameToUs, mapRange, mapWords, rangeFromWords, sourceToEdited, usToFrame,
+  TimelineError, buildTimeline, checkHeardRange, editedToSource, frameToUs, mapRange, mapWords, rangeFromWords, sourceToEdited, usToFrame,
 } from "../src/index.js";
 import { F30, NTSC, w, words59 } from "./video-fixtures.js";
 
@@ -202,5 +202,35 @@ describe("rangeFromWords", () => {
     expect(frameToUs(r.frames.start, NTSC)).toBeLessThanOrEqual(r.edited.start_us);
     expect(frameToUs(r.frames.end, NTSC)).toBeGreaterThanOrEqual(r.edited.end_us);
     expect(r.frames.end - r.frames.start).toBeGreaterThanOrEqual(15);
+  });
+});
+
+describe("checkHeardRange: цитата = то, что слышит зритель", () => {
+  // 5 слов по 1 с; вырезка 2,0–3,5 с: «эээ» (2,0–2,9) — целиком, «покажем,» (3,0–3,9) — частично
+  const ws5 = ["Сегодня", "мы", "эээ", "покажем,", "рост"].map((t, i) => w(`w${i + 1}`, i * 1_000_000, i * 1_000_000 + 900_000, t));
+  const map = mapWords(buildTimeline(5_000_000, [{ start_us: 2_000_000, end_us: 3_500_000 }], F30), ws5);
+
+  it("оставленные слова диапазона — ok; вырезанное внутри диапазона без цитаты его — ok", () => {
+    expect(checkHeardRange(ws5, map, "w1", "w2", "Сегодня мы")).toEqual({ ok: true });
+    expect(checkHeardRange(ws5, map, "w2", "w4", "мы покажем")).toEqual({ ok: true });
+    expect(checkHeardRange(ws5, map, "w4", "w5", "покажем рост")).toEqual({ ok: true }); // clipped — обычное слово
+  });
+
+  it("цитата с вырезанным словом → anchor_in_cut; граничное слово вырезано → anchor_in_cut", () => {
+    expect(checkHeardRange(ws5, map, "w2", "w4", "мы эээ покажем")).toMatchObject({ ok: false, code: "anchor_in_cut" });
+    expect(checkHeardRange(ws5, map, "w3", "w4", "эээ покажем")).toMatchObject({ ok: false, code: "anchor_in_cut" });
+    expect(checkHeardRange(ws5, map, "w1", "w3", "Сегодня мы")).toMatchObject({ ok: false, code: "anchor_in_cut" });
+  });
+
+  it("не та цитата → quote_mismatch; нет слова → unknown_word; обратный порядок → order; слова нет в wordMap — вырезано", () => {
+    expect(checkHeardRange(ws5, map, "w1", "w2", "вчера мы")).toMatchObject({ ok: false, code: "quote_mismatch" });
+    expect(checkHeardRange(ws5, map, "w1", "w9", "Сегодня")).toMatchObject({ ok: false, code: "unknown_word" });
+    expect(checkHeardRange(ws5, map, "w2", "w1", "мы Сегодня")).toMatchObject({ ok: false, code: "order" });
+    expect(checkHeardRange(ws5, { ...map, w1: undefined }, "w1", "w2", "Сегодня мы")).toMatchObject({ ok: false, code: "anchor_in_cut" });
+  });
+
+  it("без цитаты — только диапазон (главы, спорное)", () => {
+    expect(checkHeardRange(ws5, map, "w1", "w5")).toEqual({ ok: true });
+    expect(checkHeardRange(ws5, map, "w3", "w5")).toMatchObject({ ok: false, code: "anchor_in_cut" });
   });
 });

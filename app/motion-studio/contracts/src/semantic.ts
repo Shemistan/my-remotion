@@ -65,12 +65,17 @@ export function checkSemantic(d: SemanticFields, ctx: z.RefinementCtx): void {
 /**
  * Коды отклонения предложений Semantic Director (Task 31): цитата не дословна (`quote_mismatch`),
  * id слова нет (`unknown_word`), обратный порядок (`order`), граничное слово вырезано или цитата
- * опирается на вырезанные слова (`anchor_in_cut`), главы не покрывают оставленные слова
- * (`chapter_gap`) или пересекаются (`chapter_overlap`), акцент вне диапазона якоря
- * (`emphasis_out_of_range`), связь ссылается на отклонённый якорь (`unknown_anchor`).
+ * опирается на вырезанные слова (`anchor_in_cut`), глав нет — слова не покрыты (`chapter_gap`),
+ * главы пересекаются (`chapter_overlap`), акцент вне диапазона якоря (`emphasis_out_of_range`),
+ * связь ссылается на отклонённый якорь (`unknown_anchor`), `value` числа не совпадает с цифрами
+ * цитаты (`value_mismatch`).
+ * Пометки о принятом с поправкой (ревью Task 31, m2/m8): главы задаются началами, пропуск слов
+ * отдан соседней главе (`chapter_extended`, `id` — растянутая глава); в начале ролика нет принятой
+ * главы — добавлена нейтральная «Вступление» (`chapter_inserted`).
  */
 export const SemanticRejectCodeSchema = z.enum([
   "quote_mismatch", "unknown_word", "order", "anchor_in_cut", "chapter_gap", "chapter_overlap", "emphasis_out_of_range", "unknown_anchor",
+  "value_mismatch", "chapter_extended", "chapter_inserted",
 ]);
 export type SemanticRejectCode = z.infer<typeof SemanticRejectCodeSchema>;
 

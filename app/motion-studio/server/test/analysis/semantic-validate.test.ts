@@ -3,7 +3,7 @@
 // прошедшее — отклоняется с кодом, а не «чинится».
 import { describe, expect, it } from "vitest";
 import { buildTimeline, mapWords } from "@ms/contracts";
-import { validateSemantic } from "../../src/analysis/semantic-validate.js";
+import { numberMatchesQuote, validateSemantic } from "../../src/analysis/semantic-validate.js";
 import { F30, w } from "../edit/helpers.js";
 import { anchor, ch, id, map10, out, words10 } from "./semantic-helpers.js";
 
@@ -76,6 +76,13 @@ describe("validateSemantic: числа (Review Focus)", () => {
     expect(v.timeline.numbers).toHaveLength(4);
   });
 
+  it("value сверяется с цифрами цитаты: 5000 при «5%» → value_mismatch; 1000000 при «1 000 000», -3 при «-3», 0,05 при «5%» — приняты", () => {
+    const v = validateSemantic(out({ chapters: [c], numbers: [num(9, 9, "5%", 5000, "%"), num(4, 6, "1 000 000", 1_000_001), num(13, 13, "-3", -3), num(9, 9, "5%", 0.05)] }), ws, map);
+    expect(v.rejected.map((r) => [r.kind, r.code])).toEqual([["number", "value_mismatch"], ["number", "value_mismatch"]]);
+    expect(v.rejected[0]!.detail).toMatch(/5000/);
+    expect(v.timeline.numbers.map((x) => x.value)).toEqual([-3, 0.05]);
+  });
+
   it("«5» вместо «5%», «3» вместо «-3», «миллион» вместо «1 000 000» — quote_mismatch", () => {
     const v = validateSemantic(out({ chapters: [c], numbers: [num(9, 9, "5", 5), num(13, 13, "3", 3), num(4, 6, "миллион", 1_000_000)] }), ws, map);
     expect(v.rejected.map((r) => [r.kind, r.code])).toEqual([["number", "quote_mismatch"], ["number", "quote_mismatch"], ["number", "quote_mismatch"]]);
@@ -90,15 +97,18 @@ describe("validateSemantic: главы", () => {
     expect(validateSemantic(out({ chapters: [ch("c1", id(1), id(2)), ch("c2", id(4), id(10))] }), words10, map10).rejected).toEqual([]);
   });
 
-  it("слова после главы не покрыты → chapter_gap", () => {
+  it("слова после главы не покрыты — глава принята и растянута до конца: chapter_extended (не chapter_gap)", () => {
     const v = validateSemantic(out({ chapters: [ch("c1", id(1), id(5))] }), words10, map10);
-    expect(v.rejected).toContainEqual(expect.objectContaining({ kind: "chapter", code: "chapter_gap" }));
+    expect(v.rejected).toEqual([expect.objectContaining({ kind: "chapter", id: "c1", code: "chapter_extended" })]);
     expect(v.timeline.chapters.map((x) => x.id)).toEqual(["c1"]);
   });
 
-  it("пропуск между главами и в начале → chapter_gap; пересечение → chapter_overlap (вторая глава отклонена)", () => {
+  it("пропуск в начале и между главами — главы приняты (границы — их начала): chapter_extended той, что растянута; пересечение → chapter_overlap (вторая отклонена)", () => {
     const gap = validateSemantic(out({ chapters: [ch("c1", id(2), id(5)), ch("c2", id(7), id(10))] }), words10, map10);
-    expect(gap.rejected.map((r) => [r.id, r.code])).toEqual([["c1", "chapter_gap"], ["c2", "chapter_gap"]]);
+    expect(gap.rejected.map((r) => [r.id, r.code])).toEqual([["c1", "chapter_extended"], ["c1", "chapter_extended"]]);
+    expect(gap.rejected[0]!.detail).toMatch(/начал/);
+    expect(gap.timeline.chapters.map((x) => x.id)).toEqual(["c1", "c2"]);
+    expect(validateSemantic(out(), words10, map10).rejected).toEqual([expect.objectContaining({ kind: "chapter", code: "chapter_gap" })]);
     const ov = validateSemantic(out({ chapters: [ch("c1", id(1), id(6)), ch("c2", id(5), id(10))] }), words10, map10);
     expect(ov.rejected.map((r) => [r.id, r.code])).toContainEqual(["c2", "chapter_overlap"]);
     expect(ov.timeline.chapters.map((x) => x.id)).toEqual(["c1"]);
@@ -127,5 +137,28 @@ describe("validateSemantic: сущности и спорное", () => {
     expect(v.timeline.entities.map((e) => e.name)).toEqual(["рост"]);
     expect(v.timeline.disputed).toHaveLength(1);
     expect(v.rejected.map((r) => [r.kind, r.code])).toEqual([["entity", "anchor_in_cut"], ["entity", "unknown_word"], ["disputed", "order"]]);
+  });
+});
+
+describe("numberMatchesQuote", () => {
+  it("цифры цитаты: разряды через пробел, дробь с запятой, проценты, минус, множители словами", () => {
+    expect(numberMatchesQuote(1_000_000, "до 1 000 000 пользователей")).toBe(true);
+    expect(numberMatchesQuote(3.5, "рост 3,5 раза")).toBe(true);
+    expect(numberMatchesQuote(5, "5%")).toBe(true);
+    expect(numberMatchesQuote(0.05, "5%")).toBe(true);
+    expect(numberMatchesQuote(5000, "5%")).toBe(false);
+    expect(numberMatchesQuote(-3, "отток -3 пункта")).toBe(true);
+    expect(numberMatchesQuote(-3, "упал на 3 пункта")).toBe(true); // знак — из слов, не из цифр
+    expect(numberMatchesQuote(1_500_000, "1,5 млн рублей")).toBe(true);
+    expect(numberMatchesQuote(5000, "5 тысяч")).toBe(true);
+    expect(numberMatchesQuote(2300, "в 2 300 городах")).toBe(true);
+    expect(numberMatchesQuote(300, "в 2 300 городах")).toBe(true); // группа разрядов неоднозначна — любое прочтение
+    expect(numberMatchesQuote(10, "на 10 клиентах")).toBe(true);
+    expect(numberMatchesQuote(11, "на 10 клиентах")).toBe(false);
+  });
+
+  it("словесные числа (без цифр) — проверка пропускается", () => {
+    expect(numberMatchesQuote(0.5, "за полгода")).toBeUndefined();
+    expect(numberMatchesQuote(1_000_000, "до миллиона")).toBeUndefined();
   });
 });

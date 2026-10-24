@@ -13,6 +13,13 @@
 //
 // Повтор после сбоя (ревью Task 24, M3): id — `sem_<ULID задачи>`; опубликован прошлой попыткой —
 // задача завершается по нему без агента.
+//
+// Ревью Task 31: из двух ответов окна берётся лучший — меньше отклонённого, при равенстве больше
+// принятого (m5); хеш чекпоинта включает модель и sha256 системного промпта роли (m6); гейт A и
+// ревизии EDL и транскрипта читаются одной транзакцией, при публикации сверяются с текущими —
+// изменились: события `edl_changed`/`transcript_changed` и `stale_on_publish: true` в итоге (m4).
+// Разметка всё равно публикуется со ссылками на ревизии, по которым построена; потребители
+// (`plan.visual`, UI) берут её только при равенстве ссылок текущим ревизиям и валидном A.
 import { existsSync } from "node:fs";
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -21,8 +28,8 @@ import {
 } from "@ms/contracts";
 import type { StorageStatus } from "@ms/core";
 import { z } from "zod";
-import { buildSemanticTask } from "../agents/prompts.js";
-import type { AgentRuntimeAdapter } from "../agents/runtime.js";
+import { buildSemanticTask, loadPrompt } from "../agents/prompts.js";
+import type { AgentRuntimeAdapter, Role } from "../agents/runtime.js";
 import { type SemanticInput, semanticInput } from "../analysis/semantic-input.js";
 import { validateSemantic } from "../analysis/semantic-validate.js";
 import { type Span, WINDOW_DEFAULTS, type WindowOptions, mergeWindows, windowSpans } from "../analysis/semantic-windows.js";
@@ -34,6 +41,7 @@ import * as edls from "../db/repos/edls.js";
 import * as jobs from "../db/repos/jobs.js";
 import * as projects from "../db/repos/projects.js";
 import * as semanticRepo from "../db/repos/semantic.js";
+import * as transcripts from "../db/repos/transcripts.js";
 import { roughCutApprovalValid } from "../edit/approval-a.js";
 import { timelineFor } from "../edit/timeline-store.js";
 import { currentTranscript } from "../edit/transcript-ops.js";
@@ -63,6 +71,8 @@ export interface SemanticAnalyzeDeps {
   watchIntervalMs?: number;
   onStage?: (stage: SemanticStage) => void | Promise<void>;
   log?: (line: string) => void;
+  /** Системный промпт роли для хеша чекпоинта (m6; по умолчанию `loadPrompt` — как у рантайма сервера). */
+  systemPrompt?: (role: Role) => string;
 }
 
 /** Итог задачи (`output_refs`). */
@@ -73,6 +83,11 @@ export interface SemanticAnalyzeResult {
   reused: boolean;
   transcript_ref: { id: string; revision: number };
   edl_ref: { id: string; revision: number };
+  /**
+   * К моменту публикации текущая ревизия EDL или транскрипта уже другая (m4): разметка честно
+   * ссылается на ревизии, по которым построена, но потребителю не годится.
+   */
+  stale_on_publish: boolean;
   words?: { kept: number; removed: number };
   windows?: number;
   counts: { chapters: number; anchors: number; numbers: number; entities: number; causal: number; disputed: number; rejected: number };
@@ -82,7 +97,7 @@ export interface SemanticAnalyzeResult {
     cost_usd: number;
     retried: number;
     from_checkpoint: number;
-    merge_dropped: { causal: number; boundaries: number };
+    merge_dropped: { causal: number; boundaries: number; anchors: number };
   };
   timings_ms?: Partial<Record<SemanticStage, number>>;
 }
@@ -104,6 +119,11 @@ const EMPTY: SemanticAgentOutput = { chapters: [], anchors: [], entities: [], nu
 
 function counts(t: SemanticAgentOutput, rejected: number): SemanticAnalyzeResult["counts"] {
   return { chapters: t.chapters.length, anchors: t.anchors.length, numbers: t.numbers.length, entities: t.entities.length, causal: t.causal.length, disputed: t.disputed.length, rejected };
+}
+
+/** Принятых предложений в ответе (для выбора лучшего из двух ответов окна, m5). */
+function accepted(t: SemanticAgentOutput): number {
+  return t.chapters.length + t.anchors.length + t.numbers.length + t.entities.length + t.causal.length + t.disputed.length;
 }
 
 /** Перечень отклонённого для переотправки агенту. */
@@ -158,20 +178,26 @@ export function semanticAnalyze(depsOf: (ctx: JobContext) => SemanticAnalyzeDeps
         const doc = SemanticTimelineSchema.parse(JSON.parse(await readFile(join(root, relPath), "utf8")));
         ctx.emit("semantic_reused", `разметка ${semanticId} опубликована прошлой попыткой: агент не вызывается`);
         return done({
-          semantic_id: semanticId, rel_path: relPath, reused: true, transcript_ref: doc.transcript_ref, edl_ref: doc.edl_ref, counts: counts(doc, doc.rejected?.length ?? 0),
+          semantic_id: semanticId, rel_path: relPath, reused: true, transcript_ref: doc.transcript_ref, edl_ref: doc.edl_ref,
+          stale_on_publish: staleRefs(doc.transcript_ref, doc.edl_ref, false), counts: counts(doc, doc.rejected?.length ?? 0),
         });
       }
 
-      // гейт: Approval A текущей ревизии EDL
-      if (!roughCutApprovalValid(ctx.db, input.projectId)) {
+      // гейт: Approval A текущей ревизии EDL; гейт и ревизии EDL и транскрипта — один снимок БД (m4)
+      const snap = ctx.db.transaction(() => {
+        if (!roughCutApprovalValid(ctx.db, input.projectId)) return { valid: false as const };
+        const e = edls.byProject(ctx.db, input.projectId);
+        return { valid: true as const, edl: e, trRev: e ? transcripts.get(ctx.db, e.transcript_id)?.current_revision ?? null : null };
+      }).deferred();
+      if (!snap.valid) {
         return fail({ code: "approval_required", message: `semantic.analyze: черновой монтаж проекта ${input.projectId} не утверждён (Approval A нет или устарело) — сначала утвердите монтаж` });
       }
-      const edl = edls.byProject(ctx.db, input.projectId);
+      const edl = snap.edl;
       if (!edl || edl.current_revision === null) throw new SemanticFail({ code: "approval_required", message: `у проекта ${input.projectId} нет чернового монтажа` });
       const edlRev = edl.current_revision;
       const status = await d.storage();
       if (!status.ok) throw new SemanticFail({ code: "storage_unavailable", stage: "storage", message: `${status.reason}: ${status.detail}` });
-      const tr = currentTranscript(ctx.db, root, edl.transcript_id);
+      const tr = currentTranscript(ctx.db, root, edl.transcript_id, snap.trRev ?? undefined);
       const tl = timelineFor(ctx.db, edl.id, edlRev);
       const wordMap = mapWords(tl, tr.words);
       const inp = semanticInput(tr.words, tr.segments, tl);
@@ -183,7 +209,7 @@ export function semanticAnalyze(depsOf: (ctx: JobContext) => SemanticAnalyzeDeps
       let rejected: SemanticRejected[] = [];
       let spans: Span[] = [];
       let agentInfo: NonNullable<SemanticAnalyzeResult["agent"]> = {
-        status: "skipped", calls: 0, cost_usd: 0, retried: 0, from_checkpoint: 0, merge_dropped: { causal: 0, boundaries: 0 },
+        status: "skipped", calls: 0, cost_usd: 0, retried: 0, from_checkpoint: 0, merge_dropped: { causal: 0, boundaries: 0, anchors: 0 },
       };
       if (inp.words.length === 0) {
         ctx.emit("nothing_to_analyze", tr.words.length === 0 ? "в транскрипте нет слов: размечать нечего" : "черновой монтаж вырезал все слова: размечать нечего");
@@ -195,14 +221,15 @@ export function semanticAnalyze(depsOf: (ctx: JobContext) => SemanticAnalyzeDeps
         agentInfo = { ...r.info, calls: rc.records.length, cost_usd: Math.round(rc.spent * 1e4) / 1e4 };
         const merged = mergeWindows(r.parts, spans, inp.words);
         agentInfo.merge_dropped = merged.dropped;
-        if (merged.dropped.causal + merged.dropped.boundaries > 0) {
-          ctx.emit("windows_merged", `объединение окон: отброшено связей ${merged.dropped.causal} (якорь в чужом отрезке окна), границ глав ${merged.dropped.boundaries} (почти совпали в перекрытии)`);
+        if (merged.dropped.causal + merged.dropped.boundaries + merged.dropped.anchors > 0) {
+          ctx.emit("windows_merged", `объединение окон: отброшено связей ${merged.dropped.causal} (якорь в чужом отрезке окна), границ глав ${merged.dropped.boundaries} (почти совпали в перекрытии), ` +
+            `якорей ${merged.dropped.anchors} (почти-дубли на стыке)`);
         }
         // контроль объединения: итог проходит ту же проверку по всему транскрипту
         const final = validateSemantic(merged.timeline, tr.words, wordMap);
         if (final.rejected.length > 0) ctx.emit("semantic_merge_rejected", `после объединения окон отклонено ${final.rejected.length}`, { rejected: final.rejected.slice(0, 50) });
         timeline = final.timeline;
-        rejected = [...r.rejected, ...final.rejected.map((x) => ({ ...x, detail: `после объединения окон: ${x.detail ?? ""}` }))];
+        rejected = [...r.rejected, ...merged.rejected, ...final.rejected.map((x) => ({ ...x, detail: `после объединения окон: ${x.detail ?? ""}` }))];
       }
       if (rejected.length > 0) {
         ctx.emit("semantic_rejected", `отклонено кодом после переотправки: ${rejected.length} (${[...new Set(rejected.map((x) => x.code))].join(", ")})`, { rejected: rejected.slice(0, 100) });
@@ -212,9 +239,9 @@ export function semanticAnalyze(depsOf: (ctx: JobContext) => SemanticAnalyzeDeps
         schema_version: 1, id: semanticId, transcript_ref: transcriptRef, edl_ref: edlRef, ...timeline, rejected,
       });
       await enter("publish", 0.95);
-      // EDL сменился за время анализа: разметка честно ссылается на ревизии, по которым построена
-      const now = edls.get(ctx.db, edl.id);
-      if (now?.current_revision !== edlRev) ctx.emit("edl_changed", `EDL ${edl.id} за время анализа стал r${now?.current_revision}: разметка построена по r${edlRev}`);
+      // EDL или транскрипт сменились за время анализа: разметка честно ссылается на ревизии, по
+      // которым построена, итог помечен `stale_on_publish` (m4)
+      const staleOnPublish = staleRefs(transcriptRef, edlRef, true);
       draftDir = (await createJobDraft(root, { runId: fence.jobId, attempt: fence.attempt })).dir;
       await fsyncWrite(join(draftDir, SEMANTIC_FILE), JSON.stringify(doc, null, 2) + "\n");
       const store = new ArtifactStore({ root, db: ctx.db, guard: d.storage });
@@ -229,7 +256,7 @@ export function semanticAnalyze(depsOf: (ctx: JobContext) => SemanticAnalyzeDeps
       }, fence);
       timings.publish = (timings.publish ?? 0) + (Date.now() - t0);
       const res: SemanticAnalyzeResult = {
-        semantic_id: semanticId, rel_path: relPath, reused: false, transcript_ref: transcriptRef, edl_ref: edlRef,
+        semantic_id: semanticId, rel_path: relPath, reused: false, transcript_ref: transcriptRef, edl_ref: edlRef, stale_on_publish: staleOnPublish,
         words: { kept: inp.words.length, removed: inp.removed }, windows: spans.length, counts: counts(doc, rejected.length), agent: agentInfo, timings_ms: timings,
       };
       d.log?.(`semantic ${semanticId}: глав ${res.counts.chapters}, якорей ${res.counts.anchors}, чисел ${res.counts.numbers}, отклонено ${res.counts.rejected}, $${agentInfo.cost_usd}`);
@@ -247,7 +274,9 @@ export function semanticAnalyze(depsOf: (ctx: JobContext) => SemanticAnalyzeDeps
     ): Promise<{ parts: SemanticAgentOutput[]; rejected: SemanticRejected[]; info: NonNullable<SemanticAnalyzeResult["agent"]> }> {
       const label = "Semantic Director";
       const allowFix = d.config.scene.maxAutoFixes >= 1;
-      const info: NonNullable<SemanticAnalyzeResult["agent"]> = { status: "completed", calls: 0, cost_usd: 0, retried: 0, from_checkpoint: 0, merge_dropped: { causal: 0, boundaries: 0 } };
+      const info: NonNullable<SemanticAnalyzeResult["agent"]> = {
+        status: "completed", calls: 0, cost_usd: 0, retried: 0, from_checkpoint: 0, merge_dropped: { causal: 0, boundaries: 0, anchors: 0 },
+      };
       const pos = new Map(all.map((w, i) => [w.id, i]));
       const windows = spans.map((s, k) => {
         const words = inp.words.slice(s.start, s.end);
@@ -258,9 +287,11 @@ export function semanticAnalyze(depsOf: (ctx: JobContext) => SemanticAnalyzeDeps
         return { words, segments, full, window: { index: k + 1, total: spans.length } };
       });
       const make = (k: number, workdir: string, seq: number) => buildSemanticTask({ ...windows[k]!, workdir }, { ...rc.taskRun, seq });
+      // хеш окна: модель, вход и sha256 системного промпта роли — смена промпта не берёт старые ответы (m6)
+      const promptSha = sha256((d.systemPrompt ?? loadPrompt)("semantic_director"));
       const hashes = windows.map((_, k) => {
         const t = make(k, "", 1);
-        return stepInputHash("semantic_director", t.model, t.input);
+        return stepInputHash("semantic_director", t.model, { input: t.input, system_prompt_sha256: promptSha });
       });
       const allHash = sha256(canonicalJson(hashes));
       const saved = await readCheckpoint(checkpointPath(root, ctx.job.id, "semantic_director"), allHash);
@@ -322,8 +353,14 @@ export function semanticAnalyze(depsOf: (ctx: JobContext) => SemanticAnalyzeDeps
             return t;
           }, SemanticAgentOutputSchema);
           if (r2.ok) {
-            chosen = r2.output;
-            v = check(chosen);
+            // лучший из двух (m5): меньше отклонённого, при равенстве — больше принятого (дальше — второй)
+            const v2 = check(r2.output);
+            if (v2.rejected.length < v.rejected.length || (v2.rejected.length === v.rejected.length && accepted(v2.timeline) >= accepted(v.timeline))) {
+              chosen = r2.output;
+              v = v2;
+            } else {
+              ctx.emit("agent_retry_kept_first", `${label}${where}: второй ответ хуже (отклонено ${v2.rejected.length}, принято ${accepted(v2.timeline)}) — остаётся первый (отклонено ${v.rejected.length}, принято ${accepted(v.timeline)})`);
+            }
           } else if (["storage", "orphaned", "cancelled"].includes(r2.stage) || signal.aborted) {
             fatal(r2);
           } else {
@@ -340,6 +377,15 @@ export function semanticAnalyze(depsOf: (ctx: JobContext) => SemanticAnalyzeDeps
         rejected.push(...tag(v.rejected, k));
       }
       return { parts, rejected, info };
+    }
+
+    /** Ревизии, по которым построена разметка, уже не текущие (m4); `emit` — события об этом. */
+    function staleRefs(tRef: { id: string; revision: number }, eRef: { id: string; revision: number }, emit: boolean): boolean {
+      const eNow = edls.get(ctx.db, eRef.id)?.current_revision ?? null;
+      const tNow = transcripts.get(ctx.db, tRef.id)?.current_revision ?? null;
+      if (emit && eNow !== eRef.revision) ctx.emit("edl_changed", `EDL ${eRef.id} за время анализа стал r${eNow}: разметка построена по r${eRef.revision}`);
+      if (emit && tNow !== tRef.revision) ctx.emit("transcript_changed", `транскрипт ${tRef.id} за время анализа стал r${tNow}: разметка построена по r${tRef.revision}`);
+      return eNow !== eRef.revision || tNow !== tRef.revision;
     }
 
     function done(r: SemanticAnalyzeResult): HandlerResult {

@@ -2,19 +2,22 @@
 // слова (`semanticInput`) и отвечает парами id слов с дословными цитатами; код проверяет каждое
 // предложение и отклоняет не прошедшее с кодом — ничего не «чинит».
 //
-// Правила якоря (и числа):
-// - id слова нет → `unknown_word`; граничное слово вырезано монтажом целиком → `anchor_in_cut`;
-//   начало после конца → `order`;
-// - цитата сверяется (`verifyQuote`) с тем, что услышит зритель, — оставленными словами диапазона.
-//   Вырезанные слова внутри диапазона (паразит, повтор, вырезанный монтажом) допустимы, если цитата
-//   их не содержит: якорь опирается на смонтированную речь, граничные слова целы, время код считает
-//   по ним. Цитата совпала только вместе с вырезанными словами — агент опирается на вырезанное →
-//   `anchor_in_cut`; иначе `quote_mismatch`;
-// - `emphasis_word_ids` — оставленные слова внутри диапазона, иначе `emphasis_out_of_range`.
-// Главы: границы — оставленные слова по порядку; вместе покрывают все оставленные слова без
-// пропусков (`chapter_gap`) и пересечений (`chapter_overlap`, отклоняется поздняя). Связи — только
-// между принятыми якорями (`unknown_anchor`). Сущности — упоминания на оставленных словах.
-import { type SemanticAgentOutput, type SemanticRejected, type TranscriptWord, type WordMapping, verifyQuote } from "@ms/contracts";
+// Правила якоря (и числа) — общая функция `checkHeardRange` (@ms/contracts, ревью I1): цитата —
+// то, что слышит зритель (оставленные слова диапазона); граничное слово вырезано или цитата
+// опирается на вырезанное → `anchor_in_cut`; id нет → `unknown_word`; порядок → `order`; иначе
+// `quote_mismatch`. Тем же правилом пользуются план (`buildPlanItems`) и его перепроверка (Task 32).
+// - `emphasis_word_ids` — оставленные слова внутри диапазона, иначе `emphasis_out_of_range`;
+// - `value` числа сверяется с цифрами цитаты (`numberMatchesQuote`, ревью m3): не совпало →
+//   `value_mismatch`; цитата без цифр (словесное число) — сверка пропускается.
+// Главы (ревью m2): задаются НАЧАЛАМИ — глава тянется до начала следующей (так их объединяет
+// `mergeWindows`), `end_word_id` агента проверяется как диапазон, но границей не служит. Пропуск
+// слов перед главой отдан предыдущей главе (первой — сама глава растягивается к началу), после
+// последней — последней: глава принята, в `rejected` пометка `chapter_extended` с id растянутой
+// главы. Глав нет вовсе — `chapter_gap`; пересечение — `chapter_overlap` (отклоняется поздняя).
+// Связи — только между принятыми якорями (`unknown_anchor`). Сущности — упоминания на оставленных словах.
+import {
+  type SemanticAgentOutput, type SemanticRejected, type TranscriptWord, type WordMapping, checkHeardRange,
+} from "@ms/contracts";
 
 export interface SemanticValidation {
   timeline: SemanticAgentOutput;
@@ -42,24 +45,11 @@ export function validateSemantic(out: SemanticAgentOutput, words: Pick<Transcrip
     rejected.push({ kind, ...(id !== undefined ? { id } : {}), code, detail });
   };
 
-  /** Диапазон слов: индексы во `words` или код отказа. */
-  const span = (s: string, e: string): { si: number; ei: number } | { code: Code; detail: string } => {
-    const si = pos.get(s);
-    const ei = pos.get(e);
-    if (si === undefined || ei === undefined) return { code: "unknown_word", detail: `нет слова ${si === undefined ? s : e}` };
-    for (const [i, x] of [[si, s], [ei, e]] as const) if (!kept(i)) return { code: "anchor_in_cut", detail: `граничное слово ${x} вырезано монтажом` };
-    if (si > ei) return { code: "order", detail: `слово ${s} идёт после ${e}` };
-    return { si, ei };
-  };
-  /** Цитата диапазона: сверка с оставленными словами, затем — со всеми (опора на вырезанное). */
-  const quoted = (si: number, ei: number, quote: string): { code: Code; detail: string } | undefined => {
-    const heard = words.slice(si, ei + 1).filter((_, k) => kept(si + k));
-    if (verifyQuote(heard, heard[0]!.id, heard.at(-1)!.id, quote).ok) return undefined;
-    const hasCut = heard.length < ei - si + 1;
-    if (hasCut && verifyQuote(words, words[si]!.id, words[ei]!.id, quote).ok) {
-      return { code: "anchor_in_cut", detail: `цитата содержит слова, вырезанные монтажом: «${clip(quote)}»` };
-    }
-    return { code: "quote_mismatch", detail: `цитата не совпадает со словами ${words[si]!.id}…${words[ei]!.id}: «${clip(quote)}»` };
+  /** Диапазон (и цитата) по правилу «то, что слышит зритель»: индексы во `words` или код отказа. */
+  const span = (st: string, e: string, quote?: string): { si: number; ei: number } | { code: Code; detail: string } => {
+    const r = checkHeardRange(words, wordMap, st, e, quote);
+    if (!r.ok) return { code: r.code, detail: quote === undefined ? r.message : `${r.message}: «${clip(quote)}»` };
+    return { si: pos.get(st)!, ei: pos.get(e)! };
   };
 
   // главы: каждая отдельно, затем покрытие оставленных слов
@@ -77,25 +67,26 @@ export function validateSemantic(out: SemanticAgentOutput, words: Pick<Transcrip
       reject("chapter", x.c.id, "chapter_overlap", `глава ${x.c.id} пересекается с предыдущей`);
       continue;
     }
-    if (x.a > covered + 1) reject("chapter", x.c.id, "chapter_gap", `перед главой ${x.c.id} не покрыто слов: ${x.a - covered - 1}`);
+    if (x.a > covered + 1) {
+      const prev = okChapters.at(-1)?.c.id;
+      const gap = x.a - covered - 1;
+      if (prev) reject("chapter", prev, "chapter_extended", `перед главой ${x.c.id} не покрыто слов: ${gap} — отданы главе ${prev} (граница — начало следующей главы)`);
+      else reject("chapter", x.c.id, "chapter_extended", `до главы ${x.c.id} не покрыто слов: ${gap} — глава растянута к началу`);
+    }
     okChapters.push(x);
     covered = x.b;
   }
   if (nk > 0 && covered < nk - 1) {
     const last = okChapters.at(-1)?.c.id;
-    reject("chapter", last, "chapter_gap", last ? `после главы ${last} не покрыто слов: ${nk - 1 - covered}` : "глав нет: слова не покрыты");
+    if (last) reject("chapter", last, "chapter_extended", `после главы ${last} не покрыто слов: ${nk - 1 - covered} — глава растянута до конца`);
+    else reject("chapter", undefined, "chapter_gap", "глав нет: слова не покрыты");
   }
 
   const anchors: SemanticAgentOutput["anchors"] = [];
   for (const a of out.anchors) {
-    const r = span(a.start_word_id, a.end_word_id);
+    const r = span(a.start_word_id, a.end_word_id, a.quote);
     if ("code" in r) {
       reject("anchor", a.id, r.code, r.detail);
-      continue;
-    }
-    const q = quoted(r.si, r.ei, a.quote);
-    if (q) {
-      reject("anchor", a.id, q.code, q.detail);
       continue;
     }
     const bad = a.emphasis_word_ids.find((x) => {
@@ -111,9 +102,10 @@ export function validateSemantic(out: SemanticAgentOutput, words: Pick<Transcrip
 
   const numbers: SemanticAgentOutput["numbers"] = [];
   for (const n of out.numbers) {
-    const r = span(n.start_word_id, n.end_word_id);
-    const q = "code" in r ? r : quoted(r.si, r.ei, n.quote);
-    if (q) reject("number", undefined, q.code, `${n.value}${n.unit ? ` ${n.unit}` : ""}: ${q.detail}`);
+    const r = span(n.start_word_id, n.end_word_id, n.quote);
+    const label = `${n.value}${n.unit ? ` ${n.unit}` : ""}`;
+    if ("code" in r) reject("number", undefined, r.code, `${label}: ${r.detail}`);
+    else if (numberMatchesQuote(n.value, n.quote) === false) reject("number", undefined, "value_mismatch", `значение ${n.value} не совпадает с цифрами цитаты «${clip(n.quote)}»`);
     else numbers.push(n);
   }
 
@@ -145,3 +137,24 @@ export function validateSemantic(out: SemanticAgentOutput, words: Pick<Transcrip
 }
 
 const clip = (s: string, n = 120): string => (s.length > n ? `${s.slice(0, n)}…` : s);
+
+const MULTIPLIERS: [RegExp, number][] = [[/тыс/, 1e3], [/млн|миллион/, 1e6], [/млрд|миллиард/, 1e9]];
+
+/**
+ * Совпадает ли `value` числа с цифрами цитаты (ревью m3). Цитата без цифр (словесное число:
+ * «полгода», «миллион») — `undefined`, сверка пропускается. Чтения цифр: разряды через пробел
+ * («1 000 000» — и целиком, и по группам: «2 300» неоднозначно), дробь через запятую или точку
+ * («3,5»); множители — только если они есть в цитате словом («тыс», «млн», «млрд») или знаком
+ * «%» (`value` = доля: 5% → 0,05). Знак сравнивается по модулю: «упал на 3» → -3 — смысл из слов.
+ */
+export function numberMatchesQuote(value: number, quote: string): boolean | undefined {
+  const q = quote.normalize("NFC").replace(/[\u00a0\u202f]/g, " ").toLowerCase();
+  if (!/\d/.test(q)) return undefined;
+  const parse = (t: string) => Number(t.replace(/ /g, "").replace(",", "."));
+  const cands = new Set<number>();
+  for (const m of q.matchAll(/\d+(?: \d{3})*(?:[.,]\d+)?/g)) cands.add(parse(m[0]));
+  for (const m of q.matchAll(/\d+(?:[.,]\d+)?/g)) cands.add(parse(m[0]));
+  const mults = [1, ...MULTIPLIERS.filter(([re]) => re.test(q)).map(([, k]) => k), ...(q.includes("%") ? [0.01] : [])];
+  const v = Math.abs(value);
+  return [...cands].some((c) => mults.some((k) => Math.abs(c * k - v) <= 1e-9 * Math.max(1, v)));
+}

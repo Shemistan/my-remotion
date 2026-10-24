@@ -121,4 +121,50 @@ describe("mergeWindows: 7000 слов, три окна", () => {
     expect(m.timeline.causal).toEqual([]);
     expect(m.dropped.causal).toBe(1);
   });
+
+  it("почти-дубль якоря на стыке (m1): якорь окна 2 того же вида, пересекающийся ≥ 50 % слов меньшего с якорем окна 1, отброшен; связь через него — на принятый", () => {
+    const a = out({ anchors: [A("a1", 2845, 2860), A("a0", 100, 101)], causal: [] });
+    const b = out({ anchors: [A("x", 2852, 2860), A("y", 4100, 4110)], causal: [{ cause_anchor_id: "x", effect_anchor_id: "y" }] });
+    const m = mergeWindows([a, b, out()], spans, visible);
+    expect(m.timeline.anchors.map((x) => [x.start_word_id, x.end_word_id])).toEqual([[id(100), id(101)], [id(2845), id(2860)], [id(4100), id(4110)]]);
+    expect(m.dropped.anchors).toBe(1);
+    expect(m.timeline.causal).toEqual([{ cause_anchor_id: "a_0002", effect_anchor_id: "a_0003" }]);
+  });
+
+  it("стык: другой вид на тех же словах или пересечение < 50 % меньшего — оба якоря остаются", () => {
+    // окно 1 владеет словами до 2850-го включительно, окно 2 — с 2851-го
+    const a = out({ anchors: [A("a1", 2801, 2805, "thesis"), A("a2", 2840, 2855)] });
+    const b = out({ anchors: [A("b1", 2851, 2855, "emphasis"), A("b2", 2853, 2875)] }); // b2 ∩ a2 = 3 из 16 слов меньшего
+    const m = mergeWindows([a, b, out()], spans, visible);
+    expect(m.timeline.anchors.map((x) => [x.start_word_id, x.kind])).toEqual([[id(2801), "thesis"], [id(2840), "thesis"], [id(2851), "emphasis"], [id(2853), "thesis"]]);
+    const c = out({ anchors: [A("c1", 2852, 2855, "emphasis")] });
+    expect(mergeWindows([out({ anchors: [A("a1", 2845, 2860, "thesis")] }), c, out()], spans, visible).timeline.anchors).toHaveLength(2);
+    expect(mergeWindows([a, b, out()], spans, visible).dropped.anchors).toBe(0);
+  });
+
+  it("сущности (m7) склеиваются по нормализованному имени без вида; вид — по большинству, при равенстве — первый", () => {
+    const m = mergeWindows([
+      out({ entities: [{ name: "Роутер", kind: "product", mention_word_ids: [id(10)] }] }),
+      out({ entities: [{ name: "роутер,", kind: "technology", mention_word_ids: [id(4000)] }] }),
+      out({ entities: [{ name: "РОУТЕР", kind: "technology", mention_word_ids: [id(6000)] }, { name: "Шлюз", kind: "a", mention_word_ids: [id(6001)] }] }),
+    ], spans, visible);
+    expect(m.timeline.entities).toEqual([
+      { name: "Роутер", kind: "technology", mention_word_ids: [id(10), id(4000), id(6000)] },
+      { name: "Шлюз", kind: "a", mention_word_ids: [id(6001)] },
+    ]);
+    const tie = mergeWindows([out({ entities: [{ name: "Роутер", kind: "product", mention_word_ids: [id(10)] }] }), out({ entities: [{ name: "роутер", kind: "technology", mention_word_ids: [id(4000)] }] }), out()], spans, visible);
+    expect(tie.timeline.entities).toEqual([{ name: "Роутер", kind: "product", mention_word_ids: [id(10), id(4000)] }]);
+  });
+
+  it("в окне 1 нет принятых глав (m8) — первая глава «Вступление» с первого слова до первой границы, пометка chapter_inserted; поздний заголовок на начало не растягивается", () => {
+    const m = mergeWindows([out(), out({ chapters: [ch("c1", id(2701), id(4000), "Начало окна"), ch("c2", id(4001), id(5700), "Результаты")] }), out()], spans, visible);
+    expect(m.timeline.chapters.map((c) => [c.id, c.start_word_id, c.end_word_id, c.title])).toEqual([
+      ["ch_01", id(1), id(4000), "Вступление"], ["ch_02", id(4001), id(7000), "Результаты"],
+    ]);
+    expect(m.rejected).toEqual([expect.objectContaining({ kind: "chapter", id: "ch_01", code: "chapter_inserted" })]);
+    // граница из окна 1 — первая глава растягивается к началу (пометку chapter_extended даёт validateSemantic окна)
+    const m1 = mergeWindows([out({ chapters: [ch("c1", id(500), id(3000), "Метод")] }), out(), out()], spans, visible);
+    expect(m1.timeline.chapters.map((c) => [c.start_word_id, c.title])).toEqual([[id(1), "Метод"]]);
+    expect(m1.rejected).toEqual([]);
+  });
 });

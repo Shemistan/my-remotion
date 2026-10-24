@@ -8,18 +8,25 @@
 // проходит по середине их перекрытия (`ownedRanges`). У обоих окон там ещё ≥ overlap/2 слов
 // контекста, поэтому:
 // - якорь, число, спорное место берутся из окна, которому принадлежит их первое слово (дубли из
-//   перекрытия отпадают сами); точные дубли (тот же вид и слова) схлопываются;
-// - главы задаются границами (первыми словами глав): из каждого окна — только границы в своём
-//   отрезке; глава тянется до следующей границы, поэтому покрытие без пропусков и пересечений по
-//   построению; начало окна (> 0) — не граница. Две границы из разных окон в одном перекрытии
-//   ближе `NEAR_BOUNDARY_WORDS` — одна мысль, увиденная окнами с разным контекстом: остаётся граница
-//   раннего окна. Первая глава всегда начинается с первого слова;
-// - связи переносятся на итоговые id якорей; якорь чужого отрезка — через его точный дубль в
-//   окне-владельце, дубля нет — связь отбрасывается (`dropped.causal`);
-// - сущности склеиваются по имени (без регистра, `normalizeToken`) и виду, упоминания — только из
-//   своих отрезков, без повторов, по порядку.
+//   перекрытия отпадают сами); точные дубли (тот же вид и слова) схлопываются. Почти-дубль на стыке
+//   (ревью m1): якорь позднего окна того же вида, пересекающийся с принятым якорем раннего окна
+//   не меньше чем на половину слов меньшего из двух, — та же мысль, увиденная с другим контекстом:
+//   отбрасывается (`dropped.anchors`), связи через него идут на принятый;
+// - главы задаются границами (первыми словами глав; `end_word_id` агента границей не служит —
+//   ревью m2): из каждого окна — только границы в своём отрезке; глава тянется до следующей
+//   границы, поэтому покрытие без пропусков и пересечений по построению; начало окна (> 0) — не
+//   граница. Две границы из разных окон в одном перекрытии ближе `NEAR_BOUNDARY_WORDS` — одна
+//   мысль: остаётся граница раннего окна. Начало ролика (ревью m8): первая граница из окна 1 —
+//   её глава растягивается к первому слову (пометку `chapter_extended` дал `validateSemantic`
+//   окна); принятых глав окна 1 нет, а первая граница — из позднего окна — перед ней нейтральная
+//   глава «Вступление» с пометкой `chapter_inserted` (поздний заголовок на начало не тянется);
+// - связи переносятся на итоговые id якорей; якорь чужого отрезка — через его точный дубль или
+//   почти-дубль того же вида среди принятых, нет — связь отбрасывается (`dropped.causal`);
+// - сущности склеиваются по нормализованному имени (`normalizeToken` по словам, ревью m7), вид —
+//   по большинству окон, при равенстве — первый; упоминания — только из своих отрезков, без
+//   повторов, по порядку.
 // id в итоге: главы `ch_01…`, якоря `a_0001…` по порядку слов.
-import { type SemanticAgentOutput, normalizeToken } from "@ms/contracts";
+import { type SemanticAgentOutput, type SemanticRejected, normalizeToken } from "@ms/contracts";
 
 export interface WindowOptions {
   /** Слов, при которых окно одно. */
@@ -70,8 +77,13 @@ export function ownedRanges(spans: Span[], n: number): { from: number; to: numbe
 
 export interface MergeResult {
   timeline: SemanticAgentOutput;
-  dropped: { causal: number; boundaries: number };
+  dropped: { causal: number; boundaries: number; anchors: number };
+  /** Пометки объединения (`chapter_inserted`). */
+  rejected: SemanticRejected[];
 }
+
+/** Заголовок нейтральной главы начала ролика (ревью m8). */
+export const INTRO_TITLE = "Вступление";
 
 type Anchor = SemanticAgentOutput["anchors"][number];
 
@@ -93,7 +105,8 @@ export function mergeWindows(parts: SemanticAgentOutput[], spans: Span[], visibl
     const i = at(id);
     return i >= owned[k]!.from && i < owned[k]!.to;
   };
-  const dropped = { causal: 0, boundaries: 0 };
+  const dropped = { causal: 0, boundaries: 0, anchors: 0 };
+  const rejected: SemanticRejected[] = [];
 
   // --- главы: границы своих отрезков
   const bounds: { i: number; k: number; c: SemanticAgentOutput["chapters"][number] }[] = [];
@@ -120,23 +133,50 @@ export function mergeWindows(parts: SemanticAgentOutput[], spans: Span[], visibl
     }
     kept.push(b);
   }
-  if (kept.length > 0 && kept[0]!.i > 0) kept[0] = { ...kept[0]!, i: 0 }; // первая глава — с первого слова
+  let intro = false;
+  if (kept.length > 0 && kept[0]!.i > 0) {
+    if (kept[0]!.k === 0) kept[0] = { ...kept[0]!, i: 0 }; // граница окна 1 — глава растягивается к началу
+    else intro = true;
+  }
   const chapters = kept.map((b, j) => ({
     ...b.c,
-    id: `ch_${String(j + 1).padStart(2, "0")}`,
     start_word_id: visible[b.i]!.id,
     end_word_id: visible[(kept[j + 1]?.i ?? n) - 1]!.id,
   }));
+  if (intro) {
+    chapters.unshift({ id: "", title: INTRO_TITLE, summary: "", start_word_id: visible[0]!.id, end_word_id: visible[kept[0]!.i - 1]!.id });
+    rejected.push({
+      kind: "chapter", id: "ch_01", code: "chapter_inserted",
+      detail: `в окне 1 нет принятых глав: слова 1–${kept[0]!.i} — нейтральная глава «${INTRO_TITLE}», первая глава агента начинается со слова ${kept[0]!.i + 1}`,
+    });
+  }
+  chapters.forEach((c, j) => (c.id = `ch_${String(j + 1).padStart(2, "0")}`));
 
   // --- якоря: из окна-владельца первого слова; точные дубли схлопываются
   const key = (a: Anchor) => `${a.kind}|${a.start_word_id}|${a.end_word_id}`;
-  const picked: { a: Anchor; k: number }[] = [];
+  const picked: { a: Anchor; k: number; s: number; e: number }[] = [];
   const byKey = new Map<string, number>();
+  /** Принятый якорь того же вида, пересекающийся ≥ половины слов меньшего (из окна, отличного от `k`). */
+  const near = (a: Anchor, k: number): number => {
+    const s0 = at(a.start_word_id);
+    const e0 = at(a.end_word_id);
+    return picked.findIndex((x) => {
+      if (x.k === k || x.a.kind !== a.kind) return false;
+      const inter = Math.min(x.e, e0) - Math.max(x.s, s0) + 1;
+      return inter > 0 && 2 * inter >= Math.min(x.e - x.s + 1, e0 - s0 + 1);
+    });
+  };
   parts.forEach((p, k) => {
     for (const a of p.anchors) {
       if (!own(k, a.start_word_id) || byKey.has(key(a))) continue;
+      const j = near(a, k);
+      if (j >= 0) {
+        byKey.set(key(a), j);
+        dropped.anchors++;
+        continue;
+      }
       byKey.set(key(a), picked.length);
-      picked.push({ a, k });
+      picked.push({ a, k, s: at(a.start_word_id), e: at(a.end_word_id) });
     }
   });
   const order = picked.map((_, j) => j).sort((x, y) => {
@@ -147,12 +187,12 @@ export function mergeWindows(parts: SemanticAgentOutput[], spans: Span[], visibl
   const newId = new Map<number, string>();
   order.forEach((j, r) => newId.set(j, `a_${String(r + 1).padStart(4, "0")}`));
   const anchors = order.map((j) => ({ ...picked[j]!.a, id: newId.get(j)! }));
-  // локальный id якоря окна → итоговый (свой или через точный дубль)
+  // локальный id якоря окна → итоговый (свой, точный дубль или почти-дубль того же вида)
   const mapId = (k: number, local: string): string | undefined => {
     const a = parts[k]!.anchors.find((x) => x.id === local);
     if (!a) return undefined;
-    const j = byKey.get(key(a));
-    return j === undefined ? undefined : newId.get(j);
+    const j = byKey.get(key(a)) ?? near(a, k);
+    return j < 0 ? undefined : newId.get(j);
   };
   const causal: SemanticAgentOutput["causal"] = [];
   const seenLink = new Set<string>();
@@ -178,21 +218,30 @@ export function mergeWindows(parts: SemanticAgentOutput[], spans: Span[], visibl
     .sort((a, b) => at(a.start_word_id) - at(b.start_word_id));
 
   // --- сущности: по имени и виду, упоминания из своих отрезков
-  const ents = new Map<string, SemanticAgentOutput["entities"][number]>();
+  const ents = new Map<string, { e: SemanticAgentOutput["entities"][number]; kinds: Map<string, number> }>();
+  const nameKey = (name: string) => name.split(/\s+/).map(normalizeToken).filter(Boolean).join(" ");
   parts.forEach((p, k) => {
     for (const e of p.entities) {
       const mentions = e.mention_word_ids.filter((x) => own(k, x));
-      const ek = `${normalizeToken(e.name)}|${normalizeToken(e.kind)}`;
+      const ek = nameKey(e.name) || e.name;
       const cur = ents.get(ek);
-      if (cur) cur.mention_word_ids.push(...mentions);
-      else ents.set(ek, { ...e, mention_word_ids: [...mentions] });
+      if (cur) {
+        cur.e.mention_word_ids.push(...mentions);
+        cur.kinds.set(e.kind, (cur.kinds.get(e.kind) ?? 0) + 1);
+      } else ents.set(ek, { e: { ...e, mention_word_ids: [...mentions] }, kinds: new Map([[e.kind, 1]]) });
     }
   });
+  const majority = (kinds: Map<string, number>): string => {
+    let best = "";
+    let n = 0;
+    for (const [kind, c] of kinds) if (c > n) [best, n] = [kind, c]; // при равенстве — первый
+    return best;
+  };
   const entities = [...ents.values()]
-    .map((e) => ({ ...e, mention_word_ids: [...new Set(e.mention_word_ids)].sort((a, b) => at(a) - at(b)) }))
+    .map(({ e, kinds }) => ({ ...e, kind: majority(kinds), mention_word_ids: [...new Set(e.mention_word_ids)].sort((a, b) => at(a) - at(b)) }))
     .filter((e) => e.mention_word_ids.length > 0);
 
-  return { timeline: { chapters, anchors, entities, numbers, causal, disputed }, dropped };
+  return { timeline: { chapters, anchors, entities, numbers, causal, disputed }, dropped, rejected };
 }
 
 function dedupe<T>(xs: T[], key: (x: T) => string): T[] {

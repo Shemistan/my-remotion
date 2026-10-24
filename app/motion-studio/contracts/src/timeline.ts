@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { type Fps, FpsSchema, usToFrame } from "./time.js";
 import { snapUsToFrame, usToFrameCeil } from "./timecode.js";
-import type { TranscriptWord } from "./transcript.js";
+import { type TranscriptWord, verifyQuote } from "./transcript.js";
 
 const Us = z.number().int().nonnegative();
 
@@ -212,6 +212,45 @@ export function mapWords(
       : { state: "removed" };
   }
   return out;
+}
+
+export type HeardRangeResult =
+  | { ok: true }
+  | { ok: false; code: "anchor_in_cut" | "quote_mismatch" | "unknown_word" | "order"; message: string };
+
+/**
+ * Правило «цитата = то, что слышит зритель» (Task 31, ревью I1) — общее для смысловой разметки
+ * (`validateSemantic`), сцен плана (`buildPlanItems`) и перепроверки плана после новой ревизии EDL
+ * (`recheckPlan`, Task 32). `words` — слова транскрипта по порядку вместе с вырезанными, `wordMap` —
+ * `mapWords(tl, words)`; слово без записи считается вырезанным, `clipped` — обычное слово.
+ * - id нет → `unknown_word`; граничное слово вырезано целиком → `anchor_in_cut`; начало после конца → `order`;
+ * - цитата сверяется (`verifyQuote`) с оставленными словами диапазона: вырезанные внутри
+ *   (паразит, повтор) допустимы, если цитата их не содержит; совпала только вместе с вырезанными —
+ *   опора на вырезанное → `anchor_in_cut`; иначе `quote_mismatch`;
+ * - без `quote` — только диапазон (главы, спорное).
+ */
+export function checkHeardRange(
+  words: Pick<TranscriptWord, "id" | "text">[], wordMap: Record<string, WordMapping | undefined>,
+  startWordId: string, endWordId: string, quote?: string,
+): HeardRangeResult {
+  const si = words.findIndex((x) => x.id === startWordId);
+  const ei = words.findIndex((x) => x.id === endWordId);
+  if (si < 0 || ei < 0) return { ok: false, code: "unknown_word", message: `нет слова ${si < 0 ? startWordId : endWordId}` };
+  const heardWord = (i: number) => {
+    const st = wordMap[words[i]!.id]?.state;
+    return st === "kept" || st === "clipped";
+  };
+  for (const [i, x] of [[si, startWordId], [ei, endWordId]] as const) {
+    if (!heardWord(i)) return { ok: false, code: "anchor_in_cut", message: `граничное слово ${x} вырезано монтажом` };
+  }
+  if (si > ei) return { ok: false, code: "order", message: `слово ${startWordId} идёт после ${endWordId}` };
+  if (quote === undefined) return { ok: true };
+  const heard = words.slice(si, ei + 1).filter((_, k) => heardWord(si + k));
+  if (verifyQuote(heard, heard[0]!.id, heard.at(-1)!.id, quote).ok) return { ok: true };
+  if (heard.length < ei - si + 1 && verifyQuote(words, startWordId, endWordId, quote).ok) {
+    return { ok: false, code: "anchor_in_cut", message: "цитата содержит слова, вырезанные монтажом" };
+  }
+  return { ok: false, code: "quote_mismatch", message: `цитата не совпадает с оставленными словами ${startWordId}…${endWordId}` };
 }
 
 /**
