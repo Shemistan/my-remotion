@@ -16,6 +16,37 @@ export const QUARANTINE = ".quarantined";
 export const SYNC_DRAFT_PREFIX = "sync-";
 const COPIED_FROM_PARENT = ["src", "props.json", "spec.json", "settings.json"];
 
+/**
+ * Имя draft попытки: `<job>-a<n>` или с ключом экспорта `<job>-a<n>--<key>` (S6: несколько
+ * экспортов в одной попытке `script.package`). `--` отделяет ключ однозначно: ключ вида
+ * `1-a2` не читается как номер попытки.
+ */
+export const DRAFT_NAME = /^(.+?)-a(\d+)(?:--[A-Za-z0-9_-]+)?$/;
+/** Ключ draft экспорта (S6): латиница, цифры, `_`, `-`, до 64 символов. */
+export const DRAFT_KEY = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** Имя draft попытки (`key` — draft экспорта с ключом, S6). */
+export function draftName(runId: string, attempt: number, key?: string): string {
+  return `${runId}-a${attempt}${key ? `--${key}` : ""}`;
+}
+
+/** Попытка, которой принадлежит draft `name` (`<job>-a<n>` и `<job>-a<n>--<key>`); иначе undefined. */
+export function draftAttempt(name: string): { runId: string; attempt: number } | undefined {
+  const m = DRAFT_NAME.exec(name);
+  return m ? { runId: m[1]!, attempt: Number(m[2]) } : undefined;
+}
+
+/** Все draft попытки: основной `<job>-a<n>` и draft экспортов `<job>-a<n>--<key>` (S6), если есть. */
+export async function attemptDraftDirs(root: string, runId: string, attempt: number): Promise<string[]> {
+  const draftsDir = join(root, "workspace/drafts");
+  if (!existsSync(draftsDir)) return [];
+  const base = draftName(runId, attempt);
+  return (await readdir(draftsDir, { withFileTypes: true }))
+    .filter((e) => e.isDirectory() && (e.name === base || (e.name.startsWith(`${base}--`) && DRAFT_NAME.test(e.name))))
+    .map((e) => join(draftsDir, e.name))
+    .sort();
+}
+
 export interface DraftRef {
   runId: string;
   attempt: number;
@@ -294,7 +325,7 @@ export async function sweepAbandonedDrafts(
   const out = { quarantined: [] as string[], skipped: [] as string[] };
   const draftsDir = join(root, "workspace/drafts");
   if (!existsSync(draftsDir)) return out;
-  const live = new Set((await registry.live()).map((p) => `${p.runId}-a${p.attempt}`));
+  const live = new Set((await registry.live()).map((p) => draftName(p.runId, p.attempt)));
   for (const e of await readdir(draftsDir, { withFileTypes: true })) {
     if (!e.isDirectory()) continue;
     const dir = join(draftsDir, e.name);
@@ -304,9 +335,9 @@ export async function sweepAbandonedDrafts(
       out.quarantined.push(dir);
       continue;
     }
-    const m = /^(.+)-a(\d+)$/.exec(e.name);
-    if (!m || existsSync(join(dir, QUARANTINE))) continue;
-    if (live.has(e.name)) {
+    const a = draftAttempt(e.name);
+    if (!a || existsSync(join(dir, QUARANTINE))) continue;
+    if (live.has(draftName(a.runId, a.attempt))) {
       out.skipped.push(dir);
       continue;
     }

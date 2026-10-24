@@ -1,4 +1,4 @@
-# @ms/motion-kit 0.5.3 — справка для агента
+# @ms/motion-kit 0.5.4 — справка для агента
 
 Детерминированные компоненты Remotion 4.0.537. Всё движение считается от
 `useCurrentFrame()`; оформление берётся из StyleBible (`useStyle()`). Импорт —
@@ -40,6 +40,11 @@ import { AnimatedNumber, AreaChart, Background, BarChart, Callout, Camera, Card,
 поздний текст (вывод) до входа пуст или каркасом. QA видит финал по тому, кто в кадре
 движется: импульс `steady-flow` в пути, волна героя, повтор, блик — а не по включённому
 режиму; `FlowGraph` предупреждает, если `steady-flow` не продолжает ни одного потока.
+
+**0.5.4.** Наложение поверх видео (`transparent`): весь текст сцены получает ореол цвета
+`palette.bg` (своя тень — через `withHalo`), `palette.muted` сдвинут к `text` (подписи, оси и
+тики читаются на светлом кадре), приглушение текста — цветом к `muted`, а не `opacity` (`dimText`;
+`opacity` гасит и ореол). Без `transparent` вид прежний.
 
 **0.5.1.** Кадры сцены с фазами по-прежнему из `spec.json`. Бит графа в setup идёт всё окно
 setup: узлы входят каскадом, рёбра дорисованы к его концу — потоки action идут уже по ним.
@@ -129,7 +134,7 @@ transparent?, palette_overrides?, safe_area?, font? }`), id пресета, Styl
 | `motion.enter_frames`, `exit_frames`, `stagger_frames` | уже пересчитаны под fps (база 30) и интенсивность: бери как есть, в `frames()` не оборачивай |
 | `amplitude` | размах движения: calm 0.6, balanced 1, energetic 1.35 (кадры: calm ×1.25, energetic ×0.75) |
 | `depth` | 0 плоско · 1 как задумано · 2–3 объёмнее: тени карточек, перспектива, атмосфера фона, тень крупного текста |
-| `transparent` | прозрачный экспорт: `Background` не рисуется, свой фон на корне сцены не ставь; весь текст сцены получает ореол цвета `palette.bg` (читается поверх видео). Своя `textShadow` гасит ореол — пиши `textShadow: withHalo(style, свояТень)` |
+| `transparent` | прозрачный экспорт: `Background` не рисуется, свой фон на корне сцены не ставь; весь текст сцены получает ореол цвета `palette.bg` (читается поверх видео). Своя `textShadow` гасит ореол — пиши `textShadow: withHalo(style, свояТень)`; приглушать текст — `dimText(style, цвет, доля)` (в transparent — цветом, `opacity` гасит ореол); `palette.muted` в transparent ближе к `text` |
 | `palette` | палитра пресета с `palette_overrides` (`accent[i]` заменяет `accent[i]`) |
 | `grid.safe_area` | поля кадра: `props.style.safe_area` (из настроек сцены), без него — пресета |
 | `fpsScale` | fps / 30: `frames()` пересчитывает им свои константы компонентов |

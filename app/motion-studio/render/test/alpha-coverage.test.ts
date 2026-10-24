@@ -30,6 +30,20 @@ function makeFlat(path: string, a: number): void {
   ]);
 }
 
+/**
+ * ProRes 4444 1920×1080, 1 кадр: «одна строка текста» — штрихи глифов 3 px через 12 px в
+ * полосе 800×60 (≈ 0,58 % кадра непрозрачно). Даунскейл area усреднил бы штрихи с фоном до
+ * α ≈ 64 (дымка) — и строка стала бы «пустым» кадром.
+ */
+function makeTextLine(path: string): void {
+  execFileSync(ffmpeg, [
+    "-v", "error", "-y",
+    "-f", "lavfi", "-i", "color=c=white:s=1920x1080:r=30:d=0.034,format=rgba",
+    "-vf", "geq=r=255:g=255:b=255:a='if(between(X\\,560\\,1359)*between(Y\\,500\\,559)*lt(mod(X\\,12)\\,3)\\,255\\,0)',format=yuva444p10le",
+    "-frames:v", "1", "-c:v", "prores_ks", "-profile:v", "4444", "-pix_fmt", "yuva444p10le", path,
+  ]);
+}
+
 beforeAll(async () => {
   const bin = await findOnPath("ffmpeg");
   if (!bin) throw new Error("ffmpeg не найден в PATH (brew install ffmpeg)");
@@ -38,6 +52,7 @@ beforeAll(async () => {
   makeHalf(join(tmp, "half.mov"));
   makeFlat(join(tmp, "clear.mov"), 0);
   makeFlat(join(tmp, "haze.mov"), 0.25);
+  makeTextLine(join(tmp, "line.mov"));
 });
 afterAll(() => removeTmp(tmp));
 
@@ -46,6 +61,12 @@ describe("alphaCoverage", () => {
     const c = await alphaCoverage(join(tmp, "half.mov"), [0]);
     expect(c.opaque).toBeCloseTo(0.5, 1);
     expect(c.haze).toBeLessThan(0.05);
+  });
+
+  it("M2: одна строка текста на 1920×1080 — без даунскейла непрозрачное ≥ 0,5 % (не overlay_empty)", async () => {
+    const c = await alphaCoverage(join(tmp, "line.mov"), [0]);
+    expect(c.opaque).toBeGreaterThan(0.005);
+    expect(c.opaque).toBeCloseTo((800 * 60 * 0.25) / (1920 * 1080), 3);
   });
 
   it("пустой кадр → 0 и 0", async () => {

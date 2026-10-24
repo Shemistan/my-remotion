@@ -163,8 +163,22 @@ it("exportOne: общий job, разные draftKey → разные draft и �
   expect(rs.map((r) => r.status)).toEqual(["completed", "completed"]);
   const drafts = exportCalls.map((c) => c.outPath.split("/").at(-2));
   expect(new Set(drafts).size).toBe(2);
-  expect(drafts.sort()).toEqual([`${ctx.job.id}-a${ctx.attempt}-1-alpha`, `${ctx.job.id}-a${ctx.attempt}-1-mp4`]);
+  expect(drafts.sort()).toEqual([`${ctx.job.id}-a${ctx.attempt}--1-alpha`, `${ctx.job.id}-a${ctx.attempt}--1-mp4`]);
   expect(exportsRepo.listByVersion(env.db, v.id).map((x) => x.format).sort()).toEqual(["mp4", "prores4444"]);
   expect(existsSync(join(env.s.root, "workspace/drafts")) ? readdirSync(join(env.s.root, "workspace/drafts")) : []).toEqual([]);
   await expect(exportOne(ctx, d, { versionId: v.id, request: OVERLAY, draftKey: "../x" })).resolves.toMatchObject({ status: "failed", error: { message: expect.stringMatching(/draftKey/) } });
+});
+
+it("I1: draft с ключом уже есть (ключ повторно в той же попытке) → failed draft_exists, чужой draft не тронут", async () => {
+  const v = await readyVersion();
+  const ctx = ctxFor(v.id, OVERLAY);
+  const { mkdirSync, writeFileSync } = await import("node:fs");
+  const dir = join(env.s.root, "workspace/drafts", `${ctx.job.id}-a${ctx.attempt}--1-alpha`);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "scene.mov"), "чужое");
+  const r = await exportOne(ctx, deps(), { versionId: v.id, request: OVERLAY, draftKey: "1-alpha" });
+  expect(r).toMatchObject({ status: "failed", error: { message: expect.stringMatching(/^draft_exists: /) } });
+  expect(readFileSync(join(dir, "scene.mov"), "utf8")).toBe("чужое");
+  expect(existsSync(join(dir, ".quarantined"))).toBe(false);
+  expect(exportCalls).toHaveLength(0);
 });

@@ -1040,7 +1040,7 @@ async function preserveHoldIssues(i: LoopInput, rr: RenderResult): Promise<{ iss
 }
 
 /**
- * Хук `extraQa` попытки (S6): его рендеры — в свой каталог `run/tmp/<run>-a<attempt>-extra-*`
+ * Хук `extraQa` попытки (S6): его рендеры — в свой каталог `run/tmp/<run>-a<attempt>/extra-*`
  * под семафором рендеров, каталоги убираются после хука (кроме живых процессов `orphaned`).
  * Сбой или отмена хука — предупреждение `extra_qa_failed`.
  */
@@ -1054,7 +1054,7 @@ async function extraQaIssues(i: LoopInput, t: Take, settings: Settings): Promise
         versionDir: t.dir, spec: t.spec, settings, signal: sig,
         run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry },
         renderStills: async (stills, inputProps) => {
-          const outDir = await mkdtemp(join(await safeMkdir(rc.root, "run/tmp"), `${rc.runId}-a${rc.attempt}-extra-`));
+          const outDir = await mkdtemp(join(await safeMkdir(rc.root, `run/tmp/${rc.runId}-a${rc.attempt}`), "extra-"));
           dirs.push(outDir);
           const release = await rc.acquire(rc.deps.permits?.renders, sig);
           try {

@@ -18,7 +18,7 @@ import { SceneRepo } from "../../src/scenes/repo.js";
 import { readVersion } from "../../src/scenes/store.js";
 import { removeStore } from "../db/helpers.js";
 import { setupDb, until, type JobsEnv } from "../jobs/helpers.js";
-import { BAD_SCENE, directorOutput, fakeAgents, fakeRender, makeDeps, makeSkills } from "./helpers.js";
+import { BAD_SCENE, GOOD_SCENE, directorOutput, fakeAgents, fakeRender, makeDeps, makeSkills } from "./helpers.js";
 import { history as fixtureHistory, plan, spec180 } from "./edit-fixtures.js";
 
 let env: JobsEnv;
@@ -307,6 +307,33 @@ describe("playgroundEdit: path code и spec", () => {
     const dir = agents.tasks.filter((t) => t.role === "motion_director").slice(1);
     expect(dir).toHaveLength(2);
     expect(String(dir[1]!.input)).toContain("speech_window");
+  });
+
+  it("I3: правка сцены сценария — проверка наложения (extraQa) в цикле: заливка корня → раунд Engineer; у Playground — нет", async () => {
+    let editing = false;
+    let filled = 0;
+    const fill = GOOD_SCENE.replace("{{ opacity: o }}", '{{ opacity: o, background: "#000" }}');
+    const agents = fakeAgents({
+      // первый вызов Engineer в правке сцены сценария — с заливкой корня, дальше — исправлено
+      engineer: async () => ({ files: { "src/Scene.tsx": editing && ++filled === 1 ? fill : GOOD_SCENE } }),
+      editPlanner: async () => ({ output: plan({ path: "code", changes: [{ target: "chart", kind: "code", description: "толще" }], preserve: [], reply: "ок" }) }),
+    });
+    const { scene, render, gen, edit } = await start({ agents });
+    await gen();
+    const transparent = () => render.calls.filter((c) => (c.inputProps as { style?: { transparent?: boolean } } | undefined)?.style?.transparent === true);
+    // Playground: проверки наложения нет
+    expect((await edit({}, "толще")).status).toBe("completed");
+    expect(transparent()).toEqual([]);
+    const script = { project_id: "playground", plan_id: "pln_x", plan_revision: 1, item_id: "ss_001", aspect: "16:9", style: { preset: "dark-premium", intensity: "balanced", depth: 2 }, lead_frames: 15, tail_frames: 30 };
+    jobs.insert(env.db, { id: "job_script_gen", type: "playground.generate", project_id: "playground", scene_id: scene.id, input: { sceneId: scene.id, prompt: "бриф", settings, script }, status: "completed", attempt: 1 });
+    const before = agents.engineerCalls.length;
+    editing = true;
+    const job = await edit({}, "ещё толще");
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    const calls = agents.engineerCalls.slice(before);
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    expect(calls[1]!.input).toContain("overlay_root_fill");
+    expect(transparent().length).toBeGreaterThanOrEqual(1);
   });
 
   it("settings_patch { aspect_ratio 9:16, 1080×1920 } → path spec, Director и Engineer вызваны", async () => {

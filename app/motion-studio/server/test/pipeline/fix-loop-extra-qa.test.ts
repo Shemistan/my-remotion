@@ -56,6 +56,8 @@ it("blocking extraQa на попытке 1 → исправление Engineer, 
   // кадр проверки — в своём каталоге run/tmp (не frames/ draft), и каталог убран
   expect(seen[0]).toMatchObject({ frames: [150], transparent: true });
   expect(seen[0]!.outDir).toContain(join(root, "run/tmp"));
+  // M1: внутри каталога попытки run/tmp/<run>-a<n>/extra-* (уборка попытки забирает и его)
+  expect(seen[0]!.outDir!.slice(join(root, "run/tmp").length)).toMatch(/^\/[^/]+-a\d+\/extra-[^/]+$/);
   expect(seen[0]!.outDir).not.toBe(seen[0]!.versionDir);
   expect(existsSync(seen[0]!.outDir!)).toBe(false);
   expect(seen[1]!.versionDir).toBe(seen[0]!.versionDir);

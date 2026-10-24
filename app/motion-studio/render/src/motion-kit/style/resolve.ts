@@ -3,6 +3,7 @@
 // «палитра из v1», «объёмнее» — это другой вход resolveStyle, а не правка кода.
 import type { Fps, StyleBible } from "@ms/contracts";
 import { type PresetId, presets } from "../presets.js";
+import { mix } from "../tokens.js";
 import { type Intensity, intensityScale } from "./intensity.js";
 
 export type Depth = 0 | 1 | 2 | 3;
@@ -42,6 +43,8 @@ const KIT_WEIGHTS: Readonly<Record<string, readonly number[]>> = {
 export const KIT_FONTS: readonly string[] = Object.keys(KIT_WEIGHTS);
 
 const BASE_FPS = 30;
+/** Доля сдвига `muted` к `text` в transparent-режиме. */
+const TRANSPARENT_MUTED_MIX = 0.5;
 
 function nearestWeight(family: string, weight: number | undefined): number {
   const list = KIT_WEIGHTS[family]!;
@@ -84,6 +87,10 @@ export function resolveStyle(input: ResolveStyleInput): ResolvedStyle {
       palette.accent[i] = c;
     });
   }
+
+  // transparent (ревью S6, читаемость поверх видео): приглушённое (подписи, оси, тики) ближе к
+  // тексту — бледная подпись с тёмным ореолом на светлом кадре не читается
+  if (input.transparent === true) palette.muted = mix(palette.muted, palette.text, TRANSPARENT_MUTED_MIX);
 
   let typography = bible.typography;
   if (input.font !== undefined) {

@@ -2,9 +2,9 @@
 // ProRes с альфой даёт перерендер с `props.style.transparent = true` — это работает, только
 // если фон рисует `<Background>`. Хук `extraQa` fix-loop: статика (заливка корня на весь кадр)
 // и кадр hold с transparent по альфе; blocking — исправление Engineer.
-import { readFile, readdir } from "node:fs/promises";
-import { join, posix } from "node:path";
-import type { MotionSpec, QAIssue } from "@ms/contracts";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import type { MotionSpec, QAIssue, QAReport } from "@ms/contracts";
 import { alphaCoverage, overlayFrames } from "@ms/render";
 import ts from "typescript";
 import type { ExtraQa } from "../pipeline/fix-loop.js";
@@ -18,6 +18,28 @@ export const OVERLAY_EMPTY_MIN = 0.005;
 /** Дымка 0 < α < 0,5 на большей доле кадра — предупреждение (экспорт). */
 export const OVERLAY_HAZE_MAX = 0.5;
 
+/**
+ * Коды «сцена закрывает кадр» (I2): в fix-loop — blocking (раунд Engineer); не исправлены —
+ * версия всё равно ready (MP4 полезен человеку), в её QA они warning.
+ */
+export const OVERLAY_BLOCKERS = ["overlay_opaque", "overlay_root_fill"] as const;
+/** Причина `missing` альфы в пакете (S7) у версии с `overlayOk = false`. */
+export const OVERLAY_IMPOSSIBLE = "альфа-версия невозможна: сцена закрывает кадр";
+
+/**
+ * Отметка версии для экспорта альфы (S7): в QA версии нет `overlay_opaque`/`overlay_root_fill`.
+ * Нет отчёта — проверка не делалась (не сцена сценария): true, решает проверка экспорта.
+ */
+export function overlayOk(qa: Pick<QAReport, "issues"> | null | undefined): boolean {
+  return overlayProblem(qa) === undefined;
+}
+
+/** Причина для `missing` пакета (S7): `OVERLAY_IMPOSSIBLE` с описанием замечания; всё в порядке — undefined. */
+export function overlayProblem(qa: Pick<QAReport, "issues"> | null | undefined): string | undefined {
+  const hit = qa?.issues.find((x) => (OVERLAY_BLOCKERS as readonly string[]).includes(x.code));
+  return hit ? `${OVERLAY_IMPOSSIBLE} (${hit.code}: ${hit.description})` : undefined;
+}
+
 const FIX_HINT = "фон — только <Background>, убери заливку корня: AbsoluteFill/div на весь кадр без background; сцена обязана работать при transparent = true";
 
 /** Кадр начала финального hold по spec (нет hold — последний кадр сцены). */
@@ -29,7 +51,6 @@ export function holdFrame(spec: Pick<MotionSpec, "phases" | "beats" | "duration_
 const BG_KEYS = new Set(["background", "backgroundColor", "backgroundImage"]);
 /** Обёртки, внутри которых элемент всё ещё «корень» композиции. */
 const ROOT_WRAPPERS = new Set(["AbsoluteFill", "StyleProvider", "Sequence", "Series.Sequence", "Freeze", "Loop", "Camera"]);
-const CODE_EXT: Record<string, ts.ScriptKind> = { ".tsx": ts.ScriptKind.TSX, ".jsx": ts.ScriptKind.JSX, ".ts": ts.ScriptKind.TS, ".js": ts.ScriptKind.JS };
 
 type JsxNode = ts.JsxElement | ts.JsxSelfClosingElement;
 const openingOf = (n: JsxNode) => (ts.isJsxElement(n) ? n.openingElement : n);
@@ -60,12 +81,25 @@ const literal = (e: ts.Expression | undefined) =>
   e === undefined ? undefined : ts.isStringLiteral(e) || ts.isNoSubstitutionTemplateLiteral(e) ? e.text : ts.isNumericLiteral(e) ? e.text : undefined;
 const zero = (e: ts.Expression | undefined) => ["0", "0px", "0%"].includes(literal(e) ?? "x");
 
+/** Цвет без непрозрачности: `transparent`, `none`, `rgba(…, 0)`, `hsla(…, 0)`, `#rgb0`, `#rrggbb00`. */
+function clearColor(v: string): boolean {
+  const t = v.trim().toLowerCase();
+  if (["", "transparent", "none"].includes(t)) return true;
+  if (/^#[0-9a-f]{3}0$/.test(t) || /^#[0-9a-f]{6}00$/.test(t)) return true;
+  const fn = /^(?:rgba?|hsla?)\((.*)\)$/.exec(t);
+  if (!fn) return false;
+  const parts = fn[1]!.split(/[\s,/]+/).filter(Boolean);
+  if (parts.length !== 4) return false;
+  const a = parts[3]!;
+  return a.endsWith("%") ? Number(a.slice(0, -1)) === 0 : Number(a) === 0;
+}
+
 /** Заливка: background* со значением не «прозрачно» и не зависящим от `transparent`. */
 function fills(style: Map<string, ts.Expression>, sf: ts.SourceFile): boolean {
   for (const [k, v] of style) {
     if (!BG_KEYS.has(k)) continue;
     const lit = literal(v);
-    if (lit !== undefined && ["", "transparent", "none"].includes(lit.trim())) continue;
+    if (lit !== undefined && clearColor(lit)) continue;
     if (/\btransparent\b/.test(v.getText(sf)) && lit === undefined) continue; // учитывает режим transparent
     return true;
   }
@@ -79,60 +113,101 @@ function fullSize(style: Map<string, ts.Expression>): boolean {
   return (abs && inset) || (literal(style.get("width")) === "100%" && literal(style.get("height")) === "100%");
 }
 
+type Fn = ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration;
+const isFn = (n: ts.Node): n is Fn => ts.isArrowFunction(n) || ts.isFunctionExpression(n) || ts.isFunctionDeclaration(n);
+const unwrap = (e: ts.Expression): ts.Expression => (ts.isParenthesizedExpression(e) ? unwrap(e.expression) : e);
+const exported = (n: ts.Node, kind: ts.SyntaxKind) => ts.canHaveModifiers(n) && (ts.getModifiers(n) ?? []).some((m) => m.kind === kind);
+
 /**
- * Статика (Р16): элемент на весь кадр в корне композиции (`AbsoluteFill` или `div` на весь
- * кадр, над ним только обёртки корня) с заливкой `background*` → blocking `overlay_root_fill`.
+ * Компонент сцены в `src/Scene.tsx` (как его берёт рендер: `Scene`, иначе default-экспорт):
+ * функция или стрелка; `export default Имя` — по объявлению в файле.
  */
-export function rootFillIssues(files: SceneFile[]): QAIssue[] {
-  const out: QAIssue[] = [];
-  for (const f of files) {
-    const kind = CODE_EXT[posix.extname(f.path).toLowerCase()];
-    if (kind === undefined) continue;
-    const sf = ts.createSourceFile(f.path, f.text, ts.ScriptTarget.Latest, true, kind);
-    const isFull = (n: JsxNode): boolean => {
-      const tag = tagOf(n, sf);
-      if (tag === "AbsoluteFill") return true;
-      const st = styleObject(n);
-      return tag === "div" && st !== undefined && fullSize(props(st));
-    };
-    const atRoot = (n: ts.Node): boolean => {
-      for (let p = n.parent; p; p = p.parent) {
-        if (!ts.isJsxElement(p)) continue;
-        if (!ROOT_WRAPPERS.has(tagOf(p, sf)) && !isFull(p)) return false;
+function sceneComponent(sf: ts.SourceFile): Fn | undefined {
+  const decls = new Map<string, Fn>();
+  let named: Fn | undefined;
+  let byDefault: Fn | undefined;
+  let defaultName: string | undefined;
+  for (const st of sf.statements) {
+    if (ts.isFunctionDeclaration(st) && st.body) {
+      if (st.name) decls.set(st.name.text, st);
+      if (exported(st, ts.SyntaxKind.DefaultKeyword)) byDefault = st;
+      else if (st.name?.text === "Scene" && exported(st, ts.SyntaxKind.ExportKeyword)) named = st;
+    } else if (ts.isVariableStatement(st)) {
+      for (const d of st.declarationList.declarations) {
+        const init = d.initializer && unwrap(d.initializer);
+        if (!ts.isIdentifier(d.name) || !init || !isFn(init)) continue;
+        decls.set(d.name.text, init);
+        if (d.name.text === "Scene" && exported(st, ts.SyntaxKind.ExportKeyword)) named = init;
       }
-      return true;
-    };
-    const visit = (n: ts.Node) => {
-      if ((ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n)) && isFull(n) && atRoot(n)) {
-        const st = styleObject(n);
-        if (st && fills(props(st), sf)) {
-          const line = sf.getLineAndCharacterOfPosition(n.getStart(sf)).line + 1;
-          out.push({
-            source: "programmatic", code: "overlay_root_fill", severity: "blocking", area: `${f.path}:${line}`,
-            description: `<${tagOf(n, sf)}> на весь кадр с заливкой фона (${f.path}:${line}): при transparent = true альфа-версия для наложения будет непрозрачной`,
-            fix_hint: FIX_HINT,
-          });
-        }
-      }
-      ts.forEachChild(n, visit);
-    };
-    visit(sf);
+    } else if (ts.isExportAssignment(st) && !st.isExportEquals) {
+      const e = unwrap(st.expression);
+      if (isFn(e)) byDefault = e;
+      else if (ts.isIdentifier(e)) defaultName = e.text;
+    }
   }
+  return named ?? byDefault ?? (defaultName ? decls.get(defaultName) : undefined);
+}
+
+/** Возвращаемые компонентом JSX (return самой функции, не вложенных). */
+function returnedJsx(fn: Fn): ts.Expression[] {
+  if (fn.body && !ts.isBlock(fn.body)) return [unwrap(fn.body)];
+  const out: ts.Expression[] = [];
+  const visit = (n: ts.Node) => {
+    if (isFn(n) || ts.isClassLike(n)) return;
+    if (ts.isReturnStatement(n) && n.expression) out.push(unwrap(n.expression));
+    ts.forEachChild(n, visit);
+  };
+  if (fn.body) ts.forEachChild(fn.body, visit);
   return out;
 }
 
-async function sceneFiles(versionDir: string): Promise<SceneFile[]> {
-  const files: SceneFile[] = [];
-  const walk = async (rel: string): Promise<void> => {
-    const entries = await readdir(join(versionDir, rel), { withFileTypes: true }).catch(() => []);
-    for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
-      const r = `${rel}/${e.name}`;
-      if (e.isDirectory() && !e.isSymbolicLink() && e.name !== "node_modules") await walk(r);
-      else if (e.isFile() && posix.extname(r).toLowerCase() in CODE_EXT) files.push({ path: r, text: await readFile(join(versionDir, r), "utf8") });
-    }
+/**
+ * Статика (Р16, M5): корень компонента сцены (`Scene`/default из `src/Scene.tsx`) — элемент
+ * на весь кадр (`AbsoluteFill` или `div` на весь кадр, сверху вниз через обёртки корня) с
+ * непрозрачной заливкой `background*` → blocking `overlay_root_fill`. Свои компоненты и
+ * вложенные функции не проверяются: их заливку поймает рендер кадра (`overlay_opaque`).
+ */
+export function rootFillIssues(files: SceneFile[]): QAIssue[] {
+  const f = files.find((x) => x.path === "src/Scene.tsx");
+  if (!f) return [];
+  const sf = ts.createSourceFile(f.path, f.text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const fn = sceneComponent(sf);
+  if (!fn) return [];
+  const out: QAIssue[] = [];
+  const isFull = (n: JsxNode): boolean => {
+    const tag = tagOf(n, sf);
+    if (tag === "AbsoluteFill") return true;
+    const st = styleObject(n);
+    return tag === "div" && st !== undefined && fullSize(props(st));
   };
-  await walk("src");
-  return files;
+  const children = (n: ts.JsxElement | ts.JsxFragment): ts.Expression[] =>
+    n.children.flatMap((c) => (ts.isJsxExpression(c) ? (c.expression ? [unwrap(c.expression)] : []) : ts.isJsxText(c) ? [] : [c]));
+  const visit = (e: ts.Expression) => {
+    if (ts.isConditionalExpression(e)) return [e.whenTrue, e.whenFalse].forEach((x) => visit(unwrap(x)));
+    if (ts.isBinaryExpression(e) && e.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) return visit(unwrap(e.right));
+    if (ts.isJsxFragment(e)) return children(e).forEach(visit);
+    if (!ts.isJsxElement(e) && !ts.isJsxSelfClosingElement(e)) return;
+    const full = isFull(e);
+    const st = styleObject(e);
+    if (full && st && fills(props(st), sf)) {
+      const line = sf.getLineAndCharacterOfPosition(e.getStart(sf)).line + 1;
+      out.push({
+        source: "programmatic", code: "overlay_root_fill", severity: "blocking", area: `${f.path}:${line}`,
+        description: `<${tagOf(e, sf)}> на весь кадр с заливкой фона (${f.path}:${line}): при transparent = true альфа-версия для наложения будет непрозрачной`,
+        fix_hint: FIX_HINT,
+      });
+      return;
+    }
+    if (ts.isJsxElement(e) && (full || ROOT_WRAPPERS.has(tagOf(e, sf)))) children(e).forEach(visit);
+  };
+  returnedJsx(fn).forEach(visit);
+  return out;
+}
+
+/** Исходник компонента сцены версии (`src/Scene.tsx`); нет файла — пусто (его ловит технический gate). */
+async function sceneFiles(versionDir: string): Promise<SceneFile[]> {
+  const text = await readFile(join(versionDir, "src/Scene.tsx"), "utf8").catch(() => undefined);
+  return text === undefined ? [] : [{ path: "src/Scene.tsx", text }];
 }
 
 export interface OverlayCheckDeps {

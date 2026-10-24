@@ -557,6 +557,17 @@ describe("sweepAbandonedDrafts", () => {
   });
 });
 
+describe("sweepAbandonedDrafts: draft экспортов с ключом (S6 I1)", () => {
+  it("<job>-a<n>--<key> без живых процессов → abandoned; у живой попытки — не трогается", async () => {
+    const drafts = join(root, "workspace/drafts");
+    for (const n of ["run_A-a1--1-mp4", "run_B-a1--1-alpha", "run_B-a2--1-mp4"]) mkdirSync(join(drafts, n), { recursive: true });
+    const registry = { add: async () => undefined, end: async () => undefined, live: async () => [{ runId: "run_B", attempt: 1, pid: 1, pgid: 1, startedAt: "", cmd: "x" }] };
+    const r = await sweepAbandonedDrafts(root, registry);
+    expect(r.quarantined.sort()).toEqual([join(drafts, "run_A-a1--1-mp4"), join(drafts, "run_B-a2--1-mp4")]);
+    expect(r.skipped).toEqual([join(drafts, "run_B-a1--1-alpha")]);
+  });
+});
+
 describe("sweepAgentCwds (ревью Task 30, m6)", () => {
   it("рабочие каталоги агентов попыток без живых процессов удаляются (и с маркером карантина); с живым процессом — нет", async () => {
     const base = join(root, "run/agent-cwd");

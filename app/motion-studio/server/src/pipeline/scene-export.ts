@@ -1,5 +1,5 @@
 // Обработчик задачи `scene.export` (P1-14): экспорт готовой версии в MP4 H.264/AAC или
-// ProRes 4444 с альфой. Рендер — в draft попытки `drafts/<job>-a<attempt>[-<key>]/` под
+// ProRes 4444 с альфой. Рендер — в draft попытки `drafts/<job>-a<attempt>[--<key>]/` под
 // семафором рендеров; файл проходит `exportGate` (+ альфа угла у ProRes, покрытие альфой у
 // `overlay`, S6), затем одна транзакция с
 // fencing переносит draft в `exports/<export-id>/` (файл + `export-manifest.json`) и пишет
@@ -26,7 +26,7 @@ import { sha256File } from "../scenes/hash.js";
 import { newId } from "../scenes/ids.js";
 import type { SceneRepo } from "../scenes/repo.js";
 import {
-  attachCause, exportRel, fsyncDirSync, fsyncWrite, lockChildrenSync, quarantineDir, readVersion, sealVersion, setWritableSync,
+  DRAFT_KEY, attachCause, draftName, exportRel, fsyncDirSync, fsyncWrite, lockChildrenSync, quarantineDir, readVersion, sealVersion, setWritableSync,
 } from "../scenes/store.js";
 import { OVERLAY_EMPTY_MIN, OVERLAY_HAZE_MAX, OVERLAY_OPAQUE_MAX, holdFrame } from "../script/overlay-check.js";
 import { renderEnv as currentRenderEnv } from "./render-env.js";
@@ -90,15 +90,16 @@ export interface ExportOneInput {
   versionId: string;
   request: ExportRequest;
   /**
-   * Суффикс draft (`workspace/drafts/<job>-a<attempt>-<draftKey>`): несколько экспортов в
-   * одной попытке задачи (`script.package`, S7: `<n>-mp4`/`<n>-alpha`). Без него — draft попытки.
+   * Ключ draft (`workspace/drafts/<job>-a<attempt>--<draftKey>`): несколько экспортов в одной
+   * попытке задачи (`script.package`, S7: `<n>-mp4`/`<n>-alpha`). Ключ уникален на вызов в
+   * пределах попытки: draft с этим ключом уже есть → отказ `draft_exists` (чужой draft не
+   * трогается). Восстановление и уборка относят такие draft к попытке `<job>-a<attempt>`.
+   * Без ключа — draft попытки.
    */
   draftKey?: string;
   /** Окно речи сцены сценария — кадры проверки `overlay`; без него речь — до начала hold. */
   frames?: SceneFrames;
 }
-
-const DRAFT_KEY = /^[A-Za-z0-9_-]{1,64}$/;
 
 /** Окно речи без сценария (экспорт из API): речь — от кадра 0 до начала hold. */
 function framesFromSpec(spec: MotionSpec): SceneFrames {
@@ -158,8 +159,11 @@ export async function exportOne(ctx: JobContext, d: SceneExportDeps, input: Expo
   const ext = request.format === "prores4444" ? "mov" : "mp4";
   let draftDir: string;
   let cacheDir: string;
+  if (draftKey && existsSync(join(root, "workspace/drafts", draftName(fence.jobId, fence.attempt, draftKey)))) {
+    return fail("prepare", `draft_exists: draft «${draftName(fence.jobId, fence.attempt, draftKey)}» уже есть — ключ draft должен быть уникален в попытке`);
+  }
   try {
-    draftDir = await safeMkdir(root, `workspace/drafts/${fence.jobId}-a${fence.attempt}${draftKey ? `-${draftKey}` : ""}`);
+    draftDir = await safeMkdir(root, `workspace/drafts/${draftName(fence.jobId, fence.attempt, draftKey)}`);
     cacheDir = await safeMkdir(root, "cache");
   } catch (e) {
     return fail(isStorageError(e) ? "storage" : "prepare", `draft экспорта не создан: ${errText(e)}`);

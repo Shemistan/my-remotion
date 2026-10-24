@@ -13,7 +13,7 @@ import * as versions from "../db/repos/versions.js";
 import { nowIso } from "../db/repos/util.js";
 import { tx } from "../db/tx.js";
 import type { SceneRepo } from "../scenes/repo.js";
-import { QUARANTINE, quarantineDir } from "../scenes/store.js";
+import { QUARANTINE, attemptDraftDirs, quarantineDir } from "../scenes/store.js";
 import type { EventBus } from "./events.js";
 import { releaseLocks } from "./locks.js";
 import { attemptAlive, finish } from "./queue.js";
@@ -78,7 +78,8 @@ export async function recoverOnStart(deps: RecoveryDeps): Promise<RecoveryReport
   };
 
   for (const job of jobs.list(db, { status: "running" })) {
-    const draft = join(repo.root, "workspace/drafts", `${job.id}-a${job.attempt}`);
+    // основной draft попытки и draft экспортов с ключом `<job>-a<n>--<key>` (S6)
+    const drafts = await attemptDraftDirs(repo.root, job.id, job.attempt);
     const r = await reap(registry, { runId: job.id, attempt: job.attempt });
     if (!r.clean) {
       const pids = r.alive.map((p) => p.pid);
@@ -91,7 +92,7 @@ export async function recoverOnStart(deps: RecoveryDeps): Promise<RecoveryReport
         cmds,
       };
       // draft не переиспользуется и не удаляется, пока процессы живы (карантин не одноразовый)
-      if (existsSync(draft)) await quarantineDir(draft, `stale_process: ${error.message}`);
+      for (const draft of drafts) await quarantineDir(draft, `stale_process: ${error.message}`);
       tx(db, () => {
         jobs.update(db, job.id, { status: "blocked", error, lease_owner: null, lease_until: null });
         event(job.id, "error", "blocked", error.message, { pids, cmds });
@@ -107,7 +108,8 @@ export async function recoverOnStart(deps: RecoveryDeps): Promise<RecoveryReport
       report.completed.push(job.id);
       continue;
     }
-    if (existsSync(draft) && !existsSync(join(draft, QUARANTINE))) {
+    for (const draft of drafts) {
+      if (existsSync(join(draft, QUARANTINE))) continue;
       await quarantineDir(draft, job.cancel_requested ? "cancelled: попытка прервана, отмена запрошена" : `interrupted: ${reason}`);
     }
     if (job.cancel_requested) {

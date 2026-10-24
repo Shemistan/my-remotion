@@ -2,20 +2,32 @@
 // должен читаться и на светлом, и на тёмном кадре — вокруг глифов тень цвета palette.bg.
 // Без transparent ничего не меняется.
 import type { CSSProperties } from "react";
-import { alpha } from "../tokens.js";
+import { alpha, mix } from "../tokens.js";
 import type { ResolvedStyle } from "./resolve.js";
 
 /** CSS-переменная ореола: компоненты со своей тенью добавляют её через `withHalo`. */
 export const HALO_VAR = "--ms-halo";
 
 /**
- * Ореол текста (transparent): плотный контур у глифа, мягкий ореол вокруг и широкая слабая
- * подложка — в em, растёт с кеглем. Без transparent — `undefined`.
+ * Ореол текста (transparent): плотный контур у глифа (0.08em, 0.9 — подписи и основной текст
+ * держат край и на пёстром кадре), мягкий ореол вокруг и широкая слабая подложка — в em,
+ * растёт с кеглем. Без transparent — `undefined`.
  */
 export function textHalo(s: ResolvedStyle): string | undefined {
   if (!s.transparent) return undefined;
   const bg = s.palette.bg;
-  return `0 0 0.05em ${alpha(bg, 0.85)}, 0 0 0.18em ${alpha(bg, 0.65)}, 0 0.02em 0.5em ${alpha(bg, 0.4)}`;
+  return `0 0 0.08em ${alpha(bg, 0.9)}, 0 0 0.18em ${alpha(bg, 0.65)}, 0 0.02em 0.5em ${alpha(bg, 0.4)}`;
+}
+
+/**
+ * Приглушение текста на долю `amount` (0..1). В transparent — цветом к `palette.muted`, opacity 1:
+ * opacity гасит и ореол, а сдвиг к `palette.bg` слил бы глиф с ореолом того же цвета (поверх
+ * видео приглушённый текст терял бы край); `muted` — нижняя граница приглушения. Без
+ * transparent — как было: цвет тот же, opacity `1 − amount`.
+ */
+export function dimText(s: ResolvedStyle, color: string, amount: number): { color: string; opacity: number } {
+  if (amount <= 0) return { color, opacity: 1 };
+  return s.transparent ? { color: mix(color, s.palette.muted, amount), opacity: 1 } : { color, opacity: 1 - amount };
 }
 
 /**

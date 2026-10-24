@@ -112,7 +112,43 @@ describe("rootFillIssues (статика)", () => {
     [`<AbsoluteFill style={{ background: style.transparent ? undefined : "#000" }} />`],
     [`<AbsoluteFill><SafeArea><AbsoluteFill style={{ background: "#222" }} /></SafeArea></AbsoluteFill>`],
     [`<AbsoluteFill><div style={{ width: 400, height: 200, background: "#222" }} /></AbsoluteFill>`],
+    // M5: прозрачные литералы — не заливка
+    [`<AbsoluteFill style={{ background: "rgba(0, 0, 0, 0)" }} />`],
+    [`<AbsoluteFill style={{ backgroundColor: "rgba(12,13,18,0.0)" }} />`],
+    [`<AbsoluteFill style={{ background: "hsla(220, 10%, 5%, 0)" }} />`],
+    [`<AbsoluteFill style={{ background: "#0000" }} />`],
+    [`<AbsoluteFill style={{ background: "#0b0d1200" }} />`],
+    [`<AbsoluteFill style={{ background: "TRANSPARENT" }} />`],
   ])("не заливка корня: %s", (body) => {
     expect(rootFillIssues(files(body))).toEqual([]);
+  });
+
+  it("M5: заливка на весь кадр в своём компоненте (другой файл или не корень сцены) — не корень сцены", () => {
+    const card = `import { AbsoluteFill } from "remotion";\nexport const Panel = () => <AbsoluteFill style={{ background: "#111" }} />;\n`;
+    expect(rootFillIssues([{ path: "src/Scene.tsx", text: scene(`<AbsoluteFill><Background /></AbsoluteFill>`) }, { path: "src/Panel.tsx", text: card }])).toEqual([]);
+    const local = `import { AbsoluteFill } from "remotion";
+const Shade = () => <AbsoluteFill style={{ background: "#000" }} />;
+export const Scene = () => (<AbsoluteFill><Background /><Shade /></AbsoluteFill>);
+`;
+    expect(rootFillIssues([{ path: "src/Scene.tsx", text: local }])).toEqual([]);
+  });
+
+  it("M5: корень default-экспорта и функции с return — заливка ловится", () => {
+    const fnDefault = `import { AbsoluteFill } from "remotion";
+export default function Scene() {
+  const x = () => <AbsoluteFill style={{ background: "#fff" }} />; // вложенная функция — не корень
+  return (
+    <AbsoluteFill style={{ backgroundColor: "#0b0d12" }}>
+      <Background />
+    </AbsoluteFill>
+  );
+}
+`;
+    expect(rootFillIssues([{ path: "src/Scene.tsx", text: fnDefault }]).map((x) => x.area)).toEqual(["src/Scene.tsx:5"]);
+    const byName = `import { AbsoluteFill } from "remotion";
+const Main = () => <><AbsoluteFill style={{ background: "#123" }} /></>;
+export default Main;
+`;
+    expect(rootFillIssues([{ path: "src/Scene.tsx", text: byName }]).map((x) => x.code)).toEqual(["overlay_root_fill"]);
   });
 });

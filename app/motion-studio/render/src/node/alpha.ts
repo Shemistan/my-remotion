@@ -46,15 +46,15 @@ export interface AlphaCoverage {
   perFrame: { frame: number; opaque: number; haze: number }[];
 }
 
-/** Ширина кадра проверки покрытия: доли не требуют полного разрешения. */
-const COVERAGE_W = 160;
 /** Порог «непрозрачного» пикселя (Р17): α ≥ 0,5. */
 const OPAQUE_ALPHA = 128;
 
 /**
  * Покрытие альфой кадров `frames` (S6, Р17): один проход ffmpeg — `select` нужных кадров →
- * `format=rgba,alphaextract` (у кадра без альфы она 255) → `scale=160:-2` → сырые байты gray.
- * «Непрозрачные» — пиксели с α ≥ 128, «дымка» — 0 < α < 128; итог — максимум по кадрам.
+ * `format=rgba,alphaextract` (у кадра без альфы она 255) → сырые байты gray в полном
+ * разрешении (M2: даунскейл усредняет тонкие штрихи текста с фоном, и строка текста
+ * становится «дымкой», а кадр — «пустым»). «Непрозрачные» — пиксели с α ≥ 128, «дымка» —
+ * 0 < α < 128; итог — максимум по кадрам.
  * Кадра нет в файле — ошибка. Читает и видео, и картинку (кадр 0).
  */
 export async function alphaCoverage(movPath: string, frames: number[], opts: FfmpegOptions = {}): Promise<AlphaCoverage> {
@@ -65,7 +65,7 @@ export async function alphaCoverage(movPath: string, frames: number[], opts: Ffm
   try {
     const args = [
       "-v", "error", "-nostdin", "-y", "-i", movPath,
-      "-vf", `select=${want.map((f) => `eq(n\\,${f})`).join("+")},format=rgba,alphaextract,scale=${COVERAGE_W}:-2:flags=area`,
+      "-vf", `select=${want.map((f) => `eq(n\\,${f})`).join("+")},format=rgba,alphaextract`,
       "-fps_mode", "passthrough", "-frames:v", String(want.length),
       "-pix_fmt", "gray", "-c:v", "rawvideo", "-f", "image2", join(dir, "f%03d.gray"),
     ];

@@ -4,7 +4,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DEFAULT_READING, type DirectorOutput, type MotionSpec, type ProjectStyleBase, type ScriptPlanRevisionDoc, type ScriptSceneContext, type ScriptSceneItem, type Settings, defaultSettings } from "@ms/contracts";
+import { DEFAULT_READING, type DirectorOutput, QAReportSchema, type MotionSpec, type ProjectStyleBase, type ScriptPlanRevisionDoc, type ScriptSceneContext, type ScriptSceneItem, type Settings, defaultSettings } from "@ms/contracts";
 import { loadPrompt } from "../../src/agents/prompts.js";
 import { artifactPaths } from "../../src/artifacts/paths.js";
 import * as jobEvents from "../../src/db/repos/job-events.js";
@@ -18,6 +18,8 @@ import type { GenerateDeps } from "../../src/pipeline/generate.js";
 import { playgroundGenerate } from "../../src/pipeline/playground-generate.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
 import { itemFingerprint } from "../../src/script/fingerprint.js";
+import { overlayOk, overlayProblem } from "../../src/script/overlay-check.js";
+import { scriptState } from "../../src/script/state.js";
 import { SCRIPT_PLAN_FILE } from "../../src/script/read.js";
 import { removeStore } from "../db/helpers.js";
 import { setupDb, until, type JobsEnv } from "../jobs/helpers.js";
@@ -176,6 +178,24 @@ describe("playground.generate со script", () => {
     expect(overlay).toHaveLength(2);
     expect(overlay[0]!.stills).toHaveLength(1);
     expect(overlay[0]!.preview).toBeNull();
+  });
+
+  it("I2: заливка корня не исправлена ни в одном раунде → версия ready с warn; overlayOk = false; qa_warnings сцены сценария", async () => {
+    const fill = GOOD_SCENE.replace("{{ opacity: o }}", '{{ opacity: o, background: "#000" }}');
+    const agents = fakeAgents({ engineer: async () => ({ files: { "src/Scene.tsx": fill } }) });
+    const { job, scene } = await run({ agents }, { script }, (sceneId) => {
+      scriptScenes.insert(env.db, { project_id: P, plan_id: "pln_s", item_id: "ss_002", aspect: "16:9", scene_id: sceneId, batch_id: null, job_id: null, item_fingerprint: "fp" });
+    });
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    const v = versions.listByScene(env.db, scene.id).at(-1)!;
+    expect(v.status).toBe("ready");
+    const qa = QAReportSchema.parse(JSON.parse(readFileSync(join(env.s.root, v.path, "qa.json"), "utf8")));
+    expect(qa.issues.find((x) => x.code === "overlay_root_fill")).toMatchObject({ severity: "warning" });
+    expect(overlayOk(qa)).toBe(false);
+    expect(overlayProblem(qa)).toMatch(/^альфа-версия невозможна: сцена закрывает кадр/);
+    const dto = scriptState(env.db, env.s.root, P).scenes.find((x) => x.scene_id === scene.id)!;
+    expect(dto.qa_warnings.map((x) => x.code)).toContain("overlay_root_fill");
+    expect(dto.qa_warnings.every((x) => x.severity === "warning")).toBe(true);
   });
 
   it("без script — проверки наложения нет", async () => {
