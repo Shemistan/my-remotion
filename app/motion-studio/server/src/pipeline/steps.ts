@@ -861,10 +861,10 @@ export async function conceptStep(
  */
 export async function directorStep(
   rc: RunCtx,
-  input: Omit<DirectorTaskInput, "workdir" | "fix"> & { previous?: readonly MotionSpec[] },
+  input: Omit<DirectorTaskInput, "workdir" | "fix"> & { previous?: readonly MotionSpec[]; speechWindow?: SpeechWindow },
   cp?: CheckpointOpts,
 ): Promise<{ ok: true; director: DirectorOutput; spec: MotionSpec } | StepFail> {
-  const { previous = [], ...i } = input;
+  const { previous = [], speechWindow, ...i } = input;
   const s = i.settings;
   let fix: string | undefined;
   // чекпоинт — принятый ответ (после проверок spec) под ключом входа первого раунда (без
@@ -881,7 +881,7 @@ export async function directorStep(
     // уже здесь: минимум setup графа (прорисовка рёбер) считается по токенам того пресета, что
     // пойдёт в рендер (s3afix2-rereview m2)
     const presetSwap = director.spec.style_preset !== s.style_preset ? director.spec.style_preset : undefined;
-    const planned = planSpecBeats({ ...director.spec, composition: director.composition, style_preset: s.style_preset }, s);
+    const planned = planInWindow({ ...director.spec, composition: director.composition, style_preset: s.style_preset }, s, speechWindow);
     if (!planned.ok) {
       rc.note("director", `план битов не построен (раунд ${round}): ${planned.message}`);
       if (round === 2) return { ok: false, stage: "director", message: planned.message };
@@ -901,7 +901,7 @@ export async function directorStep(
     }
     if (presetSwap) rc.warnings.push(`Director выбрал пресет ${presetSwap}, в настройках ${s.style_preset}: оставлен пресет настроек`);
     const concept = conceptStructure(i.concept)?.value;
-    const checks = specChecks(spec, s, { previous, ...(concept ? { concept } : {}) });
+    const checks = specChecks(spec, s, { previous, ...(concept ? { concept } : {}), ...(speechWindow ? { speechWindow } : {}) });
     const blocking = checks.filter((x) => x.severity === "blocking");
     // подсказки Director (ruling P10): видны в журнале и идут в раунд исправления вместе с blocking
     const hints = checks.filter((x) => DIRECTOR_HINTS.has(x.code));
@@ -921,6 +921,35 @@ export async function directorStep(
     rc.log(`spec: ${blocking.length} blocking — Director исправляет`);
   }
   return { ok: false, stage: "director", message: "spec не получена" };
+}
+
+/** Окно речи сцены сценария (S5, §5.2): запас до речи, речь, запас после — в кадрах. */
+export interface SpeechWindow {
+  lead: number;
+  speech: number;
+  tail: number;
+}
+
+/**
+ * План битов по фазам; у сцены сценария (S5, Р19) — внутри `[lead; total)`: первые `lead`
+ * кадров — запас под подрезку (только фон), фазы планировщик раскладывает в оставшееся окно, и
+ * их биты сдвигаются на `lead`. Иначе count-up и cold-open (счёт и постер итога с кадра 0)
+ * нарушали бы окно речи при любых весах. Биты без фазы (кадры Director) и камера — как есть.
+ */
+export function planInWindow(spec: Parameters<typeof planSpecBeats>[0], settings: Settings, window: SpeechWindow | undefined): ReturnType<typeof planSpecBeats> {
+  const lead = window?.lead ?? 0;
+  if (!spec.phases || lead <= 0 || lead >= spec.duration_frames) return planSpecBeats(spec, settings);
+  // кадры Director (биты без фазы, ключи камеры) — на полную длину: в план окна не идут
+  const own = spec.beats.filter((b) => b.phase === undefined);
+  const { camera, ...rest } = spec as typeof spec & { camera?: unknown };
+  const r = planSpecBeats({ ...rest, beats: spec.beats.filter((b) => b.phase !== undefined), duration_frames: spec.duration_frames - lead } as typeof spec, settings);
+  if (!r.ok) return r;
+  const shifted = r.spec.beats.map((b) => ({ ...b, start_frame: b.start_frame + lead, end_frame: b.end_frame + lead }));
+  return {
+    ...r,
+    spec: { ...r.spec, duration_frames: spec.duration_frames, beats: [...(own as typeof shifted), ...shifted], ...(camera !== undefined ? { camera } : {}) } as typeof r.spec,
+    changes: [...r.changes, `окно речи: фазы разложены в [${lead}; ${spec.duration_frames}), первые ${lead} кадров — запас (фон)`],
+  };
 }
 
 /**

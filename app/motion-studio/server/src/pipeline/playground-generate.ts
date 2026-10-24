@@ -6,9 +6,12 @@
 // журнал задачи (`recordRun`). Сервер и CLI регистрируют один и тот же обработчик.
 import { readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
-import { type Job, type MotionSpec, MotionSpecSchema, SettingsSchema, failureToJobErrorCode } from "@ms/contracts";
+import { readFileSync } from "node:fs";
+import { type Job, type MotionSpec, MotionSpecSchema, type ScriptPlanRevisionDoc, ScriptPlanRevisionDocSchema, type ScriptSceneContext, ScriptSceneContextSchema, type ScriptSceneItem, SettingsSchema, failureToJobErrorCode } from "@ms/contracts";
 import { z } from "zod";
 import * as jobs from "../db/repos/jobs.js";
+import * as plans from "../db/repos/plans.js";
+import { scriptScenes } from "../db/repos/script.js";
 import * as scenes from "../db/repos/scenes.js";
 import * as versions from "../db/repos/versions.js";
 import { setOutputRefs } from "../jobs/queue.js";
@@ -28,6 +31,8 @@ export const PlaygroundGenerateInputSchema = z.object({
   allowRestricted: z.boolean().optional(),
   /** Ответы на уточнения Concept (`provideInput`): ответы или `skip`. */
   answers: z.union([z.record(z.string()), z.literal("skip")]).optional(),
+  /** Сцена сценария (S5, §6.2): проверяется `ScriptSceneContextSchema` в обработчике. */
+  script: z.unknown().optional(),
 }).passthrough();
 export type PlaygroundGenerateInput = z.infer<typeof PlaygroundGenerateInputSchema>;
 
@@ -56,13 +61,24 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
   return async (ctx) => {
     const parsed = PlaygroundGenerateInputSchema.safeParse(ctx.job.input);
     if (!parsed.success) return { status: "failed", error: { code: "pipeline", message: `вход playground.generate не годится: ${parsed.error.message}` } };
-    const { sceneId, prompt, settings, answers } = parsed.data;
+    const { sceneId, prompt, settings } = parsed.data;
     const allowRestricted = parsed.data.allowRestricted ?? false;
     const jobId = ctx.job.id;
     const fence = { jobId, attempt: ctx.attempt };
     const base = d.deps(ctx);
     const projectId = scenes.get(ctx.db, sceneId)?.project_id;
-    const previous = projectId ? await previousSpecs(ctx, d.repo.root, projectId, sceneId) : [];
+    // сцена сценария: бриф вместо промпта, уточнения пропускаются, стиль — проекта (S5)
+    let sc: ScriptScene | undefined;
+    if (parsed.data.script !== undefined) {
+      const r = scriptScene(ctx, d.repo.root, parsed.data.script);
+      if (typeof r === "string") return { status: "failed", error: { code: "pipeline", message: r } };
+      sc = r;
+    }
+    const answers = parsed.data.answers ?? (sc ? "skip" : undefined);
+    const neighbors = sc && projectId ? await neighborSpecs(ctx, d.repo.root, sc) : [];
+    const previous = neighbors.length > 0 ? neighbors : projectId ? await previousSpecs(ctx, d.repo.root, projectId, sceneId) : [];
+    const kbQuery = sc ? `${sc.item.purpose} ${sc.item.idea} ${sc.item.quote}` : prompt;
+    const speechWindow = sc ? { lead: sc.ctx.lead_frames, speech: settings.duration_frames - sc.ctx.lead_frames - sc.ctx.tail_frames, tail: sc.ctx.tail_frames } : undefined;
 
     // чекпоинты Concept и Director (M7): файл в logs/agent-runs/<jobId>/checkpoints/, ссылка — в output_refs.steps
     const steps: Partial<Record<"concept" | "motion_director", StepRef>> = {};
@@ -112,12 +128,15 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
           if (!c.ok) return { kind: "failed", stage: c.stage, message: c.message };
           const concept = c.concept;
           if (concept.needs_clarification.length > 0 && answers === undefined) return { kind: "awaiting_input", concept };
-          const candidates = selectCandidates(deps.kb, prompt, concept, 12, { allowRestricted }).map((h) => h.view);
+          const candidates = selectCandidates(deps.kb, kbQuery, concept, 12, { allowRestricted }).map((h) => h.view);
           rc.log(`KB: ${candidates.length} кандидатов по ключам Concept`);
           const texts = await patternTexts(deps.kb, concept.patterns, rc.warnings);
-          const style = sceneStyle(startPropsStyle(settings, concept.style_hint.palette_overrides), settings);
+          if (sc && (concept.style_hint.palette_overrides || concept.style_hint.preset !== settings.style_preset)) {
+            rc.log("style_hint Concept не применяется: у сцены сценария стиль проекта (settings.style_lock)");
+          }
+          const style = sceneStyle(startPropsStyle(settings, sc ? undefined : concept.style_hint.palette_overrides), settings);
           ctx.progress(0.15, "director");
-          const dr = await directorStep(rc, { prompt, settings, concept, candidates, patternTexts: texts, kitApi: await readKitApi(), style, previous }, cp);
+          const dr = await directorStep(rc, { prompt, settings, concept, candidates, patternTexts: texts, kitApi: await readKitApi(), style, previous, ...(speechWindow ? { speechWindow } : {}) }, cp);
           if (!dr.ok) return { kind: "failed", stage: dr.stage, message: dr.message };
           return { kind: "plan", director: dr.director, spec: dr.spec, candidates, concept };
         },
@@ -129,6 +148,59 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
     record(ctx, d.repo.root, sceneId, r);
     return toHandlerResult(r, sceneId);
   };
+}
+
+/** Сцена сценария задачи: вход `script`, документ плана и сцена плана. */
+interface ScriptScene {
+  ctx: ScriptSceneContext;
+  plan: ScriptPlanRevisionDoc;
+  item: ScriptSceneItem;
+}
+
+/** Вход `script` и сцена плана из ревизии `plan_revision`; не годится — текст ошибки. */
+function scriptScene(ctx: JobContext, root: string, raw: unknown): ScriptScene | string {
+  const p = ScriptSceneContextSchema.safeParse(raw);
+  if (!p.success) return `вход script не годится: ${p.error.message}`;
+  const rev = plans.revision(ctx.db, p.data.plan_id, p.data.plan_revision);
+  if (!rev) return `ревизии плана ${p.data.plan_id}@r${p.data.plan_revision} нет`;
+  let plan: ScriptPlanRevisionDoc;
+  try {
+    plan = ScriptPlanRevisionDocSchema.parse(JSON.parse(readFileSync(join(root, rev.rel_path), "utf8")));
+  } catch (e) {
+    return `план сценария ${p.data.plan_id}@r${p.data.plan_revision} не прочитан: ${errText(e)}`;
+  }
+  const item = plan.items.find((x) => x.id === p.data.item_id);
+  if (!item) return `в плане ${p.data.plan_id}@r${p.data.plan_revision} нет сцены ${p.data.item_id}`;
+  return { ctx: p.data, plan, item };
+}
+
+/** Соседей плана для сверки подписи кадра (до 2: предыдущая и следующая принятые). */
+const NEIGHBORS = 2;
+
+/**
+ * Spec готовых версий соседних сцен плана того же формата (S5, §6.2): подпись кадра новой
+ * сцены не повторяет соседей в пакете. Нет готовых — пусто (вызывающий берёт `recentInProject`).
+ */
+async function neighborSpecs(ctx: JobContext, root: string, sc: ScriptScene): Promise<MotionSpec[]> {
+  const accepted = sc.plan.items.filter((x) => x.status === "accepted");
+  const at = accepted.findIndex((x) => x.id === sc.item.id);
+  const around = (at < 0 ? [] : [accepted[at - 1], accepted[at + 1]]).filter((x): x is ScriptSceneItem => x !== undefined).slice(0, NEIGHBORS);
+  const out: MotionSpec[] = [];
+  const used: string[] = [];
+  for (const n of around) {
+    const row = scriptScenes.get(ctx.db, sc.ctx.plan_id, n.id, sc.ctx.aspect);
+    const vid = row ? scenes.get(ctx.db, row.scene_id)?.current_version_id : undefined;
+    const v = vid ? versions.get(ctx.db, vid) : undefined;
+    if (!v || v.status !== "ready" || v.broken_reason) continue;
+    try {
+      out.push(MotionSpecSchema.parse(JSON.parse(await readFile(join(root, v.path, "spec.json"), "utf8"))));
+      used.push(n.id);
+    } catch (e) {
+      ctx.emit("log", `spec версии ${v.id} соседа ${n.id} не прочитана для сверки подписи кадра: ${errText(e)}`);
+    }
+  }
+  if (used.length > 0) ctx.emit("log", `подпись кадра сверяется с соседями плана: ${used.join(", ")}`);
+  return out;
 }
 
 /** Сколько последних сцен проекта сверяется с новой по подписи кадра. */
