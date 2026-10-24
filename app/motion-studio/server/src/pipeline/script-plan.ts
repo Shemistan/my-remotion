@@ -3,7 +3,8 @@
 //
 // Один вызов агента на весь текст (без инструментов, бюджет `analysis.maxCostUsd`). Ответ
 // проверяет `validateScriptPlan`; blocking-проблемы и отклонённые сцены → до `scene.maxAutoFixes`
-// переотправок с перечнем; отказ схемы — своя одна переотправка (при maxAutoFixes ≥ 1). Из всех
+// переотправок с перечнем (пропуски агента с неверной цитатой — не проблема: отбрасываются с
+// событием `skip_dropped`); отказ схемы — своя одна переотправка (при maxAutoFixes ≥ 1). Из всех
 // ответов берётся лучший: меньше проблем (blocking + отклонённые), затем больше сцен, при равенстве —
 // более поздний. Выбранный ответ — чекпоинт задачи (хеш входа, модели и системного промпта).
 //
@@ -23,9 +24,9 @@ import {
 import { canonicalJson } from "@ms/contracts/canonical";
 import type { StorageStatus } from "@ms/core";
 import { type ZodType, z } from "zod";
-import { loadPrompt, oneLine } from "../agents/prompts.js";
+import { loadPrompt } from "../agents/prompts.js";
 import type { AgentRuntimeAdapter, Role } from "../agents/runtime.js";
-import { buildScriptDirectorTask } from "../agents/script-prompts.js";
+import { buildScriptDirectorTask, safeLine } from "../agents/script-prompts.js";
 import { PATTERN_FALLBACK, patternSummaryFromKb } from "../analysis/planner-input.js";
 import { currentProjectStyle, projectStyleFrom, saveProjectStyle } from "../analysis/project-style.js";
 import { artifactPaths } from "../artifacts/paths.js";
@@ -106,15 +107,19 @@ const evaluateWith = (doc: ScriptRevisionDoc, reading: ReadingSettings, fps: Fps
   return { v, faults: v.rejected.length + v.issues.filter((x) => x.severity === "blocking").length };
 };
 
-/** Перечень проблем ответа для переотправки: отклонённое и blocking, затем warning — как пожелание. */
+/**
+ * Перечень проблем ответа для переотправки: отклонённое и blocking, затем warning — как пожелание.
+ * В строках — куски ответа агента (цитаты, подписи чисел): каждая строка — `safeLine`, без
+ * маркеров блока сценария, чтобы перечень не закрыл текст сценария в задаче.
+ */
 export function scriptFaultList(v: ScriptPlanValidation): string {
   const L: string[] = [];
-  for (const r of v.rejected) L.push(`- ${r.id}: ${r.code} — ${oneLine(r.detail)}`);
-  for (const x of v.issues.filter((i) => i.severity === "blocking")) L.push(`- ${x.item_id ? `${x.item_id} ${sceneWords(v, x.item_id)}` : "план"}: ${x.code} — ${oneLine(x.message)}`);
+  for (const r of v.rejected) L.push(`- ${r.id}: ${r.code} — ${safeLine(r.detail)}`);
+  for (const x of v.issues.filter((i) => i.severity === "blocking")) L.push(`- ${x.item_id ? `${x.item_id} ${sceneWords(v, x.item_id)}` : "план"}: ${x.code} — ${safeLine(x.message)}`);
   const warn = v.issues.filter((i) => i.severity === "warning");
   if (warn.length > 0) {
     L.push("", "Желательно поправить (не ошибка):");
-    for (const x of warn.slice(0, 30)) L.push(`- ${x.item_id ? `${x.item_id} ${sceneWords(v, x.item_id)}` : "план"}: ${x.code} — ${oneLine(x.message)}`);
+    for (const x of warn.slice(0, 30)) L.push(`- ${x.item_id ? `${x.item_id} ${sceneWords(v, x.item_id)}` : "план"}: ${x.code} — ${safeLine(x.message)}`);
   }
   return L.join("\n");
 }
@@ -205,6 +210,9 @@ export const scriptPlan: (depsOf: () => ScriptPlanDeps) => JobHandler = (depsOf)
       chosen = r.output;
       ev = r.ev;
       agentInfo = { ...r.info, calls: rc.records.length, cost_usd: Math.round(rc.spent * 1e4) / 1e4 };
+    }
+    for (const x of ev.v.dropped) {
+      ctx.emit("skip_dropped", `${x.id}: пропуск агента отброшен (${x.code}) — ${x.detail.slice(0, 300)}`);
     }
     if (ev.faults > 0) {
       ctx.emit("plan_problems", `после проверки осталось проблем по вине агента: ${ev.faults} (${faultCodes(ev.v).join(", ")}) — видны человеку`);
@@ -299,7 +307,7 @@ export const scriptPlan: (depsOf: () => ScriptPlanDeps) => JobHandler = (depsOf)
         const note = why;
         const r = await toolless(rc, role, "prepare", label, (workdir) => {
           const t = make(workdir, k, fix);
-          if (note !== undefined) t.input += `\n\n# Прошлый ответ отклонён схемой\n\n${oneLine(note).slice(0, 2000)}\n\nОтветь заново строго по схеме.`;
+          if (note !== undefined) t.input += `\n\n# Прошлый ответ отклонён схемой\n\n${safeLine(note).slice(0, 2000)}\n\nОтветь заново строго по схеме.`;
           return t;
         }, ScriptDirectorOutputSchema as ZodType<ScriptDirectorOutput>);
         if (r.ok || r.kind !== "schema" || schemaRetries <= 0) return r;

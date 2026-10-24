@@ -44,8 +44,11 @@ const RULE_MEANING: Record<StructureRule, string> = {
 const RULE_OF = new Map(STRUCTURE_RULES.map(([r, s]) => [s, r]));
 
 const s1 = (x: number): string => x.toFixed(1).replace(".", ",");
-/** Текст для строки задачи: одна строка, без маркеров блока сценария. */
-const safe = (x: string): string => oneLine(x).replace(/<<<|>>>/g, " ").trim();
+/** Текст для строки задачи: одна строка, без маркеров блока сценария (и для перечня переотправки). */
+export const safeLine = (x: string): string => oneLine(x).replace(/<<<|>>>/g, " ").trim();
+const safe = safeLine;
+/** Ориентир покрытия блока сценами: 50–75 % слов (ревью S3: агент покрывал 98 %). */
+export const COVERAGE_TARGET = [0.5, 0.75] as const;
 
 export interface ScriptDirectorTaskInput {
   script: ScriptRevisionDoc;
@@ -88,6 +91,16 @@ export function buildScriptDirectorTask(i: ScriptDirectorTaskInput, run: TaskRun
   L.push("");
   L.push("# Паттерны (`pattern`)", "");
   for (const p of PATTERN_SLUGS) L.push(`- \`${p}\` — ${safe(i.patterns[p])}`);
+  L.push("");
+
+  L.push("# Бюджет сцен по блокам", "",
+    "Ориентир — сценами покрыто 50–75 % слов блока; остальное — речь без графики (мета-речь о ролике, анонсы, переходы).", "");
+  for (const b of i.script.blocks) {
+    const n = i.script.words.filter((w) => w.block_id === b.id).length;
+    const lo = Math.round(n * COVERAGE_TARGET[0]);
+    const hi = Math.round(n * COVERAGE_TARGET[1]);
+    L.push(`- в блоке ${b.id} ${n} слов; сценами ≈ ${lo === hi ? lo : `${lo}–${hi}`} слов`);
+  }
   L.push("");
 
   L.push("# Текст сценария", "", "Слово на строке: `id текст`. Блоки и предложения — разметка кода; секунды — оценка по скорости чтения.", "", SCRIPT_OPEN);

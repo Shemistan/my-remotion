@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
-  "plan_id": "pln_01M5QGGRQ6GEH1MC3P46M1R5K9",
+  "plan_id": "pln_01M5QJKKTX09J64TA7V4WS83J8",
   "revision": 1,
   "inputs": {
     "script": {
-      "id": "scr_01M5QGGRP6CEX14REH3R2HZP5F",
+      "id": "scr_01M5QJKKSP1PQCX5N3N4E1B3R5",
       "revision": 1,
-      "hash": "a27f2808a4b80b4a1e8fe93b346c9ce788ef47328671f36018d1a028e60fed04"
+      "hash": "f7b754a6c7a7441e816c056a0a35edc3920e43b083a6d441bab11f9f90ed508f"
     },
     "style": {
-      "id": "sty_01M5QGKB8EN295R03MH5HG0HNH",
+      "id": "sty_01M5QJMEH8GM4BM727KRZAR2QT",
       "revision": 1,
-      "hash": "6a067fde405fb2398f8078310dbc15c9e183f4aaf966064104f2134d8fb3f82a"
+      "hash": "6483657c3aefd4ed2931fb0fff01d6e57cf765c0c5553002cdc658a53ab798e8"
     }
   },
   "fps": {
@@ -28,23 +28,9 @@
     "chapters": [
       {
         "id": "c1",
-        "title": "Три вопроса и проблема ответов",
-        "summary": "Известный разбор map строился на трёх вопросах, но ответы опираются на реализацию, которой больше нет.",
+        "title": "Три вопроса и смена реализации",
+        "summary": "Известные вопросы про map в Go опираются на реализацию, которую заменил Swiss Table в Go 1.24.",
         "start_word_id": "w_000001",
-        "end_word_id": "w_000064"
-      },
-      {
-        "id": "c2",
-        "title": "Go 1.24 и Swiss Table",
-        "summary": "С Go 1.24 map переписана на основе Swiss Table, поэтому вопросы разбираются заново и добавляется четвёртый.",
-        "start_word_id": "w_000065",
-        "end_word_id": "w_000115"
-      },
-      {
-        "id": "c3",
-        "title": "План и честность данных",
-        "summary": "План ролика: старая map, новая map, операции, бенчмарки, чек-лист; все числа сверены с источниками.",
-        "start_word_id": "w_000116",
         "end_word_id": "w_000205"
       }
     ],
@@ -61,7 +47,6 @@
       },
       {
         "value": 1.24,
-        "unit": "версия Go",
         "start_word_id": "w_000067",
         "end_word_id": "w_000067",
         "quote": "1.24",
@@ -69,26 +54,9 @@
       },
       {
         "value": 2025,
-        "unit": "год",
         "start_word_id": "w_000073",
         "end_word_id": "w_000073",
         "quote": "2025",
-        "claim_type": "fact"
-      },
-      {
-        "value": 3,
-        "unit": "вопроса",
-        "start_word_id": "w_000089",
-        "end_word_id": "w_000089",
-        "quote": "три",
-        "claim_type": "fact"
-      },
-      {
-        "value": 4,
-        "unit": "вопрос",
-        "start_word_id": "w_000094",
-        "end_word_id": "w_000094",
-        "quote": "четвёртый",
         "claim_type": "fact"
       }
     ],
@@ -112,15 +80,15 @@
         "tail": 30,
         "total": 321
       },
-      "technique": "callout-diagram",
-      "pattern": "system-structure",
-      "structure_rule": "result-first",
-      "purpose": "Известный разбор map держался на трёх вопросах с собеседований.",
-      "idea": "Окно видеоплеера с заголовком «map в Go»; из него по очереди выезжают три карточки-вопроса с пометкой «собеседование», третья подсвечивается как итог.",
+      "technique": "hero-number",
+      "pattern": "quantities",
+      "structure_rule": "one-number",
+      "purpose": "Известный разбор map держится на трёх вопросах с собеседования.",
+      "idea": "Плашка видео с подписью map в Go; из неё выступают три карточки-вопроса, а счётчик по центру досчитывает до 3.",
       "key_terms": [
         {
-          "text": "YouTube",
-          "word_id": "w_000010"
+          "text": "map",
+          "word_id": "w_000016"
         },
         {
           "text": "трёх",
@@ -161,12 +129,12 @@
       "technique": "checklist",
       "pattern": "sequence-steps",
       "structure_rule": "assembly",
-      "purpose": "Три классических вопроса про map: предвыделение, порядок обхода, указатель на элемент.",
-      "idea": "Чек-лист из трёх строк-вопросов; рядом с каждой иконка: блок памяти, перемешанные ключи, указатель со знаком запрета. Строки загораются по мере речи.",
+      "purpose": "Три классических вопроса про map.",
+      "idea": "Чек-лист из трёх строк: выделение памяти заранее, случайный порядок обхода, запрет указателя на элемент. Каждая строка появляется со своей иконкой (ячейка памяти, перемешанные стрелки, перечёркнутый указатель).",
       "key_terms": [
         {
-          "text": "выделять память",
-          "word_id": "w_000030"
+          "text": "заранее",
+          "word_id": "w_000029"
         },
         {
           "text": "случайный",
@@ -178,7 +146,7 @@
         }
       ],
       "data": [],
-      "importance": 3,
+      "importance": 2,
       "anchor_ids": []
     },
     {
@@ -197,11 +165,11 @@
         "tail": 30,
         "total": 273
       },
-      "technique": "flow-graph",
-      "pattern": "cause-effect",
-      "structure_rule": "always-on",
-      "purpose": "Вопросы актуальны, но ответы построены на реализации, которой в Go уже нет.",
-      "idea": "Узел «Вопросы» с зелёной галочкой связан стрелкой с узлом «Ответы», который опирается на блок «старая реализация»; блок трескается и гаснет, стрелка обрывается.",
+      "technique": "split-versus",
+      "pattern": "comparison",
+      "structure_rule": "two-sides",
+      "purpose": "Вопросы актуальны, но ответы привязаны к реализации, которой уже нет.",
+      "idea": "Слева три вопроса с зелёной галочкой, справа ответы на устаревшей подложке; реализация-основа трескается и исчезает, ответы повисают без опоры.",
       "key_terms": [
         {
           "text": "ответах",
@@ -239,8 +207,8 @@
       "technique": "timeline",
       "pattern": "timeline",
       "structure_rule": "assembly",
-      "purpose": "С Go 1.24 (февраль 2025) встроенная map полностью переписана на Swiss Table.",
-      "idea": "Ось времени с отметкой «февраль 2025», на ней метка «Go 1.24»; из неё разворачивается плитка «map» с надписью Swiss Table, заменяя старую плитку.",
+      "purpose": "С Go 1.24 в феврале 2025 map переписана на Swiss Table.",
+      "idea": "Горизонтальная ось: прежние версии слева, метка Go 1.24 с датой февраль 2025 справа; на ней вспыхивает блок map с подписью Swiss Table.",
       "key_terms": [
         {
           "text": "1.24",
@@ -251,7 +219,7 @@
           "word_id": "w_000073"
         },
         {
-          "text": "Swiss Table",
+          "text": "Swiss",
           "word_id": "w_000083"
         }
       ],
@@ -264,7 +232,6 @@
         {
           "label": "Год выхода",
           "value": 2025,
-          "unit": "год",
           "quote": "2025 года"
         }
       ],
@@ -275,28 +242,24 @@
       "id": "ss_005",
       "status": "accepted",
       "origin": "agent",
-      "start_word_id": "w_000085",
+      "start_word_id": "w_000093",
       "end_word_id": "w_000115",
-      "quote": "Сегодня мы пройдём эти три вопроса заново и добавим четвёртый который под старыми видео задают чаще всего как map растёт и что происходит если вы в этот момент по ней итерируетесь",
+      "quote": "добавим четвёртый который под старыми видео задают чаще всего как map растёт и что происходит если вы в этот момент по ней итерируетесь",
       "block_id": "b1",
-      "words": 31,
-      "at_s": 33.6,
+      "words": 23,
+      "at_s": 36.8,
       "frames": {
         "lead": 15,
-        "speech": 372,
+        "speech": 276,
         "tail": 30,
-        "total": 417
+        "total": 321
       },
-      "technique": "callout-diagram",
-      "pattern": "sequence-steps",
-      "structure_rule": "request-answer",
-      "purpose": "Три вопроса разбираются заново и добавляется четвёртый: рост map во время итерации.",
-      "idea": "Три карточки-вопроса слева перезапускаются, справа появляется четвёртая с map, в которой растут бакеты, и курсор итерации бежит по ней во время роста; четвёртая подсвечивается.",
+      "technique": "flow-graph",
+      "pattern": "cause-effect",
+      "structure_rule": "always-on",
+      "purpose": "Четвёртый вопрос: что бывает при обходе map во время её роста.",
+      "idea": "Схема: map растёт (слоты переезжают в новую таблицу), параллельно по ней идёт стрелка итератора; в точке пересечения вспыхивает вопрос «что увидит итератор?».",
       "key_terms": [
-        {
-          "text": "четвёртый",
-          "word_id": "w_000094"
-        },
         {
           "text": "растёт",
           "word_id": "w_000104"
@@ -306,215 +269,8 @@
           "word_id": "w_000115"
         }
       ],
-      "data": [
-        {
-          "label": "Старые вопросы",
-          "value": 3,
-          "unit": "вопроса",
-          "quote": "три вопроса"
-        },
-        {
-          "label": "Новый вопрос",
-          "value": 4,
-          "quote": "четвёртый"
-        }
-      ],
-      "importance": 2,
-      "anchor_ids": []
-    },
-    {
-      "id": "ss_006",
-      "status": "accepted",
-      "origin": "agent",
-      "start_word_id": "w_000116",
-      "end_word_id": "w_000143",
-      "quote": "План такой Пара минут старая map как контраст чтобы было с чем сравнивать Потом новая сверху вниз директория таблицы группы control word Дальше поиск удаление рост и итерация",
-      "block_id": "b1",
-      "words": 28,
-      "at_s": 46,
-      "frames": {
-        "lead": 15,
-        "speech": 336,
-        "tail": 30,
-        "total": 381
-      },
-      "technique": "process-steps",
-      "pattern": "sequence-steps",
-      "structure_rule": "assembly",
-      "purpose": "План: старая map как контраст, затем новая сверху вниз, затем операции.",
-      "idea": "Горизонтальный маршрут из трёх остановок: «старая map», «новая: директория → таблицы → группы → control word», «поиск, удаление, рост, итерация». Маркер проходит остановки в такт речи.",
-      "key_terms": [
-        {
-          "text": "старая",
-          "word_id": "w_000120"
-        },
-        {
-          "text": "директория",
-          "word_id": "w_000133"
-        },
-        {
-          "text": "control word",
-          "word_id": "w_000136"
-        }
-      ],
       "data": [],
       "importance": 2,
-      "anchor_ids": []
-    },
-    {
-      "id": "ss_007",
-      "status": "accepted",
-      "origin": "agent",
-      "start_word_id": "w_000144",
-      "end_word_id": "w_000165",
-      "quote": "А потом то ради чего стоит досмотреть до конца бенчмарки в кадре старая реализация против новой с аллокациями и задержками при росте",
-      "block_id": "b1",
-      "words": 22,
-      "at_s": 57.2,
-      "frames": {
-        "lead": 15,
-        "speech": 264,
-        "tail": 30,
-        "total": 309
-      },
-      "technique": "race",
-      "pattern": "comparison",
-      "structure_rule": "two-sides",
-      "purpose": "Бенчмарки сравнят старую и новую реализации по аллокациям и задержкам при росте.",
-      "idea": "Две дорожки «старая» и «новая» бегут рядом; снизу счётчики аллокаций, сверху задержка. С ростом карты дорожка старой отстаёт и усложняется, новая идёт ровно.",
-      "key_terms": [
-        {
-          "text": "бенчмарки",
-          "word_id": "w_000153"
-        },
-        {
-          "text": "аллокациями",
-          "word_id": "w_000161"
-        },
-        {
-          "text": "задержками",
-          "word_id": "w_000163"
-        }
-      ],
-      "data": [],
-      "importance": 2,
-      "anchor_ids": []
-    },
-    {
-      "id": "ss_008",
-      "status": "accepted",
-      "origin": "agent",
-      "start_word_id": "w_000166",
-      "end_word_id": "w_000174",
-      "quote": "И чек-лист что из всего этого менять в продакшен-коде",
-      "block_id": "b1",
-      "words": 9,
-      "at_s": 66,
-      "frames": {
-        "lead": 15,
-        "speech": 108,
-        "tail": 30,
-        "total": 153
-      },
-      "technique": "checklist",
-      "pattern": "sequence-steps",
-      "structure_rule": "result-first",
-      "purpose": "В конце будет чек-лист изменений для продакшен-кода.",
-      "idea": "Пустой список с тремя пунктами-заглушками «менять в продакшене»; сразу показывается итоговый заголовок, затем пункты проступают галочками.",
-      "key_terms": [
-        {
-          "text": "чек-лист",
-          "word_id": "w_000167"
-        },
-        {
-          "text": "менять",
-          "word_id": "w_000172"
-        },
-        {
-          "text": "продакшен-коде",
-          "word_id": "w_000174"
-        }
-      ],
-      "data": [],
-      "importance": 2,
-      "anchor_ids": []
-    },
-    {
-      "id": "ss_009",
-      "status": "accepted",
-      "origin": "agent",
-      "start_word_id": "w_000175",
-      "end_word_id": "w_000191",
-      "quote": "Все числа которые я назову сверены с исходником runtime и с блогом Go ссылки будут в описании",
-      "block_id": "b1",
-      "words": 17,
-      "at_s": 69.6,
-      "frames": {
-        "lead": 15,
-        "speech": 204,
-        "tail": 30,
-        "total": 249
-      },
-      "technique": "flow-graph",
-      "pattern": "relationships",
-      "structure_rule": "always-on",
-      "purpose": "Все числа сверены с исходником runtime и блогом Go, ссылки в описании.",
-      "idea": "В центре узел «числа», к нему текут стрелки от двух источников: «исходник runtime» и «блог Go»; затем сбоку появляется иконка «ссылки в описании».",
-      "key_terms": [
-        {
-          "text": "сверены",
-          "word_id": "w_000180"
-        },
-        {
-          "text": "runtime",
-          "word_id": "w_000183"
-        },
-        {
-          "text": "блогом",
-          "word_id": "w_000186"
-        }
-      ],
-      "data": [],
-      "importance": 2,
-      "anchor_ids": []
-    },
-    {
-      "id": "ss_010",
-      "status": "accepted",
-      "origin": "agent",
-      "start_word_id": "w_000192",
-      "end_word_id": "w_000205",
-      "quote": "А если где-то данных нет я так прямо и скажу а не буду угадывать",
-      "block_id": "b1",
-      "words": 14,
-      "at_s": 76.4,
-      "frames": {
-        "lead": 15,
-        "speech": 168,
-        "tail": 30,
-        "total": 213
-      },
-      "technique": "kinetic-quote",
-      "pattern": "key-point-emphasis",
-      "structure_rule": "result-first",
-      "purpose": "Если данных нет, автор прямо об этом скажет, а не будет угадывать.",
-      "idea": "Крупная фраза «данных нет — скажу прямо»; слово «угадывать» зачёркивается, а «прямо» подсвечивается.",
-      "key_terms": [
-        {
-          "text": "данных нет",
-          "word_id": "w_000195"
-        },
-        {
-          "text": "прямо",
-          "word_id": "w_000199"
-        },
-        {
-          "text": "угадывать",
-          "word_id": "w_000205"
-        }
-      ],
-      "data": [],
-      "importance": 1,
       "anchor_ids": []
     }
   ],
@@ -523,33 +279,25 @@
       "start_word_id": "w_000001",
       "end_word_id": "w_000004",
       "quote": "Начнём с честной рамки",
-      "reason": "Вступление-рамка без фактов и данных."
-    }
-  ],
-  "issues": [
-    {
-      "item_id": "ss_005",
-      "code": "scene_long",
-      "severity": "warning",
-      "message": "речь сцены ss_005 ≈ 12,4 с > 12 с — сцене нужны биты по фразам"
+      "reason": "Вступление-рамка без рисуемого содержания."
     },
     {
-      "code": "coverage_high",
-      "severity": "warning",
-      "message": "сцены покрывают 98 % слов текста (больше 90 %): паузам без графики места нет"
+      "start_word_id": "w_000085",
+      "end_word_id": "w_000092",
+      "quote": "Сегодня мы пройдём эти три вопроса заново и",
+      "reason": "Анонс содержания ролика."
     }
   ],
+  "issues": [],
   "diversity": {
     "techniques": {
-      "callout-diagram": 2,
-      "checklist": 2,
-      "flow-graph": 2,
+      "hero-number": 1,
+      "checklist": 1,
+      "split-versus": 1,
       "timeline": 1,
-      "process-steps": 1,
-      "race": 1,
-      "kinetic-quote": 1
+      "flow-graph": 1
     },
     "adjacent_repeats": 0,
-    "kinetic_share": 0.1
+    "kinetic_share": 0
   }
 }
