@@ -1,6 +1,6 @@
-// Approvals видеопроекта (Task 29, `05` §7): состояние A и B (только чтение — разошедшийся
+// Approvals видеопроекта (Task 29, 33, `05` §7): состояние A и B (только чтение — разошедшийся
 // субъект показывается `stale`, но не пишется), утверждение A (`approveRoughCut`: нельзя при
-// `proposed`), отзыв решения человеком. B утверждается в Task 33.
+// `proposed`) и B (`approveVisualPlan`: 409 с перечнем сцен или проблем), отзыв решения человеком.
 import { ApprovalBodySchema, ApprovalDtoSchema, type ProjectApprovalsDto, ProjectApprovalsDtoSchema } from "@ms/contracts";
 import { peekApprovalState } from "../../approvals/engine.js";
 import { currentSubject } from "../../approvals/subjects.js";
@@ -9,8 +9,9 @@ import * as approvals from "../../db/repos/approvals.js";
 import * as projects from "../../db/repos/projects.js";
 import { tx } from "../../db/tx.js";
 import { approveRoughCut } from "../../edit/approval-a.js";
+import { approveVisualPlan } from "../../analysis/approval-b.js";
 import { type ApiContext, IdParams, type ZApp } from "../context.js";
-import { ApiError, notFound } from "../errors.js";
+import { notFound } from "../errors.js";
 
 /** A и B проекта без записи в БД. */
 export function projectApprovals(db: Db, projectId: string): ProjectApprovalsDto {
@@ -37,8 +38,8 @@ export function approvalRoutes(app: ZApp, { core }: ApiContext): void {
     schema: { params: IdParams, body: ApprovalBodySchema, response: { 201: ApprovalDtoSchema } },
   }, async (req, reply) => {
     projectOr404(req.params.id);
-    if (req.body.kind !== "A") throw new ApiError(409, "approval_unsupported", "утверждение плана (B) появится вместе с планом");
-    return reply.status(201).send(approveRoughCut(core.db, req.params.id));
+    const a = req.body.kind === "A" ? approveRoughCut(core.db, req.params.id) : approveVisualPlan(core.db, req.params.id, core.root);
+    return reply.status(201).send(a);
   });
 
   app.post("/api/approvals/:id/revoke", { schema: { params: IdParams, response: { 200: ApprovalDtoSchema } } }, async (req) => {

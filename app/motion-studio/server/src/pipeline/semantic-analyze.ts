@@ -8,7 +8,8 @@
 // Переотправка — одна на окно и только если `scene.maxAutoFixes ≥ 1`: при отказе схемы — с текстом
 // ошибки, при отклонённых кодом предложениях — с их перечнем. Второй ответ заменяет первый целиком;
 // оставшиеся отклонённые — в `semantic.json.rejected` и событии `semantic_rejected`. Отказ агента
-// (не схема) или бюджет — задача падает: разметки без агента нет. Ответы окон — чекпоинт задачи
+// (не схема) или бюджет — задача падает. `useAgent: false` — пустая разметка без агента (UI-тесты
+// без LLM, Task 33). Ответы окон — чекпоинт задачи
 // (хеш всего входа → ответы по хешам окон): повтор не платит за готовые окна.
 //
 // Повтор после сбоя (ревью Task 24, M3): id — `sem_<ULID задачи>`; опубликован прошлой попыткой —
@@ -53,7 +54,8 @@ import { QUARANTINE, fsyncWrite, setWritable } from "../scenes/store.js";
 import { checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
 import { RunCtx, errText, isStorageError, toolless } from "./steps.js";
 
-export const SemanticAnalyzeInputSchema = z.object({ projectId: z.string().min(1) }).strict();
+/** `useAgent: false` — без Semantic Director: пустая разметка (UI-тесты без LLM). */
+export const SemanticAnalyzeInputSchema = z.object({ projectId: z.string().min(1), useAgent: z.boolean().optional() }).strict();
 export type SemanticAnalyzeInput = z.infer<typeof SemanticAnalyzeInputSchema>;
 
 export const SEMANTIC_STAGES = ["prepare", "agent", "publish"] as const;
@@ -213,6 +215,8 @@ export function semanticAnalyze(depsOf: (ctx: JobContext) => SemanticAnalyzeDeps
       };
       if (inp.words.length === 0) {
         ctx.emit("nothing_to_analyze", tr.words.length === 0 ? "в транскрипте нет слов: размечать нечего" : "черновой монтаж вырезал все слова: размечать нечего");
+      } else if (input.useAgent === false) {
+        ctx.emit("agent_skipped", "агент Semantic Director не вызывался (useAgent: false): разметка пустая");
       } else {
         await enter("agent", 0.1);
         spans = windowSpans(inp.words.length, d.windows ?? WINDOW_DEFAULTS);

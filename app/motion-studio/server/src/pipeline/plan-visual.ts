@@ -63,7 +63,8 @@ import { FencedOutError, PublishCancelledError } from "../scenes/repo.js";
 import { checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
 import { RunCtx, errText, isStorageError, toolless } from "./steps.js";
 
-export const PlanJobInputSchema = z.object({ projectId: z.string().min(1) }).strict();
+/** `useAgent: false` — без Visual Planner: план без сцен, сцены добавляет человек (UI-тесты без LLM). */
+export const PlanJobInputSchema = z.object({ projectId: z.string().min(1), useAgent: z.boolean().optional() }).strict();
 
 export const PLAN_STAGES = ["prepare", "agent", "publish"] as const;
 export type PlanStage = (typeof PLAN_STAGES)[number];
@@ -267,6 +268,10 @@ export function planVisual(depsOf: (ctx: JobContext) => PlanVisualDeps): JobHand
       if (input.words.length === 0) {
         ctx.emit("nothing_to_plan", "после монтажа слов не осталось: планировать нечего");
         chosen = { style: inputStyle ? { ...inputStyle.base, rationale: inputStyle.rationale || "стиль проекта" } : { preset: "dark-premium", intensity: "balanced", depth: 1, rationale: "по умолчанию: речи нет" }, opportunities: [] };
+        ev = evaluate(chosen);
+      } else if (parsed.data.useAgent === false) {
+        ctx.emit("agent_skipped", "агент Visual Planner не вызывался (useAgent: false): план без сцен — сцены добавляет человек");
+        chosen = { style: inputStyle ? { ...inputStyle.base, rationale: inputStyle.rationale || "стиль проекта" } : { preset: "dark-premium", intensity: "balanced", depth: 1, rationale: "по умолчанию: план без агента" }, opportunities: [] };
         ev = evaluate(chosen);
       } else {
         await enter("agent", 0.1);

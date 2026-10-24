@@ -49,3 +49,8 @@ export function insertRevision(db: Db, r: { doc: ProjectStyleDoc; rel_path: stri
 export function revision(db: Db, id: string, rev: number): StyleRevisionRow | undefined {
   return db.prepare("SELECT * FROM style_revisions WHERE style_id = ? AND revision = ?").get(id, rev) as StyleRevisionRow | undefined;
 }
+
+/** Ревизии StyleBible по порядку (история в UI). */
+export function revisions(db: Db, id: string): StyleRevisionRow[] {
+  return db.prepare("SELECT * FROM style_revisions WHERE style_id = ? ORDER BY revision").all(id) as StyleRevisionRow[];
+}

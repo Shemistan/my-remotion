@@ -20,6 +20,25 @@ export const ZoneSchema = z.enum([
 ]);
 export type Zone = z.infer<typeof ZoneSchema>;
 
+const PIP = 0.3;
+const PIP_MARGIN = 0.04;
+const r6 = (v: number): number => Math.round(v * 1e6) / 1e6;
+
+/** Геометрия зон размещения (план Task 30): общая для сервера (проверки) и UI (превью зоны на кадре). */
+export const ZONE_RECTS: Record<Zone, NormRect> = {
+  left_third: { x: 0.04, y: 0.08, w: 0.30, h: 0.84 },
+  right_third: { x: 0.66, y: 0.08, w: 0.30, h: 0.84 },
+  top_band: { x: 0.04, y: 0.04, w: 0.92, h: 0.22 },
+  lower_third: { x: 0.04, y: 0.70, w: 0.92, h: 0.24 },
+  full: { x: 0, y: 0, w: 1, h: 1 },
+  split_left: { x: 0, y: 0, w: 0.5, h: 1 },
+  split_right: { x: 0.5, y: 0, w: 0.5, h: 1 },
+  pip_tl: { x: PIP_MARGIN, y: PIP_MARGIN, w: PIP, h: PIP },
+  pip_tr: { x: r6(1 - PIP_MARGIN - PIP), y: PIP_MARGIN, w: PIP, h: PIP },
+  pip_bl: { x: PIP_MARGIN, y: r6(1 - PIP_MARGIN - PIP), w: PIP, h: PIP },
+  pip_br: { x: r6(1 - PIP_MARGIN - PIP), y: r6(1 - PIP_MARGIN - PIP), w: PIP, h: PIP },
+};
+
 export const AuthorPositionSchema = z.enum(["left", "center", "right", "absent", "mixed"]);
 export const CameraMotionSchema = z.enum(["static", "handheld", "moving"]);
 

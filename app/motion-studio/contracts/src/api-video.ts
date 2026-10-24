@@ -2,15 +2,16 @@
 import { z } from "zod";
 import { ApprovalKindSchema, ApprovalSchema, ApprovalStaleReasonSchema } from "./approvals.js";
 import { EdlOpSchema, EdlRevisionDocSchema } from "./edl.js";
-import { FootageAnalysisSchema } from "./footage.js";
+import { FootageAnalysisSchema, ZoneSchema } from "./footage.js";
 import { JobSchema } from "./jobs.js";
 import { DerivativeKindSchema, MediaAssetSchema } from "./media.js";
-import { PlanOpSchema, VisualPlanRevisionDocSchema } from "./plan.js";
+import { PlanIssueSchema, PlanOpSchema, PlannedCompositionModeSchema, VisualPlanRevisionDocSchema } from "./plan.js";
+import { PatternSlugSchema } from "./patterns.js";
 import { ProjectStyleBaseSchema, ProjectStyleDocSchema } from "./project-style.js";
 import { SemanticTimelineSchema } from "./semantic.js";
 import { ProjectDtoSchema } from "./api.js";
 import { EditedTimelineSchema } from "./timeline.js";
-import { TranscriptOpSchema, TranscriptRevisionDocSchema } from "./transcript.js";
+import { TranscriptOpSchema, TranscriptRevisionDocSchema, WordIdSchema } from "./transcript.js";
 
 const Ts = z.string().datetime();
 const Id = z.string().min(1);
@@ -96,12 +97,30 @@ export type FootageDto = z.infer<typeof FootageDtoSchema>;
 export const SemanticDtoSchema = z.object({ semantic: SemanticTimelineSchema }).strict();
 export type SemanticDto = z.infer<typeof SemanticDtoSchema>;
 
-/** `GET /plans/:id`: ревизия плана и свежесть её входов (EDL, транскрипт, стиль). */
+/** Предложение агента по сцене (первая ревизия, где сцена появилась) — «Вернуть к предложению». */
+export const PlanProposalSchema = z.object({
+  visual_type: PatternSlugSchema,
+  composition_mode: PlannedCompositionModeSchema,
+  zone: ZoneSchema,
+  start_word_id: WordIdSchema,
+  end_word_id: WordIdSchema,
+}).strict();
+export type PlanProposal = z.infer<typeof PlanProposalSchema>;
+
+export const RecheckEntrySchema = z.object({ item_id: Id, change: z.enum(["remapped", "anchor_cut", "timing_changed"]) }).strict();
+export type RecheckEntry = z.infer<typeof RecheckEntrySchema>;
+
+/**
+ * `GET /plans/:id`: ревизия плана и свежесть её входов (EDL, транскрипт, стиль); предложения агента
+ * по его сценам; итог перепроверки (`plan.recheck`), если текущую ревизию создала она.
+ */
 export const PlanDtoSchema = z.object({
   id: Id,
   current_revision: Revision,
   doc: VisualPlanRevisionDocSchema,
   inputs_fresh: z.object({ edl: z.boolean(), transcript: z.boolean(), style: z.boolean() }).strict(),
+  proposals: z.record(PlanProposalSchema),
+  recheck: z.object({ changed: z.array(RecheckEntrySchema) }).strict().nullable(),
 }).strict();
 export type PlanDto = z.infer<typeof PlanDtoSchema>;
 
@@ -111,14 +130,29 @@ export const PlanRevisionBodySchema = z.object({
 }).strict();
 export type PlanRevisionBody = z.infer<typeof PlanRevisionBodySchema>;
 
+/** Контраст пары «цвет текста — фон» стиля: ниже `min` — blocking, ниже `good` — warning. */
+export const StyleContrastSchema = z.object({
+  key: z.enum(["text", "muted"]),
+  color: z.string(),
+  bg: z.string(),
+  ratio: z.number().nonnegative(),
+  min: z.number().positive(),
+  good: z.number().positive(),
+}).strict();
+export type StyleContrast = z.infer<typeof StyleContrastSchema>;
+
+/** `GET /projects/:id/style`: текущая ревизия, история, контраст, проблемы и шрифты motion-kit. */
 export const ProjectStyleDtoSchema = z.object({
   current: ProjectStyleDocSchema,
   history: z.array(RevisionEntrySchema),
+  contrast: z.array(StyleContrastSchema),
+  issues: z.array(PlanIssueSchema),
+  fonts: z.array(z.string().min(1)),
 }).strict();
 export type ProjectStyleDto = z.infer<typeof ProjectStyleDtoSchema>;
 
-/** `PUT /projects/:id/style`. */
-export const ProjectStyleBodySchema = z.object({ base: ProjectStyleBaseSchema }).strict();
+/** `PUT /projects/:id/style`: новая ревизия пользователя; `base_revision` — защита от гонки правок. */
+export const ProjectStyleBodySchema = z.object({ base: ProjectStyleBaseSchema, base_revision: Revision.optional() }).strict();
 export type ProjectStyleBody = z.infer<typeof ProjectStyleBodySchema>;
 
 /** `POST /media/:id/transcribe`: язык, модель, подсказки (проверяет обработчик `asr.transcribe`). */
@@ -132,6 +166,13 @@ export type TranscribeBody = z.infer<typeof TranscribeBodySchema>;
 /** `POST /projects/:id/roughcut/propose`: `useAgent: false` — только детекторы (без LLM). */
 export const RoughcutProposeBodySchema = z.object({ useAgent: z.boolean().optional() }).strict();
 export type RoughcutProposeBody = z.infer<typeof RoughcutProposeBodySchema>;
+
+/**
+ * `POST /projects/:id/{footage/analyze,semantic/analyze,plan/generate}`: `useAgent: false` — без LLM
+ * (видеоряд — только детектор; смысловая разметка — пустая; план — без сцен, их добавляет человек).
+ */
+export const AnalyzeBodySchema = z.object({ useAgent: z.boolean().optional() }).strict();
+export type AnalyzeBody = z.infer<typeof AnalyzeBodySchema>;
 
 /** `GET /asr/capability`: доступность ASR без путей (подробности — в журнале сервера и `doctor`). */
 export const AsrCapabilityDtoSchema = z.object({
@@ -149,6 +190,12 @@ export const VideoProjectDtoSchema = z.object({
   transcript: z.object({ id: Id, current_revision: Revision }).strict().nullable(),
   edl: z.object({ id: Id, current_revision: Revision, preview_ready: z.boolean() }).strict().nullable(),
   approvals: ProjectApprovalsDtoSchema,
+  /** Последний анализ видеоряда проекта (Task 33). */
+  footage: z.object({ id: Id, mode: FootageAnalysisSchema.shape.mode }).strict().nullable(),
+  /** Последняя смысловая разметка; `fresh` — построена по текущим ревизиям EDL и транскрипта. */
+  semantic: z.object({ id: Id, fresh: z.boolean() }).strict().nullable(),
+  plan: z.object({ id: Id, current_revision: Revision }).strict().nullable(),
+  style: z.object({ id: Id, current_revision: Revision }).strict().nullable(),
   /** Последняя задача проекта каждого типа (импорт, ASR, монтаж, превью). */
   jobs: z.array(JobSchema),
 }).strict();

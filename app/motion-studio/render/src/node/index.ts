@@ -9,7 +9,7 @@ export { FfmpegError, type FfmpegOptions } from "./ffmpeg.js";
 export { exportDurationFrames, exportFps, exportGate } from "./export-gate.js";
 export { alphaAtCorner } from "./alpha.js";
 // Чистые расчёты стиля kit (без React и шрифтов) — для QA и пайплайна на сервере.
-export { type ResolveStyleInput, type ResolvedStyle, resolveStyle } from "../motion-kit/style/resolve.js";
+export { KIT_FONTS, type ResolveStyleInput, type ResolvedStyle, resolveStyle } from "../motion-kit/style/resolve.js";
 export { contrastRatio, relativeLuminance } from "../motion-kit/style/contrast.js";
 export { type Rect, safeRect } from "../motion-kit/choreo/safe-area.js";
 export { type TypeLevel, typeSize } from "../motion-kit/style/type-scale.js";

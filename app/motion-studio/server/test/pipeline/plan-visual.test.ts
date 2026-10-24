@@ -394,6 +394,20 @@ describe("plan.visual", () => {
     expect(approveVisualPlan(db, p, s.root).subject_ref).toBe(`plan:${res!.plan_id}@r3`);
   });
 
+  it("useAgent: false (UI-тесты без LLM) — план без сцен, стиль по умолчанию; агент не вызывается", async () => {
+    const { p } = await ready();
+    enqueue(db, { type: "plan.visual", projectId: p, input: { projectId: p, useAgent: false }, idempotencyKey: `plan.visual-${++n}` });
+    const agents = fakeAgents([]);
+    const { r, events, out: res } = await run<PlanVisualResult>("plan.visual", p, { agents, jobId: "queued" });
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    expect(agents.tasks).toHaveLength(0);
+    expect(events.map((e) => e.kind)).toContain("agent_skipped");
+    expect(res).toMatchObject({ revision: 1, counts: { items: 0, skipped: 0 }, agent: { status: "skipped", calls: 0 }, style: { revision: 1, author: "agent" } });
+    const doc = planOf(res!.plan_id, 1);
+    expect(doc.items).toEqual([]);
+    expect(doc.issues.map((x) => x.code)).toEqual(["no_scenes"]);
+  });
+
   it("повторный plan.visual — новая ревизия того же плана (один план на проект)", async () => {
     const { p } = await ready();
     const r1 = await run<PlanVisualResult>("plan.visual", p, { agents: fakeAgents([ok(CLEAN)]) });

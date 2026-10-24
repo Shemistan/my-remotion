@@ -27,10 +27,10 @@ const STATUS: Record<EditErrorCode, number> = {
   approval_required: 409, no_plan: 409, plan_outdated: 409, items_unresolved: 409, blocking_issues: 409,
 };
 
-/** Правка не применима (422) или субъекта нет (404/409). */
+/** Правка не применима (422) или субъекта нет (404/409); `details` — поля тела ответа API (перечни). */
 export class EditError extends Error {
   readonly status: number;
-  constructor(readonly code: EditErrorCode, message: string) {
+  constructor(readonly code: EditErrorCode, message: string, readonly details: Record<string, unknown> = {}) {
     super(`${code}: ${message}`);
     this.name = "EditError";
     this.status = STATUS[code];

@@ -169,6 +169,18 @@ describe("semantic.analyze", () => {
     expect(agents.tasks).toHaveLength(0);
   });
 
+  it("useAgent: false (UI-тесты без LLM) — агент не вызывается, разметка пустая со ссылками на текущие ревизии", async () => {
+    const p = await videoProject();
+    enqueue(db, { type: "semantic.analyze", projectId: p, input: { projectId: p, useAgent: false }, idempotencyKey: `sem${++n}` });
+    const agents = fakeAgents([]);
+    const { r, events, out: res } = await analyze(p, { agents, jobId: "queued" });
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    expect(agents.tasks).toHaveLength(0);
+    expect(events.map((e) => e.kind)).toContain("agent_skipped");
+    expect(res).toMatchObject({ agent: { status: "skipped", calls: 0 }, counts: { chapters: 0, anchors: 0 } });
+    expect(docOf(res!).edl_ref).toEqual({ id: `edl_${p.slice(1)}`, revision: 1 });
+  });
+
   it("A устарело (новая ревизия EDL после утверждения) → approval_required", async () => {
     const p = await videoProject();
     const e = edls.byProject(db, p)!;

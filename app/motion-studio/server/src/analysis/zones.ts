@@ -2,7 +2,7 @@
 // и свободная доля зон размещения анимации. Координаты — доли кадра, начало слева сверху.
 // Лицо считает код (Apple Vision), не LLM; агент может только добавить занятые области
 // (`footage-merge.ts`).
-import type { NormRect, Zone } from "@ms/contracts";
+import { type NormRect, type Zone, ZONE_RECTS } from "@ms/contracts";
 import type { VisionFrame } from "./vision.js";
 
 /** Округление координат до 1e-6: без хвостов плавающей точки (0.48750000000000004). */
@@ -65,23 +65,8 @@ export function unionArea(rs: readonly NormRect[]): number {
   return area;
 }
 
-const PIP = 0.3;
-const PIP_MARGIN = 0.04;
-
-/** Геометрия зон размещения (план Task 30). */
-export const ZONE_RECTS: Record<Zone, NormRect> = {
-  left_third: { x: 0.04, y: 0.08, w: 0.30, h: 0.84 },
-  right_third: { x: 0.66, y: 0.08, w: 0.30, h: 0.84 },
-  top_band: { x: 0.04, y: 0.04, w: 0.92, h: 0.22 },
-  lower_third: { x: 0.04, y: 0.70, w: 0.92, h: 0.24 },
-  full: { x: 0, y: 0, w: 1, h: 1 },
-  split_left: { x: 0, y: 0, w: 0.5, h: 1 },
-  split_right: { x: 0.5, y: 0, w: 0.5, h: 1 },
-  pip_tl: { x: PIP_MARGIN, y: PIP_MARGIN, w: PIP, h: PIP },
-  pip_tr: { x: r6(1 - PIP_MARGIN - PIP), y: PIP_MARGIN, w: PIP, h: PIP },
-  pip_bl: { x: PIP_MARGIN, y: r6(1 - PIP_MARGIN - PIP), w: PIP, h: PIP },
-  pip_br: { x: r6(1 - PIP_MARGIN - PIP), y: r6(1 - PIP_MARGIN - PIP), w: PIP, h: PIP },
-};
+/** Геометрия зон размещения — в `@ms/contracts` (общая с UI). */
+export { ZONE_RECTS };
 
 /** Зоны, которые оцениваются по умолчанию. */
 export const DEFAULT_ZONES: Zone[] = ["left_third", "right_third", "top_band", "lower_third"];

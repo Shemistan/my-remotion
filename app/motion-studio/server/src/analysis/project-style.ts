@@ -78,6 +78,19 @@ export function projectStyleFrom(base: ProjectStyleBase): { resolved: StyleBible
   return { resolved, issues };
 }
 
+/** Контраст пар «текст — фон» и «приглушённый — фон» разрешённого стиля с порогами (UI, ответ 400). */
+export function styleContrast(resolved: StyleBible): { key: "text" | "muted"; color: string; bg: string; ratio: number; min: number; good: number }[] {
+  const p = resolved.palette;
+  const pairs = [["text", MIN_TEXT_CONTRAST, GOOD_TEXT_CONTRAST], ["muted", MIN_MUTED_CONTRAST, GOOD_MUTED_CONTRAST]] as const;
+  return pairs.flatMap(([key, min, good]) => {
+    try {
+      return [{ key, color: p[key], bg: p.bg, ratio: contrastRatio(p[key], p.bg), min, good }];
+    } catch {
+      return [];
+    }
+  });
+}
+
 /** Текущая ревизия стиля проекта (документ из хранилища) или `undefined`. */
 export function currentProjectStyle(db: Db, root: string, projectId: string): ProjectStyleDoc | undefined {
   const row = styles.byProject(db, projectId);

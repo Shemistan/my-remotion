@@ -16,12 +16,16 @@ import { chatRoutes } from "./routes/chat.js";
 import { edlRoutes } from "./routes/edls.js";
 import { eventRoutes } from "./routes/events.js";
 import { exportRoutes } from "./routes/exports.js";
+import { footageRoutes } from "./routes/footage.js";
 import { type HealthProbes, healthRoutes } from "./routes/health.js";
 import { jobRoutes } from "./routes/jobs.js";
 import { kbRoutes } from "./routes/kb.js";
 import { mediaRoutes } from "./routes/media.js";
+import { planRoutes } from "./routes/plans.js";
+import { projectStyleRoutes } from "./routes/project-style.js";
 import { projectRoutes } from "./routes/projects.js";
 import { sceneRoutes } from "./routes/scenes.js";
+import { semanticRoutes } from "./routes/semantic.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { transcriptRoutes } from "./routes/transcripts.js";
 import { versionRoutes } from "./routes/versions.js";
@@ -74,6 +78,11 @@ export async function buildApp(core: Core, opts: BuildAppOptions = { port: PORT 
   transcriptRoutes(app, ctx);
   edlRoutes(app, ctx);
   approvalRoutes(app, ctx);
+  // анализ и визуальный план (Task 33)
+  footageRoutes(app, ctx);
+  semanticRoutes(app, ctx);
+  planRoutes(app, ctx);
+  projectStyleRoutes(app, ctx);
   eventRoutes(app, ctx, sse);
 
   if (opts.dev) await installViteDev(app, WEB_ROOT, opts.port);
