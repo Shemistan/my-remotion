@@ -389,7 +389,7 @@ DTO — `contracts/src/api-script.ts`. Все создающие POST — с `Id
 | `POST /api/projects/:id/script/plan/ops` `{ base_revision, ops }` | правки плана | 200 `ScriptPlanDto`; 409 `revision_conflict`, `resource_busy` |
 | `POST /api/projects/:id/script/generate` `{ revision, item_ids?, regenerate?, aspect? }` | Approval B + сцены + задачи | 202/200 `ScriptBatchDto`; 409 `plan_outdated`, 422 `blocking_issues` |
 | `GET /api/script-batches/:id` | статус пакета генерации | 200 `ScriptBatchDto` |
-| `POST /api/script-batches/:id/cancel` | отмена незавершённых задач пакета | 200 `ScriptBatchDto` |
+| `POST /api/script-batches/:id/cancel` | отмена незавершённых задач пакета (и подхваченных им общих задач сцен, поставленных другим пакетом) | 200 `ScriptBatchDto` |
 | `POST /api/projects/:id/script/reframe` `{ aspect: "9:16", item_ids? }` | вертикальные двойники | 202/200 `ScriptBatchDto` |
 | `POST /api/projects/:id/script/package` `{ aspect }` | задача `script.package` | 202/200 `{ job }` |
 | `GET /api/script-packages/:id` | манифест пакета, файлы, путь папки | 200 `ScriptPackageDto` |

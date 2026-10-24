@@ -280,6 +280,35 @@ describe("playgroundEdit: path code и spec", () => {
     expect(json<MotionSpec>(v2.path, "spec.json").elements.map((e) => e.id)).not.toContain("badge");
   });
 
+  it("M3: правка сцены сценария — окно речи из входа script исходной генерации идёт в проверку spec Director", async () => {
+    let editing = false;
+    let round = 0;
+    const agents = fakeAgents({
+      director: async () => {
+        const o = laidOut();
+        // правка, раунд 2: удержание ≥ tail (60) — исправлено по speech_window
+        if (editing && ++round === 2) {
+          o.spec.beats[2] = { ...o.spec.beats[2]!, start_frame: 100, end_frame: 120 };
+          o.spec.beats[1] = { ...o.spec.beats[1]!, end_frame: 100 };
+          o.spec.beats[3] = { ...o.spec.beats[3]!, start_frame: 120 };
+        }
+        return { output: o };
+      },
+      editPlanner: async () => ({ output: plan({ path: "spec", changes: [{ target: "chart", kind: "spec", description: "другой график" }], preserve: [], reply: "Меняю график." }) }),
+    });
+    const { scene, gen, edit } = await start({ agents });
+    await gen();
+    // сцена сценария: вход script у генерации сцены (окно lead 15 / tail 60)
+    const script = { project_id: "playground", plan_id: "pln_x", plan_revision: 1, item_id: "ss_001", aspect: "16:9", style: { preset: "dark-premium", intensity: "balanced", depth: 2 }, lead_frames: 15, tail_frames: 60 };
+    jobs.insert(env.db, { id: "job_script_gen", type: "playground.generate", project_id: "playground", scene_id: scene.id, input: { sceneId: scene.id, prompt: "бриф", settings, script }, status: "completed", attempt: 1 });
+    editing = true;
+    const job = await edit({}, "поменяй график");
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    const dir = agents.tasks.filter((t) => t.role === "motion_director").slice(1);
+    expect(dir).toHaveLength(2);
+    expect(String(dir[1]!.input)).toContain("speech_window");
+  });
+
   it("settings_patch { aspect_ratio 9:16, 1080×1920 } → path spec, Director и Engineer вызваны", async () => {
     const agents = fakeAgents({});
     const { scene, gen, edit } = await start({ agents });

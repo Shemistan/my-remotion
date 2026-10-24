@@ -7,7 +7,6 @@ import { loadConfig } from "../../src/config.js";
 import { lockKeyFor } from "../../src/jobs/locks.js";
 import type { JobContext } from "../../src/jobs/types.js";
 import { scriptPackage } from "../../src/pipeline/script-package.js";
-import { scriptPlan } from "../../src/pipeline/script-plan.js";
 import { type Api, makeApi, okHeaders } from "./helpers.js";
 
 const key = (k: string) => ({ ...okHeaders, "idempotency-key": k });
@@ -37,11 +36,25 @@ describe("API сценария", () => {
     expect(playground.statusCode).toBe(409);
     expect(playground.json()).toMatchObject({ error: "not_script_project" });
     expect((await api.inj("GET", "/api/projects/nope/script")).statusCode).toBe(404);
-    expect((await api.inj("POST", `/api/projects/${id}/script/plan`, key("p1"), {})).statusCode).toBe(501);
+    const noText = await api.inj("POST", `/api/projects/${id}/script/plan`, key("p1"), {});
+    expect(noText.statusCode).toBe(409); // S3: без текста — no_script
+    expect(noText.json()).toMatchObject({ error: "no_script" });
+    expect((await api.inj("POST", "/api/projects/playground/script/plan", key("p0"), {})).statusCode).toBe(409);
     expect((await api.inj("POST", `/api/projects/${id}/script/plan`, okHeaders, {})).statusCode).toBe(400); // нет Idempotency-Key
     expect((await api.inj("POST", `/api/projects/${id}/script/plan`, key("p2"), { reading: { wps: 9, lead_s: 0, tail_s: 0 } })).statusCode).toBe(400);
     expect((await api.inj("POST", `/api/projects/${id}/script/plan/ops`, okHeaders, { base_revision: 1, ops: [{ op: "set_status", item_id: "ss_001", status: "rejected" }] })).statusCode).toBe(501);
     expect((await api.inj("POST", `/api/projects/${id}/script/plan/ops`, okHeaders, { base_revision: 1, ops: [{ op: "reorder" }] })).statusCode).toBe(400);
+  });
+
+  it("POST /script/plan (S3): после текста — 202 задача script.plan, повтор ключа — 200 та же задача", async () => {
+    expect((await api.inj("PUT", `/api/projects/${id}/script`, okHeaders, { blocks: [{ title: "A", text: "Раз два три." }] })).statusCode).toBe(200);
+    const body = { useAgent: false, reading: { wps: 3, lead_s: 0.5, tail_s: 1 } };
+    const r = await api.inj("POST", `/api/projects/${id}/script/plan`, key("pl1"), body);
+    expect(r.statusCode).toBe(202);
+    expect(r.json().job).toMatchObject({ type: "script.plan", project_id: id });
+    const again = await api.inj("POST", `/api/projects/${id}/script/plan`, key("pl1"), body);
+    expect(again.statusCode).toBe(200);
+    expect(again.json().job.id).toBe(r.json().job.id);
   });
 
   it("маршруты генерации, пакетов и экспорта: схема тела (400); генерация и пакеты — S5 (409/404), прочее — 501", async () => {
@@ -63,8 +76,8 @@ describe("API сценария", () => {
 describe("задачи, замки, роль", () => {
   const job = (type: Job["type"]): Job => ({ id: "j", type, project_id: "prj_1" } as Job);
 
-  it("заглушки обработчиков: failed pipeline/prepare not_implemented", async () => {
-    for (const h of [scriptPlan(() => ({})), scriptPackage(() => ({}))]) {
+  it("заглушка обработчика script.package: failed pipeline/prepare not_implemented", async () => {
+    for (const h of [scriptPackage(() => ({}))]) {
       expect(await h({} as JobContext)).toEqual({ status: "failed", error: { code: "pipeline", stage: "prepare", message: "not_implemented" } });
     }
   });

@@ -9,10 +9,12 @@ import { join, relative, sep } from "node:path";
 import { readFileSync } from "node:fs";
 import { type Job, type MotionSpec, MotionSpecSchema, type ScriptPlanRevisionDoc, ScriptPlanRevisionDocSchema, type ScriptSceneContext, ScriptSceneContextSchema, type ScriptSceneItem, SettingsSchema, failureToJobErrorCode } from "@ms/contracts";
 import { z } from "zod";
+import { loadPartial } from "../agents/prompts.js";
 import * as jobs from "../db/repos/jobs.js";
 import * as plans from "../db/repos/plans.js";
 import { scriptScenes } from "../db/repos/script.js";
 import { overlayChecks } from "../script/overlay-check.js";
+import { recordPublishedFingerprint } from "../script/batch.js";
 import * as scenes from "../db/repos/scenes.js";
 import * as versions from "../db/repos/versions.js";
 import { setOutputRefs } from "../jobs/queue.js";
@@ -34,6 +36,8 @@ export const PlaygroundGenerateInputSchema = z.object({
   answers: z.union([z.record(z.string()), z.literal("skip")]).optional(),
   /** Сцена сценария (S5, §6.2): проверяется `ScriptSceneContextSchema` в обработчике. */
   script: z.unknown().optional(),
+  /** Отпечаток сцены плана (S5 fix I2): после публикации — в `script_scenes.item_fingerprint`. */
+  script_fingerprint: z.string().optional(),
 }).passthrough();
 export type PlaygroundGenerateInput = z.infer<typeof PlaygroundGenerateInputSchema>;
 
@@ -79,6 +83,7 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
     const neighbors = sc && projectId ? await neighborSpecs(ctx, d.repo.root, sc) : [];
     const previous = neighbors.length > 0 ? neighbors : projectId ? await previousSpecs(ctx, d.repo.root, projectId, sceneId) : [];
     const kbQuery = sc ? `${sc.item.purpose} ${sc.item.idea} ${sc.item.quote}` : prompt;
+    const scriptRules = sc ? loadPartial("script-scene") : undefined;
     const speechWindow = sc ? { lead: sc.ctx.lead_frames, speech: settings.duration_frames - sc.ctx.lead_frames - sc.ctx.tail_frames, tail: sc.ctx.tail_frames } : undefined;
 
     // чекпоинты Concept и Director (M7): файл в logs/agent-runs/<jobId>/checkpoints/, ссылка — в output_refs.steps
@@ -110,6 +115,7 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
       abortReason: () => abortKind(ctx),
       publish: async (draft, meta) => {
         const v = await d.repo.publish(draft, meta, fence);
+        if (parsed.data.script_fingerprint) recordPublishedFingerprint(ctx.db, sceneId, parsed.data);
         return { dir: v.dir, warnings: v.warnings.map((w) => `${w.code}: ${w.message}`), versionId: v.versionId, number: v.manifest.number };
       },
       permits: { agents: ctx.agents, renders: ctx.renders },
@@ -127,7 +133,7 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
         ...(sc ? { extraQa: (v) => overlayChecks(v) } : {}),
         plan: async (rc) => {
           ctx.progress(0.05, "concept");
-          const c = await conceptStep(rc, { prompt, settings, ...(answers !== undefined ? { answers } : {}) }, cp);
+          const c = await conceptStep(rc, { prompt, settings, ...(answers !== undefined ? { answers } : {}), ...(scriptRules ? { scriptRules } : {}) }, cp);
           if (!c.ok) return { kind: "failed", stage: c.stage, message: c.message };
           const concept = c.concept;
           if (concept.needs_clarification.length > 0 && answers === undefined) return { kind: "awaiting_input", concept };
@@ -139,7 +145,7 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
           }
           const style = sceneStyle(startPropsStyle(settings, sc ? undefined : concept.style_hint.palette_overrides), settings);
           ctx.progress(0.15, "director");
-          const dr = await directorStep(rc, { prompt, settings, concept, candidates, patternTexts: texts, kitApi: await readKitApi(), style, previous, ...(speechWindow ? { speechWindow } : {}) }, cp);
+          const dr = await directorStep(rc, { prompt, settings, concept, candidates, patternTexts: texts, kitApi: await readKitApi(), style, previous, ...(speechWindow ? { speechWindow } : {}), ...(scriptRules ? { scriptRules } : {}) }, cp);
           if (!dr.ok) return { kind: "failed", stage: dr.stage, message: dr.message };
           return { kind: "plan", director: dr.director, spec: dr.spec, candidates, concept };
         },

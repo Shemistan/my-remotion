@@ -1,7 +1,7 @@
 // S5: пакет генерации сценария — Approval B, сцены и задачи `playground.generate` одной
 // транзакцией, ключи идемпотентности `:s<styleRev>[:try-n][:regen-k]`, статус, отмена, рестарт.
 // Обработчик задачи — фейк (публикует версию или падает), раннер и очередь — настоящие.
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fileProcessRegistry } from "@ms/core";
@@ -21,7 +21,7 @@ import { JobRunner } from "../../src/jobs/runner.js";
 import type { HandlerResult, JobContext } from "../../src/jobs/types.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
 import { sceneRel } from "../../src/scenes/store.js";
-import { batchStatus, batchesForState, cancelBatch, startScriptBatch } from "../../src/script/batch.js";
+import { batchStatus, batchesForState, cancelBatch, recordPublishedFingerprint, startScriptBatch } from "../../src/script/batch.js";
 import { SCRIPT_FILE, SCRIPT_PLAN_FILE } from "../../src/script/read.js";
 import { scriptState } from "../../src/script/state.js";
 import { removeStore } from "../db/helpers.js";
@@ -118,6 +118,7 @@ function fakeHandler(o: { fail?: Set<string>; hold?: Promise<void>; afterPublish
     }
     const draft = await makeDraft(env.s.root, { runId: ctx.job.id, attempt: ctx.attempt, sceneId: input.sceneId, projectId: P });
     const v = await repo.publish(draft, meta(input.sceneId), { jobId: ctx.job.id, attempt: ctx.attempt });
+    recordPublishedFingerprint(env.db, input.sceneId, ctx.job.input); // как playground.generate после публикации
     if (o.afterPublish) await o.afterPublish;
     return { status: "completed", outputRefs: { version_id: v.versionId } };
   };
@@ -194,6 +195,15 @@ describe("startScriptBatch", () => {
     expect(codeOf(() => startScriptBatch(core(), { projectId: P, revision: 3, idempotencyKey: "a4", itemIds: ["ss_999"] }))).toBe("unknown_item");
   });
 
+  it("M6: повтор ключа с другими item_ids или regenerate — 422 idempotency_key_reused; тот же запрос — тот же пакет", () => {
+    const s = startScriptBatch(core(), { projectId: P, revision: 3, idempotencyKey: "q1", itemIds: ["ss_001", "ss_002"] });
+    expect(startScriptBatch(core(), { projectId: P, revision: 3, idempotencyKey: "q1", itemIds: ["ss_002", "ss_001"] }).id).toBe(s.id);
+    expect(codeOf(() => startScriptBatch(core(), { projectId: P, revision: 3, idempotencyKey: "q1", itemIds: ["ss_001"] }))).toBe("idempotency_key_reused");
+    expect(codeOf(() => startScriptBatch(core(), { projectId: P, revision: 3, idempotencyKey: "q1", itemIds: ["ss_001", "ss_002"], regenerate: true }))).toBe("idempotency_key_reused");
+    expect(codeOf(() => startScriptBatch(core(), { projectId: P, revision: 3, idempotencyKey: "q1" }))).toBe("idempotency_key_reused");
+    expect(codeOf(() => startScriptBatch(core(), { projectId: P, revision: 3, idempotencyKey: "q1", itemIds: ["ss_001", "ss_002"], aspect: "9:16" }))).toBe("idempotency_key_reused");
+  });
+
   it("правка сцены плана (новая ревизия, другой отпечаток) — сцена ставится заново в ту же сцену Playground", async () => {
     const s = startScriptBatch(core(), { projectId: P, revision: 3, idempotencyKey: "m1" });
     startRunner(fakeHandler());
@@ -205,6 +215,62 @@ describe("startScriptBatch", () => {
     expect(b.items.map((x) => x.item_id)).toEqual(["ss_003"]);
     expect(b.items[0]!.scene_id).toBe(s.items[2]!.scene_id);
     expect(jobs.get(env.db, b.items[0]!.job!.id)!.idempotency_key).toBe("script:pln_b@r4:ss_003:16:9:s1");
+  });
+
+  it("I2: правка плана → пакет → отмена: старая версия сцены остаётся stale, отпечаток не сдвинут постановкой", async () => {
+    const s = startScriptBatch(core(), { projectId: P, revision: 3, idempotencyKey: "f1" });
+    startRunner(fakeHandler());
+    await runToIdle(s.id);
+    await runner!.stop({ abortRunning: true });
+    const changed = planDoc(4);
+    changed.items[2] = { ...changed.items[2]!, idea: "новая идея" };
+    publishPlan(changed);
+    const staleOf = () => scriptState(env.db, env.s.root, P).scenes.find((x) => x.item_id === "ss_003")!.stale;
+    expect(staleOf()).toBe(true);
+    const b = startScriptBatch(core(), { projectId: P, revision: 4, idempotencyKey: "f2" });
+    expect(staleOf()).toBe(true); // задача поставлена, но версия ещё старая
+    startRunner(fakeHandler({ hold: new Promise<void>(() => undefined) }));
+    await until(() => batchStatus(env.db, env.s.root, b.id).counts.running === 1, "задача в работе", 5_000);
+    // повтор пакета на тот же отпечаток — подхват идущей задачи, а не новая
+    const again = startScriptBatch(core(), { projectId: P, revision: 4, idempotencyKey: "f3" });
+    expect(again.items.map((x) => x.job!.id)).toEqual(b.items.map((x) => x.job!.id));
+    await cancelBatch(core(), b.id);
+    await runToIdle(b.id);
+    expect(batchStatus(env.db, env.s.root, b.id).counts).toMatchObject({ cancelled: 1 });
+    expect(staleOf()).toBe(true);
+    // после отмены — сцена снова в пакете (не «готова»)
+    const retry = startScriptBatch(core(), { projectId: P, revision: 4, idempotencyKey: "f4" });
+    expect(retry.items.map((x) => x.item_id)).toEqual(["ss_003"]);
+    await runner!.stop({ abortRunning: true });
+    startRunner(fakeHandler());
+    await runToIdle(retry.id);
+    expect(staleOf()).toBe(false);
+  });
+
+  it("M7: новая ревизия плана сменила номер и сцену — название «NN · цитата» и brief.json существующей сцены обновлены; откат — brief прежний", async () => {
+    const s = startScriptBatch(core(), { projectId: P, revision: 3, idempotencyKey: "t1" });
+    startRunner(fakeHandler());
+    await runToIdle(s.id);
+    const sceneOf = (k: number) => s.items[k]!.scene_id;
+    const brief = (k: number) => JSON.parse(readFileSync(join(env.s.root, sceneRel(P, sceneOf(k)), "brief.json"), "utf8")) as { prompt: string };
+    // r4: ss_001 снята, ss_003 — новая идея → ss_002 стала «01», ss_003 — «02» и в пакете
+    const changed = planDoc(4);
+    changed.items[0] = { ...changed.items[0]!, status: "rejected" };
+    changed.items[2] = { ...changed.items[2]!, idea: "новая идея" };
+    publishPlan(changed);
+    const blocked = planDoc(5, { items: changed.items, issues: [{ code: "adjacent_technique_repeat", severity: "blocking", message: "x" }] });
+    publishPlan(blocked);
+    const before = brief(2).prompt;
+    expect(codeOf(() => startScriptBatch(core(), { projectId: P, revision: 5, idempotencyKey: "t2" }))).toBe("blocking_issues");
+    expect(brief(2).prompt).toBe(before);
+    expect(scenesRepo.get(env.db, sceneOf(2))!.title).toMatch(/^03 · /);
+    publishPlan(planDoc(6, { items: changed.items }));
+    const b = startScriptBatch(core(), { projectId: P, revision: 6, idempotencyKey: "t3" });
+    expect(b.items.map((x) => x.item_id)).toEqual(["ss_003"]);
+    expect(scenesRepo.get(env.db, sceneOf(2))!.title).toMatch(/^02 · /);
+    expect(scenesRepo.get(env.db, sceneOf(1))!.title).toMatch(/^01 · /); // готовая сцена — тоже новый номер
+    expect(brief(2).prompt).toContain("Сцена 2 из 3");
+    expect(brief(2).prompt).toContain("новая идея");
   });
 
   it("откат транзакции (план с blocking) — 422, каталогов брифов и строк новых сцен нет", () => {

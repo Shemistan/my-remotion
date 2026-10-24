@@ -3,7 +3,7 @@
 // набор обычных задач с ключами `script:<planId>@r<rev>:<itemId>:<aspect>:s<styleRev>[:try-n][:regen-k]`;
 // членство задачи в пакете — событие `script_batch` в `job_events` той же транзакции (сцена
 // может войти в несколько пакетов: «Повторить», новый стиль), `script_scenes.job_id` — последняя.
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   type Aspect,
@@ -30,7 +30,7 @@ import * as jobs from "../db/repos/jobs.js";
 import * as plans from "../db/repos/plans.js";
 import * as projects from "../db/repos/projects.js";
 import * as scenes from "../db/repos/scenes.js";
-import { type ScriptSceneRow, scriptBatches, scriptScenes } from "../db/repos/script.js";
+import { type ScriptBatchRow, type ScriptSceneRow, scriptBatches, scriptScenes } from "../db/repos/script.js";
 import * as versions from "../db/repos/versions.js";
 import { tx } from "../db/tx.js";
 import { cancelJob, enqueue } from "../jobs/queue.js";
@@ -81,8 +81,17 @@ const APPROVABLE_ERR: Record<Exclude<Approvable, { ok: true }>["code"], [number,
   no_items: [422, "в плане нет принятых сцен"],
 };
 
-/** Id пакета из ключа запроса: повтор того же `Idempotency-Key` находит тот же пакет. */
-const batchIdFor = (projectId: string, key: string): string => `sb_${sha256(`${projectId}\n${key}`).slice(0, 26)}`;
+/** Префикс id пакета из ключа запроса: повтор того же `Idempotency-Key` находит пакет без новой колонки. */
+const keyPrefix = (projectId: string, key: string): string => `sb_${sha256(`${projectId}\n${key}`).slice(0, 20)}`;
+/** Отпечаток тела запроса в id пакета (M6): тот же ключ с другим телом — 422 `idempotency_key_reused`. */
+const requestTag = (i: StartBatchInput, aspect: Aspect): string =>
+  sha256(JSON.stringify({ revision: i.revision, aspect, item_ids: i.itemIds ? [...new Set(i.itemIds)].sort() : null, regenerate: i.regenerate === true })).slice(0, 10);
+
+/** Пакет, созданный запросом с этим `Idempotency-Key` (любое тело), — для 200/202 маршрута. */
+export function batchForKey(db: Db, projectId: string, key: string): ScriptBatchRow | undefined {
+  const prefix = keyPrefix(projectId, key);
+  return scriptBatches.listByProject(db, projectId).find((b) => b.id.startsWith(prefix));
+}
 
 /** Ключ задачи генерации сцены (§11, Р23). */
 export function sceneJobKey(k: { planId: string; revision: number; itemId: string; aspect: Aspect; styleRevision: number; tryN?: number; regenK?: number }): string {
@@ -121,11 +130,11 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
   if (!project) throw notFound(`проект ${i.projectId}`);
   if (project.kind !== "script") throw new ApiError(409, "not_script_project", "проект не сценарный");
   const aspect = i.aspect ?? "16:9";
-  const batchId = batchIdFor(i.projectId, i.idempotencyKey);
-  const existing = scriptBatches.get(db, batchId);
+  const batchId = `${keyPrefix(i.projectId, i.idempotencyKey)}${requestTag(i, aspect)}`;
+  const existing = batchForKey(db, i.projectId, i.idempotencyKey);
   if (existing) {
-    if (existing.plan_revision !== i.revision || existing.aspect !== aspect) {
-      throw new ApiError(422, "idempotency_key_reused", `ключ ${i.idempotencyKey} уже использован пакетом ${batchId} с другим запросом`);
+    if (existing.id !== batchId) {
+      throw new ApiError(422, "idempotency_key_reused", `ключ ${i.idempotencyKey} уже использован пакетом ${existing.id} с другим запросом`);
     }
     return batchStatus(db, root, batchId);
   }
@@ -155,18 +164,25 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
   // план работ до записи: что ставить, что уже готово, что идёт
   const base: Settings = { ...(project.settings ?? defaultSettings()), fps: doc.fps };
   const work: Work[] = [];
+  // названия существующих сцен «NN · цитата» по текущей ревизии (номер мог сместиться)
+  const retitle: { sceneId: string; title: string }[] = [];
   for (const item of selected) {
     const index = accepted.indexOf(item);
     const fingerprint = itemFingerprint(item, styleRef);
     const row = scriptScenes.get(db, cur.planId, item.id, aspect);
+    if (row) {
+      const title = sceneTitle(index + 1, item);
+      if (scenes.get(db, row.scene_id)?.title !== title) retitle.push({ sceneId: row.scene_id, title });
+    }
     const last = row?.job_id ? jobs.get(db, row.job_id) : undefined;
-    if (!i.regenerate && row && row.item_fingerprint === fingerprint) {
-      if (last && ACTIVE.has(last.status)) {
+    if (!i.regenerate && row) {
+      // идущая задача на тот же отпечаток — входит в пакет как есть
+      if (last && ACTIVE.has(last.status) && inputFingerprint(last.input) === fingerprint) {
         work.push({ item, index, fingerprint, row, reuse: last });
         continue;
       }
-      const current = scenes.get(db, row.scene_id)?.current_version_id;
-      if (current && (!last || last.status === "completed")) {
+      // готова: текущая версия опубликована по этому отпечатку (он пишется после публикации)
+      if (row.item_fingerprint === fingerprint && scenes.get(db, row.scene_id)?.current_version_id) {
         skipped.push({ item_id: item.id, reason: "готовая версия по текущему плану" });
         continue;
       }
@@ -194,17 +210,20 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
     };
     work.push({
       item, index, fingerprint, ...(row ? { row } : {}),
-      enqueue: { sceneId, title: sceneTitle(index + 1, item), brief, settings, input: { sceneId, prompt: brief, settings, script: ctx, answers: "skip" }, key: keyOf(tryN) },
+      enqueue: { sceneId, title: sceneTitle(index + 1, item), brief, settings, input: { sceneId, prompt: brief, settings, script: ctx, script_fingerprint: fingerprint, answers: "skip" }, key: keyOf(tryN) },
     });
   }
 
-  // брифы новых сцен — до транзакции (синхронно, safeMkdir); откат — каталоги убираются
+  // брифы — до транзакции (синхронно, safeMkdir); откат — каталоги новых сцен убираются,
+  // brief.json существующих возвращается прежним (M7)
   const created: string[] = [];
+  const replaced: { sceneId: string; prev: string | undefined }[] = [];
   try {
     for (const w of work) {
-      if (!w.enqueue || w.row) continue;
+      if (!w.enqueue) continue;
+      if (w.row) replaced.push({ sceneId: w.enqueue.sceneId, prev: readBriefRaw(root, i.projectId, w.enqueue.sceneId) });
       writeBriefSync(root, w.enqueue.sceneId, { prompt: w.enqueue.brief, settings: w.enqueue.settings, created_at: new Date().toISOString() }, i.projectId);
-      created.push(w.enqueue.sceneId);
+      if (!w.row) created.push(w.enqueue.sceneId);
     }
     tx(db, () => {
       const now = plans.byProject(db, i.projectId);
@@ -218,6 +237,7 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
       const peek = peekApprovalState(db, i.projectId, "B", subject);
       const approval = peek.state === "valid" && peek.approval ? peek.approval : approve(db, { projectId: i.projectId, kind: "B", subjectRef: subject.ref, subjectHash: subject.hash });
       scriptBatches.insert(db, { id: batchId, project_id: i.projectId, plan_id: cur.planId, plan_revision: doc.revision, aspect, approval_id: approval.id });
+      for (const r of retitle) scenes.setTitle(db, r.sceneId, r.title);
       for (const w of work) {
         let job: Job;
         if (w.reuse) job = w.reuse;
@@ -228,12 +248,20 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
             scriptScenes.insert(db, { project_id: i.projectId, plan_id: cur.planId, item_id: w.item.id, aspect, scene_id: e.sceneId, batch_id: batchId, job_id: null, item_fingerprint: w.fingerprint });
           }
           job = enqueue(db, { type: "playground.generate", projectId: i.projectId, sceneId: e.sceneId, input: e.input, idempotencyKey: e.key }).job;
-          scriptScenes.setJob(db, e.sceneId, job.id, w.fingerprint);
+          // отпечаток — не здесь: он сдвигается после публикации версии (recordPublishedFingerprint)
+          scriptScenes.setJob(db, e.sceneId, job.id);
         }
         jobEvents.insert(db, { job_id: job.id, level: "info", kind: BATCH_EVENT, message: `сцена ${w.item.id} в пакете ${batchId}`, data: { batch_id: batchId, item_id: w.item.id } });
       }
     });
   } catch (e) {
+    for (const r of replaced) {
+      try {
+        if (r.prev !== undefined) writeFileSync(join(root, sceneRel(i.projectId, r.sceneId), "brief.json"), r.prev);
+      } catch {
+        // бриф — копия входа задачи; источник истины — вход задачи в БД
+      }
+    }
     for (const id of created) {
       if (scenes.get(db, id)) continue;
       try {
@@ -246,6 +274,31 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
   }
   const dto = batchStatus(db, root, batchId);
   return skipped.length > 0 ? { ...dto, skipped } : dto;
+}
+
+/** Текущий brief.json сцены как есть (для отката); нет — `undefined`. */
+function readBriefRaw(root: string, projectId: string, sceneId: string): string | undefined {
+  try {
+    return readFileSync(join(root, sceneRel(projectId, sceneId), "brief.json"), "utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+/** Отпечаток сцены плана из входа задачи (`script_fingerprint`). */
+function inputFingerprint(input: unknown): string | undefined {
+  const fp = (input as { script_fingerprint?: unknown } | null)?.script_fingerprint;
+  return typeof fp === "string" ? fp : undefined;
+}
+
+/**
+ * После успешной публикации версии сцены сценария (S5 fix I2): отпечаток входа задачи
+ * становится отпечатком текущей версии. Пока новая задача идёт, упала или отменена, старая
+ * версия остаётся `stale`. Вход без отпечатка (Playground) — ничего.
+ */
+export function recordPublishedFingerprint(db: Db, sceneId: string, input: unknown): void {
+  const fp = inputFingerprint(input);
+  if (fp) scriptScenes.setFingerprint(db, sceneId, fp);
 }
 
 interface Member {

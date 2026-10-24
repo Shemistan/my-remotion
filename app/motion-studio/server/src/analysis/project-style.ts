@@ -13,6 +13,7 @@ import { cascadeStale } from "../approvals/engine.js";
 import { artifactPaths } from "../artifacts/paths.js";
 import type { Db } from "../db/open.js";
 import * as plans from "../db/repos/plans.js";
+import * as projects from "../db/repos/projects.js";
 import * as styles from "../db/repos/styles.js";
 import { EditError, RevisionConflictError } from "../edit/errors.js";
 import type { EditDeps } from "../edit/transcript-ops.js";
@@ -108,11 +109,13 @@ function readStyle(root: string, rel: string): ProjectStyleDoc {
  * `project:<p>:plan` у задачи — `resource_busy`; та же основа, автор и обоснование — `no_change`.
  * В транзакции публикации: `styles.create` (первая), `insertRevision`, `cascadeStale(…, "style")`;
  * правка пользователя (без `fence`) при готовом плане — `enqueue("plan.recheck")` с ключом стиля
- * (план задачи `plan.visual` ссылается на свой стиль сам).
+ * (план задачи `plan.visual` ссылается на свой стиль сам). `recheck: false` — перепроверку не
+ * ставить; у сценарного проекта (`kind = "script"`) её нет вовсе: план сценария не переносится на
+ * стиль, сцены берут текущий стиль проекта (спека сценария §11, Р15).
  */
 export async function saveProjectStyle(
   deps: EditDeps, projectId: string, base: ProjectStyleBase, author: ProjectStyleDoc["author"],
-  opts: { rationale?: string; base_revision?: number; fence?: Fence } = {},
+  opts: { rationale?: string; base_revision?: number; fence?: Fence; recheck?: boolean } = {},
 ): Promise<ProjectStyleDoc> {
   const { db, store } = deps;
   const row = styles.byProject(db, projectId);
@@ -138,7 +141,7 @@ export async function saveProjectStyle(
     if (!row) styles.create(d, { id: styleId, project_id: projectId });
     styles.insertRevision(d, { doc, rel_path: `${destRel}/${STYLE_FILE}`, sha256: files[0]!.sha256 });
     cascadeStale(d, projectId, "style");
-    if (!opts.fence && plans.byProject(d, projectId)?.current_revision != null) {
+    if (!opts.fence && opts.recheck !== false && projects.get(d, projectId)?.kind !== "script" && plans.byProject(d, projectId)?.current_revision != null) {
       enqueue(d, { type: "plan.recheck", projectId, input: { projectId }, idempotencyKey: planRecheckStyleKey(styleId, doc.revision) });
     }
   };
