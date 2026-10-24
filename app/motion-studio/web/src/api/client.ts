@@ -4,6 +4,17 @@
 // `storage_offline` (или health с ним) включает баннер хранилища, успешный ответ — выключает.
 import type {
   AppSettingsDto,
+  Approval,
+  AsrCapabilityDto,
+  EdlDto,
+  EdlOp,
+  MediaDto,
+  ProjectApprovalsDto,
+  RevisionEntry,
+  TranscriptDto,
+  TranscriptOp,
+  TranscribeBody,
+  VideoProjectDto,
   ChatMessage,
   ExportDto,
   ExportRequest,
@@ -119,7 +130,7 @@ export const api = {
   },
   projects: () => request<ProjectDto[]>("GET", "/api/projects"),
   project: (id: string) => request<ProjectDetailDto>("GET", `/api/projects/${enc(id)}`),
-  createProject: (title: string) => request<ProjectDto>("POST", "/api/projects", { body: { title } }),
+  createProject: (title: string, kind?: ProjectDto["kind"]) => request<ProjectDto>("POST", "/api/projects", { body: { title, ...(kind ? { kind } : {}) } }),
   createScene: (projectId: string, body: { prompt: string; settings: Settings }, key: string = newKey()) =>
     request<{ scene: SceneDto; job: Job }>("POST", `/api/projects/${enc(projectId)}/scenes`, { body, idempotency: key }),
   scene: (id: string) => request<SceneDetailDto>("GET", `/api/scenes/${enc(id)}`),
@@ -157,11 +168,72 @@ export const api = {
   kbCard: (id: string) => request<KbCardDto>("GET", `/api/kb/${id.split("/").map(enc).join("/")}`),
   settings: () => request<AppSettingsDto>("GET", "/api/settings"),
   putSettings: (body: unknown) => request<AppSettingsDto>("PUT", "/api/settings", { body }),
+
+  // видеопроект (Task 29)
+  videoProject: (id: string) => request<VideoProjectDto>("GET", `/api/projects/${enc(id)}/video`),
+  importMedia: (projectId: string, path: string, key: string = newKey()) =>
+    request<{ job: Job }>("POST", `/api/projects/${enc(projectId)}/media/import`, { body: { path }, idempotency: key }),
+  media: (id: string) => request<MediaDto>("GET", `/api/media/${enc(id)}`),
+  transcribe: (mediaId: string, body: TranscribeBody, key: string = newKey()) =>
+    request<{ job: Job }>("POST", `/api/media/${enc(mediaId)}/transcribe`, { body, idempotency: key }),
+  asrCapability: () => request<AsrCapabilityDto>("GET", "/api/asr/capability"),
+  transcript: (id: string, revision?: number) =>
+    request<TranscriptDto>("GET", `/api/transcripts/${enc(id)}${revision ? `?revision=${revision}` : ""}`),
+  transcriptRevisions: (id: string) => request<RevisionEntry[]>("GET", `/api/transcripts/${enc(id)}/revisions`),
+  saveTranscript: (id: string, baseRevision: number, ops: TranscriptOp[]) =>
+    request<TranscriptDto>("POST", `/api/transcripts/${enc(id)}/revisions`, { body: { base_revision: baseRevision, ops } }),
+  proposeRoughCut: (projectId: string, useAgent: boolean, key: string = newKey()) =>
+    request<{ job: Job }>("POST", `/api/projects/${enc(projectId)}/roughcut/propose`, { body: { useAgent }, idempotency: key }),
+  edl: (id: string, revision?: number) => request<EdlDto>("GET", `/api/edls/${enc(id)}${revision ? `?revision=${revision}` : ""}`),
+  saveEdl: (id: string, baseRevision: number, ops: EdlOp[]) =>
+    request<EdlDto>("POST", `/api/edls/${enc(id)}/revisions`, { body: { base_revision: baseRevision, ops } }),
+  buildPreview: (edlId: string, revision: number, key: string = newKey()) =>
+    request<{ job: Job }>("POST", `/api/edls/${enc(edlId)}/revisions/${revision}/preview`, { body: {}, idempotency: key }),
+  approvals: (projectId: string) => request<ProjectApprovalsDto>("GET", `/api/projects/${enc(projectId)}/approvals`),
+  approve: (projectId: string, kind: "A" | "B") => request<Approval>("POST", `/api/projects/${enc(projectId)}/approvals`, { body: { kind } }),
+  revokeApproval: (id: string) => request<Approval>("POST", `/api/approvals/${enc(id)}/revoke`, { body: {} }),
 };
+
+/**
+ * Потоковая загрузка видео (`PUT …/media/upload`): XHR — ради прогресса отправки (у fetch его
+ * нет). Тело — сам файл, имя — только для отображения на сервере.
+ */
+export function uploadMedia(projectId: string, file: File, key: string, onProgress: (sent: number, total: number) => void): Promise<{ job: Job }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", `/api/projects/${enc(projectId)}/media/upload?name=${enc(file.name)}`);
+    xhr.setRequestHeader("idempotency-key", key);
+    xhr.setRequestHeader("content-type", "application/octet-stream");
+    xhr.upload.onprogress = (e) => onProgress(e.loaded, e.lengthComputable ? e.total : file.size);
+    xhr.onload = () => {
+      let data: unknown;
+      try {
+        data = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        data = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        storageStatus.set(false);
+        resolve(data as { job: Job });
+        return;
+      }
+      const err = (data ?? {}) as { error?: unknown; message?: unknown };
+      const code = typeof err.error === "string" ? err.error : `http_${xhr.status}`;
+      if (xhr.status === 503 && code === "storage_offline") storageStatus.set(true);
+      reject(new ApiError(xhr.status, code, typeof err.message === "string" ? err.message : xhr.statusText, data));
+    };
+    xhr.onerror = () => reject(new TypeError("network"));
+    xhr.send(file);
+  });
+}
 
 /** URL файлов версии и экспорта (для `<video>`, `<img>` и скачивания). */
 export const urls = {
   preview: (versionId: string) => `/api/versions/${enc(versionId)}/preview.mp4`,
   frame: (versionId: string, frame: number) => `/api/versions/${enc(versionId)}/frames/${frame}.png`,
   exportFile: (exportId: string) => `/api/exports/${enc(exportId)}/file`,
+  proxy: (mediaId: string) => `/api/media/${enc(mediaId)}/proxy.mp4`,
+  waveform: (mediaId: string) => `/api/media/${enc(mediaId)}/waveform.bin`,
+  thumb: (mediaId: string, n: number) => `/api/media/${enc(mediaId)}/thumbs/${n}.jpg`,
+  edlPreview: (edlId: string, revision: number) => `/api/edls/${enc(edlId)}/revisions/${revision}/preview.mp4`,
 };

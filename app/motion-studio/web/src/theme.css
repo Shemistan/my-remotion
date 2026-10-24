@@ -239,3 +239,62 @@ label.check { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
 @media (max-width: 1100px) {
   .playground-grid, .grid-2, .kb-layout { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Video Workspace (Task 29) */
+.video-head h1 { margin: 0; }
+.video-jobs { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; margin-bottom: var(--gap); }
+.video-jobs .job-status { padding: 8px; }
+.video-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--gap); align-items: start; }
+.proxy-player { display: flex; flex-direction: column; gap: 8px; }
+.proxy-player .player-stage { max-height: 48vh; }
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.segmented button { border: none; border-radius: 0; }
+.segmented button.active { background: var(--accent); color: var(--accent-text); }
+.link-button { background: none; border: none; color: var(--accent); padding: 0 4px; cursor: pointer; }
+.approval-bar { gap: 16px; }
+.badge.approval-valid { border-color: var(--ok); color: var(--ok); }
+.badge.approval-stale { border-color: var(--warn); color: var(--warn); }
+.kv { margin: 0; display: grid; grid-template-columns: 1fr; gap: 4px; }
+.kv > div { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 8px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; }
+.drop-zone { border: 1px dashed var(--border); border-radius: var(--radius); padding: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.waveform { width: 100%; height: 60px; display: block; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+.wf-bar { fill: var(--accent); opacity: 0.8; }
+.wf-cut.accepted { fill: var(--error); opacity: 0.35; }
+.wf-cut.proposed { fill: var(--warn); opacity: 0.25; }
+.wf-cursor { stroke: var(--text); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.thumb-strip { position: relative; }
+.thumbs { display: flex; gap: 2px; overflow: hidden; }
+.thumb { padding: 0; border: none; flex: 1 1 0; min-width: 0; background: none; }
+.thumb img { width: 100%; height: 48px; object-fit: cover; display: block; border-radius: 3px; }
+.thumb-cuts { position: absolute; inset: 0; pointer-events: none; }
+.thumb-cut { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--error) 45%, transparent); border-left: 2px solid var(--error); border-right: 2px solid var(--error); }
+.edited-timeline { display: flex; flex-direction: column; gap: 2px; }
+.tl-bar { position: relative; height: 18px; background: var(--surface-2); border-radius: 4px; cursor: crosshair; overflow: hidden; }
+.tl-clip { position: absolute; top: 2px; bottom: 2px; background: color-mix(in srgb, var(--accent) 55%, transparent); border-radius: 2px; }
+.tl-clip.edited { background: color-mix(in srgb, var(--ok) 55%, transparent); }
+.tl-cursor { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--text); }
+.tl-links { width: 100%; height: 24px; display: block; }
+.tl-links polygon { fill: color-mix(in srgb, var(--accent) 18%, transparent); stroke: none; }
+.tl-hover { min-height: 1.4em; margin-top: 4px; }
+.segments { display: flex; flex-direction: column; gap: 6px; max-height: 56vh; overflow: auto; }
+.segment-text { margin: 0; line-height: 1.9; }
+.word { padding: 1px 2px; border-radius: 3px; cursor: pointer; }
+.word:hover { background: var(--surface-2); }
+.word.current { background: color-mix(in srgb, var(--accent) 35%, transparent); }
+.word.selected { outline: 1px solid var(--accent); }
+.word.interpolated { border-bottom: 1px dashed var(--warn); }
+.word.removed { text-decoration: line-through; color: var(--muted); }
+.word.clipped { text-decoration: underline wavy var(--warn); }
+.selection-bar { margin: 6px 0; }
+.cut-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 56vh; overflow: auto; }
+.cut-row { border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+.cut-row.status-accepted { border-color: color-mix(in srgb, var(--error) 60%, var(--border)); }
+.cut-row.status-rejected { opacity: 0.7; }
+.cut-row p { margin: 0; }
+.rough-cut .actions { margin: 8px 0; }
+.chip.diff-added { border-color: var(--ok); }
+.chip.diff-removed { border-color: var(--error); text-decoration: line-through; }
+.chip.diff-changed { border-color: var(--warn); }
+@media (max-width: 1100px) { .video-grid { grid-template-columns: minmax(0, 1fr); } }

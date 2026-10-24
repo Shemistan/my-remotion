@@ -22,6 +22,11 @@ export function invalidateForEvent(client: Invalidator, ev: EventSignal): void {
   client.invalidateQueries({ queryKey: ["scene"] });
   client.invalidateQueries({ queryKey: ["messages"] });
   client.invalidateQueries({ queryKey: ["project"] });
+  // видеопроект (Task 29): задачи публикуют исходник, транскрипт, ревизии EDL и превью
+  client.invalidateQueries({ queryKey: ["video"] });
+  client.invalidateQueries({ queryKey: ["transcript"] });
+  client.invalidateQueries({ queryKey: ["transcriptRevisions"] });
+  client.invalidateQueries({ queryKey: ["edl"] });
 }
 
 /** Подписка на `/api/events` на всё время жизни приложения. */

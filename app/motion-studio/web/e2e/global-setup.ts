@@ -7,7 +7,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { connect } from "node:net";
 import { join } from "node:path";
-import { APP, type E2EState, PORT, RUN_DIR, STATE_FILE } from "./helpers.js";
+import { APP, type E2EState, MEDIA_FIXTURES, PORT, RUN_DIR, STATE_FILE } from "./helpers.js";
 
 const TSX = join(APP, "node_modules/.bin/tsx");
 
@@ -47,13 +47,19 @@ export default async function globalSetup(): Promise<void> {
   writeFileSync(fakeClaude, "#!/bin/sh\necho 'claude отключён в UI-e2e' >&2\nexit 1\n", { mode: 0o755 });
   const configPath = join(root, "config.json");
   const config = existsSync(configPath) ? (JSON.parse(readFileSync(configPath, "utf8")) as object) : {};
-  writeFileSync(configPath, JSON.stringify({ ...config, claudeBin: fakeClaude }, null, 2));
+  // видеопроект (Task 29): импорт по пути — только из каталога фикстур (ffmpeg + say), ASR —
+  // настоящий воркер ai-platform по умолчаниям config.ts
+  if (!existsSync(join(MEDIA_FIXTURES, "talk-ru-cfr.mp4"))) {
+    execFileSync(process.execPath, [join(APP, "scripts/make-media-fixtures.mjs")], { cwd: APP, stdio: "ignore", timeout: 300_000 });
+  }
+  writeFileSync(configPath, JSON.stringify({ ...config, claudeBin: fakeClaude, media: { importRoots: [MEDIA_FIXTURES] } }, null, 2));
   const out = execFileSync(TSX, ["web/e2e/seed-cli.ts"], { cwd: APP, env, encoding: "utf8", timeout: 600_000 });
   const seeded = JSON.parse(out.trim().split("\n").at(-1)!) as Omit<E2EState, "root" | "serverPid" | "serverLog">;
 
   const serverLog = join(run, "server.log");
   const fd = openSync(serverLog, "a");
-  const server = spawn(TSX, ["server/src/main.ts"], { cwd: APP, env, stdio: ["ignore", fd, fd], detached: false });
+  // один процесс (`node --import tsx`, как `npm start`): `kill -9` в video-phase2.spec бьёт сам сервер
+  const server = spawn(process.execPath, ["--import", "tsx", "server/src/main.ts"], { cwd: APP, env, stdio: ["ignore", fd, fd], detached: false });
   server.unref();
   await waitReady(60_000);
   const st: E2EState = { root, serverPid: server.pid!, serverLog, ...seeded };

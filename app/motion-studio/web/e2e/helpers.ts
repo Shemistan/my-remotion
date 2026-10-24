@@ -9,6 +9,10 @@ export const REPO = join(APP, "../..");
 export const RUN_DIR = join(REPO, "tmp/ui-e2e");
 export const STATE_FILE = join(RUN_DIR, "state.json");
 export const EVIDENCE = join(REPO, "docs/evidence/phase-1/ui");
+/** Скриншоты Video Workspace (Task 29). */
+export const EVIDENCE_VIDEO = join(REPO, "docs/evidence/phase-2/ui");
+/** Медиа-фикстуры (`scripts/make-media-fixtures.mjs`): корень импорта по пути в UI-e2e. */
+export const MEDIA_FIXTURES = join(REPO, "tmp/media-fixtures");
 export const PORT = 8790;
 
 export interface SeededScene {
@@ -30,9 +34,9 @@ export function state(): E2EState {
   return JSON.parse(readFileSync(STATE_FILE, "utf8")) as E2EState;
 }
 
-export async function shot(page: Page, name: string): Promise<void> {
-  if (!existsSync(EVIDENCE)) mkdirSync(EVIDENCE, { recursive: true });
-  await page.screenshot({ path: join(EVIDENCE, `${name}.png`), fullPage: true });
+export async function shot(page: Page, name: string, dir: string = EVIDENCE): Promise<void> {
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  await page.screenshot({ path: join(dir, `${name}.png`), fullPage: true });
 }
 
 /** Ждёт условия по `GET /api/health` (поллинг; хранилище проверяется раз в 10 с). */

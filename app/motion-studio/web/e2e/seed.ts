@@ -45,7 +45,7 @@ async function readJson(path: string): Promise<unknown> {
 const qaFramesOf = (duration: number) => [...new Set([0, Math.floor(duration / 2), duration - 1])];
 
 export async function seedScene(core: Core, fixtures: SeedFixture[], opts: SeedOptions): Promise<{ sceneId: string; versionIds: string[] }> {
-  if (!projects.get(core.db, opts.projectId)) projects.create(core.db, { id: opts.projectId, title: opts.projectTitle ?? opts.projectId });
+  if (!projects.get(core.db, opts.projectId)) projects.create(core.db, { id: opts.projectId, kind: "playground", title: opts.projectTitle ?? opts.projectId });
   const first = fixtures[0]!;
   const baseSettings = SettingsSchema.parse({ ...(await readJson(join(first.dir, "settings.json")) as object), ...first.settings });
   const scene = core.repo.createScene(opts.projectId, { prompt: first.prompt ?? opts.sceneTitle ?? "сцена", settings: baseSettings });

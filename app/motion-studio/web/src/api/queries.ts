@@ -40,3 +40,18 @@ export const useExport = (id: string | undefined) =>
 export const useKbSearch = (p: KbSearchParams) => useQuery({ queryKey: ["kb", p], queryFn: () => api.kbSearch(p) });
 export const useKbCard = (id: string | undefined) => useQuery({ queryKey: ["kbCard", id], queryFn: () => api.kbCard(id!), enabled: Boolean(id) });
 export const useAppSettings = () => useQuery({ queryKey: ["settings"], queryFn: api.settings });
+
+// видеопроект (Task 29): сводка опрашивается, пока идёт задача проекта
+export const useVideoProject = (id: string) =>
+  useQuery({
+    queryKey: ["video", id],
+    queryFn: () => api.videoProject(id),
+    refetchInterval: (q) => (q.state.data?.jobs.some((j) => isActive(j.status)) ? POLL_MS : false),
+  });
+export const useTranscript = (id: string | undefined, revision?: number) =>
+  useQuery({ queryKey: ["transcript", id, revision ?? "current"], queryFn: () => api.transcript(id!, revision), enabled: Boolean(id) });
+export const useTranscriptRevisions = (id: string | undefined) =>
+  useQuery({ queryKey: ["transcriptRevisions", id], queryFn: () => api.transcriptRevisions(id!), enabled: Boolean(id) });
+export const useEdl = (id: string | undefined, revision?: number) =>
+  useQuery({ queryKey: ["edl", id, revision ?? "current"], queryFn: () => api.edl(id!, revision), enabled: Boolean(id) });
+export const useAsrCapability = () => useQuery({ queryKey: ["asrCapability"], queryFn: api.asrCapability, staleTime: 60_000 });

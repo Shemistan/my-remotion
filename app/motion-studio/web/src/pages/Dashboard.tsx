@@ -12,6 +12,7 @@ import { SettingsForm } from "../components/SettingsForm.js";
 import { versionState } from "../components/VersionHistory.js";
 import { errorText, t, tk } from "../i18n/index.js";
 import { navigate } from "../router.js";
+import { VideoWorkspace } from "./VideoWorkspace.js";
 
 export const dateTime = (iso: string) => new Date(iso).toLocaleString("ru-RU", { dateStyle: "short", timeStyle: "short" });
 
@@ -25,7 +26,7 @@ function NewProject() {
   const client = useQueryClient();
   const [title, setTitle] = useState("");
   const create = useMutation({
-    mutationFn: () => api.createProject(title.trim()),
+    mutationFn: (kind: "playground" | "video") => api.createProject(title.trim(), kind),
     onSuccess: (p) => {
       setTitle("");
       void client.invalidateQueries({ queryKey: ["projects"] });
@@ -33,12 +34,13 @@ function NewProject() {
     },
   });
   return (
-    <form className="panel new-project" onSubmit={(e) => { e.preventDefault(); if (title.trim()) create.mutate(); }}>
+    <form className="panel new-project" onSubmit={(e) => { e.preventDefault(); if (title.trim()) create.mutate("playground"); }}>
       <h2>{t("dashboard.newProject")}</h2>
       <label htmlFor={id}>{t("dashboard.projectTitle")}</label>
       <div className="row">
         <input id={id} className="grow" value={title} placeholder={t("dashboard.projectTitlePlaceholder")} onChange={(e) => setTitle(e.target.value)} />
         <button type="submit" className="primary" disabled={!title.trim() || create.isPending}>{t("dashboard.create")}</button>
+        <button type="button" disabled={!title.trim() || create.isPending} onClick={() => create.mutate("video")}>{t("dashboard.createVideo")}</button>
       </div>
       {create.isError ? <p className="error">{errorText(create.error)}</p> : null}
     </form>
@@ -165,6 +167,8 @@ export function ProjectPage({ id }: { id: string }) {
   if (q.isError) return <div className="page"><p className="error">{errorText(q.error)}</p></div>;
   if (!q.data) return <div className="page"><p className="muted">{t("common.loading")}</p></div>;
   const { project, scenes, exports } = q.data;
+  // видеопроект (Task 29): Video Workspace; сцены проекта (если есть) — списком внизу
+  if (project.kind === "video") return <VideoWorkspace id={project.id} scenes={scenes} />;
   const initial = project.settings ?? app.data?.defaults ?? defaultSettings();
   return (
     <div className="page project">

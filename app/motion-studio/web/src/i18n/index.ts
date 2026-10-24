@@ -23,6 +23,6 @@ export function tk(key: string, fallback: string, params?: Params): string {
 
 /** Понятный текст ошибки: известный код API — из словаря, иначе общий с сообщением сервера. */
 export function errorText(e: unknown): string {
-  if (e instanceof ApiError) return tk(`errors.${e.code}`, t("errors.generic", { message: e.message || e.code }));
+  if (e instanceof ApiError) return tk(`errors.${e.code}`, t("errors.generic", { message: e.message || e.code }), { message: e.message || e.code });
   return t("errors.network");
 }
