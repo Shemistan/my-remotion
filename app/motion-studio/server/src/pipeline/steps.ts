@@ -87,6 +87,8 @@ export interface StepDeps {
   permits?: { agents: Permits; renders: Permits };
   /** Бюджет задачи, $ (по умолчанию `scene.maxCostUsd`; задачи Phase 2–3 — `analysis.maxCostUsd`). */
   budgetUsd?: number;
+  /** Чей бюджет в сообщениях: «бюджет <имя> исчерпан» (по умолчанию «сцены»; анализ видео — «анализа»). */
+  budgetName?: string;
 }
 
 /** Итог вызова под сторожем хранилища. `skipped` — место семафора не дали (прерывание). */
@@ -186,6 +188,11 @@ export class RunCtx {
   /** Бюджет задачи: `deps.budgetUsd` или `scene.maxCostUsd`. */
   get maxCostUsd(): number {
     return this.deps.budgetUsd ?? this.config.scene.maxCostUsd;
+  }
+
+  /** Имя бюджета в сообщениях (`StepDeps.budgetName`). */
+  get budgetName(): string {
+    return this.deps.budgetName ?? "сцены";
   }
 
   get aborted(): boolean {
@@ -342,7 +349,7 @@ export class RunCtx {
         this.reserved += free;
         return free;
       }
-      throw new BudgetExhausted(`бюджет сцены исчерпан: $${this.spent.toFixed(2)} из $${max}, свободно $${Math.max(0, free).toFixed(2)} — меньше $${MIN_CALL_USD} на вызов`);
+      throw new BudgetExhausted(`бюджет ${this.budgetName} исчерпан: $${this.spent.toFixed(2)} из $${max}, свободно $${Math.max(0, free).toFixed(2)} — меньше $${MIN_CALL_USD} на вызов`);
     }
   }
 
@@ -688,7 +695,7 @@ export async function toolless<O>(
       return { ok: true, output: parsed.data, reused: true, hash };
     }
   }
-  if (!canSpendNow(rc)) return fail("budget", `бюджет сцены исчерпан до ${label}: $${rc.spent.toFixed(2)} из $${rc.maxCostUsd}`);
+  if (!canSpendNow(rc)) return fail("budget", `бюджет ${rc.budgetName} исчерпан до ${label}: $${rc.spent.toFixed(2)} из $${rc.maxCostUsd}`);
   const problem = await rc.storageProblem();
   if (problem) return fail("storage", problem);
   if (rc.aborted) return fail("cancelled", `отменено до ${label}`);
@@ -728,6 +735,8 @@ export async function toolless<O>(
   if (d.lost) return fail("storage", `хранилище пропало во время ${label}: ${d.lost}`);
   if (rc.aborted) return fail("cancelled", `отменено во время ${label}`);
   if (r.status !== "completed" || r.output === undefined) {
+    // claude оборвал вызов по --max-budget-usd — это бюджет, а не сбой этапа (ревью Task 28, M4)
+    if (r.error?.kind === "budget") return { ...fail("budget", `бюджет ${rc.budgetName} исчерпан во время ${label}: ${r.error.message}`), kind: "budget" };
     return { ...fail(stage, `${label}: ${r.status}${r.error ? ` (${r.error.kind}): ${r.error.message}` : ""}`), ...(r.error ? { kind: r.error.kind } : {}) };
   }
   if (cp && cp.save !== false) await saveCheckpoint(rc, cp, role, hash, r.output);

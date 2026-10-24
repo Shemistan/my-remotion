@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  FootageAgentOutputSchema, RoughCutAgentOutputSchema, SemanticAgentOutputSchema, VisualPlannerOutputSchema, toJsonSchema,
+  FootageAgentOutputSchema, ROUGH_CUT_TEXT_MAX, RoughCutAgentOutputSchema, SemanticAgentOutputSchema, VisualPlannerOutputSchema, toJsonSchema,
 } from "../src/index.js";
 import { planner } from "./video-fixtures.js";
 
@@ -51,6 +51,13 @@ describe("агенты Phase 2–3", () => {
     expect(RoughCutAgentOutputSchema.safeParse({ decisions: [{ ...d, reason: "pause" }], reviews: [] }).success).toBe(false);
     expect(RoughCutAgentOutputSchema.safeParse({ decisions: [{ ...d, confidence: 2 }], reviews: [] }).success).toBe(false);
     expect(RoughCutAgentOutputSchema.safeParse({ decisions: [{ ...d, source_start_us: 1 }], reviews: [] }).success).toBe(false);
+    // ревью Task 28, M6: объяснения короткие — длинный текст в EDL и UI не нужен
+    expect(RoughCutAgentOutputSchema.safeParse({ decisions: [{ ...d, explanation: "я".repeat(ROUGH_CUT_TEXT_MAX) }], reviews: [] }).success).toBe(true);
+    expect(RoughCutAgentOutputSchema.safeParse({ decisions: [{ ...d, explanation: "я".repeat(ROUGH_CUT_TEXT_MAX + 1) }], reviews: [] }).success).toBe(false);
+    expect(RoughCutAgentOutputSchema.safeParse({ decisions: [], reviews: [{ decision_id: "cut_001", verdict: "keep_cut", why: "я".repeat(ROUGH_CUT_TEXT_MAX + 1) }] }).success).toBe(false);
+    const js = JSON.stringify(toJsonSchema(RoughCutAgentOutputSchema));
+    expect(js).not.toContain("$ref");
+    expect(js).toContain(`"maxLength":${ROUGH_CUT_TEXT_MAX}`);
   });
 
   it("FootageAgentOutput", () => {

@@ -44,6 +44,15 @@ function halfFrameUs(fps: Fps): number {
 }
 
 /**
+ * Слова, лежащие внутри вырезки `[startUs, endUs)` с допуском ½ кадра (критерий якорей, см.
+ * `reanchorDecisions`): `start_us ≥ startUs − ½ кадра`, `end_us ≤ endUs + ½ кадра`, `start_us < endUs`.
+ */
+export function wordsInside<W extends Pick<TranscriptWord, "id" | "start_us" | "end_us">>(startUs: number, endUs: number, words: W[], fps: Fps): W[] {
+  const half = halfFrameUs(fps);
+  return words.filter((x) => x.start_us >= startUs - half && x.end_us <= endUs + half && x.start_us < endUs);
+}
+
+/**
  * Якоря-слова решений после правки транскрипта. Вырезка определяется source-временем и при правке
  * текста не двигается (таймлайн тот же, Approval A не устаревает от исправления опечатки). Если
  * слово-якорь удалено правкой, якорь пересчитывается: первое и последнее слово текущей ревизии,
@@ -57,11 +66,9 @@ export function reanchorDecisions(
   decisions: EditDecision[], words: Pick<TranscriptWord, "id" | "start_us" | "end_us">[], fps: Fps,
 ): EditDecision[] {
   const ids = new Set(words.map((x) => x.id));
-  const half = halfFrameUs(fps);
   return decisions.map((d) => {
     if (d.start_word_id === undefined || (ids.has(d.start_word_id) && ids.has(d.end_word_id!))) return d;
-    const inside = words.filter((x) =>
-      x.start_us >= d.source_start_us - half && x.end_us <= d.source_end_us + half && x.start_us < d.source_end_us);
+    const inside = wordsInside(d.source_start_us, d.source_end_us, words, fps);
     if (inside.length > 0) return { ...d, start_word_id: inside[0]!.id, end_word_id: inside[inside.length - 1]!.id };
     const bare = { ...d };
     delete bare.start_word_id;

@@ -12,7 +12,8 @@
 //
 // Повтор после сбоя (ревью Task 24, M3): ревизия, опубликованная этой задачей
 // (`artifact_publications.job_id`), — задача завершается по ней без детекторов и агента.
-// Ответ агента — чекпоинт задачи: повтор попытки не платит за него второй раз.
+// Ответ агента — чекпоинт задачи по хешу первого входа (и после переотправки): повтор попытки не
+// платит за него второй раз.
 import { existsSync } from "node:fs";
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -39,12 +40,13 @@ import { detectFillers } from "../edit/detect-fillers.js";
 import { detectPauses } from "../edit/detect-pauses.js";
 import { detectRepeats } from "../edit/detect-repeats.js";
 import { EDL_FILE, currentEdl, edlContent, registerEdlRevision } from "../edit/edl-ops.js";
-import { carryOver, mergeProposals } from "../edit/merge.js";
+import { proposeOver } from "../edit/merge.js";
 import { currentTranscript } from "../edit/transcript-ops.js";
 import type { HandlerResult, JobContext, JobHandler } from "../jobs/types.js";
 import { WAVEFORM_BUCKET_MS } from "../media/waveform.js";
 import { FencedOutError, PublishCancelledError } from "../scenes/repo.js";
 import { QUARANTINE, fsyncWrite, setWritable } from "../scenes/store.js";
+import { stepInputHash, writeCheckpoint } from "./checkpoints.js";
 import { RunCtx, errText, isStorageError, toolless } from "./steps.js";
 
 export const RoughcutProposeInputSchema = z.object({
@@ -174,7 +176,7 @@ export function roughcutPropose(depsOf: (ctx: JobContext) => RoughcutProposeDeps
     };
     let draftDir: string | undefined;
     const rc = new RunCtx({
-      storage: d.storage, agents: d.agents, config: d.config, budgetUsd: d.config.analysis.maxCostUsd,
+      storage: d.storage, agents: d.agents, config: d.config, budgetUsd: d.config.analysis.maxCostUsd, budgetName: "анализа",
       permits: { agents: ctx.agents, renders: ctx.renders }, ...(d.watchIntervalMs ? { watchIntervalMs: d.watchIntervalMs } : {}), ...(d.log ? { log: d.log } : {}),
     }, signal, root, ctx.job.id, ctx.attempt, ctx.run.registry);
 
@@ -234,7 +236,12 @@ export function roughcutPropose(depsOf: (ctx: JobContext) => RoughcutProposeDeps
         }));
         const taskInput = { segments: tr.segments, words: agentWords, detector };
         const label = "Rough Cut Editor";
-        let r = await toolless(rc, "rough_cut_editor", "prepare", label, (workdir) => buildRoughCutTask({ ...taskInput, workdir }, rc.taskRun), RoughCutAgentOutputSchema, { jobId: ctx.job.id });
+        // чекпоинт — по хешу ПЕРВОГО входа (без текста ошибки переотправки): ответ, полученный и после
+        // переотправки, следующая попытка находит по тому же хешу и агента не зовёт (ревью Task 28, M3)
+        const first = buildRoughCutTask({ ...taskInput, workdir: "" }, rc.taskRun);
+        const cpHash = stepInputHash("rough_cut_editor", first.model, first.input);
+        let r = await toolless(rc, "rough_cut_editor", "prepare", label, (workdir) => buildRoughCutTask({ ...taskInput, workdir }, rc.taskRun), RoughCutAgentOutputSchema, { jobId: ctx.job.id, save: false });
+        if (r.ok && r.reused) ctx.emit("agent_checkpoint", `${label}: ответ из чекпоинта прошлой попытки — агент не вызывался`);
         if (!r.ok && r.kind === "schema") {
           // одна переотправка: ответ не прошёл схему
           agentInfo.retried = true;
@@ -244,7 +251,14 @@ export function roughcutPropose(depsOf: (ctx: JobContext) => RoughcutProposeDeps
             const t = buildRoughCutTask({ ...taskInput, workdir }, { ...rc.taskRun, seq: 2 });
             t.input += `\n\n# Прошлый ответ отклонён\n\n${why.slice(0, 2000)}\n\nОтветь заново строго по схеме: только поля decisions и reviews.`;
             return t;
-          }, RoughCutAgentOutputSchema, { jobId: ctx.job.id });
+          }, RoughCutAgentOutputSchema);
+        }
+        if (r.ok && !r.reused) {
+          try {
+            await writeCheckpoint(root, ctx.job.id, "rough_cut_editor", { input_hash: cpHash, output: r.output });
+          } catch (e) {
+            ctx.emit("checkpoint_failed", `${label}: чекпоинт не записан: ${errText(e)}`);
+          }
         }
         agentInfo = { ...agentInfo, calls: rc.records.length, cost_usd: Math.round(rc.spent * 1e4) / 1e4 };
         if (r.ok) {
@@ -277,11 +291,10 @@ export function roughcutPropose(depsOf: (ctx: JobContext) => RoughcutProposeDeps
         }
       }
 
-      const unknown: string[] = [];
-      const merged = mergeProposals(detector, agentOut, agentCuts, { words, fps, onUnknownReview: (id) => unknown.push(id) });
+      // кандидаты в решённом человеком месте подавляются до слияния (ревью Task 28, M5)
+      const { decisions, suppressed, unknownReviews: unknown } = proposeOver(base?.decisions ?? [], detector, agentOut, agentCuts, { words, fps });
       if (unknown.length > 0) ctx.emit("agent_unknown_reviews", `вердикты агента по несуществующим вырезкам пропущены: ${unknown.join(", ")}`);
       agentInfo.unknown_reviews = unknown;
-      const { decisions, suppressed } = carryOver(base?.decisions ?? [], merged, words, fps);
       if (suppressed.length > 0) ctx.emit("proposals_suppressed", `${suppressed.length} новых предложений не добавлено: место уже решено человеком`);
       const doc = EdlRevisionDocSchema.parse({
         schema_version: 1, edl_id: edlId, revision, ...(base ? { parent_revision: base.revision } : {}),

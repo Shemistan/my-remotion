@@ -4,7 +4,7 @@
 // файла во временном каталоге; вход — прокси через `-protocol_whitelist file` и `file:`; звук
 // куска — PCM) → склейка кусков concat-демуксером (видео без перекодирования, звук → AAC) →
 // проверки: длительность видео и звука = `timeline.duration_us` ± кадр; синхронность звука по 5
-// словам (`syncCheck`) ≤ кадра → публикация `preview/<edl>/r<N>/` (`preview.mp4`, `preview.json`)
+// словам (`syncCheck` + `judgeSync`: смещение ≤ кадра, надёжных замеров не меньше половины) → публикация `preview/<edl>/r<N>/` (`preview.mp4`, `preview.json`)
 // с fencing.
 //
 // Превью ревизии одно: опубликованное (этой или другой задачей, в том числе прошлой попыткой —
@@ -25,7 +25,7 @@ import * as media from "../db/repos/media.js";
 import * as transcripts from "../db/repos/transcripts.js";
 import { EditError } from "../edit/errors.js";
 import { PREVIEW_CHUNK_CLIPS, type PreviewChunk, buildPreviewFilter, previewChunks } from "../edit/preview-filter.js";
-import { type SyncSample, syncCheck, wavPcm } from "../edit/sync-probe.js";
+import { SYNC_MIN_CORR, type SyncSample, judgeSync, syncCheck, wavPcm } from "../edit/sync-probe.js";
 import { timelineFor } from "../edit/timeline-store.js";
 import type { HandlerResult, JobContext, JobHandler } from "../jobs/types.js";
 import { FfmpegError, ffmpegFailureKind, runFfmpeg, runTool } from "../media/ffmpeg.js";
@@ -46,8 +46,7 @@ export type PreviewStage = (typeof PREVIEW_STAGES)[number];
 export const PREVIEW_SAMPLE_RATE = 48_000;
 export const PREVIEW_FILE = "preview.mp4";
 export const PREVIEW_META = "preview.json";
-/** Корреляция ниже — замер синхронности ненадёжен (тишина, шум) и в отказ не идёт. */
-export const SYNC_MIN_CORR = 0.5;
+export { SYNC_MIN_CORR };
 
 export interface RoughcutPreviewDeps {
   root: string;
@@ -120,6 +119,20 @@ export async function streamDurations(path: string, o: { run?: JobContext["run"]
   return out;
 }
 
+/**
+ * Число кадров видео прокси: `nb_frames` контейнера, без него — подсчёт пакетов (ревью Task 28, M7:
+ * длительность на 29,97 fps не кратна кадру, и «последний кадр» по ней в файле может отсутствовать).
+ */
+export async function videoFrameCount(path: string, o: { run?: JobContext["run"]; signal?: AbortSignal } = {}): Promise<number | undefined> {
+  const probe = async (extra: string[], key: "nb_frames" | "nb_read_packets") => {
+    const r = await runTool("ffprobe", ["-v", "error", "-protocol_whitelist", "file", "-select_streams", "v:0", ...extra, "-show_entries", `stream=${key}`, "-of", "json", `file:${path}`], o);
+    if (r.code !== 0) throw new Error(`ffprobe кадров прокси: код ${r.code}: ${r.stderrTail.slice(-500)}`);
+    const v = Number((JSON.parse(r.stdout) as { streams?: Record<string, string>[] }).streams?.[0]?.[key]);
+    return Number.isInteger(v) && v > 0 ? v : undefined;
+  };
+  return (await probe([], "nb_frames")) ?? (await probe(["-count_packets"], "nb_read_packets"));
+}
+
 const frameUs = (tl: EditedTimeline) => (1e6 * tl.fps.den) / tl.fps.num;
 
 export function roughcutPreview(depsOf: (ctx: JobContext) => RoughcutPreviewDeps): JobHandler {
@@ -177,7 +190,8 @@ export function roughcutPreview(depsOf: (ctx: JobContext) => RoughcutPreviewDeps
       if (!status.ok) throw new PreviewFail({ code: "storage_unavailable", stage: "storage", message: `${status.reason}: ${status.detail}` });
       const proxy = join(root, proxyRow.rel_path);
       const audio = asset.probe.audio !== undefined;
-      const chunks = previewChunks(tl.clips, tl.fps, PREVIEW_SAMPLE_RATE, d.chunkClips ?? PREVIEW_CHUNK_CLIPS);
+      const frameCount = await videoFrameCount(proxy, { run, signal });
+      const chunks = previewChunks(tl.clips, tl.fps, PREVIEW_SAMPLE_RATE, d.chunkClips ?? PREVIEW_CHUNK_CLIPS, frameCount);
       if (chunks.length === 0) throw new PreviewFail({ code: "pipeline", stage: "prepare", message: `в таймлайне r${revision} нет ни одного клипа от кадра: всё вырезано` });
       const tmpRoot = await safeMkdir(root, "run/tmp");
       await dropStale(tmpRoot, fence.jobId, fence.attempt);
@@ -198,7 +212,7 @@ export function roughcutPreview(depsOf: (ctx: JobContext) => RoughcutPreviewDeps
           const name = `chunk_${String(k).padStart(4, "0")}.mov`;
           const script = join(workdir, `chunk_${String(k).padStart(4, "0")}.filter`);
           await writeFile(script, buildPreviewFilter(c.clips, tl.fps, PREVIEW_SAMPLE_RATE, d.roughcut.fadeUs, {
-            frameOffset: c.frameOffset, sampleOffset: c.sampleOffset, audio, ...(audioEndUs !== undefined ? { audioEndUs } : {}),
+            frameOffset: c.frameOffset, sampleOffset: c.sampleOffset, audio, ...(audioEndUs !== undefined ? { audioEndUs } : {}), ...(frameCount !== undefined ? { frameCount } : {}),
           }));
           const chunkUs = Math.round((c.frames * 1e6 * tl.fps.den) / tl.fps.num);
           await runFfmpeg(chunkArgs(proxy, script, join(workdir, name), c, rate, gop, audio), {
@@ -240,11 +254,9 @@ export function roughcutPreview(depsOf: (ctx: JobContext) => RoughcutPreviewDeps
           await src.close();
           await prev.close();
         }
-        ctx.emit("sync_check", `синхронность звука превью по ${sync.length} словам: ${sync.map((s) => `${s.word_id} ${(s.offset_us / 1000).toFixed(1)} мс`).join(", ")}`, { sync });
-        const off = sync.filter((s) => s.corr >= SYNC_MIN_CORR && Math.abs(s.offset_us) > frameUs(tl));
-        if (off.length > 0) {
-          throw new PreviewFail({ code: "pipeline", stage: "probe", message: `звук превью смещён больше чем на кадр: ${off.map((s) => `${s.word_id} ${(s.offset_us / 1000).toFixed(1)} мс`).join(", ")}` });
-        }
+        ctx.emit("sync_check", `синхронность звука превью по ${sync.length} словам: ${sync.map((s) => `${s.word_id} ${(s.offset_us / 1000).toFixed(1)} мс (корр. ${s.corr}${s.energy ? "" : ", тихо"})`).join(", ")}`, { sync });
+        const verdict = judgeSync(sync, frameUs(tl));
+        if (!verdict.ok) throw new PreviewFail({ code: "pipeline", stage: "probe", message: verdict.message });
       }
 
       await enter("publish", 0.96);

@@ -79,3 +79,14 @@ describe("detectPauses", () => {
     }
   });
 });
+
+describe("detectPauses: звук во всём промежутке (ревью Task 28, M2)", () => {
+  it("звук 1,0–1,25 с у края паузы (вне вырезки 1,1…) — промежуток не тих, не резать", () => {
+    const words = [w("w_000001", "a", 0, 1_000_000), w("w_000002", "b", 3_000_000, 3_300_000)];
+    expect(detectPauses(words, loudBetween(1_000_000, 1_250_000, 3_400_000), R, F30, { sourceDurationUs: 3_400_000 })).toEqual([]);
+    // у правого края — так же
+    expect(detectPauses(words, loudBetween(2_750_000, 3_000_000, 3_400_000), R, F30, { sourceDurationUs: 3_400_000 })).toEqual([]);
+    // короче 200 мс у края — режется
+    expect(detectPauses(words, loudBetween(1_000_000, 1_150_000, 3_400_000), R, F30, { sourceDurationUs: 3_400_000 })).toHaveLength(1);
+  });
+});

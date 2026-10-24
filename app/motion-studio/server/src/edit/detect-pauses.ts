@@ -2,7 +2,7 @@
 // `pauseMinUs` → вырезка его середины. Слева остаётся `keepAfterWordUs` (после конца
 // предложения `[.?!…]` — `sentenceKeepAfterUs`), справа — `keepBeforeWordUs` перед следующим
 // словом. Тишина до первого слова и после последнего — тоже паузы (края записи): вырезка от
-// начала исходника и до его конца. Звук в паузе (громче `loudDbfs` дольше 200 мс по waveform) —
+// начала исходника и до его конца. Звук в промежутке (громче `loudDbfs` дольше 200 мс по waveform) —
 // не пауза: там смех, вдох в микрофон, звук демонстрации — решает человек, детектор молчит.
 import { type EditDecision, type Fps, type TranscriptWord, snapUsToFrame } from "@ms/contracts";
 import type { RoughcutConfig } from "../config.js";
@@ -62,7 +62,9 @@ export function detectPauses(words: Pick<TranscriptWord, "text" | "start_us" | "
     const start = snapUsToFrame(Math.max(0, cutStart), fps);
     const end = cutEnd >= duration ? duration : snapUsToFrame(cutEnd, fps);
     if (end <= start) return;
-    if (loudIn(peaks, start, end, cfg.loudDbfs, bucketMs)) return;
+    // звук ищется во всём промежутке между словами (как в плане), а не только в вырезке: смех или
+    // вдох у края паузы — повод оставить её человеку (ревью Task 28, M2)
+    if (loudIn(peaks, gapStart, gapEnd, cfg.loudDbfs, bucketMs)) return;
     out.push({
       id: `${prefix}${out.length + 1}`, reason: "pause", origin: "detector", status: "proposed",
       source_start_us: start, source_end_us: end, confidence: gap >= LONG_GAP_US ? 0.9 : 0.7,

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { buildTimeline } from "@ms/contracts";
-import { arrayPcm, audioOffsetUs, syncCheck, wavPcm, xcorrLag } from "../../src/edit/sync-probe.js";
+import { arrayPcm, audioOffsetUs, judgeSync, syncCheck, wavPcm, xcorrLag } from "../../src/edit/sync-probe.js";
 import { F30, w } from "./helpers.js";
 
 /** Детерминированный шум (LCG). */
@@ -84,5 +84,55 @@ describe("syncCheck", () => {
     } finally {
       await r.close();
     }
+  });
+});
+
+/** Шум без короткого периода (xorshift32): у `noise` период короче секунды — широкий поиск нашёл бы «сдвиг» на период. */
+function white(n: number, seed: number): Int16Array {
+  const out = new Int16Array(n);
+  let x = seed | 0 || 1;
+  for (let i = 0; i < n; i++) {
+    x ^= x << 13;
+    x ^= x >>> 17;
+    x ^= x << 5;
+    out[i] = (x >>> 0) % 20000 - 10000;
+  }
+  return out;
+}
+
+describe("syncCheck + judgeSync: большие сдвиги и ненадёжные замеры (ревью Task 28, I1)", () => {
+  const sr = 16000;
+  const src = white(20 * sr, 11);
+  const tl = buildTimeline(20_000_000, [], F30);
+  const words = Array.from({ length: 30 }, (_, i) => w(`w_${String(i + 1).padStart(6, "0")}`, `с${i}`, 500_000 + i * 600_000, 800_000 + i * 600_000));
+  const FRAME = 1e6 / 30;
+
+  it("синхронный звук — проходит", async () => {
+    const r = await syncCheck(arrayPcm(src, sr), arrayPcm(src, sr), tl, words, 5);
+    expect(judgeSync(r, FRAME)).toMatchObject({ ok: true });
+  });
+
+  for (const ms of [500, 1000]) {
+    it(`звук превью сдвинут на ${ms} мс — отказ`, async () => {
+      const r = await syncCheck(arrayPcm(src, sr), arrayPcm(shift(src, (ms * sr) / 1000), sr), tl, words, 5);
+      const v = judgeSync(r, FRAME);
+      expect(v.ok).toBe(false);
+      // второй проход нашёл сам сдвиг
+      expect(r.filter((s) => s.corr >= 0.5).every((s) => Math.abs(s.offset_us - ms * 1000) <= 1000)).toBe(true);
+    });
+  }
+
+  it("звук превью не похож на исходник (корреляции нет) — «синхронность не подтверждена»", async () => {
+    const r = await syncCheck(arrayPcm(src, sr), arrayPcm(white(20 * sr, 99), sr), tl, words, 5);
+    const v = judgeSync(r, FRAME);
+    expect(v).toMatchObject({ ok: false });
+    expect(!v.ok && v.message).toMatch(/синхронность не подтверждена/);
+  });
+
+  it("тишина в окнах исходника — замеры без энергии не требуются", async () => {
+    const silent = new Int16Array(20 * sr);
+    const r = await syncCheck(arrayPcm(silent, sr), arrayPcm(silent, sr), tl, words, 5);
+    expect(r.every((s) => !s.energy)).toBe(true);
+    expect(judgeSync(r, FRAME)).toMatchObject({ ok: true });
   });
 });

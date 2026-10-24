@@ -38,3 +38,32 @@ describe("agentDecisionToCut", () => {
       .toEqual({ rejected: "word_out_of_range" });
   });
 });
+
+describe("agentDecisionToCut: слишком длинные вырезки (ревью Task 28, M6)", () => {
+  const many = (n: number, stepUs: number, text = (i: number) => `слово${i}`) =>
+    Array.from({ length: n }, (_, i) => w(`w_${String(i + 1).padStart(6, "0")}`, text(i), i * stepUs, i * stepUs + stepUs - 50_000));
+  const span = (ws: ReturnType<typeof many>, a: number, b: number) => ({
+    start_word_id: ws[a]!.id, end_word_id: ws[b]!.id, reason: "bad_take" as const, confidence: 0.7, explanation: "дубль",
+    quote: ws.slice(a, b + 1).map((x) => x.text).join(" "),
+  });
+
+  it("больше 40 слов — too_long; 40 — можно", () => {
+    const ws = many(60, 200_000);
+    expect(agentDecisionToCut(span(ws, 0, 40), ws, R, F30)).toEqual({ rejected: "too_long" });
+    expect(agentDecisionToCut(span(ws, 0, 39), ws, R, F30)).not.toHaveProperty("rejected");
+  });
+
+  it("длиннее 15 с — too_long", () => {
+    const ws = many(10, 2_000_000);
+    expect(agentDecisionToCut(span(ws, 0, 8), ws, R, F30)).toEqual({ rejected: "too_long" });
+    expect(agentDecisionToCut(span(ws, 0, 5), ws, R, F30)).not.toHaveProperty("rejected");
+  });
+
+  it("два конца предложения внутри — too_long (вырезка через несколько предложений); один — можно", () => {
+    const ws = many(12, 300_000, (i) => (i === 3 || i === 7 ? `конец${i}.` : `слово${i}`));
+    expect(agentDecisionToCut(span(ws, 0, 9), ws, R, F30)).toEqual({ rejected: "too_long" });
+    expect(agentDecisionToCut(span(ws, 0, 5), ws, R, F30)).not.toHaveProperty("rejected");
+    // точка на последнем слове вырезки — не «внутри»
+    expect(agentDecisionToCut(span(ws, 4, 7), ws, R, F30)).not.toHaveProperty("rejected");
+  });
+});

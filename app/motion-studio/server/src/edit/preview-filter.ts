@@ -29,11 +29,21 @@ export interface PreviewFilterOptions {
    * звука, недостающее добивается тишиной (`apad=whole_len`), иначе звук превью короче картинки.
    */
   audioEndUs?: number;
+  /**
+   * Кадров в прокси (`nb_frames`). Длительность исходника на 29,97 fps не кратна кадру: последний
+   * «кадр» по длительности (899 при 30 с) в файле может отсутствовать — конец клипа по нему.
+   */
+  frameCount?: number;
 }
 
-/** Кадры клипа `[start, end)` на `fps`: начало — кадр начала, конец — первый кадр не раньше конца. */
-export function clipFrames(c: Pick<TimelineClip, "source_start_us" | "source_end_us">, fps: Fps): { start: number; end: number } {
-  return { start: usToFrame(c.source_start_us, fps), end: usToFrameCeil(c.source_end_us, fps) };
+/**
+ * Кадры клипа `[start, end)` на `fps`: начало — кадр начала, конец — первый кадр не раньше конца,
+ * но не дальше числа кадров прокси `frameCount` (если известно, ревью Task 28 M7).
+ */
+export function clipFrames(c: Pick<TimelineClip, "source_start_us" | "source_end_us">, fps: Fps, frameCount?: number): { start: number; end: number } {
+  const start = usToFrame(c.source_start_us, fps);
+  const end = usToFrameCeil(c.source_end_us, fps);
+  return { start, end: frameCount === undefined ? end : Math.min(end, frameCount) };
 }
 
 const sampleAt = (us: number, sampleRate: number): number => Math.round((us * sampleRate) / 1e6);
@@ -53,7 +63,7 @@ export function buildPreviewFilter(clips: TimelineClip[], fps: Fps, sampleRate: 
   const pads: string[] = [];
   let n = 0;
   for (const c of clips) {
-    const f = clipFrames(c, fps);
+    const f = clipFrames(c, fps, o.frameCount);
     if (f.end <= f.start) continue;
     if (f.start < fo) throw new Error(`preview: клип ${c.idx} начинается раньше входа куска (кадр ${f.start} < ${fo})`);
     const i = n++;
@@ -93,8 +103,8 @@ export interface PreviewChunk {
  * Клипы (без пустых короче кадра) → куски по `size`. Вход куска начинается на ½ кадра раньше его
  * первого кадра: кадр `frameOffset` проходит точный `-ss` (его pts ≥ `seekUs`), предыдущий — нет.
  */
-export function previewChunks(clips: TimelineClip[], fps: Fps, sampleRate: number, size = PREVIEW_CHUNK_CLIPS): PreviewChunk[] {
-  const usable = clips.filter((c) => { const f = clipFrames(c, fps); return f.end > f.start; });
+export function previewChunks(clips: TimelineClip[], fps: Fps, sampleRate: number, size = PREVIEW_CHUNK_CLIPS, frameCount?: number): PreviewChunk[] {
+  const usable = clips.filter((c) => { const f = clipFrames(c, fps, frameCount); return f.end > f.start; });
   const frameUs = (1e6 * fps.den) / fps.num;
   const out: PreviewChunk[] = [];
   for (let i = 0; i < usable.length; i += size) {
@@ -106,7 +116,7 @@ export function previewChunks(clips: TimelineClip[], fps: Fps, sampleRate: numbe
     out.push({
       clips: part, seekUs, readUs: Math.ceil(lastEnd - seekUs + frameUs),
       frameOffset: first, sampleOffset: Math.round((seekUs * sampleRate) / 1e6),
-      frames: part.reduce((s, c) => { const f = clipFrames(c, fps); return s + f.end - f.start; }, 0),
+      frames: part.reduce((s, c) => { const f = clipFrames(c, fps, frameCount); return s + f.end - f.start; }, 0),
     });
   }
   return out;

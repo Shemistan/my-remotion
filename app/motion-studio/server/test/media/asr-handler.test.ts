@@ -1,13 +1,13 @@
 // Task 26: обработчик `asr.transcribe` с фейковым воркером (только логика: реальные ffmpeg и
 // импорт Task 25, вместо mlx-модели — `fixtures/bin/fake-asr-worker.py` под системным python3).
 // Хранилище — tmp/ репозитория; «ai-platform» и модели — tmp-каталоги с той же раскладкой.
-import { execFileSync } from "node:child_process";
-import { copyFileSync, existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { type Job, JobErrorSchema, TranscriptRevisionDocSchema } from "@ms/contracts";
-import { fileProcessRegistry, groupExists, spawnTracked } from "@ms/core";
+import { fileProcessRegistry, groupExists, killGroup, spawnTracked } from "@ms/core";
 import type { AsrConfig } from "../../src/config.js";
 import { openDb, type Db } from "../../src/db/open.js";
 import { migrate } from "../../src/db/migrate.js";
@@ -59,17 +59,44 @@ beforeAll(async () => {
     expectedWorkerSha256: await sha256File(join(montage, "asr_worker.py")), timeoutMs: 60_000, noOutputTimeoutMs: 20_000,
   };
 }, 60_000);
+/**
+ * Процессы тестов не переживают тест (утечка из ревью Task 28, L1): контроллеры всех задач и
+ * незавершённые обработчики — в реестре; после теста — отмена всех, ожидание пустого реестра
+ * процессов, оставшимся группам — SIGKILL и снятие записи.
+ */
+const controllers = new Set<AbortController>();
+const running = new Set<Promise<unknown>>();
+async function stopAll(): Promise<void> {
+  for (const ac of controllers) ac.abort();
+  controllers.clear();
+  await Promise.race([Promise.allSettled([...running]), new Promise((r) => setTimeout(r, 10_000))]);
+  running.clear();
+  if (!s || !existsSync(s.root)) return;
+  const reg = fileProcessRegistry(s.root);
+  const until = Date.now() + 5_000;
+  while ((await reg.live()).length > 0 && Date.now() < until) await new Promise((r) => setTimeout(r, 50));
+  for (const p of await reg.live()) {
+    killGroup(p.pgid, "SIGKILL");
+    await reg.end(p, { code: null, signal: "SIGKILL" });
+  }
+}
+afterEach(stopAll, 30_000);
 afterAll(async () => {
+  await stopAll();
   db?.close();
   if (s) await removeStore(s);
-});
+}, 30_000);
 beforeEach(() => {
-  rmSync(join(montage, "fake-mode.json"), { force: true });
+  rmSync(join(montage, "modes"), { recursive: true, force: true });
   rmSync(join(montage, "calls.jsonl"), { force: true });
 });
 
-const mode = (m: Record<string, unknown>) => writeFileSync(join(montage, "fake-mode.json"), JSON.stringify(m));
-const calls = (): { pid: number; argv: string[]; env: string[]; cwd: string }[] =>
+/** Режим фейкового воркера для задач исходника `mediaId` (L3: свой у каждого теста, общего файла нет). */
+const mode = (mediaId: string, m: Record<string, unknown>) => {
+  mkdirSync(join(montage, "modes"), { recursive: true });
+  writeFileSync(join(montage, "modes", `${mediaId}.json`), JSON.stringify(m));
+};
+const calls = (): { pid: number; key: string; argv: string[]; env: string[]; cwd: string }[] =>
   existsSync(join(montage, "calls.jsonl")) ? readFileSync(join(montage, "calls.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)) : [];
 const storage: AsrTranscribeDeps["storage"] = async () => ({ ok: true, root: s.root, marker: s.marker, freeBytes: 50 * 1024 ** 3 });
 
@@ -79,7 +106,9 @@ async function videoProject(): Promise<{ projectId: string; mediaId: string }> {
   projects.create(db, { id: projectId, kind: "video", title: `Видео ${n}` });
   enqueue(db, { type: "media.import", projectId, input: { projectId, method: "path", path: clip }, idempotencyKey: `imp${++n}` });
   const { job, attempt } = claimNext(db, "test", 0, { running: 0, maxRunning: 4 })!;
-  const ctx = context(job, attempt, new AbortController());
+  const ac = new AbortController();
+  controllers.add(ac);
+  const ctx = context(job, attempt, ac);
   const r = await mediaImport(() => ({
     root: s.root, media: { importRoots: [join(s.tmp, "media")], proxyShortSide: 720, thumbEveryUs: 2_000_000 }, storage, minFreeBytes: 1024 ** 3,
   }))(ctx);
@@ -114,11 +143,20 @@ async function runAsr(projectId: string, mediaId: string, o: RunOpts = {}) {
   expect(claim, "задача не захвачена").toBeTruthy();
   const { job, attempt } = claim;
   const ac = new AbortController();
+  controllers.add(ac);
   const progress: [number, string][] = [];
   const events: { kind: string; message: string; data?: unknown }[] = [];
   o.onStart?.(ac, job);
   const deps: AsrTranscribeDeps = { root: s.root, asr: cfg, storage, ...o.deps };
-  const r: HandlerResult = await asrTranscribe(() => deps)(context(job, attempt, ac, { heavy: o.heavy, progress: (p, st) => progress.push([p, st]), events }));
+  const work = asrTranscribe(() => deps)(context(job, attempt, ac, { heavy: o.heavy, progress: (p, st) => progress.push([p, st]), events }));
+  running.add(work);
+  let r: HandlerResult;
+  try {
+    r = await work;
+  } finally {
+    running.delete(work);
+    controllers.delete(ac);
+  }
   if (!o.noFinish) finish(db, job.id, attempt, r);
   return { r, job, attempt, progress, events };
 }
@@ -232,64 +270,78 @@ describe("asr.transcribe", () => {
   it("heavy: две задачи разных проектов — вторая ждёт семафор и не запускает воркер", async () => {
     const a = await videoProject();
     const b = await videoProject();
-    mode({ hang: true });
+    mode(a.mediaId, { hang: true });
+    mode(b.mediaId, { hang: true });
     const heavy = new Semaphore(1);
     let acA: AbortController | undefined;
     let acB: AbortController | undefined;
     const stagesB: string[] = [];
-    const pa = runAsr(a.projectId, a.mediaId, { heavy, onStart: (ac) => (acA = ac) });
-    await waitFor(() => calls().length === 1);
-    const pb = runAsr(b.projectId, b.mediaId, { heavy, onStart: (ac) => (acB = ac), deps: { onStage: (st) => void stagesB.push(st) } });
-    await waitFor(() => stagesB.includes("heavy_wait"));
-    await new Promise((r) => setTimeout(r, 1500));
-    // вторая задача стоит на семафоре: до этапа transcribe не дошла, воркер не запущен
-    expect(stagesB.at(-1)).toBe("heavy_wait");
-    expect(stagesB).not.toContain("transcribe");
-    expect(calls()).toHaveLength(1);
-    acA!.abort();
-    const ra = await pa;
-    expect(ra.r.status).toBe("failed");
-    await waitFor(() => calls().length === 2);
-    expect(stagesB).toContain("transcribe");
-    acB!.abort();
-    const rb = await pb;
-    expect(rb.r.status).toBe("failed");
-    expect(rb.progress.some(([, st]) => st === "heavy_wait")).toBe(true);
-    expect(await live()).toEqual([]);
+    try {
+      const pa = runAsr(a.projectId, a.mediaId, { heavy, onStart: (ac) => (acA = ac) });
+      await waitFor(() => calls().length === 1);
+      const pb = runAsr(b.projectId, b.mediaId, { heavy, onStart: (ac) => (acB = ac), deps: { onStage: (st) => void stagesB.push(st) } });
+      await waitFor(() => stagesB.includes("heavy_wait"));
+      await new Promise((r) => setTimeout(r, 1500));
+      // вторая задача стоит на семафоре: до этапа transcribe не дошла, воркер не запущен
+      expect(stagesB.at(-1)).toBe("heavy_wait");
+      expect(stagesB).not.toContain("transcribe");
+      expect(calls()).toHaveLength(1);
+      acA!.abort();
+      const ra = await pa;
+      expect(ra.r.status).toBe("failed");
+      await waitFor(() => calls().length === 2);
+      expect(stagesB).toContain("transcribe");
+      acB!.abort();
+      const rb = await pb;
+      expect(rb.r.status).toBe("failed");
+      expect(rb.progress.some(([, st]) => st === "heavy_wait")).toBe(true);
+      expect(await live()).toEqual([]);
+    } finally {
+      acA?.abort();
+      acB?.abort();
+    }
   }, 30_000);
 
   it("отмена: воркер висит → requestCancel + abort → группа убита, cancelled, транскрипта нет, draft убран", async () => {
     const { projectId, mediaId } = await videoProject();
-    mode({ hang: true });
+    mode(mediaId, { hang: true });
     let ac: AbortController | undefined;
     let job: Job | undefined;
-    const p = runAsr(projectId, mediaId, { onStart: (a, j) => ((ac = a), (job = j)) });
-    await waitFor(() => calls().length === 1);
-    const pid = calls()[0]!.pid;
-    expect(pidAlive(pid)).toBe(true);
-    requestCancel(db, job!.id, { attemptAlive: true });
-    ac!.abort();
-    const { r } = await p;
-    expect(r).toMatchObject({ status: "cancelled", error: { code: "cancelled" } });
-    expect(pidAlive(pid)).toBe(false);
-    expect(transcripts.byProject(db, projectId)).toBeUndefined();
-    expect(draftsOf(job!.id)).toEqual([]);
-    expect(await live()).toEqual([]);
+    try {
+      const p = runAsr(projectId, mediaId, { onStart: (a, j) => ((ac = a), (job = j)) });
+      await waitFor(() => calls().length === 1);
+      const pid = calls()[0]!.pid;
+      expect(pidAlive(pid)).toBe(true);
+      requestCancel(db, job!.id, { attemptAlive: true });
+      ac!.abort();
+      const { r } = await p;
+      expect(r).toMatchObject({ status: "cancelled", error: { code: "cancelled" } });
+      expect(pidAlive(pid)).toBe(false);
+      expect(transcripts.byProject(db, projectId)).toBeUndefined();
+      expect(draftsOf(job!.id)).toEqual([]);
+      expect(await live()).toEqual([]);
+    } finally {
+      ac?.abort();
+    }
   });
 
   it("воркер игнорирует SIGTERM → SIGKILL группе после паузы; прерывание (не отмена) → interrupted", async () => {
     const { projectId, mediaId } = await videoProject();
-    mode({ hang: true, ignore_term: true });
+    mode(mediaId, { hang: true, ignore_term: true });
     let ac: AbortController | undefined;
-    const p = runAsr(projectId, mediaId, { onStart: (a) => (ac = a), deps: { killGraceMs: 300 } });
-    await waitFor(() => calls().length === 1);
-    const pid = calls()[0]!.pid;
-    ac!.abort();
-    const { r } = await p;
-    expect(r).toMatchObject({ status: "failed", error: { code: "interrupted" } });
-    expect(pidAlive(pid)).toBe(false);
-    expect(groupExists(pid)).toBe(false);
-    expect(await live()).toEqual([]);
+    try {
+      const p = runAsr(projectId, mediaId, { onStart: (a) => (ac = a), deps: { killGraceMs: 300 } });
+      await waitFor(() => calls().length === 1);
+      const pid = calls()[0]!.pid;
+      ac!.abort();
+      const { r } = await p;
+      expect(r).toMatchObject({ status: "failed", error: { code: "interrupted" } });
+      expect(pidAlive(pid)).toBe(false);
+      expect(groupExists(pid)).toBe(false);
+      expect(await live()).toEqual([]);
+    } finally {
+      ac?.abort();
+    }
   });
 
   it("группа не исчезла (orphaned) → blocked stale_process, draft в карантине", async () => {
@@ -305,7 +357,7 @@ describe("asr.transcribe", () => {
 
   it("нет вывода дольше noOutputTimeoutMs → failed asr_failed (transcribe), группа убита", async () => {
     const { projectId, mediaId } = await videoProject();
-    mode({ hang: true, stdout: [] });
+    mode(mediaId, { hang: true, stdout: [] });
     const { r } = await runAsr(projectId, mediaId, { deps: { asr: { ...cfg, noOutputTimeoutMs: 700 }, killGraceMs: 200 } });
     expect(r).toMatchObject({ status: "failed", error: { code: "asr_failed", stage: "transcribe", message: expect.stringMatching(/нет вывода/) } });
     expect(pidAlive(calls()[0]!.pid)).toBe(false);
@@ -314,14 +366,14 @@ describe("asr.transcribe", () => {
 
   it("общий таймаут timeoutMs при живом прогрессе → failed asr_failed (transcribe)", async () => {
     const { projectId, mediaId } = await videoProject();
-    mode({ hang: true });
+    mode(mediaId, { hang: true });
     const { r } = await runAsr(projectId, mediaId, { deps: { asr: { ...cfg, timeoutMs: 800 }, killGraceMs: 200 } });
     expect(r).toMatchObject({ status: "failed", error: { code: "asr_failed", stage: "transcribe", message: expect.stringMatching(/не уложился/) } });
   });
 
   it("воркер упал с кодом ≠ 0 и stderr → failed asr_failed (transcribe) с хвостом stderr, транскрипта нет — не «ASR не установлен»", async () => {
     const { projectId, mediaId } = await videoProject();
-    mode({ stderr: "Traceback (most recent call last):\nMemoryError: Metal OOM\n", exit: 3 });
+    mode(mediaId, { stderr: "Traceback (most recent call last):\nMemoryError: Metal OOM\n", exit: 3 });
     const { r, job } = await runAsr(projectId, mediaId);
     expect(r).toMatchObject({ status: "failed", error: { code: "asr_failed", stage: "transcribe", message: expect.stringMatching(/код 3.*Metal OOM/s) } });
     expect(JobErrorSchema.safeParse((r as { error: unknown }).error).success).toBe(true);
@@ -343,7 +395,7 @@ describe("asr.transcribe", () => {
   for (const [name, m, re] of violations) {
     it(`нарушение контракта: ${name} → failed asr_contract_violation, transcripts пуст, вывод в журнале и в карантине`, async () => {
       const { projectId, mediaId } = await videoProject();
-      mode(m);
+      mode(mediaId, m);
       const { r, job, events } = await runAsr(projectId, mediaId);
       expect(r).toMatchObject({ status: "failed", error: { code: "asr_contract_violation", message: expect.stringMatching(re) } });
       expect(transcripts.byProject(db, projectId)).toBeUndefined();
@@ -356,7 +408,7 @@ describe("asr.transcribe", () => {
 
   it("воркер вернул 0 слов → failed (речь не распознана), транскрипта нет", async () => {
     const { projectId, mediaId } = await videoProject();
-    mode({ output: { language: "ru", duration: "auto", elapsed_s: 1, words: [] } });
+    mode(mediaId, { output: { language: "ru", duration: "auto", elapsed_s: 1, words: [] } });
     const { r } = await runAsr(projectId, mediaId);
     expect(r).toMatchObject({ status: "failed", error: { code: "pipeline", message: expect.stringMatching(/речь не распознана/) } });
     expect(transcripts.byProject(db, projectId)).toBeUndefined();
@@ -420,7 +472,7 @@ describe("asr.transcribe", () => {
 
   it("ревью Task 26 (m5): words.json больше лимита → asr_contract_violation по stat, файл не читается и не копируется", async () => {
     const { projectId, mediaId } = await videoProject();
-    mode({ raw: JSON.stringify({ language: "ru", duration: 6, elapsed_s: 1, words: Array.from({ length: 100 }, (_, i) => ({ w: "слово", s: i * 0.01, e: i * 0.01 })) }) });
+    mode(mediaId, { raw: JSON.stringify({ language: "ru", duration: 6, elapsed_s: 1, words: Array.from({ length: 100 }, (_, i) => ({ w: "слово", s: i * 0.01, e: i * 0.01 })) }) });
     const { r, job } = await runAsr(projectId, mediaId, { deps: { maxOutputBytes: 1024 } });
     expect(r).toMatchObject({ status: "failed", error: { code: "asr_contract_violation", message: expect.stringMatching(/больше 1024 байт/) } });
     const d = draftsOf(job.id);
@@ -432,7 +484,7 @@ describe("asr.transcribe", () => {
     const { projectId, mediaId } = await videoProject();
     // видео «короче» звука: 3,5 с против 6 с
     db.prepare("UPDATE media_assets SET probe_json = json_set(probe_json, '$.duration_us', 3500000), duration_us = 3500000 WHERE id = ?").run(mediaId);
-    mode({ output: { language: "ru", duration: "auto", elapsed_s: 1, words: [{ w: "a", s: 0.1, e: 0.5 }, { w: "b", s: 3.2, e: 3.9 }, { w: "c", s: 4.2, e: 4.6 }] } });
+    mode(mediaId, { output: { language: "ru", duration: "auto", elapsed_s: 1, words: [{ w: "a", s: 0.1, e: 0.5 }, { w: "b", s: 3.2, e: 3.9 }, { w: "c", s: 4.2, e: 4.6 }] } });
     const { r, job, events } = await runAsr(projectId, mediaId);
     expect(r.status, JSON.stringify(r)).toBe("completed");
     expect(events.find((e) => e.kind === "audio_duration_mismatch")?.message).toMatch(/длиннее/);
@@ -464,5 +516,29 @@ describe("asr.transcribe", () => {
     expect(sent.length).toBeLessThan(many.length);
     expect((ev!.data as { dropped: string[] }).dropped).toEqual(many.slice(sent.length));
   });
-});
 
+  it("фикстура (ревью Task 28, L2): висящий воркер, чей родитель убит kill -9, выходит сам ≤ 2 с", async () => {
+    const tag = `orphan_${process.pid}`;
+    mode(tag, { hang: true });
+    const argv = [join(montage, "asr_worker.py"), "--kind", "whisper", "--model", "m", "--audio", join(s.tmp, tag, "a.wav"), "--out", join(s.tmp, tag, "o.json")];
+    // родитель — отдельный node: он запускает воркер в своей группе и печатает его pid
+    const script = `const c = require("node:child_process").spawn(${JSON.stringify(PY)}, ${JSON.stringify(argv)}, { detached: true, stdio: "ignore" }); console.log(c.pid); setInterval(() => {}, 1000);`;
+    const parent = spawn(process.execPath, ["-e", script], { stdio: ["ignore", "pipe", "inherit"] });
+    const pid = await new Promise<number>((res) => parent.stdout!.once("data", (d) => res(Number(String(d).trim()))));
+    try {
+      await waitFor(() => calls().some((c) => c.pid === pid && c["key"] === tag));
+      expect(pidAlive(pid)).toBe(true);
+      parent.kill("SIGKILL");
+      const t0 = Date.now();
+      await waitFor(() => !pidAlive(pid), 5_000);
+      expect(Date.now() - t0).toBeLessThanOrEqual(2_000);
+    } finally {
+      parent.kill("SIGKILL");
+      try {
+        process.kill(pid, "SIGKILL");
+      } catch {
+        // уже вышел
+      }
+    }
+  });
+});

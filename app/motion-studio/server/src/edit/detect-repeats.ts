@@ -1,8 +1,13 @@
 // Детектор повторов (Task 28): n-грамма (n = 1…3, сравнение по `normalizeToken`), сказанная
 // подряд два и более раз («я я думаю», «мы сделали мы сделали это») → вырезка всех вхождений,
 // кроме последнего: `[первое.start, последнее.start]` (вместе с паузой перед последним).
-// Числа не повторы: «1 000 000» в ASR — «1», «000», «000».
+// Числа не повторы: «1 000 000» в ASR — «1», «000», «000». Вхождение, которое кончается концом
+// предложения («это. Это было», «нет. Нет», «так? Так»), — не повтор: следующее начинает новое
+// предложение. Многоточие — не конец: «Мы решили… Мы решили иначе» — оборванная фраза, фальстарт.
 import { type EditDecision, type Fps, type TranscriptWord, normalizeToken, snapUsToFrame } from "@ms/contracts";
+
+/** Конец предложения для повторов: `.`, `?`, `!` в конце слова, но не многоточие («…», «...»). */
+export const ENDS_SENTENCE = /(?:[?!]|(?<![.…])\.)["»”)\]]*$/u;
 
 const MAX_N = 3;
 
@@ -25,15 +30,17 @@ export function detectRepeats(words: Pick<TranscriptWord, "id" | "text" | "start
     }
     return true;
   };
+  // вхождение с началом `b` продолжает предыдущее, только если слово перед ним не кончает предложение
+  const follows = (b: number): boolean => !ENDS_SENTENCE.test(words[b - 1]!.text.trim());
   const out: EditDecision[] = [];
   let i = 0;
   while (i < words.length) {
     let found = false;
     // меньшее n первым: «да да да да» — одна вырезка до последнего «да», а не «да да» × 2
     for (let n = 1; n <= MAX_N && i + 2 * n <= words.length; n++) {
-      if (!same(i, i + n, n)) continue;
+      if (!same(i, i + n, n) || !follows(i + n)) continue;
       let last = i + n; // начало последнего вхождения
-      while (last + 2 * n <= words.length && same(i, last + n, n)) last += n;
+      while (last + 2 * n <= words.length && same(i, last + n, n) && follows(last + n)) last += n;
       const start = snapUsToFrame(words[i]!.start_us, fps);
       const end = snapUsToFrame(words[last]!.start_us, fps);
       if (end > start) {

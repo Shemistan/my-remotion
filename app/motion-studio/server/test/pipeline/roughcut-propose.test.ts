@@ -121,6 +121,7 @@ interface RunOpts {
   cfg?: Partial<AppConfig>;
   jobId?: string;
   noFinish?: boolean;
+  deps?: Partial<RoughcutProposeDeps>;
   onStart?: (ac: AbortController, job: Job) => void;
 }
 
@@ -132,7 +133,7 @@ async function propose(projectId: string, o: RunOpts = {}) {
   const ac = new AbortController();
   const events: { kind: string; message: string; data?: unknown }[] = [];
   o.onStart?.(ac, job);
-  const deps: RoughcutProposeDeps = { root: s.root, config: { ...config, ...o.cfg }, storage: s.guard, agents: o.agents ?? fakeAgents([]) };
+  const deps: RoughcutProposeDeps = { root: s.root, config: { ...config, ...o.cfg }, storage: s.guard, agents: o.agents ?? fakeAgents([]), ...o.deps };
   const r: HandlerResult = await roughcutPropose(() => deps)(context(job, attempt, ac, events));
   if (!o.noFinish) finish(db, job.id, attempt, r);
   if (r.status === "failed" || r.status === "cancelled" || r.status === "blocked") expect(JobErrorSchema.safeParse(r.error).success, JSON.stringify(r.error)).toBe(true);
@@ -229,9 +230,52 @@ describe("roughcut.propose", () => {
     const { r, events, out } = await propose(p, { agents, cfg: { analysis: { maxCostUsd: 0.1 } } });
     expect(r.status).toBe("completed");
     expect(agents.tasks).toHaveLength(0);
-    expect(events.find((e) => e.kind === "budget")?.message).toMatch(/бюджет/);
+    expect(events.find((e) => e.kind === "budget")?.message).toMatch(/бюджет анализа исчерпан/);
+    expect(events.find((e) => e.kind === "budget")?.message).not.toMatch(/сцен/);
     expect(out!.agent!.status).toBe("budget");
     expect(docOf(p).decisions.length).toBeGreaterThan(0);
+  });
+
+  it("ревью Task 28, M4: claude оборвал вызов по --max-budget-usd — agent.status budget, событие budget, детекторы сохранены", async () => {
+    const p = await videoProject();
+    const agents = fakeAgents([async () => ({ status: "failed", error: { kind: "budget", message: "error_max_budget_usd: лимит вызова исчерпан" } })]);
+    const { r, events, out } = await propose(p, { agents });
+    expect(r.status).toBe("completed");
+    expect(agents.tasks).toHaveLength(1);
+    expect(out!.agent).toMatchObject({ status: "budget", retried: false });
+    expect(events.map((e) => e.kind)).toContain("budget");
+    expect(events.map((e) => e.kind)).not.toContain("agent_failed");
+    expect(docOf(p).decisions.length).toBeGreaterThan(0);
+  });
+
+  it("ревью Task 28, M3: попытка 1 получила ответ после переотправки и упала до публикации → попытка 2 берёт ответ из чекпоинта, агент не зовётся", async () => {
+    const p = await videoProject();
+    const out1 = { decisions: [{ start_word_id: "w_000006", end_word_id: "w_000008", reason: "false_start" as const, confidence: 0.9, explanation: "фальстарт", quote: "мы в прошлом" }], reviews: [] };
+    const a1 = fakeAgents([schemaFail, ok(out1)]);
+    const first = await propose(p, { agents: a1, noFinish: true, deps: { onStage: (st) => { if (st === "publish") throw new Error("сбой до публикации"); } } });
+    expect(first.r.status).toBe("failed");
+    expect(a1.tasks).toHaveLength(2);
+    releaseLocks(db, jobs.update(db, first.job.id, { status: "pending", lease_owner: null, lease_until: null }));
+    const a2 = fakeAgents([]);
+    const second = await propose(p, { jobId: first.job.id, agents: a2 });
+    expect(second.attempt).toBe(2);
+    expect(second.r.status, JSON.stringify(second.r)).toBe("completed");
+    expect(a2.tasks).toHaveLength(0);
+    expect(second.out!.agent).toMatchObject({ status: "completed", calls: 0, decisions: 1, accepted: 1 });
+    expect(docOf(p).decisions.some((d) => d.reason === "false_start" && d.origin === "agent")).toBe(true);
+  });
+
+  it("ревью Task 28, M6: вырезка агента через несколько предложений — отклонена too_long, событие", async () => {
+    const words = WORDS.map((x, i) => (i === 7 ? { ...x, text: "прошлом." } : x));
+    const p2 = await videoProject(words);
+    const a2 = fakeAgents([ok({
+      decisions: [{ start_word_id: "w_000001", end_word_id: "w_000013", reason: "bad_take", confidence: 0.6, explanation: "всё", quote: words.map((x) => x.text).join(" ") }],
+      reviews: [],
+    })]);
+    const { events, out } = await propose(p2, { agents: a2 });
+    expect(out!.agent!.rejected).toEqual([expect.objectContaining({ code: "too_long" })]);
+    expect(events.find((e) => e.kind === "agent_cut_rejected")?.message).toMatch(/too_long/);
+    expect(docOf(p2).decisions.every((d) => d.origin === "detector")).toBe(true);
   });
 
   it("повторный propose: тот же EDL, новая ревизия; отклонённое не воскресает, решения пользователя целы; A — stale; без изменений — no_change", async () => {

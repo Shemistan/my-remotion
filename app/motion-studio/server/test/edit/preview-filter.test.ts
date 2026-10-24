@@ -80,3 +80,19 @@ describe("previewChunks", () => {
     }
   });
 });
+
+describe("число кадров прокси (ревью Task 28, M7)", () => {
+  it("29,97 fps, 30 с: в прокси 899 кадров — конец последнего клипа по нему, клип из несуществующего кадра выпадает", () => {
+    const tl = buildTimeline(30_000_000, [{ start_us: frameToUs(100, NTSC), end_us: frameToUs(899, NTSC) }], NTSC);
+    expect(clipFrames(tl.clips[1]!, NTSC)).toEqual({ start: 899, end: 900 });
+    expect(clipFrames(tl.clips[1]!, NTSC, 899)).toEqual({ start: 899, end: 899 });
+    const ch = previewChunks(tl.clips, NTSC, 48000, 40, 899);
+    expect(ch).toHaveLength(1);
+    expect(ch[0]!.clips).toHaveLength(1);
+    expect(ch[0]!.frames).toBe(100);
+    const tl2 = buildTimeline(30_000_000, [{ start_us: frameToUs(100, NTSC), end_us: frameToUs(800, NTSC) }], NTSC);
+    const c2 = previewChunks(tl2.clips, NTSC, 48000, 40, 899);
+    expect(c2[0]!.frames).toBe(100 + 99);
+    expect(buildPreviewFilter(c2[0]!.clips, NTSC, 48000, 8000, { frameCount: 899 })).toContain("trim=start_frame=800:end_frame=899,");
+  });
+});

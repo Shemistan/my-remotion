@@ -29,8 +29,8 @@ export function detectFillers(words: Pick<TranscriptWord, "id" | "text" | "start
   words.forEach((w, i) => {
     if (!isFiller(w.text)) return;
     const prev = words[i - 1];
-    // «5 м» — метры, не мычание
-    if (/^м[,.!?…]*$/iu.test(w.text.trim()) && prev && /\d[,.]?$/u.test(prev.text.trim())) return;
+    // «5 м», «5 мм» — метры и миллиметры, не мычание
+    if (/^м+[,.!?…]*$/iu.test(w.text.trim()) && prev && /\d[,.]?$/u.test(prev.text.trim())) return;
     const next = words[i + 1];
     const rawStart = Math.max(prev ? Math.min(prev.end_us, w.start_us) : 0, w.start_us - cfg.fillerPadUs, 0);
     const rawEnd = Math.min(next ? Math.max(next.start_us, w.end_us) : max, w.end_us + cfg.fillerPadUs, max);

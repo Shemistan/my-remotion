@@ -7,7 +7,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type EdlRevisionDoc, type Job, type TranscriptWord, acceptedCuts, buildTimeline, frameToUs } from "@ms/contracts";
+import { type EdlRevisionDoc, type Fps, type Job, type TranscriptWord, acceptedCuts, buildTimeline, frameToUs } from "@ms/contracts";
 import { fileProcessRegistry } from "@ms/core";
 import { artifactPaths } from "../../src/artifacts/paths.js";
 import { ArtifactStore, isPublished } from "../../src/artifacts/store.js";
@@ -52,6 +52,11 @@ beforeAll(async () => {
   ff(["-i", join(fx, "proxy.mp4"), "-t", "50", "-vn", "-c:a", "copy", join(fx, "short", "a.m4a")]);
   ff(["-i", join(fx, "proxy.mp4"), "-i", join(fx, "short", "a.m4a"), "-map", "0:v", "-map", "1:a", "-c", "copy", join(fx, "short", "proxy.mp4")]);
   ff(["-i", join(fx, "short", "proxy.mp4"), "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", join(fx, "short", "audio16k.wav")]);
+  // 29,97 fps, 30 с: в прокси 899 кадров, а 30 с — это 899,1 кадра (ревью Task 28, M7)
+  await mkdir(join(fx, "ntsc"), { recursive: true });
+  ff(["-f", "lavfi", "-i", "color=c=black:s=64x64:r=30000/1001:d=30,geq=lum='mod(N*7,250)':cb=128:cr=128", "-f", "lavfi", "-i", "anoisesrc=d=30:c=pink:r=48000:a=0.4",
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "12", "-g", "60", "-pix_fmt", "yuv420p", "-c:a", "aac", "-ar", "48000", "-t", "30", join(fx, "ntsc", "proxy.mp4")]);
+  ff(["-i", join(fx, "ntsc", "proxy.mp4"), "-vn", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", join(fx, "ntsc", "audio16k.wav")]);
 }, 60_000);
 afterAll(async () => {
   db?.close();
@@ -59,31 +64,33 @@ afterAll(async () => {
 });
 
 /** Видеопроект с прокси, audio16k, транскриптом (слова по 300 мс каждые 600 мс) и EDL r1 с принятыми вырезками. */
-async function seed(cuts: { start_us: number; end_us: number }[], src = fx): Promise<{ projectId: string; edlId: string; doc: EdlRevisionDoc }> {
+async function seed(cuts: { start_us: number; end_us: number }[], src = fx, o: { fps?: Fps; dur?: number } = {}): Promise<{ projectId: string; edlId: string; doc: EdlRevisionDoc }> {
+  const fps = o.fps ?? F30;
+  const dur = o.dur ?? DUR;
   const k = ++n;
   const projectId = `p${k}`;
   const mediaId = `med_${k}`;
   const edlId = `edl_${k}`;
   projects.create(db, { id: projectId, kind: "video", title: `Превью ${k}` });
   const a = asset({ id: mediaId, project_id: projectId, rel_path: `workspace/projects/${projectId}/source/${mediaId}/original.mov` });
-  media.insert(db, { ...a, probe: { ...a.probe, duration_us: DUR } });
+  media.insert(db, { ...a, probe: { ...a.probe, duration_us: dur, timeline_fps: fps } });
   const pxRel = `workspace/projects/${projectId}/proxy/${mediaId}`;
   await mkdir(join(s.root, pxRel), { recursive: true });
   execFileSync("cp", [join(src, "proxy.mp4"), join(src, "audio16k.wav"), join(s.root, pxRel)]);
   media.setDerivative(db, mediaId, { kind: "proxy", rel_path: `${pxRel}/proxy.mp4`, sha256: "c".repeat(64), params: {} });
   media.setDerivative(db, mediaId, { kind: "audio16k", rel_path: `${pxRel}/audio16k.wav`, sha256: "d".repeat(64), params: {} });
-  const words: TranscriptWord[] = Array.from({ length: 99 }, (_, i) => w(`w_${String(i + 1).padStart(6, "0")}`, `слово${i}`, 300_000 + i * 600_000, 600_000 + i * 600_000));
+  const words: TranscriptWord[] = Array.from({ length: Math.floor(dur / 600_000) - 1 }, (_, i) => w(`w_${String(i + 1).padStart(6, "0")}`, `слово${i}`, 300_000 + i * 600_000, 600_000 + i * 600_000));
   const tr = trDoc(words, { transcript_id: `trn_${k}`, segments: buildSegments(words) });
   const tRel = artifactPaths(s.root, projectId).transcriptRev(`trn_${k}`, 1);
   await store.writeRevision(tRel, "transcript.json", tr, (d, files) => {
     transcripts.create(d, { id: `trn_${k}`, project_id: projectId, media_id: mediaId, language: "ru" });
     transcripts.insertRevision(d, { doc: tr, rel_path: `${tRel}/transcript.json`, sha256: files[0]!.sha256 });
   });
-  const doc = edlDoc(cuts.map((c, i) => dec(`d${i}`, { status: "accepted", source_start_us: c.start_us, source_end_us: c.end_us })), { edl_id: edlId, media_id: mediaId, transcript_id: `trn_${k}` });
+  const doc = edlDoc(cuts.map((c, i) => dec(`d${i}`, { status: "accepted", source_start_us: c.start_us, source_end_us: c.end_us })), { edl_id: edlId, media_id: mediaId, transcript_id: `trn_${k}`, timeline_fps: fps });
   const eRel = artifactPaths(s.root, projectId).edlRev(edlId, 1);
   await store.writeRevision(eRel, "edl.json", doc, (d, files) => {
     edls.create(d, { id: edlId, project_id: projectId, media_id: mediaId, transcript_id: `trn_${k}` });
-    edls.insertRevision(d, { doc, rel_path: `${eRel}/edl.json`, sha256: files[0]!.sha256, timeline: buildTimeline(DUR, acceptedCuts(doc), F30) });
+    edls.insertRevision(d, { doc, rel_path: `${eRel}/edl.json`, sha256: files[0]!.sha256, timeline: buildTimeline(dur, acceptedCuts(doc), fps) });
   });
   return { projectId, edlId, doc };
 }
@@ -191,6 +198,25 @@ describe("roughcut.preview", () => {
     expect(await reg.live({ runId: job.id })).toEqual([]);
     expect(isPublished(db, `workspace/projects/${projectId}/preview/${edlId}/r1`)).toBe(false);
     expect(drafts(job.id)).toEqual([]);
+  }, 60_000);
+
+  it("29,97 fps по кускам: последний клип до конца исходника — кадров ровно столько, сколько в прокси (ревью Task 28, M7)", async () => {
+    const NTSC = { num: 30000, den: 1001 };
+    const D = 30_000_000;
+    // хвост 880…898 вырезан: остаётся клип [кадр 899, 30 с) — по длительности кадр есть, в прокси его нет
+    const cuts = [...Array.from({ length: 70 }, (_, i) => ({ start_us: frameToUs(i * 12 + 5, NTSC), end_us: frameToUs(i * 12 + 7, NTSC) })), { start_us: frameToUs(880, NTSC), end_us: frameToUs(899, NTSC) }];
+    const { projectId, edlId } = await seed(cuts, join(fx, "ntsc"), { fps: NTSC, dur: D });
+    const { r, out } = await preview(projectId, edlId, { deps: { chunkClips: 7 } });
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    // в прокси 899 кадров (0…898): клип из одного несуществующего кадра 899 в превью не идёт
+    const tl = buildTimeline(D, cuts, NTSC);
+    const real = tl.clips.filter((c) => clipFrames(c, NTSC).start < 899);
+    expect(out!.clips).toBe(real.length);
+    expect(real.length).toBe(tl.clips.length - 1);
+    const expected = real.flatMap((c) => { const f = clipFrames(c, NTSC); return Array.from({ length: Math.min(f.end, 899) - f.start }, (_, i) => lumaOf(f.start + i)); });
+    const got = lumas(join(s.root, out!.rel_path));
+    expect(got.length).toBe(expected.length);
+    expect(got.map((g, i) => [i, g, expected[i]!] as const).filter(([, g, e]) => Math.abs(g - e) > 3).slice(0, 5)).toEqual([]);
   }, 60_000);
 
   it("всё вырезано — понятный отказ; EDL другого проекта — отказ", async () => {

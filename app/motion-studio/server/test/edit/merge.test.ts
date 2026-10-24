@@ -1,6 +1,7 @@
 // Task 28: слияние предложений и повторный propose поверх решений человека.
 import { describe, expect, it } from "vitest";
-import { carryOver, mergeProposals } from "../../src/edit/merge.js";
+import { wordsInside } from "../../src/edit/edl-ops.js";
+import { carryOver, mergeProposals, proposeOver } from "../../src/edit/merge.js";
 import { F30, dec, w } from "./helpers.js";
 
 const none = { decisions: [], reviews: [] };
@@ -85,5 +86,39 @@ describe("carryOver (повторный propose)", () => {
     const base = [dec("usr_r1_1", { reason: "manual", origin: "user", status: "accepted", source_start_us: 0, source_end_us: 600_000, start_word_id: "w_000009", end_word_id: "w_000002" })];
     const r = carryOver(base, [], words, F30);
     expect(r.decisions[0]).toMatchObject({ start_word_id: "w_000001", end_word_id: "w_000002" });
+  });
+});
+
+describe("proposeOver: подавление в решённом месте до слияния (ревью Task 28, M5)", () => {
+  const ws = [w("w_000001", "раз", 0, 1_000_000), w("w_000002", "два", 2_600_000, 3_000_000), w("w_000003", "три", 3_100_000, 3_500_000), w("w_000004", "четыре", 3_600_000, 4_000_000)];
+  const rejected = dec("pau_r1_1", { status: "rejected", source_start_us: 1_100_000, source_end_us: 2_500_000 });
+
+  it("новая вырезка агента, задевающая отклонённую паузу, не сливается с её повтором: отклонённое не воскресает", () => {
+    const det = [dec("pau_r2_1", { source_start_us: 1_100_000, source_end_us: 2_500_000 })];
+    const agt = dec("agt_r2_1", { reason: "bad_take", origin: "agent", source_start_us: 2_400_000, source_end_us: 4_000_000, start_word_id: "w_000002", end_word_id: "w_000004", explanation: "дубль" });
+    const r = proposeOver([rejected], det, { decisions: [], reviews: [{ decision_id: "pau_r2_1", verdict: "drop_cut", why: "x" }] }, [agt], { words: ws, fps: F30 });
+    expect(r.suppressed.map((x) => x.id)).toEqual(["pau_r2_1"]);
+    // вердикт по подавленной вырезке — не «неизвестный id»
+    expect(r.unknownReviews).toEqual([]);
+    expect(r.decisions.map((x) => [x.id, x.status, x.source_start_us, x.source_end_us])).toEqual([
+      ["pau_r1_1", "rejected", 1_100_000, 2_500_000], ["agt_r2_1", "proposed", 2_400_000, 4_000_000],
+    ]);
+  });
+
+  it("вердикт по несуществующему id — по-прежнему unknownReviews", () => {
+    const r = proposeOver([], [dec("pau_r1_1", { source_start_us: 1_100_000, source_end_us: 2_500_000 })], { decisions: [], reviews: [{ decision_id: "nope", verdict: "drop_cut", why: "x" }] }, [], { words: ws, fps: F30 });
+    expect(r.unknownReviews).toEqual(["nope"]);
+    expect(r.decisions).toHaveLength(1);
+  });
+});
+
+describe("wordsInside: якоря вырезки-объединения", () => {
+  it("слова внутри вырезки с допуском ½ кадра; пусто — пусто", () => {
+    expect(wordsInside(0, 600_000, words, F30).map((x) => x.id)).toEqual(["w_000001", "w_000002"]);
+    expect(wordsInside(1_100_000, 2_500_000, words, F30)).toEqual([]);
+    // объединение без слов — без якорей
+    const m = mergeProposals([dec("p1", { source_start_us: 1_100_000, source_end_us: 2_000_000 }), dec("p2", { source_start_us: 1_500_000, source_end_us: 2_500_000 })], none, [], { words, fps: F30 });
+    expect(m).toHaveLength(1);
+    expect(m[0]).not.toHaveProperty("start_word_id");
   });
 });

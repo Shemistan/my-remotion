@@ -14,6 +14,9 @@ import { WordIdSchema } from "./transcript.js";
 const Confidence = z.number().min(0).max(1);
 const Score = z.number().int().min(1).max(5);
 
+/** Предел длины `explanation` и `why` Rough Cut Editor, символов: объяснение — строка в списке вырезок. */
+export const ROUGH_CUT_TEXT_MAX = 300;
+
 /** Rough Cut Editor: смысловые вырезки по словам и вердикты по предложениям детекторов. */
 export const RoughCutAgentOutputSchema = z.object({
   decisions: z.array(z.object({
@@ -21,13 +24,13 @@ export const RoughCutAgentOutputSchema = z.object({
     end_word_id: WordIdSchema,
     reason: z.enum(["false_start", "bad_take", "filler", "repeat"]),
     confidence: Confidence,
-    explanation: z.string().min(1),
+    explanation: z.string().min(1).max(ROUGH_CUT_TEXT_MAX),
     quote: z.string().min(1),
   }).strict()),
   reviews: z.array(z.object({
     decision_id: z.string().min(1),
     verdict: z.enum(["keep_cut", "drop_cut"]),
-    why: z.string().min(1),
+    why: z.string().min(1).max(ROUGH_CUT_TEXT_MAX),
   }).strict()),
 }).strict();
 export type RoughCutAgentOutput = z.infer<typeof RoughCutAgentOutputSchema>;

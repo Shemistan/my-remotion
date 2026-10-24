@@ -29,3 +29,24 @@ describe("detectRepeats", () => {
     expect(detectRepeats(ws4("я думаю я знаю"), F30)).toEqual([]);
   });
 });
+
+describe("detectRepeats: граница предложения (ревью Task 28, I2)", () => {
+  it("«это. Это», «нет. Нет», «так? Так» — не повтор: первое вхождение кончается концом предложения", () => {
+    expect(detectRepeats(ws4("Я сделал это. Это было сложно"), F30)).toEqual([]);
+    expect(detectRepeats(ws4("Ответ нет. Нет и всё"), F30)).toEqual([]);
+    expect(detectRepeats(ws4("Вот так? Так и есть"), F30)).toEqual([]);
+    // многоточие — оборванная фраза, а не конец предложения: повтор (фальстарт)
+    expect(detectRepeats(ws4("Мы решили… Мы решили иначе"), F30)).toHaveLength(1);
+    expect(detectRepeats(ws4("Мы решили... Мы решили иначе"), F30)).toHaveLength(1);
+    // n-грамма: конец предложения на последнем слове первого вхождения
+    expect(detectRepeats(ws4("мы сделали. Мы сделали ещё"), F30)).toEqual([]);
+    // запятая — не конец предложения: повтор
+    expect(detectRepeats(ws4("нет, нет и всё"), F30)).toHaveLength(1);
+  });
+
+  it("серия обрывается на конце предложения: «да да. Да» — вырезано только первое «да»", () => {
+    const r = detectRepeats(ws4("да да. Да хорошо"), F30);
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ start_word_id: "w_000001", end_word_id: "w_000001", source_end_us: 400_000 });
+  });
+});

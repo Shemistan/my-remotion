@@ -1,7 +1,7 @@
 // Слияние предложений чернового монтажа (Task 28): вердикты агента по вырезкам детекторов и
 // пересечения вырезок. Всё на выходе — `proposed`: решает человек (Approval A).
 import type { EditDecision, Fps, RoughCutAgentOutput, TranscriptWord } from "@ms/contracts";
-import { reanchorDecisions } from "./edl-ops.js";
+import { reanchorDecisions, wordsInside } from "./edl-ops.js";
 
 /** Уверенность вырезки детектора, которую агент советует не делать. */
 export const DROPPED_CONFIDENCE = 0.3;
@@ -36,9 +36,9 @@ function union(parts: EditDecision[], o: MergeOptions): EditDecision {
     ...(note ? { agent_note: note } : {}),
   };
   if (o.words && o.fps) {
-    // якоря — слова внутри объединения (тот же критерий, что у пересчёта якорей Task 27)
-    const probe = { ...merged, start_word_id: "w_000000", end_word_id: "w_000000" };
-    return reanchorDecisions([probe], o.words, o.fps)[0]!;
+    // якоря — слова внутри объединения (тот же критерий, что у пересчёта якорей Task 27); нет — без якорей
+    const inside = wordsInside(start, end, o.words, o.fps);
+    return inside.length > 0 ? { ...merged, start_word_id: inside[0]!.id, end_word_id: inside[inside.length - 1]!.id } : merged;
   }
   const anchored = parts.filter((p) => p.start_word_id !== undefined);
   const first = anchored.sort((a, b) => a.source_start_us - b.source_start_us)[0];
@@ -92,6 +92,37 @@ export const SAME_PLACE_SHARE = 0.5;
 const overlap = (a: EditDecision, b: EditDecision): number =>
   Math.max(0, Math.min(a.source_end_us, b.source_end_us) - Math.max(a.source_start_us, b.source_start_us));
 
+/** Решения, которые остаются при повторном propose: пользователя и уже решённые человеком. */
+const isDecided = (d: EditDecision): boolean => d.origin === "user" || d.status !== "proposed";
+
+/** Предложение лежит в решённом месте: не меньше `SAME_PLACE_SHARE` его длины внутри одной решённой вырезки. */
+const inDecided = (f: EditDecision, decided: EditDecision[]): boolean => {
+  const len = f.source_end_us - f.source_start_us;
+  return decided.some((k) => overlap(f, k) >= SAME_PLACE_SHARE * len);
+};
+
+/**
+ * Предложения поверх текущей ревизии (ревью Task 28, M5): кандидаты детекторов и агента в решённом
+ * месте подавляются ДО слияния — иначе объединение с новым соседом тянет за собой отклонённое
+ * (а большое объединение, наоборот, уносит новое вместе с подавленным). Вердикты агента по
+ * подавленным вырезкам детектора не считаются «неизвестными». Дальше — `mergeProposals` и `carryOver`.
+ */
+export function proposeOver(
+  base: EditDecision[], detector: EditDecision[], agent: RoughCutAgentOutput, agentCuts: EditDecision[],
+  o: { words: Pick<TranscriptWord, "id" | "start_us" | "end_us">[]; fps: Fps },
+): { decisions: EditDecision[]; suppressed: EditDecision[]; unknownReviews: string[] } {
+  const decided = base.filter(isDecided);
+  const suppressed: EditDecision[] = [];
+  const keep = (xs: EditDecision[]) => xs.filter((x) => (inDecided(x, decided) ? (suppressed.push(x), false) : true));
+  const det = keep(detector);
+  const cuts = keep(agentCuts);
+  const gone = new Set(suppressed.map((x) => x.id));
+  const unknownReviews: string[] = [];
+  const merged = mergeProposals(det, agent, cuts, { ...o, onUnknownReview: (id) => { if (!gone.has(id)) unknownReviews.push(id); } });
+  const r = carryOver(base, merged, o.words, o.fps);
+  return { decisions: r.decisions, suppressed: [...suppressed, ...r.suppressed], unknownReviews };
+}
+
 /**
  * Повторный `roughcut.propose` поверх текущей ревизии EDL (одна EDL на проект, ревью Task 27 M6).
  * Остаются: все решения пользователя (`origin: "user"`) и все вырезки, по которым человек уже
@@ -104,14 +135,13 @@ const overlap = (a: EditDecision, b: EditDecision): number =>
 export function carryOver(
   base: EditDecision[], fresh: EditDecision[], words: Pick<TranscriptWord, "id" | "start_us" | "end_us">[], fps: Fps,
 ): { decisions: EditDecision[]; suppressed: EditDecision[] } {
-  const kept = reanchorDecisions(base.filter((d) => d.origin === "user" || d.status !== "proposed"), words, fps);
-  const oldProposed = base.filter((d) => d.origin !== "user" && d.status === "proposed");
+  const kept = reanchorDecisions(base.filter(isDecided), words, fps);
+  const oldProposed = base.filter((d) => !isDecided(d));
   const taken = new Set(kept.map((d) => d.id));
   const suppressed: EditDecision[] = [];
   const added: EditDecision[] = [];
   for (const f of fresh) {
-    const len = f.source_end_us - f.source_start_us;
-    if (kept.some((k) => overlap(f, k) >= SAME_PLACE_SHARE * len)) {
+    if (inDecided(f, kept)) {
       suppressed.push(f);
       continue;
     }
