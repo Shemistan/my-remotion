@@ -1,0 +1,598 @@
+{
+  "schema_version": 1,
+  "plan_id": "pln_01M5QJMEWGQV4SWE50058XDJ7K",
+  "revision": 1,
+  "inputs": {
+    "script": {
+      "id": "scr_01M5QJMEVE45T91W44TWJFSWAH",
+      "revision": 1,
+      "hash": "93c4cfce5a0bdbccfc3967bd3512ad7c98f98a9b0e33069c9e57beb12ae6b6be"
+    },
+    "style": {
+      "id": "sty_01M5QJNV5Z9RQ136SYD29K08A2",
+      "revision": 1,
+      "hash": "1bc6514d937a91620850103dc9052422aa4328b50d645c1a599daed112b8410f"
+    }
+  },
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "aspect": "16:9",
+  "reading": {
+    "wps": 2.5,
+    "lead_s": 0.5,
+    "tail_s": 1
+  },
+  "analysis": {
+    "chapters": [
+      {
+        "id": "c1",
+        "title": "Устройство старой map",
+        "summary": "Бакеты, tophash, overflow-цепочки и заполнение до роста.",
+        "start_word_id": "w_000001",
+        "end_word_id": "w_000113"
+      },
+      {
+        "id": "c2",
+        "title": "Рост и эвакуация",
+        "summary": "Порог заполнения, инкрементальный рост и причины выбора цепочек.",
+        "start_word_id": "w_000114",
+        "end_word_id": "w_000281"
+      }
+    ],
+    "anchors": [],
+    "entities": [],
+    "numbers": [
+      {
+        "value": 1.24,
+        "start_word_id": "w_000005",
+        "end_word_id": "w_000005",
+        "quote": "1.24",
+        "claim_type": "fact"
+      },
+      {
+        "value": 8,
+        "start_word_id": "w_000014",
+        "end_word_id": "w_000015",
+        "quote": "восемь слотов",
+        "claim_type": "fact"
+      },
+      {
+        "value": 256,
+        "start_word_id": "w_000064",
+        "end_word_id": "w_000068",
+        "quote": "один к двумстам пятидесяти шести",
+        "claim_type": "fact"
+      },
+      {
+        "value": 6.5,
+        "start_word_id": "w_000123",
+        "end_word_id": "w_000125",
+        "quote": "шесть с половиной",
+        "claim_type": "fact"
+      },
+      {
+        "value": 2016,
+        "start_word_id": "w_000135",
+        "end_word_id": "w_000135",
+        "quote": "2016",
+        "claim_type": "fact"
+      },
+      {
+        "value": 6.2,
+        "start_word_id": "w_000147",
+        "end_word_id": "w_000150",
+        "quote": "шесть и две десятых",
+        "claim_type": "fact"
+      }
+    ],
+    "causal": [],
+    "disputed": []
+  },
+  "items": [
+    {
+      "id": "ss_001",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000006",
+      "end_word_id": "w_000022",
+      "quote": "Map это массив бакетов Бакет кусок памяти на восемь слотов под пары ключ-значение плюс указатель на overflow-бакет",
+      "block_id": "b1",
+      "words": 17,
+      "at_s": 2,
+      "frames": {
+        "lead": 15,
+        "speech": 204,
+        "tail": 30,
+        "total": 249
+      },
+      "technique": "structure-build",
+      "pattern": "system-structure",
+      "structure_rule": "assembly",
+      "purpose": "Зритель увидит, из чего состоит map и бакет",
+      "idea": "Ряд бакетов-блоков; один бакет приближается и раскладывается на восемь слотов пар ключ-значение, справа загорается указатель-стрелка на overflow-бакет.",
+      "key_terms": [
+        {
+          "text": "бакетов",
+          "word_id": "w_000009"
+        },
+        {
+          "text": "слотов",
+          "word_id": "w_000015"
+        },
+        {
+          "text": "overflow-бакет",
+          "word_id": "w_000022"
+        }
+      ],
+      "data": [
+        {
+          "label": "Слотов в бакете",
+          "value": 8,
+          "unit": "шт",
+          "quote": "восемь слотов"
+        }
+      ],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_002",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000036",
+      "end_word_id": "w_000055",
+      "quote": "Зачем он нужен Чтобы не сравнивать ключи целиком сначала сверяем один байт и только если он совпал сравниваем сам ключ",
+      "block_id": "b1",
+      "words": 20,
+      "at_s": 14,
+      "frames": {
+        "lead": 15,
+        "speech": 240,
+        "tail": 30,
+        "total": 285
+      },
+      "technique": "data-token",
+      "pattern": "sequence-steps",
+      "structure_rule": "request-answer",
+      "purpose": "tophash отсекает почти все сравнения ключей одним байтом",
+      "idea": "Ключ приходит к ряду слотов; сначала сверяется один байт tophash, несовпавшие слоты гаснут, у совпавшего загорается полное сравнение ключа.",
+      "key_terms": [
+        {
+          "text": "один байт",
+          "word_id": "w_000046"
+        },
+        {
+          "text": "ключ",
+          "word_id": "w_000055"
+        }
+      ],
+      "data": [
+        {
+          "label": "Сверяемый байт",
+          "value": 1,
+          "unit": "байт",
+          "quote": "один байт"
+        }
+      ],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_003",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000056",
+      "end_word_id": "w_000068",
+      "quote": "Случайное совпадение по такому байту бывает с вероятностью один к двумстам пятидесяти шести",
+      "block_id": "b1",
+      "words": 13,
+      "at_s": 22,
+      "frames": {
+        "lead": 15,
+        "speech": 156,
+        "tail": 30,
+        "total": 201
+      },
+      "technique": "hero-number",
+      "pattern": "quantities",
+      "structure_rule": "one-number",
+      "purpose": "Ложное совпадение tophash крайне редко",
+      "idea": "Крупное число 1/256 отсчитывается на экране; рядом сетка из 256 клеток, одна подсвечена.",
+      "key_terms": [
+        {
+          "text": "вероятностью",
+          "word_id": "w_000063"
+        },
+        {
+          "text": "шести",
+          "word_id": "w_000068"
+        }
+      ],
+      "data": [
+        {
+          "label": "Шанс случайного совпадения",
+          "value": 256,
+          "unit": "1 к N",
+          "quote": "двумстам пятидесяти шести"
+        }
+      ],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_004",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000069",
+      "end_word_id": "w_000083",
+      "quote": "А что если бакет заполнен Тогда новая запись уходит в overflow-бакет прицепленный к нему цепочкой",
+      "block_id": "b1",
+      "words": 15,
+      "at_s": 27.2,
+      "frames": {
+        "lead": 15,
+        "speech": 180,
+        "tail": 30,
+        "total": 225
+      },
+      "technique": "flow-graph",
+      "pattern": "cause-effect",
+      "structure_rule": "always-on",
+      "purpose": "Переполненный бакет получает цепочку overflow-бакетов",
+      "idea": "Заполненный бакет из восьми занятых слотов; новая запись не помещается, от бакета тянется связь к новому overflow-бакету, запись садится туда.",
+      "key_terms": [
+        {
+          "text": "заполнен",
+          "word_id": "w_000073"
+        },
+        {
+          "text": "цепочкой",
+          "word_id": "w_000083"
+        }
+      ],
+      "data": [],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_005",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000084",
+      "end_word_id": "w_000102",
+      "quote": "Рантайм даже выделял такие бакеты заранее на два в степени n основных два в степени n минус четыре запасных",
+      "block_id": "b1",
+      "words": 19,
+      "at_s": 33.2,
+      "frames": {
+        "lead": 15,
+        "speech": 228,
+        "tail": 30,
+        "total": 273
+      },
+      "technique": "bar-compare",
+      "pattern": "comparison",
+      "structure_rule": "two-sides",
+      "purpose": "Рантайм заранее резервирует запасные overflow-бакеты",
+      "idea": "Две колонки: длинная — основные бакеты 2^n, короткая — запасные 2^(n-4); высоты сравниваются.",
+      "key_terms": [
+        {
+          "text": "заранее",
+          "word_id": "w_000089"
+        },
+        {
+          "text": "запасных",
+          "word_id": "w_000102"
+        }
+      ],
+      "data": [
+        {
+          "label": "Уменьшение степени для запасных",
+          "value": 4,
+          "quote": "минус четыре"
+        }
+      ],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_006",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000114",
+      "end_word_id": "w_000128",
+      "quote": "Когда map растёт Когда в среднем на бакет приходится шесть с половиной записей из восьми",
+      "block_id": "b1",
+      "words": 15,
+      "at_s": 45.2,
+      "frames": {
+        "lead": 15,
+        "speech": 180,
+        "tail": 30,
+        "total": 225
+      },
+      "technique": "hero-number",
+      "pattern": "quantities",
+      "structure_rule": "one-number",
+      "purpose": "Рост запускается при средней загрузке 6,5 из 8",
+      "idea": "Счётчик отсчитывает 6,5; под ним бакет из восьми слотов, заполненных на 6,5, и метка порога.",
+      "key_terms": [
+        {
+          "text": "шесть с половиной",
+          "word_id": "w_000123"
+        },
+        {
+          "text": "восьми",
+          "word_id": "w_000128"
+        }
+      ],
+      "data": [
+        {
+          "label": "Записей на бакет",
+          "value": 6.5,
+          "quote": "шесть с половиной"
+        },
+        {
+          "label": "Слотов в бакете",
+          "value": 8,
+          "quote": "восьми"
+        }
+      ],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_007",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000142",
+      "end_word_id": "w_000156",
+      "quote": "Если в чужих видео встретите шесть и две десятых в моих источниках такого числа нет",
+      "block_id": "b1",
+      "words": 15,
+      "at_s": 56.4,
+      "frames": {
+        "lead": 15,
+        "speech": 180,
+        "tail": 30,
+        "total": 225
+      },
+      "technique": "split-versus",
+      "pattern": "comparison",
+      "structure_rule": "two-sides",
+      "purpose": "Число 6,2 не подтверждено источниками",
+      "idea": "Две карточки: 6,5 с галочкой и 6,2 с крестом, неверное число перечёркивается.",
+      "key_terms": [
+        {
+          "text": "две десятых",
+          "word_id": "w_000150"
+        },
+        {
+          "text": "нет",
+          "word_id": "w_000156"
+        }
+      ],
+      "data": [
+        {
+          "label": "Ошибочное число",
+          "value": 6.2,
+          "quote": "шесть и две десятых"
+        }
+      ],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_008",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000162",
+      "end_word_id": "w_000182",
+      "quote": "Массив бакетов удваивался но записи не переносились разом При каждой вставке или удалении часть записей переезжала из старых бакетов в новые",
+      "block_id": "b1",
+      "words": 21,
+      "at_s": 64.4,
+      "frames": {
+        "lead": 15,
+        "speech": 252,
+        "tail": 30,
+        "total": 297
+      },
+      "technique": "process-steps",
+      "pattern": "sequence-steps",
+      "structure_rule": "assembly",
+      "purpose": "Рост идёт постепенно: записи переезжают порциями",
+      "idea": "Массив бакетов удваивается; затем на каждой вставке или удалении несколько записей перелетают из старых бакетов в новые, старые постепенно пустеют.",
+      "key_terms": [
+        {
+          "text": "удваивался",
+          "word_id": "w_000164"
+        },
+        {
+          "text": "переезжала",
+          "word_id": "w_000177"
+        }
+      ],
+      "data": [],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_009",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000188",
+      "end_word_id": "w_000202",
+      "quote": "Пока она идёт в памяти живут оба массива запомните это оно всплывёт в бенчмарках памяти",
+      "block_id": "b1",
+      "words": 15,
+      "at_s": 74.8,
+      "frames": {
+        "lead": 15,
+        "speech": 180,
+        "tail": 30,
+        "total": 225
+      },
+      "technique": "structure-build",
+      "pattern": "system-structure",
+      "structure_rule": "result-first",
+      "purpose": "Во время эвакуации в памяти два массива",
+      "idea": "Два массива бакетов друг над другом — старый и новый; метка памяти растёт, пока записи переезжают.",
+      "key_terms": [
+        {
+          "text": "оба массива",
+          "word_id": "w_000195"
+        },
+        {
+          "text": "памяти",
+          "word_id": "w_000192"
+        }
+      ],
+      "data": [],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_010",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000216",
+      "end_word_id": "w_000237",
+      "quote": "Первый Рэндалл прямо говорит что Go выбрал цепочки а не открытую адресацию из-за итераторов из-за права менять map прямо во время обхода",
+      "block_id": "b1",
+      "words": 22,
+      "at_s": 86,
+      "frames": {
+        "lead": 15,
+        "speech": 264,
+        "tail": 30,
+        "total": 309
+      },
+      "technique": "split-versus",
+      "pattern": "comparison",
+      "structure_rule": "two-sides",
+      "purpose": "Цепочки выбраны ради итераторов и изменения map при обходе",
+      "idea": "Слева цепочки с идущим итератором, map меняется на ходу — всё работает; справа открытая адресация, итератор сбивается.",
+      "key_terms": [
+        {
+          "text": "цепочки",
+          "word_id": "w_000223"
+        },
+        {
+          "text": "итераторов",
+          "word_id": "w_000229"
+        }
+      ],
+      "data": [],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_011",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000238",
+      "end_word_id": "w_000252",
+      "quote": "Второй адрес элемента брать нельзя потому что после роста указатель смотрел бы в старый бакет",
+      "block_id": "b1",
+      "words": 15,
+      "at_s": 94.8,
+      "frames": {
+        "lead": 15,
+        "speech": 180,
+        "tail": 30,
+        "total": 225
+      },
+      "technique": "flow-graph",
+      "pattern": "cause-effect",
+      "structure_rule": "always-on",
+      "purpose": "Адрес элемента нельзя брать: после роста он устареет",
+      "idea": "Указатель на элемент ведёт в бакет; после роста запись переезжает, а указатель продолжает смотреть в старый бакет — стрелка гаснет.",
+      "key_terms": [
+        {
+          "text": "адрес",
+          "word_id": "w_000239"
+        },
+        {
+          "text": "старый бакет",
+          "word_id": "w_000251"
+        }
+      ],
+      "data": [],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_012",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000263",
+      "end_word_id": "w_000281",
+      "quote": "Держите оба факта в голове новая реализация это как раз открытая адресация и проблему итераторов ей пришлось решать по-другому",
+      "block_id": "b1",
+      "words": 19,
+      "at_s": 104.8,
+      "frames": {
+        "lead": 15,
+        "speech": 228,
+        "tail": 30,
+        "total": 273
+      },
+      "technique": "checklist",
+      "pattern": "key-point-emphasis",
+      "structure_rule": "assembly",
+      "purpose": "Вывод: новая map — открытая адресация, итераторы решены иначе",
+      "idea": "Чек-лист из двух пунктов: старая map — цепочки и итераторы, новая — открытая адресация и другое решение для итераторов.",
+      "key_terms": [
+        {
+          "text": "открытая адресация",
+          "word_id": "w_000274"
+        },
+        {
+          "text": "итераторов",
+          "word_id": "w_000277"
+        }
+      ],
+      "data": [],
+      "importance": 3,
+      "anchor_ids": []
+    }
+  ],
+  "skipped": [
+    {
+      "start_word_id": "w_000001",
+      "end_word_id": "w_000005",
+      "quote": "Итак Go до версии 1.24",
+      "reason": "Вступление-рамка без рисуемого содержания."
+    },
+    {
+      "start_word_id": "w_000103",
+      "end_word_id": "w_000113",
+      "quote": "Цепочки это прыжки по памяти и мы ещё к этому вернёмся",
+      "reason": "Обещание вернуться к теме, без нового рисуемого."
+    },
+    {
+      "start_word_id": "w_000203",
+      "end_word_id": "w_000215",
+      "quote": "И ещё два факта из того же доклада на которых держится весь сюжет",
+      "reason": "Анонс двух фактов без самого содержания."
+    }
+  ],
+  "issues": [],
+  "diversity": {
+    "techniques": {
+      "structure-build": 2,
+      "data-token": 1,
+      "hero-number": 2,
+      "flow-graph": 2,
+      "bar-compare": 1,
+      "split-versus": 2,
+      "process-steps": 1,
+      "checklist": 1
+    },
+    "adjacent_repeats": 0,
+    "kinetic_share": 0
+  }
+}
