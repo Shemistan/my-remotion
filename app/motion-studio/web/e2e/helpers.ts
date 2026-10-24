@@ -1,4 +1,5 @@
 // Общее для Playwright UI: пути, состояние засева, скриншоты в evidence, запросы к API.
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,6 +16,19 @@ export const EVIDENCE_VIDEO = join(REPO, "docs/evidence/phase-2/ui");
 export const MEDIA_FIXTURES = join(REPO, "tmp/media-fixtures");
 /** Скриншоты анализа и визуального плана (Task 33): в репозиторий — уменьшенные до 480 px (V4). */
 export const EVIDENCE_PHASE3 = join(REPO, "docs/evidence/phase-3/ui");
+/** Скриншоты UI сценария (S8/S9): в репозиторий — уменьшенные до 480 px, полные — tmp/ui-e2e/script-full/. */
+export const EVIDENCE_SCRIPT = join(REPO, "docs/evidence/script-mvp/ui");
+const SCRIPT_FULL = join(RUN_DIR, "script-full");
+
+/** Скриншот UI сценария: полный — tmp/ui-e2e/script-full/, в репозиторий — 480 px по ширине. */
+export async function scriptShot(page: Page, name: string): Promise<string> {
+  mkdirSync(SCRIPT_FULL, { recursive: true });
+  mkdirSync(EVIDENCE_SCRIPT, { recursive: true });
+  const full = join(SCRIPT_FULL, `${name}.png`);
+  await page.screenshot({ path: full, fullPage: true });
+  execFileSync("sips", ["--resampleWidth", "480", full, "--out", join(EVIDENCE_SCRIPT, `${name}.png`)], { stdio: "ignore" });
+  return full;
+}
 
 /**
  * Ролик с лицом автора (`MS_TEST_TALKING_HEAD`, Task 33): абсолютный путь или путь от корня
@@ -41,6 +55,8 @@ export interface E2EState {
   versions: SeededScene;
   prores: SeededScene;
   failed: SeededScene;
+  /** Сценарный проект (S9): принятые сцены плана, у первых двух — готовые версии. */
+  script: { projectId: string; itemIds: string[]; sceneIds: string[] };
 }
 
 export function state(): E2EState {
