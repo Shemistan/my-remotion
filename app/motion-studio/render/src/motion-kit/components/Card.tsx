@@ -120,6 +120,8 @@ export function Card({ elevation, children, beat, enter, delay = 0, accentIndex,
   const line = accentIndex === undefined ? 0 : interpolate(frame, cardAccentLine(s, start), [0, 1], CLAMP);
   return (
     <div
+      // контейнер для пробы раскладки QA (0.5.5): пустая карточка в финале — empty_container
+      data-ms-box="card"
       style={{
         position: "relative",
         boxSizing: "border-box",
