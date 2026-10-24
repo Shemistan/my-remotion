@@ -29,7 +29,7 @@ export function planDto(items: ScenePlanItem[], over: Partial<PlanDto> = {}, doc
       },
       items, skipped: [], issues: [], ...doc,
     },
-    inputs_fresh: { edl: true, transcript: true, style: true }, proposals: {}, recheck: null, ...over,
+    inputs_fresh: { edl: true, transcript: true, style: true }, proposals: {}, recheck: null, face_overlap_max: 0.02, ...over,
   };
 }
 

@@ -5,7 +5,7 @@
 import type { FootageAnalysis, PlanIssue, ScenePlanItem } from "@ms/contracts";
 import type { PlanningConfig } from "./plan-build.js";
 import { occupiedAt } from "./planner-input.js";
-import { freeZones } from "./zones.js";
+import { ZONE_TITLE, freeZones } from "./zones.js";
 
 /** Режимы поверх кадра с автором: лицо и занятые зоны проверяются. */
 const OVER_AUTHOR = new Set<ScenePlanItem["composition_mode"]>(["overlay", "callout", "pip"]);
@@ -39,7 +39,7 @@ export function planChecks(items: ScenePlanItem[], ctx: PlanCheckContext): PlanI
       const why = x.face_overlap.override_reason;
       add("face_overlap", why ? "warning" : "blocking",
         why ? `графика закрывает ${pct(x.face_overlap.ratio)} лица — по причине «${why}»`
-          : `графика (${x.zone}) закрывает ${pct(x.face_overlap.ratio)} лица автора — выберите другую зону или укажите причину`, x.id);
+          : `графика в зоне «${ZONE_TITLE[x.zone]}» закрывает ${pct(x.face_overlap.ratio)} лица автора — выберите другую зону или укажите причину`, x.id);
     }
     const d = dur(x);
     if (d < cfg.minSceneUs) add("too_short", "warning", `сцена ${s1(d)} с короче ${s1(cfg.minSceneUs)} с`, x.id);
@@ -51,7 +51,7 @@ export function planChecks(items: ScenePlanItem[], ctx: PlanCheckContext): PlanI
     }
     if (ctx.footage && !faceIssue && OVER_AUTHOR.has(x.composition_mode)) {
       const free = freeZones(occupiedAt(ctx.footage, x.source), [x.zone])[0]!.free_ratio;
-      if (free < ZONE_FREE_MIN) add("zone_occupied", "warning", `зона ${x.zone} свободна на ${pct(free)} во время сцены (руки, предметы)`, x.id);
+      if (free < ZONE_FREE_MIN) add("zone_occupied", "warning", `зона «${ZONE_TITLE[x.zone]}» свободна на ${pct(free)} во время сцены (руки, предметы)`, x.id);
     }
   }
 

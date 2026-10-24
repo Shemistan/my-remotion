@@ -44,7 +44,7 @@ describe("approveVisualPlan", () => {
     await seedPlanProject(db, store, s.root, items);
     expect(() => approveVisualPlan(db, "p1", s.root)).toThrow(/approval_required/);
     approveRoughCut(db, "p1");
-    expect(() => approveVisualPlan(db, "p1", s.root)).toThrow(/items_unresolved/);
+    expect(() => approveVisualPlan(db, "p1", s.root)).toThrow(/items_unresolved: 2 сцены ждут решения/);
 
     await savePlanRevision(deps(), "pln_1", { base_revision: 1, ops: items.map((x) => ({ op: "set_status" as const, item_id: x.id, status: "accepted" as const })) });
     const b = approveVisualPlan(db, "p1", s.root);

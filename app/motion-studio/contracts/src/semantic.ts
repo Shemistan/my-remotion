@@ -99,5 +99,7 @@ export const SemanticTimelineSchema = z.object({
   ...semanticFields,
   /** Предложения агента, отклонённые кодом после переотправки (Task 31). */
   rejected: z.array(SemanticRejectedSchema).optional(),
+  /** `skipped` — разметка построена без агента (`useAgent: false`) и пуста: план по ней агент не строит. */
+  agent: z.literal("skipped").optional(),
 }).strict().superRefine(checkSemantic);
 export type SemanticTimeline = z.infer<typeof SemanticTimelineSchema>;

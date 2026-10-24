@@ -1,5 +1,6 @@
-// Визуальный план (Task 33): запуск `plan.visual` (гейт A, свежая смысловая разметка, анализ
-// видеоряда того же исходника — иначе 409 без задачи), ревизия плана со свежестью входов,
+// Визуальный план (Task 33): запуск `plan.visual` (гейт A, свежая смысловая разметка — с агентом
+// только построенная агентом, анализ видеоряда того же исходника; без агента — пока в плане нет
+// сцен — иначе 409 без задачи), ревизия плана со свежестью входов,
 // предложениями агента и итогом перепроверки, правка сцен (`savePlanRevision`), перепроверка
 // (`plan.recheck`, без LLM).
 import { AnalyzeBodySchema, CreatedJobDtoSchema, type PlanDto, PlanDtoSchema, type PlanProposal, PlanRevisionBodySchema, type RecheckEntry } from "@ms/contracts";
@@ -20,7 +21,7 @@ import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "..
 import { ApiError, notFound } from "../errors.js";
 import { publicJob } from "../job-dto.js";
 import { RevisionQuery, checkOps, EDIT_BODY_LIMIT } from "./transcripts.js";
-import { requireApprovalA, semanticFresh } from "./semantic.js";
+import { requireApprovalA, semanticDoc, semanticFresh } from "./semantic.js";
 
 interface PlanRefs { plan_id?: unknown; revision?: unknown; changed?: unknown; no_change?: unknown }
 
@@ -49,8 +50,8 @@ function proposals(db: Db, projectId: string, planId: string, upTo: number): Rec
   return out;
 }
 
-/** Ревизия плана для UI: свежесть входов по текущим EDL, транскрипту и стилю проекта. */
-export function planDto(db: Db, root: string, id: string, revision?: number): PlanDto {
+/** Ревизия плана для UI: свежесть входов по текущим EDL, транскрипту и стилю проекта; порог лица — из конфига. */
+export function planDto(db: Db, root: string, faceOverlapMax: number, id: string, revision?: number): PlanDto {
   const p = plans.get(db, id);
   if (!p || p.current_revision === null) throw new EditError("plan_not_found", `нет плана ${id}`);
   const doc = currentPlan(db, root, id, revision);
@@ -76,6 +77,7 @@ export function planDto(db: Db, root: string, id: string, revision?: number): Pl
     },
     proposals: proposals(db, p.project_id, id, doc.revision),
     recheck,
+    face_overlap_max: faceOverlapMax,
   };
 }
 
@@ -96,6 +98,15 @@ export function planRoutes(app: ZApp, { core }: ApiContext): void {
       const ftg = footageRepo.latest(core.db, projectId);
       const edl = edls.byProject(core.db, projectId)!;
       if (!ftg || ftg.media_id !== edl.media_id) throw new ApiError(409, "footage_missing", "сначала проанализируйте видеоряд");
+      // ревью Task 33 I1: разметка без агента пуста — агенту планировать не по чему; план без агента
+      // не стирает сцены готового плана
+      if (req.body.useAgent !== false && semanticDoc(core.root, sem).agent === "skipped") {
+        throw new ApiError(409, "semantic_missing", "смысловая разметка построена без агента — запустите смысловой анализ с агентом");
+      }
+      const plan = plans.byProject(core.db, projectId);
+      if (req.body.useAgent === false && plan?.current_revision != null && plans.scenePlans(core.db, plan.id, plan.current_revision).length > 0) {
+        throw new ApiError(409, "plan_exists", "в плане уже есть сцены — план без агента их бы стёр; правьте сцены или постройте план с агентом");
+      }
       return { status: 202 as const, job: enqueue(core.db, { type: "plan.visual", projectId, input, idempotencyKey: key }).job };
     });
     return reply.status(out.status).send({ job: publicJob(out.job, core.root) });
@@ -103,7 +114,7 @@ export function planRoutes(app: ZApp, { core }: ApiContext): void {
 
   app.get("/api/plans/:id", {
     schema: { params: IdParams, querystring: RevisionQuery, response: { 200: PlanDtoSchema } },
-  }, async (req) => planDto(core.db, core.root, req.params.id, req.query.revision));
+  }, async (req) => planDto(core.db, core.root, core.config.planning.faceOverlapMax, req.params.id, req.query.revision));
 
   app.post("/api/plans/:id/revisions", {
     bodyLimit: EDIT_BODY_LIMIT,
@@ -115,7 +126,7 @@ export function planRoutes(app: ZApp, { core }: ApiContext): void {
   }, async (req, reply) => {
     const store = new ArtifactStore({ root: core.root, db: core.db, guard: core.storageCheck });
     const doc = await savePlanRevision({ db: core.db, store, root: core.root, planning: core.config.planning }, req.params.id, req.body);
-    return reply.status(201).send(planDto(core.db, core.root, req.params.id, doc.revision));
+    return reply.status(201).send(planDto(core.db, core.root, core.config.planning.faceOverlapMax, req.params.id, doc.revision));
   });
 
   app.post("/api/plans/:id/recheck", {

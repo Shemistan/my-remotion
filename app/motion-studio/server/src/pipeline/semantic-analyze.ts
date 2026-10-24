@@ -8,8 +8,8 @@
 // Переотправка — одна на окно и только если `scene.maxAutoFixes ≥ 1`: при отказе схемы — с текстом
 // ошибки, при отклонённых кодом предложениях — с их перечнем. Второй ответ заменяет первый целиком;
 // оставшиеся отклонённые — в `semantic.json.rejected` и событии `semantic_rejected`. Отказ агента
-// (не схема) или бюджет — задача падает. `useAgent: false` — пустая разметка без агента (UI-тесты
-// без LLM, Task 33). Ответы окон — чекпоинт задачи
+// (не схема) или бюджет — задача падает. `useAgent: false` — пустая разметка без агента с отметкой
+// `agent: "skipped"` (UI-тесты без LLM, Task 33; план с агентом по ней не строится). Ответы окон — чекпоинт задачи
 // (хеш всего входа → ответы по хешам окон): повтор не платит за готовые окна.
 //
 // Повтор после сбоя (ревью Task 24, M3): id — `sem_<ULID задачи>`; опубликован прошлой попыткой —
@@ -210,13 +210,15 @@ export function semanticAnalyze(depsOf: (ctx: JobContext) => SemanticAnalyzeDeps
       let timeline: SemanticAgentOutput = EMPTY;
       let rejected: SemanticRejected[] = [];
       let spans: Span[] = [];
+      let skipped = false;
       let agentInfo: NonNullable<SemanticAnalyzeResult["agent"]> = {
         status: "skipped", calls: 0, cost_usd: 0, retried: 0, from_checkpoint: 0, merge_dropped: { causal: 0, boundaries: 0, anchors: 0 },
       };
       if (inp.words.length === 0) {
         ctx.emit("nothing_to_analyze", tr.words.length === 0 ? "в транскрипте нет слов: размечать нечего" : "черновой монтаж вырезал все слова: размечать нечего");
       } else if (input.useAgent === false) {
-        ctx.emit("agent_skipped", "агент Semantic Director не вызывался (useAgent: false): разметка пустая");
+        skipped = true;
+        ctx.emit("agent_skipped", "агент Semantic Director не вызывался (useAgent: false): разметка пустая, план по ней агент не строит");
       } else {
         await enter("agent", 0.1);
         spans = windowSpans(inp.words.length, d.windows ?? WINDOW_DEFAULTS);
@@ -241,6 +243,7 @@ export function semanticAnalyze(depsOf: (ctx: JobContext) => SemanticAnalyzeDeps
 
       const doc: SemanticTimeline = SemanticTimelineSchema.parse({
         schema_version: 1, id: semanticId, transcript_ref: transcriptRef, edl_ref: edlRef, ...timeline, rejected,
+        ...(skipped ? { agent: "skipped" } : {}),
       });
       await enter("publish", 0.95);
       // EDL или транскрипт сменились за время анализа: разметка честно ссылается на ревизии, по

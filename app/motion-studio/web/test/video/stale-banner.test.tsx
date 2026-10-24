@@ -13,7 +13,7 @@ it("итог перепроверки: anchor_cut 1, remapped 2 → сводка
     { item_id: "sp_001", change: "anchor_cut" }, { item_id: "sp_002", change: "remapped" }, { item_id: "sp_003", change: "remapped" },
   ] }} busy={false} onRecheck={onRecheck} />);
   const banner = screen.getByTestId("stale-banner");
-  expect(banner.textContent).toContain(t("plan.stale.summary", { remapped: 2, needs: 1 }));
+  expect(banner.textContent).toContain("Монтаж изменился: 2 сцены пересчитаны, 1 требует решения");
   expect(banner.textContent).toContain(t("plan.stale.change.anchor_cut", { id: "sp_001" }));
   expect(banner.textContent).not.toContain("sp_002");
   fireEvent.click(screen.getByRole("button", { name: t("plan.recheck") }));
@@ -34,4 +34,13 @@ it("всё свежо и перепроверки не было (или толь
   expect(container.textContent).toBe("");
   rerender(<StaleBanner fresh={fresh} recheck={{ changed: [] }} busy={false} onRecheck={vi.fn()} />);
   expect(container.textContent).toBe("");
+});
+
+it("ревью #5: сводка — русские формы числа (1 сцена пересчитана, 5 сцен, 2 требуют решения)", () => {
+  const ch = (id: string, change: "remapped" | "anchor_cut") => ({ item_id: id, change });
+  const { rerender } = render(<StaleBanner fresh={fresh} recheck={{ changed: [ch("sp_001", "remapped")] }} busy={false} onRecheck={vi.fn()} />);
+  expect(screen.getByTestId("stale-banner").textContent).toContain("Монтаж изменился: 1 сцена пересчитана, 0 требуют решения");
+  const many = [1, 2, 3, 4, 5].map((i) => ch(`sp_00${i}`, "remapped"));
+  rerender(<StaleBanner fresh={fresh} recheck={{ changed: [...many, ch("sp_006", "anchor_cut"), ch("sp_007", "anchor_cut")] }} busy={false} onRecheck={vi.fn()} />);
+  expect(screen.getByTestId("stale-banner").textContent).toContain("Монтаж изменился: 5 сцен пересчитаны, 2 требуют решения");
 });

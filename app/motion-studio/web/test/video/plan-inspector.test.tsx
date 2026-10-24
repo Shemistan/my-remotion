@@ -9,7 +9,7 @@ import { edlDto } from "./fixtures.js";
 import { item } from "./plan-fixtures.js";
 
 const tl = edlDto().timeline;
-const base = { timeline: tl, issues: [], busy: false, onPlay: vi.fn(), onPreviewZone: vi.fn() };
+const base = { timeline: tl, issues: [], busy: false, faceOverlapMax: 0.02, onPlay: vi.fn(), onPreviewZone: vi.fn() };
 
 it("перекрытие лица 0,56 без причины: поле «причина» обязательно, «Принять» недоступна; с текстом — причина и принятие одной правкой", () => {
   const onOps = vi.fn();
@@ -95,4 +95,30 @@ it("PlanIssues: блокирующие сверху, неизвестный ко
   expect(rows.map((r) => r.textContent).join(" ")).toContain("что-то новое");
   fireEvent.click(screen.getByRole("button", { name: "sp_002" }));
   expect(onSelect).toHaveBeenCalledWith("sp_002");
+});
+
+it("ревью #3: причина нужна по порогу из PlanDto или по проблеме face_overlap сцены, а не по константе", () => {
+  const x = item({ zone: "right_third", face_overlap: { ratio: 0.04 } });
+  const { rerender } = render(<PlanInspector {...base} faceOverlapMax={0.05} item={x} onOps={vi.fn()} />);
+  expect(screen.queryByRole("textbox", { name: t("inspector.reason") })).toBeNull();
+  rerender(<PlanInspector {...base} faceOverlapMax={0.03} item={x} onOps={vi.fn()} />);
+  expect(screen.getByRole("textbox", { name: t("inspector.reason") })).toBeTruthy();
+  const issues = [{ item_id: "sp_001", code: "face_overlap", severity: "blocking" as const, message: "графика закрывает 4 % лица" }];
+  rerender(<PlanInspector {...base} faceOverlapMax={0.05} issues={issues} item={x} onOps={vi.fn()} />);
+  expect(screen.getByRole("textbox", { name: t("inspector.reason") })).toBeTruthy();
+});
+
+it("ревью #4: у принятой сцены причина сохраняется отдельным действием «Сохранить причину»", () => {
+  const onOps = vi.fn();
+  const x = item({ status: "accepted", zone: "right_third", face_overlap: { ratio: 0.56, override_reason: "старая" } });
+  render(<PlanInspector {...base} item={x} onOps={onOps} />);
+  expect(screen.queryByRole("button", { name: t("inspector.saveReason") })).toBeNull();
+  fireEvent.change(screen.getByRole("textbox", { name: t("inspector.reason") }), { target: { value: "автор показывает на схему" } });
+  fireEvent.click(screen.getByRole("button", { name: t("inspector.saveReason") }));
+  expect(onOps).toHaveBeenLastCalledWith([{ op: "modify", item_id: "sp_001", patch: { override_reason: "автор показывает на схему" } }]);
+});
+
+it("ревью V2: id сцены и название проблемы разделены пробелом", () => {
+  render(<PlanIssues issues={[{ code: "face_overlap", severity: "blocking", message: "графика закрывает 15 % лица", item_id: "sp_001" }]} onSelect={vi.fn()} />);
+  expect(screen.getByRole("listitem").textContent).toContain(`sp_001 ${t("plan.issue.face_overlap")}`);
 });

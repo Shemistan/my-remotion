@@ -44,7 +44,7 @@ export function WordSpan({ word, mapping, current, selected, tabStop, onClick, o
       onKeyDown={onKeyDown}
       onFocus={() => onFocus(word)}
     >
-      {word.text}
+      {word.text.trim()}
     </span>
   );
 }

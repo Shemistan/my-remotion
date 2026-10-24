@@ -10,6 +10,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { ZONE_RECTS } from "@ms/contracts";
 import { type APIRequestContext, type Locator, type Page, expect, test } from "@playwright/test";
 import { EVIDENCE_PHASE3, RUN_DIR, talkingHead } from "./helpers.js";
 
@@ -31,13 +32,8 @@ async function jobDone(page: Page, type: string): Promise<void> {
 const tab = (page: Page, name: string) => page.getByRole("tab", { name, exact: true }).click();
 
 type Rect = { x: number; y: number; w: number; h: number };
-/** Геометрия зон (как `ZONE_RECTS`) — только кандидаты сцены поверх автора. */
-const ZONES: Record<string, Rect> = {
-  left_third: { x: 0.04, y: 0.08, w: 0.30, h: 0.84 },
-  right_third: { x: 0.66, y: 0.08, w: 0.30, h: 0.84 },
-  top_band: { x: 0.04, y: 0.04, w: 0.92, h: 0.22 },
-  lower_third: { x: 0.04, y: 0.70, w: 0.92, h: 0.24 },
-};
+/** Кандидаты зоны сцены поверх автора (геометрия — общая `ZONE_RECTS`). */
+const ZONES: Record<string, Rect> = Object.fromEntries((["left_third", "right_third", "top_band", "lower_third"] as const).map((z) => [z, ZONE_RECTS[z]]));
 const overlap = (a: Rect, b: Rect) => {
   const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
   const h = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
@@ -52,6 +48,12 @@ async function api<T>(request: APIRequestContext, path: string): Promise<T> {
 
 test("анализ видеоряда и визуальный план: лицо, зона, Approval B, стиль, перепроверка после монтажа", async ({ page, request }) => {
   const head = talkingHead();
+  if (!head) {
+    // пропуск не должен быть тихим: сценарий Phase 3 без ролика с лицом не проверяется вовсе (ревью #10)
+    const why = "ПРОПУЩЕН video-phase3: нужен MS_TEST_TALKING_HEAD — ролик с лицом автора (например, tmp/talking-head/MyProtocol-299.833-353.5.mov)";
+    console.warn(`\n⚠ ${why}\n`);
+    test.info().annotations.push({ type: "skip", description: why });
+  }
   test.skip(!head, "нужен MS_TEST_TALKING_HEAD — ролик с лицом автора (например, tmp/talking-head/MyProtocol-299.833-353.5.mov)");
   test.setTimeout(1_800_000);
 
@@ -106,13 +108,24 @@ test("анализ видеоряда и визуальный план: лицо
   await expect(page.locator(".shot-frames img").first()).toHaveJSProperty("complete", true);
   await snap(page, "01-analysis-shots-zones");
 
+  // агент по умолчанию включён (ревью I1) — UI-e2e без LLM выключает его явно
+  const semanticPanel = page.locator(".analysis-semantic");
+  await expect(semanticPanel.getByRole("checkbox", { name: "С агентом (LLM)" })).toBeChecked();
+  await semanticPanel.getByRole("checkbox", { name: "С агентом (LLM)" }).uncheck();
   await page.getByRole("button", { name: "Смысловой анализ" }).click();
   await jobDone(page, "Смысловой анализ");
   await expect(page.getByTestId("chapters")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("semantic-skipped")).toContainText("без агента");
   await snap(page, "02-analysis-semantic-empty");
 
   // план без агента — пустой; сцена пользователя по словам в зоне над лицом
   await tab(page, "План");
+  // с агентом по разметке без агента план не строится — 409 с понятной причиной (ревью I1)
+  const planAgent = page.locator(".plan-panel").getByRole("checkbox", { name: "С агентом (LLM)" });
+  await expect(planAgent).toBeChecked();
+  await page.getByRole("button", { name: "Построить план" }).click();
+  await expect(page.locator(".plan-panel .error")).toContainText("построена без агента");
+  await planAgent.uncheck();
   await page.getByRole("button", { name: "Построить план" }).click();
   await jobDone(page, "Визуальный план");
   await expect(page.getByTestId("plan-track")).toContainText("Сцен нет", { timeout: 30_000 });
@@ -139,6 +152,9 @@ test("анализ видеоряда и визуальный план: лицо
   const inspector = page.getByTestId("inspector");
   await expect(inspector).toBeVisible();
   await expect(page.locator('.plan-issues li[data-code="face_overlap"]').first()).toContainText("перекрытие лица");
+  // текст проблемы — по-русски, без кода зоны; id сцены отделён от названия (ревью V2)
+  await expect(page.locator('.plan-issues li[data-code="face_overlap"]').first()).not.toContainText(onFace);
+  await expect(page.locator('.plan-issues li[data-code="face_overlap"]').first()).toContainText(/sp_\d+ перекрытие лица/);
   await expect(page.getByTestId("zone-plan")).toHaveClass(/bad/);
   await expect(page.getByRole("button", { name: "Утвердить визуальный план (B)" })).toBeDisabled();
   await expect(page.getByTestId("b-reasons")).toContainText("блокирующие проблемы");
@@ -180,7 +196,7 @@ test("анализ видеоряда и визуальный план: лицо
   await expect(recheck).toBeEnabled({ timeout: JOB_TIMEOUT });
   await recheck.click();
   await expect.poll(async () => (await api<{ inputs_fresh: { edl: boolean } }>(request, `/api/plans/${planId}`)).inputs_fresh.edl, { timeout: JOB_TIMEOUT }).toBe(true);
-  await expect(page.getByTestId("stale-banner")).toContainText(/Монтаж изменился: 1 сцен пересчитаны, 0 требуют решения/, { timeout: 30_000 });
+  await expect(page.getByTestId("stale-banner")).toContainText(/Монтаж изменился: 1 сцена пересчитана, 0 требуют решения/, { timeout: 30_000 });
   await expect(page.getByTestId("b-reasons")).toContainText("черновой монтаж (A)");
   await snap(page, "07-plan-rechecked");
 });

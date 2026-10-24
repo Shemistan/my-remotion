@@ -49,3 +49,11 @@ it("цвет текста меняется — контраст пересчит
   fireEvent.click(screen.getByRole("button", { name: t("style.save") }));
   await waitFor(() => expect(screen.getByTestId("style-error").textContent).toContain("#333333"));
 });
+
+it("ревью V1: свотчи палитры не используют общий класс .swatch (18 px), подпись — не в схлопнутой колонке", () => {
+  fakeFetch();
+  renderQ(<StyleBiblePanel projectId="p1" style={styleDto()} bValid={false} onSaved={vi.fn()} />);
+  const sw = screen.getByTestId("swatch-text");
+  expect(sw.classList.contains("swatch")).toBe(false);
+  expect(sw.classList.contains("palette-swatch")).toBe(true);
+});

@@ -4,7 +4,7 @@
 // Во вкладке «План» (Task 33) выделение слов — «Добавить сцену» (`onAddScene`), даже только для чтения.
 // Клавиатура: в порядке Tab одно слово (roving tabindex), ←/→ и Home/End — по словам, Enter/Space —
 // переход.
-import type { TranscriptDto, TranscriptWord, WordMapping } from "@ms/contracts";
+import { type TranscriptDto, type TranscriptWord, type WordMapping, gluesToPrevious } from "@ms/contracts";
 import { useMutation } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { ApiError, api } from "../../api/client.js";
@@ -126,14 +126,17 @@ export function TranscriptEditor({ transcript, wordMap, currentUs, readOnly, onS
                 </form>
               ) : (
                 <p className="segment-text">
-                  {words.map((w) => {
+                  {words.map((w, k) => {
                     const i = byId.get(w.id)!.i;
+                    // «MAC» + «-адреса», «что» + «-то», пунктуация — без пробела (ревью Task 33 V3)
                     return (
                       <span key={w.id}>
-                        <WordSpan word={w} mapping={wordMap?.[w.id]} current={i === current} selected={sel !== null && i >= sel.a && i <= sel.b} tabStop={i === stop} onClick={click} onNav={nav} onFocus={onWordFocus} />{" "}
+                        {k > 0 && !gluesToPrevious(w.text) ? " " : null}
+                        <WordSpan word={w} mapping={wordMap?.[w.id]} current={i === current} selected={sel !== null && i >= sel.a && i <= sel.b} tabStop={i === stop} onClick={click} onNav={nav} onFocus={onWordFocus} />
                       </span>
                     );
                   })}
+                  {!readOnly && words.length > 0 ? " " : null}
                   {!readOnly && words.length > 0 ? (
                     <button type="button" className="link-button small" onClick={() => setEditing({ seg: seg.id, text: words.map((w) => w.text).join(" ") })}>
                       {t("transcript.edit")}

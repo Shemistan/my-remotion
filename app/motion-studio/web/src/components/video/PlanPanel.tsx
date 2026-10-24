@@ -1,8 +1,8 @@
-// Вкладка «План» (Task 33): построение плана (`plan.visual`; без агента — пустой план, сцены
-// добавляет человек), баннер устаревшего плана, «Утвердить визуальный план (B)» с перечнем причин,
+// Вкладка «План» (Task 33): построение плана (`plan.visual`; по умолчанию с агентом, поверх плана
+// со сценами — после подтверждения замены; без агента — пустой план, сцены добавляет человек), баннер устаревшего плана, «Утвердить визуальный план (B)» с перечнем причин,
 // если нельзя, проблемы плана, список сцен и инспектор выбранной, транскрипт после монтажа для
 // сцены пользователя (`AddSceneDialog`). Правка — новая ревизия от текущей; 409 — перечитать.
-import type { EdlDto, PlanDto, PlanIssue, PlanOp, TranscriptDto, VideoProjectDto, Zone } from "@ms/contracts";
+import { type EdlDto, type PlanDto, type PlanIssue, type PlanOp, type TranscriptDto, type VideoProjectDto, type Zone, joinWords } from "@ms/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ApiError, api, newKey } from "../../api/client.js";
@@ -50,7 +50,8 @@ export function PlanPanel(p: PlanPanelProps) {
   const { data, edl, transcript, plan } = p;
   const client = useQueryClient();
   const projectId = data.project.id;
-  const [useAgent, setUseAgent] = useState(false);
+  const [useAgent, setUseAgent] = useState(true);
+  const [confirmReplace, setConfirmReplace] = useState(false);
   const [genKey, setGenKey] = useState(newKey);
   const [recheckKey, setRecheckKey] = useState(newKey);
   const [conflict, setConflict] = useState(false);
@@ -91,16 +92,33 @@ export function PlanPanel(p: PlanPanelProps) {
     ...(data.semantic?.fresh ? [] : [t("plan.need.semantic")]),
     ...(data.footage ? [] : [t("plan.need.footage")]),
   ];
+  const hasScenes = (plan?.doc.items.length ?? 0) > 0;
   const generateBar = (
-    <div className="row wrap">
-      <button type="button" className={plan ? "" : "primary"} disabled={needs.length > 0 || generate.isPending || busy("plan.visual")} onClick={() => generate.mutate()}>
-        {t("plan.generate")}
-      </button>
-      <label className="row small">
-        <input type="checkbox" checked={useAgent} onChange={(e) => setUseAgent(e.target.checked)} />
-        {t("analysis.useAgent")}
-      </label>
-    </div>
+    <>
+      <div className="row wrap">
+        <button
+          type="button"
+          className={plan ? "" : "primary"}
+          disabled={needs.length > 0 || generate.isPending || busy("plan.visual") || confirmReplace}
+          onClick={() => (useAgent && hasScenes ? setConfirmReplace(true) : generate.mutate())}
+        >
+          {t("plan.generate")}
+        </button>
+        <label className="row small">
+          <input type="checkbox" checked={useAgent} onChange={(e) => setUseAgent(e.target.checked)} />
+          {t("analysis.useAgent")}
+        </label>
+      </div>
+      {confirmReplace ? (
+        <div className="msg-warning confirm-replace" role="alertdialog" aria-label={t("plan.generate")}>
+          <p>{t("plan.replaceWarning")}</p>
+          <div className="row wrap">
+            <button type="button" className="primary" onClick={() => { setConfirmReplace(false); generate.mutate(); }}>{t("plan.replaceConfirm")}</button>
+            <button type="button" onClick={() => setConfirmReplace(false)}>{t("common.cancel")}</button>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 
   if (!plan) {
@@ -126,7 +144,7 @@ export function PlanPanel(p: PlanPanelProps) {
   const textOf = (a: string, b: string) => {
     const i = words.findIndex((w) => w.id === a);
     const j = words.findIndex((w) => w.id === b);
-    return i < 0 || j < i ? "" : words.slice(i, j + 1).filter((w) => edl.word_map[w.id]?.state !== "removed").map((w) => w.text).join(" ");
+    return i < 0 || j < i ? "" : joinWords(words.slice(i, j + 1).filter((w) => edl.word_map[w.id]?.state !== "removed").map((w) => w.text));
   };
 
   return (
@@ -161,6 +179,7 @@ export function PlanPanel(p: PlanPanelProps) {
           item={item}
           proposal={plan.proposals[item.id]}
           issues={doc.issues}
+          faceOverlapMax={plan.face_overlap_max}
           timeline={edl.timeline}
           busy={save.isPending || !isCurrent}
           onOps={(ops) => save.mutate(ops)}

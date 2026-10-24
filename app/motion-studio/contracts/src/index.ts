@@ -21,6 +21,7 @@ export * from "./timecode.js";
 export * from "./timeline.js";
 export * from "./media.js";
 export * from "./transcript.js";
+export * from "./text.js";
 export * from "./edl.js";
 export * from "./approvals.js";
 export * from "./footage.js";

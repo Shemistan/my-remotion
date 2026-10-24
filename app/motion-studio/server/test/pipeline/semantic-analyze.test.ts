@@ -179,6 +179,7 @@ describe("semantic.analyze", () => {
     expect(events.map((e) => e.kind)).toContain("agent_skipped");
     expect(res).toMatchObject({ agent: { status: "skipped", calls: 0 }, counts: { chapters: 0, anchors: 0 } });
     expect(docOf(res!).edl_ref).toEqual({ id: `edl_${p.slice(1)}`, revision: 1 });
+    expect(docOf(res!).agent).toBe("skipped");
   });
 
   it("A устарело (новая ревизия EDL после утверждения) → approval_required", async () => {

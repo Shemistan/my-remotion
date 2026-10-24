@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   FootageAnalysisSchema, type FootageAnalysis, type PlanOp, type ScenePlanItem, type VisualPlanRevisionDoc, VisualPlanRevisionDocSchema,
-  mapWords,
+  joinWords, mapWords,
 } from "@ms/contracts";
 import { canonicalJson } from "@ms/contracts/canonical";
 import { approvalState } from "../approvals/engine.js";
@@ -105,15 +105,18 @@ export function applyPlanOps(doc: VisualPlanRevisionDoc, ops: PlanOp[], ctx: Pla
   };
 }
 
-/** Услышанные слова диапазона одной строкой (цитата сцены пользователя); проверку диапазона делает `placeScene`. */
+/**
+ * Услышанные слова диапазона одной строкой для показа («MAC-адреса», без пробела перед пунктуацией —
+ * `joinWords`; `verifyQuote` пробелы не сравнивает); проверку диапазона делает `placeScene`.
+ */
 function wordsBetween(c: PlaceContext, startId: string, endId: string): string {
   const si = c.words.findIndex((w) => w.id === startId);
   const ei = c.words.findIndex((w) => w.id === endId);
   if (si < 0 || ei < si) return "";
-  return c.words.slice(si, ei + 1).filter((w) => {
+  return joinWords(c.words.slice(si, ei + 1).filter((w) => {
     const m = c.wordMap?.[w.id];
     return m !== undefined && m.state !== "removed";
-  }).map((w) => w.text).join(" ");
+  }).map((w) => w.text));
 }
 
 /** Документ ревизии плана (по умолчанию текущей) из хранилища, проверенный схемой. */

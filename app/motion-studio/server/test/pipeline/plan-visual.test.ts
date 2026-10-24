@@ -65,7 +65,7 @@ const anchors: SemanticTimeline["anchors"] = [
 ];
 
 /** Видеопроект pN: исходник, транскрипт r1, EDL r1 (вырезка CUT принята), A, semantic и footage по текущим ревизиям. */
-async function ready(o: { approve?: boolean; semantic?: "fresh" | "old" | "none"; footage?: boolean } = {}): Promise<{ p: string; edl: string }> {
+async function ready(o: { approve?: boolean; semantic?: "fresh" | "old" | "none" | "skipped"; footage?: boolean } = {}): Promise<{ p: string; edl: string }> {
   const k = ++n;
   const p = `p${k}`;
   const [mediaId, trnId, edlId] = [`med_${k}`, `trn_${k}`, `edl_${k}`];
@@ -89,6 +89,7 @@ async function ready(o: { approve?: boolean; semantic?: "fresh" | "old" | "none"
     const doc: SemanticTimeline = {
       schema_version: 1, id: semId, transcript_ref: { id: trnId, revision: 1 }, edl_ref: { id: edlId, revision: o.semantic === "old" ? 2 : 1 },
       chapters: [{ id: "ch_01", title: "Итоги", summary: "", start_word_id: id(4), end_word_id: id(20) }], anchors, entities: [], numbers: [], causal: [], disputed: [],
+      ...(o.semantic === "skipped" ? { chapters: [], anchors: [], agent: "skipped" as const } : {}),
     };
     await store.writeRevision(paths.semantic(semId), "semantic.json", doc, (d, f) => {
       semanticRepo.insert(d, { id: semId, project_id: p, transcript_id: trnId, transcript_revision: 1, edl_id: edlId, edl_revision: doc.edl_ref.revision, rel_path: `${paths.semantic(semId)}/semantic.json`, sha256: f[0]!.sha256, chapters: [] });
@@ -406,6 +407,29 @@ describe("plan.visual", () => {
     const doc = planOf(res!.plan_id, 1);
     expect(doc.items).toEqual([]);
     expect(doc.issues.map((x) => x.code)).toEqual(["no_scenes"]);
+  });
+
+  it("ревью Task 33 I1: разметка без агента — plan.visual с агентом отказывает (агент не вызывается)", async () => {
+    const { p } = await ready({ semantic: "skipped" });
+    const agents = fakeAgents([ok(CLEAN)]);
+    const { r } = await run<PlanVisualResult>("plan.visual", p, { agents });
+    expect(r.status).toBe("failed");
+    expect(JSON.stringify(r)).toMatch(/смысловая разметка построена без агента/);
+    expect(agents.tasks).toHaveLength(0);
+    expect(plans.byProject(db, p)).toBeUndefined();
+  });
+
+  it("ревью Task 33 I1: useAgent: false поверх плана со сценами — отказ plan_exists, сцены не стираются", async () => {
+    const { p } = await ready();
+    const r1 = await run<PlanVisualResult>("plan.visual", p, { agents: fakeAgents([ok(CLEAN)]) });
+    expect(r1.r.status).toBe("completed");
+    const before = planOf(r1.out!.plan_id, r1.out!.revision).items.length;
+    expect(before).toBeGreaterThan(0);
+    enqueue(db, { type: "plan.visual", projectId: p, input: { projectId: p, useAgent: false }, idempotencyKey: `plan.visual-${++n}` });
+    const { r } = await run<PlanVisualResult>("plan.visual", p, { agents: fakeAgents([]), jobId: "queued" });
+    expect(r.status).toBe("failed");
+    expect(JSON.stringify(r)).toMatch(/plan_exists/);
+    expect(plans.get(db, r1.out!.plan_id)!.current_revision).toBe(r1.out!.revision);
   });
 
   it("повторный plan.visual — новая ревизия того же плана (один план на проект)", async () => {

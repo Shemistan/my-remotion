@@ -38,9 +38,12 @@ export async function seedFootageWithFrame(api: Api, ftgId = "ftg_k1", mode: Foo
   return doc;
 }
 
-/** Смысловая разметка по EDL `edl_1` r`edlRevision` и транскрипту `trn_1` r1: глава, тезис-предположение, число, спорное место. */
-export async function seedSemantic(api: Api, semId = "sem_k1", edlRevision = 1): Promise<SemanticTimeline> {
-  const doc: SemanticTimeline = {
+/**
+ * Смысловая разметка по EDL `edl_1` r`edlRevision` и транскрипту `trn_1` r1: глава, тезис-предположение, число, спорное место;
+ * `skipped` — пустая разметка без агента (`agent: "skipped"`).
+ */
+export async function seedSemantic(api: Api, semId = "sem_k1", edlRevision = 1, skipped = false): Promise<SemanticTimeline> {
+  const full: SemanticTimeline = {
     schema_version: 1, id: semId, transcript_ref: { id: "trn_1", revision: 1 }, edl_ref: { id: "edl_1", revision: edlRevision },
     chapters: [{ id: "c1", title: "Итоги года", summary: "рост выручки", start_word_id: id(4), end_word_id: id(20) }],
     anchors: [{
@@ -52,6 +55,7 @@ export async function seedSemantic(api: Api, semId = "sem_k1", edlRevision = 1):
     causal: [],
     disputed: [{ start_word_id: id(11), end_word_id: id(13), why: "оценка без данных" }],
   };
+  const doc: SemanticTimeline = skipped ? { ...full, chapters: [], anchors: [], numbers: [], disputed: [], agent: "skipped" } : full;
   const rel = artifactPaths(api.core.root, "p1").semantic(semId);
   await publishDir(api, rel, { "semantic.json": JSON.stringify(doc) }, (db, files) => {
     semanticRepo.insert(db, {

@@ -63,7 +63,10 @@ import { FencedOutError, PublishCancelledError } from "../scenes/repo.js";
 import { checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
 import { RunCtx, errText, isStorageError, toolless } from "./steps.js";
 
-/** `useAgent: false` — без Visual Planner: план без сцен, сцены добавляет человек (UI-тесты без LLM). */
+/**
+ * `useAgent: false` — без Visual Planner: план без сцен, сцены добавляет человек (UI-тесты без LLM);
+ * только пока в плане нет сцен (иначе отказ `plan_exists`). С агентом — разметка без агента не годится.
+ */
 export const PlanJobInputSchema = z.object({ projectId: z.string().min(1), useAgent: z.boolean().optional() }).strict();
 
 export const PLAN_STAGES = ["prepare", "agent", "publish"] as const;
@@ -233,12 +236,19 @@ export function planVisual(depsOf: (ctx: JobContext) => PlanVisualDeps): JobHand
       if (!ftg) missing.push("анализа видеоряда нет — запустите footage.analyze");
       else if (ftg.media_id !== edl.media_id) missing.push(`анализ видеоряда ${ftg.id} сделан по другому исходнику — перезапустите footage.analyze`);
       if (missing.length > 0 || !sem || !ftg) return prep(`plan.visual: не хватает входов: ${missing.join("; ")}`);
+      // ревью Task 33 I1: план без агента не стирает сцены готового плана
+      if (parsed.data.useAgent === false && snap.plan?.current_revision != null && plans.scenePlans(ctx.db, snap.plan.id, snap.plan.current_revision).length > 0) {
+        return prep(`plan_exists: в плане ${snap.plan.id} уже есть сцены — план без агента их бы стёр; правьте сцены вручную или постройте план с агентом`);
+      }
 
       const status = await d.storage();
       if (!status.ok) throw new PlanFail({ code: "storage_unavailable", stage: "storage", message: `${status.reason}: ${status.detail}` });
       const tr = currentTranscript(ctx.db, root, edl.transcript_id, trRev);
       const tl = timelineFor(ctx.db, edl.id, edlRev.revision);
       const semDoc: SemanticTimeline = SemanticTimelineSchema.parse(JSON.parse(await readFile(join(root, sem.rel_path), "utf8")));
+      if (parsed.data.useAgent !== false && semDoc.agent === "skipped") {
+        return prep("plan.visual: смысловая разметка построена без агента (пустая) — запустите смысловой анализ с агентом или стройте план без агента");
+      }
       const footage = readFootage(ctx.db, root, ftg.id);
       const style0 = currentProjectStyle(ctx.db, root, projectId);
       // M3: стиль опубликован прошлой попыткой — вход агента со стилем до него (как у той попытки: чекпоинт)

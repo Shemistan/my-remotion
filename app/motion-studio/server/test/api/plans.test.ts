@@ -38,11 +38,45 @@ describe("plan/generate", () => {
     await seedSemantic(api, "sem_old", 9);
     expect((await generate("g3")).json().error).toBe("semantic_missing");
     await seedSemantic(api);
-    const r = await generate("g4", { useAgent: false });
+    const r = await generate("g4");
     expect(r.statusCode, r.body).toBe(202);
-    expect(jobsRepo.get(api.core.db, r.json().job.id)).toMatchObject({ type: "plan.visual", input: { projectId: "p1", useAgent: false } });
+    expect(jobsRepo.get(api.core.db, r.json().job.id)).toMatchObject({ type: "plan.visual", input: { projectId: "p1" } });
     expect(jobsRepo.list(api.core.db, { projectId: "p1" }).filter((j) => j.type === "plan.visual")).toHaveLength(1);
   });
+
+  it("ревью I1: разметка без агента — план с агентом 409 semantic_missing («построена без агента»)", async () => {
+    approveRoughCut(api.core.db, "p1");
+    await seedSemantic(api, "sem_skip", 1, true);
+    const r = await generate("g6");
+    expect(r.statusCode).toBe(409);
+    expect(r.json()).toMatchObject({ error: "semantic_missing", message: expect.stringMatching(/построена без агента/) });
+    expect((await generate("g7", { useAgent: true })).json().error).toBe("semantic_missing");
+    expect(jobsRepo.list(api.core.db, { projectId: "p1" }).filter((j) => j.type === "plan.visual")).toHaveLength(0);
+  });
+
+  it("ревью I1: без агента поверх плана со сценами — 409 plan_exists, задачи нет", async () => {
+    approveRoughCut(api.core.db, "p1");
+    await seedSemantic(api);
+    const r = await generate("g8", { useAgent: false });
+    expect(r.statusCode).toBe(409);
+    expect(r.json().error).toBe("plan_exists");
+    expect(jobsRepo.list(api.core.db, { projectId: "p1" }).filter((j) => j.type === "plan.visual")).toHaveLength(0);
+  });
+
+  it("GET plans/:id отдаёт порог перекрытия лица из конфига (planning.faceOverlapMax)", async () => {
+    const g = (await api.inj("GET", "/api/plans/pln_1", getHeaders)).json();
+    expect(g.face_overlap_max).toBe(api.core.config.planning.faceOverlapMax);
+  });
+});
+
+it("ревью I1: без агента — можно, когда в плане нет сцен (202)", async () => {
+  api = await makeApi();
+  await seedPlanProject(api.core.db, storeOf(api), api.core.root, []);
+  approveRoughCut(api.core.db, "p1");
+  await seedSemantic(api, "sem_skip", 1, true);
+  const r = await generate("g9", { useAgent: false });
+  expect(r.statusCode, r.body).toBe(202);
+  expect(jobsRepo.get(api.core.db, r.json().job.id)).toMatchObject({ input: { projectId: "p1", useAgent: false } });
 });
 
 it("plan/generate без анализа видеоряда — 409 footage_missing", async () => {
@@ -109,6 +143,7 @@ describe("ревизии плана и Approval B", () => {
     expect(u.statusCode).toBe(409);
     expect(u.json().error).toBe("items_unresolved");
     expect(u.json().items).toEqual(["sp_001"]);
+    expect(u.json().message).toMatch(/1 сцена ждёт решения/);
     expect((await revise(7, [{ op: "set_status", item_id: "sp_001", status: "rejected" }])).json()).toMatchObject({ error: "revision_conflict" });
     const add = await revise(1, [{
       op: "add", start_word_id: "w_000011", end_word_id: "w_000014", visual_type: "key-point-emphasis", composition_mode: "overlay", zone: "left_third", purpose: "выделить итог",

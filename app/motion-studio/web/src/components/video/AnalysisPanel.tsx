@@ -22,7 +22,8 @@ export interface AnalysisPanelProps {
 export function AnalysisPanel({ data, words, currentUs, onSeek, onJob }: AnalysisPanelProps) {
   const projectId = data.project.id;
   const [footageAgent, setFootageAgent] = useState(false);
-  const [semanticAgent, setSemanticAgent] = useState(false);
+  // смысловой анализ без агента даёт пустую разметку (UI-тесты) — по умолчанию агент включён (ревью I1)
+  const [semanticAgent, setSemanticAgent] = useState(true);
   const [keys, setKeys] = useState({ footage: newKey(), semantic: newKey() });
   const footage = useFootage(data.footage?.id);
   const semantic = useSemantic(data.semantic?.id);
@@ -79,6 +80,7 @@ export function AnalysisPanel({ data, words, currentUs, onSeek, onJob }: Analysi
         {data.semantic && !data.semantic.fresh ? <p className="msg-warning">{t("analysis.semanticStale")}</p> : null}
         {!data.semantic ? <p className="muted">{t("analysis.semanticEmpty")}</p> : semantic.data ? (
           <>
+            {semantic.data.semantic.agent === "skipped" ? <p className="msg-warning" data-testid="semantic-skipped">{t("analysis.semanticSkipped")}</p> : null}
             <ChaptersPanel semantic={semantic.data.semantic} words={words} onSeek={onSeek} />
             <AnchorList semantic={semantic.data.semantic} words={words} onSeek={onSeek} />
           </>

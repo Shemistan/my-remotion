@@ -97,7 +97,10 @@ export type FootageDto = z.infer<typeof FootageDtoSchema>;
 export const SemanticDtoSchema = z.object({ semantic: SemanticTimelineSchema }).strict();
 export type SemanticDto = z.infer<typeof SemanticDtoSchema>;
 
-/** Предложение агента по сцене (первая ревизия, где сцена появилась) — «Вернуть к предложению». */
+/**
+ * Предложение агента по сцене — её поля в последней ревизии, опубликованной задачей `plan.visual`
+ * (не позже запрошенной); «Вернуть к предложению». Сцены пользователя предложения не имеют.
+ */
 export const PlanProposalSchema = z.object({
   visual_type: PatternSlugSchema,
   composition_mode: PlannedCompositionModeSchema,
@@ -112,7 +115,8 @@ export type RecheckEntry = z.infer<typeof RecheckEntrySchema>;
 
 /**
  * `GET /plans/:id`: ревизия плана и свежесть её входов (EDL, транскрипт, стиль); предложения агента
- * по его сценам; итог перепроверки (`plan.recheck`), если текущую ревизию создала она.
+ * по его сценам; итог перепроверки (`plan.recheck`), если текущую ревизию создала она; порог
+ * перекрытия лица из конфига.
  */
 export const PlanDtoSchema = z.object({
   id: Id,
@@ -121,6 +125,8 @@ export const PlanDtoSchema = z.object({
   inputs_fresh: z.object({ edl: z.boolean(), transcript: z.boolean(), style: z.boolean() }).strict(),
   proposals: z.record(PlanProposalSchema),
   recheck: z.object({ changed: z.array(RecheckEntrySchema) }).strict().nullable(),
+  /** Порог доли лица под графикой (`planning.faceOverlapMax`): выше — нужна причина. */
+  face_overlap_max: z.number().min(0).max(1),
 }).strict();
 export type PlanDto = z.infer<typeof PlanDtoSchema>;
 

@@ -2,7 +2,7 @@
 // и «Перепроверить план» (`plan.recheck`, без LLM); после перепроверки — «Монтаж изменился: N сцен
 // пересчитаны, M требуют решения» со списком требующих решения. Всё свежо и перемен нет — пусто.
 import type { PlanDto } from "@ms/contracts";
-import { t } from "../../i18n/index.js";
+import { t, tn } from "../../i18n/index.js";
 
 export interface StaleBannerProps {
   fresh: PlanDto["inputs_fresh"];
@@ -24,7 +24,7 @@ export function StaleBanner({ fresh, recheck, busy, onRecheck }: StaleBannerProp
       {!fresh.style ? <p className="msg-warning">{t("plan.stale.style")}</p> : null}
       {changed.length > 0 ? (
         <>
-          <p className="strong">{t("plan.stale.summary", { remapped, needs: needs.length })}</p>
+          <p className="strong">{t("plan.stale.summary", { remapped: tn("plan.stale.remapped", remapped), needs: tn("plan.stale.needs", needs.length) })}</p>
           {needs.length > 0 ? (
             <ul className="stale-list">
               {needs.map((c) => <li key={c.item_id}>{t(c.change === "anchor_cut" ? "plan.stale.change.anchor_cut" : "plan.stale.change.timing_changed", { id: c.item_id })}</li>)}

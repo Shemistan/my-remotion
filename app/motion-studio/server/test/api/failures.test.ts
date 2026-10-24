@@ -7,6 +7,7 @@ import { defaultSettings } from "@ms/contracts";
 import * as scenes from "../../src/db/repos/scenes.js";
 import { enqueue } from "../../src/jobs/queue.js";
 import { toApiResponse } from "../../src/api/errors.js";
+import { EditError } from "../../src/edit/errors.js";
 import { memoOnSuccess } from "../../src/api/memo.js";
 import { type Api, getHeaders, makeApi, okHeaders } from "./helpers.js";
 
@@ -24,6 +25,11 @@ it("toApiResponse: неизвестная ошибка → 500 internal с об�
   expect(JSON.stringify(r.body)).not.toContain("ENOENT");
   const q = toApiResponse(Object.assign(new Error("SQLITE_IOERR: disk I/O error at /Users/x/studio.db"), { code: "SQLITE_IOERR" }));
   expect(JSON.stringify(q.body)).not.toContain("/Users");
+});
+
+it("toApiResponse: details EditError не перезаписывают error и message (ревью Task 33 #7)", () => {
+  const r = toApiResponse(new EditError("blocking_issues", "2 проблемы", { error: "x", message: "y", issues: [1] }));
+  expect(r).toEqual({ status: 409, body: { error: "blocking_issues", message: "blocking_issues: 2 проблемы", issues: [1] } });
 });
 
 it("memoOnSuccess: отказ не кэшируется (F7), успех — кэшируется", async () => {

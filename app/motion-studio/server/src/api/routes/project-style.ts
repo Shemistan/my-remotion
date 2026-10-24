@@ -37,7 +37,9 @@ export function projectStyleRoutes(app: ZApp, { core }: ApiContext): void {
     schema: { params: IdParams, body: ProjectStyleBodySchema, response: { 201: ProjectStyleDtoSchema } },
   }, async (req, reply) => {
     const projectId = req.params.id;
-    if (!projects.get(core.db, projectId)) throw notFound(`проект ${projectId}`);
+    const project = projects.get(core.db, projectId);
+    if (!project) throw notFound(`проект ${projectId}`);
+    if (project.kind !== "video") throw new ApiError(409, "not_video_project", "стиль проекта — только в видеопроекте");
     const { resolved, issues } = projectStyleFrom(req.body.base);
     const blocking = issues.filter((x) => x.severity === "blocking");
     const invalid = blocking.find((x) => x.code === "style_invalid");

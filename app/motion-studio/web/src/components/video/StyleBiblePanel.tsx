@@ -51,7 +51,7 @@ export function StyleBiblePanel({ projectId, style, bValid, onSaved }: StyleBibl
     const r = check ? contrast(c, palette.bg) : undefined;
     const status = r === undefined || !check ? undefined : r < check.min ? "bad" : r < check.good ? "low" : "ok";
     return (
-      <li key={k} className={`swatch ${status ? `contrast-${status}` : ""}`} data-testid={`swatch-${k}`}>
+      <li key={k} className={`palette-swatch ${status ? `contrast-${status}` : ""}`} data-testid={`swatch-${k}`}>
         <label className="swatch-color" style={{ background: c }}>
           <input type="color" aria-label={t(`style.color.${k}`)} value={/^#[0-9a-f]{6}$/i.test(c) ? c.toLowerCase() : "#000000"} disabled={presetChanged} onChange={(e) => setColor(k, e.target.value)} />
         </label>
@@ -106,7 +106,7 @@ export function StyleBiblePanel({ projectId, style, bValid, onSaved }: StyleBibl
       <ul className="swatches">
         {EDITABLE.map(swatch)}
         {(presetChanged ? [] : cur.resolved.palette.accent).map((a, i) => (
-          <li key={`accent-${i}`} className="swatch" data-testid={`swatch-accent-${i}`}>
+          <li key={`accent-${i}`} className="palette-swatch" data-testid={`swatch-accent-${i}`}>
             <span className="swatch-color" style={{ background: a }} />
             <span className="swatch-text"><span>{t("style.color.accent", { n: i + 1 })}</span><span className="mono small">{a}</span></span>
           </li>

@@ -5,6 +5,13 @@
 import { type NormRect, type Zone, ZONE_RECTS } from "@ms/contracts";
 import type { VisionFrame } from "./vision.js";
 
+/** Подписи зон для сообщений человеку (как словарь UI `zone.*`): в тексте проблем — без кодов. */
+export const ZONE_TITLE: Record<Zone, string> = {
+  left_third: "левая треть", right_third: "правая треть", top_band: "полоса сверху", lower_third: "нижняя треть", full: "весь кадр",
+  split_left: "левая половина", split_right: "правая половина",
+  pip_tl: "окно слева сверху", pip_tr: "окно справа сверху", pip_bl: "окно слева снизу", pip_br: "окно справа снизу",
+};
+
 /** Округление координат до 1e-6: без хвостов плавающей точки (0.48750000000000004). */
 export const r6 = (v: number): number => Math.round(v * 1e6) / 1e6;
 

@@ -3,6 +3,8 @@
 // 400 без ревизии; устаревшая база — 409.
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { type Api, getHeaders, makeApi, okHeaders } from "./helpers.js";
+import * as projects from "../../src/db/repos/projects.js";
+import * as styles from "../../src/db/repos/styles.js";
 import { seedVideoApi } from "./video-helpers.js";
 
 let api: Api;
@@ -49,4 +51,12 @@ it("плохой контраст — 400 style_contrast с парами; не h
   expect((await put({ base: { ...BASE, depth: 3 }, base_revision: 5 })).json().error).toBe("revision_conflict");
   expect((await put({ base: BASE })).json().error).toBe("no_change");
   expect((await api.inj("PUT", "/api/projects/nope/style", okHeaders, { base: BASE })).statusCode).toBe(404);
+});
+
+it("ревью Task 33 #9: PUT стиля не видеопроекта — 409 not_video_project, ревизии нет", async () => {
+  projects.create(api.core.db, { id: "pc", title: "сцены" });
+  const r = await api.inj("PUT", "/api/projects/pc/style", okHeaders, { base: BASE });
+  expect(r.statusCode).toBe(409);
+  expect(r.json().error).toBe("not_video_project");
+  expect(styles.byProject(api.core.db, "pc")).toBeUndefined();
 });

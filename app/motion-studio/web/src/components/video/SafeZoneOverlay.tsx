@@ -2,7 +2,7 @@
 // либо зона сцены плана (вкладка «План»). Прямоугольники — в долях кадра; рисуются внутри видимой
 // области видео (`object-fit: contain`: полосы учитываются), размер контейнера — ResizeObserver.
 // Для шота берётся окно занятости под курсором (руки и свободные зоны окна), иначе худший случай шота.
-import type { FootageAnalysis, FootageShot, NormRect } from "@ms/contracts";
+import type { FootageAnalysis, FootageShot, NormRect, Zone } from "@ms/contracts";
 import { useEffect, useRef, useState } from "react";
 import { t } from "../../i18n/index.js";
 import { type Box, containBox, rectToCss } from "../../video/zone-geometry.js";
@@ -19,6 +19,14 @@ export interface SafeZoneOverlayProps {
   /** Размер контейнера (тесты); иначе — измеряется. */
   size?: { width: number; height: number };
 }
+
+/**
+ * Угол подписи свободной зоны: левая и нижняя трети пересекаются в левом нижнем углу, правая и нижняя —
+ * в правом нижнем, полоса сверху — с третями сверху; углы выбраны так, чтобы подписи не наезжали.
+ */
+export const ZONE_LABEL_CORNER: Partial<Record<Zone, "tl" | "tr" | "bl" | "br">> = {
+  left_third: "tl", right_third: "tr", top_band: "bl", lower_third: "br",
+};
 
 const style = (b: Box) => ({ left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px` });
 
@@ -46,7 +54,7 @@ export function SafeZoneOverlay({ aspect, shot, mode, atUs, plan, size }: SafeZo
         <>
           {free.map((z) => (
             <div key={z.zone} className={`zone-rect free ${z.free_ratio >= 0.85 ? "ok" : "busy"}`} data-testid={`zone-free-${z.zone}`} style={style(rectToCss(z.rect, box))}>
-              <span className="zone-label">{t("analysis.zone.free", { zone: t(`zone.${z.zone}`), pct: Math.round(z.free_ratio * 100) })}</span>
+              <span className={`zone-label at-${ZONE_LABEL_CORNER[z.zone] ?? "bl"}`}>{t("analysis.zone.free", { zone: t(`zone.${z.zone}`), pct: Math.round(z.free_ratio * 100) })}</span>
             </div>
           ))}
           {face ? (

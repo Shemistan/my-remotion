@@ -70,6 +70,17 @@ describe("planChecks", () => {
     expect(blocking(issues)).toEqual([]);
   });
 
+  it("ревью Task 33 V2: текст проблем — по-русски, без кодов зон", () => {
+    const face = { x: 0.4, y: 0.1, w: 0.2, h: 0.35 };
+    const hands = { x: 0.05, y: 0.55, w: 0.9, h: 0.45 };
+    const f = footage(face, { windows: [win(0, 6_000_000, [face, hands])] });
+    const r = buildPlanItems(out([opp({ zone: "lower_third" })]), { ...ctx(), footage: f });
+    const msgs = [...planChecks(r.items, { ...c60, footage: f }), ...planChecks(items, c60)].map((i) => i.message);
+    expect(msgs.join("\n")).toMatch(/нижняя треть/);
+    expect(msgs.join("\n")).toMatch(/правая треть/);
+    for (const m of msgs) expect(m).not.toMatch(/\b(left_third|right_third|top_band|lower_third|full|split_left|split_right|pip_[tb][lr])\b/);
+  });
+
   it("план без сцен — warning no_scenes, не blocking", () => {
     expect(planChecks([], c60)).toEqual([expect.objectContaining({ code: "no_scenes", severity: "warning" })]);
   });

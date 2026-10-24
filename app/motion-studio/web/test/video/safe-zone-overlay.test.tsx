@@ -41,3 +41,13 @@ it("llm_only — предупреждение «зоны оценены без �
   expect(px(z).left).toBeCloseTo(640 * 0.66, 6);
   expect(screen.queryByTestId("zone-free-left_third")).toBeNull(); // в режиме плана свободные зоны не рисуются
 });
+
+it("ревью V4: подписи левой и нижней трети стоят в разных углах (не наезжают друг на друга)", () => {
+  const free = (["left_third", "lower_third", "right_third", "top_band"] as const).map((zone) => ({ zone, rect: ZONE_RECTS[zone], free_ratio: 0.5 }));
+  render(<SafeZoneOverlay aspect={16 / 9} size={{ width: 1280, height: 720 }} shot={shot({ free_zones: free })} mode="vision" />);
+  const corner = (z: string) => screen.getByTestId(`zone-free-${z}`).querySelector(".zone-label")!.className;
+  const all = ["left_third", "lower_third", "right_third", "top_band"].map(corner);
+  expect(corner("left_third")).not.toBe(corner("lower_third"));
+  expect(corner("right_third")).not.toBe(corner("lower_third"));
+  for (const c of all) expect(c).toMatch(/at-(tl|tr|bl|br)/);
+});

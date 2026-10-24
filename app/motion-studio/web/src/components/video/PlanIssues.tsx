@@ -16,9 +16,11 @@ export function PlanIssues({ issues, onSelect }: PlanIssuesProps) {
       {sorted.map((x, i) => (
         <li key={`${x.item_id ?? ""}-${x.code}-${i}`} className={`severity-${x.severity}`} data-code={x.code}>
           <span className={`badge severity-${x.severity}`}>{t(`plan.severity.${x.severity}`)}</span>
+          {" "}
           {x.item_id && onSelect ? (
             <button type="button" className="link-button" onClick={() => onSelect(x.item_id!)}>{x.item_id}</button>
           ) : x.item_id ? <span className="mono">{x.item_id}</span> : null}
+          {x.item_id ? " " : null}
           {hasKey(`plan.issue.${x.code}`) ? <><strong>{tk(`plan.issue.${x.code}`, x.code)}</strong><span className="muted"> — {x.message}</span></> : <span>{x.message}</span>}
         </li>
       ))}

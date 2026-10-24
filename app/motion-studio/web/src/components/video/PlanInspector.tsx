@@ -1,8 +1,10 @@
 // Инспектор сцены плана (Task 33): назначение, тип визуализации (паттерн KB), режим, зона (смена —
 // сразу правкой, превью на кадре), ключевые слова с моментом появления, метафора, оценки, основание
 // (`EvidenceQuote`), перекрытие лица и причина (обязательна, если графика поверх автора закрывает
-// лицо больше чем на 2 %), проблемы сцены. Действия — операции правки плана: «Принять» (с причиной —
-// одной правкой), «Отклонить», «Изменить» (назначение, тип, режим), «Вернуть к предложению» агента.
+// лицо больше порога `planning.faceOverlapMax` из PlanDto или у сцены есть проблема `face_overlap`),
+// проблемы сцены. Действия — операции правки плана: «Принять» (с причиной — одной правкой),
+// «Сохранить причину» (у принятой сцены), «Отклонить», «Изменить» (назначение, тип, режим),
+// «Вернуть к предложению» агента.
 import {
   type EditedTimeline, PATTERN_SLUGS, type PlanIssue, type PlanOp, type PlanProposal, PlannedCompositionModeSchema, type ScenePlanItem, type Zone,
   ZoneSchema,
@@ -13,8 +15,6 @@ import { formatTimecode } from "../../video/use-timeline.js";
 import { EvidenceQuote } from "./EvidenceQuote.js";
 import { PlanIssues } from "./PlanIssues.js";
 
-/** `planning.faceOverlapMax` по умолчанию: выше — нужна причина (как проверка сервера). */
-export const FACE_OVERLAP_MAX = 0.02;
 const OVER_AUTHOR = new Set<ScenePlanItem["composition_mode"]>(["overlay", "callout", "pip"]);
 export const MODES = PlannedCompositionModeSchema.options;
 export const ZONES = ZoneSchema.options;
@@ -24,6 +24,8 @@ export interface PlanInspectorProps {
   /** Предложение агента по этой сцене (поля первой выдачи). */
   proposal?: PlanProposal | undefined;
   issues: readonly PlanIssue[];
+  /** Порог доли лица (`PlanDto.face_overlap_max`, конфиг сервера): выше — нужна причина. */
+  faceOverlapMax: number;
   timeline: EditedTimeline;
   busy: boolean;
   onOps: (ops: PlanOp[]) => void;
@@ -34,7 +36,7 @@ export interface PlanInspectorProps {
 
 const PROPOSAL_KEYS = ["visual_type", "composition_mode", "zone", "start_word_id", "end_word_id"] as const;
 
-export function PlanInspector({ item: x, proposal, issues, timeline, busy, onOps, onPlay, onPreviewZone }: PlanInspectorProps) {
+export function PlanInspector({ item: x, proposal, issues, faceOverlapMax, timeline, busy, onOps, onPlay, onPreviewZone }: PlanInspectorProps) {
   const ids = { reason: useId(), purpose: useId(), type: useId(), mode: useId(), zone: useId() };
   const [reason, setReason] = useState(x.face_overlap.override_reason ?? "");
   const [edit, setEdit] = useState<{ purpose: string; visual_type: ScenePlanItem["visual_type"]; composition_mode: ScenePlanItem["composition_mode"] } | null>(null);
@@ -43,13 +45,15 @@ export function PlanInspector({ item: x, proposal, issues, timeline, busy, onOps
     setEdit(null);
   }, [x.id, x.face_overlap.override_reason]);
 
-  const needsReason = OVER_AUTHOR.has(x.composition_mode) && x.face_overlap.ratio > FACE_OVERLAP_MAX;
+  const mine = issues.filter((i) => i.item_id === x.id);
+  const needsReason = mine.some((i) => i.code === "face_overlap") || (OVER_AUTHOR.has(x.composition_mode) && x.face_overlap.ratio > faceOverlapMax);
   const reasonText = reason.trim();
+  const savedReason = x.face_overlap.override_reason ?? "";
   const cutStale = x.status === "stale" && x.stale_reason === "anchor_cut";
   const acceptBlocked = busy || cutStale || x.status === "accepted" || (needsReason && reasonText === "");
   const accept = () => {
     const ops: PlanOp[] = [];
-    if (needsReason && reasonText !== (x.face_overlap.override_reason ?? "")) ops.push({ op: "modify", item_id: x.id, patch: { override_reason: reasonText } });
+    if (needsReason && reasonText !== savedReason) ops.push({ op: "modify", item_id: x.id, patch: { override_reason: reasonText } });
     ops.push({ op: "set_status", item_id: x.id, status: "accepted" });
     onOps(ops);
   };
@@ -66,7 +70,8 @@ export function PlanInspector({ item: x, proposal, issues, timeline, busy, onOps
     if (Object.keys(patch).length > 0) onOps([{ op: "modify", item_id: x.id, patch }]);
     setEdit(null);
   };
-  const mine = issues.filter((i) => i.item_id === x.id);
+  // принятая сцена: «Принять» недоступна — причина сохраняется своей правкой (ревью Task 33 #4)
+  const canSaveReason = needsReason && x.status === "accepted" && reasonText !== "" && reasonText !== savedReason;
 
   return (
     <section className="panel plan-inspector" data-testid="inspector" aria-label={t("inspector.title", { id: x.id })}>
@@ -143,7 +148,7 @@ export function PlanInspector({ item: x, proposal, issues, timeline, busy, onOps
             <>
               <label htmlFor={ids.reason} className="small">{t("inspector.reason")}</label>
               <textarea id={ids.reason} rows={2} required value={reason} onChange={(e) => setReason(e.target.value)} />
-              {reasonText === "" ? <p className="hint">{t("inspector.reasonRequired")}</p> : null}
+              {reasonText === "" ? <p className="hint">{t("inspector.reasonRequired", { pct: Math.round(faceOverlapMax * 100) })}</p> : null}
             </>
           ) : null}
         </div>
@@ -158,6 +163,11 @@ export function PlanInspector({ item: x, proposal, issues, timeline, busy, onOps
         ) : (
           <>
             <button type="button" className="primary" disabled={acceptBlocked} onClick={accept}>{t("inspector.accept")}</button>
+            {canSaveReason ? (
+              <button type="button" disabled={busy} onClick={() => onOps([{ op: "modify", item_id: x.id, patch: { override_reason: reasonText } }])}>
+                {t("inspector.saveReason")}
+              </button>
+            ) : null}
             <button type="button" disabled={busy || x.status === "rejected"} onClick={() => onOps([{ op: "set_status", item_id: x.id, status: "rejected" }])}>
               {t("inspector.reject")}
             </button>

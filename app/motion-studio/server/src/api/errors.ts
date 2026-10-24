@@ -44,7 +44,7 @@ export function toApiResponse(e: unknown): { status: number; body: Record<string
   if (e instanceof RevisionConflictError) return { status: 409, body: { error: e.code, message: e.message, base: e.base, current: e.current } };
   if (e instanceof ResourceBusyError) return { status: 409, body: { error: "resource_busy", message: "ресурс занят задачей — повторите правку после её завершения", resource: e.resource, job_id: e.jobId } };
   if (e instanceof ProposedLeftError) return { status: 409, body: { error: e.code, message: e.message, count: e.count } };
-  if (e instanceof EditError) return { status: e.status, body: { error: e.code, message: e.message, ...e.details } };
+  if (e instanceof EditError) return { status: e.status, body: { ...e.details, error: e.code, message: e.message } };
   if (e instanceof StaleProcessAliveError) return { status: 409, body: { error: e.code, message: e.message, pids: e.pids, cmds: e.cmds } };
   // сообщения ядра и файловой системы содержат абсолютные пути MS_DATA_DIR: наружу — код и общий
   // текст, подробности — в журнал сервера (F6)

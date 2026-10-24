@@ -1,5 +1,6 @@
 // Доступ к строкам интерфейса: `t(key, params)` — ключ словаря `ru.ts`, `{name}` в строке
 // заменяется параметром. Второй язык — второй словарь того же вида (библиотеки i18n не нужно).
+import { ruPlural } from "@ms/contracts";
 import { ApiError } from "../api/client.js";
 import { ru } from "./ru.js";
 
@@ -14,6 +15,12 @@ export function t(key: TKey, params?: Params): string {
 
 export function hasKey(key: string): key is TKey {
   return Object.prototype.hasOwnProperty.call(ru, key);
+}
+
+/** Строка с числом `n` в нужной форме: ключи `${base}.one` / `.few` / `.many` (`{n}` — само число). */
+export function tn(base: string, n: number, params: Params = {}): string {
+  const form = ruPlural(n, "one", "few", "many");
+  return tk(`${base}.${form}`, String(n), { n, ...params });
 }
 
 /** Строка по составному ключу (`qa.gate.${g}`); нет такого ключа — запасной текст. */

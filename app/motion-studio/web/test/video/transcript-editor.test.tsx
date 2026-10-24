@@ -6,7 +6,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { TranscriptEditor } from "../../src/components/video/TranscriptEditor.js";
 import { t } from "../../src/i18n/index.js";
 import { fakeFetch, on, renderQ } from "../helpers.js";
-import { edlDto, transcriptDto } from "./fixtures.js";
+import { edlDto, transcriptDto, w } from "./fixtures.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -69,4 +69,12 @@ it("выделение: клик и shift+клик → «Вырезать выд
   fireEvent.click(screen.getByText("как"), { shiftKey: true });
   fireEvent.click(screen.getByRole("button", { name: t("transcript.cutSelection", { n: 3 }) }));
   expect(p.onCut).toHaveBeenCalledWith("w_000002", "w_000004");
+});
+
+it("ревью Task 33 V3: токены с дефиса и пунктуация — без пробела, пробелы ASR по краям не удваиваются", () => {
+  fakeFetch();
+  const words = [w("w_000001", " MAC", 0, 1), w("w_000002", "-адреса", 1, 2), w("w_000003", " что", 2, 3), w("w_000004", "-то", 3, 4), w("w_000005", ",", 4, 5), w("w_000006", " дальше", 5, 6)];
+  const tr = transcriptDto({ words, segments: [{ id: "seg_0001", word_ids: words.map((x) => x.id), start_us: 0, end_us: 6 }] });
+  const { container } = renderQ(<TranscriptEditor {...props({ transcript: tr, wordMap: {}, readOnly: true })} />);
+  expect(container.querySelector(".segment-text")!.textContent).toBe("MAC-адреса что-то, дальше");
 });

@@ -3,7 +3,7 @@
 // текущим ревизиям EDL и транскрипта) — `semanticFresh`, её же проверяет `plan/generate`.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { AnalyzeBodySchema, CreatedJobDtoSchema, SemanticDtoSchema, SemanticTimelineSchema } from "@ms/contracts";
+import { AnalyzeBodySchema, CreatedJobDtoSchema, SemanticDtoSchema, type SemanticTimeline, SemanticTimelineSchema } from "@ms/contracts";
 import type { Db } from "../../db/open.js";
 import * as edls from "../../db/repos/edls.js";
 import * as projects from "../../db/repos/projects.js";
@@ -22,6 +22,11 @@ export function semanticFresh(db: Db, row: semanticRepo.SemanticRow): boolean {
   if (!e || e.current_revision === null) return false;
   const tr = transcripts.get(db, e.transcript_id)?.current_revision ?? null;
   return row.edl_id === e.id && row.edl_revision === e.current_revision && row.transcript_id === e.transcript_id && row.transcript_revision === tr;
+}
+
+/** Документ смысловой разметки из хранилища, проверенный схемой. */
+export function semanticDoc(root: string, row: semanticRepo.SemanticRow): SemanticTimeline {
+  return SemanticTimelineSchema.parse(JSON.parse(readFileSync(join(root, row.rel_path), "utf8")));
 }
 
 /** Видеопроект есть и Approval A валиден — иначе 404 / 409. */
@@ -51,6 +56,6 @@ export function semanticRoutes(app: ZApp, { core }: ApiContext): void {
   app.get("/api/semantic/:id", { schema: { params: IdParams, response: { 200: SemanticDtoSchema } } }, async (req) => {
     const row = semanticRepo.get(core.db, req.params.id);
     if (!row) throw notFound(`смысловая разметка ${req.params.id}`);
-    return { semantic: SemanticTimelineSchema.parse(JSON.parse(readFileSync(join(core.root, row.rel_path), "utf8"))) };
+    return { semantic: semanticDoc(core.root, row) };
   });
 }

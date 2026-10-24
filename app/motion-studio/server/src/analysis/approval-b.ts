@@ -2,7 +2,7 @@
 // `plan:<id>@r<N>`, хеш — canonicalHash документа ревизии. Нельзя без валидного A, по плану на
 // не текущих EDL или стиле, при нерешённых сценах (`proposed`/`stale`) и blocking-проблемах плана
 // или стиля проекта. План без сцен (только пропуски с причинами) утверждается.
-import type { Approval } from "@ms/contracts";
+import { type Approval, ruPlural } from "@ms/contracts";
 import { approve } from "../approvals/engine.js";
 import { currentSubject } from "../approvals/subjects.js";
 import type { Db } from "../db/open.js";
@@ -34,12 +34,12 @@ export function approveVisualPlan(db: Db, projectId: string, root: string): Appr
     }
 
     const open = doc.items.filter((x) => x.status === "proposed" || x.status === "stale");
-    if (open.length > 0) throw new EditError("items_unresolved", `${open.length} сцен ждут решения: ${open.map((x) => x.id).join(", ")}`, { items: open.map((x) => x.id) });
+    if (open.length > 0) throw new EditError("items_unresolved", `${open.length} ${ruPlural(open.length, "сцена ждёт", "сцены ждут", "сцен ждут")} решения: ${open.map((x) => x.id).join(", ")}`, { items: open.map((x) => x.id) });
 
     const style = currentProjectStyle(db, root, projectId)!;
     const blocking = [...doc.issues, ...projectStyleFrom(style.base).issues].filter((x) => x.severity === "blocking");
     if (blocking.length > 0) {
-      throw new EditError("blocking_issues", `${blocking.length} блокирующих проблем: ${blocking.map((x) => `${x.item_id ? `${x.item_id} ` : ""}${x.code}`).join(", ")}`, { issues: blocking });
+      throw new EditError("blocking_issues", `${blocking.length} ${ruPlural(blocking.length, "блокирующая проблема", "блокирующие проблемы", "блокирующих проблем")}: ${blocking.map((x) => `${x.item_id ? `${x.item_id} ` : ""}${x.code}`).join(", ")}`, { issues: blocking });
     }
     return approve(db, { projectId, kind: "B", subjectRef: subject.ref, subjectHash: subject.hash });
   });
