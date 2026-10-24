@@ -1,6 +1,7 @@
 // Проверки визуального плана (Task 32): лицо, пересечения, плотность, fullscreen, промежутки,
 // длительность, ключевые слова вне сцены, зона, занятая руками в окнах времени сцены, план без сцен.
-// Отклонённые сцены в проверки не входят.
+// Отклонённые сцены в проверки не входят; `stale(anchor_cut)` — времена со старой шкалы монтажа
+// (перепроверка их не пересчитала): в наложение, промежутки и покрытие не входят.
 import type { FootageAnalysis, PlanIssue, ScenePlanItem } from "@ms/contracts";
 import type { PlanningConfig } from "./plan-build.js";
 import { occupiedAt } from "./planner-input.js";
@@ -54,7 +55,9 @@ export function planChecks(items: ScenePlanItem[], ctx: PlanCheckContext): PlanI
     }
   }
 
-  const sorted = [...active].sort((a, b) => a.edited.start_us - b.edited.start_us || a.edited.end_us - b.edited.end_us);
+  // времена stale(anchor_cut) — со старой шкалы: сравнивать их с остальными нельзя
+  const timed = active.filter((x) => !(x.status === "stale" && x.stale_reason === "anchor_cut"));
+  const sorted = [...timed].sort((a, b) => a.edited.start_us - b.edited.start_us || a.edited.end_us - b.edited.end_us);
   for (let i = 1; i < sorted.length; i++) {
     const prev = sorted[i - 1]!;
     const cur = sorted[i]!;
@@ -66,9 +69,9 @@ export function planChecks(items: ScenePlanItem[], ctx: PlanCheckContext): PlanI
   }
 
   const total = Math.max(1, ctx.editedDurationUs);
-  const cover = active.reduce((a, x) => a + dur(x), 0) / total;
+  const cover = timed.reduce((a, x) => a + dur(x), 0) / total;
   if (cover > cfg.maxCoverage) add("density", "blocking", `графика занимает ${pct(cover)} ролика — больше ${pct(cfg.maxCoverage)}`);
-  const full = active.filter((x) => FULLSCREEN.has(x.composition_mode)).reduce((a, x) => a + dur(x), 0) / total;
+  const full = timed.filter((x) => FULLSCREEN.has(x.composition_mode)).reduce((a, x) => a + dur(x), 0) / total;
   if (full > cfg.maxFullscreenCoverage) {
     add("fullscreen_heavy", "warning", `полноэкранные сцены и split — ${pct(full)} ролика, больше ${pct(cfg.maxFullscreenCoverage)}`);
   }

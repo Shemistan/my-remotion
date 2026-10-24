@@ -6,10 +6,11 @@
 //
 // Агент даёт только id слов, зону, режим и оценки: время, кадры, прямоугольник и долю лица считает
 // код. Проблемы по вине агента (отклонённые размещения — `quote_mismatch`, `anchor_in_cut`, … — и
-// blocking `face_overlap`, `scene_overlap`, `density`, `key_term_outside`) → одна переотправка с
-// перечнем (если `scene.maxAutoFixes ≥ 1`); из двух ответов берётся лучший (меньше проблем, при
-// равенстве больше решений, дальше — второй). Остаток — сцены `proposed` с проблемами, видимыми
-// человеку; отклонённое — в `skipped` с причиной «отклонено проверкой (код)».
+// blocking `face_overlap`, `scene_overlap`, `density`, `key_term_outside`) → до `scene.maxAutoFixes`
+// переотправок с перечнем (0 — без них); отказ схемы — своя одна переотправка (при maxAutoFixes ≥ 1).
+// Из всех ответов берётся лучший (меньше проблем, при равенстве больше решений, дальше — более
+// поздний). Остаток — сцены `proposed` с проблемами, видимыми человеку; отклонённое — в `skipped`
+// с причиной «отклонено проверкой (код)».
 //
 // Стиль: задан пользователем — не трогается; иначе стиль из ответа агента (плохой контраст или
 // неверная правка — откат к палитре пресета, событие `style_fallback`), тот же, что текущий, — без
@@ -17,7 +18,10 @@
 //
 // Ответ агента — чекпоинт задачи (хеш входа, модели и системного промпта): повтор не платит второй
 // раз. M3: задача уже опубликовала ревизию плана — завершается по ней; опубликовала только стиль —
-// берёт его без новой публикации.
+// берёт его без новой публикации (вход агента — со стилем до публикации, как у прошлой попытки, чтобы
+// сработал чекпоинт). Стиль проекта к публикации плана уже другой (пользователь сменил его между
+// попытками) — событие `style_changed_during_job`, план публикуется, `plan.recheck` — в очередь.
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -27,13 +31,13 @@ import {
 import { canonicalJson } from "@ms/contracts/canonical";
 import type { StorageStatus } from "@ms/core";
 import { z } from "zod";
-import { buildVisualPlannerTask, loadPrompt } from "../agents/prompts.js";
+import { buildVisualPlannerTask, loadPrompt, oneLine } from "../agents/prompts.js";
 import type { AgentRuntimeAdapter, Role } from "../agents/runtime.js";
 import { type PlanBuildResult, type PlanningConfig, buildPlanItems } from "../analysis/plan-build.js";
 import { planChecks } from "../analysis/plan-checks.js";
 import { PLAN_FILE, publishPlanRevision, readFootage } from "../analysis/plan-ops.js";
 import { PATTERN_FALLBACK, type PlannerInput, patternSummaryFromKb, plannerInput } from "../analysis/planner-input.js";
-import { currentProjectStyle, projectStyleFrom, saveProjectStyle } from "../analysis/project-style.js";
+import { currentProjectStyle, planRecheckStyleKey, projectStyleFrom, saveProjectStyle } from "../analysis/project-style.js";
 import { artifactPaths } from "../artifacts/paths.js";
 import { ArtifactStore, publicationsByJob } from "../artifacts/store.js";
 import type { AppConfig } from "../config.js";
@@ -140,7 +144,7 @@ interface Evaluated {
 
 /** Перечень проблем для переотправки агенту. */
 export function faultList(e: Pick<Evaluated, "faults">): string {
-  return e.faults.map((f) => `- ${f.what}: ${f.code} — ${f.message}`).join("\n");
+  return e.faults.map((f) => `- ${f.what}: ${f.code} — ${oneLine(f.message)}`).join("\n");
 }
 
 function counts(doc: VisualPlanRevisionDoc, rejected: number, skipped: number): PlanVisualResult["counts"] {
@@ -236,9 +240,11 @@ export function planVisual(depsOf: (ctx: JobContext) => PlanVisualDeps): JobHand
       const semDoc: SemanticTimeline = SemanticTimelineSchema.parse(JSON.parse(await readFile(join(root, sem.rel_path), "utf8")));
       const footage = readFootage(ctx.db, root, ftg.id);
       const style0 = currentProjectStyle(ctx.db, root, projectId);
+      // M3: стиль опубликован прошлой попыткой — вход агента со стилем до него (как у той попытки: чекпоинт)
+      const inputStyle = pubs.style ? styleDoc(pubs.style.id, pubs.style.revision - 1) : style0;
       const asset = media.byProject(ctx.db, projectId);
       const frame = asset ? { width: asset.probe.video.display_width, height: asset.probe.video.display_height } : { width: 1920, height: 1080 };
-      const input = plannerInput(semDoc, footage, tl, tr.words, style0 ? { base: style0.base, author: style0.author } : undefined, {
+      const input = plannerInput(semDoc, footage, tl, tr.words, inputStyle ? { base: inputStyle.base, author: inputStyle.author } : undefined, {
         maxCoverage: cfg.maxCoverage, frame, patterns: await patterns(), faceOverlapMax: cfg.faceOverlapMax,
       });
       const wordMap = mapWords(tl, tr.words);
@@ -260,7 +266,7 @@ export function planVisual(depsOf: (ctx: JobContext) => PlanVisualDeps): JobHand
       let agentInfo: NonNullable<PlanVisualResult["agent"]> = { status: "skipped", calls: 0, cost_usd: 0, retried: 0, from_checkpoint: 0 };
       if (input.words.length === 0) {
         ctx.emit("nothing_to_plan", "после монтажа слов не осталось: планировать нечего");
-        chosen = { style: style0 ? { ...style0.base, rationale: style0.rationale || "стиль проекта" } : { preset: "dark-premium", intensity: "balanced", depth: 1, rationale: "по умолчанию: речи нет" }, opportunities: [] };
+        chosen = { style: inputStyle ? { ...inputStyle.base, rationale: inputStyle.rationale || "стиль проекта" } : { preset: "dark-premium", intensity: "balanced", depth: 1, rationale: "по умолчанию: речи нет" }, opportunities: [] };
         ev = evaluate(chosen);
       } else {
         await enter("agent", 0.1);
@@ -275,7 +281,7 @@ export function planVisual(depsOf: (ctx: JobContext) => PlanVisualDeps): JobHand
 
       await enter("publish", 0.9);
       // стиль проекта (перед планом: план ссылается на его ревизию)
-      const style = await decideStyle(chosen.style, style0, pubs.style);
+      const style = await decideStyle(chosen.style, inputStyle, pubs.style);
       const items = ev.build.items.map((x) => ({ ...x, style_id: style.doc.style_id }));
       const oppAnchors = new Map(ev.build.opportunities.map((o) => [o.opp_id, o.anchor_ids]));
       const skipped = [
@@ -301,11 +307,15 @@ export function planVisual(depsOf: (ctx: JobContext) => PlanVisualDeps): JobHand
           const now = plans.byProject(db, projectId)?.current_revision ?? null;
           return now === cur ? undefined : new RevisionConflictError(`план проекта ${projectId}`, cur ?? 0, now);
         },
-        // EDL сменился за время планирования: план честно ссылается на свою ревизию, перепроверка — в очередь
+        // EDL или стиль сменились за время планирования: план честно ссылается на свои ревизии, перепроверка — в очередь
         register: (db) => {
           const now = edls.get(db, edl.id)?.current_revision ?? null;
           if (now !== null && now !== edlRev.revision) {
             enqueue(db, { type: "plan.recheck", projectId, input: { projectId }, idempotencyKey: `plan.recheck:${edl.id}@r${now}` });
+          }
+          const st = styles.byProject(db, projectId);
+          if (st?.current_revision != null && (st.id !== doc.inputs.style.id || st.current_revision !== doc.inputs.style.revision)) {
+            enqueue(db, { type: "plan.recheck", projectId, input: { projectId }, idempotencyKey: planRecheckStyleKey(st.id, st.current_revision) });
           }
         },
       });
@@ -343,15 +353,17 @@ export function planVisual(depsOf: (ctx: JobContext) => PlanVisualDeps): JobHand
     }
 
     /**
-     * Visual Planner: вызов → (отказ схемы — переотправка с ошибкой) → проверка кодом → (проблемы
-     * по вине агента — одна переотправка с перечнем, лучший из двух) → ответ; чекпоинт задачи.
+     * Visual Planner: вызов → проверка кодом → (проблемы по вине агента — до `maxAutoFixes`
+     * переотправок с перечнем) → лучший из всех ответов; отказ схемы — одна переотправка с ошибкой
+     * на весь запуск. Чекпоинт задачи — выбранный ответ.
      */
     async function runAgent(input: PlannerInput, evaluate: (o: VisualPlannerOutput) => Evaluated): Promise<{
       output: VisualPlannerOutput; ev: Evaluated; info: NonNullable<PlanVisualResult["agent"]>;
     }> {
       const label = "Visual Planner";
       const role = "visual_planner" as const;
-      const allowFix = d.config.scene.maxAutoFixes >= 1;
+      const fixes = Math.max(0, Math.floor(d.config.scene.maxAutoFixes));
+      let schemaRetries = fixes >= 1 ? 1 : 0;
       const info: NonNullable<PlanVisualResult["agent"]> = { status: "completed", calls: 0, cost_usd: 0, retried: 0, from_checkpoint: 0 };
       const make = (workdir: string, seq: number) => buildVisualPlannerTask({ ...input, workdir }, { ...rc.taskRun, seq });
       const promptSha = sha256((d.systemPrompt ?? loadPrompt)(role));
@@ -371,48 +383,57 @@ export function planVisual(depsOf: (ctx: JobContext) => PlanVisualDeps): JobHand
         if (r.stage === "budget") throw new PlanFail({ code: "budget", stage: "budget", message: r.message });
         throw new PlanFail({ code: "pipeline", message: `${label}: ${r.message}` });
       };
-      let retried = false;
-      let r = await toolless(rc, role, "prepare", label, (workdir) => make(workdir, 1), VisualPlannerOutputSchema);
-      if (!r.ok && r.kind === "schema" && allowFix) {
-        retried = true;
+      let seq = 0;
+      /** Один вызов с дополнением задачи; отказ схемы — переотправка, пока не израсходована. */
+      const call = async (extra: string) => {
+        let why: string | undefined;
+        for (;;) {
+          const k = ++seq;
+          const note = why;
+          const r = await toolless(rc, role, "prepare", label, (workdir) => {
+            const t = make(workdir, k);
+            t.input += extra;
+            if (note !== undefined) t.input += `\n\n# Прошлый ответ отклонён\n\n${oneLine(note).slice(0, 2000)}\n\nОтветь заново строго по схеме.`;
+            return t;
+          }, VisualPlannerOutputSchema);
+          if (r.ok || r.kind !== "schema" || schemaRetries <= 0) return r;
+          schemaRetries--;
+          info.retried++;
+          why = r.message;
+          ctx.emit("agent_retry", `${label}: ответ не прошёл схему — переотправка (одна): ${r.message.slice(0, 500)}`);
+        }
+      };
+      const first = await call("");
+      if (!first.ok) fatal(first);
+      const answers: { output: VisualPlannerOutput; ev: Evaluated }[] = [];
+      const firstOut = (first as { output: VisualPlannerOutput }).output;
+      answers.push({ output: firstOut, ev: evaluate(firstOut) });
+      let best = 0;
+      for (let round = 1; round <= fixes; round++) {
+        const last = answers[answers.length - 1]!;
+        if (last.ev.faults.length === 0) break;
         info.retried++;
-        ctx.emit("agent_retry", `${label}: ответ не прошёл схему — переотправка (одна): ${r.message.slice(0, 500)}`);
-        const why = r.message;
-        r = await toolless(rc, role, "prepare", label, (workdir) => {
-          const t = make(workdir, 2);
-          t.input += `\n\n# Прошлый ответ отклонён\n\n${why.slice(0, 2000)}\n\nОтветь заново строго по схеме.`;
-          return t;
-        }, VisualPlannerOutputSchema);
-      }
-      if (!r.ok) fatal(r);
-      let output = (r as { output: VisualPlannerOutput }).output;
-      let ev = evaluate(output);
-      if (ev.faults.length > 0 && !retried && allowFix) {
-        info.retried++;
-        const list = faultList(ev);
-        ctx.emit("agent_retry", `${label}: проблем по вине агента ${ev.faults.length} — переотправка (одна) с перечнем`, { faults: ev.faults.slice(0, 50) });
-        const r2 = await toolless(rc, role, "prepare", label, (workdir) => {
-          const t = make(workdir, 2);
-          t.input += `\n\n# Прошлый ответ: проблемы проверки\n\n${list.slice(0, 6000)}\n\n` +
-            "Ответь заново полностью (стиль и все возможности): исправь перечисленное — цитаты дословно по id слов, зона не на лице " +
-            "(другая свободная зона, split_screen или skip; закрыть лицо — только с face_override_reason), сцены не пересекаются, " +
-            "покрытие в пределе, ключевые слова внутри сцены. Остальное повтори как было.";
-          return t;
-        }, VisualPlannerOutputSchema);
-        if (r2.ok) {
-          const ev2 = evaluate(r2.output);
-          if (ev2.faults.length < ev.faults.length || (ev2.faults.length === ev.faults.length && ev2.decisions >= ev.decisions)) {
-            output = r2.output;
-            ev = ev2;
-          } else {
-            ctx.emit("agent_retry_kept_first", `${label}: второй ответ хуже (проблем ${ev2.faults.length}, решений ${ev2.decisions}) — остаётся первый (проблем ${ev.faults.length}, решений ${ev.decisions})`);
-          }
-        } else if (["storage", "orphaned", "cancelled"].includes(r2.stage) || signal.aborted) {
-          fatal(r2);
+        const list = faultList(last.ev);
+        ctx.emit("agent_retry", `${label}: проблем по вине агента ${last.ev.faults.length} — переотправка ${round} из ${fixes} с перечнем`, { faults: last.ev.faults.slice(0, 50) });
+        const r = await call(`\n\n# Прошлый ответ: проблемы проверки\n\n${list.slice(0, 6000)}\n\n` +
+          "Ответь заново полностью (стиль и все возможности): исправь перечисленное — цитаты дословно по id слов, зона не на лице " +
+          "(другая свободная зона, split_screen или skip; закрыть лицо — только с face_override_reason), сцены не пересекаются, " +
+          "покрытие в пределе, ключевые слова внутри сцены. Остальное повтори как было.");
+        if (!r.ok) {
+          if (["storage", "orphaned", "cancelled"].includes(r.stage) || signal.aborted) fatal(r);
+          ctx.emit("agent_retry_failed", `${label}: переотправка ${round} не удалась (${r.message.slice(0, 300)}) — остаётся лучший из полученных ответов`);
+          break;
+        }
+        const next = { output: r.output, ev: evaluate(r.output) };
+        answers.push(next);
+        const b = answers[best]!;
+        if (next.ev.faults.length < b.ev.faults.length || (next.ev.faults.length === b.ev.faults.length && next.ev.decisions >= b.ev.decisions)) {
+          best = answers.length - 1;
         } else {
-          ctx.emit("agent_retry_failed", `${label}: переотправка не удалась (${r2.message.slice(0, 300)}) — остаётся первый ответ`);
+          ctx.emit("agent_retry_kept_first", `${label}: ответ ${answers.length} хуже (проблем ${next.ev.faults.length}, решений ${next.ev.decisions}) — остаётся ответ ${best + 1} (проблем ${b.ev.faults.length}, решений ${b.ev.decisions})`);
         }
       }
+      const { output, ev } = answers[best]!;
       try {
         await writeCheckpoint(root, ctx.job.id, role, { input_hash: hash, output });
       } catch (e) {
@@ -430,8 +451,12 @@ export function planVisual(depsOf: (ctx: JobContext) => PlanVisualDeps): JobHand
       agent: VisualPlannerOutput["style"], current: ProjectStyleDoc | undefined, published: { id: string; revision: number } | undefined,
     ): Promise<{ doc: ProjectStyleDoc; kept: boolean }> {
       if (published) {
-        const rev = styles.revision(ctx.db, published.id, published.revision)!;
-        return { doc: ProjectStyleDocSchema.parse(JSON.parse(await readFile(join(root, rev.rel_path), "utf8"))), kept: false };
+        const now = styles.byProject(ctx.db, projectId);
+        if (now && (now.id !== published.id || now.current_revision !== published.revision)) {
+          ctx.emit("style_changed_during_job", `стиль проекта сменился после публикации прошлой попыткой (${published.id} r${published.revision} → ` +
+            `${now.id} r${now.current_revision ?? "—"}): план строится по опубликованному, перепроверка перенесёт его на текущий`);
+        }
+        return { doc: styleDoc(published.id, published.revision)!, kept: false };
       }
       if (current?.author === "user") {
         ctx.emit("style_kept", `стиль проекта задан пользователем (${current.style_id} r${current.revision}) — агент его не меняет`);
@@ -452,6 +477,12 @@ export function planVisual(depsOf: (ctx: JobContext) => PlanVisualDeps): JobHand
         rationale: agent.rationale, fence, ...(current ? { base_revision: current.revision } : {}),
       });
       return { doc, kept: false };
+    }
+
+    /** Документ ревизии стиля; ревизии нет (0 или не найдена) — `undefined`. */
+    function styleDoc(id: string, revision: number): ProjectStyleDoc | undefined {
+      const rev = revision > 0 ? styles.revision(ctx.db, id, revision) : undefined;
+      return rev ? ProjectStyleDocSchema.parse(JSON.parse(readFileSync(join(root, rev.rel_path), "utf8"))) : undefined;
     }
 
     function done(r: PlanVisualResult): HandlerResult {

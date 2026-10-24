@@ -1,6 +1,7 @@
 // Task 32: проверки плана — лицо, пересечения, плотность, fullscreen, промежутки, длительность,
 // ключевые слова вне сцены, занятые руками зоны, план без сцен.
 import { describe, expect, it } from "vitest";
+import type { ScenePlanItem } from "@ms/contracts";
 import { buildPlanItems } from "../../src/analysis/plan-build.js";
 import { planChecks } from "../../src/analysis/plan-checks.js";
 import { ZONE_RECTS } from "../../src/analysis/zones.js";
@@ -33,6 +34,18 @@ describe("planChecks", () => {
   it("отклонённые сцены в покрытие и пересечения не входят", () => {
     expect(blocking(planChecks([sc(0, 10e6), sc(12e6, 20e6), sc(30e6, 39e6, { status: "rejected" })], c60))).toEqual([]);
     expect(blocking(planChecks([sc(10e6, 20e6), sc(19e6, 25e6, { status: "rejected" })], c60))).toEqual([]);
+  });
+
+  it("stale(anchor_cut) — времена со старой шкалы: в наложение, плотность и зазор не входит (timing_changed — входит)", () => {
+    const cut = { status: "stale" as const, stale_reason: "anchor_cut" as const };
+    const codes = (xs: ScenePlanItem[]) => planChecks(xs, c60).map((i) => i.code);
+    for (const c of ["scene_overlap", "tight_gap", "density", "fullscreen_heavy"]) {
+      expect(codes([sc(10e6, 20e6), sc(19e6, 25e6, cut)]), c).not.toContain(c);
+      expect(codes([sc(10e6, 20e6), sc(21e6, 25e6, cut)]), c).not.toContain(c);
+      expect(codes([sc(0, 10e6), sc(12e6, 20e6), sc(30e6, 39e6, cut)]), c).not.toContain(c);
+      expect(codes([sc(0, 10e6), sc(20e6, 30e6, { ...cut, composition_mode: "fullscreen", zone: "full" })]), c).not.toContain(c);
+    }
+    expect(codes([sc(10e6, 20e6), sc(19e6, 25e6, { status: "stale", stale_reason: "timing_changed" })])).toContain("scene_overlap");
   });
 
   it("промежуток < minGapUs — tight_gap; пересечение — blocking scene_overlap; коротко/длинно — warning", () => {

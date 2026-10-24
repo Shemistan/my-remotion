@@ -2,7 +2,8 @@
 // Сцена размещается заново (`placeScene`: диапазон и цитаты — `checkHeardRange` на новом монтаже):
 // не прошла → `stale(anchor_cut)` (вырезанное слово внутри сцены, которого нет в цитатах, сцену
 // не портит — ревью Task 31 I1); длительность изменилась больше чем на 20 % → `stale(timing_changed)`
-// с новыми временами; иначе — новые времена и кадры, статус прежний (`remapped`).
+// с новыми временами; иначе — новые времена и кадры, статус прежний (`remapped`). Новая ревизия
+// стиля проекта — `inputs.style` и `style_id` сцен переносятся на неё (`restylePlan`, решения те же).
 import { type EditedTimeline, type FootageAnalysis, type ScenePlanItem, type TranscriptSegment, type TranscriptWord, type VisualPlanRevisionDoc, mapWords } from "@ms/contracts";
 import { type PlanningConfig, placeScene } from "./plan-build.js";
 import { planChecks } from "./plan-checks.js";
@@ -18,6 +19,18 @@ export interface RecheckOptions {
   /** Ревизия транскрипта слов `words`, если она новее входа плана. */
   transcript?: VisualPlanRevisionDoc["inputs"]["transcript"];
   segments?: TranscriptSegment[];
+  /** Текущая ревизия стиля проекта, если план построен по другой. */
+  style?: VisualPlanRevisionDoc["inputs"]["style"];
+}
+
+/** Ревизия плана на новом стиле проекта: те же сцены и решения, `inputs.style` и `style_id` — новые. */
+export function restylePlan(doc: VisualPlanRevisionDoc, style: VisualPlanRevisionDoc["inputs"]["style"]): VisualPlanRevisionDoc {
+  const base = { ...doc };
+  delete base.ops;
+  return {
+    ...base, revision: doc.revision + 1, parent_revision: doc.revision, inputs: { ...doc.inputs, style },
+    items: doc.items.map((x) => ({ ...x, style_id: style.id })),
+  };
 }
 
 const dur = (x: Pick<ScenePlanItem, "edited">): number => x.edited.end_us - x.edited.start_us;
@@ -31,7 +44,9 @@ export function recheckPlan(
 ): { doc: VisualPlanRevisionDoc; changed: { item_id: string; change: RecheckChange }[] } {
   const ctx = { words, tl: newTl, footage, cfg, wordMap: mapWords(newTl, words), ...(o.segments ? { segments: o.segments } : {}) };
   const changed: { item_id: string; change: RecheckChange }[] = [];
-  const items = doc.items.map((x): ScenePlanItem => {
+  const styleId = o.style?.id;
+  const items = doc.items.map((x0): ScenePlanItem => {
+    const x = styleId === undefined ? x0 : { ...x0, style_id: styleId };
     if (x.status === "rejected") return x;
     const p = placeScene({
       start_word_id: x.start_word_id, end_word_id: x.end_word_id, zone: x.zone,
@@ -57,7 +72,7 @@ export function recheckPlan(
   return {
     doc: {
       ...base, revision: doc.revision + 1, parent_revision: doc.revision,
-      inputs: { ...doc.inputs, edl: o.edl, ...(o.transcript ? { transcript: o.transcript } : {}) },
+      inputs: { ...doc.inputs, edl: o.edl, ...(o.transcript ? { transcript: o.transcript } : {}), ...(o.style ? { style: o.style } : {}) },
       items, issues: planChecks(items, { editedDurationUs: newTl.duration_us, cfg, footage }),
     },
     changed,

@@ -125,6 +125,18 @@ function fakeAgents(replies: Reply[]): AgentRuntimeAdapter & { tasks: AgentTask<
 }
 const ok = (o: VisualPlannerOutput): Reply => async () => ({ output: o });
 const cliFail: Reply = async () => ({ status: "failed", error: { kind: "cli", message: "claude упал" } });
+const schemaFail: Reply = async () => ({ status: "failed", error: { kind: "schema", message: "opportunities: Required" } });
+const withFixes = (maxAutoFixes: number): Partial<PlanVisualDeps> => ({ config: { ...config, scene: { ...config.scene, maxAutoFixes } } });
+const pendingRechecks = (p: string) => jobs.list(db, { projectId: p }).filter((j) => j.type === "plan.recheck" && j.status === "pending");
+/** Захват задачи вне `run` (попытка, на которой «опубликовано и упало»). */
+function claimOwn(type: "plan.visual", p: string) {
+  enqueue(db, { type, projectId: p, input: { projectId: p }, idempotencyKey: `${type}-${++n}` });
+  const c = claimNext(db, "test", 0, { running: 0, maxRunning: 4 })!;
+  expect(c, "задача не захвачена").toBeTruthy();
+  return c;
+}
+const toPending = (jobId: string) => releaseLocks(db, jobs.update(db, jobId, { status: "pending", lease_owner: null, lease_until: null }));
+const LIGHT = { preset: "light-clean" as const, intensity: "calm" as const, depth: 0 };
 
 const sem = () => new AttemptPermits(new Semaphore(2));
 function context(job: Job, attempt: number, events: { kind: string; message: string }[]): JobContext {
@@ -197,14 +209,15 @@ describe("plan.visual", () => {
     expect(approveVisualPlan(db, p, s.root).subject_ref).toBe(`plan:${res!.plan_id}@r2`);
   });
 
-  it("агент дважды ставит overlay на лицо без причины → переотправка одна с перечнем; сцена proposed с blocking face_overlap; B нельзя", async () => {
+  it("агент упорно ставит overlay на лицо без причины → переотправок maxAutoFixes (2) с перечнем; сцена proposed с blocking face_overlap; B нельзя", async () => {
     const { p } = await ready();
-    const agents = fakeAgents([ok(FACE_OVER), ok(FACE_OVER)]);
+    const agents = fakeAgents([ok(FACE_OVER), ok(FACE_OVER), ok(FACE_OVER), ok(FACE_OVER)]);
     const { r, out: res, events } = await run<PlanVisualResult>("plan.visual", p, { agents });
     expect(r.status).toBe("completed");
-    expect(agents.tasks).toHaveLength(2);
-    expect(String(agents.tasks[1]!.input)).toMatch(/face_overlap/);
-    expect(events.map((e) => e.kind)).toContain("agent_retry");
+    expect(agents.tasks).toHaveLength(3);
+    expect(res!.agent).toMatchObject({ calls: 3, retried: 2 });
+    for (const t of agents.tasks.slice(1)) expect(String(t.input)).toMatch(/face_overlap/);
+    expect(events.filter((e) => e.kind === "agent_retry")).toHaveLength(2);
     const d = planOf(res!.plan_id, 1);
     expect(d.items[0]!.status).toBe("proposed");
     expect(d.issues).toContainEqual(expect.objectContaining({ code: "face_overlap", severity: "blocking", item_id: "sp_001" }));
@@ -212,27 +225,76 @@ describe("plan.visual", () => {
     expect(() => approveVisualPlan(db, p, s.root)).toThrow(/blocking_issues/);
   });
 
+  it("число вызовов строго ограничено: maxAutoFixes = 0 — без переотправок; отказ схемы — своя одна переотправка сверх maxAutoFixes", async () => {
+    const none = fakeAgents([ok(FACE_OVER), ok(FACE_OVER)]);
+    const r0 = await run<PlanVisualResult>("plan.visual", (await ready()).p, { agents: none, deps: withFixes(0) });
+    expect(r0.r.status).toBe("completed");
+    expect(none.tasks).toHaveLength(1);
+    expect(r0.out!.agent).toMatchObject({ calls: 1, retried: 0 });
+    // схема (1) + первый ответ + переотправка по проблемам; второй отказ схемы не переотправляется — остаётся лучший
+    const capped = fakeAgents([schemaFail, ok(FACE_OVER), schemaFail, ok(FACE_OVER), ok(FACE_OVER), ok(FACE_OVER)]);
+    const r2 = await run<PlanVisualResult>("plan.visual", (await ready()).p, { agents: capped, deps: withFixes(2) });
+    expect(r2.r.status, JSON.stringify(r2.r)).toBe("completed");
+    expect(capped.tasks).toHaveLength(3);
+    expect(r2.events.map((e) => e.kind)).toContain("agent_retry_failed");
+    const many = fakeAgents([schemaFail, ok(FACE_OVER), ok(FACE_OVER), ok(FACE_OVER), ok(FACE_OVER), ok(FACE_OVER)]);
+    const r3 = await run<PlanVisualResult>("plan.visual", (await ready()).p, { agents: many, deps: withFixes(2) });
+    expect(r3.r.status).toBe("completed");
+    expect(many.tasks).toHaveLength(4);
+  });
+
+  it("лучший из всех ответов: меньше проблем, при равенстве больше решений, при полном равенстве — более поздний", async () => {
+    const two = out([opp({ evidence: [ev(5, 6, "мимо")] }), opp({ id: "bad", s: 12, e: 15, key_terms: [], evidence: [ev(12, 13, "не то")] })]);
+    const one = out([opp({ anchor_ids: ["a_0001"] }), opp({ id: "bad", s: 12, e: 15, key_terms: [], evidence: [ev(12, 13, "не то")] })]);
+    const agents = fakeAgents([ok(two), ok(one), ok(two)]);
+    const { out: res, events } = await run<PlanVisualResult>("plan.visual", (await ready()).p, { agents, deps: withFixes(2) });
+    expect(agents.tasks).toHaveLength(3);
+    expect(res!.counts).toMatchObject({ items: 1, rejected: 1 }); // второй ответ
+    expect(events.map((e) => e.kind)).toContain("agent_retry_kept_first");
+  });
+
   it("лучший из двух: второй ответ хуже (больше отклонённого) — остаётся первый", async () => {
     const { p } = await ready();
     const first = out([opp({ anchor_ids: ["a_0001"] }), opp({ id: "bad", s: 12, e: 15, key_terms: [], evidence: [ev(12, 13, "не то")] })]);
     const second = out([opp({ evidence: [ev(5, 6, "мимо")] }), opp({ id: "bad", s: 12, e: 15, key_terms: [], evidence: [ev(12, 13, "не то")] })]);
     const agents = fakeAgents([ok(first), ok(second)]);
-    const { out: res, events } = await run<PlanVisualResult>("plan.visual", p, { agents });
+    const { out: res, events } = await run<PlanVisualResult>("plan.visual", p, { agents, deps: withFixes(1) });
     expect(res!.counts).toMatchObject({ items: 1, rejected: 1 });
     expect(events.map((e) => e.kind)).toContain("agent_retry_kept_first");
     expect(planOf(res!.plan_id, 1).skipped).toEqual([expect.objectContaining({ reason: expect.stringMatching(/^отклонено проверкой \(quote_mismatch\)/) })]);
   });
 
-  it("стиль задан пользователем — агент его не меняет; правка стиля после B → B stale(style_changed)", async () => {
+  it("стиль задан пользователем — агент его не меняет; правка стиля после B → B stale(style_changed), plan.recheck переносит стиль без LLM с решениями — B снова утверждается", async () => {
     const { p } = await ready();
-    const st = await saveProjectStyle({ db, store, root: s.root }, p, { preset: "light-clean", intensity: "calm", depth: 0 }, "user");
-    const { out: res } = await run<PlanVisualResult>("plan.visual", p, { agents: fakeAgents([ok(CLEAN)]) });
+    const st = await saveProjectStyle({ db, store, root: s.root }, p, LIGHT, "user");
+    expect(pendingRechecks(p)).toHaveLength(0); // плана ещё нет
+    const two = out([opp({ anchor_ids: ["a_0001"] }), opp({ id: "o2", s: 12, e: 15, key_terms: [], evidence: [ev(12, 15)] })]);
+    const { out: res } = await run<PlanVisualResult>("plan.visual", p, { agents: fakeAgents([ok(two)]) });
     expect(res!.style).toMatchObject({ style_id: st.style_id, revision: 1, author: "user", kept: true });
     expect(styles.get(db, st.style_id)!.current_revision).toBe(1);
-    await acceptAll(res!.plan_id, 1);
+    const pid = res!.plan_id;
+    await savePlanRevision({ db, store, root: s.root, planning: config.planning }, pid, {
+      base_revision: 1, ops: [{ op: "set_status", item_id: "sp_001", status: "accepted" }, { op: "set_status", item_id: "sp_002", status: "rejected" }],
+    });
     approveVisualPlan(db, p, s.root);
-    await saveProjectStyle({ db, store, root: s.root }, p, { preset: "light-clean", intensity: "balanced", depth: 0 }, "user");
+    const st2 = await saveProjectStyle({ db, store, root: s.root }, p, { ...LIGHT, intensity: "balanced" }, "user");
     expect(approvalState(db, p, "B", currentSubject(db, p, "B"))).toMatchObject({ state: "stale", reason: "style_changed" });
+    expect(() => approveVisualPlan(db, p, s.root)).toThrow(/plan_outdated/);
+    const queued = pendingRechecks(p);
+    expect(queued.map((j) => j.idempotency_key)).toEqual([`plan.recheck:style:${st.style_id}@r2`]);
+    const agents = fakeAgents([]);
+    const { r, out: rr } = await run<PlanRecheckResult>("plan.recheck", p, { jobId: queued[0]!.id, agents });
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    expect(agents.tasks).toHaveLength(0);
+    expect(rr).toMatchObject({ plan_id: pid, revision: 3, style_revision: st2.revision, changed: [] });
+    const [d2, d3] = [planOf(pid, 2), planOf(pid, 3)];
+    expect(d3.items).toEqual(d2.items);
+    expect(d3.skipped).toEqual(d2.skipped);
+    expect(d3.inputs).toEqual({ ...d2.inputs, style: { id: st.style_id, revision: 2, hash: styles.revision(db, st.style_id, 2)!.hash } });
+    expect(approvalState(db, p, "B", currentSubject(db, p, "B"))).toMatchObject({ state: "stale", reason: "style_changed" });
+    expect(approveVisualPlan(db, p, s.root).subject_ref).toBe(`plan:${pid}@r3`);
+    const again = await run<PlanRecheckResult>("plan.recheck", p);
+    expect(again.out).toMatchObject({ no_change: true, revision: 3 });
   });
 
   it("стиль агента с плохим контрастом — откат к палитре пресета (событие), проблема не попадает в стиль", async () => {
@@ -259,6 +321,77 @@ describe("plan.visual", () => {
     expect(third.out).toMatchObject({ reused: true, plan_id: second.out!.plan_id, revision: 1 });
     const failedOnce = await run("plan.visual", (await ready()).p, { agents: fakeAgents([cliFail]) });
     expect(failedOnce.r).toMatchObject({ status: "failed", error: { code: "pipeline" } });
+  });
+
+  it("попытка с устаревшим fencing не публикует ни стиль, ни план", async () => {
+    const bumpAt = (p: string): Partial<PlanVisualDeps> => ({
+      onStage: (st) => {
+        if (st !== "publish") return;
+        const j = jobs.list(db, { projectId: p }).find((x) => x.type === "plan.visual" && x.status === "running")!;
+        jobs.update(db, j.id, { attempt: j.attempt + 1 }); // новая попытка уже захвачена
+      },
+    });
+    const { p } = await ready();
+    const a = await run("plan.visual", p, { agents: fakeAgents([ok(CLEAN)]), deps: bumpAt(p), noFinish: true });
+    expect(a.r).toMatchObject({ status: "failed", error: { code: "fenced_out" } });
+    expect(styles.byProject(db, p)).toBeUndefined();
+    expect(plans.byProject(db, p)).toBeUndefined();
+    finish(db, a.job.id, a.attempt + 1, a.r);
+    // стиль пользователя (агентский не пишется) — не публикуется и план
+    const q = (await ready()).p;
+    const st = await saveProjectStyle({ db, store, root: s.root }, q, LIGHT, "user");
+    const b = await run("plan.visual", q, { agents: fakeAgents([ok(CLEAN)]), deps: bumpAt(q), noFinish: true });
+    expect(b.r).toMatchObject({ status: "failed", error: { code: "fenced_out" } });
+    expect(plans.byProject(db, q)).toBeUndefined();
+    expect(styles.get(db, st.style_id)!.current_revision).toBe(1);
+    finish(db, b.job.id, b.attempt + 1, b.r);
+  });
+
+  it("M3: стиль опубликован прошлой попыткой, план нет — повтор берёт опубликованный стиль; агент только без чекпоинта", async () => {
+    // без чекпоинта: агент вызывается один раз, стиль — опубликованный, новой ревизии стиля нет
+    const { p } = await ready();
+    const c1 = claimOwn("plan.visual", p);
+    const pub = await saveProjectStyle({ db, store, root: s.root }, p, LIGHT, "agent", { rationale: "прошлая попытка", fence: { jobId: c1.job.id, attempt: c1.attempt } });
+    toPending(c1.job.id);
+    const agents = fakeAgents([ok(CLEAN)]);
+    const r1 = await run<PlanVisualResult>("plan.visual", p, { agents, jobId: c1.job.id });
+    expect(r1.r.status, JSON.stringify(r1.r)).toBe("completed");
+    expect(agents.tasks).toHaveLength(1);
+    expect(r1.out!.style).toMatchObject({ style_id: pub.style_id, revision: 1, author: "agent" });
+    expect(styles.get(db, pub.style_id)!.current_revision).toBe(1);
+    expect(planOf(r1.out!.plan_id, 1).inputs.style).toMatchObject({ id: pub.style_id, revision: 1 });
+    // с чекпоинтом: попытка 1 получила ответ, опубликовала стиль и упала до плана — агент не вызывается
+    const q = (await ready()).p;
+    const first = await run<PlanVisualResult>("plan.visual", q, { agents: fakeAgents([ok(CLEAN)]), noFinish: true, deps: { onStage: (st) => { if (st === "publish") throw new Error("сбой перед публикацией"); } } });
+    expect(first.r.status).toBe("failed");
+    const pub2 = await saveProjectStyle({ db, store, root: s.root }, q, LIGHT, "agent", { rationale: "прошлая попытка", fence: { jobId: first.job.id, attempt: first.attempt } });
+    toPending(first.job.id);
+    const none = fakeAgents([]);
+    const r2 = await run<PlanVisualResult>("plan.visual", q, { agents: none, jobId: first.job.id });
+    expect(r2.r.status, JSON.stringify(r2.r)).toBe("completed");
+    expect(none.tasks).toHaveLength(0);
+    expect(r2.events.map((e) => e.kind)).toContain("agent_checkpoint");
+    expect(r2.out!.style).toMatchObject({ style_id: pub2.style_id, revision: 1 });
+    expect(styles.get(db, pub2.style_id)!.current_revision).toBe(1);
+  });
+
+  it("M3: между попытками пользователь сменил стиль — событие, план публикуется по опубликованному стилю, plan.recheck переносит на текущий", async () => {
+    const { p } = await ready();
+    const c1 = claimOwn("plan.visual", p);
+    const pub = await saveProjectStyle({ db, store, root: s.root }, p, LIGHT, "agent", { rationale: "прошлая попытка", fence: { jobId: c1.job.id, attempt: c1.attempt } });
+    toPending(c1.job.id);
+    const user = await saveProjectStyle({ db, store, root: s.root }, p, { ...LIGHT, depth: 1 }, "user");
+    expect(user.revision).toBe(2);
+    const { r, out: res, events } = await run<PlanVisualResult>("plan.visual", p, { agents: fakeAgents([ok(CLEAN)]), jobId: c1.job.id });
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    expect(events.map((e) => e.kind)).toContain("style_changed_during_job");
+    expect(planOf(res!.plan_id, 1).inputs.style).toMatchObject({ id: pub.style_id, revision: 1 });
+    const queued = pendingRechecks(p);
+    expect(queued.map((j) => j.idempotency_key)).toEqual([`plan.recheck:style:${pub.style_id}@r2`]);
+    const rr = await run<PlanRecheckResult>("plan.recheck", p, { jobId: queued[0]!.id });
+    expect(rr.out).toMatchObject({ revision: 2, style_revision: 2 });
+    await acceptAll(res!.plan_id, 2);
+    expect(approveVisualPlan(db, p, s.root).subject_ref).toBe(`plan:${res!.plan_id}@r3`);
   });
 
   it("повторный plan.visual — новая ревизия того же плана (один план на проект)", async () => {

@@ -2,7 +2,8 @@
 // глубина. `resolved` — `resolveStyle` без полей рендера (амплитуда, глубина, прозрачность, fps).
 // Контраст: blocking — по правилам Phase 1 (`qa/programmatic.ts`: text ≥ 4,5, muted ≥ 3 к фону),
 // warning `style_contrast_low` — ниже плановых 7 / 4,5 (решение контроллера, уточнения Task 32).
-// Ревизии — `style/<id>/r<N>/style.json`; новая ревизия делает валидный B `stale(style_changed)`.
+// Ревизии — `style/<id>/r<N>/style.json`; новая ревизия делает валидный B `stale(style_changed)`,
+// а правка пользователя при готовом плане ставит `plan.recheck` (перенос плана на новый стиль без LLM).
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type PlanIssue, type ProjectStyleBase, type ProjectStyleDoc, ProjectStyleDocSchema, type StyleBible } from "@ms/contracts";
@@ -11,14 +12,19 @@ import { contrastRatio, resolveStyle } from "@ms/render";
 import { cascadeStale } from "../approvals/engine.js";
 import { artifactPaths } from "../artifacts/paths.js";
 import type { Db } from "../db/open.js";
+import * as plans from "../db/repos/plans.js";
 import * as styles from "../db/repos/styles.js";
 import { EditError, RevisionConflictError } from "../edit/errors.js";
 import type { EditDeps } from "../edit/transcript-ops.js";
 import { projectLockKey } from "../jobs/locks.js";
+import { enqueue } from "../jobs/queue.js";
 import { newId } from "../scenes/ids.js";
 import type { Fence } from "../scenes/repo.js";
 
 export const STYLE_FILE = "style.json";
+
+/** Ключ идемпотентности перепроверки плана после новой ревизии стиля. */
+export const planRecheckStyleKey = (styleId: string, revision: number): string => `plan.recheck:style:${styleId}@r${revision}`;
 
 /** Пороги Phase 1 (`qa/programmatic.ts`) — ниже blocking. */
 export const MIN_TEXT_CONTRAST = 4.5;
@@ -87,7 +93,9 @@ function readStyle(root: string, rel: string): ProjectStyleDoc {
 /**
  * Новая ревизия стиля проекта. `base_revision` задан и не текущий — `revision_conflict`; замок
  * `project:<p>:plan` у задачи — `resource_busy`; та же основа, автор и обоснование — `no_change`.
- * В транзакции публикации: `styles.create` (первая), `insertRevision`, `cascadeStale(…, "style")`.
+ * В транзакции публикации: `styles.create` (первая), `insertRevision`, `cascadeStale(…, "style")`;
+ * правка пользователя (без `fence`) при готовом плане — `enqueue("plan.recheck")` с ключом стиля
+ * (план задачи `plan.visual` ссылается на свой стиль сам).
  */
 export async function saveProjectStyle(
   deps: EditDeps, projectId: string, base: ProjectStyleBase, author: ProjectStyleDoc["author"],
@@ -117,6 +125,9 @@ export async function saveProjectStyle(
     if (!row) styles.create(d, { id: styleId, project_id: projectId });
     styles.insertRevision(d, { doc, rel_path: `${destRel}/${STYLE_FILE}`, sha256: files[0]!.sha256 });
     cascadeStale(d, projectId, "style");
+    if (!opts.fence && plans.byProject(d, projectId)?.current_revision != null) {
+      enqueue(d, { type: "plan.recheck", projectId, input: { projectId }, idempotencyKey: planRecheckStyleKey(styleId, doc.revision) });
+    }
   };
   const check = (d: Db) => {
     const c = conflict(d);
