@@ -42,7 +42,7 @@ describe("API сценария", () => {
     expect((await api.inj("POST", "/api/projects/playground/script/plan", key("p0"), {})).statusCode).toBe(409);
     expect((await api.inj("POST", `/api/projects/${id}/script/plan`, okHeaders, {})).statusCode).toBe(400); // нет Idempotency-Key
     expect((await api.inj("POST", `/api/projects/${id}/script/plan`, key("p2"), { reading: { wps: 9, lead_s: 0, tail_s: 0 } })).statusCode).toBe(400);
-    expect((await api.inj("POST", `/api/projects/${id}/script/plan/ops`, okHeaders, { base_revision: 1, ops: [{ op: "set_status", item_id: "ss_001", status: "rejected" }] })).statusCode).toBe(501);
+    expect((await api.inj("POST", `/api/projects/${id}/script/plan/ops`, okHeaders, { base_revision: 1, ops: [{ op: "set_status", item_id: "ss_001", status: "rejected" }] })).json()).toMatchObject({ error: "no_script" }); // S4
     expect((await api.inj("POST", `/api/projects/${id}/script/plan/ops`, okHeaders, { base_revision: 1, ops: [{ op: "reorder" }] })).statusCode).toBe(400);
   });
 

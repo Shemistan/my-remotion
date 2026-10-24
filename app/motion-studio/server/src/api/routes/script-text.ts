@@ -1,19 +1,19 @@
 // Текст и план сценария (спека §7, трек A): PUT/GET текста, `script.plan`, правки плана.
 // GET собирает состояние (`scriptState`, S1); PUT — новая ревизия текста (`saveScriptText`, S2);
-// POST plan — задача `script.plan` (S3); правки плана — пока схемы тел и ответов, 501.
+// POST plan — задача `script.plan` (S3); POST plan/ops — синхронная правка плана (`savePlanOps`, S4).
 import { CreatedJobDtoSchema, PlanOpsBodySchema, PutScriptBodySchema, ScriptDtoSchema, ScriptPlanBodySchema, ScriptPlanDtoSchema, ScriptStateDtoSchema } from "@ms/contracts";
 import { ArtifactStore } from "../../artifacts/store.js";
 import * as projects from "../../db/repos/projects.js";
 import { scripts } from "../../db/repos/script.js";
 import { tx } from "../../db/tx.js";
 import { enqueue } from "../../jobs/queue.js";
+import { savePlanOps } from "../../script/plan-ops.js";
+import { scriptApproval } from "../../script/plan-state.js";
 import { scriptState } from "../../script/state.js";
 import { saveScriptText, scriptReading } from "../../script/text.js";
 import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "../context.js";
 import { ApiError, notFound } from "../errors.js";
 import { publicJob } from "../job-dto.js";
-
-const notImplemented = (what: string): ApiError => new ApiError(501, "not_implemented", `${what}: ещё не реализовано`);
 
 export function scriptTextRoutes(app: ZApp, { core }: ApiContext): void {
   app.put("/api/projects/:id/script", {
@@ -53,7 +53,9 @@ export function scriptTextRoutes(app: ZApp, { core }: ApiContext): void {
 
   app.post("/api/projects/:id/script/plan/ops", {
     schema: { params: IdParams, body: PlanOpsBodySchema, response: { 200: ScriptPlanDtoSchema } },
-  }, async () => {
-    throw notImplemented("правка плана сценария");
+  }, async (req) => {
+    const store = new ArtifactStore({ root: core.root, db: core.db, guard: core.storageCheck });
+    const doc = await savePlanOps({ db: core.db, store, root: core.root }, req.params.id, req.body);
+    return { plan_id: doc.plan_id, doc, approval: scriptApproval(core.db, req.params.id) };
   });
 }
