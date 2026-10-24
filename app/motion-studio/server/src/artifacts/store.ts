@@ -166,10 +166,15 @@ export class ArtifactStore {
   /**
    * Синхронная правка пользователя: документ `doc` → `<destRel>/<file>` через временный draft
    * `workspace/drafts/sync-<id>/`. `opts.lockKey` — замок ресурса: держит задача →
-   * `ResourceBusyError` (409). Проверка `base_revision` (409 `revision_conflict`) — в `register`.
-   * Временный draft удаляется при любом исходе.
+   * `ResourceBusyError` (409). `opts.check` — проверка вызывающего в транзакции публикации, до
+   * проверки места назначения (`base_revision` → 409 `revision_conflict`: в гонке двух правок одной
+   * базы второй иначе получил бы `artifact_exists` на том же `r<N>`). Временный draft удаляется
+   * при любом исходе.
    */
-  async writeRevision(destRel: string, file: string, doc: unknown, register: Register, opts: { lockKey?: string } = {}): Promise<PublishedArtifact> {
+  async writeRevision(
+    destRel: string, file: string, doc: unknown, register: Register,
+    opts: { lockKey?: string; check?: (db: Db) => Error | undefined } = {},
+  ): Promise<PublishedArtifact> {
     if (!SAFE_ID.test(file) || file === QUARANTINE) throw new Error(`artifacts: имя файла ревизии не годится: ${JSON.stringify(file)}`);
     checkDestRel(destRel);
     requireStorage(await this.guard());
@@ -179,7 +184,7 @@ export class ArtifactStore {
       await fsyncWrite(join(dir, file), JSON.stringify(doc, null, 2) + "\n");
       const busy = () => {
         const held = opts.lockKey === undefined ? undefined : resourceBusy(this.db, opts.lockKey);
-        return held ? new ResourceBusyError(opts.lockKey!, held.jobId) : undefined;
+        return held ? new ResourceBusyError(opts.lockKey!, held.jobId) : opts.check?.(this.db);
       };
       return await this.publishDir(dir, destRel, register, busy, undefined);
     } finally {
