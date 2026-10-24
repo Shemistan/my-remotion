@@ -40,12 +40,12 @@ describe("API пакета экспорта", () => {
   afterEach(() => api.close());
 
   /** Опубликованный пакет: каталог с манифестом и шпаргалкой, строка script_packages. */
-  function seedPackage(pkgId: string): string {
+  function seedPackage(pkgId: string, name = "Go map_16x9_2026-10-24"): string {
     const rel = artifactPaths(api.s.root, id).package(pkgId);
     const dir = join(api.s.root, rel);
     mkdirSync(dir, { recursive: true });
     const m: ScriptPackageManifest = {
-      schema_version: 1, package_id: pkgId, project_id: id, project_title: "Go map", name: "Go map_16x9_2026-10-24", aspect: "16:9",
+      schema_version: 1, package_id: pkgId, project_id: id, project_title: "Go map", name, aspect: "16:9",
       script: { id: "scr_1", revision: 1 }, plan: { id: "pln_1", revision: 2 }, reading: DEFAULT_READING,
       scenes: [{
         n: 2, item_id: "ss_002", scene_id: "scn_1", version_id: "ver_1", block_id: "b1", at_s: 3.2, quote: "Раз два", technique: "hero-number",
@@ -114,6 +114,26 @@ describe("API пакета экспорта", () => {
     expect(nf.json()).toMatchObject({ error: "not_found" });
   });
 
+  it("Content-Disposition: filename* кодирует и ' ( ) * (RFC 5987 attr-char)", async () => {
+    seedPackage("pkg_1", "Go (v2) l'map*_16x9_2026-10-24");
+    const csv = await api.inj("GET", "/api/script-packages/pkg_1/cheatsheet?format=csv");
+    const ext = String(csv.headers["content-disposition"]).split("filename*=UTF-8''")[1]!;
+    expect(ext).not.toMatch(/['()*]/);
+    expect(ext).toContain("%28v2%29%20l%27map%2A");
+    expect(decodeURIComponent(ext)).toBe("Go (v2) l'map*_16x9_2026-10-24_шпаргалка.csv");
+  });
+
+  it("пакет с нечитаемым манифестом не пропадает молча: строка-заглушка с пометкой в состоянии и по id", async () => {
+    const dir = seedPackage("pkg_1");
+    writeFileSync(join(dir, MANIFEST_FILE), "{не json");
+    const r = await api.inj("GET", "/api/script-packages/pkg_1");
+    expect(r.statusCode).toBe(200);
+    const dto = ScriptPackageDtoSchema.parse(r.json());
+    expect(dto).toMatchObject({ id: "pkg_1", abs_path: dir, files: [], missing: [], created_at: "2026-10-24T18:00:00.000Z" });
+    expect(dto.display_name).toMatch(/манифест не читается/);
+    expect((await api.inj("GET", `/api/projects/${id}/script`)).json().packages).toEqual([r.json()]);
+  });
+
   it("reveal: open -R <папка> без shell, 204 пустое; неизвестный или без папки — 404", async () => {
     const dir = seedPackage("pkg_1");
     const r = await api.inj("POST", "/api/script-packages/pkg_1/reveal", okHeaders);
@@ -123,7 +143,7 @@ describe("API пакета экспорта", () => {
     expect((await api.inj("POST", "/api/script-packages/pkg_x/reveal", okHeaders)).statusCode).toBe(404);
     const rel = artifactPaths(api.s.root, id).package("pkg_2");
     scriptPackages.insert(api.core.db, { id: "pkg_2", project_id: id, job_id: null, aspect: "16:9", rel_path: rel, manifest_sha256: SHA });
-    // строки без каталога: DTO не собрать — 404
+    // строка без каталога — 404
     expect((await api.inj("POST", "/api/script-packages/pkg_2/reveal", okHeaders)).statusCode).toBe(404);
     expect(spawned).toHaveLength(1);
   });

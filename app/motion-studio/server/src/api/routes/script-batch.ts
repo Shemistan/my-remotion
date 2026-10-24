@@ -3,6 +3,7 @@
 // задача script.package, пакет, шпаргалка, «Показать в Finder». Двойники 9:16 — 501 (S10).
 import { CheatsheetQuerySchema, CreatedJobDtoSchema, GenerateBodySchema, PackageBodySchema, ReframeBodySchema, ScriptBatchDtoSchema, ScriptPackageDtoSchema } from "@ms/contracts";
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
@@ -20,6 +21,10 @@ import { publicJob } from "../job-dto.js";
 const CHEAT_TYPES = { md: "text/markdown; charset=utf-8", csv: "text/csv; charset=utf-8", txt: "text/plain; charset=utf-8" } as const;
 
 /** `open -R <путь>` (показать в Finder) без shell; ошибка запуска — 500 `reveal_failed`. */
+/** `filename*` (RFC 5987 attr-char): encodeURIComponent оставляет ' ( ) * — их тоже кодируем. */
+export const rfc5987 = (s: string): string =>
+  encodeURIComponent(s).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+
 export function revealInFinder(abs: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn("open", ["-R", abs], { stdio: "ignore" });
@@ -75,11 +80,11 @@ export const scriptBatchRoutes: (app: ZApp, ctx: ApiContext) => void = (app, { c
     return reply.status(out.status).send({ job: publicJob(out.job, core.root) });
   });
 
+  // нечитаемый манифест — DTO-заглушка с пометкой (не 404: пакет не пропадает молча)
   const packageOr404 = (id: string) => {
     const row = scriptPackages.get(core.db, id);
-    const dto = row ? packageDto(core.root, row) : undefined;
-    if (!row || !dto) throw notFound(`пакет экспорта ${id}`);
-    return { row, dto };
+    if (!row) throw notFound(`пакет экспорта ${id}`);
+    return { row, dto: packageDto(core.root, row) };
   };
 
   app.get("/api/script-packages/:id", { schema: { params: IdParams, response: { 200: ScriptPackageDtoSchema } } }, async (req) =>
@@ -89,18 +94,23 @@ export const scriptBatchRoutes: (app: ZApp, ctx: ApiContext) => void = (app, { c
   app.get("/api/script-packages/:id/cheatsheet", { schema: { params: IdParams, querystring: CheatsheetQuerySchema } }, async (req, reply) => {
     const { row, dto } = packageOr404(req.params.id);
     const format = req.query.format;
-    const text = await readFile(join(core.root, row.rel_path, CHEAT_FILES[format]));
+    const text = await readFile(join(core.root, row.rel_path, CHEAT_FILES[format])).catch((e: unknown) => {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") throw notFound(`шпаргалка пакета ${row.id}`);
+      throw e;
+    });
     reply.type(CHEAT_TYPES[format]);
     if (format !== "md") {
       const name = `${dto.display_name}_шпаргалка.${format}`;
-      reply.header("content-disposition", `attachment; filename="cheatsheet.${format}"; filename*=UTF-8''${encodeURIComponent(name)}`);
+      reply.header("content-disposition", `attachment; filename="cheatsheet.${format}"; filename*=UTF-8''${rfc5987(name)}`);
     }
     return reply.send(text);
   });
 
   // Finder: `open -R <папка>` без shell; путь — только из строки БД
   app.post("/api/script-packages/:id/reveal", { schema: { params: IdParams, response: { 204: z.null() } } }, async (req, reply) => {
-    await revealInFinder(packageOr404(req.params.id).dto.abs_path);
+    const { dto } = packageOr404(req.params.id);
+    if (!existsSync(dto.abs_path)) throw notFound(`папка пакета ${dto.id}`);
+    await revealInFinder(dto.abs_path);
     return reply.status(204).send(null);
   });
 };

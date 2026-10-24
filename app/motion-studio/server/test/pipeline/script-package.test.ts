@@ -1,8 +1,8 @@
 // S7: задача `script.package` — экспорты сцен по одному (фейковый exportOne), папка
 // `packages/<id>` с жёсткими ссылками на экспорты, шпаргалка, манифест, fencing, повтор.
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, linkSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_READING, type Fps, type ProjectStyleBase, type QAReport, type ScriptPlanRevisionDoc, type ScriptRevisionDoc,
   type ScriptSceneItem, ScriptPackageDtoSchema, ScriptPackageManifestSchema, defaultSettings, quoteOf, readingFrames, tokenizeScript,
@@ -19,7 +19,7 @@ import { claimNext, enqueue, fenceOk, finish } from "../../src/jobs/queue.js";
 import { Semaphore } from "../../src/jobs/semaphore.js";
 import type { HandlerResult, JobContext } from "../../src/jobs/types.js";
 import type { ExportOneInput } from "../../src/pipeline/scene-export.js";
-import { type ScriptPackageDeps, packagesForState, scriptPackage } from "../../src/pipeline/script-package.js";
+import { type ScriptPackageDeps, exportFailedReason, packagesForState, scriptPackage } from "../../src/pipeline/script-package.js";
 import { sha256File } from "../../src/scenes/hash.js";
 import { newId } from "../../src/scenes/ids.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
@@ -32,7 +32,21 @@ import { setupDb, type JobsEnv } from "../jobs/helpers.js";
 import { makeDraft, meta } from "../scenes/helpers.js";
 import { okStatus } from "./helpers.js";
 
+// какие файлы хешировались (M3: только экспорт совпавшего запроса)
+const hashed = vi.hoisted(() => [] as string[]);
+vi.mock("../../src/scenes/hash.js", async (orig) => {
+  const real = await orig<typeof import("../../src/scenes/hash.js")>();
+  return {
+    ...real,
+    sha256File: (path: string, ...rest: unknown[]) => {
+      hashed.push(path);
+      return (real.sha256File as (p: string, ...r: unknown[]) => Promise<string>)(path, ...rest);
+    },
+  };
+});
+
 const P = "p_pkg";
+const events: { kind: string; message: string; data?: unknown }[] = [];
 const SHA = "a".repeat(64);
 const F30: Fps = { num: 30, den: 1 };
 const TEXT = "Три вопроса, которые пережили смену реализации. Ключ проходит через хэш. Слот выбирают старшие биты. Группа держит восемь слотов.";
@@ -106,6 +120,8 @@ beforeEach(async () => {
   scriptPlans.insertRevision(env.db, { doc, rel_path: prel, sha256: SHA });
   sceneOf.clear();
   versionOf.clear();
+  events.length = 0;
+  hashed.length = 0;
   for (const it of items) {
     const scene = repo.createScene(P, { prompt: it.quote, settings: defaultSettings() });
     sceneOf.set(it.id, scene.id);
@@ -159,7 +175,7 @@ function ctxOf(jobId: string, attempt: number): JobContext {
   return {
     db: env.db, job, attempt, signal: new AbortController().signal,
     run: { root: env.s.root, runId: job.id, attempt, registry: { add: async () => undefined, end: async () => undefined, live: async () => [] } },
-    emit: () => undefined, progress: () => undefined, fenceOk: () => fenceOk(env.db, job.id, attempt),
+    emit: (kind, message, data) => void events.push({ kind, message, data }), progress: () => undefined, fenceOk: () => fenceOk(env.db, job.id, attempt),
     agents: new Semaphore(2), renders: new Semaphore(1), heavy: new Semaphore(1),
   };
 }
@@ -317,6 +333,8 @@ describe("scriptPackage", () => {
     expect(scriptPackages.listByProject(env.db, P)).toEqual([]);
     const draft = join(env.s.root, "workspace/drafts", `${a1.id}-a${a1.attempt}`);
     expect(existsSync(join(draft, QUARANTINE))).toBe(true);
+    // медиафайлы (жёсткие ссылки на экспорты) убраны из draft до карантина
+    expect(readdirSync(draft).filter((f) => /\.(mp4|mov)$/.test(f))).toEqual([]);
     const exportFile = join(env.s.root, exportsRepo.listByVersion(env.db, versionOf.get("ss_001")!)[0]!.path);
     expect(statSync(exportFile).mode & 0o222).toBe(0);
     expect(existsSync(join(env.s.root, artifactPaths(env.s.root, P).package(`pkg_${a1.id.slice(4)}`)))).toBe(false);
@@ -353,6 +371,100 @@ describe("scriptPackage", () => {
     expect((await run(d)).r).toMatchObject({ status: "cancelled" });
     const off = deps(exp, { storage: async () => ({ ok: false, reason: "not_found", detail: "SSD отключён" }) });
     expect((await run(off)).r).toMatchObject({ status: "failed", error: { code: "storage_unavailable" } });
+  });
+
+  /** Файлы всех экспортов версий проекта. */
+  const exportFiles = () => [...versionOf.values()].flatMap((v) => exportsRepo.listByVersion(env.db, v).map((r) => join(env.s.root, r.path)));
+
+  it("отмена перед публикацией: медиа убраны из draft до карантина, уборка draft не снимает a-w с экспортов", async () => {
+    const exp = fakeExport();
+    const d = deps(exp, { beforePublish: (ctx) => void env.db.prepare("UPDATE jobs SET cancel_requested = 1 WHERE id = ?").run(ctx.job.id) });
+    const a = await run(d);
+    expect(a.r).toMatchObject({ status: "cancelled" });
+    const draft = join(env.s.root, "workspace/drafts", `${a.id}-a${a.attempt}`);
+    expect((JSON.parse(readFileSync(join(draft, QUARANTINE), "utf8")) as { reason: string }).reason).toMatch(/^cancelled/);
+    expect(readdirSync(draft).filter((f) => /\.(mp4|mov)$/.test(f))).toEqual([]);
+    expect(exportFiles().length).toBe(4);
+    const out = await repo.cleanupDrafts([]);
+    expect(out.removed).toContain(draft);
+    for (const f of exportFiles()) expect(statSync(f).mode & 0o222, f).toBe(0);
+  });
+
+  it("уборка draft прерванной попытки с жёсткими ссылками на экспорты: экспорты остаются a-w", async () => {
+    const exp = fakeExport();
+    expect((await run(deps(exp))).r.status).toBe("completed");
+    const [exportFile] = exportFiles();
+    const draft = join(env.s.root, "workspace/drafts", "job_dead-a1");
+    mkdirSync(join(draft, "sub"), { recursive: true });
+    linkSync(exportFile!, join(draft, "01_x.mp4"));
+    linkSync(exportFile!, join(draft, "sub", "01_x.mp4"));
+    writeFileSync(join(draft, QUARANTINE), JSON.stringify({ reason: "interrupted: сервер упал во время сборки" }));
+    chmodSync(join(draft, "sub"), 0o555);
+    chmodSync(draft, 0o555);
+    const out = await repo.cleanupDrafts([]);
+    expect(out.removed).toContain(draft);
+    expect(existsSync(draft)).toBe(false);
+    expect(statSync(exportFile!).mode & 0o222).toBe(0);
+  });
+
+  it("сбой после COMMIT до запечатывания корня: восстановление закрывает корень пакета от записи", async () => {
+    const exp = fakeExport();
+    const a1 = await run(deps(exp));
+    const dir = join(env.s.root, refsOf(a1.r).rel_path);
+    chmodSync(dir, 0o755);
+    const a2 = await run(deps(exp), a1.id);
+    expect(a2.r).toEqual(a1.r);
+    expect(statSync(dir).mode & 0o222).toBe(0);
+  });
+
+  it("готовый экспорт ищется по манифесту: хешируется только файл совпавшего запроса", async () => {
+    const exp = fakeExport();
+    expect((await run(deps(exp))).r.status).toBe("completed");
+    // экспорт той же версии и формата с другим запросом — новее, проверяется первым
+    const vid = versionOf.get("ss_001")!;
+    const id = newId("exp");
+    const dir = join(env.s.root, exportRel(P, id));
+    mkdirSync(dir, { recursive: true });
+    const other = join(dir, "scene.mp4");
+    writeFileSync(other, "другой запрос");
+    writeFileSync(join(dir, "export-manifest.json"), JSON.stringify({ request: { format: "mp4", crf: 28, scale: 0.5 }, ffprobe: { durationMs: 1, width: 960, height: 540, fps: F30, codec: "h264" } }));
+    exportsRepo.insert(env.db, { id, version_id: vid, job_id: null, format: "mp4", path: `${exportRel(P, id)}/scene.mp4`, sha256: SHA });
+    hashed.length = 0;
+    const calls = exp.calls.length;
+    expect((await run(deps(exp))).r.status).toBe("completed");
+    expect(exp.calls.length).toBe(calls);
+    expect(hashed).not.toContain(other);
+    expect(hashed.length).toBe(4); // по одному совпавшему экспорту на файл пакета
+  });
+
+  it("сторонняя (английская) ошибка экспорта: в missing — общий русский текст, подробности — в манифесте и журнале задачи", async () => {
+    const raw = "render: Failed to launch the browser process! /store/workspace/drafts/job_01ABC-a1--3-mp4/run: No such file";
+    const exp = fakeExport({ fail: (c) => (c.versionId === versionOf.get("ss_003") ? raw : undefined) });
+    const { r } = await run(deps(exp));
+    expect(r.status).toBe("completed");
+    const miss = refsOf(r).missing.find((m) => m.item_id === "ss_003")!;
+    expect(miss.reason).toBe("экспорт не удался: ошибка рендера (подробности в журнале задачи)");
+    const m = ScriptPackageManifestSchema.parse(JSON.parse(readFileSync(join(env.s.root, refsOf(r).rel_path, "package-manifest.json"), "utf8")));
+    expect(m.missing.find((x) => x.item_id === "ss_003")).toMatchObject({ reason: miss.reason, detail: raw });
+    expect(events).toContainEqual(expect.objectContaining({ kind: "export_failed", message: expect.stringContaining("Failed to launch the browser process") }));
+  });
+});
+
+describe("exportFailedReason", () => {
+  const GENERIC = "экспорт не удался: ошибка рендера (подробности в журнале задачи)";
+  it("русская причина — как есть, без английских кодов этапов и id", () => {
+    expect(exportFailedReason("media: кодек упал")).toBe("экспорт не удался: кодек упал");
+    expect(exportFailedReason("экспорт не удался: overlay_empty: альфа пустая у ver_01J9ZQ3K4M5N6P7Q8R9S0T1V2W")).toBe("экспорт не удался: альфа пустая у");
+  });
+  it("английский остаток (сторонняя ошибка) — общий русский текст", () => {
+    expect(exportFailedReason("Failed to launch the browser process!")).toBe(GENERIC);
+    expect(exportFailedReason("render: рендер упал: Error: Protocol error (Target.setAutoAttach): Target closed")).toBe(GENERIC);
+    expect(exportFailedReason("")).toBe(GENERIC);
+  });
+  it("пути и имена draft (…-a1--1-mp4) из текста убираются", () => {
+    const r = exportFailedReason("ffmpeg вернул код 1: файл /Volumes/SSD/MS/workspace/drafts/job_01J-a1--1-mp4/scene.mp4 не записан, draft job_01J-a1--1-mp4 оставлен");
+    expect(r).toBe("экспорт не удался: ffmpeg вернул код 1: файл не записан, draft оставлен");
+    expect(r).not.toMatch(/-a\d+--|\/Volumes/);
   });
 });
 

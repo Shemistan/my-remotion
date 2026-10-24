@@ -36,11 +36,16 @@ export function fileNames(n: number, total: number, slug: string): { mp4: string
   return { mp4: `${nn}_${slug}.mp4`, alpha: `${nn}_${slug}_alpha.mov` };
 }
 
-/** Имя папки для человека: `<проект>_<16x9|9x16>_<YYYY-MM-DD>` (каталог на диске — id пакета). */
-export function displayName(projectTitle: string, aspect: Aspect, createdAt: string): string {
+/**
+ * Имя папки для человека: `<проект>_<16x9|9x16>_<YYYY-MM-DD>` (каталог на диске — id пакета).
+ * Дата — по местному времени машины (вечерняя сборка не уезжает на завтрашнее число UTC).
+ */
+export function displayName(projectTitle: string, aspect: Aspect, createdAt: Date | string): string {
   // eslint-disable-next-line no-control-regex
   const title = projectTitle.replace(/[/\\:*?"<>|\u0000-\u001f]+/g, "-").replace(/\s+/g, " ").trim() || "проект";
-  return `${title}_${aspect.replace(":", "x")}_${createdAt.slice(0, 10)}`;
+  const d = new Date(createdAt);
+  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return `${title}_${aspect.replace(":", "x")}_${date}`;
 }
 
 /**

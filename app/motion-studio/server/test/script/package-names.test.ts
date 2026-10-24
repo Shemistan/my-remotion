@@ -32,9 +32,22 @@ describe("fileNames", () => {
 
 describe("displayName и id пакета", () => {
   it("<проект>_<16x9|9x16>_<дата>; символы, недопустимые в имени папки, заменены", () => {
-    expect(displayName("Go map", "16:9", "2026-10-24T18:00:00.000Z")).toBe("Go map_16x9_2026-10-24");
-    expect(displayName("a/b: c", "9:16", "2026-10-24T18:00:00.000Z")).toBe("a-b- c_9x16_2026-10-24");
-    expect(displayName("  ", "16:9", "2026-10-24T18:00:00.000Z")).toBe("проект_16x9_2026-10-24");
+    expect(displayName("Go map", "16:9", "2026-10-24T12:00:00.000Z")).toBe("Go map_16x9_2026-10-24");
+    expect(displayName("a/b: c", "9:16", "2026-10-24T12:00:00.000Z")).toBe("a-b- c_9x16_2026-10-24");
+    expect(displayName("  ", "16:9", "2026-10-24T12:00:00.000Z")).toBe("проект_16x9_2026-10-24");
+  });
+
+  it("дата — по местному времени, а не по UTC", () => {
+    const tz = process.env.TZ;
+    try {
+      process.env.TZ = "Asia/Tokyo"; // UTC+9: 18:00Z — уже следующий день
+      expect(displayName("Go map", "16:9", "2026-10-24T18:00:00.000Z")).toBe("Go map_16x9_2026-10-25");
+      process.env.TZ = "America/Los_Angeles"; // UTC−7: 02:00Z — ещё предыдущий день
+      expect(displayName("Go map", "16:9", "2026-10-24T02:00:00.000Z")).toBe("Go map_16x9_2026-10-23");
+    } finally {
+      if (tz === undefined) delete process.env.TZ;
+      else process.env.TZ = tz;
+    }
   });
 
   it("id пакета — от id задачи: повтор попытки публикует в тот же каталог", () => {

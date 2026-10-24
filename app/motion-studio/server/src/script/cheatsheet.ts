@@ -53,8 +53,13 @@ function cells(r: CheatRow): string[] {
 
 const oneLine = (s: string): string => s.replace(/\s*[\r\n]+\s*/g, " ");
 
+/**
+ * Поле CSV: ячейка, начинающаяся с `= + - @`, получает префикс `'` — Excel/Numbers не примут
+ * фразу сценария за формулу (CSV injection); затем кавычки при `;`, `"` и переводе строки.
+ */
 function csvField(s: string): string {
-  return /[;"\r\n]/.test(s) ? `"${s.replaceAll("\"", "\"\"")}"` : s;
+  const v = /^[=+\-@]/.test(s) ? `'${s}` : s;
+  return /[;"\r\n]/.test(v) ? `"${v.replaceAll("\"", "\"\"")}"` : v;
 }
 
 function mdCell(s: string): string {

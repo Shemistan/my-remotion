@@ -296,7 +296,8 @@ export const ScriptPackageManifestSchema = z.object({
     alpha: ScriptPackageFileSchema.nullable(),
     warnings: z.array(z.string()),
   }).strict()),
-  missing: z.array(z.object({ item_id: Id, quote: z.string().optional(), reason: z.string().min(1) }).strict()),
+  // S7: detail — исходный текст сбоя экспорта (сторонний, часто английский) для разбора; reason — для человека
+  missing: z.array(z.object({ item_id: Id, quote: z.string().optional(), reason: z.string().min(1), detail: z.string().optional() }).strict()),
   created_at: z.string().datetime(),
 }).strict();
 export type ScriptPackageManifest = z.infer<typeof ScriptPackageManifestSchema>;

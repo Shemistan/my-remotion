@@ -21,6 +21,17 @@ describe("cheatsheet", () => {
     expect(csv).toContain(";7,9;0,5;1,0;");
   });
 
+  it("csv: ячейки, начинающиеся с = + - @, не становятся формулой (префикс ')", () => {
+    const csv = cheatsheet([row({ quote: "=1+2", block: "+7 приёмов", notes: ["-5 % за раз", "@всем"] })], "csv");
+    const cells = csv.split("\r\n")[1]!.split(";");
+    expect(cells[3]).toBe("'+7 приёмов");
+    expect(cells[5]).toBe("'=1+2");
+    expect(csv).toContain(";\"'-5 % за раз; @всем\"");
+    // обычные ячейки и числа не трогаются
+    expect(cells[0]).toBe("01");
+    expect(cheatsheet([row({ quote: "=1+2" })], "md")).toContain("| =1+2 |");
+  });
+
   it("txt: строка «NN · м:сс · «фраза» · длительность (запас)»", () => {
     expect(cheatsheet(rows, "txt")).toBe("01 · 1:12 · «Раз; два \"три\"» · 7,9 с (запас 0,5 / 1,0)\n");
   });

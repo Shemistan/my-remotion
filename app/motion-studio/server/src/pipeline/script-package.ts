@@ -6,10 +6,11 @@
 // `script_packages` → корень a-w. Сбой экспорта одной сцены — запись в `missing`, остальные идут.
 //
 // Файлы пакета делят inode с файлами экспортов: откат и карантин переносят каталог, но права
-// файлов не трогают (`setWritable` к ним не применяется) — иначе стал бы записываемым и экспорт.
-import { copyFileSync, chmodSync, existsSync, linkSync, lstatSync, readFileSync, renameSync } from "node:fs";
+// файлов не трогают (`setWritable` к ним не применяется) — иначе стал бы записываемым и экспорт;
+// перед карантином медиафайлы из draft удаляются, уборка draft снимает запрет только с каталогов.
+import { copyFileSync, chmodSync, existsSync, linkSync, lstatSync, readFileSync, renameSync, unlinkSync } from "node:fs";
 import { chmod } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import {
   type Aspect, AspectSchema, type ExportRequest, ExportRequestSchema, type ProbeResult, ProbeResultSchema, type ScriptPackageDto, type ScriptPackageFile,
   type ScriptPackageManifest, ScriptPackageManifestSchema, type ScriptSceneItem, compareWordIds, failureToJobErrorCode, wordsBetween,
@@ -96,14 +97,22 @@ interface Exported {
   warnings: string[];
 }
 
-/** Итог экспорта сцены: файл, причина для `missing` или итог всей задачи (отмена, хранилище…). */
-type ExportOutcome = { ok: Exported } | { reason: string } | { abort: HandlerResult };
+/**
+ * Итог экспорта сцены: файл, причина для `missing` (`detail` — исходный текст сбоя для манифеста
+ * и журнала) или итог всей задачи (отмена, хранилище…).
+ */
+type ExportOutcome = { ok: Exported } | { reason: string; detail?: string } | { abort: HandlerResult };
 
 const ExportManifestLite = z.object({ request: ExportRequestSchema, ffprobe: ProbeResultSchema, warnings: z.array(z.string()).optional() }).passthrough();
 
+/** Причина сбоя, которую нельзя показать по-русски (сторонняя ошибка рендера): подробности — в журнале. */
+export const EXPORT_FAILED_GENERIC = `${EXPORT_FAILED}: ошибка рендера (подробности в журнале задачи)`;
+
 /**
  * Сообщение сбоя экспорта → причина для человека (C3): «экспорт не удался: <причина по-русски>»
- * без английских кодов этапов (`media: `, `overlay_empty: `) и id (`ver_…`).
+ * без английских кодов этапов (`media: `, `overlay_empty: `), id (`ver_…`), путей и имён draft
+ * (`…-a1--1-mp4`). Остаток не по-русски (латиницы больше, чем кириллицы: текст Remotion,
+ * Chrome, ffmpeg) — общий русский текст; исходное сообщение вызывающий пишет в журнал и манифест.
  */
 export function exportFailedReason(message: string): string {
   let m = message;
@@ -111,11 +120,20 @@ export function exportFailedReason(message: string): string {
     prev = m;
     m = m.replace(/(^|: |\(|; )[a-z][a-z0-9_]*: /g, "$1");
   }
-  // id хранилища: `ss_001`, `<префикс>_<ULID>` (Crockford, верхний регистр)
-  m = m.replace(/\b(?:ss_\d{3,}|[a-z]{2,4}_[0-9A-HJKMNP-TV-Z]{10,})\b/g, "").replace(/\s{2,}/g, " ").trim();
+  m = m
+    .replace(/(?:^|\s)\/\S+/g, " ") // абсолютные пути
+    .replace(/\S*-a\d+--[A-Za-z0-9_-]+\S*/g, "") // имена draft попыток экспорта
+    // id хранилища: `ss_001`, `<префикс>_<ULID>` (Crockford, верхний регистр)
+    .replace(/\b(?:ss_\d{3,}|[a-z]{2,4}_[0-9A-HJKMNP-TV-Z]{10,})\b/g, "")
+    .replace(/\s+([,.;:!?)])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
   m = m.replace(/^экспорт не удался:\s*/, "");
+  const cyr = (m.match(/[а-яё]/gi) ?? []).length;
+  const lat = (m.match(/[a-z]/gi) ?? []).length;
+  if (cyr === 0 || lat > cyr) return EXPORT_FAILED_GENERIC;
   if (m.length > 300) m = `${m.slice(0, 299)}…`;
-  return `${EXPORT_FAILED}: ${m || "причина неизвестна"}`;
+  return `${EXPORT_FAILED}: ${m}`;
 }
 
 /** Предупреждение экспорта без английского кода впереди — для шпаргалки. */
@@ -125,40 +143,54 @@ const plainWarning = (w: string): string => w.replace(/^[a-z][a-z0-9_]*: /, "");
 const sameRequest = (a: ExportRequest, b: ExportRequest): boolean =>
   canonicalJson(ExportRequestSchema.parse(a)) === canonicalJson(ExportRequestSchema.parse(b));
 
-/** Файл экспорта и его манифест; файл пропал, повреждён или манифест не читается — undefined. */
-async function loadExport(root: string, row: exportsRepo.ExportRow, verify: boolean): Promise<(Exported & { request: ExportRequest }) | undefined> {
-  const abs = join(root, row.path);
+/** Манифест экспорта (без хеширования файла); не читается — undefined. */
+function exportManifest(root: string, row: exportsRepo.ExportRow): z.infer<typeof ExportManifestLite> | undefined {
   try {
-    const m = ExportManifestLite.parse(JSON.parse(readFileSync(join(dirname(abs), "export-manifest.json"), "utf8")));
-    if (!existsSync(abs)) return undefined;
-    if (verify && (await sha256File(abs)) !== row.sha256) return undefined;
-    return { exportId: row.id, abs, sha256: row.sha256, ffprobe: m.ffprobe, warnings: m.warnings ?? [], request: m.request };
+    return ExportManifestLite.parse(JSON.parse(readFileSync(join(dirname(join(root, row.path)), "export-manifest.json"), "utf8")));
   } catch {
     return undefined;
   }
 }
 
-/** Готовый экспорт версии с тем же запросом (новые первыми) или новый через `exportOne`. */
+/** Файл экспорта по манифесту: файл пропал или sha256 не совпал — undefined. */
+async function verifiedExport(root: string, row: exportsRepo.ExportRow, m: z.infer<typeof ExportManifestLite>): Promise<Exported | undefined> {
+  const abs = join(root, row.path);
+  try {
+    if (!existsSync(abs) || (await sha256File(abs)) !== row.sha256) return undefined;
+  } catch {
+    return undefined;
+  }
+  return { exportId: row.id, abs, sha256: row.sha256, ffprobe: m.ffprobe, warnings: m.warnings ?? [] };
+}
+
+/**
+ * Готовый экспорт версии с тем же запросом (новые первыми) или новый через `exportOne`. Запрос
+ * сверяется по манифесту, хешируется только файл совпавшего экспорта (ProRes — сотни МБ).
+ */
 async function ensureExport(
   ctx: JobContext, d: ScriptPackageDeps, versionId: string, request: ExportRequest, draftKey: string, frames: ScriptSceneItem["frames"],
 ): Promise<ExportOutcome> {
   const rows = exportsRepo.listByVersion(ctx.db, versionId).filter((r) => r.format === request.format).reverse();
   for (const row of rows) {
-    const got = await loadExport(d.root, row, true);
-    if (got && sameRequest(got.request, request)) return { ok: got };
+    const m = exportManifest(d.root, row);
+    if (!m || !sameRequest(m.request, request)) continue;
+    const got = await verifiedExport(d.root, row, m);
+    if (got) return { ok: got };
   }
   const r = await (d.exportOne ?? realExportOne)(ctx, d.exporter, { versionId, request, draftKey, frames });
   if (r.status === "completed") {
     const id = (r.outputRefs as { export_id?: string }).export_id;
     const row = id ? exportsRepo.get(ctx.db, id) : undefined;
-    const got = row ? await loadExport(d.root, row, true) : undefined;
-    return got ? { ok: got } : { reason: exportFailedReason("опубликованный экспорт не прочитан или повреждён (sha256 не совпал)") };
+    const m = row ? exportManifest(d.root, row) : undefined;
+    const got = row && m ? await verifiedExport(d.root, row, m) : undefined;
+    const detail = `экспорт ${id ?? "без id"} опубликован, но его файл или манифест не прочитан либо sha256 не совпал`;
+    return got ? { ok: got } : { reason: exportFailedReason("опубликованный экспорт не прочитан или повреждён (sha256 не совпал)"), detail };
   }
   if (r.status !== "failed") return { abort: r };
   const stage = r.error.stage;
   if (stage === "storage" || stage === "fenced_out" || stage === "orphaned" || stage === "cancelled" || stage === "interrupted") return { abort: r };
-  if (/^overlay_opaque\b/.test(r.error.message)) return { reason: OVERLAY_IMPOSSIBLE };
-  return { reason: exportFailedReason(r.error.message) };
+  if (/^overlay_opaque\b/.test(r.error.message)) return { reason: OVERLAY_IMPOSSIBLE, detail: r.error.message };
+  return { reason: exportFailedReason(r.error.message), detail: r.error.message };
 }
 
 interface Packed {
@@ -197,6 +229,8 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
   if (done) {
     const m = readManifest(root, done);
     if (!m) return fail("publish", `пакет ${pkgId} опубликован, но его манифест не читается`);
+    // сбой мог случиться между COMMIT и запретом записи корня — закрыть сейчас
+    await sealRoot(join(root, done.rel_path), d.log);
     return { status: "completed", outputRefs: refsOf(done, m) };
   }
 
@@ -228,6 +262,14 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
   };
 
   const missing = new Map<string, string>();
+  /** Исходный текст сбоя экспорта сцены — в манифест (`missing[].detail`) и журнал задачи. */
+  const details = new Map<string, string>();
+  const noteFailure = (n: number, item: ScriptSceneItem, o: { reason: string; detail?: string }) => {
+    if (o.detail === undefined) return;
+    details.set(item.id, o.detail);
+    ctx.emit("export_failed", `сцена ${n}: ${o.detail}`, { item_id: item.id, reason: o.reason, detail: o.detail });
+    d.log?.(`сцена ${n}: экспорт не удался: ${o.detail}`);
+  };
   const packed: Packed[] = [];
   for (const [i, item] of accepted.entries()) {
     const n = i + 1;
@@ -249,6 +291,7 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
     if ("abort" in mp4) return mp4.abort;
     if ("reason" in mp4) {
       missing.set(item.id, mp4.reason);
+      noteFailure(n, item, mp4);
       continue;
     }
     const qa = versionQaWarnings(db, root, v.id);
@@ -259,8 +302,10 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
       d.log?.(`сцена ${n}: экспорт ProRes 4444 с альфой`);
       const a = await ensureExport(ctx, d, v.id, PACKAGE_ALPHA, `${n}-alpha`, item.frames);
       if ("abort" in a) return a.abort;
-      if ("reason" in a) missing.set(item.id, a.reason);
-      else alpha = a.ok;
+      if ("reason" in a) {
+        missing.set(item.id, a.reason);
+        noteFailure(n, item, a);
+      } else alpha = a.ok;
     }
     const qaShown = qa.filter((x) => !(OVERLAY_BLOCKERS as readonly string[]).includes(x.code));
     const exportWarnings = [...mp4.ok.warnings, ...(alpha?.warnings ?? [])];
@@ -270,21 +315,24 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
       notes: [...qaShown.map((x) => x.description), ...exportWarnings.map(plainWarning), ...(missing.has(item.id) ? [missing.get(item.id)!] : [])],
     });
   }
-  const missingList = accepted.filter((i) => missing.has(i.id)).map((i) => ({ item_id: i.id, quote: i.quote, reason: missing.get(i.id)! }));
+  const missingList = accepted.filter((i) => missing.has(i.id)).map((i) => ({
+    item_id: i.id, quote: i.quote, reason: missing.get(i.id)!, ...(details.has(i.id) ? { detail: details.get(i.id)! } : {}),
+  }));
   if (packed.length === 0) {
     return empty(missingList.map((m) => `сцена ${accepted.findIndex((i) => i.id === m.item_id) + 1}: ${m.reason}`).join("; "));
   }
 
   // папка в draft попытки
   ctx.progress(0.9, "publish");
-  const createdAt = new Date().toISOString();
+  const now = new Date();
+  const createdAt = now.toISOString();
   const fileOf = (e: Exported, file: string): ScriptPackageFile => ({ file, export_id: e.exportId, sha256: e.sha256, ffprobe: e.ffprobe });
   const manifest: ScriptPackageManifest = ScriptPackageManifestSchema.parse({
     schema_version: 1,
     package_id: pkgId,
     project_id: projectId,
     project_title: project.title,
-    name: displayName(project.title, aspect, createdAt),
+    name: displayName(project.title, aspect, now),
     aspect,
     script: { id: cur.doc.inputs.script.id, revision: cur.doc.inputs.script.revision },
     plan: { id: cur.planId, revision: cur.doc.revision },
@@ -316,7 +364,19 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
   } catch (e) {
     return fail(isStorageError(e) ? "storage" : "publish", `draft пакета не создан: ${errText(e)}`);
   }
-  const quarantine = (reason: string) => quarantineDir(draftDir, reason).catch(() => undefined);
+  // Медиафайлы draft — жёсткие ссылки на экспорты: перед карантином их убираем, чтобы уборка
+  // draft или человек с `chmod -R` не сделали записываемыми сами экспорты (общий inode).
+  const media = packed.flatMap((p) => [p.names.mp4, ...(p.alpha ? [p.names.alpha] : [])]);
+  const quarantine = async (reason: string) => {
+    for (const f of media) {
+      try {
+        unlinkSync(join(draftDir, f));
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== "ENOENT") d.log?.(`медиафайл draft ${f} не убран: ${errText(e)}`);
+      }
+    }
+    await quarantineDir(draftDir, reason).catch(() => undefined);
+  };
   let manifestText: string;
   try {
     for (const p of packed) {
@@ -366,11 +426,7 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
     if (e instanceof Refused) return fail(e.stage, e.message);
     return fail(isStorageError(e) ? "storage" : "publish", `публикация пакета не удалась: ${errText(e)}`);
   }
-  try {
-    await chmod(dest, lstatSync(dest).mode & 0o555);
-  } catch (e) {
-    d.log?.(`корень пакета не закрыт от записи: ${errText(e)}`);
-  }
+  await sealRoot(dest, d.log);
   ctx.progress(1, "publish");
   return { status: "completed", outputRefs: refsOf(scriptPackages.get(db, pkgId)!, manifest) };
 
@@ -378,6 +434,15 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
     return { status: "failed", error: { code: "package_empty", message: `в папку не вошло ни одной сцены: ${why}` } };
   }
 };
+
+/** Запрет записи корня опубликованного пакета (после COMMIT; повтор безвреден). */
+async function sealRoot(dest: string, log?: (line: string) => void): Promise<void> {
+  try {
+    await chmod(dest, lstatSync(dest).mode & 0o555);
+  } catch (e) {
+    log?.(`корень пакета не закрыт от записи: ${errText(e)}`);
+  }
+}
 
 /** Жёсткая ссылка на файл экспорта (тот же том); не вышло — копия, сверка sha256, a-w. */
 async function place(e: Exported, dst: string): Promise<void> {
@@ -437,10 +502,21 @@ function refsOf(row: ScriptPackageRow, m: ScriptPackageManifest): PackageRefs {
   return { package_id: row.id, rel_path: row.rel_path, files: m.scenes.length, missing: m.missing.map(({ item_id, reason }) => ({ item_id, reason })) };
 }
 
-/** DTO пакета (C7) по строке и манифесту; манифест не читается — undefined. */
-export function packageDto(root: string, row: ScriptPackageRow): ScriptPackageDto | undefined {
+/** Пометка в имени пакета, манифест которого не читается. */
+export const BROKEN_PACKAGE = "манифест не читается";
+
+/**
+ * DTO пакета (C7) по строке и манифесту. Манифест не читается — строка-заглушка с пометкой в
+ * имени, без файлов (пакет не пропадает из списка молча; папку можно открыть в Finder).
+ */
+export function packageDto(root: string, row: ScriptPackageRow): ScriptPackageDto {
   const m = readManifest(root, row);
-  if (!m) return undefined;
+  if (!m) {
+    return {
+      id: row.id, aspect: row.aspect as Aspect, rel_path: row.rel_path, abs_path: join(root, row.rel_path),
+      display_name: `${basename(row.rel_path)} — ${BROKEN_PACKAGE}`, files: [], missing: [], created_at: row.created_at,
+    };
+  }
   return {
     id: row.id,
     aspect: row.aspect as Aspect,
@@ -455,6 +531,6 @@ export function packageDto(root: string, row: ScriptPackageRow): ScriptPackageDt
   };
 }
 
-/** Пакеты экспорта проекта для `ScriptStateDto.packages`, новые первыми (пакет без манифеста пропускается). */
+/** Пакеты экспорта проекта для `ScriptStateDto.packages`, новые первыми (нечитаемый манифест — заглушка). */
 export const packagesForState: (db: Db, root: string, projectId: string) => ScriptPackageDto[] = (db, root, projectId) =>
-  scriptPackages.listByProject(db, projectId).reverse().flatMap((row) => packageDto(root, row) ?? []);
+  scriptPackages.listByProject(db, projectId).reverse().map((row) => packageDto(root, row));
