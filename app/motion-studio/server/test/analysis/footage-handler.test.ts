@@ -224,9 +224,10 @@ describe("footage.analyze", () => {
         ? { author_position: "left", objects: [{ kind: "object", label: "экран", frame_us: first, rect: { x: 0.05, y: 0.5, w: 0.3, h: 0.3 }, important: true }, { kind: "object", label: "призрак", frame_us: first + 1, rect: { x: 0.1, y: 0.1, w: 0.1, h: 0.1 }, important: true }] }
         : {})) };
     }]);
-    const { out, events } = await analyze(p, { agents, visionBin: vision });
+    const { job, out, events } = await analyze(p, { agents, visionBin: vision });
     expect(out, JSON.stringify(events)).toBeDefined();
     expect(agents.tasks).toHaveLength(1);
+    expect(db.prepare("SELECT role FROM agent_runs WHERE job_id = ?").pluck().all(job.id)).toEqual(["footage_analyst"]); // F1
     const t = agents.tasks[0]!;
     expect(t.role).toBe("footage_analyst");
     expect(t.tools).toEqual(["Read"]);

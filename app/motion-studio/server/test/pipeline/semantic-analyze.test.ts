@@ -215,6 +215,8 @@ describe("semantic.analyze", () => {
     expect(doc.causal).toEqual([{ cause_anchor_id: "a_0001", effect_anchor_id: "a_0002" }]);
     expect(semanticRepo.chapters(db, res!.semantic_id)).toEqual([{ chapter_id: "ch_01", title: "Рост за год", start_word_id: id(1), end_word_id: id(10) }]);
     expect(semanticRepo.latest(db, p)).toMatchObject({ id: res!.semantic_id, edl_revision: 1, transcript_revision: 1 });
+    // F1: вызов агента записан в agent_runs
+    expect(db.prepare("SELECT role FROM agent_runs WHERE job_id = ?").pluck().all(job.id)).toEqual(["semantic_director"]);
   });
 
   it("первый ответ с quote_mismatch → вторая отправка с перечнем; второй чистый → semantic.json без rejected", async () => {

@@ -29,6 +29,31 @@ export interface RecordParts {
   messages: { role: "assistant" | "system"; text: string }[];
 }
 
+function insertAgentRuns(db: Db, jobId: string, records: AgentRunRecord[]): void {
+  for (const r of records) {
+    const id = `arun_${randomUUID()}`;
+    agentRuns.insert(db, { id, job_id: jobId, role: r.role, model: r.usage.model || "unknown", log_dir: r.logDir, started_at: r.startedAt });
+    agentRuns.finish(db, id, {
+      status: r.status,
+      input_tokens: r.usage.inputTokens,
+      output_tokens: r.usage.outputTokens,
+      cost_usd: r.usage.costUsd,
+      session_id: r.sessionId,
+      permission_denials: r.permissionDenials,
+      finished_at: r.finishedAt,
+    });
+  }
+}
+
+/** Прогоны агентов фоновой задачи (script.plan, Phase 2–3), с тем же fencing, что `recordRun`. */
+export function recordAgentRuns(db: Db, jobId: string, attempt: number, records: AgentRunRecord[]): boolean {
+  return tx(db, () => {
+    if (!fenceOk(db, jobId, attempt)) return false;
+    insertAgentRuns(db, jobId, records);
+    return true;
+  });
+}
+
 /**
  * Пишет журнал попытки. `false` — попытка устарела (fencing): ничего не записано.
  * `component_tests` (L5): для записей KB со стратегией `reuse`/`adapt` — `rendered-ok`, если
@@ -37,19 +62,7 @@ export interface RecordParts {
 export function recordRun(db: Db, jobId: string, parts: RecordParts): boolean {
   return tx(db, () => {
     if (!fenceOk(db, jobId, parts.attempt)) return false;
-    for (const r of parts.agentRuns) {
-      const id = `arun_${randomUUID()}`;
-      agentRuns.insert(db, { id, job_id: jobId, role: r.role, model: r.usage.model || "unknown", log_dir: r.logDir, started_at: r.startedAt });
-      agentRuns.finish(db, id, {
-        status: r.status,
-        input_tokens: r.usage.inputTokens,
-        output_tokens: r.usage.outputTokens,
-        cost_usd: r.usage.costUsd,
-        session_id: r.sessionId,
-        permission_denials: r.permissionDenials,
-        finished_at: r.finishedAt,
-      });
-    }
+    insertAgentRuns(db, jobId, parts.agentRuns);
     for (const r of parts.renders) {
       renderJobs.insert(db, {
         job_id: jobId,

@@ -61,6 +61,7 @@ import type { KnowledgeAdapter } from "../knowledge/adapter.js";
 import { sha256 } from "../scenes/hash.js";
 import { FencedOutError, PublishCancelledError } from "../scenes/repo.js";
 import { checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
+import { recordAgentRuns } from "./record.js";
 import { RunCtx, errText, isStorageError, toolless } from "./steps.js";
 
 /**
@@ -344,6 +345,7 @@ export function planVisual(depsOf: (ctx: JobContext) => PlanVisualDeps): JobHand
         style: { style_id: style.doc.style_id, revision: style.doc.revision, author: style.doc.author, kept: style.kept, issues: blockingOf(projectStyleFrom(style.doc.base).issues) },
         agent: agentInfo, timings_ms: timings,
       };
+      recordAgentRuns(ctx.db, ctx.job.id, ctx.attempt, rc.records);
       d.log?.(`plan.visual ${planId} r${doc.revision}: сцен ${res.counts.items}, пропусков ${res.counts.skipped}, отклонено ${res.counts.rejected}, blocking ${res.counts.blocking}, $${agentInfo.cost_usd}`);
       return done(res);
     } catch (e) {

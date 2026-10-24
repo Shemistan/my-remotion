@@ -52,6 +52,7 @@ import { sha256 } from "../scenes/hash.js";
 import { FencedOutError, PublishCancelledError } from "../scenes/repo.js";
 import { QUARANTINE, fsyncWrite, setWritable } from "../scenes/store.js";
 import { checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
+import { recordAgentRuns } from "./record.js";
 import { RunCtx, errText, isStorageError, toolless } from "./steps.js";
 
 /** `useAgent: false` — без Semantic Director: пустая разметка (UI-тесты без LLM). */
@@ -266,6 +267,7 @@ export function semanticAnalyze(depsOf: (ctx: JobContext) => SemanticAnalyzeDeps
         semantic_id: semanticId, rel_path: relPath, reused: false, transcript_ref: transcriptRef, edl_ref: edlRef, stale_on_publish: staleOnPublish,
         words: { kept: inp.words.length, removed: inp.removed }, windows: spans.length, counts: counts(doc, rejected.length), agent: agentInfo, timings_ms: timings,
       };
+      recordAgentRuns(ctx.db, ctx.job.id, ctx.attempt, rc.records);
       d.log?.(`semantic ${semanticId}: глав ${res.counts.chapters}, якорей ${res.counts.anchors}, чисел ${res.counts.numbers}, отклонено ${res.counts.rejected}, $${agentInfo.cost_usd}`);
       return done(res);
     } catch (e) {
