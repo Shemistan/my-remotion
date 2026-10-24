@@ -678,6 +678,11 @@ export async function toolless<O>(
   make: (workdir: string) => AgentTask<string>,
   schema: ZodType<O>,
   cp?: CheckpointOpts & { save?: boolean },
+  /**
+   * Наполнение рабочего каталога перед вызовом (Footage Analyst: кадры, `detections.json`,
+   * `checklist.md`) — ролям с `Read`: `--restricted` не выпускает файловые инструменты за cwd.
+   */
+  prepare?: (dir: string) => Promise<void>,
 ): Promise<{ ok: true; output: O; reused: boolean; hash: string } | StepFail> {
   const fail = (s: FailureStage, message: string): StepFail => ({ ok: false, stage: s, message });
   const n = rc.records.filter((r) => r.role === role).length + 1;
@@ -709,6 +714,15 @@ export async function toolless<O>(
   }
   task.workdir = dir;
   const drop = () => rm(dir, { recursive: true, force: true }).catch(() => undefined);
+  if (prepare) {
+    try {
+      await prepare(dir);
+    } catch (e) {
+      await drop(); // процесс не запускался
+      if (isStorageError(e) || (await rc.storageProblem()) !== undefined) return fail("storage", `${label}: рабочий каталог не подготовлен: ${errText(e)}`);
+      return fail(stage, `${label}: рабочий каталог не подготовлен: ${errText(e)}`);
+    }
+  }
   rc.log(`${label}…`);
   const d = await rc.timed(role, () => rc.call(task, schema));
   // порядок проверок: отказ вызова → orphaned → хранилище → отмена → статус

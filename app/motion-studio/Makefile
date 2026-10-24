@@ -2,7 +2,7 @@
 # Все команды — в Node из .nvmrc через scripts/with-node.sh.
 NODE := ./scripts/with-node.sh
 
-.PHONY: check lint typecheck test e2e e2e-ui acceptance web-build install
+.PHONY: check lint typecheck test e2e e2e-footage e2e-ui acceptance web-build install
 
 check: lint typecheck test
 
@@ -28,6 +28,13 @@ test: install
 # Интеграционные тесты с сетью, рендером и реальным SSD (`*.e2e.test.ts`).
 e2e: install
 	$(NODE) npm run --silent test:e2e
+
+# Анализ видеоряда на реальном talking-head ролике (Task 30): Apple Vision и footage.analyze
+# с реальным лицом. Нужны `MS_TEST_TALKING_HEAD=<путь к ролику>` (без него тесты падают с
+# понятным сообщением) и согласие человека на личный материал (V4 плана); собирает vision-detect.
+e2e-footage: install
+	$(NODE) npm run --silent build:vision
+	MS_E2E_FACE=1 $(NODE) npm run --silent test:e2e
 
 # UI: production-сборка `web/dist` (её отдаёт `npm start`).
 web-build: install

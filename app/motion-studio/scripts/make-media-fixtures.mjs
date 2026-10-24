@@ -8,6 +8,7 @@
 //   no-audio.mp4     только видео
 //   broken.mp4       обрезанный cfr (moov в конце — файл не открывается)
 //   talk-ru-takes.mp4  черновой монтаж (Task 28): фальстарт, неудачный дубль, «ну вот, как бы», ≈ 16 с
+//   cuts-3.mp4       анализ видеоряда (Task 30): три сцены по 4 с (testsrc2, smptebars, mandelbrot), тон
 // `--ffprobe-fixtures` — ещё и JSON ffprobe cfr/vfr/rotated/no-audio в
 // `app/motion-studio/server/test/fixtures/ffprobe/` (пути очищены до имени файла).
 // Печатает сводку ffprobe каждого файла. Без `say` речь заменяется тоном (отмечается в выводе).
@@ -132,6 +133,15 @@ make("talk-ru-takes.mp4", (out) => {
   rmSync(aiff, { force: true });
 });
 
+// Анализ видеоряда (Task 30): жёсткие смены сцен на 4 и 8 с, лиц нет.
+make("cuts-3.mp4", (out) => ff([
+  "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=30:duration=4", "-f", "lavfi", "-i", "smptebars=size=1280x720:rate=30:duration=4",
+  "-f", "lavfi", "-i", "mandelbrot=size=1280x720:rate=30", "-f", "lavfi", "-i", "sine=frequency=330:sample_rate=48000:duration=12",
+  "-filter_complex", "[2:v]trim=duration=4,setpts=PTS-STARTPTS[m];[0:v][1:v][m]concat=n=3:v=1:a=0,fps=30,settb=1/30[v]",
+  "-map", "[v]", "-map", "3:a", "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p", "-g", "60",
+  "-c:a", "aac", "-b:a", "96k", "-ac", "1", out,
+]));
+
 make("broken.mp4", (out) => {
   const buf = readFileSync(p("talk-ru-cfr.mp4"));
   writeFileSync(out, buf.subarray(0, Math.floor(buf.length * 0.4)));
@@ -142,7 +152,7 @@ function probeJson(file) {
 }
 
 const summary = [];
-for (const name of ["talk-ru-cfr.mp4", "talk-ru-vfr.mov", "rotated.mov", "no-audio.mp4", "av-vlate.mp4", "av-alate.mp4", "talk-ru-takes.mp4", "broken.mp4"]) {
+for (const name of ["talk-ru-cfr.mp4", "talk-ru-vfr.mov", "rotated.mov", "no-audio.mp4", "av-vlate.mp4", "av-alate.mp4", "talk-ru-takes.mp4", "cuts-3.mp4", "broken.mp4"]) {
   let line;
   try {
     const j = probeJson(p(name));

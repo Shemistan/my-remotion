@@ -22,7 +22,8 @@
     "build": "npm run build --workspaces --if-present",
     "doctor": "tsx server/src/cli/doctor.ts",
     "generate": "tsx server/src/cli/generate.ts",
-    "bench": "tsx scripts/bench-set.mts"
+    "bench": "tsx scripts/bench-set.mts",
+    "build:vision": "mkdir -p tools/vision-detect/bin && swiftc -O tools/vision-detect/main.swift -o tools/vision-detect/bin/vision-detect"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

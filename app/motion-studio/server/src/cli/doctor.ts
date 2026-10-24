@@ -1,7 +1,8 @@
 // doctor (`03` §7): проверка окружения перед запуском сервера и генерацией. Строки: Node ≥ 22;
 // `claude --version` и вход (короткий `claude -p` модели haiku без инструментов, стоимость
 // < $0,01); ffmpeg/ffprobe, энкодеры libx264, aac, prores_ks и фильтры silencedetect, scdet; ASR
-// (python mlx-audio, воркер ai-platform и его sha256, коммит, веса модели, порт 8780); KB_ROOT/KB_SOURCE_ROOT; StorageGuard
+// (python mlx-audio, воркер ai-platform и его sha256, коммит, веса модели, порт 8780); `vision-detect`
+// (Apple Vision, Task 30: собран ли `npm run build:vision`, отвечает ли `--version`); KB_ROOT/KB_SOURCE_ROOT; StorageGuard
 // MS_DATA_DIR; Chrome Headless Shell (скачивается при отсутствии); `quick_check` studio.db;
 // owner-lock свободен. Итог — таблица (или `--json`), код 1 при любой ошибке.
 // `--init` создаёт хранилище, `--adopt` привязывает его к новому тому после переноса (вывод —
@@ -34,6 +35,7 @@ import { bindStoreId, quickCheck } from "../db/meta.js";
 import { migrate } from "../db/migrate.js";
 import { openDb } from "../db/open.js";
 import { KnowledgeAdapter } from "../knowledge/adapter.js";
+import { DEFAULT_VISION_BIN, visionAvailable } from "../analysis/vision.js";
 import { AI_PLATFORM_PORT, type AsrCapability, asrCapability } from "../media/asr-capability.js";
 import { reconcileVersions } from "../scenes/import-slice.js";
 import { SceneRepo } from "../scenes/repo.js";
@@ -49,6 +51,22 @@ const FILTERS = ["silencedetect", "scdet"] as const;
 export type BrowserCheck = () => Promise<{ path: string }>;
 /** Доступность ASR (Task 26); подменяется в тестах. */
 export type AsrCheck = (cfg: AppConfig["asr"]) => Promise<AsrCapability>;
+/** Проверка `vision-detect` (Task 30); подменяется в тестах. */
+export type VisionCheck = () => Promise<{ ok: boolean; status: string; detail: string }>;
+
+/** `vision-detect` собран и отвечает `--version`; нет — footage.analyze работает в режиме `llm_only`. */
+export const visionCheck: VisionCheck = async () => {
+  const bin = DEFAULT_VISION_BIN;
+  if (!(await visionAvailable(bin))) {
+    return { ok: false, status: "missing", detail: `нет ${bin} — собрать: npm run build:vision (swiftc из Command Line Tools); без него анализ видеоряда — llm_only` };
+  }
+  try {
+    const { stdout } = await promisify(execFile)(bin, ["--version"], { timeout: 15_000 });
+    return { ok: true, status: "ok", detail: `${stdout.trim()} (${bin})` };
+  } catch (e) {
+    return { ok: false, status: "error", detail: `${bin} --version: ${(e as Error).message.split("\n")[0]}` };
+  }
+};
 
 export interface CheckRow {
   name: string;
@@ -64,13 +82,14 @@ export async function runDoctor(
   probe: VolumeProbe,
   browser: BrowserCheck = ensureRenderBrowser,
   asr: AsrCheck = (cfg) => asrCapability(cfg),
+  vision: VisionCheck = visionCheck,
 ): Promise<{ code: number; output: string }> {
   const [mode, ...rest] = argv;
-  if (mode === "--json" && rest.length === 0) return fullCheck(env, probe, browser, asr, true);
+  if (mode === "--json" && rest.length === 0) return fullCheck(env, probe, browser, asr, vision, true);
   if (rest.length > 0 || (mode !== undefined && mode !== "--init" && mode !== "--adopt" && mode !== "--import-slice")) {
     return { code: 2, output: USAGE };
   }
-  if (mode === undefined) return fullCheck(env, probe, browser, asr, false);
+  if (mode === undefined) return fullCheck(env, probe, browser, asr, vision, false);
   if (mode === "--import-slice") return importSlice(env, probe);
 
   const root = env.MS_DATA_DIR?.trim();
@@ -89,7 +108,7 @@ const exec: Exec = async (bin, args, env, timeout, cwd) => (await promisify(exec
 const firstLine = (s: string) => s.trim().split("\n")[0]!.trim();
 const errText = (e: unknown) => ((e as Error).message ?? String(e)).split("\n")[0]!;
 
-async function fullCheck(env: NodeJS.ProcessEnv, probe: VolumeProbe, browser: BrowserCheck, asrCheck: AsrCheck, json: boolean): Promise<{ code: number; output: string }> {
+async function fullCheck(env: NodeJS.ProcessEnv, probe: VolumeProbe, browser: BrowserCheck, asrCheck: AsrCheck, vision: VisionCheck, json: boolean): Promise<{ code: number; output: string }> {
   const rows: CheckRow[] = [];
   const row = (name: string, ok: boolean, status: string, detail: string) => rows.push({ name, ok, status: ok ? "ok" : status, detail });
   const root = env.MS_DATA_DIR?.trim();
@@ -170,6 +189,14 @@ async function fullCheck(env: NodeJS.ProcessEnv, probe: VolumeProbe, browser: Br
     } else row("asr", false, cap.reason, cap.detail);
   } catch (e) {
     row("asr", false, "error", errText(e));
+  }
+
+  // Apple Vision (Task 30): детектор лиц и рук для безопасных зон
+  try {
+    const v = await vision();
+    row("vision", v.ok, v.status, v.detail);
+  } catch (e) {
+    row("vision", false, "error", errText(e));
   }
 
   // KB

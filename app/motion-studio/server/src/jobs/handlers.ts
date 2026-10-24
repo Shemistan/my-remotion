@@ -1,11 +1,12 @@
 // Обработчики задач, общие для сервера и CLI: оба регистрируют одни и те же обработчики
 // (`playground.generate`, `playground.edit`, `scene.restore`, `scene.export`, `media.import`,
-// `asr.transcribe`, `roughcut.propose`, `roughcut.preview`).
+// `asr.transcribe`, `roughcut.propose`, `roughcut.preview`, `footage.analyze`).
 import type { Job } from "@ms/contracts";
 import { DEFAULT_MIN_FREE_GB } from "@ms/core";
 import { alphaAtCorner, exportVersion, renderVersion } from "@ms/render";
 import type { CoreServices } from "../boot.js";
 import { type AsrTranscribeDeps, asrTranscribe } from "../pipeline/asr-transcribe.js";
+import { type FootageAnalyzeDeps, footageAnalyze } from "../pipeline/footage-analyze.js";
 import type { GenerateResult } from "../pipeline/generate.js";
 import { type MediaImportDeps, mediaImport } from "../pipeline/media-import.js";
 import { playgroundEdit } from "../pipeline/playground-edit.js";
@@ -38,6 +39,9 @@ export interface HandlerOptions {
   /** `roughcut.propose` / `roughcut.preview`: начало этапа (тесты отменяют на этапе). */
   onRoughcutStage?: RoughcutProposeDeps["onStage"];
   onPreviewStage?: RoughcutPreviewDeps["onStage"];
+  /** `footage.analyze`: начало этапа (тесты отменяют на этапе); путь `vision-detect` (тесты). */
+  onFootageStage?: FootageAnalyzeDeps["onStage"];
+  visionBin?: string;
 }
 
 export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extra: Handlers = {}): Handlers {
@@ -96,6 +100,16 @@ export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extr
       roughcut: svc.config.roughcut,
       storage: svc.storageCheck,
       ...(o.onPreviewStage ? { onStage: o.onPreviewStage } : {}),
+      ...(o.log ? { log: o.log } : {}),
+    })),
+    "footage.analyze": footageAnalyze(() => ({
+      root: svc.root,
+      config: svc.config,
+      storage: svc.storageCheck,
+      agents: svc.agents,
+      ...(o.visionBin ? { visionBin: o.visionBin } : {}),
+      ...(o.watchIntervalMs ? { watchIntervalMs: o.watchIntervalMs } : {}),
+      ...(o.onFootageStage ? { onStage: o.onFootageStage } : {}),
       ...(o.log ? { log: o.log } : {}),
     })),
     ...extra,

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { acquireOwnerLock, type VolumeProbe } from "@ms/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { defaultSettings } from "@ms/contracts";
-import { type AsrCheck, runDoctor } from "../../src/cli/doctor.js";
+import { type AsrCheck, type VisionCheck, runDoctor } from "../../src/cli/doctor.js";
 import { openDb } from "../../src/db/open.js";
 import * as scenes from "../../src/db/repos/scenes.js";
 import * as versions from "../../src/db/repos/versions.js";
@@ -23,6 +23,7 @@ const probe: VolumeProbe = {
 };
 // Браузер подменён: настоящий ensureRenderBrowser качает Chrome (проверяется в e2e render).
 const browser = async () => ({ path: "/fake/chrome-headless-shell" });
+const visionOk: VisionCheck = async () => ({ ok: true, status: "ok", detail: "vision-detect 1 (/x/vision-detect)" });
 const asrOk: AsrCheck = async () => ({ available: true, workerSha256: "59b7e03bf5a8b7f940b2607d357528e7120f5bb6bbe98efa70de4b39bdce1073", commit: "0456395abcdef", gpuContention: false });
 
 let tmp: string;
@@ -137,9 +138,9 @@ describe("полный doctor (03 §7)", () => {
 
   it("всё в порядке: node, claude (версия и вход haiku), ffmpeg/ffprobe и энкодеры, KB, хранилище, Chrome, БД, owner-lock → код 0", async () => {
     const root = await store();
-    const r = await runDoctor(["--json"], { MS_DATA_DIR: root, PATH: fakeBin() }, probe, browser, asrOk);
+    const r = await runDoctor(["--json"], { MS_DATA_DIR: root, PATH: fakeBin() }, probe, browser, asrOk, visionOk);
     const c = checks(r.output);
-    expect(Object.keys(c)).toEqual(["node", "claude", "claude_login", "ffmpeg", "ffprobe", "encoders", "filters", "asr", "kb", "storage", "chrome", "db", "owner_lock"]);
+    expect(Object.keys(c)).toEqual(["node", "claude", "claude_login", "ffmpeg", "ffprobe", "encoders", "filters", "asr", "vision", "kb", "storage", "chrome", "db", "owner_lock"]);
     for (const x of Object.values(c)) expect(x, x.name).toMatchObject({ ok: true, status: "ok" });
     expect(c.claude!.detail).toContain("2.1.0");
     expect(c.claude_login!.detail).toMatch(/\$0\.002/);
@@ -148,7 +149,7 @@ describe("полный doctor (03 §7)", () => {
     expect(JSON.parse(r.output)).toMatchObject({ ok: true, storage: { ok: true, root } });
     // без --json — таблица
     expect(c.asr!.detail).toMatch(/whisper-large-v3-turbo.*sha256 59b7e03bf5a8.*ai-platform 0456395/);
-    const t = await runDoctor([], { MS_DATA_DIR: root, PATH: fakeBin() }, probe, browser, asrOk);
+    const t = await runDoctor([], { MS_DATA_DIR: root, PATH: fakeBin() }, probe, browser, asrOk, visionOk);
     expect(t.code).toBe(0);
     expect(t.output).toMatch(/^ok\s+node\s+/m);
     expect(t.output).toMatch(/^ok\s+owner_lock\s+/m);
@@ -202,6 +203,14 @@ describe("полный doctor (03 §7)", () => {
     const busy: AsrCheck = async () => ({ available: true, workerSha256: "a".repeat(64), commit: "0456395", gpuContention: true });
     const r2 = await runDoctor(["--json"], { MS_DATA_DIR: root, PATH: fakeBin() }, probe, browser, busy);
     expect(checks(r2.output).asr).toMatchObject({ ok: true, detail: expect.stringContaining("8780") });
+  });
+
+  it("vision-detect (Task 30): не собран → строка vision missing с подсказкой build:vision, код 1", async () => {
+    const root = await store();
+    const missing: VisionCheck = async () => ({ ok: false, status: "missing", detail: "нет /x/vision-detect — собрать: npm run build:vision" });
+    const r = await runDoctor(["--json"], { MS_DATA_DIR: root, PATH: fakeBin() }, probe, browser, asrOk, missing);
+    expect(checks(r.output).vision).toMatchObject({ ok: false, status: "missing", detail: expect.stringContaining("build:vision") });
+    expect(r.code).toBe(1);
   });
 
   it("без MS_DATA_DIR → storage env_missing, БД и lock пропущены, код 1", async () => {
