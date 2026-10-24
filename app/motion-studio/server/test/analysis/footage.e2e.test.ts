@@ -7,7 +7,7 @@
 // стоимость. Рамки зон (`scripts/draw-zones.mjs`) — в tmp/footage-evidence/talking-head/; в
 // docs/evidence/phase-3/footage/ их переносит человек после просмотра (кадры ≤ 480 px, V4).
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -90,15 +90,19 @@ it("talking head: Vision — лицо, свободная зона; агент �
   const doc = FootageAnalysisSchema.parse(JSON.parse(readFileSync(join(root, o.rel_path), "utf8")));
   expect(o.mode).toBe("vision");
   expect(doc.shots.length).toBeGreaterThanOrEqual(1);
+  // soft: критерии те же и тест падает так же, но заметки, рамки зон и прогон агента остаются —
+  // без них на реальном ролике не разобрать причину (Task 30, прогон 2026-10-24)
   for (const s of doc.shots) {
-    expect(s.keyframes.length).toBeGreaterThanOrEqual(3);
-    expect(s.face.detected_ratio, `${s.id}: ${JSON.stringify(s.face)}`).toBeGreaterThanOrEqual(0.8);
-    expect(Math.max(...s.free_zones.map((z) => z.free_ratio)), `${s.id}: ${JSON.stringify(s.free_zones)}`).toBeGreaterThanOrEqual(0.9);
+    expect.soft(s.keyframes.length, s.id).toBeGreaterThanOrEqual(3);
+    expect.soft(s.face.detected_ratio, `${s.id}: ${JSON.stringify(s.face)}`).toBeGreaterThanOrEqual(0.8);
+    expect.soft(Math.max(...s.free_zones.map((z) => z.free_ratio)), `${s.id}: ${JSON.stringify(s.free_zones)}`).toBeGreaterThanOrEqual(0.9);
   }
   notes.push(`- без агента: ${a.s.toFixed(1)} с, шотов ${doc.shots.length}, кадров ${o.keyframes}; этапы ${JSON.stringify(o.timings_ms)}`);
-  for (const s of doc.shots) notes.push(`  - ${s.id} ${(s.source_start_us / 1e6).toFixed(1)}–${(s.source_end_us / 1e6).toFixed(1)} с: лицо ${s.face.detected_ratio.toFixed(2)} ${JSON.stringify(s.face.union)}, автор ${s.author_position}, зоны ${s.free_zones.map((z) => `${z.zone} ${z.free_ratio.toFixed(2)}`).join(", ")}`);
+  for (const s of doc.shots) notes.push(`  - ${s.id} ${(s.source_start_us / 1e6).toFixed(1)}–${(s.source_end_us / 1e6).toFixed(1)} с: кадров ${s.keyframes.length}, лицо ${s.face.detected_ratio.toFixed(2)} ${JSON.stringify(s.face.union)}, автор ${s.author_position}, занято ${JSON.stringify(s.occupied)}, зоны ${s.free_zones.map((z) => `${z.zone} ${z.free_ratio.toFixed(2)}`).join(", ")}`);
   const drawn = execFileSync(process.execPath, [join(MS, "scripts/draw-zones.mjs"), join(root, o.rel_path, ".."), join(EVIDENCE, "vision"), "3"]).toString().trim();
   notes.push(`- draw-zones: ${drawn.split("\n").map((x) => x.replace(REPO, "")).join(", ")}`);
+  // документ и рамки детектора — рядом с рамками зон в tmp/ (хранилище удаляется после теста)
+  for (const f of ["footage.json", "detections.json"]) copyFileSync(join(root, o.rel_path, "..", f), join(EVIDENCE, "vision", f));
 
   const b = await job("footage.analyze", projectId, { projectId, mediaId });
   const ob = b.j.output_refs as FootageAnalyzeResult;
