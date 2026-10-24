@@ -151,7 +151,7 @@ it("command does not start until registry.add resolves (custom registry)", async
   // запись — только поля процесса, без реестра из ref
   expect(Object.keys(added[0]!).sort()).toEqual(["attempt", "cmd", "pgid", "pid", "runId", "startedAt"]);
   // файловый реестр не тронут
-  expect(existsSync(join(root, "run/processes"))).toBe(false);
+  expect(readdirSync(join(root, "run/processes"))).toEqual([]);
 });
 
 it("registry.add failure: the command never runs, the group is killed, error propagates", async () => {

@@ -242,6 +242,8 @@ export async function renderJob(req: RenderJobRequest, signal?: AbortSignal, dep
   const { root, runId, attempt, registry } = req.run;
   const ref = { runId, attempt };
   const tmpRoot = await safeMkdir(root, "run/tmp");
+  // chrome-wrapper.sh пишет запись Chrome в `run/processes/`, но каталог не создаёт
+  await safeMkdir(root, "run/processes");
   if (signal?.aborted) return cancelled();
   const runTmp = await mkdtemp(join(tmpRoot, `${runId}-a${attempt}-`));
   // ключ рендера: два дубля одной попытки рендерят параллельно с одним (runId, attempt)

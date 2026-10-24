@@ -1,6 +1,6 @@
 // Логика generateScene на фейковых адаптерах (агенты, рендер, KB, typecheck);
 // static check и хранилище (tmp/) — настоящие.
-import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type MotionSpec } from "@ms/contracts";
@@ -297,6 +297,21 @@ describe("generateScene: хранилище и процессы", () => {
     expect(o.failure!.stage).toBe("storage");
     expect(o.versionDir).toBeUndefined();
     expect(existsSync(join(root, "workspace/projects"))).toBe(false);
+  });
+
+  it("нет run/processes (реестр Chrome) → создаётся до агентов; создать нельзя → storage до первого вызова агента", async () => {
+    rmSync(join(root, "run/processes"), { recursive: true, force: true });
+    const agents = fakeAgents({});
+    const ok = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(ok.status).toBe("ready");
+    expect(existsSync(join(root, "run/processes"))).toBe(true);
+
+    rmSync(join(root, "run/processes"), { recursive: true, force: true });
+    writeFileSync(join(root, "run/processes"), "не каталог");
+    const blocked = fakeAgents({});
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents: blocked }));
+    expect(r.failure).toMatchObject({ stage: "storage", message: expect.stringMatching(/run\/processes/) });
+    expect(blocked.tasks).toEqual([]);
   });
 
   it("хранилище пропало во время рендера → рендер прерван, версии нет", async () => {

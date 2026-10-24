@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync, readFileSync, renameSync } from "node:fs";
+import { existsSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, expect, it } from "vitest";
@@ -139,4 +139,10 @@ it("verifyOwnerLock: lock file replaced and free → the new file is locked, the
   // новый файл под замком: другой процесс его не возьмёт
   await expect(acquireOwnerLock(root, "cli")).rejects.toThrow(/owner_busy/);
   expect(JSON.parse(readFileSync(join(root, "run/owner.json"), "utf8"))).toMatchObject({ pid: process.pid, kind: "server" });
+});
+
+it("restores run/processes on an existing store without it (server/CLI start)", async () => {
+  rmSync(join(root, "run/processes"), { recursive: true, force: true });
+  await acquire("server");
+  expect(statSync(join(root, "run/processes")).isDirectory()).toBe(true);
 });

@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { chmod, mkdir, readFile, readdir, rename, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -52,7 +52,7 @@ describe("checkStorage", () => {
 
   it("leaves no files behind after the write test", async () => {
     await checkStorage({ MS_DATA_DIR: root }, probe);
-    expect(await readdir(root)).toEqual([MARKER_FILE]);
+    expect((await readdir(root)).sort()).toEqual([MARKER_FILE, "run"].sort());
   });
 
   it("reports missing marker", async () => {
@@ -196,6 +196,11 @@ describe("initStore", () => {
     expect(await marker()).toEqual(m);
   });
 
+  it("creates run/processes: Chrome's side registry needs it before the first render", async () => {
+    await initStore(root, probe, {});
+    expect(statSync(join(root, "run/processes")).isDirectory()).toBe(true);
+  });
+
   it("initStore requires existing parent", async () => {
     const deep = join(tmp, "no/such/dir");
     await expect(initStore(deep, probe, {})).rejects.toThrow(/storage/);
@@ -235,7 +240,7 @@ describe("initStore", () => {
   it("leaves no temporary files next to the marker", async () => {
     await initStore(root, probe, {});
     await initStore(root, fakeProbe({ uuid: "VOL-B" }), { adopt: true });
-    expect(await readdir(root)).toEqual([MARKER_FILE]);
+    expect((await readdir(root)).sort()).toEqual([MARKER_FILE, "run"].sort());
   });
 
   it("refuses to re-initialize an existing store", async () => {

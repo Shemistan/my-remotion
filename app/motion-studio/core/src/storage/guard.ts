@@ -381,5 +381,7 @@ export async function initStore(
     created_at: new Date().toISOString(),
   };
   await writeMarker(root, marker);
+  // боковой реестр процессов: chrome-wrapper.sh пишет туда сам и каталог не создаёт
+  await mkdir(join(root, "run", "processes"), { recursive: true });
   return marker;
 }

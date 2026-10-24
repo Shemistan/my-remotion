@@ -45,6 +45,8 @@ const held = new Set<Database.Database>();
  */
 export async function acquireOwnerLock(root: string, kind: OwnerKind): Promise<OwnerLock> {
   const dir = await safeMkdir(root, "run");
+  // хранилище, созданное до того, как init стал создавать `run/processes` (его ждёт chrome-wrapper.sh)
+  await safeMkdir(root, "run/processes");
   const ownerFile = join(dir, "owner.json");
   // timeout: 0 — не ждать освобождения (по умолчанию better-sqlite3 ждёт 5 с)
   const lockPath = join(dir, "owner.lock");

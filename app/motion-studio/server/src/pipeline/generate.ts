@@ -269,6 +269,13 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
   if (!status.ok) return failed("storage", `${status.reason}: ${status.detail}`);
   root = status.root;
   rc = new RunCtx(deps, signal, root, runId, attempt, deps.run?.registry);
+  // реестр Chrome (chrome-wrapper.sh пишет туда сам) — до трат на агентов: без каталога рендер
+  // падал бы уже после Director и Engineer
+  try {
+    await safeMkdir(root, "run/processes");
+  } catch (e) {
+    return failed("storage", `каталог run/processes не создан: ${errText(e)}`);
+  }
 
   // правка: brief.json сцены — исходный запрос, его не переписываем
   if (!req.keepBrief) {
