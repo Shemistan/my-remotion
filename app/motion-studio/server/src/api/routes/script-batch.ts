@@ -3,8 +3,7 @@
 // схемы тел и ответов, тело — 501 `not_implemented`.
 import { CheatsheetQuerySchema, CreatedJobDtoSchema, GenerateBodySchema, PackageBodySchema, ReframeBodySchema, ScriptBatchDtoSchema, ScriptPackageDtoSchema } from "@ms/contracts";
 import { z } from "zod";
-import { scriptBatches } from "../../db/repos/script.js";
-import { batchStatus, cancelBatch, startScriptBatch } from "../../script/batch.js";
+import { batchForKey, batchStatus, cancelBatch, startScriptBatch } from "../../script/batch.js";
 import { type ApiContext, IdParams, type ZApp, idempotencyKey } from "../context.js";
 import { ApiError } from "../errors.js";
 
@@ -17,12 +16,12 @@ export const scriptBatchRoutes: (app: ZApp, ctx: ApiContext) => void = (app, { c
   }, async (req, reply) => {
     const key = idempotencyKey(req);
     const { revision, item_ids, regenerate, aspect } = req.body;
-    const before = new Set(scriptBatches.listByProject(core.db, req.params.id).map((b) => b.id));
+    const existed = batchForKey(core.db, req.params.id, key) !== undefined;
     const dto = startScriptBatch(core, {
       projectId: req.params.id, revision, idempotencyKey: key,
       ...(item_ids ? { itemIds: item_ids } : {}), ...(regenerate !== undefined ? { regenerate } : {}), ...(aspect ? { aspect } : {}),
     });
-    return reply.status(before.has(dto.id) ? 200 : 202).send(dto);
+    return reply.status(existed ? 200 : 202).send(dto);
   });
 
   app.get("/api/script-batches/:id", { schema: { params: IdParams, response: { 200: ScriptBatchDtoSchema } } }, async (req) =>

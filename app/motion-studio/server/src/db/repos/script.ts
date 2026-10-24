@@ -141,6 +141,10 @@ export const scriptScenes = {
       : db.prepare("UPDATE script_scenes SET job_id = ?, item_fingerprint = ? WHERE scene_id = ?").run(jobId, itemFingerprint, sceneId);
     if (r.changes !== 1) throw new Error(`db: сцены сценария ${sceneId} нет`);
   },
+  /** Отпечаток сцены плана, по которому опубликована текущая версия (S5 fix I2); строки нет — 0. */
+  setFingerprint(db: Db, sceneId: string, itemFingerprint: string): number {
+    return db.prepare("UPDATE script_scenes SET item_fingerprint = ? WHERE scene_id = ?").run(itemFingerprint, sceneId).changes;
+  },
 };
 
 export const scriptPackages = {

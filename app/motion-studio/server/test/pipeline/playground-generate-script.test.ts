@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_READING, type DirectorOutput, type MotionSpec, type ProjectStyleBase, type ScriptPlanRevisionDoc, type ScriptSceneContext, type ScriptSceneItem, type Settings, defaultSettings } from "@ms/contracts";
+import { loadPrompt } from "../../src/agents/prompts.js";
 import { artifactPaths } from "../../src/artifacts/paths.js";
 import * as jobEvents from "../../src/db/repos/job-events.js";
 import * as jobs from "../../src/db/repos/jobs.js";
@@ -67,9 +68,10 @@ afterEach(async () => {
 
 const TERMINAL = ["completed", "failed", "cancelled", "blocked", "awaiting_input"];
 
-async function run(over: Partial<GenerateDeps>, input: Record<string, unknown>) {
+async function run(over: Partial<GenerateDeps>, input: Record<string, unknown>, onScene?: (sceneId: string) => void) {
   const d = await makeDeps(env.s.root, skills, { render: fakeRender({ png: true }).render, ...over });
   const scene = repo.createScene(P, { prompt: "Сцена 2 из 3", settings });
+  onScene?.(scene.id);
   const handler = playgroundGenerate({ deps: () => d, repo });
   runner = new JobRunner({ db: env.db, root: env.s.root, owner: "srv", handlers: { "playground.generate": handler }, pollMs: 5 });
   const j = enqueue(env.db, { type: "playground.generate", projectId: P, sceneId: scene.id, input: { sceneId: scene.id, prompt: "Сцена 2 из 3 сценария «Go map»", settings, ...input }, idempotencyKey: `k-${scene.id}` }).job;
@@ -162,6 +164,55 @@ describe("playground.generate со script", () => {
     expect(Math.max(...spec.beats.map((b) => b.end_frame))).toBe(180);
   });
 
+  // I1: удержание планировщика ограничено (≤ 4 с, ~15 % длины) — при длинном tail раскладка
+  // сжимает фазы до total − tail и растягивает hold на хвост, Director не уходит в раунд 2
+  for (const [total, tail] of [[180, 60], [300, 60], [240, 150], [300, 150]] as const) {
+    it(`окно речи total=${total} tail=${tail}: hold ≥ tail, Director один раз, без speech_window`, async () => {
+      const agents = fakeAgents({ director: async () => ({ output: phasedDirector(total) }) });
+      const { job, scene } = await run({ agents }, { script: { ...script, tail_frames: tail }, settings: { ...settings, duration_frames: total } });
+      expect(job.status, JSON.stringify(job.error)).toBe("completed");
+      const dir = agents.tasks.filter((t) => t.role === "motion_director");
+      expect(dir).toHaveLength(1);
+      expect(logs(job.id).some((m) => /speech_window/.test(m))).toBe(false);
+      const spec = published(scene.id).spec;
+      const hold = spec.beats.filter((b) => b.phase === "fin");
+      const start = Math.min(...hold.map((b) => b.start_frame));
+      expect(start).toBeLessThanOrEqual(total - tail);
+      expect(Math.max(...hold.map((b) => b.end_frame)) - start).toBeGreaterThanOrEqual(tail);
+      for (const b of spec.beats) if (b.phase !== "fin") expect(b.start_frame, b.id).toBeGreaterThanOrEqual(15);
+    });
+  }
+
+  it("I2: после публикации отпечаток сцены плана из входа (script_fingerprint) пишется в script_scenes", async () => {
+    const { job, scene } = await run({ agents: fakeAgents({}) }, { script, script_fingerprint: "fp-new" }, (sceneId) => {
+      scriptScenes.insert(env.db, { project_id: P, plan_id: "pln_s", item_id: "ss_002", aspect: "16:9", scene_id: sceneId, batch_id: null, job_id: null, item_fingerprint: "fp-old" });
+    });
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(scriptScenes.get(env.db, "pln_s", "ss_002", "16:9")!.scene_id).toBe(scene.id);
+    expect(scriptScenes.get(env.db, "pln_s", "ss_002", "16:9")!.item_fingerprint).toBe("fp-new");
+  });
+
+  it("I2: задача упала до публикации — отпечаток прежний", async () => {
+    const agents = fakeAgents({ director: async () => { throw new Error("фейк: director упал"); } });
+    const { job } = await run({ agents }, { script, script_fingerprint: "fp-new" }, (sceneId) => {
+      scriptScenes.insert(env.db, { project_id: P, plan_id: "pln_s", item_id: "ss_002", aspect: "16:9", scene_id: sceneId, batch_id: null, job_id: null, item_fingerprint: "fp-old" });
+    });
+    expect(job.status).not.toBe("completed");
+    expect(scriptScenes.get(env.db, "pln_s", "ss_002", "16:9")!.item_fingerprint).toBe("fp-old");
+  });
+
+  it("M1: правила сцены сценария — в задаче Concept и Director только у сцены сценария; в системных промптах ролей их нет", async () => {
+    const a = fakeAgents({});
+    await run({ agents: a }, { script });
+    for (const role of ["concept", "motion_director"]) expect(String(a.tasks.find((t) => t.role === role)!.input), role).toContain("# Правила сцены сценария");
+    expect(String(a.tasks.find((t) => t.role === "concept")!.input)).toContain("ФРАГМЕНТ");
+    await runner!.stop({ abortRunning: true });
+    const b = fakeAgents({});
+    await run({ agents: b }, {});
+    for (const role of ["concept", "motion_director"]) expect(String(b.tasks.find((t) => t.role === role)!.input), role).not.toContain("Правила сцены сценария");
+    for (const role of ["concept", "motion_director"] as const) expect(loadPrompt(role)).not.toContain("<<<ФРАГМЕНТ");
+  });
+
   it("без script — счёт с кадра 0 (раскладка как раньше)", async () => {
     const agents = fakeAgents({ director: async () => ({ output: phasedDirector() }) });
     const { job, scene } = await run({ agents }, {});
@@ -171,10 +222,10 @@ describe("playground.generate со script", () => {
 });
 
 /** Ответ Director с фазами: count-up — счёт ведёт с первого кадра окна. */
-function phasedDirector(): DirectorOutput {
+function phasedDirector(total = 180): DirectorOutput {
   return {
     spec: {
-      title: "Версия 1.24", purpose: "версия", duration_frames: 180, fps: { num: 30, den: 1 }, style_preset: "dark-premium",
+      title: "Версия 1.24", purpose: "версия", duration_frames: total, fps: { num: 30, den: 1 }, style_preset: "dark-premium",
       elements: [
         { id: "num", kind: "number", role: "emphasis", entrance: "count", content: { value: 1.24 }, layout: { x: 0.3, y: 0.3, w: 0.4, h: 0.3 } },
         { id: "label", kind: "text", role: "подпись", entrance: "rise", content: { text: "Go" }, layout: { x: 0.3, y: 0.1, w: 0.4, h: 0.1 } },
