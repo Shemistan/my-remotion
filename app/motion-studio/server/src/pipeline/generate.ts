@@ -26,6 +26,7 @@ import {
   type MotionSpec,
   type QAReport,
   type Settings,
+  type Technique,
   type VersionManifest,
 } from "@ms/contracts";
 import { type ProcessRegistry, type ReapOptions, type StorageStatus, safeMkdir } from "@ms/core";
@@ -188,6 +189,8 @@ export interface GenerationRequest {
   extraQa?: LoopInput["extraQa"];
   /** Сцена сценария (S11): носитель финала в задаче Engineer. */
   script?: boolean;
+  /** Приём сцены сценария (S14): код без его ключевого компонента — исправление до рендера. */
+  technique?: Technique;
 }
 
 /** Правка: база, план и как вести цикл (`playground-edit.ts`). */
@@ -403,6 +406,7 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
         ...(req.previous ? { previous: req.previous } : {}),
         ...(req.extraQa ? { extraQa: req.extraQa } : {}),
         ...(req.script ? { script: true } : {}),
+        ...(req.technique ? { technique: req.technique } : {}),
         progress: deps.progress,
         ...(ed ? { reviseOnly: true, ...(paramEdit ? { skipFirstEngineer: true } : {}), ...(ed.brief ? { brief: ed.brief } : {}), ...(ed.preserveCheck ? { preserveCheck: ed.preserveCheck } : {}), ...(ed.preserveHold ? { preserveHold: ed.preserveHold } : {}) } : {}),
         // второй дубль (S5): свой каталог попытки задачи вне draft (граница draft первого дубля

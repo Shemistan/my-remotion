@@ -1,0 +1,334 @@
+{
+  "input_hash": "9886856f606db3e09bf8b6c47bde1abb29a84e1f52b04444831f2617866f97aa",
+  "output": {
+    "spec": {
+      "title": "Разбор map: три вопроса",
+      "purpose": "Известный разбор map в Go держится всего на трёх вопросах с собеседования.",
+      "duration_frames": 321,
+      "fps": {
+        "num": 30,
+        "den": 1
+      },
+      "style_preset": "tech-neon",
+      "composition": {
+        "archetype": "centered-hero",
+        "idea": "Неоновая цифра в центре держит «0», пока звучит вступление; к слову «map» рядом выскакивает значок map, затем счёт дотягивается до «3» ровно к «трёх», и к слову «вопросах» из цифры вырастают три пустые карточки. Взгляд: рубрика → «0» → значок map → «3» → три карточки.",
+        "focus": "Setup: фокус на числе «0» и рубрике. Action: значок map, затем само число, которое считает. Payoff: удар по «3», фокус спускается на три карточки. Камера стоит: взгляд ведут счёт и удар числа, раскладке нужен запас по краям.",
+        "transitions": "«0» сразу стоит в центре и становится «3» прямо на месте, без смены элемента. Значок map приходит к слову и остаётся до конца. В payoff из-под цифры растут три пустые карточки и подпись «на трёх вопросах»; всё это держится до финала, где цифра дышит волной.",
+        "title_mode": "kicker",
+        "background": {
+          "variant": "aurora",
+          "focus": {
+            "x": 0.5,
+            "y": 0.38
+          }
+        },
+        "structure": "count-up",
+        "structure_reason": "Бриф задаёт one-number: число ведёт сцену; счёт растянут так, чтобы к итогу прийти у слова «трёх»."
+      },
+      "elements": [
+        {
+          "id": "kicker",
+          "kind": "text",
+          "role": "контекст: рубрика",
+          "entrance": "type",
+          "depth_layer": 1,
+          "content": {
+            "component": "SceneTitle",
+            "mode": "kicker",
+            "kicker": "YouTube · разбор Go",
+            "size": "caption"
+          },
+          "layout": {
+            "x": 0.05,
+            "y": 0.05,
+            "w": 0.4,
+            "h": 0.06
+          }
+        },
+        {
+          "id": "hero-number",
+          "kind": "number",
+          "role": "акцент: герой — число вопросов",
+          "entrance": "count",
+          "depth_layer": 1,
+          "content": {
+            "component": "AnimatedNumber",
+            "from": 0,
+            "to": 3,
+            "locale": "ru",
+            "size": "display",
+            "font": "mono",
+            "reserveWidth": true,
+            "enterAt": "setup",
+            "emphasis": {
+              "component": "Emphasis",
+              "shape": "circle",
+              "ring": "strike",
+              "beat": "strike",
+              "hold": true
+            },
+            "note": "Без суффикса: слово «вопросах» встаёт отдельно в payoff"
+          },
+          "layout": {
+            "x": 0.4,
+            "y": 0.18,
+            "w": 0.2,
+            "h": 0.34
+          }
+        },
+        {
+          "id": "map-badge",
+          "kind": "card",
+          "role": "контекст: значок map",
+          "entrance": "pop",
+          "depth_layer": 1,
+          "content": {
+            "component": "Card",
+            "enter": "pop",
+            "elevation": 2,
+            "accentIndex": 1,
+            "label": "map",
+            "font": "mono",
+            "size": "h2",
+            "icon": "{ k: v }"
+          },
+          "layout": {
+            "x": 0.62,
+            "y": 0.14,
+            "w": 0.16,
+            "h": 0.13
+          }
+        },
+        {
+          "id": "label-questions",
+          "kind": "text",
+          "role": "опора: подпись к числу",
+          "entrance": "mask",
+          "depth_layer": 1,
+          "content": {
+            "component": "KineticText",
+            "text": "на трёх вопросах",
+            "size": "h2",
+            "mode": "words",
+            "highlight": []
+          },
+          "layout": {
+            "x": 0.62,
+            "y": 0.32,
+            "w": 0.34,
+            "h": 0.1
+          }
+        },
+        {
+          "id": "question-cards",
+          "kind": "group",
+          "role": "три пустые карточки-вопроса",
+          "entrance": "rise",
+          "depth_layer": 2,
+          "content": {
+            "component": "Card",
+            "count": 3,
+            "enter": "rise",
+            "stagger": "stagger_frames",
+            "elevation": 2,
+            "empty": true,
+            "glyph": "?",
+            "note": "Карточки пустые, по центру каждой приглушённый «?»; текст вопросов не показывается"
+          },
+          "layout": {
+            "x": 0.17,
+            "y": 0.64,
+            "w": 0.66,
+            "h": 0.26
+          }
+        },
+        {
+          "id": "cards-caption",
+          "kind": "text",
+          "role": "подпись: собеседование",
+          "entrance": "blur",
+          "depth_layer": 1,
+          "content": {
+            "component": "KineticText",
+            "text": "собеседование",
+            "size": "body",
+            "enter": "fade"
+          },
+          "layout": {
+            "x": 0.38,
+            "y": 0.55,
+            "w": 0.24,
+            "h": 0.07
+          }
+        }
+      ],
+      "phases": [
+        {
+          "id": "setup",
+          "role": "setup",
+          "weight": 41,
+          "element_ids": [
+            "kicker",
+            "hero-number"
+          ]
+        },
+        {
+          "id": "action",
+          "role": "action",
+          "weight": 36,
+          "element_ids": [
+            "map-badge",
+            "hero-number"
+          ]
+        },
+        {
+          "id": "payoff",
+          "role": "payoff",
+          "weight": 13,
+          "element_ids": [
+            "label-questions",
+            "hero-number",
+            "question-cards",
+            "cards-caption"
+          ]
+        },
+        {
+          "id": "hold",
+          "role": "hold",
+          "weight": 10,
+          "element_ids": [
+            "hero-number"
+          ],
+          "hold_mode": "now-pulse"
+        }
+      ],
+      "beats": [
+        {
+          "id": "kicker-in",
+          "action": "kicker-type-in",
+          "description": "Рубрика «YouTube · разбор Go» набирается по буквам в левом верхнем углу.",
+          "element_ids": [
+            "kicker"
+          ],
+          "phase": "setup",
+          "kind": "enter"
+        },
+        {
+          "id": "number-in",
+          "action": "number-entrance",
+          "description": "Число входит pop со значением «0» в центре и держит его до счёта (enterAt = старт бита).",
+          "element_ids": [
+            "hero-number"
+          ],
+          "phase": "setup",
+          "kind": "enter"
+        },
+        {
+          "id": "map-in",
+          "action": "map-badge-in",
+          "description": "К слову «map» (кадр 147) справа сверху от числа выскакивает значок map (pop, акцент-кромка маджента).",
+          "element_ids": [
+            "map-badge"
+          ],
+          "phase": "action",
+          "kind": "enter"
+        },
+        {
+          "id": "count",
+          "action": "count-number",
+          "description": "Счёт 0 → 3 цифрами 1, 2, 3 с торможением; итог «3» приходит к концу action, примерно к кадру 243 («трёх»), не раньше 231.",
+          "element_ids": [
+            "hero-number"
+          ],
+          "phase": "action",
+          "kind": "count"
+        },
+        {
+          "id": "label-in",
+          "action": "label-mask-in",
+          "description": "Справа от «3» шторкой открывается «на трёх вопросах», к слову «вопросах» (кадр 255).",
+          "element_ids": [
+            "label-questions"
+          ],
+          "phase": "payoff",
+          "kind": "enter"
+        },
+        {
+          "id": "strike",
+          "action": "final-emphasis",
+          "description": "Удар Emphasis по «3»: масштаб, вспышка, одно кольцо. Единственный акцент кадра.",
+          "element_ids": [
+            "hero-number"
+          ],
+          "phase": "payoff",
+          "kind": "accent"
+        },
+        {
+          "id": "cards-in",
+          "action": "cards-rise-in",
+          "description": "Под числом каскадом поднимаются три пустые карточки, шаг stagger_frames, будто вырастают из цифры.",
+          "element_ids": [
+            "question-cards"
+          ],
+          "phase": "payoff",
+          "kind": "enter"
+        },
+        {
+          "id": "caption-in",
+          "action": "caption-blur-in",
+          "description": "Над карточками из размытия проявляется «собеседование».",
+          "element_ids": [
+            "cards-caption"
+          ],
+          "phase": "payoff",
+          "kind": "enter"
+        },
+        {
+          "id": "hold",
+          "action": "hold",
+          "description": "now-pulse: «3» дышит, от него идёт волна радара (Emphasis hold), вторая волна к последнему кадру. Карточки стоят, новых входов нет.",
+          "element_ids": [
+            "hero-number"
+          ],
+          "phase": "hold",
+          "kind": "hold"
+        }
+      ],
+      "camera": []
+    },
+    "composition": {
+      "archetype": "centered-hero",
+      "idea": "Неоновая цифра в центре держит «0», пока звучит вступление; к слову «map» рядом выскакивает значок map, затем счёт дотягивается до «3» ровно к «трёх», и к слову «вопросах» из цифры вырастают три пустые карточки. Взгляд: рубрика → «0» → значок map → «3» → три карточки.",
+      "focus": "Setup: фокус на числе «0» и рубрике. Action: значок map, затем само число, которое считает. Payoff: удар по «3», фокус спускается на три карточки. Камера стоит: взгляд ведут счёт и удар числа.",
+      "transitions": "«0» становится «3» прямо на месте. Значок map приходит к слову и остаётся до конца. В payoff растут три пустые карточки и подпись «на трёх вопросах»; всё держится до финала, где цифра дышит волной.",
+      "title_mode": "kicker",
+      "background": {
+        "variant": "aurora",
+        "focus": {
+          "x": 0.5,
+          "y": 0.38
+        }
+      },
+      "structure": "count-up",
+      "structure_reason": "Бриф задаёт one-number: число ведёт сцену; счёт растянут так, чтобы к итогу прийти у слова «трёх»."
+    },
+    "selection": {
+      "items": [
+        {
+          "kb_id": "remotion-bits/animated-counter",
+          "strategy": "adapt",
+          "why": "Счёт крупной цифры с торможением; в сцене его делает AnimatedNumber из kit.",
+          "files_to_copy": []
+        },
+        {
+          "kb_id": "remotion-bits/bit-counter-confetti",
+          "strategy": "adapt",
+          "why": "Крупное светящееся число в центре с ударом на финише, без конфетти.",
+          "files_to_copy": []
+        }
+      ]
+    },
+    "rationale": "Главная мысль: весь разбор map держится на трёх вопросах. Герой — число «3» в центре (centered-hero), над ним тихая рубрика-кикер на фоне aurora со светом за числом. Выбран AnimatedNumber со счётом 0 → 3. Отвергнут KineticText «3 вопроса»: без счёта пропадает приём hero-number, а суффикс при числе раскрыл бы «вопросах» раньше, чем слово звучит. Тайминг исправлен: веса 41/36/13/10, поэтому значок map встаёт после кадра 141, счёт приходит к «3» к концу action (~кадр 248, после «3» на 231), а слово «вопросах», карточки и удар стоят в payoff с ~250. Финал now-pulse: «3» дышит волной радара; это отличается от следующей сцены-чеклиста."
+  }
+}

@@ -51,6 +51,10 @@ export interface LayoutFrame {
    * слоёв, S3-fix): пусто — финал не на hold engine. Нет поля — проба старого kit.
    */
   holds?: string[];
+  /** Контейнеры kit с признаком содержимого (0.5.5); нет поля — проба старого kit. */
+  boxes?: LayoutBox[];
+  /** Доли кадра под текстом и под графикой (0.5.5, `areaShares`). */
+  areas?: { text: number; graphic: number };
 }
 
 /**
@@ -138,6 +142,85 @@ export function summarizeLayout(frame: number, height: number, raw: RawText[]): 
   }
   const items = [...groups.values()].map((g) => ({ ...g, rect: { x: r1(g.rect.x), y: r1(g.rect.y), w: r1(g.rect.w), h: r1(g.rect.h) }, fontPx: r1(g.fontPx), opacity: r1(g.opacity) }));
   return { frame, height, items, ghosts: [...ghosts].map(([text, count]) => ({ text, count })) };
+}
+
+/**
+ * Контейнер kit (0.5.5, S14): корень с `data-ms-box` (карточка, узел графа, панель сравнения).
+ * `graphic` — внутри есть svg/img/canvas заметного размера (≥ 6 % площади контейнера).
+ */
+export interface RawBox {
+  id: string;
+  kind: string;
+  rect: Box;
+  /** Итоговая прозрачность (произведение по предкам). */
+  opacity: number;
+  graphic: boolean;
+}
+
+/** Контейнер в реестре: `filled` — внутри видимый текст или графика. */
+export interface LayoutBox {
+  id: string;
+  kind: string;
+  rect: Box;
+  filled: boolean;
+  graphic: boolean;
+}
+
+/** Контейнер меньше этой доли кадра — деталь (маркер, чип), не рамка под содержимое. */
+export const BOX_MIN_SHARE = 0.004;
+
+const center = (b: Box) => ({ x: b.x + b.w / 2, y: b.y + b.h / 2 });
+const inside = (p: { x: number; y: number }, b: Box) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
+
+/** Видимые контейнеры кадра (чистая функция): пустой — ни текста (центр строки внутри), ни графики. */
+export function summarizeBoxes(raw: RawBox[], items: LayoutItem[], frame: { w: number; h: number }): LayoutBox[] {
+  const min = BOX_MIN_SHARE * frame.w * frame.h;
+  return raw
+    .filter((b) => b.opacity >= VISIBLE_OPACITY && area(b.rect) >= min)
+    .map((b) => ({
+      id: b.id, kind: b.kind, graphic: b.graphic,
+      rect: { x: r1(b.rect.x), y: r1(b.rect.y), w: r1(b.rect.w), h: r1(b.rect.h) },
+      filled: b.graphic || items.some((it) => inside(center(it.rect), b.rect)),
+    }));
+}
+
+/** Крупное число (герой hero-number) — графика кадра, а не подпись: кегль ≥ этой доли высоты. */
+export const HERO_NUMBER_SHARE = 0.1;
+/** Сетка подсчёта долей площади: клеток по ширине (по высоте — в пропорции кадра). */
+const GRID_W = 96;
+
+/**
+ * Доли кадра под текстом и под графикой (0.5.5, S14; чистая функция): клетки сетки, которые
+ * накрывают строки текста и контейнеры только с текстом, — текст; svg/img/canvas сцены (без
+ * фона), контейнеры с графикой и крупное число — графика (клетка графики текстом не
+ * считается). Перекрытия не удваиваются.
+ */
+export function areaShares(items: LayoutItem[], boxes: LayoutBox[], graphics: Box[], frame: { w: number; h: number }): { text: number; graphic: number } {
+  const gw = GRID_W;
+  const gh = Math.max(1, Math.round((GRID_W * frame.h) / Math.max(1, frame.w)));
+  const cw = frame.w / gw;
+  const ch = frame.h / gh;
+  const cells = new Uint8Array(gw * gh);
+  const mark = (b: Box, v: 1 | 2) => {
+    const x0 = Math.max(0, Math.floor(b.x / cw));
+    const y0 = Math.max(0, Math.floor(b.y / ch));
+    const x1 = Math.min(gw, Math.ceil((b.x + b.w) / cw));
+    const y1 = Math.min(gh, Math.ceil((b.y + b.h) / ch));
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) cells[y * gw + x] = Math.max(cells[y * gw + x]!, v) as 1 | 2;
+  };
+  const big = (it: LayoutItem) => it.role === "number" && it.fontPx >= HERO_NUMBER_SHARE * frame.h;
+  for (const it of items) mark(it.rect, big(it) ? 2 : 1);
+  // узел графа — часть схемы (графика), карточка и панель с одним текстом — текст
+  for (const b of boxes) if (b.filled || b.kind === "node") mark(b.rect, b.graphic || b.kind === "node" ? 2 : 1);
+  for (const g of graphics) mark(g, 2);
+  let t = 0;
+  let g = 0;
+  for (const c of cells) {
+    if (c === 1) t++;
+    else if (c === 2) g++;
+  }
+  const n = gw * gh;
+  return { text: Math.round((t / n) * 1000) / 1000, graphic: Math.round((g / n) * 1000) / 1000 };
 }
 
 /** Прямоугольник строки текста в координатах окна (DOMRect / ClientRect). */

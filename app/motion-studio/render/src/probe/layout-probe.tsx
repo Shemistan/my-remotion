@@ -7,7 +7,7 @@
 import type { ComponentType } from "react";
 import { useLayoutEffect, useRef } from "react";
 import { continueRender, delayRender, getInputProps, useCurrentFrame, useVideoConfig } from "remotion";
-import { LAYOUT_TAG, type RawText, beginHoldFrame, holdMarks, summarizeLayout, textLineItems } from "../motion-kit/layout-probe.js";
+import { type Box, LAYOUT_TAG, type RawBox, type RawText, VISIBLE_OPACITY, areaShares, beginHoldFrame, holdMarks, summarizeBoxes, summarizeLayout, textLineItems } from "../motion-kit/layout-probe.js";
 
 /** Флаг пробы во входных props кадров-стоп. */
 export const PROBE_PROP = "__msLayoutProbe";
@@ -64,6 +64,59 @@ export function collectText(root: Element, origin: { x: number; y: number }): Ra
   return out;
 }
 
+/** Итоговая прозрачность элемента: произведение opacity по предкам. */
+function opacityOf(el: Element): number {
+  let o = 1;
+  for (let p: Element | null = el; p && o > 0; p = p.parentElement) o *= Number(getComputedStyle(p).opacity || 1);
+  return o;
+}
+
+const shift = (r: DOMRect, origin: { x: number; y: number }): Box => ({ x: r.left - origin.x, y: r.top - origin.y, w: r.width, h: r.height });
+
+/** Прямоугольник содержимого svg (объединение фигур, без невидимых) — не его холст. */
+function svgContentRect(svg: SVGSVGElement): DOMRect | null {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const sh of Array.from(svg.querySelectorAll("path, line, rect, circle, ellipse, polyline, polygon"))) {
+    const r = sh.getBoundingClientRect();
+    if (r.width <= 0 && r.height <= 0) continue;
+    const cs = getComputedStyle(sh);
+    if (cs.visibility === "hidden" || cs.display === "none" || opacityOf(sh) < 0.05) continue;
+    x0 = Math.min(x0, r.left);
+    y0 = Math.min(y0, r.top);
+    x1 = Math.max(x1, r.right);
+    y1 = Math.max(y1, r.bottom);
+  }
+  return Number.isFinite(x0) ? new DOMRect(x0, y0, x1 - x0, y1 - y0) : null;
+}
+
+/** Графика сцены (0.5.5): верхние svg (по содержимому), img и canvas — без фона `<Background>` и декора aria-hidden. */
+export function collectGraphics(root: Element, origin: { x: number; y: number }): Box[] {
+  const out: Box[] = [];
+  for (const el of Array.from(root.querySelectorAll("svg, img, canvas"))) {
+    if (el.closest("[data-ms-bg]") || (el.parentElement?.closest("svg") ?? null) !== null) continue;
+    if (opacityOf(el) < VISIBLE_OPACITY) continue;
+    const r = el instanceof SVGSVGElement ? svgContentRect(el) : el.getBoundingClientRect();
+    if (r && r.width > 0 && r.height > 0) out.push(shift(r, origin));
+  }
+  return out;
+}
+
+/** Контейнеры kit (`data-ms-box`, 0.5.5): прямоугольник, прозрачность, есть ли внутри графика. */
+export function collectBoxes(root: Element, origin: { x: number; y: number }): RawBox[] {
+  return Array.from(root.querySelectorAll("[data-ms-box]")).map((el, i) => {
+    const r = el.getBoundingClientRect();
+    const a = Math.max(1, r.width * r.height);
+    const graphic = Array.from(el.querySelectorAll("svg, img, canvas")).some((g) => {
+      const gr = g instanceof SVGSVGElement ? svgContentRect(g) : g.getBoundingClientRect();
+      return gr !== null && gr.width * gr.height >= 0.06 * a && opacityOf(g) >= VISIBLE_OPACITY;
+    });
+    return { id: `${el.getAttribute("data-ms-box")}:${el.getAttribute("data-ms-id") ?? ""}:${i}`, kind: el.getAttribute("data-ms-box") ?? "box", rect: shift(r, origin), opacity: opacityOf(el), graphic };
+  });
+}
+
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 
 /**
@@ -96,8 +149,14 @@ function Probe() {
           box = placedRoot(el, width, height);
         }
         const root = el.parentElement ?? document.body;
-        const raw = box ? collectText(root, { x: box.left, y: box.top }) : [];
-        console.log(`${LAYOUT_TAG} ${JSON.stringify({ ...summarizeLayout(frame, height, raw), holds: holdMarks(frame), ...(box ? {} : { unmeasured: true }) })}`);
+        const origin = box ? { x: box.left, y: box.top } : { x: 0, y: 0 };
+        const raw = box ? collectText(root, origin) : [];
+        const sum = summarizeLayout(frame, height, raw);
+        // контейнеры и доли площади (0.5.5, S14): пустые карточки и «текст вместо графики» — по данным
+        const size = box ? { w: box.width, h: box.height } : { w: width, h: height };
+        const boxes = box ? summarizeBoxes(collectBoxes(root, origin), sum.items, size) : [];
+        const areas = areaShares(sum.items, boxes, box ? collectGraphics(root, origin) : [], size);
+        console.log(`${LAYOUT_TAG} ${JSON.stringify({ ...sum, holds: holdMarks(frame), boxes, areas, ...(box ? {} : { unmeasured: true }) })}`);
       } finally {
         continueRender(handle);
       }

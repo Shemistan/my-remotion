@@ -42,8 +42,13 @@ import { kitImports } from "../../src/scenes/kit-imports.js";
 const T = 180 * 60_000;
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
 const ROOT = process.env.MS_DATA_DIR ?? "/Volumes/External SSD/MotionStudio-e2e-s11";
-const EVIDENCE = join(REPO, "docs/evidence/script-mvp");
-const TMP = join(REPO, "tmp/s11-smoke");
+/**
+ * Метка повторного смоука (S14: `MS_SMOKE_TAG=s14`): отчёт и кадры — в
+ * docs/evidence/script-mvp/<метка>/, полноразмерное — tmp/<метка>-smoke/; без метки — как в S11.
+ */
+const TAG = process.env.MS_SMOKE_TAG;
+const EVIDENCE = join(REPO, "docs/evidence/script-mvp", ...(TAG ? [TAG] : []));
+const TMP = join(REPO, `tmp/${TAG ?? "s11"}-smoke`);
 const FINAL = ["completed", "failed", "cancelled", "blocked"];
 const run = promisify(execFile);
 

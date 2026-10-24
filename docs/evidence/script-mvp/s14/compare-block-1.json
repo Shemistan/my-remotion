@@ -1,0 +1,18 @@
+{
+  "task": "S14",
+  "date": "2026-10-25",
+  "before": "docs/evidence/script-mvp/smoke-block-1.json (S11)",
+  "after": "docs/evidence/script-mvp/s14/smoke-block-1.json",
+  "note": "сцены 1–4 — те же фразы и приёмы; сцена 5: S11 flow-graph, S14 process-steps (та же фраза)",
+  "scenes": [
+    {"n": 1, "technique": "hero-number", "designer": [6, 7], "judge": [4.5, 5.5]},
+    {"n": 2, "technique": "checklist", "designer": [6.5, 7], "judge": [5, 4.5]},
+    {"n": 3, "technique": "split-versus", "designer": [6, 5.5], "judge": [5, 4.5]},
+    {"n": 4, "technique": "timeline", "designer": [6, 6], "judge": [5, 4.5]},
+    {"n": 5, "technique": "flow-graph → process-steps", "designer": [5, 6.5], "judge": [4.5, 5]}
+  ],
+  "average": {"designer": [5.9, 6.4], "judge": [4.8, 4.8]},
+  "target": {"designer_avg_min": 7, "judge_growth": true, "met": false},
+  "sync": "ss_001: «3» раскрыта на кадре ~223 при слове «трёх» ~231 (S11: 171–191)",
+  "smoke": {"test_seconds": 2007, "generate_minutes": 28.8, "generate_cost_usd": 13.77, "plan_seconds": 25, "plan_cost_usd": 0.0574, "before_generate_cost_usd": 12.38}
+}

@@ -16,7 +16,7 @@ import type { Hold } from "../choreo/hold.js";
 import { pathLUT } from "../geometry.js";
 import { Comet, RadarRing, TickLabel, useHoldFrame } from "./HoldLayers.js";
 import { useStyle } from "../style.js";
-import { timelineLayout } from "../timeline-layout.js";
+import { timelineLayoutFor, timelineScale } from "../timeline-layout.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, tracking } from "../tokens.js";
 
 export interface TimelineProps {
@@ -90,16 +90,25 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
   const padX = h ? Math.round(node * 2.2) : Math.round(W * 0.26);
   const padY = h ? 0 : Math.round(node * 2);
   const rect = h ? { x: padX, y: 0, w: W - 2 * padX, h: H } : { x: padX, y: padY, w: 0, h: H - 2 * padY };
-  const pts = timelineLayout(items.length, rect, orientation);
-  const first = pts[0];
+  // шкала (0.5.5): у всех дат есть год — вехи по шкале лет, иначе равномерно; ось — во всю
+  // ширину области (одна веха — не точка без оси), с делениями
+  const scale = timelineScale(items.map((x) => x.date));
+  const pts = timelineLayoutFor(items.map((x) => x.date), rect, orientation);
   const lastPt = pts.at(-1);
+  const first = pts.length > 0 ? (h ? { x: rect.x, y: rect.y + rect.h / 2 } : { x: rect.x, y: rect.y }) : undefined;
+  const axisEnd = pts.length > 0 ? (h ? { x: rect.x + rect.w, y: rect.y + rect.h / 2 } : { x: rect.x, y: rect.y + rect.h }) : undefined;
   const { a, b } = axisWindow(beat);
   const track = ramp(frame, beat.start_frame, a + (b - a) * 0.2, EASE.outQuart);
   const draw = ramp(frame, a, b, AXIS_EASE);
-  const len = first && lastPt ? Math.hypot(lastPt.x - first.x, lastPt.y - first.y) : 0;
-  const head = first && lastPt ? { x: first.x + (lastPt.x - first.x) * draw, y: first.y + (lastPt.y - first.y) * draw } : { x: 0, y: 0 };
+  // ось прогресса доходит до последней вехи («сейчас»): за ней — будущее, тихая дорожка с делениями
+  const endU = Math.max(0.05, scale.pos.at(-1) ?? 1);
+  const reach = draw * endU;
+  const len = first && axisEnd ? Math.hypot(axisEnd.x - first.x, axisEnd.y - first.y) : 0;
+  const head = first && axisEnd ? { x: first.x + (axisEnd.x - first.x) * reach, y: first.y + (axisEnd.y - first.y) * reach } : { x: 0, y: 0 };
   const headOn = draw > 0 && draw < 1;
-  const uOf = (i: number) => (items.length > 1 ? i / (items.length - 1) : 0);
+  const uOf = (i: number) => scale.pos[i] ?? 0;
+  const tickAt = (u: number) => (first && axisEnd ? { x: first.x + (axisEnd.x - first.x) * u, y: first.y + (axisEnd.y - first.y) * u } : { x: 0, y: 0 });
+  const tickPx = size("caption");
   const hf = useHoldFrame(hold?.mode === "steady-flow" ? { ...hold, mode: "data-shimmer" } : hold);
   const fin = hf?.on && draw >= 1 ? hf : null;
   const ringFade = fin && hold!.mode === "now-pulse" ? 1 - fin.live : 1;
@@ -112,7 +121,7 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
       {underlay}
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
         <defs>
-          <linearGradient id={`${id}-axis`} x1={first?.x ?? 0} y1={first?.y ?? 0} x2={lastPt?.x ?? 1} y2={lastPt?.y ?? 1} gradientUnits="userSpaceOnUse">
+          <linearGradient id={`${id}-axis`} x1={first?.x ?? 0} y1={first?.y ?? 0} x2={axisEnd?.x ?? 1} y2={axisEnd?.y ?? 1} gradientUnits="userSpaceOnUse">
             <stop offset="0%" stopColor={mix(color, s.palette.bg, 0.45)} />
             <stop offset="100%" stopColor={color} />
           </linearGradient>
@@ -128,18 +137,29 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
             <feGaussianBlur stdDeviation={8} />
           </filter>
         </defs>
-        {first && lastPt ? (
+        {first && axisEnd ? (
           <g>
             {/* дорожка: тусклая, проявляется от центра к краям */}
             <line
-              x1={first.x + (lastPt.x - first.x) * 0.5 * (1 - track)}
-              y1={first.y + (lastPt.y - first.y) * 0.5 * (1 - track)}
-              x2={lastPt.x - (lastPt.x - first.x) * 0.5 * (1 - track)}
-              y2={lastPt.y - (lastPt.y - first.y) * 0.5 * (1 - track)}
+              x1={first.x + (axisEnd.x - first.x) * 0.5 * (1 - track)}
+              y1={first.y + (axisEnd.y - first.y) * 0.5 * (1 - track)}
+              x2={axisEnd.x - (axisEnd.x - first.x) * 0.5 * (1 - track)}
+              y2={axisEnd.y - (axisEnd.y - first.y) * 0.5 * (1 - track)}
               stroke={alpha(s.palette.text, dark ? 0.14 : 0.12)}
               strokeWidth={axisW}
               strokeLinecap="round"
             />
+            {/* деления (0.5.5): тихие с дорожкой, пройденные головой — ярче; у лет — длиннее */}
+            {scale.ticks.map((t, k) => {
+              const q = tickAt(t.u);
+              const major = t.label !== undefined;
+              const half = node * (major ? 0.95 : 0.55);
+              const passed = clamp01((reach - t.u) * 12);
+              const o = track * (major ? 0.32 : 0.2) + passed * (major ? 0.45 : 0.25);
+              return h
+                ? <line key={`t${k}`} x1={q.x} x2={q.x} y1={q.y - half} y2={q.y + half} stroke={mix(s.palette.text, color, 0.35 * passed)} strokeWidth={major ? 2.5 : 1.75} strokeLinecap="round" opacity={o} />
+                : <line key={`t${k}`} y1={q.y} y2={q.y} x1={q.x - half} x2={q.x + half} stroke={mix(s.palette.text, color, 0.35 * passed)} strokeWidth={major ? 2.5 : 1.75} strokeLinecap="round" opacity={o} />;
+            })}
             {dark && draw > 0 ? <line x1={first.x} y1={first.y} x2={head.x} y2={head.y} stroke={color} strokeWidth={axisW * 2.4} opacity={0.4} filter={`url(#${id}-glow)`} /> : null}
             {draw > 0 && len > 0 ? <line x1={first.x} y1={first.y} x2={head.x} y2={head.y} stroke={`url(#${id}-axis)`} strokeWidth={axisW} strokeLinecap="round" /> : null}
             {fin && axisLut ? <Comet lut={axisLut} pos={fin.sweep} opacity={fin.sweepAlpha} color={color} width={axisW * 0.9} length={Math.max(140, len * 0.18)} /> : null}
@@ -152,7 +172,7 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
           </g>
         ) : null}
         {pts.map((p, i) => {
-          const rf = reachFrame(uOf(i), a, b);
+          const rf = reachFrame(uOf(i) / endU, a, b);
           const pop = springAt(frame, fps, s, rf, "pop");
           const ring = ramp(frame, rf, rf + frames(s, 20), EASE.outQuart);
           const now = highlightLast && i === items.length - 1;
@@ -190,10 +210,31 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
           : <TickLabel x={lastPt.x + node * 2.6} y={lastPt.y + node * 4} age={fin.tick.age} text={hold!.label} color={color} anchor="left" />
       ) : null}
 
+      {/* подписи лет у делений (0.5.5): под осью, проявляются с головой; рядом с вехой — нет
+          (дата вехи уже подписана, а её ореол и стебель не делят место с годом) */}
+      {h && scale.mode === "years"
+        ? scale.ticks.filter((t) => t.label !== undefined && pts.every((p) => Math.abs(tickAt(t.u).x - p.x) > Math.max(80, node * 4))).map((t, k) => {
+            const q = tickAt(t.u);
+            const o = clamp01(track * 0.6 + clamp01((reach - t.u) * 10) * 0.4);
+            return (
+              <div
+                key={`y${k}`}
+                style={{
+                  position: "absolute", left: q.x - 60, top: q.y + node * 1.6, width: 120, textAlign: "center",
+                  fontFamily: fontFamily(s.typography.mono), fontSize: tickPx, letterSpacing: `${tracking(s, "mono")}em`,
+                  color: s.palette.muted, fontWeight: 500, lineHeight: 1, opacity: o,
+                }}
+              >
+                {t.label}
+              </div>
+            );
+          })
+        : null}
+
       {/* подписи: дата — моноширинным от оси, подпись и пояснение — следом */}
       {pts.map((p, i) => {
         const it = items[i]!;
-        const rf = reachFrame(uOf(i), a, b);
+        const rf = reachFrame(uOf(i) / endU, a, b);
         const dp = ramp(frame, rf + frames(s, 2), rf + frames(s, 16), EASE.outExpo);
         const lp = springAt(frame, fps, s, rf + frames(s, 5), "snappy");
         const np = ramp(frame, rf + frames(s, 9), rf + frames(s, 22), EASE.outQuart);
@@ -251,7 +292,8 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
         if (h) {
           const boxW = Math.max(240, rect.w / Math.max(1, items.length - 1) - 30);
           // крайние вехи: подпись выровнена к краю внутрь области, средние — по центру узла
-          const edge = items.length > 1 && i === 0 ? "start" : items.length > 1 && i === items.length - 1 ? "end" : "center";
+          const u = uOf(i);
+          const edge = items.length > 1 && u <= 0.08 ? "start" : items.length > 1 && u >= 0.92 ? "end" : "center";
           // плашка «сейчас» выступает на 18 px — у края области сдвигаем подпись внутрь
           const inset = now ? 20 : 0;
           const left = edge === "start" ? p.x - r + inset : edge === "end" ? p.x + r - boxW - inset : p.x - boxW / 2;

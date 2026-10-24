@@ -13,7 +13,7 @@ import { NODE_JITTER, edgeDelay, edgeDrawLen, nodeGap } from "../choreo/graph-ti
 import { underlayFade } from "../choreo/enter.js";
 import { EASE, frames, springAt } from "../easing.js";
 import { type CubicSegment, cubicPoint, lutLength, pathD, pathLUT } from "../geometry.js";
-import { CLAMP, clamp01, kitWarn, ramp, useSvgId } from "../internal.js";
+import { CLAMP, clamp01, kitError, kitWarn, ramp, useSvgId } from "../internal.js";
 import { amplitudeOf } from "../style/intensity.js";
 import { fpsScaleOf } from "../style/resolve.js";
 import { minTextPx, typeSize } from "../style/type-scale.js";
@@ -384,7 +384,18 @@ export function heroBreath(fl: AccentPulse, live: number, breath: number): Accen
   return { ...fl, level, hold: live, swell: breath * live, scale: Math.max(fl.scale, 1 + 0.006 * breath * live) };
 }
 
+/**
+ * Узлы без подписи (0.5.5, S14): пустой узел читается заглушкой — ошибка использования kit
+ * (QA `kit_misuse`), подпись узла — из данных сцены. Пусто — норма.
+ */
+export function emptyNodeIssue(nodes: readonly Pick<FlowNode, "id" | "label">[]): string | undefined {
+  const empty = nodes.filter((n) => typeof n.label !== "string" || n.label.trim() === "").map((n) => n.id);
+  return empty.length > 0 ? `FlowGraph: узлы без подписи (${empty.join(", ")}) — у каждого узла label из данных сцены (имя, термин, число); пустой узел читается заглушкой` : undefined;
+}
+
 export function FlowGraph({ nodes, edges, beat, width, height, enter = "flip", pre = "silhouette", children, overlay, hold }: FlowGraphProps) {
+  const empty = emptyNodeIssue(nodes);
+  if (empty) kitError(`flow-empty:${nodes.map((n) => n.id).join(",")}`, empty);
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height: frameH, durationInFrames } = useVideoConfig();
@@ -718,6 +729,8 @@ function NodeView({ n, t0, enter, fl, sz, slot, writes }: NodeViewProps) {
 
   return (
     <div
+      data-ms-box="node"
+      data-ms-id={n.id}
       style={{
         position: "absolute",
         left: n.x,

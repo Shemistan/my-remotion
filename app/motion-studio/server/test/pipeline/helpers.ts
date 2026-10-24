@@ -313,6 +313,8 @@ export function pngFrame(frame: number, clearBg = false): Buffer {
 export function fakeRender(opts: {
   fail?: RenderResult["error"]; png?: boolean; onCall?: (req: RenderRequest, signal?: AbortSignal) => Promise<RenderResult | void>;
   layout?: (req: RenderRequest, frame: number) => unknown[] | undefined;
+  /** Поля реестра kit 0.5.5 (boxes, areas) кадра — вместе с `layout`. */
+  probe?: (req: RenderRequest, frame: number) => Record<string, unknown> | undefined;
 } = {}) {
   const calls: RenderRequest[] = [];
   const render = async (req: RenderRequest, signal?: AbortSignal): Promise<RenderResult> => {
@@ -330,7 +332,7 @@ export function fakeRender(opts: {
       await writeFile(p, opts.png ? pngFrame(f, clear) : `png ${f}`);
       stills.push(p);
       const items = opts.layout?.(req, f);
-      if (items) browserLogs.push(`[motion-kit:layout] ${JSON.stringify({ frame: f, height: req.settings.height, items, ghosts: [] })}`);
+      if (items) browserLogs.push(`[motion-kit:layout] ${JSON.stringify({ frame: f, height: req.settings.height, items, ghosts: [], ...(opts.probe?.(req, f) ?? {}) })}`);
     }
     if (req.preview === null) return { ok: true, stills, browserLogs };
     const previewPath = join(out, "preview.mp4");

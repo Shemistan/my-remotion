@@ -91,6 +91,7 @@ function ComparisonSplitBody({ left, right, beat, divider, emphasizeRight = true
     const valueP = springAt(frame, fps, s, items + itemsSpan * 0.8, "pop");
     return (
       <div
+        data-ms-box="panel"
         style={{
           position: "relative",
           flex: 1,
@@ -119,6 +120,8 @@ function ComparisonSplitBody({ left, right, beat, divider, emphasizeRight = true
             padding: `${Math.round(height * 0.06)}px ${Math.round(height * 0.06)}px`,
             display: "flex",
             flexDirection: "column",
+            // 0.5.5: содержимое — блоком по центру панели, без пустой нижней половины
+            justifyContent: "center",
             gap: Math.round(height * 0.026),
             transform: `translateX(${(-dir * (1 - p) * dist * 0.45).toFixed(2)}px)`,
           }}
@@ -132,7 +135,7 @@ function ComparisonSplitBody({ left, right, beat, divider, emphasizeRight = true
               boxShadow: `inset 0 0 0 1.5px ${alpha(toneColor, 0.5)}`,
               color: toneColor,
               fontFamily: fontFamily(s.typography.mono),
-              fontSize: size("caption") * 0.8,
+              fontSize: size("caption"),
               letterSpacing: `${tracking(s, "caps")}em`,
               textTransform: "uppercase",
               opacity: labelP,
@@ -172,11 +175,11 @@ function ComparisonSplitBody({ left, right, beat, divider, emphasizeRight = true
                     transform: `translateX(${(dir * (1 - q) * 40 * s.amplitude).toFixed(2)}px)`,
                     fontFamily: fontFamily(s.typography.body),
                     fontWeight: 500,
-                    fontSize: size("body") * 0.8,
+                    fontSize: size("body"),
                     color: mix(s.palette.text, s.palette.muted, 0.25),
                   }}
                 >
-                  <Glyph tone={tone} p={g} color={toneColor} size={Math.round(size("body") * 0.8)} />
+                  <Glyph tone={tone} p={g} color={toneColor} size={Math.round(size("body") * 0.9)} />
                   <span>{it}</span>
                 </div>
               );
@@ -185,7 +188,7 @@ function ComparisonSplitBody({ left, right, beat, divider, emphasizeRight = true
           {side.value ? (
             <div
               style={{
-                marginTop: "auto",
+                marginTop: Math.round(height * 0.03),
                 fontFamily: fontFamily(s.typography.display),
                 fontWeight: s.typography.display.weight ?? 800,
                 fontSize: size("h1"),

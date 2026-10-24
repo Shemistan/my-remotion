@@ -133,7 +133,7 @@ export function Background({ beat, variant, grain = true, seed = "bg", focus }: 
   if (s.transparent) return null;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: s.palette.bg, overflow: "hidden" }}>
+    <AbsoluteFill data-ms-bg="" style={{ backgroundColor: s.palette.bg, overflow: "hidden" }}>
       {v === "aurora" ? <AbsoluteFill style={{ background: blobs.join(", ") }} /> : null}
 
       {v === "spotlight" ? (
