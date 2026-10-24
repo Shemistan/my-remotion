@@ -1,0 +1,44 @@
+/* Сценарий: вкладки «Текст» и «План» (S8). Токены цвета — из theme.css. */
+.script-text { line-height: 1.9; }
+.script-block-title { font-size: 12px; color: var(--muted); margin: 10px 0 2px; font-weight: 600; }
+.script-block { margin: 0 0 8px; white-space: pre-wrap; }
+.scene-fragment { background: color-mix(in srgb, var(--accent) 20%, transparent); color: inherit; border-radius: 3px; padding: 1px 0; cursor: pointer; }
+.scene-fragment[data-n]::before {
+  content: attr(data-n); display: inline-block; min-width: 16px; padding: 0 4px; margin-right: 3px; border-radius: 8px;
+  font-size: 10px; line-height: 15px; text-align: center; vertical-align: 1px; font-weight: 700;
+  background: var(--accent); color: var(--accent-text); user-select: none;
+}
+.scene-fragment.rejected { background: none; text-decoration: line-through dotted var(--muted); }
+.scene-fragment.selected { outline: 2px solid var(--accent); }
+.skip-fragment { text-decoration: underline dashed var(--muted); text-underline-offset: 3px; cursor: help; }
+
+.script-blocks { display: flex; flex-direction: column; gap: 10px; }
+.script-block-editor { display: flex; flex-direction: column; gap: 6px; border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; background: var(--surface); }
+.script-block-editor input[type="text"] { width: 100%; }
+.script-block-editor textarea { width: 100%; min-height: 140px; resize: vertical; font: inherit; line-height: 1.5; }
+
+.reading-form { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; }
+.reading-form label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
+.reading-form input { width: 90px; }
+
+.script-plan-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: var(--gap); align-items: start; }
+.script-text-panel { position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow: auto; }
+@media (max-width: 1000px) {
+  .script-plan-grid { grid-template-columns: minmax(0, 1fr); }
+  .script-text-panel { position: static; max-height: none; }
+}
+.script-selection { border: 1px dashed var(--accent); border-radius: var(--radius); padding: 8px; margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+
+.script-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.script-card { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; display: flex; flex-direction: column; gap: 6px; background: var(--surface); }
+.script-card.selected { border-color: var(--accent); }
+.script-card.rejected { opacity: 0.6; }
+.script-card .card-quote { margin: 0; font-style: italic; border-left: 3px solid var(--accent); padding-left: 8px; }
+.script-card textarea { width: 100%; min-height: 48px; resize: vertical; font: inherit; }
+.script-card select { max-width: 100%; }
+.script-card .card-issues { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.script-card .duration { font-variant-numeric: tabular-nums; }
+
+.diversity-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.plan-skipped-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.generate-bar { display: flex; flex-direction: column; gap: 4px; }
