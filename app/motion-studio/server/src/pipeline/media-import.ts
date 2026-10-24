@@ -11,7 +11,7 @@
 // `media_assets` — задача завершается по нему.
 import { existsSync, renameSync } from "node:fs";
 import { lstat, mkdir, readFile, realpath, rm, stat } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { basename, isAbsolute, join } from "node:path";
 import {
   type AspectRatioSchema, type DerivativeKind, type JobError, type MediaAsset, type MediaManifest, MediaManifestSchema, type ProbeSummary,
   type Settings, defaultSettings,
@@ -28,12 +28,13 @@ import * as projects from "../db/repos/projects.js";
 import type { HandlerResult, JobContext, JobHandler } from "../jobs/types.js";
 import { extractAudio16k } from "../media/audio.js";
 import { FfmpegError, ffmpegFailureKind, runFfmpeg } from "../media/ffmpeg.js";
-import { type ImportFile, assertOutsideSource, isInside, resolveImportFile, videoExt } from "../media/guards.js";
+import { type ImportFile, assertOutsideSource, resolveImportFile, videoExt } from "../media/guards.js";
 import { copyOriginal } from "../media/import.js";
 import { MediaInvalidError, demuxerFor, probeMedia } from "../media/probe.js";
 import { proxyArgs } from "../media/proxy.js";
 import { checkImportSpace, estimateImportBytes, gib } from "../media/space.js";
 import { THUMB_HEIGHT, countThumbs, thumbsArgs } from "../media/thumbs.js";
+import { removeUpload, resolveUploadFile } from "../media/uploads.js";
 import { writeWaveform } from "../media/waveform.js";
 import { sha256File } from "../scenes/hash.js";
 import { FencedOutError, PublishCancelledError } from "../scenes/repo.js";
@@ -108,21 +109,6 @@ export function settingsFromProbe(base: Settings | null, probe: ProbeSummary): S
   return { ...b, fps, duration_frames: frames, aspect_ratio: a.ratio, width: a.w, height: a.h };
 }
 
-/** Путь загрузки (Task 29): регулярный файл прямо в `workspace/drafts/…` хранилища, по realpath. */
-async function resolveUploadPath(root: string, uploadPath: string, originalName: string): Promise<ImportFile> {
-  if (!videoExt(originalName)) throw new MediaInvalidError(`расширение не видео: ${originalName}`);
-  let real: string;
-  try {
-    real = await realpath(uploadPath);
-  } catch {
-    throw new MediaInvalidError(`загруженный файл не найден: ${uploadPath}`);
-  }
-  if (!isInside(real, await realpath(join(root, DRAFTS_REL)))) throw new MediaInvalidError(`загруженный файл вне ${DRAFTS_REL}: ${uploadPath}`);
-  const st = await lstat(real);
-  if (!st.isFile()) throw new MediaInvalidError(`загрузка — не обычный файл: ${uploadPath}`);
-  return { path: real, dev: st.dev, ino: st.ino, size: st.size };
-}
-
 /**
  * После копии (ревью M2): путь всё ещё ведёт к тому же файлу (realpath заново, dev/ino из lstat),
  * иначе исходник подменили во время импорта — `MediaInvalidError`.
@@ -184,7 +170,7 @@ export function mediaImport(depsOf: (ctx: JobContext) => MediaImportDeps): JobHa
       // finish) — завершаемся по нему, не трогая путь пользователя (файла может уже не быть).
       const existing = media.byProject(ctx.db, input.projectId);
       if (existing && media.createdByJob(ctx.db, existing.id) === ctx.job.id) {
-        return done({ media_id: existing.id, deduplicated: false, sha256: existing.sha256, rel_path: existing.rel_path, cloned: existing.import.cloned });
+        return await done({ media_id: existing.id, deduplicated: false, sha256: existing.sha256, rel_path: existing.rel_path, cloned: existing.import.cloned });
       }
 
       const status = await d.storage();
@@ -192,9 +178,9 @@ export function mediaImport(depsOf: (ctx: JobContext) => MediaImportDeps): JobHa
 
       const file = input.method === "path"
         ? await resolveImportFile(input.path, d.media.importRoots, { forbidden: [root] })
-        : await resolveUploadPath(root, input.uploadPath, input.originalName);
+        : await resolveUploadFile(root, input.uploadPath, input.originalName);
       const src = file.path;
-      const requested = input.method === "path" ? input.path : input.uploadPath;
+      const requested = input.method === "path" ? input.path : isAbsolute(input.uploadPath) ? input.uploadPath : join(root, input.uploadPath);
       const originalName = input.method === "path" ? basename(src) : basename(input.originalName);
       const ext = videoExt(originalName)!;
       /** Прогресс чтения `passes` полных проходов по исходнику в доле [from, from + span]. */
@@ -218,7 +204,7 @@ export function mediaImport(depsOf: (ctx: JobContext) => MediaImportDeps): JobHa
           });
         }
         const by = media.createdByJob(ctx.db, existing.id);
-        return done({ media_id: existing.id, deduplicated: by !== ctx.job.id, sha256: existing.sha256, rel_path: existing.rel_path });
+        return await done({ media_id: existing.id, deduplicated: by !== ctx.job.id, sha256: existing.sha256, rel_path: existing.rel_path });
       }
 
       // Место: до копии — под копию и запас (длительность ещё неизвестна: probe идёт по копии,
@@ -366,12 +352,18 @@ export function mediaImport(depsOf: (ctx: JobContext) => MediaImportDeps): JobHa
         proxy_reused: reused !== undefined, ...(proxyBytes !== undefined ? { proxy_bytes: proxyBytes } : {}), timings_ms: timings,
       };
       d.log?.(`импорт ${originalName}: готово, ${medId}`);
-      return done(res);
+      return await done(res);
     } catch (e) {
       return await failed(e);
     }
 
-    function done(r: MediaImportResult): HandlerResult {
+    /** Загрузка браузером больше не нужна: оригинал скопирован в `source/` (ревью Task 25, M4). */
+    async function dropUpload(): Promise<void> {
+      if (input.method === "upload") await removeUpload(root, input.uploadPath);
+    }
+
+    async function done(r: MediaImportResult): Promise<HandlerResult> {
+      await dropUpload();
       ctx.progress(1, "done");
       return { status: "completed", outputRefs: r };
     }
@@ -391,12 +383,16 @@ export function mediaImport(depsOf: (ctx: JobContext) => MediaImportDeps): JobHa
       }
       if (e instanceof PublishCancelledError) {
         await dropDraft(srcDraft).catch(() => undefined);
+        await dropUpload();
         return fail({ code: "cancelled", stage: "cancelled", message: msg }, "cancelled");
       }
       for (const dir of [srcDraft, pubDraft]) await dropDraft(dir).catch(() => undefined);
       if (e instanceof ImportFail) return fail(e.error, e.status);
       if (signal.aborted || (e instanceof FfmpegError && e.kind === "aborted")) {
-        if (cancelled()) return fail({ code: "cancelled", stage: "cancelled", message: `импорт отменён на этапе ${stage}` }, "cancelled");
+        if (cancelled()) {
+          await dropUpload();
+          return fail({ code: "cancelled", stage: "cancelled", message: `импорт отменён на этапе ${stage}` }, "cancelled");
+        }
         return fail({ code: "interrupted", stage: "interrupted", message: `попытка прервана на этапе ${stage}` });
       }
       if (e instanceof MediaInvalidError) return fail({ code: "media_invalid", message: msg });

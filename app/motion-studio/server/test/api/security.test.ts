@@ -7,7 +7,9 @@ import { defaultSettings } from "@ms/contracts";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as projects from "../../src/db/repos/projects.js";
 import { enqueue } from "../../src/jobs/queue.js";
+import * as approvals from "../../src/db/repos/approvals.js";
 import { type Api, ORIGIN, getHeaders, makeApi, okHeaders, seedVersion } from "./helpers.js";
+import { seedPreview, seedVideoApi } from "./video-helpers.js";
 
 let api: Api;
 beforeEach(async () => {
@@ -141,4 +143,66 @@ it("все GET-маршруты без побочных эффектов: total_
   }
   expect(changes()).toBe(c0);
   expect(tree(api.s.root)).toEqual(t0);
+});
+
+describe("маршруты видеопроекта (Task 29)", () => {
+  it("мутации без Origin, с чужим Origin или cross-site → 403, ничего не записано", async () => {
+    await seedVideoApi(api);
+    const apr = approvals.list(api.core.db, "p1")[0]?.id ?? "apr_x";
+    const k = { "idempotency-key": "k-sec-video" };
+    const routes: [string, string, unknown][] = [
+      ["POST", "/api/projects/p1/media/import", { path: "/tmp/a.mp4" }],
+      ["PUT", "/api/projects/p1/media/upload?name=a.mp4", "x"],
+      ["POST", "/api/media/med_1/transcribe", {}],
+      ["POST", "/api/transcripts/trn_1/revisions", { base_revision: 1, ops: [{ op: "replace_text", word_id: "w_000001", text: "Пока" }] }],
+      ["POST", "/api/projects/p1/roughcut/propose", {}],
+      ["POST", "/api/edls/edl_1/revisions", { base_revision: 1, ops: [{ op: "set_status", decision_id: "pau_r1_1", status: "accepted" }] }],
+      ["POST", "/api/edls/edl_1/revisions/1/preview", {}],
+      ["POST", "/api/projects/p1/approvals", { kind: "A" }],
+      ["POST", `/api/approvals/${apr}/revoke`, {}],
+    ];
+    const changes = () => api.core.db.prepare("SELECT total_changes()").pluck().get() as number;
+    const t0 = tree(api.s.root);
+    const before = changes();
+    for (const [method, url, body] of routes) {
+      for (const origin of [undefined, "https://evil.example"]) {
+        const r = await api.inj(method, url, { ...okHeaders, ...k, origin }, body);
+        expect(r.statusCode, `${method} ${url} origin=${origin}`).toBe(403);
+      }
+      const site = await api.inj(method, url, { ...okHeaders, ...k, "sec-fetch-site": "cross-site" }, body);
+      expect(site.statusCode, `${method} ${url} cross-site`).toBe(403);
+    }
+    expect(changes()).toBe(before);
+    expect(tree(api.s.root)).toEqual(t0);
+  });
+
+  it("все GET видеопроекта без побочных эффектов (stale A и якоря после правки транскрипта — без записи)", async () => {
+    await seedVideoApi(api);
+    await seedPreview(api, 1);
+    await api.inj("POST", "/api/transcripts/trn_1/revisions", okHeaders, { base_revision: 1, ops: [{ op: "replace_span", start_word_id: "w_000003", end_word_id: "w_000003", text: "" }] });
+    const urls = [
+      "/api/projects/p1/video",
+      "/api/media/med_1",
+      "/api/media/med_1/proxy.mp4",
+      "/api/media/med_1/waveform.bin",
+      "/api/media/med_1/thumbs/0.jpg",
+      "/api/transcripts/trn_1",
+      "/api/transcripts/trn_1?revision=1",
+      "/api/transcripts/trn_1/revisions",
+      "/api/edls/edl_1",
+      "/api/edls/edl_1?revision=1",
+      "/api/edls/edl_1/revisions/1/preview.mp4",
+      "/api/projects/p1/approvals",
+      "/api/asr/capability",
+    ];
+    const changes = () => api.core.db.prepare("SELECT total_changes()").pluck().get() as number;
+    const t0 = tree(api.s.root);
+    const c0 = changes();
+    for (const u of urls) {
+      expect((await api.inj("GET", u, getHeaders)).statusCode, u).toBe(200);
+      expect((await api.inj("HEAD", u, getHeaders)).statusCode, `HEAD ${u}`).toBe(200);
+    }
+    expect(changes()).toBe(c0);
+    expect(tree(api.s.root)).toEqual(t0);
+  });
 });

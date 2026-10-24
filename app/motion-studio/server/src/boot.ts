@@ -25,6 +25,7 @@ import { bindStoreId, quickCheck } from "./db/meta.js";
 import { migrate } from "./db/migrate.js";
 import { type Db, openDb } from "./db/open.js";
 import { EventBus } from "./jobs/events.js";
+import { sweepUploads } from "./media/uploads.js";
 import { SqliteProcessRegistry, mergeRegistries } from "./jobs/process-registry.js";
 import { type RecoveryReport, recoverOnStart, releaseStaleLocks } from "./jobs/recovery.js";
 import { JobRunner, type JobRunnerOptions } from "./jobs/runner.js";
@@ -37,7 +38,7 @@ import { SceneRepo } from "./scenes/repo.js";
 import { relockVersions, sweepAbandonedDrafts } from "./scenes/store.js";
 
 export const BOOT_STEPS = [
-  "owner_lock", "storage", "db", "registry", "reap", "sweep_drafts", "relock_versions", "reconcile_versions", "reconcile_exports", "recovery", "runner",
+  "owner_lock", "storage", "db", "registry", "reap", "sweep_drafts", "relock_versions", "reconcile_versions", "reconcile_exports", "recovery", "sweep_uploads", "runner",
 ] as const;
 export type BootStep = (typeof BOOT_STEPS)[number];
 
@@ -108,6 +109,10 @@ export interface Core {
   agents: AgentRuntimeAdapter;
   runner: JobRunner;
   storage: StorageSupervisor;
+  /** Проверка хранилища (`checkStorage` с id хранилища) — до приёма загрузки и публикаций API. */
+  storageCheck: () => ReturnType<typeof checkStorage>;
+  /** Порог свободного места StorageGuard (`MS_MIN_FREE_GB`), байт. */
+  minFreeBytes: number;
   registry: SqliteProcessRegistry;
   /** Слияние `registry` и бокового `run/processes/` — для разбора и повтора задач. */
   processes: ProcessRegistry;
@@ -196,6 +201,9 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     };
     const recovery = await recoverOnStart({ db, repo, registry: processes, reap: cachedReap, events });
     log("recovery");
+    // загрузки браузером без задачи (обрыв) или с завершённым импортом (Task 29, M4)
+    await sweepUploads(db, root);
+    log("sweep_uploads");
 
     const kb = opts.kb ?? (await KnowledgeAdapter.load({ kbRoot: config.kb.root, sourceRoot: config.kb.sourceRoot }));
     const agents = opts.agents ?? new ClaudeCodeRuntime({ bin: config.claudeBin, logRoot: join(root, "logs", "agent-runs"), promptLoader: loadPrompt });
@@ -263,6 +271,8 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
       agents,
       runner: r,
       storage: st,
+      storageCheck,
+      minFreeBytes: minFreeBytes(env),
       registry,
       processes,
       events,

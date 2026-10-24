@@ -57,6 +57,19 @@ export function approvalState(db: Db, projectId: string, kind: ApprovalKind, cur
 }
 
 /**
+ * То же, что `approvalState`, только чтение (GET API, Task 29): разошедшийся субъект показывается
+ * как `stale(subject_changed)`, но в БД не пишется — запишет следующая мутация или гейт задачи.
+ */
+export function peekApprovalState(db: Db, projectId: string, kind: ApprovalKind, current: { ref: string; hash: string } | undefined): ApprovalState {
+  if (current === undefined) return { state: "missing" };
+  const a = approvals.latestActive(db, projectId, kind);
+  if (!a) return { state: "missing" };
+  if (a.status === "stale") return { state: "stale", approval: a, reason: a.stale_reason };
+  if (a.subject_ref === current.ref && a.subject_hash === current.hash) return { state: "valid", approval: a };
+  return { state: "stale", approval: { ...a, status: "stale", stale_reason: "subject_changed" }, reason: "subject_changed" };
+}
+
+/**
  * Каскад устаревания: смена A (EDL) → валидный B `stale(upstream_A)`; смена StyleBible →
  * B `stale(style_changed)`. Число устаревших.
  */

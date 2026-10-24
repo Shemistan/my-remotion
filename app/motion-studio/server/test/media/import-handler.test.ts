@@ -191,17 +191,22 @@ describe("media.import", () => {
     expect(draftsOf(bad.job.id)).toEqual([]);
   });
 
-  it("загрузка (upload): файл только из workspace/drafts, имя — из originalName", async () => {
+  it("загрузка (upload): файл только из workspace/uploads/<id> (путь от корня хранилища), имя — из originalName; после импорта каталог загрузки удалён", async () => {
     const p = newProject();
-    const up = join(s.root, "workspace/drafts/upload-1.bin");
-    await mkdir(join(s.root, "workspace/drafts"), { recursive: true });
-    copyFileSync(silent, up);
-    const ok = await runImport(p, { input: { projectId: p, method: "upload", uploadPath: up, originalName: "Съёмка.MOV" } });
+    await mkdir(join(s.root, "workspace/uploads/upl_1"), { recursive: true });
+    copyFileSync(silent, join(s.root, "workspace/uploads/upl_1/upload.mov"));
+    const ok = await runImport(p, { input: { projectId: p, method: "upload", uploadPath: "workspace/uploads/upl_1/upload.mov", originalName: "Съёмка.MOV" } });
     expect(ok.r.status, JSON.stringify(ok.r)).toBe("completed");
     expect(media.byProject(db, p)).toMatchObject({ original_name: "Съёмка.MOV", import: { method: "upload" } });
-    const p2 = newProject();
-    const outside = await runImport(p2, { input: { projectId: p2, method: "upload", uploadPath: silent, originalName: "a.mp4" } });
-    expect(outside.r).toMatchObject({ status: "failed", error: { code: "media_invalid" } });
+    expect(ls("workspace/uploads")).toEqual([]);
+    // из drafts, снаружи хранилища и с выходом за uploads — нельзя
+    await mkdir(join(s.root, "workspace/drafts"), { recursive: true });
+    copyFileSync(silent, join(s.root, "workspace/drafts/upload-1.mov"));
+    for (const uploadPath of [silent, "workspace/drafts/upload-1.mov", "workspace/uploads/../drafts/upload-1.mov"]) {
+      const p2 = newProject();
+      const bad = await runImport(p2, { input: { projectId: p2, method: "upload", uploadPath, originalName: "a.mp4" } });
+      expect(bad.r, uploadPath).toMatchObject({ status: "failed", error: { code: "media_invalid" } });
+    }
   });
 
   it("нехватка места → low_space до копирования, ничего не создано", async () => {

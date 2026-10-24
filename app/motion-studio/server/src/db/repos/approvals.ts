@@ -51,3 +51,8 @@ export function markStale(db: Db, where: { id: string } | { projectId: string; k
   return db.prepare("UPDATE approvals SET status = 'stale', stale_reason = ? WHERE project_id = ? AND kind = ? AND status = 'valid'")
     .run(reason, where.projectId, where.kind).changes;
 }
+
+/** Отзыв решения человеком (`POST /approvals/:id/revoke`): valid/stale → revoked; число изменённых. */
+export function revoke(db: Db, id: string): number {
+  return db.prepare("UPDATE approvals SET status = 'revoked', stale_reason = NULL WHERE id = ? AND status != 'revoked'").run(id).changes;
+}

@@ -2,6 +2,8 @@
 // валидации zod → 400 `validation` с путями полей; известные ошибки ядра → свои коды.
 import type { FastifyError, FastifyInstance } from "fastify";
 import { hasZodFastifySchemaValidationErrors, isResponseSerializationError } from "fastify-type-provider-zod";
+import { ResourceBusyError } from "../artifacts/store.js";
+import { EditError, ProposedLeftError, RevisionConflictError } from "../edit/errors.js";
 import { IdempotencyKeyReusedError } from "../jobs/queue.js";
 import { StaleProcessAliveError } from "../jobs/retry.js";
 import { isStorageError } from "../jobs/runner.js";
@@ -36,6 +38,12 @@ export function toApiResponse(e: unknown): { status: number; body: Record<string
     return { status: 400, body: { error: "validation", message: issues.map((i) => `${i.path}: ${i.message}`).join("; "), issues } };
   }
   if (e instanceof IdempotencyKeyReusedError) return { status: 422, body: { error: e.code, message: e.message, job_id: e.jobId } };
+  // правки транскрипта и EDL, Approval A (Task 27): коды и статусы — из ошибок ядра; сообщения
+  // без путей (id слов, решений и ревизий)
+  if (e instanceof RevisionConflictError) return { status: 409, body: { error: e.code, message: e.message, base: e.base, current: e.current } };
+  if (e instanceof ResourceBusyError) return { status: 409, body: { error: "resource_busy", message: "ресурс занят задачей — повторите правку после её завершения", resource: e.resource, job_id: e.jobId } };
+  if (e instanceof ProposedLeftError) return { status: 409, body: { error: e.code, message: e.message, count: e.count } };
+  if (e instanceof EditError) return { status: e.status, body: { error: e.code, message: e.message } };
   if (e instanceof StaleProcessAliveError) return { status: 409, body: { error: e.code, message: e.message, pids: e.pids, cmds: e.cmds } };
   // сообщения ядра и файловой системы содержат абсолютные пути MS_DATA_DIR: наружу — код и общий
   // текст, подробности — в журнал сервера (F6)

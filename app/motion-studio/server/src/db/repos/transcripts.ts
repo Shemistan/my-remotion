@@ -77,3 +77,8 @@ export function words(db: Db, id: string, rev: number): WordRow[] {
   return db.prepare("SELECT idx, word_id, text, start_us, end_us, timing FROM transcript_words WHERE transcript_id = ? AND revision = ? ORDER BY idx")
     .all(id, rev) as WordRow[];
 }
+
+/** Ревизии транскрипта по номеру (список для UI, Task 29). */
+export function revisions(db: Db, id: string): TranscriptRevisionRow[] {
+  return db.prepare("SELECT * FROM transcript_revisions WHERE transcript_id = ? ORDER BY revision").all(id) as TranscriptRevisionRow[];
+}

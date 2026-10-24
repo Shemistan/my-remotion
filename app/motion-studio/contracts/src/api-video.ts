@@ -3,10 +3,12 @@ import { z } from "zod";
 import { ApprovalKindSchema, ApprovalSchema, ApprovalStaleReasonSchema } from "./approvals.js";
 import { EdlOpSchema, EdlRevisionDocSchema } from "./edl.js";
 import { FootageAnalysisSchema } from "./footage.js";
+import { JobSchema } from "./jobs.js";
 import { DerivativeKindSchema, MediaAssetSchema } from "./media.js";
 import { PlanOpSchema, VisualPlanRevisionDocSchema } from "./plan.js";
 import { ProjectStyleBaseSchema, ProjectStyleDocSchema } from "./project-style.js";
 import { SemanticTimelineSchema } from "./semantic.js";
+import { ProjectDtoSchema } from "./api.js";
 import { EditedTimelineSchema } from "./timeline.js";
 import { TranscriptOpSchema, TranscriptRevisionDocSchema } from "./transcript.js";
 
@@ -62,6 +64,8 @@ export const EdlDtoSchema = z.object({
   doc: EdlRevisionDocSchema,
   timeline: EditedTimelineSchema,
   word_map: z.record(WordMappingSchema),
+  /** Превью этой ревизии опубликовано (`preview/<edl>/r<N>/preview.mp4`). */
+  preview_ready: z.boolean(),
 }).strict();
 export type EdlDto = z.infer<typeof EdlDtoSchema>;
 
@@ -116,3 +120,36 @@ export type ProjectStyleDto = z.infer<typeof ProjectStyleDtoSchema>;
 /** `PUT /projects/:id/style`. */
 export const ProjectStyleBodySchema = z.object({ base: ProjectStyleBaseSchema }).strict();
 export type ProjectStyleBody = z.infer<typeof ProjectStyleBodySchema>;
+
+/** `POST /media/:id/transcribe`: язык, модель, подсказки (проверяет обработчик `asr.transcribe`). */
+export const TranscribeBodySchema = z.object({
+  language: z.string().regex(/^[a-z]{2,3}$/).optional(),
+  model: z.string().min(1).max(100).optional(),
+  hotwords: z.array(z.string().max(256)).max(200).optional(),
+}).strict();
+export type TranscribeBody = z.infer<typeof TranscribeBodySchema>;
+
+/** `POST /projects/:id/roughcut/propose`: `useAgent: false` — только детекторы (без LLM). */
+export const RoughcutProposeBodySchema = z.object({ useAgent: z.boolean().optional() }).strict();
+export type RoughcutProposeBody = z.infer<typeof RoughcutProposeBodySchema>;
+
+/** `GET /asr/capability`: доступность ASR без путей (подробности — в журнале сервера и `doctor`). */
+export const AsrCapabilityDtoSchema = z.object({
+  available: z.boolean(),
+  reason: z.string().optional(),
+  model: z.string(),
+  gpu_contention: z.boolean().optional(),
+}).strict();
+export type AsrCapabilityDto = z.infer<typeof AsrCapabilityDtoSchema>;
+
+/** `GET /projects/:id/video`: всё, что нужно экрану Video Workspace, одним запросом. */
+export const VideoProjectDtoSchema = z.object({
+  project: ProjectDtoSchema,
+  media: MediaDtoSchema.nullable(),
+  transcript: z.object({ id: Id, current_revision: Revision }).strict().nullable(),
+  edl: z.object({ id: Id, current_revision: Revision, preview_ready: z.boolean() }).strict().nullable(),
+  approvals: ProjectApprovalsDtoSchema,
+  /** Последняя задача проекта каждого типа (импорт, ASR, монтаж, превью). */
+  jobs: z.array(JobSchema),
+}).strict();
+export type VideoProjectDto = z.infer<typeof VideoProjectDtoSchema>;

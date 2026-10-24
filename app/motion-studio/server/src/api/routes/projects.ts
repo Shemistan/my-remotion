@@ -32,7 +32,8 @@ export function projectRoutes(app: ZApp, { core }: ApiContext): void {
   });
 
   app.post("/api/projects", { schema: { body: CreateProjectBodySchema, response: { 201: ProjectDtoSchema } } }, async (req, reply) => {
-    const p = projects.create(core.db, { title: req.body.title, ...(req.body.settings ? { settings: req.body.settings } : {}) });
+    const { title, kind, settings } = req.body;
+    const p = projects.create(core.db, { title, kind: kind ?? "playground", ...(settings ? { settings } : {}) });
     return reply.status(201).send(p);
   });
 

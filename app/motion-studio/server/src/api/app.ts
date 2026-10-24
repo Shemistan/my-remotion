@@ -11,16 +11,21 @@ import type { Core } from "../boot.js";
 import type { ApiContext, ZApp } from "./context.js";
 import { installViteDev } from "./dev-vite.js";
 import { installErrorHandler } from "./errors.js";
+import { approvalRoutes } from "./routes/approvals.js";
 import { chatRoutes } from "./routes/chat.js";
+import { edlRoutes } from "./routes/edls.js";
 import { eventRoutes } from "./routes/events.js";
 import { exportRoutes } from "./routes/exports.js";
 import { type HealthProbes, healthRoutes } from "./routes/health.js";
 import { jobRoutes } from "./routes/jobs.js";
 import { kbRoutes } from "./routes/kb.js";
+import { mediaRoutes } from "./routes/media.js";
 import { projectRoutes } from "./routes/projects.js";
 import { sceneRoutes } from "./routes/scenes.js";
 import { settingsRoutes } from "./routes/settings.js";
+import { transcriptRoutes } from "./routes/transcripts.js";
 import { versionRoutes } from "./routes/versions.js";
+import { videoProjectRoutes } from "./routes/video-projects.js";
 import { installSecurity } from "./security.js";
 import { SSE_HEARTBEAT_MS, sseStreams } from "./sse.js";
 
@@ -63,6 +68,12 @@ export async function buildApp(core: Core, opts: BuildAppOptions = { port: PORT 
   jobRoutes(app, ctx);
   kbRoutes(app, ctx);
   settingsRoutes(app, ctx);
+  // видеопроект (Task 29)
+  videoProjectRoutes(app, ctx);
+  mediaRoutes(app, ctx);
+  transcriptRoutes(app, ctx);
+  edlRoutes(app, ctx);
+  approvalRoutes(app, ctx);
   eventRoutes(app, ctx, sse);
 
   if (opts.dev) await installViteDev(app, WEB_ROOT, opts.port);

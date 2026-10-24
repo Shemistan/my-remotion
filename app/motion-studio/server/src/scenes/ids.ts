@@ -7,6 +7,8 @@ export type IdPrefix =
   | "scn" | "ver" | "run" | "prj" | "job" | "msg" | "exp"
   // Phase 2–3: исходник, транскрипт, EDL, approval, footage, semantic, StyleBible, план, синхронная правка
   | "med" | "trn" | "edl" | "apr" | "ftg" | "sem" | "sty" | "pln" | "syn"
+  // загрузка видео через браузер (Task 29): `workspace/uploads/upl_…`
+  | "upl"
   // карантин каталога-сироты артефакта
   | "qrn";
 
