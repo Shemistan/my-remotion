@@ -4,7 +4,7 @@ export const ruScriptOutput = {
   "qa.code.speech_window": "действие вне окна речи или короткое удержание",
   // S11: подсказки сцены сценария и разнообразие пакета после генерации
   "qa.code.key_term_early": "число или термин показан раньше, чем звучит",
-  "qa.code.foreign_label": "подпись не из текста (пример kit)",
+  "qa.code.foreign_label": "подпись не из текста (шаблонный пример)",
   "scriptPlan.issue.technique_not_realized": "Приём сцены не реализован в коде",
   "scriptPlan.issue.adjacent_scene_repeat": "Соседние сцены одинаковы по форме",
   // S5: ошибки пакета генерации (idempotency_key_reused и unknown_item — общие, в ru.ts)

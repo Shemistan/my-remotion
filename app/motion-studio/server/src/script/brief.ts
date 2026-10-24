@@ -17,6 +17,7 @@ import {
   wordsBetween,
 } from "@ms/contracts";
 import type { KeyMoment } from "../qa/spec-checks.js";
+import { ruNumberParse } from "./ru-numbers.js";
 
 /** Окно предложения фрагмента: кадры `[start; end)` внутри окна речи сцены. */
 export interface SentenceWindow {
@@ -96,6 +97,15 @@ export function sentenceWindows(item: ScriptSceneItem, script: ScriptRevisionDoc
 /** Слово без регистра, «ё» и пунктуации — для поиска цитаты числа среди слов фрагмента. */
 const wordKey = (s: string) => s.toLowerCase().replace(/ё/g, "е").replace(/[^\p{L}\p{N}]+/gu, "");
 
+/**
+ * Слово числа в цитате (S11-fix M4): первое слово с цифрами или числительное словами
+ * («феврале 2025 года» → «2025», «один к двумстам» → «один»); нет — первое слово.
+ */
+function numberOffset(quote: readonly string[]): number {
+  const k = quote.findIndex((w) => /\p{N}/u.test(w) || ruNumberParse(w).values.length > 0);
+  return k >= 0 ? k : 0;
+}
+
 /** Число для экрана и брифа: «1,24», «256». */
 const numText = (v: number) => String(v).replace(".", ",");
 
@@ -113,7 +123,7 @@ export function keyMoments(item: ScriptSceneItem, script: ScriptRevisionDoc, rea
     const q = d.quote.split(/\s+/).map(wordKey).filter(Boolean);
     if (q.length === 0) continue;
     const k = keys.findIndex((_, i) => q.every((x, j) => keys[i + j] === x));
-    if (k >= 0) out.push({ text: numText(d.value), value: d.value, frame: at(k) });
+    if (k >= 0) out.push({ text: numText(d.value), value: d.value, frame: at(k + numberOffset(q)) });
   }
   for (const t of item.key_terms) {
     const k = words.findIndex((w) => w.id === t.word_id);

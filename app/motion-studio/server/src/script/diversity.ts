@@ -2,12 +2,13 @@
 // `warningsForState` — поставщик предупреждений карточек сцен для `scriptState` (S1 → S11).
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { type MotionSpec, MotionSpecSchema, type PlanIssue, type QAIssue, QAReportSchema, type SceneStructure, type ScriptPlanRevisionDoc, type ScriptSceneItem, TECHNIQUES, type Technique, holdModeFor, structureOf, structureOfRule } from "@ms/contracts";
-import { kitImports } from "../api/routes/versions.js";
+import { type MotionSpec, MotionSpecSchema, type PlanIssue, type SceneStructure, type ScriptPlanRevisionDoc, type ScriptSceneItem, TECHNIQUES, type Technique, holdModeFor, structureOf, structureOfRule } from "@ms/contracts";
 import type { Db } from "../db/open.js";
 import * as scenes from "../db/repos/scenes.js";
 import { scriptScenes } from "../db/repos/script.js";
 import * as versions from "../db/repos/versions.js";
+import { uniformEntrance } from "../qa/spec-checks.js";
+import { kitImports } from "../scenes/kit-imports.js";
 import { currentScriptPlan } from "./read.js";
 
 /**
@@ -27,29 +28,42 @@ export function warningsForState(db: Db, root: string, projectId: string, plan: 
   return Object.fromEntries(rows.map((r) => [r.sceneId, d.per_item[r.item.id] ?? []]));
 }
 
-/** spec, kit-компоненты кода и замечания QA текущей ready-версии сцены; нет — spec null. */
-function readyVersion(db: Db, root: string, sceneId: string): { spec: MotionSpec | null; kit: string[]; qa?: QAIssue[] } {
+/** Готовая версия: spec и kit-компоненты кода; `spec: null` — версии нет или она не читается. */
+interface ReadyVersion {
+  spec: MotionSpec | null;
+  kit: string[];
+}
+
+/**
+ * Кэш прочитанных ready-версий по `version_id` (S11-fix M8): файлы готовой версии не меняются,
+ * а `scriptState` зовёт `warningsForState` на каждый запрос состояния сценария.
+ */
+const readyCache = new Map<string, ReadyVersion>();
+const READY_CACHE_MAX = 2000;
+
+/** spec и kit-компоненты кода текущей ready-версии сцены; нет — spec null. */
+function readyVersion(db: Db, root: string, sceneId: string): ReadyVersion {
   const id = scenes.get(db, sceneId)?.current_version_id;
   const v = id ? versions.get(db, id) : undefined;
   if (!v || v.status !== "ready" || v.broken_reason) return { spec: null, kit: [] };
+  const hit = readyCache.get(v.id);
+  if (hit) return hit;
   const dir = join(root, v.path);
+  let out: ReadyVersion;
   try {
     const spec = MotionSpecSchema.parse(JSON.parse(readFileSync(join(dir, "spec.json"), "utf8")));
     const kit = new Set<string>();
     for (const f of readdirSync(join(dir, "src"), { recursive: true, encoding: "utf8" })) {
       if (/\.(tsx|ts|jsx|js)$/.test(f)) for (const n of kitImports(readFileSync(join(dir, "src", f), "utf8"))) kit.add(n);
     }
-    let qa: QAIssue[] | undefined;
-    try {
-      const r = QAReportSchema.safeParse(JSON.parse(readFileSync(join(dir, "qa.json"), "utf8")));
-      if (r.success) qa = r.data.issues;
-    } catch {
-      // отчёта QA нет — доля fade без этой сцены
-    }
-    return { spec, kit: [...kit].sort(), ...(qa ? { qa } : {}) };
+    out = { spec, kit: [...kit].sort() };
   } catch {
+    // нечитаемая версия не кэшируется: хранилище могло быть недоступно на миг
     return { spec: null, kit: [] };
   }
+  if (readyCache.size >= READY_CACHE_MAX) readyCache.delete(readyCache.keys().next().value!);
+  readyCache.set(v.id, out);
+  return out;
 }
 
 // --- planDiversity (S3): разнообразие плана до генерации (спека §5.3)
@@ -87,7 +101,7 @@ export function planDiversity(items: readonly ScriptSceneItem[]): ScriptPlanRevi
     }
     const a = sceneStructure(prev);
     if (a === sceneStructure(x)) {
-      issues.push({ item_id: x.id, code: "adjacent_structure_repeat", severity: "warning", message: `сцены ${prev.id} и ${x.id} подряд с одной формой времени ${a} — задайте другую structure_rule` });
+      issues.push({ item_id: x.id, code: "adjacent_structure_repeat", severity: "warning", message: `сцены ${prev.id} и ${x.id} подряд с одной формой времени ${a} — задайте сцене другую форму времени` });
     }
   });
   const limit = Math.max(2, Math.ceil(0.3 * n));
@@ -112,17 +126,24 @@ function heroComponent(technique: Technique, kit: readonly string[]): string | u
   return own.find((c) => kit.includes(c)) ?? KEY_COMPONENTS.find((c) => kit.includes(c));
 }
 
-/** Замечание QA версии — одинаковые входы вида `fade` (описание `uniform_entrance` кончается видом). */
-const fadeUniform = (qa: readonly QAIssue[] | undefined) => (qa ?? []).some((x) => x.code === "uniform_entrance" && /\(fade\)\s*$/.test(x.description));
+/** Что за главный элемент у компонента kit — для сообщений человеку без имён kit (S11-fix M6). */
+const KIT_RU: Record<string, string> = {
+  AnimatedNumber: "счётчика числа", DataToken: "токена данных", BarChart: "столбиковой диаграммы", LineChart: "графика",
+  AreaChart: "графика", ComparisonSplit: "сравнения «было/стало»", LatencyRace: "гонки скоростей", ProcessSteps: "шагов процесса",
+  FlowGraph: "схемы потоков", PulseAlongPath: "импульса по пути", Card: "карточек", Highlight: "выделения",
+  Timeline: "оси времени", CodeBlock: "блока кода", StatusChip: "отметок статуса", Callout: "выноски",
+  KineticText: "кинетического текста", Emphasis: "акцента на словах",
+};
+const kitRu = (names: readonly string[]) => [...new Set(names.map((n) => KIT_RU[n] ?? "главного элемента"))].join(" или ");
 
 /**
  * Разнообразие пакета по spec и коду версий (спека §12 п.2): приём реализован — в `kit` есть
  * ключевой компонент приёма (`technique_not_realized`); соседние готовые сцены не совпадают
  * разом по структуре, герою-компоненту и режиму удержания (`adjacent_scene_repeat`, у поздней).
  * Всё — warning. Сводка: структуры и kit готовых сцен, доля сцен с `uniform_entrance` вида fade
- * (по QA версии). Сцена без версии (`spec: null`) не проверяется и соседства не рвёт.
+ * (по входам spec, `uniformEntrance`). Сцена без версии (`spec: null`) не проверяется и соседства не рвёт.
  */
-export function packageDiversity(scenes: readonly { item: ScriptSceneItem; spec: MotionSpec | null; kit: string[]; qa?: readonly QAIssue[] }[]): {
+export function packageDiversity(scenes: readonly { item: ScriptSceneItem; spec: MotionSpec | null; kit: string[] }[]): {
   per_item: Record<string, PlanIssue[]>;
   summary: { structures: Record<string, number>; kit: Record<string, number>; fade_share: number };
 } {
@@ -131,27 +152,27 @@ export function packageDiversity(scenes: readonly { item: ScriptSceneItem; spec:
   const kit: Record<string, number> = {};
   let ready = 0;
   let fades = 0;
-  let prev: { id: string; form: string } | undefined;
+  let prev: string | undefined;
   for (const s of scenes) {
     const issues: PlanIssue[] = [];
     per_item[s.item.id] = issues;
     if (!s.spec) continue;
     ready++;
-    if (fadeUniform(s.qa)) fades++;
+    if (uniformEntrance(s.spec)?.kind === "fade") fades++;
     const structure = structureOf(s.spec);
     structures[structure] = (structures[structure] ?? 0) + 1;
     for (const c of s.kit) kit[c] = (kit[c] ?? 0) + 1;
     const t = TECHNIQUES.find((x) => x.slug === s.item.technique)!;
     if (!(t.kit as readonly string[]).some((c) => s.kit.includes(c))) {
-      issues.push({ item_id: s.item.id, code: "technique_not_realized", severity: "warning", message: `приём ${t.slug} не реализован: в коде нет ${t.kit.join(" / ")} — сцена, скорее всего, «заголовок и плашка»; перегенерируйте` });
+      issues.push({ item_id: s.item.id, code: "technique_not_realized", severity: "warning", message: `приём «${t.ru}» не показан: в сцене нет ${kitRu(t.kit)} — похоже на «заголовок и плашку»; перегенерируйте` });
     }
     const hero = heroComponent(s.item.technique, s.kit) ?? "—";
     const hold = holdModeFor(s.spec);
     const form = `${structure}|${hero}|${hold}`;
-    if (prev && prev.form === form) {
-      issues.push({ item_id: s.item.id, code: "adjacent_scene_repeat", severity: "warning", message: `сцены ${prev.id} и ${s.item.id} подряд одинаковы по форме: структура ${structure}, герой ${hero}, удержание ${hold} — перегенерируйте одну из них` });
+    if (prev === form) {
+      issues.push({ item_id: s.item.id, code: "adjacent_scene_repeat", severity: "warning", message: "повторяет предыдущую сцену: та же форма времени, тот же главный элемент и тот же режим финала — перегенерируйте одну из них" });
     }
-    prev = { id: s.item.id, form };
+    prev = form;
   }
   return { per_item, summary: { structures, kit, fade_share: ready === 0 ? 0 : fades / ready } };
 }

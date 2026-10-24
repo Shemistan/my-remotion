@@ -36,12 +36,12 @@ const uniform = () => {
 
 const hints: ScriptHints = { keyMoments: [{ text: "256", value: 256, frame: 150 }], sourceText: "рост пользователей один к двумстам пятидесяти шести" };
 
-function run(agents: ReturnType<typeof fakeAgents>, script?: ScriptHints) {
+function run(agents: ReturnType<typeof fakeAgents>, script?: ScriptHints, cp?: { jobId: string }) {
   return makeDeps(root, skills, { agents }).then((deps) => runGeneration({
     prompt: "тест", settings: s,
     plan: async (rc) => {
       const style = sceneStyle(scenePropsStyle(s), s);
-      const d = await directorStep(rc, { prompt: "тест", settings: s, candidates: [], patternTexts: [], kitApi: await readKitApi(), style, ...(script ? { scriptHints: script } : {}) });
+      const d = await directorStep(rc, { prompt: "тест", settings: s, candidates: [], patternTexts: [], kitApi: await readKitApi(), style, ...(script ? { scriptHints: script } : {}) }, cp);
       if (!d.ok) return { kind: "failed", stage: d.stage, message: d.message };
       return { kind: "plan", director: d.director, spec: d.spec, candidates: [] };
     },
@@ -72,6 +72,62 @@ describe("directorStep: подсказки сцены сценария", () => {
     expect(r.warnings.join("\n")).toContain("key_term_early");
   });
 
+  // S11-fix I1: предупреждение не превращается в провал — любой сбой второго раунда оставляет первый ответ
+  it("второй раунд упал (отказ агента) — сцена идёт с ответом первого раунда", async () => {
+    let n = 0;
+    const agents = fakeAgents({ director: async () => (++n === 1 ? { output: early() } : { status: "failed", error: { kind: "timeout", message: "таймаут" } }) });
+    const r = await run(agents, hints);
+    expect(r.status).toBe("ready");
+    expect(agents.tasks.filter((t) => t.role === "motion_director")).toHaveLength(2);
+    const spec = JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8")) as MotionSpec;
+    expect(spec.elements.map((e) => e.id)).toContain("num");
+    expect(r.warnings.join("\n")).toMatch(/оставлен ответ первого раунда/);
+  });
+
+  it("второй ответ с другой длительностью — сцена идёт с ответом первого раунда", async () => {
+    let n = 0;
+    const agents = fakeAgents({
+      director: async () => {
+        if (++n === 1) return { output: early() };
+        const out = directorOutput();
+        out.spec.duration_frames = s.duration_frames + 30;
+        return { output: out };
+      },
+    });
+    const r = await run(agents, hints);
+    expect(r.status).toBe("ready");
+    const spec = JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8")) as MotionSpec;
+    expect(spec.elements.map((e) => e.id)).toContain("num");
+  });
+
+  // S11-fix I3: чекпоинт хранит уже принятый ответ — повтор задачи не гоняет раунд подсказок заново
+  it("повтор задачи (ответ из чекпоинта) — без второго раунда по подсказкам", async () => {
+    let n = 0;
+    const first = fakeAgents({ director: async () => ({ output: ++n === 1 ? early() : uniform() }) });
+    expect((await run(first, hints, { jobId: "job_s11" })).status).toBe("ready");
+    const again = fakeAgents({ director: async () => ({ output: directorOutput() }) });
+    const r = await run(again, hints, { jobId: "job_s11" });
+    expect(r.status).toBe("ready");
+    expect(again.tasks.filter((t) => t.role === "motion_director")).toHaveLength(0);
+    const spec = JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8")) as MotionSpec;
+    expect(spec.elements.map((e) => e.id)).toContain("num");
+  });
+
+  // S11-fix I2a: короткий термин (< 4 букв) — только подсказка, не повод для раунда
+  it("ранний короткий термин — подсказка без второго раунда", async () => {
+    const short = () => {
+      const out = directorOutput();
+      out.spec.elements = [...out.spec.elements, { id: "word", kind: "text", role: "emphasis", entrance: "mask", content: { text: "нет" } }];
+      out.spec.beats = [...out.spec.beats, { id: "b-acc", kind: "accent", start_frame: 0, end_frame: 20, action: "emphasis", description: "", element_ids: ["word"] }];
+      return out;
+    };
+    const agents = fakeAgents({ director: async () => ({ output: short() }) });
+    const r = await run(agents, { keyMoments: [{ text: "нет", frame: 150 }] });
+    expect(r.status).toBe("ready");
+    expect(agents.tasks.filter((t) => t.role === "motion_director")).toHaveLength(1);
+    expect(r.warnings.join("\n")).toContain("key_term_early");
+  });
+
   it("не сцена сценария — один раунд, как раньше", async () => {
     const agents = fakeAgents({ director: async () => ({ output: early() }) });
     const r = await run(agents);
@@ -81,16 +137,22 @@ describe("directorStep: подсказки сцены сценария", () => {
 });
 
 describe("finaleLine: живой финал на герое (S11, ss_004)", () => {
-  it("называет носителя — элементы фазы hold, движение заметное", () => {
+  // S11-fix M7: только у сцены сценария и ровно один носитель — первый emphasis/number фазы hold
+  it("называет одного носителя — первый emphasis/number фазы hold, только у сцены сценария", () => {
     const sp = directorOutput().spec;
     const phased: MotionSpec = {
       ...sp,
-      phases: [{ id: "act", role: "action", weight: 2, element_ids: ["chart"] }, { id: "hold", role: "hold", weight: 1, element_ids: ["chart", "title"], hold_mode: "now-pulse" }],
+      elements: [...sp.elements, { id: "num", kind: "number", role: "label", entrance: "count", content: { to: 3 } }, { id: "acc", kind: "text", role: "emphasis", entrance: "mask", content: { text: "итог" } }],
+      phases: [{ id: "act", role: "action", weight: 2, element_ids: ["chart"] }, { id: "hold", role: "hold", weight: 1, element_ids: ["chart", "title", "num", "acc"], hold_mode: "now-pulse" }],
       beats: [{ ...sp.beats[1]!, phase: "act" }, { ...sp.beats[3]!, phase: "hold", kind: "hold" }],
     };
-    const line = finaleLine(phased);
+    const line = finaleLine(phased, true);
     expect(line).toContain("финал: hold_mode now-pulse, бит hold `b4`");
-    expect(line).toContain("носитель — герой: chart, title");
-    expect(finaleLine(sp)).not.toContain("носитель");
+    expect(line).toContain("носитель — герой: num");
+    expect(line).not.toMatch(/герой: [^—]*acc/);
+    expect(finaleLine(phased)).not.toContain("носитель");
+    expect(finaleLine(phased, false)).not.toContain("носитель");
+    // в hold нет ни числа, ни акцента — носителя не называем
+    expect(finaleLine({ ...phased, phases: [phased.phases![0]!, { ...phased.phases![1]!, element_ids: ["chart", "title"] }] }, true)).not.toContain("носитель");
   });
 });

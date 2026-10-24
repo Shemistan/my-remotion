@@ -61,25 +61,35 @@ export interface KeyMoment {
   frame: number;
 }
 
+/**
+ * Однообразные входы spec (ТЗ §8.2, `uniform_entrance`): самый частый вход и его доля, если
+ * она выше порога (у `fade` — > 0,5, у прочих — > 0,6) или все входы одинаковы; иначе нет.
+ * Пакет сцен (S11) считает по ней долю сцен с однообразным `fade`.
+ */
+export function uniformEntrance(spec: Pick<MotionSpec, "elements">): { kind: string; ids: string[]; of: number; share: number } | undefined {
+  const entering = spec.elements.filter((e) => e.entrance !== "none");
+  if (entering.length < UNIFORM_MIN) return undefined;
+  const counts = new Map<string, string[]>();
+  for (const e of entering) counts.set(e.entrance, [...(counts.get(e.entrance) ?? []), e.id]);
+  const [kind, ids] = [...counts].sort((a, b) => b[1].length - a[1].length)[0]!;
+  const share = ids.length / entering.length;
+  return share === 1 || share > (kind === "fade" ? UNIFORM_FADE_WARN_SHARE : UNIFORM_WARN_SHARE) ? { kind, ids, of: entering.length, share } : undefined;
+}
+
 export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheckOpts = {}): QAIssue[] {
   const out: Omit<QAIssue, "source">[] = [];
 
   // одинаковые входы (ТЗ §8.2): none — не вход
-  const entering = spec.elements.filter((e) => e.entrance !== "none");
-  if (entering.length >= UNIFORM_MIN) {
-    const counts = new Map<string, string[]>();
-    for (const e of entering) counts.set(e.entrance, [...(counts.get(e.entrance) ?? []), e.id]);
-    const [kind, ids] = [...counts].sort((a, b) => b[1].length - a[1].length)[0]!;
-    const share = ids.length / entering.length;
-    if (share === 1 || share > (kind === "fade" ? UNIFORM_FADE_WARN_SHARE : UNIFORM_WARN_SHARE)) {
-      out.push({
-        code: "uniform_entrance", severity: share === 1 ? "blocking" : "warning", area: ids.join(", "),
-        description: share === 1
-          ? `все ${ids.length} элементов входят одинаково (${kind})`
-          : `${ids.length} из ${entering.length} элементов входят одинаково (${kind})`,
-        fix_hint: "разные объекты — разные входы: заголовок rise/mask, число count, график draw, карточки scale/pop, подписи fade; разные входы по роли: число — count, линия — draw, карточки — rise/slide, акцент — mask/pop",
-      });
-    }
+  const uniform = uniformEntrance(spec);
+  if (uniform) {
+    const { kind, ids, of: n, share } = uniform;
+    out.push({
+      code: "uniform_entrance", severity: share === 1 ? "blocking" : "warning", area: ids.join(", "),
+      description: share === 1
+        ? `все ${ids.length} элементов входят одинаково (${kind})`
+        : `${ids.length} из ${n} элементов входят одинаково (${kind})`,
+      fix_hint: "разные объекты — разные входы: заголовок rise/mask, число count, график draw, карточки scale/pop, подписи fade; разные входы по роли: число — count, линия — draw, карточки — rise/slide, акцент — mask/pop",
+    });
   }
 
   // layout → доли кадра: x_кадра = поле + x × ширина safe area
@@ -133,7 +143,7 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
   }
 
   if (opts.speechWindow) out.push(...speechWindowIssues(spec, opts.speechWindow));
-  if (opts.keyMoments?.length) out.push(...keyTermEarly(spec, opts.keyMoments));
+  if (opts.keyMoments?.length) out.push(...keyTermEarly(spec, opts.keyMoments, opts.speechWindow));
   if (opts.sourceText !== undefined) out.push(...foreignLabelIssues(spec, opts.sourceText));
   out.push(...beatReferenceIssues(spec));
   out.push(...accentConflicts(spec, settings));
@@ -193,6 +203,10 @@ function speechWindowIssues(spec: MotionSpec, w: { lead: number; speech: number;
 
 /** Допуск раскрытия раньше слова, кадров: зритель успевает прочесть к моменту, когда слышит. */
 export const KEY_TERM_TOLERANCE = 6;
+/** Момент позже конца речи минус столько кадров не исправить перестановкой фаз — не проверяется. */
+export const KEY_TERM_LATE_MARGIN = 15;
+/** Термин короче — только подсказка, не повод для раунда Director. */
+const ROUND_TERM_MIN_LETTERS = 4;
 
 /** Строка без регистра и «ё», пробелы схлопнуты. */
 const norm = (v: string) => v.toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ").trim();
@@ -200,30 +214,45 @@ const numberRe = (v: number) => {
   const [int, frac] = String(v).split(".");
   return new RegExp(String.raw`(?<![\p{N}.,])${int}${frac ? String.raw`[.,]${frac}` : ""}(?![\p{N}]|[.,]\p{N})`, "u");
 };
+/** Термин целым словом (граница по буквам и цифрам Unicode): «нет» не находится в «интернет». */
+const termRe = (t: string) => new RegExp(String.raw`(?<![\p{L}\p{N}])${escapeRe(t)}(?![\p{L}\p{N}])`, "u");
 
-/** Элемент показывает момент: число — `to`/`value` или в строке content; термин — в строке. */
+/** Элемент, чьё появление — раскрытие: герой, акцент или число (подписи и кикеры — нет). */
+const revealsMoments = (e: Element) => e.kind === "number" || isEmphasisRole(e.role) || /^\s*(hero|герой)/i.test(e.role);
+
+/** Момент стоит раунда Director: число или термин не короче 4 букв; короче — только подсказка. */
+export function roundWorthyMoment(m: KeyMoment): boolean {
+  return m.value !== undefined || (m.text.match(/\p{L}/gu)?.length ?? 0) >= ROUND_TERM_MIN_LETTERS;
+}
+
+/** Элемент показывает момент: число — `to`/`value` или в строке content; термин — целым словом в строке. */
 function showsMoment(e: Element, m: KeyMoment): boolean {
   const c = (e.content ?? {}) as Record<string, unknown>;
-  const strings = contentStrings(c, /.*/).map((x) => x.value);
+  if (m.value !== undefined && (c.to === m.value || c.value === m.value)) return true;
+  if (!revealsMoments(e)) return false;
+  const strings = contentStrings(c, /.*/).map((x) => norm(x.value));
   if (m.value !== undefined) {
-    if (c.to === m.value || c.value === m.value) return true;
     const re = numberRe(m.value);
     return strings.some((x) => re.test(x));
   }
   const term = norm(m.text);
-  return term.length >= 2 && strings.some((x) => norm(x).includes(term));
+  if (term.length < 2) return false;
+  const re = termRe(term);
+  return strings.some((x) => re.test(x));
 }
 
 /**
  * Ключевое число или термин раскрыты раньше, чем их произносят (S11, находка ss_004: «256»
  * досчитан к кадру 60, звучит ~140). Раскрытие элемента с моментом: конец бита счёта, начало
  * бита акцента или бита фазы payoff, у числа — ещё начало входа. Раньше `frame − допуск` —
- * warning (подсказка Director, раунд исправления сцены сценария).
+ * warning (подсказка Director). Момент позже конца речи − 15 кадров не исправить — мимо.
  */
-function keyTermEarly(spec: MotionSpec, moments: readonly KeyMoment[]): Omit<QAIssue, "source">[] {
+export function keyTermEarly(spec: MotionSpec, moments: readonly KeyMoment[], window?: { lead: number; speech: number }): Omit<QAIssue, "source">[] {
   const payoff = new Set(phasesOf(spec).filter((p) => p.role === "payoff").map((p) => p.id));
+  const last = window ? window.lead + window.speech - KEY_TERM_LATE_MARGIN : Infinity;
   const hits: { id: string; m: KeyMoment; at: number }[] = [];
   for (const m of moments) {
+    if (m.frame > last) continue;
     const limit = m.frame - KEY_TERM_TOLERANCE;
     for (const e of spec.elements.filter((x) => showsMoment(x, m))) {
       const reveals = spec.beats.filter((b) => b.element_ids.includes(e.id)).flatMap((b) => {
@@ -239,9 +268,10 @@ function keyTermEarly(spec: MotionSpec, moments: readonly KeyMoment[]): Omit<QAI
   }
   if (hits.length === 0) return [];
   const first = hits[0]!;
+  const said = [...new Map(hits.map((h) => [h.m.text, h])).values()];
   return [{
     code: "key_term_early", severity: "warning", area: [...new Set(hits.map((h) => h.id))].join(", "),
-    description: `раскрыто раньше, чем звучит: ${hits.map((h) => `«${h.m.text}» (${h.id}) на кадре ${h.at}, слово — кадр ${h.m.frame}`).join("; ")}`,
+    description: `раскрыто раньше, чем звучит: ${said.map((h) => `«${h.m.text}» на кадре ${h.at}, слово — кадр ${h.m.frame}`).join("; ")}`,
     fix_hint: `зритель видит то, что слышит: итог счёта, удар и payoff «${first.m.text}» — не раньше кадра ${first.m.frame - KEY_TERM_TOLERANCE}; перераспредели веса фаз (setup/action до слова длиннее) или раскрой его в фазе после кадра ${first.m.frame}`,
   }];
 }
@@ -251,21 +281,31 @@ function keyTermEarly(spec: MotionSpec, moments: readonly KeyMoment[]): Omit<QAI
  * говорит текст (S11, находка ss_009). Тест сверяет список с API.md.
  */
 export const KIT_EXAMPLE_LABELS = [
-  "sensor:17", "#17", "2 мс", "Рост пользователей", "Данные · 2019–2023", "янв 22", "янв 25", "I кв.", "IV кв.",
-  "Ручной отчёт", "Выгрузка в Excel", "Сверка вручную", "3 дня", "Пайплайн данных", "Данные из DWH", "Проверки в коде", "15 минут",
-  "Прототип", "два основателя", "До трёх попыток", "затем — понятная ошибка", "pipeline.ts", "Запрос", "Контроллер", "База",
-  "С диска", "Из памяти", "чтение файла", "RAM · рядом", "Память · задержка чтения", "Из памяти — в 30 раз быстрее",
+  "sensor:17", "#17", "Рост пользователей", "Данные · 2019–2023", "Ручной отчёт", "Выгрузка в Excel", "Сверка вручную",
+  "Пайплайн данных", "Данные из DWH", "Проверки в коде", "два основателя", "До трёх попыток", "затем — понятная ошибка",
+  "pipeline.ts", "RAM · рядом", "Память · задержка чтения", "Из памяти — в 30 раз быстрее",
 ] as const;
-const KIT_EXAMPLES = new Set<string>(KIT_EXAMPLE_LABELS.map(norm));
+/** Основа слова для сравнения: первые 5 букв (падеж и число не важны: «отчёт» ~ «отчёта»). */
+const STEM = 5;
+/** Части подписи: слова (по основе) и числа как есть; знаки и разделители — нет. */
+const parts = (v: string) => (norm(v).match(/[\p{L}]+|[\p{N}]+/gu) ?? []).map((w) => (/^\p{N}+$/u.test(w) ? w : w.slice(0, STEM)));
+const stemKey = (v: string) => parts(v).join(" ");
+const KIT_EXAMPLES = new Set<string>(KIT_EXAMPLE_LABELS.map(stemKey));
 /** Ключ записи по образцу примеров DataToken («sensor:17», «#17»): выдуманный пример, если его нет в тексте. */
 const TOKEN_SHAPE = /^(?:[\p{L}_-]+:\d+|#\d+)$/u;
 
-/** Подписи из `labels`, похожие на примеры kit и не взятые из `source` (фрагмент, идея, термины). */
+/**
+ * Подписи из `labels`, похожие на примеры kit (специфичные примеры API.md или ключ вида
+ * «word:NN»/«#NN»), части которых не взяты из `source` (фрагмент, идея, термины): слова — по
+ * основе, числа — как есть. «HTTP:200» при «HTTP 200» в тексте — своя подпись.
+ */
 export function foreignLabels(labels: readonly string[], source: string): string[] {
-  const src = norm(source);
+  const src = new Set(parts(source));
   return [...new Set(labels.map((x) => x.trim()))].filter((x) => {
     const n = norm(x);
-    return n.length > 0 && (KIT_EXAMPLES.has(n) || TOKEN_SHAPE.test(n)) && !src.includes(n);
+    if (n.length === 0 || !(KIT_EXAMPLES.has(stemKey(n)) || TOKEN_SHAPE.test(n))) return false;
+    const own = parts(n);
+    return own.length === 0 || !own.every((p) => src.has(p));
   });
 }
 
@@ -275,7 +315,7 @@ function foreignLabelIssues(spec: MotionSpec, source: string): Omit<QAIssue, "so
   if (found.length === 0) return [];
   return [{
     code: "foreign_label", severity: "warning", area: [...new Set(found.map((f) => f.id))].join(", "),
-    description: `подписи не из текста сцены — похожи на примеры kit: ${found.map((f) => `«${f.text}» (${f.id})`).join(", ")}`,
+    description: `подписи не из текста сцены — похожи на примеры kit: ${[...new Set(found.map((f) => `«${f.text}»`))].join(", ")}`,
     fix_hint: "никаких подписей-примеров: каждая подпись — из фразы или идеи брифа (слова, числа, термины фрагмента); нет подходящей — без подписи",
   }];
 }

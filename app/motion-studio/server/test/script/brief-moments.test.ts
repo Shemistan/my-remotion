@@ -19,10 +19,11 @@ function item(over: Partial<ScriptSceneItem> = {}): ScriptSceneItem {
 }
 
 describe("keyMoments", () => {
-  it("кадр слова: lead + речь слов до него; числа — по цитате, термины — по word_id; по времени", () => {
+  // S11-fix M4: момент числа — слово с цифрами (или числительное) внутри цитаты, а не её первое слово
+  it("кадр слова: lead + речь слов до него; числа — по слову числа в цитате, термины — по word_id; по времени", () => {
     expect(keyMoments(item(), doc, DEFAULT_READING, F30)).toEqual([
-      { text: "1,24", value: 1.24, frame: frameAfter(1) },
-      { text: "2025", value: 2025, frame: frameAfter(8) },
+      { text: "1,24", value: 1.24, frame: frameAfter(2) },
+      { text: "2025", value: 2025, frame: frameAfter(9) },
       { text: "Карта", frame: frameAfter(11) },
     ]);
   });
@@ -33,11 +34,20 @@ describe("keyMoments", () => {
   });
 });
 
+describe("keyMoments: числительное словами", () => {
+  it("цитата «уже в феврале» без цифр, но с числительным — по слову числительного", () => {
+    const T = "Карта стала быстрее ровно в восемь раз за год.";
+    const d: ScriptRevisionDoc = { schema_version: 1, script_id: "scr_1", revision: 1, ...tokenizeScript([{ title: "Блок", text: T }]), author: "user" };
+    const it2 = item({ end_word_id: "w_000009", quote: T, key_terms: [], data: [{ label: "раз", value: 8, quote: "ровно в восемь раз" }] });
+    expect(keyMoments(it2, d, DEFAULT_READING, F30)).toEqual([{ text: "8", value: 8, frame: frameAfter(5) }]);
+  });
+});
+
 describe("бриф: моменты слов", () => {
   it("строка «Моменты слов» с кадрами и правилом «не раньше слова»", () => {
     const moments = keyMoments(item(), doc, DEFAULT_READING, F30);
     const b = buildSceneBrief({ item: item(), index: 1, total: 3, projectTitle: "Go map", fps: F30, windows: [], moments });
-    expect(b).toContain(`Моменты слов (кадр, когда звучит): «1,24» — ${frameAfter(1)}; «2025» — ${frameAfter(8)}; «Карта» — ${frameAfter(11)}`);
+    expect(b).toContain(`Моменты слов (кадр, когда звучит): «1,24» — ${frameAfter(2)}; «2025» — ${frameAfter(9)}; «Карта» — ${frameAfter(11)}`);
     expect(b).toMatch(/не раньше его кадра/);
     // без моментов строки нет
     expect(buildSceneBrief({ item: item(), index: 1, total: 3, projectTitle: "Go map", fps: F30, windows: [] })).not.toContain("Моменты слов");

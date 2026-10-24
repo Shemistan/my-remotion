@@ -2,7 +2,8 @@
 // kit-компонентам версий, `warningsForState` — по текущим ready-версиям 16:9 плана.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { DEFAULT_READING, type HoldMode, type MotionSpec, type PlanIssue, type QAIssue, type SceneStructure, type ScriptPlanRevisionDoc, type ScriptSceneItem, type Technique, defaultSettings } from "@ms/contracts";
+import { DEFAULT_READING, type HoldMode, type MotionSpec, type Element, type PlanIssue, type SceneStructure, type ScriptPlanRevisionDoc, type ScriptSceneItem, type Technique, defaultSettings } from "@ms/contracts";
+import { TECHNIQUES } from "@ms/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { artifactPaths } from "../../src/artifacts/paths.js";
 import { migrate } from "../../src/db/migrate.js";
@@ -26,11 +27,11 @@ function item(technique: Technique, n = 1): ScriptSceneItem {
   };
 }
 
-function spec(o: { structure?: SceneStructure; hold?: HoldMode } = {}): MotionSpec {
+function spec(o: { structure?: SceneStructure; hold?: HoldMode; entrances?: Element["entrance"][] } = {}): MotionSpec {
   return {
     title: "т", purpose: "п", duration_frames: 90, fps: { num: 30, den: 1 }, style_preset: "dark-premium",
     composition: { archetype: "split", idea: "и", focus: "ф", transitions: "т", ...(o.structure ? { structure: o.structure } : {}) },
-    elements: [{ id: "a", kind: "text", role: "заголовок", entrance: "rise", content: { text: "A" } }],
+    elements: [{ id: "a", kind: "text", role: "заголовок", entrance: "rise", content: { text: "A" } }, ...(o.entrances ?? []).map((entrance, i) => ({ id: `e${i}`, kind: "text" as const, role: "подпись", entrance, content: { text: `e${i}` } }))],
     phases: [
       { id: "act", role: "action", weight: 2, element_ids: ["a"] },
       { id: "hold", role: "hold", weight: 1, element_ids: ["a"], hold_mode: o.hold ?? "now-pulse" },
@@ -43,7 +44,7 @@ function spec(o: { structure?: SceneStructure; hold?: HoldMode } = {}): MotionSp
 }
 
 let seq = 0;
-const s = (technique: Technique, sp: MotionSpec | null, kit: string[], qa?: QAIssue[]) => ({ item: item(technique, ++seq), spec: sp, kit, ...(qa ? { qa } : {}) });
+const s = (technique: Technique, sp: MotionSpec | null, kit: string[]) => ({ item: item(technique, ++seq), spec: sp, kit });
 beforeEach(() => {
   seq = 0;
 });
@@ -76,18 +77,34 @@ describe("packageDiversity", () => {
     expect(codes(r.per_item.ss_002)).toEqual([]);
   });
 
-  it("сводка: структуры, kit, доля сцен с uniform_entrance вида fade", () => {
-    const fadeQa: QAIssue = { source: "programmatic", code: "uniform_entrance", severity: "warning", description: "3 из 5 элементов входят одинаково (fade)", fix_hint: "" };
-    const riseQa: QAIssue = { ...fadeQa, description: "3 из 4 элементов входят одинаково (rise)" };
+  // S11-fix M9: доля fade — по входам spec (структурно), не по тексту описания замечания QA
+  it("сводка: структуры, kit, доля сцен с однообразным входом fade по spec", () => {
     const r = packageDiversity([
-      s("hero-number", spec({ structure: "count-up" }), ["AnimatedNumber", "Background"], [fadeQa]),
-      s("timeline", spec(), ["Timeline", "Background"], [riseQa]),
+      s("hero-number", spec({ structure: "count-up", entrances: ["fade", "fade", "fade", "count"] }), ["AnimatedNumber", "Background"]),
+      s("timeline", spec({ entrances: ["rise", "rise", "rise"] }), ["Timeline", "Background"]),
       s("race", spec({ structure: "split-reveal" }), ["LatencyRace"]),
       s("flow-graph", spec({ structure: "continuous-flow" }), ["FlowGraph"]),
     ]);
     expect(r.summary.structures).toEqual({ "count-up": 1, "build-strike": 1, "split-reveal": 1, "continuous-flow": 1 });
     expect(r.summary.kit).toEqual({ AnimatedNumber: 1, Background: 2, Timeline: 1, LatencyRace: 1, FlowGraph: 1 });
     expect(r.summary.fade_share).toBe(0.25);
+  });
+
+  // S11-fix M6: сообщения человеку — по смыслу, без имён компонентов kit, слагов и hold-режимов
+  it("сообщения без сырых кодов: «нет сравнения», «тот же режим финала»", () => {
+    for (const t of TECHNIQUES) {
+      seq = 0;
+      const msg = packageDiversity([s(t.slug, spec(), [])]).per_item.ss_001!.find((x) => x.code === "technique_not_realized")!.message;
+      expect(msg, t.slug).not.toMatch(/[A-Za-z]/);
+      expect(msg, t.slug).not.toContain("главного элемента");
+    }
+    seq = 0;
+    expect(packageDiversity([s("split-versus", spec(), [])]).per_item.ss_001![0]!.message).toContain("нет сравнения");
+    seq = 0;
+    const specA = spec({ structure: "split-reveal" });
+    const rep = packageDiversity([s("race", specA, ["LatencyRace"]), s("timeline", specA, ["LatencyRace"])]).per_item.ss_002!.find((x) => x.code === "adjacent_scene_repeat")!;
+    expect(rep.message).toContain("тот же режим финала");
+    expect(rep.message).not.toMatch(/[A-Za-z]/);
   });
 });
 
@@ -151,5 +168,9 @@ describe("warningsForState", () => {
     expect(w.scn_3 ?? []).toEqual([]);
     expect(w.scn_v).toBeUndefined();
     expect(warningsForState(db, st.root, "p1", null)).toEqual({});
+
+    // S11-fix M8: готовая версия читается один раз (кэш по version_id) — файлы её не меняются
+    writeFileSync(join(st.root, "workspace/projects/p1/scenes/scn_2/versions/ver_scn_2/src/Scene.tsx"), `import { Timeline } from "@ms/motion-kit";\n`);
+    expect(codes(warningsForState(db, st.root, "p1", doc).scn_2)).toEqual(expect.arrayContaining(["technique_not_realized", "adjacent_scene_repeat"]));
   });
 });

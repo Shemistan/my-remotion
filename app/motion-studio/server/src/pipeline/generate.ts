@@ -186,6 +186,8 @@ export interface GenerationRequest {
    * проверок; blocking — исправление Engineer тем же циклом. Только с `qa`.
    */
   extraQa?: LoopInput["extraQa"];
+  /** Сцена сценария (S11): носитель финала в задаче Engineer. */
+  script?: boolean;
 }
 
 /** Правка: база, план и как вести цикл (`playground-edit.ts`). */
@@ -400,6 +402,7 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
         ...(req.qa ? { qa: { brief: { prompt: ed?.qaPrompt ?? prompt, settings, camera: cameraBrief(spec!) }, allowRestricted: req.qa.allowRestricted } } : {}),
         ...(req.previous ? { previous: req.previous } : {}),
         ...(req.extraQa ? { extraQa: req.extraQa } : {}),
+        ...(req.script ? { script: true } : {}),
         progress: deps.progress,
         ...(ed ? { reviseOnly: true, ...(paramEdit ? { skipFirstEngineer: true } : {}), ...(ed.brief ? { brief: ed.brief } : {}), ...(ed.preserveCheck ? { preserveCheck: ed.preserveCheck } : {}), ...(ed.preserveHold ? { preserveHold: ed.preserveHold } : {}) } : {}),
         // второй дубль (S5): свой каталог попытки задачи вне draft (граница draft первого дубля

@@ -21,6 +21,7 @@ import * as versions from "../../db/repos/versions.js";
 import { tx } from "../../db/tx.js";
 import { enqueue } from "../../jobs/queue.js";
 import { renderEnv } from "../../pipeline/render-env.js";
+import { kitImports } from "../../scenes/kit-imports.js";
 import { readKnowledgeRefs } from "../../scenes/repo.js";
 import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "../context.js";
 import { ApiError, notFound } from "../errors.js";
@@ -29,21 +30,6 @@ import { sendFile } from "../range.js";
 import { publicJob } from "../job-dto.js";
 
 const FRAME_RE = /^(0|[1-9]\d{0,6})\.png$/;
-const KIT_IMPORT_RE = /import\s+(type\s+)?\{([^}]*)\}\s*from\s*["']@ms\/motion-kit["']/g;
-
-/** Компоненты (имена с заглавной) из `import { A, B as C } from "@ms/motion-kit"`; хуки и токены (`useStyle`, `accent`) и `import type` — нет. */
-export function kitImports(src: string): string[] {
-  const out: string[] = [];
-  for (const m of src.matchAll(KIT_IMPORT_RE)) {
-    if (m[1]) continue;
-    for (const part of m[2]!.split(",")) {
-      const name = part.trim().replace(/^type\s+/, "").split(/\s+as\s+/)[0]!.trim();
-      if (/^[A-Z][\w$]*$/.test(name) && !/^type\s/.test(part.trim())) out.push(name);
-    }
-  }
-  return out;
-}
-
 export function versionRoutes(app: ZApp, { core }: ApiContext): void {
   // окружение рендера сервера не меняется без перезапуска (lockfile, motion-kit); отказ не кэшируется
   const currentLock = memoOnSuccess(() => renderEnv().then((e) => e.render_lock_sha256));

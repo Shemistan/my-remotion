@@ -14,6 +14,7 @@ import {
   type EditPlan,
   type FailureStage,
   type MotionSpec,
+  type QAIssue,
   KIT_FONTS,
   PATTERN_SLUGS,
   type SceneStructure,
@@ -32,10 +33,11 @@ import type { AgentErrorKind, AgentResult, AgentRuntimeAdapter, AgentTask, Agent
 import type { AppConfig } from "../config.js";
 import type { Permits } from "../jobs/semaphore.js";
 import type { CapabilityView } from "../knowledge/types.js";
-import { type KeyMoment, specChecks } from "../qa/spec-checks.js";
+import { type KeyMoment, keyTermEarly, roundWorthyMoment, specChecks } from "../qa/spec-checks.js";
 import { type StepRef, checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
 import { planSpecBeats, structureFit } from "./beat-plan.js";
 import { normalizeBoundCounters } from "./bound-counters.js";
+import { isEmphasisRole } from "./qa-frames.js";
 import { candidateBrief } from "./refs.js";
 
 const WATCH_MS = 10_000;
@@ -587,13 +589,24 @@ export function buildDirectorTask(i: DirectorTaskInput, run: TaskRun): AgentTask
  * Строка финала для Engineer (S3b): режим удержания (`holdModeFor` — тот же выбор, что у QA)
  * и бит hold, который его несёт (последний бит hold до конца сцены).
  */
-export function finaleLine(spec: MotionSpec): string {
+export function finaleLine(spec: MotionSpec, script = false): string {
   const holds = spec.beats.filter((b) => isHoldBeat(b));
   const beat = holds.find((b) => b.end_frame === spec.duration_frames) ?? holds.at(-1);
-  // S11 (ss_004): режим на мелкой детали читается как стоп-кадр — носитель называется явно
-  const hero = spec.phases?.find((p) => p.role === "hold")?.element_ids ?? [];
-  const carrier = hero.length > 0 ? `; носитель — герой: ${hero.join(", ")} — движение режима на нём самом и заметное, не на мелкой детали` : "";
+  // S11 (ss_004): у сцены сценария режим на мелкой детали читается как стоп-кадр — называем
+  // ОДНОГО носителя: первое число или акцент фазы hold
+  const hero = script ? holdHero(spec) : undefined;
+  const carrier = hero ? `; носитель — герой: ${hero} — движение режима на нём самом и заметное, не на мелкой детали` : "";
   return `- финал: hold_mode ${holdModeFor(spec)}, ${beat ? `бит hold \`${beat.id}\`` : "бита hold нет — финал на последнем бите"} (hold-проп компонентов, refs/motion-kit/API.md «Фазы и финал»)${carrier};`;
+}
+
+/** Носитель финала: первый элемент фазы hold — число или с ролью акцента; нет — нет. */
+function holdHero(spec: MotionSpec): string | undefined {
+  const ids = spec.phases?.find((p) => p.role === "hold")?.element_ids ?? [];
+  const byId = new Map(spec.elements.map((e) => [e.id, e]));
+  return ids.find((id) => {
+    const e = byId.get(id);
+    return e !== undefined && (e.kind === "number" || isEmphasisRole(e.role));
+  });
 }
 
 /** Инструменты Engineer: только файлы draft (Bash и сеть — никогда). */
@@ -603,13 +616,13 @@ export const ENGINEER_TOOLS: AgentTool[] = ["Read", "Write", "Edit", "Glob", "Gr
  * Задача Engineer: всё о сцене — в файлах draft (spec, settings, style, selection,
  * knowledge-refs, refs/); `fix` — замечания прошлой проверки (с заголовком «Исправление N»).
  */
-export function buildEngineerTask(i: { draftDir: string; fix?: string; spec?: MotionSpec }, run: TaskRun): AgentTask<string> {
+export function buildEngineerTask(i: { draftDir: string; fix?: string; spec?: MotionSpec; script?: boolean }, run: TaskRun): AgentTask<string> {
   const parts: string[] = [];
   if (i.fix) parts.push(i.fix, "");
   parts.push(
     "# Задача",
     "Собери Remotion-сцену в текущем каталоге (draft) по `spec.json`:",
-    ...(i.spec ? [finaleLine(i.spec)] : []),
+    ...(i.spec ? [finaleLine(i.spec, i.script === true)] : []),
     "- `src/Scene.tsx` с `export const Scene` (можно добавить модули в `src/`);",
     "- `props.json` по контракту сцены: `timing` (биты spec), `style` (из `settings.json`), `content` (данные spec).",
     "Прочитай первым `refs/motion-kit/API.md`, затем `spec.json`, `style.json`, `settings.json`, `selection.json`, `knowledge-refs.json`;",
@@ -885,7 +898,12 @@ export async function directorStep(
   let key: { hash: string; reused: boolean } | undefined;
   for (let round = 1; round <= 2; round++) {
     const r = await toolless(rc, "motion_director", "director", "Motion Director", (workdir) => buildDirectorTask({ ...i, fix, workdir }, { ...rc.taskRun, seq: round }), DirectorOutputSchema, round === 1 && cp ? { ...cp, save: false } : undefined);
-    if (!r.ok) return r;
+    if (!r.ok) {
+      // S11-fix I1: подсказка не превращается в провал — сбой второго раунда (отказ, таймаут,
+      // бюджет) оставляет принятый первый ответ; отмена и недоступное хранилище — как были
+      if (round === 2 && accepted && r.stage !== "cancelled" && r.stage !== "storage") return keepFirst(rc, accepted, acceptedWarnings, r.message);
+      return r;
+    }
     if (round === 1) key = { hash: r.hash, reused: r.reused };
     const chosen = withConceptStructure(r.output, i.concept);
     const director = chosen.director;
@@ -909,9 +927,12 @@ export async function directorStep(
     // счётчик за головой линии: бит счёта — окно головы (lineDrawWindow), не расчёт Director
     const bound = normalizeBoundCounters(planned.spec);
     const spec: MotionSpec = bound.spec;
-    if (spec.duration_frames !== s.duration_frames) return { ok: false, stage: "director", message: `spec.duration_frames ${spec.duration_frames} ≠ настройкам ${s.duration_frames}` };
-    if (spec.fps.num * s.fps.den !== s.fps.num * spec.fps.den) {
-      return { ok: false, stage: "director", message: `spec.fps ${spec.fps.num}/${spec.fps.den} ≠ настройкам ${s.fps.num}/${s.fps.den}` };
+    const mismatch = spec.duration_frames !== s.duration_frames
+      ? `spec.duration_frames ${spec.duration_frames} ≠ настройкам ${s.duration_frames}`
+      : spec.fps.num * s.fps.den !== s.fps.num * spec.fps.den ? `spec.fps ${spec.fps.num}/${spec.fps.den} ≠ настройкам ${s.fps.num}/${s.fps.den}` : undefined;
+    if (mismatch !== undefined) {
+      if (round === 2 && accepted) return keepFirst(rc, accepted, acceptedWarnings, mismatch);
+      return { ok: false, stage: "director", message: mismatch };
     }
     if (presetSwap) rc.warnings.push(`Director выбрал пресет ${presetSwap}, в настройках ${s.style_preset}: оставлен пресет настроек`);
     const concept = conceptStructure(i.concept)?.value;
@@ -926,12 +947,14 @@ export async function directorStep(
     if (blocking.length === 0) {
       const warnings = [
         ...specWarnings(spec),
-        ...hints.map((h) => `${h.code} (${h.area ?? "spec"}): ${h.description}`),
+        // подсказки сцены сценария — без id элементов: строка уходит в предупреждения версии
+        ...hints.map((h) => (SCRIPT_ROUND_HINTS.has(h.code) ? `${h.code}: ${h.description}` : `${h.code} (${h.area ?? "spec"}): ${h.description}`)),
         ...(chosen.warning ? [chosen.warning] : []), ...planned.changes, ...planned.warnings, ...bound.changes, ...bound.warnings,
       ].map((w) => `spec: ${w}`);
       const ok = { ok: true as const, director: { ...director, spec }, spec };
-      // сцена сценария (S11): раскрытие раньше слова и чужие подписи стоят ещё одного раунда
-      const redo = round === 1 ? checks.filter((x) => SCRIPT_ROUND_HINTS.has(x.code)) : [];
+      // сцена сценария (S11): раскрытие раньше слова и чужие подписи стоят ещё одного раунда;
+      // ответ из чекпоинта уже принят (после раунда подсказок) — повтор задачи его не переделывает
+      const redo = round === 1 && !key?.reused ? scriptRedo(spec, checks, scriptHints, speechWindow) : [];
       if (redo.length > 0) {
         accepted = ok;
         acceptedWarnings = warnings;
@@ -975,6 +998,19 @@ export interface ScriptHints {
 
 /** Подсказки сцены сценария, ради которых Director отвечает ещё раз даже без blocking (S11). */
 const SCRIPT_ROUND_HINTS = new Set(["key_term_early", "foreign_label"]);
+
+/**
+ * Замечания, ради которых Director сцены сценария отвечает ещё раз: чужие подписи и раннее
+ * раскрытие числа или термина от 4 букв (S11-fix I2a); короткий термин — только подсказка.
+ */
+function scriptRedo(spec: MotionSpec, checks: readonly QAIssue[], hints: ScriptHints | undefined, window: SpeechWindow | undefined): QAIssue[] {
+  const foreign = checks.filter((x) => x.code === "foreign_label");
+  const worthy = hints?.keyMoments?.filter(roundWorthyMoment) ?? [];
+  const early = checks.some((x) => x.code === "key_term_early") && worthy.length > 0
+    ? keyTermEarly(spec, worthy, window).map((x) => ({ ...x, source: "programmatic" as const }))
+    : [];
+  return [...early, ...foreign];
+}
 
 /** Окно речи сцены сценария (S5, §5.2): запас до речи, речь, запас после — в кадрах. */
 export interface SpeechWindow {

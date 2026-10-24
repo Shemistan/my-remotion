@@ -146,6 +146,8 @@ export interface LoopInput {
   reviseOnly?: boolean;
   /** Дополнительная проверка попытки (S6); blocking — исправление тем же циклом. */
   extraQa?: ExtraQa;
+  /** Сцена сценария (S11): Engineer получает носителя финала (`finaleLine`). */
+  script?: boolean;
 }
 
 /**
@@ -772,7 +774,7 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
           ].join("\n")
         : call === 1 ? t.brief : undefined;
       rc.log(`${first ? "" : "дубль 2: "}${call === 1 ? "Engineer…" : `Engineer: исправление ${call - 1} из ${maxCalls - 1} (${issue?.stage})…`}`);
-      const e = await rc.timed(`${pre}engineer_${call}`, () => rc.call(buildEngineerTask({ draftDir: dir, ...(fix ? { fix } : {}), spec }, { ...rc.taskRun, seq: first ? call : 100 + call }), EngineerReportSchema, t.signal));
+      const e = await rc.timed(`${pre}engineer_${call}`, () => rc.call(buildEngineerTask({ draftDir: dir, ...(fix ? { fix } : {}), spec, ...(i.script ? { script: true } : {}) }, { ...rc.taskRun, seq: first ? call : 100 + call }), EngineerReportSchema, t.signal));
       if (e.budget !== undefined) return end("budget", `${e.budget}${issue ? `; последняя ошибка (${issue.stage}): ${clip(issue.message, 1000)}` : ""}`);
       if (e.skipped) return end("cancelled", "отменено до Engineer");
       if (e.error !== undefined) {

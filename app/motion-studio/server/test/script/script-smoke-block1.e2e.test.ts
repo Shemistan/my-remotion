@@ -8,7 +8,8 @@
 // `MS_SMOKE_BLOCK2=1` — ещё 2 сцены block-2 (hero-number «256», process-steps «порциями») для
 // сравнения «до/после» правил S11 с кадрами e2e S5 (docs/evidence/script-mvp/generate/).
 // Хранилище — `MS_DATA_DIR` (по умолчанию /Volumes/External SSD/MotionStudio-e2e-s11, создаётся
-// initStore, как doctor --init). Запуск: `MS_E2E=1 npx vitest run server/test/script/script-smoke-block1.e2e.test.ts`.
+// initStore, как doctor --init). Платный (≈ $15–20) — только явно, `MS_SMOKE=1`:
+// `MS_E2E=1 MS_SMOKE=1 npx vitest run server/test/script/script-smoke-block1.e2e.test.ts`.
 import { execFile } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -36,7 +37,7 @@ import { startScriptBatch } from "../../src/script/batch.js";
 import { packageDiversity, warningsForState } from "../../src/script/diversity.js";
 import { currentScriptPlan } from "../../src/script/read.js";
 import { saveScriptText } from "../../src/script/text.js";
-import { kitImports } from "../../src/api/routes/versions.js";
+import { kitImports } from "../../src/scenes/kit-imports.js";
 
 const T = 180 * 60_000;
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
@@ -55,11 +56,13 @@ const say = (s: string) => {
   console.log(s);
 };
 
+/** Смоук платный: только по `MS_SMOKE=1`, не каждым `make e2e`. */
+const SMOKE = process.env.MS_SMOKE === "1";
+
 beforeAll(async () => {
+  if (!SMOKE) return;
   expect(existsSync("/Volumes/External SSD") || process.env.MS_DATA_DIR !== undefined, "внешний SSD не подключён").toBe(true);
   if (!existsSync(join(ROOT, MARKER_FILE))) await initStore(ROOT, macosProbe, {});
-  // окружение (дефект S5 №1): chrome-wrapper.sh пишет в run/processes и не создаёт каталог
-  mkdirSync(join(ROOT, "run", "processes"), { recursive: true });
   await ensureRenderBrowser();
   core = await bootCore({
     env: { ...process.env, MS_DATA_DIR: ROOT },
@@ -75,6 +78,7 @@ beforeAll(async () => {
 }, T);
 
 afterAll(async () => {
+  if (!SMOKE) return;
   writeFileSync(join(TMP, "run.log"), log.join("\n") + "\n");
   await core?.close();
 });
@@ -256,7 +260,7 @@ const sceneJson = (s: Scene) => ({
   warnings: s.warnings.map((w) => `${w.code}: ${w.message ?? ""}`), qa_warnings: s.qaWarnings, judge: s.judge ?? null,
 });
 
-it("блок 1 целиком: план → пакет → разнообразие → судья → MP4 и кадры; [A]", async () => {
+it.runIf(SMOKE)("блок 1 целиком: план → пакет → разнообразие → судья → MP4 и кадры; [A]", async () => {
   const r = REUSE[0] ? reuse("block-1", REUSE[0]) : await plan("block-1", join(REPO, "tmp/script-mvp/block-1.txt"));
   runs.push(r);
   if (REUSE[0]) collect(r);
@@ -280,7 +284,7 @@ it("блок 1 целиком: план → пакет → разнообраз�
   expect(acceptance.ok, JSON.stringify(acceptance)).toBe(true);
 }, T);
 
-it.runIf(process.env.MS_SMOKE_BLOCK2 === "1")("block-2: hero-number «256» и process-steps «порциями» — до/после правил S11", async () => {
+it.runIf(SMOKE && process.env.MS_SMOKE_BLOCK2 === "1")("block-2: hero-number «256» и process-steps «порциями» — до/после правил S11", async () => {
   const r = REUSE[1] ? reuse("block-2", REUSE[1]) : await plan("block-2", join(REPO, "tmp/script-mvp/block-2.txt"));
   runs.push(r);
   const acc = r.scenes.map((s) => s.item);
