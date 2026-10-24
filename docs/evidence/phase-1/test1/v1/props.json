@@ -1,0 +1,168 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      {
+        "id": "chart-draw",
+        "start_frame": 0,
+        "end_frame": 43
+      },
+      {
+        "id": "hero-in",
+        "start_frame": 6,
+        "end_frame": 18
+      },
+      {
+        "id": "hero-count-count",
+        "start_frame": 6,
+        "end_frame": 35
+      },
+      {
+        "id": "label-in",
+        "start_frame": 17,
+        "end_frame": 29
+      },
+      {
+        "id": "hero-count",
+        "start_frame": 28,
+        "end_frame": 43
+      },
+      {
+        "id": "final-emphasis",
+        "start_frame": 43,
+        "end_frame": 86
+      },
+      {
+        "id": "multiplier-in",
+        "start_frame": 43,
+        "end_frame": 86
+      },
+      {
+        "id": "multiplier-sub-in",
+        "start_frame": 49,
+        "end_frame": 86
+      },
+      {
+        "id": "hold",
+        "start_frame": 86,
+        "end_frame": 180
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "hold_mode": "now-pulse",
+    "background": {
+      "variant": "aurora",
+      "seed": "scn_01M5N0BWY51B61QQBH3BM0NJ2F",
+      "focus": {
+        "x": 0.72,
+        "y": 0.22
+      }
+    },
+    "chart": {
+      "id": "growth-chart",
+      "points": [
+        {
+          "label": "Старт",
+          "value": 10000
+        },
+        {
+          "label": "Год 1",
+          "value": 70000
+        },
+        {
+          "label": "Год 2",
+          "value": 300000
+        },
+        {
+          "label": "Год 3",
+          "value": 1000000
+        }
+      ],
+      "area": true,
+      "callout": false,
+      "yTicks": 4,
+      "compact": true,
+      "locale": "ru",
+      "accentIndex": 0,
+      "pre": "silhouette",
+      "width": 1002,
+      "height": 632,
+      "layout": {
+        "x": 0.05,
+        "y": 0.3,
+        "w": 0.58,
+        "h": 0.65
+      }
+    },
+    "hero": {
+      "id": "hero-count",
+      "from": 10000,
+      "to": 1000000,
+      "locale": "ru",
+      "size": "display",
+      "align": "right",
+      "reserveWidth": true,
+      "round_to": 1000,
+      "accentIndex": 0,
+      "layout": {
+        "x": 0.5,
+        "y": 0.05,
+        "w": 0.45,
+        "h": 0.19
+      }
+    },
+    "users_label": {
+      "id": "users-label",
+      "text": "пользователей",
+      "suffix_forms": [
+        "пользователь",
+        "пользователя",
+        "пользователей"
+      ],
+      "size": "body",
+      "align": "right",
+      "layout": {
+        "x": 0.66,
+        "y": 0.25,
+        "w": 0.29,
+        "h": 0.07
+      }
+    },
+    "multiplier": {
+      "id": "multiplier",
+      "text": "×100",
+      "size": "h1",
+      "weight": 800,
+      "align": "right",
+      "layout": {
+        "x": 0.66,
+        "y": 0.42,
+        "w": 0.29,
+        "h": 0.1
+      }
+    },
+    "multiplier_sub": {
+      "id": "multiplier-sub",
+      "text": "за три года",
+      "size": "body",
+      "align": "right",
+      "layout": {
+        "x": 0.66,
+        "y": 0.53,
+        "w": 0.29,
+        "h": 0.07
+      }
+    }
+  }
+}

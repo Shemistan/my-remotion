@@ -232,3 +232,16 @@ it("object input is embedded in a 4-backtick fence", async () => {
   expect(prompt.trimEnd().endsWith("````")).toBe(true);
   expect(JSON.parse(prompt.slice("````json\n".length, prompt.lastIndexOf("\n````")))).toEqual(t.input);
 });
+
+it("task.run.registry is handed to spawnTracked (Task 13: no file registry for the server)", async () => {
+  const registry = { add: async () => undefined, end: async () => undefined, live: async () => [] };
+  let seen: unknown;
+  const spawn: typeof spawnTracked = async (_root, _ref, _cmd, _args, opts) => {
+    seen = opts.registry;
+    return { code: 0, signal: null, stdout: fx("success.json"), stderr: "", orphaned: false };
+  };
+  const t = makeTask({ input: "x", run: { root: store, runId: "regs", attempt: 2, registry }, workdir, limits: { timeoutMs: 60_000, maxBudgetUsd: 1 } });
+  const r = await new ClaudeCodeRuntime({ bin: sleepy, logRoot, spawn }).run(t, Ok, new AbortController().signal);
+  expect(r.status).toBe("completed");
+  expect(seen).toBe(registry);
+});

@@ -1,0 +1,41 @@
+{
+  "plan_revision": 16,
+  "edl_revision": 15,
+  "agent": {
+    "jobs": 14,
+    "with_agent": [
+      {
+        "id": "job_01M5Q5ZMHG5PVJS73RQEQ2Z75C",
+        "type": "roughcut.propose",
+        "calls": 1
+      },
+      {
+        "id": "job_01M5Q9F8JCFYGW5JT5R4Z694R6",
+        "type": "footage.analyze",
+        "calls": 1
+      },
+      {
+        "id": "job_01M5Q9HD3Z31ZHF08HEHJE5SHP",
+        "type": "semantic.analyze",
+        "calls": 1
+      },
+      {
+        "id": "job_01M5Q9M2EDFZ5T091SJDSRRVHE",
+        "type": "footage.analyze",
+        "calls": 1
+      },
+      {
+        "id": "job_01M5Q9NFFWHS3X3WD2QRPTYQBJ",
+        "type": "semantic.analyze",
+        "calls": 1
+      },
+      {
+        "id": "job_01M5Q9QE1DQRDGY5Q5KA57G3TM",
+        "type": "plan.visual",
+        "calls": 1
+      }
+    ],
+    "agent_calls": 6,
+    "agent_runs": 0
+  }
+}

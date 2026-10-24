@@ -72,3 +72,13 @@ it("writeEntry rejects props.json that is not a JSON object", async () => {
   await writeFile(join(a, "props.json"), "[1, 2]");
   await expect(writeEntry(a, cache, await fixtureSettings("hello-scene"))).rejects.toThrow(/props\.json/);
 });
+
+it("two concurrent writeEntry of the same content in one process both succeed (parallel takes)", async () => {
+  const cache = join(tmp, "cache");
+  await mkdir(cache);
+  const settings = await fixtureSettings("hello-scene");
+  const b = await copyFixture("hello-scene", join(tmp, "b"));
+  const [ea, eb] = await Promise.all([writeEntry(a, cache, settings), writeEntry(b, cache, settings)]);
+  expect(ea).toBe(eb);
+  expect(await readFile(ea, "utf8")).toContain("registerRoot");
+});

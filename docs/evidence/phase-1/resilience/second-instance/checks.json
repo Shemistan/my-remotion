@@ -1,0 +1,23 @@
+[
+  {
+    "id": "p7.busy",
+    "title": "второй npm start при живом первом выходит с owner_busy",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"> start\",\"> tsx server/src/main.ts\",\"[motion-studio] не запустился: owner_busy: хранилище занято другим процессом (server, pid 68980)\"]"
+  },
+  {
+    "id": "p7.free",
+    "title": "после kill -9 первого npm start поднимает сервер",
+    "kind": "A",
+    "pass": true,
+    "detail": "health ok"
+  },
+  {
+    "id": "p7.stop",
+    "title": "npm start останавливается по SIGTERM",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"{\\\"level\\\":30,\\\"time\\\":1792783343300,\\\"pid\\\":75525,\\\"reqId\\\":\\\"req-1\\\",\\\"res\\\":{\\\"statusCode\\\":200},\\\"responseTime\\\":19.800624999999854,\\\"msg\\\":\\\"request completed\\\"}\",\"[motion-studio] SIGTERM: остановка — API, раннер (abort попыток), БД, owner-lock\",\"[motion-studio] остановлен\"]"
+  }
+]

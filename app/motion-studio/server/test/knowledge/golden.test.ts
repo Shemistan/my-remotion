@@ -17,6 +17,13 @@ describe("golden: реальная KB", () => {
   it("рост пользователей: счётчик в топ-5", () => {
     expect(ids(t1, 5)).toContain("remotion-bits/animated-counter");
   });
+  it("«счётчик» и «бегущие цифры» находят remotion-bits/animated-counter (MIT)", () => {
+    for (const q of ["счётчик", "счетчик", "бегущие цифры"]) {
+      const hit = kb.search(q).find((h) => h.view.id === "remotion-bits/animated-counter");
+      expect(hit, q).toBeDefined();
+      expect(hit!.view.license).toMatch(/^MIT/);
+    }
+  });
   it("рост пользователей: линейный график в топ-10", () => {
     expect(ids(t1, 10)).toContain("free-remotion-templates/line-chart-anim");
   });

@@ -1,0 +1,267 @@
+{
+  "title": "Рост пользователей ×100",
+  "purpose": "За три года аудитория выросла со 10 000 до 1 000 000 пользователей — в 100 раз.",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "composition": {
+    "archetype": "diagonal",
+    "idea": "Линия роста идёт из левого нижнего угла (10 000) в правый верхний, где её голова встречает крупный счётчик; число растёт ровно под головой и упирается в «1 000 000», затем вывод «×100 за три года».",
+    "focus": "Камера стоит, пока ведёт голова линии (20–108); после удара конечной точки — один медленный наезд до 1.04 к правому верхнему углу (итог).",
+    "transitions": "Сетка → прорисовка линии с заливкой → число дорастает до миллиона → удар конечной точки → вывод шторкой → живое удержание.",
+    "title_mode": "kicker",
+    "background": {
+      "variant": "aurora",
+      "focus": {
+        "x": 0.72,
+        "y": 0.22
+      },
+      "seed": "scn_01M5FG5KYNQ9PJ0E08YBXEVE4B"
+    }
+  },
+  "elements": [
+    {
+      "id": "kicker",
+      "kind": "text",
+      "role": "контекст: рубрика",
+      "entrance": "type",
+      "depth_layer": 1,
+      "content": {
+        "component": "SceneTitle",
+        "mode": "kicker",
+        "kicker": "Рост аудитории · 3 года",
+        "size": "caption"
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.05,
+        "w": 0.4,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "growth-chart",
+      "kind": "chart",
+      "role": "опора: траектория роста пользователей",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "LineChart",
+        "points": [
+          {
+            "label": "Старт",
+            "value": 10000
+          },
+          {
+            "label": "Год 1",
+            "value": 46000
+          },
+          {
+            "label": "Год 2",
+            "value": 215000
+          },
+          {
+            "label": "Год 3",
+            "value": 1000000
+          }
+        ],
+        "area": true,
+        "callout": false,
+        "endpointEmphasis": {
+          "beat": {
+            "start_frame": 108,
+            "end_frame": 132
+          },
+          "loop": true
+        },
+        "locale": "ru",
+        "compact": true,
+        "yTicks": 4,
+        "width": 1071,
+        "height": 700,
+        "accentIndex": 0
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.2,
+        "w": 0.62,
+        "h": 0.72
+      }
+    },
+    {
+      "id": "unit-label",
+      "kind": "text",
+      "role": "подпись: что считаем",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "text": "Пользователи",
+        "size": "body",
+        "color": "muted",
+        "align": "left"
+      },
+      "layout": {
+        "x": 0.56,
+        "y": 0.05,
+        "w": 0.39,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "hero-number",
+      "kind": "number",
+      "role": "герой: итоговое число пользователей",
+      "entrance": "count",
+      "depth_layer": 2,
+      "content": {
+        "component": "AnimatedNumber",
+        "from": 10000,
+        "to": 1000000,
+        "locale": "ru",
+        "size": "display",
+        "align": "left",
+        "enterAt": 4,
+        "enter": "pop",
+        "bound_to": "growth-chart.head",
+        "reserveWidth": true
+      },
+      "layout": {
+        "x": 0.56,
+        "y": 0.11,
+        "w": 0.39,
+        "h": 0.15
+      }
+    },
+    {
+      "id": "statement",
+      "kind": "text",
+      "role": "вывод: кратность роста",
+      "entrance": "mask",
+      "depth_layer": 1,
+      "content": {
+        "lines": [
+          "×100",
+          "за три года"
+        ],
+        "size": "h2",
+        "weight": 800,
+        "align": "left"
+      },
+      "layout": {
+        "x": 0.7,
+        "y": 0.46,
+        "w": 0.25,
+        "h": 0.18
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "b-kicker-in",
+      "start_frame": 0,
+      "end_frame": 24,
+      "action": "kicker-in",
+      "description": "Рубрика «Рост аудитории · 3 года» набирается по буквам в левом верхнем углу; фон aurora виден с кадра 0.",
+      "element_ids": [
+        "kicker"
+      ]
+    },
+    {
+      "id": "b-chart-draw",
+      "start_frame": 4,
+      "end_frame": 134,
+      "action": "chart-draw",
+      "description": "LineChart: сетка и подписи осей (4–20), линия со светящейся головой рисуется 20–108, точки «Год 1», «Год 2» вспыхивают при проходе головы, заливка идёт следом. Выноски нет — значение несёт герой-число.",
+      "element_ids": [
+        "growth-chart"
+      ]
+    },
+    {
+      "id": "b-number-in",
+      "start_frame": 0,
+      "end_frame": 20,
+      "action": "number-entrance",
+      "description": "Число входит pop уже со значением «10 000» (enterAt 4) и держит его до старта линии (≥15 кадров) — зритель читает «от».",
+      "element_ids": [
+        "hero-number"
+      ]
+    },
+    {
+      "id": "b-unit-in",
+      "start_frame": 12,
+      "end_frame": 36,
+      "action": "unit-in",
+      "description": "Подпись «Пользователи» проявляется из размытия над числом (со сдвигом 8 кадров от числа).",
+      "element_ids": [
+        "unit-label"
+      ]
+    },
+    {
+      "id": "b-number-count",
+      "start_frame": 20,
+      "end_frame": 108,
+      "action": "number-count",
+      "description": "Счёт 10 000 → 1 000 000 привязан к голове линии через lineChartHead(points, chart beat 4–134): value = head.value; цифры моноширинные, ширина зарезервирована. Удар финиша — в 108, вместе с приходом головы в конечную точку.",
+      "element_ids": [
+        "hero-number"
+      ]
+    },
+    {
+      "id": "b-final-emphasis",
+      "start_frame": 108,
+      "end_frame": 132,
+      "action": "final-emphasis",
+      "description": "Акцент: конечная точка графика (endpointEmphasis) — удар accent[0] с одним кольцом, далее дыхание. Это единственный акцент; отдельного Emphasis/pill вокруг числа нет.",
+      "element_ids": [
+        "growth-chart"
+      ]
+    },
+    {
+      "id": "b-statement-in",
+      "start_frame": 116,
+      "end_frame": 134,
+      "action": "statement-in",
+      "description": "Вывод «×100 / за три года» открывается шторкой mask (16 кадров) справа под числом; живёт на экране ~2,1 с, без свечения.",
+      "element_ids": [
+        "statement"
+      ]
+    },
+    {
+      "id": "b-hold",
+      "start_frame": 153,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "Новых входов нет. Дышит конечная точка линии (свет и масштаб в противофазе), камера завершает медленный наезд к миллиону, пятна aurora дрейфуют — движение подтверждает достигнутый итог; линия не перерисовывается.",
+      "element_ids": [
+        "growth-chart",
+        "hero-number",
+        "statement",
+        "unit-label",
+        "kicker"
+      ]
+    }
+  ],
+  "camera": [
+    {
+      "frame": 0,
+      "scale": 1,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "frame": 120,
+      "scale": 1,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "frame": 179,
+      "scale": 1.04,
+      "x": 40,
+      "y": -25
+    }
+  ]
+}

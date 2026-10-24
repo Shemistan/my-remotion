@@ -1,0 +1,154 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      {
+        "id": "chart-draw",
+        "start_frame": 0,
+        "end_frame": 120
+      },
+      {
+        "id": "hero-in",
+        "start_frame": 0,
+        "end_frame": 15
+      },
+      {
+        "id": "title-in",
+        "start_frame": 6,
+        "end_frame": 30
+      },
+      {
+        "id": "hero-count",
+        "start_frame": 15,
+        "end_frame": 96
+      },
+      {
+        "id": "final-emphasis",
+        "start_frame": 96,
+        "end_frame": 126
+      },
+      {
+        "id": "conclusion-in",
+        "start_frame": 102,
+        "end_frame": 120
+      },
+      {
+        "id": "hold",
+        "start_frame": 153,
+        "end_frame": 180
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "background": {
+      "variant": "aurora",
+      "seed": "scn_01M5FNP3KJS44T9R338XR578F8",
+      "focus": {
+        "x": 0.8,
+        "y": 0.22
+      }
+    },
+    "camera": [
+      {
+        "frame": 0,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "frame": 140,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "frame": 179,
+        "scale": 1.04,
+        "x": 40,
+        "y": -30
+      }
+    ],
+    "title": {
+      "text": "Доля мобильного трафика",
+      "layout": {
+        "x": 0.05,
+        "y": 0.05,
+        "w": 0.6,
+        "h": 0.1
+      }
+    },
+    "chart": {
+      "points": [
+        {
+          "label": "2019",
+          "value": 35
+        },
+        {
+          "label": "2020",
+          "value": 44
+        },
+        {
+          "label": "2021",
+          "value": 52
+        },
+        {
+          "label": "2022",
+          "value": 59
+        },
+        {
+          "label": "2023",
+          "value": 64
+        },
+        {
+          "label": "2024",
+          "value": 68
+        }
+      ],
+      "valueSuffix": " %",
+      "yTicks": 4,
+      "locale": "ru",
+      "accentIndex": 0,
+      "width": 1555,
+      "height": 603,
+      "layout": {
+        "x": 0.05,
+        "y": 0.33,
+        "w": 0.9,
+        "h": 0.62
+      }
+    },
+    "hero": {
+      "from": 35,
+      "to": 68,
+      "suffix": " %",
+      "decimals": 0,
+      "locale": "ru",
+      "layout": {
+        "x": 0.7,
+        "y": 0.05,
+        "w": 0.25,
+        "h": 0.22
+      }
+    },
+    "conclusion": {
+      "text": "Почти вдвое: ×1,9 · +33 п. п. за 5 лет",
+      "highlight": "×1,9",
+      "layout": {
+        "x": 0.05,
+        "y": 0.17,
+        "w": 0.6,
+        "h": 0.09
+      }
+    }
+  }
+}

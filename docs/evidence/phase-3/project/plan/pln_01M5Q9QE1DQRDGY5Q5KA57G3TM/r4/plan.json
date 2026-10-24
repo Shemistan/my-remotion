@@ -1,0 +1,645 @@
+{
+  "schema_version": 1,
+  "plan_id": "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM",
+  "revision": 4,
+  "parent_revision": 3,
+  "inputs": {
+    "edl": {
+      "id": "edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C",
+      "revision": 13,
+      "hash": "e2cec4bb1fb6ac36c1e1ae99328006245ae48c7c212238e613847baf7ea36843"
+    },
+    "transcript": {
+      "id": "trn_01M5Q5WS2K6KVYV1X1G2X6TMZP",
+      "revision": 2
+    },
+    "semantic_id": "sem_01M5Q9NFFWHS3X3WD2QRPTYQBJ",
+    "footage_id": "ftg_01M5Q9M2EDFZ5T091SJDSRRVHE",
+    "style": {
+      "id": "sty_01M5Q9RJHHY72N7GB521ERX9KT",
+      "revision": 1,
+      "hash": "5058f0efdb11a01d0ca6ac67db43cec1c9e2816c4783c3af6b0f1045329bb67c"
+    }
+  },
+  "items": [
+    {
+      "id": "sp_001",
+      "status": "proposed",
+      "origin": "agent",
+      "anchor_ids": [
+        "a_0002"
+      ],
+      "start_word_id": "w_000068",
+      "end_word_id": "w_000084",
+      "edited": {
+        "start_us": 51613333,
+        "end_us": 61493333
+      },
+      "source": {
+        "start_us": 57480000,
+        "end_us": 69160000
+      },
+      "frames": {
+        "start": 1548,
+        "end": 1845
+      },
+      "segment_ids": [
+        "seg_0008",
+        "seg_0009"
+      ],
+      "purpose": "Понять, что в ответной ошибке указывается request id, связывающий её с запросом",
+      "visual_type": "cause-effect",
+      "composition_mode": "split_screen",
+      "zone": "split_left",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 0.5,
+        "h": 1
+      },
+      "key_terms": [
+        {
+          "text": "request id",
+          "word_id": "w_000076",
+          "edited_at_us": 55633333
+        }
+      ],
+      "metaphor": "запрос со стрелкой к ответу-ошибке с тем же id",
+      "complexity": 2,
+      "usefulness": 4,
+      "effort": 3,
+      "visual_load": 3,
+      "evidence": [
+        {
+          "quote": "мы отвечаем тоже ошибкой, но при этом указываем request id, чтобы понять, какой запрос вызвал эту ошибку",
+          "start_word_id": "w_000068",
+          "end_word_id": "w_000084",
+          "edited": {
+            "start_us": 51813333,
+            "end_us": 61193333
+          }
+        }
+      ],
+      "face_overlap": {
+        "ratio": 0.458327
+      },
+      "style_id": "sty_01M5Q9RJHHY72N7GB521ERX9KT"
+    },
+    {
+      "id": "sp_002",
+      "status": "proposed",
+      "origin": "agent",
+      "anchor_ids": [
+        "a_0004"
+      ],
+      "start_word_id": "w_000117",
+      "end_word_id": "w_000129",
+      "edited": {
+        "start_us": 87440001,
+        "end_us": 94980001
+      },
+      "source": {
+        "start_us": 122740000,
+        "end_us": 132280000
+      },
+      "frames": {
+        "start": 2623,
+        "end": 2850
+      },
+      "segment_ids": [
+        "seg_0014"
+      ],
+      "purpose": "Понять порядок: сначала дочитать сообщение по длине, потом смотреть на тип",
+      "visual_type": "cause-effect",
+      "composition_mode": "split_screen",
+      "zone": "split_left",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 0.5,
+        "h": 1
+      },
+      "key_terms": [
+        {
+          "text": "тип",
+          "word_id": "w_000129",
+          "edited_at_us": 94420001
+        }
+      ],
+      "metaphor": "поток байт: сообщение вынимается целиком, затем читается тип",
+      "complexity": 2,
+      "usefulness": 4,
+      "effort": 3,
+      "visual_load": 3,
+      "evidence": [
+        {
+          "quote": "Поэтому получатель сначала дочитывает сообщение до конца и только потом смотрит на тип.",
+          "start_word_id": "w_000117",
+          "end_word_id": "w_000129",
+          "edited": {
+            "start_us": 87640001,
+            "end_us": 94680001
+          }
+        }
+      ],
+      "face_overlap": {
+        "ratio": 0.458327
+      },
+      "style_id": "sty_01M5Q9RJHHY72N7GB521ERX9KT"
+    },
+    {
+      "id": "sp_003",
+      "status": "proposed",
+      "origin": "agent",
+      "anchor_ids": [
+        "a_0005"
+      ],
+      "start_word_id": "w_000161",
+      "end_word_id": "w_000165",
+      "edited": {
+        "start_us": 109546668,
+        "end_us": 113166668
+      },
+      "source": {
+        "start_us": 163480000,
+        "end_us": 170200000
+      },
+      "frames": {
+        "start": 3286,
+        "end": 3396
+      },
+      "segment_ids": [
+        "seg_0018"
+      ],
+      "purpose": "Запомнить название схемы — sequence diagram — и её вид: участники и стрелки сверху вниз",
+      "visual_type": "system-structure",
+      "composition_mode": "callout",
+      "zone": "left_third",
+      "rect": {
+        "x": 0.04,
+        "y": 0.08,
+        "w": 0.3,
+        "h": 0.84
+      },
+      "key_terms": [
+        {
+          "text": "sequence diagram",
+          "word_id": "w_000164",
+          "edited_at_us": 111646668
+        }
+      ],
+      "metaphor": "две вертикальные линии участников",
+      "complexity": 2,
+      "usefulness": 3,
+      "effort": 3,
+      "visual_load": 2,
+      "evidence": [
+        {
+          "quote": "Такая схема называется sequence diagram.",
+          "start_word_id": "w_000161",
+          "end_word_id": "w_000165",
+          "edited": {
+            "start_us": 109746668,
+            "end_us": 112866668
+          }
+        }
+      ],
+      "face_overlap": {
+        "ratio": 0
+      },
+      "style_id": "sty_01M5Q9RJHHY72N7GB521ERX9KT"
+    },
+    {
+      "id": "sp_004",
+      "status": "rejected",
+      "origin": "agent",
+      "anchor_ids": [
+        "a_0007"
+      ],
+      "start_word_id": "w_000195",
+      "end_word_id": "w_000205",
+      "edited": {
+        "start_us": 127560001,
+        "end_us": 132320001
+      },
+      "source": {
+        "start_us": 189226667,
+        "end_us": 203186667
+      },
+      "frames": {
+        "start": 3826,
+        "end": 3970
+      },
+      "segment_ids": [
+        "seg_0025"
+      ],
+      "purpose": "Показать на диаграмме стрелку hello от клиента к воркеру со списком возможностей",
+      "visual_type": "sequence-steps",
+      "composition_mode": "overlay",
+      "zone": "left_third",
+      "rect": {
+        "x": 0.04,
+        "y": 0.08,
+        "w": 0.3,
+        "h": 0.84
+      },
+      "key_terms": [
+        {
+          "text": "hello",
+          "word_id": "w_000198",
+          "edited_at_us": 129400001
+        }
+      ],
+      "metaphor": "стрелка hello между участниками",
+      "complexity": 2,
+      "usefulness": 3,
+      "effort": 3,
+      "visual_load": 2,
+      "evidence": [
+        {
+          "quote": "Потом отправляется сообщение hello,",
+          "start_word_id": "w_000195",
+          "end_word_id": "w_000198",
+          "edited": {
+            "start_us": 127760001,
+            "end_us": 129740001
+          }
+        }
+      ],
+      "face_overlap": {
+        "ratio": 0
+      },
+      "style_id": "sty_01M5Q9RJHHY72N7GB521ERX9KT"
+    },
+    {
+      "id": "sp_005",
+      "status": "proposed",
+      "origin": "agent",
+      "anchor_ids": [
+        "a_0008"
+      ],
+      "start_word_id": "w_000254",
+      "end_word_id": "w_000268",
+      "edited": {
+        "start_us": 159866667,
+        "end_us": 167706667
+      },
+      "source": {
+        "start_us": 239266667,
+        "end_us": 248140000
+      },
+      "frames": {
+        "start": 4796,
+        "end": 5032
+      },
+      "segment_ids": [
+        "seg_0033"
+      ],
+      "purpose": "Показать пару ping и pong как проверку связи на диаграмме",
+      "visual_type": "sequence-steps",
+      "composition_mode": "overlay",
+      "zone": "left_third",
+      "rect": {
+        "x": 0.04,
+        "y": 0.08,
+        "w": 0.3,
+        "h": 0.84
+      },
+      "key_terms": [
+        {
+          "text": "ping",
+          "word_id": "w_000258",
+          "edited_at_us": 161746667
+        },
+        {
+          "text": "pong",
+          "word_id": "w_000268",
+          "edited_at_us": 166986667
+        }
+      ],
+      "metaphor": "стрелка туда и обратно",
+      "complexity": 2,
+      "usefulness": 3,
+      "effort": 3,
+      "visual_load": 2,
+      "evidence": [
+        {
+          "quote": "Затем у нас уходит ping, чтобы проверить все ли ок И наш воркер отвечает pong,",
+          "start_word_id": "w_000254",
+          "end_word_id": "w_000268",
+          "edited": {
+            "start_us": 160066667,
+            "end_us": 167406667
+          }
+        }
+      ],
+      "face_overlap": {
+        "ratio": 0
+      },
+      "style_id": "sty_01M5Q9RJHHY72N7GB521ERX9KT"
+    },
+    {
+      "id": "sp_006",
+      "status": "proposed",
+      "origin": "agent",
+      "anchor_ids": [
+        "a_0009",
+        "a_0010"
+      ],
+      "start_word_id": "w_000330",
+      "end_word_id": "w_000346",
+      "edited": {
+        "start_us": 227543000,
+        "end_us": 240623000
+      },
+      "source": {
+        "start_us": 324409666,
+        "end_us": 343423000
+      },
+      "frames": {
+        "start": 6826,
+        "end": 7219
+      },
+      "segment_ids": [
+        "seg_0041",
+        "seg_0042",
+        "seg_0043"
+      ],
+      "purpose": "Понять, что обратную совместимость держат magic и версия в первых 3 байтах заголовка",
+      "visual_type": "system-structure",
+      "composition_mode": "split_screen",
+      "zone": "split_left",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 0.5,
+        "h": 1
+      },
+      "key_terms": [
+        {
+          "text": "обратная совместимость",
+          "word_id": "w_000332",
+          "edited_at_us": 228783000
+        },
+        {
+          "text": "3 байта",
+          "word_id": "w_000345",
+          "edited_at_us": 239243000
+        }
+      ],
+      "metaphor": "полоса байт, первые три выделены",
+      "complexity": 2,
+      "usefulness": 4,
+      "effort": 3,
+      "visual_load": 3,
+      "evidence": [
+        {
+          "quote": "Это называется обратная совместимость.",
+          "start_word_id": "w_000330",
+          "end_word_id": "w_000333",
+          "edited": {
+            "start_us": 227743000,
+            "end_us": 230283000
+          }
+        },
+        {
+          "quote": "Magic и версия всегда на своем месте в первых трех байтах.",
+          "start_word_id": "w_000336",
+          "end_word_id": "w_000346",
+          "edited": {
+            "start_us": 232723000,
+            "end_us": 240323000
+          }
+        }
+      ],
+      "face_overlap": {
+        "ratio": 0.458327
+      },
+      "style_id": "sty_01M5Q9RJHHY72N7GB521ERX9KT"
+    },
+    {
+      "id": "sp_007",
+      "status": "proposed",
+      "origin": "agent",
+      "anchor_ids": [
+        "a_0011",
+        "a_0012"
+      ],
+      "start_word_id": "w_000379",
+      "end_word_id": "w_000388",
+      "edited": {
+        "start_us": 258876333,
+        "end_us": 267396333
+      },
+      "source": {
+        "start_us": 375143000,
+        "end_us": 383663000
+      },
+      "frames": {
+        "start": 7766,
+        "end": 8022
+      },
+      "segment_ids": [
+        "seg_0047"
+      ],
+      "purpose": "Показать, что добавление необязательных полей не меняет версию",
+      "visual_type": "comparison",
+      "composition_mode": "split_screen",
+      "zone": "split_left",
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 0.5,
+        "h": 1
+      },
+      "key_terms": [
+        {
+          "text": "добавлять",
+          "word_id": "w_000381",
+          "edited_at_us": 259716333
+        }
+      ],
+      "metaphor": "JSON с новым полем, версия остаётся прежней",
+      "complexity": 2,
+      "usefulness": 4,
+      "effort": 3,
+      "visual_load": 3,
+      "evidence": [
+        {
+          "quote": "их можно добавлять спокойно и это не требует изменения версии.",
+          "start_word_id": "w_000379",
+          "end_word_id": "w_000388",
+          "edited": {
+            "start_us": 259076333,
+            "end_us": 267096333
+          }
+        }
+      ],
+      "face_overlap": {
+        "ratio": 0.458327
+      },
+      "style_id": "sty_01M5Q9RJHHY72N7GB521ERX9KT"
+    },
+    {
+      "id": "sp_008",
+      "status": "proposed",
+      "origin": "agent",
+      "anchor_ids": [
+        "a_0013"
+      ],
+      "start_word_id": "w_000412",
+      "end_word_id": "w_000421",
+      "edited": {
+        "start_us": 280749666,
+        "end_us": 291349666
+      },
+      "source": {
+        "start_us": 406449667,
+        "end_us": 418483000
+      },
+      "frames": {
+        "start": 8422,
+        "end": 8741
+      },
+      "segment_ids": [
+        "seg_0050"
+      ],
+      "purpose": "Запомнить вывод: новые фичи включаются только после handshake, когда обе стороны их объявили",
+      "visual_type": "key-point-emphasis",
+      "composition_mode": "overlay",
+      "zone": "left_third",
+      "rect": {
+        "x": 0.04,
+        "y": 0.08,
+        "w": 0.3,
+        "h": 0.84
+      },
+      "key_terms": [
+        {
+          "text": "handshake",
+          "word_id": "w_000415",
+          "edited_at_us": 283209666
+        }
+      ],
+      "metaphor": "один тезис с акцентом на handshake",
+      "complexity": 1,
+      "usefulness": 3,
+      "effort": 2,
+      "visual_load": 2,
+      "evidence": [
+        {
+          "quote": "включаем только после handshake обе стороны должны объявить нужную фичу",
+          "start_word_id": "w_000412",
+          "end_word_id": "w_000421",
+          "edited": {
+            "start_us": 280949666,
+            "end_us": 291049666
+          }
+        }
+      ],
+      "face_overlap": {
+        "ratio": 0
+      },
+      "style_id": "sty_01M5Q9RJHHY72N7GB521ERX9KT"
+    },
+    {
+      "id": "sp_009",
+      "status": "accepted",
+      "origin": "user",
+      "anchor_ids": [],
+      "start_word_id": "w_000088",
+      "end_word_id": "w_000092",
+      "edited": {
+        "start_us": 63713333,
+        "end_us": 66773333
+      },
+      "source": {
+        "start_us": 73480000,
+        "end_us": 101306666
+      },
+      "frames": {
+        "start": 1911,
+        "end": 2004
+      },
+      "segment_ids": [
+        "seg_0010"
+      ],
+      "purpose": "ключевая мысль фрагмента крупно рядом с автором",
+      "visual_type": "key-point-emphasis",
+      "composition_mode": "overlay",
+      "zone": "left_third",
+      "rect": {
+        "x": 0.04,
+        "y": 0.08,
+        "w": 0.3,
+        "h": 0.84
+      },
+      "key_terms": [],
+      "metaphor": "",
+      "complexity": 1,
+      "usefulness": 3,
+      "effort": 3,
+      "visual_load": 3,
+      "evidence": [
+        {
+          "quote": "работать дальше, не прерывая соединения.",
+          "start_word_id": "w_000088",
+          "end_word_id": "w_000092",
+          "edited": {
+            "start_us": 63913333,
+            "end_us": 66473333
+          }
+        }
+      ],
+      "face_overlap": {
+        "ratio": 0
+      },
+      "style_id": "sty_01M5Q9RJHHY72N7GB521ERX9KT"
+    }
+  ],
+  "skipped": [
+    {
+      "anchor_ids": [
+        "a_0001"
+      ],
+      "reason": "мысль понятна без картинки, коротко; зона справа задевает лицо"
+    },
+    {
+      "anchor_ids": [
+        "a_0003"
+      ],
+      "reason": "вводная фраза; смысл раскрывается в следующей сцене"
+    },
+    {
+      "anchor_ids": [
+        "a_0006"
+      ],
+      "reason": "рядом уже есть сцена со схемой; шаг короткий"
+    }
+  ],
+  "issues": [
+    {
+      "item_id": "sp_006",
+      "code": "too_long",
+      "severity": "warning",
+      "message": "сцена 13,1 с длиннее 12,0 с"
+    },
+    {
+      "item_id": "sp_009",
+      "code": "zone_occupied",
+      "severity": "warning",
+      "message": "зона «левая треть» свободна на 71 % во время сцены (руки, предметы)"
+    }
+  ],
+  "ops": [
+    {
+      "op": "add",
+      "start_word_id": "w_000088",
+      "end_word_id": "w_000092",
+      "visual_type": "key-point-emphasis",
+      "composition_mode": "overlay",
+      "zone": "left_third",
+      "purpose": "ключевая мысль фрагмента крупно рядом с автором"
+    }
+  ]
+}

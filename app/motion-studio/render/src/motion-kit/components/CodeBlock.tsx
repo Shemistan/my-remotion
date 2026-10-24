@@ -4,7 +4,7 @@
 // полосу-подсветку, остальные приглушаются. Шрифт — mono из StyleBible, цвета подсветки —
 // из палитры стиля.
 import type { Beat } from "@ms/contracts";
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import type { Rect } from "../choreo/safe-area.js";
 import { enterStyle } from "../choreo/enter.js";
@@ -12,12 +12,16 @@ import { typeRhythm } from "../choreo/rhythm.js";
 import { type CodeLang, type TokenKind, caretLine as caretLineOf, codeLines, tokenizeCode, typedTokens } from "../code-tokens.js";
 import { easingOf, frames, springAt } from "../easing.js";
 import { ramp } from "../internal.js";
+import { floorText } from "../style/type-scale.js";
+import { PosterGate } from "./Poster.js";
 import { useStyle } from "../style.js";
 import type { ResolvedStyle } from "../style/resolve.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, surfaceAt, tracking } from "../tokens.js";
 import { cardSurface } from "./Card.js";
 
 export interface CodeBlockProps {
+  /** До входа (0.4.0): `silhouette` (по умолчанию) — каркас итогового вида (формы без текста, 30 %) с кадра 0 (кадр-постер); `hidden` — пусто. */
+  pre?: "silhouette" | "hidden";
   code: string;
   lang: CodeLang;
   beat: Pick<Beat, "start_frame" | "end_frame">;
@@ -85,10 +89,15 @@ function windows(beat: Pick<Beat, "start_frame" | "end_frame">) {
   return { b0, typeStart: b0 + L * 0.1, typeEnd: b0 + L * 0.7, focus: b0 + L * 0.74 };
 }
 
-export function CodeBlock({ code, lang, beat, highlightLines = [], title, width = 1100, fontSize = 30, style }: CodeBlockProps) {
+/** CodeBlock с кадром-постером до бита (PosterGate). */
+export function CodeBlock(props: CodeBlockProps) {
+  return <PosterGate pre={props.pre} beat={props.beat} render={(css, underlay) => <CodeBlockBody {...props} posterCss={css} underlay={underlay} />} />;
+}
+
+function CodeBlockBody({ code, lang, beat, highlightLines = [], title, width = 1100, fontSize = 30, style, posterCss, underlay }: CodeBlockProps & { posterCss?: CSSProperties; underlay?: ReactNode }) {
   const s = useStyle();
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, height: frameH } = useVideoConfig();
   const dark = isDark(s);
   const m = codeMetrics(fontSize);
   const w = windows(beat);
@@ -136,8 +145,10 @@ export function CodeBlock({ code, lang, beat, highlightLines = [], title, width 
         overflow: "hidden",
         ...win,
         ...style,
+        ...posterCss,
       }}
     >
+      {underlay}
       {/* шапка окна */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, height: m.header, padding: `0 ${m.padX}px`, boxSizing: "border-box", background: alpha(dark ? "#000000" : s.palette.text, dark ? 0.18 : 0.03), boxShadow: `inset 0 -1px 0 ${alpha(s.palette.text, 0.07)}` }}>
         {[0, 1, 2].map((i) => (
@@ -152,7 +163,7 @@ export function CodeBlock({ code, lang, beat, highlightLines = [], title, width 
               background: surfaceAt(s, 3),
               boxShadow: `inset 0 -2px 0 ${accent(s, 0)}`,
               fontFamily: mono,
-              fontSize: Math.round(fontSize * 0.62),
+              fontSize: floorText(Math.round(fontSize * 0.62), frameH),
               color: s.palette.muted,
               letterSpacing: `${tracking(s, "mono")}em`,
             }}

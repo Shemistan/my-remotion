@@ -1,0 +1,43 @@
+{
+  "timing": {
+    "duration_frames": 150,
+    "beats": [
+      {
+        "id": "kicker",
+        "start_frame": 0,
+        "end_frame": 30
+      },
+      {
+        "id": "graph",
+        "start_frame": 6,
+        "end_frame": 70
+      },
+      {
+        "id": "ask",
+        "start_frame": 64,
+        "end_frame": 150
+      },
+      {
+        "id": "fanout",
+        "start_frame": 92,
+        "end_frame": 150
+      },
+      {
+        "id": "back",
+        "start_frame": 116,
+        "end_frame": 150
+      }
+    ]
+  },
+  "style": {
+    "preset": "tech-neon",
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.06,
+      "y": 0.08
+    }
+  },
+  "content": {}
+}

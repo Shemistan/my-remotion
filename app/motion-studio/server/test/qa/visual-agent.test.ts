@@ -8,6 +8,7 @@ import { initStore } from "@ms/core";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AgentResult, AgentRuntimeAdapter, AgentTask } from "../../src/agents/runtime.js";
 import { loadConfig } from "../../src/config.js";
+import { resolveStyle } from "@ms/render";
 import { runVisualQA } from "../../src/qa/visual-agent.js";
 import { beat, card, el, makeTmp, removeTmp, spec, style } from "./helpers.js";
 
@@ -51,6 +52,8 @@ const out = (seen: VisualQAOutput["elements_seen"]): VisualQAOutput => ({
   checked_frames: [15, 72],
   ocr: [],
   elements_seen: seen,
+  scores: { overall: 6, hierarchy: 6, composition: 6, entrance: 6, choreography: 6, hold: 6, legibility: 6, meaning: 6 },
+  score_notes: [],
 });
 
 describe("runVisualQA", () => {
@@ -71,6 +74,8 @@ describe("runVisualQA", () => {
     expect(readFileSync(join(t.workdir, "frames", "15.png")).equals(readFileSync(join(draft, "frames", "15.png")))).toBe(true);
     for (const id of ["title", "line-pulse"]) expect(seen.checklist).toContain(`\`${id}\``);
     expect(seen.checklist).toContain("frames/72.png");
+    // режим финала назван и у старой spec без hold_mode (по носителю, s3b-review m6)
+    expect(seen.checklist).toContain("финал: hold_mode now-pulse (по носителю итога)");
     expect(String(t.input)).toContain("checklist.md");
     // draft не тронут
     expect(readdirSync(join(draft, "frames")).sort()).toEqual(["15.png", "72.png", "99.png"]);
@@ -85,6 +90,19 @@ describe("runVisualQA", () => {
     const seen: Parameters<typeof fake>[1] = {};
     await runVisualQA({ ...base, frames: [99] }, { agents: fake(ok, seen), config });
     expect(seen.files!.filter((f) => f.startsWith("frames/"))).toEqual(["frames/99.png"]);
+  });
+
+  it("S2-fix2 m1: покрытие у gate и чек-листа — по стилю сцены (calm: вход 30), как при выборе кадров", async () => {
+    await writeFile(join(draft, "frames", "27.png"), card().png());
+    const config = loadConfig({ MS_DATA_DIR: root });
+    const slow = spec({ elements: [el("slow", { kind: "card", entrance: "pop" })], beats: [beat("b0", 0, 160, ["slow"])] });
+    const calm = resolveStyle({ preset: slow.style_preset, intensity: "calm", fps: slow.fps });
+    const seen: Parameters<typeof fake>[1] = {};
+    const input = { workdir: draft, frames: [27], spec: slow, style: calm, durationFrames: 160, brief: {}, runRef: { root, runId: "run_X", attempt: 1 }, signal: new AbortController().signal };
+    const r = await runVisualQA(input, { agents: fake({ ...out([{ id: "slow", seen: false }]), checked_frames: [27] }, seen), config });
+    // calm: элемент входит 30 кадров — кадр 27 его не покрывает: не проверен, а не пропал
+    expect(r.output!.issues).toContainEqual(expect.objectContaining({ code: "missing_element", severity: "warning", area: "slow" }));
+    expect(seen.checklist).toContain("нет кадра в битах");
   });
 
   it("элемент seen: false → blocking missing_element, visual fail; не упомянутый — warning", async () => {

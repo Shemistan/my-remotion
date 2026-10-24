@@ -1,0 +1,328 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      {
+        "id": "b-graph",
+        "start_frame": 0,
+        "end_frame": 58
+      },
+      {
+        "id": "b-user-in",
+        "start_frame": 6,
+        "end_frame": 21
+      },
+      {
+        "id": "b-orch-in",
+        "start_frame": 21,
+        "end_frame": 36
+      },
+      {
+        "id": "b-tools-in",
+        "start_frame": 36,
+        "end_frame": 51
+      },
+      {
+        "id": "b-request",
+        "start_frame": 58,
+        "end_frame": 83
+      },
+      {
+        "id": "b-fanout",
+        "start_frame": 62,
+        "end_frame": 83
+      },
+      {
+        "id": "b-ret-search",
+        "start_frame": 83,
+        "end_frame": 108
+      },
+      {
+        "id": "b-ret-calendar",
+        "start_frame": 89,
+        "end_frame": 108
+      },
+      {
+        "id": "b-ret-weather",
+        "start_frame": 95,
+        "end_frame": 108
+      },
+      {
+        "id": "b-orch-emphasis",
+        "start_frame": 101,
+        "end_frame": 108
+      },
+      {
+        "id": "b-answer",
+        "start_frame": 108,
+        "end_frame": 132
+      },
+      {
+        "id": "b-final-emphasis",
+        "start_frame": 108,
+        "end_frame": 132
+      },
+      {
+        "id": "b-hold",
+        "start_frame": 132,
+        "end_frame": 180
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "palette_overrides": {
+      "bg": "#120a1f",
+      "surface": "#1e1432",
+      "text": "#f3eefe",
+      "muted": "#a597c7",
+      "accent": [
+        "#8b7cff",
+        "#c77dff",
+        "#f0abfc"
+      ],
+      "positive": "#d8b4fe",
+      "negative": "#ff7ac6"
+    },
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "background": {
+      "variant": "blueprint",
+      "seed": "scn_01M5MDJACW4B7868JYT0388198",
+      "focus": {
+        "x": 0.48,
+        "y": 0.5
+      }
+    },
+    "graph": {
+      "id": "agent-graph",
+      "beat": "b-graph",
+      "layout": {
+        "x": 0,
+        "y": 0.04,
+        "w": 1,
+        "h": 0.92
+      },
+      "hold": {
+        "mode": "now-pulse",
+        "beat": "b-hold",
+        "node": "node-user"
+      }
+    },
+    "nodes": [
+      {
+        "id": "node-user",
+        "label": "Пользователь",
+        "caption": "чат с агентом",
+        "kind": "client",
+        "size": "body",
+        "slot": true,
+        "elevation": 2,
+        "enter": "slide",
+        "enter_beat": "b-user-in",
+        "layout": {
+          "x": 0,
+          "y": 0.35,
+          "w": 0.24,
+          "h": 0.3
+        }
+      },
+      {
+        "id": "node-orch",
+        "label": "Оркестратор",
+        "caption": "LLM-агент",
+        "kind": "llm",
+        "size": "h2",
+        "elevation": 3,
+        "enter": "pop",
+        "enter_beat": "b-orch-in",
+        "accentIndex": 0,
+        "layout": {
+          "x": 0.37,
+          "y": 0.32,
+          "w": 0.22,
+          "h": 0.36
+        }
+      },
+      {
+        "id": "node-search",
+        "label": "Поиск",
+        "caption": "API авиабилетов",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "enter_beat": "b-tools-in",
+        "layout": {
+          "x": 0.76,
+          "y": 0.06,
+          "w": 0.24,
+          "h": 0.22
+        }
+      },
+      {
+        "id": "node-calendar",
+        "label": "Календарь",
+        "caption": "расписание",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "enter_beat": "b-tools-in",
+        "layout": {
+          "x": 0.76,
+          "y": 0.39,
+          "w": 0.24,
+          "h": 0.22
+        }
+      },
+      {
+        "id": "node-weather",
+        "label": "Погода",
+        "caption": "прогноз · Стамбул",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "enter_beat": "b-tools-in",
+        "layout": {
+          "x": 0.76,
+          "y": 0.72,
+          "w": 0.24,
+          "h": 0.22
+        }
+      }
+    ],
+    "tools_stagger_frames": 4,
+    "edges": [
+      {
+        "id": "e-req",
+        "from": "node-user",
+        "to": "node-orch"
+      },
+      {
+        "id": "e-search",
+        "from": "node-orch",
+        "to": "node-search"
+      },
+      {
+        "id": "e-cal",
+        "from": "node-orch",
+        "to": "node-calendar"
+      },
+      {
+        "id": "e-weather",
+        "from": "node-orch",
+        "to": "node-weather"
+      }
+    ],
+    "flows": [
+      {
+        "edge": "e-search",
+        "direction": "forward",
+        "beat": "b-fanout",
+        "count": 1,
+        "repeat": false,
+        "travel": 16,
+        "delay": 0,
+        "accentIndex": 0
+      },
+      {
+        "edge": "e-cal",
+        "direction": "forward",
+        "beat": "b-fanout",
+        "count": 1,
+        "repeat": false,
+        "travel": 16,
+        "delay": 4,
+        "accentIndex": 0
+      },
+      {
+        "edge": "e-weather",
+        "direction": "forward",
+        "beat": "b-fanout",
+        "count": 1,
+        "repeat": false,
+        "travel": 16,
+        "delay": 8,
+        "accentIndex": 0
+      }
+    ],
+    "tokens": {
+      "request": {
+        "id": "token-request",
+        "label": "Рейсы MOW→IST · пт",
+        "edge": "e-req",
+        "beat": "b-request",
+        "travel": 20,
+        "reverse": false,
+        "accentIndex": 0
+      },
+      "returns": [
+        {
+          "id": "token-flights",
+          "label": "12 рейсов",
+          "edge": "e-search",
+          "beat": "b-ret-search",
+          "travel": 14,
+          "reverse": true,
+          "accentIndex": 2
+        },
+        {
+          "id": "token-calendar",
+          "label": "пт свободна",
+          "edge": "e-cal",
+          "beat": "b-ret-calendar",
+          "travel": 14,
+          "reverse": true,
+          "accentIndex": 2
+        },
+        {
+          "id": "token-weather",
+          "label": "+21 °C, ясно",
+          "edge": "e-weather",
+          "beat": "b-ret-weather",
+          "travel": 14,
+          "reverse": true,
+          "accentIndex": 2
+        }
+      ],
+      "answer": {
+        "id": "token-answer",
+        "label": "Рейс 09:40 · +21 °C",
+        "edge": "e-req",
+        "beat": "b-answer",
+        "travel": 20,
+        "reverse": true,
+        "accentIndex": 2
+      }
+    },
+    "status": {
+      "id": "status-orch",
+      "node": "node-orch",
+      "states": [
+        {
+          "text": "Планирует",
+          "tone": "accent"
+        },
+        {
+          "text": "Ждёт данные",
+          "tone": "warning"
+        },
+        {
+          "text": "Ответ готов",
+          "tone": "positive"
+        }
+      ]
+    },
+    "orch_emphasis_beat": "b-orch-emphasis",
+    "user_emphasis_beat": "b-final-emphasis"
+  }
+}

@@ -4,7 +4,11 @@ import { FailureStageSchema, JobErrorCodeSchema, failureToJobErrorCode } from ".
 export const JobStatusSchema = z.enum(["pending", "running", "completed", "failed", "cancelled", "awaiting_approval", "awaiting_input", "blocked"]);
 export type JobStatus = z.infer<typeof JobStatusSchema>;
 
-export const JobTypeSchema = z.enum(["playground.generate", "playground.edit", "scene.restore", "scene.export"]);
+export const JobTypeSchema = z.enum([
+  "playground.generate", "playground.edit", "scene.restore", "scene.export",
+  // Phase 2–3: видеопроект
+  "media.import", "asr.transcribe", "roughcut.propose", "roughcut.preview", "footage.analyze", "semantic.analyze", "plan.visual", "plan.recheck",
+]);
 export type JobType = z.infer<typeof JobTypeSchema>;
 
 /** Ошибка задачи: код — `failureToJobErrorCode(stage)`; `pids`/`cmds` — для `blocked(stale_process)`. */

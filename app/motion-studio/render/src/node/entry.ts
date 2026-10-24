@@ -1,5 +1,5 @@
 // Ключ содержимого версии и точка входа бандла Remotion.
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { lstat, mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -23,7 +23,11 @@ const TOOLCHAIN_SOURCES = [
   fileURLToPath(import.meta.url),
   fileURLToPath(new URL("./worker.ts", import.meta.url)),
   fileURLToPath(new URL("./resolve-jail.ts", import.meta.url)),
+  fileURLToPath(new URL("../probe/layout-probe.tsx", import.meta.url)),
 ];
+
+/** Проба раскладки на QA-кадрах (motion-kit 0.4.0): entry оборачивает ею Scene. */
+const LAYOUT_PROBE = fileURLToPath(new URL("../probe/layout-probe.tsx", import.meta.url));
 const REMOTION_VERSION = (
   JSON.parse(readFileSync(join(APP_NODE_MODULES, "remotion", "package.json"), "utf8")) as { version: string }
 ).version;
@@ -138,16 +142,18 @@ export async function writeEntry(versionDir: string, cacheDir: string, settings:
 import type { ComponentType } from "react";
 import { Composition, registerRoot } from "remotion";
 import * as SceneModule from ${JSON.stringify(scene)};
+import { withLayoutProbe } from ${JSON.stringify(LAYOUT_PROBE)};
 
 const mod = SceneModule as Record<string, unknown>;
 const Scene = (mod.Scene ?? mod.default) as ComponentType<Record<string, unknown>> | undefined;
 if (!Scene) throw new Error("src/Scene.tsx должен экспортировать компонент Scene");
+const Probed = withLayoutProbe(Scene);
 const defaultProps: Record<string, unknown> = ${JSON.stringify(props, null, 2)};
 
 const Root = () => (
   <Composition
     id="Scene"
-    component={Scene}
+    component={Probed}
     width={${settings.width}}
     height={${settings.height}}
     fps={${fpsLiteral(settings.fps)}}
@@ -159,7 +165,8 @@ const Root = () => (
 registerRoot(Root);
 `;
   const file = join(dir, "index.tsx");
-  const tmp = join(dir, `.index.tsx.${process.pid}.tmp`);
+  // pid мало: два дубля в одном процессе пишут одну запись одновременно
+  const tmp = join(dir, `.index.tsx.${process.pid}-${randomBytes(4).toString("hex")}.tmp`);
   await writeFile(tmp, text);
   await rename(tmp, file);
   return file;

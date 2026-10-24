@@ -1,0 +1,513 @@
+{
+  "job": {
+    "id": "job_01M5N1PSPBPN6AW3V436ZDD4HV",
+    "type": "playground.generate",
+    "project_id": "prj_01M5N0BWTSM3KQC4PHMB6V6TQ5",
+    "scene_id": "scn_01M5N1PSP7DAHSAR2TXKYFWHHV",
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "publish",
+    "attempt": 2,
+    "max_attempts": 3,
+    "interrupts": 1,
+    "input_refs_json": {
+      "sceneId": "scn_01M5N1PSP7DAHSAR2TXKYFWHHV",
+      "prompt": "Объясни, как работает очередь сообщений между сервисом заказов и складом",
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 180,
+        "style_preset": "dark-premium",
+        "animation_intensity": "balanced",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        }
+      }
+    },
+    "input_hash": "eef3a9bfe0e0c3fba1909c0ac39d0589df42d28aa063ec57aa762cc77da3b1cb",
+    "output_refs_json": {
+      "scene_id": "scn_01M5N1PSP7DAHSAR2TXKYFWHHV",
+      "version_id": "ver_01M5N3AV72AC28KPSGFN5D0SJ4",
+      "version_number": 1,
+      "version_dir": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N1PSP7DAHSAR2TXKYFWHHV/versions/ver_01M5N3AV72AC28KPSGFN5D0SJ4",
+      "preview_path": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N1PSP7DAHSAR2TXKYFWHHV/versions/ver_01M5N3AV72AC28KPSGFN5D0SJ4/preview.mp4",
+      "cost_usd": 4.959338000000001,
+      "engineer_calls": 5,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "warn",
+        "style": "pass"
+      },
+      "stage_wall_ms": {
+        "engineer": 1053813,
+        "check": 78963,
+        "render": 79505,
+        "qa": 92338,
+        "budget_wait": 377006,
+        "total": 1290425
+      },
+      "attempts": [
+        {
+          "n": 1,
+          "take": 1,
+          "call": 2,
+          "overall": 5.5,
+          "scores": {
+            "overall": 5.5,
+            "hierarchy": 6.5,
+            "composition": 6.5,
+            "entrance": 6.5,
+            "choreography": 4.5,
+            "hold": 6.5,
+            "legibility": 7,
+            "meaning": 5
+          },
+          "blocking": [
+            "clipping",
+            "text_overlap",
+            "text_overlap",
+            "text_overlap",
+            "kit_misuse",
+            "clipping",
+            "missing_element"
+          ],
+          "cost_usd": 0.3669,
+          "published": false
+        },
+        {
+          "n": 2,
+          "take": 2,
+          "call": 1,
+          "overall": 6.5,
+          "scores": {
+            "overall": 6.5,
+            "hierarchy": 6.5,
+            "composition": 7,
+            "entrance": 7,
+            "choreography": 6.5,
+            "hold": 7,
+            "legibility": 7,
+            "meaning": 6.5
+          },
+          "blocking": [
+            "clipping"
+          ],
+          "cost_usd": 1.3548,
+          "published": true
+        }
+      ],
+      "warnings": [
+        "spec: scene_signature_repeat (background, pill, topTitle): сцена повторяет подпись предыдущей «Архитектура AI-агента» (3 из 4): фон blueprint:11, без таблетки, без полосы заголовка",
+        "spec: план continuous-flow: setup 0–56, action 56–180, payoff 92–132, hold 132–180; вывод с кадра 92, удар 92 (чтение 72, сдвиг 8)",
+        "spec: бит b-graph-in (граф, 3 узлов): окно 37 кадров короче прорисовки рёбер (56) — span: \"phase\" или больше веса фазе setup",
+        "консоль браузера: [error] [motion-kit:error] DataToken «#4812»: бит начинается в кадре 56, а ребро \"e-in\" дорисовано только к кадру 60.77374231593451 — токен опоздал бы на 4.773742315934513 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 4.773742315934513 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready). | [error] [motion-kit:error] DataToken «#4812»: бит начинается в кадре 56, а ребро \"e-in\" дорисовано только к кадру 60.77374231593451 — токен опоздал бы на 4.773742315934513 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 4.773742315934513 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready). | [error] [motion-kit:error] DataToken «#4812»: бит начинается в кадре 56, а ребро \"e-in\" дорисовано только к кадру 60.77374231593451 — токен опоздал бы на 4.773742315934513 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 4.773742315934513 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready). | [error] [motion-kit:error] DataToken «#4812»: бит начинается в кадре 56, а ребро \"e-in\" дорисовано только к кадру 60.77374231593451 — токен опоздал бы на 4.773742315934513 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 4.773742315934513 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready). | [error] [motion-kit:error] DataToken «#4812»: бит начинается в кадре 56, а ребро \"e-in\" дорисовано только к кадру 60.77374231593451 — токен опоздал бы на 4.773742315934513 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 4.773742315934513 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready).",
+        "второй дубль: budget: бюджет сцены исчерпан: $4.96 из $5, свободно $0.04 — меньше $0.5 на вызов (до Visual QA)",
+        "опубликована лучшая попытка 2 с blocking QA (после 2 исправлений): visual = warn, решение за человеком"
+      ],
+      "steps": {
+        "concept": {
+          "input_hash": "28b43371d7de868e118603cb6304030e27c58484317ce42c7b0aca71760ca09f",
+          "path": "/Volumes/External SSD/MotionStudio-acceptance/logs/agent-runs/job_01M5N1PSPBPN6AW3V436ZDD4HV/checkpoints/concept.json"
+        },
+        "director": {
+          "input_hash": "c700548ec298c685a1f57fbad99d059c0c731aaabef3921210cc9224dc3793b5",
+          "path": "/Volumes/External SSD/MotionStudio-acceptance/logs/agent-runs/job_01M5N1PSPBPN6AW3V436ZDD4HV/checkpoints/motion_director.json"
+        }
+      }
+    },
+    "error_json": null,
+    "idempotency_key": "767338e5-0d7e-4175-b4f2-3ba21d0be86d",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": 0,
+    "created_at": "2026-10-23T18:52:23.115Z",
+    "started_at": "2026-10-23T18:59:17.866Z",
+    "finished_at": "2026-10-23T19:20:48.635Z"
+  },
+  "cost_usd": 4.959338000000001,
+  "wall_ms": 1705520,
+  "agent_runs": [
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 420812,
+      "output_tokens": 14524,
+      "cost_usd": 0.857188,
+      "started_at": "2026-10-23T18:59:18.172Z",
+      "finished_at": "2026-10-23T19:01:27.685Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 92642,
+      "output_tokens": 1747,
+      "cost_usd": 0.175951,
+      "started_at": "2026-10-23T19:01:43.770Z",
+      "finished_at": "2026-10-23T19:02:05.471Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 78011,
+      "output_tokens": 4658,
+      "cost_usd": 0.1909198,
+      "started_at": "2026-10-23T19:02:50.589Z",
+      "finished_at": "2026-10-23T19:03:35.056Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 761182,
+      "output_tokens": 35132,
+      "cost_usd": 1.5952114000000002,
+      "started_at": "2026-10-23T19:03:35.173Z",
+      "finished_at": "2026-10-23T19:09:52.200Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 641475,
+      "output_tokens": 27827,
+      "cost_usd": 1.2072768,
+      "started_at": "2026-10-23T19:09:52.200Z",
+      "finished_at": "2026-10-23T19:15:03.431Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 47276,
+      "output_tokens": 4112,
+      "cost_usd": 0.1475204,
+      "started_at": "2026-10-23T19:15:53.022Z",
+      "finished_at": "2026-10-23T19:16:28.364Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 530598,
+      "output_tokens": 15552,
+      "cost_usd": 0.7852706,
+      "started_at": "2026-10-23T19:16:28.451Z",
+      "finished_at": "2026-10-23T19:20:02.788Z"
+    }
+  ],
+  "render_jobs": [
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "fps_num": 30,
+      "fps_den": 1,
+      "frames": 8,
+      "duration_ms": 26313
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "fps_num": 30,
+      "fps_den": 1,
+      "frames": 180,
+      "duration_ms": 26313
+    },
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "fps_num": 30,
+      "fps_den": 1,
+      "frames": 8,
+      "duration_ms": 28853
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "fps_num": 30,
+      "fps_den": 1,
+      "frames": 180,
+      "duration_ms": 28853
+    },
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "fps_num": 30,
+      "fps_den": 1,
+      "frames": 8,
+      "duration_ms": 24340
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "fps_num": 30,
+      "fps_den": 1,
+      "frames": 180,
+      "duration_ms": 24340
+    }
+  ],
+  "chat": [
+    {
+      "role": "assistant",
+      "text": "Версия 1 готова.\nКонцепция: Слева узел «Сервис заказов», справа — «Склад», между ними труба-очередь «orders.queue». Заказ «#4812 · 2 × кроссовки Nike Air, размер 42» уходит из сервиса заказов в очередь и сразу получает статус «принят» — сервис свободен и не ждёт склад. Следом в очередь встают «#4813 · кофемашина» и «#4814 · рюкзак 20 л», сообщения выстраиваются в ряд. Склад забирает их по одному в своём темпе: каждое сообщение доходит до склада, получает «подтверждено» и гаснет в очереди. Герой кадра — сама очередь как буфер: даже когда склад занят, заказы не теряются. Ключевое утверждение на экране: «Заказ принят за 5 мс — склад обработает, когда освободится». Видно это по времени ответа сервиса заказов (5 мс против ожидания склада), счётчику сообщений в очереди (3 → 0) и смене статусов «в очереди» → «собрано». Взгляд идёт слева направо: заказ → очередь → склад, затем возвращается к зелёному счётчику «в очереди: 0».\nКомпоненты: motion-kit StyleProvider, motion-kit Background, motion-kit Camera, motion-kit Parallax, motion-kit SafeArea, motion-kit SceneTitle, motion-kit FlowGraph, motion-kit PulseAlongPath, motion-kit DataToken, motion-kit StatusChip, motion-kit AnimatedNumber, motion-kit Emphasis, motion-kit useFlowGeometry, motion-kit pulseArrival, motion-kit arrivalCount, motion-kit edgeSegment, motion-kit useSafeArea, motion-kit useStyle, xyflow/default-nodes (adapt, MIT (LICENSE, packages/react/package.json)), remotion-bits/animated-counter (adapt, MIT (package.json)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — с замечаниями, стиль — пройден; замечаний: blocking 0, warning 8.",
+      "version_id": "ver_01M5N3AV72AC28KPSGFN5D0SJ4",
+      "job_id": "job_01M5N1PSPBPN6AW3V436ZDD4HV",
+      "created_at": "2026-10-23T19:20:48.631Z"
+    }
+  ],
+  "events": [
+    {
+      "ts": "2026-10-23T18:52:23.285Z",
+      "level": "info",
+      "kind": "started",
+      "message": "playground.generate: попытка 1"
+    },
+    {
+      "ts": "2026-10-23T18:52:23.309Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept…"
+    },
+    {
+      "ts": "2026-10-23T18:52:32.366Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept: Слева узел «Сервис заказов», справа — «Склад», между ними труба-очередь «orders.queue». Заказ «#4812 · 2 × кроссовки Nike Air, размер 42» уходит из сервиса заказов в очередь и сразу получает статус «принят» — сервис свободен и не ждёт склад. Следом в очередь встают «#4813 · кофемашина» и «#4814 · рюкзак 20 л», сообщения выстраиваются в ряд. Склад забирает их по одному в своём темпе: каждое сообщение доходит до склада, получает «подтверждено» и гаснет в очереди. Герой кадра — сама очередь как буфер: даже когда склад занят, заказы не теряются. Ключевое утверждение на экране: «Заказ принят за 5 мс — склад обработает, когда освободится». Видно это по времени ответа сервиса заказов (5 мс против ожидания склада), счётчику сообщений в очереди (3 → 0) и смене статусов «в очереди» → «собрано». Взгляд идёт слева направо: заказ → очередь → склад, затем возвращается к зелёному счётчику «в очереди: 0». [system-structure, sequence-steps, relationships]"
+    },
+    {
+      "ts": "2026-10-23T18:52:32.388Z",
+      "level": "info",
+      "kind": "log",
+      "message": "KB: 12 кандидатов по ключам Concept"
+    },
+    {
+      "ts": "2026-10-23T18:52:32.415Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Motion Director…"
+    },
+    {
+      "ts": "2026-10-23T18:53:49.432Z",
+      "level": "info",
+      "kind": "log",
+      "message": "spec: 1 blocking — Director исправляет"
+    },
+    {
+      "ts": "2026-10-23T18:53:49.442Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Motion Director…"
+    },
+    {
+      "ts": "2026-10-23T18:55:27.063Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Director: «Очередь между заказами и складом» (network-centric), 12 битов, KB: xyflow/default-nodes (adapt), remotion-bits/animated-counter (adapt)"
+    },
+    {
+      "ts": "2026-10-23T18:55:27.109Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer…"
+    },
+    {
+      "ts": "2026-10-23T18:58:18.231Z",
+      "level": "info",
+      "kind": "log",
+      "message": "typecheck: 1 ошибок"
+    },
+    {
+      "ts": "2026-10-23T18:58:18.265Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer: исправление 1 из 2 (typecheck)…"
+    },
+    {
+      "ts": "2026-10-23T18:59:10.641Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 28, 46, 86, 105, 112, 131, 156, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-23T18:59:17.763Z",
+      "level": "warn",
+      "kind": "interrupted",
+      "message": "попытка 1 прервана рестартом"
+    },
+    {
+      "ts": "2026-10-23T18:59:17.763Z",
+      "level": "info",
+      "kind": "requeued",
+      "message": "задача снова в очереди (прерываний 1 из 3)"
+    },
+    {
+      "ts": "2026-10-23T18:59:17.870Z",
+      "level": "info",
+      "kind": "started",
+      "message": "playground.generate: попытка 2"
+    },
+    {
+      "ts": "2026-10-23T18:59:18.084Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept: результат из чекпоинта"
+    },
+    {
+      "ts": "2026-10-23T18:59:18.090Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept: Слева узел «Сервис заказов», справа — «Склад», между ними труба-очередь «orders.queue». Заказ «#4812 · 2 × кроссовки Nike Air, размер 42» уходит из сервиса заказов в очередь и сразу получает статус «принят» — сервис свободен и не ждёт склад. Следом в очередь встают «#4813 · кофемашина» и «#4814 · рюкзак 20 л», сообщения выстраиваются в ряд. Склад забирает их по одному в своём темпе: каждое сообщение доходит до склада, получает «подтверждено» и гаснет в очереди. Герой кадра — сама очередь как буфер: даже когда склад занят, заказы не теряются. Ключевое утверждение на экране: «Заказ принят за 5 мс — склад обработает, когда освободится». Видно это по времени ответа сервиса заказов (5 мс против ожидания склада), счётчику сообщений в очереди (3 → 0) и смене статусов «в очереди» → «собрано». Взгляд идёт слева направо: заказ → очередь → склад, затем возвращается к зелёному счётчику «в очереди: 0». [system-structure, sequence-steps, relationships]"
+    },
+    {
+      "ts": "2026-10-23T18:59:18.103Z",
+      "level": "info",
+      "kind": "log",
+      "message": "KB: 12 кандидатов по ключам Concept"
+    },
+    {
+      "ts": "2026-10-23T18:59:18.116Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Motion Director: результат из чекпоинта"
+    },
+    {
+      "ts": "2026-10-23T18:59:18.131Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Director: «Очередь между заказами и складом» (network-centric), 12 битов, KB: xyflow/default-nodes (adapt), remotion-bits/animated-counter (adapt)"
+    },
+    {
+      "ts": "2026-10-23T18:59:18.167Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer…"
+    },
+    {
+      "ts": "2026-10-23T19:01:43.728Z",
+      "level": "info",
+      "kind": "log",
+      "message": "typecheck: 1 ошибок"
+    },
+    {
+      "ts": "2026-10-23T19:01:43.767Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer: исправление 1 из 2 (typecheck)…"
+    },
+    {
+      "ts": "2026-10-23T19:02:19.972Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 28, 46, 86, 105, 112, 131, 156, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-23T19:02:50.563Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA…"
+    },
+    {
+      "ts": "2026-10-23T19:03:35.108Z",
+      "level": "info",
+      "kind": "log",
+      "message": "второй дубль (revise): overall 5.5 < 6.5"
+    },
+    {
+      "ts": "2026-10-23T19:03:35.116Z",
+      "level": "info",
+      "kind": "log",
+      "message": "QA: blocking clipping@112, text_overlap@105, text_overlap@105, text_overlap@105, kit_misuse, clipping@105, missing_element"
+    },
+    {
+      "ts": "2026-10-23T19:03:35.168Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer: исправление 2 из 2 (qa)…"
+    },
+    {
+      "ts": "2026-10-23T19:03:35.191Z",
+      "level": "info",
+      "kind": "log",
+      "message": "дубль 2: Engineer…"
+    },
+    {
+      "ts": "2026-10-23T19:10:07.178Z",
+      "level": "info",
+      "kind": "log",
+      "message": "typecheck: 2 ошибок"
+    },
+    {
+      "ts": "2026-10-23T19:15:19.999Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер (дубль 2): кадры 28, 46, 86, 105, 112, 131, 156, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-23T19:15:52.998Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA (дубль 2)…"
+    },
+    {
+      "ts": "2026-10-23T19:16:28.404Z",
+      "level": "info",
+      "kind": "log",
+      "message": "QA (дубль 2): blocking clipping@112"
+    },
+    {
+      "ts": "2026-10-23T19:16:28.448Z",
+      "level": "info",
+      "kind": "log",
+      "message": "дубль 2: Engineer: исправление 1 из 1 (qa)…"
+    },
+    {
+      "ts": "2026-10-23T19:20:19.917Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер (дубль 2): кадры 28, 46, 86, 105, 112, 131, 156, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-23T19:20:48.352Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA (дубль 2)…"
+    },
+    {
+      "ts": "2026-10-23T19:20:48.626Z",
+      "level": "info",
+      "kind": "log",
+      "message": "✓ ready: /Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N1PSP7DAHSAR2TXKYFWHHV/versions/ver_01M5N3AV72AC28KPSGFN5D0SJ4"
+    },
+    {
+      "ts": "2026-10-23T19:20:48.639Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed"
+    }
+  ]
+}

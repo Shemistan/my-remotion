@@ -9,15 +9,21 @@
     "contracts",
     "core",
     "render",
-    "server"
+    "server",
+    "web"
   ],
   "scripts": {
     "lint": "eslint .",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "test:e2e": "MS_E2E=1 vitest run --passWithNoTests",
+    "start": "tsx server/src/main.ts",
+    "dev": "tsx server/src/main.ts --dev",
+    "build": "npm run build --workspaces --if-present",
     "doctor": "tsx server/src/cli/doctor.ts",
-    "generate": "tsx server/src/cli/generate.ts"
+    "generate": "tsx server/src/cli/generate.ts",
+    "bench": "tsx scripts/bench-set.mts",
+    "build:vision": "mkdir -p tools/vision-detect/bin && swiftc -O tools/vision-detect/main.swift -o tools/vision-detect/bin/vision-detect"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -26,6 +32,7 @@
     "@fontsource/manrope": "5.3.0",
     "@types/node": "^22.20.5",
     "eslint": "^10.13.0",
+    "jsdom": "29.1.1",
     "tsx": "^4.23.15",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.72.0",

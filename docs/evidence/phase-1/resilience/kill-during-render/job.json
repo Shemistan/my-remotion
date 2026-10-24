@@ -1,0 +1,178 @@
+{
+  "job": {
+    "id": "job_01M5N1PSPBPN6AW3V436ZDD4HV",
+    "type": "playground.generate",
+    "project_id": "prj_01M5N0BWTSM3KQC4PHMB6V6TQ5",
+    "scene_id": "scn_01M5N1PSP7DAHSAR2TXKYFWHHV",
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "publish",
+    "attempt": 2,
+    "max_attempts": 3,
+    "interrupts": 1,
+    "input": {
+      "sceneId": "scn_01M5N1PSP7DAHSAR2TXKYFWHHV",
+      "prompt": "Объясни, как работает очередь сообщений между сервисом заказов и складом",
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 180,
+        "style_preset": "dark-premium",
+        "animation_intensity": "balanced",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        }
+      }
+    },
+    "input_hash": "eef3a9bfe0e0c3fba1909c0ac39d0589df42d28aa063ec57aa762cc77da3b1cb",
+    "output_refs": {
+      "scene_id": "scn_01M5N1PSP7DAHSAR2TXKYFWHHV",
+      "version_id": "ver_01M5N3AV72AC28KPSGFN5D0SJ4",
+      "version_number": 1,
+      "version_dir": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N1PSP7DAHSAR2TXKYFWHHV/versions/ver_01M5N3AV72AC28KPSGFN5D0SJ4",
+      "preview_path": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N1PSP7DAHSAR2TXKYFWHHV/versions/ver_01M5N3AV72AC28KPSGFN5D0SJ4/preview.mp4",
+      "cost_usd": 4.959338000000001,
+      "engineer_calls": 5,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "warn",
+        "style": "pass"
+      },
+      "stage_wall_ms": {
+        "engineer": 1053813,
+        "check": 78963,
+        "render": 79505,
+        "qa": 92338,
+        "budget_wait": 377006,
+        "total": 1290425
+      },
+      "attempts": [
+        {
+          "n": 1,
+          "take": 1,
+          "call": 2,
+          "overall": 5.5,
+          "scores": {
+            "overall": 5.5,
+            "hierarchy": 6.5,
+            "composition": 6.5,
+            "entrance": 6.5,
+            "choreography": 4.5,
+            "hold": 6.5,
+            "legibility": 7,
+            "meaning": 5
+          },
+          "blocking": [
+            "clipping",
+            "text_overlap",
+            "text_overlap",
+            "text_overlap",
+            "kit_misuse",
+            "clipping",
+            "missing_element"
+          ],
+          "cost_usd": 0.3669,
+          "published": false
+        },
+        {
+          "n": 2,
+          "take": 2,
+          "call": 1,
+          "overall": 6.5,
+          "scores": {
+            "overall": 6.5,
+            "hierarchy": 6.5,
+            "composition": 7,
+            "entrance": 7,
+            "choreography": 6.5,
+            "hold": 7,
+            "legibility": 7,
+            "meaning": 6.5
+          },
+          "blocking": [
+            "clipping"
+          ],
+          "cost_usd": 1.3548,
+          "published": true
+        }
+      ],
+      "warnings": [
+        "spec: scene_signature_repeat (background, pill, topTitle): сцена повторяет подпись предыдущей «Архитектура AI-агента» (3 из 4): фон blueprint:11, без таблетки, без полосы заголовка",
+        "spec: план continuous-flow: setup 0–56, action 56–180, payoff 92–132, hold 132–180; вывод с кадра 92, удар 92 (чтение 72, сдвиг 8)",
+        "spec: бит b-graph-in (граф, 3 узлов): окно 37 кадров короче прорисовки рёбер (56) — span: \"phase\" или больше веса фазе setup",
+        "консоль браузера: [error] [motion-kit:error] DataToken «#4812»: бит начинается в кадре 56, а ребро \"e-in\" дорисовано только к кадру 60.77374231593451 — токен опоздал бы на 4.773742315934513 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 4.773742315934513 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready). | [error] [motion-kit:error] DataToken «#4812»: бит начинается в кадре 56, а ребро \"e-in\" дорисовано только к кадру 60.77374231593451 — токен опоздал бы на 4.773742315934513 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 4.773742315934513 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready). | [error] [motion-kit:error] DataToken «#4812»: бит начинается в кадре 56, а ребро \"e-in\" дорисовано только к кадру 60.77374231593451 — токен опоздал бы на 4.773742315934513 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 4.773742315934513 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready). | [error] [motion-kit:error] DataToken «#4812»: бит начинается в кадре 56, а ребро \"e-in\" дорисовано только к кадру 60.77374231593451 — токен опоздал бы на 4.773742315934513 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 4.773742315934513 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready). | [error] [motion-kit:error] DataToken «#4812»: бит начинается в кадре 56, а ребро \"e-in\" дорисовано только к кадру 60.77374231593451 — токен опоздал бы на 4.773742315934513 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 4.773742315934513 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready).",
+        "второй дубль: budget: бюджет сцены исчерпан: $4.96 из $5, свободно $0.04 — меньше $0.5 на вызов (до Visual QA)",
+        "опубликована лучшая попытка 2 с blocking QA (после 2 исправлений): visual = warn, решение за человеком"
+      ],
+      "steps": {
+        "concept": {
+          "input_hash": "28b43371d7de868e118603cb6304030e27c58484317ce42c7b0aca71760ca09f",
+          "path": "/Volumes/External SSD/MotionStudio-acceptance/logs/agent-runs/job_01M5N1PSPBPN6AW3V436ZDD4HV/checkpoints/concept.json"
+        },
+        "director": {
+          "input_hash": "c700548ec298c685a1f57fbad99d059c0c731aaabef3921210cc9224dc3793b5",
+          "path": "/Volumes/External SSD/MotionStudio-acceptance/logs/agent-runs/job_01M5N1PSPBPN6AW3V436ZDD4HV/checkpoints/motion_director.json"
+        }
+      }
+    },
+    "error": null,
+    "idempotency_key": "767338e5-0d7e-4175-b4f2-3ba21d0be86d",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-23T18:52:23.115Z",
+    "started_at": "2026-10-23T18:59:17.866Z",
+    "finished_at": "2026-10-23T19:20:48.635Z"
+  },
+  "events": [
+    "started: playground.generate: попытка 1",
+    "log: Concept…",
+    "log: Concept: Слева узел «Сервис заказов», справа — «Склад», между ними труба-очередь «orders.queue». Заказ «#4812 · 2 × кроссовки Nike Air, размер 42» уходит из сервиса заказов в очередь и сразу получает статус «принят» — сервис свободен и не ждёт склад. Следом в очередь встают «#4813 · кофемашина» и «#4814 · рюкзак 20 л», сообщения выстраиваются в ряд. Склад забирает их по одному в своём темпе: каждое сообщение доходит до склада, получает «подтверждено» и гаснет в очереди. Герой кадра — сама очередь как буфер: даже когда склад занят, заказы не теряются. Ключевое утверждение на экране: «Заказ принят за 5 мс — склад обработает, когда освободится». Видно это по времени ответа сервиса заказов (5 мс против ожидания склада), счётчику сообщений в очереди (3 → 0) и смене статусов «в очереди» → «собрано». Взгляд идёт слева направо: заказ → очередь → склад, затем возвращается к зелёному счётчику «в очереди: 0». [system-structure, sequence-steps, relationships]",
+    "log: KB: 12 кандидатов по ключам Concept",
+    "log: Motion Director…",
+    "log: spec: 1 blocking — Director исправляет",
+    "log: Motion Director…",
+    "log: Director: «Очередь между заказами и складом» (network-centric), 12 битов, KB: xyflow/default-nodes (adapt), remotion-bits/animated-counter (adapt)",
+    "log: Engineer…",
+    "log: typecheck: 1 ошибок",
+    "log: Engineer: исправление 1 из 2 (typecheck)…",
+    "log: рендер: кадры 28, 46, 86, 105, 112, 131, 156, 179 + превью…",
+    "interrupted: попытка 1 прервана рестартом",
+    "requeued: задача снова в очереди (прерываний 1 из 3)",
+    "started: playground.generate: попытка 2",
+    "log: Concept: результат из чекпоинта",
+    "log: Concept: Слева узел «Сервис заказов», справа — «Склад», между ними труба-очередь «orders.queue». Заказ «#4812 · 2 × кроссовки Nike Air, размер 42» уходит из сервиса заказов в очередь и сразу получает статус «принят» — сервис свободен и не ждёт склад. Следом в очередь встают «#4813 · кофемашина» и «#4814 · рюкзак 20 л», сообщения выстраиваются в ряд. Склад забирает их по одному в своём темпе: каждое сообщение доходит до склада, получает «подтверждено» и гаснет в очереди. Герой кадра — сама очередь как буфер: даже когда склад занят, заказы не теряются. Ключевое утверждение на экране: «Заказ принят за 5 мс — склад обработает, когда освободится». Видно это по времени ответа сервиса заказов (5 мс против ожидания склада), счётчику сообщений в очереди (3 → 0) и смене статусов «в очереди» → «собрано». Взгляд идёт слева направо: заказ → очередь → склад, затем возвращается к зелёному счётчику «в очереди: 0». [system-structure, sequence-steps, relationships]",
+    "log: KB: 12 кандидатов по ключам Concept",
+    "log: Motion Director: результат из чекпоинта",
+    "log: Director: «Очередь между заказами и складом» (network-centric), 12 битов, KB: xyflow/default-nodes (adapt), remotion-bits/animated-counter (adapt)",
+    "log: Engineer…",
+    "log: typecheck: 1 ошибок",
+    "log: Engineer: исправление 1 из 2 (typecheck)…",
+    "log: рендер: кадры 28, 46, 86, 105, 112, 131, 156, 179 + превью…",
+    "log: Visual QA…",
+    "log: второй дубль (revise): overall 5.5 < 6.5",
+    "log: QA: blocking clipping@112, text_overlap@105, text_overlap@105, text_overlap@105, kit_misuse, clipping@105, missing_element",
+    "log: Engineer: исправление 2 из 2 (qa)…",
+    "log: дубль 2: Engineer…",
+    "log: typecheck: 2 ошибок",
+    "log: рендер (дубль 2): кадры 28, 46, 86, 105, 112, 131, 156, 179 + превью…",
+    "log: Visual QA (дубль 2)…",
+    "log: QA (дубль 2): blocking clipping@112",
+    "log: дубль 2: Engineer: исправление 1 из 1 (qa)…",
+    "log: рендер (дубль 2): кадры 28, 46, 86, 105, 112, 131, 156, 179 + превью…",
+    "log: Visual QA (дубль 2)…",
+    "log: ✓ ready: /Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N1PSP7DAHSAR2TXKYFWHHV/versions/ver_01M5N3AV72AC28KPSGFN5D0SJ4",
+    "completed: completed"
+  ]
+}

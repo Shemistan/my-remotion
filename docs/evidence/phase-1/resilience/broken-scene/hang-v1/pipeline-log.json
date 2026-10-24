@@ -1,0 +1,10 @@
+{
+  "run_id": "job_seed_scn_01M5N0B8Q9H083RZKRS7QRSGTW_1",
+  "attempt": 1,
+  "cost_usd": 0,
+  "stage_wall_ms": {
+    "render": 17063,
+    "total": 17063
+  },
+  "seed": true
+}

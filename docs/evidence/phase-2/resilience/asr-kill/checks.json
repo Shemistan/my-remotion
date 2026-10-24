@@ -1,0 +1,30 @@
+[
+  {
+    "id": "6.1a",
+    "title": "воркер ASR запущен (реестр процессов)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"pid\":36938,\"pgid\":36938,\"cmd\":\"~/.local/share/montage/mlx-audio-0.5.8/.venv/bin/python ~/my_track/01_It_development/ai-platform/app/platform/aiplatform/montage/asr_worker.py --kind whisper --model /Volumes/External SSD/local_models/asr/whisper-large-v3-turbo --audio /Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5Q657ASJVXAVC2Y9S06EK85/proxy/med_01M5Q65808W7GCDKXBMCWGYRMJ/audio16k.wav --out /Volumes/External SSD/MotionStudio-acceptance/run/tmp/job_01M5Q662YJRJQRX92H1BJDMVFF-a1-asr-osQQYx/words.json --language ru\",\"attempt\":1}"
+  },
+  {
+    "id": "6.1b",
+    "title": "после старта группа воркера прежней попытки мертва",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"before\":{\"job\":\"running\",\"worker_alive\":true},\"afterKill\":{\"worker_alive\":true,\"group_alive\":true},\"reaped\":{\"worker_alive\":false,\"group_alive\":false}}"
+  },
+  {
+    "id": "6.1c",
+    "title": "задача после рестарта (pending, попытка 2) доходит до completed",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"right_after_start\":{\"status\":\"running\",\"attempt\":2},\"final\":{\"status\":\"completed\",\"attempt\":2}}"
+  },
+  {
+    "id": "6.1d",
+    "title": "транскрипт опубликован одной ревизией r1",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"revision\":1,\"words\":82}"
+  }
+]

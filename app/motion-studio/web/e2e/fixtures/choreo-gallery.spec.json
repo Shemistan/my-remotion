@@ -1,0 +1,25 @@
+{
+  "title": "Хореография",
+  "purpose": "показать, как элементы входят по битам разными движениями",
+  "duration_frames": 180,
+  "fps": { "num": 30, "den": 1 },
+  "style_preset": "dark-premium",
+  "composition": { "archetype": "stacked", "idea": "заголовок, график и карточки входят по очереди", "focus": "график", "transitions": "входы по битам" },
+  "elements": [
+    { "id": "kicker", "kind": "text", "role": "надзаголовок", "entrance": "fade", "content": {} },
+    { "id": "headline", "kind": "text", "role": "заголовок", "entrance": "rise", "content": {} },
+    { "id": "chart", "kind": "chart", "role": "график", "entrance": "draw", "content": {} },
+    { "id": "subtitle", "kind": "text", "role": "подзаголовок", "entrance": "fade", "content": {} },
+    { "id": "cards", "kind": "group", "role": "карточки", "entrance": "pop", "content": {} },
+    { "id": "badge", "kind": "shape", "role": "бейдж", "entrance": "scale", "content": {} }
+  ],
+  "beats": [
+    { "id": "kicker", "start_frame": 2, "end_frame": 62, "action": "enter", "description": "надзаголовок", "element_ids": ["kicker"] },
+    { "id": "headline", "start_frame": 8, "end_frame": 70, "action": "enter", "description": "заголовок", "element_ids": ["headline"] },
+    { "id": "chart", "start_frame": 10, "end_frame": 120, "action": "enter", "description": "график", "element_ids": ["chart"] },
+    { "id": "subtitle", "start_frame": 14, "end_frame": 70, "action": "enter", "description": "подзаголовок", "element_ids": ["subtitle"] },
+    { "id": "cards", "start_frame": 18, "end_frame": 90, "action": "enter", "description": "карточки", "element_ids": ["cards"] },
+    { "id": "badge", "start_frame": 22, "end_frame": 80, "action": "enter", "description": "бейдж", "element_ids": ["badge"] }
+  ],
+  "camera": [{ "frame": 0, "scale": 1, "x": 0, "y": 0 }]
+}

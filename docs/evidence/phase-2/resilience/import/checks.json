@@ -1,0 +1,23 @@
+[
+  {
+    "id": "6.4",
+    "title": "импорт вне importRoots → 400 media_invalid outside_roots, понятный текст без путей хранилища",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":400,\"body\":{\"error\":\"media_invalid\",\"message\":\"файл вне разрешённых каталогов импорта (media.importRoots в config.json)\",\"reason\":\"outside_roots\"}}"
+  },
+  {
+    "id": "6.2",
+    "title": "повторный POST с тем же Idempotency-Key → тот же job.id (202, затем 200)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"first\":[202,\"job_01M5Q65808W7GCDKXBMCWGYRMJ\"],\"second\":[200,\"job_01M5Q65808W7GCDKXBMCWGYRMJ\"]}"
+  },
+  {
+    "id": "6.2b",
+    "title": "после завершения: тот же ключ → та же задача; новый ключ → 409 media_exists",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"done\":\"completed\",\"replay\":[200,\"job_01M5Q65808W7GCDKXBMCWGYRMJ\"],\"fresh\":409}"
+  }
+]

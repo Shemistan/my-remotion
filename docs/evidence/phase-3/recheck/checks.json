@@ -1,0 +1,86 @@
+[
+  {
+    "id": "9.0",
+    "title": "исходное состояние: A и B valid",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"A\":{\"state\":\"valid\",\"approval\":{\"id\":\"apr_01M5Q9T37STQ11KF6TV2CGCB58\",\"project_id\":\"prj_01M5Q5QWCS597HRDM4X9S74WEJ\",\"kind\":\"A\",\"subject_ref\":\"edl:edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C@r14\",\"subject_hash\":\"1f5ff7c685e07c3c49105f86a0ceec267054840a4ca9e894e6a4fd9ab52d522b\",\"status\":\"valid\",\"decided_at\":\"2026-10-24T15:52:28.665Z\"}},\"B\":{\"state\":\"valid\",\"approval\":{\"id\":\"apr_01M5Q9T6TXVMAEEA01X7Y813NE\",\"project_id\":\"prj_01M5Q5QWCS597HRDM4X9S74WEJ\",\"kind\":\"B\",\"subject_ref\":\"plan:pln_01M5Q9QE1DQRDGY5Q5KA57G3TM@r14\",\"subject_hash\":\"aabe41f20f3f34cb5841b3c53d9a39388ea276481fcd09782287870e3d6be113\",\"status\":\"valid\",\"decided_at\":\"2026-10-24T15:52:32.349Z\"}}}"
+  },
+  {
+    "id": "9.1",
+    "title": "слова сцены вырезаны: граничные слова removed, ролик стал короче",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"target\":\"sp_006\",\"words\":[\"w_000330\",\"w_000346\"],\"edl_revision\":15,\"shorter_ms\":12600}"
+  },
+  {
+    "id": "9.2",
+    "title": "A и B стали stale",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"A\":{\"state\":\"stale\",\"approval\":{\"id\":\"apr_01M5Q9T37STQ11KF6TV2CGCB58\",\"project_id\":\"prj_01M5Q5QWCS597HRDM4X9S74WEJ\",\"kind\":\"A\",\"subject_ref\":\"edl:edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C@r14\",\"subject_hash\":\"1f5ff7c685e07c3c49105f86a0ceec267054840a4ca9e894e6a4fd9ab52d522b\",\"status\":\"stale\",\"stale_reason\":\"subject_changed\",\"decided_at\":\"2026-10-24T15:52:28.665Z\"},\"reason\":\"subject_changed\"},\"B\":{\"state\":\"stale\",\"approval\":{\"id\":\"apr_01M5Q9T6TXVMAEEA01X7Y813NE\",\"project_id\":\"prj_01M5Q5QWCS597HRDM4X9S74WEJ\",\"kind\":\"B\",\"subject_ref\":\"plan:pln_01M5Q9QE1DQRDGY5Q5KA57G3TM@r14\",\"subject_hash\":\"aabe41f20f3f34cb5841b3c53d9a39388ea276481fcd09782287870e3d6be113\",\"status\":\"stale\",\"stale_reason\":\"upstream_A\",\"decided_at\":\"2026-10-24T15:52:32.349Z\"},\"reason\":\"upstream_A\"}}"
+  },
+  {
+    "id": "9.2b",
+    "title": "новая ревизия EDL сама запустила перепроверку плана (plan.recheck), она завершена",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"id\":\"job_01M5Q9WD3N3ZCRQ4XGM8GJ5KRX\",\"status\":\"completed\",\"output\":{\"plan_id\":\"pln_01M5Q9QE1DQRDGY5Q5KA57G3TM\",\"revision\":15,\"edl_revision\":15,\"style_revision\":2,\"changed\":[{\"item_id\":\"sp_001\",\"change\":\"remapped\"},{\"item_id\":\"sp_002\",\"change\":\"remapped\"},{\"item_id\":\"sp_003\",\"change\":\"remapped\"},{\"item_id\":\"sp_006\",\"change\":\"anchor_cut\"},{\"item_id\":\"sp_007\",\"change\":\"remapped\"},{\"item_id\":\"sp_008\",\"change\":\"remapped\"},{\"item_id\":\"sp_009\",\"change\":\"remapped\"}],\"reused\":false}}"
+  },
+  {
+    "id": "9.3",
+    "title": "B из устаревшего плана утвердить нельзя (кнопка недоступна, POST → 409 plan_outdated / items_unresolved)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":409,\"body\":\"{\\\"items\\\":[\\\"sp_006\\\"],\\\"error\\\":\\\"items_unresolved\\\",\\\"message\\\":\\\"items_unresolved: 1 сцена ждёт решения: sp_006\\\"}\"}"
+  },
+  {
+    "id": "9.4",
+    "title": "«Перепроверить план» из UI завершена (после автоматической — без изменений)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null,\"output\":{\"no_change\":true,\"plan_id\":\"pln_01M5Q9QE1DQRDGY5Q5KA57G3TM\",\"revision\":15,\"edl_revision\":15,\"style_revision\":2,\"changed\":[]}}"
+  },
+  {
+    "id": "9.5",
+    "title": "сцена под вырезкой — stale(anchor_cut)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"item\":\"sp_006\",\"status\":\"stale\",\"reason\":\"anchor_cut\",\"recheck\":{\"changed\":[{\"item_id\":\"sp_001\",\"change\":\"remapped\"},{\"item_id\":\"sp_002\",\"change\":\"remapped\"},{\"item_id\":\"sp_003\",\"change\":\"remapped\"},{\"item_id\":\"sp_006\",\"change\":\"anchor_cut\"},{\"item_id\":\"sp_007\",\"change\":\"remapped\"},{\"item_id\":\"sp_008\",\"change\":\"remapped\"},{\"item_id\":\"sp_009\",\"change\":\"remapped\"}]}}"
+  },
+  {
+    "id": "9.6",
+    "title": "остальные сцены пересчитаны (remapped): source прежний, edited сдвинуты после вырезки, время согласовано",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"id\":\"sp_001\",\"status\":\"accepted\",\"change\":\"remapped\",\"after_cut\":false,\"edited_before\":{\"start_us\":51613333,\"end_us\":61493333},\"edited_after\":{\"start_us\":51613333,\"end_us\":61493333},\"shift_ms\":0,\"source_same\":true,\"consistent\":true},{\"id\":\"sp_002\",\"status\":\"accepted\",\"change\":\"remapped\",\"after_cut\":false,\"edited_before\":{\"start_us\":87440001,\"end_us\":94980001},\"edited_after\":{\"start_us\":87440001,\"end_us\":94980001},\"shift_ms\":0,\"source_same\":true,\"consistent\":true},{\"id\":\"sp_003\",\"status\":\"accepted\",\"change\":\"remapped\",\"after_cut\":false,\"edited_before\":{\"start_us\":109546668,\"end_us\":113166668},\"edited_after\":{\"start_us\":109546668,\"end_us\":113166668},\"shift_ms\":0,\"source_same\":true,\"consistent\":true},{\"id\":\"sp_007\",\"status\":\"accepted\",\"change\":\"remapped\",\"after_cut\":true,\"edited_before\":{\"start_us\":251409666,\"end_us\":259929666},\"edited_after\":{\"start_us\":238809666,\"end_us\":247329666},\"shift_ms\":12600,\"source_same\":true,\"consistent\":true},{\"id\":\"sp_008\",\"status\":\"accepted\",\"change\":\"remapped\",\"after_cut\":true,\"edited_before\":{\"start_us\":273282999,\"end_us\":283882999},\"edited_after\":{\"start_us\":260682999,\"end_us\":271282999},\"shift_ms\":12600,\"source_same\":true,\"consistent\":true},{\"id\":\"sp_009\",\"status\":\"accepted\",\"change\":\"remapped\",\"after_cut\":false,\"edited_before\":{\"start_us\":63713333,\"end_us\":66773333},\"edited_after\":{\"start_us\":63713333,\"end_us\":66773333},\"shift_ms\":0,\"source_same\":true,\"consistent\":true}]"
+  },
+  {
+    "id": "9.7",
+    "title": "без вызова LLM: у plan.recheck нет агента, задач с вызовом агента не прибавилось",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"before\":{\"calls\":6,\"jobs_with_agent\":6},\"after\":{\"calls\":6,\"jobs_with_agent\":6},\"recheck_output\":{\"no_change\":true,\"plan_id\":\"pln_01M5Q9QE1DQRDGY5Q5KA57G3TM\",\"revision\":15,\"edl_revision\":15,\"style_revision\":2,\"changed\":[]}}"
+  },
+  {
+    "id": "9.7b",
+    "title": "agent_runs проекта не прибавились (справочно: F1 — агенты Phase 2–3 туда не пишутся)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"before\":0,\"after\":0}"
+  },
+  {
+    "id": "9.8",
+    "title": "до решения сцены B остаётся stale, утвердить нельзя",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"A\":{\"state\":\"valid\",\"approval\":{\"id\":\"apr_01M5Q9WDDJ7ZSQ03B33GHP4R1R\",\"project_id\":\"prj_01M5Q5QWCS597HRDM4X9S74WEJ\",\"kind\":\"A\",\"subject_ref\":\"edl:edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C@r15\",\"subject_hash\":\"ac03df334294652fd985009e1284352c73d135f0562434c346b92efd11c36dda\",\"status\":\"valid\",\"decided_at\":\"2026-10-24T15:53:44.626Z\"}},\"B\":{\"state\":\"stale\",\"approval\":{\"id\":\"apr_01M5Q9T6TXVMAEEA01X7Y813NE\",\"project_id\":\"prj_01M5Q5QWCS597HRDM4X9S74WEJ\",\"kind\":\"B\",\"subject_ref\":\"plan:pln_01M5Q9QE1DQRDGY5Q5KA57G3TM@r14\",\"subject_hash\":\"aabe41f20f3f34cb5841b3c53d9a39388ea276481fcd09782287870e3d6be113\",\"status\":\"stale\",\"stale_reason\":\"upstream_A\",\"decided_at\":\"2026-10-24T15:52:32.349Z\"},\"reason\":\"upstream_A\"}}"
+  },
+  {
+    "id": "9.9",
+    "title": "сцена отклонена → B снова valid на новой ревизии плана",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"revision\":16,\"approvals\":[{\"id\":\"apr_01M5Q9S92AC8BA9GJFP9NCM9ZD\",\"project_id\":\"prj_01M5Q5QWCS597HRDM4X9S74WEJ\",\"kind\":\"B\",\"subject_ref\":\"plan:pln_01M5Q9QE1DQRDGY5Q5KA57G3TM@r12\",\"subject_hash\":\"f971f361eb224ffe2091321d3b9a549ad92cb75984d834a3849f3cd90a7dd612\",\"status\":\"revoked\",\"stale_reason\":null,\"decided_at\":\"2026-10-24T15:52:01.866Z\"},{\"id\":\"apr_01M5Q9T6TXVMAEEA01X7Y813NE\",\"project_id\":\"prj_01M5Q5QWCS597HRDM4X9S74WEJ\",\"kind\":\"B\",\"subject_ref\":\"plan:pln_01M5Q9QE1DQRDGY5Q5KA57G3TM@r14\",\"subject_hash\":\"aabe41f20f3f34cb5841b3c53d9a39388ea276481fcd09782287870e3d6be113\",\"status\":\"revoked\",\"stale_reason\":null,\"decided_at\":\"2026-10-24T15:52:32.349Z\"},{\"id\":\"apr_01M5Q9WH176S2QPED1G16XCWSM\",\"project_id\":\"prj_01M5Q5QWCS597HRDM4X9S74WEJ\",\"kind\":\"B\",\"subject_ref\":\"plan:pln_01M5Q9QE1DQRDGY5Q5KA57G3TM@r16\",\"subject_hash\":\"834846f06d72108cfd9e0ac69b8d6fa1337044165169faa651197472deff2a7f\",\"status\":\"valid\",\"stale_reason\":null,\"decided_at\":\"2026-10-24T15:53:48.327Z\"}]}"
+  }
+]

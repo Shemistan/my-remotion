@@ -1,0 +1,27 @@
+[
+  {
+    "kb_id": "magicui/animated-beam",
+    "repository": "Magic UI",
+    "repository_url": "git@github.com:magicuidesign/magicui.git",
+    "commit": "efe76fc5",
+    "license": "MIT (LICENSE.md)",
+    "license_class": "permissive",
+    "strategy": "adapt",
+    "source_paths": [
+      "templates/react-libriry/magicui/apps/www/registry/magicui/animated-beam.tsx"
+    ]
+  },
+  {
+    "kb_id": "xyflow/example-custom-node",
+    "repository": "xyflow (React Flow)",
+    "repository_url": "git@github.com:xyflow/xyflow.git",
+    "commit": "654ba5a5e",
+    "license": "MIT (LICENSE)",
+    "license_class": "permissive",
+    "strategy": "adapt",
+    "source_paths": [
+      "templates/infografika/xyflow/examples/react/src/examples/CustomNode/index.tsx",
+      "templates/infografika/xyflow/examples/react/src/examples/CustomNode/ColorSelectorNode.tsx"
+    ]
+  }
+]

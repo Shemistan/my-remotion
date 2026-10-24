@@ -1,0 +1,511 @@
+{
+  "job": {
+    "id": "job_01M5FG5KYZ5GN7TRJ4EBWRA52F",
+    "type": "playground.generate",
+    "project_id": "playground",
+    "scene_id": "scn_01M5FG5KYWRXR5D1QDKY87VNNN",
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "publish",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "sceneId": "scn_01M5FG5KYWRXR5D1QDKY87VNNN",
+      "prompt": "Покажи архитектуру AI-агента: пользователь отправляет запрос, оркестратор вызывает три инструмента, данные возвращаются обратно. Световые импульсы движутся по связям",
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 180,
+        "style_preset": "dark-premium",
+        "animation_intensity": "balanced",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        }
+      }
+    },
+    "input_hash": "08632a44d904755bd9c573d055a8cf1973f1e56ccd2fff3f528729aaf0967d78",
+    "output_refs": {
+      "scene_id": "scn_01M5FG5KYWRXR5D1QDKY87VNNN",
+      "version_id": "ver_01M5FHERG5GX269VM6R15NS1M3",
+      "version_number": 1,
+      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FG5KYWRXR5D1QDKY87VNNN/versions/ver_01M5FHERG5GX269VM6R15NS1M3",
+      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FG5KYWRXR5D1QDKY87VNNN/versions/ver_01M5FHERG5GX269VM6R15NS1M3/preview.mp4",
+      "cost_usd": 3.0402552000000003,
+      "engineer_calls": 3,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "warn",
+        "style": "pass"
+      },
+      "warnings": [
+        "spec: нет бита акцента"
+      ],
+      "steps": {
+        "concept": {
+          "input_hash": "fda05e51a5d5da39294573bd62674eedb88744937aec41850d2e8ef6f1853429",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5FG5KYZ5GN7TRJ4EBWRA52F/checkpoints/concept.json"
+        },
+        "director": {
+          "input_hash": "030386aba85a4c59f0ad7acc2aea9409bc8055274ac2dd5c217ea258c72f87c7",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5FG5KYZ5GN7TRJ4EBWRA52F/checkpoints/motion_director.json"
+        }
+      }
+    },
+    "error": null,
+    "idempotency_key": "e2e-test2-run_01M5FG5KYZ5GN7TRJ4EBWRA52E",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-21T15:09:42.239Z",
+    "started_at": "2026-10-21T15:19:12.679Z",
+    "finished_at": "2026-10-21T15:32:10.397Z"
+  },
+  "wall_ms": 1350053,
+  "cost_usd": 3.0402552000000003,
+  "agent_runs": [
+    {
+      "role": "concept",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 5975,
+      "output_tokens": 724,
+      "cost_usd": 0.0092882,
+      "started_at": "2026-10-21T15:19:12.982Z",
+      "finished_at": "2026-10-21T15:19:20.348Z"
+    },
+    {
+      "role": "motion_director",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 53714,
+      "output_tokens": 12299,
+      "cost_usd": 0.5341374,
+      "started_at": "2026-10-21T15:19:20.535Z",
+      "finished_at": "2026-10-21T15:21:08.255Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 531977,
+      "output_tokens": 20772,
+      "cost_usd": 0.9829305999999999,
+      "started_at": "2026-10-21T15:21:08.455Z",
+      "finished_at": "2026-10-21T15:24:31.618Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 35001,
+      "output_tokens": 2863,
+      "cost_usd": 0.10062560000000001,
+      "started_at": "2026-10-21T15:25:10.702Z",
+      "finished_at": "2026-10-21T15:25:32.741Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 551339,
+      "output_tokens": 14421,
+      "cost_usd": 0.7482502000000001,
+      "started_at": "2026-10-21T15:25:32.919Z",
+      "finished_at": "2026-10-21T15:28:21.660Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 34998,
+      "output_tokens": 2519,
+      "cost_usd": 0.09409260000000001,
+      "started_at": "2026-10-21T15:29:01.470Z",
+      "finished_at": "2026-10-21T15:29:20.645Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 310839,
+      "output_tokens": 8964,
+      "cost_usd": 0.473028,
+      "started_at": "2026-10-21T15:29:20.829Z",
+      "finished_at": "2026-10-21T15:31:03.558Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 34998,
+      "output_tokens": 2900,
+      "cost_usd": 0.0979026,
+      "started_at": "2026-10-21T15:31:48.494Z",
+      "finished_at": "2026-10-21T15:32:10.007Z"
+    }
+  ],
+  "render_jobs": [
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "frames": 4,
+      "duration_ms": 21065
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "frames": 180,
+      "duration_ms": 21065
+    },
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "frames": 4,
+      "duration_ms": 23563
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "frames": 180,
+      "duration_ms": 23563
+    },
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "frames": 4,
+      "duration_ms": 27837
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "frames": 180,
+      "duration_ms": 27837
+    }
+  ],
+  "qa_reports": [
+    {
+      "id": 58,
+      "version_id": "ver_01M5FHERG5GX269VM6R15NS1M3",
+      "attempt": 1,
+      "technical": "pass",
+      "visual": "warn",
+      "semantic": "warn",
+      "style": "pass",
+      "report_path": "workspace/projects/playground/scenes/scn_01M5FG5KYWRXR5D1QDKY87VNNN/versions/ver_01M5FHERG5GX269VM6R15NS1M3/qa.json"
+    }
+  ],
+  "component_tests": [
+    {
+      "kb_id": "remotion-video-templates/line-chart-draw",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FFPQDR81GEMDR5WMBMF8TG",
+      "date": "2026-10-21T15:01:34.282Z"
+    },
+    {
+      "kb_id": "motion-primitives/animated-number",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F1ZPVY3YRBAF19KAGY0NHW",
+      "date": "2026-10-21T11:01:48.562Z"
+    },
+    {
+      "kb_id": "magicui/animated-beam",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FHERG5GX269VM6R15NS1M3",
+      "date": "2026-10-21T15:32:10.394Z"
+    },
+    {
+      "kb_id": "xyflow/example-custom-node",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FHERG5GX269VM6R15NS1M3",
+      "date": "2026-10-21T15:32:10.394Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-counter-confetti",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5ECYN3BHMXEQ0EFQSQ8VPMY",
+      "date": "2026-10-21T04:54:13.886Z"
+    },
+    {
+      "kb_id": "remotion-bits/animated-counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FE0R7MYP08XCTEZFSN69ED",
+      "date": "2026-10-21T14:32:05.638Z"
+    },
+    {
+      "kb_id": "xyflow/example-floating-edges",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EDHES67C9E4SRQ5HYRQDCE",
+      "date": "2026-10-21T05:04:30.010Z"
+    },
+    {
+      "kb_id": "xyflow/react-flow",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FGXQ2574A47125XPB5Y3VB",
+      "date": "2026-10-21T15:22:51.866Z"
+    },
+    {
+      "kb_id": "xyflow/edge-types",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FF4TXZM8QY4YB5Y3W0NX7B",
+      "date": "2026-10-21T14:51:48.051Z"
+    },
+    {
+      "kb_id": "motion-primitives-website/svg-path-draw",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F1FB708Z0CPCB2C7VYE7BC",
+      "date": "2026-10-21T10:52:52.343Z"
+    },
+    {
+      "kb_id": "animata/glowing-card",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
+      "date": "2026-10-21T10:32:20.714Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/chapter-title",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FDX3Y3HD111RSH8YNC8JR2",
+      "date": "2026-10-21T14:30:06.548Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-staggered-fade-in",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5EX0TTC9B6BJPW1ECEZAZFX",
+      "date": "2026-10-21T09:35:02.496Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/split-screen",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EQFZJ986V5EXQ8F0MX1F5N",
+      "date": "2026-10-21T07:58:27.420Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/line-chart-anim",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FGQ109HRPG5CXAN3NSQ2KV",
+      "date": "2026-10-21T15:19:12.669Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/kpi-counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F1NFJA74QYZQS7DYT7B3VG",
+      "date": "2026-10-21T10:56:13.406Z"
+    },
+    {
+      "kb_id": "xyflow/default-nodes",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FF4TXZM8QY4YB5Y3W0NX7B",
+      "date": "2026-10-21T14:51:48.051Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-card-stack",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
+      "date": "2026-10-21T10:32:20.714Z"
+    },
+    {
+      "kb_id": "motion-primitives/text-effect",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FDX3Y3HD111RSH8YNC8JR2",
+      "date": "2026-10-21T14:30:06.548Z"
+    },
+    {
+      "kb_id": "motion-primitives-website/animated-counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FEX67DRJQXX3Y1R72Y5SYZ",
+      "date": "2026-10-21T14:47:37.474Z"
+    },
+    {
+      "kb_id": "motion-primitives-website/number-ticker",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FFPQDR81GEMDR5WMBMF8TG",
+      "date": "2026-10-21T15:01:34.282Z"
+    },
+    {
+      "kb_id": "animata/counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FGQ109HRPG5CXAN3NSQ2KV",
+      "date": "2026-10-21T15:19:12.669Z"
+    },
+    {
+      "kb_id": "animata/confirmation-message",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FGXQ2574A47125XPB5Y3VB",
+      "date": "2026-10-21T15:22:51.866Z"
+    }
+  ],
+  "chat": [
+    {
+      "id": "msg_01M5FHERGTEGMFD3ZE6VYDV9VG",
+      "scene_id": "scn_01M5FG5KYWRXR5D1QDKY87VNNN",
+      "role": "assistant",
+      "text": "Версия 1 готова.\nКонцепция: Слева узел «Пользователь» с запросом «Какая погода завтра в Казани?». Световой импульс бежит по связи в центральный узел «Оркестратор» (герой кадра, он слегка пульсирует). Оттуда три импульса расходятся по трём связям к инструментам: «Поиск · веб», «Погодный API · прогноз», «База знаний · контекст». Каждый инструмент вспыхивает при получении импульса и отправляет данные обратно: «веб: 3 источника», «API: +18 °C, без осадков», «база: предпочтения пользователя». Обратные импульсы сходятся в оркестраторе, он собирает их и отправляет финальный импульс пользователю с ответом «+18 °C, без осадков». Взгляд идёт слева направо к инструментам, затем возвращается назад к пользователю. Главный вывод на экране: «1 запрос → 3 инструмента → 1 ответ». Скорость видна по бегущим импульсам и смене статусов узлов: ожидание → работа → готово. Исходящие импульсы холодного цвета, обратные тёплого, чтобы направление потока читалось.\nКомпоненты: motion-kit StyleProvider, motion-kit Background, motion-kit Particles, motion-kit SafeArea, motion-kit FlowGraph, motion-kit PulseAlongPath, motion-kit DataToken, motion-kit StatusChip, motion-kit KineticText, motion-kit SceneTitle, motion-kit pulseArrival, motion-kit useFlowGeometry, motion-kit useSafeArea, motion-kit useStyle, motion-kit typeSize, motion-kit accent, magicui/animated-beam (adapt, MIT (LICENSE.md)), xyflow/example-custom-node (adapt, MIT (LICENSE)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — с замечаниями, стиль — пройден; замечаний: blocking 0, warning 5.",
+      "version_id": "ver_01M5FHERG5GX269VM6R15NS1M3",
+      "job_id": "job_01M5FG5KYZ5GN7TRJ4EBWRA52F",
+      "created_at": "2026-10-21T15:32:10.394Z"
+    }
+  ],
+  "events": [
+    {
+      "ts": "2026-10-21T15:19:12.683Z",
+      "level": "info",
+      "kind": "started",
+      "message": "playground.generate: попытка 1"
+    },
+    {
+      "ts": "2026-10-21T15:19:12.979Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept…"
+    },
+    {
+      "ts": "2026-10-21T15:19:20.353Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept: Слева узел «Пользователь» с запросом «Какая погода завтра в Казани?». Световой импульс бежит по связи в центральный узел «Оркестратор» (герой кадра, он слегка пульсирует). Оттуда три импульса расходятся по трём связям к инструментам: «Поиск · веб», «Погодный API · прогноз», «База знаний · контекст». Каждый инструмент вспыхивает при получении импульса и отправляет данные обратно: «веб: 3 источника», «API: +18 °C, без осадков», «база: предпочтения пользователя». Обратные импульсы сходятся в оркестраторе, он собирает их и отправляет финальный импульс пользователю с ответом «+18 °C, без осадков». Взгляд идёт слева направо к инструментам, затем возвращается назад к пользователю. Главный вывод на экране: «1 запрос → 3 инструмента → 1 ответ». Скорость видна по бегущим импульсам и смене статусов узлов: ожидание → работа → готово. Исходящие импульсы холодного цвета, обратные тёплого, чтобы направление потока читалось. [system-structure, relationships, sequence-steps]"
+    },
+    {
+      "ts": "2026-10-21T15:19:20.369Z",
+      "level": "info",
+      "kind": "log",
+      "message": "KB: 12 кандидатов по ключам Concept"
+    },
+    {
+      "ts": "2026-10-21T15:19:20.533Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Motion Director…"
+    },
+    {
+      "ts": "2026-10-21T15:21:08.272Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Director: «Архитектура AI-агента» (network-centric), 2 битов, KB: magicui/animated-beam (adapt), xyflow/example-custom-node (adapt)"
+    },
+    {
+      "ts": "2026-10-21T15:21:08.452Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer…"
+    },
+    {
+      "ts": "2026-10-21T15:24:47.963Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 12, 24, 166, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-21T15:25:10.689Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA…"
+    },
+    {
+      "ts": "2026-10-21T15:25:32.741Z",
+      "level": "info",
+      "kind": "log",
+      "message": "QA: blocking overlap@166, missing_element, missing_element, missing_element"
+    },
+    {
+      "ts": "2026-10-21T15:25:32.916Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer: исправление 1 из 2 (qa)…"
+    },
+    {
+      "ts": "2026-10-21T15:28:36.025Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 12, 24, 166, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-21T15:29:01.456Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA…"
+    },
+    {
+      "ts": "2026-10-21T15:29:20.646Z",
+      "level": "info",
+      "kind": "log",
+      "message": "QA: blocking missing_element, missing_element, missing_element"
+    },
+    {
+      "ts": "2026-10-21T15:29:20.826Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer: исправление 2 из 2 (qa)…"
+    },
+    {
+      "ts": "2026-10-21T15:31:18.176Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 12, 24, 166, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-21T15:31:48.480Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA…"
+    },
+    {
+      "ts": "2026-10-21T15:32:10.390Z",
+      "level": "info",
+      "kind": "log",
+      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FG5KYWRXR5D1QDKY87VNNN/versions/ver_01M5FHERG5GX269VM6R15NS1M3"
+    },
+    {
+      "ts": "2026-10-21T15:32:10.400Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed"
+    }
+  ]
+}

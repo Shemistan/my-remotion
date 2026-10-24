@@ -23,3 +23,8 @@ export function listSince(db: Db, sinceId: number, opts: { jobId?: string; limit
     : db.prepare("SELECT * FROM job_events WHERE id > ? ORDER BY id LIMIT ?").all(sinceId, limit);
   return (rows as Raw[]).map(row);
 }
+
+/** Наибольший id события (0 — журнал пуст): начало SSE без `since`. */
+export function maxId(db: Db): number {
+  return (db.prepare("SELECT coalesce(max(id), 0) FROM job_events").pluck().get() as number);
+}

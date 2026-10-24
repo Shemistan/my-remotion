@@ -1,7 +1,7 @@
 ---
 тип: plan
-статус: запланировано
-обновлено: 2026-10-21
+статус: в работе
+обновлено: 2026-10-23
 спека: 2026-10-20-motion-studio-phase1-rest.md
 ---
 
@@ -589,7 +589,7 @@ expect(refs.some(r => kb.getCapability(r.kb_id)!.patterns.includes("system-struc
   - `sceneRestore: JobHandler` — вход `{ sceneId; versionId }`; только `ready`-версии → `repo.restore` без LLM; `render_env` копируется из исходной; при несовпадении `render_env.render_lock_sha256` с текущим `renderEnv()` — `opts.rerender`: `renderVersion({ …, outDir })` в draft, новый `render_env`, повтор технического gate; поле в manifest не нужно (M17)
 - Сравнение (`repo.diff`) — без задачи, синхронно через API (Task 20).
 
-- [ ] **Step 1: Юнит-тесты (падают):**
+- [x] **Step 1: Юнит-тесты (падают):**
 
 ```ts
 const r = applyParamEdit({ spec: spec180, props: props180, settings: settings180 }, plan({ path: "param", timing_scale: 1 / 0.75, borrow: [{ from_version_id: v1.id, what: "palette" }], param_patch: { style: { depth: 2 } } }), history);
@@ -609,8 +609,8 @@ expect(checkPreserve(spec180, moved(spec180, "orch", { x: +0.015 }), p, p, ["com
 // правка при failed v1: «палитра из первой версии» → берётся первая ready, reply объясняет
 ```
 
-- [ ] **Step 2–3:** FAIL → реализовать → PASS.
-- [ ] **Step 4: e2e (`make e2e`),** реальные модели: сцена из Test 2 (Task 17) → правка «сделай всё в фиолетовых тонах» → v2 → промпт Test 3 дословно → v3. Проверки [A] `09` §4:
+- [x] **Step 2–3:** FAIL → реализовать → PASS.
+- [x] **Step 4: e2e (`make e2e`),** реальные модели: сцена из Test 2 (Task 17) → правка «сделай всё в фиолетовых тонах» → v2 → промпт Test 3 дословно → v3. Проверки [A] `09` §4:
 
 ```ts
 expect(v3.manifest.parent_version_id).toBe(v2.versionId);
@@ -624,7 +624,7 @@ expect(v3.manifest.qa.technical).toBe("pass");
 for (const v of [v1, v2]) expect((await readVersion(v.dir)).files.length).toBeGreaterThan(0);
 ```
 
-- [ ] **Step 5:** просмотр кадров hold v2/v3 рядом (композиция, тени, палитра); evidence — `docs/evidence/phase-1/pipeline/test3/`; `./check`; коммит `feat(motion-studio): правки через чат и восстановление версий`.
+- [x] **Step 5:** просмотр кадров hold v2/v3 рядом (композиция, тени, палитра); evidence — `docs/evidence/phase-1/pipeline/test3/`; `./check`; коммит `feat(motion-studio): правки через чат и восстановление версий`.
 
 ### Task 19: Экспорт сцены — MP4 H.264/AAC и ProRes 4444 с альфой (P1-14)
 
@@ -645,7 +645,7 @@ for (const v of [v1, v2]) expect((await readVersion(v.dir)).files.length).toBeGr
 - Produces (server):
   - `sceneExport: JobHandler` — вход `{ versionId; request: ExportRequest }`; `prores4444` при `settings.transparent_export !== true` у версии (H4) → `failed` с `error.code = "pipeline"`, `stage: "export"` (H1), сообщение `transparent_unsupported: версия сделана с непрозрачным фоном; включите прозрачный экспорт до генерации` (Q4); рендер в `drafts/<job>-a<attempt>/` → `gate` пуст (+ `alphaAtCorner === 0` для ProRes), иначе `failed`, `stage: "export"`; ошибка `orphaned` → `blocked(stale_process)` → транзакция с fencing: `renameSync` в `workspace/projects/<p>/exports/<export-id>/scene.{mp4,mov}` + `export-manifest.json`, `chmod -R a-w`, строка `exports`
 
-- [ ] **Step 1: Юнит-тесты (падают):**
+- [x] **Step 1: Юнит-тесты (падают):**
 
 ```ts
 const s = { ...defaultSettings(), duration_frames: 180 };
@@ -660,9 +660,11 @@ expect(exportGate({ ...ok, width: h264Size(1080, 0.5), height: h264Size(1920, 0.
 // устаревшая попытка → fenced_out, exports/ пуст
 ```
 
-- [ ] **Step 2–3:** FAIL → реализовать → PASS.
-- [ ] **Step 4: e2e (`make e2e`):** версия `kit-gallery` (1920×1080, 30 fps) → `mp4` → `exportGate` пуст, ffprobe: `h264`, `aac`, 1920×1080, 30/1; повторный экспорт той же версии → та же длительность и размеры (`09` §1 п.5); `fps: 60` → длительность прежняя ± 1 кадр, fps 60/1, кадр середины входа первого элемента (кадр 60 из 120 на 60 fps) совпадает с кадром 30 экспорта на 30 fps по `frameDelta < 0.01` в области элемента (M11); `transparent-scene` → `prores4444` → `pixFmt yuva444p10le`, `alphaAtCorner(…, 30) === 0`. Время экспорта — в README пакета.
-- [ ] **Step 5:** `./check`; коммит `feat(motion-studio): экспорт MP4 и ProRes 4444`.
+- [x] **Step 2–3:** FAIL → реализовать → PASS.
+- [x] **Step 4: e2e (`make e2e`):** версия `kit-gallery` (1920×1080, 30 fps) → `mp4` → `exportGate` пуст, ffprobe: `h264`, `aac`, 1920×1080, 30/1; повторный экспорт той же версии → та же длительность и размеры (`09` §1 п.5); `fps: 60` → длительность прежняя ± 1 кадр, fps 60/1, кадр середины входа первого элемента (кадр 60 из 120 на 60 fps) совпадает с кадром 30 экспорта на 30 fps по `frameDelta < 0.01` в области элемента (M11); `transparent-scene` → `prores4444` → `pixFmt yuva444p10le`, `alphaAtCorner(…, 30) === 0`. Время экспорта — в README пакета.
+- [x] **Step 5:** `./check`; коммит `feat(motion-studio): экспорт MP4 и ProRes 4444`.
+- [x] **Fix round (ревью `task-19-review.md`, ruling 2026-10-23 «экспорт со сменой fps»):** gate — длительность видеопотока, звук отдельно (F1); смена fps — отказ `fps_change_unsupported` вне `ScenePropsBase` или без стоп-кадров, сверка `round(n·k)` со стоп-кадрами → `fps_tempo_mismatch`, `unscaledTimeKeys` в манифесте, предупреждение static о кадрах литералом (F2); kit в секундах при любом fps (F3); альфа через реестр, сбой — `export` (F4); профиль `4444`, `yuva444p12le` принят (F5); шаг загрузки `reconcile_exports` (F6). Приёмка M11 — на `transparent-scene`, kit-gallery в 60 fps — `fps_change_unsupported` / `fps_tempo_mismatch`.
+- [x] **Fix round 2 (`task-19-rereview.md`):** сверка темпа только в точно совпадающие моменты (`n·k` целое, недостающие стоп-кадры дорендериваются в draft), сравнение в ширине ≤ 480, расхождение — худшая клетка > 0,06 или ≥ 3 клеток > 0,03 (R1–R3); v4 в 60/50/25/24 fps проходит, kit-gallery и base-literal-60 — `fps_tempo_mismatch`; уже кадровые пропы и текст предупреждения static (R5); `missing`/`errors` сверки экспортов в выводе CLI (R4).
 
 ### Task 20: Control API (Fastify), точка входа сервера, doctor (P1-15, P1-17)
 
@@ -706,7 +708,7 @@ expect(exportGate({ ...ok, width: h264Size(1080, 0.5), height: h264Size(1920, 0.
 - Chrome рендера не достаёт до `127.0.0.1:8790`: уже сделано в срезе — `chrome-wrapper.sh` гонит весь трафик, включая loopback (`--proxy-bypass-list=<-loopback>`), в `127.0.0.1:9`, напрямую пускает только сервер бандла Remotion на порту, который worker выбирает сам и передаёт в `MS_BUNDLE_PORT` (`port` в `selectComposition`/`renderStill`/`renderMedia`). Проверено e2e `render.e2e.test.ts` («Chrome cannot reach local services on loopback»): `127.0.0.1`, `localhost` и `[::1]` на порту тестового сервера — `blocked`, ноль запросов, ассеты бандла грузятся. В Task 20 — повторить проверку против настоящего сервера на 8790 (e2e: сцена с `fetch("http://127.0.0.1:8790/api/health")` → `blocked`, в журнале сервера запроса нет).
 - **`/proxy` сервера бандла Remotion — закрыто H1** (ruling 17; `render/src/node/asset-guard.ts`, `MSG_PROXY` в static check, e2e proxy-scene; отчёт `.superpowers/sdd/2026-10-20-motion-playground-mvp/h1-report.md`). Task 20 код рендера и `worker.ts` не меняет (M13). **Остаётся только e2e** `server/test/api/loopback.e2e.test.ts` против настоящего Control API на 8790: сцена с `fetch("http://127.0.0.1:8790/api/health")` → `blocked`; версия, собранная в обход static check (рукописная фикстура), с `/proxy?src=http://127.0.0.1:8790/api/health` и `<Audio src="http://127.0.0.1:8790/…">` → рендер отказывает (`ASSET_BLOCKED`), в журнале сервера запросов нет.
 
-- [ ] **Step 1: Тесты (падают),** `app.inject`, `Core` на `tmp/` с фейковыми обработчиками задач (только контракт API):
+- [x] **Step 1: Тесты (падают),** `app.inject`, `Core` на `tmp/` с фейковыми обработчиками задач (только контракт API):
 
 ```ts
 expect((await inj("POST", "/api/projects", { host: "evil.example:8790" })).statusCode).toBe(403);
@@ -735,9 +737,11 @@ expect((await inj("GET", "/api/health")).json().storage).toBe("storage_offline")
 // doctor: фейковый PATH без claude → строка claude "missing", код 1; без MS_DATA_DIR → env_missing
 ```
 
-- [ ] **Step 2–3:** FAIL → реализовать → PASS.
-- [ ] **Step 4: Ручная проверка:** `npm run doctor` на реальном хранилище — всё `ok`; `npm start` → `curl -H 'Host: 127.0.0.1:8790' 127.0.0.1:8790/api/health`; `lsof -iTCP:8790 -sTCP:LISTEN` показывает только `127.0.0.1`.
-- [ ] **Step 5:** `./check`; коммит `feat(motion-studio): Control API, точка входа сервера и doctor`.
+- [x] **Step 2–3:** FAIL → реализовать → PASS.
+- [x] **Step 4: Ручная проверка:** `npm run doctor` на реальном хранилище — всё `ok`; `npm start` → `curl -H 'Host: 127.0.0.1:8790' 127.0.0.1:8790/api/health`; `lsof -iTCP:8790 -sTCP:LISTEN` показывает только `127.0.0.1`.
+- [x] **Step 5:** `./check`; коммит `feat(motion-studio): Control API, точка входа сервера и doctor`.
+- [x] **Сделано (2026-10-23, `task-20-report.md`):** лимиты по коду семафоров S5 — `agentCalls` 5, `renders` 2 (не 2/2/1); 503 `storage_offline` — только на `/api/*` (UI с диска приложения показывает баннер); `GET /projects` скрывает bench-проекты (`?includeBench=1`); `npm start` в Step 4 — на отдельном tmp-хранилище: в реальном две старые `pending`-задачи `playground.generate` (2026-10-21), сервер запустил бы их платно; doctor на реальном хранилище — всё `ok`. Loopback e2e против 8790 — 5/5, в журнале сервера ноль запросов.
+- [x] **Fix round (ревью `task-20-review.md`):** один not-found-обработчик со SPA-fallback, тест на собранный `web/dist` (F1); строгое тело `PUT /settings` — только модели ролей, `limits` (таймаут экспорта ≤ 4 ч), `defaults` (F2); запись `config.json` — уникальный tmp, очередь процесса, fsync каталога (F3); HEAD с настоящим `Content-Length` (F5); 500/503 — код и общий текст (F6); отказ `renderEnv()` не кэшируется (F7); вход Claude в doctor — из пустого tmp-каталога (F8); `queued_at_start` в `/health` и журнал очереди при старте, предупреждение в README (F9); чужой Origin на GET и `Sec-Fetch-Site` cross/same-site на `/api` → 403 (F10); откат создания сцены убирает её каталог (F11). F4 (Vite HMR) — требование в Task 21. Fastify 5.12.7 моложе 14 дней — остаётся 5.12.5 (уязвимость не затрагивает: `schema.headers` нет).
 
 ### Task 21: Web UI Playground на русском (P1-16, Jobs Monitor из P1-17)
 
@@ -759,15 +763,16 @@ expect((await inj("GET", "/api/health")).json().storage).toBe("storage_offline")
   - `useEvents()` — `EventSource('/api/events?since=…')`, инвалидирует запросы TanStack Query по `job_id`/`scene_id`
   - `frameToTime(frame: number, fps: Fps): number = (frame + 0.5) * fps.den / fps.num`; `timeToFrame(t: number, fps: Fps): number = Math.floor(t * fps.num / fps.den)`
   - Экраны (ТЗ §6.2, §11.1):
-    - **Dashboard:** проекты, статусы активных задач, последние экспорты, «Новый проект».
+    - **Dashboard:** проекты, статусы активных задач, последние экспорты, «Новый проект». Служебные проекты харнесса качества (`isBenchProject()` из `server/src/db/repos/projects.ts`: `bench-*` и старый префикс прогонов до переименования) в списках не показываются.
     - **Playground:** слева — `Chat` (сообщения пользователя, ассистента и системы; уточняющие вопросы Concept с ответом или «пропустить»), `VersionHistory` (v1…vN, статус, родитель, «Открыть», «Восстановить», «Сравнить»), `ComponentsPanel` (компоненты KB: `kb_id`, repo, commit, лицензия, `license_class`, стратегия; компоненты motion-kit), параметры (`SettingsForm`, ТЗ §6.4), `JobStatus` (этап, прогресс, журнал, cancel/retry; для `blocked` — PID и команда, текст «повтор после завершения процесса»). Справа — `Player` (`<video>` превью: play/pause, seek, шаг ±1 кадр, номер кадра, aspect ratio, FPS, длительность), фон и тема, кнопки «Рендер» (при изменённых параметрах; `POST /scenes/:id/render { settings_patch }`) и «Экспорт» (`ExportDialog`: MP4 / ProRes 4444 — недоступен с подсказкой, если у версии `settings.transparent_export !== true` (H4); FPS, качество). Снизу — `SceneTimeline`: биты текущей версии, маркеры QA-кадров (клик → seek), полоса версий. `QAPanel`: четыре gate, проблемы с кадром (клик → seek), миниатюры кадров, пометка «автоматическая оценка, решение за вами». `render_env_mismatch` — предупреждение «рендер в другом окружении». Ошибка рендера — ошибка с логами, без превью (ТЗ §11.3).
     - **VersionCompare:** два синхронизированных `<video>` рядом, общий seek; diff `settings`/`props`/`spec` (JSON Pointer, было → стало) и файлов `src/` (unified).
     - **KnowledgeBrowser:** поиск, фильтры паттернов и видов, переключатель «показывать restricted/unknown», бейджи лицензии и совместимости, карточка компонента.
     - **JobsMonitor:** список задач с фильтром статуса, прогресс, ошибка, cancel/retry.
-    - **AppSettings:** модели ролей, лимиты, настройки сцены по умолчанию.
+    - **AppSettings:** модели ролей, лимиты, настройки сцены по умолчанию. `PUT /settings` принимает только `agents.<роль>.model`, `limits`, `defaults` (ревью Task 20, F2): `claudeBin`, `kb`, бюджет сцены и ролей в форме не показывать как редактируемые.
+  - **`--dev` и HMR (ревью Task 20, F4):** WebSocket HMR Vite идёт мимо хука `onRequest` Fastify. Закрепить `vite` точной версией не ниже 6.0.9 (или линии 5.x ≥ 5.4.12, CVE-2025-24010: проверка Origin и токена WS); в `installViteDev` явно `server.allowedHosts: ["127.0.0.1", "localhost"]`; если Vite этого не делает сам — проверка `Origin` на `upgrade` (`app.server.on("upgrade")` до Vite: Origin ∉ allowlist → 403 и `socket.destroy()`). Тест: WS-upgrade HMR с `Origin: https://evil.example` отклоняется, со своим Origin — подключается.
   - `e2e/seed.ts`: `seedScene(core, fixtures: { dir: string; timeoutMs?: number }[]): Promise<{ sceneId; versionIds }>` — публикует версии из рукописных фикстур с реальным рендером через `renderVersion` и `SceneRepo.publish` (Q8): `kit-gallery`, `choreo-gallery` → `ready`; `hang-scene` с коротким `timeoutMs` (например, 20 000) → рендер падает `timeout`, публикуется `failed`-версия с `failure.stage = "render"` и журналом — это «ошибка рендера с логами» (M14)
 
-- [ ] **Step 1: Юнит-тесты (падают),** Vitest + jsdom + `@testing-library/react`, API — фейковый `fetch` (только UI-логика):
+- [x] **Step 1: Юнит-тесты (падают),** Vitest + jsdom + `@testing-library/react`, API — фейковый `fetch` (только UI-логика):
 
 ```ts
 for (const f of globSync("web/src/**/*.tsx")) expect(stripImports(readFileSync(f, "utf8"))).not.toMatch(/[А-Яа-яЁё]/);
@@ -783,16 +788,17 @@ expect(timeToFrame(frameToTime(179, { num: 30000, den: 1001 }), { num: 30000, de
 // ExportDialog: версия с settings.transparent_export false → ProRes недоступен с подсказкой
 ```
 
-- [ ] **Step 2: Запустить** — FAIL. **Step 3: Реализовать.**
-- [ ] **Step 4: Playwright (`make e2e-ui`),** реальный сервер `npm start` на `tmp`-хранилище с `MS_ALLOW_SYSTEM_DISK=1`, версии из `seed.ts` (реальный рендер, без LLM):
+- [x] **Step 2: Запустить** — FAIL. **Step 3: Реализовать.**
+- [x] **Step 4: Playwright (`make e2e-ui`),** реальный сервер `npm start` на `tmp`-хранилище с `MS_ALLOW_SYSTEM_DISK=1`, версии из `seed.ts` (реальный рендер, без LLM):
   - `dashboard.spec`: создать проект → он в списке; баннер при 503.
   - `versions.spec`: открыть сцену с двумя версиями → проиграть v1 и v2, шаг кадра меняет счётчик на 1; «Сравнить» → два плеера и diff `props`; «Восстановить v1» → появилась v3 с родителем v1, v1 и v2 на месте.
   - `export.spec`: «Экспорт» MP4 → задача → «Скачать»; файл проходит `ffprobe` (1920×1080, `h264`, `aac`).
   - `kb.spec`: поиск «счётчик» → `remotion-bits/animated-counter` с лицензией MIT; карточка открывается.
   - `jobs.spec`: медленный экспорт ProRes 4444 версии `kit-gallery`, засеянной с `settings.transparent_export: true` (иначе Task 19 отказал бы сразу `transparent_unsupported`; отмена приходит раньше `exportGate`) → «Отменить», пока задача `running` → `cancelled`, файла в `exports/` нет; `failed`-версия `hang-scene` → ошибка рендера показана с логами, превью нет (M14). Экспорт `hang-scene` не используется: он ждал бы `limits.exportTimeoutMs` (30 мин).
   Скриншоты ключевых экранов — `docs/evidence/phase-1/ui/`.
-- [ ] **Step 5: Просмотр скриншотов глазами:** раскладка ТЗ §6.2, все подписи на русском, нет обрезанных строк.
-- [ ] **Step 6:** `./check`; коммит `feat(motion-studio): UI Motion Playground`.
+- [x] **Step 5: Просмотр скриншотов глазами:** раскладка ТЗ §6.2, все подписи на русском, нет обрезанных строк.
+- [x] **Step 6:** `./check`; коммит `feat(motion-studio): UI Motion Playground`.
+- [x] **Сделано (2026-10-23, `task-21-report.md`):** пакет `web` (React 19.2.3, Vite 8.3.4 — F4, TanStack Query 5.104.1, jsdom 29.1.1: 30.x требует Node ≥ 22.22); `VersionDto` + `kit_components`, `generation` (время/стоимость из `pipeline-log.json`), `ProjectDetail` + `latest_version`; `--dev`: HMR на сокете Fastify, upgrade только со своими Host/Origin; Playwright 9/9 на tmp-хранилище, скриншоты `docs/evidence/phase-1/ui/`. Отступление: «счётчик» в реальной KB не находит `remotion-bits/animated-counter` (поиск лексический, запись описана словом «число») — kb.spec ищет «счётчик» (счётчики MIT) и «число» (animated-counter).
 
 ### Task 22: Приёмка Phase 1 через UI с реальными Claude Code и рендером (P1-18)
 
@@ -810,11 +816,11 @@ expect(timeToFrame(frameToTime(179, { num: 30000, den: 1001 }), { num: 30000, de
   - `collect-evidence.mjs <versionId|exportId> <dest>`: `preview.mp4` и экспорт (≤ 10 МБ, иначе sha256 + ffprobe), `frames/*.png`, `qa.json`, `manifest.json`, `knowledge-refs.json`, `spec.json`, журнал задачи (`job_events`), `agent_runs` (модель, стоимость, токены), скриншоты UI
   - `REPORT.md`: таблица каждого пункта `09` §1–5 → [A] pass/fail со ссылкой на файл evidence или [H] с результатом просмотра человеком; стоимость по тестам и итог; время; известные ограничения; что требует утверждения (ТЗ §16 п.8)
 
-- [ ] **Step 1: Test 1 (`test1-data-storytelling.spec.ts`):** Dashboard → новый проект «Приёмка» → Playground → промпт Test 1 дословно → «Сгенерировать» → `completed`; в UI: плеер играет, длительность = настройкам; `ComponentsPanel` показывает ≥ 1 запись KB с commit и лицензией; `QAPanel` — `technical: pass`. Проверки [A] `09` §2 по файлам версии (как в Task 17 Step 5) + стабильность: повторный `renderVersion` опубликованной версии с `outDir` во временный каталог (без копии исходников) → sha256 трёх ключевых PNG совпадают. «Экспорт» MP4 → скачанный файл: `h264`, `aac`, 1920×1080, 30/1. Evidence — `docs/evidence/phase-1/test1/`.
-- [ ] **Step 2: Test 2:** промпт Test 2 дословно; [A] из `09` §3: ≥ 5 узлов с ролями пользователь/оркестратор/3 инструмента, биты упорядочены (запрос → оркестратор → инструменты → обратно), `PulseAlongPath` в `kit_components_used` или `magicui/animated-beam` в knowledge-refs, позиция импульса меняется между соседними кадрами (`frameDelta` двух кадров бита импульса > 0.002 в ROI ребра), refs из паттерна `system-structure`, `overlap` отсутствует. Evidence — `test2/`.
-- [ ] **Step 3: Test 3:** в той же сцене через чат «сделай всё в фиолетовых тонах» → v2; затем промпт Test 3 дословно → v3. [A] как в Task 18 Step 4; в UI история показывает v1–v3, каждая открывается и проигрывается; «Сравнить v2 ↔ v3» показывает `/timing/duration_frames` 180 → 240. Evidence — `test3/` (кадры hold v1/v2/v3 рядом).
-- [ ] **Step 4: Перезапуск (`restart.spec.ts`, `09` §1 п.5):** `killServer("SIGKILL")` → `startServer()` → открыть сцену Test 2: все версии на месте, sha256 файлов версий не изменились; повторный экспорт v3 → та же длительность и размеры, что у экспорта до перезапуска.
-- [ ] **Step 5: Устойчивость (`resilience.spec.ts`, `09` §5):**
+- [x] **Step 1: Test 1 (`test1-data-storytelling.spec.ts`):** Dashboard → новый проект «Приёмка» → Playground → промпт Test 1 дословно → «Сгенерировать» → `completed`; в UI: плеер играет, длительность = настройкам; `ComponentsPanel` показывает ≥ 1 запись KB с commit и лицензией; `QAPanel` — `technical: pass`. Проверки [A] `09` §2 по файлам версии (как в Task 17 Step 5) + стабильность: повторный `renderVersion` опубликованной версии с `outDir` во временный каталог (без копии исходников) → sha256 трёх ключевых PNG совпадают. «Экспорт» MP4 → скачанный файл: `h264`, `aac`, 1920×1080, 30/1. Evidence — `docs/evidence/phase-1/test1/`.
+- [x] **Step 2: Test 2:** промпт Test 2 дословно; [A] из `09` §3: ≥ 5 узлов с ролями пользователь/оркестратор/3 инструмента, биты упорядочены (запрос → оркестратор → инструменты → обратно), `PulseAlongPath` в `kit_components_used` или `magicui/animated-beam` в knowledge-refs, позиция импульса меняется между соседними кадрами (`frameDelta` двух кадров бита импульса > 0.002 в ROI ребра), refs из паттерна `system-structure`, `overlap` отсутствует. Evidence — `test2/`.
+- [x] **Step 3: Test 3:** в той же сцене через чат «сделай всё в фиолетовых тонах» → v2; затем промпт Test 3 дословно → v3. [A] как в Task 18 Step 4; в UI история показывает v1–v3, каждая открывается и проигрывается; «Сравнить v2 ↔ v3» показывает `/timing/duration_frames` 180 → 240. Evidence — `test3/` (кадры hold v1/v2/v3 рядом).
+- [x] **Step 4: Перезапуск (`restart.spec.ts`, `09` §1 п.5):** `killServer("SIGKILL")` → `startServer()` → открыть сцену Test 2: все версии на месте, sha256 файлов версий не изменились; повторный экспорт v3 → та же длительность и размеры, что у экспорта до перезапуска.
+- [x] **Step 5: Устойчивость (`resilience.spec.ts`, `09` §5):**
   1. генерация, `SIGKILL` сервера во время рендера → после старта задача `pending` и доведена до `completed` либо `failed(interrupted)` с кнопкой «Повторить»; другая сцена не затронута;
   2. повторный POST с тем же `Idempotency-Key` (через `page.request`) → тот же `job.id`;
   3. версия со сломанным кодом (`hang-scene` через `seedScene` с коротким `timeoutMs`: реальный рендер, `failed`-версия) → UI показывает ошибку рендера с логами, превью не подменено; поставленный следом экспорт MP4 `kit-gallery` выполняется (экспорт `hang-scene` не запускается — ждал бы `limits.exportTimeoutMs`, M14);
@@ -824,9 +830,13 @@ expect(timeToFrame(frameToTime(179, { num: 30000, den: 1001 }), { num: 30000, de
   7. две правки одной сцены подряд → вторая `pending`, пока первая `running`; правка и «Восстановить» — так же;
   8. устаревшая попытка → `fenced_out` (через тестовый обработчик в процессе сервера с `MS_TEST_HOOKS=1`; хук включается только переменной и не регистрирует маршрутов).
   Пункт «физическое отключение SSD» (`09` §5 п.6) — [H]: инструкция в `REPORT.md`, результат записывает человек.
-- [ ] **Step 6: Критерии MVP (`mvp-criteria.spec.ts`, `09` §1):** п.1–4 по версиям Test 1–3; п.6 — `kb-hashes.mjs after` совпадает с `before`.
-- [ ] **Step 7: Просмотр глазами [H]:** все ключевые кадры Test 1–3 по рубрике качества (иерархия, разные входы, ритм, глубина, читаемость, safe area); замечания — в `REPORT.md` с кадром и элементом; ничего не подгонять под тест.
-- [ ] **Step 8:** `./check`; коммит `test(motion-studio): приёмка Phase 1 и evidence`; итог человеку по ТЗ §16 п.8: реализовано, тесты, известные ограничения, стоимость прогонов, что требует утверждения.
+- [x] **Step 6: Критерии MVP (`mvp-criteria.spec.ts`, `09` §1):** п.1–4 по версиям Test 1–3; п.6 — `kb-hashes.mjs after` совпадает с `before`.
+- [x] **Step 7: Просмотр глазами [H]:** все ключевые кадры Test 1–3 по рубрике качества (иерархия, разные входы, ритм, глубина, читаемость, safe area); замечания — в `REPORT.md` с кадром и элементом; ничего не подгонять под тест.
+- [x] **Step 8:** `./check`; коммит `test(motion-studio): приёмка Phase 1 и evidence`; итог человеку по ТЗ §16 п.8: реализовано, тесты, известные ограничения, стоимость прогонов, что требует утверждения.
+
+---
+- [x] **Сделано (2026-10-23, `docs/evidence/phase-1/REPORT.md`):** приёмка через UI на MotionStudio-acceptance, реальные claude и рендер, $10,38; три прогона: full1 и два продолжения `MS_ACC_REUSE=1` без новых генераций (раздел «Прогоны» отчёта). `09` §1 — 5/6 pass, п. 2 ждёт утверждения: превью 960×540 = настройки × 0,5 по архитектуре, в full1 проверка против 1920×1080 упала. Test 1 — 14/17 (F1, F2), Test 2 — 9/10 (F3), Test 3 — 19/19. §5 п. 1–5, 7–10 pass (п. 8–9 — хуки `MS_TEST_HOOKS=1`), п. 6 — [H]. Перезапуск: экспорт v3 байт-в-байт. Находки качества — Q22–Q24.
+- [x] **Fix round (ревью Task 22):** хуки не стартуют вне `…-acceptance`/tmp, arm.json проверяется схемой Zod; продолжение прогона перечитывает статус задачи через API и помечает строки `reused: true`; t2.order без подстановки порядка; рестарт доказывает `/api/health` с новым pid; экспорты и кадры побочной сцены убраны из evidence, `~` вместо домашнего каталога, без `hostname`; kb-hashes хэширует все файлы (~2–4 с).
 
 ---
 

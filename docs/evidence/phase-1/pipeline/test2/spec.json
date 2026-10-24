@@ -1,0 +1,320 @@
+{
+  "title": "Архитектура AI-агента",
+  "purpose": "Один запрос пользователя оркестратор раздаёт трём инструментам, собирает их данные и возвращает один ответ: «1 запрос → 3 инструмента → 1 ответ».",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "composition": {
+    "archetype": "network-centric",
+    "idea": "Чертёж живой системы: слева человек с вопросом, в центре крупный оркестратор, справа столбик из трёх инструментов. Взгляд идёт за холодным импульсом слева направо и веером к инструментам, затем за тёплыми токенами данных обратно в центр и к пользователю, где ложится ответ.",
+    "focus": "Камера стоит: движение ведут импульсы и токены через весь кадр, наезд выдавил бы крайние узлы. Фокус по фазам: оркестратор при сборке, затем запрос, веер инструментов, возврат данных в центр, ответ у пользователя.",
+    "transitions": "Статус оркестратора сменяется на месте: «Ожидание» → «Вызывает · 3» → «Собирает ответ» → «Готово». Токены инструментов гаснут в оркестраторе и порождают один токен ответа, который остаётся в слоте пользователя. Схема, вопрос и формула видны до конца.",
+    "title_mode": "integrated",
+    "background": {
+      "variant": "blueprint",
+      "focus": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "seed": "scn_01M5FG5KYWRXR5D1QDKY87VNNN"
+    }
+  },
+  "elements": [
+    {
+      "id": "agent-graph",
+      "kind": "graph",
+      "role": "схема архитектуры агента",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "FlowGraph",
+        "edges": [
+          {
+            "id": "e-user",
+            "from": "user",
+            "to": "orchestrator"
+          },
+          {
+            "id": "e-search",
+            "from": "orchestrator",
+            "to": "tool-search"
+          },
+          {
+            "id": "e-api",
+            "from": "orchestrator",
+            "to": "tool-api"
+          },
+          {
+            "id": "e-kb",
+            "from": "orchestrator",
+            "to": "tool-kb"
+          }
+        ],
+        "flows": [
+          {
+            "edge": "e-user",
+            "direction": "forward",
+            "beat": "b-request",
+            "repeat": false,
+            "travel": 18
+          },
+          {
+            "edge": "e-search",
+            "direction": "forward",
+            "beat": "b-fanout-search",
+            "repeat": false,
+            "travel": 16
+          },
+          {
+            "edge": "e-api",
+            "direction": "forward",
+            "beat": "b-fanout-api",
+            "repeat": false,
+            "travel": 16
+          },
+          {
+            "edge": "e-kb",
+            "direction": "forward",
+            "beat": "b-fanout-kb",
+            "repeat": false,
+            "travel": 16
+          },
+          {
+            "edge": "e-search",
+            "direction": "back",
+            "beat": "b-return-search",
+            "repeat": false,
+            "travel": 20
+          },
+          {
+            "edge": "e-api",
+            "direction": "back",
+            "beat": "b-return-api",
+            "repeat": false,
+            "travel": 20
+          },
+          {
+            "edge": "e-kb",
+            "direction": "back",
+            "beat": "b-return-kb",
+            "repeat": false,
+            "travel": 20
+          },
+          {
+            "edge": "e-user",
+            "direction": "back",
+            "beat": "b-answer",
+            "repeat": false,
+            "travel": 20
+          }
+        ],
+        "pulse_colors": "forward — accent[1], back — accent[2]"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 1
+      }
+    },
+    {
+      "id": "user",
+      "kind": "card",
+      "role": "node: пользователь",
+      "entrance": "slide",
+      "content": {
+        "label": "Пользователь",
+        "caption": "чат · вопрос",
+        "size": "body",
+        "slot": true,
+        "emphasis": "b-final-emphasis"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.4,
+        "w": 0.22,
+        "h": 0.22
+      }
+    },
+    {
+      "id": "orchestrator",
+      "kind": "card",
+      "role": "node: оркестратор — герой",
+      "entrance": "pop",
+      "content": {
+        "label": "Оркестратор",
+        "caption": "LLM · планирует вызовы",
+        "size": "h2",
+        "elevation": 3
+      },
+      "layout": {
+        "x": 0.36,
+        "y": 0.36,
+        "w": 0.27,
+        "h": 0.28
+      }
+    },
+    {
+      "id": "tool-search",
+      "kind": "card",
+      "role": "node: поиск",
+      "entrance": "rise",
+      "content": {
+        "label": "Поиск",
+        "caption": "веб",
+        "size": "body"
+      },
+      "layout": {
+        "x": 0.74,
+        "y": 0.06,
+        "w": 0.26,
+        "h": 0.2
+      }
+    },
+    {
+      "id": "tool-api",
+      "kind": "card",
+      "role": "node: погодный API",
+      "entrance": "rise",
+      "content": {
+        "label": "Погодный API",
+        "caption": "прогноз",
+        "size": "body"
+      },
+      "layout": {
+        "x": 0.74,
+        "y": 0.4,
+        "w": 0.26,
+        "h": 0.2
+      }
+    },
+    {
+      "id": "tool-kb",
+      "kind": "card",
+      "role": "node: база знаний",
+      "entrance": "rise",
+      "content": {
+        "label": "База знаний",
+        "caption": "контекст",
+        "size": "body"
+      },
+      "layout": {
+        "x": 0.74,
+        "y": 0.74,
+        "w": 0.26,
+        "h": 0.2
+      }
+    },
+    {
+      "id": "user-query",
+      "kind": "text",
+      "role": "контекст: вопрос",
+      "entrance": "type",
+      "content": {
+        "text": "«Какая погода завтра в Казани?»",
+        "size": "body"
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.13,
+        "w": 0.27,
+        "h": 0.22
+      }
+    },
+    {
+      "id": "orch-status",
+      "kind": "shape",
+      "role": "статус оркестратора",
+      "entrance": "pop",
+      "content": {
+        "component": "StatusChip",
+        "anchor": {
+          "node": "orchestrator",
+          "side": "top"
+        }
+      }
+    },
+    {
+      "id": "token-search",
+      "kind": "shape",
+      "role": "данные поиска",
+      "entrance": "none",
+      "content": {
+        "component": "DataToken",
+        "label": "веб: 3 источника"
+      }
+    },
+    {
+      "id": "token-api",
+      "kind": "shape",
+      "role": "данные API",
+      "entrance": "none",
+      "content": {
+        "component": "DataToken",
+        "label": "API: +18 °C, без осадков"
+      }
+    },
+    {
+      "id": "token-kb",
+      "kind": "shape",
+      "role": "данные базы",
+      "entrance": "none",
+      "content": {
+        "component": "DataToken",
+        "label": "база: предпочтения"
+      }
+    },
+    {
+      "id": "token-answer",
+      "kind": "shape",
+      "role": "ответ",
+      "entrance": "none",
+      "content": {
+        "component": "DataToken",
+        "label": "+18 °C, без осадков",
+        "stay": true
+      }
+    },
+    {
+      "id": "summary-statement",
+      "kind": "text",
+      "role": "вывод",
+      "entrance": "mask",
+      "content": {
+        "text": "1 запрос → 3 инструмента → 1 ответ",
+        "size": "body"
+      },
+      "layout": {
+        "x": 0.06,
+        "y": 0.8,
+        "w": 0.58,
+        "h": 0.1
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "b-user-in",
+      "start_frame": 0,
+      "end_frame": 24,
+      "action": "user-node-in",
+      "description": "Пользователь входит slide.",
+      "element_ids": [
+        "user"
+      ]
+    },
+    {
+      "id": "b-hold",
+      "start_frame": 153,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "Дышит узел пользователя с ответом.",
+      "element_ids": [
+        "user"
+      ]
+    }
+  ]
+}

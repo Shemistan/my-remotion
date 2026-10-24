@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 import {
   KnowledgeRefSchema, SettingsSchema, VersionManifestSchema, type Settings, type VersionDiff, type VersionManifest,
 } from "@ms/contracts";
-import { fileProcessRegistry, type StorageStatus } from "@ms/core";
+import { type ProcessRegistry, fileProcessRegistry, type StorageStatus } from "@ms/core";
 import { z } from "zod";
 import type { Db } from "../db/open.js";
 import { tx } from "../db/tx.js";
@@ -19,7 +19,7 @@ import { jsonDiff, srcFilesDiff } from "./diff.js";
 import { sha256, sha256File } from "./hash.js";
 import { newId } from "./ids.js";
 import {
-  QUARANTINE, attachCause, commitVersionFiles, createDraft, manifestText, prepareVersion, quarantineDraft, readVersion, sceneRel,
+  QUARANTINE, SYNC_DRAFT_PREFIX, attachCause, commitVersionFiles, createDraft, manifestText, prepareVersion, quarantineDraft, readVersion, sceneRel,
   sealVersion, setWritable, undoCommitVersionFiles, writeBriefSync, type Draft, type PublishMeta,
 } from "./store.js";
 
@@ -47,10 +47,27 @@ export interface RestoreOptions {
 const DISPOSABLE = /^(cancelled|abandoned|interrupted)\b/;
 const TITLE_MAX = 80;
 
-class FencedOutError extends Error {
+/**
+ * Отказ публикации по fencing: попытка устарела. Draft уже в карантине (`quarantined`) —
+ * вызывающий второй раз его не помечает.
+ */
+export class FencedOutError extends Error {
+  readonly quarantined = true;
   constructor(fence: Fence, current: number | undefined) {
     super(`fenced_out: попытка ${fence.attempt} задачи ${fence.jobId} устарела (текущая: ${current ?? "задачи нет"})`);
     this.name = "FencedOutError";
+  }
+}
+
+/**
+ * Отказ публикации: отмена задачи запрошена (Task 12/17). Отменённая задача версию не
+ * публикует; draft уже в карантине `cancelled` (одноразовый, H6).
+ */
+export class PublishCancelledError extends Error {
+  readonly quarantined = true;
+  constructor(fence: Fence) {
+    super(`cancelled: отмена задачи ${fence.jobId} запрошена — попытка ${fence.attempt} версию не публикует`);
+    this.name = "PublishCancelledError";
   }
 }
 
@@ -92,13 +109,28 @@ function maxNumberOnDisk(versionsDir: string): number {
 
 export class SceneRepo {
   readonly root: string;
-  readonly db: Db;
+  private dbRef: Db;
   private readonly guard: () => Promise<StorageStatus>;
+  private readonly registry: ProcessRegistry | undefined;
 
-  constructor(deps: { root: string; db: Db; guard: () => Promise<StorageStatus> }) {
+  /**
+   * `registry` — реестр процессов для `cleanupDrafts` (сервер: слияние SQLite и бокового
+   * файлового); без него — `job_processes` этой БД и `run/processes/`.
+   */
+  constructor(deps: { root: string; db: Db; guard: () => Promise<StorageStatus>; registry?: ProcessRegistry }) {
     this.root = deps.root;
-    this.db = deps.db;
+    this.dbRef = deps.db;
     this.guard = deps.guard;
+    this.registry = deps.registry;
+  }
+
+  get db(): Db {
+    return this.dbRef;
+  }
+
+  /** База переоткрыта после `storage_offline` (StorageSupervisor). */
+  useDb(db: Db): void {
+    this.dbRef = db;
   }
 
   /** Новая сцена: `brief.json` в каталоге сцены и строка в БД. Синхронно — годится внутри `tx`. */
@@ -117,10 +149,19 @@ export class SceneRepo {
     return job?.attempt === fence.attempt ? undefined : (job?.attempt ?? -1);
   }
 
+  /** Fencing и отмена: устаревшая попытка — `FencedOutError`, запрошенная отмена — `PublishCancelledError`. */
+  private gate(fence: Fence): Error | undefined {
+    const stale = this.fenceOk(fence);
+    if (stale !== undefined) return new FencedOutError(fence, stale < 0 ? undefined : stale);
+    if (jobs.get(this.db, fence.jobId)?.cancel_requested) return new PublishCancelledError(fence);
+    return undefined;
+  }
+
   /**
    * Публикация версии с fencing (ADR 0007, H9). До транзакции, асинхронно: `prepareVersion`
    * (guard, sha256, fsync). Затем одна транзакция `BEGIN IMMEDIATE`, только синхронное:
-   * `jobs.attempt = fence.attempt` (иначе `fenced_out` и карантин draft) → номер →
+   * `jobs.attempt = fence.attempt` и отмена не запрошена (иначе `fenced_out` / `cancelled`
+   * и карантин draft) → номер →
    * `commitVersionFiles` → строки версии и ссылок KB → `ready` становится current.
    * Сбой записи после rename возвращает файлы в draft. После COMMIT — `sealVersion`.
    */
@@ -132,11 +173,10 @@ export class SceneRepo {
     if (!scene) throw new Error(`scenes: сцены нет в БД: ${draft.sceneId}`);
     if (scene.project_id !== draft.projectId) throw new Error(`scenes: сцена ${scene.id} в проекте ${scene.project_id}, draft — в ${draft.projectId}`);
 
-    const stale = this.fenceOk(fence);
-    if (stale !== undefined) {
-      const err = new FencedOutError(fence, stale < 0 ? undefined : stale);
-      await quarantineDraft(draft, err.message);
-      throw err;
+    const refused = this.gate(fence);
+    if (refused) {
+      await quarantineDraft(draft, refused.message);
+      throw refused;
     }
     const prepared = await prepareVersion(draft, { ...meta, job: { id: fence.jobId, attempt: fence.attempt } }, this.guard);
     const refs = await readKnowledgeRefs(draft.dir, meta);
@@ -145,8 +185,8 @@ export class SceneRepo {
     let published: Omit<PublishedVersion, "warnings">;
     try {
       published = tx(this.db, () => {
-        const current = this.fenceOk(fence);
-        if (current !== undefined) throw new FencedOutError(fence, current < 0 ? undefined : current);
+        const refusedInTx = this.gate(fence);
+        if (refusedInTx) throw refusedInTx;
         // Каталог версии без строки в БД (до reconcile) тоже занимает номер — иначе коллизия.
         const number = Math.max(versions.nextNumber(this.db, draft.sceneId), maxNumberOnDisk(prepared.versionsDir) + 1);
         const versionId = newId("ver");
@@ -179,7 +219,7 @@ export class SceneRepo {
           attachCause(e, u);
         }
       }
-      if (e instanceof FencedOutError) await quarantineDraft(draft, e.message);
+      if (e instanceof FencedOutError || e instanceof PublishCancelledError) await quarantineDraft(draft, e.message);
       throw e;
     }
     // Версия уже в БД: незакрытый корень — не отказ, а предупреждение (relockVersions при старте).
@@ -200,6 +240,7 @@ export class SceneRepo {
   async restore(sceneId: string, versionId: string, fence: Fence, opts: RestoreOptions = {}): Promise<PublishedVersion> {
     const row = versions.get(this.db, versionId);
     if (!row || row.scene_id !== sceneId) throw new Error(`scenes: версии ${versionId} нет у сцены ${sceneId}`);
+    if (row.broken_reason) throw new Error(`version_broken: версия ${versionId} недоступна: ${row.broken_reason}`);
     if (row.status !== "ready") throw new Error(`restore_not_ready: версия ${versionId} в статусе ${row.status}, восстанавливать можно только ready`);
     const scene = scenes.get(this.db, sceneId)!;
     const srcDir = join(this.root, row.path);
@@ -247,6 +288,7 @@ export class SceneRepo {
     const load = async (id: string) => {
       const row = versions.get(this.db, id);
       if (!row) throw new Error(`scenes: версии нет: ${id}`);
+      if (row.broken_reason) throw new Error(`version_broken: версия ${id} недоступна: ${row.broken_reason}`);
       const dir = join(this.root, row.path);
       const manifest = VersionManifestSchema.parse(JSON.parse(await readFile(join(dir, "manifest.json"), "utf8")));
       const json = async (name: string): Promise<unknown> =>
@@ -275,13 +317,18 @@ export class SceneRepo {
     if (!existsSync(draftsDir)) return out;
     const key = (runId: string, attempt: number) => `${runId}-a${attempt}`;
     const alive = new Set(live.map((l) => key(l.runId, l.attempt)));
-    for (const p of jobProcesses.listLive(this.db)) alive.add(key(p.job_id, p.attempt));
-    for (const p of await fileProcessRegistry(this.root).list()) alive.add(key(p.runId, p.attempt));
+    if (this.registry) for (const p of await this.registry.live()) alive.add(key(p.runId, p.attempt));
+    else {
+      for (const p of jobProcesses.listLive(this.db)) alive.add(key(p.job_id, p.attempt));
+      for (const p of await fileProcessRegistry(this.root).live()) alive.add(key(p.runId, p.attempt));
+    }
     const entries = (await readdir(draftsDir, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name).sort();
     for (const name of entries) {
       const dir = join(draftsDir, name);
       const m = /^(.+)-a(\d+)$/.exec(name);
-      if (!m || alive.has(key(m[1]!, Number(m[2]))) || !(await disposable(dir))) {
+      // sync-<id> (синхронная правка) процессов не имеет: удаляется по одноразовому карантину
+      const sync = name.startsWith(SYNC_DRAFT_PREFIX);
+      if ((!sync && (!m || alive.has(key(m[1]!, Number(m[2]))))) || !(await disposable(dir))) {
         out.kept.push(dir);
         continue;
       }

@@ -1,0 +1,26 @@
+{
+  "sceneId": "scn_01M5N0BWY51B61QQBH3BM0NJ2F",
+  "jobId": "job_01M5N0BWY93KW6VP6SHNNKKP7E",
+  "versionId": "ver_01M5N0KBZXHRTZEAE0YRKR5AWQ",
+  "status": "completed",
+  "wallMs": 246710,
+  "exportId": "exp_01M5N3VARR8ZH9X94JWDET2KY6",
+  "cost_usd": 1.6147956,
+  "stable_frames": [
+    {
+      "frame": 6,
+      "published": "4f68d0ac34c981f7145002bcc14ca79a2bc4e2c28efc4eea2879ae903d8a8551",
+      "rerender": "4f68d0ac34c981f7145002bcc14ca79a2bc4e2c28efc4eea2879ae903d8a8551"
+    },
+    {
+      "frame": 79,
+      "published": "23692eb9d408752506815fc3367d845cde46bd05afc3a1d984bf5d572ad2214c",
+      "rerender": "23692eb9d408752506815fc3367d845cde46bd05afc3a1d984bf5d572ad2214c"
+    },
+    {
+      "frame": 179,
+      "published": "c9aa8e989c3defe22c785ab18e69354e055155b929f8947b874f5bd147aebd04",
+      "rerender": "c9aa8e989c3defe22c785ab18e69354e055155b929f8947b874f5bd147aebd04"
+    }
+  ]
+}

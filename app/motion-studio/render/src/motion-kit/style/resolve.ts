@@ -38,6 +38,9 @@ const KIT_WEIGHTS: Readonly<Record<string, readonly number[]>> = {
   "JetBrains Mono": [400, 500, 700],
 };
 
+/** Семейства шрифтов kit, допустимые в `font` (выбор в UI стиля проекта, Task 33). */
+export const KIT_FONTS: readonly string[] = Object.keys(KIT_WEIGHTS);
+
 const BASE_FPS = 30;
 
 function nearestWeight(family: string, weight: number | undefined): number {

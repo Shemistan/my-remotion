@@ -1,0 +1,42 @@
+{
+  "run_id": "job_01M5FNP3KR3BKJ17B43ZRQ6W8A",
+  "attempt": 1,
+  "cost_usd": 1.1509429000000002,
+  "engineer_calls": 1,
+  "visual_qa": [
+    {
+      "call": 1,
+      "wall_ms": 21601,
+      "cost_usd": 0.12198540000000002,
+      "status": "completed",
+      "gate": {
+        "technical": "pass",
+        "visual": "pass",
+        "semantic": "pass",
+        "style": "pass"
+      }
+    }
+  ],
+  "timings": {
+    "concept": 15205,
+    "motion_director": 65621,
+    "engineer_1": 79436,
+    "static": 39,
+    "typecheck": 16873,
+    "render_1": 27184,
+    "qa_programmatic": 3641,
+    "visual_qa_1": 21639
+  },
+  "history": [
+    {
+      "at": "2026-10-21T16:49:57.272Z",
+      "stage": "qa",
+      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"pass\",\"semantic\":\"pass\",\"style\":\"pass\"}; blocking: —"
+    },
+    {
+      "at": "2026-10-21T16:49:57.307Z",
+      "stage": "ready",
+      "message": "gate пройден с вызова 1"
+    }
+  ]
+}

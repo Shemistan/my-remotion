@@ -10,12 +10,16 @@
 - [Motion Studio: Phase 2–3 (исходное видео и анализ)](specs/2026-10-20-motion-studio-phase2-3.md) — утверждено
 - [Motion Studio: Phase 4–6 (сцены проекта, сборка, полировка)](specs/2026-10-20-motion-studio-phase4-6.md) — утверждено
 - [Visual Knowledge Base для Remotion](specs/2026-10-20-visual-knowledge-base-design.md) — утверждено
+- [Ночной цикл качества видео](specs/2026-10-23-night-quality-loop-design.md) — реализовано
+- [Motion Studio: сценарий → моушн-сцены (первая рабочая версия для человека)](specs/2026-10-24-script-to-motion-design.md) — черновик
 
 ### Планы
 
 - [Motion Playground MVP — вертикальный срез: план реализации](plans/2026-10-20-motion-playground-mvp.md) — завершено
-- [Motion Playground MVP — остаток Phase 1: план реализации](plans/2026-10-20-motion-studio-phase1-rest.md) — запланировано
-- [AI Video Production — Phase 2 (исходное видео) и Phase 3 (смысловой и визуальный план): план реализации](plans/2026-10-20-motion-studio-phase2-3.md) — запланировано
+- [Motion Playground MVP — остаток Phase 1: план реализации](plans/2026-10-20-motion-studio-phase1-rest.md) — в работе
+- [AI Video Production — Phase 2 (исходное видео) и Phase 3 (смысловой и визуальный план): план реализации](plans/2026-10-20-motion-studio-phase2-3.md) — в работе
 - [AI Video Production — Phase 4 (сцены проекта), Phase 5 (сборка и финальный экспорт), Phase 6 (продуктовая полировка): план реализации](plans/2026-10-20-motion-studio-phase4-6.md) — запланировано
 - [План: Visual Knowledge Base для Remotion](plans/2026-10-20-visual-knowledge-base.md) — в работе
+- [План: ночной цикл качества](plans/2026-10-23-night-quality-loop.md) — завершено
+- [Сценарий → моушн-сцены: план реализации](plans/2026-10-24-script-to-motion.md) — в работе
 <!-- gate:end spec-plan-index -->

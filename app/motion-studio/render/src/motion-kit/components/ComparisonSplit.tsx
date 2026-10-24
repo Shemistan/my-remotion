@@ -10,6 +10,7 @@ import { useCurrentFrame, useVideoConfig } from "remotion";
 import { EASE, easingOf, frames, springAt } from "../easing.js";
 import { clamp01, drawDash, ramp } from "../internal.js";
 import { type TypeLevel, typeSize } from "../style/type-scale.js";
+import { PosterGate } from "./Poster.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, shadow, surfaceAt, tracking } from "../tokens.js";
 
@@ -26,6 +27,8 @@ export interface ComparisonSide {
 }
 
 export interface ComparisonSplitProps {
+  /** До входа (0.4.0): `silhouette` (по умолчанию) — каркас итогового вида (формы без текста, 30 %) с кадра 0 (кадр-постер); `hidden` — пусто. */
+  pre?: "silhouette" | "hidden";
   left: ComparisonSide;
   right: ComparisonSide;
   beat: Pick<Beat, "start_frame" | "end_frame">;
@@ -53,7 +56,12 @@ function Glyph({ tone, p, color, size }: { tone: "negative" | "positive" | "neut
   );
 }
 
-export function ComparisonSplit({ left, right, beat, divider, emphasizeRight = true, style }: ComparisonSplitProps) {
+/** ComparisonSplit с кадром-постером до бита (PosterGate). */
+export function ComparisonSplit(props: ComparisonSplitProps) {
+  return <PosterGate pre={props.pre} beat={props.beat} render={(css, underlay) => <ComparisonSplitBody {...props} posterCss={css} underlay={underlay} />} />;
+}
+
+function ComparisonSplitBody({ left, right, beat, divider, emphasizeRight = true, style, posterCss, underlay }: ComparisonSplitProps & { posterCss?: CSSProperties; underlay?: ReactNode }) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
@@ -208,7 +216,8 @@ export function ComparisonSplit({ left, right, beat, divider, emphasizeRight = t
   const vs = Math.round(height * 0.085);
 
   return (
-    <div style={{ position: "relative", display: "flex", width: "100%", height: "100%", gap, ...style }}>
+    <div style={{ position: "relative", display: "flex", width: "100%", height: "100%", gap, ...style, ...posterCss }}>
+      {underlay}
       {panel(left, "left")}
       {panel(right, "right")}
       <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 0 }}>

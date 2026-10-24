@@ -1,0 +1,70 @@
+{
+  "id": "ver_01M5N15578NWJZCR19TN4XBSQD",
+  "scene_id": "scn_01M5N0KGPKY44E27KDYK57THCS",
+  "parent_version_id": "ver_01M5N12D1R0NZPK1725TM754WS",
+  "number": 3,
+  "status": "ready",
+  "prompt": "Уменьши скорость анимации на 25 %, сделай карточки более объёмными, сохрани композицию и верни цветовую палитру из первой версии",
+  "edit_plan_json": {
+    "base_version_id": "ver_01M5N12D1R0NZPK1725TM754WS",
+    "path": "param",
+    "changes": [
+      {
+        "target": "timing",
+        "kind": "param",
+        "description": "скорость −25 %: длительность 180 → 240 кадров, границы битов масштабируются"
+      },
+      {
+        "target": "depth",
+        "kind": "param",
+        "description": "глубина карточек 1 → 2"
+      },
+      {
+        "target": "palette",
+        "kind": "param",
+        "description": "палитра из версии 1 (ver_01M5N0ZD9S4ASRX8P0P9KDF314)"
+      }
+    ],
+    "borrow": [
+      {
+        "from_version_id": "ver_01M5N0ZD9S4ASRX8P0P9KDF314",
+        "what": "palette"
+      }
+    ],
+    "preserve": [
+      "composition",
+      "text"
+    ],
+    "timing_scale": 1.3333333333,
+    "param_patch": {
+      "style": {
+        "depth": 2
+      }
+    },
+    "reply": "Замедляю на 25 %: 6 → 8 с (180 → 240 кадров); карточки объёмнее (глубина 1 → 2); палитру беру из версии 1; композицию и тексты сохраняю."
+  },
+  "settings_json": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 240,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "path": "workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N0KGPKY44E27KDYK57THCS/versions/ver_01M5N15578NWJZCR19TN4XBSQD",
+  "manifest_sha256": "bdb0c35224cea15ba03ee495b6d1c9408764023fe3d4646f6f493c1943e4ff24",
+  "created_by_job_id": "job_01M5N12FATA8K81DZQHS4X1XSX",
+  "created_at": "2026-10-23T18:42:45.097Z",
+  "broken_reason": null,
+  "dir": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N0KGPKY44E27KDYK57THCS/versions/ver_01M5N15578NWJZCR19TN4XBSQD"
+}

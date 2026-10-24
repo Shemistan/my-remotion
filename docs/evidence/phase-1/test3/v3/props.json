@@ -1,0 +1,357 @@
+{
+  "timing": {
+    "duration_frames": 240,
+    "beats": [
+      {
+        "id": "request-in",
+        "start_frame": 0,
+        "end_frame": 32
+      },
+      {
+        "id": "graph-build",
+        "start_frame": 32,
+        "end_frame": 85
+      },
+      {
+        "id": "request-flow",
+        "start_frame": 85,
+        "end_frame": 112
+      },
+      {
+        "id": "tool-calls",
+        "start_frame": 91,
+        "end_frame": 112
+      },
+      {
+        "id": "tool-returns",
+        "start_frame": 96,
+        "end_frame": 112
+      },
+      {
+        "id": "assemble-emphasis",
+        "start_frame": 112,
+        "end_frame": 139
+      },
+      {
+        "id": "answer-emphasis",
+        "start_frame": 139,
+        "end_frame": 171
+      },
+      {
+        "id": "answer-flight",
+        "start_frame": 139,
+        "end_frame": 171
+      },
+      {
+        "id": "hold",
+        "start_frame": 171,
+        "end_frame": 240
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "palette_overrides": {
+      "bg": "#07080d",
+      "surface": "#12141c",
+      "text": "#f3f4f8",
+      "muted": "#8b91a5",
+      "accent": [
+        "#8b7cff",
+        "#45d6c0",
+        "#f4b56a"
+      ],
+      "positive": "#45d6c0",
+      "negative": "#ff6b81"
+    },
+    "intensity": "balanced",
+    "depth": 2,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "background": {
+      "variant": "blueprint",
+      "seed": "scn_01M5N0KGPKY44E27KDYK57THCS",
+      "focus": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "request": {
+      "id": "request-text",
+      "text": "«Какая погода завтра в Казани?»",
+      "beat": "request-in",
+      "size": "body",
+      "mode": "letters",
+      "enter": "type",
+      "pre": "dim",
+      "align": "left",
+      "layout": {
+        "x": 0.02,
+        "y": 0.12,
+        "w": 0.3,
+        "h": 0.2
+      }
+    },
+    "graph": {
+      "id": "agent-graph",
+      "beat": "graph-build",
+      "pre": "silhouette",
+      "layout": {
+        "x": 0.02,
+        "y": 0.04,
+        "w": 0.96,
+        "h": 0.92
+      },
+      "nodes": [
+        {
+          "id": "node-user",
+          "label": "Пользователь",
+          "caption": "чат",
+          "kind": "client",
+          "size": "body",
+          "slot": true,
+          "elevation": 2,
+          "enter": "slide",
+          "delay": 0,
+          "layout": {
+            "x": 0.02,
+            "y": 0.4,
+            "w": 0.26,
+            "h": 0.32
+          }
+        },
+        {
+          "id": "node-orch",
+          "label": "Оркестратор",
+          "caption": "план · сборка",
+          "kind": "llm",
+          "size": "h2",
+          "elevation": 3,
+          "enter": "pop",
+          "delay": 8,
+          "layout": {
+            "x": 0.36,
+            "y": 0.3,
+            "w": 0.28,
+            "h": 0.4
+          }
+        },
+        {
+          "id": "node-search",
+          "label": "Поиск",
+          "caption": "веб",
+          "kind": "service",
+          "size": "body",
+          "elevation": 2,
+          "enter": "rise",
+          "accentIndex": 1,
+          "delay": 16,
+          "layout": {
+            "x": 0.74,
+            "y": 0.04,
+            "w": 0.24,
+            "h": 0.24
+          }
+        },
+        {
+          "id": "node-rag",
+          "label": "База знаний",
+          "caption": "RAG",
+          "kind": "store",
+          "size": "body",
+          "elevation": 2,
+          "enter": "rise",
+          "accentIndex": 1,
+          "delay": 21,
+          "layout": {
+            "x": 0.74,
+            "y": 0.38,
+            "w": 0.24,
+            "h": 0.24
+          }
+        },
+        {
+          "id": "node-calc",
+          "label": "Калькулятор",
+          "caption": "код",
+          "kind": "service",
+          "size": "body",
+          "elevation": 2,
+          "enter": "rise",
+          "accentIndex": 1,
+          "delay": 27,
+          "layout": {
+            "x": 0.74,
+            "y": 0.72,
+            "w": 0.24,
+            "h": 0.24
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-req",
+          "from": "node-user",
+          "to": "node-orch"
+        },
+        {
+          "id": "e-search",
+          "from": "node-orch",
+          "to": "node-search"
+        },
+        {
+          "id": "e-rag",
+          "from": "node-orch",
+          "to": "node-rag"
+        },
+        {
+          "id": "e-calc",
+          "from": "node-orch",
+          "to": "node-calc"
+        }
+      ],
+      "flows": [
+        {
+          "edge": "e-req",
+          "direction": "forward",
+          "beat": "request-flow",
+          "count": 1,
+          "repeat": false,
+          "travel": 21,
+          "delay": 0
+        },
+        {
+          "edge": "e-search",
+          "direction": "forward",
+          "beat": "tool-calls",
+          "count": 1,
+          "repeat": false,
+          "travel": 16,
+          "delay": 0
+        },
+        {
+          "edge": "e-rag",
+          "direction": "forward",
+          "beat": "tool-calls",
+          "count": 1,
+          "repeat": false,
+          "travel": 16,
+          "delay": 5
+        },
+        {
+          "edge": "e-calc",
+          "direction": "forward",
+          "beat": "tool-calls",
+          "count": 1,
+          "repeat": false,
+          "travel": 16,
+          "delay": 11
+        },
+        {
+          "edge": "e-search",
+          "direction": "back",
+          "beat": "tool-returns",
+          "count": 1,
+          "repeat": false,
+          "travel": 16,
+          "delay": 0
+        },
+        {
+          "edge": "e-rag",
+          "direction": "back",
+          "beat": "tool-returns",
+          "count": 1,
+          "repeat": false,
+          "travel": 16,
+          "delay": 4
+        },
+        {
+          "edge": "e-calc",
+          "direction": "back",
+          "beat": "tool-returns",
+          "count": 1,
+          "repeat": false,
+          "travel": 16,
+          "delay": 9
+        }
+      ],
+      "pulse": {
+        "size": 12,
+        "tail": 180,
+        "forward_accent": 0,
+        "back_accent": 1
+      },
+      "orch_emphasis": {
+        "node": "node-orch",
+        "beat": "assemble-emphasis"
+      },
+      "user_emphasis": {
+        "node": "node-user",
+        "beat": "answer-emphasis"
+      },
+      "hold": {
+        "mode": "now-pulse",
+        "beat": "hold",
+        "node": "node-user"
+      }
+    },
+    "status": {
+      "id": "status-orch",
+      "node": "node-orch",
+      "size": "caption",
+      "layout": {
+        "x": 0.4,
+        "y": 0.2,
+        "w": 0.2,
+        "h": 0.08
+      },
+      "states": [
+        {
+          "text": "План",
+          "tone": "neutral",
+          "on": "request-flow.start"
+        },
+        {
+          "text": "Вызов ×3",
+          "tone": "accent",
+          "on": "tool-calls.start"
+        },
+        {
+          "text": "Сборка",
+          "tone": "warning",
+          "on": "e-calc:back"
+        },
+        {
+          "text": "Готово",
+          "tone": "positive",
+          "on": "token-answer.arrival"
+        }
+      ],
+      "min_hold_frames": 11
+    },
+    "token": {
+      "id": "token-answer",
+      "label": "+18 °C, без осадков",
+      "edge": "e-req",
+      "beat": "answer-flight",
+      "reverse": true,
+      "travel": 24,
+      "dock": "slot",
+      "tone": "accent",
+      "accentIndex": 1,
+      "size": "caption",
+      "mono": true,
+      "layout": {
+        "x": 0.04,
+        "y": 0.62,
+        "w": 0.22,
+        "h": 0.08
+      }
+    }
+  }
+}

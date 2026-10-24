@@ -1,0 +1,211 @@
+{
+  "job": {
+    "id": "job_01M5MDZ29D55XFN79CMETGT14Z",
+    "type": "playground.edit",
+    "project_id": "playground",
+    "scene_id": "scn_01M5MDJACW4B7868JYT0388198",
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "publish",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "sceneId": "scn_01M5MDJACW4B7868JYT0388198",
+      "messageId": "msg_01M5MDZ29CZJCQY3HN7D9XY3EN"
+    },
+    "input_hash": "da0c34ca90df20cab61f702f6ffd303f80ec7029b7ce3bb9e45d7ecf27066ecc",
+    "output_refs": {
+      "scene_id": "scn_01M5MDJACW4B7868JYT0388198",
+      "version_id": "ver_01M5ME1R3G45T64XMZ5XTJ0DPB",
+      "version_number": 3,
+      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5MDJACW4B7868JYT0388198/versions/ver_01M5ME1R3G45T64XMZ5XTJ0DPB",
+      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5MDJACW4B7868JYT0388198/versions/ver_01M5ME1R3G45T64XMZ5XTJ0DPB/preview.mp4",
+      "cost_usd": 0.18946590000000002,
+      "engineer_calls": 0,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "warn",
+        "style": "pass"
+      },
+      "stage_wall_ms": {
+        "edit_planner": 5727,
+        "check": 14342,
+        "render": 29274,
+        "qa": 36652,
+        "preserve_hold_base": 1522,
+        "total": 87727
+      },
+      "attempts": [
+        {
+          "n": 1,
+          "take": 1,
+          "call": 1,
+          "overall": 6.5,
+          "scores": {
+            "overall": 6.5,
+            "hierarchy": 6,
+            "composition": 7,
+            "entrance": 7,
+            "choreography": 6.5,
+            "hold": 7,
+            "legibility": 7,
+            "meaning": 7
+          },
+          "blocking": [],
+          "cost_usd": 0.1399,
+          "published": true
+        }
+      ],
+      "warnings": [],
+      "steps": {
+        "edit_planner": {
+          "input_hash": "16db885661b11c574e30068b4b4899eedd183e4817df7eca3dbf935e69fa7b8f",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5MDZ29D55XFN79CMETGT14Z/checkpoints/edit_planner.json"
+        }
+      },
+      "path": "param",
+      "base_version_id": "ver_01M5MDZ15AKZ98X13VBNPM85RQ"
+    },
+    "error": null,
+    "idempotency_key": "e2e-t18-run_01M5MDZ29D55XFN79CMETGT14Y",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-23T13:07:22.541Z",
+    "started_at": "2026-10-23T13:07:22.599Z",
+    "finished_at": "2026-10-23T13:08:50.442Z"
+  },
+  "wall_ms": 88484,
+  "cost_usd": 0.18946590000000002,
+  "agent_runs": [
+    {
+      "role": "edit_planner",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 16293,
+      "output_tokens": 524,
+      "cost_usd": 0.0495703,
+      "started_at": "2026-10-23T13:07:22.657Z",
+      "finished_at": "2026-10-23T13:07:28.383Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 59516,
+      "output_tokens": 3357,
+      "cost_usd": 0.1398956,
+      "started_at": "2026-10-23T13:08:16.918Z",
+      "finished_at": "2026-10-23T13:08:50.316Z"
+    }
+  ],
+  "render_jobs": [
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "frames": 8,
+      "duration_ms": 29274
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "frames": 240,
+      "duration_ms": 29274
+    }
+  ],
+  "chat": [
+    {
+      "id": "msg_01M5MDVZMY23HT8B6YZA95ZPCF",
+      "scene_id": "scn_01M5MDJACW4B7868JYT0388198",
+      "role": "user",
+      "text": "сделай всё в фиолетовых тонах",
+      "created_at": "2026-10-23T13:05:41.535Z"
+    },
+    {
+      "id": "msg_01M5MDZ29CZJCQY3HN7D9XY3EN",
+      "scene_id": "scn_01M5MDJACW4B7868JYT0388198",
+      "role": "user",
+      "text": "Уменьши скорость анимации на 25 %, сделай карточки более объёмными, сохрани композицию и верни цветовую палитру из первой версии",
+      "created_at": "2026-10-23T13:07:22.541Z"
+    },
+    {
+      "id": "msg_01M5ME1R464A6SET1YGZHC7EHT",
+      "scene_id": "scn_01M5MDJACW4B7868JYT0388198",
+      "role": "assistant",
+      "text": "Замедляю на 25 %: 6 → 8 с (180 → 240 кадров); карточки объёмнее (глубина 1 → 2); палитру беру из версии 1, композицию и тексты сохраняю.\nВерсия 3 готова.\nКомпоненты: magicui/animated-beam (adapt, MIT (LICENSE.md)), xyflow/react-flow (adapt, MIT (LICENSE, packages/react/package.json)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — с замечаниями, стиль — пройден; замечаний: blocking 0, warning 1.",
+      "version_id": "ver_01M5ME1R3G45T64XMZ5XTJ0DPB",
+      "job_id": "job_01M5MDZ29D55XFN79CMETGT14Z",
+      "created_at": "2026-10-23T13:08:50.438Z"
+    }
+  ],
+  "events": [
+    {
+      "ts": "2026-10-23T13:07:22.606Z",
+      "level": "info",
+      "kind": "started",
+      "message": "playground.edit: попытка 1"
+    },
+    {
+      "ts": "2026-10-23T13:07:22.653Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Edit Planner…"
+    },
+    {
+      "ts": "2026-10-23T13:07:28.387Z",
+      "level": "info",
+      "kind": "log",
+      "message": "план правки: param; timing, depth, palette; сохранить: composition, text"
+    },
+    {
+      "ts": "2026-10-23T13:07:28.392Z",
+      "level": "info",
+      "kind": "log",
+      "message": "правка параметров: palette, depth, timing"
+    },
+    {
+      "ts": "2026-10-23T13:07:28.396Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Director: «Архитектура AI-агента: запрос → инструменты → ответ» (network-centric), 13 битов, KB: magicui/animated-beam (adapt), xyflow/react-flow (adapt)"
+    },
+    {
+      "ts": "2026-10-23T13:07:28.468Z",
+      "level": "info",
+      "kind": "log",
+      "message": "правка параметров: код базы, новый props.json — без Engineer"
+    },
+    {
+      "ts": "2026-10-23T13:07:42.836Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 18, 58, 89, 121, 136, 160, 168, 239 + превью…"
+    },
+    {
+      "ts": "2026-10-23T13:08:16.897Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA…"
+    },
+    {
+      "ts": "2026-10-23T13:08:50.433Z",
+      "level": "info",
+      "kind": "log",
+      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5MDJACW4B7868JYT0388198/versions/ver_01M5ME1R3G45T64XMZ5XTJ0DPB"
+    },
+    {
+      "ts": "2026-10-23T13:08:50.445Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed"
+    }
+  ]
+}

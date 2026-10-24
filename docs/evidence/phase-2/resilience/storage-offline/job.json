@@ -1,0 +1,108 @@
+{
+  "job": {
+    "id": "job_01M5Q66HJ69YCD1BNHZE2NEHNR",
+    "type": "media.import",
+    "project_id": "prj_01M5Q66GM1PHBT5CVR7VKPFFZA",
+    "scene_id": null,
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "done",
+    "attempt": 2,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "projectId": "prj_01M5Q66GM1PHBT5CVR7VKPFFZA",
+      "method": "path",
+      "path": "resilience-IMG_0685-2000-2300.mov"
+    },
+    "input_hash": "a00ec1222a41f913e065e05f3070c14549c66eff41182bd3177fbd53652646d2",
+    "output_refs": {
+      "media_id": "med_01M5Q66HJ69YCD1BNHZE2NEHNR",
+      "deduplicated": false,
+      "sha256": "c61d6b0904b80e81eab129117ffec8dc9ef14b6fd85761775e5ef9e2c7279f61",
+      "rel_path": "workspace/projects/prj_01M5Q66GM1PHBT5CVR7VKPFFZA/source/med_01M5Q66HJ69YCD1BNHZE2NEHNR/original.mov",
+      "cloned": true,
+      "proxy_reused": false,
+      "proxy_bytes": 29230570,
+      "timings_ms": {
+        "hash": 5,
+        "space": 6,
+        "copy": 31162,
+        "probe": 396,
+        "proxy": 62580,
+        "audio16k": 2224,
+        "waveform": 1489,
+        "thumbs": 4042,
+        "publish": 2981
+      }
+    },
+    "error": null,
+    "idempotency_key": "bb47c59e-c6d6-4b04-a654-f4e465479461",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-24T14:49:22.247Z",
+    "started_at": "2026-10-24T14:50:23.550Z",
+    "finished_at": "2026-10-24T14:52:08.449Z"
+  },
+  "events": [
+    {
+      "ts": "2026-10-24T14:49:22.449Z",
+      "level": "info",
+      "kind": "started",
+      "message": "media.import: попытка 1",
+      "data_json": "{\"attempt\":1}"
+    },
+    {
+      "ts": "2026-10-24T14:49:50.771Z",
+      "level": "info",
+      "kind": "media_copied",
+      "message": "оригинал скопирован (APFS-клон)",
+      "data_json": "{\"sha256\":\"c61d6b0904b80e81eab129117ffec8dc9ef14b6fd85761775e5ef9e2c7279f61\",\"cloned\":true}"
+    },
+    {
+      "ts": "2026-10-24T14:50:03.507Z",
+      "level": "warn",
+      "kind": "interrupted",
+      "message": "попытка 1 прервана",
+      "data_json": null
+    },
+    {
+      "ts": "2026-10-24T14:50:23.543Z",
+      "level": "warn",
+      "kind": "interrupted",
+      "message": "попытка 1 прервана: хранилище было недоступно",
+      "data_json": "{\"code\":\"storage_unavailable\",\"interrupts\":0}"
+    },
+    {
+      "ts": "2026-10-24T14:50:23.543Z",
+      "level": "info",
+      "kind": "requeued",
+      "message": "задача снова в очереди (прерываний 0 из 3)",
+      "data_json": "{\"code\":\"storage_unavailable\",\"interrupts\":0}"
+    },
+    {
+      "ts": "2026-10-24T14:50:23.553Z",
+      "level": "info",
+      "kind": "started",
+      "message": "media.import: попытка 2",
+      "data_json": "{\"attempt\":2}"
+    },
+    {
+      "ts": "2026-10-24T14:50:54.726Z",
+      "level": "info",
+      "kind": "media_copied",
+      "message": "оригинал скопирован (APFS-клон)",
+      "data_json": "{\"sha256\":\"c61d6b0904b80e81eab129117ffec8dc9ef14b6fd85761775e5ef9e2c7279f61\",\"cloned\":true}"
+    },
+    {
+      "ts": "2026-10-24T14:52:08.452Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed",
+      "data_json": null
+    }
+  ]
+}

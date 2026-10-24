@@ -1,9 +1,11 @@
 #!/bin/sh
 # browserExecutable для Remotion. Remotion запускает браузер detached — в собственной
 # группе процессов, вне группы worker. Обёртка до старта Chrome пишет запись в
-# `run/processes/` (тот же формат, что у fileProcessRegistry; pgid = свой pid, раз мы
-# лидер группы), затем exec-ает Chrome: pid, группа и время старта сохраняются, и после
-# сбоя сервера reapStale находит и убивает Chrome как обычную запись (ADR 0007).
+# «боковой» файловый реестр `run/processes/` (тот же формат, что у fileProcessRegistry;
+# pgid = свой pid, раз мы лидер группы): до SQLite сервера процесс, запущенный Remotion,
+# не дотянется. Затем exec-ает Chrome: pid, группа и время старта сохраняются, и после
+# сбоя сервера восстановление (reapAttempt по слиянию `job_processes` и бокового реестра
+# по паре runId/attempt) находит и убивает Chrome как обычную запись (ADR 0007).
 #
 # Заодно закрывает браузеру сеть: флаги прокси Remotion (`--no-proxy-server`,
 # `--proxy-server='direct://'`) выкидываются, и весь трафик идёт в 127.0.0.1:9 (discard,
@@ -33,13 +35,17 @@ if [ -z "$pgid" ] || [ -z "$started" ]; then
   exit 125
 fi
 esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+# MS_RENDER_ID (необязательно) — ключ рендера: уборка рендера закрывает только свой Chrome,
+# у двух параллельных дублей попытки (runId, attempt) общие
+tag=""
+if [ -n "${MS_RENDER_ID:-}" ]; then tag="[render=$MS_RENDER_ID] "; fi
 
 dir="$MS_RUN_ROOT/run/processes"
 name="$MS_RUN_ID-a$MS_RUN_ATTEMPT-$pid.json"
 # запись атомарна: tmp + mv в том же каталоге
 printf '{\n  "runId": "%s",\n  "attempt": %s,\n  "pid": %s,\n  "pgid": %s,\n  "startedAt": "%s",\n  "cmd": "%s"\n}\n' \
   "$(esc "$MS_RUN_ID")" "$MS_RUN_ATTEMPT" "$pid" "$pgid" "$(esc "$started")" \
-  "$(esc "chrome-headless-shell (render) $MS_CHROME")" > "$dir/.$name.tmp"
+  "$(esc "chrome-headless-shell (render) $tag$MS_CHROME")" > "$dir/.$name.tmp"
 mv "$dir/.$name.tmp" "$dir/$name"
 
 n=$#

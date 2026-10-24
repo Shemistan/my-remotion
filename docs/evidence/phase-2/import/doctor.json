@@ -1,0 +1,101 @@
+{
+  "ok": true,
+  "checks": [
+    {
+      "name": "node",
+      "ok": true,
+      "status": "ok",
+      "detail": "22.21.1"
+    },
+    {
+      "name": "claude",
+      "ok": true,
+      "status": "ok",
+      "detail": "2.1.310 (Claude Code) (~/.local/bin/claude)"
+    },
+    {
+      "name": "claude_login",
+      "ok": true,
+      "status": "ok",
+      "detail": "haiku ответил, $0.0001"
+    },
+    {
+      "name": "ffmpeg",
+      "ok": true,
+      "status": "ok",
+      "detail": "ffmpeg version 7.1.1 Copyright (c) 2000-2025 the FFmpeg developers"
+    },
+    {
+      "name": "ffprobe",
+      "ok": true,
+      "status": "ok",
+      "detail": "ffprobe version 7.1.1 Copyright (c) 2007-2025 the FFmpeg developers"
+    },
+    {
+      "name": "encoders",
+      "ok": true,
+      "status": "ok",
+      "detail": "libx264, aac, prores_ks"
+    },
+    {
+      "name": "filters",
+      "ok": true,
+      "status": "ok",
+      "detail": "silencedetect, scdet"
+    },
+    {
+      "name": "asr",
+      "ok": true,
+      "status": "ok",
+      "detail": "whisper-large-v3-turbo, воркер sha256 59b7e03bf5a8…, ai-platform 99f75d6, python ~/.local/share/montage/mlx-audio-0.5.8/.venv/bin/python; порт 8780 занят — ai-platform может держать GPU"
+    },
+    {
+      "name": "vision",
+      "ok": true,
+      "status": "ok",
+      "detail": "vision-detect 2 (~/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/app/motion-studio/tools/vision-detect/bin/vision-detect)"
+    },
+    {
+      "name": "kb",
+      "ok": true,
+      "status": "ok",
+      "detail": "836 записей, KB_ROOT ~/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/knowledge, KB_SOURCE_ROOT ~/my_track/01_It_development/my-remotion"
+    },
+    {
+      "name": "storage",
+      "ok": true,
+      "status": "ok",
+      "detail": "/Volumes/External SSD/MotionStudio-acceptance, свободно 240.0 ГБ"
+    },
+    {
+      "name": "chrome",
+      "ok": true,
+      "status": "ok",
+      "detail": "~/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/app/motion-studio/node_modules/.remotion/chrome-headless-shell/mac-arm64/chrome-headless-shell-mac-arm64/chrome-headless-shell"
+    },
+    {
+      "name": "db",
+      "ok": true,
+      "status": "ok",
+      "detail": "quick_check ok"
+    },
+    {
+      "name": "owner_lock",
+      "ok": true,
+      "status": "ok",
+      "detail": "свободен"
+    }
+  ],
+  "storage": {
+    "ok": true,
+    "root": "/Volumes/External SSD/MotionStudio-acceptance",
+    "marker": {
+      "schema_version": 1,
+      "store_id": "cda4c821-a4d1-493b-9279-792e78f2fb83",
+      "volume_uuid": "DF07AEE5-03DA-4E40-9AF0-B1D03396D6BD",
+      "created_at": "2026-10-23T18:04:34.035Z"
+    },
+    "freeBytes": 257703997440,
+    "dev": 16777244
+  }
+}

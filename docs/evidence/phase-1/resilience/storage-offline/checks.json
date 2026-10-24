@@ -1,0 +1,44 @@
+[
+  {
+    "id": "p5.offline",
+    "title": "сервер в режиме storage_offline",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"storage\":\"storage_offline\",\"storage_reason\":\"not_found: каталог не найден: /Volumes/External SSD/MotionStudio-acceptance\",\"claude\":{\"status\":\"ok\",\"detail\":\"~/.local/bin/claude\"},\"chrome\":{\"status\":\"ok\",\"detail\":\"~/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/app/motion-studio/node_modules/.remotion/chrome-headless-shell/mac-arm64/chrome-headless-shell-mac-arm64/chrome-headless-shell\"},\"ffmpeg\":{\"status\":\"ok\",\"detail\":\"/opt/homebrew/bin/ffmpeg\"},\"owner\":{\"pid\":68980,\"kind\":\"server\"},\"queued_at_start\":{\"pending\":1,\"running\":0}}"
+  },
+  {
+    "id": "p5.503",
+    "title": "API: GET и POST → 503 storage_offline",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"get\":503,\"post\":503,\"body\":\"{\\\"error\\\":\\\"storage_offline\\\",\\\"message\\\":\\\"хранилище недоступно: подключите SSD\\\"}\"}"
+  },
+  {
+    "id": "p5.nothing",
+    "title": "на исходном пути ничего не создано (каталог не появился)",
+    "kind": "A",
+    "pass": true,
+    "detail": "нет"
+  },
+  {
+    "id": "p5.online",
+    "title": "каталог возвращён → online",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"storage\":\"online\",\"claude\":{\"status\":\"ok\",\"detail\":\"~/.local/bin/claude\"},\"chrome\":{\"status\":\"ok\",\"detail\":\"~/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/app/motion-studio/node_modules/.remotion/chrome-headless-shell/mac-arm64/chrome-headless-shell-mac-arm64/chrome-headless-shell\"},\"ffmpeg\":{\"status\":\"ok\",\"detail\":\"/opt/homebrew/bin/ffmpeg\"},\"owner\":{\"pid\":68980,\"kind\":\"server\"},\"queued_at_start\":{\"pending\":1,\"running\":0}}"
+  },
+  {
+    "id": "p5.no-jobs",
+    "title": "пока хранилище было недоступно, задач не появилось",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"jobsBefore\":18,\"jobsAfter\":18}"
+  },
+  {
+    "id": "p5.continues",
+    "title": "после возврата экспорт выполняется",
+    "kind": "A",
+    "pass": true,
+    "detail": "exp_01M5N3DH91J0753V8W8VGHDXCE"
+  }
+]

@@ -1,0 +1,292 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      {
+        "id": "b-user-in",
+        "start_frame": 0,
+        "end_frame": 24
+      },
+      {
+        "id": "b-hold",
+        "start_frame": 153,
+        "end_frame": 180
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "locale": "ru",
+    "title_mode": "integrated",
+    "background": {
+      "variant": "blueprint",
+      "seed": "scn_01M5FG5KYWRXR5D1QDKY87VNNN",
+      "focus": {
+        "x": 0.5,
+        "y": 0.5
+      }
+    },
+    "query": {
+      "text": "«Какая погода завтра в Казани?»",
+      "size": "body",
+      "beat": "b-query",
+      "layout": {
+        "x": 0,
+        "y": 0.13,
+        "w": 0.27,
+        "h": 0.22
+      }
+    },
+    "summary": {
+      "text": "1 запрос → 3 инструмента → 1 ответ",
+      "size": "body",
+      "beat": "b-summary",
+      "layout": {
+        "x": 0,
+        "y": 0.8,
+        "w": 0.64,
+        "h": 0.1
+      }
+    },
+    "graph_beat": "b-graph",
+    "nodes": [
+      {
+        "id": "user",
+        "label": "Пользователь",
+        "caption": "чат · вопрос",
+        "size": "body",
+        "enter": "slide",
+        "enter_beat": "b-user-in",
+        "elevation": 2,
+        "slot": true,
+        "layout": {
+          "x": 0,
+          "y": 0.38,
+          "w": 0.26,
+          "h": 0.24
+        }
+      },
+      {
+        "id": "orchestrator",
+        "label": "Оркестратор",
+        "caption": "LLM · планирует вызовы",
+        "size": "h2",
+        "enter": "pop",
+        "enter_beat": "b-orch-in",
+        "elevation": 3,
+        "layout": {
+          "x": 0.335,
+          "y": 0.36,
+          "w": 0.32,
+          "h": 0.28
+        }
+      },
+      {
+        "id": "tool-search",
+        "label": "Поиск",
+        "caption": "веб",
+        "size": "body",
+        "enter": "rise",
+        "enter_beat": "b-tools-in",
+        "elevation": 2,
+        "layout": {
+          "x": 0.74,
+          "y": 0.06,
+          "w": 0.26,
+          "h": 0.2
+        }
+      },
+      {
+        "id": "tool-api",
+        "label": "Погодный API",
+        "caption": "прогноз",
+        "size": "body",
+        "enter": "rise",
+        "enter_beat": "b-tools-in",
+        "elevation": 2,
+        "layout": {
+          "x": 0.74,
+          "y": 0.4,
+          "w": 0.26,
+          "h": 0.2
+        }
+      },
+      {
+        "id": "tool-kb",
+        "label": "База знаний",
+        "caption": "контекст",
+        "size": "body",
+        "enter": "rise",
+        "enter_beat": "b-tools-in",
+        "elevation": 2,
+        "layout": {
+          "x": 0.74,
+          "y": 0.74,
+          "w": 0.26,
+          "h": 0.2
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "e-user",
+        "from": "user",
+        "to": "orchestrator"
+      },
+      {
+        "id": "e-search",
+        "from": "orchestrator",
+        "to": "tool-search"
+      },
+      {
+        "id": "e-api",
+        "from": "orchestrator",
+        "to": "tool-api"
+      },
+      {
+        "id": "e-kb",
+        "from": "orchestrator",
+        "to": "tool-kb"
+      }
+    ],
+    "flows": [
+      {
+        "edge": "e-user",
+        "direction": "forward",
+        "beat": "b-request",
+        "repeat": false,
+        "travel": 18
+      },
+      {
+        "edge": "e-search",
+        "direction": "forward",
+        "beat": "b-fanout-search",
+        "repeat": false,
+        "travel": 16
+      },
+      {
+        "edge": "e-api",
+        "direction": "forward",
+        "beat": "b-fanout-api",
+        "repeat": false,
+        "travel": 16
+      },
+      {
+        "edge": "e-kb",
+        "direction": "forward",
+        "beat": "b-fanout-kb",
+        "repeat": false,
+        "travel": 16
+      },
+      {
+        "edge": "e-search",
+        "direction": "back",
+        "beat": "b-return-search",
+        "repeat": false,
+        "travel": 20
+      },
+      {
+        "edge": "e-api",
+        "direction": "back",
+        "beat": "b-return-api",
+        "repeat": false,
+        "travel": 20
+      },
+      {
+        "edge": "e-kb",
+        "direction": "back",
+        "beat": "b-return-kb",
+        "repeat": false,
+        "travel": 20
+      },
+      {
+        "edge": "e-user",
+        "direction": "back",
+        "beat": "b-answer",
+        "repeat": false,
+        "travel": 20
+      }
+    ],
+    "pulse_accent": {
+      "forward": 1,
+      "back": 2
+    },
+    "tokens": [
+      {
+        "id": "token-search",
+        "edge": "e-search",
+        "beat": "b-return-search",
+        "label": "веб: 3 источника",
+        "stay": false
+      },
+      {
+        "id": "token-api",
+        "edge": "e-api",
+        "beat": "b-return-api",
+        "label": "API: +18 °C, без осадков",
+        "stay": false
+      },
+      {
+        "id": "token-kb",
+        "edge": "e-kb",
+        "beat": "b-return-kb",
+        "label": "база: предпочтения",
+        "stay": false
+      },
+      {
+        "id": "token-answer",
+        "edge": "e-user",
+        "beat": "b-answer",
+        "label": "+18 °C, без осадков",
+        "stay": true
+      }
+    ],
+    "token_accent": 2,
+    "status": {
+      "anchor": {
+        "node": "orchestrator",
+        "side": "top"
+      },
+      "states": [
+        {
+          "text": "Ожидание",
+          "tone": "neutral",
+          "beat": "b-status"
+        },
+        {
+          "text": "Вызывает · 3",
+          "tone": "accent",
+          "accent": 1,
+          "beat": "b-request",
+          "edge": "e-user"
+        },
+        {
+          "text": "Собирает ответ",
+          "tone": "accent",
+          "accent": 2,
+          "beat": "b-return-search",
+          "edge": "e-search"
+        },
+        {
+          "text": "Готово",
+          "tone": "neutral",
+          "beat": "b-return-kb",
+          "edge": "e-kb"
+        }
+      ]
+    },
+    "emphasis": {
+      "node": "user",
+      "beat": "b-final-emphasis"
+    }
+  }
+}

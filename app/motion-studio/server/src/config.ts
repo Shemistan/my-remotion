@@ -1,10 +1,20 @@
 // Настройки приложения: значения по умолчанию (Global Constraints плана) +
-// переопределения из `$MS_DATA_DIR/config.json` + KB_ROOT/KB_SOURCE_ROOT из env.
+// переопределения из `$MS_DATA_DIR/config.json` + env.
+//
+// Приоритет источников (фактическое правило кода):
+// - `kb.root`/`kb.sourceRoot` и пути `asr.*`: config.json > env (`KB_ROOT`, `KB_SOURCE_ROOT`,
+//   `AIP_MONTAGE_ASR_PYTHON`, `AI_PLATFORM_ROOT`, `AIP_MODELS_DIR`) > умолчание;
+// - второй дубль: env (`MS_SECOND_TAKE`, `MS_SECOND_TAKE_THRESHOLD`, для bench A/B) > config.json > умолчание;
+// - остальное (агенты, лимиты, сцена, media, roughcut, planning, analysis): config.json > умолчание, env не читается.
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { homedir } from "node:os";
+import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { type Settings, SettingsSchema, defaultSettings } from "@ms/contracts";
+import { EXPORT_TIMEOUT_MS } from "@ms/render";
 import { z } from "zod";
 import { MAX_CALL_BUDGET_USD, MODEL_RE, ROLES, type Role } from "./agents/runtime.js";
+import { AGENT_CALLS, MAX_RUNNING, RENDERS } from "./jobs/limits.js";
 
 export interface AgentSettings {
   model: string;
@@ -12,13 +22,133 @@ export interface AgentSettings {
   maxBudgetUsd: number;
 }
 
+/**
+ * Второй дубль (S5): первая оценённая попытка ниже `threshold` по `overall` и бюджет
+ * позволяет — ещё один проход Engineer параллельно с исправлениями первого дубля.
+ * `revise` — доработка лучшей попытки по трём слабым осям оценки с их кадрами;
+ * `fresh` — новый дубль с другим кадрированием (archetype); `off` — без него.
+ * `fixes` — исправлений технического gate и QA внутри второго дубля.
+ */
+export interface SecondTake {
+  mode: "revise" | "fresh" | "off";
+  threshold: number;
+  fixes: number;
+}
+const SECOND_TAKE_MODES = ["revise", "fresh", "off"] as const;
+const SecondTakeSchema = z.object({ mode: z.enum(SECOND_TAKE_MODES), threshold: z.number().min(1).max(10), fixes: z.number().int().min(0).max(3) }).partial().strict();
+const SECOND_TAKE: SecondTake = { mode: "revise", threshold: 6.5, fixes: 1 };
+
+/**
+ * Лимиты раннера (`03` §8, M12): задач в работе, мест семафоров агентов и рендеров, таймаут
+ * экспорта. Умолчания — по коду (S5: агенты 5, рендеры 2), не 2/2/1 из исходного плана.
+ * Новые значения действуют после перезапуска сервера.
+ */
+export interface Limits {
+  maxRunning: number;
+  agentCalls: number;
+  renders: number;
+  exportTimeoutMs: number;
+}
+const LIMITS: Limits = { maxRunning: MAX_RUNNING, agentCalls: AGENT_CALLS, renders: RENDERS, exportTimeoutMs: EXPORT_TIMEOUT_MS };
+const Count = z.number().int().min(1).max(16);
+/** Потолок таймаута экспорта: 4 ч (по умолчанию 30 мин). */
+const EXPORT_TIMEOUT_MAX_MS = 4 * 60 * 60_000;
+const LimitsSchema = z.object({ maxRunning: Count, agentCalls: Count, renders: Count, exportTimeoutMs: z.number().int().min(10_000).max(EXPORT_TIMEOUT_MAX_MS) }).partial().strict();
+
+/**
+ * ASR (Task 26): CLI-воркер ai-platform подпроцессом; ai-platform не меняется. Пути — умолчания
+ * этой машины, переопределяются env (`AIP_MONTAGE_ASR_PYTHON`, `AI_PLATFORM_ROOT`,
+ * `AIP_MODELS_DIR`) или config.json. Контракт воркера закреплён sha256 `asr_worker.py`.
+ */
+export interface AsrConfig {
+  python: string;
+  aiPlatformRoot: string;
+  modelsDir: string;
+  model: (typeof ASR_MODELS)[number];
+  language: string;
+  expectedWorkerSha256: string;
+  timeoutMs: number;
+  noOutputTimeoutMs: number;
+}
+export const ASR_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3-mlx"] as const;
+/**
+ * sha256 `asr_worker.py` ai-platform — закреплённый контракт CLI и вывода (Global Constraints
+ * Phase 2–3; файл не менялся с коммита e3024ac). Сверено 2026-10-24 на HEAD ai-platform
+ * `ASR_WORKER_VERIFIED_COMMIT`: другой sha256 → `asr_contract_changed`.
+ */
+export const ASR_WORKER_SHA256 = "59b7e03bf5a8b7f940b2607d357528e7120f5bb6bbe98efa70de4b39bdce1073";
+/** HEAD ai-platform, на котором сверен контракт воркера (справочно: коммит — не контракт, sha256 — да). */
+export const ASR_WORKER_VERIFIED_COMMIT = "3a2513a79736c1a910075418cb0d3b7098eee416";
+
+/** Импорт исходника (V2): корни для импорта по пути, прокси, шаг миниатюр. */
+export interface MediaConfig {
+  importRoots: string[];
+  proxyShortSide: number;
+  thumbEveryUs: number;
+}
+/** Детекторы чернового монтажа (Task 28). */
+export interface RoughcutConfig {
+  pauseMinUs: number;
+  keepAfterWordUs: number;
+  sentenceKeepAfterUs: number;
+  keepBeforeWordUs: number;
+  fillerPadUs: number;
+  loudDbfs: number;
+  fadeUs: number;
+}
+/** Проверки визуального плана (Task 32). */
+export interface PlanningConfig {
+  maxCoverage: number;
+  maxFullscreenCoverage: number;
+  minGapUs: number;
+  minSceneUs: number;
+  maxSceneUs: number;
+  padPreUs: number;
+  padPostUs: number;
+  faceMargin: number;
+  faceOverlapMax: number;
+}
+/** Бюджет задачи анализа Phase 2–3 (V9). */
+export interface AnalysisConfig {
+  maxCostUsd: number;
+  /** Окно занятости кадра по времени в анализе видеоряда (Task 30), µs. */
+  occupancyWindowUs: number;
+}
+
+/** Умолчания `roughcut` (детекторы и превью чернового монтажа, Task 28). */
+export const ROUGHCUT_DEFAULTS: RoughcutConfig = { pauseMinUs: 800_000, keepAfterWordUs: 100_000, sentenceKeepAfterUs: 300_000, keepBeforeWordUs: 100_000, fillerPadUs: 50_000, loudDbfs: -30, fadeUs: 8_000 };
+const PLANNING: PlanningConfig = { maxCoverage: 0.4, maxFullscreenCoverage: 0.25, minGapUs: 1_500_000, minSceneUs: 1_500_000, maxSceneUs: 12_000_000, padPreUs: 200_000, padPostUs: 300_000, faceMargin: 0.25, faceOverlapMax: 0.02 };
+const Us = z.number().int().min(0);
+const Share = z.number().min(0).max(1);
+const AsrFileSchema = z.object({
+  python: z.string().min(1), aiPlatformRoot: z.string().min(1), modelsDir: z.string().min(1), model: z.enum(ASR_MODELS),
+  language: z.string().min(1), expectedWorkerSha256: z.string().regex(/^[0-9a-f]{64}$/),
+  timeoutMs: z.number().int().positive(), noOutputTimeoutMs: z.number().int().positive(),
+}).partial().strict();
+const MediaFileSchema = z.object({ importRoots: z.array(z.string().min(1)), proxyShortSide: z.number().int().min(144).max(2160), thumbEveryUs: z.number().int().positive() }).partial().strict();
+const RoughcutFileSchema = z.object({
+  pauseMinUs: Us, keepAfterWordUs: Us, sentenceKeepAfterUs: Us, keepBeforeWordUs: Us, fillerPadUs: Us, loudDbfs: z.number().max(0), fadeUs: Us,
+}).partial().strict();
+const PlanningFileSchema = z.object({
+  maxCoverage: Share, maxFullscreenCoverage: Share, minGapUs: Us, minSceneUs: Us, maxSceneUs: Us, padPreUs: Us, padPostUs: Us, faceMargin: Share, faceOverlapMax: Share,
+}).partial().strict();
+const AnalysisFileSchema = z.object({ maxCostUsd: z.number().positive().max(MAX_CALL_BUDGET_USD), occupancyWindowUs: z.number().int().min(500_000).max(60_000_000) }).partial().strict();
+
 export interface AppConfig {
   dataDir: string;
   claudeBin: string;
   agentRuntime: "claude-code";
   agents: Record<Role, AgentSettings>;
-  scene: { maxCostUsd: number; maxAutoFixes: number };
+  scene: { maxCostUsd: number; maxAutoFixes: number; secondTake: SecondTake };
   kb: { root: string; sourceRoot: string };
+  limits: Limits;
+  /** Настройки новой сцены по умолчанию (форма в UI). */
+  defaults: Settings;
+  asr: AsrConfig;
+  media: MediaConfig;
+  roughcut: RoughcutConfig;
+  planning: PlanningConfig;
+  analysis: AnalysisConfig;
 }
 
 const OPUS_ROLES: readonly Role[] = ["motion_director", "engineer"];
@@ -29,6 +159,8 @@ const AGENT_BUDGET_USD = 2;
 const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url)).replace(/\/$/, "");
 // Исходники KB лежат в main checkout; из worktree — это путь до `.claude/worktrees/`.
 const MAIN_CHECKOUT = REPO_ROOT.split("/.claude/worktrees/")[0]!;
+// ai-platform — соседний с main checkout репозиторий (только чтение и запуск воркера).
+const AI_PLATFORM_ROOT = join(dirname(MAIN_CHECKOUT), "ai-platform");
 
 const AgentOverride = z
   .object({
@@ -44,12 +176,40 @@ const FileSchema = z
     claudeBin: z.string().min(1),
     agentRuntime: z.literal("claude-code"),
     agents: z.object(Object.fromEntries(ROLES.map((r) => [r, AgentOverride.optional()]))).strict(),
-    scene: z.object({ maxCostUsd: z.number().positive(), maxAutoFixes: z.number().int().min(0) }).partial().strict(),
+    scene: z.object({ maxCostUsd: z.number().positive(), maxAutoFixes: z.number().int().min(0), secondTake: SecondTakeSchema }).partial().strict(),
     kb: z.object({ root: z.string().min(1), sourceRoot: z.string().min(1) }).partial().strict(),
+    limits: LimitsSchema,
+    defaults: SettingsSchema,
+    asr: AsrFileSchema,
+    media: MediaFileSchema,
+    roughcut: RoughcutFileSchema,
+    planning: PlanningFileSchema,
+    analysis: AnalysisFileSchema,
   })
   .partial()
   .strict();
 type FileConfig = z.infer<typeof FileSchema>;
+
+/**
+ * Тело `PUT /api/settings` (ревью Task 20, F2): из браузера меняются только модели ролей, лимиты
+ * (с потолками) и настройки новой сцены. `claudeBin`, `kb.*`, `agentRuntime`, `scene.*` (бюджет
+ * сцены, второй дубль) и бюджеты/таймауты ролей — только правкой config.json руками: иначе
+ * same-origin баг UI запустил бы произвольный бинарник или снял бы денежный предохранитель.
+ */
+export const SettingsPutSchema = z
+  .object({
+    agents: z.object(Object.fromEntries(ROLES.map((r) => [r, z.object({ model: z.string().regex(MODEL_RE, "имя модели: латиница, цифры, . - [ ]") }).strict().optional()]))).strict(),
+    limits: LimitsSchema,
+    defaults: SettingsSchema,
+  })
+  .partial()
+  .strict();
+
+/** Ошибки `config.json` по полям (`PUT /settings` → 400 с путём поля); пусто — годится. */
+export function configFileIssues(fileJson: unknown): { path: string; message: string }[] {
+  const parsed = FileSchema.safeParse(fileJson ?? {});
+  return parsed.success ? [] : parsed.error.issues.map((i) => ({ path: i.path.join(".") || "<root>", message: i.message }));
+}
 
 /** `fileJson` — разобранный `$MS_DATA_DIR/config.json` (см. `readConfigFile`). */
 export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfig {
@@ -57,7 +217,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfi
   if (!dataDir) throw new Error("config: MS_DATA_DIR не задан");
   const parsed = FileSchema.safeParse(fileJson ?? {});
   if (!parsed.success) {
-    const where = parsed.error.issues.map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`).join("; ");
+    const where = configFileIssues(fileJson).map((i) => `${i.path}: ${i.message}`).join("; ");
     throw new Error(`config: config.json не годится: ${where}`);
   }
   const file: FileConfig = parsed.data;
@@ -79,12 +239,89 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfi
     claudeBin: file.claudeBin ?? "claude",
     agentRuntime: "claude-code",
     agents,
-    scene: { maxCostUsd: 5, maxAutoFixes: 2, ...file.scene },
+    scene: {
+      maxCostUsd: file.scene?.maxCostUsd ?? 5,
+      maxAutoFixes: file.scene?.maxAutoFixes ?? 2,
+      secondTake: { ...SECOND_TAKE, ...file.scene?.secondTake, ...secondTakeEnv(env) },
+    },
     kb: {
       root: file.kb?.root ?? env.KB_ROOT ?? join(REPO_ROOT, "knowledge"),
       sourceRoot: file.kb?.sourceRoot ?? env.KB_SOURCE_ROOT ?? MAIN_CHECKOUT,
     },
+    limits: { ...LIMITS, ...file.limits },
+    defaults: file.defaults ?? defaultSettings(),
+    ...videoConfig(env, file),
   };
+}
+
+const env1 = (env: NodeJS.ProcessEnv, k: string): string | undefined => env[k]?.trim() || undefined;
+
+/**
+ * Разделы Phase 2–3: config.json > env > умолчания (как `kb`). Пути (`asr.python`,
+ * `asr.aiPlatformRoot`, `asr.modelsDir`, `media.importRoots`) после раскрытия `~` / `~/…`
+ * (домашний каталог из `HOME`) обязаны быть абсолютными — относительный путь зависел бы от
+ * cwd процесса. Перекрёстные проверки планирования — после слияния всех источников.
+ */
+function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig): Pick<AppConfig, "asr" | "media" | "roughcut" | "planning" | "analysis"> {
+  const home = env1(env, "HOME") ?? homedir();
+  const asr: AsrConfig = {
+    python: join(home, ".local/share/montage/mlx-audio-0.5.8/.venv/bin/python"),
+    aiPlatformRoot: AI_PLATFORM_ROOT,
+    modelsDir: "/Volumes/External SSD/local_models",
+    model: "whisper-large-v3-turbo",
+    language: "ru",
+    expectedWorkerSha256: ASR_WORKER_SHA256,
+    timeoutMs: 14_400_000,
+    noOutputTimeoutMs: 1_800_000,
+    ...definedOnly({ python: env1(env, "AIP_MONTAGE_ASR_PYTHON"), aiPlatformRoot: env1(env, "AI_PLATFORM_ROOT"), modelsDir: env1(env, "AIP_MODELS_DIR") }),
+    ...file.asr,
+  };
+  for (const k of ["python", "aiPlatformRoot", "modelsDir"] as const) asr[k] = absPath(`asr.${k}`, asr[k], home);
+  const media: MediaConfig = { importRoots: ["/Volumes/External SSD", join(home, "Movies")], proxyShortSide: 720, thumbEveryUs: 2_000_000, ...file.media };
+  media.importRoots = media.importRoots.map((p, i) => absPath(`media.importRoots[${i}]`, p, home));
+  const planning: PlanningConfig = { ...PLANNING, ...file.planning };
+  if (planning.minSceneUs > planning.maxSceneUs) {
+    throw new Error(`config: planning.minSceneUs (${planning.minSceneUs}) больше planning.maxSceneUs (${planning.maxSceneUs})`);
+  }
+  if (planning.maxFullscreenCoverage > planning.maxCoverage) {
+    throw new Error(`config: planning.maxFullscreenCoverage (${planning.maxFullscreenCoverage}) больше planning.maxCoverage (${planning.maxCoverage})`);
+  }
+  return {
+    asr,
+    media,
+    roughcut: { ...ROUGHCUT_DEFAULTS, ...file.roughcut },
+    planning,
+    analysis: { maxCostUsd: 3, occupancyWindowUs: 4_000_000, ...file.analysis },
+  };
+}
+
+/** `~` и `~/…` → домашний каталог; результат — абсолютный путь, иначе ошибка (`~user` не поддерживается). */
+function absPath(field: string, p: string, home: string): string {
+  const out = p === "~" ? home : p.startsWith("~/") ? join(home, p.slice(2)) : p;
+  if (!isAbsolute(out)) throw new Error(`config: ${field} должен быть абсолютным путём (допускается ~/…): ${JSON.stringify(p)}`);
+  return out;
+}
+
+function definedOnly<T extends Record<string, string | undefined>>(o: T): Partial<Record<keyof T, string>> {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<Record<keyof T, string>>;
+}
+
+/** `MS_SECOND_TAKE=revise|fresh|off` — режим второго дубля поверх config.json (bench A/B). */
+function secondTakeEnv(env: NodeJS.ProcessEnv): Partial<SecondTake> {
+  const out: Partial<SecondTake> = {};
+  const v = env.MS_SECOND_TAKE?.trim();
+  if (v) {
+    if (!(SECOND_TAKE_MODES as readonly string[]).includes(v)) throw new Error(`config: MS_SECOND_TAKE — одно из ${SECOND_TAKE_MODES.join(", ")}: ${v}`);
+    out.mode = v as SecondTake["mode"];
+  }
+  // `MS_SECOND_TAKE_THRESHOLD` — порог overall (1–10) для A/B
+  const t = env.MS_SECOND_TAKE_THRESHOLD?.trim();
+  if (t) {
+    const n = Number(t);
+    if (!Number.isFinite(n) || n < 1 || n > 10) throw new Error(`config: MS_SECOND_TAKE_THRESHOLD — число 1–10: ${t}`);
+    out.threshold = n;
+  }
+  return out;
 }
 
 /** Читает `<dataDir>/config.json`; нет файла — `undefined`, битый JSON — ошибка. */

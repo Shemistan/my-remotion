@@ -26,3 +26,25 @@ export function typeSize(style: StyleBible, level: TypeLevel | number, frameHeig
   if (!(typeof frameHeight === "number" && frameHeight > 0)) throw new RangeError(`typeSize: нужна высота кадра > 0, получено ${frameHeight}`);
   return Math.round(frameHeight * k);
 }
+
+/**
+ * Нижний предел кегля любого текста kit, px при 1080 (11 px на превью 540p): подписи осей,
+ * пояснения, суффиксы и кегль в px мельче не рендерятся — на телефоне такой текст не читается.
+ */
+export const MIN_TEXT_PX = 22;
+
+/** Нижний предел кегля в кадре высоты `frameHeight`, px. */
+export const minTextPx = (frameHeight: number) => Math.round((MIN_TEXT_PX * frameHeight) / 1080);
+
+/** Кегль не мельче предела `minTextPx`. */
+export const floorText = (px: number, frameHeight: number) => Math.max(px, minTextPx(frameHeight));
+
+/**
+ * Кегль текста компонента по его `size`: уровень шкалы — от высоты кадра, шаг шкалы v0.1
+ * (0..8) — px при 1080, число > 8 — кегль в px; не мельче `minTextPx`. Общий для KineticText,
+ * AnimatedNumber, StatusChip и DataToken.
+ */
+export function sizePx(style: StyleBible, size: TypeLevel | number, frameHeight: number): number {
+  const px = typeof size === "string" ? typeSize(style, size, frameHeight) : size > 8 ? size : typeSize(style, size);
+  return floorText(px, frameHeight);
+}

@@ -1,0 +1,13 @@
+ok         node          22.21.1
+ok         claude        2.1.309 (Claude Code) (~/.local/bin/claude)
+ok         claude_login  haiku ответил, $0.0001
+ok         ffmpeg        ffmpeg version 7.1.1 Copyright (c) 2000-2025 the FFmpeg developers
+ok         ffprobe       ffprobe version 7.1.1 Copyright (c) 2007-2025 the FFmpeg developers
+ok         encoders      libx264, aac, prores_ks
+ok         kb            836 записей, KB_ROOT ~/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/knowledge, KB_SOURCE_ROOT ~/my_track/01_It_development/my-remotion
+ok         storage       /Volumes/External SSD/MotionStudio-acceptance, свободно 179.0 ГБ
+ok         chrome        ~/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/app/motion-studio/node_modules/.remotion/chrome-headless-shell/mac-arm64/chrome-headless-shell-mac-arm64/chrome-headless-shell
+ok         db            quick_check ok
+ok         owner_lock    свободен
+
+doctor: всё в порядке

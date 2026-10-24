@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "version_id": "ver_01M5FKW3N8XEK9KC58PMQG306T",
+  "scene_id": "scn_01M5FK5TEN8J4CY4TEAN9EN0MW",
+  "parent_version_id": null,
+  "number": 1,
+  "created_at": "2026-10-21T16:14:24.937Z",
+  "prompt": "Объясни, как работает кэширование: запрос, промах, запись, попадание",
+  "edit_plan": null,
+  "settings": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 180,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "files": [
+    {
+      "path": "frames/13.png",
+      "sha256": "be00c8865ac2b33dc5847416127a90a2b926a8f07b7200357aec324875e6a666"
+    },
+    {
+      "path": "frames/166.png",
+      "sha256": "0adb5ae484d06125da72f8b1b063cc5fb90b179925c61ab95694255ccedf45e6"
+    },
+    {
+      "path": "frames/179.png",
+      "sha256": "dd0a008d9820ba1172c7a4d846e0018c7e962dc7943471f0058d1e96d3d93787"
+    },
+    {
+      "path": "frames/24.png",
+      "sha256": "2fe6803557bb04a93b189bacfe079c3595fef63af9bc5ceb8fc3e33e6d7e8291"
+    },
+    {
+      "path": "knowledge-refs.json",
+      "sha256": "41527519ea7ef90e732c5fe5ef5c94632e1ff707ff341bc284f1cc67edeb0318"
+    },
+    {
+      "path": "pipeline-log.json",
+      "sha256": "a5999b1dfa38fd393deabfc052a734b0d2129603f534aa32318d5e1533e2ebfc"
+    },
+    {
+      "path": "preview.mp4",
+      "sha256": "2ed5b4478956deea05aee5f4b21e890de94534dc2d385366fcbddbb8a2886b1f"
+    },
+    {
+      "path": "props.json",
+      "sha256": "0823ec4933c86270761fe1d0ea56bf72d4ca54385d7cff9860961d54fa09897b"
+    },
+    {
+      "path": "qa.json",
+      "sha256": "ca324ad342f118dc31af628f2b9753a2cf3d644928a06f05fbb013c54021f6a6"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/CARD.md",
+      "sha256": "3f32415a7ccd3f6a71d9ba6d1ae535513226c5f6f3438af11046d3e251376027"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/EdgeWrapper/index.tsx",
+      "sha256": "93aa5feb60f1b3d7363abad1f2fd4b196f0591442b6dc8f089a41a9d7f0e7dda"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/EdgeWrapper/utils.ts",
+      "sha256": "4ccd54d9929ac6ffa5c9eb221599298c41069f2c7f62459fbebf289c8a109411"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/BaseEdge.tsx",
+      "sha256": "1a82a534bdc72a8d340db0a2194cd75b92baad901a2333fad5102b79358998a0"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/BezierEdge.tsx",
+      "sha256": "43f6f3c2727114d237e7cd7f9a37d5b537b54ab32b70bc983f4e19f5a40f3764"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/EdgeText.tsx",
+      "sha256": "f64580093c01366d28c91675d4602f64e9fa8824a087628f0feba14bda9e5f5e"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/SimpleBezierEdge.tsx",
+      "sha256": "a57b3b6c6993de1c6c56df49de7cff09346a66358b91b93f4e679a27ce754639"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/SmoothStepEdge.tsx",
+      "sha256": "3ae3ac3abf55aa09a2c54a1f7aecccbff11c05c9edc1f90d67950edfc1fd0e8c"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/StepEdge.tsx",
+      "sha256": "17b4c63c412db3dd2b58bfd64c607eeb472a65476570edd179df17a231b96396"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/components/Edges/StraightEdge.tsx",
+      "sha256": "0acb4bb04a1dcb8025c50b88ae37db04d2db441cb0d243fb752ab9ce74c25cdc"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/react/src/types/edges.ts",
+      "sha256": "7c7e8f335a4bacaeffa5912cc4974c3cfd71d9ecb10f087dbaefde5dd5b9ea38"
+    },
+    {
+      "path": "refs/kb/xyflow/edge-types/templates/infografika/xyflow/packages/system/src/styles/init.css",
+      "sha256": "2458f7ae49969a3eaa04f43af179fec02b28a2453cb693f05ca9b6cb77df1faa"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/CARD.md",
+      "sha256": "9bf3d75cc8c78e8229c6ea86db9fd8471f1514f8052190857fdf7d9a79cee066"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/components/NodeWrapper/index.tsx",
+      "sha256": "fcd5d7a82118ab7f57136c0b04a55cbb5df9005d77776400eb122719e9eb6bab"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/components/NodeWrapper/useNodeObserver.ts",
+      "sha256": "d2cf9c71f5122214d83eee3ca1a3163b531d1de11e23ddbe950ab62199a561e9"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/container/NodeRenderer/useResizeObserver.ts",
+      "sha256": "ba8a837cbeeae1da914e2a1e2deb21653177f3a143cb8817a3a1bf0a36a7349c"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/container/ReactFlow/index.tsx",
+      "sha256": "d866f64f483e23e54366b014dc884349080e1d74956003af1b8a5053bc387581"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/hooks/useResizeHandler.ts",
+      "sha256": "db3b50b64271bd0e169b585d76c76c28a4818ec673d9de67a455ab69ec7fe072"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/hooks/useViewportSync.ts",
+      "sha256": "7e8dea6eaddec6294db36aa3a072630a6ab0dea8df7333dd8d7fdcc7404390e7"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/react/src/types/component-props.ts",
+      "sha256": "98923588781d65f9655b52adaac51e6008d740a622b909c1a8517a153849e020"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/system/src/styles/init.css",
+      "sha256": "2458f7ae49969a3eaa04f43af179fec02b28a2453cb693f05ca9b6cb77df1faa"
+    },
+    {
+      "path": "refs/kb/xyflow/react-flow/templates/infografika/xyflow/packages/system/src/utils/edges/positions.ts",
+      "sha256": "abe8f831891e2fb381a09b5660650cf27f17ed06e8dece4eb01137091253765c"
+    },
+    {
+      "path": "refs/motion-kit/API.md",
+      "sha256": "a02248dae08e838813f7b6c6987e664609169330ad66ec403794541eeea56702"
+    },
+    {
+      "path": "refs/skills/remotion-markup/SKILL.md",
+      "sha256": "399a8f21821ee72071645d22b2e4c7aba34357f2139d027857868eb856f24a4f"
+    },
+    {
+      "path": "refs/skills/remotion-markup/local-fonts.md",
+      "sha256": "fcad2a2e3a05419d4555c59a75454c4891455dbea91ad596c1095e2887d26a11"
+    },
+    {
+      "path": "refs/skills/remotion-markup/sequencing.md",
+      "sha256": "f53680a3ec4b754501ce37516387666e1b3df3c5714d266154b274caea4236a4"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing-props.md",
+      "sha256": "346ff7f3778f3b7ba165ac212459034120cac7cffd3ead3fe68db179e15f7494"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing.md",
+      "sha256": "48047e758b96aea519916479ede62b832bf51f982924978e091c37f569ab4bac"
+    },
+    {
+      "path": "refs/skills/remotion-markup/transitions.md",
+      "sha256": "83b8b511044ef175244a4e9e81f66bd3f5062cf9cecacd30ae88ac17eda40b82"
+    },
+    {
+      "path": "selection.json",
+      "sha256": "3d9d3285a2dc67fec482ceb74262dd13d994910cd352dc543a17b469e16ebe71"
+    },
+    {
+      "path": "settings.json",
+      "sha256": "0b46d98e94443777eaf45644a5755e6faf4ce94ffb01d67689792327ab031365"
+    },
+    {
+      "path": "spec.json",
+      "sha256": "398134323fb46441355ca2616a42822548954999f765ed5071f7a83569139d24"
+    },
+    {
+      "path": "src/Scene.tsx",
+      "sha256": "1c9f07fc858204e9b02936f34b76a7816afd837b93d5acce722465737a324723"
+    },
+    {
+      "path": "style.json",
+      "sha256": "18a0a04c657887af9d85691285c9480a89f361fb434379a61df3445ffc78e3d6"
+    },
+    {
+      "path": "warnings.json",
+      "sha256": "8934b573adb46ae93262aad5a22774ca0483631387e74f4e6a594862a8d19910"
+    }
+  ],
+  "changed_files": [
+    "src/Scene.tsx",
+    "props.json"
+  ],
+  "render_env": {
+    "remotion": "4.0.537",
+    "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
+    "motion_kit": "sha256:8859be01542ac132",
+    "chrome_headless_shell": "157.0.8080.0-remotion-v3",
+    "node": "22.21.1"
+  },
+  "knowledge_refs": [
+    {
+      "kb_id": "xyflow/react-flow",
+      "commit": "654ba5a5e",
+      "license": "MIT (LICENSE, packages/react/package.json)",
+      "strategy": "adapt"
+    },
+    {
+      "kb_id": "xyflow/edge-types",
+      "commit": "654ba5a5e",
+      "license": "MIT (LICENSE, packages/react/package.json)",
+      "strategy": "adapt"
+    }
+  ],
+  "agent_runs": [
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-concept-1",
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-motion_director-1",
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-engineer-1",
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-visual_qa-1",
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-engineer-2",
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-visual_qa-2",
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-engineer-3",
+    "logs/agent-runs/job_01M5FK5TET5Y1G76BW7M2FTXPF/a1-visual_qa-3"
+  ],
+  "qa": {
+    "technical": "pass",
+    "visual": "fail",
+    "semantic": "warn",
+    "style": "pass"
+  },
+  "preview": {
+    "path": "preview.mp4",
+    "sha256": "2ed5b4478956deea05aee5f4b21e890de94534dc2d385366fcbddbb8a2886b1f"
+  },
+  "status": "failed",
+  "failure": {
+    "stage": "qa",
+    "message": "QA: blocking после 2 исправлений: missing_element: элемент status-cache (shape, «статус процесса в кэше») не найден ни на одном QA-кадре внутри его битов; missing_element: элемент token-request (shape, «данные: запрос») не найден ни на одном QA-кадре внутри его битов; missing_element: элемент token-response (shape, «данные: первый ответ») не найден ни на одном QA-кадре внутри его битов"
+  },
+  "qa_frames": [],
+  "qa_frames_sha256": [],
+  "job": {
+    "id": "job_01M5FK5TET5Y1G76BW7M2FTXPF",
+    "attempt": 1
+  }
+}

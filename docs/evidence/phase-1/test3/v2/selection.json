@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "kb_id": "magicui/animated-beam",
+      "strategy": "adapt",
+      "why": "Идея светящегося импульса по связи хаб → сервисы, переложенная на PulseAlongPath по кадрам.",
+      "files_to_copy": []
+    },
+    {
+      "kb_id": "xyflow/react-flow",
+      "strategy": "adapt",
+      "why": "Раскладка архитектурной схемы узлы-рёбра с фиксированными координатами — в виде FlowGraph kit.",
+      "files_to_copy": []
+    }
+  ],
+  "rationale": "правка параметров версии 1",
+  "dropped": []
+}

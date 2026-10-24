@@ -1,0 +1,15 @@
+{
+  "status": "failed",
+  "error": {
+    "kind": "cli",
+    "message": "success: API Error: Connection dropped (ECONNRESET)"
+  },
+  "cost_usd": 0.14821700000000002,
+  "model": "claude-opus-5-5",
+  "wall_ms": 164956,
+  "commit": "5b4e6ef",
+  "judge": {
+    "rubric_sha256": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+    "anchors_sha256": "f1df6bc74e3457c6f29b281652a41fa7de8b77e7860c88d07cb39dd4785137c7"
+  }
+}

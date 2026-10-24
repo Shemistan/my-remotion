@@ -1,0 +1,78 @@
+{
+  "run_id": "job_01M5N0BWY93KW6VP6SHNNKKP7E",
+  "attempt": 1,
+  "cost_usd": 1.6147956,
+  "engineer_calls": 1,
+  "visual_qa": [
+    {
+      "call": 1,
+      "wall_ms": 23794,
+      "cost_usd": 0.1467381,
+      "status": "completed",
+      "gate": {
+        "technical": "pass",
+        "visual": "pass",
+        "semantic": "pass",
+        "style": "pass"
+      }
+    }
+  ],
+  "attempts": [
+    {
+      "n": 1,
+      "take": 1,
+      "call": 1,
+      "overall": 7,
+      "scores": {
+        "overall": 7,
+        "hierarchy": 8,
+        "composition": 6.5,
+        "entrance": 6.5,
+        "choreography": 7,
+        "hold": 7,
+        "legibility": 8,
+        "meaning": 7.5
+      },
+      "blocking": [],
+      "cost_usd": 0.9233,
+      "published": true
+    }
+  ],
+  "timings": {
+    "queue_wait": 1,
+    "concept": 15335,
+    "motion_director": 77198,
+    "engineer_1": 87233,
+    "static": 47,
+    "typecheck": 15297,
+    "render_1": 22454,
+    "qa_programmatic": 2868,
+    "visual_qa_1": 23815
+  },
+  "stage_wall_ms": {
+    "concept": 15335,
+    "director": 77198,
+    "engineer": 87233,
+    "check": 15344,
+    "render": 22454,
+    "qa": 26683,
+    "total": 244544
+  },
+  "history": [
+    {
+      "at": "2026-10-23T18:33:02.062Z",
+      "stage": "qa",
+      "message": "QA вызова 1: {\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}; overall 7; blocking: —"
+    },
+    {
+      "at": "2026-10-23T18:33:02.098Z",
+      "stage": "gate",
+      "message": "gate пройден с вызова 1, overall 7"
+    },
+    {
+      "at": "2026-10-23T18:33:02.117Z",
+      "stage": "ready",
+      "message": "опубликована попытка 1 (дубль 1, вызов 1, overall 7) из 1"
+    }
+  ]
+}

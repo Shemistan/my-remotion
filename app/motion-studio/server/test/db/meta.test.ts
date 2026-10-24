@@ -9,7 +9,7 @@ let db: Db;
 beforeEach(async () => {
   s = await makeStore("ms-db-meta-");
   db = openDb(s.root);
-  migrate(db);
+  await migrate(db);
 });
 afterEach(async () => {
   db.close();

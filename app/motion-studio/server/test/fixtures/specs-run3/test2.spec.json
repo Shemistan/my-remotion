@@ -1,0 +1,380 @@
+{
+  "title": "Архитектура AI-агента",
+  "purpose": "Показать, как запрос пользователя проходит через оркестратор к трём инструментам и возвращается ответом.",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "palette_overrides": {},
+  "composition": {
+    "archetype": "network-centric",
+    "idea": "Тёмный инженерный лист: слева пользователь, в центре крупный оркестратор, справа столбик из трёх инструментов. Взгляд идёт за светом: слева в центр, веером вправо, обратно в центр, к пользователю — там загорается «Ответ готов».",
+    "focus": "Камера стоит; фокус ведёт импульс и вспышка узла, к которому он пришёл; в финале — дыхание плашки ответа.",
+    "transitions": "Кикер → сборка схемы → запрос зажигает оркестратор → веер к инструментам → данные сходятся обратно → ответ к пользователю, потоки стихают, итог дышит."
+  },
+  "elements": [
+    {
+      "id": "kicker",
+      "kind": "text",
+      "role": "контекст: о чём сцена",
+      "entrance": "type",
+      "depth_layer": 1,
+      "content": {
+        "component": "KineticText",
+        "text": "AI-агент: запрос → инструменты → ответ",
+        "mode": "letters",
+        "enter": "type",
+        "size": "body",
+        "font": "mono",
+        "color": "muted",
+        "align": "center"
+      },
+      "layout": {
+        "x": 0.18,
+        "y": 0,
+        "w": 0.64,
+        "h": 0.07
+      }
+    },
+    {
+      "id": "graph",
+      "kind": "graph",
+      "role": "схема: архитектура агента",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "FlowGraph + PulseAlongPath",
+        "travel": 18,
+        "edges": [
+          {
+            "id": "e-req",
+            "from": "node-user",
+            "to": "node-orc"
+          },
+          {
+            "id": "e-t1",
+            "from": "node-orc",
+            "to": "node-search"
+          },
+          {
+            "id": "e-t2",
+            "from": "node-orc",
+            "to": "node-db"
+          },
+          {
+            "id": "e-t3",
+            "from": "node-orc",
+            "to": "node-calc"
+          }
+        ],
+        "flows": [
+          {
+            "edge": "e-req",
+            "direction": "forward",
+            "beat": "pulse-request",
+            "color": "accent[0]"
+          },
+          {
+            "edge": "e-t1",
+            "direction": "forward",
+            "beat": "pulse-fan-out",
+            "color": "accent[1]",
+            "delay": 0
+          },
+          {
+            "edge": "e-t2",
+            "direction": "forward",
+            "beat": "pulse-fan-out",
+            "color": "accent[1]",
+            "delay": 4
+          },
+          {
+            "edge": "e-t3",
+            "direction": "forward",
+            "beat": "pulse-fan-out",
+            "color": "accent[1]",
+            "delay": 8
+          },
+          {
+            "edge": "e-t1",
+            "direction": "back",
+            "beat": "pulse-return",
+            "color": "accent[2]",
+            "delay": 0
+          },
+          {
+            "edge": "e-t2",
+            "direction": "back",
+            "beat": "pulse-return",
+            "color": "accent[2]",
+            "delay": 4
+          },
+          {
+            "edge": "e-t3",
+            "direction": "back",
+            "beat": "pulse-return",
+            "color": "accent[2]",
+            "delay": 8
+          },
+          {
+            "edge": "e-req",
+            "direction": "back",
+            "beat": "pulse-answer",
+            "color": "accent[0]"
+          }
+        ],
+        "pulse_options": {
+          "count": 1,
+          "repeat": false,
+          "tail": 120,
+          "size": 7
+        },
+        "note": "Все импульсы repeat:false — каждый проход один раз, после ответа потоки стихают. Рёбра прорисовываются, когда оба узла на месте."
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.12,
+        "w": 1,
+        "h": 0.76
+      }
+    },
+    {
+      "id": "node-user",
+      "kind": "card",
+      "role": "node: Пользователь — источник запроса",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "label": "Пользователь",
+        "caption": "запрос",
+        "enter": "slide",
+        "enterAt": 8,
+        "elevation": 2,
+        "size": "body",
+        "flash_on": "e-req (back, pulse-answer)"
+      },
+      "layout": {
+        "x": 0.02,
+        "y": 0.42,
+        "w": 0.22,
+        "h": 0.13
+      }
+    },
+    {
+      "id": "node-orc",
+      "kind": "card",
+      "role": "акцент: node: Оркестратор — герой, ядро схемы",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "label": "Оркестратор",
+        "caption": "планирует вызовы",
+        "enter": "pop",
+        "enterAt": 18,
+        "elevation": 3,
+        "accentIndex": 0,
+        "size": "body",
+        "flash_on": [
+          "e-req (forward, pulse-request)",
+          "e-t2 (back, pulse-return)"
+        ]
+      },
+      "layout": {
+        "x": 0.36,
+        "y": 0.39,
+        "w": 0.28,
+        "h": 0.19
+      }
+    },
+    {
+      "id": "node-search",
+      "kind": "card",
+      "role": "node: инструмент «Веб-поиск»",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Веб-поиск",
+        "caption": "инструмент",
+        "enter": "rise",
+        "enterAt": 30,
+        "elevation": 2,
+        "size": "body",
+        "flash_on": "e-t1 (forward, pulse-fan-out)"
+      },
+      "layout": {
+        "x": 0.74,
+        "y": 0.17,
+        "w": 0.24,
+        "h": 0.13
+      }
+    },
+    {
+      "id": "node-db",
+      "kind": "card",
+      "role": "node: инструмент «База данных»",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "База данных",
+        "caption": "инструмент",
+        "enter": "rise",
+        "enterAt": 34,
+        "elevation": 2,
+        "size": "body",
+        "flash_on": "e-t2 (forward, pulse-fan-out)"
+      },
+      "layout": {
+        "x": 0.74,
+        "y": 0.42,
+        "w": 0.24,
+        "h": 0.13
+      }
+    },
+    {
+      "id": "node-calc",
+      "kind": "card",
+      "role": "node: инструмент «Калькулятор»",
+      "entrance": "rise",
+      "depth_layer": 1,
+      "content": {
+        "label": "Калькулятор",
+        "caption": "инструмент",
+        "enter": "rise",
+        "enterAt": 38,
+        "elevation": 2,
+        "size": "body",
+        "flash_on": "e-t3 (forward, pulse-fan-out)"
+      },
+      "layout": {
+        "x": 0.74,
+        "y": 0.67,
+        "w": 0.24,
+        "h": 0.13
+      }
+    },
+    {
+      "id": "answer-badge",
+      "kind": "card",
+      "role": "акцент: итог — ответ доставлен",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "component": "Card + Emphasis",
+        "text": "Ответ готов",
+        "size": "body",
+        "elevation": 2,
+        "accentIndex": 0,
+        "enter_on": "arrival e-req back (useFlowGeometry().arrivals)",
+        "emphasis": {
+          "shape": "pill",
+          "loop": true,
+          "ring": true
+        }
+      },
+      "layout": {
+        "x": 0.03,
+        "y": 0.61,
+        "w": 0.2,
+        "h": 0.09
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "kicker-in",
+      "start_frame": 0,
+      "end_frame": 30,
+      "action": "kicker-type-in",
+      "description": "Кикер набирается по буквам моноширинным шрифтом с кареткой accent[0] вверху по центру, приглушённым цветом.",
+      "element_ids": [
+        "kicker"
+      ]
+    },
+    {
+      "id": "graph-build",
+      "start_frame": 6,
+      "end_frame": 60,
+      "action": "graph-entrance-in",
+      "description": "FlowGraph раскрывается: «Пользователь» въезжает slide (кадр 8), «Оркестратор» выстреливает pop (18), инструменты поднимаются rise каскадом 30/34/38. Рёбра прорисовываются linear, как только оба конца на месте, со стрелками.",
+      "element_ids": [
+        "graph",
+        "node-user",
+        "node-orc",
+        "node-search",
+        "node-db",
+        "node-calc"
+      ]
+    },
+    {
+      "id": "pulse-request",
+      "start_frame": 58,
+      "end_frame": 76,
+      "action": "pulse-request-forward",
+      "description": "Импульс accent[0] бежит по e-req от «Пользователь» к «Оркестратор» (travel 18, repeat false). В кадр прихода (pulseArrival) оркестратор вспыхивает: удар, кольцо, кромка accent[0].",
+      "element_ids": [
+        "graph",
+        "node-user",
+        "node-orc"
+      ]
+    },
+    {
+      "id": "pulse-fan-out",
+      "start_frame": 80,
+      "end_frame": 108,
+      "action": "pulse-fan-out-forward",
+      "description": "Из оркестратора веером уходят три импульса accent[1] к инструментам со сдвигом 4 кадра (e-t1, e-t2, e-t3). Каждый инструмент коротко вспыхивает ровно в кадр прихода своего импульса (flash без loop) — акцент перебегает сверху вниз.",
+      "element_ids": [
+        "graph",
+        "node-search",
+        "node-db",
+        "node-calc"
+      ]
+    },
+    {
+      "id": "pulse-return",
+      "start_frame": 110,
+      "end_frame": 134,
+      "action": "pulse-return-back",
+      "description": "Данные возвращаются: три обратных импульса accent[2] (reverse) по e-t1..e-t3 со сдвигом 4 кадра сходятся в оркестратор; он вспыхивает по приходу среднего (e-t2).",
+      "element_ids": [
+        "graph",
+        "node-orc"
+      ]
+    },
+    {
+      "id": "pulse-answer",
+      "start_frame": 134,
+      "end_frame": 152,
+      "action": "pulse-answer-back",
+      "description": "Ответ: импульс accent[0] reverse по e-req от оркестратора к пользователю; узел «Пользователь» вспыхивает в кадр прихода.",
+      "element_ids": [
+        "graph",
+        "node-user",
+        "node-orc"
+      ]
+    },
+    {
+      "id": "answer-in",
+      "start_frame": 148,
+      "end_frame": 153,
+      "action": "answer-badge-in-emphasis",
+      "description": "В кадр прихода обратного импульса к пользователю (arrivals e-req back) под узлом «Пользователь» выскакивает pop плашка «Ответ готов», получает удар Emphasis accent[0] (shape pill). Вход длится enter_frames, допускается заход в начало hold только за счёт пружины.",
+      "element_ids": [
+        "answer-badge"
+      ]
+    },
+    {
+      "id": "hold",
+      "start_frame": 153,
+      "end_frame": 180,
+      "action": "final-emphasis-hold",
+      "description": "Новых входов нет, все импульсы закончены (repeat false) — процесс завершён. Живёт результат: плашка «Ответ готов» дышит Emphasis loop (свечение, ±1 % масштаба, кольцо на вдох); схема собрана и неподвижна, фон aurora медленно дрейфует. Импульсы к инструментам не возвращаются — это подтверждает «готово».",
+      "element_ids": [
+        "answer-badge",
+        "graph"
+      ]
+    }
+  ]
+}

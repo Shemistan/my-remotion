@@ -1,0 +1,22 @@
+[
+  {
+    "id": "apr_01M5Q617FJ1Y2EVTB32R5BK4GV",
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "kind": "A",
+    "subject_ref": "edl:edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C@r13",
+    "subject_hash": "e2cec4bb1fb6ac36c1e1ae99328006245ae48c7c212238e613847baf7ea36843",
+    "status": "valid",
+    "stale_reason": null,
+    "decided_at": "2026-10-24T14:46:28.082Z"
+  },
+  {
+    "id": "apr_01M5Q9S92AC8BA9GJFP9NCM9ZD",
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "kind": "B",
+    "subject_ref": "plan:pln_01M5Q9QE1DQRDGY5Q5KA57G3TM@r12",
+    "subject_hash": "f971f361eb224ffe2091321d3b9a549ad92cb75984d834a3849f3cd90a7dd612",
+    "status": "valid",
+    "stale_reason": null,
+    "decided_at": "2026-10-24T15:52:01.866Z"
+  }
+]

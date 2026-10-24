@@ -1,0 +1,161 @@
+{
+  "frame": 179,
+  "height": 1080,
+  "items": [
+    {
+      "id": "scene#0",
+      "role": "scene",
+      "el": "e0",
+      "text": "0",
+      "rect": {
+        "x": 283.4,
+        "y": 887.8,
+        "w": 20.8,
+        "h": 39
+      },
+      "fontPx": 32,
+      "opacity": 1
+    },
+    {
+      "id": "scene#1",
+      "role": "scene",
+      "el": "e1",
+      "text": "500 тыс.",
+      "rect": {
+        "x": 167.7,
+        "y": 645.3,
+        "w": 136.5,
+        "h": 39
+      },
+      "fontPx": 32,
+      "opacity": 1
+    },
+    {
+      "id": "scene#2",
+      "role": "scene",
+      "el": "e2",
+      "text": "1 млн",
+      "rect": {
+        "x": 213,
+        "y": 402.8,
+        "w": 91.2,
+        "h": 39
+      },
+      "fontPx": 32,
+      "opacity": 1
+    },
+    {
+      "id": "scene#3",
+      "role": "scene",
+      "el": "e3",
+      "text": "Старт",
+      "rect": {
+        "x": 278,
+        "y": 926.2,
+        "w": 90.8,
+        "h": 39
+      },
+      "fontPx": 32,
+      "opacity": 1
+    },
+    {
+      "id": "scene#4",
+      "role": "scene",
+      "el": "e4",
+      "text": "Год 1",
+      "rect": {
+        "x": 558.6,
+        "y": 926.2,
+        "w": 76.8,
+        "h": 39
+      },
+      "fontPx": 32,
+      "opacity": 1
+    },
+    {
+      "id": "scene#5",
+      "role": "scene",
+      "el": "e5",
+      "text": "Год 2",
+      "rect": {
+        "x": 829.1,
+        "y": 926.2,
+        "w": 83.3,
+        "h": 39
+      },
+      "fontPx": 32,
+      "opacity": 1
+    },
+    {
+      "id": "scene#6",
+      "role": "scene",
+      "el": "e6",
+      "text": "Год 3",
+      "rect": {
+        "x": 1102.6,
+        "y": 926.2,
+        "w": 83.6,
+        "h": 39
+      },
+      "fontPx": 32,
+      "opacity": 1
+    },
+    {
+      "id": "number::0",
+      "role": "number",
+      "text": "1 000 000",
+      "rect": {
+        "x": 1206.7,
+        "y": 112.1,
+        "w": 535.2,
+        "h": 165.7
+      },
+      "fontPx": 120.8,
+      "opacity": 1
+    },
+    {
+      "id": "text::1",
+      "role": "text",
+      "text": "пользователей",
+      "rect": {
+        "x": 1409.5,
+        "y": 293,
+        "w": 328,
+        "h": 55
+      },
+      "fontPx": 45,
+      "opacity": 1
+    },
+    {
+      "id": "scene#9",
+      "role": "scene",
+      "el": "e9",
+      "text": "×100",
+      "rect": {
+        "x": 1561.4,
+        "y": 455.3,
+        "w": 176.2,
+        "h": 110
+      },
+      "fontPx": 81.1,
+      "opacity": 1
+    },
+    {
+      "id": "text::2",
+      "role": "text",
+      "text": "за три года",
+      "rect": {
+        "x": 1493.2,
+        "y": 565.2,
+        "w": 244.4,
+        "h": 55
+      },
+      "fontPx": 44.8,
+      "opacity": 1
+    }
+  ],
+  "ghosts": [],
+  "holds": [
+    "now-pulse"
+  ]
+}

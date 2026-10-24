@@ -1,0 +1,305 @@
+import { z } from "zod";
+import { type Fps, FpsSchema, usToFrame } from "./time.js";
+import { snapUsToFrame, usToFrameCeil } from "./timecode.js";
+import { type TranscriptWord, verifyQuote } from "./transcript.js";
+
+const Us = z.number().int().nonnegative();
+
+/** Оставленный кусок исходника: `[source_start_us, source_end_us)` → начинается в edited с `edited_start_us`. */
+export const TimelineClipSchema = z.object({
+  idx: z.number().int().nonnegative(),
+  source_start_us: Us,
+  source_end_us: Us,
+  edited_start_us: Us,
+}).strict();
+export type TimelineClip = z.infer<typeof TimelineClipSchema>;
+
+/** Таймлайн после EDL: клипы по возрастанию, без пересечений, границы вырезок — на кадрах `fps`. */
+export const EditedTimelineSchema = z.object({
+  fps: FpsSchema,
+  source_duration_us: Us,
+  duration_us: Us,
+  clips: z.array(TimelineClipSchema),
+}).strict();
+export type EditedTimeline = z.infer<typeof EditedTimelineSchema>;
+
+export type UsRange = { start_us: number; end_us: number };
+
+export type TimelineErrorCode = "unknown_word" | "order" | "anchor_in_cut";
+
+/** Ошибка привязки к словам: код — для причины отклонения предложения агента. */
+export class TimelineError extends Error {
+  constructor(readonly code: TimelineErrorCode, message: string) {
+    super(message);
+    this.name = "TimelineError";
+  }
+}
+
+function checkUs(us: number, max: number, what: string): void {
+  if (!Number.isSafeInteger(us) || us < 0 || us > max) throw new RangeError(`${what} вне [0, ${max}]: ${us}`);
+}
+
+function checkRange(r: UsRange): void {
+  if (!Number.isSafeInteger(r.start_us) || !Number.isSafeInteger(r.end_us) || r.start_us < 0 || r.start_us > r.end_us) {
+    throw new RangeError(`неверный диапазон: ${r.start_us}–${r.end_us}`);
+  }
+}
+
+const clipEnd = (c: TimelineClip): number => c.edited_start_us + (c.source_end_us - c.source_start_us);
+
+/**
+ * Строит таймлайн: вырезки сортируются, границы выравниваются `snapUsToFrame` (конец, совпадающий с
+ * концом исходника или за ним, — конец исходника), пересекающиеся и соприкасающиеся сливаются,
+ * пустые после выравнивания отбрасываются. Восстановленная вырезка даёт таймлайн байт-в-байт как до неё.
+ * Клип короче кадра возможен (между близкими вырезками или у конца исходника не на кадре) — это не
+ * ошибка. Слово, задетое вырезкой с заметным остатком (`mapWords` → `clipped`), остаётся на таймлайне:
+ * это не `anchor_cut` (Task 32 помечает `anchor_cut`, только если граничное слово сцены `removed`;
+ * полоска слова после выравнивания по кадрам — тоже `removed`, см. `WordMapping`).
+ */
+export function buildTimeline(sourceDurationUs: number, cuts: UsRange[], fps: Fps): EditedTimeline {
+  checkUs(sourceDurationUs, Number.MAX_SAFE_INTEGER, "длительность исходника");
+  const snapped: UsRange[] = [];
+  for (const c of cuts) {
+    checkRange(c);
+    const start = Math.min(snapUsToFrame(c.start_us, fps), sourceDurationUs);
+    const end = c.end_us >= sourceDurationUs ? sourceDurationUs : Math.min(snapUsToFrame(c.end_us, fps), sourceDurationUs);
+    if (end > start) snapped.push({ start_us: start, end_us: end });
+  }
+  snapped.sort((a, b) => a.start_us - b.start_us || a.end_us - b.end_us);
+  const merged: UsRange[] = [];
+  for (const c of snapped) {
+    const last = merged[merged.length - 1];
+    if (last && c.start_us <= last.end_us) last.end_us = Math.max(last.end_us, c.end_us);
+    else merged.push({ ...c });
+  }
+  const clips: TimelineClip[] = [];
+  let cursor = 0;
+  let edited = 0;
+  const push = (end: number): void => {
+    if (end <= cursor) return;
+    clips.push({ idx: clips.length, source_start_us: cursor, source_end_us: end, edited_start_us: edited });
+    edited += end - cursor;
+  };
+  for (const c of merged) {
+    push(c.start_us);
+    cursor = c.end_us;
+  }
+  push(sourceDurationUs);
+  return { fps: { num: fps.num, den: fps.den }, source_duration_us: sourceDurationUs, duration_us: edited, clips };
+}
+
+/** Индекс первого клипа с `source_start_us >= us` (или `clips.length`). */
+function firstClipFrom(tl: EditedTimeline, us: number): number {
+  let lo = 0;
+  let hi = tl.clips.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (tl.clips[mid]!.source_start_us < us) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/** edited-время склейки, в которую попала точка вырезки: начало следующего клипа или конец edited. */
+function spliceAt(tl: EditedTimeline, nextIdx: number): number {
+  return tl.clips[nextIdx]?.edited_start_us ?? tl.duration_us;
+}
+
+/**
+ * Точка исходника → edited. Клип — `[start, end)`; точка в вырезке — edited-время склейки.
+ * Конец исходника, если он не вырезан, — конец edited.
+ */
+export function sourceToEdited(tl: EditedTimeline, us: number): { inCut: false; us: number } | { inCut: true; us: number } {
+  checkUs(us, tl.source_duration_us, "source-время");
+  const i = firstClipFrom(tl, us + 1) - 1; // последний клип с source_start_us <= us
+  const c = tl.clips[i];
+  if (c && us < c.source_end_us) return { inCut: false, us: c.edited_start_us + (us - c.source_start_us) };
+  const last = tl.clips[tl.clips.length - 1];
+  if (last && us === tl.source_duration_us && last.source_end_us === us) return { inCut: false, us: tl.duration_us };
+  return { inCut: true, us: spliceAt(tl, i + 1) };
+}
+
+/** Конец диапазона в source → edited: клип — `(start, end]`, чтобы конец слова на склейке остался в своём клипе. */
+function sourceEndToEdited(tl: EditedTimeline, us: number): number {
+  const i = firstClipFrom(tl, us) - 1; // последний клип с source_start_us < us
+  const c = tl.clips[i];
+  if (c && us <= c.source_end_us) return c.edited_start_us + (us - c.source_start_us);
+  return spliceAt(tl, i + 1);
+}
+
+/** Индекс последнего клипа с `edited_start_us <= us` (граница принадлежит следующему клипу). */
+function clipAtEdited(tl: EditedTimeline, us: number, strict: boolean): number {
+  let lo = 0;
+  let hi = tl.clips.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    const s = tl.clips[mid]!.edited_start_us;
+    if (strict ? s < us : s <= us) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo - 1;
+}
+
+/** edited → source. Граница клипов принадлежит следующему клипу; конец edited — конец последнего клипа. */
+export function editedToSource(tl: EditedTimeline, us: number): number {
+  checkUs(us, tl.duration_us, "edited-время");
+  const c = tl.clips[clipAtEdited(tl, us, false)];
+  if (!c) return 0; // всё вырезано: edited пуст
+  if (us >= clipEnd(c)) return c.source_end_us;
+  return c.source_start_us + (us - c.edited_start_us);
+}
+
+/** Конец диапазона в edited → source: граница клипов принадлежит предыдущему клипу. */
+function editedEndToSource(tl: EditedTimeline, us: number): number {
+  const c = tl.clips[clipAtEdited(tl, us, true)];
+  if (!c) return tl.clips[0]?.source_start_us ?? 0;
+  return c.source_start_us + (us - c.edited_start_us);
+}
+
+/** Длительность оставленной части `[s, e)` исходника. */
+function keptLength(tl: EditedTimeline, s: number, e: number): number {
+  let total = 0;
+  for (let i = Math.max(0, firstClipFrom(tl, s + 1) - 1); i < tl.clips.length; i++) {
+    const c = tl.clips[i]!;
+    if (c.source_start_us >= e) break;
+    total += Math.max(0, Math.min(e, c.source_end_us) - Math.max(s, c.source_start_us));
+  }
+  return total;
+}
+
+/** Пересечение с исходником; диапазон целиком за его концом (кроме точки ровно на конце) — `null`. */
+function clampRange(tl: EditedTimeline, r: UsRange): UsRange | null {
+  checkRange(r);
+  const max = tl.source_duration_us;
+  if (r.start_us > max || (r.start_us === max && r.end_us > max)) return null;
+  return { start_us: r.start_us, end_us: Math.min(r.end_us, max) };
+}
+
+function mapClamped(tl: EditedTimeline, r: UsRange | null): { range: UsRange; whole: boolean; kept: number } | null {
+  if (!r) return null;
+  if (r.start_us === r.end_us) {
+    const p = sourceToEdited(tl, r.start_us);
+    return p.inCut ? null : { range: { start_us: p.us, end_us: p.us }, whole: true, kept: 0 };
+  }
+  const kept = keptLength(tl, r.start_us, r.end_us);
+  if (kept === 0) return null;
+  return {
+    range: { start_us: sourceToEdited(tl, r.start_us).us, end_us: sourceEndToEdited(tl, r.end_us) },
+    whole: kept === r.end_us - r.start_us,
+    kept,
+  };
+}
+
+/**
+ * Диапазон исходника → edited (оставленная часть; вырезки внутри схлопываются в склейку).
+ * Целиком вырезанный — `null`. Часть за концом исходника отбрасывается.
+ */
+export function mapRange(tl: EditedTimeline, r: UsRange): UsRange | null {
+  return mapClamped(tl, clampRange(tl, r))?.range ?? null;
+}
+
+/**
+ * Положение слова в edited:
+ * - `kept` — слово оставлено целиком (в том числе короче кадра);
+ * - `clipped` — вырезка задевает слово, но на таймлайне осталась не меньше половины его длительности
+ *   и больше одного кадра `tl.fps`;
+ * - `removed` — вырезано целиком ИЛИ от него осталась полоска: меньше половины длительности или
+ *   не больше кадра. Границы вырезок выравниваются к ближайшему кадру (`buildTimeline`, `cutForWords`),
+ *   поэтому от слова, вырезанного пользователем целиком, может остаться до ½ кадра с каждого края —
+ *   зритель его не слышит, и для цитат, якорей сцен (`anchor_cut`) и входа агентов оно вырезано.
+ */
+export type WordMapping =
+  | { state: "kept" | "clipped"; edited_start_us: number; edited_end_us: number }
+  | { state: "removed" };
+
+/** Положение слов в edited (`WordMapping`): `kept` — целиком, `clipped` — заметная часть, `removed` — вырезано или полоска. */
+export function mapWords(
+  tl: EditedTimeline, words: Pick<TranscriptWord, "id" | "start_us" | "end_us">[],
+): Record<string, WordMapping> {
+  const out: Record<string, WordMapping> = {};
+  const frameUs = Math.ceil((1_000_000 * tl.fps.den) / tl.fps.num);
+  for (const word of words) {
+    const m = mapClamped(tl, clampRange(tl, { start_us: word.start_us, end_us: word.end_us }));
+    const strip = m !== null && !m.whole && (2 * m.kept < word.end_us - word.start_us || m.kept <= frameUs);
+    out[word.id] = m && !strip
+      ? { state: m.whole ? "kept" : "clipped", edited_start_us: m.range.start_us, edited_end_us: m.range.end_us }
+      : { state: "removed" };
+  }
+  return out;
+}
+
+export type HeardRangeResult =
+  | { ok: true }
+  | { ok: false; code: "anchor_in_cut" | "quote_mismatch" | "unknown_word" | "order"; message: string };
+
+/**
+ * Правило «цитата = то, что слышит зритель» (Task 31, ревью I1) — общее для смысловой разметки
+ * (`validateSemantic`), сцен плана (`buildPlanItems`) и перепроверки плана после новой ревизии EDL
+ * (`recheckPlan`, Task 32). `words` — слова транскрипта по порядку вместе с вырезанными, `wordMap` —
+ * `mapWords(tl, words)`; слово без записи считается вырезанным, `clipped` — обычное слово.
+ * - id нет → `unknown_word`; граничное слово вырезано целиком → `anchor_in_cut`; начало после конца → `order`;
+ * - цитата сверяется (`verifyQuote`) с оставленными словами диапазона: вырезанные внутри
+ *   (паразит, повтор) допустимы, если цитата их не содержит; совпала только вместе с вырезанными —
+ *   опора на вырезанное → `anchor_in_cut`; иначе `quote_mismatch`;
+ * - без `quote` — только диапазон (главы, спорное).
+ */
+export function checkHeardRange(
+  words: Pick<TranscriptWord, "id" | "text">[], wordMap: Record<string, WordMapping | undefined>,
+  startWordId: string, endWordId: string, quote?: string,
+): HeardRangeResult {
+  const si = words.findIndex((x) => x.id === startWordId);
+  const ei = words.findIndex((x) => x.id === endWordId);
+  if (si < 0 || ei < 0) return { ok: false, code: "unknown_word", message: `нет слова ${si < 0 ? startWordId : endWordId}` };
+  const heardWord = (i: number) => {
+    const st = wordMap[words[i]!.id]?.state;
+    return st === "kept" || st === "clipped";
+  };
+  for (const [i, x] of [[si, startWordId], [ei, endWordId]] as const) {
+    if (!heardWord(i)) return { ok: false, code: "anchor_in_cut", message: `граничное слово ${x} вырезано монтажом` };
+  }
+  if (si > ei) return { ok: false, code: "order", message: `слово ${startWordId} идёт после ${endWordId}` };
+  if (quote === undefined) return { ok: true };
+  const heard = words.slice(si, ei + 1).filter((_, k) => heardWord(si + k));
+  if (verifyQuote(heard, heard[0]!.id, heard.at(-1)!.id, quote).ok) return { ok: true };
+  if (heard.length < ei - si + 1 && verifyQuote(words, startWordId, endWordId, quote).ok) {
+    return { ok: false, code: "anchor_in_cut", message: "цитата содержит слова, вырезанные монтажом" };
+  }
+  return { ok: false, code: "quote_mismatch", message: `цитата не совпадает с оставленными словами ${startWordId}…${endWordId}` };
+}
+
+/**
+ * Диапазон сцены по словам: edited-диапазон слов `[start.start_us, end.end_us)` с полями `pad`
+ * (в edited, в пределах `[0, duration_us]`), его границы в source и покрывающие кадры
+ * `[floor(start), ceil(end))` на `tl.fps`. Граничное слово вырезано целиком → `anchor_in_cut`;
+ * конец последнего слова раньше начала первого → `order`. Вставленное слово нулевой длины без полей
+ * даёт пустой диапазон (`start_us === end_us`), который `ScenePlanItem.edited` не примет: вызывающий
+ * задаёт `pad` или отклоняет сцену с понятным кодом (Task 32).
+ */
+export function rangeFromWords(
+  tl: EditedTimeline, words: Pick<TranscriptWord, "id" | "start_us" | "end_us">[],
+  startWordId: string, endWordId: string, pad: { preUs: number; postUs: number },
+): { edited: UsRange; source: UsRange; frames: { start: number; end: number } } {
+  if (!(pad.preUs >= 0) || !(pad.postUs >= 0) || !Number.isSafeInteger(pad.preUs) || !Number.isSafeInteger(pad.postUs)) {
+    throw new RangeError(`поля должны быть целыми >= 0: ${pad.preUs}, ${pad.postUs}`);
+  }
+  const si = words.findIndex((x) => x.id === startWordId);
+  const ei = words.findIndex((x) => x.id === endWordId);
+  if (si < 0 || ei < 0) throw new TimelineError("unknown_word", `нет слова ${si < 0 ? startWordId : endWordId}`);
+  const sw = words[si]!;
+  const ew = words[ei]!;
+  if (si > ei || ew.end_us < sw.start_us) throw new TimelineError("order", `слово ${startWordId} идёт после ${endWordId}`);
+  for (const x of [sw, ew]) {
+    if (!mapClamped(tl, clampRange(tl, { start_us: x.start_us, end_us: x.end_us }))) {
+      throw new TimelineError("anchor_in_cut", `граничное слово ${x.id} вырезано`);
+    }
+  }
+  const core = mapRange(tl, { start_us: sw.start_us, end_us: ew.end_us });
+  // слова перекрываются так, что между началом первого и концом последнего всё вырезано
+  if (!core) throw new TimelineError("anchor_in_cut", `диапазон ${startWordId}–${endWordId} вырезан`);
+  const edited = { start_us: Math.max(0, core.start_us - pad.preUs), end_us: Math.min(tl.duration_us, core.end_us + pad.postUs) };
+  return {
+    edited,
+    source: { start_us: editedToSource(tl, edited.start_us), end_us: editedEndToSource(tl, edited.end_us) },
+    frames: { start: usToFrame(edited.start_us, tl.fps), end: usToFrameCeil(edited.end_us, tl.fps) },
+  };
+}

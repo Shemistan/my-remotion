@@ -1,6 +1,7 @@
 {
   "extends": "../tsconfig.base.json",
-  "include": ["src", "test"],
+  // bench-set.mts и night.mts — скрипты поверх модулей сервера, проверяются вместе с ними.
+  "include": ["src", "test", "../scripts/bench-set.mts", "../scripts/night.mts"],
   // Фикстуры — код сцен (JSX, DOM), проверяется typecheckVersion в тестах, а не tsc сервера.
   "exclude": ["test/fixtures"]
 }

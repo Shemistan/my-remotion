@@ -1,0 +1,135 @@
+[
+  {
+    "id": "v2.job",
+    "title": "правка «фиолетовые тона» completed",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"sceneId\":\"scn_01M5N0KGPKY44E27KDYK57THCS\",\"jobId\":\"job_01M5N0ZFYXT2G5Q38M235M07CM\",\"versionId\":\"ver_01M5N12D1R0NZPK1725TM754WS\",\"status\":\"completed\",\"wallMs\":97710}"
+  },
+  {
+    "id": "v3.job",
+    "title": "правка Test 3 completed",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"sceneId\":\"scn_01M5N0KGPKY44E27KDYK57THCS\",\"jobId\":\"job_01M5N12FATA8K81DZQHS4X1XSX\",\"versionId\":\"ver_01M5N15578NWJZCR19TN4XBSQD\",\"status\":\"completed\",\"wallMs\":89894}"
+  },
+  {
+    "id": "v2.parent",
+    "title": "v2 от v1, палитра изменена",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"parent\":\"ver_01M5N0ZD9S4ASRX8P0P9KDF314\",\"plan\":\"param\",\"palette\":{\"bg\":\"#0d0916\",\"surface\":\"#1a1330\",\"text\":\"#f5f1ff\",\"muted\":\"#a094c8\",\"accent\":[\"#a78bfa\",\"#e879f9\",\"#6d5efc\"],\"positive\":\"#c084fc\",\"negative\":\"#f472b6\"}}"
+  },
+  {
+    "id": "t3.parent",
+    "title": "v3 от текущей (v2)",
+    "kind": "A",
+    "pass": true,
+    "detail": "ver_01M5N12D1R0NZPK1725TM754WS"
+  },
+  {
+    "id": "t3.speed",
+    "title": "скорость −25 %: duration_frames × 4/3 ± 1",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"v2\":180,\"v3\":240,\"want\":240,\"settings\":240}"
+  },
+  {
+    "id": "t3.beats",
+    "title": "границы битов × 4/3 ± 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"request-in: 24 → 32\",\"graph-build: 64 → 85\",\"request-flow: 84 → 112\",\"tool-calls: 84 → 112\",\"tool-returns: 84 → 112\",\"assemble-emphasis: 104 → 139\",\"answer-emphasis: 128 → 171\",\"answer-flight: 128 → 171\",\"hold: 180 → 240\"]"
+  },
+  {
+    "id": "t3.palette",
+    "title": "палитра = токены v1",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"v1\":{\"bg\":\"#07080d\",\"surface\":\"#12141c\",\"text\":\"#f3f4f8\",\"muted\":\"#8b91a5\",\"accent\":[\"#8b7cff\",\"#45d6c0\",\"#f4b56a\"],\"positive\":\"#45d6c0\",\"negative\":\"#ff6b81\"},\"v3\":{\"bg\":\"#07080d\",\"surface\":\"#12141c\",\"text\":\"#f3f4f8\",\"muted\":\"#8b91a5\",\"accent\":[\"#8b7cff\",\"#45d6c0\",\"#f4b56a\"],\"positive\":\"#45d6c0\",\"negative\":\"#ff6b81\"}}"
+  },
+  {
+    "id": "t3.depth",
+    "title": "карточки объёмнее: depth вырос",
+    "kind": "A+H",
+    "pass": true,
+    "detail": "{\"v2\":1,\"v3\":2}"
+  },
+  {
+    "id": "t3.composition",
+    "title": "композиция: позиции узлов spec/props ± 2 % кадра",
+    "kind": "A",
+    "pass": true,
+    "detail": "[]"
+  },
+  {
+    "id": "t3.hold",
+    "title": "кадр hold v2 ↔ v3: тексты на тех же местах (реестр раскладки)",
+    "kind": "A+H",
+    "pass": true,
+    "detail": "{\"v2\":8,\"v3\":8,\"diff\":[]}"
+  },
+  {
+    "id": "t3.hold-pipeline",
+    "title": "пайплайн правки сам сверил кадр hold с базой",
+    "kind": "A",
+    "pass": true,
+    "detail": "сверка кадра hold базы 179 ↔ 239: 8 → 8 текстов, расхождений 0"
+  },
+  {
+    "id": "t3.content-frames",
+    "title": "кадровые величины content × 4/3 (travel, stagger…)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"factor\":1.3333333333,\"scaled\":17,\"bad\":[]}"
+  },
+  {
+    "id": "t3.gate",
+    "title": "технический gate pass",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"technical\":\"pass\",\"visual\":\"warn\",\"semantic\":\"pass\",\"style\":\"pass\"}"
+  },
+  {
+    "id": "t3.duration",
+    "title": "превью v3: длительность ± 1 кадр, размер = настройки × 0,5",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"video\":{\"index\":0,\"codec_name\":\"h264\",\"codec_long_name\":\"H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10\",\"profile\":\"High\",\"codec_type\":\"video\",\"codec_tag_string\":\"avc1\",\"codec_tag\":\"0x31637661\",\"width\":960,\"height\":540,\"coded_width\":960,\"coded_height\":540,\"closed_captions\":0,\"film_grain\":0,\"has_b_frames\":2,\"sample_aspect_ratio\":\"1:1\",\"display_aspect_ratio\":\"16:9\",\"pix_fmt\":\"yuv420p\",\"level\":31,\"color_range\":\"tv\",\"color_transfer\":\"iec61966-2-1\",\"color_primaries\":\"bt709\",\"chroma_location\":\"left\",\"field_order\":\"progressive\",\"refs\":1,\"is_avc\":\"true\",\"nal_length_size\":\"4\",\"id\":\"0x1\",\"r_frame_rate\":\"30/1\",\"avg_frame_rate\":\"30/1\",\"time_base\":\"1/90000\",\"start_pts\":0,\"start_time\":\"0.000000\",\"duration_ts\":720000,\"duration\":\"8.000000\",\"bit_rate\":\"279402\",\"bits_per_raw_sample\":\"8\",\"nb_frames\":\"240\",\"extradata_size\":51,\"disposition\":{\"default\":1,\"dub\":0,\"original\":0,\"comment\":0,\"lyrics\":0,\"karaoke\":0,\"forced\":0,\"hearing_impaired\":0,\"visual_impaired\":0,\"clean_effects\":0,\"attached_pic\":0,\"timed_thumbnails\":0,\"non_diegetic\":0,\"captions\":0,\"descriptions\":0,\"metadata\":0,\"dependent\":0,\"still_image\":0,\"multilayer\":0},\"tags\":{\"language\":\"und\",\"handler_name\":\"VideoHandler\",\"vendor_id\":\"[0][0][0][0]\"}},\"durationS\":8}"
+  },
+  {
+    "id": "ui.v1",
+    "title": "v1 открывается и проигрывается",
+    "kind": "A",
+    "pass": true,
+    "detail": "currentTime 0.89"
+  },
+  {
+    "id": "ui.v2",
+    "title": "v2 открывается и проигрывается",
+    "kind": "A",
+    "pass": true,
+    "detail": "currentTime 0.88"
+  },
+  {
+    "id": "ui.v3",
+    "title": "v3 открывается и проигрывается",
+    "kind": "A",
+    "pass": true,
+    "detail": "currentTime 0.88"
+  },
+  {
+    "id": "ui.compare",
+    "title": "сравнение v2 ↔ v3: /timing/duration_frames было → стало",
+    "kind": "A",
+    "pass": true,
+    "detail": "/timing/duration_frames180240"
+  },
+  {
+    "id": "t3.export",
+    "title": "экспорт v3 MP4 до перезапуска",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"video\":{\"index\":0,\"codec_name\":\"h264\",\"codec_long_name\":\"H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10\",\"profile\":\"High\",\"codec_type\":\"video\",\"codec_tag_string\":\"avc1\",\"codec_tag\":\"0x31637661\",\"width\":1920,\"height\":1080,\"coded_width\":1920,\"coded_height\":1080,\"closed_captions\":0,\"film_grain\":0,\"has_b_frames\":2,\"sample_aspect_ratio\":\"1:1\",\"display_aspect_ratio\":\"16:9\",\"pix_fmt\":\"yuv420p\",\"level\":40,\"color_range\":\"tv\",\"color_transfer\":\"iec61966-2-1\",\"color_primaries\":\"bt709\",\"chroma_location\":\"left\",\"field_order\":\"progressive\",\"refs\":1,\"is_avc\":\"true\",\"nal_length_size\":\"4\",\"id\":\"0x1\",\"r_frame_rate\":\"30/1\",\"avg_frame_rate\":\"30/1\",\"time_base\":\"1/90000\",\"start_pts\":0,\"start_time\":\"0.000000\",\"duration_ts\":720000,\"duration\":\"8.000000\",\"bit_rate\":\"3624265\",\"bits_per_raw_sample\":\"8\",\"nb_frames\":\"240\",\"extradata_size\":51,\"disposition\":{\"default\":1,\"dub\":0,\"original\":0,\"comment\":0,\"lyrics\":0,\"karaoke\":0,\"forced\":0,\"hearing_impaired\":0,\"visual_impaired\":0,\"clean_effects\":0,\"attached_pic\":0,\"timed_thumbnails\":0,\"non_diegetic\":0,\"captions\":0,\"descriptions\":0,\"metadata\":0,\"dependent\":0,\"still_image\":0,\"multilayer\":0},\"tags\":{\"language\":\"und\",\"handler_name\":\"VideoHandler\",\"vendor_id\":\"[0][0][0][0]\"}},\"audio\":{\"index\":1,\"codec_name\":\"aac\",\"codec_long_name\":\"AAC (Advanced Audio Coding)\",\"profile\":\"LC\",\"codec_type\":\"audio\",\"codec_tag_string\":\"mp4a\",\"codec_tag\":\"0x6134706d\",\"sample_fmt\":\"fltp\",\"sample_rate\":\"48000\",\"channels\":2,\"channel_layout\":\"stereo\",\"bits_per_sample\":0,\"initial_padding\":0,\"id\":\"0x2\",\"r_frame_rate\":\"0/0\",\"avg_frame_rate\":\"0/0\",\"time_base\":\"1/48000\",\"start_pts\":0,\"start_time\":\"0.000000\",\"duration_ts\":384000,\"duration\":\"8.000000\",\"bit_rate\":\"317374\",\"nb_frames\":\"377\",\"extradata_size\":2,\"disposition\":{\"default\":1,\"dub\":0,\"original\":0,\"comment\":0,\"lyrics\":0,\"karaoke\":0,\"forced\":0,\"hearing_impaired\":0,\"visual_impaired\":0,\"clean_effects\":0,\"attached_pic\":0,\"timed_thumbnails\":0,\"non_diegetic\":0,\"captions\":0,\"descriptions\":0,\"metadata\":0,\"dependent\":0,\"still_image\":0,\"multilayer\":0},\"tags\":{\"language\":\"und\",\"handler_name\":\"SoundHandler\",\"vendor_id\":\"[0][0][0][0]\"}},\"durationS\":8}"
+  }
+]

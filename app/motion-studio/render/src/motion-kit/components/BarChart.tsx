@@ -2,19 +2,21 @@
 // от базовой линии каскадом на пружине, над каждым едет подпись-счётчик AnimatedNumber,
 // привязанная к высоте столбца. После роста — акцент: выделенный столбец (`highlight`)
 // разгорается и получает световой столб, остальные уходят в нейтральный тон.
-import type { Beat } from "@ms/contracts";
+import type { Beat, StyleBible } from "@ms/contracts";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import { barLayout } from "../bars.js";
-import { EASE, easingOf, frames, springAt } from "../easing.js";
+import { EASE, easingOf, fpsFrames, frames, springAt } from "../easing.js";
 import { clamp01, ramp, useSvgId } from "../internal.js";
 import { useStyle } from "../style.js";
-import { niceTicks } from "../ticks.js";
+import { axisTicks } from "../ticks.js";
 import { typeSize } from "../style/type-scale.js";
 import { accent, alpha, fontFamily, isDark, mix } from "../tokens.js";
 import { AnimatedNumber } from "./AnimatedNumber.js";
 import { chartAxis, chartPad } from "./LineChart.js";
 
 export interface BarChartProps {
+  /** До входа (0.4.0): `silhouette` (по умолчанию) — тихий контур с кадра 0 (кадр-постер); `hidden` — пусто. */
+  pre?: "silhouette" | "hidden";
   bars: { label: string; value: number }[];
   beat: Pick<Beat, "start_frame" | "end_frame">;
   /** Индекс выделенного столбца: после роста он разгорается, остальные гаснут в нейтральный тон. */
@@ -43,6 +45,11 @@ export function barTimings(beat: Pick<Beat, "start_frame" | "end_frame">, n: num
   return { growStart, step, startOf: (i: number) => growStart + i * step, focusAt: growStart + (n - 1) * step + L * 0.22 };
 }
 
+/** Конец проявления оси: 8 кадров при 30 fps от начала бита, в секундах при любом fps. */
+export function axisFadeEnd(s: StyleBible, start: number): number {
+  return start + fpsFrames(s, 8);
+}
+
 export function BarChart({
   bars,
   beat,
@@ -56,6 +63,7 @@ export function BarChart({
   valueSuffix,
   yTicks = 4,
   gapRatio = 0.38,
+  pre = "silhouette",
 }: BarChartProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
@@ -69,7 +77,7 @@ export function BarChart({
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
   const values = bars.map((b) => b.value);
-  const ticks = niceTicks(0, Math.max(...values, 1), yTicks);
+  const ticks = axisTicks(0, Math.max(...values, 1), yTicks);
   const yMax = ticks.at(-1)!;
   const toY = (v: number) => pad.top + innerH - (v / (yMax || 1)) * innerH;
   const rects = barLayout(values, { x: pad.left, y: pad.top, w: innerW, h: innerH }, gapRatio, { max: yMax });
@@ -96,7 +104,7 @@ export function BarChart({
         </filter>
       </defs>
 
-      {chartAxis({ s, frame, beat, ticks, toY, innerW, locale, compact, pad })}
+      {chartAxis({ s, frame, beat, ticks, toY, innerW, locale, compact, pad, pre: pre !== "hidden" })}
 
       {rects.map((r, i) => {
         const t0 = startOf(i);
@@ -160,7 +168,7 @@ export function BarChart({
           </g>
         );
       })}
-      <line x1={pad.left} x2={pad.left + innerW} y1={baseY} y2={baseY} stroke={alpha(s.palette.text, 0.28)} strokeWidth={1.5} opacity={ramp(frame, beat.start_frame, beat.start_frame + 8)} />
+      <line x1={pad.left} x2={pad.left + innerW} y1={baseY} y2={baseY} stroke={alpha(s.palette.text, 0.28)} strokeWidth={1.5} opacity={ramp(frame, beat.start_frame, axisFadeEnd(s, beat.start_frame))} />
     </svg>
   );
 }

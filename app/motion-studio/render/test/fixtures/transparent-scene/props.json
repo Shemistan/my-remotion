@@ -1,0 +1,11 @@
+{
+  "timing": {
+    "duration_frames": 90,
+    "beats": [
+      { "id": "cards", "start_frame": 15, "end_frame": 60 },
+      { "id": "title", "start_frame": 0, "end_frame": 90 }
+    ]
+  },
+  "style": { "preset": "dark-premium", "intensity": "balanced", "depth": 1, "transparent": true },
+  "content": { "title": "Прозрачный экспорт", "stagger": 6 }
+}

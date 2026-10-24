@@ -4,7 +4,7 @@ import * as jobEvents from "../../src/db/repos/job-events.js";
 import { enqueue } from "../../src/jobs/queue.js";
 import { JobRunner, isStorageError, type JobRunnerOptions } from "../../src/jobs/runner.js";
 import { EventBus } from "../../src/jobs/events.js";
-import { LEASE_MS } from "../../src/jobs/limits.js";
+import { AGENT_CALLS, LEASE_MS, RENDERS } from "../../src/jobs/limits.js";
 import { registerHandlers } from "../../src/jobs/handlers.js";
 import type { JobContext, JobHandler } from "../../src/jobs/types.js";
 import { deferred, edit, job, req, setupDb, teardownDb, until, type JobsEnv } from "./helpers.js";
@@ -47,7 +47,9 @@ it("задача выполняется: контекст попытки, comple
   r.start();
   await until(() => jobs.get(env.db, j.id)!.status === "completed", "completed");
   expect(jobs.get(env.db, j.id)!.output_refs).toEqual({ ok: 1 });
-  expect(seen!.run).toEqual({ root: env.s.root, runId: j.id, attempt: 1 });
+  expect(seen!.run).toMatchObject({ root: env.s.root, runId: j.id, attempt: 1 });
+  // реестр процессов попытки (Task 13): по умолчанию — файловый
+  expect(typeof seen!.run.registry.live).toBe("function");
   expect(seen!.attempt).toBe(1);
   expect(seen!.job.status).toBe("running");
   expect(seen!.fenceOk()).toBe(false); // задача уже завершена
@@ -82,7 +84,7 @@ it("лимит maxRunning 2: третья задача не стартует, п
   expect(jobs.list(env.db, { status: "pending" }).map((x) => x.idempotency_key)).toEqual(["c"]);
 });
 
-it("семафоры общие для задач: heavy = 1 — вторая ждёт, agents = 2, renders = 1", async () => {
+it("семафоры общие для задач: heavy = 1 — вторая ждёт, agents = AGENT_CALLS, renders = RENDERS", async () => {
   const held = deferred();
   const order: string[] = [];
   const handler: JobHandler = async (ctx) => {
@@ -103,11 +105,39 @@ it("семафоры общие для задач: heavy = 1 — вторая ж
   await new Promise((res) => setTimeout(res, 20));
   expect(order).toEqual(["in:a"]);
   expect(ctxB!.heavy.available()).toBe(0); // место у a — семафор общий
-  expect(ctxA!.agents.available()).toBe(2);
-  expect(ctxA!.renders.available()).toBe(1);
+  expect(ctxA!.agents.available()).toBe(AGENT_CALLS);
+  expect(ctxA!.renders.available()).toBe(RENDERS);
   held.resolve();
   await until(() => jobs.list(env.db, { status: "completed" }).length === 2, "обе завершены");
   expect(order).toEqual(["in:a", "out:a", "in:b", "out:b"]);
+});
+
+it("S5 п. 6: раннер по умолчанию — 2 рендера и 5 агентных вызовов одновременно, лишний ждёт места", async () => {
+  const peak = { renders: 0, agents: 0 };
+  const now = { renders: 0, agents: 0 };
+  const hold = deferred();
+  const use = async (ctx: JobContext, kind: "renders" | "agents") => {
+    const release = await ctx[kind].acquire(ctx.signal);
+    now[kind]++;
+    peak[kind] = Math.max(peak[kind], now[kind]);
+    await hold.promise;
+    now[kind]--;
+    release();
+  };
+  const r = make({
+    "playground.generate": async (ctx) => {
+      // два дубля и лишний: 3 рендера и 6 агентных вызовов одной задачи наперегонки
+      await Promise.all([...Array.from({ length: 3 }, () => use(ctx, "renders")), ...Array.from({ length: 6 }, () => use(ctx, "agents"))]);
+      return { status: "completed", outputRefs: {} };
+    },
+  });
+  const j = enqueue(env.db, req()).job;
+  r.start();
+  await until(() => now.renders === 2 && now.agents === 5, "места заняты");
+  await new Promise((res) => setTimeout(res, 30));
+  expect(peak).toEqual({ renders: 2, agents: 5 });
+  hold.resolve();
+  await until(() => jobs.get(env.db, j.id)!.status === "completed", "completed");
 });
 
 it("heartbeat продлевает lease по часам раннера; progress пишет этап", async () => {
@@ -202,9 +232,11 @@ it("awaiting_input от обработчика; общий EventBus получа
   expect(live).toEqual(["started", "awaiting_input"]);
 });
 
-it("registerHandlers: точка регистрации обработчиков", () => {
+it("registerHandlers: playground.generate — обработчик пайплайна; extra дописывает свои типы", () => {
   const h: JobHandler = async () => ({ status: "completed", outputRefs: {} });
-  expect(registerHandlers({ "scene.export": h })["scene.export"]).toBe(h);
+  const hs = registerHandlers({} as never, {}, { "scene.export": h });
+  expect(hs["scene.export"]).toBe(h);
+  expect(typeof hs["playground.generate"]).toBe("function");
 });
 
 it("места семафоров возвращаются, если обработчик бросил исключение, держа heavy", async () => {

@@ -1,0 +1,455 @@
+{
+  "title": "Очередь между заказами и складом",
+  "purpose": "Очередь orders.created — буфер: сервис заказов отправляет заказ и сразу свободен, склад забирает сообщения по одному в своём темпе, поэтому сервисы не ждут друг друга.",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "composition": {
+    "archetype": "network-centric",
+    "idea": "Чертёж из трёх узлов: слева «Сервис заказов», в центре крупная труба-очередь «orders.created» со стопкой ждущих заказов, справа «Склад». Взгляд идёт слева направо: заказ #4821 падает в очередь, отправитель сразу получает «Принято», а склад вытягивает заказы по одному. Очередь пустеет, склад «Зарезервировано».",
+    "focus": "Камера стоит: взгляд ведут токены, вспышки склада и смена статусов. В конце акцент держит узел «Склад».",
+    "transitions": "Стопка в очереди растёт с 2 до 3 заказов, потом тает. Статусы сменяются на месте. До конца остаются схема, дышащий склад и вывод «Сервисы не ждут друг друга».",
+    "title_mode": "integrated",
+    "background": {
+      "variant": "blueprint",
+      "focus": {
+        "x": 0.5,
+        "y": 0.45
+      },
+      "seed": "scn_01M5FK5TF1VSVXBXXJBBRW1WXT"
+    }
+  },
+  "elements": [
+    {
+      "id": "queue-graph",
+      "kind": "graph",
+      "role": "опора: схема обмена через очередь",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "FlowGraph",
+        "edges": [
+          {
+            "id": "e-publish",
+            "from": "node-orders",
+            "to": "node-queue"
+          },
+          {
+            "id": "e-consume",
+            "from": "node-queue",
+            "to": "node-warehouse"
+          }
+        ],
+        "flows": [
+          {
+            "edge": "e-publish",
+            "direction": "forward",
+            "beat": "publish",
+            "count": 1,
+            "repeat": false,
+            "travel": 14
+          },
+          {
+            "edge": "e-consume",
+            "direction": "forward",
+            "beat": "consume-1",
+            "count": 1,
+            "repeat": false,
+            "travel": 22
+          },
+          {
+            "edge": "e-consume",
+            "direction": "forward",
+            "beat": "consume-2",
+            "count": 1,
+            "repeat": false,
+            "travel": 22
+          },
+          {
+            "edge": "e-consume",
+            "direction": "forward",
+            "beat": "consume-3",
+            "count": 1,
+            "repeat": false,
+            "travel": 22
+          }
+        ],
+        "note": "Публикация быстрая (travel 14), склад забирает медленнее (travel 22) и строго по одному: следующий проход стартует только после прихода предыдущего. Узлы и токены — в overlay. Рёбра рисуются, когда на месте оба узла."
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.06,
+        "w": 1,
+        "h": 0.7
+      }
+    },
+    {
+      "id": "node-orders",
+      "kind": "card",
+      "role": "node: отправитель — сервис заказов",
+      "entrance": "slide",
+      "depth_layer": 1,
+      "content": {
+        "label": "Сервис заказов",
+        "caption": "публикует событие",
+        "size": "body",
+        "elevation": 2,
+        "enter": "slide",
+        "enterAt": 0
+      },
+      "layout": {
+        "x": 0,
+        "y": 0.3,
+        "w": 0.25,
+        "h": 0.26
+      }
+    },
+    {
+      "id": "node-queue",
+      "kind": "card",
+      "role": "герой: очередь-буфер",
+      "entrance": "pop",
+      "depth_layer": 1,
+      "content": {
+        "label": "orders.created",
+        "caption": "очередь сообщений",
+        "size": "h2",
+        "elevation": 3,
+        "enter": "pop",
+        "enterAt": 6,
+        "slot": true,
+        "slot_capacity": 3,
+        "note": "Самый крупный узел. Высота с запасом под стопку из трёх токенов (каждый — строка caption) под подписью; токены не ложатся на подпись."
+      },
+      "layout": {
+        "x": 0.34,
+        "y": 0.16,
+        "w": 0.32,
+        "h": 0.48
+      }
+    },
+    {
+      "id": "node-warehouse",
+      "kind": "card",
+      "role": "node: получатель — склад",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "label": "Склад",
+        "caption": "резервирует товар",
+        "size": "body",
+        "elevation": 2,
+        "enter": "blur",
+        "enterAt": 12,
+        "slot": true,
+        "flash_on": "e-consume",
+        "accentIndex": 0,
+        "emphasis": {
+          "beat": "final-emphasis",
+          "loop": true,
+          "ring": "strike"
+        }
+      },
+      "layout": {
+        "x": 0.76,
+        "y": 0.28,
+        "w": 0.24,
+        "h": 0.3
+      }
+    },
+    {
+      "id": "token-4819",
+      "kind": "card",
+      "role": "данные: заказ, который уже ждёт в очереди",
+      "entrance": "rise",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "#4819 · Puma ×1",
+        "dock": "slot of node-queue, row 1",
+        "appear_beat": "queued-in",
+        "edge": "e-consume",
+        "flight_beat": "consume-1",
+        "travel": 22,
+        "stay": false,
+        "note": "Лежит в слоте очереди со входа (rise, index 0). В consume-1 тот же токен улетает по e-consume на склад и гаснет на приходе: его место займёт статус склада."
+      },
+      "layout": {
+        "x": 0.36,
+        "y": 0.4,
+        "w": 0.28,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "token-4820",
+      "kind": "card",
+      "role": "данные: второй заказ в очереди",
+      "entrance": "rise",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "#4820 · Asics ×3",
+        "dock": "slot of node-queue, row 2",
+        "appear_beat": "queued-in",
+        "appear_index": 1,
+        "edge": "e-consume",
+        "flight_beat": "consume-2",
+        "travel": 22,
+        "stay": false,
+        "note": "Вход rise со сдвигом stagger 4 кадра после #4819. После ухода #4819 поднимается на верхнюю строку стопки (FIFO) и улетает в consume-2."
+      },
+      "layout": {
+        "x": 0.36,
+        "y": 0.47,
+        "w": 0.28,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "token-4821",
+      "kind": "card",
+      "role": "данные: новый заказ",
+      "entrance": "slide",
+      "depth_layer": 2,
+      "content": {
+        "component": "DataToken",
+        "label": "#4821 · Nike Air ×2",
+        "edge": "e-publish",
+        "flight_beat": "publish",
+        "travel": 14,
+        "dock": "slot of node-queue, row 3",
+        "then": {
+          "edge": "e-consume",
+          "flight_beat": "consume-3",
+          "travel": 22,
+          "stay": true,
+          "dock": "slot of node-warehouse"
+        },
+        "accentIndex": 2,
+        "note": "Вылетает из сервиса заказов, ложится третьей строкой в очередь, сдвигается вверх по мере ухода предыдущих, в consume-3 улетает на склад и остаётся в его слоте до конца — заказ записан."
+      },
+      "layout": {
+        "x": 0.36,
+        "y": 0.54,
+        "w": 0.28,
+        "h": 0.06
+      }
+    },
+    {
+      "id": "status-orders",
+      "kind": "shape",
+      "role": "статус отправителя на месте",
+      "entrance": "pop",
+      "depth_layer": 2,
+      "content": {
+        "component": "StatusChip",
+        "anchor": {
+          "node": "node-orders",
+          "side": "top"
+        },
+        "size": "caption",
+        "states": [
+          {
+            "text": "Отправка",
+            "tone": "neutral",
+            "on": 44
+          },
+          {
+            "text": "Принято ✓",
+            "tone": "positive",
+            "on": "e-publish"
+          }
+        ],
+        "note": "«Принято» встаёт в кадр прихода #4821 в очередь: склада отправитель не ждёт."
+      },
+      "layout": {
+        "x": 0.03,
+        "y": 0.19,
+        "w": 0.19,
+        "h": 0.07
+      }
+    },
+    {
+      "id": "status-warehouse",
+      "kind": "shape",
+      "role": "статус склада на месте",
+      "entrance": "pop",
+      "depth_layer": 2,
+      "content": {
+        "component": "StatusChip",
+        "anchor": {
+          "node": "node-warehouse",
+          "side": "top"
+        },
+        "size": "caption",
+        "states": [
+          {
+            "text": "В работе · #4819",
+            "tone": "accent",
+            "on": "e-consume arrival 1"
+          },
+          {
+            "text": "В работе · #4820",
+            "tone": "accent",
+            "on": "e-consume arrival 2"
+          },
+          {
+            "text": "В работе · #4821",
+            "tone": "accent",
+            "on": "e-consume arrival 3"
+          },
+          {
+            "text": "Зарезервировано",
+            "tone": "positive",
+            "on": 146
+          }
+        ],
+        "note": "Смена в одной точке, прошлый статус уходит вверх."
+      },
+      "layout": {
+        "x": 0.76,
+        "y": 0.17,
+        "w": 0.24,
+        "h": 0.07
+      }
+    },
+    {
+      "id": "statement",
+      "kind": "text",
+      "role": "вывод под схемой",
+      "entrance": "mask",
+      "depth_layer": 1,
+      "content": {
+        "component": "SceneTitle",
+        "mode": "integrated",
+        "text": "Сервисы не ждут друг друга",
+        "size": "h2",
+        "align": "center",
+        "note": "26 символов × 0.57 × 59 px ≈ 875 px — помещается в 1037 px. Без pill и без свечения: акцент держит склад."
+      },
+      "layout": {
+        "x": 0.2,
+        "y": 0.82,
+        "w": 0.6,
+        "h": 0.1
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "graph-in",
+      "start_frame": 0,
+      "end_frame": 40,
+      "action": "graph-entrance",
+      "description": "Чертёж виден с кадра 0. Сервис заказов въезжает слева (slide, кадр 0), очередь выстреливает из центра (pop, кадр 6), склад проявляется из расфокуса (blur, кадр 12). Рёбра e-publish и e-consume прорисовываются, когда на месте оба узла.",
+      "element_ids": [
+        "queue-graph",
+        "node-orders",
+        "node-queue",
+        "node-warehouse"
+      ]
+    },
+    {
+      "id": "queued-in",
+      "start_frame": 20,
+      "end_frame": 44,
+      "action": "queued-tokens-in",
+      "description": "В слоте очереди поднимаются два ждущих заказа: «#4819 · Puma ×1», через 4 кадра «#4820 · Asics ×3». Третья строка пустая.",
+      "element_ids": [
+        "token-4819",
+        "token-4820"
+      ]
+    },
+    {
+      "id": "publish",
+      "start_frame": 44,
+      "end_frame": 62,
+      "action": "publish-flow-in",
+      "description": "У сервиса заказов выскакивает статус «Отправка». Токен «#4821 · Nike Air ×2» за 14 кадров пролетает по e-publish и ложится третьей строкой в очередь. В кадр прихода статус на месте сменяется на «Принято ✓» (positive): отправитель свободен.",
+      "element_ids": [
+        "token-4821",
+        "status-orders",
+        "queue-graph"
+      ]
+    },
+    {
+      "id": "consume-1",
+      "start_frame": 64,
+      "end_frame": 90,
+      "action": "consume-flow-1",
+      "description": "Склад забирает первый заказ: #4819 уходит из верхней строки очереди и за 22 кадра летит по e-consume. На приходе склад вспыхивает (flash), статус склада выскакивает «В работе · #4819», токен гаснет. #4820 и #4821 сдвигаются в стопке вверх.",
+      "element_ids": [
+        "token-4819",
+        "node-warehouse",
+        "status-warehouse",
+        "queue-graph"
+      ]
+    },
+    {
+      "id": "consume-2",
+      "start_frame": 90,
+      "end_frame": 116,
+      "action": "consume-flow-2",
+      "description": "Тот же темп: #4820 летит на склад за 22 кадра, вспышка склада, статус на месте → «В работе · #4820». В очереди остался только #4821.",
+      "element_ids": [
+        "token-4820",
+        "node-warehouse",
+        "status-warehouse",
+        "queue-graph"
+      ]
+    },
+    {
+      "id": "statement-in",
+      "start_frame": 112,
+      "end_frame": 130,
+      "action": "statement-entrance",
+      "description": "Под схемой шторкой (mask, ~16 кадров) открывается «Сервисы не ждут друг друга» и стоит до конца, больше 1.5 с неподвижно.",
+      "element_ids": [
+        "statement"
+      ]
+    },
+    {
+      "id": "consume-3",
+      "start_frame": 116,
+      "end_frame": 142,
+      "action": "consume-flow-3",
+      "description": "Последний заказ #4821 уходит из очереди на склад и остаётся в слоте склада. Вспышка склада, статус «В работе · #4821». Очередь пуста, поток по рёбрам стихает.",
+      "element_ids": [
+        "token-4821",
+        "node-warehouse",
+        "status-warehouse",
+        "queue-graph"
+      ]
+    },
+    {
+      "id": "final-emphasis",
+      "start_frame": 146,
+      "end_frame": 158,
+      "action": "final-emphasis",
+      "description": "Статус склада на месте сменяется на «Зарезервировано» (positive). Удар акцента accent[0] по узлу «Склад» с одним кольцом, дальше дыхание (loop). Других акцентов в кадре нет.",
+      "element_ids": [
+        "node-warehouse",
+        "status-warehouse"
+      ]
+    },
+    {
+      "id": "hold",
+      "start_frame": 153,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "Новых входов и импульсов нет: процесс завершён. Дышат ореол и кромка узла «Склад» с лежащим в нём #4821, рядом «Зарезервировано», у отправителя стоит «Принято ✓», очередь пустая и спокойная, вывод стоит. Дыхание подтверждает итог: заказ дошёл, и никто никого не ждал. Чертёжная сетка фона тихо дрейфует.",
+      "element_ids": [
+        "node-warehouse",
+        "statement",
+        "status-warehouse",
+        "status-orders",
+        "queue-graph"
+      ]
+    }
+  ],
+  "camera": []
+}

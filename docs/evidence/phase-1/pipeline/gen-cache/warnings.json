@@ -1,0 +1,7 @@
+{
+  "warnings": [
+    "spec: нет бита акцента",
+    "spec: scene_signature_repeat (background, pill, topTitle, staticCamera): сцена повторяет подпись предыдущей «Архитектура AI-агента» (4 из 4): фон blueprint:11, без таблетки, без полосы заголовка, камера стоит"
+  ],
+  "permission_denials": []
+}

@@ -1,0 +1,15 @@
+{
+  "timing": {
+    "duration_frames": 150,
+    "beats": [
+      { "id": "title", "start_frame": 0, "end_frame": 24 },
+      { "id": "graph", "start_frame": 2, "end_frame": 40 },
+      { "id": "ask", "start_frame": 40, "end_frame": 41 },
+      { "id": "miss", "start_frame": 52, "end_frame": 53 },
+      { "id": "write", "start_frame": 80, "end_frame": 81 },
+      { "id": "hits", "start_frame": 108, "end_frame": 150 }
+    ]
+  },
+  "style": { "preset": "dark-premium", "intensity": "balanced", "depth": 1, "transparent": false, "safe_area": { "x": 0.06, "y": 0.08 } },
+  "content": {}
+}

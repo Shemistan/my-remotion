@@ -1,0 +1,7 @@
+{
+  "warnings": [
+    "spec: план count-up: p-count 0–43, p-payoff 43–86, p-hold 86–180; вывод с кадра 43, удар 43 (чтение 72, сдвиг 8)",
+    "spec: бит hero-count делят другие элементы: счёт hero-count вынесен в бит hero-count-count 6–35 за головой growth-chart (бит chart-draw)"
+  ],
+  "permission_denials": []
+}

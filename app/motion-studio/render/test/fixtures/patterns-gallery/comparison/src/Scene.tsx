@@ -1,5 +1,6 @@
 // Галерея паттернов: сравнение «Было / Стало» — ComparisonSplit с бейджем VS.
-import { Background, ComparisonSplit, KineticText, SafeArea, StyleProvider, type ResolveStyleInput } from "@ms/motion-kit";
+import {
+  Enter, Background, ComparisonSplit, KineticText, SafeArea, StyleProvider, type ResolveStyleInput } from "@ms/motion-kit";
 
 type Window = { start_frame: number; end_frame: number };
 interface Props {
@@ -16,7 +17,7 @@ export const Scene = ({ timing, style, content }: Props) => {
       <Background beat={{ start_frame: 0, end_frame: 40 }} seed="comparison" />
       <SafeArea style={{ gap: 28 }}>
         <KineticText text="Сравнение" beat={b.kicker!} mode="letters" enter="type" size="caption" font="mono" caps />
-        <KineticText text="Ручной отчёт против пайплайна" beat={b.headline!} mode="words" enter="rise" size="h1" highlight={["пайплайна"]} />
+        <Enter kind="none" pre="silhouette" beat={b.headline!}><KineticText text="Ручной отчёт против пайплайна" beat={b.headline!} mode="words" enter="rise" size="h1" highlight={["пайплайна"]} /></Enter>
         <div style={{ flex: 1, marginTop: 20 }}>
           <ComparisonSplit
             beat={b.split!}

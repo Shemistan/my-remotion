@@ -1087,3 +1087,95 @@ export async function checkSceneDir(versionDir: string): Promise<Violation[]> {
   const checked = checkSceneSource(files);
   return [...pre, ...checked].sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : a.line - b.line));
 }
+
+// --- Предупреждение: кадры литералом (Task 19 F2, ruling 2026-10-23) ---
+
+/** Предупреждение, не нарушение: сцена рендерится, но её темп не масштабируется. */
+export interface FrameLiteral {
+  file: string;
+  line: number;
+  message: string;
+}
+
+/** Число кадров, начиная с которого литерал считается зашитым моментом (меньше — сдвиги в пару кадров). */
+const FRAME_LITERAL_MIN = 6;
+/**
+ * Кадровые пропы JSX (Remotion и motion-kit). Общие имена (`at`, `duration`, `hold`) сюда не
+ * входят: у них бывает и не кадровый смысл, ложное предупреждение только сбивает Engineer.
+ */
+const FRAME_PROPS = new Set(["from", "durationInFrames", "travel", "delay", "enterAt", "until", "stagger", "exitAt"]);
+
+const MSG_FRAME_LITERAL = (what: string, n: string) =>
+  `кадры литералом (${what}: ${n}): правка темпа и экспорт в другом fps это место не масштабируют — ` +
+  "в другом fps это место может пойти быстрее или медленнее, экспорт в другой fps может отказать (fps_tempo_mismatch). " +
+  "Бери моменты из props.timing.beats, " +
+  "длительности — из props.content (travel, delay, *_frames) или токенов style.motion.*.";
+
+/** Числовые литералы ≥ порога в выражении, кроме аргументов вызовов (`frames(s, 20)` уже масштабирован). */
+function bigLiterals(e: ts.Node): string[] {
+  const out: string[] = [];
+  const walk = (n: ts.Node) => {
+    if (ts.isCallExpression(n) || ts.isArrowFunction(n) || ts.isFunctionExpression(n)) return;
+    if (ts.isNumericLiteral(n) && Number(n.text) >= FRAME_LITERAL_MIN) out.push(n.text);
+    ts.forEachChild(n, walk);
+  };
+  walk(e);
+  return out;
+}
+
+const isFrameName = (e: ts.Expression) => ts.isIdentifier(e) && /frame/i.test(e.text);
+const COMPARE = new Set([ts.SyntaxKind.LessThanToken, ts.SyntaxKind.LessThanEqualsToken, ts.SyntaxKind.GreaterThanToken, ts.SyntaxKind.GreaterThanEqualsToken]);
+
+/**
+ * Кадры литералом в коде сцены: второй аргумент `interpolate(frame…, [140, 152])`, кадровые
+ * пропы JSX (`<Sequence from={30}>`, `travel={45}`), сравнения `frame >= 12`. Только
+ * предупреждения: косвенные случаи (`const X = 30`) статикой не ловятся — их ловит сверка
+ * темпа экспорта по стоп-кадрам.
+ */
+export function frameLiterals(files: SceneFile[]): FrameLiteral[] {
+  const out: FrameLiteral[] = [];
+  for (const f of files) {
+    const kind = CODE_KIND[posix.extname(f.path).toLowerCase()];
+    if (kind === undefined) continue;
+    const sf = ts.createSourceFile(f.path, f.text, ts.ScriptTarget.Latest, true, kind);
+    const seen = new Set<number>();
+    const add = (node: ts.Node, what: string, nums: string[]) => {
+      if (nums.length === 0) return;
+      const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+      if (seen.has(line)) return;
+      seen.add(line);
+      out.push({ file: f.path, line, message: MSG_FRAME_LITERAL(what, nums.join(", ")) });
+    };
+    const visit = (n: ts.Node) => {
+      if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "interpolate") {
+        const [x, range] = n.arguments;
+        if (x && range && ts.isArrayLiteralExpression(range) && /frame/i.test(x.getText(sf))) {
+          add(n, "interpolate", range.elements.flatMap((el) => bigLiterals(el)));
+        }
+      } else if (ts.isJsxAttribute(n) && FRAME_PROPS.has(jsxAttrName(n)) && n.initializer && ts.isJsxExpression(n.initializer) && n.initializer.expression) {
+        add(n, jsxAttrName(n), bigLiterals(n.initializer.expression));
+      } else if (ts.isBinaryExpression(n) && COMPARE.has(n.operatorToken.kind)) {
+        if (isFrameName(n.left)) add(n, "сравнение с frame", bigLiterals(n.right));
+        else if (isFrameName(n.right)) add(n, "сравнение с frame", bigLiterals(n.left));
+      }
+      ts.forEachChild(n, visit);
+    };
+    visit(sf);
+  }
+  return out;
+}
+
+/** `frameLiterals` по файлам кода `src/` версии; нет `src/` — пусто. */
+export async function frameLiteralsInDir(versionDir: string): Promise<FrameLiteral[]> {
+  const files: SceneFile[] = [];
+  const walk = async (rel: string): Promise<void> => {
+    const entries = await readdir(join(versionDir, rel), { withFileTypes: true }).catch(() => []);
+    for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
+      const r = `${rel}/${e.name}`;
+      if (e.isDirectory() && !e.isSymbolicLink() && e.name !== "node_modules") await walk(r);
+      else if (e.isFile() && fileKind(r) === "code") files.push({ path: r, text: await readFile(join(versionDir, r), "utf8") });
+    }
+  };
+  await walk("src");
+  return frameLiterals(files);
+}
