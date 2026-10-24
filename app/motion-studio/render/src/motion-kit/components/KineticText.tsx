@@ -9,6 +9,7 @@ import { textPosterOk } from "../choreo/enter.js";
 import { kineticStep, typeRhythm } from "../choreo/rhythm.js";
 import { easingOf, springAt } from "../easing.js";
 import { CLAMP, clamp01 } from "../internal.js";
+import { withHalo } from "../style/halo.js";
 import { amplitudeOf } from "../style/intensity.js";
 import { depthOf } from "../style/resolve.js";
 import { type TypeLevel, sizePx } from "../style/type-scale.js";
@@ -149,7 +150,7 @@ export function KineticText({
     textAlign: align,
     maxWidth,
     fontKerning: "normal",
-    textShadow: lift,
+    textShadow: withHalo(s, lift),
     ...style,
   };
 

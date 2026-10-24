@@ -118,7 +118,7 @@ export const GOOD_SCENE = `import { AbsoluteFill, interpolate, useCurrentFrame }
 export const Scene = () => {
   const frame = useCurrentFrame();
   const o = interpolate(frame, [0, 30], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  return <AbsoluteFill style={{ opacity: o, background: "#000" }} />;
+  return <AbsoluteFill style={{ opacity: o }} />;
 };
 `;
 export const BAD_SCENE = `import { AbsoluteFill } from "remotion";
@@ -281,9 +281,10 @@ export function fakeAgents(opts: {
 
 /**
  * Кадр PNG 192×108: тёмный фон и светлая карточка в центре, сдвинутая по номеру кадра
- * (кадры различаются — не «застывшая анимация»; ничего не касается краёв).
+ * (кадры различаются — не «застывшая анимация»; ничего не касается краёв). `clearBg` — фон
+ * прозрачный (кадр с `props.style.transparent`, проверка наложения S6).
  */
-export function pngFrame(frame: number): Buffer {
+export function pngFrame(frame: number, clearBg = false): Buffer {
   const w = 192;
   const h = 108;
   const p = new PNG({ width: w, height: h });
@@ -294,7 +295,7 @@ export function pngFrame(frame: number): Buffer {
       p.data[i] = card ? 230 : 16;
       p.data[i + 1] = card ? 230 : 17;
       p.data[i + 2] = card ? 235 : 24;
-      p.data[i + 3] = 255;
+      p.data[i + 3] = card || !clearBg ? 255 : 0;
     }
   }
   return PNG.sync.write(p);
@@ -325,7 +326,8 @@ export function fakeRender(opts: {
     const browserLogs: string[] = [];
     for (const f of req.stills) {
       const p = join(out, "frames", `${f}.png`);
-      await writeFile(p, opts.png ? pngFrame(f) : `png ${f}`);
+      const clear = (req.inputProps as { style?: { transparent?: unknown } } | undefined)?.style?.transparent === true;
+      await writeFile(p, opts.png ? pngFrame(f, clear) : `png ${f}`);
       stills.push(p);
       const items = opts.layout?.(req, f);
       if (items) browserLogs.push(`[motion-kit:layout] ${JSON.stringify({ frame: f, height: req.settings.height, items, ghosts: [] })}`);

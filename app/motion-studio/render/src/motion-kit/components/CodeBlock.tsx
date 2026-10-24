@@ -12,6 +12,7 @@ import { typeRhythm } from "../choreo/rhythm.js";
 import { type CodeLang, type TokenKind, caretLine as caretLineOf, codeLines, tokenizeCode, typedTokens } from "../code-tokens.js";
 import { easingOf, frames, springAt } from "../easing.js";
 import { ramp } from "../internal.js";
+import { dimText } from "../style/halo.js";
 import { floorText } from "../style/type-scale.js";
 import { PosterGate } from "./Poster.js";
 import { useStyle } from "../style.js";
@@ -196,9 +197,11 @@ function CodeBlockBody({ code, lang, beat, highlightLines = [], title, width = 1
           const started = line.some((t) => t.idx < count) || li <= caretLine;
           const dim = hot.size > 0 && !hot.has(li + 1) ? focus : 0;
           const numP = started ? 1 : 0;
+          // приглушение строк вне фокуса: в transparent — цветом токенов (ореол не гаснет), иначе opacity строки
+          const lineDim = (c: string) => dimText(s, c, dim * 0.6);
           return (
-            <div key={li} style={{ display: "flex", height: m.lineH, opacity: 1 - dim * 0.6 }}>
-              <span style={{ width: m.gutter, flex: "none", paddingRight: Math.round(fontSize * 0.9), boxSizing: "border-box", textAlign: "right", color: hot.has(li + 1) && focus > 0 ? mix(s.palette.muted, accent(s, 0), focus) : alpha(s.palette.muted, 0.55), opacity: numP, fontVariantNumeric: "tabular-nums" }}>
+            <div key={li} style={{ display: "flex", height: m.lineH, opacity: lineDim(s.palette.text).opacity }}>
+              <span style={{ width: m.gutter, flex: "none", paddingRight: Math.round(fontSize * 0.9), boxSizing: "border-box", textAlign: "right", color: hot.has(li + 1) && focus > 0 ? mix(s.palette.muted, accent(s, 0), focus) : alpha(lineDim(s.palette.muted).color, 0.55), opacity: numP, fontVariantNumeric: "tabular-nums" }}>
                 {li + 1}
               </span>
               <span>
@@ -206,7 +209,7 @@ function CodeBlockBody({ code, lang, beat, highlightLines = [], title, width = 1
                   if (idx >= count) return null;
                   const a = age.get(idx);
                   const flash = a === undefined ? 0 : 1 - a / 4;
-                  const c = tokenColor(s, kind);
+                  const c = lineDim(tokenColor(s, kind)).color;
                   return (
                     <span key={`${idx}-${fi}`} style={{ color: flash > 0 ? mix(c, "#ffffff", 0.45 * flash) : c, textShadow: flash > 0 && kind !== "ws" ? `0 0 ${(12 * flash).toFixed(1)}px ${alpha(c, 0.8 * flash)}` : undefined }}>
                       {text}

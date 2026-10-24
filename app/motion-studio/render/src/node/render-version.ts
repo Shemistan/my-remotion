@@ -33,6 +33,11 @@ export interface RenderRequest {
    * read-only версию без копирования исходников.
    */
   outDir?: string;
+  /**
+   * Props вместо `props.json` версии: экспорт в другом fps и проверка наложения сцены
+   * сценария (S6: кадр с `style.transparent = true` без правки draft).
+   */
+  inputProps?: Record<string, unknown>;
 }
 
 /**
@@ -55,12 +60,8 @@ export type RenderStage = WorkerStage | "ffprobe" | "timeout" | "aborted" | "orp
 /** Контекст прогона рендера (M10): хранилище, попытка, реестр процессов. */
 export type RunRef = RenderRequest["run"];
 
-/**
- * Внутренний запрос: рендер версии или экспорт (`export` — режим export worker, Task 19).
- * `inputProps` — props вместо `props.json` версии (экспорт в другом fps).
- */
+/** Внутренний запрос: рендер версии или экспорт (`export` — режим export worker, Task 19). */
 export interface RenderJobRequest extends RenderRequest {
-  inputProps?: Record<string, unknown>;
   export?: WorkerExport;
 }
 

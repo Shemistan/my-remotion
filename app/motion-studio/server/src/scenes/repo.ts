@@ -19,7 +19,7 @@ import { jsonDiff, srcFilesDiff } from "./diff.js";
 import { sha256, sha256File } from "./hash.js";
 import { newId } from "./ids.js";
 import {
-  QUARANTINE, SYNC_DRAFT_PREFIX, attachCause, commitVersionFiles, createDraft, manifestText, prepareVersion, quarantineDraft, readVersion, sceneRel,
+  QUARANTINE, SYNC_DRAFT_PREFIX, attachCause, commitVersionFiles, draftAttempt, createDraft, manifestText, prepareVersion, quarantineDraft, readVersion, sceneRel,
   sealVersion, setWritable, undoCommitVersionFiles, writeBriefSync, type Draft, type PublishMeta,
 } from "./store.js";
 
@@ -325,10 +325,11 @@ export class SceneRepo {
     const entries = (await readdir(draftsDir, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name).sort();
     for (const name of entries) {
       const dir = join(draftsDir, name);
-      const m = /^(.+)-a(\d+)$/.exec(name);
+      // <job>-a<n> и draft экспортов <job>-a<n>--<key> (S6) — по попытке
+      const m = draftAttempt(name);
       // sync-<id> (синхронная правка) процессов не имеет: удаляется по одноразовому карантину
       const sync = name.startsWith(SYNC_DRAFT_PREFIX);
-      if ((!sync && (!m || alive.has(key(m[1]!, Number(m[2]))))) || !(await disposable(dir))) {
+      if ((!sync && (!m || alive.has(key(m.runId, m.attempt)))) || !(await disposable(dir))) {
         out.kept.push(dir);
         continue;
       }

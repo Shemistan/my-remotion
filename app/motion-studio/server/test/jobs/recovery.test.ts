@@ -121,6 +121,29 @@ describe("recoverOnStart", () => {
     expect(existsSync(fenced)).toBe(true);
   });
 
+  it("S6 I1: draft экспортов с ключом (<job>-a<n>--<key>) — карантин попытки вместе с основным, удаляются; чужие не трогаются", async () => {
+    const main = await seedRunning("job_1");
+    const drafts = join(env.s.root, "workspace/drafts");
+    const keyed = ["job_1-a1--1-mp4", "job_1-a1--1-alpha"].map((n) => join(drafts, n));
+    const other = ["job_1-a2--1-mp4", "job_10-a1--1-mp4"].map((n) => join(drafts, n));
+    for (const d of [...keyed, ...other]) await mkdir(d, { recursive: true });
+    const rep = await recoverOnStart({ db: env.db, repo, registry, reap: fastReap });
+    expect(rep.requeued).toEqual(["job_1"]);
+    expect([...rep.draftsRemoved].sort()).toEqual([main, ...keyed].sort());
+    for (const d of other) expect(existsSync(d), d).toBe(true);
+    for (const d of other) expect(existsSync(join(d, ".quarantined")), d).toBe(false);
+  });
+
+  it("S6 I1: неубиваемый процесс — карантин stale_process у всех draft попытки с ключом", async () => {
+    await seedRunning("job_1");
+    const keyed = join(env.s.root, "workspace/drafts", "job_1-a1--2-alpha");
+    await mkdir(keyed, { recursive: true });
+    await spawnOrphan(registry, { runId: "job_1", attempt: 1 }, env.s.tmp);
+    await recoverOnStart({ db: env.db, repo, registry, reap: (r, f) => reapAttempt(r, f, { kill: noop, graceMs: 50, waitMs: 50 }) });
+    expect(marker(keyed).reason).toMatch(/^stale_process/);
+    expect(existsSync(keyed)).toBe(true);
+  });
+
   it("Ruling P3: the attempt already published its version (crash before finish) → completed, no re-run", async () => {
     const sceneId = "scn_1";
     await seedRunning("job_1", { noDraft: true });

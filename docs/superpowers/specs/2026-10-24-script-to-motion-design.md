@@ -461,8 +461,11 @@ technique?, purpose?}` (без приёма — `kinetic-quote` не стави�
    `overlay: true`. Уже существующий экспорт той же версии с тем же запросом переиспользуется
    (`exports` + `export-manifest.json`). Экспорты идут по одному под семафором рендеров
    (`exportOne(ctx, d, { versionId, request, draftKey })`, у каждого экспорта внутри задачи свой
-   draft `drafts/<job>-a<attempt>-<draftKey>`); сбой одной сцены — запись в `missing`, остальные
-   продолжаются.
+   draft `drafts/<job>-a<attempt>--<draftKey>`, ключ уникален в попытке — повтор ключа даёт
+   отказ `draft_exists`; восстановление и уборка относят такие draft к попытке); сбой одной
+   сцены — запись в `missing`, остальные продолжаются. Версия с неисправленным
+   `overlay_opaque`/`overlay_root_fill` в QA (`overlayOk = false`) — MP4 экспортируется, альфа —
+   в `missing` «альфа-версия невозможна: сцена закрывает кадр».
 3. Папка `workspace/projects/<p>/packages/<pkgId>/` (draft → fencing-публикация, `a-w`):
 
 ```text
@@ -498,6 +501,8 @@ technique?, purpose?}` (без приёма — `kinetic-quote` не стави�
 дымка (0 < α < 0,5) на > 50 % площади — warning `overlay_haze`. Значения — в
 `export-manifest.json` (`overlay: { coverage, haze, frames }`, необязательное поле
 `ExportManifestSchema`). Версии с `transparent_export: true` экспортируются как раньше.
+`overlay` доступен любой непрозрачной версии, в том числе Playground (ревью S6, M6): проверка
+покрытия альфой отсекает сцены со своим фоном, так что отдельного запрета не нужно.
 
 **Р5 против H4** (по ревью плана, Р16). H4 (`scene-export.ts:96`, `scene-contract.md:48-50`)
 требует закладывать прозрачность при генерации: Engineer вправе залить фон своим `div`, и тогда
@@ -506,11 +511,16 @@ technique?, purpose?}` (без приёма — `kinetic-quote` не стави�
 «фон — только `<Background>`, своих заливок на весь кадр нет; сцена обязана работать при
 `transparent = true`»; после QA каждой попытки (хук `extraQa` в fix-loop) — статическая
 проверка заливки корня (`overlay_root_fill`) и рендер одного кадра hold с `transparent = true` +
-`alphaCoverage` (> 92 % — blocking `overlay_opaque`, Engineer исправляет в fix-loop).
+`alphaCoverage` (> 92 % — blocking `overlay_opaque`, Engineer исправляет в fix-loop; то же в
+правке сцены сценария). Статика смотрит только корень компонента сцены (`Scene`/default из
+`src/Scene.tsx`), прозрачные литералы (`transparent`, `rgba(…, 0)`) заливкой не считаются.
+Не исправлено за все раунды — версия всё равно `ready` (MP4 полезен человеку), замечание в
+её QA — warning, сцена плана показывает его в `qa_warnings`.
 
 **Читаемость поверх видео** (Р18). В режиме `transparent` текстовый примитив kit рисует
-ореол/тень цвета `palette.bg`, чтобы текст читался на светлом и тёмном кадре; без `transparent`
-вид не меняется. До массовой генерации — [H]-композит кадра альфы поверх светлого и тёмного
+ореол/тень цвета `palette.bg`, чтобы текст читался на светлом и тёмном кадре (плотный
+внутренний слой 0.08em); `palette.muted` сдвигается к `text` на половину, приглушение текста —
+цветом, а не `opacity` (она гасит и ореол); без `transparent` вид не меняется (motion-kit 0.5.4). До массовой генерации — [H]-композит кадра альфы поверх светлого и тёмного
 кадра MyProtocol (e2e S6).
 
 ## 10. 9:16

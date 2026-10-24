@@ -9,6 +9,7 @@ import { EASE, easingOf, fpsFrames, frames, springAt } from "../easing.js";
 import { clamp01, ramp, useSvgId } from "../internal.js";
 import { useStyle } from "../style.js";
 import { axisTicks } from "../ticks.js";
+import { dimText } from "../style/halo.js";
 import { typeSize } from "../style/type-scale.js";
 import { accent, alpha, fontFamily, isDark, mix } from "../tokens.js";
 import { AnimatedNumber } from "./AnimatedNumber.js";
@@ -120,6 +121,9 @@ export function BarChart({
         const cap = clamp01(p * 3);
         const lab = ramp(frame, t0, t0 + frames(s, 12), EASE.outQuart);
         const shown = values[i]! * clamp01(p);
+        // приглушение не выделенных: в transparent — цветом (ореол текста не гаснет), иначе opacity
+        const valueDim = dimText(s, hot ? mix(s.palette.text, color, glow * 0.85) : s.palette.text, dim * 0.45);
+        const labelDim = dimText(s, hot ? mix(s.palette.muted, s.palette.text, glow) : s.palette.muted, dim * 0.35);
         return (
           <g key={`b${i}`}>
             {/* световой столб за выделенным столбцом */}
@@ -135,7 +139,7 @@ export function BarChart({
             ) : null}
             {/* подпись значения едет на вершине столбца и считает вместе с ростом */}
             <foreignObject x={r.x - 80} y={y - valuePx * 1.55} width={r.w + 160} height={valuePx * 1.4} style={{ overflow: "visible" }}>
-              <div style={{ display: "flex", justifyContent: "center", opacity: 1 - dim * 0.45 }}>
+              <div style={{ display: "flex", justifyContent: "center", opacity: valueDim.opacity }}>
                 <AnimatedNumber
                   from={0}
                   to={values[i]!}
@@ -148,7 +152,7 @@ export function BarChart({
                   size={valuePx * (1 + 0.18 * glow)}
                   font="display"
                   align="center"
-                  color={hot ? mix(s.palette.text, color, glow * 0.85) : s.palette.text}
+                  color={valueDim.color}
                 />
               </div>
             </foreignObject>
@@ -158,8 +162,8 @@ export function BarChart({
               textAnchor="middle"
               fontSize={pad.font}
               fontWeight={hot && glow > 0.5 ? 600 : 500}
-              fill={hot ? mix(s.palette.muted, s.palette.text, glow) : s.palette.muted}
-              opacity={lab * (1 - dim * 0.35)}
+              fill={labelDim.color}
+              opacity={lab * labelDim.opacity}
               transform={`translate(0 ${((1 - lab) * 12).toFixed(2)})`}
             >
               {bars[i]!.label}

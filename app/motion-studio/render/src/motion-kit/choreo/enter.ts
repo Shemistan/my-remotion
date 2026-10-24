@@ -5,6 +5,7 @@
 // LineChart, FlowGraph) — здесь для них пустой стиль.
 import type { Element } from "@ms/contracts";
 import type { CSSProperties } from "react";
+import { NO_HALO } from "../style/halo.js";
 
 export type EnterKind = Element["entrance"];
 /** Сторона, с которой элемент входит. */
@@ -107,6 +108,8 @@ export function posterStyle(pre: EnterPre, p: number): CSSProperties {
   if (pre === "silhouette") {
     out.filter = "grayscale(1)";
     out.WebkitTextFillColor = "transparent";
+    // ореол transparent-режима (S6) у прозрачных глифов дал бы тени без букв
+    Object.assign(out, NO_HALO);
   }
   return out;
 }

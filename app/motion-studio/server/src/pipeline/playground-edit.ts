@@ -17,6 +17,7 @@ import {
   type HistoryEntry,
   type MotionSpec,
   MotionSpecSchema,
+  type ScriptSceneContext,
   ScriptSceneContextSchema,
   type Settings,
   SettingsFieldsSchema,
@@ -33,6 +34,7 @@ import { setOutputRefs } from "../jobs/queue.js";
 import type { HandlerResult, JobContext, JobHandler } from "../jobs/types.js";
 import type { CapabilityView } from "../knowledge/types.js";
 import { versionHistoryDigest } from "../scenes/history.js";
+import { overlayChecks } from "../script/overlay-check.js";
 import type { StepRef } from "./checkpoints.js";
 import { type EditRequest, type GenerateDeps, type PlanOutcome, readKitApi, runGeneration } from "./generate.js";
 import { applyParamEdit, hardcodedFrameProps, touchesGeometry } from "./param-edit.js";
@@ -251,12 +253,18 @@ function editBrief(plan: EditPlan, baseNumber: number): string {
  * сцены, речь — остаток длины правки. Сцена не сценарная (или окна нет) — `undefined`.
  */
 export function scriptSpeechWindow(db: Db, sceneId: string, total: number): SpeechWindow | undefined {
+  const c = scriptContextOf(db, sceneId);
+  if (!c) return undefined;
+  const speech = total - c.lead_frames - c.tail_frames;
+  return speech > 0 ? { lead: c.lead_frames, speech, tail: c.tail_frames } : undefined;
+}
+
+/** Вход `script` последней генерации сцены с ним (сцена сценария); нет — `undefined`. */
+export function scriptContextOf(db: Db, sceneId: string): ScriptSceneContext | undefined {
   const gens = jobs.list(db, { sceneId }).filter((j) => j.type === "playground.generate").reverse();
   for (const j of gens) {
     const p = ScriptSceneContextSchema.safeParse((j.input as { script?: unknown } | null)?.script);
-    if (!p.success) continue;
-    const speech = total - p.data.lead_frames - p.data.tail_frames;
-    return speech > 0 ? { lead: p.data.lead_frames, speech, tail: p.data.tail_frames } : undefined;
+    if (p.success) return p.data;
   }
   return undefined;
 }
@@ -448,8 +456,13 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
       permits: { agents: ctx.agents, renders: ctx.renders },
       progress: (p, stage) => ctx.progress(p, stage),
     };
+    // сцена сценария (I3): проверка наложения с transparent и в правке — как в генерации
+    const scriptScene = scriptContextOf(ctx.db, sceneId) !== undefined;
     const r = await runGeneration(
-      { prompt, settings: base.row.settings, qa: { allowRestricted: input.allowRestricted ?? false }, keepBrief: true, plan: planEdit },
+      {
+        prompt, settings: base.row.settings, qa: { allowRestricted: input.allowRestricted ?? false }, keepBrief: true, plan: planEdit,
+        ...(scriptScene ? { extraQa: (v) => overlayChecks(v) } : {}),
+      },
       deps,
       ctx.signal,
     );

@@ -4,7 +4,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DEFAULT_READING, type DirectorOutput, type MotionSpec, type ProjectStyleBase, type ScriptPlanRevisionDoc, type ScriptSceneContext, type ScriptSceneItem, type Settings, defaultSettings } from "@ms/contracts";
+import { DEFAULT_READING, type DirectorOutput, QAReportSchema, type MotionSpec, type ProjectStyleBase, type ScriptPlanRevisionDoc, type ScriptSceneContext, type ScriptSceneItem, type Settings, defaultSettings } from "@ms/contracts";
 import { loadPrompt } from "../../src/agents/prompts.js";
 import { artifactPaths } from "../../src/artifacts/paths.js";
 import * as jobEvents from "../../src/db/repos/job-events.js";
@@ -18,11 +18,13 @@ import type { GenerateDeps } from "../../src/pipeline/generate.js";
 import { playgroundGenerate } from "../../src/pipeline/playground-generate.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
 import { itemFingerprint } from "../../src/script/fingerprint.js";
+import { overlayOk, overlayProblem } from "../../src/script/overlay-check.js";
+import { scriptState } from "../../src/script/state.js";
 import { SCRIPT_PLAN_FILE } from "../../src/script/read.js";
 import { removeStore } from "../db/helpers.js";
 import { setupDb, until, type JobsEnv } from "../jobs/helpers.js";
 import { makeDraft, meta } from "../scenes/helpers.js";
-import { conceptOutput, directorOutput, fakeAgents, fakeKb, fakeRender, makeDeps, makeSkills } from "./helpers.js";
+import { GOOD_SCENE, conceptOutput, directorOutput, fakeAgents, fakeKb, fakeRender, makeDeps, makeSkills } from "./helpers.js";
 
 let env: JobsEnv;
 let repo: SceneRepo;
@@ -162,6 +164,45 @@ describe("playground.generate со script", () => {
     for (const b of spec.beats) if (b.phase && role.get(b.phase) !== "setup") expect(b.start_frame, b.id).toBeGreaterThanOrEqual(15);
     expect(Math.min(...spec.beats.map((b) => b.start_frame))).toBeGreaterThanOrEqual(15);
     expect(Math.max(...spec.beats.map((b) => b.end_frame))).toBe(180);
+  });
+
+  it("S6: заливка корня → overlay_root_fill в раунд Engineer; кадр hold с transparent = true рендерится отдельно", async () => {
+    const fill = GOOD_SCENE.replace("{{ opacity: o }}", '{{ opacity: o, background: "#000" }}');
+    const agents = fakeAgents({ engineer: async (_t, n) => ({ files: { "src/Scene.tsx": n === 1 ? fill : GOOD_SCENE } }) });
+    const r0 = fakeRender({ png: true });
+    const { job } = await run({ agents, render: r0.render }, { script });
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(agents.engineerCalls).toHaveLength(2);
+    expect(agents.engineerCalls[1]!.input).toContain("overlay_root_fill");
+    const overlay = r0.calls.filter((c) => (c.inputProps as { style?: { transparent?: boolean } } | undefined)?.style?.transparent === true);
+    expect(overlay).toHaveLength(2);
+    expect(overlay[0]!.stills).toHaveLength(1);
+    expect(overlay[0]!.preview).toBeNull();
+  });
+
+  it("I2: заливка корня не исправлена ни в одном раунде → версия ready с warn; overlayOk = false; qa_warnings сцены сценария", async () => {
+    const fill = GOOD_SCENE.replace("{{ opacity: o }}", '{{ opacity: o, background: "#000" }}');
+    const agents = fakeAgents({ engineer: async () => ({ files: { "src/Scene.tsx": fill } }) });
+    const { job, scene } = await run({ agents }, { script }, (sceneId) => {
+      scriptScenes.insert(env.db, { project_id: P, plan_id: "pln_s", item_id: "ss_002", aspect: "16:9", scene_id: sceneId, batch_id: null, job_id: null, item_fingerprint: "fp" });
+    });
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    const v = versions.listByScene(env.db, scene.id).at(-1)!;
+    expect(v.status).toBe("ready");
+    const qa = QAReportSchema.parse(JSON.parse(readFileSync(join(env.s.root, v.path, "qa.json"), "utf8")));
+    expect(qa.issues.find((x) => x.code === "overlay_root_fill")).toMatchObject({ severity: "warning" });
+    expect(overlayOk(qa)).toBe(false);
+    expect(overlayProblem(qa)).toMatch(/^альфа-версия невозможна: сцена закрывает кадр/);
+    const dto = scriptState(env.db, env.s.root, P).scenes.find((x) => x.scene_id === scene.id)!;
+    expect(dto.qa_warnings.map((x) => x.code)).toContain("overlay_root_fill");
+    expect(dto.qa_warnings.every((x) => x.severity === "warning")).toBe(true);
+  });
+
+  it("без script — проверки наложения нет", async () => {
+    const r0 = fakeRender({ png: true });
+    const { job } = await run({ agents: fakeAgents({}), render: r0.render }, {});
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(r0.calls.filter((c) => c.inputProps !== undefined)).toEqual([]);
   });
 
   // I1: удержание планировщика ограничено (≤ 4 с, ~15 % длины) — при длинном tail раскладка

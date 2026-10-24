@@ -2,7 +2,9 @@
 // стиль, Approval B, сцены по форматам; пакеты генерации, пакеты экспорта и предупреждения
 // разнообразия дают поставщики в файлах треков (`batchesForState`, `packagesForState`,
 // `warningsForState`) — треки меняют их тела, не этот файл.
-import type { Aspect, Job, ScriptApproval, ScriptItemStatus, ScriptSceneDto, ScriptStateDto } from "@ms/contracts";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { type Aspect, type Job, type QAIssue, QAReportSchema, type ScriptApproval, type ScriptItemStatus, type ScriptSceneDto, type ScriptStateDto } from "@ms/contracts";
 import { publicJob } from "../api/job-dto.js";
 import { ApiError, notFound } from "../api/errors.js";
 import { currentProjectStyle } from "../analysis/project-style.js";
@@ -12,6 +14,7 @@ import type { Db } from "../db/open.js";
 import * as jobs from "../db/repos/jobs.js";
 import * as projects from "../db/repos/projects.js";
 import * as scenes from "../db/repos/scenes.js";
+import * as versions from "../db/repos/versions.js";
 import { scriptScenes } from "../db/repos/script.js";
 import { packagesForState } from "../pipeline/script-package.js";
 import { batchesForState } from "./batch.js";
@@ -35,6 +38,22 @@ export function sceneStatus(job: Job | null, versionId: string | null): ScriptIt
       return versionId ? "ready" : "failed";
     default:
       return job.status;
+  }
+}
+
+/**
+ * Замечания QA уровня warning версии (`qa.json`): в том числе неисправленные
+ * `overlay_opaque`/`overlay_root_fill` (I2) — по ним S7 кладёт альфу сцены в `missing`.
+ * Нет версии или отчёта, отчёт не читается — пусто.
+ */
+export function versionQaWarnings(db: Db, root: string, versionId: string | null): QAIssue[] {
+  const v = versionId ? versions.get(db, versionId) : undefined;
+  if (!v || v.broken_reason) return [];
+  try {
+    const qa = QAReportSchema.safeParse(JSON.parse(readFileSync(join(root, v.path, "qa.json"), "utf8")));
+    return qa.success ? qa.data.issues.filter((x) => x.severity === "warning") : [];
+  } catch {
+    return [];
   }
 }
 
@@ -63,7 +82,7 @@ export function scriptState(db: Db, root: string, projectId: string): ScriptStat
         version_id: versionId,
         job: raw ? publicJob(raw, root) : null,
         status: sceneStatus(raw, versionId),
-        qa_warnings: [],
+        qa_warnings: versionQaWarnings(db, root, versionId),
         warnings: warnings[row.scene_id] ?? [],
         stale: !item || itemFingerprint(item, styleRef) !== row.item_fingerprint,
       };

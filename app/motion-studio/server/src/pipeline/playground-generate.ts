@@ -13,6 +13,7 @@ import { loadPartial } from "../agents/prompts.js";
 import * as jobs from "../db/repos/jobs.js";
 import * as plans from "../db/repos/plans.js";
 import { scriptScenes } from "../db/repos/script.js";
+import { overlayChecks } from "../script/overlay-check.js";
 import { recordPublishedFingerprint } from "../script/batch.js";
 import * as scenes from "../db/repos/scenes.js";
 import * as versions from "../db/repos/versions.js";
@@ -128,6 +129,8 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
         qa: { allowRestricted },
         steps,
         previous,
+        // сцена сценария (S6, Р16): альфа-версия — перерендер с transparent, фон только <Background>
+        ...(sc ? { extraQa: (v) => overlayChecks(v) } : {}),
         plan: async (rc) => {
           ctx.progress(0.05, "concept");
           const c = await conceptStep(rc, { prompt, settings, ...(answers !== undefined ? { answers } : {}), ...(scriptRules ? { scriptRules } : {}) }, cp);
