@@ -17,6 +17,7 @@ import { FencedOutError, PublishCancelledError, type Fence } from "../scenes/rep
 import {
   QUARANTINE, SYNC_DRAFT_PREFIX, attachCause, fsyncDirSync, fsyncWrite, fsyncWriteSync, lockChildrenSync, quarantineDraft, setWritableSync,
 } from "../scenes/store.js";
+import { createJobDraft } from "./job-draft.js";
 import { checkArtifactDestRel } from "./paths.js";
 
 export interface ArtifactFile {
@@ -198,6 +199,39 @@ export class ArtifactStore {
     }
   }
 
+  /**
+   * Документ задачи: `doc` → `<destRel>/<file>` через draft попытки (`<job>-a<N>`) и `publish` с
+   * fencing. Задача сама держит замок ресурса, поэтому замок здесь не проверяется. `opts.check` —
+   * проверка вызывающего в транзакции публикации (`revision_conflict`). Неудача — draft удаляется
+   * (кроме карантина: его разбирает восстановление). Draft освобождается переносом, поэтому одна
+   * попытка может опубликовать несколько документов подряд.
+   */
+  async publishJobDoc(
+    fence: Fence, destRel: string, file: string, doc: unknown, register: Register, opts: { check?: (db: Db) => Error | undefined } = {},
+  ): Promise<PublishedArtifact> {
+    if (!SAFE_ID.test(file) || file === QUARANTINE) throw new Error(`artifacts: имя файла ревизии не годится: ${JSON.stringify(file)}`);
+    checkDestRel(destRel);
+    const { dir } = await createJobDraft(this.root, { runId: fence.jobId, attempt: fence.attempt });
+    try {
+      await fsyncWrite(join(dir, file), JSON.stringify(doc, null, 2) + "\n");
+      return await this.publish(dir, destRel, (db, files) => {
+        const refused = opts.check?.(db);
+        if (refused) throw refused;
+        register(db, files);
+      }, fence);
+    } catch (e) {
+      if (existsSync(dir) && !existsSync(join(dir, QUARANTINE))) {
+        try {
+          unlockSync(dir);
+          await rm(dir, { recursive: true, force: true });
+        } catch (u) {
+          attachCause(e, u);
+        }
+      }
+      throw e;
+    }
+  }
+
   private async publishDir(
     draftDir: string,
     destRel: string,
@@ -349,3 +383,12 @@ function lstatOrUndefined(path: string): Stats | undefined {
   }
 }
 
+
+/**
+ * Каталоги, опубликованные задачей `jobId` (все попытки), по порядку публикации: повтор после
+ * сбоя видит, что уже опубликовано, и не публикует второй раз (ревью Task 24, M3).
+ */
+export function publicationsByJob(db: Db, jobId: string): { dest_rel: string; attempt: number | null }[] {
+  return db.prepare("SELECT dest_rel, attempt FROM artifact_publications WHERE job_id = ? ORDER BY published_at, rowid").all(jobId) as
+    { dest_rel: string; attempt: number | null }[];
+}

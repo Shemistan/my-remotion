@@ -6,7 +6,7 @@ import {
   type EditedTimeline, type FootageAnalysis, type NormRect, PATTERN_SLUGS, type PatternSlug, type ProjectStyleBase, type SemanticTimeline,
   type TranscriptWord, type Zone, mapWords, rangeFromWords,
 } from "@ms/contracts";
-import { type FreeZone, DEFAULT_ZONES, dedupRects, freeZones, occupancyForRange } from "./zones.js";
+import { type FreeZone, DEFAULT_ZONES, ZONE_RECTS, dedupRects, freeZones, occupancyForRange } from "./zones.js";
 
 /** Зоны, которые показываются планировщику: трети, полосы и углы PiP. */
 export const PLANNER_ZONES: Zone[] = [...DEFAULT_ZONES, "pip_tl", "pip_tr", "pip_bl", "pip_br"];
@@ -45,6 +45,12 @@ export interface PlannerAnchor {
 export interface FootageAtAnchor {
   face_zone: "left" | "center" | "right" | "absent";
   free_zones: { zone: Zone; free_ratio: number }[];
+  /**
+   * Зоны, задевающие лицо (доля лица под зоной > `faceOverlapMax`): свободная доля зоны считает всю
+   * занятость, а `face_overlap` — долю лица, поэтому «свободная на 0,86» полоса сверху может закрывать
+   * лицо. Планировщику — явная пометка (e2e Task 32: без неё агент ставил overlay на лицо).
+   */
+  face_zones: Zone[];
 }
 
 export interface PlannerInput {
@@ -99,6 +105,19 @@ export interface PlannerInputOptions {
   /** Размер кадра с учётом поворота (`display_*`). */
   frame: { width: number; height: number };
   patterns?: { slug: PatternSlug; summary: string }[];
+  /** Порог доли лица под зоной (`planning.faceOverlapMax`, по умолчанию 0,02). */
+  faceOverlapMax?: number;
+}
+
+/** Наибольшая доля лица под прямоугольником (как `faceOverlapRatio` плана). */
+function faceShare(rect: NormRect, faces: readonly NormRect[]): number {
+  let best = 0;
+  for (const f of faces) {
+    const w = Math.min(rect.x + rect.w, f.x + f.w) - Math.max(rect.x, f.x);
+    const h = Math.min(rect.y + rect.h, f.y + f.h) - Math.max(rect.y, f.y);
+    if (w > 0 && h > 0 && f.w * f.h > 0) best = Math.max(best, (w * h) / (f.w * f.h));
+  }
+  return best;
 }
 
 export function plannerInput(
@@ -120,7 +139,11 @@ export function plannerInput(
       id: a.id, kind: a.kind, quote: a.quote, start_word_id: a.start_word_id, end_word_id: a.end_word_id,
       edited_s: [r1(r.edited.start_us), r1(r.edited.end_us)], importance: a.importance, claim_type: a.claim_type,
     });
-    atAnchor[a.id] = { face_zone: faceSide(facesAt(footage, r.source)), free_zones: freeOf(occupiedAt(footage, r.source)) };
+    const faces = facesAt(footage, r.source);
+    atAnchor[a.id] = {
+      face_zone: faceSide(faces), free_zones: freeOf(occupiedAt(footage, r.source)),
+      face_zones: PLANNER_ZONES.filter((z) => faceShare(ZONE_RECTS[z], faces) > (o.faceOverlapMax ?? 0.02)),
+    };
   }
   const all = { start_us: 0, end_us: tl.source_duration_us };
   const { width, height } = o.frame;

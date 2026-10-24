@@ -16,6 +16,7 @@ import { EditError, RevisionConflictError } from "../edit/errors.js";
 import type { EditDeps } from "../edit/transcript-ops.js";
 import { projectLockKey } from "../jobs/locks.js";
 import { newId } from "../scenes/ids.js";
+import type { Fence } from "../scenes/repo.js";
 
 export const STYLE_FILE = "style.json";
 
@@ -90,7 +91,7 @@ function readStyle(root: string, rel: string): ProjectStyleDoc {
  */
 export async function saveProjectStyle(
   deps: EditDeps, projectId: string, base: ProjectStyleBase, author: ProjectStyleDoc["author"],
-  opts: { rationale?: string; base_revision?: number } = {},
+  opts: { rationale?: string; base_revision?: number; fence?: Fence } = {},
 ): Promise<ProjectStyleDoc> {
   const { db, store } = deps;
   const row = styles.byProject(db, projectId);
@@ -112,19 +113,20 @@ export async function saveProjectStyle(
     schema_version: 1, style_id: styleId, revision: (cur ?? 0) + 1, base, resolved: projectStyleFrom(base).resolved, rationale, author,
   });
   const destRel = artifactPaths(deps.root, projectId).styleRev(styleId, doc.revision);
-  await store.writeRevision(destRel, STYLE_FILE, doc, (d, files) => {
+  const register = (d: Db, files: { sha256: string }[]) => {
     if (!row) styles.create(d, { id: styleId, project_id: projectId });
     styles.insertRevision(d, { doc, rel_path: `${destRel}/${STYLE_FILE}`, sha256: files[0]!.sha256 });
     cascadeStale(d, projectId, "style");
-  }, {
-    lockKey: projectLockKey(projectId, "plan"),
-    check: (d) => {
-      const c = conflict(d);
-      if (c) return c;
-      // гонка без base_revision: другая правка успела раньше — ревизия r<N> уже занята
-      const now = row ? styles.get(d, row.id)!.current_revision : (styles.byProject(d, projectId)?.current_revision ?? null);
-      return now === cur ? undefined : new RevisionConflictError(`StyleBible проекта ${projectId}`, cur ?? 0, now);
-    },
-  });
+  };
+  const check = (d: Db) => {
+    const c = conflict(d);
+    if (c) return c;
+    // гонка без base_revision: другая правка успела раньше — ревизия r<N> уже занята
+    const now = row ? styles.get(d, row.id)!.current_revision : (styles.byProject(d, projectId)?.current_revision ?? null);
+    return now === cur ? undefined : new RevisionConflictError(`StyleBible проекта ${projectId}`, cur ?? 0, now);
+  };
+  // задача (`plan.visual`) сама держит замок `plan` и публикует с fencing попытки
+  if (opts.fence) await store.publishJobDoc(opts.fence, destRel, STYLE_FILE, doc, register, { check });
+  else await store.writeRevision(destRel, STYLE_FILE, doc, register, { lockKey: projectLockKey(projectId, "plan"), check });
   return doc;
 }

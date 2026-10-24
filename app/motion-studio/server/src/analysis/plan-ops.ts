@@ -19,6 +19,7 @@ import { EditError, RevisionConflictError } from "../edit/errors.js";
 import { timelineFor } from "../edit/timeline-store.js";
 import { type EditDeps, currentTranscript } from "../edit/transcript-ops.js";
 import { projectLockKey } from "../jobs/locks.js";
+import type { Fence } from "../scenes/repo.js";
 import { type PlaceContext, type PlanningConfig, type SceneWords, itemId, placeScene } from "./plan-build.js";
 import { planChecks } from "./plan-checks.js";
 
@@ -145,14 +146,28 @@ export function planContext(db: Db, root: string, doc: VisualPlanRevisionDoc, cf
  * базы), затем `approvalState(…, "B", currentSubject)` — валидный B на прежней ревизии → `stale`.
  */
 export async function publishPlanRevision(
-  deps: EditDeps, projectId: string, doc: VisualPlanRevisionDoc, o: { check?: (db: Db) => Error | undefined; opportunitiesFrom?: number } = {},
+  deps: EditDeps, projectId: string, doc: VisualPlanRevisionDoc,
+  o: {
+    check?: (db: Db) => Error | undefined;
+    opportunitiesFrom?: number;
+    /** Возможности ответа агента (новая ревизия из `plan.visual`); иначе — из `opportunitiesFrom`. */
+    opportunities?: plans.OpportunityRow[];
+    /** Публикация из задачи (`plan.visual`, `plan.recheck`): draft попытки и fencing; замок держит задача. */
+    fence?: Fence;
+    /** Дополнительно в той же транзакции (создание плана, постановка перепроверки). */
+    register?: (db: Db) => void;
+  } = {},
 ): Promise<void> {
   const destRel = artifactPaths(deps.root, projectId).planRev(doc.plan_id, doc.revision);
-  await deps.store.writeRevision(destRel, PLAN_FILE, doc, (d, files) => {
-    const opportunities = o.opportunitiesFrom === undefined ? [] : plans.opportunities(d, doc.plan_id, o.opportunitiesFrom);
+  const register = (d: Db, files: { sha256: string }[]) => {
+    if (!plans.get(d, doc.plan_id)) plans.create(d, { id: doc.plan_id, project_id: projectId });
+    const opportunities = o.opportunities ?? (o.opportunitiesFrom === undefined ? [] : plans.opportunities(d, doc.plan_id, o.opportunitiesFrom));
     plans.insertRevision(d, { doc, rel_path: `${destRel}/${PLAN_FILE}`, sha256: files[0]!.sha256, opportunities });
     approvalState(d, projectId, "B", currentSubject(d, projectId, "B"));
-  }, { lockKey: projectLockKey(projectId, "plan"), ...(o.check ? { check: o.check } : {}) });
+    o.register?.(d);
+  };
+  if (o.fence) await deps.store.publishJobDoc(o.fence, destRel, PLAN_FILE, doc, register, o.check ? { check: o.check } : {});
+  else await deps.store.writeRevision(destRel, PLAN_FILE, doc, register, { lockKey: projectLockKey(projectId, "plan"), ...(o.check ? { check: o.check } : {}) });
 }
 
 /** Синхронная правка плана пользователем: новая ревизия от `base_revision`. */

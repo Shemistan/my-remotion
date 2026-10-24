@@ -40,6 +40,11 @@ describe("plannerInput", () => {
     expect(at.face_zone).toBe("right");
     expect(at.free_zones.find((z) => z.zone === "left_third")!.free_ratio).toBe(1);
     expect(at.free_zones.find((z) => z.zone === "right_third")!.free_ratio).toBeLessThan(0.9);
+    // зоны, задевающие лицо (x 0,55–0,80, y 0,15–0,60): правая треть, полоса сверху, split_right, pip_tr
+    expect(at.face_zones).toContain("right_third");
+    expect(at.face_zones).toContain("top_band");
+    expect(at.face_zones).not.toContain("left_third");
+    expect(at.face_zones).not.toContain("lower_third");
   });
 
   it("паттерны KB (12, с описанием), предел покрытия, длительность, кадр, оставленные слова без вырезанных", () => {

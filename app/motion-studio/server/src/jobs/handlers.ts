@@ -1,6 +1,7 @@
 // Обработчики задач, общие для сервера и CLI: оба регистрируют одни и те же обработчики
 // (`playground.generate`, `playground.edit`, `scene.restore`, `scene.export`, `media.import`,
-// `asr.transcribe`, `roughcut.propose`, `roughcut.preview`, `footage.analyze`, `semantic.analyze`).
+// `asr.transcribe`, `roughcut.propose`, `roughcut.preview`, `footage.analyze`, `semantic.analyze`,
+// `plan.visual`, `plan.recheck`).
 import type { Job } from "@ms/contracts";
 import { DEFAULT_MIN_FREE_GB } from "@ms/core";
 import { alphaAtCorner, exportVersion, renderVersion } from "@ms/render";
@@ -9,6 +10,8 @@ import { type AsrTranscribeDeps, asrTranscribe } from "../pipeline/asr-transcrib
 import { type FootageAnalyzeDeps, footageAnalyze } from "../pipeline/footage-analyze.js";
 import type { GenerateResult } from "../pipeline/generate.js";
 import { type MediaImportDeps, mediaImport } from "../pipeline/media-import.js";
+import { planRecheck } from "../pipeline/plan-recheck.js";
+import { type PlanVisualDeps, planVisual } from "../pipeline/plan-visual.js";
 import { playgroundEdit } from "../pipeline/playground-edit.js";
 import { type PlaygroundDeps, playgroundGenerate } from "../pipeline/playground-generate.js";
 import { type RoughcutPreviewDeps, roughcutPreview } from "../pipeline/roughcut-preview.js";
@@ -45,6 +48,8 @@ export interface HandlerOptions {
   visionBin?: string;
   /** `semantic.analyze`: начало этапа (тесты отменяют на этапе). */
   onSemanticStage?: SemanticAnalyzeDeps["onStage"];
+  /** `plan.visual` / `plan.recheck`: начало этапа (тесты отменяют на этапе). */
+  onPlanStage?: PlanVisualDeps["onStage"];
 }
 
 export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extra: Handlers = {}): Handlers {
@@ -122,6 +127,23 @@ export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extr
       agents: svc.agents,
       ...(o.watchIntervalMs ? { watchIntervalMs: o.watchIntervalMs } : {}),
       ...(o.onSemanticStage ? { onStage: o.onSemanticStage } : {}),
+      ...(o.log ? { log: o.log } : {}),
+    })),
+    "plan.visual": planVisual(() => ({
+      root: svc.root,
+      config: svc.config,
+      storage: svc.storageCheck,
+      agents: svc.agents,
+      kb: svc.kb,
+      ...(o.watchIntervalMs ? { watchIntervalMs: o.watchIntervalMs } : {}),
+      ...(o.onPlanStage ? { onStage: o.onPlanStage } : {}),
+      ...(o.log ? { log: o.log } : {}),
+    })),
+    "plan.recheck": planRecheck(() => ({
+      root: svc.root,
+      config: svc.config,
+      storage: svc.storageCheck,
+      ...(o.onPlanStage ? { onStage: o.onPlanStage } : {}),
       ...(o.log ? { log: o.log } : {}),
     })),
     ...extra,
