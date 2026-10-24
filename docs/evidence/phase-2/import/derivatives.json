@@ -1,0 +1,49 @@
+[
+  {
+    "kind": "audio16k",
+    "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7/audio16k.wav",
+    "params": {
+      "sample_rate": 16000,
+      "channels": 1,
+      "codec": "pcm_s16le"
+    }
+  },
+  {
+    "kind": "proxy",
+    "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7/proxy.mp4",
+    "params": {
+      "short_side": 720,
+      "width": 1280,
+      "height": 720,
+      "fps": {
+        "num": 30,
+        "den": 1
+      },
+      "codec": "h264",
+      "crf": 23,
+      "preset": "veryfast",
+      "duration_us": 420100000
+    }
+  },
+  {
+    "kind": "thumbs",
+    "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7/thumbs.json",
+    "params": {
+      "every_us": 2000000,
+      "count": 210,
+      "height": 180,
+      "dir": "thumbs"
+    }
+  },
+  {
+    "kind": "waveform",
+    "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7/waveform.bin",
+    "params": {
+      "bucket_ms": 10,
+      "sample_rate": 16000,
+      "length": 42002,
+      "file": "waveform.bin",
+      "index": "waveform.json"
+    }
+  }
+]

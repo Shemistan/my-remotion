@@ -13,6 +13,8 @@
 //   --all — оценить всех кандидатов (без него — до первого подходящего)
 //   --no-long — без поиска отрезка в длинном ролике
 //   --scan 250-420 — искать отрезок только в этом диапазоне секунд длинного ролика (быстрее)
+//   --raw [путь] — сырой ролик приёмки Task 34 (по умолчанию IMG_0685.MOV): окно RAW.windowS с
+//     речью ≥ 50 % и паузами, копия `-c copy` в RAW.outDir (или --out-dir), sha256 оригинала до/после
 // Нужен собранный `tools/vision-detect/bin/vision-detect` (`npm run build:vision`).
 /* global process, console, URL */
 import { execFileSync, spawnSync } from "node:child_process";
@@ -115,6 +117,58 @@ export function evaluate(probe, silenceStderr, faceRatio, faceGapS = 0) {
   };
 }
 
+/**
+ * Сырой ролик приёмки Task 34 (уточнения контроллера, rulings 2026-10-24): несмонтированная
+ * запись iPhone. Основной сценарий — копия-отрезок `windowS` с плотной речью, но с паузами
+ * (детекторам чернового монтажа есть что найти); `skipS` — пропуск начала (настройка камеры).
+ * Порог тишины −40 дБ, а не −35 дБ шортсов: запись тихая (mean_volume ≈ −36,6 дБ), при −35 дБ
+ * тихая речь считается тишиной; паузы-раздумья до 30 с в сыром ролике — норма (их и режет монтаж).
+ */
+export const RAW = {
+  source: `${DIR}/IMG_0685.MOV`, windowS: 420, stepS: 15, skipS: 30, minSpeech: 0.5, minPauses: 10, maxSilenceS: 30, pauseS: 0.8, noiseDb: -40,
+  outDir: "/Volumes/External SSD/MotionStudio-acceptance-src",
+};
+
+/** Интервалы тишины `{ start, end }` (с) из stderr `silencedetect` (незакрытая — до конца ролика). */
+export function silenceIntervals(stderr, durationS) {
+  const out = [];
+  let open;
+  for (const line of stderr.split("\n")) {
+    const s = /silence_start:\s*(-?[\d.]+)/.exec(line);
+    if (s) open = Math.max(0, Number(s[1]));
+    const e = /silence_end:\s*([\d.]+)/.exec(line);
+    if (e && open !== undefined) {
+      out.push({ start: open, end: Math.min(Number(e[1]), durationS) });
+      open = undefined;
+    }
+  }
+  if (open !== undefined) out.push({ start: open, end: durationS });
+  return out;
+}
+
+/**
+ * Окна `windowS` с шагом `stepS` от `skipS`: доля речи, число пауз ≥ `pauseS` (тишина внутри окна,
+ * обрезанная его краями) и самая длинная тишина.
+ */
+export function speechWindows(silences, durationS, o = RAW) {
+  const pauseS = o.pauseS ?? RAW.pauseS;
+  const r = (v) => Math.round(v * 1000) / 1000;
+  const out = [];
+  for (let a = o.skipS; a + o.windowS <= durationS + 1e-9; a += o.stepS) {
+    const b = a + o.windowS;
+    const inside = silences.map((x) => Math.max(0, Math.min(b, x.end) - Math.max(a, x.start))).filter((d) => d > 0);
+    const silent = inside.reduce((acc, d) => acc + d, 0);
+    out.push({ start_s: a, end_s: b, speech_ratio: r(1 - silent / o.windowS), pauses: inside.filter((d) => d >= pauseS).length, longest_silence_s: r(Math.max(0, ...inside)) });
+  }
+  return out;
+}
+
+/** Окно с речью ≥ `minSpeech`, паузами ≥ `minPauses`, без тишины > `maxSilenceS` — с наибольшей долей речи. */
+export function pickSpeechWindow(windows, o = RAW) {
+  const ok = windows.filter((w) => w.speech_ratio >= o.minSpeech && w.pauses >= o.minPauses && w.longest_silence_s <= o.maxSilenceS);
+  return ok.sort((x, y) => y.speech_ratio - x.speech_ratio || x.start_s - y.start_s)[0];
+}
+
 /** Первый подходящий по порядку кандидат или undefined. */
 export function pick(evaluated) {
   return evaluated.find((e) => e.ok);
@@ -172,8 +226,8 @@ function probe(path) {
   return JSON.parse(execFileSync("ffprobe", ["-v", "error", "-show_format", "-show_streams", "-of", "json", `file:${path}`], { maxBuffer: 64 << 20 }).toString());
 }
 
-function silencedetect(path) {
-  const r = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-protocol_whitelist", "file", "-i", `file:${path}`, "-vn", "-af", `silencedetect=noise=${CRITERIA.noiseDb}dB:d=${CRITERIA.minSilenceS}`, "-f", "null", "-"], { maxBuffer: 64 << 20 });
+function silencedetect(path, noiseDb = CRITERIA.noiseDb) {
+  const r = spawnSync("ffmpeg", ["-hide_banner", "-nostats", "-protocol_whitelist", "file", "-i", `file:${path}`, "-vn", "-af", `silencedetect=noise=${noiseDb}dB:d=${CRITERIA.minSilenceS}`, "-f", "null", "-"], { maxBuffer: 64 << 20 });
   if (r.status !== 0) throw new Error(`ffmpeg silencedetect ${path}: код ${r.status}`);
   return r.stderr.toString();
 }
@@ -246,12 +300,76 @@ async function fromLong(path, outDir, scan) {
   return { ...assess(out), source: path, segment: seg, cuts, source_sha256: before, source_unchanged: true };
 }
 
+/**
+ * Сырой ролик (`--raw [путь]`, Task 34): sha256 до → silencedetect → окна → копия-отрезок
+ * `ffmpeg -ss -t -c copy -map 0:v:0 -map 0:a:0` (матрица поворота сохраняется) в `RAW.outDir` →
+ * ffprobe копии, доля лица (Vision раз в 5 с) → sha256 оригинала после (должен совпасть).
+ */
+async function raw(path, outDir) {
+  const t0 = Date.now();
+  const before = await sha256(path);
+  const p = probe(path);
+  const durationS = Number(p.format?.duration);
+  const silences = silenceIntervals(silencedetect(path, RAW.noiseDb), durationS);
+  const windows = speechWindows(silences, durationS);
+  const w = pickSpeechWindow(windows);
+  if (!w) {
+    console.log(JSON.stringify({ chosen: null, source: path, criteria: RAW, windows }, null, 2));
+    console.error("Нет окна по критериям: отрезок выбирает человек.");
+    process.exit(1);
+  }
+  mkdirSync(outDir, { recursive: true });
+  const out = join(outDir, `IMG_0685-${w.start_s}-${w.end_s}.mov`);
+  if (!existsSync(out)) {
+    execFileSync("ffmpeg", ["-hide_banner", "-v", "error", "-nostdin", "-ss", String(w.start_s), "-t", String(RAW.windowS), "-protocol_whitelist", "file",
+      "-i", `file:${path}`, "-map", "0:v:0", "-map", "0:a:0", "-c", "copy", "-n", `file:${out}`]);
+  }
+  const cp = probe(out);
+  const v = cp.streams?.find((x) => x.codec_type === "video");
+  const rotation = Number(v?.side_data_list?.find((d) => d.rotation !== undefined)?.rotation ?? 0);
+  const frames = visionScanEvery(out, 5).map((x) => x.frame);
+  const after = await sha256(path);
+  if (after !== before) throw new Error(`оригинал ${path} изменился: sha256 ${before} → ${after}`);
+  const copyDur = Number(cp.format?.duration);
+  const copySilences = silenceIntervals(silencedetect(out, RAW.noiseDb), copyDur);
+  const copySpeech = 1 - copySilences.reduce((a, x) => a + x.end - x.start, 0) / copyDur;
+  console.log(JSON.stringify({
+    chosen: { path: out, sha256: await sha256(out), window: w, duration_s: copyDur, width: v?.width, height: v?.height, rotation,
+      orientation: v ? orientation(v.width, v.height, rotation) : undefined, speech_ratio: Math.round(copySpeech * 1000) / 1000,
+      face_ratio: Math.round(faceShare(frames) * 1000) / 1000, face_frames: frames.length },
+    source: { path, duration_s: durationS, sha256_before: before, sha256_after: after, unchanged: true },
+    criteria: RAW, top_windows: [...windows].sort((a, b) => b.speech_ratio - a.speech_ratio).slice(0, 10), wall_s: Math.round((Date.now() - t0) / 1000),
+    ffprobe: { format: cp.format, streams: cp.streams },
+  }, null, 2));
+}
+
+/** Кадры раз в `everyS` с (640 px, с поворотом ffmpeg) → `vision-detect`. */
+function visionScanEvery(path, everyS) {
+  if (!existsSync(VISION_BIN)) throw new Error(`нет ${VISION_BIN}: npm run build:vision`);
+  mkdirSync(join(REPO, "tmp"), { recursive: true });
+  const dir = mkdtempSync(join(REPO, "tmp", "pick-frames-"));
+  try {
+    execFileSync("ffmpeg", ["-hide_banner", "-v", "error", "-nostdin", "-protocol_whitelist", "file", "-i", `file:${path}`,
+      "-an", "-vf", `fps=1/${everyS},scale=640:-2`, "-n", `file:${join(dir, "%06d.png")}`], { maxBuffer: 64 << 20 });
+    const files = readdirSync(dir).filter((f) => f.endsWith(".png")).sort();
+    const out = [];
+    for (let k = 0; k < files.length; k += 40) out.push(...JSON.parse(execFileSync(VISION_BIN, files.slice(k, k + 40).map((f) => join(dir, f)), { maxBuffer: 64 << 20 }).toString()));
+    return out.map((frame, k) => ({ t: k * everyS, frame }));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const flag = (f) => args.includes(f);
   const value = (f) => (args.includes(f) ? args[args.indexOf(f) + 1] : undefined);
   const scanArg = value("--scan");
   const scan = scanArg ? scanArg.split("-").map(Number) : undefined;
+  if (flag("--raw")) {
+    const src = args.find((a, i) => i > 0 && args[i - 1] === "--raw" && !a.startsWith("--")) ?? RAW.source;
+    return raw(src, value("--out-dir") ?? RAW.outDir);
+  }
   const outDir = value("--out-dir") ?? join(REPO, "tmp", "talking-head");
   const skip = new Set([scanArg, value("--out-dir")].filter(Boolean));
   const paths = args.filter((a) => !a.startsWith("--") && !skip.has(a));

@@ -1,0 +1,51 @@
+[
+  {
+    "id": "3.1",
+    "title": "правка сохранена → r2",
+    "kind": "A",
+    "pass": true,
+    "detail": "201"
+  },
+  {
+    "id": "3.2",
+    "title": "у остальных слов id и таймкоды не изменились",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"changed\":[]}"
+  },
+  {
+    "id": "3.2b",
+    "title": "текст остальных слов не изменился (пунктуация не слита)",
+    "kind": "A",
+    "pass": true,
+    "detail": "[]"
+  },
+  {
+    "id": "3.3",
+    "title": "вставленное слово — interpolated, id <пред>.<k>",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"id\":\"w_000168.1\",\"text\":\"ВСТАВКА\",\"start_us\":176060000,\"end_us\":176060000,\"timing\":\"interpolated\",\"confidence\":null}]"
+  },
+  {
+    "id": "3.N",
+    "title": "исправленные слова: сохранили id или заменены новыми (справочно)",
+    "kind": "info",
+    "pass": true,
+    "detail": "[{\"r1\":{\"id\":\"w_000167\",\"text\":\"кому\",\"start_us\":175420000,\"end_us\":175780000,\"timing\":\"asr\",\"confidence\":null},\"r2\":{\"id\":\"w_000167\",\"text\":\"комуов\",\"start_us\":175420000,\"end_us\":175780000,\"timing\":\"asr\",\"confidence\":null},\"replaced_by\":[{\"id\":\"w_000167\",\"text\":\"комуов\",\"start_us\":175420000,\"end_us\":175780000,\"timing\":\"asr\",\"confidence\":null}]},{\"r1\":{\"id\":\"w_000170\",\"text\":\"сверху\",\"start_us\":176720000,\"end_us\":177300000,\"timing\":\"asr\",\"confidence\":null},\"r2\":{\"id\":\"w_000170\",\"text\":\"сверхуов\",\"start_us\":176720000,\"end_us\":177300000,\"timing\":\"asr\",\"confidence\":null},\"replaced_by\":[{\"id\":\"w_000170\",\"text\":\"сверхуов\",\"start_us\":176720000,\"end_us\":177300000,\"timing\":\"asr\",\"confidence\":null}]}]"
+  },
+  {
+    "id": "3.4",
+    "title": "r1 не изменена (sha256 файлов каталога ревизии)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"before\":{\"asr-worker.json\":\"0d4b5995ce53c9705b32fcdf4f51df8518ea058dafd855c816f6d29bf21fd5da\",\"transcript.json\":\"5454f31894da1d40717814d58179a3d0f83dc13df4ae99a1a58c0ac9efa266c1\"},\"after\":{\"asr-worker.json\":\"0d4b5995ce53c9705b32fcdf4f51df8518ea058dafd855c816f6d29bf21fd5da\",\"transcript.json\":\"5454f31894da1d40717814d58179a3d0f83dc13df4ae99a1a58c0ac9efa266c1\"}}"
+  },
+  {
+    "id": "3.5",
+    "title": "r1 открывается и равна исходной",
+    "kind": "A",
+    "pass": true,
+    "detail": ""
+  }
+]

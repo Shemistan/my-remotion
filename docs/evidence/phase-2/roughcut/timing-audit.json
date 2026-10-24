@@ -1,0 +1,125 @@
+{
+  "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+  "edl_id": "edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C",
+  "revision": 13,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "frame_us": 33334,
+  "duration_us": 292986666,
+  "timeline_rebuilt_equal": true,
+  "ok": true,
+  "rows": [
+    {
+      "word_id": "w_000018",
+      "text": "ошибку",
+      "source_us": 9680000,
+      "edited_us": 9680000,
+      "in_cut": false,
+      "back_us": 9680000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000055",
+      "text": "пришла",
+      "source_us": 43380000,
+      "edited_us": 40346667,
+      "in_cut": false,
+      "back_us": 43380000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 0.999
+    },
+    {
+      "word_id": "w_000094",
+      "text": "интересный",
+      "source_us": 102520000,
+      "edited_us": 67986667,
+      "in_cut": false,
+      "back_us": 102520000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000129",
+      "text": "тип.",
+      "source_us": 131720000,
+      "edited_us": 94420001,
+      "in_cut": false,
+      "back_us": 131720000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000179",
+      "text": "системы",
+      "source_us": 183940000,
+      "edited_us": 122273334,
+      "in_cut": false,
+      "back_us": 183940000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000239",
+      "text": "мы",
+      "source_us": 227300000,
+      "edited_us": 147900000,
+      "in_cut": false,
+      "back_us": 227300000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000272",
+      "text": "ок",
+      "source_us": 248700000,
+      "edited_us": 168266667,
+      "in_cut": false,
+      "back_us": 248700000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000326",
+      "text": "использует",
+      "source_us": 322023000,
+      "edited_us": 225156334,
+      "in_cut": false,
+      "back_us": 322023000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000370",
+      "text": "добавляются",
+      "source_us": 369443000,
+      "edited_us": 253176333,
+      "in_cut": false,
+      "back_us": 369443000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000403",
+      "text": "это",
+      "source_us": 393703000,
+      "edited_us": 273769666,
+      "in_cut": false,
+      "back_us": 393703000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    }
+  ]
+}

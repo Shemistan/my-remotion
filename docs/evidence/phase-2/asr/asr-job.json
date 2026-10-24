@@ -1,0 +1,67 @@
+{
+  "job": {
+    "id": "job_01M5Q5WS2K6KVYV1X1G2X6TMZP",
+    "type": "asr.transcribe",
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "scene_id": null,
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "done",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "projectId": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+      "mediaId": "med_01M5Q5QXD2ANNG55C9C25XYKE7",
+      "language": "ru"
+    },
+    "input_hash": "a6edea01e7b1d047ff1db3ea0522a051ed78fb8eec20b71efe10d13034b8c835",
+    "output_refs": {
+      "transcript_id": "trn_01M5Q5WS2K6KVYV1X1G2X6TMZP",
+      "revision": 1,
+      "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/transcript/trn_01M5Q5WS2K6KVYV1X1G2X6TMZP/r1/transcript.json",
+      "words": 421,
+      "segments": 50,
+      "reused": false,
+      "model": "whisper-large-v3-turbo",
+      "splits": [
+        285.123
+      ],
+      "audio_s": 420.015,
+      "elapsed_s": 32.7,
+      "rtf": 0.078,
+      "ai_platform_commit": "99f75d6626a5525b165e8e0f74f99adf3e80cc15",
+      "timings_ms": {
+        "prepare": 51,
+        "silence": 132,
+        "heavy_wait": 6,
+        "transcribe": 32739,
+        "publish": 29
+      }
+    },
+    "error": null,
+    "idempotency_key": "f5f788ff-cc24-4f55-9779-bfc6c3191319",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-24T14:44:02.260Z",
+    "started_at": "2026-10-24T14:44:02.502Z",
+    "finished_at": "2026-10-24T14:44:35.480Z"
+  },
+  "processes": [
+    {
+      "cmd": "/opt/homebrew/bin/ffmpeg -hide_banner -nostdin -nostats -protocol_whitelist file -f wav -i file:/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7/audio16k.wav -vn -af silencedetect=noise=-35dB:d=0.4 -f null -",
+      "pid": 11636,
+      "pgid": 11636,
+      "exit_code": 0
+    },
+    {
+      "cmd": "~/.local/share/montage/mlx-audio-0.5.8/.venv/bin/python ~/my_track/01_It_development/ai-platform/app/platform/aiplatform/montage/asr_worker.py --kind whisper --model /Volumes/External SSD/local_models/asr/whisper-large-v3-turbo --audio /Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7/audio16k.wav --out /Volumes/External SSD/MotionStudio-acceptance/run/tmp/job_01M5Q5WS2K6KVYV1X1G2X6TMZP-a1-asr-rH7Jv7/words.json --language ru --splits 285.123",
+      "pid": 11671,
+      "pgid": 11671,
+      "exit_code": 0
+    }
+  ]
+}

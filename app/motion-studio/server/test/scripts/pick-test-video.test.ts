@@ -2,7 +2,7 @@
 // ответах ffprobe, silencedetect и vision-detect — длительность 45–150 с, есть аудио, речь ≥ 50 %,
 // лицо на ≥ 90 % кадров, порядок; поиск talking-head отрезка 45–90 с в длинном ролике по скану.
 import { describe, expect, it } from "vitest";
-import { type Ffprobe, CANDIDATES, LONG_CANDIDATE, evaluate, faceShare, findTalkingHead, hasFace, longestFaceGap, orientation, parseCuts, pick, silenceSeconds } from "../../../scripts/pick-test-video.mjs";
+import { type Ffprobe, CANDIDATES, LONG_CANDIDATE, RAW, evaluate, pickSpeechWindow, silenceIntervals, speechWindows, faceShare, findTalkingHead, hasFace, longestFaceGap, orientation, parseCuts, pick, silenceSeconds } from "../../../scripts/pick-test-video.mjs";
 
 const probe = (duration: number, o: { audio?: boolean; w?: number; h?: number; rotation?: number } = {}): Ffprobe => ({
   format: { duration: String(duration) },
@@ -96,5 +96,27 @@ describe("pick-test-video", () => {
     expect(findTalkingHead(scan(() => true, 200), [], 200)).toEqual({ start_s: 0, end_s: 90 });
     expect(findTalkingHead(scan(() => false), cuts, 600)).toBeUndefined();
     expect(parseCuts("[Parsed_metadata_2 @ 0x1] lavfi.scd.time=299.333\nfoo\n[Parsed_metadata_2 @ 0x1] lavfi.scd.time=354.333\n")).toEqual([299.333, 354.333]);
+  });
+
+  it("сырой ролик (Task 34): окна по тишине — доля речи, паузы ≥ 0,8 с, самая длинная тишина", () => {
+    expect(RAW.source).toMatch(/IMG_0685\.MOV$/);
+    expect(silenceIntervals(silences([1, 2], [5]), 10)).toEqual([{ start: 1, end: 2 }, { start: 5, end: 10 }]);
+    // 100 с: тишины 10–11 (1 с, пауза), 20–20,5 (0,5 с — не пауза), 60–75 (15 с)
+    const sil = silenceIntervals(silences([10, 11], [20, 20.5], [60, 75]), 100);
+    const w = speechWindows(sil, 100, { windowS: 50, stepS: 25, skipS: 0 });
+    expect(w.map((x) => [x.start_s, x.end_s])).toEqual([[0, 50], [25, 75], [50, 100]]);
+    expect(w[0]).toMatchObject({ pauses: 1, longest_silence_s: 1 });
+    expect(w[0]!.speech_ratio).toBeCloseTo(0.97, 6);
+    expect(w[1]).toMatchObject({ pauses: 1, longest_silence_s: 15 });
+    expect(w[1]!.speech_ratio).toBeCloseTo(0.7, 6);
+    // тишина, обрезанная краем окна, учитывается только внутри окна
+    expect(speechWindows(sil, 100, { windowS: 10, stepS: 5, skipS: 65 })[0]).toMatchObject({ start_s: 65, speech_ratio: 0, pauses: 1 });
+  });
+
+  it("сырой ролик: выбирается окно с речью ≥ 50 %, паузами и без длинной тишины — с наибольшей долей речи", () => {
+    const mk = (start_s: number, speech_ratio: number, pauses: number, longest_silence_s: number) => ({ start_s, end_s: start_s + 420, speech_ratio, pauses, longest_silence_s });
+    const o = { minSpeech: 0.5, minPauses: 10, maxSilenceS: 12 };
+    expect(pickSpeechWindow([mk(0, 0.95, 3, 1), mk(30, 0.4, 40, 5), mk(60, 0.7, 20, 30), mk(90, 0.75, 15, 4), mk(120, 0.8, 12, 6)], o)).toMatchObject({ start_s: 120 });
+    expect(pickSpeechWindow([mk(0, 0.95, 3, 1)], o)).toBeUndefined();
   });
 });

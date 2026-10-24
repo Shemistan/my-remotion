@@ -119,3 +119,23 @@ Playwright через настоящий UI (`web/playwright.acceptance.config.t
 (логи сервера, скачанные файлы, проверочные рендеры) — `tmp/acceptance/`.
 
 Время и стоимость — справочно (подписка): раздел «Стоимость и время» в `REPORT.md`.
+
+## Приёмка Phase 2–3 (видео)
+
+```sh
+make acceptance-video                                         # Phase 2: импорт, ASR, монтаж, рестарт, устойчивость
+MS_ACC_REUSE=1 MS_ACC_ONLY=stress make acceptance-video       # стресс: весь 66-минутный исходник (долго)
+MS_ACC_REUSE=1 MS_ACC_ONLY=roughcut,restart make acceptance-video # продолжить с нужного шага
+```
+
+Playwright через настоящий UI (`web/playwright.acceptance-video.config.ts`, шаги —
+`web/e2e/acceptance-video/acceptance-video.list.ts`) с реальными `claude`, ASR-воркером
+ai-platform, ffmpeg и Apple Vision; хранилище — то же `/Volumes/External SSD/MotionStudio-acceptance`.
+Ролик — сырой `IMG_0685.MOV` пользователя (согласие — rulings 2026-10-24): основной сценарий идёт
+на копии-отрезке 7 мин (`node scripts/pick-test-video.mjs --raw` → окно с речью ≥ 50 % и паузами,
+`ffmpeg -c copy` в `/Volumes/External SSD/MotionStudio-acceptance-src/`), оригинал только
+читается, sha256 до/после сверяется. Скрипты evidence: `scripts/collect-video-evidence.mjs
+<projectId> <каталог>` (JSON артефактов, видео — только sha256 и ffprobe, кадры ≤ 480 px),
+`node --import tsx scripts/timing-audit.mjs <projectId>` (source↔edited и смещение звука превью
+по 10 словам). Итоги — `docs/evidence/phase-2/<шаг>/checks.json` и `docs/evidence/phase-2/REPORT.md`
+(там же время и стоимость шагов); служебное — `tmp/acceptance-video/`.

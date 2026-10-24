@@ -1,0 +1,107 @@
+[
+  {
+    "id": "4.1",
+    "title": "предложение монтажа с агентом завершено",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null,\"output\":{\"edl_id\":\"edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C\",\"revision\":1,\"rel_path\":\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r1/edl.json\",\"reused\":false,\"no_change\":false,\"decisions\":{\"total\":40,\"proposed\":40,\"by_reason\":{\"bad_take\":6,\"repeat\":5,\"pause\":26,\"false_start\":3}},\"detector\":{\"pause\":26,\"filler\":0,\"repeat\":4},\"agent\":{\"status\":\"completed\",\"calls\":1,\"cost_usd\":0.0756,\"decisions\":10,\"accepted\":10,\"rejected\":[],\"reviews\":2,\"unknown_reviews\":[],\"retried\":false},\"suppressed\":0,\"timings_ms\":{\"prepare\":17,\"detect\":10,\"agent\":23868,\"publish\":41}}}"
+  },
+  {
+    "id": "4.2",
+    "title": "агент вызван (реальный claude): output_refs.agent completed, calls > 0",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"calls\":1,\"cost_usd\":0.0756,\"decisions\":10,\"accepted\":10,\"rejected\":[],\"reviews\":2,\"unknown_reviews\":[],\"retried\":false}"
+  },
+  {
+    "id": "4.2b",
+    "title": "прогоны агента записаны в agent_runs (находка F1)",
+    "kind": "A",
+    "pass": false,
+    "detail": "agent_runs по задаче пусто: [] — стоимость есть только в output_refs.agent"
+  },
+  {
+    "id": "4.3",
+    "title": "есть предложения вырезок (детекторы и агент)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"agent:bad_take\":6,\"detector:repeat\":4,\"agent:repeat\":1,\"detector:pause\":26,\"agent:false_start\":3}"
+  },
+  {
+    "id": "4.4",
+    "title": "у каждой вырезки причина, интервал, уверенность, объяснение",
+    "kind": "A",
+    "pass": true,
+    "detail": "[]"
+  },
+  {
+    "id": "4.5",
+    "title": "агентские вырезки — с цитатой, проходящей verifyQuote по словам",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"id\":\"agt_r1_1\",\"reason\":\"bad_take\",\"quote\":\"принято закрывать соединение и отправлять просто ошибку и в таком случае принято просто закрывать соединения и отправлять ошибку и в таком случае\",\"ok\":true,\"r\":{\"ok\":true}},{\"id\":\"agt_r1_2\",\"reason\":\"repeat\",\"quote\":\"или ошибки самой задачи\",\"ok\":true,\"r\":{\"ok\":true}},{\"id\":\"agt_r1_3\",\"reason\":\"false_start\",\"quote\":\"Это сообщение еще\",\"ok\":true,\"r\":{\"ok\":true}},{\"id\":\"agt_r1_4\",\"reason\":\"bad_take\",\"quote\":\"Теперь соберем весь наш пройденный разговор целиком\",\"ok\":true,\"r\":{\"ok\":true}},{\"id\":\"agt_r1_5\",\"reason\":\"bad_take\",\"quote\":\"Потом отправляется сообщение, что hello, привет\",\"ok\":true,\"r\":{\"ok\":true}},{\"id\":\"agt_r1_6\",\"reason\":\"false_start\",\"quote\":\"И отвечает, и\",\"ok\":true,\"r\":{\"ok\":true}},{\"id\":\"agt_r1_7\",\"reason\":\"bad_take\",\"quote\":\"И тут мы видим, что результат задачи от номер 2,\",\"ok\":true,\"r\":{\"ok\":true}},{\"id\":\"agt_r1_8\",\"reason\":\"bad_take\",\"quote\":\"Даже пока он спит, то есть выполняет условно какую-то задачу То есть\",\"ok\":true,\"r\":{\"ok\":true}},{\"id\":\"agt_r1_9\",\"reason\":\"bad_take\",\"quote\":\"Диспетчер закрывает соединение.\",\"ok\":true,\"r\":{\"ok\":true}},{\"id\":\"agt_r1_10\",\"reason\":\"false_start\",\"quote\":\"если есть как\",\"ok\":true,\"r\":{\"ok\":true}}]"
+  },
+  {
+    "id": "4.5b",
+    "title": "отклонённые кодом предложения агента (не приняты с «примерным» временем)",
+    "kind": "info",
+    "pass": true,
+    "detail": "[]"
+  },
+  {
+    "id": "4.6",
+    "title": "одна вырезка отклонена",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"id\":\"agt_r1_1\",\"reason\":\"bad_take\",\"origin\":\"agent\",\"status\":\"proposed\",\"start_word_id\":\"w_000001\",\"end_word_id\":\"w_000022\",\"source_start_us\":0,\"source_end_us\":12566667,\"confidence\":0.75,\"explanation\":\"Три дубля одной фразы; оставлен последний, где она идёт дальше без обрыва. — «принято закрывать соединение и отправлять просто ошибку и в таком случае принято просто закрывать соединения и отправлять ошибку и в таком случае»\"}"
+  },
+  {
+    "id": "4.7",
+    "title": "«Восстановить» → таймлайн байт-в-байт как без этой вырезки",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"restored\":\"agt_r1_2\",\"with_ms\":302686.665,\"now_ms\":310719.999,\"expected_ms\":310719.999}"
+  },
+  {
+    "id": "4.8",
+    "title": "итог решений",
+    "kind": "info",
+    "pass": true,
+    "detail": "{\"accepted\":36,\"rejected\":4,\"source_s\":420.12,\"edited_s\":292.986666}"
+  },
+  {
+    "id": "4.9",
+    "title": "превью собрано",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null}"
+  },
+  {
+    "id": "4.10",
+    "title": "длительность превью (видео и звук) = timeline.duration_us ± 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"video_us\":292966667,\"audio_us\":292986000,\"timeline_us\":292986666,\"frame_us\":33334}"
+  },
+  {
+    "id": "4.11",
+    "title": "timing-audit: 10 слов — обратное отображение без потерь, |audioOffset| ≤ 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"ok\":true,\"max_abs_offset_us\":0,\"first_run\":\"fail: слово w_000238 с окном замера через стык (корр. 0,08) — ошибка выбора слов в скрипте, исправлено, аудит перезапущен на той же ревизии r13\"}"
+  },
+  {
+    "id": "4.H",
+    "title": "3 стыка: нет щелчков и обрезанных слов — оценка агента по сигналу (скачок отсчёта, всплеск RMS) и word_map; прослушать — человеку",
+    "kind": "H→агент",
+    "pass": true,
+    "detail": "[{\"edited_us\":98433335,\"source_from_us\":145066667,\"source_to_us\":151800000,\"near_words\":[],\"clipped\":[],\"stats\":{\"max_jump\":7,\"median_jump\":0,\"rms_peak_ratio\":22.9},\"clip\":\"/Volumes/External SSD/Youtube/FinalVideo/MyProtocol/MotionStudio-примеры/task34-phase2/junction-1-98.43s.mp4\"},{\"edited_us\":144933334,\"source_from_us\":218400000,\"source_to_us\":219633334,\"near_words\":[{\"id\":\"w_000227\",\"text\":\"uppercase.\",\"state\":\"kept\"},{\"id\":\"w_000228\",\"text\":\"И\",\"state\":\"removed\"}],\"clipped\":[],\"stats\":{\"max_jump\":3,\"median_jump\":0,\"rms_peak_ratio\":0.87},\"clip\":\"/Volumes/External SSD/Youtube/FinalVideo/MyProtocol/MotionStudio-примеры/task34-phase2/junction-2-144.93s.mp4\"},{\"edited_us\":230566667,\"source_from_us\":328566667,\"source_to_us\":333366667,\"near_words\":[{\"id\":\"w_000333\",\"text\":\"совместимость.\",\"state\":\"kept\"},{\"id\":\"w_000334\",\"text\":\"Правила\",\"state\":\"kept\"}],\"clipped\":[],\"stats\":{\"max_jump\":1,\"median_jump\":0,\"rms_peak_ratio\":1.03},\"clip\":\"/Volumes/External SSD/Youtube/FinalVideo/MyProtocol/MotionStudio-примеры/task34-phase2/junction-3-230.57s.mp4\"}]"
+  },
+  {
+    "id": "4.12",
+    "title": "Approval A valid на текущую ревизию EDL",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"id\":\"apr_01M5Q617FJ1Y2EVTB32R5BK4GV\",\"project_id\":\"prj_01M5Q5QWCS597HRDM4X9S74WEJ\",\"kind\":\"A\",\"subject_ref\":\"edl:edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C@r13\",\"subject_hash\":\"e2cec4bb1fb6ac36c1e1ae99328006245ae48c7c212238e613847baf7ea36843\",\"status\":\"valid\",\"stale_reason\":null,\"decided_at\":\"2026-10-24T14:46:28.082Z\"}]"
+  }
+]

@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "asset": {
+    "id": "med_01M5Q5QXD2ANNG55C9C25XYKE7",
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "original_name": "IMG_0685-3330-3750.mov",
+    "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/source/med_01M5Q5QXD2ANNG55C9C25XYKE7/original.mov",
+    "sha256": "9fdeee13d9878f4a90affd60873b84acdd172503e61393dc7319f841b1a9c136",
+    "size_bytes": 1191485480,
+    "probe": {
+      "container": "mov,mp4,m4a,3gp,3g2,mj2",
+      "duration_us": 420120000,
+      "size_bytes": 1191485480,
+      "start_time_us": 0,
+      "video": {
+        "codec": "hevc",
+        "width": 3840,
+        "height": 2160,
+        "display_width": 3840,
+        "display_height": 2160,
+        "rotation": 180,
+        "r_frame_rate": {
+          "num": 30,
+          "den": 1
+        },
+        "avg_frame_rate": {
+          "num": 1893450,
+          "den": 63121
+        },
+        "pix_fmt": "yuv420p",
+        "start_time_us": 0
+      },
+      "audio": {
+        "codec": "aac",
+        "sample_rate": 48000,
+        "channels": 2,
+        "start_time_us": 0
+      },
+      "vfr": false,
+      "timeline_fps": {
+        "num": 30,
+        "den": 1
+      }
+    },
+    "status": "ready",
+    "import": {
+      "method": "path",
+      "source_path": "/Volumes/External SSD/MotionStudio-acceptance-src/IMG_0685-3330-3750.mov",
+      "cloned": true
+    },
+    "created_at": "2026-10-24T14:42:38.154Z"
+  },
+  "derivatives": [
+    {
+      "kind": "proxy",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7/proxy.mp4",
+      "sha256": "f05853e35efb9b78b43b460a77014b503f672ee66218d28bd2aa0ca5f434751f",
+      "params": {
+        "short_side": 720,
+        "width": 1280,
+        "height": 720,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "codec": "h264",
+        "crf": 23,
+        "preset": "veryfast",
+        "duration_us": 420100000
+      }
+    },
+    {
+      "kind": "audio16k",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7/audio16k.wav",
+      "sha256": "89d89db30e750440871a58fcefb85af3ac8915e581c62361d46101c6faf95103",
+      "params": {
+        "sample_rate": 16000,
+        "channels": 1,
+        "codec": "pcm_s16le"
+      }
+    },
+    {
+      "kind": "waveform",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7/waveform.bin",
+      "sha256": "f60c5cb8f8cf9e16db3a587241969cd4eb3a6241d5bca4c8029d93c789305e90",
+      "params": {
+        "bucket_ms": 10,
+        "sample_rate": 16000,
+        "length": 42002,
+        "file": "waveform.bin",
+        "index": "waveform.json"
+      }
+    },
+    {
+      "kind": "thumbs",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/proxy/med_01M5Q5QXD2ANNG55C9C25XYKE7/thumbs.json",
+      "sha256": "0a8356b423f1f13000a9e1a23fe95649f9de9409fe8ee0c2ce391bb648de1525",
+      "params": {
+        "every_us": 2000000,
+        "count": 210,
+        "height": 180,
+        "dir": "thumbs"
+      }
+    }
+  ]
+}

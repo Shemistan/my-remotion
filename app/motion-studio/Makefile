@@ -3,7 +3,7 @@
 NODE := ./scripts/with-node.sh
 VISION_BIN := tools/vision-detect/bin/vision-detect
 
-.PHONY: check lint typecheck test e2e e2e-footage e2e-ui acceptance web-build install
+.PHONY: check lint typecheck test e2e e2e-footage e2e-ui acceptance acceptance-video web-build install
 
 check: lint typecheck test
 
@@ -62,3 +62,12 @@ e2e-ui: web-build
 # Продолжить прогон: MS_ACC_REUSE=1 MS_ACC_ONLY=resilience,mvp make acceptance.
 acceptance: web-build
 	$(NODE) npx playwright test -c web/playwright.acceptance.config.ts
+
+# Приёмка Phase 2–3 на реальном сыром ролике (Task 34): UI → сервер на 127.0.0.1:8790, реальные
+# claude, ASR-воркер ai-platform, ffmpeg и Apple Vision; хранилище MotionStudio-acceptance, копия-
+# отрезок IMG_0685.MOV (`scripts/pick-test-video.mjs --raw`) в MotionStudio-acceptance-src.
+# Phase 2 ≈ 15 мин, $0,1; стресс на всём 66-минутном ролике (≈ 45 мин) — отдельно: MS_ACC_ONLY=stress
+# MS_ACC_REUSE=1 make acceptance-video. Evidence — docs/evidence/phase-2/ (и phase-3/).
+acceptance-video: web-build
+	$(NODE) npm run --silent build:vision
+	$(NODE) npx playwright test -c web/playwright.acceptance-video.config.ts

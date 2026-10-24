@@ -1,0 +1,110 @@
+{
+  "job": {
+    "id": "job_01M5Q60E10XQJMRM66NA5MC1FX",
+    "type": "roughcut.preview",
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "scene_id": null,
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "done",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "edlId": "edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C",
+      "revision": 13
+    },
+    "input_hash": "65ba7205ebe5a6bd609233caef2f0d00304a52d8c234abad75e4b91d6eacc31a",
+    "output_refs": {
+      "edl_id": "edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C",
+      "revision": 13,
+      "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/preview/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r13/preview.mp4",
+      "reused": false,
+      "timeline_duration_us": 292986666,
+      "duration_us": {
+        "video": 292966667,
+        "audio": 292986000
+      },
+      "clips": 37,
+      "chunks": 1,
+      "sync": [
+        {
+          "word_id": "w_000039",
+          "offset_us": 0,
+          "corr": 0.995,
+          "energy": true,
+          "pass": 1
+        },
+        {
+          "word_id": "w_000110",
+          "offset_us": 0,
+          "corr": 0.99,
+          "energy": true,
+          "pass": 1
+        },
+        {
+          "word_id": "w_000200",
+          "offset_us": 0,
+          "corr": 1,
+          "energy": true,
+          "pass": 1
+        },
+        {
+          "word_id": "w_000303",
+          "offset_us": 0,
+          "corr": 0.993,
+          "energy": true,
+          "pass": 1
+        },
+        {
+          "word_id": "w_000385",
+          "offset_us": 0,
+          "corr": 0.996,
+          "energy": true,
+          "pass": 1
+        }
+      ],
+      "elapsed_ms": 18119,
+      "timings_ms": {
+        "prepare": 205,
+        "render": 11126,
+        "concat": 5515,
+        "check": 1216,
+        "publish": 55
+      }
+    },
+    "error": null,
+    "idempotency_key": "bf643765-87a4-4910-8ffe-c16f1ce82de4-r13",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-24T14:46:02.016Z",
+    "started_at": "2026-10-24T14:46:02.020Z",
+    "finished_at": "2026-10-24T14:46:20.152Z"
+  },
+  "events": [
+    {
+      "ts": "2026-10-24T14:46:02.024Z",
+      "level": "info",
+      "kind": "started",
+      "message": "roughcut.preview: попытка 1",
+      "data_json": "{\"attempt\":1}"
+    },
+    {
+      "ts": "2026-10-24T14:46:20.086Z",
+      "level": "info",
+      "kind": "sync_check",
+      "message": "синхронность звука превью по 5 словам: w_000039 0.0 мс (корр. 0.995), w_000110 0.0 мс (корр. 0.99), w_000200 0.0 мс (корр. 1), w_000303 0.0 мс (корр. 0.993), w_000385 0.0 мс (корр. 0.996)",
+      "data_json": "{\"sync\":[{\"word_id\":\"w_000039\",\"offset_us\":0,\"corr\":0.995,\"energy\":true,\"pass\":1},{\"word_id\":\"w_000110\",\"offset_us\":0,\"corr\":0.99,\"energy\":true,\"pass\":1},{\"word_id\":\"w_000200\",\"offset_us\":0,\"corr\":1,\"energy\":true,\"pass\":1},{\"word_id\":\"w_000303\",\"offset_us\":0,\"corr\":0.993,\"energy\":true,\"pass\":1},{\"word_id\":\"w_000385\",\"offset_us\":0,\"corr\":0.996,\"energy\":true,\"pass\":1}]}"
+    },
+    {
+      "ts": "2026-10-24T14:46:20.155Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed",
+      "data_json": null
+    }
+  ]
+}

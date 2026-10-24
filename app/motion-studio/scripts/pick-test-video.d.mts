@@ -42,3 +42,8 @@ export function evaluate(probe: Ffprobe, silenceStderr: string | undefined, face
 export function pick<T extends { ok: boolean }>(evaluated: T[]): T | undefined;
 export function findTalkingHead(samples: { t: number; face: boolean }[], cutsS: number[], durationS: number, o?: typeof SEGMENT): { start_s: number; end_s: number } | undefined;
 export function parseCuts(stderr: string): number[];
+export const RAW: { source: string; windowS: number; stepS: number; skipS: number; minSpeech: number; minPauses: number; maxSilenceS: number; pauseS: number; noiseDb: number; outDir: string };
+export interface SpeechWindow { start_s: number; end_s: number; speech_ratio: number; pauses: number; longest_silence_s: number }
+export function silenceIntervals(stderr: string, durationS: number): { start: number; end: number }[];
+export function speechWindows(silences: { start: number; end: number }[], durationS: number, o?: { windowS: number; stepS: number; skipS: number; pauseS?: number }): SpeechWindow[];
+export function pickSpeechWindow(windows: SpeechWindow[], o?: { minSpeech: number; minPauses: number; maxSilenceS: number }): SpeechWindow | undefined;
