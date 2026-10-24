@@ -3,7 +3,7 @@
 // (motion-review-1) — нумерованные заглушки, ключевая мысль purpose на экране, повтор
 // подписи кадра предыдущей сцены. `layout` элемента — доли safe area, а не кадра
 // (prompts/motion-director.md §8): в кадр он переводится через safeRect настроек.
-import { type Beat, type Element, type MotionSpec, type QAIssue, type SceneStructure, type Settings, isAccentBeat, structureOf } from "@ms/contracts";
+import { type Beat, type Element, type MotionSpec, type QAIssue, type SceneStructure, type Settings, isAccentBeat, phasesOf, structureOf } from "@ms/contracts";
 import { arrivalInPass, pulsePass, pulseStarts, resolveStyle } from "@ms/render";
 import { boundCounters } from "../pipeline/bound-counters.js";
 import { isEmphasisRole } from "../pipeline/qa-frames.js";
@@ -35,6 +35,11 @@ export interface SpecCheckOpts {
    * получает (правило Concept сильнее эвристики формы), а подсказка к другой называет её.
    */
   concept?: SceneStructure;
+  /**
+   * Сцена сценария (S5, Р19): окно речи в кадрах. Основное действие — в `[lead; lead + speech)`,
+   * финальное удержание ≥ `tail` (`speech_window`, blocking). Нет — проверки нет.
+   */
+  speechWindow?: { lead: number; speech: number; tail: number };
 }
 
 export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheckOpts = {}): QAIssue[] {
@@ -108,6 +113,7 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
     }
   }
 
+  if (opts.speechWindow) out.push(...speechWindowIssues(spec, opts.speechWindow));
   out.push(...beatReferenceIssues(spec));
   out.push(...accentConflicts(spec, settings));
   out.push(...structureMismatch(spec, opts.concept));
@@ -128,6 +134,40 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
     });
   }
   return out.map((i) => ({ source: "programmatic", ...i }));
+}
+
+/**
+ * Окно речи сцены сценария (S5, Р19): фазы `action`/`turn`/`payoff` начинаются не раньше
+ * `lead` (первые кадры — фон и мягкий вход, их обрежут в монтаже); фаза `hold` начинается не
+ * позже `total − tail` и длится ≥ `tail`. Окно фазы — от первого до последнего кадра её битов;
+ * spec без фаз — фазы по битам (`phasesOf`: вход до первого действия — setup).
+ */
+function speechWindowIssues(spec: MotionSpec, w: { lead: number; speech: number; tail: number }): Omit<QAIssue, "source">[] {
+  const total = spec.duration_frames;
+  const fix_hint = `основное действие — в окне речи [lead; lead+speech), первые lead кадров — фон и мягкий вход, удержание ≥ tail: окно [${w.lead}; ${w.lead + w.speech}), удержание ≥ ${w.tail} кадров до ${total}`;
+  const issue = (area: string, description: string) => ({ code: "speech_window", severity: "blocking" as const, area, description, fix_hint });
+  const phases = phasesOf(spec);
+  const windowOf = (id: string): [number, number] | undefined => {
+    const own = spec.phases ? spec.beats.filter((b) => b.phase === id) : spec.beats.filter((b) => b.id === id);
+    return own.length > 0 ? [Math.min(...own.map((b) => b.start_frame)), Math.max(...own.map((b) => b.end_frame))] : undefined;
+  };
+  const out: Omit<QAIssue, "source">[] = [];
+  for (const p of phases) {
+    if (p.role !== "action" && p.role !== "turn" && p.role !== "payoff") continue;
+    const win = windowOf(p.id);
+    if (win && win[0] < w.lead) out.push(issue(p.id, `${p.role} ${p.id} начинается на кадре ${win[0]} — раньше окна речи (${w.lead})`));
+  }
+  const holds = phases.filter((p) => p.role === "hold").map((p) => ({ p, win: windowOf(p.id) })).filter((x) => x.win !== undefined);
+  if (holds.length === 0) {
+    out.push(issue("hold", `нет фазы hold: финальное удержание ≥ ${w.tail} кадров не задано`));
+  } else {
+    const last = holds.reduce((a, x) => (x.win![1] > a.win![1] ? x : a));
+    const [s, e] = last.win!;
+    if (s > total - w.tail || e - s < w.tail) {
+      out.push(issue(last.p.id, `hold ${last.p.id} [${s}; ${e}) — нужно начало не позже ${total - w.tail} и длина ≥ ${w.tail} кадров`));
+    }
+  }
+  return out;
 }
 
 /**
