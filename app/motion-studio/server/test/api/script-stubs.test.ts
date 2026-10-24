@@ -57,12 +57,12 @@ describe("API сценария", () => {
     expect(again.json().job.id).toBe(r.json().job.id);
   });
 
-  it("маршруты генерации, пакетов и экспорта: схема тела (400); генерация и пакеты — S5 (409/404), экспорт — S7 (202/404), двойники — 501", async () => {
+  it("маршруты генерации, пакетов и экспорта: схема тела (400); генерация и пакеты — S5 (409/404), экспорт — S7 (202/404), двойники — S10 (409)", async () => {
     expect((await api.inj("POST", `/api/projects/${id}/script/generate`, key("g1"), { revision: 1 })).statusCode).toBe(409); // S5: текста нет
     expect((await api.inj("POST", `/api/projects/${id}/script/generate`, key("g2"), { revision: 1, aspect: "1:1" })).statusCode).toBe(400);
     expect((await api.inj("GET", "/api/script-batches/sb_1")).statusCode).toBe(404);
     expect((await api.inj("POST", "/api/script-batches/sb_1/cancel", okHeaders)).statusCode).toBe(404);
-    expect((await api.inj("POST", `/api/projects/${id}/script/reframe`, key("r1"), { aspect: "9:16" })).statusCode).toBe(501);
+    expect((await api.inj("POST", `/api/projects/${id}/script/reframe`, key("r1"), { aspect: "9:16" })).statusCode).toBe(409); // S10: текста нет
     expect((await api.inj("POST", `/api/projects/${id}/script/reframe`, key("r2"), { aspect: "16:9" })).statusCode).toBe(400);
     expect((await api.inj("POST", `/api/projects/${id}/script/package`, key("k1"), { aspect: "16:9" })).statusCode).toBe(202); // S7
     expect((await api.inj("POST", `/api/projects/${id}/script/package`, key("k2"), {})).statusCode).toBe(400);

@@ -7,7 +7,7 @@
 import { readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { readFileSync } from "node:fs";
-import { type Job, type MotionSpec, MotionSpecSchema, type QAIssue, type ScriptPlanRevisionDoc, ScriptPlanRevisionDocSchema, type ScriptSceneContext, ScriptSceneContextSchema, type ScriptSceneItem, SettingsSchema, failureToJobErrorCode } from "@ms/contracts";
+import { type ConceptOutput, ConceptOutputSchema, type Job, type MotionSpec, MotionSpecSchema, STRUCTURE_RULES, structureOf, type QAIssue, type ScriptPlanRevisionDoc, ScriptPlanRevisionDocSchema, type ScriptSceneContext, ScriptSceneContextSchema, type ScriptSceneItem, SettingsSchema, failureToJobErrorCode } from "@ms/contracts";
 import { z } from "zod";
 import { loadPartial } from "../agents/prompts.js";
 import * as jobs from "../db/repos/jobs.js";
@@ -21,7 +21,7 @@ import * as versions from "../db/repos/versions.js";
 import { setOutputRefs } from "../jobs/queue.js";
 import type { HandlerResult, JobContext, JobHandler } from "../jobs/types.js";
 import type { SceneRepo } from "../scenes/repo.js";
-import type { StepRef } from "./checkpoints.js";
+import { type StepRef, checkpointPath } from "./checkpoints.js";
 import { type AbortKind, type GenerateDeps, type GenerateResult, patternTexts, readKitApi, runGeneration } from "./generate.js";
 import { selectCandidates } from "./kb-select.js";
 import { assistantMessage, recordRun } from "./record.js";
@@ -79,6 +79,13 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
       const r = scriptScene(ctx, d.repo.root, parsed.data.script);
       if (typeof r === "string") return { status: "failed", error: { code: "pipeline", message: r } };
       sc = r;
+    }
+    // S10: двойник 9:16 — concept и структура из эталонной 16:9-версии, Concept не вызывается
+    let ref: Reference | undefined;
+    if (sc?.ctx.reference_version_id) {
+      const r = await loadReference(ctx, d.repo.root, sc.ctx.reference_version_id, sc.item, settings);
+      if (typeof r === "string") return { status: "failed", error: { code: "pipeline", message: r } };
+      ref = r;
     }
     const answers = parsed.data.answers ?? (sc ? "skip" : undefined);
     const neighbors = sc && projectId ? await neighborSpecs(ctx, d.repo.root, sc) : [];
@@ -138,9 +145,15 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
         ...(sc ? { extraQa: async (v) => [...(await overlayChecks(v)), ...(await propsForeignLabels(v.versionDir, scriptHints!.sourceText))] } : {}),
         plan: async (rc) => {
           ctx.progress(0.05, "concept");
-          const c = await conceptStep(rc, { prompt, settings, ...(answers !== undefined ? { answers } : {}), ...(scriptRules ? { scriptRules } : {}) }, cp);
-          if (!c.ok) return { kind: "failed", stage: c.stage, message: c.message };
-          const concept = c.concept;
+          let concept: ConceptOutput;
+          if (ref) {
+            concept = ref.concept;
+            rc.log(`Concept пропущен: двойник 9:16 по эталону ${ref.label}`);
+          } else {
+            const c = await conceptStep(rc, { prompt, settings, ...(answers !== undefined ? { answers } : {}), ...(scriptRules ? { scriptRules } : {}) }, cp);
+            if (!c.ok) return { kind: "failed", stage: c.stage, message: c.message };
+            concept = c.concept;
+          }
           if (concept.needs_clarification.length > 0 && answers === undefined) return { kind: "awaiting_input", concept };
           const candidates = selectCandidates(deps.kb, kbQuery, concept, 12, { allowRestricted }).map((h) => h.view);
           rc.log(`KB: ${candidates.length} кандидатов по ключам Concept`);
@@ -150,7 +163,7 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
           }
           const style = sceneStyle(startPropsStyle(settings, sc ? undefined : concept.style_hint.palette_overrides), settings);
           ctx.progress(0.15, "director");
-          const dr = await directorStep(rc, { prompt, settings, concept, candidates, patternTexts: texts, kitApi: await readKitApi(), style, previous, ...(speechWindow ? { speechWindow } : {}), ...(scriptRules ? { scriptRules } : {}), ...(scriptHints ? { scriptHints } : {}) }, cp);
+          const dr = await directorStep(rc, { prompt, settings, concept, ...(ref ? { reference: ref.spec } : {}), candidates, patternTexts: texts, kitApi: await readKitApi(), style, previous, ...(speechWindow ? { speechWindow } : {}), ...(scriptRules ? { scriptRules } : {}), ...(scriptHints ? { scriptHints } : {}) }, cp);
           if (!dr.ok) return { kind: "failed", stage: dr.stage, message: dr.message };
           return { kind: "plan", director: dr.director, spec: dr.spec, candidates, concept };
         },
@@ -201,6 +214,58 @@ function scriptScene(ctx: JobContext, root: string, raw: unknown): ScriptScene |
   const item = plan.items.find((x) => x.id === p.data.item_id);
   if (!item) return `в плане ${p.data.plan_id}@r${p.data.plan_revision} нет сцены ${p.data.item_id}`;
   return { ctx: p.data, plan, item };
+}
+
+/** Эталон двойника 9:16 (S10): spec 16:9-версии и concept её задачи (или собранный по spec). */
+interface Reference {
+  spec: MotionSpec;
+  concept: ConceptOutput;
+  /** Для журнала: «v<N> (<id>)». */
+  label: string;
+}
+
+/**
+ * Эталон: готовая неповреждённая версия, её spec.json и чекпоинт Concept задачи, которая её
+ * сделала. Чекпоинта нет (версия правки, старый журнал) — concept собирается из spec и сцены
+ * плана. Структура всегда та, что в spec эталона (правило Concept подбирается под неё).
+ */
+async function loadReference(ctx: JobContext, root: string, versionId: string, item: ScriptSceneItem, settings: z.infer<typeof SettingsSchema>): Promise<Reference | string> {
+  const v = versions.get(ctx.db, versionId);
+  if (!v || v.status !== "ready" || v.broken_reason) return `эталонная версия 16:9 ${versionId} не готова или удалена — переделайте под 9:16 заново`;
+  let spec: MotionSpec;
+  try {
+    spec = MotionSpecSchema.parse(JSON.parse(await readFile(join(root, v.path, "spec.json"), "utf8")));
+  } catch (e) {
+    return `spec эталона ${versionId} не прочитана: ${errText(e)}`;
+  }
+  const structure = structureOf(spec);
+  const rule = STRUCTURE_RULES.find(([, st]) => st === structure)![0];
+  let concept: ConceptOutput | undefined;
+  if (v.created_by_job_id) {
+    try {
+      const raw = JSON.parse(await readFile(checkpointPath(root, v.created_by_job_id, "concept"), "utf8")) as { output?: unknown };
+      const p = ConceptOutputSchema.safeParse(raw.output);
+      if (p.success) concept = p.data;
+    } catch {
+      // чекпоинта нет — concept собирается ниже
+    }
+  }
+  if (!concept) ctx.emit("log", `чекпоинта Concept у эталона ${versionId} нет — concept собран из spec эталона и сцены плана`);
+  const base: ConceptOutput = concept ?? {
+    needs_clarification: [],
+    concept: spec.composition?.idea ?? item.idea,
+    patterns: [item.pattern],
+    kb_queries: { ru: [item.idea], en: [] },
+    composition_mode: "fullscreen",
+    style_hint: { preset: settings.style_preset },
+    structure: { rule, runner_up: "build-strike", reason: "структура эталона 16:9" },
+  };
+  const same = STRUCTURE_RULES.find(([r]) => r === base.structure.rule)?.[1] === structure;
+  return {
+    spec,
+    concept: { ...base, needs_clarification: [], structure: same ? base.structure : { ...base.structure, rule, reason: `структура эталона 16:9 (${structure})` } },
+    label: `v${v.number} (${v.id})`,
+  };
 }
 
 /** Соседей плана для сверки подписи кадра (до 2: предыдущая и следующая принятые). */

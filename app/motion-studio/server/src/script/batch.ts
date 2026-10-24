@@ -8,7 +8,11 @@ import { join } from "node:path";
 import {
   type Aspect,
   type Job,
+  type ProjectDto,
+  type ProjectStyleDoc,
   type ScriptBatchDto,
+  type ScriptPlanRevisionDoc,
+  type ScriptRevisionDoc,
   type ScriptItemStatus,
   type ScriptSceneContext,
   type ScriptSceneItem,
@@ -65,7 +69,7 @@ const APPROVABLE_ERR: Record<Exclude<PlanApprovable, { ok: true }>["code"], [num
 };
 
 /** Префикс id пакета из ключа запроса: повтор того же `Idempotency-Key` находит пакет без новой колонки. */
-const keyPrefix = (projectId: string, key: string): string => `sb_${sha256(`${projectId}\n${key}`).slice(0, 20)}`;
+export const keyPrefix = (projectId: string, key: string): string => `sb_${sha256(`${projectId}\n${key}`).slice(0, 20)}`;
 /** Отпечаток тела запроса в id пакета (M6): тот же ключ с другим телом — 422 `idempotency_key_reused`. */
 const requestTag = (i: StartBatchInput, aspect: Aspect): string =>
   sha256(JSON.stringify({ revision: i.revision, aspect, item_ids: i.itemIds ? [...new Set(i.itemIds)].sort() : null, regenerate: i.regenerate === true })).slice(0, 10);
@@ -130,7 +134,6 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
   if (doc.revision !== i.revision) throw new ApiError(409, "plan_outdated", `ревизия плана r${i.revision} не текущая (текущая r${doc.revision})`);
   const style = currentProjectStyle(db, root, i.projectId);
   if (!style) throw new ApiError(409, "no_style", "стиля проекта нет");
-  const styleRef = { id: style.style_id, revision: style.revision };
 
   const accepted = doc.items.filter((x) => x.status === "accepted");
   const skipped: { item_id: string; reason: string }[] = [];
@@ -143,7 +146,46 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
     for (const id of i.itemIds) if (known.get(id)!.status !== "accepted") skipped.push({ item_id: id, reason: "сцена снята с плана" });
     selected = accepted.filter((x) => want.has(x.id));
   }
+  return stageBatch(core, { project, script, cur, style, aspect, batchId, accepted, selected, skipped, regenerate: i.regenerate === true, approval: "approve" });
+}
 
+/** Общая часть постановки пакета (генерация и двойники 9:16, S10). */
+export interface StageBatch {
+  project: ProjectDto;
+  script: ScriptRevisionDoc;
+  cur: { planId: string; doc: ScriptPlanRevisionDoc };
+  style: ProjectStyleDoc;
+  aspect: Aspect;
+  batchId: string;
+  /** Принятые сцены плана (номер сцены — позиция среди них). */
+  accepted: ScriptSceneItem[];
+  /** Сцены пакета (подмножество `accepted`). */
+  selected: ScriptSceneItem[];
+  skipped: { item_id: string; reason: string }[];
+  regenerate: boolean;
+  /** `approve` — проверка плана и Approval B (генерация); `keep` — действующее B, если есть (двойники: тот же план). */
+  approval: "approve" | "keep";
+  /** 9:16 (S10): эталонная 16:9-версия сцены → `script.reference_version_id`. */
+  reference?: ReadonlyMap<string, string>;
+}
+
+/** Эталон, по которому сделана текущая версия сцены (вход её задачи); нет — `undefined`. */
+function versionReference(db: Db, versionId: string): string | undefined {
+  const jobId = versions.get(db, versionId)?.created_by_job_id;
+  return jobId ? inputReference(jobs.get(db, jobId)?.input) : undefined;
+}
+
+/**
+ * Сцены → задачи пакета: брифы до SQL-транзакции (откат — каталоги новых сцен удаляются),
+ * затем одна транзакция: план не сменился → Approval B (`approve`) → `script_batches` → сцены,
+ * задачи, `script_scenes.setJob`, события членства.
+ */
+export function stageBatch(core: { db: Db; root: string }, s: StageBatch): ScriptBatchDto {
+  const { db, root } = core;
+  const { project, script, cur, style, aspect, batchId, accepted, selected, skipped } = s;
+  const i = { projectId: project.id, regenerate: s.regenerate };
+  const doc = cur.doc;
+  const styleRef = { id: style.style_id, revision: style.revision };
   // план работ до записи: что ставить, что уже готово, что идёт
   const base: Settings = { ...(project.settings ?? defaultSettings()), fps: doc.fps };
   const work: Work[] = [];
@@ -158,14 +200,17 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
       if (scenes.get(db, row.scene_id)?.title !== title) retitle.push({ sceneId: row.scene_id, title });
     }
     const last = row?.job_id ? jobs.get(db, row.job_id) : undefined;
+    const ref = s.reference?.get(item.id);
     if (!i.regenerate && row) {
-      // идущая задача на тот же отпечаток — входит в пакет как есть
-      if (last && ACTIVE.has(last.status) && inputFingerprint(last.input) === fingerprint) {
+      // идущая задача на тот же отпечаток (и тот же эталон 9:16) — входит в пакет как есть
+      if (last && ACTIVE.has(last.status) && inputFingerprint(last.input) === fingerprint && inputReference(last.input) === ref) {
         work.push({ item, index, fingerprint, row, reuse: last });
         continue;
       }
-      // готова: текущая версия опубликована по этому отпечатку (он пишется после публикации)
-      if (row.item_fingerprint === fingerprint && scenes.get(db, row.scene_id)?.current_version_id) {
+      // готова: текущая версия опубликована по этому отпечатку (он пишется после публикации);
+      // у двойника 9:16 — ещё и по текущему эталону (16:9 перегенерирована — двойник заново)
+      const cv = scenes.get(db, row.scene_id)?.current_version_id;
+      if (row.item_fingerprint === fingerprint && cv && (ref === undefined || versionReference(db, cv) === ref)) {
         skipped.push({ item_id: item.id, reason: "готовая версия по текущему плану" });
         continue;
       }
@@ -192,6 +237,7 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
     const ctx: ScriptSceneContext = {
       project_id: i.projectId, plan_id: cur.planId, plan_revision: doc.revision, item_id: item.id, aspect,
       style: style.base, lead_frames: item.frames.lead, tail_frames: item.frames.tail,
+      ...(ref ? { reference_version_id: ref } : {}),
       ...(moments.length > 0 ? { key_moments: moments } : {}),
     };
     work.push({
@@ -214,15 +260,19 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
     tx(db, () => {
       const now = plans.byProject(db, i.projectId);
       if (now?.id !== cur.planId || now.current_revision !== doc.revision) throw new ApiError(409, "plan_outdated", "план изменился, пока ставился пакет");
-      const ok = planApprovable(doc, script);
-      if (!ok.ok) {
-        const [status, message] = APPROVABLE_ERR[ok.code];
-        throw new ApiError(status, ok.code, message, ok.issues ? { issues: ok.issues } : {});
-      }
       const subject = currentSubject(db, i.projectId, "B")!;
       const peek = peekApprovalState(db, i.projectId, "B", subject);
-      const approval = peek.state === "valid" && peek.approval ? peek.approval : approve(db, { projectId: i.projectId, kind: "B", subjectRef: subject.ref, subjectHash: subject.hash });
-      scriptBatches.insert(db, { id: batchId, project_id: i.projectId, plan_id: cur.planId, plan_revision: doc.revision, aspect, approval_id: approval.id });
+      const valid = peek.state === "valid" && peek.approval ? peek.approval : undefined;
+      let approvalId: string | null = valid?.id ?? null;
+      if (s.approval === "approve") {
+        const ok = planApprovable(doc, script);
+        if (!ok.ok) {
+          const [status, message] = APPROVABLE_ERR[ok.code];
+          throw new ApiError(status, ok.code, message, ok.issues ? { issues: ok.issues } : {});
+        }
+        approvalId = (valid ?? approve(db, { projectId: i.projectId, kind: "B", subjectRef: subject.ref, subjectHash: subject.hash })).id;
+      }
+      scriptBatches.insert(db, { id: batchId, project_id: i.projectId, plan_id: cur.planId, plan_revision: doc.revision, aspect, approval_id: approvalId });
       for (const r of retitle) scenes.setTitle(db, r.sceneId, r.title);
       for (const w of work) {
         let job: Job;
@@ -269,6 +319,12 @@ function readBriefRaw(root: string, projectId: string, sceneId: string): string 
   } catch {
     return undefined;
   }
+}
+
+/** Эталон 9:16 из входа задачи (`script.reference_version_id`, S10). */
+function inputReference(input: unknown): string | undefined {
+  const ref = (input as { script?: { reference_version_id?: unknown } } | null)?.script?.reference_version_id;
+  return typeof ref === "string" ? ref : undefined;
 }
 
 /** Отпечаток сцены плана из входа задачи (`script_fingerprint`). */

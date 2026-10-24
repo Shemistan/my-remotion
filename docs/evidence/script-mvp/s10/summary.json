@@ -1,0 +1,78 @@
+{
+  "project_id": "prj_01M5R3J1EYYZ16VQ4N5WPJXC1M",
+  "plan_id": "pln_01M5R3J1G9VN96G8N6YZ39HPVF",
+  "package_dir": "/Volumes/External SSD/MotionStudio-e2e-s10/workspace/projects/prj_01M5R3J1EYYZ16VQ4N5WPJXC1M/packages/pkg_01M5R4BS68PFEWNQQZRTNC4H3K",
+  "cost_usd": 7.34,
+  "pairs": [
+    {
+      "item_id": "ss_004",
+      "n": 4,
+      "technique": "hero-number",
+      "quote": "Случайное совпадение по такому байту бывает с вероятностью один к двумстам пятидесяти шести",
+      "frames": {
+        "lead": 15,
+        "speech": 156,
+        "tail": 30,
+        "total": 201
+      },
+      "h16x9": {
+        "version_id": "ver_01M5R406ZMWK5D8EV0GWSRPZQY",
+        "jobs": [
+          {
+            "id": "job_01M5R3KF9BRMYH5PNTF1YPRHBQ",
+            "status": "completed",
+            "key": "script:pln_01M5R3J1G9VN96G8N6YZ39HPVF@r1:ss_004:16:9:s1",
+            "cost_usd": 2.15
+          }
+        ]
+      },
+      "v9x16": {
+        "version_id": "ver_01M5R4BR9EKHTY3F55YAVGHDZC",
+        "jobs": [
+          {
+            "id": "job_01M5R407KV54DRS5BQXCD1VVYE",
+            "status": "completed",
+            "key": "script:pln_01M5R3J1G9VN96G8N6YZ39HPVF@r1:ss_004:9:16:s1",
+            "cost_usd": 2.02,
+            "error": null
+          }
+        ]
+      }
+    },
+    {
+      "item_id": "ss_007",
+      "n": 7,
+      "technique": "split-versus",
+      "quote": "Кит Рэндалл в докладе на GopherCon 2016 говорит что это число подобрано эмпирически Если в чужих видео встретите шесть и две десятых в моих источниках такого числа нет",
+      "frames": {
+        "lead": 15,
+        "speech": 336,
+        "tail": 30,
+        "total": 381
+      },
+      "h16x9": {
+        "version_id": "ver_01M5R3WB3MAXNX9VZMK92SZ7XY",
+        "jobs": [
+          {
+            "id": "job_01M5R3KF9CHCEZKNNRX179DR7A",
+            "status": "completed",
+            "key": "script:pln_01M5R3J1G9VN96G8N6YZ39HPVF@r1:ss_007:16:9:s1",
+            "cost_usd": 1.51
+          }
+        ]
+      },
+      "v9x16": {
+        "version_id": "ver_01M5R4BNADHWRZET4WVYYVCA8V",
+        "jobs": [
+          {
+            "id": "job_01M5R407KW7RNM4SPHX6RVS1CR",
+            "status": "completed",
+            "key": "script:pln_01M5R3J1G9VN96G8N6YZ39HPVF@r1:ss_007:9:16:s1",
+            "cost_usd": 1.66,
+            "error": null
+          }
+        ]
+      }
+    }
+  ]
+}

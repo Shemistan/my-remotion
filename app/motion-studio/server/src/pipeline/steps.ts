@@ -24,6 +24,7 @@ import {
   holdModeFor,
   isAccentBeat,
   isHoldBeat,
+  structureOf,
   structureOfRule,
 } from "@ms/contracts";
 import { INCONCLUSIVE_LIMIT, type ProcessRegistry, StorageError, StoragePathError, type StorageStatus, isInconclusive, safeMkdir, watchStorage } from "@ms/core";
@@ -544,7 +545,48 @@ export interface DirectorTaskInput {
   editPlan?: EditPlan;
   /** Замечания к прошлому ответу Director (проверка spec) — исправить. */
   fix?: string;
+  /** S10: spec эталонной 16:9-версии (двойник 9:16) — блоком «Эталон» в задаче. */
+  reference?: MotionSpec;
   workdir: string;
+}
+
+/**
+ * Сокращённая spec эталона для Director (S10): идея и структура, элементы без раскладки
+ * (`layout` — доли кадра 16:9, в вертикали неверны), фазы и биты с кадрами.
+ */
+export function referenceBrief(spec: MotionSpec) {
+  const c = spec.composition;
+  return {
+    title: spec.title,
+    purpose: spec.purpose,
+    duration_frames: spec.duration_frames,
+    ...(c ? { composition: { idea: c.idea, focus: c.focus, transitions: c.transitions, structure: structureOf(spec), ...(c.title_mode ? { title_mode: c.title_mode } : {}) } } : { structure: structureOf(spec) }),
+    elements: spec.elements.map((e) => {
+      const out: Partial<typeof e> = { ...e };
+      delete out.layout;
+      return out;
+    }),
+    ...(spec.phases ? { phases: spec.phases } : {}),
+    beats: spec.beats,
+  };
+}
+
+const floor2 = (x: number): string => (Math.floor(x * 100) / 100).toFixed(2);
+
+/** Блок «Эталон» задачи Director двойника 9:16 (S10). */
+function referenceBlock(spec: MotionSpec, s: Settings): string[] {
+  const bottom = Math.round(s.height * 0.15);
+  const bottomMax = Math.round(s.height * 0.2);
+  return [
+    "# Эталон 16:9 (готовая версия этой же сцены)",
+    `Эталон: spec 16:9 (JSON, сокращённый: elements, beats, phases, structure). Сохрани идею, приём, числа, порядок и тайминг битов; раскладку построй под ${s.width}×${s.height} и safe area (снизу 15–20 % — интерфейс Shorts).`,
+    `- структура — \`${structureOf(spec)}\`, фазы с теми же ролями и весами, биты с теми же действиями и элементами — ритм совпадает с эталоном;`,
+    "- тексты, подписи и числа элементов — дословно как в эталоне; новых элементов не добавляй;",
+    "- кадр вертикальный: то, что в эталоне стояло рядом, ставь стопкой сверху вниз; крупный герой — в верхних двух третях;",
+    `- нижние ${bottom}–${bottomMax} px кадра (15–20 % высоты) закрывает интерфейс Shorts: там нет текста, чисел и карточек, только фон. У каждого элемента задай layout (доли safe area) с y + h ≤ ${floor2((0.8 - s.safe_area.y) / (1 - 2 * s.safe_area.y))} — низ контента не ниже 80 % высоты кадра.`,
+    json(referenceBrief(spec)),
+    "",
+  ];
 }
 
 export function buildDirectorTask(i: DirectorTaskInput, run: TaskRun): AgentTask<string> {
@@ -566,6 +608,7 @@ export function buildDirectorTask(i: DirectorTaskInput, run: TaskRun): AgentTask
     parts.push("# Концепция (агент Concept)", json({ concept: i.concept.concept, patterns: i.concept.patterns, composition_mode: i.concept.composition_mode, style_hint: i.concept.style_hint, ...(st ? { structure: st } : {}) }), "");
     if (st) parts.push(`Структура сцены — \`${st.value}\` (правило Concept «${st.rule}», запасная — \`${st.runner_up}\`): composition.structure = "${st.value}". Другая — только с причиной в composition.structure_reason.`, "");
   }
+  if (i.reference) parts.push(...referenceBlock(i.reference, s));
   if (i.base) parts.push("# База правки: spec и props текущей версии", json(i.base), "");
   if (i.editPlan) parts.push("# План правки", json(i.editPlan), "");
   parts.push(

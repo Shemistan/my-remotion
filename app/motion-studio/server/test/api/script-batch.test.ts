@@ -79,6 +79,21 @@ describe("API пакета генерации сценария", () => {
     expect(c.json().counts).toMatchObject({ total: 2, cancelled: 2 });
   });
 
+  it("S10 reframe {aspect} и {aspect, item_ids}: 202 пакет 9:16 (без готовых 16:9 — все в skipped), повтор ключа — 200, другое тело — 422", async () => {
+    await seedPlan();
+    const r = await api.inj("POST", `/api/projects/${id}/script/reframe`, key("r1"), { aspect: "9:16" });
+    expect(r.statusCode, r.body).toBe(202);
+    expect(r.json()).toMatchObject({ aspect: "9:16", plan_revision: 1, items: [], skipped: [{ item_id: "ss_001", reason: "нет готовой версии 16:9" }, { item_id: "ss_002", reason: "нет готовой версии 16:9" }] });
+    const again = await api.inj("POST", `/api/projects/${id}/script/reframe`, key("r1"), { aspect: "9:16" });
+    expect(again.statusCode).toBe(200);
+    expect(again.json().id).toBe(r.json().id);
+    expect((await api.inj("POST", `/api/projects/${id}/script/reframe`, key("r1"), { aspect: "9:16", item_ids: ["ss_002"] })).statusCode).toBe(422);
+    const one = await api.inj("POST", `/api/projects/${id}/script/reframe`, key("r2"), { aspect: "9:16", item_ids: ["ss_002"] });
+    expect(one.statusCode).toBe(202);
+    expect(one.json().skipped).toEqual([{ item_id: "ss_002", reason: "нет готовой версии 16:9" }]);
+    expect((await api.inj("POST", `/api/projects/${id}/script/reframe`, okHeaders, { aspect: "9:16" })).statusCode).toBe(400);
+  });
+
   it("ошибки: нет ключа — 400; нет текста — 409 no_script; ревизия не текущая — 409 plan_outdated; чужой пакет — 404", async () => {
     expect((await api.inj("POST", `/api/projects/${id}/script/generate`, okHeaders, { revision: 1 })).statusCode).toBe(400);
     const none = await api.inj("POST", `/api/projects/${id}/script/generate`, key("e1"), { revision: 1 });

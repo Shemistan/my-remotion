@@ -1,6 +1,6 @@
 // Генерация, вертикальные двойники и пакеты экспорта сценария (спека §7, трек B).
 // S5: пакет генерации (Approval B + сцены + задачи), его статус и отмена. S7: пакет экспорта —
-// задача script.package, пакет, шпаргалка, «Показать в Finder». Двойники 9:16 — 501 (S10).
+// задача script.package, пакет, шпаргалка, «Показать в Finder». S10: двойники 9:16 (пакет генерации с эталоном).
 import { CheatsheetQuerySchema, CreatedJobDtoSchema, GenerateBodySchema, PackageBodySchema, ReframeBodySchema, ScriptBatchDtoSchema, ScriptPackageDtoSchema } from "@ms/contracts";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -14,6 +14,7 @@ import { enqueue } from "../../jobs/queue.js";
 import { packageDto } from "../../pipeline/script-package.js";
 import { CHEAT_FILES } from "../../script/cheatsheet.js";
 import { batchForKey, batchStatus, cancelBatch, startScriptBatch } from "../../script/batch.js";
+import { startReframe } from "../../script/reframe.js";
 import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "../context.js";
 import { ApiError, notFound } from "../errors.js";
 import { publicJob } from "../job-dto.js";
@@ -32,8 +33,6 @@ export function revealInFinder(abs: string): Promise<void> {
     child.once("exit", (code) => (code === 0 ? resolve() : reject(new ApiError(500, "reveal_failed", `open -R завершился с кодом ${code}`))));
   });
 }
-
-const notImplemented = (what: string): ApiError => new ApiError(501, "not_implemented", `${what}: ещё не реализовано`);
 
 export const scriptBatchRoutes: (app: ZApp, ctx: ApiContext) => void = (app, { core }) => {
   // 202 — новый пакет, 200 — повтор того же Idempotency-Key (тот же пакет)
@@ -58,9 +57,11 @@ export const scriptBatchRoutes: (app: ZApp, ctx: ApiContext) => void = (app, { c
 
   app.post("/api/projects/:id/script/reframe", {
     schema: { params: IdParams, body: ReframeBodySchema, response: { 200: ScriptBatchDtoSchema, 202: ScriptBatchDtoSchema } },
-  }, async (req) => {
-    idempotencyKey(req);
-    throw notImplemented("вертикальные двойники");
+  }, async (req, reply) => {
+    const key = idempotencyKey(req);
+    const existed = batchForKey(core.db, req.params.id, key) !== undefined;
+    const dto = startReframe(core, { projectId: req.params.id, idempotencyKey: key, ...(req.body.item_ids ? { itemIds: req.body.item_ids } : {}) });
+    return reply.status(existed ? 200 : 202).send(dto);
   });
 
   app.post("/api/projects/:id/script/package", {
