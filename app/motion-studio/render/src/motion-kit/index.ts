@@ -14,6 +14,7 @@ export { LAYOUT_TAG, type LayoutFrame, type LayoutItem, type RawText, VISIBLE_OP
 export { StyleProvider, type StyleSource, toResolved, useStyle } from "./style.js";
 export { type Depth, type PaletteOverrides, type ResolveStyleInput, type ResolvedStyle, resolveStyle } from "./style/resolve.js";
 export { contrastRatio, relativeLuminance } from "./style/contrast.js";
+export { textHalo, withHalo } from "./style/halo.js";
 export { MIN_TEXT_PX, TYPE_LEVELS, type TypeLevel, floorText, minTextPx, sizePx } from "./style/type-scale.js";
 export { INTENSITY, amplitudeOf } from "./style/intensity.js";
 export { type EnterDirection, type EnterKind, type EnterOptions, type EnterPre, MASK_FEATHER, PRE_ALPHA, enterStyle, posterStyle } from "./choreo/enter.js";

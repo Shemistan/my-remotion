@@ -77,6 +77,11 @@ it("POST /versions/:id/exports → 202 scene.export; failed-версия → 409
   expect(r.json().job).toMatchObject({ type: "scene.export", version_id: versionId, project_id: projectId, input: { versionId, request: { format: "mp4", fps: 60, crf: 18, scale: 1 } } });
   expect((await api.inj("POST", `/api/versions/${versionId}/exports`, { ...okHeaders, "idempotency-key": "e2" }, { format: "gif" })).statusCode).toBe(400);
   expect((await api.inj("POST", "/api/versions/ver_nope/exports", { ...okHeaders, "idempotency-key": "e3" }, { format: "mp4" })).statusCode).toBe(404);
+  // S6: overlay — только ProRes 4444
+  const mp4Overlay = await api.inj("POST", `/api/versions/${versionId}/exports`, { ...okHeaders, "idempotency-key": "e4" }, { format: "mp4", overlay: true });
+  expect(mp4Overlay.statusCode).toBe(400);
+  expect(mp4Overlay.json().error).toBe("overlay_mp4");
+  expect((await api.inj("POST", `/api/versions/${versionId}/exports`, { ...okHeaders, "idempotency-key": "e5" }, { format: "prores4444", overlay: true })).statusCode).toBe(202);
 
   // файл экспорта, как его кладёт scene.export
   const rel = `workspace/projects/${projectId}/exports/exp_t/scene.mp4`;

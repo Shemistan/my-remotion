@@ -157,6 +157,8 @@ export function versionRoutes(app: ZApp, { core }: ApiContext): void {
     schema: { params: IdParams, body: ExportRequestSchema, response: { 200: CreatedJobDtoSchema, 202: CreatedJobDtoSchema } },
   }, async (req, reply) => {
     const key = idempotencyKey(req);
+    // S6: альфа из непрозрачной версии хранится только в ProRes 4444
+    if (req.body.overlay === true && req.body.format !== "prores4444") throw new ApiError(400, "overlay_mp4", "overlay (прозрачный фон) — только для prores4444: H.264 альфу не хранит");
     const db = core.db;
     const input = { versionId: req.params.id, request: req.body };
     const out = tx(db, () => {

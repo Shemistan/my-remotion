@@ -196,7 +196,7 @@ describe("playgroundEdit: path code и spec", () => {
       engineer: async (task, n) => {
         if (n === 2) engineerProps = JSON.parse(readFileSync(join(task.workdir, "props.json"), "utf8"));
         const good = (await import("./helpers.js")).GOOD_SCENE;
-        return { files: { "src/Scene.tsx": n === 1 ? good : good.replace("#000", "#111") } };
+        return { files: { "src/Scene.tsx": n === 1 ? good : good.replace("[0, 1]", "[0, 0.9]") } };
       },
       editPlanner: async () => ({ output: plan({ path: "code", changes: [{ target: "chart", kind: "code", description: "линия толще" }], preserve: ["composition"], reply: "Сделал линию толще." }) }),
     });

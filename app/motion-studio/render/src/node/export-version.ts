@@ -106,6 +106,15 @@ export async function exportVersion(req: ExportVersionRequest, signal?: AbortSig
     if (e instanceof StorageError) throw e;
     return { ok: false, error: { stage: "bundle", message: (e as Error).message } };
   }
+  // S6 (Р5): альфа из непрозрачной версии — перерендер с props.style.transparent = true
+  // (Background не рисуется); у уже прозрачной версии overlay ничего не меняет
+  const overlay = request.overlay === true && req.settings.transparent_export !== true;
+  if (overlay) {
+    const no = (code: string, why: string): ExportResult => ({ ok: false, error: { stage: "unsupported", message: `${code}: ${why}` } });
+    if (request.format !== "prores4444") return no("overlay_mp4", "прозрачный фон хранит только ProRes 4444, H.264 альфу не хранит");
+    if (!ScenePropsBaseSchema.safeParse(raw).success) return no("overlay_unsupported", "props версии вне договора ScenePropsBase — фон сцены не отключить через props.style.transparent");
+    if (factor !== 1) return no("overlay_unsupported", `прозрачная версия из непрозрачной — только в исходном fps (${fpsText(req.settings.fps)}): стоп-кадры версии с фоном темп не сверят`);
+  }
   const warnings: string[] = [];
   if (factor !== 1) {
     // ruling 2026-10-23: темп при смене fps не угадываем — props по договору и сверка по стоп-кадрам
@@ -114,8 +123,11 @@ export async function exportVersion(req: ExportVersionRequest, signal?: AbortSig
     const odd = unscaledTimeKeys((raw as { content: unknown }).content);
     if (odd.length > 0) warnings.push(`время под именами вне договора кадров не масштабировано под ${fpsText(fps)} fps: ${odd.join(", ")}`);
   }
-  const inputProps = exportProps(raw, factor);
-  const settings: Settings = { ...req.settings, fps, duration_frames: exportDurationFrames(req.settings, request) };
+  const scaled = exportProps(raw, factor);
+  const inputProps = overlay ? { ...scaled, style: { ...(scaled.style as Record<string, unknown>), transparent: true } } : scaled;
+  const settings: Settings = {
+    ...req.settings, fps, duration_frames: exportDurationFrames(req.settings, request), ...(overlay ? { transparent_export: true } : {}),
+  };
 
   const r = await renderJob(
     {

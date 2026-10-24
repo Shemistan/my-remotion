@@ -21,7 +21,7 @@ import { SCRIPT_PLAN_FILE } from "../../src/script/read.js";
 import { removeStore } from "../db/helpers.js";
 import { setupDb, until, type JobsEnv } from "../jobs/helpers.js";
 import { makeDraft, meta } from "../scenes/helpers.js";
-import { conceptOutput, directorOutput, fakeAgents, fakeKb, fakeRender, makeDeps, makeSkills } from "./helpers.js";
+import { GOOD_SCENE, conceptOutput, directorOutput, fakeAgents, fakeKb, fakeRender, makeDeps, makeSkills } from "./helpers.js";
 
 let env: JobsEnv;
 let repo: SceneRepo;
@@ -160,6 +160,27 @@ describe("playground.generate со script", () => {
     for (const b of spec.beats) if (b.phase && role.get(b.phase) !== "setup") expect(b.start_frame, b.id).toBeGreaterThanOrEqual(15);
     expect(Math.min(...spec.beats.map((b) => b.start_frame))).toBeGreaterThanOrEqual(15);
     expect(Math.max(...spec.beats.map((b) => b.end_frame))).toBe(180);
+  });
+
+  it("S6: заливка корня → overlay_root_fill в раунд Engineer; кадр hold с transparent = true рендерится отдельно", async () => {
+    const fill = GOOD_SCENE.replace("{{ opacity: o }}", '{{ opacity: o, background: "#000" }}');
+    const agents = fakeAgents({ engineer: async (_t, n) => ({ files: { "src/Scene.tsx": n === 1 ? fill : GOOD_SCENE } }) });
+    const r0 = fakeRender({ png: true });
+    const { job } = await run({ agents, render: r0.render }, { script });
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(agents.engineerCalls).toHaveLength(2);
+    expect(agents.engineerCalls[1]!.input).toContain("overlay_root_fill");
+    const overlay = r0.calls.filter((c) => (c.inputProps as { style?: { transparent?: boolean } } | undefined)?.style?.transparent === true);
+    expect(overlay).toHaveLength(2);
+    expect(overlay[0]!.stills).toHaveLength(1);
+    expect(overlay[0]!.preview).toBeNull();
+  });
+
+  it("без script — проверки наложения нет", async () => {
+    const r0 = fakeRender({ png: true });
+    const { job } = await run({ agents: fakeAgents({}), render: r0.render }, {});
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(r0.calls.filter((c) => c.inputProps !== undefined)).toEqual([]);
   });
 
   it("без script — счёт с кадра 0 (раскладка как раньше)", async () => {

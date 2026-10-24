@@ -5,7 +5,7 @@
 // проверки, проверки spec, Visual QA; исправление вызывают только blocking-замечания,
 // warnings идут Engineer подсказками вместе с ними, но цикл не запускают.
 import { existsSync } from "node:fs";
-import { copyFile, readFile, readdir, readlink, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, readFile, readdir, readlink, rm, stat, writeFile } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 import {
   type EngineerReport,
@@ -144,7 +144,26 @@ export interface LoopInput {
   };
   /** Второй дубль только `revise` (правка: новое кадрирование `fresh` сломало бы композицию базы). */
   reviseOnly?: boolean;
+  /** Дополнительная проверка попытки (S6); blocking — исправление тем же циклом. */
+  extraQa?: ExtraQa;
 }
+
+/**
+ * Хук дополнительной проверки попытки (S6, сцена сценария: наложение с `transparent`).
+ * Вызывается после программных проверок каждой попытки с QA, его замечания идут в отчёт
+ * попытки. `renderStills` — кадры попытки с другими props (`inputProps`) в отдельный каталог
+ * `run/tmp` (не `frames/` draft) под семафором рендеров; каталог убирается после хука. Сбой
+ * хука — предупреждение `extra_qa_failed`, не blocking.
+ */
+export type ExtraQa = (v: {
+  versionDir: string;
+  spec: MotionSpec;
+  settings: Settings;
+  signal: AbortSignal;
+  /** Контекст попытки для своих процессов (ffmpeg): реестр и `run/tmp`. */
+  run: RenderRequest["run"];
+  renderStills: (stills: number[], inputProps: Record<string, unknown>) => Promise<RenderResult>;
+}) => Promise<QAIssue[]>;
 
 /**
  * Попытка, прошедшая технический gate (и QA по кадрам, если он есть): снимок файлов сцены,
@@ -1020,6 +1039,49 @@ async function preserveHoldIssues(i: LoopInput, rr: RenderResult): Promise<{ iss
   return { issues };
 }
 
+/**
+ * Хук `extraQa` попытки (S6): его рендеры — в свой каталог `run/tmp/<run>-a<attempt>-extra-*`
+ * под семафором рендеров, каталоги убираются после хука (кроме живых процессов `orphaned`).
+ * Сбой или отмена хука — предупреждение `extra_qa_failed`.
+ */
+async function extraQaIssues(i: LoopInput, t: Take, settings: Settings): Promise<{ issues: QAIssue[] } | { orphaned: string }> {
+  const { rc } = i;
+  const dirs: string[] = [];
+  let orphaned: string | undefined;
+  const r = await rc.underWatch(
+    (sig) =>
+      i.extraQa!({
+        versionDir: t.dir, spec: t.spec, settings, signal: sig,
+        run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry },
+        renderStills: async (stills, inputProps) => {
+          const outDir = await mkdtemp(join(await safeMkdir(rc.root, "run/tmp"), `${rc.runId}-a${rc.attempt}-extra-`));
+          dirs.push(outDir);
+          const release = await rc.acquire(rc.deps.permits?.renders, sig);
+          try {
+            const rr = await i.deps.render(
+              {
+                versionDir: t.dir, outDir, settings, cacheDir: i.cacheDir, stills, preview: null, timeoutMs: renderTimeoutMs(settings), inputProps,
+                run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry },
+              },
+              sig,
+            );
+            if (rr.error?.stage === "orphaned") orphaned = rr.error.message;
+            return rr;
+          } finally {
+            release();
+          }
+        },
+      }),
+    t.signal,
+  );
+  if (orphaned !== undefined) return { orphaned: `доп. проверка попытки: рендер: ${orphaned}` };
+  for (const d of dirs) await rm(d, { recursive: true, force: true }).catch(() => undefined);
+  if (r.value) return { issues: r.value };
+  const why = r.skipped ? "отменена до запуска" : r.budget ?? errText(r.error);
+  rc.warnings.push(`доп. проверка попытки не выполнена: ${why}`);
+  return { issues: [technical("extra_qa_failed", `доп. проверка попытки не выполнена: ${why}`, "проверка повторится на следующей попытке; при повторе — смотри журнал задачи", "warning")] };
+}
+
 /** Программные проверки, проверки spec и Visual QA по кадрам рендера → QAReport (или выход). */
 async function runQa(
   i: LoopInput, state: LoopState, t: Take, rr: RenderResult, techWarnings: QAIssue[], call: number, extra: number[], styleOverride: ScenePropsStyle | undefined,
@@ -1043,6 +1105,11 @@ async function runQa(
   const hold = await preserveHoldIssues(i, rr);
   if ("orphaned" in hold) return { exit: { ok: false, stage: "orphaned", message: hold.orphaned, alive: true } };
   programmatic.push(...hold.issues);
+  if (i.extraQa) {
+    const x = await extraQaIssues(i, t, settings);
+    if ("orphaned" in x) return { exit: { ok: false, stage: "orphaned", message: x.orphaned, alive: true } };
+    programmatic.push(...x.issues);
+  }
 
   // ruling P5: QA по реальным кадрам обязателен. Бюджет кончился до Visual QA — `budget`;
   // Visual QA не дал оценки — один повтор (без исправления Engineer), затем `qa`. Обе

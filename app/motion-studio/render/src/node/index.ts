@@ -7,7 +7,7 @@ export { EXPORT_TIMEOUT_MS, type ExportResult, type ExportStage, type ExportVers
 export { TEMPO_HOT_TILE, TEMPO_HOT_TILES_MIN, TEMPO_TILE_THRESHOLD, type TempoCheck, type TempoSample, tempoCheck } from "./tempo.js";
 export { FfmpegError, type FfmpegOptions } from "./ffmpeg.js";
 export { exportDurationFrames, exportFps, exportGate } from "./export-gate.js";
-export { alphaAtCorner } from "./alpha.js";
+export { type AlphaCoverage, alphaAtCorner, alphaCoverage, overlayFrames } from "./alpha.js";
 // Чистые расчёты стиля kit (без React и шрифтов) — для QA и пайплайна на сервере.
 export { KIT_FONTS, type ResolveStyleInput, type ResolvedStyle, resolveStyle } from "../motion-kit/style/resolve.js";
 export { contrastRatio, relativeLuminance } from "../motion-kit/style/contrast.js";

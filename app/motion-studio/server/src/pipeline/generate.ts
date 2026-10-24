@@ -181,6 +181,11 @@ export interface GenerationRequest {
   previous?: readonly MotionSpec[];
   /** Не переписывать brief.json сцены (правка: brief — исходный запрос сцены). */
   keepBrief?: boolean;
+  /**
+   * Дополнительная проверка каждой попытки (S6: наложение сцены сценария) после программных
+   * проверок; blocking — исправление Engineer тем же циклом. Только с `qa`.
+   */
+  extraQa?: LoopInput["extraQa"];
 }
 
 /** Правка: база, план и как вести цикл (`playground-edit.ts`). */
@@ -387,6 +392,7 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
         rc: ctx, deps, draftDir, cacheDir, settings, spec: spec!, refs, frames, files,
         ...(req.qa ? { qa: { brief: { prompt: ed?.qaPrompt ?? prompt, settings, camera: cameraBrief(spec!) }, allowRestricted: req.qa.allowRestricted } } : {}),
         ...(req.previous ? { previous: req.previous } : {}),
+        ...(req.extraQa ? { extraQa: req.extraQa } : {}),
         progress: deps.progress,
         ...(ed ? { reviseOnly: true, ...(paramEdit ? { skipFirstEngineer: true } : {}), ...(ed.brief ? { brief: ed.brief } : {}), ...(ed.preserveCheck ? { preserveCheck: ed.preserveCheck } : {}), ...(ed.preserveHold ? { preserveHold: ed.preserveHold } : {}) } : {}),
         // второй дубль (S5): свой каталог попытки задачи вне draft (граница draft первого дубля

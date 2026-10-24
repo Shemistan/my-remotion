@@ -129,7 +129,7 @@ transparent?, palette_overrides?, safe_area?, font? }`), id пресета, Styl
 | `motion.enter_frames`, `exit_frames`, `stagger_frames` | уже пересчитаны под fps (база 30) и интенсивность: бери как есть, в `frames()` не оборачивай |
 | `amplitude` | размах движения: calm 0.6, balanced 1, energetic 1.35 (кадры: calm ×1.25, energetic ×0.75) |
 | `depth` | 0 плоско · 1 как задумано · 2–3 объёмнее: тени карточек, перспектива, атмосфера фона, тень крупного текста |
-| `transparent` | прозрачный экспорт: `Background` не рисуется, свой фон на корне сцены не ставь |
+| `transparent` | прозрачный экспорт: `Background` не рисуется, свой фон на корне сцены не ставь; весь текст сцены получает ореол цвета `palette.bg` (читается поверх видео). Своя `textShadow` гасит ореол — пиши `textShadow: withHalo(style, свояТень)` |
 | `palette` | палитра пресета с `palette_overrides` (`accent[i]` заменяет `accent[i]`) |
 | `grid.safe_area` | поля кадра: `props.style.safe_area` (из настроек сцены), без него — пресета |
 | `fpsScale` | fps / 30: `frames()` пересчитывает им свои константы компонентов |
