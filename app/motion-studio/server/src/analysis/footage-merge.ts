@@ -6,7 +6,10 @@
 import type { FootageAgentOutput, FootageShot, NormRect } from "@ms/contracts";
 import { MIN_SHOT_KEYFRAMES } from "./keyframes.js";
 import type { VisionFrame } from "./vision.js";
-import { DEFAULT_ZONES, OCCUPIED_DEFAULTS, type OccupiedOptions, bboxOf, clipRect, freeZones, occupiedRegions } from "./zones.js";
+import { DEFAULT_ZONES, OCCUPIED_DEFAULTS, type OccupiedOptions, bboxOf, clipRect, dedupRects, freeZones, occupiedRegions, windowOccupancy } from "./zones.js";
+
+/** Длина окна занятости по умолчанию (`analysis.occupancyWindowUs`). */
+export const OCCUPANCY_WINDOW_US = 4_000_000;
 
 export interface ShotInput {
   id: string;
@@ -19,6 +22,8 @@ export interface ShotInput {
 export interface MergeOptions extends Partial<OccupiedOptions> {
   /** Кадры, отправленные агенту по шотам (по умолчанию — все ключевые кадры шота). */
   sentUs?: Record<string, readonly number[]>;
+  /** Длина окна занятости по времени (по умолчанию `OCCUPANCY_WINDOW_US`). */
+  windowUs?: number;
 }
 
 type AgentShot = FootageAgentOutput["shots"][number];
@@ -79,7 +84,8 @@ function agentFrame(us: number, objs: AgentShot["objects"]): VisionFrame {
  * режим `llm_only`); `agent` — ответ Footage Analyst (нет — без наблюдений).
  */
 export function mergeFootage(shots: readonly ShotInput[], vision: Record<string, readonly VisionFrame[]> | undefined, agent?: FootageAgentOutput, o: MergeOptions = {}): FootageShot[] {
-  const occ: OccupiedOptions = { ...OCCUPIED_DEFAULTS, ...Object.fromEntries(Object.entries(o).filter(([k, v]) => k !== "sentUs" && v !== undefined)) };
+  const occ: OccupiedOptions = { ...OCCUPIED_DEFAULTS, ...Object.fromEntries(Object.entries(o).filter(([k, v]) => k !== "sentUs" && k !== "windowUs" && v !== undefined)) };
+  const windowUs = o.windowUs ?? OCCUPANCY_WINDOW_US;
   const byId = new Map<string, AgentShot>();
   for (const s of agent?.shots ?? []) if (!byId.has(s.shot_id)) byId.set(s.shot_id, s);
 
@@ -120,15 +126,25 @@ export function mergeFootage(shots: readonly ShotInput[], vision: Record<string,
     const regions = n > 0 && (frames || a) ? occupiedRegions(detFrames, occ) : undefined;
     for (const u of regions?.uncertain ?? []) add(u);
 
-    // занятое: детектор (или лицо/руки агента в llm_only) ∪ важные объекты агента (только добавление)
-    const occupied: NormRect[] = [...(regions?.occupied ?? [])];
+    // важные объекты агента (только добавление) — заняты на весь шот
+    const important: NormRect[] = [];
     for (const obj of objects) {
       if (body(obj) || !obj.important || !obj.rect) continue;
       const r = clipRect(obj.rect);
       if (!r) continue;
       if (r.w * r.h > HUGE_OBJECT_AREA) add(U_HUGE_OBJECT);
-      if (!occupied.some((x) => sameRect(x, r))) occupied.push(r);
+      if (!important.some((x) => sameRect(x, r))) important.push(r);
     }
+
+    // окна времени: руки — по кадрам окна; лицо, человек без лица и важные объекты — по шоту
+    const known = n > 0 && (frames !== undefined || a !== undefined);
+    const timed = frames
+      ? (all ?? []).flatMap((f, i) => (f.error === undefined && shot.keyframes[i] ? [{ us: shot.keyframes[i]!.us, frame: f }] : []))
+      : sentList.map((us, i) => ({ us, frame: pseudo![i]! }));
+    const fixed = dedupRects([...(regions?.face ? [regions.face] : []), ...(regions?.body ? [regions.body] : []), ...important]);
+    const windows = known ? windowOccupancy({ start_us: shot.start_us, end_us: shot.end_us }, timed, fixed, { ...occ, windowUs }, DEFAULT_ZONES) : [];
+    // шот — худший случай: объединение окон (без окон — детектор шота ∪ важные объекты)
+    const occupied = windows.length > 0 ? dedupRects(windows.flatMap((w) => w.occupied)) : dedupRects([...(regions?.occupied ?? []), ...important]);
 
     let face: FootageShot["face"];
     let author: Position;
@@ -155,7 +171,6 @@ export function mergeFootage(shots: readonly ShotInput[], vision: Record<string,
       for (const u of a.uncertainty) if (u.trim()) add(u.trim());
     }
 
-    const known = n > 0 && (frames !== undefined || a !== undefined);
     const hands: FootageShot["hands"] = { ...(regions?.hands ? { union: regions.hands } : {}), detected_ratio: regions?.handsRatio ?? 0 };
     return {
       id: shot.id,
@@ -166,6 +181,7 @@ export function mergeFootage(shots: readonly ShotInput[], vision: Record<string,
       hands,
       occupied,
       free_zones: known ? freeZones(occupied, DEFAULT_ZONES) : [],
+      windows,
       author_position: author,
       motion: a?.motion ?? "static",
       objects: objects.map((x) => ({ label: x.label, ...(x.rect ? { rect: x.rect } : {}), important: x.important })),

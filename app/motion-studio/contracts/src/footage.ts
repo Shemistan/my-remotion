@@ -23,7 +23,28 @@ export type Zone = z.infer<typeof ZoneSchema>;
 export const AuthorPositionSchema = z.enum(["left", "center", "right", "absent", "mixed"]);
 export const CameraMotionSchema = z.enum(["static", "handheld", "moving"]);
 
-/** Шот исходника: лицо/руки — по детектору (минимум 3 ключевых кадра), свободные зоны — код. */
+const FreeZoneSchema = z.object({ zone: ZoneSchema, rect: NormRectSchema, free_ratio: Ratio }).strict();
+
+/**
+ * Окно занятости шота (~`analysis.occupancyWindowUs`, по умолчанию 4 с): руки — объединение
+ * только кадров окна (без кадров — ближайших до и после), лицо, человек без лица и важные
+ * объекты — по всему шоту. Графика живёт на интервале — занятость берётся по пересекающим его
+ * окнам (`occupancyForRange`, Task 32).
+ */
+export const FootageWindowSchema = z.object({
+  start_us: Us,
+  end_us: Us,
+  occupied: z.array(NormRectSchema),
+  hands: NormRectSchema.optional(),
+  free_zones: z.array(FreeZoneSchema),
+}).strict().refine((w) => w.start_us < w.end_us, { message: "пустое окно", path: ["end_us"] });
+export type FootageWindow = z.infer<typeof FootageWindowSchema>;
+
+/**
+ * Шот исходника: лицо/руки — по детектору (минимум 3 ключевых кадра), свободные зоны — код.
+ * `occupied`/`free_zones` шота — худший случай за весь шот (объединение окон; совместимость);
+ * для графики на интервале — `windows`.
+ */
 export const FootageShotSchema = z.object({
   id: z.string().min(1),
   source_start_us: Us,
@@ -39,13 +60,19 @@ export const FootageShotSchema = z.object({
     detected_ratio: Ratio,
   }).strict(),
   occupied: z.array(NormRectSchema),
-  free_zones: z.array(z.object({ zone: ZoneSchema, rect: NormRectSchema, free_ratio: Ratio }).strict()),
+  free_zones: z.array(FreeZoneSchema),
+  /** Занятость по времени: окна по порядку, без пересечений, внутри шота. */
+  windows: z.array(FootageWindowSchema),
   author_position: AuthorPositionSchema,
   motion: CameraMotionSchema,
   objects: z.array(z.object({ label: z.string().min(1), rect: NormRectSchema.optional(), important: z.boolean() }).strict()),
   notes: z.string(),
   uncertainty: z.array(z.string()),
-}).strict().refine((s) => s.source_start_us < s.source_end_us, { message: "пустой шот", path: ["source_end_us"] });
+}).strict()
+  .refine((s) => s.source_start_us < s.source_end_us, { message: "пустой шот", path: ["source_end_us"] })
+  .refine((s) => s.windows.every((w, k) => w.start_us >= (k === 0 ? s.source_start_us : s.windows[k - 1]!.end_us) && w.end_us <= s.source_end_us), {
+    message: "окна вне шота или пересекаются", path: ["windows"],
+  });
 export type FootageShot = z.infer<typeof FootageShotSchema>;
 
 export const FootageAnalysisSchema = z.object({

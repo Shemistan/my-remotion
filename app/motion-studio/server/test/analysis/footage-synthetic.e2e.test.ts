@@ -113,6 +113,8 @@ it("cuts-3: useAgent false → 3 шота, ≥ 3 кадров, Vision без л�
     expect(s.face.union).toBeUndefined();
     expect(s.author_position).toBe("absent");
     expect(s.free_zones.every((z) => z.free_ratio === 1), JSON.stringify(s.occupied)).toBe(true);
+    expect(s.windows.map((w) => [w.start_us, w.end_us])).toEqual([[s.source_start_us, s.source_end_us]]); // 4 с — одно окно
+    expect(s.windows[0]!.free_zones.every((z) => z.free_ratio === 1)).toBe(true);
   }
   const det = JSON.parse(readFileSync(join(root, o.rel_path, "..", "detections.json"), "utf8")) as { shots: Record<string, { faces: unknown[]; saliency: unknown[] }[]> };
   const faces = Object.values(det.shots).flat().reduce((n, f) => n + f.faces.length, 0);

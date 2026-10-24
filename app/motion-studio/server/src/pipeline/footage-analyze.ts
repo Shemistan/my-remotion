@@ -282,7 +282,7 @@ export function footageAnalyze(depsOf: (ctx: JobContext) => FootageAnalyzeDeps):
 
       // слияние
       const shotsOut = mergeFootage(shotInputs, vision, agentOut, {
-        faceMargin: d.config.planning.faceMargin, sentUs,
+        faceMargin: d.config.planning.faceMargin, windowUs: d.config.analysis.occupancyWindowUs, sentUs,
       });
       if (agentOut) {
         // m2: ответ уже отфильтрован по шотам порций (runAgent): считаются только объекты своих шотов

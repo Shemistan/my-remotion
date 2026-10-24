@@ -34,7 +34,7 @@ it("умолчания медиа, чернового монтажа, плани
   expect(c.media).toEqual({ importRoots: ["/Volumes/External SSD", "/Users/u/Movies"], proxyShortSide: 720, thumbEveryUs: 2_000_000 });
   expect(c.roughcut).toEqual({ pauseMinUs: 800_000, keepAfterWordUs: 100_000, sentenceKeepAfterUs: 300_000, keepBeforeWordUs: 100_000, fillerPadUs: 50_000, loudDbfs: -30, fadeUs: 8_000 });
   expect(c.planning).toEqual({ maxCoverage: 0.4, maxFullscreenCoverage: 0.25, minGapUs: 1_500_000, minSceneUs: 1_500_000, maxSceneUs: 12_000_000, padPreUs: 200_000, padPostUs: 300_000, faceMargin: 0.25, faceOverlapMax: 0.02 });
-  expect(c.analysis).toEqual({ maxCostUsd: 3 });
+  expect(c.analysis).toEqual({ maxCostUsd: 3, occupancyWindowUs: 4_000_000 });
 });
 
 it("роли Phase 2–3 — sonnet по умолчанию, переопределяются config.json", () => {
@@ -49,12 +49,13 @@ it("роли Phase 2–3 — sonnet по умолчанию, переопред�
 
 it("config.json переопределяет разделы Phase 2–3 по ключам; лишние ключи — ошибка", () => {
   const c = loadConfig({ MS_DATA_DIR: root, AIP_MODELS_DIR: "/env" }, {
-    asr: { model: "whisper-large-v3-mlx", modelsDir: "/file" }, media: { importRoots: ["/a"] }, planning: { maxCoverage: 0.3 }, analysis: { maxCostUsd: 1 },
+    asr: { model: "whisper-large-v3-mlx", modelsDir: "/file" }, media: { importRoots: ["/a"] }, planning: { maxCoverage: 0.3 }, analysis: { maxCostUsd: 1, occupancyWindowUs: 2_000_000 },
   });
   expect(c.asr).toMatchObject({ model: "whisper-large-v3-mlx", modelsDir: "/file", language: "ru" });
   expect(c.media.importRoots).toEqual(["/a"]);
   expect(c.planning).toMatchObject({ maxCoverage: 0.3, minGapUs: 1_500_000 });
   expect(c.analysis.maxCostUsd).toBe(1);
+  expect(c.analysis.occupancyWindowUs).toBe(2_000_000);
   expect(configFileIssues({ asr: { model: "whisper-tiny" } })).toEqual([expect.objectContaining({ path: "asr.model" })]);
   expect(configFileIssues({ roughcut: { bogus: 1 } })).not.toEqual([]);
 });

@@ -111,6 +111,8 @@ export interface PlanningConfig {
 /** Бюджет задачи анализа Phase 2–3 (V9). */
 export interface AnalysisConfig {
   maxCostUsd: number;
+  /** Окно занятости кадра по времени в анализе видеоряда (Task 30), µs. */
+  occupancyWindowUs: number;
 }
 
 /** Умолчания `roughcut` (детекторы и превью чернового монтажа, Task 28). */
@@ -130,7 +132,7 @@ const RoughcutFileSchema = z.object({
 const PlanningFileSchema = z.object({
   maxCoverage: Share, maxFullscreenCoverage: Share, minGapUs: Us, minSceneUs: Us, maxSceneUs: Us, padPreUs: Us, padPostUs: Us, faceMargin: Share, faceOverlapMax: Share,
 }).partial().strict();
-const AnalysisFileSchema = z.object({ maxCostUsd: z.number().positive().max(MAX_CALL_BUDGET_USD) }).partial().strict();
+const AnalysisFileSchema = z.object({ maxCostUsd: z.number().positive().max(MAX_CALL_BUDGET_USD), occupancyWindowUs: z.number().int().min(500_000).max(60_000_000) }).partial().strict();
 
 export interface AppConfig {
   dataDir: string;
@@ -289,7 +291,7 @@ function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig): Pick<AppConfig, 
     media,
     roughcut: { ...ROUGHCUT_DEFAULTS, ...file.roughcut },
     planning,
-    analysis: { maxCostUsd: 3, ...file.analysis },
+    analysis: { maxCostUsd: 3, occupancyWindowUs: 4_000_000, ...file.analysis },
   };
 }
 

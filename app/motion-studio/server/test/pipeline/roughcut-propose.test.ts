@@ -227,7 +227,7 @@ describe("roughcut.propose", () => {
   it("бюджет analysis.maxCostUsd исчерпан — агент не запускается, детекторы сохранены, событие budget", async () => {
     const p = await videoProject();
     const agents = fakeAgents([]);
-    const { r, events, out } = await propose(p, { agents, cfg: { analysis: { maxCostUsd: 0.1 } } });
+    const { r, events, out } = await propose(p, { agents, cfg: { analysis: { maxCostUsd: 0.1, occupancyWindowUs: 4_000_000 } } });
     expect(r.status).toBe("completed");
     expect(agents.tasks).toHaveLength(0);
     expect(events.find((e) => e.kind === "budget")?.message).toMatch(/бюджет анализа исчерпан/);

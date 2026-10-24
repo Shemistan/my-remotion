@@ -102,14 +102,30 @@ export interface OccupiedOptions {
   handMargin: number;
   /** Лицо найдено на меньшей доле кадров шота — пометка неуверенности. */
   minDetectRatio: number;
+  /** Шум детектора рук: рамка меньше этой доли площади крупнейшего лица кадра отбрасывается. */
+  handMinFaceShare: number;
+  /** Шум детектора рук: рамка меньше этой доли кадра отбрасывается (и без лица). */
+  handMinArea: number;
 }
 
-export const OCCUPIED_DEFAULTS: OccupiedOptions = { faceMargin: 0.25, handMargin: 0.1, minDetectRatio: 0.3 };
+export const OCCUPIED_DEFAULTS: OccupiedOptions = { faceMargin: 0.25, handMargin: 0.1, minDetectRatio: 0.3, handMinFaceShare: 0.25, handMinArea: 0.002 };
+
+/**
+ * Руки кадра без шума детектора (прогон на реальном ролике: «рука» 0,016×0,03 у картины на
+ * стене): рамка < `handMinFaceShare` площади крупнейшего лица кадра или < `handMinArea` кадра.
+ */
+export function handsOf<T extends NormRect>(f: { faces: readonly NormRect[]; hands: readonly T[] }, o: OccupiedOptions): T[] {
+  const face = Math.max(0, ...f.faces.map((d) => d.w * d.h));
+  const min = Math.max(o.handMinArea, face * o.handMinFaceShare);
+  return f.hands.filter((h) => h.w * h.h >= min);
+}
 
 export interface OccupiedRegions {
   /** Объединение лиц шота (каждое расширено на `faceMargin`). */
   face?: NormRect;
   hands?: NormRect;
+  /** Человек без лица ни на одном кадре шота (занят, с пометкой). */
+  body?: NormRect;
   faceRatio: number;
   handsRatio: number;
   occupied: NormRect[];
@@ -123,27 +139,109 @@ export const UNCERTAIN_BODY_NO_FACE = "человек в кадре без ли�
  * Занятые области шота по кадрам детектора: лица и руки расширяются каждое на своё поле и
  * объединяются охватывающей рамкой по всем кадрам шота (лицо двигается — рамка покрывает все
  * положения). Человек без лица ни на одном кадре (спиной, вполоборота) — его рамка тоже
- * занята, с пометкой. Салиентность не занимает места (подсказка агенту).
+ * занята, с пометкой. Салиентность не занимает места (подсказка агенту). Шум рук отсеян
+ * (`handsOf`). Это худший случай за весь шот; по времени — `windowOccupancy`.
  */
 export function occupiedRegions(frames: readonly VisionFrame[], o: OccupiedOptions = OCCUPIED_DEFAULTS): OccupiedRegions {
   const n = frames.length;
   const faces = frames.flatMap((f) => f.faces.map((d) => expandRect(d, o.faceMargin))).filter((x): x is NormRect => x !== undefined);
-  const hands = frames.flatMap((f) => f.hands.map((d) => expandRect(d, o.handMargin))).filter((x): x is NormRect => x !== undefined);
   const faceRatio = n === 0 ? 0 : frames.filter((f) => f.faces.length > 0).length / n;
-  const handsRatio = n === 0 ? 0 : frames.filter((f) => f.hands.length > 0).length / n;
+  const handsRatio = n === 0 ? 0 : frames.filter((f) => handsOf(f, o).length > 0).length / n;
   const face = bboxOf(faces);
-  const handsBox = bboxOf(hands);
+  const handsBox = handsBoxOf(frames, o);
   const occupied: NormRect[] = [];
   const uncertain: string[] = [];
+  let body: NormRect | undefined;
   if (face) occupied.push(face);
   if (handsBox) occupied.push(handsBox);
   if (face && faceRatio < o.minDetectRatio) uncertain.push(UNCERTAIN_FACE_RARE(o));
   if (!face) {
-    const body = bboxOf(frames.flatMap((f) => f.humans.map((d) => clipRect(d))).filter((x): x is NormRect => x !== undefined));
+    body = bboxOf(frames.flatMap((f) => f.humans.map((d) => clipRect(d))).filter((x): x is NormRect => x !== undefined));
     if (body) {
       occupied.push(body);
       uncertain.push(UNCERTAIN_BODY_NO_FACE);
     }
   }
-  return { ...(face ? { face } : {}), ...(handsBox ? { hands: handsBox } : {}), faceRatio, handsRatio, occupied, uncertain };
+  return { ...(face ? { face } : {}), ...(handsBox ? { hands: handsBox } : {}), ...(body ? { body } : {}), faceRatio, handsRatio, occupied, uncertain };
+}
+
+/** Охватывающая рамка рук кадров (каждая без шума и расширена на `handMargin`). */
+function handsBoxOf(frames: readonly VisionFrame[], o: OccupiedOptions): NormRect | undefined {
+  return bboxOf(frames.flatMap((f) => handsOf(f, o).map((d) => expandRect(d, o.handMargin))).filter((x): x is NormRect => x !== undefined));
+}
+
+/** Окна ~`windowUs`: шот делится на `max(1, round(длина / windowUs))` равных окон без зазоров. */
+export function timeWindows(startUs: number, endUs: number, windowUs: number): { start_us: number; end_us: number }[] {
+  const dur = endUs - startUs;
+  if (!(dur > 0)) return [];
+  const n = Math.max(1, Math.round(dur / Math.max(1, windowUs)));
+  return Array.from({ length: n }, (_, k) => ({ start_us: startUs + Math.round((k * dur) / n), end_us: startUs + Math.round(((k + 1) * dur) / n) }));
+}
+
+export type FreeZone = ReturnType<typeof freeZones>[number];
+
+export interface OccupancyWindow {
+  start_us: number;
+  end_us: number;
+  occupied: NormRect[];
+  hands?: NormRect;
+  free_zones: FreeZone[];
+}
+
+function sameRect(a: NormRect, b: NormRect): boolean {
+  return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+}
+
+/** Объединение списков рамок без повторов (порядок первого появления). */
+export function dedupRects(rs: readonly NormRect[]): NormRect[] {
+  const out: NormRect[] = [];
+  for (const r of rs) if (!out.some((x) => sameRect(x, r))) out.push(r);
+  return out;
+}
+
+type TimedFrame = { us: number; frame: VisionFrame };
+
+/**
+ * Занятость по окнам времени шота (прогон на реальном ролике: автор жестикулирует обеими руками,
+ * рамка рук за весь шот закрывала кадр целиком, хотя в каждый момент руки занимают малую часть).
+ * Руки — охватывающая рамка только кадров окна; окно без кадров берёт ближайшие кадры до и после
+ * (между ключевыми кадрами руки неизвестны — консервативно). `fixed` (лицо, человек без лица,
+ * важные объекты — по всему шоту) занят в каждом окне.
+ */
+export function windowOccupancy(
+  shot: { start_us: number; end_us: number },
+  frames: readonly TimedFrame[],
+  fixed: readonly NormRect[],
+  o: OccupiedOptions & { windowUs: number },
+  zones: Zone[] = DEFAULT_ZONES,
+): OccupancyWindow[] {
+  const sorted = [...frames].sort((a, b) => a.us - b.us);
+  return timeWindows(shot.start_us, shot.end_us, o.windowUs).map((w) => {
+    let inside = sorted.filter((f) => f.us >= w.start_us && f.us < w.end_us);
+    if (inside.length === 0) {
+      const before = sorted.filter((f) => f.us < w.start_us).at(-1);
+      const after = sorted.find((f) => f.us >= w.end_us);
+      inside = [before, after].filter((x): x is TimedFrame => x !== undefined);
+    }
+    const hands = handsBoxOf(inside.map((f) => f.frame), o);
+    const occupied = dedupRects([...fixed, ...(hands ? [hands] : [])]);
+    return { ...w, occupied, ...(hands ? { hands } : {}), free_zones: freeZones(occupied, zones) };
+  });
+}
+
+/**
+ * Занятость кадра на интервале исходника `[startUs, endUs)` в пределах шота (Task 32: графика
+ * сцены живёт на интервале): объединение `occupied` окон, пересекающих интервал, и свободные
+ * зоны по нему. Окон нет или интервал вне окон — худший случай шота (`occupied`/`free_zones`).
+ */
+export function occupancyForRange(
+  shot: { windows: readonly { start_us: number; end_us: number; occupied: readonly NormRect[] }[]; occupied: readonly NormRect[]; free_zones: readonly FreeZone[] },
+  startUs: number,
+  endUs: number,
+  zones: Zone[] = DEFAULT_ZONES,
+): { occupied: NormRect[]; free_zones: FreeZone[] } {
+  const hit = shot.windows.filter((w) => w.start_us < endUs && startUs < w.end_us);
+  if (hit.length === 0) return { occupied: [...shot.occupied], free_zones: [...shot.free_zones] };
+  const occupied = dedupRects(hit.flatMap((w) => w.occupied));
+  return { occupied, free_zones: freeZones(occupied, zones) };
 }

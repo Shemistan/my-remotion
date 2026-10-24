@@ -149,6 +149,37 @@ describe("mergeFootage", () => {
     expect(s!.occupied).toEqual([{ x: 0.28, y: 0.58, w: 0.24, h: 0.24 }]);
   });
 
+  it("окна времени: руки по окнам, лицо и важные объекты — во всех окнах; шот — объединение окон (худший случай)", () => {
+    const shots: ShotInput[] = [{ id: "sh_1", start_us: 0, end_us: 16_000_000, keyframes: kf([1, 3, 5, 7, 9, 11, 13, 15].map((s) => s * 1_000_000)) }];
+    const leftHand = { x: 0.05, y: 0.4, w: 0.2, h: 0.3, confidence: 0.8 };
+    const rightHand = { x: 0.75, y: 0.4, w: 0.2, h: 0.3, confidence: 0.8 };
+    const frames = framesWithFace({ x: 0.4, y: 0.1, w: 0.2, h: 0.3 }, 8).map((f, k) => ({ ...f, hands: k < 2 ? [leftHand] : k >= 6 ? [rightHand] : [] }));
+    const poster = { x: 0.4, y: 0.75, w: 0.2, h: 0.2 };
+    const [s] = mergeFootage(shots, { sh_1: frames }, { shots: [agentShot({ author_position: "center", objects: [{ kind: "object", label: "плакат", frame_us: 15_000_000, rect: poster, important: true }] })] }, { windowUs: 4_000_000 });
+    expect(FootageShotSchema.safeParse(s).success).toBe(true);
+    expect(s!.windows.map((w) => w.start_us)).toEqual([0, 4_000_000, 8_000_000, 12_000_000]);
+    for (const w of s!.windows) {
+      expect(w.occupied).toContainEqual(s!.face.union);
+      expect(w.occupied).toContainEqual(poster);
+    }
+    const free = (zs: { zone: string; free_ratio: number }[], z: string) => zs.find((x) => x.zone === z)!.free_ratio;
+    expect(free(s!.windows[0]!.free_zones, "right_third")).toBe(1);
+    expect(free(s!.windows[3]!.free_zones, "left_third")).toBe(1);
+    // шот: обе руки отдельными рамками (не одна рамка на всю ширину), зоны — худший случай
+    expect(s!.occupied).toContainEqual(s!.windows[0]!.hands);
+    expect(s!.occupied).toContainEqual(s!.windows[3]!.hands);
+    expect(s!.occupied).not.toContainEqual(s!.hands.union);
+    expect(free(s!.free_zones, "left_third")).toBeLessThan(0.9);
+    expect(free(s!.free_zones, "right_third")).toBeLessThan(0.9);
+    // по умолчанию — окна 4 с; нет кадров — нет окон
+    expect(mergeFootage(shots, { sh_1: frames })[0]!.windows).toHaveLength(4);
+    expect(mergeFootage([{ id: "sh_2", start_us: 0, end_us: 4_000_000, keyframes: [] }], { sh_2: [] })[0]!.windows).toEqual([]);
+    // llm_only: окна по отправленным кадрам
+    const [l] = mergeFootage(shots, undefined, { shots: [agentShot({ objects: [{ kind: "hands", label: "рука", frame_us: 1_000_000, rect: leftHand, important: false }] })] });
+    expect(l!.windows[0]!.hands).toBeDefined();
+    expect(l!.windows[2]!.hands).toBeUndefined();
+  });
+
   it("агент пропустил шот или назвал несуществующий — шот без наблюдений агента, лишнее игнорируется", () => {
     const merged = mergeFootage(shots1, vision1, { shots: [agentShot({ shot_id: "sh_9" })] });
     expect(merged).toHaveLength(1);

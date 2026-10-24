@@ -80,11 +80,18 @@ describe("plan", () => {
     const shot = {
       id: "shot_001", source_start_us: 0, source_end_us: 5_000_000, keyframes: [{ us: 0, path: "k/0.png" }, { us: 2_500_000, path: "k/1.png" }, { us: 4_900_000, path: "k/2.png" }],
       face: { union: { x: 0.4, y: 0.1, w: 0.2, h: 0.3 }, detected_ratio: 1, source: "vision" }, hands: { detected_ratio: 0 },
-      occupied: [], free_zones: [{ zone: "left_third", rect: { x: 0, y: 0, w: 0.33, h: 1 }, free_ratio: 0.95 }],
+      occupied: [], free_zones: [{ zone: "left_third", rect: { x: 0, y: 0, w: 0.33, h: 1 }, free_ratio: 0.95 }], windows: [],
       author_position: "center", motion: "static", objects: [{ label: "кружка", important: false }], notes: "", uncertainty: [],
     };
     expect(FootageAnalysisSchema.safeParse({ schema_version: 1, id: "ft_1", media_sha256: SHA, mode: "vision+llm", shots: [shot] }).success).toBe(true);
     expect(FootageAnalysisSchema.safeParse({ schema_version: 1, id: "ft_1", media_sha256: SHA, mode: "gpu", shots: [shot] }).success).toBe(false);
+    // окна занятости: внутри шота, по порядку, без пересечений
+    const win = (start_us: number, end_us: number) => ({ start_us, end_us, occupied: [], free_zones: [] });
+    const ok = (windows: unknown[]) => FootageAnalysisSchema.safeParse({ schema_version: 1, id: "ft_1", media_sha256: SHA, mode: "vision", shots: [{ ...shot, windows }] }).success;
+    expect(ok([win(0, 2_500_000), win(2_500_000, 5_000_000)])).toBe(true);
+    expect(ok([win(0, 6_000_000)])).toBe(false);
+    expect(ok([win(0, 3_000_000), win(2_500_000, 5_000_000)])).toBe(false);
+    expect(ok([win(2_000_000, 2_000_000)])).toBe(false);
   });
 
   it("SemanticTimeline: ссылки causal на якоря", () => {
