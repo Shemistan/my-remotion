@@ -160,3 +160,24 @@ it("плана нет — подсказка вместо плиток; сцен
   expect(screen.getByText(t("scriptOutput.empty.noScenes"))).toBeTruthy();
   expect(screen.queryByTestId("batch-bar")).toBeNull();
 });
+
+it("«Повторить» после неудачной перегенерации актуальной сцены (есть версия, не устарела) — regenerate: true", async () => {
+  const { calls } = fakeFetch(routes());
+  const s = outState();
+  renderQ(<ScenesTab state={outState({ scenes: s.scenes.map((x) => (x.item_id === "ss_003" ? scene("ss_003", "failed", { version_id: "ver_3" }) : x)) })} />);
+  fireEvent.click(within(tiles()[2]!).getByRole("button", { name: t("scriptOutput.retry") }));
+  await waitFor(() => expect(posts(calls, "/api/projects/p1/script/generate")).toHaveLength(1));
+  const call = posts(calls, "/api/projects/p1/script/generate")[0]!;
+  expect(call.body).toEqual({ revision: 3, item_ids: ["ss_003"], regenerate: true });
+  expect(call.headers["idempotency-key"]).toMatch(/^script-regen:/);
+});
+
+it("сервер не поставил сцену (skipped) — причина видна с номером сцены", async () => {
+  fakeFetch([on("POST", "/api/projects/p1/script/generate", batch([], { skipped: [{ item_id: "ss_003", reason: "уже есть готовая версия" }] }), 200), ...routes()]);
+  renderQ(<ScenesTab state={outState()} />);
+  fireEvent.click(within(tiles()[2]!).getByRole("button", { name: t("scriptOutput.retry") }));
+  const note = await screen.findByTestId("skipped");
+  expect(note.textContent).toContain(t("scriptOutput.scene.n", { n: 3 }));
+  expect(note.textContent).toContain("уже есть готовая версия");
+  expect(note.textContent).not.toContain("ss_003");
+});

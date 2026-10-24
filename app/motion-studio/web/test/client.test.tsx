@@ -70,7 +70,7 @@ it("событие задачи инвалидирует задачу, спис�
   const client = { invalidateQueries: (f: unknown) => calls.push(f) };
   invalidateForEvent(client, { kind: "job", jobId: "job_1", eventKind: "completed" });
   expect(calls).toEqual([{ queryKey: ["job", "job_1"] }, { queryKey: ["jobs"] }, { queryKey: ["scene"] }, { queryKey: ["messages"] }, { queryKey: ["project"] },
-    { queryKey: ["video"] }, { queryKey: ["transcript"] }, { queryKey: ["transcriptRevisions"] }, { queryKey: ["edl"] }, { queryKey: ["plan"] }, { queryKey: ["style"] }]);
+    { queryKey: ["video"] }, { queryKey: ["transcript"] }, { queryKey: ["transcriptRevisions"] }, { queryKey: ["edl"] }, { queryKey: ["plan"] }, { queryKey: ["style"] }, { queryKey: ["script"] }]);
   calls.length = 0;
   // прогресс — только задача и список задач (событий много)
   invalidateForEvent(client, { kind: "job", jobId: "job_1", eventKind: "progress" });

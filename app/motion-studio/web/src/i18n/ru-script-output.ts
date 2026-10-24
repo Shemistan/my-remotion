@@ -7,6 +7,7 @@ export const ruScriptOutput = {
 
   // S9: задача сборки папки (S7)
   "job.type.script.package": "Сборка папки",
+  "job.errorCode.package_empty": "В папку не вошло ни одной сцены: сначала сгенерируйте сцены.",
 
   // S9: вкладка «Сцены»
   "scriptOutput.scenes.title": "Сцены",
@@ -37,6 +38,7 @@ export const ruScriptOutput = {
   "scriptOutput.diversity": "Разнообразие",
   "scriptOutput.empty.noPlan": "Плана ещё нет: сохраните текст и постройте план.",
   "scriptOutput.empty.noScenes": "Сцены ещё не генерировались: утвердите план на вкладке «План».",
+  "scriptOutput.skipped": "Не поставлены:",
   "scriptOutput.batch.title": "Пакет генерации",
   "scriptOutput.batch.progress": "Готово {ready} из {total}",
   "scriptOutput.batch.count.pending": "в очереди: {n}",
@@ -50,12 +52,14 @@ export const ruScriptOutput = {
   // S9: вкладка «Экспорт»
   "scriptOutput.export.title": "Сборка папки",
   "scriptOutput.export.hint": "В папку войдут обе версии каждой готовой сцены: MP4 со своим фоном и ProRes 4444 с прозрачностью, плюс шпаргалка.",
-  "scriptOutput.export.ready": "Готово к сборке: {ready} из {total} сцен",
+  "scriptOutput.export.ready.one": "Готово к сборке: {ready} из {n} сцены",
+  "scriptOutput.export.ready.few": "Готово к сборке: {ready} из {n} сцен",
+  "scriptOutput.export.ready.many": "Готово к сборке: {ready} из {n} сцен",
   "scriptOutput.export.build": "Собрать папку {aspect}",
   "scriptOutput.export.noneReady": "Нет готовых сцен этого формата: сначала сгенерируйте их.",
   "scriptOutput.export.notAll": "Не готовые и устаревшие сцены попадут в список «не вошли».",
   "scriptOutput.reframe.title": "Переделать под 9:16",
-  "scriptOutput.reframe.hint": "Для каждой сцены генерируется вертикальный двойник с той же идеей и ритмом (≈ 5 мин и справочно $1,5 на сцену).",
+  "scriptOutput.reframe.hint": "Для каждой сцены генерируется вертикальный двойник с той же идеей и ритмом (≈ 5–20 мин и справочно $2–4 на сцену).",
   "scriptOutput.reframe.none": "Нет готовых сцен 16:9 — переделывать пока нечего.",
   "scriptOutput.reframe.all": "Переделать все ({n})",
   "scriptOutput.reframe.selected": "Переделать выбранные ({n})",
@@ -69,14 +73,9 @@ export const ruScriptOutput = {
   "scriptOutput.package.col.phrase": "Фраза",
   "scriptOutput.package.col.mp4": "Со своим фоном",
   "scriptOutput.package.col.alpha": "С прозрачностью",
+  "scriptOutput.package.noAlpha": "—",
   "scriptOutput.package.noFiles": "В папку не вошло ни одной сцены.",
   "scriptOutput.package.missingTitle": "Не вошли ({n})",
-  "scriptOutput.missing.no_ready_version": "нет готовой версии",
-  "scriptOutput.missing.stale": "сцена устарела — перегенерируйте",
-  "scriptOutput.missing.export_failed": "экспорт не удался",
-  "scriptOutput.missing.overlay_opaque": "прозрачная версия вышла непрозрачной",
-  "scriptOutput.missing.overlay_empty": "прозрачная версия вышла пустой",
-  "scriptOutput.missing.other": "причина не указана",
   "scriptOutput.cheatsheet.title": "Шпаргалка «сцена ↔ фраза»",
   "scriptOutput.cheatsheet.md": "Открыть .md",
   "scriptOutput.cheatsheet.csv": "Скачать CSV",

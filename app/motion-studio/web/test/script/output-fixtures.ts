@@ -37,7 +37,7 @@ export function pkg(over: Partial<ScriptPackageDto> = {}): ScriptPackageDto {
       { n: 1, item_id: "ss_001", mp4: "01_v-go-1-24.mp4", alpha: "01_v-go-1-24_alpha.mov", sha256: { mp4: SHA, alpha: SHA } },
       { n: 2, item_id: "ss_002", mp4: "02_tablica-delitsya.mp4", alpha: "02_tablica-delitsya_alpha.mov", sha256: { mp4: SHA, alpha: SHA } },
     ],
-    missing: [{ item_id: "ss_003", reason: "no_ready_version" }, { item_id: "ss_004", reason: "stale" }],
+    missing: [{ item_id: "ss_003", reason: "нет готовой версии" }, { item_id: "ss_004", reason: "сцена устарела" }],
     created_at: TS, ...over,
   };
 }

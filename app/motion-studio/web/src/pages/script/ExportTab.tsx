@@ -10,10 +10,11 @@ import { scriptStateKey, useBuildPackage, useReframe, useScriptPackage } from ".
 import { JobStatus } from "../../components/JobStatus.js";
 import { AspectSwitch } from "../../components/script/AspectSwitch.js";
 import { PackageCard } from "../../components/script/PackageCard.js";
+import { SkippedNote } from "../../components/script/SkippedNote.js";
 import "../../components/script/script.css";
-import { t } from "../../i18n/index.js";
+import { t, tn } from "../../i18n/index.js";
 import { scriptErrorText } from "../../script/format.js";
-import { packable, packageKey, reframeKey, sceneRows } from "../../script/output.js";
+import { itemNumbers, packable, packageKey, reframeKey, sceneRows } from "../../script/output.js";
 
 /** Id пакета из результата задачи script.package (S7: `output_refs.package_id`). */
 const packageIdOf = (refs: unknown): string | undefined => {
@@ -60,6 +61,7 @@ function Reframe({ state }: { state: ScriptStateDto }) {
         </>
       )}
       {reframe.isSuccess ? <p className="hint" role="status">{t("scriptOutput.reframe.started")}</p> : null}
+      <SkippedNote batch={reframe.data} numbers={itemNumbers(state)} />
       {reframe.isError ? <p className="error" role="alert">{scriptErrorText(reframe.error)}</p> : null}
     </section>
   );
@@ -73,11 +75,17 @@ export const ExportTab: (props: { state: ScriptStateDto }) => ReactElement = ({ 
   const [jobId, setJobId] = useState<string | undefined>();
   const job = useJob(jobId);
   const status = job.data?.job.status;
+  // сборка упала — следующая «Собрать папку» ставит новую задачу, а не возвращает упавшую
+  const failedJobId = status === "failed" || status === "cancelled" ? jobId : undefined;
   const builtId = status === "completed" ? packageIdOf(job.data?.job.output_refs) : undefined;
   const inState = builtId !== undefined && state.packages.some((p) => p.id === builtId);
   const built = useScriptPackage(builtId && !inState ? builtId : undefined);
 
-  // задача сборки завершилась — состояние сценария перечитывается (SSE не трогает ["script"])
+  // папки и версии могли смениться, пока вкладка была закрыта — перечитать при открытии
+  useEffect(() => {
+    void client.invalidateQueries({ queryKey: scriptStateKey(projectId) });
+  }, [client, projectId]);
+  // задача сборки завершилась — состояние сценария перечитывается (страховка к SSE)
   useEffect(() => {
     if (status && !isActive(status)) void client.invalidateQueries({ queryKey: scriptStateKey(projectId) });
   }, [status, client, projectId]);
@@ -99,14 +107,14 @@ export const ExportTab: (props: { state: ScriptStateDto }) => ReactElement = ({ 
         <p className="hint">{t("scriptOutput.export.hint")}</p>
         <div className="row wrap">
           <AspectSwitch value={aspect} onChange={setAspect} name="export-aspect" />
-          <span className="muted" data-testid="export-ready">{t("scriptOutput.export.ready", { ready, total: rows.length })}</span>
+          <span className="muted" data-testid="export-ready">{tn("scriptOutput.export.ready", rows.length, { ready })}</span>
         </div>
         <div className="row wrap">
           <button
             type="button"
             className="primary"
             disabled={ready === 0 || build.isPending}
-            onClick={() => build.mutate({ aspect, key: packageKey(state, aspect) }, { onSuccess: (r) => setJobId(r.job.id) })}
+            onClick={() => build.mutate({ aspect, key: packageKey(state, aspect, failedJobId) }, { onSuccess: (r) => setJobId(r.job.id) })}
           >
             {t("scriptOutput.export.build", { aspect })}
           </button>

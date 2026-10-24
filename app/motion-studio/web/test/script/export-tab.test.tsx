@@ -3,7 +3,10 @@
 // Finder», шпаргалка), «Переделать под 9:16» (все или выбранные).
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { t } from "../../src/i18n/index.js";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render } from "@testing-library/react";
+import type { ScriptPackageDto } from "@ms/contracts";
+import { t, tn } from "../../src/i18n/index.js";
 import { ExportTab } from "../../src/pages/script/ExportTab.js";
 import { type Call, fakeFetch, job, on, renderQ } from "../helpers.js";
 import { batch, outState, pkg, scene } from "./output-fixtures.js";
@@ -24,7 +27,8 @@ it("«Собрать папку 16:9» → package { aspect: 16:9 } с ключ�
   const { calls } = fakeFetch(routes());
   renderQ(<ExportTab state={outState()} />);
   expect((screen.getByRole("radio", { name: "16:9" }) as HTMLInputElement).checked).toBe(true);
-  expect(screen.getByTestId("export-ready").textContent).toContain(t("scriptOutput.export.ready", { ready: 1, total: 4 }));
+  expect(screen.getByTestId("export-ready").textContent).toBe(tn("scriptOutput.export.ready", 4, { ready: 1 }));
+  expect(screen.getByTestId("export-ready").textContent).toBe("Готово к сборке: 1 из 4 сцен");
   fireEvent.click(screen.getByRole("button", { name: t("scriptOutput.export.build", { aspect: "16:9" }) }));
   await waitFor(() => expect(posts(calls, "/api/projects/p1/script/package")).toHaveLength(1));
   const call = posts(calls, "/api/projects/p1/script/package")[0]!;
@@ -65,9 +69,9 @@ it("пакет: файлы, «не вошли» с причинами по-ру�
   const missing = within(card).getByTestId("package-missing");
   expect(missing.textContent).toContain(t("scriptOutput.package.missingTitle", { n: 2 }));
   expect(missing.textContent).toContain(t("scriptOutput.scene.n", { n: 3 }));
-  expect(missing.textContent).toContain(t("scriptOutput.missing.no_ready_version"));
-  expect(missing.textContent).toContain(t("scriptOutput.missing.stale"));
-  expect(missing.textContent).not.toMatch(/no_ready_version|\bstale\b|ss_00/);
+  expect(missing.textContent).toContain("Сцена 3 «Каждый слот хранит ключ и значение» — нет готовой версии");
+  expect(missing.textContent).toContain("— сцена устарела");
+  expect(missing.textContent).not.toMatch(/ss_00/);
   fireEvent.click(within(card).getByRole("button", { name: t("scriptOutput.package.reveal") }));
   await waitFor(() => expect(posts(calls, "/api/script-packages/pkg_1/reveal")).toHaveLength(1));
   // шпаргалка — ссылки на скачивание
@@ -75,7 +79,7 @@ it("пакет: файлы, «не вошли» с причинами по-ру�
   expect(document.body.textContent).not.toMatch(/undefined|NaN|\bnull\b/);
 });
 
-it("неизвестная причина «не вошли» — общий текст и подробность сервера, без пустых строк", () => {
+it("сцена не из текущего плана в «не вошли» — общий текст и причина сервера как есть", () => {
   fakeFetch(routes());
   renderQ(<ExportTab state={outState({ packages: [pkg({ missing: [{ item_id: "ss_009", reason: "экспорт упал: нет места" }] })] })} />);
   const missing = screen.getByTestId("package-missing");
@@ -117,4 +121,47 @@ it("«Переделать под 9:16»: все готовые или выбр�
   fireEvent.click(within(box).getByRole("button", { name: t("scriptOutput.reframe.selected", { n: 1 }) }));
   await waitFor(() => expect(posts(calls, "/api/projects/p1/script/reframe")).toHaveLength(2));
   expect(posts(calls, "/api/projects/p1/script/reframe")[1]!.body).toEqual({ aspect: "9:16", item_ids: ["ss_002"] });
+});
+
+it("готова к сборке сцена с текущей версией и без устаревания — даже если последняя генерация упала (C4)", () => {
+  fakeFetch(routes());
+  const s = outState();
+  renderQ(<ExportTab state={outState({ scenes: s.scenes.map((x) => (x.item_id === "ss_003" ? scene("ss_003", "failed", { version_id: "ver_3" }) : x)) })} />);
+  expect(screen.getByTestId("export-ready").textContent).toBe(tn("scriptOutput.export.ready", 4, { ready: 2 }));
+  expect(tn("scriptOutput.export.ready", 1, { ready: 1 })).toBe("Готово к сборке: 1 из 1 сцены");
+});
+
+it("сцена без альфы (C6): alpha null → «—»; № — из имени файла", () => {
+  fakeFetch(routes());
+  const p = pkg();
+  const files = [{ ...p.files[0]!, n: 1, mp4: "001_v-go.mp4", alpha: null, sha256: { mp4: p.files[0]!.sha256.mp4, alpha: null } }, p.files[1]!];
+  const s = outState();
+  s.packages = [{ ...p, files } as unknown as ScriptPackageDto];
+  renderQ(<ExportTab state={s} />);
+  const rows = within(screen.getByTestId("package-files")).getAllByRole("row");
+  const cells = within(rows[1]!).getAllByRole("cell").map((c) => c.textContent);
+  expect(cells[0]).toBe("001");
+  expect(cells[2]).toBe("001_v-go.mp4");
+  expect(cells[3]).toBe("—");
+  expect(document.body.textContent).not.toMatch(/undefined|\bnull\b/);
+});
+
+it("при открытии вкладки состояние сценария перечитывается", () => {
+  fakeFetch(routes());
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const spy = vi.spyOn(client, "invalidateQueries");
+  render(<QueryClientProvider client={client}><ExportTab state={outState()} /></QueryClientProvider>);
+  expect(spy).toHaveBeenCalledWith({ queryKey: ["script", "p1"] });
+});
+
+it("сборка упала (package_empty) — понятный текст; повторная «Собрать папку» — новый ключ", async () => {
+  const { calls } = fakeFetch(routes({ status: "failed", progress: 0, error: { code: "package_empty", message: "package_empty: нет готовых сцен" } }));
+  renderQ(<ExportTab state={outState()} />);
+  const build = () => fireEvent.click(screen.getByRole("button", { name: t("scriptOutput.export.build", { aspect: "16:9" }) }));
+  build();
+  expect(await screen.findByText(t("job.errorCode.package_empty"))).toBeTruthy();
+  build();
+  await waitFor(() => expect(posts(calls, "/api/projects/p1/script/package")).toHaveLength(2));
+  const [a, b] = posts(calls, "/api/projects/p1/script/package").map((c) => c.headers["idempotency-key"]);
+  expect(a).not.toBe(b);
 });

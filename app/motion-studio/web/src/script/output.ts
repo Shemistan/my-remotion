@@ -1,7 +1,6 @@
 // Вкладки «Сцены» и «Экспорт» (S9): сцены плана в порядке текста с их сценами Playground нужного
 // формата, ключи идемпотентности повторных действий, причины «не вошли», разбор шпаргалки .md.
 import type { Aspect, ScriptBatchDto, ScriptSceneDto, ScriptSceneItem, ScriptStateDto } from "@ms/contracts";
-import { t, tk } from "../i18n/index.js";
 
 export const ASPECTS: readonly Aspect[] = ["16:9", "9:16"];
 
@@ -26,8 +25,11 @@ export function itemNumbers(state: ScriptStateDto): Map<string, number> {
   return m;
 }
 
-/** Сцена готова к сборке папки: есть готовая версия по текущему плану. */
-export const packable = (s: ScriptSceneDto | undefined): boolean => s !== undefined && s.status === "ready" && s.version_id !== null && !s.stale;
+/**
+ * Сцена войдёт в папку (C4): есть текущая версия и она по текущему плану — независимо от
+ * статуса последней задачи генерации.
+ */
+export const packable = (s: ScriptSceneDto | undefined): boolean => s !== undefined && s.version_id !== null && !s.stale;
 
 /** Пакеты генерации формата: идущие (есть pending/running) или, если таких нет, последний. */
 export function visibleBatches(batches: readonly ScriptBatchDto[], aspect: Aspect): ScriptBatchDto[] {
@@ -60,22 +62,20 @@ export function shortHash(s: string): string {
   return pass(0x811c9dc5) + pass(0x01234567);
 }
 
-/** Ключ сборки папки: формат, ревизия плана и готовые версии — новые версии дают новую папку. */
-export function packageKey(state: ScriptStateDto, aspect: Aspect): string {
+/**
+ * Ключ сборки папки: формат, ревизия плана, версии, которые войдут, и последняя неудачная задача
+ * сборки — новые версии или повтор после сбоя дают новую задачу.
+ */
+export function packageKey(state: ScriptStateDto, aspect: Aspect, failedJobId?: string): string {
   const versions = sceneRows(state, aspect).filter((r) => packable(r.scene)).map((r) => r.scene!.version_id).join(",");
-  return `script-package:${aspect === "16:9" ? "h" : "v"}:${shortHash(`${state.plan?.plan_id ?? "noplan"}@r${state.plan?.doc.revision ?? 0}:${versions}`)}`;
+  const base = `${state.plan?.plan_id ?? "noplan"}@r${state.plan?.doc.revision ?? 0}:${versions}:${failedJobId ?? ""}`;
+  return `script-package:${aspect === "16:9" ? "h" : "v"}:${shortHash(base)}`;
 }
 
 /** Ключ «Переделать под 9:16»: выбранные сцены (или все) и их готовые 16:9-версии. */
 export function reframeKey(state: ScriptStateDto, itemIds: readonly string[]): string {
   const versions = sceneRows(state, "16:9").filter((r) => packable(r.scene)).map((r) => r.scene!.version_id).join(",");
   return `script-reframe:${shortHash(`${itemIds.join(",") || "all"}:${versions}`)}`;
-}
-
-/** Причина «не вошли»: известный код — по словарю, иначе текст сервера как есть. */
-export function missingReason(reason: string): string {
-  const r = reason.trim();
-  return r ? tk(`scriptOutput.missing.${r}`, r) : t("scriptOutput.missing.other");
 }
 
 export type CheatsheetPart =

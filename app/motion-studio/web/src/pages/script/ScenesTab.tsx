@@ -9,6 +9,7 @@ import { useGenerate, useReframe } from "../../api/script-client.js";
 import { AspectSwitch } from "../../components/script/AspectSwitch.js";
 import { BatchBar } from "../../components/script/BatchBar.js";
 import { SceneTile } from "../../components/script/SceneTile.js";
+import { SkippedNote } from "../../components/script/SkippedNote.js";
 import "../../components/script/script.css";
 import { t } from "../../i18n/index.js";
 import { scriptErrorText } from "../../script/format.js";
@@ -30,12 +31,18 @@ export const ScenesTab: (props: { state: ScriptStateDto }) => ReactElement = ({ 
   if (!plan) return <p className="muted">{t("scriptOutput.empty.noPlan")}</p>;
   const nothing = state.scenes.length === 0 && state.batches.length === 0;
 
-  const retry = (row: SceneRow) => {
-    if (aspect === "9:16") reframe.mutate({ body: { aspect: "9:16", item_ids: [row.item.id] }, key: retryKey("retry", row, aspect) });
-    else generate.mutate({ body: { revision: plan.doc.revision, item_ids: [row.item.id] }, key: retryKey("retry", row, aspect) });
-  };
   const regenerate = (row: SceneRow) =>
     generate.mutate({ body: { revision: plan.doc.revision, item_ids: [row.item.id], regenerate: true }, key: retryKey("regen", row, aspect) });
+  const retry = (row: SceneRow) => {
+    if (aspect === "9:16") {
+      reframe.mutate({ body: { aspect: "9:16", item_ids: [row.item.id] }, key: retryKey("retry", row, aspect) });
+      return;
+    }
+    // упала перегенерация актуальной сцены: версия есть и не устарела — сервер счёл бы сцену
+    // готовой, повтор — только как перегенерация
+    if (row.scene?.version_id && !row.scene.stale) regenerate(row);
+    else generate.mutate({ body: { revision: plan.doc.revision, item_ids: [row.item.id] }, key: retryKey("retry", row, aspect) });
+  };
 
   const error = generate.error ?? reframe.error;
   return (
@@ -45,6 +52,8 @@ export const ScenesTab: (props: { state: ScriptStateDto }) => ReactElement = ({ 
       </div>
       {batches.map((b) => <BatchBar key={b.id} projectId={projectId} batch={b} />)}
       {error ? <p className="error" role="alert">{scriptErrorText(error)}</p> : null}
+      <SkippedNote batch={generate.data} numbers={numbers} />
+      <SkippedNote batch={reframe.data} numbers={numbers} />
       {nothing ? <p className="hint">{t("scriptOutput.empty.noScenes")}</p> : null}
       <ul className="scene-tiles">
         {rows.map((row) => {

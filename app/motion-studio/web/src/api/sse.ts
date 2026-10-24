@@ -30,6 +30,8 @@ export function invalidateForEvent(client: Invalidator, ev: EventSignal): void {
   // анализ и план (Task 33): задачи публикуют анализ видеоряда, разметку, план и стиль
   client.invalidateQueries({ queryKey: ["plan"] });
   client.invalidateQueries({ queryKey: ["style"] });
+  // сценарий (S9, C12): задачи генерации сцен и сборки папки меняют состояние сценария
+  client.invalidateQueries({ queryKey: ["script"] });
 }
 
 /** Подписка на `/api/events` на всё время жизни приложения. */

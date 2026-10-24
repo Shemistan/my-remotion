@@ -4,7 +4,6 @@
 import type { ScriptPackageDto, ScriptSceneItem } from "@ms/contracts";
 import { useReveal } from "../../api/script-client.js";
 import { errorText, t } from "../../i18n/index.js";
-import { missingReason } from "../../script/output.js";
 import { CheatsheetView } from "./CheatsheetView.js";
 
 export interface PackageCardProps {
@@ -14,6 +13,12 @@ export interface PackageCardProps {
   /** Шпаргалка развёрнута (у последней папки). */
   latest?: boolean;
 }
+
+/** Строка файла; альфы может не быть (C6: сцена закрывает кадр) — тип до правки S7 строже. */
+type FileRow = { n: number; item_id: string; mp4: string; alpha: string | null };
+
+/** Номер из имени файла (NN_slug.mp4), иначе из `n`. */
+const nn = (f: FileRow) => /^(\d+)_/.exec(f.mp4)?.[1] ?? String(f.n).padStart(2, "0");
 
 const when = (iso: string) => new Date(iso).toLocaleString("ru-RU", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 
@@ -48,14 +53,14 @@ export function PackageCard({ pkg, items, latest = true }: PackageCardProps) {
               </tr>
             </thead>
             <tbody>
-              {pkg.files.map((f) => {
+              {(pkg.files as readonly FileRow[]).map((f) => {
                 const quote = items.get(f.item_id)?.item.quote;
                 return (
                   <tr key={f.n}>
-                    <td className="mono">{String(f.n).padStart(pkg.files.length > 99 ? 3 : 2, "0")}</td>
+                    <td className="mono">{nn(f)}</td>
                     <td className="package-quote">{quote ? `«${quote}»` : sceneLabel(f.item_id)}</td>
                     <td className="mono wrap-any">{f.mp4}</td>
-                    <td className="mono wrap-any">{f.alpha}</td>
+                    <td className="mono wrap-any">{f.alpha ?? t("scriptOutput.package.noAlpha")}</td>
                   </tr>
                 );
               })}
@@ -76,7 +81,7 @@ export function PackageCard({ pkg, items, latest = true }: PackageCardProps) {
                 <li key={`${m.item_id}-${i}`}>
                   <strong>{sceneLabel(m.item_id)}</strong>
                   {quote ? <span className="muted"> «{quote}»</span> : null}
-                  <span> — {missingReason(m.reason)}</span>
+                  <span> — {m.reason}</span>
                 </li>
               );
             })}
