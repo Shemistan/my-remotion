@@ -68,7 +68,7 @@ export function detectPauses(words: Pick<TranscriptWord, "text" | "start_us" | "
     out.push({
       id: `${prefix}${out.length + 1}`, reason: "pause", origin: "detector", status: "proposed",
       source_start_us: start, source_end_us: end, confidence: gap >= LONG_GAP_US ? 0.9 : 0.7,
-      explanation: `пауза ${(gap / 1e6).toFixed(1)} с ${where}`,
+      explanation: `пауза ${(gap / 1e6).toFixed(1).replace(".", ",")} с ${where}`, // десятичная запятая, как в UI
     });
   };
   if (words.length === 0) return out;

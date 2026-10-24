@@ -84,7 +84,7 @@ async function wait(id: string): Promise<Job> {
   }
 }
 
-async function importFile(name: string, projectId = projects.create(core.db, { title: name }).id) {
+async function importFile(name: string, projectId = projects.create(core.db, { title: name, kind: "video" }).id) {
   const t0 = Date.now();
   const id = enqueue(core.db, { type: "media.import", projectId, input: { projectId, method: "path", path: fixture(name) }, idempotencyKey: `e2e-t25-${newId("run")}` }).job.id;
   const job = await wait(id);

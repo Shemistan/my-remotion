@@ -46,7 +46,7 @@ afterEach(async () => {
 describe("projects и scenes", () => {
   it("create/get/list", () => {
     const p = projects.create(db, { title: "Видео", settings: defaultSettings() });
-    expect(p).toMatchObject({ kind: "video", title: "Видео", settings: defaultSettings() });
+    expect(p).toMatchObject({ kind: "playground", title: "Видео", settings: defaultSettings() });
     expect(p.id).toMatch(/^prj_/);
     expect(projects.get(db, p.id)).toEqual(p);
     expect(projects.list(db).map((x) => x.id)).toEqual(["playground", p.id]);

@@ -262,7 +262,7 @@ async function generateMissing(todo: Item[]): Promise<void> {
   try {
     if (core.reaped.alive.length > 0 || core.reaped.strays.length > 0) throw new Error("stale_process: остались процессы прежних прогонов; заверши их и повтори");
     tx(core.db, () => {
-      if (!projects.get(core.db, projectId)) projects.create(core.db, { id: projectId, kind: "video", title: `Bench ${runId}` });
+      if (!projects.get(core.db, projectId)) projects.create(core.db, { id: projectId, kind: "playground", title: `Bench ${runId}` });
     });
     const one = async (it: Item) => {
       const out = dirOf(it);

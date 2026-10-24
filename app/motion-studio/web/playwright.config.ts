@@ -26,5 +26,7 @@ export default defineConfig({
     locale: "ru-RU",
     acceptDownloads: true,
     trace: "retain-on-failure",
+    // клик по заблокированной кнопке не должен висеть до таймаута теста
+    actionTimeout: 30_000,
   },
 });

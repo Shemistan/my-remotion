@@ -23,7 +23,7 @@ function loudBetween(a: number, b: number, us = 3_000_000): Int8Array {
 describe("detectPauses", () => {
   it("пауза между словами: поля после слова и перед следующим, уверенность по длине", () => {
     expect(detectPauses([w("w_000001", "текст", 0, 1_000_000), w("w_000002", "дальше", 2_600_000, 3_000_000)], quiet(), R, F30)[0])
-      .toMatchObject({ reason: "pause", origin: "detector", status: "proposed", source_start_us: 1_100_000, source_end_us: 2_500_000, confidence: 0.9 });
+      .toMatchObject({ reason: "pause", origin: "detector", status: "proposed", source_start_us: 1_100_000, source_end_us: 2_500_000, confidence: 0.9, explanation: "пауза 1,6 с между словами" });
     // конец предложения — поле больше
     expect(detectPauses([w("w_000001", "текст.", 0, 1_000_000), w("w_000002", "дальше", 2_600_000, 3_000_000)], quiet(), R, F30)[0])
       .toMatchObject({ source_start_us: 1_300_000, source_end_us: 2_500_000 });

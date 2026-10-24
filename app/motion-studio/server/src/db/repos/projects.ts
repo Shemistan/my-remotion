@@ -17,7 +17,7 @@ export function create(db: Db, input: { id?: string; kind?: ProjectRow["kind"]; 
   const settings = input.settings === undefined ? null : SettingsSchema.parse(input.settings);
   const id = input.id ?? newId("prj");
   db.prepare("INSERT INTO projects (id, kind, title, settings_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
-    .run(id, input.kind ?? "video", input.title, toJson(settings), at, at);
+    .run(id, input.kind ?? "playground", input.title, toJson(settings), at, at);
   return get(db, id)!;
 }
 

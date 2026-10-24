@@ -62,7 +62,7 @@ describe("003_video", () => {
     db.prepare("INSERT INTO job_events (job_id, ts, level, kind, message) VALUES (?, ?, 'info', 'x', 'y')").run(j.id, new Date().toISOString());
     db.prepare("INSERT INTO resource_locks (resource, job_id, acquired_at) VALUES ('r', ?, 'now')").run(j.id);
 
-    expect(await migrate(db, quiet)).toMatchObject({ from: 2, to: 3 });
+    expect(await migrate(db, quiet)).toMatchObject({ from: 2, to: 4 });
     expect(jobs.get(db, j.id)).toEqual(j);
     expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
     expect(db.pragma("foreign_key_check")).toEqual([]);
@@ -240,7 +240,7 @@ describe("резервная копия перед миграцией, свер�
     const j = v2();
     const lines: string[] = [];
     const r = await migrate(db, { log: (l) => lines.push(l) });
-    expect(r).toMatchObject({ from: 2, to: 3, backup: expect.stringMatching(/studio\.db\.bak-v2-/) });
+    expect(r).toMatchObject({ from: 2, to: 4, backup: expect.stringMatching(/studio\.db\.bak-v2-/) });
     expect(dirname(r.backup!)).toBe(s.root);
     expect(lines.some((l) => l.includes(r.backup!))).toBe(true);
     const bak = new Database(r.backup!, { readonly: true, fileMustExist: true });
@@ -254,8 +254,8 @@ describe("резервная копия перед миграцией, свер�
   });
 
   it("свежая база (from=0) и база без миграций копию не делают", async () => {
-    expect(await migrate(db)).toEqual({ from: 0, to: 3 });
-    expect(await migrate(db)).toEqual({ from: 3, to: 3 });
+    expect(await migrate(db)).toEqual({ from: 0, to: 4 });
+    expect(await migrate(db)).toEqual({ from: 4, to: 4 });
     expect(baks()).toEqual([]);
   });
 
@@ -291,7 +291,7 @@ describe("резервная копия перед миграцией, свер�
     expect(baks()).toEqual([]);
     expect(db.pragma("user_version", { simple: true })).toBe(2);
     const r = await migrate(db, { ...quiet, freeBytes: () => 1e12 });
-    expect(r).toMatchObject({ from: 2, to: 3 });
+    expect(r).toMatchObject({ from: 2, to: 4 });
   });
 
   it("лишняя колонка jobs (правка 001 задним числом) — отказ, база не изменилась", async () => {

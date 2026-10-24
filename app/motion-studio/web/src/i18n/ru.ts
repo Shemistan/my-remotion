@@ -558,7 +558,7 @@ export const ru = {
   "transcript.save": "Сохранить",
   "transcript.cancel": "Отмена",
   "transcript.interpolated": "время оценено",
-  "transcript.noConfidence": "уверенность слов: нет данных",
+  "transcript.noConfidence": "Уверенность слов: нет данных.",
   "transcript.conflict": "Транскрипт изменился, пока вы правили. Загружена текущая ревизия — повторите правку.",
   "transcript.cutSelection": "Вырезать выделенное ({n} сл.)",
   "transcript.clearSelection": "Снять выделение",

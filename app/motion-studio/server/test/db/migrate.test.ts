@@ -26,15 +26,15 @@ it("studio.db в корне хранилища: WAL, synchronous=FULL, foreign_k
 });
 
 it("миграции по номеру в PRAGMA user_version, повтор ничего не делает", async () => {
-  expect(await migrate(db)).toEqual({ from: 0, to: 3 });
-  expect(await migrate(db)).toEqual({ from: 3, to: 3 });
-  expect(db.pragma("user_version", { simple: true })).toBe(3);
+  expect(await migrate(db)).toEqual({ from: 0, to: 4 });
+  expect(await migrate(db)).toEqual({ from: 4, to: 4 });
+  expect(db.pragma("user_version", { simple: true })).toBe(4);
 });
 
 it("002_resource_locks: база версии 1 (Task 11) доводится до последней", async () => {
   db.exec(readFileSync(new URL("../../src/db/migrations/001_phase1.sql", import.meta.url), "utf8"));
   db.pragma("user_version = 1");
-  expect(await migrate(db, { log: () => undefined })).toMatchObject({ from: 1, to: 3, backup: expect.any(String) });
+  expect(await migrate(db, { log: () => undefined })).toMatchObject({ from: 1, to: 4, backup: expect.any(String) });
   const cols = (db.prepare("PRAGMA table_info(resource_locks)").all() as { name: string; pk: number }[]).map((c) => [c.name, c.pk]);
   expect(cols).toEqual([["resource", 1], ["job_id", 0], ["acquired_at", 0]]);
 });
