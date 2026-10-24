@@ -2,7 +2,7 @@
 // параметры; справа — плеер превью (или ошибка рендера с журналом, без подмены превью),
 // фон и тема, «Рендер» (изменённые параметры) и «Экспорт», QA; снизу — таймлайн сцены.
 import type { Job, Settings, VersionDto } from "@ms/contracts";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, newKey, urls } from "../api/client.js";
 import { useJob, useScene, useVersion } from "../api/queries.js";
@@ -129,6 +129,11 @@ export function Playground({ id, version }: { id: string; version?: string }) {
     },
   });
 
+  // S9: сцена сценарного проекта — ссылка «← К сценарию» (кэш тот же, что у useProject)
+  const projectId = scene.data?.scene.project_id;
+  const project = useQuery({ queryKey: ["project", projectId], queryFn: () => api.project(projectId!), enabled: Boolean(projectId) });
+  const scriptProject = project.data?.project.kind === "script";
+
   if (scene.isError) return <div className="page"><p className="error">{errorText(scene.error)}</p></div>;
   if (!scene.data) return <div className="page"><p className="muted">{t("common.loading")}</p></div>;
   const { scene: s, active_job } = scene.data;
@@ -150,7 +155,11 @@ export function Playground({ id, version }: { id: string; version?: string }) {
   return (
     <div className="page playground">
       <nav className="crumbs">
-        <Link to={{ name: "project", id: s.project_id }}>{t("nav.project")}</Link>
+        {scriptProject ? (
+          <Link to={{ name: "project", id: s.project_id }}>{t("scriptOutput.backToScript")}</Link>
+        ) : (
+          <Link to={{ name: "project", id: s.project_id }}>{t("nav.project")}</Link>
+        )}
         <span className="muted">{s.title}</span>
       </nav>
       <div className="playground-grid">
