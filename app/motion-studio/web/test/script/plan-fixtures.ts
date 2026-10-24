@@ -16,6 +16,7 @@ import {
   wordsBetween,
 } from "@ms/contracts";
 import { TS } from "../helpers.js";
+import { styleDto } from "../video/plan-fixtures.js";
 
 export const F30 = { num: 30, den: 1 };
 const HASH = "a".repeat(64);
@@ -80,7 +81,7 @@ export function state(over: Partial<ScriptStateDto> = {}): ScriptStateDto {
   const plan = planDoc(doc);
   const s: ScriptStateDto = {
     project, script: doc, plan: { plan_id: "pln_1", doc: plan, approval: { state: "missing" } }, plan_outdated: false,
-    style: null, approval: { state: "missing" }, scenes: [], batches: [], packages: [], ...over,
+    style: styleDto().current, approval: { state: "missing" }, scenes: [], batches: [], packages: [], ...over,
   };
   return ScriptStateDtoSchema.parse(s);
 }

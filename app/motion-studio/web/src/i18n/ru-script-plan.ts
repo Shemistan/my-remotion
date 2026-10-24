@@ -26,6 +26,9 @@ export const ruScriptPlan = {
   "scriptPlan.text.save": "Сохранить",
   "scriptPlan.text.saved": "Сохранено, ревизия {n}",
   "scriptPlan.text.unsaved": "Есть несохранённые изменения",
+  "scriptPlan.text.conflict": "На сервере новая ревизия текста ({n}), а у вас несохранённые правки.",
+  "scriptPlan.text.keepMine": "Сохранить мою поверх",
+  "scriptPlan.text.takeServer": "Взять серверную",
   "scriptPlan.text.preview": "Фрагменты плана в тексте",
   "scriptPlan.block.title": "Заголовок блока {n} (необязательно)",
   "scriptPlan.block.text": "Текст блока {n}",
@@ -162,6 +165,7 @@ export const ruScriptPlan = {
   "scriptPlan.generate.hint": "Утверждение фиксирует эту ревизию плана; сцены генерируются по очереди, результат — на вкладке «Сцены».",
   "scriptPlan.generate.blocked": "Генерация недоступна: исправьте блокирующие проблемы ({n}).",
   "scriptPlan.generate.outdated": "Генерация недоступна: план построен по прежней версии текста.",
+  "scriptPlan.generate.noStyle": "Генерация недоступна: стиль проекта ещё не готов.",
   "scriptPlan.generate.none": "Нет принятых сцен для генерации.",
   "scriptPlan.error.plan_outdated": "План построен по прежней версии текста — перестройте план.",
 

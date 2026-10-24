@@ -113,7 +113,7 @@ export function SceneCard({ item, n, numbers, blockTitle, fps, issues, selection
               </>
             ) : null}
             {selection && !sameRange ? (
-              <button type="button" disabled={busy} onClick={() => onOp({ op: "modify", item_id: item.id, patch: { start_word_id: selection.start_word_id, end_word_id: selection.end_word_id } })}>
+              <button type="button" data-keep-selection disabled={busy} onClick={() => onOp({ op: "modify", item_id: item.id, patch: { start_word_id: selection.start_word_id, end_word_id: selection.end_word_id } })}>
                 {t("scriptPlan.scene.useSelection")}
               </button>
             ) : null}

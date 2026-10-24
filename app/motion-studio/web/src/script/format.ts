@@ -1,7 +1,7 @@
 // Подписи сценария для человека (S8): секунды и длительность сцены из кадров (§5.2), время
 // чтения текста, русские названия приёмов и форм времени, оценка пакета генерации, текст
 // ошибок API с поправкой на сценарный смысл кода.
-import { type Fps, type SceneFrames, STRUCTURE_RULES, type ScriptSceneItem, TECHNIQUES, type Technique } from "@ms/contracts";
+import { type Fps, type ReadingSettings, type SceneFrames, STRUCTURE_RULES, type ScriptSceneItem, TECHNIQUES, type Technique, readingFrames } from "@ms/contracts";
 import { ApiError } from "../api/client.js";
 import { errorText, t, tk, tn } from "../i18n/index.js";
 
@@ -24,9 +24,16 @@ export function formatClock(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
-/** «205 слов · 1:22» — число слов и время чтения при скорости `wps` (вверх до секунды). */
-export function readingSummary(words: number, wps: number): string {
-  return t("scriptPlan.reading.summary", { words: tn("scriptPlan.words", words), clock: formatClock(Math.ceil(words / wps)) });
+export const DEFAULT_FPS: Fps = { num: 30, den: 1 };
+
+/**
+ * «205 слов · 1:22» — число слов и время речи по той же формуле, что у сервера (`readingFrames`,
+ * целые кадры, §5.2); секунды — вверх до целой.
+ */
+export function readingSummary(words: number, reading: ReadingSettings, fps: Fps): string {
+  const frames = words > 0 ? readingFrames(words, reading, fps).speech : 0;
+  const seconds = Math.ceil((frames * fps.den) / fps.num);
+  return t("scriptPlan.reading.summary", { words: tn("scriptPlan.words", words), clock: formatClock(seconds) });
 }
 
 export const techniqueLabel = (x: Technique): string => tk(`scriptPlan.technique.${x}`, x);

@@ -2,7 +2,7 @@
 // (псевдоэлемент CSS, в выделение не попадает), убранные сцены — зачёркнуты, пропуски агента —
 // пунктиром с причиной. Выделение мышью отдаётся наверх смещениями символов в блоке.
 import type { ScriptPlanRevisionDoc, ScriptRevisionDoc, ScriptSceneItem } from "@ms/contracts";
-import { type ReactNode, useRef } from "react";
+import { type KeyboardEvent, type ReactNode, useRef } from "react";
 import { t } from "../../i18n/index.js";
 import { type BlockRange, domSelectionRange } from "../../script/selection.js";
 import "./script.css";
@@ -66,7 +66,19 @@ export function ScriptText({ doc, items = [], skipped = [], numbers, selectedId,
                 {...(n !== undefined ? { "data-n": String(n) } : {})}
                 className={`scene-fragment${x.status === "accepted" ? "" : " rejected"}${selectedId === x.id ? " selected" : ""}`}
                 title={n !== undefined ? t("scriptPlan.scene.n", { n }) : t("scriptPlan.scene.rejected")}
-                onClick={() => onSelectItem?.(x.id)}
+                {...(onSelectItem
+                  ? {
+                      role: "button",
+                      tabIndex: 0,
+                      onClick: () => onSelectItem(x.id),
+                      onKeyDown: (e: KeyboardEvent) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onSelectItem(x.id);
+                        }
+                      },
+                    }
+                  : {})}
               >
                 {text}
               </mark>,

@@ -14,10 +14,13 @@ it("длительность сцены: «речь + запас = итого»"
 it("время чтения текста: «205 слов · 1:22»", () => {
   expect(formatClock(82)).toBe("1:22");
   expect(formatClock(5)).toBe("0:05");
-  expect(readingSummary(205, 2.5)).toBe("205 слов · 1:22");
-  expect(readingSummary(1, 2.5)).toBe("1 слово · 0:01");
-  expect(readingSummary(3, 2.5)).toBe("3 слова · 0:02");
-  expect(readingSummary(0, 2.5)).toBe("0 слов · 0:00");
+  const R = { wps: 2.5, lead_s: 0.5, tail_s: 1 };
+  expect(readingSummary(205, R, F30)).toBe("205 слов · 1:22");
+  expect(readingSummary(1, R, F30)).toBe("1 слово · 0:01");
+  expect(readingSummary(3, R, F30)).toBe("3 слова · 0:02");
+  expect(readingSummary(0, R, F30)).toBe("0 слов · 0:00");
+  // как сервер (readingFrames, целые кадры): 113 слов при 1,13 слова/с — ровно 100 с, не 101
+  expect(readingSummary(113, { ...R, wps: 1.13 }, F30)).toBe("113 слов · 1:40");
 });
 
 it("у каждого приёма — русское название без кода", () => {

@@ -9,7 +9,10 @@ import { formatDuration, techniqueLabel } from "../../src/script/format.js";
 import { type Call, fakeFetch, on, renderQ } from "../helpers.js";
 import { F30, planDoc, scriptDoc, state } from "./plan-fixtures.js";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  sessionStorage.clear();
+});
 
 const opsCalls = (calls: Call[]) => calls.filter((c) => c.method === "POST" && c.url === "/api/projects/p1/script/plan/ops");
 const cards = () => screen.getAllByTestId("scene-card");
@@ -158,6 +161,22 @@ it("смена скорости чтения → set_reading", async () => {
   expect(opsCalls(calls)[0]!.body).toEqual({ base_revision: 3, ops: [{ op: "set_reading", reading: { wps: 2, lead_s: 0.5, tail_s: 1 } }] });
 });
 
+it("скорость с запятой, округление до 0,01; поле текстовое с десятичной клавиатурой", async () => {
+  const { calls } = fakeFetch([okOps()]);
+  renderQ(<PlanTab state={state()} onGenerated={() => {}} />);
+  const wps = screen.getByLabelText(t("scriptPlan.reading.wps")) as HTMLInputElement;
+  expect(wps.type).toBe("text");
+  expect(wps.inputMode).toBe("decimal");
+  expect(wps.value).toBe("2,5");
+  fireEvent.change(wps, { target: { value: "2,5" } });
+  expect((screen.getByRole("button", { name: t("scriptPlan.reading.apply") }) as HTMLButtonElement).disabled).toBe(true); // не изменилось
+  fireEvent.change(wps, { target: { value: "2,754" } });
+  fireEvent.change(screen.getByLabelText(t("scriptPlan.reading.tail")), { target: { value: "1,5" } });
+  fireEvent.click(screen.getByRole("button", { name: t("scriptPlan.reading.apply") }));
+  await waitFor(() => expect(opsCalls(calls)).toHaveLength(1));
+  expect(opsCalls(calls)[0]!.body).toEqual({ base_revision: 3, ops: [{ op: "set_reading", reading: { wps: 2.75, lead_s: 0.5, tail_s: 1.5 } }] });
+});
+
 it("скорость вне границ — подсказка, применить нельзя", () => {
   fakeFetch();
   renderQ(<PlanTab state={state()} onGenerated={() => {}} />);
@@ -195,11 +214,67 @@ it("blocking issue → кнопка генерации недоступна, п�
   expect(issues.querySelector("li")).toBe(blocking.closest("li")); // blocking — первым
 });
 
-it("план устарел (текст новее) → генерация недоступна, предупреждение", () => {
+it("план устарел (текст новее) → генерация недоступна, текст без подсветки, выделение не создаёт сцен", () => {
   fakeFetch();
   renderQ(<PlanTab state={state({ plan_outdated: true })} onGenerated={() => {}} />);
   expect(screen.getByText(t("scriptPlan.outdated"))).toBeTruthy();
+  expect(screen.getByRole("button", { name: t("scriptPlan.rebuild") })).toBeTruthy();
   expect((screen.getByRole("button", { name: /Утвердить и сгенерировать/ }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.queryAllByTestId("scene-fragment")).toHaveLength(0);
+  selectInBlock("b2", 0, 24);
+  expect(screen.queryByTestId("selection-bar")).toBeNull();
+  expect(screen.queryByRole("button", { name: t("scriptPlan.scene.useSelection") })).toBeNull();
+});
+
+it("стиля проекта нет → генерация недоступна с причиной", () => {
+  fakeFetch();
+  renderQ(<PlanTab state={state({ style: null })} onGenerated={() => {}} />);
+  expect((screen.getByRole("button", { name: /Утвердить и сгенерировать/ }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText(t("scriptPlan.generate.noStyle"))).toBeTruthy();
+});
+
+it("422 blocking_issues от сервера — список проблем из ответа", async () => {
+  fakeFetch([on("POST", "/api/projects/p1/script/generate", {
+    error: "blocking_issues", message: "есть blocking",
+    issues: [{ item_id: "ss_002", code: "scene_too_long", severity: "blocking", message: "речь 21 с" }],
+  }, 422)]);
+  renderQ(<PlanTab state={state()} onGenerated={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: /Утвердить и сгенерировать/ }));
+  const box = await screen.findByTestId("generate-error");
+  expect(box.textContent).toContain(t("errors.blocking_issues"));
+  expect(box.textContent).toContain(t("scriptPlan.issue.scene_too_long"));
+  expect(box.textContent).toContain(t("scriptPlan.scene.n", { n: 2 }));
+});
+
+it("клик вне текста сбрасывает выделение; фрагмент выбирается с клавиатуры", () => {
+  fakeFetch();
+  const s = state();
+  s.plan!.doc.items = s.plan!.doc.items.slice(0, 3);
+  renderQ(<PlanTab state={s} onGenerated={() => {}} />);
+  selectInBlock("b2", 0, 24);
+  expect(screen.getByTestId("selection-bar")).toBeTruthy();
+  fireEvent.mouseDown(screen.getByTestId("diversity"));
+  expect(screen.queryByTestId("selection-bar")).toBeNull();
+  const frag = screen.getAllByTestId("scene-fragment")[1]!;
+  expect(frag.getAttribute("role")).toBe("button");
+  expect(frag.getAttribute("tabindex")).toBe("0");
+  fireEvent.keyDown(frag, { key: "Enter" });
+  expect(cards()[1]!.className).toContain("selected");
+});
+
+it("ключ генерации устойчив к перемонтированию: план + ревизия + стиль", async () => {
+  const batch = { id: "sb_1", aspect: "16:9", plan_revision: 3, items: [], counts: { total: 4, pending: 4, running: 0, ready: 0, failed: 0, cancelled: 0, blocked: 0 } };
+  const { calls } = fakeFetch([on("POST", "/api/projects/p1/script/generate", batch, 202)]);
+  const a = renderQ(<PlanTab state={state()} onGenerated={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: /Утвердить и сгенерировать/ }));
+  await waitFor(() => expect(calls.filter((c) => c.url.endsWith("/generate"))).toHaveLength(1));
+  a.unmount();
+  renderQ(<PlanTab state={state()} onGenerated={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: /Утвердить и сгенерировать/ }));
+  await waitFor(() => expect(calls.filter((c) => c.url.endsWith("/generate"))).toHaveLength(2));
+  const keys = calls.filter((c) => c.url.endsWith("/generate")).map((c) => c.headers["idempotency-key"]);
+  expect(keys[0]).toBe(keys[1]);
+  expect(keys[0]).toContain("pln_1@r3");
 });
 
 it("пустые состояния: нет текста; нет плана; план без агента и без сцен", () => {

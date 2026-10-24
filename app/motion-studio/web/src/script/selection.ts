@@ -35,19 +35,42 @@ function offsetIn(block: HTMLElement, node: Node, offset: number): number {
   return r.toString().length;
 }
 
+/** Блок, к которому относится точка вне блоков: ближайший следующий (для начала) или предыдущий (для конца). */
+function nearestBlock(root: Element, node: Node, offset: number, dir: "next" | "prev"): HTMLElement | null {
+  const blocks = [...root.querySelectorAll<HTMLElement>("[data-block-id]")];
+  const point = document.createRange();
+  point.setStart(node, offset);
+  const before = (b: HTMLElement) => point.comparePoint(b, 0) <= 0; // блок начинается не позже точки
+  return dir === "next" ? (blocks.find((b) => !before(b) || b.contains(node)) ?? null) : ([...blocks].reverse().find(before) ?? null);
+}
+
 /**
- * Выделение внутри `root` → блок и смещения символов; выделения нет или оно пустое — null;
- * концы в разных блоках — `"cross_block"`. Текст блока в DOM должен совпадать с `text` блока
- * (номера сцен — псевдоэлементами CSS, в тексте их нет).
+ * Выделение внутри `root` → блок и смещения символов; выделения нет или в нём нет текста блоков —
+ * null. Конец вне блока (тройной клик, выделение с заголовка) обрезается по границе блока;
+ * конец в начале следующего блока (смещение 0) — тоже. Текст в двух блоках — `"cross_block"`.
+ * Текст блока в DOM должен совпадать с `text` блока (номера сцен — псевдоэлементами CSS).
  */
 export function domSelectionRange(root: Element, sel: Selection | null): BlockRange | "cross_block" | null {
   if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
   const r = sel.getRangeAt(0);
-  const a = blockOf(r.startContainer, root);
-  const b = blockOf(r.endContainer, root);
-  if (!a && !b) return null;
-  if (!a || !b || a !== b) return "cross_block";
-  const start = offsetIn(a, r.startContainer, r.startOffset);
-  const end = offsetIn(a, r.endContainer, r.endOffset);
+  let a = blockOf(r.startContainer, root);
+  let b = blockOf(r.endContainer, root);
+  let start = a ? offsetIn(a, r.startContainer, r.startOffset) : 0;
+  let end = b ? offsetIn(b, r.endContainer, r.endOffset) : -1;
+  if (!a) {
+    a = root.contains(r.startContainer) ? nearestBlock(root, r.startContainer, r.startOffset, "next") : null;
+    start = 0;
+  }
+  if (b && b !== a && end === 0) {
+    // конец ровно в начале следующего блока — выделение до конца предыдущего
+    const blocks = [...root.querySelectorAll<HTMLElement>("[data-block-id]")];
+    b = blocks[blocks.indexOf(b) - 1] ?? null;
+    end = b ? (b.textContent ?? "").length : -1;
+  } else if (!b) {
+    b = root.contains(r.endContainer) ? nearestBlock(root, r.endContainer, r.endOffset, "prev") : null;
+    end = b ? (b.textContent ?? "").length : -1;
+  }
+  if (!a || !b) return null;
+  if (a !== b) return "cross_block";
   return { blockId: a.dataset.blockId!, start: Math.min(start, end), end: Math.max(start, end) };
 }

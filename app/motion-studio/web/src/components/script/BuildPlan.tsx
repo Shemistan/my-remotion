@@ -4,7 +4,7 @@
 // Задача, запущенная раньше (вкладку открыли заново), находится в списке идущих задач.
 import type { ReadingSettings, ScriptStateDto } from "@ms/contracts";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { newKey } from "../../api/client.js";
 import { useJob, useJobs } from "../../api/queries.js";
 import { scriptStateKey, useBuildPlan } from "../../api/script-client.js";
@@ -29,7 +29,9 @@ export function BuildPlan({ state, reading, blockedReason, onDone }: BuildPlanPr
   const [confirm, setConfirm] = useState(false);
   const [started, setStarted] = useState<string | null>(null);
   const running = useJobs({ status: "running" });
-  const earlier = running.data?.find((j) => j.type === "script.plan" && j.project_id === projectId)?.id ?? null;
+  const pending = useJobs({ status: "pending" });
+  const earlier = [...(running.data ?? []), ...(pending.data ?? [])].find((j) => j.type === "script.plan" && j.project_id === projectId)?.id ?? null;
+  const dlg = useId();
   // идущая задача, найденная списком, запоминается: после завершения её в списке уже нет
   useEffect(() => {
     if (earlier && !started) setStarted(earlier);
@@ -74,10 +76,10 @@ export function BuildPlan({ state, reading, blockedReason, onDone }: BuildPlanPr
       </div>
       {blockedReason ? <p className="hint">{blockedReason}</p> : !jobId ? <p className="hint">{t("scriptPlan.build.hint")}</p> : null}
       {confirm ? (
-        <div className="msg-warning" role="alertdialog" aria-label={t("scriptPlan.rebuild")}>
-          <p>{t("scriptPlan.rebuild.warning")}</p>
+        <div className="msg-warning" role="alertdialog" aria-label={t("scriptPlan.rebuild")} aria-describedby={`${dlg}-text`}>
+          <p id={`${dlg}-text`}>{t("scriptPlan.rebuild.warning")}</p>
           <div className="row wrap">
-            <button type="button" className="primary" onClick={start}>{t("scriptPlan.rebuild.confirm")}</button>
+            <button type="button" className="primary" autoFocus onClick={start}>{t("scriptPlan.rebuild.confirm")}</button>
             <button type="button" onClick={() => setConfirm(false)}>{t("common.cancel")}</button>
           </div>
         </div>

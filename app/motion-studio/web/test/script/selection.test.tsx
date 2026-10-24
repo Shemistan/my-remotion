@@ -45,3 +45,33 @@ it("DOM-выделение: смещения символов в блоке; ч�
   sel.removeAllRanges();
   expect(domSelectionRange(container, sel)).toBeNull();
 });
+
+it("тройной клик и выделение с заголовка: конец вне блока обрезается по границе блока", () => {
+  const { container } = render(
+    <div>
+      <h3>Первый</h3>
+      <p data-block-id="b1"><span>В Go 1.24 — Swiss Table.</span></p>
+      <h3>Второй</h3>
+      <p data-block-id="b2"><span>Второй блок текста.</span></p>
+    </div>,
+  );
+  const [h1, h2] = container.querySelectorAll("h3");
+  const [p1, p2] = container.querySelectorAll("p");
+  const sel = window.getSelection()!;
+  const pick = (sn: Node, so: number, en: Node, eo: number) => {
+    const r = document.createRange();
+    r.setStart(sn, so);
+    r.setEnd(en, eo);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    return domSelectionRange(container, sel);
+  };
+  // тройной клик: конец — начало следующего заголовка
+  expect(pick(p1!.firstChild!.firstChild!, 0, h2!.firstChild!, 0)).toEqual({ blockId: "b1", start: 0, end: 24 });
+  // тройной клик: конец — начало следующего блока (смещение 0)
+  expect(pick(p1!.firstChild!.firstChild!, 3, p2!.firstChild!.firstChild!, 0)).toEqual({ blockId: "b1", start: 3, end: 24 });
+  // начало — в заголовке блока
+  expect(pick(h1!.firstChild!, 2, p1!.firstChild!.firstChild!, 5)).toEqual({ blockId: "b1", start: 0, end: 5 });
+  // настоящее выделение через два блока — по-прежнему cross_block
+  expect(pick(p1!.firstChild!.firstChild!, 3, p2!.firstChild!.firstChild!, 4)).toBe("cross_block");
+});
