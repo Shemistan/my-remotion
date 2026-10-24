@@ -3,7 +3,7 @@
 // шлёт base_version_id той версии, от настроек которой посчитан патч. Неудачная последняя
 // правка видна и после перезагрузки (баннер со ссылкой на версию).
 import { defaultSettings } from "@ms/contracts";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { Playground } from "../src/pages/Playground.js";
 import { t } from "../src/i18n/index.js";
@@ -15,7 +15,7 @@ afterEach(() => vi.unstubAllGlobals());
 const v1Settings = { ...defaultSettings(), style_preset: "dark-premium" as const };
 const v2Settings = { ...defaultSettings(), style_preset: "tech-neon" as const };
 
-function routes(over: { current?: string; extra?: ReturnType<typeof historyEntry>[] } = {}) {
+function routes(over: { current?: string; extra?: ReturnType<typeof historyEntry>[]; v1?: typeof v1Settings } = {}) {
   const versions = [historyEntry("v1", 1), historyEntry("v2", 2, { parent_version_id: "v1" }), ...(over.extra ?? [])];
   return fakeFetch([
     on("GET", "/api/scenes/s1", {
@@ -23,7 +23,7 @@ function routes(over: { current?: string; extra?: ReturnType<typeof historyEntry
       versions,
       active_job: null,
     }),
-    on("GET", "/api/versions/v1", versionDto("v1", 1, { settings: v1Settings })),
+    on("GET", "/api/versions/v1", versionDto("v1", 1, { settings: over.v1 ?? v1Settings })),
     on("GET", "/api/versions/v2", versionDto("v2", 2, { settings: v2Settings })),
     on("GET", "/api/versions/v3", versionDto("v3", 3, { settings: v2Settings, manifest: { ...versionDto("v3", 3).manifest, status: "failed", preview: null, failure: { stage: "engineer", message: "сломалось" } } })),
     on("GET", "/api/scenes/s1/messages", []),
@@ -85,6 +85,23 @@ it("открыта v1, текущая v2: по умолчанию база — �
   await changeTheme("tech-neon");
   await waitFor(() => expect(posts(calls, "/api/scenes/s1/render")).toHaveLength(2));
   expect(posts(calls, "/api/scenes/s1/render")[1]!.body).toEqual({ settings_patch: { style_preset: "tech-neon" }, base_version_id: "v1" });
+});
+
+it("смена базы и сразу правка темы (до эффектов): форма уже от новой базы, патч — только тема", async () => {
+  // e2e versions.spec: выбор «от открытой» и сразу «Тема» — обработчик темы видел черновик
+  // прежней базы (эффект сброса ещё не применился), и в патч попадала длительность прежней базы
+  const v1Long = { ...v1Settings, duration_frames: v2Settings.duration_frames + 30 };
+  const { calls: c2 } = routes({ v1: v1Long });
+  renderQ(<Playground id="s1" version="v1" />);
+  const select = (await screen.findByLabelText(t("playground.theme"))) as HTMLSelectElement;
+  await waitFor(() => expect(select.value).toBe("tech-neon"));
+  act(() => {
+    fireEvent.click(screen.getByRole("radio", { name: t("base.open", { n: 1 }) }));
+    fireEvent.change(screen.getByLabelText(t("playground.theme")), { target: { value: "light-clean" } });
+  });
+  fireEvent.click(screen.getByRole("button", { name: t("playground.render") }));
+  await waitFor(() => expect(posts(c2, "/api/scenes/s1/render")).toHaveLength(1));
+  expect(posts(c2, "/api/scenes/s1/render")[0]!.body).toEqual({ settings_patch: { style_preset: "light-clean" }, base_version_id: "v1" });
 });
 
 it("вкладка «Spec и данные» одной версии: spec, props, settings — JSON текстом; нечитаемые файлы помечены", async () => {

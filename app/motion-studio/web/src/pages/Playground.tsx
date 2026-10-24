@@ -97,7 +97,9 @@ export function Playground({ id, version }: { id: string; version?: string }) {
   const baseDto = useVersion(baseId);
   const player = useRef<PlayerHandle>(null);
   const [frame, setFrame] = useState(0);
-  const [draft, setDraft] = useState<Settings | null>(null);
+  // черновик настроек привязан к базе: при смене базы форма сразу показывает её настройки
+  // (без эффекта сброса — иначе правка, пришедшая до эффекта, шла от черновика прежней базы)
+  const [edit, setEdit] = useState<{ base: string; value: Settings } | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportJob, setExportJob] = useState<string | null>(null);
   const [lastJob, setLastJob] = useState<string | null>(null);
@@ -107,9 +109,10 @@ export function Playground({ id, version }: { id: string; version?: string }) {
     setFrame(0);
   }, [openId]);
   const settings = baseDto.data?.settings;
-  useEffect(() => {
-    setDraft(settings ?? null);
-  }, [baseId, settings]);
+  const draft = settings ? (edit && edit.base === baseId ? edit.value : settings) : null;
+  const setDraft = (value: Settings) => {
+    if (baseId) setEdit({ base: baseId, value });
+  };
 
   const patch = useMemo(() => (settings && draft ? settingsPatch(settings, draft) : {}), [settings, draft]);
   const dirty = Object.keys(patch).length > 0;
