@@ -11,7 +11,7 @@
 - [Motion Studio: Phase 4–6 (сцены проекта, сборка, полировка)](specs/2026-10-20-motion-studio-phase4-6.md) — утверждено
 - [Visual Knowledge Base для Remotion](specs/2026-10-20-visual-knowledge-base-design.md) — утверждено
 - [Ночной цикл качества видео](specs/2026-10-23-night-quality-loop-design.md) — реализовано
-- [Motion Studio: сценарий → моушн-сцены (первая рабочая версия для человека)](specs/2026-10-24-script-to-motion-design.md) — черновик
+- [Motion Studio: сценарий → моушн-сцены (первая рабочая версия для человека)](specs/2026-10-24-script-to-motion-design.md) — утверждено
 
 ### Планы
 
