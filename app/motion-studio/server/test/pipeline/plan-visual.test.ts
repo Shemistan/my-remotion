@@ -65,7 +65,7 @@ const anchors: SemanticTimeline["anchors"] = [
 ];
 
 /** Видеопроект pN: исходник, транскрипт r1, EDL r1 (вырезка CUT принята), A, semantic и footage по текущим ревизиям. */
-async function ready(o: { approve?: boolean; semantic?: "fresh" | "old" | "none" | "skipped"; footage?: boolean } = {}): Promise<{ p: string; edl: string }> {
+async function ready(o: { approve?: boolean; semantic?: "fresh" | "old" | "none" | "skipped" | "legacy-empty"; footage?: boolean } = {}): Promise<{ p: string; edl: string }> {
   const k = ++n;
   const p = `p${k}`;
   const [mediaId, trnId, edlId] = [`med_${k}`, `trn_${k}`, `edl_${k}`];
@@ -90,6 +90,7 @@ async function ready(o: { approve?: boolean; semantic?: "fresh" | "old" | "none"
       schema_version: 1, id: semId, transcript_ref: { id: trnId, revision: 1 }, edl_ref: { id: edlId, revision: o.semantic === "old" ? 2 : 1 },
       chapters: [{ id: "ch_01", title: "Итоги", summary: "", start_word_id: id(4), end_word_id: id(20) }], anchors, entities: [], numbers: [], causal: [], disputed: [],
       ...(o.semantic === "skipped" ? { chapters: [], anchors: [], agent: "skipped" as const } : {}),
+      ...(o.semantic === "legacy-empty" ? { chapters: [], anchors: [] } : {}),
     };
     await store.writeRevision(paths.semantic(semId), "semantic.json", doc, (d, f) => {
       semanticRepo.insert(d, { id: semId, project_id: p, transcript_id: trnId, transcript_revision: 1, edl_id: edlId, edl_revision: doc.edl_ref.revision, rel_path: `${paths.semantic(semId)}/semantic.json`, sha256: f[0]!.sha256, chapters: [] });
@@ -161,6 +162,8 @@ async function run<R>(type: "plan.visual" | "plan.recheck", p: string, o: { agen
   if (r.status !== "completed" && "error" in r) expect(JobErrorSchema.safeParse(r.error).success, JSON.stringify(r.error)).toBe(true);
   return { r, job: claim.job, attempt: claim.attempt, events, out: (r.status === "completed" ? r.outputRefs : undefined) as R | undefined };
 }
+/** Ошибка результата задачи (если есть). */
+const errOf = (r: HandlerResult) => ("error" in r ? r.error : undefined);
 const planOf = (pid: string, rev: number) => VisualPlanRevisionDocSchema.parse(JSON.parse(readFileSync(join(s.root, plans.revision(db, pid, rev)!.rel_path), "utf8")));
 const acceptAll = async (pid: string, rev: number) => {
   const d = planOf(pid, rev);
@@ -414,9 +417,19 @@ describe("plan.visual", () => {
     const agents = fakeAgents([ok(CLEAN)]);
     const { r } = await run<PlanVisualResult>("plan.visual", p, { agents });
     expect(r.status).toBe("failed");
-    expect(JSON.stringify(r)).toMatch(/смысловая разметка построена без агента/);
+    expect(errOf(r)).toMatchObject({ code: "semantic_skipped", message: expect.stringMatching(/^plan\.visual: смысловая разметка построена без агента/) });
+    expect(errOf(r)?.stage).toBeUndefined();
     expect(agents.tasks).toHaveLength(0);
     expect(plans.byProject(db, p)).toBeUndefined();
+  });
+
+  it("ревью Task 33 M1: старая пустая разметка без поля agent — тоже «без агента»", async () => {
+    const { p } = await ready({ semantic: "legacy-empty" });
+    const agents = fakeAgents([ok(CLEAN)]);
+    const { r } = await run<PlanVisualResult>("plan.visual", p, { agents });
+    expect(r.status).toBe("failed");
+    expect(errOf(r)?.code).toBe("semantic_skipped");
+    expect(agents.tasks).toHaveLength(0);
   });
 
   it("ревью Task 33 I1: useAgent: false поверх плана со сценами — отказ plan_exists, сцены не стираются", async () => {
@@ -428,7 +441,9 @@ describe("plan.visual", () => {
     enqueue(db, { type: "plan.visual", projectId: p, input: { projectId: p, useAgent: false }, idempotencyKey: `plan.visual-${++n}` });
     const { r } = await run<PlanVisualResult>("plan.visual", p, { agents: fakeAgents([]), jobId: "queued" });
     expect(r.status).toBe("failed");
-    expect(JSON.stringify(r)).toMatch(/plan_exists/);
+    expect(errOf(r)).toMatchObject({ code: "plan_exists", message: expect.stringMatching(/уже есть сцены/) });
+    expect(errOf(r)?.stage).toBeUndefined();
+    expect(errOf(r)?.message).not.toMatch(/^plan_exists:/);
     expect(plans.get(db, r1.out!.plan_id)!.current_revision).toBe(r1.out!.revision);
   });
 

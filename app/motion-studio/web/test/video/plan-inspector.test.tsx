@@ -5,11 +5,11 @@ import { expect, it, vi } from "vitest";
 import { PlanInspector } from "../../src/components/video/PlanInspector.js";
 import { PlanIssues } from "../../src/components/video/PlanIssues.js";
 import { t } from "../../src/i18n/index.js";
-import { edlDto } from "./fixtures.js";
+import { WORDS, edlDto } from "./fixtures.js";
 import { item } from "./plan-fixtures.js";
 
 const tl = edlDto().timeline;
-const base = { timeline: tl, issues: [], busy: false, faceOverlapMax: 0.02, onPlay: vi.fn(), onPreviewZone: vi.fn() };
+const base = { words: WORDS, timeline: tl, issues: [], busy: false, faceOverlapMax: 0.02, onPlay: vi.fn(), onPreviewZone: vi.fn() };
 
 it("перекрытие лица 0,56 без причины: поле «причина» обязательно, «Принять» недоступна; с текстом — причина и принятие одной правкой", () => {
   const onOps = vi.fn();

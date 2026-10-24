@@ -31,4 +31,8 @@ describe("FailureStage", () => {
     }
     for (const st of FailureStageSchema.options) expect(JobErrorCodeSchema.options).toContain(failureToJobErrorCode(st));
   });
+
+  it("ревью Task 33 M2: отказы plan.visual — свои коды без этапа", () => {
+    for (const c of ["plan_exists", "semantic_skipped"]) expect(JobErrorCodeSchema.options).toContain(c);
+  });
 });

@@ -26,7 +26,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   type JobError, PATTERN_SLUGS, type PatternSlug, type PlanIssue, type ProjectStyleBase, type ProjectStyleDoc, ProjectStyleDocSchema, type SemanticTimeline,
-  SemanticTimelineSchema, type VisualPlanRevisionDoc, VisualPlanRevisionDocSchema, type VisualPlannerOutput, VisualPlannerOutputSchema, mapWords,
+  SemanticTimelineSchema, type VisualPlanRevisionDoc, VisualPlanRevisionDocSchema, type VisualPlannerOutput, VisualPlannerOutputSchema, mapWords, semanticWithoutAgent,
 } from "@ms/contracts";
 import { canonicalJson } from "@ms/contracts/canonical";
 import type { StorageStatus } from "@ms/core";
@@ -65,7 +65,7 @@ import { RunCtx, errText, isStorageError, toolless } from "./steps.js";
 
 /**
  * `useAgent: false` — без Visual Planner: план без сцен, сцены добавляет человек (UI-тесты без LLM);
- * только пока в плане нет сцен (иначе отказ `plan_exists`). С агентом — разметка без агента не годится.
+ * только пока в плане нет сцен (иначе отказ `plan_exists`). С агентом — разметка без агента не годится (`semantic_skipped`).
  */
 export const PlanJobInputSchema = z.object({ projectId: z.string().min(1), useAgent: z.boolean().optional() }).strict();
 
@@ -238,7 +238,7 @@ export function planVisual(depsOf: (ctx: JobContext) => PlanVisualDeps): JobHand
       if (missing.length > 0 || !sem || !ftg) return prep(`plan.visual: не хватает входов: ${missing.join("; ")}`);
       // ревью Task 33 I1: план без агента не стирает сцены готового плана
       if (parsed.data.useAgent === false && snap.plan?.current_revision != null && plans.scenePlans(ctx.db, snap.plan.id, snap.plan.current_revision).length > 0) {
-        return prep(`plan_exists: в плане ${snap.plan.id} уже есть сцены — план без агента их бы стёр; правьте сцены вручную или постройте план с агентом`);
+        return fail({ code: "plan_exists", message: `plan.visual: в плане ${snap.plan.id} уже есть сцены — план без агента их бы стёр; правьте сцены вручную или постройте план с агентом` });
       }
 
       const status = await d.storage();
@@ -246,8 +246,8 @@ export function planVisual(depsOf: (ctx: JobContext) => PlanVisualDeps): JobHand
       const tr = currentTranscript(ctx.db, root, edl.transcript_id, trRev);
       const tl = timelineFor(ctx.db, edl.id, edlRev.revision);
       const semDoc: SemanticTimeline = SemanticTimelineSchema.parse(JSON.parse(await readFile(join(root, sem.rel_path), "utf8")));
-      if (parsed.data.useAgent !== false && semDoc.agent === "skipped") {
-        return prep("plan.visual: смысловая разметка построена без агента (пустая) — запустите смысловой анализ с агентом или стройте план без агента");
+      if (parsed.data.useAgent !== false && semanticWithoutAgent(semDoc)) {
+        return fail({ code: "semantic_skipped", message: "plan.visual: смысловая разметка построена без агента (пустая) — запустите смысловой анализ с агентом или стройте план без агента" });
       }
       const footage = readFootage(ctx.db, root, ftg.id);
       const style0 = currentProjectStyle(ctx.db, root, projectId);

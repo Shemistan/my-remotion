@@ -103,3 +103,11 @@ export const SemanticTimelineSchema = z.object({
   agent: z.literal("skipped").optional(),
 }).strict().superRefine(checkSemantic);
 export type SemanticTimeline = z.infer<typeof SemanticTimelineSchema>;
+
+/**
+ * Разметка построена без агента: пометка `agent: "skipped"` или (разметки до появления поля) ни
+ * глав, ни якорей, ни чисел — агенту планировать не по чему (ревью Task 33, M1).
+ */
+export function semanticWithoutAgent(d: Pick<SemanticTimeline, "agent" | "chapters" | "anchors" | "numbers">): boolean {
+  return d.agent === "skipped" || (d.chapters.length === 0 && d.anchors.length === 0 && d.numbers.length === 0);
+}

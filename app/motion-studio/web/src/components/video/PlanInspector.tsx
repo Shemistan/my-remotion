@@ -6,7 +6,7 @@
 // «Сохранить причину» (у принятой сцены), «Отклонить», «Изменить» (назначение, тип, режим),
 // «Вернуть к предложению» агента.
 import {
-  type EditedTimeline, PATTERN_SLUGS, type PlanIssue, type PlanOp, type PlanProposal, PlannedCompositionModeSchema, type ScenePlanItem, type Zone,
+  type EditedTimeline, PATTERN_SLUGS, type PlanIssue, type PlanOp, type PlanProposal, PlannedCompositionModeSchema, type ScenePlanItem, type TranscriptWord, type Zone,
   ZoneSchema,
 } from "@ms/contracts";
 import { useEffect, useId, useState } from "react";
@@ -27,6 +27,8 @@ export interface PlanInspectorProps {
   /** Порог доли лица (`PlanDto.face_overlap_max`, конфиг сервера): выше — нужна причина. */
   faceOverlapMax: number;
   timeline: EditedTimeline;
+  /** Слова транскрипта — для цитат основания. */
+  words: readonly TranscriptWord[];
   busy: boolean;
   onOps: (ops: PlanOp[]) => void;
   onPlay: (editedRange: { start_us: number; end_us: number }) => void;
@@ -36,7 +38,7 @@ export interface PlanInspectorProps {
 
 const PROPOSAL_KEYS = ["visual_type", "composition_mode", "zone", "start_word_id", "end_word_id"] as const;
 
-export function PlanInspector({ item: x, proposal, issues, faceOverlapMax, timeline, busy, onOps, onPlay, onPreviewZone }: PlanInspectorProps) {
+export function PlanInspector({ item: x, proposal, issues, faceOverlapMax, timeline, words, busy, onOps, onPlay, onPreviewZone }: PlanInspectorProps) {
   const ids = { reason: useId(), purpose: useId(), type: useId(), mode: useId(), zone: useId() };
   const [reason, setReason] = useState(x.face_overlap.override_reason ?? "");
   const [edit, setEdit] = useState<{ purpose: string; visual_type: ScenePlanItem["visual_type"]; composition_mode: ScenePlanItem["composition_mode"] } | null>(null);
@@ -140,7 +142,7 @@ export function PlanInspector({ item: x, proposal, issues, faceOverlapMax, timel
       </dl>
       <p className="muted small">{t("inspector.scores", { c: x.complexity, u: x.usefulness, e: x.effort, l: x.visual_load })}</p>
       <h3>{t("inspector.evidence")}</h3>
-      {x.evidence.map((e, i) => <EvidenceQuote key={`${e.start_word_id}-${i}`} evidence={e} timeline={timeline} onPlay={onPlay} />)}
+      {x.evidence.map((e, i) => <EvidenceQuote key={`${e.start_word_id}-${i}`} evidence={e} words={words} timeline={timeline} onPlay={onPlay} />)}
       {OVER_AUTHOR.has(x.composition_mode) ? (
         <div className={`face-overlap ${needsReason ? "warn" : ""}`}>
           <p>{t("inspector.face", { pct: Math.round(x.face_overlap.ratio * 100) })}</p>

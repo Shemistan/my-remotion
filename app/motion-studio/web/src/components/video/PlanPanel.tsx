@@ -92,7 +92,8 @@ export function PlanPanel(p: PlanPanelProps) {
     ...(data.semantic?.fresh ? [] : [t("plan.need.semantic")]),
     ...(data.footage ? [] : [t("plan.need.footage")]),
   ];
-  const hasScenes = (plan?.doc.items.length ?? 0) > 0;
+  // сцены текущей ревизии плана (как считает сервер), а не показанной (ревью Task 33 M4)
+  const hasScenes = (data.plan?.scenes ?? 0) > 0;
   const generateBar = (
     <>
       <div className="row wrap">
@@ -181,6 +182,7 @@ export function PlanPanel(p: PlanPanelProps) {
           issues={doc.issues}
           faceOverlapMax={plan.face_overlap_max}
           timeline={edl.timeline}
+          words={words}
           busy={save.isPending || !isCurrent}
           onOps={(ops) => save.mutate(ops)}
           onPlay={p.onPlayEdited}

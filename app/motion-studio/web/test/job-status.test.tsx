@@ -72,3 +72,14 @@ it("failed: этап ошибки и «Повторить»; completed — бе�
   expect(await screen.findByText(t("job.status.completed"))).toBeTruthy();
   expect(screen.queryByRole("button")).toBeNull();
 });
+
+it("ревью Task 33 M2: отказы plan.visual — русский текст по коду, подробности рядом", async () => {
+  for (const code of ["plan_exists", "semantic_skipped"] as const) {
+    fakeFetch([on("GET", "/api/jobs/job_x", detail({ id: "job_x", type: "plan.visual", status: "failed", error: { code, message: "plan.visual: подробности сервера" } }))]);
+    const view = renderQ(<JobStatus jobId="job_x" />);
+    expect(await screen.findByText(t(`job.errorCode.${code}`))).toBeTruthy();
+    expect(screen.getByText(/подробности сервера/)).toBeTruthy();
+    view.unmount();
+    vi.unstubAllGlobals();
+  }
+});

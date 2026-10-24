@@ -1,7 +1,7 @@
 // Вкладка «Анализ» (Task 33): видеоряд — запуск `footage.analyze` (без агента — только детектор
 // Apple Vision), режим, шоты (`ShotList`), рамки на кадре рисует `SafeZoneOverlay` поверх плеера;
 // смысл — запуск `semantic.analyze` (только при утверждённом A), главы и якоря.
-import type { TranscriptWord, VideoProjectDto } from "@ms/contracts";
+import { type TranscriptWord, type VideoProjectDto, semanticWithoutAgent } from "@ms/contracts";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, newKey } from "../../api/client.js";
@@ -80,7 +80,7 @@ export function AnalysisPanel({ data, words, currentUs, onSeek, onJob }: Analysi
         {data.semantic && !data.semantic.fresh ? <p className="msg-warning">{t("analysis.semanticStale")}</p> : null}
         {!data.semantic ? <p className="muted">{t("analysis.semanticEmpty")}</p> : semantic.data ? (
           <>
-            {semantic.data.semantic.agent === "skipped" ? <p className="msg-warning" data-testid="semantic-skipped">{t("analysis.semanticSkipped")}</p> : null}
+            {semanticWithoutAgent(semantic.data.semantic) ? <p className="msg-warning" data-testid="semantic-skipped">{t("analysis.semanticSkipped")}</p> : null}
             <ChaptersPanel semantic={semantic.data.semantic} words={words} onSeek={onSeek} />
             <AnchorList semantic={semantic.data.semantic} words={words} onSeek={onSeek} />
           </>

@@ -44,7 +44,9 @@ export function videoProjectRoutes(app: ZApp, { core }: ApiContext): void {
       approvals: projectApprovals(db, project.id),
       footage: ftg ? { id: ftg.id, mode: ftg.mode } : null,
       semantic: sem ? { id: sem.id, fresh: semanticFresh(db, sem) } : null,
-      plan: plan && plan.current_revision !== null ? { id: plan.id, current_revision: plan.current_revision } : null,
+      plan: plan && plan.current_revision !== null
+        ? { id: plan.id, current_revision: plan.current_revision, scenes: plans.scenePlans(db, plan.id, plan.current_revision).length }
+        : null,
       style: style && style.current_revision !== null ? { id: style.id, current_revision: style.current_revision } : null,
       jobs: [...latest.values()].map((j) => publicJob(j, core.root)),
     };

@@ -200,7 +200,8 @@ export const VideoProjectDtoSchema = z.object({
   footage: z.object({ id: Id, mode: FootageAnalysisSchema.shape.mode }).strict().nullable(),
   /** Последняя смысловая разметка; `fresh` — построена по текущим ревизиям EDL и транскрипта. */
   semantic: z.object({ id: Id, fresh: z.boolean() }).strict().nullable(),
-  plan: z.object({ id: Id, current_revision: Revision }).strict().nullable(),
+  /** `scenes` — сцен в текущей ревизии плана (подтверждение замены в UI, ревью Task 33 M4). */
+  plan: z.object({ id: Id, current_revision: Revision, scenes: z.number().int().nonnegative() }).strict().nullable(),
   style: z.object({ id: Id, current_revision: Revision }).strict().nullable(),
   /** Последняя задача проекта каждого типа (импорт, ASR, монтаж, превью). */
   jobs: z.array(JobSchema),

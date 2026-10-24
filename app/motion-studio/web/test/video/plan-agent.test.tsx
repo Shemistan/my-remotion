@@ -37,8 +37,14 @@ it("разметка без агента — пометка «пустая, бе
   expect(await screen.findByText(t("analysis.semanticSkipped"))).toBeTruthy();
 });
 
-const planProps = (plan: ReturnType<typeof planDto> | undefined) => ({
-  data: video({ plan: plan ? { id: "pln_1", current_revision: 1 } : null }), edl: edlDto(), transcript: transcriptDto(), plan, styleIssues: [],
+it("ревью Task 33 M1: старая пустая разметка без поля agent — тоже пометка «без агента»", async () => {
+  fakeFetch([on("GET", "/api/semantic/sem_1", { semantic: semantic({ chapters: [], anchors: [], numbers: [], disputed: [] }) })]);
+  renderQ(<AnalysisPanel data={video()} words={WORDS} currentUs={0} onSeek={vi.fn()} onJob={vi.fn()} />);
+  expect(await screen.findByText(t("analysis.semanticSkipped"))).toBeTruthy();
+});
+
+const planProps = (plan: ReturnType<typeof planDto> | undefined, current?: { current_revision: number; scenes: number }) => ({
+  data: video({ plan: plan ? { id: "pln_1", current_revision: 1, scenes: plan.doc.items.length, ...current } : null }), edl: edlDto(), transcript: transcriptDto(), plan, styleIssues: [],
   selected: undefined, onSelect: vi.fn(), onPreviewZone: vi.fn(), onPlayEdited: vi.fn(), onSeek: vi.fn(), currentUs: 0, onChanged: vi.fn(),
 });
 
@@ -61,4 +67,18 @@ it("план со сценами: построение с агентом — т�
   fireEvent.click(screen.getByRole("button", { name: t("plan.generate") }));
   fireEvent.click(screen.getByRole("button", { name: t("plan.replaceConfirm") }));
   await waitFor(() => expect(calls.find((c) => c.url.endsWith("/plan/generate"))?.body).toEqual({ useAgent: true }));
+});
+
+it("ревью Task 33 M4: подтверждение замены — по сценам текущей ревизии (как сервер), а не показанной", async () => {
+  const { calls } = fakeFetch([on("POST", "/api/projects/p1/plan/generate", created, 202)]);
+  // показана r1 без сцен, текущая r2 — со сценами: подтверждение нужно
+  const view = renderQ(<PlanPanel {...planProps(planDto([]), { current_revision: 2, scenes: 1 })} />);
+  fireEvent.click(screen.getByRole("button", { name: t("plan.generate") }));
+  expect(screen.getByRole("alertdialog")).toBeTruthy();
+  view.unmount();
+  // показана r1 со сценой, текущая r2 — без сцен: построение сразу
+  renderQ(<PlanPanel {...planProps(planDto([item()]), { current_revision: 2, scenes: 0 })} />);
+  fireEvent.click(screen.getByRole("button", { name: t("plan.generate") }));
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  await waitFor(() => expect(calls.some((c) => c.url.endsWith("/plan/generate"))).toBe(true));
 });

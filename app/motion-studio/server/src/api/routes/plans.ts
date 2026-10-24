@@ -3,7 +3,7 @@
 // сцен — иначе 409 без задачи), ревизия плана со свежестью входов,
 // предложениями агента и итогом перепроверки, правка сцен (`savePlanRevision`), перепроверка
 // (`plan.recheck`, без LLM).
-import { AnalyzeBodySchema, CreatedJobDtoSchema, type PlanDto, PlanDtoSchema, type PlanProposal, PlanRevisionBodySchema, type RecheckEntry } from "@ms/contracts";
+import { AnalyzeBodySchema, CreatedJobDtoSchema, type PlanDto, PlanDtoSchema, type PlanProposal, PlanRevisionBodySchema, type RecheckEntry, semanticWithoutAgent } from "@ms/contracts";
 import { currentPlan, savePlanRevision } from "../../analysis/plan-ops.js";
 import { ArtifactStore } from "../../artifacts/store.js";
 import type { Db } from "../../db/open.js";
@@ -100,7 +100,7 @@ export function planRoutes(app: ZApp, { core }: ApiContext): void {
       if (!ftg || ftg.media_id !== edl.media_id) throw new ApiError(409, "footage_missing", "сначала проанализируйте видеоряд");
       // ревью Task 33 I1: разметка без агента пуста — агенту планировать не по чему; план без агента
       // не стирает сцены готового плана
-      if (req.body.useAgent !== false && semanticDoc(core.root, sem).agent === "skipped") {
+      if (req.body.useAgent !== false && semanticWithoutAgent(semanticDoc(core.root, sem))) {
         throw new ApiError(409, "semantic_missing", "смысловая разметка построена без агента — запустите смысловой анализ с агентом");
       }
       const plan = plans.byProject(core.db, projectId);

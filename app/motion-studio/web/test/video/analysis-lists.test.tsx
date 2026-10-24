@@ -46,3 +46,17 @@ it("ShotList: подписи шота по-русски, миниатюра кл
   fireEvent.click(s2.querySelector("button")!);
   expect(onSeek).toHaveBeenCalledWith(10_000_000);
 });
+
+it("ревью Task 33 M3: цитаты якорей и чисел — слова транскрипта по id (joinWords); слов нет — сырой текст", () => {
+  const sem = semantic({
+    anchors: [
+      { id: "a1", kind: "thesis", start_word_id: "w_000001", end_word_id: "w_000002", quote: "привет мир", claim_type: "fact", importance: 2, emphasis_word_ids: [] },
+      { id: "a2", kind: "thesis", start_word_id: "w_000077", end_word_id: "w_000078", quote: "сырой текст", claim_type: "fact", importance: 1, emphasis_word_ids: [] },
+    ],
+    numbers: [{ value: 5, start_word_id: "w_000004", end_word_id: "w_000005", quote: "КАК ДЕЛА", claim_type: "fact" }],
+  });
+  render(<AnchorList semantic={sem} words={WORDS} onSeek={vi.fn()} />);
+  expect(screen.getByTestId("anchor-a1").querySelector(".anchor-quote")!.textContent).toBe("«Привет мир.»");
+  expect(screen.getByTestId("anchor-a2").querySelector(".anchor-quote")!.textContent).toBe("«сырой текст»");
+  expect(screen.getByTestId("numbers").textContent).toContain("«как дела»");
+});

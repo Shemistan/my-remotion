@@ -79,3 +79,12 @@ it("ревью Task 33 V3: токены с дефиса и пунктуация 
   expect(container.querySelector(".segment-text")!.textContent).toBe("MAC-адреса что-то, дальше");
   expect([...container.querySelectorAll(".glued .word")].map((x) => x.textContent)).toEqual(["-адреса", "-то", ","]);
 });
+
+it("ревью Task 33 M5: поле «Изменить» — слова через пробел без пробелов ASR по краям (сервер разбирает по пробелам: «MAC-адреса» слило бы слова)", () => {
+  fakeFetch();
+  const words = [w("w_000001", " два", 0, 1), w("w_000002", " MAC", 1, 2), w("w_000003", "-адреса", 2, 3)];
+  const tr = transcriptDto({ words, segments: [{ id: "seg_0001", word_ids: words.map((x) => x.id), start_us: 0, end_us: 3 }] });
+  renderQ(<TranscriptEditor {...props({ transcript: tr, wordMap: {} })} />);
+  fireEvent.click(screen.getByRole("button", { name: t("transcript.edit") }));
+  expect((screen.getByRole("textbox", { name: t("transcript.segmentText") }) as HTMLInputElement).value).toBe("два MAC -адреса");
+});

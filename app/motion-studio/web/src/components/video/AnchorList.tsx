@@ -1,9 +1,10 @@
 // Якоря смысловой разметки (Task 33): тезисы, числа, акценты — вид и `claim_type` бейджами
-// («факт / предположение / мнение»), важность, цитата; клик — переход к первому слову (source).
+// («факт / предположение / мнение»), важность, цитата (словами транскрипта по id); клик — переход к первому слову (source).
 // Числа и спорные места — отдельными списками.
 import type { SemanticTimeline, TranscriptWord } from "@ms/contracts";
 import { t } from "../../i18n/index.js";
 import { formatTimecode } from "../../video/use-timeline.js";
+import { quoteText } from "../../video/word-index.js";
 
 export interface AnchorListProps {
   semantic: SemanticTimeline;
@@ -36,7 +37,7 @@ export function AnchorList({ semantic, words, onSeek }: AnchorListProps) {
                 <span className={`badge claim claim-${a.claim_type}`}>{t(`semantic.claim.${a.claim_type}`)}</span>
                 <span className="muted small">{t("analysis.importance", { n: a.importance })}</span>
               </div>
-              <p className="anchor-quote">«{a.quote}»</p>
+              <p className="anchor-quote">«{quoteText(words, a.start_word_id, a.end_word_id, a.quote)}»</p>
               {a.uncertainty ? <p className="hint">{a.uncertainty}</p> : null}
             </li>
           ))}
@@ -52,7 +53,7 @@ export function AnchorList({ semantic, words, onSeek }: AnchorListProps) {
                   {jump(n.start_word_id)}
                   <strong>{n.value}{n.unit ? ` ${n.unit}` : ""}</strong>
                   <span className={`badge claim claim-${n.claim_type}`}>{t(`semantic.claim.${n.claim_type}`)}</span>
-                  <span className="muted small">«{n.quote}»</span>
+                  <span className="muted small">«{quoteText(words, n.start_word_id, n.end_word_id, n.quote)}»</span>
                 </div>
               </li>
             ))}

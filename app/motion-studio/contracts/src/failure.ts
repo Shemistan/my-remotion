@@ -44,10 +44,14 @@ export const FailureStageSchema = z.enum([
 ]);
 export type FailureStage = z.infer<typeof FailureStageSchema>;
 
-/** Коды `JobError.code`: Phase 1 (Task 11) и Phase 2–3 (Task 23; без этапа пайплайна). */
+/**
+ * Коды `JobError.code`: Phase 1 (Task 11) и Phase 2–3 (Task 23; без этапа пайплайна). `plan_exists`,
+ * `semantic_skipped` — отказы `plan.visual` (план без агента поверх сцен; разметка без агента).
+ */
 export const JobErrorCodeSchema = z.enum([
   "interrupted", "stale_process", "storage_unavailable", "fenced_out", "budget", "cancelled", "pipeline",
   "approval_required", "asr_unavailable", "asr_contract_changed", "asr_contract_violation", "asr_failed", "low_space", "media_invalid", "media_exists", "no_audio",
+  "plan_exists", "semantic_skipped",
 ]);
 export type JobErrorCode = z.infer<typeof JobErrorCodeSchema>;
 

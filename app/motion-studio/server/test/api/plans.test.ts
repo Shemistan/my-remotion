@@ -54,6 +54,12 @@ describe("plan/generate", () => {
     expect(jobsRepo.list(api.core.db, { projectId: "p1" }).filter((j) => j.type === "plan.visual")).toHaveLength(0);
   });
 
+  it("ревью M1: старая пустая разметка без поля agent — тоже 409 «построена без агента»", async () => {
+    approveRoughCut(api.core.db, "p1");
+    await seedSemantic(api, "sem_old_empty", 1, "legacy");
+    expect((await generate("g9")).json()).toMatchObject({ error: "semantic_missing", message: expect.stringMatching(/построена без агента/) });
+  });
+
   it("ревью I1: без агента поверх плана со сценами — 409 plan_exists, задачи нет", async () => {
     approveRoughCut(api.core.db, "p1");
     await seedSemantic(api);
@@ -106,7 +112,7 @@ describe("ревизии плана и Approval B", () => {
     expect((await api.inj("GET", "/api/plans/pln_1?revision=5", getHeaders)).statusCode).toBe(404);
     expect((await api.inj("GET", "/api/plans/pln_none", getHeaders)).statusCode).toBe(404);
     const v = (await api.inj("GET", "/api/projects/p1/video", getHeaders)).json();
-    expect(v.plan).toEqual({ id: "pln_1", current_revision: 1 });
+    expect(v.plan).toEqual({ id: "pln_1", current_revision: 1, scenes: 1 });
     expect(v.style).toMatchObject({ current_revision: 1 });
   });
 

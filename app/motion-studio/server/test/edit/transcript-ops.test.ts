@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { TranscriptRevisionDocSchema, type TranscriptOp, type TranscriptRevisionDoc } from "@ms/contracts";
+import { TranscriptRevisionDocSchema, type TranscriptOp, type TranscriptRevisionDoc, joinWords } from "@ms/contracts";
 import { artifactPaths } from "../../src/artifacts/paths.js";
 import { ArtifactStore } from "../../src/artifacts/store.js";
 import { openDb, type Db } from "../../src/db/open.js";
@@ -90,6 +90,17 @@ describe("applyTranscriptOps (края)", () => {
     expect(d3.words.map((x) => [x.id, x.text, x.start_us, x.end_us])).toEqual([["w_000001", "семь", 0, 600_000], ["w_000002", "сот", 600_000, 1_200_000]]);
     expect(d3.removed_word_ids).toEqual(["w_000003"]);
     expect(TranscriptRevisionDocSchema.safeParse(d3).success).toBe(true);
+  });
+
+  it("ревью Task 33 M5: «MAC» + «-адреса» — склейка через пробел холостая, склейка joinWords сливает слова", () => {
+    const mac = trDoc([w("w_000001", "два", 0, 300_000), w("w_000002", "MAC", 300_000, 600_000), w("w_000003", "-адреса", 600_000, 900_000)]);
+    const span = { op: "replace_span" as const, start_word_id: "w_000001", end_word_id: "w_000003" };
+    // поле «Изменить» заполняется склейкой через пробел: сохранение без правок — no_change
+    expect(() => applyTranscriptOps(mac, [{ ...span, text: mac.words.map((x) => x.text).join(" ") }])).toThrow(/no_change/);
+    // склейка joinWords («MAC-адреса») разбирается по пробелам в одно слово: id «-адреса» ушёл бы в удалённые
+    const glued = applyTranscriptOps(mac, [{ ...span, text: joinWords(mac.words.map((x) => x.text)) }]);
+    expect(ids(glued)).toEqual(["w_000001", "w_000002"]);
+    expect(glued.removed_word_ids).toEqual(["w_000003"]);
   });
 
   it("холостая правка (слова и тексты те же) — no_change", () => {

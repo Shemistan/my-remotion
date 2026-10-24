@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CompositionModeSchema, FootageAnalysisSchema, NormRectSchema, PlanOpSchema, ProjectStyleDocSchema, ScenePlanItemSchema,
-  SemanticTimelineSchema, VisualPlanRevisionDocSchema, ZoneSchema,
+  SemanticTimelineSchema, VisualPlanRevisionDocSchema, ZoneSchema, semanticWithoutAgent,
 } from "../src/index.js";
 import { SHA } from "./video-fixtures.js";
 
@@ -108,6 +108,20 @@ describe("plan", () => {
     expect(SemanticTimelineSchema.safeParse(base).success).toBe(true);
     expect(SemanticTimelineSchema.safeParse({ ...base, causal: [{ cause_anchor_id: "a9", effect_anchor_id: "a1" }] }).success).toBe(false);
     expect(SemanticTimelineSchema.safeParse({ ...base, anchors: [base.anchors[0], base.anchors[0]] }).success).toBe(false);
+  });
+
+  it("ревью Task 33 M1: semanticWithoutAgent — пометка skipped или пустая разметка (старые без поля agent)", () => {
+    const empty = {
+      schema_version: 1 as const, id: "sem_1", transcript_ref: { id: "tr_1", revision: 1 }, edl_ref: { id: "edl_1", revision: 1 },
+      chapters: [], anchors: [], entities: [], numbers: [], causal: [], disputed: [],
+    };
+    const ch = { id: "ch_1", title: "Начало", summary: "", start_word_id: "w_000001", end_word_id: "w_000010" };
+    const num = { value: 1, start_word_id: "w_000001", end_word_id: "w_000001", quote: "1", claim_type: "fact" as const };
+    expect(semanticWithoutAgent({ ...empty, agent: "skipped" })).toBe(true);
+    expect(semanticWithoutAgent(empty)).toBe(true);
+    expect(semanticWithoutAgent({ ...empty, chapters: [ch] })).toBe(false);
+    expect(semanticWithoutAgent({ ...empty, numbers: [num] })).toBe(false);
+    expect(semanticWithoutAgent({ ...empty, chapters: [ch], agent: "skipped" })).toBe(true);
   });
 
   it("ProjectStyleDoc", () => {

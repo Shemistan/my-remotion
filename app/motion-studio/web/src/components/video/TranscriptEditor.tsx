@@ -140,7 +140,9 @@ export function TranscriptEditor({ transcript, wordMap, currentUs, readOnly, onS
                   })}
                   {!readOnly && words.length > 0 ? " " : null}
                   {!readOnly && words.length > 0 ? (
-                    <button type="button" className="link-button small" onClick={() => setEditing({ seg: seg.id, text: words.map((w) => w.text).join(" ") })}>
+                    // поле правки — слова через пробел, не `joinWords`: сервер разбирает текст по
+                    // пробелам, и «MAC-адреса» слило бы «MAC» и «-адреса» в одно слово (ревью Task 33 M5)
+                    <button type="button" className="link-button small" onClick={() => setEditing({ seg: seg.id, text: words.map((w) => w.text.trim()).join(" ") })}>
                       {t("transcript.edit")}
                     </button>
                   ) : null}
