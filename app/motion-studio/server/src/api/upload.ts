@@ -52,13 +52,18 @@ function counter(max: number, onBytes: (n: number) => void): Transform {
  * читается: отправитель упирается в окно TCP и не шлёт дальше.
  */
 const CLOSE_GRACE_MS = 2_000;
+/** Предел жизни сокета с ранним отказом, даже если ответ так и не ушёл. */
+const SAFETY_CLOSE_MS = 10_000;
 
 /**
  * Тело принято не целиком, а ответ уже уходит: сокет больше не читается (отправитель упирается
  * в окно TCP), после ответа — FIN и через `CLOSE_GRACE_MS` разрыв. Node после ответа сам
  * «досасывает» непрочитанное тело (`req._dump()` → `socket.resume()`) и при `Connection: close`
  * рвёт сокет сразу после FIN (`destroySoon`) — у этого сокета оба действия подменены: он всё
- * равно закрывается и в пул keep-alive не вернётся.
+ * равно закрывается и в пул keep-alive не вернётся. Поведение проверено на Node 22
+ * (`resOnFinish`: `req._dump()` → `readStart` → `socket.resume()`, затем `destroySoon`).
+ * Страховка: сокет рвётся через `SAFETY_CLOSE_MS` независимо от `finish` ответа (клиент не
+ * читает ответ — сокет не висит вечно, `app.close` его не ждёт).
  */
 function stopReceiving(raw: IncomingMessage, onFinish: (cb: () => void) => void): void {
   const socket = raw.socket as (Socket & { destroySoon?: () => void }) | undefined;
@@ -71,6 +76,7 @@ function stopReceiving(raw: IncomingMessage, onFinish: (cb: () => void) => void)
     socket.end();
     setTimeout(() => socket.destroy(), CLOSE_GRACE_MS).unref();
   };
+  setTimeout(() => socket.destroy(), SAFETY_CLOSE_MS).unref();
   socket.pause();
   socket.resume = () => socket;
   socket.destroySoon = close;

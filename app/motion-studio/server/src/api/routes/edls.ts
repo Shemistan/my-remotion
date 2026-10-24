@@ -29,6 +29,7 @@ import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "..
 import { ApiError, notFound } from "../errors.js";
 import { sendFile } from "../range.js";
 import { EDIT_BODY_LIMIT, RevisionQuery, checkOps } from "./transcripts.js";
+import { publicJob } from "../job-dto.js";
 
 const RevParams = z.object({ id: IdParams.shape.id, n: z.string().regex(/^[1-9]\d{0,8}$/).transform(Number) }).strict();
 
@@ -84,7 +85,7 @@ export function edlRoutes(app: ZApp, { core }: ApiContext): void {
       if (!t || t.current_revision === null) throw new ApiError(409, "no_transcript", "сначала распознайте речь: черновой монтаж строится по транскрипту");
       return { status: 202 as const, job: enqueue(core.db, { type: "roughcut.propose", projectId, input, idempotencyKey: key }).job };
     });
-    return reply.status(out.status).send({ job: out.job });
+    return reply.status(out.status).send({ job: publicJob(out.job, core.root) });
   });
 
   app.get("/api/edls/:id", {
@@ -116,7 +117,7 @@ export function edlRoutes(app: ZApp, { core }: ApiContext): void {
       if (!edls.revision(core.db, e.id, req.params.n)) throw new EditError("edl_not_found", `нет ревизии r${req.params.n} EDL ${e.id}`);
       return { status: 202 as const, job: enqueue(core.db, { type: "roughcut.preview", projectId: e.project_id, input, idempotencyKey: key }).job };
     });
-    return reply.status(out.status).send({ job: out.job });
+    return reply.status(out.status).send({ job: publicJob(out.job, core.root) });
   });
 
   app.get("/api/edls/:id/revisions/:n/preview.mp4", { schema: { params: RevParams } }, async (req, reply) => {

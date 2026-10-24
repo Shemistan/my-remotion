@@ -1,9 +1,11 @@
 // Транскрипт по сегментам: слово — спан (клик → переход, Shift+клик — выделение диапазона для
 // «Вырезать»); правка текста сегмента → `replace_span` от текущей ревизии (новая ревизия на
 // сервере, таймкоды сохраняются). 409 — сообщение и перезагрузка. Старая ревизия — только чтение.
+// Клавиатура: в порядке Tab одно слово (roving tabindex), ←/→ и Home/End — по словам, Enter/Space —
+// переход.
 import type { TranscriptDto, TranscriptWord, WordMapping } from "@ms/contracts";
 import { useMutation } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ApiError, api } from "../../api/client.js";
 import { errorText, t } from "../../i18n/index.js";
 import { wordAt } from "../../video/word-index.js";
@@ -30,6 +32,25 @@ export function TranscriptEditor({ transcript, wordMap, currentUs, readOnly, onS
   const [editing, setEditing] = useState<{ seg: string; text: string } | null>(null);
   const [sel, setSel] = useState<{ a: number; b: number } | null>(null);
   const [conflict, setConflict] = useState(false);
+  // roving tabindex: одна остановка Tab на транскрипт — слово, на котором был фокус, иначе текущее
+  const root = useRef<HTMLDivElement>(null);
+  const [focused, setFocused] = useState<number | null>(null);
+  const stop = Math.min(Math.max(0, focused ?? current), Math.max(0, doc.words.length - 1));
+  const nav = (w: TranscriptWord, key: string): boolean => {
+    const i = byId.get(w.id)!.i;
+    const last = doc.words.length - 1;
+    const to = key === "ArrowRight" ? Math.min(i + 1, last)
+      : key === "ArrowLeft" ? Math.max(i - 1, 0)
+      : key === "Home" ? 0
+      : key === "End" ? last
+      : undefined;
+    if (to === undefined) return false;
+    setFocused(to);
+    const id = doc.words[to]!.id;
+    [...(root.current?.querySelectorAll<HTMLElement>("[data-word-id]") ?? [])].find((el) => el.dataset.wordId === id)?.focus();
+    return true;
+  };
+  const onWordFocus = (w: TranscriptWord) => setFocused(byId.get(w.id)!.i);
 
   const save = useMutation({
     mutationFn: (v: { start: string; end: string; text: string }) =>
@@ -57,7 +78,7 @@ export function TranscriptEditor({ transcript, wordMap, currentUs, readOnly, onS
   const selCount = sel ? sel.b - sel.a + 1 : 0;
 
   return (
-    <div className="transcript-editor">
+    <div className="transcript-editor" ref={root}>
       <p className="hint">{t("transcript.selectHint")} {t("transcript.noConfidence")}</p>
       {conflict ? <p className="error" role="alert">{t("transcript.conflict")}</p> : null}
       {save.isError && !conflict ? <p className="error">{errorText(save.error)}</p> : null}
@@ -99,7 +120,7 @@ export function TranscriptEditor({ transcript, wordMap, currentUs, readOnly, onS
                     const i = byId.get(w.id)!.i;
                     return (
                       <span key={w.id}>
-                        <WordSpan word={w} mapping={wordMap?.[w.id]} current={i === current} selected={sel !== null && i >= sel.a && i <= sel.b} onClick={click} />{" "}
+                        <WordSpan word={w} mapping={wordMap?.[w.id]} current={i === current} selected={sel !== null && i >= sel.a && i <= sel.b} tabStop={i === stop} onClick={click} onNav={nav} onFocus={onWordFocus} />{" "}
                       </span>
                     );
                   })}

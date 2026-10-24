@@ -26,6 +26,7 @@ import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "..
 import { ApiError, notFound } from "../errors.js";
 import { memoOnSuccess } from "../memo.js";
 import { sendFile } from "../range.js";
+import { publicJob } from "../job-dto.js";
 
 const FRAME_RE = /^(0|[1-9]\d{0,6})\.png$/;
 const KIT_IMPORT_RE = /import\s+(type\s+)?\{([^}]*)\}\s*from\s*["']@ms\/motion-kit["']/g;
@@ -166,6 +167,6 @@ export function versionRoutes(app: ZApp, { core }: ApiContext): void {
       const scene = scenes.get(db, v.scene_id)!;
       return { status: 202 as const, job: enqueue(db, { type: "scene.export", projectId: scene.project_id, versionId: v.id, input, idempotencyKey: key }).job };
     });
-    return reply.status(out.status).send({ job: out.job });
+    return reply.status(out.status).send({ job: publicJob(out.job, core.root) });
   });
 }

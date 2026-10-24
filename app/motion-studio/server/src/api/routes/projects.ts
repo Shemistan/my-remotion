@@ -20,6 +20,7 @@ import { versionHistoryDigest } from "../../scenes/history.js";
 import { sceneRel } from "../../scenes/store.js";
 import { type ApiContext, IdParams, QueryBool, type ZApp, idempotencyKey, inputField, replay } from "../context.js";
 import { ApiError, notFound } from "../errors.js";
+import { publicJob } from "../job-dto.js";
 
 const RECENT_EXPORTS = 20;
 
@@ -81,6 +82,6 @@ export function projectRoutes(app: ZApp, { core }: ApiContext): void {
       throw e;
     }
     if (!out.scene) throw new ApiError(500, "internal", `сцена задачи ${out.job.id} пропала (${inputField(out.job, "sceneId") ?? "—"})`);
-    return reply.status(out.status).send({ scene: out.scene, job: out.job });
+    return reply.status(out.status).send({ scene: out.scene, job: publicJob(out.job, core.root) });
   });
 }

@@ -7,6 +7,7 @@ import { EditError, ProposedLeftError, RevisionConflictError } from "../edit/err
 import { IdempotencyKeyReusedError } from "../jobs/queue.js";
 import { StaleProcessAliveError } from "../jobs/retry.js";
 import { isStorageError } from "../jobs/runner.js";
+import { maskDeep } from "./job-dto.js";
 
 export class ApiError extends Error {
   constructor(
@@ -64,6 +65,8 @@ const INTERNAL_MESSAGE = "внутренняя ошибка сервера (по
 export interface NotFoundOptions {
   /** Собранный UI: неизвестный не-API GET/HEAD — `index.html` (клиентский роутер SPA). */
   spaIndex?: boolean;
+  /** Корень хранилища: в телах ошибок (команды процессов 409 и пр.) пути маскируются. */
+  root?: string;
 }
 
 const isApiPath = (url: string): boolean => {
@@ -76,7 +79,7 @@ export function installErrorHandler(app: FastifyInstance, o: NotFoundOptions = {
   app.setErrorHandler((err, req, reply) => {
     const { status, body } = toApiResponse(err);
     if (status >= 500) req.log.error({ err }, "api error");
-    return reply.status(status).send(body);
+    return reply.status(status).send(o.root ? maskDeep(body, o.root) : body);
   });
   app.setNotFoundHandler((req, reply) => {
     if (o.spaIndex && (req.method === "GET" || req.method === "HEAD") && !isApiPath(req.url)) return reply.sendFile("index.html");

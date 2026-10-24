@@ -3,7 +3,7 @@
 // место проверяется до приёма (507); обрыв соединения — каталог удалён, задача не создана.
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { request } from "node:http";
-import type { AddressInfo } from "node:net";
+import { type AddressInfo, connect } from "node:net";
 import { Readable } from "node:stream";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import * as jobs from "../../src/db/repos/jobs.js";
@@ -187,3 +187,26 @@ it("ранний отказ (507, 409): ответ до конца тела, Con
   expect(uploads()).toEqual([]);
   expect(jobs.list(api.core.db)).toEqual([]);
 }, 60_000);
+
+it("ранний отказ, клиент не читает ответ: серверный сокет всё равно закрыт (страховка ≤ 10 с)", async () => {
+  const p = await newVideo();
+  if (!api.app.server.listening) await api.app.listen({ port: 0, host: "127.0.0.1" });
+  const port = (api.app.server.address() as AddressInfo).port;
+  const sock = connect({ host: "127.0.0.1", port });
+  sock.on("error", () => undefined);
+  await new Promise<void>((r) => sock.once("connect", () => r()));
+  sock.pause(); // ответ не читается
+  const head = [
+    `PUT /api/projects/${p}/media/upload?name=a.mp4 HTTP/1.1`, "host: 127.0.0.1:8790", `origin: ${okHeaders.origin}`,
+    "idempotency-key: u-noread", "content-type: application/octet-stream", `content-length: ${10 ** 15}`, "", "",
+  ].join("\r\n");
+  sock.write(head);
+  sock.write(Buffer.alloc(1024 * 1024, 1));
+  const connections = () => new Promise<number>((r) => api.app.server.getConnections((_e, n) => r(n)));
+  const t0 = Date.now();
+  while ((await connections()) > 0 && Date.now() - t0 < 15_000) await new Promise((r) => setTimeout(r, 100));
+  expect(await connections()).toBe(0);
+  expect(Date.now() - t0).toBeLessThan(12_000);
+  sock.destroy();
+  expect(jobs.list(api.core.db)).toEqual([]);
+}, 30_000);

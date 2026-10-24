@@ -9,6 +9,7 @@ import { tx } from "../../db/tx.js";
 import { enqueue } from "../../jobs/queue.js";
 import { type ApiContext, IdParams, type ZApp, idempotencyKey, inputField, replay } from "../context.js";
 import { ApiError, notFound } from "../errors.js";
+import { publicJob } from "../job-dto.js";
 
 export function chatRoutes(app: ZApp, { core }: ApiContext): void {
   app.get("/api/scenes/:id/messages", { schema: { params: IdParams, response: { 200: z.array(ChatMessageDtoSchema) } } }, async (req) => {
@@ -44,6 +45,6 @@ export function chatRoutes(app: ZApp, { core }: ApiContext): void {
       const { job } = enqueue(db, { type: "playground.edit", projectId: scene.project_id, sceneId: scene.id, input: input(m.id), idempotencyKey: key });
       return { status: 202 as const, message: m, job };
     });
-    return reply.status(out.status).send({ message: out.message, job: out.job });
+    return reply.status(out.status).send({ message: out.message, job: publicJob(out.job, core.root) });
   });
 }

@@ -137,7 +137,7 @@ export function mediaRoutes(app: ZApp, ctx: ApiContext): void {
       if (!asset) throw notFound(`исходник ${req.params.id}`);
       return { status: 202 as const, job: enqueue(core.db, { type: "asr.transcribe", projectId: asset.project_id, input: input(asset.project_id), idempotencyKey: key }).job };
     });
-    return reply.status(out.status).send({ job: out.job });
+    return reply.status(out.status).send({ job: publicJob(out.job, core.root) });
   });
 
   app.get("/api/asr/capability", { schema: { response: { 200: AsrCapabilityDtoSchema } } }, async (req) => {

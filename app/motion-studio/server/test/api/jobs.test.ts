@@ -1,5 +1,6 @@
 // Задачи: список, карточка с событиями и процессами, отмена (cancelJob), повтор (409 при живом
 // процессе прежней попытки), ответы на уточнения.
+import { homedir } from "node:os";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import * as jobs from "../../src/db/repos/jobs.js";
 import { tx } from "../../src/db/tx.js";
@@ -60,8 +61,13 @@ it("POST /jobs/:id/retry: blocked с живым процессом → 409 stale
   expect(r.statusCode).toBe(409);
   expect(r.json()).toMatchObject({ error: "stale_process_alive", pids: [orphan.pid] });
   expect(r.json().cmds).toHaveLength(1);
+  // команды процессов — без абсолютных путей (дом → «~»)
+  expect(orphan.record.cmd).toContain(homedir());
+  expect(JSON.stringify(r.json())).not.toContain(homedir());
+  expect(r.json().cmds[0]).toMatch(/^~\//);
   const g = (await api.inj("GET", `/api/jobs/${a.id}`, getHeaders)).json();
   expect(g.processes).toEqual([expect.objectContaining({ pid: orphan.pid, attempt: 1, alive: true })]);
+  expect(JSON.stringify(g)).not.toContain(homedir());
   process.kill(-orphan.pid, "SIGKILL");
   await new Promise((r) => setTimeout(r, 200));
   const ok = await api.inj("POST", `/api/jobs/${a.id}/retry`, okHeaders, {});
@@ -83,4 +89,19 @@ it("POST /jobs/:id/input: ответы или skip → pending; не awaiting_in
   const b = put("b");
   jobs.update(api.core.db, b.id, { status: "awaiting_input" });
   expect((await api.inj("POST", `/api/jobs/${b.id}/input`, okHeaders, { skip: true })).json().input.answers).toBe("skip");
+});
+
+it("GET /jobs/:id: пути в data событий и output_refs замаскированы рекурсивно", async () => {
+  scene();
+  const a = put("a");
+  const root = api.core.root;
+  jobs.update(api.core.db, a.id, { output_refs: { file: `${root}/workspace/x.mp4`, list: [`${homedir()}/Movies/a.mov`] } });
+  tx(api.core.db, () => api.core.events.emit(api.core.db, { job_id: a.id, level: "info", kind: "log", message: `файл ${root}/a`, data: { path: `${root}/b`, nested: [{ p: `${homedir()}/c` }], n: 1 } }));
+  const one = (await api.inj("GET", `/api/jobs/${a.id}`, getHeaders)).json();
+  const text = JSON.stringify(one);
+  expect(text).not.toContain(root);
+  expect(text).not.toContain(homedir());
+  expect(one.job.output_refs).toEqual({ file: "хранилище/workspace/x.mp4", list: ["~/Movies/a.mov"] });
+  expect(one.events[0]).toMatchObject({ message: "файл хранилище/a", data: { path: "хранилище/b", nested: [{ p: "~/c" }], n: 1 } });
+  expect(JSON.stringify((await api.inj("GET", "/api/jobs", getHeaders)).json())).not.toContain(root);
 });

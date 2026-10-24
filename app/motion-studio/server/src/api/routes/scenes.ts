@@ -51,7 +51,7 @@ export function sceneRoutes(app: ZApp, { core }: ApiContext): void {
       if (v.status !== "ready") throw new ApiError(409, "version_not_ready", `восстановить можно только ready-версию (v${v.number} — ${v.status})`);
       return { status: 202 as const, job: enqueue(db, { type: "scene.restore", projectId: scene.project_id, sceneId: scene.id, versionId: v.id, input, idempotencyKey: key }).job };
     });
-    return reply.status(out.status).send({ job: out.job });
+    return reply.status(out.status).send({ job: publicJob(out.job, core.root) });
   });
 
   app.post("/api/scenes/:id/render", {
@@ -88,6 +88,6 @@ export function sceneRoutes(app: ZApp, { core }: ApiContext): void {
       const input = { sceneId: scene.id, plan: planFromPatch(patch, base.id), settings_patch: patch };
       return { status: 202 as const, job: enqueue(db, { type: "playground.edit", projectId: scene.project_id, sceneId: scene.id, input, idempotencyKey: key }).job };
     });
-    return reply.status(out.status).send({ job: out.job });
+    return reply.status(out.status).send({ job: publicJob(out.job, core.root) });
   });
 }

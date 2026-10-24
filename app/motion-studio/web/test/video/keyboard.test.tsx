@@ -12,17 +12,34 @@ import { edlDto, transcriptDto } from "./fixtures.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
-it("слово: role=button, tabIndex 0; Enter и Space → seek в начало слова", () => {
+it("транскрипт: одна остановка Tab (roving tabindex), ←/→ и Home/End по словам, Enter/Space → seek", () => {
   fakeFetch();
   const onSeek = vi.fn();
-  renderQ(<TranscriptEditor transcript={transcriptDto()} wordMap={edlDto().word_map} currentUs={0} onSeek={onSeek} onCut={vi.fn()} />);
-  const word = screen.getByRole("button", { name: "как" });
-  expect(word.tabIndex).toBe(0);
-  fireEvent.keyDown(word, { key: "Enter" });
-  expect(onSeek).toHaveBeenLastCalledWith(3_000_000);
-  fireEvent.keyDown(screen.getByRole("button", { name: "мир." }), { key: " " });
+  const { container } = renderQ(<TranscriptEditor transcript={transcriptDto()} wordMap={edlDto().word_map} currentUs={3_100_000} onSeek={onSeek} onCut={vi.fn()} />);
+  const words = [...container.querySelectorAll<HTMLElement>("[data-word-id]")];
+  expect(words.every((w) => w.getAttribute("role") === "button")).toBe(true);
+  // остановка Tab — на текущем слове («как»), остальные вне порядка Tab
+  expect(words.filter((w) => w.tabIndex === 0).map((w) => w.textContent)).toEqual(["как"]);
+  const kak = screen.getByRole("button", { name: "как" });
+  kak.focus();
+  fireEvent.keyDown(kak, { key: "ArrowRight" });
+  expect(document.activeElement?.textContent).toBe("дела");
+  expect(words.filter((w) => w.tabIndex === 0).map((w) => w.textContent)).toEqual(["дела"]);
+  fireEvent.keyDown(document.activeElement!, { key: "ArrowRight" });
+  expect(document.activeElement?.textContent).toBe("дела");
+  fireEvent.keyDown(document.activeElement!, { key: "Home" });
+  expect(document.activeElement?.textContent).toBe("Привет");
+  fireEvent.keyDown(document.activeElement!, { key: "ArrowLeft" });
+  expect(document.activeElement?.textContent).toBe("Привет");
+  fireEvent.keyDown(document.activeElement!, { key: "ArrowRight" });
+  expect(document.activeElement?.textContent).toBe("мир.");
+  expect(onSeek).not.toHaveBeenCalled();
+  fireEvent.keyDown(document.activeElement!, { key: " " });
   expect(onSeek).toHaveBeenLastCalledWith(500_000);
-  fireEvent.keyDown(word, { key: "a" });
+  fireEvent.keyDown(document.activeElement!, { key: "End" });
+  fireEvent.keyDown(document.activeElement!, { key: "Enter" });
+  expect(onSeek).toHaveBeenLastCalledWith(3_400_000);
+  fireEvent.keyDown(document.activeElement!, { key: "a" });
   expect(onSeek).toHaveBeenCalledTimes(2);
 });
 

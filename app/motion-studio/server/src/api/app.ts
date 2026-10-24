@@ -52,7 +52,7 @@ export async function buildApp(core: Core, opts: BuildAppOptions = { port: PORT 
   // UI: Vite в `--dev`, иначе собранный `web/dist` (если есть index.html) с SPA-fallback
   const dist = opts.webDist ?? join(WEB_ROOT, "dist");
   const serveDist = !opts.dev && existsSync(join(dist, "index.html"));
-  installErrorHandler(app, { spaIndex: serveDist });
+  installErrorHandler(app, { spaIndex: serveDist, root: core.root });
   installSecurity(app, core, opts.port);
 
   const ctx: ApiContext = { core, port: opts.port };

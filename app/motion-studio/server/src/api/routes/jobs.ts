@@ -10,7 +10,7 @@ import { cancelJob, provideInput } from "../../jobs/queue.js";
 import { retryJob } from "../../jobs/retry.js";
 import { type ApiContext, IdParams, type ZApp } from "../context.js";
 import { notFound } from "../errors.js";
-import { publicEvent, publicJob } from "../job-dto.js";
+import { maskPaths, publicEvent, publicJob } from "../job-dto.js";
 
 const EVENTS_LIMIT = 2_000;
 
@@ -34,7 +34,7 @@ export function jobRoutes(app: ZApp, { core }: ApiContext): void {
     // только чтение реестра: мёртвые записи здесь не закрываются (это делают повтор и уборка)
     const processes = await Promise.all(
       (await core.processes.live({ runId: job.id })).map(async (p) => ({
-        pid: p.pid, pgid: p.pgid, attempt: p.attempt, cmd: p.cmd, started_at: p.startedAt, alive: await isTrackedAlive(p),
+        pid: p.pid, pgid: p.pgid, attempt: p.attempt, cmd: maskPaths(p.cmd, core.root), started_at: p.startedAt, alive: await isTrackedAlive(p),
       })),
     );
     const events = jobEvents.listSince(core.db, 0, { jobId: job.id, limit: EVENTS_LIMIT }).map((e) => publicEvent(e, core.root));

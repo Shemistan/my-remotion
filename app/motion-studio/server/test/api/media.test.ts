@@ -139,6 +139,13 @@ it("задачи наружу без абсолютных путей: media.impo
   }
   const j = (await api.inj("GET", `/api/jobs/${id}`, getHeaders)).json().job;
   expect(j.error.message).toBe("не открылся хранилище/workspace/drafts/x.mp4 и ~/Movies/a.mov");
+  // повтор запуска ASR (ответ `{ job }`) тоже без путей
+  await seedVideoApi(api);
+  const tr = await api.inj("POST", "/api/media/med_1/transcribe", ok("asr-leak"), { language: "ru" });
+  jobs.update(api.core.db, tr.json().job.id, { error: { code: "asr_failed", message: `нет ${api.core.root}/models` } });
+  const again = await api.inj("POST", "/api/media/med_1/transcribe", ok("asr-leak"), { language: "ru" });
+  expect(again.statusCode).toBe(200);
+  expect(again.json().job.error.message).toBe("нет хранилище/models");
   // в БД вход не изменён: повтор того же запроса — та же задача
   expect((jobs.get(api.core.db, id)!.input as { path: string }).path).toBe(clip);
 });
