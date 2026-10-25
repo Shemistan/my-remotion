@@ -97,7 +97,7 @@ export function renderResult(over: Partial<RenderResult> = {}): RenderResult {
 export async function withFrames(
   tmp: string,
   canvases: Canvas[],
-  o: { beats?: number; at?: number[]; logs?: string[]; previewBytes?: number; style?: ReturnType<typeof style>; spec?: MotionSpec } = {},
+  o: { beats?: number; at?: number[]; logs?: string[]; allowedOrigins?: string[]; previewBytes?: number; style?: ReturnType<typeof style>; spec?: MotionSpec } = {},
 ) {
   const n = o.beats ?? canvases.length;
   const sp = o.spec ?? spec({ beats: Array.from({ length: n }, (_, i) => beat(`b${i}`, i * 30, i * 30 + 30, ["a"])) });
@@ -113,7 +113,7 @@ export async function withFrames(
     spec: sp,
     settings: settings(),
     style: o.style ?? style(),
-    render: renderResult({ browserLogs: o.logs ?? [] }),
+    render: renderResult({ browserLogs: o.logs ?? [], ...(o.allowedOrigins ? { allowedOrigins: o.allowedOrigins } : {}) }),
     previewBytes: o.previewBytes ?? 1000,
   };
 }

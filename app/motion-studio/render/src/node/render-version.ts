@@ -78,6 +78,12 @@ export interface RenderResult {
   exportPath?: string;
   probe?: ProbeResult;
   browserLogs: string[];
+  /**
+   * Task 36: origin, к которым рендер ходит законно (медиасервер и сервер бандла рендера
+   * таймлайна, `renderTimelineRange`); QA `network` их строки не считает сетью сцены. Рендер
+   * версии поле не ставит.
+   */
+  allowedOrigins?: string[];
   error?: { stage: RenderStage; message: string };
 }
 
@@ -86,13 +92,15 @@ export interface RenderDeps {
   spawn?: typeof spawnTracked;
   browserPath?: () => Promise<string>;
   ffprobeBin?: () => Promise<string>;
+  /** ffmpeg вырезок master (рендер таймлайна, ревью Task 36 I3). */
+  ffmpegBin?: () => Promise<string>;
   /** Пауза SIGTERM → SIGKILL группе worker при таймауте/отмене, мс (5000). */
   killGraceMs?: number;
 }
 
 export const WORKER_PATH = fileURLToPath(new URL("./worker.ts", import.meta.url));
 // worker.ts исполняется встроенным стиранием типов Node 22.18+ (без tsx и сборки)
-const NODE_ARGS = ["--disable-warning=ExperimentalWarning"];
+export const NODE_ARGS = ["--disable-warning=ExperimentalWarning"];
 const STAGE_PREFIX = "@@ms:stage ";
 const LOG_PREFIX = "@@ms:log ";
 const WORKER_STAGES: readonly string[] = ["bundle", "still", "media"] satisfies WorkerStage[];
@@ -101,13 +109,13 @@ const MAX_LOGS = 2000;
 const STDERR_TAIL = 4000;
 const STRAY_WAIT_MS = 5000;
 
-interface WorkerOutput {
+export interface WorkerOutput {
   stage?: WorkerStage;
   logs: string[];
   result?: WorkerResult;
 }
 
-function parseWorkerOutput(stdout: string): WorkerOutput {
+export function parseWorkerOutput(stdout: string): WorkerOutput {
   const out: WorkerOutput = { logs: [] };
   const lines = stdout.split("\n").filter((l) => l.trim() !== "");
   for (const line of lines) {
@@ -142,7 +150,7 @@ export function innerTimeoutMs(outer: number): number {
   return Math.max(Math.floor(outer / 2), outer - Math.max(2000, Math.round(outer * 0.1)));
 }
 
-function pidAlive(pid: number): boolean {
+export function pidAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
@@ -170,7 +178,7 @@ async function removeLeftovers(outDir: string, bundlesDir: string): Promise<void
   }
 }
 
-function childEnv(tmpdir: string): NodeJS.ProcessEnv {
+export function childEnv(tmpdir: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { TMPDIR: tmpdir, LANG: process.env.LANG ?? "en_US.UTF-8" };
   if (process.env.PATH !== undefined) env.PATH = process.env.PATH;
   if (process.env.HOME !== undefined) env.HOME = process.env.HOME;

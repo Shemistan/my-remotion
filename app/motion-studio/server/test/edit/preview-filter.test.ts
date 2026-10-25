@@ -1,7 +1,7 @@
 // Task 28: граф ffmpeg превью и разбиение на куски.
 import { describe, expect, it } from "vitest";
 import { buildTimeline, frameToUs } from "@ms/contracts";
-import { buildPreviewFilter, clipFrames, previewChunks } from "../../src/edit/preview-filter.js";
+import { buildAudioFilter, buildPreviewFilter, clipFrames, previewChunks } from "../../src/edit/preview-filter.js";
 import { F30 } from "./helpers.js";
 
 const NTSC = { num: 30000, den: 1001 };
@@ -94,5 +94,43 @@ describe("число кадров прокси (ревью Task 28, M7)", () => 
     const c2 = previewChunks(tl2.clips, NTSC, 48000, 40, 899);
     expect(c2[0]!.frames).toBe(100 + 99);
     expect(buildPreviewFilter(c2[0]!.clips, NTSC, 48000, 8000, { frameCount: 899 })).toContain("trim=start_frame=800:end_frame=899,");
+  });
+});
+
+describe("buildAudioFilter (Task 36, F2): звук монтажа тем же фильтром, что превью", () => {
+  const tl = buildTimeline(10_000_000, [{ start_us: 2_000_000, end_us: 3_500_000 }], F30);
+
+  it("atrim по сэмплам audioSampleRange, фейды на склейках, concat только звука", () => {
+    const f = buildAudioFilter(tl.clips, 48_000, 8_000);
+    expect(f).toContain("atrim=start_sample=168000:end_sample=480000");
+    expect(f).toBe(
+      "[0:a]atrim=start_sample=0:end_sample=96000,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.008,afade=t=out:st=1.992:d=0.008[a0];\n" +
+        "[0:a]atrim=start_sample=168000:end_sample=480000,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.008,afade=t=out:st=6.492:d=0.008[a1];\n" +
+        "[a0][a1]concat=n=2:v=0:a=1[a]",
+    );
+  });
+
+  it("клип короче кадра остаётся (звук идёт по времени монтажа), клип без сэмплов — нет; пусто — ошибка", () => {
+    const clips = [
+      { idx: 0, source_start_us: 0, source_end_us: 1_000_000, edited_start_us: 0 },
+      { idx: 1, source_start_us: 2_000_000, source_end_us: 2_010_000, edited_start_us: 1_000_000 },
+      { idx: 2, source_start_us: 3_000_000, source_end_us: 3_000_005, edited_start_us: 1_010_000 },
+    ];
+    const f = buildAudioFilter(clips, 48_000, 8_000);
+    expect(f).toContain("[0:a]atrim=start_sample=96000:end_sample=96480,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.005,afade=t=out:st=0.005:d=0.005[a1]");
+    expect(f.endsWith("[a0][a1]concat=n=2:v=0:a=1[a]")).toBe(true);
+    expect(() => buildAudioFilter([], 48_000, 8_000)).toThrow(/нет ни одного клипа/);
+  });
+
+  it("buildPreviewFilter после выноса даёт ту же строку (золотой образец до Task 36)", () => {
+    const clips = [
+      { idx: 0, source_start_us: 1_000_000, source_end_us: 2_000_000, edited_start_us: 0 },
+      { idx: 1, source_start_us: 3_500_000, source_end_us: 5_010_000, edited_start_us: 1_000_000 },
+      { idx: 2, source_start_us: 9_000_000, source_end_us: 9_010_000, edited_start_us: 2_510_000 },
+      { idx: 3, source_start_us: 11_000_000, source_end_us: 12_500_000, edited_start_us: 2_520_000 },
+    ];
+    expect(buildPreviewFilter(clips, F30, 48000, 8_000, { frameOffset: 29, sampleOffset: 47_994, audioEndUs: 12_000_000, frameCount: 370 })).toBe(
+      "[0:v]trim=start_frame=1:end_frame=31,setpts=PTS-STARTPTS[v0];\n[0:a]atrim=start_sample=6:end_sample=48006,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.008,afade=t=out:st=0.992:d=0.008[a0];\n[0:v]trim=start_frame=76:end_frame=122,setpts=PTS-STARTPTS[v1];\n[0:a]atrim=start_sample=120006:end_sample=192486,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.008,afade=t=out:st=1.502:d=0.008[a1];\n[0:v]trim=start_frame=241:end_frame=242,setpts=PTS-STARTPTS[v2];\n[0:a]atrim=start_sample=384006:end_sample=384486,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.005,afade=t=out:st=0.005:d=0.005[a2];\n[0:v]trim=start_frame=301:end_frame=341,setpts=PTS-STARTPTS[v3];\n[0:a]atrim=start_sample=480006:end_sample=552006,asetpts=PTS-STARTPTS,apad=whole_len=72000,afade=t=in:st=0:d=0.008,afade=t=out:st=1.492:d=0.008[a3];\n[v0][a0][v1][a1][v2][a2][v3][a3]concat=n=4:v=1:a=1[v][a]",
+    );
   });
 });

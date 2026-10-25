@@ -7,6 +7,14 @@ export { EXPORT_TIMEOUT_MS, type ExportResult, type ExportStage, type ExportVers
 export { TEMPO_HOT_TILE, TEMPO_HOT_TILES_MIN, TEMPO_TILE_THRESHOLD, type TempoCheck, type TempoSample, tempoCheck } from "./tempo.js";
 export { FfmpegError, type FfmpegOptions } from "./ffmpeg.js";
 export { exportDurationFrames, exportFps, exportGate } from "./export-gate.js";
+export { isOverlayUnsupported, overlayInputProps } from "./overlay-props.js";
+// Task 36: единая композиция таймлайна (ADR 0010)
+export type { TimelineRenderProps, TimelineSceneSpec } from "../timeline/types.js";
+export { type SceneCheck, type SceneViolation, TIMELINE_COMPOSITION, type TimelineEntryInput, timelineKey, writeTimelineEntry } from "../timeline/entry.js";
+export { type MediaServer, serveMedia } from "../timeline/media-server.js";
+export {
+  type TimelineOutput, type TimelineRenderRequest, type TimelineRenderResult, type TimelineStage, checkTimelineRequest, renderTimelineRange, timelineSceneProps,
+} from "../timeline/render-range.js";
 export { type AlphaCoverage, alphaAtCorner, alphaCoverage, overlayFrames } from "./alpha.js";
 export { previewLuma } from "./motion.js";
 export { SWEEP_ERROR_TAG, SWEEP_RETRY_TAG } from "./sweep.js";

@@ -133,6 +133,28 @@ describe("programmaticChecks", () => {
     expect(find(r, "console_error")[0]!.description).not.toContain("net::");
   });
 
+  it("network (Task 36): URL из allowedOrigins рендера — не сеть сцены; чужой origin и net:: — по-прежнему blocking", async () => {
+    const media = "http://127.0.0.1:51234";
+    const ok = await programmaticChecks(await withFrames(tmp, [card()], {
+      logs: [`[log] loaded ${media}/0123456789abcdef0123456789abcdef/video`, "[log] http://localhost:41000/bundle.js ready"],
+      allowedOrigins: [media, "http://localhost:41000"],
+    }));
+    expect(issues(ok)).not.toContain("network");
+    // origin-префикс без границы (порт длиннее) — чужой origin
+    const lookalike = await programmaticChecks(await withFrames(tmp, [card()], { logs: [`[log] ${media}5/x`], allowedOrigins: [media] }));
+    expect(issues(lookalike)).toContain("network");
+    const mixed = await programmaticChecks(await withFrames(tmp, [card()], {
+      logs: [`[log] ${media}/t/video and https://cdn.x/y.png`], allowedOrigins: [media],
+    }));
+    expect(find(mixed, "network")[0]!.severity).toBe("blocking");
+    const glued = await programmaticChecks(await withFrames(tmp, [card()], { logs: [`[log] ${media}/t/video,https://cdn.x/y.png`], allowedOrigins: [media] }));
+    expect(issues(glued)).toContain("network");
+    const failed = await programmaticChecks(await withFrames(tmp, [card()], { logs: [`[error] net::ERR_FAILED ${media}/t/video`], allowedOrigins: [media] }));
+    expect(issues(failed)).toContain("network");
+    // без allowedOrigins (рендер версии) — как раньше: любой URL — сеть
+    expect(issues(await programmaticChecks(await withFrames(tmp, [card()], { logs: [`[log] ${media}/t/video`] })))).toContain("network");
+  });
+
   it("preview_size: 0 байт — blocking, > 50 МБ — warning", async () => {
     expect(find(await programmaticChecks(await withFrames(tmp, [card()], { previewBytes: 0 })), "preview_size")[0]!.severity).toBe("blocking");
     expect(find(await programmaticChecks(await withFrames(tmp, [card()], { previewBytes: 51 * 1024 ** 2 })), "preview_size")[0]!.severity).toBe("warning");

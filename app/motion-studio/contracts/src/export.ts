@@ -17,6 +17,9 @@ export const ProbeResultSchema = z.object({
   codec: z.string().min(1),
   audioCodec: z.string().min(1).optional(),
   pixFmt: z.string().min(1).optional(),
+  // Task 36: частота и каналы первой звуковой дорожки (финал — AAC 48 кГц, F10)
+  audioSampleRate: z.number().int().positive().optional(),
+  audioChannels: z.number().int().positive().optional(),
 }).strict();
 export type ProbeResult = z.infer<typeof ProbeResultSchema>;
 

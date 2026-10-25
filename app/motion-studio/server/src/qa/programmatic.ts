@@ -222,7 +222,7 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
   out.push(...layoutIssues(parseLayout(input.render.browserLogs)));
   out.push(...textClipIssues(parseLayout(input.render.browserLogs), input.settings));
   out.push(...contrastIssues(input.style));
-  out.push(...logIssues(input.render.browserLogs));
+  out.push(...logIssues(input.render.browserLogs, input.render.allowedOrigins));
   if (input.previewBytes === 0) {
     out.push({ code: "preview_size", severity: "blocking", description: "превью — 0 байт", fix_hint: "рендер превью не записал кадры: смотри ошибку рендера" });
   } else if (input.previewBytes > PREVIEW_WARN_BYTES) {
@@ -603,6 +603,20 @@ function contrastIssues(style: ResolvedStyle): Issue[] {
   return out;
 }
 
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Строка лога без URL разрешённых origin (Task 36: медиасервер и сервер бандла рендера таймлайна,
+ * `RenderResult.allowedOrigins`). Origin — до границы (`/`, `?`, `#`, пробел, конец), поэтому
+ * `http://127.0.0.1:51234` не пропускает `http://127.0.0.1:512345`. `net::` и прочие URL остаются.
+ */
+function withoutAllowed(line: string, allowed: readonly string[]): string {
+  let s = line;
+  // хвост URL со вторым `://` (склейка с чужим адресом без пробела) не пропускается — остаётся сетью
+  for (const o of allowed) s = s.replace(new RegExp(`${escapeRe(o)}(?=[/?#\\s"'),]|$)\\S*`, "g"), (m) => (m.slice(o.length).includes("://") ? m : "<allowed>"));
+  return s;
+}
+
 /** Ошибка использования kit (`kitError`): портит кадр — blocking, текст говорит, что править. */
 const KIT_ERROR = "[motion-kit:error]";
 
@@ -610,11 +624,11 @@ const KIT_ERROR = "[motion-kit:error]";
  * Сеть в логах браузера — blocking; ошибки использования kit — blocking `kit_misuse`; прочие
  * ошибки консоли — warning.
  */
-function logIssues(logs: string[]): Issue[] {
+function logIssues(logs: string[], allowedOrigins: readonly string[] = []): Issue[] {
   const out: Issue[] = [];
-  const network = logs.filter((l) => NETWORK.test(l));
+  const network = logs.filter((l) => NETWORK.test(withoutAllowed(l, allowedOrigins)));
   const kit = [...new Set(logs.filter((l) => l.includes(KIT_ERROR)).map((l) => l.slice(l.indexOf(KIT_ERROR) + KIT_ERROR.length).trim()))];
-  const errors = logs.filter((l) => l.startsWith("[error]") && !NETWORK.test(l) && !l.includes(KIT_ERROR));
+  const errors = logs.filter((l) => l.startsWith("[error]") && !NETWORK.test(withoutAllowed(l, allowedOrigins)) && !l.includes(KIT_ERROR));
   const list = (l: string[]) => l.slice(0, MAX_LOG_LINES).join(" | ") + (l.length > MAX_LOG_LINES ? ` (+${l.length - MAX_LOG_LINES})` : "");
   if (network.length > 0) {
     out.push({

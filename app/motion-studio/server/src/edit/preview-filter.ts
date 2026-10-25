@@ -48,6 +48,41 @@ export function clipFrames(c: Pick<TimelineClip, "source_start_us" | "source_end
 
 const sampleAt = (us: number, sampleRate: number): number => Math.round((us * sampleRate) / 1e6);
 
+/** Сэмплы входа клипа `[start, end)` от `sampleOffset` (как `audioSampleRange` контрактов). */
+function clipSamples(c: Pick<TimelineClip, "source_start_us" | "source_end_us">, sampleRate: number, sampleOffset: number): { s: number; e: number } {
+  return { s: sampleAt(c.source_start_us, sampleRate) - sampleOffset, e: sampleAt(c.source_end_us, sampleRate) - sampleOffset };
+}
+
+/**
+ * Ветка звука клипа: `[0:a]atrim=start_sample=…:end_sample=…,asetpts=PTS-STARTPTS[,apad=whole_len=…],afade…[a<i>]`.
+ * Общая для превью и смонтированной дорожки (Task 36, F2): склейки звучат одинаково.
+ */
+function audioChain(c: TimelineClip, i: number, sampleRate: number, fadeUs: number, o: Pick<PreviewFilterOptions, "sampleOffset" | "audioEndUs">): string {
+  const { s, e } = clipSamples(c, sampleRate, o.sampleOffset ?? 0);
+  const durS = (e - s) / sampleRate;
+  const fade = Math.min(fadeUs / 1e6, durS / 2);
+  const pad = o.audioEndUs !== undefined && c.source_end_us > o.audioEndUs ? `,apad=whole_len=${e - s}` : "";
+  return `[0:a]atrim=start_sample=${s}:end_sample=${e},asetpts=PTS-STARTPTS${pad},afade=t=in:st=0:d=${num(fade)},afade=t=out:st=${num(durS - fade)}:d=${num(fade)}[a${i}]`;
+}
+
+/**
+ * `filter_complex` смонтированной дорожки звука (Task 36, F2): те же ветки `atrim` по сэмплам
+ * `audioSampleRange` с `afade` на склейках, что у превью rough cut, финал
+ * `[a0]…concat=n=<N>:v=0:a=1[a]`. Звук идёт по времени монтажа, а не по кадрам: клип короче кадра
+ * остаётся (его время входит в `duration_us` таймлайна), пропускается только клип без сэмплов.
+ * Вход `[0:a]` — уже на частоте `sampleRate` и на шкале исходника от начала файла.
+ */
+export function buildAudioFilter(clips: TimelineClip[], sampleRate: number, fadeUs: number, o: Pick<PreviewFilterOptions, "sampleOffset" | "audioEndUs"> = {}): string {
+  const chains: string[] = [];
+  for (const c of clips) {
+    const { s, e } = clipSamples(c, sampleRate, o.sampleOffset ?? 0);
+    if (e <= s) continue;
+    chains.push(audioChain(c, chains.length, sampleRate, fadeUs, o));
+  }
+  if (chains.length === 0) throw new Error("audio: в таймлайне нет ни одного клипа со звуком (все короче сэмпла)");
+  return `${chains.join(";\n")};\n${chains.map((_, i) => `[a${i}]`).join("")}concat=n=${chains.length}:v=0:a=1[a]`;
+}
+
 /**
  * `filter_complex` превью: `[0:v]trim=start_frame=…:end_frame=…,setpts=PTS-STARTPTS[v<i>]`,
  * `[0:a]atrim=start_sample=…:end_sample=…,asetpts=PTS-STARTPTS,afade=t=in:st=0:d=…,afade=t=out:st=…:d=…[a<i>]`,
@@ -69,12 +104,7 @@ export function buildPreviewFilter(clips: TimelineClip[], fps: Fps, sampleRate: 
     const i = n++;
     chains.push(`[0:v]trim=start_frame=${f.start - fo}:end_frame=${f.end - fo},setpts=PTS-STARTPTS[v${i}]`);
     if (audio) {
-      const s = sampleAt(c.source_start_us, sampleRate) - so;
-      const e = sampleAt(c.source_end_us, sampleRate) - so;
-      const durS = (e - s) / sampleRate;
-      const fade = Math.min(fadeUs / 1e6, durS / 2);
-      const pad = o.audioEndUs !== undefined && c.source_end_us > o.audioEndUs ? `,apad=whole_len=${e - s}` : "";
-      chains.push(`[0:a]atrim=start_sample=${s}:end_sample=${e},asetpts=PTS-STARTPTS${pad},afade=t=in:st=0:d=${num(fade)},afade=t=out:st=${num(durS - fade)}:d=${num(fade)}[a${i}]`);
+      chains.push(audioChain(c, i, sampleRate, fadeUs, { sampleOffset: so, ...(o.audioEndUs !== undefined ? { audioEndUs: o.audioEndUs } : {}) }));
       pads.push(`[v${i}][a${i}]`);
     } else {
       pads.push(`[v${i}]`);

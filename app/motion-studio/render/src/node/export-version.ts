@@ -10,6 +10,7 @@ import { StorageError } from "@ms/core";
 import { readProps } from "./entry.js";
 import { exportDurationFrames, exportFps, exportGate, fpsFactor } from "./export-gate.js";
 import { FfmpegError } from "./ffmpeg.js";
+import { isOverlayUnsupported, overlayInputProps } from "./overlay-props.js";
 import type { WorkerExport } from "./protocol.js";
 import { type RenderDeps, type RenderStage, type RunRef, renderJob } from "./render-version.js";
 import { type TempoCheck, listStills, tempoCheck } from "./tempo.js";
@@ -112,7 +113,7 @@ export async function exportVersion(req: ExportVersionRequest, signal?: AbortSig
   if (overlay) {
     const no = (code: string, why: string): ExportResult => ({ ok: false, error: { stage: "unsupported", message: `${code}: ${why}` } });
     if (request.format !== "prores4444") return no("overlay_mp4", "прозрачный фон хранит только ProRes 4444, H.264 альфу не хранит");
-    if (!ScenePropsBaseSchema.safeParse(raw).success) return no("overlay_unsupported", "props версии вне договора ScenePropsBase — фон сцены не отключить через props.style.transparent");
+    if (isOverlayUnsupported(overlayInputProps(raw))) return no("overlay_unsupported", "props версии вне договора ScenePropsBase — фон сцены не отключить через props.style.transparent");
     if (factor !== 1) return no("overlay_unsupported", `прозрачная версия из непрозрачной — только в исходном fps (${fpsText(req.settings.fps)}): стоп-кадры версии с фоном темп не сверят`);
   }
   const warnings: string[] = [];
@@ -124,7 +125,10 @@ export async function exportVersion(req: ExportVersionRequest, signal?: AbortSig
     if (odd.length > 0) warnings.push(`время под именами вне договора кадров не масштабировано под ${fpsText(fps)} fps: ${odd.join(", ")}`);
   }
   const scaled = exportProps(raw, factor);
-  const inputProps = overlay ? { ...scaled, style: { ...(scaled.style as Record<string, unknown>), transparent: true } } : scaled;
+  // overlay — только при factor 1 и props по договору (проверено выше): отказа здесь не бывает
+  const transparent = overlay ? overlayInputProps(scaled) : scaled;
+  if (isOverlayUnsupported(transparent)) return { ok: false, error: { stage: "unsupported", message: "overlay_unsupported: props версии вне договора ScenePropsBase" } };
+  const inputProps = transparent;
   const settings: Settings = {
     ...req.settings, fps, duration_frames: exportDurationFrames(req.settings, request), ...(overlay ? { transparent_export: true } : {}),
   };

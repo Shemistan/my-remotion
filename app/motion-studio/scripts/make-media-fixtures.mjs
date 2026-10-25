@@ -11,6 +11,8 @@
 //   cuts-3.mp4       анализ видеоряда (Task 30): три сцены по 4 с (testsrc2, smptebars, mandelbrot), тон
 //   counter-30.mp4, delayed-audio.mp4, louder.mp4, final-like.mp4 (+ -edited.wav, -ref.mkv),
 //   counter-30-16k.wav, still-30.mp4 — проверка финала (Task 44, server/test/fixtures/final/README.md)
+//   audio-long.mp4   звук длиннее видео на 40 мс, как у iPhone (master Task 36, ревью I1): 5,00 с видео, 5,04 с звука
+//   hdr-hlg.mp4      теги HDR HLG / BT.2020 (master отказывает hdr_unsupported, ревью I2), 1 с
 // `--ffprobe-fixtures` — ещё и JSON ffprobe cfr/vfr/rotated/no-audio в
 // `app/motion-studio/server/test/fixtures/ffprobe/` (пути очищены до имени файла).
 // Печатает сводку ffprobe каждого файла. Без `say` речь заменяется тоном (отмечается в выводе).
@@ -183,6 +185,21 @@ make("still-30.mp4", (out) => ff([
   ...FINAL_V, "-crf", "12", out,
 ]));
 
+// master (Task 36, ревью I1): у iPhone звук длиннее видео на 10–40 мс — после конца видео кадры
+// master должны повторять последний до конца звука.
+make("audio-long.mp4", (out) => ff([
+  "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=30:duration=5", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=5.04",
+  "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p", "-g", "60",
+  "-c:a", "aac", "-b:a", "96k", "-ac", "1", out,
+]));
+
+// HDR (ревью I2): только теги HLG / BT.2020 (ffmpeg 7: x264 берёт primaries/trc из кадра — setparams).
+make("hdr-hlg.mp4", (out) => ff([
+  "-f", "lavfi", "-i", "testsrc2=size=1280x720:rate=30:duration=1",
+  "-vf", "setparams=color_primaries=bt2020:color_trc=arib-std-b67:colorspace=bt2020nc",
+  "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p", "-colorspace", "bt2020nc", out,
+]));
+
 make("broken.mp4", (out) => {
   const buf = readFileSync(p("talk-ru-cfr.mp4"));
   writeFileSync(out, buf.subarray(0, Math.floor(buf.length * 0.4)));
@@ -193,7 +210,7 @@ function probeJson(file) {
 }
 
 const summary = [];
-for (const name of ["talk-ru-cfr.mp4", "talk-ru-vfr.mov", "rotated.mov", "no-audio.mp4", "av-vlate.mp4", "av-alate.mp4", "talk-ru-takes.mp4", "cuts-3.mp4", "counter-30.mp4", "delayed-audio.mp4", "louder.mp4", "final-like.mp4", "still-30.mp4", "broken.mp4"]) {
+for (const name of ["talk-ru-cfr.mp4", "talk-ru-vfr.mov", "rotated.mov", "no-audio.mp4", "av-vlate.mp4", "av-alate.mp4", "talk-ru-takes.mp4", "cuts-3.mp4", "counter-30.mp4", "delayed-audio.mp4", "louder.mp4", "final-like.mp4", "still-30.mp4", "audio-long.mp4", "hdr-hlg.mp4", "broken.mp4"]) {
   let line;
   try {
     const j = probeJson(p(name));
