@@ -137,3 +137,32 @@ it("журнал событий подключается позже, если п
   });
   spy.mockRestore();
 });
+
+// ---- Task 49a: затраты и уборка кэша ----
+
+it("GET /api/costs: по проекту, задачам, периоду; лишние id — 400", async () => {
+  jobWithRuns("job_c1");
+  jobWithRuns("job_c2");
+  const all = (await api.inj("GET", "/api/costs?projectId=playground", getHeaders)).json();
+  expect(all).toMatchObject({ totalUsd: 1.5, byRole: { script_director: 1.5 }, byModel: { sonnet: 1.5 }, calls: 4, unknown: 0 });
+  expect((await api.inj("GET", "/api/costs?jobIds=job_c1", getHeaders)).json()).toMatchObject({ totalUsd: 0.75, calls: 2 });
+  expect((await api.inj("GET", "/api/costs?days=7", getHeaders)).json()).toMatchObject({ totalUsd: 1.5 });
+  expect((await api.inj("GET", "/api/costs?since=2999-01-01T00:00:00.000Z", getHeaders)).json()).toMatchObject({ totalUsd: 0, calls: 0 });
+  const many = Array.from({ length: 201 }, (_, i) => `j${i}`).join(",");
+  expect((await api.inj("GET", `/api/costs?jobIds=${many}`, getHeaders)).statusCode).toBe(400);
+  expect((await api.inj("GET", "/api/costs?bogus=1", getHeaders)).statusCode).toBe(400);
+  expect((await api.inj("GET", "/api/costs?batchId=sb_nope", getHeaders)).statusCode).toBe(404);
+});
+
+it("POST /api/cache/gc: задача cache.gc с Idempotency-Key; повтор — та же задача", async () => {
+  const h = { ...okHeaders, "idempotency-key": "gc-1" };
+  const r = await api.inj("POST", "/api/cache/gc", h, {});
+  expect(r.statusCode).toBe(202);
+  expect(r.json().job).toMatchObject({ type: "cache.gc", project_id: "playground", input: {} });
+  const again = await api.inj("POST", "/api/cache/gc", h, {});
+  expect(again.statusCode).toBe(200);
+  expect(again.json().job.id).toBe(r.json().job.id);
+  expect((await api.inj("POST", "/api/cache/gc", okHeaders, {})).statusCode).toBe(400);
+  const lim = await api.inj("POST", "/api/cache/gc", { ...okHeaders, "idempotency-key": "gc-2" }, { maxBytes: 1024 });
+  expect(lim.json().job.input).toEqual({ maxBytes: 1024 });
+});

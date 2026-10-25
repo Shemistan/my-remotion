@@ -2,7 +2,9 @@
 // heartbeat-таймер. Итог пишется только через `finish` (fencing). Отмена пользователем
 // (`cancel_requested`) проверяется на каждом такте и в heartbeat. Обработчик, не
 // вернувшийся за `abortTimeoutMs` после abort, отцепляется: процессы его попытки
-// разбираются `reapAttempt` (ADR 0007 п. 4), его поздний итог не пишется.
+// разбираются `reapAttempt` (ADR 0007 п. 4), его поздний итог не пишется. Сторож прогресса
+// (Task 49a, `watchdog`): попытка, молчащая дольше порога своего типа, прерывается как при
+// отмене и получает `failed(stalled)`.
 import type { Job, JobError, JobType } from "@ms/contracts";
 import { type ProcessRegistry, type ReapOptions, type TrackedProcess, fileProcessRegistry, reapAttempt } from "@ms/core";
 import type { Db } from "../db/open.js";
@@ -11,7 +13,8 @@ import { systemClock, type Clock } from "./clock.js";
 import { EventBus } from "./events.js";
 import { AGENT_CALLS, HEARTBEAT_MS, HEAVY, MAX_RUNNING, POLL_MS, RENDERS } from "./limits.js";
 import { claimNext, fenceOk, finish, heartbeat, setProgress } from "./queue.js";
-import { AttemptPermits, Semaphore } from "./semaphore.js";
+import { type NoProgressLimits, ProgressPulse, watchdogPeriodMs } from "../perf/watchdog.js";
+import { AttemptPermits, type Permits, Semaphore } from "./semaphore.js";
 import type { Claim, HandlerResult, Handlers, JobContext } from "./types.js";
 
 export interface JobRunnerOptions {
@@ -52,6 +55,11 @@ export interface JobRunnerOptions {
    * stderr; в `job_events` не попадает — у события нет задачи (`job_id NOT NULL`).
    */
   onError?: (e: unknown) => void;
+  /**
+   * Сторож прогресса (Task 49a): порог молчания по типу задачи, мс (`noProgressLimits`). Нет
+   * опции или типа — попытка не сторожится. `now` — часы сторожа (тесты).
+   */
+  watchdog?: { noProgressMs: NoProgressLimits; now?: () => number };
 }
 
 /**
@@ -73,6 +81,27 @@ interface Active {
 }
 
 const ABORT_TIMEOUT_MS = 45_000;
+
+/** Места семафора попытки: ожидание места — не молчание для сторожа прогресса. */
+class WatchedPermits implements Permits {
+  constructor(
+    private readonly inner: AttemptPermits,
+    private readonly pulse: ProgressPulse,
+  ) {}
+
+  available(): number {
+    return this.inner.available();
+  }
+
+  async acquire(signal?: AbortSignal): Promise<() => void> {
+    this.pulse.wait();
+    try {
+      return await this.inner.acquire(signal);
+    } finally {
+      this.pulse.resume();
+    }
+  }
+}
 
 /**
  * Реестр одной попытки: после `close()` новые процессы не регистрируются (`attempt_closed`),
@@ -260,6 +289,22 @@ export class JobRunner {
     }, this.heartbeatMs);
 
     const permits = [new AttemptPermits(this.agents), new AttemptPermits(this.renders), new AttemptPermits(this.heavy)] as const;
+    // сторож прогресса: пульс — прогресс и события обработчика; ожидание места в семафоре не в счёт
+    const limit = this.opts.watchdog?.noProgressMs[job.type];
+    const pulse = limit === undefined ? undefined : new ProgressPulse(limit, this.opts.watchdog?.now);
+    const watched = (p: AttemptPermits): Permits => (pulse ? new WatchedPermits(p, pulse) : p);
+    let lastStage = job.stage ?? "start";
+    let stalled: { silentMs: number; stage: string } | undefined;
+    const wd = pulse && limit !== undefined ? setInterval(() => {
+      if (controller.signal.aborted || stalled) return;
+      const silentMs = pulse.stalled();
+      if (silentMs === undefined) return;
+      stalled = { silentMs, stage: lastStage };
+      this.emit(job.id, "warn", "stalled", `нет прогресса ${secs(silentMs)} с на этапе ${lastStage} (порог ${secs(limit)} с): попытка ${attempt} прерывается`, {
+        stage: lastStage, silent_ms: silentMs, limit_ms: limit, attempt,
+      });
+      controller.abort(new Error(`stalled: нет прогресса ${secs(silentMs)} с`));
+    }, watchdogPeriodMs(limit)) : undefined;
     const attemptReg = attemptRegistry(this.registry, { runId: job.id, attempt });
     // база может быть переоткрыта (storage_offline) — контекст читает текущую
     const currentDb = () => this.db;
@@ -271,14 +316,19 @@ export class JobRunner {
       attempt,
       signal: controller.signal,
       run: { root: this.opts.root, runId: job.id, attempt, registry: attemptReg },
-      emit: (kind, message, data) => this.emit(job.id, "info", kind, message, data),
+      emit: (kind, message, data) => {
+        pulse?.beat();
+        this.emit(job.id, "info", kind, message, data);
+      },
       progress: (p, stage) => {
+        pulse?.beat();
+        lastStage = stage;
         if (setProgress(this.db, job.id, attempt, p, stage)) this.emit(job.id, "debug", "progress", stage, { progress: p, stage });
       },
       fenceOk: () => fenceOk(this.db, job.id, attempt),
-      agents: permits[0],
-      renders: permits[1],
-      heavy: permits[2],
+      agents: watched(permits[0]),
+      renders: watched(permits[1]),
+      heavy: watched(permits[2]),
     };
 
     this.emit(job.id, "info", "started", `${job.type}: попытка ${attempt}`, { attempt });
@@ -314,6 +364,7 @@ export class JobRunner {
       attemptReg.close();
       stopAbortWait();
       clearInterval(hb);
+      clearInterval(wd);
       // места, не отданные обработчиком (исключение, abort, забытый release), — обратно
       const leaked = permits.reduce((n, p) => n + p.releaseAll(), 0);
       if (leaked > 0) this.emit(job.id, "warn", "permits_released", `обработчик не вернул мест семафоров: ${leaked}`, { leaked });
@@ -321,25 +372,35 @@ export class JobRunner {
 
     const cancelled = this.cancelRequested(job.id);
     const aborted = controller.signal.aborted;
+    // сторож прервал попытку (а не отмена): итог — failed(stalled)
+    const stall = stalled && !cancelled ? stalled : undefined;
+    const stalledResult = (s: { silentMs: number; stage: string }): HandlerResult => ({
+      status: "failed",
+      error: { code: "stalled", message: `задача ${secs(s.silentMs)} с не сообщала о прогрессе на этапе ${s.stage} (порог ${secs(limit ?? 0)} с) и остановлена` },
+    });
     if (detached) {
-      // Прерывание не по отмене: задачу разберёт восстановление (как и без таймаута).
-      if (!cancelled) {
+      // Прерывание не по отмене и не сторожем: задачу разберёт восстановление (как и без таймаута).
+      if (!cancelled && !stall) {
         this.emit(job.id, "warn", "interrupted", `попытка ${attempt} прервана`);
         return;
       }
       // реестр попытки уже закрыт (finally выше): процесс не появится ни во время разбора, ни после
       const reaped = await reapAttempt(this.registry, { runId: job.id, attempt }, this.opts.reapOptions).catch(() => undefined);
-      result = reaped?.clean
-        ? { status: "cancelled", error: { code: "cancelled", stage: "cancelled", message: "задача отменена" } }
-        : { status: "blocked", error: { code: "stale_process", stage: "orphaned", message: `отмена: процессы попытки ${attempt} не завершились` } };
+      result = !reaped?.clean
+        ? { status: "blocked", error: { code: "stale_process", stage: "orphaned", message: `${stall ? "сторож прогресса" : "отмена"}: процессы попытки ${attempt} не завершились` } }
+        : stall
+          ? stalledResult(stall)
+          : { status: "cancelled", error: { code: "cancelled", stage: "cancelled", message: "задача отменена" } };
     } else {
       // Прерывание не по отмене (stop, storage_offline, fencing): итог попытки, кроме
       // completed (публикация уже прошла с fencing), не пишется — задачу разберёт восстановление.
-      if (aborted && !cancelled && result?.status !== "completed") {
+      // Сторож: итог — failed(stalled), кроме completed и blocked/stale_process обработчика.
+      const stale = result?.status === "blocked" || (result?.status === "failed" && result.error.code === "stale_process");
+      if (aborted && stall && result?.status !== "completed" && !stale) result = stalledResult(stall);
+      else if (aborted && !cancelled && result?.status !== "completed" && !stall) {
         this.emit(job.id, "warn", "interrupted", `попытка ${attempt} прервана`);
         return;
       }
-      const stale = result?.status === "blocked" || (result?.status === "failed" && result.error.code === "stale_process");
       if (cancelled && !stale && result?.status !== "completed" && result?.status !== "cancelled") {
         result = { status: "cancelled", error: { code: "cancelled", stage: "cancelled", message: "задача отменена" } };
       } else if (!result) {
@@ -380,6 +441,8 @@ export class JobRunner {
     }
   }
 }
+
+const secs = (ms: number): number => Math.round(ms / 100) / 10;
 
 function errText(e: unknown): string {
   return e instanceof Error ? e.message : String(e);

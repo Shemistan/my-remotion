@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import type { SequenceSpec } from "@ms/contracts";
 import { StorageError, fileProcessRegistry, safeMkdir, spawnTracked } from "@ms/core";
 import { CHROME_WRAPPER, findRenderBrowser } from "../node/browser.js";
+import { markCacheUse } from "../node/cache-use.js";
 import { APP_NODE_MODULES, MOTION_KIT_DIR, mkdirOne } from "../node/entry.js";
 import { FFPROBE_ARGS, type ProbeResult, ffprobeBin, parseProbe } from "../node/ffprobe.js";
 import { isOverlayUnsupported, overlayInputProps } from "../node/overlay-props.js";
@@ -180,7 +181,7 @@ export async function renderTimelineRange(req: TimelineRenderRequest, signal?: A
   let entryPoint: string;
   try {
     const used = [...new Set(scenes.map((s) => s.key))];
-    entryPoint = await writeTimelineEntry({ scenes: used.map((key) => ({ key, versionDir: req.versionDirs[key]! })), cacheDir: req.cacheDir, check: req.check });
+    entryPoint = await writeTimelineEntry({ scenes: used.map((key) => ({ key, versionDir: req.versionDirs[key]! })), cacheDir: req.cacheDir, check: req.check, onKey: (k) => markCacheUse(req.cacheDir, k, req.run.runId) });
   } catch (e) {
     if (e instanceof StorageError) throw e;
     return fail("bundle", (e as Error).message);

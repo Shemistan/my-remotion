@@ -1,9 +1,10 @@
 // Диагностика (Task 48): doctor в UI, трассировка задачи (`?job=<id>` — из карточки ошибки),
-// журнал сервера с автообновлением, архив диагностики («Собрать архив»).
+// журнал сервера с автообновлением, архив диагностики («Собрать архив»), уборка кэша (Task 49a).
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { diagnosticsApi, useBundles } from "../api/diagnostics-client.js";
 import { dateTime } from "../api/projects-client.js";
+import { CacheGc } from "../components/costs/CacheGc.js";
 import { DoctorTable } from "../components/diagnostics/DoctorTable.js";
 import { LogViewer } from "../components/diagnostics/LogViewer.js";
 import { TraceView } from "../components/diagnostics/TraceView.js";
@@ -61,6 +62,7 @@ export function Diagnostics() {
       <TraceView key={jobId ?? ""} {...(jobId ? { jobId } : {})} />
       <LogViewer {...(jobId ? { jobId } : {})} />
       <Bundles />
+      <CacheGc />
     </div>
   );
 }

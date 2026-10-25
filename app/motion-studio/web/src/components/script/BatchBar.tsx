@@ -1,10 +1,12 @@
 // Прогресс пакета генерации сцен (S9): «Готово N из M», ненулевые счётчики по статусам, полоса
 // прогресса и «Отменить пакет», пока в пакете есть ждущие или идущие задачи. Готовые сцены, не
-// вошедшие в полный пакет (`readySkipped` по состоянию, S17a), — тоже «готово».
+// вошедшие в полный пакет (`readySkipped` по состоянию, S17a), — тоже «готово». Task 49a: значок
+// расчётной стоимости пакета (`CostBadge`).
 import type { ScriptBatchDto } from "@ms/contracts";
 import { useCancelBatch } from "../../api/script-client.js";
 import { errorText, t } from "../../i18n/index.js";
 import { batchActive } from "../../script/output.js";
+import { CostBadge } from "../costs/CostBadge.js";
 
 const COUNTS = ["running", "pending", "failed", "cancelled", "blocked"] as const;
 
@@ -22,6 +24,8 @@ export function BatchBar({ projectId, batch, readySkipped = 0 }: { projectId: st
         {COUNTS.filter((k) => c[k] > 0).map((k) => (
           <span key={k} className={`badge status-${k}`}>{t(`scriptOutput.batch.count.${k}`, { n: c[k] })}</span>
         ))}
+        {/* Task 49a: расчётная стоимость пакета, справочно */}
+        <CostBadge batchId={batch.id} refetchMs={active ? 5_000 : false} />
         <span className="spacer" />
         {active ? (
           <button type="button" disabled={cancel.isPending} title={t("scriptOutput.batch.cancelHint")} onClick={() => cancel.mutate(batch.id)}>

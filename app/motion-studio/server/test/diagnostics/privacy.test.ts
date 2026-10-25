@@ -43,6 +43,8 @@ const DYNAMIC = [
   "emit(db: Db, ev: JobEventInput): JobEventDto {",
   "private emit(jobId: string,",
   "emit: (kind, message, data) => this.emit(job.id, \"info\", kind, message, data)",
+  // Task 49a: тело ctx.emit раннера с пульсом сторожа прогресса
+  "this.emit(job.id, \"info\", kind, message, data);",
   "final.status, final.error?.message ?? final.status)",
   "this.events.emit(this.db, { job_id: jobId, level, kind, message",
   "deps.events.emit(db, ev)",

@@ -24,6 +24,8 @@ export interface TimelineEntryInput {
   scenes: { key: string; versionDir: string }[];
   cacheDir: string;
   check: SceneCheck;
+  /** Вызывается с ключом до записи в кэш (отметка использования, Task 49a). */
+  onKey?: (key: string) => Promise<void>;
 }
 
 export const TIMELINE_COMPOSITION = "ProjectTimeline";
@@ -70,6 +72,8 @@ export async function writeTimelineEntry(i: TimelineEntryInput): Promise<string>
     }
   }
   const key = `tl-${await timelineKey(sorted)}`;
+  // Task 49a: отметка использования ключа — до первой записи в кэш (уборка не тронет его)
+  await i.onKey?.(key);
   const imports = sorted.map((s, n) => `import * as M${n} from ${JSON.stringify(join(s.versionDir, "src", "Scene.tsx"))};`);
   const entries = sorted.map((s, n) => `  ${JSON.stringify(s.key)}: pick(M${n} as Record<string, unknown>, ${JSON.stringify(s.key)}),`);
   const text = `// Сгенерировано @ms/render (writeTimelineEntry). Не править руками.

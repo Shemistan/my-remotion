@@ -19,7 +19,7 @@ import {
   safeMkdir,
   verifyOwnerLock,
 } from "@ms/core";
-import { type Proc, reapStrayRenderers } from "@ms/render";
+import { type Proc, configureRenderConcurrency, reapStrayRenderers } from "@ms/render";
 import { ClaudeCodeRuntime } from "./agents/claude-code.js";
 import { loadPrompt } from "./agents/prompts.js";
 import type { AgentRuntimeAdapter } from "./agents/runtime.js";
@@ -42,6 +42,7 @@ import { listQuarantined } from "./recovery/quarantine.js";
 import { consumeShutdownMarker, writeShutdownMarker } from "./recovery/shutdown-marker.js";
 import { type ImportReport, type MissingReport, reconcileVersions } from "./scenes/import-slice.js";
 import { type ExportsReconcile, reconcileExports } from "./scenes/reconcile-exports.js";
+import { noProgressLimits } from "./perf/watchdog.js";
 import { SceneRepo } from "./scenes/repo.js";
 import { relockVersions, sweepAbandonedDrafts, sweepAgentCwds } from "./scenes/store.js";
 
@@ -238,7 +239,11 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     const handlers = typeof opts.handlers === "function" ? opts.handlers(svc) : (opts.handlers ?? {});
     // лимиты из config.json (M12); подмены тестов — поверх
     const { maxRunning, agentCalls, renders } = config.limits;
-    runner = new JobRunner({ maxRunning, agentCalls, renders, ...opts.runner, db, root, owner: `${opts.kind}:${process.pid}`, handlers, registry: processes, events });
+    // сторож прогресса (Task 49a): пороги по типам из таймаутов конфигурации и `watchdog.noProgressMs`
+    const watchdog = { noProgressMs: noProgressLimits(config) };
+    // параллельность Remotion рендеров этого процесса (Task 49a): `render.concurrency` или по ядрам
+    configureRenderConcurrency(config.render.concurrency);
+    runner = new JobRunner({ maxRunning, agentCalls, renders, watchdog, ...opts.runner, db, root, owner: `${opts.kind}:${process.pid}`, handlers, registry: processes, events });
     const kind = opts.kind;
     storage = new StorageSupervisor({
       check: storageCheck,

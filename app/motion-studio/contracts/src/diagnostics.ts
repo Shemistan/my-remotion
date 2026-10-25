@@ -236,3 +236,56 @@ export const BundleDtoSchema = z.object({
   created_at: Ts,
 }).strict();
 export type BundleDto = z.infer<typeof BundleDtoSchema>;
+
+// ---- затраты (Task 49a) ----
+
+/**
+ * Фильтр сводки затрат: проект, сцена, начало периода (ISO), задачи (пакет генерации). Стоимость —
+ * расчётная по данным CLI (`agent_runs.cost_usd`), справочно: не счёт подписки, гейта нет (Р-V7).
+ */
+export interface CostFilter {
+  projectId?: string;
+  sceneId?: string;
+  /** Все задачи этих сцен (пакет генерации: сцены пакета, все их генерации и правки). */
+  sceneIds?: string[];
+  since?: string;
+  jobIds?: string[];
+}
+
+/** Id в строке запроса: 200 × ~30 символов — далеко от предела заголовка Node (16 КиБ). */
+export const COST_MAX_JOB_IDS = 200;
+
+/**
+ * `GET /api/costs`: `?projectId&sceneId&batchId&days|since&jobIds=a,b` (до `COST_MAX_JOB_IDS` id).
+ * `batchId` — пакет генерации сценария: сумма всех задач его сцен, состав считает сервер.
+ */
+export const CostQuerySchema = z.object({
+  projectId: Id.max(200).optional(),
+  sceneId: Id.max(200).optional(),
+  batchId: Id.max(200).optional(),
+  /** Последние N дней (7/30 в UI); `since` — точное начало. */
+  days: z.coerce.number().int().min(1).max(3650).optional(),
+  since: Ts.optional(),
+  jobIds: z.string().min(1).max(10_000).optional(),
+}).strict();
+export type CostQuery = z.infer<typeof CostQuerySchema>;
+
+const Usd = z.number().nonnegative();
+
+export const CostSummaryDtoSchema = z.object({
+  totalUsd: Usd,
+  byRole: z.record(z.string(), Usd),
+  byModel: z.record(z.string(), Usd),
+  byScene: z.array(z.object({ sceneId: Id, usd: Usd }).strict()),
+  /** Вызовов агентов. */
+  calls: z.number().int().nonnegative(),
+  /** Вызовов без цены: сумма — нижняя граница. */
+  unknown: z.number().int().nonnegative(),
+}).strict();
+export type CostSummaryDto = z.infer<typeof CostSummaryDtoSchema>;
+
+// ---- уборка кэша (Task 49a) ----
+
+/** `POST /api/cache/gc`: задача `cache.gc` (`Idempotency-Key`); `maxBytes` — вместо `cache.maxBytes`. */
+export const CacheGcBodySchema = z.object({ maxBytes: z.number().int().min(0).optional() }).strict();
+export type CacheGcBody = z.infer<typeof CacheGcBodySchema>;
