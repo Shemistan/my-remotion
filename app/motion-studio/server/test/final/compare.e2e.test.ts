@@ -1,5 +1,5 @@
 // Task 44: воспроизводимость — два экспорта final-like на реальном ffmpeg.
-import { copyFile, mkdir, rm } from "node:fs/promises";
+import { copyFile, mkdir, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type FinalManifest, FinalManifestSchema } from "@ms/contracts";
@@ -36,6 +36,7 @@ describe("compareExports", () => {
     expect(r).toMatchObject({ inputs_equal: true, probe_equal: true, file_sha256_equal: true, verdict: "reproduced" });
     expect(r.frames).toHaveLength(12);
     expect(r.frames.every((f) => f.psnr_db === 99)).toBe(true);
+    expect(await readdir(work)).toEqual([]);
   }, 120_000);
 
   it("другие входы или другой файл → differs", async () => {

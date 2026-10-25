@@ -1,7 +1,7 @@
 // Task 44: кадр финала на реальном ffmpeg — точность извлечения и сдвиг кадра против master.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile, rm } from "node:fs/promises";
+import { readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { alignmentOffset, extractFrame, psnr } from "../../src/final/frames.js";
@@ -28,7 +28,7 @@ describe("extractFrame и alignmentOffset", () => {
     const ref = join(dir, "ref145.png");
     execFileSync("ffmpeg", ["-v", "error", "-i", fx("counter-30.mp4"), "-vf", "select=eq(n\\,145)", "-frames:v", "1", "-update", "1", ref]);
     expect(await md5(got)).toBe(await md5(ref));
-    expect(await psnr(got, ref)).toBe(99);
+    expect(await psnr(got, ref)).toEqual({ y: 99, u: 99, v: 99 });
   }, 60_000);
 
   it("counter-30: кадр 145 → 0, кадр 146 против кандидатов 145 → 1", async () => {
@@ -43,7 +43,10 @@ describe("extractFrame и alignmentOffset", () => {
     expect(r.psnr).toBeGreaterThan(40);
   }, 60_000);
 
-  it("кадр за концом ролика — ошибка", async () => {
-    await expect(extractFrame(fx("still-30.mp4"), 500, F30, join(dir, "end.png"))).rejects.toThrow(/за концом/);
+  it("кадр за концом ролика — ошибка, прежний файл не выдаётся за кадр", async () => {
+    const out = join(dir, "end.png");
+    await writeFile(out, "старый кадр");
+    await expect(extractFrame(fx("still-30.mp4"), 500, F30, out)).rejects.toThrow(/за концом/);
+    await expect(stat(out)).rejects.toThrow();
   }, 60_000);
 });

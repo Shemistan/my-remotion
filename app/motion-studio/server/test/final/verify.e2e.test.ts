@@ -1,5 +1,5 @@
 // Task 44: полная проверка финала на реальном ffmpeg (final-like: вырезка + сцена на 150–239).
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { FinalVerifyReportSchema } from "@ms/contracts";
@@ -28,6 +28,32 @@ describe("verifyFinal", () => {
     expect(r).toMatchObject({ verdict: "pass", failures: [], probe: [], duration: { expected_frames: 270, delta_frames: 0 } });
     expect(r.frames.map((f) => f.kind)).toEqual(["source", "source", "source", "source", "source", "scene", "source"]);
     expect(r.sync.length).toBe(5);
+    expect(r).toMatchObject({ sync_check: { status: "ok" }, color_matrix: "bt601" });
+    expect(r.frames_skipped).toBeUndefined();
+    // RGB-still против финала yuv420p: по Y выше порога, U/V записаны
+    const scene = r.frames.find((f) => f.kind === "scene")!;
+    expect(scene.psnr_db).toBeGreaterThan(35);
+    expect(scene.psnr_u_db).toBeGreaterThan(25);
+    expect(scene.psnr_v_db).toBeGreaterThan(25);
+    // кадры и WAV проверки удалены
+    expect(await readdir(join(dir, "ok"))).toEqual([]);
+  }, 180_000);
+
+  it("fix 1: не та матрица финала (bt709 вместо bt601) → frames", async () => {
+    const r = await verifyFinal({ ...okInput(await work("matrix")), colorMatrix: "bt709" });
+    expect(r.color_matrix).toBe("bt709");
+    expect(r.failures).toEqual(["frames"]);
+  }, 180_000);
+
+  it("fix 1: кадр вне doc.video — пропуск с причиной, не провал; без слов — синхронность «не проверено»", async () => {
+    const base = okInput(await work("skip"));
+    const video = base.doc.video.map((v, k, all) => (k === all.length - 1 ? { ...v, durationInFrames: 250 - v.from } : v));
+    const r = await verifyFinal({ ...base, doc: { ...base.doc, video }, words: [] });
+    expect(r.frames_skipped).toEqual([{ frame: 255, kind: "source", reason: expect.stringMatching(/вне последовательностей/) }]);
+    expect(r.frames.map((f) => f.frame)).not.toContain(255);
+    expect(r.sync).toEqual([]);
+    expect(r.sync_check).toEqual({ status: "unchecked", message: expect.stringMatching(/не проверена/) });
+    expect(r).toMatchObject({ verdict: "pass", failures: [] });
   }, 180_000);
 
   it("delayed-audio → sync в failures", async () => {

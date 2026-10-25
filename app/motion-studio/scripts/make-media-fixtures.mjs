@@ -173,7 +173,10 @@ make("final-like.mp4", (out) => ff([
   "-i", p("counter-30.mp4"), "-filter_complex", `${CUT_V};${CUT_A}`, "-map", "[v]", "-map", "[a]",
   ...FINAL_V, "-crf", "18", ...FINAL_A, "-movflags", "+faststart", out,
 ]));
-make("final-like-ref.mkv", (out) => ff(["-i", p("counter-30.mp4"), "-filter_complex", CUT_V, "-map", "[v]", "-c:v", "ffv1", "-pix_fmt", "yuv420p", out]));
+// Эталон still — как рендер Remotion: master декодирован в RGB (bt601, TV-диапазон), прямоугольник
+// нарисован в RGB, FFV1 без потерь в RGB (fix 1: сверка RGB-still с финалом yuv420p по Y).
+const CUT_V_RGB = CUT_V.replace("fps=30,settb=1/30,drawbox", "fps=30,settb=1/30,scale=in_color_matrix=bt601:in_range=tv,format=rgb24,drawbox");
+make("final-like-ref.mkv", (out) => ff(["-i", p("counter-30.mp4"), "-filter_complex", CUT_V_RGB, "-map", "[v]", "-c:v", "ffv1", "-pix_fmt", "bgr0", out]));
 // Неподвижный кадр 2 с: выравнивание по нему не определено (`inconclusive`).
 make("still-30.mp4", (out) => ff([
   "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=1:duration=2", "-vf", "fps=30,trim=duration=2",

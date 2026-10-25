@@ -1,6 +1,6 @@
 // Task 44: ffprobe-гейт финала, число кадров при смене fps и правила провала отчёта (без ffmpeg).
 import { describe, expect, it } from "vitest";
-import { type FinalProbe, finalFrames, finalProbeGate, verifyFailures } from "../../src/final/verify.js";
+import { type FinalProbe, finalFrames, finalProbeGate, syncStatus, verifyFailures } from "../../src/final/verify.js";
 
 const F30 = { num: 30, den: 1 };
 const probe = (o: Partial<FinalProbe> & { durationUs?: number } = {}): FinalProbe => {
@@ -55,18 +55,52 @@ describe("verifyFailures", () => {
     ],
     loudness: { source_lufs: -23, final_lufs: -23.1, delta_lu: -0.1, final_peak_db: -3, source_peak_db: -3.05 },
   };
-  it("всё в порогах — пусто", () => {
-    expect(verifyFailures(ok, true)).toEqual([]);
+  const o = { sync: "ok" as const, fps: F30 };
+  it("всё в порогах — пусто; синхронность «не проверено» — не провал", () => {
+    expect(verifyFailures(ok, o)).toEqual([]);
+    expect(verifyFailures(ok, { ...o, sync: "unchecked" })).toEqual([]);
   });
   it("каждая проверка проваливается своим именем", () => {
-    expect(verifyFailures({ ...ok, probe: ["pix_fmt yuv444p"] }, true)).toEqual(["probe"]);
-    expect(verifyFailures({ ...ok, duration: { ...ok.duration, delta_frames: 2 } }, true)).toEqual(["duration"]);
-    expect(verifyFailures({ ...ok, duration: { ...ok.duration, delta_frames: -1 } }, true)).toEqual([]);
-    expect(verifyFailures(ok, false)).toEqual(["sync"]);
-    expect(verifyFailures({ ...ok, frames: [{ ...ok.frames[0]!, offset: 1 }] }, true)).toEqual(["frames"]);
-    expect(verifyFailures({ ...ok, frames: [{ ...ok.frames[0]!, psnr_db: 29.9 }] }, true)).toEqual(["frames"]);
-    expect(verifyFailures({ ...ok, frames: [{ ...ok.frames[2]!, psnr_db: 20 }] }, true)).toEqual(["frames"]);
-    expect(verifyFailures({ ...ok, loudness: { ...ok.loudness, delta_lu: 0.6 } }, true)).toEqual(["loudness"]);
-    expect(verifyFailures({ ...ok, loudness: { ...ok.loudness, final_peak_db: -2.9 } }, true)).toEqual(["loudness"]);
+    expect(verifyFailures({ ...ok, probe: ["pix_fmt yuv444p"] }, o)).toEqual(["probe"]);
+    expect(verifyFailures(ok, { ...o, sync: "failed" })).toEqual(["sync"]);
+    expect(verifyFailures({ ...ok, frames: [{ ...ok.frames[0]!, offset: 1 }] }, o)).toEqual(["frames"]);
+    expect(verifyFailures({ ...ok, frames: [{ ...ok.frames[0]!, psnr_db: 29.9 }] }, o)).toEqual(["frames"]);
+    expect(verifyFailures({ ...ok, frames: [{ ...ok.frames[2]!, psnr_db: 20 }] }, o)).toEqual(["frames"]);
+    expect(verifyFailures({ ...ok, loudness: { ...ok.loudness, delta_lu: 0.6 } }, o)).toEqual(["loudness"]);
+  });
+  it("fix 1, I3: длительность — по точной разнице в мкс (±1 кадр + 1 мкс), delta_frames — справочно", () => {
+    const at = (us: number) => ({ ...ok, duration: { expected_frames: 270, actual_us: us, delta_frames: Math.round((us - 9_000_000) / 33_334) } });
+    expect(verifyFailures(at(9_033_334), o)).toEqual([]);
+    expect(verifyFailures(at(8_966_666), o)).toEqual([]);
+    expect(verifyFailures(at(9_033_335), o)).toEqual([]);
+    expect(verifyFailures(at(9_033_336), o)).toEqual(["duration"]);
+    // +1,4 кадра: delta_frames округляется до 1, но это провал
+    expect(at(9_046_667).duration.delta_frames).toBe(1);
+    expect(verifyFailures(at(9_046_667), o)).toEqual(["duration"]);
+  });
+  it("fix 1, I1: кадр по яркости ≥ 30 дБ, U/V — мягкий порог 25 дБ", () => {
+    expect(verifyFailures({ ...ok, frames: [{ ...ok.frames[2]!, psnr_db: 31, psnr_u_db: 26, psnr_v_db: 27 }] }, o)).toEqual([]);
+    expect(verifyFailures({ ...ok, frames: [{ ...ok.frames[2]!, psnr_db: 40, psnr_u_db: 24.9 }] }, o)).toEqual(["frames"]);
+    expect(verifyFailures({ ...ok, frames: [{ ...ok.frames[0]!, psnr_db: 40, psnr_v_db: 20 }] }, o)).toEqual(["frames"]);
+  });
+  it("fix 1, I2: true peak — провал, только если финал выше −0,1 dBTP, а звук ниже", () => {
+    const l = (final_peak_db: number, source_peak_db: number) => ({ ...ok, loudness: { ...ok.loudness, final_peak_db, source_peak_db } });
+    // перебор AAC на речи ниже потолка — не провал
+    expect(verifyFailures(l(-0.4, -1.2), o)).toEqual([]);
+    expect(verifyFailures(l(-0.1, -1.2), o)).toEqual([]);
+    expect(verifyFailures(l(-0.05, -1.2), o)).toEqual(["loudness"]);
+    expect(verifyFailures(l(0.3, -0.5), o)).toEqual(["loudness"]);
+    // звук уже у потолка — финал не виноват
+    expect(verifyFailures(l(0.2, 0.1), o)).toEqual([]);
+  });
+});
+
+describe("syncStatus", () => {
+  const s = (offset_us: number, corr: number, energy = true) => ({ word_id: "w_000001", offset_us, corr, energy, pass: 1 as const });
+  it("без замеров и на тишине — unchecked; сдвиг больше кадра — failed; иначе ok", () => {
+    expect(syncStatus([], 33_335)).toMatchObject({ status: "unchecked" });
+    expect(syncStatus([s(0, 0.1, false), s(500_000, 0.2, false)], 33_335)).toMatchObject({ status: "unchecked" });
+    expect(syncStatus([s(66_000, 0.9), s(66_000, 0.9)], 33_335)).toMatchObject({ status: "failed" });
+    expect(syncStatus([s(0, 0.9), s(1_000, 0.8)], 33_335)).toMatchObject({ status: "ok" });
   });
 });

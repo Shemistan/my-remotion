@@ -1,6 +1,7 @@
 // Синхронность речи финала (Task 44): опорные слова (ключевые слова сцен, затем равномерно по
 // оставленным) и замер смещения звука финала относительно исходника по ним — тем же `syncCheck`,
 // что у превью чернового монтажа (Task 28): звук финала — смонтированный, время — edited.
+import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { type EditedTimeline, type TranscriptWord, type VideoTimelineDoc, mapWords, sourceToEdited } from "@ms/contracts";
 import { type SyncSample, syncCheck, wavPcm } from "../edit/sync-probe.js";
@@ -43,6 +44,7 @@ export function syncAnchors(doc: Pick<VideoTimelineDoc, "scenes">, words: SyncWo
 /**
  * Смещение звука финала по опорным словам: звук финала → WAV 16 кГц моно в `workDir`, сверка с
  * `source16k` (звук исходника 16 кГц моно) окнами вокруг слов (`syncCheck`, в т. ч. широкий поиск).
+ * WAV удаляется после замера.
  */
 export async function measureSync(i: { finalPath: string; source16k: string; tl: EditedTimeline; words: SyncWord[]; anchors: SyncAnchor[]; workDir: string } & MediaCtx): Promise<SyncSample[]> {
   if (i.anchors.length === 0) return [];
@@ -50,15 +52,19 @@ export async function measureSync(i: { finalPath: string; source16k: string; tl:
   await ffmpegStderr(["-v", "error", ...fileInput(i.finalPath), "-map", "0:a:0", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", "-y", `file:${wav}`], i);
   const ids = new Set(i.anchors.map((a) => a.word_id));
   const words = i.words.filter((w) => ids.has(w.id));
-  const src = await wavPcm(i.source16k);
   try {
-    const fin = await wavPcm(wav);
+    const src = await wavPcm(i.source16k);
     try {
-      return await syncCheck(src, fin, i.tl, words, words.length);
+      const fin = await wavPcm(wav);
+      try {
+        return await syncCheck(src, fin, i.tl, words, words.length);
+      } finally {
+        await fin.close();
+      }
     } finally {
-      await fin.close();
+      await src.close();
     }
   } finally {
-    await src.close();
+    await rm(wav, { force: true });
   }
 }

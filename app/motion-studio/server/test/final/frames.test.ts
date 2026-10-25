@@ -1,6 +1,6 @@
 // Task 44: выбор кадров сверки, кадр master под кадром таймлайна, разбор PSNR (без ffmpeg).
 import { describe, expect, it } from "vitest";
-import { parsePsnr, sampleVerifyFrames, sourceFrameAt } from "../../src/final/frames.js";
+import { matrixFromColorSpace, parsePsnr, sampleVerifyFrames, sourceFrameAt } from "../../src/final/frames.js";
 
 const clip = (id: string, start: number, duration: number) => ({ clip_id: id, start_frame: start, duration_frames: duration }) as never;
 
@@ -43,9 +43,19 @@ describe("sourceFrameAt", () => {
 });
 
 describe("parsePsnr", () => {
-  it("average, inf → 99, нет сводки — ошибка", () => {
-    expect(parsePsnr("[Parsed_psnr_2 @ 0x1] PSNR r:41.2 g:42.0 b:40.1 average:41.07 min:41.07 max:41.07\n")).toBeCloseTo(41.07);
-    expect(parsePsnr("[Parsed_psnr_2 @ 0x1] PSNR r:inf g:inf b:inf average:inf min:inf max:inf\n")).toBe(99);
+  it("Y, U, V по сводке psnr (yuv420p), inf → 99, нет сводки — ошибка", () => {
+    expect(parsePsnr("[Parsed_psnr_4 @ 0x1] PSNR y:44.01 u:41.20 v:40.10 average:43.00 min:43.00 max:43.00\n")).toEqual({ y: 44.01, u: 41.2, v: 40.1 });
+    expect(parsePsnr("[Parsed_psnr_4 @ 0x1] PSNR y:inf u:inf v:inf average:inf min:inf max:inf\n")).toEqual({ y: 99, u: 99, v: 99 });
     expect(() => parsePsnr("ничего")).toThrow(/psnr/);
+  });
+});
+
+describe("matrixFromColorSpace", () => {
+  it("теги ffprobe → матрица; неизвестно — undefined", () => {
+    expect(matrixFromColorSpace("bt709")).toBe("bt709");
+    expect(matrixFromColorSpace("smpte170m")).toBe("bt601");
+    expect(matrixFromColorSpace("bt470bg")).toBe("bt601");
+    expect(matrixFromColorSpace("unknown")).toBeUndefined();
+    expect(matrixFromColorSpace(undefined)).toBeUndefined();
   });
 });

@@ -1,7 +1,7 @@
 // Общее для e2e проверки финала (Task 44): фикстуры `scripts/make-media-fixtures.mjs`
 // (`server/test/fixtures/final/README.md`) и «финал» final-like как вход `verifyFinal`.
 import { execFileSync } from "node:child_process";
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -46,11 +46,15 @@ export const DOC: VideoTimelineDoc = VideoTimelineDocSchema.parse({
 
 export const REQUEST: FinalExportRequest = { resolution: "source", quality: "standard", audio_bitrate_kbps: 192 };
 
-/** Вход `verifyFinal` для final-like; still-кадры сцены — из эталона без потерь. */
+/** Вход `verifyFinal` для final-like; still-кадры сцены (RGB) — из эталона без потерь, в `<workDir>/../stills-*`. */
 export function okInput(workDir: string): VerifyFinalInput {
+  const stills = `${workDir}-stills`;
   return {
     finalPath: fx("final-like.mp4"), doc: DOC, request: REQUEST, master: fx("counter-30.mp4"),
     editedAudio: fx("final-like-edited.wav"), source16k: fx("counter-30-16k.wav"), words: WORDS, tl: TL, workDir,
-    stillsFor: (frames) => Promise.all(frames.map((f) => extractFrame(fx("final-like-ref.mkv"), f, F30, join(workDir, `still-${f}.png`)))),
+    stillsFor: async (frames) => {
+      await mkdir(stills, { recursive: true });
+      return Promise.all(frames.map((f) => extractFrame(fx("final-like-ref.mkv"), f, F30, join(stills, `still-${f}.png`))));
+    },
   };
 }
