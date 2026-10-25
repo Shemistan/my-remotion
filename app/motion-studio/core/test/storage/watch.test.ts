@@ -138,3 +138,36 @@ it("an in-flight check cannot abort after stop()", async () => {
   expect(w.signal.aborted).toBe(false);
   expect(w.lastFailure()).toBeUndefined();
 });
+
+// S17b (флак storage-mode ENOENT при очистке): проверка, начатая до stop(), пишет в корень
+// (`.write-test-*`) и после stop(); settled() ждёт её, чтобы уборка не гонялась с её unlink.
+it("settled(): ждёт проверку, начатую до stop(); зависшую — не дольше дедлайна", async () => {
+  let release: (s: StorageStatus) => void = () => undefined;
+  const check = vi.fn(() => new Promise<StorageStatus>((r) => (release = r)));
+  const w = watchStorage(check, 20);
+  await vi.advanceTimersByTimeAsync(20);
+  expect(check).toHaveBeenCalledTimes(1);
+  w.stop();
+  let done = false;
+  void w.settled().then(() => (done = true));
+  await vi.advanceTimersByTimeAsync(10);
+  expect(done).toBe(false);
+  release(okStatus);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(done).toBe(true);
+
+  const hung = watchStorage(() => new Promise<StorageStatus>(() => undefined), 20);
+  await vi.advanceTimersByTimeAsync(20);
+  hung.stop();
+  let hungDone = false;
+  void hung.settled().then(() => (hungDone = true));
+  await vi.advanceTimersByTimeAsync(59);
+  expect(hungDone).toBe(false);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(hungDone).toBe(true);
+
+  // проверки в полёте нет — сразу
+  const idle = watchStorage(check, 20);
+  idle.stop();
+  await expect(idle.settled()).resolves.toBeUndefined();
+});
