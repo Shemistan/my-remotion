@@ -141,6 +141,12 @@ export const ScriptSceneItemSchema = z.object({
   data: z.array(DataPointSchema),
   importance: ImportanceSchema,
   anchor_ids: z.array(z.string().min(1)),
+  /**
+   * S16a F2/F3: сцена ждёт дозаполнения Director (добавлена по выделению или сменён приём в плане
+   * агента) — `pending`; дозаполнение не удалось — `failed`. Пока поле есть, сцена не утверждается
+   * (blocking `scene_unfilled`); идея, вписанная человеком, его снимает.
+   */
+  fill: z.enum(["pending", "failed"]).optional(),
 }).strict();
 export type ScriptSceneItem = z.infer<typeof ScriptSceneItemSchema>;
 

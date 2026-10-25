@@ -130,9 +130,10 @@ describe("applyScriptPlanOps", () => {
     const d = applyScriptPlanOps(d1, [{ op: "modify", item_id: "ss_002", patch: { technique: "timeline" } }], script);
     expect(d.items[1]).toMatchObject({ technique: "timeline", pattern: "timeline" });
     expect(TECHNIQUE_BY_PATTERN[d.items[1]!.pattern]).toContain("timeline");
-    // flow-graph есть в system-structure — паттерн остаётся
+    // S16a F3: паттерн сбрасывается на паттерн приёма и при «своём» приёме — его выберет дозаполнение
     const k = applyScriptPlanOps(d1, [{ op: "modify", item_id: "ss_002", patch: { technique: "flow-graph" } }], script);
-    expect(k.items[1]).toMatchObject({ technique: "flow-graph", pattern: "system-structure" });
+    expect(k.items[1]!.technique).toBe("flow-graph");
+    expect(TECHNIQUE_BY_PATTERN[k.items[1]!.pattern][0]).toBe("flow-graph");
     // паттерн задан явно — он и остаётся
     const e = applyScriptPlanOps(d1, [{ op: "modify", item_id: "ss_002", patch: { technique: "timeline", pattern: "spatial" } }], script);
     expect(e.items[1]).toMatchObject({ technique: "timeline", pattern: "spatial" });
@@ -179,6 +180,41 @@ describe("applyScriptPlanOps", () => {
     };
     const d = applyScriptPlanOps(withA, [{ op: "modify", item_id: "ss_002", patch: { start_word_id: w(20) } }], script);
     expect(d.items[1]!.anchor_ids).toEqual(["a2"]);
+  });
+
+  it("S16a F2: сцена по выделению в плане агента — ждёт дозаполнения (fill pending), blocking scene_unfilled", () => {
+    const d = applyScriptPlanOps(d1, [{ op: "add", start_word_id: w(30), end_word_id: w(41), technique: "timeline" }], script);
+    const x = d.items.find((i) => i.origin === "user")!;
+    expect(x).toMatchObject({ id: "ss_004", idea: "", fill: "pending" });
+    expect(d.issues).toContainEqual(expect.objectContaining({ item_id: "ss_004", code: "scene_unfilled", severity: "blocking" }));
+    // снятая незаполненная сцена не мешает
+    const off = applyScriptPlanOps(d, [{ op: "set_status", item_id: "ss_004", status: "rejected" }], script);
+    expect(codes(off.issues)).not.toContain("scene_unfilled");
+    // идею вписал человек — сцена заполнена
+    const own = applyScriptPlanOps(d, [{ op: "modify", item_id: "ss_004", patch: { idea: "ось дат" } }], script);
+    expect(own.items.find((i) => i.id === "ss_004")!.fill).toBeUndefined();
+    expect(codes(own.issues)).not.toContain("scene_unfilled");
+    // план без агента: дозаполнять некому — сцена человека как раньше
+    const manual = applyScriptPlanOps({ ...d1, agent: "skipped" }, [{ op: "add", start_word_id: w(30), end_word_id: w(41) }], script);
+    expect(manual.items.find((i) => i.origin === "user")!.fill).toBeUndefined();
+    expect(codes(manual.issues)).not.toContain("scene_unfilled");
+  });
+
+  it("S16a F3: смена приёма сбрасывает идею и паттерн и ждёт дозаполнения; приём с идеей — заполнена", () => {
+    const d = applyScriptPlanOps(d1, [{ op: "modify", item_id: "ss_002", patch: { technique: "timeline" } }], script);
+    expect(d.items[1]).toMatchObject({ technique: "timeline", pattern: "timeline", idea: "", purpose: "назначение", fill: "pending" });
+    expect(d.issues).toContainEqual(expect.objectContaining({ item_id: "ss_002", code: "scene_unfilled", severity: "blocking" }));
+    const both = applyScriptPlanOps(d1, [{ op: "modify", item_id: "ss_002", patch: { technique: "timeline", idea: "ось лет" } }], script);
+    expect(both.items[1]).toMatchObject({ technique: "timeline", idea: "ось лет" });
+    expect(both.items[1]!.fill).toBeUndefined();
+    // тот же приём — не смена
+    const same = applyScriptPlanOps(d1, [{ op: "modify", item_id: "ss_002", patch: { technique: "structure-build", purpose: "x" } }], script);
+    expect(same.items[1]).toMatchObject({ idea: "идея" });
+    expect(same.items[1]!.fill).toBeUndefined();
+    // план без агента: идея и паттерн сброшены, дозаполнения нет
+    const manual = applyScriptPlanOps({ ...d1, agent: "skipped" }, [{ op: "modify", item_id: "ss_002", patch: { technique: "timeline" } }], script);
+    expect(manual.items[1]).toMatchObject({ idea: "", pattern: "timeline" });
+    expect(manual.items[1]!.fill).toBeUndefined();
   });
 
   it("fix M6: план не по текущему тексту — понятная ошибка plan_outdated", () => {

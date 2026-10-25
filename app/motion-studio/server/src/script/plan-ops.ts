@@ -38,7 +38,7 @@ export class ScriptPlanError extends ApiError {
 }
 
 /** Паттерн приёма для сцены пользователя: паттерн, где приём первый, иначе первый, где он есть. */
-function patternOf(t: Technique): PatternSlug {
+export function patternOf(t: Technique): PatternSlug {
   const all = Object.entries(TECHNIQUE_BY_PATTERN) as [PatternSlug, readonly Technique[]][];
   return (all.find(([, ts]) => ts[0] === t) ?? all.find(([, ts]) => ts.includes(t)))?.[0] ?? "abstract-concepts";
 }
@@ -68,11 +68,13 @@ function termMatches(text: string, words: readonly { text: string }[], p: number
 /**
  * Операции над ревизией плана → следующая ревизия (`revision + 1`, `parent_revision`, `ops`).
  * `set_status` — снять/вернуть (вернуть сцену, пересекающую принятую, — `overlap`); `modify` —
- * приём (прежняя `structure_rule` снимается; паттерн, которому приём чужой, без явного
- * `pattern` — паттерн приёма), паттерн, идея, назначение, термины (по словам текста), границы
+ * приём (прежняя `structure_rule` снимается; без явного `pattern` — паттерн приёма, без явной
+ * идеи — идея сброшена и в плане агента `fill: pending`, S16a F3), паттерн, идея (непустая снимает
+ * `fill`), назначение, термины (по словам текста), границы
  * (пересчёт цитаты, слов, кадров, `at_s`; термины, числа и якоря вне нового фрагмента отпадают);
  * `add` — принятая сцена пользователя, следующий свободный `ss_NNN`, приём из запроса или
- * `pickTechnique` по паттерну (число во фрагменте — `quantities`) и соседям; пропуски агента под
+ * `pickTechnique` по паттерну (число во фрагменте — `quantities`) и соседям, в плане агента —
+ * `fill: pending` (S16a F2: идею, назначение и числа дозаполнит Director); пропуски агента под
  * ней обрезаются; `set_reading` — кадры и `at_s` всех сцен. Сцены — по порядку текста. План не по
  * текущему тексту — 409 `plan_outdated`. Ошибки (`ScriptPlanError`, 422): `unknown_item`,
  * `bad_range` (нет слова, обратный порядок, другой блок, термин вне сцены или не по словам
@@ -80,6 +82,8 @@ function termMatches(text: string, words: readonly { text: string }[], p: number
  */
 export function applyScriptPlanOps(doc: ScriptPlanRevisionDoc, ops: ScriptPlanOp[], script: ScriptRevisionDoc): ScriptPlanRevisionDoc {
   if (planOutdated(doc, script)) throw planOutdatedError();
+  // S16a F2/F3: в плане агента сцену по выделению и сцену со сменённым приёмом дозаполняет Director
+  const fills = doc.agent !== "skipped";
   const words = script.words;
   const pos = new Map(words.map((x, i) => [x.id, i]));
   const anchors = new Map(doc.analysis.anchors.map((a) => [a.id, a]));
@@ -138,9 +142,15 @@ export function applyScriptPlanOps(doc: ScriptPlanRevisionDoc, ops: ScriptPlanOp
       if (technique !== undefined && technique !== x.technique) {
         next.technique = technique;
         delete next.structure_rule;
-        // паттерн не задан, а новый приём ему чужой — паттерн приёма
-        if (fields.pattern === undefined && !TECHNIQUE_BY_PATTERN[next.pattern].includes(technique)) next.pattern = patternOf(technique);
+        // F3: идея и паттерн прежнего приёма новому не годятся — сброс (паттерн — приёма), дозаполнение
+        if (fields.pattern === undefined) next.pattern = patternOf(technique);
+        if (fields.idea === undefined) {
+          next.idea = "";
+          if (fills) next.fill = "pending";
+        }
       }
+      // идею вписал человек — сцена заполнена
+      if (fields.idea !== undefined && fields.idea.trim() !== "") delete next.fill;
       const s = start_word_id ?? x.start_word_id;
       const e = end_word_id ?? x.end_word_id;
       const { si, ei } = range(s, e);
@@ -188,6 +198,7 @@ export function applyScriptPlanOps(doc: ScriptPlanRevisionDoc, ops: ScriptPlanOp
         start_word_id: op.start_word_id, end_word_id: op.end_word_id, quote: "", block_id: words[si]!.block_id, words: 1, at_s: 0,
         frames: readingFrames(1, reading, doc.fps),
         technique, pattern, purpose: op.purpose ?? "", idea: "", key_terms: [], data: [], importance: 2, anchor_ids: [],
+        ...(fills ? { fill: "pending" as const } : {}),
       });
     } else {
       reading = op.reading;

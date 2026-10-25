@@ -1,7 +1,8 @@
 // S1 «сценарий → моушн»: клиент API сценария — пути и методы спеки §7, Idempotency-Key на создающих POST.
 import { afterEach, expect, it, vi } from "vitest";
-import { scriptApi, scriptUrls } from "../../src/api/script-client.js";
+import { scriptApi, scriptUrls, stateActive } from "../../src/api/script-client.js";
 import { fakeFetch } from "../helpers.js";
+import { state } from "./plan-fixtures.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -32,4 +33,13 @@ it("маршруты и ключи идемпотентности", async () => 
     "POST /api/script-packages/pkg_1/reveal -",
   ]);
   expect(scriptUrls.cheatsheet("pkg_1", "csv")).toBe("/api/script-packages/pkg_1/cheatsheet?format=csv");
+});
+
+it("S16a: сцена плана ждёт дозаполнения — состояние опрашивается, пока Director не допишет", () => {
+  const s = state();
+  expect(stateActive(s)).toBe(false);
+  s.plan!.doc.items[0] = { ...s.plan!.doc.items[0]!, fill: "pending" };
+  expect(stateActive(s)).toBe(true);
+  s.plan!.doc.items[0] = { ...s.plan!.doc.items[0]!, fill: "failed" };
+  expect(stateActive(s)).toBe(false);
 });

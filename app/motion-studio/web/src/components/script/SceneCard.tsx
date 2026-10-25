@@ -94,6 +94,7 @@ export function SceneCard({ item, n, numbers, blockTitle, fps, issues, selection
               </div>
             ) : null}
           </dl>
+          {item.fill ? <p className="hint" data-testid="scene-fill">{t(item.fill === "pending" ? "scriptPlan.scene.filling" : "scriptPlan.scene.fillFailed")}</p> : null}
           <label className="small muted" htmlFor={`${id}-idea`}>{t("scriptPlan.scene.idea")}</label>
           <textarea id={`${id}-idea`} value={idea} disabled={busy} onChange={(e) => setIdea(e.target.value)} />
           <label className="small muted" htmlFor={`${id}-purpose`}>{t("scriptPlan.scene.purpose")}</label>

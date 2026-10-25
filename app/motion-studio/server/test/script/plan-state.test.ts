@@ -9,7 +9,8 @@ it("план по текущему тексту без blocking и с приня
 });
 
 it("blocking — нельзя, проблемы в ответе", () => {
-  const d5 = applyScriptPlanOps(d1, [{ op: "modify", item_id: "ss_002", patch: { technique: d1.items[0]!.technique } }], script);
+  // приём с идеей — без дозаполнения (S16a F3), остаётся только повтор приёма
+  const d5 = applyScriptPlanOps(d1, [{ op: "modify", item_id: "ss_002", patch: { technique: d1.items[0]!.technique, idea: "и2" } }], script);
   const r = planApprovable(d5, script);
   expect(r).toMatchObject({ ok: false, code: "blocking_issues" });
   expect(r.ok ? [] : r.issues?.map((i) => i.code)).toEqual(["adjacent_technique_repeat"]);

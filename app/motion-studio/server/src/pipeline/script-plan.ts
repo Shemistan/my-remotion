@@ -48,6 +48,7 @@ import { scriptReading } from "../script/text.js";
 import { checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
 import { planFailure, planIdFor, planPublications } from "./plan-visual.js";
 import { recordAgentRuns } from "./record.js";
+import { sceneFill } from "./script-fill.js";
 import { RunCtx, errText, toolless } from "./steps.js";
 
 /** Вход задачи: `useAgent: false` — план без сцен (UI-тесты без LLM); `reading` нет — как у прошлого плана. */
@@ -55,6 +56,8 @@ export const ScriptPlanJobInputSchema = z.object({
   projectId: z.string().min(1),
   useAgent: z.boolean().optional(),
   reading: ReadingSettingsSchema.optional(),
+  /** S16a F2/F3: не план заново, а дозаполнение сцен `fill: pending` ревизии `revision` плана `plan_id`. */
+  fill: z.object({ plan_id: z.string().min(1), revision: z.number().int().positive() }).strict().optional(),
 }).strict();
 
 export const SCRIPT_PLAN_STAGES = ["prepare", "agent", "publish"] as const;
@@ -171,6 +174,14 @@ export const scriptPlan: (depsOf: () => ScriptPlanDeps) => JobHandler = (depsOf)
   }, signal, root, ctx.job.id, ctx.attempt, ctx.run.registry);
 
   try {
+    if (parsed.data.fill) {
+      await enter("agent", 0.1);
+      const status = await d.storage();
+      if (!status.ok) throw new ScriptFail({ code: "storage_unavailable", stage: "storage", message: `${status.reason}: ${status.detail}` });
+      return await sceneFill({
+        ctx, root, storage: d.storage, rc, projectId, fill: parsed.data.fill, patterns: await patternMap(), style: currentProjectStyle(ctx.db, root, projectId),
+      });
+    }
     // M3: ревизия плана этой задачи уже опубликована (попытка упала после COMMIT)
     const pubs = planPublications(ctx.db, projectId, ctx.job.id);
     if (pubs.plan) {

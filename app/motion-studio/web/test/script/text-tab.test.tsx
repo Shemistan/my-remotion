@@ -97,6 +97,16 @@ it("есть план: «Перестроить план» спрашивает 
   expect(within(screen.getByTestId("script-text")).queryAllByTestId("scene-fragment")).toHaveLength(0);
 });
 
+it("S16a: идущее дозаполнение сцены (script.plan с fill) — не построение плана: кнопка доступна, статуса задачи нет", async () => {
+  const fill = job({ id: "job_f", type: "script.plan", scene_id: null, status: "running", input: { projectId: "p1", fill: { plan_id: "pln_1", revision: 3 } } });
+  const { calls } = fakeFetch([on("GET", "/api/jobs?status=running", [fill]), on("GET", "/api/jobs?status=pending", [])]);
+  renderQ(<TextTab state={state()} onPlan={() => {}} />);
+  await waitFor(() => expect(calls.some((c) => c.url === "/api/jobs?status=running")).toBe(true));
+  await new Promise((r) => setTimeout(r, 20));
+  expect((screen.getByRole("button", { name: t("scriptPlan.rebuild") }) as HTMLButtonElement).disabled).toBe(false);
+  expect(calls.some((c) => c.url === "/api/jobs/job_f")).toBe(false);
+});
+
 it("план актуален — фрагменты плана подсвечены с номерами сцен", () => {
   fakeFetch();
   renderQ(<TextTab state={state()} onPlan={() => {}} />);

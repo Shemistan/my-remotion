@@ -1,6 +1,7 @@
 // Текст и план сценария (спека §7, трек A): PUT/GET текста, `script.plan`, правки плана.
 // GET собирает состояние (`scriptState`, S1); PUT — новая ревизия текста (`saveScriptText`, S2);
-// POST plan — задача `script.plan` (S3); POST plan/ops — синхронная правка плана (`savePlanOps`, S4).
+// POST plan — задача `script.plan` (S3); POST plan/ops — синхронная правка плана (`savePlanOps`, S4);
+// новая сцена с `fill: pending` — задача дозаполнения `script.plan` с `fill` (S16a F2/F3).
 import { CreatedJobDtoSchema, PlanOpsBodySchema, PutScriptBodySchema, ScriptDtoSchema, ScriptPlanBodySchema, ScriptPlanDtoSchema, ScriptStateDtoSchema } from "@ms/contracts";
 import { ArtifactStore } from "../../artifacts/store.js";
 import * as projects from "../../db/repos/projects.js";
@@ -9,6 +10,7 @@ import { tx } from "../../db/tx.js";
 import { enqueue } from "../../jobs/queue.js";
 import { savePlanOps } from "../../script/plan-ops.js";
 import { scriptApproval } from "../../script/plan-state.js";
+import { currentScriptPlan } from "../../script/read.js";
 import { scriptState } from "../../script/state.js";
 import { saveScriptText, scriptReading } from "../../script/text.js";
 import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "../context.js";
@@ -55,7 +57,13 @@ export function scriptTextRoutes(app: ZApp, { core }: ApiContext): void {
     schema: { params: IdParams, body: PlanOpsBodySchema, response: { 200: ScriptPlanDtoSchema } },
   }, async (req) => {
     const store = new ArtifactStore({ root: core.root, db: core.db, guard: core.storageCheck });
+    const before = new Set(currentScriptPlan(core.db, core.root, req.params.id)?.doc.items.filter((x) => x.fill === "pending").map((x) => x.id) ?? []);
     const doc = await savePlanOps({ db: core.db, store, root: core.root }, req.params.id, req.body);
+    // S16a F2/F3: новая сцена ждёт дозаполнения — малый вызов Director задачей script.plan с fill
+    if (doc.items.some((x) => x.status === "accepted" && x.fill === "pending" && !before.has(x.id))) {
+      const input = { projectId: req.params.id, fill: { plan_id: doc.plan_id, revision: doc.revision } };
+      enqueue(core.db, { type: "script.plan", projectId: req.params.id, input, idempotencyKey: `script.fill:${doc.plan_id}@r${doc.revision}` });
+    }
     return { plan_id: doc.plan_id, doc, approval: scriptApproval(core.db, req.params.id) };
   });
 }

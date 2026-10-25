@@ -107,6 +107,19 @@ it("смена приёма → usePlanOps modify; «Убрать» → set_stat
   expect(within(cards()[3]!).getByText(t("scriptPlan.scene.n", { n: 3 }))).toBeTruthy();
 });
 
+it("S16a F2/F3: сцена ждёт дозаполнения — подсказка в карточке, blocking «Сцена не заполнена», генерация недоступна", () => {
+  fakeFetch();
+  const s = state();
+  s.plan!.doc.items[1] = { ...s.plan!.doc.items[1]!, idea: "", fill: "pending" };
+  s.plan!.doc.issues.push({ item_id: "ss_002", code: "scene_unfilled", severity: "blocking", message: "ss_002: идею, назначение и числа дописывает Director" });
+  renderQ(<PlanTab state={s} onGenerated={() => {}} />);
+  expect(within(cards()[1]!).getByTestId("scene-fill").textContent).toBe(t("scriptPlan.scene.filling"));
+  expect(within(cards()[0]!).queryByTestId("scene-fill")).toBeNull();
+  const li = screen.getByTestId("plan-issues").querySelector('[data-code="scene_unfilled"]')!;
+  expect(li.textContent).toContain(t("scriptPlan.issue.scene_unfilled"));
+  expect(li.textContent).toContain("сцена 2: идею, назначение и числа дописывает Director");
+});
+
 it("правка идеи и назначения → modify с patch", async () => {
   const { calls } = fakeFetch([okOps()]);
   renderQ(<PlanTab state={state()} onGenerated={() => {}} />);

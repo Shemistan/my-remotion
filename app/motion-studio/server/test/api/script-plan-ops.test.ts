@@ -8,6 +8,7 @@ import { approve } from "../../src/approvals/engine.js";
 import { currentSubject } from "../../src/approvals/subjects.js";
 import { artifactPaths } from "../../src/artifacts/paths.js";
 import { ArtifactStore, ResourceBusyError } from "../../src/artifacts/store.js";
+import * as jobsRepo from "../../src/db/repos/jobs.js";
 import * as plans from "../../src/db/repos/plans.js";
 import * as resourceLocks from "../../src/db/repos/resource-locks.js";
 import { scriptPlans } from "../../src/db/repos/script.js";
@@ -54,6 +55,20 @@ describe("POST /api/projects/:id/script/plan/ops", () => {
     const st = (await api.inj("GET", `/api/projects/${id}/script`)).json();
     expect(st.plan.doc.revision).toBe(2);
     expect(st.approval.state).toBe("stale");
+  });
+
+  it("S16a F2/F3: сцена по выделению или смена приёма → задача дозаполнения script.plan с fill; без ожидающих сцен — без задачи", async () => {
+    const { db } = api.core;
+    const fillJobs = () => jobsRepo.list(db, { projectId: id }).filter((j) => j.type === "script.plan" && (j.input as { fill?: unknown }).fill);
+    const r = await api.inj("POST", url(), okHeaders, { base_revision: 1, ops: [{ op: "add", start_word_id: w(30), end_word_id: w(41) }] });
+    expect(r.statusCode).toBe(200);
+    expect(fillJobs().map((j) => j.input)).toEqual([{ projectId: id, fill: { plan_id: PLAN.plan_id, revision: 2 } }]);
+    const r2 = await api.inj("POST", url(), okHeaders, { base_revision: 2, ops: [{ op: "modify", item_id: "ss_002", patch: { technique: "timeline" } }] });
+    expect(r2.statusCode).toBe(200);
+    expect(fillJobs()).toHaveLength(2);
+    // правка без новых незаполненных сцен (скорость чтения) задачу не ставит
+    await api.inj("POST", url(), okHeaders, { base_revision: 3, ops: [{ op: "set_status", item_id: "ss_001", status: "rejected" }] });
+    expect(fillJobs()).toHaveLength(2);
   });
 
   it("base_revision не текущая — 409 revision_conflict", async () => {

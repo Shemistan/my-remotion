@@ -47,10 +47,11 @@ export const scriptUrls = {
   cheatsheet: (packageId: string, format: CheatsheetQuery["format"]) => `/api/script-packages/${enc(packageId)}/cheatsheet?format=${format}`,
 };
 
-/** Задача или пакет проекта ещё идут — состояние опрашивается. */
-function stateActive(s: ScriptStateDto | undefined): boolean {
+/** Задача или пакет проекта ещё идут, сцена плана ждёт дозаполнения (S16a) — состояние опрашивается. */
+export function stateActive(s: ScriptStateDto | undefined): boolean {
   if (!s) return false;
-  return s.scenes.some((x) => x.job !== null && isActive(x.job.status)) || s.batches.some((b) => b.counts.pending + b.counts.running > 0);
+  return s.scenes.some((x) => x.job !== null && isActive(x.job.status)) || s.batches.some((b) => b.counts.pending + b.counts.running > 0) ||
+    (s.plan?.doc.items.some((x) => x.status === "accepted" && x.fill === "pending") ?? false);
 }
 
 export const scriptStateKey = (projectId: string) => ["script", projectId] as const;

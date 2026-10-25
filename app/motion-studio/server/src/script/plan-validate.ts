@@ -264,6 +264,11 @@ export function planIssues(items: readonly ScriptSceneItem[], script: ScriptRevi
 } {
   const accepted = items.filter((x) => x.status === "accepted");
   const issues: PlanIssue[] = [];
+  // S16a F2/F3: сцена ждёт дозаполнения Director — утверждать нельзя
+  for (const x of accepted) {
+    if (x.fill === "pending") issues.push({ item_id: x.id, code: "scene_unfilled", severity: "blocking", message: `${x.id}: идею, назначение и числа дописывает Director` });
+    else if (x.fill === "failed") issues.push({ item_id: x.id, code: "scene_unfilled", severity: "blocking", message: `${x.id}: дозаполнение не удалось — впишите идею или смените приём` });
+  }
   for (const x of accepted) {
     const unverified = x.data.filter((d) => valueMatches(d.value, d.quote) === undefined).map((d) => `${d.label} = ${d.value} («${clip(d.quote, 60)}»)`);
     if (unverified.length > 0) {
