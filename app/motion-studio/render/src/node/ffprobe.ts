@@ -21,6 +21,8 @@ interface RawStream {
   nb_frames?: string;
   pix_fmt?: string;
   profile?: string;
+  sample_rate?: string;
+  channels?: number;
 }
 
 const ms = (seconds: number) => Math.round(seconds * 1_000_000) / 1000;
@@ -58,6 +60,8 @@ export function parseProbe(json: string): ProbeResult {
   if (seconds === undefined) throw new Error("ffprobe: длительность не определена");
   const audio = data.streams?.find((s) => s.codec_type === "audio" && s.codec_name);
   const audioSeconds = positive(audio?.duration);
+  const sampleRate = positive(audio?.sample_rate);
+  const channels = positive(audio?.channels);
   return {
     durationMs: ms(seconds),
     width: v.width,
@@ -68,6 +72,8 @@ export function parseProbe(json: string): ProbeResult {
     ...(v.pix_fmt ? { pixFmt: v.pix_fmt } : {}),
     ...(audio?.codec_name ? { audioCodec: audio.codec_name } : {}),
     ...(audioSeconds !== undefined ? { audioDurationMs: ms(audioSeconds) } : {}),
+    ...(sampleRate !== undefined && Number.isInteger(sampleRate) ? { audioSampleRate: sampleRate } : {}),
+    ...(channels !== undefined && Number.isInteger(channels) ? { audioChannels: channels } : {}),
   };
 }
 

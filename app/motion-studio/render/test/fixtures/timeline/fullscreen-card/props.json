@@ -1,0 +1,11 @@
+{
+  "timing": {
+    "duration_frames": 60,
+    "beats": [
+      { "id": "card", "start_frame": 6, "end_frame": 60 },
+      { "id": "title", "start_frame": 0, "end_frame": 60 }
+    ]
+  },
+  "style": { "preset": "dark-premium", "intensity": "balanced", "depth": 1, "transparent": false },
+  "content": { "title": "Выручка за полгода", "value": "×2" }
+}

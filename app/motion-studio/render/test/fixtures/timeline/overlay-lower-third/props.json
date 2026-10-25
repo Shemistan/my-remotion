@@ -1,0 +1,9 @@
+{
+  "timing": {
+    "duration_frames": 90,
+    "beats": [{ "id": "title", "start_frame": 0, "end_frame": 90 }]
+  },
+  "style": { "preset": "dark-premium", "intensity": "balanced", "depth": 1, "transparent": false },
+  "content": { "title": "Миллион пользователей" },
+  "layout": { "rect": { "x": 0.04, "y": 0.7, "w": 0.92, "h": 0.24 } }
+}
