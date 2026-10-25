@@ -18,7 +18,7 @@
 - [Motion Playground MVP — вертикальный срез: план реализации](plans/2026-10-20-motion-playground-mvp.md) — завершено
 - [Motion Playground MVP — остаток Phase 1: план реализации](plans/2026-10-20-motion-studio-phase1-rest.md) — в работе
 - [AI Video Production — Phase 2 (исходное видео) и Phase 3 (смысловой и визуальный план): план реализации](plans/2026-10-20-motion-studio-phase2-3.md) — в работе
-- [AI Video Production — Phase 4 (сцены проекта), Phase 5 (сборка и финальный экспорт), Phase 6 (продуктовая полировка): план реализации](plans/2026-10-20-motion-studio-phase4-6.md) — запланировано
+- [AI Video Production — Phase 4 (сцены видеопроекта), Phase 5 (сборка и финал), Phase 6 (полировка): план реализации, редакция 2026-10-25](plans/2026-10-20-motion-studio-phase4-6.md) — в работе
 - [План: Visual Knowledge Base для Remotion](plans/2026-10-20-visual-knowledge-base.md) — в работе
 - [План: ночной цикл качества](plans/2026-10-23-night-quality-loop.md) — завершено
 - [Сценарий → моушн-сцены: план реализации](plans/2026-10-24-script-to-motion.md) — в работе
