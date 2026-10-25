@@ -53,6 +53,7 @@ moution-studio-materials/
   acceptance/src/     копии-отрезки исходников для приёмок, бывш. MotionStudio-acceptance-src
   e2e/<имя>/          хранилища e2e (s7, s10, s11, s14, s15a, s15b, script), бывш. MotionStudio-e2e-<имя>
   examples/           примеры для человека, бывш. MyProtocol/MotionStudio-примеры
+  models/asr/<модель>/ веса Whisper для ASR (S19, ADR 0008: ставит ./setup)
 ```
 
 Перенос сделан `mv` на том же томе: маркер `.motion-studio-store.json` (`store_id`, Volume
