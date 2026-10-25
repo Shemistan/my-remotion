@@ -1,0 +1,1159 @@
+{
+  "package": {
+    "id": "pkg_01M5S08GXNBEDEKH5NNQJ45X1K",
+    "aspect": "16:9",
+    "rel_path": "workspace/projects/prj_01M5RQGP06TGRVHCTQJN83VPFV/packages/pkg_01M5S08GXNBEDEKH5NNQJ45X1K",
+    "abs_path": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5RQGP06TGRVHCTQJN83VPFV/packages/pkg_01M5S08GXNBEDEKH5NNQJ45X1K",
+    "display_name": "Go map — Swiss Table_16x9_2026-10-25",
+    "files": [
+      {
+        "n": 1,
+        "item_id": "ss_001",
+        "mp4": "01_neskolko-let-nazad-na-russkoyazychnom.mp4",
+        "alpha": "01_neskolko-let-nazad-na-russkoyazychnom_alpha.mov",
+        "sha256": {
+          "mp4": "8db2113f451595d4a5f6f2803340ddae7726534140757bb609a1eeed19a9c52b",
+          "alpha": "9466f508ac8df164349e029fec83eefffa91076832fb7ce4af2f1c38b4d99952"
+        }
+      },
+      {
+        "n": 2,
+        "item_id": "ss_002",
+        "mp4": "02_pochemu-poryadok-obkhoda-sluchaynyy-i.mp4",
+        "alpha": "02_pochemu-poryadok-obkhoda-sluchaynyy-i_alpha.mov",
+        "sha256": {
+          "mp4": "7a649ac738915f188bfdbfb0e65680f35e634ade347e8290610ffdbd6d39cb2a",
+          "alpha": "b0a734390e3eda7b0166ac8f0c2c86e924288105d5635a8e1ae44271133a3d09"
+        }
+      },
+      {
+        "n": 3,
+        "item_id": "ss_003",
+        "mp4": "03_problema-v-otvetakh-oni-opirayutsya-na.mp4",
+        "alpha": "03_problema-v-otvetakh-oni-opirayutsya-na_alpha.mov",
+        "sha256": {
+          "mp4": "8f1e1693364cd4e82bcfe0d0496ed158073f5975e041ca8654dbd46160d533ae",
+          "alpha": "b12fe49aae2d31edc32c3b81004fd62a2ea3569436ab7db11a5ee242871c82e5"
+        }
+      },
+      {
+        "n": 4,
+        "item_id": "ss_004",
+        "mp4": "04_s-go-1-24-a-on-vyshel-v-fevrale-2025.mp4",
+        "alpha": "04_s-go-1-24-a-on-vyshel-v-fevrale-2025_alpha.mov",
+        "sha256": {
+          "mp4": "5f3629c965da6f1a4664cac057d6fffd4d770d207d44029da36e9a6a4a14303c",
+          "alpha": "1843f72ba011e26d416fe78dd93600e9ccdd668bc0e9679f396c299483fadbc4"
+        }
+      },
+      {
+        "n": 5,
+        "item_id": "ss_005",
+        "mp4": "05_segodnya-my-proydem-eti-tri-voprosa.mp4",
+        "alpha": "05_segodnya-my-proydem-eti-tri-voprosa_alpha.mov",
+        "sha256": {
+          "mp4": "f729c466642aaa0a20c43459587b3874b4ad3ff319679abe88c57ff03d180e01",
+          "alpha": "4a99f385b9e5731e860a90228626f799c74295543569cb4eb908389cc9ea35ab"
+        }
+      },
+      {
+        "n": 6,
+        "item_id": "ss_006",
+        "mp4": "06_itak-go-do-versii-1-24-map-eto-massiv.mp4",
+        "alpha": "06_itak-go-do-versii-1-24-map-eto-massiv_alpha.mov",
+        "sha256": {
+          "mp4": "990e97a237f882d10d522e2215e6ae96435b84b01b5db6d48c6a12b23613f3da",
+          "alpha": "004ea0f796cc3047de46ead058b27b676a675e5c06f4e694553e90dcac651d5e"
+        }
+      },
+      {
+        "n": 7,
+        "item_id": "ss_007",
+        "mp4": "07_ryadom-s-zapisyami-lezhat-po-vosem.mp4",
+        "alpha": "07_ryadom-s-zapisyami-lezhat-po-vosem_alpha.mov",
+        "sha256": {
+          "mp4": "5829151dc27c67de8436b1e5309c34c51bdb593253d1d8a8562b20b0c0ac0271",
+          "alpha": "e2f8c8c794015497178ff32de482f04d0f5bc22a8db40a008a4f10a00ddd7e1a"
+        }
+      },
+      {
+        "n": 8,
+        "item_id": "ss_024",
+        "mp4": "08_sluchaynoe-sovpadenie-po-takomu-baytu.mp4",
+        "alpha": "08_sluchaynoe-sovpadenie-po-takomu-baytu_alpha.mov",
+        "sha256": {
+          "mp4": "f60c11ab19f51f4bcc0298a769df98ca72d11eb865bc0005c116b3597734f207",
+          "alpha": "6b8e6bc87e9c1e875fb090f1118fa82c6cfdf7593561e8548356534beb8e2a36"
+        }
+      },
+      {
+        "n": 9,
+        "item_id": "ss_009",
+        "mp4": "09_kogda-map-rastet-kogda-v-srednem-na.mp4",
+        "alpha": "09_kogda-map-rastet-kogda-v-srednem-na_alpha.mov",
+        "sha256": {
+          "mp4": "7b9adb86eb65b7e07617d39e9f0f2d0d74f6338434168062d39edd704bdbe765",
+          "alpha": "399b3fca8a8097b03c7919a97fa448c5ea6b4459b919aea2155a75d655996f59"
+        }
+      },
+      {
+        "n": 10,
+        "item_id": "ss_010",
+        "mp4": "10_kit-rendall-v-doklade-na-gophercon-2016.mp4",
+        "alpha": "10_kit-rendall-v-doklade-na-gophercon-2016_alpha.mov",
+        "sha256": {
+          "mp4": "f72905269a498a939494490a825f6d51f08240cd79f8077f68ca711bba0f55e3",
+          "alpha": "e7d16425ed6f0006cf6829f111dedf738acd31b8ddfcabd8371994b885010e75"
+        }
+      },
+      {
+        "n": 11,
+        "item_id": "ss_011",
+        "mp4": "11_vazhnaya-detal-rost-byl-inkrementalnym.mp4",
+        "alpha": "11_vazhnaya-detal-rost-byl-inkrementalnym_alpha.mov",
+        "sha256": {
+          "mp4": "a49b6905abd7ad371c7d3a612e8245e711d8aee128da38c3efa2f0891af978e1",
+          "alpha": "aeb093786cfe8c4631fb8b7020a583c8f31a3facac9209df24c8f1ec90257422"
+        }
+      },
+      {
+        "n": 12,
+        "item_id": "ss_012",
+        "mp4": "12_eto-i-est-znamenitaya-evakuatsiya-poka.mp4",
+        "alpha": "12_eto-i-est-znamenitaya-evakuatsiya-poka_alpha.mov",
+        "sha256": {
+          "mp4": "1c5c727525e0eefc45472c04d2a06373b65e1550385de4629726f098575b8aa5",
+          "alpha": "8dc20b74e85aeff254618f46f410a91717d640c93188eadbb13a1624613e3c3d"
+        }
+      },
+      {
+        "n": 13,
+        "item_id": "ss_013",
+        "mp4": "13_pervyy-rendall-pryamo-govorit-chto-go.mp4",
+        "alpha": "13_pervyy-rendall-pryamo-govorit-chto-go_alpha.mov",
+        "sha256": {
+          "mp4": "300fe853283290101f13384b0519f605dd388586f5839a4a7ab9d9ca57112a68",
+          "alpha": "64169290eb08790d7cb1d58f1864588b952dace8b0d0199447d4a512cbe54304"
+        }
+      },
+      {
+        "n": 14,
+        "item_id": "ss_014",
+        "mp4": "14_vtoroy-adres-elementa-brat-nelzya-potomu.mp4",
+        "alpha": "14_vtoroy-adres-elementa-brat-nelzya-potomu_alpha.mov",
+        "sha256": {
+          "mp4": "9933cb663d314ce74ee2325ddbb671fa734164db76374623da7c0c72b9e1793d",
+          "alpha": "4f11969ae9aa3d3d66a0d85bc795edb54a1fac8cdd8deb4b183a5f11e32b314d"
+        }
+      },
+      {
+        "n": 15,
+        "item_id": "ss_015",
+        "mp4": "15_derzhite-oba-fakta-v-golove-novaya.mp4",
+        "alpha": "15_derzhite-oba-fakta-v-golove-novaya_alpha.mov",
+        "sha256": {
+          "mp4": "8d9363078ff1e0a59b396e4e550b34cab9abbf1a1ca0efe68d9a85c5354d6544",
+          "alpha": "99457b4df4af0cc3644158a8e0e2cf79f5e7506189736e6dcd5de81ed69f50cb"
+        }
+      },
+      {
+        "n": 16,
+        "item_id": "ss_016",
+        "mp4": "16_v-doklade-metta-kulukundisa-na-cppcon.mp4",
+        "alpha": "16_v-doklade-metta-kulukundisa-na-cppcon_alpha.mov",
+        "sha256": {
+          "mp4": "a0d372f8352dd0f51270f9938c50a0eb11896a4eb166e25ae2322a8865b85c93",
+          "alpha": "e1cb79a2f856273718d6dbd94ce4400c05e2ac57bce39b8227c5d51de2ad2472"
+        }
+      },
+      {
+        "n": 17,
+        "item_id": "ss_017",
+        "mp4": "17_a-v-2022-godu-bytedance-otkryla-v.mp4",
+        "alpha": "17_a-v-2022-godu-bytedance-otkryla-v_alpha.mov",
+        "sha256": {
+          "mp4": "4053238e8b5f2c236a752080e562c5fcb0df44a5413d7325e7bb14505cfdcecd",
+          "alpha": "e19cdca951cde3aae8fc659c397e665936376b9ddc8c882059df9da8b63107e4"
+        }
+      },
+      {
+        "n": 18,
+        "item_id": "ss_018",
+        "mp4": "18_vtoraya-prichina-pamyat-staraya-map-vo.mp4",
+        "alpha": "18_vtoraya-prichina-pamyat-staraya-map-vo_alpha.mov",
+        "sha256": {
+          "mp4": "e4b76be69b61d3b3c2f8901d6775463ba9a51b3c7e016a7fb145da39e2900312",
+          "alpha": "e8fde74d439760ed0895cfe7e7ee00e8a101a6af082b65c502c9ac745da08d32"
+        }
+      },
+      {
+        "n": 19,
+        "item_id": "ss_019",
+        "mp4": "19_no-perenesti-ego-v-go-kak-est-bylo.mp4",
+        "alpha": "19_no-perenesti-ego-v-go-kak-est-bylo_alpha.mov",
+        "sha256": {
+          "mp4": "c596c3d875bbbebcc461381ba20fa049b0d5ab1b2d21b63407d22769c7c2aecf",
+          "alpha": "d53a23ed01d74490a868986314fbd05144b5c57b0ff009960f408d4276e0a9eb"
+        }
+      },
+      {
+        "n": 20,
+        "item_id": "ss_020",
+        "mp4": "20_dlya-go-eto-nepriemlemo-odna-vstavka-v.mp4",
+        "alpha": "20_dlya-go-eto-nepriemlemo-odna-vstavka-v_alpha.mov",
+        "sha256": {
+          "mp4": "ca3fac095be46b408a66116f8890110e6314fc04b13b5124039ffdddb865174f",
+          "alpha": "40f08cad8888978fa1e7f37575515742dabf2a3575759707e3a640f2dfea3b54"
+        }
+      },
+      {
+        "n": 21,
+        "item_id": "ss_021",
+        "mp4": "21_reshenie-predlozhil-ostin-klements.mp4",
+        "alpha": "21_reshenie-predlozhil-ostin-klements_alpha.mov",
+        "sha256": {
+          "mp4": "38007d9b035d19f79f31b288d690b28f54d841e812d0a39a1b0a31cbf0443eb6",
+          "alpha": "d918f5437abc4448d0a74c4fff43f8ac9ea0edaaac9779fed6076cf2f3ee2614"
+        }
+      },
+      {
+        "n": 22,
+        "item_id": "ss_022",
+        "mp4": "22_a-realizoval-etot-sloy-piter-mattis-v.mp4",
+        "alpha": "22_a-realizoval-etot-sloy-piter-mattis-v_alpha.mov",
+        "sha256": {
+          "mp4": "2ad61410a1af0f64a9062710ccb9fd7182b9ec911de3ccdd30b1ba25ef095118",
+          "alpha": "b3fe2d98eff7b169c8c107634acb16fadd27cc1d096b09bf4a48fdf93cb990fe"
+        }
+      },
+      {
+        "n": 23,
+        "item_id": "ss_023",
+        "mp4": "23_poluchaetsya-tsepochka-google-i-abseil.mp4",
+        "alpha": "23_poluchaetsya-tsepochka-google-i-abseil_alpha.mov",
+        "sha256": {
+          "mp4": "80ca19deec66da2bc78f906bb0eed72da70bd26f605e60a5ec99b48e9476fcf7",
+          "alpha": "496e5eeaf5c9f98e7a4830d93610921e9bc48d78543dad852985368b7f342428"
+        }
+      }
+    ],
+    "missing": [],
+    "created_at": "2026-10-25T07:44:34.152Z"
+  },
+  "files": [
+    {
+      "n": 1,
+      "item": "ss_001",
+      "mp4": "01_neskolko-let-nazad-na-russkoyazychnom.mp4",
+      "alpha": "01_neskolko-let-nazad-na-russkoyazychnom_alpha.mov",
+      "version": "ver_01M5RRXYGVTJWTB6FE2B0DKY88",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 393,
+        "durationS": 13.1,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 393,
+        "durationS": 13.1
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.3828,
+        "haze": 0.1486,
+        "frames": [
+          189,
+          346,
+          362
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 2,
+      "item": "ss_002",
+      "mp4": "02_pochemu-poryadok-obkhoda-sluchaynyy-i.mp4",
+      "alpha": "02_pochemu-poryadok-obkhoda-sluchaynyy-i_alpha.mov",
+      "version": "ver_01M5RRZ0QVVX8M46ZV3116587V",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 189,
+        "durationS": 6.3,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 189,
+        "durationS": 6.3
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.2831,
+        "haze": 0.2115,
+        "frames": [
+          87,
+          159
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 3,
+      "item": "ss_003",
+      "mp4": "03_problema-v-otvetakh-oni-opirayutsya-na.mp4",
+      "alpha": "03_problema-v-otvetakh-oni-opirayutsya-na_alpha.mov",
+      "version": "ver_01M5RSBKWW4144HQAXT00YQ2B0",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 189,
+        "durationS": 6.3,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 189,
+        "durationS": 6.3
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.4344,
+        "haze": 0.2159,
+        "frames": [
+          87,
+          134
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 4,
+      "item": "ss_004",
+      "mp4": "04_s-go-1-24-a-on-vyshel-v-fevrale-2025.mp4",
+      "alpha": "04_s-go-1-24-a-on-vyshel-v-fevrale-2025_alpha.mov",
+      "version": "ver_01M5S08A6G5AYS9BX37BNNRG3G",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 356,
+        "durationS": 11.866667,
+        "audio": "aac"
+      },
+      "mp4_ok": false,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 356,
+        "durationS": 11.866667
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.1647,
+        "haze": 0.1141,
+        "frames": [
+          135,
+          254,
+          295
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 5,
+      "item": "ss_005",
+      "mp4": "05_segodnya-my-proydem-eti-tri-voprosa.mp4",
+      "alpha": "05_segodnya-my-proydem-eti-tri-voprosa_alpha.mov",
+      "version": "ver_01M5RSTQZWAQVTV672930S1BRX",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 417,
+        "durationS": 13.9,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 417,
+        "durationS": 13.9
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.1914,
+        "haze": 0.2324,
+        "frames": [
+          201,
+          311,
+          386
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 6,
+      "item": "ss_006",
+      "mp4": "06_itak-go-do-versii-1-24-map-eto-massiv.mp4",
+      "alpha": "06_itak-go-do-versii-1-24-map-eto-massiv_alpha.mov",
+      "version": "ver_01M5RTFX6JZA6MSMA55XX7M3C7",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 309,
+        "durationS": 10.3,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 309,
+        "durationS": 10.3
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.5388,
+        "haze": 0.2611,
+        "frames": [
+          147,
+          258,
+          278
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 7,
+      "item": "ss_007",
+      "mp4": "07_ryadom-s-zapisyami-lezhat-po-vosem.mp4",
+      "alpha": "07_ryadom-s-zapisyami-lezhat-po-vosem_alpha.mov",
+      "version": "ver_01M5RTS5NBSP7XRT4K767D2NDD",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 441,
+        "durationS": 14.7,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 441,
+        "durationS": 14.7
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.3296,
+        "haze": 0.1369,
+        "frames": [
+          213,
+          334,
+          410
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 8,
+      "item": "ss_024",
+      "mp4": "08_sluchaynoe-sovpadenie-po-takomu-baytu.mp4",
+      "alpha": "08_sluchaynoe-sovpadenie-po-takomu-baytu_alpha.mov",
+      "version": "ver_01M5RTV3JRRBSCNM5B60X35T5M",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 201,
+        "durationS": 6.7,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 201,
+        "durationS": 6.7
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.0528,
+        "haze": 0.0921,
+        "frames": [
+          93,
+          122
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 9,
+      "item": "ss_009",
+      "mp4": "09_kogda-map-rastet-kogda-v-srednem-na.mp4",
+      "alpha": "09_kogda-map-rastet-kogda-v-srednem-na_alpha.mov",
+      "version": "ver_01M5RV4G04CT4QFH9KV4DJ03R3",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 225,
+        "durationS": 7.5,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 225,
+        "durationS": 7.5
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.1725,
+        "haze": 0.1012,
+        "frames": [
+          105,
+          154
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 10,
+      "item": "ss_010",
+      "mp4": "10_kit-rendall-v-doklade-na-gophercon-2016.mp4",
+      "alpha": "10_kit-rendall-v-doklade-na-gophercon-2016_alpha.mov",
+      "version": "ver_01M5RVE88QTC9RW04YY5SA2PQX",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 381,
+        "durationS": 12.7,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 381,
+        "durationS": 12.7
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.3777,
+        "haze": 0.1856,
+        "frames": [
+          183,
+          328,
+          350
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 11,
+      "item": "ss_011",
+      "mp4": "11_vazhnaya-detal-rost-byl-inkrementalnym.mp4",
+      "alpha": "11_vazhnaya-detal-rost-byl-inkrementalnym_alpha.mov",
+      "version": "ver_01M5RW25EZT6EQQGVHKGF0Y9SX",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 357,
+        "durationS": 11.9,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 357,
+        "durationS": 11.9
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.5837,
+        "haze": 0.3012,
+        "frames": [
+          171,
+          306,
+          326
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 12,
+      "item": "ss_012",
+      "mp4": "12_eto-i-est-znamenitaya-evakuatsiya-poka.mp4",
+      "alpha": "12_eto-i-est-znamenitaya-evakuatsiya-poka_alpha.mov",
+      "version": "ver_01M5RWHWER9A20B2WYHQW77GS6",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 285,
+        "durationS": 9.5,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 285,
+        "durationS": 9.5
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.3955,
+        "haze": 0.4503,
+        "frames": [
+          135,
+          198,
+          254
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 13,
+      "item": "ss_013",
+      "mp4": "13_pervyy-rendall-pryamo-govorit-chto-go.mp4",
+      "alpha": "13_pervyy-rendall-pryamo-govorit-chto-go_alpha.mov",
+      "version": "ver_01M5RWR591EEAGM2EYJMNMQB26",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 309,
+        "durationS": 10.3,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 309,
+        "durationS": 10.3
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.3111,
+        "haze": 0.2817,
+        "frames": [
+          147,
+          212,
+          278
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 14,
+      "item": "ss_014",
+      "mp4": "14_vtoroy-adres-elementa-brat-nelzya-potomu.mp4",
+      "alpha": "14_vtoroy-adres-elementa-brat-nelzya-potomu_alpha.mov",
+      "version": "ver_01M5RX6Y7WNVDNGBMCGZEW60JQ",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 225,
+        "durationS": 7.5,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 225,
+        "durationS": 7.5
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.3114,
+        "haze": 0.2696,
+        "frames": [
+          105,
+          185
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 15,
+      "item": "ss_015",
+      "mp4": "15_derzhite-oba-fakta-v-golove-novaya.mp4",
+      "alpha": "15_derzhite-oba-fakta-v-golove-novaya_alpha.mov",
+      "version": "ver_01M5RXQHW9MP7DDC7NS3H34VNC",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 273,
+        "durationS": 9.1,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 273,
+        "durationS": 9.1
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.4493,
+        "haze": 0.1626,
+        "frames": [
+          129,
+          218,
+          242
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 16,
+      "item": "ss_016",
+      "mp4": "16_v-doklade-metta-kulukundisa-na-cppcon.mp4",
+      "alpha": "16_v-doklade-metta-kulukundisa-na-cppcon_alpha.mov",
+      "version": "ver_01M5RYNB93APJ13Z73ZJYTZH3J",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 309,
+        "durationS": 10.3,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 309,
+        "durationS": 10.3
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.0712,
+        "haze": 0.2113,
+        "frames": [
+          147,
+          185,
+          278
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 17,
+      "item": "ss_017",
+      "mp4": "17_a-v-2022-godu-bytedance-otkryla-v.mp4",
+      "alpha": "17_a-v-2022-godu-bytedance-otkryla-v_alpha.mov",
+      "version": "ver_01M5RYPCC8SSX8WK4BPB6NAH12",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 369,
+        "durationS": 12.3,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 369,
+        "durationS": 12.3
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.2636,
+        "haze": 0.2326,
+        "frames": [
+          177,
+          315,
+          338
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 18,
+      "item": "ss_018",
+      "mp4": "18_vtoraya-prichina-pamyat-staraya-map-vo.mp4",
+      "alpha": "18_vtoraya-prichina-pamyat-staraya-map-vo_alpha.mov",
+      "version": "ver_01M5RYRW2GW3QVR4P0CK8PP0V4",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 237,
+        "durationS": 7.9,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 237,
+        "durationS": 7.9
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.3795,
+        "haze": 0.1024,
+        "frames": [
+          111,
+          166,
+          206
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 19,
+      "item": "ss_019",
+      "mp4": "19_no-perenesti-ego-v-go-kak-est-bylo.mp4",
+      "alpha": "19_no-perenesti-ego-v-go-kak-est-bylo_alpha.mov",
+      "version": "ver_01M5RYSS3KJATDPHJAP8BWM7C3",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 381,
+        "durationS": 12.7,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 381,
+        "durationS": 12.7
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.6223,
+        "haze": 0.2066,
+        "frames": [
+          183,
+          317,
+          350
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 20,
+      "item": "ss_020",
+      "mp4": "20_dlya-go-eto-nepriemlemo-odna-vstavka-v.mp4",
+      "alpha": "20_dlya-go-eto-nepriemlemo-odna-vstavka-v_alpha.mov",
+      "version": "ver_01M5RYPCKXZA01531KWJCWHBD0",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 249,
+        "durationS": 8.3,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 249,
+        "durationS": 8.3
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.0716,
+        "haze": 0.1907,
+        "frames": [
+          117,
+          212,
+          218
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 21,
+      "item": "ss_021",
+      "mp4": "21_reshenie-predlozhil-ostin-klements.mp4",
+      "alpha": "21_reshenie-predlozhil-ostin-klements_alpha.mov",
+      "version": "ver_01M5RZEGK1P7WDGXX5N80H26WZ",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 225,
+        "durationS": 7.5,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 225,
+        "durationS": 7.5
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.3804,
+        "haze": 0.1615,
+        "frames": [
+          105,
+          162
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 22,
+      "item": "ss_022",
+      "mp4": "22_a-realizoval-etot-sloy-piter-mattis-v.mp4",
+      "alpha": "22_a-realizoval-etot-sloy-piter-mattis-v_alpha.mov",
+      "version": "ver_01M5RZ8EBXDSNDPBSCAG2V6M7E",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 369,
+        "durationS": 12.3,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 369,
+        "durationS": 12.3
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.2044,
+        "haze": 0.1559,
+        "frames": [
+          177,
+          255,
+          338
+        ]
+      },
+      "alpha_ok": true
+    },
+    {
+      "n": 23,
+      "item": "ss_023",
+      "mp4": "23_poluchaetsya-tsepochka-google-i-abseil.mp4",
+      "alpha": "23_poluchaetsya-tsepochka-google-i-abseil_alpha.mov",
+      "version": "ver_01M5RYY6X95JCG4XJ2FSRR5D7E",
+      "mp4_probe": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 249,
+        "durationS": 8.3,
+        "audio": "aac"
+      },
+      "mp4_ok": true,
+      "alpha_probe": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1920,
+        "height": 1080,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 249,
+        "durationS": 8.3
+      },
+      "corner_alpha": 0,
+      "coverage": {
+        "opaque": 0.0426,
+        "haze": 0.093,
+        "frames": [
+          83,
+          117,
+          218
+        ]
+      },
+      "alpha_ok": true
+    }
+  ]
+}

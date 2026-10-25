@@ -3,7 +3,7 @@
 NODE := ./scripts/with-node.sh
 VISION_BIN := tools/vision-detect/bin/vision-detect
 
-.PHONY: check lint typecheck test e2e e2e-footage e2e-ui acceptance acceptance-video web-build install
+.PHONY: check lint typecheck test e2e e2e-footage e2e-ui acceptance acceptance-video acceptance-script web-build install
 
 check: lint typecheck test
 
@@ -72,3 +72,11 @@ acceptance: web-build
 acceptance-video: web-build
 	$(NODE) npm run --silent build:vision
 	$(NODE) npx playwright test -c web/playwright.acceptance-video.config.ts
+
+# Приёмка сценарного MVP (S12, спека §13): UI → сервер на 127.0.0.1:8790, реальные claude и рендер,
+# хранилище MotionStudio-acceptance, тексты tmp/script-mvp/block-{1,2,3}.txt (MS_ACC_BLOCKS — другой
+# каталог). Долго (≈ 2–4 ч) и платно (справочно). Продолжить: MS_ACC_ONLY=<шаги> при
+# tmp/acceptance-script/state.json; новый прогон — без state.json.
+# Evidence — docs/evidence/script-mvp/checks.json и docs/evidence/script-mvp/acceptance/.
+acceptance-script: web-build
+	$(NODE) npx playwright test -c web/playwright.acceptance-script.config.ts

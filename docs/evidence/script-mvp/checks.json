@@ -1,0 +1,1117 @@
+[
+  {
+    "id": "0.doctor",
+    "kind": "A",
+    "title": "doctor на хранилище приёмки — код 0",
+    "pass": true,
+    "value": []
+  },
+  {
+    "id": "13.1",
+    "kind": "A",
+    "title": "три блока одним проектом, ревизия 1, слова и время чтения = tokenizeScript",
+    "pass": true,
+    "value": {
+      "revision": 1,
+      "words_api": [
+        205,
+        281,
+        228
+      ],
+      "words_tokenize": [
+        205,
+        281,
+        228
+      ],
+      "words_ui": [
+        205,
+        281,
+        228
+      ],
+      "ui_blocks": [
+        "205 слов · 1:22",
+        "281 слово · 1:53",
+        "228 слов · 1:32"
+      ],
+      "ui_total": "Всего: 714 слов · 4:46",
+      "brief_2026_10_24": [
+        205,
+        281,
+        228
+      ]
+    }
+  },
+  {
+    "id": "13.2",
+    "kind": "A",
+    "title": "план ≤ 5 мин, ≤ $3; цитаты дословны; без пересечений; речь сцен 3–20 с",
+    "pass": false,
+    "value": {
+      "seconds": 392,
+      "cost_usd": 0.778,
+      "items": 23,
+      "accepted": 23,
+      "skipped": 5,
+      "bad_quotes": [],
+      "overlaps": [],
+      "speech_out_of_3_20": [],
+      "issues": [
+        "warning:scene_long",
+        "warning:scene_long"
+      ]
+    }
+  },
+  {
+    "id": "13.3",
+    "kind": "A",
+    "title": "соседние сцены — разные приёмы; ≥ 5 приёмов; kinetic-quote ≤ 20 %",
+    "pass": true,
+    "value": {
+      "adjacent_repeats": [],
+      "techniques": {
+        "checklist": 1,
+        "flow-graph": 3,
+        "split-versus": 4,
+        "hero-number": 3,
+        "line-trend": 2,
+        "structure-build": 3,
+        "data-token": 2,
+        "bar-compare": 2,
+        "process-steps": 1,
+        "kinetic-quote": 1,
+        "timeline": 1
+      },
+      "distinct": 11,
+      "kinetic_share": 0.04,
+      "sequence": [
+        "checklist",
+        "flow-graph",
+        "split-versus",
+        "hero-number",
+        "line-trend",
+        "structure-build",
+        "data-token",
+        "hero-number",
+        "bar-compare",
+        "split-versus",
+        "process-steps",
+        "structure-build",
+        "flow-graph",
+        "data-token",
+        "split-versus",
+        "hero-number",
+        "bar-compare",
+        "structure-build",
+        "split-versus",
+        "line-trend",
+        "kinetic-quote",
+        "flow-graph",
+        "timeline"
+      ]
+    }
+  },
+  {
+    "id": "13.4",
+    "kind": "A",
+    "title": "числа плана — с цитатами из фрагмента, value совпадает с цитатой",
+    "pass": true,
+    "value": {
+      "count": 18,
+      "bad": [],
+      "unverified": 0,
+      "value_unverified_issues": 0,
+      "expected_found": {
+        "8": true,
+        "2025": true,
+        "1.24": true,
+        "1/256": true,
+        "6.5": true
+      },
+      "numbers": [
+        {
+          "item": "ss_004",
+          "label": "версия Go",
+          "value": 1.24,
+          "unit": null,
+          "quote": "Go 1.24",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_004",
+          "label": "год выхода",
+          "value": 2025,
+          "unit": null,
+          "quote": "феврале 2025 года",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_005",
+          "label": "прежних вопросов",
+          "value": 3,
+          "unit": null,
+          "quote": "три вопроса",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_006",
+          "label": "версия Go",
+          "value": 1.24,
+          "unit": null,
+          "quote": "1.24",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_006",
+          "label": "слотов в бакете",
+          "value": 8,
+          "unit": null,
+          "quote": "восемь слотов",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_007",
+          "label": "сверяемый байт",
+          "value": 1,
+          "unit": null,
+          "quote": "один байт",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_008",
+          "label": "шанс случайного совпадения",
+          "value": 256,
+          "unit": null,
+          "quote": "двумстам пятидесяти шести",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_009",
+          "label": "записей в бакете",
+          "value": 6.5,
+          "unit": null,
+          "quote": "шесть с половиной записей",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_009",
+          "label": "слотов",
+          "value": 8,
+          "unit": null,
+          "quote": "из восьми",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_010",
+          "label": "год доклада",
+          "value": 2016,
+          "unit": null,
+          "quote": "GopherCon 2016",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_010",
+          "label": "неверное число",
+          "value": 6.2,
+          "unit": null,
+          "quote": "шесть и две десятых",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_016",
+          "label": "доля процессоров",
+          "value": 1,
+          "unit": "%",
+          "quote": "один процент",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_016",
+          "label": "год доклада",
+          "value": 2017,
+          "unit": null,
+          "quote": "CppCon 2017",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_017",
+          "label": "год issue",
+          "value": 2022,
+          "unit": null,
+          "quote": "2022 году",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_017",
+          "label": "доля CPU на hashmap",
+          "value": 4,
+          "unit": "%",
+          "quote": "четырёх процентов",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_021",
+          "label": "год",
+          "value": 2022,
+          "unit": null,
+          "quote": "2022 году",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_022",
+          "label": "версия Go",
+          "value": 1.24,
+          "unit": null,
+          "quote": "Go 1.24",
+          "in_fragment": true,
+          "match": true
+        },
+        {
+          "item": "ss_023",
+          "label": "версия Go",
+          "value": 1.24,
+          "unit": null,
+          "quote": "1.24",
+          "in_fragment": true,
+          "match": true
+        }
+      ]
+    }
+  },
+  {
+    "id": "13.5",
+    "kind": "A",
+    "title": "правка плана через UI: убрать, добавить по выделению, сменить приём, скорость 2,3 и обратно 2,5 (длительности пересчитаны)",
+    "pass": true,
+    "value": {
+      "remove": {
+        "item": "ss_008",
+        "technique": "hero-number",
+        "quote": "Случайное совпадение по такому байту бывает с вероятностью один к двумстам пятидесяти шести",
+        "covered_phrase": true,
+        "status": "rejected"
+      },
+      "add": {
+        "item": "ss_024",
+        "technique": "hero-number",
+        "quote": "Случайное совпадение по такому байту бывает с вероятностью один к двумстам пятидесяти шести",
+        "frames": {
+          "lead": 15,
+          "speech": 156,
+          "tail": 30,
+          "total": 201
+        }
+      },
+      "technique": {
+        "item": "ss_021",
+        "from": "kinetic-quote",
+        "to": "structure-build"
+      },
+      "reading": {
+        "base_total": [
+          393,
+          189,
+          189,
+          285,
+          417,
+          309,
+          441,
+          201,
+          225,
+          381,
+          357,
+          285,
+          309,
+          225,
+          273,
+          309,
+          369,
+          237,
+          381,
+          249,
+          225,
+          369,
+          249
+        ],
+        "wps_2_3_total": [
+          424,
+          202,
+          202,
+          306,
+          450,
+          332,
+          476,
+          215,
+          241,
+          411,
+          385,
+          306,
+          332,
+          241,
+          293,
+          332,
+          398,
+          254,
+          411,
+          267,
+          241,
+          398,
+          267
+        ],
+        "back_total": [
+          393,
+          189,
+          189,
+          285,
+          417,
+          309,
+          441,
+          201,
+          225,
+          381,
+          357,
+          285,
+          309,
+          225,
+          273,
+          309,
+          369,
+          237,
+          381,
+          249,
+          225,
+          369,
+          249
+        ]
+      },
+      "revision": 6,
+      "blocking": [],
+      "warnings": [
+        "scene_long",
+        "scene_long",
+        "adjacent_structure_repeat"
+      ]
+    }
+  },
+  {
+    "id": "13.6",
+    "kind": "A",
+    "title": "≥ 90 % принятых сцен ready (после ≤ 1 повтора); сбой одной не остановил остальные",
+    "pass": true,
+    "value": {
+      "accepted": 23,
+      "ready": 23,
+      "share": 1,
+      "failed_first_pass": [],
+      "retried": 0,
+      "not_ready": []
+    }
+  },
+  {
+    "id": "13.7",
+    "kind": "A",
+    "title": "длительность каждой версии = frames.total плана",
+    "pass": true,
+    "value": {
+      "checked": 23,
+      "wrong": [],
+      "durations": [
+        {
+          "item": "ss_001",
+          "plan_total": 393,
+          "version": 393
+        },
+        {
+          "item": "ss_002",
+          "plan_total": 189,
+          "version": 189
+        },
+        {
+          "item": "ss_003",
+          "plan_total": 189,
+          "version": 189
+        },
+        {
+          "item": "ss_004",
+          "plan_total": 285,
+          "version": 285
+        },
+        {
+          "item": "ss_005",
+          "plan_total": 417,
+          "version": 417
+        },
+        {
+          "item": "ss_006",
+          "plan_total": 309,
+          "version": 309
+        },
+        {
+          "item": "ss_007",
+          "plan_total": 441,
+          "version": 441
+        },
+        {
+          "item": "ss_024",
+          "plan_total": 201,
+          "version": 201
+        },
+        {
+          "item": "ss_009",
+          "plan_total": 225,
+          "version": 225
+        },
+        {
+          "item": "ss_010",
+          "plan_total": 381,
+          "version": 381
+        },
+        {
+          "item": "ss_011",
+          "plan_total": 357,
+          "version": 357
+        },
+        {
+          "item": "ss_012",
+          "plan_total": 285,
+          "version": 285
+        },
+        {
+          "item": "ss_013",
+          "plan_total": 309,
+          "version": 309
+        },
+        {
+          "item": "ss_014",
+          "plan_total": 225,
+          "version": 225
+        },
+        {
+          "item": "ss_015",
+          "plan_total": 273,
+          "version": 273
+        },
+        {
+          "item": "ss_016",
+          "plan_total": 309,
+          "version": 309
+        },
+        {
+          "item": "ss_017",
+          "plan_total": 369,
+          "version": 369
+        },
+        {
+          "item": "ss_018",
+          "plan_total": 237,
+          "version": 237
+        },
+        {
+          "item": "ss_019",
+          "plan_total": 381,
+          "version": 381
+        },
+        {
+          "item": "ss_020",
+          "plan_total": 249,
+          "version": 249
+        },
+        {
+          "item": "ss_021",
+          "plan_total": 225,
+          "version": 225
+        },
+        {
+          "item": "ss_022",
+          "plan_total": 369,
+          "version": 369
+        },
+        {
+          "item": "ss_023",
+          "plan_total": 249,
+          "version": 249
+        }
+      ]
+    }
+  },
+  {
+    "id": "13.8",
+    "kind": "A",
+    "title": "рестарт сервера посреди пакета: задачи доходят до конца, дублей версий нет",
+    "pass": true,
+    "value": {
+      "restart": {
+        "atMs": 300000,
+        "pidBefore": 0,
+        "pidAfter": 53153,
+        "downMs": 0,
+        "running": [
+          {
+            "item": "?",
+            "job": "job_01M5RQZA5G7CGN59TT8AAYGK5T",
+            "stage": "render"
+          },
+          {
+            "item": "?",
+            "job": "job_01M5RQZA5FEKS94TTDRHX73DPQ",
+            "stage": "engineer"
+          }
+        ],
+        "note": "SIGTERM тестом через 5 мин (журнал сервера: «✗ interrupted» у двух задач); запрос опроса после остановки упал ECONNRESET, сервер поднял перезапущенный воркер Playwright; задачи возобновлены в 05:24:55 (attempt 2, interrupts 1)"
+      },
+      "running_at_stop": [
+        {
+          "item": "ss_002",
+          "job": "job_01M5RQZA5G7CGN59TT8AAYGK5T",
+          "stage": "render",
+          "after": {
+            "id": "job_01M5RQZA5G7CGN59TT8AAYGK5T",
+            "status": "completed",
+            "attempt": 2,
+            "interrupts": 1,
+            "created_at": "2026-10-25T05:19:14.096Z",
+            "started_at": "2026-10-25T05:24:55.520Z",
+            "finished_at": "2026-10-25T05:36:33.043Z",
+            "cost_usd": 4.46
+          }
+        },
+        {
+          "item": "ss_001",
+          "job": "job_01M5RQZA5FEKS94TTDRHX73DPQ",
+          "stage": "engineer",
+          "after": {
+            "id": "job_01M5RQZA5FEKS94TTDRHX73DPQ",
+            "status": "completed",
+            "attempt": 2,
+            "interrupts": 1,
+            "created_at": "2026-10-25T05:19:14.095Z",
+            "started_at": "2026-10-25T05:24:55.509Z",
+            "finished_at": "2026-10-25T05:35:58.006Z",
+            "cost_usd": 3.88
+          }
+        }
+      ],
+      "stuck": [],
+      "versions_not_1": []
+    }
+  },
+  {
+    "id": "13.9",
+    "kind": "A",
+    "title": "папка 16:9: на каждую готовую сцену NN_slug.mp4 (h264 1920×1080 30 fps aac) и NN_slug_alpha.mov (prores 4444 yuva, угол α=0, непрозрачная доля 0,5–92 %)",
+    "pass": false,
+    "value": {
+      "package": "pkg_01M5S08GXNBEDEKH5NNQJ45X1K",
+      "display_name": "Go map — Swiss Table_16x9_2026-10-25",
+      "build_ms": 30124,
+      "files": 23,
+      "ready": 23,
+      "missing": [],
+      "missing_ready": [],
+      "bad": [
+        {
+          "item": "ss_004",
+          "mp4_ok": false,
+          "alpha_ok": true,
+          "coverage": {
+            "opaque": 0.1647,
+            "haze": 0.1141,
+            "frames": [
+              135,
+              254,
+              295
+            ]
+          },
+          "corner": 0
+        }
+      ]
+    }
+  },
+  {
+    "id": "13.10",
+    "kind": "A",
+    "title": "шпаргалка md/csv/txt: строк = сцен, фразы = цитаты плана, имена файлов существуют",
+    "pass": true,
+    "value": {
+      "scenes": 23,
+      "md_rows": 23,
+      "csv_rows": 23,
+      "txt_rows": 23,
+      "files_exist": true,
+      "bom": true,
+      "phrase_mismatch": {
+        "md": 0,
+        "csv": 0,
+        "txt": 0
+      }
+    }
+  },
+  {
+    "id": "13.11",
+    "kind": "A",
+    "title": "доработка в Playground чатом → v2; повторная сборка папки берёт v2",
+    "pass": true,
+    "value": {
+      "item": "ss_004",
+      "v1": "ver_01M5RSRVNKVEVFE7T9MNJAZVK6",
+      "v2": "ver_01M5S08A6G5AYS9BX37BNNRG3G",
+      "package_before": "pkg_01M5RZF0QSSESHYPJGS5T5TEY0",
+      "version_before": "ver_01M5RSRVNKVEVFE7T9MNJAZVK6",
+      "package_after": "pkg_01M5S08GXNBEDEKH5NNQJ45X1K",
+      "version_after": "ver_01M5S08A6G5AYS9BX37BNNRG3G"
+    }
+  },
+  {
+    "id": "13.11a",
+    "kind": "A",
+    "title": "доработка чатом → v2 ready и текущая",
+    "pass": true,
+    "value": {
+      "item": "ss_004",
+      "technique": "hero-number",
+      "quote": "С Go 1.24 а он вышел в феврале 2025 года встроенная map реализована полностью заново на основе дизайна Swiss Table",
+      "job": "completed",
+      "error": null,
+      "v1": "ver_01M5RSRVNKVEVFE7T9MNJAZVK6",
+      "v2": "ver_01M5S08A6G5AYS9BX37BNNRG3G",
+      "v2_status": "ready",
+      "current": "ver_01M5S08A6G5AYS9BX37BNNRG3G",
+      "cost_usd": 0.545
+    }
+  },
+  {
+    "id": "13.12",
+    "kind": "A",
+    "title": "9:16 для 2 сцен: двойники ready, 1080×1920, папка 9:16",
+    "pass": true,
+    "value": {
+      "twins": [
+        {
+          "item": "ss_001",
+          "technique": "checklist",
+          "status": "ready",
+          "version": "ver_01M5S1J99Z8SPW8F2A7YCSQ9QM"
+        },
+        {
+          "item": "ss_002",
+          "technique": "flow-graph",
+          "status": "ready",
+          "version": "ver_01M5S16WF6CYBGYERJEGBV3G6G"
+        }
+      ],
+      "batches": [
+        "sb_013194520b1e581021574ccc66f455"
+      ],
+      "generate_ms": 1206824,
+      "package": "pkg_01M5S1KSKQFC834PF72Y9ZZ2CK",
+      "missing": [
+        {
+          "item_id": "ss_003",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_004",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_005",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_006",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_007",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_024",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_009",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_010",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_011",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_012",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_013",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_014",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_015",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_016",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_017",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_018",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_019",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_020",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_021",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_022",
+          "reason": "нет готовой версии"
+        },
+        {
+          "item_id": "ss_023",
+          "reason": "нет готовой версии"
+        }
+      ],
+      "files": [
+        {
+          "item": "ss_001",
+          "mp4": "h264 1080×1920",
+          "alpha": "prores yuva444p12le 1080×1920"
+        },
+        {
+          "item": "ss_002",
+          "mp4": "h264 1080×1920",
+          "alpha": "prores yuva444p12le 1080×1920"
+        }
+      ]
+    }
+  },
+  {
+    "id": "13.13",
+    "kind": "A",
+    "title": "разнообразие пакета: technique_not_realized ≤ 20 % сцен, uniform_entrance (fade) ≤ 20 %",
+    "pass": true,
+    "value": {
+      "scenes": 23,
+      "technique_not_realized": [],
+      "uniform_entrance": [
+        "ss_015",
+        "ss_019"
+      ],
+      "warnings": {
+        "ss_001": [
+          "qa:frame0_coverage",
+          "qa:no_hero",
+          "qa:text_dominant",
+          "qa:semantic",
+          "qa:rhythm",
+          "qa:composition",
+          "qa:hierarchy"
+        ],
+        "ss_002": [
+          "qa:safe_area",
+          "qa:safe_area",
+          "qa:frozen",
+          "qa:accent_static",
+          "qa:structure_mismatch",
+          "qa:semantic",
+          "qa:semantic",
+          "qa:hierarchy",
+          "qa:text_size",
+          "qa:accent_conflict",
+          "qa:composition"
+        ],
+        "ss_003": [
+          "qa:accent_static",
+          "qa:placeholder_label",
+          "qa:no_hero",
+          "qa:text_dominant",
+          "qa:fragment_unsupported",
+          "qa:accent_conflict",
+          "qa:composition",
+          "qa:composition",
+          "qa:rhythm"
+        ],
+        "ss_004": [
+          "qa:semantic",
+          "qa:composition",
+          "qa:accent_conflict",
+          "qa:final_contradiction",
+          "qa:text_size"
+        ],
+        "ss_005": [
+          "qa:late_hero",
+          "qa:no_hero",
+          "qa:fragment_unsupported",
+          "qa:scene_signature_repeat",
+          "qa:composition",
+          "qa:accent_conflict",
+          "qa:hierarchy",
+          "qa:rhythm",
+          "qa:semantic"
+        ],
+        "ss_006": [
+          "qa:empty_open",
+          "qa:late_hero",
+          "qa:no_hero",
+          "qa:text_dominant",
+          "qa:scene_signature_repeat",
+          "qa:composition",
+          "qa:semantic",
+          "qa:accent_conflict",
+          "qa:rhythm",
+          "qa:hierarchy"
+        ],
+        "ss_007": [
+          "qa:empty_container",
+          "qa:no_hero",
+          "qa:text_dominant",
+          "qa:fragment_unsupported",
+          "qa:scene_signature_repeat",
+          "qa:semantic",
+          "qa:accent_conflict",
+          "qa:hierarchy",
+          "qa:composition",
+          "qa:rhythm"
+        ],
+        "ss_024": [
+          "qa:accent_static",
+          "qa:no_hero",
+          "qa:fragment_unsupported",
+          "qa:scene_signature_repeat",
+          "qa:accent_conflict",
+          "qa:hierarchy",
+          "qa:composition",
+          "qa:rhythm"
+        ],
+        "ss_009": [
+          "qa:semantic",
+          "qa:composition",
+          "qa:accent_conflict",
+          "qa:hierarchy",
+          "qa:artifact"
+        ],
+        "ss_010": [
+          "qa:frozen",
+          "qa:frozen",
+          "qa:frozen",
+          "qa:no_hero",
+          "qa:text_dominant",
+          "qa:scene_signature_repeat",
+          "qa:artifact",
+          "qa:composition",
+          "qa:semantic",
+          "qa:rhythm"
+        ],
+        "ss_011": [
+          "qa:frame0_coverage",
+          "qa:late_hero",
+          "qa:no_hero",
+          "qa:scene_signature_repeat",
+          "qa:frozen",
+          "qa:rhythm",
+          "qa:accent_conflict",
+          "qa:composition",
+          "qa:hierarchy"
+        ],
+        "ss_012": [
+          "qa:dead_air",
+          "qa:empty_open",
+          "qa:empty_container",
+          "qa:no_hero",
+          "qa:text_dominant",
+          "qa:scene_signature_repeat",
+          "qa:semantic",
+          "qa:accent_conflict",
+          "qa:hierarchy",
+          "qa:overlap",
+          "qa:composition",
+          "qa:semantic",
+          "qa:missing_element"
+        ],
+        "ss_013": [
+          "qa:frame0_coverage",
+          "qa:empty_container",
+          "qa:composition",
+          "qa:semantic",
+          "qa:accent_conflict",
+          "qa:overlap",
+          "qa:rhythm"
+        ],
+        "ss_014": [
+          "qa:late_hero",
+          "qa:empty_container",
+          "qa:fragment_unsupported",
+          "qa:scene_signature_repeat",
+          "qa:semantic",
+          "qa:text_size",
+          "qa:accent_conflict",
+          "qa:composition",
+          "qa:semantic"
+        ],
+        "ss_015": [
+          "qa:frozen",
+          "qa:no_hero",
+          "qa:fragment_unsupported",
+          "qa:artifact",
+          "qa:contrast",
+          "qa:accent_conflict",
+          "qa:rhythm",
+          "qa:composition",
+          "qa:uniform_entrance"
+        ],
+        "ss_016": [
+          "qa:text_overlap",
+          "qa:overlap",
+          "qa:hierarchy",
+          "qa:accent_conflict",
+          "qa:rhythm",
+          "qa:frozen"
+        ],
+        "ss_017": [
+          "qa:frozen",
+          "qa:empty_half",
+          "qa:late_hero",
+          "qa:fragment_unsupported",
+          "qa:scene_signature_repeat",
+          "qa:hierarchy",
+          "qa:accent_conflict",
+          "qa:composition",
+          "qa:rhythm",
+          "qa:semantic"
+        ],
+        "ss_018": [
+          "qa:late_hero",
+          "qa:empty_container",
+          "qa:scene_signature_repeat",
+          "qa:composition",
+          "qa:clipping",
+          "qa:composition",
+          "qa:accent_conflict",
+          "qa:composition"
+        ],
+        "ss_019": [
+          "qa:frozen",
+          "qa:accent_static",
+          "qa:no_hero",
+          "qa:hero_split",
+          "qa:fragment_unsupported",
+          "qa:uniform_entrance",
+          "qa:overlap",
+          "qa:text_size",
+          "qa:rhythm",
+          "qa:composition",
+          "qa:hierarchy"
+        ],
+        "ss_020": [
+          "qa:frozen",
+          "qa:accent_static",
+          "qa:frame0_coverage",
+          "qa:text_overlap",
+          "qa:dead_air",
+          "qa:overlap",
+          "qa:composition",
+          "qa:accent_conflict",
+          "qa:composition",
+          "qa:text_size"
+        ],
+        "ss_021": [
+          "qa:overlap",
+          "qa:accent_conflict",
+          "qa:rhythm"
+        ],
+        "ss_022": [
+          "qa:frame0_coverage",
+          "qa:empty_open",
+          "qa:empty_container",
+          "qa:scene_signature_repeat",
+          "qa:composition",
+          "qa:composition",
+          "qa:rhythm",
+          "qa:overlap",
+          "qa:accent_conflict",
+          "qa:text_size"
+        ],
+        "ss_023": [
+          "qa:empty_open",
+          "qa:no_hero",
+          "qa:fragment_unsupported",
+          "qa:scene_signature_repeat",
+          "qa:hierarchy",
+          "qa:accent_conflict",
+          "qa:composition",
+          "qa:rhythm"
+        ]
+      }
+    }
+  },
+  {
+    "id": "13.17",
+    "kind": "A (инф.)",
+    "title": "судья (rubric-judge) по сценам — справочно, медиана",
+    "pass": true,
+    "value": {
+      "median": 5.5,
+      "judged": 23,
+      "scenes": 23,
+      "per_scene": {
+        "01 ss_001 checklist": 5.5,
+        "02 ss_002 flow-graph": 4,
+        "03 ss_003 split-versus": 6,
+        "04 ss_004 hero-number": 5,
+        "05 ss_005 line-trend": 4.5,
+        "06 ss_006 structure-build": 6,
+        "07 ss_007 data-token": 5.5,
+        "08 ss_024 hero-number": 6,
+        "09 ss_009 bar-compare": 4.5,
+        "10 ss_010 split-versus": 6,
+        "11 ss_011 process-steps": 5.5,
+        "12 ss_012 structure-build": 5.5,
+        "13 ss_013 flow-graph": 5.5,
+        "14 ss_014 data-token": 5.5,
+        "15 ss_015 split-versus": 5,
+        "16 ss_016 hero-number": 6,
+        "17 ss_017 bar-compare": 6,
+        "18 ss_018 structure-build": 5.5,
+        "19 ss_019 split-versus": 5.5,
+        "20 ss_020 line-trend": 5,
+        "21 ss_021 structure-build": 5.5,
+        "22 ss_022 flow-graph": 5.5,
+        "23 ss_023 timeline": 5.5
+      }
+    }
+  }
+]
