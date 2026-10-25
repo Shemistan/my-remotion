@@ -7,6 +7,7 @@
   `docs/architecture/`, решения `docs/decisions/`). Node 22, TypeScript, npm workspaces;
   проверки — `make -C app/motion-studio check` (входит в `./check`).
 - Данные приложения только в `MS_DATA_DIR` на внешнем SSD (ADR 0006).
+- Материалы и все артефакты агентов на SSD — только в `/Volumes/External SSD/moution-studio-materials/`.
 - `ai-platform/aiplatform/motion/` — устаревший эксперимент, не источник ни кода, ни идей.
 
 ## Автономность
