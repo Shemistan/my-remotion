@@ -229,8 +229,8 @@ export function mediaImport(depsOf: (ctx: JobContext) => MediaImportDeps): JobHa
       await enter("copy", 0.04);
       await safeMkdir(root, DRAFTS_REL);
       await mkdir(srcDraft); // без recursive: существующий — ошибка
-      // три полных чтения: хеш источника до, копия (у клона — хеш копии), хеш источника после
-      const copied = await copyOriginal(src, srcDraft, { ext, signal, onBytes: readBytes(0.04, 0.08, 3) });
+      // одно полное чтение: копия с хешем (у клона — хеш копии); источник — по отпечатку stat (S17c)
+      const copied = await copyOriginal(src, srcDraft, { ext, signal, onBytes: readBytes(0.04, 0.08, 1) });
       await assertSameFile(requested, file);
       ctx.emit("media_copied", `оригинал скопирован${copied.cloned ? " (APFS-клон)" : ""}`, { sha256: copied.sha256, cloned: copied.cloned });
       const original = copied.path;

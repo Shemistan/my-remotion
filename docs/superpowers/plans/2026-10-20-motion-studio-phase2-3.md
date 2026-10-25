@@ -1,7 +1,7 @@
 ---
 тип: plan
 статус: в работе
-обновлено: 2026-10-24
+обновлено: 2026-10-25
 спека: 2026-10-20-motion-studio-phase2-3.md
 ---
 
@@ -45,7 +45,7 @@ Phase 1 (Task 1–22)
 ## Global Constraints
 
 - Всё из Global Constraints среза и остатка Phase 1 остаётся в силе (Node 22.21.1 через `scripts/with-node.sh`, `MS_DATA_DIR` только через StorageGuard и `safeMkdir`, агенты только `claude -p --restricted …` без Bash и bypass, модели `agents.<role>.model`, Host/Origin на `127.0.0.1:8790`, `Idempotency-Key` на создающих POST, строки UI только через `t(key)`, коммиты без строк соавторства, ветки и `./finish` — контроллер, R1–R6).
-- **Оригинал неизменяем.** Исходник пользователя открывается только на чтение; копия — `workspace/projects/<p>/source/<media-id>/original.<ext>` (на том же томе — APFS-клон `copyFile(…, COPYFILE_FICLONE)`, иначе копия), sha256 исходника до и после импорта и sha256 копии совпадают; файл `0444`, каталог `a-w`. Ни один выходной путь ffmpeg не может лежать в `source/` (`assertOutsideSource`). Импорт — только регулярный файл; symlink разрешается в реальный путь до проверки корней.
+- **Оригинал неизменяем.** Исходник пользователя открывается только на чтение; копия — `workspace/projects/<p>/source/<media-id>/original.<ext>` (на том же томе — APFS-клон `copyFile(…, COPYFILE_FICLONE)`, иначе копия), sha256 копии при едином чтении исходника + проверка неизменности источника (stat: inode, размер, mtime; 6 выборочных блоков по 1 МиБ источника и копии), S17c; файл `0444`, каталог `a-w`. Ни один выходной путь ffmpeg не может лежать в `source/` (`assertOutsideSource`). Импорт — только регулярный файл; symlink разрешается в реальный путь до проверки корней.
 - **Один исходник на проект** (ТЗ §1.2: многокамерный монтаж вне MVP): повторный импорт в тот же проект → 409 `media_exists`; тот же sha256 повторно → существующий ассет (`deduplicated: true`).
 - **Время:** все оси — целые микросекунды `*_us` (`source`, `edited`); кадры — только на `timeline_fps` проекта (рациональное `Fps`), `scene_local` — Phase 4. Функции — только из `@ms/contracts` (`usToFrame`, `frameToUs` среза + `timecode.ts`, `timeline.ts` Task 23); сервер и UI считают одинаково. Границы вырезок выровнены по кадрам `timeline_fps`.
 - **Якоря — id слов, не секунды** (ТЗ §7.1, `05` §2). LLM никогда не выдаёт время: только `start_word_id`/`end_word_id` и дословные цитаты; код проверяет цитату (`verifyQuote`), считает µs и кадры. Не прошедшее проверку предложение отклоняется с причиной, а не «чинится».
@@ -270,7 +270,7 @@ expect(loadConfig({ MS_DATA_DIR: root }).agents.visual_planner.model).toBe("sonn
   - `checkImportSpace(est: number, freeBytes: number, minFreeBytes: number): { ok: true } | { ok: false; code: "low_space"; needBytes: number }`
   - `resolveImportPath(p: string, roots: string[]): Promise<string>` — `realpath`, регулярный файл, внутри одного из корней, расширение ∈ {`mov`,`mp4`,`m4v`,`mkv`,`webm`}; иначе `media_invalid`
   - `assertOutsideSource(outPath: string, root: string): void` — выход в `…/source/…` или равный пути оригинала → ошибка
-  - `copyOriginal(src: string, destDir: string): Promise<{ path: string; sha256: string; cloned: boolean; srcSha256Before: string; srcSha256After: string }>` — `COPYFILE_FICLONE`, при `ENOTSUP`/другом томе — потоковая копия; sha256 источника до и после, копии; расхождение → ошибка, копия удаляется
+  - `copyOriginal(src: string, destDir: string): Promise<{ path: string; sha256: string; cloned: boolean; srcSha256Before: string; srcSha256After: string }>` — `COPYFILE_FICLONE`, при `ENOTSUP`/другом томе — потоковая копия; sha256 копии при едином чтении + проверка неизменности источника (stat + выборочные блоки), S17c; `srcSha256Before`/`After` — выведенные из копии; расхождение → ошибка, копия удаляется
   - `runFfmpeg(args: string[], o: { run: RunRef; signal: AbortSignal; registry?: ProcessRegistry; durationUs?: number; onProgress?: (p: number) => void }): Promise<{ code: number; stderrTail: string }>` — `-progress pipe:1 -nostats`, `parseFfmpegProgress(line): number | undefined` (`out_time_us=…`)
   - `proxyArgs(input: string, out: string, probe: ProbeSummary, shortSide: number): string[]` — H.264 `veryfast` CRF 23, короткая сторона 720, `-fps_mode cfr -r <timeline_fps>`, `-g 2·fps`, AAC 128k 48 кГц, `-af aresample=async=1:first_pts=0`, `-movflags +faststart`, автоповорот
   - `extractAudio16k(input, out, o)` — `-ac 1 -ar 16000 -c:a pcm_s16le`; `peaksFromPcm(pcm: Int16Array, sampleRate: number, bucketMs: number): Int8Array` — пары min/max на ведро (масштаб `/256`); `waveform.json = { bucket_ms: 10; sample_rate: 16000; length: number; file: "waveform.bin" }`
