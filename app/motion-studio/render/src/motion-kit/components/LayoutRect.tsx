@@ -33,7 +33,11 @@ export function layoutRectPx(rect: LayoutNormRect | undefined, width: number, he
 
 const LayoutRectContext = createContext<LayoutRectPx | null>(null);
 
-/** Прямоугольник графики, px: внутри `<LayoutRect>` — его размер, вне — весь кадр. */
+/**
+ * Прямоугольник графики, px, в координатах родителя: внутри `<LayoutRect>` — его размер с
+ * `left/top = 0` (дети уже отсчитываются от края блока; место блока в кадре — `layoutRectPx`),
+ * вне — весь кадр.
+ */
 export function useLayoutRect(): LayoutRectPx {
   const inner = useContext(LayoutRectContext);
   const { width, height } = useVideoConfig();
@@ -42,14 +46,14 @@ export function useLayoutRect(): LayoutRectPx {
 
 /**
  * Абсолютный контейнер по `rect` (обычно `props.layout?.rect`): дети отсчитываются от его края,
- * `useLayoutRect()` внутри даёт его размер. Содержимое не обрезается — выход графики за rect
+ * `useLayoutRect()` внутри даёт его размер (left/top 0). Содержимое не обрезается — выход графики за rect
  * ловит проверка кадров (`outside_zone`).
  */
 export function LayoutRect({ rect, children, style }: { rect?: LayoutNormRect; children?: ReactNode; style?: CSSProperties }) {
   const { width, height } = useVideoConfig();
   const px = layoutRectPx(rect, width, height);
   return (
-    <LayoutRectContext.Provider value={px}>
+    <LayoutRectContext.Provider value={{ left: 0, top: 0, width: px.width, height: px.height }}>
       <div data-ms-layout-rect="true" style={{ position: "absolute", left: px.left, top: px.top, width: px.width, height: px.height, ...style }}>
         {children}
       </div>

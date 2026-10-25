@@ -69,6 +69,33 @@ describe("approve по субъекту", () => {
   });
 });
 
+describe("markStaleByKey", () => {
+  it("valid → stale(reason) только у области subjectKey вида kind; stale и revoked не трогает", () => {
+    const c1 = approve(db, { projectId: "p1", kind: "C", subjectRef: "scene:s1@r1", subjectHash: H1 });
+    const c2 = approve(db, { projectId: "p1", kind: "C", subjectRef: "scene:s2@r1", subjectHash: H2 });
+    const f1 = approve(db, { projectId: "p1", kind: "final", subjectRef: "timeline:tml_1@r1", subjectHash: H1 });
+    const f2 = approve(db, { projectId: "p1", kind: "final", subjectRef: "timeline:tml_2@r1", subjectHash: H1 });
+    projects.create(db, { id: "p2", kind: "video", title: "Другой" });
+    const o1 = approve(db, { projectId: "p2", kind: "C", subjectRef: "scene:s1@r1", subjectHash: H1 });
+
+    expect(approvals.markStaleByKey(db, "p1", "C", "scene:s1", "plan_changed")).toBe(1);
+    expect(approvals.get(db, c1.id)).toMatchObject({ status: "stale", stale_reason: "plan_changed" });
+    expect(approvals.get(db, c2.id)!.status).toBe("valid");
+    expect(approvals.get(db, o1.id)!.status).toBe("valid");
+    // уже stale — причина не перезаписывается
+    expect(approvals.markStaleByKey(db, "p1", "C", "scene:s1", "version_changed")).toBe(0);
+    expect(approvals.get(db, c1.id)!.stale_reason).toBe("plan_changed");
+
+    expect(approvals.markStaleByKey(db, "p1", "final", "timeline:tml_2", "timeline_changed")).toBe(1);
+    expect([approvals.get(db, f1.id)!.status, approvals.get(db, f2.id)!.status]).toEqual(["valid", "stale"]);
+    // ключ другого вида не задевает: C с ключом таймлайна — ничего
+    expect(approvals.markStaleByKey(db, "p1", "C", "timeline:tml_1", "timeline_changed")).toBe(0);
+    approvals.revoke(db, c2.id);
+    expect(approvals.markStaleByKey(db, "p1", "C", "scene:s2", "plan_changed")).toBe(0);
+    expect(approvals.get(db, c2.id)!.status).toBe("revoked");
+  });
+});
+
 describe("субъекты C и final", () => {
   it("sceneSubject: scene:<id>@r<номер>, хеш — manifest_sha256; failed и сломанная — нет субъекта", () => {
     scenes.create(db, { id: "scn_1", project_id: "p1", title: "x" });

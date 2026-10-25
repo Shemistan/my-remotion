@@ -63,6 +63,16 @@ export function markStale(db: Db, where: { id: string } | { projectId: string; k
     .run(reason, where.projectId, where.kind).changes;
 }
 
+/**
+ * valid → stale(reason) только у решений области `subjectKey` (`scene:<id>`, `timeline:<id>`) вида
+ * `kind` проекта — C и final (Р-V4): смена плана или версии одной сцены не трогает остальные;
+ * число изменённых.
+ */
+export function markStaleByKey(db: Db, projectId: string, kind: ApprovalKind, subjectKey: string, reason: ApprovalStaleReason): number {
+  return db.prepare("UPDATE approvals SET status = 'stale', stale_reason = ? WHERE project_id = ? AND kind = ? AND subject_key = ? AND status = 'valid'")
+    .run(reason, projectId, kind, subjectKey).changes;
+}
+
 /** Отзыв решения человеком (`POST /approvals/:id/revoke`): valid/stale → revoked; число изменённых. */
 export function revoke(db: Db, id: string): number {
   return db.prepare("UPDATE approvals SET status = 'revoked', stale_reason = NULL WHERE id = ? AND status != 'revoked'").run(id).changes;

@@ -24,11 +24,13 @@ describe("<LayoutRect> и useLayoutRect()", () => {
     return createElement("i", { "data-rect": `${r.left},${r.top},${r.width},${r.height}` });
   }
 
-  it("абсолютный контейнер по rect; useLayoutRect внутри — размер контейнера", () => {
+  it("абсолютный контейнер по rect; useLayoutRect внутри — размер контейнера в его координатах (left/top 0)", () => {
     const html = renderToStaticMarkup(createElement(LayoutRect, { rect: { x: 0.5, y: 0, w: 0.5, h: 1 } }, createElement(Probe)));
     expect(html).toMatch(/position:absolute;left:960px;top:0;width:960px;height:1080px/);
     expect(html).toContain('data-ms-layout-rect="true"');
-    expect(html).toContain('data-rect="960,0,960,1080"');
+    expect(html).toContain('data-rect="0,0,960,1080"');
+    const lower = renderToStaticMarkup(createElement(LayoutRect, { rect: { x: 0.04, y: 0.7, w: 0.92, h: 0.24 } }, createElement(Probe)));
+    expect(lower).toContain('data-rect="0,0,1766,259"');
   });
 
   it("без rect и вне LayoutRect — весь кадр", () => {
