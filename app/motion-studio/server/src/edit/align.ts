@@ -39,19 +39,48 @@ export function attachBefore(p: string, word: string): string {
   return punctKind(p) === "opening" ? `${p}${word}` : `${p} ${word}`;
 }
 
+/** Ключ сравнения слова: `normalizeToken`; у знака (пустой ключ) — сам знак, чтобы «–» ≠ «,». */
+export function alignKey(text: string): string {
+  return normalizeToken(text) || `\u0000${text.trim()}`;
+}
+
+/** Индексы `a`, попавшие в LCS `a` и `b` по точному совпадению (короткие списки знаков). */
+function lcsMatched(a: string[], b: string[]): Set<number> {
+  const out = new Set<number>();
+  if (a.length === 0 || b.length === 0 || a.length * b.length > MAX_LCS_CELLS) return out;
+  const w = b.length + 1;
+  const dp = new Uint16Array((a.length + 1) * w);
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) dp[i * w + j] = a[i] === b[j] ? dp[(i + 1) * w + j + 1]! + 1 : Math.max(dp[(i + 1) * w + j]!, dp[i * w + j + 1]!);
+  }
+  for (let i = 0, j = 0; i < a.length && j < b.length;) {
+    if (a[i] === b[j]) {
+      out.add(i++);
+      j++;
+    } else if (dp[(i + 1) * w + j]! >= dp[i * w + j + 1]!) i++;
+    else j++;
+  }
+  return out;
+}
+
 /**
  * Токены текста правки: NFC, невидимые форматирующие символы (`\p{Cf}`) убраны, управляющие и
  * разделители строк — пробел, деление по пробельным. Токен, пустой после `normalizeToken`, — знак
  * (`punctKind`): закрывающий и тире — к предыдущему слову, открывающий — к следующему; нет соседа
  * с этой стороны — к соседу с другой. Знаки подряд сохраняют порядок («да ) » ;» → «да)»;»).
+ * `asrPunct` — знаки, которые в участке были отдельными словами ASR («–», «,»), по порядку: знак
+ * текста, сопоставленный с ними (LCS по точному тексту), остаётся отдельным токеном — его слово
+ * сохраняет id и время (S17c). Остальные знаки приклеиваются, как выше.
  */
-export function tokenizeEdit(text: string): EditTokens {
+export function tokenizeEdit(text: string, asrPunct: string[] = []): EditTokens {
   const clean = text.normalize("NFC").replace(/\p{Cf}/gu, "").replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, " ");
+  const raw = clean.split(/\s+/u).filter((t) => t !== "");
+  const punctAt = raw.flatMap((t, i) => (normalizeToken(t) === "" ? [i] : []));
+  const standalone = new Set([...lcsMatched(punctAt.map((i) => raw[i]!), asrPunct)].map((k) => punctAt[k]!));
   const tokens: string[] = [];
   const lead: string[] = []; // знаки, ждущие следующего слова
-  for (const t of clean.split(/\s+/u)) {
-    if (t === "") continue;
-    if (normalizeToken(t) === "") {
+  for (const [r, t] of raw.entries()) {
+    if (normalizeToken(t) === "" && !standalone.has(r)) {
       if (tokens.length > 0 && lead.length === 0 && punctKind(t) !== "opening") tokens[tokens.length - 1] = attachAfter(tokens[tokens.length - 1]!, t);
       else lead.push(t);
       continue;
@@ -80,15 +109,15 @@ export type AlignStep =
 
 /**
  * Выравнивание слов `old` и токенов `tokens`: общее начало и конец, затем LCS по
- * `normalizeToken` на середине. Между соседними совпадениями поровну удалённых и вставленных —
+ * `alignKey` (`normalizeToken`, у знака — сам знак) на середине. Между соседними совпадениями поровну удалённых и вставленных —
  * замена один к одному (то же слово, новый текст: исправление ошибки ASR не теряет время).
  * N удалённых и M вставленных (N ≠ M, оба > 0) — первые min(N, M) id сохраняются по порядку
  * (`replaced`), лишние старые — `removed`, лишние новые — `inserted`: слияние «семь сот» →
  * «семьсот» и разбиение не рвут якоря EDL и плана. `removed` — id удалённых по порядку.
  */
 export function alignTokenList(old: Pick<TranscriptWord, "id" | "text">[], tokens: string[]): { steps: AlignStep[]; removed: string[] } {
-  const a = old.map((x) => normalizeToken(x.text));
-  const b = tokens.map((t) => normalizeToken(t));
+  const a = old.map((x) => alignKey(x.text));
+  const b = tokens.map((t) => alignKey(t));
   const n = a.length;
   const m = b.length;
   let p = 0;

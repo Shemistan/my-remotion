@@ -103,6 +103,44 @@ describe("applyTranscriptOps (края)", () => {
     expect(glued.removed_word_ids).toEqual(["w_000003"]);
   });
 
+  describe("S17c B2: отдельные токены пунктуации ASR («–», «,») при правке сегмента", () => {
+    // как в приёмке Phase 2 (w_000096 «–»): знак — отдельное слово ASR со своим временем
+    const asr = trDoc([
+      w("w_000001", "это", 0, 300_000), w("w_000002", "–", 300_000, 400_000), w("w_000003", "сеть", 400_000, 800_000),
+      w("w_000004", ",", 800_000, 850_000), w("w_000005", "да", 900_000, 1_200_000),
+    ]);
+    const seg = { op: "replace_span" as const, start_word_id: "w_000001", end_word_id: "w_000005" };
+    const view = (d: TranscriptRevisionDoc) => d.words.map((x) => [x.id, x.text, x.start_us, x.end_us]);
+
+    it("сохранение сегмента без изменения текста (склейка через пробел, как в UI) — no_change, токены не меняются", () => {
+      expect(() => applyTranscriptOps(asr, [{ ...seg, text: asr.words.map((x) => x.text).join(" ") }])).toThrow(/no_change/);
+      expect(() => applyTranscriptOps(asr, [{ op: "replace_text", word_id: "w_000002", text: "–" }])).toThrow(/no_change/);
+    });
+
+    it("изменённый текст: знаки сохраняют свои id и тайминги, правка — только в словах", () => {
+      const d = applyTranscriptOps(asr, [{ ...seg, text: "это – сеть , нет" }]);
+      expect(view(d)).toEqual([
+        ["w_000001", "это", 0, 300_000], ["w_000002", "–", 300_000, 400_000], ["w_000003", "сеть", 400_000, 800_000],
+        ["w_000004", ",", 800_000, 850_000], ["w_000005", "нет", 900_000, 1_200_000],
+      ]);
+      expect(d.removed_word_ids).toEqual([]);
+      // вставка рядом со знаком: знак остаётся отдельным словом со своим id
+      const ins = applyTranscriptOps(asr, [{ ...seg, text: "это – новая сеть , да" }]);
+      expect(ins.words.map((x) => [x.id, x.text])).toEqual([
+        ["w_000001", "это"], ["w_000002", "–"], ["w_000002.1", "новая"], ["w_000003", "сеть"], ["w_000004", ","], ["w_000005", "да"]]);
+      expect(ins.words[1]).toMatchObject({ start_us: 300_000, end_us: 400_000, timing: "asr" });
+    });
+
+    it("знак убран из текста — его слово удалено; новый знак без пары в ASR — к соседнему слову, как раньше", () => {
+      const d = applyTranscriptOps(asr, [{ ...seg, text: "это сеть , да" }]);
+      expect(ids(d)).toEqual(["w_000001", "w_000003", "w_000004", "w_000005"]);
+      expect(d.removed_word_ids).toEqual(["w_000002"]);
+      const added = applyTranscriptOps(asr, [{ ...seg, text: "это – сеть , да !" }]);
+      expect(added.words.map((x) => [x.id, x.text])).toEqual([
+        ["w_000001", "это"], ["w_000002", "–"], ["w_000003", "сеть"], ["w_000004", ","], ["w_000005", "да!"]]);
+    });
+  });
+
   it("холостая правка (слова и тексты те же) — no_change", () => {
     expect(() => applyTranscriptOps(doc, [{ op: "replace_text", word_id: "w_000002", text: "мир" }])).toThrow(/no_change/);
     expect(() => applyTranscriptOps(doc, [{ op: "replace_span", start_word_id: "w_000001", end_word_id: "w_000003", text: "привет  мир как" }])).toThrow(/no_change/);

@@ -5,7 +5,7 @@ import type { MotionSpec, QAIssue, Settings } from "@ms/contracts";
 import { FfmpegError, type FfmpegOptions, SWEEP_EVERY, gridDims, previewLuma, resolveStyle } from "@ms/render";
 import { HERO_BLOCKING, type HeroFrame, type LayoutFrame, heroIssues } from "../qa/layout.js";
 import type { KeyMoment } from "../qa/spec-checks.js";
-import { type Motion, type Window, parseSweep, temporalIssues } from "../qa/temporal.js";
+import { type Motion, type Window, parseSweep, sweepError, temporalIssues } from "../qa/temporal.js";
 
 /** Пик payoff: начало фазы payoff + столько кадров (удар уже читается). */
 export const PAYOFF_PEAK = 10;
@@ -43,7 +43,16 @@ export async function scriptSceneIssues(i: ScriptSceneQaInput): Promise<{ issues
   const notes: string[] = [];
   const sweep = parseSweep(i.browserLogs);
   const out: Omit<QAIssue, "source">[] = [];
-  if (sweep.length < 2) notes.push(`временной проход: ${sweep.length} кадров пробы — проверки по всей сцене пропущены`);
+  if (sweep.length < 2) {
+    notes.push(`временной проход: ${sweep.length} кадров пробы — проверки по всей сцене пропущены`);
+    // S17b: пропуск виден в QA (Playground), а не только в журнале попытки
+    const why = sweepError(i.browserLogs);
+    out.push({
+      code: "temporal_skipped", severity: "warning",
+      description: `проверки по всей сцене (стоящий кадр, пустая половина, поздний герой, пустые контейнеры) не выполнены: временной проход пробы не дал кадров${why ? ` (${why.slice(0, 200)})` : ""}`,
+      fix_hint: "перерендерить сцену; если повторится — просмотреть превью целиком вручную",
+    });
+  }
   else if (i.window) {
     let motion: Motion | undefined;
     if (i.previewPath) {

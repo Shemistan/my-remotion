@@ -52,20 +52,21 @@ web-build: install
 
 # Playwright UI (Task 21): настоящий сервер на tmp-хранилище (MS_ALLOW_SYSTEM_DISK=1 только
 # для него), версии из рукописных фикстур с реальным рендером, без LLM. Порт 8790 должен быть
-# свободен. Скриншоты — docs/evidence/phase-1/ui/.
+# свободен. Скриншоты — tmp/e2e-ui/<фаза>/ui/ (gitignored); обновить evidence в репозитории —
+# MS_WRITE_EVIDENCE=1 make e2e-ui (пишет в docs/evidence/{phase-1,phase-2,phase-3,script-mvp}/ui/).
 e2e-ui: web-build
 	$(NODE) npx playwright test -c web/playwright.config.ts
 
 # Приёмка Phase 1 (Task 22): UI → настоящий сервер на 127.0.0.1:8790, реальный claude и рендер,
-# хранилище /Volumes/External SSD/MotionStudio-acceptance (создаётся `doctor --init`). Долго
+# хранилище /Volumes/External SSD/moution-studio-materials/acceptance/store (создаётся `doctor --init`). Долго
 # (≈ 1,5–3 ч) и платно (справочно ≈ $10–25 по подписке). Evidence — docs/evidence/phase-1/.
 # Продолжить прогон: MS_ACC_REUSE=1 MS_ACC_ONLY=resilience,mvp make acceptance.
 acceptance: web-build
 	$(NODE) npx playwright test -c web/playwright.acceptance.config.ts
 
 # Приёмка Phase 2–3 на реальном сыром ролике (Task 34): UI → сервер на 127.0.0.1:8790, реальные
-# claude, ASR-воркер ai-platform, ffmpeg и Apple Vision; хранилище MotionStudio-acceptance, копия-
-# отрезок IMG_0685.MOV (`scripts/pick-test-video.mjs --raw`) в MotionStudio-acceptance-src.
+# claude, ASR-воркер ai-platform, ffmpeg и Apple Vision; хранилище материалов acceptance/store, копия-
+# отрезок IMG_0685.MOV (`scripts/pick-test-video.mjs --raw`) в acceptance/src папки материалов.
 # Phase 2 ≈ 15 мин, $0,1; стресс на всём 66-минутном ролике (≈ 45 мин) — отдельно: MS_ACC_ONLY=stress
 # MS_ACC_REUSE=1 make acceptance-video. Phase 3 (≈ 3 мин, $0,2): MS_ACC_ONLY=phase3-analysis,phase3-plan,phase3-recheck.
 # Evidence — docs/evidence/phase-2/ и phase-3/.
@@ -74,7 +75,7 @@ acceptance-video: web-build
 	$(NODE) npx playwright test -c web/playwright.acceptance-video.config.ts
 
 # Приёмка сценарного MVP (S12, спека §13): UI → сервер на 127.0.0.1:8790, реальные claude и рендер,
-# хранилище MotionStudio-acceptance, тексты tmp/script-mvp/block-{1,2,3}.txt (MS_ACC_BLOCKS — другой
+# хранилище материалов acceptance/store, тексты tmp/script-mvp/block-{1,2,3}.txt (MS_ACC_BLOCKS — другой
 # каталог). Долго (≈ 2–4 ч) и платно (справочно). Продолжить: MS_ACC_ONLY=<шаги> при
 # tmp/acceptance-script/state.json; новый прогон — без state.json.
 # Evidence — docs/evidence/script-mvp/checks.json и docs/evidence/script-mvp/acceptance/.

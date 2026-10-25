@@ -3,7 +3,7 @@
 // кадров на сетке пробы). Раньше QA видел только QA-кадры и финал — пустые секунды, пустая
 // половина кадра и «ничего не происходит 3 с» проходили (судья S15a).
 import { type MotionSpec, type QAIssue, isHoldBeat } from "@ms/contracts";
-import { SWEEP_TAG, type SweepFrame, gridDims } from "@ms/render";
+import { SWEEP_ERROR_TAG, SWEEP_RETRY_TAG, SWEEP_TAG, type SweepFrame, gridDims } from "@ms/render";
 import { PLACEHOLDER_HINT, placeholderStubs } from "./layout.js";
 import type { KeyMoment } from "./spec-checks.js";
 
@@ -57,10 +57,18 @@ export const STABLE_FRAMES = 15;
 /** Safe area по умолчанию (StyleBible): поля по 5 % с каждой стороны. */
 const SAFE = { x: 0.05, y: 0.05 };
 
-/** Строки временного прохода из логов браузера (битые и без замера пропускаются), по кадрам. */
+/**
+ * Строки временного прохода из логов браузера (битые и без замера пропускаются), по кадрам.
+ * Был повтор прохода (`[sweep-retry]`, S17b) — только кадры после последнего маркера: кадры
+ * оборванного прохода с ними не смешиваются.
+ */
 export function parseSweep(logs: readonly string[]): SweepFrame[] {
   const out: SweepFrame[] = [];
-  for (const l of logs) {
+  let from = 0;
+  logs.forEach((l, k) => {
+    if (l.startsWith(SWEEP_RETRY_TAG)) from = k + 1;
+  });
+  for (const l of logs.slice(from)) {
     const i = l.indexOf(SWEEP_TAG);
     if (i < 0) continue;
     try {
@@ -71,6 +79,12 @@ export function parseSweep(logs: readonly string[]): SweepFrame[] {
     }
   }
   return out.sort((a, b) => a.frame - b.frame);
+}
+
+/** Причина сбоя прохода (последняя строка `[sweep-error]`) или undefined. */
+export function sweepError(logs: readonly string[]): string | undefined {
+  const l = logs.filter((x) => x.startsWith(SWEEP_ERROR_TAG)).at(-1);
+  return l === undefined ? undefined : l.slice(SWEEP_ERROR_TAG.length).trim();
 }
 
 /** hex клеток (`packCells` kit) → 0/1 по клеткам. */

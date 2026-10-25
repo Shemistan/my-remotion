@@ -211,9 +211,9 @@ describe("applyScriptPlanOps", () => {
     const same = applyScriptPlanOps(d1, [{ op: "modify", item_id: "ss_002", patch: { technique: "structure-build", purpose: "x" } }], script);
     expect(same.items[1]).toMatchObject({ idea: "идея" });
     expect(same.items[1]!.fill).toBeUndefined();
-    // план без агента: идея и паттерн сброшены, дозаполнения нет
+    // план без агента (ревью S16a M7): дозаполнять некому — идея человека остаётся, паттерн — приёма
     const manual = applyScriptPlanOps({ ...d1, agent: "skipped" }, [{ op: "modify", item_id: "ss_002", patch: { technique: "timeline" } }], script);
-    expect(manual.items[1]).toMatchObject({ idea: "", pattern: "timeline" });
+    expect(manual.items[1]).toMatchObject({ idea: "идея", pattern: "timeline" });
     expect(manual.items[1]!.fill).toBeUndefined();
   });
 

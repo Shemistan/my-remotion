@@ -29,18 +29,21 @@ export const INCONCLUSIVE_LIMIT = 3;
  * (при 10 с — 120 с; до H2 было 40 с с первого же дедлайна).
  *
  * На сбое `signal` прерывается с StorageError и сторож останавливается. После `stop()`
- * сбой уже не прерывает.
+ * сбой уже не прерывает. `settled()` — конец проверки, начатой до `stop()` (S17b): она
+ * пишет и удаляет `.write-test-*` в корне; зависшую ждёт не дольше её дедлайна.
  */
 export function watchStorage(
   check: () => Promise<StorageStatus>,
   intervalMs: number,
   opts: { inconclusiveLimit?: number } = {},
-): { signal: AbortSignal; stop(): void; lastFailure(): StorageStatus | undefined } {
+): { signal: AbortSignal; stop(): void; settled(): Promise<void>; lastFailure(): StorageStatus | undefined } {
   const controller = new AbortController();
   const deadlineMs = DEADLINE_INTERVALS * intervalMs;
   const limit = opts.inconclusiveLimit ?? INCONCLUSIVE_LIMIT;
   let failure: Failure | undefined;
   let busy = false;
+  /** Идущая проверка (с дедлайном) — для `settled()`. */
+  let inflight: Promise<void> | undefined;
   let stopped = false;
   let streak = 0;
   let dev: number | undefined;
@@ -89,7 +92,7 @@ export function watchStorage(
   const timer = setInterval(() => {
     if (busy || stopped) return;
     busy = true;
-    void withDeadline()
+    inflight = withDeadline()
       .then((status) => {
         if (stopped) return;
         const lost = verdict(status);
@@ -100,9 +103,10 @@ export function watchStorage(
       })
       .finally(() => {
         busy = false;
+        inflight = undefined;
       });
   }, intervalMs);
   timer.unref();
 
-  return { signal: controller.signal, stop, lastFailure: () => failure };
+  return { signal: controller.signal, stop, settled: async () => inflight, lastFailure: () => failure };
 }

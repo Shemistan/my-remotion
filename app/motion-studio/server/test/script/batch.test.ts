@@ -189,8 +189,13 @@ describe("startScriptBatch", () => {
     const none = startScriptBatch(core(), { projectId: P, revision: 3, idempotencyKey: "a2" });
     expect(none.items).toEqual([]);
     expect(none.skipped?.map((x) => x.item_id)).toEqual(["ss_001", "ss_002", "ss_003", "ss_004"]);
+    // S17a: полный пакет (без item_ids и regenerate) помечен — UI досчитывает готовые сцены по состоянию
+    expect(s.full).toBe(true);
+    expect(batchStatus(env.db, env.s.root, none.id).full).toBe(true);
     const regen = startScriptBatch(core(), { projectId: P, revision: 3, idempotencyKey: "a3", itemIds: ["ss_003"], regenerate: true });
     expect(regen.items.map((x) => x.item_id)).toEqual(["ss_003"]);
+    expect(regen.full).toBe(false);
+    expect(startScriptBatch(core(), { projectId: P, revision: 3, idempotencyKey: "a5", regenerate: true }).full).toBe(false);
     expect(jobs.get(env.db, regen.items[0]!.job!.id)!.idempotency_key).toBe("script:pln_b@r3:ss_003:16:9:s1:regen-1");
     expect(codeOf(() => startScriptBatch(core(), { projectId: P, revision: 3, idempotencyKey: "a4", itemIds: ["ss_999"] }))).toBe("unknown_item");
   });

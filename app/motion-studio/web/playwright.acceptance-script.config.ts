@@ -1,5 +1,5 @@
 // Приёмка сценарного MVP (S12, `make acceptance-script`): настоящий сервер на 127.0.0.1:8790 с
-// `web/dist`, хранилище /Volumes/External SSD/MotionStudio-acceptance, реальный claude и рендер.
+// `web/dist`, хранилище /Volumes/External SSD/moution-studio-materials/acceptance/store, реальный claude и рендер.
 // Шаги — по порядку в одном воркере (`e2e/acceptance-script/script.spec.ts`); пакет генерации —
 // часы, поэтому таймауты задают сами шаги.
 import { defineConfig } from "@playwright/test";

@@ -50,3 +50,37 @@ describe("detectRepeats: граница предложения (ревью Task 
     expect(r[0]).toMatchObject({ start_word_id: "w_000001", end_word_id: "w_000001", source_end_us: 400_000 });
   });
 });
+
+describe("detectRepeats: перечисление через запятую (S17c, F3 приёмки Phase 2)", () => {
+  it("«То есть sync, sync, ask, ask.» (w_000183–188 реального ролика) — не повтор: каждое вхождение закрыто знаком", () => {
+    const words = [
+      w("w_000182", "рукопожатие.", 185_600_000, 186_660_000),
+      w("w_000183", "То", 186_960_000, 187_020_000),
+      w("w_000184", "есть", 187_020_000, 187_180_000),
+      w("w_000185", "sync,", 187_180_000, 187_620_000),
+      w("w_000186", "sync,", 187_780_000, 188_020_000),
+      w("w_000187", "ask,", 188_220_000, 188_540_000),
+      w("w_000188", "ask.", 188_600_000, 188_940_000),
+      w("w_000189", "Потом", 191_600_000, 192_440_000),
+    ];
+    expect(detectRepeats(words, F30)).toEqual([]);
+    expect(detectRepeats(ws4("Да, да, да."), F30)).toEqual([]);
+    expect(detectRepeats(ws4("красный, синий, красный, синий, белый, зелёный"), F30)).toEqual([]);
+  });
+
+  it("ревью S17c I1: заикание с запятыми, после которого фраза продолжается, — повтор", () => {
+    expect(detectRepeats(ws4("Значит, значит, мы делаем"), F30)[0]).toMatchObject({ start_word_id: "w_000001", end_word_id: "w_000001" });
+    expect(detectRepeats(ws4("Ну, ну, вот"), F30)).toHaveLength(1);
+    expect(detectRepeats(ws4("Я думаю, я думаю, что так"), F30)[0]).toMatchObject({ start_word_id: "w_000001", end_word_id: "w_000002" });
+    expect(detectRepeats(ws4("Это, это, это, сообщение"), F30)[0]).toMatchObject({ start_word_id: "w_000001", end_word_id: "w_000002" });
+    expect(detectRepeats(ws4("Это, это, это сообщение"), F30)).toHaveLength(1);
+    // в конце транскрипта без конца предложения — тоже не доказано перечисление
+    expect(detectRepeats(ws4("Значит, значит,"), F30)).toHaveLength(1);
+  });
+
+  it("оговорка и переформулировка с запятой — по-прежнему повтор", () => {
+    expect(detectRepeats(ws4("я, я, я думаю"), F30)[0]).toMatchObject({ start_word_id: "w_000001", end_word_id: "w_000002" });
+    expect(detectRepeats(ws4("мы сделали, мы сделали это"), F30)[0]).toMatchObject({ start_word_id: "w_000001", end_word_id: "w_000002" });
+    expect(detectRepeats(ws4("Это, это сообщение"), F30)).toHaveLength(1);
+  });
+});

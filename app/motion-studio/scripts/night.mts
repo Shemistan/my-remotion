@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSy
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { MARKER_FILE, OwnerBusyError, acquireOwnerLock, procInfo } from "@ms/core";
+import { MARKER_FILE, OwnerBusyError, acquireOwnerLock, assertSsdWriteAllowed, procInfo } from "@ms/core";
 import type { BenchScores } from "../server/src/bench/night-accept.js";
 import { missingScenes } from "../server/src/bench/night-accept.js";
 import { PROBE_MARK, benchRunSpent, children, createNightGit, killGroupOf, parseAgentOutput, parseLsofCwd, probeVerdict, runProcess } from "../server/src/bench/night-io.js";
@@ -263,7 +263,12 @@ const PROBE_BRIEF = `Это пробный запуск ночного цикл�
 
 async function preflight(): Promise<string[]> {
   const ok: string[] = [];
-  if (!dataDir) fail("MS_DATA_DIR не задан (export MS_DATA_DIR=\"/Volumes/External SSD/MotionStudio\")");
+  if (!dataDir) fail("MS_DATA_DIR не задан (export MS_DATA_DIR=\"/Volumes/External SSD/moution-studio-materials/store\")");
+  try {
+    assertSsdWriteAllowed(dataDir!); // S18: на SSD — только в папке материалов
+  } catch (e) {
+    fail((e as Error).message);
+  }
   if (!storageOnline()) fail(`хранилище недоступно: нет ${join(dataDir!, MARKER_FILE)} — подключи SSD`);
   ok.push(`SSD: ${dataDir}`);
   const busy = await ownerBusy();

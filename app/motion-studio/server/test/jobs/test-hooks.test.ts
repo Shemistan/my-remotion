@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type ExportRequest, type Settings, defaultSettings } from "@ms/contracts";
-import { fileProcessRegistry, procInfo } from "@ms/core";
+import { MATERIALS_ROOT, fileProcessRegistry, procInfo } from "@ms/core";
 import type { ExportResult, ExportVersionRequest, exportVersion } from "@ms/render";
 import * as jobEvents from "../../src/db/repos/job-events.js";
 import * as exportsRepo from "../../src/db/repos/exports.js";
@@ -97,14 +97,26 @@ describe("testHooks", () => {
     expect(() => testHooks({ MS_TEST_HOOKS: "1", MS_DATA_DIR: env.s.root })).toThrow(/MS_TEST_HOOKS_DIR/);
   });
 
-  it("включаются только на хранилище приёмки (*-acceptance) или во временном каталоге", () => {
-    const hooks = (dataDir?: string) => testHooks({ MS_TEST_HOOKS: "1", MS_TEST_HOOKS_DIR: hooksDir, ...(dataDir === undefined ? {} : { MS_DATA_DIR: dataDir }) });
+  it("включаются только на хранилище приёмки (папка материалов acceptance/) или во временном каталоге", () => {
+    const acc = join(MATERIALS_ROOT, "acceptance");
+    const hooks = (dataDir?: string, extra: Record<string, string> = {}) =>
+      testHooks({ MS_TEST_HOOKS: "1", MS_TEST_HOOKS_DIR: hooksDir, ...extra, ...(dataDir === undefined ? {} : { MS_DATA_DIR: dataDir }) });
     expect(() => hooks()).toThrow(/MS_DATA_DIR/);
-    expect(() => hooks("/Volumes/External SSD/MotionStudio")).toThrow(/-acceptance/);
-    expect(() => hooks("/Volumes/External SSD/MotionStudio-acceptance-old")).toThrow(/-acceptance/);
-    expect(() => hooks(join(tmpdir(), "..", "..", "MotionStudio"))).toThrow(/-acceptance/);
-    expect(hooks("/Volumes/External SSD/MotionStudio-acceptance")).toBeDefined();
-    expect(hooks("/Volumes/External SSD/MotionStudio-acceptance/")).toBeDefined();
+    expect(() => hooks(join(MATERIALS_ROOT, "store"))).toThrow(/acceptance/);
+    expect(() => hooks("/Volumes/External SSD/MotionStudio-acceptance")).toThrow(/acceptance/);
+    expect(() => hooks(join(MATERIALS_ROOT, "acceptance-old/store"))).toThrow(/acceptance/);
+    expect(() => hooks(acc)).toThrow(/acceptance/); // сама область — не хранилище
+    expect(() => hooks(join(acc, "store", "..", "..", "store"))).toThrow(/acceptance/);
+    expect(() => hooks(join(tmpdir(), "..", "..", "MotionStudio"))).toThrow(/acceptance/);
+    expect(hooks(join(acc, "store"))).toBeDefined();
+    expect(hooks(join(acc, "store") + "/")).toBeDefined();
+    // корень материалов переопределён (MS_MATERIALS_ROOT) — область acceptance берётся из него
+    expect(() => hooks(join(acc, "store"), { MS_MATERIALS_ROOT: "/Volumes/Other/m" })).toThrow(/acceptance/);
+    expect(hooks("/Volumes/Other/m/acceptance/store", { MS_MATERIALS_ROOT: "/Volumes/Other/m" })).toBeDefined();
+    // рабочее хранилище по умолчанию запрещено при любом MS_MATERIALS_ROOT (ревью S18 M2)
+    const store = join(MATERIALS_ROOT, "store");
+    expect(() => hooks(join(store, "acceptance", "x"), { MS_MATERIALS_ROOT: store })).toThrow(/рабочем хранилище/);
+    expect(() => hooks(join(store, "x", "acceptance", "y"), { MS_MATERIALS_ROOT: join(store, "x") })).toThrow(/рабочем хранилище/);
     expect(hooks(env.s.root)).toBeDefined(); // tmp/ репозитория
     expect(hooks(join(tmpdir(), "ms-hooks-store"))).toBeDefined();
   });

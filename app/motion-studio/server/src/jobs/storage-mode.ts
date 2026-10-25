@@ -74,10 +74,14 @@ export class StorageSupervisor {
 
   async stop(): Promise<void> {
     this.stopped = true;
-    this.watch?.stop();
+    const w = this.watch;
+    w?.stop();
     this.watch = undefined;
     if (this.poll) clearInterval(this.poll);
     this.poll = undefined;
+    // проверка, начатая до stop(), пишет в корень (`.write-test-*`): после stop() хранилище
+    // свободно от сторожа (S17b — уборка теста гонялась с её unlink, ENOENT)
+    await w?.settled();
     await this.busy?.catch(() => undefined);
   }
 

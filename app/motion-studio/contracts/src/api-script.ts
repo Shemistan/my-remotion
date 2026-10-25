@@ -103,6 +103,11 @@ export const ScriptBatchDtoSchema = z.object({
     status: ScriptItemStatusSchema,
   }).strict()),
   counts: z.object({ total: Count, pending: Count, running: Count, ready: Count, failed: Count, cancelled: Count, blocked: Count }).strict(),
+  /**
+   * Полный пакет (S17a): запрос без `item_ids` и без `regenerate` — генерация всех принятых сцен
+   * 16:9 или двойники всех. Готовые сцены в такой пакет не входят — UI досчитывает их по состоянию.
+   */
+  full: z.boolean().optional(),
   /** Сцены, не попавшие в пакет (9:16 без готовой 16:9-версии и т. п.), с причиной. */
   skipped: z.array(z.object({ item_id: Id, reason: z.string().min(1) }).strict()).optional(),
 }).strict();

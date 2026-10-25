@@ -47,8 +47,32 @@ describe("scriptSceneIssues", () => {
     expect(r.issues.some((x) => x.code === "dead_air")).toBe(false);
     expect(r.notes.join("\n")).toMatch(/энергия движения превью не посчитана/);
     const none = await scriptSceneIssues({ spec, settings, browserLogs: [], layout: [hold], window: { lead: 15, speech: 255, tail: 30 } });
-    expect(none.issues.map((x) => x.code)).toEqual(["no_hero"]);
+    // S17b: пропуск проверок по всей сцене виден в QA (warning), а не только в журнале
+    expect(none.issues.map((x) => `${x.code}:${x.severity}`)).toEqual(["temporal_skipped:warning", "no_hero:warning"]);
     expect(none.notes.join("\n")).toMatch(/проверки по всей сцене пропущены/);
+  });
+
+  it("S17b: проход упал и повтор тоже — temporal_skipped (warning) с причиной; других временных замечаний нет", async () => {
+    const r = await scriptSceneIssues({
+      spec, settings, browserLogs: [`[sweep-retry] Page crashed!`, ...logs().slice(0, 1), `[sweep-error] повтор: Page crashed!`], layout: [hold],
+      previewPath: "/fake.mp4", window: { lead: 15, speech: 255, tail: 30 }, luma: async () => ({ frames: [], luma: [] }),
+    });
+    const t = r.issues.find((x) => x.code === "temporal_skipped")!;
+    expect(t).toMatchObject({ source: "programmatic", severity: "warning" });
+    expect(t.description).toMatch(/Page crashed!/);
+    expect(r.issues.some((x) => ["dead_air", "empty_half", "empty_open", "late_hero", "empty_container"].includes(x.code))).toBe(false);
+  });
+
+  it("S17b: повтор прохода удался — кадры первого (оборванного) прохода не смешиваются со вторым", async () => {
+    const partial = logs().slice(0, 30);
+    const r = await scriptSceneIssues({
+      spec, settings, browserLogs: [...partial, `[sweep-retry] Page crashed!`, ...logs()], layout: [hold],
+      previewPath: "/fake.mp4", window: { lead: 15, speech: 255, tail: 30 }, luma: async () => {
+        throw new Error("нет ffmpeg");
+      },
+    });
+    expect(r.issues.some((x) => x.code === "temporal_skipped")).toBe(false);
+    expect(r.notes.join("\n")).toMatch(/50 кадров пробы \(0–294\)/);
   });
 
   it("отмена и orphaned в яркости превью пробрасываются, как у остальных шагов; таймаут — заметка (ревью S15b, M-3)", async () => {

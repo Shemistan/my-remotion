@@ -1,4 +1,4 @@
-// Приёмка сценарного MVP (S12, спека §13): хранилище MotionStudio-acceptance, сервер
+// Приёмка сценарного MVP (S12, спека §13): хранилище приёмки в папке материалов SSD, сервер
 // `server/src/main.ts` (= `npm start`) на 127.0.0.1:8790 с `web/dist`, реальный claude и рендер.
 // Состояние прогона — tmp/acceptance-script/state.json (есть — продолжение с MS_ACC_ONLY=<шаги>;
 // новый прогон — без него), журнал проверок — docs/evidence/script-mvp/checks.json (строка по id
@@ -11,12 +11,13 @@ import { type APIRequestContext, expect } from "@playwright/test";
 import Database from "better-sqlite3";
 import type { Job, ScriptBatchDto, ScriptPackageDto, ScriptStateDto } from "@ms/contracts";
 import { alive, portBusy, redact, sleep, waitHealthy } from "../acceptance/helpers.js";
+import { materialsPath } from "../../../core/src/storage/materials.js";
 
 export { alive, portBusy, redact, sleep };
 
 export const APP = fileURLToPath(new URL("../../../", import.meta.url));
 export const REPO = join(APP, "../..");
-export const ACC_ROOT = "/Volumes/External SSD/MotionStudio-acceptance";
+export const ACC_ROOT = materialsPath("acceptance", "store");
 export const RUN_DIR = join(REPO, "tmp/acceptance-script");
 export const STATE_FILE = join(RUN_DIR, "state.json");
 /** Корень evidence сценарного MVP: checks.json и REPORT.md — здесь, остальное — в `acceptance/`. */
@@ -25,7 +26,7 @@ export const EVIDENCE = join(EVIDENCE_ROOT, "acceptance");
 /** Тексты человека (main checkout, в worktree tmp/ свой): блоки 1–3. */
 export const BLOCKS_DIR = process.env.MS_ACC_BLOCKS ?? join(REPO, "tmp/script-mvp");
 /** Примеры для человека: копии папок пакетов (только добавлять). */
-export const EXAMPLES_ROOT = "/Volumes/External SSD/Youtube/FinalVideo/MyProtocol/MotionStudio-примеры";
+export const EXAMPLES_ROOT = materialsPath("examples");
 export const PORT = 8790;
 /** Опрос пакета генерации — раз в 2 мин (бриф S12, «не блокирующе»). */
 export const POLL_MS = 2 * 60_000;

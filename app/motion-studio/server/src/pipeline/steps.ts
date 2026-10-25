@@ -75,6 +75,11 @@ export interface AgentRunRecord {
   status: AgentResult<unknown>["status"];
   error?: { kind: string; message: string };
   usage: AgentUsage;
+  /**
+   * Стоимость неизвестна (S17b): рантайм бросил исключение или CLI не вернул usage —
+   * в `agent_runs.cost_usd` пишется null, а не 0.
+   */
+  costUnknown?: true;
   permissionDenials: unknown[];
   sessionId?: string;
   /** Каталог журнала относительно корня хранилища. */
@@ -309,7 +314,18 @@ export class RunCtx {
         const release = await this.acquire(this.deps.permits?.agents, sig);
         try {
           const limited = cap < task.limits.maxBudgetUsd ? { ...task, limits: { ...task.limits, maxBudgetUsd: cap } } : task;
-          const r = await this.deps.agents.run(limited, schema, sig);
+          const startedAt = new Date().toISOString();
+          let r: AgentResult<O>;
+          try {
+            r = await this.deps.agents.run(limited, schema, sig);
+          } catch (e) {
+            // процесс мог стартовать и потратить деньги: вызов всё равно в журнале (S17b)
+            this.records.push({
+              role: task.role, status: "failed", error: { kind: "cli", message: errText(e) }, costUnknown: true,
+              usage: { model: "", inputTokens: 0, outputTokens: 0, costUsd: 0 }, permissionDenials: [], startedAt, finishedAt: new Date().toISOString(),
+            });
+            throw e;
+          }
           this.record(task.role, r);
           return r;
         } finally {
@@ -394,8 +410,11 @@ export class RunCtx {
       if (rel && !rel.startsWith("..") && !isAbsolute(rel)) logDir = rel.split(sep).join("/");
     }
     if (logDir) this.agentLogs.push(logDir);
+    // неудачный вызов без итогового JSON CLI (пустой usage) — стоимость неизвестна, не 0
+    const u = r.usage;
+    const unknownCost = r.status !== "completed" && !u.model && u.costUsd === 0 && u.inputTokens === 0 && u.outputTokens === 0;
     this.records.push({
-      role, status: r.status, ...(r.error ? { error: r.error } : {}), usage: r.usage, permissionDenials: r.permissionDenials,
+      role, status: r.status, ...(r.error ? { error: r.error } : {}), usage: r.usage, ...(unknownCost ? { costUnknown: true as const } : {}), permissionDenials: r.permissionDenials,
       ...(r.sessionId ? { sessionId: r.sessionId } : {}), ...(logDir ? { logDir } : {}), startedAt: r.startedAt, finishedAt: r.finishedAt,
     });
   }

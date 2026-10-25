@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { type Settings, defaultSettings } from "@ms/contracts";
-import { type OwnerLock, type StorageStatus, acquireOwnerLock, checkStorage, macosProbe } from "@ms/core";
+import { type OwnerLock, type StorageStatus, acquireOwnerLock, checkStorage, macosProbe, materialsPath, materialsRoot, assertSsdWriteAllowed } from "@ms/core";
 import { ffprobe, probeGate, renderVersion } from "@ms/render";
 import { ClaudeCodeRuntime } from "../../src/agents/claude-code.js";
 import { loadConfig, readConfigFile } from "../../src/config.js";
@@ -24,7 +24,7 @@ import { readVersion, relockVersions } from "../../src/scenes/store.js";
 import { typecheckVersion } from "../../src/scenes/typecheck.js";
 
 const T = 60 * 60_000;
-const DATA_DIR = process.env.MS_DATA_DIR ?? "/Volumes/External SSD/MotionStudio";
+const DATA_DIR = process.env.MS_DATA_DIR ?? materialsPath("store");
 const APP = fileURLToPath(new URL("../../../", import.meta.url));
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
 const REPO_TMP = join(REPO, "tmp");
@@ -45,7 +45,8 @@ let kb: KnowledgeAdapter;
 let status: Extract<StorageStatus, { ok: true }>;
 
 beforeAll(async () => {
-  expect(existsSync("/Volumes/External SSD"), "внешний SSD не подключён").toBe(true);
+  expect(existsSync(materialsRoot()), "внешний SSD не подключён").toBe(true);
+  assertSsdWriteAllowed(DATA_DIR); // S18: на SSD — только в папке материалов
   // порядок как в CLI: owner lock → storage → relock
   lock = await acquireOwnerLock(DATA_DIR, "cli");
   const st = await checkStorage(env, macosProbe);

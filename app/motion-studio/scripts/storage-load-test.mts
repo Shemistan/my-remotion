@@ -5,7 +5,7 @@
 // Итог — JSON; код выхода 1, если ложных offline больше нуля.
 //
 // Запуск из app/motion-studio (MS_DATA_DIR — инициализированное хранилище на SSD):
-//   MS_DATA_DIR="/Volumes/External SSD/MotionStudio" ./scripts/with-node.sh npx tsx scripts/storage-load-test.mts
+//   MS_DATA_DIR="/Volumes/External SSD/moution-studio-materials/store" ./scripts/with-node.sh npx tsx scripts/storage-load-test.mts
 //   ... scripts/storage-load-test.mts --secs 120 --watchers 16 --interval 2000 --cpu 16 --diskutil 40
 //   ... scripts/storage-load-test.mts --legacy   # поведение до H2: diskutil каждую проверку, 5 с, offline с первого отказа
 //
@@ -19,6 +19,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import {
   INCONCLUSIVE_LIMIT,
+  assertSsdWriteAllowed,
   type StorageStatus,
   type VolumeProbe,
   checkStorage,
@@ -44,6 +45,14 @@ const ioDirArg = args.indexOf("--io-dir");
 const root = process.env.MS_DATA_DIR?.trim();
 if (!root) {
   console.error("storage-load-test: задай MS_DATA_DIR (инициализированное хранилище)");
+  process.exit(2);
+}
+// S18: на SSD пишем только в папке материалов (хранилище и каталог нагрузки)
+try {
+  assertSsdWriteAllowed(root);
+  if (ioDirArg >= 0 && args[ioDirArg + 1]) assertSsdWriteAllowed(args[ioDirArg + 1]!);
+} catch (e) {
+  console.error(`storage-load-test: ${(e as Error).message}`);
   process.exit(2);
 }
 

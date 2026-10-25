@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { migrate } from "../../src/db/migrate.js";
 import { type Db, openDb } from "../../src/db/open.js";
+import * as agentRuns from "../../src/db/repos/agent-runs.js";
 import * as projects from "../../src/db/repos/projects.js";
 import { claimNext, enqueue } from "../../src/jobs/queue.js";
 import { recordAgentRuns } from "../../src/pipeline/record.js";
@@ -34,5 +35,20 @@ describe("recordAgentRuns", () => {
     expect(db.prepare("SELECT cost_usd FROM agent_runs WHERE job_id = ?").pluck().get(c.job.id)).toBe(0.5);
     expect(recordAgentRuns(db, c.job.id, c.attempt - 1, [rec("x")])).toBe(false);
     expect(db.prepare("SELECT COUNT(*) FROM agent_runs WHERE job_id = ?").pluck().get(c.job.id)).toBe(1);
+  });
+
+  it("S17b: повторная запись тех же прогонов не дублирует строки; cost неизвестен — null; сумма задачи", () => {
+    projects.create(db, { id: "ra2", kind: "script", title: "t" });
+    enqueue(db, { type: "script.plan", projectId: "ra2", input: { projectId: "ra2" }, idempotencyKey: "ra-2" });
+    const c = claimNext(db, "test", 0, { running: 0, maxRunning: 4 })!;
+    const a = rec("script_director");
+    const lost: AgentRunRecord = { ...rec("script_director"), status: "failed", error: { kind: "cli", message: "spawn" }, costUnknown: true, usage: { model: "", inputTokens: 0, outputTokens: 0, costUsd: 0 } };
+    expect(recordAgentRuns(db, c.job.id, c.attempt, [a])).toBe(true);
+    expect(recordAgentRuns(db, c.job.id, c.attempt, [a, lost])).toBe(true);
+    expect(db.prepare("SELECT status, model, cost_usd FROM agent_runs WHERE job_id = ? ORDER BY cost_usd IS NULL").all(c.job.id)).toEqual([
+      { status: "completed", model: "sonnet", cost_usd: 0.5 },
+      { status: "failed", model: "unknown", cost_usd: null },
+    ]);
+    expect(agentRuns.jobCost(db, c.job.id)).toEqual({ usd: 0.5, runs: 2, unknown: 1 });
   });
 });

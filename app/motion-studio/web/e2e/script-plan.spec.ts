@@ -1,8 +1,8 @@
 // UI сценария: вкладки «Текст» и «План» (S8, Step 5) — настоящий сервер на tmp-хранилище, без
 // LLM. Dashboard → «Сценарий» → блок текста → «Сохранить» → «Построить план» без агента (пустой
 // план) → две сцены выделением мышью → смена приёма → смена скорости чтения (длительность в
-// карточке пересчитана). Скриншоты: полные — tmp/ui-e2e/script-full/, в репозиторий — 480 px
-// (docs/evidence/script-mvp/ui/{plan,text}.png).
+// карточке пересчитана). Скриншоты: полные — tmp/ui-e2e/script-full/, 480 px — tmp/e2e-ui/
+// script-mvp/ui/{plan,text}.png (MS_WRITE_EVIDENCE=1 — docs/evidence/…).
 import { type Locator, type Page, expect, test } from "@playwright/test";
 import { scriptShot } from "./helpers.js";
 

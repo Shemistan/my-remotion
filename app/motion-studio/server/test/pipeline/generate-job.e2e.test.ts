@@ -31,9 +31,10 @@ import { loadPng, lumaStats } from "../../src/qa/image.js";
 import { specChecks } from "../../src/qa/spec-checks.js";
 import { newId } from "../../src/scenes/ids.js";
 import { DEFAULT_PROJECT } from "../../src/scenes/store.js";
+import { materialsPath, materialsRoot, assertSsdWriteAllowed } from "@ms/core";
 
 const T = 90 * 60_000;
-const DATA_DIR = process.env.MS_DATA_DIR ?? "/Volumes/External SSD/MotionStudio";
+const DATA_DIR = process.env.MS_DATA_DIR ?? materialsPath("store");
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
 // закоммиченное evidence переписывается только явно: иначе каждый `make e2e` менял бы docs/
 const EVIDENCE = process.env.MS_WRITE_EVIDENCE === "1" ? join(REPO, "docs/evidence/phase-1/pipeline") : join(REPO, "tmp/pipeline-evidence");
@@ -89,7 +90,8 @@ const ocrTexts = (qa: QAReport, frame: number) => qa.ocr.find((o) => o.frame ===
 const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 
 beforeAll(async () => {
-  expect(existsSync("/Volumes/External SSD"), "внешний SSD не подключён").toBe(true);
+  expect(existsSync(materialsRoot()), "внешний SSD не подключён").toBe(true);
+  assertSsdWriteAllowed(DATA_DIR); // S18: на SSD — только в папке материалов
   await ensureRenderBrowser();
   core = await bootCore({
     env: { ...process.env, MS_DATA_DIR: DATA_DIR },

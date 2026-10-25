@@ -36,7 +36,7 @@ import { QUARANTINE, fsyncWrite, quarantineDir, setWritable } from "../scenes/st
 import { canonicalJson } from "../jobs/queue.js";
 import { sha256 } from "../scenes/hash.js";
 import { checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
-import { recordAgentRuns } from "./record.js";
+import { flushAgentRuns } from "./record.js";
 import { RunCtx, errText, isStorageError, toolless } from "./steps.js";
 
 export const FootageAnalyzeInputSchema = z.object({
@@ -305,13 +305,15 @@ export function footageAnalyze(depsOf: (ctx: JobContext) => FootageAnalyzeDeps):
         footageRepo.insert(db, { id: footageId, project_id: input.projectId, media_id: asset.id, mode, rel_path: relPath, sha256: f.sha256 });
       }, fence);
       timings.publish = (timings.publish ?? 0) + (Date.now() - t0);
-      recordAgentRuns(ctx.db, ctx.job.id, ctx.attempt, rc.records);
       d.log?.(`footage ${footageId}: ${mode}, шотов ${doc.shots.length}, кадров ${keyframeCount}, агент ${agentInfo.status} $${agentInfo.cost_usd}`);
       return done({
         footage_id: footageId, rel_path: relPath, mode, reused: false, shots: doc.shots.length, keyframes: keyframeCount, faces, vision: visionInfo, agent: agentInfo, timings_ms: timings,
       });
     } catch (e) {
       return await failed(e);
+    } finally {
+      // S17b: прогоны агентов — при любом исходе, в том числе неудачные
+      flushAgentRuns(ctx, rc.records);
     }
 
     /**

@@ -71,8 +71,18 @@ const APPROVABLE_ERR: Record<Exclude<PlanApprovable, { ok: true }>["code"], [num
 /** Префикс id пакета из ключа запроса: повтор того же `Idempotency-Key` находит пакет без новой колонки. */
 export const keyPrefix = (projectId: string, key: string): string => `sb_${sha256(`${projectId}\n${key}`).slice(0, 20)}`;
 /** Отпечаток тела запроса в id пакета (M6): тот же ключ с другим телом — 422 `idempotency_key_reused`. */
-const requestTag = (i: StartBatchInput, aspect: Aspect): string =>
+const requestTag = (i: Pick<StartBatchInput, "revision" | "itemIds" | "regenerate">, aspect: Aspect): string =>
   sha256(JSON.stringify({ revision: i.revision, aspect, item_ids: i.itemIds ? [...new Set(i.itemIds)].sort() : null, regenerate: i.regenerate === true })).slice(0, 10);
+/** Отпечаток тела запроса двойников 9:16 (`startReframe`): тот же ключ у генерации — другой id. */
+export const reframeRequestTag = (itemIds: readonly string[] | undefined): string =>
+  sha256(JSON.stringify({ reframe: "9:16", item_ids: itemIds ? [...new Set(itemIds)].sort() : null })).slice(0, 10);
+
+/**
+ * Пакет полный (S17a): id кончается отпечатком запроса без `item_ids` и `regenerate` — у генерации
+ * по ревизии пакета, у двойников — reframe без `item_ids`. Колонки не нужно: тег вычислим.
+ */
+const fullBatch = (b: ScriptBatchRow): boolean =>
+  b.id.endsWith(b.aspect === "9:16" ? reframeRequestTag(undefined) : requestTag({ revision: b.plan_revision }, b.aspect));
 
 /** Пакет, созданный запросом с этим `Idempotency-Key` (любое тело), — для 200/202 маршрута. */
 export function batchForKey(db: Db, projectId: string, key: string): ScriptBatchRow | undefined {
@@ -425,7 +435,7 @@ export function batchStatus(db: Db, root: string, batchId: string): ScriptBatchD
     return { item_id: m.item_id, scene_id: job.scene_id!, job: publicJob(job, root), version_id: versionId, status: sceneStatus(job, versionId) as ScriptItemStatus };
   });
   const counts = { total: items.length, ...Object.fromEntries(STATUSES.map((s) => [s, items.filter((x) => x.status === s).length])) } as ScriptBatchDto["counts"];
-  return { id: b.id, aspect: b.aspect, plan_revision: b.plan_revision, items, counts };
+  return { id: b.id, aspect: b.aspect, plan_revision: b.plan_revision, items, counts, full: fullBatch(b) };
 }
 
 /**

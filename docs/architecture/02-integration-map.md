@@ -30,7 +30,7 @@
                       │  (опц.) HTTP :8780 /api/photo/jobs — изображения [Ф]         │
                       └─────────────────────────────────────────────────────────────┘
 
-  Данные: MS_DATA_DIR (обязателен; внешний SSD, напр. /Volumes/External SSD/MotionStudio)
+  Данные: MS_DATA_DIR (обязателен; внешний SSD, напр. /Volumes/External SSD/moution-studio-materials/store)
           — studio.db, workspace/, cache/, logs/ — вне git, под StorageGuard
 ```
 

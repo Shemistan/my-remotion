@@ -142,11 +142,12 @@ export function applyScriptPlanOps(doc: ScriptPlanRevisionDoc, ops: ScriptPlanOp
       if (technique !== undefined && technique !== x.technique) {
         next.technique = technique;
         delete next.structure_rule;
-        // F3: идея и паттерн прежнего приёма новому не годятся — сброс (паттерн — приёма), дозаполнение
+        // F3: идея и паттерн прежнего приёма новому не годятся — сброс (паттерн — приёма), дозаполнение;
+        // в плане без агента дозаполнять некому — идея остаётся человеку (ревью S16a M7)
         if (fields.pattern === undefined) next.pattern = patternOf(technique);
-        if (fields.idea === undefined) {
+        if (fields.idea === undefined && fills) {
           next.idea = "";
-          if (fills) next.fill = "pending";
+          next.fill = "pending";
         }
       }
       // идею вписал человек — сцена заполнена

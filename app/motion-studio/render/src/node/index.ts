@@ -9,6 +9,7 @@ export { FfmpegError, type FfmpegOptions } from "./ffmpeg.js";
 export { exportDurationFrames, exportFps, exportGate } from "./export-gate.js";
 export { type AlphaCoverage, alphaAtCorner, alphaCoverage, overlayFrames } from "./alpha.js";
 export { previewLuma } from "./motion.js";
+export { SWEEP_ERROR_TAG, SWEEP_RETRY_TAG } from "./sweep.js";
 // Чистые расчёты стиля kit (без React и шрифтов) — для QA и пайплайна на сервере.
 export { KIT_FONTS, type ResolveStyleInput, type ResolvedStyle, resolveStyle } from "../motion-kit/style/resolve.js";
 export { MOTION_KIT_VERSION } from "../motion-kit/version.js";

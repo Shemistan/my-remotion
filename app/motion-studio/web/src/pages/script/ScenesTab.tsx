@@ -13,7 +13,7 @@ import { SkippedNote } from "../../components/script/SkippedNote.js";
 import "../../components/script/script.css";
 import { t } from "../../i18n/index.js";
 import { scriptErrorText } from "../../script/format.js";
-import { type SceneRow, itemNumbers, retryKey, sceneRows, visibleBatches } from "../../script/output.js";
+import { type SceneRow, itemNumbers, readySkipped, retryKey, sceneRows, visibleBatches } from "../../script/output.js";
 
 export const ScenesTab: (props: { state: ScriptStateDto }) => ReactElement = ({ state }) => {
   const projectId = state.project.id;
@@ -50,7 +50,7 @@ export const ScenesTab: (props: { state: ScriptStateDto }) => ReactElement = ({ 
       <div className="row wrap">
         {hasVertical ? <AspectSwitch value={aspect} onChange={setPicked} name="scenes-aspect" /> : null}
       </div>
-      {batches.map((b) => <BatchBar key={b.id} projectId={projectId} batch={b} />)}
+      {batches.map((b) => <BatchBar key={b.id} projectId={projectId} batch={b} readySkipped={readySkipped(b, state)} />)}
       {error ? <p className="error" role="alert">{scriptErrorText(error)}</p> : null}
       <SkippedNote batch={generate.data} numbers={numbers} />
       <SkippedNote batch={reframe.data} numbers={numbers} />

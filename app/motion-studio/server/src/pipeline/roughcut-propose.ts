@@ -47,7 +47,7 @@ import { WAVEFORM_BUCKET_MS } from "../media/waveform.js";
 import { FencedOutError, PublishCancelledError } from "../scenes/repo.js";
 import { QUARANTINE, fsyncWrite, setWritable } from "../scenes/store.js";
 import { stepInputHash, writeCheckpoint } from "./checkpoints.js";
-import { recordAgentRuns } from "./record.js";
+import { flushAgentRuns } from "./record.js";
 import { RunCtx, errText, isStorageError, toolless } from "./steps.js";
 
 export const RoughcutProposeInputSchema = z.object({
@@ -329,7 +329,6 @@ export function roughcutPropose(depsOf: (ctx: JobContext) => RoughcutProposeDeps
         registerEdlRevision(db, { projectId: input.projectId, doc, relPath: `${destRel}/${EDL_FILE}`, sha256: f.sha256, timeline });
       }, fence);
       timings.publish = (timings.publish ?? 0) + (Date.now() - t0);
-      recordAgentRuns(ctx.db, ctx.job.id, ctx.attempt, rc.records);
       d.log?.(`roughcut ${edlId}: r${revision}, решений ${doc.decisions.length} (предложено ${summary(doc).proposed}), агент ${agentInfo.status} $${agentInfo.cost_usd}`);
       return done({
         edl_id: edlId, revision, rel_path: `${destRel}/${EDL_FILE}`, reused: false, no_change: false, decisions: summary(doc),
@@ -337,6 +336,9 @@ export function roughcutPropose(depsOf: (ctx: JobContext) => RoughcutProposeDeps
       });
     } catch (e) {
       return await failed(e);
+    } finally {
+      // S17b: прогоны агентов — при любом исходе, в том числе неудачные
+      flushAgentRuns(ctx, rc.records);
     }
 
     function done(r: RoughcutProposeResult): HandlerResult {

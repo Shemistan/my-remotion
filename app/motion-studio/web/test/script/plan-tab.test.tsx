@@ -74,6 +74,16 @@ it("сообщения проверок без кодов: id сцен → «с�
   expect(li.textContent).toContain("сцена 2 и сцена 3: «сборка по шагам», «Гонка скоростей»");
 });
 
+it("S17a: сырое имя поля structure_rule и коды правил формы — русской подписью (старые ревизии плана)", () => {
+  fakeFetch();
+  const s = state();
+  s.plan!.doc.issues.push({ item_id: "ss_003", code: "adjacent_structure_repeat", severity: "warning", message: "сцены ss_002 и ss_003 подряд с одной формой времени build-strike — задайте другую structure_rule (например, request-answer)" });
+  renderQ(<PlanTab state={s} onGenerated={() => {}} />);
+  const li = screen.getByTestId("plan-issues").querySelector('[data-code="adjacent_structure_repeat"]')!;
+  expect(li.textContent).toContain(`задайте другую ${t("scriptPlan.structureRule")} (например, «${t("scriptPlan.structure.call-response")}»)`);
+  expect(li.textContent).not.toMatch(/structure_rule|request-answer/);
+});
+
 it("F9: смысловой повтор — warning с подсказкой по-русски и номерами сцен", () => {
   fakeFetch();
   const s = state();

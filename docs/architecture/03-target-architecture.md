@@ -100,7 +100,7 @@ app/motion-studio/
 
 Решение — ADR 0006. Все данные (`studio.db`, `workspace/`, кэш бандлов, логи) лежат на
 внешнем SSD в каталоге `MS_DATA_DIR`, отдельно от `local_models`. Предлагаемое значение:
-`/Volumes/External SSD/MotionStudio` ([Ф] диск подключён, APFS, Volume UUID
+`/Volumes/External SSD/moution-studio-materials/store` (с 2026-10-25, ADR 0006 «Раскладка папки материалов») ([Ф] диск подключён, APFS, Volume UUID
 `DF07AEE5-…`, свободно 211 ГБ из 477 ГБ).
 
 - `MS_DATA_DIR` **обязателен**, значения по умолчанию нет: без него сервер и CLI не стартуют.
@@ -181,7 +181,7 @@ app/motion-studio/
 ## 7. Сценарий безопасного запуска (Phase 1)
 
 1. `nvm use 22` → `cd app/motion-studio && npm ci` (pinned lockfile).
-2. Один раз: `MS_DATA_DIR="/Volumes/External SSD/MotionStudio" npm run doctor -- --init` —
+2. Один раз: `MS_DATA_DIR="/Volumes/External SSD/moution-studio-materials/store" npm run doctor -- --init` —
    создаёт каталог и маркер тома (см. §5.1).
 3. `npm run doctor`: проверяет Node ≥ 22, `claude --version`, логин Claude
    (короткий `claude -p` с `--tools ""`, стоимость < $0,01), ffmpeg/ffprobe,

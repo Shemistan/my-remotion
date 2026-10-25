@@ -7,7 +7,7 @@
 // Затем пакет 9:16 (`script.package`: NN_*.mp4 + NN_*_alpha.mov 1080×1920) и кадры обеих версий
 // (начало речи, середина, удержание) ≤ 480 px → docs/evidence/script-mvp/s10/, маска интерфейса
 // Shorts на кадре удержания → s10/safe-area-*.png. Полноразмерные кадры и MP4 — tmp/s10-e2e/.
-// Хранилище — `MS_DATA_DIR` (по умолчанию /Volumes/External SSD/MotionStudio-e2e-s10, `doctor --init`).
+// Хранилище — `MS_DATA_DIR` (по умолчанию `materialsPath("e2e", "s10")`, `doctor --init`).
 // Запуск: `MS_E2E=1 npx vitest run server/test/pipeline/script-reframe.e2e.test.ts`.
 import { execFile } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { type Job, type MotionSpec, QAReportSchema, type ScriptPlanRevisionDoc, type ScriptSceneItem, type VersionManifest } from "@ms/contracts";
-import { MARKER_FILE, initStore, macosProbe } from "@ms/core";
+import { MARKER_FILE, initStore, macosProbe, materialsPath, materialsRoot, assertSsdWriteAllowed } from "@ms/core";
 import { ensureRenderBrowser, ffprobe } from "@ms/render";
 import { ArtifactStore } from "../../src/artifacts/store.js";
 import { type Core, bootCore } from "../../src/boot.js";
@@ -35,7 +35,7 @@ import { saveScriptText } from "../../src/script/text.js";
 
 const T = 180 * 60_000;
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
-const ROOT = process.env.MS_DATA_DIR ?? "/Volumes/External SSD/MotionStudio-e2e-s10";
+const ROOT = process.env.MS_DATA_DIR ?? materialsPath("e2e", "s10");
 const EVIDENCE = join(REPO, "docs/evidence/script-mvp/s10");
 const TMP = join(REPO, "tmp/s10-e2e");
 const FINAL = ["completed", "failed", "cancelled", "blocked"];
@@ -56,7 +56,8 @@ const say = (s: string) => {
 };
 
 beforeAll(async () => {
-  expect(existsSync("/Volumes/External SSD") || process.env.MS_DATA_DIR !== undefined, "внешний SSD не подключён").toBe(true);
+  expect(existsSync(materialsRoot()) || process.env.MS_DATA_DIR !== undefined, "внешний SSD не подключён").toBe(true);
+  assertSsdWriteAllowed(ROOT); // S18: на SSD — только в папке материалов
   if (!existsSync(join(ROOT, MARKER_FILE))) await initStore(ROOT, macosProbe, {});
   await ensureRenderBrowser();
   core = await bootCore({

@@ -11,6 +11,7 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Settings, SettingsSchema, defaultSettings } from "@ms/contracts";
+import { SSD_ROOT } from "@ms/core";
 import { EXPORT_TIMEOUT_MS } from "@ms/render";
 import { z } from "zod";
 import { MAX_CALL_BUDGET_USD, MODEL_RE, ROLES, type Role } from "./agents/runtime.js";
@@ -134,8 +135,15 @@ const PlanningFileSchema = z.object({
 }).partial().strict();
 const AnalysisFileSchema = z.object({ maxCostUsd: z.number().positive().max(MAX_CALL_BUDGET_USD), occupancyWindowUs: z.number().int().min(500_000).max(60_000_000) }).partial().strict();
 
+/** Порт Control API по умолчанию; хост — только 127.0.0.1 (`main.ts`), в config.json его нет. */
+export const DEFAULT_PORT = 8790;
+/** `server.port` (S17b): непривилегированный порт; `host` и другие ключи — отказ (strict). */
+const ServerFileSchema = z.object({ port: z.number().int().min(1024).max(65535) }).partial().strict();
+
 export interface AppConfig {
   dataDir: string;
+  /** Control API: порт (хост не настраивается — только 127.0.0.1). */
+  server: { port: number };
   claudeBin: string;
   agentRuntime: "claude-code";
   agents: Record<Role, AgentSettings>;
@@ -187,6 +195,7 @@ const FileSchema = z
     roughcut: RoughcutFileSchema,
     planning: PlanningFileSchema,
     analysis: AnalysisFileSchema,
+    server: ServerFileSchema,
   })
   .partial()
   .strict();
@@ -240,6 +249,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfi
 
   return {
     dataDir,
+    server: { port: file.server?.port ?? DEFAULT_PORT },
     claudeBin: file.claudeBin ?? "claude",
     agentRuntime: "claude-code",
     agents,
@@ -271,7 +281,7 @@ function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig): Pick<AppConfig, 
   const asr: AsrConfig = {
     python: join(home, ".local/share/montage/mlx-audio-0.5.8/.venv/bin/python"),
     aiPlatformRoot: AI_PLATFORM_ROOT,
-    modelsDir: "/Volumes/External SSD/local_models",
+    modelsDir: `${SSD_ROOT}/local_models`,
     model: "whisper-large-v3-turbo",
     language: "ru",
     expectedWorkerSha256: ASR_WORKER_SHA256,
@@ -281,7 +291,7 @@ function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig): Pick<AppConfig, 
     ...file.asr,
   };
   for (const k of ["python", "aiPlatformRoot", "modelsDir"] as const) asr[k] = absPath(`asr.${k}`, asr[k], home);
-  const media: MediaConfig = { importRoots: ["/Volumes/External SSD", join(home, "Movies")], proxyShortSide: 720, thumbEveryUs: 2_000_000, ...file.media };
+  const media: MediaConfig = { importRoots: [SSD_ROOT, join(home, "Movies")], proxyShortSide: 720, thumbEveryUs: 2_000_000, ...file.media };
   media.importRoots = media.importRoots.map((p, i) => absPath(`media.importRoots[${i}]`, p, home));
   const planning: PlanningConfig = { ...PLANNING, ...file.planning };
   if (planning.minSceneUs > planning.maxSceneUs) {

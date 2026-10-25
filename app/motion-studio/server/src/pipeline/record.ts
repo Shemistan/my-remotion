@@ -11,6 +11,7 @@ import * as qaReports from "../db/repos/qa-reports.js";
 import * as renderJobs from "../db/repos/render-jobs.js";
 import { tx } from "../db/tx.js";
 import { fenceOk } from "../jobs/queue.js";
+import type { JobContext } from "../jobs/types.js";
 import type { RenderRecord } from "./fix-loop.js";
 import type { AgentRunRecord } from "./steps.js";
 
@@ -29,15 +30,22 @@ export interface RecordParts {
   messages: { role: "assistant" | "system"; text: string }[];
 }
 
+/**
+ * Уже записанные прогоны (S17b): журнал пишется и на успехе, и при неудаче задачи (`finally`
+ * обработчика), повторная запись тех же объектов строк не дублирует.
+ */
+const written = new WeakSet<AgentRunRecord>();
+
 function insertAgentRuns(db: Db, jobId: string, records: AgentRunRecord[]): void {
   for (const r of records) {
+    if (written.has(r)) continue;
     const id = `arun_${randomUUID()}`;
     agentRuns.insert(db, { id, job_id: jobId, role: r.role, model: r.usage.model || "unknown", log_dir: r.logDir, started_at: r.startedAt });
     agentRuns.finish(db, id, {
       status: r.status,
       input_tokens: r.usage.inputTokens,
       output_tokens: r.usage.outputTokens,
-      cost_usd: r.usage.costUsd,
+      ...(r.costUnknown ? {} : { cost_usd: r.usage.costUsd }),
       session_id: r.sessionId,
       permission_denials: r.permissionDenials,
       finished_at: r.finishedAt,
@@ -45,13 +53,33 @@ function insertAgentRuns(db: Db, jobId: string, records: AgentRunRecord[]): void
   }
 }
 
+/** Отметка «записано» — только после COMMIT: откат транзакции оставляет прогоны незаписанными. */
+function markWritten(records: AgentRunRecord[]): void {
+  for (const r of records) written.add(r);
+}
+
 /** Прогоны агентов фоновой задачи (script.plan, Phase 2–3), с тем же fencing, что `recordRun`. */
 export function recordAgentRuns(db: Db, jobId: string, attempt: number, records: AgentRunRecord[]): boolean {
-  return tx(db, () => {
+  const ok = tx(db, () => {
     if (!fenceOk(db, jobId, attempt)) return false;
     insertAgentRuns(db, jobId, records);
     return true;
   });
+  if (ok) markWritten(records);
+  return ok;
+}
+
+/**
+ * Прогоны агентов задачи при любом исходе (S17b): зовётся из `finally` обработчика, поэтому
+ * неудачные, оборванные и отменённые вызовы тоже попадают в `agent_runs` и в сумму задачи.
+ * Сбой записи — событие, не исключение: итог задачи он не меняет.
+ */
+export function flushAgentRuns(ctx: Pick<JobContext, "db" | "job" | "attempt" | "emit">, records: AgentRunRecord[]): void {
+  try {
+    if (!recordAgentRuns(ctx.db, ctx.job.id, ctx.attempt, records)) ctx.emit("fenced_out", `журнал агентов попытки ${ctx.attempt} не записан: попытка устарела`);
+  } catch (e) {
+    ctx.emit("record_failed", `журнал агентов не записан: ${(e as Error).message}`);
+  }
 }
 
 /**
@@ -60,7 +88,7 @@ export function recordAgentRuns(db: Db, jobId: string, attempt: number, records:
  * версия `ready`, `rendered-fail`, если `failed` (как `tested_status` в KB).
  */
 export function recordRun(db: Db, jobId: string, parts: RecordParts): boolean {
-  return tx(db, () => {
+  const ok = tx(db, () => {
     if (!fenceOk(db, jobId, parts.attempt)) return false;
     insertAgentRuns(db, jobId, parts.agentRuns);
     for (const r of parts.renders) {
@@ -91,6 +119,8 @@ export function recordRun(db: Db, jobId: string, parts: RecordParts): boolean {
     for (const m of parts.messages) chat.add(db, { scene_id: parts.sceneId, role: m.role, text: m.text, job_id: jobId, ...(m.role === "assistant" && v ? { version_id: v.id } : {}) });
     return true;
   });
+  if (ok) markWritten(parts.agentRuns);
+  return ok;
 }
 
 const VERDICT_RU: Record<string, string> = { pass: "пройден", warn: "с замечаниями", fail: "не пройден", not_checked: "не проверялся" };

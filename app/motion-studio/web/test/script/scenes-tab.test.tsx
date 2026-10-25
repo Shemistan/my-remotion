@@ -181,3 +181,26 @@ it("сервер не поставил сцену (skipped) — причина �
   expect(note.textContent).toContain("уже есть готовая версия");
   expect(note.textContent).not.toContain("ss_003");
 });
+
+it("S17a: полный пакет — готовые неустаревшие сцены плана вне пакета считаются в «Готово N из M» (по состоянию, без ответа мутации)", () => {
+  fakeFetch(routes());
+  const scenes = [scene("ss_001", "ready"), scene("ss_002", "ready"), scene("ss_003", "running")];
+  const full = batch([scenes[2]!], { full: true });
+  renderQ(<ScenesTab state={outState({ scenes, batches: [full] })} />);
+  const bar = screen.getByTestId("batch-bar");
+  expect(bar.textContent).toContain(t("scriptOutput.batch.progress", { ready: 2, total: 3 }));
+  expect(bar.querySelector('[role="progressbar"]')!.getAttribute("aria-valuenow")).toBe("67");
+});
+
+it("S17a: частичный пакет, устаревшая сцена и пакет старой ревизии плана — не досчитываются", () => {
+  fakeFetch(routes());
+  const scenes = [scene("ss_001", "ready"), scene("ss_002", "ready", { stale: true }), scene("ss_003", "running")];
+  const { unmount } = renderQ(<ScenesTab state={outState({ scenes, batches: [batch([scenes[2]!])] })} />);
+  expect(screen.getByTestId("batch-bar").textContent).toContain(t("scriptOutput.batch.progress", { ready: 0, total: 1 }));
+  unmount();
+  const r2 = renderQ(<ScenesTab state={outState({ scenes, batches: [batch([scenes[2]!], { full: true })] })} />);
+  expect(screen.getByTestId("batch-bar").textContent).toContain(t("scriptOutput.batch.progress", { ready: 1, total: 2 }));
+  r2.unmount();
+  renderQ(<ScenesTab state={outState({ scenes, batches: [batch([scenes[2]!], { full: true, plan_revision: 2 })] })} />);
+  expect(screen.getByTestId("batch-bar").textContent).toContain(t("scriptOutput.batch.progress", { ready: 0, total: 1 }));
+});

@@ -141,6 +141,11 @@ describe("дозаполнение сцены (script.plan fill)", () => {
     expect(x.key_terms).toEqual([{ text: "бакетах", word_id: w(19) }]);
     expect(unfilled(p)).toEqual([]);
     expect(r.r).toMatchObject({ outputRefs: { plan_id: d2.plan_id, revision: 3, filled: [added.id], failed: [] } });
+    // ревью S16a M8: время дозаполнения — в журнале задачи, по сцене и итогом
+    const timing = r.events.filter((e) => e.kind === "fill_scene");
+    expect(timing).toHaveLength(1);
+    expect(timing[0]!.message).toMatch(new RegExp(`^${added.id}: дозаполнена за \\d+,\\d с \\(вызовов Director: 1\\)$`));
+    expect(r.events.find((e) => e.kind === "fill_done")!.message).toMatch(/сцен в работе: 1, всего \d+,\d с/);
   });
 
   it("F3: смена приёма → дозаполнение под новый приём; паттерн чужой приёму — паттерн приёма", async () => {
@@ -165,6 +170,7 @@ describe("дозаполнение сцены (script.plan fill)", () => {
     expect(cur.items.find((x) => x.origin === "user")!.fill).toBe("failed");
     expect(unfilled(p)[0]!.message).toMatch(/впишите идею/);
     expect(r.events.map((e) => e.kind)).toContain("fill_failed");
+    expect(r.events.find((e) => e.kind === "fill_scene")!.message).toMatch(/не дозаполнена за \d+,\d с \(вызовов Director: 2\)/);
   });
 
   it("нечего дозаполнять (план перестроен или уже заполнен) — без вызова и без ревизии", async () => {
