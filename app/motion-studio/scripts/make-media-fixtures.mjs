@@ -9,6 +9,8 @@
 //   broken.mp4       обрезанный cfr (moov в конце — файл не открывается)
 //   talk-ru-takes.mp4  черновой монтаж (Task 28): фальстарт, неудачный дубль, «ну вот, как бы», ≈ 16 с
 //   cuts-3.mp4       анализ видеоряда (Task 30): три сцены по 4 с (testsrc2, smptebars, mandelbrot), тон
+//   counter-30.mp4, delayed-audio.mp4, louder.mp4, final-like.mp4 (+ -edited.wav, -ref.mkv),
+//   counter-30-16k.wav, still-30.mp4 — проверка финала (Task 44, server/test/fixtures/final/README.md)
 // `--ffprobe-fixtures` — ещё и JSON ffprobe cfr/vfr/rotated/no-audio в
 // `app/motion-studio/server/test/fixtures/ffprobe/` (пути очищены до имени файла).
 // Печатает сводку ffprobe каждого файла. Без `say` речь заменяется тоном (отмечается в выводе).
@@ -142,6 +144,42 @@ make("cuts-3.mp4", (out) => ff([
   "-c:a", "aac", "-b:a", "96k", "-ac", "1", out,
 ]));
 
+// Проверка финала (Task 44, `server/test/fixtures/final/README.md`): исходник 640×360, 30/1, 10 с —
+// testsrc2 (движущийся узор: каждый кадр свой) и «слова» розового шума (0,35 с звук, 0,35 с тишина,
+// seed закреплён: корреляция однозначна, в отличие от тона). Он же — master (CFR, `-g` = 1 с).
+const NOISE = "anoisesrc=d=10:c=pink:a=0.25:r=48000:s=44,volume=volume=0:enable='gte(mod(t,0.7),0.35)'";
+const FINAL_A = ["-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "1"];
+const FINAL_V = ["-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-g", "30"];
+make("counter-30.mp4", (out) => ff([
+  "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=30:duration=10", "-f", "lavfi", "-i", NOISE,
+  "-map", "0:v", "-map", "1:a", ...FINAL_V, "-crf", "12", ...FINAL_A, "-movflags", "+faststart", out,
+]));
+// Звук того же ролика, задержанный на 66 мс (2 кадра 30 fps) — рассинхрон.
+make("delayed-audio.mp4", (out) => ff([
+  "-i", p("counter-30.mp4"), "-map", "0:v", "-map", "0:a", "-c:v", "copy",
+  "-af", "adelay=delays=66:all=1,atrim=end=10", ...FINAL_A, out,
+]));
+// Звук на 3 дБ громче.
+make("louder.mp4", (out) => ff(["-i", p("counter-30.mp4"), "-map", "0:v", "-map", "0:a", "-c:v", "copy", "-af", "volume=3dB", ...FINAL_A, out]));
+// Звук исходника 16 кГц моно (как `source16k` Phase 2) — опора синхронности.
+make("counter-30-16k.wav", (out) => ff(["-i", p("counter-30.mp4"), "-map", "0:a", "-ac", "1", "-ar", "16000", "-c:a", "pcm_s16le", out]));
+// «Финал»: вырезан исходник [3 с, 4 с) (кадры 90–119), на кадрах финала 150–239 — прямоугольник
+// «сцены». Рядом — смонтированный звук 48 кГц (edited-audio) и эталон сцены без потерь (still).
+const CUT_V = "[0:v]split[v0][v1];[v0]trim=end_frame=90,setpts=PTS-STARTPTS[va];[v1]trim=start_frame=120,setpts=PTS-STARTPTS[vb];" +
+  "[va][vb]concat=n=2:v=1:a=0,fps=30,settb=1/30,drawbox=x=iw*0.55:y=ih*0.1:w=iw*0.4:h=ih*0.5:color=orange@1:t=fill:enable='between(n,150,239)'[v]";
+const CUT_A = "[0:a]asplit[a0][a1];[a0]atrim=end=3,asetpts=PTS-STARTPTS[aa];[a1]atrim=start=4,asetpts=PTS-STARTPTS[ab];[aa][ab]concat=n=2:v=0:a=1[a]";
+make("final-like-edited.wav", (out) => ff(["-i", p("counter-30.mp4"), "-filter_complex", CUT_A, "-map", "[a]", "-c:a", "pcm_s16le", "-ar", "48000", out]));
+make("final-like.mp4", (out) => ff([
+  "-i", p("counter-30.mp4"), "-filter_complex", `${CUT_V};${CUT_A}`, "-map", "[v]", "-map", "[a]",
+  ...FINAL_V, "-crf", "18", ...FINAL_A, "-movflags", "+faststart", out,
+]));
+make("final-like-ref.mkv", (out) => ff(["-i", p("counter-30.mp4"), "-filter_complex", CUT_V, "-map", "[v]", "-c:v", "ffv1", "-pix_fmt", "yuv420p", out]));
+// Неподвижный кадр 2 с: выравнивание по нему не определено (`inconclusive`).
+make("still-30.mp4", (out) => ff([
+  "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=1:duration=2", "-vf", "fps=30,trim=duration=2",
+  ...FINAL_V, "-crf", "12", out,
+]));
+
 make("broken.mp4", (out) => {
   const buf = readFileSync(p("talk-ru-cfr.mp4"));
   writeFileSync(out, buf.subarray(0, Math.floor(buf.length * 0.4)));
@@ -152,7 +190,7 @@ function probeJson(file) {
 }
 
 const summary = [];
-for (const name of ["talk-ru-cfr.mp4", "talk-ru-vfr.mov", "rotated.mov", "no-audio.mp4", "av-vlate.mp4", "av-alate.mp4", "talk-ru-takes.mp4", "cuts-3.mp4", "broken.mp4"]) {
+for (const name of ["talk-ru-cfr.mp4", "talk-ru-vfr.mov", "rotated.mov", "no-audio.mp4", "av-vlate.mp4", "av-alate.mp4", "talk-ru-takes.mp4", "cuts-3.mp4", "counter-30.mp4", "delayed-audio.mp4", "louder.mp4", "final-like.mp4", "still-30.mp4", "broken.mp4"]) {
   let line;
   try {
     const j = probeJson(p(name));
