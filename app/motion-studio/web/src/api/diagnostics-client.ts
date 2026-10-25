@@ -1,6 +1,7 @@
-// Клиент диагностики (Task 48): doctor, журнал сервера, трассировка задачи, архив.
-import type { DoctorReportDto } from "@ms/contracts";
-import type { BundleDto, JobTraceDto, LogEntry, LogLevel } from "@ms/contracts/diagnostics";
+// Клиент диагностики (Task 48): doctor, журнал сервера, трассировка задачи, архив. Task 49a:
+// сводка затрат (справочно) и уборка кэша.
+import type { DoctorReportDto, Job } from "@ms/contracts";
+import type { BundleDto, CostSummaryDto, JobTraceDto, LogEntry, LogLevel } from "@ms/contracts/diagnostics";
 import { useQuery } from "@tanstack/react-query";
 import { request } from "./client.js";
 
@@ -26,7 +27,26 @@ export const diagnosticsApi = {
   bundles: () => request<BundleDto[]>("GET", "/api/diagnostics/bundles"),
   makeBundle: (includePrompts: boolean) => request<BundleDto>("POST", "/api/diagnostics/bundle", { body: { includePrompts } }),
   bundleUrl: (name: string) => `/api/diagnostics/bundles/${encodeURIComponent(name)}`,
+  costs: (f: CostQueryParams) => request<CostSummaryDto>("GET", `/api/costs${qs({ ...f, jobIds: f.jobIds?.join(",") })}`),
+  cacheGc: () => request<{ job: Job }>("POST", "/api/cache/gc", { body: {}, idempotency: true }),
 };
+
+/** Фильтр сводки затрат: проект, сцена, последние N дней, задачи (пакет). */
+export interface CostQueryParams {
+  projectId?: string;
+  sceneId?: string;
+  days?: number;
+  jobIds?: string[];
+}
+
+/** Сводка затрат (справочно); пустой список задач — запроса нет; `refetchMs` — пока идёт пакет. */
+export const useCosts = (f: CostQueryParams, o: { refetchMs?: number | false } = {}) =>
+  useQuery({
+    queryKey: ["costs", f],
+    queryFn: () => diagnosticsApi.costs(f),
+    enabled: f.jobIds === undefined || f.jobIds.length > 0,
+    refetchInterval: o.refetchMs ?? false,
+  });
 
 /** Журнал; автообновление — по SSE в `LogViewer` (инвалидирует `["logs"]`). */
 export const useLogs = (f: LogFilter) => useQuery({ queryKey: ["logs", f], queryFn: () => diagnosticsApi.logs(f) });

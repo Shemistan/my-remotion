@@ -25,6 +25,8 @@ export const SAFE_KINDS: ReadonlySet<string> = new Set([
   // раннер и восстановление: прогресс, старт, статусы без текста ошибки
   "progress", "started", "completed", "requeued", "locks_released", "recovered_completed",
   "fenced_out", "abort_timeout", "late_result_ignored", "permits_released",
+  // Task 49a: сторож прогресса (этап, мс молчания, порог), итог уборки кэша (счётчики, байты)
+  "stalled", "cache_gc",
   // повторное использование опубликованного
   "plan_reused", "edl_reused", "footage_reused", "proxy_reused", "preview_reused", "semantic_reused", "transcript_reused",
   "agent_checkpoint",

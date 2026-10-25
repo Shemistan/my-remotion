@@ -1,11 +1,12 @@
 // Логика renderVersion на подменённом spawnTracked: без Chrome, бандла и ffprobe.
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { type SpawnTrackedOptions, type SpawnTrackedResult, groupExists, procInfo, safeMkdir } from "@ms/core";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { CHROME_WRAPPER } from "../src/node/browser.js";
+import { currentRenderConcurrency } from "../src/node/concurrency.js";
 import { type RenderDeps, type RenderRequest, type RenderResult, WORKER_PATH, innerTimeoutMs, renderVersion } from "../src/node/render-version.js";
 import { copyFixture, fixtureSettings, makeStore, makeTmp, removeTmp } from "./helpers.js";
 
@@ -140,10 +141,14 @@ it("worker gets a minimal env, TMPDIR inside run/tmp and the job on stdin; run t
     stills: [0, 30, 59].map((f) => ({ frame: f, out: join(req.versionDir, "frames", `${f}.png`) })),
     preview: { out: join(req.versionDir, "preview.mp4"), scale: 1, crf: 23 },
     timeoutMs: 54_000, // внутренний таймаут Remotion чуть меньше внешнего
+    concurrency: currentRenderConcurrency(), // Task 49a: render.concurrency или по ядрам
   });
   // каталоги созданы: frames/ версии, entries/ и bundles/ кэша
   expect(existsSync(join(req.versionDir, "frames"))).toBe(true);
-  expect(readdirSync(req.cacheDir).sort()).toEqual(["bundles", "entries"]);
+  // used/ — отметка использования ключа для уборки кэша (Task 49a)
+  expect(readdirSync(req.cacheDir).sort()).toEqual(["bundles", "entries", "used"]);
+  const key = basename(job.bundleDir as string);
+  expect(JSON.parse(readFileSync(join(req.cacheDir, "used", `${key}.json`), "utf8"))).toMatchObject({ job_id: req.run.runId });
 });
 
 it("worker error result is passed through with its stage", async () => {

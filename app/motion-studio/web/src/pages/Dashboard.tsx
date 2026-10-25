@@ -1,5 +1,5 @@
 // Dashboard (ТЗ §11.1): проекты (поиск, архив, корзина — Task 47), баннер восстановления после
-// сбоя, активные задачи, последние экспорты, «Новый проект».
+// сбоя, активные задачи, последние экспорты, «Новый проект», затраты на агентов (Task 49a).
 // Служебные проекты bench скрывает сервер (`GET /projects`). Страница проекта — сцены,
 // экспорты проекта и новая сцена по промпту.
 import { type HistoryEntry, type Job, type ProjectDto, type Settings, defaultSettings } from "@ms/contracts";
@@ -10,6 +10,7 @@ import { isActive, useAppSettings, useJobs, useProject } from "../api/queries.js
 import { stageText } from "../components/JobStatus.js";
 import { Link } from "../components/Link.js";
 import { SettingsForm } from "../components/SettingsForm.js";
+import { CostSummary } from "../components/costs/CostSummary.js";
 import { ProjectList } from "../components/projects/ProjectList.js";
 import { RecoveryBanner } from "../components/projects/RecoveryBanner.js";
 import { versionState } from "../components/VersionHistory.js";
@@ -122,6 +123,8 @@ export function Dashboard() {
           <NewProject />
           <ActiveJobs q={jobs} />
           <RecentExports q={jobs} />
+          {/* Task 49a: затраты за 7/30 дней, справочно */}
+          <CostSummary />
         </div>
       </div>
     </div>

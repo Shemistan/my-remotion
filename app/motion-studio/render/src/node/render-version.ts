@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import type { Settings } from "@ms/contracts";
 import { type ProcessRegistry, StorageError, fileProcessRegistry, safeMkdir, spawnTracked } from "@ms/core";
 import { CHROME_WRAPPER, findRenderBrowser } from "./browser.js";
+import { markCacheUse } from "./cache-use.js";
+import { currentRenderConcurrency } from "./concurrency.js";
 import { APP_NODE_MODULES, MOTION_KIT_DIR, mkdirOne, readProps, writeEntry } from "./entry.js";
 import { FFPROBE_ARGS, type ProbeResult, ffprobeBin, parseProbe } from "./ffprobe.js";
 import { reapByMarker, settleBrowserRecords } from "./processes.js";
@@ -43,6 +45,8 @@ export interface RenderRequest {
    * `[motion-kit:sweep]` — в `browserLogs`. Только с превью.
    */
   sweep?: { every: number; scale: number };
+  /** Параллельность Remotion (Task 49a); нет — `currentRenderConcurrency()` (config `render.concurrency`). */
+  concurrency?: number;
 }
 
 /**
@@ -249,6 +253,8 @@ export async function renderJob(req: RenderJobRequest, signal?: AbortSignal, dep
     return fail("bundle", (e as Error).message);
   }
   const key = basename(dirname(entryPoint));
+  // Task 49a: отметка до worker — уборка кэша не тронет бандл активной задачи
+  await markCacheUse(req.cacheDir, key, req.run.runId);
 
   const outDir = req.outDir ?? req.versionDir;
   const framesDir = req.export ? undefined : await mkdirOne(join(outDir, "frames"));
@@ -282,6 +288,7 @@ export async function renderJob(req: RenderJobRequest, signal?: AbortSignal, dep
     export: req.export ?? null,
     ...(!req.export && req.preview && req.sweep ? { sweep: req.sweep } : {}),
     timeoutMs: innerTimeoutMs(req.timeoutMs),
+    concurrency: req.concurrency ?? currentRenderConcurrency(),
   };
 
   const ac = new AbortController();

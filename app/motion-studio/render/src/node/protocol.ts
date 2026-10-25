@@ -64,6 +64,8 @@ export interface WorkerJob {
    * таймаута, чтобы зависшая сцена падала с понятной ошибкой до убийства группы.
    */
   timeoutMs: number;
+  /** `concurrency` Remotion для renderMedia/renderFrames (Task 49a); нет — умолчание Remotion. */
+  concurrency?: number;
 }
 
 export interface WorkerResult {

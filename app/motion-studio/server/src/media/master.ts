@@ -18,6 +18,7 @@ import { artifactPaths } from "../artifacts/paths.js";
 import { ArtifactExistsError, ArtifactStore, isPublished } from "../artifacts/store.js";
 import type { Db } from "../db/open.js";
 import * as media from "../db/repos/media.js";
+import { markMasterUse } from "../perf/cache-gc.js";
 import { sha256File } from "../scenes/hash.js";
 import { QUARANTINE, fsyncWrite, quarantineDir, setWritable } from "../scenes/store.js";
 import { FfmpegError, type RunRef, runFfmpeg, runTool } from "./ffmpeg.js";
@@ -182,6 +183,8 @@ export async function ensureMaster(d: MasterDeps, mediaId: string, fps: Fps): Pr
   const asset = media.get(d.db, mediaId);
   if (!asset) throw new Error(`master: исходника ${mediaId} нет`);
   const destRel = artifactPaths(d.root, asset.project_id).master(mediaId, fps);
+  // Task 49a: отметка использования до чтения — LRU уборки кэша (`cache.gc`)
+  await markMasterUse(d.root, asset.project_id, mediaId, fps, d.run.runId);
   if (isPublished(d.db, destRel)) return fromCache(d.root, destRel, asset.sha256);
   const status = await d.storage();
   if (!status.ok) throw new Error(`storage_unavailable: ${status.reason}: ${status.detail}`);

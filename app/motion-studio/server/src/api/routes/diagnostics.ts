@@ -2,28 +2,38 @@
 // архив диагностики. Здесь же журнал сервера подключается к шине событий: каждое событие задачи
 // (кроме прогресса) пишется в `logs/server-*.jsonl` с корреляционными полями задачи, без текста
 // пользователя (`privacy.ts`); 5xx API — тоже. Секреты — через `redact`; наружу — без абсолютных
-// путей (`maskExport` всей записи журнала).
+// путей (`maskExport` всей записи журнала). Task 49a: сводка затрат (`GET /api/costs`, справочно),
+// уборка кэша кнопкой (`POST /api/cache/gc`) и автоуборка раз в сутки при простое.
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { DoctorReportDtoSchema, type DoctorReportDto, type JobEventDto } from "@ms/contracts";
+import { DoctorReportDtoSchema, type DoctorReportDto, type JobEventDto, JobSchema } from "@ms/contracts";
 import {
   BUNDLE_NAME_RE,
   BundleBodySchema,
   type BundleDto,
   BundleDtoSchema,
+  CacheGcBodySchema,
+  COST_MAX_JOB_IDS,
+  CostQuerySchema,
+  CostSummaryDtoSchema,
   JobTraceDtoSchema,
   LogEntrySchema,
   LogsQuerySchema,
 } from "@ms/contracts/diagnostics";
 import { z } from "zod";
 import * as jobs from "../../db/repos/jobs.js";
+import { tx } from "../../db/tx.js";
+import { enqueue } from "../../jobs/queue.js";
+import { startCacheGcSchedule } from "../../perf/cache-gc.js";
+import { costSummary } from "../../perf/costs.js";
+import { DEFAULT_PROJECT } from "../../scenes/store.js";
 import { BUNDLE_DIR, bundleName, diagnosticBundle } from "../../diagnostics/bundle.js";
 import { runDoctor } from "../../diagnostics/doctor-checks.js";
 import { createLogger, type LogFields, readLogs } from "../../diagnostics/logger.js";
 import { hasUserText, maskExport, stripEvent } from "../../diagnostics/privacy.js";
 import { redactDeep } from "../../diagnostics/redact.js";
 import { jobTrace } from "../../diagnostics/trace.js";
-import { type ApiContext, IdParams, QueryBool, type ZApp } from "../context.js";
+import { type ApiContext, IdParams, QueryBool, type ZApp, idempotencyKey, replay } from "../context.js";
 import { ApiError, notFound } from "../errors.js";
 import { maskPaths, publicEvent, publicJob } from "../job-dto.js";
 import { sendFile } from "../range.js";
@@ -93,8 +103,11 @@ export const diagnosticsRoutes = (app: ZApp, { core }: ApiContext): void => {
       logger.error(`${req.method} ${req.url.split("?")[0]}: ${err.message}`, { kind: "api_error", data: { stack: err.stack?.split("\n").slice(0, 8).join("\n") } });
     }
   });
+  // автоуборка кэша (Task 49a): раз в сутки при простое
+  const stopGc = startCacheGcSchedule(() => core.db, DEFAULT_PROJECT);
   app.addHook("onClose", async () => {
     closed = true;
+    stopGc();
     if (retry) clearInterval(retry);
     untail?.();
     await logger.flush();
@@ -178,5 +191,34 @@ export const diagnosticsRoutes = (app: ZApp, { core }: ApiContext): void => {
     const state = bundles.get(name);
     if (state && state.status === "building") throw new ApiError(409, "bundle_not_ready", "архив ещё собирается");
     return sendFile(req, reply, join(dir, name), { contentType: "application/zip", attachment: name });
+  });
+
+  // ---- затраты (Task 49a): расчётная стоимость по данным CLI, справочно ----
+  app.get("/api/costs", { schema: { querystring: CostQuerySchema, response: { 200: CostSummaryDtoSchema } } }, async (req) => {
+    const q = req.query;
+    const jobIds = q.jobIds?.split(",").map((s) => s.trim()).filter(Boolean);
+    if (jobIds && jobIds.length > COST_MAX_JOB_IDS) throw new ApiError(400, "validation", `jobIds: не больше ${COST_MAX_JOB_IDS}`);
+    const since = q.since ?? (q.days ? new Date(Date.now() - q.days * 86_400_000).toISOString() : undefined);
+    return costSummary(core.db, {
+      ...(q.projectId ? { projectId: q.projectId } : {}),
+      ...(q.sceneId ? { sceneId: q.sceneId } : {}),
+      ...(since ? { since } : {}),
+      ...(jobIds ? { jobIds } : {}),
+    });
+  });
+
+  // ---- уборка кэша (Task 49a): задача cache.gc (замок store:cache) ----
+  app.post("/api/cache/gc", {
+    schema: { body: CacheGcBodySchema, response: { 200: z.object({ job: JobSchema }).strict(), 202: z.object({ job: JobSchema }).strict() } },
+  }, async (req, reply) => {
+    const key = idempotencyKey(req);
+    const db = core.db;
+    const input = req.body.maxBytes === undefined ? {} : { maxBytes: req.body.maxBytes };
+    const out = tx(db, () => {
+      const prev = replay(db, key, "cache.gc", () => input);
+      if (prev) return { status: 200 as const, job: prev };
+      return { status: 202 as const, job: enqueue(db, { type: "cache.gc", projectId: DEFAULT_PROJECT, input, idempotencyKey: key }).job };
+    });
+    return reply.status(out.status).send({ job: publicJob(out.job, core.root) });
   });
 };
