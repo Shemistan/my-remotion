@@ -16,6 +16,8 @@ export const RenderEnvSchema = z.object({
   motion_kit: z.string(),
   chrome_headless_shell: z.string(),
   node: z.string(),
+  /** Версия API motion-kit (`MOTION_KIT_VERSION`, S15a); у версий до kit 0.5.6 поля нет. */
+  motion_kit_version: z.string().optional(),
 }).strict();
 export type RenderEnv = z.infer<typeof RenderEnvSchema>;
 

@@ -6,6 +6,7 @@ export const ruScriptOutput = {
   "qa.code.key_term_early": "число или термин показан раньше, чем звучит",
   "qa.code.foreign_label": "подпись не из текста (шаблонный пример)",
   "qa.code.empty_container": "пустая карточка или рамка без содержимого",
+  "qa.code.timeline_single_event": "таймлайн из одной вехи — лучше другой приём",
   "qa.code.text_dominant": "текст вместо картинки: графики мало",
   "scriptPlan.issue.technique_not_realized": "Приём сцены не реализован в коде",
   "scriptPlan.issue.adjacent_scene_repeat": "Соседние сцены одинаковы по форме",

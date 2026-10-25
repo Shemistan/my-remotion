@@ -59,17 +59,62 @@ export interface TimelineScale {
 
 /** Подписей лет на оси — не больше. */
 const MAX_YEAR_LABELS = 9;
+/** Одна веха (0.5.6): лет по каждую сторону от неё на симметричной шкале. */
+const SINGLE_HALF_SPAN = 2;
+
+/**
+ * Размеры оси для проверки скученности (0.5.6): длина оси, радиус узла и ширина подписи вехи, px.
+ * Подписи соседних вех — по разные стороны оси, через одну — на одной стороне.
+ */
+export interface TimelineFit {
+  width: number;
+  node: number;
+  label: number;
+}
+
+/**
+ * Размеры оси `<Timeline>` (0.5.6) для `timelineScale` / `timelineLayoutFor`: та же геометрия,
+ * что рисует компонент (`width` области, высота кадра `frameH`); вертикальная ось — без
+ * проверки подписей (они слева и справа от оси).
+ */
+export function timelineFit(width: number, frameH: number, orientation: "h" | "v" = "h", height?: number): TimelineFit {
+  const node = Math.round(frameH * 0.024);
+  if (orientation === "v") return { width: (height ?? 760) - 2 * Math.round(node * 2), node, label: 0 };
+  return { width: width - 2 * Math.round(node * 2.2), node, label: TIMELINE_LABEL_MIN };
+}
+
+/** Наименьшая ширина подписи вехи по горизонтали, px. */
+export const TIMELINE_LABEL_MIN = 240;
+
+/** Вехи на шкале лет тесны: соседние ближе 2 узлов или подписи одной стороны ближе ширины подписи. */
+function crowded(pos: readonly number[], fit: TimelineFit): boolean {
+  const px = pos.map((u) => u * fit.width);
+  for (let i = 1; i < px.length; i++) if (Math.abs(px[i]! - px[i - 1]!) < 2 * fit.node) return true;
+  for (let i = 2; i < px.length; i++) if (Math.abs(px[i]! - px[i - 2]!) < fit.label) return true;
+  return false;
+}
 
 /**
  * Шкала таймлайна по датам вех (0.5.5, S14). У всех дат есть год — шкала лет: от года раньше
  * первой до года позже последней (не меньше 3 лет), деления с подписями лет (шаг 1/2/5/10 —
  * не больше 9 подписей) и тихие деления по полугодиям при шаге в год; веха — на своём месте.
+ * Одна веха (0.5.6) — шкала симметрична, ±2 года вокруг неё, веха в центре оси.
  * Иначе вехи равномерно (как `timelineLayout`) и тихие деления без подписей: по 4 на отрезок
- * между вехами (8–16 на ось; одна веха — в центре оси из 12 делений).
+ * между вехами (8–16 на ось; одна веха — в центре оси из 12 делений). С размерами оси `fit`
+ * (0.5.6) скученные вехи (`crowded`: 1990/2020/2022/2024, два события одного года) тоже идут
+ * равномерно — подписи не налезают, точки не сливаются.
  */
-export function timelineScale(dates: readonly string[]): TimelineScale {
+export function timelineScale(dates: readonly string[], fit?: TimelineFit): TimelineScale {
   const n = dates.length;
   const at = dates.map(datePosition);
+  if (n === 1 && at[0] !== undefined) {
+    const p = at[0];
+    const lo = p - SINGLE_HALF_SPAN;
+    const hi = p + SINGLE_HALF_SPAN;
+    const ticks: TimelineTick[] = [];
+    for (let v = Math.ceil(lo * 2) / 2; v <= hi + 1e-9; v += 0.5) ticks.push(Number.isInteger(v) ? { u: (v - lo) / (hi - lo), label: String(v) } : { u: (v - lo) / (hi - lo) });
+    return { mode: "years", pos: [0.5], ticks };
+  }
   if (n > 0 && at.every((x) => x !== undefined)) {
     const ps = at as number[];
     let lo = Math.floor(Math.min(...ps)) - 1;
@@ -88,7 +133,8 @@ export function timelineScale(dates: readonly string[]): TimelineScale {
     for (let v = lo; v <= hi + 1e-9; v += step) ticks.push({ u: (v - lo) / span, label: String(v) });
     if (step === 1) for (let v = lo + 0.5; v < hi; v += 1) ticks.push({ u: (v - lo) / span });
     ticks.sort((a, b) => a.u - b.u);
-    return { mode: "years", pos: ps.map((p) => (p - lo) / span), ticks };
+    const pos = ps.map((p) => (p - lo) / span);
+    if (!fit || !crowded(pos, fit)) return { mode: "years", pos, ticks };
   }
   const pos = Array.from({ length: n }, (_, i) => (n === 1 ? 0.5 : i / Math.max(1, n - 1)));
   const count = n <= 1 ? 12 : Math.min(16, Math.max(8, (n - 1) * 4));
@@ -96,6 +142,6 @@ export function timelineScale(dates: readonly string[]): TimelineScale {
 }
 
 /** Позиции вех по шкале (`timelineScale`) на rect — те же, что рисует `<Timeline>` (0.5.5). */
-export function timelineLayoutFor(dates: readonly string[], rect: Rect, orientation: "h" | "v"): Point[] {
-  return timelineScale(dates).pos.map((u) => pointAt(u, rect, orientation));
+export function timelineLayoutFor(dates: readonly string[], rect: Rect, orientation: "h" | "v", fit?: TimelineFit): Point[] {
+  return timelineScale(dates, fit).pos.map((u) => pointAt(u, rect, orientation));
 }

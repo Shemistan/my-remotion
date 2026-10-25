@@ -1,4 +1,4 @@
-# @ms/motion-kit 0.5.5 — справка для агента
+# @ms/motion-kit 0.5.6 — справка для агента
 
 Детерминированные компоненты Remotion 4.0.537. Всё движение считается от
 `useCurrentFrame()`; оформление берётся из StyleBible (`useStyle()`). Импорт —
@@ -40,6 +40,14 @@ import { AnimatedNumber, AreaChart, Background, BarChart, Callout, Camera, Card,
 поздний текст (вывод) до входа пуст или каркасом. QA видит финал по тому, кто в кадре
 движется: импульс `steady-flow` в пути, волна героя, повтор, блик — а не по включённому
 режиму; `FlowGraph` предупреждает, если `steady-flow` не продолжает ни одного потока.
+
+**0.5.6.** `Timeline`: скученные вехи (1990 / 2020 / 2022 / 2024, два события одного года) —
+равномерно, без подписей лет (подписи не налезают, точки не сливаются); одна веха — в центре
+симметричной шкалы, её год подписан. `ProcessSteps`: `dimBefore` / `focusIndex` приглушают
+пройденные шаги одной лентой — **не рисуй вторую копию компонента под `clipPath`** (две копии
+дают двойной текст: QA видит его как ghost_text). `ComparisonSide.metric = { value, max }` —
+мини-метр стороны: сравнение картинкой. Проба QA видит акценты (`Emphasis`, `Highlight`, активный
+шаг `ProcessSteps`): два акцента сразу в нескольких кадрах — accent_conflict по данным.
 
 **0.5.5.** Вид по умолчанию компонентов приёмов — без «пустых» кадров. `Timeline`: ось во
 всю ширину области с делениями; если у всех вех в дате есть год («февраль 2025», «2012») —
@@ -542,7 +550,11 @@ focusAt }` — кадры для своих элементов, привязан
 ### ComparisonSplit
 `{ left: ComparisonSide, right: ComparisonSide, beat, divider: "vs" | "line",
 emphasizeRight? = true, style? }`, `ComparisonSide = { label, title, items?: string[],
-value?, tone?: "negative" | "positive" | "neutral" }`
+value?, tone?: "negative" | "positive" | "neutral", metric?: { value: number; max: number } }`
+
+`metric` (0.5.6) — мини-метр стороны: полоса заполняется до `value / max` цветом тона после
+пунктов («3 из 4 вопросов», «12 мс из 100»). У сравнения с числами дай метр обеим сторонам —
+разница видна картинкой, а не двумя столбцами текста.
 
 Две панели на всю ширину родителя (дай ему размер). Панели въезжают навстречу и
 открываются шторкой от внешнего края (0–34 % бита), содержимое едет медленнее рамки. На
@@ -574,14 +586,22 @@ accentIndex? = 0, highlightLast? = true }` (по умолчанию h: 1690 × 6
 раза крупнее; после появления дышит `accentPulse` (ореол, кольцо на каждый вдох, свечение
 даты), дата акцентом, подпись в акцентной плашке; акцент в
 таймлайне только у неё. 3–6 вех; подпись — до трёх слов. Таймлайн с пояснениями занимает
-около половины высоты кадра — отдай ему всё место под заголовком. `timelineLayoutFor(dates, rect, orientation)` — те же позиции вех для своих слоёв (`timelineScale(dates)` — шкала и деления; `timelineLayout(n, …)` — равномерно).
+около половины высоты кадра — отдай ему всё место под заголовком. `timelineLayoutFor(dates, rect, orientation, timelineFit(width, frameH))` — те же позиции вех для своих слоёв (`timelineScale(dates, fit)` — шкала и деления; `timelineLayout(n, …)` — равномерно). Без `fit` позиции скученных вех разойдутся с тем, что рисует `<Timeline>`.
+Скученные вехи (0.5.6) — равномерно, деления без подписей лет. Одна веха — в центре
+симметричной шкалы ±2 года; но ось ради одной даты слабая: лучше крупная плашка даты или
+число-герой (Director получает подсказку `timeline_single_event`).
 ```tsx
 <Timeline items={[{ date: "2019", label: "Прототип", note: "два основателя" }, /* … */]} beat={b.timeline} orientation="h" />
 ```
 
 ### ProcessSteps
 `{ steps: string[], notes?: string[], beat, connector: "arrow" | "line", width? = 1690,
-height? = 600, accentIndex? = 0 }`
+height? = 600, accentIndex? = 0, dimBefore?: boolean | number, focusIndex?: number }`
+
+`dimBefore` (0.5.6): когда активируется шаг-фокус (`focusIndex`, по умолчанию — активный
+шаг), шаги до него уходят к непрозрачности 0.5 (или числу) за `enter_frames` — «прежние шаги
+приглушены, новый в фокусе». Одна лента: **две копии `ProcessSteps` под `clipPath` не
+делай** (двойной текст под клипом — ghost_text в QA и лишние раунды).
 
 Шаги активируются один за другим (делят 6–82 % бита, `stepStarts(beat, n)`): номер
 выскакивает, кольцо обегает его по кругу, вокруг активного — свечение, подпись поднимается
@@ -1071,7 +1091,7 @@ highlight?, align? = "left", size?, maxWidth?, style? }` — `composition.title_
 | `niceTicks(min, max, count)` | «круглые» деления оси (1/2/5 × 10^k), покрывающие диапазон |
 | `barLayout(values, rect, gapRatio, { max? })` | столбцы `Rect[]` на общей базовой линии, высота ∝ значению (`max` — верх шкалы) |
 | `timelineLayout(n, rect, "h" \| "v")` | позиции вех: от края до края rect по середине |
-| `timelineLayoutFor(dates, rect, "h" \| "v")` | позиции вех как у `<Timeline>`: по шкале лет или равномерно |
+| `timelineLayoutFor(dates, rect, "h" \| "v", timelineFit(width, frameH, "h" \| "v", height?))` | позиции вех как у `<Timeline>`: по шкале лет или равномерно (скученные — равномерно, 0.5.6) |
 | `timelineScale(dates)`, `datePosition(date)` | шкала таймлайна (`mode`, `pos`, `ticks`), место даты на шкале лет |
 | `tokenizeCode(src, lang)` | токены `{ text, kind: kw/str/num/com/id/punct/ws }`; склейка = исходный текст |
 | `typedTokens(tokens, p)` | набранная к доле p часть кода целыми токенами (пробелы — вместе со следующим) |

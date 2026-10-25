@@ -1,7 +1,7 @@
 // Компоненты приёмов сценарных сцен с данными смоука блока 1 (S14): вид по умолчанию —
 // ось времени с делениями и годами, сравнение «было/стало», граф без пустых узлов.
 // Часть — из props (`part`), пресет — tech-neon, как у проекта блока 1.
-import { Background, ComparisonSplit, FlowGraph, SafeArea, StyleProvider, Timeline, type FlowEdge, type FlowNode, type PresetId } from "@ms/motion-kit";
+import { Background, ComparisonSplit, FlowGraph, ProcessSteps, SafeArea, StyleProvider, Timeline, type FlowEdge, type FlowNode, type PresetId } from "@ms/motion-kit";
 import { AbsoluteFill } from "remotion";
 
 const NODES: FlowNode[] = [
@@ -30,6 +30,42 @@ function Part({ part }: { part: string }) {
         orientation="h"
       />
     );
+  }
+  // S15a (kit 0.5.6): скученные вехи — равномерно, без наложений подписей
+  if (part === "timelineCrowded") {
+    return (
+      <Timeline
+        items={[{ date: "1990", label: "Хеш-таблицы", note: "цепочки" }, { date: "2020", label: "Abseil", note: "Swiss Table" }, { date: "2022", label: "Rust", note: "hashbrown" }, { date: "2024", label: "Go 1.24", note: "map заново" }]}
+        beat={{ start_frame: 10, end_frame: 100 }}
+        orientation="h"
+      />
+    );
+  }
+  if (part === "splitMetric") {
+    return (
+      <ComparisonSplit
+        left={{ label: "Бакеты", title: "Старая map", items: ["цепочки overflow"], metric: { value: 8, max: 16 } }}
+        right={{ label: "Go 1.24", title: "Swiss Table", items: ["группы по 8"], metric: { value: 14, max: 16 } }}
+        beat={{ start_frame: 10, end_frame: 100 }}
+        divider="line"
+      />
+    );
+  }
+  // лента шагов в двух копиях под clipPath (как сц. 5 смоука S14): проба видит текст один раз
+  if (part === "stepsClip") {
+    const steps = ["Память заранее", "Случайный обход", "Адрес элемента", "Рост при обходе"];
+    return (
+      <div style={{ position: "relative", width: 1690, height: 560 }}>
+        {[{ l: -10, r: 25, o: 0.5 }, { l: 75, r: -10, o: 1 }].map((c, k) => (
+          <div key={k} style={{ position: "absolute", inset: 0, opacity: c.o, clipPath: `inset(-20% ${c.r}% -20% ${c.l}%)` }}>
+            <ProcessSteps steps={steps} beat={{ start_frame: 10, end_frame: 100 }} connector="arrow" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (part === "stepsDim") {
+    return <ProcessSteps steps={["Память заранее", "Случайный обход", "Адрес элемента", "Рост при обходе"]} beat={{ start_frame: 10, end_frame: 100 }} connector="arrow" dimBefore focusIndex={3} />;
   }
   if (part === "split") {
     return (

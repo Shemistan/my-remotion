@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { VersionManifest } from "@ms/contracts";
-import { APP_NODE_MODULES, MOTION_KIT_DIR } from "@ms/render";
+import { APP_NODE_MODULES, MOTION_KIT_DIR, MOTION_KIT_VERSION } from "@ms/render";
 
 async function treeHash(dir: string): Promise<string> {
   const h = createHash("sha256");
@@ -94,5 +94,6 @@ export async function renderEnv(): Promise<VersionManifest["render_env"]> {
     motion_kit: await motionKitHash(),
     chrome_headless_shell: await optional(readFile(join(APP_NODE_MODULES, ".remotion", "chrome-headless-shell", "VERSION"), "utf8")),
     node: process.versions.node,
+    motion_kit_version: MOTION_KIT_VERSION,
   };
 }

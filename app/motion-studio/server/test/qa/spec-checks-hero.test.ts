@@ -70,3 +70,17 @@ describe("empty_container: пустой контейнер в spec", () => {
     expect(of(specChecks(spec([card]), settings), "empty_container")).toEqual([]);
   });
 });
+
+describe("timeline_single_event (S15a): таймлайн из одной вехи", () => {
+  const tl = (items: unknown[]) => ({ id: "timeline", kind: "chart" as const, role: "герой: ось времени", entrance: "draw" as const, content: { component: "Timeline", orientation: "h", items } });
+  it("одна веха (смоук S14, сц. 4: ось 2024–2027 ради «февраль 2025») — warning с подсказкой сменить приём", () => {
+    const hit = of(specChecks(spec([tl([{ date: "февраль 2025", label: "релиз" }])]), settings), "timeline_single_event");
+    expect(hit).toHaveLength(1);
+    expect(hit[0]!.severity).toBe("warning");
+    expect(hit[0]!.area).toBe("timeline");
+    expect(hit[0]!.fix_hint).toMatch(/при[её]м/);
+  });
+  it("две вехи и больше — норма", () => {
+    expect(of(specChecks(spec([tl([{ date: "2019", label: "a" }, { date: "2025", label: "b" }])]), settings), "timeline_single_event")).toEqual([]);
+  });
+});

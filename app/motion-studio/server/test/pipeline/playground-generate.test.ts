@@ -59,10 +59,12 @@ async function runJob(over: Partial<GenerateDeps> = {}, input: Record<string, un
 
 const versionRows = (sceneId: string) => versions.listByScene(env.db, sceneId);
 const count = (table: string, where = "1=1", ...args: unknown[]) => (env.db.prepare(`SELECT count(*) AS n FROM ${table} WHERE ${where}`).get(...args) as { n: number }).n;
+let blockingN = 0;
+/** Blocking Visual QA; область своя у каждого вызова — не повтор после исправления (S15a). */
 const blockingQa = (frames: number[], code = "clipping"): Partial<{ output: ReturnType<typeof visualOutput> }> => ({
   output: visualOutput(frames, undefined, {
     gate: { visual: "fail", semantic: "pass", style: "pass" },
-    issues: [{ code, severity: "blocking", frame: frames[0], area: "заголовок", description: "заголовок обрезан левым краем", fix_hint: "сдвинь заголовок внутрь safe area" }],
+    issues: [{ code, severity: "blocking", frame: frames[0], area: `заголовок ${++blockingN}`, description: "заголовок обрезан левым краем", fix_hint: "сдвинь заголовок внутрь safe area" }],
   }),
 });
 

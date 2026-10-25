@@ -7,10 +7,49 @@
 import type { ComponentType } from "react";
 import { useLayoutEffect, useRef } from "react";
 import { continueRender, delayRender, getInputProps, useCurrentFrame, useVideoConfig } from "remotion";
-import { type Box, LAYOUT_TAG, type RawBox, type RawText, VISIBLE_OPACITY, areaShares, beginHoldFrame, holdMarks, summarizeBoxes, summarizeLayout, textLineItems } from "../motion-kit/layout-probe.js";
+import { type Box, CLIP_VISIBLE_MIN, LAYOUT_TAG, type LineRect, type RawAccent, type RawBox, type RawText, VISIBLE_OPACITY, areaShares, beginHoldFrame, clipLine, holdMarks, insetClipRect, summarizeAccents, summarizeBoxes, summarizeLayout, textLineItems } from "../motion-kit/layout-probe.js";
 
 /** Флаг пробы во входных props кадров-стоп. */
 export const PROBE_PROP = "__msLayoutProbe";
+
+const boxOf = (r: DOMRect): Box => ({ x: r.left, y: r.top, w: r.width, h: r.height });
+
+/**
+ * Клипы предков элемента до `root` (0.5.6), в координатах окна: overflow hidden/clip — рамка
+ * предка, `clip-path: inset()` — её внутренний прямоугольник. Копия компонента под clipPath
+ * (лента шагов в двух слоях) не видна за клипом — её текст не «призрак».
+ */
+function ancestorClips(el: Element, root: Element): Box[] {
+  const out: Box[] = [];
+  for (let p: Element | null = el; p && p !== root.parentElement; p = p.parentElement) {
+    const cs = getComputedStyle(p);
+    const over = [cs.overflowX, cs.overflowY].some((v) => v === "hidden" || v === "clip");
+    const inset = cs.clipPath && cs.clipPath !== "none" ? cs.clipPath : "";
+    if (!over && !inset.startsWith("inset(")) continue;
+    const r = p.getBoundingClientRect();
+    if (over) out.push(boxOf(r));
+    if (inset.startsWith("inset(")) {
+      const scale = p instanceof HTMLElement && p.offsetWidth > 0 ? r.width / p.offsetWidth : 1;
+      const c = insetClipRect(inset, boxOf(r), scale);
+      if (c) out.push(c);
+    }
+  }
+  return out;
+}
+
+/** Строки текста под клипами: видимая часть, если её не меньше CLIP_VISIBLE_MIN. */
+function visibleLines(rects: Iterable<DOMRect>, clips: readonly Box[]): LineRect[] {
+  const out: LineRect[] = [];
+  for (const r of rects) {
+    if (clips.length === 0) {
+      out.push(r);
+      continue;
+    }
+    const c = clipLine(boxOf(r), clips);
+    if (c.share >= CLIP_VISIBLE_MIN) out.push({ left: c.rect.x, top: c.rect.y, width: c.rect.w, height: c.rect.h });
+  }
+  return out;
+}
 
 /** Видимый текст под `root` в координатах кадра (от `origin` — левого верхнего угла композиции). */
 export function collectText(root: Element, origin: { x: number; y: number }): RawText[] {
@@ -55,10 +94,11 @@ export function collectText(root: Element, origin: { x: number; y: number }): Ra
       fontPx: parseFloat(cs.fontSize) * scale,
       opacity,
     };
+    const clips = ancestorClips(el, root);
     for (const t of texts) {
       const range = document.createRange();
       range.selectNodeContents(t);
-      out.push(...textLineItems(base, t.data, Array.from(range.getClientRects()), origin));
+      out.push(...textLineItems(base, t.data, visibleLines(Array.from(range.getClientRects()), clips), origin));
     }
   }
   return out;
@@ -96,7 +136,7 @@ function svgContentRect(svg: SVGSVGElement): DOMRect | null {
 export function collectGraphics(root: Element, origin: { x: number; y: number }): Box[] {
   const out: Box[] = [];
   for (const el of Array.from(root.querySelectorAll("svg, img, canvas"))) {
-    if (el.closest("[data-ms-bg]") || (el.parentElement?.closest("svg") ?? null) !== null) continue;
+    if (el.closest("[data-ms-bg]") || el.closest('[aria-hidden="true"]') || (el.parentElement?.closest("svg") ?? null) !== null) continue;
     if (opacityOf(el) < VISIBLE_OPACITY) continue;
     const r = el instanceof SVGSVGElement ? svgContentRect(el) : el.getBoundingClientRect();
     if (r && r.width > 0 && r.height > 0) out.push(shift(r, origin));
@@ -109,12 +149,23 @@ export function collectBoxes(root: Element, origin: { x: number; y: number }): R
   return Array.from(root.querySelectorAll("[data-ms-box]")).map((el, i) => {
     const r = el.getBoundingClientRect();
     const a = Math.max(1, r.width * r.height);
-    const graphic = Array.from(el.querySelectorAll("svg, img, canvas")).some((g) => {
+    // панель с графикой kit (метр ComparisonSplit, 0.5.6) помечена data-ms-graphic
+    const graphic = el.hasAttribute("data-ms-graphic") || Array.from(el.querySelectorAll("svg, img, canvas")).some((g) => {
       const gr = g instanceof SVGSVGElement ? svgContentRect(g) : g.getBoundingClientRect();
       return gr !== null && gr.width * gr.height >= 0.06 * a && opacityOf(g) >= VISIBLE_OPACITY;
     });
     return { id: `${el.getAttribute("data-ms-box")}:${el.getAttribute("data-ms-id") ?? ""}:${i}`, kind: el.getAttribute("data-ms-box") ?? "box", rect: shift(r, origin), opacity: opacityOf(el), graphic };
   });
+}
+
+/** Акценты kit (`data-ms-accent`, 0.5.6): сила, вложенность в другой акцент, прозрачность. */
+export function collectAccents(root: Element): RawAccent[] {
+  return Array.from(root.querySelectorAll("[data-ms-accent]")).map((el, i) => ({
+    id: `${el.tagName.toLowerCase()}:${el.getAttribute("data-ms-id") ?? ""}:${i}`,
+    level: Number(el.getAttribute("data-ms-accent")) || 0,
+    nested: (el.parentElement?.closest("[data-ms-accent]") ?? null) !== null,
+    opacity: opacityOf(el),
+  }));
 }
 
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
@@ -156,7 +207,8 @@ function Probe() {
         const size = box ? { w: box.width, h: box.height } : { w: width, h: height };
         const boxes = box ? summarizeBoxes(collectBoxes(root, origin), sum.items, size) : [];
         const areas = areaShares(sum.items, boxes, box ? collectGraphics(root, origin) : [], size);
-        console.log(`${LAYOUT_TAG} ${JSON.stringify({ ...sum, holds: holdMarks(frame), boxes, areas, ...(box ? {} : { unmeasured: true }) })}`);
+        const accents = box ? summarizeAccents(collectAccents(root)) : [];
+        console.log(`${LAYOUT_TAG} ${JSON.stringify({ ...sum, holds: holdMarks(frame), boxes, areas, accents, ...(box ? {} : { unmeasured: true }) })}`);
       } finally {
         continueRender(handle);
       }

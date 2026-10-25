@@ -55,6 +55,8 @@ export interface LayoutFrame {
   boxes?: LayoutBox[];
   /** Доли кадра под текстом и под графикой (0.5.5, `areaShares`). */
   areas?: { text: number; graphic: number };
+  /** Активные акценты кадра (0.5.6, `summarizeAccents`); нет поля — проба старого kit. */
+  accents?: { id: string; level: number }[];
 }
 
 /**
@@ -221,6 +223,67 @@ export function areaShares(items: LayoutItem[], boxes: LayoutBox[], graphics: Bo
   }
   const n = gw * gh;
   return { text: Math.round((t / n) * 1000) / 1000, graphic: Math.round((g / n) * 1000) / 1000 };
+}
+
+/** Видимая доля строки под клипом предков (0.5.6): меньше — строка в реестр не идёт. */
+export const CLIP_VISIBLE_MIN = 0.3;
+
+/**
+ * Прямоугольник `clip-path: inset(...)` элемента с рамкой `box` (0.5.6, чистая функция):
+ * 1–4 значения в % (от ширины/высоты рамки) или px (× `scale` — масштаб элемента на экране),
+ * `round …` игнорируется. Не inset (`none`, `url()`, круг) — `null`: клипа по прямоугольнику нет.
+ */
+export function insetClipRect(clip: string, box: Box, scale = 1): Box | null {
+  const m = /^\s*inset\(([^)]*)\)/.exec(clip);
+  if (!m) return null;
+  const parts = m[1]!.split(/\s+round\s+/)[0]!.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0 || parts.length > 4) return null;
+  const [t, r = t, b = t, l = r] = parts as [string, string?, string?, string?];
+  const val = (v: string, size: number) => (v.endsWith("%") ? (parseFloat(v) / 100) * size : parseFloat(v) * scale);
+  const top = val(t, box.h);
+  const right = val(r!, box.w);
+  const bottom = val(b!, box.h);
+  const left = val(l!, box.w);
+  if (![top, right, bottom, left].every(Number.isFinite)) return null;
+  return { x: box.x + left, y: box.y + top, w: Math.max(0, box.w - left - right), h: Math.max(0, box.h - top - bottom) };
+}
+
+/**
+ * Строка под клипами предков (0.5.6, чистая функция): видимая часть — пересечение со всеми
+ * клипами (overflow hidden/clip, inset-клип). `share` — видимая доля площади строки.
+ */
+export function clipLine(rect: Box, clips: readonly Box[]): { rect: Box; share: number } {
+  let x0 = rect.x;
+  let y0 = rect.y;
+  let x1 = rect.x + rect.w;
+  let y1 = rect.y + rect.h;
+  for (const c of clips) {
+    x0 = Math.max(x0, c.x);
+    y0 = Math.max(y0, c.y);
+    x1 = Math.min(x1, c.x + c.w);
+    y1 = Math.min(y1, c.y + c.h);
+  }
+  const w = Math.max(0, x1 - x0);
+  const h = Math.max(0, y1 - y0);
+  return { rect: { x: x0, y: y0, w, h }, share: area(rect) > 0 ? (w * h) / area(rect) : 0 };
+}
+
+/** Акцент в кадре (0.5.6): элемент `data-ms-accent` (Emphasis, Highlight, активный шаг ProcessSteps). */
+export interface RawAccent {
+  id: string;
+  level: number;
+  /** Вложен в другой акцент: один объект, а не два. */
+  nested: boolean;
+  /** Итоговая прозрачность (произведение по предкам). */
+  opacity: number;
+}
+
+/** Акцент «активен», когда его сила выше этого уровня (удар и дыхание удержания). */
+export const ACCENT_ACTIVE = 0.5;
+
+/** Активные акценты кадра (0.5.6, чистая функция): видимые, не вложенные, сила > ACCENT_ACTIVE. */
+export function summarizeAccents(raw: readonly RawAccent[]): { id: string; level: number }[] {
+  return raw.filter((a) => !a.nested && a.opacity >= VISIBLE_OPACITY && a.level > ACCENT_ACTIVE).map((a) => ({ id: a.id, level: Math.round(a.level * 100) / 100 }));
 }
 
 /** Прямоугольник строки текста в координатах окна (DOMRect / ClientRect). */

@@ -54,6 +54,35 @@ describe("timelineScale", () => {
     expect(timelineScale(["Go 1.24"]).pos).toEqual([0.5]);
   });
 
+  it("одна веха (S15a) — шкала симметрична: веха в центре, её год подписан рядом", () => {
+    const sc = timelineScale(["февраль 2025"]);
+    expect(sc.pos[0]!).toBeCloseTo(0.5, 5);
+    const labels = sc.ticks.filter((t) => t.label).map((t) => t.label);
+    expect(labels).toEqual(expect.arrayContaining(["2024", "2025", "2026"]));
+    // года по обе стороны поровну
+    const before = sc.ticks.filter((t) => t.label && t.u < 0.5).length;
+    const after = sc.ticks.filter((t) => t.label && t.u > 0.5).length;
+    expect(Math.abs(before - after)).toBeLessThanOrEqual(1);
+  });
+
+  it("скученные вехи (S15a): 1990/2020/2022/2024 на 1600 px — равномерно, без подписей лет", () => {
+    const fit = { width: 1600, node: 26, label: 240 };
+    const sc = timelineScale(["1990", "2020", "2022", "2024"], fit);
+    expect(sc.mode).toBe("even");
+    expect(sc.pos).toEqual([0, 1 / 3, 2 / 3, 1]);
+    expect(sc.ticks.every((t) => t.label === undefined)).toBe(true);
+    // просторные — шкала лет остаётся
+    expect(timelineScale(["2019", "2021", "2023"], fit).mode).toBe("years");
+    // без размеров — как раньше (шкала лет)
+    expect(timelineScale(["1990", "2020", "2022", "2024"]).mode).toBe("years");
+  });
+
+  it("одинаковые годы не сливаются в одну точку", () => {
+    const sc = timelineScale(["2024", "2024", "2025"], { width: 1600, node: 26, label: 240 });
+    const px = sc.pos.map((u) => u * 1600);
+    for (let i = 1; i < px.length; i++) expect(Math.abs(px[i]! - px[i - 1]!)).toBeGreaterThanOrEqual(52);
+  });
+
   it("timelineLayoutFor — позиции вех по шкале на rect", () => {
     const pts = timelineLayoutFor(["2019", "2021", "2023"], { x: 100, y: 0, w: 1000, h: 200 }, "h");
     expect(pts.map((p) => p.y)).toEqual([100, 100, 100]);

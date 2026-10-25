@@ -26,6 +26,32 @@ export interface ProcessStepsProps {
   width?: number;
   height?: number;
   accentIndex?: number;
+  /**
+   * Приглушить пройденные шаги (0.5.6): когда активируется шаг-фокус, шаги до него (карточка,
+   * номер, кольцо, коннектор) плавно уходят к этой непрозрачности (`true` — 0.5). Вместо двух
+   * копий компонента под clipPath — одна лента (копии дают двойной текст и ложные ghost_text).
+   */
+  dimBefore?: boolean | number;
+  /** Шаг-фокус (0.5.6): с его старта приглушаются шаги до него (по умолчанию — активный шаг). */
+  focusIndex?: number;
+}
+
+/** Непрозрачность приглушённого пройденного шага по умолчанию (`dimBefore: true`). */
+export const STEP_DIM = 0.5;
+
+/**
+ * Множитель непрозрачности шага `i` в кадре (0.5.6, чистая функция): 1 — без приглушения; шаги
+ * до фокуса (`focusIndex`, иначе активный шаг) уходят к `dim` за `enter` кадров от старта фокуса.
+ */
+export function stepDim(frame: number, starts: readonly number[], i: number, o: { dim?: boolean | number; focus?: number; enter: number }): number {
+  if (o.dim === undefined || o.dim === false) return 1;
+  const level = o.dim === true ? STEP_DIM : Math.max(0, Math.min(1, o.dim));
+  const active = starts.reduce((acc, t, k) => (frame >= t ? k : acc), -1);
+  const pivot = o.focus ?? active;
+  if (pivot < 0 || i >= pivot || starts[pivot] === undefined) return 1;
+  const t = starts[pivot]!;
+  const k = Math.max(0, Math.min(1, (frame - t) / Math.max(1, o.enter)));
+  return 1 - (1 - level) * k;
 }
 
 /** Старт активации шага i: шаги делят первые 82 % бита, первый — с 6 %. */
@@ -41,7 +67,7 @@ export function ProcessSteps(props: ProcessStepsProps) {
   return <PosterGate pre={props.pre} beat={props.beat} render={(css, underlay) => <ProcessStepsBody {...props} posterCss={css} underlay={underlay} />} />;
 }
 
-function ProcessStepsBody({ steps, notes = [], beat, connector, width = 1690, height = 560, accentIndex = 0, posterCss, underlay }: ProcessStepsProps & { posterCss?: CSSProperties; underlay?: ReactNode }) {
+function ProcessStepsBody({ steps, notes = [], beat, connector, width = 1690, height = 560, accentIndex = 0, dimBefore, focusIndex, posterCss, underlay }: ProcessStepsProps & { posterCss?: CSSProperties; underlay?: ReactNode }) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height: frameH } = useVideoConfig();
@@ -61,6 +87,7 @@ function ProcessStepsBody({ steps, notes = [], beat, connector, width = 1690, he
   const enterEase = easingOf(s, "enter");
   // активный шаг: последний начавшийся
   const active = starts.reduce((acc, t, i) => (frame >= t ? i : acc), -1);
+  const dimOf = (i: number) => stepDim(frame, starts, i, { dim: dimBefore, ...(focusIndex !== undefined ? { focus: focusIndex } : {}), enter: s.motion.enter_frames });
 
   return (
     <div style={{ position: "relative", width, height, ...posterCss }}>
@@ -90,7 +117,7 @@ function ProcessStepsBody({ steps, notes = [], beat, connector, width = 1690, he
               borderRadius: radius(s, 2),
               background: `linear-gradient(180deg, ${alpha(color, (dark ? 0.12 : 0.07) * hot)}, ${alpha(color, 0)} 70%), ${surfaceAt(s, 1)}`,
               boxShadow: `inset 0 ${(2 * hot + 1).toFixed(2)}px 0 ${alpha(isActive || hot > 0 ? color : s.palette.text, 0.1 + 0.6 * hot)}, ${shadow(s, hot > 0.5 ? 2 : 1)}`,
-              opacity: clamp01(q * 1.6) * (done ? 0.82 : 1),
+              opacity: clamp01(q * 1.6) * (done ? 0.82 : 1) * dimOf(i),
               transform: `translateY(${((1 - q) * 46 * s.amplitude).toFixed(2)}px)`,
               display: "flex",
               flexDirection: "column",
@@ -145,7 +172,7 @@ function ProcessStepsBody({ steps, notes = [], beat, connector, width = 1690, he
           const sw = 4;
           const dot = connector === "line" && p > 0 ? ramp(frame, t1, t1 + frames(s, 14), EASE.inOutCubic) : 0;
           return (
-            <g key={`c${i}`}>
+            <g key={`c${i}`} opacity={dimOf(i + 1) < 1 ? dimOf(i) : 1}>
               <line x1={x0} x2={x1} y1={cy} y2={cy} stroke={alpha(s.palette.text, 0.12)} strokeWidth={sw * 0.75} strokeDasharray={connector === "line" ? "1 11" : undefined} strokeLinecap="round" />
               {p > 0 ? <line x1={x0} x2={x - (connector === "arrow" ? ah * 0.6 * p : 0)} y1={cy} y2={cy} stroke={color} strokeWidth={sw} strokeLinecap="round" /> : null}
               {connector === "arrow" && p > 0 ? (
@@ -166,7 +193,7 @@ function ProcessStepsBody({ steps, notes = [], beat, connector, width = 1690, he
           const glow = ramp(frame, t, t + frames(s, 10)) * (next === undefined ? 1 : 1 - ramp(frame, next, next + frames(s, 10)));
           const fill = i === active || (next === undefined && frame >= t);
           return (
-            <g key={`s${i}`} transform={`translate(${cx(i)} ${cy})`}>
+            <g key={`s${i}`} transform={`translate(${cx(i)} ${cy})`} opacity={dimOf(i)} data-ms-accent={glow > 0 ? glow.toFixed(2) : undefined}>
               <circle r={R * 2.4} fill={`url(#${id}-halo)`} opacity={glow} />
               <circle r={Math.max(0, R * pop)} fill={fill ? `url(#${id}-fill)` : surfaceAt(s, 2)} stroke={alpha(s.palette.text, 0.1)} strokeWidth={1} />
               {ring > 0 ? <circle r={R + 9} fill="none" stroke={done ? alpha(color, 0.75) : color} strokeWidth={3} pathLength={1} strokeDasharray={drawDash(ring)} transform="rotate(-90)" /> : null}
@@ -198,7 +225,7 @@ function ProcessStepsBody({ steps, notes = [], beat, connector, width = 1690, he
               fontSize: R * 0.7,
               letterSpacing: `${tracking(s, "mono")}em`,
               color: isActive ? (dark ? s.palette.bg : "#ffffff") : done ? color : s.palette.muted,
-              opacity: clamp01(num * 1.6),
+              opacity: clamp01(num * 1.6) * dimOf(i),
               transform: `translateY(${((1 - num) * R * 0.6).toFixed(2)}px)`,
               fontVariantNumeric: "tabular-nums",
             }}

@@ -4,7 +4,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, 
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type ExportRequest, ExportManifestSchema, type Settings, defaultSettings } from "@ms/contracts";
-import { type ExportResult, type ExportVersionRequest, FfmpegError, type alphaAtCorner, type exportVersion } from "@ms/render";
+import { type ExportResult, type ExportVersionRequest, FfmpegError, MOTION_KIT_VERSION, type alphaAtCorner, type exportVersion } from "@ms/render";
 import * as exportsRepo from "../../src/db/repos/exports.js";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as versions from "../../src/db/repos/versions.js";
@@ -305,6 +305,21 @@ describe("sceneExport", () => {
     const m = ExportManifestSchema.parse(JSON.parse(readFileSync(join(exportsDir(), refs.export_id, "export-manifest.json"), "utf8")));
     expect(m.tempo_check).toEqual(tempo);
     expect(m.warnings).toEqual(refs.warnings);
+  });
+
+  it("S15a: manifest версии фиксирует MOTION_KIT_VERSION; экспорт на другом kit — предупреждение kit_changed", async () => {
+    const v = await readyVersion();
+    const vm = JSON.parse(readFileSync(join(env.s.root, v.path, "manifest.json"), "utf8")) as { render_env: { motion_kit_version?: string } };
+    expect(vm.render_env.motion_kit_version).toBe(MOTION_KIT_VERSION);
+    const same = await runExport(v.id, MP4);
+    expect((same.r as { outputRefs: { warnings?: string[] } }).outputRefs.warnings ?? []).not.toEqual(expect.arrayContaining([expect.stringMatching(/kit_changed/)]));
+    const job = enqueueExport(v.id, MP4);
+    const c = claimNext(env.db, "srv", Date.now(), { running: 0, maxRunning: 2 })!;
+    const now = { remotion: "4", render_lock_sha256: "0".repeat(64), motion_kit: "sha256:x", chrome_headless_shell: "1", node: "22", motion_kit_version: "9.9.9" };
+    const r = await sceneExport({ repo, renderEnv: async () => now, deps: () => ({ storage: () => okStatus(env.s.root), export: fakeExport().fn, alpha: async () => 0 }) })(ctxOf(job.id, c.attempt));
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    const refs = (r as { outputRefs: { warnings?: string[] } }).outputRefs;
+    expect(refs.warnings?.join("\n")).toMatch(new RegExp(`kit_changed: .*${MOTION_KIT_VERSION.replace(/\./g, "\\.")}.*9\\.9\\.9`));
   });
 
   it("F7: mp4 версии с прозрачным фоном → предупреждение в манифесте (H.264 без альфы)", async () => {

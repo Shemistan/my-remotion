@@ -99,7 +99,8 @@ async function seedNeighbor(itemId: string, spec: MotionSpec) {
 }
 
 /** Код сцены с ключевым компонентом приёма hero-number (S14: приём проверяется до рендера). */
-const HERO_SCENE = `import { AnimatedNumber } from "@ms/motion-kit";\n${GOOD_SCENE}`;
+// приём hero-number реализован: компонент стоит в JSX (S15a — импорта мало)
+const HERO_SCENE = `import { AnimatedNumber } from "@ms/motion-kit";\n${GOOD_SCENE}export const Hero = () => <AnimatedNumber value={3} />;\n`;
 const heroEngineer = async () => ({ files: { "src/Scene.tsx": HERO_SCENE } });
 
 describe("playground.generate со script", () => {

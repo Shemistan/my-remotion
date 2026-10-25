@@ -40,6 +40,46 @@ export function acceptedAsWarn(report: QAReport, why: string): QAReport {
   };
 }
 
+/** Коды, которые исправляются не больше одного раза (S15a): повтор — warning при любых кадрах. */
+export const FIX_ONCE: ReadonlySet<string> = new Set(["accent_conflict"]);
+/** Пометка замечания, пониженного до warning как повтор после исправления. */
+export const REPEAT_MARK = "[повтор после исправления";
+const REPEAT_PREFIX = /^\[повтор после исправления[^\]]*\]\s*/;
+
+/** Ключ замечания: код, область и кадры (поле `frame` и список «кадры …» в описании). */
+function repeatKey(i: QAIssue): string {
+  const d = i.description.replace(REPEAT_PREFIX, "");
+  const listed = /кадр(?:ы|ах)? ([\d, ]+)/.exec(d)?.[1]?.replace(/\s+/g, "").replace(/,$/, "") ?? "";
+  return `${i.code}|${i.area ?? ""}|${i.frame ?? ""}|${listed}`;
+}
+
+/**
+ * Повторы после исправления (S15a, ревью S14: 9 замечаний «не исправлено после 2 исправлений»
+ * съедали раунды Engineer). Blocking с тем же кодом, областью и кадрами, что был blocking в
+ * прошлой попытке того же дубля, — warning: раунд его не исправил, следующий не исправит тоже.
+ * Коды `FIX_ONCE` (accent_conflict) — warning при любом повторе кода. Visual `fail` без
+ * оставшихся blocking — `warn`; semantic и style не смягчаются (rulings 2026-10-23).
+ */
+export function repeatsAsWarning(report: QAReport, previous: readonly QAReport[]): { report: QAReport; repeated: string[] } {
+  // semantic / style fail не смягчается (rulings 2026-10-23): такой отчёт — как есть
+  if (meaningFails(report)) return { report, repeated: [] };
+  const was = previous.flatMap((r) => r.issues).filter((i) => i.severity === "blocking" || i.description.startsWith(REPEAT_MARK));
+  if (was.length === 0) return { report, repeated: [] };
+  const keys = new Set(was.map(repeatKey));
+  const codes = new Set(was.map((i) => i.code));
+  const repeated: string[] = [];
+  const issues = report.issues.map((i): QAIssue => {
+    if (i.severity !== "blocking" || i.source === "technical") return i;
+    const once = FIX_ONCE.has(i.code) && codes.has(i.code);
+    if (!once && !keys.has(repeatKey(i))) return i;
+    repeated.push(i.code);
+    return { ...i, severity: "warning", description: `${REPEAT_MARK}: ${once ? "код исправляется один раз" : "тот же код, область и кадры"}] ${i.description}` };
+  });
+  if (repeated.length === 0) return { report, repeated };
+  const gate = !issues.some((i) => i.severity === "blocking") && report.gate.visual === "fail" ? { ...report.gate, visual: "warn" as const } : report.gate;
+  return { report: { ...report, gate, issues }, repeated };
+}
+
 /** semantic или style `fail` — смысл или стиль: такую попытку не публикуют даже с warn. */
 export function meaningFails(report: QAReport): boolean {
   return report.gate.semantic === "fail" || report.gate.style === "fail";
