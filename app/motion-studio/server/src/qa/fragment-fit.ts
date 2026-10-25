@@ -4,6 +4,7 @@
 // claims (что сказано на экране и есть ли это во фрагменте) и relation (какое отношение фраза
 // показывает и что показано). (B) При сомнении в relation — один вопрос по трём кадрам.
 // Судья S15a: «сц. 2 только перечисляет вопросы», «сц. 5 — декоративный график».
+import { createHash } from "node:crypto";
 import { copyFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { MotionSpec, QAIssue } from "@ms/contracts";
@@ -173,10 +174,19 @@ export async function runFragmentFit(rc: RunCtx, f: Fragment, lines: readonly Sc
 /**
  * Проверка по кадрам (B), только при сомнении в relation: модель смотрит три кадра (середина
  * речи, пик payoff, удержание) и отвечает на один вопрос «показано ли отношение?». «Нет» —
- * warning `relation_not_shown`. Сбой — без замечания (запись в журнал).
+ * warning `relation_not_shown`. Сбой — без замечания (запись в журнал). Ответ кэшируется в задаче
+ * по версии (`key`), вопросу и содержимому кадров (ревью S15b, M-4): раунд, не менявший картинку,
+ * не стоит нового вызова с Read.
  */
-export async function runRelationCheck(rc: RunCtx, relation: FragmentFitOutput["relation"], frames: readonly { frame: number; path: string }[]): Promise<{ issue?: Issue; note?: string }> {
+export async function runRelationCheck(rc: RunCtx, relation: FragmentFitOutput["relation"], frames: readonly { frame: number; path: string }[], key = ""): Promise<{ issue?: Issue; note?: string }> {
   if (frames.length === 0) return {};
+  const h = createHash("sha256").update(key).update("\0").update(relation.expected).update("\0");
+  for (const f of frames) h.update(`${f.frame}:`).update(await readFile(f.path)).update("\0");
+  const memoKey = h.digest("hex");
+  const memo = relationCache.get(rc) ?? new Map<string, RelationCheck>();
+  relationCache.set(rc, memo);
+  const hit = memo.get(memoKey);
+  if (hit) return relationVerdict(relation, frames, hit);
   const names = frames.map((f) => `frame-${f.frame}.png`);
   const text = [
     "Посмотри кадры сцены инструментом Read и ответь на один вопрос.",
@@ -200,11 +210,19 @@ export async function runRelationCheck(rc: RunCtx, relation: FragmentFitOutput["
     },
   );
   if (!r.ok) return { note: `проверка отношения по кадрам не выполнена: ${r.message}` };
-  if (r.output.shown === "yes") return {};
+  memo.set(memoKey, r.output);
+  return relationVerdict(relation, frames, r.output);
+}
+
+/** Кэш ответов (B) в задаче: версия, вопрос и байты кадров → ответ модели. */
+const relationCache = new WeakMap<RunCtx, Map<string, RelationCheck>>();
+
+function relationVerdict(relation: FragmentFitOutput["relation"], frames: readonly { frame: number }[], o: RelationCheck): { issue?: Issue } {
+  if (o.shown === "yes") return {};
   return {
     issue: {
       code: "relation_not_shown", severity: "warning", frame: frames.at(-1)!.frame, area: "hero",
-      description: `по кадрам не видно, что сцена показывает отношение фразы («${safeLine(relation.expected)}»): ${safeLine(r.output.reason)}`,
+      description: `по кадрам не видно, что сцена показывает отношение фразы («${safeLine(relation.expected)}»): ${safeLine(o.reason)}`,
       fix_hint: "герой сцены — картинка отношения фразы (что больше, что чем заменено, что за чем следует), а не перечень подписей",
     },
   };
@@ -241,7 +259,7 @@ export async function fragmentFitAttempt(v: FitAttempt, f: Fragment, w?: { lead:
     const rr = await v.renderStills(frames, props);
     if (!rr.ok || rr.stills.length !== frames.length) v.rc.warnings.push(`кадры для проверки отношения не сняты: ${rr.error ? `${rr.error.stage}: ${rr.error.message}` : "нет кадров"}`);
     else {
-      const b = await runRelationCheck(v.rc, r.output.relation, frames.map((frame, k) => ({ frame, path: rr.stills[k]! })));
+      const b = await runRelationCheck(v.rc, r.output.relation, frames.map((frame, k) => ({ frame, path: rr.stills[k]! })), v.versionDir);
       if (b.note) v.rc.warnings.push(b.note);
       if (b.issue) out.push(b.issue);
     }

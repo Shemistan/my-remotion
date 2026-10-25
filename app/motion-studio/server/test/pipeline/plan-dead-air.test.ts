@@ -57,6 +57,20 @@ describe("fillDeadAir / planInWindow", () => {
     expect(r.beats.some((b) => b.start_frame === 40)).toBe(false);
   });
 
+  it("пауза от начала речи до первого бита ≥ 45 кадров — постер первого бита на [lead; его начало) (ревью S15b, M-1)", () => {
+    const beats = [
+      { id: "quote-in", start_frame: 70, end_frame: 100, action: "вход", description: "", element_ids: ["quote"], phase: "s", kind: "enter" as const },
+      { id: "hold", start_frame: 200, end_frame: 240, action: "удержание", description: "", element_ids: ["quote"], phase: "h", kind: "hold" as const },
+    ];
+    const r = fillDeadAir(beats, { lead: 15, end: 210 });
+    expect(r.beats.map((b) => b.id)).toEqual(["quote-in-poster", "quote-in", "quote-in-sustain", "hold"]);
+    expect(r.beats[0]).toMatchObject({ start_frame: 15, end_frame: 70, phase: "s", kind: "sustain", element_ids: ["quote"] });
+    expect(r.beats[0]!.description).toMatch(/постер|силуэт/);
+    expect(r.changes.join("\n")).toMatch(/пауза 15–70 до первого бита/);
+    // короче 45 кадров — не трогается
+    expect(fillDeadAir([{ ...beats[0]!, start_frame: 50 }], { lead: 15, end: 120 }).beats.map((b) => b.id)).toEqual(["quote-in"]);
+  });
+
   it("на фикстурах Director (с якорями и без) после planInWindow в окне речи нет паузы без бита ≥ 45 кадров", () => {
     for (const f of ["b1-ss001-director.json", "b1-s14-ss001-director.json", "b1-s15a-ss003-director.json", "b1-s15a-ss004-director.json", "b2-ss004-director.json"]) {
       for (const ms of [undefined, f === "b1-s15a-ss003-director.json" ? SC3 : undefined]) {

@@ -24,8 +24,15 @@ export interface Motion {
 
 /** Мёртвый воздух: столько кадров подряд без смены видимого и без движения. */
 export const DEAD_AIR_FRAMES = 45;
-/** Энергия движения ниже этой доли (|Δ| яркости / 255 под содержимым) — кадр стоит. */
+/** Энергия движения ниже этой доли (|Δ| яркости / 255 под содержимым) — кадр стоит (вместе с DEAD_AIR_CELLS). */
 export const DEAD_AIR_ENERGY = 0.005;
+/** Клетка содержимого «изменилась», если |Δ| яркости между соседними сэмплами больше этого. */
+export const DEAD_AIR_DELTA = 16;
+/**
+ * Кадр стоит, если изменившихся клеток меньше этого (ревью S15b, I-1): среднее по площади
+ * растворяет локальное движение — импульс по ребру графа (9–21 клетка) против стоп-кадра (0).
+ */
+export const DEAD_AIR_CELLS = 4;
 /** Площадь содержимого «та же» — в пределах этой доли. */
 export const AREA_TOL = 0.02;
 /** Пустая половина: содержимого в ней меньше этой доли половины… */
@@ -93,16 +100,22 @@ function runs(n: number, ok: (k: number) => boolean): [number, number][] {
   return out;
 }
 
-/** Энергия движения пары соседних сэмплов: среднее |Δ| / 255 под клетками содержимого обоих. */
-function energy(a: Uint8Array, b: Uint8Array, ca: Uint8Array, cb: Uint8Array): number {
+/**
+ * Движение пары соседних сэмплов под клетками содержимого обоих: энергия (среднее |Δ| / 255) и
+ * число клеток с |Δ| > DEAD_AIR_DELTA (локальное движение).
+ */
+function energy(a: Uint8Array, b: Uint8Array, ca: Uint8Array, cb: Uint8Array): { mean: number; changed: number } {
   let sum = 0;
   let n = 0;
+  let changed = 0;
   for (let i = 0; i < ca.length && i < a.length; i++) {
     if (!ca[i] && !cb[i]) continue;
-    sum += Math.abs(a[i]! - b[i]!);
+    const d = Math.abs(a[i]! - b[i]!);
+    sum += d;
+    if (d > DEAD_AIR_DELTA) changed++;
     n++;
   }
-  return n === 0 ? 0 : sum / n / 255;
+  return { mean: n === 0 ? 0 : sum / n / 255, changed };
 }
 
 const textsOf = (f: SweepFrame) => f.items.map((x) => x.text.trim()).sort().join("\u0001");
@@ -110,7 +123,8 @@ const textsOf = (f: SweepFrame) => f.items.map((x) => x.text.trim()).sort().join
 /**
  * Проверки по всей сцене (только сцена сценария, S15b):
  * - `dead_air` — в окне речи ≥ DEAD_AIR_FRAMES кадров без смены видимого (те же тексты и числа,
- *   площадь содержимого ±2 %) и без движения (энергия < 0,5 % на пиксель содержимого). Идёт бит
+ *   площадь содержимого ±2 %) и без движения (под содержимым меньше 4 клеток с |Δ| > 16 и средняя
+ *   энергия < 0,5 %: локальное движение — токен, импульс — не тонет в среднем). Идёт бит
  *   фазы (не удержание) — кадр стоит по вине кода: blocking для Engineer (кадры, бит). Бита нет —
  *   вина планировщика: warning. Без яркости превью проверки нет (движение не видно).
  * - `empty_half` — в половине кадра (лево/право у 16:9, верх/низ у 9:16) содержимого < 3 % при
@@ -147,7 +161,8 @@ export function temporalIssues(sweep: readonly SweepFrame[], spec: MotionSpec, w
       const la = lumaAt.get(a.frame);
       const lb = lumaAt.get(b.frame);
       if (!la || !lb) return false;
-      return energy(la, lb, cells[k]!, cells[k + 1]!) < DEAD_AIR_ENERGY;
+      const m = energy(la, lb, cells[k]!, cells[k + 1]!);
+      return m.changed < DEAD_AIR_CELLS && m.mean < DEAD_AIR_ENERGY;
     };
     for (const [s, e0] of runs(sweep.length - 1, still)) {
       const e = e0 + 1;

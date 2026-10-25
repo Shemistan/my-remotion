@@ -130,6 +130,17 @@ describe("repeatsAsWarning (ревью S15a, I-1)", () => {
     expect(sev(repeatsAsWarning(rep(bare("missing_element", "на кадрах  нет подписи оси")), prev))).toEqual(["warning"]);
   });
 
+  it("dead_air исправляется один раз (ревью S15b, I-2): повтор с другими кадрами — warning; первый раз — blocking", () => {
+    const dead = (from: number, to: number): QAIssue => ({
+      source: "programmatic", code: "dead_air", severity: "blocking", frame: from, area: "b-evac-flow",
+      description: `кадры ${from}–${to}: идёт бит b-evac-flow (перенос), а в кадре ${to - from} кадров ничего не меняется и не движется — мёртвый воздух посреди речи`, fix_hint: "—",
+    });
+    expect(sev(repeatsAsWarning(rep(dead(186, 246)), [rep(ghost([30, 60]))]))).toEqual(["blocking"]);
+    const r = repeatsAsWarning(rep(dead(192, 252)), [rep(dead(186, 246))]);
+    expect(sev(r)).toEqual(["warning"]);
+    expect(r.report.issues[0]!.description).toMatch(/код исправляется один раз/);
+  });
+
   it("kit_misuse, network, preview_size — никогда не понижаются, даже при том же тексте", () => {
     const kit = (d: string): QAIssue => ({ ...bare("kit_misuse", `kit сообщает о неверном использовании: ${d}`), source: "programmatic" });
     expect(sev(repeatsAsWarning(rep(kit("queue cells переполнен")), [rep(kit("DataToken раньше ребра"))]))).toEqual(["blocking"]);

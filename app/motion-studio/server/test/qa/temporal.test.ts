@@ -1,6 +1,8 @@
 // S15b: проверки сцены сценария по всей сцене — временной проход пробы (каждый 6-й кадр) и
 // энергия движения превью: мёртвый воздух, пустая половина, пустое начало, поздний герой,
 // пустые контейнеры и заглушки в середине сцены.
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { MotionSpec } from "@ms/contracts";
 import { type SweepFrame, summarizeSweep } from "@ms/render";
 import { describe, expect, it } from "vitest";
@@ -37,12 +39,12 @@ interface Content {
   boxes?: { id: string; kind: string; rect: Box; filled: boolean; graphic: boolean }[];
 }
 /** Кадры прохода 0, 6, …, 294 с содержимым `at(frame)`. */
-function sweep(at: (f: number) => Content): SweepFrame[] {
+function sweep(at: (f: number) => Content, size: { w: number; h: number } = SIZE): SweepFrame[] {
   const out: SweepFrame[] = [];
   for (let f = 0; f < 300; f += 6) {
     const c = at(f);
     const graphics = c.graphics ?? [];
-    out.push(summarizeSweep(f, SIZE, { items: c.items ?? [], boxes: c.boxes ?? [], graphics, groups: graphics.map((g) => [g]), accents: [], areas: { text: 0.02, graphic: 0.2 } }));
+    out.push(summarizeSweep(f, size, { items: c.items ?? [], boxes: c.boxes ?? [], graphics, groups: graphics.map((g) => [g]), accents: [], areas: { text: 0.02, graphic: 0.2 } }));
   }
   return out;
 }
@@ -94,6 +96,49 @@ describe("dead_air", () => {
     expect(temporalIssues(s, spec(), WINDOW, undefined).filter((x) => x.code === "dead_air")).toEqual([]);
   });
 
+  it("маленький токен (3×3 клетки) едет по крупному неподвижному графу — не мёртвый воздух (ревью S15b, I-1)", () => {
+    const s = sweep(() => ({ graphics: [CHART], items: [item("Swiss Table", { x: 300, y: 950, w: 600, h: 60 })] }));
+    // граф 40, токен 120 (|Δ| 80) сдвигается на 4 клетки за сэмпл: 18 клеток из ~2300 —
+    // среднее по содержимому ≈ 0,25 % < 0,5 %, но движение видно
+    const frames: number[] = [];
+    const luma: Uint8Array[] = [];
+    for (let f = 0; f < 300; f += 6) {
+      const l = new Uint8Array(96 * 54).fill(40);
+      const x0 = 18 + ((f / 6) * 4) % 60;
+      for (let y = 25; y < 28; y++) for (let x = x0; x < x0 + 3; x++) l[y * 96 + x] = 120;
+      frames.push(f);
+      luma.push(l);
+    }
+    expect(temporalIssues(s, spec(), WINDOW, { frames, luma }).filter((x) => x.code === "dead_air")).toEqual([]);
+  });
+
+  it("настоящий стоп-кадр с шумом сжатия (|Δ| ≤ 2 по всему кадру) — мёртвый воздух", () => {
+    const s = sweep(() => ({ graphics: [CHART], items: [item("Swiss Table", { x: 300, y: 950, w: 600, h: 60 })] }));
+    const frames: number[] = [];
+    const luma: Uint8Array[] = [];
+    for (let f = 0; f < 300; f += 6) {
+      frames.push(f);
+      luma.push(new Uint8Array(96 * 54).map((_, i) => 40 + ((i + f) % 3)));
+    }
+    expect(codes(temporalIssues(s, spec(), WINDOW, { frames, luma }).filter((x) => x.code === "dead_air"))).toEqual(["dead_air:blocking"]);
+  });
+
+  describe("живые сцены (фикстуры scripts/dead-air-fixtures.mts)", () => {
+    const load = (name: string) => {
+      const f = JSON.parse(readFileSync(join(import.meta.dirname, "../fixtures/dead-air", `${name}.json`), "utf8")) as {
+        window: { lead: number; speech: number; tail: number }; beats: MotionSpec["beats"]; phases: MotionSpec["phases"]; sweep: SweepFrame[]; luma: string[];
+      };
+      const motion: Motion = { frames: f.sweep.map((x) => x.frame), luma: f.luma.map((b) => new Uint8Array(Buffer.from(b, "base64"))) };
+      return temporalIssues(f.sweep, { ...spec(), beats: f.beats, phases: f.phases }, f.window, motion).filter((x) => x.code === "dead_air");
+    };
+    it("s15b сц. 5, кадры 186–246: импульс по ребру и заполнение ячеек (2–3 % площади) — не мёртвый воздух", () => {
+      expect(load("s15b-5-flow-graph")).toEqual([]);
+    });
+    it("s15a сц. 1, кадры 186–240: настоящий стоп-кадр — мёртвый воздух", () => {
+      expect(load("s15a-1-kinetic-quote").map((x) => x.code)).toEqual(["dead_air"]);
+    });
+  });
+
   it("стоящий кадр вне окна речи (удержание после речи) — не мёртвый воздух; короче 45 кадров — тоже", () => {
     const s = sweep((f) => ({ graphics: [CHART], items: [item(f < 264 && (f < 60 || f > 96) ? `шаг ${f}` : "итог", { x: 300, y: 950, w: 600, h: 60 })] }));
     expect(temporalIssues(s, spec(), WINDOW, motion((f) => f < 264 && (f < 60 || f > 96))).filter((x) => x.code === "dead_air")).toEqual([]);
@@ -119,6 +164,19 @@ describe("empty_half", () => {
     expect(temporalIssues(centered, spec(), WINDOW, undefined).filter((x) => x.code === "empty_half")).toEqual([]);
     // тот же герой без оси — рамка мала: правая половина пуста
     expect(codes(temporalIssues(sweep(() => ({ graphics: [hero] })), spec(), WINDOW, undefined).filter((x) => x.code === "empty_half"))).toEqual(["empty_half:blocking"]);
+  });
+
+  it("9:16 (сетка 96×171): содержимое только сверху — пуста нижняя половина; центровая по y — нет (ревью S15b, M-5)", () => {
+    const P = { w: 1080, h: 1920 };
+    const top: Box = { x: 100, y: 150, w: 880, h: 700 };
+    const out = temporalIssues(sweep(() => ({ graphics: [top] }), P), spec(), WINDOW, undefined).filter((x) => x.code === "empty_half");
+    expect(codes(out)).toEqual(["empty_half:blocking"]);
+    expect(out[0]!.area).toBe("bottom");
+    expect(out[0]!.description).toMatch(/нижняя половина/);
+    // крупный герой у центра по высоте (сверху от середины) и тонкая ось вниз — центровая композиция
+    const hero: Box = { x: 100, y: 672, w: 880, h: 288 };
+    const axis: Box = { x: 530, y: 960, w: 10, h: 760 };
+    expect(temporalIssues(sweep(() => ({ graphics: [hero, axis] }), P), spec(), WINDOW, undefined).filter((x) => x.code === "empty_half")).toEqual([]);
   });
 
   it("мало содержимого всего (≤ 8 %) — это не «пустая половина»", () => {

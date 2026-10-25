@@ -2,7 +2,7 @@
 // энергия движения превью → temporalIssues; кандидаты героя на пике payoff и в удержании →
 // heroIssues. Зовётся из fix-loop (runQa) только для сцен сценария.
 import type { MotionSpec, QAIssue, Settings } from "@ms/contracts";
-import { type FfmpegOptions, SWEEP_EVERY, gridDims, previewLuma, resolveStyle } from "@ms/render";
+import { FfmpegError, type FfmpegOptions, SWEEP_EVERY, gridDims, previewLuma, resolveStyle } from "@ms/render";
 import { HERO_BLOCKING, type HeroFrame, type LayoutFrame, heroIssues } from "../qa/layout.js";
 import type { KeyMoment } from "../qa/spec-checks.js";
 import { type Motion, type Window, parseSweep, temporalIssues } from "../qa/temporal.js";
@@ -36,7 +36,8 @@ export function payoffStart(spec: MotionSpec): number | undefined {
 
 /**
  * Замечания сцены сценария по всей сцене и по герою + строки журнала (что посчитано и чего не
- * хватило). Сбой яркости превью — без `dead_air` (движение не видно), не ошибка попытки.
+ * хватило). Сбой или таймаут яркости превью — без `dead_air` (движение не видно), не ошибка
+ * попытки; отмена и `orphaned` (FfmpegError) пробрасываются.
  */
 export async function scriptSceneIssues(i: ScriptSceneQaInput): Promise<{ issues: QAIssue[]; notes: string[] }> {
   const notes: string[] = [];
@@ -50,6 +51,8 @@ export async function scriptSceneIssues(i: ScriptSceneQaInput): Promise<{ issues
       try {
         motion = await (i.luma ?? previewLuma)(i.previewPath, { every: SWEEP_EVERY, w: gw, h: gh, ...i.ffmpeg });
       } catch (e) {
+        // отмена и живой процесс — как у остальных шагов попытки (ревью S15b, M-3)
+        if (e instanceof FfmpegError && (e.kind === "aborted" || e.kind === "orphaned")) throw e;
         notes.push(`энергия движения превью не посчитана (dead_air пропущен): ${(e as Error).message.slice(0, 300)}`);
       }
     }

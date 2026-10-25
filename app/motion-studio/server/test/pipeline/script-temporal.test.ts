@@ -1,7 +1,7 @@
 // S15b: сборка QA сцены сценария по всей сцене (временной проход + энергия превью) и по герою
 // (пик payoff из прохода, удержание — из пробы стоп-кадра N−1).
 import { type MotionSpec, type Settings, defaultSettings } from "@ms/contracts";
-import { SWEEP_TAG, summarizeSweep } from "@ms/render";
+import { FfmpegError, SWEEP_TAG, summarizeSweep } from "@ms/render";
 import { describe, expect, it } from "vitest";
 import { payoffStart, scriptSceneIssues } from "../../src/pipeline/script-temporal.js";
 import type { LayoutFrame } from "../../src/qa/layout.js";
@@ -49,5 +49,14 @@ describe("scriptSceneIssues", () => {
     const none = await scriptSceneIssues({ spec, settings, browserLogs: [], layout: [hold], window: { lead: 15, speech: 255, tail: 30 } });
     expect(none.issues.map((x) => x.code)).toEqual(["no_hero"]);
     expect(none.notes.join("\n")).toMatch(/проверки по всей сцене пропущены/);
+  });
+
+  it("отмена и orphaned в яркости превью пробрасываются, как у остальных шагов; таймаут — заметка (ревью S15b, M-3)", async () => {
+    const run = (kind: FfmpegError["kind"]) => scriptSceneIssues({ spec, settings, browserLogs: logs(), layout: [hold], previewPath: "/fake.mp4", window: { lead: 15, speech: 255, tail: 30 }, luma: async () => {
+      throw new FfmpegError(kind, `ffmpeg: ${kind}`);
+    } });
+    await expect(run("aborted")).rejects.toMatchObject({ kind: "aborted" });
+    await expect(run("orphaned")).rejects.toMatchObject({ kind: "orphaned" });
+    expect((await run("timeout")).notes.join("\n")).toMatch(/энергия движения превью не посчитана/);
   });
 });

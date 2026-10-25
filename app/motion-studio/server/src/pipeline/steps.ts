@@ -1172,18 +1172,35 @@ export function planInWindow(spec: Parameters<typeof planSpecBeats>[0], settings
  * идёт ни один бит фазы, кроме удержания (до начала удержания тоже), заполняется длящимся битом
  * (`sustain`) того бита, что кончился последним: те же элементы и фаза, id `<бит>-sustain`.
  * Engineer ведёт его движение (дрейф, дыхание, медленный счёт) — кадр не стоит посреди речи.
+ * Пауза от lead до первого бита — постер этого бита (`<бит>-poster`, sustain на [lead; начало)):
+ * силуэт его элементов с начала речи, сам бит — проявление (ревью S15b, M-1).
  */
 export function fillDeadAir<B extends { id: string; phase?: string | undefined; kind?: string | undefined; start_frame: number; end_frame: number; element_ids: string[]; action: string; description: string }>(beats: readonly B[], w: { lead: number; end: number }): { beats: B[]; changes: string[] } {
   const ids = new Set(beats.map((b) => b.id));
   const hold = (b: B) => isHoldBeat(b as unknown as MotionSpec["beats"][number]);
   const live = beats.filter((b) => b.phase !== undefined && !hold(b)).sort((a, b) => a.start_frame - b.start_frame || a.end_frame - b.end_frame);
   const holdStart = Math.min(w.end, ...beats.filter((b) => b.phase !== undefined && hold(b)).map((b) => b.start_frame));
-  const added: { after: B; beat: B }[] = [];
+  const added: { after?: B; before?: B; beat: B }[] = [];
   const changes: string[] = [];
   let cur = w.lead;
   let last: B | undefined;
-  const gap = (to: number) => {
-    if (!last || to - cur < DEAD_AIR_FRAMES) return;
+  const gap = (to: number, next?: B) => {
+    if (to - cur < DEAD_AIR_FRAMES) return;
+    if (!last) {
+      // пауза от начала речи до первого бита (ревью S15b, M-1): постер первого бита
+      if (!next) return;
+      let id = `${next.id}-poster`;
+      while (ids.has(id)) id = `${id}-poster`;
+      ids.add(id);
+      const beat = {
+        ...next, id, start_frame: cur, end_frame: to, kind: "sustain",
+        action: "постер",
+        description: `постер или силуэт элементов бита ${next.id} с начала речи (контур, ось, рамка, приглушённый текст) с медленным дрейфом; бит ${next.id} — его проявление, а не появление из пустоты (план битов: пауза до первого бита)`,
+      } as B;
+      added.push({ before: next, beat });
+      changes.push(`бит ${id}: пауза ${cur}–${to} до первого бита (${to - cur} кадров ≥ ${DEAD_AIR_FRAMES}) — постер ${next.id}`);
+      return;
+    }
     let id = `${last.id}-sustain`;
     while (ids.has(id)) id = `${id}-sustain`;
     ids.add(id);
@@ -1197,7 +1214,7 @@ export function fillDeadAir<B extends { id: string; phase?: string | undefined; 
   };
   for (const b of live) {
     if (b.start_frame >= holdStart) break;
-    gap(Math.min(b.start_frame, holdStart));
+    gap(Math.min(b.start_frame, holdStart), b);
     if (b.end_frame >= cur) {
       cur = b.end_frame;
       last = b;
@@ -1207,6 +1224,7 @@ export function fillDeadAir<B extends { id: string; phase?: string | undefined; 
   if (added.length === 0) return { beats: [...beats], changes };
   const out: B[] = [];
   for (const b of beats) {
+    for (const x of added.filter((y) => y.before === b)) out.push(x.beat);
     out.push(b);
     for (const x of added.filter((y) => y.after === b)) out.push(x.beat);
   }

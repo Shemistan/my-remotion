@@ -38,6 +38,7 @@ import { packageDiversity, warningsForState } from "../../src/script/diversity.j
 import { currentScriptPlan } from "../../src/script/read.js";
 import { saveScriptText } from "../../src/script/text.js";
 import { kitImports } from "../../src/scenes/kit-imports.js";
+import { type PipelineLogRounds, type Rounds, roundsByCode } from "./smoke-rounds.js";
 
 const T = 180 * 60_000;
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
@@ -113,7 +114,7 @@ interface Scene {
   qaWarnings: string[];
   judge?: { overall: number; notes: Record<string, string>; cost_usd: number } | { error: string };
   /** S15b: вызовы Engineer и раунды на код (попытки, где код был blocking), из pipeline-log.json версии. */
-  rounds?: { engineer_calls: number; attempts: number; blocking_by_code: Record<string, number> };
+  rounds?: Rounds;
   frames: string[];
   mp4?: string;
 }
@@ -215,10 +216,8 @@ function collect(r: Run, itemIds?: string[]): void {
     const qa = JSON.parse(readFileSync(join(dir, "qa.json"), "utf8")) as { issues: { code: string; severity: string; description: string }[] };
     s.qaWarnings = qa.issues.filter((x) => x.severity === "warning").map((x) => `${x.code}: ${x.description.slice(0, 160)}`);
     try {
-      const pl = JSON.parse(readFileSync(join(dir, "pipeline-log.json"), "utf8")) as { engineer_calls?: number; attempts?: { blocking: string[] }[] };
-      const by: Record<string, number> = {};
-      for (const a of pl.attempts ?? []) for (const c of new Set(a.blocking)) by[c] = (by[c] ?? 0) + 1;
-      s.rounds = { engineer_calls: pl.engineer_calls ?? 0, attempts: pl.attempts?.length ?? 0, blocking_by_code: by };
+      // раунды Engineer на код, а не QA-дубли (ревью S15b, M-2)
+      s.rounds = roundsByCode(JSON.parse(readFileSync(join(dir, "pipeline-log.json"), "utf8")) as PipelineLogRounds);
     } catch {
       // журнала нет — без раундов
     }

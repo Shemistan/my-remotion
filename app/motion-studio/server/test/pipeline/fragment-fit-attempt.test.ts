@@ -72,3 +72,20 @@ it("отношение не показано по кадрам — warning relat
   expect(sure.tasks.filter((t) => t.role === "fragment_fit")).toHaveLength(1);
   expect(r1.calls).toHaveLength(1);
 });
+
+it("вопрос по кадрам кэшируется по версии, вопросу и кадрам: второй раунд с теми же кадрами модель не спрашивает (ревью S15b, M-4)", async () => {
+  const agents = fakeAgents({
+    engineer,
+    fragmentFit: async (task) => (task.tools.includes("Read")
+      ? { output: { shown: "no", reason: "только подписи" } }
+      : { output: { claims: [{ element_id: "title", text: "Рост", verdict: "contradicts", reason: "во фрагменте рост в 256 раз" }], relation: { expected: "рост в 256 раз", shown: "рост", match: "unsure" } } }),
+  });
+  const r0 = fakeRender({ png: true });
+  const r = await runGeneration(request((v) => fragmentFitAttempt(v, fragment, { lead: 15, speech: 135 })), await makeDeps(root, skills, { agents, render: r0.render }));
+  // два раунда Engineer — два прохода хука; текст (A) уже в кэше, вопрос по кадрам (B) — один
+  expect(agents.engineerCalls).toHaveLength(2);
+  expect(agents.tasks.filter((t) => t.role === "fragment_fit" && !t.tools.includes("Read"))).toHaveLength(1);
+  expect(agents.tasks.filter((t) => t.role === "fragment_fit" && t.tools.includes("Read"))).toHaveLength(1);
+  // ответ из кэша — то же замечание
+  expect(r.qa?.issues).toContainEqual(expect.objectContaining({ code: "relation_not_shown", severity: "warning" }));
+});

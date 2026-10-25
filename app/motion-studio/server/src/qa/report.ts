@@ -40,8 +40,12 @@ export function acceptedAsWarn(report: QAReport, why: string): QAReport {
   };
 }
 
-/** Коды, которые исправляются не больше одного раза (S15a; S15b — смысл по фрагменту): повтор — warning при любых кадрах. */
-export const FIX_ONCE: ReadonlySet<string> = new Set(["accent_conflict", "fragment_mismatch"]);
+/**
+ * Коды, которые исправляются не больше одного раза (S15a; S15b — смысл по фрагменту и мёртвый
+ * воздух: после правки кадры сдвигаются, и правило «те же кадры» не срабатывает — ревью S15b, I-2):
+ * повтор — warning при любых кадрах.
+ */
+export const FIX_ONCE: ReadonlySet<string> = new Set(["accent_conflict", "fragment_mismatch", "dead_air"]);
 /** Пометка замечания, пониженного до warning как повтор после исправления. */
 export const REPEAT_MARK = "[повтор после исправления";
 const REPEAT_PREFIX = /^\[повтор после исправления[^\]]*\]\s*/;
@@ -70,7 +74,7 @@ function repeatKey(i: QAIssue): string {
  * Повторы после исправления (S15a, ревью S14: 9 замечаний «не исправлено после 2 исправлений»
  * съедали раунды Engineer). Blocking с тем же кодом, областью и кадрами, что был blocking в
  * прошлой попытке того же дубля, — warning: раунд его не исправил, следующий не исправит тоже.
- * Коды `FIX_ONCE` (accent_conflict) — warning при любом повторе кода; `NEVER_SOFTEN` — никогда. Visual `fail` без
+ * Коды `FIX_ONCE` (accent_conflict, fragment_mismatch, dead_air) — warning при любом повторе кода; `NEVER_SOFTEN` — никогда. Visual `fail` без
  * оставшихся blocking — `warn`; semantic и style не смягчаются (rulings 2026-10-23).
  */
 export function repeatsAsWarning(report: QAReport, previous: readonly QAReport[]): { report: QAReport; repeated: string[] } {

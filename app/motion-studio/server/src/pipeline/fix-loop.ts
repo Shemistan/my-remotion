@@ -29,7 +29,7 @@ import {
   type VisualQAOutput,
 } from "@ms/contracts";
 import { type ReapOptions, fileProcessRegistry, reapAttempt, safeMkdir } from "@ms/core";
-import { type RenderRequest, type RenderResult, SWEEP_EVERY, type renderVersion, probeGate } from "@ms/render";
+import { FfmpegError, type RenderRequest, type RenderResult, SWEEP_EVERY, type renderVersion, probeGate } from "@ms/render";
 import { ACCENT_HOLD_GAP, programmaticChecks } from "../qa/programmatic.js";
 import { ACCENT_CONFLICT_FRAMES, type LayoutFrame, accentConflictFrames, parseLayout, scriptLayoutIssues } from "../qa/layout.js";
 import { acceptedAsWarn, fixHints, meaningFails, mergeQA, qaBlocks, repeatsAsWarning } from "../qa/report.js";
@@ -1184,13 +1184,21 @@ async function runQa(
     programmatic.push(...scriptLayoutIssues(layout).map((x) => ({ source: "programmatic" as const, ...x })));
     const propsPath = join(dir, "props.json");
     const sig = t.signal ?? rc.signal;
-    const st = await rc.timed(`${pre}qa_temporal`, async () => scriptSceneIssues({
-      spec, settings, browserLogs: rr.browserLogs, layout, ...(rr.previewPath ? { previewPath: rr.previewPath } : {}),
-      ...(i.scriptTiming ? { window: i.scriptTiming.window, ...(i.scriptTiming.moments ? { moments: i.scriptTiming.moments } : {}) } : {}),
-      ...(i.technique ? { technique: i.technique } : {}),
-      propsText: existsSync(propsPath) ? await readFile(propsPath, "utf8") : "",
-      ffmpeg: { run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry }, ...(sig ? { signal: sig } : {}) },
-    }));
+    let st: Awaited<ReturnType<typeof scriptSceneIssues>>;
+    try {
+      st = await rc.timed(`${pre}qa_temporal`, async () => scriptSceneIssues({
+        spec, settings, browserLogs: rr.browserLogs, layout, ...(rr.previewPath ? { previewPath: rr.previewPath } : {}),
+        ...(i.scriptTiming ? { window: i.scriptTiming.window, ...(i.scriptTiming.moments ? { moments: i.scriptTiming.moments } : {}) } : {}),
+        ...(i.technique ? { technique: i.technique } : {}),
+        propsText: existsSync(propsPath) ? await readFile(propsPath, "utf8") : "",
+        ffmpeg: { run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry }, ...(sig ? { signal: sig } : {}) },
+      }));
+    } catch (e) {
+      // яркость превью (ffmpeg): живой процесс и отмена — как у рендера (ревью S15b, M-3)
+      if (e instanceof FfmpegError && e.kind === "orphaned") return { exit: { ok: false, stage: "orphaned", message: `энергия движения превью: ${e.message}`, alive: true } };
+      if (e instanceof FfmpegError && e.kind === "aborted") return { exit: { ok: false, stage: "cancelled", message: rc.aborted ? "отменено во время QA" : "дубль отменён во время QA" } };
+      throw e;
+    }
     for (const n of st.notes) rc.note("qa", n);
     programmatic.push(...st.issues);
   }
