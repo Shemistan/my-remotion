@@ -34,6 +34,8 @@ export const SAFE_KINDS: ReadonlySet<string> = new Set([
   "proposals_suppressed", "no_change", "no_plan", "nothing_to_plan", "nothing_to_analyze", "agent_skipped",
   "plan_current", "plan_rechecked", "plan_restyled", "edl_changed", "transcript_changed", "transcript_mismatch",
   "style_kept", "style_changed_during_job", "fill_nothing", "fill_scene", "fill_done", "test_hook",
+  // членство задачи в пакете сцен: id сцены плана и пакета (`kind: BATCH_EVENT`/`VIDEO_BATCH_EVENT`)
+  "script_batch", "video_batch",
 ]);
 
 /**
@@ -55,6 +57,8 @@ export const HIDDEN_KINDS: ReadonlySet<string> = new Set([
   "hotwords_truncated", "asr_output_rejected", "asr_worker_failed", "vision_unavailable", "vision_failed", "vision_frame_errors",
   // тексты ошибок записи, имена файлов, произвольные строки
   "checkpoint_failed", "record_failed", "trash_purged", "log",
+  // предупреждения обработчиков (превью в контексте и др.): общий вид, текст не ограничен ids
+  "warning",
   // журнал сервера: ошибки API и сборки архива (текст ошибки)
   "api_error", "bundle_failed",
 ]);

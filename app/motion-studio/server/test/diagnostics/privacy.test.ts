@@ -34,6 +34,9 @@ const LITERAL = [
   /\bjob_id:[^}\n]*?\bkind:\s*"([a-z_]+)"/g, // объект события `{ job_id, level, kind, message }`
   /\blogger\.\w+\([^;]*?\{\s*kind:\s*"([a-z_]+)"/g, // журнал сервера (не события задач)
 ];
+/** Объект события с видом-константой (`kind: BATCH_EVENT`): константа — `const NAME = "вид"` в server/src. */
+const CONST_KIND = /\bjob_id:[^}\n]*?\bkind:\s*([A-Z][A-Z0-9_]*)\b/g;
+const CONST_DEF = /\bconst\s+([A-Z][A-Z0-9_]*)\s*=\s*"([a-z_]+)"/g;
 /** Места с нелитеральным видом — известны поимённо; вид у раннера — статус задачи. */
 const DYNAMIC = [
   "emit(kind: string, message: string, data?: unknown): void;",
@@ -49,6 +52,16 @@ const DYNAMIC = [
 it("страж: каждый вид события в коде — в SAFE_KINDS или HIDDEN_KINDS; новые формы эмиссии известны", () => {
   const kinds = new Set<string>(JobStatusSchema.options); // runner: kind = final.status
   const unknownSites: string[] = [];
+  const consts = new Map<string, string>();
+  const constUses: string[] = [];
+  for (const file of sources(SRC)) {
+    const text = readFileSync(file, "utf8");
+    for (const m of text.matchAll(CONST_DEF)) consts.set(m[1]!, m[2]!);
+    for (const m of text.matchAll(CONST_KIND)) constUses.push(m[1]!);
+  }
+  const unresolved = constUses.filter((c) => !consts.has(c));
+  expect(unresolved, "вид события — константа без литерального значения").toEqual([]);
+  for (const c of constUses) kinds.add(consts.get(c)!);
   for (const file of sources(SRC)) {
     const text = readFileSync(file, "utf8");
     for (const re of LITERAL) for (const m of text.matchAll(re)) kinds.add(m[1]!);
