@@ -38,6 +38,8 @@ export const SAFE_KINDS: ReadonlySet<string> = new Set([
   "style_kept", "style_changed_during_job", "fill_nothing", "fill_scene", "fill_done", "test_hook",
   // членство задачи в пакете сцен: id сцены плана и пакета (`kind: BATCH_EVENT`/`VIDEO_BATCH_EVENT`)
   "script_batch", "video_batch",
+  // таймлайн проекта (Task 42): id таймлайна, ревизии, счётчики, размеры, секунды
+  "timeline_reused", "timeline_current", "timeline_built", "timeline_preview",
 ]);
 
 /**
@@ -63,6 +65,8 @@ export const HIDDEN_KINDS: ReadonlySet<string> = new Set([
   "warning",
   // журнал сервера: ошибки API и сборки архива (текст ошибки)
   "api_error", "bundle_failed",
+  // таймлайн (Task 42): пересборка с текстом ошибки сверки
+  "timeline_rebuild",
 ]);
 
 /** Сообщение события этого вида может содержать текст пользователя (всё, кроме `SAFE_KINDS`). */

@@ -92,16 +92,11 @@ describe("заглушки обработчиков Phase 4–6", () => {
     const svc = { config: loadConfig({ MS_DATA_DIR: "/tmp/ms-unused" }) } as unknown as CoreServices;
     const h = registerHandlers(svc);
     const want: Record<string, string> = {
-      "timeline.build": "42", "timeline.preview": "42",
       "final.render": "43", "final.reproduce": "43",
     };
-    // Task 47: trash.purge реализован (test/projects/trash.test.ts); Task 49a: cache.gc (test/perf/cache-gc.test.ts)
-    expect(h["trash.purge"]).toBeTypeOf("function");
-    // Task 38-39: scene.preview_context реализован (test/pipeline/scene-preview-context.test.ts)
-    expect(h["scene.preview_context"]).toBeTypeOf("function");
-    expect(h["cache.gc"]).toBeTypeOf("function");
-    // Task 5L: video.package реализован (test/video-scenes/video-package.test.ts)
-    expect(h["video.package"]).toBeTypeOf("function");
+    // Task 47: trash.purge; Task 38-39: scene.preview_context; Task 42: timeline.build и
+    // timeline.preview; Task 49a: cache.gc; Task 5L: video.package — реализованы (свои тесты)
+    for (const t of ["trash.purge", "scene.preview_context", "timeline.build", "timeline.preview", "cache.gc", "video.package"] as const) expect(h[t]).toBeTypeOf("function");
     for (const [type, task] of Object.entries(want)) {
       const r = await h[type as JobType]!({} as JobContext);
       expect(r, type).toEqual({ status: "failed", error: { code: "pipeline", stage: "prepare", message: `не реализовано: Task ${task}` } });
