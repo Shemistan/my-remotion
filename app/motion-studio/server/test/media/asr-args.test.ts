@@ -4,14 +4,14 @@ import type { AsrConfig } from "../../src/config.js";
 import { AsrInputError, HOTWORDS_PROMPT_BUDGET, WHISPER_LANGUAGES, asrEnv, buildAsrArgs, checkHotwords, checkLanguage, fitHotwords, workerPath } from "../../src/media/asr-adapter.js";
 
 const cfg: AsrConfig = {
-  python: "/py/bin/python", aiPlatformRoot: "/AIP", modelsDir: "/M", model: "whisper-large-v3-turbo", language: "ru",
+  python: "/py/bin/python", worker: "/W/asr_worker.py", modelsDir: "/M", model: "whisper-large-v3-turbo", language: "ru",
   expectedWorkerSha256: "0".repeat(64), timeoutMs: 60_000, noOutputTimeoutMs: 10_000,
 };
 
 describe("buildAsrArgs", () => {
   it("как в плане: воркер, модель, аудио, выход, язык, разрезы, hotwords", () => {
     expect(buildAsrArgs(cfg, { audio: "/d/a.wav", out: "/d/w.json", language: "ru", splits: [281, 561.5], hotwords: ["Claude Code", "Remotion"] })).toEqual([
-      "/AIP/app/platform/aiplatform/montage/asr_worker.py", "--kind", "whisper", "--model", "/M/asr/whisper-large-v3-turbo",
+      "/W/asr_worker.py", "--kind", "whisper", "--model", "/M/asr/whisper-large-v3-turbo",
       "--audio", "/d/a.wav", "--out", "/d/w.json", "--language", "ru", "--splits", "281,561.5", "--hotwords", "Claude Code|Remotion"]);
   });
 

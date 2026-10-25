@@ -1,15 +1,15 @@
 // Task 26: доступность ASR — python, воркер, контракт (sha256), модель, том моделей, порт ai-platform.
 import { describe, expect, it } from "vitest";
-import type { AsrConfig } from "../../src/config.js";
+import { ASR_WORKER_SOURCE_COMMIT, type AsrConfig } from "../../src/config.js";
 import { type AsrCapabilityDeps, asrCapability, portBusy } from "../../src/media/asr-capability.js";
 import { createServer } from "node:net";
 
 const SHA = "a".repeat(64);
 const cfg: AsrConfig = {
-  python: "/py/bin/python", aiPlatformRoot: "/AIP", modelsDir: "/Volumes/Disk/local_models", model: "whisper-large-v3-turbo", language: "ru",
+  python: "/py/bin/python", worker: "/W/asr_worker.py", modelsDir: "/Volumes/Disk/local_models", model: "whisper-large-v3-turbo", language: "ru",
   expectedWorkerSha256: SHA, timeoutMs: 60_000, noOutputTimeoutMs: 10_000,
 };
-const present = new Set(["/py/bin/python", "/AIP/app/platform/aiplatform/montage/asr_worker.py", "/Volumes/Disk", "/Volumes/Disk/local_models",
+const present = new Set(["/py/bin/python", "/W/asr_worker.py", "/AIP/app/platform/aiplatform/montage/asr_worker.py", "/Volumes/Disk", "/Volumes/Disk/local_models",
   "/Volumes/Disk/local_models/asr/whisper-large-v3-turbo/config.json"]);
 const deps = (o: Partial<AsrCapabilityDeps> = {}): AsrCapabilityDeps => ({
   exists: async (p) => present.has(p),
@@ -20,8 +20,13 @@ const deps = (o: Partial<AsrCapabilityDeps> = {}): AsrCapabilityDeps => ({
 });
 
 describe("asrCapability", () => {
-  it("всё на месте → available с sha256 воркера и коммитом ai-platform", async () => {
-    expect(await asrCapability(cfg, deps())).toEqual({ available: true, workerSha256: SHA, commit: "0456395abc", gpuContention: false });
+  it("всё на месте → available с sha256 копии воркера и коммитом ai-platform, откуда она снята (S19)", async () => {
+    expect(await asrCapability(cfg, deps())).toEqual({ available: true, workerSha256: SHA, commit: ASR_WORKER_SOURCE_COMMIT, gpuContention: false });
+  });
+
+  it("воркер из ai-platform (asr.aiPlatformRoot) → коммит — HEAD ai-platform", async () => {
+    const aip = { ...cfg, aiPlatformRoot: "/AIP", worker: "/AIP/app/platform/aiplatform/montage/asr_worker.py" };
+    expect(await asrCapability(aip, deps())).toEqual({ available: true, workerSha256: SHA, commit: "0456395abc", gpuContention: false });
   });
 
   it("python не найден (реальная ФС)", async () => {
@@ -46,7 +51,7 @@ describe("asrCapability", () => {
   });
 
   it("коммит не читается → unknown (контракт — sha256, не коммит); порт 8780 занят → gpuContention", async () => {
-    expect(await asrCapability(cfg, deps({ gitHead: async () => { throw new Error("not a git repo"); }, portBusy: async () => true })))
+    expect(await asrCapability({ ...cfg, aiPlatformRoot: "/AIP" }, deps({ gitHead: async () => { throw new Error("not a git repo"); }, portBusy: async () => true })))
       .toMatchObject({ available: true, commit: "unknown", gpuContention: true });
   });
 });

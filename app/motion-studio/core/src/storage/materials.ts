@@ -2,7 +2,7 @@
 // его скрипты, тесты и агенты пишут на SSD, лежит в одной папке
 // `/Volumes/External SSD/moution-studio-materials/` — store (рабочее хранилище), acceptance
 // (хранилище и копии-отрезки приёмок), e2e (хранилища e2e по имени), examples (примеры для
-// человека). Исходные видео из других папок SSD только читаются.
+// человека), models (веса моделей ASR, S19: их ставит `./setup`). Исходные видео из других папок SSD только читаются.
 // Модуль — единственный источник истины для этих путей. Только node:* и стираемый синтаксис TS:
 // его импортируют и чистые .mjs-скрипты (Node 22 убирает типы сам).
 import { existsSync, realpathSync } from "node:fs";
@@ -11,7 +11,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 export const SSD_ROOT = "/Volumes/External SSD";
 export const MATERIALS_DIR = "moution-studio-materials";
 export const MATERIALS_ROOT = `${SSD_ROOT}/${MATERIALS_DIR}`;
-export const MATERIALS_AREAS = ["store", "acceptance", "e2e", "examples"] as const;
+export const MATERIALS_AREAS = ["store", "acceptance", "e2e", "examples", "models"] as const;
 export type MaterialsArea = (typeof MATERIALS_AREAS)[number];
 
 type Env = Record<string, string | undefined>;
