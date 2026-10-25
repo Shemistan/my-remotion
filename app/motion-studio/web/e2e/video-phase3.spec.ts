@@ -184,7 +184,11 @@ test("анализ видеоряда и визуальный план: лицо
   await page.getByRole("button", { name: "Утвердить визуальный план (B)" }).click();
   await expect(page.getByTestId("approval-B")).toContainText("утверждено");
 
-  // отклонение вырезки → A и B устарели → баннер → «Перепроверить план» → сцены пересчитаны
+  // отклонение вырезки → A и B устарели → баннер → перепроверка (её ставит правка EDL) → сцены
+  // пересчитаны. F7 (Task 42): «пересчитана» — только сцена, чьё время изменилось; сцена до
+  // восстановленной вырезки без сдвига в changed не входит, и баннер после перепроверки молчит.
+  type PlanGet = { inputs_fresh: { edl: boolean }; doc: { items: { id: string; edited: { start_us: number; end_us: number } }[] }; recheck: { changed: { item_id: string; change: string }[] } | null };
+  const before = (await api<PlanGet>(request, `/api/plans/${planId}`)).doc.items;
   await tab(page, "Черновой монтаж");
   await page.locator('.cut-row[data-status="accepted"]').first().locator("button[data-action='restore']").click();
   await expect(page.getByTestId("approval-A")).toContainText("устарело");
@@ -192,11 +196,18 @@ test("анализ видеоряда и визуальный план: лицо
   await tab(page, "План");
   await expect(page.getByTestId("stale-banner")).toBeVisible({ timeout: 30_000 });
   await snap(page, "06-plan-stale-after-cut");
-  const recheck = page.getByTestId("stale-banner").getByRole("button", { name: "Перепроверить план" });
-  await expect(recheck).toBeEnabled({ timeout: JOB_TIMEOUT });
-  await recheck.click();
-  await expect.poll(async () => (await api<{ inputs_fresh: { edl: boolean } }>(request, `/api/plans/${planId}`)).inputs_fresh.edl, { timeout: JOB_TIMEOUT }).toBe(true);
-  await expect(page.getByTestId("stale-banner")).toContainText(/Монтаж изменился: 1 сцена пересчитана, 0 требуют решения/, { timeout: 30_000 });
+  await expect.poll(async () => (await api<PlanGet>(request, `/api/plans/${planId}`)).inputs_fresh.edl, { timeout: JOB_TIMEOUT }).toBe(true);
+  const after = await api<PlanGet>(request, `/api/plans/${planId}`);
+  const shifted = after.doc.items.filter((x) => {
+    const b = before.find((y) => y.id === x.id);
+    return b !== undefined && (b.edited.start_us !== x.edited.start_us || b.edited.end_us !== x.edited.end_us);
+  }).map((x) => x.id);
+  expect((after.recheck?.changed ?? []).map((c) => c.item_id)).toEqual(shifted);
+  if (shifted.length > 0) {
+    await expect(page.getByTestId("stale-banner")).toContainText(/Монтаж изменился: 1 сцена пересчитана, 0 требуют решения/, { timeout: 30_000 });
+  } else {
+    await expect(page.getByTestId("stale-banner")).toBeHidden({ timeout: 30_000 });
+  }
   await expect(page.getByTestId("b-reasons")).toContainText("черновой монтаж (A)");
   await snap(page, "07-plan-rechecked");
 });

@@ -468,7 +468,7 @@ describe("plan.recheck", () => {
     expect(queued).toHaveLength(1);
     const { r, out: res } = await run<PlanRecheckResult>("plan.recheck", p, { jobId: queued[0]!.id });
     expect(r.status, JSON.stringify(r)).toBe("completed");
-    expect(res).toMatchObject({ revision: 3, edl_revision: 2, changed: [{ item_id: "sp_001", change: "remapped" }, { item_id: "sp_002", change: "anchor_cut" }] });
+    expect(res).toMatchObject({ revision: 3, edl_revision: 2, changed: [{ item_id: "sp_002", change: "anchor_cut" }] }); // sp_001 до вырезки — без сдвига (F7)
     expect(planOf(pv.out!.plan_id, 3).items[1]).toMatchObject({ status: "stale", stale_reason: "anchor_cut" });
     expect(approvalState(db, p, "B", currentSubject(db, p, "B")).state).toBe("stale");
     const again = await run<PlanRecheckResult>("plan.recheck", p);
