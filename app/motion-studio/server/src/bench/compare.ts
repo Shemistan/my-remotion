@@ -45,7 +45,12 @@ export function compareRuns(before: Scores, after: Scores): Comparison {
   const a = fingerprintOf(before);
   const b = fingerprintOf(after);
   if (a.rubric_sha256 !== b.rubric_sha256 || a.anchors_sha256 !== b.anchors_sha256) {
-    throw new Error(`bench: разные судьи (${before.summary.run}: ${short(a)}; ${after.summary.run}: ${short(b)}) — перезапусти судью одного из прогонов с --rejudge`);
+    // обычно рубрика сменилась после базовой линии (S16a): её судья и перезапускается (BENCH.md)
+    throw new Error(
+      `bench: разные судьи (${before.summary.run}: ${short(a)}; ${after.summary.run}: ${short(b)}) — рубрика или якоря сменились; ` +
+        `перезапусти судью базовой линии ${before.summary.run}: npx tsx scripts/bench-set.mts --run ${before.summary.run} --judge-only --rejudge ` +
+        `(или прогона ${after.summary.run}, если новее судья базовой линии) и повтори --compare`,
+    );
   }
   if (before.summary.judge_model !== after.summary.judge_model) {
     throw new Error(`bench: разные модели судьи: ${before.summary.judge_model} и ${after.summary.judge_model}`);
