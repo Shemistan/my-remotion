@@ -111,6 +111,8 @@ it("папка клипов: утверждённые сцены — MP4 + ал�
     expect(Math.abs(mp4.durationMs - row.duration_s! * 1000), `${s.mp4.file}: длительность`).toBeLessThanOrEqual(frameMs + 1);
     const item = accepted.find((x) => x.id === s.item_id)!;
     expect(row.edited!.start).toBe(timecode(item.frames.start, fps));
+    // исходник — куски под окном клипа по таймлайну EDL (fix I1), не source плана
+    expect(s.source_pieces?.length, `${s.item_id}: куски исходника`).toBeGreaterThan(0);
     files.push({ file: s.mp4.file, sha256: s.mp4.sha256, ffprobe: mp4 });
     if (s.mode === "fullscreen") {
       expect(s.alpha).toBeNull();
@@ -142,7 +144,8 @@ it("папка клипов: утверждённые сцены — MP4 + ал�
   const out = join(EXAMPLES, folder);
   mkdirSync(out, { recursive: true });
   for (const f of readdirSync(dir)) copyFileSync(join(dir, f), join(out, f));
-  writeFileSync(join(EXAMPLES, "README.txt"), readme(folder, m.scenes.length, m.missing.length));
+  const older = readdirSync(EXAMPLES, { withFileTypes: true }).filter((e) => e.isDirectory() && e.name !== folder).map((e) => e.name).sort();
+  writeFileSync(join(EXAMPLES, "README.txt"), readme(folder, m.scenes.length, m.missing.length, older));
   mkdirSync(EVIDENCE, { recursive: true });
   writeFileSync(join(EVIDENCE, "шпаргалка.md"), md);
   Object.assign(summary, {
@@ -152,11 +155,12 @@ it("папка клипов: утверждённые сцены — MP4 + ал�
   });
 }, T);
 
-function readme(name: string, clips: number, missing: number): string {
+function readme(name: string, clips: number, missing: number, older: readonly string[]): string {
   return [
     "Phase 5-lite (Task 5L) — папка клипов видеопроекта для своего монтажа",
     "",
-    `Актуальная папка — «${name}» (папки других прогонов рядом — прежние сборки): ${clips} клип(ов) — только сцены, утверждённые во вкладке «Сцены» (C); не вошли: ${missing} (причина — в шпаргалке).`,
+    `АКТУАЛЬНАЯ папка — «${name}»: ${clips} клип(ов) — только сцены, утверждённые во вкладке «Сцены» (C); не вошли: ${missing} (причина — в шпаргалке).`,
+    ...(older.length > 0 ? ["Остальные папки рядом — прежние сборки (старые формулировки шпаргалки), оставлены для сравнения:", ...older.map((o) => `  ${o}`)] : []),
     "Собрано задачей video.package на копии хранилища приёмки 38-39 (ролик MyProtocol, видеопроект «Приёмка видео»).",
     "",
     "Что внутри:",
@@ -167,13 +171,14 @@ function readme(name: string, clips: number, missing: number): string {
     "",
     "Как вставлять (CapCut / Final Cut):",
     "  1. Откройте шпаргалку: колонка «ролик: начало» — таймкод смонтированного ролика ЧЧ:ММ:СС:КК (КК — кадр, 30 fps),",
-    "     «исходник» — тот же кусок в исходном видео (если монтируете от исходника).",
+    "     «исходник» — кусок исходного видео под клипом (если монтируете от исходника). Если клип склеен из нескольких",
+    "     кусков исходника, там написано «2 куска — … + …; ставьте по началу, клип склеен».",
     "  2. Сцена «поверх видео / выноска / разделённый экран»: положите NN_..._alpha.mov дорожкой НАД видео с этого таймкода —",
     "     видео автора останется видно, графика встанет в свою зону (колонка «режим»).",
     "  3. Сцена «на весь кадр»: положите NN_....mp4 поверх видео (или вместо него) с этого таймкода.",
     "  4. Длительность клипа уже равна сцене плана; звук клипа — тишина, его можно отключить.",
-    "  «C: нет» — версия не утверждена; замечания — короткие подсказки (например, «в исходнике есть вырезки»: между началом",
-    "  и концом в исходнике есть вырезанные куски, ориентируйтесь на таймкод ролика).",
+    "  «утверждена (C): нет» — версия не утверждена; замечания — короткие подсказки проверки качества",
+    "  (например, «кадр застыл», «пустая область кадра») и «без альфы: …», если альфа-версии нет.",
     "",
   ].join("\n");
 }

@@ -61,7 +61,14 @@ function Cheatsheet({ packageId, defaultOpen }: { packageId: string; defaultOpen
 function PackageCard({ pkg, latest }: { pkg: VideoPackageDto; latest: boolean }) {
   const reveal = useRevealVideoPackage();
   const m = pkg.manifest;
-  const number = new Map(m.missing.map((x) => [x.item_id, x.n]));
+  // альфа не вышла — сцена в папке (MP4 есть): не «не вошла», а «без альфы» с причиной
+  const packed = new Set(m.scenes.map((s) => s.item_id));
+  const notIn = m.missing.filter((x) => !packed.has(x.item_id));
+  const noAlpha = m.missing.filter((x) => packed.has(x.item_id));
+  const sceneOf = (x: (typeof m.missing)[number]) => {
+    const n = x.n ?? m.scenes.find((s) => s.item_id === x.item_id)?.n;
+    return n ? t("videoExport.package.scene", { n }) : x.item_id;
+  };
   return (
     <article className="panel package-card" data-testid="video-package-card" data-package={pkg.id}>
       <div className="row wrap">
@@ -73,13 +80,26 @@ function PackageCard({ pkg, latest }: { pkg: VideoPackageDto; latest: boolean })
       <p className="mono small muted wrap-any package-path">{pkg.abs_path}</p>
       {reveal.isError ? <p className="error">{errorText(reveal.error)}</p> : null}
       <p className="small">{t("videoExport.package.clips", { n: m.scenes.length })}</p>
-      {m.missing.length > 0 ? (
-        <div className="package-missing" data-testid="video-package-missing">
-          <h4>{t("videoExport.package.missingTitle", { n: m.missing.length })}</h4>
+      {noAlpha.length > 0 ? (
+        <div className="package-missing" data-testid="video-package-no-alpha">
+          <h4>{t("videoExport.package.noAlphaTitle", { n: noAlpha.length })}</h4>
           <ul>
-            {m.missing.map((x, i) => (
+            {noAlpha.map((x, i) => (
               <li key={`${x.item_id}-${i}`}>
-                <strong>{number.get(x.item_id) ? t("videoExport.package.scene", { n: number.get(x.item_id)! }) : x.item_id}</strong>
+                <strong>{sceneOf(x)}</strong>
+                <span> — {x.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {notIn.length > 0 ? (
+        <div className="package-missing" data-testid="video-package-missing">
+          <h4>{t("videoExport.package.missingTitle", { n: notIn.length })}</h4>
+          <ul>
+            {notIn.map((x, i) => (
+              <li key={`${x.item_id}-${i}`}>
+                <strong>{sceneOf(x)}</strong>
                 {x.quote ? <span className="muted"> «{x.quote}»</span> : null}
                 <span> — {x.reason}</span>
               </li>

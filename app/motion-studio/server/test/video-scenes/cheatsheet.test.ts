@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { type VideoPackageManifest, VideoPackageManifestSchema } from "@ms/contracts";
 import { CHEAT_NOTES_MAX } from "../../src/script/cheatsheet.js";
-import { timecode, videoCheatRows, videoCheatsheet } from "../../src/video-scenes/cheatsheet.js";
+import { sourcePieces, timecode, videoCheatRows, videoCheatsheet } from "../../src/video-scenes/cheatsheet.js";
 
 const SHA = "c".repeat(64);
 const F30 = { num: 30, den: 1 };
@@ -17,14 +17,17 @@ function manifest(over: Partial<VideoPackageManifest> = {}): VideoPackageManifes
     scenes: [
       {
         n: 1, item_id: "sp_009", scene_id: "scn_a", version_id: "ver_a", version_number: 1, approved: true,
-        // 63,7–66,8 с ролика; в исходнике 73,48–101,31 с (между ними вырезки)
+        // 63,7–66,8 с ролика; source плана 73,48–101,31 с (артефакт склейки), под клипом — один кусок
         source: { start_us: 73_480_000, end_us: 101_306_666 }, edited: { start_us: 63_700_000, end_us: 66_800_000 }, frames: { start: 1911, end: 2004 },
+        source_pieces: [{ start_us: 73_480_000, end_us: 76_580_000 }],
         quote: "работать дальше, не прерывая соединения.", mode: "overlay", zone: "left_third",
         mp4: file("01_rabotat-dalshe.mp4"), alpha: file("01_rabotat-dalshe_alpha.mov"), warnings: ["overlay_haze: дымка 60 %"], duration_frames: 93,
       },
       {
         n: 3, item_id: "sp_003", scene_id: "scn_c", version_id: "ver_c", version_number: 2, approved: false,
         source: { start_us: 163_480_000, end_us: 170_200_000 }, edited: { start_us: 109_533_333, end_us: 113_200_000 }, frames: { start: 3286, end: 3396 },
+        // клип склеен из двух кусков исходника
+        source_pieces: [{ start_us: 163_480_000, end_us: 165_000_000 }, { start_us: 168_000_000, end_us: 170_200_000 }],
         quote: "Такая схема называется sequence diagram.", mode: "fullscreen", zone: "full",
         mp4: file("03_takaya-skhema.mp4"), alpha: null, warnings: ["duration_off_plan: длительность не по плану: 4,0 с вместо 3,7 с"], duration_frames: 120,
       },
@@ -45,6 +48,30 @@ describe("timecode", () => {
   });
 });
 
+describe("sourcePieces", () => {
+  // таймлайн: 0–70 с ролика = 0–70 с исходника; 70–76,52 с = 73,48–80 с; дальше 101–120 с
+  const clips = [
+    { idx: 0, source_start_us: 0, source_end_us: 70_000_000, edited_start_us: 0 },
+    { idx: 1, source_start_us: 73_480_000, source_end_us: 80_000_000, edited_start_us: 70_000_000 },
+    { idx: 2, source_start_us: 101_000_000, source_end_us: 120_000_000, edited_start_us: 76_520_000 },
+  ];
+
+  it("окно клипа заходит за склейку на 1 кадр — один кусок (хвостик < 0,5 с отброшен)", () => {
+    expect(sourcePieces(clips, { start_us: 69_966_667, end_us: 73_066_667 }, { start_us: 70_500_000, end_us: 72_800_000 }))
+      .toEqual([{ start_us: 73_480_000, end_us: 76_546_667 }]);
+  });
+
+  it("клип на двух кусках исходника — оба по порядку", () => {
+    expect(sourcePieces(clips, { start_us: 74_000_000, end_us: 78_000_000 }, { start_us: 74_200_000, end_us: 77_800_000 }))
+      .toEqual([{ start_us: 77_480_000, end_us: 80_000_000 }, { start_us: 101_000_000, end_us: 102_480_000 }]);
+  });
+
+  it("кусок только в запасе после речи (tail) — отброшен, даже если ≥ 0,5 с", () => {
+    expect(sourcePieces(clips, { start_us: 74_000_000, end_us: 77_200_000 }, { start_us: 74_000_000, end_us: 76_400_000 }))
+      .toEqual([{ start_us: 77_480_000, end_us: 80_000_000 }]);
+  });
+});
+
 describe("videoCheatRows", () => {
   it("строки по номеру сцены: ролик — кадры плана и длительность файла, исходник — source; «не вошли» на своём месте", () => {
     const rows = videoCheatRows(manifest());
@@ -55,15 +82,18 @@ describe("videoCheatRows", () => {
     ]);
     const [a, m, c] = rows;
     expect(a).toMatchObject({
-      edited: { start: "00:01:03:21", end: "00:01:06:24" }, source: { start: "00:01:13:14", end: "00:01:41:10" },
+      edited: { start: "00:01:03:21", end: "00:01:06:24" }, source: { start: "00:01:13:14", end: "00:01:16:18" },
       duration_s: 3.1, mode: "поверх видео · левая треть", approved: true,
     });
-    // в исходнике между началом и концом есть вырезки — человеку видно, что кусок не сплошной
-    expect(a!.notes).toEqual(["в исходнике есть вырезки", "дымка в альфа-версии"]);
+    // исходник — куски под окном клипа, а не source плана; про склейку в замечаниях ничего
+    expect(a!.notes).toEqual(["дымка в альфа-версии"]);
     expect(m).toMatchObject({ edited: { start: "00:01:27:13", end: "00:01:35:00" }, source: { start: "00:02:02:22", end: "00:02:12:09" }, duration_s: null, approved: false });
     expect(m!.notes).toEqual(["не вошла: не утверждена (C)"]);
     // fullscreen: альфы нет с причиной; не утверждена; длительность файла не по плану — конец по файлу
     expect(c).toMatchObject({ edited: { start: "00:01:49:16", end: "00:01:53:16" }, duration_s: 4, mode: "на весь кадр", approved: false });
+    // два куска: главный — длиннейший, оба в source_pieces
+    expect(c!.source).toEqual({ start: "00:02:48:00", end: "00:02:50:06" });
+    expect(c!.source_pieces).toHaveLength(2);
     expect(c!.notes).toEqual(["без альфы: сцена на весь кадр", "не утверждена (C)", "длительность не по плану: 4,0 с вместо 3,7 с"]);
     expect(rows.every((r) => r.notes.length <= CHEAT_NOTES_MAX)).toBe(true);
   });
@@ -95,10 +125,11 @@ describe("videoCheatsheet", () => {
     expect(md).toContain("_alpha.mov");
     const lines = md.split("\n");
     const head = lines.findIndex((l) => l.startsWith("| № |"));
-    expect(lines[head]).toBe("| № | ролик: начало | ролик: конец | исходник: начало | исходник: конец | длит., с | файл MP4 (на весь кадр) | файл с альфой (поверх видео) | фраза | режим | утверждена (C) | замечания |");
+    expect(lines[head]).toBe("| № | ролик: начало | ролик: конец | исходник | длит., с | файл MP4 (на весь кадр) | файл с альфой (поверх видео) | фраза | режим | утверждена (C) | замечания |");
     const clipRows = lines.slice(head + 2, lines.indexOf("", head));
     expect(clipRows).toHaveLength(2);
-    expect(clipRows[0]).toBe("| 01 | 00:01:03:21 | 00:01:06:24 | 00:01:13:14 | 00:01:41:10 | 3,1 | 01_rabotat-dalshe.mp4 | 01_rabotat-dalshe_alpha.mov | работать дальше, не прерывая соединения. | поверх видео · левая треть | да | в исходнике есть вырезки; дымка в альфа-версии |");
+    expect(clipRows[0]).toBe("| 01 | 00:01:03:21 | 00:01:06:24 | 00:01:13:14–00:01:16:18 | 3,1 | 01_rabotat-dalshe.mp4 | 01_rabotat-dalshe_alpha.mov | работать дальше, не прерывая соединения. | поверх видео · левая треть | да | дымка в альфа-версии |");
+    expect(clipRows[1]).toContain("| 2 куска — 00:02:43:14–00:02:45:00 + 00:02:48:00–00:02:50:06; ставьте по началу, клип склеен |");
     expect(clipRows[1]).toContain("| 03_takaya-skhema.mp4 | — | Такая схема называется sequence diagram. | на весь кадр | нет |");
     expect(md).toMatch(/## Не вошли в папку \(1\)/);
     expect(md).toContain("| 02 | 00:01:27:13 | Поэтому получатель сначала дочитывает | не утверждена (C) |");
@@ -109,12 +140,12 @@ describe("videoCheatsheet", () => {
     expect(csv.startsWith("﻿№;ролик: начало;")).toBe(true);
     const lines = csv.slice(1).trimEnd().split("\r\n");
     expect(lines).toHaveLength(1 + 3);
-    expect(lines[2]).toBe("02;00:01:27:13;00:01:35:00;00:02:02:22;00:02:12:09;—;—;—;Поэтому получатель сначала дочитывает;—;нет;не вошла: не утверждена (C)");
+    expect(lines[2]).toBe("02;00:01:27:13;00:01:35:00;00:02:02:22–00:02:12:09;—;—;—;Поэтому получатель сначала дочитывает;—;нет;не вошла: не утверждена (C)");
     const txt = videoCheatsheet(rows, "txt", info);
     expect(txt.trimEnd().split("\n")).toEqual([
-      "01 · ролик 00:01:03:21–00:01:06:24 · исходник 00:01:13:14–00:01:41:10 · 3,1 с · поверх видео · левая треть · C: да · «работать дальше, не прерывая соединения.» · 01_rabotat-dalshe.mp4 + 01_rabotat-dalshe_alpha.mov",
+      "01 · ролик 00:01:03:21–00:01:06:24 · исходник 00:01:13:14–00:01:16:18 · 3,1 с · поверх видео · левая треть · C: да · «работать дальше, не прерывая соединения.» · 01_rabotat-dalshe.mp4 + 01_rabotat-dalshe_alpha.mov",
       "02 · ролик 00:01:27:13–00:01:35:00 · исходник 00:02:02:22–00:02:12:09 · «Поэтому получатель сначала дочитывает» · не вошла: не утверждена (C)",
-      "03 · ролик 00:01:49:16–00:01:53:16 · исходник 00:02:43:14–00:02:50:06 · 4,0 с · на весь кадр · C: нет · «Такая схема называется sequence diagram.» · 03_takaya-skhema.mp4",
+      "03 · ролик 00:01:49:16–00:01:53:16 · исходник 2 куска — 00:02:43:14–00:02:45:00 + 00:02:48:00–00:02:50:06; ставьте по началу, клип склеен · 4,0 с · на весь кадр · C: нет · «Такая схема называется sequence diagram.» · 03_takaya-skhema.mp4",
     ]);
   });
 });

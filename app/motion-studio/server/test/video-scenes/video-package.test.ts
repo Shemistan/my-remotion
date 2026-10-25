@@ -176,6 +176,9 @@ describe("videoPackage", () => {
     const m = manifestOf(refs);
     expect(m.scenes.map((s) => [s.n, s.item_id, s.approved, s.mode, s.alpha === null])).toEqual([[1, a!.id, true, a!.composition_mode, false], [3, c!.id, true, "fullscreen", true]]);
     expect(m.scenes[0]).toMatchObject({ source: a!.source, edited: a!.edited, frames: a!.frames, version_id: versionOf.get(a!.id), version_number: 1, duration_frames: total });
+    // куски исходника — по таймлайну EDL (вырезка 2,2–3,7 с): ролик 2,3–4,4 с = исходник 3,8–5,9 с
+    expect(m.scenes[0]!.source_pieces).toEqual([{ start_us: 3_800_000, end_us: 5_900_000 }]);
+    expect(m.missing[0]!.source_pieces).toEqual([b!.source]);
     expect(m.missing.map((x) => [x.item_id, x.n, x.frames])).toEqual([[b!.id, 2, b!.frames], [d!.id, 4, d!.frames]]);
 
     // шпаргалка: строк = сцен плана; таймкоды ролика из кадров плана
@@ -209,6 +212,25 @@ describe("videoPackage", () => {
     expect(txt[1]).toContain("C: нет");
     const csv = readFileSync(join(env.s.root, refsOf(r).rel_path, "шпаргалка.csv"), "utf8");
     expect(csv).toMatch(/не утверждена \(C\); длительность не по плану/);
+  });
+
+  it("режим и альфа — по размещению, с которым сделана версия (не по текущему плану)", async () => {
+    await generateAll();
+    const [a] = v.doc.items;
+    expect(a!.composition_mode).toBe("overlay");
+    // версия первой сцены сделана как fullscreen (непрозрачная): альфа ей не положена
+    const gen = jobs.get(env.db, versions.get(env.db, versionOf.get(a!.id)!)!.created_by_job_id!)!;
+    const input = gen.input as { video: { placement: Record<string, unknown> } };
+    const video = { ...input.video, placement: { ...input.video.placement, mode: "fullscreen", zone: "full", transparent: false } };
+    env.db.prepare("UPDATE jobs SET input_refs_json = ? WHERE id = ?").run(JSON.stringify({ ...input, video }), gen.id);
+    const exp = fakeExport();
+    const { r } = await run(deps(exp), { only_approved: false });
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    const m = manifestOf(refsOf(r));
+    expect(m.scenes[0]).toMatchObject({ item_id: a!.id, mode: "fullscreen", zone: "full", alpha: null });
+    expect(exp.calls.map((x) => x.draftKey).filter((k) => k?.startsWith("1-"))).toEqual(["1-mp4"]);
+    expect(m.missing).toEqual([]);
+    expect(readFileSync(join(env.s.root, refsOf(r).rel_path, "шпаргалка.csv"), "utf8").split("\r\n")[1]).toContain("без альфы: сцена на весь кадр");
   });
 
   it("сцена плана изменилась после утверждения — «сцена устарела»; альфа невозможна — сцена без альфы с причиной", async () => {

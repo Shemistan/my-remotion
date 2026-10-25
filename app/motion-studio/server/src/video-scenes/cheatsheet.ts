@@ -32,12 +32,35 @@ export const ZONE_RU: Record<Zone, string> = {
 
 export const NOT_APPROVED = "не утверждена (C)";
 export const FULLSCREEN_NO_ALPHA = "без альфы: сцена на весь кадр";
-export const SOURCE_CUTS = "в исходнике есть вырезки";
 const NOT_IN = "не вошла";
-/** Исходник длиннее места в ролике больше чем на это — внутри куска вырезки. */
-const CUTS_SLACK_US = 500_000;
+/** Кусок исходника под клипом короче этого — след склейки на краю окна, не показывается. */
+export const MIN_PIECE_US = 500_000;
 
 export interface Range { start: string; end: string }
+export interface UsRange { start_us: number; end_us: number }
+/** Клип таймлайна ревизии EDL (`timeline_clips`): кусок исходника и его начало в ролике. */
+export interface TimelineClip { source_start_us: number; source_end_us: number; edited_start_us: number }
+
+/**
+ * Куски исходника под окном клипа `window` (µs ролика) по клипам таймлайна EDL, по порядку.
+ * Значимые — не короче `MIN_PIECE_US` и задевающие речь `speech` (кусок только в запасе
+ * lead/tail — след склейки). Значимых нет — самый длинный из всех (пустой таймлайн — []).
+ */
+export function sourcePieces(clips: readonly TimelineClip[], window: UsRange, speech: UsRange): UsRange[] {
+  const all: { piece: UsRange; edited: UsRange }[] = [];
+  for (const c of clips) {
+    const eEnd = c.edited_start_us + (c.source_end_us - c.source_start_us);
+    const a = Math.max(c.edited_start_us, window.start_us);
+    const b = Math.min(eEnd, window.end_us);
+    if (b <= a) continue;
+    all.push({ piece: { start_us: c.source_start_us + (a - c.edited_start_us), end_us: c.source_start_us + (b - c.edited_start_us) }, edited: { start_us: a, end_us: b } });
+  }
+  const len = (r: UsRange) => r.end_us - r.start_us;
+  const sig = all.filter((x) => len(x.piece) >= MIN_PIECE_US && Math.min(x.edited.end_us, speech.end_us) > Math.max(x.edited.start_us, speech.start_us));
+  if (sig.length > 0) return sig.map((x) => x.piece);
+  const longest = all.reduce<UsRange | undefined>((m, x) => (!m || len(x.piece) > len(m) ? x.piece : m), undefined);
+  return longest ? [longest] : [];
+}
 
 export interface VideoCheatRow {
   /** Номер сцены среди принятых сцен плана (`NN`); сцена без номера — «—». */
@@ -46,8 +69,10 @@ export interface VideoCheatRow {
   alpha: string | null;
   /** Место клипа в смонтированном ролике (кадры плана, конец — по файлу версии). */
   edited: Range | null;
-  /** Тот же кусок в исходнике (от начала до конца, вырезки внутри не видны). */
+  /** Тот же кусок в исходнике: главный (самый длинный) кусок под клипом. */
   source: Range | null;
+  /** Значимые куски исходника по порядку; ≥ 2 — клип склеен (показывается в колонке «исходник»). */
+  source_pieces: Range[];
   /** Длительность файла, с; сцена не вошла — null. */
   duration_s: number | null;
   quote: string;
@@ -67,8 +92,23 @@ export function timecode(frame: number, fps: Fps): string {
   return `${p(Math.floor(s / 3600))}:${p(Math.floor(s / 60) % 60)}:${p(s % 60)}:${p(f % base)}`;
 }
 
-const sourceRange = (src: { start_us: number; end_us: number }, fps: Fps): Range =>
+const sourceRange = (src: UsRange, fps: Fps): Range =>
   ({ start: timecode(usToFrame(src.start_us, fps), fps), end: timecode(usToFrameCeil(src.end_us, fps), fps) });
+
+/** Исходник строки: куски из манифеста (старый манифест без них — `source` плана). */
+function sourceOf(pieces: readonly UsRange[] | undefined, fallback: UsRange | undefined, fps: Fps): Pick<VideoCheatRow, "source" | "source_pieces"> {
+  const list = pieces && pieces.length > 0 ? pieces : fallback ? [fallback] : [];
+  if (list.length === 0) return { source: null, source_pieces: [] };
+  const main = list.reduce((m, x) => (x.end_us - x.start_us > m.end_us - m.start_us ? x : m));
+  return { source: sourceRange(main, fps), source_pieces: list.map((x) => sourceRange(x, fps)) };
+}
+
+const range = (r: Range): string => `${r.start}–${r.end}`;
+/** Колонка «исходник»: главный кусок; клип склеен — все куски и как ставить. */
+export function sourceText(r: Pick<VideoCheatRow, "source" | "source_pieces">): string | null {
+  if (r.source_pieces.length >= 2) return `${r.source_pieces.length} куска — ${r.source_pieces.map(range).join(" + ")}; ставьте по началу, клип склеен`;
+  return r.source ? range(r.source) : null;
+}
 
 /** Текст предупреждения манифеста по коду (`duration_off_plan: …` → `…`). */
 const warningText = (ws: readonly string[], code: string): string | undefined =>
@@ -86,21 +126,19 @@ export function videoCheatRows(m: VideoPackageManifest): VideoCheatRow[] {
   const rows: { n: number; row: VideoCheatRow }[] = [];
   for (const s of m.scenes) {
     const frames = s.duration_frames ?? s.frames.end - s.frames.start;
-    const plannedUs = s.edited.end_us - s.edited.start_us;
     const alphaReason = s.alpha === null ? (s.mode === "fullscreen" ? FULLSCREEN_NO_ALPHA : missingOf.get(s.item_id) ?? "альфа-версия не экспортирована") : undefined;
     const offPlan = warningText(s.warnings, "duration_off_plan");
     const first = [
       ...(alphaReason ? [alphaReason] : []),
       ...(s.approved ? [] : [NOT_APPROVED]),
       ...(offPlan ? [offPlan] : []),
-      ...(s.source.end_us - s.source.start_us > plannedUs + CUTS_SLACK_US ? [SOURCE_CUTS] : []),
     ];
     rows.push({
       n: s.n,
       row: {
         nn: sceneNumber(s.n, total), mp4: s.mp4.file, alpha: s.alpha?.file ?? null,
         edited: { start: timecode(s.frames.start, fps), end: timecode(s.frames.start + frames, fps) },
-        source: sourceRange(s.source, fps),
+        ...sourceOf(s.source_pieces, s.source, fps),
         duration_s: (frames * fps.den) / fps.num,
         quote: s.quote, mode: s.mode === "fullscreen" ? MODE_RU.fullscreen : `${MODE_RU[s.mode]} · ${ZONE_RU[s.zone]}`, approved: s.approved,
         notes: cheatNotes(first, s.warnings.map(warningCode).filter((c) => c !== "" && !SHOWN.has(c))),
@@ -114,7 +152,7 @@ export function videoCheatRows(m: VideoPackageManifest): VideoCheatRow[] {
       row: {
         nn: x.n ? sceneNumber(x.n, total) : "—", mp4: null, alpha: null,
         edited: x.frames ? { start: timecode(x.frames.start, fps), end: timecode(x.frames.end, fps) } : null,
-        source: x.source ? sourceRange(x.source, fps) : null,
+        ...sourceOf(x.source_pieces, x.source, fps),
         duration_s: null, quote: x.quote ?? "", mode: "—", approved: false,
         notes: cheatNotes([`${NOT_IN}: ${x.reason}`], []),
       },
@@ -124,7 +162,7 @@ export function videoCheatRows(m: VideoPackageManifest): VideoCheatRow[] {
 }
 
 const COLUMNS = [
-  "№", "ролик: начало", "ролик: конец", "исходник: начало", "исходник: конец", "длит., с", "файл MP4 (на весь кадр)", "файл с альфой (поверх видео)",
+  "№", "ролик: начало", "ролик: конец", "исходник", "длит., с", "файл MP4 (на весь кадр)", "файл с альфой (поверх видео)",
   "фраза", "режим", "утверждена (C)", "замечания",
 ] as const;
 const MISSING_COLUMNS = ["№", "ролик: начало", "фраза", "причина"] as const;
@@ -134,7 +172,7 @@ const DASH = "—";
 
 function cells(r: VideoCheatRow): string[] {
   return [
-    r.nn, r.edited?.start ?? DASH, r.edited?.end ?? DASH, r.source?.start ?? DASH, r.source?.end ?? DASH, r.duration_s === null ? DASH : sec(r.duration_s),
+    r.nn, r.edited?.start ?? DASH, r.edited?.end ?? DASH, sourceText(r) ?? DASH, r.duration_s === null ? DASH : sec(r.duration_s),
     r.mp4 ?? DASH, r.alpha ?? DASH, r.quote || DASH, r.mode, r.approved ? "да" : "нет", r.notes.join("; "),
   ];
 }
@@ -162,7 +200,7 @@ export function videoCheatsheet(rows: readonly VideoCheatRow[], format: CheatFor
       const where = [
         r.nn,
         ...(r.edited ? [`ролик ${r.edited.start}–${r.edited.end}`] : []),
-        ...(r.source ? [`исходник ${r.source.start}–${r.source.end}`] : []),
+        ...(r.source ? [`исходник ${sourceText(r)!}`] : []),
       ];
       const quote = `«${oneLine(r.quote)}»`;
       if (r.mp4 === null) return `${[...where, quote, r.notes.map(oneLine).join("; ")].join(" · ")}\n`;

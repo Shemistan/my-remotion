@@ -127,6 +127,8 @@ export const VideoPackageManifestSchema = z.object({
     warnings: z.array(z.string()),
     // Task 5L: длительность файла версии в кадрах `fps` (≠ плану — замечание в шпаргалке).
     duration_frames: z.number().int().positive().optional(),
+    // Task 5L fix: куски исходника под окном клипа по `timeline_clips` ревизии `edl` (значимые, по порядку).
+    source_pieces: z.array(UsRange).optional(),
   }).strict()),
   missing: z.array(z.object({
     item_id: Id, quote: z.string().optional(), reason: z.string().min(1), detail: z.string().optional(),
@@ -134,6 +136,7 @@ export const VideoPackageManifestSchema = z.object({
     n: z.number().int().positive().optional(),
     source: UsRange.optional(),
     frames: z.object({ start: Int0, end: Int0 }).strict().optional(),
+    source_pieces: z.array(UsRange).optional(),
   }).strict()),
   created_at: z.string().datetime(),
 }).strict();

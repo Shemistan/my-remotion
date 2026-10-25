@@ -18,6 +18,7 @@ export const ruVideoExport = {
   "videoExport.package.reveal": "Показать в Finder",
   "videoExport.package.clips": "Клипов в папке: {n}",
   "videoExport.package.missingTitle": "Не вошли ({n})",
+  "videoExport.package.noAlphaTitle": "В папке без альфы, только MP4 ({n})",
   "videoExport.package.scene": "Сцена {n}",
   "videoExport.cheatsheet.title": "Шпаргалка",
   "videoExport.cheatsheet.show": "Показать шпаргалку",

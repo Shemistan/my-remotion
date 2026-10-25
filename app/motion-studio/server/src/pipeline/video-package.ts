@@ -10,7 +10,7 @@ import { readFileSync, renameSync, unlinkSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import {
   type SceneFrames, type ScenePlanItem, type ScriptPackageFile, type VideoPackageDto, type VideoPackageManifest, VideoPackageManifestSchema,
-  failureToJobErrorCode, videoSceneFrames, videoSceneWindow,
+  type PlannedCompositionMode, type Zone, failureToJobErrorCode, frameToUs, videoSceneFrames, videoSceneWindow,
 } from "@ms/contracts";
 import { safeMkdir } from "@ms/core";
 import { z } from "zod";
@@ -19,6 +19,7 @@ import { currentProjectStyle } from "../analysis/project-style.js";
 import { artifactPaths } from "../artifacts/paths.js";
 import { createJobDraft } from "../artifacts/job-draft.js";
 import type { Db } from "../db/open.js";
+import * as edls from "../db/repos/edls.js";
 import * as jobs from "../db/repos/jobs.js";
 import * as plans from "../db/repos/plans.js";
 import * as projects from "../db/repos/projects.js";
@@ -36,9 +37,10 @@ import { fileNames, fileSlug, packageIdFor } from "../script/package-names.js";
 import { versionQaWarnings } from "../script/state.js";
 import { sceneApprovalState } from "../video-scenes/approval-c.js";
 import { acceptedItems } from "../video-scenes/batch.js";
-import { NOT_APPROVED, videoCheatRows, videoCheatsheet } from "../video-scenes/cheatsheet.js";
+import { NOT_APPROVED, type TimelineClip, type UsRange, sourcePieces, videoCheatRows, videoCheatsheet } from "../video-scenes/cheatsheet.js";
 import { planFps } from "../video-scenes/context.js";
 import { videoItemFingerprint } from "../video-scenes/fingerprint.js";
+import { versionVideoContext } from "../video-scenes/origin.js";
 import { type Phase46Deps } from "./phase46-deps.js";
 import type { ExportOneInput, SceneExportDeps } from "./scene-export.js";
 import {
@@ -85,6 +87,10 @@ interface Packed {
   versionNumber: number;
   approved: boolean;
   durationFrames: number;
+  /** Размещение, по которому сделана версия (контекст её генерации; нет — по плану). */
+  mode: PlannedCompositionMode;
+  zone: Zone;
+  pieces: UsRange[];
   names: { mp4: string; alpha: string };
   mp4: Exported;
   alpha: Exported | null;
@@ -146,6 +152,18 @@ export const videoPackage: (depsOf: () => VideoPackageDeps) => JobHandler = (dep
     return fail(isStorageError(e) ? "storage" : "prepare", `план, монтаж или стиль проекта не прочитаны: ${errText(e)}`);
   }
   if (!doc) return empty("у проекта нет плана сцен");
+  let clips: TimelineClip[];
+  try {
+    clips = edls.timeline(db, doc.inputs.edl.id, doc.inputs.edl.revision)?.clips ?? [];
+  } catch (e) {
+    return fail(isStorageError(e) ? "storage" : "prepare", `таймлайн монтажа не прочитан: ${errText(e)}`);
+  }
+  /** Куски исходника под окном `[start, start+total)` кадров ролика (речь — без lead/tail). */
+  const piecesOf = (start: number, f: { lead: number; tail: number; total: number }): UsRange[] => {
+    const at = (fr: number) => frameToUs(Math.max(0, fr), fps!);
+    const speechEnd = Math.max(start + f.lead + 1, start + f.total - f.tail);
+    return sourcePieces(clips, { start_us: at(start), end_us: at(start + f.total) }, { start_us: at(start + f.lead), end_us: at(speechEnd) });
+  };
   const accepted = acceptedItems(doc);
   if (accepted.length === 0) return empty("в плане нет принятых сцен");
   const total = accepted.length;
@@ -203,9 +221,14 @@ export const videoPackage: (depsOf: () => VideoPackageDeps) => JobHandler = (dep
       continue;
     }
     const qa = versionQaWarnings(db, root, v.id);
+    // режим и альфа — по размещению, с которым версия сделана (неутверждённая текущая могла быть
+    // сгенерирована при другом режиме плана); старая версия без контекста — по плану
+    const placement = versionVideoContext(db, v.id)?.placement;
+    const mode = placement?.mode ?? item.composition_mode;
+    const transparent = placement?.transparent ?? mode !== "fullscreen";
     let alpha: Exported | null = null;
     // fullscreen — непрозрачная сцена на весь кадр (Р-V5): альфа не нужна
-    if (item.composition_mode !== "fullscreen") {
+    if (transparent) {
       if (overlayProblem({ issues: qa })) missing.set(item.id, OVERLAY_IMPOSSIBLE);
       else {
         log?.(`сцена ${n}: экспорт ProRes 4444 с альфой`);
@@ -220,6 +243,7 @@ export const videoPackage: (depsOf: () => VideoPackageDeps) => JobHandler = (dep
     const qaShown = qa.filter((x) => !(OVERLAY_BLOCKERS as readonly string[]).includes(x.code));
     packed.push({
       n, item, sceneId: row.scene_id, versionId: v.id, versionNumber: v.number, approved, durationFrames: v.settings.duration_frames,
+      mode, zone: placement?.zone ?? item.zone, pieces: piecesOf(item.frames.start, frames),
       names: fileNames(n, total, fileSlug(itemQuote(item))), mp4: mp4.ok, alpha,
       warnings: [...(offPlan ? [`duration_off_plan: ${offPlan}`] : []), ...qaShown.map((x) => `${x.code}: ${x.description}`), ...mp4.ok.warnings, ...(alpha?.warnings ?? [])],
     });
@@ -228,6 +252,7 @@ export const videoPackage: (depsOf: () => VideoPackageDeps) => JobHandler = (dep
   const missingList = accepted.filter((x) => missing.has(x.id)).map((x) => ({
     item_id: x.id, quote: itemQuote(x), reason: missing.get(x.id)!, ...(details.has(x.id) ? { detail: details.get(x.id)! } : {}),
     n: numberOf.get(x.id)!, source: x.source, frames: { start: x.frames.start, end: x.frames.end },
+    source_pieces: piecesOf(x.frames.start, { ...videoSceneWindow(x, fps!), total: videoSceneFrames(x) }),
   }));
   if (packed.length === 0) return empty(missingList.map((m) => `сцена ${m.n}: ${m.reason}`).join("; "));
 
@@ -247,8 +272,8 @@ export const videoPackage: (depsOf: () => VideoPackageDeps) => JobHandler = (dep
     scenes: packed.map((p) => ({
       n: p.n, item_id: p.item.id, scene_id: p.sceneId, version_id: p.versionId, version_number: p.versionNumber, approved: p.approved,
       source: p.item.source, edited: p.item.edited, frames: { start: p.item.frames.start, end: p.item.frames.end }, quote: itemQuote(p.item),
-      mode: p.item.composition_mode, zone: p.item.zone, mp4: fileOf(p.mp4, p.names.mp4), alpha: p.alpha ? fileOf(p.alpha, p.names.alpha) : null,
-      warnings: p.warnings, duration_frames: p.durationFrames,
+      mode: p.mode, zone: p.zone, mp4: fileOf(p.mp4, p.names.mp4), alpha: p.alpha ? fileOf(p.alpha, p.names.alpha) : null,
+      warnings: p.warnings, duration_frames: p.durationFrames, source_pieces: p.pieces,
     })),
     missing: missingList,
     created_at: createdAt,

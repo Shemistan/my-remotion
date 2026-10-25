@@ -10,6 +10,7 @@ import { videoPackages } from "../../db/repos/video.js";
 import { tx } from "../../db/tx.js";
 import { enqueue } from "../../jobs/queue.js";
 import { videoPackageDto, videoPackagesForProject } from "../../pipeline/video-package.js";
+import { deletedRefusal } from "../../projects/lifecycle.js";
 import { CHEAT_FILES } from "../../script/cheatsheet.js";
 import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "../context.js";
 import { ApiError, notFound } from "../errors.js";
@@ -46,9 +47,12 @@ export const videoPackageRoutes: (app: ZApp, ctx: ApiContext) => void = (app, { 
     return videoPackagesForProject(core.db, core.root, project.id);
   });
 
+  // проект в корзине — его каталог унесён: отвечаем project_deleted, а не «папки нет / откройте в Finder»
   const rowOr404 = (id: string) => {
     const row = videoPackages.get(core.db, id);
     if (!row) throw notFound(`папка клипов ${id}`);
+    const deleted = deletedRefusal(core.db, row.project_id);
+    if (deleted) throw deleted;
     return row;
   };
 

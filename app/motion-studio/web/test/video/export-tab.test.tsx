@@ -71,6 +71,19 @@ describe("ExportTab видеопроекта", () => {
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url === "/api/video-packages/pkg_1/reveal")).toBe(true));
   });
 
+  it("сцена в папке без альфы — не в «Не вошли», а отдельной строкой «без альфы» с причиной", async () => {
+    const alphaMiss = { item_id: "sp_001", reason: "альфа-версия невозможна: сцена закрывает кадр", n: 1 };
+    setup([{ ...pkg, manifest: { ...pkg.manifest, missing: [...pkg.manifest.missing, alphaMiss] } }]);
+    renderQ(<ExportTab data={data} currentUs={0} onSeek={() => undefined} onChanged={() => undefined} />);
+    const card = await screen.findByTestId("video-package-card");
+    const missing = within(card).getByTestId("video-package-missing");
+    expect(within(missing).getByRole("heading").textContent).toBe(t("videoExport.package.missingTitle", { n: 1 }));
+    expect(missing.textContent).not.toContain("альфа-версия невозможна");
+    const noAlpha = within(card).getByTestId("video-package-no-alpha");
+    expect(noAlpha.textContent).toContain("Сцена 1");
+    expect(noAlpha.textContent).toContain("альфа-версия невозможна: сцена закрывает кадр");
+  });
+
   it("«Собрать папку клипов»: по умолчанию only_approved, с флажком — false; ключ идемпотентности; ход задачи", async () => {
     const calls = setup([]);
     renderQ(<ExportTab data={data} currentUs={0} onSeek={() => undefined} onChanged={() => undefined} />);

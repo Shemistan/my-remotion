@@ -1,6 +1,6 @@
 // Task 5L: API папки клипов видеопроекта: постановка `video.package` (Idempotency-Key), список и
 // карточка папки, шпаргалка md/csv/txt, «Показать в Finder» (`open -R` без shell).
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type VideoPackageManifest, VideoPackageDtoSchema } from "@ms/contracts";
@@ -104,6 +104,16 @@ describe("API папки клипов видеопроекта", () => {
     const txt = await api.inj("GET", "/api/video-packages/pkg_1/cheatsheet?format=txt");
     expect(txt.body.split("\n")[0]).toMatch(/^01 · ролик 00:00:01:00–00:00:04:03 · исходник/);
     expect((await api.inj("GET", "/api/video-packages/pkg_x/cheatsheet?format=csv")).statusCode).toBe(404);
+  });
+
+  it("проект в корзине (каталог унесён) — карточка, шпаргалка и Finder отвечают project_deleted, а не «откройте в Finder»", async () => {
+    const dir = seed("pkg_1");
+    api.core.db.prepare("UPDATE projects SET deleted_at = ? WHERE id = ?").run("2026-10-26T11:00:00.000Z", id);
+    renameSync(dir, `${dir}-trash`);
+    for (const [m, url] of [["GET", "/api/video-packages/pkg_1"], ["GET", "/api/video-packages/pkg_1/cheatsheet?format=md"], ["POST", "/api/video-packages/pkg_1/reveal"]] as const) {
+      const r = await api.inj(m, url, m === "POST" ? okHeaders : undefined);
+      expect([r.statusCode, r.json().error], url).toEqual([409, "project_deleted"]);
+    }
   });
 
   it("reveal: open -R <папка> без shell, 204; неизвестная — 404", async () => {

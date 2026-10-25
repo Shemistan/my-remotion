@@ -64,7 +64,7 @@ const NOTE_BY_CODE: Record<string, string> = {
   fragment_mismatch: "кадр не про эту фразу",
   fragment_unsupported: "утверждение не из фразы",
   frame0_coverage: "первый кадр почти пуст",
-  frozen: "финал застыл",
+  frozen: "кадр застыл",
   ghost_text: "двоящийся текст",
   hero_split: "герой распадается",
   hierarchy: "нет ясной иерархии",
