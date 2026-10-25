@@ -30,7 +30,8 @@ import {
   type VisualQAOutput,
 } from "@ms/contracts";
 import { type ReapOptions, fileProcessRegistry, reapAttempt, safeMkdir } from "@ms/core";
-import { FfmpegError, type RenderRequest, type RenderResult, SWEEP_EVERY, type renderVersion, probeGate } from "@ms/render";
+import { FfmpegError, type RenderRequest, type RenderResult, SWEEP_EVERY, type SweepFrame, type renderVersion, probeGate } from "@ms/render";
+import { parseSweep } from "../qa/temporal.js";
 import { ACCENT_HOLD_GAP, programmaticChecks } from "../qa/programmatic.js";
 import { ACCENT_CONFLICT_FRAMES, type LayoutFrame, accentConflictFrames, parseLayout, scriptLayoutIssues } from "../qa/layout.js";
 import { acceptedAsWarn, fixHints, meaningFails, mergeQA, qaBlocks, repeatsAsWarning } from "../qa/report.js";
@@ -171,6 +172,14 @@ export interface LoopInput {
    * в задачу Engineer и в `props.layout.rect` (`checkProps`, как стиль из настроек).
    */
   layout?: NormRect;
+  /**
+   * Проверки по всей сцене без правил сценария (Task 37′ fix I1, прозрачная видеосцена):
+   * временной проход пробы, `scriptSceneIssues` и реестр финала (`empty_container`,
+   * `placeholder_label`, `dead_air`) — как у сцены сценария, но без строк сценария у Engineer;
+   * коды `skip` (пустая половина, герой на 30–40 % кадра — против зоны) отбрасываются.
+   * У сцены сценария окно берётся из `scriptTiming`.
+   */
+  temporal?: { window?: SpeechWindow; moments?: readonly KeyMoment[]; skip: readonly string[] };
 }
 
 /**
@@ -190,6 +199,8 @@ export type ExtraQa = (v: {
   renderStills: (stills: number[], inputProps: Record<string, unknown>) => Promise<RenderResult>;
   /** Реестр раскладки kit QA-кадров попытки (`[motion-kit:layout]`; S10: интерфейс Shorts). */
   layout: LayoutFrame[];
+  /** Временной проход пробы попытки (каждый 6-й кадр; есть у `script`/`temporal`, иначе пусто; Task 37′ fix I2). */
+  sweep?: SweepFrame[];
   /** Контекст задачи (S15b): вызов малой модели (смысл по фрагменту) — с бюджетом и журналом задачи. */
   rc: RunCtx;
 }) => Promise<QAIssue[]>;
@@ -929,7 +940,7 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
       versionDir: dir, settings, cacheDir: i.cacheDir, stills: [...frames, ...extra], preview: PREVIEW, timeoutMs: renderTimeoutMs(settings),
       run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry },
       // S15b: сцена сценария — временной проход пробы после превью (проверки по всей сцене)
-      ...(i.script ? { sweep: { every: SWEEP_EVERY, scale: SWEEP_SCALE } } : {}),
+      ...(i.script || i.temporal ? { sweep: { every: SWEEP_EVERY, scale: SWEEP_SCALE } } : {}),
     };
     const t0 = Date.now();
     const r = await rc.timed(`${pre}render_${call}`, () =>
@@ -1127,14 +1138,14 @@ async function preserveHoldIssues(i: LoopInput, rr: RenderResult): Promise<{ iss
  * под семафором рендеров, каталоги убираются после хука (кроме живых процессов `orphaned`).
  * Сбой или отмена хука — предупреждение `extra_qa_failed`.
  */
-async function extraQaIssues(i: LoopInput, t: Take, settings: Settings, layout: LayoutFrame[]): Promise<{ issues: QAIssue[] } | { orphaned: string }> {
+async function extraQaIssues(i: LoopInput, t: Take, settings: Settings, layout: LayoutFrame[], sweep: SweepFrame[]): Promise<{ issues: QAIssue[] } | { orphaned: string }> {
   const { rc } = i;
   const dirs: string[] = [];
   let orphaned: string | undefined;
   const r = await rc.underWatch(
     (sig) =>
       i.extraQa!({
-        versionDir: t.dir, spec: t.spec, settings, signal: sig, layout, rc,
+        versionDir: t.dir, spec: t.spec, settings, signal: sig, layout, sweep, rc,
         run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry },
         renderStills: async (stills, inputProps) => {
           const outDir = await mkdtemp(join(await safeMkdir(rc.root, `run/tmp/${rc.runId}-a${rc.attempt}`), "extra-"));
@@ -1196,16 +1207,18 @@ async function runQa(
   const fromSpec = specChecks(spec, settings, { previous: i.previous ?? [] });
   // сцена сценария (S14): пустые контейнеры и подписи-заглушки в финале — брак (реестр раскладки
   // kit 0.5.5); S15b: по всей сцене (временной проход) и один герой (пик payoff, удержание)
-  if (i.script) {
+  if (i.script || i.temporal) {
     const layout = parseLayout(rr.browserLogs);
-    programmatic.push(...scriptLayoutIssues(layout).map((x) => ({ source: "programmatic" as const, ...x })));
+    const skip = new Set(i.script ? [] : i.temporal!.skip);
+    const timing = i.scriptTiming ?? (i.temporal?.window ? { window: i.temporal.window, ...(i.temporal.moments ? { moments: i.temporal.moments } : {}) } : undefined);
+    programmatic.push(...scriptLayoutIssues(layout).filter((x) => !skip.has(x.code)).map((x) => ({ source: "programmatic" as const, ...x })));
     const propsPath = join(dir, "props.json");
     const sig = t.signal ?? rc.signal;
     let st: Awaited<ReturnType<typeof scriptSceneIssues>>;
     try {
       st = await rc.timed(`${pre}qa_temporal`, async () => scriptSceneIssues({
         spec, settings, browserLogs: rr.browserLogs, layout, ...(rr.previewPath ? { previewPath: rr.previewPath } : {}),
-        ...(i.scriptTiming ? { window: i.scriptTiming.window, ...(i.scriptTiming.moments ? { moments: i.scriptTiming.moments } : {}) } : {}),
+        ...(timing ? { window: timing.window, ...(timing.moments ? { moments: timing.moments } : {}) } : {}),
         ...(i.technique ? { technique: i.technique } : {}),
         propsText: existsSync(propsPath) ? await readFile(propsPath, "utf8") : "",
         ffmpeg: { run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry }, ...(sig ? { signal: sig } : {}) },
@@ -1217,13 +1230,13 @@ async function runQa(
       throw e;
     }
     for (const n of st.notes) rc.note("qa", n);
-    programmatic.push(...st.issues);
+    programmatic.push(...st.issues.filter((x) => !skip.has(x.code)));
   }
   const hold = await preserveHoldIssues(i, rr);
   if ("orphaned" in hold) return { exit: { ok: false, stage: "orphaned", message: hold.orphaned, alive: true } };
   programmatic.push(...hold.issues);
   if (i.extraQa) {
-    const x = await extraQaIssues(i, t, settings, parseLayout(rr.browserLogs));
+    const x = await extraQaIssues(i, t, settings, parseLayout(rr.browserLogs), parseSweep(rr.browserLogs));
     if ("orphaned" in x) return { exit: { ok: false, stage: "orphaned", message: x.orphaned, alive: true } };
     programmatic.push(...x.issues);
   }

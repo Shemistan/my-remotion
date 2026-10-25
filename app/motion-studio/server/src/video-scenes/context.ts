@@ -5,7 +5,7 @@
 import { posix } from "node:path";
 import {
   type FootageAnalysis, type Fps, type NormRect, type ScenePlanItem, type VideoSceneContext, VideoSceneContextSchema, type VisualPlanRevisionDoc,
-  joinWords, mapWords, placementFor, videoKeyMoments, videoSceneWindow,
+  joinWords, mapWords, placementFor, usToFrame, videoKeyMoments, videoSceneFrames, videoSceneWindow,
 } from "@ms/contracts";
 import { readFootage } from "../analysis/plan-ops.js";
 import { facesAt } from "../analysis/planner-input.js";
@@ -42,6 +42,22 @@ function contextFrame(footage: FootageAnalysis, footageRel: string, src: { start
   return best ? posix.join(posix.dirname(footageRel), best.path) : undefined;
 }
 
+/** Ключевых кадров исходника под сценой во входе не больше (равномерно по окну). */
+export const CONTEXT_KEYFRAMES_MAX = 12;
+
+/**
+ * Ключевые кадры анализа в окне исходника сцены (fix I2) с кадром сцены — от начала окна
+ * исходника в кадрах `fps`, в пределах `[0; duration)`; до `CONTEXT_KEYFRAMES_MAX` равномерно.
+ */
+export function contextFrames(footage: FootageAnalysis, footageRel: string, src: { start_us: number; end_us: number }, fps: Fps, duration: number): { frame: number; rel: string }[] {
+  const all = footage.shots.flatMap((s) => s.keyframes).filter((k) => k.us >= src.start_us && k.us <= src.end_us).sort((a, b) => a.us - b.us);
+  const pick = all.length <= CONTEXT_KEYFRAMES_MAX ? all : Array.from({ length: CONTEXT_KEYFRAMES_MAX }, (_, k) => all[Math.round((k * (all.length - 1)) / (CONTEXT_KEYFRAMES_MAX - 1))]!);
+  return pick.map((k) => ({
+    frame: Math.min(Math.max(0, duration - 1), Math.max(0, usToFrame(k.us - src.start_us, fps))),
+    rel: posix.join(posix.dirname(footageRel), k.path),
+  }));
+}
+
 /**
  * Вход `video` задачи генерации сцены `item` ревизии плана `doc`. Стиль проекта — текущий; нет
  * стиля, таймлайна, анализа видеоряда — ошибка (план без них не строится).
@@ -58,10 +74,11 @@ export function videoSceneContext(db: Db, root: string, i: { projectId: string; 
   const footage = readFootage(db, root, doc.inputs.footage_id);
   const face = unionRect(facesAt(footage, item.source));
   const frame = contextFrame(footage, row.rel_path, item.source);
+  const frames = contextFrames(footage, row.rel_path, item.source, fps, videoSceneFrames(item));
   return VideoSceneContextSchema.parse({
     project_id: i.projectId, plan_id: doc.plan_id, plan_revision: doc.revision, item_id: item.id, style: style.base,
     lead_frames: w.lead, tail_frames: w.tail, placement: placementFor(item.composition_mode, item.zone, item.rect),
-    ...(face ? { face } : {}), ...(moments.length > 0 ? { key_moments: moments } : {}), ...(frame ? { context_frame_rel: frame } : {}),
+    ...(face ? { face } : {}), ...(moments.length > 0 ? { key_moments: moments } : {}), ...(frame ? { context_frame_rel: frame } : {}), ...(frames.length > 0 ? { context_frames: frames } : {}),
   });
 }
 

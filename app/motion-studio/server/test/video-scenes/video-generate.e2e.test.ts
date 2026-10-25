@@ -44,7 +44,13 @@ const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
 const ROOT = process.env.MS_DATA_DIR ?? materialsPath("e2e", "v37-video");
 const EXAMPLES = process.env.MS_V37_EXAMPLES ?? materialsPath("examples", "phase4", "v37");
 const EVIDENCE = join(REPO, "docs/evidence/phase-4/generate");
-const TMP = join(REPO, "tmp/v37-e2e");
+/** Префикс имён примеров и кадров evidence (fix-раунд — `v37-fix`). */
+const TAG = process.env.MS_V37_TAG ?? "v37";
+const TMP = join(REPO, `tmp/${TAG}-e2e`);
+/** Режим/зона прозрачной сцены (`overlay/lower_third`); нет такой в плане — новой ревизией плана (Д2). */
+const OVERLAY = process.env.MS_V37_OVERLAY?.split("/") as [ScenePlanItem["composition_mode"], ScenePlanItem["zone"]] | undefined;
+/** `overlay` — только прозрачная сцена (fullscreen не генерируется). */
+const ONLY = process.env.MS_V37_ONLY;
 const FINAL = ["completed", "failed", "cancelled", "blocked"];
 const run = promisify(execFile);
 
@@ -114,10 +120,23 @@ it("план видеопроекта: прозрачная сцена с клю
   let doc = currentPlan(core.db, ROOT, plan.id);
   const accepted = doc.items.filter((x) => x.status === "accepted");
   const dur = (x: ScenePlanItem) => videoSceneFrames(x);
-  const overlay = accepted.filter((x) => x.composition_mode !== "fullscreen" && x.key_terms.length > 0 && x.face_overlap.ratio === 0).sort((a, b) => dur(a) - dur(b))[0];
+  let overlay = OVERLAY
+    ? accepted.find((x) => x.composition_mode === OVERLAY[0] && x.zone === OVERLAY[1] && x.key_terms.length > 0)
+    : accepted.filter((x) => x.composition_mode !== "fullscreen" && x.key_terms.length > 0 && x.face_overlap.ratio === 0).sort((a, b) => dur(a) - dur(b))[0];
+  if (!overlay && OVERLAY) {
+    // нет сцены в нужном режиме — самая короткая прозрачная с ключевым словом без лица переводится в него ревизией плана (Д2)
+    const cand = accepted.filter((x) => x.composition_mode !== "fullscreen" && x.key_terms.length > 0 && x.face_overlap.ratio === 0).sort((a, b) => dur(a) - dur(b))[0]!;
+    const store = new ArtifactStore({ root: ROOT, db: core.db, guard });
+    doc = await savePlanRevision({ db: core.db, store, root: ROOT, planning: core.config.planning }, plan.id, {
+      base_revision: doc.revision, ops: [{ op: "modify", item_id: cand.id, patch: { composition_mode: OVERLAY[0], zone: OVERLAY[1] } }],
+    });
+    overlay = doc.items.find((x) => x.id === cand.id)!;
+    state.planEdit = `${cand.id}: ${cand.composition_mode}/${cand.zone} → ${OVERLAY.join("/")}, ревизия плана r${doc.revision}`;
+    say(`план: ${state.planEdit}`);
+  }
   expect(overlay, "нет прозрачной сцены с ключевым словом без лица").toBeDefined();
   let full = accepted.find((x) => x.composition_mode === "fullscreen");
-  if (!full) {
+  if (!full && ONLY !== "overlay") {
     const cand = accepted.filter((x) => x.id !== overlay!.id && dur(x) <= 12 * 30).sort((a, b) => dur(a) - dur(b))[0]!;
     const store = new ArtifactStore({ root: ROOT, db: core.db, guard });
     doc = await savePlanRevision({ db: core.db, store, root: ROOT, planning: core.config.planning }, plan.id, {
@@ -136,7 +155,8 @@ it("план видеопроекта: прозрачная сцена с клю
   const display = { width: asset.probe.video.display_width, height: asset.probe.video.display_height };
   const fps = planFps(core.db, doc);
   const order = doc.items.filter((x) => x.status === "accepted").sort((a, b) => a.frames.start - b.frames.start);
-  for (const [label, item] of [["overlay", ov], ["fullscreen", full]] as const) {
+  const pairs: [string, ScenePlanItem][] = [["overlay", ov], ...(ONLY === "overlay" ? [] : [["fullscreen", doc.items.find((x) => x.id === full!.id)!] as [string, ScenePlanItem]])];
+  for (const [label, item] of pairs) {
     const ctx = videoSceneContext(core.db, ROOT, { projectId: pid!, doc, item });
     const settings = videoSceneSettings(project.settings ?? { ...defaultsOf(display) }, display, fps, item, style.base);
     const at = order.findIndex((x) => x.id === item.id);
@@ -168,7 +188,7 @@ function defaultsOf(display: { width: number; height: number }): Settings {
 }
 
 it("generate: обе сцены до конечного статуса (параллельно)", async () => {
-  expect(state.runs).toHaveLength(2);
+  expect(state.runs).toHaveLength(ONLY === "overlay" ? 1 : 2);
   const t0 = Date.now();
   await Promise.all(state.runs.map(async (r) => {
     r.job = await wait(r.job!.id);
@@ -222,7 +242,7 @@ it("MP4 (и ProRes с альфой, превью поверх исходника
   const notes: string[] = [];
   const proxy = media.derivatives(core.db, media.byProject(core.db, state.projectId!)!.id).find((x) => x.kind === "proxy")!;
   for (const r of ready) {
-    const name = `v37-${r.label}-${r.item.id}`;
+    const name = `${TAG}-${r.label}-${r.item.id}`;
     const exp = async (request: Record<string, unknown>, ext: string): Promise<string> => {
       const t0 = Date.now();
       const id = enqueue(core.db, { type: "scene.export", projectId: state.projectId!, versionId: r.version!.id, input: { versionId: r.version!.id, request }, idempotencyKey: `e2e-v37-exp-${newId("run")}` }).job.id;

@@ -41,6 +41,12 @@ describe("videoItemFingerprint", () => {
     expect(fp(base, { id: "sty_1", revision: 2 })).not.toBe(f0);
   });
 
+  it("ревью: причина наложения на лицо и окно исходника — входят", () => {
+    const f0 = fp(base);
+    expect(fp({ ...base, face_overlap: { ...base.face_overlap, override_reason: "автор показывает на график" } })).not.toBe(f0);
+    expect(fp({ ...base, source: { start_us: base.source.start_us + 1_000_000, end_us: base.source.end_us + 1_000_000 } })).not.toBe(f0);
+  });
+
   it("статус и цитата — не входят", () => {
     expect(fp({ ...base, status: "accepted" })).toBe(fp(base));
     expect(fp({ ...base, evidence: base.evidence.map((e) => ({ ...e, quote: "другая цитата" })) })).toBe(fp(base));

@@ -1,11 +1,14 @@
-// Проверки кадров видеосцены по альфе (Task 37′, Р-V5): кадры QA рендерятся с
-// `transparent = true`, непрозрачное (α > 0,1) — графика сцены. Графика на лице автора —
-// `face_ink` (blocking; есть причина в плане `face_overlap.override_reason` — warning), вне
-// прямоугольника зоны плана с запасом 0,02 — `outside_zone` (blocking). `fullscreen` — без проверок.
+// Проверки кадров видеосцены (Task 37′, Р-V5): графика на лице автора — `face_ink` (blocking; есть
+// причина в плане `face_overlap.override_reason` — warning), вне прямоугольника зоны плана с
+// запасом 0,02 — `outside_zone` (blocking). Два источника: альфа QA-кадров (`transparent = true`,
+// α > 0,1 — графика; точно, но 4–6 кадров) и рамки реестра раскладки каждого кадра временного
+// прохода пробы (строки `data-ms-layout`, контейнеры kit, кандидаты героя; вся длина сцены, fix I2).
+// `fullscreen` — без проверок.
 import { readFile, readdir, rm } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
-import type { NormRect, QAIssue, VideoSceneContext } from "@ms/contracts";
+import { join, relative, resolve, sep } from "node:path";
+import { type NormRect, type QAIssue, type VideoSceneContext, isStoreRel } from "@ms/contracts";
 import { safeMkdir } from "@ms/core";
+import type { SweepFrame } from "@ms/render";
 import type { ExtraQa } from "../pipeline/fix-loop.js";
 import { errText } from "../pipeline/steps.js";
 import { type Img, loadPng } from "../qa/image.js";
@@ -61,38 +64,76 @@ export function alphaShares(img: Img, zone: NormRect, face?: NormRect): { face: 
 
 const pct = (x: number) => `${(x * 100).toFixed(1)} %`;
 
+/** Ширина маски рамок кадра пробы, px (высота — в пропорции кадра). */
+const MASK_W = 192;
+
 /**
- * `face_ink` и `outside_zone` по кадрам с альфой: одно замечание на код, кадр — худший.
- * `overrideReason` — причина наложения на лицо из плана (`face_overlap.override_reason`).
+ * Маска рамок графики кадра временного прохода (α = 255 под рамкой): строки текста
+ * (`data-ms-layout`), контейнеры kit, кандидаты героя — в долях кадра пробы.
  */
-export async function videoSceneChecks(i: { alphaFrames: readonly AlphaFrame[]; ctx: VideoSceneContext; overrideReason?: string }): Promise<QAIssue[]> {
+export function sweepMask(f: Pick<SweepFrame, "size" | "items" | "boxes" | "heroes">): Img {
+  const width = MASK_W;
+  const height = Math.max(1, Math.round((MASK_W * f.size.h) / Math.max(1, f.size.w)));
+  const data = new Uint8Array(width * height * 4);
+  const rects = [...f.items.map((x) => x.rect), ...f.boxes.map((x) => x.rect), ...f.heroes.map((x) => x.rect)];
+  for (const r of rects) {
+    const b = box({ x: r.x / f.size.w, y: r.y / f.size.h, w: r.w / f.size.w, h: r.h / f.size.h }, width, height);
+    for (let y = b.y0; y < b.y1; y++) for (let x = b.x0; x < b.x1; x++) data[(y * width + x) * 4 + 3] = 255;
+  }
+  return { width, height, data };
+}
+
+/**
+ * `face_ink` и `outside_zone` по кадрам с альфой и по рамкам кадров временного прохода пробы:
+ * одно замечание на код, кадр — худший. `overrideReason` — причина наложения на лицо из плана
+ * (`face_overlap.override_reason`).
+ */
+export async function videoSceneChecks(i: { alphaFrames: readonly AlphaFrame[]; sweep?: readonly SweepFrame[]; ctx: VideoSceneContext; overrideReason?: string }): Promise<QAIssue[]> {
   const { placement, face } = i.ctx;
   if (!placement.transparent) return [];
   const zone = pad(placement.rect, ZONE_PAD);
-  let worstFace: { frame: number; share: number } | undefined;
-  let worstOut: { frame: number; share: number } | undefined;
-  for (const f of i.alphaFrames) {
-    const s = alphaShares(await loadPng(f.path), zone, face);
-    if (face && s.face > FACE_INK_MAX && (!worstFace || s.face > worstFace.share)) worstFace = { frame: f.frame, share: s.face };
-    if (s.outside > OUTSIDE_MAX && (!worstOut || s.outside > worstOut.share)) worstOut = { frame: f.frame, share: s.outside };
-  }
+  type Worst = { frame: number; share: number; probe: boolean };
+  let worstFace: Worst | undefined;
+  let worstOut: Worst | undefined;
+  const take = (frame: number, s: { face: number; outside: number }, probe: boolean) => {
+    if (face && s.face > FACE_INK_MAX && (!worstFace || s.face > worstFace.share)) worstFace = { frame, share: s.face, probe };
+    if (s.outside > OUTSIDE_MAX && (!worstOut || s.outside > worstOut.share)) worstOut = { frame, share: s.outside, probe };
+  };
+  for (const f of i.alphaFrames) take(f.frame, alphaShares(await loadPng(f.path), zone, face), false);
+  for (const f of i.sweep ?? []) take(f.frame, alphaShares(sweepMask(f), zone, face), true);
+  const by = (w: Worst) => (w.probe ? " (рамки раскладки, проба кадров)" : "");
   const out: QAIssue[] = [];
   if (worstFace) {
     const allowed = i.overrideReason !== undefined;
     out.push({
       source: "programmatic", code: "face_ink", severity: allowed ? "warning" : "blocking", frame: worstFace.frame, area: "лицо автора",
-      description: `графика закрывает лицо автора: ${pct(worstFace.share)} рамки лица на кадре ${worstFace.frame}${allowed ? ` (в плане разрешено: ${i.overrideReason})` : ""}`,
-      fix_hint: `держи графику внутри LayoutRect (props.layout.rect) и не заходи на рамку лица ${JSON.stringify(face)}: уменьши или сдвинь элементы`,
+      description: `графика закрывает лицо автора: ${pct(worstFace.share)} рамки лица на кадре ${worstFace.frame}${by(worstFace)}${allowed ? ` (в плане разрешено: ${i.overrideReason})` : ""}`,
+      fix_hint: `держи графику внутри LayoutRect (props.layout.rect) и не заходи на рамку лица ${JSON.stringify(face)} ни на одном кадре (вход и уход — тоже): уменьши или сдвинь элементы`,
     });
   }
   if (worstOut) {
     out.push({
       source: "programmatic", code: "outside_zone", severity: "blocking", frame: worstOut.frame, area: `вне зоны ${placement.zone}`,
-      description: `графика вне зоны ${placement.zone}: ${pct(worstOut.share)} кадра вне прямоугольника ${JSON.stringify(placement.rect)} на кадре ${worstOut.frame}`,
-      fix_hint: "всю графику — внутрь <LayoutRect rect={props.layout?.rect}>, координаты детей — от его края (useLayoutRect); фон — только <Background>",
+      description: `графика вне зоны ${placement.zone}: ${pct(worstOut.share)} кадра вне прямоугольника ${JSON.stringify(placement.rect)} на кадре ${worstOut.frame}${by(worstOut)}`,
+      fix_hint: "всю графику — внутрь <LayoutRect rect={props.layout?.rect}>, координаты детей — от его края (useLayoutRect), на всех кадрах (входы и перелёты — тоже); фон — только <Background>",
     });
   }
   return out;
+}
+
+/** Путь из входа задачи внутри корня хранилища (fix I4); иначе — ошибка. */
+export function storePath(root: string, rel: string): string {
+  if (!isStoreRel(rel)) throw new Error(`путь кадра исходника не в хранилище: ${JSON.stringify(rel)}`);
+  const base = resolve(root);
+  const p = resolve(base, rel);
+  if (!p.startsWith(base + sep)) throw new Error(`путь кадра исходника вне хранилища: ${JSON.stringify(rel)}`);
+  return p;
+}
+
+/** Кадр исходника под кадром сцены `frame`: ближайший из `context_frames`, иначе `context_frame_rel`. */
+export function contextFrameFor(ctx: VideoSceneContext, frame: number): string | undefined {
+  const near = (ctx.context_frames ?? []).reduce<{ frame: number; rel: string } | undefined>((a, x) => (!a || Math.abs(x.frame - frame) < Math.abs(a.frame - frame) ? x : a), undefined);
+  return near?.rel ?? ctx.context_frame_rel;
 }
 
 /** Кадров-композитов на попытку не больше (Visual QA читает каждый). */
@@ -158,25 +199,31 @@ export async function videoFrameQa(
   }
   const frames = (await readdir(join(v.versionDir, "frames")).catch(() => [] as string[]))
     .flatMap((n) => (/^\d+\.png$/.test(n) ? [Number(n.slice(0, -4))] : [])).sort((a, b) => a - b);
-  if (frames.length === 0) return [...out, failed("video_check_failed", "QA-кадров попытки нет")];
+  const over = i.overrideReason !== undefined ? { overrideReason: i.overrideReason } : {};
+  // рамки раскладки всей сцены (проба) проверяются, даже если рендер кадров с альфой не удался
+  const sweepOnly = async (why: string) => [...out, ...(await videoSceneChecks({ alphaFrames: [], ...(v.sweep ? { sweep: v.sweep } : {}), ctx: i.ctx, ...over })), failed("video_check_failed", why)];
+  if (frames.length === 0) return sweepOnly("QA-кадров попытки нет");
   const rr = await v.renderStills(frames, { ...props, style: { ...(props.style as object), transparent: true } });
   const alphaFrames = frames.flatMap((f, k) => (rr.stills[k] ? [{ frame: f, path: rr.stills[k]! }] : []));
   if (!rr.ok || alphaFrames.length === 0) {
-    return [...out, failed("video_check_failed", `рендер кадров с transparent: ${rr.error ? `${rr.error.stage}: ${rr.error.message}` : "кадров нет"}`)];
+    return sweepOnly(`рендер кадров с transparent: ${rr.error ? `${rr.error.stage}: ${rr.error.message}` : "кадров нет"}`);
   }
   try {
-    out.push(...(await videoSceneChecks({ alphaFrames, ctx: i.ctx, ...(i.overrideReason !== undefined ? { overrideReason: i.overrideReason } : {}) })));
+    out.push(...(await videoSceneChecks({ alphaFrames, ...(v.sweep ? { sweep: v.sweep } : {}), ctx: i.ctx, ...over })));
   } catch (e) {
     return [...out, failed("video_check_failed", `альфа кадров: ${errText(e)}`)];
   }
-  const ctxRel = i.ctx.context_frame_rel;
-  if (!ctxRel) return out;
+  if (!i.ctx.context_frame_rel && !i.ctx.context_frames?.length) return out;
   try {
     const inked: AlphaFrame[] = [];
     for (const f of alphaFrames) if (inkShare(await loadPng(f.path)) > INKED) inked.push(f);
     const dir = await safeMkdir(root, relative(root, qaDir).split(sep).join("/"));
     const compose = i.compose ?? composeOverContext;
-    for (const f of spread(inked, CONTEXT_FRAMES_MAX)) await compose(f.path, join(root, ctxRel), join(dir, `ctx-${f.frame}.png`), { run: v.run, signal: v.signal });
+    // композит — над кадром исходника, ближайшим ко времени кадра сцены (fix I2)
+    for (const f of spread(inked, CONTEXT_FRAMES_MAX)) {
+      const rel = contextFrameFor(i.ctx, f.frame);
+      if (rel) await compose(f.path, storePath(root, rel), join(dir, `ctx-${f.frame}.png`), { run: v.run, signal: v.signal });
+    }
   } catch (e) {
     out.push(failed("video_context_failed", `кадр поверх видео: ${errText(e)}`));
   }

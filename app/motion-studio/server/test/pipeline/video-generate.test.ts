@@ -148,6 +148,9 @@ describe("playground.generate с video", () => {
     }
     // Engineer знает прямоугольник графики; props.layout.rect — зона плана
     expect(agents.engineerCalls[0]!.input).toContain("LayoutRect");
+    // fix I3: фраза — один KineticText с highlight; fix I1: временной проход пробы запрошен
+    expect(agents.engineerCalls[0]!.input).toContain("word_gap");
+    expect(r0.calls.some((c) => c.sweep !== undefined)).toBe(true);
     const { dir, props, qa } = versionOf(scene.id);
     expect(props.layout).toEqual({ rect: ZONE_RECTS.lower_third });
     // кадры QA с transparent = true — один рендер стоп-кадров для проверок по альфе (+ кадр hold наложения)
@@ -193,16 +196,29 @@ describe("playground.generate с video", () => {
     expect(clear).toEqual([]);
   });
 
-  it("длительность не по плану → duration_changed: задача ставится только на плановую длину", async () => {
+  it("ревью: длительность задачи не по плану → failed(pipeline) до агентов", async () => {
     // сцена плана sp_003 — 150 кадров, а настройки задачи — на 180 (как у sp_001)
     const p = prepare(overlay);
     const ctx = videoSceneContext(env.db, env.s.root, { projectId: "p1", doc, item: short });
     const agents = fakeAgents({});
-    const { job, scene } = await run({ agents }, { ...p, input: { ...p.input, video: ctx } }, short);
-    expect(job.status, JSON.stringify(job.error)).toBe("completed");
-    expect(agents.engineerCalls.length).toBeGreaterThan(1);
-    expect(agents.engineerCalls[1]!.input).toContain("duration_changed");
-    expect(versionOf(scene.id).qa.issues.find((x) => x.code === "duration_changed")).toBeDefined();
+    const { job } = await run({ agents }, { ...p, input: { ...p.input, video: ctx } }, short);
+    expect(job.status).toBe("failed");
+    expect(job.error).toMatchObject({ code: "pipeline" });
+    expect(job.error?.message).toMatch(/180 кадров ≠ 150/);
+    expect(agents.tasks).toEqual([]);
+  });
+
+  it.each([
+    ["зона", (c: VideoSceneContext) => ({ placement: { ...c.placement, zone: "right_third" as const } })],
+    ["окно речи", (c: VideoSceneContext) => ({ lead_frames: c.lead_frames + 3 })],
+    ["моменты слов", () => ({ key_moments: [{ text: "40%", frame: 99 }] })],
+  ])("ревью: %s входа не по ревизии плана → failed(pipeline) до агентов", async (_n, over) => {
+    const p = prepare(overlay);
+    const agents = fakeAgents({});
+    const { job } = await run({ agents }, { ...p, input: { ...p.input, video: { ...p.ctx, ...over(p.ctx) } } }, overlay);
+    expect(job.status).toBe("failed");
+    expect(job.error).toMatchObject({ code: "pipeline" });
+    expect(agents.tasks).toEqual([]);
   });
 
   it("video и script вместе — failed(pipeline) без агентов", async () => {

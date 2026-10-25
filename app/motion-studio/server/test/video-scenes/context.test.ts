@@ -8,7 +8,7 @@ import { currentProjectStyle } from "../../src/analysis/project-style.js";
 import { ArtifactStore } from "../../src/artifacts/store.js";
 import { migrate } from "../../src/db/migrate.js";
 import { type Db, openDb } from "../../src/db/open.js";
-import { planFps, videoNarration, videoSceneContext } from "../../src/video-scenes/context.js";
+import { CONTEXT_KEYFRAMES_MAX, contextFrames, planFps, videoNarration, videoSceneContext } from "../../src/video-scenes/context.js";
 import { makeStore, removeStore, type TestStore } from "../db/helpers.js";
 import { seedPlanProject } from "../analysis/plan-db-helpers.js";
 import { FACE, SOURCE_US, ctx, footage, opp, out } from "../analysis/plan-helpers.js";
@@ -78,5 +78,15 @@ describe("videoSceneContext", () => {
 
   it("речь сцены — услышанные слова её границ", () => {
     expect(videoNarration(db, s.root, doc, item(0))).toBe("выручка выросла на 40% за");
+  });
+});
+
+describe("contextFrames (fix I2)", () => {
+  it("ключевые кадры окна исходника → кадр сцены от начала окна; вне окна — нет; не больше CONTEXT_KEYFRAMES_MAX", () => {
+    const fa = { shots: [{ keyframes: [{ us: 500_000, path: "kf/a.jpg" }, { us: 2_000_000, path: "kf/b.jpg" }, { us: 4_000_000, path: "kf/c.jpg" }, { us: 9_000_000, path: "kf/d.jpg" }] }] } as unknown as Parameters<typeof contextFrames>[0];
+    expect(contextFrames(fa, "ws/p1/footage/f1/footage.json", { start_us: 1_000_000, end_us: 5_000_000 }, { num: 30, den: 1 }, 120))
+      .toEqual([{ frame: 30, rel: "ws/p1/footage/f1/kf/b.jpg" }, { frame: 90, rel: "ws/p1/footage/f1/kf/c.jpg" }]);
+    const many = { shots: [{ keyframes: Array.from({ length: 40 }, (_, k) => ({ us: k * 100_000, path: `kf/${k}.jpg` })) }] } as unknown as Parameters<typeof contextFrames>[0];
+    expect(contextFrames(many, "f/x.json", { start_us: 0, end_us: 4_000_000 }, { num: 30, den: 1 }, 120)).toHaveLength(CONTEXT_KEYFRAMES_MAX);
   });
 });

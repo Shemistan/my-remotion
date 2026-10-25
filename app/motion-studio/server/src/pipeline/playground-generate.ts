@@ -7,7 +7,8 @@
 import { readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { readFileSync } from "node:fs";
-import { type ConceptOutput, ConceptOutputSchema, type Job, type MotionSpec, MotionSpecSchema, STRUCTURE_RULES, structureOf, type QAIssue, type ScenePlanItem, type ScriptPlanRevisionDoc, ScriptPlanRevisionDocSchema, type ScriptSceneContext, ScriptSceneContextSchema, type ScriptSceneItem, SettingsSchema, type VideoSceneContext, VideoSceneContextSchema, failureToJobErrorCode, videoSceneFrames } from "@ms/contracts";
+import { type ConceptOutput, ConceptOutputSchema, type Job, type MotionSpec, MotionSpecSchema, STRUCTURE_RULES, structureOf, type QAIssue, type ScenePlanItem, type ScriptPlanRevisionDoc, ScriptPlanRevisionDocSchema, type ScriptSceneContext, ScriptSceneContextSchema, type ScriptSceneItem, SettingsSchema, type Fps, type VideoSceneContext, VideoSceneContextSchema, failureToJobErrorCode, placementFor, videoKeyMoments, videoSceneFrames, videoSceneWindow } from "@ms/contracts";
+import { canonicalHash } from "@ms/contracts/canonical";
 import { z } from "zod";
 import { loadPartial } from "../agents/prompts.js";
 import { currentPlan } from "../analysis/plan-ops.js";
@@ -32,7 +33,7 @@ import { assistantMessage, recordRun } from "./record.js";
 import { durationChecks } from "./playground-edit.js";
 import { type CheckpointOpts, type SpeechWindow, conceptStep, directorStep, errText, sceneStyle, startPropsStyle } from "./steps.js";
 import { videoFrameQa } from "../video-scenes/checks.js";
-import { videoNarration } from "../video-scenes/context.js";
+import { planFps, videoNarration } from "../video-scenes/context.js";
 
 export const PlaygroundGenerateInputSchema = z.object({
   sceneId: z.string().min(1),
@@ -176,7 +177,9 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
         // кадры-композиты, смысл подписей по фразе, длительность — только план; fullscreen —
         // как сцена сценария (проверки по всей сцене)
         ...(vs ? {
-          ...(vs.ctx.placement.transparent ? { layout: vs.ctx.placement.rect } : { script: true, ...(speechWindow ? { scriptTiming: { window: speechWindow, ...(keyMoments ? { moments: keyMoments } : {}) } } : {}) }),
+          // fix I1: прозрачная — проверки по всей сцене (dead_air, пустые контейнеры, заглушки) без
+          // строк сценария у Engineer; пустая половина и герой на 30–40 % кадра — против зоны
+          ...(vs.ctx.placement.transparent ? { layout: vs.ctx.placement.rect, temporal: { ...(speechWindow ? { window: speechWindow } : {}), ...(keyMoments ? { moments: keyMoments } : {}), skip: TRANSPARENT_SKIP } } : { script: true, ...(speechWindow ? { scriptTiming: { window: speechWindow, ...(keyMoments ? { moments: keyMoments } : {}) } } : {}) }),
           extraQa: async (v) => {
             const peak = payoffStart(v.spec);
             return [
@@ -269,6 +272,12 @@ function scriptScene(ctx: JobContext, root: string, raw: unknown): ScriptScene |
   return { ctx: p.data, plan, item };
 }
 
+/**
+ * Проверки по всей сцене, которые прозрачной видеосцене не годятся (fix I1): графика нарочно в
+ * зоне — пустая половина и пустое начало кадра, герой на 30–40 % кадра — против неё.
+ */
+export const TRANSPARENT_SKIP = ["empty_half", "empty_open", "late_hero", "no_hero", "hero_split", "text_dominant"] as const;
+
 /** Видеосцена задачи (Task 37′): вход `video`, сцена ревизии плана, окно фразы, опорная фраза, речь. */
 interface VideoScene {
   ctx: VideoSceneContext;
@@ -287,14 +296,26 @@ function videoScene(ctx: JobContext, root: string, raw: unknown, total: number):
   if (!p.success) return `вход video не годится: ${p.error.message}`;
   let item: ScenePlanItem | undefined;
   let narration: string;
+  let fps: Fps;
   try {
     const doc = currentPlan(ctx.db, root, p.data.plan_id, p.data.plan_revision);
+    fps = planFps(ctx.db, doc);
     item = doc.items.find((x) => x.id === p.data.item_id);
     if (!item) return `в плане ${p.data.plan_id}@r${p.data.plan_revision} нет сцены ${p.data.item_id}`;
     narration = videoNarration(ctx.db, root, doc, item);
   } catch (e) {
     return `план видеопроекта ${p.data.plan_id}@r${p.data.plan_revision} не прочитан: ${errText(e)}`;
   }
+  // вход сверяется с ревизией плана (ревью Task 37′): длительность, размещение, окно и моменты —
+  // только из плана (Р-V6, Д2); несовпадение — устаревший или подменённый вход
+  const planned = videoSceneFrames(item);
+  if (total !== planned) return `длительность задачи ${total} кадров ≠ ${planned} по плану ${p.data.plan_id}@r${p.data.plan_revision} (сцена ${item.id}) — длительность меняется только планом`;
+  const want = placementFor(item.composition_mode, item.zone, item.rect);
+  if (canonicalHash(want) !== canonicalHash(p.data.placement)) return `размещение входа ${JSON.stringify(p.data.placement)} ≠ плану ${JSON.stringify(want)} (сцена ${item.id}) — режим и зона меняются только планом`;
+  const w = videoSceneWindow(item, fps);
+  if (w.lead !== p.data.lead_frames || w.tail !== p.data.tail_frames) return `окно речи входа (lead ${p.data.lead_frames}, tail ${p.data.tail_frames}) ≠ плану (lead ${w.lead}, tail ${w.tail}) (сцена ${item.id})`;
+  const km = videoKeyMoments(item, fps);
+  if (canonicalHash(km) !== canonicalHash(p.data.key_moments ?? [])) return `моменты ключевых слов входа ≠ плану (сцена ${item.id}): ${JSON.stringify(p.data.key_moments ?? [])} вместо ${JSON.stringify(km)}`;
   const quote = item.evidence.map((e) => e.quote).join(" … ");
   const speech = total - p.data.lead_frames - p.data.tail_frames;
   return {

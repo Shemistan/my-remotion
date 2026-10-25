@@ -6,9 +6,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PNG } from "pngjs";
 import { afterAll, describe, expect, it } from "vitest";
-import { type NormRect, type VideoSceneContext, ZONE_RECTS, placementFor } from "@ms/contracts";
+import { type NormRect, type VideoSceneContext, VideoSceneContextSchema, ZONE_RECTS, placementFor } from "@ms/contracts";
+import type { SweepFrame } from "@ms/render";
 import { loadPng } from "../../src/qa/image.js";
-import { videoSceneChecks } from "../../src/video-scenes/checks.js";
+import { contextFrameFor, storePath, videoSceneChecks } from "../../src/video-scenes/checks.js";
 import { composeOverContext } from "../../src/video-scenes/compose-frame.js";
 
 const dir = mkdtempSync(join(tmpdir(), "ms-v37-checks-"));
@@ -92,5 +93,54 @@ describe("composeOverContext", () => {
     expect(px(50, 82)[2]).toBeLessThan(50);
     expect(px(150, 20)[2]).toBeGreaterThan(150); // видео
     expect(px(150, 20)[0]).toBeLessThan(50);
+  });
+});
+
+/** Кадр временного прохода пробы (480×270): строки текста `rects` (доли кадра). */
+function sweepFrame(frame: number, rects: NormRect[]): SweepFrame {
+  const size = { w: 480, h: 270 };
+  return {
+    frame, size, boxes: [], areas: { text: 0.05, graphic: 0 }, cells: "", content: 0, heroes: [], accents: 0,
+    items: rects.map((r, k) => ({ id: `text::${k}`, role: "text", text: "слово", rect: { x: r.x * size.w, y: r.y * size.h, w: r.w * size.w, h: r.h * size.h } })),
+  };
+}
+
+describe("fix I2: рамки раскладки каждого кадра пробы", () => {
+  it("графика пересекает лицо между QA-кадрами → face_ink blocking на кадре пробы", async () => {
+    const qa = [{ frame: 10, path: alphaPng([inZone]) }, { frame: 170, path: alphaPng([inZone]) }];
+    // перелёт подписи через лицо на кадрах 60–66 — ни один QA-кадр его не видит
+    const sweep = [sweepFrame(54, [inZone]), sweepFrame(60, [inZone, { x: 0.42, y: 0.2, w: 0.15, h: 0.1 }]), sweepFrame(66, [inZone])];
+    const issues = await videoSceneChecks({ alphaFrames: qa, sweep, ctx: ctx({ placement: placementFor("overlay", "full") }) });
+    expect(issues).toEqual([expect.objectContaining({ code: "face_ink", severity: "blocking", frame: 60 })]);
+    expect(issues[0]!.description).toContain("проба кадров");
+    expect(await videoSceneChecks({ alphaFrames: qa, ctx: ctx({ placement: placementFor("overlay", "full") }) })).toEqual([]);
+  });
+
+  it("рамка вне зоны на кадре пробы → outside_zone; рамки в зоне — пусто", async () => {
+    const out = await videoSceneChecks({ alphaFrames: [], sweep: [sweepFrame(30, [inZone, { x: 0.7, y: 0.05, w: 0.2, h: 0.1 }])], ctx: ctx({ face: undefined }) });
+    expect(out).toEqual([expect.objectContaining({ code: "outside_zone", frame: 30 })]);
+    expect(await videoSceneChecks({ alphaFrames: [], sweep: [sweepFrame(30, [inZone])], ctx: ctx() })).toEqual([]);
+  });
+
+  it("кадр исходника для композита — ближайший к кадру сцены; без списка — context_frame_rel", () => {
+    const c = ctx({ context_frame_rel: "w/mid.png", context_frames: [{ frame: 0, rel: "w/k0.png" }, { frame: 60, rel: "w/k60.png" }, { frame: 150, rel: "w/k150.png" }] });
+    expect([contextFrameFor(c, 5), contextFrameFor(c, 80), contextFrameFor(c, 140)]).toEqual(["w/k0.png", "w/k60.png", "w/k150.png"]);
+    expect(contextFrameFor(ctx({ context_frame_rel: "w/mid.png" }), 80)).toBe("w/mid.png");
+  });
+});
+
+describe("fix I4: context_frame_rel — только путь в хранилище", () => {
+  it("схема входа: относительный без `..`; абсолютный, `..`, диск — отказ", () => {
+    for (const bad of ["/etc/passwd", "../x.png", "a/../../b.png", "C:/x.png", "a\\b.png", "a//b.png"]) {
+      expect(VideoSceneContextSchema.safeParse(ctx({ context_frame_rel: bad })).success, bad).toBe(false);
+      expect(VideoSceneContextSchema.safeParse(ctx({ context_frames: [{ frame: 0, rel: bad }] })).success, bad).toBe(false);
+    }
+    expect(VideoSceneContextSchema.safeParse(ctx({ context_frame_rel: "workspace/projects/p1/k/0001.jpg" })).success).toBe(true);
+  });
+
+  it("storePath: внутри корня — путь; выход из корня — ошибка", () => {
+    expect(storePath("/store", "workspace/a.png")).toBe("/store/workspace/a.png");
+    expect(() => storePath("/store", "../a.png")).toThrow(/не в хранилище/);
+    expect(() => storePath("/store", "/etc/passwd")).toThrow(/не в хранилище/);
   });
 });

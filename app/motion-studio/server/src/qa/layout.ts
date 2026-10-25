@@ -307,3 +307,42 @@ export function layoutIssues(frames: LayoutFrame[]): Issue[] {
   }
   return out;
 }
+
+/** Зазор между соседними текстами одной строки меньше этой доли кегля — слова слиплись (fix I3). */
+export const WORD_GAP_EM = 0.2;
+
+/**
+ * Слипшиеся слова (Task 37′ fix I3, чистая функция): фраза, разбитая на соседние тексты kit
+ * (`data-ms-layout="text"`, напр. два `KineticText` во flex с зазором в em родителя), стоит на
+ * одной строке с зазором меньше `WORD_GAP_EM` кегля — «прерываясоединения» читается одним
+ * словом. Одна строка — вертикальное перекрытие рамок не меньше половины меньшей; сильное
+ * наложение — это `text_overlap`, не зазор.
+ */
+export function wordGapIssues(frames: LayoutFrame[]): Issue[] {
+  const pairs = new Map<string, { a: LayoutItem; b: LayoutItem; gap: number; font: number; frames: number[] }>();
+  for (const f of frames) {
+    const texts = f.items.filter((it) => it.role === "text");
+    for (let i = 0; i < texts.length; i++) {
+      for (let j = i + 1; j < texts.length; j++) {
+        const [l, r] = [texts[i]!, texts[j]!].sort((p, s) => p.rect.x - s.rect.x) as [LayoutItem, LayoutItem];
+        if (l.id === r.id || (l.el !== undefined && l.el === r.el)) continue;
+        const vy = Math.min(l.rect.y + l.rect.h, r.rect.y + r.rect.h) - Math.max(l.rect.y, r.rect.y);
+        if (vy < 0.5 * Math.min(l.rect.h, r.rect.h)) continue;
+        if (overlap(l.rect, r.rect) >= OVERLAP_SHARE) continue;
+        const font = Math.min(l.fontPx, r.fontPx);
+        const gap = r.rect.x - (l.rect.x + l.rect.w);
+        if (gap >= WORD_GAP_EM * font || gap < -0.5 * font) continue;
+        const key = `${l.text}|${r.text}`;
+        const e = pairs.get(key) ?? { a: l, b: r, gap, font, frames: [] };
+        e.gap = Math.min(e.gap, gap);
+        e.frames.push(f.frame);
+        pairs.set(key, e);
+      }
+    }
+  }
+  return [...pairs.values()].map((p) => ({
+    code: "word_gap", severity: "blocking" as const, frame: Math.min(...p.frames), area: `${p.a.id} / ${p.b.id}`,
+    description: `слова ${q(p.a.text)} и ${q(p.b.text)} слиплись: зазор ${Math.max(0, p.gap).toFixed(1)} px при кегле ${p.font.toFixed(0)} px (меньше ${WORD_GAP_EM} кегля; кадры ${list(p.frames)}) — читается одним словом`,
+    fix_hint: "фраза — одним KineticText, акцентное слово — его проп highlight (не дроби фразу на соседние тексты); если тексты всё же рядом — зазор в единицах кегля текста (от его fontSize, не em родителя 16 px)",
+  }));
+}
