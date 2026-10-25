@@ -88,6 +88,42 @@ describe("проверки системы (lib.sh)", () => {
   });
 });
 
+describe("шаги установки (lib.sh, S19 fix)", () => {
+  it("хранилище на системном томе → отказ до записи; на «SSD» (MS_ALLOW_SYSTEM_DISK=1) → ok", () => {
+    const store = join(tmp, "sys", "store");
+    const r = lib(`ms_check_not_system_disk "${store}" "хранилище (MS_DATA_DIR)"`);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("на системном диске");
+    expect(existsSync(join(tmp, "sys"))).toBe(false);
+    expect(lib(`ms_check_not_system_disk "${store}" x`, { MS_ALLOW_SYSTEM_DISK: "1" }).code).toBe(0);
+  });
+
+  it("KB: каталог без .git → отказ с сообщением, клон внутрь не кладётся; готовый клон пропускается", () => {
+    const repo = join(tmp, "repo");
+    mkdirSync(join(repo, "templates/a"), { recursive: true });
+    writeFileSync(join(repo, "templates/a/mine.txt"), "x");
+    mkdirSync(join(repo, "templates/b/.git"), { recursive: true });
+    const tsv = join(tmp, "kb.tsv");
+    writeFileSync(tsv, `# path\turl\tsha\ntemplates/b\tfile:///nowhere\t${"1".repeat(40)}\ntemplates/a\tfile:///nowhere\t${"0".repeat(40)}\n`);
+    const r = lib(`ms_install_kb "${repo}" "${tsv}"`);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("есть: templates/b");
+    expect(r.out).toContain("templates/a уже есть, но это не клон git");
+    expect(readdirSync(join(repo, "templates/a"))).toEqual(["mine.txt"]);
+    expect(readdirSync(join(repo, "templates")).sort()).toEqual(["a", "b"]);
+  });
+
+  it("./setup чистит .deps/.downloads после успешной установки и ставит окружение ASR с --require-hashes", () => {
+    const src = readFileSync(join(REPO, "setup"), "utf8");
+    expect(src).toMatch(/ms_step "хуки git"[^\n]*\n(#[^\n]*\n)*rm -rf "\$DL"\n/);
+    expect(src).toContain("pip sync --quiet --require-hashes");
+    const lock = readFileSync(join(REPO, "app/motion-studio/tools/asr-worker/requirements.lock"), "utf8");
+    const pins = lock.split("\n").filter((l) => /^[a-z]/.test(l));
+    expect(pins.length).toBeGreaterThan(30);
+    for (const p of pins) expect(p).toMatch(/^[\w.-]+==[\w.]+ \\$/);
+  });
+});
+
 describe("./setup --check", () => {
   const okStubs = () => {
     stub("uname", 'echo "Darwin arm64"');
@@ -125,6 +161,22 @@ describe("./setup --check", () => {
     expect(r.stdout).not.toContain("Установка");
     expect(existsSync(deps)).toBe(false);
     expect(existsSync(join(tmp, "nossd"))).toBe(false);
+  });
+
+  it("проваленная платформа + исправные CLT → код 1 (проверки не затирают общий счётчик)", () => {
+    stub("uname", 'echo "Darwin x86_64"');
+    stub("claude", `echo '{"loggedIn": true}'`);
+    stub("xcode-select", 'echo /Library/Developer/CommandLineTools');
+    for (const t of ["git", "python3", "swiftc", "curl", "unzip", "tar", "shasum", "make"]) stub(t, "exit 0");
+    mkdirSync(join(tmp, "ssd"));
+    const deps = join(tmp, "deps");
+    const r = spawnSync(join(REPO, "setup"), ["--check"], {
+      env: { PATH: PATH(), HOME: tmp, MS_MATERIALS_ROOT: join(tmp, "ssd", "moution-studio-materials"), MS_ALLOW_SYSTEM_DISK: "1", MS_DEPS_DIR: deps }, encoding: "utf8",
+    });
+    expect(r.stdout).toContain("git, python3, swiftc");
+    expect(r.stderr).toContain("Apple Silicon");
+    expect(r.status).toBe(1);
+    expect(r.stdout).not.toContain("Установлено");
   });
 
   it("неизвестный флаг → код 2", () => {

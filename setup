@@ -38,16 +38,16 @@ ASR_STAMP_WANT="$(ms_sha256 "$LOCK") python$ASR_PYTHON"
 UV="$DEPS/uv/uv"
 
 echo "Проверки системы"
-rc=0
-ms_check_platform || rc=1
-ms_check_clt || rc=1
-ms_check_claude || rc=1
-ms_check_ssd || rc=1
+SETUP_FAILS=0
+ms_check_platform || SETUP_FAILS=1
+ms_check_clt || SETUP_FAILS=1
+ms_check_claude || SETUP_FAILS=1
+ms_check_ssd || SETUP_FAILS=1
 if [ "$NODE_V" != "$NODE_VERSION" ]; then
   ms_bad "app/motion-studio/.nvmrc = $NODE_V, а в tools/setup/manifest.sh — Node $NODE_VERSION: обновите NODE_VERSION и NODE_SHA256"
-  rc=1
+  SETUP_FAILS=1
 fi
-if [ $rc -ne 0 ]; then
+if [ "$SETUP_FAILS" -ne 0 ]; then
   echo "setup: исправьте пункты ✗ выше и запустите ./setup снова" >&2
   exit 1
 fi
@@ -112,7 +112,7 @@ install_asr() {
   export UV_PYTHON_INSTALL_DIR="$DEPS/python" UV_CACHE_DIR="$DEPS/.cache/uv" UV_NO_CONFIG=1
   rm -rf "$DEPS/asr-venv"
   "$UV" venv --quiet --python "$ASR_PYTHON" --python-preference only-managed "$DEPS/asr-venv" || return 1
-  "$UV" pip sync --quiet --python "$DEPS/asr-venv/bin/python" "$LOCK" || return 1
+  "$UV" pip sync --quiet --require-hashes --python "$DEPS/asr-venv/bin/python" "$LOCK" || return 1
   "$DEPS/asr-venv/bin/python" -I -c "import mlx.core, mlx_audio, transformers" ||
     { ms_bad "окружение ASR не импортирует mlx/mlx_audio"; return 1; }
   echo "$ASR_STAMP_WANT" > "$DEPS/asr-venv/.ms-lock" || return 1
@@ -149,21 +149,8 @@ install_model() {
 
 install_store() {
   if [ -f "$STORE/.motion-studio-store.json" ]; then ms_info "уже есть: $STORE"; return 0; fi
+  ms_check_not_system_disk "$STORE" "хранилище (MS_DATA_DIR)" || return 1
   MS_DATA_DIR="$STORE" "$APP/scripts/with-node.sh" sh -c "cd '$APP' && npm run --silent doctor -- --init"
-}
-
-install_kb() {
-  grep -v '^#' "$REPO/tools/setup/kb-sources.tsv" | while IFS="$(printf '\t')" read -r kp url sha; do
-    [ -n "$kp" ] || continue
-    if [ -e "$REPO/$kp/.git" ]; then ms_info "есть: $kp"; continue; fi
-    rm -rf "$REPO/$kp.tmp" && mkdir -p "$REPO/$kp.tmp" || return 1
-    git -C "$REPO/$kp.tmp" init -q &&
-      git -C "$REPO/$kp.tmp" fetch -q --depth 1 "$url" "$sha" &&
-      git -C "$REPO/$kp.tmp" -c advice.detachedHead=false checkout -q FETCH_HEAD ||
-      { ms_bad "не склонировался $url@$sha"; rm -rf "$REPO/$kp.tmp"; return 1; }
-    mv "$REPO/$kp.tmp" "$REPO/$kp" || return 1
-    ms_ok "$kp @ $(printf %.9s "$sha")"
-  done
 }
 
 echo "Установка (зависимости — $DEPS, тяжёлое — $MATERIALS)"
@@ -174,8 +161,10 @@ ms_step "окружение ASR (mlx-audio)" "$DEPS/asr-venv" install_asr
 ms_step "vision-detect" "$APP/tools/vision-detect/bin" make -s -C "$APP" tools/vision-detect/bin/vision-detect
 ms_step "веса $ASR_MODEL на SSD" "$MODEL_DIR" install_model
 ms_step "хранилище" "$STORE" install_store
-if [ "$KB" = 1 ]; then ms_step "исходники KB" "$REPO/templates" install_kb; fi
+if [ "$KB" = 1 ]; then ms_step "исходники KB" "$REPO/templates" ms_install_kb "$REPO" "$REPO/tools/setup/kb-sources.tsv"; fi
 ms_step "хуки git" "$REPO/.githooks" sh "$REPO/bootstrap.sh"
+# архивы распакованы и сверены; повторный ./setup проверяет установленное и их не скачивает
+rm -rf "$DL"
 printf 'Итого: %s с; .deps %s\n' "$(($(date +%s) - T0))" "$(ms_size "$DEPS")"
 
 echo "doctor"

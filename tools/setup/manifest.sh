@@ -9,6 +9,8 @@ NODE_SHA256=c170d6554fba83d41d25a76cdbad85487c077e51fa73519e41ac885aa429d8af
 
 # ffmpeg + ffprobe 7.1.1 — статическая сборка Martin Riedl (GPL: libx264 и др.; для личного
 # использования, см. ADR 0008). Энкодеры libx264, aac, prores_ks; фильтры silencedetect, scdet.
+# sha256 zip — опубликованные поставщиком `$FFMPEG_BASE/ffmpeg.zip.sha256` и `…/ffprobe.zip.sha256`
+# (сверено 2026-10-25 с `shasum -a 256` скачанных архивов).
 FFMPEG_VERSION=7.1.1
 FFMPEG_BUILD=1741000090_7.1.1
 FFMPEG_BASE=https://ffmpeg.martin-riedl.de/download/macos/arm64/$FFMPEG_BUILD
