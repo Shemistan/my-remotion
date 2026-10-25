@@ -134,8 +134,15 @@ const PlanningFileSchema = z.object({
 }).partial().strict();
 const AnalysisFileSchema = z.object({ maxCostUsd: z.number().positive().max(MAX_CALL_BUDGET_USD), occupancyWindowUs: z.number().int().min(500_000).max(60_000_000) }).partial().strict();
 
+/** Порт Control API по умолчанию; хост — только 127.0.0.1 (`main.ts`), в config.json его нет. */
+export const DEFAULT_PORT = 8790;
+/** `server.port` (S17b): непривилегированный порт; `host` и другие ключи — отказ (strict). */
+const ServerFileSchema = z.object({ port: z.number().int().min(1024).max(65535) }).partial().strict();
+
 export interface AppConfig {
   dataDir: string;
+  /** Control API: порт (хост не настраивается — только 127.0.0.1). */
+  server: { port: number };
   claudeBin: string;
   agentRuntime: "claude-code";
   agents: Record<Role, AgentSettings>;
@@ -187,6 +194,7 @@ const FileSchema = z
     roughcut: RoughcutFileSchema,
     planning: PlanningFileSchema,
     analysis: AnalysisFileSchema,
+    server: ServerFileSchema,
   })
   .partial()
   .strict();
@@ -240,6 +248,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfi
 
   return {
     dataDir,
+    server: { port: file.server?.port ?? DEFAULT_PORT },
     claudeBin: file.claudeBin ?? "claude",
     agentRuntime: "claude-code",
     agents,

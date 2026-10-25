@@ -69,6 +69,17 @@ it("rejects unknown keys, unknown roles and bad values in config.json", () => {
   expect(() => loadConfig({ MS_DATA_DIR: root }, { dataDir: "/elsewhere" })).toThrow(/config\.json/);
 });
 
+it("S17b: порт сервера — 8790 по умолчанию, server.port из config.json в 1024–65535; хост не настраивается", () => {
+  expect(loadConfig({ MS_DATA_DIR: root }).server).toEqual({ port: 8790 });
+  expect(loadConfig({ MS_DATA_DIR: root }, { server: { port: 8791 } }).server).toEqual({ port: 8791 });
+  expect(loadConfig({ MS_DATA_DIR: root }, { server: {} }).server).toEqual({ port: 8790 });
+  for (const port of [0, 80, 1023, 65536, 8790.5, "8790"]) {
+    expect(() => loadConfig({ MS_DATA_DIR: root }, { server: { port } }), String(port)).toThrow(/config\.json.*server\.port/);
+  }
+  expect(() => loadConfig({ MS_DATA_DIR: root }, { server: { host: "0.0.0.0" } })).toThrow(/config\.json/);
+  expect(configFileIssues({ server: { port: 70000 } })).toEqual([{ path: "server.port", message: expect.any(String) }]);
+});
+
 it("readConfigFile: missing file is undefined, bad JSON throws, good JSON loads", async () => {
   const dir = await makeTmp();
   try {

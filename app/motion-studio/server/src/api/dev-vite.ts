@@ -1,4 +1,4 @@
-// `--dev` (Q7): Vite в режиме middleware внутри Fastify — UI и API на одном порту 8790, без
+// `--dev` (Q7): Vite в режиме middleware внутри Fastify — UI и API на одном порту (8790 или server.port), без
 // отдельного allowlist Host/Origin для dev-сервера. Хук стоит после проверки безопасности, API
 // не трогает. Vite — зависимость пакета `web` (Task 21): импорт динамический.
 // WebSocket HMR идёт мимо хука `onRequest` Fastify (ревью Task 20, F4): обработчик `upgrade`

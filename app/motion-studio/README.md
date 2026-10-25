@@ -90,6 +90,10 @@ rebinding и CSRF, `03` §6). Чужой `Origin` отклоняется и на
 `GET /api/health`. POST, создающие задачи, требуют `Idempotency-Key`. Остановка — SIGTERM/SIGINT:
 API и SSE закрываются, попытки прерываются, БД закрывается, owner-lock освобождается.
 
+Порт меняется в `config.json` → `"server": { "port": 8791 }` (целое 1024–65535, после
+перезапуска; проверки `Host`/`Origin` — по этому порту). Хост не настраивается: только
+`127.0.0.1`, ключ `server.host` config.json отклоняет. Из браузера (`PUT /settings`) порт не меняется.
+
 Лимиты (`config.json` → `limits`, действуют после перезапуска): `maxRunning` 2 задачи,
 `agentCalls` 5, `renders` 2, `exportTimeoutMs` 1 800 000. Настройки — `GET/PUT /api/settings`:
 через API меняются только модели ролей (`agents.<роль>.model`), `limits` (1–16, таймаут
