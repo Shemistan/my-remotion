@@ -5,10 +5,10 @@
     "num": 30,
     "den": 1
   },
-  "job_id": "job_01M5THNT7VRVRVWWD0DVM8NYNV",
+  "job_id": "job_01M5TQFSDZTB4DNXDBA29XGXWA",
   "ms": 2006,
-  "package_id": "pkg_01M5THNT7VRVRVWWD0DVM8NYNV",
-  "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/packages/pkg_01M5THNT7VRVRVWWD0DVM8NYNV",
+  "package_id": "pkg_01M5TQFSDZTB4DNXDBA29XGXWA",
+  "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/packages/pkg_01M5TQFSDZTB4DNXDBA29XGXWA",
   "scenes": [
     {
       "n": 2,
@@ -125,5 +125,5 @@
       "alpha_corner": 0
     }
   ],
-  "example": "/Volumes/External SSD/moution-studio-materials/examples/phase4/5L/Приёмка видео 2026-10-24T14-41_клипы_2026-10-26_M8NYNV"
+  "example": "/Volumes/External SSD/moution-studio-materials/examples/phase4/5L/Приёмка видео 2026-10-24T14-41_клипы_2026-10-26_9XGXWA"
 }
