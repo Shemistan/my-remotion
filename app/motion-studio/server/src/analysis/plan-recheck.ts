@@ -2,7 +2,9 @@
 // Сцена размещается заново (`placeScene`: диапазон и цитаты — `checkHeardRange` на новом монтаже):
 // не прошла → `stale(anchor_cut)` (вырезанное слово внутри сцены, которого нет в цитатах, сцену
 // не портит — ревью Task 31 I1); длительность изменилась больше чем на 20 % → `stale(timing_changed)`
-// с новыми временами; иначе — новые времена и кадры, статус прежний (`remapped`). Новая ревизия
+// с новыми временами; иначе — новые времена и кадры, статус прежний (`remapped` — только если время
+// сцены изменилось или устаревшая сцена снова `proposed`; сцена без сдвига в `changed` не входит,
+// Phase 3 F7). Новая ревизия
 // стиля проекта — `inputs.style` и `style_id` сцен переносятся на неё (`restylePlan`, решения те же).
 import { type EditedTimeline, type FootageAnalysis, type ScenePlanItem, type TranscriptSegment, type TranscriptWord, type VisualPlanRevisionDoc, mapWords } from "@ms/contracts";
 import { type PlanningConfig, placeScene } from "./plan-build.js";
@@ -35,8 +37,12 @@ export function restylePlan(doc: VisualPlanRevisionDoc, style: VisualPlanRevisio
 
 const dur = (x: Pick<ScenePlanItem, "edited">): number => x.edited.end_us - x.edited.start_us;
 
+/** Время сцены на монтаже: диапазоны, кадры, моменты ключевых слов и цитат. */
+const timing = (x: ScenePlanItem) => JSON.stringify([x.edited, x.source, x.frames, x.key_terms.map((k) => k.edited_at_us), x.evidence.map((e) => e.edited)]);
+
 /**
- * Новая ревизия плана на таймлайне `newTl`. Отклонённые сцены не трогаются и в `changed` не входят.
+ * Новая ревизия плана на таймлайне `newTl`. Отклонённые сцены не трогаются и в `changed` не входят;
+ * сцены, чьё время и статус не изменились, — тоже (F7).
  * Сцена, уже `stale`, прошедшая проверку, становится `proposed` (решение снова за человеком).
  */
 export function recheckPlan(
@@ -64,8 +70,10 @@ export function recheckPlan(
       changed.push({ item_id: x.id, change: "timing_changed" });
       return { ...moved, status: "stale", stale_reason: "timing_changed" };
     }
-    changed.push({ item_id: x.id, change: "remapped" });
-    return { ...moved, status: x.status === "stale" ? "proposed" : x.status };
+    const status = x.status === "stale" ? "proposed" : x.status;
+    // F7: сцена без сдвига и без смены статуса — не «пересчитана»
+    if (status !== x.status || timing(moved) !== timing(x)) changed.push({ item_id: x.id, change: "remapped" });
+    return { ...moved, status };
   });
   const base = { ...doc };
   delete base.ops;

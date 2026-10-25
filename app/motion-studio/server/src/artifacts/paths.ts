@@ -34,13 +34,13 @@ export const PROJECTS_REL = "workspace/projects";
 
 /**
  * Ровно формы `artifactPaths`: `<p>/(source|proxy|packages|final)/<id>`, `<p>/master/<id>@<num>-<den>`,
- * `<p>/(transcript|edits|preview|style|plan|script|timeline|audio)/<id>/r<N>`, `<p>/context/<id>/<id>@r<N>[-p<pad>]`,
+ * `<p>/(transcript|edits|preview|style|plan|script|timeline|timeline-preview|audio)/<id>/r<N>`, `<p>/context/<id>/<id>@r<N>[-p<pad>]`,
  * `<p>/analysis/(footage|semantic)/<id>`. Остальное в каталоге проекта (сцены Phase 1,
  * `project.json`, родители ревизий) публикацией и карантином сирот не затрагивается.
  */
 const DEST_REL_RE = new RegExp(
   `^${PROJECTS_REL}/${ART_ID}/(?:(?:source|proxy|packages|final)/${ART_ID}|master/${ART_ID}@[1-9][0-9]*-[1-9][0-9]*` +
-    `|(?:transcript|edits|preview|style|plan|script|timeline|audio)/${ART_ID}/r[1-9][0-9]*|context/${ART_ID}/${ART_ID}@r[1-9][0-9]*(?:-p(?:0|[1-9][0-9]*))?|analysis/(?:footage|semantic)/${ART_ID})$`,
+    `|(?:transcript|edits|preview|style|plan|script|timeline|timeline-preview|audio)/${ART_ID}/r[1-9][0-9]*|context/${ART_ID}/${ART_ID}@r[1-9][0-9]*(?:-p(?:0|[1-9][0-9]*))?|analysis/(?:footage|semantic)/${ART_ID})$`,
 );
 
 /** destRel публикации — путь формы `artifactPaths`; иначе ошибка до любых изменений ФС. */
@@ -72,6 +72,11 @@ export interface ArtifactPaths {
   package(id: string): string;
   /** Ревизия таймлайна видеопроекта `timeline/<id>/r<N>` (Phase 5). */
   timelineRev(id: string, n: number): string;
+  /**
+   * Превью ревизии таймлайна `timeline-preview/<id>/r<N>` (Task 42): `timeline/<id>/r<N>` закрыт
+   * от записи документом ревизии, а `preview/<id>/` — пространство превью EDL (ADR 0010).
+   */
+  timelinePreviewRev(id: string, n: number): string;
   /** Экспорт финала `final/<id>`. */
   finalExport(id: string): string;
   /**
@@ -90,7 +95,7 @@ export interface ArtifactPaths {
   abs(rel: string): string;
 }
 
-/** Пути `workspace/projects/<p>/{source,proxy,transcript,edits,preview,analysis/footage,analysis/semantic,style,plan,script,packages,timeline,final,audio,context}/…`. */
+/** Пути `workspace/projects/<p>/{source,proxy,transcript,edits,preview,analysis/footage,analysis/semantic,style,plan,script,packages,timeline,timeline-preview,final,audio,context}/…`. */
 export function artifactPaths(root: string, projectId: string): ArtifactPaths {
   const p = `${PROJECTS_REL}/${checkId("projectId", projectId)}`;
   return {
@@ -107,6 +112,7 @@ export function artifactPaths(root: string, projectId: string): ArtifactPaths {
     scriptRev: (id, n) => `${p}/script/${checkId("scriptId", id)}/${rev(n)}`,
     package: (id) => `${p}/packages/${checkId("packageId", id)}`,
     timelineRev: (id, n) => `${p}/timeline/${checkId("timelineId", id)}/${rev(n)}`,
+    timelinePreviewRev: (id, n) => `${p}/timeline-preview/${checkId("timelineId", id)}/${rev(n)}`,
     finalExport: (id) => `${p}/final/${checkId("exportId", id)}`,
     master: (mediaId, fps) => `${p}/master/${checkId("mediaId", mediaId)}@${fpsPart(fps.num)}-${fpsPart(fps.den)}`,
     editedAudio: (id, n) => `${p}/audio/${checkId("edlId", id)}/${rev(n)}`,
