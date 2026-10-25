@@ -1,0 +1,16 @@
+ok         node          22.21.1
+ok         claude        2.1.310 (Claude Code) (~/.local/bin/claude)
+ok         claude_login  haiku ответил, $0.0005
+ok         ffmpeg        ffmpeg version 7.1.1 Copyright (c) 2000-2025 the FFmpeg developers
+ok         ffprobe       ffprobe version 7.1.1 Copyright (c) 2007-2025 the FFmpeg developers
+ok         encoders      libx264, aac, prores_ks
+ok         filters       silencedetect, scdet
+ok         asr           whisper-large-v3-turbo, воркер sha256 59b7e03bf5a8…, ai-platform 99f75d6, python ~/.local/share/montage/mlx-audio-0.5.8/.venv/bin/python; порт 8780 занят — ai-platform может держать GPU
+ok         vision        vision-detect 2 (~/my_track/01_It_development/my-remotion/.claude/worktrees/agent-ac07fa8bfb948f306/app/motion-studio/tools/vision-detect/bin/vision-detect)
+ok         kb            836 записей, KB_ROOT ~/my_track/01_It_development/my-remotion/.claude/worktrees/agent-ac07fa8bfb948f306/knowledge, KB_SOURCE_ROOT ~/my_track/01_It_development/my-remotion
+ok         storage       /Volumes/External SSD/MotionStudio-acceptance, свободно 159.1 ГБ
+ok         chrome        ~/my_track/01_It_development/my-remotion/.claude/worktrees/agent-ac07fa8bfb948f306/app/motion-studio/node_modules/.remotion/chrome-headless-shell/mac-arm64/chrome-headless-shell-mac-arm64/chrome-headless-shell
+ok         db            quick_check ok
+ok         owner_lock    свободен
+
+doctor: всё в порядке
