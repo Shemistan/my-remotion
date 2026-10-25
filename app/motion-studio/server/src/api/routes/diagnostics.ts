@@ -47,16 +47,14 @@ export const diagnosticsRoutes = (app: ZApp, { core }: ApiContext): void => {
   const logger = createLogger(core.root);
 
   // события задач → журнал сервера (прогресс — только в job_events, иначе он забил бы журнал).
-  // Текст пользователя (сценарий, цитаты, ответы агентов — `privacy.ts`) в журнал не пишется:
-  // остаются kind, level, корреляция, ids и коды; полный текст — в job_events (трассировка).
+  // Allowlist (`privacy.ts`): сообщение пишется только у видов из `SAFE_KINDS`; у остальных —
+  // kind, level, корреляция, ids и коды; полный текст — в job_events (трассировка).
   const logEvent = (ev: JobEventDto) => {
     if (ev.kind === "progress") return;
     let fields: LogFields = { job_id: ev.job_id, kind: ev.kind };
-    let type: string | undefined;
     try {
       const j = jobs.get(core.db, ev.job_id);
       if (j) {
-        type = j.type;
         fields = {
           ...fields,
           project_id: j.project_id,
@@ -68,7 +66,7 @@ export const diagnosticsRoutes = (app: ZApp, { core }: ApiContext): void => {
     } catch {
       // база недоступна (storage_offline) — пишем без корреляции
     }
-    const safe = hasUserText(ev.kind, type) || type === undefined ? stripEvent(ev) : ev;
+    const safe = hasUserText(ev.kind) ? stripEvent(ev) : ev;
     logger.log(ev.level, safe.message, { ...fields, ...lift(safe.data), ...(safe.data === undefined ? {} : { data: safe.data }) });
   };
   // подписка ленивая: база недоступна при старте маршрутов (storage_offline) — повтор при

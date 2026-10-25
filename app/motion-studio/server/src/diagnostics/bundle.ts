@@ -1,8 +1,8 @@
 // Архив диагностики (Task 48): zip в `<хранилище>/diagnostics/diag-<ts>.zip` — журналы сервера за
 // 7 дней, `doctor.json`, `db.json` (`PRAGMA user_version`, число строк), последние 2000
 // `job_events`, `boot_reports`, `stderr.log` вызовов агентов за 7 дней; промпты агентов
-// (`prompt.md`) и тексты пользователя в событиях (сценарий, цитаты, ответы агентов — см.
-// `privacy.ts`) — только при `includePrompts`, без флага остаются kind, level, ids и коды. Без
+// (`prompt.md`) и сообщения событий и журнала — только при `includePrompts`; без флага сообщение
+// остаётся лишь у видов из allowlist `SAFE_KINDS` (`privacy.ts`), у прочих — kind, level, ids и коды. Без
 // медиа, превью и вывода агентов. Всё текстовое проходит `redact`, затем `maskExport` (пути).
 // Лимит: 200 МБ содержимого / 5000 записей (лишнее — в `manifest.truncated`); хранятся последние
 // 5 архивов. Zip пишется своим кодом (deflate из `node:zlib`) — без зависимости `yazl`.
@@ -17,7 +17,7 @@ import type { Db } from "../db/open.js";
 import { type EventRow, eventRow } from "../db/repos/job-events.js";
 import { runDoctor } from "./doctor-checks.js";
 import { logFiles } from "./logger.js";
-import { hasUserText, maskExport, stripEvent, stripLogEntry } from "./privacy.js";
+import { hasUserText, maskExport, stripEvent, stripLogEntry, USER_TEXT_HIDDEN } from "./privacy.js";
 import { redact, redactDeep } from "./redact.js";
 
 export const BUNDLE_DIR = "diagnostics";
@@ -78,12 +78,6 @@ export async function diagnosticBundle(core: BundleCore, opts: BundleOptions): P
   };
   /** Секреты, затем пути — всё, что уходит в архив. */
   const clean = <T>(v: T): T => maskExport(redactDeep(v), core.root);
-  const jobTypes = new Map<string, string | undefined>();
-  const jobType = (id: unknown): string | undefined => {
-    if (typeof id !== "string") return undefined;
-    if (!jobTypes.has(id)) jobTypes.set(id, core.db.prepare("SELECT type FROM jobs WHERE id = ?").pluck().get(id) as string | undefined);
-    return jobTypes.get(id);
-  };
 
   // doctor
   let doctor: unknown;
@@ -103,11 +97,10 @@ export async function diagnosticBundle(core: BundleCore, opts: BundleOptions): P
 
   // отчёты старта и последние 2000 событий задач (текст пользователя — только по флагу)
   add("boot_reports.json", JSON.stringify(clean(core.db.prepare("SELECT * FROM boot_reports ORDER BY created_at").all()), null, 2));
-  const events = (core.db.prepare("SELECT e.*, j.type AS job_type FROM job_events e LEFT JOIN jobs j ON j.id = e.job_id ORDER BY e.id DESC LIMIT ?")
-    .all(BUNDLE_EVENTS) as (EventRow & { job_type: string | null })[]).reverse();
-  const eventLines = events.map(({ job_type, ...r }) => {
+  const events = (core.db.prepare("SELECT * FROM job_events ORDER BY id DESC LIMIT ?").all(BUNDLE_EVENTS) as EventRow[]).reverse();
+  const eventLines = events.map((r) => {
     const ev = eventRow(r);
-    return JSON.stringify(clean(!opts.includePrompts && hasUserText(ev.kind, job_type ?? undefined) ? stripEvent(ev) : ev));
+    return JSON.stringify(clean(!opts.includePrompts && hasUserText(ev.kind) ? stripEvent(ev) : ev));
   });
   add("job_events.jsonl", eventLines.join("\n") + (eventLines.length > 0 ? "\n" : ""));
 
@@ -116,13 +109,14 @@ export async function diagnosticBundle(core: BundleCore, opts: BundleOptions): P
     const s = await stat(f).catch(() => undefined);
     if (!s || s.mtimeMs < since) continue;
     const lines = (await readFile(f, "utf8")).split("\n").filter((l) => l.trim() !== "").map((l) => {
-      let e: { msg: string; kind?: string; job_id?: string; data?: unknown };
+      let e: { msg: string; kind?: string; data?: unknown };
       try {
         e = JSON.parse(l) as typeof e;
       } catch {
-        return clean(l); // оборванная строка
+        // оборванная строка: без флага не попадает (в ней может быть текст пользователя)
+        return opts.includePrompts ? clean(l) : JSON.stringify({ msg: USER_TEXT_HIDDEN, broken: true });
       }
-      return JSON.stringify(clean(!opts.includePrompts && hasUserText(e.kind ?? "", jobType(e.job_id)) ? stripLogEntry(e) : e));
+      return JSON.stringify(clean(!opts.includePrompts && hasUserText(e.kind) ? stripLogEntry(e) : e));
     });
     add(`logs/${basename(f)}`, lines.join("\n") + (lines.length > 0 ? "\n" : ""));
   }

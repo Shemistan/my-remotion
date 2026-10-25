@@ -57,13 +57,13 @@ it("GET /api/jobs/:id/trace: дерево и стоимость; 404", async () 
 
 it("GET /api/logs: события задач в журнале с корреляцией, фильтры, лимит ≤ 1000", async () => {
   jobs.insert(api.core.db, { id: "job_log", type: "playground.generate", project_id: "playground", input: {}, attempt: 3 });
-  tx(api.core.db, () => api.core.events.emit(api.core.db, { job_id: "job_log", level: "error", kind: "failed", message: "упал: Bearer sec.ret" }));
+  tx(api.core.db, () => api.core.events.emit(api.core.db, { job_id: "job_log", level: "error", kind: "media_copied", message: "скопирован: Bearer sec.ret" }));
   let entries: Record<string, unknown>[] = [];
   await vi.waitFor(async () => {
     entries = (await api.inj("GET", "/api/logs?jobId=job_log", getHeaders)).json();
     expect(entries).toHaveLength(1);
   });
-  expect(entries[0]).toMatchObject({ level: "error", job_id: "job_log", project_id: "playground", attempt: 3, kind: "failed", msg: "упал: Bearer [скрыто]" });
+  expect(entries[0]).toMatchObject({ level: "error", job_id: "job_log", project_id: "playground", attempt: 3, kind: "media_copied", msg: "скопирован: Bearer [скрыто]" });
   expect((await api.inj("GET", "/api/logs?jobId=job_log&level=warn", getHeaders)).json()).toHaveLength(1);
   expect((await api.inj("GET", "/api/logs?jobId=job_other", getHeaders)).json()).toHaveLength(0);
   expect((await api.inj("GET", "/api/logs?limit=1001", getHeaders)).statusCode).toBe(400);
@@ -107,7 +107,7 @@ it("GET /api/logs: текст сценария скрыт (kind, ids, коды �
   jobs.insert(db, { id: "job_pg", type: "playground.generate", project_id: "playground", input: {} });
   tx(db, () => {
     api.core.events.emit(db, { job_id: "job_sc", level: "warn", kind: "quote_autofixed", message: "s3: «Мы выросли втрое»", data: { item_id: "s3", code: "quote_autofixed", quote: "Мы выросли втрое" } });
-    api.core.events.emit(db, { job_id: "job_pg", level: "error", kind: "failed", message: `нет файла ${api.core.root}/projects/a.mp4 и ${homedir()}/b.mov`, data: { path: "/Users/ivan/c.mov" } });
+    api.core.events.emit(db, { job_id: "job_pg", level: "error", kind: "media_copied", message: `нет файла ${api.core.root}/projects/a.mp4 и ${homedir()}/b.mov`, data: { path: "/Users/ivan/c.mov" } });
   });
   let entries: Record<string, unknown>[] = [];
   await vi.waitFor(async () => {

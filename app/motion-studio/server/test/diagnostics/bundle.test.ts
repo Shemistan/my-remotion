@@ -46,7 +46,7 @@ async function seed(): Promise<void> {
   await put("logs/agent-runs/job_x/a1-engineer-1/frame.mp4", "не медиа в архиве");
   jobs.insert(db, { id: "job_ev", type: "playground.generate", project_id: "playground", input: {}, status: "failed" });
   tx(db, () => {
-    for (let i = 0; i < 2005; i++) api.core.events.emit(db, { job_id: "job_ev", level: "info", kind: "log", message: `событие ${i}` });
+    for (let i = 0; i < 2005; i++) api.core.events.emit(db, { job_id: "job_ev", level: "info", kind: "started", message: `событие ${i}` });
   });
   bootReports.insert(db, { id: "boot_1", created_at: "2026-10-25T09:00:00.000Z", crashed: true, report: { note: "Bearer zzz.9", path: `${api.core.root}/studio.db` } });
   // сценарий пользователя: событие script.plan с цитатой и старая строка журнала с ней же
@@ -54,7 +54,8 @@ async function seed(): Promise<void> {
   tx(db, () => {
     api.core.events.emit(db, { job_id: "job_sc", level: "warn", kind: "quote_autofixed", message: `s3: ${QUOTE} — исправлено`, data: { item_id: "s3", code: "quote_autofixed", quote: QUOTE } });
     api.core.events.emit(db, { job_id: "job_ev", level: "warn", kind: "agent_retry", message: `ответ не прошёл схему: ${QUOTE}` });
-    api.core.events.emit(db, { job_id: "job_ev", level: "info", kind: "log", message: `файл ${api.core.root}/projects/p/a.mp4, ${homedir()}/Movies/b.mov, /Users/ivan/c.mov` });
+    api.core.events.emit(db, { job_id: "job_ev", level: "info", kind: "log", message: `свободный текст: ${QUOTE}` }); // вид без решения «безопасен» — скрыт
+    api.core.events.emit(db, { job_id: "job_ev", level: "info", kind: "media_copied", message: `файл ${api.core.root}/projects/p/a.mp4, ${homedir()}/Movies/b.mov, /Users/ivan/c.mov` });
   });
   await appendFile(join(api.core.root, "logs", `server-${new Date().toISOString().slice(0, 10)}.jsonl`),
     JSON.stringify({ ts: new Date().toISOString(), level: "warn", msg: `s3: ${QUOTE}`, job_id: "job_sc", kind: "quote_autofixed", data: { item_id: "s3" } }) + "\n");
@@ -79,6 +80,9 @@ it("состав архива, без медиа и промптов, без с�
   expect(text).not.toMatch(/\/Users\/(?!…)/);
   expect(text).toContain('"kind":"quote_autofixed"');
   expect(text).toContain('"code":"quote_autofixed"');
+  expect(text).not.toContain("свободный текст");
+  // безопасный вид: сообщение остаётся, пути маскированы
+  expect(text).toContain("файл хранилище/projects/p/a.mp4, ~/Movies/b.mov, /Users/…/c.mov");
   const z = readZip(b.path);
   expect(JSON.parse(z.get("db.json")!.toString())).toMatchObject({ user_version: expect.any(Number) });
   const events = z.get("job_events.jsonl")!.toString().trim().split("\n");

@@ -1,15 +1,17 @@
 // Приватность журнала сервера и архива диагностики (ревью Task 48).
 //
-// Тексты пользователя: сценарий, цитаты, слова транскрипта, ответы агентов попадают в сообщения
-// и данные событий. В журнал сервера такие события пишутся без текста (только kind, level,
-// корреляция, ids и коды) — полный текст остаётся в `job_events` (трассировка в UI). В архив
-// диагностики события с текстом пользователя попадают целиком только при `includePrompts`.
+// Тексты пользователя (сценарий, цитаты, слова транскрипта, имена файлов, ответы агентов, тексты
+// ошибок) попадают в сообщения и данные событий. Правило — allowlist: без `includePrompts` у
+// ВСЕХ событий и записей журнала, кроме видов из `SAFE_KINDS`, `message`/`msg` заменяется
+// заглушкой, а в `data` остаются только ids, коды и счётчики. `SAFE_KINDS` — виды, у которых
+// сообщение и данные собираются кодом только из ids, ревизий, чисел и литералов (прогресс,
+// статусы без текста ошибки, тайминги, повторное использование); их сообщение проходит
+// redact + maskExport. Новый вид события по умолчанию скрыт; тест-страж
+// (`test/diagnostics/privacy.test.ts`) требует решения для каждого вида, который эмитит код:
+// `SAFE_KINDS` или `HIDDEN_KINDS`.
 //
-// Какие события несут текст пользователя:
-//  - все события задач `script.*` (сценарий, цитаты: quote_autofixed, skip_dropped,
-//    patch_scene_dropped, fill_failed, export_failed, failed и т. д.);
-//  - в прочих задачах — события из `USER_TEXT_KINDS` (переотправки агентов с текстом ответа,
-//    отклонённые элементы разметки и плана, hotwords и начало вывода ASR, вырезки агента).
+// В журнал сервера события пишутся по тому же правилу всегда — полный текст остаётся в
+// `job_events` (трассировка в UI); в архив он попадает только при `includePrompts`.
 //
 // Пути: `maskExport` — `maskDeep` (хранилище → «хранилище», дом → «~») плюс чужие домашние
 // каталоги `/Users/<имя>` → `/Users/…` и том хранилища `/Volumes/<том>` → `/Volumes/…`.
@@ -18,21 +20,48 @@ import { maskDeep } from "../api/job-dto.js";
 
 export const USER_TEXT_HIDDEN = "[текст пользователя скрыт]";
 
-/** Виды событий с текстом пользователя в задачах не `script.*` (найдены по `ctx.emit` конвейеров). */
-export const USER_TEXT_KINDS: ReadonlySet<string> = new Set([
-  // сценарий (на случай вызова вне script.*)
-  "quote_autofixed", "skip_dropped", "patch_scene_dropped", "fill_failed", "export_failed",
-  // агенты: текст ответа, причины переотправки, отказ
-  "agent_retry", "agent_retry_failed", "agent_retry_kept_first", "agent_failed", "budget", "agent_cut_rejected",
-  "agent_unknown_shots", "agent_unknown_reviews",
-  // разметка и план: отклонённые элементы со словами транскрипта
-  "semantic_rejected", "semantic_merge_rejected", "plan_problems", "style_fallback",
-  // ASR: hotwords пользователя, начало вывода (слова), хвост stderr
-  "hotwords_truncated", "asr_output_rejected", "asr_worker_failed",
+/** Виды без свободного текста: сообщение и данные — только ids, ревизии, числа, литералы. */
+export const SAFE_KINDS: ReadonlySet<string> = new Set([
+  // раннер и восстановление: прогресс, старт, статусы без текста ошибки
+  "progress", "started", "completed", "requeued", "locks_released", "recovered_completed",
+  "fenced_out", "abort_timeout", "late_result_ignored", "permits_released",
+  // повторное использование опубликованного
+  "plan_reused", "edl_reused", "footage_reused", "proxy_reused", "preview_reused", "semantic_reused", "transcript_reused",
+  "agent_checkpoint",
+  // счётчики, тайминги, ревизии
+  "shots", "keyframes_limited", "keyframes_missing", "windows", "windows_merged", "words_trimmed", "sync_check",
+  "audio_duration_mismatch", "media_copied", "no_audio", "gpu_contention", "agent_objects_dropped",
+  "proposals_suppressed", "no_change", "no_plan", "nothing_to_plan", "nothing_to_analyze", "agent_skipped",
+  "plan_current", "plan_rechecked", "plan_restyled", "edl_changed", "transcript_changed", "transcript_mismatch",
+  "style_kept", "style_changed_during_job", "fill_nothing", "fill_scene", "fill_done", "test_hook",
 ]);
 
-export function hasUserText(kind: string, jobType: string | undefined): boolean {
-  return (jobType?.startsWith("script.") ?? false) || USER_TEXT_KINDS.has(kind);
+/**
+ * Виды со свободным текстом (решение принято: скрываются). Нужен тесту-стражу: каждый вид,
+ * который эмитит код, — либо здесь, либо в `SAFE_KINDS`. Скрытие от списка не зависит:
+ * скрыто всё, чего нет в `SAFE_KINDS`.
+ */
+export const HIDDEN_KINDS: ReadonlySet<string> = new Set([
+  // статусы с текстом ошибки
+  "failed", "blocked", "cancelled", "interrupted", "finish_failed", "awaiting_input", "awaiting_approval", "pending", "running",
+  // сценарий: цитаты, детали пропусков и правок
+  "quote_autofixed", "skip_dropped", "patch_scene_dropped", "fill_failed", "export_failed",
+  // агенты: текст ответа, причины переотправки, отказы
+  "agent_retry", "agent_retry_failed", "agent_retry_kept_first", "agent_failed", "budget", "agent_cut_rejected",
+  "agent_unknown_shots", "agent_unknown_reviews", "agent_permission_denied",
+  // разметка и план: элементы со словами транскрипта
+  "semantic_rejected", "semantic_merge_rejected", "plan_problems", "style_fallback",
+  // ASR и видео: hotwords, начало вывода, stderr, тексты ошибок детектора
+  "hotwords_truncated", "asr_output_rejected", "asr_worker_failed", "vision_unavailable", "vision_failed", "vision_frame_errors",
+  // тексты ошибок записи, имена файлов, произвольные строки
+  "checkpoint_failed", "record_failed", "trash_purged", "log",
+  // журнал сервера: ошибки API и сборки архива (текст ошибки)
+  "api_error", "bundle_failed",
+]);
+
+/** Сообщение события этого вида может содержать текст пользователя (всё, кроме `SAFE_KINDS`). */
+export function hasUserText(kind: string | undefined): boolean {
+  return kind === undefined || !SAFE_KINDS.has(kind);
 }
 
 /** Поля данных, которые остаются: идентификаторы, коды, счётчики. */
