@@ -21,6 +21,7 @@ import type { WorkerJob, WorkerResult, WorkerStage } from "./protocol.js";
 // .ts явно: worker исполняется стиранием типов Node, без загрузчика
 import { type AssetPolicy, blockingOnDownload, installAssetGuard } from "./asset-guard.ts";
 import { jailResolve } from "./resolve-jail.ts";
+import { runSweep } from "./sweep.ts";
 
 // Рендерер — CJS-сборка через require, а не ESM: только в ней installAssetGuard может
 // подменить downloadAsset (asset-guard.ts); ESM-сборка Remotion — один файл без швов.
@@ -214,16 +215,16 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
   });
   await rename(tmpOut, job.preview.out);
   if (job.sweep) {
-    // временной проход пробы (S15b): только DOM-замеры каждого N-го кадра, без снимков; его
-    // сбой не роняет рендер — QA по времени без данных пропускает проверки
-    try {
-      await renderFrames({
+    // временной проход пробы (S15b): только DOM-замеры каждого N-го кадра, без снимков; падение
+    // страницы — один повтор в новой странице (S17b); сбой не роняет рендер — QA пометит пропуск
+    const sweep = job.sweep;
+    await runSweep(
+      () => renderFrames({
         ...common, onDownload, composition, inputProps: { ...job.inputProps, __msLayoutProbe: "sweep" }, imageFormat: "none", outputDir: null,
-        everyNthFrame: job.sweep.every, scale: job.sweep.scale, onStart: () => undefined, onFrameUpdate: () => undefined,
-      });
-    } catch (e) {
-      pushLog(`[sweep-error] ${(e as Error).message.split("\n")[0]}`);
-    }
+        everyNthFrame: sweep.every, scale: sweep.scale, onStart: () => undefined, onFrameUpdate: () => undefined,
+      }),
+      pushLog,
+    );
   }
   return { ok: true, stills, previewPath: job.preview.out, browserLogs };
 }

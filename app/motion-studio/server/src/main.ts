@@ -1,16 +1,22 @@
 // Точка входа сервера (`npm start`, `npm run dev`): `bootCore({ kind: "server" })` (ADR 0007
 // п. 5: owner-lock → хранилище → БД → реестр → восстановление → раннер с обработчиками задач)
-// → Control API → `listen` только на 127.0.0.1:8790. SIGTERM/SIGINT: API закрывается (SSE-потоки
+// → Control API → `listen` только на 127.0.0.1 (порт — `server.port` config.json, по умолчанию 8790). SIGTERM/SIGINT: API закрывается (SSE-потоки
 // тоже), раннер прерывает попытки, БД закрывается, owner-lock освобождается.
 // `--dev` — Vite middleware (Q7), иначе статика `web/dist`.
 import { pathToFileURL } from "node:url";
-import { PORT, buildApp } from "./api/app.js";
+import { buildApp } from "./api/app.js";
 import { bootCore } from "./boot.js";
+import type { AppConfig } from "./config.js";
 import { exportVersion } from "@ms/render";
 import { registerHandlers } from "./jobs/handlers.js";
 import { testHooks } from "./jobs/test-hooks.js";
 
 export const HOST = "127.0.0.1";
+
+/** Адрес Control API: хост только 127.0.0.1 (не настраивается), порт — из конфигурации (S17b). */
+export function listenAddress(config: AppConfig): { host: string; port: number } {
+  return { host: HOST, port: config.server.port };
+}
 
 export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<void> {
   const dev = argv.includes("--dev");
@@ -36,16 +42,17 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<void
   }
   if (core.reaped.alive.length > 0) log(`предупреждение: живы процессы прежних попыток: ${core.reaped.alive.map((p) => p.pid).join(", ")}`);
 
+  const addr = listenAddress(core.config);
   let app;
   try {
-    app = await buildApp(core, { port: PORT, dev, logger: { level: env.MS_LOG_LEVEL ?? "info" } });
-    await app.listen({ host: HOST, port: PORT });
+    app = await buildApp(core, { port: addr.port, dev, logger: { level: env.MS_LOG_LEVEL ?? "info" } });
+    await app.listen(addr);
   } catch (e) {
     await app?.close().catch(() => undefined);
     await core.close();
     throw e;
   }
-  log(`Control API: http://${HOST}:${PORT}${dev ? " (dev, Vite)" : ""}; хранилище ${core.root}`);
+  log(`Control API: http://${addr.host}:${addr.port}${dev ? " (dev, Vite)" : ""}; хранилище ${core.root}`);
 
   let stopping = false;
   const stop = async (signal: string) => {

@@ -52,7 +52,8 @@ web-build: install
 
 # Playwright UI (Task 21): настоящий сервер на tmp-хранилище (MS_ALLOW_SYSTEM_DISK=1 только
 # для него), версии из рукописных фикстур с реальным рендером, без LLM. Порт 8790 должен быть
-# свободен. Скриншоты — docs/evidence/phase-1/ui/.
+# свободен. Скриншоты — tmp/e2e-ui/<фаза>/ui/ (gitignored); обновить evidence в репозитории —
+# MS_WRITE_EVIDENCE=1 make e2e-ui (пишет в docs/evidence/{phase-1,phase-2,phase-3,script-mvp}/ui/).
 e2e-ui: web-build
 	$(NODE) npx playwright test -c web/playwright.config.ts
 

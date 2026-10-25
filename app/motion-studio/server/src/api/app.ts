@@ -8,6 +8,7 @@ import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyServerOptions } from "fastify";
 import { type ZodTypeProvider, serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import type { Core } from "../boot.js";
+import { DEFAULT_PORT } from "../config.js";
 import type { ApiContext, ZApp } from "./context.js";
 import { installViteDev } from "./dev-vite.js";
 import { installErrorHandler } from "./errors.js";
@@ -35,7 +36,8 @@ import { videoProjectRoutes } from "./routes/video-projects.js";
 import { installSecurity } from "./security.js";
 import { SSE_HEARTBEAT_MS, sseStreams } from "./sse.js";
 
-export const PORT = 8790;
+/** Порт по умолчанию (`config.json` → `server.port` меняет его, S17b). */
+export const PORT = DEFAULT_PORT;
 /** Пакет UI (Task 21): `web/`, сборка — `web/dist`. */
 export const WEB_ROOT = fileURLToPath(new URL("../../../web/", import.meta.url));
 

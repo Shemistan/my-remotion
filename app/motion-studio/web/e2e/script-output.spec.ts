@@ -6,7 +6,7 @@
 // «Собрать папку 16:9» → карточка пакета: NN_*.mp4 + NN_*_alpha.mov на диске, «Не вошли» со
 // сценой без версии, шпаргалка (таблица, CSV, TXT). «Показать в Finder» — запрос перехватывается
 // (204): настоящий `open -R` открыл бы окно Finder. Скриншоты — tmp/ui-e2e/script-full/ и 480 px в
-// docs/evidence/script-mvp/ui/{scenes,export}.png.
+// tmp/e2e-ui/script-mvp/ui/{scenes,export}.png (MS_WRITE_EVIDENCE=1 — docs/evidence/…).
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { ScriptPackageDto } from "@ms/contracts";

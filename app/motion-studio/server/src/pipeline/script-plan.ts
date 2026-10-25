@@ -47,7 +47,7 @@ import { SCRIPT_PLAN_FILE, currentScript } from "../script/read.js";
 import { scriptReading } from "../script/text.js";
 import { checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
 import { planFailure, planIdFor, planPublications } from "./plan-visual.js";
-import { recordAgentRuns } from "./record.js";
+import { flushAgentRuns } from "./record.js";
 import { sceneFill } from "./script-fill.js";
 import { RunCtx, errText, toolless } from "./steps.js";
 
@@ -258,12 +258,14 @@ export const scriptPlan: (depsOf: () => ScriptPlanDeps) => JobHandler = (depsOf)
       items: doc.items.length, skipped: doc.skipped.length, rejected: ev.v.rejected.length, issues: counts(doc.issues),
       style: { style_id: style.style_id, revision: style.revision, author: style.author }, agent: agentInfo,
     };
-    recordAgentRuns(ctx.db, ctx.job.id, ctx.attempt, rc.records);
     d.log?.(`script.plan ${planId}: сцен ${res.items}, пропусков ${res.skipped} (отклонено ${res.rejected}), blocking ${res.issues.blocking}, $${agentInfo.cost_usd}`);
     return done(res);
   } catch (e) {
     if (e instanceof ScriptFail) return { status: e.status, error: e.error };
     return planFailure(e, { ctx, stage, storage: d.storage, what: "план сценария" });
+  } finally {
+    // S17b: прогоны агента — при любом исходе, в том числе неудачные и дозаполнение
+    flushAgentRuns(ctx, rc.records);
   }
 
   /** Описания паттернов: KB (первый абзац), иначе запасной словарь. */

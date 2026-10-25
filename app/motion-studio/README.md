@@ -35,6 +35,9 @@ Evidence в `docs/evidence/` закоммичено и само по себе н
 - `slice.e2e` кладёт кадры и итоги прогона в `tmp/slice-evidence/`. В
   `docs/evidence/phase-1/slice/` они попадают только с флагом:
   `MS_WRITE_EVIDENCE=1 make e2e`.
+- `make e2e-ui` (Playwright) пишет скриншоты в `tmp/e2e-ui/<фаза>/ui/`; в
+  `docs/evidence/{phase-1,phase-2,phase-3,script-mvp}/ui/` — только с тем же флагом:
+  `MS_WRITE_EVIDENCE=1 make e2e-ui`.
 - Кадры галереи хореографии kit пересобирает `scripts/kit-evidence.mts` (см.
   `render/src/motion-kit/PROVENANCE.md`).
 
@@ -86,6 +89,10 @@ rebinding и CSRF, `03` §6). Чужой `Origin` отклоняется и на
 встроит превью и не подпишется на SSE). Ответы 500 — код и общий текст, подробности в журнале. Хранилище недоступно — 503 `storage_offline` на `/api/*`, кроме
 `GET /api/health`. POST, создающие задачи, требуют `Idempotency-Key`. Остановка — SIGTERM/SIGINT:
 API и SSE закрываются, попытки прерываются, БД закрывается, owner-lock освобождается.
+
+Порт меняется в `config.json` → `"server": { "port": 8791 }` (целое 1024–65535, после
+перезапуска; проверки `Host`/`Origin` — по этому порту). Хост не настраивается: только
+`127.0.0.1`, ключ `server.host` config.json отклоняет. Из браузера (`PUT /settings`) порт не меняется.
 
 Лимиты (`config.json` → `limits`, действуют после перезапуска): `maxRunning` 2 задачи,
 `agentCalls` 5, `renders` 2, `exportTimeoutMs` 1 800 000. Настройки — `GET/PUT /api/settings`:

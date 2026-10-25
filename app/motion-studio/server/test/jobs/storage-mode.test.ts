@@ -141,6 +141,24 @@ it("H2: slow/failing volume probe (diskutil under load) does not take a live sto
   expect(runner!.isPaused()).toBe(false);
 });
 
+// S17b, флак ENOENT при очистке: проверка сторожа (настоящий checkStorage пишет и удаляет
+// `.write-test-*` в корне) шла и после stop() — уборка каталога теста гонялась с её unlink.
+it("stop() ждёт проверку сторожа, начатую до него", async () => {
+  let release: ((s: StorageStatus) => void) | undefined;
+  const st: StorageStatus = { ok: true, root: env.s.root, marker: env.s.marker, freeBytes: 1 };
+  server(async () => ({ status: "completed", outputRefs: {} }), { check: () => new Promise<StorageStatus>((r) => (release = r)) });
+  runner!.start();
+  sup!.start();
+  await until(() => release !== undefined, "проверка сторожа началась");
+  let stopped = false;
+  const stopping = sup!.stop().then(() => (stopped = true));
+  await new Promise((r) => setTimeout(r, 30));
+  expect(stopped).toBe(false);
+  release!(st);
+  await stopping;
+  expect(stopped).toBe(true);
+});
+
 it("check hangs (diskutil) → storage_offline with reason storage_watch_timeout", async () => {
   let hang = false;
   server(async () => ({ status: "completed", outputRefs: {} }), {

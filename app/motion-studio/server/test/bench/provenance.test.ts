@@ -55,6 +55,9 @@ describe("сравнение до/после", () => {
     expect(() => compareRuns(scores("b", [["s1", 6]], {}), ok)).toThrow(/b.*нет хеша/s);
     expect(() => compareRuns(ok, scores("b", [["s1", 6]], { rubric_sha256: "r" }))).toThrow(/b.*нет хеша/s);
     expect(() => compareRuns(ok, scores("b", [["s1", 6]], { rubric_sha256: "x", anchors_sha256: "a" }))).toThrow(/разные судьи/);
+    // S17b (M5 ревью S16a): после смены рубрики — готовая команда перепрогона судьи базовой линии
+    expect(() => compareRuns(ok, scores("b", [["s1", 6]], { rubric_sha256: "x", anchors_sha256: "a" })))
+      .toThrow(/базовой линии a: npx tsx scripts\/bench-set\.mts --run a --judge-only --rejudge/);
     expect(() => compareRuns(ok, { ...ok, summary: { ...ok.summary, run: "b", judge_model: "sonnet" } })).toThrow(/модел/);
   });
 
