@@ -228,7 +228,7 @@ const failed = (why: string): QAIssue => ({
  * доля непрозрачного > 0,92 → blocking `overlay_opaque`. Сбой рендера или ffmpeg —
  * предупреждение `overlay_check_failed`.
  */
-export async function overlayChecks(i: Omit<Parameters<ExtraQa>[0], "layout">, deps: OverlayCheckDeps = {}): Promise<QAIssue[]> {
+export async function overlayChecks(i: Omit<Parameters<ExtraQa>[0], "layout" | "rc">, deps: OverlayCheckDeps = {}): Promise<QAIssue[]> {
   const out = rootFillIssues(await sceneFiles(i.versionDir));
   let props: Record<string, unknown>;
   try {

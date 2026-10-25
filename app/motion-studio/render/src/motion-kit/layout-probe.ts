@@ -198,31 +198,198 @@ const GRID_W = 96;
  * считается). Перекрытия не удваиваются.
  */
 export function areaShares(items: LayoutItem[], boxes: LayoutBox[], graphics: Box[], frame: { w: number; h: number }): { text: number; graphic: number } {
-  const gw = GRID_W;
-  const gh = Math.max(1, Math.round((GRID_W * frame.h) / Math.max(1, frame.w)));
+  const g = grid(frame);
+  const big = (it: LayoutItem) => it.role === "number" && it.fontPx >= HERO_NUMBER_SHARE * frame.h;
+  for (const it of items) g.mark(it.rect, big(it) ? 2 : 1);
+  // узел графа — часть схемы (графика), карточка и панель с одним текстом — текст
+  for (const b of boxes) if (b.filled || b.kind === "node") g.mark(b.rect, b.graphic || b.kind === "node" ? 2 : 1);
+  for (const r of graphics) g.mark(r, 2);
+  let t = 0;
+  let gr = 0;
+  for (const c of g.cells) {
+    if (c === 1) t++;
+    else if (c === 2) gr++;
+  }
+  const n = g.cells.length;
+  return { text: Math.round((t / n) * 1000) / 1000, graphic: Math.round((gr / n) * 1000) / 1000 };
+}
+
+/** Размер сетки кадра (0.5.8): 96 клеток по ширине, по высоте — в пропорции кадра. */
+export function gridDims(frame: { w: number; h: number }): { gw: number; gh: number } {
+  return { gw: GRID_W, gh: Math.max(1, Math.round((GRID_W * frame.h) / Math.max(1, frame.w))) };
+}
+
+/** Сетка кадра: клетки и разметка прямоугольника (значение клетки — наибольшее из меток). */
+function grid(frame: { w: number; h: number }) {
+  const { gw, gh } = gridDims(frame);
   const cw = frame.w / gw;
   const ch = frame.h / gh;
   const cells = new Uint8Array(gw * gh);
-  const mark = (b: Box, v: 1 | 2) => {
+  /** Индексы клеток под прямоугольником. */
+  const each = (b: Box, fn: (i: number) => void) => {
     const x0 = Math.max(0, Math.floor(b.x / cw));
     const y0 = Math.max(0, Math.floor(b.y / ch));
     const x1 = Math.min(gw, Math.ceil((b.x + b.w) / cw));
     const y1 = Math.min(gh, Math.ceil((b.y + b.h) / ch));
-    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) cells[y * gw + x] = Math.max(cells[y * gw + x]!, v) as 1 | 2;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) fn(y * gw + x);
   };
-  const big = (it: LayoutItem) => it.role === "number" && it.fontPx >= HERO_NUMBER_SHARE * frame.h;
-  for (const it of items) mark(it.rect, big(it) ? 2 : 1);
-  // узел графа — часть схемы (графика), карточка и панель с одним текстом — текст
-  for (const b of boxes) if (b.filled || b.kind === "node") mark(b.rect, b.graphic || b.kind === "node" ? 2 : 1);
-  for (const g of graphics) mark(g, 2);
-  let t = 0;
-  let g = 0;
-  for (const c of cells) {
-    if (c === 1) t++;
-    else if (c === 2) g++;
+  const mark = (b: Box, v: number) => each(b, (i) => {
+    cells[i] = Math.max(cells[i]!, v);
+  });
+  return { gw, gh, cw, ch, cells, each, mark };
+}
+
+/**
+ * Клетки содержимого кадра (0.5.8, S15b; чистая функция): строки текста, заполненные
+ * контейнеры и графика сцены — 1, фон — 0. Временной проход сравнивает по ним половины кадра
+ * (empty_half) и считает энергию движения превью только под содержимым (без фона).
+ */
+export function contentCells(items: readonly LayoutItem[], boxes: readonly LayoutBox[], graphics: readonly Box[], frame: { w: number; h: number }): Uint8Array {
+  const g = grid(frame);
+  for (const it of items) g.mark(it.rect, 1);
+  for (const b of boxes) if (b.filled) g.mark(b.rect, 1);
+  for (const r of graphics) g.mark(r, 1);
+  return g.cells;
+}
+
+/** Клетки 0/1 → hex: 4 клетки на знак, старший бит — первая клетка. */
+export function packCells(cells: Uint8Array): string {
+  let out = "";
+  for (let i = 0; i < cells.length; i += 4) {
+    let v = 0;
+    for (let k = 0; k < 4; k++) v = (v << 1) | (cells[i + k] ? 1 : 0);
+    out += v.toString(16);
   }
-  const n = gw * gh;
-  return { text: Math.round((t / n) * 1000) / 1000, graphic: Math.round((g / n) * 1000) / 1000 };
+  return out;
+}
+
+/** Кандидат в герои кадра (0.5.8): вид, доля кадра (клетки фигур, не рамка), под акцентом ли. */
+export interface HeroCandidate {
+  kind: "graph" | "box" | "graphic" | "number";
+  share: number;
+  accent: boolean;
+  rect: Box;
+}
+
+/** Кандидат меньше этой доли кадра — деталь (иконка, маркер), не герой. */
+export const HERO_MIN_SHARE = 0.005;
+/** Сколько кандидатов героя пишет проба. */
+export const HERO_TOP = 4;
+
+const HERO_GRAPHIC = 1;
+const HERO_BOX = 2;
+const HERO_NODE = 4;
+const HERO_NUMBER = 8;
+
+/**
+ * Кандидаты героя кадра (0.5.8, S15b; чистая функция): связные области графики — фигуры
+ * одного svg (объединение фигур, не холст svg) и img/canvas, контейнеры kit с графикой, кластер
+ * узлов графа (узлы и рёбра — одна область), крупное число (кегль ≥ HERO_NUMBER_SHARE высоты).
+ * Соседние (касающиеся) области сливаются. Вид — graph, если в области есть узел; box — контейнер
+ * с графикой; graphic — графика; number — только число. `accent` — в рамке области центр
+ * активного акцента. По убыванию доли, без мелочи (< HERO_MIN_SHARE).
+ */
+export function heroCandidates(i: { items: readonly LayoutItem[]; boxes: readonly LayoutBox[]; graphics: readonly (readonly Box[])[]; accents: readonly Box[] }, frame: { w: number; h: number }): HeroCandidate[] {
+  const g = grid(frame);
+  const n = g.cells.length;
+  const parent = new Int32Array(n).map((_, k) => k);
+  const find = (x: number): number => {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]!]!;
+      x = parent[x]!;
+    }
+    return x;
+  };
+  const unite = (a: number, b: number) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent[rb] = ra;
+  };
+  /** Область одного источника: все её клетки — одно целое, даже с промежутками (столбики svg). */
+  const region = (rects: readonly Box[], flag: number) => {
+    let first = -1;
+    for (const r of rects) g.each(r, (k) => {
+      g.cells[k] = g.cells[k]! | flag;
+      if (first < 0) first = k;
+      else unite(first, k);
+    });
+  };
+  for (const grp of i.graphics) region(grp, HERO_GRAPHIC);
+  for (const b of i.boxes) {
+    if (b.kind === "node") region([b.rect], HERO_NODE);
+    else if (b.graphic) region([b.rect], HERO_BOX);
+  }
+  for (const it of i.items) if (it.fontPx >= HERO_NUMBER_SHARE * frame.h && (it.role === "number" || /\d/.test(it.text))) region([it.rect], HERO_NUMBER);
+  // касающиеся клетки разных источников — одна область
+  for (let k = 0; k < n; k++) {
+    if (!g.cells[k]) continue;
+    const x = k % g.gw;
+    if (x + 1 < g.gw && g.cells[k + 1]) unite(k, k + 1);
+    if (k + g.gw < n && g.cells[k + g.gw]) unite(k, k + g.gw);
+  }
+  const acc = new Map<number, { cells: number; flags: number; x0: number; y0: number; x1: number; y1: number }>();
+  for (let k = 0; k < n; k++) {
+    if (!g.cells[k]) continue;
+    const r = find(k);
+    const x = k % g.gw;
+    const y = Math.floor(k / g.gw);
+    const a = acc.get(r) ?? { cells: 0, flags: 0, x0: x, y0: y, x1: x, y1: y };
+    a.cells++;
+    a.flags |= g.cells[k]!;
+    a.x0 = Math.min(a.x0, x);
+    a.y0 = Math.min(a.y0, y);
+    a.x1 = Math.max(a.x1, x);
+    a.y1 = Math.max(a.y1, y);
+    acc.set(r, a);
+  }
+  const out: HeroCandidate[] = [];
+  for (const a of acc.values()) {
+    const share = Math.round((a.cells / n) * 1000) / 1000;
+    if (share < HERO_MIN_SHARE) continue;
+    const rect = { x: r1(a.x0 * g.cw), y: r1(a.y0 * g.ch), w: r1((a.x1 - a.x0 + 1) * g.cw), h: r1((a.y1 - a.y0 + 1) * g.ch) };
+    const kind = a.flags & HERO_NODE ? "graph" : a.flags & HERO_BOX ? "box" : a.flags & HERO_GRAPHIC ? "graphic" : "number";
+    out.push({ kind, share, accent: i.accents.some((b) => inside(center(b), rect)), rect });
+  }
+  return out.sort((p, q) => q.share - p.share);
+}
+
+/** Строка временного прохода пробы (0.5.8, S15b): `[motion-kit:sweep] {...}` на каждом SWEEP_EVERY-м кадре. */
+export const SWEEP_TAG = "[motion-kit:sweep]";
+/** Шаг временного прохода, кадров. */
+export const SWEEP_EVERY = 6;
+
+/** Кадр временного прохода: что видно, где содержимое, кто герой. */
+export interface SweepFrame {
+  frame: number;
+  size: { w: number; h: number };
+  /** Видимый текст (без кегля и прозрачности). */
+  items: { id: string; role: string; text: string; rect: Box }[];
+  boxes: LayoutBox[];
+  areas: { text: number; graphic: number };
+  /** Клетки содержимого (`packCells`, сетка `gridDims`). */
+  cells: string;
+  /** Доля кадра под содержимым. */
+  content: number;
+  heroes: HeroCandidate[];
+  /** Активных акцентов в кадре. */
+  accents: number;
+}
+
+/** Свод кадра временного прохода (чистая функция). */
+export function summarizeSweep(
+  frame: number,
+  size: { w: number; h: number },
+  i: { items: readonly LayoutItem[]; boxes: LayoutBox[]; graphics: readonly Box[]; groups: readonly (readonly Box[])[]; accents: readonly Box[]; areas: { text: number; graphic: number } },
+): SweepFrame {
+  const cells = contentCells(i.items, i.boxes, i.graphics, size);
+  const content = Math.round((cells.reduce((a, c) => a + c, 0) / cells.length) * 1000) / 1000;
+  return {
+    frame, size,
+    items: i.items.map((it) => ({ id: it.id, role: it.role, text: it.text, rect: it.rect })),
+    boxes: i.boxes, areas: i.areas, cells: packCells(cells), content,
+    heroes: heroCandidates({ items: i.items, boxes: i.boxes, graphics: i.groups, accents: i.accents }, size).slice(0, HERO_TOP),
+    accents: i.accents.length,
+  };
 }
 
 /** Видимая доля строки под клипом предков (0.5.6): меньше — строка в реестр не идёт. */

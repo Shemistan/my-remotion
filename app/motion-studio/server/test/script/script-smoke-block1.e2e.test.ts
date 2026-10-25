@@ -112,6 +112,8 @@ interface Scene {
   warnings: PlanIssue[];
   qaWarnings: string[];
   judge?: { overall: number; notes: Record<string, string>; cost_usd: number } | { error: string };
+  /** S15b: вызовы Engineer и раунды на код (попытки, где код был blocking), из pipeline-log.json версии. */
+  rounds?: { engineer_calls: number; attempts: number; blocking_by_code: Record<string, number> };
   frames: string[];
   mp4?: string;
 }
@@ -212,6 +214,14 @@ function collect(r: Run, itemIds?: string[]): void {
     s.warnings = warns[row.scene_id] ?? [];
     const qa = JSON.parse(readFileSync(join(dir, "qa.json"), "utf8")) as { issues: { code: string; severity: string; description: string }[] };
     s.qaWarnings = qa.issues.filter((x) => x.severity === "warning").map((x) => `${x.code}: ${x.description.slice(0, 160)}`);
+    try {
+      const pl = JSON.parse(readFileSync(join(dir, "pipeline-log.json"), "utf8")) as { engineer_calls?: number; attempts?: { blocking: string[] }[] };
+      const by: Record<string, number> = {};
+      for (const a of pl.attempts ?? []) for (const c of new Set(a.blocking)) by[c] = (by[c] ?? 0) + 1;
+      s.rounds = { engineer_calls: pl.engineer_calls ?? 0, attempts: pl.attempts?.length ?? 0, blocking_by_code: by };
+    } catch {
+      // журнала нет — без раундов
+    }
   }
 }
 
@@ -262,7 +272,7 @@ const sceneJson = (s: Scene) => ({
   item_id: s.item.id, n: s.n, technique: s.item.technique, structure_rule: s.item.structure_rule ?? null, quote: s.item.quote, frames: s.item.frames,
   status: s.version ? "ready" : (s.jobs.at(-1)?.status ?? "none"), jobs: s.jobs.map((j) => ({ id: j.id, status: j.status, cost_usd: Number(cost(j.id).toFixed(3)) })),
   version_id: s.version?.id ?? null, structure: s.spec ? structureOf(s.spec) : null, hold_mode: s.spec ? holdModeFor(s.spec) : null, kit: s.kit,
-  warnings: s.warnings.map((w) => `${w.code}: ${w.message ?? ""}`), qa_warnings: s.qaWarnings, judge: s.judge ?? null,
+  warnings: s.warnings.map((w) => `${w.code}: ${w.message ?? ""}`), qa_warnings: s.qaWarnings, judge: s.judge ?? null, rounds: s.rounds ?? null,
 });
 
 it.runIf(SMOKE)("блок 1 целиком: план → пакет → разнообразие → судья → MP4 и кадры; [A]", async () => {

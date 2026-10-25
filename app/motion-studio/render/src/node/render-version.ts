@@ -38,6 +38,11 @@ export interface RenderRequest {
    * сценария (S6: кадр с `style.transparent = true` без правки draft).
    */
   inputProps?: Record<string, unknown>;
+  /**
+   * Временной проход пробы после превью (S15b, сцена сценария): каждый `every`-й кадр, строки
+   * `[motion-kit:sweep]` — в `browserLogs`. Только с превью.
+   */
+  sweep?: { every: number; scale: number };
 }
 
 /**
@@ -91,7 +96,8 @@ const NODE_ARGS = ["--disable-warning=ExperimentalWarning"];
 const STAGE_PREFIX = "@@ms:stage ";
 const LOG_PREFIX = "@@ms:log ";
 const WORKER_STAGES: readonly string[] = ["bundle", "still", "media"] satisfies WorkerStage[];
-const MAX_LOGS = 1000;
+// стоп-кадры и временной проход (S15b: ~1 строка на 6 кадров, до 60 с при 30 fps)
+const MAX_LOGS = 2000;
 const STDERR_TAIL = 4000;
 const STRAY_WAIT_MS = 5000;
 
@@ -266,6 +272,7 @@ export async function renderJob(req: RenderJobRequest, signal?: AbortSignal, dep
     stills: framesDir ? req.stills.map((frame) => ({ frame, out: join(framesDir, `${frame}.png`) })) : [],
     preview: !req.export && req.preview ? { out: join(outDir, "preview.mp4"), scale: req.preview.scale, crf: req.preview.crf } : null,
     export: req.export ?? null,
+    ...(!req.export && req.preview && req.sweep ? { sweep: req.sweep } : {}),
     timeoutMs: innerTimeoutMs(req.timeoutMs),
   };
 

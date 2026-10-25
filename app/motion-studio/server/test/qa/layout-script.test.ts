@@ -2,7 +2,7 @@
 // доли площади): пустой контейнер и подписи-заглушки — blocking (исправление Engineer), текст
 // вместо графики — warning с подсказкой «визуальный герой».
 import { describe, expect, it } from "vitest";
-import { type LayoutFrame, type LayoutItem, scriptLayoutIssues } from "../../src/qa/layout.js";
+import { type LayoutFrame, type LayoutItem, heroIssues, scriptLayoutIssues } from "../../src/qa/layout.js";
 
 const item = (id: string, text: string, x: number, y: number, role = "scene"): LayoutItem => ({ id, role, text, rect: { x, y, w: 200, h: 40 }, fontPx: 32, opacity: 1 });
 const frame = (over: Partial<LayoutFrame>): LayoutFrame => ({ frame: 320, height: 1080, items: [], ghosts: [], boxes: [], areas: { text: 0.05, graphic: 0.3 }, ...over });
@@ -53,12 +53,12 @@ describe("scriptLayoutIssues", () => {
     expect(codes([frame({ boxes, items })])).toEqual([]);
   });
 
-  it("текст ≫ графики в hold — warning text_dominant с долями; график на треть кадра — норма", () => {
-    const out = scriptLayoutIssues([frame({ areas: { text: 0.22, graphic: 0.03 } })]);
+  it("S15b: text_dominant — не здесь, а в heroIssues (по приёму сцены; layout-hero.test.ts)", () => {
+    expect(codes([frame({ areas: { text: 0.22, graphic: 0.03 } })])).toEqual([]);
+    const out = heroIssues({ hold: { frame: 320, heroes: [], areas: { text: 0.22, graphic: 0.03 } }, technique: "checklist", blocking: { noHero: false, textDominant: false } }).filter((i) => i.code === "text_dominant");
     expect(out.map((i) => `${i.code}:${i.severity}`)).toEqual(["text_dominant:warning"]);
     expect(out[0]!.description).toMatch(/22 %/);
     expect(out[0]!.fix_hint).toMatch(/визуальный герой/);
-    expect(codes([frame({ areas: { text: 0.2, graphic: 0.32 } })])).toEqual([]);
   });
 
   it("проба старого kit (без boxes и areas) — проверок нет", () => {

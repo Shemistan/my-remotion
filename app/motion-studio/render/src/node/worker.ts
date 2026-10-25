@@ -24,7 +24,7 @@ import { jailResolve } from "./resolve-jail.ts";
 
 // Рендерер — CJS-сборка через require, а не ESM: только в ней installAssetGuard может
 // подменить downloadAsset (asset-guard.ts); ESM-сборка Remotion — один файл без швов.
-const { openBrowser, renderMedia, renderStill, selectComposition } = createRequire(import.meta.url)("@remotion/renderer") as typeof Renderer;
+const { openBrowser, renderFrames, renderMedia, renderStill, selectComposition } = createRequire(import.meta.url)("@remotion/renderer") as typeof Renderer;
 
 const STAGE = "@@ms:stage ";
 const LOG = "@@ms:log ";
@@ -213,6 +213,18 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
     overwrite: true,
   });
   await rename(tmpOut, job.preview.out);
+  if (job.sweep) {
+    // временной проход пробы (S15b): только DOM-замеры каждого N-го кадра, без снимков; его
+    // сбой не роняет рендер — QA по времени без данных пропускает проверки
+    try {
+      await renderFrames({
+        ...common, onDownload, composition, inputProps: { ...job.inputProps, __msLayoutProbe: "sweep" }, imageFormat: "none", outputDir: null,
+        everyNthFrame: job.sweep.every, scale: job.sweep.scale, onStart: () => undefined, onFrameUpdate: () => undefined,
+      });
+    } catch (e) {
+      pushLog(`[sweep-error] ${(e as Error).message.split("\n")[0]}`);
+    }
+  }
   return { ok: true, stills, previewPath: job.preview.out, browserLogs };
 }
 

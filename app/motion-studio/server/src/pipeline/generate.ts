@@ -191,6 +191,8 @@ export interface GenerationRequest {
   script?: boolean;
   /** Приём сцены сценария (S14): код без его ключевого компонента — исправление до рендера. */
   technique?: Technique;
+  /** Время сцены сценария (S15b): окно речи и моменты слов — QA по всей сцене. */
+  scriptTiming?: LoopInput["scriptTiming"];
 }
 
 /** Правка: база, план и как вести цикл (`playground-edit.ts`). */
@@ -407,6 +409,7 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
         ...(req.extraQa ? { extraQa: req.extraQa } : {}),
         ...(req.script ? { script: true } : {}),
         ...(req.technique ? { technique: req.technique } : {}),
+        ...(req.scriptTiming ? { scriptTiming: req.scriptTiming } : {}),
         progress: deps.progress,
         ...(ed ? { reviseOnly: true, ...(paramEdit ? { skipFirstEngineer: true } : {}), ...(ed.brief ? { brief: ed.brief } : {}), ...(ed.preserveCheck ? { preserveCheck: ed.preserveCheck } : {}), ...(ed.preserveHold ? { preserveHold: ed.preserveHold } : {}) } : {}),
         // второй дубль (S5): свой каталог попытки задачи вне draft (граница draft первого дубля

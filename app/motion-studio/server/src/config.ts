@@ -152,6 +152,8 @@ export interface AppConfig {
 }
 
 const OPUS_ROLES: readonly Role[] = ["motion_director", "engineer"];
+/** Роли малой модели (S15b): сверка текста со фрагментом — дешёвый вызов на каждую попытку. */
+const SMALL_ROLES: readonly Role[] = ["fragment_fit"];
 const AGENT_TIMEOUT_MS = 10 * 60_000;
 const AGENT_BUDGET_USD = 2;
 
@@ -226,7 +228,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfi
   const agents = Object.fromEntries(
     ROLES.map((role) => {
       const base: AgentSettings = {
-        model: OPUS_ROLES.includes(role) ? "opus" : "sonnet",
+        model: OPUS_ROLES.includes(role) ? "opus" : SMALL_ROLES.includes(role) ? "haiku" : "sonnet",
         timeoutMs: AGENT_TIMEOUT_MS,
         maxBudgetUsd: AGENT_BUDGET_USD,
       };

@@ -145,6 +145,43 @@ describe("directorStep: подсказки сцены сценария", () => {
     expect(r.warnings.join("\n")).toContain("key_term_early");
   });
 
+  // S15b: смысл строк spec по фрагменту — малая модель, только текст; противоречие — один раунд Director
+  const fragment = { quote: "рост пользователей в двести пятьдесят шесть раз", purpose: "показать рост", key_terms: [{ text: "рост" }], data: [{ label: "рост", value: 256, quote: "двести пятьдесят шесть" }] };
+  const contradicts = { claims: [{ element_id: "title", text: "Рост", verdict: "contradicts", reason: "во фрагменте рост в 256 раз, а не просто рост" }], relation: { expected: "рост в 256 раз", shown: "рост", match: "unsure" } };
+
+  it("строка spec противоречит фрагменту — второй раунд Director с fragment_mismatch; вход модели — только текст с маркерами", async () => {
+    let fit = 0;
+    const agents = fakeAgents({ fragmentFit: async () => (++fit === 1 ? { output: contradicts } : {}) });
+    const r = await run(agents, { ...hints, fragment });
+    expect(r.status).toBe("ready");
+    const directors = agents.tasks.filter((t) => t.role === "motion_director");
+    expect(directors).toHaveLength(2);
+    expect(String(directors[1]!.input)).toContain("fragment_mismatch");
+    // второй ответ Director с теми же строками — ответ модели из кэша задачи, без второго вызова
+    const fits = agents.tasks.filter((t) => t.role === "fragment_fit");
+    expect(fits).toHaveLength(1);
+    expect(fits[0]!.tools).toEqual([]);
+    expect(fits[0]!.model).toBe("haiku");
+    expect(String(fits[0]!.input)).toContain("<<<ФРАГМЕНТ");
+    expect(String(fits[0]!.input)).toContain("- [title] Рост");
+  });
+
+  it("противоречие и во втором раунде — не больше одного исправления: предупреждение, сцена идёт", async () => {
+    const agents = fakeAgents({ fragmentFit: async () => ({ output: contradicts }) });
+    const r = await run(agents, { ...hints, fragment });
+    expect(r.status).toBe("ready");
+    expect(agents.tasks.filter((t) => t.role === "motion_director")).toHaveLength(2);
+    expect(r.warnings.join("\n")).toMatch(/fragment_mismatch: \[не исправлено Director\]/);
+  });
+
+  it("сбой модели смысла — предупреждение, без лишнего раунда", async () => {
+    const agents = fakeAgents({ fragmentFit: async () => ({ status: "failed", error: { kind: "timeout", message: "таймаут" } }) });
+    const r = await run(agents, { ...hints, fragment });
+    expect(r.status).toBe("ready");
+    expect(agents.tasks.filter((t) => t.role === "motion_director")).toHaveLength(1);
+    expect(r.warnings.join("\n")).toMatch(/проверка смысла по фрагменту не выполнена/);
+  });
+
   it("не сцена сценария — один раунд, как раньше", async () => {
     const agents = fakeAgents({ director: async () => ({ output: early() }) });
     const r = await run(agents);

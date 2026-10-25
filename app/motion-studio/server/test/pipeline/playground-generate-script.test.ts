@@ -110,7 +110,8 @@ describe("playground.generate со script", () => {
     expect(job.status, JSON.stringify(job.error)).toBe("completed");
     const concept = agents.tasks.find((t) => t.role === "concept")!;
     expect(String(concept.input)).toContain("Пользователь пропустил уточнения");
-    expect(agents.tasks.map((t) => t.role)).toEqual(["concept", "motion_director", "engineer", "visual_qa"]);
+    // S15b: сцена сценария — ещё сверка смысла строк spec с фрагментом (малая модель) после Director
+    expect(agents.tasks.map((t) => t.role)).toEqual(["concept", "motion_director", "fragment_fit", "engineer", "visual_qa"]);
   });
 
   it("стиль — стиль проекта: style_hint Concept не применяется (событие лога), палитра и глубина из style_lock", async () => {

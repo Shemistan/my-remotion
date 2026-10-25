@@ -223,6 +223,8 @@ export function fakeAgents(opts: {
   visualQa?: (frames: number[], spec: MotionSpec | undefined, n: number) => Promise<Partial<AgentResult<VisualQAOutput>>>;
   /** Edit Planner (Task 18): ответ теста; без него — вызов завершается `failed`. */
   editPlanner?: (task: AgentTask<unknown>, n: number) => Promise<Partial<AgentResult<EditPlan>>>;
+  /** Fragment Fit (S15b): ответ теста; без него — утверждений нет, отношение показано. */
+  fragmentFit?: (task: AgentTask<unknown>, n: number) => Promise<Partial<AgentResult<unknown>>>;
 }): AgentRuntimeAdapter & { engineerCalls: EngineerCall[]; tasks: AgentTask<unknown>[] } {
   const engineerCalls: EngineerCall[] = [];
   const tasks: AgentTask<unknown>[] = [];
@@ -257,6 +259,10 @@ export function fakeAgents(opts: {
       if (task.role === "edit_planner") {
         const over = opts.editPlanner ? await opts.editPlanner(task as AgentTask<unknown>, n) : { status: "failed" as const, error: { kind: "schema" as const, message: "нет ответа" } };
         return { ...base(cost), ...over } as AgentResult<O>;
+      }
+      if (task.role === "fragment_fit") {
+        const over = opts.fragmentFit ? await opts.fragmentFit(task as AgentTask<unknown>, n) : {};
+        return { ...base(cost), output: { claims: [], relation: { expected: "", shown: "", match: "yes" } }, ...over } as AgentResult<O>;
       }
       if (task.role === "motion_director") {
         const over = opts.director ? await opts.director() : {};

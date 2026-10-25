@@ -3,13 +3,15 @@
 // На кадрах-стоп (worker передаёт `__msLayoutProbe: true` во входных props) после загрузки
 // шрифтов и установки размера композиции мерит видимый текст кадра и печатает одну строку
 // `[motion-kit:layout] {frame, height, items, ghosts}` (summarizeLayout kit). В рендере
-// превью флага нет — проба ничего не делает.
+// превью флага нет — проба ничего не делает. Временной проход (0.5.8, S15b: флаг `"sweep"`,
+// renderFrames каждого SWEEP_EVERY-го кадра без снимков) печатает `[motion-kit:sweep]` —
+// клетки содержимого и кандидатов героя кадра (summarizeSweep).
 import type { ComponentType } from "react";
 import { useLayoutEffect, useRef } from "react";
 import { continueRender, delayRender, getInputProps, useCurrentFrame, useVideoConfig } from "remotion";
-import { type Box, CLIP_VISIBLE_MIN, LAYOUT_TAG, type LineRect, type RawAccent, type RawBox, type RawText, VISIBLE_OPACITY, areaShares, beginHoldFrame, clipLine, holdMarks, insetClipRect, summarizeAccents, summarizeBoxes, summarizeLayout, textLineItems } from "../motion-kit/layout-probe.js";
+import { ACCENT_ACTIVE, type Box, CLIP_VISIBLE_MIN, HERO_TOP, LAYOUT_TAG, type LineRect, type RawAccent, type RawBox, type RawText, SWEEP_TAG, VISIBLE_OPACITY, areaShares, beginHoldFrame, clipLine, heroCandidates, holdMarks, insetClipRect, summarizeAccents, summarizeBoxes, summarizeLayout, summarizeSweep, textLineItems } from "../motion-kit/layout-probe.js";
 
-/** Флаг пробы во входных props кадров-стоп. */
+/** Флаг пробы во входных props: `true` — кадры-стоп, `"sweep"` — временной проход (0.5.8). */
 export const PROBE_PROP = "__msLayoutProbe";
 
 const boxOf = (r: DOMRect): Box => ({ x: r.left, y: r.top, w: r.width, h: r.height });
@@ -113,17 +115,26 @@ function opacityOf(el: Element): number {
 
 const shift = (r: DOMRect, origin: { x: number; y: number }): Box => ({ x: r.left - origin.x, y: r.top - origin.y, w: r.width, h: r.height });
 
+/** Видимые фигуры svg (без невидимых и прозрачных). */
+function svgShapes(svg: SVGSVGElement): DOMRect[] {
+  const out: DOMRect[] = [];
+  for (const sh of Array.from(svg.querySelectorAll("path, line, rect, circle, ellipse, polyline, polygon"))) {
+    const r = sh.getBoundingClientRect();
+    if (r.width <= 0 && r.height <= 0) continue;
+    const cs = getComputedStyle(sh);
+    if (cs.visibility === "hidden" || cs.display === "none" || opacityOf(sh) < 0.05) continue;
+    out.push(r);
+  }
+  return out;
+}
+
 /** Прямоугольник содержимого svg (объединение фигур, без невидимых) — не его холст. */
 function svgContentRect(svg: SVGSVGElement): DOMRect | null {
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
   let y1 = -Infinity;
-  for (const sh of Array.from(svg.querySelectorAll("path, line, rect, circle, ellipse, polyline, polygon"))) {
-    const r = sh.getBoundingClientRect();
-    if (r.width <= 0 && r.height <= 0) continue;
-    const cs = getComputedStyle(sh);
-    if (cs.visibility === "hidden" || cs.display === "none" || opacityOf(sh) < 0.05) continue;
+  for (const r of svgShapes(svg)) {
     x0 = Math.min(x0, r.left);
     y0 = Math.min(y0, r.top);
     x1 = Math.max(x1, r.right);
@@ -132,14 +143,29 @@ function svgContentRect(svg: SVGSVGElement): DOMRect | null {
   return Number.isFinite(x0) ? new DOMRect(x0, y0, x1 - x0, y1 - y0) : null;
 }
 
+/** Верхние svg, img и canvas сцены — без фона `<Background>`, декора aria-hidden и вложенных svg. */
+function sceneGraphics(root: Element): Element[] {
+  return Array.from(root.querySelectorAll("svg, img, canvas")).filter((el) =>
+    !el.closest("[data-ms-bg]") && !el.closest('[aria-hidden="true"]') && (el.parentElement?.closest("svg") ?? null) === null && opacityOf(el) >= VISIBLE_OPACITY);
+}
+
 /** Графика сцены (0.5.5): верхние svg (по содержимому), img и canvas — без фона `<Background>` и декора aria-hidden. */
 export function collectGraphics(root: Element, origin: { x: number; y: number }): Box[] {
   const out: Box[] = [];
-  for (const el of Array.from(root.querySelectorAll("svg, img, canvas"))) {
-    if (el.closest("[data-ms-bg]") || el.closest('[aria-hidden="true"]') || (el.parentElement?.closest("svg") ?? null) !== null) continue;
-    if (opacityOf(el) < VISIBLE_OPACITY) continue;
+  for (const el of sceneGraphics(root)) {
     const r = el instanceof SVGSVGElement ? svgContentRect(el) : el.getBoundingClientRect();
     if (r && r.width > 0 && r.height > 0) out.push(shift(r, origin));
+  }
+  return out;
+}
+
+/** Графика сцены по фигурам (0.5.8): у svg — прямоугольники его фигур (одна группа), у img/canvas — рамка. */
+export function collectGraphicGroups(root: Element, origin: { x: number; y: number }): Box[][] {
+  const out: Box[][] = [];
+  for (const el of sceneGraphics(root)) {
+    const rs = el instanceof SVGSVGElement ? svgShapes(el) : [el.getBoundingClientRect()];
+    const grp = rs.filter((r) => r.width > 0 || r.height > 0).map((r) => shift(r, origin));
+    if (grp.length > 0) out.push(grp);
   }
   return out;
 }
@@ -168,6 +194,13 @@ export function collectAccents(root: Element): RawAccent[] {
   }));
 }
 
+/** Рамки активных акцентов (0.5.8): кандидат героя «под акцентом», если в нём центр акцента. */
+function activeAccentRects(root: Element, origin: { x: number; y: number }): Box[] {
+  return Array.from(root.querySelectorAll("[data-ms-accent]"))
+    .filter((el) => (Number(el.getAttribute("data-ms-accent")) || 0) > ACCENT_ACTIVE && opacityOf(el) >= VISIBLE_OPACITY)
+    .map((el) => shift(el.getBoundingClientRect(), origin));
+}
+
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 
 /**
@@ -188,7 +221,8 @@ function Probe() {
   const ref = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el || (getInputProps() as Record<string, unknown>)[PROBE_PROP] !== true) return;
+    const mode = (getInputProps() as Record<string, unknown>)[PROBE_PROP];
+    if (!el || (mode !== true && mode !== "sweep")) return;
     const handle = delayRender("layout probe");
     void (async () => {
       try {
@@ -206,9 +240,18 @@ function Probe() {
         // контейнеры и доли площади (0.5.5, S14): пустые карточки и «текст вместо графики» — по данным
         const size = box ? { w: box.width, h: box.height } : { w: width, h: height };
         const boxes = box ? summarizeBoxes(collectBoxes(root, origin), sum.items, size) : [];
-        const areas = areaShares(sum.items, boxes, box ? collectGraphics(root, origin) : [], size);
+        const graphics = box ? collectGraphics(root, origin) : [];
+        const areas = areaShares(sum.items, boxes, graphics, size);
+        const groups = box ? collectGraphicGroups(root, origin) : [];
+        const accentRects = box ? activeAccentRects(root, origin) : [];
+        if (mode === "sweep") {
+          // временной проход (0.5.8, S15b): клетки содержимого и герой кадра, без реестра наложений
+          console.log(`${SWEEP_TAG} ${JSON.stringify({ ...summarizeSweep(frame, size, { items: sum.items, boxes, graphics, groups, accents: accentRects, areas }), ...(box ? {} : { unmeasured: true }) })}`);
+          return;
+        }
         const accents = box ? summarizeAccents(collectAccents(root)) : [];
-        console.log(`${LAYOUT_TAG} ${JSON.stringify({ ...sum, holds: holdMarks(frame), boxes, areas, accents, ...(box ? {} : { unmeasured: true }) })}`);
+        const heroes = heroCandidates({ items: sum.items, boxes, graphics: groups, accents: accentRects }, size).slice(0, HERO_TOP);
+        console.log(`${LAYOUT_TAG} ${JSON.stringify({ ...sum, holds: holdMarks(frame), boxes, areas, accents, heroes, ...(box ? {} : { unmeasured: true }) })}`);
       } finally {
         continueRender(handle);
       }

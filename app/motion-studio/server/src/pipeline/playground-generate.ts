@@ -14,7 +14,9 @@ import * as jobs from "../db/repos/jobs.js";
 import * as plans from "../db/repos/plans.js";
 import { scriptScenes } from "../db/repos/script.js";
 import { overlayChecks, shortsUiIssues } from "../script/overlay-check.js";
+import { fragmentFitAttempt } from "../qa/fragment-fit.js";
 import { foreignLabelQa } from "../qa/spec-checks.js";
+import { PAYOFF_PEAK, payoffStart } from "./script-temporal.js";
 import { recordPublishedFingerprint } from "../script/batch.js";
 import * as scenes from "../db/repos/scenes.js";
 import * as versions from "../db/repos/versions.js";
@@ -94,7 +96,9 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
     const scriptRules = sc ? loadPartial("script-scene") : undefined;
     const speechWindow = sc ? { lead: sc.ctx.lead_frames, speech: settings.duration_frames - sc.ctx.lead_frames - sc.ctx.tail_frames, tail: sc.ctx.tail_frames } : undefined;
     // S11: раскрытие не раньше слова и подписи только из текста сцены — подсказки Director
-    const scriptHints = sc ? { ...(sc.ctx.key_moments ? { keyMoments: sc.ctx.key_moments } : {}), sourceText: sceneSourceText(sc.item) } : undefined;
+    // S15b: фрагмент сценария — сверка смысла строк spec и props.json малой моделью
+    const fragment = sc ? { quote: sc.item.quote, purpose: sc.item.purpose, key_terms: sc.item.key_terms, data: sc.item.data } : undefined;
+    const scriptHints = sc ? { ...(sc.ctx.key_moments ? { keyMoments: sc.ctx.key_moments } : {}), sourceText: sceneSourceText(sc.item), ...(fragment ? { fragment } : {}) } : undefined;
 
     // чекпоинты Concept и Director (M7): файл в logs/agent-runs/<jobId>/checkpoints/, ссылка — в output_refs.steps
     const steps: Partial<Record<"concept" | "motion_director", StepRef>> = {};
@@ -142,8 +146,18 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
         // сцена сценария (S6, Р16): альфа-версия — перерендер с transparent, фон только <Background>
         // S11: подписи-примеры kit в props.json (код Engineer) — warning QA версии
         ...(sc ? { script: true, technique: sc.item.technique } : {}),
+        // S15b: окно речи и моменты слов — проверки по всей сцене (временной проход пробы)
+        ...(speechWindow ? { scriptTiming: { window: speechWindow, ...(sc?.ctx.key_moments ? { moments: sc.ctx.key_moments } : {}) } } : {}),
         // S10 fix I1: 9:16 — текст под интерфейсом Shorts (низ, колонка кнопок) по пробе раскладки
-        ...(sc ? { extraQa: async (v) => [...(await overlayChecks(v)), ...(await propsForeignLabels(v.versionDir, scriptHints!.sourceText)), ...shortsUiIssues(v.layout, v.settings)] } : {}),
+        ...(sc ? {
+          extraQa: async (v) => {
+            const peak = payoffStart(v.spec);
+            return [
+              ...(await overlayChecks(v)), ...(await propsForeignLabels(v.versionDir, scriptHints!.sourceText)), ...shortsUiIssues(v.layout, v.settings),
+              ...(await fragmentFitAttempt(v, fragment!, speechWindow, peak === undefined ? undefined : peak + PAYOFF_PEAK)),
+            ];
+          },
+        } : {}),
         plan: async (rc) => {
           ctx.progress(0.05, "concept");
           let concept: ConceptOutput;

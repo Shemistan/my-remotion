@@ -38,6 +38,8 @@ import type { AppConfig } from "../config.js";
 import type { Permits } from "../jobs/semaphore.js";
 import type { CapabilityView } from "../knowledge/types.js";
 import { type KeyMoment, momentReveals, roundWorthyMoment, specChecks } from "../qa/spec-checks.js";
+import { DEAD_AIR_FRAMES } from "../qa/temporal.js";
+import { type Fragment, fitIssues, runFragmentFit, screenLinesFromSpec } from "../qa/fragment-fit.js";
 import { type StepRef, checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
 import { planSpecBeats, structureFit } from "./beat-plan.js";
 import { normalizeBoundCounters } from "./bound-counters.js";
@@ -1007,7 +1009,13 @@ export async function directorStep(
     const hints = checks.filter((x) => DIRECTOR_HINTS.has(x.code));
     const line = (x: (typeof checks)[number]) => `- ${x.code} (${x.area ?? "spec"}): ${x.description} → ${x.fix_hint}`;
     if (blocking.length === 0) {
+      // S15b: смысл строк spec по фрагменту (малая модель, только текст); противоречие — раунд
+      // Director (не больше одного исправления), во втором раунде — предупреждение
+      const fit = scriptHints?.fragment && !(round === 1 && key?.reused) ? await fragmentFitSpec(rc, spec, scriptHints.fragment) : [];
+      const fitFix = round === 1 ? fit.filter((x) => x.severity === "blocking") : [];
+      const fitWarn = fit.filter((x) => !fitFix.includes(x)).map((x) => `${x.code}: ${x.severity === "blocking" ? "[не исправлено Director] " : ""}${x.description}`);
       const warnings = [
+        ...fitWarn,
         ...specWarnings(spec),
         // подсказки сцены сценария — без id элементов: строка уходит в предупреждения версии
         ...hints.map((h) => (SCRIPT_ROUND_HINTS.has(h.code) ? `${h.code}: ${h.description}` : `${h.code} (${h.area ?? "spec"}): ${h.description}`)),
@@ -1016,7 +1024,7 @@ export async function directorStep(
       const ok = { ok: true as const, director: { ...director, spec }, spec };
       // сцена сценария (S11): раскрытие раньше слова и чужие подписи стоят ещё одного раунда;
       // ответ из чекпоинта уже принят (после раунда подсказок) — повтор задачи его не переделывает
-      const redo = round === 1 && !key?.reused ? scriptRedo(checks, scriptHints) : [];
+      const redo = round === 1 && !key?.reused ? [...scriptRedo(checks, scriptHints), ...fitFix] : [];
       if (redo.length > 0) {
         accepted = ok;
         acceptedWarnings = warnings;
@@ -1056,6 +1064,20 @@ function keepFirst(rc: RunCtx, first: { ok: true; director: DirectorOutput; spec
 export interface ScriptHints {
   keyMoments?: readonly KeyMoment[];
   sourceText?: string;
+  /** Фрагмент сценария (S15b): сверка смысла строк spec малой моделью до рендера. */
+  fragment?: Fragment;
+}
+
+/** Строки spec против фрагмента (S15b): замечания; сбой вызова — предупреждение журнала. */
+async function fragmentFitSpec(rc: RunCtx, spec: MotionSpec, f: Fragment): Promise<QAIssue[]> {
+  const r = await runFragmentFit(rc, f, screenLinesFromSpec(spec));
+  if (r.note) {
+    rc.warnings.push(r.note);
+    rc.note("director", r.note);
+  }
+  if (!r.output) return [];
+  rc.note("director", `смысл по фрагменту: ${r.output.claims.map((c) => `${c.verdict}:${c.element_id}`).join(", ") || "утверждений нет"}; отношение ${r.output.relation.match} («${r.output.relation.expected}»)`);
+  return fitIssues(r.output, "spec").map((x) => ({ source: "programmatic" as const, ...x }));
 }
 
 /**
@@ -1129,6 +1151,11 @@ export function planInWindow(spec: Parameters<typeof planSpecBeats>[0], settings
       }
     }
   }
+  // S15b: пауза без бита фазы ≥ DEAD_AIR_FRAMES в окне речи — мёртвый воздух по вине плана:
+  // длящийся бит прошлого бита на всю паузу
+  const filled = fillDeadAir(shifted, { lead, end: total - tail });
+  shifted = filled.beats as typeof shifted;
+  changes.push(...filled.changes);
   // кадр начала счёта планировщик пишет в координатах окна фаз (без lead и якорей): в changes —
   // итоговый кадр spec, как у якорей (ревью S15a, M-4)
   const finalStart = new Map(shifted.map((b) => [b.id, b.start_frame]));
@@ -1138,6 +1165,52 @@ export function planInWindow(spec: Parameters<typeof planSpecBeats>[0], settings
     spec: { ...r.spec, duration_frames: total, beats: [...(ownIn as typeof shifted), ...shifted], ...(cam !== undefined ? { camera: cam } : {}) } as typeof r.spec,
     changes: inSpec,
   };
+}
+
+/**
+ * Паузы плана битов без бита фазы (S15b): в `[lead; end)` промежуток ≥ DEAD_AIR_FRAMES, где не
+ * идёт ни один бит фазы, кроме удержания (до начала удержания тоже), заполняется длящимся битом
+ * (`sustain`) того бита, что кончился последним: те же элементы и фаза, id `<бит>-sustain`.
+ * Engineer ведёт его движение (дрейф, дыхание, медленный счёт) — кадр не стоит посреди речи.
+ */
+export function fillDeadAir<B extends { id: string; phase?: string | undefined; kind?: string | undefined; start_frame: number; end_frame: number; element_ids: string[]; action: string; description: string }>(beats: readonly B[], w: { lead: number; end: number }): { beats: B[]; changes: string[] } {
+  const ids = new Set(beats.map((b) => b.id));
+  const hold = (b: B) => isHoldBeat(b as unknown as MotionSpec["beats"][number]);
+  const live = beats.filter((b) => b.phase !== undefined && !hold(b)).sort((a, b) => a.start_frame - b.start_frame || a.end_frame - b.end_frame);
+  const holdStart = Math.min(w.end, ...beats.filter((b) => b.phase !== undefined && hold(b)).map((b) => b.start_frame));
+  const added: { after: B; beat: B }[] = [];
+  const changes: string[] = [];
+  let cur = w.lead;
+  let last: B | undefined;
+  const gap = (to: number) => {
+    if (!last || to - cur < DEAD_AIR_FRAMES) return;
+    let id = `${last.id}-sustain`;
+    while (ids.has(id)) id = `${id}-sustain`;
+    ids.add(id);
+    const beat = {
+      ...last, id, start_frame: cur, end_frame: to, kind: "sustain",
+      action: "дыхание",
+      description: `живое продолжение бита ${last.id} до следующего бита: медленный дрейф, дыхание или досчёт тех же элементов — кадр не стоит (план битов: пауза без бита)`,
+    } as B;
+    added.push({ after: last, beat });
+    changes.push(`бит ${id}: пауза ${cur}–${to} без бита (${to - cur} кадров ≥ ${DEAD_AIR_FRAMES}) — длящийся бит ${last.id}`);
+  };
+  for (const b of live) {
+    if (b.start_frame >= holdStart) break;
+    gap(Math.min(b.start_frame, holdStart));
+    if (b.end_frame >= cur) {
+      cur = b.end_frame;
+      last = b;
+    }
+  }
+  if (cur < holdStart) gap(holdStart);
+  if (added.length === 0) return { beats: [...beats], changes };
+  const out: B[] = [];
+  for (const b of beats) {
+    out.push(b);
+    for (const x of added.filter((y) => y.after === b)) out.push(x.beat);
+  }
+  return { beats: out, changes };
 }
 
 /**

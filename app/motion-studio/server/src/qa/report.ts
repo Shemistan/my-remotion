@@ -40,8 +40,8 @@ export function acceptedAsWarn(report: QAReport, why: string): QAReport {
   };
 }
 
-/** Коды, которые исправляются не больше одного раза (S15a): повтор — warning при любых кадрах. */
-export const FIX_ONCE: ReadonlySet<string> = new Set(["accent_conflict"]);
+/** Коды, которые исправляются не больше одного раза (S15a; S15b — смысл по фрагменту): повтор — warning при любых кадрах. */
+export const FIX_ONCE: ReadonlySet<string> = new Set(["accent_conflict", "fragment_mismatch"]);
 /** Пометка замечания, пониженного до warning как повтор после исправления. */
 export const REPEAT_MARK = "[повтор после исправления";
 const REPEAT_PREFIX = /^\[повтор после исправления[^\]]*\]\s*/;

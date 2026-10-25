@@ -29,11 +29,11 @@ import {
   type VisualQAOutput,
 } from "@ms/contracts";
 import { type ReapOptions, fileProcessRegistry, reapAttempt, safeMkdir } from "@ms/core";
-import { type RenderRequest, type RenderResult, type renderVersion, probeGate } from "@ms/render";
+import { type RenderRequest, type RenderResult, SWEEP_EVERY, type renderVersion, probeGate } from "@ms/render";
 import { ACCENT_HOLD_GAP, programmaticChecks } from "../qa/programmatic.js";
 import { ACCENT_CONFLICT_FRAMES, type LayoutFrame, accentConflictFrames, parseLayout, scriptLayoutIssues } from "../qa/layout.js";
 import { acceptedAsWarn, fixHints, meaningFails, mergeQA, qaBlocks, repeatsAsWarning } from "../qa/report.js";
-import { specChecks } from "../qa/spec-checks.js";
+import { type KeyMoment, specChecks } from "../qa/spec-checks.js";
 import { reconcileMissing, runVisualQA } from "../qa/visual-agent.js";
 import { sha256File } from "../scenes/hash.js";
 import { kitImportsInDir, kitJsxInDir } from "../scenes/kit-imports.js";
@@ -43,9 +43,12 @@ import type { typecheckVersion } from "../scenes/typecheck.js";
 import { provenanceGate } from "./provenance.js";
 import type { KnowledgeSource } from "./refs.js";
 import { isNetworkError } from "./transient.js";
-import { type RunCtx, buildEngineerTask, clip, errText, isStorageError, scenePropsStyle, sceneStyle, styleLockOf } from "./steps.js";
+import { scriptSceneIssues } from "./script-temporal.js";
+import { type RunCtx, type SpeechWindow, buildEngineerTask, clip, errText, isStorageError, scenePropsStyle, sceneStyle, styleLockOf } from "./steps.js";
 
 export const PREVIEW = { scale: 0.5, crf: 23 };
+/** Масштаб временного прохода пробы (S15b): только DOM-замеры, снимков нет. */
+const SWEEP_SCALE = 0.25;
 /** Время рендера по умолчанию; длинные сцены — `renderTimeoutMs`. */
 const RENDER_TIMEOUT_MS = 5 * 60_000;
 /** Вызовов Visual QA на один рендер: первый и один повтор (ruling P5). */
@@ -152,6 +155,11 @@ export interface LoopInput {
   /** Сцена сценария (S11): Engineer получает носителя финала (`finaleLine`). */
   script?: boolean;
   /**
+   * Время сцены сценария (S15b): окно речи и моменты слов — проверки по всей сцене (временной
+   * проход пробы и энергия превью: dead_air, empty_half, empty_open, late_hero).
+   */
+  scriptTiming?: { window: SpeechWindow; moments?: readonly KeyMoment[] };
+  /**
    * Приём сцены сценария (S14): код без ключевого компонента приёма (`TECHNIQUES[t].kit`) —
    * исправление до рендера (`technique_not_realized`, этап static); на последнем вызове —
    * предупреждение (сцена не падает из-за вкуса).
@@ -176,6 +184,8 @@ export type ExtraQa = (v: {
   renderStills: (stills: number[], inputProps: Record<string, unknown>) => Promise<RenderResult>;
   /** Реестр раскладки kit QA-кадров попытки (`[motion-kit:layout]`; S10: интерфейс Shorts). */
   layout: LayoutFrame[];
+  /** Контекст задачи (S15b): вызов малой модели (смысл по фрагменту) — с бюджетом и журналом задачи. */
+  rc: RunCtx;
 }) => Promise<QAIssue[]>;
 
 /**
@@ -910,6 +920,8 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
     const req: RenderRequest = {
       versionDir: dir, settings, cacheDir: i.cacheDir, stills: [...frames, ...extra], preview: PREVIEW, timeoutMs: renderTimeoutMs(settings),
       run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry },
+      // S15b: сцена сценария — временной проход пробы после превью (проверки по всей сцене)
+      ...(i.script ? { sweep: { every: SWEEP_EVERY, scale: SWEEP_SCALE } } : {}),
     };
     const t0 = Date.now();
     const r = await rc.timed(`${pre}render_${call}`, () =>
@@ -1114,7 +1126,7 @@ async function extraQaIssues(i: LoopInput, t: Take, settings: Settings, layout: 
   const r = await rc.underWatch(
     (sig) =>
       i.extraQa!({
-        versionDir: t.dir, spec: t.spec, settings, signal: sig, layout,
+        versionDir: t.dir, spec: t.spec, settings, signal: sig, layout, rc,
         run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry },
         renderStills: async (stills, inputProps) => {
           const outDir = await mkdtemp(join(await safeMkdir(rc.root, `run/tmp/${rc.runId}-a${rc.attempt}`), "extra-"));
@@ -1165,9 +1177,23 @@ async function runQa(
   // лишний кадр — не QA-кадр: Visual QA его не видит, в версию он не публикуется
   for (const x of all.slice(frames.length)) if (x.path) await rm(x.path, { force: true });
   const fromSpec = specChecks(spec, settings, { previous: i.previous ?? [] });
-  // сцена сценария (S14): пустые контейнеры и подписи-заглушки в финале — брак, текст вместо
-  // графики — подсказка (реестр раскладки kit 0.5.5)
-  if (i.script) programmatic.push(...scriptLayoutIssues(parseLayout(rr.browserLogs)).map((x) => ({ source: "programmatic" as const, ...x })));
+  // сцена сценария (S14): пустые контейнеры и подписи-заглушки в финале — брак (реестр раскладки
+  // kit 0.5.5); S15b: по всей сцене (временной проход) и один герой (пик payoff, удержание)
+  if (i.script) {
+    const layout = parseLayout(rr.browserLogs);
+    programmatic.push(...scriptLayoutIssues(layout).map((x) => ({ source: "programmatic" as const, ...x })));
+    const propsPath = join(dir, "props.json");
+    const sig = t.signal ?? rc.signal;
+    const st = await rc.timed(`${pre}qa_temporal`, async () => scriptSceneIssues({
+      spec, settings, browserLogs: rr.browserLogs, layout, ...(rr.previewPath ? { previewPath: rr.previewPath } : {}),
+      ...(i.scriptTiming ? { window: i.scriptTiming.window, ...(i.scriptTiming.moments ? { moments: i.scriptTiming.moments } : {}) } : {}),
+      ...(i.technique ? { technique: i.technique } : {}),
+      propsText: existsSync(propsPath) ? await readFile(propsPath, "utf8") : "",
+      ffmpeg: { run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry }, ...(sig ? { signal: sig } : {}) },
+    }));
+    for (const n of st.notes) rc.note("qa", n);
+    programmatic.push(...st.issues);
+  }
   const hold = await preserveHoldIssues(i, rr);
   if ("orphaned" in hold) return { exit: { ok: false, stage: "orphaned", message: hold.orphaned, alive: true } };
   programmatic.push(...hold.issues);

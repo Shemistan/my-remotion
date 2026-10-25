@@ -8,6 +8,16 @@ export const ruScriptOutput = {
   "qa.code.empty_container": "пустая карточка или рамка без содержимого",
   "qa.code.timeline_single_event": "таймлайн из одной вехи — лучше другой приём",
   "qa.code.text_dominant": "текст вместо картинки: графики мало",
+  // S15b: проверки по всей сцене, один герой, смысл по фрагменту
+  "qa.code.dead_air": "посреди речи кадр стоит больше 1,5 с",
+  "qa.code.empty_half": "половина кадра пуста",
+  "qa.code.empty_open": "первые секунды речи пустые",
+  "qa.code.late_hero": "герой появляется позже ключевого слова",
+  "qa.code.no_hero": "нет визуального героя",
+  "qa.code.hero_split": "два равных объекта вместо одного героя",
+  "qa.code.fragment_mismatch": "текст на экране противоречит фрагменту",
+  "qa.code.fragment_unsupported": "на экране утверждение, которого нет во фрагменте",
+  "qa.code.relation_not_shown": "картинка не показывает отношение фразы",
   "scriptPlan.issue.technique_not_realized": "Приём сцены не реализован в коде",
   "scriptPlan.issue.adjacent_scene_repeat": "Соседние сцены одинаковы по форме",
   // S5: ошибки пакета генерации (idempotency_key_reused и unknown_item — общие, в ru.ts)

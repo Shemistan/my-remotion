@@ -384,3 +384,16 @@ it("two parallel renders of one attempt (two takes) do not kill each other's Chr
     }
   }
 });
+
+it("S15b: временной проход пробы уходит в задание worker только вместе с превью", async () => {
+  const jobs: { sweep?: unknown }[] = [];
+  const d = deps((c) => {
+    const job = JSON.parse(c.opts.stdin!) as { sweep?: unknown; stills: { out: string }[]; preview: { out: string } | null };
+    jobs.push(job);
+    return { stdout: workerOut({ ok: true, stills: job.stills.map((s) => s.out), ...(job.preview ? { previewPath: job.preview.out } : {}), browserLogs: [] }) };
+  });
+  await renderVersion({ ...req, sweep: { every: 6, scale: 0.25 } }, undefined, d);
+  await renderVersion({ ...req, preview: null, sweep: { every: 6, scale: 0.25 } }, undefined, d);
+  await renderVersion(req, undefined, d);
+  expect(jobs.map((j) => j.sweep)).toEqual([{ every: 6, scale: 0.25 }, undefined, undefined]);
+});
