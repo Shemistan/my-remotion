@@ -28,7 +28,8 @@
   clonefile, папка ai-platform только читается), хранилище — `store/` (`doctor --init`).
 - Порядок поиска: `.deps` (и `.deps` main checkout для worktree агента) → env/config.json → PATH,
   nvm и прежние места ai-platform как запасной путь; `doctor` показывает его строкой
-  `warning deps`. `./setup` первым делом проверяет систему (arm64, Command Line Tools, `claude`
+  `warning deps`. Умолчание выбирается по признаку готовности, а не по наличию пути: окружение
+  ASR — по штампу `.ms-lock`, веса — по `config.json` и файлу весов модели `asr.model`. `./setup` первым делом проверяет систему (arm64, Command Line Tools, `claude`
   и вход, подключённый SSD) и при отказе ничего не ставит; без SSD не пишет на системный диск.
 
 **Лицензия ffmpeg.** Сборка собрана с `--enable-gpl` (libx264, libx265 и др.) — это GPL. Для

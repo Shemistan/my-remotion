@@ -22,9 +22,9 @@ ADR 0008). Зависимости — в проекте, тяжёлое — в �
 |---|---|---|
 | Node (`.nvmrc`, 22.21.1) | `<repo>/.deps/node` | `scripts/with-node.sh`; нет — nvm (запасной путь) |
 | ffmpeg, ffprobe 7.1.1 | `<repo>/.deps/ffmpeg` | `resolveTool` (`core/src/deps.ts`): render, server, health, doctor; нет — PATH |
-| python воркера ASR | `<repo>/.deps/asr-venv/bin/python` | `config.ts` (`asr.python`); нет — прежнее окружение ai-platform |
+| python воркера ASR | `<repo>/.deps/asr-venv/bin/python` | `config.ts` (`asr.python`), если есть штамп полной установки `asr-venv/.ms-lock`; нет — прежнее окружение ai-platform |
 | воркер ASR | `tools/asr-worker/asr_worker.py` (копия, README там же) | `asr.worker`; `asr.aiPlatformRoot` — воркер из ai-platform |
-| веса Whisper | `<папка материалов>/models/asr/<модель>` | `asr.modelsDir`; нет — `/Volumes/External SSD/local_models` |
+| веса Whisper | `<папка материалов>/models/asr/<модель>` | `asr.modelsDir`: папка материалов, если модель `asr.model` там готова (`config.json` + веса); нет — `/Volumes/External SSD/local_models`, если она там |
 | npm-пакеты, Chrome Headless Shell | `node_modules/`, `node_modules/.remotion/` | `make install` |
 | vision-detect | `tools/vision-detect/bin/` | `make install` (swiftc) |
 
