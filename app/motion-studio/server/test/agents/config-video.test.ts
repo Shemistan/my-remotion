@@ -36,14 +36,38 @@ it("копия воркера совпадает с закреплённым sha
 it("до ./setup (S19): прежние python mlx-audio и веса local_models — запасной путь, если только они есть", () => {
   const legacyPy = "/Users/u/.local/share/montage/mlx-audio-0.5.8/.venv/bin/python";
   const have = (s: string[]) => ({ exists: (p: string) => s.includes(p) });
-  const old = loadConfig({ MS_DATA_DIR: root, HOME: "/Users/u", MS_DEPS_DIR: "/D" }, undefined, have([legacyPy, "/Volumes/External SSD/local_models/asr"]));
-  expect(old.asr).toMatchObject({ python: legacyPy, modelsDir: "/Volumes/External SSD/local_models" });
+  const LM = "/Volumes/External SSD/local_models";
+  const MM = "/Volumes/External SSD/moution-studio-materials/models";
+  const ready = (dir: string, model = "whisper-large-v3-turbo", weights = "weights.safetensors") => [`${dir}/asr/${model}/config.json`, `${dir}/asr/${model}/${weights}`];
+  const old = loadConfig({ MS_DATA_DIR: root, HOME: "/Users/u", MS_DEPS_DIR: "/D" }, undefined, have([legacyPy, ...ready(LM)]));
+  expect(old.asr).toMatchObject({ python: legacyPy, modelsDir: LM });
   expect(LEGACY_ASR_PYTHON("/Users/u")).toBe(legacyPy);
-  expect(LEGACY_MODELS_DIR).toBe("/Volumes/External SSD/local_models");
+  expect(LEGACY_MODELS_DIR).toBe(LM);
   // после ./setup — .deps и папка материалов, даже если прежние на месте
-  const both = have([legacyPy, "/D/asr-venv/bin/python", "/Volumes/External SSD/local_models/asr", "/Volumes/External SSD/moution-studio-materials/models/asr"]);
+  const both = have([legacyPy, "/D/asr-venv/bin/python", "/D/asr-venv/.ms-lock", ...ready(LM), ...ready(MM)]);
   expect(loadConfig({ MS_DATA_DIR: root, HOME: "/Users/u", MS_DEPS_DIR: "/D" }, undefined, both).asr)
-    .toMatchObject({ python: "/D/asr-venv/bin/python", modelsDir: "/Volumes/External SSD/moution-studio-materials/models" });
+    .toMatchObject({ python: "/D/asr-venv/bin/python", modelsDir: MM });
+});
+
+it("частичная установка (S19 fix): умолчания — по штампу готовности, а не по наличию пути", () => {
+  const legacyPy = "/Users/u/.local/share/montage/mlx-audio-0.5.8/.venv/bin/python";
+  const LM = "/Volumes/External SSD/local_models";
+  const MM = "/Volumes/External SSD/moution-studio-materials/models";
+  const have = (s: string[]) => ({ exists: (p: string) => s.includes(p) });
+  const env = { MS_DATA_DIR: root, HOME: "/Users/u", MS_DEPS_DIR: "/D" };
+  const ready = (dir: string, model: string, weights = "weights.safetensors") => [`${dir}/asr/${model}/config.json`, `${dir}/asr/${model}/${weights}`];
+  // прерванный uv pip sync: bin/python есть, штампа .ms-lock нет → прежнее окружение
+  expect(loadConfig(env, undefined, have(["/D/asr-venv/bin/python", legacyPy])).asr.python).toBe(legacyPy);
+  expect(loadConfig(env, undefined, have(["/D/asr-venv/bin/python", "/D/asr-venv/.ms-lock", legacyPy])).asr.python).toBe("/D/asr-venv/bin/python");
+  // models/asr есть (прерванная копия/другая модель), а весов нужной модели нет → local_models
+  const partial = have([`${MM}/asr`, `${MM}/asr/whisper-large-v3-turbo`, `${MM}/asr/whisper-large-v3-turbo/config.json`, ...ready(LM, "whisper-large-v3-turbo")]);
+  expect(loadConfig(env, undefined, partial).asr.modelsDir).toBe(LM);
+  // модель не из ./setup (whisper-large-v3-mlx, веса .npz) — берётся из local_models, хотя turbo уже в папке материалов
+  const mlx = have([...ready(MM, "whisper-large-v3-turbo"), ...ready(LM, "whisper-large-v3-mlx", "weights.npz")]);
+  expect(loadConfig(env, { asr: { model: "whisper-large-v3-mlx" } }, mlx).asr).toMatchObject({ model: "whisper-large-v3-mlx", modelsDir: LM });
+  expect(loadConfig(env, undefined, mlx).asr.modelsDir).toBe(MM);
+  // нигде нет — папка материалов (doctor/capability подскажут ./setup)
+  expect(loadConfig(env, { asr: { model: "whisper-large-v3-mlx" } }, have([])).asr.modelsDir).toBe(MM);
 });
 
 it("env переопределяет пути ASR; AI_PLATFORM_ROOT — воркер из ai-platform (совместимость)", () => {

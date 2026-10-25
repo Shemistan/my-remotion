@@ -301,7 +301,7 @@ function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig, probe: PathProbe)
   const asr: AsrConfig = {
     python: defaultAsrPython(env, home, probe),
     worker: ASR_WORKER_COPY,
-    modelsDir: defaultModelsDir(env, probe),
+    modelsDir: defaultModelsDir(env, file.asr?.model ?? "whisper-large-v3-turbo", probe),
     model: "whisper-large-v3-turbo",
     language: "ru",
     expectedWorkerSha256: ASR_WORKER_SHA256,
@@ -333,19 +333,33 @@ function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig, probe: PathProbe)
   };
 }
 
-/** python ASR: `.deps/asr-venv` (первый существующий корень .deps), иначе прежнее окружение ai-platform, если есть. */
+/**
+ * python ASR: `.deps/asr-venv` с штампом полной установки `.ms-lock` (его пишет `./setup` после
+ * `uv pip sync` и проверки импорта), иначе прежнее окружение ai-platform, если есть.
+ */
 function defaultAsrPython(env: NodeJS.ProcessEnv, home: string, probe: PathProbe): string {
-  const deps = depsRoots(env, REPO_ROOT).map((r) => join(r, "asr-venv/bin/python"));
+  const venvs = depsRoots(env, REPO_ROOT).map((r) => join(r, "asr-venv"));
+  const ready = venvs.find((v) => probe.exists(join(v, ".ms-lock")));
+  if (ready) return join(ready, "bin/python");
   const legacy = LEGACY_ASR_PYTHON(home);
-  return deps.find((p) => probe.exists(p)) ?? (probe.exists(legacy) ? legacy : deps[0]!);
+  return probe.exists(legacy) ? legacy : join(venvs[0]!, "bin/python");
 }
 
-/** Веса ASR: `<папка материалов>/models`, иначе прежний `local_models`, если веса только там. */
-function defaultModelsDir(env: NodeJS.ProcessEnv, probe: PathProbe): string {
+/** Веса модели готовы: `config.json` и файл весов (`./setup` переносит каталог целиком после проверки). */
+const modelReady = (modelsDir: string, model: string, probe: PathProbe): boolean => {
+  const dir = join(modelsDir, "asr", model);
+  return probe.exists(join(dir, "config.json")) && ["weights.safetensors", "weights.npz"].some((w) => probe.exists(join(dir, w)));
+};
+
+/**
+ * Веса ASR для модели `asr.model`: `<папка материалов>/models`, если там она готова; иначе прежний
+ * `local_models`, если она есть там (так модель не из `./setup` берётся оттуда); иначе папка материалов.
+ */
+function defaultModelsDir(env: NodeJS.ProcessEnv, model: string, probe: PathProbe): string {
   // неверный MS_MATERIALS_ROOT покажет doctor (строка materials); веса — по умолчанию
   const models = join(materialsRootOr(env), "models");
-  if (probe.exists(join(models, "asr"))) return models;
-  return probe.exists(join(LEGACY_MODELS_DIR, "asr")) ? LEGACY_MODELS_DIR : models;
+  if (modelReady(models, model, probe)) return models;
+  return modelReady(LEGACY_MODELS_DIR, model, probe) ? LEGACY_MODELS_DIR : models;
 }
 
 function materialsRootOr(env: NodeJS.ProcessEnv): string {

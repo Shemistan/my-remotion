@@ -78,8 +78,11 @@ function setupEnv(opts: Parameters<typeof fakeBin>[0] = {}): Record<string, stri
   }
   mkdirSync(join(deps, "asr-venv/bin"), { recursive: true });
   writeFileSync(join(deps, "asr-venv/bin/python"), "#!/bin/sh\n");
+  writeFileSync(join(deps, "asr-venv/.ms-lock"), "lock\n"); // штамп полной установки
   const materials = join(tmp, "mat", "moution-studio-materials");
-  mkdirSync(join(materials, "models/asr"), { recursive: true });
+  const turbo = join(materials, "models/asr/whisper-large-v3-turbo");
+  mkdirSync(turbo, { recursive: true });
+  for (const f of ["config.json", "weights.safetensors"]) writeFileSync(join(turbo, f), "{}");
   const claudeOnly = join(tmp, `path-${Math.random().toString(36).slice(2)}`);
   mkdirSync(claudeOnly);
   if (existsSync(join(bin, "claude"))) copyFileSync(join(bin, "claude"), join(claudeOnly, "claude"));
