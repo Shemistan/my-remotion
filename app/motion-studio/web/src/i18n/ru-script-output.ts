@@ -18,6 +18,8 @@ export const ruScriptOutput = {
   "qa.code.fragment_mismatch": "текст на экране противоречит фрагменту",
   "qa.code.fragment_unsupported": "на экране утверждение, которого нет во фрагменте",
   "qa.code.relation_not_shown": "картинка не показывает отношение фразы",
+  // S17b: временной проход пробы упал дважды — проверки по всей сцене не выполнены
+  "qa.code.temporal_skipped": "проверки по всей сцене не выполнены",
   "scriptPlan.issue.technique_not_realized": "Приём сцены не реализован в коде",
   "scriptPlan.issue.adjacent_scene_repeat": "Соседние сцены одинаковы по форме",
   // S5: ошибки пакета генерации (idempotency_key_reused и unknown_item — общие, в ru.ts)

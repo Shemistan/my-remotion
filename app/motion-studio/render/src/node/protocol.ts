@@ -54,8 +54,9 @@ export interface WorkerJob {
   export: WorkerExport | null;
   /**
    * Временной проход пробы (S15b) после превью: renderFrames каждого `every`-го кадра без
-   * снимков (`imageFormat: "none"`), проба печатает `[motion-kit:sweep]`. Сбой прохода — строка
-   * `[sweep-error]` в логах, превью и кадры остаются. Нет поля — прохода нет.
+   * снимков (`imageFormat: "none"`), проба печатает `[motion-kit:sweep]`. Падение страницы —
+   * `[sweep-retry]` и один повтор (S17b, `sweep.ts`); сбой прохода — строка `[sweep-error]` в
+   * логах, превью и кадры остаются. Нет поля — прохода нет.
    */
   sweep?: { every: number; scale: number } | null;
   /**
