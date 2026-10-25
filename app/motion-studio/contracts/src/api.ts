@@ -107,7 +107,11 @@ export const VersionDtoSchema = z.object({
 }).strict();
 export type VersionDto = z.infer<typeof VersionDtoSchema>;
 
-export const JobDtoSchema = JobSchema;
+/**
+ * Задача в ответе API. Task 48: `cost_usd` — расчётная стоимость по журналу агентов (`jobCost`:
+ * все попытки, в т. ч. неудачные — S17b), справочно; у ответов без подсчёта поля нет.
+ */
+export const JobDtoSchema = JobSchema.extend({ cost_usd: z.number().nonnegative().optional() });
 export type JobDto = z.infer<typeof JobDtoSchema>;
 
 /** Событие журнала задачи (`job_events`, SSE `event: job`); `id` монотонный. */
@@ -235,7 +239,7 @@ export const JobProcessDtoSchema = z.object({
 }).strict();
 
 export const JobDetailDtoSchema = z.object({
-  job: JobSchema,
+  job: JobDtoSchema,
   events: z.array(JobEventDtoSchema),
   processes: z.array(JobProcessDtoSchema),
 }).strict();

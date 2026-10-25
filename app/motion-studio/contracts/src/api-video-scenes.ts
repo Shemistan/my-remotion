@@ -8,6 +8,7 @@ import { ScriptItemStatusSchema } from "./api-script.js";
 import { FinalExportRequestSchema, FinalVerifyReportSchema } from "./final.js";
 import { JobErrorCodeSchema } from "./failure.js";
 import { JobSchema } from "./jobs.js";
+import { QAIssueSchema } from "./qa.js";
 import { VideoTimelineDocSchema, TimelineOpSchema } from "./timeline-render.js";
 import { PlacementSchema, VideoPackageManifestSchema } from "./video-scene.js";
 
@@ -44,6 +45,14 @@ export const VideoSceneDtoSchema = z.object({
   placement: PlacementSchema,
   frames: z.object({ start: Count, end: Count }).strict(),
   quote: z.string(),
+  // Task 38-39: утверждённая версия (C), очередь последней задачи сцены, замечания QA текущей версии
+  approved_version_id: Id.nullable().optional(),
+  approved_version_number: z.number().int().positive().nullable().optional(),
+  /** Задача сцены ждёт в очереди: перед ней `ahead` задач, держит замок `blocking_job_id`. */
+  queue: z.object({ ahead: Count, blocking_job_id: Id.optional() }).strict().nullable().optional(),
+  qa_warnings: z.array(QAIssueSchema).optional(),
+  /** Ревью 38-39 (I2): последнее превью в контексте утверждённой (иначе текущей) версии; `outdated` — перерисовать. */
+  context_preview: z.object({ version_id: Id, rel_path: z.string().min(1), plan_revision: Revision, pad_frames: Count, outdated: z.boolean() }).strict().nullable().optional(),
 }).strict();
 export type VideoSceneDto = z.infer<typeof VideoSceneDtoSchema>;
 
