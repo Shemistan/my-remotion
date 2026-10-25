@@ -21,3 +21,6 @@ global/backup/claude-home/skills/**/*.pyc
 
 # Кэш vitest, если тесты запущены из корня.
 node_modules/
+
+# Зависимости проекта (./setup, S19): Node, ffmpeg, Python-окружение ASR — ставятся на машину.
+/.deps/
