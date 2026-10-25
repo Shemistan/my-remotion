@@ -16,6 +16,7 @@ import { ArtifactStore } from "../artifacts/store.js";
 import { scriptPlans } from "../db/repos/script.js";
 import type { HandlerResult, JobContext } from "../jobs/types.js";
 import { patternOf } from "../script/plan-ops.js";
+import { planOutdated } from "../script/plan-state.js";
 import { planIssues, quoteInFragment, valueMatches } from "../script/plan-validate.js";
 import { SCRIPT_PLAN_FILE, currentScript, currentScriptPlan } from "../script/read.js";
 import { TECHNIQUE_BY_PATTERN } from "../script/technique.js";
@@ -58,7 +59,8 @@ function applyAnswer(item: ScriptSceneItem, out: ScriptDirectorPatch, fragment: 
   const pattern = s.pattern && TECHNIQUE_BY_PATTERN[s.pattern].includes(item.technique) ? s.pattern : patternOf(item.technique);
   const next: ScriptSceneItem = {
     ...item,
-    purpose: s.purpose.trim() || item.purpose,
+    // назначение, заданное человеком (сцена человека, непустое), — его; иначе — Director (ревью M1)
+    purpose: item.origin === "user" && item.purpose.trim() !== "" ? item.purpose : s.purpose.trim() || item.purpose,
     idea: s.idea.trim(),
     pattern,
     importance: s.importance,
@@ -85,9 +87,10 @@ export async function sceneFill(d: SceneFillDeps): Promise<HandlerResult> {
   }
   const cur = currentScriptPlan(ctx.db, root, projectId);
   const script = currentScript(ctx.db, root, projectId);
-  const pending = cur && script && cur.planId === fill.plan_id ? cur.doc.items.filter((x) => x.status === "accepted" && x.fill === "pending") : [];
+  // план устарел (текст сменили после постановки) — id слов к тексту не относятся (ревью M2)
+  const pending = cur && script && cur.planId === fill.plan_id && !planOutdated(cur.doc, script) ? cur.doc.items.filter((x) => x.status === "accepted" && x.fill === "pending") : [];
   if (!cur || !script || pending.length === 0) {
-    ctx.emit("fill_nothing", "дозаполнять нечего: план перестроен или сцены уже заполнены");
+    ctx.emit("fill_nothing", "дозаполнять нечего: план перестроен или устарел, или сцены уже заполнены");
     return done({ plan_id: cur?.planId ?? fill.plan_id, revision: cur?.doc.revision ?? fill.revision, filled: [], failed: [] });
   }
   const doc = cur.doc;

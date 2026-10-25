@@ -15,6 +15,8 @@ import { claimNext, enqueue, finish } from "../../src/jobs/queue.js";
 import { AttemptPermits, Semaphore } from "../../src/jobs/semaphore.js";
 import type { HandlerResult, JobContext } from "../../src/jobs/types.js";
 import { type ScriptPlanDeps, scriptPlan } from "../../src/pipeline/script-plan.js";
+import * as jobsRepo from "../../src/db/repos/jobs.js";
+import { ensureFillJob } from "../../src/script/fill-jobs.js";
 import { savePlanOps } from "../../src/script/plan-ops.js";
 import { currentScriptPlan } from "../../src/script/read.js";
 import { saveScriptText } from "../../src/script/text.js";
@@ -68,23 +70,28 @@ const patch = (scenes: ScriptDirectorScene[]): Reply => async () => ({ output: {
 const cliFail: Reply = async () => ({ status: "failed", error: { kind: "cli", message: "claude упал" } });
 
 const sem = () => new AttemptPermits(new Semaphore(2));
-function context(job: Job, attempt: number, events: { kind: string; message: string }[]): JobContext {
+function context(job: Job, attempt: number, events: { kind: string; message: string }[], signal: AbortSignal = new AbortController().signal): JobContext {
   return {
-    db, job, attempt, signal: new AbortController().signal,
+    db, job, attempt, signal,
     run: { root: s.root, runId: job.id, attempt, registry: fileProcessRegistry(s.root) },
     emit: (kind, message) => events.push({ kind, message }), progress: () => undefined, fenceOk: () => true,
     agents: sem(), renders: sem(), heavy: sem(),
   };
 }
 
-async function run(p: string, input: Record<string, unknown>, agents: AgentRuntimeAdapter) {
-  const job = enqueue(db, { type: "script.plan", projectId: p, input: { projectId: p, ...input }, idempotencyKey: `sf-${++n}` }).job;
+/** Выполняет поставленную задачу; `ac` — отмена попытки, `storage` — проверка хранилища. */
+async function runJob(job: Job, agents: AgentRuntimeAdapter, o: { ac?: AbortController; storage?: ScriptPlanDeps["storage"] } = {}) {
   const claim = claimNext(db, "test", 0, { running: 0, maxRunning: 4 }, { ids: new Set([job.id]) })!;
   const events: { kind: string; message: string }[] = [];
-  const deps: ScriptPlanDeps = { root: s.root, config, storage: s.guard, agents };
-  const r: HandlerResult = await scriptPlan(() => deps)(context(claim.job, claim.attempt, events));
+  const deps: ScriptPlanDeps = { root: s.root, config, storage: o.storage ?? s.guard, agents };
+  const r: HandlerResult = await scriptPlan(() => deps)(context(claim.job, claim.attempt, events, o.ac?.signal));
   finish(db, claim.job.id, claim.attempt, r);
   return { r, events };
+}
+
+async function run(p: string, input: Record<string, unknown>, agents: AgentRuntimeAdapter) {
+  const job = enqueue(db, { type: "script.plan", projectId: p, input: { projectId: p, ...input }, idempotencyKey: `sf-${++n}` }).job;
+  return runJob(job, agents);
 }
 
 /** Сценарный проект с планом агента TWO (r1). */
@@ -168,5 +175,64 @@ describe("дозаполнение сцены (script.plan fill)", () => {
     expect(r.r).toMatchObject({ status: "completed", outputRefs: { revision: 1, filled: [], failed: [] } });
     expect(agents.tasks).toHaveLength(0);
     expect(currentScriptPlan(db, s.root, p)!.doc.revision).toBe(1);
+  });
+
+  it("ревью S16a I1: отмена и падение не оставляют сцену без задачи — повтор ставит новую и дописывает", async () => {
+    const p = await project();
+    const d2 = await ops(p, 1, [{ op: "add", start_word_id: w(15), end_word_id: w(28) }]);
+    const first = ensureFillJob(db, p, d2)!;
+    expect(first.created).toBe(true);
+    expect(ensureFillJob(db, p, d2)).toMatchObject({ created: false, job: { id: first.job.id } });
+
+    // отмена человеком посреди вызова Director
+    const ac = new AbortController();
+    const cancelled = await runJob(first.job, fakeAgents([async () => {
+      jobsRepo.update(db, first.job.id, { cancel_requested: true });
+      ac.abort();
+      return { status: "cancelled", error: { kind: "cancelled", message: "отменено" } };
+    }]), { ac });
+    expect(cancelled.r.status).toBe("cancelled");
+    expect(jobsRepo.get(db, first.job.id)!.status).toBe("cancelled");
+    expect(currentScriptPlan(db, s.root, p)!.doc.items.find((x) => x.origin === "user")!.fill).toBe("pending");
+
+    // повтор — новая задача; хранилище пропало — падение, сцена всё так же ждёт
+    const second = ensureFillJob(db, p, currentScriptPlan(db, s.root, p)!.doc)!;
+    expect(second).toMatchObject({ created: true });
+    expect(second.job.id).not.toBe(first.job.id);
+    const failed = await runJob(second.job, fakeAgents([]), { storage: async () => ({ ok: false, reason: "not_found", detail: "SSD отключён" }) });
+    expect(failed.r).toMatchObject({ status: "failed", error: { code: "storage_unavailable" } });
+    expect(currentScriptPlan(db, s.root, p)!.doc.items.find((x) => x.origin === "user")!.fill).toBe("pending");
+
+    // ещё повтор — дописывает
+    const third = ensureFillJob(db, p, currentScriptPlan(db, s.root, p)!.doc)!;
+    expect(third.created).toBe(true);
+    const done = await runJob(third.job, fakeAgents([patch([scene(DOC, w(15), w(28), { technique: "process-steps", pattern: "sequence-steps", idea: "бакеты цепочкой" })])]));
+    expect(done.r.status, JSON.stringify(done.r)).toBe("completed");
+    const x = currentScriptPlan(db, s.root, p)!.doc.items.find((i) => i.origin === "user")!;
+    expect(x.idea).toBe("бакеты цепочкой");
+    expect(x.fill).toBeUndefined();
+    expect(ensureFillJob(db, p, currentScriptPlan(db, s.root, p)!.doc)).toBeNull();
+  });
+
+  it("ревью S16a M1: назначение, заданное человеком при добавлении, Director не перетирает", async () => {
+    const p = await project();
+    const d2 = await ops(p, 1, [{ op: "add", start_word_id: w(15), end_word_id: w(28), purpose: "зритель видит цепочку бакетов" }]);
+    const r = await run(p, { fill: { plan_id: d2.plan_id, revision: 2 } }, fakeAgents([patch([scene(DOC, w(15), w(28), {
+      technique: "process-steps", pattern: "sequence-steps", idea: "бакеты цепочкой", purpose: "устройство старой map",
+    })])]));
+    expect(r.r.status, JSON.stringify(r.r)).toBe("completed");
+    expect(currentScriptPlan(db, s.root, p)!.doc.items.find((x) => x.origin === "user")).toMatchObject({ idea: "бакеты цепочкой", purpose: "зритель видит цепочку бакетов" });
+  });
+
+  it("ревью S16a M2: текст сменился после постановки — план устарел, без вызова и без ревизии", async () => {
+    const p = await project();
+    const d2 = await ops(p, 1, [{ op: "add", start_word_id: w(15), end_word_id: w(28) }]);
+    await saveScriptText({ db, store, root: s.root }, p, { base_revision: 1, blocks: [{ title: "Блок", text: `${TEXT} Ещё одна фраза.` }] });
+    const agents = fakeAgents([]);
+    const r = await run(p, { fill: { plan_id: d2.plan_id, revision: 2 } }, agents);
+    expect(r.r).toMatchObject({ status: "completed", outputRefs: { revision: 2, filled: [], failed: [] } });
+    expect(r.events.map((e) => e.kind)).toContain("fill_nothing");
+    expect(agents.tasks).toHaveLength(0);
+    expect(currentScriptPlan(db, s.root, p)!.doc.revision).toBe(2);
   });
 });

@@ -318,11 +318,42 @@ step("edit")("п.5: правки через UI — убрать, добавит�
   let st = await scriptState(page.request, projectId);
   const script = st.script!;
   let rev = st.plan!.doc.revision;
+  /** UI показывает текущую ревизию `rev` — следующая правка уйдёт с верным base_revision. */
+  const uiAt = (r: number) => expect(plan.getByText(`Ревизия плана ${r}`, { exact: true })).toBeVisible({ timeout: 60_000 });
+  // ревью S16a I3(д): ревизия — по состоянию сервера (≥ rev + 1), а не «ровно +1»: дозаполнение публикует свои
   const nextRev = async () => {
-    rev++;
-    await expect(plan.getByText(`Ревизия плана ${rev}`, { exact: true })).toBeVisible({ timeout: 60_000 });
-    st = await scriptState(page.request, projectId);
+    const until = Date.now() + 60_000;
+    for (;;) {
+      st = await scriptState(page.request, projectId);
+      if (st.plan!.doc.revision > rev) break;
+      if (Date.now() > until) throw new Error(`ревизия плана не выросла с r${rev} за 60 с`);
+      await sleep(1000);
+    }
+    rev = st.plan!.doc.revision;
+    await uiAt(rev);
     return st.plan!.doc;
+  };
+  // ревью S16a I3(а): сцена после «добавить» и смены приёма ждёт дозаполнения Director — ждём, пока поле fill
+  // не исчезнет (задача дозаполнения закончилась), затем ревизия и UI по факту; итог — сцена, задача, цена, время
+  const waitFilled = async (itemId: string) => {
+    const t1 = Date.now();
+    const until = t1 + 5 * 60_000;
+    for (;;) {
+      st = await scriptState(page.request, projectId);
+      const it = st.plan!.doc.items.find((x) => x.id === itemId);
+      if (!it?.fill) break;
+      if (it.fill === "failed" || Date.now() > until || (st.fill_job && ["failed", "cancelled", "blocked"].includes(st.fill_job.status))) {
+        throw new Error(`сцена ${itemId} не дозаполнена: fill ${it.fill}, задача ${st.fill_job?.id ?? "—"} ${st.fill_job?.status ?? ""} ${JSON.stringify(st.fill_job?.error ?? null)}`);
+      }
+      await sleep(3000);
+    }
+    rev = st.plan!.doc.revision;
+    await uiAt(rev);
+    const item = st.plan!.doc.items.find((x) => x.id === itemId)!;
+    expect(item.fill).toBeUndefined();
+    const jobId = st.fill_job?.id ?? null;
+    const cost = jobId ? jobCost(jobId) : 0;
+    return { doc: st.plan!.doc, item, fill: { job: jobId, status: st.fill_job?.status ?? null, cost_usd: Number(cost.toFixed(3)), seconds: Math.round((Date.now() - t1) / 1000) }, cost };
   };
   const ops: Record<string, unknown> = {};
 
@@ -353,18 +384,32 @@ step("edit")("п.5: правки через UI — убрать, добавит�
   if (heroOk) await bar.getByLabel("Приём новой сцены").selectOption("hero-number");
   await bar.getByRole("button", { name: "Добавить сцену по выделенному" }).click();
   doc = await nextRev();
-  const added = doc.items.find((x) => x.origin === "user" && x.start_word_id === p0 && x.end_word_id === p1);
-  ops.add = { item: added?.id ?? null, technique: added?.technique ?? null, quote: added?.quote ?? null, frames: added?.frames ?? null };
+  const addedId = doc.items.find((x) => x.origin === "user" && x.start_word_id === p0 && x.end_word_id === p1)?.id;
+  expect(addedId, "сцена по выделению добавлена").toBeDefined();
+  const addFill = await waitFilled(addedId!);
+  doc = addFill.doc;
+  const added = addFill.item;
+  ops.add = {
+    item: added.id, technique: added.technique, quote: added.quote, frames: added.frames,
+    idea: added.idea, purpose: added.purpose, pattern: added.pattern, data: added.data, key_terms: added.key_terms.map((k) => k.text), fill: addFill.fill,
+  };
 
   // сменить приём у одной сцены: первая «Тезис словами» (или первая сцена) → приём, которого нет у соседей
   acc = accepted(doc);
-  const ci = Math.max(0, acc.findIndex((x) => x.technique === "kinetic-quote" && x.id !== added?.id));
+  const ci = Math.max(0, acc.findIndex((x) => x.technique === "kinetic-quote" && x.id !== added.id));
   const target = acc[ci]!;
   const prefer: Technique[] = ["structure-build", "flow-graph", "process-steps", "data-token", "callout-diagram", "split-versus", "checklist", "timeline"];
   const technique = prefer.find((t) => t !== target.technique && t !== acc[ci - 1]?.technique && t !== acc[ci + 1]?.technique)!;
   await card(page, target.id).getByLabel("Приём").selectOption(technique);
-  doc = await nextRev();
-  ops.technique = { item: target.id, from: target.technique, to: doc.items.find((x) => x.id === target.id)?.technique };
+  await nextRev();
+  const techFill = await waitFilled(target.id);
+  doc = techFill.doc;
+  const retargeted = techFill.item;
+  ops.technique = {
+    item: target.id, from: target.technique, to: retargeted.technique, idea_before: target.idea,
+    idea: retargeted.idea, purpose: retargeted.purpose, pattern: retargeted.pattern, data: retargeted.data, fill: techFill.fill,
+  };
+  addCost("edit.fill", addFill.cost + techFill.cost);
 
   // скорость 2,5 → 2,3 → 2,5: длительности всех принятых сцен пересчитаны без агента
   const framesFor = (d: ScriptPlanRevisionDoc, r: ReadingSettings) => accepted(d).every((x) => JSON.stringify(x.frames) === JSON.stringify(readingFrames(x.words, r, FPS)));
@@ -384,9 +429,11 @@ step("edit")("п.5: правки через UI — убрать, добавит�
   ops.reading = { base_total: base, wps_2_3_total: slow, back_total: back };
 
   const blocking = doc.issues.filter((x) => x.severity === "blocking");
-  check("13.5", "правка плана через UI: убрать, добавить по выделению, сменить приём, скорость 2,3 и обратно 2,5 (длительности пересчитаны)",
-    doc.items.find((x) => x.id === removed.id)?.status === "rejected" && added !== undefined && added.status === "accepted" &&
-      doc.items.find((x) => x.id === target.id)?.technique === technique && slowOk && backOk && blocking.length === 0,
+  const ideaOf = (id: string) => doc.items.find((x) => x.id === id)?.idea.trim() ?? "";
+  check("13.5", "правка плана через UI: убрать, добавить по выделению, сменить приём (идеи дописаны Director), скорость 2,3 и обратно 2,5 (длительности пересчитаны)",
+    doc.items.find((x) => x.id === removed.id)?.status === "rejected" && doc.items.find((x) => x.id === added.id)?.status === "accepted" &&
+      doc.items.find((x) => x.id === target.id)?.technique === technique && ideaOf(added.id) !== "" && ideaOf(target.id) !== "" &&
+      slowOk && backOk && blocking.length === 0,
     { ...ops, revision: doc.revision, blocking: blocking.map((x) => x.code), warnings: doc.issues.filter((x) => x.severity === "warning").map((x) => x.code) });
   writeEvidence("plan-final.json", doc);
   await plan.getByRole("button", { name: /^Утвердить и сгенерировать/ }).scrollIntoViewIfNeeded();

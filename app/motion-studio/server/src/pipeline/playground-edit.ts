@@ -270,17 +270,23 @@ export function scriptSpeechWindow(db: Db, sceneId: string, total: number): Spee
 
 /**
  * S16a F7: длительность сцены сценария по плану — `frames.total` сцены плана из входа `script`
- * генерации; ревизии или сцены нет, файл не читается — `undefined` (длительность не фиксируется).
+ * генерации: по текущей ревизии того же плана (ревью M3: «скорость чтения» после генерации), а если
+ * сцены там нет — по ревизии генерации; ревизии или сцены нет, файл не читается — `undefined`
+ * (длительность не фиксируется).
  */
 export function scriptPlannedFrames(db: Db, root: string, c: ScriptSceneContext): number | undefined {
-  const row = plans.revision(db, c.plan_id, c.plan_revision);
-  if (!row) return undefined;
-  try {
-    const doc = ScriptPlanRevisionDocSchema.parse(JSON.parse(readFileSync(join(root, row.rel_path), "utf8")));
-    return doc.items.find((x) => x.id === c.item_id)?.frames.total;
-  } catch {
-    return undefined;
-  }
+  const at = (rev: number): number | undefined => {
+    const row = plans.revision(db, c.plan_id, rev);
+    if (!row) return undefined;
+    try {
+      const doc = ScriptPlanRevisionDocSchema.parse(JSON.parse(readFileSync(join(root, row.rel_path), "utf8")));
+      return doc.items.find((x) => x.id === c.item_id && x.status === "accepted")?.frames.total;
+    } catch {
+      return undefined;
+    }
+  };
+  const current = plans.get(db, c.plan_id)?.current_revision;
+  return (current !== undefined && current !== null && current !== c.plan_revision ? at(current) : undefined) ?? at(c.plan_revision);
 }
 
 /** S16a F7: длительность версии сцены сценария не по плану — blocking `duration_changed`. */

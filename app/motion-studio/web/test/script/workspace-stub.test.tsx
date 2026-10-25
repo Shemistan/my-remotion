@@ -35,7 +35,7 @@ afterEach(() => {
 const project = { id: "p1", kind: "script", title: "Go map", settings: null, created_at: TS, updated_at: TS };
 const state = {
   project, script: null, plan: null, plan_outdated: false, style: null, approval: { state: "missing" },
-  scenes: [], batches: [], packages: [],
+  scenes: [], batches: [], packages: [], fill_job: null,
 };
 
 it("проект kind=script → вкладки «Текст», «План», «Сцены», «Экспорт»; вкладкам — { state }", async () => {
