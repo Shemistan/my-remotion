@@ -25,6 +25,12 @@ export function setCurrent(db: Db, sceneId: string, versionId: string): void {
   if (r.changes !== 1) throw new Error(`db: сцены нет: ${sceneId}`);
 }
 
+/** Утверждённая версия сцены (Approval C, Task 38-39); `null` — снять. */
+export function setApproved(db: Db, sceneId: string, versionId: string | null): void {
+  const r = db.prepare("UPDATE scenes SET approved_version_id = ? WHERE id = ?").run(versionId, sceneId);
+  if (r.changes !== 1) throw new Error(`db: сцены нет: ${sceneId}`);
+}
+
 /** Название сцены (S5 fix M7: «NN · цитата» сцены сценария при новой ревизии плана). */
 export function setTitle(db: Db, sceneId: string, title: string): void {
   const r = db.prepare("UPDATE scenes SET title = ? WHERE id = ?").run(title, sceneId);
