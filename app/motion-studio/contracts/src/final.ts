@@ -73,6 +73,10 @@ export const FinalManifestSchema = z.object({
 }).strict();
 export type FinalManifest = z.infer<typeof FinalManifestSchema>;
 
+/** Матрица YUV↔RGB финала (Task 44, fix 1): теги ffprobe или аргументы кодирования. */
+export const ColorMatrixSchema = z.enum(["bt601", "bt709"]);
+export type ColorMatrix = z.infer<typeof ColorMatrixSchema>;
+
 /**
  * `verify.json` (Task 44): ffprobe-гейт, длительность в кадрах, рассинхрон речи по словам, кадры
  * исходника и сцен (PSNR, смещение выравнивания), громкость. `fail`, если любая проверка не прошла;
@@ -81,22 +85,38 @@ export type FinalManifest = z.infer<typeof FinalManifestSchema>;
 export const FinalVerifyReportSchema = z.object({
   probe: z.array(z.string()),
   duration: z.object({ expected_frames: Int0, actual_us: Int0, delta_frames: z.number().int() }).strict(),
-  sync: z.array(z.object({ word_id: Id, offset_us: z.number().int() }).strict()),
+  sync: z.array(z.object({
+    word_id: Id,
+    offset_us: z.number().int(),
+    // Task 44 (fix 1): нормированная корреляция замера и звук в окне исходника (`syncCheck`).
+    corr: z.number().optional(),
+    energy: z.boolean().optional(),
+  }).strict()),
   frames: z.array(z.object({
     frame: Int0,
     kind: z.enum(["source", "scene"]),
     clip_id: Id.optional(),
     psnr_db: z.number(),
     offset: z.union([z.number().int(), z.literal("inconclusive")]),
+    // Task 44 (fix 1): `psnr_db` — по яркости Y; U/V — справочно и мягкий порог грубых цветовых ошибок.
+    psnr_u_db: z.number().optional(),
+    psnr_v_db: z.number().optional(),
   }).strict()),
   loudness: z.object({
     source_lufs: z.number(),
     final_lufs: z.number(),
     delta_lu: z.number(),
+    /** True peak, dBTP (`ebur128=peak=true`; Task 44 fix 1 — не sample peak). */
     final_peak_db: z.number(),
     source_peak_db: z.number(),
   }).strict(),
   verdict: z.enum(["pass", "fail"]),
   failures: z.array(z.string()),
+  // Task 44 (fix 1): итог синхронности — `unchecked`, если нет опорных слов или все окна без звука.
+  sync_check: z.object({ status: z.enum(["ok", "failed", "unchecked"]), message: z.string().optional() }).strict().optional(),
+  // Task 44 (fix 1): кадры, которые сверить нельзя (вне последовательностей, нет кадра master), с причиной.
+  frames_skipped: z.array(z.object({ frame: Int0, kind: z.enum(["source", "scene"]), reason: z.string().min(1) }).strict()).optional(),
+  // Task 44 (fix 1): матрица YUV финала, по которой приводились кадры для PSNR.
+  color_matrix: ColorMatrixSchema.optional(),
 }).strict();
 export type FinalVerifyReport = z.infer<typeof FinalVerifyReportSchema>;

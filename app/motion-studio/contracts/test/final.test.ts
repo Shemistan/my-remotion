@@ -52,6 +52,19 @@ describe("манифест и проверка финала", () => {
     expect(FinalVerifyReportSchema.safeParse({ ...report, verdict: "ok" }).success).toBe(false);
     expect(FinalVerifyReportSchema.safeParse({ ...report, frames: [{ frame: 1, kind: "source", psnr_db: 40, offset: "x" }] }).success).toBe(false);
   });
+  it("FinalVerifyReport: необязательные поля Task 44 (fix 1) — U/V, замеры синхронности, статус, пропуски кадров, матрица", () => {
+    const full = {
+      ...report,
+      sync: [{ word_id: "w_000120", offset_us: 1_000, corr: 0.93, energy: true }],
+      frames: [{ frame: 10, kind: "source", psnr_db: 42.5, offset: 0, psnr_u_db: 44, psnr_v_db: 45 }],
+      sync_check: { status: "unchecked", message: "нет опорных слов" },
+      frames_skipped: [{ frame: 400, kind: "source", reason: "кадр вне последовательностей таймлайна" }],
+      color_matrix: "bt709",
+    };
+    expect(FinalVerifyReportSchema.safeParse(full).success).toBe(true);
+    expect(FinalVerifyReportSchema.safeParse({ ...full, sync_check: { status: "maybe" } }).success).toBe(false);
+    expect(FinalVerifyReportSchema.safeParse({ ...full, color_matrix: "srgb" }).success).toBe(false);
+  });
 
   it("FinalManifest", () => {
     const m = {
