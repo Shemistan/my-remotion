@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { canonicalJson } from "@ms/contracts/canonical";
-import { TranscriptRevisionDocSchema, type TranscriptOp, type TranscriptRevisionDoc, type TranscriptWord } from "@ms/contracts";
+import { TranscriptRevisionDocSchema, normalizeToken, type TranscriptOp, type TranscriptRevisionDoc, type TranscriptWord } from "@ms/contracts";
 import { artifactPaths } from "../artifacts/paths.js";
 import type { ArtifactStore } from "../artifacts/store.js";
 import type { Db } from "../db/open.js";
@@ -79,7 +79,9 @@ export function applyTranscriptOps(doc: TranscriptRevisionDoc, ops: TranscriptOp
     if (si > ei) throw new EditError("order", `слово ${sid} идёт после ${eid}`);
     const span = words.slice(si, ei + 1);
     const byId = new Map(span.map((x) => [x.id, x]));
-    const { tokens, punctuation } = tokenizeEdit(op.text);
+    // отдельные знаки ASR участка («–», «,») остаются словами со своим id и временем (S17c)
+    const asrPunct = span.filter((x) => normalizeToken(x.text) === "").map((x) => x.text.trim());
+    const { tokens, punctuation } = tokenizeEdit(op.text, asrPunct);
     const { steps, removed: gone } = alignTokenList(span, tokens);
 
     // слова участка по порядку; вставки — серии между оставшимися словами (или соседями участка)
