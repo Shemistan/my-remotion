@@ -92,7 +92,7 @@ describe("заглушки обработчиков Phase 4–6", () => {
     const svc = { config: loadConfig({ MS_DATA_DIR: "/tmp/ms-unused" }) } as unknown as CoreServices;
     const h = registerHandlers(svc);
     const want: Record<string, string> = {
-      "video.package": "5L", "timeline.build": "42", "timeline.preview": "42",
+      "timeline.build": "42", "timeline.preview": "42",
       "final.render": "43", "final.reproduce": "43",
     };
     // Task 47: trash.purge реализован (test/projects/trash.test.ts); Task 49a: cache.gc (test/perf/cache-gc.test.ts)
@@ -100,6 +100,8 @@ describe("заглушки обработчиков Phase 4–6", () => {
     // Task 38-39: scene.preview_context реализован (test/pipeline/scene-preview-context.test.ts)
     expect(h["scene.preview_context"]).toBeTypeOf("function");
     expect(h["cache.gc"]).toBeTypeOf("function");
+    // Task 5L: video.package реализован (test/video-scenes/video-package.test.ts)
+    expect(h["video.package"]).toBeTypeOf("function");
     for (const [type, task] of Object.entries(want)) {
       const r = await h[type as JobType]!({} as JobContext);
       expect(r, type).toEqual({ status: "failed", error: { code: "pipeline", stage: "prepare", message: `не реализовано: Task ${task}` } });

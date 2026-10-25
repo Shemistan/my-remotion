@@ -1,0 +1,129 @@
+{
+  "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+  "plan": "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM@r16",
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "job_id": "job_01M5THNT7VRVRVWWD0DVM8NYNV",
+  "ms": 2006,
+  "package_id": "pkg_01M5THNT7VRVRVWWD0DVM8NYNV",
+  "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/packages/pkg_01M5THNT7VRVRVWWD0DVM8NYNV",
+  "scenes": [
+    {
+      "n": 2,
+      "item_id": "sp_009",
+      "version": 1,
+      "approved": true,
+      "mode": "overlay",
+      "zone": "left_third"
+    },
+    {
+      "n": 4,
+      "item_id": "sp_003",
+      "version": 2,
+      "approved": true,
+      "mode": "callout",
+      "zone": "left_third"
+    }
+  ],
+  "missing": [
+    {
+      "item_id": "sp_001",
+      "n": 1,
+      "reason": "сцена ещё не сгенерирована"
+    },
+    {
+      "item_id": "sp_002",
+      "n": 3,
+      "reason": "не утверждена (C)"
+    },
+    {
+      "item_id": "sp_007",
+      "n": 5,
+      "reason": "сцена ещё не сгенерирована"
+    },
+    {
+      "item_id": "sp_008",
+      "n": 6,
+      "reason": "сцена ещё не сгенерирована"
+    }
+  ],
+  "files": [
+    {
+      "file": "02_rabotat-dalshe-ne-preryvaya-soedineniya.mp4",
+      "sha256": "31721e5f236fe5d184010620a2072927f39d4f0a1b98568c91d565684a6d173d",
+      "ffprobe": {
+        "durationMs": 3100,
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "codec": "h264",
+        "profile": "High",
+        "pixFmt": "yuv420p",
+        "audioCodec": "aac",
+        "audioDurationMs": 3115,
+        "audioSampleRate": 48000,
+        "audioChannels": 2
+      }
+    },
+    {
+      "file": "02_rabotat-dalshe-ne-preryvaya-soedineniya_alpha.mov",
+      "sha256": "ea4f45529efae6e92597010ed73ed90914d8debcda473fbbe375b6256bd9bdb7",
+      "ffprobe": {
+        "durationMs": 3100,
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "codec": "prores",
+        "profile": "4444",
+        "pixFmt": "yuva444p12le"
+      },
+      "alpha_corner": 0
+    },
+    {
+      "file": "04_takaya-skhema-nazyvaetsya-sequence.mp4",
+      "sha256": "6fc8dc93b43893ef9e9b675ccd9a0eac7f930a75a81533c18ca9e960b2e7b112",
+      "ffprobe": {
+        "durationMs": 3666.667,
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "codec": "h264",
+        "profile": "High",
+        "pixFmt": "yuv420p",
+        "audioCodec": "aac",
+        "audioDurationMs": 3669,
+        "audioSampleRate": 48000,
+        "audioChannels": 2
+      }
+    },
+    {
+      "file": "04_takaya-skhema-nazyvaetsya-sequence_alpha.mov",
+      "sha256": "5642f54135608c3e1e10f76c309ff8188eeea6c0ae82c323a5bb46607a8a2b02",
+      "ffprobe": {
+        "durationMs": 3666.667,
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "codec": "prores",
+        "profile": "4444",
+        "pixFmt": "yuva444p12le"
+      },
+      "alpha_corner": 0
+    }
+  ],
+  "example": "/Volumes/External SSD/moution-studio-materials/examples/phase4/5L/Приёмка видео 2026-10-24T14-41_клипы_2026-10-26_M8NYNV"
+}

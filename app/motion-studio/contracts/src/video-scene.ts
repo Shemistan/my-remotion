@@ -125,8 +125,16 @@ export const VideoPackageManifestSchema = z.object({
     /** Альфы нет (fullscreen или экспорт не удался) — null, причина в `missing`. */
     alpha: ScriptPackageFileSchema.nullable(),
     warnings: z.array(z.string()),
+    // Task 5L: длительность файла версии в кадрах `fps` (≠ плану — замечание в шпаргалке).
+    duration_frames: z.number().int().positive().optional(),
   }).strict()),
-  missing: z.array(z.object({ item_id: Id, quote: z.string().optional(), reason: z.string().min(1), detail: z.string().optional() }).strict()),
+  missing: z.array(z.object({
+    item_id: Id, quote: z.string().optional(), reason: z.string().min(1), detail: z.string().optional(),
+    // Task 5L: номер сцены и таймкоды — строка «не вошли» в шпаргалке на своём месте ролика.
+    n: z.number().int().positive().optional(),
+    source: UsRange.optional(),
+    frames: z.object({ start: Int0, end: Int0 }).strict().optional(),
+  }).strict()),
   created_at: z.string().datetime(),
 }).strict();
 export type VideoPackageManifest = z.infer<typeof VideoPackageManifestSchema>;
