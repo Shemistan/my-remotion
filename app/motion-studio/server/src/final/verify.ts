@@ -47,7 +47,8 @@ export function durationOk(actualUs: number, frames: number, fps: Fps): boolean 
 }
 
 /**
- * Гейт MP4 финала: `h264`, звук `aac` 48 кГц, `yuv420p`, размеры, fps, каналы = исходнику;
+ * Гейт MP4 финала: `h264`, звук `aac` 48 кГц, `yuv420p`, размеры, fps, каналы = `expect.audioChannels`
+ * (у `verifyFinal` — `finalAudioChannels`, стерео Remotion);
  * длительность видеопотока (`durationOk`). Пусто — пройден; строки начинаются с имени параметра
  * (`duration …`, `pix_fmt …`).
  */
@@ -60,11 +61,21 @@ export function finalProbeGate(probe: FinalProbe, expect: FinalProbeExpect): str
   if (!sameFps(probe.fps, expect.fps)) out.push(`fps ${probe.fps.num}/${probe.fps.den}, ожидалось ${expect.fps.num}/${expect.fps.den}`);
   if (probe.audioCodec !== undefined && probe.audioSampleRate !== FINAL_SAMPLE_RATE) out.push(`audio_sample_rate ${probe.audioSampleRate ?? "?"}, ожидалось ${FINAL_SAMPLE_RATE}`);
   if (expect.audioChannels !== undefined && probe.audioCodec !== undefined && probe.audioChannels !== expect.audioChannels) {
-    out.push(`audio_channels ${probe.audioChannels ?? "?"}, ожидалось ${expect.audioChannels} (как у исходника)`);
+    out.push(`audio_channels ${probe.audioChannels ?? "?"}, ожидалось ${expect.audioChannels}`);
   }
   const durationUs = Math.round(probe.durationMs * 1000);
   if (!durationOk(durationUs, expect.frames, expect.fps)) out.push(`duration ${durationUs} мкс, ожидалось ${frameToUs(expect.frames, expect.fps)} ± 1 кадр (${expect.frames} кадров)`);
   return out;
+}
+
+/**
+ * Каналы звука финала (Task 43, e2e): Remotion всегда сводит дорожку в стерео (`-ac 2` при
+ * подготовке звука) — моно исходника становится двумя одинаковыми каналами (−3 дБ на канал,
+ * громкость та же), 5.1 — даунмиксом. Сверяется с этим, а не с каналами исходника; нет звука — `undefined`.
+ */
+export const FINAL_AUDIO_CHANNELS = 2;
+export function finalAudioChannels(source: number | undefined): number | undefined {
+  return source === undefined ? undefined : FINAL_AUDIO_CHANNELS;
 }
 
 /** Частота и каналы первой звуковой дорожки (ffprobe). Нет дорожки — `{}`. */
@@ -174,7 +185,8 @@ async function verifyIn(i: VerifyFinalInput, ctx: MediaCtx, work: string): Promi
 
   // ffprobe и длительность
   const probe = await probeFinal(i.finalPath, ctx);
-  const gate = finalProbeGate(probe, { ...size, fps, frames, ...(sourceAudio.audioChannels ? { audioChannels: sourceAudio.audioChannels } : {}) });
+  const channels = finalAudioChannels(sourceAudio.audioChannels);
+  const gate = finalProbeGate(probe, { ...size, fps, frames, ...(channels !== undefined ? { audioChannels: channels } : {}) });
   const actualUs = Math.round(probe.durationMs * 1000);
   const frameUs = frameToUs(1, fps);
   const duration = { expected_frames: frames, actual_us: actualUs, delta_frames: Math.round((actualUs - frameToUs(frames, fps)) / frameUs) };
