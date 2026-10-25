@@ -5,6 +5,7 @@ import { type ProcessRegistry, isTrackedAlive } from "@ms/core";
 import type { Db } from "../db/open.js";
 import * as jobs from "../db/repos/jobs.js";
 import { tx } from "../db/tx.js";
+import { assertProjectOpen } from "../projects/lifecycle.js";
 import { releaseLocks } from "./locks.js";
 
 const RETRYABLE = new Set<Job["status"]>(["failed", "cancelled", "blocked"]);
@@ -42,6 +43,8 @@ export async function retryJob(db: Db, jobId: string, registry: ProcessRegistry)
   return tx(db, () => {
     const j = jobs.get(db, jobId)!;
     if (!RETRYABLE.has(j.status)) throw new Error(`job_not_retryable: задача ${jobId} в статусе ${j.status}`);
+    // Task 47: задачи архивного и удалённого проекта не повторяются
+    assertProjectOpen(db, j.project_id);
     const next = jobs.update(db, jobId, {
       status: "pending",
       error: null,

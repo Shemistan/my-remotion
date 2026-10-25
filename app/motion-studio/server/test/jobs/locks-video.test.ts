@@ -88,8 +88,10 @@ describe("заглушки обработчиков Phase 4–6", () => {
     const h = registerHandlers(svc);
     const want: Record<string, string> = {
       "video.package": "5L", "scene.preview_context": "38-39", "timeline.build": "42", "timeline.preview": "42",
-      "final.render": "43", "final.reproduce": "43", "trash.purge": "47", "cache.gc": "49a",
+      "final.render": "43", "final.reproduce": "43", "cache.gc": "49a",
     };
+    // Task 47: trash.purge реализован (test/projects/trash.test.ts)
+    expect(h["trash.purge"]).toBeTypeOf("function");
     for (const [type, task] of Object.entries(want)) {
       const r = await h[type as JobType]!({} as JobContext);
       expect(r, type).toEqual({ status: "failed", error: { code: "pipeline", stage: "prepare", message: `не реализовано: Task ${task}` } });
