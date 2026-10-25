@@ -7,6 +7,8 @@ import { t } from "../../src/i18n/index.js";
 import { ScenesTab } from "../../src/pages/video/ScenesTab.js";
 import { versionDto } from "../fixtures.js";
 import { type Call, fakeFetch, job, on, renderQ } from "../helpers.js";
+import { videoAllKey } from "../../src/api/video-scenes-client.js";
+import type { VideoScenesStateDto } from "@ms/contracts";
 import { approvalC, projectDto, scenesState, vbatch, vscene } from "./scenes-fixtures.js";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -117,12 +119,90 @@ it("B не утверждено — подсказка, «Сгенерирова
   expect(calls.filter((c) => c.method === "POST")).toEqual([]);
 });
 
-it("ошибка генерации 409 approval_required — текст словаря области", async () => {
+it("ошибка генерации 409 approval_required — карточка ошибки (каталог 48) с текстом словаря области", async () => {
   fakeFetch([on("POST", GEN, { error: "approval_required", message: "x" }, 409), ...base()]);
   renderQ(<ScenesTab {...props()} />);
   await waitFor(() => expect(tiles()).toHaveLength(4));
   fireEvent.click(screen.getByRole("button", { name: t("videoScenes.generateAll") }));
-  await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(t("videoScenes.error.approval_required")));
+  const card = await screen.findByRole("alert");
+  expect(card.getAttribute("data-error-code")).toBe("approval_required");
+  expect(card.querySelector(".error-title")!.textContent).toBe(t("videoScenes.error.approval_required"));
+  expect(within(card).getByText(t("diagnostics.action.reapprove"))).toBeTruthy();
+});
+
+it("409 nothing_to_generate — нейтральная подсказка, не ошибка", async () => {
+  fakeFetch([on("POST", GEN, { error: "nothing_to_generate", message: "x" }, 409), ...base()]);
+  renderQ(<ScenesTab {...props()} />);
+  await waitFor(() => expect(tiles()).toHaveLength(4));
+  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.generateAll") }));
+  await waitFor(() => expect(screen.getByTestId("generate-note").textContent).toBe(t("videoScenes.error.nothing_to_generate")));
+  expect(screen.getByTestId("generate-note").className).not.toContain("error");
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("I1: полный пакет при двух готовых сценах вне пакета — «Готово 2 из 3» и «Не вошли» из состояния (без запроса)", async () => {
+  const scenes = [vscene("sp_001", "ready"), vscene("sp_002", "ready"), vscene("sp_003", "running")];
+  const full = { ...vbatch([scenes[2]!]), full: true };
+  const { calls } = fakeFetch(base(scenesState({ scenes, batches: [full] })));
+  renderQ(<ScenesTab {...props()} />);
+  const bar = await screen.findByTestId("batch-bar");
+  expect(bar.textContent).toContain(t("scriptOutput.batch.progress", { ready: 2, total: 3 }));
+  const reason = t("videoScenes.skipReason.ready_version");
+  expect(screen.getByTestId("skipped").textContent).toBe(
+    t("videoScenes.skipped", { list: [1, 2].map((n) => t("videoScenes.skippedItem", { n, reason })).join("; ") }),
+  );
+  expect(calls.filter((c) => c.method === "POST")).toEqual([]);
+});
+
+it("I1: частичный пакет и пакет прежней ревизии — готовые вне пакета не досчитываются, «Не вошли» нет", async () => {
+  const scenes = [vscene("sp_001", "ready"), vscene("sp_002", "ready"), vscene("sp_003", "running")];
+  for (const b of [{ ...vbatch([scenes[2]!]), full: false }, { ...vbatch([scenes[2]!]), full: true, plan_revision: 1 }]) {
+    fakeFetch(base(scenesState({ scenes, batches: [b] })));
+    const { unmount } = renderQ(<ScenesTab {...props()} />);
+    const bar = await screen.findByTestId("batch-bar");
+    expect(bar.textContent).toContain(t("scriptOutput.batch.progress", { ready: 0, total: 1 }));
+    expect(screen.queryByTestId("skipped")).toBeNull();
+    unmount();
+  }
+});
+
+it("I2: после отмены пакета «Сгенерировать все» шлёт новый ключ", async () => {
+  const running = scenesState();
+  const cancelled = scenesState({
+    scenes: running.scenes.map((x) => (x.item_id === "sp_002" ? { ...x, status: "cancelled" as const, job: { ...x.job!, status: "cancelled" as const } } : x)),
+  });
+  let cur: VideoScenesStateDto = running;
+  const { calls } = fakeFetch([(c) => (c.method === "GET" && c.url === STATE ? { body: cur } : undefined), ...base()]);
+  renderQ(<ScenesTab {...props()} />);
+  await waitFor(() => expect(tiles()).toHaveLength(4));
+  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.generateAll") }));
+  await waitFor(() => expect(posts(calls, GEN)).toHaveLength(1));
+  cur = cancelled;
+  fireEvent.click(within(await screen.findByTestId("batch-bar")).getByRole("button", { name: t("scriptOutput.batch.cancel") }));
+  await waitFor(() => expect(tiles()[1]!.getAttribute("data-status")).toBe("cancelled"));
+  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.generateAll") }));
+  await waitFor(() => expect(posts(calls, GEN)).toHaveLength(2));
+  const [k1, k2] = posts(calls, GEN).map((c) => c.headers["idempotency-key"]);
+  expect(k2).not.toBe(k1);
+});
+
+it("I2: ключ «Сгенерировать все» — от плана, ревизии, статуса задачи, stale, версии и стиля", () => {
+  const s = scenesState();
+  const style = { id: "st_1", current_revision: 1 };
+  const k = videoAllKey(s, style);
+  expect(videoAllKey(s, style)).toBe(k);
+  expect(k).toMatch(/^video-all:r2:[0-9a-f]{16}$/);
+  const edit = (f: (x: VideoScenesStateDto["scenes"][number]) => VideoScenesStateDto["scenes"][number]) => ({ ...s, scenes: s.scenes.map((x, i) => (i === 0 ? f(x) : x)) });
+  const variants = [
+    videoAllKey(s, { id: "st_1", current_revision: 2 }),
+    videoAllKey(s, null),
+    videoAllKey({ ...s, plan: { id: "pln_2", revision: 2 } }, style),
+    videoAllKey(edit((x) => ({ ...x, stale: true })), style),
+    videoAllKey(edit((x) => ({ ...x, version_id: "ver_9" })), style),
+    videoAllKey(edit((x) => ({ ...x, job: { ...x.job!, status: "failed" } })), style),
+  ];
+  for (const v of variants) expect(v).not.toBe(k);
+  expect(new Set(variants).size).toBe(variants.length);
 });
 
 it("пакет: прогресс и «Отменить пакет» → cancel пакета видеосцен", async () => {

@@ -6,9 +6,10 @@ import type { VideoSceneDto } from "@ms/contracts";
 import { useEffect, useState } from "react";
 import { newKey } from "../../api/client.js";
 import { isActive, useJob } from "../../api/queries.js";
-import { usePreviewContext, videoScenesErrorText, videoScenesUrls } from "../../api/video-scenes-client.js";
+import { usePreviewContext, videoScenesUrls } from "../../api/video-scenes-client.js";
 import { t } from "../../i18n/index.js";
 import { JobStatus } from "../JobStatus.js";
+import { VideoScenesError } from "./VideoScenesError.js";
 import "./video-scenes.css";
 
 export interface ContextPlayerProps {
@@ -63,7 +64,7 @@ export function ContextPlayer({ projectId, scene }: ContextPlayerProps) {
         ) : null}
       </div>
       {jobId && (running || status === "failed" || status === "blocked") ? <JobStatus jobId={jobId} compact /> : null}
-      {build.isError ? <p className="error small" role="alert">{videoScenesErrorText(build.error)}</p> : null}
+      {build.isError ? <VideoScenesError error={build.error} /> : null}
     </div>
   );
 }

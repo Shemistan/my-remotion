@@ -12,6 +12,9 @@ export const ruVideoScenes = {
   "videoScenes.generateAllHint": "Сгенерировать сцены плана, у которых нет готовой версии по текущему плану",
   "videoScenes.skipped": "Не вошли в пакет: {list}",
   "videoScenes.skippedItem": "сцена {n} — {reason}",
+  // причины «не вошли» — коды сервера (`VideoBatchDto.skipped[].reason`); неизвестный код — как есть
+  "videoScenes.skipReason.ready_version": "готовая версия по текущему плану",
+  "videoScenes.skipReason.not_accepted": "сцена не принята в плане",
 
   "videoScenes.scene.n": "Сцена {n}",
   "videoScenes.placement": "{mode} · {zone}",
@@ -51,9 +54,12 @@ export const ruVideoScenes = {
   "videoScenes.c.staleReason.plan_changed": "утверждение устарело — сцена плана изменилась",
   "videoScenes.c.staleReason.version_changed": "утверждение устарело — версия изменилась",
   "videoScenes.c.approve": "Утвердить (C)",
+  "videoScenes.c.approveN": "Утвердить v{n} (C)",
   "videoScenes.c.approveHint": "Утвердить версию v{n}: она пойдёт в таймлайн и папку клипов",
   "videoScenes.c.unapprove": "Снять утверждение",
   "videoScenes.c.blocking": "У версии v{n} блокирующих замечаний QA: {count}. Утвердить всё равно?",
+  "videoScenes.c.qaUnknown": "Отчёт QA версии v{n} не загрузился — замечания неизвестны. Утвердить всё равно?",
+  "videoScenes.c.versionError": "Версия не загрузилась: {message}",
   "videoScenes.c.confirm": "Утвердить с замечаниями",
   "videoScenes.c.cancel": "Отмена",
 
@@ -65,6 +71,7 @@ export const ruVideoScenes = {
   "videoScenes.context.of": "Превью в контексте версии v{n}",
 
   "videoScenes.backToVideo": "← К видео",
+  "videoScenes.durationLocked": "Длительность сцены задаёт визуальный план — меняйте её во вкладке «План»",
 
   "videoScenes.error.approval_required": "План не утверждён (B) — утвердите его во вкладке «План».",
   "videoScenes.error.plan_outdated": "План изменился — обновите вкладку и запустите снова.",

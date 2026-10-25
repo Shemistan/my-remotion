@@ -4,7 +4,7 @@
 // «Сгенерировать все» (в пакет — только сцена без версии; генерация падает → «Повторить») →
 // «Утвердить (C)» → «В контексте» → «Собрать» (настоящая задача `scene.preview_context`,
 // `renderTimelineRange`) → видео отдаётся по Range → «Доработать» → Playground: «← К видео» и C →
-// обратно. Скриншоты: tmp/e2e-ui/phase-4/ui/ (MS_WRITE_EVIDENCE=1 — docs/evidence/phase-4/ui/).
+// обратно на вкладку «Сцены». Скриншоты: tmp/e2e-ui/phase-4/ui/ (MS_WRITE_EVIDENCE=1 — docs/evidence/phase-4/ui/).
 import { join } from "node:path";
 import type { VideoScenesStateDto } from "@ms/contracts";
 import { type Page, expect, test } from "@playwright/test";
@@ -35,8 +35,15 @@ test("сцены видеопроекта: плитки, пакет, C, прев
   // «Сгенерировать все»: готовые по плану пропущены, третья — в пакете и падает без агентов
   await page.getByRole("button", { name: t("videoScenes.generateAll") }).click();
   await expect(page.getByTestId("batch-bar")).toBeVisible();
-  await expect(page.getByTestId("skipped")).toContainText(t("videoScenes.skippedItem", { n: 1, reason: "готовая версия по текущему плану" }));
+  const reason = t("videoScenes.skipReason.ready_version");
+  await expect(page.getByTestId("skipped")).toContainText(t("videoScenes.skippedItem", { n: 1, reason }));
   await expect(tiles(page).nth(2)).toHaveAttribute("data-status", "failed", { timeout: 180_000 });
+  // полный пакет: готовые вне пакета — тоже «готово»; «Не вошли» — из состояния, переживает перезагрузку
+  await expect(page.getByTestId("batch-bar")).toContainText(t("scriptOutput.batch.progress", { ready: 2, total: 3 }));
+  await page.reload();
+  await openScenes(page);
+  await expect(page.getByTestId("batch-bar")).toContainText(t("scriptOutput.batch.progress", { ready: 2, total: 3 }));
+  await expect(page.getByTestId("skipped")).toContainText(t("videoScenes.skippedItem", { n: 2, reason }));
   await expect(tiles(page).nth(2).getByRole("button", { name: t("videoScenes.retry") })).toBeVisible();
   await expect(tiles(page).nth(0).getByRole("button", { name: t("videoScenes.regenerate") })).toBeVisible();
 
@@ -72,14 +79,17 @@ test("сцены видеопроекта: плитки, пакет, C, прев
   await expect(page).toHaveURL(new RegExp(`/scenes/${st.sceneIds[1]}$`));
   const back = page.getByRole("link", { name: t("videoScenes.backToVideo") });
   await expect(back).toBeVisible();
-  await page.getByRole("button", { name: t("videoScenes.c.approve") }).click();
+  await page.getByRole("button", { name: t("videoScenes.c.approveN", { n: 1 }) }).click();
   await expect(page.getByTestId("approval-c-badge")).toHaveText(t("videoScenes.c.valid", { n: 1 }));
+  // длительность видеосцены — только через план
+  await expect(page.getByLabel(t("settings.duration"))).toHaveAttribute("readonly", "");
+  await expect(page.getByText(t("videoScenes.durationLocked"))).toBeVisible();
   await shot(page, "video-scenes-02-playground", EVIDENCE_PHASE4);
 
-  // обратно к видео: C второй сцены видно на плитке
+  // обратно к видео — сразу на вкладку «Сцены»: C второй сцены видно на плитке
   await back.click();
-  await expect(page).toHaveURL(new RegExp(`/projects/${st.projectId}$`));
-  await openScenes(page);
+  await expect(page).toHaveURL(new RegExp(`/projects/${st.projectId}\\?tab=scenes$`));
+  await expect(page.getByRole("tab", { name: t("video.tab.scenes"), exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(tiles(page).nth(1).getByTestId("approval-c-badge")).toHaveText(t("videoScenes.c.valid", { n: 1 }));
   await expect(tiles(page).nth(0).getByTestId("approval-c-badge")).toHaveText(t("videoScenes.c.valid", { n: 1 }));
   const all = await page.locator("[data-tab=scenes]").textContent();

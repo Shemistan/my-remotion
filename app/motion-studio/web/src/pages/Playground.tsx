@@ -22,7 +22,7 @@ import { VersionHistory } from "../components/VersionHistory.js";
 import { ApprovalCButton } from "../components/video-scenes/ApprovalCButton.js";
 import { errorText, t, tk } from "../i18n/index.js";
 import { formatNumber } from "../lib/player-math.js";
-import { navigate } from "../router.js";
+import { href, navigate } from "../router.js";
 
 const PRESETS = ["dark-premium", "light-clean", "tech-neon"] as const;
 
@@ -164,7 +164,12 @@ export function Playground({ id, version }: { id: string; version?: string }) {
         {scriptProject ? (
           <Link to={{ name: "project", id: s.project_id }}>{t("scriptOutput.backToScript")}</Link>
         ) : videoProject ? (
-          <Link to={{ name: "project", id: s.project_id }}>{t("videoScenes.backToVideo")}</Link>
+          // сразу на вкладку «Сцены» рабочего места видео (стартовая вкладка — из query)
+          <a href={`${href({ name: "project", id: s.project_id })}?tab=scenes`} onClick={(e) => {
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            e.preventDefault();
+            navigate(`${href({ name: "project", id: s.project_id })}?tab=scenes`);
+          }}>{t("videoScenes.backToVideo")}</a>
         ) : (
           <Link to={{ name: "project", id: s.project_id }}>{t("nav.project")}</Link>
         )}
@@ -215,7 +220,8 @@ export function Playground({ id, version }: { id: string; version?: string }) {
             <section className="panel">
               <h2>{t("settings.title")}</h2>
               {baseId !== openId ? <p className="hint" data-testid="settings-base">{t("settings.ofBase", { n: num(baseId) ?? "?" })}</p> : null}
-              <SettingsForm value={draft} onChange={setDraft} />
+              {/* длительность видеосцены задаёт план (Р-V: только через план) — здесь только чтение */}
+              <SettingsForm value={draft} onChange={setDraft} {...(videoProject ? { durationLocked: t("videoScenes.durationLocked") } : {})} />
             </section>
           ) : null}
         </aside>
@@ -237,12 +243,15 @@ export function Playground({ id, version }: { id: string; version?: string }) {
             {m?.prompt ? <p className="muted prompt-line" title={m.prompt}>{m.prompt}</p> : null}
           </div>
           {videoScene ? (
+            // утверждается открытая версия (её и смотрит человек), бейдж — про текущую
             <ApprovalCButton
               projectId={s.project_id}
               sceneId={id}
-              versionId={videoScene.version_id}
-              versionNumber={videoScene.version_number}
+              versionId={openId && dto.data?.manifest.status === "ready" ? openId : null}
+              versionNumber={dto.data?.manifest.number ?? null}
+              currentNumber={videoScene.version_number}
               approval={videoScene.approval}
+              numbered
             />
           ) : null}
           {!openId ? (

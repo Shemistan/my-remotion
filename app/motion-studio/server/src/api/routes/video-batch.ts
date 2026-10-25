@@ -68,7 +68,9 @@ export const videoBatchRoutes: (app: ZApp, ctx: ApiContext) => void = (app, { co
   });
 
   app.post("/api/scenes/:id/unapprove", { schema: { params: IdParams, response: { 200: SceneApprovalDtoSchema } } }, async (req) => {
-    videoSceneOr404(core.db, req.params.id);
+    const scene = videoSceneOr404(core.db, req.params.id);
+    const deleted = deletedRefusal(core.db, scene.project_id);
+    if (deleted) throw deleted;
     unapproveScene(core.db, req.params.id);
     const s = sceneApprovalState(core.db, req.params.id, { root: core.root });
     return { state: s.state, ...(s.versionId ? { version_id: s.versionId } : {}), ...(s.versionNumber ? { version_number: s.versionNumber } : {}) };

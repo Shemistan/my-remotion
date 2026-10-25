@@ -6,11 +6,12 @@
 import type { VideoSceneDto } from "@ms/contracts";
 import type { ReactElement } from "react";
 import {
-  useCancelVideoBatch, useVideoGenerate, useVideoScenes, videoAllKey, videoRetryKey, videoScenesErrorText,
+  skipReasonText, useCancelVideoBatch, useVideoGenerate, useVideoScenes, videoAllKey, videoReadySkipped, videoRetryKey,
 } from "../../api/video-scenes-client.js";
 import { BatchBar } from "../../components/script/BatchBar.js";
 import "../../components/script/script.css";
 import { VideoSceneTile } from "../../components/video-scenes/VideoSceneTile.js";
+import { VideoScenesError } from "../../components/video-scenes/VideoScenesError.js";
 import { t } from "../../i18n/index.js";
 import type { VideoTabProps } from "./tab-props.js";
 
@@ -22,7 +23,7 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
   const cancel = useCancelVideoBatch(projectId);
 
   if (!hasPlan) return <section className="panel" data-tab="scenes"><p className="muted">{t("videoScenes.stub")}</p></section>;
-  if (q.isError) return <section className="panel" data-tab="scenes"><p className="error">{videoScenesErrorText(q.error)}</p></section>;
+  if (q.isError) return <section className="panel" data-tab="scenes"><VideoScenesError error={q.error} /></section>;
   const s = q.data;
   if (!s) return <section className="panel" data-tab="scenes"><p className="muted">{t("common.loading")}</p></section>;
   if (!s.plan) return <section className="panel" data-tab="scenes"><p className="muted">{t("videoScenes.stub")}</p></section>;
@@ -31,7 +32,8 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
   const numbers = new Map(s.scenes.map((x, i) => [x.item_id, i + 1]));
   const busy = generate.isPending;
   const latest = s.batches[0];
-  const skipped = generate.data?.skipped ?? [];
+  // готовые сцены вне полного пакета — по состоянию (переживает смену вкладки и перезагрузку)
+  const skipped = latest ? videoReadySkipped(latest, s) : [];
 
   const regenerate = (x: VideoSceneDto) =>
     generate.mutate({ body: { revision, item_ids: [x.item_id], regenerate: true }, key: videoRetryKey("regen", x) });
@@ -52,16 +54,16 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
           className="primary"
           disabled={!bValid || busy || s.scenes.length === 0}
           title={t("videoScenes.generateAllHint")}
-          onClick={() => generate.mutate({ body: { revision }, key: videoAllKey(s) })}
+          onClick={() => generate.mutate({ body: { revision }, key: videoAllKey(s, data.style) })}
         >
           {t("videoScenes.generateAll")}
         </button>
       </div>
-      {latest ? <BatchBar projectId={projectId} batch={latest} cancel={cancel} cost={false} /> : null}
-      {generate.isError ? <p className="error" role="alert">{videoScenesErrorText(generate.error)}</p> : null}
+      {latest ? <BatchBar projectId={projectId} batch={latest} readySkipped={skipped.length} cancel={cancel} cost={false} /> : null}
+      {generate.isError ? <VideoScenesError error={generate.error} /> : null}
       {skipped.length > 0 ? (
         <p className="muted small" data-testid="skipped">
-          {t("videoScenes.skipped", { list: skipped.map((x) => t("videoScenes.skippedItem", { n: numbers.get(x.item_id) ?? "?", reason: x.reason })).join("; ") })}
+          {t("videoScenes.skipped", { list: skipped.map((x) => t("videoScenes.skippedItem", { n: numbers.get(x.item_id) ?? "?", reason: skipReasonText(x.reason) })).join("; ") })}
         </p>
       ) : null}
       {s.scenes.length === 0 ? <p className="hint">{t("videoScenes.empty.noScenes")}</p> : null}

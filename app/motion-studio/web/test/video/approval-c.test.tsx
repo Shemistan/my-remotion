@@ -67,7 +67,22 @@ describe("Approval C сцены", () => {
     const approve = screen.getByRole("button", { name: t("videoScenes.c.approve") }) as HTMLButtonElement;
     await waitFor(() => expect(approve.disabled).toBe(false));
     fireEvent.click(approve);
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(t("videoScenes.error.plan_changed")));
+    const card = await screen.findByRole("alert");
+    expect(card.getAttribute("data-error-code")).toBe("plan_changed");
+    expect(card.querySelector(".error-title")!.textContent).toBe(t("videoScenes.error.plan_changed"));
+  });
+
+  it("версия не загрузилась — ошибка видна, кнопка доступна; утверждение — через подтверждение (QA неизвестен)", async () => {
+    const { calls } = fakeFetch([on("GET", "/api/versions/ver_1", { error: "internal", message: "сбой" }, 500), on("POST", APPROVE, approved, 201)]);
+    renderQ(btn());
+    await waitFor(() => expect(screen.getByTestId("approval-c-version-error")).toBeTruthy());
+    const approve = screen.getByRole("button", { name: t("videoScenes.c.approve") }) as HTMLButtonElement;
+    expect(approve.disabled).toBe(false);
+    fireEvent.click(approve);
+    expect(screen.getByRole("alertdialog").textContent).toContain(t("videoScenes.c.qaUnknown", { n: 1 }));
+    expect(posts(calls, APPROVE)).toEqual([]);
+    fireEvent.click(screen.getByRole("button", { name: t("videoScenes.c.confirm") }));
+    await waitFor(() => expect(posts(calls, APPROVE)).toHaveLength(1));
   });
 
   it("подписи состояний", () => {

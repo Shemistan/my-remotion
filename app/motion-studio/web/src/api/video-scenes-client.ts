@@ -5,8 +5,8 @@
 import type { Approval, Job, SceneApprovalDto, VideoBatchDto, VideoGenerateBody, VideoSceneDto, VideoScenesStateDto } from "@ms/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { shortHash } from "../script/output.js";
-import { errorText, tk } from "../i18n/index.js";
-import { ApiError, newKey, request } from "./client.js";
+import { tk } from "../i18n/index.js";
+import { newKey, request } from "./client.js";
 import { isActive } from "./queries.js";
 
 const enc = encodeURIComponent;
@@ -74,13 +74,28 @@ export function videoRetryKey(kind: "retry" | "regen", s: Pick<VideoSceneDto, "i
   return `video-${kind}:${s.item_id}:${s.job?.id ?? "nojob"}:${s.version_id ?? "nover"}`;
 }
 
-/** Ключ «Сгенерировать все»: ревизия плана и задачи сцен — до новой задачи тот же. */
-export function videoAllKey(s: Pick<VideoScenesStateDto, "plan" | "scenes">): string {
-  return `video-all:r${s.plan?.revision ?? 0}:${shortHash(s.scenes.map((x) => `${x.item_id}=${x.job?.id ?? "-"}`).join(","))}`;
+/**
+ * Ключ «Сгенерировать все» (как ключ генерации сценария, ревью I2): план и его ревизия, стиль, и по
+ * каждой сцене — задача и её статус, `stale`, версия. Повторное нажатие при том же состоянии — тот
+ * же пакет; после отмены, падения, новой версии или смены стиля — новый ключ.
+ */
+export function videoAllKey(s: Pick<VideoScenesStateDto, "plan" | "scenes">, style: { id: string; current_revision: number } | null): string {
+  const scenes = s.scenes.map((x) => `${x.item_id}=${x.job?.id ?? "-"}/${x.job?.status ?? "-"}/${x.stale ? 1 : 0}/${x.version_id ?? "-"}`).join(",");
+  const base = `${s.plan?.id ?? "noplan"}@r${s.plan?.revision ?? 0}:${style ? `${style.id}@r${style.current_revision}` : "nostyle"}:${scenes}`;
+  return `video-all:r${s.plan?.revision ?? 0}:${shortHash(base)}`;
 }
 
-
-/** Текст ошибки маршрутов сцен: свои коды (B вместо A, plan_changed …) — из словаря области. */
-export function videoScenesErrorText(e: unknown): string {
-  return e instanceof ApiError ? tk(`videoScenes.error.${e.code}`, errorText(e)) : errorText(e);
+/**
+ * Готовые сцены, не вошедшие в полный пакет (ревью I1, по образцу `readySkipped` сценария): по
+ * состоянию, а не по ответу запроса — переживает смену вкладки и перезагрузку. Пакет полный и по
+ * текущей ревизии плана; сцены — принятые сцены плана (`scenes` состояния), готовые, не устаревшие
+ * и не в пакете. Частичный пакет («Повторить», «Перегенерировать») не досчитывается.
+ */
+export function videoReadySkipped(batch: VideoBatchDto, s: Pick<VideoScenesStateDto, "plan" | "scenes">): { item_id: string; reason: string }[] {
+  if (!batch.full || !s.plan || s.plan.revision !== batch.plan_revision) return [];
+  const inBatch = new Set(batch.items.map((x) => x.item_id));
+  return s.scenes.filter((x) => x.status === "ready" && !x.stale && !inBatch.has(x.item_id)).map((x) => ({ item_id: x.item_id, reason: "ready_version" }));
 }
+
+/** Причина «не вошли»: код сервера → словарь; неизвестный код (или текст) — как есть. */
+export const skipReasonText = (reason: string): string => tk(`videoScenes.skipReason.${reason}`, reason);

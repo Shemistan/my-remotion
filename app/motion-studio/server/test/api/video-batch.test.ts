@@ -107,6 +107,30 @@ describe("API сцен видеопроекта (Task 40)", () => {
     const un = await api.inj("POST", `/api/scenes/${x.scene_id}/unapprove`, okHeaders);
     expect(un.statusCode, un.body).toBe(200);
     expect(un.json().state).toBe("missing");
+    // проект в корзине — снятие C отказано (как и утверждение), строка C не тронута
+    expect((await api.inj("POST", `/api/scenes/${x.scene_id}/approve`, okHeaders, { version_id: ok })).statusCode).toBe(201);
+    api.core.db.prepare("UPDATE projects SET deleted_at = ? WHERE id = ?").run(new Date().toISOString(), P);
+    const gone = await api.inj("POST", `/api/scenes/${x.scene_id}/unapprove`, okHeaders);
+    expect(gone.statusCode, gone.body).toBe(409);
+    expect(gone.json().error).toBe("project_deleted");
+    api.core.db.prepare("UPDATE projects SET deleted_at = NULL WHERE id = ?").run(P);
+    expect((await api.inj("GET", `/api/projects/${P}/video/scenes`)).json().scenes.find((s: { item_id: string }) => s.item_id === "sp_001").approval.state).toBe("valid");
+  });
+
+  it("пакет: полный (без item_ids и regenerate) — full: true, частичный — false; пропущенные — код причины", async () => {
+    approveB();
+    const part = await api.inj("POST", `/api/projects/${P}/video/generate`, key("f1"), { revision: 1, item_ids: ["sp_001"] });
+    expect(part.json().full).toBe(false);
+    await publishVersion(part.json().items[0].job.id);
+    // задача пакета завершена (обработчиков нет — завершаем вручную), иначе она вошла бы как идущая
+    jobs.update(api.core.db, part.json().items[0].job.id, { status: "completed" });
+    const all = await api.inj("POST", `/api/projects/${P}/video/generate`, key("f2"), { revision: 1 });
+    expect(all.statusCode, all.body).toBe(202);
+    expect(all.json().full).toBe(true);
+    expect(all.json().skipped).toEqual([{ item_id: "sp_001", reason: "ready_version" }]);
+    expect((await api.inj("GET", `/api/video-batches/${all.json().id}`)).json().full).toBe(true);
+    const state = (await api.inj("GET", `/api/projects/${P}/video/scenes`)).json();
+    expect(state.batches.map((b: { full: boolean }) => b.full)).toEqual([true, false]);
   });
 
   it("approve версии, сделанной не по текущей сцене плана → 409 plan_changed (root в approveScene)", async () => {
