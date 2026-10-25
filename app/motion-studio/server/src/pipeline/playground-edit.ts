@@ -8,6 +8,7 @@
 // план обещал сохранить, сверяет `checkPreserve` (spec и раскладка props.content), а «сохрани
 // композицию» — ещё и реестр раскладки кадра hold базы и правки (`compareHoldLayout`). Публикация — от базы (`parent_version_id`),
 // с `edit_plan` и `changed_files`; ответ Edit Planner — в чат.
+import { readFileSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -17,8 +18,10 @@ import {
   type HistoryEntry,
   type MotionSpec,
   MotionSpecSchema,
+  type QAIssue,
   type ScriptSceneContext,
   ScriptSceneContextSchema,
+  ScriptPlanRevisionDocSchema,
   type Settings,
   SettingsFieldsSchema,
   SettingsSchema,
@@ -28,6 +31,7 @@ import { buildEditPlannerTask } from "../agents/prompts.js";
 import type { Db } from "../db/open.js";
 import * as chat from "../db/repos/chat.js";
 import * as jobs from "../db/repos/jobs.js";
+import * as plans from "../db/repos/plans.js";
 import * as scenes from "../db/repos/scenes.js";
 import * as versions from "../db/repos/versions.js";
 import { setOutputRefs } from "../jobs/queue.js";
@@ -231,6 +235,11 @@ function elementTexts(spec: MotionSpec, ids: string[]): string[] {
 }
 
 /** Заголовок первого вызова Engineer в правке кода: копия базы и что менять. */
+/** F7: ограничение длительности сцены сценария для Engineer. */
+function durationBrief(planned: number | undefined): string {
+  return planned === undefined ? "" : `\n\n## Длительность\nДлительность сцены фиксирована планом сценария: ${planned} кадров — \`duration_frames\` в spec и props.timing не меняй; темп меняй внутри сцены.`;
+}
+
 function editBrief(plan: EditPlan, baseNumber: number): string {
   return [
     `# Правка версии ${baseNumber}`,
@@ -259,6 +268,32 @@ export function scriptSpeechWindow(db: Db, sceneId: string, total: number): Spee
   return speech > 0 ? { lead: c.lead_frames, speech, tail: c.tail_frames } : undefined;
 }
 
+/**
+ * S16a F7: длительность сцены сценария по плану — `frames.total` сцены плана из входа `script`
+ * генерации; ревизии или сцены нет, файл не читается — `undefined` (длительность не фиксируется).
+ */
+export function scriptPlannedFrames(db: Db, root: string, c: ScriptSceneContext): number | undefined {
+  const row = plans.revision(db, c.plan_id, c.plan_revision);
+  if (!row) return undefined;
+  try {
+    const doc = ScriptPlanRevisionDocSchema.parse(JSON.parse(readFileSync(join(root, row.rel_path), "utf8")));
+    return doc.items.find((x) => x.id === c.item_id)?.frames.total;
+  } catch {
+    return undefined;
+  }
+}
+
+/** S16a F7: длительность версии сцены сценария не по плану — blocking `duration_changed`. */
+export function durationChecks(v: { spec: MotionSpec; settings: Settings }, planned: number): QAIssue[] {
+  const got = v.settings.duration_frames !== planned ? v.settings.duration_frames : v.spec.duration_frames;
+  if (got === planned) return [];
+  return [{
+    source: "programmatic", code: "duration_changed", severity: "blocking",
+    description: `длительность сцены ${got} кадров вместо ${planned} по плану сценария — клип не встанет на свою фразу`,
+    fix_hint: `верни duration_frames = ${planned} в spec и props.timing; темп меняй внутри сцены (биты, задержки), не её длиной`,
+  }];
+}
+
 /** Вход `script` последней генерации сцены с ним (сцена сценария); нет — `undefined`. */
 export function scriptContextOf(db: Db, sceneId: string): ScriptSceneContext | undefined {
   const gens = jobs.list(db, { sceneId }).filter((j) => j.type === "playground.generate").reverse();
@@ -283,8 +318,18 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
     if (!scene) return fail(`сцены нет: ${sceneId}`);
     const message = input.messageId ? chat.list(ctx.db, sceneId).find((m) => m.id === input.messageId)?.text : undefined;
     if (input.messageId && message === undefined) return fail(`сообщения ${input.messageId} нет в чате сцены`);
-    const patch = (input.settings_patch ?? {}) as Partial<Settings>;
+    const patch = { ...(input.settings_patch ?? {}) } as Partial<Settings>;
     if (!input.plan && message === undefined && Object.keys(patch).length === 0) return fail("правка без сообщения, плана и патча настроек");
+    // S16a F7: сцена сценария — длительность фиксирована планом (клип стоит на своей фразе)
+    const scriptCtx = scriptContextOf(ctx.db, sceneId);
+    const planned = scriptCtx ? scriptPlannedFrames(ctx.db, d.repo.root, scriptCtx) : undefined;
+    const lockNotes: string[] = [];
+    const lockNote = (fps: { num: number; den: number }) =>
+      `Длительность сцены сценария фиксирована планом: ${planned} кадров (${(((planned ?? 0) * fps.den) / fps.num).toFixed(1).replace(".", ",")} с) — темп меняется внутри сцены, не её длиной.`;
+    if (planned !== undefined && patch.duration_frames !== undefined && patch.duration_frames !== planned) {
+      delete patch.duration_frames;
+      lockNotes.push("lock");
+    }
 
     const sceneRow = (id: string | undefined) => {
       const r = id ? versions.get(ctx.db, id) : undefined;
@@ -355,10 +400,22 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
           }
         }
       }
+      // F7: «медленнее/быстрее» у сцены сценария — не длина, а темп внутри: Director перестроит биты в той же длительности
+      if (planned !== undefined && raw.timing_scale !== undefined && raw.timing_scale !== 1) {
+        const k = Math.round(raw.timing_scale * 1000) / 1000;
+        const { timing_scale: _scale, ...rest } = raw;
+        void _scale;
+        raw = {
+          ...rest, path: raw.path === "param" ? "spec" : raw.path,
+          changes: [...raw.changes.map((c) => (raw.path === "param" ? { ...c, kind: "spec" as const } : c)),
+            { target: "timing", kind: "spec", description: `темп × ${k} внутри сцены: длительность ${planned} кадров (план сценария) не меняется` }],
+        };
+        lockNotes.push("lock");
+      }
       if (touchesGeometry(patch) && raw.path === "param") raw = { ...raw, path: "spec", changes: raw.changes.map((c) => ({ ...c, kind: "spec" })) };
       const norm = normalizePlan(raw, base.row.id, history, patch, base.spec);
       let plan = norm.plan;
-      notes = norm.notes;
+      notes = [...norm.notes, ...(lockNotes.length > 0 ? [lockNote(base.row.settings.fps)] : [])];
       for (const n of notes) rc.warnings.push(n);
       rc.log(`план правки: ${plan.path}; ${plan.changes.map((c) => c.target).join(", ") || "—"}${plan.preserve.length > 0 ? `; сохранить: ${plan.preserve.join(", ")}` : ""}`);
       const baseCaps = base.selection.items.map((i) => gd.kb.getCapability(i.kb_id)).filter((v): v is CapabilityView => v !== undefined);
@@ -400,6 +457,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
       let settings: Settings;
       try {
         settings = codeSettings(base.row.settings, plan, patch);
+        if (planned !== undefined) settings = SettingsSchema.parse({ ...settings, duration_frames: planned });
       } catch (e) {
         return { kind: "failed", stage: "prepare", message: `настройки правки не годятся: ${errText(e)}` };
       }
@@ -434,7 +492,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
         spec: kept.spec,
         candidates,
         settings,
-        edit: { ...common, plan, brief: editBrief(plan, base.row.number), preserveCheck: (props, spec) => checkPreserve(baseSpec, spec, baseProps, props, loopPreserve, 0.02, { size: settings }), ...holdFor(loopPreserve, settings, removedTexts) },
+        edit: { ...common, plan, brief: editBrief(plan, base.row.number) + durationBrief(planned), preserveCheck: (props, spec) => checkPreserve(baseSpec, spec, baseProps, props, loopPreserve, 0.02, { size: settings }), ...holdFor(loopPreserve, settings, removedTexts) },
       };
     };
 
@@ -456,12 +514,11 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
       permits: { agents: ctx.agents, renders: ctx.renders },
       progress: (p, stage) => ctx.progress(p, stage),
     };
-    // сцена сценария (I3): проверка наложения с transparent и в правке — как в генерации
-    const scriptScene = scriptContextOf(ctx.db, sceneId) !== undefined;
+    // сцена сценария (I3): проверка наложения с transparent и в правке — как в генерации; F7 — длительность по плану
     const r = await runGeneration(
       {
         prompt, settings: base.row.settings, qa: { allowRestricted: input.allowRestricted ?? false }, keepBrief: true, plan: planEdit,
-        ...(scriptScene ? { extraQa: (v) => overlayChecks(v) } : {}),
+        ...(scriptCtx ? { extraQa: async (v) => [...(await overlayChecks(v)), ...(planned !== undefined ? durationChecks(v, planned) : [])] } : {}),
       },
       deps,
       ctx.signal,
