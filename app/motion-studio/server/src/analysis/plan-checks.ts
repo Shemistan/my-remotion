@@ -5,7 +5,7 @@
 // (перепроверка их не пересчитала): в наложение, промежутки и покрытие не входят.
 import type { FootageAnalysis, PlanIssue, ScenePlanItem } from "@ms/contracts";
 import type { PlanningConfig } from "./plan-build.js";
-import { facesAt, occupiedAt } from "./planner-input.js";
+import { SPLIT_FACE_CENTER, faceSide, facesAt, occupiedAt } from "./planner-input.js";
 import { ZONE_TITLE, freeZones } from "./zones.js";
 
 /** Режимы поверх кадра с автором: лицо и занятые зоны проверяются. */
@@ -13,11 +13,8 @@ const OVER_AUTHOR = new Set<ScenePlanItem["composition_mode"]>(["overlay", "call
 const FULLSCREEN = new Set<ScenePlanItem["composition_mode"]>(["fullscreen", "split_screen"]);
 /** Свободная доля зоны в окнах сцены ниже этой — `zone_occupied` (warning). */
 export const ZONE_FREE_MIN = 0.85;
-/**
- * Центр рамки лица по x в этих границах — автор в центре кадра: половина экрана под графику
- * закроет лицо, а перекадрировать автора нельзя (Р-V5, Phase 3 F6) — blocking `split_face_center`.
- */
-export const SPLIT_FACE_CENTER: readonly [number, number] = [0.35, 0.65];
+/** Порог «автор в центре» — общий с `face_zone` планировщика (planner-input). */
+export { SPLIT_FACE_CENTER };
 
 export interface PlanCheckContext {
   editedDurationUs: number;
@@ -56,10 +53,7 @@ export function planChecks(items: ScenePlanItem[], ctx: PlanCheckContext): PlanI
       }
     }
     if (ctx.footage && x.composition_mode === "split_screen") {
-      const faces = facesAt(ctx.footage, x.source);
-      const big = faces.length === 0 ? undefined : faces.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
-      const cx = big ? big.x + big.w / 2 : undefined;
-      if (cx !== undefined && cx >= SPLIT_FACE_CENTER[0] && cx <= SPLIT_FACE_CENTER[1]) {
+      if (faceSide(facesAt(ctx.footage, x.source)) === "center") {
         add("split_face_center", "blocking", "автор в центре кадра — половина экрана под графику закроет лицо: выберите оверлей в свободной зоне или полный экран", x.id);
       }
     }

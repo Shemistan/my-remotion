@@ -2,7 +2,8 @@
 // половина экрана под графику закрыла бы лицо (автор не перекадрируется). blocking split_face_center.
 import { describe, expect, it } from "vitest";
 import type { NormRect, ScenePlanItem } from "@ms/contracts";
-import { planChecks } from "../../src/analysis/plan-checks.js";
+import { SPLIT_FACE_CENTER, planChecks } from "../../src/analysis/plan-checks.js";
+import { SPLIT_FACE_CENTER as INPUT_CENTER, faceSide } from "../../src/analysis/planner-input.js";
 import { ZONE_RECTS } from "../../src/analysis/zones.js";
 import { P, footage, sc } from "./plan-helpers.js";
 
@@ -26,5 +27,17 @@ describe("split_face_center", () => {
     expect(codes(run(undefined))).not.toContain("split_face_center");
     expect(codes(planChecks([sc(1_000_000, 4_000_000, split)], { editedDurationUs: 60_000_000, cfg: P }))).not.toContain("split_face_center");
     expect(codes(run(0.5, { composition_mode: "fullscreen", zone: "full", rect: ZONE_RECTS.full }))).not.toContain("split_face_center");
+  });
+
+  it("один порог с face_zone планировщика: 0,37 — center и blocking, 0,30 — left и не blocking", () => {
+    expect(SPLIT_FACE_CENTER).toBe(INPUT_CENTER);
+    expect(faceSide([face(0.37)])).toBe("center");
+    expect(codes(run(0.37))).toContain("split_face_center");
+    expect(faceSide([face(0.63)])).toBe("center");
+    expect(codes(run(0.63))).toContain("split_face_center");
+    expect(faceSide([face(0.3)])).toBe("left");
+    expect(codes(run(0.3))).not.toContain("split_face_center");
+    expect(faceSide([face(0.7)])).toBe("right");
+    expect(codes(run(0.7))).not.toContain("split_face_center");
   });
 });

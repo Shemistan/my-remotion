@@ -88,12 +88,25 @@ export function facesAt(footage: FootageAnalysis, src: { start_us: number; end_u
   return dedupRects(shotsIn(footage, src).flatMap((s) => (s.face.union ? [s.face.union] : [])));
 }
 
-/** Сторона кадра крупнейшего лица: центр < 0,4 — слева, > 0,6 — справа. */
-export function faceSide(faces: readonly NormRect[]): FootageAtAnchor["face_zone"] {
-  if (faces.length === 0) return "absent";
+/**
+ * Центр рамки лица по x в этих границах — автор в центре кадра: `face_zone: center` у планировщика и
+ * blocking `split_face_center` в проверках плана (половина экрана под графику закроет лицо, Р-V5).
+ * Один порог на оба места — что планировщик видит как center, то проверка и блокирует.
+ */
+export const SPLIT_FACE_CENTER: readonly [number, number] = [0.35, 0.65];
+
+/** Центр по x крупнейшего лица; лиц нет — undefined. */
+export function faceCenterX(faces: readonly NormRect[]): number | undefined {
+  if (faces.length === 0) return undefined;
   const big = faces.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
-  const cx = big.x + big.w / 2;
-  return cx < 0.4 ? "left" : cx > 0.6 ? "right" : "center";
+  return big.x + big.w / 2;
+}
+
+/** Сторона кадра крупнейшего лица по `SPLIT_FACE_CENTER`: левее — left, правее — right, внутри — center. */
+export function faceSide(faces: readonly NormRect[]): FootageAtAnchor["face_zone"] {
+  const cx = faceCenterX(faces);
+  if (cx === undefined) return "absent";
+  return cx < SPLIT_FACE_CENTER[0] ? "left" : cx > SPLIT_FACE_CENTER[1] ? "right" : "center";
 }
 
 /** Свободные зоны в долях (без прямоугольников) — то, что видит планировщик. */
