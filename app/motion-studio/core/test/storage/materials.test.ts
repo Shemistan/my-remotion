@@ -1,4 +1,4 @@
-import { mkdirSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -7,6 +7,7 @@ import {
   SSD_ROOT,
   assertInMaterials,
   assertSsdWriteAllowed,
+  isInMaterials,
   materialsAdvice,
   materialsPath,
   materialsRoot,
@@ -85,6 +86,17 @@ describe("assertInMaterials", () => {
       expect(() => assertInMaterials(p, env), p).toThrow(MaterialsPathError);
     }
     expect(() => assertInMaterials(join(ssd, "MotionStudio"), env)).toThrow(/только внутри .*moution-studio-materials/);
+  });
+
+  it("APFS без учёта регистра: путь в другом регистре — тот же каталог (realpath.native, ревью S18 M1)", () => {
+    const upper = join(tmp, "SSD", "MOUTION-STUDIO-MATERIALS");
+    if (!existsSync(upper)) return; // ФС с учётом регистра — случай неприменим
+    expect(isInMaterials(join(upper, "store"), env)).toBe(true);
+    expect(() => assertInMaterials(join(upper, "e2e", "new"), env)).not.toThrow();
+    expect(isInMaterials(join(root, "store"), { MS_MATERIALS_ROOT: upper })).toBe(true);
+    // и в обратную сторону: соседняя папка в другом регистре остаётся вне материалов
+    mkdirSync(join(ssd, "Other"));
+    expect(isInMaterials(join(tmp, "SSD", "OTHER"), env)).toBe(false);
   });
 
   it("симлинк внутри материалов, ведущий наружу, — ошибка (realpath)", () => {

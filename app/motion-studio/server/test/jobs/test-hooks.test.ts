@@ -113,6 +113,10 @@ describe("testHooks", () => {
     // корень материалов переопределён (MS_MATERIALS_ROOT) — область acceptance берётся из него
     expect(() => hooks(join(acc, "store"), { MS_MATERIALS_ROOT: "/Volumes/Other/m" })).toThrow(/acceptance/);
     expect(hooks("/Volumes/Other/m/acceptance/store", { MS_MATERIALS_ROOT: "/Volumes/Other/m" })).toBeDefined();
+    // рабочее хранилище по умолчанию запрещено при любом MS_MATERIALS_ROOT (ревью S18 M2)
+    const store = join(MATERIALS_ROOT, "store");
+    expect(() => hooks(join(store, "acceptance", "x"), { MS_MATERIALS_ROOT: store })).toThrow(/рабочем хранилище/);
+    expect(() => hooks(join(store, "x", "acceptance", "y"), { MS_MATERIALS_ROOT: join(store, "x") })).toThrow(/рабочем хранилище/);
     expect(hooks(env.s.root)).toBeDefined(); // tmp/ репозитория
     expect(hooks(join(tmpdir(), "ms-hooks-store"))).toBeDefined();
   });

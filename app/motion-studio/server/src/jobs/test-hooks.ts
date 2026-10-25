@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { materialsRoot, spawnTracked } from "@ms/core";
+import { MATERIALS_ROOT, materialsRoot, spawnTracked } from "@ms/core";
 import type { exportVersion } from "@ms/render";
 import * as jobs from "../db/repos/jobs.js";
 import type { Handlers, JobContext } from "./types.js";
@@ -46,7 +46,7 @@ const inside = (dir: string, root: string) => {
 };
 const real = (p: string) => {
   try {
-    return realpathSync(p);
+    return realpathSync.native(p);
   } catch {
     return p;
   }
@@ -57,6 +57,11 @@ function allowedDataDir(env: NodeJS.ProcessEnv): void {
   const d = env.MS_DATA_DIR?.trim();
   if (!d) throw new Error("MS_TEST_HOOKS=1 требует MS_DATA_DIR (хранилище приёмки в папке материалов acceptance/)");
   const abs = resolve(d);
+  // рабочее хранилище по умолчанию — никогда, как бы ни был задан MS_MATERIALS_ROOT
+  const store = join(MATERIALS_ROOT, "store");
+  if (abs === store || inside(abs, store) || real(abs) === real(store) || inside(real(abs), real(store))) {
+    throw new Error(`MS_TEST_HOOKS=1 запрещён на рабочем хранилище ${store}: только хранилище приёмки (acceptance/ папки материалов) или временный каталог`);
+  }
   const acc = join(materialsRoot(env), "acceptance");
   if (inside(abs, acc) || inside(real(abs), real(acc))) return;
   const temp = [tmpdir(), REPO_TMP].flatMap((t) => [resolve(t), real(t)]);

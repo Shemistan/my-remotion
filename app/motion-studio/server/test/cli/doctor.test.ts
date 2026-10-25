@@ -230,6 +230,14 @@ describe("полный doctor (03 §7)", () => {
     const materials = join(ssd, "moution-studio-materials");
     await mkdir(join(materials, "store"), { recursive: true });
     const old = join(ssd, "MotionStudio");
+    // --init / --adopt вне папки материалов на её SSD — отказ, каталог не создаётся (ревью S18, I1)
+    for (const mode of ["--init", "--adopt"]) {
+      const r = await runDoctor([mode], { MS_DATA_DIR: old, MS_MATERIALS_ROOT: materials }, probe, browser);
+      expect(r.code, mode).toBe(1);
+      expect(JSON.parse(r.output), mode).toMatchObject({ ok: false, reason: "outside_materials", detail: expect.stringContaining(join(materials, "store")) });
+      expect(existsSync(old), mode).toBe(false);
+    }
+    // «старое» хранилище для проверки warning: создано, пока корень материалов — по умолчанию (tmp не на том SSD)
     await runDoctor(["--init"], { MS_DATA_DIR: old }, probe, browser);
     const env = { MS_DATA_DIR: old, MS_MATERIALS_ROOT: materials, PATH: fakeBin() };
     const r = await runDoctor(["--json"], env, probe, browser, asrOk, visionOk);
@@ -242,9 +250,16 @@ describe("полный doctor (03 §7)", () => {
     expect(t.output).toMatch(/предупреждения: materials/);
 
     const inside = join(materials, "store", "s");
-    await runDoctor(["--init"], { MS_DATA_DIR: inside }, probe, browser);
+    expect((await runDoctor(["--init"], { MS_DATA_DIR: inside, MS_MATERIALS_ROOT: materials }, probe, browser)).code).toBe(0);
     const ok = checks((await runDoctor(["--json"], { ...env, MS_DATA_DIR: inside }, probe, browser, asrOk, visionOk)).output);
     expect(ok.materials).toBeUndefined();
+  });
+
+  it("S18 (ревью M3): относительный MS_MATERIALS_ROOT → строка error materials, а не исключение", async () => {
+    const root = await store();
+    const r = await runDoctor(["--json"], { MS_DATA_DIR: root, MS_MATERIALS_ROOT: "rel/dir", PATH: fakeBin() }, probe, browser, asrOk, visionOk);
+    expect(checks(r.output).materials).toMatchObject({ ok: false, status: "error", detail: expect.stringContaining("MS_MATERIALS_ROOT") });
+    expect(r.code).toBe(1);
   });
 
   it("S18: --init на системном томе по-прежнему отказ (хранилище не создаётся)", async () => {

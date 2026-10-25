@@ -24,7 +24,10 @@ import {
   checkStorage,
   initStore,
   macosProbe,
+  MaterialsPathError,
+  assertSsdWriteAllowed,
   materialsAdvice,
+  materialsRoot,
   StorageError,
   type StorageEnv,
   type StorageStatus,
@@ -102,6 +105,20 @@ export async function runDoctor(
 
   const root = env.MS_DATA_DIR?.trim();
   if (!root) return report({ ok: false, reason: "env_missing", detail: "MS_DATA_DIR не задан" });
+  // S18: на SSD материалов хранилище создаётся/привязывается только внутри папки материалов
+  try {
+    assertSsdWriteAllowed(root, env);
+  } catch (e) {
+    if (!(e instanceof MaterialsPathError)) throw e;
+    const hint = (() => {
+      try {
+        return `; задайте MS_DATA_DIR="${join(materialsRoot(env), "store")}"`;
+      } catch {
+        return "";
+      }
+    })();
+    return { code: 1, output: JSON.stringify({ ok: false, reason: "outside_materials", detail: `${e.message}${hint}` }, null, 2) };
+  }
   try {
     await initStore(root, probe, { adopt: mode === "--adopt", allowSystemDisk: env.MS_ALLOW_SYSTEM_DISK === "1" });
   } catch (e) {
@@ -221,8 +238,12 @@ async function fullCheck(env: NodeJS.ProcessEnv, probe: VolumeProbe, browser: Br
   const storage: StorageStatus = root ? await checkStorage(env as StorageEnv, probe) : { ok: false, reason: "env_missing", detail: "MS_DATA_DIR не задан" };
   row("storage", storage.ok, storage.ok ? "ok" : storage.reason, storage.ok ? `${storage.root}, свободно ${(storage.freeBytes / 1024 ** 3).toFixed(1)} ГБ` : storage.detail);
   // S18: на SSD материалов хранилище — только в папке материалов; вне её — предупреждение (ADR 0006)
-  const advice = root ? materialsAdvice(root, env) : undefined;
-  if (advice) rows.push({ name: "materials", ok: true, status: "warning", detail: advice });
+  try {
+    const advice = root ? materialsAdvice(root, env) : undefined;
+    if (advice) rows.push({ name: "materials", ok: true, status: "warning", detail: advice });
+  } catch (e) {
+    row("materials", false, "error", errText(e)); // напр. относительный MS_MATERIALS_ROOT
+  }
 
   // Chrome Headless Shell
   try {

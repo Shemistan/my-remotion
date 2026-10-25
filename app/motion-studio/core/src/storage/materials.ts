@@ -70,7 +70,8 @@ function realish(p: string): string {
     cur = up;
   }
   try {
-    return join(realpathSync(cur), ...tail);
+    // .native — канонический регистр (APFS без учёта регистра: `/volumes/external ssd/…` — тот же путь)
+    return join(realpathSync.native(cur), ...tail);
   } catch {
     return abs;
   }
