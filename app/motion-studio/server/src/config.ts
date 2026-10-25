@@ -154,7 +154,7 @@ export interface AppConfig {
 const OPUS_ROLES: readonly Role[] = ["motion_director", "engineer"];
 /** Роли малой модели (S15b): сверка текста со фрагментом — дешёвый вызов на каждую попытку. */
 const SMALL_ROLES: readonly Role[] = ["fragment_fit"];
-const AGENT_TIMEOUT_MS = 10 * 60_000;
+const AGENT_TIMEOUT_MS = 20 * 60_000;
 const AGENT_BUDGET_USD = 2;
 
 // Корень репозитория: server/src → ../../../..

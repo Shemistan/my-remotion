@@ -24,14 +24,14 @@ it("defaults: limits from Global Constraints", () => {
     agentRuntime: "claude-code",
     scene: { maxCostUsd: 5, maxAutoFixes: 2 },
   });
-  expect(c.agents.engineer).toEqual({ model: "opus", timeoutMs: 600_000, maxBudgetUsd: 2 });
+  expect(c.agents.engineer).toEqual({ model: "opus", timeoutMs: 1_200_000, maxBudgetUsd: 2 });
   expect(c.kb.root).toMatch(/\/knowledge$/);
 });
 
 it("config.json overrides one key and keeps the rest", () => {
   const c = loadConfig({ MS_DATA_DIR: root }, { agents: { engineer: { model: "sonnet" } } });
   expect(c.agents.engineer.model).toBe("sonnet");
-  expect(c.agents.engineer.timeoutMs).toBe(600_000);
+  expect(c.agents.engineer.timeoutMs).toBe(1_200_000);
   expect(c.agents.motion_director.model).toBe("opus");
 });
 
@@ -92,13 +92,13 @@ it("model names are validated; maxBudgetUsd has an upper bound", () => {
   expect(() => load({ maxBudgetUsd: 51 })).toThrow(/config\.json/);
 });
 
-it("Task 20: limits (агенты 5, рендеры 2 — по коду семафоров S5) и defaults: Settings; config.json их меняет", () => {
+it("Task 20: limits (агенты 10, рендеры 3 — по коду семафоров S5) и defaults: Settings; config.json их меняет", () => {
   const c = loadConfig({ MS_DATA_DIR: root });
-  expect(c.limits).toEqual({ maxRunning: 2, agentCalls: 5, renders: 2, exportTimeoutMs: 1_800_000 });
+  expect(c.limits).toEqual({ maxRunning: 5, agentCalls: 10, renders: 3, exportTimeoutMs: 1_800_000 });
   expect(c.defaults).toEqual(defaultSettings());
   const d = { ...defaultSettings(), duration_frames: 300 };
   const f = loadConfig({ MS_DATA_DIR: root }, { limits: { maxRunning: 1, renders: 1 }, defaults: d });
-  expect(f.limits).toEqual({ maxRunning: 1, agentCalls: 5, renders: 1, exportTimeoutMs: 1_800_000 });
+  expect(f.limits).toEqual({ maxRunning: 1, agentCalls: 10, renders: 1, exportTimeoutMs: 1_800_000 });
   expect(f.defaults).toEqual(d);
   expect(() => loadConfig({ MS_DATA_DIR: root }, { limits: { nope: 1 } })).toThrow(/limits/);
   expect(() => loadConfig({ MS_DATA_DIR: root }, { limits: { agentCalls: 0 } })).toThrow(/limits\.agentCalls/);

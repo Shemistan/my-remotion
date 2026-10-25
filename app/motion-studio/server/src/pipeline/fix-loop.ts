@@ -50,7 +50,7 @@ export const PREVIEW = { scale: 0.5, crf: 23 };
 /** Масштаб временного прохода пробы (S15b): только DOM-замеры, снимков нет. */
 const SWEEP_SCALE = 0.25;
 /** Время рендера по умолчанию; длинные сцены — `renderTimeoutMs`. */
-const RENDER_TIMEOUT_MS = 5 * 60_000;
+const RENDER_TIMEOUT_MS = 10 * 60_000;
 /** Вызовов Visual QA на один рендер: первый и один повтор (ruling P5). */
 const VISUAL_QA_TRIES = 2;
 const EDIT_TOOLS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
