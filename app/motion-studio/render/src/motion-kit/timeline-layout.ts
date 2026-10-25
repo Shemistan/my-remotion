@@ -83,6 +83,14 @@ export function timelineFit(width: number, frameH: number, orientation: "h" | "v
   return { width: width - 2 * Math.round(node * 2.2), node, label: TIMELINE_LABEL_MIN };
 }
 
+/**
+ * Подпись года у деления под осью (0.5.7): рядом с вехой (ближе `gap` px) — нет, там стебель и
+ * дата вехи (как в 0.5.5); у одиночной вехи — да, её год не теряется («февраль 2025»).
+ */
+export function yearTickShown(x: number, points: readonly { x: number }[], gap: number): boolean {
+  return points.length === 1 || points.every((p) => Math.abs(x - p.x) > gap);
+}
+
 /** Наименьшая ширина подписи вехи по горизонтали, px. */
 export const TIMELINE_LABEL_MIN = 240;
 

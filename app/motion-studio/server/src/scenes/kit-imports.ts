@@ -35,12 +35,20 @@ export async function kitImportsInDir(dir: string): Promise<string[]> {
   return [...out].sort();
 }
 
+const KIT_NS_RE = /import\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s*["']@ms\/motion-kit["']/g;
+
 /**
  * Компоненты kit, которые код и правда ставит в JSX (S15a): импорт `{ A, B as C }` и тег `<A` /
- * `<C` в том же файле. Импорт без тега (`void A`, мёртвый импорт) приём не реализует.
+ * `<C` в том же файле; namespace-импорт `* as K` и тег `<K.A` (ревью S15a, M-6). Импорт без тега
+ * (`void A`, мёртвый импорт) приём не реализует. Ограничение: компонент, переданный пропом или
+ * через переменную (`const T = Timeline; <T />`) или поставленный в другом файле, не виден.
  */
 export function kitJsxUsed(src: string): string[] {
   const out = new Set<string>();
+  for (const m of src.matchAll(KIT_NS_RE)) {
+    const ns = m[1]!.replace(/\$/g, "\\$");
+    for (const t of src.matchAll(new RegExp(`<${ns}\\.([A-Z][\\w$]*)(?=[\\s/>])`, "g"))) out.add(t[1]!);
+  }
   for (const m of src.matchAll(KIT_IMPORT_RE)) {
     if (m[1]) continue;
     for (const part of m[2]!.split(",")) {

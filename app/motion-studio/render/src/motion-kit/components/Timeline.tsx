@@ -16,7 +16,7 @@ import type { Hold } from "../choreo/hold.js";
 import { pathLUT } from "../geometry.js";
 import { Comet, RadarRing, TickLabel, useHoldFrame } from "./HoldLayers.js";
 import { useStyle } from "../style.js";
-import { TIMELINE_LABEL_MIN, timelineLayoutFor, timelineScale } from "../timeline-layout.js";
+import { TIMELINE_LABEL_MIN, timelineLayoutFor, timelineScale, yearTickShown } from "../timeline-layout.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, tracking } from "../tokens.js";
 
 export interface TimelineProps {
@@ -212,11 +212,10 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
           : <TickLabel x={lastPt.x + node * 2.6} y={lastPt.y + node * 4} age={fin.tick.age} text={hold!.label} color={color} anchor="left" />
       ) : null}
 
-      {/* подписи лет у делений (0.5.5): под осью, проявляются с головой; рядом с вехой, чья
-          подпись под осью, — нет (стебель и дата там); у вехи с подписью над осью год под ней
-          остаётся (0.5.6: одна веха «февраль 2025» не теряет подпись 2025) */}
+      {/* подписи лет у делений (0.5.5): под осью, проявляются с головой; рядом с вехой — нет
+          (стебель и дата там), кроме одиночной вехи (0.5.7: «февраль 2025» не теряет 2025) */}
       {h && scale.mode === "years"
-        ? scale.ticks.filter((t) => t.label !== undefined && pts.every((p, i) => i % 2 === 0 || Math.abs(tickAt(t.u).x - p.x) > Math.max(80, node * 4))).map((t, k) => {
+        ? scale.ticks.filter((t) => t.label !== undefined && yearTickShown(tickAt(t.u).x, pts, Math.max(80, node * 4))).map((t, k) => {
             const q = tickAt(t.u);
             const o = clamp01(track * 0.6 + clamp01((reach - t.u) * 10) * 0.4);
             return (

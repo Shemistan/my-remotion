@@ -46,18 +46,31 @@ export const FIX_ONCE: ReadonlySet<string> = new Set(["accent_conflict"]);
 export const REPEAT_MARK = "[повтор после исправления";
 const REPEAT_PREFIX = /^\[повтор после исправления[^\]]*\]\s*/;
 
-/** Ключ замечания: код, область и кадры (поле `frame` и список «кадры …» в описании). */
+/**
+ * Коды безопасности и контракта (ревью S15a, I-1): не понижаются как повтор никогда — сеть,
+ * неверное использование kit (сообщение kit меняется, а замечание без кадра и области),
+ * пустое превью, биты-ссылки spec без бита.
+ */
+export const NEVER_SOFTEN: ReadonlySet<string> = new Set(["network", "kit_misuse", "preview_size", "beat_reference"]);
+
+/**
+ * Ключ замечания: код, область и кадры (поле `frame` и список «кадры …» в описании). Без кадра
+ * или без области — ещё и нормализованное описание: иначе любой другой дефект того же кода
+ * совпал бы по ключу с прошлым (ревью S15a, I-1).
+ */
 function repeatKey(i: QAIssue): string {
   const d = i.description.replace(REPEAT_PREFIX, "");
   const listed = /кадр(?:ы|ах)? ([\d, ]+)/.exec(d)?.[1]?.replace(/\s+/g, "").replace(/,$/, "") ?? "";
-  return `${i.code}|${i.area ?? ""}|${i.frame ?? ""}|${listed}`;
+  const located = i.frame !== undefined && !!i.area;
+  const text = located ? "" : `|${d.toLowerCase().replace(/\s+/g, " ").trim()}`;
+  return `${i.code}|${i.area ?? ""}|${i.frame ?? ""}|${listed}${text}`;
 }
 
 /**
  * Повторы после исправления (S15a, ревью S14: 9 замечаний «не исправлено после 2 исправлений»
  * съедали раунды Engineer). Blocking с тем же кодом, областью и кадрами, что был blocking в
  * прошлой попытке того же дубля, — warning: раунд его не исправил, следующий не исправит тоже.
- * Коды `FIX_ONCE` (accent_conflict) — warning при любом повторе кода. Visual `fail` без
+ * Коды `FIX_ONCE` (accent_conflict) — warning при любом повторе кода; `NEVER_SOFTEN` — никогда. Visual `fail` без
  * оставшихся blocking — `warn`; semantic и style не смягчаются (rulings 2026-10-23).
  */
 export function repeatsAsWarning(report: QAReport, previous: readonly QAReport[]): { report: QAReport; repeated: string[] } {
@@ -69,7 +82,7 @@ export function repeatsAsWarning(report: QAReport, previous: readonly QAReport[]
   const codes = new Set(was.map((i) => i.code));
   const repeated: string[] = [];
   const issues = report.issues.map((i): QAIssue => {
-    if (i.severity !== "blocking" || i.source === "technical") return i;
+    if (i.severity !== "blocking" || i.source === "technical" || NEVER_SOFTEN.has(i.code)) return i;
     const once = FIX_ONCE.has(i.code) && codes.has(i.code);
     if (!once && !keys.has(repeatKey(i))) return i;
     repeated.push(i.code);

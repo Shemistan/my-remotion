@@ -65,8 +65,7 @@ const qaBy = (plan: Record<number, { overall: number; block?: boolean; notes?: b
     return {
       output: visualOutput(frames, spec, {
         gate: { visual: p.block ? "fail" : "pass", semantic: p.semantic ? "fail" : "pass", style: "pass" },
-        // область своя у каждого вызова: одинаковый blocking после исправления — повтор (S15a, warning)
-        issues: [...(p.block ? [{ ...blocking(), area: `заголовок, вызов ${n}` }] : []), ...(p.semantic ? [{ ...blocking("wrong_number"), description: "на кадре 12%, в запросе 21%" }] : [])],
+        issues: [...(p.block ? [blocking()] : []), ...(p.semantic ? [{ ...blocking("wrong_number"), description: "на кадре 12%, в запросе 21%" }] : [])],
         scores: scores(p.overall, { hold: p.overall - 1, entrance: p.overall - 0.5, legibility: p.overall + 1 }),
         score_notes: p.notes ? [{ axis: "hold", frame: frames.at(-1)!, note: "финал стоит" }, { axis: "entrance", frame: frames[0]!, note: "кадр 0 пуст" }] : [],
       }),

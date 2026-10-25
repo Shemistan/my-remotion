@@ -1,7 +1,7 @@
 // Шкала таймлайна (0.5.5, S14): ось с делениями и подписями лет. Смоук S11: «Go 1.24 — февраль
 // 2025» одной вехой давал точку без оси — теперь веха стоит на оси лет с делениями вокруг.
 import { describe, expect, it } from "vitest";
-import { datePosition, timelineLayoutFor, timelineScale } from "../../src/motion-kit/timeline-layout.js";
+import { datePosition, timelineLayoutFor, timelineScale, yearTickShown } from "../../src/motion-kit/timeline-layout.js";
 
 describe("datePosition", () => {
   it("год и месяц из даты: «февраль 2025», «Feb 2025», «2019», «03.2024»", () => {
@@ -88,5 +88,19 @@ describe("timelineScale", () => {
     expect(pts.map((p) => p.y)).toEqual([100, 100, 100]);
     expect(pts[0]!.x).toBeGreaterThan(100);
     expect(pts[2]!.x).toBeLessThan(1100);
+  });
+});
+
+// 0.5.7 (ревью S15a, M-5): год под осью рядом с вехой остаётся только у одиночной вехи;
+// при двух и больше вехах год у вехи скрыт, как в 0.5.5 (стебель и дата вехи там).
+describe("yearTickShown", () => {
+  it("одна веха — год под ней подписан", () => {
+    expect(yearTickShown(500, [{ x: 500 }], 80)).toBe(true);
+  });
+  it("несколько вех — год рядом с любой вехой скрыт (и с чётной), вдали — подписан", () => {
+    const pts = [{ x: 100 }, { x: 600 }, { x: 1100 }];
+    expect(yearTickShown(110, pts, 80)).toBe(false);
+    expect(yearTickShown(610, pts, 80)).toBe(false);
+    expect(yearTickShown(350, pts, 80)).toBe(true);
   });
 });

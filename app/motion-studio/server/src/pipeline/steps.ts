@@ -1081,15 +1081,34 @@ export function planInWindow(spec: Parameters<typeof planSpecBeats>[0], settings
       changes.push(...a.changes);
       if (a.moved) {
         ownIn = ownIn.map((b) => (b.start_frame === undefined || b.end_frame === undefined ? b : { ...b, ...a.remap(b as MotionSpec["beats"][number]) }));
-        if (Array.isArray(cam)) cam = (cam as { frame: number }[]).map((k) => ({ ...k, frame: Math.min(total - 1, a.warp(k.frame)) })) as typeof cam;
+        if (Array.isArray(cam)) cam = strictFrames((cam as { frame: number }[]).map((k) => ({ ...k, frame: Math.min(total - 1, a.warp(k.frame)) })), total) as typeof cam;
       }
     }
   }
+  // кадр начала счёта планировщик пишет в координатах окна фаз (без lead и якорей): в changes —
+  // итоговый кадр spec, как у якорей (ревью S15a, M-4)
+  const finalStart = new Map(shifted.map((b) => [b.id, b.start_frame]));
+  const inSpec = changes.map((c) => c.replace(/^(бит (\S+): счёт с кадра )\d+/, (all, head: string, id: string) => (finalStart.has(id) ? `${head}${finalStart.get(id)}` : all)));
   return {
     ...r,
     spec: { ...r.spec, duration_frames: total, beats: [...(ownIn as typeof shifted), ...shifted], ...(cam !== undefined ? { camera: cam } : {}) } as typeof r.spec,
-    changes,
+    changes: inSpec,
   };
+}
+
+/**
+ * Ключи камеры после сжатия отрезка округляются и могут совпасть по кадру — `interpolate` требует
+ * строго возрастающий inputRange (ревью S15a, M-2). Совпавший ключ сдвигается на кадр позже,
+ * у конца сцены — на кадр раньше; порядок ключей сохраняется.
+ */
+function strictFrames<K extends { frame: number }>(keys: K[], total: number): K[] {
+  const out = keys.map((k) => ({ ...k }));
+  for (let i = 1; i < out.length; i++) if (out[i]!.frame <= out[i - 1]!.frame) out[i]!.frame = out[i - 1]!.frame + 1;
+  for (let i = out.length - 1; i >= 0; i--) {
+    const cap = i === out.length - 1 ? total - 1 : out[i + 1]!.frame - 1;
+    if (out[i]!.frame > cap) out[i]!.frame = Math.max(0, cap);
+  }
+  return out;
 }
 
 /** Раскрытие момента — за столько кадров до слова (окно `кадр слова − 3…6`, S14). */
@@ -1100,6 +1119,8 @@ const ANCHOR_MAX_K = 3;
 
 /** Минимум акцента (удар Emphasis/Highlight читается), секунды; у payoff — не короче входа. */
 const ACCENT_MIN_S = 0.5;
+/** Пауза перед раскрытием (micro-beat) — не длиннее max(enter, этого), секунды (ревью S15a, I-3). */
+const ANCHOR_PAUSE_S = 0.4;
 
 /** Отрезок отображения времени: `[x0; x1)` → `[y0; y1)` линейно. */
 interface WarpSeg { x0: number; x1: number; y0: number; y1: number }
@@ -1132,13 +1153,75 @@ function squeezeSegs(a: number, b: number, y0: number, len: number, rigid: reado
 }
 
 /**
+ * Растяжение отрезка `[a; b)` до `len` кадров (ревью S15a, I-3: пауза перед раскрытием была
+ * без предела — 2–2,5 с пустого кадра). Зоны входов и акцентов идут 1:1, порядок раздачи запаса:
+ * 1. пауза перед раскрытием (пустой хвост отрезка) — до `pause` кадров вместе с хвостом;
+ * 2. длящиеся биты (`flex`: счёт, рисование, удержание) — пропорционально длине;
+ * 3. без них — промежутки между битами, каждый до `pause` кадров.
+ * Остаток — недобор: отрезок короче `len` (якорь дотягивается частично), а у последнего
+ * отрезка (`mustReach`, опора `total − tail` неподвижна) — пауза перед опорой, как раньше.
+ * Промежуток до первого бита (`from`) — не «между битами», не растягивается.
+ */
+function stretchSegs(a: number, b: number, y0: number, len: number, o: { rigid: readonly [number, number][]; flex: readonly [number, number][]; from: number; pause: number; mustReach: boolean }): { segs: WarpSeg[]; len: number } {
+  const cuts = new Set([a, b]);
+  for (const [s, e] of [...o.rigid, ...o.flex]) for (const x of [s, e]) if (x > a && x < b) cuts.add(x);
+  const xs = [...cuts].sort((p, q) => p - q);
+  const inside = (zones: readonly [number, number][], u: number, v: number) => zones.some(([s, e]) => s <= u && e >= v);
+  const parts = xs.slice(1).map((v, i) => {
+    const u = xs[i]!;
+    const cls = inside(o.rigid, u, v) ? "rigid" : inside(o.flex, u, v) ? "flex" : u >= o.from ? "gap" : "fixed";
+    return { u, v, cls, add: 0 };
+  });
+  let D = len - (b - a);
+  // 1. пустой хвост перед раскрытием: дыра в отображении (бит, что кончается ровно на `b`, тянется в неё)
+  let tail = 0;
+  for (let j = parts.length - 1; j >= 0 && parts[j]!.cls === "gap"; j--) tail += parts[j]!.v - parts[j]!.u;
+  const hole = Math.min(D, Math.max(0, o.pause - tail));
+  D -= hole;
+  // 2. длящиеся биты
+  const flex = parts.filter((p) => p.cls === "flex");
+  const F = flex.reduce((acc, p) => acc + p.v - p.u, 0);
+  if (D > 0 && F > 0) {
+    for (const p of flex) p.add = (D * (p.v - p.u)) / F;
+    D = 0;
+  }
+  // 3. промежутки между битами (кроме хвоста) — каждый до `pause`
+  if (D > 0) {
+    const runs: (typeof parts)[] = [];
+    let cur: typeof parts = [];
+    for (const p of parts) {
+      if (p.cls === "gap") cur.push(p);
+      else if (cur.length) {
+        runs.push(cur);
+        cur = [];
+      }
+    }
+    // хвостовой отрезок уже получил паузу — его не трогаем
+    for (const run of runs) {
+      const room = Math.max(0, o.pause - run.reduce((acc, p) => acc + p.v - p.u, 0));
+      const d = Math.min(D, room);
+      run.at(-1)!.add += d;
+      D -= d;
+      if (D <= 0) break;
+    }
+  }
+  const segs: WarpSeg[] = [];
+  let y = y0;
+  for (const p of parts) segs.push({ x0: p.u, x1: p.v, y0: y, y1: (y += p.v - p.u + p.add) });
+  const got = y - y0 + hole + (o.mustReach ? D : 0);
+  return { segs, len: o.mustReach ? len : Math.round(got) };
+}
+
+/**
  * Якоря моментов слов (S14 → S15a): раскрытие каждого весомого момента (`roundWorthyMoment`,
  * `momentReveals`: конец счёта, начало payoff/акцента) переходит в `кадр слова − ANCHOR_LEAD`.
  * Опорные точки `lead` и `total − tail` неподвижны (удержание ≥ tail); цель — в пределах
  * растяжения 3 и сжатия 0,35 отрезка. Время раздаётся не линейно (S15a, ревью S14: входы
  * растягивались до ~100 кадров):
- * - растяжение — вставка перед раскрытием: всё до точки стоит на месте, запас забирают биты,
- *   что идут через неё (счёт, рисование, длящееся), а если таких нет — пауза перед раскрытием;
+ * - растяжение (`stretchSegs`, ревью S15a): пауза перед раскрытием — не длиннее max(enter, 0,4 с),
+ *   остаток — длящимся битам (счёт, рисование), без них — промежуткам между битами (каждый до
+ *   того же предела), входы и акценты идут 1:1 и сдвигаются позже; не хватает — якорь
+ *   дотягивается частично, недобор и подсказка Director — в `changes`;
  * - сжатие — за счёт счёта, длящихся и удержания; входы и акценты идут 1:1;
  * - вход сохраняет длину, но не длиннее 1,5·enter и не короче enter; акцент — свою длину;
  *   бит payoff — не короче max(ACCENT_MIN_S, enter).
@@ -1181,23 +1264,43 @@ export function anchorMoments(spec: MotionSpec, moments: readonly KeyMoment[], w
     }
     points.push({ r: x.at, t: Math.round(Math.min(hi, Math.max(lo, want))), m: x.m });
   }
-  const moved = points.filter((p) => p.t !== p.r);
-  if (moved.length === 0) return changes.length ? { beats: spec.beats, changes, moved: false, warp: (x) => x, remap: (b) => b } : undefined;
+  if (points.every((p) => p.t === p.r)) return changes.length ? { beats: spec.beats, changes, moved: false, warp: (x) => x, remap: (b) => b } : undefined;
 
   const kind = (b: MotionSpec["beats"][number]) => beatKind(b);
   const isRigid = (b: MotionSpec["beats"][number]) => kind(b) === "enter" || kind(b) === "accent";
+  const inPayoff = (b: MotionSpec["beats"][number]) => b.phase !== undefined && payoff.has(b.phase);
   const accentMin = Math.max(enter, Math.round(ACCENT_MIN_S * fps));
-  const minLen = (b: MotionSpec["beats"][number]) => (kind(b) === "enter" ? enter : kind(b) === "accent" || (b.phase !== undefined && payoff.has(b.phase)) ? accentMin : 1);
+  // payoff проверяется раньше вида бита: вход в payoff — не короче max(accent_min, enter) (ревью S15a, M-1)
+  const minLen = (b: MotionSpec["beats"][number]) => (inPayoff(b) || kind(b) === "accent" ? accentMin : kind(b) === "enter" ? enter : 1);
   // жёсткие зоны — от старта входа/акцента на его минимальную длину (и бит payoff)
-  const rigidZones = spec.beats.filter((b) => isRigid(b) || (b.phase !== undefined && payoff.has(b.phase) && kind(b) !== "hold")).map((b) => [b.start_frame, b.start_frame + Math.min(b.end_frame - b.start_frame, Math.max(minLen(b), 1))] as [number, number]);
+  const rigidZones = spec.beats.filter((b) => isRigid(b) || (inPayoff(b) && kind(b) !== "hold")).map((b) => [b.start_frame, b.start_frame + Math.min(b.end_frame - b.start_frame, Math.max(minLen(b), 1))] as [number, number]);
+  // длящиеся биты (счёт, рисование, удержание, без вида) — их растяжение не пустой кадр
+  const flexZones = spec.beats.filter((b) => !isRigid(b)).map((b) => [b.start_frame, b.end_frame] as [number, number]);
+  const firstBeat = Math.min(...spec.beats.map((b) => b.start_frame));
+  const pause = Math.max(enter, Math.round(ANCHOR_PAUSE_S * fps));
   const knots = [{ r: lead, t: lead }, ...points, { r: end, t: end }];
   const segs: WarpSeg[] = [];
+  const short: { m: KeyMoment; r: number; want: number; got: number; from: number }[] = [];
+  let y = lead;
   for (let k = 1; k < knots.length; k++) {
     const a = knots[k - 1]!;
     const b = knots[k]!;
-    if (b.t - a.t >= b.r - a.r) segs.push({ x0: a.r, x1: b.r, y0: a.t, y1: a.t + (b.r - a.r) });
-    else segs.push(...squeezeSegs(a.r, b.r, a.t, b.t - a.t, rigidZones));
+    const want = b.t - y;
+    if (want >= b.r - a.r) {
+      const last = k === knots.length - 1;
+      const st = stretchSegs(a.r, b.r, y, want, { rigid: rigidZones, flex: flexZones, from: firstBeat, pause, mustReach: last });
+      segs.push(...st.segs);
+      if (st.len < want && "m" in b) {
+        short.push({ m: b.m, r: b.r, want: b.t, got: y + st.len, from: y });
+        b.t = y + st.len;
+      }
+    } else segs.push(...squeezeSegs(a.r, b.r, y, want, rigidZones));
+    y = b.t;
   }
+  const moved = points.filter((p) => p.t !== p.r);
+  const shortNote = (x: (typeof short)[number]) => `недобор ${x.want - x.got} кадров до слова (кадр ${x.m.frame}): до раскрытия нет длящегося бита, пауза — не длиннее ${pause} кадров; Director: нужен бит между ${x.from} и ${x.got}`;
+  for (const x of short.filter((q) => q.got === q.r)) changes.push(`якорь «${x.m.text}»: раскрытие на месте (${x.r}), ${shortNote(x)}`);
+  if (moved.length === 0) return { beats: spec.beats, changes, moved: false, warp: (x) => x, remap: (b) => b };
   const warp = (x: number) => {
     if (x < lead || x >= end) return x;
     const s = segs.find((g) => x >= g.x0 && x < g.x1);
@@ -1218,7 +1321,10 @@ export function anchorMoments(spec: MotionSpec, moments: readonly KeyMoment[], w
     return { start_frame: s, end_frame: Math.max(s + 1, Math.min(total, e)) };
   };
   const beats = spec.beats.map((b) => (phased.has(b.id) ? { ...b, ...remap(b) } : b));
-  changes.unshift(...moved.map((p) => `якорь «${p.m.text}»: раскрытие ${p.r} → ${p.t} (слово — кадр ${p.m.frame})`));
+  changes.unshift(...moved.map((p) => {
+    const x = short.find((q) => q.m === p.m);
+    return `якорь «${p.m.text}»: раскрытие ${p.r} → ${p.t} (слово — кадр ${p.m.frame})${x ? `, ${shortNote(x)}` : ""}`;
+  }));
   return { beats, changes, moved: true, warp, remap };
 }
 

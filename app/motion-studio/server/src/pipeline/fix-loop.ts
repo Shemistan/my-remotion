@@ -959,8 +959,10 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
         if (first) i.progress?.(0.7, "qa");
         const q = await runQa(i, state, t, rr, techWarnings, call, extra, style);
         if ("exit" in q) return { exit: q.exit, ...(issue ? { issue } : {}) };
-        // S15a: тот же blocking после исправления — warning, раунд Engineer на него не тратится
-        const rep = repeatsAsWarning(q.report, ctl.attempts.filter((x) => x.take === t.no && x.qa).map((x) => x.qa!));
+        // S15a: тот же blocking после исправления — warning, раунд Engineer на него не тратится.
+        // Только сцены сценария (ревью S15a, I-2): Playground крутит исправления, как раньше.
+        const prev = i.script ? ctl.attempts.filter((x) => x.take === t.no && x.qa).map((x) => x.qa!) : [];
+        const rep = repeatsAsWarning(q.report, prev);
         if (rep.repeated.length > 0) rc.note("qa", `повтор после исправления → warning: ${[...new Set(rep.repeated)].join(", ")}`);
         lastQa = report_ = rep.report;
         notes = q.notes;

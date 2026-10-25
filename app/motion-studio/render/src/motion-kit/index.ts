@@ -35,7 +35,7 @@ export { type FormatOptions, type PluralForms, formatNumber, pluralForm } from "
 export { axisTicks, niceTicks } from "./ticks.js";
 export { barLayout } from "./bars.js";
 export { type CodeFragment, type CodeLang, type CodeToken, type TokenKind, caretLine, codeLines, tokenizeCode, typedTokens } from "./code-tokens.js";
-export { datePosition, TIMELINE_LABEL_MIN, type TimelineFit, type TimelineScale, type TimelineTick, timelineFit, timelineLayout, timelineLayoutFor, timelineScale } from "./timeline-layout.js";
+export { datePosition, TIMELINE_LABEL_MIN, type TimelineFit, type TimelineScale, type TimelineTick, timelineFit, timelineLayout, timelineLayoutFor, timelineScale, yearTickShown } from "./timeline-layout.js";
 export {
   type CubicSegment,
   type PathLUT,
