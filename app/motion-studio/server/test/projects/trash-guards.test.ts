@@ -3,7 +3,7 @@
 // очистки — 409 `trash_purging`, `trash_purged` — только при фактической очистке, ручной повтор
 // `trash.purge` — только после сбоя, токен удаления одноразовый, сверки при старте не путают
 // пересозданный пустой каталог с восстановлением и экспорты проектов в корзине — с пропавшими.
-import { existsSync, mkdirSync, renameSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { defaultSettings } from "@ms/contracts";
 import type { ProcessRegistry } from "@ms/core";
@@ -110,14 +110,33 @@ it("сбой посреди очистки: строка остаётся «ид
   expect(events).toContain("trash_purged");
 });
 
-it("каталога строки нет — очистка пропускает её: purged_at не ставится, trash_purged нет", async () => {
+it("хранилище недоступно (каталога корзины нет) — строка без каталога пропускается: purged_at не ставится, trash_purged нет", async () => {
   const { trashId } = del();
-  const rel = trashRepo.get(env.db, trashId)!.rel_path;
-  renameSync(join(env.root, rel), join(env.root, "workspace/elsewhere"));
+  renameSync(join(env.root, "workspace/trash"), join(env.root, "workspace/trash-offline"));
   const events: string[] = [];
   expect(await trashPurge(deps)(ctxFor({ trashIds: [trashId], token: "t" }, events))).toMatchObject({ outputRefs: { purged: [], skipped: [trashId] } });
   expect(trashRepo.get(env.db, trashId)!.purged_at).toBeNull();
   expect(events).not.toContain("trash_purged");
+});
+
+it("сбой между rm и purged_at: на онлайн-хранилище нет ни каталога, ни .purging, ни проекта — повтор помечает строку очищенной", async () => {
+  const { trashId } = del();
+  const rel = trashRepo.get(env.db, trashId)!.rel_path;
+  rmSync(join(env.root, rel), { recursive: true, force: true }); // rm дошёл, markPurged — нет
+  const events: string[] = [];
+  expect(await trashPurge(deps)(ctxFor({ trashIds: [trashId], token: "t" }, events))).toMatchObject({ outputRefs: { purged: [trashId], skipped: [] } });
+  expect(trashRepo.get(env.db, trashId)!.purged_at).not.toBeNull();
+  expect(events).toContain("trash_purged");
+  expect(listTrash(env.db, env.root)).toEqual([]);
+});
+
+it("строка без каталога, но каталог проекта на месте — не «призрак»: пропуск", async () => {
+  const { trashId } = del();
+  const rel = trashRepo.get(env.db, trashId)!.rel_path;
+  renameSync(join(env.root, rel), projectDir());
+  expect(await trashPurge(deps)(ctxFor({ trashIds: [trashId], token: "t" }))).toMatchObject({ outputRefs: { purged: [], skipped: [trashId] } });
+  expect(trashRepo.get(env.db, trashId)!.purged_at).toBeNull();
+  expect(existsSync(join(projectDir(), "scenes/scn_p1/brief.json"))).toBe(true);
 });
 
 it("ручной повтор trash.purge — только после сбоя (interrupted); иначе нужен новый purge-intent", async () => {

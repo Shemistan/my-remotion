@@ -86,6 +86,8 @@ it("корзина: очищаемый проект нельзя восстан�
   const row = (await screen.findByText("Старый")).closest("li")!;
   expect((within(row).getByRole("button", { name: t("trash.restore") }) as HTMLButtonElement).disabled).toBe(true);
   expect(within(row).getByText(t("trash.purging"))).toBeTruthy();
+  // застрявшую очистку можно дочистить по отдельности: новый purge-intent доберёт `.purging`
+  expect((within(row).getByRole("button", { name: t("trash.purge") }) as HTMLButtonElement).disabled).toBe(false);
   const other = screen.getByText("Другой").closest("li")!;
   expect((within(other).getByRole("button", { name: t("trash.restore") }) as HTMLButtonElement).disabled).toBe(false);
   expect(screen.getByRole("button", { name: t("trash.purgeAll") })).toBeTruthy();

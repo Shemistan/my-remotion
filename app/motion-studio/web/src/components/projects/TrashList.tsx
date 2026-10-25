@@ -59,7 +59,8 @@ export function TrashList({ filter = "" }: { filter?: string }) {
             <span className="muted small">{t("trash.deletedAt", { at: dateTime(e.created_at) })} · {sizeText(e.bytes)}</span>
             {e.purging ? <span className="badge">{t("trash.purging")}</span> : null}
             <button type="button" disabled={restore.isPending || e.purging} onClick={() => restore.mutate(e.id)}>{t("trash.restore")}</button>
-            <button type="button" disabled={e.purging} onClick={() => setDialog([e.id])}>{t("trash.purge")}</button>
+            {/* у очищаемой строки тоже: новый purge-intent дочищает застрявший `.purging` */}
+            <button type="button" onClick={() => setDialog([e.id])}>{t("trash.purge")}</button>
           </li>
         ))}
       </ul>

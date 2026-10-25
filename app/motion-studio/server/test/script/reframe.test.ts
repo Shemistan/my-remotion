@@ -2,7 +2,7 @@
 // ставятся задачи `playground.generate` с `script.aspect = "9:16"` и `reference_version_id`;
 // без готовой 16:9 — `skipped` с причиной. Approval B заново не берётся; план не `outdated`.
 // Обработчик — фейк (публикует версию или падает), раннер и очередь — настоящие.
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_READING, type Fps, type Settings, type ProjectStyleBase, type ScriptPlanRevisionDoc, type ScriptRevisionDoc, type ScriptSceneItem, defaultSettings, quoteOf, readingFrames, tokenizeScript } from "@ms/contracts";
@@ -22,6 +22,8 @@ import { batchStatus, recordPublishedFingerprint, startScriptBatch, twinOutdated
 import * as versionsRepo from "../../src/db/repos/versions.js";
 import { scriptBatches } from "../../src/db/repos/script.js";
 import { startReframe } from "../../src/script/reframe.js";
+import { deleteIntent } from "../../src/projects/delete-intent.js";
+import { deleteProject } from "../../src/projects/trash.js";
 import { SCRIPT_FILE, SCRIPT_PLAN_FILE } from "../../src/script/read.js";
 import { scriptState } from "../../src/script/state.js";
 import { claimNext, finish } from "../../src/jobs/queue.js";
@@ -281,5 +283,29 @@ describe("startReframe", () => {
     expect(fresh.idempotency_key).toBe("script:pln_r@r1:ss_001:9:16:s1:try-1");
     expect(input(fresh.id).script.reference_version_id).toBe(v.versionId);
     expect(scriptScenes.get(env.db, "pln_r", "ss_001", "9:16")!.job_id).toBe(fresh.id);
+  });
+
+  it("Task 47: проект ушёл в корзину, пока reframe ждал отмену старого двойника — project_deleted, каталог проекта не пересоздан", async () => {
+    await seed16x9();
+    await runner!.stop({ abortRunning: true });
+    runner = undefined;
+    const old = (await startReframe(core(), { projectId: P, idempotencyKey: "d1", itemIds: ["ss_001"] })).items[0]!.job!.id;
+    jobs.update(env.db, old, { status: "blocked" });
+    const scene16 = scriptScenes.get(env.db, "pln_r", "ss_001", "16:9")!.scene_id;
+    const j = jobs.insert(env.db, { id: "job_regen16d", type: "playground.generate", project_id: P, scene_id: scene16, input: {}, status: "pending", attempt: 0 });
+    const c = claimNext(env.db, "srv", Date.now(), { running: 0, maxRunning: 9 }, { ids: new Set([j.id]) })!;
+    const v = await repo.publish(await makeDraft(env.s.root, { runId: j.id, attempt: c.attempt, sceneId: scene16, projectId: P }), meta(scene16), { jobId: j.id, attempt: c.attempt });
+    finish(env.db, j.id, c.attempt, { status: "completed", outputRefs: { version_id: v.versionId } });
+    // пока cancelJob опрашивает реестр процессов «blocked»-задачи, человек удаляет проект
+    const base = fileProcessRegistry(env.s.root);
+    const processes = Object.assign(Object.create(base) as typeof base, {
+      live: async (q: Parameters<typeof base.live>[0]) => {
+        jobs.update(env.db, old, { status: "cancelled" });
+        deleteProject({ db: env.db, root: env.s.root }, P, { token: deleteIntent(env.db, env.s.root, P).token, confirm_title: "Go map" });
+        return base.live(q);
+      },
+    });
+    expect(await codeOf(() => startReframe({ ...core(), processes }, { projectId: P, idempotencyKey: "d2", itemIds: ["ss_001"] }))).toBe("project_deleted");
+    expect(existsSync(join(env.s.root, "workspace/projects", P))).toBe(false);
   });
 });

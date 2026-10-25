@@ -37,6 +37,9 @@ import { tx } from "../db/tx.js";
 import { cancelJob, enqueue } from "../jobs/queue.js";
 import { sha256 } from "../scenes/hash.js";
 import { newId } from "../scenes/ids.js";
+import { removeHollowDir } from "../projects/hollow.js";
+import { deletedRefusal } from "../projects/lifecycle.js";
+import { PROJECTS_REL } from "../artifacts/paths.js";
 import { sceneRel, writeBriefSync } from "../scenes/store.js";
 import { buildSceneBrief, keyMoments, sceneSettings, sceneTitle, sentenceWindows } from "./brief.js";
 import { itemFingerprint } from "./fingerprint.js";
@@ -239,6 +242,10 @@ export function stageBatch(core: { db: Db; root: string }, s: StageBatch): Scrip
   const { db, root } = core;
   const { project, script, cur, style, aspect, batchId, accepted, selected, skipped } = s;
   const i = { projectId: project.id, regenerate: s.regenerate };
+  // Task 47: проект мог уйти в корзину, пока вызывающий ждал (reframe — отмену двойника); брифы
+  // ниже пересоздали бы его каталог, и восстановление упёрлось бы в restore_conflict
+  const deleted = deletedRefusal(db, i.projectId);
+  if (deleted) throw deleted;
   const doc = cur.doc;
   const styleRef = { id: style.style_id, revision: style.revision };
   // план работ до записи: что ставить, что уже готово, что идёт
@@ -357,7 +364,9 @@ export function stageBatch(core: { db: Db; root: string }, s: StageBatch): Scrip
   } catch (e) {
     for (const r of replaced) {
       try {
-        if (r.prev !== undefined) writeFileSync(join(root, sceneRel(i.projectId, r.sceneId), "brief.json"), r.prev);
+        const file = join(root, sceneRel(i.projectId, r.sceneId), "brief.json");
+        if (r.prev !== undefined) writeFileSync(file, r.prev);
+        else rmSync(file, { force: true }); // брифа не было — записанный убрать
       } catch {
         // бриф — копия входа задачи; источник истины — вход задачи в БД
       }
@@ -369,6 +378,12 @@ export function stageBatch(core: { db: Db; root: string }, s: StageBatch): Scrip
       } catch {
         // каталог-сироту подберёт уборка
       }
+    }
+    try {
+      // остались одни пустые каталоги (проект был перенесён в корзину) — убрать
+      removeHollowDir(join(root, PROJECTS_REL, i.projectId));
+    } catch {
+      // не мешает: restoreFromTrash сам убирает пустой каталог
     }
     throw e;
   }
