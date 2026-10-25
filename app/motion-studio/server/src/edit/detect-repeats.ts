@@ -4,12 +4,18 @@
 // Числа не повторы: «1 000 000» в ASR — «1», «000», «000». Вхождение, которое кончается концом
 // предложения («это. Это было», «нет. Нет», «так? Так»), — не повтор: следующее начинает новое
 // предложение. Многоточие — не конец: «Мы решили… Мы решили иначе» — оборванная фраза, фальстарт.
+// Каждое вхождение, включая последнее, закрыто знаком («sync, sync, ask, ask.», «Да, да, да.») —
+// перечисление или нарочитое повторение, не оговорка (S17c, F3): у оговорки последнее вхождение
+// продолжает фразу («я, я думаю», «мы сделали, мы сделали это»).
 import { type EditDecision, type Fps, type TranscriptWord, normalizeToken, snapUsToFrame } from "@ms/contracts";
 
 /** Конец предложения для повторов: `.`, `?`, `!` в конце слова, но не многоточие («…», «...»). */
 export const ENDS_SENTENCE = /(?:[?!]|(?<![.…])\.)["»”)\]]*$/u;
 
 const MAX_N = 3;
+
+/** Слово закрыто знаком: запятая, `;`, `:`, конец предложения или многоточие (и кавычки после). */
+const CLOSED = /[,;:.?!…]["»”)\]]*$/u;
 
 export interface RepeatOptions {
   idPrefix?: string;
@@ -41,6 +47,10 @@ export function detectRepeats(words: Pick<TranscriptWord, "id" | "text" | "start
       if (!same(i, i + n, n) || !follows(i + n)) continue;
       let last = i + n; // начало последнего вхождения
       while (last + 2 * n <= words.length && same(i, last + n, n) && follows(last + n)) last += n;
+      // перечисление: последнее слово каждого вхождения закрыто знаком
+      let listed = true;
+      for (let b = i; b <= last && listed; b += n) listed = CLOSED.test(words[b + n - 1]!.text.trim());
+      if (listed) continue;
       const start = snapUsToFrame(words[i]!.start_us, fps);
       const end = snapUsToFrame(words[last]!.start_us, fps);
       if (end > start) {
