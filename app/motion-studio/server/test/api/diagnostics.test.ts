@@ -1,9 +1,11 @@
 // Маршруты диагностики (Task 48): стоимость задачи в `GET /api/jobs`, трассировка, журнал
 // сервера (события задач пишутся с корреляционными полями), doctor с кэшем 30 с, архив.
+import { homedir } from "node:os";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as agentRuns from "../../src/db/repos/agent-runs.js";
 import * as jobs from "../../src/db/repos/jobs.js";
 import { tx } from "../../src/db/tx.js";
+import { EventBus } from "../../src/jobs/events.js";
 
 const doctorCalls: { fast?: boolean }[] = [];
 vi.mock("../../src/diagnostics/doctor-checks.js", () => ({
@@ -54,7 +56,7 @@ it("GET /api/jobs/:id/trace: дерево и стоимость; 404", async () 
 });
 
 it("GET /api/logs: события задач в журнале с корреляцией, фильтры, лимит ≤ 1000", async () => {
-  jobs.insert(api.core.db, { id: "job_log", type: "script.plan", project_id: "playground", input: {}, attempt: 3 });
+  jobs.insert(api.core.db, { id: "job_log", type: "playground.generate", project_id: "playground", input: {}, attempt: 3 });
   tx(api.core.db, () => api.core.events.emit(api.core.db, { job_id: "job_log", level: "error", kind: "failed", message: "упал: Bearer sec.ret" }));
   let entries: Record<string, unknown>[] = [];
   await vi.waitFor(async () => {
@@ -97,4 +99,41 @@ it("POST /api/diagnostics/bundle → 202, список, скачивание; ч
   expect((await api.inj("GET", "/api/diagnostics/bundles/diag-20200101T000000.zip", getHeaders)).statusCode).toBe(404);
   // Origin обязателен на POST (общая защита)
   expect((await api.inj("POST", "/api/diagnostics/bundle", getHeaders, {})).statusCode).toBe(403);
+});
+
+it("GET /api/logs: текст сценария скрыт (kind, ids, коды остаются), пути маскированы", async () => {
+  const db = api.core.db;
+  jobs.insert(db, { id: "job_sc", type: "script.plan", project_id: "playground", input: {} });
+  jobs.insert(db, { id: "job_pg", type: "playground.generate", project_id: "playground", input: {} });
+  tx(db, () => {
+    api.core.events.emit(db, { job_id: "job_sc", level: "warn", kind: "quote_autofixed", message: "s3: «Мы выросли втрое»", data: { item_id: "s3", code: "quote_autofixed", quote: "Мы выросли втрое" } });
+    api.core.events.emit(db, { job_id: "job_pg", level: "error", kind: "failed", message: `нет файла ${api.core.root}/projects/a.mp4 и ${homedir()}/b.mov`, data: { path: "/Users/ivan/c.mov" } });
+  });
+  let entries: Record<string, unknown>[] = [];
+  await vi.waitFor(async () => {
+    entries = (await api.inj("GET", "/api/logs?projectId=playground", getHeaders)).json();
+    expect(entries.filter((e) => e.job_id === "job_sc" || e.job_id === "job_pg")).toHaveLength(2);
+  });
+  const text = JSON.stringify(entries);
+  expect(text).not.toContain("втрое");
+  expect(text).not.toContain(api.core.root);
+  expect(text).not.toMatch(/\/Users\/(?!…)/);
+  expect(entries.find((e) => e.job_id === "job_sc")).toMatchObject({ kind: "quote_autofixed", level: "warn", data: { item_id: "s3", code: "quote_autofixed" } });
+  expect(entries.find((e) => e.job_id === "job_pg")).toMatchObject({ msg: "нет файла хранилище/projects/a.mp4 и ~/b.mov", data: { path: "/Users/…/c.mov" } });
+});
+
+it("журнал событий подключается позже, если при старте база была недоступна", async () => {
+  await api.close();
+  const spy = vi.spyOn(EventBus.prototype, "tail").mockImplementationOnce(() => {
+    throw new Error("storage_offline");
+  });
+  api = await makeApi();
+  expect(spy).toHaveBeenCalledTimes(1);
+  await api.inj("GET", "/api/diagnostics/bundles", getHeaders); // любой запрос — повторная подписка
+  jobs.insert(api.core.db, { id: "job_late", type: "playground.generate", project_id: "playground", input: {} });
+  tx(api.core.db, () => api.core.events.emit(api.core.db, { job_id: "job_late", level: "info", kind: "log", message: "после подписки" }));
+  await vi.waitFor(async () => {
+    expect((await api.inj("GET", "/api/logs?jobId=job_late", getHeaders)).json()).toHaveLength(1);
+  });
+  spy.mockRestore();
 });

@@ -22,3 +22,34 @@ it("redactDeep: строки во вложенных объектах и мас�
   const v = redactDeep({ a: ["Bearer t0k"], b: { c: "sk-ant-zz", n: 5 }, api_key: "plain", token: "x" });
   expect(v).toEqual({ a: ["Bearer [скрыто]"], b: { c: "[скрыто]", n: 5 }, api_key: "[скрыто]", token: "[скрыто]" });
 });
+
+it("заголовки: Authorization Basic, Cookie и Set-Cookie, x-api-key", () => {
+  expect(redact("Authorization: Basic dXNlcjpwYXNz")).toBe("Authorization: Basic [скрыто]");
+  expect(redact("Cookie: sid=abc; theme=dark\nnext")).toBe("Cookie: [скрыто]\nnext");
+  expect(redact("set-cookie: sid=abc; Path=/; HttpOnly")).toBe("set-cookie: [скрыто]");
+  expect(redact('{"cookie": "sid=abc", "x": 1}')).toBe('{"cookie": "[скрыто]", "x": 1}');
+  expect(redact("x-api-key: k-123 ok")).toBe("x-api-key: [скрыто] ok");
+});
+
+it("camelCase, форма KEY: v, нижний регистр, значения в кавычках с пробелами", () => {
+  expect(redact('{"accessToken":"a.b","apiKey": "k 1"}')).toBe('{"accessToken":"[скрыто]","apiKey": "[скрыто]"}');
+  expect(redact("apiKey=xyz rest")).toBe("apiKey=[скрыто] rest");
+  expect(redact("ANTHROPIC_API_KEY: sk-x1 next")).toBe("ANTHROPIC_API_KEY: [скрыто] next");
+  expect(redact("anthropic_api_key=abc next")).toBe("anthropic_api_key=[скрыто] next");
+  expect(redact('MY_SECRET="two words" tail')).toBe('MY_SECRET="[скрыто]" tail');
+  expect(redact("password='a b c' tail")).toBe("password='[скрыто]' tail");
+  // счётчики токенов — не секреты
+  expect(redact("input_tokens: 1200, max_tokens=4000")).toBe("input_tokens: 1200, max_tokens=4000");
+});
+
+it("Bearer: скрывается токеноподобное значение, следующее слово прозы — нет", () => {
+  expect(redact("Bearer eyJhbGciOi.payload.sig")).toBe("Bearer [скрыто]");
+  expect(redact("Bearer abcdefghijklmnopqrstuv")).toBe("Bearer [скрыто]");
+  expect(redact("the Bearer of bad news")).toBe("the Bearer of bad news");
+  expect(redact("Bearer token required")).toBe("Bearer token required");
+});
+
+it("redactDeep: поля camelCase и заголовки — целиком; счётчики токенов не трогает", () => {
+  expect(redactDeep({ accessToken: "a", apiKey: "b", "x-api-key": "c", "set-cookie": "d", input_tokens: 5 }))
+    .toEqual({ accessToken: "[скрыто]", apiKey: "[скрыто]", "x-api-key": "[скрыто]", "set-cookie": "[скрыто]", input_tokens: 5 });
+});

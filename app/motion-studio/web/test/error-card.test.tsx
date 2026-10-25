@@ -92,6 +92,8 @@ it("страница «Диагностика»: doctor, трассировка 
   expect(screen.getByText(t("diagnostics.fix.claude"))).toBeTruthy();
   expect(await screen.findByTestId("trace-cost")).toBeTruthy();
   expect(screen.getByTestId("trace-cost").textContent).toContain("$0.25");
+  // сумма трассировки — с дочерними задачами (cost_usd в списке задач — без них)
+  expect(screen.getByTestId("trace-cost").textContent).toContain("с дочерними задачами");
   expect(document.querySelector("[data-render-job=rnd1]")).toBeTruthy();
   expect(calls.some((c) => c.url.startsWith("/api/logs?") && c.url.includes("jobId=job_t"))).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: t("diagnostics.bundle.make") }));

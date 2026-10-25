@@ -7,7 +7,7 @@ export const ruDiagnostics = {
 
   // стоимость задачи (справочно)
   "diagnostics.cost": "≈ {usd}",
-  "diagnostics.costNote": "Расчётная стоимость по данным CLI, включая неудачные попытки; не счёт подписки.",
+  "diagnostics.costNote": "Расчётная стоимость этой задачи (без дочерних) по данным CLI, включая неудачные попытки; не счёт подписки. С дочерними — в трассировке.",
 
   // doctor
   "diagnostics.doctor.title": "Проверка окружения",
@@ -91,9 +91,9 @@ export const ruDiagnostics = {
   "diagnostics.trace.seconds": "{s} с",
   "diagnostics.trace.tokens": "токены {i} / {o}",
   "diagnostics.trace.noCost": "цена неизвестна",
-  "diagnostics.trace.cost": "Стоимость задачи: {usd} ({runs} вызовов агентов)",
+  "diagnostics.trace.cost": "Стоимость задачи с дочерними задачами: {usd} ({runs} вызовов агентов)",
   "diagnostics.trace.costUnknown": "— без цены ещё {n}, сумма — нижняя граница.",
-  "diagnostics.trace.costNote": "Расчётная стоимость по данным CLI, не счёт подписки.",
+  "diagnostics.trace.costNote": "Расчётная стоимость по данным CLI, включая неудачные попытки; не счёт подписки. В списке задач стоимость — без дочерних задач.",
   "diagnostics.role.concept": "Концепция",
   "diagnostics.role.motion_director": "Режиссёр",
   "diagnostics.role.engineer": "Инженер",
@@ -108,8 +108,8 @@ export const ruDiagnostics = {
 
   // архив
   "diagnostics.bundle.title": "Архив диагностики",
-  "diagnostics.bundle.hint": "Журналы за 7 дней, результат проверки окружения, события задач и отчёты запуска — без видео и превью; ключи и токены скрыты.",
-  "diagnostics.bundle.prompts": "Включить промпты агентов (тексты ваших сцен)",
+  "diagnostics.bundle.hint": "Журналы за 7 дней, результат проверки окружения, события задач и отчёты запуска — без видео и превью; ключи, токены и пути к вашим папкам скрыты. Без флага ниже тексты сценария, цитаты, слова транскрипта и ответы агентов в архив не попадают: от таких событий остаются вид, уровень, идентификаторы и коды. Хранятся 5 последних архивов.",
+  "diagnostics.bundle.prompts": "Включить тексты пользователя: сценарий, цитаты и слова транскрипта в событиях задач, ответы агентов и промпты агентов (prompt.md)",
   "diagnostics.bundle.make": "Собрать архив",
   "diagnostics.bundle.building": "собирается…",
   "diagnostics.bundle.download": "Скачать ({mb} МБ)",

@@ -1,7 +1,8 @@
 // Маршруты диагностики (Task 48): doctor в UI (кэш 30 с), журнал сервера, трассировка задачи,
 // архив диагностики. Здесь же журнал сервера подключается к шине событий: каждое событие задачи
-// (кроме прогресса) пишется в `logs/server-*.jsonl` с корреляционными полями задачи; 5xx API —
-// тоже. Секреты — через `redact`; наружу — без путей хранилища (`maskPaths`).
+// (кроме прогресса) пишется в `logs/server-*.jsonl` с корреляционными полями задачи, без текста
+// пользователя (`privacy.ts`); 5xx API — тоже. Секреты — через `redact`; наружу — без абсолютных
+// путей (`maskExport` всей записи журнала).
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { DoctorReportDtoSchema, type DoctorReportDto, type JobEventDto } from "@ms/contracts";
@@ -19,6 +20,8 @@ import * as jobs from "../../db/repos/jobs.js";
 import { BUNDLE_DIR, bundleName, diagnosticBundle } from "../../diagnostics/bundle.js";
 import { runDoctor } from "../../diagnostics/doctor-checks.js";
 import { createLogger, type LogFields, readLogs } from "../../diagnostics/logger.js";
+import { hasUserText, maskExport, stripEvent } from "../../diagnostics/privacy.js";
+import { redactDeep } from "../../diagnostics/redact.js";
 import { jobTrace } from "../../diagnostics/trace.js";
 import { type ApiContext, IdParams, QueryBool, type ZApp } from "../context.js";
 import { ApiError, notFound } from "../errors.js";
@@ -27,6 +30,8 @@ import { sendFile } from "../range.js";
 
 /** Сколько живёт результат doctor в UI. */
 export const DOCTOR_CACHE_MS = 30_000;
+/** Повтор подписки журнала на события задач, если база была недоступна. */
+export const TAIL_RETRY_MS = 5_000;
 
 /** Поля корреляции из данных события (запуск агента, рендер). */
 function lift(data: unknown): LogFields {
@@ -41,13 +46,17 @@ function lift(data: unknown): LogFields {
 export const diagnosticsRoutes = (app: ZApp, { core }: ApiContext): void => {
   const logger = createLogger(core.root);
 
-  // события задач → журнал сервера (прогресс — только в job_events, иначе он забил бы журнал)
+  // события задач → журнал сервера (прогресс — только в job_events, иначе он забил бы журнал).
+  // Текст пользователя (сценарий, цитаты, ответы агентов — `privacy.ts`) в журнал не пишется:
+  // остаются kind, level, корреляция, ids и коды; полный текст — в job_events (трассировка).
   const logEvent = (ev: JobEventDto) => {
     if (ev.kind === "progress") return;
     let fields: LogFields = { job_id: ev.job_id, kind: ev.kind };
+    let type: string | undefined;
     try {
       const j = jobs.get(core.db, ev.job_id);
       if (j) {
+        type = j.type;
         fields = {
           ...fields,
           project_id: j.project_id,
@@ -59,20 +68,36 @@ export const diagnosticsRoutes = (app: ZApp, { core }: ApiContext): void => {
     } catch {
       // база недоступна (storage_offline) — пишем без корреляции
     }
-    logger.log(ev.level, ev.message, { ...fields, ...lift(ev.data), ...(ev.data === undefined ? {} : { data: ev.data }) });
+    const safe = hasUserText(ev.kind, type) || type === undefined ? stripEvent(ev) : ev;
+    logger.log(ev.level, safe.message, { ...fields, ...lift(safe.data), ...(safe.data === undefined ? {} : { data: safe.data }) });
   };
+  // подписка ленивая: база недоступна при старте маршрутов (storage_offline) — повтор при
+  // следующем запросе и по таймеру, пока не подключится
   let untail: (() => void) | undefined;
-  try {
-    untail = core.events.tail(logEvent);
-  } catch {
-    // база недоступна при старте маршрутов — журнал событий задач не подключён
-  }
+  let closed = false;
+  const attach = () => {
+    if (untail || closed) return;
+    try {
+      untail = core.events.tail(logEvent);
+    } catch {
+      // база всё ещё недоступна — следующая попытка позже
+    }
+  };
+  attach();
+  const retry = untail ? undefined : setInterval(() => {
+    attach();
+    if (untail) clearInterval(retry);
+  }, TAIL_RETRY_MS);
+  retry?.unref();
+  app.addHook("onRequest", async () => attach());
   app.addHook("onError", async (req, reply, err) => {
     if (reply.statusCode >= 500 || !(err as { statusCode?: number }).statusCode) {
       logger.error(`${req.method} ${req.url.split("?")[0]}: ${err.message}`, { kind: "api_error", data: { stack: err.stack?.split("\n").slice(0, 8).join("\n") } });
     }
   });
   app.addHook("onClose", async () => {
+    closed = true;
+    if (retry) clearInterval(retry);
     untail?.();
     await logger.flush();
   });
@@ -95,7 +120,8 @@ export const diagnosticsRoutes = (app: ZApp, { core }: ApiContext): void => {
   // ---- журнал сервера ----
   app.get("/api/logs", { schema: { querystring: LogsQuerySchema, response: { 200: z.array(LogEntrySchema) } } }, async (req) => {
     await logger.flush();
-    return (await readLogs(core.root, req.query)).map((e) => ({ ...e, msg: maskPaths(e.msg, core.root) }));
+    // всю запись (msg и data): секреты — ещё раз (строки старых версий журнала), затем пути
+    return (await readLogs(core.root, req.query)).map((e) => maskExport(redactDeep(e), core.root));
   });
 
   // ---- трассировка ----
@@ -141,7 +167,10 @@ export const diagnosticsRoutes = (app: ZApp, { core }: ApiContext): void => {
 
   app.get("/api/diagnostics/bundles", { schema: { response: { 200: z.array(BundleDtoSchema) } } }, async () => {
     const all = new Map((await onDisk()).map((b) => [b.name, b]));
-    for (const [name, b] of bundles) if (b.status !== "ready" || !all.has(name)) all.set(name, b);
+    for (const [name, b] of bundles) {
+      if (b.status !== "ready") all.set(name, b);
+      else if (!all.has(name)) bundles.delete(name); // удалён ротацией (последние BUNDLE_KEEP)
+    }
     return [...all.values()].sort((a, b) => (a.name < b.name ? 1 : -1));
   });
 
