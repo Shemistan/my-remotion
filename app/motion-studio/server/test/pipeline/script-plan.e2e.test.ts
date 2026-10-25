@@ -1,6 +1,6 @@
 // S3 e2e: план сценария реальным `claude` через bootCore, очередь и раннер на тексте человека
 // (`tmp/script-mvp/block-{1,2}.txt`, первая строка — заголовок блока). Хранилище — временный
-// каталог SSD (`MS_DATA_DIR`, по умолчанию /Volumes/External SSD/MotionStudio-e2e-script): там
+// каталог SSD (`MS_DATA_DIR`, по умолчанию `materialsPath("e2e", "script")`): там
 // новый проект на каждый прогон, рабочее хранилище человека не трогается.
 // [A] block-1: completed ≤ 5 мин; цитаты проходят `verifyQuote`; blocking = 0; ≥ 3 сцены и ≥ 3
 // приёма; есть число 1.24 или 2025; покрытие ≤ 85 % и нет сцен на мета-речи о ролике (ревью S3).
@@ -12,7 +12,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { type Job, type ScriptPlanRevisionDoc, verifyQuote } from "@ms/contracts";
-import { MARKER_FILE, initStore, macosProbe } from "@ms/core";
+import { MARKER_FILE, initStore, macosProbe, materialsPath, materialsRoot, assertSsdWriteAllowed } from "@ms/core";
 import { ArtifactStore } from "../../src/artifacts/store.js";
 import { type Core, bootCore } from "../../src/boot.js";
 import * as jobs from "../../src/db/repos/jobs.js";
@@ -26,7 +26,7 @@ import { newId } from "../../src/scenes/ids.js";
 
 const T = 15 * 60_000;
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
-const ROOT = process.env.MS_DATA_DIR ?? "/Volumes/External SSD/MotionStudio-e2e-script";
+const ROOT = process.env.MS_DATA_DIR ?? materialsPath("e2e", "script");
 const EVIDENCE = join(REPO, "docs/evidence/script-mvp");
 const TMP = join(REPO, "tmp/s3-fix");
 
@@ -35,7 +35,8 @@ let guard: ConstructorParameters<typeof ArtifactStore>[0]["guard"];
 const mine = new Set<string>();
 
 beforeAll(async () => {
-  expect(existsSync("/Volumes/External SSD") || process.env.MS_DATA_DIR !== undefined, "внешний SSD не подключён").toBe(true);
+  expect(existsSync(materialsRoot()) || process.env.MS_DATA_DIR !== undefined, "внешний SSD не подключён").toBe(true);
+  assertSsdWriteAllowed(ROOT); // S18: на SSD — только в папке материалов
   if (!existsSync(join(ROOT, MARKER_FILE))) await initStore(ROOT, macosProbe, {});
   core = await bootCore({
     env: { PATH: process.env.PATH, HOME: process.env.HOME, MS_DATA_DIR: ROOT },

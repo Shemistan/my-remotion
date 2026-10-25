@@ -7,7 +7,7 @@
 // кадры ≤ 480 px — docs/evidence/script-mvp/smoke-block-1/, полноразмерное — tmp/s11-smoke/.
 // `MS_SMOKE_BLOCK2=1` — ещё 2 сцены block-2 (hero-number «256», process-steps «порциями») для
 // сравнения «до/после» правил S11 с кадрами e2e S5 (docs/evidence/script-mvp/generate/).
-// Хранилище — `MS_DATA_DIR` (по умолчанию /Volumes/External SSD/MotionStudio-e2e-s11, создаётся
+// Хранилище — `MS_DATA_DIR` (по умолчанию `materialsPath("e2e", "s11")`, создаётся
 // initStore, как doctor --init). Платный (≈ $15–20) — только явно, `MS_SMOKE=1`:
 // `MS_E2E=1 MS_SMOKE=1 npx vitest run server/test/script/script-smoke-block1.e2e.test.ts`.
 import { execFile } from "node:child_process";
@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { type Job, type MotionSpec, type PlanIssue, type ScriptPlanRevisionDoc, type ScriptSceneItem, type VersionManifest, holdModeFor, structureOf } from "@ms/contracts";
-import { MARKER_FILE, initStore, macosProbe } from "@ms/core";
+import { MARKER_FILE, initStore, macosProbe, materialsPath, materialsRoot, assertSsdWriteAllowed } from "@ms/core";
 import { ensureRenderBrowser } from "@ms/render";
 import { ArtifactStore } from "../../src/artifacts/store.js";
 import { judgeRuntime, loadJudgePrompt, prepareJudgeInput, runJudge } from "../../src/bench/judge.js";
@@ -42,7 +42,7 @@ import { type PipelineLogRounds, type Rounds, roundsByCode } from "./smoke-round
 
 const T = 180 * 60_000;
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
-const ROOT = process.env.MS_DATA_DIR ?? "/Volumes/External SSD/MotionStudio-e2e-s11";
+const ROOT = process.env.MS_DATA_DIR ?? materialsPath("e2e", "s11");
 /**
  * Метка повторного смоука (S14: `MS_SMOKE_TAG=s14`): отчёт и кадры — в
  * docs/evidence/script-mvp/<метка>/, полноразмерное — tmp/<метка>-smoke/; без метки — как в S11.
@@ -67,7 +67,8 @@ const SMOKE = process.env.MS_SMOKE === "1";
 
 beforeAll(async () => {
   if (!SMOKE) return;
-  expect(existsSync("/Volumes/External SSD") || process.env.MS_DATA_DIR !== undefined, "внешний SSD не подключён").toBe(true);
+  expect(existsSync(materialsRoot()) || process.env.MS_DATA_DIR !== undefined, "внешний SSD не подключён").toBe(true);
+  assertSsdWriteAllowed(ROOT); // S18: на SSD — только в папке материалов
   if (!existsSync(join(ROOT, MARKER_FILE))) await initStore(ROOT, macosProbe, {});
   await ensureRenderBrowser();
   core = await bootCore({

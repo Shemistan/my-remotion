@@ -2,6 +2,7 @@
 // ответах ffprobe, silencedetect и vision-detect — длительность 45–150 с, есть аудио, речь ≥ 50 %,
 // лицо на ≥ 90 % кадров, порядок; поиск talking-head отрезка 45–90 с в длинном ролике по скану.
 import { describe, expect, it } from "vitest";
+import { SSD_ROOT, materialsPath } from "@ms/core";
 import { type Ffprobe, CANDIDATES, LONG_CANDIDATE, RAW, evaluate, pickSpeechWindow, silenceIntervals, speechWindows, faceShare, findTalkingHead, hasFace, longestFaceGap, orientation, parseCuts, pick, silenceSeconds } from "../../../scripts/pick-test-video.mjs";
 
 const probe = (duration: number, o: { audio?: boolean; w?: number; h?: number; rotation?: number } = {}): Ffprobe => ({
@@ -100,6 +101,9 @@ describe("pick-test-video", () => {
 
   it("сырой ролик (Task 34): окна по тишине — доля речи, паузы ≥ 0,8 с, самая длинная тишина", () => {
     expect(RAW.source).toMatch(/IMG_0685\.MOV$/);
+    // S18: копии-отрезки — только в папке материалов (acceptance/src), оригинал — в MyProtocol (чтение)
+    expect(RAW.outDir).toBe(materialsPath("acceptance", "src"));
+    expect(RAW.source.startsWith(`${SSD_ROOT}/Youtube/FinalVideo/MyProtocol/`)).toBe(true);
     expect(silenceIntervals(silences([1, 2], [5]), 10)).toEqual([{ start: 1, end: 2 }, { start: 5, end: 10 }]);
     // 100 с: тишины 10–11 (1 с, пауза), 20–20,5 (0,5 с — не пауза), 60–75 (15 с)
     const sil = silenceIntervals(silences([10, 11], [20, 20.5], [60, 75]), 100);

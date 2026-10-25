@@ -1,15 +1,16 @@
 // Засев фикстур приёмки (Task 22, `09` §1 п. 4 и §5 п. 4; M14): только хранилище
-// MotionStudio-acceptance на SSD, до старта сервера (ядро CLI берёт owner-lock). Проект
+// приёмки (`materialsPath("acceptance", "store")`) на SSD, до старта сервера (ядро CLI берёт owner-lock). Проект
 // «Приёмка — фикстуры <время>»: kit-gallery (ready, реальный рендер) и hang-scene с коротким
 // таймаутом (реальный рендер падает → failed-версия с журналом). Без LLM.
 // Последняя строка вывода — JSON с id.
 import { fileURLToPath } from "node:url";
 import { bootCore } from "../../../server/src/boot.js";
 import { seedScene } from "../seed.js";
+import { materialsPath } from "../../../core/src/storage/materials.js";
 
 const RENDER_FIXTURES = fileURLToPath(new URL("../../../render/test/fixtures/", import.meta.url));
 // тот же путь, что ACC_ROOT в helpers.ts (helpers тянет Playwright — здесь не нужен)
-const ACC_ROOT = "/Volumes/External SSD/MotionStudio-acceptance";
+const ACC_ROOT = materialsPath("acceptance", "store");
 const HANG = fileURLToPath(new URL("../fixtures/hang-scene/", import.meta.url));
 
 async function main() {

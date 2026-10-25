@@ -20,9 +20,10 @@ import { registerHandlers } from "../../src/jobs/handlers.js";
 import { enqueue } from "../../src/jobs/queue.js";
 import { newId } from "../../src/scenes/ids.js";
 import { readVersion } from "../../src/scenes/store.js";
+import { materialsPath, materialsRoot, assertSsdWriteAllowed } from "@ms/core";
 
 const T = 60 * 60_000;
-const DATA_DIR = process.env.MS_DATA_DIR ?? "/Volumes/External SSD/MotionStudio";
+const DATA_DIR = process.env.MS_DATA_DIR ?? materialsPath("store");
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
 const EVIDENCE = join(REPO, process.env.MS_WRITE_EVIDENCE === "1" ? "docs/evidence/phase-1/export/server" : "tmp/export-evidence/server");
 const FILES = join(REPO, "tmp/export-evidence/files");
@@ -33,7 +34,8 @@ let version: versions.VersionRow;
 const rows: { name: string; versionId: string; request: ExportRequest; ms: number; job: Job; manifest?: ExportManifest }[] = [];
 
 beforeAll(async () => {
-  expect(existsSync("/Volumes/External SSD"), "внешний SSD не подключён").toBe(true);
+  expect(existsSync(materialsRoot()), "внешний SSD не подключён").toBe(true);
+  assertSsdWriteAllowed(DATA_DIR); // S18: на SSD — только в папке материалов
   await ensureRenderBrowser();
   core = await bootCore({
     env: { ...process.env, MS_DATA_DIR: DATA_DIR },

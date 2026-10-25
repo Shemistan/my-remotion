@@ -5,7 +5,7 @@
 // с флагом `--write-evidence`. Как пользоваться — `scripts/BENCH.md`.
 //
 // Запуск из app/motion-studio:
-//   export MS_DATA_DIR="/Volumes/External SSD/MotionStudio"
+//   export MS_DATA_DIR="/Volumes/External SSD/moution-studio-materials/store"
 //   ./scripts/with-node.sh npx tsx scripts/bench-set.mts                    # новый прогон: 12 сцен + судья
 //   ./scripts/with-node.sh npx tsx scripts/bench-set.mts --run <id>         # продолжить прерванный прогон
 //   ./scripts/with-node.sh npx tsx scripts/bench-set.mts --run <id> --judge-only [--rejudge]
@@ -25,7 +25,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameS
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Job, type Settings, defaultSettings } from "@ms/contracts";
-import { MARKER_FILE, initStore, macosProbe } from "@ms/core";
+import { MARKER_FILE, assertSsdWriteAllowed, initStore, macosProbe } from "@ms/core";
 import { ensureRenderBrowser } from "@ms/render";
 import { bootCore } from "../server/src/boot.js";
 import { loadConfig, readConfigFile } from "../server/src/config.js";
@@ -136,6 +136,7 @@ if (compareWith !== undefined) {
 
 const dataDir = process.env.MS_DATA_DIR?.trim();
 if (!dataDir) throw new Error("MS_DATA_DIR не задан");
+assertSsdWriteAllowed(dataDir); // S18: на SSD — только в папке материалов (bench/ внутри хранилища)
 mkdirSync(RUN_DIR, { recursive: true });
 const log = (s: string) => console.log(`[bench ${runId}] ${s}`);
 

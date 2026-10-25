@@ -13,10 +13,11 @@ import Database from "better-sqlite3";
 import type { Job, SceneDetailDto, Settings, VersionDto } from "@ms/contracts";
 import { renderVersion } from "@ms/render";
 import { type LayoutFrame, parseLayout } from "../../../server/src/qa/layout.js";
+import { materialsPath } from "../../../core/src/storage/materials.js";
 
 export const APP = fileURLToPath(new URL("../../../", import.meta.url));
 export const REPO = join(APP, "../..");
-export const ACC_ROOT = "/Volumes/External SSD/MotionStudio-acceptance";
+export const ACC_ROOT = materialsPath("acceptance", "store");
 export const ACC_DIR = join(REPO, "tmp/acceptance");
 export const STATE_FILE = join(ACC_DIR, "state.json");
 export const EVIDENCE = join(REPO, "docs/evidence/phase-1");

@@ -28,9 +28,10 @@ import { checkPreserve, compareHoldLayout } from "../../src/pipeline/preserve.js
 import { type LayoutFrame, parseLayout } from "../../src/qa/layout.js";
 import { newId } from "../../src/scenes/ids.js";
 import { DEFAULT_PROJECT, readVersion } from "../../src/scenes/store.js";
+import { materialsPath, materialsRoot, assertSsdWriteAllowed } from "@ms/core";
 
 const T = 120 * 60_000;
-const DATA_DIR = process.env.MS_DATA_DIR ?? "/Volumes/External SSD/MotionStudio";
+const DATA_DIR = process.env.MS_DATA_DIR ?? materialsPath("store");
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
 const EVIDENCE = join(REPO, process.env.MS_WRITE_EVIDENCE === "1" ? "docs/evidence/phase-1/pipeline/test3" : "tmp/pipeline-evidence/test3");
 
@@ -58,7 +59,8 @@ const got: Record<string, V> = {};
 const readJson = <T>(p: string) => JSON.parse(readFileSync(p, "utf8")) as T;
 
 beforeAll(async () => {
-  expect(existsSync("/Volumes/External SSD"), "внешний SSD не подключён").toBe(true);
+  expect(existsSync(materialsRoot()), "внешний SSD не подключён").toBe(true);
+  assertSsdWriteAllowed(DATA_DIR); // S18: на SSD — только в папке материалов
   await ensureRenderBrowser();
   core = await bootCore({
     env: { ...process.env, MS_DATA_DIR: DATA_DIR },

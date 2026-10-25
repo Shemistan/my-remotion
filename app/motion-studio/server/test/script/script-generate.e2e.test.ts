@@ -12,7 +12,7 @@
 // середина речи, удержание): полноразмерные — tmp/s5-e2e/frames/, ≤ 480 px —
 // docs/evidence/script-mvp/generate/.
 // Хранилище — временный каталог SSD (`MS_DATA_DIR`, по умолчанию
-// /Volumes/External SSD/MotionStudio-e2e-script): новый проект на прогон.
+// `materialsPath("e2e", "script")`): новый проект на прогон.
 // Запуск: `MS_E2E=1 npx vitest run server/test/script/script-generate.e2e.test.ts`.
 import { execFile } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -24,7 +24,7 @@ import {
   type Job, type MotionSpec, type ScriptPlanRevisionDoc, type ScriptRevisionDoc, type ScriptSceneItem, type Settings, type VersionManifest,
   phasesOf,
 } from "@ms/contracts";
-import { MARKER_FILE, initStore, macosProbe } from "@ms/core";
+import { MARKER_FILE, initStore, macosProbe, materialsPath, materialsRoot, assertSsdWriteAllowed } from "@ms/core";
 import { ensureRenderBrowser, ffprobe } from "@ms/render";
 import { currentProjectStyle } from "../../src/analysis/project-style.js";
 import { ArtifactStore } from "../../src/artifacts/store.js";
@@ -50,7 +50,7 @@ import { saveScriptText } from "../../src/script/text.js";
 
 const T = 150 * 60_000;
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
-const ROOT = process.env.MS_DATA_DIR ?? "/Volumes/External SSD/MotionStudio-e2e-script";
+const ROOT = process.env.MS_DATA_DIR ?? materialsPath("e2e", "script");
 const EVIDENCE = join(REPO, "docs/evidence/script-mvp/generate");
 const TMP = join(REPO, "tmp/s5-e2e");
 const FINAL = ["completed", "failed", "cancelled", "blocked"];
@@ -68,7 +68,8 @@ const say = (s: string) => {
 };
 
 beforeAll(async () => {
-  expect(existsSync("/Volumes/External SSD") || process.env.MS_DATA_DIR !== undefined, "внешний SSD не подключён").toBe(true);
+  expect(existsSync(materialsRoot()) || process.env.MS_DATA_DIR !== undefined, "внешний SSD не подключён").toBe(true);
+  assertSsdWriteAllowed(ROOT); // S18: на SSD — только в папке материалов
   if (!existsSync(join(ROOT, MARKER_FILE))) await initStore(ROOT, macosProbe, {});
   await ensureRenderBrowser();
   core = await bootCore({

@@ -13,9 +13,10 @@ import { type EdlDto, type Job, type TranscriptDto, acceptedCuts, buildTimeline,
 import {
   ACC_ROOT, APP, Checks, EVIDENCE, agentRuns, db, ffprobe, getJson, jobCost, jobEvents, runFile, saveState, shot, state, timing, waitJob, writeEvidence,
 } from "./helpers.js";
+import { materialsPath } from "../../../core/src/storage/materials.js";
 
 /** Примеры для человека (rulings 2026-10-24): фрагменты ≤ 30 с, только добавлять. */
-export const EXAMPLES = "/Volumes/External SSD/Youtube/FinalVideo/MyProtocol/MotionStudio-примеры/task34-phase2";
+export const EXAMPLES = materialsPath("examples", "task34-phase2");
 
 const canon = (x: unknown): string => JSON.stringify(x, (_k, v: unknown) =>
   v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))) : v);

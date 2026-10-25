@@ -225,6 +225,37 @@ describe("полный doctor (03 §7)", () => {
     expect(v).toMatchObject({ ok: true, status: "degraded", detail: expect.stringContaining("llm_only") });
   });
 
+  it("S18: хранилище на SSD вне папки материалов → materials warning с новым путём (код 0); внутри — строки нет", async () => {
+    const ssd = join(tmp, "ssd");
+    const materials = join(ssd, "moution-studio-materials");
+    await mkdir(join(materials, "store"), { recursive: true });
+    const old = join(ssd, "MotionStudio");
+    await runDoctor(["--init"], { MS_DATA_DIR: old }, probe, browser);
+    const env = { MS_DATA_DIR: old, MS_MATERIALS_ROOT: materials, PATH: fakeBin() };
+    const r = await runDoctor(["--json"], env, probe, browser, asrOk, visionOk);
+    const c = checks(r.output);
+    expect(c.materials).toMatchObject({ ok: true, status: "warning", detail: expect.stringContaining(join(materials, "store")) });
+    expect(c.storage).toMatchObject({ ok: true, status: "ok" });
+    expect(r.code).toBe(0);
+    const t = await runDoctor([], env, probe, browser, asrOk, visionOk);
+    expect(t.output).toMatch(/^warning\s+materials\s+/m);
+    expect(t.output).toMatch(/предупреждения: materials/);
+
+    const inside = join(materials, "store", "s");
+    await runDoctor(["--init"], { MS_DATA_DIR: inside }, probe, browser);
+    const ok = checks((await runDoctor(["--json"], { ...env, MS_DATA_DIR: inside }, probe, browser, asrOk, visionOk)).output);
+    expect(ok.materials).toBeUndefined();
+  });
+
+  it("S18: --init на системном томе по-прежнему отказ (хранилище не создаётся)", async () => {
+    const sys: VolumeProbe = { ...probe, deviceId: async () => 1 };
+    const root = join(tmp, "sys-store");
+    const r = await runDoctor(["--init"], { MS_DATA_DIR: root }, sys, browser);
+    expect(r.code).toBe(1);
+    expect(JSON.parse(r.output)).toMatchObject({ ok: false, reason: "system_volume" });
+    expect(existsSync(root)).toBe(false);
+  });
+
   it("без MS_DATA_DIR → storage env_missing, БД и lock пропущены, код 1", async () => {
     const r = await runDoctor(["--json"], { PATH: fakeBin() }, probe, browser);
     const c = checks(r.output);

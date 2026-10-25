@@ -5,7 +5,7 @@
 // (Apple Vision, Task 30: собран ли `npm run build:vision`, отвечает ли `--version`); KB_ROOT/KB_SOURCE_ROOT; StorageGuard
 // MS_DATA_DIR; Chrome Headless Shell (скачивается при отсутствии); `quick_check` studio.db;
 // owner-lock свободен. Итог — таблица (или `--json`), код 1 при любой ошибке; `degraded`
-// (нет vision-detect) — предупреждение, код 0.
+// (нет vision-detect) и `warning` (хранилище на SSD вне папки материалов, S18) — предупреждения, код 0.
 // `--init` создаёт хранилище, `--adopt` привязывает его к новому тому после переноса (вывод —
 // StorageStatus в JSON). `--import-slice` (Q2): под owner lock открывает studio.db (миграции,
 // сверка store_id), закрывает незакрытые версии, доводит прерванные rename и регистрирует
@@ -24,6 +24,7 @@ import {
   checkStorage,
   initStore,
   macosProbe,
+  materialsAdvice,
   StorageError,
   type StorageEnv,
   type StorageStatus,
@@ -78,7 +79,7 @@ export async function checkVisionBin(bin: string): ReturnType<VisionCheck> {
 export interface CheckRow {
   name: string;
   ok: boolean;
-  /** `ok`, `degraded` (работает с ограничением, `ok: true`) или код неудачи: `missing`, `error`, `busy`, `skipped`, `expensive`, причина StorageGuard… */
+  /** `ok`, `degraded` (работает с ограничением, `ok: true`), `warning` (предупреждение, `ok: true`) или код неудачи: `missing`, `error`, `busy`, `skipped`, `expensive`, причина StorageGuard… */
   status: string;
   detail: string;
 }
@@ -219,6 +220,9 @@ async function fullCheck(env: NodeJS.ProcessEnv, probe: VolumeProbe, browser: Br
   // хранилище
   const storage: StorageStatus = root ? await checkStorage(env as StorageEnv, probe) : { ok: false, reason: "env_missing", detail: "MS_DATA_DIR не задан" };
   row("storage", storage.ok, storage.ok ? "ok" : storage.reason, storage.ok ? `${storage.root}, свободно ${(storage.freeBytes / 1024 ** 3).toFixed(1)} ГБ` : storage.detail);
+  // S18: на SSD материалов хранилище — только в папке материалов; вне её — предупреждение (ADR 0006)
+  const advice = root ? materialsAdvice(root, env) : undefined;
+  if (advice) rows.push({ name: "materials", ok: true, status: "warning", detail: advice });
 
   // Chrome Headless Shell
   try {
@@ -300,7 +304,8 @@ function table(rows: CheckRow[], ok: boolean): string {
   const w = Math.max(...rows.map((r) => r.name.length));
   const lines = rows.map((r) => `${r.status.padEnd(10)} ${r.name.padEnd(w)}  ${r.detail}`);
   const degraded = rows.filter((r) => r.ok && r.status === "degraded").map((r) => r.name);
-  const note = degraded.length > 0 ? ` (с ограничениями: ${degraded.join(", ")})` : "";
+  const warnings = rows.filter((r) => r.ok && r.status === "warning").map((r) => r.name);
+  const note = (degraded.length > 0 ? ` (с ограничениями: ${degraded.join(", ")})` : "") + (warnings.length > 0 ? ` (предупреждения: ${warnings.join(", ")})` : "");
   return [...lines, "", ok ? `doctor: всё в порядке${note}` : `doctor: есть проблемы (${rows.filter((r) => !r.ok).map((r) => r.name).join(", ")})`].join("\n");
 }
 

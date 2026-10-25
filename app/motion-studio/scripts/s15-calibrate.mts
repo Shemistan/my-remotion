@@ -7,6 +7,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { materialsPath } from "@ms/core";
 import type { MotionSpec, Settings } from "@ms/contracts";
 import { SWEEP_EVERY, gridDims, previewLuma, renderVersion, resolveStyle } from "@ms/render";
 import { type HeroFrame, NO_HERO_SHARE, heroIssues, parseLayout } from "../server/src/qa/layout.js";
@@ -14,14 +15,13 @@ import { parseSweep, temporalIssues } from "../server/src/qa/temporal.js";
 
 const REPO = fileURLToPath(new URL("../../../", import.meta.url));
 const OUT = join(REPO, "tmp", "s15-calibration");
-const SSD = "/Volumes/External SSD";
 const reuse = process.argv.includes("--reuse");
 
 /** Сцены смоуков блока 1: оценка дизайнера (compare S14 и S15a) и судьи. */
 const SCENES: { tag: string; store: string; evidence: string; designer: number[] }[] = [
-  { tag: "S11", store: `${SSD}/MotionStudio-e2e-s11`, evidence: "docs/evidence/script-mvp/smoke-block-1.json", designer: [6, 6.5, 6, 6, 5] },
-  { tag: "S14", store: `${SSD}/MotionStudio-e2e-s14`, evidence: "docs/evidence/script-mvp/s14/smoke-block-1.json", designer: [7, 7, 5.5, 6, 6.5] },
-  { tag: "S15a", store: `${SSD}/MotionStudio-e2e-s15a`, evidence: "docs/evidence/script-mvp/s15a/smoke-block-1.json", designer: [7, 6, 5.5, 6, 5.5] },
+  { tag: "S11", store: materialsPath("e2e", "s11"), evidence: "docs/evidence/script-mvp/smoke-block-1.json", designer: [6, 6.5, 6, 6, 5] },
+  { tag: "S14", store: materialsPath("e2e", "s14"), evidence: "docs/evidence/script-mvp/s14/smoke-block-1.json", designer: [7, 7, 5.5, 6, 6.5] },
+  { tag: "S15a", store: materialsPath("e2e", "s15a"), evidence: "docs/evidence/script-mvp/s15a/smoke-block-1.json", designer: [7, 6, 5.5, 6, 5.5] },
 ];
 
 interface SmokeScene {

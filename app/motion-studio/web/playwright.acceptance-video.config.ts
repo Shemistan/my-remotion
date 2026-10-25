@@ -1,5 +1,5 @@
 // Приёмка Phase 2–3 на реальном сыром ролике (Task 34, `make acceptance-video`): настоящий сервер
-// на 127.0.0.1:8790 с `web/dist`, хранилище /Volumes/External SSD/MotionStudio-acceptance,
+// на 127.0.0.1:8790 с `web/dist`, хранилище /Volumes/External SSD/moution-studio-materials/acceptance/store,
 // реальные claude, ASR-воркер ai-platform, ffmpeg и Apple Vision. Шаги идут по порядку в одном
 // воркере (`e2e/acceptance-video/acceptance-video.list.ts`); импорт и ASR 4K-ролика — до часа.
 import { defineConfig } from "@playwright/test";

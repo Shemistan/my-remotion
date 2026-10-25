@@ -29,10 +29,11 @@ import { savePlanOps } from "../../src/script/plan-ops.js";
 import { currentScriptPlan } from "../../src/script/read.js";
 import { saveScriptText } from "../../src/script/text.js";
 import { makeDraft, meta } from "../scenes/helpers.js";
+import { materialsPath, materialsRoot, assertSsdWriteAllowed } from "@ms/core";
 
 const T = 60 * 60_000;
 // своё хранилище S7 (`doctor --init`): e2e-script занят прогонами других задач с LLM
-const DATA_DIR = process.env.MS_E2E_S7_DATA_DIR ?? "/Volumes/External SSD/MotionStudio-e2e-s7";
+const DATA_DIR = process.env.MS_E2E_S7_DATA_DIR ?? materialsPath("e2e", "s7");
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
 const EVIDENCE = join(REPO, "docs/evidence/script-mvp/s7");
 const FIXTURE = fileURLToPath(new URL("../../../render/test/fixtures/transparent-scene/", import.meta.url));
@@ -48,7 +49,8 @@ const lines: string[] = [];
 let projectId: string;
 
 beforeAll(async () => {
-  expect(existsSync("/Volumes/External SSD"), "внешний SSD не подключён").toBe(true);
+  expect(existsSync(materialsRoot()), "внешний SSD не подключён").toBe(true);
+  assertSsdWriteAllowed(DATA_DIR); // S18: на SSD — только в папке материалов
   await ensureRenderBrowser();
   core = await bootCore({
     env: { ...process.env, MS_DATA_DIR: DATA_DIR },

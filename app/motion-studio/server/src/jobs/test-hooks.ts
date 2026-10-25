@@ -8,14 +8,14 @@
 // - `{"hook":"orphan","cmd":…,"args":[…]}` — вместо экспорта попытка запускает `cmd` через
 //   spawnTracked (реестр попытки) и ждёт отмены: «живой рендер» для `kill -9` сервера.
 // Предохранители: хуки отказываются стартовать, если MS_DATA_DIR — не хранилище приёмки
-// (`…-acceptance`) и не временный каталог (os.tmpdir() или tmp/ репозитория, юнит-тесты);
+// (внутри `<папка материалов>/acceptance/`, S18) и не временный каталог (os.tmpdir() или tmp/ репозитория, юнит-тесты);
 // arm.json проверяется схемой — неизвестный хук или лишнее поле → задача failed с причиной.
 import { readFileSync, realpathSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { spawnTracked } from "@ms/core";
+import { materialsRoot, spawnTracked } from "@ms/core";
 import type { exportVersion } from "@ms/render";
 import * as jobs from "../db/repos/jobs.js";
 import type { Handlers, JobContext } from "./types.js";
@@ -52,15 +52,16 @@ const real = (p: string) => {
   }
 };
 
-/** Хранилище, на котором хуки допустимы: `…-acceptance` или временный каталог. */
-function allowedDataDir(dataDir: string | undefined): void {
-  const d = dataDir?.trim();
-  if (!d) throw new Error("MS_TEST_HOOKS=1 требует MS_DATA_DIR (хранилище приёмки …-acceptance)");
+/** Хранилище, на котором хуки допустимы: внутри `<папка материалов>/acceptance/` или временный каталог. */
+function allowedDataDir(env: NodeJS.ProcessEnv): void {
+  const d = env.MS_DATA_DIR?.trim();
+  if (!d) throw new Error("MS_TEST_HOOKS=1 требует MS_DATA_DIR (хранилище приёмки в папке материалов acceptance/)");
   const abs = resolve(d);
-  if (abs.endsWith("-acceptance")) return;
+  const acc = join(materialsRoot(env), "acceptance");
+  if (inside(abs, acc) || inside(real(abs), real(acc))) return;
   const temp = [tmpdir(), REPO_TMP].flatMap((t) => [resolve(t), real(t)]);
   if (temp.some((t) => inside(abs, t) || inside(real(abs), t))) return;
-  throw new Error(`MS_TEST_HOOKS=1 разрешён только на хранилище приёмки (MS_DATA_DIR оканчивается на -acceptance) или во временном каталоге, а не на ${abs}`);
+  throw new Error(`MS_TEST_HOOKS=1 разрешён только на хранилище приёмки (внутри ${acc}/) или во временном каталоге, а не на ${abs}`);
 }
 
 /** Разбор взвода: неизвестный хук или лишнее поле — явная ошибка. */
@@ -85,7 +86,7 @@ export function testHooks(env: NodeJS.ProcessEnv, log?: (line: string) => void):
   if (env.MS_TEST_HOOKS !== "1") return undefined;
   const dir = env.MS_TEST_HOOKS_DIR;
   if (!dir) throw new Error("MS_TEST_HOOKS=1 требует MS_TEST_HOOKS_DIR (каталог взвода arm.json)");
-  allowedDataDir(env.MS_DATA_DIR);
+  allowedDataDir(env);
   log?.(`внимание: тестовые хуки включены (MS_TEST_HOOKS=1, взвод — ${join(dir, ARM)})`);
   const armed = new Map<string, { ctx: JobContext; arm: TestHookArm }>();
 

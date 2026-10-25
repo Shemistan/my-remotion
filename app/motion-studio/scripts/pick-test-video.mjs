@@ -14,7 +14,7 @@
 //   --no-long — без поиска отрезка в длинном ролике
 //   --scan 250-420 — искать отрезок только в этом диапазоне секунд длинного ролика (быстрее)
 //   --raw [путь] — сырой ролик приёмки Task 34 (по умолчанию IMG_0685.MOV): окно RAW.windowS с
-//     речью ≥ 50 % и паузами, копия `-c copy` в RAW.outDir (или --out-dir), sha256 оригинала до/после
+//     речью ≥ 50 % и паузами, копия `-c copy` в RAW.outDir (папка материалов acceptance/src) или --out-dir (на SSD — только в папке материалов), sha256 оригинала до/после
 // Нужен собранный `tools/vision-detect/bin/vision-detect` (`npm run build:vision`).
 /* global process, console, URL */
 import { execFileSync, spawnSync } from "node:child_process";
@@ -22,8 +22,10 @@ import { createHash } from "node:crypto";
 import { createReadStream, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+// S18: пути SSD — из модуля материалов (Node 22 сам убирает типы .ts)
+import { SSD_ROOT, assertSsdWriteAllowed, materialsPath } from "../core/src/storage/materials.ts";
 
-export const DIR = "/Volumes/External SSD/Youtube/FinalVideo/MyProtocol";
+export const DIR = `${SSD_ROOT}/Youtube/FinalVideo/MyProtocol`;
 export const CANDIDATES = Array.from({ length: 11 }, (_, i) => `${DIR}/MyProtocol-shorts_${i + 1}.mov`);
 export const LONG_CANDIDATE = `${DIR}/MyProtocol.mov`;
 export const CRITERIA = { minS: 45, maxS: 150, minSpeech: 0.5, noiseDb: -35, minSilenceS: 0.4, minFace: 0.9, minFaceArea: 0.01, maxFaceGapS: 1 };
@@ -126,7 +128,7 @@ export function evaluate(probe, silenceStderr, faceRatio, faceGapS = 0) {
  */
 export const RAW = {
   source: `${DIR}/IMG_0685.MOV`, windowS: 420, stepS: 15, skipS: 30, minSpeech: 0.5, minPauses: 10, maxSilenceS: 30, pauseS: 0.8, noiseDb: -40,
-  outDir: "/Volumes/External SSD/MotionStudio-acceptance-src",
+  outDir: materialsPath("acceptance", "src"),
 };
 
 /** Интервалы тишины `{ start, end }` (с) из stderr `silencedetect` (незакрытая — до конца ролика). */
@@ -288,6 +290,7 @@ async function fromLong(path, outDir, scan) {
   const cuts = scdetCuts(path, from, to);
   const seg = findTalkingHead(samples, [from, ...cuts, to].filter((c) => c > 0 && c < durationS), durationS);
   if (!seg) return { source: path, ok: false, reasons: ["нет чистого talking-head отрезка 45–90 с"], cuts };
+  assertSsdWriteAllowed(outDir);
   mkdirSync(outDir, { recursive: true });
   const out = join(outDir, `MyProtocol-${seg.start_s}-${seg.end_s}.mov`);
   if (!existsSync(out)) {
@@ -318,6 +321,7 @@ async function raw(path, outDir) {
     console.error("Нет окна по критериям: отрезок выбирает человек.");
     process.exit(1);
   }
+  assertSsdWriteAllowed(outDir);
   mkdirSync(outDir, { recursive: true });
   const out = join(outDir, `IMG_0685-${w.start_s}-${w.end_s}.mov`);
   if (!existsSync(out)) {

@@ -11,9 +11,10 @@ import { basename, join } from "node:path";
 import { expect, test } from "@playwright/test";
 import { type EdlDto, type FootageDto, type Job, type SemanticDto, type TranscriptDto, type VideoProjectDto, verifyQuote } from "@ms/contracts";
 import { ACC_ROOT, APP, Checks, EVIDENCE3, agentRuns, getJson, jobEvents, shot, state, timing, waitJob, writeEvidence } from "./helpers.js";
+import { materialsPath } from "../../../core/src/storage/materials.js";
 
 /** Примеры для человека (rulings 2026-10-24): кадры и фрагменты ≤ 30 с, только добавлять. */
-export const EXAMPLES3 = "/Volumes/External SSD/Youtube/FinalVideo/MyProtocol/MotionStudio-примеры/task34-phase3";
+export const EXAMPLES3 = materialsPath("examples", "task34-phase3");
 
 type AgentInfo = { status: string; calls: number; cost_usd: number } | undefined;
 const agentOf = (j: Job): AgentInfo => (j.output_refs as { agent?: AgentInfo } | null)?.agent;
