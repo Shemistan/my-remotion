@@ -3,11 +3,14 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@fastify/static": "10.1.5",
     "@ms/contracts": "*",
     "@ms/core": "*",
     "@ms/render": "*",
     "better-sqlite3": "13.0.3",
     "diff": "9.0.0",
+    "fastify": "5.12.5",
+    "fastify-type-provider-zod": "4.0.2",
     "pngjs": "7.0.0",
     "typescript": "~5.9.3",
     "zod": "3.25.76"

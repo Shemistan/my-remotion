@@ -1,0 +1,266 @@
+{
+  "input_hash": "7f796ecc23370ab6d975323e56d1a53700770f45dc6217e5ab82e76272e072fe",
+  "output": {
+    "spec": {
+      "title": "1 к 256: ложное совпадение tophash",
+      "purpose": "Показать, что случайное совпадение одного байта tophash — редкость: вероятность 1 к 256.",
+      "duration_frames": 201,
+      "fps": {
+        "num": 30,
+        "den": 1
+      },
+      "style_preset": "tech-neon",
+      "composition": {
+        "archetype": "split",
+        "idea": "Слева крупное число «1 к N» считает знаменатель от 1 до 256, пока звучит фраза; к слову «256» счёт бьёт итогом, и только тогда справа вырастает сетка 16×16, где загорается одна ячейка среди погасших. Взгляд: число → сетка → одна ячейка → снова число.",
+        "focus": "Setup и action — фокус на числе слева (свет прожектора за ним). Payoff — фокус переходит на сетку и единственную горящую ячейку, затем возвращается к числу в удержании. Камера стоит: движение ведут счёт и каскад ячеек.",
+        "transitions": "Число входит со значением «1 к 1», держит его, затем счёт уводит знаменатель к 256 ровно к слову «256» (после кадра 111). После удара справа каскадом проявляется сетка из 16×16 тусклых ячеек, одна ячейка загорается акцентом (бит акцента без loop), подпись-вывод открывается шторкой под числом. В удержании акцент возвращается к числу: волна и дыхание вокруг «1 к 256»; сетка и подпись остаются до конца.",
+        "title_mode": "none",
+        "background": {
+          "variant": "spotlight",
+          "focus": {
+            "x": 0.3,
+            "y": 0.48
+          }
+        },
+        "structure": "count-up",
+        "structure_reason": "Форма времени задана брифом (one-number): счёт ведёт сцену, итог приходит к слову «256»."
+      },
+      "elements": [
+        {
+          "id": "prob-number",
+          "kind": "number",
+          "role": "герой: вероятность 1 к 256",
+          "entrance": "count",
+          "depth_layer": 1,
+          "content": {
+            "component": "AnimatedNumber",
+            "from": 1,
+            "to": 256,
+            "prefix": "1 к ",
+            "locale": "ru",
+            "size": "display",
+            "font": "mono",
+            "reserveWidth": true,
+            "enterAt": "beat:num-in",
+            "note": "Счёт заканчивается в конце фазы action (после кадра 111, слова «256»), удар на финише; в hold — Emphasis hold (shape circle/rounded, ring strike) вокруг самого числа, без pill"
+          },
+          "layout": {
+            "x": 0.06,
+            "y": 0.3,
+            "w": 0.44,
+            "h": 0.24
+          }
+        },
+        {
+          "id": "byte-note",
+          "kind": "text",
+          "role": "опора: совпал один байт",
+          "entrance": "blur",
+          "depth_layer": 1,
+          "content": {
+            "component": "KineticText",
+            "text": "совпал 1 байт tophash",
+            "size": "body",
+            "font": "mono",
+            "mode": "words",
+            "enter": "fade",
+            "color": "muted"
+          },
+          "layout": {
+            "x": 0.06,
+            "y": 0.18,
+            "w": 0.44,
+            "h": 0.08
+          }
+        },
+        {
+          "id": "prob-caption",
+          "kind": "text",
+          "role": "вывод: вероятность ложного совпадения",
+          "entrance": "mask",
+          "depth_layer": 1,
+          "content": {
+            "component": "Enter+text",
+            "text": "вероятность ложного совпадения",
+            "size": "body",
+            "maxLines": 2,
+            "pre": "hidden"
+          },
+          "layout": {
+            "x": 0.06,
+            "y": 0.58,
+            "w": 0.44,
+            "h": 0.14
+          }
+        },
+        {
+          "id": "cell-grid",
+          "kind": "group",
+          "role": "акцент: сетка 16×16, одна ячейка — ложное совпадение",
+          "entrance": "scale",
+          "depth_layer": 1,
+          "content": {
+            "component": "custom grid (Enter scale каскадом по диагонали, cardSurface ячеек)",
+            "rows": 16,
+            "cols": 16,
+            "cell_gap_px": 6,
+            "cell_tone": "surface, muted border, тусклые",
+            "highlight": {
+              "row": 9,
+              "col": 11,
+              "accentIndex": 0,
+              "emphasis": "useAccentPulse loop:false, ring strike, shape rounded"
+            },
+            "cascade": "ячейки проявляются волной по диагонали за ~enter_frames×2, stagger внутри волны 1 кадр",
+            "note": "Сетка до своего бита не видна (pre hidden): количество ячеек раскрывается только после слова «256». После акцента остальные ячейки остаются тусклыми, горящая — тихо светится без дыхания."
+          },
+          "layout": {
+            "x": 0.56,
+            "y": 0.1,
+            "w": 0.38,
+            "h": 0.8
+          }
+        }
+      ],
+      "phases": [
+        {
+          "id": "setup",
+          "role": "setup",
+          "weight": 12,
+          "element_ids": [
+            "prob-number",
+            "byte-note"
+          ]
+        },
+        {
+          "id": "action",
+          "role": "action",
+          "weight": 42,
+          "element_ids": [
+            "prob-number"
+          ]
+        },
+        {
+          "id": "payoff",
+          "role": "payoff",
+          "weight": 30,
+          "element_ids": [
+            "prob-caption",
+            "cell-grid"
+          ]
+        },
+        {
+          "id": "hold",
+          "role": "hold",
+          "weight": 16,
+          "element_ids": [
+            "prob-number"
+          ],
+          "hold_mode": "now-pulse"
+        }
+      ],
+      "beats": [
+        {
+          "id": "num-in",
+          "action": "number-in",
+          "description": "Число «1 к 1» входит своим входом AnimatedNumber (enterAt) слева под прожектором и держит значение «от» до начала счёта.",
+          "element_ids": [
+            "prob-number"
+          ],
+          "phase": "setup",
+          "kind": "enter"
+        },
+        {
+          "id": "note-in",
+          "action": "byte-note-in",
+          "description": "Над числом из размытия проявляется моно-строка «совпал 1 байт tophash» (muted), на stagger позже числа.",
+          "element_ids": [
+            "byte-note"
+          ],
+          "phase": "setup",
+          "kind": "enter"
+        },
+        {
+          "id": "prob-count",
+          "action": "count-denominator",
+          "description": "Знаменатель считает 1 → 256 через всю фазу action с разгоном и долгим торможением (EASE.count); итог 256 и удар масштаба — в конце фазы, не раньше слова «256» (кадр 111).",
+          "element_ids": [
+            "prob-number"
+          ],
+          "phase": "action",
+          "span": "phase",
+          "kind": "count"
+        },
+        {
+          "id": "caption-in",
+          "action": "caption-in",
+          "description": "Под числом шторкой mask открывается вывод «вероятность ложного совпадения» (body, две строки).",
+          "element_ids": [
+            "prob-caption"
+          ],
+          "phase": "payoff",
+          "kind": "enter"
+        },
+        {
+          "id": "grid-in",
+          "action": "grid-entrance",
+          "description": "Справа волной по диагонали из глубины (scale) проявляется сетка 16×16 тусклых ячеек — видно, как много вариантов байта.",
+          "element_ids": [
+            "cell-grid"
+          ],
+          "phase": "payoff",
+          "kind": "enter"
+        },
+        {
+          "id": "cell-emphasis",
+          "action": "cell-emphasis",
+          "description": "Одна ячейка (ряд 9, столбец 11) загорается акцентом циан: удар с одним кольцом, loop:false — к hold гаснет до тихого свечения, передавая акцент числу.",
+          "element_ids": [
+            "cell-grid"
+          ],
+          "phase": "payoff",
+          "kind": "accent"
+        },
+        {
+          "id": "hold",
+          "action": "hold",
+          "description": "now-pulse на герое: Emphasis hold вокруг «1 к 256» — волна радара от числа и дыхание свечения с пиком в N−1, вторая волна ближе к концу. Новых входов нет; сетка и подпись стоят, горящая ячейка тихо светится.",
+          "element_ids": [
+            "prob-number"
+          ],
+          "phase": "hold",
+          "span": "phase",
+          "kind": "hold"
+        }
+      ]
+    },
+    "composition": {
+      "archetype": "split",
+      "idea": "Слева крупное число «1 к N» считает знаменатель до 256 к слову «256»; только после этого справа вырастает сетка 16×16 с одной горящей ячейкой. Взгляд: число → сетка → ячейка → число.",
+      "focus": "Setup/action — число слева под прожектором; payoff — сетка и одна ячейка; hold — снова число. Камера стоит: движение ведут счёт и каскад ячеек.",
+      "transitions": "«1 к 1» держится → счёт до 256 к слову → удар → вывод шторкой и сетка волной → одна ячейка вспыхивает и передаёт акцент числу → в удержании число дышит волнами.",
+      "title_mode": "none",
+      "background": {
+        "variant": "spotlight",
+        "focus": {
+          "x": 0.3,
+          "y": 0.48
+        }
+      },
+      "structure": "count-up",
+      "structure_reason": "Форма времени задана брифом (one-number): счёт ведёт сцену, итог приходит к слову «256»."
+    },
+    "selection": {
+      "items": [
+        {
+          "kb_id": "remotion-bits/animated-counter",
+          "strategy": "adapt",
+          "why": "Идея счётчика с префиксом «1 к » и фиксированной шириной — на frame-driven AnimatedNumber из kit.",
+          "files_to_copy": []
+        }
+      ]
+    },
+    "rationale": "Мысль одна: случайное совпадение байта tophash — 1 к 256, и герой — это число со счётом (AnimatedNumber, display). Архетип split: справа сетка 16×16 как видимая величина, а не вторая крупная цифра. Это исправление key_term_early: веса фаз теперь setup 12 и action 42, поэтому счёт кончается и бьёт около кадра 115, уже после слова «256» на кадре 111. Сетка и вывод входят только в payoff, а в содержимом сетки нет литерала «256», только 16×16. Вместо сетки я рассматривал Particles как массу точек, но отказался: 256 точек вразброс нельзя пересчитать, а ровная сетка 16×16 честно показывает долю «одна из всех». Заголовка нет (none), фон spotlight стоит за числом слева, камера не движется. Это отличает сцену от соседних data-token и flow-graph. Финал now-pulse: акцент уходит от ячейки обратно к числу, и вокруг «1 к 256» идут волны и дыхание. Из KB взята идея animated-counter с префиксом (adapt)."
+  }
+}

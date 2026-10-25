@@ -146,12 +146,24 @@ describe("awaiting_input", () => {
     expect(e.job.idempotency_key).toBe("e1");
     finish(db, e.job.id, 1, { status: "completed", outputRefs: {} });
 
+    // ответ по индексу (старый клиент) сопоставляется с текстом вопроса
     const p = provideInput(db, c1.job.id, { "0": "красный" });
-    expect(p).toMatchObject({ status: "pending", input: { prompt: "p", answers: { "0": "красный" } } });
+    expect(p).toMatchObject({ status: "pending", input: { prompt: "p", answers: { "Какой акцент?": "красный" } } });
     const c2 = claimNext(db, "srv", 0, idle)!;
     expect(c2).toMatchObject({ attempt: 2, job: { id: c1.job.id, attempt: 2, interrupts: 0, max_attempts: 3, status: "running" } });
     // новая попытка: прогресс, этап и вопросы прошлой сброшены, вход с ответами сохранён
-    expect(c2.job).toMatchObject({ progress: 0, stage: null, output_refs: null, input: { prompt: "p", answers: { "0": "красный" } } });
+    expect(c2.job).toMatchObject({ progress: 0, stage: null, output_refs: null, input: { prompt: "p", answers: { "Какой акцент?": "красный" } } });
+  });
+
+  it("ответы по тексту вопроса; пропущенный вопрос получает default_if_skipped", () => {
+    const { db } = env;
+    const qs = [{ question: "Сколько лет на графике?", default_if_skipped: "пять" }, { question: "Валюта?", default_if_skipped: "рубли" }];
+    enqueue(db, req());
+    const c1 = claimNext(db, "srv", 0, idle)!;
+    finish(db, c1.job.id, 1, { status: "awaiting_input", questions: qs });
+    expect(provideInput(db, c1.job.id, { "Сколько лет на графике?": " 3 " }).input).toMatchObject({
+      answers: { "Сколько лет на графике?": "3", "Валюта?": "рубли (по умолчанию, вопрос пропущен)" },
+    });
   });
 
   it("skip; provideInput не для awaiting_input — ошибка", () => {
@@ -160,7 +172,8 @@ describe("awaiting_input", () => {
     const c1 = claimNext(db, "srv", 0, idle)!;
     expect(() => provideInput(db, c1.job.id, "skip")).toThrow(/job_not_awaiting_input/);
     finish(db, c1.job.id, 1, { status: "awaiting_input", questions });
-    expect(provideInput(db, c1.job.id, "skip").input).toMatchObject({ answers: "skip" });
+    // пропуск: каждому вопросу — его default_if_skipped с пометкой
+    expect(provideInput(db, c1.job.id, "skip").input).toMatchObject({ answers: { "Какой акцент?": "синий (по умолчанию, вопрос пропущен)" } });
     expect(() => provideInput(db, "job_nope", "skip")).toThrow(/job_not_found/);
   });
 });

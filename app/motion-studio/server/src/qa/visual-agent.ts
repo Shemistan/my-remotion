@@ -4,12 +4,13 @@
 // не попали в опубликованную версию.
 import { copyFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { type MotionSpec, type VisualQAOutput, VisualQAOutputSchema } from "@ms/contracts";
-import { safeMkdir } from "@ms/core";
+import { type MotionSpec, type VisualQAOutput, VisualQAOutputSchema, holdModeExplicit, holdModeFor } from "@ms/contracts";
+import { type ProcessRegistry, safeMkdir } from "@ms/core";
 import type { ResolvedStyle } from "@ms/render";
 import type { AgentResult, AgentRuntimeAdapter, AgentTask } from "../agents/runtime.js";
 import type { AppConfig } from "../config.js";
-import { inBeat, uncoveredElements } from "../pipeline/qa-frames.js";
+import { type MotionTokens, inBeat, uncoveredElements } from "../pipeline/qa-frames.js";
+import type { LayoutFrame } from "./layout.js";
 
 export interface VisualQAInput {
   /** draft-каталог версии: кадры берутся из `<workdir>/frames/<n>.png`. */
@@ -17,10 +18,15 @@ export interface VisualQAInput {
   frames: number[];
   spec: MotionSpec;
   style: ResolvedStyle;
+  /** Длительность сцены (settings.duration_frames; по умолчанию — spec): как при выборе кадров. */
+  durationFrames?: number;
   /** brief.json сцены (запрос и настройки) — для семантического gate. */
   brief: unknown;
-  runRef: { root: string; runId: string; attempt: number };
+  /** Прогон задачи; `registry` — реестр попытки (без него — файловый, как у среза). */
+  runRef: { root: string; runId: string; attempt: number; registry?: ProcessRegistry };
   signal: AbortSignal;
+  /** Каталог QA дубля (S5): `qa` — первый, `qa-t2` — второй; параллельные дубли не делят кадры. */
+  dirName?: string;
 }
 
 export interface VisualQADeps {
@@ -35,16 +41,31 @@ export type VisualQAResult = AgentResult<VisualQAOutput> & { wallMs: number };
 
 const json = (v: unknown) => JSON.stringify(v, null, 2) + "\n";
 
+/**
+ * Камера сцены для brief.json Visual QA: ключи spec (`frame`, `scale`, `x`, `y`). Наезд или
+ * сдвиг камеры двигает весь кадр между QA-кадрами — без ключей агент принимает зум за
+ * «скачок раскладки».
+ */
+export function cameraBrief(spec: MotionSpec): { keys: NonNullable<MotionSpec["camera"]>; note: string } {
+  const keys = spec.camera ?? [];
+  return {
+    keys,
+    note: keys.length > 0
+      ? "Ключи камеры: между ними весь кадр плавно масштабируется (scale) и сдвигается (x, y, px от центра). Общий сдвиг и рост всех элементов между кадрами — движение камеры, не скачок раскладки."
+      : "Камера не движется: общий сдвиг или масштаб кадра между кадрами — брак.",
+  };
+}
+
 /** Чек-лист вызова: кадры и элементы спецификации, которые агент обязан найти. */
-export function qaChecklist(frames: number[], spec: MotionSpec): string {
+export function qaChecklist(frames: number[], spec: MotionSpec, style?: MotionTokens, durationFrames: number = spec.duration_frames): string {
   const beatsOf = (id: string) => spec.beats.filter((b) => b.element_ids.includes(id)).map((b) => `${b.id} [${b.start_frame}–${b.end_frame})`);
-  const uncovered = new Set(uncoveredElements(spec, frames));
+  const uncovered = new Set(uncoveredElements(spec, frames, durationFrames, style));
   return [
     "# Чек-лист Visual QA",
     "",
     "## Кадры",
     ...frames.map((f) => {
-      const beats = spec.beats.filter((b) => inBeat(b, f, spec.duration_frames)).map((b) => `${b.id} (${b.action})`);
+      const beats = spec.beats.filter((b) => inBeat(b, f, durationFrames)).map((b) => `${b.id} (${b.action})`);
       return `- \`frames/${f}.png\` — кадр ${f}${beats.length > 0 ? `, биты: ${beats.join(", ")}` : ", вне битов"}`;
     }),
     "",
@@ -65,6 +86,10 @@ export function qaChecklist(frames: number[], spec: MotionSpec): string {
     "- контраст и размер текста;",
     "- разные входы у разных элементов, ритм битов по кадрам;",
     "- смысл запроса (`brief.json`) и стиль (`style.json`);",
+    ...(spec.camera && spec.camera.length > 0
+      ? [`- камера (\`brief.json\` → \`camera\`): ключи ${spec.camera.map((k) => `${k.frame}: ×${k.scale}`).join(", ")} — общий масштаб и сдвиг кадра по ним не скачок раскладки;`]
+      : []),
+    `- финал: hold_mode ${holdModeFor(spec)} (${holdModeExplicit(spec) ? "фаза hold spec" : "по носителю итога"}) — движение этого режима в удержании не дефект;`,
     "- каждое число и подпись на кадре — в `ocr` этого кадра дословно.",
     "",
   ].join("\n");
@@ -83,15 +108,18 @@ function prompt(frames: number[]): string {
 export async function runVisualQA(input: VisualQAInput, deps: VisualQADeps): Promise<VisualQAResult> {
   const { root, runId, attempt } = input.runRef;
   const frames = [...new Set(input.frames)].sort((a, b) => a - b);
-  const dir = await safeMkdir(root, join("run", "tmp", `${runId}-a${attempt}`, "qa"));
+  const qaName = input.dirName ?? "qa";
+  const dir = await safeMkdir(root, join("run", "tmp", `${runId}-a${attempt}`, qaName));
   // повторный QA в той же попытке (после исправления) видит только свои кадры
   await rm(join(dir, "frames"), { recursive: true, force: true });
-  const framesDir = await safeMkdir(root, join("run", "tmp", `${runId}-a${attempt}`, "qa", "frames"));
+  const framesDir = await safeMkdir(root, join("run", "tmp", `${runId}-a${attempt}`, qaName, "frames"));
   for (const f of frames) await copyFile(join(input.workdir, "frames", `${f}.png`), join(framesDir, `${f}.png`));
   await writeFile(join(dir, "spec.json"), json(input.spec));
   await writeFile(join(dir, "style.json"), json(input.style));
   await writeFile(join(dir, "brief.json"), json(input.brief));
-  await writeFile(join(dir, "checklist.md"), qaChecklist(frames, input.spec));
+  // покрытие — тем же стилем и длительностью, что при выборе кадров (generate.ts)
+  const duration = input.durationFrames ?? input.spec.duration_frames;
+  await writeFile(join(dir, "checklist.md"), qaChecklist(frames, input.spec, input.style, duration));
 
   const s = deps.config.agents.visual_qa;
   const task: AgentTask<string> = {
@@ -102,7 +130,7 @@ export async function runVisualQA(input: VisualQAInput, deps: VisualQADeps): Pro
     tools: ["Read"],
     model: s.model,
     limits: { timeoutMs: s.timeoutMs, maxBudgetUsd: s.maxBudgetUsd },
-    idempotencyKey: `${runId}-a${attempt}-visual_qa-${frames.join("_")}`,
+    idempotencyKey: `${runId}-a${attempt}-visual_qa${qaName === "qa" ? "" : `-${qaName}`}-${frames.join("_")}`,
     run: input.runRef,
   };
   const r = await deps.agents.run(task, VisualQAOutputSchema, input.signal);
@@ -111,7 +139,7 @@ export async function runVisualQA(input: VisualQAInput, deps: VisualQADeps): Pro
   const known = new Set(input.spec.elements.map((e) => e.id));
   const unknown = [...new Set(r.output.elements_seen.map((e) => e.id).filter((id) => !known.has(id)))];
   if (unknown.length > 0) deps.log?.(`Visual QA: elements_seen с id не из spec: ${unknown.join(", ")}`);
-  return { ...r, wallMs, output: withMissing(r.output, input.spec, frames) };
+  return { ...r, wallMs, output: withMissing(r.output, input.spec, frames, input.style, duration) };
 }
 
 /**
@@ -122,14 +150,14 @@ export async function runVisualQA(input: VisualQAInput, deps: VisualQADeps): Pro
  *   (не подтверждён; visual не лучше warn).
  * Дубли id в `elements_seen`: худший ответ (`seen: false`) побеждает.
  */
-function withMissing(out: VisualQAOutput, spec: MotionSpec, frames: number[]): VisualQAOutput {
+function withMissing(out: VisualQAOutput, spec: MotionSpec, frames: number[], style: MotionTokens, durationFrames: number): VisualQAOutput {
   const seen = new Map<string, VisualQAOutput["elements_seen"][number]>();
   for (const e of out.elements_seen) {
     const prev = seen.get(e.id);
     if (!prev || (prev.seen && !e.seen)) seen.set(e.id, e);
   }
   const checked = new Set(out.checked_frames);
-  const uncovered = new Set(uncoveredElements(spec, frames));
+  const uncovered = new Set(uncoveredElements(spec, frames, durationFrames, style));
   const issues = [...out.issues];
   let visual = out.gate.visual;
   const warn = () => {
@@ -163,5 +191,94 @@ function withMissing(out: VisualQAOutput, spec: MotionSpec, frames: number[]): V
       warn();
     }
   }
+  return { ...out, issues, gate: { ...out.gate, visual } };
+}
+
+/** Нормализация текста для сверки с пробой: регистр, пробелы (в т. ч. неразрывные). */
+const norm = (t: string) => t.toLowerCase().replace(/[\s\u00a0\u202f]+/g, " ").trim();
+const compact = (t: string) => norm(t).replace(/ /g, "");
+
+/** Ключи подписи числа: сами по себе — не текст элемента (это часть числа). */
+const AFFIX_KEYS = new Set(["unit", "suffix", "prefix", "currency"]);
+/** Сравнение текста пробы и content: без пробелов и разделителей разрядов. */
+const key = (t: string) => compact(t).replace(/(?<=\d)[,\u2009](?=\d{3})/g, "");
+
+/**
+ * Тексты элемента spec целиком (S5-fix I4): строки content от 2 знаков; число — вместе с его
+ * `prefix`/`unit`/`suffix`/`currency` (`{value: 2, unit: "мс"}` → «2мс»), а без подписи —
+ * само число от 2 знаков. Подписи числа отдельно не берутся.
+ */
+function contentTexts(v: unknown, out: string[] = []): string[] {
+  const push = (t: string) => {
+    const k = key(t);
+    if (k.length >= 2) out.push(k);
+  };
+  if (typeof v === "string") push(v);
+  else if (typeof v === "number" && Number.isFinite(v)) push(String(v));
+  else if (Array.isArray(v)) for (const x of v) contentTexts(x, out);
+  else if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    const value = o.value;
+    const affix = (k: string) => (typeof o[k] === "string" ? (o[k] as string) : "");
+    if (typeof value === "number" || (typeof value === "string" && /\d/.test(value))) {
+      push(`${affix("prefix")}${affix("currency")}${String(value)}${affix("unit")}${affix("suffix")}`);
+    }
+    for (const [k, x] of Object.entries(o)) if (k !== "value" && !AFFIX_KEYS.has(k)) contentTexts(x, out);
+  }
+  return out;
+}
+
+/** Прямоугольник элемента пробы внутри кадра (хоть частью); размер кадра неизвестен — да. */
+function inFrame(it: LayoutFrame["items"][number], f: LayoutFrame, size?: { width: number; height: number }): boolean {
+  if (!size) return true;
+  const k = f.height > 0 ? f.height / size.height : 1;
+  const r = it.rect;
+  return r.w > 0 && r.h > 0 && r.x < size.width * k && r.y < size.height * k && r.x + r.w > 0 && r.y + r.h > 0;
+}
+
+/**
+ * Кадр, на котором проба раскладки видит элемент внутри его битов (S5-fix I4 — строго):
+ * элемент пробы с тем же id владельца (`<роль>:<data-ms-id>:<n>`), либо элемент без владельца
+ * (`scene#…`), чей текст целиком равен тексту элемента. Текст чужого элемента, совпадение
+ * части заголовка («2 мс» в «Кэш отвечает за 2 мс») и элементы вне кадра не считаются.
+ */
+function registryFrame(e: MotionSpec["elements"][number], spec: MotionSpec, layout: LayoutFrame[], durationFrames: number, size?: { width: number; height: number }): number | undefined {
+  const beats = spec.beats.filter((b) => b.element_ids.includes(e.id));
+  const texts = new Set(contentTexts(e.content));
+  for (const f of layout) {
+    if (!beats.some((b) => inBeat(b, f.frame, durationFrames))) continue;
+    for (const it of f.items) {
+      if (!inFrame(it, f, size)) continue;
+      const owner = it.id.split(":")[1];
+      if (owner === e.id) return f.frame;
+      if (!it.id.startsWith("scene#")) continue;
+      if (texts.has(key(it.text))) return f.frame;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * S5: blocking `missing_element` по одному зрению, который опровергает реестр раскладки
+ * (проба видит элемент на кадре его битов — `registryFrame`), — warning: элемент построен,
+ * агент его не узнал. Если других blocking-замечаний агента не осталось, `gate.visual`
+ * fail → warn. Элементы без текста и владельца в пробе — их замечания не меняются.
+ */
+export function reconcileMissing(
+  out: VisualQAOutput, spec: MotionSpec, layout: LayoutFrame[], durationFrames: number, size?: { width: number; height: number },
+): VisualQAOutput {
+  if (layout.length === 0) return out;
+  const byId = new Map(spec.elements.map((e) => [e.id, e]));
+  let changed = false;
+  const issues = out.issues.map((i) => {
+    if (i.code !== "missing_element" || i.severity !== "blocking" || !i.area) return i;
+    const e = byId.get(i.area);
+    const f = e ? registryFrame(e, spec, layout, durationFrames, size) : undefined;
+    if (f === undefined) return i;
+    changed = true;
+    return { ...i, severity: "warning" as const, description: `${i.description} (реестр раскладки видит его текст на кадре ${f} — замечание только зрения)` };
+  });
+  if (!changed) return out;
+  const visual = out.gate.visual === "fail" && !issues.some((i) => i.severity === "blocking") ? "warn" : out.gate.visual;
   return { ...out, issues, gate: { ...out.gate, visual } };
 }

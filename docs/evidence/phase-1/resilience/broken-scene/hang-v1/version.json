@@ -1,0 +1,33 @@
+{
+  "id": "ver_01M5N0BSE71DV5EHN0NHQ2J7NT",
+  "scene_id": "scn_01M5N0B8Q9H083RZKRS7QRSGTW",
+  "parent_version_id": null,
+  "number": 1,
+  "status": "failed",
+  "prompt": "Фикстура: сцена, которая вешает рендер",
+  "edit_plan_json": null,
+  "settings_json": {
+    "aspect_ratio": "16:9",
+    "width": 640,
+    "height": 360,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 60,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "path": "workspace/projects/acc-fixtures-20261023t1828/scenes/scn_01M5N0B8Q9H083RZKRS7QRSGTW/versions/ver_01M5N0BSE71DV5EHN0NHQ2J7NT",
+  "manifest_sha256": "0f9d46c4d71d716a27e17686e287e3c896d8447f6afb627db682ef48643d7cb5",
+  "created_by_job_id": "job_seed_scn_01M5N0B8Q9H083RZKRS7QRSGTW_1",
+  "created_at": "2026-10-23T18:28:53.831Z",
+  "broken_reason": null,
+  "dir": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/acc-fixtures-20261023t1828/scenes/scn_01M5N0B8Q9H083RZKRS7QRSGTW/versions/ver_01M5N0BSE71DV5EHN0NHQ2J7NT"
+}

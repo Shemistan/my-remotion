@@ -1,0 +1,24 @@
+{
+  "status": "ready",
+  "job_status": "completed",
+  "version_status": "ready",
+  "cost_usd": 1.5207461,
+  "wall_ms": 2467111,
+  "engineer_calls": 1,
+  "duration_frames": 180,
+  "fps": 30,
+  "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FS24SAEYVD6ZMPHQF2Y17J/versions/ver_01M5FVDC6V12HYPZJBT2GZAQ1W",
+  "commit": "f66a2cc",
+  "motion_kit_version": "0.3.1",
+  "prompts_sha256": {
+    "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+    "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+    "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+    "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+    "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+    "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+    "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+  },
+  "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+  "motion_kit_sha256": "sha256:1fc64dd34263e6be"
+}

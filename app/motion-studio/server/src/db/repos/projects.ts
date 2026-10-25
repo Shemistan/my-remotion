@@ -17,7 +17,7 @@ export function create(db: Db, input: { id?: string; kind?: ProjectRow["kind"]; 
   const settings = input.settings === undefined ? null : SettingsSchema.parse(input.settings);
   const id = input.id ?? newId("prj");
   db.prepare("INSERT INTO projects (id, kind, title, settings_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
-    .run(id, input.kind ?? "video", input.title, toJson(settings), at, at);
+    .run(id, input.kind ?? "playground", input.title, toJson(settings), at, at);
   return get(db, id)!;
 }
 
@@ -25,6 +25,21 @@ export function get(db: Db, id: string): ProjectRow | undefined {
   const r = db.prepare("SELECT * FROM projects WHERE id = ?").get(id) as Raw | undefined;
   return r && row(r);
 }
+
+/** Настройки проекта (первый импорт видео задаёт fps и формат кадра). */
+export function setSettings(db: Db, id: string, settings: Settings): void {
+  const s = SettingsSchema.parse(settings);
+  const r = db.prepare("UPDATE projects SET settings_json = ?, updated_at = ? WHERE id = ?").run(toJson(s), nowIso(), id);
+  if (r.changes !== 1) throw new Error(`projects: проекта ${id} нет`);
+}
+
+/**
+ * Служебные проекты харнесса качества (`scripts/bench-set.mts`): `bench-<run>`, у прогонов до
+ * переименования харнесса (2026-10-23) — старый префикс. UI (Task 21) их не показывает.
+ */
+export const BENCH_PROJECT_PREFIXES = ["bench-", "eval-"] as const;
+
+export const isBenchProject = (id: string): boolean => BENCH_PROJECT_PREFIXES.some((p) => id.startsWith(p));
 
 /** Playground первым, затем по времени создания. */
 export function list(db: Db): ProjectRow[] {

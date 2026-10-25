@@ -1,0 +1,323 @@
+{
+  "title": "Рост пользователей ×100",
+  "purpose": "За три года аудитория выросла в 100 раз — с 10 000 до 1 000 000 пользователей; главный итог — конечное значение.",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "composition": {
+    "archetype": "diagonal",
+    "idea": "Светящаяся кривая поднимается из левого нижнего угла к правому верхнему, а над её концом растёт огромное число. Взгляд идёт по линии от «Старта» вверх к числу «1 000 000» в правом верхнем углу, потом опускается к выводу «×100».",
+    "focus": "Действие: взгляд ведёт голова линии, число растёт вместе с ней. Payoff: фокус уходит на число-героя (удар и ореол) и на вывод «×100» под ним. Камера стоит: движение кадра несёт линия, которая растёт через весь кадр; в финале взгляд держат свет и дыхание ореола.",
+    "transitions": "Сетка-силуэт и «10 000» видны с первых кадров. Линия прорисовывается, точки лет вспыхивают, число идёт за головой линии. Акцент конечной точки гаснет и переходит к числу: оно бьёт и остаётся светиться. Под ним шторкой входит «×100», следом «за три года». График остаётся опорой до конца.",
+    "title_mode": "none",
+    "background": {
+      "variant": "aurora",
+      "focus": {
+        "x": 0.72,
+        "y": 0.22
+      },
+      "seed": "scn_01M5N0BWY51B61QQBH3BM0NJ2F"
+    },
+    "structure": "count-up",
+    "structure_reason": "Сцену ведёт одна величина: счёт от 10 000 до 1 000 000 начинается сразу, а контекст входит, пока он идёт."
+  },
+  "elements": [
+    {
+      "id": "growth-chart",
+      "kind": "chart",
+      "role": "опора: траектория роста по годам",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "LineChart",
+        "points": [
+          {
+            "label": "Старт",
+            "value": 10000
+          },
+          {
+            "label": "Год 1",
+            "value": 70000
+          },
+          {
+            "label": "Год 2",
+            "value": 300000
+          },
+          {
+            "label": "Год 3",
+            "value": 1000000
+          }
+        ],
+        "area": true,
+        "callout": false,
+        "endpointEmphasis": {
+          "loop": false
+        },
+        "yTicks": 4,
+        "compact": true,
+        "locale": "ru",
+        "accentIndex": 0,
+        "pre": "silhouette",
+        "width": 1002,
+        "height": 632,
+        "note": "Точки лет вспыхивают, когда до них доходит голова линии. Выноски нет: значение показывает герой. Акцент конечной точки — удар в конце прорисовки, затем гаснет и передаётся герою."
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.3,
+        "w": 0.58,
+        "h": 0.65
+      }
+    },
+    {
+      "id": "hero-count",
+      "kind": "number",
+      "role": "герой: итоговое число пользователей",
+      "entrance": "count",
+      "depth_layer": 1,
+      "content": {
+        "component": "AnimatedNumber",
+        "from": 10000,
+        "to": 1000000,
+        "locale": "ru",
+        "size": "display",
+        "align": "right",
+        "reserveWidth": true,
+        "bound_to": "growth-chart.head",
+        "round_to": 1000,
+        "accentIndex": 0,
+        "note": "value = Math.round(lineChartHead(...).value / 1000) * 1000, число равно значению под головой линии. Входит (enterAt) со значением «10 000» не позже чем за 15 кадров до старта линии. Без prefix и suffix; в кадре «1 000 000» шириной около 640 px."
+      },
+      "layout": {
+        "x": 0.5,
+        "y": 0.05,
+        "w": 0.45,
+        "h": 0.19
+      }
+    },
+    {
+      "id": "users-label",
+      "kind": "text",
+      "role": "подпись героя: единица",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "component": "KineticText",
+        "text": "пользователей",
+        "size": "body",
+        "align": "right",
+        "color": "muted",
+        "suffix_forms": [
+          "пользователь",
+          "пользователя",
+          "пользователей"
+        ],
+        "note": "Форма слова = pluralForm(показанного значения). Число округлено до тысяч, поэтому на каждом кадре читается «пользователей»."
+      },
+      "layout": {
+        "x": 0.66,
+        "y": 0.25,
+        "w": 0.29,
+        "h": 0.07
+      }
+    },
+    {
+      "id": "multiplier",
+      "kind": "text",
+      "role": "вывод: кратность роста",
+      "entrance": "mask",
+      "depth_layer": 1,
+      "content": {
+        "component": "KineticText",
+        "text": "×100",
+        "size": "h1",
+        "align": "right",
+        "color": "text",
+        "weight": 800,
+        "pre": "hidden",
+        "note": "Ключевое утверждение запроса (10 000 → 1 000 000 = ×100). Цвет текста, не акцент: акцент в payoff принадлежит герою."
+      },
+      "layout": {
+        "x": 0.66,
+        "y": 0.42,
+        "w": 0.29,
+        "h": 0.1
+      }
+    },
+    {
+      "id": "multiplier-sub",
+      "kind": "text",
+      "role": "вывод: период",
+      "entrance": "fade",
+      "depth_layer": 1,
+      "content": {
+        "component": "KineticText",
+        "text": "за три года",
+        "size": "body",
+        "align": "right",
+        "color": "muted",
+        "pre": "hidden"
+      },
+      "layout": {
+        "x": 0.66,
+        "y": 0.53,
+        "w": 0.29,
+        "h": 0.07
+      }
+    }
+  ],
+  "phases": [
+    {
+      "id": "p-count",
+      "role": "action",
+      "weight": 52,
+      "element_ids": [
+        "growth-chart",
+        "hero-count",
+        "users-label"
+      ]
+    },
+    {
+      "id": "p-payoff",
+      "role": "payoff",
+      "weight": 24,
+      "element_ids": [
+        "hero-count",
+        "multiplier",
+        "multiplier-sub"
+      ]
+    },
+    {
+      "id": "p-hold",
+      "role": "hold",
+      "weight": 24,
+      "element_ids": [
+        "hero-count",
+        "growth-chart",
+        "users-label",
+        "multiplier",
+        "multiplier-sub"
+      ],
+      "hold_mode": "now-pulse"
+    }
+  ],
+  "beats": [
+    {
+      "id": "chart-draw",
+      "start_frame": 0,
+      "end_frame": 43,
+      "action": "chart-draw",
+      "description": "LineChart на всё окно фазы. Сетка и подписи оси Y (0 · 500 тыс. · 1 млн) проявляются, затем гладкая монотонная линия со светящейся головой рисуется слева направо (linear по пути). Точки «Год 1», «Год 2» вспыхивают при касании головы, заливка открывается следом. В конце прорисовки — удар конечной точки «Год 3», после бита он гаснет (loop:false).",
+      "element_ids": [
+        "growth-chart"
+      ],
+      "phase": "p-count",
+      "span": "phase",
+      "kind": "sustain"
+    },
+    {
+      "id": "hero-in",
+      "start_frame": 6,
+      "end_frame": 18,
+      "action": "hero-in",
+      "description": "Число входит со значением «10 000» (enterAt — начало бита) и держит его, пока линия не тронется: «от» читается не меньше 15 кадров.",
+      "element_ids": [
+        "hero-count"
+      ],
+      "phase": "p-count",
+      "kind": "enter"
+    },
+    {
+      "id": "hero-count-count",
+      "start_frame": 6,
+      "end_frame": 35,
+      "action": "count-follow-head",
+      "description": "hero-count считает за головой линии growth-chart: значение — lineChartHead(...).value, окно головы бита chart-draw",
+      "element_ids": [
+        "hero-count"
+      ]
+    },
+    {
+      "id": "label-in",
+      "start_frame": 17,
+      "end_frame": 29,
+      "action": "label-in",
+      "description": "«пользователей» проявляется из размытия (blur) под числом, через stagger_frames после входа числа.",
+      "element_ids": [
+        "users-label"
+      ],
+      "phase": "p-count",
+      "kind": "enter"
+    },
+    {
+      "id": "hero-count",
+      "start_frame": 28,
+      "end_frame": 43,
+      "action": "hero-count",
+      "description": "Счёт привязан к голове линии (bound_to growth-chart.head): на каждом кадре число равно значению под головой, округлённому до тысяч. Медленно у старта, стремительно к «Году 3» — форма роста видна в цифрах. Счёт кончается в кадр, когда линия дорисована (head.endFrame).",
+      "element_ids": [
+        "growth-chart"
+      ],
+      "phase": "p-count",
+      "span": "phase",
+      "kind": "count"
+    },
+    {
+      "id": "final-emphasis",
+      "start_frame": 43,
+      "end_frame": 86,
+      "action": "final-emphasis",
+      "description": "Акцент переходит от конечной точки графика к герою: Emphasis вокруг «1 000 000» — удар масштаба +6 %, вспышка, одно кольцо (ring strike), shape rounded, затем ореол Halo за числом (без таблетки). Единственный акцент кадра.",
+      "element_ids": [
+        "hero-count"
+      ],
+      "phase": "p-payoff",
+      "kind": "accent"
+    },
+    {
+      "id": "multiplier-in",
+      "start_frame": 43,
+      "end_frame": 86,
+      "action": "multiplier-in",
+      "description": "«×100» открывается шторкой mask снизу (14–18 кадров) под подписью героя — вывод звучит событием.",
+      "element_ids": [
+        "multiplier"
+      ],
+      "phase": "p-payoff",
+      "kind": "enter"
+    },
+    {
+      "id": "multiplier-sub-in",
+      "start_frame": 49,
+      "end_frame": 86,
+      "action": "multiplier-sub-in",
+      "description": "«за три года» тихо проявляется (fade) под «×100» через stagger_frames после неё.",
+      "element_ids": [
+        "multiplier-sub"
+      ],
+      "phase": "p-payoff",
+      "kind": "enter"
+    },
+    {
+      "id": "hold",
+      "start_frame": 86,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "Режим now-pulse через Emphasis hold у героя: ореол за «1 000 000» дышит, от числа расходится мягкая волна радара, пик — к последнему кадру. Ничего нового не входит. График, подпись и вывод стоят, фон aurora медленно дрейфует: кадры N−20 и N−1 различаются, движение подтверждает итог.",
+      "element_ids": [
+        "hero-count",
+        "growth-chart",
+        "users-label",
+        "multiplier",
+        "multiplier-sub"
+      ],
+      "phase": "p-hold",
+      "span": "phase",
+      "kind": "hold"
+    }
+  ],
+  "camera": []
+}

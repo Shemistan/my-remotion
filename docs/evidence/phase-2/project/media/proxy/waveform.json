@@ -1,0 +1,6 @@
+{
+  "bucket_ms": 10,
+  "sample_rate": 16000,
+  "length": 42002,
+  "file": "waveform.bin"
+}

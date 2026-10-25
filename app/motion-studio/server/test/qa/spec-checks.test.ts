@@ -1,9 +1,9 @@
 // Проверки спецификации до рендера: одинаковые входы, перекрытия, safe area, акцент.
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { type Element, type MotionSpec, MotionSpecSchema, SettingsSchema } from "@ms/contracts";
+import { type Element, type MotionSpec, MotionSpecSchema, type QAIssue, SettingsSchema } from "@ms/contracts";
 import { describe, expect, it } from "vitest";
-import { specChecks } from "../../src/qa/spec-checks.js";
+import { sceneSignature, specChecks } from "../../src/qa/spec-checks.js";
 import { beat, el, settings, spec } from "./helpers.js";
 
 const s = settings();
@@ -87,5 +87,346 @@ describe("specChecks", () => {
     expect(codes(byRole).map(([c]) => c)).not.toContain("no_emphasis");
     const byAction = spec({ beats: [beat("b0", 0, 60, ["a"], "accent-pulse")] });
     expect(codes(byAction).map(([c]) => c)).not.toContain("no_emphasis");
+  });
+});
+
+describe("accent_conflict: два акцента в один момент", () => {
+  /** Узел user вспыхивает по приходу импульса бита pulse (кончается в `arrive`), плашка — акцент своего бита. */
+  function handoff(arrive: number, emphStart: number, flashOn: string | string[] = "e-req (back, pulse)"): MotionSpec {
+    const beats = [
+      beat("graph-in", 0, 40, ["graph", "user", "orc"]),
+      beat("pulse", arrive - 18, arrive, ["graph", "user", "orc"], "pulse-answer-back"),
+      beat("answer", emphStart, Math.min(180, emphStart + 10), ["answer"], "answer-in-emphasis"),
+      beat("hold", Math.min(179, emphStart + 10), 180, ["answer", "graph"], "final-emphasis-hold"),
+    ];
+    const sp = spec({ beats });
+    sp.duration_frames = 180;
+    sp.elements = [
+      el("graph", { kind: "graph", entrance: "draw", content: {}, layout: { x: 0.3, y: 0.1, w: 0.6, h: 0.5 } }),
+      el("user", { kind: "card", entrance: "slide", content: { flash_on: flashOn }, layout: { x: 0.02, y: 0.1, w: 0.2, h: 0.12 } }),
+      el("orc", { kind: "card", entrance: "pop", content: {}, layout: { x: 0.4, y: 0.2, w: 0.2, h: 0.12 } }),
+      el("answer", { kind: "card", role: "акцент: итог", entrance: "scale", content: {}, layout: { x: 0.02, y: 0.7, w: 0.2, h: 0.1 } }),
+    ];
+    return sp;
+  }
+  const conflict = (sp: MotionSpec) => specChecks(sp, s).find((i) => i.code === "accent_conflict");
+
+  it("вспышка узла по приходу импульса и Emphasis другого объекта перекрываются — blocking", () => {
+    const i = conflict(handoff(152, 148));
+    expect(i).toMatchObject({ severity: "blocking" });
+    expect(i?.area).toContain("user");
+    expect(i?.area).toContain("answer");
+    expect(i?.fix_hint).toMatch(/flash_on/);
+  });
+
+  it("flash_on только с id ребра: бит импульса — бит с узлом и действием pulse", () => {
+    expect(conflict(handoff(152, 148, "e-req"))).toBeDefined();
+  });
+
+  it("акцент стартует после того, как вспышка погасла — нет конфликта", () => {
+    expect(conflict(handoff(120, 150))).toBeUndefined();
+  });
+
+  it("вспышка на самом объекте акцента и веер вспышек по узлам — не конфликт", () => {
+    // плашка бьёт в кадр прихода (152), вспышка — на ней самой
+    const sp = handoff(152, 152);
+    sp.elements = sp.elements.map((e) => (e.id === "user" ? { ...e, content: {} } : e.id === "answer" ? { ...e, content: { flash_on: "e-req (back, pulse)" } } : e));
+    expect(conflict(sp)).toBeUndefined();
+    const fan = handoff(120, 160);
+    fan.elements = fan.elements.map((e) => (e.id === "orc" ? { ...e, content: { flash_on: "e-req (back, pulse)" } } : e));
+    expect(conflict(fan)).toBeUndefined();
+  });
+
+  it("два Emphasis на разных объектах с перекрытыми битами — blocking; передача без перекрытия — нет", () => {
+    const two = (bStart: number) => {
+      const sp = spec({ beats: [beat("a", 60, 100, ["x"], "x-emphasis"), beat("b", bStart, 140, ["y"], "y-accent")] });
+      sp.elements = [el("x", { role: "акцент: первое", layout: { x: 0.1, y: 0.1, w: 0.2, h: 0.1 } }), el("y", { role: "акцент: второе", entrance: "fade", layout: { x: 0.5, y: 0.1, w: 0.2, h: 0.1 } })];
+      return sp;
+    };
+    expect(conflict(two(90))).toMatchObject({ severity: "blocking" });
+    expect(conflict(two(100))).toBeUndefined();
+  });
+
+  it("реальные spec прогона 3 (Fix C, до проверки): test2 и gen-cache — конфликт, остальные — нет", () => {
+    const dir = (f: string) => fileURLToPath(new URL(`../fixtures/specs-run3/${f}`, import.meta.url));
+    const st = SettingsSchema.parse(JSON.parse(readFileSync(dir("settings.json"), "utf8")));
+    const has = (n: string) => specChecks(MotionSpecSchema.parse(JSON.parse(readFileSync(dir(`${n}.spec.json`), "utf8"))), st).some((i) => i.code === "accent_conflict");
+    expect(has("test2")).toBe(true);
+    expect(has("gen-cache")).toBe(true);
+    for (const n of ["test1", "gen-compare", "gen-timeline"]) expect(has(n), n).toBe(false);
+  });
+});
+
+describe("accent_conflict: удар акцента посреди полёта импульса", () => {
+  const mk = (pulse: [number, number], accentStart: number, action = "hit-return-pulse", to = "client") => {
+    const sp = spec({
+      beats: [
+        beat("graph-in", 0, 40, ["graph", "client"]),
+        beat("ret", pulse[0], pulse[1], ["graph", to], action),
+        beat("hit", accentStart, 152, ["hit"], "hit-final-emphasis"),
+        beat("hold", 152, 180, ["hit", "graph"], "hold"),
+      ],
+    });
+    sp.elements = [
+      // одиночный импульс бита ret (repeat: false; в kit по умолчанию поток) — по ребру e1 графа к `to`;
+      // узла server в раскладке нет — длину ребра не вычислить, приход — конец бита
+      el("graph", { kind: "graph", entrance: "draw", layout: { x: 0.3, y: 0.1, w: 0.6, h: 0.5 }, content: { edges: [{ id: "e1", from: "server", to }], flows: [{ edge: "e1", beat: "ret", repeat: false }] } }),
+      el("client", { kind: "card", entrance: "slide", layout: { x: 0.02, y: 0.1, w: 0.2, h: 0.12 } }),
+      el("hit", { kind: "card", role: "акцент: попадание", entrance: "pop", layout: { x: 0.02, y: 0.7, w: 0.2, h: 0.1 } }),
+    ];
+    return sp;
+  };
+  const conflicts = (sp: MotionSpec, st = s) => specChecks(sp, st).filter((i) => i.code === "accent_conflict");
+  const blocking = (sp: MotionSpec, st = s) => conflicts(sp, st).filter((i) => i.severity === "blocking");
+
+  it("импульс летит в сам объект акцента (flows графа), акцент бьёт до прихода — blocking, подсказка — кадр прихода", () => {
+    const [i, ...rest] = blocking(mk([126, 140], 128, "hit-return-pulse", "hit"));
+    expect(rest).toEqual([]);
+    expect(i?.area).toContain("hit");
+    expect(i?.fix_hint).toContain("140");
+  });
+
+  it("узел прихода — по flows графа (обратный поток — к from); вложенная подпись узла — тот же объект", () => {
+    const sp = mk([126, 140], 128);
+    sp.elements[0] = { ...sp.elements[0]!, content: { edges: [{ id: "e1", from: "client", to: "server" }], flows: [{ edge: "e1", direction: "back", beat: "ret", repeat: false }] } };
+    // акцент — подпись внутри карточки client
+    sp.elements[2] = { ...sp.elements[2]!, layout: { x: 0.04, y: 0.12, w: 0.1, h: 0.05 } };
+    expect(blocking(sp)).toHaveLength(1);
+    sp.elements[0] = { ...sp.elements[0]!, content: { edges: [{ id: "e1", from: "client", to: "server" }], flows: [{ edge: "e1", direction: "forward", beat: "ret", repeat: false }] } };
+    expect(blocking(sp)).toEqual([]);
+  });
+
+  it("импульс к другому объекту — warning, не blocking (ревью Fix D: ложный blocking валит сцену)", () => {
+    const l = conflicts(mk([126, 140], 128));
+    expect(l).toEqual([expect.objectContaining({ severity: "warning" })]);
+  });
+
+  it("акцент в кадр прихода и позже, импульсы удержания (hold/loop) и входа графа (in/draw) — не конфликт", () => {
+    expect(conflicts(mk([126, 140], 140, "hit-return-pulse", "hit"))).toEqual([]);
+    expect(conflicts(mk([126, 140], 138, "hit-return-pulse", "hit"))).toEqual([]);
+    expect(conflicts(mk([100, 180], 128, "steady-flow-hold", "hit"))).toEqual([]);
+    expect(conflicts(mk([100, 150], 128, "flowgraph-in", "hit"))).toEqual([]);
+    expect(conflicts(mk([100, 150], 128, "flow-draw", "hit"))).toEqual([]);
+  });
+
+  describe("реальные spec", () => {
+    const fx = (f: string) => fileURLToPath(new URL(`../fixtures/${f}`, import.meta.url));
+    const st = SettingsSchema.parse(JSON.parse(readFileSync(fx("specs-run3/settings.json"), "utf8")));
+    const load = (f: string) => MotionSpecSchema.parse(JSON.parse(readFileSync(fx(f), "utf8")));
+    const setBeat = (sp: MotionSpec, id: string, over: Partial<MotionSpec["beats"][number]>) => {
+      sp.beats = sp.beats.map((b) => (b.id === id ? { ...b, ...over } : b));
+      return sp;
+    };
+
+    it("проба ревью (gen-compare прогона 3): поток b-micro-releases к «Прод» и удар по «Деплою» монолита — не blocking", () => {
+      const sp = setBeat(load("specs-run3/gen-compare.spec.json"), "b-micro-releases", { action: "micro-releases-flow" });
+      expect(blocking(sp, st)).toEqual([]);
+      expect(conflicts(sp, st)).toEqual([expect.objectContaining({ severity: "warning", area: "b-micro-releases, mono-deploy" })]);
+    });
+
+    it("проба ревью (gen-compare прогона 3): title-accent во время входа графа micro-flowgraph-in — не конфликт", () => {
+      const sp = setBeat(load("specs-run3/gen-compare.spec.json"), "b-micro-graph", { action: "micro-flowgraph-in" });
+      sp.beats.push({ id: "title-accent", start_frame: 40, end_frame: 56, action: "title-accent", description: "проба", element_ids: ["title"] });
+      expect(conflicts(sp, st)).toEqual([]);
+    });
+
+    // ребро tests → deploy ~86 px при 1920: по расписанию kit (repeat по умолчанию, проход 0.6 с)
+    // первый импульс приходит в ~78 — вспышка в 100 уже после данных, в 70 — в полёте
+    it("gen-compare прогона 3: вспышка «Деплоя» сдвинута в полёт импульса к нему (70 < прихода ~78) — blocking", () => {
+      const sp = setBeat(load("specs-run3/gen-compare.spec.json"), "b-mono-flash", { start_frame: 70 });
+      expect(blocking(sp, st)).toEqual([expect.objectContaining({ area: "b-mono-release, mono-deploy" })]);
+    });
+
+    it("gen-cache прогона 2: «Попадание» бьёт, пока ответ летит к клиенту — warning, не blocking", () => {
+      const sp = load("specs-run2/gen-cache.spec.json");
+      expect(blocking(sp, st).filter((i) => i.area?.startsWith("b-hit-return"))).toEqual([]);
+      expect(conflicts(sp, st)).toContainEqual(expect.objectContaining({ severity: "warning", area: "b-hit-return, status-hit" }));
+    });
+  });
+});
+
+// Проверки из дизайнер-ревью (motion-review-1 §1, §10). Spec прогона 4 (Fix D) заморожены в fixtures/specs-run4
+// (их и смотрел ревьюер); прогона 2 — fixtures/specs-run2.
+describe("ревью дизайнера: заглушки, ключевая мысль, подпись кадра", () => {
+
+  const fx = (f: string) => fileURLToPath(new URL(`../fixtures/${f}`, import.meta.url));
+  const st = SettingsSchema.parse(JSON.parse(readFileSync(fx("specs-run3/settings.json"), "utf8")));
+  const load = (path: string) => MotionSpecSchema.parse(JSON.parse(readFileSync(path, "utf8")));
+  const run4 = (n: string) => load(fx(`specs-run4/${n}.spec.json`));
+  const run2 = (n: string) => load(fx(`specs-run2/${n}.spec.json`));
+  const pick = (l: QAIssue[], code: string) => l.filter((i) => i.code === code);
+
+  it("placeholder_label: test2 прогона 4 («Инструмент 1/2/3») — warning (ruling P10)", () => {
+    expect(pick(specChecks(run4("test2"), st), "placeholder_label")).toEqual([
+      expect.objectContaining({ severity: "warning", area: "node-tool-1, node-tool-2, node-tool-3", description: expect.stringContaining("«Инструмент 1»") }),
+    ]);
+  });
+
+  it("placeholder_label: конкретные имена (test2 прогонов 2–3: «Веб-поиск» с подписью «инструмент 1») и прочие сцены — нет", () => {
+    expect(pick(specChecks(run2("test2"), st), "placeholder_label")).toEqual([]);
+    expect(pick(specChecks(load(fx("specs-run3/test2.spec.json")), st), "placeholder_label")).toEqual([]);
+    for (const n of ["test1", "gen-compare", "gen-timeline", "gen-cache"]) expect(pick(specChecks(run4(n), st), "placeholder_label"), n).toEqual([]);
+  });
+
+  it("placeholder_label: «Сервис 2» в списке stages — да; «Этап 2», id узлов и «Инструмент поиска» — нет", () => {
+    const sp = run4("gen-compare");
+    const lane = sp.elements.find((e) => e.id === "lane-mono")!;
+    lane.content = { ...lane.content, stages: ["Этап 1", "Этап 2", "Этап 3"], nodes: ["tool1", "tool2"], label: "Инструмент поиска" };
+    expect(pick(specChecks(sp, st), "placeholder_label")).toEqual([]);
+    lane.content = { ...lane.content, stages: ["Сервис 1", "Сервис 2"] };
+    expect(pick(specChecks(sp, st), "placeholder_label")).toEqual([expect.objectContaining({ area: "lane-mono" })]);
+  });
+
+  it("purpose_claim: test1 прогона 4 — «в 100 раз» в purpose, ×100 на экране нет — warning (ruling P10)", () => {
+    expect(pick(specChecks(run4("test1"), st), "purpose_claim")).toEqual([expect.objectContaining({ severity: "warning", description: expect.stringContaining("×100") })]);
+  });
+
+  it("purpose_claim: test1 прогона 2 (подпись «×100 за три года»), число с приставкой ×, purpose без кратности — нет", () => {
+    expect(pick(specChecks(run2("test1"), st), "purpose_claim")).toEqual([]);
+    const sp = run4("test1");
+    sp.elements.push({ ...sp.elements[0]!, id: "ratio", kind: "number", content: { component: "AnimatedNumber", from: 1, to: 100, prefix: "×" } });
+    expect(pick(specChecks(sp, st), "purpose_claim")).toEqual([]);
+    // «в разы» без числа и сцены без кратности в purpose не проверяются
+    for (const n of ["test2", "gen-compare", "gen-timeline", "gen-cache"]) expect(pick(specChecks(run4(n), st), "purpose_claim"), n).toEqual([]);
+  });
+
+  it("scene_signature_repeat: test2 после test1 (прогон 4: фон, полоса заголовка, статичная камера) — warning", () => {
+    expect(pick(specChecks(run4("test2"), st, { previous: run4("test1") }), "scene_signature_repeat")).toEqual([
+      expect.objectContaining({ severity: "warning", area: "background, topTitle, staticCamera" }),
+    ]);
+  });
+
+  it("scene_signature_repeat: список последних сцен проекта — одно замечание, по первой сцене с повтором", () => {
+    expect(pick(specChecks(run4("test2"), st, { previous: [run4("test1"), run4("gen-compare"), run4("gen-timeline")] }), "scene_signature_repeat")).toEqual([
+      expect.objectContaining({ severity: "warning", description: expect.stringContaining(`«${run4("test1").title}»`) }),
+    ]);
+    expect(pick(specChecks(run4("gen-timeline"), st, { previous: [run4("gen-compare")] }), "scene_signature_repeat")).toEqual([]);
+    expect(pick(specChecks(run4("test2"), st, { previous: [] }), "scene_signature_repeat")).toEqual([]);
+  });
+
+  it("sceneSignature: фон и заголовок — из composition (вариант + фокус, title_mode); seed сцены не в счёт", () => {
+    const comp = (background: object, title_mode?: string) => ({ ...run4("test2"), composition: { archetype: "other" as const, idea: "i", focus: "f", transitions: "t", background, ...(title_mode ? { title_mode: title_mode as "strip" } : {}) } });
+    const a = sceneSignature(comp({ variant: "blueprint", focus: { x: 0.5, y: 0.5 }, seed: "scn_a" }, "none"));
+    const b = sceneSignature(comp({ variant: "blueprint", focus: { x: 0.52, y: 0.48 }, seed: "scn_b" }, "kicker"));
+    const c = sceneSignature(comp({ variant: "blueprint", focus: { x: 0.8, y: 0.3 }, seed: "scn_a" }, "strip"));
+    expect(a.background).toBe(b.background); // тот же вариант и фокус в той же зоне, seed — id сцены
+    expect(a.background).not.toBe(c.background);
+    expect(sceneSignature(comp({ variant: "aurora" })).background).not.toBe(sceneSignature(comp({ variant: "spotlight" })).background);
+    // title_mode решает за эвристику раскладки: у test2 полоса заголовка сверху
+    expect(sceneSignature(run4("test2")).topTitle).toBe(true);
+    expect([a.topTitle, b.topTitle, c.topTitle]).toEqual([false, false, true]);
+  });
+
+  it("scene_signature_repeat: gen-timeline после gen-compare (камера движется, без таблетки) и без предыдущей сцены — нет", () => {
+    expect(pick(specChecks(run4("gen-timeline"), st, { previous: run4("gen-compare") }), "scene_signature_repeat")).toEqual([]);
+    expect(pick(specChecks(run4("test2"), st), "scene_signature_repeat")).toEqual([]);
+  });
+
+  it("beat_reference: поток ссылается на несуществующий бит, элемент ни в одном бите — blocking (Fix F, прогон 3: 2 бита на сцену)", () => {
+    const sp = run4("gen-cache");
+    expect(pick(specChecks(sp, st), "beat_reference")).toEqual([]);
+    const lost = structuredClone(sp);
+    const graph = lost.elements.find((e) => Array.isArray((e.content as { flows?: unknown }).flows))!;
+    (graph.content as { flows: { beat: string }[] }).flows[0]!.beat = "lost-beat";
+    lost.beats.forEach((b) => (b.element_ids = b.element_ids.filter((id) => id !== lost.elements.at(-1)!.id)));
+    const issues = pick(specChecks(lost, st), "beat_reference");
+    expect(issues).toEqual([
+      expect.objectContaining({ severity: "blocking", area: graph.id, description: expect.stringContaining("lost-beat") }),
+      expect.objectContaining({ severity: "blocking", area: lost.elements.at(-1)!.id }),
+    ]);
+    // ссылка с префиксом b- или без него — не висячая
+    (graph.content as { flows: { beat: unknown }[] }).flows[0]!.beat = `b-${sp.beats[0]!.id.replace(/^b[-_]/, "")}`;
+    expect(pick(specChecks(lost, st), "beat_reference").map((i) => i.area)).toEqual([lost.elements.at(-1)!.id]);
+  });
+
+  it("spec прогона 4 без предыдущей сцены: blocking нет; заглушки test2 и ×100 test1 — подсказки (warning)", () => {
+    const blocking = (n: string) => specChecks(run4(n), st).filter((i) => i.severity === "blocking").map((i) => i.code);
+    for (const n of ["test1", "test2", "gen-compare", "gen-timeline", "gen-cache"]) expect(blocking(n), n).toEqual([]);
+  });
+});
+
+describe("structure_mismatch: форма spec расходится со структурой (S3a-fix) — подсказка, не blocking", () => {
+  const els = [
+    el("a", { layout: { x: 0, y: 0, w: 0.4, h: 0.2 } }),
+    el("b", { entrance: "fade", layout: { x: 0.5, y: 0, w: 0.4, h: 0.2 } }),
+    el("n", { kind: "number", entrance: "count", layout: { x: 0, y: 0.5, w: 0.4, h: 0.2 } }),
+    el("v", { role: "акцент: вывод", entrance: "mask", layout: { x: 0.5, y: 0.5, w: 0.4, h: 0.2 } }),
+  ];
+  const beats = [beat("b0", 0, 60, ["a", "b"]), beat("b1", 60, 120, ["n"], "n-count"), beat("b2", 120, 150, ["v"], "v-emphasis"), beat("b3", 150, 180, ["v"], "hold")];
+  const phased = (structure: NonNullable<NonNullable<MotionSpec["composition"]>["structure"]>, phases: NonNullable<MotionSpec["phases"]>, over: Partial<MotionSpec> = {}) =>
+    spec({ elements: els, beats, composition: { archetype: "split", idea: "x", focus: "y", transitions: "z", structure }, phases, ...over });
+  const mism = (sp: MotionSpec) => specChecks(sp, s).filter((i) => i.code === "structure_mismatch");
+  const tail: NonNullable<MotionSpec["phases"]> = [{ id: "pay", role: "payoff", weight: 1, element_ids: ["v"] }, { id: "hold", role: "hold", weight: 1, element_ids: ["v"], hold_mode: "now-pulse" }];
+
+  it("build-strike с двумя независимыми setup — похоже на split-reveal; у split-reveal — нет", () => {
+    const ph = [{ id: "left", role: "setup" as const, weight: 1, element_ids: ["a"] }, { id: "right", role: "setup" as const, weight: 1, element_ids: ["b"] }, { id: "act", role: "action" as const, weight: 2, element_ids: ["n"] }, ...tail];
+    const w = mism(phased("build-strike", ph));
+    expect(w).toHaveLength(1);
+    expect(w[0]!.severity).toBe("warning");
+    expect(w[0]!.fix_hint).toMatch(/split-reveal/);
+    expect(mism(phased("split-reveal", ph))).toEqual([]);
+  });
+
+  it("поток back в графе — похоже на call-response; с structure_reason — молчит", () => {
+    const g = el("g", { kind: "graph", entrance: "draw", content: { edges: [{ id: "e", from: "a", to: "b" }], flows: [{ edge: "e", direction: "back", beat: "b1" }] }, layout: { x: 0, y: 0.75, w: 0.9, h: 0.2 } });
+    const ph = [{ id: "setup", role: "setup" as const, weight: 1, element_ids: ["a", "b"] }, { id: "act", role: "action" as const, weight: 2, element_ids: ["n"] }, ...tail];
+    const sp = phased("build-strike", ph, { elements: [...els, g], beats: [...beats.slice(0, 1), { ...beats[1]!, element_ids: ["n", "g"] }, ...beats.slice(2)] });
+    expect(mism(sp).map((i) => i.fix_hint).join(" ")).toMatch(/call-response/);
+    expect(mism({ ...sp, composition: { ...sp.composition!, structure_reason: "ответ не событие" } })).toEqual([]);
+  });
+
+  it("count-up без числа в ведущей action — число не ведёт", () => {
+    const ph = [{ id: "act", role: "action" as const, weight: 2, element_ids: ["a"] }, { id: "setup", role: "setup" as const, weight: 1, element_ids: ["n", "b"] }, ...tail];
+    expect(mism(phased("count-up", ph)).map((i) => i.description).join(" ")).toMatch(/count-up/);
+    const good = [{ id: "act", role: "action" as const, weight: 2, element_ids: ["n"] }, { id: "setup", role: "setup" as const, weight: 1, element_ids: ["a", "b"] }, ...tail];
+    expect(mism(phased("count-up", good))).toEqual([]);
+  });
+
+  it("spec без фаз — проверки нет", () => {
+    expect(mism(spec({ elements: els, beats }))).toEqual([]);
+  });
+
+  it("структура = выбор Concept — молчит (правило Concept важнее эвристики); другая — подсказка называет выбор Concept (s3afix-rereview m3)", () => {
+    const ph = [{ id: "left", role: "setup" as const, weight: 1, element_ids: ["a"] }, { id: "right", role: "setup" as const, weight: 1, element_ids: ["b"] }, { id: "act", role: "action" as const, weight: 2, element_ids: ["n"] }, ...tail];
+    const sp = phased("build-strike", ph);
+    expect(specChecks(sp, s, { concept: "build-strike" }).filter((i) => i.code === "structure_mismatch")).toEqual([]);
+    const w = specChecks(sp, s, { concept: "call-response" }).filter((i) => i.code === "structure_mismatch");
+    expect(w).toHaveLength(1);
+    expect(w[0]!.fix_hint).toMatch(/Concept.*call-response/);
+    // structure_reason гасит подсказку, только когда Director ушёл от Concept; без Concept — как раньше
+    const reasoned = { ...sp, composition: { ...sp.composition!, structure_reason: "сборка, не сравнение" } };
+    expect(specChecks(reasoned, s, { concept: "call-response" }).filter((i) => i.code === "structure_mismatch")).toEqual([]);
+    expect(mism(reasoned)).toEqual([]);
+  });
+});
+
+describe("accent_conflict вспышки: подсказка без «перенеси в фазу после», если акцент уже после импульса (s3afix-rereview I1)", () => {
+  it("импульс в action кончается у удара, акцент payoff — другой объект: fix_hint про длину импульса или flash_on", () => {
+    const e = [
+      el("src", { layout: { x: 0, y: 0, w: 0.2, h: 0.2 } }),
+      el("dst", { entrance: "fade", content: { flash_on: "b-flow" }, layout: { x: 0.5, y: 0, w: 0.2, h: 0.2 } }),
+      el("v", { entrance: "mask", role: "акцент: вывод", layout: { x: 0, y: 0.6, w: 0.5, h: 0.2 } }),
+    ];
+    const sp = spec({
+      elements: e,
+      phases: [{ id: "act", role: "action", weight: 1, element_ids: ["src", "dst"] }, { id: "pay", role: "payoff", weight: 1, element_ids: ["v"] }],
+      beats: [{ ...beat("b-flow", 0, 94, ["src", "dst"], "requests-flow"), phase: "act" }, { ...beat("b-v", 94, 180, ["v"], "v-emphasis"), phase: "pay" }],
+    });
+    const c = specChecks(sp, s).find((i) => i.code === "accent_conflict" && i.severity === "blocking")!;
+    expect(c).toBeDefined();
+    expect(c.fix_hint).not.toMatch(/фазу после/);
+    expect(c.fix_hint).toMatch(/flash_on/);
+    expect(c.fix_hint).toMatch(/b-flow/);
+  });
+});
+
+describe("accent_conflict в spec с фазами: подсказка про фазы, а не кадры (S3a-fix I1)", () => {
+  it("два акцента перекрываются — fix_hint про фазы и kind, без кадров", () => {
+    const e = [el("x", { layout: { x: 0, y: 0, w: 0.3, h: 0.2 } }), el("y", { entrance: "fade", layout: { x: 0.5, y: 0, w: 0.3, h: 0.2 } })];
+    const sp = spec({ elements: e, phases: [{ id: "pay", role: "payoff", weight: 1, element_ids: ["x", "y"] }], beats: [{ ...beat("bx", 0, 60, ["x"], "x-emphasis"), phase: "pay" }, { ...beat("by", 10, 60, ["y"], "y-accent"), phase: "pay" }] });
+    const c = specChecks(sp, s).find((i) => i.code === "accent_conflict")!;
+    expect(c.severity).toBe("blocking");
+    expect(c.fix_hint).toMatch(/фаз/);
+    expect(c.fix_hint).not.toMatch(/кадр/);
   });
 });

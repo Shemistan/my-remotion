@@ -1,0 +1,33 @@
+[
+  {
+    "kb_id": "xyflow/default-nodes",
+    "repository": "xyflow (React Flow)",
+    "repository_url": "git@github.com:xyflow/xyflow.git",
+    "commit": "654ba5a5e",
+    "license": "MIT (LICENSE, packages/react/package.json)",
+    "license_class": "permissive",
+    "strategy": "adapt",
+    "source_paths": [
+      "templates/infografika/xyflow/packages/react/src/components/Nodes/DefaultNode.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/Nodes/InputNode.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/Nodes/OutputNode.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/Nodes/GroupNode.tsx",
+      "templates/infografika/xyflow/packages/react/src/components/NodeWrapper/utils.tsx",
+      "templates/infografika/xyflow/packages/system/src/types/nodes.ts",
+      "templates/infografika/xyflow/packages/system/src/styles/style.css"
+    ]
+  },
+  {
+    "kb_id": "remotion-bits/animated-counter",
+    "repository": "Remotion Bits",
+    "repository_url": "git@github.com:av/remotion-bits.git",
+    "commit": "de35fda",
+    "license": "MIT (package.json)",
+    "license_class": "permissive",
+    "strategy": "adapt",
+    "source_paths": [
+      "templates/remotion-components/remotion-bits/src/components/AnimatedCounter.tsx",
+      "templates/remotion-components/remotion-bits/src/utils/motion/index.ts"
+    ]
+  }
+]

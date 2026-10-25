@@ -29,7 +29,7 @@ function Caption({ text, beat, kind }: { text: string; beat: Window; kind: "mask
   const s = useStyle();
   const { height } = useVideoConfig();
   return (
-    <Enter kind={kind} beat={beat}>
+    <Enter kind={kind} pre="silhouette" beat={beat}>
       <div style={{ fontFamily: fontFamily(s.typography.body), fontWeight: 600, fontSize: typeSize(s, "body", height) * 0.8, color: s.palette.text }}>{text}</div>
     </Enter>
   );

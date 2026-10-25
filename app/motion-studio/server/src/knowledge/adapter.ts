@@ -1,12 +1,16 @@
 // KnowledgeAdapter: только чтение, всё в памяти. Источник — knowledge/capabilities.jsonl
 // (+ repositories.json, compatibility/results.jsonl). Исходники (templates/, official_skills/) —
 // в sourceRoot, оригиналы не изменяются; в draft копируются только permissive-источники.
-// Файлы KB перечитываются лениво при смене mtime/размера (integration-map §4.1).
-import { readFileSync, statSync } from "node:fs";
+// Файлы KB перечитываются лениво при смене mtime/размера (integration-map §4.1). Недописанная
+// KB (пересборка идёт, битый JSON, пустой индекс, пропавшие карточки) не заменяет последний
+// исправный индекс: адаптер пишет предупреждение и отвечает по прежнему.
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { copyFile, lstat, mkdir, readFile } from "node:fs/promises";
 import { isAbsolute, join, resolve, sep } from "node:path";
 import { confidenceOf, licenseClass } from "./license.js";
 import { buildIndex, indexTokens, searchDocs, type IndexedDoc, type SearchIndex } from "./search.js";
+
+export { isVisual } from "./search.js";
 import type {
   CapabilityView,
   CompatibilityStatus,
@@ -105,6 +109,8 @@ interface State {
   byId: Map<string, IndexedDoc>;
   index: SearchIndex;
   stamps: string[];
+  /** Карточки, которые были на месте при сборке (пропажа при пересборке — KB недописана). */
+  cards: Set<string>;
 }
 
 function buildState(kbRoot: string): State {
@@ -175,7 +181,8 @@ function buildState(kbRoot: string): State {
     docs.push(doc);
     byId.set(r.id, doc);
   }
-  return { docs, byId, index: buildIndex(docs), stamps };
+  const cards = new Set(docs.map((d) => d.view.card_path).filter((c) => existsSync(join(kbRoot, c))));
+  return { docs, byId, index: buildIndex(docs), stamps, cards };
 }
 
 /** Относительный путь без `..`, пустых и абсолютных частей; иначе — ошибка. */
@@ -234,26 +241,56 @@ async function mkdirInside(base: string, segs: string[]): Promise<string> {
 
 export class KnowledgeAdapter {
   private state: State;
+  /** Отпечатки файлов KB, которую не удалось собрать (чтобы не пересобирать её на каждом вызове). */
+  private brokenStamps: string | undefined;
 
   private constructor(
     private readonly kbRoot: string,
     private readonly sourceRoot: string,
+    private readonly warn: (message: string) => void,
   ) {
     this.state = buildState(kbRoot);
   }
 
-  static async load(opts: { kbRoot: string; sourceRoot: string }): Promise<KnowledgeAdapter> {
-    return new KnowledgeAdapter(opts.kbRoot, opts.sourceRoot);
+  /** `onWarn` — предупреждения о недописанной KB (по умолчанию — stderr). */
+  static async load(opts: { kbRoot: string; sourceRoot: string; onWarn?: (message: string) => void }): Promise<KnowledgeAdapter> {
+    return new KnowledgeAdapter(opts.kbRoot, opts.sourceRoot, opts.onWarn ?? ((m) => console.warn(m)));
   }
 
-  /** Перечитывает файлы KB, если их mtime/размер изменились. */
+  /**
+   * Перечитывает файлы KB, если их mtime/размер изменились. Не собралась (битый JSON, нет
+   * repositories.json), пуста при непустом прежнем индексе или пропали карточки, бывшие на
+   * месте, — KB недописана: остаётся последний исправный индекс и одно предупреждение на
+   * этот набор файлов.
+   */
   private fresh(): State {
     const stamps = [
       fileStamp(join(this.kbRoot, "capabilities.jsonl")),
       fileStamp(join(this.kbRoot, "repositories.json")),
       fileStamp(join(this.kbRoot, "compatibility", "results.jsonl")),
     ];
-    if (stamps.some((s, i) => s !== this.state.stamps[i])) this.state = buildState(this.kbRoot);
+    if (stamps.every((s, i) => s === this.state.stamps[i])) return this.state;
+    const key = stamps.join("|");
+    if (key === this.brokenStamps) return this.state;
+    let problem: string | undefined;
+    let next: State | undefined;
+    try {
+      next = buildState(this.kbRoot);
+      if (next.docs.length === 0 && this.state.docs.length > 0) problem = "capabilities.jsonl пуст";
+      else {
+        const gone = [...this.state.cards].filter((c) => next!.docs.some((d) => d.view.card_path === c) && !next!.cards.has(c));
+        if (gone.length > 0) problem = `пропали карточки: ${gone.slice(0, 5).join(", ")}${gone.length > 5 ? ` (+${gone.length - 5})` : ""}`;
+      }
+    } catch (e) {
+      problem = (e as Error).message;
+    }
+    if (problem !== undefined || !next) {
+      this.brokenStamps = key;
+      this.warn(`KB: недописана или повреждена (${problem}) — оставлен прежний индекс (${this.state.docs.length} записей)`);
+      return this.state;
+    }
+    this.brokenStamps = undefined;
+    this.state = next;
     return this.state;
   }
 

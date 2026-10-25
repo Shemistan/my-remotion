@@ -1,33 +1,25 @@
 // generate: сцена Motion Playground из текстового запроса (вертикальный срез).
 // `npm run generate -- "<запрос>" [--duration-frames N] [--aspect 16:9|9:16|1:1]
 //   [--style dark-premium|light-clean|tech-neon]`
-// Порядок старта (ADR 0007): owner lock (держим до выхода) → checkStorage → reapStale
-// незавершённых прогонов + reapStrayRenderers (не чисто — отказ с pid и командой) →
-// sweepAbandonedDrafts (брошенные draft → карантин `abandoned`) → relockVersions →
-// ensureRenderBrowser (Chrome мог стереть `npm ci`; до трат на агентов) → generateScene. Код выхода 1 при failed и любом отказе, 2 — usage.
-import { join } from "node:path";
+// Старт — общий с сервером `bootCore({ kind: "cli" })` (ADR 0007): owner lock → storage →
+// studio.db → реестр процессов → reap (не чисто — отказ с pid и командой) → sweep →
+// relock → reconcile → восстановление задач → раннер. Затем ensureRenderBrowser (до трат
+// на агентов), сцена и задача `playground.generate` (тот же обработчик `playgroundGenerate`,
+// что у сервера) в этом же процессе (раннер CLI захватывает только её); CLI ждёт её итога.
+// Concept спросил уточнение — CLI пропускает его (`skip`, ответы по умолчанию). Код выхода
+// 1 при failed и любом отказе, 2 — usage.
 import { pathToFileURL } from "node:url";
 import { type Settings, SettingsSchema, StylePresetSchema, defaultSettings } from "@ms/contracts";
-import {
-  OwnerBusyError,
-  type OwnerLock,
-  type StorageEnv,
-  type StorageStatus,
-  type TrackedProcess,
-  acquireOwnerLock,
-  checkStorage,
-  fileProcessRegistry,
-  macosProbe,
-  reapStale,
-} from "@ms/core";
-import { ensureRenderBrowser, reapStrayRenderers, renderVersion } from "@ms/render";
-import { ClaudeCodeRuntime } from "../agents/claude-code.js";
-import { loadConfig, readConfigFile } from "../config.js";
-import { KnowledgeAdapter } from "../knowledge/adapter.js";
-import { DEFAULT_PROMPTS_DIR, type GenerateResult, generateScene } from "../pipeline/generate.js";
-import { checkSceneDir } from "../scenes/static-check.js";
-import { relockVersions, sweepAbandonedDrafts } from "../scenes/store.js";
-import { typecheckVersion } from "../scenes/typecheck.js";
+import { OwnerBusyError, StorageError } from "@ms/core";
+import { ensureRenderBrowser } from "@ms/render";
+import { type BootOptions, type Core, bootCore } from "../boot.js";
+import * as jobs from "../db/repos/jobs.js";
+import { tx } from "../db/tx.js";
+import { type HandlerOptions, registerHandlers } from "../jobs/handlers.js";
+import { cancelJob, enqueue, provideInput } from "../jobs/queue.js";
+import type { GenerateResult } from "../pipeline/generate.js";
+import { newId } from "../scenes/ids.js";
+import { DEFAULT_PROJECT } from "../scenes/store.js";
 
 export const USAGE =
   'usage: generate "<запрос>" [--duration-frames N] [--aspect 16:9|9:16|1:1] [--style dark-premium|light-clean|tech-neon]';
@@ -78,68 +70,97 @@ export function parseArgs(argv: string[]): { prompt: string; settings: Settings 
   return { prompt: prompt.trim(), settings: SettingsSchema.parse(s) };
 }
 
-/** Шаги старта и генерации; в тестах подменяются. */
+/** Итог генерации, который печатает CLI. */
+export type CliResult = Pick<GenerateResult, "status" | "runId" | "versionDir" | "previewPath" | "costUsd" | "engineerCalls" | "warnings" | "failure">;
+
+/** Ядро для CLI: `Core` и итоги пайплайна по задачам (печатаются и при неудаче). */
+export type CliCore = Pick<Core, "root" | "reaped" | "boot" | "close"> & {
+  /** Ставит задачу генерации и ждёт итога; `signal` — отмена (Ctrl-C). */
+  generate(prompt: string, settings: Settings, signal: AbortSignal): Promise<CliResult>;
+};
+
+/** Шаги CLI; в тестах подменяются. */
 export interface CliSteps {
-  acquireLock(root: string): Promise<OwnerLock>;
-  checkStorage(env: StorageEnv): Promise<StorageStatus>;
-  /** Прогоны, у которых остались записи в `run/processes/`. */
-  leftoverRuns(root: string): Promise<string[]>;
-  reapStale(root: string, runId: string): Promise<{ clean: boolean; alive: TrackedProcess[] }>;
-  reapStrays(root: string): Promise<{ pid: number; pgid: number }[]>;
-  /** Брошенные draft (нет маркера и живых процессов) → карантин `abandoned`. */
-  sweep(root: string): Promise<{ quarantined: string[]; skipped: string[] }>;
-  relock(root: string): Promise<{ relocked: string[]; broken: { dir: string; error: string }[] }>;
+  boot(env: NodeJS.ProcessEnv, log: (line: string) => void): Promise<CliCore>;
   /** Chrome Headless Shell на месте (скачать при отсутствии); CLI может менять cwd. */
   ensureBrowser(): Promise<{ path: string }>;
-  generate(prompt: string, settings: Settings, status: Extract<StorageStatus, { ok: true }>, env: NodeJS.ProcessEnv, signal: AbortSignal, log: (l: string) => void): Promise<GenerateResult>;
 }
 
-async function leftoverRuns(root: string): Promise<string[]> {
-  const records = await fileProcessRegistry(root).list();
-  return [...new Set(records.map((p) => p.runId))];
-}
+const TERMINAL = new Set(["completed", "failed", "cancelled", "blocked", "awaiting_input", "awaiting_approval"]);
 
-/** Настоящая генерация: config.json, KB, Claude Code, рендер. */
-async function realGenerate(
-  prompt: string,
-  settings: Settings,
-  status: Extract<StorageStatus, { ok: true }>,
+/**
+ * Настоящий старт: `bootCore` с обработчиками сервера (`registerHandlers`: config.json, KB,
+ * Claude Code, рендер). `opts` — подмены для интеграционных тестов (`pipeline` — рендер,
+ * проверки, skills).
+ */
+export async function bootCli(
   env: NodeJS.ProcessEnv,
-  signal: AbortSignal,
-  log: (l: string) => void,
-): Promise<GenerateResult> {
-  const root = status.root;
-  const config = loadConfig({ ...env, MS_DATA_DIR: root }, await readConfigFile(root));
-  const kb = await KnowledgeAdapter.load({ kbRoot: config.kb.root, sourceRoot: config.kb.sourceRoot });
-  const agents = new ClaudeCodeRuntime({ bin: config.claudeBin, logRoot: join(root, "logs", "agent-runs"), promptsDir: DEFAULT_PROMPTS_DIR });
-  const storeId = status.marker.store_id;
-  return generateScene(
-    prompt,
-    settings,
-    {
-      storage: () => checkStorage(env, macosProbe, storeId),
-      kb,
-      agents,
-      render: renderVersion,
-      check: checkSceneDir,
-      typecheck: typecheckVersion,
-      config,
-      log,
+  log: (line: string) => void,
+  opts: Partial<BootOptions> & { pipeline?: Omit<HandlerOptions, "log" | "onGenerateResult"> } = {},
+): Promise<CliCore> {
+  const results = new Map<string, GenerateResult>();
+  // раннер CLI берёт только свою задачу: оставшиеся от прежних запусков (восстановление
+  // вернуло их в очередь) ждут сервера или человека, а не тратят бюджет агентов здесь
+  const mine = new Set<string>();
+  const core = await bootCore({
+    env,
+    kind: "cli",
+    ...opts,
+    runner: { ...opts.runner, onlyIds: mine },
+    storageLog: log,
+    handlers: (svc) => registerHandlers(svc, { ...opts.pipeline, log, onGenerateResult: (job, r) => results.set(job.id, r) }),
+  });
+  return {
+    root: core.root,
+    reaped: core.reaped,
+    boot: core.boot,
+    close: () => core.close(),
+    async generate(prompt, settings, signal) {
+      const job = tx(core.db, () => {
+        const scene = core.repo.createScene(DEFAULT_PROJECT, { prompt, settings });
+        const input = { sceneId: scene.id, prompt, settings };
+        return enqueue(core.db, { type: "playground.generate", projectId: DEFAULT_PROJECT, sceneId: scene.id, input, idempotencyKey: `cli-${newId("run")}` }).job;
+      });
+      // сначала задача в БД, затем разрешение раннеру захватить именно её
+      mine.add(job.id);
+      const onAbort = () => {
+        cancelJob(core.db, core.processes, job.id).catch(() => {
+          // база недоступна — задачу разберёт восстановление
+        });
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+      try {
+        for (;;) {
+          const j = jobs.get(core.db, job.id);
+          if (j?.status === "awaiting_input") {
+            // CLI не ведёт диалог: уточнения Concept пропускаются (ответы по умолчанию)
+            const qs = (j.output_refs as { questions?: { question: string; default_if_skipped: string }[] } | null)?.questions ?? [];
+            for (const q of qs) log(`уточнение пропущено: ${q.question} → ${q.default_if_skipped}`);
+            try {
+              provideInput(core.db, job.id, "skip");
+            } catch {
+              // задача уже не ждёт ответа (отменена) — итог прочитается на следующем шаге
+            }
+            continue;
+          }
+          if (j && TERMINAL.has(j.status)) {
+            const r = results.get(job.id);
+            if (r) return r;
+            const stage = j.error?.stage ?? (j.status === "blocked" ? "orphaned" : "publish");
+            return { status: "failed", runId: job.id, costUsd: 0, engineerCalls: 0, warnings: [], timings: {}, failure: { stage, message: j.error?.message ?? j.status } };
+          }
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      } finally {
+        signal.removeEventListener("abort", onAbort);
+      }
     },
-    signal,
-  );
+  };
 }
 
 export const realSteps: CliSteps = {
-  acquireLock: (root) => acquireOwnerLock(root, "cli"),
-  checkStorage: (env) => checkStorage(env, macosProbe),
-  leftoverRuns,
-  reapStale: (root, runId) => reapStale(root, runId),
-  reapStrays: (root) => reapStrayRenderers(root),
-  sweep: (root) => sweepAbandonedDrafts(root),
-  relock: relockVersions,
+  boot: (env, log) => bootCli(env, log),
   ensureBrowser: ensureRenderBrowser,
-  generate: realGenerate,
 };
 
 export interface CliIo {
@@ -165,39 +186,34 @@ export async function runGenerate(
     return 1;
   }
 
-  let lock: OwnerLock;
+  let core: CliCore;
   try {
-    lock = await steps.acquireLock(root);
+    core = await steps.boot(env, (l) => io.err(l));
   } catch (e) {
-    io.err(e instanceof OwnerBusyError ? e.message : `owner lock не взят: ${(e as Error).message}`);
+    if (e instanceof OwnerBusyError || e instanceof StorageError) io.err(e.message);
+    else io.err(`ошибка старта: ${(e as Error).message}`);
     return 1;
   }
   try {
-    const status = await steps.checkStorage(env);
-    if (!status.ok) {
-      io.err(`storage: ${status.reason}: ${status.detail}`);
+    // остатки прежних прогонов не завершились — отказ (ADR 0007)
+    if (core.reaped.alive.length > 0) {
+      const byRun = new Map<string, string[]>();
+      for (const p of core.reaped.alive) byRun.set(p.runId, [...(byRun.get(p.runId) ?? []), `pid ${p.pid} (${p.cmd})`]);
+      for (const [runId, who] of byRun) io.err(`stale_process: процессы прогона ${runId} не завершились: ${who.join("; ")}. Заверши их вручную и повтори.`);
       return 1;
     }
-
-    // остатки прежних прогонов: сначала добить, иначе отказ (ADR 0007)
-    for (const runId of await steps.leftoverRuns(root)) {
-      const r = await steps.reapStale(root, runId);
-      if (!r.clean) {
-        const who = r.alive.map((p) => `pid ${p.pid} (${p.cmd})`).join("; ");
-        io.err(`stale_process: процессы прогона ${runId} не завершились: ${who}. Заверши их вручную и повтори.`);
-        return 1;
-      }
-    }
-    const strays = await steps.reapStrays(root);
-    if (strays.length > 0) {
-      io.err(`stale_process: процессы рендера не завершились: ${strays.map((p) => `pid ${p.pid}`).join(", ")}. Заверши их вручную и повтори.`);
+    if (core.reaped.strays.length > 0) {
+      io.err(`stale_process: процессы рендера не завершились: ${core.reaped.strays.map((p) => `pid ${p.pid}`).join(", ")}. Заверши их вручную и повтори.`);
       return 1;
     }
-    const swept = await steps.sweep(root);
-    for (const d of swept.quarantined) io.err(`⚠ брошенный draft помечен карантином (abandoned): ${d}`);
-    const relock = await steps.relock(root);
-    for (const d of relock.relocked) io.err(`relock: версия закрыта от записи: ${d}`);
-    for (const b of relock.broken) io.err(`⚠ повреждённая версия (не тронута): ${b.dir}: ${b.error}`);
+    for (const d of core.boot.swept.quarantined) io.err(`⚠ брошенный draft помечен карантином (abandoned): ${d}`);
+    for (const d of core.boot.relock.relocked) io.err(`relock: версия закрыта от записи: ${d}`);
+    for (const b of core.boot.relock.broken) io.err(`⚠ повреждённая версия (не тронута): ${b.dir}: ${b.error}`);
+    for (const q of core.boot.exports.quarantined) io.err(`⚠ экспорт без строки в БД — в карантине: ${q.to}`);
+    for (const d of core.boot.exports.relocked) io.err(`relock: экспорт закрыт от записи: ${d}`);
+    for (const id of core.boot.exports.missing) io.err(`⚠ экспорт ${id}: строка в БД есть, нет каталога (файл недоступен)`);
+    for (const e of core.boot.exports.errors) io.err(`⚠ сверка экспортов: ${e.dir}: ${e.error}`);
+    for (const b of core.boot.reconcile.missing.broken) io.err(`⚠ версия ${b.versionId} недоступна (broken): ${b.reason}`);
 
     try {
       await steps.ensureBrowser();
@@ -207,7 +223,7 @@ export async function runGenerate(
     }
 
     const t0 = Date.now();
-    const r = await steps.generate(args.prompt, args.settings, status, env, signal, (l) => io.err(l));
+    const r = await core.generate(args.prompt, args.settings, signal);
     io.out(`status: ${r.status}`);
     if (r.failure) io.out(`failure: ${r.failure.stage}: ${r.failure.message}`);
     if (r.versionDir) io.out(`version: ${r.versionDir}`);
@@ -219,7 +235,7 @@ export async function runGenerate(
     io.err(`ошибка: ${(e as Error).message}`);
     return 1;
   } finally {
-    await lock.release();
+    await core.close();
   }
 }
 

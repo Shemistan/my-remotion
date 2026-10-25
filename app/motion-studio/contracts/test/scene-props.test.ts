@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ScenePropsBaseSchema, scaleTiming } from "../src/index.js";
+import { ScenePropsBaseSchema, isContentFrameKey, scaleContentFrames, scaleTiming, unscaledTimeKeys } from "../src/index.js";
 
 const b = (start_frame: number, end_frame: number) => ({ start_frame, end_frame });
 
@@ -63,5 +63,67 @@ describe("ScenePropsBase", () => {
     expect(ScenePropsBaseSchema.safeParse(propsWith({ safe_area: { x: 0.5, y: 0.1 } })).success).toBe(false);
     expect(ScenePropsBaseSchema.safeParse(propsWith({ safe_area: { x: 0.1 } })).success).toBe(false);
     expect(ScenePropsBaseSchema.safeParse(propsWith({ font: "" })).success).toBe(false);
+  });
+});
+
+describe("scaleContentFrames (кадровые величины props.content)", () => {
+  it("ключи-кадры по договору: travel, delay, stagger, hold, frame и суффиксы _frames/_frame/Frames/Frame", () => {
+    for (const k of ["travel", "delay", "stagger", "hold", "frame", "fan_stagger_frames", "enter_frames", "staggerFrames", "start_frame", "atFrame"]) expect(isContentFrameKey(k), k).toBe(true);
+    for (const k of ["stagger_index", "size", "count", "x", "frames_total_label", "framework", "accentIndex", "ms"]) expect(isContentFrameKey(k), k).toBe(false);
+  });
+
+  it("× 4/3: flows[].travel, fan_stagger_frames, ключи камеры; индексы, раскладка и строки — как были; вход не меняется", () => {
+    const content = {
+      fan_stagger_frames: 4,
+      flows: [{ edge: "e1", travel: 18, stagger_index: 2, size: 10 }, { edge: "e2", travel: 14 }],
+      nodes: [{ id: "n1", layout: { x: 0.3, y: 0.2, w: 0.2, h: 0.1 }, delay: 0 }],
+      camera: [{ frame: 150, scale: 1.1 }],
+      hold: "steady-flow",
+      pulse: { delay: 3, stagger_frames: [2, 4] },
+    };
+    const r = scaleContentFrames(content, 1 / 0.75);
+    expect(r.content).toEqual({
+      fan_stagger_frames: 5,
+      flows: [{ edge: "e1", travel: 24, stagger_index: 2, size: 10 }, { edge: "e2", travel: 19 }],
+      nodes: [{ id: "n1", layout: { x: 0.3, y: 0.2, w: 0.2, h: 0.1 }, delay: 0 }],
+      camera: [{ frame: 200, scale: 1.1 }],
+      hold: "steady-flow",
+      pulse: { delay: 4, stagger_frames: [3, 5] },
+    });
+    expect(r.scaled).toEqual(expect.arrayContaining(["content.fan_stagger_frames", "content.flows[0].travel", "content.camera[0].frame", "content.pulse.stagger_frames[1]"]));
+    expect(content.flows[0]!.travel).toBe(18);
+  });
+
+  it("длительность > 0 не схлопывается в 0; дробные — без округления", () => {
+    expect(scaleContentFrames({ travel: 1, delay: 0.5 }, 0.25).content).toEqual({ travel: 1, delay: 0.125 });
+  });
+
+  it("кадровые пропы kit под тем же именем (M-R2): enterAt, until, at, duration, frames, keyframes, flash, writes и суффикс At", () => {
+    for (const k of ["enterAt", "until", "at", "duration", "frames", "keyframes", "flash", "writes", "exitAt", "leaveAt"]) expect(isContentFrameKey(k), k).toBe(true);
+    // не время: индексы, счётчики, координаты, «формат»
+    for (const k of ["cells", "filled", "count", "format", "data", "accentIndex", "pop"]) expect(isContentFrameKey(k), k).toBe(false);
+  });
+
+  it("× 4/3: хореография kit масштабируется вместе с битами — enterAt узла, until токена, at статусов, flash/writes узла (числа, не объекты прихода)", () => {
+    const content = {
+      nodes: [{ id: "n1", enterAt: 20, flash: [30, { edge: "e1", beat: "b2" }], writes: [60, 90] }],
+      tokens: [{ edge: "e1", until: 150 }],
+      status: { states: [{ text: "ждёт", at: 0 }, { text: "готово", at: 120 }] },
+      enter: { duration: 12 },
+      pulse: { frames: [10, 40] },
+    };
+    expect(scaleContentFrames(content, 4 / 3).content).toEqual({
+      nodes: [{ id: "n1", enterAt: 27, flash: [40, { edge: "e1", beat: "b2" }], writes: [80, 120] }],
+      tokens: [{ edge: "e1", until: 200 }],
+      status: { states: [{ text: "ждёт", at: 0 }, { text: "готово", at: 160 }] },
+      enter: { duration: 16 },
+      pulse: { frames: [13, 53] },
+    });
+  });
+
+  it("unscaledTimeKeys: числа под временными именами вне договора — пути (для предупреждения при смене темпа)", () => {
+    const content = { start: 10, nodes: [{ id: "n", lead: 4, end: 90, enterAt: 5, x: 3 }], phase: { step: 6, leave: 100, label: "start" }, ms: 120 };
+    expect(unscaledTimeKeys(content).sort()).toEqual(["content.nodes[0].end", "content.nodes[0].lead", "content.phase.leave", "content.phase.step", "content.start"]);
+    expect(unscaledTimeKeys({ travel: 18, layout: { x: 0.1 } })).toEqual([]);
   });
 });

@@ -1,0 +1,263 @@
+{
+  "job": {
+    "id": "job_01M5N0BWY93KW6VP6SHNNKKP7E",
+    "type": "playground.generate",
+    "project_id": "prj_01M5N0BWTSM3KQC4PHMB6V6TQ5",
+    "scene_id": "scn_01M5N0BWY51B61QQBH3BM0NJ2F",
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "publish",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input_refs_json": {
+      "sceneId": "scn_01M5N0BWY51B61QQBH3BM0NJ2F",
+      "prompt": "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении",
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 180,
+        "style_preset": "dark-premium",
+        "animation_intensity": "balanced",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        }
+      }
+    },
+    "input_hash": "92855aa52f28dc91783615ce23f35a3e407dde8307583e6ac8e8ce4d2de9e71b",
+    "output_refs_json": {
+      "scene_id": "scn_01M5N0BWY51B61QQBH3BM0NJ2F",
+      "version_id": "ver_01M5N0KBZXHRTZEAE0YRKR5AWQ",
+      "version_number": 1,
+      "version_dir": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N0BWY51B61QQBH3BM0NJ2F/versions/ver_01M5N0KBZXHRTZEAE0YRKR5AWQ",
+      "preview_path": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N0BWY51B61QQBH3BM0NJ2F/versions/ver_01M5N0KBZXHRTZEAE0YRKR5AWQ/preview.mp4",
+      "cost_usd": 1.6147956,
+      "engineer_calls": 1,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "pass"
+      },
+      "stage_wall_ms": {
+        "concept": 15335,
+        "director": 77198,
+        "engineer": 87233,
+        "check": 15344,
+        "render": 22454,
+        "qa": 26683,
+        "total": 244544
+      },
+      "attempts": [
+        {
+          "n": 1,
+          "take": 1,
+          "call": 1,
+          "overall": 7,
+          "scores": {
+            "overall": 7,
+            "hierarchy": 8,
+            "composition": 6.5,
+            "entrance": 6.5,
+            "choreography": 7,
+            "hold": 7,
+            "legibility": 8,
+            "meaning": 7.5
+          },
+          "blocking": [],
+          "cost_usd": 0.9233,
+          "published": true
+        }
+      ],
+      "warnings": [
+        "spec: план count-up: p-count 0–43, p-payoff 43–86, p-hold 86–180; вывод с кадра 43, удар 43 (чтение 72, сдвиг 8)",
+        "spec: бит hero-count делят другие элементы: счёт hero-count вынесен в бит hero-count-count 6–35 за головой growth-chart (бит chart-draw)"
+      ],
+      "steps": {
+        "concept": {
+          "input_hash": "0136cf4624f47da7f1f7d47d039f5d487cd3339f761717fb190b7d0b7c8c9ce8",
+          "path": "/Volumes/External SSD/MotionStudio-acceptance/logs/agent-runs/job_01M5N0BWY93KW6VP6SHNNKKP7E/checkpoints/concept.json"
+        },
+        "director": {
+          "input_hash": "68f35e5c3a66a5e0f85f064216653ea560d10dbd3031662eb3e0fba174f04c51",
+          "path": "/Volumes/External SSD/MotionStudio-acceptance/logs/agent-runs/job_01M5N0BWY93KW6VP6SHNNKKP7E/checkpoints/motion_director.json"
+        }
+      }
+    },
+    "error_json": null,
+    "idempotency_key": "c37219a1-5669-43fe-85b5-bc9112ee8e32",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": 0,
+    "created_at": "2026-10-23T18:28:57.417Z",
+    "started_at": "2026-10-23T18:28:57.574Z",
+    "finished_at": "2026-10-23T18:33:02.230Z"
+  },
+  "cost_usd": 1.6147956,
+  "wall_ms": 244813,
+  "agent_runs": [
+    {
+      "role": "concept",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 27851,
+      "output_tokens": 2069,
+      "cost_usd": 0.0673537,
+      "started_at": "2026-10-23T18:28:57.612Z",
+      "finished_at": "2026-10-23T18:29:12.945Z"
+    },
+    {
+      "role": "motion_director",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 59072,
+      "output_tokens": 7578,
+      "cost_usd": 0.624128,
+      "started_at": "2026-10-23T18:29:13.005Z",
+      "finished_at": "2026-10-23T18:30:30.203Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 320738,
+      "output_tokens": 8956,
+      "cost_usd": 0.7765758000000001,
+      "started_at": "2026-10-23T18:30:30.280Z",
+      "finished_at": "2026-10-23T18:31:57.512Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 52760,
+      "output_tokens": 2635,
+      "cost_usd": 0.1467381,
+      "started_at": "2026-10-23T18:32:38.267Z",
+      "finished_at": "2026-10-23T18:33:02.061Z"
+    }
+  ],
+  "render_jobs": [
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "fps_num": 30,
+      "fps_den": 1,
+      "frames": 6,
+      "duration_ms": 22454
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "fps_num": 30,
+      "fps_den": 1,
+      "frames": 180,
+      "duration_ms": 22454
+    }
+  ],
+  "chat": [
+    {
+      "role": "assistant",
+      "text": "Версия 1 готова.\nКонцепция: Тёмный премиальный кадр: плавная светящаяся линия роста пользователей поднимается слева направо по трём годам — Год 1 · 10 000, Год 2 · 100 000, Год 3 · 1 000 000. Каждая отметка года вспыхивает, когда линия её достигает, а крупный счётчик непрерывно растёт от 10 000 до 1 000 000. Герой кадра — финальное значение «1 000 000 пользователей»: в конце линия замирает, остальные элементы приглушаются, число увеличивается и остаётся светиться, рядом читается вывод «×100 за три года». Взгляд идёт от малого числа слева внизу по кривой вверх к огромному числу справа.\nКомпоненты: motion-kit StyleProvider, motion-kit Background, motion-kit SafeArea, motion-kit useSafeArea, motion-kit useStyle, motion-kit LineChart, motion-kit lineChartHead, motion-kit AnimatedNumber, motion-kit Emphasis, motion-kit Enter, motion-kit KineticText, motion-kit pluralForm, motion-kit typeSize, free-remotion-templates/line-chart-anim (adapt, MIT (package.json, LICENSE, SPDX-заголовок в файле)), remotion-bits/animated-counter (adapt, MIT (package.json)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — пройден, стиль — пройден; замечаний: blocking 0, warning 6.",
+      "version_id": "ver_01M5N0KBZXHRTZEAE0YRKR5AWQ",
+      "job_id": "job_01M5N0BWY93KW6VP6SHNNKKP7E",
+      "created_at": "2026-10-23T18:33:02.226Z"
+    },
+    {
+      "role": "user",
+      "text": "сделай анимацию на 10 % быстрее",
+      "version_id": null,
+      "job_id": null,
+      "created_at": "2026-10-23T18:43:10.518Z"
+    },
+    {
+      "role": "user",
+      "text": "сделай всё в бирюзовых тонах",
+      "version_id": null,
+      "job_id": null,
+      "created_at": "2026-10-23T18:51:02.961Z"
+    }
+  ],
+  "events": [
+    {
+      "ts": "2026-10-23T18:28:57.579Z",
+      "level": "info",
+      "kind": "started",
+      "message": "playground.generate: попытка 1"
+    },
+    {
+      "ts": "2026-10-23T18:28:57.607Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept…"
+    },
+    {
+      "ts": "2026-10-23T18:29:12.951Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept: Тёмный премиальный кадр: плавная светящаяся линия роста пользователей поднимается слева направо по трём годам — Год 1 · 10 000, Год 2 · 100 000, Год 3 · 1 000 000. Каждая отметка года вспыхивает, когда линия её достигает, а крупный счётчик непрерывно растёт от 10 000 до 1 000 000. Герой кадра — финальное значение «1 000 000 пользователей»: в конце линия замирает, остальные элементы приглушаются, число увеличивается и остаётся светиться, рядом читается вывод «×100 за три года». Взгляд идёт от малого числа слева внизу по кривой вверх к огромному числу справа. [growth-decline, quantities, key-point-emphasis]"
+    },
+    {
+      "ts": "2026-10-23T18:29:12.973Z",
+      "level": "info",
+      "kind": "log",
+      "message": "KB: 12 кандидатов по ключам Concept"
+    },
+    {
+      "ts": "2026-10-23T18:29:13.002Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Motion Director…"
+    },
+    {
+      "ts": "2026-10-23T18:30:30.239Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Director: «Рост пользователей ×100» (diagonal), 9 битов, KB: free-remotion-templates/line-chart-anim (adapt), remotion-bits/animated-counter (adapt)"
+    },
+    {
+      "ts": "2026-10-23T18:30:30.276Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer…"
+    },
+    {
+      "ts": "2026-10-23T18:32:12.894Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 6, 35, 64, 79, 133, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-23T18:32:38.244Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA…"
+    },
+    {
+      "ts": "2026-10-23T18:33:02.222Z",
+      "level": "info",
+      "kind": "log",
+      "message": "✓ ready: /Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N0BWY51B61QQBH3BM0NJ2F/versions/ver_01M5N0KBZXHRTZEAE0YRKR5AWQ"
+    },
+    {
+      "ts": "2026-10-23T18:33:02.233Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed"
+    }
+  ]
+}

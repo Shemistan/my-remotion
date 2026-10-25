@@ -121,6 +121,31 @@ describe("программные проверки на отрендеренны�
   }, T);
 });
 
+describe("камера kit не сдвигает сцену за кадр (Task 13 → Task 17, регрессия рендера)", () => {
+  // camera-pan: наезд 1.06 с панорамой вправо-вверх; `raw` — прежняя камера без зажима
+  const renderCamera = async (raw: boolean) => {
+    const name = raw ? "camera-pan-raw" : "camera-pan-kit";
+    const dir = join(tmp, `${name}-src`);
+    await cp(join(QA_SCENES, "camera-pan"), dir, { recursive: true });
+    const props = JSON.parse(await readFile(join(dir, "props.json"), "utf8")) as { content: { raw?: boolean } };
+    await writeFile(join(dir, "props.json"), JSON.stringify({ ...props, content: { raw } }));
+    return renderFixture(name, dir, join(QA_SCENES, "camera-pan/spec.json"));
+  };
+
+  it("прежняя камера: заголовок обрезан слева и открыты полосы сверху и справа — clipping и exposed_edge (blocking)", async () => {
+    const r = await renderCamera(true);
+    expect(r.programmatic).toContainEqual(expect.objectContaining({ code: "clipping", severity: "blocking", area: "left" }));
+    expect(r.programmatic).toContainEqual(expect.objectContaining({ code: "exposed_edge", severity: "blocking", area: "top, right" }));
+  }, T);
+
+  it("<Camera> kit: тот же наезд с панорамой — края не открыты, ничего не обрезано", async () => {
+    const r = await renderCamera(false);
+    expect(codes(r.programmatic, "blocking")).toEqual([]);
+    expect(codes(r.programmatic)).not.toContain("exposed_edge");
+    expect(codes(r.programmatic)).not.toContain("clipping");
+  }, T);
+});
+
 describe("ложные срабатывания на рабочих сценах kit (полный 1920×1080)", () => {
   // сетка пола tech-neon у краёв, карточка у границы safe area, тёмный пресет с текстом
   it.each([

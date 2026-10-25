@@ -4,6 +4,7 @@ import type { StyleBible } from "@ms/contracts";
 import { type ReactNode, createContext, useContext, useMemo } from "react";
 import { useVideoConfig } from "remotion";
 import { type PresetId, presets } from "./presets.js";
+import { haloLayerStyle } from "./style/halo.js";
 import { type ResolveStyleInput, type ResolvedStyle, isResolved, resolveStyle } from "./style/resolve.js";
 
 /** Что принимает StyleProvider: id пресета, StyleBible, `props.style` сцены или готовый стиль. */
@@ -27,7 +28,9 @@ export function toResolved(style: StyleSource, fps: number): ResolvedStyle {
 export function StyleProvider({ style, children }: { style: StyleSource; children?: ReactNode }) {
   const { fps } = useVideoConfig();
   const value = useMemo(() => toResolved(style, fps), [style, fps]);
-  return <StyleContext.Provider value={value}>{children}</StyleContext.Provider>;
+  // transparent (S6, Р18): ореол текста цвета palette.bg наследуется всем текстом сцены
+  const halo = haloLayerStyle(value);
+  return <StyleContext.Provider value={value}>{halo ? <div data-ms-halo="" style={halo}>{children}</div> : children}</StyleContext.Provider>;
 }
 
 /** Разрешённый стиль ближайшего StyleProvider (по умолчанию dark-premium, balanced, 30 fps). */

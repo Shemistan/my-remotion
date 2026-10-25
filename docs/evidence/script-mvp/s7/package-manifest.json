@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "package_id": "pkg_01M5QR05BR7XZ4RG13246H5GWB",
+  "project_id": "prj_01M5QR0437VYGFPY3P5STHY1AE",
+  "project_title": "e2e S7 Go map",
+  "name": "e2e S7 Go map_16x9_2026-10-24",
+  "aspect": "16:9",
+  "script": {
+    "id": "scr_01M5QR043H8EET35CFYF1JGXJN",
+    "revision": 1
+  },
+  "plan": {
+    "id": "pln_01M5QR044KS8QVPS6XZ18MF36C",
+    "revision": 2
+  },
+  "reading": {
+    "wps": 2.5,
+    "lead_s": 0.5,
+    "tail_s": 1
+  },
+  "scenes": [
+    {
+      "n": 1,
+      "item_id": "ss_001",
+      "scene_id": "scn_01M5QR056GZBNDMYB627NCCES8",
+      "version_id": "ver_01M5QR0581DM4VVC624RT7KP6E",
+      "block_id": "b1",
+      "at_s": 0,
+      "quote": "Начнём с честной рамки",
+      "technique": "kinetic-quote",
+      "frames": {
+        "lead": 15,
+        "speech": 48,
+        "tail": 30,
+        "total": 93
+      },
+      "mp4": {
+        "file": "01_nachnem-s-chestnoy-ramki.mp4",
+        "export_id": "exp_01M5QR0EN7F3QYHRJKCZ5QPZ3Q",
+        "sha256": "bf1eb0b4ee3b6de337750898bdf639db9861d0f7dcf1feaaa6e2c7b476eda447",
+        "ffprobe": {
+          "durationMs": 3100,
+          "audioDurationMs": 3115,
+          "profile": "High",
+          "width": 1920,
+          "height": 1080,
+          "fps": {
+            "num": 30,
+            "den": 1
+          },
+          "codec": "h264",
+          "audioCodec": "aac",
+          "pixFmt": "yuv420p"
+        }
+      },
+      "alpha": {
+        "file": "01_nachnem-s-chestnoy-ramki_alpha.mov",
+        "export_id": "exp_01M5QR0J68CDNJ6ZMKP0NF6Y7F",
+        "sha256": "6b6614b450df075c4e23827a387ba82b8516d8c455f11edc453477f4463387ab",
+        "ffprobe": {
+          "durationMs": 3100,
+          "profile": "4444",
+          "width": 1920,
+          "height": 1080,
+          "fps": {
+            "num": 30,
+            "den": 1
+          },
+          "codec": "prores",
+          "pixFmt": "yuva444p12le"
+        }
+      },
+      "warnings": []
+    },
+    {
+      "n": 2,
+      "item_id": "ss_002",
+      "scene_id": "scn_01M5QR058RP0YM2M1FTMY4TPEF",
+      "version_id": "ver_01M5QR05APMAPFP4X9NRF7VM33",
+      "block_id": "b1",
+      "at_s": 1.6,
+      "quote": "Несколько лет назад на русскоязычном YouTube вышел пожалуй самый известный разбор map в Go и построен он был на трёх вопросах с собеседования",
+      "technique": "structure-build",
+      "frames": {
+        "lead": 15,
+        "speech": 276,
+        "tail": 30,
+        "total": 321
+      },
+      "mp4": {
+        "file": "02_neskolko-let-nazad-na-russkoyazychnom.mp4",
+        "export_id": "exp_01M5QR0Y9HHNJ98KKKGNPBCY57",
+        "sha256": "e53a848e774be99905b2856a8f05fe29846c564d90ee9b305f512fd9a12a5f7e",
+        "ffprobe": {
+          "durationMs": 10700,
+          "audioDurationMs": 10709,
+          "profile": "High",
+          "width": 1920,
+          "height": 1080,
+          "fps": {
+            "num": 30,
+            "den": 1
+          },
+          "codec": "h264",
+          "audioCodec": "aac",
+          "pixFmt": "yuv420p"
+        }
+      },
+      "alpha": {
+        "file": "02_neskolko-let-nazad-na-russkoyazychnom_alpha.mov",
+        "export_id": "exp_01M5QR16ZZ1DJ1V0SW9J82PP91",
+        "sha256": "bfc57795d374c3059f6eecd2fb2c297a9921dda889cb13f343e1d9de25b2837b",
+        "ffprobe": {
+          "durationMs": 10700,
+          "profile": "4444",
+          "width": 1920,
+          "height": 1080,
+          "fps": {
+            "num": 30,
+            "den": 1
+          },
+          "codec": "prores",
+          "pixFmt": "yuva444p12le"
+        }
+      },
+      "warnings": []
+    }
+  ],
+  "missing": [
+    {
+      "item_id": "ss_003",
+      "quote": "Зачем заранее выделять память под map",
+      "reason": "нет готовой версии"
+    }
+  ],
+  "created_at": "2026-10-24T20:01:02.130Z"
+}

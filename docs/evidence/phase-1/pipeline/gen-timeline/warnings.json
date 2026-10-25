@@ -1,0 +1,6 @@
+{
+  "warnings": [
+    "spec: scene_signature_repeat (pill, topTitle, staticCamera): сцена повторяет подпись предыдущей «Мобильный трафик: 35% → 68%» (3 из 4): без таблетки, без полосы заголовка, камера движется"
+  ],
+  "permission_denials": []
+}

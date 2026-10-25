@@ -1,0 +1,196 @@
+{
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "source_duration_us": 420120000,
+  "duration_us": 309953333,
+  "clips": [
+    {
+      "idx": 0,
+      "source_start_us": 0,
+      "source_end_us": 21933334,
+      "edited_start_us": 0
+    },
+    {
+      "idx": 1,
+      "source_start_us": 24966667,
+      "source_end_us": 53000000,
+      "edited_start_us": 21933334
+    },
+    {
+      "idx": 2,
+      "source_start_us": 55833334,
+      "source_end_us": 62800000,
+      "edited_start_us": 49966667
+    },
+    {
+      "idx": 3,
+      "source_start_us": 64600000,
+      "source_end_us": 69166667,
+      "edited_start_us": 56933333
+    },
+    {
+      "idx": 4,
+      "source_start_us": 71266667,
+      "source_end_us": 76533334,
+      "edited_start_us": 61500000
+    },
+    {
+      "idx": 5,
+      "source_start_us": 101300000,
+      "source_end_us": 120333334,
+      "edited_start_us": 66766667
+    },
+    {
+      "idx": 6,
+      "source_start_us": 121100000,
+      "source_end_us": 122833334,
+      "edited_start_us": 85800001
+    },
+    {
+      "idx": 7,
+      "source_start_us": 124833334,
+      "source_end_us": 135333334,
+      "edited_start_us": 87533335
+    },
+    {
+      "idx": 8,
+      "source_start_us": 138133334,
+      "source_end_us": 138433334,
+      "edited_start_us": 98033335
+    },
+    {
+      "idx": 9,
+      "source_start_us": 144966667,
+      "source_end_us": 145066667,
+      "edited_start_us": 98333335
+    },
+    {
+      "idx": 10,
+      "source_start_us": 151800000,
+      "source_end_us": 163566667,
+      "edited_start_us": 98433335
+    },
+    {
+      "idx": 11,
+      "source_start_us": 166666667,
+      "source_end_us": 170200000,
+      "edited_start_us": 110200002
+    },
+    {
+      "idx": 12,
+      "source_start_us": 174366667,
+      "source_end_us": 189233334,
+      "edited_start_us": 113733335
+    },
+    {
+      "idx": 13,
+      "source_start_us": 191500000,
+      "source_end_us": 191600000,
+      "edited_start_us": 128600002
+    },
+    {
+      "idx": 14,
+      "source_start_us": 196166667,
+      "source_end_us": 200766667,
+      "edited_start_us": 128700002
+    },
+    {
+      "idx": 15,
+      "source_start_us": 203133334,
+      "source_end_us": 205466667,
+      "edited_start_us": 133300002
+    },
+    {
+      "idx": 16,
+      "source_start_us": 208066667,
+      "source_end_us": 218400000,
+      "edited_start_us": 135633335
+    },
+    {
+      "idx": 17,
+      "source_start_us": 219633334,
+      "source_end_us": 272133334,
+      "edited_start_us": 145966668
+    },
+    {
+      "idx": 18,
+      "source_start_us": 274066667,
+      "source_end_us": 283633334,
+      "edited_start_us": 198466668
+    },
+    {
+      "idx": 19,
+      "source_start_us": 285033334,
+      "source_end_us": 291433334,
+      "edited_start_us": 208033335
+    },
+    {
+      "idx": 20,
+      "source_start_us": 294333334,
+      "source_end_us": 324500000,
+      "edited_start_us": 214433335
+    },
+    {
+      "idx": 21,
+      "source_start_us": 325633334,
+      "source_end_us": 328566667,
+      "edited_start_us": 244600001
+    },
+    {
+      "idx": 22,
+      "source_start_us": 333366667,
+      "source_end_us": 343433334,
+      "edited_start_us": 247533334
+    },
+    {
+      "idx": 23,
+      "source_start_us": 346666667,
+      "source_end_us": 351400000,
+      "edited_start_us": 257600001
+    },
+    {
+      "idx": 24,
+      "source_start_us": 355366667,
+      "source_end_us": 359433334,
+      "edited_start_us": 262333334
+    },
+    {
+      "idx": 25,
+      "source_start_us": 362733334,
+      "source_end_us": 365966667,
+      "edited_start_us": 266400001
+    },
+    {
+      "idx": 26,
+      "source_start_us": 367500000,
+      "source_end_us": 367600000,
+      "edited_start_us": 269633334
+    },
+    {
+      "idx": 27,
+      "source_start_us": 369033334,
+      "source_end_us": 383666667,
+      "edited_start_us": 269733334
+    },
+    {
+      "idx": 28,
+      "source_start_us": 387333334,
+      "source_end_us": 395600000,
+      "edited_start_us": 284366667
+    },
+    {
+      "idx": 29,
+      "source_start_us": 401366667,
+      "source_end_us": 406533334,
+      "edited_start_us": 292633333
+    },
+    {
+      "idx": 30,
+      "source_start_us": 407966667,
+      "source_end_us": 420120000,
+      "edited_start_us": 297800000
+    }
+  ]
+}

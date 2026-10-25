@@ -12,21 +12,40 @@ import { ensureRenderBrowser } from "../../src/node/browser.js";
 import { probeGate } from "../../src/node/ffprobe.js";
 import { renderVersion } from "../../src/node/render-version.js";
 import { codeLineRect } from "../../src/motion-kit/components/CodeBlock.js";
+import { LAYOUT_TAG, type LayoutFrame, intersect } from "../../src/motion-kit/layout-probe.js";
 import { CODE_POS, CODE_W, FONT } from "../fixtures/patterns-gallery/code/src/layout.js";
 import { FIXTURES, copyFixture, fixtureSettings, makeStore, makeTmp, removeTmp } from "../helpers.js";
 
 const T = 600_000;
+
+/** Строки реестра раскладки (`[motion-kit:layout]`) из логов браузера. */
+function layoutFrames(logs: string[]): LayoutFrame[] {
+  return logs.filter((l) => l.includes(LAYOUT_TAG)).map((l) => JSON.parse(l.slice(l.indexOf(LAYOUT_TAG) + LAYOUT_TAG.length)) as LayoutFrame).sort((a, b) => a.frame - b.frame);
+}
+/** Пары текстов кадра, перекрытые ≥ 20 % меньшего (как text_overlap / token_on_label в QA). */
+function textOverlaps(f: LayoutFrame): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < f.items.length; i++) {
+    for (let j = i + 1; j < f.items.length; j++) {
+      const [a, b] = [f.items[i]!.rect, f.items[j]!.rect];
+      const k = intersect(a, b) / Math.min(a.w * a.h, b.w * b.h);
+      if (k >= 0.2) out.push(`${f.frame}: «${f.items[i]!.text}» × «${f.items[j]!.text}»`);
+    }
+  }
+  return out;
+}
 const FRAMES = [0, 30, 75, 120, 149];
 const sha256 = (p: string) => createHash("sha256").update(readFileSync(p)).digest("hex");
 const SCENES = readdirSync(join(FIXTURES, "patterns-gallery")).sort();
 
-/** Варианты (props.content): вторая ориентация, второй вид коннектора/разделителя, кольцо выноски. */
+/** Варианты (props.content): вторая ориентация, второй вид коннектора/разделителя, кольцо выноски, Emphasis на словах. */
 const VARIANTS: [string, Record<string, string>][] = [
   ["timeline", { orientation: "v" }],
   ["process", { connector: "line" }],
   ["comparison", { divider: "line" }],
   ["code", { callout: "ring" }],
   ["code", { sample: "py-doc", callout: "ring" }],
+  ["emphasis", { third: "emphasis" }],
 ];
 
 /** RGB пикселя PNG 1920 × 1080 (rawvideo через ffmpeg). */
@@ -37,6 +56,44 @@ function pixel(png: string): (x: number, y: number) => [number, number, number] 
     return [raw[i]!, raw[i + 1]!, raw[i + 2]!];
   };
 }
+/**
+ * Фон кадра на 540p (серый, area-сжатие) в пустой полосе y 78–92 %, x 6–94 %: `grid` —
+ * высокочастотная часть профилей по столбцам и строкам (линии сетки; зерно усредняется),
+ * `light` — размах сглаженного профиля по x (пятно / пол прожектора), уровни 0..255.
+ */
+function bgMetrics(png: string): { grid: number; light: number } {
+  const W = 960;
+  const H = 540;
+  const raw = execFileSync("ffmpeg", ["-v", "error", "-i", png, "-vf", `scale=${W}:${H}:flags=area,format=gray`, "-f", "rawvideo", "-"], { maxBuffer: 1 << 26 });
+  const [y0, y1, x0, x1] = [Math.round(H * 0.78), Math.round(H * 0.92), Math.round(W * 0.06), Math.round(W * 0.94)];
+  const col: number[] = [];
+  for (let x = x0; x < x1; x++) {
+    let sum = 0;
+    for (let y = y0; y < y1; y++) sum += raw[y * W + x]!;
+    col.push(sum / (y1 - y0));
+  }
+  const row: number[] = [];
+  for (let y = y0; y < y1; y++) {
+    let sum = 0;
+    for (let x = x0; x < x1; x++) sum += raw[y * W + x]!;
+    row.push(sum / (x1 - x0));
+  }
+  const avg = (p: number[], i: number, r: number) => {
+    let sum = 0;
+    let n = 0;
+    for (let k = -r; k <= r; k++) {
+      const v = p[i + k];
+      if (v === undefined) continue;
+      sum += v;
+      n++;
+    }
+    return sum / n;
+  };
+  const high = (p: number[]) => p.slice(4, -4).reduce((a, v, i) => a + Math.abs(v - avg(p, i + 4, 4)), 0) / (p.length - 8);
+  const smooth = col.map((_, i) => avg(col, i, 30));
+  return { grid: high(col) + high(row), light: Math.max(...smooth) - Math.min(...smooth) };
+}
+
 /** Акцент tech-neon (#00e5ff) и его полупрозрачные смеси на тёмном: циан, без красного. */
 const isCyan = ([r, g, b]: [number, number, number]) => g > 140 && b > 140 && r < 120;
 /** sha256 кадра 149 основного рендера сцены — вариант обязан от него отличаться. */
@@ -59,8 +116,8 @@ afterAll(async () => {
 });
 
 describe("patterns-gallery", () => {
-  it("пять сцен брифа и сцена количеств на месте", () => {
-    expect(SCENES).toEqual(["code", "comparison", "data", "emphasis", "process", "timeline"]);
+  it("пять сцен брифа, сцена количеств, акценты / схема kit 0.2, процесс / скорость kit 0.3, буфер и роли узлов kit 0.4 на месте", () => {
+    expect(SCENES).toEqual(["accent", "cache", "code", "comparison", "data", "emphasis", "flow", "kinds", "process", "queue", "speed", "timeline"]);
   });
 
   for (const name of SCENES) {
@@ -86,6 +143,11 @@ describe("patterns-gallery", () => {
       lastFrame.set(name, sha256(r.stills[4]!));
       // ошибок в консоли браузера нет (шрифты, SVG-маски и фильтры отработали)
       expect(r.browserLogs.filter((l) => l.startsWith("[error]"))).toEqual([]);
+      // 0.4.0: реестр раскладки на каждом кадре-стоп; ни призраков, ни наложений текста
+      const layout = layoutFrames(r.browserLogs);
+      expect(layout.map((f) => f.frame)).toEqual(FRAMES);
+      expect(layout.flatMap((f) => f.ghosts)).toEqual([]);
+      expect(layout.flatMap((f) => textOverlaps(f))).toEqual([]);
     }, T);
   }
 
@@ -114,6 +176,33 @@ describe("patterns-gallery", () => {
       expect(sha256(r.stills[1]!)).not.toBe(lastFrame.get(name));
     }, T);
   }
+
+  // E2.4: фоны blueprint (cache) и spotlight (speed) различимы на 540p: у чертежа видна
+  // сетка, у прожектора — перепад света (пол под героем); меры — в пустой полосе внизу кадра.
+  it("blueprint и spotlight различимы на 540p: сетка против перепада света", () => {
+    const blueprint = bgMetrics(join(tmp, "cache", "frames", "149.png"));
+    const spotlight = bgMetrics(join(tmp, "speed", "frames", "149.png"));
+    expect(blueprint.grid).toBeGreaterThanOrEqual(1);
+    expect(blueprint.grid).toBeGreaterThanOrEqual(5 * spotlight.grid);
+    expect(spotlight.light).toBeGreaterThanOrEqual(18);
+    expect(spotlight.light).toBeGreaterThanOrEqual(2 * blueprint.light);
+  });
+
+  // Fix F: сетка blueprint дрейфует и в части кадров ложилась крупной линией и крестами на
+  // край кадра — QA видел «объект касается края» (clipping). У краёв кадра сетка гаснет.
+  it("blueprint: у самого края кадра сетки нет ни на одном кадре (дрейф не кладёт линию на край)", () => {
+    for (const f of FRAMES) {
+      const px = pixel(join(tmp, "cache", "frames", `${f}.png`));
+      for (const x of [0, 1, 2, 3, 1916, 1917, 1918, 1919]) {
+        const l = Array.from({ length: 1080 }, (_, y) => {
+          const [r, g, b] = px(x, y);
+          return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        }).sort((a, b) => a - b);
+        // зерно фона даёт разброс 4–8 уровней; линия сетки на краю — 18+
+        expect(l[1076]! - l[540]!, `кадр ${f}, x ${x}: сетка у края`).toBeLessThanOrEqual(10);
+      }
+    }
+  });
 
   // Многострочные токены (docstring, JSDoc): строки, подсветка и каретка не съезжают.
   // Блок кода стоит в safe area (115, 86) со сдвигом CODE_POS; tech-neon, акцент — циан.

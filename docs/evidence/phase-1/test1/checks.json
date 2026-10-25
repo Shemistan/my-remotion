@@ -1,0 +1,122 @@
+[
+  {
+    "id": "job",
+    "title": "задача playground.generate completed, версия есть",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"sceneId\":\"scn_01M5N0BWY51B61QQBH3BM0NJ2F\",\"jobId\":\"job_01M5N0BWY93KW6VP6SHNNKKP7E\",\"versionId\":\"ver_01M5N0KBZXHRTZEAE0YRKR5AWQ\",\"status\":\"completed\",\"wallMs\":246710,\"exportId\":\"exp_01M5N3VARR8ZH9X94JWDET2KY6\"}",
+    "edited": "2026-10-23, вручную по ревью: exportId заменён на экспорт прогона full3 (exp_01M5N3VARR…, как в summary.json и export/export.json); в detail был id экспорта full1 (exp_01M5N3KCB6…), перенесённый из state.json при MS_ACC_REUSE=1. Генерация (job, версия) — из full1, в full3 взята из state.json (статус тогда не перечитывался через API)."
+  },
+  {
+    "id": "ui.player",
+    "title": "плеер играет (currentTime растёт)",
+    "kind": "A",
+    "pass": true,
+    "detail": "currentTime 0.92 с"
+  },
+  {
+    "id": "ui.duration",
+    "title": "длительность в плеере = настройкам",
+    "kind": "A",
+    "pass": true,
+    "detail": "16:91920×108030 кадр/с6,0 с (180 кадров)"
+  },
+  {
+    "id": "ui.components",
+    "title": "ComponentsPanel: ≥ 1 запись KB с commit и лицензией",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"free-remotion-templates/line-chart-animсвободная лицензияадаптированfree-remotion-templates (RenderComp)f648980MIT (package.json, LICENSE, SPDX-заголовок в файле)\",\"remotion-bits/animated-counterсвободная лицензияадаптированRemotion Bitsde35fdaMIT (package.json)\"]"
+  },
+  {
+    "id": "ui.qa",
+    "title": "QAPanel: технический gate pass",
+    "kind": "A",
+    "pass": true,
+    "detail": "pass"
+  },
+  {
+    "id": "t1.chart",
+    "title": "spec содержит бит графика",
+    "kind": "A+H",
+    "pass": true,
+    "detail": "[\"chart-draw\",\"hero-in\",\"count-follow-head\",\"label-in\",\"hero-count\",\"final-emphasis\",\"multiplier-in\",\"multiplier-sub-in\",\"hold\"]"
+  },
+  {
+    "id": "t1.dark",
+    "title": "тёмный фон: средняя яркость QA-кадров < 25 %",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"0.115\",\"0.129\",\"0.135\",\"0.135\",\"0.136\",\"0.136\"]"
+  },
+  {
+    "id": "t1.ocr-from",
+    "title": "OCR «10 000» на кадре начала счёта",
+    "kind": "A",
+    "pass": false,
+    "detail": "{\"frame\":6,\"texts\":[\"1 млн\",\"500 тыс.\",\"0\"]}"
+  },
+  {
+    "id": "t1.ocr-to",
+    "title": "OCR «1 000 000» на последнем QA-кадре",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"frame\":179,\"texts\":[\"1 000 000\",\"пользователей\",\"×100\",\"за три года\",\"1 млн\",\"500 тыс.\",\"0\",\"Старт\",\"Год 1\",\"Год 2\",\"Год 3\"]}"
+  },
+  {
+    "id": "t1.count-from",
+    "title": "реестр раскладки: первое видимое значение счётчика — 10 000",
+    "kind": "A",
+    "pass": false,
+    "detail": "[{\"frame\":6,\"hero\":null},{\"frame\":7,\"hero\":null},{\"frame\":8,\"hero\":null},{\"frame\":9,\"hero\":\"15 000\"},{\"frame\":10,\"hero\":\"20 000\"},{\"frame\":11,\"hero\":\"27 000\"},{\"frame\":12,\"hero\":\"36 000\"},{\"frame\":13,\"hero\":\"50 000\"},{\"frame\":14,\"hero\":\"67 000\"},{\"frame\":18,\"hero\":\"414 000\"},{\"frame\":22,\"hero\":\"748 000\"},{\"frame\":26,\"hero\":\"903 000\"},{\"frame\":30,\"hero\":\"977 000\"},{\"frame\":34,\"hero\":\"1 000 000\"},{\"frame\":35,\"hero\":\"1 000 000\"}]"
+  },
+  {
+    "id": "t1.emphasis-beat",
+    "title": "spec: отдельный бит акцента во второй половине",
+    "kind": "A+H",
+    "pass": false,
+    "detail": "[\"chart-draw:chart-draw@0\",\"hero-in:hero-in@6\",\"hero-count-count:count-follow-head@6\",\"label-in:label-in@17\",\"hero-count:hero-count@28\",\"final-emphasis:final-emphasis@43\",\"multiplier-in:multiplier-in@43\",\"multiplier-sub-in:multiplier-sub-in@49\",\"hold:hold@86\"]"
+  },
+  {
+    "id": "t1.stable",
+    "title": "повторный рендер: sha256 трёх ключевых PNG совпадают",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"frame\":6,\"published\":\"4f68d0ac34c981f7145002bcc14ca79a2bc4e2c28efc4eea2879ae903d8a8551\",\"rerender\":\"4f68d0ac34c981f7145002bcc14ca79a2bc4e2c28efc4eea2879ae903d8a8551\"},{\"frame\":79,\"published\":\"23692eb9d408752506815fc3367d845cde46bd05afc3a1d984bf5d572ad2214c\",\"rerender\":\"23692eb9d408752506815fc3367d845cde46bd05afc3a1d984bf5d572ad2214c\"},{\"frame\":179,\"published\":\"c9aa8e989c3defe22c785ab18e69354e055155b929f8947b874f5bd147aebd04\",\"rerender\":\"c9aa8e989c3defe22c785ab18e69354e055155b929f8947b874f5bd147aebd04\"}]"
+  },
+  {
+    "id": "t1.final-largest",
+    "title": "последний кадр: финальное число — самый крупный текст",
+    "kind": "A+H",
+    "pass": true,
+    "detail": "[\"1 000 000 120.8px\",\"×100 81.1px\",\"пользователей 45px\",\"за три года 44.8px\"]"
+  },
+  {
+    "id": "t1.font",
+    "title": "основной текст ≥ 4 % высоты кадра",
+    "kind": "A",
+    "pass": true,
+    "detail": "120.8px из 1080"
+  },
+  {
+    "id": "t1.contrast",
+    "title": "контраст текста к фону ≥ 4,5:1",
+    "kind": "A",
+    "pass": true,
+    "detail": "#f3f4f8 / #07080d = 18.20"
+  },
+  {
+    "id": "t1.safe",
+    "title": "нет обрезки: QA без blocking clipping/safe_area, тексты последнего кадра в safe area",
+    "kind": "A+H",
+    "pass": true,
+    "detail": "{\"clip\":[],\"out\":[]}"
+  },
+  {
+    "id": "t1.export",
+    "title": "экспорт MP4: h264, aac, 1920×1080, 30/1",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"video\":{\"index\":0,\"codec_name\":\"h264\",\"codec_long_name\":\"H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10\",\"profile\":\"High\",\"codec_type\":\"video\",\"codec_tag_string\":\"avc1\",\"codec_tag\":\"0x31637661\",\"width\":1920,\"height\":1080,\"coded_width\":1920,\"coded_height\":1080,\"closed_captions\":0,\"film_grain\":0,\"has_b_frames\":2,\"sample_aspect_ratio\":\"1:1\",\"display_aspect_ratio\":\"16:9\",\"pix_fmt\":\"yuv420p\",\"level\":40,\"color_range\":\"tv\",\"color_transfer\":\"iec61966-2-1\",\"color_primaries\":\"bt709\",\"chroma_location\":\"left\",\"field_order\":\"progressive\",\"refs\":1,\"is_avc\":\"true\",\"nal_length_size\":\"4\",\"id\":\"0x1\",\"r_frame_rate\":\"30/1\",\"avg_frame_rate\":\"30/1\",\"time_base\":\"1/90000\",\"start_pts\":0,\"start_time\":\"0.000000\",\"duration_ts\":540000,\"duration\":\"6.000000\",\"bit_rate\":\"6155380\",\"bits_per_raw_sample\":\"8\",\"nb_frames\":\"180\",\"extradata_size\":51,\"disposition\":{\"default\":1,\"dub\":0,\"original\":0,\"comment\":0,\"lyrics\":0,\"karaoke\":0,\"forced\":0,\"hearing_impaired\":0,\"visual_impaired\":0,\"clean_effects\":0,\"attached_pic\":0,\"timed_thumbnails\":0,\"non_diegetic\":0,\"captions\":0,\"descriptions\":0,\"metadata\":0,\"dependent\":0,\"still_image\":0,\"multilayer\":0},\"tags\":{\"language\":\"und\",\"handler_name\":\"VideoHandler\",\"vendor_id\":\"[0][0][0][0]\"}},\"audio\":{\"index\":1,\"codec_name\":\"aac\",\"codec_long_name\":\"AAC (Advanced Audio Coding)\",\"profile\":\"LC\",\"codec_type\":\"audio\",\"codec_tag_string\":\"mp4a\",\"codec_tag\":\"0x6134706d\",\"sample_fmt\":\"fltp\",\"sample_rate\":\"48000\",\"channels\":2,\"channel_layout\":\"stereo\",\"bits_per_sample\":0,\"initial_padding\":0,\"id\":\"0x2\",\"r_frame_rate\":\"0/0\",\"avg_frame_rate\":\"0/0\",\"time_base\":\"1/48000\",\"start_pts\":0,\"start_time\":\"0.000000\",\"duration_ts\":288768,\"duration\":\"6.016000\",\"bit_rate\":\"317374\",\"nb_frames\":\"284\",\"extradata_size\":2,\"disposition\":{\"default\":1,\"dub\":0,\"original\":0,\"comment\":0,\"lyrics\":0,\"karaoke\":0,\"forced\":0,\"hearing_impaired\":0,\"visual_impaired\":0,\"clean_effects\":0,\"attached_pic\":0,\"timed_thumbnails\":0,\"non_diegetic\":0,\"captions\":0,\"descriptions\":0,\"metadata\":0,\"dependent\":0,\"still_image\":0,\"multilayer\":0},\"tags\":{\"language\":\"und\",\"handler_name\":\"SoundHandler\",\"vendor_id\":\"[0][0][0][0]\"}},\"durationS\":6}"
+  }
+]

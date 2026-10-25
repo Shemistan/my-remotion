@@ -1,6 +1,7 @@
 // Линейный график: сетка проявляется, гладкая линия рисуется слева направо со
 // светящейся «головой», точки вспыхивают, когда линия до них доходит, заливка
-// открывается за линией, последняя точка выделена пульсом и выноской со значением.
+// открывается за линией. Последняя точка — акцент (удар и дыхание accentPulse, кольца) и
+// выноска со значением; то и другое включается отдельно.
 //
 // Общая часть графиков (ось, геометрия, выноска значения) экспортируется отсюда для
 // AreaChart: ось одна на оба графика и стоит неподвижно с первого кадра появления.
@@ -13,16 +14,34 @@ import { type Point, lutLength, pathD, pathLUT, pointAtLength, smoothSegments } 
 import { CLAMP, clamp01, ramp, useSvgId } from "../internal.js";
 import type { ResolvedStyle } from "../style/resolve.js";
 import { useStyle } from "../style.js";
-import { niceTicks } from "../ticks.js";
-import { TYPE_LEVELS, typeSize } from "../style/type-scale.js";
+import { lineDrawWindow } from "../line-window.js";
+import { type AccentPulse, accentPulse } from "../choreo/accent.js";
+import { HALO_FALLOFF } from "./Emphasis.js";
+import type { Hold } from "../choreo/hold.js";
+import { Comet, RadarRing, TickLabel, useHoldFrame } from "./HoldLayers.js";
+import { axisTicks } from "../ticks.js";
+import { TYPE_LEVELS, floorText, typeSize } from "../style/type-scale.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, surfaceAt, shadow } from "../tokens.js";
 
 export interface LineChartProps {
+  /** До входа (0.4.0): `silhouette` (по умолчанию) — тихий контур с кадра 0 (кадр-постер); `hidden` — пусто. */
+  pre?: "silhouette" | "hidden";
   points: { label: string; value: number }[];
   beat: Pick<Beat, "start_frame" | "end_frame">;
   /** Заливка под линией (по умолчанию да). */
   area?: boolean;
-  /** Выделить последнюю точку: пульс и выноска со значением (по умолчанию да). */
+  /** Выноска со значением у последней точки (по умолчанию да). */
+  callout?: boolean;
+  /**
+   * Акцент последней точки: удар, ореол, кольца и дыхание до конца сцены (по умолчанию да).
+   * `{ beat?, loop? }` — свой бит акцента (по умолчанию от конца прорисовки до конца бита
+   * графика) и `loop: false`, чтобы акцент погас после бита.
+   */
+  endpointEmphasis?: boolean | { beat?: Pick<Beat, "start_frame" | "end_frame">; loop?: boolean };
+  /**
+   * @deprecated 0.2: выноска и акцент вместе. Бери `callout` и `endpointEmphasis`;
+   * `highlightLast={false}` без них убирает и то и другое.
+   */
   highlightLast?: boolean;
   width?: number;
   height?: number;
@@ -36,11 +55,18 @@ export interface LineChartProps {
   /** Префикс/суффикс значения в выноске. */
   valuePrefix?: string;
   valueSuffix?: string;
+  /**
+   * Финал (hold engine 0.5.0): `data-shimmer` (и `steady-flow`) — блик бежит по линии к
+   * итоговой точке, точка вспыхивает на приходе; `now-pulse` — волна радара от точки;
+   * `repeat-result` — блик и подпись тика у точки (`label`, по умолчанию значение);
+   * `settle-push` — дыхание точки (наезд — у <Camera hold>).
+   */
+  hold?: Hold & { label?: string };
 }
 
 /** Поля области построения графика внутри width × height (подписи осей — в полях). */
 /** Кегль подписей осей графиков: уровень caption шкалы кадра (32 px при 1080). */
-export const chartFont = (frameHeight: number) => Math.round(frameHeight * TYPE_LEVELS.caption);
+export const chartFont = (frameHeight: number) => floorText(Math.round(frameHeight * TYPE_LEVELS.caption), frameHeight);
 
 /** Поля области построения внутри width × height под подписи осей кеглем chartFont. */
 export function chartPad(frameHeight: number) {
@@ -58,7 +84,7 @@ export function chartGeometry(points: { value: number }[], width: number, height
   const innerW = width - PAD.left - PAD.right;
   const innerH = height - PAD.top - PAD.bottom;
   const values = points.map((p) => p.value);
-  const ticks = niceTicks(Math.min(0, ...values), Math.max(...values, 1), yTicks);
+  const ticks = axisTicks(Math.min(0, ...values), Math.max(...values, 1), yTicks);
   const y0 = ticks[0]!;
   const y1 = ticks.at(-1)!;
   const toY = (v: number) => PAD.top + innerH - ((v - y0) / (y1 - y0 || 1)) * innerH;
@@ -86,21 +112,37 @@ export function xLabelIndices(labels: string[], spacing: number, font: number): 
   return out;
 }
 
-/** Окно прорисовки линии внутри бита: 12–80 %. */
-function drawWindow(beat: Pick<Beat, "start_frame" | "end_frame">) {
-  const L = Math.max(1, beat.end_frame - beat.start_frame);
-  return { drawStart: beat.start_frame + L * 0.12, drawEnd: beat.start_frame + L * 0.8 };
+/**
+ * Что выделено у последней точки: выноска и бит акцента (null — без акцента). Явные
+ * `callout` / `endpointEmphasis` важнее устаревшего `highlightLast`.
+ */
+export function lineHighlight(
+  p: Pick<LineChartProps, "callout" | "endpointEmphasis" | "highlightLast">,
+  beat: Pick<Beat, "start_frame" | "end_frame">,
+): { callout: boolean; emphasis: { beat: Pick<Beat, "start_frame" | "end_frame">; loop: boolean } | null } {
+  const legacy = p.highlightLast ?? true;
+  const callout = p.callout ?? legacy;
+  const e = p.endpointEmphasis ?? legacy;
+  if (e === false) return { callout, emphasis: null };
+  const own = e === true ? {} : e;
+  const { endFrame } = lineDrawWindow(beat);
+  return { callout, emphasis: { beat: own.beat ?? { start_frame: endFrame, end_frame: Math.max(endFrame, beat.end_frame) }, loop: own.loop ?? true } };
 }
+
+/** Окно прорисовки линии внутри бита: 12–80 % (`lineDrawWindow`, общий с сервером). */
+const drawWindow = lineDrawWindow;
 
 function drawAt(frame: number, beat: Pick<Beat, "start_frame" | "end_frame">): number {
   const { drawStart, drawEnd } = drawWindow(beat);
-  return interpolate(frame, [drawStart, drawEnd], [0, 1], { ...CLAMP, easing: DRAW_EASE });
+  // ramp: окно нулевой длины — ступенька, а не исключение interpolate
+  return ramp(frame, drawStart, drawEnd, DRAW_EASE);
 }
 
 /**
  * Голова линии LineChart в кадре `frame` — чтобы привязать к ней другие элементы (один
  * источник движения): `progress` — доля прорисовки 0..1, `value` — значение под головой
- * (линейно между соседними точками по x), `endFrame` — кадр, когда линия дорисована.
+ * (линейно между соседними точками по x), `startFrame` — последний кадр, где голова ещё
+ * на первой точке (линия трогается после него), `endFrame` — кадр, когда линия дорисована.
  * Не хук: можно звать где угодно. `width`/`height`/`yTicks` — те же, что у графика.
  */
 export function lineChartHead(
@@ -108,11 +150,11 @@ export function lineChartHead(
   beat: Pick<Beat, "start_frame" | "end_frame">,
   frame: number,
   opts: { width?: number; height?: number; yTicks?: number; frameHeight?: number } = {},
-): { progress: number; value: number; endFrame: number } {
+): { progress: number; value: number; startFrame: number; endFrame: number } {
   const { coords, lut, total } = chartGeometry(points, opts.width ?? 1100, opts.height ?? 560, opts.yTicks ?? 4, chartPad(opts.frameHeight ?? 1080));
   const progress = drawAt(frame, beat);
-  const endFrame = Math.ceil(drawWindow(beat).drawEnd);
-  if (points.length < 2) return { progress, value: points[0]?.value ?? 0, endFrame };
+  const { startFrame, endFrame } = drawWindow(beat);
+  if (points.length < 2) return { progress, value: points[0]?.value ?? 0, startFrame, endFrame };
   const x = pointAtLength(lut, progress * total).x;
   let i = 0;
   while (i < coords.length - 2 && coords[i + 1]!.x < x) i++;
@@ -120,14 +162,16 @@ export function lineChartHead(
   const b = coords[i + 1]!;
   const t = clamp01((x - a.x) / (b.x - a.x || 1));
   const value = progress >= 1 ? points.at(-1)!.value : points[i]!.value + (points[i + 1]!.value - points[i]!.value) * t;
-  return { progress, value, endFrame };
+  return { progress, value, startFrame, endFrame };
 }
 
 export function LineChart({
   points,
   beat,
   area = true,
-  highlightLast = true,
+  callout: calloutProp,
+  endpointEmphasis,
+  highlightLast,
   width = 1100,
   height = 560,
   locale = "ru",
@@ -136,6 +180,8 @@ export function LineChart({
   yTicks = 4,
   valuePrefix = "",
   valueSuffix = "",
+  pre = "silhouette",
+  hold,
 }: LineChartProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
@@ -171,9 +217,17 @@ export function LineChart({
     return hi;
   };
 
-  // точка-ядро последней точки (пульс и выноску рисует valueCallout)
+  // последняя точка: акцент (accentPulse — тот же, что у Emphasis) и выноска — отдельно
+  const hl = lineHighlight({ callout: calloutProp, endpointEmphasis, highlightLast }, beat);
+  const emph = hl.emphasis ? accentPulse(frame, s, hl.emphasis) : null;
   const lastPop = springAt(frame, fps, s, drawEnd, "bouncy");
   const lastValue = points.at(-1)?.value ?? 0;
+  // у графика нет потоков: steady-flow — тот же блик, что data-shimmer
+  const hf = useHoldFrame(hold?.mode === "steady-flow" ? { ...hold, mode: "data-shimmer" } : hold);
+  const holdOn = hf?.on && draw >= 1 ? hf : null;
+  const shimmer = holdOn && (hold!.mode === "data-shimmer" || hold!.mode === "steady-flow" || hold!.mode === "repeat-result");
+  // приход блика к точке — её вспышка (дыхание финала с пиком в приход)
+  const flare = holdOn && hold!.mode !== "settle-push" ? holdOn.live * Math.max(0, holdOn.breath) ** 3 : 0;
 
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: "visible", fontFamily: font }}>
@@ -192,13 +246,18 @@ export function LineChart({
         <filter id={`${id}-glow`} x="-20%" y="-50%" width="140%" height="200%">
           <feGaussianBlur stdDeviation={dark ? 9 : 5} />
         </filter>
+        <radialGradient id={`${id}-halo`}>
+          {HALO_FALLOFF.map(([o, k]) => (
+            <stop key={o} offset={`${o}%`} stopColor={color} stopOpacity={(dark ? 0.8 : 0.45) * k} />
+          ))}
+        </radialGradient>
         <radialGradient id={`${id}-head`}>
           <stop offset="0%" stopColor={color} stopOpacity={0.9} />
           <stop offset="100%" stopColor={color} stopOpacity={0} />
         </radialGradient>
       </defs>
 
-      {chartAxis({ s, frame, beat, ticks, toY, innerW, locale, compact, pad: PAD })}
+      {chartAxis({ s, frame, beat, ticks, toY, innerW, locale, compact, pad: PAD, pre: pre !== "hidden" })}
 
       {/* заливка открывается вслед за головой */}
       {area && segs.length > 0 ? (
@@ -218,17 +277,23 @@ export function LineChart({
         const rf = reachFrame(c.x - 0.5);
         const pop = springAt(frame, fps, s, rf, "bouncy");
         const lab = interpolate(frame, [rf, rf + frames(s, 12)], [0, 1], { ...CLAMP, easing: EASE.outQuart });
-        const r = (isLast && highlightLast ? 9 : 6) * Math.max(0, pop);
+        const big = isLast && (emph !== null || hl.callout);
+        const r = (big ? 9 : 6) * Math.max(0, pop) * (isLast && emph ? emph.scale : 1);
         return (
           <g key={`p${i}`}>
+            {isLast && emph ? endpointAccent({ x: c.x, y: c.y, p: flare > 0 ? { ...emph, level: Math.min(1, emph.level + 0.35 * flare) } : emph, color, halo: `url(#${id}-halo)` }) : null}
+            {isLast && holdOn && hold!.mode === "now-pulse" ? <RadarRing x={c.x} y={c.y} r0={11} reach={58} t={holdOn.ripple} opacity={holdOn.rippleAlpha} color={color} /> : null}
             <circle cx={c.x} cy={c.y} r={r} fill={s.palette.bg} stroke={color} strokeWidth={3.5} />
-            {isLast && highlightLast ? <circle cx={c.x} cy={c.y} r={Math.max(0, 4 * lastPop)} fill={color} /> : null}
+            {big ? <circle cx={c.x} cy={c.y} r={Math.max(0, 4 * lastPop * (emph ? emph.scale + 0.35 * emph.strike : 1))} fill={emph ? mix(color, "#ffffff", 0.35 * emph.strike) : color} /> : null}
             <text x={c.x} y={PAD.top + innerH + PAD.font * 1.55} textAnchor="middle" fontSize={PAD.font} fill={s.palette.muted} opacity={labelOn ? lab : 0} transform={`translate(0 ${((1 - lab) * 10).toFixed(2)})`}>
               {points[i]!.label}
             </text>
           </g>
         );
       })}
+
+      {/* финал: блик по линии к итоговой точке */}
+      {shimmer ? <Comet lut={lut} pos={holdOn!.sweep} opacity={holdOn!.sweepAlpha} color={color} width={5} length={Math.max(120, total * 0.16)} /> : null}
 
       {/* голова рисования */}
       {headOn ? (
@@ -238,11 +303,38 @@ export function LineChart({
         </g>
       ) : null}
 
-      {/* выделение последней точки: пульс + выноска */}
-      {highlightLast && last
-        ? valueCallout({ s, frame, fps, x: last.x, y: last.y, at: drawEnd, color, text: `${valuePrefix}${formatNumber(lastValue, { locale, compact: false })}${valueSuffix}`, frameHeight: frameH })
+      {/* выноска последней точки (кольца рисует акцент точки) */}
+      {hl.callout && last
+        ? valueCallout({ s, frame, fps, x: last.x, y: last.y, at: drawEnd, color, text: `${valuePrefix}${formatNumber(lastValue, { locale, compact: false })}${valueSuffix}`, frameHeight: frameH, rings: false })
         : null}
+
+      {/* подпись тика repeat-result над итоговой точкой */}
+      {holdOn && hold!.mode === "repeat-result" && holdOn.tick && last ? (
+        <foreignObject x={last.x - 200} y={last.y - 220} width={400} height={220} style={{ overflow: "visible" }}>
+          <div style={{ position: "relative", width: 400, height: 220 }}>
+            <TickLabel x={200} y={220 - typeSize(s, "body", frameH) * 1.3 - 10} age={holdOn.tick.age} text={hold!.label ?? `${valuePrefix}${formatNumber(lastValue, { locale, compact: false })}${valueSuffix}`} color={color} />
+          </div>
+        </foreignObject>
+      ) : null}
     </svg>
+  );
+}
+
+
+/**
+ * Акцент точки графика по accentPulse: ореол дышит вместе с точкой, на ударе и на каждом
+ * вдохе от точки расходится кольцо. Рисуется под самой точкой.
+ */
+function endpointAccent(o: { x: number; y: number; p: AccentPulse; color: string; halo: string }): ReactNode {
+  const { x, y, p, color } = o;
+  const rp = p.ripple >= 0 ? 1 - (1 - p.ripple) ** 3 : 0;
+  return (
+    <g>
+      {p.level > 0.005 ? <circle cx={x} cy={y} r={(46 + 26 * p.level).toFixed(2)} fill={o.halo} opacity={clamp01(p.level).toFixed(4)} /> : null}
+      {p.ripple >= 0 ? (
+        <circle cx={x} cy={y} r={(11 + 46 * rp).toFixed(2)} fill="none" stroke={color} strokeWidth={3 - 1.8 * p.ripple} opacity={(0.9 * (1 - p.ripple) * p.rippleAlpha).toFixed(4)} />
+      ) : null}
+    </g>
   );
 }
 
@@ -261,6 +353,8 @@ export function chartAxis(o: {
   locale: "ru" | "en";
   compact: boolean;
   pad: ChartPad;
+  /** Контур сетки до прорисовки (кадр-постер). */
+  pre?: boolean;
 }): ReactNode {
   const { s, frame, beat, ticks, toY, innerW, pad: PAD } = o;
   const L = Math.max(1, beat.end_frame - beat.start_frame);
@@ -274,6 +368,7 @@ export function chartAxis(o: {
         const base = v === zero;
         return (
           <g key={`t${i}`}>
+            {o.pre !== false && line < 1 ? <line x1={PAD.left} x2={PAD.left + innerW} y1={y} y2={y} stroke={alpha(s.palette.text, base ? 0.16 : 0.07)} strokeWidth={1} opacity={1 - line} /> : null}
             <line x1={PAD.left} x2={PAD.left + innerW * line} y1={y} y2={y} stroke={alpha(s.palette.text, base ? 0.22 : 0.08)} strokeWidth={base ? 1.5 : 1} />
             <text
               x={PAD.left - PAD.font * 0.6}
@@ -282,7 +377,7 @@ export function chartAxis(o: {
               textAnchor="end"
               fontSize={PAD.font}
               fill={s.palette.muted}
-              opacity={label}
+              opacity={o.pre !== false ? Math.max(label, 0.3) : label}
               style={{ fontVariantNumeric: "tabular-nums" }}
               transform={`translate(${((1 - label) * -10).toFixed(2)} 0)`}
             >
@@ -299,7 +394,7 @@ export function chartAxis(o: {
  * Выделение итоговой точки: два кольца пульса со сдвигом полпериода и выноска со
  * значением слева от точки (над максимумом часто нет места). Старт — кадр `at`.
  */
-export function valueCallout(o: { s: ResolvedStyle; frame: number; fps: number; x: number; y: number; at: number; color: string; text: string; frameHeight: number }): ReactNode {
+export function valueCallout(o: { s: ResolvedStyle; frame: number; fps: number; x: number; y: number; at: number; color: string; text: string; frameHeight: number; rings?: boolean }): ReactNode {
   const { s, frame, fps, x, y, at, color } = o;
   // выноска — подпись данных крупнее подписей осей: уровень body
   const fs = typeSize(s, "body", o.frameHeight);
@@ -314,7 +409,7 @@ export function valueCallout(o: { s: ResolvedStyle; frame: number; fps: number; 
   const callout = springAt(frame, fps, s, at + frames(s, 4), "snappy");
   return (
     <g>
-      {[0, period / 2].map((off) => {
+      {(o.rings === false ? [] : [0, period / 2]).map((off) => {
         const rg = ring(off);
         return <circle key={off} cx={x} cy={y} r={rg.r} fill="none" stroke={color} strokeWidth={2} opacity={rg.o * clamp01(pop)} />;
       })}

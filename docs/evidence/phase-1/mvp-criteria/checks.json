@@ -1,0 +1,107 @@
+[
+  {
+    "id": "p1.test1 v1",
+    "title": "test1 v1: knowledge-refs ≥ 1 записи с repo, commit, license, strategy",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"free-remotion-templates/line-chart-anim free-remotion-templates (RenderComp)@f648980 MIT (package.json, LICENSE, SPDX-заголовок в файле) adapt\",\"remotion-bits/animated-counter Remotion Bits@de35fda MIT (package.json) adapt\"]"
+  },
+  {
+    "id": "p2.test1 v1",
+    "title": "test1 v1: превью renderMedia, ffprobe — длительность ± 1 кадр, fps = настройкам, размер = настройки × 0.5",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"duration_frames\":180,\"probe_frames\":180,\"size\":\"960×540\",\"settings\":\"1920×1080\",\"preview_scale\":0.5,\"fps\":\"30/1\"}"
+  },
+  {
+    "id": "p3.test1 v1",
+    "title": "test1 v1: static check и typecheck без ошибок",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"violations\":[],\"types\":[]}"
+  },
+  {
+    "id": "p1.test2 v1",
+    "title": "test2 v1: knowledge-refs ≥ 1 записи с repo, commit, license, strategy",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"magicui/animated-beam Magic UI@efe76fc5 MIT (LICENSE.md) adapt\",\"xyflow/react-flow xyflow (React Flow)@654ba5a5e MIT (LICENSE, packages/react/package.json) adapt\"]"
+  },
+  {
+    "id": "p2.test2 v1",
+    "title": "test2 v1: превью renderMedia, ffprobe — длительность ± 1 кадр, fps = настройкам, размер = настройки × 0.5",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"duration_frames\":180,\"probe_frames\":180,\"size\":\"960×540\",\"settings\":\"1920×1080\",\"preview_scale\":0.5,\"fps\":\"30/1\"}"
+  },
+  {
+    "id": "p3.test2 v1",
+    "title": "test2 v1: static check и typecheck без ошибок",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"violations\":[],\"types\":[]}"
+  },
+  {
+    "id": "p1.test3 v2",
+    "title": "test3 v2: knowledge-refs ≥ 1 записи с repo, commit, license, strategy",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"magicui/animated-beam Magic UI@efe76fc5 MIT (LICENSE.md) adapt\",\"xyflow/react-flow xyflow (React Flow)@654ba5a5e MIT (LICENSE, packages/react/package.json) adapt\"]"
+  },
+  {
+    "id": "p2.test3 v2",
+    "title": "test3 v2: превью renderMedia, ffprobe — длительность ± 1 кадр, fps = настройкам, размер = настройки × 0.5",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"duration_frames\":180,\"probe_frames\":180,\"size\":\"960×540\",\"settings\":\"1920×1080\",\"preview_scale\":0.5,\"fps\":\"30/1\"}"
+  },
+  {
+    "id": "p3.test3 v2",
+    "title": "test3 v2: static check и typecheck без ошибок",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"violations\":[],\"types\":[]}"
+  },
+  {
+    "id": "p1.test3 v3",
+    "title": "test3 v3: knowledge-refs ≥ 1 записи с repo, commit, license, strategy",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"magicui/animated-beam Magic UI@efe76fc5 MIT (LICENSE.md) adapt\",\"xyflow/react-flow xyflow (React Flow)@654ba5a5e MIT (LICENSE, packages/react/package.json) adapt\"]"
+  },
+  {
+    "id": "p2.test3 v3",
+    "title": "test3 v3: превью renderMedia, ffprobe — длительность ± 1 кадр, fps = настройкам, размер = настройки × 0.5",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"duration_frames\":240,\"probe_frames\":240,\"size\":\"960×540\",\"settings\":\"1920×1080\",\"preview_scale\":0.5,\"fps\":\"30/1\"}"
+  },
+  {
+    "id": "p3.test3 v3",
+    "title": "test3 v3: static check и typecheck без ошибок",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"violations\":[],\"types\":[]}"
+  },
+  {
+    "id": "p4",
+    "title": "ошибка рендера показывается как ошибка с логами",
+    "kind": "A",
+    "pass": true,
+    "detail": "resilience/broken-scene/checks.json (p4.error, p4.no-preview)"
+  },
+  {
+    "id": "p5",
+    "title": "после перезапуска версии на месте, экспорт повторяется",
+    "kind": "A",
+    "pass": true,
+    "detail": "restart/checks.json"
+  },
+  {
+    "id": "p6",
+    "title": "исходники KB не изменены: sha256 выборки до = после",
+    "kind": "A",
+    "pass": true,
+    "detail": "kb-hashes: совпадают 1102 из 1102"
+  }
+]

@@ -52,3 +52,63 @@ export function scaleTiming<T extends { duration_frames: number; beats: { start_
   });
   return { ...t, duration_frames: duration, beats };
 }
+
+/**
+ * Договор кадровых величин `props.content` (Engineer ↔ правка темпа): поле — длительность или
+ * момент в кадрах, если его имя из `CONTENT_FRAME_KEYS` (`travel` импульса, `delay`, `stagger`,
+ * `hold`, `frame` ключа камеры и кадровые пропы motion-kit под тем же именем: `enterAt` узла
+ * FlowGraph и AnimatedNumber, `until` DataToken и StatusChip, `at` состояния StatusChip,
+ * `duration` Enter, `flash`/`writes` узла FlowGraph — числа в них кадры, объекты прихода
+ * обходятся внутрь, `frames`/`keyframes`) или кончается на `_frames`/`Frames`/`_frame`/`Frame`/`At`
+ * (`fan_stagger_frames`, `start_frame`, `exitAt`). «Медленнее на N %» масштабирует ровно их —
+ * вместе с битами; прочие числа content (индексы, размеры, доли раскладки) не трогаются.
+ */
+export const CONTENT_FRAME_KEYS = ["travel", "delay", "stagger", "hold", "frame", "enterAt", "until", "at", "duration", "frames", "keyframes", "flash", "writes"] as const;
+const FRAME_SUFFIX = /(_frames|Frames|_frame|Frame|[a-z]At)$/;
+
+export function isContentFrameKey(key: string): boolean {
+  return (CONTENT_FRAME_KEYS as readonly string[]).includes(key) || FRAME_SUFFIX.test(key);
+}
+
+/** Имена, похожие на время, но вне договора: правка темпа их не масштабирует (M-R2). */
+const TIME_LIKE_KEYS = new Set(["start", "end", "enter", "exit", "leave", "lead", "step", "period", "after", "offset", "begin", "finish"]);
+
+/**
+ * Пути чисел content под временными именами вне договора `isContentFrameKey` (`start`, `end`,
+ * `lead`, `step`, …): при смене темпа о них — предупреждение, а не молчаливый рассинхрон.
+ */
+export function unscaledTimeKeys(content: unknown): string[] {
+  const out: string[] = [];
+  const walk = (v: unknown, path: string, key: string | undefined) => {
+    if (typeof v === "number") {
+      if (key !== undefined && TIME_LIKE_KEYS.has(key)) out.push(path);
+      return;
+    }
+    if (Array.isArray(v)) return v.forEach((x, i) => walk(x, `${path}[${i}]`, key));
+    if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) if (!isContentFrameKey(k)) walk(x, `${path}.${k}`, k);
+  };
+  walk(content, "content", undefined);
+  return out;
+}
+
+/**
+ * Масштаб кадровых величин content (договор `isContentFrameKey`): целые округляются, длительность
+ * > 0 остаётся ≥ 1 кадра, дробные умножаются как есть; массив чисел под таким ключом — поэлементно.
+ * Вход не меняется; `scaled` — пути изменённых полей.
+ */
+export function scaleContentFrames<T>(content: T, factor: number): { content: T; scaled: string[] } {
+  if (!Number.isFinite(factor) || factor <= 0) throw new RangeError(`scaleContentFrames: коэффициент должен быть > 0: ${factor}`);
+  const scaled: string[] = [];
+  const num = (v: number, path: string): number => {
+    const r = Number.isInteger(v) ? (v > 0 ? Math.max(1, Math.round(v * factor)) : Math.round(v * factor)) : v * factor;
+    if (r !== v) scaled.push(path);
+    return r;
+  };
+  const walk = (v: unknown, path: string, frameKey: boolean): unknown => {
+    if (typeof v === "number") return frameKey && Number.isFinite(v) ? num(v, path) : v;
+    if (Array.isArray(v)) return v.map((x, i) => walk(x, `${path}[${i}]`, frameKey && typeof x === "number"));
+    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x, `${path}.${k}`, isContentFrameKey(k))]));
+    return v;
+  };
+  return { content: walk(content, "content", false) as T, scaled };
+}

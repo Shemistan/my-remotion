@@ -1,0 +1,51 @@
+[
+  {
+    "id": "7.7",
+    "title": "смысловой анализ с агентом завершён",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null,\"output\":{\"semantic_id\":\"sem_01M5Q9NFFWHS3X3WD2QRPTYQBJ\",\"rel_path\":\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/analysis/semantic/sem_01M5Q9NFFWHS3X3WD2QRPTYQBJ/semantic.json\",\"reused\":false,\"transcript_ref\":{\"id\":\"trn_01M5Q5WS2K6KVYV1X1G2X6TMZP\",\"revision\":2},\"edl_ref\":{\"id\":\"edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C\",\"revision\":13},\"stale_on_publish\":false,\"words\":{\"kept\":370,\"removed\":52},\"windows\":1,\"counts\":{\"chapters\":4,\"anchors\":13,\"numbers\":2,\"entities\":5,\"causal\":1,\"disputed\":0,\"rejected\":0},\"agent\":{\"status\":\"completed\",\"calls\":1,\"cost_usd\":0.0244,\"retried\":0,\"from_checkpoint\":0,\"merge_dropped\":{\"causal\":0,\"boundaries\":0,\"anchors\":0}},\"timings_ms\":{\"prepare\":14,\"agent\":19386,\"publish\":33}}}"
+  },
+  {
+    "id": "7.8",
+    "title": "разметка свежая: по текущим ревизиям EDL и транскрипта",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"transcript_ref\":{\"id\":\"trn_01M5Q5WS2K6KVYV1X1G2X6TMZP\",\"revision\":2},\"edl_ref\":{\"id\":\"edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C\",\"revision\":13}}"
+  },
+  {
+    "id": "7.9",
+    "title": "все цитаты якорей и чисел проходят verifyQuote",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"total\":15,\"failed\":[]}"
+  },
+  {
+    "id": "7.10",
+    "title": "якоря не в вырезках (граничные слова не вырезаны)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"in_cut\":[],\"anchors_with_removed_inside\":[]}"
+  },
+  {
+    "id": "7.11",
+    "title": "главы покрывают ролик (все оставленные слова)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"chapters\":4,\"uncovered\":[],\"uncovered_n\":0}"
+  },
+  {
+    "id": "7.12",
+    "title": "сводка разметки",
+    "kind": "info",
+    "pass": true,
+    "detail": "{\"chapters\":4,\"anchors\":13,\"numbers\":2,\"entities\":5,\"causal\":1,\"disputed\":0,\"rejected\":[],\"claim_types\":{\"fact\":13}}"
+  },
+  {
+    "id": "7.H2",
+    "title": "главы и тезисы осмысленны, факты отделены от предположений — оценка агента в REPORT, просмотр человеку",
+    "kind": "H→агент",
+    "pass": true,
+    "detail": "semantic/review.txt"
+  }
+]

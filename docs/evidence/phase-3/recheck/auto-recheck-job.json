@@ -1,0 +1,63 @@
+{
+  "id": "job_01M5Q9WD3N3ZCRQ4XGM8GJ5KRX",
+  "type": "plan.recheck",
+  "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+  "scene_id": null,
+  "version_id": null,
+  "parent_job_id": null,
+  "status": "completed",
+  "progress": 1,
+  "stage": "done",
+  "attempt": 1,
+  "max_attempts": 3,
+  "interrupts": 0,
+  "input": {
+    "projectId": "prj_01M5Q5QWCS597HRDM4X9S74WEJ"
+  },
+  "input_hash": "a283376fb276e1270699ffe2431db3cab3608b0a799014f3e77e4e2acd77eb18",
+  "output_refs": {
+    "plan_id": "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM",
+    "revision": 15,
+    "edl_revision": 15,
+    "style_revision": 2,
+    "changed": [
+      {
+        "item_id": "sp_001",
+        "change": "remapped"
+      },
+      {
+        "item_id": "sp_002",
+        "change": "remapped"
+      },
+      {
+        "item_id": "sp_003",
+        "change": "remapped"
+      },
+      {
+        "item_id": "sp_006",
+        "change": "anchor_cut"
+      },
+      {
+        "item_id": "sp_007",
+        "change": "remapped"
+      },
+      {
+        "item_id": "sp_008",
+        "change": "remapped"
+      },
+      {
+        "item_id": "sp_009",
+        "change": "remapped"
+      }
+    ],
+    "reused": false
+  },
+  "error": null,
+  "idempotency_key": "plan.recheck:edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C@r15",
+  "lease_owner": null,
+  "lease_until": null,
+  "cancel_requested": false,
+  "created_at": "2026-10-24T15:53:44.309Z",
+  "started_at": "2026-10-24T15:53:44.430Z",
+  "finished_at": "2026-10-24T15:53:44.494Z"
+}

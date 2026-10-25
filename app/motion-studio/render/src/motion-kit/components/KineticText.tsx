@@ -5,12 +5,14 @@
 import type { Beat } from "@ms/contracts";
 import type { CSSProperties } from "react";
 import { interpolate, random, useCurrentFrame, useVideoConfig } from "remotion";
+import { textPosterOk } from "../choreo/enter.js";
 import { kineticStep, typeRhythm } from "../choreo/rhythm.js";
 import { easingOf, springAt } from "../easing.js";
 import { CLAMP, clamp01 } from "../internal.js";
+import { withHalo } from "../style/halo.js";
 import { amplitudeOf } from "../style/intensity.js";
 import { depthOf } from "../style/resolve.js";
-import { type TypeLevel, typeSize } from "../style/type-scale.js";
+import { type TypeLevel, sizePx } from "../style/type-scale.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, fontFamily, isDark, tracking } from "../tokens.js";
 
@@ -43,8 +45,18 @@ export interface KineticTextProps {
   exit?: boolean;
   /** Прописные с разрядкой caps. */
   caps?: boolean;
+  /**
+   * До набора (`enter: "type"`): `dim` (по умолчанию, 0.4.0) — весь текст виден приглушённо
+   * с кадра 0 и набор его «зажигает» (кадр-постер не пуст); `hidden` — пусто до набора.
+   * `dim` — только у текста, чей набор начинается в первые 1,5 с (TEXT_POSTER_S, 0.5.3):
+   * поздний текст (вывод) до набора пуст.
+   */
+  pre?: "hidden" | "dim";
   style?: CSSProperties;
 }
+
+/** Прозрачность ещё не набранного текста при `pre: "dim"`. */
+export const PRE_DIM = 0.3;
 
 const norm = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 
@@ -65,13 +77,14 @@ export function KineticText({
   stagger,
   exit = false,
   caps = false,
+  pre,
   style,
 }: KineticTextProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
   const ref = s.typography[font];
-  const px = typeof size === "string" ? typeSize(s, size, height) : size > 8 ? size : typeSize(s, size);
+  const px = sizePx(s, size, height);
   const amp = amplitudeOf(s);
   const depth = depthOf(s);
   const marks = new Set(highlight.map(norm));
@@ -82,6 +95,8 @@ export function KineticText({
   const len = Math.max(0, beat.end_frame - beat.start_frame);
   const step = kineticStep(s, { mode, units, len, stagger });
   const start = beat.start_frame + delay;
+  // приглушённый текст до набора — только у текста открытия (поздний — вывод: не спойлерим)
+  const dim = (pre ?? "dim") === "dim" && textPosterOk(start, fps);
   const exitLen = s.motion.exit_frames;
   const enterEase = easingOf(s, "enter");
   const exitEase = easingOf(s, "exit");
@@ -135,7 +150,7 @@ export function KineticText({
     textAlign: align,
     maxWidth,
     fontKerning: "normal",
-    textShadow: lift,
+    textShadow: withHalo(s, lift),
     ...style,
   };
 
@@ -165,7 +180,7 @@ export function KineticText({
     );
     let ci = 0;
     return (
-      <div style={{ ...box, whiteSpace: "pre-wrap" }}>
+      <div data-ms-layout="text" style={{ ...box, whiteSpace: "pre-wrap" }}>
         {words.flatMap((w, wi) => {
           const hot = marks.has(norm(w));
           const out = [
@@ -174,7 +189,7 @@ export function KineticText({
                 const i = ci++;
                 return (
                   <span key={li}>
-                    <span style={{ opacity: i < typed ? 1 : 0 }}>{ch}</span>
+                    <span style={{ opacity: i < typed ? 1 : dim ? PRE_DIM : 0 }}>{ch}</span>
                     {i === typed - 1 ? caret : null}
                   </span>
                 );
@@ -200,6 +215,7 @@ export function KineticText({
   let k = 0;
   return (
     <div
+      data-ms-layout="text"
       style={box}
     >
       {words.map((w, wi) => {

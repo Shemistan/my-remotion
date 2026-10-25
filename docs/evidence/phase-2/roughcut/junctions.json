@@ -1,0 +1,63 @@
+[
+  {
+    "edited_us": 98433335,
+    "source_from_us": 145066667,
+    "source_to_us": 151800000,
+    "near_words": [],
+    "clipped": [],
+    "stats": {
+      "max_jump": 7,
+      "median_jump": 0,
+      "rms_peak_ratio": 22.9
+    },
+    "clip": "/Volumes/External SSD/Youtube/FinalVideo/MyProtocol/MotionStudio-примеры/task34-phase2/junction-1-98.43s.mp4"
+  },
+  {
+    "edited_us": 144933334,
+    "source_from_us": 218400000,
+    "source_to_us": 219633334,
+    "near_words": [
+      {
+        "id": "w_000227",
+        "text": "uppercase.",
+        "state": "kept"
+      },
+      {
+        "id": "w_000228",
+        "text": "И",
+        "state": "removed"
+      }
+    ],
+    "clipped": [],
+    "stats": {
+      "max_jump": 3,
+      "median_jump": 0,
+      "rms_peak_ratio": 0.87
+    },
+    "clip": "/Volumes/External SSD/Youtube/FinalVideo/MyProtocol/MotionStudio-примеры/task34-phase2/junction-2-144.93s.mp4"
+  },
+  {
+    "edited_us": 230566667,
+    "source_from_us": 328566667,
+    "source_to_us": 333366667,
+    "near_words": [
+      {
+        "id": "w_000333",
+        "text": "совместимость.",
+        "state": "kept"
+      },
+      {
+        "id": "w_000334",
+        "text": "Правила",
+        "state": "kept"
+      }
+    ],
+    "clipped": [],
+    "stats": {
+      "max_jump": 1,
+      "median_jump": 0,
+      "rms_peak_ratio": 1.03
+    },
+    "clip": "/Volumes/External SSD/Youtube/FinalVideo/MyProtocol/MotionStudio-примеры/task34-phase2/junction-3-230.57s.mp4"
+  }
+]

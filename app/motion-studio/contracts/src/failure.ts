@@ -39,11 +39,21 @@ export const FailureStageSchema = z.enum([
   "qa",
   /** Экспорт версии (в т. ч. `transparent_unsupported`). */
   "export",
+  /** Воркер ASR упал, не уложился в таймаут или замолчал (Task 26) — ASR установлен. */
+  "transcribe",
 ]);
 export type FailureStage = z.infer<typeof FailureStageSchema>;
 
-/** Коды `JobError.code` (план Phase 1, Task 11). */
-export const JobErrorCodeSchema = z.enum(["interrupted", "stale_process", "storage_unavailable", "fenced_out", "budget", "cancelled", "pipeline"]);
+/**
+ * Коды `JobError.code`: Phase 1 (Task 11) и Phase 2–3 (Task 23; без этапа пайплайна). `plan_exists`,
+ * `semantic_skipped` — отказы `plan.visual` (план без агента поверх сцен; разметка без агента).
+ */
+export const JobErrorCodeSchema = z.enum([
+  "interrupted", "stale_process", "storage_unavailable", "fenced_out", "budget", "cancelled", "pipeline",
+  "approval_required", "asr_unavailable", "asr_contract_changed", "asr_contract_violation", "asr_failed", "low_space", "media_invalid", "media_exists", "no_audio",
+  // S7: package_empty — в папку пакета экспорта не вошло ни одной сцены (C10)
+  "plan_exists", "semantic_skipped", "package_empty",
+]);
 export type JobErrorCode = z.infer<typeof JobErrorCodeSchema>;
 
 const STAGE_TO_CODE: Record<FailureStage, JobErrorCode> = {
@@ -65,6 +75,7 @@ const STAGE_TO_CODE: Record<FailureStage, JobErrorCode> = {
   edit_planner: "pipeline",
   qa: "pipeline",
   export: "pipeline",
+  transcribe: "asr_failed",
 };
 
 /** Код ошибки задачи по этапу неудачи пайплайна. */

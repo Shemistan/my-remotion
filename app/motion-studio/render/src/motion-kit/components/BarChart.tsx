@@ -2,19 +2,22 @@
 // от базовой линии каскадом на пружине, над каждым едет подпись-счётчик AnimatedNumber,
 // привязанная к высоте столбца. После роста — акцент: выделенный столбец (`highlight`)
 // разгорается и получает световой столб, остальные уходят в нейтральный тон.
-import type { Beat } from "@ms/contracts";
+import type { Beat, StyleBible } from "@ms/contracts";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import { barLayout } from "../bars.js";
-import { EASE, easingOf, frames, springAt } from "../easing.js";
+import { EASE, easingOf, fpsFrames, frames, springAt } from "../easing.js";
 import { clamp01, ramp, useSvgId } from "../internal.js";
 import { useStyle } from "../style.js";
-import { niceTicks } from "../ticks.js";
+import { axisTicks } from "../ticks.js";
+import { dimText } from "../style/halo.js";
 import { typeSize } from "../style/type-scale.js";
 import { accent, alpha, fontFamily, isDark, mix } from "../tokens.js";
 import { AnimatedNumber } from "./AnimatedNumber.js";
 import { chartAxis, chartPad } from "./LineChart.js";
 
 export interface BarChartProps {
+  /** До входа (0.4.0): `silhouette` (по умолчанию) — тихий контур с кадра 0 (кадр-постер); `hidden` — пусто. */
+  pre?: "silhouette" | "hidden";
   bars: { label: string; value: number }[];
   beat: Pick<Beat, "start_frame" | "end_frame">;
   /** Индекс выделенного столбца: после роста он разгорается, остальные гаснут в нейтральный тон. */
@@ -43,6 +46,11 @@ export function barTimings(beat: Pick<Beat, "start_frame" | "end_frame">, n: num
   return { growStart, step, startOf: (i: number) => growStart + i * step, focusAt: growStart + (n - 1) * step + L * 0.22 };
 }
 
+/** Конец проявления оси: 8 кадров при 30 fps от начала бита, в секундах при любом fps. */
+export function axisFadeEnd(s: StyleBible, start: number): number {
+  return start + fpsFrames(s, 8);
+}
+
 export function BarChart({
   bars,
   beat,
@@ -56,6 +64,7 @@ export function BarChart({
   valueSuffix,
   yTicks = 4,
   gapRatio = 0.38,
+  pre = "silhouette",
 }: BarChartProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
@@ -69,7 +78,7 @@ export function BarChart({
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
   const values = bars.map((b) => b.value);
-  const ticks = niceTicks(0, Math.max(...values, 1), yTicks);
+  const ticks = axisTicks(0, Math.max(...values, 1), yTicks);
   const yMax = ticks.at(-1)!;
   const toY = (v: number) => pad.top + innerH - (v / (yMax || 1)) * innerH;
   const rects = barLayout(values, { x: pad.left, y: pad.top, w: innerW, h: innerH }, gapRatio, { max: yMax });
@@ -96,7 +105,7 @@ export function BarChart({
         </filter>
       </defs>
 
-      {chartAxis({ s, frame, beat, ticks, toY, innerW, locale, compact, pad })}
+      {chartAxis({ s, frame, beat, ticks, toY, innerW, locale, compact, pad, pre: pre !== "hidden" })}
 
       {rects.map((r, i) => {
         const t0 = startOf(i);
@@ -112,6 +121,9 @@ export function BarChart({
         const cap = clamp01(p * 3);
         const lab = ramp(frame, t0, t0 + frames(s, 12), EASE.outQuart);
         const shown = values[i]! * clamp01(p);
+        // приглушение не выделенных: в transparent — цветом (ореол текста не гаснет), иначе opacity
+        const valueDim = dimText(s, hot ? mix(s.palette.text, color, glow * 0.85) : s.palette.text, dim * 0.45);
+        const labelDim = dimText(s, hot ? mix(s.palette.muted, s.palette.text, glow) : s.palette.muted, dim * 0.35);
         return (
           <g key={`b${i}`}>
             {/* световой столб за выделенным столбцом */}
@@ -127,7 +139,7 @@ export function BarChart({
             ) : null}
             {/* подпись значения едет на вершине столбца и считает вместе с ростом */}
             <foreignObject x={r.x - 80} y={y - valuePx * 1.55} width={r.w + 160} height={valuePx * 1.4} style={{ overflow: "visible" }}>
-              <div style={{ display: "flex", justifyContent: "center", opacity: 1 - dim * 0.45 }}>
+              <div style={{ display: "flex", justifyContent: "center", opacity: valueDim.opacity }}>
                 <AnimatedNumber
                   from={0}
                   to={values[i]!}
@@ -140,7 +152,7 @@ export function BarChart({
                   size={valuePx * (1 + 0.18 * glow)}
                   font="display"
                   align="center"
-                  color={hot ? mix(s.palette.text, color, glow * 0.85) : s.palette.text}
+                  color={valueDim.color}
                 />
               </div>
             </foreignObject>
@@ -150,8 +162,8 @@ export function BarChart({
               textAnchor="middle"
               fontSize={pad.font}
               fontWeight={hot && glow > 0.5 ? 600 : 500}
-              fill={hot ? mix(s.palette.muted, s.palette.text, glow) : s.palette.muted}
-              opacity={lab * (1 - dim * 0.35)}
+              fill={labelDim.color}
+              opacity={lab * labelDim.opacity}
               transform={`translate(0 ${((1 - lab) * 12).toFixed(2)})`}
             >
               {bars[i]!.label}
@@ -160,7 +172,7 @@ export function BarChart({
           </g>
         );
       })}
-      <line x1={pad.left} x2={pad.left + innerW} y1={baseY} y2={baseY} stroke={alpha(s.palette.text, 0.28)} strokeWidth={1.5} opacity={ramp(frame, beat.start_frame, beat.start_frame + 8)} />
+      <line x1={pad.left} x2={pad.left + innerW} y1={baseY} y2={baseY} stroke={alpha(s.palette.text, 0.28)} strokeWidth={1.5} opacity={ramp(frame, beat.start_frame, axisFadeEnd(s, beat.start_frame))} />
     </svg>
   );
 }

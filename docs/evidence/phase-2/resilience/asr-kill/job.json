@@ -1,0 +1,172 @@
+{
+  "job": {
+    "id": "job_01M5Q662YJRJQRX92H1BJDMVFF",
+    "type": "asr.transcribe",
+    "project_id": "prj_01M5Q657ASJVXAVC2Y9S06EK85",
+    "scene_id": null,
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "done",
+    "attempt": 2,
+    "max_attempts": 3,
+    "interrupts": 1,
+    "input": {
+      "projectId": "prj_01M5Q657ASJVXAVC2Y9S06EK85",
+      "mediaId": "med_01M5Q65808W7GCDKXBMCWGYRMJ",
+      "language": "ru"
+    },
+    "input_hash": "30664ced11628758046d7722c0fa5e8f5c09ff7ad67789be5729ff8579ac37c4",
+    "output_refs": {
+      "transcript_id": "trn_01M5Q662YJRJQRX92H1BJDMVFF",
+      "revision": 1,
+      "rel_path": "workspace/projects/prj_01M5Q657ASJVXAVC2Y9S06EK85/transcript/trn_01M5Q662YJRJQRX92H1BJDMVFF/r1/transcript.json",
+      "words": 82,
+      "segments": 9,
+      "reused": false,
+      "model": "whisper-large-v3-turbo",
+      "splits": [],
+      "audio_s": 90.004,
+      "elapsed_s": 7.5,
+      "rtf": 0.084,
+      "ai_platform_commit": "99f75d6626a5525b165e8e0f74f99adf3e80cc15",
+      "timings_ms": {
+        "prepare": 216,
+        "silence": 114,
+        "heavy_wait": 5,
+        "transcribe": 7559,
+        "publish": 28
+      }
+    },
+    "error": null,
+    "idempotency_key": "95aed959-20e1-485b-ad7d-7f45ae3e0702",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-24T14:49:07.282Z",
+    "started_at": "2026-10-24T14:49:11.423Z",
+    "finished_at": "2026-10-24T14:49:19.359Z"
+  },
+  "events": [
+    {
+      "ts": "2026-10-24T14:49:07.503Z",
+      "level": "info",
+      "kind": "started",
+      "message": "asr.transcribe: попытка 1",
+      "data_json": "{\"attempt\":1}"
+    },
+    {
+      "ts": "2026-10-24T14:49:07.541Z",
+      "level": "info",
+      "kind": "audio_duration_mismatch",
+      "message": "звук 90.00 с короче видео 90.14 с: таймкоды слов — по звуку от начала файла",
+      "data_json": "{\"audio_s\":90.004,\"video_s\":90.136979}"
+    },
+    {
+      "ts": "2026-10-24T14:49:07.676Z",
+      "level": "info",
+      "kind": "gpu_contention",
+      "message": "порт ai-platform 8780 занят: её модели могут занимать GPU — ASR может идти медленнее",
+      "data_json": null
+    },
+    {
+      "ts": "2026-10-24T14:49:11.325Z",
+      "level": "warn",
+      "kind": "interrupted",
+      "message": "попытка 1 прервана рестартом",
+      "data_json": "{\"code\":\"interrupted\",\"interrupts\":1}"
+    },
+    {
+      "ts": "2026-10-24T14:49:11.325Z",
+      "level": "info",
+      "kind": "requeued",
+      "message": "задача снова в очереди (прерываний 1 из 3)",
+      "data_json": "{\"code\":\"interrupted\",\"interrupts\":1}"
+    },
+    {
+      "ts": "2026-10-24T14:49:11.427Z",
+      "level": "info",
+      "kind": "started",
+      "message": "asr.transcribe: попытка 2",
+      "data_json": "{\"attempt\":2}"
+    },
+    {
+      "ts": "2026-10-24T14:49:11.642Z",
+      "level": "info",
+      "kind": "audio_duration_mismatch",
+      "message": "звук 90.00 с короче видео 90.14 с: таймкоды слов — по звуку от начала файла",
+      "data_json": "{\"audio_s\":90.004,\"video_s\":90.136979}"
+    },
+    {
+      "ts": "2026-10-24T14:49:11.772Z",
+      "level": "info",
+      "kind": "gpu_contention",
+      "message": "порт ai-platform 8780 занят: её модели могут занимать GPU — ASR может идти медленнее",
+      "data_json": null
+    },
+    {
+      "ts": "2026-10-24T14:49:19.362Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed",
+      "data_json": null
+    }
+  ],
+  "process": {
+    "pid": 36938,
+    "pgid": 36938,
+    "cmd": "~/.local/share/montage/mlx-audio-0.5.8/.venv/bin/python ~/my_track/01_It_development/ai-platform/app/platform/aiplatform/montage/asr_worker.py --kind whisper --model /Volumes/External SSD/local_models/asr/whisper-large-v3-turbo --audio /Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5Q657ASJVXAVC2Y9S06EK85/proxy/med_01M5Q65808W7GCDKXBMCWGYRMJ/audio16k.wav --out /Volumes/External SSD/MotionStudio-acceptance/run/tmp/job_01M5Q662YJRJQRX92H1BJDMVFF-a1-asr-osQQYx/words.json --language ru",
+    "attempt": 1
+  },
+  "before": {
+    "job": "running",
+    "worker_alive": true
+  },
+  "afterKill": {
+    "worker_alive": true,
+    "group_alive": true
+  },
+  "reaped": {
+    "worker_alive": false,
+    "group_alive": false
+  },
+  "processes": [
+    {
+      "attempt": 1,
+      "pid": 36903,
+      "pgid": 36903,
+      "cmd": "/opt/homebrew/bin/ffmpeg -hide_banner -nostdin -nostats -protocol_whitelist file -f wav -i file:/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5Q657ASJVXAVC2Y9S06EK85/proxy/med_01M5Q65808W7GCDKXBMCWGYRMJ/audio16k.wav -vn -af silencedetect=noise=-35dB:d=0.4 -f null -",
+      "started_at": "Sat Oct 24 14:49:07 2026",
+      "ended_at": "2026-10-24T14:49:07.661Z",
+      "exit_code": 0
+    },
+    {
+      "attempt": 1,
+      "pid": 36938,
+      "pgid": 36938,
+      "cmd": "~/.local/share/montage/mlx-audio-0.5.8/.venv/bin/python ~/my_track/01_It_development/ai-platform/app/platform/aiplatform/montage/asr_worker.py --kind whisper --model /Volumes/External SSD/local_models/asr/whisper-large-v3-turbo --audio /Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5Q657ASJVXAVC2Y9S06EK85/proxy/med_01M5Q65808W7GCDKXBMCWGYRMJ/audio16k.wav --out /Volumes/External SSD/MotionStudio-acceptance/run/tmp/job_01M5Q662YJRJQRX92H1BJDMVFF-a1-asr-osQQYx/words.json --language ru",
+      "started_at": "Sat Oct 24 14:49:07 2026",
+      "ended_at": "2026-10-24T14:49:10.829Z",
+      "exit_code": null
+    },
+    {
+      "attempt": 2,
+      "pid": 37220,
+      "pgid": 37220,
+      "cmd": "/opt/homebrew/bin/ffmpeg -hide_banner -nostdin -nostats -protocol_whitelist file -f wav -i file:/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5Q657ASJVXAVC2Y9S06EK85/proxy/med_01M5Q65808W7GCDKXBMCWGYRMJ/audio16k.wav -vn -af silencedetect=noise=-35dB:d=0.4 -f null -",
+      "started_at": "Sat Oct 24 14:49:11 2026",
+      "ended_at": "2026-10-24T14:49:11.757Z",
+      "exit_code": 0
+    },
+    {
+      "attempt": 2,
+      "pid": 37255,
+      "pgid": 37255,
+      "cmd": "~/.local/share/montage/mlx-audio-0.5.8/.venv/bin/python ~/my_track/01_It_development/ai-platform/app/platform/aiplatform/montage/asr_worker.py --kind whisper --model /Volumes/External SSD/local_models/asr/whisper-large-v3-turbo --audio /Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5Q657ASJVXAVC2Y9S06EK85/proxy/med_01M5Q65808W7GCDKXBMCWGYRMJ/audio16k.wav --out /Volumes/External SSD/MotionStudio-acceptance/run/tmp/job_01M5Q662YJRJQRX92H1BJDMVFF-a2-asr-QPriG9/words.json --language ru",
+      "started_at": "Sat Oct 24 14:49:11 2026",
+      "ended_at": "2026-10-24T14:49:19.318Z",
+      "exit_code": 0
+    }
+  ]
+}

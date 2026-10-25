@@ -1,0 +1,20 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      { "id": "title", "start_frame": 0, "end_frame": 24 },
+      { "id": "build", "start_frame": 6, "end_frame": 90 },
+      { "id": "action", "start_frame": 40, "end_frame": 112 },
+      { "id": "payoff", "start_frame": 104, "end_frame": 128 },
+      { "id": "hold", "start_frame": 128, "end_frame": 180 }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": { "x": 0.06, "y": 0.08 }
+  },
+  "content": { "carrier": "graph", "mode": "steady-flow" }
+}

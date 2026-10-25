@@ -3,10 +3,12 @@
 // getPointAtLength: результат одинаков в любом окружении. Внутри FlowGraph путь
 // берётся по edgeId; вне графа — из segments (координаты родителя).
 import type { Beat } from "@ms/contracts";
-import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import { frames } from "../easing.js";
-import { type CubicSegment, lutLength, pathLUT, pointAtLength, pointsBetween, polylineD } from "../geometry.js";
-import { CLAMP, useSvgId } from "../internal.js";
+import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import type { Hold } from "../choreo/hold.js";
+import { type ArrivalCount, EASE_PASS, type PathArrival, type PulseArrival, arrivalCount, pathArrivals, pathStarts, steadyContinues, steadyLive } from "../choreo/pulse.js";
+import { type CubicSegment, type PathLUT, lutLength, pathLUT, pointAtLength, pointsBetween, polylineD } from "../geometry.js";
+import { CLAMP, kitWarn, useSvgId } from "../internal.js";
+import { markHold } from "../layout-probe.js";
 import { useStyle } from "../style.js";
 import { accent, mix } from "../tokens.js";
 import { useFlowGeometry } from "./FlowGraph.js";
@@ -30,43 +32,58 @@ export interface PulseAlongPathProps {
   repeat?: boolean;
   /** Обратное направление (данные возвращаются). */
   reverse?: boolean;
+  /**
+   * Удержание сцены (0.5.0) для пути вне графа; внутри <FlowGraph hold> берётся у графа.
+   * В удержании поток стоит, `steady-flow` — продолжает тише (60 % темпа).
+   */
+  hold?: Hold;
 }
 
-const EASE_PASS = Easing.bezier(0.45, 0.05, 0.4, 1);
-
-export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size = 7, count = 1, travel, repeat = true, reverse = false }: PulseAlongPathProps) {
+export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size = 7, count = 1, travel, repeat = true, reverse = false, hold }: PulseAlongPathProps) {
   const s = useStyle();
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
   const flow = useFlowGeometry();
-  const id = useSvgId("ms-pulse");
   const seg = edgeId ? flow?.edges.get(edgeId) : undefined;
   const path = seg ? [seg] : (segments ?? []);
+  if (edgeId && !seg && !segments) {
+    const m = flow ? `PulseAlongPath: в графе нет ребра "${edgeId}" — импульса нет.` : `PulseAlongPath: edgeId "${edgeId}" вне <FlowGraph> — импульса нет. Ставь в children графа или передай segments.`;
+    kitWarn(`pulse:${m}`, m);
+  }
   if (path.length === 0) return null;
+  // внутри графа не стартуем раньше, чем ребро дорисовано; общее расписание с pulseArrival /
+  // useArrivalCount (начатый проход доигрывается; удержание — по hold графа или своему)
+  const ready = (seg && edgeId && flow?.ready.get(edgeId)) || 0;
+  const h = seg && flow?.hold ? { ...flow.hold, edgeId } : hold ? { hold, end: durationInFrames } : undefined;
+  const { starts, pass } = pathStarts(path, { beat, travel, count, repeat }, s, fps, ready, h);
+  if (h?.hold.mode === "steady-flow") {
+    // метка пробы — от движения: поток правда идёт в этом кадре удержания (S3-fix2 I1, I2)
+    const hs = h.hold.beat.start_frame;
+    if (seg && flow?.steady) {
+      flow.steady.total++;
+      if (steadyContinues(starts, hs)) flow.steady.live++;
+    }
+    if (steadyLive(starts, pass, hs, frame)) markHold("steady-flow");
+  }
+  return <PulseTrails lut={pathLUT(path, 40)} starts={starts} pass={pass} color={color} tail={tail} size={size} reverse={reverse} />;
+}
 
-  const lut = pathLUT(path, 40);
+/** Импульсы по LUT пути: старты проходов `starts`, проход `pass` кадров (общий рисунок kit). */
+export function PulseTrails({ lut, starts, pass, color, tail = 120, size = 7, reverse = false, opacity = 1 }: { lut: PathLUT; starts: readonly number[]; pass: number; color?: string; tail?: number; size?: number; reverse?: boolean; opacity?: number }) {
+  const s = useStyle();
+  const frame = useCurrentFrame();
+  const id = useSvgId("ms-pulse");
   const len = lutLength(lut);
   const col = color ?? accent(s, 1);
   const core = mix(col, "#ffffff", 0.75);
-  // по умолчанию ~ 420 px/с с поправкой на интенсивность, не короче 0.6 с
-  const pass = Math.max(1, travel ?? Math.max(Math.round(fps * 0.6), frames(s, (len / 420) * 30)));
-  // внутри графа не стартуем раньше, чем ребро дорисовано
-  const start = Math.max(beat.start_frame, (edgeId && flow?.ready.get(edgeId)) || 0);
-  const n = Math.max(1, Math.floor(count));
-
-  const pulses = Array.from({ length: n }, (_, k) => {
-    const t0 = start + (k * pass) / n;
+  const pulses = starts.map((t0, k) => {
     const local = frame - t0;
-    if (local < 0) return null;
-    const cycle = Math.floor(local / pass);
-    if (!repeat && cycle > 0) return null;
-    // начатый до конца бита проход доигрывается, новые не стартуют
-    if (t0 + cycle * pass >= beat.end_frame) return null;
-    const ph = (local - cycle * pass) / pass;
+    if (local < 0 || local >= pass) return null;
+    const ph = local / pass;
     const e = EASE_PASS(ph);
     const sHead = (reverse ? 1 - e : e) * len;
     const sTail = reverse ? sHead + tail : sHead - tail;
-    const fade = interpolate(ph, [0, 0.08, 0.86, 1], [0, 1, 1, 0], CLAMP);
+    const fade = interpolate(ph, [0, 0.08, 0.86, 1], [0, 1, 1, 0], CLAMP) * opacity;
     const head = pointAtLength(lut, sHead);
     const tp = pointsBetween(lut, sTail, sHead);
     const from = reverse ? tp.at(-1)! : tp[0]!;
@@ -105,4 +122,33 @@ export function PulseAlongPath({ edgeId, segments, beat, color, tail = 120, size
       )}
     </svg>
   );
+}
+
+/**
+ * Почему счётчик по приходам останется нулём (чистая функция): `pulseArrival` по ребру вне
+ * <FlowGraph> или по ребру, которого в графе нет. null — источник в порядке.
+ */
+export function arrivalSourceIssue(a: PulseArrival | (PathArrival & { segments: CubicSegment[] }), flow: Pick<NonNullable<ReturnType<typeof useFlowGeometry>>, "edges"> | null): string | null {
+  if ("segments" in a) return null;
+  if (!flow) return `useArrivalCount: pulseArrival("${a.edgeId}") вне <FlowGraph> — счётчик стоит на нуле. Ставь хук в children/overlay графа или передай { segments, beat, travel }.`;
+  if (!flow.edges.has(a.edgeId)) return `useArrivalCount: в графе нет ребра "${a.edgeId}" — счётчик стоит на нуле.`;
+  return null;
+}
+
+/**
+ * Счётчик событий по приходам импульсов (хук): `count` растёт ровно в кадр, когда импульс
+ * касается цели, `pop` — микро-удар на каждом приходе (для `AnimatedNumber pop`).
+ * Внутри <FlowGraph> — `pulseArrival(edgeId, beat, travel, { count, repeat })` (те же поля,
+ * что у PulseAlongPath на этом ребре); вне графа — `{ segments, beat, travel, count, repeat }`.
+ * `per` — единиц на приход, `from` — стартовое значение.
+ */
+export function useArrivalCount(a: PulseArrival | (PathArrival & { segments: CubicSegment[] }), o: { per?: number; from?: number } = {}): ArrivalCount {
+  const s = useStyle();
+  const frame = useCurrentFrame();
+  const { fps, durationInFrames } = useVideoConfig();
+  const flow = useFlowGeometry();
+  const issue = arrivalSourceIssue(a, flow);
+  if (issue) kitWarn(`arrival:${issue}`, issue);
+  const at = "segments" in a ? pathArrivals(a.segments, a, s, fps, 0, a.hold ? { hold: a.hold, end: durationInFrames } : undefined) : (flow?.arrivals(a) ?? []);
+  return arrivalCount(at, frame, s, o);
 }

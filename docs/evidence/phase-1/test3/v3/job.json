@@ -1,0 +1,215 @@
+{
+  "job": {
+    "id": "job_01M5N12FATA8K81DZQHS4X1XSX",
+    "type": "playground.edit",
+    "project_id": "prj_01M5N0BWTSM3KQC4PHMB6V6TQ5",
+    "scene_id": "scn_01M5N0KGPKY44E27KDYK57THCS",
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "publish",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input_refs_json": {
+      "sceneId": "scn_01M5N0KGPKY44E27KDYK57THCS",
+      "messageId": "msg_01M5N12FASXV462Z7Q0NQG5280"
+    },
+    "input_hash": "e866d4aa8f6e3d738764317627877620024069ff789dbb4f40564c1a1dd438a9",
+    "output_refs_json": {
+      "scene_id": "scn_01M5N0KGPKY44E27KDYK57THCS",
+      "version_id": "ver_01M5N15578NWJZCR19TN4XBSQD",
+      "version_number": 3,
+      "version_dir": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N0KGPKY44E27KDYK57THCS/versions/ver_01M5N15578NWJZCR19TN4XBSQD",
+      "preview_path": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N0KGPKY44E27KDYK57THCS/versions/ver_01M5N15578NWJZCR19TN4XBSQD/preview.mp4",
+      "cost_usd": 0.18650930000000002,
+      "engineer_calls": 0,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "pass"
+      },
+      "stage_wall_ms": {
+        "edit_planner": 5685,
+        "check": 15419,
+        "render": 29908,
+        "qa": 34695,
+        "preserve_hold_base": 1475,
+        "total": 87444
+      },
+      "attempts": [
+        {
+          "n": 1,
+          "take": 1,
+          "call": 1,
+          "overall": 7,
+          "scores": {
+            "overall": 7,
+            "hierarchy": 7.5,
+            "composition": 7,
+            "entrance": 7,
+            "choreography": 6.5,
+            "hold": 7.5,
+            "legibility": 8,
+            "meaning": 7
+          },
+          "blocking": [],
+          "cost_usd": 0.1401,
+          "published": true
+        }
+      ],
+      "warnings": [
+        "консоль браузера: [error] [motion-kit] FlowGraph: узлу \"node-rag\" не хватает высоты под подпись и полосу данных (нужно ≥ 262 px, есть 233.28) — увеличь h. | [error] [motion-kit] FlowGraph: узлу \"node-rag\" не хватает высоты под подпись и полосу данных (нужно ≥ 262 px, есть 233.28) — увеличь h. | [error] [motion-kit] FlowGraph: узлу \"node-rag\" не хватает высоты под подпись и полосу данных (нужно ≥ 262 px, есть 233.28) — увеличь h. | [error] [motion-kit] FlowGraph: узлу \"node-rag\" не хватает высоты под подпись и полосу данных (нужно ≥ 262 px, есть 233.28) — увеличь h. | [error] [motion-kit] FlowGraph: узлу \"node-rag\" не хватает высоты под подпись и полосу данных (нужно ≥ 262 px, есть 233.28) — увеличь h."
+      ],
+      "steps": {
+        "edit_planner": {
+          "input_hash": "82408f4afd3c58cf6cd2997668a0f271b5b3cf2a4e225fe000eb977d54602346",
+          "path": "/Volumes/External SSD/MotionStudio-acceptance/logs/agent-runs/job_01M5N12FATA8K81DZQHS4X1XSX/checkpoints/edit_planner.json"
+        }
+      },
+      "path": "param",
+      "base_version_id": "ver_01M5N12D1R0NZPK1725TM754WS"
+    },
+    "error_json": null,
+    "idempotency_key": "591e6ef5-8d06-442d-b062-e38d1ac01e5c",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": 0,
+    "created_at": "2026-10-23T18:41:17.146Z",
+    "started_at": "2026-10-23T18:41:17.567Z",
+    "finished_at": "2026-10-23T18:42:45.122Z"
+  },
+  "cost_usd": 0.18650930000000002,
+  "wall_ms": 87976,
+  "agent_runs": [
+    {
+      "role": "edit_planner",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 15715,
+      "output_tokens": 515,
+      "cost_usd": 0.046450700000000004,
+      "started_at": "2026-10-23T18:41:17.601Z",
+      "finished_at": "2026-10-23T18:41:23.286Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 59053,
+      "output_tokens": 3461,
+      "cost_usd": 0.1400586,
+      "started_at": "2026-10-23T18:42:13.819Z",
+      "finished_at": "2026-10-23T18:42:44.946Z"
+    }
+  ],
+  "render_jobs": [
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "fps_num": 30,
+      "fps_den": 1,
+      "frames": 8,
+      "duration_ms": 29908
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "fps_num": 30,
+      "fps_den": 1,
+      "frames": 240,
+      "duration_ms": 29908
+    }
+  ],
+  "chat": [
+    {
+      "role": "user",
+      "text": "сделай всё в фиолетовых тонах",
+      "version_id": null,
+      "job_id": null,
+      "created_at": "2026-10-23T18:39:39.485Z"
+    },
+    {
+      "role": "user",
+      "text": "Уменьши скорость анимации на 25 %, сделай карточки более объёмными, сохрани композицию и верни цветовую палитру из первой версии",
+      "version_id": null,
+      "job_id": null,
+      "created_at": "2026-10-23T18:41:17.145Z"
+    },
+    {
+      "role": "assistant",
+      "text": "Замедляю на 25 %: 6 → 8 с (180 → 240 кадров); карточки объёмнее (глубина 1 → 2); палитру беру из версии 1; композицию и тексты сохраняю.\nВерсия 3 готова.\nКомпоненты: magicui/animated-beam (adapt, MIT (LICENSE.md)), xyflow/react-flow (adapt, MIT (LICENSE, packages/react/package.json)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — пройден, стиль — пройден; замечаний: blocking 0, warning 6.",
+      "version_id": "ver_01M5N15578NWJZCR19TN4XBSQD",
+      "job_id": "job_01M5N12FATA8K81DZQHS4X1XSX",
+      "created_at": "2026-10-23T18:42:45.118Z"
+    }
+  ],
+  "events": [
+    {
+      "ts": "2026-10-23T18:41:17.571Z",
+      "level": "info",
+      "kind": "started",
+      "message": "playground.edit: попытка 1"
+    },
+    {
+      "ts": "2026-10-23T18:41:17.598Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Edit Planner…"
+    },
+    {
+      "ts": "2026-10-23T18:41:23.293Z",
+      "level": "info",
+      "kind": "log",
+      "message": "план правки: param; timing, depth, palette; сохранить: composition, text"
+    },
+    {
+      "ts": "2026-10-23T18:41:23.298Z",
+      "level": "info",
+      "kind": "log",
+      "message": "правка параметров: palette, depth, timing"
+    },
+    {
+      "ts": "2026-10-23T18:41:23.304Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Director: «Архитектура AI-агента» (network-centric), 9 битов, KB: magicui/animated-beam (adapt), xyflow/react-flow (adapt)"
+    },
+    {
+      "ts": "2026-10-23T18:41:23.389Z",
+      "level": "info",
+      "kind": "log",
+      "message": "правка параметров: код базы, новый props.json — без Engineer"
+    },
+    {
+      "ts": "2026-10-23T18:41:38.842Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 8, 58, 109, 125, 155, 170, 205, 239 + превью…"
+    },
+    {
+      "ts": "2026-10-23T18:42:13.798Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA…"
+    },
+    {
+      "ts": "2026-10-23T18:42:45.114Z",
+      "level": "info",
+      "kind": "log",
+      "message": "✓ ready: /Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N0KGPKY44E27KDYK57THCS/versions/ver_01M5N15578NWJZCR19TN4XBSQD"
+    },
+    {
+      "ts": "2026-10-23T18:42:45.125Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed"
+    }
+  ]
+}

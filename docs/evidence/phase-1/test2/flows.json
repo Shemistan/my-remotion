@@ -1,0 +1,185 @@
+{
+  "roles": {
+    "user": {
+      "id": "node-user",
+      "label": "Пользователь",
+      "caption": "чат",
+      "kind": "client",
+      "size": "body",
+      "slot": true,
+      "elevation": 2,
+      "enter": "slide",
+      "delay": 0,
+      "layout": {
+        "x": 0.02,
+        "y": 0.4,
+        "w": 0.26,
+        "h": 0.32
+      }
+    },
+    "orch": {
+      "id": "node-orch",
+      "label": "Оркестратор",
+      "caption": "план · сборка",
+      "kind": "llm",
+      "size": "h2",
+      "elevation": 3,
+      "enter": "pop",
+      "delay": 6,
+      "layout": {
+        "x": 0.36,
+        "y": 0.3,
+        "w": 0.28,
+        "h": 0.4
+      }
+    },
+    "tools": [
+      {
+        "id": "node-search",
+        "label": "Поиск",
+        "caption": "веб",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "accentIndex": 1,
+        "delay": 12,
+        "layout": {
+          "x": 0.74,
+          "y": 0.04,
+          "w": 0.24,
+          "h": 0.24
+        }
+      },
+      {
+        "id": "node-rag",
+        "label": "База знаний",
+        "caption": "RAG",
+        "kind": "store",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "accentIndex": 1,
+        "delay": 16,
+        "layout": {
+          "x": 0.74,
+          "y": 0.38,
+          "w": 0.24,
+          "h": 0.24
+        }
+      },
+      {
+        "id": "node-calc",
+        "label": "Калькулятор",
+        "caption": "код",
+        "kind": "service",
+        "size": "body",
+        "elevation": 2,
+        "enter": "rise",
+        "accentIndex": 1,
+        "delay": 20,
+        "layout": {
+          "x": 0.74,
+          "y": 0.72,
+          "w": 0.24,
+          "h": 0.24
+        }
+      }
+    ]
+  },
+  "flows": [
+    {
+      "from": "node-user",
+      "to": "node-orch",
+      "start": 64,
+      "arrive": 80,
+      "end": 84,
+      "travel": 16,
+      "beat": "request-flow",
+      "resolved": true
+    },
+    {
+      "from": "node-orch",
+      "to": "node-search",
+      "start": 68,
+      "arrive": 80,
+      "end": 84,
+      "travel": 12,
+      "beat": "tool-calls",
+      "resolved": true
+    },
+    {
+      "from": "node-orch",
+      "to": "node-rag",
+      "start": 72,
+      "arrive": 84,
+      "end": 84,
+      "travel": 12,
+      "beat": "tool-calls",
+      "resolved": true
+    },
+    {
+      "from": "node-orch",
+      "to": "node-calc",
+      "start": 76,
+      "arrive": 88,
+      "end": 84,
+      "travel": 12,
+      "beat": "tool-calls",
+      "resolved": true
+    },
+    {
+      "from": "node-search",
+      "to": "node-orch",
+      "start": 72,
+      "arrive": 84,
+      "end": 84,
+      "travel": 12,
+      "beat": "tool-returns",
+      "resolved": true
+    },
+    {
+      "from": "node-rag",
+      "to": "node-orch",
+      "start": 75,
+      "arrive": 87,
+      "end": 84,
+      "travel": 12,
+      "beat": "tool-returns",
+      "resolved": true
+    },
+    {
+      "from": "node-calc",
+      "to": "node-orch",
+      "start": 79,
+      "arrive": 91,
+      "end": 84,
+      "travel": 12,
+      "beat": "tool-returns",
+      "resolved": true
+    },
+    {
+      "from": "node-orch",
+      "to": "node-user",
+      "start": 104,
+      "arrive": 122,
+      "end": 128,
+      "travel": 18,
+      "beat": "answer-flight",
+      "resolved": true
+    }
+  ],
+  "pulse": {
+    "frames": [
+      72,
+      73
+    ],
+    "roi": {
+      "x": 272.75,
+      "y": 479.04999999999995,
+      "w": 763.2,
+      "h": 157.85000000000002
+    },
+    "delta": 0.005944489709640014
+  }
+}

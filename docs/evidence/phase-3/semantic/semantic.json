@@ -1,0 +1,271 @@
+{
+  "schema_version": 1,
+  "id": "sem_01M5Q9NFFWHS3X3WD2QRPTYQBJ",
+  "transcript_ref": {
+    "id": "trn_01M5Q5WS2K6KVYV1X1G2X6TMZP",
+    "revision": 2
+  },
+  "edl_ref": {
+    "id": "edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C",
+    "revision": 13
+  },
+  "chapters": [
+    {
+      "id": "ch_01",
+      "title": "Обработка ошибок соединения",
+      "summary": "Фатальные ошибки закрывают соединение, нефатальные получают ответ с request id и работа продолжается.",
+      "start_word_id": "w_000001",
+      "end_word_id": "w_000092"
+    },
+    {
+      "id": "ch_02",
+      "title": "Неизвестный тип сообщения",
+      "summary": "Получатель пропускает неизвестное сообщение по длине и дочитывает его до конца.",
+      "start_word_id": "w_000093",
+      "end_word_id": "w_000138"
+    },
+    {
+      "id": "ch_03",
+      "title": "Sequence diagram всего обмена",
+      "summary": "Пошаговый разбор общения сервисов от TCP-рукопожатия до закрытия соединения.",
+      "start_word_id": "w_000149",
+      "end_word_id": "w_000322"
+    },
+    {
+      "id": "ch_04",
+      "title": "Обратная совместимость протокола",
+      "summary": "Правила изменения версии, полей и новых фич через handshake.",
+      "start_word_id": "w_000323",
+      "end_word_id": "w_000421"
+    }
+  ],
+  "anchors": [
+    {
+      "id": "a_0001",
+      "kind": "contrast",
+      "start_word_id": "w_000031",
+      "end_word_id": "w_000034",
+      "quote": "ошибки это не фатальные",
+      "claim_type": "fact",
+      "importance": 2,
+      "emphasis_word_ids": [
+        "w_000034"
+      ]
+    },
+    {
+      "id": "a_0002",
+      "kind": "cause_effect",
+      "start_word_id": "w_000068",
+      "end_word_id": "w_000083",
+      "quote": "мы отвечаем тоже ошибкой, но при этом указываем request id, чтобы понять, какой запрос вызвал эту",
+      "claim_type": "fact",
+      "importance": 3,
+      "emphasis_word_ids": [
+        "w_000076"
+      ]
+    },
+    {
+      "id": "a_0003",
+      "kind": "concept",
+      "start_word_id": "w_000093",
+      "end_word_id": "w_000100",
+      "quote": "Самый интересный случай – это неизвестный тип сообщения.",
+      "claim_type": "fact",
+      "importance": 3,
+      "emphasis_word_ids": [
+        "w_000098",
+        "w_000099"
+      ]
+    },
+    {
+      "id": "a_0004",
+      "kind": "cause_effect",
+      "start_word_id": "w_000117",
+      "end_word_id": "w_000129",
+      "quote": "Поэтому получатель сначала дочитывает сообщение до конца и только потом смотрит на тип.",
+      "claim_type": "fact",
+      "importance": 3,
+      "emphasis_word_ids": [
+        "w_000120",
+        "w_000129"
+      ]
+    },
+    {
+      "id": "a_0005",
+      "kind": "concept",
+      "start_word_id": "w_000161",
+      "end_word_id": "w_000165",
+      "quote": "Такая схема называется sequence diagram.",
+      "claim_type": "fact",
+      "importance": 2,
+      "emphasis_word_ids": [
+        "w_000164"
+      ]
+    },
+    {
+      "id": "a_0006",
+      "kind": "sequence",
+      "start_word_id": "w_000174",
+      "end_word_id": "w_000177",
+      "quote": "Сначала открываем TCP соединение.",
+      "claim_type": "fact",
+      "importance": 2,
+      "emphasis_word_ids": [
+        "w_000176"
+      ]
+    },
+    {
+      "id": "a_0007",
+      "kind": "sequence",
+      "start_word_id": "w_000195",
+      "end_word_id": "w_000198",
+      "quote": "Потом отправляется сообщение hello,",
+      "claim_type": "fact",
+      "importance": 2,
+      "emphasis_word_ids": [
+        "w_000198"
+      ]
+    },
+    {
+      "id": "a_0008",
+      "kind": "sequence",
+      "start_word_id": "w_000254",
+      "end_word_id": "w_000268",
+      "quote": "Затем у нас уходит ping, чтобы проверить все ли ок И наш воркер отвечает pong,",
+      "claim_type": "fact",
+      "importance": 2,
+      "emphasis_word_ids": [
+        "w_000258",
+        "w_000268"
+      ]
+    },
+    {
+      "id": "a_0009",
+      "kind": "thesis",
+      "start_word_id": "w_000330",
+      "end_word_id": "w_000333",
+      "quote": "Это называется обратная совместимость.",
+      "claim_type": "fact",
+      "importance": 3,
+      "emphasis_word_ids": [
+        "w_000332",
+        "w_000333"
+      ]
+    },
+    {
+      "id": "a_0010",
+      "kind": "concept",
+      "start_word_id": "w_000336",
+      "end_word_id": "w_000346",
+      "quote": "Magic и версия всегда на своем месте в первых трех байтах.",
+      "claim_type": "fact",
+      "importance": 2,
+      "emphasis_word_ids": [
+        "w_000336",
+        "w_000338"
+      ]
+    },
+    {
+      "id": "a_0011",
+      "kind": "contrast",
+      "start_word_id": "w_000379",
+      "end_word_id": "w_000388",
+      "quote": "их можно добавлять спокойно и это не требует изменения версии.",
+      "claim_type": "fact",
+      "importance": 2,
+      "emphasis_word_ids": [
+        "w_000386"
+      ]
+    },
+    {
+      "id": "a_0012",
+      "kind": "contrast",
+      "start_word_id": "w_000389",
+      "end_word_id": "w_000406",
+      "quote": "А вот если удалить какое -то поле или поменять или изменить его смысл, то это уже новая версия.",
+      "claim_type": "fact",
+      "importance": 2,
+      "emphasis_word_ids": [
+        "w_000392",
+        "w_000406"
+      ]
+    },
+    {
+      "id": "a_0013",
+      "kind": "thesis",
+      "start_word_id": "w_000412",
+      "end_word_id": "w_000421",
+      "quote": "включаем только после handshake обе стороны должны объявить нужную фичу",
+      "claim_type": "fact",
+      "importance": 2,
+      "emphasis_word_ids": [
+        "w_000415"
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "name": "TCP",
+      "kind": "technology",
+      "mention_word_ids": [
+        "w_000176"
+      ]
+    },
+    {
+      "name": "JSON",
+      "kind": "technology",
+      "mention_word_ids": [
+        "w_000044",
+        "w_000377"
+      ]
+    },
+    {
+      "name": "request id",
+      "kind": "technology",
+      "mention_word_ids": [
+        "w_000076"
+      ]
+    },
+    {
+      "name": "sequence diagram",
+      "kind": "technology",
+      "mention_word_ids": [
+        "w_000164"
+      ]
+    },
+    {
+      "name": "handshake",
+      "kind": "technology",
+      "mention_word_ids": [
+        "w_000358",
+        "w_000415"
+      ]
+    }
+  ],
+  "numbers": [
+    {
+      "value": 2,
+      "unit": "задача",
+      "start_word_id": "w_000224",
+      "end_word_id": "w_000225",
+      "quote": "Задача 2",
+      "claim_type": "fact"
+    },
+    {
+      "value": 3,
+      "unit": "байта",
+      "start_word_id": "w_000344",
+      "end_word_id": "w_000346",
+      "quote": "первых трех байтах",
+      "claim_type": "fact"
+    }
+  ],
+  "causal": [
+    {
+      "cause_anchor_id": "a_0003",
+      "effect_anchor_id": "a_0004"
+    }
+  ],
+  "disputed": [],
+  "rejected": []
+}

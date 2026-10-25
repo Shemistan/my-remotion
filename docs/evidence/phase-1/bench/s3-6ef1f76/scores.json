@@ -1,0 +1,845 @@
+{
+  "summary": {
+    "run": "s3-6ef1f76",
+    "report_commit": "6ef1f76",
+    "judge_model": "opus",
+    "judge_runs": 3,
+    "scenes": 12,
+    "judged": 12,
+    "judge": {
+      "rubric_sha256": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+      "anchors_sha256": "f1df6bc74e3457c6f29b281652a41fa7de8b77e7860c88d07cb39dd4785137c7"
+    },
+    "judge_commits": [
+      "6ef1f76"
+    ],
+    "gen_commits": [
+      "6ef1f76"
+    ],
+    "motion_kit_versions": [
+      "0.5.2"
+    ],
+    "prompts_sha256": {
+      "concept.md": "bc093594ad94adca0ee1f35017755ee5912cabd153279ed7be17b3407dd095af",
+      "engineer.md": "8d58f5711af80d7e2ea23e483ff9a388903ac31687d7ee8bad8e6e11604bbdad",
+      "motion-director.md": "5808c563e8b5cd153b8ab99c8da2aa612c2d30452d17e8fa4242a08abacff789",
+      "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+      "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+      "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+      "visual-qa.md": "827c59060ad1b4213ec039c39a505bb70860b66ca210d9f1a95c8a753a4d7549"
+    },
+    "prompts_mixed": false,
+    "set": "explainer",
+    "mean": 6.041666666666667,
+    "mean_tuned": 6.214285714285714,
+    "mean_held_out": 5.8,
+    "max_spread": 1,
+    "spread_over_target": [
+      "eval-cdn",
+      "eval-budget",
+      "eval-abtest"
+    ],
+    "gen_cost_usd": 22.666102199999997,
+    "gen_cost_failed_attempts_usd": 0,
+    "judge_cost_usd": 6.9261474000000005,
+    "judge_failed_calls": 0
+  },
+  "rows": [
+    {
+      "id": "test1",
+      "scene": "test1",
+      "held_out": false,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 6.5,
+          "hierarchy": 6.5,
+          "composition": 5.5,
+          "entrance": 5.5,
+          "choreography": 5.5,
+          "hold": 6,
+          "legibility": 7,
+          "distinctiveness": 5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.678104,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.181647,
+        "wall_ms": 318051,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s3-6ef1f76/scenes/scn_01M5J9BXQMYNA4KE7D6A6SGNRE/versions/ver_01M5J9NKK7DFPS48259AH9XDKX",
+        "commit": "6ef1f76",
+        "motion_kit_version": "0.5.2",
+        "prompts_sha256": {
+          "concept.md": "bc093594ad94adca0ee1f35017755ee5912cabd153279ed7be17b3407dd095af",
+          "engineer.md": "8d58f5711af80d7e2ea23e483ff9a388903ac31687d7ee8bad8e6e11604bbdad",
+          "motion-director.md": "5808c563e8b5cd153b8ab99c8da2aa612c2d30452d17e8fa4242a08abacff789",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "827c59060ad1b4213ec039c39a505bb70860b66ca210d9f1a95c8a753a4d7549"
+        },
+        "dirty": false,
+        "kit_hash": "sha256:38585e38a3439d65",
+        "motion_kit_sha256": "sha256:38585e38a3439d65"
+      },
+      "gen_cost_total_usd": 1.181647,
+      "frames": {
+        "frame0Content": 0.06166666666666667,
+        "frame4Content": 0.13583333333333333,
+        "holdDelta": 0.003846886851448398,
+        "emptyThirdShare": 1
+      },
+      "top_defects": [
+        "48: Весь рост от 10 тыс. до 1 млн проходит за ~1,4 с, затем 3,5 с почти статики (кадры 60–150). Ритм сцены перевёрнут, «плавного движения графика» почти нет.",
+        "0: Кадр 0 — только приглушённая сетка на фоне авроры, без героя. На кадре 4 счётчик въезжает размытым и в половинном масштабе.",
+        "150: Правая нижняя четверть под выводом пустая всю сцену; нижняя полоса кадра тоже не используется."
+      ]
+    },
+    {
+      "id": "test2",
+      "scene": "test2",
+      "held_out": false,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 6.5,
+          "hierarchy": 6,
+          "composition": 5.5,
+          "entrance": 7,
+          "choreography": 5.5,
+          "hold": 5,
+          "legibility": 6.5,
+          "distinctiveness": 5.5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.736817,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 2.6225396,
+        "wall_ms": 2173886,
+        "engineer_calls": 2,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s3-6ef1f76/scenes/scn_01M5J9BXSCAP9NJDCCW8P91SWJ/versions/ver_01M5JBE76YM8MXZEEKRSST3TFB",
+        "commit": "6ef1f76",
+        "motion_kit_version": "0.5.2",
+        "prompts_sha256": {
+          "concept.md": "bc093594ad94adca0ee1f35017755ee5912cabd153279ed7be17b3407dd095af",
+          "engineer.md": "8d58f5711af80d7e2ea23e483ff9a388903ac31687d7ee8bad8e6e11604bbdad",
+          "motion-director.md": "5808c563e8b5cd153b8ab99c8da2aa612c2d30452d17e8fa4242a08abacff789",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "827c59060ad1b4213ec039c39a505bb70860b66ca210d9f1a95c8a753a4d7549"
+        },
+        "dirty": false,
+        "kit_hash": "sha256:38585e38a3439d65",
+        "motion_kit_sha256": "sha256:38585e38a3439d65"
+      },
+      "gen_cost_total_usd": 2.6225396,
+      "frames": {
+        "frame0Content": 0.21938271604938273,
+        "frame4Content": 0.2724382716049383,
+        "holdDelta": 0.004372347292826596,
+        "emptyThirdShare": 0.047619047619047616
+      },
+      "top_defects": [
+        "108: Возвращённые данные висят чипами вне связей («Письмо · 8 адресатов» внизу кадра без привязки); рядом полупрозрачная тающая копия «3 свободных слота»",
+        "96: Пакеты-возвраты — пустые квадраты, которые застревают на стыке связи и узла и перекрывают край оркестратора; из какого инструмента пришёл результат, не видно",
+        "170: Удержание почти мёртвое: импульсы не идут, живёт только ореол оркестратора, 155 ≈ 179"
+      ]
+    },
+    {
+      "id": "gen-compare",
+      "scene": "gen-compare",
+      "held_out": false,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6.5,
+        "criteria": {
+          "meaning": 6.5,
+          "hierarchy": 7,
+          "composition": 6,
+          "entrance": 6.5,
+          "choreography": 6,
+          "hold": 7,
+          "legibility": 6,
+          "distinctiveness": 5.5
+        },
+        "runs": [
+          6.5,
+          6.5,
+          6.5
+        ],
+        "spread": 0,
+        "mean": 6.5
+      },
+      "judge_cost_usd": 0.5727542,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 2.0825646,
+        "wall_ms": 942689,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s3-6ef1f76/scenes/scn_01M5J9BXR85FKY5QXBH443MW5E/versions/ver_01M5JA8N1FCCSAEB71CMANXABZ",
+        "commit": "6ef1f76",
+        "motion_kit_version": "0.5.2",
+        "prompts_sha256": {
+          "concept.md": "bc093594ad94adca0ee1f35017755ee5912cabd153279ed7be17b3407dd095af",
+          "engineer.md": "8d58f5711af80d7e2ea23e483ff9a388903ac31687d7ee8bad8e6e11604bbdad",
+          "motion-director.md": "5808c563e8b5cd153b8ab99c8da2aa612c2d30452d17e8fa4242a08abacff789",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "827c59060ad1b4213ec039c39a505bb70860b66ca210d9f1a95c8a753a4d7549"
+        },
+        "dirty": false,
+        "kit_hash": "sha256:38585e38a3439d65",
+        "motion_kit_sha256": "sha256:38585e38a3439d65"
+      },
+      "gen_cost_total_usd": 2.0825646,
+      "frames": {
+        "frame0Content": 0.21521604938271605,
+        "frame4Content": 0.27003086419753086,
+        "holdDelta": 0.005870319938675058,
+        "emptyThirdShare": 0.3333333333333333
+      },
+      "top_defects": [
+        "84: Правая система нигде не названа «Микросервисы»: зритель видит пять сервисов, но не видит вторую сторону сравнения из запроса",
+        "84: Счётчик микросервисов едет рампой (21 при ~5 пришедших импульсах), а левый прыгает 0→2 до прихода второго импульса (кадр 108). Счёт слабо привязан к событиям",
+        "60: Почти 4 с нижние ~40 % кадра пусты, схема прижата к верху"
+      ]
+    },
+    {
+      "id": "gen-timeline",
+      "scene": "gen-timeline",
+      "held_out": false,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6.5,
+        "criteria": {
+          "meaning": 6.5,
+          "hierarchy": 5.5,
+          "composition": 6,
+          "entrance": 7,
+          "choreography": 6.5,
+          "hold": 6,
+          "legibility": 6.5,
+          "distinctiveness": 5
+        },
+        "runs": [
+          6.5,
+          6.5,
+          6.5
+        ],
+        "spread": 0,
+        "mean": 6.5
+      },
+      "judge_cost_usd": 0.5837228000000001,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.0456695,
+        "wall_ms": 2222520,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s3-6ef1f76/scenes/scn_01M5J9BXT0P6V0RX5DVPG239PF/versions/ver_01M5JBFPW8F2WVNMJSZCX15415",
+        "commit": "6ef1f76",
+        "motion_kit_version": "0.5.2",
+        "prompts_sha256": {
+          "concept.md": "bc093594ad94adca0ee1f35017755ee5912cabd153279ed7be17b3407dd095af",
+          "engineer.md": "8d58f5711af80d7e2ea23e483ff9a388903ac31687d7ee8bad8e6e11604bbdad",
+          "motion-director.md": "5808c563e8b5cd153b8ab99c8da2aa612c2d30452d17e8fa4242a08abacff789",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "827c59060ad1b4213ec039c39a505bb70860b66ca210d9f1a95c8a753a4d7549"
+        },
+        "dirty": false,
+        "kit_hash": "sha256:38585e38a3439d65",
+        "motion_kit_sha256": "sha256:38585e38a3439d65"
+      },
+      "gen_cost_total_usd": 1.0456695,
+      "frames": {
+        "frame0Content": 0.060925925925925925,
+        "frame4Content": 0.1053395061728395,
+        "holdDelta": 0.008617352033405955,
+        "emptyThirdShare": 0.19047619047619047
+      },
+      "top_defects": [
+        "179: Итог «1 млн пользователей» набран мелко, тем же кеглем, что заголовки вех: герой не владеет финалом",
+        "179: Нижние ~20 % кадра пустуют до самого конца",
+        "96: Шаблонный вид: аврора, заголовок полосой сверху, фиолетовый акцент, механически равномерный проход по пяти вехам"
+      ]
+    },
+    {
+      "id": "gen-cache",
+      "scene": "gen-cache",
+      "held_out": false,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6.5,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 6.5,
+          "composition": 5.5,
+          "entrance": 6.5,
+          "choreography": 6,
+          "hold": 7,
+          "legibility": 6.5,
+          "distinctiveness": 6
+        },
+        "runs": [
+          6.5,
+          6.5,
+          6.5
+        ],
+        "spread": 0,
+        "mean": 6.5
+      },
+      "judge_cost_usd": 0.6420893999999999,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "failed",
+        "job_status": "failed",
+        "failure": {
+          "stage": "qa",
+          "message": "QA: blocking после 2 исправлений: text_overlap (кадр 116): тексты «2 мс вместо» и «Ответ из кэша—» перекрываются (кадры 116); missing_element: элемент token-req1 (shape, «данные: первый запрос») не найден ни на одном QA-кадре внутри его битов"
+        },
+        "version_status": "failed",
+        "cost_usd": 4.2697598,
+        "wall_ms": 1149364,
+        "engineer_calls": 3,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s3-6ef1f76/scenes/scn_01M5J9BXQWWYJ2ZQJG81Q7FSEJ/versions/ver_01M5JAEYQ5GZAR2TRMDVZGX47A",
+        "commit": "6ef1f76",
+        "motion_kit_version": "0.5.2",
+        "prompts_sha256": {
+          "concept.md": "bc093594ad94adca0ee1f35017755ee5912cabd153279ed7be17b3407dd095af",
+          "engineer.md": "8d58f5711af80d7e2ea23e483ff9a388903ac31687d7ee8bad8e6e11604bbdad",
+          "motion-director.md": "5808c563e8b5cd153b8ab99c8da2aa612c2d30452d17e8fa4242a08abacff789",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "827c59060ad1b4213ec039c39a505bb70860b66ca210d9f1a95c8a753a4d7549"
+        },
+        "dirty": false,
+        "kit_hash": "sha256:38585e38a3439d65",
+        "motion_kit_sha256": "sha256:38585e38a3439d65"
+      },
+      "gen_cost_total_usd": 4.2697598,
+      "frames": {
+        "frame0Content": 0.11317901234567901,
+        "frame4Content": 0.16018518518518518,
+        "holdDelta": 0.005656446683611717,
+        "emptyThirdShare": 0.38095238095238093
+      },
+      "top_defects": [
+        "72: Нижние 45 % кадра пусты с 0 по ~110 кадр: схема прижата к верху почти 4 с",
+        "108: Одинокая «2» висит слева внизу до появления итоговой фразы — выглядит как мусор входа",
+        "120: Подъём слов в итоге: базовая линия скачет («120» ниже «вместо»), хвост подписи появляется размытым"
+      ]
+    },
+    {
+      "id": "held-mobile",
+      "scene": "held-mobile",
+      "held_out": false,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 6,
+          "hierarchy": 6,
+          "composition": 5.5,
+          "entrance": 5,
+          "choreography": 6,
+          "hold": 6,
+          "legibility": 6.5,
+          "distinctiveness": 5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.49635019999999996,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.2289221,
+        "wall_ms": 1467960,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s3-6ef1f76/scenes/scn_01M5J9BXRX7AAZM1TFNG4PS0NE/versions/ver_01M5JARM269FGDNBGS5DEDBM6F",
+        "commit": "6ef1f76",
+        "motion_kit_version": "0.5.2",
+        "prompts_sha256": {
+          "concept.md": "bc093594ad94adca0ee1f35017755ee5912cabd153279ed7be17b3407dd095af",
+          "engineer.md": "8d58f5711af80d7e2ea23e483ff9a388903ac31687d7ee8bad8e6e11604bbdad",
+          "motion-director.md": "5808c563e8b5cd153b8ab99c8da2aa612c2d30452d17e8fa4242a08abacff789",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "827c59060ad1b4213ec039c39a505bb70860b66ca210d9f1a95c8a753a4d7549"
+        },
+        "dirty": false,
+        "kit_hash": "sha256:38585e38a3439d65",
+        "motion_kit_sha256": "sha256:38585e38a3439d65"
+      },
+      "gen_cost_total_usd": 1.2289221,
+      "frames": {
+        "frame0Content": 0.029320987654320986,
+        "frame4Content": 0.07361111111111111,
+        "holdDelta": 0.0029993897764867264,
+        "emptyThirdShare": 1
+      },
+      "top_defects": [
+        "60: Вся история закончена к кадру 60, затем ~3 с статики до блика на 155 — середина сцены мёртвая",
+        "120: Правая нижняя половина и низ кадра пустые; кадр выглядит как недозаполненный дашборд",
+        "179: Доля показана линией тренда, а не частью целого; нет фразы-вывода, только «+33 п. п. — ×1,9»"
+      ]
+    },
+    {
+      "id": "held-queue",
+      "scene": "held-queue",
+      "held_out": false,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 6,
+          "hierarchy": 6.5,
+          "composition": 5.5,
+          "entrance": 6,
+          "choreography": 5,
+          "hold": 5.5,
+          "legibility": 5.5,
+          "distinctiveness": 5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.6030936,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.4232748,
+        "wall_ms": 655341,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s3-6ef1f76/scenes/scn_01M5J9BXR2SGA698ETGC0MQR78/versions/ver_01M5J9ZWD45X53RGJ2GG5S2A25",
+        "commit": "6ef1f76",
+        "motion_kit_version": "0.5.2",
+        "prompts_sha256": {
+          "concept.md": "bc093594ad94adca0ee1f35017755ee5912cabd153279ed7be17b3407dd095af",
+          "engineer.md": "8d58f5711af80d7e2ea23e483ff9a388903ac31687d7ee8bad8e6e11604bbdad",
+          "motion-director.md": "5808c563e8b5cd153b8ab99c8da2aa612c2d30452d17e8fa4242a08abacff789",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "827c59060ad1b4213ec039c39a505bb70860b66ca210d9f1a95c8a753a4d7549"
+        },
+        "dirty": false,
+        "kit_hash": "sha256:38585e38a3439d65",
+        "motion_kit_sha256": "sha256:38585e38a3439d65"
+      },
+      "gen_cost_total_usd": 1.4232748,
+      "frames": {
+        "frame0Content": 0.12666666666666668,
+        "frame4Content": 0.1150925925925926,
+        "holdDelta": 0.005240836560961833,
+        "emptyThirdShare": 0.42857142857142855
+      },
+      "top_defects": [
+        "96: Под очередью остаётся бледная двоящаяся копия «Заказ #4814», а #4813 на 84 кадре висит вне слота, не на своём пути",
+        "179: Очередь не разгружается: #4813/#4814 застряли в слотах, импульс в удержании бежит впустую, и мысль «склад освободился → забрал по порядку» не досказана",
+        "96: Плашка «Заказ #4812» висит под складом, а не входит в него, и на 120 кадре исчезает без события"
+      ]
+    },
+    {
+      "id": "eval-funnel",
+      "scene": "eval-funnel",
+      "held_out": true,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 5,
+        "criteria": {
+          "meaning": 5,
+          "hierarchy": 5,
+          "composition": 5.5,
+          "entrance": 6,
+          "choreography": 5,
+          "hold": 4.5,
+          "legibility": 5.5,
+          "distinctiveness": 5
+        },
+        "runs": [
+          5,
+          5,
+          5
+        ],
+        "spread": 0,
+        "mean": 5
+      },
+      "judge_cost_usd": 0.4478454,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.8964142000000002,
+        "wall_ms": 1503965,
+        "engineer_calls": 2,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s3-6ef1f76/scenes/scn_01M5J9BXRPWKGAAFRS47EYCJYM/versions/ver_01M5JASSE7MVZB7N17EWT7NK27",
+        "commit": "6ef1f76",
+        "motion_kit_version": "0.5.2",
+        "prompts_sha256": {
+          "concept.md": "bc093594ad94adca0ee1f35017755ee5912cabd153279ed7be17b3407dd095af",
+          "engineer.md": "8d58f5711af80d7e2ea23e483ff9a388903ac31687d7ee8bad8e6e11604bbdad",
+          "motion-director.md": "5808c563e8b5cd153b8ab99c8da2aa612c2d30452d17e8fa4242a08abacff789",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "827c59060ad1b4213ec039c39a505bb70860b66ca210d9f1a95c8a753a4d7549"
+        },
+        "dirty": false,
+        "kit_hash": "sha256:38585e38a3439d65",
+        "motion_kit_sha256": "sha256:38585e38a3439d65"
+      },
+      "gen_cost_total_usd": 1.8964142000000002,
+      "frames": {
+        "frame0Content": 0.08595679012345679,
+        "frame4Content": 0.08780864197530865,
+        "holdDelta": 0.002814280238844509,
+        "emptyThirdShare": 0.2857142857142857
+      },
+      "top_defects": [
+        "96: Выноска «−27 на карточке — больше всего уходят здесь» ложна: по числам сцены самый большой отток 100→62 (−38).",
+        "84: Промежуточные значения 62/35/12 придуманы, а ширины трапеций им не соответствуют. Отток показан красными прямоугольниками-заливками, а не уходящими посетителями. На полосе «Покупка» — полосатая каша.",
+        "8: Итог «3 из 100» и фраза про 97 видны с первых кадров, кульминация заспойлерена. Первые 2 с — статичный контур и печать крошечного кикера, на 48 кадре появляется пустой серый прямоугольник."
+      ]
+    },
+    {
+      "id": "eval-oauth",
+      "scene": "eval-oauth",
+      "held_out": true,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 6.5,
+          "hierarchy": 5,
+          "composition": 5.5,
+          "entrance": 6,
+          "choreography": 5.5,
+          "hold": 6.5,
+          "legibility": 5.5,
+          "distinctiveness": 5
+        },
+        "runs": [
+          6,
+          6,
+          6
+        ],
+        "spread": 0,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.5888784,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 2.7294763,
+        "wall_ms": 2114553,
+        "engineer_calls": 2,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s3-6ef1f76/scenes/scn_01M5J9BXS53MYK2CTPB4H0WS9T/versions/ver_01M5JBCCT1MQ1R2XACSR1NAKNF",
+        "commit": "6ef1f76",
+        "motion_kit_version": "0.5.2",
+        "prompts_sha256": {
+          "concept.md": "bc093594ad94adca0ee1f35017755ee5912cabd153279ed7be17b3407dd095af",
+          "engineer.md": "8d58f5711af80d7e2ea23e483ff9a388903ac31687d7ee8bad8e6e11604bbdad",
+          "motion-director.md": "5808c563e8b5cd153b8ab99c8da2aa612c2d30452d17e8fa4242a08abacff789",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "827c59060ad1b4213ec039c39a505bb70860b66ca210d9f1a95c8a753a4d7549"
+        },
+        "dirty": false,
+        "kit_hash": "sha256:38585e38a3439d65",
+        "motion_kit_sha256": "sha256:38585e38a3439d65"
+      },
+      "gen_cost_total_usd": 2.7294763,
+      "frames": {
+        "frame0Content": 0.19709876543209875,
+        "frame4Content": 0.22058641975308643,
+        "holdDelta": 0.00539783799322198,
+        "emptyThirdShare": 0.23809523809523808
+      },
+      "top_defects": [
+        "120: Чип access_token перекрывает «GET /photos», а вывод появляется обрезанным маской («а не» срезано)",
+        "96: Чип «пароль ••••••» налезает на «Войти через аккаунт» — каша из двух подписей",
+        "72: Неподписанный пакет едет от сервера авторизации к приложению ещё до ввода пароля — причинность путается"
+      ]
+    },
+    {
+      "id": "eval-cdn",
+      "scene": "eval-cdn",
+      "held_out": true,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 5.5,
+          "composition": 5,
+          "entrance": 5.5,
+          "choreography": 6,
+          "hold": 6.5,
+          "legibility": 6,
+          "distinctiveness": 5.5
+        },
+        "runs": [
+          5.5,
+          6,
+          6.5
+        ],
+        "spread": 1,
+        "mean": 6
+      },
+      "judge_cost_usd": 0.5436706,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.1942879,
+        "wall_ms": 295733,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s3-6ef1f76/scenes/scn_01M5J9BXQ99EGFXC5BD2P6GF14/versions/ver_01M5J9MWGFAJ7KP1DCE08D71Z7",
+        "commit": "6ef1f76",
+        "motion_kit_version": "0.5.2",
+        "prompts_sha256": {
+          "concept.md": "bc093594ad94adca0ee1f35017755ee5912cabd153279ed7be17b3407dd095af",
+          "engineer.md": "8d58f5711af80d7e2ea23e483ff9a388903ac31687d7ee8bad8e6e11604bbdad",
+          "motion-director.md": "5808c563e8b5cd153b8ab99c8da2aa612c2d30452d17e8fa4242a08abacff789",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "827c59060ad1b4213ec039c39a505bb70860b66ca210d9f1a95c8a753a4d7549"
+        },
+        "dirty": false,
+        "kit_hash": "sha256:38585e38a3439d65",
+        "motion_kit_sha256": "sha256:38585e38a3439d65"
+      },
+      "gen_cost_total_usd": 1.1942879,
+      "frames": {
+        "frame0Content": 0.07765432098765432,
+        "frame4Content": 0.15407407407407409,
+        "holdDelta": 0.0019770031469377876,
+        "emptyThirdShare": 1
+      },
+      "top_defects": [
+        "84: Нижние ~35 % кадра пустуют всю сцену, две короткие дорожки прижаты к центру — композиция полосой.",
+        "72: Линии дорожек и старт импульсов проходят прямо под текстом подписей «Сервер · Франкфурт» / «CDN-узел · Москва».",
+        "0: Кадр 0 — кикер с одной буквой и две голые линии без подписей и чисел."
+      ]
+    },
+    {
+      "id": "eval-budget",
+      "scene": "eval-budget",
+      "held_out": true,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 6.5,
+        "criteria": {
+          "meaning": 7,
+          "hierarchy": 5.5,
+          "composition": 6.5,
+          "entrance": 6,
+          "choreography": 7,
+          "hold": 6,
+          "legibility": 7,
+          "distinctiveness": 5.5
+        },
+        "runs": [
+          6.5,
+          7,
+          6.5
+        ],
+        "spread": 0.5,
+        "mean": 6.666666666666667
+      },
+      "judge_cost_usd": 0.5691486,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.7794094,
+        "wall_ms": 1302090,
+        "engineer_calls": 2,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s3-6ef1f76/scenes/scn_01M5J9BXRFA0KB5627PYDBFEKT/versions/ver_01M5JAKN65GNH41CJKXTJ1P0V0",
+        "commit": "6ef1f76",
+        "motion_kit_version": "0.5.2",
+        "prompts_sha256": {
+          "concept.md": "bc093594ad94adca0ee1f35017755ee5912cabd153279ed7be17b3407dd095af",
+          "engineer.md": "8d58f5711af80d7e2ea23e483ff9a388903ac31687d7ee8bad8e6e11604bbdad",
+          "motion-director.md": "5808c563e8b5cd153b8ab99c8da2aa612c2d30452d17e8fa4242a08abacff789",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "827c59060ad1b4213ec039c39a505bb70860b66ca210d9f1a95c8a753a4d7549"
+        },
+        "dirty": false,
+        "kit_hash": "sha256:38585e38a3439d65",
+        "motion_kit_sha256": "sha256:38585e38a3439d65"
+      },
+      "gen_cost_total_usd": 1.7794094,
+      "frames": {
+        "frame0Content": 0.10385802469135802,
+        "frame4Content": 0.21330246913580247,
+        "holdDelta": 0.0077770540829500525,
+        "emptyThirdShare": 0.19047619047619047
+      },
+      "top_defects": [
+        "179: Герой не тот: крупнее всего центральное «100 %» (пустая тавтология), а итог «60 %» мелким кеглем сбоку не владеет финалом.",
+        "160: Обводка-акцент в удержании появляется и пропадает циклом и читается как мигание; остальная часть кадра застыла.",
+        "16: Первая секунда выглядит как загрузка: тусклое пустое кольцо с «0 %» и точками-плейсхолдерами."
+      ]
+    },
+    {
+      "id": "eval-abtest",
+      "scene": "eval-abtest",
+      "held_out": true,
+      "split": null,
+      "ref": null,
+      "judge": {
+        "overall": 5.5,
+        "criteria": {
+          "meaning": 6,
+          "hierarchy": 5.5,
+          "composition": 5,
+          "entrance": 4.5,
+          "choreography": 5.5,
+          "hold": 4.5,
+          "legibility": 6,
+          "distinctiveness": 4.5
+        },
+        "runs": [
+          5.5,
+          5,
+          5.5
+        ],
+        "spread": 0.5,
+        "mean": 5.333333333333333
+      },
+      "judge_cost_usd": 0.4636732,
+      "judge_failed_calls": 0,
+      "gen": {
+        "status": "ready",
+        "job_status": "completed",
+        "version_status": "ready",
+        "cost_usd": 1.212137,
+        "wall_ms": 1879989,
+        "engineer_calls": 1,
+        "duration_frames": 180,
+        "fps": 30,
+        "source": "/Volumes/External SSD/MotionStudio/workspace/projects/eval-s3-6ef1f76/scenes/scn_01M5J9BXSRJV5Q7Y00W8HZNSAH/versions/ver_01M5JB592Y2GNFVKX49PZ7PX30",
+        "commit": "6ef1f76",
+        "motion_kit_version": "0.5.2",
+        "prompts_sha256": {
+          "concept.md": "bc093594ad94adca0ee1f35017755ee5912cabd153279ed7be17b3407dd095af",
+          "engineer.md": "8d58f5711af80d7e2ea23e483ff9a388903ac31687d7ee8bad8e6e11604bbdad",
+          "motion-director.md": "5808c563e8b5cd153b8ab99c8da2aa612c2d30452d17e8fa4242a08abacff789",
+          "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+          "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+          "rubric-judge.md": "17d6d818ef1a68b99e11e2bf6a316f54070be4056f8a1d303e73e3ee561f71ed",
+          "visual-qa.md": "827c59060ad1b4213ec039c39a505bb70860b66ca210d9f1a95c8a753a4d7549"
+        },
+        "dirty": false,
+        "kit_hash": "sha256:38585e38a3439d65",
+        "motion_kit_sha256": "sha256:38585e38a3439d65"
+      },
+      "gen_cost_total_usd": 1.212137,
+      "frames": {
+        "frame0Content": 0.015617283950617284,
+        "frame4Content": 0.04842592592592593,
+        "holdDelta": 0.0028547642822561122,
+        "emptyThirdShare": 0.23809523809523808
+      },
+      "top_defects": [
+        "8: Итоговое +12 % видно серым «призраком» с кадра 8, ещё до данных: следствие показано раньше причины, и кульминацию это обесценивает",
+        "179: Финал застыл: кадры 155–179 почти идентичны, жив только слабый пульс свечения",
+        "96: Герой +12 % скромного размера и проигрывает по массе пурпурному столбцу. Разница 5→5,6 не показана ни скобкой, ни линией к итогу"
+      ]
+    }
+  ]
+}

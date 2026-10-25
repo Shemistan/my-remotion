@@ -25,11 +25,34 @@ export type StorageFailure =
   | "volume_mismatch"
   | "system_volume"
   | "not_writable"
-  | "low_space";
+  | "low_space"
+  /** Проверка хранилища не ответила за дедлайн сторожа (повис `diskutil`), а не «диск не найден». */
+  | "storage_watch_timeout"
+  /**
+   * Проба тома не дала ответа (diskutil медленный, упал или промолчал), а корень на месте.
+   * Не «другой том»: тот — `volume_mismatch`, когда проба вернула чужой UUID.
+   */
+  | "volume_probe_failed";
 
+/**
+ * `dev` — st_dev корня, если до него дошла проверка: сторож сравнивает его между
+ * проверками (смена устройства под работающими задачами — перемонтирование).
+ */
 export type StorageStatus =
-  | { ok: true; root: string; marker: StoreMarker; freeBytes: number }
-  | { ok: false; reason: StorageFailure; detail: string };
+  | { ok: true; root: string; marker: StoreMarker; freeBytes: number; dev?: number }
+  | { ok: false; reason: StorageFailure; detail: string; dev?: number };
+
+/**
+ * Неокончательные отказы: проба медленная или не ответила, а признаков потери нет.
+ * Сторож объявляет offline только после серии таких подряд (`watchStorage`).
+ * Остальные — окончательные (корня нет, маркер чужой, том или устройство сменились,
+ * запись не прошла): offline сразу.
+ */
+export const INCONCLUSIVE_FAILURES: ReadonlySet<StorageFailure> = new Set<StorageFailure>(["volume_probe_failed", "storage_watch_timeout"]);
+
+export function isInconclusive(status: StorageStatus): boolean {
+  return !status.ok && INCONCLUSIVE_FAILURES.has(status.reason);
+}
 
 export interface VolumeProbe {
   volumeUuid(path: string): Promise<string>;
@@ -68,8 +91,10 @@ export class StoragePathError extends Error {
   }
 }
 
+type Failure = Extract<StorageStatus, { ok: false }>;
+
 class Failed extends Error {
-  constructor(readonly status: Extract<StorageStatus, { ok: false }>) {
+  constructor(readonly status: Failure) {
     super(status.detail);
   }
 }
@@ -174,8 +199,8 @@ export function rootProblemSync(root: string): string | undefined {
   return undefined;
 }
 
-async function onSystemVolume(path: string, probe: VolumeProbe): Promise<boolean> {
-  return (await probe.deviceId(path)) === (await probe.systemDeviceId());
+async function onSystemVolume(path: string, probe: VolumeProbe, dev?: number): Promise<boolean> {
+  return (dev ?? (await probe.deviceId(path))) === (await probe.systemDeviceId());
 }
 
 /** Пробная запись: создать и удалить уникальный файл в корне. */
@@ -194,12 +219,25 @@ async function writeTest(root: string): Promise<void> {
   }
 }
 
-function minFreeBytes(env: StorageEnv): number {
+/** Порог свободного места (`MS_MIN_FREE_GB`, по умолчанию 10 ГиБ), байт. */
+export function minFreeBytes(env: StorageEnv): number {
   const raw = env.MS_MIN_FREE_GB?.trim();
   if (!raw) return DEFAULT_MIN_FREE_GB * GiB;
   const gb = Number(raw);
   if (!Number.isFinite(gb) || gb < 0) fail("env_missing", `MS_MIN_FREE_GB некорректен: ${raw}`);
   return gb * GiB;
+}
+
+/**
+ * Корень пропал посреди проверки (rename, отключение диска): шаг после корня падает ENOENT
+ * под своей причиной (маркер, запись), а отказ на деле — `not_found`. Корень на месте —
+ * причина шага как есть.
+ */
+async function vanished(env: StorageEnv, status: Failure): Promise<Failure> {
+  const root = env.MS_DATA_DIR?.trim();
+  if (status.reason === "not_found" || status.reason === "env_missing" || !root || !isAbsolute(root)) return status;
+  const gone = await rootProblem(root);
+  return gone ? { ok: false, reason: "not_found", detail: `${gone} (пропал во время проверки; шаг: ${status.reason}: ${status.detail})` } : status;
 }
 
 /**
@@ -225,14 +263,25 @@ export async function checkStorage(
       fail("marker_mismatch", `store_id ${marker.store_id}, ожидался ${expectedStoreId}`);
     }
 
-    const uuid = await step("volume_mismatch", "том", () => probe.volumeUuid(root));
-    if (uuid !== marker.volume_uuid) {
-      fail("volume_mismatch", `том ${uuid}, в маркере ${marker.volume_uuid}; перенос — doctor --adopt`);
-    }
-
-    const system = await step("system_volume", "устройство", () => onSystemVolume(root, probe));
+    // st_dev — дешёвый stat; дальше он и в статусе (сторож ловит смену устройства), и для
+    // проверки системного тома.
+    const dev = await step("system_volume", "устройство", () => probe.deviceId(root));
+    // Системный том проверяем ДО пробы UUID: корень на системном диске — окончательный отказ,
+    // даже когда diskutil молчит (иначе сильнейшая защита ADR 0006 стала бы «неокончательной»).
+    const system = await step("system_volume", "устройство", () => onSystemVolume(root, probe, dev));
     if (system && env.MS_ALLOW_SYSTEM_DISK !== "1") {
       fail("system_volume", `${root} на системном томе; разрешить — MS_ALLOW_SYSTEM_DISK=1`);
+    }
+
+    let uuid: string;
+    try {
+      uuid = await probe.volumeUuid(root);
+    } catch (e) {
+      // проба не ответила — это не «другой том»; пропал ли корень, решит vanished()
+      throw new Failed({ ok: false, reason: "volume_probe_failed", detail: `том: ${(e as Error).message}`, dev });
+    }
+    if (uuid !== marker.volume_uuid) {
+      fail("volume_mismatch", `том ${uuid}, в маркере ${marker.volume_uuid}; перенос — doctor --adopt`);
     }
 
     await step("not_writable", "пробная запись", () => writeTest(root));
@@ -242,9 +291,9 @@ export async function checkStorage(
       fail("low_space", `свободно ${(freeBytes / GiB).toFixed(1)} ГиБ, нужно ${minFree / GiB} ГиБ`);
     }
 
-    return { ok: true, root, marker, freeBytes };
+    return { ok: true, root, marker, freeBytes, dev };
   } catch (e) {
-    if (e instanceof Failed) return e.status;
+    if (e instanceof Failed) return vanished(env, e.status);
     throw e;
   }
 }
@@ -332,5 +381,7 @@ export async function initStore(
     created_at: new Date().toISOString(),
   };
   await writeMarker(root, marker);
+  // боковой реестр процессов: chrome-wrapper.sh пишет туда сам и каталог не создаёт
+  await mkdir(join(root, "run", "processes"), { recursive: true });
   return marker;
 }

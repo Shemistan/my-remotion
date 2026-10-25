@@ -10,6 +10,7 @@ import { useCurrentFrame, useVideoConfig } from "remotion";
 import { EASE, easingOf, frames, springAt } from "../easing.js";
 import { clamp01, drawDash, ramp } from "../internal.js";
 import { type TypeLevel, typeSize } from "../style/type-scale.js";
+import { PosterGate } from "./Poster.js";
 import { useStyle } from "../style.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, shadow, surfaceAt, tracking } from "../tokens.js";
 
@@ -23,9 +24,22 @@ export interface ComparisonSide {
   value?: string;
   /** Тон: negative — ✕ и цвет negative, positive — ✓ и positive; по умолчанию слева negative, справа positive. */
   tone?: "negative" | "positive" | "neutral";
+  /**
+   * Графика стороны (0.5.6): мини-метр «значение из максимума» — полоса, которая заполняется
+   * до `value / max` цветом тона. Сравнение читается картинкой, а не двумя столбцами текста;
+   * панель с метром в пробе QA — графика (`data-ms-graphic`).
+   */
+  metric?: { value: number; max: number };
+}
+
+/** Доля метра стороны (0.5.6, чистая функция): `value / max` в [0; 1]; max ≤ 0 — 0. */
+export function metricShare(m: { value: number; max: number }): number {
+  return m.max > 0 && Number.isFinite(m.value) ? Math.max(0, Math.min(1, m.value / m.max)) : 0;
 }
 
 export interface ComparisonSplitProps {
+  /** До входа (0.4.0): `silhouette` (по умолчанию) — каркас итогового вида (формы без текста, 30 %) с кадра 0 (кадр-постер); `hidden` — пусто. */
+  pre?: "silhouette" | "hidden";
   left: ComparisonSide;
   right: ComparisonSide;
   beat: Pick<Beat, "start_frame" | "end_frame">;
@@ -53,7 +67,12 @@ function Glyph({ tone, p, color, size }: { tone: "negative" | "positive" | "neut
   );
 }
 
-export function ComparisonSplit({ left, right, beat, divider, emphasizeRight = true, style }: ComparisonSplitProps) {
+/** ComparisonSplit с кадром-постером до бита (PosterGate). */
+export function ComparisonSplit(props: ComparisonSplitProps) {
+  return <PosterGate pre={props.pre} beat={props.beat} render={(css, underlay) => <ComparisonSplitBody {...props} posterCss={css} underlay={underlay} />} />;
+}
+
+function ComparisonSplitBody({ left, right, beat, divider, emphasizeRight = true, style, posterCss, underlay }: ComparisonSplitProps & { posterCss?: CSSProperties; underlay?: ReactNode }) {
   const s = useStyle();
   const frame = useCurrentFrame();
   const { fps, height } = useVideoConfig();
@@ -83,6 +102,8 @@ export function ComparisonSplit({ left, right, beat, divider, emphasizeRight = t
     const valueP = springAt(frame, fps, s, items + itemsSpan * 0.8, "pop");
     return (
       <div
+        data-ms-box="panel"
+        data-ms-graphic={side.metric ? "metric" : undefined}
         style={{
           position: "relative",
           flex: 1,
@@ -111,6 +132,8 @@ export function ComparisonSplit({ left, right, beat, divider, emphasizeRight = t
             padding: `${Math.round(height * 0.06)}px ${Math.round(height * 0.06)}px`,
             display: "flex",
             flexDirection: "column",
+            // 0.5.5: содержимое — блоком по центру панели, без пустой нижней половины
+            justifyContent: "center",
             gap: Math.round(height * 0.026),
             transform: `translateX(${(-dir * (1 - p) * dist * 0.45).toFixed(2)}px)`,
           }}
@@ -124,7 +147,7 @@ export function ComparisonSplit({ left, right, beat, divider, emphasizeRight = t
               boxShadow: `inset 0 0 0 1.5px ${alpha(toneColor, 0.5)}`,
               color: toneColor,
               fontFamily: fontFamily(s.typography.mono),
-              fontSize: size("caption") * 0.8,
+              fontSize: size("caption"),
               letterSpacing: `${tracking(s, "caps")}em`,
               textTransform: "uppercase",
               opacity: labelP,
@@ -164,20 +187,33 @@ export function ComparisonSplit({ left, right, beat, divider, emphasizeRight = t
                     transform: `translateX(${(dir * (1 - q) * 40 * s.amplitude).toFixed(2)}px)`,
                     fontFamily: fontFamily(s.typography.body),
                     fontWeight: 500,
-                    fontSize: size("body") * 0.8,
+                    fontSize: size("body"),
                     color: mix(s.palette.text, s.palette.muted, 0.25),
                   }}
                 >
-                  <Glyph tone={tone} p={g} color={toneColor} size={Math.round(size("body") * 0.8)} />
+                  <Glyph tone={tone} p={g} color={toneColor} size={Math.round(size("body") * 0.9)} />
                   <span>{it}</span>
                 </div>
               );
             })}
           </div>
+          {side.metric ? (
+            // мини-метр (0.5.6): дорожка и заполнение до value / max, растёт после пунктов
+            <svg
+              width="100%"
+              height={Math.max(48, Math.round(height * 0.06))}
+              viewBox="0 0 100 10"
+              preserveAspectRatio="none"
+              style={{ display: "block", marginTop: Math.round(height * 0.012), overflow: "visible" }}
+            >
+              <rect x={0} y={2} width={100} height={6} rx={3} fill={alpha(s.palette.text, dark ? 0.12 : 0.1)} />
+              <rect x={0} y={2} width={(100 * metricShare(side.metric) * ramp(frame, items + itemsSpan * 0.5, items + itemsSpan * 1.1, EASE.outQuart)).toFixed(3)} height={6} rx={3} fill={toneColor} />
+            </svg>
+          ) : null}
           {side.value ? (
             <div
               style={{
-                marginTop: "auto",
+                marginTop: Math.round(height * 0.03),
                 fontFamily: fontFamily(s.typography.display),
                 fontWeight: s.typography.display.weight ?? 800,
                 fontSize: size("h1"),
@@ -208,7 +244,8 @@ export function ComparisonSplit({ left, right, beat, divider, emphasizeRight = t
   const vs = Math.round(height * 0.085);
 
   return (
-    <div style={{ position: "relative", display: "flex", width: "100%", height: "100%", gap, ...style }}>
+    <div style={{ position: "relative", display: "flex", width: "100%", height: "100%", gap, ...style, ...posterCss }}>
+      {underlay}
       {panel(left, "left")}
       {panel(right, "right")}
       <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 0 }}>

@@ -1,4 +1,4 @@
-import { readFile, rename, rm, writeFile } from "node:fs/promises";
+import { readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { safeMkdir } from "../storage/safe-mkdir.js";
@@ -28,6 +28,8 @@ export class OwnerBusyError extends Error {
 
 export interface OwnerLock {
   release(): Promise<void>;
+  /** Файл замка (`dev`, `ino`), на котором держится блокировка ОС. */
+  readonly file: { dev: number; ino: number };
 }
 
 // Держит соединения до release: иначе брошенный вызывающим результат соберёт GC,
@@ -43,9 +45,12 @@ const held = new Set<Database.Database>();
  */
 export async function acquireOwnerLock(root: string, kind: OwnerKind): Promise<OwnerLock> {
   const dir = await safeMkdir(root, "run");
+  // хранилище, созданное до того, как init стал создавать `run/processes` (его ждёт chrome-wrapper.sh)
+  await safeMkdir(root, "run/processes");
   const ownerFile = join(dir, "owner.json");
   // timeout: 0 — не ждать освобождения (по умолчанию better-sqlite3 ждёт 5 с)
-  const db = new Database(join(dir, "owner.lock"), { timeout: 0 });
+  const lockPath = join(dir, "owner.lock");
+  const db = new Database(lockPath, { timeout: 0 });
   try {
     db.pragma("locking_mode = EXCLUSIVE");
     db.exec("BEGIN EXCLUSIVE");
@@ -60,7 +65,11 @@ export async function acquireOwnerLock(root: string, kind: OwnerKind): Promise<O
   held.add(db);
 
   let released = false;
+  let file: { dev: number; ino: number };
   try {
+    // ровно тот файл, что под замком: соединение уже открыто, подмена пути его не меняет
+    const st = await stat(lockPath);
+    file = { dev: st.dev, ino: st.ino };
     const me = await procInfo(process.pid);
     const info: OwnerInfo = { pid: process.pid, startedAt: me?.startedAt ?? "", kind };
     const tmp = `${ownerFile}.${process.pid}.tmp`;
@@ -73,6 +82,7 @@ export async function acquireOwnerLock(root: string, kind: OwnerKind): Promise<O
   }
 
   return {
+    file,
     async release() {
       if (released) return;
       released = true;
@@ -94,4 +104,18 @@ async function readOwner(file: string): Promise<OwnerInfo | undefined> {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Проверка замка после возврата хранилища (`storage_offline` → online). `fcntl`-замок
+ * привязан к vnode файла старого монтирования: после переподключения тома по тому же пути
+ * лежит другой файл, и старый замок его не защищает. Тот же файл (`dev`/`ino`) — замок
+ * остаётся как есть; другой или пропал — старое соединение закрывается, замок берётся
+ * заново на новом файле (`OwnerBusyError`, если его уже держит другой процесс).
+ */
+export async function verifyOwnerLock(root: string, kind: OwnerKind, lock: OwnerLock): Promise<OwnerLock> {
+  const st = await stat(join(root, "run", "owner.lock")).catch(() => undefined);
+  if (st && st.dev === lock.file.dev && st.ino === lock.file.ino) return lock;
+  await lock.release().catch(() => undefined);
+  return acquireOwnerLock(root, kind);
 }

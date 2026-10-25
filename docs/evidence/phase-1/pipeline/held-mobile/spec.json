@@ -1,0 +1,247 @@
+{
+  "title": "Мобильный трафик: 35 % → 68 %",
+  "purpose": "Показать, что доля мобильного трафика за пять лет выросла почти вдвое: с 35 % в 2019 до 68 % в 2024 (×1,9, +33 п. п.).",
+  "duration_frames": 180,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "style_preset": "dark-premium",
+  "composition": {
+    "archetype": "diagonal",
+    "idea": "Линия роста идёт по диагонали из нижнего левого угла (2019 — 35 %) в верхний правый, где её голова упирается в крупное «68 %». Взгляд скользит за светящейся головой линии снизу вверх и заканчивает на герое-числе.",
+    "focus": "Сначала стартовая точка и «35 %», затем фокус ведёт голова линии (число считает синхронно), удар на конечной точке и числе, вывод под заголовком; в финале медленный наезд камеры 1 → 1.04 к герою.",
+    "transitions": "Сетка проявляется → линия прорисовывается, заливка следом → число докручивается вместе с головой линии → удар → вывод шторкой; линия и число остаются до конца, конечная точка дышит.",
+    "title_mode": "integrated",
+    "background": {
+      "variant": "aurora",
+      "focus": {
+        "x": 0.8,
+        "y": 0.22
+      },
+      "seed": "scn_01M5FNP3KJS44T9R338XR578F8"
+    }
+  },
+  "elements": [
+    {
+      "id": "growth-chart",
+      "kind": "chart",
+      "role": "опора: линия роста доли 2019–2024; акцент конечной точки — её свойство",
+      "entrance": "draw",
+      "depth_layer": 1,
+      "content": {
+        "component": "LineChart",
+        "points": [
+          {
+            "label": "2019",
+            "value": 35
+          },
+          {
+            "label": "2020",
+            "value": 44
+          },
+          {
+            "label": "2021",
+            "value": 52
+          },
+          {
+            "label": "2022",
+            "value": 59
+          },
+          {
+            "label": "2023",
+            "value": 64
+          },
+          {
+            "label": "2024",
+            "value": 68
+          }
+        ],
+        "area": true,
+        "callout": false,
+        "endpointEmphasis": {
+          "beat": "final-emphasis",
+          "loop": true
+        },
+        "valueSuffix": " %",
+        "yTicks": 4,
+        "locale": "ru",
+        "accentIndex": 0,
+        "width_px": 1555,
+        "height_px": 603
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.33,
+        "w": 0.9,
+        "h": 0.62
+      }
+    },
+    {
+      "id": "hero-share",
+      "kind": "number",
+      "role": "герой: итоговая доля 68 % у конца линии",
+      "entrance": "count",
+      "depth_layer": 1,
+      "content": {
+        "component": "AnimatedNumber",
+        "from": 35,
+        "to": 68,
+        "suffix": " %",
+        "decimals": 0,
+        "locale": "ru",
+        "size": "display",
+        "align": "right",
+        "enterAt": 0,
+        "enter_kind": "pop",
+        "bound_to": "growth-chart.head",
+        "reserveWidth": true
+      },
+      "layout": {
+        "x": 0.7,
+        "y": 0.05,
+        "w": 0.25,
+        "h": 0.22
+      }
+    },
+    {
+      "id": "title",
+      "kind": "text",
+      "role": "заголовок у героя: что за показатель",
+      "entrance": "blur",
+      "depth_layer": 1,
+      "content": {
+        "component": "SceneTitle",
+        "mode": "integrated",
+        "text": "Доля мобильного трафика",
+        "size": "h2",
+        "align": "left"
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.05,
+        "w": 0.6,
+        "h": 0.1
+      }
+    },
+    {
+      "id": "conclusion",
+      "kind": "text",
+      "role": "вывод: кратность и прирост",
+      "entrance": "mask",
+      "depth_layer": 1,
+      "content": {
+        "text": "Почти вдвое: ×1,9 · +33 п. п. за 5 лет",
+        "size": "body",
+        "highlight": [
+          "×1,9"
+        ],
+        "color": "text",
+        "note": "«×1,9» — цвет accent[0] без пилюли и без отдельного Emphasis"
+      },
+      "layout": {
+        "x": 0.05,
+        "y": 0.17,
+        "w": 0.6,
+        "h": 0.09
+      }
+    }
+  ],
+  "beats": [
+    {
+      "id": "chart-draw",
+      "start_frame": 0,
+      "end_frame": 120,
+      "action": "chart-draw",
+      "description": "LineChart beat 0–120: сетка и подписи оси Y (0–80 %) и годов 2019–2024 проявляются в первые 30 %, с кадра ≈15 гладкая линия рисуется со светящейся головой до ≈96, точки вспыхивают по ходу, заливка открывается следом. Выноски нет (callout=false) — значение несёт герой.",
+      "element_ids": [
+        "growth-chart"
+      ]
+    },
+    {
+      "id": "hero-in",
+      "start_frame": 0,
+      "end_frame": 15,
+      "action": "hero-number-in",
+      "description": "Число входит pop с кадра 0 (enterAt 0) уже со значением «35 %» и держит его ≥15 кадров, пока проявляется сетка и стартовая точка 2019.",
+      "element_ids": [
+        "hero-share"
+      ]
+    },
+    {
+      "id": "title-in",
+      "start_frame": 6,
+      "end_frame": 30,
+      "action": "title-in",
+      "description": "Заголовок «Доля мобильного трафика» h2 проявляется из размытия (blur), на 6 кадров позже числа.",
+      "element_ids": [
+        "title"
+      ]
+    },
+    {
+      "id": "hero-count",
+      "start_frame": 15,
+      "end_frame": 96,
+      "action": "hero-count",
+      "description": "Счёт 35 → 68 %: value = lineChartHead(points, chart-draw beat, frame).value — число ровно под головой линии; на end_frame короткий удар масштаба и свечения.",
+      "element_ids": [
+        "hero-share",
+        "growth-chart"
+      ]
+    },
+    {
+      "id": "final-emphasis",
+      "start_frame": 96,
+      "end_frame": 126,
+      "action": "final-emphasis",
+      "description": "Конечная точка 2024 получает удар endpointEmphasis (одно кольцо, ореол accent[0]) в кадр завершения линии, одновременно с ударом числа; затем дыхание loop до конца сцены. Других акцентов нет.",
+      "element_ids": [
+        "growth-chart",
+        "hero-share"
+      ]
+    },
+    {
+      "id": "conclusion-in",
+      "start_frame": 102,
+      "end_frame": 120,
+      "action": "conclusion-in",
+      "description": "Вывод «Почти вдвое: ×1,9 · +33 п. п. за 5 лет» открывается шторкой mask (18 кадров) под заголовком; живёт на экране 60 кадров (2 с) до конца.",
+      "element_ids": [
+        "conclusion"
+      ]
+    },
+    {
+      "id": "hold",
+      "start_frame": 153,
+      "end_frame": 180,
+      "action": "hold",
+      "description": "Новых входов нет. Конечная точка линии дышит (свет и масштаб в противофазе), число «68 %» неподвижно рядом с ней; камера медленно наезжает 1 → 1.04 к герою (с кадра 140). Движение подтверждает итог: рост достигнут, внимание остаётся на 68 %.",
+      "element_ids": [
+        "growth-chart",
+        "hero-share",
+        "title",
+        "conclusion"
+      ]
+    }
+  ],
+  "camera": [
+    {
+      "frame": 0,
+      "scale": 1,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "frame": 140,
+      "scale": 1,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "frame": 179,
+      "scale": 1.04,
+      "x": 40,
+      "y": -30
+    }
+  ]
+}

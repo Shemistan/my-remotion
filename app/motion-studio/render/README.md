@@ -123,6 +123,38 @@ worker.ts`; в 22.21.1 включено по умолчанию). Ни tsx, ни
 Remotion принимает fps числом; worker передаёт `num / den`. ffmpeg приводит его к дроби
 сам: e2e на 30000/1001 даёт `r_frame_rate` ровно `30000/1001`, gate проходит.
 
+## Экспорт (Task 19)
+
+`exportVersion(req, signal?)` — тот же путь, что у рендера (worker под `spawnTracked`,
+обёртка Chrome без сети, asset-guard), в режиме `export`: один `renderMedia` в MP4
+H.264/AAC или ProRes 4444 с альфой.
+
+- **Gate** (`exportGate`): длительность — по видеопотоку (`streams[v].duration`, иначе
+  `nb_frames / fps`), не `format.duration`: AAC добивается до целого кадра (1024 сэмпла,
+  до 21 мс) и удлиняет файл больше, чем кадр 50/60 fps. Звук проверяется отдельно: не
+  короче видео больше чем на кадр и не длиннее больше чем на кадр AAC. ProRes —
+  `yuva444p10le`/`yuva444p12le` (ffmpeg 7 сообщает 12 бит) и профиль `4444`.
+- **Смена fps** (fps запроса ≠ fps версии): props по `ScenePropsBase` масштабируются
+  (`scaleTiming`, кадровые ключи content), токены StyleBible — по fps композиции. Props вне
+  договора или версия без `frames/` — отказ `fps_change_unsupported` до рендера. После
+  рендера `tempoCheck` сравнивает только точно совпадающие моменты: стоп-кадр версии `n`, для
+  которого `n·k` целое (24 fps — `n` кратно 5, 25 — 6, 50 — 3, 60 — любое), против кадра
+  экспорта `n·k`. Невыровненный стоп-кадр заменяется ближайшим кратным, его кадр
+  дорендеривается (рендер версии в её fps, без превью) в `.tempo-stills-*` внутри draft и
+  убирается после сверки. Оба кадра уменьшаются до ширины ≤ 480 (не больше размера экспорта);
+  кадр расходится, если худшая клетка сетки 16×9 > 0,06 или клеток > 0,03 не меньше трёх.
+  Сцена с кадрами в коде идёт в другом темпе, и сервер отказывает `fps_tempo_mismatch`.
+  `unscaledTimeKeys` — в `warnings` манифеста.
+- **ffmpeg проверок** (`alphaAtCorner`, `tempoCheck`) с `run` идёт через реестр попытки и
+  отменяется её сигналом; временные файлы — в `run/tmp`.
+- Неудачный экспорт оставляет draft в карантине `workspace/drafts/<job>-a<n>/` вместе с
+  файлом (ProRes 1080p — сотни МБ): разбор и удаление — вручную. Каталог `exports/<id>/`
+  без строки в БД (крах между rename и COMMIT) шаг загрузки `reconcile_exports` переносит в
+  `workspace/drafts/orphan-export-<id>/` с маркером карантина.
+
+Время экспорта и ffprobe — `docs/evidence/phase-1/export/README.md` (render) и
+`docs/evidence/phase-1/export/server/README.md` (задача `scene.export` на SSD).
+
 ## Версии
 
 `remotion`, `@remotion/bundler`, `@remotion/renderer`, `@remotion/fonts` — точно 4.0.537.

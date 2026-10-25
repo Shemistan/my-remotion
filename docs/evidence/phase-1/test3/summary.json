@@ -1,0 +1,21 @@
+{
+  "scene": "scn_01M5N0KGPKY44E27KDYK57THCS",
+  "v1": "ver_01M5N0ZD9S4ASRX8P0P9KDF314",
+  "v2": {
+    "sceneId": "scn_01M5N0KGPKY44E27KDYK57THCS",
+    "jobId": "job_01M5N0ZFYXT2G5Q38M235M07CM",
+    "versionId": "ver_01M5N12D1R0NZPK1725TM754WS",
+    "status": "completed",
+    "wallMs": 97710,
+    "cost_usd": 0.2444043
+  },
+  "v3": {
+    "sceneId": "scn_01M5N0KGPKY44E27KDYK57THCS",
+    "jobId": "job_01M5N12FATA8K81DZQHS4X1XSX",
+    "versionId": "ver_01M5N15578NWJZCR19TN4XBSQD",
+    "status": "completed",
+    "wallMs": 89894,
+    "cost_usd": 0.18650930000000002
+  },
+  "exportId": "exp_01M5N3MV9YFR895ZS4FD6YRCHR"
+}

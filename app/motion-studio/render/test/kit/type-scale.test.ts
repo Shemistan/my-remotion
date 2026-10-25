@@ -25,3 +25,13 @@ describe("typeSize: доли высоты кадра", () => {
     expect(typeSize(s, 99)).toBe(s.typography.scale.at(-1));
   });
 });
+
+describe("sizePx: размер текста компонента (KineticText, AnimatedNumber)", () => {
+  it("уровень — от высоты кадра, шаг 0..8 — шкала стиля, > 8 — px", async () => {
+    const { sizePx } = await import("../../src/motion-kit/style/type-scale.js");
+    expect(sizePx(st, "display", 1080)).toBe(119);
+    expect(sizePx(st, "h1", 1920)).toBe(Math.round(1920 * 0.075));
+    expect(sizePx(st, 7, 1080)).toBe(typeSize(st, 7));
+    expect(sizePx(st, 140, 1080)).toBe(140);
+  });
+});

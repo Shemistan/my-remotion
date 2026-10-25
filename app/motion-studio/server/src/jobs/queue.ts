@@ -2,6 +2,7 @@
 // `jobs.attempt`, замки сцены и ресурсов. Всё синхронно (better-sqlite3), каждый переход —
 // транзакция `BEGIN IMMEDIATE` (внутри транзакции вызывающего — savepoint).
 import type { Job, JobError, JobType } from "@ms/contracts";
+import { type ProcessRegistry, isTrackedAlive } from "@ms/core";
 import type { Db } from "../db/open.js";
 import * as jobProcesses from "../db/repos/job-processes.js";
 import * as jobs from "../db/repos/jobs.js";
@@ -82,6 +83,8 @@ export function enqueue(db: Db, req: EnqueueRequest): { job: Job; created: boole
 export interface ClaimOptions {
   /** Брать только эти типы (те, для которых у раннера есть обработчик). */
   types?: readonly JobType[];
+  /** Брать только задачи с этими id (CLI: только свою задачу, не чужие и не оставшиеся). */
+  ids?: ReadonlySet<string>;
   /** Ключ замка ресурса; по умолчанию `lockKeyFor`. */
   lockKeyFor?: LockKeyFor;
 }
@@ -98,6 +101,7 @@ export function claimNext(db: Db, owner: string, now: number, busy: Busy, opts: 
     const ids = db.prepare("SELECT id FROM jobs WHERE status = 'pending' ORDER BY created_at, rowid").pluck().all() as string[];
     for (const id of ids) {
       const cand = jobs.get(db, id)!;
+      if (opts.ids && !opts.ids.has(id)) continue;
       if (opts.types && !opts.types.includes(cand.type)) continue;
       if (!locksFree(db, cand, keyFor)) continue;
       const attempt = cand.attempt + 1;
@@ -138,12 +142,22 @@ export function setProgress(db: Db, jobId: string, attempt: number, progress: nu
     .run(p, stage, jobId, attempt).changes === 1;
 }
 
+/**
+ * Промежуточные `output_refs` попытки (чекпоинты шагов, M7): пишутся, только если попытка
+ * текущая. `claimNext` обнуляет их для новой попытки, `finish` перезаписывает итогом.
+ */
+export function setOutputRefs(db: Db, jobId: string, attempt: number, refs: unknown): boolean {
+  return db.prepare("UPDATE jobs SET output_refs_json = ? WHERE id = ? AND attempt = ? AND status = 'running'")
+    .run(JSON.stringify(refs ?? null), jobId, attempt).changes === 1;
+}
+
 const CANCELLED: JobError = { code: "cancelled", stage: "cancelled", message: "задача отменена" };
 
 /**
  * Пишет итог попытки, если она текущая (fencing в той же транзакции), и снимает замки —
  * в том числе для `awaiting_input`: сцена свободна, задача ждёт ответа. Запрошенная отмена
- * превращает `awaiting_input` в `cancelled`.
+ * превращает `awaiting_input` в `cancelled`. `blocked` и `failed(stale_process)` дают
+ * `blocked` и замки не снимают (их снимет восстановление или повтор после смерти процессов).
  */
 export function finish(db: Db, jobId: string, attempt: number, result: HandlerResult): boolean {
   return tx(db, () => {
@@ -157,6 +171,10 @@ export function finish(db: Db, jobId: string, attempt: number, result: HandlerRe
       next = jobs.update(db, jobId, { ...done, finished_at: null, status: "awaiting_input", output_refs: { questions: result.questions } });
     } else if (result.status === "awaiting_input") {
       next = jobs.update(db, jobId, { ...done, status: "cancelled", error: CANCELLED });
+    } else if (result.status === "blocked" || (result.status === "failed" && result.error.code === "stale_process")) {
+      // процессы попытки живы: ждём человека, замки держатся до подтверждённого завершения
+      jobs.update(db, jobId, { ...done, finished_at: null, status: "blocked", error: result.error });
+      return true;
     } else {
       next = jobs.update(db, jobId, { ...done, status: result.status, error: result.error });
     }
@@ -171,13 +189,35 @@ function mustGet(db: Db, jobId: string): Job {
   return j;
 }
 
-/** Ответы на уточнения: `awaiting_input → pending`, ответы в `input.answers`. */
+/** Пометка ответа, подставленного из `default_if_skipped`. */
+export const SKIPPED_MARK = " (по умолчанию, вопрос пропущен)";
+
+/**
+ * Пары «вопрос → ответ» для Concept: новый вызов агента своих вопросов не видит, поэтому ключ —
+ * текст вопроса (индекс от старого клиента сопоставляется), пустой или пропущенный ответ —
+ * `default_if_skipped` с пометкой. Без вопросов в `output_refs` ответы остаются как пришли.
+ */
+export function pairAnswers(questions: readonly { question: string; default_if_skipped: string }[], answers: Record<string, string> | "skip"): Record<string, string> | "skip" {
+  if (questions.length === 0) return answers;
+  const given = answers === "skip" ? {} : answers;
+  const out: Record<string, string> = {};
+  questions.forEach((q, i) => {
+    const a = (given[q.question] ?? given[String(i)] ?? "").trim();
+    out[q.question] = a !== "" ? a : q.default_if_skipped + SKIPPED_MARK;
+  });
+  for (const [k, v] of Object.entries(given)) if (!(k in out) && !/^\d+$/.test(k) && v.trim() !== "") out[k] = v.trim();
+  return out;
+}
+
+/** Ответы на уточнения: `awaiting_input → pending`, пары «вопрос → ответ» в `input.answers`. */
 export function provideInput(db: Db, jobId: string, answers: Record<string, string> | "skip"): Job {
   return tx(db, () => {
     const j = mustGet(db, jobId);
     if (j.status !== "awaiting_input") throw new Error(`job_not_awaiting_input: ${jobId} в статусе ${j.status}`);
     const input = j.input !== null && typeof j.input === "object" && !Array.isArray(j.input) ? (j.input as Record<string, unknown>) : { value: j.input };
-    return jobs.update(db, jobId, { status: "pending", input: { ...input, answers } });
+    const qs = (j.output_refs as { questions?: unknown } | null)?.questions;
+    const questions = Array.isArray(qs) ? (qs as { question: string; default_if_skipped: string }[]) : [];
+    return jobs.update(db, jobId, { status: "pending", input: { ...input, answers: pairAnswers(questions, answers) } });
   });
 }
 
@@ -185,8 +225,13 @@ export function provideInput(db: Db, jobId: string, answers: Record<string, stri
  * Отмена. `running` — `cancel_requested = 1` (раннер прерывает попытку через `AbortSignal`);
  * задача без живой попытки (`pending`, `awaiting_input`, `awaiting_approval`, `blocked`) —
  * сразу `cancelled`; завершённая — без изменений.
+ *
+ * @internal Только для очереди (`cancelJob`) и тестов. API и CLI отменяют через
+ * `cancelJob`: у `blocked` живость процессов здесь берётся лишь из `job_processes`, без
+ * бокового реестра Chrome, и замки сцены могли бы сняться при живом рендере. Экспорт
+ * держится ради тестов; вызовы из `src/` вне queue.ts ловит test/jobs/cancel.test.ts.
  */
-export function requestCancel(db: Db, jobId: string): Job {
+export function requestCancel(db: Db, jobId: string, opts: { attemptAlive?: boolean } = {}): Job {
   return tx(db, () => {
     const j = mustGet(db, jobId);
     switch (j.status) {
@@ -198,8 +243,10 @@ export function requestCancel(db: Db, jobId: string): Job {
       case "blocked": {
         const next = jobs.update(db, jobId, { status: "cancelled", cancel_requested: true, error: CANCELLED, finished_at: nowIso(), lease_owner: null, lease_until: null });
         // blocked: процессы прежней попытки могут быть живы — замки держатся, пока реестр их
-        // не покажет завершёнными; снимает восстановление (Task 13)
-        if (j.status !== "blocked" || jobProcesses.listLive(db, { jobId, attempt: j.attempt }).length === 0) releaseLocks(db, next);
+        // не покажет завершёнными; снимает восстановление (Task 13). `attemptAlive` — ответ
+        // полного реестра (cancelJob); без него — только записи `job_processes`.
+        const alive = opts.attemptAlive ?? jobProcesses.listLive(db, { jobId, attempt: j.attempt }).length > 0;
+        if (j.status !== "blocked" || !alive) releaseLocks(db, next);
         return next;
       }
       case "completed":
@@ -209,3 +256,35 @@ export function requestCancel(db: Db, jobId: string): Job {
     }
   });
 }
+
+/**
+ * Есть ли живые процессы попытки в реестре (сервер — слияние `job_processes` и бокового
+ * файлового реестра Chrome). Записи, чьих процессов уже нет (`isTrackedAlive` с проверкой
+ * времени старта), закрываются.
+ */
+export async function attemptAlive(registry: ProcessRegistry, jobId: string, attempt: number): Promise<boolean> {
+  let alive = false;
+  for (const p of await registry.live({ runId: jobId, attempt })) {
+    if (await isTrackedAlive(p)) alive = true;
+    else await registry.end(p, { code: null, signal: null });
+  }
+  return alive;
+}
+
+/**
+ * Отмена для API и CLI (Task 13 → 17): как `requestCancel`, но живость процессов `blocked`
+ * попытки берётся из полного реестра с проверкой процессов, а не только из `job_processes`:
+ * процесс Chrome в боковом реестре держит замки, мёртвая запись — нет.
+ */
+export async function cancelJob(db: Db, registry: ProcessRegistry, jobId: string): Promise<Job> {
+  const j = jobs.get(db, jobId);
+  if (j?.status !== "blocked") return requestCancel(db, jobId);
+  const alive = await attemptAlive(registry, jobId, j.attempt);
+  // попытка не менялась, пока опрашивался реестр (повтор человеком сменил бы её)
+  return tx(db, () => {
+    const cur = jobs.get(db, jobId);
+    if (cur?.status !== "blocked" || cur.attempt !== j.attempt) return requestCancel(db, jobId);
+    return requestCancel(db, jobId, { attemptAlive: alive });
+  });
+}
+

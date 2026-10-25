@@ -1,0 +1,65 @@
+[
+  {
+    "id": "7.1",
+    "title": "анализ видеоряда завершён, режим vision+llm, агент вызван",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null,\"output\":{\"footage_id\":\"ftg_01M5Q9M2EDFZ5T091SJDSRRVHE\",\"rel_path\":\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/analysis/footage/ftg_01M5Q9M2EDFZ5T091SJDSRRVHE/footage.json\",\"mode\":\"vision+llm\",\"reused\":false,\"shots\":1,\"keyframes\":30,\"faces\":{\"shots_with_face\":1,\"min_ratio\":1},\"vision\":{\"status\":\"ok\"},\"agent\":{\"status\":\"completed\",\"calls\":1,\"batches\":1,\"cost_usd\":0.0832,\"retried\":0,\"from_checkpoint\":0,\"dropped_objects\":0,\"permission_denials\":0},\"timings_ms\":{\"prepare\":11,\"shots\":3469,\"keyframes\":3804,\"vision\":6174,\"agent\":30046,\"publish\":65}}}"
+  },
+  {
+    "id": "7.2",
+    "title": "режим анализа — vision+llm (детектор Apple Vision и агент)",
+    "kind": "A",
+    "pass": true,
+    "detail": "vision+llm"
+  },
+  {
+    "id": "7.3",
+    "title": "у каждого шота ≥ 3 ключевых кадров",
+    "kind": "A",
+    "pass": true,
+    "detail": "[[\"sh_1\",30]]"
+  },
+  {
+    "id": "7.4",
+    "title": "лицо найдено детектором на ≥ 80 % ключевых кадров (по ролику)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"overall\":1,\"keyframes\":30,\"per_shot\":[[\"sh_1\",1]]}"
+  },
+  {
+    "id": "7.4b",
+    "title": "лицо найдено на ≥ 80 % кадров в каждом шоте",
+    "kind": "A",
+    "pass": true,
+    "detail": "[[\"sh_1\",1]]"
+  },
+  {
+    "id": "7.5",
+    "title": "у каждого шота есть свободная зона free_ratio ≥ 0,9",
+    "kind": "A",
+    "pass": false,
+    "detail": "[[\"sh_1\",[]]]"
+  },
+  {
+    "id": "7.5b",
+    "title": "по окнам времени: в каждом шоте есть окна со свободной зоной ≥ 0,9, и их ≥ 50 %",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"id\":\"sh_1\",\"windows\":105,\"with_free_09\":83}]"
+  },
+  {
+    "id": "7.6",
+    "title": "кадры не перевёрнуты: центр рамки лица в верхней половине кадра",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"id\":\"sh_1\",\"cy\":0.464}]"
+  },
+  {
+    "id": "7.H1",
+    "title": "кадры с зонами (рамки лица/рук, свободные зоны) — не перевёрнуты, зоны не на лице: смотреть глазами",
+    "kind": "H→агент",
+    "pass": true,
+    "detail": "[\"ftg_01M5Q9M2EDFZ5T091SJDSRRVHE-sh_1-000029000000.png\",\"ftg_01M5Q9M2EDFZ5T091SJDSRRVHE-sh_1-000059000000.png\",\"ftg_01M5Q9M2EDFZ5T091SJDSRRVHE-sh_1-000087000000.png\",\"ftg_01M5Q9M2EDFZ5T091SJDSRRVHE-sh_1-000131000000.png\",\"ftg_01M5Q9M2EDFZ5T091SJDSRRVHE-sh_1-000217000000.png\",\"ftg_01M5Q9M2EDFZ5T091SJDSRRVHE-sh_1-000247000000.png\"]"
+  }
+]

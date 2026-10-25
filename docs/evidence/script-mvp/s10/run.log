@@ -1,0 +1,30 @@
+план: 11 сцен; выбраны ss_004 hero-number 201 кадров «Случайное совпадение по такому байту бывает с вероятностью один к двум»; ss_007 split-versus 381 кадров «Кит Рэндалл в докладе на GopherCon 2016 говорит что это число подобран»
+16:9 ss_007: completed за 4.9 мин, $1.51
+16:9 ss_004: completed за 7.0 мин, $2.15
+reframe sb_d1da9cc5b3ea986e4f9ddc9bf4b21b: в пакете ss_004, ss_007; пропущены []
+9:16 ss_007: completed за 6.3 мин, $1.66
+9:16 ss_004: completed за 6.3 мин, $2.02
+  OK   ss_004: вход двойника — 9:16, эталон ver_01M5R406ZMWK5D8EV0GWSRPZQY
+  OK   ss_004: Concept не вызывался (роли: motion_director, motion_director, engineer, visual_qa)
+  OK   ss_004: 9:16 1080×1920
+  OK   ss_004: длительность 201 = эталону 201
+  OK   ss_004: без blocking clipping
+  ss_004: QA {"technical":"pass","visual":"warn","semantic":"warn","style":"pass"}; замечания: accent_static/warning, frame0_coverage/warning, semantic/warning, accent_conflict/warning, composition/warning, rhythm/warning
+  ss_004: структура count-up → count-up; фазы setup:18 action:37 payoff:28 hold:17 → setup:20 action:36 payoff:27 hold:17
+  ss_004: биты 16:9 number-count[15;70) grid-in[23;70) card-in[29;45) grid-fill[42;70) number-in[45;61) number-strike[70;82) caption-in[70;122) grid-collapse[82;122) hold[122;201)
+  ss_004: биты 9:16 number-count[15;71) grid-in[23;71) card-in[29;45) grid-fill[43;71) number-in[45;61) number-strike[71;83) caption-in[71;121) grid-collapse[83;121) hold[121;201)
+  OK   ss_007: вход двойника — 9:16, эталон ver_01M5R3WB3MAXNX9VZMK92SZ7XY
+  OK   ss_007: Concept не вызывался (роли: motion_director, engineer, visual_qa)
+  OK   ss_007: 9:16 1080×1920
+  OK   ss_007: длительность 381 = эталону 381
+  OK   ss_007: без blocking clipping
+  ss_007: QA {"technical":"pass","visual":"warn","semantic":"warn","style":"pass"}; замечания: scene_signature_repeat/warning, composition/warning, overlap/warning, hierarchy/warning, accent_conflict/warning, semantic/warning
+  ss_007: структура split-reveal → split-reveal; фазы setup:19 action:20 action:20 turn:18 payoff:14 hold:9 → setup:19 action:20 action:20 turn:18 payoff:14 hold:9
+  ss_007: биты 16:9 split-in[15;45) hero-in[21;36) year-in[45;105) empirical-in[105;165) wrong-in[165;183) strike-draw[183;201) caption-in[201;219) verdict-emphasis[219;311) hold[311;381)
+  ss_007: биты 9:16 split-in[15;45) hero-in[21;36) year-in[45;105) empirical-in[105;165) wrong-in[165;183) strike-draw[183;201) caption-in[201;219) verdict-emphasis[219;311) hold[311;381)
+пакет 9:16: /Volumes/External SSD/MotionStudio-e2e-s10/workspace/projects/prj_01M5R3J1EYYZ16VQ4N5WPJXC1M/packages/pkg_01M5R4BS68PFEWNQQZRTNC4H3K; файлы 04_sluchaynoe-sovpadenie-po-takomu-baytu.mp4, 04_sluchaynoe-sovpadenie-po-takomu-baytu_alpha.mov, 07_kit-rendall-v-doklade-na-gophercon-2016.mp4, 07_kit-rendall-v-doklade-na-gophercon-2016_alpha.mov; не вошли ss_001 — нет готовой версии; ss_002 — нет готовой версии; ss_003 — нет готовой версии; ss_005 — нет готовой версии; ss_006 — нет готовой версии; ss_008 — нет готовой версии; ss_009 — нет готовой версии; ss_010 — нет готовой версии; ss_011 — нет готовой версии
+  04_sluchaynoe-sovpadenie-po-takomu-baytu.mp4: h264 High yuv420p 1080×1920 6.70 с
+  04_sluchaynoe-sovpadenie-po-takomu-baytu_alpha.mov: prores 4444 yuva444p12le 1080×1920 6.70 с
+  07_kit-rendall-v-doklade-na-gophercon-2016.mp4: h264 High yuv420p 1080×1920 12.70 с
+  07_kit-rendall-v-doklade-na-gophercon-2016_alpha.mov: prores 4444 yuva444p12le 1080×1920 12.70 с
+итого $7.34

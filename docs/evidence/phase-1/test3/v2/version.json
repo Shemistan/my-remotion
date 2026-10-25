@@ -1,0 +1,67 @@
+{
+  "id": "ver_01M5N12D1R0NZPK1725TM754WS",
+  "scene_id": "scn_01M5N0KGPKY44E27KDYK57THCS",
+  "parent_version_id": "ver_01M5N0ZD9S4ASRX8P0P9KDF314",
+  "number": 2,
+  "status": "ready",
+  "prompt": "сделай всё в фиолетовых тонах",
+  "edit_plan_json": {
+    "base_version_id": "ver_01M5N0ZD9S4ASRX8P0P9KDF314",
+    "path": "param",
+    "changes": [
+      {
+        "target": "palette",
+        "kind": "param",
+        "description": "Полная фиолетовая палитра: фон #0d0916, поверхности #1a1330, текст #f5f1ff, акценты #a78bfa / #e879f9 / #6d5efc"
+      }
+    ],
+    "borrow": [],
+    "preserve": [
+      "composition",
+      "text",
+      "timing"
+    ],
+    "param_patch": {
+      "style": {
+        "palette_overrides": {
+          "bg": "#0d0916",
+          "surface": "#1a1330",
+          "text": "#f5f1ff",
+          "muted": "#a094c8",
+          "accent": [
+            "#a78bfa",
+            "#e879f9",
+            "#6d5efc"
+          ],
+          "positive": "#c084fc",
+          "negative": "#f472b6"
+        }
+      }
+    },
+    "reply": "Перекрашиваю всю сцену в фиолетовые тона: фон, поверхности, текст и три акцента (тёмный пресет сохраняю, контраст текста выше 4,5:1). Композицию, тексты и темп не трогаю."
+  },
+  "settings_json": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 180,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "path": "workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N0KGPKY44E27KDYK57THCS/versions/ver_01M5N12D1R0NZPK1725TM754WS",
+  "manifest_sha256": "65cfe0287524a188a066efa3ae5ae8189a1e275854ac06cc92c03522acae5627",
+  "created_by_job_id": "job_01M5N0ZFYXT2G5Q38M235M07CM",
+  "created_at": "2026-10-23T18:41:14.810Z",
+  "broken_reason": null,
+  "dir": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5N0BWTSM3KQC4PHMB6V6TQ5/scenes/scn_01M5N0KGPKY44E27KDYK57THCS/versions/ver_01M5N12D1R0NZPK1725TM754WS"
+}

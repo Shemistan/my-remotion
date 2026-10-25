@@ -1,0 +1,163 @@
+{
+  "timing": {
+    "duration_frames": 180,
+    "beats": [
+      {
+        "id": "b-kicker-in",
+        "start_frame": 0,
+        "end_frame": 24
+      },
+      {
+        "id": "b-chart-draw",
+        "start_frame": 4,
+        "end_frame": 134
+      },
+      {
+        "id": "b-number-in",
+        "start_frame": 0,
+        "end_frame": 20
+      },
+      {
+        "id": "b-unit-in",
+        "start_frame": 12,
+        "end_frame": 36
+      },
+      {
+        "id": "b-number-count",
+        "start_frame": 20,
+        "end_frame": 108
+      },
+      {
+        "id": "b-final-emphasis",
+        "start_frame": 108,
+        "end_frame": 132
+      },
+      {
+        "id": "b-statement-in",
+        "start_frame": 116,
+        "end_frame": 134
+      },
+      {
+        "id": "b-hold",
+        "start_frame": 153,
+        "end_frame": 180
+      }
+    ]
+  },
+  "style": {
+    "preset": "dark-premium",
+    "intensity": "balanced",
+    "depth": 1,
+    "transparent": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "content": {
+    "background": {
+      "variant": "aurora",
+      "seed": "scn_01M5FG5KYNQ9PJ0E08YBXEVE4B",
+      "focus": {
+        "x": 0.72,
+        "y": 0.22
+      }
+    },
+    "camera": [
+      {
+        "frame": 0,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "frame": 120,
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      {
+        "frame": 179,
+        "scale": 1.04,
+        "x": 40,
+        "y": -25
+      }
+    ],
+    "kicker": {
+      "text": "Рост аудитории · 3 года",
+      "layout": {
+        "x": 0.05,
+        "y": 0.05,
+        "w": 0.4,
+        "h": 0.06
+      }
+    },
+    "chart": {
+      "points": [
+        {
+          "label": "Старт",
+          "value": 10000
+        },
+        {
+          "label": "Год 1",
+          "value": 46000
+        },
+        {
+          "label": "Год 2",
+          "value": 215000
+        },
+        {
+          "label": "Год 3",
+          "value": 1000000
+        }
+      ],
+      "area": true,
+      "callout": false,
+      "locale": "ru",
+      "compact": true,
+      "yTicks": 4,
+      "width": 1071,
+      "height": 700,
+      "accentIndex": 0,
+      "layout": {
+        "x": 0.05,
+        "y": 0.26,
+        "w": 0.62,
+        "h": 0.72
+      }
+    },
+    "unit": {
+      "text": "Пользователи",
+      "layout": {
+        "x": 0.56,
+        "y": 0.05,
+        "w": 0.39,
+        "h": 0.06
+      }
+    },
+    "hero": {
+      "from": 10000,
+      "to": 1000000,
+      "locale": "ru",
+      "enterAt": 4,
+      "layout": {
+        "x": 0.56,
+        "y": 0.11,
+        "w": 0.39,
+        "h": 0.15
+      }
+    },
+    "statement": {
+      "lines": [
+        "×100",
+        "за три года"
+      ],
+      "layout": {
+        "x": 0.7,
+        "y": 0.46,
+        "w": 0.25,
+        "h": 0.18
+      }
+    }
+  }
+}

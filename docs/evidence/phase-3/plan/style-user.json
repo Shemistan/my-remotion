@@ -1,0 +1,175 @@
+{
+  "current": {
+    "schema_version": 1,
+    "style_id": "sty_01M5Q9RJHHY72N7GB521ERX9KT",
+    "revision": 2,
+    "base": {
+      "preset": "dark-premium",
+      "intensity": "energetic",
+      "depth": 2
+    },
+    "resolved": {
+      "id": "dark-premium",
+      "name": "Dark Premium",
+      "palette": {
+        "bg": "#07080d",
+        "surface": "#12141c",
+        "text": "#f3f4f8",
+        "muted": "#8b91a5",
+        "accent": [
+          "#8b7cff",
+          "#45d6c0",
+          "#f4b56a"
+        ],
+        "positive": "#45d6c0",
+        "negative": "#ff6b81"
+      },
+      "typography": {
+        "display": {
+          "family": "Manrope",
+          "weight": 800
+        },
+        "body": {
+          "family": "Inter",
+          "weight": 500
+        },
+        "mono": {
+          "family": "JetBrains Mono",
+          "weight": 500
+        },
+        "scale": [
+          18,
+          22,
+          28,
+          36,
+          48,
+          64,
+          88,
+          120,
+          160
+        ],
+        "tracking": {
+          "display": -0.035,
+          "body": -0.01,
+          "caps": 0.14,
+          "mono": 0
+        }
+      },
+      "grid": {
+        "columns": 12,
+        "gutter": 32,
+        "safe_area": {
+          "x": 0.06,
+          "y": 0.08
+        }
+      },
+      "surfaces": {
+        "radius": [
+          10,
+          18,
+          26,
+          36
+        ],
+        "elevation": [
+          "0 0 0 1px rgba(255, 255, 255, 0.06)",
+          "0 0 0 1px rgba(255, 255, 255, 0.07), 0 10px 24px -10px rgba(0, 0, 0, 0.7)",
+          "0 0 0 1px rgba(255, 255, 255, 0.1), 0 24px 48px -16px rgba(0, 0, 0, 0.8), 0 6px 14px -4px rgba(0, 0, 0, 0.5), 0 0 56px -24px rgba(139, 124, 255, 0.22)",
+          "0 0 0 1px rgba(255, 255, 255, 0.12), 0 48px 96px -24px rgba(0, 0, 0, 0.9), 0 16px 32px -8px rgba(0, 0, 0, 0.6), 0 0 80px -20px rgba(139, 124, 255, 0.35)"
+        ]
+      },
+      "motion": {
+        "intensity": "energetic",
+        "easing": {
+          "enter": [
+            0.16,
+            1,
+            0.3,
+            1
+          ],
+          "exit": [
+            0.7,
+            0,
+            0.84,
+            0
+          ],
+          "emphasis": [
+            0.34,
+            1.56,
+            0.64,
+            1
+          ]
+        },
+        "spring": {
+          "soft": {
+            "damping": 22,
+            "stiffness": 90,
+            "mass": 1
+          },
+          "snappy": {
+            "damping": 15,
+            "stiffness": 170,
+            "mass": 0.8
+          },
+          "bouncy": {
+            "damping": 10,
+            "stiffness": 140,
+            "mass": 0.9
+          },
+          "pop": {
+            "damping": 12,
+            "stiffness": 180,
+            "mass": 0.8
+          }
+        },
+        "stagger_frames": 3,
+        "enter_frames": 18,
+        "exit_frames": 11
+      },
+      "camera": {
+        "allow_zoom": true,
+        "max_scale": 1.08,
+        "parallax": true
+      }
+    },
+    "rationale": "Спокойный технический разбор сетевого протокола — тёмный деловой стиль с умеренной анимацией подходит лучше всего.",
+    "author": "user"
+  },
+  "history": [
+    {
+      "revision": 1,
+      "parent_revision": null,
+      "author": "agent",
+      "created_at": "2026-10-24T15:51:38.827Z"
+    },
+    {
+      "revision": 2,
+      "parent_revision": 1,
+      "author": "user",
+      "created_at": "2026-10-24T15:52:01.560Z"
+    }
+  ],
+  "contrast": [
+    {
+      "key": "text",
+      "color": "#f3f4f8",
+      "bg": "#07080d",
+      "ratio": 18.204129158157098,
+      "min": 4.5,
+      "good": 7
+    },
+    {
+      "key": "muted",
+      "color": "#8b91a5",
+      "bg": "#07080d",
+      "ratio": 6.375199145505917,
+      "min": 3,
+      "good": 4.5
+    }
+  ],
+  "issues": [],
+  "fonts": [
+    "Inter",
+    "Manrope",
+    "JetBrains Mono"
+  ]
+}

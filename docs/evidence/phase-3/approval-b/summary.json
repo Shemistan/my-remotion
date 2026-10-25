@@ -1,0 +1,97 @@
+{
+  "plan_id": "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM",
+  "revision": 12,
+  "accepted": [
+    {
+      "id": "sp_001",
+      "origin": "agent",
+      "mode": "split_screen",
+      "zone": "split_left",
+      "edited": {
+        "start_us": 51613333,
+        "end_us": 61493333
+      }
+    },
+    {
+      "id": "sp_002",
+      "origin": "agent",
+      "mode": "split_screen",
+      "zone": "split_left",
+      "edited": {
+        "start_us": 87440001,
+        "end_us": 94980001
+      }
+    },
+    {
+      "id": "sp_003",
+      "origin": "agent",
+      "mode": "callout",
+      "zone": "left_third",
+      "edited": {
+        "start_us": 109546668,
+        "end_us": 113166668
+      }
+    },
+    {
+      "id": "sp_005",
+      "origin": "agent",
+      "mode": "overlay",
+      "zone": "left_third",
+      "edited": {
+        "start_us": 159866667,
+        "end_us": 167706667
+      }
+    },
+    {
+      "id": "sp_006",
+      "origin": "agent",
+      "mode": "split_screen",
+      "zone": "split_left",
+      "edited": {
+        "start_us": 227543000,
+        "end_us": 240623000
+      }
+    },
+    {
+      "id": "sp_007",
+      "origin": "agent",
+      "mode": "split_screen",
+      "zone": "split_left",
+      "edited": {
+        "start_us": 258876333,
+        "end_us": 267396333
+      }
+    },
+    {
+      "id": "sp_008",
+      "origin": "agent",
+      "mode": "overlay",
+      "zone": "left_third",
+      "edited": {
+        "start_us": 280749666,
+        "end_us": 291349666
+      }
+    },
+    {
+      "id": "sp_009",
+      "origin": "user",
+      "mode": "overlay",
+      "zone": "left_third",
+      "edited": {
+        "start_us": 63713333,
+        "end_us": 66773333
+      }
+    }
+  ],
+  "coverage_pct": 21.9,
+  "layout": [
+    "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r12-sp_001.png",
+    "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r12-sp_009.png",
+    "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r12-sp_002.png",
+    "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r12-sp_003.png",
+    "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r12-sp_005.png",
+    "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r12-sp_006.png",
+    "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r12-sp_007.png",
+    "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM-r12-sp_008.png"
+  ]
+}

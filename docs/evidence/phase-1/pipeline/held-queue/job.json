@@ -1,0 +1,465 @@
+{
+  "job": {
+    "id": "job_01M5FK5TF431ZXSM2KR99A4EM5",
+    "type": "playground.generate",
+    "project_id": "playground",
+    "scene_id": "scn_01M5FK5TF1VSVXBXXJBBRW1WXT",
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "publish",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "sceneId": "scn_01M5FK5TF1VSVXBXXJBBRW1WXT",
+      "prompt": "Объясни, как работает очередь сообщений между сервисом заказов и складом",
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 180,
+        "style_preset": "dark-premium",
+        "animation_intensity": "balanced",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        }
+      }
+    },
+    "input_hash": "ee0e68b072bcda953f9300b6e382cf273f4b6b08ba261e5c194948782dbdbcf4",
+    "output_refs": {
+      "scene_id": "scn_01M5FK5TF1VSVXBXXJBBRW1WXT",
+      "version_id": "ver_01M5FM15E7MZ0CXHW9M5JYDW16",
+      "version_number": 1,
+      "version_dir": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FK5TF1VSVXBXXJBBRW1WXT/versions/ver_01M5FM15E7MZ0CXHW9M5JYDW16",
+      "preview_path": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FK5TF1VSVXBXXJBBRW1WXT/versions/ver_01M5FM15E7MZ0CXHW9M5JYDW16/preview.mp4",
+      "cost_usd": 3.4770681,
+      "engineer_calls": 2,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "warn",
+        "style": "pass"
+      },
+      "warnings": [
+        "spec: scene_signature_repeat (background, topTitle, staticCamera): сцена повторяет подпись предыдущей «Архитектура AI-агента» (3 из 4): фон blueprint:11, без полосы заголовка, камера стоит"
+      ],
+      "steps": {
+        "concept": {
+          "input_hash": "28b43371d7de868e118603cb6304030e27c58484317ce42c7b0aca71760ca09f",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5FK5TF431ZXSM2KR99A4EM5/checkpoints/concept.json"
+        },
+        "director": {
+          "input_hash": "83856d55872bc9456aa6f8fd4fd543de1843b6c66878ff62236f1294ea438013",
+          "path": "/Volumes/External SSD/MotionStudio/logs/agent-runs/job_01M5FK5TF431ZXSM2KR99A4EM5/checkpoints/motion_director.json"
+        }
+      }
+    },
+    "error": null,
+    "idempotency_key": "e2e-held-queue-run_01M5FK5TF431ZXSM2KR99A4EM4",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-21T16:02:14.628Z",
+    "started_at": "2026-10-21T16:02:15.121Z",
+    "finished_at": "2026-10-21T16:17:10.623Z"
+  },
+  "wall_ms": 897683,
+  "cost_usd": 3.4770681,
+  "agent_runs": [
+    {
+      "role": "concept",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 5932,
+      "output_tokens": 658,
+      "cost_usd": 0.008612199999999999,
+      "started_at": "2026-10-21T16:02:15.511Z",
+      "finished_at": "2026-10-21T16:02:23.427Z"
+    },
+    {
+      "role": "motion_director",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 53301,
+      "output_tokens": 8628,
+      "cost_usd": 0.5732512,
+      "started_at": "2026-10-21T16:02:23.643Z",
+      "finished_at": "2026-10-21T16:03:43.700Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 470190,
+      "output_tokens": 32991,
+      "cost_usd": 1.3416488,
+      "started_at": "2026-10-21T16:03:43.863Z",
+      "finished_at": "2026-10-21T16:09:17.385Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 49424,
+      "output_tokens": 4350,
+      "cost_usd": 0.17305890000000002,
+      "started_at": "2026-10-21T16:10:04.637Z",
+      "finished_at": "2026-10-21T16:10:41.269Z"
+    },
+    {
+      "role": "engineer",
+      "model": "claude-opus-5-5",
+      "status": "completed",
+      "input_tokens": 618250,
+      "output_tokens": 30087,
+      "cost_usd": 1.205462,
+      "started_at": "2026-10-21T16:10:41.480Z",
+      "finished_at": "2026-10-21T16:15:55.942Z"
+    },
+    {
+      "role": "visual_qa",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 67123,
+      "output_tokens": 4676,
+      "cost_usd": 0.175035,
+      "started_at": "2026-10-21T16:16:34.670Z",
+      "finished_at": "2026-10-21T16:17:09.756Z"
+    }
+  ],
+  "render_jobs": [
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "frames": 8,
+      "duration_ms": 29440
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "frames": 180,
+      "duration_ms": 29440
+    },
+    {
+      "kind": "still",
+      "codec": "png",
+      "width": 1920,
+      "height": 1080,
+      "frames": 8,
+      "duration_ms": 21764
+    },
+    {
+      "kind": "preview",
+      "codec": "h264",
+      "width": 960,
+      "height": 540,
+      "frames": 180,
+      "duration_ms": 21764
+    }
+  ],
+  "qa_reports": [
+    {
+      "id": 63,
+      "version_id": "ver_01M5FM15E7MZ0CXHW9M5JYDW16",
+      "attempt": 1,
+      "technical": "pass",
+      "visual": "warn",
+      "semantic": "warn",
+      "style": "pass",
+      "report_path": "workspace/projects/playground/scenes/scn_01M5FK5TF1VSVXBXXJBBRW1WXT/versions/ver_01M5FM15E7MZ0CXHW9M5JYDW16/qa.json"
+    }
+  ],
+  "component_tests": [
+    {
+      "kb_id": "remotion-video-templates/line-chart-draw",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FJNHQ0Z5Y81CE53V1X917F",
+      "date": "2026-10-21T15:53:21.395Z"
+    },
+    {
+      "kb_id": "motion-primitives/animated-number",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FKZB022NEK5H1QRBXHERR7",
+      "date": "2026-10-21T16:16:10.777Z"
+    },
+    {
+      "kb_id": "magicui/animated-beam",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FHERG5GX269VM6R15NS1M3",
+      "date": "2026-10-21T15:32:10.394Z"
+    },
+    {
+      "kb_id": "xyflow/example-custom-node",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FHERG5GX269VM6R15NS1M3",
+      "date": "2026-10-21T15:32:10.394Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-counter-confetti",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5ECYN3BHMXEQ0EFQSQ8VPMY",
+      "date": "2026-10-21T04:54:13.886Z"
+    },
+    {
+      "kb_id": "remotion-bits/animated-counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FK13HD5ZASFSM14J1D1MTT",
+      "date": "2026-10-21T15:59:40.098Z"
+    },
+    {
+      "kb_id": "xyflow/example-floating-edges",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5EDHES67C9E4SRQ5HYRQDCE",
+      "date": "2026-10-21T05:04:30.010Z"
+    },
+    {
+      "kb_id": "xyflow/react-flow",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FKW3N8XEK9KC58PMQG306T",
+      "date": "2026-10-21T16:14:24.958Z"
+    },
+    {
+      "kb_id": "xyflow/edge-types",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FM15E7MZ0CXHW9M5JYDW16",
+      "date": "2026-10-21T16:17:10.620Z"
+    },
+    {
+      "kb_id": "motion-primitives-website/svg-path-draw",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F1FB708Z0CPCB2C7VYE7BC",
+      "date": "2026-10-21T10:52:52.343Z"
+    },
+    {
+      "kb_id": "animata/glowing-card",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
+      "date": "2026-10-21T10:32:20.714Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/chapter-title",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FDX3Y3HD111RSH8YNC8JR2",
+      "date": "2026-10-21T14:30:06.548Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-staggered-fade-in",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5EX0TTC9B6BJPW1ECEZAZFX",
+      "date": "2026-10-21T09:35:02.496Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/split-screen",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FJFED81E6VE437X34W26YH",
+      "date": "2026-10-21T15:50:01.404Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/line-chart-anim",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FKZB022NEK5H1QRBXHERR7",
+      "date": "2026-10-21T16:16:10.777Z"
+    },
+    {
+      "kb_id": "free-remotion-templates/kpi-counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F1NFJA74QYZQS7DYT7B3VG",
+      "date": "2026-10-21T10:56:13.406Z"
+    },
+    {
+      "kb_id": "xyflow/default-nodes",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FM15E7MZ0CXHW9M5JYDW16",
+      "date": "2026-10-21T16:17:10.620Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-card-stack",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5F09RESAR0KF8CMXT00YA6D",
+      "date": "2026-10-21T10:32:20.714Z"
+    },
+    {
+      "kb_id": "motion-primitives/text-effect",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FDX3Y3HD111RSH8YNC8JR2",
+      "date": "2026-10-21T14:30:06.548Z"
+    },
+    {
+      "kb_id": "motion-primitives-website/animated-counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FEX67DRJQXX3Y1R72Y5SYZ",
+      "date": "2026-10-21T14:47:37.474Z"
+    },
+    {
+      "kb_id": "motion-primitives-website/number-ticker",
+      "remotion_version": "4.0.537",
+      "result": "rendered-fail",
+      "version_id": "ver_01M5FFPQDR81GEMDR5WMBMF8TG",
+      "date": "2026-10-21T15:01:34.282Z"
+    },
+    {
+      "kb_id": "animata/counter",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FGQ109HRPG5CXAN3NSQ2KV",
+      "date": "2026-10-21T15:19:12.669Z"
+    },
+    {
+      "kb_id": "animata/confirmation-message",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FGXQ2574A47125XPB5Y3VB",
+      "date": "2026-10-21T15:22:51.866Z"
+    },
+    {
+      "kb_id": "remotion-bits/bit-3d-step-timing-context",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FJNHQ0Z5Y81CE53V1X917F",
+      "date": "2026-10-21T15:53:21.395Z"
+    },
+    {
+      "kb_id": "animata/donut-chart",
+      "remotion_version": "4.0.537",
+      "result": "rendered-ok",
+      "version_id": "ver_01M5FK13HD5ZASFSM14J1D1MTT",
+      "date": "2026-10-21T15:59:40.098Z"
+    }
+  ],
+  "chat": [
+    {
+      "id": "msg_01M5FM15EWJK64GMGGNGH1MPHW",
+      "scene_id": "scn_01M5FK5TF1VSVXBXXJBBRW1WXT",
+      "role": "assistant",
+      "text": "Версия 1 готова.\nКонцепция: Слева светится узел «Сервис заказов», справа — «Склад», посередине труба-очередь «orders.created». Заказ «#4821 · 2 × кроссовки Nike Air, размер 42» вылетает из сервиса заказов и встаёт в очередь, где уже ждут «#4819» и «#4820». Сервис заказов сразу получает зелёную отметку «Принято» и свободен — не ждёт склад. Склад забирает сообщения по одному, в своём темпе: «#4819» уходит на сборку, затем «#4820», затем «#4821», у каждого статус меняется «в очереди → в обработке → зарезервировано». Герой кадра — очередь как буфер: даже если склад занят или недоступен, заказы не теряются, а копятся и обрабатываются позже. Итоговая надпись: «Сервисы не ждут друг друга». Взгляд идёт слева направо: отправка → очередь → получение → подтверждение «Товар зарезервирован».\nКомпоненты: motion-kit StyleProvider, motion-kit Background, motion-kit SafeArea, motion-kit FlowGraph, motion-kit PulseAlongPath, motion-kit DataToken, motion-kit StatusChip, motion-kit SceneTitle, motion-kit flowSlot, motion-kit edgeSegment, motion-kit pulseArrival, motion-kit useFlowGeometry, motion-kit staggerBeat, motion-kit springAt, motion-kit easingOf, motion-kit dataColor, motion-kit mix, motion-kit typeSize, motion-kit useSafeArea, motion-kit useStyle, xyflow/default-nodes (adapt, MIT (LICENSE, packages/react/package.json)), xyflow/edge-types (adapt, MIT (LICENSE, packages/react/package.json)).\nQA (автоматический, решение за вами): технический — пройден, визуальный — с замечаниями, смысловой — с замечаниями, стиль — пройден; замечаний: blocking 0, warning 8.",
+      "version_id": "ver_01M5FM15E7MZ0CXHW9M5JYDW16",
+      "job_id": "job_01M5FK5TF431ZXSM2KR99A4EM5",
+      "created_at": "2026-10-21T16:17:10.620Z"
+    }
+  ],
+  "events": [
+    {
+      "ts": "2026-10-21T16:02:15.127Z",
+      "level": "info",
+      "kind": "started",
+      "message": "playground.generate: попытка 1"
+    },
+    {
+      "ts": "2026-10-21T16:02:15.507Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept…"
+    },
+    {
+      "ts": "2026-10-21T16:02:23.434Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Concept: Слева светится узел «Сервис заказов», справа — «Склад», посередине труба-очередь «orders.created». Заказ «#4821 · 2 × кроссовки Nike Air, размер 42» вылетает из сервиса заказов и встаёт в очередь, где уже ждут «#4819» и «#4820». Сервис заказов сразу получает зелёную отметку «Принято» и свободен — не ждёт склад. Склад забирает сообщения по одному, в своём темпе: «#4819» уходит на сборку, затем «#4820», затем «#4821», у каждого статус меняется «в очереди → в обработке → зарезервировано». Герой кадра — очередь как буфер: даже если склад занят или недоступен, заказы не теряются, а копятся и обрабатываются позже. Итоговая надпись: «Сервисы не ждут друг друга». Взгляд идёт слева направо: отправка → очередь → получение → подтверждение «Товар зарезервирован». [sequence-steps, system-structure, cause-effect]"
+    },
+    {
+      "ts": "2026-10-21T16:02:23.460Z",
+      "level": "info",
+      "kind": "log",
+      "message": "KB: 12 кандидатов по ключам Concept"
+    },
+    {
+      "ts": "2026-10-21T16:02:23.640Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Motion Director…"
+    },
+    {
+      "ts": "2026-10-21T16:03:43.720Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Director: «Очередь между заказами и складом» (network-centric), 9 битов, KB: xyflow/default-nodes (adapt), xyflow/edge-types (adapt)"
+    },
+    {
+      "ts": "2026-10-21T16:03:43.860Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer…"
+    },
+    {
+      "ts": "2026-10-21T16:09:31.959Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 10, 32, 53, 70, 100, 130, 152, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-21T16:10:04.620Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA…"
+    },
+    {
+      "ts": "2026-10-21T16:10:41.270Z",
+      "level": "info",
+      "kind": "log",
+      "message": "QA: blocking overlap@53"
+    },
+    {
+      "ts": "2026-10-21T16:10:41.477Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Engineer: исправление 1 из 2 (qa)…"
+    },
+    {
+      "ts": "2026-10-21T16:16:09.589Z",
+      "level": "info",
+      "kind": "log",
+      "message": "рендер: кадры 10, 32, 53, 70, 100, 130, 152, 179 + превью…"
+    },
+    {
+      "ts": "2026-10-21T16:16:34.645Z",
+      "level": "info",
+      "kind": "log",
+      "message": "Visual QA…"
+    },
+    {
+      "ts": "2026-10-21T16:17:10.616Z",
+      "level": "info",
+      "kind": "log",
+      "message": "✓ ready: /Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FK5TF1VSVXBXXJBBRW1WXT/versions/ver_01M5FM15E7MZ0CXHW9M5JYDW16"
+    },
+    {
+      "ts": "2026-10-21T16:17:10.627Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed"
+    }
+  ]
+}

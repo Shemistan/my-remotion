@@ -4,7 +4,7 @@ import { access, constants } from "node:fs/promises";
 import { delimiter, isAbsolute, join } from "node:path";
 import type { Fps, ProbeResult, Settings } from "@ms/contracts";
 
-// Тип — из `@ms/contracts` (ProbeResultSchema); `audioCodec`/`pixFmt` заполнит экспорт (Task 19).
+// Тип — из `@ms/contracts` (ProbeResultSchema); `audioCodec` и `pixFmt` нужны gate экспорта.
 export type { ProbeResult };
 
 export const FFPROBE_ARGS = ["-v", "error", "-print_format", "json", "-show_streams", "-show_format"];
@@ -17,7 +17,16 @@ interface RawStream {
   height?: number;
   r_frame_rate?: string;
   duration?: string;
+  nb_frames?: string;
+  pix_fmt?: string;
+  profile?: string;
 }
+
+const ms = (seconds: number) => Math.round(seconds * 1_000_000) / 1000;
+const positive = (x: unknown) => {
+  const n = Number(x);
+  return x !== undefined && x !== "N/A" && Number.isFinite(n) && n > 0 ? n : undefined;
+};
 
 function gcd(a: number, b: number): number {
   return b === 0 ? a : gcd(b, a % b);
@@ -32,19 +41,32 @@ function parseRate(rate: string | undefined): Fps {
   return { num: num / g, den: den / g };
 }
 
-/** Разбор JSON `ffprobe -show_streams -show_format`: первый видеопоток. */
+/**
+ * Разбор JSON `ffprobe -show_streams -show_format`: первый видеопоток и первый звуковой.
+ * `durationMs` — длительность видеопотока (`duration`, иначе `nb_frames / fps`, иначе
+ * `format.duration`): `format.duration` — максимум по потокам, а AAC добивается до целого
+ * кадра (1024 сэмпла) и удлиняет файл на 5–21 мс, что больше кадра 50/60 fps (F1).
+ */
 export function parseProbe(json: string): ProbeResult {
   const data = JSON.parse(json) as { streams?: RawStream[]; format?: { duration?: string } };
   const v = data.streams?.find((s) => s.codec_type === "video");
   if (!v || !v.codec_name || !v.width || !v.height) throw new Error("ffprobe: в файле нет видеопотока");
-  const seconds = Number(data.format?.duration ?? v.duration);
-  if (!Number.isFinite(seconds) || seconds <= 0) throw new Error("ffprobe: длительность не определена");
+  const fps = parseRate(v.r_frame_rate);
+  const frames = positive(v.nb_frames);
+  const seconds = positive(v.duration) ?? (frames !== undefined ? (frames * fps.den) / fps.num : positive(data.format?.duration));
+  if (seconds === undefined) throw new Error("ffprobe: длительность не определена");
+  const audio = data.streams?.find((s) => s.codec_type === "audio" && s.codec_name);
+  const audioSeconds = positive(audio?.duration);
   return {
-    durationMs: Math.round(seconds * 1_000_000) / 1000,
+    durationMs: ms(seconds),
     width: v.width,
     height: v.height,
-    fps: parseRate(v.r_frame_rate),
+    fps,
     codec: v.codec_name,
+    ...(v.profile ? { profile: v.profile } : {}),
+    ...(v.pix_fmt ? { pixFmt: v.pix_fmt } : {}),
+    ...(audio?.codec_name ? { audioCodec: audio.codec_name } : {}),
+    ...(audioSeconds !== undefined ? { audioDurationMs: ms(audioSeconds) } : {}),
   };
 }
 

@@ -1,0 +1,57 @@
+{
+  "status": "failed",
+  "job_status": "failed",
+  "failure": {
+    "stage": "qa",
+    "message": "QA: blocking после 2 исправлений: overlap (кадр 48): Два полупрозрачных «призрака» токена «№4822 · кофемашина» лежат поверх карточки «Сервис заказов» и друг на друге, надпись задвоена и нечитаема. Под чипом «ОТПРАВКА» просвечивает ещё один слой текста. Токен «№4822» при этом висит на границе карточки очереди, а не внутри неё.; overlap (кадр 76): Рядом с токеном «№4821 · Nike 42» лежит наложенная друг на друга стопка полупрозрачных токенов, видно «№4№4821481». Сам токен «№4821» выступает за правую границу карточки очереди (до x≈1382) и почти касается карточки «Склад». Текст наезжает на текст.; overlap (кадр 103): Строка «№4822 · кофемашина» наложена на размытую копию того же текста, получается каша из букв. Токен вылезает за правый край карточки очереди (до x≈1270).; overlap (кадр 151): Строка «№4822 · кофемашина» в слоте склада перекрыта токеном «№4823 · JBL»: видны обрезки «№4…» и «ина». Под чипом «ЗАРЕЗЕРВИРОВАНО · 3/3» просвечивает «РЕЗЕРВ №4822», текст на тексте."
+  },
+  "version_status": "failed",
+  "cost_usd": 3.5366812000000003,
+  "wall_ms": 1014128,
+  "engineer_calls": 3,
+  "duration_frames": 180,
+  "fps": 30,
+  "source": "/Volumes/External SSD/MotionStudio/workspace/projects/playground/scenes/scn_01M5FW2D8J1FRXBVPQGMQJA3XS/versions/ver_01M5FX1BD4H2D8HC39WXPDNGVA",
+  "commit": "f66a2cc",
+  "motion_kit_version": "0.3.1",
+  "prompts_sha256": {
+    "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+    "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+    "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+    "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+    "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+    "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+    "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+  },
+  "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+  "motion_kit_sha256": "sha256:1fc64dd34263e6be",
+  "prior_attempts": [
+    {
+      "status": "no_preview",
+      "job_status": "failed",
+      "failure": {
+        "stage": "director",
+        "message": "spec не прошла проверку после исправления:\n- overlap (graph, conclusion): layout graph и conclusion пересекаются на 1.3 % кадра → разведи layout graph и conclusion (доли safe area) по сетке или вложи одно в другое явно; один слой — без наложений"
+      },
+      "cost_usd": 1.3661271,
+      "wall_ms": 1763717,
+      "engineer_calls": 0,
+      "duration_frames": 180,
+      "fps": 30,
+      "source": "",
+      "commit": "f66a2cc",
+      "motion_kit_version": "0.3.1",
+      "prompts_sha256": {
+        "concept.md": "b06cc1c3cadac2e41167c63407cffbf3895362dacb8216c840f1181ed79ddd77",
+        "engineer.md": "4ab844d0c04e483e76b1adc2a920622ee178065c75c2019d06480a3bc2a6886c",
+        "motion-director.md": "146576ce062d61dc6089eaad1ff703c2ce484d381c5267541b72247db0f19b3b",
+        "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+        "partials/scene-contract.md": "80a3a3267c0cfaf75dc4932662cc76397b539c453459e3d38f9550d8d6f7ce24",
+        "rubric-judge.md": "33803554dd2456ee18fe3120abc6696d6614dfb14a773fbadecbb0560b3045a5",
+        "visual-qa.md": "6ececa6b5a68dec6a85fe3a8e1da3864978b93774f5cc42619fce31da44815b5"
+      },
+      "provenance_note": "дописано задним числом (S1-fix): коммит генерации f66a2cc, промпты и kit — из git на f66a2cc",
+      "motion_kit_sha256": null
+    }
+  ]
+}

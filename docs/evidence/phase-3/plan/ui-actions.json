@@ -1,0 +1,52 @@
+[
+  {
+    "op": "modify composition_mode",
+    "id": "sp_003",
+    "detail": "overlay → callout"
+  },
+  {
+    "op": "reject",
+    "id": "sp_004",
+    "detail": "полезность 3"
+  },
+  {
+    "op": "add",
+    "id": "sp_009",
+    "detail": {
+      "words": [
+        "w_000088",
+        "w_000092"
+      ],
+      "zone": "left_third",
+      "text": "работать дальше, не прерывая соединения."
+    }
+  },
+  {
+    "op": "accept",
+    "id": "sp_001"
+  },
+  {
+    "op": "accept",
+    "id": "sp_002"
+  },
+  {
+    "op": "accept",
+    "id": "sp_003"
+  },
+  {
+    "op": "accept",
+    "id": "sp_005"
+  },
+  {
+    "op": "accept",
+    "id": "sp_006"
+  },
+  {
+    "op": "accept",
+    "id": "sp_007"
+  },
+  {
+    "op": "accept",
+    "id": "sp_008"
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "warnings": [
+    "spec: бит hero-in 0–24 → 0–15: вход hero-share кончается, когда голова growth-chart трогается"
+  ],
+  "permission_denials": []
+}

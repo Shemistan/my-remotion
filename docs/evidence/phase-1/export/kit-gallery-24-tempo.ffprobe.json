@@ -1,0 +1,14 @@
+{
+  "durationMs": 5000,
+  "width": 1920,
+  "height": 1080,
+  "fps": {
+    "num": 24,
+    "den": 1
+  },
+  "codec": "h264",
+  "profile": "High",
+  "pixFmt": "yuv420p",
+  "audioCodec": "aac",
+  "audioDurationMs": 5013
+}

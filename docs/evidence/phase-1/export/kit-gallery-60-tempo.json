@@ -1,0 +1,54 @@
+{
+  "factor": 2,
+  "threshold": 0.06,
+  "hotTile": 0.03,
+  "hotTilesMin": 3,
+  "compare": {
+    "width": 480,
+    "height": 270
+  },
+  "samples": [
+    {
+      "frame": 15,
+      "exportFrame": 30,
+      "maxTile": 0.3731,
+      "hotTiles": 10,
+      "mean": 0.0196
+    },
+    {
+      "frame": 40,
+      "exportFrame": 80,
+      "maxTile": 0.2496,
+      "hotTiles": 28,
+      "mean": 0.0207
+    },
+    {
+      "frame": 70,
+      "exportFrame": 140,
+      "maxTile": 0.3088,
+      "hotTiles": 15,
+      "mean": 0.0192
+    },
+    {
+      "frame": 100,
+      "exportFrame": 200,
+      "maxTile": 0.127,
+      "hotTiles": 6,
+      "mean": 0.0084
+    },
+    {
+      "frame": 130,
+      "exportFrame": 260,
+      "maxTile": 0.0492,
+      "hotTiles": 3,
+      "mean": 0.0071
+    }
+  ],
+  "mismatched": [
+    15,
+    40,
+    70,
+    100,
+    130
+  ]
+}

@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { HistoryEntrySchema, KbHitDtoSchema, RenderBodySchema, VersionDiffSchema } from "../src/index.js";
+import { CreateProjectBodySchema, HistoryEntrySchema, KbHitDtoSchema, RenderBodySchema, VersionDiffSchema } from "../src/index.js";
+
+describe("CreateProjectBody", () => {
+  it("kind необязателен; video — видеопроект (Task 29)", () => {
+    expect(CreateProjectBodySchema.safeParse({ title: "p" }).success).toBe(true);
+    expect(CreateProjectBodySchema.safeParse({ title: "p", kind: "video" }).success).toBe(true);
+    expect(CreateProjectBodySchema.safeParse({ title: "p", kind: "playground" }).success).toBe(true);
+    expect(CreateProjectBodySchema.safeParse({ title: "p", kind: "audio" }).success).toBe(false);
+  });
+});
 
 describe("api DTO", () => {
   it("HistoryEntry: палитра разрешённая (StyleBible.palette)", () => {

@@ -1,0 +1,28 @@
+[
+  {
+    "kb_id": "remotion-video-templates/line-chart-draw",
+    "repository": "remotion-video-templates (AleBrito124356)",
+    "repository_url": "git@github.com:AleBrito124356/remotion-video-templates.git",
+    "commit": "9014946",
+    "license": "MIT (package.json, LICENSE)",
+    "license_class": "permissive",
+    "strategy": "adapt",
+    "source_paths": [
+      "templates/remotion-components/remotion-video-templates/src/templates/ChartVideo/LineChart.tsx",
+      "templates/remotion-components/remotion-video-templates/src/templates/ChartVideo/sample-data.ts"
+    ]
+  },
+  {
+    "kb_id": "remotion-bits/animated-counter",
+    "repository": "Remotion Bits",
+    "repository_url": "git@github.com:av/remotion-bits.git",
+    "commit": "de35fda",
+    "license": "MIT (package.json)",
+    "license_class": "permissive",
+    "strategy": "adapt",
+    "source_paths": [
+      "templates/remotion-components/remotion-bits/src/components/AnimatedCounter.tsx",
+      "templates/remotion-components/remotion-bits/src/utils/motion/index.ts"
+    ]
+  }
+]

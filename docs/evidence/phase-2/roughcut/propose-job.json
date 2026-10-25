@@ -1,0 +1,86 @@
+{
+  "job": {
+    "id": "job_01M5Q5ZMHG5PVJS73RQEQ2Z75C",
+    "type": "roughcut.propose",
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "scene_id": null,
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "done",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "projectId": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+      "useAgent": true
+    },
+    "input_hash": "04f91c4b66f1aa1805f18f9a7cf2c054ca6b0ac57affeff36157396fdbeaf432",
+    "output_refs": {
+      "edl_id": "edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C",
+      "revision": 1,
+      "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/edits/edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C/r1/edl.json",
+      "reused": false,
+      "no_change": false,
+      "decisions": {
+        "total": 40,
+        "proposed": 40,
+        "by_reason": {
+          "bad_take": 6,
+          "repeat": 5,
+          "pause": 26,
+          "false_start": 3
+        }
+      },
+      "detector": {
+        "pause": 26,
+        "filler": 0,
+        "repeat": 4
+      },
+      "agent": {
+        "status": "completed",
+        "calls": 1,
+        "cost_usd": 0.0756,
+        "decisions": 10,
+        "accepted": 10,
+        "rejected": [],
+        "reviews": 2,
+        "unknown_reviews": [],
+        "retried": false
+      },
+      "suppressed": 0,
+      "timings_ms": {
+        "prepare": 17,
+        "detect": 10,
+        "agent": 23868,
+        "publish": 41
+      }
+    },
+    "error": null,
+    "idempotency_key": "6abaa41d-530f-4fb6-ac2e-a80a92bc3047",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-24T14:45:35.920Z",
+    "started_at": "2026-10-24T14:45:35.926Z",
+    "finished_at": "2026-10-24T14:45:59.876Z"
+  },
+  "agent_runs": [],
+  "events": [
+    {
+      "ts": "2026-10-24T14:45:35.930Z",
+      "level": "info",
+      "kind": "started",
+      "message": "roughcut.propose: попытка 1",
+      "data_json": "{\"attempt\":1}"
+    },
+    {
+      "ts": "2026-10-24T14:45:59.880Z",
+      "level": "info",
+      "kind": "completed",
+      "message": "completed",
+      "data_json": null
+    }
+  ]
+}

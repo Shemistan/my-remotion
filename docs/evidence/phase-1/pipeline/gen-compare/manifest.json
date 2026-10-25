@@ -1,0 +1,200 @@
+{
+  "schema_version": 1,
+  "version_id": "ver_01M5FNFZ8RQ55HM5ZAFCSSWT08",
+  "scene_id": "scn_01M5FMZVW4F8TV9PS9J6H2NAQA",
+  "parent_version_id": null,
+  "number": 1,
+  "created_at": "2026-10-21T16:42:44.377Z",
+  "prompt": "Сравни монолит и микросервисы по скорости релизов",
+  "edit_plan": null,
+  "settings": {
+    "aspect_ratio": "16:9",
+    "width": 1920,
+    "height": 1080,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 180,
+    "style_preset": "dark-premium",
+    "animation_intensity": "balanced",
+    "background": "#0b0d12",
+    "transparent_export": false,
+    "safe_area": {
+      "x": 0.05,
+      "y": 0.05
+    }
+  },
+  "files": [
+    {
+      "path": "frames/140.png",
+      "sha256": "2252e036b39f648a55b421652b11f22bb0f32984af3a8986e69efc10144ff3f2"
+    },
+    {
+      "path": "frames/153.png",
+      "sha256": "01156f9b1b38b2bb09faab2c34b3e6d2accccb84e110bb92652a82ab8042502e"
+    },
+    {
+      "path": "frames/166.png",
+      "sha256": "b96a05e9ad94925fd0e23f808e471b8f9879346e5adfed4907683d0357465611"
+    },
+    {
+      "path": "frames/179.png",
+      "sha256": "0cbb488fe2d73761070af60ce78d06c8ee1d7e2af9d056ed8d81c3aa71b5bf8e"
+    },
+    {
+      "path": "frames/36.png",
+      "sha256": "13a6ff35c5d34f55cd038cdc7a00ce4f4344bafb3428ea1aa1bf381bc2d2f437"
+    },
+    {
+      "path": "frames/48.png",
+      "sha256": "6faedc84f7c089fc1743a582d275adca7c0c306ad8e6c6617daf4f74c82b887f"
+    },
+    {
+      "path": "frames/80.png",
+      "sha256": "f3861edb9cfdc1f1c029400fd8ad5aa4fbc84fadbf9be2dffc9d6ffc93da53d0"
+    },
+    {
+      "path": "knowledge-refs.json",
+      "sha256": "a0867c388360c5b99ab70193b8bfe40d9fa4ce009fe27c5581e4504881c4beb4"
+    },
+    {
+      "path": "pipeline-log.json",
+      "sha256": "51ac597c58d3a97498a8e53bd4297997fbd6743cccc9293586e2279379a58879"
+    },
+    {
+      "path": "preview.mp4",
+      "sha256": "fbef065b9ef8de20b0c9cbfaf1ddb33b4197dc8991299e3cf19e7f51ce5df863"
+    },
+    {
+      "path": "props.json",
+      "sha256": "61c2dcd957c62d14a5f4af32fbf3994fd6beab69eb5cf1d37b5134856e00602c"
+    },
+    {
+      "path": "qa.json",
+      "sha256": "65282122c7e8672f5772cebdede5a22ade476cf722caaf10b26f9909b95fcf84"
+    },
+    {
+      "path": "refs/kb/remotion-bits/animated-counter/CARD.md",
+      "sha256": "8dfc3cb748093566c5c02a70d006ff6ad5a7815b5bfaab8540870c5722aa5d11"
+    },
+    {
+      "path": "refs/kb/remotion-bits/animated-counter/templates/remotion-components/remotion-bits/src/components/AnimatedCounter.tsx",
+      "sha256": "fea81e6e51bfd894065b5e2d435827a493586f56fd4f9b21230f9f08a89d89e7"
+    },
+    {
+      "path": "refs/kb/remotion-bits/animated-counter/templates/remotion-components/remotion-bits/src/utils/motion/index.ts",
+      "sha256": "2247b5c5e896d00a26414e342b65caa52a14bd3adf7bf42af2fecdbdc4d08bd7"
+    },
+    {
+      "path": "refs/motion-kit/API.md",
+      "sha256": "a02248dae08e838813f7b6c6987e664609169330ad66ec403794541eeea56702"
+    },
+    {
+      "path": "refs/skills/remotion-markup/SKILL.md",
+      "sha256": "399a8f21821ee72071645d22b2e4c7aba34357f2139d027857868eb856f24a4f"
+    },
+    {
+      "path": "refs/skills/remotion-markup/local-fonts.md",
+      "sha256": "fcad2a2e3a05419d4555c59a75454c4891455dbea91ad596c1095e2887d26a11"
+    },
+    {
+      "path": "refs/skills/remotion-markup/sequencing.md",
+      "sha256": "f53680a3ec4b754501ce37516387666e1b3df3c5714d266154b274caea4236a4"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing-props.md",
+      "sha256": "346ff7f3778f3b7ba165ac212459034120cac7cffd3ead3fe68db179e15f7494"
+    },
+    {
+      "path": "refs/skills/remotion-markup/timing.md",
+      "sha256": "48047e758b96aea519916479ede62b832bf51f982924978e091c37f569ab4bac"
+    },
+    {
+      "path": "refs/skills/remotion-markup/transitions.md",
+      "sha256": "83b8b511044ef175244a4e9e81f66bd3f5062cf9cecacd30ae88ac17eda40b82"
+    },
+    {
+      "path": "selection.json",
+      "sha256": "4b257b3b0501dfccadddb15da216d447aa4dc30999ccf1acb2b4ea4603965173"
+    },
+    {
+      "path": "settings.json",
+      "sha256": "0b46d98e94443777eaf45644a5755e6faf4ce94ffb01d67689792327ab031365"
+    },
+    {
+      "path": "spec.json",
+      "sha256": "6e146e16fb539363cede8ab48998d99bcae09d4a69584512fc993839d952e291"
+    },
+    {
+      "path": "src/Scene.tsx",
+      "sha256": "fba21eeef3c192cafb3e7b2ac8152dd5596a1ba37d59431190cb3f16b42c4a04"
+    },
+    {
+      "path": "style.json",
+      "sha256": "18a0a04c657887af9d85691285c9480a89f361fb434379a61df3445ffc78e3d6"
+    },
+    {
+      "path": "warnings.json",
+      "sha256": "076597f7a3677e94dbcc3793ccfe6a71793605bfe0007156c5f1c9bf3ab10caa"
+    }
+  ],
+  "changed_files": [
+    "src/Scene.tsx",
+    "props.json"
+  ],
+  "render_env": {
+    "remotion": "4.0.537",
+    "render_lock_sha256": "ea631fc97c0f6f4dcbf05c828e81ab9fd65de933e213de4d4576e294f8329a35",
+    "motion_kit": "sha256:1fc64dd34263e6be",
+    "chrome_headless_shell": "157.0.8080.0-remotion-v3",
+    "node": "22.21.1"
+  },
+  "knowledge_refs": [
+    {
+      "kb_id": "remotion-bits/animated-counter",
+      "commit": "de35fda",
+      "license": "MIT (package.json)",
+      "strategy": "adapt"
+    }
+  ],
+  "agent_runs": [
+    "logs/agent-runs/job_01M5FMZVW9ZMEFJQYF645W9SVV/a1-concept-1",
+    "logs/agent-runs/job_01M5FMZVW9ZMEFJQYF645W9SVV/a1-motion_director-1",
+    "logs/agent-runs/job_01M5FMZVW9ZMEFJQYF645W9SVV/a1-engineer-1",
+    "logs/agent-runs/job_01M5FMZVW9ZMEFJQYF645W9SVV/a1-visual_qa-1"
+  ],
+  "qa": {
+    "technical": "pass",
+    "visual": "warn",
+    "semantic": "warn",
+    "style": "pass"
+  },
+  "preview": {
+    "path": "preview.mp4",
+    "sha256": "fbef065b9ef8de20b0c9cbfaf1ddb33b4197dc8991299e3cf19e7f51ce5df863"
+  },
+  "status": "ready",
+  "qa_frames": [
+    36,
+    48,
+    80,
+    140,
+    153,
+    166,
+    179
+  ],
+  "qa_frames_sha256": [
+    "13a6ff35c5d34f55cd038cdc7a00ce4f4344bafb3428ea1aa1bf381bc2d2f437",
+    "6faedc84f7c089fc1743a582d275adca7c0c306ad8e6c6617daf4f74c82b887f",
+    "f3861edb9cfdc1f1c029400fd8ad5aa4fbc84fadbf9be2dffc9d6ffc93da53d0",
+    "2252e036b39f648a55b421652b11f22bb0f32984af3a8986e69efc10144ff3f2",
+    "01156f9b1b38b2bb09faab2c34b3e6d2accccb84e110bb92652a82ab8042502e",
+    "b96a05e9ad94925fd0e23f808e471b8f9879346e5adfed4907683d0357465611",
+    "0cbb488fe2d73761070af60ce78d06c8ee1d7e2af9d056ed8d81c3aa71b5bf8e"
+  ],
+  "job": {
+    "id": "job_01M5FMZVW9ZMEFJQYF645W9SVV",
+    "attempt": 1
+  }
+}

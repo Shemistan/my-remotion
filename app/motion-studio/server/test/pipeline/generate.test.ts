@@ -1,13 +1,14 @@
 // Логика generateScene на фейковых адаптерах (агенты, рендер, KB, typecheck);
 // static check и хранилище (tmp/) — настоящие.
-import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { type MotionSpec } from "@ms/contracts";
 import { StorageError, type StorageStatus } from "@ms/core";
+import { graphSetupMin, resolveStyle } from "@ms/render";
 import { canSpend } from "../../src/pipeline/budget.js";
 import { generateScene } from "../../src/pipeline/generate.js";
-import { searchCandidates } from "../../src/pipeline/refs.js";
-import { readVersion, sweepAbandonedDrafts } from "../../src/scenes/store.js";
+import { readVersion, sweepAbandonedDrafts, sweepAgentCwds } from "../../src/scenes/store.js";
 import {
   BAD_SCENE, GOOD_SCENE, OFFLINE, directorOutput, fakeAgents, fakeKb, fakeRender, makeDeps, makeSkills, makeStore, makeTmp,
   okStatus, removeTmp, settings, view,
@@ -44,7 +45,10 @@ describe("generateScene: успех", () => {
     expect(m.knowledge_refs).toEqual([{ kb_id: "fake/line-chart", commit: "abc1234", license: "MIT", strategy: "adapt" }]);
     expect(m.render_env.remotion).toBe("4.0.537");
     expect(m.qa).toEqual({ technical: "pass", visual: "not_checked", semantic: "not_checked", style: "not_checked" });
-    expect(JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8")).composition.archetype).toBe("split");
+    const written = JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8"));
+    expect(written.composition.archetype).toBe("split");
+    // seed фона — id сцены (своя карта света у каждой сцены), выбор Director не теряется
+    expect(written.composition.background).toEqual({ seed: r.sceneId });
     expect(m.preview?.path).toBe("preview.mp4");
     expect(m.qa_frames.length).toBe(m.qa_frames_sha256.length);
     expect(m.qa_frames.length).toBeGreaterThan(2);
@@ -171,12 +175,143 @@ describe("generateScene: Director", () => {
   });
 });
 
+describe("generateScene: проверка spec после Director (Task 17)", () => {
+  const uniform = () => {
+    const out = directorOutput();
+    out.spec.elements = ["a", "b", "c"].map((id) => ({ id, kind: "text" as const, role: "текст", entrance: "fade" as const, content: {} }));
+    out.spec.beats = out.spec.beats.map((b) => ({ ...b, element_ids: ["a", "b", "c"] }));
+    return out;
+  };
+
+  it("blocking specChecks (все входы fade) → Director получает замечания и отвечает ещё раз", async () => {
+    let n = 0;
+    const agents = fakeAgents({ director: async () => ({ output: ++n === 1 ? uniform() : directorOutput() }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r.status).toBe("ready");
+    const directors = agents.tasks.filter((t) => t.role === "motion_director");
+    expect(directors).toHaveLength(2);
+    expect(String(directors[1]!.input)).toContain("uniform_entrance");
+  });
+
+  /** Spec с фазами (кадры ставит планировщик); `mode` — hold_mode фазы hold. */
+  const phasedOut = (mode?: "now-pulse") => {
+    const out = directorOutput();
+    out.spec.phases = [
+      { id: "p-setup", role: "setup", weight: 1, element_ids: ["title"] },
+      { id: "p-act", role: "action", weight: 3, element_ids: ["chart"] },
+      { id: "p-pay", role: "payoff", weight: 1, element_ids: ["chart"] },
+      { id: "p-hold", role: "hold", weight: 1, element_ids: ["chart", "title"], ...(mode ? { hold_mode: mode } : {}) },
+    ];
+    out.spec.beats = [
+      { id: "b1", phase: "p-setup", action: "title-entrance", description: "", element_ids: ["title"] },
+      { id: "b2", phase: "p-act", action: "chart-draw", description: "", element_ids: ["chart"] },
+      { id: "b3", phase: "p-pay", action: "final-emphasis", description: "", element_ids: ["chart"] },
+      { id: "b4", phase: "p-hold", action: "hold", description: "", element_ids: ["chart", "title"] },
+    ] as unknown as typeof out.spec.beats;
+    return out;
+  };
+
+  it("план битов: проверка фаз (нет hold_mode) — в раунд идёт её текст без общего хвоста про фазы битов (s3afix-rereview m4)", async () => {
+    let n = 0;
+    const agents = fakeAgents({ director: async () => ({ output: ++n === 1 ? phasedOut() : phasedOut("now-pulse") }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r.status).toBe("ready");
+    const second = String(agents.tasks.filter((t) => t.role === "motion_director")[1]!.input);
+    expect(second).toContain("hold_mode");
+    expect(second).not.toContain("у каждого бита");
+  });
+
+  it("план битов: бит без фазы и кадров — в раунд идёт подсказка про фазы битов", async () => {
+    let n = 0;
+    const broken = () => {
+      const o = phasedOut("now-pulse");
+      o.spec.beats = [...o.spec.beats, { id: "b5", action: "x-in", description: "", element_ids: ["title"] }] as typeof o.spec.beats;
+      return o;
+    };
+    const agents = fakeAgents({ director: async () => ({ output: ++n === 1 ? broken() : phasedOut("now-pulse") }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r.status).toBe("ready");
+    expect(String(agents.tasks.filter((t) => t.role === "motion_director")[1]!.input)).toContain("у каждого бита");
+  });
+
+  it("задача Engineer называет финал: режим удержания и бит hold (S3b)", async () => {
+    const agents = fakeAgents({ director: async () => ({ output: phasedOut("now-pulse") }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r.status).toBe("ready");
+    expect(agents.engineerCalls[0]!.input).toContain("финал: hold_mode now-pulse, бит hold `b4`");
+    // старая spec без фаз — режим по носителю итога (график → data-shimmer)
+    const legacy = fakeAgents({});
+    await generateScene("тест", s, await makeDeps(root, skills, { agents: legacy }));
+    expect(legacy.engineerCalls[0]!.input).toContain("финал: hold_mode data-shimmer, бит hold `b4`");
+  });
+
+  it("пресет настроек — до плана битов: минимум setup графа по токенам того пресета, что пойдёт в рендер (s3afix2-rereview m2)", async () => {
+    const withGraph = () => {
+      const o = phasedOut("now-pulse");
+      const nodes = ["a", "b", "c", "d", "e", "f"];
+      o.spec.elements = [...o.spec.elements, { id: "graph", kind: "graph", role: "схема", entrance: "draw", content: { edges: nodes.slice(1).map((n, i) => ({ id: `e${i}`, from: nodes[i], to: n })) } }];
+      o.spec.phases = o.spec.phases!.map((p) => (p.id === "p-setup" ? { ...p, element_ids: ["title", "graph"] } : p));
+      o.spec.beats = [...o.spec.beats, { id: "b-graph", phase: "p-setup", action: "graph-build", description: "", element_ids: ["graph"] }] as typeof o.spec.beats;
+      // Director выбрал пресет с короткими входами — в настройках dark-premium
+      o.spec.style_preset = "tech-neon";
+      return o;
+    };
+    const agents = fakeAgents({ director: async () => ({ output: withGraph() }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r.status).toBe("ready");
+    const spec = JSON.parse(readFileSync(join(r.versionDir!, "spec.json"), "utf8")) as MotionSpec;
+    expect(spec.style_preset).toBe(s.style_preset);
+    const style = resolveStyle({ preset: s.style_preset, intensity: s.animation_intensity, fps: spec.fps });
+    const g = spec.beats.find((b) => b.id === "b-graph")!;
+    expect(g.end_frame - g.start_frame).toBeGreaterThanOrEqual(graphSetupMin(style, 6));
+    expect(r.warnings.filter((w) => w.includes("Director выбрал пресет tech-neon"))).toHaveLength(1);
+  });
+
+  it("settle-push у пресета без наезда (light-clean) → now-pulse с предупреждением (s3b-review m7)", async () => {
+    const light = { ...s, style_preset: "light-clean" as const };
+    const out = () => {
+      const o = phasedOut("now-pulse");
+      o.spec.phases = o.spec.phases!.map((p) => (p.role === "hold" ? { ...p, hold_mode: "settle-push" as const } : p));
+      o.spec.style_preset = "light-clean";
+      return o;
+    };
+    const agents = fakeAgents({ director: async () => ({ output: out() }) });
+    const r = await generateScene("тест", light, await makeDeps(root, skills, { agents }));
+    expect(r.status).toBe("ready");
+    expect(agents.engineerCalls[0]!.input).toContain("финал: hold_mode now-pulse");
+    expect(r.warnings.join("\n")).toContain("settle-push");
+  });
+
+  it("не исправил со второго раза → failed/director, draft не создан", async () => {
+    const agents = fakeAgents({ director: async () => ({ output: uniform() }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r).toMatchObject({ status: "failed", failure: { stage: "director", message: expect.stringContaining("uniform_entrance") } });
+    expect(agents.engineerCalls).toHaveLength(0);
+    expect(draftsOf()).toEqual([]);
+  });
+});
+
 describe("generateScene: хранилище и процессы", () => {
   it("хранилище недоступно с самого начала → ничего не создано", async () => {
     const o = await generateScene("тест", s, await makeDeps(root, skills, { storage: async () => OFFLINE }));
     expect(o.failure!.stage).toBe("storage");
     expect(o.versionDir).toBeUndefined();
     expect(existsSync(join(root, "workspace/projects"))).toBe(false);
+  });
+
+  it("нет run/processes (реестр Chrome) → создаётся до агентов; создать нельзя → storage до первого вызова агента", async () => {
+    rmSync(join(root, "run/processes"), { recursive: true, force: true });
+    const agents = fakeAgents({});
+    const ok = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(ok.status).toBe("ready");
+    expect(existsSync(join(root, "run/processes"))).toBe(true);
+
+    rmSync(join(root, "run/processes"), { recursive: true, force: true });
+    writeFileSync(join(root, "run/processes"), "не каталог");
+    const blocked = fakeAgents({});
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents: blocked }));
+    expect(r.failure).toMatchObject({ stage: "storage", message: expect.stringMatching(/run\/processes/) });
+    expect(blocked.tasks).toEqual([]);
   });
 
   it("хранилище пропало во время рендера → рендер прерван, версии нет", async () => {
@@ -262,6 +397,46 @@ describe("generateScene: хранилище и процессы", () => {
   });
 });
 
+describe("generateScene: прогон задачи (Task 13, fix round 1)", () => {
+  it("fenceOk() = false прямо перед публикацией → fenced_out, версии нет, draft попытки в карантине", async () => {
+    let calls = 0;
+    const deps = { ...(await makeDeps(root, skills)), run: { runId: "job_1", attempt: 2 }, fenceOk: () => (calls++, false) };
+    const r = await generateScene("тест", s, deps);
+    expect(r).toMatchObject({ status: "failed", failure: { stage: "fenced_out" } });
+    expect(calls).toBe(1);
+    expect(versionsOf()).toEqual([]);
+    expect(draftsOf()).toEqual(["job_1-a2"]);
+    expect(JSON.parse(readFileSync(join(root, "workspace/drafts/job_1-a2/.quarantined"), "utf8")).reason).toMatch(/^fenced_out/);
+  });
+
+  it("deps.publish заменяет файловую публикацию; meta несёт job попытки", async () => {
+    const seen: { job?: unknown }[] = [];
+    const deps = {
+      ...(await makeDeps(root, skills)),
+      run: { runId: "job_1", attempt: 1 },
+      fenceOk: () => true,
+      publish: async (_d: unknown, meta: { job?: unknown }) => (seen.push(meta), { dir: join(root, "pub"), warnings: ["w-pub"] }),
+    };
+    const r = await generateScene("тест", s, deps);
+    expect(r).toMatchObject({ status: "ready", versionDir: join(root, "pub") });
+    expect(r.warnings).toContain("w-pub");
+    expect(seen[0]!.job).toEqual({ id: "job_1", attempt: 1 });
+    expect(versionsOf()).toEqual([]);
+  });
+
+  it("deps.publish отклонил fenced_out → этап fenced_out, не publish", async () => {
+    const deps = {
+      ...(await makeDeps(root, skills)),
+      run: { runId: "job_1", attempt: 1 },
+      publish: async () => {
+        throw new Error("fenced_out: попытка 1 задачи job_1 устарела (текущая: 2)");
+      },
+    };
+    const r = await generateScene("тест", s, deps);
+    expect(r).toMatchObject({ status: "failed", failure: { stage: "fenced_out" } });
+  });
+});
+
 describe("generateScene: отказы прав Engineer (rulings п. 14)", () => {
   it("отказ на чтение вне draft → ready с предупреждением, отказы в warnings.json версии", async () => {
     const denial = { tool_name: "Read", tool_use_id: "t1", tool_input: { file_path: "/Users/x/.zshrc" } };
@@ -297,42 +472,35 @@ describe("generateScene: отказы прав Engineer (rulings п. 14)", () =>
   });
 });
 
-describe("searchCandidates", () => {
-  it("отбрасывает doc и записи «Не рисует» / «Своей картинки нет», не больше limit", () => {
-    const kb = fakeKb([
-      view({ id: "a/doc", kind: "doc", visualizes: "Не рисует: процесс" }),
-      view({ id: "a/util", kind: "util", visualizes: "Своей картинки нет: конфиг" }),
-      view({ id: "a/one" }),
-      view({ id: "a/two" }),
-    ]);
-    expect(searchCandidates(kb, "рост", 1).map((v) => v.id)).toEqual(["a/one"]);
-    expect(searchCandidates(kb, "рост", 12).map((v) => v.id)).toEqual(["a/one", "a/two"]);
-  });
-});
-
 describe("generateScene: каждый выход после draft — публикация failed или карантин", () => {
-  it("отмена во время Engineer (процесс завершён) → опубликована failed/cancelled", async () => {
+  // Task 17: отменённая задача версию не публикует — draft в карантин «cancelled» (одноразовый)
+  const cancelledDraft = (r: { versionDir?: string }) => JSON.parse(readFileSync(join(r.versionDir!, ".quarantined"), "utf8")).reason as string;
+
+  it("отмена во время Engineer (процесс завершён) → карантин cancelled, версии нет", async () => {
     const ac = new AbortController();
     const agents = fakeAgents({ engineer: async () => { ac.abort(); return { status: "cancelled", files: { "src/Scene.tsx": GOOD_SCENE } }; } });
     const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }), ac.signal);
     expect(r).toMatchObject({ status: "failed", failure: { stage: "cancelled" } });
-    expect((await readVersion(r.versionDir!)).failure?.stage).toBe("cancelled");
+    expect(versionsOf()).toEqual([]);
+    expect(cancelledDraft(r)).toMatch(/^cancelled/);
   });
 
-  it("отмена во время рендера → опубликована failed/cancelled", async () => {
+  it("отмена во время рендера → карантин cancelled, версии нет", async () => {
     const ac = new AbortController();
     const { render } = fakeRender({ onCall: async () => { ac.abort(); return { ok: false, stills: [], browserLogs: [], error: { stage: "aborted", message: "отменён" } }; } });
     const r = await generateScene("тест", s, await makeDeps(root, skills, { render }), ac.signal);
     expect(r).toMatchObject({ status: "failed", failure: { stage: "cancelled" } });
-    expect((await readVersion(r.versionDir!)).status).toBe("failed");
+    expect(versionsOf()).toEqual([]);
+    expect(cancelledDraft(r)).toMatch(/^cancelled/);
   });
 
-  it("отмена между исправлениями (до следующего вызова Engineer) → опубликована failed/cancelled", async () => {
+  it("отмена между исправлениями (до следующего вызова Engineer) → карантин cancelled, версии нет", async () => {
     const ac = new AbortController();
     const typecheck = async () => { ac.abort(); return [{ file: "src/Scene.tsx", line: 1, message: "ошибка" }]; };
     const r = await generateScene("тест", s, await makeDeps(root, skills, { typecheck }), ac.signal);
     expect(r).toMatchObject({ status: "failed", engineerCalls: 1, failure: { stage: "cancelled" } });
-    expect((await readVersion(r.versionDir!)).failure?.stage).toBe("cancelled");
+    expect(versionsOf()).toEqual([]);
+    expect(cancelledDraft(r)).toMatch(/^cancelled/);
   });
 
   it("сбой в подготовке публикации (pipeline-log.json не пишется) → failed/publish, draft в карантине", async () => {
@@ -395,11 +563,51 @@ describe("sweepAbandonedDrafts", () => {
     mkdirSync(join(drafts, "run_B-a1"), { recursive: true });
     mkdirSync(join(drafts, "run_C-a1"), { recursive: true });
     writeFileSync(join(drafts, "run_C-a1", ".quarantined"), "{\"reason\":\"old\"}");
-    const registry = { add: async () => undefined, remove: async () => undefined, list: async () => [{ runId: "run_B", attempt: 1, pid: 1, pgid: 1, startedAt: "", cmd: "x" }] };
+    const registry = { add: async () => undefined, end: async () => undefined, live: async () => [{ runId: "run_B", attempt: 1, pid: 1, pgid: 1, startedAt: "", cmd: "x" }] };
     const r = await sweepAbandonedDrafts(root, registry);
     expect(r.quarantined).toEqual([join(drafts, "run_A-a1")]);
     expect(r.skipped).toEqual([join(drafts, "run_B-a1")]);
     expect(JSON.parse(readFileSync(join(drafts, "run_A-a1", ".quarantined"), "utf8")).reason).toBe("abandoned");
     expect(readFileSync(join(drafts, "run_C-a1", ".quarantined"), "utf8")).toContain("old");
+  });
+});
+
+describe("sweepAbandonedDrafts: draft экспортов с ключом (S6 I1)", () => {
+  it("<job>-a<n>--<key> без живых процессов → abandoned; у живой попытки — не трогается", async () => {
+    const drafts = join(root, "workspace/drafts");
+    for (const n of ["run_A-a1--1-mp4", "run_B-a1--1-alpha", "run_B-a2--1-mp4"]) mkdirSync(join(drafts, n), { recursive: true });
+    const registry = { add: async () => undefined, end: async () => undefined, live: async () => [{ runId: "run_B", attempt: 1, pid: 1, pgid: 1, startedAt: "", cmd: "x" }] };
+    const r = await sweepAbandonedDrafts(root, registry);
+    expect(r.quarantined.sort()).toEqual([join(drafts, "run_A-a1--1-mp4"), join(drafts, "run_B-a2--1-mp4")]);
+    expect(r.skipped).toEqual([join(drafts, "run_B-a1--1-alpha")]);
+  });
+});
+
+describe("sweepAgentCwds (ревью Task 30, m6)", () => {
+  it("рабочие каталоги агентов попыток без живых процессов удаляются (и с маркером карантина); с живым процессом — нет", async () => {
+    const base = join(root, "run/agent-cwd");
+    mkdirSync(join(base, "job_X-a1-footage_analyst", "frames"), { recursive: true });
+    writeFileSync(join(base, "job_X-a1-footage_analyst", "frames", "000001000000.png"), "кадр");
+    mkdirSync(join(base, "run_Q-a2-director"), { recursive: true });
+    writeFileSync(join(base, "run_Q-a2-director", ".quarantined"), "{\"reason\":\"orphaned\"}");
+    mkdirSync(join(base, "run_L-a1-concept"), { recursive: true });
+    mkdirSync(join(base, "run_L-a12-concept"), { recursive: true }); // другая попытка той же задачи
+    const registry = { add: async () => undefined, end: async () => undefined, live: async () => [{ runId: "run_L", attempt: 1, pid: 1, pgid: 1, startedAt: "", cmd: "x" }] };
+    const r = await sweepAgentCwds(root, registry);
+    expect(r.skipped).toEqual([join(base, "run_L-a1-concept")]);
+    expect(r.removed.sort()).toEqual([join(base, "job_X-a1-footage_analyst"), join(base, "run_L-a12-concept"), join(base, "run_Q-a2-director")]);
+    expect(readdirSync(base)).toEqual(["run_L-a1-concept"]);
+  });
+});
+
+describe("generateScene: кадры литералом (Task 19 F2)", () => {
+  it("литерал в interpolate(frame, …) → предупреждение static в warnings, версия ready", async () => {
+    const scene = GOOD_SCENE.replace("[0, 30]", "[140, 152]");
+    const agents = fakeAgents({ engineer: async () => ({ files: { "src/Scene.tsx": scene } }) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents }));
+    expect(r.status).toBe("ready");
+    const lit = r.warnings.filter((w) => w.includes("кадры литералом"));
+    expect(lit).toHaveLength(1);
+    expect(lit[0]).toMatch(/src\/Scene\.tsx:4.*140, 152/);
   });
 });

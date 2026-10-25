@@ -72,7 +72,7 @@ export function Highlight({ children, beat, mode, accentIndex = 0, seed = "hl", 
     const sheen = ramp(frame, b0 + sweepLen * 0.4, b0 + sweepLen * 0.4 + frames(s, 22), EASE.inOutCubic);
     const textColor = mix(s.palette.text, color, g);
     return (
-      <span style={{ position: "relative", display: "inline-block", whiteSpace: "nowrap", transform: `scale(${bump.toFixed(4)})`, transformOrigin: "50% 60%", ...style }}>
+      <span data-ms-accent={g > 0 ? g.toFixed(2) : undefined} style={{ position: "relative", display: "inline-block", whiteSpace: "nowrap", transform: `scale(${bump.toFixed(4)})`, transformOrigin: "50% 60%", ...style }}>
         <span style={{ color: textColor, textShadow: g > 0 ? `0 0 ${(0.35 * g).toFixed(3)}em ${alpha(color, (dark ? 0.75 : 0.45) * g)}, 0 0 ${(0.9 * g).toFixed(3)}em ${alpha(color, (dark ? 0.35 : 0.2) * g)}` : undefined }}>
           {children}
         </span>
@@ -100,7 +100,7 @@ export function Highlight({ children, beat, mode, accentIndex = 0, seed = "hl", 
 
   if (mode === "marker") {
     return (
-      <span style={{ position: "relative", display: "inline-block", whiteSpace: "nowrap", isolation: "isolate", ...style }}>
+      <span data-ms-accent={p > 0 ? p.toFixed(2) : undefined} style={{ position: "relative", display: "inline-block", whiteSpace: "nowrap", isolation: "isolate", ...style }}>
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", left: "-0.12em", right: "-0.12em", top: 0, width: "calc(100% + 0.24em)", height: "100%", zIndex: -1, overflow: "visible" }}>
           <defs>
             <clipPath id={`${id}-sweep`}>
@@ -119,7 +119,7 @@ export function Highlight({ children, beat, mode, accentIndex = 0, seed = "hl", 
   // underline: основная линия, следом — вторая, тоньше
   const p2 = ramp(frame, b0 + frames(s, 6), b0 + frames(s, 6) + sweepLen, EASE.inOutCubic);
   return (
-    <span style={{ position: "relative", display: "inline-block", whiteSpace: "nowrap", ...style }}>
+    <span data-ms-accent={p > 0 ? p.toFixed(2) : undefined} style={{ position: "relative", display: "inline-block", whiteSpace: "nowrap", ...style }}>
       <span>{children}</span>
       <svg viewBox="0 0 100 20" preserveAspectRatio="none" style={{ position: "absolute", left: "-0.04em", width: "calc(100% + 0.08em)", bottom: "-0.24em", height: "0.32em", overflow: "visible" }}>
         {p > 0 ? <path d={underlinePath(seed, 0)} fill="none" stroke={color} strokeWidth={4.2} strokeLinecap="round" pathLength={1} strokeDasharray={drawDash(p)} /> : null}

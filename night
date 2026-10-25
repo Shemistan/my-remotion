@@ -1,0 +1,13 @@
+#!/bin/sh
+# Ночной цикл качества видео: ./night [--dry-run] [--smoke] [--until 07:00] [--budget-usd 150]
+#   [--resume] [--item Q07] … — подробно: app/motion-studio/scripts/NIGHT.md, справка: ./night --help.
+# Нужен MS_DATA_DIR (хранилище на внешнем SSD), например:
+#   export MS_DATA_DIR="/Volumes/External SSD/MotionStudio"
+cd "$(dirname "$0")/app/motion-studio" || exit 1
+for a in "$@"; do
+  case "$a" in
+    # nvm exec перехватывает --help — справка прямо из шапки скрипта
+    --help|-h) sed -n 's#^// \{0,1\}##p;/^import/q' scripts/night.mts | sed '/^import/d'; exit 0 ;;
+  esac
+done
+exec ./scripts/with-node.sh npx tsx scripts/night.mts "$@"

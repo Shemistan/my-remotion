@@ -1,0 +1,323 @@
+{
+  "schema_version": 1,
+  "plan_id": "pln_01M5RASTJPA1J09FC5RT0RD0VQ",
+  "revision": 1,
+  "inputs": {
+    "script": {
+      "id": "scr_01M5RASTHQC6B3XB0Q55AHTD4T",
+      "revision": 1,
+      "hash": "d3f69135f77e62e854390876b46df4a09342f5c963f0a225a26eb612fd0af8fd"
+    },
+    "style": {
+      "id": "sty_01M5RATN3MG3NJXW8QFWH4SXQT",
+      "revision": 1,
+      "hash": "ade2d2cf4fac2362f05da62ca2bb2c1800c4dd27f2a560eff47e043b59618ad4"
+    }
+  },
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "aspect": "16:9",
+  "reading": {
+    "wps": 2.5,
+    "lead_s": 0.5,
+    "tail_s": 1
+  },
+  "analysis": {
+    "chapters": [
+      {
+        "id": "c1",
+        "title": "Три вопроса и смена реализации",
+        "summary": "Известные вопросы про map в Go опираются на реализацию, которой с Go 1.24 больше нет.",
+        "start_word_id": "w_000001",
+        "end_word_id": "w_000084"
+      },
+      {
+        "id": "c2",
+        "title": "План ролика",
+        "summary": "Четвёртый вопрос про рост map и анонс содержания ролика.",
+        "start_word_id": "w_000085",
+        "end_word_id": "w_000205"
+      }
+    ],
+    "anchors": [],
+    "entities": [],
+    "numbers": [
+      {
+        "value": 3,
+        "unit": "вопроса",
+        "start_word_id": "w_000024",
+        "end_word_id": "w_000024",
+        "quote": "трёх",
+        "claim_type": "fact"
+      },
+      {
+        "value": 1.24,
+        "start_word_id": "w_000067",
+        "end_word_id": "w_000067",
+        "quote": "1.24",
+        "claim_type": "fact"
+      },
+      {
+        "value": 2025,
+        "unit": "год",
+        "start_word_id": "w_000073",
+        "end_word_id": "w_000073",
+        "quote": "2025",
+        "claim_type": "fact"
+      }
+    ],
+    "causal": [],
+    "disputed": []
+  },
+  "items": [
+    {
+      "id": "ss_001",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000005",
+      "end_word_id": "w_000027",
+      "quote": "Несколько лет назад на русскоязычном YouTube вышел пожалуй самый известный разбор map в Go и построен он был на трёх вопросах с собеседования",
+      "block_id": "b1",
+      "words": 23,
+      "at_s": 1.6,
+      "frames": {
+        "lead": 15,
+        "speech": 276,
+        "tail": 30,
+        "total": 321
+      },
+      "technique": "kinetic-quote",
+      "pattern": "key-point-emphasis",
+      "structure_rule": "result-first",
+      "purpose": "Известный разбор map держится на трёх собеседовательных вопросах.",
+      "idea": "Плашка видео с подписью map в Go по центру; из неё выходят три светящиеся карточки-вопроса с номерами 1, 2, 3, остальное затухает.",
+      "key_terms": [
+        {
+          "text": "разбор",
+          "word_id": "w_000015"
+        },
+        {
+          "text": "трёх",
+          "word_id": "w_000024"
+        },
+        {
+          "text": "вопросах",
+          "word_id": "w_000025"
+        }
+      ],
+      "data": [
+        {
+          "label": "Число вопросов",
+          "value": 3,
+          "unit": "вопроса",
+          "quote": "трёх вопросах"
+        }
+      ],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_002",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000028",
+      "end_word_id": "w_000045",
+      "quote": "Зачем заранее выделять память под map Почему порядок обхода случайный И почему нельзя взять указатель на элемент map",
+      "block_id": "b1",
+      "words": 18,
+      "at_s": 10.8,
+      "frames": {
+        "lead": 15,
+        "speech": 216,
+        "tail": 30,
+        "total": 261
+      },
+      "technique": "checklist",
+      "pattern": "sequence-steps",
+      "structure_rule": "assembly",
+      "purpose": "Три классических вопроса про map.",
+      "idea": "Чек-лист из трёх строк с иконками: память с заранее выделенным объёмом, перемешанные ключи при обходе, перечёркнутый указатель на элемент map. Каждая строка появляется вместе с вопросом.",
+      "key_terms": [
+        {
+          "text": "выделять память",
+          "word_id": "w_000030"
+        },
+        {
+          "text": "случайный",
+          "word_id": "w_000037"
+        },
+        {
+          "text": "указатель",
+          "word_id": "w_000042"
+        }
+      ],
+      "data": [],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_003",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000046",
+      "end_word_id": "w_000064",
+      "quote": "Вопросы отличные их задают до сих пор Проблема в ответах они опираются на реализацию которой в Go больше нет",
+      "block_id": "b1",
+      "words": 19,
+      "at_s": 18,
+      "frames": {
+        "lead": 15,
+        "speech": 228,
+        "tail": 30,
+        "total": 273
+      },
+      "technique": "split-versus",
+      "pattern": "comparison",
+      "structure_rule": "two-sides",
+      "purpose": "Вопросы актуальны, но ответы устарели вместе с реализацией.",
+      "idea": "Слева зелёные галочки на вопросах, справа блок «ответы» с привязкой к старой реализации, который трескается и гаснет с пометкой «в Go больше нет».",
+      "key_terms": [
+        {
+          "text": "ответах",
+          "word_id": "w_000055"
+        },
+        {
+          "text": "реализацию",
+          "word_id": "w_000059"
+        },
+        {
+          "text": "нет",
+          "word_id": "w_000064"
+        }
+      ],
+      "data": [],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_004",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000065",
+      "end_word_id": "w_000084",
+      "quote": "С Go 1.24 а он вышел в феврале 2025 года встроенная map реализована полностью заново на основе дизайна Swiss Table",
+      "block_id": "b1",
+      "words": 20,
+      "at_s": 25.6,
+      "frames": {
+        "lead": 15,
+        "speech": 240,
+        "tail": 30,
+        "total": 285
+      },
+      "technique": "timeline",
+      "pattern": "timeline",
+      "structure_rule": "assembly",
+      "purpose": "С Go 1.24 в феврале 2025 map переписана на Swiss Table.",
+      "idea": "Ось времени с отметкой Go 1.24 в феврале 2025; на метке старая реализация map заменяется блоком Swiss Table.",
+      "key_terms": [
+        {
+          "text": "1.24",
+          "word_id": "w_000067"
+        },
+        {
+          "text": "заново",
+          "word_id": "w_000079"
+        },
+        {
+          "text": "Swiss",
+          "word_id": "w_000083"
+        }
+      ],
+      "data": [
+        {
+          "label": "Версия Go",
+          "value": 1.24,
+          "quote": "Go 1.24"
+        },
+        {
+          "label": "Год выхода",
+          "value": 2025,
+          "unit": "год",
+          "quote": "феврале 2025 года"
+        }
+      ],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_005",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000085",
+      "end_word_id": "w_000115",
+      "quote": "Сегодня мы пройдём эти три вопроса заново и добавим четвёртый который под старыми видео задают чаще всего как map растёт и что происходит если вы в этот момент по ней итерируетесь",
+      "block_id": "b1",
+      "words": 31,
+      "at_s": 33.6,
+      "frames": {
+        "lead": 15,
+        "speech": 372,
+        "tail": 30,
+        "total": 417
+      },
+      "technique": "line-trend",
+      "pattern": "growth-decline",
+      "structure_rule": "result-first",
+      "purpose": "Четвёртый вопрос: что будет, если итерироваться по map во время её роста.",
+      "idea": "Кривая заполнения map растёт; в момент роста таблица расширяется, а курсор итерации бежит по ней и сбивается с пути, подсвечивается точка роста.",
+      "key_terms": [
+        {
+          "text": "четвёртый",
+          "word_id": "w_000094"
+        },
+        {
+          "text": "растёт",
+          "word_id": "w_000104"
+        },
+        {
+          "text": "итерируетесь",
+          "word_id": "w_000115"
+        }
+      ],
+      "data": [],
+      "importance": 2,
+      "anchor_ids": []
+    }
+  ],
+  "skipped": [
+    {
+      "start_word_id": "w_000001",
+      "end_word_id": "w_000004",
+      "quote": "Начнём с честной рамки",
+      "reason": "Вступление-рамка без рисуемого содержания."
+    },
+    {
+      "start_word_id": "w_000116",
+      "end_word_id": "w_000205",
+      "quote": "План такой Пара минут старая map как контраст чтобы было с чем сравнивать Потом новая сверху вниз директория таблицы группы control word Дальше поиск удаление рост и итерация А потом то ради чего стоит досмотреть до конца бенчмарки в кадре старая реализация против новой с аллокациями и задержками при росте И чек-лист что из всего этого менять в продакшен-коде Все числа которые я назову сверены с исходником runtime и с блогом Go ссылки будут в описании А если где-то данных нет я так прямо и скажу а не буду угадывать",
+      "reason": "Мета-речь: план ролика, анонсы, ссылки и дисклеймеры автора."
+    }
+  ],
+  "issues": [
+    {
+      "item_id": "ss_005",
+      "code": "scene_long",
+      "severity": "warning",
+      "message": "речь сцены ss_005 ≈ 12,4 с > 12 с — сцене нужны биты по фразам"
+    }
+  ],
+  "diversity": {
+    "techniques": {
+      "kinetic-quote": 1,
+      "checklist": 1,
+      "split-versus": 1,
+      "timeline": 1,
+      "line-trend": 1
+    },
+    "adjacent_repeats": 0,
+    "kinetic_share": 0.2
+  }
+}

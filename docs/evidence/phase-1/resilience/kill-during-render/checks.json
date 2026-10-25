@@ -1,0 +1,37 @@
+[
+  {
+    "id": "p1.dead",
+    "title": "сервер убит во время рендера: задача в БД running",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"running\",\"attempt\":1,\"interrupts\":0,\"stage\":\"render\"}"
+  },
+  {
+    "id": "p1.requeued",
+    "title": "после старта: pending/running с прерыванием 1 (или failed interrupted)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"running\",\"attempt\":2,\"interrupts\":1,\"stage\":\"engineer\"}"
+  },
+  {
+    "id": "p1.events",
+    "title": "журнал: interrupted → requeued → новая попытка",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"started: playground.generate: попытка 1\",\"interrupted: попытка 1 прервана рестартом\",\"requeued: задача снова в очереди (прерываний 1 из 3)\",\"started: playground.generate: попытка 2\",\"completed: completed\"]"
+  },
+  {
+    "id": "p1.done",
+    "title": "задача доведена до completed",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"attempt\":2,\"interrupts\":1}"
+  },
+  {
+    "id": "p2.other",
+    "title": "другая сцена (Test 2) не затронута: sha256 файлов версий те же",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"files\":117,\"changed\":[]}"
+  }
+]

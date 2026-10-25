@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "kb_id": "magicui/animated-beam",
+      "strategy": "adapt",
+      "why": "Идея светящегося градиентного импульса по связи, переложенная на PulseAlongPath с холодным и тёплым цветом направлений.",
+      "files_to_copy": []
+    },
+    {
+      "kb_id": "xyflow/react-flow",
+      "strategy": "adapt",
+      "why": "Схема «хаб → сервисы» с фиксированными узлами и рёбрами; строится на FlowGraph kit с заданными координатами.",
+      "files_to_copy": []
+    }
+  ],
+  "rationale": "правка параметров версии 2",
+  "dropped": []
+}

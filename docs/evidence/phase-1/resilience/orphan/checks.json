@@ -1,0 +1,37 @@
+[
+  {
+    "id": "p8.tracked",
+    "title": "процесс попытки в реестре (job_processes), жив",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"pid\":68724,\"pgid\":68724,\"attempt\":1,\"cmd\":\"~/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/app/motion-studio/server/test/fixtures/bin/orphan-render.sh ~/my_track/01_It_development/my-remotion/.claude/worktrees/motion-studio-phase0/tmp/acceptance/run-2026-10-23T18-28-26-127Z/orphan-1792783254237.pid\",\"started_at\":\"Fri Oct 23 19:20:54 2026\",\"alive\":true}]"
+  },
+  {
+    "id": "p8.alive-after-kill",
+    "title": "сервер убит, процесс-сирота жив, задача не pending",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"grandchild\":68793,\"job\":{\"status\":\"running\",\"attempt\":1,\"interrupts\":0,\"stage\":null}}"
+  },
+  {
+    "id": "p8.still",
+    "title": "через 5 с без сервера: процесс жив, задача всё ещё не pending",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"running\",\"attempt\":1,\"interrupts\":0,\"stage\":null}"
+  },
+  {
+    "id": "p8.reaped",
+    "title": "после старта: процесс добит (SIGKILL после SIGTERM), задача снова в очереди",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"grandchild\":68793,\"job\":{\"status\":\"running\",\"attempt\":2,\"interrupts\":1,\"stage\":\"render\"}}"
+  },
+  {
+    "id": "p8.done",
+    "title": "новая попытка выполнила экспорт",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"attempt\":2,\"events\":[\"started: scene.export: попытка 1\",\"test_hook: тестовый хук orphan (MS_TEST_HOOKS=1)\",\"interrupted: попытка 1 прервана рестартом\",\"requeued: задача снова в очереди (прерываний 1 из 3)\",\"started: scene.export: попытка 2\",\"completed: completed\"]}"
+  }
+]

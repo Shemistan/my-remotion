@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import * as jobs from "../../src/db/repos/jobs.js";
@@ -110,4 +110,16 @@ it("отмена blocked без живых процессов попытки с�
   jobs.update(db, j.id, { status: "blocked" });
   requestCancel(db, j.id);
   expect(sceneLocks.holder(db, "scn_1")).toBeUndefined();
+});
+
+it("API и CLI отменяют только через cancelJob: requestCancel вне queue.ts в src/ не зовётся", () => {
+  const src = join(import.meta.dirname, "../../src");
+  const users = readdirSync(src, { recursive: true, encoding: "utf8" })
+    .filter((f) => f.endsWith(".ts") && f !== join("jobs", "queue.ts"))
+    .filter((f) => /\brequestCancel\b/.test(readFileSync(join(src, f), "utf8")));
+  expect(users).toEqual([]);
+  // пометка в исходнике: внутренняя функция очереди и тестов
+  const queue = readFileSync(join(src, "jobs/queue.ts"), "utf8");
+  const at = queue.indexOf("export function requestCancel");
+  expect(queue.slice(queue.lastIndexOf("/**", at), at)).toContain("@internal");
 });

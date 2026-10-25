@@ -2,10 +2,13 @@
 // Две защиты: запись Chrome в реестре (chrome-wrapper.sh) и поиск по пути run/tmp/.
 import { execFile } from "node:child_process";
 import { join } from "node:path";
-import { type TrackedProcess, fileProcessRegistry, groupExists, killGroup, procInfo } from "@ms/core";
+import { type ProcessRegistry, type TrackedProcess, isTrackedAlive, killGroup } from "@ms/core";
 
 /** Префикс `cmd` записи Chrome в `run/processes/` (пишет chrome-wrapper.sh). */
 export const BROWSER_CMD_PREFIX = "chrome-headless-shell (render)";
+
+/** Префикс `cmd` записи Chrome конкретного рендера (`MS_RENDER_ID` у chrome-wrapper.sh). */
+export const browserCmdPrefix = (renderId: string) => `${BROWSER_CMD_PREFIX} [render=${renderId}] `;
 
 export interface Proc {
   pid: number;
@@ -78,36 +81,26 @@ export function reapStrayRenderers(root: string, opts: { graceMs?: number; waitM
 }
 
 /**
- * Записи Chrome попытки в `run/processes/`: живую группу добиваем SIGKILL, запись
- * удаляем только после подтверждённого исчезновения группы (как spawnTracked).
- * Возвращает записи, чьи группы не исчезли за `waitMs`, — они остаются для reapStale.
+ * Записи Chrome попытки в боковом реестре (`run/processes/`, его пишет chrome-wrapper.sh:
+ * Chrome запускает Remotion, до SQLite он не дотянется): живую группу добиваем SIGKILL,
+ * `end` — только после подтверждённого исчезновения группы (как spawnTracked).
+ * Возвращает записи, чьи группы не исчезли за `waitMs`, — они остаются для reapAttempt.
  */
 export async function settleBrowserRecords(
-  root: string,
-  ref: { runId: string; attempt: number },
+  registry: ProcessRegistry,
+  ref: { runId: string; attempt: number; renderId?: string },
   waitMs = 30_000,
 ): Promise<TrackedProcess[]> {
-  const registry = fileProcessRegistry(root);
-  const records = (await registry.list({ runId: ref.runId })).filter(
-    (p) => p.attempt === ref.attempt && p.cmd.startsWith(BROWSER_CMD_PREFIX),
-  );
+  // с renderId — только Chrome этого рендера: соседний дубль той же попытки рендерит параллельно
+  const prefix = ref.renderId === undefined ? BROWSER_CMD_PREFIX : browserCmdPrefix(ref.renderId);
+  const records = (await registry.live({ runId: ref.runId, attempt: ref.attempt })).filter((p) => p.cmd.startsWith(prefix));
   const left: TrackedProcess[] = [];
   for (const p of records) {
-    if (await recordAlive(p)) killGroup(p.pgid, "SIGKILL");
+    if (await isTrackedAlive(p)) killGroup(p.pgid, "SIGKILL");
     const until = Date.now() + waitMs;
-    while ((await recordAlive(p)) && Date.now() < until) await new Promise((r) => setTimeout(r, 50));
-    if (await recordAlive(p)) left.push(p);
-    else await registry.remove(p);
+    while ((await isTrackedAlive(p)) && Date.now() < until) await new Promise((r) => setTimeout(r, 50));
+    if (await isTrackedAlive(p)) left.push(p);
+    else await registry.end(p, { code: null, signal: "SIGKILL" });
   }
   return left;
-}
-
-/**
- * Жива ли группа записи — та же логика, что у reapStale: лидер с тем же `startedAt`;
- * pid занят другим процессом — группы уже нет; лидера нет — остатки группы.
- */
-async function recordAlive(p: TrackedProcess): Promise<boolean> {
-  const info = await procInfo(p.pid);
-  if (info) return info.startedAt === p.startedAt;
-  return groupExists(p.pgid);
 }

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { procInfo } from "../../src/run/proc-info.js";
-import { type TrackedProcess, fileProcessRegistry, reapStale } from "../../src/run/processes.js";
+import { type TrackedProcess, fileProcessRegistry, reapAttempt, reapStale } from "../../src/run/processes.js";
 import { spawnTracked } from "../../src/run/spawn-tracked.js";
 import { initStore } from "../../src/storage/guard.js";
 import { safeMkdir } from "../../src/storage/safe-mkdir.js";
@@ -118,22 +118,26 @@ it("registers the process before it starts working, in its own group", async () 
 function memoryRegistry(addImpl: (p: TrackedProcess) => Promise<void>) {
   const added: TrackedProcess[] = [];
   const removed: TrackedProcess[] = [];
+  const exits: { code: number | null; signal: string | null }[] = [];
   const registry = {
     add: async (p: TrackedProcess) => {
       added.push(p);
       groups.add(p.pgid);
       await addImpl(p);
     },
-    remove: async (p: TrackedProcess) => void removed.push(p),
-    list: async () => [],
+    end: async (p: TrackedProcess, exit: { code: number | null; signal: string | null }) => {
+      removed.push(p);
+      exits.push(exit);
+    },
+    live: async () => [],
   };
-  return { registry, added, removed };
+  return { registry, added, removed, exits };
 }
 
 it("command does not start until registry.add resolves (custom registry)", async () => {
   let open!: () => void;
   const gate = new Promise<void>((r) => (open = r));
-  const { registry, added, removed } = memoryRegistry(() => gate);
+  const { registry, added, removed, exits } = memoryRegistry(() => gate);
   const marker = join(tmp, "touched");
   const p = spawnTracked(root, ref, "/bin/sh", ["-c", `touch "${marker}"`], { ...opts(), registry });
   await waitFor(() => (added.length ? true : undefined));
@@ -143,8 +147,11 @@ it("command does not start until registry.add resolves (custom registry)", async
   expect((await p).code).toBe(0);
   expect(existsSync(marker)).toBe(true);
   expect(removed).toEqual(added);
+  expect(exits).toEqual([{ code: 0, signal: null }]);
+  // запись — только поля процесса, без реестра из ref
+  expect(Object.keys(added[0]!).sort()).toEqual(["attempt", "cmd", "pgid", "pid", "runId", "startedAt"]);
   // файловый реестр не тронут
-  expect(existsSync(join(root, "run/processes"))).toBe(false);
+  expect(readdirSync(join(root, "run/processes"))).toEqual([]);
 });
 
 it("registry.add failure: the command never runs, the group is killed, error propagates", async () => {
@@ -274,27 +281,29 @@ it("reapStale drops dead records and records with another startedAt, ignores oth
   const res = await reapStale(root, "run1", { kill: (...a) => void sent.push(a) });
   expect(res).toEqual({ clean: true, alive: [] });
   expect(sent).toEqual([]);
-  expect(await reg.list()).toEqual([other]);
-  expect(await reg.list({ runId: "run1" })).toEqual([]);
+  expect(await reg.live()).toEqual([other]);
+  expect(await reg.live({ runId: "run1" })).toEqual([]);
 });
 
-it("file registry: run-scoped list, remove, missing dir is empty, vanished root throws", async () => {
+it("file registry: run/attempt-scoped live, end, missing dir is empty, vanished root throws", async () => {
   const reg = fileProcessRegistry(root);
-  expect(await reg.list()).toEqual([]);
+  expect(await reg.live()).toEqual([]);
   const a: TrackedProcess = { runId: "r-a1", attempt: 1, pid: 11, pgid: 11, startedAt: "s", cmd: "c" };
   const b: TrackedProcess = { runId: "r", attempt: 1, pid: 12, pgid: 12, startedAt: "s", cmd: "c" };
   await reg.add(a);
   await reg.add(b);
   // фильтр по содержимому записи, а не по префиксу имени файла
-  expect(await reg.list({ runId: "r" })).toEqual([b]);
-  await reg.remove(b);
-  await reg.remove(b);
-  expect(await reg.list()).toEqual([a]);
+  expect(await reg.live({ runId: "r" })).toEqual([b]);
+  expect(await reg.live({ runId: "r", attempt: 2 })).toEqual([]);
+  expect(await reg.live({ attempt: 1 })).toEqual([b, a]); // порядок — по имени файла
+  await reg.end(b, { code: 0, signal: null });
+  await reg.end(b, { code: 0, signal: null });
+  expect(await reg.live()).toEqual([a]);
   // мусор рядом не мешает
   await writeFile(join(await safeMkdir(root, "run/processes"), ".x.tmp"), "{");
-  expect(await reg.list()).toEqual([a]);
+  expect(await reg.live()).toEqual([a]);
   await removeTmp(root);
-  await expect(reg.list()).rejects.toThrow(/storage/);
+  await expect(reg.live()).rejects.toThrow(/storage/);
 });
 
 // --- fix round 1 ---
@@ -384,4 +393,36 @@ it("normal exit with a dead group reports orphaned: false and removes the record
   const res = await spawnTracked(root, ref, "/bin/sh", ["-c", "exit 0"], opts());
   expect(res.orphaned).toBe(false);
   expect(readdirSync(join(root, "run/processes"))).toEqual([]);
+});
+
+// --- Task 13: reapAttempt ---
+
+it("reapAttempt touches only the given attempt; reapStale = all attempts of the run", async () => {
+  const reg = fileProcessRegistry(root);
+  const a1 = await staleAlive(sleepy, join(tmp, "g1.pid"));
+  const child2 = spawn(sleepy, [join(tmp, "g2.pid")], { detached: true, stdio: "ignore" });
+  child2.unref();
+  groups.add(child2.pid!);
+  const a2: TrackedProcess = { runId: "run1", attempt: 2, pid: child2.pid!, pgid: child2.pid!, startedAt: (await procInfo(child2.pid!))!.startedAt, cmd: sleepy };
+  await reg.add(a2);
+  expect(await reapAttempt(reg, { runId: "run1", attempt: 2 }, { graceMs: 200 })).toEqual({ clean: true, alive: [] });
+  expect(await procInfo(a2.pid)).toBeUndefined();
+  expect(await procInfo(a1.pid)).toBeDefined();
+  expect(await reg.live()).toEqual([a1]);
+  expect(await reapStale(root, "run1", { graceMs: 200 })).toEqual({ clean: true, alive: [] });
+  expect(await reg.live()).toEqual([]);
+});
+
+it("reapAttempt works through any registry and ends dead records with their exit", async () => {
+  const ended: [TrackedProcess, unknown][] = [];
+  const dead = spawn("true");
+  await new Promise((r) => dead.once("exit", r));
+  const rec: TrackedProcess = { runId: "run1", attempt: 1, pid: dead.pid!, pgid: dead.pid!, startedAt: "x", cmd: "true" };
+  const reg = {
+    add: async () => undefined,
+    end: async (p: TrackedProcess, exit: unknown) => void ended.push([p, exit]),
+    live: async (f?: { runId?: string; attempt?: number }) => (f?.runId === "run1" && f.attempt === 1 ? [rec] : []),
+  };
+  expect(await reapAttempt(reg, { runId: "run1", attempt: 1 })).toEqual({ clean: true, alive: [] });
+  expect(ended).toEqual([[rec, { code: null, signal: null }]]);
 });
