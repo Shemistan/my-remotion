@@ -1,6 +1,6 @@
 // Задачи: список и карточка (события, процессы попытки для `blocked`), отмена — только через
 // `cancelJob` (полный реестр процессов), повтор — `retryJob` (409 при живых процессах), ответы
-// на уточнения Concept.
+// на уточнения Concept. Task 48: в списке и карточке — `cost_usd` (`jobCost`, справочно).
 import { isTrackedAlive } from "@ms/core";
 import { type Job, JobDetailDtoSchema, JobDtoSchema, JobInputBodySchema, JobStatusSchema } from "@ms/contracts";
 import { z } from "zod";
@@ -10,7 +10,7 @@ import { cancelJob, provideInput } from "../../jobs/queue.js";
 import { retryJob } from "../../jobs/retry.js";
 import { type ApiContext, IdParams, type ZApp } from "../context.js";
 import { notFound } from "../errors.js";
-import { maskPaths, publicEvent, publicJob } from "../job-dto.js";
+import { maskPaths, publicEvent, publicJob, withCost } from "../job-dto.js";
 
 const EVENTS_LIMIT = 2_000;
 
@@ -27,7 +27,7 @@ export function jobRoutes(app: ZApp, { core }: ApiContext): void {
       querystring: z.object({ status: JobStatusSchema.optional(), sceneId: z.string().min(1).optional() }).strict(),
       response: { 200: z.array(JobDtoSchema) },
     },
-  }, async (req) => jobs.list(core.db, { ...(req.query.status ? { status: req.query.status } : {}), ...(req.query.sceneId ? { sceneId: req.query.sceneId } : {}) }).map(pub));
+  }, async (req) => withCost(core.db, jobs.list(core.db, { ...(req.query.status ? { status: req.query.status } : {}), ...(req.query.sceneId ? { sceneId: req.query.sceneId } : {}) }).map(pub)));
 
   app.get("/api/jobs/:id", { schema: { params: IdParams, response: { 200: JobDetailDtoSchema } } }, async (req) => {
     const job = jobOr404(req.params.id);
@@ -38,7 +38,8 @@ export function jobRoutes(app: ZApp, { core }: ApiContext): void {
       })),
     );
     const events = jobEvents.listSince(core.db, 0, { jobId: job.id, limit: EVENTS_LIMIT }).map((e) => publicEvent(e, core.root));
-    return { job: pub(job), events, processes };
+    // Task 48: стоимость задачи (справочно)
+    return { job: withCost(core.db, [pub(job)])[0]!, events, processes };
   });
 
   app.post("/api/jobs/:id/cancel", { schema: { params: IdParams, response: { 200: JobDtoSchema } } }, async (req) => {

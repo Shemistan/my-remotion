@@ -1,6 +1,6 @@
 // Task 35′ (Phase 4–6 v2): реестры UI — вкладки «Сцены», «Экспорт», «Таймлайн» в Video Workspace,
 // страницы «Диагностика» и «Восстановление» в маршрутах, словари областей подмешаны в `ru`.
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { t } from "../../src/i18n/index.js";
 import { ru } from "../../src/i18n/ru.js";
@@ -55,7 +55,9 @@ describe("страницы и маршруты Phase 6", () => {
   });
 
   it("заглушки страниц — заголовок и текст из словаря", () => {
-    render(<Diagnostics />);
+    // Task 48: страница реализована (web/test/error-card.test.tsx) — нужен QueryClient
+    fakeFetch();
+    renderQ(<Diagnostics />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(t("diagnostics.title"));
     // RecoveryCenter — реализован Task 47 (web/test/recovery-center.test.tsx)
   });
