@@ -13,7 +13,7 @@ import * as bootReports from "../../src/db/repos/boot-reports.js";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as scenes from "../../src/db/repos/scenes.js";
 import type { KnowledgeAdapter } from "../../src/knowledge/adapter.js";
-import { BOOT_REPORTS_KEEP, acknowledgeBootReport, bootSummary, persistBootReport } from "../../src/recovery/boot-report.js";
+import { BOOT_REPORTS_KEEP, acknowledgeBootReport, bootSummary, latestBootReport, persistBootReport } from "../../src/recovery/boot-report.js";
 import { listQuarantined } from "../../src/recovery/quarantine.js";
 import { SHUTDOWN_MARKER } from "../../src/recovery/shutdown-marker.js";
 import { makeStore, probe, removeStore, type TestStore } from "../db/helpers.js";
@@ -80,5 +80,21 @@ it("persist/ack/prune: хранится не больше BOOT_REPORTS_KEEP от
   expect(acked.acknowledged_at).not.toBeNull();
   expect(acknowledgeBootReport(db, last!.id).acknowledged_at).toBe(acked.acknowledged_at);
   expect(() => acknowledgeBootReport(db, "nope")).toThrow(/boot_report_not_found/);
+  db.close();
+});
+
+it("центр восстановления: последний неподтверждённый отчёт со сбоем виден после штатных стартов и не удаляется по лимиту", async () => {
+  const db = openDb(s.root);
+  await migrate(db);
+  const empty = { requeued: [], failed: [], blocked: [], draftsRemoved: [], completed: [], cancelled: [], locksReleased: [] };
+  const crash = persistBootReport(db, { ...empty, crashed: true, quarantined: [] });
+  for (let i = 0; i < BOOT_REPORTS_KEEP + 5; i++) persistBootReport(db, { ...empty, crashed: false, quarantined: [] });
+  expect(bootReports.get(db, crash.id)).toBeDefined();
+  expect(bootReports.count(db)).toBe(BOOT_REPORTS_KEEP + 1);
+  expect(latestBootReport(db)!.id).toBe(crash.id);
+  acknowledgeBootReport(db, crash.id);
+  expect(latestBootReport(db)!.crashed).toBe(false);
+  persistBootReport(db, { ...empty, crashed: false, quarantined: [] });
+  expect(bootReports.get(db, crash.id)).toBeUndefined(); // подтверждённый — снова под лимитом
   db.close();
 });

@@ -40,6 +40,8 @@ export const ruProjects = {
   "trash.restore": "Восстановить",
   "trash.purge": "Удалить навсегда…",
   "trash.purgeAll": "Очистить корзину…",
+  "trash.purgeAllFiltered": "Очистить всю корзину ({count}, включая скрытые фильтром)…",
+  "trash.purging": "идёт очистка",
   "purge.title": "Стереть навсегда?",
   "purge.summary": "Без возможности восстановления будет стёрто: проектов — {count}, файлов — {files}, {size}.",
   "purge.ack": "Понимаю, что это нельзя отменить",
@@ -90,6 +92,8 @@ export const ruProjects = {
   "errors.project_protected": "Проект по умолчанию нельзя архивировать или удалить.",
   "errors.restore_conflict": "Каталог проекта уже существует — восстановление перезаписало бы его.",
   "errors.trash_not_found": "В корзине такого проекта нет.",
+  "errors.trash_purging": "Проект уже стирается из корзины — восстановить его нельзя.",
+  "errors.purge_retry_forbidden": "Очистку корзины нельзя повторить — запустите её заново из корзины.",
   "errors.quarantine_not_found": "Такого черновика в карантине нет.",
   "errors.process_alive": "Процессы задачи ещё живы — черновик удалять нельзя.",
 } as const satisfies Record<string, string>;

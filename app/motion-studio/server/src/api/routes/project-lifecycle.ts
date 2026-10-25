@@ -20,7 +20,7 @@ const Count = z.number().int().nonnegative();
 export const RenameBodySchema = z.object({ title: z.string().max(1000) }).strict();
 export const DeleteBodySchema = z.object({ token: z.string().min(1).max(200), confirm_title: z.string().max(1000) }).strict();
 export const TrashEntryDtoSchema = z.object({
-  id: z.string().min(1), project_id: z.string().min(1), title: z.string(), kind: ProjectDtoSchema.shape.kind, bytes: Count, created_at: Ts,
+  id: z.string().min(1), project_id: z.string().min(1), title: z.string(), kind: ProjectDtoSchema.shape.kind, bytes: Count, created_at: Ts, purging: z.boolean(),
 }).strict();
 const TrashIds = z.array(z.string().min(1).max(200)).min(1).max(500);
 export const PurgeIntentBodySchema = z.object({ trash_ids: TrashIds }).strict();
@@ -49,7 +49,7 @@ export function projectLifecycleRoutes(app: ZApp, { core }: ApiContext): void {
     schema: { params: IdParams, body: DeleteBodySchema, response: { 200: z.object({ trash_id: z.string().min(1) }).strict() } },
   }, async (req) => ({ trash_id: deleteProject(core, req.params.id, req.body).trashId }));
 
-  app.get("/api/trash", { schema: { response: { 200: z.array(TrashEntryDtoSchema) } } }, async () => listTrash(core.db));
+  app.get("/api/trash", { schema: { response: { 200: z.array(TrashEntryDtoSchema) } } }, async () => listTrash(core.db, core.root));
 
   app.post("/api/trash/:id/restore", { schema: { params: IdParams, response: { 200: ProjectDtoSchema } } }, async (req) =>
     restoreFromTrash(core, req.params.id));

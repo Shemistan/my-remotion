@@ -73,6 +73,21 @@ it("удаление: сводка → 409 busy → 400 mismatch → корзи�
   expect((await api.inj("GET", "/api/projects/p1")).statusCode).toBe(200);
 });
 
+it("PUT script после удаления — 409 project_deleted, каталог не пересоздан; восстановление и правка работают", async () => {
+  const body = { blocks: [{ title: "Вступление", text: "Раз два. Три четыре!" }] };
+  expect((await api.inj("PUT", "/api/projects/p1/script", okHeaders, body)).statusCode).toBe(200);
+  const tok = json(await api.inj("POST", "/api/projects/p1/delete-intent")).token;
+  const trashId = json(await api.inj("DELETE", "/api/projects/p1", okHeaders, { token: tok, confirm_title: "Мой ролик" })).trash_id as string;
+  const put = await api.inj("PUT", "/api/projects/p1/script", okHeaders, { ...body, base_revision: 1 });
+  expect(put.statusCode).toBe(409);
+  expect(json(put).error).toBe("project_deleted");
+  expect(existsSync(join(api.core.root, "workspace/projects/p1"))).toBe(false);
+  expect((await api.inj("POST", `/api/trash/${trashId}/restore`)).statusCode).toBe(200);
+  const again = await api.inj("PUT", "/api/projects/p1/script", okHeaders, { ...body, base_revision: 1 });
+  expect(again.statusCode).toBe(200);
+  expect(json(again).script).toMatchObject({ revision: 2 });
+});
+
 it("очистка корзины: без второго подтверждения — 409; с токеном — задача trash.purge (202), повтор ключа — 200", async () => {
   const tok = json(await api.inj("POST", "/api/projects/p1/delete-intent")).token;
   const trashId = json(await api.inj("DELETE", "/api/projects/p1", okHeaders, { token: tok, confirm_title: "Мой ролик" })).trash_id as string;

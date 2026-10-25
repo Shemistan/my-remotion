@@ -39,7 +39,16 @@ export function acknowledge(db: Db, id: string, at: string): void {
   db.prepare("UPDATE boot_reports SET acknowledged_at = ? WHERE id = ? AND acknowledged_at IS NULL").run(at, id);
 }
 
-/** Оставляет `keep` последних отчётов. */
+/** Последний отчёт со сбоем, который человек ещё не отметил прочитанным. */
+export function latestUnacknowledgedCrash<R = unknown>(db: Db): BootReportRow<R> | undefined {
+  const r = db.prepare("SELECT * FROM boot_reports WHERE crashed = 1 AND acknowledged_at IS NULL ORDER BY rowid DESC LIMIT 1").get() as Raw | undefined;
+  return r && row<R>(r);
+}
+
+/** Оставляет `keep` последних отчётов и последний неподтверждённый отчёт со сбоем. */
 export function prune(db: Db, keep: number): void {
-  db.prepare("DELETE FROM boot_reports WHERE rowid NOT IN (SELECT rowid FROM boot_reports ORDER BY rowid DESC LIMIT ?)").run(keep);
+  db.prepare(
+    `DELETE FROM boot_reports WHERE rowid NOT IN (SELECT rowid FROM boot_reports ORDER BY rowid DESC LIMIT ?)
+       AND rowid IS NOT (SELECT rowid FROM boot_reports WHERE crashed = 1 AND acknowledged_at IS NULL ORDER BY rowid DESC LIMIT 1)`,
+  ).run(keep);
 }

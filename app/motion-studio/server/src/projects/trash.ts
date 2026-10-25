@@ -14,7 +14,8 @@ import * as trashRepo from "../db/repos/trash.js";
 import { nowIso } from "../db/repos/util.js";
 import { tx } from "../db/tx.js";
 import { newId } from "../scenes/ids.js";
-import { dirStats, verifyDeleteToken } from "./delete-intent.js";
+import { consumeDeleteToken, dirStats, verifyDeleteToken } from "./delete-intent.js";
+import { isHollowDir, removeHollowDir } from "./hollow.js";
 import { LifecycleError, requireIdle, requireLive, requireNotProtected } from "./lifecycle.js";
 
 export const TRASH_REL = "workspace/trash";
@@ -28,6 +29,16 @@ export interface LifecycleCore {
 }
 
 const stamp = (iso: string) => iso.replace(/[-:.]/g, "");
+
+/**
+ * Каталог строки корзины на время очистки: `trash.purge` в транзакции переименовывает
+ * `<rel_path>` → `<rel_path>.purging` и только потом стирает. Пока он есть, строка «идёт очистка»:
+ * восстановление — 409 `trash_purging` (иначе вернулся бы наполовину стёртый проект), сверка при
+ * старте не трогает, повтор очистки дочищает.
+ */
+export const purgingRel = (relPath: string) => `${relPath}${PURGING_SUFFIX}`;
+export const PURGING_SUFFIX = ".purging";
+export const isPurging = (root: string, relPath: string) => existsSync(join(root, purgingRel(relPath)));
 
 /** Каталог корзины формы `workspace/trash/<имя>` (без выхода наружу). */
 export function isTrashRel(rel: string): boolean {
@@ -62,6 +73,7 @@ export function deleteProject(core: LifecycleCore, id: string, body: { token: st
       trashRepo.insert(db, { id: trashId, project_id: id, rel_path: relPath, bytes, created_at: at });
       renameSync(src, dst);
     });
+    consumeDeleteToken(body.token);
   } catch (e) {
     // COMMIT не прошёл после rename — вернуть каталог (БД откатилась)
     if (existsSync(dst) && !existsSync(src) && !trashRepo.get(db, trashId)) renameSync(dst, src);
@@ -78,7 +90,10 @@ export function restoreFromTrash(core: LifecycleCore, trashId: string): projects
   const src = join(root, row.rel_path);
   const projectRel = `${PROJECTS_REL}/${row.project_id}`;
   const dst = join(root, projectRel);
+  if (isTrashRel(row.rel_path) && isPurging(root, row.rel_path)) throw new LifecycleError("trash_purging", `${row.rel_path}: идёт очистка — восстановить нельзя`);
   if (!isTrashRel(row.rel_path) || !existsSync(src)) throw new LifecycleError("trash_not_found", `каталога ${row.rel_path} в корзине нет`);
+  // пустой каталог (одни каталоги, без файлов) — след записи, отклонённой `project_deleted`: убрать
+  removeHollowDir(dst);
   if (existsSync(dst)) throw new LifecycleError("restore_conflict", `каталог проекта ${row.project_id} уже существует — восстановление перезаписало бы его`);
   safeMkdirSync(root, PROJECTS_REL);
   try {
@@ -101,13 +116,15 @@ export interface TrashEntry {
   kind: projects.ProjectRow["kind"];
   bytes: number;
   created_at: string;
+  /** Идёт очистка (`trash.purge` начала стирать каталог) — восстановить нельзя. */
+  purging: boolean;
 }
 
 /** Корзина для UI: не очищенные строки с названием проекта, новые первыми. */
-export function listTrash(db: Db): TrashEntry[] {
+export function listTrash(db: Db, root: string): TrashEntry[] {
   return trashRepo.listActive(db).map((r) => {
     const p = db.prepare("SELECT title, kind FROM projects WHERE id = ?").get(r.project_id) as { title: string; kind: TrashEntry["kind"] };
-    return { id: r.id, project_id: r.project_id, title: p.title, kind: p.kind, bytes: r.bytes, created_at: r.created_at };
+    return { id: r.id, project_id: r.project_id, title: p.title, kind: p.kind, bytes: r.bytes, created_at: r.created_at, purging: isPurging(root, r.rel_path) };
   });
 }
 
@@ -121,8 +138,11 @@ export interface TrashReconcile {
 /**
  * Шаг загрузки `reconcile_trash` (до сверки версий: иначе версии проекта, чей каталог «пропал»
  * между rename и COMMIT, были бы помечены сломанными):
- * (а) строка корзины, проект удалён, каталога в корзине нет, каталог проекта на месте — rename
- *     восстановления дошёл, COMMIT нет → снять `deleted_at`, удалить строку;
+ * (а) строка корзины, проект удалён, каталога в корзине нет, каталог проекта на месте и в нём
+ *     есть файлы — rename восстановления дошёл, COMMIT нет → снять `deleted_at`, удалить строку.
+ *     Пустой каталог проекта (одни каталоги) — не восстановление, а след записи: строка в
+ *     `orphans`, ничего не меняется. Строка с каталогом `.purging` — прерванная очистка, её
+ *     дочистит повтор `trash.purge`;
  * (б) каталог в корзине без строки, проект есть, не удалён, его каталога нет — rename удаления
  *     дошёл, COMMIT нет → вернуть каталог.
  */
@@ -130,9 +150,9 @@ export function reconcileTrash(db: Db, root: string): TrashReconcile {
   const out: TrashReconcile = { restored: [], orphans: [] };
   for (const row of trashRepo.listActive(db)) {
     const inTrash = existsSync(join(root, row.rel_path));
-    const inProjects = existsSync(join(root, PROJECTS_REL, row.project_id));
-    if (inTrash) continue;
-    if (!inProjects) {
+    const projectDir = join(root, PROJECTS_REL, row.project_id);
+    if (inTrash || isPurging(root, row.rel_path)) continue;
+    if (!existsSync(projectDir) || isHollowDir(projectDir)) {
       out.orphans.push(row.rel_path);
       continue;
     }

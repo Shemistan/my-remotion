@@ -22,8 +22,12 @@ export function persistBootReport(db: Db, report: BootReportData): PersistedBoot
   return bootReports.get<BootReportData>(db, id)!;
 }
 
+/**
+ * Отчёт для центра восстановления: последний неподтверждённый со сбоем (баннер не пропадает
+ * после следующего штатного старта), иначе — последний.
+ */
 export function latestBootReport(db: Db): PersistedBootReport | undefined {
-  return bootReports.latest<BootReportData>(db);
+  return bootReports.latestUnacknowledgedCrash<BootReportData>(db) ?? bootReports.latest<BootReportData>(db);
 }
 
 export function acknowledgeBootReport(db: Db, id: string): PersistedBootReport {

@@ -5,7 +5,7 @@ import { type ProcessRegistry, isTrackedAlive } from "@ms/core";
 import type { Db } from "../db/open.js";
 import * as jobs from "../db/repos/jobs.js";
 import { tx } from "../db/tx.js";
-import { assertProjectOpen } from "../projects/lifecycle.js";
+import { LifecycleError, assertProjectOpen } from "../projects/lifecycle.js";
 import { releaseLocks } from "./locks.js";
 
 const RETRYABLE = new Set<Job["status"]>(["failed", "cancelled", "blocked"]);
@@ -30,10 +30,21 @@ export class StaleProcessAliveError extends Error {
  * обнуляется — повтор человеком даёт новый запас автоповторов (M16); замки снимаются
  * (захват возьмёт их снова).
  */
+/**
+ * Необратимая очистка корзины повторяется вручную только после сбоя (`failed(interrupted)`):
+ * иначе повтор старой задачи стёр бы корзину без нового второго подтверждения (`purge-intent`).
+ */
+function requirePurgeRetryAllowed(j: Job): void {
+  if (j.type === "trash.purge" && !(j.status === "failed" && j.error?.code === "interrupted")) {
+    throw new LifecycleError("purge_retry_forbidden", "очистку корзины нельзя повторить — подтвердите её заново");
+  }
+}
+
 export async function retryJob(db: Db, jobId: string, registry: ProcessRegistry): Promise<Job> {
   const before = jobs.get(db, jobId);
   if (!before) throw new Error(`job_not_found: ${jobId}`);
   if (!RETRYABLE.has(before.status)) throw new Error(`job_not_retryable: задача ${jobId} в статусе ${before.status}`);
+  requirePurgeRetryAllowed(before);
   const alive = [];
   for (const p of await registry.live({ runId: jobId })) {
     if (await isTrackedAlive(p)) alive.push(p);
@@ -45,6 +56,7 @@ export async function retryJob(db: Db, jobId: string, registry: ProcessRegistry)
     if (!RETRYABLE.has(j.status)) throw new Error(`job_not_retryable: задача ${jobId} в статусе ${j.status}`);
     // Task 47: задачи архивного и удалённого проекта не повторяются
     assertProjectOpen(db, j.project_id);
+    requirePurgeRetryAllowed(j);
     const next = jobs.update(db, jobId, {
       status: "pending",
       error: null,

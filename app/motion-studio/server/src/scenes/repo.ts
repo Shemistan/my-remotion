@@ -15,6 +15,7 @@ import * as knowledgeRefs from "../db/repos/knowledge-refs.js";
 import * as projects from "../db/repos/projects.js";
 import * as scenes from "../db/repos/scenes.js";
 import * as versions from "../db/repos/versions.js";
+import { assertProjectOpen } from "../projects/lifecycle.js";
 import { jsonDiff, srcFilesDiff } from "./diff.js";
 import { sha256, sha256File } from "./hash.js";
 import { newId } from "./ids.js";
@@ -136,6 +137,8 @@ export class SceneRepo {
   /** Новая сцена: `brief.json` в каталоге сцены и строка в БД. Синхронно — годится внутри `tx`. */
   createScene(projectId: string, input: { prompt: string; settings: Settings }): scenes.SceneRow {
     if (!projects.get(this.db, projectId)) throw new Error(`scenes: проекта нет: ${projectId}`);
+    // до записи brief.json: она пересоздала бы каталог проекта в корзине (Task 47)
+    assertProjectOpen(this.db, projectId);
     const settings = SettingsSchema.parse(input.settings);
     const id = newId("scn");
     const created_at = new Date().toISOString();

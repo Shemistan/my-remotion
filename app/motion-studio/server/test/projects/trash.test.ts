@@ -42,11 +42,11 @@ it("вектор брифа: confirm_mismatch → project_busy → корзин�
   expect(trashDir(trashId)).toMatch(/^workspace\/trash\/p1-\d{8}T\d{9}Z$/);
   expect(existsSync(join(root, trashDir(trashId), "scenes/scn_p1/brief.json"))).toBe(true); // ничего не стёрто
   expect(projects.list(db).map((p) => p.id)).not.toContain("p1");
-  expect(listTrash(db).map((t) => t.project_id)).toEqual(["p1"]);
+  expect(listTrash(db, root).map((t) => t.project_id)).toEqual(["p1"]);
   restoreFromTrash(core, trashId);
   expect(lifecycleOf(db, "p1")!.deleted_at).toBeNull();
   expect(existsSync(join(root, "workspace/projects/p1/scenes/scn_p1/brief.json"))).toBe(true);
-  expect(listTrash(db)).toEqual([]);
+  expect(listTrash(db, root)).toEqual([]);
   vi.setSystemTime(Date.now() + 11 * 60_000);
   expect(() => deleteProject(core, "p1", { token: it1.token, confirm_title: "Мой ролик" })).toThrow(/intent_expired/);
 });
@@ -83,6 +83,7 @@ it("удалённый проект: задачи не ставятся, пов�
 it("восстановление: каталог проекта уже занят — restore_conflict, корзина не тронута", () => {
   const { trashId } = deleteProject(env.core, "p1", { token: deleteIntent(env.db, env.root, "p1").token, confirm_title: "Мой ролик" });
   mkdirSync(join(env.root, "workspace/projects/p1"));
+  writeFileSync(join(env.root, "workspace/projects/p1/note.txt"), "чужие данные"); // пустой каталог восстановление убирает само
   expect(() => restoreFromTrash(env.core, trashId)).toThrow(/restore_conflict/);
   expect(existsSync(join(env.root, trashDir(trashId)))).toBe(true);
   expect(lifecycleOf(env.db, "p1")!.deleted_at).not.toBeNull();
@@ -112,7 +113,7 @@ it("trash.purge: второе подтверждение; стирает тол�
   expect(r).toMatchObject({ status: "completed", outputRefs: { purged: [trashId] } });
   expect(existsSync(join(env.root, trashDir(trashId)))).toBe(false);
   expect(trashRepo.get(env.db, trashId)!.purged_at).not.toBeNull();
-  expect(listTrash(env.db)).toEqual([]);
+  expect(listTrash(env.db, env.root)).toEqual([]);
   expect(existsSync(join(env.root, "workspace/projects/s1/packages/pkg_0/01.mp4"))).toBe(true);
   const again = await trashPurge(deps)(ctxFor({ trashIds: [trashId], token: intent.token }));
   expect(again).toMatchObject({ status: "completed", outputRefs: { purged: [], skipped: [trashId] } });

@@ -11,7 +11,7 @@ import { DEFAULT_PROJECT } from "../scenes/store.js";
 export type LifecycleCode =
   | "invalid_title" | "project_not_found" | "project_protected" | "project_busy" | "project_archived" | "project_deleted"
   | "confirm_mismatch" | "intent_expired" | "trash_not_found" | "restore_conflict" | "quarantine_not_found" | "process_alive"
-  | "boot_report_not_found";
+  | "boot_report_not_found" | "trash_purging" | "purge_retry_forbidden";
 
 const STATUS: Record<LifecycleCode, number> = {
   invalid_title: 400,
@@ -27,6 +27,8 @@ const STATUS: Record<LifecycleCode, number> = {
   intent_expired: 409,
   restore_conflict: 409,
   process_alive: 409,
+  trash_purging: 409,
+  purge_retry_forbidden: 409,
 };
 
 /** Отказ операции над проектом, корзиной или карантином: API отдаёт `code` и статус. */
@@ -88,6 +90,18 @@ export function requireLive(db: Db, id: string): ProjectWithLifecycle {
   const p = requireProject(db, id);
   if (p.deleted_at) throw new LifecycleError("project_deleted", `проект ${id} в корзине — сначала восстановите его`);
   return p;
+}
+
+/**
+ * Запись в каталог проекта (публикация ревизии, синхронная правка): удалённый проект —
+ * `project_deleted` (иначе `safeMkdir` пересоздал бы `workspace/projects/<id>`, и восстановление
+ * из корзины навсегда упёрлось бы в `restore_conflict`). Архив правки не запрещает — бриф Task 47
+ * запрещает архивному проекту только задачи. Вызывается и внутри транзакции публикации: перенос
+ * в корзину и публикация сериализованы `BEGIN IMMEDIATE`.
+ */
+export function deletedRefusal(db: Db, projectId: string): LifecycleError | undefined {
+  const l = lifecycleOf(db, projectId);
+  return l?.deleted_at ? new LifecycleError("project_deleted", `проект ${projectId} в корзине — сначала восстановите его`) : undefined;
 }
 
 /** Проект по умолчанию (Playground из миграции 001) не архивируется и не удаляется. */

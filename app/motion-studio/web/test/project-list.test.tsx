@@ -75,6 +75,24 @@ it("архив и корзина: фильтр; восстановление; о
   expect(await screen.findByText(t("purge.started"))).toBeTruthy();
 });
 
+it("корзина: очищаемый проект нельзя восстановить; «Очистить корзину» при фильтре предупреждает о скрытых", async () => {
+  const trash = [
+    { id: "trs_1", project_id: "p3", title: "Старый", kind: "video", bytes: 5, created_at: TS, purging: true },
+    { id: "trs_2", project_id: "p4", title: "Другой", kind: "script", bytes: 5, created_at: TS, purging: false },
+  ];
+  fakeFetch([on("GET", "/api/projects", list), on("GET", "/api/trash", trash)]);
+  renderQ(<ProjectList />);
+  fireEvent.click(screen.getByRole("button", { name: t("projects.filter.trash") }));
+  const row = (await screen.findByText("Старый")).closest("li")!;
+  expect((within(row).getByRole("button", { name: t("trash.restore") }) as HTMLButtonElement).disabled).toBe(true);
+  expect(within(row).getByText(t("trash.purging"))).toBeTruthy();
+  const other = screen.getByText("Другой").closest("li")!;
+  expect((within(other).getByRole("button", { name: t("trash.restore") }) as HTMLButtonElement).disabled).toBe(false);
+  expect(screen.getByRole("button", { name: t("trash.purgeAll") })).toBeTruthy();
+  fireEvent.change(screen.getByLabelText(t("projects.search")), { target: { value: "друг" } });
+  expect(screen.getByRole("button", { name: t("trash.purgeAllFiltered", { count: 2 }) })).toBeTruthy();
+});
+
 const recovery = (over: Record<string, unknown> = {}) => ({
   boot: { id: "brp_1", created_at: TS, crashed: true, acknowledged_at: null, summary: { recovered: 2, blocked: 1, quarantined: 1, failed: 0 } },
   interrupted: [job({ id: "job_r", status: "pending" })],

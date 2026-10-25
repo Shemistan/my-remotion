@@ -17,6 +17,8 @@ export interface TrashEntryDto {
   kind: ProjectDto["kind"];
   bytes: number;
   created_at: string;
+  /** Идёт очистка — восстановить нельзя. */
+  purging: boolean;
 }
 
 export interface PurgeIntentDto {

@@ -1,6 +1,7 @@
 // Корзина (Task 47): удалённые проекты с размером и временем удаления; «Восстановить» — сразу
 // (обратимо), «Удалить навсегда» и «Очистить корзину» — через второе подтверждение: сводка
-// (`purge-intent`), флажок «понимаю, что нельзя отменить», затем задача `trash.purge`.
+// (`purge-intent`), флажок «понимаю, что нельзя отменить», затем задача `trash.purge`. Строку,
+// которую очистка уже начала стирать (`purging`), восстановить нельзя.
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { newKey } from "../../api/client.js";
@@ -56,15 +57,19 @@ export function TrashList({ filter = "" }: { filter?: string }) {
             <span className="strong">{e.title}</span>
             <span className="badge">{t(`project.kind.${e.kind}`)}</span>
             <span className="muted small">{t("trash.deletedAt", { at: dateTime(e.created_at) })} · {sizeText(e.bytes)}</span>
-            <button type="button" disabled={restore.isPending} onClick={() => restore.mutate(e.id)}>{t("trash.restore")}</button>
-            <button type="button" onClick={() => setDialog([e.id])}>{t("trash.purge")}</button>
+            {e.purging ? <span className="badge">{t("trash.purging")}</span> : null}
+            <button type="button" disabled={restore.isPending || e.purging} onClick={() => restore.mutate(e.id)}>{t("trash.restore")}</button>
+            <button type="button" disabled={e.purging} onClick={() => setDialog([e.id])}>{t("trash.purge")}</button>
           </li>
         ))}
       </ul>
       {restore.isError ? <p className="error">{errorText(restore.error)}</p> : null}
       {trash.data.length > 0 ? (
         <div className="row">
-          <button type="button" onClick={() => setDialog(trash.data.map((e) => e.id))}>{t("trash.purgeAll")}</button>
+          {/* очищается вся корзина, а не только видимое под фильтром — так и написано на кнопке */}
+          <button type="button" onClick={() => setDialog(trash.data.map((e) => e.id))}>
+            {items.length < trash.data.length ? t("trash.purgeAllFiltered", { count: trash.data.length }) : t("trash.purgeAll")}
+          </button>
         </div>
       ) : null}
       {purging ? <p className="hint">{t("purge.started")}</p> : null}

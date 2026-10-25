@@ -106,10 +106,24 @@ export function deleteIntent(db: Db, root: string, id: string): DeleteIntent {
   return { ...issueToken("delete", id, state), ...state, activeJobs: activeJobIds(db, id) };
 }
 
-/** Токен удаления проекта действителен для текущего состояния. */
+/**
+ * Использованные токены удаления (до истечения): токен одноразовый — после восстановления из
+ * корзины состояние проекта то же, и без этого прежний токен удалил бы его снова без новой сводки.
+ */
+const usedDeleteTokens = new Map<string, number>();
+
+/** Токен удаления проекта действителен для текущего состояния и ещё не использован. */
 export function verifyDeleteToken(db: Db, root: string, id: string, token: string): void {
   const p = requireLive(db, id);
+  if (usedDeleteTokens.has(token)) throw new LifecycleError("intent_expired", "подтверждение уже использовано — откройте сводку заново");
   checkToken("delete", id, projectState(db, root, id, p.title), token);
+}
+
+/** Удаление прошло — токен больше не действует. */
+export function consumeDeleteToken(token: string): void {
+  const now = Date.now();
+  for (const [t, exp] of usedDeleteTokens) if (exp < now) usedDeleteTokens.delete(t);
+  usedDeleteTokens.set(token, Number(token.split(".")[0]) || now + INTENT_TTL_MS);
 }
 
 /** Строки корзины для очистки: есть и не очищены; id — без повторов, по порядку. */
