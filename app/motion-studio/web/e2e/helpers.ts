@@ -1,26 +1,29 @@
-// Общее для Playwright UI: пути, состояние засева, скриншоты в evidence, запросы к API.
+// Общее для Playwright UI: пути, состояние засева, скриншоты (tmp/e2e-ui или evidence), запросы к API.
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { APIRequestContext, Page } from "@playwright/test";
+import { evidenceDirs } from "./evidence.js";
 
 export const APP = fileURLToPath(new URL("../../", import.meta.url));
 export const REPO = join(APP, "../..");
 export const RUN_DIR = join(REPO, "tmp/ui-e2e");
 export const STATE_FILE = join(RUN_DIR, "state.json");
-export const EVIDENCE = join(REPO, "docs/evidence/phase-1/ui");
+/** Скриншоты: `tmp/e2e-ui/…`, с `MS_WRITE_EVIDENCE=1` — `docs/evidence/…` (S17b, `evidence.ts`). */
+const DIRS = evidenceDirs(REPO, process.env.MS_WRITE_EVIDENCE);
+export const EVIDENCE = DIRS.phase1;
 /** Скриншоты Video Workspace (Task 29). */
-export const EVIDENCE_VIDEO = join(REPO, "docs/evidence/phase-2/ui");
+export const EVIDENCE_VIDEO = DIRS.video;
 /** Медиа-фикстуры (`scripts/make-media-fixtures.mjs`): корень импорта по пути в UI-e2e. */
 export const MEDIA_FIXTURES = join(REPO, "tmp/media-fixtures");
-/** Скриншоты анализа и визуального плана (Task 33): в репозиторий — уменьшенные до 480 px (V4). */
-export const EVIDENCE_PHASE3 = join(REPO, "docs/evidence/phase-3/ui");
-/** Скриншоты UI сценария (S8/S9): в репозиторий — уменьшенные до 480 px, полные — tmp/ui-e2e/script-full/. */
-export const EVIDENCE_SCRIPT = join(REPO, "docs/evidence/script-mvp/ui");
+/** Скриншоты анализа и визуального плана (Task 33): уменьшенные до 480 px (V4). */
+export const EVIDENCE_PHASE3 = DIRS.phase3;
+/** Скриншоты UI сценария (S8/S9): уменьшенные до 480 px, полные — tmp/ui-e2e/script-full/. */
+export const EVIDENCE_SCRIPT = DIRS.script;
 const SCRIPT_FULL = join(RUN_DIR, "script-full");
 
-/** Скриншот UI сценария: полный — tmp/ui-e2e/script-full/, в репозиторий — 480 px по ширине. */
+/** Скриншот UI сценария: полный — tmp/ui-e2e/script-full/, уменьшенный до 480 px — EVIDENCE_SCRIPT. */
 export async function scriptShot(page: Page, name: string): Promise<string> {
   mkdirSync(SCRIPT_FULL, { recursive: true });
   mkdirSync(EVIDENCE_SCRIPT, { recursive: true });

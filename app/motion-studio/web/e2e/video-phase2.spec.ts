@@ -4,7 +4,7 @@
 // на кириллице → правка слова (r2, r1 доступна) → предложение монтажа без агента → принять /
 // восстановить → принять всё → превью → «После монтажа» играет → Approval A → `kill -9` сервера и
 // старт → всё на месте, A валиден → правка статуса вырезки → A «устарело». Скриншоты —
-// docs/evidence/phase-2/ui/. Отдельный тест — загрузка того же файла через выбор файла.
+// tmp/e2e-ui/phase-2/ui/ (MS_WRITE_EVIDENCE=1 — docs/evidence/…). Отдельный тест — загрузка того же файла через выбор файла.
 import { spawn } from "node:child_process";
 import { openSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

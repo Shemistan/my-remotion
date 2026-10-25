@@ -35,6 +35,9 @@ Evidence в `docs/evidence/` закоммичено и само по себе н
 - `slice.e2e` кладёт кадры и итоги прогона в `tmp/slice-evidence/`. В
   `docs/evidence/phase-1/slice/` они попадают только с флагом:
   `MS_WRITE_EVIDENCE=1 make e2e`.
+- `make e2e-ui` (Playwright) пишет скриншоты в `tmp/e2e-ui/<фаза>/ui/`; в
+  `docs/evidence/{phase-1,phase-2,phase-3,script-mvp}/ui/` — только с тем же флагом:
+  `MS_WRITE_EVIDENCE=1 make e2e-ui`.
 - Кадры галереи хореографии kit пересобирает `scripts/kit-evidence.mts` (см.
   `render/src/motion-kit/PROVENANCE.md`).
 
