@@ -67,6 +67,11 @@ describe("рубрика", () => {
     for (const c of Object.keys(OUTPUT.criteria)) expect(p).toContain(`\`${c}\``);
     expect(p).toMatch(/Якоря/);
   });
+
+  it("F12: судья отвечает по-русски", async () => {
+    const p = await loadJudgePrompt();
+    expect(p).toMatch(/[Оо]твечай по-русски/);
+  });
 });
 
 describe("prepareJudgeInput", () => {
