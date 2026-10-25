@@ -11,6 +11,7 @@ import { ArtifactStore } from "../../src/artifacts/store.js";
 import { type AppConfig, loadConfig } from "../../src/config.js";
 import { migrate } from "../../src/db/migrate.js";
 import { type Db, openDb } from "../../src/db/open.js";
+import * as agentRuns from "../../src/db/repos/agent-runs.js";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as plans from "../../src/db/repos/plans.js";
 import * as projects from "../../src/db/repos/projects.js";
@@ -217,6 +218,27 @@ describe("script.plan", () => {
     expect(third.out).toMatchObject({ reused: true, plan_id: second.out!.plan_id, revision: 1, items: 3 });
     const failedOnce = await run(await project(), { agents: fakeAgents([cliFail]) });
     expect(failedOnce.r).toMatchObject({ status: "failed", error: { code: "pipeline" } });
+  });
+
+  it("S17b: неудачные вызовы агента (отказ, таймаут, исключение рантайма) — в agent_runs и в сумме задачи", async () => {
+    const failed = await run(await project(), { agents: fakeAgents([cliFail]) });
+    expect(failed.r.status).toBe("failed");
+    expect(db.prepare("SELECT role, status, cost_usd FROM agent_runs WHERE job_id = ?").all(failed.job.id))
+      .toEqual([{ role: "script_director", status: "failed", cost_usd: 0.05 }]);
+    const timeout: Reply = async () => ({ status: "timeout", error: { kind: "timeout", message: "таймаут" }, usage: { model: "sonnet", inputTokens: 5, outputTokens: 1, costUsd: 0.2 } });
+    const t = await run(await project(), { agents: fakeAgents([timeout]) });
+    expect(t.r.status).toBe("failed");
+    expect(db.prepare("SELECT status, cost_usd FROM agent_runs WHERE job_id = ?").all(t.job.id)).toEqual([{ status: "timeout", cost_usd: 0.2 }]);
+    expect(agentRuns.jobCost(db, t.job.id)).toEqual({ usd: 0.2, runs: 1, unknown: 0 });
+    // рантайм бросил (spawn не удался): стоимость неизвестна — строка со статусом и cost null
+    const boom: Reply = async () => {
+      throw new Error("spawn упал");
+    };
+    const b = await run(await project(), { agents: fakeAgents([boom]) });
+    expect(b.r.status).toBe("failed");
+    expect(db.prepare("SELECT role, model, status, cost_usd FROM agent_runs WHERE job_id = ?").all(b.job.id))
+      .toEqual([{ role: "script_director", model: "unknown", status: "failed", cost_usd: null }]);
+    expect(agentRuns.jobCost(db, b.job.id)).toEqual({ usd: 0, runs: 1, unknown: 1 });
   });
 
   it("попытка с устаревшим fencing не публикует ни стиль, ни план", async () => {

@@ -17,3 +17,13 @@ export function finish(
       toJson(r.permission_denials), r.finished_at ?? nowIso(), id);
   if (res.changes !== 1) throw new Error(`db: прогона агента нет: ${id}`);
 }
+
+/**
+ * Стоимость задачи по журналу агентов (все попытки, любой статус вызова). `unknown` — вызовы
+ * с неизвестной стоимостью (`cost_usd` null): сумма тогда — нижняя граница.
+ */
+export function jobCost(db: Db, jobId: string): { usd: number; runs: number; unknown: number } {
+  const r = db.prepare(`SELECT COALESCE(SUM(cost_usd), 0) AS usd, COUNT(*) AS runs, COUNT(*) - COUNT(cost_usd) AS unknown
+      FROM agent_runs WHERE job_id = ?`).get(jobId) as { usd: number; runs: number; unknown: number };
+  return { usd: Math.round(r.usd * 1e6) / 1e6, runs: r.runs, unknown: r.unknown };
+}
