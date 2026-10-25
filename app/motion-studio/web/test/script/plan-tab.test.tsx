@@ -74,6 +74,17 @@ it("сообщения проверок без кодов: id сцен → «с�
   expect(li.textContent).toContain("сцена 2 и сцена 3: «сборка по шагам», «Гонка скоростей»");
 });
 
+it("F9: смысловой повтор — warning с подсказкой по-русски и номерами сцен", () => {
+  fakeFetch();
+  const s = state();
+  s.plan!.doc.issues.push({ item_id: "ss_003", code: "meaning_repeat", severity: "warning", message: "ss_001 и ss_003 показывают одно и то же (общее: «оба массива») — покажите другой аспект или объедините сцены" });
+  renderQ(<PlanTab state={s} onGenerated={() => {}} />);
+  const li = screen.getByTestId("plan-issues").querySelector('[data-code="meaning_repeat"]')!;
+  expect(li.textContent).toContain(t("scriptPlan.issue.meaning_repeat"));
+  expect(li.textContent).toContain("сцена 1 и сцена 3 показывают одно и то же");
+  expect(li.textContent).toContain("объедините сцены");
+});
+
 it("смена приёма → usePlanOps modify; «Убрать» → set_status rejected; «Вернуть» → accepted", async () => {
   const { calls } = fakeFetch([okOps()]);
   const s = state();

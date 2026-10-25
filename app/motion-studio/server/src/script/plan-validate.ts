@@ -18,6 +18,7 @@ import {
 import type { Fps } from "@ms/contracts";
 import { numberMatchesQuote, validateSemantic } from "../analysis/semantic-validate.js";
 import { planDiversity } from "./diversity.js";
+import { meaningRepeatIssues } from "./meaning-repeat.js";
 import { ruNumberParse } from "./ru-numbers.js";
 
 /** Пределы речи сцены, с (§5.2). */
@@ -201,7 +202,7 @@ export function validateScriptPlan(out: ScriptDirectorOutput, doc: ScriptRevisio
 /**
  * Проблемы плана — общие для ответа агента (S3) и правки человека (S4), по принятым сценам:
  * числа словами без проверки (`value_unverified`), длительность (`itemIssues`), разнообразие
- * (`planDiversity`), покрытие текста (`coverage_low`/`coverage_high`).
+ * (`planDiversity`), смысловые повторы (`meaning_repeat`, F9), покрытие текста (`coverage_low`/`coverage_high`).
  */
 export function planIssues(items: readonly ScriptSceneItem[], script: ScriptRevisionDoc, reading: ReadingSettings, fps: Fps): {
   issues: PlanIssue[]; diversity: ScriptPlanRevisionDoc["diversity"];
@@ -215,7 +216,7 @@ export function planIssues(items: readonly ScriptSceneItem[], script: ScriptRevi
     }
   }
   const div = planDiversity(items);
-  issues.push(...itemIssues(items, reading, fps), ...div.issues);
+  issues.push(...itemIssues(items, reading, fps), ...div.issues, ...meaningRepeatIssues(items));
   const covered = accepted.reduce((a, x) => a + x.words, 0);
   const share = script.words.length === 0 ? 0 : covered / script.words.length;
   const pct = `${Math.round(share * 100)} %`;
