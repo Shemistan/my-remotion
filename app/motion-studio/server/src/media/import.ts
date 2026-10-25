@@ -2,9 +2,8 @@
 // только читается; на том же томе — APFS-клон (`COPYFILE_FICLONE`), иначе потоковая копия с
 // хешем на лету. Один проход чтения (S17c, F4: было три — хеш до, копия, хеш после): sha256
 // считается по копии (у потоковой — по байтам, записанным в неё), неизменность источника —
-// отпечаток stat (dev, ino, размер, mtime и ctime в нс) до и после; размер копии = размеру
-// источника. ctime ядро ставит при любой записи и смене mtime — из user space его не вернуть.
-// Расхождение — ошибка, копия удаляется. Копия — `0444`. Чтение отменяемо (`signal`), прогресс — `onBytes`.
+// отпечаток stat (dev, ino, размер, mtime в нс) до и после, размер копии = размеру источника и
+// побайтная сверка 6 блоков по 1 МиБ источника и копии (exFAT/FAT с грубым временем). Расхождение — ошибка, копия удаляется. Копия — `0444`. Чтение отменяемо (`signal`), прогресс — `onBytes`.
 import { createHash } from "node:crypto";
 import { constants, createReadStream, createWriteStream } from "node:fs";
 import { chmod, copyFile, mkdir, open, rm, stat } from "node:fs/promises";
@@ -19,6 +18,11 @@ export interface CopiedOriginal {
   path: string;
   sha256: string;
   cloned: boolean;
+  /**
+   * Источник НЕ перечитывается (S17c): `srcSha256Before` — переданный `srcSha256` или sha256
+   * копии, `srcSha256After` — sha256 копии. Равенство источнику выведено из неизменного отпечатка
+   * stat (inode, размер, mtime) и совпадения 6 выборочных блоков источника и копии.
+   */
   srcSha256Before: string;
   srcSha256After: string;
 }
@@ -59,18 +63,53 @@ async function streamCopy(src: string, dest: string, o: CopyOriginalOptions): Pr
   return h.digest("hex");
 }
 
-/** Отпечаток файла: любая запись меняет размер или mtime/ctime (нс), подмена пути — ino. */
+/**
+ * Отпечаток файла: запись меняет размер или mtime (нс), подмена пути — ino. ctime не берём: его
+ * меняет и xattr (Finder, Spotlight), это дало бы ложный `media_invalid` (ревью S17c I2).
+ */
 async function fingerprint(path: string): Promise<{ dev: bigint; size: bigint; file: string; id: string }> {
   const st = await stat(path, { bigint: true });
-  return { dev: st.dev, size: st.size, file: `${st.dev}:${st.ino}`, id: [st.size, st.mtimeNs, st.ctimeNs].join(":") };
+  return { dev: st.dev, size: st.size, file: `${st.dev}:${st.ino}`, id: `${st.size}:${st.mtimeNs}` };
+}
+
+/** Размер выборочного блока сверки источника и копии. */
+export const SAMPLE_BLOCK = 1024 * 1024;
+
+/**
+ * Смещения 6 блоков сверки: начало, конец и 4 псевдослучайных — детерминированно от sha256 копии
+ * (одинаковы при повторе, не угадать заранее). Файл короче 6 блоков — блоки перекрываются.
+ */
+export function sampleOffsets(size: number, sha256: string): number[] {
+  const last = Math.max(0, size - SAMPLE_BLOCK);
+  const mid = Array.from({ length: 4 }, (_, k) => (last === 0 ? 0 : Number(BigInt(`0x${sha256.slice(k * 12, k * 12 + 12)}`) % BigInt(last + 1))));
+  return [0, last, ...mid];
+}
+
+/**
+ * Побайтная сверка 6 блоков источника и копии после копирования (ревью S17c I2): на exFAT/FAT
+ * время грубое, перезапись того же размера отпечаток stat может не заметить. ≤ 6 МиБ чтения.
+ */
+async function sampleBlocksEqual(src: string, dest: string, size: number, sha256: string): Promise<boolean> {
+  const [a, b] = await Promise.all([open(src, "r"), open(dest, "r")]);
+  try {
+    const x = Buffer.alloc(SAMPLE_BLOCK);
+    const y = Buffer.alloc(SAMPLE_BLOCK);
+    for (const at of sampleOffsets(size, sha256)) {
+      const [{ bytesRead: n }, { bytesRead: m }] = await Promise.all([a.read(x, 0, SAMPLE_BLOCK, at), b.read(y, 0, SAMPLE_BLOCK, at)]);
+      if (n !== m || !x.subarray(0, n).equals(y.subarray(0, m))) return false;
+    }
+    return true;
+  } finally {
+    await Promise.all([a.close(), b.close()]);
+  }
 }
 
 /**
  * `original.<ext>` в `destDir` (существующий файл — ошибка, перезаписи нет). Тот же том —
  * `COPYFILE_FICLONE` (libuv на macOS зовёт `copyfile(COPYFILE_CLONE)` — APFS-клон; `FICLONE_FORCE`
  * не реализован, ENOSYS), затем sha256 копии; другой том — потоковая копия, sha256 на лету.
- * `cloned` = источник на том же устройстве. `srcSha256Before`/`After` — sha256 копии (или
- * переданный `srcSha256`): содержимое источника равно копии, раз отпечаток stat не изменился.
+ * `cloned` = источник на том же устройстве (запрошен клон; если ФС клонов не умеет, libuv молча
+ * копирует обычным образом — флаг этого не различает).
  */
 export async function copyOriginal(src: string, destDir: string, opts: CopyOriginalOptions = {}): Promise<CopiedOriginal> {
   const { signal, onBytes } = opts;
@@ -104,8 +143,9 @@ export async function copyOriginal(src: string, destDir: string, opts: CopyOrigi
     if (after.file !== before.file) throw new MediaInvalidError(`исходник подменён во время импорта (путь ${src} ведёт к другому файлу)`);
     const copySize = (await stat(dest, { bigint: true })).size;
     const known = opts.srcSha256 ?? copy;
-    if (after.id !== before.id || copySize !== before.size || copy !== known) {
-      throw new MediaInvalidError(`исходник изменился во время импорта (размер ${before.size} → ${after.size}, копия ${copySize} байт; mtime/ctime/inode ${after.id === before.id ? "те же" : "другие"}; sha256 копии ${copy.slice(0, 12)}…, ожидался ${known.slice(0, 12)}…)`);
+    const same = after.id === before.id && copySize === before.size && copy === known;
+    if (!same || !(await sampleBlocksEqual(src, dest, Number(copySize), copy))) {
+      throw new MediaInvalidError(`исходник изменился во время импорта (размер ${before.size} → ${after.size}, копия ${copySize} байт; mtime ${after.id === before.id ? "тот же" : "другой"}; sha256 копии ${copy.slice(0, 12)}…, ожидался ${known.slice(0, 12)}…${same ? "; выборочные блоки источника и копии различаются" : ""})`);
     }
     await chmod(dest, 0o444);
     return { path: dest, sha256: copy, cloned, srcSha256Before: known, srcSha256After: copy };

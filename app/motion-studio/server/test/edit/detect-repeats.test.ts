@@ -65,7 +65,17 @@ describe("detectRepeats: перечисление через запятую (S17
     ];
     expect(detectRepeats(words, F30)).toEqual([]);
     expect(detectRepeats(ws4("Да, да, да."), F30)).toEqual([]);
-    expect(detectRepeats(ws4("красный, синий, красный, синий, белый"), F30)).toEqual([]);
+    expect(detectRepeats(ws4("красный, синий, красный, синий, белый, зелёный"), F30)).toEqual([]);
+  });
+
+  it("ревью S17c I1: заикание с запятыми, после которого фраза продолжается, — повтор", () => {
+    expect(detectRepeats(ws4("Значит, значит, мы делаем"), F30)[0]).toMatchObject({ start_word_id: "w_000001", end_word_id: "w_000001" });
+    expect(detectRepeats(ws4("Ну, ну, вот"), F30)).toHaveLength(1);
+    expect(detectRepeats(ws4("Я думаю, я думаю, что так"), F30)[0]).toMatchObject({ start_word_id: "w_000001", end_word_id: "w_000002" });
+    expect(detectRepeats(ws4("Это, это, это, сообщение"), F30)[0]).toMatchObject({ start_word_id: "w_000001", end_word_id: "w_000002" });
+    expect(detectRepeats(ws4("Это, это, это сообщение"), F30)).toHaveLength(1);
+    // в конце транскрипта без конца предложения — тоже не доказано перечисление
+    expect(detectRepeats(ws4("Значит, значит,"), F30)).toHaveLength(1);
   });
 
   it("оговорка и переформулировка с запятой — по-прежнему повтор", () => {
