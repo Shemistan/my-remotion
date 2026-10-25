@@ -51,7 +51,7 @@ const REPEAT_PREFIX = /^\[повтор после исправления[^\]]*\]
  * неверное использование kit (сообщение kit меняется, а замечание без кадра и области),
  * пустое превью, биты-ссылки spec без бита.
  */
-export const NEVER_SOFTEN: ReadonlySet<string> = new Set(["network", "kit_misuse", "preview_size", "beat_reference"]);
+export const NEVER_SOFTEN: ReadonlySet<string> = new Set(["network", "kit_misuse", "preview_size", "beat_reference", "speech_window"]);
 
 /**
  * Ключ замечания: код, область и кадры (поле `frame` и список «кадры …» в описании). Без кадра
