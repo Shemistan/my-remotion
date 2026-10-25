@@ -13,7 +13,7 @@ import { chmod } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import {
   type Aspect, AspectSchema, type ExportRequest, ExportRequestSchema, type ProbeResult, ProbeResultSchema, type ScriptPackageDto, type ScriptPackageFile,
-  type ScriptPackageManifest, ScriptPackageManifestSchema, type ScriptSceneItem, compareWordIds, failureToJobErrorCode, wordsBetween,
+  type SceneFrames, type ScriptPackageManifest, ScriptPackageManifestSchema, type ScriptSceneItem, compareWordIds, failureToJobErrorCode, wordsBetween,
 } from "@ms/contracts";
 import { type StorageStatus, safeMkdir, safeMkdirSync } from "@ms/core";
 import { z } from "zod";
@@ -34,7 +34,7 @@ import type { HandlerResult, JobContext, JobHandler } from "../jobs/types.js";
 import { sha256, sha256File } from "../scenes/hash.js";
 import { newId } from "../scenes/ids.js";
 import { QUARANTINE, attachCause, fsyncDirSync, fsyncWrite, fsyncWriteSync, quarantineDir } from "../scenes/store.js";
-import { type CheatRow, CHEAT_FILES, cheatsheet } from "../script/cheatsheet.js";
+import { type CheatRow, CHEAT_FILES, cheatNotes, cheatsheet } from "../script/cheatsheet.js";
 import { twinOutdated } from "../script/batch.js";
 import { itemFingerprint } from "../script/fingerprint.js";
 import { OVERLAY_BLOCKERS, OVERLAY_IMPOSSIBLE, overlayProblem } from "../script/overlay-check.js";
@@ -67,6 +67,9 @@ export const MANIFEST_FILE = "package-manifest.json";
 export const NO_VERSION = "нет готовой версии";
 export const STALE = "сцена устарела";
 const EXPORT_FAILED = "экспорт не удался";
+/** F8: короткие причины для шпаргалки (полный текст — в манифесте, `missing[]`). */
+const ALPHA_FAILED_NOTE = "альфа-версия не экспортирована";
+const shortMissing = (reason: string): string => (reason.startsWith(EXPORT_FAILED) ? EXPORT_FAILED : reason);
 
 type Stage = "prepare" | "storage" | "publish" | "fenced_out" | "cancelled";
 
@@ -137,8 +140,27 @@ export function exportFailedReason(message: string): string {
   return `${EXPORT_FAILED}: ${m}`;
 }
 
-/** Предупреждение экспорта без английского кода впереди — для шпаргалки. */
-const plainWarning = (w: string): string => w.replace(/^[a-z][a-z0-9_]*: /, "");
+/** Код предупреждения экспорта (`overlay_haze: …` → `overlay_haze`); без кода — пусто. */
+const warningCode = (w: string): string => /^([a-z][a-z0-9_]*): /.exec(w)?.[1] ?? "";
+
+/**
+ * F7: кадры сцены в пакете — по файлу версии (`settings.duration_frames`), запас в начале и речь —
+ * по плану, разница — в хвосте; версия короче речи — хвост 0, речь — остаток.
+ */
+export function versionFrames(plan: SceneFrames, total: number): SceneFrames {
+  if (total === plan.total) return plan;
+  const tail = Math.max(0, total - plan.lead - plan.speech);
+  const speech = Math.max(1, total - plan.lead - tail);
+  const lead = total - speech - tail;
+  return { lead, speech, tail, total };
+}
+
+/** F7: замечание о длительности версии не по плану (`null` — по плану). */
+export function durationNote(plan: SceneFrames, total: number, fps: { num: number; den: number }): string | null {
+  if (total === plan.total) return null;
+  const s = (f: number) => ((f * fps.den) / fps.num).toFixed(1).replace(".", ",");
+  return `длительность не по плану: ${s(total)} с вместо ${s(plan.total)} с`;
+}
 
 /** Тот же запрос экспорта (с умолчаниями схемы). */
 const sameRequest = (a: ExportRequest, b: ExportRequest): boolean =>
@@ -200,6 +222,8 @@ interface Packed {
   sceneId: string;
   versionId: string;
   names: { mp4: string; alpha: string };
+  /** Кадры по файлу версии (F7). */
+  frames: SceneFrames;
   mp4: Exported;
   alpha: Exported | null;
   /** `код: описание` — в манифест. */
@@ -288,8 +312,11 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
       missing.set(item.id, STALE);
       continue;
     }
+    // F7: длительность — по файлу версии; не по плану — замечание
+    const frames = versionFrames(item.frames, v.settings.duration_frames);
+    const offPlan = durationNote(item.frames, v.settings.duration_frames, cur.doc.fps);
     d.log?.(`сцена ${n}: экспорт MP4`);
-    const mp4 = await ensureExport(ctx, d, v.id, PACKAGE_MP4, `${n}-mp4`, item.frames);
+    const mp4 = await ensureExport(ctx, d, v.id, PACKAGE_MP4, `${n}-mp4`, frames);
     if ("abort" in mp4) return mp4.abort;
     if ("reason" in mp4) {
       missing.set(item.id, mp4.reason);
@@ -302,7 +329,7 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
       missing.set(item.id, OVERLAY_IMPOSSIBLE);
     } else {
       d.log?.(`сцена ${n}: экспорт ProRes 4444 с альфой`);
-      const a = await ensureExport(ctx, d, v.id, PACKAGE_ALPHA, `${n}-alpha`, item.frames);
+      const a = await ensureExport(ctx, d, v.id, PACKAGE_ALPHA, `${n}-alpha`, frames);
       if ("abort" in a) return a.abort;
       if ("reason" in a) {
         missing.set(item.id, a.reason);
@@ -311,10 +338,15 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
     }
     const qaShown = qa.filter((x) => !(OVERLAY_BLOCKERS as readonly string[]).includes(x.code));
     const exportWarnings = [...mp4.ok.warnings, ...(alpha?.warnings ?? [])];
+    const alphaMissing = missing.get(item.id);
     packed.push({
-      n, item, sceneId: row.scene_id, versionId: v.id, names: fileNames(n, total, fileSlug(item.quote)), mp4: mp4.ok, alpha,
-      warnings: [...qaShown.map((x) => `${x.code}: ${x.description}`), ...exportWarnings],
-      notes: [...qaShown.map((x) => x.description), ...exportWarnings.map(plainWarning), ...(missing.has(item.id) ? [missing.get(item.id)!] : [])],
+      n, item, sceneId: row.scene_id, versionId: v.id, names: fileNames(n, total, fileSlug(item.quote)), frames, mp4: mp4.ok, alpha,
+      warnings: [...(offPlan ? [`duration_off_plan: ${offPlan}`] : []), ...qaShown.map((x) => `${x.code}: ${x.description}`), ...exportWarnings],
+      // F8: в шпаргалке — короткие фразы (полные тексты — в манифесте и Playground)
+      notes: cheatNotes(
+        [...(alphaMissing ? [alphaMissing === OVERLAY_IMPOSSIBLE ? OVERLAY_IMPOSSIBLE : ALPHA_FAILED_NOTE] : []), ...(offPlan ? [offPlan] : [])],
+        [...qaShown.map((x) => x.code), ...exportWarnings.map(warningCode)],
+      ),
     });
   }
   const missingList = accepted.filter((i) => missing.has(i.id)).map((i) => ({
@@ -341,7 +373,7 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
     reading: cur.doc.reading,
     scenes: packed.map((p) => ({
       n: p.n, item_id: p.item.id, scene_id: p.sceneId, version_id: p.versionId, block_id: p.item.block_id, at_s: p.item.at_s, quote: p.item.quote,
-      technique: p.item.technique, frames: p.item.frames, mp4: fileOf(p.mp4, p.names.mp4), alpha: p.alpha ? fileOf(p.alpha, p.names.alpha) : null,
+      technique: p.item.technique, frames: p.frames, mp4: fileOf(p.mp4, p.names.mp4), alpha: p.alpha ? fileOf(p.alpha, p.names.alpha) : null,
       warnings: p.warnings,
     })),
     missing: missingList,
@@ -352,11 +384,12 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
   const byId = new Map(packed.map((p) => [p.item.id, p]));
   const rows: CheatRow[] = accepted.map((item, i) => {
     const p = byId.get(item.id);
+    const f = p?.frames ?? item.frames;
     return {
       n: i + 1, nn: sceneNumber(i + 1, total), mp4: p ? p.names.mp4 : null, alpha: p?.alpha ? p.names.alpha : null,
       block: blockTitle.get(item.block_id) ?? item.block_id, at_s: item.at_s, quote: phrase(item), technique: item.technique,
-      total_s: sec(item.frames.total), lead_s: sec(item.frames.lead), tail_s: sec(item.frames.tail),
-      notes: p ? p.notes : [`нет сцены: ${missing.get(item.id) ?? NO_VERSION}`],
+      total_s: sec(f.total), lead_s: sec(f.lead), tail_s: sec(f.tail),
+      notes: p ? p.notes : cheatNotes([`нет сцены: ${shortMissing(missing.get(item.id) ?? NO_VERSION)}`], []),
     };
   });
 

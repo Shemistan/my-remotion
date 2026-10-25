@@ -8,6 +8,7 @@ import { approve } from "../../src/approvals/engine.js";
 import { currentSubject } from "../../src/approvals/subjects.js";
 import { artifactPaths } from "../../src/artifacts/paths.js";
 import { ArtifactStore, ResourceBusyError } from "../../src/artifacts/store.js";
+import * as jobsRepo from "../../src/db/repos/jobs.js";
 import * as plans from "../../src/db/repos/plans.js";
 import * as resourceLocks from "../../src/db/repos/resource-locks.js";
 import { scriptPlans } from "../../src/db/repos/script.js";
@@ -54,6 +55,76 @@ describe("POST /api/projects/:id/script/plan/ops", () => {
     const st = (await api.inj("GET", `/api/projects/${id}/script`)).json();
     expect(st.plan.doc.revision).toBe(2);
     expect(st.approval.state).toBe("stale");
+  });
+
+  it("S16a F2/F3: сцена по выделению или смена приёма → задача дозаполнения script.plan с fill; без ожидающих сцен — без задачи", async () => {
+    const { db } = api.core;
+    const fillJobs = () => jobsRepo.list(db, { projectId: id }).filter((j) => j.type === "script.plan" && (j.input as { fill?: unknown }).fill);
+    const r = await api.inj("POST", url(), okHeaders, { base_revision: 1, ops: [{ op: "add", start_word_id: w(30), end_word_id: w(41) }] });
+    expect(r.statusCode).toBe(200);
+    expect(fillJobs().map((j) => j.input)).toEqual([{ projectId: id, fill: { plan_id: PLAN.plan_id, revision: 2 } }]);
+    // задача ещё ждёт: она возьмёт все ожидающие сцены текущей ревизии — вторая не ставится
+    const r2 = await api.inj("POST", url(), okHeaders, { base_revision: 2, ops: [{ op: "modify", item_id: "ss_002", patch: { technique: "timeline" } }] });
+    expect(r2.statusCode).toBe(200);
+    expect(fillJobs()).toHaveLength(1);
+    // закончилась, не дописав (ревизия r3 появилась позже) — следующая правка ставит новую
+    jobsRepo.update(db, fillJobs()[0]!.id, { status: "completed" });
+    await api.inj("POST", url(), okHeaders, { base_revision: 3, ops: [{ op: "set_status", item_id: "ss_001", status: "rejected" }] });
+    expect(fillJobs().map((j) => j.input)).toEqual([
+      { projectId: id, fill: { plan_id: PLAN.plan_id, revision: 2 } },
+      { projectId: id, fill: { plan_id: PLAN.plan_id, revision: 4 } },
+    ]);
+  });
+
+  it("S16a F2/F3: в плане нет ожидающих сцен — правка задачу дозаполнения не ставит", async () => {
+    const { db } = api.core;
+    await api.inj("POST", url(), okHeaders, { base_revision: 1, ops: [{ op: "set_status", item_id: "ss_001", status: "rejected" }] });
+    expect(jobsRepo.list(db, { projectId: id }).filter((j) => (j.input as { fill?: unknown }).fill)).toEqual([]);
+    expect((await api.inj("GET", `/api/projects/${id}/script`)).json().fill_job).toBeNull();
+  });
+
+  it("ревью S16a I1: задача дозаполнения упала, отменена или blocked — любая правка ставит новую; активная есть — не ставит", async () => {
+    const { db } = api.core;
+    const fillJobs = () => jobsRepo.list(db, { projectId: id }).filter((j) => j.type === "script.plan" && (j.input as { fill?: unknown }).fill);
+    await api.inj("POST", url(), okHeaders, { base_revision: 1, ops: [{ op: "add", start_word_id: w(30), end_word_id: w(41) }] });
+    expect(fillJobs()).toHaveLength(1);
+    // задача ещё ждёт — правка другой сцены новой не ставит
+    await api.inj("POST", url(), okHeaders, { base_revision: 2, ops: [{ op: "set_status", item_id: "ss_001", status: "rejected" }] });
+    expect(fillJobs()).toHaveLength(1);
+    let rev = 3;
+    for (const status of ["cancelled", "failed", "blocked"] as const) {
+      const last = fillJobs().at(-1)!;
+      jobsRepo.update(db, last.id, { status });
+      const st = (await api.inj("GET", `/api/projects/${id}/script`)).json();
+      expect(st.fill_job).toMatchObject({ id: last.id, status });
+      const op = { op: "set_status", item_id: "ss_001", status: rev % 2 === 1 ? "accepted" : "rejected" };
+      expect((await api.inj("POST", url(), okHeaders, { base_revision: rev, ops: [op] })).statusCode).toBe(200);
+      rev += 1;
+      const next = fillJobs().at(-1)!;
+      expect(next.id).not.toBe(last.id);
+      expect(next).toMatchObject({ status: "pending", input: { projectId: id, fill: { plan_id: PLAN.plan_id, revision: rev } } });
+    }
+    expect(fillJobs()).toHaveLength(4);
+  });
+
+  it("ревью S16a I1: POST plan/fill — повтор дозаполнения: 202 новая задача; активная — 200 она же; нечего дозаполнять — 409", async () => {
+    const { db } = api.core;
+    const fillUrl = `/api/projects/${id}/script/plan/fill`;
+    const none = await api.inj("POST", fillUrl, okHeaders, {});
+    expect(none.statusCode).toBe(409);
+    expect(none.json()).toMatchObject({ error: "nothing_to_fill" });
+    await api.inj("POST", url(), okHeaders, { base_revision: 1, ops: [{ op: "add", start_word_id: w(30), end_word_id: w(41) }] });
+    const first = (await api.inj("GET", `/api/projects/${id}/script`)).json().fill_job;
+    expect(first).toMatchObject({ type: "script.plan", status: "pending" });
+    const same = await api.inj("POST", fillUrl, okHeaders, {});
+    expect(same.statusCode).toBe(200);
+    expect(same.json().job.id).toBe(first.id);
+    jobsRepo.update(db, first.id, { status: "failed" });
+    const retry = await api.inj("POST", fillUrl, okHeaders, {});
+    expect(retry.statusCode).toBe(202);
+    expect(retry.json().job).toMatchObject({ type: "script.plan", status: "pending", input: { projectId: id, fill: { plan_id: PLAN.plan_id, revision: 2 } } });
+    expect(retry.json().job.id).not.toBe(first.id);
+    expect((await api.inj("GET", `/api/projects/${id}/script`)).json().fill_job.id).toBe(retry.json().job.id);
   });
 
   it("base_revision не текущая — 409 revision_conflict", async () => {

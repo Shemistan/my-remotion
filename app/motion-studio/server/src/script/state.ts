@@ -19,6 +19,7 @@ import { scriptScenes } from "../db/repos/script.js";
 import { packagesForState } from "../pipeline/script-package.js";
 import { batchesForState, twinOutdated } from "./batch.js";
 import { warningsForState } from "./diversity.js";
+import { lastFillJob } from "./fill-jobs.js";
 import { itemFingerprint } from "./fingerprint.js";
 import { currentScript, currentScriptPlan } from "./read.js";
 
@@ -95,6 +96,7 @@ export function scriptState(db: Db, root: string, projectId: string): ScriptStat
     ...(peek.approval ? { ref: peek.approval.subject_ref } : {}),
     ...(peek.reason ? { reason: peek.reason } : {}),
   };
+  const fillJob = cur ? lastFillJob(db, projectId, cur.planId) : null;
   return {
     project,
     script,
@@ -105,5 +107,6 @@ export function scriptState(db: Db, root: string, projectId: string): ScriptStat
     scenes: sceneDtos,
     batches: batchesForState(db, root, projectId),
     packages: packagesForState(db, root, projectId),
+    fill_job: fillJob ? publicJob(fillJob, root) : null,
   };
 }

@@ -1,7 +1,8 @@
 // S1 «сценарий → моушн»: клиент API сценария — пути и методы спеки §7, Idempotency-Key на создающих POST.
 import { afterEach, expect, it, vi } from "vitest";
-import { scriptApi, scriptUrls } from "../../src/api/script-client.js";
-import { fakeFetch } from "../helpers.js";
+import { fillState, scriptApi, scriptUrls, stateActive } from "../../src/api/script-client.js";
+import { fakeFetch, job, on } from "../helpers.js";
+import { state } from "./plan-fixtures.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -32,4 +33,25 @@ it("маршруты и ключи идемпотентности", async () => 
     "POST /api/script-packages/pkg_1/reveal -",
   ]);
   expect(scriptUrls.cheatsheet("pkg_1", "csv")).toBe("/api/script-packages/pkg_1/cheatsheet?format=csv");
+});
+
+it("S16a: сцена плана ждёт дозаполнения — состояние опрашивается, пока задача дозаполнения идёт", () => {
+  const s = state({ fill_job: job({ id: "job_f", type: "script.plan", status: "running" }) as never });
+  expect(stateActive(s)).toBe(false);
+  s.plan!.doc.items[0] = { ...s.plan!.doc.items[0]!, fill: "pending" };
+  expect(fillState(s)).toEqual({ kind: "running", items: ["ss_001"] });
+  expect(stateActive(s)).toBe(true);
+  // ревью I1: задача упала или её нет — опрос не нужен, UI предлагает повтор
+  expect(fillState({ ...s, fill_job: { ...s.fill_job!, status: "failed" } })).toEqual({ kind: "failed", items: ["ss_001"] });
+  expect(stateActive({ ...s, fill_job: { ...s.fill_job!, status: "cancelled" } })).toBe(false);
+  expect(fillState({ ...s, fill_job: null })).toEqual({ kind: "failed", items: ["ss_001"] });
+  s.plan!.doc.items[0] = { ...s.plan!.doc.items[0]!, fill: "failed" };
+  expect(fillState(s)).toEqual({ kind: "none", items: [] });
+  expect(stateActive(s)).toBe(false);
+});
+
+it("ревью S16a I1: повтор дозаполнения — POST plan/fill", async () => {
+  const { calls } = fakeFetch([on("POST", "/api/projects/p1/script/plan/fill", { job: job({ id: "job_r", type: "script.plan", status: "pending" }) }, 202)]);
+  await scriptApi.retryFill("p1");
+  expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual(["POST /api/projects/p1/script/plan/fill"]);
 });

@@ -1,0 +1,168 @@
+{
+  "package": {
+    "id": "pkg_01M5S1KSKQFC834PF72Y9ZZ2CK",
+    "aspect": "9:16",
+    "rel_path": "workspace/projects/prj_01M5RQGP06TGRVHCTQJN83VPFV/packages/pkg_01M5S1KSKQFC834PF72Y9ZZ2CK",
+    "abs_path": "/Volumes/External SSD/MotionStudio-acceptance/workspace/projects/prj_01M5RQGP06TGRVHCTQJN83VPFV/packages/pkg_01M5S1KSKQFC834PF72Y9ZZ2CK",
+    "display_name": "Go map — Swiss Table_9x16_2026-10-25",
+    "files": [
+      {
+        "n": 1,
+        "item_id": "ss_001",
+        "mp4": "01_neskolko-let-nazad-na-russkoyazychnom.mp4",
+        "alpha": "01_neskolko-let-nazad-na-russkoyazychnom_alpha.mov",
+        "sha256": {
+          "mp4": "72c4ba5a533ebc6147c6e396387b039242971dd5b50514b8b7c0a448d02981e5",
+          "alpha": "e25eb1ec67b0d5be96ef8d48ae42d16f22668cc92e7e8628f25fcac26e7d42cf"
+        }
+      },
+      {
+        "n": 2,
+        "item_id": "ss_002",
+        "mp4": "02_pochemu-poryadok-obkhoda-sluchaynyy-i.mp4",
+        "alpha": "02_pochemu-poryadok-obkhoda-sluchaynyy-i_alpha.mov",
+        "sha256": {
+          "mp4": "aa5898f5faf4a6c57fca2c3da3ed4e79e66723ecbad202e808438a237bc72bc6",
+          "alpha": "f1bd1a92cd2cdacceef2f0155859668e2810c2a1e9801d20cf44121f8fda856e"
+        }
+      }
+    ],
+    "missing": [
+      {
+        "item_id": "ss_003",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_004",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_005",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_006",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_007",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_024",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_009",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_010",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_011",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_012",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_013",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_014",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_015",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_016",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_017",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_018",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_019",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_020",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_021",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_022",
+        "reason": "нет готовой версии"
+      },
+      {
+        "item_id": "ss_023",
+        "reason": "нет готовой версии"
+      }
+    ],
+    "created_at": "2026-10-25T08:08:38.626Z"
+  },
+  "files": [
+    {
+      "item": "ss_001",
+      "mp4": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1080,
+        "height": 1920,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 393,
+        "durationS": 13.1,
+        "audio": "aac"
+      },
+      "alpha": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1080,
+        "height": 1920,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 393,
+        "durationS": 13.1
+      }
+    },
+    {
+      "item": "ss_002",
+      "mp4": {
+        "codec": "h264",
+        "profile": "High",
+        "width": 1080,
+        "height": 1920,
+        "fps": "30/1",
+        "pixFmt": "yuv420p",
+        "frames": 189,
+        "durationS": 6.3,
+        "audio": "aac"
+      },
+      "alpha": {
+        "codec": "prores",
+        "profile": "4444",
+        "width": 1080,
+        "height": 1920,
+        "fps": "30/1",
+        "pixFmt": "yuva444p12le",
+        "frames": 189,
+        "durationS": 6.3
+      }
+    }
+  ]
+}

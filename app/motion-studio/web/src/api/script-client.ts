@@ -6,6 +6,7 @@ import type {
   CheatsheetQuery,
   GenerateBody,
   Job,
+  JobStatus,
   PackageBody,
   PlanOpsBody,
   PutScriptBody,
@@ -30,6 +31,8 @@ export const scriptApi = {
   buildPlan: (projectId: string, body: ScriptPlanBody, key: string = newKey()) =>
     request<{ job: Job }>("POST", `/api/projects/${enc(projectId)}/script/plan`, { body, idempotency: key }),
   planOps: (projectId: string, body: PlanOpsBody) => request<ScriptPlanDto>("POST", `/api/projects/${enc(projectId)}/script/plan/ops`, { body }),
+  /** «Повторить дозаполнение»: задача по сценам `fill: pending` (активная есть — она же). */
+  retryFill: (projectId: string) => request<{ job: Job }>("POST", `/api/projects/${enc(projectId)}/script/plan/fill`, { body: {} }),
   generate: (projectId: string, body: GenerateBody, key: string = newKey()) =>
     request<ScriptBatchDto>("POST", `/api/projects/${enc(projectId)}/script/generate`, { body, idempotency: key }),
   batch: (batchId: string) => request<ScriptBatchDto>("GET", `/api/script-batches/${enc(batchId)}`),
@@ -47,10 +50,25 @@ export const scriptUrls = {
   cheatsheet: (packageId: string, format: CheatsheetQuery["format"]) => `/api/script-packages/${enc(packageId)}/cheatsheet?format=${format}`,
 };
 
-/** Задача или пакет проекта ещё идут — состояние опрашивается. */
-function stateActive(s: ScriptStateDto | undefined): boolean {
+/**
+ * Дозаполнение сцен плана (S16a, ревью I1/I2): `items` — принятые сцены с `fill: pending`;
+ * `running` — задача дозаполнения ещё идёт (правки плана ждут), `failed` — сцены ждут, а задача
+ * упала, отменена, `blocked` или её нет (нужен повтор), `none` — ждущих сцен нет.
+ */
+export function fillState(s: ScriptStateDto | undefined): { kind: "none" | "running" | "failed"; items: string[] } {
+  const items = s?.plan?.doc.items.filter((x) => x.status === "accepted" && x.fill === "pending").map((x) => x.id) ?? [];
+  if (items.length === 0) return { kind: "none", items };
+  return { kind: s?.fill_job && FILL_RUNNING.has(s.fill_job.status) ? "running" : "failed", items };
+}
+
+/** Задача дозаполнения ещё может дописать сцены; `blocked` (как на сервере) — застряла, нужен повтор. */
+const FILL_RUNNING: ReadonlySet<JobStatus> = new Set(["pending", "running", "awaiting_input", "awaiting_approval"]);
+
+/** Задача или пакет проекта ещё идут, идёт дозаполнение сцен плана (S16a) — состояние опрашивается. */
+export function stateActive(s: ScriptStateDto | undefined): boolean {
   if (!s) return false;
-  return s.scenes.some((x) => x.job !== null && isActive(x.job.status)) || s.batches.some((b) => b.counts.pending + b.counts.running > 0);
+  return s.scenes.some((x) => x.job !== null && isActive(x.job.status)) || s.batches.some((b) => b.counts.pending + b.counts.running > 0) ||
+    fillState(s).kind === "running";
 }
 
 export const scriptStateKey = (projectId: string) => ["script", projectId] as const;
@@ -83,6 +101,7 @@ export const useSaveText = (projectId: string) => useScriptMutation(projectId, (
 export const useBuildPlan = (projectId: string) =>
   useScriptMutation(projectId, ({ body, key }: { body: ScriptPlanBody; key: string }) => scriptApi.buildPlan(projectId, body, key));
 export const usePlanOps = (projectId: string) => useScriptMutation(projectId, (body: PlanOpsBody) => scriptApi.planOps(projectId, body));
+export const useRetryFill = (projectId: string) => useScriptMutation(projectId, () => scriptApi.retryFill(projectId));
 export const useGenerate = (projectId: string) =>
   useScriptMutation(projectId, ({ body, key }: { body: GenerateBody; key: string }) => scriptApi.generate(projectId, body, key));
 export const useCancelBatch = (projectId: string) => useScriptMutation(projectId, (batchId: string) => scriptApi.cancelBatch(batchId));

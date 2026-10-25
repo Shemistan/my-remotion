@@ -21,6 +21,8 @@ export interface SceneCardProps {
   selection: WordRange | null;
   selected: boolean;
   busy: boolean;
+  /** Задача дозаполнения (ревью S16a I1): идёт — «дописывает», нет или упала — «не удалось, повторите». */
+  fillJob?: "running" | "failed";
   onSelect: () => void;
   onOp: (op: ScriptPlanOp) => void;
 }
@@ -35,7 +37,7 @@ export function TechniqueOptions() {
   );
 }
 
-export function SceneCard({ item, n, numbers, blockTitle, fps, issues, selection, selected, busy, onSelect, onOp }: SceneCardProps) {
+export function SceneCard({ item, n, numbers, blockTitle, fps, issues, selection, selected, busy, fillJob = "running", onSelect, onOp }: SceneCardProps) {
   const id = useId();
   const accepted = item.status === "accepted";
   const [idea, setIdea] = useState(item.idea);
@@ -94,6 +96,11 @@ export function SceneCard({ item, n, numbers, blockTitle, fps, issues, selection
               </div>
             ) : null}
           </dl>
+          {item.fill ? (
+            <p className="hint" data-testid="scene-fill">
+              {t(item.fill === "failed" ? "scriptPlan.scene.fillFailed" : fillJob === "running" ? "scriptPlan.scene.filling" : "scriptPlan.scene.fillJobFailed")}
+            </p>
+          ) : null}
           <label className="small muted" htmlFor={`${id}-idea`}>{t("scriptPlan.scene.idea")}</label>
           <textarea id={`${id}-idea`} value={idea} disabled={busy} onChange={(e) => setIdea(e.target.value)} />
           <label className="small muted" htmlFor={`${id}-purpose`}>{t("scriptPlan.scene.purpose")}</label>

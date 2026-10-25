@@ -18,12 +18,15 @@ import {
 import type { Fps } from "@ms/contracts";
 import { numberMatchesQuote, validateSemantic } from "../analysis/semantic-validate.js";
 import { planDiversity } from "./diversity.js";
+import { meaningRepeatIssues } from "./meaning-repeat.js";
 import { ruNumberParse } from "./ru-numbers.js";
 
 /** Пределы речи сцены, с (§5.2). */
 export const SCENE_MIN_S = 3;
 export const SCENE_LONG_S = 12;
 export const SCENE_MAX_S = 20;
+/** F1: доля общих слов цитаты и диапазона, с которой цитата исправляется по словам диапазона. */
+export const QUOTE_FIX_SHARE = 0.8;
 /** Доля слов текста в принятых сценах: ниже — `coverage_low`, выше — `coverage_high` (warning). */
 export const COVERAGE_LOW = 0.35;
 export const COVERAGE_HIGH = 0.85;
@@ -35,8 +38,12 @@ export interface ScriptPlanValidation {
   skipped: ScriptPlanRevisionDoc["skipped"];
   issues: PlanIssue[];
   analysis: SemanticAgentOutput;
-  /** Отклонённые сцены ответа: `id` — номер в ответе и слова («сцена 3 w_…–w_…»). */
-  rejected: { id: string; code: RejectCode; detail: string }[];
+  /** Отклонённые сцены ответа: `id` — номер в ответе и слова («сцена 3 w_…–w_…»), `n` — номер сцены в ответе (с 1). */
+  rejected: { id: string; n: number; code: RejectCode; detail: string }[];
+  /** Номер сцены ответа (с 1) для каждой принятой сцены — для доработки только проблемных сцен. */
+  sources: Record<string, number>;
+  /** F1: цитаты, исправленные по словам диапазона (`share` — доля общих слов). */
+  fixed: { id: string; n: number; share: number; detail: string }[];
   /**
    * Отброшенные пропуски агента (неверная цитата, через границу блоков): не ошибка плана — пропуск
    * лишь пояснение, — в `skipped` не попадают и переотправку не вызывают (`id` — «пропуск 3 w_…–w_…»).
@@ -81,6 +88,27 @@ export function valueMatches(value: number, quote: string): boolean | undefined 
 const tokensOf = (s: string): string[] => s.split(/\s+/u).map(normalizeToken).filter((x) => x !== "");
 
 /**
+ * F1: доля общих слов цитаты и слов диапазона — пересечение мультимножеств к большему из двух
+ * (склейка двух предложений, где агент ошибся концом диапазона на слово-два, — ≈ 0,9).
+ */
+export function quoteOverlap(quote: string, rangeWords: readonly string[]): number {
+  const q = tokensOf(quote);
+  const r = rangeWords.flatMap(tokensOf);
+  if (q.length === 0 || r.length === 0) return 0;
+  const left = new Map<string, number>();
+  for (const t of r) left.set(t, (left.get(t) ?? 0) + 1);
+  let common = 0;
+  for (const t of q) {
+    const k = left.get(t) ?? 0;
+    if (k > 0) {
+      common++;
+      left.set(t, k - 1);
+    }
+  }
+  return common / Math.max(q.length, r.length);
+}
+
+/**
  * Цитата — непрерывный кусок слов фрагмента по границам слов: нормализованная цитата без
  * пробелов равна склейке слов фрагмента с i по j («Go 1.24» ✓, «o 1.24» и «1.2» — нет; «1000» к
  * словам «1 000» — ✓). Пробелы и переносы в цитате значения не имеют.
@@ -120,6 +148,7 @@ export function validateScriptPlan(out: ScriptDirectorOutput, doc: ScriptRevisio
   const words = doc.words;
   const pos = new Map(words.map((w, i) => [w.id, i]));
   const rejected: ScriptPlanValidation["rejected"] = [];
+  const fixes: { n: number; share: number; detail: string }[] = [];
   const dropped: ScriptPlanValidation["dropped"] = [];
   const skipped: ScriptPlanValidation["skipped"] = [];
   const reject = (c: { n: number; scene: ScriptDirectorScene }, code: RejectCode, detail: string) => {
@@ -128,7 +157,7 @@ export function validateScriptPlan(out: ScriptDirectorOutput, doc: ScriptRevisio
       dropped.push({ id: `пропуск ${c.n} ${s.start_word_id}–${s.end_word_id}`, code, detail });
       return;
     }
-    rejected.push({ id: `сцена ${c.n} ${s.start_word_id}–${s.end_word_id}`, code, detail });
+    rejected.push({ id: `сцена ${c.n} ${s.start_word_id}–${s.end_word_id}`, n: c.n, code, detail });
     skipped.push({ start_word_id: s.start_word_id, end_word_id: s.end_word_id, quote: quoteOf(doc, s.start_word_id, s.end_word_id), reason: `отклонено проверкой (${code}): ${detail}` });
   };
 
@@ -143,10 +172,20 @@ export function validateScriptPlan(out: ScriptDirectorOutput, doc: ScriptRevisio
 
   // сцены по отдельности
   const plan: Candidate[] = [];
-  out.scenes.forEach((scene, i) => {
+  out.scenes.forEach((raw, i) => {
+    let scene = raw;
     const c = { n: i + 1, scene };
     const v = verifyQuote(words, scene.start_word_id, scene.end_word_id, scene.quote);
-    if (!v.ok) return reject(c, v.code, `${v.message}: «${clip(scene.quote)}»`);
+    let fixedShare: number | undefined;
+    if (!v.ok) {
+      // F1: цитата почти совпала со словами диапазона — текст берётся по словам (id — главное)
+      const range = v.code === "quote_mismatch" ? words.slice(pos.get(scene.start_word_id)!, pos.get(scene.end_word_id)! + 1).map((x) => x.text) : [];
+      const share = range.length > 0 ? quoteOverlap(scene.quote, range) : 0;
+      if (share < QUOTE_FIX_SHARE) return reject(c, v.code, `${v.message}: «${clip(scene.quote)}»`);
+      fixedShare = share;
+      scene = { ...scene, quote: quoteOf(doc, scene.start_word_id, scene.end_word_id) };
+      c.scene = scene;
+    }
     const si = pos.get(scene.start_word_id)!;
     const ei = pos.get(scene.end_word_id)!;
     if (words[si]!.block_id !== words[ei]!.block_id) return reject(c, "cross_block", `сцена идёт через границу блоков ${words[si]!.block_id} → ${words[ei]!.block_id}`);
@@ -155,6 +194,16 @@ export function validateScriptPlan(out: ScriptDirectorOutput, doc: ScriptRevisio
       return;
     }
     const fragment = words.slice(si, ei + 1).map((x) => x.text);
+    if (fixedShare !== undefined) {
+      // как при правке границ человеком: числа с цитатой вне фрагмента отпадают
+      const off = scene.data.filter((d) => !quoteInFragment(d.quote, fragment));
+      scene = { ...scene, data: scene.data.filter((d) => quoteInFragment(d.quote, fragment)) };
+      c.scene = scene;
+      fixes.push({
+        n: c.n, share: fixedShare,
+        detail: `цитата сцены не совпала со словами ${scene.start_word_id}–${scene.end_word_id} (общих слов ${Math.round(fixedShare * 100)} %) — взят текст диапазона: «${clip(raw.quote)}»${off.length > 0 ? `; числа вне фрагмента убраны: ${off.map((d) => `«${clip(d.quote, 40)}»`).join(", ")}` : ""}`,
+      });
+    }
     for (const d of scene.data) {
       if (!quoteInFragment(d.quote, fragment)) return reject(c, "quote_mismatch", `цитата числа «${clip(d.quote)}» не из фрагмента сцены`);
       const m = valueMatches(d.value, d.quote);
@@ -195,19 +244,31 @@ export function validateScriptPlan(out: ScriptDirectorOutput, doc: ScriptRevisio
     };
   });
 
-  return { items, skipped, issues: planIssues(items, doc, reading, fps).issues, analysis, rejected, dropped };
+  const sources = Object.fromEntries(kept.map((c, k) => [items[k]!.id, c.n]));
+  const byN = new Map(kept.map((c, k) => [c.n, items[k]!.id]));
+  const fixed = fixes.filter((f) => byN.has(f.n)).map((f) => ({ id: byN.get(f.n)!, ...f }));
+  const issues: PlanIssue[] = [
+    ...planIssues(items, doc, reading, fps).issues,
+    ...fixed.map((f): PlanIssue => ({ item_id: f.id, code: "quote_autofixed", severity: "warning", message: `${f.id}: ${f.detail}` })),
+  ];
+  return { items, skipped, issues, analysis, rejected, dropped, sources, fixed };
 }
 
 /**
  * Проблемы плана — общие для ответа агента (S3) и правки человека (S4), по принятым сценам:
  * числа словами без проверки (`value_unverified`), длительность (`itemIssues`), разнообразие
- * (`planDiversity`), покрытие текста (`coverage_low`/`coverage_high`).
+ * (`planDiversity`), смысловые повторы (`meaning_repeat`, F9), покрытие текста (`coverage_low`/`coverage_high`).
  */
 export function planIssues(items: readonly ScriptSceneItem[], script: ScriptRevisionDoc, reading: ReadingSettings, fps: Fps): {
   issues: PlanIssue[]; diversity: ScriptPlanRevisionDoc["diversity"];
 } {
   const accepted = items.filter((x) => x.status === "accepted");
   const issues: PlanIssue[] = [];
+  // S16a F2/F3: сцена ждёт дозаполнения Director — утверждать нельзя
+  for (const x of accepted) {
+    if (x.fill === "pending") issues.push({ item_id: x.id, code: "scene_unfilled", severity: "blocking", message: `${x.id}: идею, назначение и числа дописывает Director` });
+    else if (x.fill === "failed") issues.push({ item_id: x.id, code: "scene_unfilled", severity: "blocking", message: `${x.id}: дозаполнение не удалось — впишите идею или смените приём` });
+  }
   for (const x of accepted) {
     const unverified = x.data.filter((d) => valueMatches(d.value, d.quote) === undefined).map((d) => `${d.label} = ${d.value} («${clip(d.quote, 60)}»)`);
     if (unverified.length > 0) {
@@ -215,7 +276,7 @@ export function planIssues(items: readonly ScriptSceneItem[], script: ScriptRevi
     }
   }
   const div = planDiversity(items);
-  issues.push(...itemIssues(items, reading, fps), ...div.issues);
+  issues.push(...itemIssues(items, reading, fps), ...div.issues, ...meaningRepeatIssues(items));
   const covered = accepted.reduce((a, x) => a + x.words, 0);
   const share = script.words.length === 0 ? 0 : covered / script.words.length;
   const pct = `${Math.round(share * 100)} %`;

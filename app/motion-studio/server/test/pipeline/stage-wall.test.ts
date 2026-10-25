@@ -23,11 +23,11 @@ describe("stageWall", () => {
 });
 
 describe("renderTimeoutMs", () => {
-  it("6 с — 5 мин; 60 с — 10 мин; потолок 20 мин", () => {
+  it("6 с и 60 с — 10 мин; потолок 40 мин", () => {
     const s = defaultSettings();
-    expect(renderTimeoutMs({ ...s, duration_frames: 180 })).toBe(300_000);
+    expect(renderTimeoutMs({ ...s, duration_frames: 180 })).toBe(600_000);
     expect(renderTimeoutMs({ ...s, duration_frames: 1800 })).toBe(600_000);
-    expect(renderTimeoutMs({ ...s, duration_frames: 30 * 600 })).toBe(1_200_000);
+    expect(renderTimeoutMs({ ...s, duration_frames: 30 * 600 })).toBe(2_400_000);
   });
 });
 

@@ -30,7 +30,9 @@ export function BuildPlan({ state, reading, blockedReason, onDone }: BuildPlanPr
   const [started, setStarted] = useState<string | null>(null);
   const running = useJobs({ status: "running" });
   const pending = useJobs({ status: "pending" });
-  const earlier = [...(running.data ?? []), ...(pending.data ?? [])].find((j) => j.type === "script.plan" && j.project_id === projectId)?.id ?? null;
+  // дозаполнение сцены (S16a: `script.plan` с `fill`) — не построение плана
+  const earlier = [...(running.data ?? []), ...(pending.data ?? [])]
+    .find((j) => j.type === "script.plan" && j.project_id === projectId && !(j.input as { fill?: unknown } | null)?.fill)?.id ?? null;
   const dlg = useId();
   // идущая задача, найденная списком, запоминается: после завершения её в списке уже нет
   useEffect(() => {

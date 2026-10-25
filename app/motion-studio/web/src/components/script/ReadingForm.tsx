@@ -42,13 +42,13 @@ export function ReadingForm({ value, onApply, busy }: ReadingFormProps) {
       aria-label={t("scriptPlan.reading.title")}
       onSubmit={(e) => {
         e.preventDefault();
-        if (parsed && changed) onApply(parsed);
+        if (parsed && changed && !busy) onApply(parsed);
       }}
     >
       {KEYS.map((k) => (
         <label key={k} htmlFor={`${id}-${k}`}>
           {t(LABEL[k])}
-          <input id={`${id}-${k}`} type="text" inputMode="decimal" autoComplete="off" value={draft[k]} onChange={(e) => setDraft({ ...draft, [k]: e.target.value })} />
+          <input id={`${id}-${k}`} type="text" inputMode="decimal" autoComplete="off" value={draft[k]} disabled={busy} onChange={(e) => setDraft({ ...draft, [k]: e.target.value })} />
         </label>
       ))}
       <button type="submit" disabled={!changed || busy}>{t("scriptPlan.reading.apply")}</button>

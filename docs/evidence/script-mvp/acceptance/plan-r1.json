@@ -1,0 +1,1178 @@
+{
+  "schema_version": 1,
+  "plan_id": "pln_01M5RQGPMRVSVG8N3KA1RDAE9T",
+  "revision": 1,
+  "inputs": {
+    "script": {
+      "id": "scr_01M5RQGP57106ZCXJSHD8S4CAE",
+      "revision": 1,
+      "hash": "5ccadf9f490c49dd05753a231f6aa27ff20e66c2743d5467611266740fd8a988"
+    },
+    "style": {
+      "id": "sty_01M5RQWGV6XVSWVEMRF0ZNPPB9",
+      "revision": 1,
+      "hash": "dfc13639b80f20bc743fd11bacc0e0e6dab950884e508dc6ace7fc675482c6f7"
+    }
+  },
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "aspect": "16:9",
+  "reading": {
+    "wps": 2.5,
+    "lead_s": 0.5,
+    "tail_s": 1
+  },
+  "analysis": {
+    "chapters": [
+      {
+        "id": "c1",
+        "title": "Три вопроса и смена реализации",
+        "summary": "Известный разбор map строился на трёх вопросах, но ответы опираются на реализацию, которой в Go 1.24 больше нет.",
+        "start_word_id": "w_000001",
+        "end_word_id": "w_000205"
+      },
+      {
+        "id": "c2",
+        "title": "Старая map: бакеты, tophash, эвакуация",
+        "summary": "Устройство старой map: бакеты, tophash, коэффициент заполнения, инкрементальная эвакуация и почему нельзя брать адрес элемента.",
+        "start_word_id": "w_000206",
+        "end_word_id": "w_000486"
+      },
+      {
+        "id": "c3",
+        "title": "Почему переписали",
+        "summary": "Масштаб использования, расход памяти и невозможность инкрементального роста в Abseil привели к extendible hashing и Go 1.24.",
+        "start_word_id": "w_000487",
+        "end_word_id": "w_000714"
+      }
+    ],
+    "anchors": [],
+    "entities": [],
+    "numbers": [
+      {
+        "value": 1.24,
+        "start_word_id": "w_000067",
+        "end_word_id": "w_000067",
+        "quote": "1.24",
+        "claim_type": "fact"
+      },
+      {
+        "value": 2025,
+        "start_word_id": "w_000073",
+        "end_word_id": "w_000073",
+        "quote": "2025",
+        "claim_type": "fact"
+      },
+      {
+        "value": 8,
+        "start_word_id": "w_000219",
+        "end_word_id": "w_000219",
+        "quote": "восемь",
+        "claim_type": "fact"
+      },
+      {
+        "value": 256,
+        "start_word_id": "w_000271",
+        "end_word_id": "w_000273",
+        "quote": "двумстам пятидесяти шести",
+        "claim_type": "fact"
+      },
+      {
+        "value": 6.5,
+        "start_word_id": "w_000328",
+        "end_word_id": "w_000330",
+        "quote": "шесть с половиной",
+        "claim_type": "fact"
+      },
+      {
+        "value": 2016,
+        "start_word_id": "w_000340",
+        "end_word_id": "w_000340",
+        "quote": "2016",
+        "claim_type": "fact"
+      },
+      {
+        "value": 6.2,
+        "start_word_id": "w_000352",
+        "end_word_id": "w_000355",
+        "quote": "шесть и две десятых",
+        "claim_type": "fact"
+      },
+      {
+        "value": 2017,
+        "start_word_id": "w_000502",
+        "end_word_id": "w_000502",
+        "quote": "2017",
+        "claim_type": "fact"
+      },
+      {
+        "value": 1,
+        "unit": "%",
+        "start_word_id": "w_000505",
+        "end_word_id": "w_000506",
+        "quote": "один процент",
+        "claim_type": "fact"
+      },
+      {
+        "value": 2022,
+        "start_word_id": "w_000520",
+        "end_word_id": "w_000520",
+        "quote": "2022",
+        "claim_type": "fact"
+      },
+      {
+        "value": 4,
+        "unit": "%",
+        "start_word_id": "w_000542",
+        "end_word_id": "w_000543",
+        "quote": "четырёх процентов",
+        "claim_type": "fact"
+      },
+      {
+        "value": 1.24,
+        "start_word_id": "w_000670",
+        "end_word_id": "w_000670",
+        "quote": "1.24",
+        "claim_type": "fact"
+      }
+    ],
+    "causal": [],
+    "disputed": []
+  },
+  "items": [
+    {
+      "id": "ss_001",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000005",
+      "end_word_id": "w_000033",
+      "quote": "Несколько лет назад на русскоязычном YouTube вышел пожалуй самый известный разбор map в Go и построен он был на трёх вопросах с собеседования Зачем заранее выделять память под map",
+      "block_id": "b1",
+      "words": 29,
+      "at_s": 1.6,
+      "frames": {
+        "lead": 15,
+        "speech": 348,
+        "tail": 30,
+        "total": 393
+      },
+      "technique": "checklist",
+      "pattern": "sequence-steps",
+      "structure_rule": "assembly",
+      "purpose": "Известный разбор map держался на трёх вопросах с собеседования; первый — зачем заранее выделять память.",
+      "idea": "Три карточки-вопроса выстраиваются стопкой под значком видео; первая карточка «Зачем заранее выделять память под map» выезжает вперёд и подсвечивается, две остальные ждут за ней.",
+      "key_terms": [
+        {
+          "text": "трёх вопросах",
+          "word_id": "w_000024"
+        },
+        {
+          "text": "заранее",
+          "word_id": "w_000029"
+        }
+      ],
+      "data": [],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_002",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000034",
+      "end_word_id": "w_000045",
+      "quote": "Почему порядок обхода случайный И почему нельзя взять указатель на элемент map",
+      "block_id": "b1",
+      "words": 12,
+      "at_s": 13.2,
+      "frames": {
+        "lead": 15,
+        "speech": 144,
+        "tail": 30,
+        "total": 189
+      },
+      "technique": "flow-graph",
+      "pattern": "relationships",
+      "structure_rule": "always-on",
+      "purpose": "Два оставшихся вопроса: случайный порядок обхода и запрет брать указатель на элемент map.",
+      "idea": "В центре блок map с ячейками; от него идут две ветки: первая — стрелка обхода прыгает по ячейкам вразнобой, вторая — стрелка-указатель тянется к ячейке и обрывается значком запрета.",
+      "key_terms": [
+        {
+          "text": "порядок обхода",
+          "word_id": "w_000035"
+        },
+        {
+          "text": "указатель",
+          "word_id": "w_000042"
+        }
+      ],
+      "data": [],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_003",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000053",
+      "end_word_id": "w_000064",
+      "quote": "Проблема в ответах они опираются на реализацию которой в Go больше нет",
+      "block_id": "b1",
+      "words": 12,
+      "at_s": 20.8,
+      "frames": {
+        "lead": 15,
+        "speech": 144,
+        "tail": 30,
+        "total": 189
+      },
+      "technique": "split-versus",
+      "pattern": "transformation",
+      "structure_rule": "two-sides",
+      "purpose": "Старые ответы привязаны к реализации, которой в Go больше нет.",
+      "idea": "Слева плитка «Ответы» стоит на блоке «старая реализация»; справа тот же блок крошится и гаснет, ответы остаются висеть без опоры.",
+      "key_terms": [
+        {
+          "text": "реализацию",
+          "word_id": "w_000059"
+        },
+        {
+          "text": "больше нет",
+          "word_id": "w_000063"
+        }
+      ],
+      "data": [],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_004",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000065",
+      "end_word_id": "w_000084",
+      "quote": "С Go 1.24 а он вышел в феврале 2025 года встроенная map реализована полностью заново на основе дизайна Swiss Table",
+      "block_id": "b1",
+      "words": 20,
+      "at_s": 25.6,
+      "frames": {
+        "lead": 15,
+        "speech": 240,
+        "tail": 30,
+        "total": 285
+      },
+      "technique": "hero-number",
+      "pattern": "quantities",
+      "structure_rule": "one-number",
+      "purpose": "С Go 1.24 (февраль 2025) встроенная map полностью переписана на дизайне Swiss Table.",
+      "idea": "Крупное число 1.24 набирается счётчиком, под ним подпись «февраль 2025», а рядом значок map меняет оболочку на метку Swiss Table.",
+      "key_terms": [
+        {
+          "text": "1.24",
+          "word_id": "w_000067"
+        },
+        {
+          "text": "заново",
+          "word_id": "w_000079"
+        },
+        {
+          "text": "Swiss",
+          "word_id": "w_000083"
+        }
+      ],
+      "data": [
+        {
+          "label": "версия Go",
+          "value": 1.24,
+          "quote": "Go 1.24"
+        },
+        {
+          "label": "год выхода",
+          "value": 2025,
+          "quote": "феврале 2025 года"
+        }
+      ],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_005",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000085",
+      "end_word_id": "w_000115",
+      "quote": "Сегодня мы пройдём эти три вопроса заново и добавим четвёртый который под старыми видео задают чаще всего как map растёт и что происходит если вы в этот момент по ней итерируетесь",
+      "block_id": "b1",
+      "words": 31,
+      "at_s": 33.6,
+      "frames": {
+        "lead": 15,
+        "speech": 372,
+        "tail": 30,
+        "total": 417
+      },
+      "technique": "line-trend",
+      "pattern": "growth-decline",
+      "structure_rule": "assembly",
+      "purpose": "К трём вопросам добавляется четвёртый: что бывает, если итерироваться по map во время её роста.",
+      "idea": "Шкала размера map растёт ступенями; по ней движется маркер итерации, и в момент ступени роста маркер мигает вопросом — четвёртая карточка к трём прежним.",
+      "key_terms": [
+        {
+          "text": "четвёртый",
+          "word_id": "w_000094"
+        },
+        {
+          "text": "растёт",
+          "word_id": "w_000104"
+        },
+        {
+          "text": "итерируетесь",
+          "word_id": "w_000115"
+        }
+      ],
+      "data": [
+        {
+          "label": "прежних вопросов",
+          "value": 3,
+          "quote": "три вопроса"
+        }
+      ],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_006",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000206",
+      "end_word_id": "w_000227",
+      "quote": "Итак Go до версии 1.24 Map это массив бакетов Бакет кусок памяти на восемь слотов под пары ключ-значение плюс указатель на overflow-бакет",
+      "block_id": "b2",
+      "words": 22,
+      "at_s": 0,
+      "frames": {
+        "lead": 15,
+        "speech": 264,
+        "tail": 30,
+        "total": 309
+      },
+      "technique": "structure-build",
+      "pattern": "system-structure",
+      "structure_rule": "result-first",
+      "purpose": "Старая map — массив бакетов; бакет — восемь слотов плюс указатель на overflow-бакет.",
+      "idea": "Ряд бакетов-контейнеров; один раскрывается: восемь ячеек-слотов под пары ключ-значение и в конце стрелка-указатель на дополнительный overflow-бакет.",
+      "key_terms": [
+        {
+          "text": "массив бакетов",
+          "word_id": "w_000213"
+        },
+        {
+          "text": "восемь слотов",
+          "word_id": "w_000219"
+        },
+        {
+          "text": "overflow-бакет",
+          "word_id": "w_000227"
+        }
+      ],
+      "data": [
+        {
+          "label": "версия Go",
+          "value": 1.24,
+          "quote": "1.24"
+        },
+        {
+          "label": "слотов в бакете",
+          "value": 8,
+          "quote": "восемь слотов"
+        }
+      ],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_007",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000228",
+      "end_word_id": "w_000260",
+      "quote": "Рядом с записями лежат по восемь дополнительных бит хэша на каждую это tophash Зачем он нужен Чтобы не сравнивать ключи целиком сначала сверяем один байт и только если он совпал сравниваем сам ключ",
+      "block_id": "b2",
+      "words": 33,
+      "at_s": 8.8,
+      "frames": {
+        "lead": 15,
+        "speech": 396,
+        "tail": 30,
+        "total": 441
+      },
+      "technique": "data-token",
+      "pattern": "sequence-steps",
+      "structure_rule": "request-answer",
+      "purpose": "tophash отсекает почти все сравнения ключей одним байтом.",
+      "idea": "Бакет — ряд из восьми слотов с байтами tophash над ними; ключ приходит, сверяется один байт, несовпавшие слоты гаснут, у совпавшего загорается полное сравнение ключа.",
+      "key_terms": [
+        {
+          "text": "tophash",
+          "word_id": "w_000240"
+        },
+        {
+          "text": "байт",
+          "word_id": "w_000252"
+        },
+        {
+          "text": "совпал",
+          "word_id": "w_000257"
+        }
+      ],
+      "data": [
+        {
+          "label": "сверяемый байт",
+          "value": 1,
+          "quote": "один байт"
+        }
+      ],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_008",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000261",
+      "end_word_id": "w_000273",
+      "quote": "Случайное совпадение по такому байту бывает с вероятностью один к двумстам пятидесяти шести",
+      "block_id": "b2",
+      "words": 13,
+      "at_s": 22,
+      "frames": {
+        "lead": 15,
+        "speech": 156,
+        "tail": 30,
+        "total": 201
+      },
+      "technique": "hero-number",
+      "pattern": "quantities",
+      "structure_rule": "one-number",
+      "purpose": "Ложное совпадение tophash случается с вероятностью 1 к 256.",
+      "idea": "Крупно «1 : 256», счётчик набирает 256; на сетке из 256 точек одна вспыхивает.",
+      "key_terms": [
+        {
+          "text": "вероятностью",
+          "word_id": "w_000268"
+        },
+        {
+          "text": "двумстам пятидесяти шести",
+          "word_id": "w_000271"
+        }
+      ],
+      "data": [
+        {
+          "label": "шанс случайного совпадения",
+          "value": 256,
+          "quote": "двумстам пятидесяти шести"
+        }
+      ],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_009",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000319",
+      "end_word_id": "w_000333",
+      "quote": "Когда map растёт Когда в среднем на бакет приходится шесть с половиной записей из восьми",
+      "block_id": "b2",
+      "words": 15,
+      "at_s": 45.2,
+      "frames": {
+        "lead": 15,
+        "speech": 180,
+        "tail": 30,
+        "total": 225
+      },
+      "technique": "bar-compare",
+      "pattern": "quantities",
+      "structure_rule": "result-first",
+      "purpose": "Рост запускается при средней заполненности 6,5 записей из 8.",
+      "idea": "Шкала из восьми слотов: заполняются шесть с половиной, на пороге срабатывает метка «рост».",
+      "key_terms": [
+        {
+          "text": "шесть с половиной",
+          "word_id": "w_000328"
+        },
+        {
+          "text": "восьми",
+          "word_id": "w_000333"
+        }
+      ],
+      "data": [
+        {
+          "label": "записей в бакете",
+          "value": 6.5,
+          "quote": "шесть с половиной записей"
+        },
+        {
+          "label": "слотов",
+          "value": 8,
+          "quote": "из восьми"
+        }
+      ],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_010",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000334",
+      "end_word_id": "w_000361",
+      "quote": "Кит Рэндалл в докладе на GopherCon 2016 говорит что это число подобрано эмпирически Если в чужих видео встретите шесть и две десятых в моих источниках такого числа нет",
+      "block_id": "b2",
+      "words": 28,
+      "at_s": 51.2,
+      "frames": {
+        "lead": 15,
+        "speech": 336,
+        "tail": 30,
+        "total": 381
+      },
+      "technique": "split-versus",
+      "pattern": "comparison",
+      "structure_rule": "two-sides",
+      "purpose": "Число 6,5 — из доклада Рэндалла; 6,2 из чужих видео в источниках отсутствует.",
+      "idea": "Две карточки: «6,5» с галочкой и пометкой «GopherCon 2016», рядом «6,2» перечёркнуто крестом.",
+      "key_terms": [
+        {
+          "text": "эмпирически",
+          "word_id": "w_000346"
+        },
+        {
+          "text": "две десятых",
+          "word_id": "w_000355"
+        }
+      ],
+      "data": [
+        {
+          "label": "год доклада",
+          "value": 2016,
+          "quote": "GopherCon 2016"
+        },
+        {
+          "label": "неверное число",
+          "value": 6.2,
+          "quote": "шесть и две десятых"
+        }
+      ],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_011",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000362",
+      "end_word_id": "w_000387",
+      "quote": "Важная деталь рост был инкрементальным Массив бакетов удваивался но записи не переносились разом При каждой вставке или удалении часть записей переезжала из старых бакетов в новые",
+      "block_id": "b2",
+      "words": 26,
+      "at_s": 62.4,
+      "frames": {
+        "lead": 15,
+        "speech": 312,
+        "tail": 30,
+        "total": 357
+      },
+      "technique": "process-steps",
+      "pattern": "sequence-steps",
+      "structure_rule": "assembly",
+      "purpose": "Массив удваивался сразу, а записи переезжали постепенно при каждой вставке или удалении.",
+      "idea": "Старый ряд бакетов и вдвое длиннее новый ряд; на каждой операции вставки/удаления по паре записей перелетают из старого в новый, пока старый не опустеет.",
+      "key_terms": [
+        {
+          "text": "инкрементальным",
+          "word_id": "w_000366"
+        },
+        {
+          "text": "удваивался",
+          "word_id": "w_000369"
+        },
+        {
+          "text": "переезжала",
+          "word_id": "w_000382"
+        }
+      ],
+      "data": [],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_012",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000388",
+      "end_word_id": "w_000407",
+      "quote": "Это и есть знаменитая эвакуация Пока она идёт в памяти живут оба массива запомните это оно всплывёт в бенчмарках памяти",
+      "block_id": "b2",
+      "words": 20,
+      "at_s": 72.8,
+      "frames": {
+        "lead": 15,
+        "speech": 240,
+        "tail": 30,
+        "total": 285
+      },
+      "technique": "structure-build",
+      "pattern": "system-structure",
+      "structure_rule": "result-first",
+      "purpose": "Во время эвакуации в памяти одновременно два массива — это видно в бенчмарках.",
+      "idea": "Два массива бакетов стоят в памяти рядом, оба подсвечены, над ними метка «эвакуация»; общий объём памяти в углу растёт.",
+      "key_terms": [
+        {
+          "text": "эвакуация",
+          "word_id": "w_000392"
+        },
+        {
+          "text": "оба массива",
+          "word_id": "w_000399"
+        },
+        {
+          "text": "бенчмарках",
+          "word_id": "w_000406"
+        }
+      ],
+      "data": [],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_013",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000421",
+      "end_word_id": "w_000442",
+      "quote": "Первый Рэндалл прямо говорит что Go выбрал цепочки а не открытую адресацию из-за итераторов из-за права менять map прямо во время обхода",
+      "block_id": "b2",
+      "words": 22,
+      "at_s": 86,
+      "frames": {
+        "lead": 15,
+        "speech": 264,
+        "tail": 30,
+        "total": 309
+      },
+      "technique": "flow-graph",
+      "pattern": "cause-effect",
+      "structure_rule": "always-on",
+      "purpose": "Go выбрал цепочки, а не открытую адресацию, чтобы можно было менять map во время обхода.",
+      "idea": "Два варианта: цепочки (бакеты с хвостами) и открытая адресация (плоский ряд); стрелка от итератора, идущего по map, поддерживает выбор цепочек, у второго варианта — красный знак.",
+      "key_terms": [
+        {
+          "text": "цепочки",
+          "word_id": "w_000428"
+        },
+        {
+          "text": "открытую адресацию",
+          "word_id": "w_000431"
+        },
+        {
+          "text": "итераторов",
+          "word_id": "w_000434"
+        }
+      ],
+      "data": [],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_014",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000443",
+      "end_word_id": "w_000457",
+      "quote": "Второй адрес элемента брать нельзя потому что после роста указатель смотрел бы в старый бакет",
+      "block_id": "b2",
+      "words": 15,
+      "at_s": 94.8,
+      "frames": {
+        "lead": 15,
+        "speech": 180,
+        "tail": 30,
+        "total": 225
+      },
+      "technique": "data-token",
+      "pattern": "cause-effect",
+      "structure_rule": "request-answer",
+      "purpose": "Адрес элемента брать нельзя: после роста указатель останется в старом бакете.",
+      "idea": "Указатель-стрелка закреплён на записи в старом бакете; запись переезжает в новый, а стрелка продолжает смотреть в опустевшую ячейку.",
+      "key_terms": [
+        {
+          "text": "адрес элемента",
+          "word_id": "w_000444"
+        },
+        {
+          "text": "старый бакет",
+          "word_id": "w_000456"
+        }
+      ],
+      "data": [],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_015",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000468",
+      "end_word_id": "w_000486",
+      "quote": "Держите оба факта в голове новая реализация это как раз открытая адресация и проблему итераторов ей пришлось решать по-другому",
+      "block_id": "b2",
+      "words": 19,
+      "at_s": 104.8,
+      "frames": {
+        "lead": 15,
+        "speech": 228,
+        "tail": 30,
+        "total": 273
+      },
+      "technique": "split-versus",
+      "pattern": "comparison",
+      "structure_rule": "two-sides",
+      "purpose": "Новая реализация — открытая адресация, и проблему итераторов она решает иначе.",
+      "idea": "Слева «старая: цепочки» с готовой галочкой итераторов; справа «новая: открытая адресация» с вопросом, который замещается значком другого решения.",
+      "key_terms": [
+        {
+          "text": "открытая адресация",
+          "word_id": "w_000478"
+        },
+        {
+          "text": "по-другому",
+          "word_id": "w_000486"
+        }
+      ],
+      "data": [],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_016",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000496",
+      "end_word_id": "w_000517",
+      "quote": "В докладе Мэтта Кулукундиса на CppCon 2017 звучит цифра один процент процессоров всего флота Google в каждый момент считает что-то внутри хэш-таблиц",
+      "block_id": "b3",
+      "words": 22,
+      "at_s": 3.6,
+      "frames": {
+        "lead": 15,
+        "speech": 264,
+        "tail": 30,
+        "total": 309
+      },
+      "technique": "hero-number",
+      "pattern": "quantities",
+      "structure_rule": "one-number",
+      "purpose": "Около 1% процессоров флота Google постоянно работает внутри хэш-таблиц.",
+      "idea": "Крупное «1%» набирается счётчиком; на фоне сетка процессоров, один из ста значков подсвечен.",
+      "key_terms": [
+        {
+          "text": "один процент",
+          "word_id": "w_000505"
+        },
+        {
+          "text": "флота",
+          "word_id": "w_000509"
+        },
+        {
+          "text": "хэш-таблиц",
+          "word_id": "w_000517"
+        }
+      ],
+      "data": [
+        {
+          "label": "доля процессоров",
+          "value": 1,
+          "unit": "%",
+          "quote": "один процент"
+        },
+        {
+          "label": "год доклада",
+          "value": 2017,
+          "quote": "CppCon 2017"
+        }
+      ],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_017",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000518",
+      "end_word_id": "w_000544",
+      "quote": "А в 2022 году ByteDance открыла в репозитории Go issue под названием runtime use SwissTable и написала что их Go-сервисы тратят на hashmap около четырёх процентов CPU",
+      "block_id": "b3",
+      "words": 27,
+      "at_s": 12.4,
+      "frames": {
+        "lead": 15,
+        "speech": 324,
+        "tail": 30,
+        "total": 369
+      },
+      "technique": "bar-compare",
+      "pattern": "quantities",
+      "structure_rule": "two-sides",
+      "purpose": "В 2022 году ByteDance сообщила, что Go-сервисы тратят около 4% CPU на hashmap.",
+      "idea": "Шкала CPU: сегмент hashmap занимает около 4%, подпись «issue ByteDance, 2022» и значок Go.",
+      "key_terms": [
+        {
+          "text": "ByteDance",
+          "word_id": "w_000522"
+        },
+        {
+          "text": "четырёх процентов",
+          "word_id": "w_000542"
+        },
+        {
+          "text": "CPU",
+          "word_id": "w_000544"
+        }
+      ],
+      "data": [
+        {
+          "label": "год issue",
+          "value": 2022,
+          "quote": "2022 году"
+        },
+        {
+          "label": "доля CPU на hashmap",
+          "value": 4,
+          "unit": "%",
+          "quote": "четырёх процентов"
+        }
+      ],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_018",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000557",
+      "end_word_id": "w_000572",
+      "quote": "Вторая причина память Старая map во время эвакуации держит оба массива бакетов плюс заранее выделенные overflow-бакеты",
+      "block_id": "b3",
+      "words": 16,
+      "at_s": 28,
+      "frames": {
+        "lead": 15,
+        "speech": 192,
+        "tail": 30,
+        "total": 237
+      },
+      "technique": "structure-build",
+      "pattern": "system-structure",
+      "structure_rule": "result-first",
+      "purpose": "Вторая причина — память: при эвакуации держатся оба массива и заранее выделенные overflow-бакеты.",
+      "idea": "Блок памяти собирается из слоёв: старый массив, новый массив, запас overflow-бакетов; индикатор расхода растёт с каждым слоем.",
+      "key_terms": [
+        {
+          "text": "память",
+          "word_id": "w_000559"
+        },
+        {
+          "text": "оба массива",
+          "word_id": "w_000566"
+        },
+        {
+          "text": "overflow-бакеты",
+          "word_id": "w_000572"
+        }
+      ],
+      "data": [],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_019",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000590",
+      "end_word_id": "w_000617",
+      "quote": "Но перенести его в Go как есть было нельзя В Abseil таблица растёт разом целиком а последовательность пробирования зависит от общего числа групп рост не разобьёшь на кусочки",
+      "block_id": "b3",
+      "words": 28,
+      "at_s": 41.2,
+      "frames": {
+        "lead": 15,
+        "speech": 336,
+        "tail": 30,
+        "total": 381
+      },
+      "technique": "split-versus",
+      "pattern": "comparison",
+      "structure_rule": "two-sides",
+      "purpose": "Рост Abseil одномоментный и не делится на кусочки, поэтому дизайн нельзя перенести в Go как есть.",
+      "idea": "Слева таблица Abseil одним скачком превращается в большую, одним цельным блоком; справа Go-таблица должна расти по частям — пунктирные кусочки закрыты замком.",
+      "key_terms": [
+        {
+          "text": "Abseil",
+          "word_id": "w_000600"
+        },
+        {
+          "text": "разом целиком",
+          "word_id": "w_000603"
+        },
+        {
+          "text": "кусочки",
+          "word_id": "w_000617"
+        }
+      ],
+      "data": [],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_020",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000618",
+      "end_word_id": "w_000634",
+      "quote": "Для Go это неприемлемо одна вставка в огромную map не должна копировать миллионы записей и подвешивать запрос",
+      "block_id": "b3",
+      "words": 17,
+      "at_s": 52.4,
+      "frames": {
+        "lead": 15,
+        "speech": 204,
+        "tail": 30,
+        "total": 249
+      },
+      "technique": "line-trend",
+      "pattern": "growth-decline",
+      "structure_rule": "assembly",
+      "purpose": "Одна вставка не должна копировать миллионы записей и подвешивать запрос.",
+      "idea": "График задержки запросов идёт ровно, затем острый пик от одной вставки с копированием; пик перечёркивается красным.",
+      "key_terms": [
+        {
+          "text": "неприемлемо",
+          "word_id": "w_000621"
+        },
+        {
+          "text": "миллионы записей",
+          "word_id": "w_000630"
+        },
+        {
+          "text": "подвешивать запрос",
+          "word_id": "w_000633"
+        }
+      ],
+      "data": [],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_021",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000635",
+      "end_word_id": "w_000649",
+      "quote": "Решение предложил Остин Клементс прямо в обсуждении того самого issue в 2022 году extendible hashing",
+      "block_id": "b3",
+      "words": 15,
+      "at_s": 59.2,
+      "frames": {
+        "lead": 15,
+        "speech": 180,
+        "tail": 30,
+        "total": 225
+      },
+      "technique": "kinetic-quote",
+      "pattern": "key-point-emphasis",
+      "structure_rule": "result-first",
+      "purpose": "Решение — extendible hashing — предложил Остин Клементс в том же issue в 2022 году.",
+      "idea": "Слова «extendible hashing» выезжают крупно по центру, под ними имя Остина Клементса и метка «issue, 2022»; остальной текст гаснет.",
+      "key_terms": [
+        {
+          "text": "Клементс",
+          "word_id": "w_000638"
+        },
+        {
+          "text": "extendible",
+          "word_id": "w_000648"
+        },
+        {
+          "text": "hashing",
+          "word_id": "w_000649"
+        }
+      ],
+      "data": [
+        {
+          "label": "год",
+          "value": 2022,
+          "quote": "2022 году"
+        }
+      ],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_022",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000650",
+      "end_word_id": "w_000676",
+      "quote": "А реализовал этот слой Питер Маттис в библиотеке cockroachdb swiss и в блоге Go прямо написано что встроенная map Go 1.24 во многом построена на его работе",
+      "block_id": "b3",
+      "words": 27,
+      "at_s": 65.2,
+      "frames": {
+        "lead": 15,
+        "speech": 324,
+        "tail": 30,
+        "total": 369
+      },
+      "technique": "flow-graph",
+      "pattern": "relationships",
+      "structure_rule": "always-on",
+      "purpose": "Слой реализовал Питер Маттис в cockroachdb/swiss, и встроенная map Go 1.24 во многом построена на этой работе.",
+      "idea": "Узел «cockroachdb swiss (Питер Маттис)» соединён потоком со встроенной map Go 1.24; на линии подпись «блог Go».",
+      "key_terms": [
+        {
+          "text": "Маттис",
+          "word_id": "w_000655"
+        },
+        {
+          "text": "cockroachdb",
+          "word_id": "w_000658"
+        },
+        {
+          "text": "1.24",
+          "word_id": "w_000670"
+        }
+      ],
+      "data": [
+        {
+          "label": "версия Go",
+          "value": 1.24,
+          "quote": "Go 1.24"
+        }
+      ],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_023",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000677",
+      "end_word_id": "w_000693",
+      "quote": "Получается цепочка Google и Abseil потом предложение ByteDance потом CockroachDB с extendible hashing и вот Go 1.24",
+      "block_id": "b3",
+      "words": 17,
+      "at_s": 76,
+      "frames": {
+        "lead": 15,
+        "speech": 204,
+        "tail": 30,
+        "total": 249
+      },
+      "technique": "timeline",
+      "pattern": "timeline",
+      "structure_rule": "assembly",
+      "purpose": "Путь к новой map: Google/Abseil → предложение ByteDance → CockroachDB с extendible hashing → Go 1.24.",
+      "idea": "Горизонтальная ось: четыре последовательных узла (Abseil, ByteDance, CockroachDB, Go 1.24) загораются по мере речи, последний — итоговый.",
+      "key_terms": [
+        {
+          "text": "Abseil",
+          "word_id": "w_000681"
+        },
+        {
+          "text": "CockroachDB",
+          "word_id": "w_000686"
+        },
+        {
+          "text": "Go 1.24",
+          "word_id": "w_000692"
+        }
+      ],
+      "data": [
+        {
+          "label": "версия Go",
+          "value": 1.24,
+          "quote": "1.24"
+        }
+      ],
+      "importance": 3,
+      "anchor_ids": []
+    }
+  ],
+  "skipped": [
+    {
+      "start_word_id": "w_000116",
+      "end_word_id": "w_000143",
+      "quote": "План такой Пара минут старая map как контраст чтобы было с чем сравнивать Потом новая сверху вниз директория таблицы группы control word Дальше поиск удаление рост и итерация",
+      "reason": "Мета-речь: план ролика и анонс будущих разделов, сами объекты нарисуют сцены ниже."
+    },
+    {
+      "start_word_id": "w_000144",
+      "end_word_id": "w_000174",
+      "quote": "А потом то ради чего стоит досмотреть до конца бенчмарки в кадре старая реализация против новой с аллокациями и задержками при росте И чек-лист что из всего этого менять в продакшен-коде",
+      "reason": "Анонс и призыв досмотреть до конца — мета-речь о ролике."
+    },
+    {
+      "start_word_id": "w_000175",
+      "end_word_id": "w_000205",
+      "quote": "Все числа которые я назову сверены с исходником runtime и с блогом Go ссылки будут в описании А если где-то данных нет я так прямо и скажу а не буду угадывать",
+      "reason": "Дисклеймер автора о работе над роликом и ссылки в описании."
+    },
+    {
+      "start_word_id": "w_000408",
+      "end_word_id": "w_000420",
+      "quote": "И ещё два факта из того же доклада на которых держится весь сюжет",
+      "reason": "Переход к следующим фактам, рисуемого нет."
+    },
+    {
+      "start_word_id": "w_000694",
+      "end_word_id": "w_000714",
+      "quote": "Кстати если вам заходит такой формат разбор по исходникам без пересказа слухов подпишитесь следующие разборы runtime будут в том же духе",
+      "reason": "Призыв подписаться и анонс будущих разборов — мета-речь."
+    }
+  ],
+  "issues": [
+    {
+      "item_id": "ss_005",
+      "code": "scene_long",
+      "severity": "warning",
+      "message": "речь сцены ss_005 ≈ 12,4 с > 12 с — сцене нужны биты по фразам"
+    },
+    {
+      "item_id": "ss_007",
+      "code": "scene_long",
+      "severity": "warning",
+      "message": "речь сцены ss_007 ≈ 13,2 с > 12 с — сцене нужны биты по фразам"
+    }
+  ],
+  "diversity": {
+    "techniques": {
+      "checklist": 1,
+      "flow-graph": 3,
+      "split-versus": 4,
+      "hero-number": 3,
+      "line-trend": 2,
+      "structure-build": 3,
+      "data-token": 2,
+      "bar-compare": 2,
+      "process-steps": 1,
+      "kinetic-quote": 1,
+      "timeline": 1
+    },
+    "adjacent_repeats": 0,
+    "kinetic_share": 0.043478260869565216
+  }
+}

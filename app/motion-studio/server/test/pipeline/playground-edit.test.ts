@@ -1,18 +1,22 @@
 // Обработчик playground.edit (Task 18) на раннере: фейковые агенты и рендер (кадры — настоящие
 // PNG), настоящие static check, SceneRepo (fencing), studio.db и журнал. Базовые версии —
 // настоящим обработчиком playground.generate.
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type EditPlan, type MotionSpec, defaultSettings } from "@ms/contracts";
+import { artifactPaths } from "../../src/artifacts/paths.js";
 import * as chat from "../../src/db/repos/chat.js";
+import { scriptPlans } from "../../src/db/repos/script.js";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as scenes from "../../src/db/repos/scenes.js";
 import * as versions from "../../src/db/repos/versions.js";
 import { enqueue } from "../../src/jobs/queue.js";
 import { JobRunner } from "../../src/jobs/runner.js";
 import type { GenerateDeps } from "../../src/pipeline/generate.js";
-import { normalizePlan, playgroundEdit } from "../../src/pipeline/playground-edit.js";
+import { durationChecks, normalizePlan, playgroundEdit } from "../../src/pipeline/playground-edit.js";
+import { SCRIPT_PLAN_FILE } from "../../src/script/read.js";
+import { PLAN } from "../script/plan-ops-fixtures.js";
 import { playgroundGenerate } from "../../src/pipeline/playground-generate.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
 import { readVersion } from "../../src/scenes/store.js";
@@ -336,6 +340,55 @@ describe("playgroundEdit: path code и spec", () => {
     expect(transparent().length).toBeGreaterThanOrEqual(1);
   });
 
+  /** Сцена сценария: план pln_f7 r1 со сценой ss_001 на 180 кадров и вход script у генерации сцены. */
+  function scriptScene(sceneId: string) {
+    const item = { ...PLAN.items[0]!, frames: { lead: 15, speech: 135, tail: 30, total: 180 } };
+    const doc = { ...PLAN, plan_id: "pln_f7", items: [item] };
+    const rel = `${artifactPaths(env.s.root, "playground").planRev("pln_f7", 1)}/${SCRIPT_PLAN_FILE}`;
+    mkdirSync(dirname(join(env.s.root, rel)), { recursive: true });
+    writeFileSync(join(env.s.root, rel), JSON.stringify(doc));
+    scriptPlans.create(env.db, { id: "pln_f7", project_id: "playground" });
+    scriptPlans.insertRevision(env.db, { doc, rel_path: rel, sha256: "a".repeat(64) });
+    const script = { project_id: "playground", plan_id: "pln_f7", plan_revision: 1, item_id: "ss_001", aspect: "16:9", style: { preset: "dark-premium", intensity: "balanced", depth: 2 }, lead_frames: 15, tail_frames: 30 };
+    jobs.insert(env.db, { id: "job_script_gen", type: "playground.generate", project_id: "playground", scene_id: sceneId, input: { sceneId, prompt: "бриф", settings, script }, status: "completed", attempt: 1 });
+  }
+
+  it("F7: «медленнее» у сцены сценария — длительность версии по плану (180), темп — внутри сцены через spec; ответ объясняет", async () => {
+    const agents = fakeAgents({
+      director: async () => ({ output: laidOut() }),
+      editPlanner: async () => ({ output: plan({ path: "param", timing_scale: 1.25, preserve: ["composition"], reply: "Замедлил." }) }),
+    });
+    const { scene, gen, edit } = await start({ agents });
+    expect((await gen()).status).toBe("completed");
+    scriptScene(scene.id);
+    const before = agents.tasks.length;
+    const job = await edit({}, "сделай медленнее");
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    const v2 = rows(scene.id)[1]!;
+    const m = await readVersion(join(env.s.root, v2.path));
+    expect(m.settings.duration_frames).toBe(180);
+    expect(json<MotionSpec>(v2.path, "spec.json").duration_frames).toBe(180);
+    expect((m.edit_plan as { timing_scale?: number } | null)?.timing_scale).toBeUndefined();
+    // темп меняет Director внутри той же длительности
+    expect(agents.tasks.slice(before).map((t) => t.role)).toContain("motion_director");
+    const msg = chat.list(env.db, scene.id).filter((x) => x.role === "assistant").at(-1)!;
+    expect(msg.text).toMatch(/длительность сцены сценария.*180 кадров/i);
+  });
+
+  it("F7: Engineer правки сцены сценария получает ограничение длительности; патч длительности не применяется", async () => {
+    const agents = fakeAgents({
+      editPlanner: async () => ({ output: plan({ path: "code", changes: [{ target: "chart", kind: "code", description: "толще" }], preserve: [], reply: "ок" }) }),
+    });
+    const { scene, gen, edit } = await start({ agents });
+    await gen();
+    scriptScene(scene.id);
+    const before = agents.engineerCalls.length;
+    const job = await edit({ settings_patch: { duration_frames: 240 } }, "толще");
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(agents.engineerCalls.slice(before)[0]!.input).toMatch(/Длительность сцены фиксирована планом сценария: 180 кадров/);
+    expect((await readVersion(join(env.s.root, rows(scene.id)[1]!.path))).settings.duration_frames).toBe(180);
+  });
+
   it("settings_patch { aspect_ratio 9:16, 1080×1920 } → path spec, Director и Engineer вызваны", async () => {
     const agents = fakeAgents({});
     const { scene, gen, edit } = await start({ agents });
@@ -510,3 +563,12 @@ describe("playgroundEdit: мелкие правила (M2–M5)", () => {
   });
 });
 
+
+describe("F7: durationChecks (сцена сценария)", () => {
+  it("длительность версии не по плану — blocking duration_changed; по плану — пусто", () => {
+    expect(durationChecks({ spec: spec180, settings: { ...settings, duration_frames: 180 } }, 180)).toEqual([]);
+    const off = durationChecks({ spec: { ...spec180, duration_frames: 240 }, settings: { ...settings, duration_frames: 240 } }, 180);
+    expect(off).toEqual([expect.objectContaining({ code: "duration_changed", severity: "blocking", source: "programmatic" })]);
+    expect(off[0]!.description).toMatch(/240 кадров вместо 180/);
+  });
+});

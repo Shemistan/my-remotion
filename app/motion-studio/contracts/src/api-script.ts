@@ -163,5 +163,10 @@ export const ScriptStateDtoSchema = z.object({
   scenes: z.array(ScriptSceneDtoSchema),
   batches: z.array(ScriptBatchDtoSchema),
   packages: z.array(ScriptPackageDtoSchema),
+  /**
+   * Последняя задача дозаполнения сцен (`script.plan` с `fill`, S16a) текущего плана; не было — null.
+   * Упала, отменена или `blocked`, а сцены ещё `fill: pending` — UI предлагает повтор (`POST plan/fill`).
+   */
+  fill_job: JobSchema.nullable(),
 }).strict();
 export type ScriptStateDto = z.infer<typeof ScriptStateDtoSchema>;

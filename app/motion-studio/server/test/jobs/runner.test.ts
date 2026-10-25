@@ -112,7 +112,7 @@ it("семафоры общие для задач: heavy = 1 — вторая ж
   expect(order).toEqual(["in:a", "out:a", "in:b", "out:b"]);
 });
 
-it("S5 п. 6: раннер по умолчанию — 2 рендера и 5 агентных вызовов одновременно, лишний ждёт места", async () => {
+it("S5 п. 6: раннер по умолчанию — RENDERS рендеров и AGENT_CALLS агентных вызовов одновременно, лишний ждёт места", async () => {
   const peak = { renders: 0, agents: 0 };
   const now = { renders: 0, agents: 0 };
   const hold = deferred();
@@ -127,15 +127,15 @@ it("S5 п. 6: раннер по умолчанию — 2 рендера и 5 а�
   const r = make({
     "playground.generate": async (ctx) => {
       // два дубля и лишний: 3 рендера и 6 агентных вызовов одной задачи наперегонки
-      await Promise.all([...Array.from({ length: 3 }, () => use(ctx, "renders")), ...Array.from({ length: 6 }, () => use(ctx, "agents"))]);
+      await Promise.all([...Array.from({ length: RENDERS + 1 }, () => use(ctx, "renders")), ...Array.from({ length: AGENT_CALLS + 1 }, () => use(ctx, "agents"))]);
       return { status: "completed", outputRefs: {} };
     },
   });
   const j = enqueue(env.db, req()).job;
   r.start();
-  await until(() => now.renders === 2 && now.agents === 5, "места заняты");
+  await until(() => now.renders === RENDERS && now.agents === AGENT_CALLS, "места заняты");
   await new Promise((res) => setTimeout(res, 30));
-  expect(peak).toEqual({ renders: 2, agents: 5 });
+  expect(peak).toEqual({ renders: RENDERS, agents: AGENT_CALLS });
   hold.resolve();
   await until(() => jobs.get(env.db, j.id)!.status === "completed", "completed");
 });

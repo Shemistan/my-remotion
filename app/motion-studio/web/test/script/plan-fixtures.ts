@@ -81,7 +81,7 @@ export function state(over: Partial<ScriptStateDto> = {}): ScriptStateDto {
   const plan = planDoc(doc);
   const s: ScriptStateDto = {
     project, script: doc, plan: { plan_id: "pln_1", doc: plan, approval: { state: "missing" } }, plan_outdated: false,
-    style: styleDto().current, approval: { state: "missing" }, scenes: [], batches: [], packages: [], ...over,
+    style: styleDto().current, approval: { state: "missing" }, scenes: [], batches: [], packages: [], fill_job: null, ...over,
   };
   return ScriptStateDtoSchema.parse(s);
 }

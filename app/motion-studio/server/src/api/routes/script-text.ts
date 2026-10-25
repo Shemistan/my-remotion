@@ -1,6 +1,8 @@
 // Текст и план сценария (спека §7, трек A): PUT/GET текста, `script.plan`, правки плана.
 // GET собирает состояние (`scriptState`, S1); PUT — новая ревизия текста (`saveScriptText`, S2);
-// POST plan — задача `script.plan` (S3); POST plan/ops — синхронная правка плана (`savePlanOps`, S4).
+// POST plan — задача `script.plan` (S3); POST plan/ops — синхронная правка плана (`savePlanOps`, S4);
+// сцены с `fill: pending` и нет активной задачи — задача дозаполнения `script.plan` с `fill`
+// (S16a F2/F3); POST plan/fill — её повтор по кнопке (ревью S16a I1).
 import { CreatedJobDtoSchema, PlanOpsBodySchema, PutScriptBodySchema, ScriptDtoSchema, ScriptPlanBodySchema, ScriptPlanDtoSchema, ScriptStateDtoSchema } from "@ms/contracts";
 import { ArtifactStore } from "../../artifacts/store.js";
 import * as projects from "../../db/repos/projects.js";
@@ -8,7 +10,9 @@ import { scripts } from "../../db/repos/script.js";
 import { tx } from "../../db/tx.js";
 import { enqueue } from "../../jobs/queue.js";
 import { savePlanOps } from "../../script/plan-ops.js";
-import { scriptApproval } from "../../script/plan-state.js";
+import { ensureFillJob } from "../../script/fill-jobs.js";
+import { planOutdated, scriptApproval } from "../../script/plan-state.js";
+import { currentScript, currentScriptPlan } from "../../script/read.js";
 import { scriptState } from "../../script/state.js";
 import { saveScriptText, scriptReading } from "../../script/text.js";
 import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "../context.js";
@@ -56,6 +60,24 @@ export function scriptTextRoutes(app: ZApp, { core }: ApiContext): void {
   }, async (req) => {
     const store = new ArtifactStore({ root: core.root, db: core.db, guard: core.storageCheck });
     const doc = await savePlanOps({ db: core.db, store, root: core.root }, req.params.id, req.body);
+    // S16a F2/F3, ревью I1: есть сцены, ждущие дозаполнения, а активной задачи нет — ставится новая
+    ensureFillJob(core.db, req.params.id, doc);
     return { plan_id: doc.plan_id, doc, approval: scriptApproval(core.db, req.params.id) };
+  });
+
+  // ревью S16a I1: «Повторить дозаполнение» — задача по сценам `fill: pending`, если активной нет
+  app.post("/api/projects/:id/script/plan/fill", {
+    schema: { params: IdParams, response: { 200: CreatedJobDtoSchema, 202: CreatedJobDtoSchema } },
+  }, async (req, reply) => {
+    const projectId = req.params.id;
+    const project = projects.get(core.db, projectId);
+    if (!project) throw notFound(`проект ${projectId}`);
+    if (project.kind !== "script") throw new ApiError(409, "not_script_project", "проект не сценарный");
+    const cur = currentScriptPlan(core.db, core.root, projectId);
+    const script = currentScript(core.db, core.root, projectId);
+    if (cur && script && planOutdated(cur.doc, script)) throw new ApiError(409, "plan_outdated", "текст сценария изменился после плана — перестройте план");
+    const out = cur ? ensureFillJob(core.db, projectId, cur.doc) : null;
+    if (!out) throw new ApiError(409, "nothing_to_fill", "в плане нет сцен, ждущих дозаполнения");
+    return reply.status(out.created ? 202 : 200).send({ job: publicJob(out.job, core.root) });
   });
 }

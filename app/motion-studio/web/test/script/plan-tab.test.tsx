@@ -6,7 +6,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { t } from "../../src/i18n/index.js";
 import { PlanTab } from "../../src/pages/script/PlanTab.js";
 import { formatDuration, techniqueLabel } from "../../src/script/format.js";
-import { type Call, fakeFetch, on, renderQ } from "../helpers.js";
+import { type Call, fakeFetch, job, on, renderQ } from "../helpers.js";
 import { F30, planDoc, scriptDoc, state } from "./plan-fixtures.js";
 
 afterEach(() => {
@@ -74,6 +74,17 @@ it("сообщения проверок без кодов: id сцен → «с�
   expect(li.textContent).toContain("сцена 2 и сцена 3: «сборка по шагам», «Гонка скоростей»");
 });
 
+it("F9: смысловой повтор — warning с подсказкой по-русски и номерами сцен", () => {
+  fakeFetch();
+  const s = state();
+  s.plan!.doc.issues.push({ item_id: "ss_003", code: "meaning_repeat", severity: "warning", message: "ss_001 и ss_003 показывают одно и то же (общее: «оба массива») — покажите другой аспект или объедините сцены" });
+  renderQ(<PlanTab state={s} onGenerated={() => {}} />);
+  const li = screen.getByTestId("plan-issues").querySelector('[data-code="meaning_repeat"]')!;
+  expect(li.textContent).toContain(t("scriptPlan.issue.meaning_repeat"));
+  expect(li.textContent).toContain("сцена 1 и сцена 3 показывают одно и то же");
+  expect(li.textContent).toContain("объедините сцены");
+});
+
 it("смена приёма → usePlanOps modify; «Убрать» → set_status rejected; «Вернуть» → accepted", async () => {
   const { calls } = fakeFetch([okOps()]);
   const s = state();
@@ -94,6 +105,67 @@ it("смена приёма → usePlanOps modify; «Убрать» → set_stat
   expect(opsCalls(calls)[2]!.body).toEqual({ base_revision: 3, ops: [{ op: "set_status", item_id: "ss_003", status: "accepted" }] });
   // нумерация — только принятые: ss_004 — сцена 3
   expect(within(cards()[3]!).getByText(t("scriptPlan.scene.n", { n: 3 }))).toBeTruthy();
+});
+
+it("S16a F2/F3: сцена ждёт дозаполнения — подсказка в карточке, blocking «Сцена не заполнена», генерация недоступна", () => {
+  fakeFetch();
+  const s = fillingState(job({ id: "job_f", type: "script.plan", status: "pending" }));
+  renderQ(<PlanTab state={s} onGenerated={() => {}} />);
+  expect(within(cards()[1]!).getByTestId("scene-fill").textContent).toBe(t("scriptPlan.scene.filling"));
+  expect(within(cards()[0]!).queryByTestId("scene-fill")).toBeNull();
+  const li = screen.getByTestId("plan-issues").querySelector('[data-code="scene_unfilled"]')!;
+  expect(li.textContent).toContain(t("scriptPlan.issue.scene_unfilled"));
+  expect(li.textContent).toContain("сцена 2: идею, назначение и числа дописывает Director");
+});
+
+/** Состояние: сцена 2 ждёт дозаполнения, последняя задача дозаполнения — `fill_job` (или её нет). */
+function fillingState(fillJob: ReturnType<typeof job> | null) {
+  const s = state({ fill_job: fillJob as never });
+  s.plan!.doc.items[1] = { ...s.plan!.doc.items[1]!, idea: "", fill: "pending" };
+  s.plan!.doc.issues.push({ item_id: "ss_002", code: "scene_unfilled", severity: "blocking", message: "ss_002: идею, назначение и числа дописывает Director" });
+  return s;
+}
+
+it("ревью S16a I2: идёт дозаполнение — все правки плана недоступны, над сценами строка состояния, причина генерации — дозаполнение", () => {
+  const { calls } = fakeFetch([okOps()]);
+  renderQ(<PlanTab state={fillingState(job({ id: "job_f", type: "script.plan", status: "running" }))} onGenerated={() => {}} />);
+  const status = screen.getByTestId("fill-status");
+  expect(status.getAttribute("role")).toBe("status");
+  expect(status.textContent).toContain(t("scriptPlan.fill.running", { scenes: "2" }));
+  expect(within(status).queryByRole("button")).toBeNull();
+  expect(within(cards()[1]!).getByTestId("scene-fill").textContent).toBe(t("scriptPlan.scene.filling"));
+  for (const c of cards()) {
+    for (const b of within(c).getAllByRole("button").filter((x) => x.textContent === t("scriptPlan.scene.remove") || x.textContent === t("scriptPlan.scene.restore"))) {
+      expect((b as HTMLButtonElement).disabled).toBe(true);
+    }
+    for (const el of c.querySelectorAll("select, textarea")) expect((el as HTMLSelectElement).disabled).toBe(true);
+  }
+  const reading = screen.getByRole("region", { name: t("scriptPlan.reading.title") });
+  for (const el of reading.querySelectorAll("button, input, select")) expect((el as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText(t("scriptPlan.generate.filling"))).toBeTruthy();
+  expect(screen.queryByText(t("scriptPlan.generate.blocked", { n: 1 }))).toBeNull();
+  expect((screen.getByRole("button", { name: /Утвердить и сгенерировать/ }) as HTMLButtonElement).disabled).toBe(true);
+  // выделение в тексте: «Добавить сцену» тоже недоступна
+  selectInBlock(scriptDoc().blocks[0]!.id, 0, 5);
+  const add = screen.queryByRole("button", { name: t("scriptPlan.selection.add") });
+  if (add) expect((add as HTMLButtonElement).disabled).toBe(true);
+  expect(opsCalls(calls)).toHaveLength(0);
+});
+
+it.each([
+  ["failed", job({ id: "job_f", type: "script.plan", status: "failed" })],
+  ["cancelled", job({ id: "job_f", type: "script.plan", status: "cancelled" })],
+  ["blocked", job({ id: "job_f", type: "script.plan", status: "blocked" })],
+  ["не поставлена", null],
+] as const)("ревью S16a I1: задача дозаполнения %s — «Не удалось дописать сцену», «Повторить дозаполнение» ставит задачу; правки доступны", async (_name, fj) => {
+  const { calls } = fakeFetch([on("POST", "/api/projects/p1/script/plan/fill", { job: job({ id: "job_r", type: "script.plan", status: "pending" }) }, 202)]);
+  renderQ(<PlanTab state={fillingState(fj)} onGenerated={() => {}} />);
+  const status = screen.getByTestId("fill-status");
+  expect(status.textContent).toContain(t("scriptPlan.fill.failed", { scenes: "2" }));
+  expect(within(cards()[1]!).getByTestId("scene-fill").textContent).toBe(t("scriptPlan.scene.fillJobFailed"));
+  expect((within(cards()[0]!).getByRole("button", { name: t("scriptPlan.scene.remove") }) as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(within(status).getByRole("button", { name: t("scriptPlan.fill.retry") }));
+  await waitFor(() => expect(calls.filter((c) => c.method === "POST" && c.url === "/api/projects/p1/script/plan/fill")).toHaveLength(1));
 });
 
 it("правка идеи и назначения → modify с patch", async () => {

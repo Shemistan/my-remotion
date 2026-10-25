@@ -8,7 +8,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { type ReactElement, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError } from "../../api/client.js";
 import { useProjectStyle } from "../../api/queries.js";
-import { scriptStateKey, useGenerate, usePlanOps } from "../../api/script-client.js";
+import { fillState, scriptStateKey, useGenerate, usePlanOps, useRetryFill } from "../../api/script-client.js";
 import { BuildPlan } from "../../components/script/BuildPlan.js";
 import { DiversitySummary } from "../../components/script/DiversitySummary.js";
 import { IssueText, PlanIssues } from "../../components/script/PlanIssues.js";
@@ -52,6 +52,7 @@ export const PlanTab: (props: { state: ScriptStateDto; onGenerated: () => void }
   const script = state.script;
   const plan = state.plan;
   const ops = usePlanOps(projectId);
+  const retryFill = useRetryFill(projectId);
   const generate = useGenerate(projectId);
   // выбранная сцена и откуда её выбрали: прокручивается только другая сторона (ревью M3)
   const [picked, setPicked] = useState<{ id: string; from: "text" | "card" } | null>(null);
@@ -115,10 +116,16 @@ export const PlanTab: (props: { state: ScriptStateDto; onGenerated: () => void }
   };
 
   const accepted = doc.items.filter((x) => x.status === "accepted");
-  const blocking = doc.issues.filter((x) => x.severity === "blocking");
+  // ревью S16a I1/I2: идёт дозаполнение — правки плана ждут (иначе 409 от замка плана)
+  const fill = fillState(state);
+  const filling = fill.kind === "running";
+  const busy = ops.isPending || filling;
+  const fillScenes = fill.items.map((x) => numbers.get(x)).filter((x) => x !== undefined).join(", ");
+  const blocking = doc.issues.filter((x) => x.severity === "blocking" && !(filling && x.code === "scene_unfilled"));
   const reasons = [
     ...(outdated ? [t("scriptPlan.generate.outdated")] : []),
     ...(state.style ? [] : [t("scriptPlan.generate.noStyle")]),
+    ...(filling ? [t("scriptPlan.generate.filling")] : []),
     ...(blocking.length > 0 ? [t("scriptPlan.generate.blocked", { n: blocking.length })] : []),
     ...(accepted.length === 0 ? [t("scriptPlan.generate.none")] : []),
   ];
@@ -161,7 +168,7 @@ export const PlanTab: (props: { state: ScriptStateDto; onGenerated: () => void }
                     <button
                       type="button"
                       className="primary"
-                      disabled={ops.isPending}
+                      disabled={busy}
                       onClick={() => apply({ op: "add", start_word_id: words.start_word_id, end_word_id: words.end_word_id, ...(addTechnique ? { technique: addTechnique } : {}) })}
                     >
                       {t("scriptPlan.selection.add")}
@@ -180,10 +187,19 @@ export const PlanTab: (props: { state: ScriptStateDto; onGenerated: () => void }
         <div className="stack">
           <section className="panel stack" aria-label={t("scriptPlan.reading.title")}>
             <h2>{t("scriptPlan.reading.title")}</h2>
-            <ReadingForm value={doc.reading} busy={ops.isPending} onApply={(r) => apply({ op: "set_reading", reading: r })} />
+            <ReadingForm value={doc.reading} busy={busy} onApply={(r) => apply({ op: "set_reading", reading: r })} />
           </section>
           <section className="panel stack" aria-label={t("scriptPlan.plan.scenes")}>
             <h2>{t("scriptPlan.plan.scenes")}</h2>
+            {fill.kind !== "none" ? (
+              <div className={filling ? "hint" : "banner-warn row wrap"} role="status" data-testid="fill-status">
+                <span>{t(filling ? "scriptPlan.fill.running" : "scriptPlan.fill.failed", { scenes: fillScenes })}</span>
+                {filling ? null : (
+                  <button type="button" disabled={retryFill.isPending || ops.isPending} onClick={() => retryFill.mutate()}>{t("scriptPlan.fill.retry")}</button>
+                )}
+                {retryFill.isError ? <span className="error">{scriptErrorText(retryFill.error)}</span> : null}
+              </div>
+            ) : null}
             {doc.items.length === 0 ? <p className="muted">{t("scriptPlan.plan.noScenes")}</p> : (
               <ul className="script-cards">
                 {doc.items.map((x) => (
@@ -197,7 +213,8 @@ export const PlanTab: (props: { state: ScriptStateDto; onGenerated: () => void }
                     issues={doc.issues.filter((i) => i.item_id === x.id)}
                     selection={words}
                     selected={selectedId === x.id}
-                    busy={ops.isPending}
+                    busy={busy}
+                    fillJob={filling ? "running" : "failed"}
                     onSelect={() => pickFrom("card")(x.id)}
                     onOp={apply}
                   />
@@ -250,7 +267,7 @@ export const PlanTab: (props: { state: ScriptStateDto; onGenerated: () => void }
           <button
             type="button"
             className="primary"
-            disabled={reasons.length > 0 || generate.isPending || ops.isPending}
+            disabled={reasons.length > 0 || generate.isPending || busy}
             onClick={() => generate.mutate({ body: { revision: doc.revision }, key: genKey }, { onSuccess: onGenerated })}
           >
             {tn("scriptPlan.generate", accepted.length, { min: est.minutes, usd: est.usd })}

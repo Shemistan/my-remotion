@@ -87,13 +87,16 @@ function planDoc(): ScriptPlanRevisionDoc {
 
 let gen = 0;
 /** Готовая версия сцены через draft попытки фиктивной задачи генерации. */
-async function publishVersion(sceneId: string, qa?: QAReport, reference?: string): Promise<string> {
+async function publishVersion(sceneId: string, qa?: QAReport, reference?: string, durationFrames?: number): Promise<string> {
   const input = { n: ++gen, ...(reference ? { script: { reference_version_id: reference } } : {}) };
   const job = enqueue(env.db, { type: "playground.generate", projectId: P, sceneId, input, idempotencyKey: `gen${gen}` }).job;
   const c = claimNext(env.db, "srv", Date.now(), { running: 0, maxRunning: 9 }, { ids: new Set([job.id]) })!;
   const draft = await makeDraft(env.s.root, { runId: job.id, attempt: c.attempt, sceneId, projectId: P });
   if (qa) writeFileSync(join(draft.dir, "qa.json"), JSON.stringify(qa));
-  const v = await repo.publish(draft, meta(sceneId), { jobId: job.id, attempt: c.attempt });
+  // длительность версии — по плану (как у генерации сцены сценария), если тест не задал другую
+  const item = items.find((x) => sceneOf.get(x.id) === sceneId);
+  const settings = { ...defaultSettings(), duration_frames: durationFrames ?? item?.frames.total ?? defaultSettings().duration_frames };
+  const v = await repo.publish(draft, meta(sceneId, { settings }), { jobId: job.id, attempt: c.attempt });
   finish(env.db, job.id, c.attempt, { status: "completed", outputRefs: { version_id: v.versionId } });
   return v.versionId;
 }
@@ -325,6 +328,58 @@ describe("scriptPackage", () => {
     const pkgDir = join(env.s.root, refs.rel_path);
     expect(readdirSync(pkgDir).filter((f) => f.endsWith(".mov"))).toEqual([]);
     expect(readFileSync(join(pkgDir, "шпаргалка.md"), "utf8")).toContain(OVERLAY_IMPOSSIBLE);
+  });
+
+  it("F8: в шпаргалке — короткие фразы по кодам QA (≤ 3 на сцену, без id элементов); полные тексты — в манифесте", async () => {
+    const sid = sceneOf.get("ss_001")!;
+    const long = (code: string, area: string) => ({
+      source: "agent" as const, code, severity: "warning" as const, area,
+      description: `На кадре 39 элемент ${area} (card-3, node-ptr) занимает половину ширины, и это видно на кадрах 120–180; подробное описание дефекта на несколько предложений. Ещё одно предложение.`,
+      fix_hint: "поправь",
+    });
+    const qa: QAReport = {
+      gate: { technical: "pass", visual: "warn", semantic: "warn", style: "pass" }, checked_frames: [0], ocr: [], automated: true,
+      issues: [long("no_hero", "hero-num"), long("composition", "left-stack"), long("no_hero", "card-3"), long("rhythm", "byte-strip"), long("frame0_coverage", "bg"), long("some_new_code", "x-1")],
+    };
+    versionOf.set("ss_001", await publishVersion(sid, qa));
+    const { r } = await run(deps(fakeExport()));
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    const pkgDir = join(env.s.root, refsOf(r).rel_path);
+    const md = readFileSync(join(pkgDir, "шпаргалка.md"), "utf8");
+    const line = md.split("\n").find((l) => l.startsWith("| 01 |"))!;
+    const notes = line.split(" | ").at(-1)!.replace(/\s*\|$/, "").split("; ");
+    // фон-дымка альфы (экспорт) не влезла: сначала три кода QA по порядку, повтор кода — одна фраза
+    expect(notes).toEqual(["нет главного героя", "композиция неровная", "рваный ритм"]);
+    for (const n of notes) {
+      expect(n.length).toBeLessThanOrEqual(60);
+      expect(n).toMatch(/^[а-яё ,.:«»()%\d—-]+$/iu);
+    }
+    expect(md).not.toMatch(/card-3|node-ptr|hero-num/);
+    const csv = readFileSync(join(pkgDir, "шпаргалка.csv"), "utf8");
+    expect(csv).not.toMatch(/card-3|подробное описание/);
+    // манифест — полные тексты
+    const m = ScriptPackageManifestSchema.parse(JSON.parse(readFileSync(join(pkgDir, "package-manifest.json"), "utf8")));
+    expect(m.scenes[0]!.warnings.filter((w) => w.includes("подробное описание дефекта"))).toHaveLength(6);
+  });
+
+  it("F7: длительность версии не по плану — в манифест и шпаргалку из файла версии и замечание", async () => {
+    const sid = sceneOf.get("ss_001")!;
+    const plan = items[0]!.frames;
+    versionOf.set("ss_001", await publishVersion(sid, undefined, undefined, plan.total + 71));
+    const { r } = await run(deps(fakeExport()));
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    const pkgDir = join(env.s.root, refsOf(r).rel_path);
+    const m = ScriptPackageManifestSchema.parse(JSON.parse(readFileSync(join(pkgDir, "package-manifest.json"), "utf8")));
+    expect(m.scenes[0]!.frames).toEqual({ lead: plan.lead, speech: plan.speech, tail: plan.tail + 71, total: plan.total + 71 });
+    const s = (f: number) => (f / 30).toFixed(1).replace(".", ",");
+    const note = `длительность не по плану: ${s(plan.total + 71)} с вместо ${s(plan.total)} с`;
+    expect(m.scenes[0]!.warnings).toContain(`duration_off_plan: ${note}`);
+    const txt = readFileSync(join(pkgDir, "шпаргалка.txt"), "utf8").split("\n");
+    expect(txt[0]).toMatch(new RegExp(`· ${s(plan.total + 71)} с \\(запас 0,5 / ${s(plan.tail + 71)}\\)$`));
+    const md = readFileSync(join(pkgDir, "шпаргалка.md"), "utf8");
+    expect(md.split("\n").find((l) => l.startsWith("| 01 |"))).toContain(note);
+    // сцена по плану — без замечания
+    expect(md.split("\n").find((l) => l.startsWith("| 03 |"))).not.toContain("длительность не по плану");
   });
 
   it("ни одной сцены в папке → failed package_empty, каталога нет", async () => {

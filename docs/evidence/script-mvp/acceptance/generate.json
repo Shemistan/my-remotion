@@ -1,0 +1,452 @@
+{
+  "batch": "sb_6b8e28f1b7dd17ca89d5b4b0c2fb09",
+  "retries": [],
+  "first_pass_ms": 7852776,
+  "restart": {
+    "atMs": 300000,
+    "pidBefore": 0,
+    "pidAfter": 53153,
+    "downMs": 0,
+    "running": [
+      {
+        "item": "?",
+        "job": "job_01M5RQZA5G7CGN59TT8AAYGK5T",
+        "stage": "render"
+      },
+      {
+        "item": "?",
+        "job": "job_01M5RQZA5FEKS94TTDRHX73DPQ",
+        "stage": "engineer"
+      }
+    ],
+    "note": "SIGTERM тестом через 5 мин (журнал сервера: «✗ interrupted» у двух задач); запрос опроса после остановки упал ECONNRESET, сервер поднял перезапущенный воркер Playwright; задачи возобновлены в 05:24:55 (attempt 2, interrupts 1)"
+  },
+  "running_at_stop": [
+    {
+      "item": "?",
+      "job": "job_01M5RQZA5G7CGN59TT8AAYGK5T",
+      "stage": "render"
+    },
+    {
+      "item": "?",
+      "job": "job_01M5RQZA5FEKS94TTDRHX73DPQ",
+      "stage": "engineer"
+    }
+  ],
+  "scenes": [
+    {
+      "item": "ss_001",
+      "block": "b1",
+      "technique": "checklist",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5FEKS94TTDRHX73DPQ",
+          "status": "completed",
+          "attempt": 2,
+          "interrupts": 1,
+          "created_at": "2026-10-25T05:19:14.095Z",
+          "started_at": "2026-10-25T05:24:55.509Z",
+          "finished_at": "2026-10-25T05:35:58.006Z",
+          "cost_usd": 3.88
+        }
+      ]
+    },
+    {
+      "item": "ss_002",
+      "block": "b1",
+      "technique": "flow-graph",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5G7CGN59TT8AAYGK5T",
+          "status": "completed",
+          "attempt": 2,
+          "interrupts": 1,
+          "created_at": "2026-10-25T05:19:14.096Z",
+          "started_at": "2026-10-25T05:24:55.520Z",
+          "finished_at": "2026-10-25T05:36:33.043Z",
+          "cost_usd": 4.46
+        }
+      ]
+    },
+    {
+      "item": "ss_003",
+      "block": "b1",
+      "technique": "split-versus",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5HJF4R2VHY9SBGA4XN",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.097Z",
+          "started_at": "2026-10-25T05:35:58.012Z",
+          "finished_at": "2026-10-25T05:43:25.876Z",
+          "cost_usd": 1.98
+        }
+      ]
+    },
+    {
+      "item": "ss_004",
+      "block": "b1",
+      "technique": "hero-number",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5HJF4R2VHY9SBGA4XP",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.097Z",
+          "started_at": "2026-10-25T05:36:33.049Z",
+          "finished_at": "2026-10-25T05:50:39.821Z",
+          "cost_usd": 3.326
+        }
+      ]
+    },
+    {
+      "item": "ss_005",
+      "block": "b1",
+      "technique": "line-trend",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5HJF4R2VHY9SBGA4XQ",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.097Z",
+          "started_at": "2026-10-25T05:43:25.882Z",
+          "finished_at": "2026-10-25T05:51:41.591Z",
+          "cost_usd": 1.817
+        }
+      ]
+    },
+    {
+      "item": "ss_006",
+      "block": "b2",
+      "technique": "structure-build",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5JG6W1ACC9PWVZB70Y",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.098Z",
+          "started_at": "2026-10-25T05:50:39.827Z",
+          "finished_at": "2026-10-25T06:03:15.074Z",
+          "cost_usd": 2.974
+        }
+      ]
+    },
+    {
+      "item": "ss_007",
+      "block": "b2",
+      "technique": "data-token",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5JG6W1ACC9PWVZB70Z",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.098Z",
+          "started_at": "2026-10-25T05:51:41.598Z",
+          "finished_at": "2026-10-25T06:08:18.630Z",
+          "cost_usd": 3.672
+        }
+      ]
+    },
+    {
+      "item": "ss_024",
+      "block": "b2",
+      "technique": "hero-number",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5JG6W1ACC9PWVZB710",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.098Z",
+          "started_at": "2026-10-25T06:03:15.083Z",
+          "finished_at": "2026-10-25T06:09:22.034Z",
+          "cost_usd": 1.725
+        }
+      ]
+    },
+    {
+      "item": "ss_009",
+      "block": "b2",
+      "technique": "bar-compare",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5KY16PE0471079M7DX",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.099Z",
+          "started_at": "2026-10-25T06:08:18.641Z",
+          "finished_at": "2026-10-25T06:14:29.662Z",
+          "cost_usd": 1.6
+        }
+      ]
+    },
+    {
+      "item": "ss_010",
+      "block": "b2",
+      "technique": "split-versus",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5KY16PE0471079M7DY",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.099Z",
+          "started_at": "2026-10-25T06:09:22.044Z",
+          "finished_at": "2026-10-25T06:19:49.427Z",
+          "cost_usd": 2.36
+        }
+      ]
+    },
+    {
+      "item": "ss_011",
+      "block": "b2",
+      "technique": "process-steps",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5KY16PE0471079M7DZ",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.099Z",
+          "started_at": "2026-10-25T06:14:29.669Z",
+          "finished_at": "2026-10-25T06:30:41.911Z",
+          "cost_usd": 4.216
+        }
+      ]
+    },
+    {
+      "item": "ss_012",
+      "block": "b2",
+      "technique": "structure-build",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5M45K35N1MCJR4KVQP",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.100Z",
+          "started_at": "2026-10-25T06:19:49.436Z",
+          "finished_at": "2026-10-25T06:39:16.974Z",
+          "cost_usd": 4.504
+        }
+      ]
+    },
+    {
+      "item": "ss_013",
+      "block": "b2",
+      "technique": "flow-graph",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5M45K35N1MCJR4KVQQ",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.100Z",
+          "started_at": "2026-10-25T06:30:41.918Z",
+          "finished_at": "2026-10-25T06:42:42.620Z",
+          "cost_usd": 3.12
+        }
+      ]
+    },
+    {
+      "item": "ss_014",
+      "block": "b2",
+      "technique": "data-token",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5M45K35N1MCJR4KVQR",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.100Z",
+          "started_at": "2026-10-25T06:39:16.981Z",
+          "finished_at": "2026-10-25T06:50:46.950Z",
+          "cost_usd": 2.341
+        }
+      ]
+    },
+    {
+      "item": "ss_015",
+      "block": "b2",
+      "technique": "split-versus",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5M45K35N1MCJR4KVQS",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.100Z",
+          "started_at": "2026-10-25T06:42:42.627Z",
+          "finished_at": "2026-10-25T06:59:51.331Z",
+          "cost_usd": 3.696
+        }
+      ]
+    },
+    {
+      "item": "ss_016",
+      "block": "b3",
+      "technique": "hero-number",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5N5NRZYTP5VK07NS30",
+          "status": "completed",
+          "attempt": 2,
+          "interrupts": 1,
+          "created_at": "2026-10-25T05:19:14.101Z",
+          "started_at": "2026-10-25T07:01:01.218Z",
+          "finished_at": "2026-10-25T07:16:07.616Z",
+          "cost_usd": 4.989
+        }
+      ]
+    },
+    {
+      "item": "ss_017",
+      "block": "b3",
+      "technique": "bar-compare",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5N5NRZYTP5VK07NS31",
+          "status": "completed",
+          "attempt": 2,
+          "interrupts": 1,
+          "created_at": "2026-10-25T05:19:14.101Z",
+          "started_at": "2026-10-25T07:01:01.227Z",
+          "finished_at": "2026-10-25T07:16:41.504Z",
+          "cost_usd": 2.278
+        }
+      ]
+    },
+    {
+      "item": "ss_018",
+      "block": "b3",
+      "technique": "structure-build",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5N5NRZYTP5VK07NS32",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.101Z",
+          "started_at": "2026-10-25T07:01:01.236Z",
+          "finished_at": "2026-10-25T07:18:03.112Z",
+          "cost_usd": 4.014
+        }
+      ]
+    },
+    {
+      "item": "ss_019",
+      "block": "b3",
+      "technique": "split-versus",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5PX9Q10ZS5FEG5076S",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.102Z",
+          "started_at": "2026-10-25T07:01:01.245Z",
+          "finished_at": "2026-10-25T07:18:32.842Z",
+          "cost_usd": 4.097
+        }
+      ]
+    },
+    {
+      "item": "ss_020",
+      "block": "b3",
+      "technique": "line-trend",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5PX9Q10ZS5FEG5076T",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.102Z",
+          "started_at": "2026-10-25T07:01:01.253Z",
+          "finished_at": "2026-10-25T07:16:41.749Z",
+          "cost_usd": 3.029
+        }
+      ]
+    },
+    {
+      "item": "ss_021",
+      "block": "b3",
+      "technique": "structure-build",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5PX9Q10ZS5FEG5076V",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.102Z",
+          "started_at": "2026-10-25T07:16:07.625Z",
+          "finished_at": "2026-10-25T07:29:52.248Z",
+          "cost_usd": 3.704
+        }
+      ]
+    },
+    {
+      "item": "ss_022",
+      "block": "b3",
+      "technique": "flow-graph",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5PX9Q10ZS5FEG5076W",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.102Z",
+          "started_at": "2026-10-25T07:16:41.513Z",
+          "finished_at": "2026-10-25T07:26:33.370Z",
+          "cost_usd": 2.799
+        }
+      ]
+    },
+    {
+      "item": "ss_023",
+      "block": "b3",
+      "technique": "timeline",
+      "status": "ready",
+      "jobs": [
+        {
+          "id": "job_01M5RQZA5QPWW9XDWBZVBB7YRJ",
+          "status": "completed",
+          "attempt": 1,
+          "interrupts": 0,
+          "created_at": "2026-10-25T05:19:14.103Z",
+          "started_at": "2026-10-25T07:16:41.803Z",
+          "finished_at": "2026-10-25T07:20:58.050Z",
+          "cost_usd": 1.282
+        }
+      ]
+    }
+  ]
+}
