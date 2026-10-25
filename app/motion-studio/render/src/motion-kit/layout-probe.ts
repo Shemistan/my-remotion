@@ -38,7 +38,25 @@ export interface LayoutItem {
   rect: Box;
   fontPx: number;
   opacity: number;
+  /**
+   * Части текста `text`/`number` (текстовые узлы по строкам: слово KineticText, строка абзаца) —
+   * для стыка соседних текстов (QA `word_gap`, Task 37′ fix 2); не больше `LINE_PARTS_MAX`.
+   */
+  lines?: LinePart[];
 }
+
+/** Часть текста владельца: текст узла, его прямоугольник строки, кегль, прозрачность. */
+export interface LinePart {
+  text: string;
+  rect: Box;
+  fontPx: number;
+  opacity: number;
+}
+
+/** Частей текста на владельца в реестре не больше. */
+export const LINE_PARTS_MAX = 40;
+/** Роли с частями текста в реестре (`word_gap`). */
+const LINE_ROLES = new Set(["text", "number"]);
 
 export interface LayoutFrame {
   frame: number;
@@ -119,8 +137,10 @@ export function summarizeLayout(frame: number, height: number, raw: RawText[]): 
   vis.forEach((r, i) => {
     const id = r.owner ?? `${r.role}#${i}`;
     const g = groups.get(id);
-    if (!g) groups.set(id, { id, role: r.role, ...(r.owner === null && r.el ? { el: r.el } : {}), text: r.text.trim(), rect: r.rect, fontPx: r.fontPx, opacity: r.opacity });
+    const part = (): LinePart => ({ text: r.text.trim(), rect: { x: r1(r.rect.x), y: r1(r.rect.y), w: r1(r.rect.w), h: r1(r.rect.h) }, fontPx: r1(r.fontPx), opacity: r1(r.opacity) });
+    if (!g) groups.set(id, { id, role: r.role, ...(r.owner === null && r.el ? { el: r.el } : {}), text: r.text.trim(), rect: r.rect, fontPx: r.fontPx, opacity: r.opacity, ...(LINE_ROLES.has(r.role) ? { lines: [part()] } : {}) });
     else {
+      if (g.lines && g.lines.length < LINE_PARTS_MAX) g.lines.push(part());
       g.rect = union(g.rect, r.rect);
       g.fontPx = Math.min(g.fontPx, r.fontPx);
       g.opacity = Math.max(g.opacity, r.opacity);

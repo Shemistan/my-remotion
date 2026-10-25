@@ -40,7 +40,7 @@ export const FRAGMENT_MIN = 600;
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 
 /** Строка-данные из текста человека: без управляющих символов и маркеров блока фрагмента. */
-function clean(s: string, keepNewlines = false): string {
+export function clean(s: string, keepNewlines = false): string {
   const t = s.replace(CONTROL, "").replace(/<{3,}/g, "«").replace(/>{3,}/g, "»");
   return keepNewlines ? t.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim() : t.replace(/\s+/g, " ").trim();
 }
@@ -235,9 +235,6 @@ const VERTICAL = { width: 1080, height: 1920, safe_area: { x: 0.06, y: 0.15 } };
  * (альфа — перерендер при экспорте, Р5). 9:16 — размеры и safe area шортса.
  */
 export function sceneSettings(project: Settings, item: ScriptSceneItem, aspect: Aspect, style: ProjectStyleBase): Settings {
-  const font = style.font?.trim();
-  const kitFont = font && KIT_FONT_SET.has(font) ? (font as StyleLock["font"]) : undefined;
-  const palette = lockPalette(style.palette_overrides);
   // шрифт и lock проекта не наследуются: их задаёт стиль проекта
   const base: Settings = { ...project };
   delete base.font;
@@ -247,14 +244,23 @@ export function sceneSettings(project: Settings, item: ScriptSceneItem, aspect: 
     : project.aspect_ratio === "16:9"
       ? { aspect_ratio: "16:9" as const, width: project.width, height: project.height, safe_area: project.safe_area }
       : { aspect_ratio: "16:9" as const, width: 1920, height: 1080, safe_area: { x: 0.05, y: 0.05 } };
+  // порядок ключей — как до Task 37′ (вход задачи и brief.json побайтно прежние)
+  const { style_lock, ...fields } = projectStyleFields(style);
+  return { ...base, ...frame, duration_frames: item.frames.total, ...fields, transparent_export: false, style_lock };
+}
+
+/**
+ * Поля настроек от стиля проекта (сценарий и видеосцена, Task 37′): пресет, интенсивность,
+ * шрифт kit и `style_lock` (палитра, глубина, шрифт).
+ */
+export function projectStyleFields(style: ProjectStyleBase): Pick<Settings, "style_preset" | "animation_intensity" | "font"> & { style_lock: StyleLock } {
+  const font = style.font?.trim();
+  const kitFont = font && KIT_FONT_SET.has(font) ? (font as StyleLock["font"]) : undefined;
+  const palette = lockPalette(style.palette_overrides);
   return {
-    ...base,
-    ...frame,
-    duration_frames: item.frames.total,
     style_preset: style.preset,
     animation_intensity: style.intensity,
     ...(kitFont ? { font: kitFont } : {}),
-    transparent_export: false,
     style_lock: { ...(palette ? { palette_overrides: palette } : {}), depth: style.depth as 0 | 1 | 2 | 3, ...(kitFont ? { font: kitFont } : {}) },
   };
 }
