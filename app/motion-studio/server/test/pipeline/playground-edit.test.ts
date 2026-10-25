@@ -341,8 +341,8 @@ describe("playgroundEdit: path code и spec", () => {
   });
 
   /** Сцена сценария: план pln_f7 r1 со сценой ss_001 на 180 кадров и вход script у генерации сцены. */
-  function scriptScene(sceneId: string) {
-    const item = { ...PLAN.items[0]!, frames: { lead: 15, speech: 135, tail: 30, total: 180 } };
+  function scriptScene(sceneId: string, total = 180) {
+    const item = { ...PLAN.items[0]!, frames: { lead: 15, speech: total - 45, tail: 30, total } };
     const doc = { ...PLAN, plan_id: "pln_f7", items: [item] };
     const rel = `${artifactPaths(env.s.root, "playground").planRev("pln_f7", 1)}/${SCRIPT_PLAN_FILE}`;
     mkdirSync(dirname(join(env.s.root, rel)), { recursive: true });
@@ -387,6 +387,51 @@ describe("playgroundEdit: path code и spec", () => {
     expect(job.status, JSON.stringify(job.error)).toBe("completed");
     expect(agents.engineerCalls.slice(before)[0]!.input).toMatch(/Длительность сцены фиксирована планом сценария: 180 кадров/);
     expect((await readVersion(join(env.s.root, rows(scene.id)[1]!.path))).settings.duration_frames).toBe(180);
+  });
+
+  it("ревью S16a M4: база не по плану (180 вместо 210) на пути param — длительность выровнена под план, правка проходит", async () => {
+    const agents = fakeAgents({ director: async () => ({ output: laidOut() }) });
+    const { scene, gen, edit } = await start({ agents });
+    expect((await gen()).status).toBe("completed");
+    const [v1] = rows(scene.id);
+    scriptScene(scene.id, 210);
+    const before = agents.engineerCalls.length;
+    const job = await edit({ plan: plan({ base_version_id: v1!.id, path: "param", changes: [{ target: "depth", kind: "param", description: "объёмнее" }], param_patch: { style: { depth: 2 } }, reply: "Объёмнее." }) });
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(agents.engineerCalls.length).toBe(before);
+    const v2 = rows(scene.id)[1]!;
+    const m = await readVersion(join(env.s.root, v2.path));
+    expect(m.settings.duration_frames).toBe(210);
+    expect(json<MotionSpec>(v2.path, "spec.json").duration_frames).toBe(210);
+    expect(json<{ timing: { duration_frames: number } }>(v2.path, "props.json").timing.duration_frames).toBe(210);
+    expect(readFileSync(join(env.s.root, v2.path, "warnings.json"), "utf8")).toMatch(/выровнена под план сценария: 210 кадров/);
+  });
+
+  it("ревью S16a M4: база не по плану на пути code с «темп тот же» — длительность по плану, «темп» не держит базу", async () => {
+    let d = 0;
+    const agents = fakeAgents({
+      director: async () => {
+        const o = laidOut();
+        if (++d > 1) {
+          o.spec.duration_frames = 210;
+          o.spec.beats = o.spec.beats.map((b) => (b.id === "b4" ? { ...b, end_frame: 210 } : b));
+        }
+        return { output: o };
+      },
+      editPlanner: async () => ({ output: plan({ path: "code", changes: [{ target: "chart", kind: "code", description: "толще" }], preserve: ["timing"], reply: "Толще." }) }),
+    });
+    const { scene, gen, edit } = await start({ agents });
+    expect((await gen()).status).toBe("completed");
+    scriptScene(scene.id, 210);
+    const before = agents.engineerCalls.length;
+    const job = await edit({}, "линия толще, темп тот же");
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    const v2 = rows(scene.id)[1]!;
+    const m = await readVersion(join(env.s.root, v2.path));
+    expect(m.settings.duration_frames).toBe(210);
+    expect((m.edit_plan as { preserve: string[] }).preserve).not.toContain("timing");
+    expect(agents.engineerCalls.slice(before)[0]!.input).not.toMatch(/Сохранить как в базе: .*timing/);
+    expect(readFileSync(join(env.s.root, v2.path, "warnings.json"), "utf8")).not.toMatch(/Темп не сохранён/);
   });
 
   it("settings_patch { aspect_ratio 9:16, 1080×1920 } → path spec, Director и Engineer вызваны", async () => {
@@ -570,5 +615,12 @@ describe("F7: durationChecks (сцена сценария)", () => {
     const off = durationChecks({ spec: { ...spec180, duration_frames: 240 }, settings: { ...settings, duration_frames: 240 } }, 180);
     expect(off).toEqual([expect.objectContaining({ code: "duration_changed", severity: "blocking", source: "programmatic" })]);
     expect(off[0]!.description).toMatch(/240 кадров вместо 180/);
+  });
+
+  it("ревью S16a M4: база уже не по плану и правка не выровняла длительность — warning, а не blocking; третья длина — blocking", () => {
+    const v = (n: number) => ({ spec: { ...spec180, duration_frames: n }, settings: { ...settings, duration_frames: n } });
+    expect(durationChecks(v(180), 210, 180)).toEqual([expect.objectContaining({ code: "duration_changed", severity: "warning" })]);
+    expect(durationChecks(v(240), 210, 180)).toEqual([expect.objectContaining({ code: "duration_changed", severity: "blocking" })]);
+    expect(durationChecks(v(210), 210, 180)).toEqual([]);
   });
 });

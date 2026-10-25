@@ -270,31 +270,39 @@ export function scriptSpeechWindow(db: Db, sceneId: string, total: number): Spee
 
 /**
  * S16a F7: длительность сцены сценария по плану — `frames.total` сцены плана из входа `script`
- * генерации: по текущей ревизии того же плана (ревью M3: «скорость чтения» после генерации), а если
- * сцены там нет — по ревизии генерации; ревизии или сцены нет, файл не читается — `undefined`
- * (длительность не фиксируется).
+ * генерации: по текущей ревизии того же плана (ревью M3: «скорость чтения» после генерации). Сцены
+ * в текущей ревизии нет или она снята — `undefined`: старые кадры ревизии генерации правка не
+ * закрепляет (S17a). Текущая ревизия не читается — по ревизии генерации; и её нет — `undefined`.
  */
 export function scriptPlannedFrames(db: Db, root: string, c: ScriptSceneContext): number | undefined {
-  const at = (rev: number): number | undefined => {
+  /** Кадры сцены в ревизии; `null` — ревизия прочитана, сцены в ней нет (или снята); `undefined` — не прочитана. */
+  const at = (rev: number): number | null | undefined => {
     const row = plans.revision(db, c.plan_id, rev);
     if (!row) return undefined;
     try {
       const doc = ScriptPlanRevisionDocSchema.parse(JSON.parse(readFileSync(join(root, row.rel_path), "utf8")));
-      return doc.items.find((x) => x.id === c.item_id && x.status === "accepted")?.frames.total;
+      return doc.items.find((x) => x.id === c.item_id && x.status === "accepted")?.frames.total ?? null;
     } catch {
       return undefined;
     }
   };
   const current = plans.get(db, c.plan_id)?.current_revision;
-  return (current !== undefined && current !== null && current !== c.plan_revision ? at(current) : undefined) ?? at(c.plan_revision);
+  const now = current !== undefined && current !== null && current !== c.plan_revision ? at(current) : undefined;
+  if (now === null) return undefined;
+  return now ?? at(c.plan_revision) ?? undefined;
 }
 
-/** S16a F7: длительность версии сцены сценария не по плану — blocking `duration_changed`. */
-export function durationChecks(v: { spec: MotionSpec; settings: Settings }, planned: number): QAIssue[] {
+/**
+ * S16a F7: длительность версии сцены сценария не по плану — blocking `duration_changed`. База уже
+ * была не по плану (`baseFrames`, версии до S16a), и правка оставила её длину — warning (ревью M4):
+ * правка не испортила длительность, а исправить её цикл не смог — иначе любая правка такой сцены падала бы.
+ */
+export function durationChecks(v: { spec: MotionSpec; settings: Settings }, planned: number, baseFrames?: number): QAIssue[] {
   const got = v.settings.duration_frames !== planned ? v.settings.duration_frames : v.spec.duration_frames;
   if (got === planned) return [];
+  const legacy = baseFrames !== undefined && baseFrames !== planned && v.settings.duration_frames === baseFrames && v.spec.duration_frames === baseFrames;
   return [{
-    source: "programmatic", code: "duration_changed", severity: "blocking",
+    source: "programmatic", code: "duration_changed", severity: legacy ? "warning" : "blocking",
     description: `длительность сцены ${got} кадров вместо ${planned} по плану сценария — клип не встанет на свою фразу`,
     fix_hint: `верни duration_frames = ${planned} в spec и props.timing; темп меняй внутри сцены (биты, задержки), не её длиной`,
   }];
@@ -419,9 +427,18 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
         lockNotes.push("lock");
       }
       if (touchesGeometry(patch) && raw.path === "param") raw = { ...raw, path: "spec", changes: raw.changes.map((c) => ({ ...c, kind: "spec" })) };
-      const norm = normalizePlan(raw, base.row.id, history, patch, base.spec);
+      // ревью S16a M4: база не по плану (версии до S16a) — длительность выравнивается под план, как
+      // патч настроек: путь param масштабирует время, путь кода получает её в настройках; «темп тот
+      // же» при этом снимается (normalizePlan) — держать длину базы правка не должна
+      const baseFrames = base.row.settings.duration_frames;
+      const align = planned !== undefined && (baseFrames !== planned || base.spec.duration_frames !== planned);
+      const editPatch: Partial<Settings> = align ? { ...patch, duration_frames: planned } : patch;
+      const norm = normalizePlan(raw, base.row.id, history, editPatch, base.spec);
       let plan = norm.plan;
-      notes = [...norm.notes, ...(lockNotes.length > 0 ? [lockNote(base.row.settings.fps)] : [])];
+      notes = [
+        ...norm.notes, ...(lockNotes.length > 0 ? [lockNote(base.row.settings.fps)] : []),
+        ...(align ? [`Длительность версии ${base.row.number} (${base.spec.duration_frames} кадров) не по плану — выровнена под план сценария: ${planned} кадров.`] : []),
+      ];
       for (const n of notes) rc.warnings.push(n);
       rc.log(`план правки: ${plan.path}; ${plan.changes.map((c) => c.target).join(", ") || "—"}${plan.preserve.length > 0 ? `; сохранить: ${plan.preserve.join(", ")}` : ""}`);
       const baseCaps = base.selection.items.map((i) => gd.kb.getCapability(i.kb_id)).filter((v): v is CapabilityView => v !== undefined);
@@ -431,7 +448,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
       if (plan.path === "param") {
         let r: ReturnType<typeof applyParamEdit>;
         try {
-          r = applyParamEdit({ spec: base.spec, props: base.props, settings: base.row.settings }, plan, history, patch);
+          r = applyParamEdit({ spec: base.spec, props: base.props, settings: base.row.settings }, plan, history, editPatch);
         } catch (e) {
           return { kind: "failed", stage: "edit_planner", message: `план правки не применить: ${errText(e)}` };
         }
@@ -462,7 +479,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
       // --- 3. Путь spec/code: Director (база + план) → Engineer правит копию src/ базы ---
       let settings: Settings;
       try {
-        settings = codeSettings(base.row.settings, plan, patch);
+        settings = codeSettings(base.row.settings, plan, editPatch);
         if (planned !== undefined) settings = SettingsSchema.parse({ ...settings, duration_frames: planned });
       } catch (e) {
         return { kind: "failed", stage: "prepare", message: `настройки правки не годятся: ${errText(e)}` };
@@ -524,7 +541,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
     const r = await runGeneration(
       {
         prompt, settings: base.row.settings, qa: { allowRestricted: input.allowRestricted ?? false }, keepBrief: true, plan: planEdit,
-        ...(scriptCtx ? { extraQa: async (v) => [...(await overlayChecks(v)), ...(planned !== undefined ? durationChecks(v, planned) : [])] } : {}),
+        ...(scriptCtx ? { extraQa: async (v) => [...(await overlayChecks(v)), ...(planned !== undefined ? durationChecks(v, planned, base.row.settings.duration_frames) : [])] } : {}),
       },
       deps,
       ctx.signal,
