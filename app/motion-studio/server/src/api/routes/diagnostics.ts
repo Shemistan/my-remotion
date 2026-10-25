@@ -26,6 +26,7 @@ import { tx } from "../../db/tx.js";
 import { enqueue } from "../../jobs/queue.js";
 import { startCacheGcSchedule } from "../../perf/cache-gc.js";
 import { costSummary } from "../../perf/costs.js";
+import { batchStatus } from "../../script/batch.js";
 import { DEFAULT_PROJECT } from "../../scenes/store.js";
 import { BUNDLE_DIR, bundleName, diagnosticBundle } from "../../diagnostics/bundle.js";
 import { runDoctor } from "../../diagnostics/doctor-checks.js";
@@ -202,6 +203,8 @@ export const diagnosticsRoutes = (app: ZApp, { core }: ApiContext): void => {
     return costSummary(core.db, {
       ...(q.projectId ? { projectId: q.projectId } : {}),
       ...(q.sceneId ? { sceneId: q.sceneId } : {}),
+      // пакет сценария: все задачи его сцен (генерации, повторы, правки); нет пакета — 404
+      ...(q.batchId ? { sceneIds: batchStatus(core.db, core.root, q.batchId).items.map((i) => i.scene_id) } : {}),
       ...(since ? { since } : {}),
       ...(jobIds ? { jobIds } : {}),
     });

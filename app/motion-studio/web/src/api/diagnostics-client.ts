@@ -35,6 +35,8 @@ export const diagnosticsApi = {
 export interface CostQueryParams {
   projectId?: string;
   sceneId?: string;
+  /** Пакет генерации сценария: сумма всех задач его сцен (считает сервер). */
+  batchId?: string;
   days?: number;
   jobIds?: string[];
 }

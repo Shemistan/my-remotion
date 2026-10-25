@@ -246,15 +246,14 @@ export async function renderJob(req: RenderJobRequest, signal?: AbortSignal, dep
   let entryPoint: string;
   let inputProps: Record<string, unknown>;
   try {
-    entryPoint = await writeEntry(req.versionDir, req.cacheDir, req.settings);
+    // Task 49a: отметка использования ключа до первой записи в кэш — уборка не тронет его
+    entryPoint = await writeEntry(req.versionDir, req.cacheDir, req.settings, (k) => markCacheUse(req.cacheDir, k, req.run.runId));
     inputProps = req.inputProps ?? (await readProps(req.versionDir));
   } catch (e) {
     if (e instanceof StorageError) throw e;
     return fail("bundle", (e as Error).message);
   }
   const key = basename(dirname(entryPoint));
-  // Task 49a: отметка до worker — уборка кэша не тронет бандл активной задачи
-  await markCacheUse(req.cacheDir, key, req.run.runId);
 
   const outDir = req.outDir ?? req.versionDir;
   const framesDir = req.export ? undefined : await mkdirOne(join(outDir, "frames"));

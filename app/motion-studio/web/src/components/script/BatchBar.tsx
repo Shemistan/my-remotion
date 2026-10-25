@@ -25,7 +25,7 @@ export function BatchBar({ projectId, batch, readySkipped = 0 }: { projectId: st
           <span key={k} className={`badge status-${k}`}>{t(`scriptOutput.batch.count.${k}`, { n: c[k] })}</span>
         ))}
         {/* Task 49a: расчётная стоимость пакета, справочно */}
-        <CostBadge jobIds={batch.items.flatMap((i) => (i.job ? [i.job.id] : []))} refetchMs={active ? 5_000 : false} />
+        <CostBadge batchId={batch.id} refetchMs={active ? 5_000 : false} />
         <span className="spacer" />
         {active ? (
           <button type="button" disabled={cancel.isPending} title={t("scriptOutput.batch.cancelHint")} onClick={() => cancel.mutate(batch.id)}>

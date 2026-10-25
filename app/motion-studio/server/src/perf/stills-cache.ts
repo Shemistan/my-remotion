@@ -4,7 +4,7 @@
 // вызывающий сначала спрашивает `get`, рендерит только промах и кладёт результат `put`.
 // Ключ содержимого меняется вместе с кодом, props, motion-kit и Remotion, поэтому кадр из кэша —
 // тот же кадр. Каталог ключа уборка кэша (`gcCache`) удаляет вместе с бандлом того же ключа;
-// `get`/`put` отмечают использование (`cache/used/<ключ>.json`) — LRU уборки.
+// `get`/`put` отмечают использование (`cache/used/<ключ>/<задача>.json`) — LRU уборки.
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { copyFile, rename, rm } from "node:fs/promises";

@@ -50,5 +50,9 @@ it("без фильтра — все проекты; сцена; период; �
   expect(costSummary(env.db, { sceneId: "s2" })).toMatchObject({ totalUsd: 1, calls: 2, unknown: 1 });
   expect(costSummary(env.db, { projectId: "p1", since: "2026-10-23T00:00:00.000Z" })).toMatchObject({ totalUsd: 2, byRole: { motion_director: 1, engineer: 1 } });
   expect(costSummary(env.db, { jobIds: [ids.j2!, ids.j3!] })).toMatchObject({ totalUsd: 8, calls: 3 });
+  // сцены пакета: все задачи сцен, а не только последняя
+  expect(costSummary(env.db, { sceneIds: ["s1", "s2"] })).toMatchObject({ totalUsd: 3.75, calls: 5 });
+  expect(costSummary(env.db, { sceneIds: ["s3"] })).toMatchObject({ totalUsd: 7 });
+  expect(costSummary(env.db, { sceneIds: [] }).calls).toBe(0);
   expect(costSummary(env.db, { jobIds: [] })).toEqual({ totalUsd: 0, byRole: {}, byModel: {}, byScene: [], calls: 0, unknown: 0 });
 });

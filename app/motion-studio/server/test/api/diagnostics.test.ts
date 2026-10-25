@@ -151,6 +151,7 @@ it("GET /api/costs: по проекту, задачам, периоду; лиш�
   const many = Array.from({ length: 201 }, (_, i) => `j${i}`).join(",");
   expect((await api.inj("GET", `/api/costs?jobIds=${many}`, getHeaders)).statusCode).toBe(400);
   expect((await api.inj("GET", "/api/costs?bogus=1", getHeaders)).statusCode).toBe(400);
+  expect((await api.inj("GET", "/api/costs?batchId=sb_nope", getHeaders)).statusCode).toBe(404);
 });
 
 it("POST /api/cache/gc: задача cache.gc с Idempotency-Key; повтор — та же задача", async () => {

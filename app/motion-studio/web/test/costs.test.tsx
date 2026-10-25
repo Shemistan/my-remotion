@@ -30,12 +30,13 @@ it("CostSummary: нет вызовов — «пусто»", async () => {
   expect(await screen.findByText(t("costs.empty"))).toBeTruthy();
 });
 
-it("CostBadge: сумма задач пакета; ноль и пустой пакет — без значка и без запроса", async () => {
-  const { calls } = fakeFetch([on("GET", "/api/costs?jobIds=a%2Cb", { ...summary, totalUsd: 1.2 })]);
-  renderQ(<CostBadge jobIds={["b", "a"]} />);
+it("CostBadge: сумма пакета по batchId (считает сервер); ноль — без значка", async () => {
+  fakeFetch([on("GET", "/api/costs?batchId=sb_1", { ...summary, totalUsd: 1.2 }), on("GET", "/api/costs?batchId=sb_0", { ...summary, totalUsd: 0 })]);
+  renderQ(<CostBadge batchId="sb_1" />);
   expect((await screen.findByTestId("cost-badge")).textContent).toBe(t("costs.badge", { usd: "$1.2" }));
-  renderQ(<CostBadge jobIds={[]} />);
-  expect(calls).toHaveLength(1);
+  const { container } = renderQ(<CostBadge batchId="sb_0" />);
+  await new Promise((r) => setTimeout(r, 50));
+  expect(container.querySelector("[data-testid=cost-badge]")).toBeNull();
 });
 
 it("CacheGc: POST /api/cache/gc с ключом идемпотентности", async () => {

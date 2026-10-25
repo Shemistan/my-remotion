@@ -1,7 +1,7 @@
 // Уборка кэша (Task 49a, `cache.gc`): LRU пересоздаваемого кэша до `cache.maxBytes`.
 //
 // Что считается кэшем (и только это может быть удалено):
-// - ключ содержимого `<root>/cache/{bundles,entries,stills}/<ключ>` (+ отметка `cache/used/<ключ>.json`):
+// - ключ содержимого `<root>/cache/{bundles,entries,stills}/<ключ>` (+ отметки `cache/used/<ключ>/<задача>.json`):
 //   бандл Remotion, точка входа, стоп-кадры (`stillsCache`) — пересоздаются следующим рендером;
 // - master исходника `workspace/projects/<p>/master/<media>@<n>-<d>` (Task 36): опубликованный
 //   CFR-дериватив, пересоздаётся `ensureMaster`; удаляется вместе со строкой `artifact_publications`;
@@ -22,11 +22,11 @@
 // транзакции со строкой публикации), затем стирание. Между проверкой и переименованием нет
 // await — задача, захваченная раннером позже, бандла уже не найдёт и соберёт его заново.
 import { randomBytes } from "node:crypto";
-import { chmodSync, existsSync, lstatSync, readFileSync, renameSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, readFileSync, readdirSync, renameSync } from "node:fs";
 import { lstat, readdir, rm } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { safeMkdirSync } from "@ms/core";
-import { cacheUsePath, markCacheUse } from "@ms/render";
+import { CACHE_USED_DIR, cacheUseDir, markCacheUse } from "@ms/render";
 import type { Fps } from "@ms/contracts";
 import { PROJECTS_REL } from "../artifacts/paths.js";
 import type { Db } from "../db/open.js";
@@ -67,7 +67,8 @@ export interface GcEntry {
   kind: "key" | "master";
   bytes: number;
   lastUsed: number;
-  jobId: string | null;
+  /** Задачи, отметившие использование (`cache/used/<ключ>/<jobId>.json`). */
+  jobIds: string[];
   protect?: GcProtect;
 }
 
@@ -131,15 +132,29 @@ function mtimeOf(path: string): number | undefined {
   }
 }
 
-function readUse(cacheDir: string, key: string): { jobId: string | null; at: number | undefined } {
+/** Отметки ключа: все задачи и самая свежая отметка (синхронно — годится внутри транзакции). */
+function readUse(cacheDir: string, key: string): { jobIds: string[]; at: number | undefined } {
+  const jobIds: string[] = [];
+  let at: number | undefined;
+  let names: string[];
   try {
-    const file = cacheUsePath(cacheDir, key);
-    const at = mtimeOf(file);
-    const j = JSON.parse(readFileSync(file, "utf8")) as { job_id?: unknown };
-    return { jobId: typeof j.job_id === "string" ? j.job_id : null, at };
+    names = readdirSync(cacheUseDir(cacheDir, key));
   } catch {
-    return { jobId: null, at: undefined };
+    return { jobIds, at };
   }
+  for (const n of names) {
+    if (!n.endsWith(".json")) continue;
+    const file = join(cacheUseDir(cacheDir, key), n);
+    const t = mtimeOf(file);
+    if (t !== undefined) at = Math.max(at ?? 0, t);
+    try {
+      const j = JSON.parse(readFileSync(file, "utf8")) as { job_id?: unknown };
+      if (typeof j.job_id === "string") jobIds.push(j.job_id);
+    } catch {
+      // недописанная или битая отметка: время учтено, задачи нет
+    }
+  }
+  return { jobIds, at };
 }
 
 function pidAlive(pid: number): boolean {
@@ -194,11 +209,11 @@ async function keyCandidates(cacheDir: string): Promise<Candidate[]> {
   for (const key of await listKeys(cacheDir)) {
     const dirs = KEY_DIRS.map((d) => join(cacheDir, d, key)).filter((p) => existsSync(p));
     const use = readUse(cacheDir, key);
-    const marker = cacheUsePath(cacheDir, key);
+    const marks = cacheUseDir(cacheDir, key);
     const times = [use.at, ...dirs.map(mtimeOf), mtimeOf(join(cacheDir, "bundles", key, "index.html"))].filter((t): t is number => t !== undefined);
     let bytes = 0;
     for (const p of dirs) bytes += await du(p);
-    out.push({ id: key, kind: "key", bytes, lastUsed: use.at ?? Math.max(0, ...times), jobId: use.jobId, paths: [...dirs, ...(existsSync(marker) ? [marker] : [])] });
+    out.push({ id: key, kind: "key", bytes, lastUsed: use.at ?? Math.max(0, ...times), jobIds: use.jobIds, paths: [...dirs, ...(existsSync(marks) ? [marks] : [])] });
   }
   return out;
 }
@@ -214,10 +229,13 @@ async function masterCandidates(root: string, cacheDir: string, db: Db, snap: Sn
     if (snap.deletedProjects.has(projectId)) continue;
     const dir = join(root, r.dest_rel);
     if (!existsSync(dir)) continue;
-    const use = readUse(cacheDir, masterUseKey(projectId, mediaId, { num: Number(num), den: Number(den) }));
+    const useKey = masterUseKey(projectId, mediaId, { num: Number(num), den: Number(den) });
+    const use = readUse(cacheDir, useKey);
+    const marks = cacheUseDir(cacheDir, useKey);
     out.push({
-      id: `master:${r.dest_rel}`, kind: "master", bytes: await du(dir), lastUsed: use.at ?? Date.parse(r.published_at), jobId: use.jobId,
-      paths: [dir], destRel: r.dest_rel, projectId,
+      id: `master:${r.dest_rel}`, kind: "master", bytes: await du(dir), lastUsed: use.at ?? Date.parse(r.published_at), jobIds: use.jobIds,
+      // каталог master первым (его chmod перед переносом), затем его отметки
+      paths: [dir, ...(existsSync(marks) ? [marks] : [])], destRel: r.dest_rel, projectId,
     });
   }
   return out;
@@ -229,10 +247,13 @@ function protection(c: Candidate, snap: Snapshot, now: number, minAgeMs: number,
     if (snap.activeProjects.has(c.projectId!)) return "active";
     if (snap.timelineProjects.has(c.projectId!)) return "timeline";
   } else {
-    if (c.jobId && snap.activeJobs.has(c.jobId)) return "active";
-    if (c.id.startsWith("tl-") && c.jobId) {
-      const p = snap.jobProject(c.jobId);
-      if (p && snap.timelineProjects.has(p) && latestTl.get(p) === c.id) return "timeline";
+    // ключ держит любая активная задача из его отметок (а не только последняя)
+    if (c.jobIds.some((j) => snap.activeJobs.has(j))) return "active";
+    if (c.id.startsWith("tl-")) {
+      for (const j of c.jobIds) {
+        const p = snap.jobProject(j);
+        if (p && snap.timelineProjects.has(p) && latestTl.get(p) === c.id) return "timeline";
+      }
     }
   }
   if (now - c.lastUsed < minAgeMs) return "recent";
@@ -242,11 +263,13 @@ function protection(c: Candidate, snap: Snapshot, now: number, minAgeMs: number,
 function latestTimelineBundles(entries: Candidate[], snap: Snapshot): Map<string, string> {
   const best = new Map<string, Candidate>();
   for (const c of entries) {
-    if (c.kind !== "key" || !c.id.startsWith("tl-") || !c.jobId) continue;
-    const p = snap.jobProject(c.jobId);
-    if (!p) continue;
-    const cur = best.get(p);
-    if (!cur || c.lastUsed > cur.lastUsed) best.set(p, c);
+    if (c.kind !== "key" || !c.id.startsWith("tl-")) continue;
+    for (const j of c.jobIds) {
+      const p = snap.jobProject(j);
+      if (!p) continue;
+      const cur = best.get(p);
+      if (!cur || c.lastUsed > cur.lastUsed) best.set(p, c);
+    }
   }
   return new Map([...best].map(([p, c]) => [p, c.id]));
 }
@@ -257,9 +280,28 @@ async function removeTree(root: string, path: string): Promise<void> {
   await rm(path, { recursive: true, force: true });
 }
 
-/** Недоделки: `cache/.gc/*` и `cache/bundles/<ключ>.tmp-<pid>` мёртвых процессов. */
-async function sweepLeftovers(root: string, cacheDir: string): Promise<number> {
+const MASTER_USE_RE = new RegExp(`^master-(${ID})-(${ID})@([1-9][0-9]*)-([1-9][0-9]*)$`);
+
+/**
+ * Недоделки: `cache/.gc/*`, `cache/bundles/<ключ>.tmp-<pid>` мёртвых процессов и отметки-сироты
+ * `cache/used/<ключ>` (ключа нет ни в одном каталоге кэша, master не опубликован), старше `minAgeMs`.
+ */
+async function sweepLeftovers(root: string, cacheDir: string, db: Db, now: number, minAgeMs: number): Promise<number> {
   let n = 0;
+  const usedDir = join(cacheDir, CACHE_USED_DIR);
+  const published = db.prepare("SELECT 1 FROM artifact_publications WHERE dest_rel = ?");
+  for (const name of await readdir(usedDir).catch(() => [] as string[])) {
+    const path = join(usedDir, name);
+    const st = await lstat(path).catch(() => undefined);
+    if (!st || now - st.mtimeMs < minAgeMs) continue;
+    let orphan = !st.isDirectory(); // файлы прямо в used/ — прежний формат отметок
+    if (!orphan && CONTENT_KEY_RE.test(name)) orphan = KEY_DIRS.every((d) => !existsSync(join(cacheDir, d, name)));
+    const m = MASTER_USE_RE.exec(name);
+    if (!orphan && m) orphan = !published.get(`${PROJECTS_REL}/${m[1]}/master/${m[2]}@${m[3]}-${m[4]}`);
+    if (!orphan) continue;
+    await removeTree(root, path);
+    n++;
+  }
   for (const name of await readdir(join(root, GC_TRASH_REL)).catch(() => [] as string[])) {
     await removeTree(root, join(root, GC_TRASH_REL, name));
     n++;
@@ -283,7 +325,7 @@ export async function gcCache(root: string, db: Db, o: GcOptions): Promise<GcRes
   const now = o.now ?? Date.now;
   const minAgeMs = o.minAgeMs ?? GC_MIN_AGE_MS;
   const cacheDir = join(root, CACHE_REL);
-  const leftovers = existsSync(cacheDir) ? await sweepLeftovers(root, cacheDir) : 0;
+  const leftovers = existsSync(cacheDir) ? await sweepLeftovers(root, cacheDir, db, now(), minAgeMs) : 0;
   const snap0 = snapshot(db, o.selfJobId);
   const entries = [...(existsSync(cacheDir) ? await keyCandidates(cacheDir) : []), ...(await masterCandidates(root, cacheDir, db, snap0))];
   const packagesBytes = await packagesSize(root);
@@ -329,7 +371,7 @@ function claimVictim(root: string, db: Db, v: Candidate, o: GcOptions, now: numb
     const fresh: Candidate = { ...v };
     if (v.kind === "key") {
       const use = readUse(cacheDir, v.id);
-      fresh.jobId = use.jobId;
+      fresh.jobIds = use.jobIds;
       if (use.at !== undefined) fresh.lastUsed = Math.max(fresh.lastUsed, use.at);
     }
     // последний бандл таймлайна: по свежим отметкам всех tl-ключей не пересчитываем — бандл,
@@ -340,15 +382,20 @@ function claimVictim(root: string, db: Db, v: Candidate, o: GcOptions, now: numb
     for (const p of v.paths) assertCachePath(root, p);
     const trash = safeMkdirSync(root, GC_TRASH_REL);
     const out: string[] = [];
-    if (v.kind === "master") {
-      db.prepare("DELETE FROM artifact_publications WHERE dest_rel = ?").run(v.destRel);
-      // опубликованный каталог read-only: перенос в другой родитель требует права записи на него
-      chmodSync(v.paths[0]!, 0o755);
-    }
-    for (const p of v.paths) {
+    if (v.kind === "master") db.prepare("DELETE FROM artifact_publications WHERE dest_rel = ?").run(v.destRel);
+    for (const [i, p] of v.paths.entries()) {
       if (!existsSync(p)) continue;
       const to = join(trash, `${Date.now()}-${randomBytes(4).toString("hex")}`);
-      renameSync(p, to);
+      // опубликованный каталог master read-only: перенос в другой родитель требует права записи
+      // на него; перенос не удался — права возвращаются (транзакция откатит и строку публикации)
+      const unlock = v.kind === "master" && i === 0;
+      if (unlock) chmodSync(p, 0o755);
+      try {
+        renameSync(p, to);
+      } catch (e) {
+        if (unlock) chmodSync(p, 0o555);
+        throw e;
+      }
       out.push(to);
     }
     return out;

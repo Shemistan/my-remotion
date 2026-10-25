@@ -148,7 +148,8 @@ it("worker gets a minimal env, TMPDIR inside run/tmp and the job on stdin; run t
   // used/ — отметка использования ключа для уборки кэша (Task 49a)
   expect(readdirSync(req.cacheDir).sort()).toEqual(["bundles", "entries", "used"]);
   const key = basename(job.bundleDir as string);
-  expect(JSON.parse(readFileSync(join(req.cacheDir, "used", `${key}.json`), "utf8"))).toMatchObject({ job_id: req.run.runId });
+  // отметка на пару (ключ, задача) — до записи в кэш (writeEntry → onKey)
+  expect(JSON.parse(readFileSync(join(req.cacheDir, "used", key, `${req.run.runId}.json`), "utf8"))).toMatchObject({ job_id: req.run.runId });
 });
 
 it("worker error result is passed through with its stage", async () => {

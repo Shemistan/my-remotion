@@ -8,7 +8,7 @@ import type { Db } from "../db/open.js";
 const round = (v: number): number => Math.round(v * 1e6) / 1e6;
 
 /**
- * Сводка затрат по фильтру: проект, сцена (задачи сцены), начало периода (`agent_runs.started_at`
+ * Сводка затрат по фильтру: проект, сцена или сцены (все их задачи), начало периода (`agent_runs.started_at`
  * ≥ `since`) и/или явный список задач (пакет генерации). Без фильтра — всё.
  */
 export function costSummary(db: Db, f: CostFilter = {}): CostSummaryDto {
@@ -21,6 +21,11 @@ export function costSummary(db: Db, f: CostFilter = {}): CostSummaryDto {
   if (f.sceneId !== undefined) {
     where.push("j.scene_id = ?");
     args.push(f.sceneId);
+  }
+  if (f.sceneIds !== undefined) {
+    if (f.sceneIds.length === 0) return empty();
+    where.push(`j.scene_id IN (SELECT value FROM json_each(?))`);
+    args.push(JSON.stringify(f.sceneIds));
   }
   if (f.since !== undefined) {
     where.push("r.started_at >= ?");

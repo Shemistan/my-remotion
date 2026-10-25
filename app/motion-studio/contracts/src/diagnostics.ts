@@ -246,6 +246,8 @@ export type BundleDto = z.infer<typeof BundleDtoSchema>;
 export interface CostFilter {
   projectId?: string;
   sceneId?: string;
+  /** Все задачи этих сцен (пакет генерации: сцены пакета, все их генерации и правки). */
+  sceneIds?: string[];
   since?: string;
   jobIds?: string[];
 }
@@ -253,10 +255,14 @@ export interface CostFilter {
 /** Id в строке запроса: 200 × ~30 символов — далеко от предела заголовка Node (16 КиБ). */
 export const COST_MAX_JOB_IDS = 200;
 
-/** `GET /api/costs`: `?projectId&sceneId&days|since&jobIds=a,b` (до `COST_MAX_JOB_IDS` id). */
+/**
+ * `GET /api/costs`: `?projectId&sceneId&batchId&days|since&jobIds=a,b` (до `COST_MAX_JOB_IDS` id).
+ * `batchId` — пакет генерации сценария: сумма всех задач его сцен, состав считает сервер.
+ */
 export const CostQuerySchema = z.object({
   projectId: Id.max(200).optional(),
   sceneId: Id.max(200).optional(),
+  batchId: Id.max(200).optional(),
   /** Последние N дней (7/30 в UI); `since` — точное начало. */
   days: z.coerce.number().int().min(1).max(3650).optional(),
   since: Ts.optional(),

@@ -1,5 +1,5 @@
 export { ensureRenderBrowser, findRenderBrowser } from "./browser.js";
-export { CACHE_KEY_RE, CACHE_USED_DIR, type CacheUse, cacheUsePath, markCacheUse } from "./cache-use.js";
+export { CACHE_KEY_RE, CACHE_USED_DIR, type CacheUse, NO_JOB, cacheUseDir, cacheUsePath, markCacheUse } from "./cache-use.js";
 export { configureRenderConcurrency, currentRenderConcurrency, renderConcurrency } from "./concurrency.js";
 export { APP_NODE_MODULES, MOTION_KIT_DIR, contentKey, writeEntry } from "./entry.js";
 export { type ProbeResult, ffprobe, findOnPath, h264Size, probeGate } from "./ffprobe.js";

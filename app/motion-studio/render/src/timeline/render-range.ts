@@ -181,14 +181,12 @@ export async function renderTimelineRange(req: TimelineRenderRequest, signal?: A
   let entryPoint: string;
   try {
     const used = [...new Set(scenes.map((s) => s.key))];
-    entryPoint = await writeTimelineEntry({ scenes: used.map((key) => ({ key, versionDir: req.versionDirs[key]! })), cacheDir: req.cacheDir, check: req.check });
+    entryPoint = await writeTimelineEntry({ scenes: used.map((key) => ({ key, versionDir: req.versionDirs[key]! })), cacheDir: req.cacheDir, check: req.check, onKey: (k) => markCacheUse(req.cacheDir, k, req.run.runId) });
   } catch (e) {
     if (e instanceof StorageError) throw e;
     return fail("bundle", (e as Error).message);
   }
   const key = basename(dirname(entryPoint));
-  // Task 49a: отметка до worker — уборка кэша не тронет бандл активной задачи
-  await markCacheUse(req.cacheDir, key, req.run.runId);
   const bundlesDir = await mkdirOne(join(req.cacheDir, "bundles"));
   const stillsDir = req.stills.length > 0 ? await mkdirOne(req.stillsDir!) : undefined;
   const outDir = req.output ? dirname(req.output.path) : undefined;

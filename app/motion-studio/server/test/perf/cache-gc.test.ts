@@ -1,11 +1,11 @@
 // Уборка кэша (Task 49a): LRU до лимита; не трогает активное, текущий таймлайн, packages/,
 // опубликованные версии и корзину; master — вместе со строкой публикации.
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { chmod, mkdir, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { markCacheUse } from "@ms/render";
+import { cacheUseDir, cacheUsePath, markCacheUse } from "@ms/render";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as projects from "../../src/db/repos/projects.js";
 import { enqueue } from "../../src/jobs/queue.js";
@@ -57,7 +57,13 @@ async function bundle(key: string, agoMin: number, jobId?: string): Promise<void
   await writeFile(join(cache, "entries", key, "index.tsx"), "");
   await markCacheUse(cache, key, jobId);
   const t = new Date(NOW - agoMin * 60_000);
-  await utimes(join(cache, "used", `${key}.json`), t, t);
+  await utimes(cacheUsePath(cache, key, jobId), t, t);
+}
+
+/** Состарить все отметки ключа. */
+async function ageMarks(key: string, t: Date): Promise<void> {
+  const dir = cacheUseDir(cache, key);
+  for (const n of readdirSync(dir)) await utimes(join(dir, n), t, t);
 }
 
 /** Опубликованный master: каталог read-only + строка artifact_publications. */
@@ -88,7 +94,7 @@ it("5 бандлов по 1 МиБ, лимит 3 МиБ: удаляются b1 �
   for (const k of ["b1", "b3"]) {
     expect(existsSync(join(cache, "bundles", K[k]!))).toBe(false);
     expect(existsSync(join(cache, "entries", K[k]!))).toBe(false);
-    expect(existsSync(join(cache, "used", `${K[k]!}.json`))).toBe(false);
+    expect(existsSync(join(cache, "used", K[k]!))).toBe(false);
   }
   for (const k of ["b2", "b4", "b5"]) expect(existsSync(join(cache, "bundles", K[k]!, "index.html"))).toBe(true);
   expect(existsSync(join(root, "cache/.gc"))).toBe(true);
@@ -117,7 +123,7 @@ it("стоп-кадры ключа уходят вместе с бандлом; 
   // get отмечает использование в фоне — дождаться, затем состарить отметку
   await new Promise((r) => setTimeout(r, 50));
   const t = new Date(NOW - 3600_000);
-  await utimes(join(cache, "used", `${K.b1!}.json`), t, t);
+  await ageMarks(K.b1!, t);
   const r = await gcCache(root, env.db, { maxBytes: 0, now: () => NOW });
   expect(r.removed).toEqual([K.b1]);
   expect(r.freedBytes).toBe(MiB);
@@ -151,7 +157,7 @@ it("отметка master свежее публикации — порядок L
   await mkdir(cache, { recursive: true });
   await markCacheUse(cache, masterUseKey("p2", "med_b", { num: 30, den: 1 }), "job_y");
   const t = new Date(NOW - 60 * 60_000);
-  await utimes(join(cache, "used", `${masterUseKey("p2", "med_b", { num: 30, den: 1 })}.json`), t, t);
+  await ageMarks(masterUseKey("p2", "med_b", { num: 30, den: 1 }), t);
   const r = await gcCache(root, env.db, { maxBytes: MiB, now: () => NOW });
   expect(r.removed).toEqual([`master:${a}`]);
   expect(existsSync(join(root, b))).toBe(true);
@@ -218,4 +224,35 @@ it("автоуборка: только при простое и не чаще р
   expect(jobs.get(env.db, id!)).toMatchObject({ type: "cache.gc", status: "pending", input: { auto: true } });
   jobs.update(env.db, id!, { status: "completed" });
   expect(maybeAutoCacheGc(env.db, "playground", t0 + 3600_000)).toBeUndefined();
+});
+
+it("две задачи на ключе: короткий B завершён позже, долгий A ещё идёт — ключ не удаляется", async () => {
+  const a = job("p2", "running");
+  const b = job("p2", "completed");
+  await bundle(K.b1!, 600, a); // экспорт A отметился давно и всё ещё идёт
+  await markCacheUse(cache, K.b1!, b); // рендер B отметился позже и уже завершён
+  const t = new Date(NOW - 300 * 60_000);
+  await utimes(cacheUsePath(cache, K.b1!, b), t, t);
+  const r = await gcCache(root, env.db, { maxBytes: 0, now: () => NOW });
+  expect(r.removed).toEqual([]);
+  expect(r.protected).toEqual([{ id: K.b1, why: "active" }]);
+  expect(readdirSync(cacheUseDir(cache, K.b1!)).sort()).toEqual([`${a}.json`, `${b}.json`].sort());
+  jobs.update(env.db, a, { status: "completed" });
+  // LRU — по самой свежей отметке (B, 300 мин назад)
+  const r2 = await gcCache(root, env.db, { maxBytes: 0, now: () => NOW });
+  expect(r2.removed).toEqual([K.b1]);
+  expect(existsSync(cacheUseDir(cache, K.b1!))).toBe(false);
+});
+
+it("отметки-сироты: ключа нет в кэше, master не опубликован, прежний формат — убираются; свежие — нет", async () => {
+  await mkdir(cache, { recursive: true });
+  const old = new Date(NOW - 3600_000);
+  await markCacheUse(cache, K.b1!, "job_a"); // ключ без каталогов кэша
+  await markCacheUse(cache, masterUseKey("p2", "med_x", { num: 30, den: 1 }), "job_a"); // master не опубликован
+  await markCacheUse(cache, K.b3!, "job_a"); // свежая
+  await writeFile(join(cache, "used", `${K.b2!}.json`), "{}"); // прежний формат
+  for (const p of [cacheUseDir(cache, K.b1!), cacheUseDir(cache, masterUseKey("p2", "med_x", { num: 30, den: 1 })), join(cache, "used", `${K.b2!}.json`)]) await utimes(p, old, old);
+  const r = await gcCache(root, env.db, { maxBytes: 10 * MiB, now: () => Date.now() });
+  expect(r.leftovers).toBe(3);
+  expect(readdirSync(join(cache, "used"))).toEqual([K.b3]);
 });
