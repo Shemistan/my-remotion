@@ -17,7 +17,7 @@ import * as scenes from "../db/repos/scenes.js";
 import * as versions from "../db/repos/versions.js";
 import { scriptScenes } from "../db/repos/script.js";
 import { packagesForState } from "../pipeline/script-package.js";
-import { batchesForState } from "./batch.js";
+import { batchesForState, twinOutdated } from "./batch.js";
 import { warningsForState } from "./diversity.js";
 import { itemFingerprint } from "./fingerprint.js";
 import { currentScript, currentScriptPlan } from "./read.js";
@@ -84,7 +84,8 @@ export function scriptState(db: Db, root: string, projectId: string): ScriptStat
         status: sceneStatus(raw, versionId),
         qa_warnings: versionQaWarnings(db, root, versionId),
         warnings: warnings[row.scene_id] ?? [],
-        stale: !item || itemFingerprint(item, styleRef) !== row.item_fingerprint,
+        // двойник 9:16 ещё и по эталону: сделан не по текущей 16:9-версии — устарел (S10 fix I3)
+        stale: !item || itemFingerprint(item, styleRef) !== row.item_fingerprint || (aspect === "9:16" && twinOutdated(db, cur.planId, row.item_id, versionId)),
       };
     }))
     : [];

@@ -72,10 +72,14 @@ export function packageKey(state: ScriptStateDto, aspect: Aspect, failedJobId?: 
   return `script-package:${aspect === "16:9" ? "h" : "v"}:${shortHash(base)}`;
 }
 
-/** Ключ «Переделать под 9:16»: выбранные сцены (или все) и их готовые 16:9-версии. */
+/**
+ * Ключ «Переделать под 9:16»: выбранные сцены (или все), их готовые 16:9-версии и последние
+ * задачи двойников 9:16 — после упавшего или нового двойника повтор ставит новую задачу (S10 fix M5).
+ */
 export function reframeKey(state: ScriptStateDto, itemIds: readonly string[]): string {
   const versions = sceneRows(state, "16:9").filter((r) => packable(r.scene)).map((r) => r.scene!.version_id).join(",");
-  return `script-reframe:${shortHash(`${itemIds.join(",") || "all"}:${versions}`)}`;
+  const twins = sceneRows(state, "9:16").map((r) => r.scene?.job?.id ?? "-").join(",");
+  return `script-reframe:${shortHash(`${itemIds.join(",") || "all"}:${versions}:${twins}`)}`;
 }
 
 export type CheatsheetPart =

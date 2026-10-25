@@ -35,6 +35,7 @@ import { sha256, sha256File } from "../scenes/hash.js";
 import { newId } from "../scenes/ids.js";
 import { QUARANTINE, attachCause, fsyncDirSync, fsyncWrite, fsyncWriteSync, quarantineDir } from "../scenes/store.js";
 import { type CheatRow, CHEAT_FILES, cheatsheet } from "../script/cheatsheet.js";
+import { twinOutdated } from "../script/batch.js";
 import { itemFingerprint } from "../script/fingerprint.js";
 import { OVERLAY_BLOCKERS, OVERLAY_IMPOSSIBLE, overlayProblem } from "../script/overlay-check.js";
 import { displayName, fileNames, fileSlug, packageIdFor, sceneNumber } from "../script/package-names.js";
@@ -282,7 +283,8 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
       missing.set(item.id, NO_VERSION);
       continue;
     }
-    if (itemFingerprint(item, styleRef) !== row.item_fingerprint) {
+    // двойник 9:16 не по текущей 16:9-версии — тоже устарел (S10 fix I3)
+    if (itemFingerprint(item, styleRef) !== row.item_fingerprint || (aspect === "9:16" && twinOutdated(db, cur.planId, item.id, v.id))) {
       missing.set(item.id, STALE);
       continue;
     }

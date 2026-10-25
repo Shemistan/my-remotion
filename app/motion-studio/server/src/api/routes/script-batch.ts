@@ -60,7 +60,7 @@ export const scriptBatchRoutes: (app: ZApp, ctx: ApiContext) => void = (app, { c
   }, async (req, reply) => {
     const key = idempotencyKey(req);
     const existed = batchForKey(core.db, req.params.id, key) !== undefined;
-    const dto = startReframe(core, { projectId: req.params.id, idempotencyKey: key, ...(req.body.item_ids ? { itemIds: req.body.item_ids } : {}) });
+    const dto = await startReframe(core, { projectId: req.params.id, idempotencyKey: key, ...(req.body.item_ids ? { itemIds: req.body.item_ids } : {}) });
     return reply.status(existed ? 200 : 202).send(dto);
   });
 

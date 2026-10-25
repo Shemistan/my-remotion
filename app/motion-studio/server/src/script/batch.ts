@@ -125,6 +125,8 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
     }
     return batchStatus(db, root, batchId);
   }
+  // двойники 9:16 строятся по эталону 16:9 — только через reframe (S10 fix M2)
+  if (aspect === "9:16") throw new ApiError(422, "use_reframe", "для 9:16 используйте reframe: двойник строится по готовой 16:9-версии");
 
   const script = currentScript(db, root, i.projectId);
   if (!script) throw new ApiError(409, "no_script", "текста сценария нет");
@@ -163,17 +165,60 @@ export interface StageBatch {
   selected: ScriptSceneItem[];
   skipped: { item_id: string; reason: string }[];
   regenerate: boolean;
-  /** `approve` — проверка плана и Approval B (генерация); `keep` — действующее B, если есть (двойники: тот же план). */
+  /**
+   * `approve` — проверка плана и Approval B (генерация); `keep` — действующее B на текущую
+   * ревизию (двойники: тот же план), а нет его — проверка и B, как у `approve` (S10 fix I2).
+   */
   approval: "approve" | "keep";
   /** 9:16 (S10): эталонная 16:9-версия сцены → `script.reference_version_id`. */
   reference?: ReadonlyMap<string, string>;
 }
 
-/** Эталон, по которому сделана текущая версия сцены (вход её задачи); нет — `undefined`. */
+/**
+ * Пакет двойников пройдёт проверку плана (S10 fix I2): действующее B на текущую ревизию есть
+ * или план утверждаем. Иначе — та же ошибка, что даст транзакция `stageBatch`; reframe
+ * проверяет до отмены старых задач двойников.
+ */
+export function assertTwinsApprovable(db: Db, projectId: string, doc: ScriptPlanRevisionDoc, script: ScriptRevisionDoc): void {
+  const peek = peekApprovalState(db, projectId, "B", currentSubject(db, projectId, "B"));
+  if (peek.state === "valid" && peek.approval) return;
+  const ok = planApprovable(doc, script);
+  if (ok.ok) return;
+  const [status, message] = APPROVABLE_ERR[ok.code];
+  throw new ApiError(status, ok.code, message, ok.issues ? { issues: ok.issues } : {});
+}
+
+/**
+ * Задача двойника, которую reframe отменяет `cancelJob` перед постановкой (S10 fix I4):
+ * последняя задача строки 9:16 ещё идёт, а её эталон — не `ref`.
+ */
+export function supersededTwinJob(db: Db, planId: string, itemId: string, ref: string): Job | undefined {
+  const row = scriptScenes.get(db, planId, itemId, "9:16");
+  const last = row?.job_id ? jobs.get(db, row.job_id) : undefined;
+  return last && ACTIVE.has(last.status) && inputReference(last.input) !== ref ? last : undefined;
+}
+
+/** Эталон, по которому сделана версия сцены (вход её задачи); нет — `undefined`. */
 function versionReference(db: Db, versionId: string): string | undefined {
   const jobId = versions.get(db, versionId)?.created_by_job_id;
   return jobId ? inputReference(jobs.get(db, jobId)?.input) : undefined;
 }
+
+/**
+ * Двойник 9:16 устарел (S10 fix I3): его версия `twinVersionId` сделана не по текущей
+ * 16:9-версии сцены плана (16:9 перегенерирована или её нет). Версии двойника нет — не
+ * устарел (нечего показывать). Один ответ для состояния (`stale`), пакета экспорта
+ * («сцена устарела») и пропуска готовых в reframe.
+ */
+export function twinOutdated(db: Db, planId: string, itemId: string, twinVersionId: string | null | undefined): boolean {
+  if (!twinVersionId) return false;
+  const row = scriptScenes.get(db, planId, itemId, "16:9");
+  const current = row ? scenes.get(db, row.scene_id)?.current_version_id ?? undefined : undefined;
+  return versionReference(db, twinVersionId) !== current;
+}
+
+/** Название сцены Playground: «NN · цитата», у двойника — с « · 9:16» (S10 fix M4). */
+const titleOf = (n: number, item: ScriptSceneItem, aspect: Aspect): string => `${sceneTitle(n, item)}${aspect === "9:16" ? " · 9:16" : ""}`;
 
 /**
  * Сцены → задачи пакета: брифы до SQL-транзакции (откат — каталоги новых сцен удаляются),
@@ -196,7 +241,7 @@ export function stageBatch(core: { db: Db; root: string }, s: StageBatch): Scrip
     const fingerprint = itemFingerprint(item, styleRef);
     const row = scriptScenes.get(db, cur.planId, item.id, aspect);
     if (row) {
-      const title = sceneTitle(index + 1, item);
+      const title = titleOf(index + 1, item, aspect);
       if (scenes.get(db, row.scene_id)?.title !== title) retitle.push({ sceneId: row.scene_id, title });
     }
     const last = row?.job_id ? jobs.get(db, row.job_id) : undefined;
@@ -208,13 +253,17 @@ export function stageBatch(core: { db: Db; root: string }, s: StageBatch): Scrip
         continue;
       }
       // готова: текущая версия опубликована по этому отпечатку (он пишется после публикации);
-      // у двойника 9:16 — ещё и по текущему эталону (16:9 перегенерирована — двойник заново)
+      // у двойника 9:16 — ещё и по текущей 16:9-версии (перегенерирована — двойник заново)
       const cv = scenes.get(db, row.scene_id)?.current_version_id;
-      if (row.item_fingerprint === fingerprint && cv && (ref === undefined || versionReference(db, cv) === ref)) {
+      if (row.item_fingerprint === fingerprint && cv && (ref === undefined || !twinOutdated(db, cur.planId, item.id, cv))) {
         skipped.push({ item_id: item.id, reason: "готовая версия по текущему плану" });
         continue;
       }
     }
+    // S10 fix I4: двойник ещё идёт по старому эталону — reframe уже отменил его задачу
+    // (`cancelJob`; идущая доживает с cancel_requested), новая ставится со следующим :try-n
+    // (ключ без номера занят задачей с другим входом)
+    const supersede = ref !== undefined && last !== undefined && ACTIVE.has(last.status) ? last : undefined;
     const sceneId = row?.scene_id ?? newId("scn");
     const prior = row ? generateJobs(db, row.scene_id) : 0;
     const failedLast = last !== undefined && (last.status === "failed" || last.status === "cancelled");
@@ -224,8 +273,12 @@ export function stageBatch(core: { db: Db; root: string }, s: StageBatch): Scrip
     });
     // :try-n — последняя задача упала или отменена; ключ уже занят завершённой задачей
     // (завершилась без версии) — тоже новый номер, иначе очередь вернула бы старую
-    let tryN = failedLast ? prior : undefined;
-    for (let k = keyOf(tryN); jobs.findByIdempotencyKey(db, k) && !ACTIVE.has(jobs.findByIdempotencyKey(db, k)!.status); k = keyOf(tryN)) tryN = (tryN ?? prior) + 1;
+    let tryN = failedLast || supersede ? prior : undefined;
+    const taken = (k: string) => {
+      const j = jobs.findByIdempotencyKey(db, k);
+      return j !== undefined && (supersede !== undefined || !ACTIVE.has(j.status));
+    };
+    for (let k = keyOf(tryN); taken(k); k = keyOf(tryN)) tryN = (tryN ?? prior) + 1;
     const settings = sceneSettings(base, item, aspect, style.base);
     // S11: моменты слов ключевых чисел и терминов — в бриф и в проверку spec (`key_term_early`)
     const moments = keyMoments(item, script, doc.reading, doc.fps);
@@ -242,7 +295,7 @@ export function stageBatch(core: { db: Db; root: string }, s: StageBatch): Scrip
     };
     work.push({
       item, index, fingerprint, ...(row ? { row } : {}),
-      enqueue: { sceneId, title: sceneTitle(index + 1, item), brief, settings, input: { sceneId, prompt: brief, settings, script: ctx, script_fingerprint: fingerprint, answers: "skip" }, key: keyOf(tryN) },
+      enqueue: { sceneId, title: titleOf(index + 1, item, aspect), brief, settings, input: { sceneId, prompt: brief, settings, script: ctx, script_fingerprint: fingerprint, answers: "skip" }, key: keyOf(tryN) },
     });
   }
 
@@ -264,7 +317,8 @@ export function stageBatch(core: { db: Db; root: string }, s: StageBatch): Scrip
       const peek = peekApprovalState(db, i.projectId, "B", subject);
       const valid = peek.state === "valid" && peek.approval ? peek.approval : undefined;
       let approvalId: string | null = valid?.id ?? null;
-      if (s.approval === "approve") {
+      // keep (двойники): действующего B на текущую ревизию нет — проверка плана и B, как у генерации (S10 fix I2)
+      if (s.approval === "approve" || !valid) {
         const ok = planApprovable(doc, script);
         if (!ok.ok) {
           const [status, message] = APPROVABLE_ERR[ok.code];

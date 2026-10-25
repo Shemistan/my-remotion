@@ -13,7 +13,7 @@ import { loadPartial } from "../agents/prompts.js";
 import * as jobs from "../db/repos/jobs.js";
 import * as plans from "../db/repos/plans.js";
 import { scriptScenes } from "../db/repos/script.js";
-import { overlayChecks } from "../script/overlay-check.js";
+import { overlayChecks, shortsUiIssues } from "../script/overlay-check.js";
 import { foreignLabelQa } from "../qa/spec-checks.js";
 import { recordPublishedFingerprint } from "../script/batch.js";
 import * as scenes from "../db/repos/scenes.js";
@@ -142,7 +142,8 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
         // сцена сценария (S6, Р16): альфа-версия — перерендер с transparent, фон только <Background>
         // S11: подписи-примеры kit в props.json (код Engineer) — warning QA версии
         ...(sc ? { script: true, technique: sc.item.technique } : {}),
-        ...(sc ? { extraQa: async (v) => [...(await overlayChecks(v)), ...(await propsForeignLabels(v.versionDir, scriptHints!.sourceText))] } : {}),
+        // S10 fix I1: 9:16 — текст под интерфейсом Shorts (низ, колонка кнопок) по пробе раскладки
+        ...(sc ? { extraQa: async (v) => [...(await overlayChecks(v)), ...(await propsForeignLabels(v.versionDir, scriptHints!.sourceText)), ...shortsUiIssues(v.layout, v.settings)] } : {}),
         plan: async (rc) => {
           ctx.progress(0.05, "concept");
           let concept: ConceptOutput;

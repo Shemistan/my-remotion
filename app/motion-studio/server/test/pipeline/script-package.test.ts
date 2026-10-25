@@ -87,8 +87,9 @@ function planDoc(): ScriptPlanRevisionDoc {
 
 let gen = 0;
 /** Готовая версия сцены через draft попытки фиктивной задачи генерации. */
-async function publishVersion(sceneId: string, qa?: QAReport): Promise<string> {
-  const job = enqueue(env.db, { type: "playground.generate", projectId: P, sceneId, input: { n: ++gen }, idempotencyKey: `gen${gen}` }).job;
+async function publishVersion(sceneId: string, qa?: QAReport, reference?: string): Promise<string> {
+  const input = { n: ++gen, ...(reference ? { script: { reference_version_id: reference } } : {}) };
+  const job = enqueue(env.db, { type: "playground.generate", projectId: P, sceneId, input, idempotencyKey: `gen${gen}` }).job;
   const c = claimNext(env.db, "srv", Date.now(), { running: 0, maxRunning: 9 }, { ids: new Set([job.id]) })!;
   const draft = await makeDraft(env.s.root, { runId: job.id, attempt: c.attempt, sceneId, projectId: P });
   if (qa) writeFileSync(join(draft.dir, "qa.json"), JSON.stringify(qa));
@@ -188,8 +189,8 @@ function deps(exp: ReturnType<typeof fakeExport>, over: Partial<ScriptPackageDep
 }
 
 /** Новая задача (или новая попытка той же) → обработчик. */
-async function run(d: ScriptPackageDeps, jobId?: string) {
-  const id = jobId ?? enqueue(env.db, { type: "script.package", projectId: P, input: { projectId: P, aspect: "16:9" }, idempotencyKey: `pk${++k}` }).job.id;
+async function run(d: ScriptPackageDeps, jobId?: string, aspect: "16:9" | "9:16" = "16:9") {
+  const id = jobId ?? enqueue(env.db, { type: "script.package", projectId: P, input: { projectId: P, aspect }, idempotencyKey: `pk${++k}` }).job.id;
   if (jobId) {
     releaseLocks(env.db, jobs.get(env.db, id)!);
     jobs.update(env.db, id, { status: "pending", lease_owner: null, lease_until: null });
@@ -204,6 +205,22 @@ type Refs = { package_id: string; rel_path: string; files: number; missing: { it
 const refsOf = (r: HandlerResult) => (r as { outputRefs: Refs }).outputRefs;
 
 describe("scriptPackage", () => {
+  it("S10 fix I3: 9:16 — двойник не по текущей 16:9-версии → missing «сцена устарела»; по текущей — в папке", async () => {
+    for (const id of ["ss_001", "ss_003"]) {
+      const it = items.find((x) => x.id === id)!;
+      const twin = repo.createScene(P, { prompt: `${it.quote} 9:16`, settings: defaultSettings() });
+      scriptScenes.insert(env.db, { project_id: P, plan_id: "pln_p", item_id: id, aspect: "9:16", scene_id: twin.id, batch_id: null, job_id: null, item_fingerprint: itemFingerprint(it, styleRef) });
+      // ss_001 — по текущей 16:9; ss_003 — по прежней (16:9 перегенерирована позже)
+      await publishVersion(twin.id, undefined, id === "ss_001" ? versionOf.get(id)! : "ver_old");
+    }
+    const exp = fakeExport();
+    const { r } = await run(deps(exp), undefined, "9:16");
+    expect(r.status, JSON.stringify(r)).toBe("completed");
+    const missing = refsOf(r).missing;
+    expect(missing).toEqual(expect.arrayContaining([{ item_id: "ss_003", reason: "сцена устарела" }]));
+    expect(missing.map((m) => m.item_id)).not.toContain("ss_001");
+  });
+
   it("4 сцены: нет версии, сбой экспорта, устарела → missing; папка: ссылки на экспорты, шпаргалка, манифест, a-w", async () => {
     const exp = fakeExport({ fail: (c) => (c.versionId === versionOf.get("ss_003") ? "экспорт не удался: media: кодек упал" : undefined) });
     const { id: jobId, r } = await run(deps(exp));

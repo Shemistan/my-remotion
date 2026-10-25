@@ -136,7 +136,7 @@ function readSide(s: Side): void {
 }
 
 /** Пакет задач до конечных статусов; упавшие — один повтор `again(itemIds)`. */
-async function runBatch(items: { item_id: string; job: Job | null }[], side: (itemId: string) => Side, again: (itemIds: string[]) => { item_id: string; job: Job | null }[], label: string): Promise<void> {
+async function runBatch(items: { item_id: string; job: Job | null }[], side: (itemId: string) => Side, again: (itemIds: string[]) => { item_id: string; job: Job | null }[] | Promise<{ item_id: string; job: Job | null }[]>, label: string): Promise<void> {
   const t0 = Date.now();
   await Promise.all(items.map(async (bi) => {
     const j = await wait(bi.job!.id);
@@ -145,7 +145,7 @@ async function runBatch(items: { item_id: string; job: Job | null }[], side: (it
   }));
   const failed = items.map((x) => x.item_id).filter((id) => side(id).jobs.at(-1)!.status !== "completed");
   if (failed.length > 0) {
-    const retry = again(failed);
+    const retry = await again(failed);
     for (const bi of retry) {
       const k = jobs.get(core.db, bi.job!.id)!.idempotency_key;
       say(`${label} повтор ${bi.item_id}: ключ ${k}`);
@@ -185,10 +185,10 @@ it("reframe 9:16: двойники готовых эталонов; [A] 1080×19
   const { projectId } = state as Required<typeof state>;
   const ready = state.pairs.filter((p) => p.h.version);
   const pair = (id: string) => state.pairs.find((p) => p.item.id === id)!;
-  const r = startReframe(core, { projectId, itemIds: state.pairs.map((p) => p.item.id), idempotencyKey: `e2e-s10-reframe-${newId("run")}` });
+  const r = await startReframe(core, { projectId, itemIds: state.pairs.map((p) => p.item.id), idempotencyKey: `e2e-s10-reframe-${newId("run")}` });
   say(`reframe ${r.id}: в пакете ${r.items.map((x) => x.item_id).join(", ")}; пропущены ${JSON.stringify(r.skipped ?? [])}`);
   expect(r.items.map((x) => x.item_id)).toEqual(ready.map((p) => p.item.id));
-  await runBatch(r.items, (id) => pair(id).v, (f) => startReframe(core, { projectId, itemIds: f, idempotencyKey: `e2e-s10-reframe2-${newId("run")}` }).items, "9:16");
+  await runBatch(r.items, (id) => pair(id).v, async (f) => (await startReframe(core, { projectId, itemIds: f, idempotencyKey: `e2e-s10-reframe2-${newId("run")}` })).items, "9:16");
   const problems: string[] = [];
   const check = (ok: boolean, msg: string) => {
     say(`  ${ok ? "OK  " : "FAIL"} ${msg}`);

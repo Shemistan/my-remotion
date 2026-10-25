@@ -4,10 +4,11 @@
 // и кадр hold с transparent по альфе; blocking — исправление Engineer.
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { MotionSpec, QAIssue, QAReport } from "@ms/contracts";
+import type { MotionSpec, QAIssue, QAReport, Settings } from "@ms/contracts";
 import { alphaCoverage, overlayFrames } from "@ms/render";
 import ts from "typescript";
 import type { ExtraQa } from "../pipeline/fix-loop.js";
+import type { LayoutFrame } from "../qa/layout.js";
 import { errText } from "../pipeline/steps.js";
 import type { SceneFile } from "../scenes/static-check.js";
 
@@ -227,7 +228,7 @@ const failed = (why: string): QAIssue => ({
  * доля непрозрачного > 0,92 → blocking `overlay_opaque`. Сбой рендера или ffmpeg —
  * предупреждение `overlay_check_failed`.
  */
-export async function overlayChecks(i: Parameters<ExtraQa>[0], deps: OverlayCheckDeps = {}): Promise<QAIssue[]> {
+export async function overlayChecks(i: Omit<Parameters<ExtraQa>[0], "layout">, deps: OverlayCheckDeps = {}): Promise<QAIssue[]> {
   const out = rootFillIssues(await sceneFiles(i.versionDir));
   let props: Record<string, unknown>;
   try {
@@ -252,6 +253,62 @@ export async function overlayChecks(i: Parameters<ExtraQa>[0], deps: OverlayChec
     }
   } catch (e) {
     out.push(failed(`альфа кадра ${frame}: ${errText(e)}`));
+  }
+  return out;
+}
+
+/** Интерфейс Shorts (S10 fix I1): низ текста не ниже этой доли высоты кадра 9:16. */
+export const SHORTS_BOTTOM = 0.8;
+/** Правая колонка кнопок Shorts: правее этой доли ширины… */
+export const SHORTS_RIGHT_X = 0.87;
+/** …и по высоте в этой полосе (доли высоты кадра). */
+export const SHORTS_RIGHT_BAND = [0.52, 0.8] as const;
+/** Текст прозрачнее — не виден (уход, появление). */
+const VISIBLE_OPACITY = 0.05;
+
+type Rect = { x: number; y: number; w: number; h: number };
+const pct = (x: number) => `${Math.round(x * 100)} %`;
+
+/**
+ * Интерфейс Shorts в кадре 9:16 по реестру раскладки kit (`[motion-kit:layout]` QA-кадров):
+ * текст или число ниже 80 % высоты — blocking `shorts_ui_bottom` (исправляет Engineer; не
+ * исправлено — warning версии); текст или контейнер kit правее 0,87·W, задевающий полосу
+ * 0,52–0,80·H (колонка кнопок), — warning `shorts_ui_right`. Координаты пробы — px кадра её
+ * высоты (`frame.height`), ширина — по пропорции настроек. Не 9:16 — пусто.
+ */
+export function shortsUiIssues(frames: readonly LayoutFrame[], settings: Pick<Settings, "aspect_ratio" | "width" | "height">): QAIssue[] {
+  if (settings.aspect_ratio !== "9:16") return [];
+  const bottom = new Map<string, { text: string; frame: number; low: number }>();
+  const right = new Map<string, number>();
+  for (const f of frames) {
+    const H = f.height > 0 ? f.height : settings.height;
+    const W = (settings.width * H) / settings.height;
+    const inColumn = (r: Rect) => r.x + r.w > SHORTS_RIGHT_X * W && r.y < SHORTS_RIGHT_BAND[1] * H && r.y + r.h > SHORTS_RIGHT_BAND[0] * H;
+    for (const it of f.items) {
+      if (it.opacity <= VISIBLE_OPACITY || it.rect.w <= 0 || it.rect.h <= 0) continue;
+      const low = (it.rect.y + it.rect.h) / H;
+      const prev = bottom.get(it.id);
+      if (low > SHORTS_BOTTOM && (!prev || low > prev.low)) bottom.set(it.id, { text: it.text, frame: prev?.frame ?? f.frame, low });
+      if (inColumn(it.rect) && !right.has(it.id)) right.set(it.id, f.frame);
+    }
+    for (const b of f.boxes ?? []) if (inColumn(b.rect) && !right.has(b.id)) right.set(b.id, f.frame);
+  }
+  const out: QAIssue[] = [];
+  if (bottom.size > 0) {
+    const hits = [...bottom];
+    out.push({
+      source: "programmatic", code: "shorts_ui_bottom", severity: "blocking", frame: Math.min(...hits.map(([, x]) => x.frame)), area: hits.map(([id]) => id).join(", "),
+      description: `под интерфейсом Shorts (нижние 20 % кадра 9:16): ${hits.map(([, x]) => `«${x.text.slice(0, 40)}» до ${pct(x.low)} высоты`).join(", ")}`,
+      fix_hint: `нижние 20 % кадра 9:16 закрывает интерфейс Shorts: подними текст и числа — низ контента не ниже ${pct(SHORTS_BOTTOM)} высоты кадра (layout y + h, отступы стопки); ниже — только фон`,
+    });
+  }
+  if (right.size > 0) {
+    const band = `${pct(SHORTS_RIGHT_BAND[0])}–${pct(SHORTS_RIGHT_BAND[1])}`;
+    out.push({
+      source: "programmatic", code: "shorts_ui_right", severity: "warning", frame: Math.min(...right.values()), area: [...right.keys()].join(", "),
+      description: `правый край кадра на ${band} высоты закрывает колонка кнопок Shorts, там: ${[...right.keys()].join(", ")}`,
+      fix_hint: `в полосе ${band} высоты держи текст и карточки левее ${pct(SHORTS_RIGHT_X)} ширины (по центру или левее); правее — только фон`,
+    });
   }
   return out;
 }

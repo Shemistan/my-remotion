@@ -94,6 +94,14 @@ describe("API пакета генерации сценария", () => {
     expect((await api.inj("POST", `/api/projects/${id}/script/reframe`, okHeaders, { aspect: "9:16" })).statusCode).toBe(400);
   });
 
+  it("S10 fix M2: generate {aspect: 9:16} новым ключом — 422 «для 9:16 используйте reframe»", async () => {
+    await seedPlan();
+    const r = await api.inj("POST", `/api/projects/${id}/script/generate`, key("v1"), { revision: 1, aspect: "9:16" });
+    expect(r.statusCode, r.body).toBe(422);
+    expect(r.json()).toMatchObject({ error: "use_reframe" });
+    expect(r.json().message).toMatch(/для 9:16 используйте reframe/);
+  });
+
   it("ошибки: нет ключа — 400; нет текста — 409 no_script; ревизия не текущая — 409 plan_outdated; чужой пакет — 404", async () => {
     expect((await api.inj("POST", `/api/projects/${id}/script/generate`, okHeaders, { revision: 1 })).statusCode).toBe(400);
     const none = await api.inj("POST", `/api/projects/${id}/script/generate`, key("e1"), { revision: 1 });

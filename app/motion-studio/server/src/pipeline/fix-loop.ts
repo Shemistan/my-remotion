@@ -174,6 +174,8 @@ export type ExtraQa = (v: {
   /** Контекст попытки для своих процессов (ffmpeg): реестр и `run/tmp`. */
   run: RenderRequest["run"];
   renderStills: (stills: number[], inputProps: Record<string, unknown>) => Promise<RenderResult>;
+  /** Реестр раскладки kit QA-кадров попытки (`[motion-kit:layout]`; S10: интерфейс Shorts). */
+  layout: LayoutFrame[];
 }) => Promise<QAIssue[]>;
 
 /**
@@ -1096,14 +1098,14 @@ async function preserveHoldIssues(i: LoopInput, rr: RenderResult): Promise<{ iss
  * под семафором рендеров, каталоги убираются после хука (кроме живых процессов `orphaned`).
  * Сбой или отмена хука — предупреждение `extra_qa_failed`.
  */
-async function extraQaIssues(i: LoopInput, t: Take, settings: Settings): Promise<{ issues: QAIssue[] } | { orphaned: string }> {
+async function extraQaIssues(i: LoopInput, t: Take, settings: Settings, layout: LayoutFrame[]): Promise<{ issues: QAIssue[] } | { orphaned: string }> {
   const { rc } = i;
   const dirs: string[] = [];
   let orphaned: string | undefined;
   const r = await rc.underWatch(
     (sig) =>
       i.extraQa!({
-        versionDir: t.dir, spec: t.spec, settings, signal: sig,
+        versionDir: t.dir, spec: t.spec, settings, signal: sig, layout,
         run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry },
         renderStills: async (stills, inputProps) => {
           const outDir = await mkdtemp(join(await safeMkdir(rc.root, `run/tmp/${rc.runId}-a${rc.attempt}`), "extra-"));
@@ -1161,7 +1163,7 @@ async function runQa(
   if ("orphaned" in hold) return { exit: { ok: false, stage: "orphaned", message: hold.orphaned, alive: true } };
   programmatic.push(...hold.issues);
   if (i.extraQa) {
-    const x = await extraQaIssues(i, t, settings);
+    const x = await extraQaIssues(i, t, settings, parseLayout(rr.browserLogs));
     if ("orphaned" in x) return { exit: { ok: false, stage: "orphaned", message: x.orphaned, alive: true } };
     programmatic.push(...x.issues);
   }

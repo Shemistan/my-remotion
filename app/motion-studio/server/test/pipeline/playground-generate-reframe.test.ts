@@ -2,7 +2,7 @@
 // вызывается — concept и структура из эталонной 16:9-версии (чекпоинт Concept её задачи),
 // KB-кандидаты по ним же; spec эталона (сокращённая, без раскладки) — блоком «Эталон» в задаче
 // Director. Эталона нет или он не готов — задача failed без вызова агентов. Фейковые агенты и рендер.
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_READING, type MotionSpec, type ProjectStyleBase, type ScriptPlanRevisionDoc, type ScriptSceneContext, type ScriptSceneItem, type Settings, defaultSettings } from "@ms/contracts";
@@ -117,6 +117,11 @@ describe("playground.generate двойника 9:16", () => {
     expect(dir).toContain("y + h ≤ 0.92"); // низ контента — 80 % кадра в долях safe area 0,15
     const block = dir.slice(dir.indexOf("# Эталон"));
     expect(block).not.toContain('"layout"');
+    // S14: биты — по эталону, якоря слов — планировщик; герой приёма можно добавить
+    expect(block).toContain("тайминг битов как в эталоне; якоря слов ставит планировщик");
+    expect(block).toMatch(/кроме элемента-героя приёма/);
+    // M1: позиционные слова эталона описывают 16:9
+    expect(block).toMatch(/«слева», «справа», «рядом».*16:9.*не переносятся/);
     expect(kb.searches.map((s) => (s as { query: string }).query)).toContain("эталонный запрос");
     expect(logs(job.id).some((m) => /Concept пропущен/.test(m))).toBe(true);
   });
@@ -138,5 +143,18 @@ describe("playground.generate двойника 9:16", () => {
     expect(job.status).toBe("failed");
     expect(job.error?.message).toMatch(/эталон/);
     expect(agents.tasks).toHaveLength(0);
+  });
+
+  it("I1: текст в нижней полосе Shorts (проба раскладки) — blocking shorts_ui_bottom: правка Engineer, не исправлено — warning версии", async () => {
+    const ref = await seedReference(REF_CONCEPT);
+    const agents = fakeAgents({});
+    const low = [{ id: "cap", role: "label", text: "подпись внизу", rect: { x: 100, y: 1600, w: 600, h: 100 }, fontPx: 48, opacity: 1 }];
+    const job = await run({ agents, render: fakeRender({ png: true, layout: (req) => (req.settings.height === 1920 ? low : undefined) }).render }, ref);
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    const dir = String((job.output_refs as { version_dir: string }).version_dir);
+    const qa = JSON.parse(readFileSync(join(dir, "qa.json"), "utf8")) as { issues: { code: string; severity: string; description: string }[] };
+    const hit = qa.issues.find((x) => x.code === "shorts_ui_bottom");
+    expect(hit).toMatchObject({ severity: "warning" });
+    expect(hit!.description).toMatch(/^\[не исправлено/); // в fix-loop было blocking
   });
 });
