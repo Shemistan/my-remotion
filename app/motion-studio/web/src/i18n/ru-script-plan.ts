@@ -128,6 +128,7 @@ export const ruScriptPlan = {
   "scriptPlan.techniqueHint.callout-diagram": "пояснение к схеме, выделение части",
   "scriptPlan.techniqueHint.kinetic-quote": "тезис словами, акцент на 1–3 словах",
 
+  "scriptPlan.structureRule": "форму времени",
   "scriptPlan.structure.build-strike": "сборка по шагам",
   "scriptPlan.structure.cold-open": "сначала результат",
   "scriptPlan.structure.continuous-flow": "непрерывный поток",

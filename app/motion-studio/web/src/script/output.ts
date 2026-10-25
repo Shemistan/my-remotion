@@ -41,6 +41,18 @@ export function visibleBatches(batches: readonly ScriptBatchDto[], aspect: Aspec
 export const batchActive = (b: ScriptBatchDto): boolean => b.counts.pending + b.counts.running > 0;
 
 /**
+ * Сколько сцен пакета сервер не поставил, потому что они уже готовы (S17a): `skipped` есть только
+ * в ответе генерации (`responses` — ответы generate/reframe этой сессии), готовой считается
+ * пропущенная сцена, у которой в состоянии готовая неустаревшая версия того же формата и она не в пакете.
+ */
+export function readySkipped(batch: ScriptBatchDto, responses: readonly (ScriptBatchDto | undefined)[], scenes: readonly ScriptSceneDto[]): number {
+  const skipped = responses.find((r) => r?.id === batch.id)?.skipped ?? [];
+  const inBatch = new Set(batch.items.map((x) => x.item_id));
+  const ready = new Set(scenes.filter((s) => s.aspect === batch.aspect && s.status === "ready" && !s.stale).map((s) => s.item_id));
+  return new Set(skipped.map((x) => x.item_id).filter((id) => ready.has(id) && !inBatch.has(id))).size;
+}
+
+/**
  * Ключ «Повторить» / «Перегенерировать»: тот же для повторного нажатия по той же неудаче (сервер
  * вернёт тот же пакет), новый — после новой задачи или версии сцены. Только ASCII-id.
  */

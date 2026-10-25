@@ -1,5 +1,6 @@
 // Прогресс пакета генерации сцен (S9): «Готово N из M», ненулевые счётчики по статусам, полоса
-// прогресса и «Отменить пакет», пока в пакете есть ждущие или идущие задачи.
+// прогресса и «Отменить пакет», пока в пакете есть ждущие или идущие задачи. Сцены, которые сервер
+// не поставил, потому что они уже готовы (`readySkipped`, S17a), — тоже «готово».
 import type { ScriptBatchDto } from "@ms/contracts";
 import { useCancelBatch } from "../../api/script-client.js";
 import { errorText, t } from "../../i18n/index.js";
@@ -7,15 +8,17 @@ import { batchActive } from "../../script/output.js";
 
 const COUNTS = ["running", "pending", "failed", "cancelled", "blocked"] as const;
 
-export function BatchBar({ projectId, batch }: { projectId: string; batch: ScriptBatchDto }) {
+export function BatchBar({ projectId, batch, readySkipped = 0 }: { projectId: string; batch: ScriptBatchDto; readySkipped?: number }) {
   const cancel = useCancelBatch(projectId);
   const c = batch.counts;
   const active = batchActive(batch);
-  const pct = c.total > 0 ? Math.round((c.ready / c.total) * 100) : 0;
+  const ready = c.ready + readySkipped;
+  const total = c.total + readySkipped;
+  const pct = total > 0 ? Math.round((ready / total) * 100) : 0;
   return (
     <section className="panel batch-bar" data-testid="batch-bar" aria-label={t("scriptOutput.batch.title")}>
       <div className="row wrap">
-        <strong>{t("scriptOutput.batch.progress", { ready: c.ready, total: c.total })}</strong>
+        <strong>{t("scriptOutput.batch.progress", { ready, total })}</strong>
         {COUNTS.filter((k) => c[k] > 0).map((k) => (
           <span key={k} className={`badge status-${k}`}>{t(`scriptOutput.batch.count.${k}`, { n: c[k] })}</span>
         ))}

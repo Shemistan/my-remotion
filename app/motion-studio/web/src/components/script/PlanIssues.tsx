@@ -1,7 +1,8 @@
 // Проблемы плана сценария (S8): blocking — первыми и красным; код — по словарю
 // `scriptPlan.issue.*`, подробности — сообщение проверки, где id сцен заменены на «сцена N», а
-// коды приёмов — на русские названия. Неизвестный код — только сообщение.
-import { type PlanIssue, SceneStructureSchema, TECHNIQUES } from "@ms/contracts";
+// коды приёмов, форм времени и правил формы и имя поля `structure_rule` — на русские названия.
+// Неизвестный код — только сообщение.
+import { type PlanIssue, STRUCTURE_RULES, SceneStructureSchema, TECHNIQUES } from "@ms/contracts";
 import { hasKey, t, tk } from "../../i18n/index.js";
 import { techniqueLabel } from "../../script/format.js";
 
@@ -12,6 +13,11 @@ export function humanizeMessage(message: string, numbers: ReadonlyMap<string, nu
     return n !== undefined ? t("scriptPlan.scene.n", { n }).toLowerCase() : t("scriptPlan.scene.rejected").toLowerCase();
   });
   for (const x of TECHNIQUES) s = s.replace(new RegExp(`(?<![\\w-])${x.slug}(?![\\w-])`, "g"), `«${techniqueLabel(x.slug)}»`);
+  // ревизии плана до S11 советовали «задайте другую structure_rule» — поле и правила формы по-русски (S17a)
+  s = s.replace(/\bstructure_rule\b/g, t("scriptPlan.structureRule"));
+  for (const [rule, structure] of STRUCTURE_RULES) {
+    s = s.replace(new RegExp(`(?<![\\w-])${rule}(?![\\w-])`, "g"), `«${tk(`scriptPlan.structure.${structure}`, rule)}»`);
+  }
   for (const x of SceneStructureSchema.options) {
     s = s.replace(new RegExp(`(?<![\\w-])${x}(?![\\w-])`, "g"), `«${tk(`scriptPlan.structure.${x}`, x)}»`);
   }
