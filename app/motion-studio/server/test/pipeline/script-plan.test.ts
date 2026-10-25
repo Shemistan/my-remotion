@@ -2,7 +2,7 @@
 // лучший ответ, стиль сценария без plan.recheck, новый plan_id на перестроение, чекпоинт, M3,
 // fencing, план без агента.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type Job, JobErrorSchema, type ScriptDirectorOutput } from "@ms/contracts";
+import { type Job, JobErrorSchema, type ScriptDirectorOutput, type ScriptDirectorScene } from "@ms/contracts";
 import { fileProcessRegistry } from "@ms/core";
 import type { ZodType } from "zod";
 import type { AgentResult, AgentRuntimeAdapter, AgentTask } from "../../src/agents/runtime.js";
@@ -81,6 +81,10 @@ function fakeAgents(replies: Reply[]): AgentRuntimeAdapter & { tasks: AgentTask<
   };
 }
 const ok = (o: ScriptDirectorOutput): Reply => async () => ({ output: o });
+/** Частичный ответ (F1): только сцены проблемных фрагментов. */
+const patch = (scenes: ScriptDirectorScene[]): Reply => async () => ({ output: { scenes } });
+/** Сцена 2 REPEAT другим приёмом — исправление adjacent_technique_repeat. */
+const FIX2 = scene(DOC, w(15), w(28), { technique: "process-steps", pattern: "sequence-steps" });
 const cliFail: Reply = async () => ({ status: "failed", error: { kind: "cli", message: "claude упал" } });
 
 const sem = () => new AttemptPermits(new Semaphore(2));
@@ -110,7 +114,7 @@ const blocking = (x: { severity: string }) => x.severity === "blocking";
 describe("script.plan", () => {
   it("ответ 1 с adjacent_technique_repeat → переотправка с перечнем, ответ 2 чистый; индекс — scriptPlans; стиль агента без plan.recheck; перестроение — новый plan_id", async () => {
     const p = await project();
-    const agents = fakeAgents([ok(REPEAT), ok(CLEAN)]);
+    const agents = fakeAgents([ok(REPEAT), patch([FIX2])]);
     const r = await run(p, { agents });
     expect(r.r.status, JSON.stringify(r.r)).toBe("completed");
     expect(r.out!.agent).toMatchObject({ calls: 2, retried: 1 });
@@ -120,7 +124,7 @@ describe("script.plan", () => {
     const cur = currentScriptPlan(db, s.root, p)!;
     expect(cur.doc.issues.filter(blocking)).toEqual([]);
     expect(cur.doc).toMatchObject({ plan_id: r.out!.plan_id, revision: 1, aspect: "16:9", fps: { num: 30, den: 1 }, reading: { wps: 2.5 } });
-    expect(cur.doc.items.map((x) => x.technique)).toEqual(["hero-number", "structure-build", "bar-compare"]);
+    expect(cur.doc.items.map((x) => x.technique)).toEqual(["structure-build", "process-steps", "bar-compare"]);
     expect(cur.doc.analysis.chapters).toHaveLength(1);
     expect(cur.doc.inputs.script.revision).toBe(1);
     expect(r.out).toMatchObject({ revision: 1, items: 3, skipped: 0, issues: { blocking: 0 } });
@@ -141,7 +145,7 @@ describe("script.plan", () => {
 
   it("агент упорно повторяет ошибку → переотправок maxAutoFixes, лучший ответ; blocking остаётся видимым", async () => {
     const p = await project();
-    const agents = fakeAgents([ok(REPEAT), ok(REPEAT), ok(REPEAT), ok(REPEAT)]);
+    const agents = fakeAgents([ok(REPEAT), patch([REPEAT.scenes[1]!]), patch([REPEAT.scenes[1]!]), patch([REPEAT.scenes[1]!])]);
     const r = await run(p, { agents });
     expect(r.r.status).toBe("completed");
     expect(agents.tasks).toHaveLength(1 + config.scene.maxAutoFixes);
@@ -151,8 +155,9 @@ describe("script.plan", () => {
 
   it("лучший ответ: второй хуже (меньше сцен при том же числе blocking) — остаётся первый", async () => {
     const p = await project();
-    const fewer = out(DOC, [cleanScenes(DOC)[0]!, scene(DOC, w(15), w(20), { quote: "выдуманное" })]);
-    const agents = fakeAgents([ok(out(DOC, [...cleanScenes(DOC).slice(0, 2), scene(DOC, w(29), w(33), { quote: "мимо" })])), ok(fewer), ok(fewer)]);
+    // доработка сцены 3 даёт две выдуманные цитаты вместо одной — хуже
+    const worse = patch([scene(DOC, w(29), w(33), { quote: "выдуманное" }), scene(DOC, w(34), w(40), { quote: "тоже мимо" })]);
+    const agents = fakeAgents([ok(out(DOC, [...cleanScenes(DOC).slice(0, 2), scene(DOC, w(29), w(33), { quote: "мимо" })])), worse, worse]);
     const r = await run(p, { agents });
     expect(r.out!.items).toBe(2);
     expect(r.events.map((e) => e.kind)).toContain("agent_retry_kept_first");
@@ -230,6 +235,48 @@ describe("script.plan", () => {
     expect(plans.byProject(db, p)).toBeUndefined();
     expect(currentProjectStyle(db, s.root, p)).toBeUndefined();
     finish(db, a.job.id, a.attempt + 1, a.r);
+  });
+
+  it("F1: переотправка — только проблемные сцены; частичный ответ сливается с планом, разбор и стиль — из первого ответа", async () => {
+    const p = await project();
+    const agents = fakeAgents([ok(REPEAT), patch([FIX2])]);
+    const r = await run(p, { agents });
+    expect(r.r.status, JSON.stringify(r.r)).toBe("completed");
+    const input = String(agents.tasks[1]!.input);
+    expect(input).toMatch(/# Доработка плана/);
+    expect(input).toMatch(/w_000015–w_000028/);
+    expect(input).toMatch(/adjacent_technique_repeat/);
+    // остальные сцены — контекст, их переделывать не просят
+    expect(input).toMatch(/w_000001–w_000014.*не меняется/);
+    expect(input).not.toMatch(/Ответь заново полностью/);
+    const cur = currentScriptPlan(db, s.root, p)!.doc;
+    expect(cur.items.map((x) => [x.start_word_id, x.technique])).toEqual([[w(1), "structure-build"], [w(15), "process-steps"], [w(29), "bar-compare"]]);
+    expect(cur.analysis.chapters).toEqual(REPEAT.chapters);
+    expect(r.events.map((e) => e.kind)).toContain("agent_retry");
+  });
+
+  it("F1: склейка двух предложений (сцена 7 приёмки) — цитата исправлена кодом, переотправки нет", async () => {
+    const p = await project();
+    // цитата на два слова длиннее диапазона w1–w12 (в диапазоне нет «Swiss Table»)
+    const glued = out(DOC, [scene(DOC, w(1), w(12), { technique: "hero-number", pattern: "quantities", quote: "С Go 1.24 встроенная map в Go реализована заново на основе дизайна Swiss Table" }), ...cleanScenes(DOC).slice(1)]);
+    const agents = fakeAgents([ok(glued)]);
+    const r = await run(p, { agents });
+    expect(r.r.status, JSON.stringify(r.r)).toBe("completed");
+    expect(agents.tasks).toHaveLength(1);
+    expect(r.out).toMatchObject({ items: 3, rejected: 0, agent: { calls: 1, retried: 0 } });
+    expect(r.events).toContainEqual(expect.objectContaining({ kind: "quote_autofixed" }));
+  });
+
+  it("F1: сцена доработки, задевшая готовую сцену плана, отбрасывается (готовая не теряется)", async () => {
+    const p = await project();
+    const over = scene(DOC, w(20), w(33), { technique: "process-steps", pattern: "sequence-steps" });
+    const agents = fakeAgents([ok(REPEAT), patch([over]), patch([FIX2])]);
+    const r = await run(p, { agents });
+    expect(r.r.status, JSON.stringify(r.r)).toBe("completed");
+    expect(r.events).toContainEqual(expect.objectContaining({ kind: "patch_scene_dropped" }));
+    const cur = currentScriptPlan(db, s.root, p)!.doc;
+    expect(cur.items.map((x) => [x.start_word_id, x.end_word_id])).toEqual([[w(1), w(14)], [w(15), w(28)], [w(29), w(40)]]);
+    expect(cur.issues.filter(blocking)).toEqual([]);
   });
 
   it("пропуск с неверной цитатой не вызывает переотправку: отброшен с событием skip_dropped", async () => {

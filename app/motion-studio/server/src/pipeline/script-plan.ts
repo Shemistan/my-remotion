@@ -2,9 +2,11 @@
 // проекта → ревизия плана сценария `plan/<id>/r1/script-plan.json` с fencing.
 //
 // Один вызов агента на весь текст (без инструментов, бюджет `analysis.maxCostUsd`). Ответ
-// проверяет `validateScriptPlan`; blocking-проблемы и отклонённые сцены → до `scene.maxAutoFixes`
-// переотправок с перечнем (пропуски агента с неверной цитатой — не проблема: отбрасываются с
-// событием `skip_dropped`); отказ схемы — своя одна переотправка (при maxAutoFixes ≥ 1). Из всех
+// проверяет `validateScriptPlan` (цитата почти по словам диапазона — исправляется кодом, F1);
+// blocking-проблемы и отклонённые сцены → до `scene.maxAutoFixes` доработок только проблемных
+// сцен с частичным ответом, слитым с остальным планом (S16a F1; пропуски агента с неверной цитатой
+// — не проблема: отбрасываются с событием `skip_dropped`); отказ схемы — своя одна переотправка
+// (при maxAutoFixes ≥ 1). Из всех
 // ответов берётся лучший: меньше проблем (blocking + отклонённые), затем больше сцен, при равенстве —
 // более поздний. Выбранный ответ — чекпоинт задачи (хеш входа, модели и системного промпта).
 //
@@ -18,7 +20,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   type Fps, type JobError, PATTERN_SLUGS, type PatternSlug, type PlanIssue, type ProjectStyleBase, type ProjectStyleDoc, ProjectStyleDocSchema,
-  type ReadingSettings, ReadingSettingsSchema, type ScriptDirectorOutput, ScriptDirectorOutputSchema, type ScriptPlanRevisionDoc,
+  type ReadingSettings, ReadingSettingsSchema, type ScriptDirectorOutput, ScriptDirectorOutputSchema, type ScriptDirectorPatch, ScriptDirectorPatchSchema, type ScriptPlanRevisionDoc,
   ScriptPlanRevisionDocSchema, type ScriptRevisionDoc,
 } from "@ms/contracts";
 import { canonicalJson } from "@ms/contracts/canonical";
@@ -40,6 +42,7 @@ import type { KnowledgeAdapter } from "../knowledge/adapter.js";
 import { sha256 } from "../scenes/hash.js";
 import { type ScriptPlanValidation, validateScriptPlan } from "../script/plan-validate.js";
 import { planDiversity } from "../script/diversity.js";
+import { type PatchDrop, mergePatch, patchProblems, scriptPatchSection } from "../script/plan-patch.js";
 import { SCRIPT_PLAN_FILE, currentScript } from "../script/read.js";
 import { scriptReading } from "../script/text.js";
 import { checkpointPath, readCheckpoint, stepInputHash, writeCheckpoint } from "./checkpoints.js";
@@ -97,15 +100,16 @@ class ScriptFail extends Error {
   }
 }
 
-/** Оценка ответа: проверка кодом и число проблем по вине агента. */
+/** Оценка ответа: проверка кодом и число проблем по вине агента (`drops` — отброшенные сцены доработки, F1). */
 interface Evaluated {
   v: ScriptPlanValidation;
   faults: number;
+  drops: PatchDrop[];
 }
 
-const evaluateWith = (doc: ScriptRevisionDoc, reading: ReadingSettings, fps: Fps) => (o: ScriptDirectorOutput): Evaluated => {
+const evaluateWith = (doc: ScriptRevisionDoc, reading: ReadingSettings, fps: Fps) => (o: ScriptDirectorOutput, drops: PatchDrop[] = []): Evaluated => {
   const v = validateScriptPlan(o, doc, reading, fps);
-  return { v, faults: v.rejected.length + v.issues.filter((x) => x.severity === "blocking").length };
+  return { v, faults: v.rejected.length + v.issues.filter((x) => x.severity === "blocking").length + drops.length, drops };
 };
 
 /**
@@ -125,9 +129,9 @@ export function scriptFaultList(v: ScriptPlanValidation): string {
   return L.join("\n");
 }
 
-/** Коды проблем по вине агента (отклонённое и blocking), без повторов. */
-const faultCodes = (v: ScriptPlanValidation): string[] =>
-  [...new Set([...v.rejected.map((x) => x.code), ...v.issues.filter((x) => x.severity === "blocking").map((x) => x.code)])];
+/** Коды проблем по вине агента (отклонённое, blocking, отброшенное доработкой), без повторов. */
+const faultCodes = (ev: Pick<Evaluated, "v" | "drops">): string[] =>
+  [...new Set([...ev.v.rejected.map((x) => x.code), ...ev.v.issues.filter((x) => x.severity === "blocking").map((x) => x.code), ...ev.drops.map((x) => x.code)])];
 
 const sceneWords = (v: ScriptPlanValidation, id: string): string => {
   const x = v.items.find((i) => i.id === id);
@@ -215,8 +219,9 @@ export const scriptPlan: (depsOf: () => ScriptPlanDeps) => JobHandler = (depsOf)
     for (const x of ev.v.dropped) {
       ctx.emit("skip_dropped", `${x.id}: пропуск агента отброшен (${x.code}) — ${x.detail.slice(0, 300)}`);
     }
+    for (const x of ev.v.fixed) ctx.emit("quote_autofixed", `${x.id}: ${x.detail.slice(0, 400)}`);
     if (ev.faults > 0) {
-      ctx.emit("plan_problems", `после проверки осталось проблем по вине агента: ${ev.faults} (${faultCodes(ev.v).join(", ")}) — видны человеку`);
+      ctx.emit("plan_problems", `после проверки осталось проблем по вине агента: ${ev.faults} (${faultCodes(ev).join(", ")}) — видны человеку`);
     }
 
     await enter("publish", 0.9);
@@ -268,13 +273,15 @@ export const scriptPlan: (depsOf: () => ScriptPlanDeps) => JobHandler = (depsOf)
   }
 
   /**
-   * Script Director: вызов → проверка кодом → (проблемы — до `maxAutoFixes` переотправок с
-   * перечнем) → лучший из ответов; отказ схемы — одна переотправка на весь запуск. Чекпоинт —
-   * выбранный ответ.
+   * Script Director: вызов → проверка кодом → (проблемы — до `maxAutoFixes` доработок) → лучший из
+   * ответов; отказ схемы — одна переотправка на весь запуск. Доработка (S16a F1) — только
+   * проблемные сцены лучшего ответа (`scriptPatchSection`), частичный ответ сливается с ним
+   * (`mergePatch`); проблема всего плана (blocking без сцены) — весь план заново с перечнем.
+   * Чекпоинт — выбранный ответ.
    */
   async function runAgent(
     script: ScriptRevisionDoc, reading: ReadingSettings, fps: Fps, patterns: Record<PatternSlug, string>, style: ProjectStyleDoc | undefined,
-    evaluate: (o: ScriptDirectorOutput) => Evaluated,
+    evaluate: (o: ScriptDirectorOutput, drops?: PatchDrop[]) => Evaluated,
   ): Promise<{ output: ScriptDirectorOutput; ev: Evaluated; info: ScriptPlanResult["agent"] }> {
     const label = "Script Director";
     const role = "script_director" as const;
@@ -282,7 +289,8 @@ export const scriptPlan: (depsOf: () => ScriptPlanDeps) => JobHandler = (depsOf)
     let schemaRetries = fixes >= 1 ? 1 : 0;
     const info: ScriptPlanResult["agent"] = { status: "completed", calls: 0, cost_usd: 0, retried: 0, from_checkpoint: 0 };
     const base = { script, reading, fps, patterns, style: style?.base ?? null, styleFixed: style?.author === "user" };
-    const make = (workdir: string, seq: number, fix?: string) => buildScriptDirectorTask({ ...base, workdir, ...(fix ? { fix } : {}) }, { ...rc.taskRun, seq });
+    const make = (workdir: string, seq: number, extra: { fix?: string; patch?: string } = {}) =>
+      buildScriptDirectorTask({ ...base, workdir, ...extra }, { ...rc.taskRun, seq });
     const promptSha = sha256((d.systemPrompt ?? loadPrompt)(role));
     const probe = make("", 1);
     const hash = stepInputHash(role, probe.model, { input: probe.input, system_prompt_sha256: promptSha });
@@ -301,17 +309,17 @@ export const scriptPlan: (depsOf: () => ScriptPlanDeps) => JobHandler = (depsOf)
       throw new ScriptFail({ code: "pipeline", message: `${label}: ${r.message}` });
     };
     let seq = 0;
-    /** Один вызов (с перечнем исправлений); отказ схемы — переотправка, пока не израсходована. */
-    const call = async (fix?: string) => {
+    /** Один вызов (перечень исправлений или доработка); отказ схемы — переотправка, пока не израсходована. */
+    const call = async <O>(extra: { fix?: string; patch?: string }, schema: ZodType<O>) => {
       let why: string | undefined;
       for (;;) {
         const k = ++seq;
         const note = why;
         const r = await toolless(rc, role, "prepare", label, (workdir) => {
-          const t = make(workdir, k, fix);
+          const t = make(workdir, k, extra);
           if (note !== undefined) t.input += `\n\n# Прошлый ответ отклонён схемой\n\n${safeLine(note).slice(0, 2000)}\n\nОтветь заново строго по схеме.`;
           return t;
-        }, ScriptDirectorOutputSchema as ZodType<ScriptDirectorOutput>);
+        }, schema);
         if (r.ok || r.kind !== "schema" || schemaRetries <= 0) return r;
         schemaRetries--;
         info.retried++;
@@ -319,24 +327,40 @@ export const scriptPlan: (depsOf: () => ScriptPlanDeps) => JobHandler = (depsOf)
         ctx.emit("agent_retry", `${label}: ответ не прошёл схему — переотправка (одна): ${r.message.slice(0, 500)}`);
       }
     };
-    const first = await call();
+    const fullSchema = ScriptDirectorOutputSchema as ZodType<ScriptDirectorOutput>;
+    const first = await call({}, fullSchema);
     if (!first.ok) fatal(first);
     const answers: { output: ScriptDirectorOutput; ev: Evaluated }[] = [];
     const firstOut = (first as { output: ScriptDirectorOutput }).output;
     answers.push({ output: firstOut, ev: evaluate(firstOut) });
     let best = 0;
     for (let round = 1; round <= fixes; round++) {
-      const last = answers[answers.length - 1]!;
-      if (last.ev.faults === 0) break;
+      const base = answers[best]!;
+      if (base.ev.faults === 0) break;
       info.retried++;
-      ctx.emit("agent_retry", `${label}: проблем ${last.ev.faults} (${faultCodes(last.ev.v).join(", ")}) — переотправка ${round} из ${fixes} с перечнем`);
-      const r = await call(scriptFaultList(last.ev.v));
-      if (!r.ok) {
-        if (["storage", "orphaned", "cancelled"].includes(r.stage) || signal.aborted) fatal(r);
-        ctx.emit("agent_retry_failed", `${label}: переотправка ${round} не удалась (${r.message.slice(0, 300)}) — остаётся лучший из полученных ответов`);
-        break;
+      const problems = patchProblems(base.output, base.ev.v, base.ev.drops);
+      let next: { output: ScriptDirectorOutput; ev: Evaluated };
+      if (problems && problems.length > 0) {
+        ctx.emit("agent_retry", `${label}: проблем ${base.ev.faults} (${faultCodes(base.ev).join(", ")}) — доработка ${round} из ${fixes} только фрагментов ${problems.map((p) => `${p.start_word_id}–${p.end_word_id}`).join(", ")}`);
+        const r = await call({ patch: scriptPatchSection(script, base.output, problems) }, ScriptDirectorPatchSchema as ZodType<ScriptDirectorPatch>);
+        if (!r.ok) {
+          if (["storage", "orphaned", "cancelled"].includes(r.stage) || signal.aborted) fatal(r);
+          ctx.emit("agent_retry_failed", `${label}: доработка ${round} не удалась (${r.message.slice(0, 300)}) — остаётся лучший из полученных ответов`);
+          break;
+        }
+        const m = mergePatch(script, base.output, new Set(problems.map((p) => p.n).filter((n) => n > 0)), r.output.scenes);
+        for (const x of m.drops) ctx.emit("patch_scene_dropped", `${label}: ${x.detail}`);
+        next = { output: m.output, ev: evaluate(m.output, m.drops) };
+      } else {
+        ctx.emit("agent_retry", `${label}: проблем ${base.ev.faults} (${faultCodes(base.ev).join(", ")}) — переотправка ${round} из ${fixes} с перечнем`);
+        const r = await call({ fix: scriptFaultList(base.ev.v) }, fullSchema);
+        if (!r.ok) {
+          if (["storage", "orphaned", "cancelled"].includes(r.stage) || signal.aborted) fatal(r);
+          ctx.emit("agent_retry_failed", `${label}: переотправка ${round} не удалась (${r.message.slice(0, 300)}) — остаётся лучший из полученных ответов`);
+          break;
+        }
+        next = { output: r.output, ev: evaluate(r.output) };
       }
-      const next = { output: r.output, ev: evaluate(r.output) };
       answers.push(next);
       const b = answers[best]!.ev;
       if (next.ev.faults < b.faults || (next.ev.faults === b.faults && next.ev.v.items.length >= b.v.items.length)) {

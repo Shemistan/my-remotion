@@ -127,6 +127,36 @@ describe("validateScriptPlan", () => {
     expect(rejectedCodes(validateScriptPlan(out(d, [scene(d, w(1), w(n), { data: [{ label: "x", value: 6.5, quote: "шесть и две десятых" }] })]), d, R, F30))).toEqual(["value_mismatch"]);
   });
 
+  it("F1: склейка двух предложений без точки (сцена 7 приёмки) — цитата берётся по словам диапазона, числа вне фрагмента отпадают", () => {
+    // ответ агента приёмки S12: w_000319–w_000331, цитата на два слова длиннее («… записей из восьми»)
+    const d = docOf([{ title: "", text: "Когда map растёт? Когда в среднем на бакет приходится шесть с половиной записей из восьми. Кит Рэндалл говорит об этом." }]);
+    const quote = "Когда map растёт Когда в среднем на бакет приходится шесть с половиной записей из восьми";
+    const v = validateScriptPlan(out(d, [scene(d, w(1), w(13), {
+      quote, technique: "bar-compare", pattern: "comparison",
+      data: [{ label: "записей на бакет", value: 6.5, quote: "шесть с половиной записей" }, { label: "слотов", value: 8, quote: "из восьми" }],
+      key_terms: [{ text: "растёт", word_id: w(3) }, { text: "восьми", word_id: w(15) }],
+    })]), d, R, F30);
+    expect(v.rejected).toEqual([]);
+    expect(v.items).toHaveLength(1);
+    expect(v.items[0]).toMatchObject({ start_word_id: w(1), end_word_id: w(13), quote: quoteOf(d, w(1), w(13)) });
+    expect(v.items[0]!.data.map((x) => x.value)).toEqual([6.5]);
+    expect(v.items[0]!.key_terms).toEqual([{ text: "растёт", word_id: w(3) }]);
+    expect(v.fixed).toEqual([expect.objectContaining({ id: "ss_001", share: 13 / 15 })]);
+    expect(v.issues).toContainEqual(expect.objectContaining({ item_id: "ss_001", code: "quote_autofixed", severity: "warning" }));
+  });
+
+  it("F1: сцена 19 приёмки (на слово короче цитаты) исправляется; пересечение слов < 80 % — по-прежнему quote_mismatch", () => {
+    const d = docOf([{ title: "", text: "Это и есть знаменитая эвакуация. Пока она идёт, в памяти живут оба массива — запомните это, оно всплывёт в бенчмарках памяти. И ещё." }]);
+    const quote = "Это и есть знаменитая эвакуация Пока она идёт в памяти живут оба массива запомните это оно всплывёт в бенчмарках памяти";
+    const ok = validateScriptPlan(out(d, [scene(d, w(1), w(19), { quote })]), d, R, F30);
+    expect(ok.rejected).toEqual([]);
+    expect(ok.fixed[0]!.share).toBeCloseTo(19 / 20);
+    // половина цитаты не из диапазона
+    const bad = validateScriptPlan(out(d, [scene(d, w(1), w(10), { quote: "Это и есть знаменитая эвакуация совсем другие слова здесь вот так" })]), d, R, F30);
+    expect(rejectedCodes(bad)).toEqual(["quote_mismatch"]);
+    expect(bad.fixed).toEqual([]);
+  });
+
   it("пропуск агента с неверной цитатой или через границу блоков — отброшен (dropped), не отклонение", () => {
     const v = validateScriptPlan(out(doc, [
       scene(doc, w(1), w(14), { technique: "hero-number", pattern: "quantities" }),

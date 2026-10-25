@@ -238,7 +238,14 @@ export const ScriptDirectorOutputSchema = z.object({
     rationale: z.string().min(1),
   }).strict(),
 }).strict().superRefine((o, ctx) => {
-  o.scenes.forEach((s, i) => {
+  checkDirectorScenes(o.scenes, ctx);
+  checkSemantic(o, ctx);
+});
+export type ScriptDirectorOutput = z.infer<typeof ScriptDirectorOutputSchema>;
+
+/** У сцены `plan` — приём и паттерн, у `skip` — причина. */
+function checkDirectorScenes(scenes: readonly ScriptDirectorScene[], ctx: z.RefinementCtx): void {
+  scenes.forEach((s, i) => {
     if (s.decision === "plan") {
       if (s.technique === undefined) ctx.addIssue({ code: "custom", path: ["scenes", i, "technique"], message: "у сцены plan нужен приём" });
       if (s.pattern === undefined) ctx.addIssue({ code: "custom", path: ["scenes", i, "pattern"], message: "у сцены plan нужен паттерн" });
@@ -246,9 +253,16 @@ export const ScriptDirectorOutputSchema = z.object({
       ctx.addIssue({ code: "custom", path: ["scenes", i, "skip_reason"], message: "у пропуска нужна причина" });
     }
   });
-  checkSemantic(o, ctx);
-});
-export type ScriptDirectorOutput = z.infer<typeof ScriptDirectorOutputSchema>;
+}
+
+/**
+ * Частичный ответ Script Director (S16a F1): только сцены проблемных фрагментов плана — код
+ * сливает их с остальным планом прошлого ответа (разбор и стиль — оттуда).
+ */
+export const ScriptDirectorPatchSchema = z.object({
+  scenes: z.array(ScriptDirectorSceneSchema),
+}).strict().superRefine((o, ctx) => checkDirectorScenes(o.scenes, ctx));
+export type ScriptDirectorPatch = z.infer<typeof ScriptDirectorPatchSchema>;
 
 /** Вход `script` у `playground.generate` (§6.2): сцена плана сценария, стиль проекта, запас. */
 export const ScriptSceneContextSchema = z.object({

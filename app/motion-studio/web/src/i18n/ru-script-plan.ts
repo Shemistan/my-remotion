@@ -141,6 +141,7 @@ export const ruScriptPlan = {
   "scriptPlan.issue.kinetic_overuse": "Слишком много сцен «Тезис словами»",
   "scriptPlan.issue.low_variety": "Мало разных приёмов",
   "scriptPlan.issue.adjacent_structure_repeat": "У соседних сцен одинаковая форма во времени",
+  "scriptPlan.issue.quote_autofixed": "Цитата сцены взята по словам текста",
   "scriptPlan.issue.meaning_repeat": "Сцены повторяют один смысл",
   "scriptPlan.issue.value_unverified": "Число не сверено с текстом — проверьте значение",
   "scriptPlan.issue.coverage_low": "Сценами покрыто мало текста",
