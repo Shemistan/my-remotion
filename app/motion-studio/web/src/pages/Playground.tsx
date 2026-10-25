@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, newKey, urls } from "../api/client.js";
 import { useJob, useScene, useVersion } from "../api/queries.js";
+import { useVideoScenes } from "../api/video-scenes-client.js";
 import { Chat } from "../components/Chat.js";
 import { ClarifyQuestions } from "../components/ClarifyQuestions.js";
 import { ComponentsPanel } from "../components/ComponentsPanel.js";
@@ -18,6 +19,7 @@ import { SceneTimeline, beatsOf } from "../components/SceneTimeline.js";
 import { SettingsForm } from "../components/SettingsForm.js";
 import { SpecView } from "../components/SpecView.js";
 import { VersionHistory } from "../components/VersionHistory.js";
+import { ApprovalCButton } from "../components/video-scenes/ApprovalCButton.js";
 import { errorText, t, tk } from "../i18n/index.js";
 import { formatNumber } from "../lib/player-math.js";
 import { navigate } from "../router.js";
@@ -133,6 +135,10 @@ export function Playground({ id, version }: { id: string; version?: string }) {
   const projectId = scene.data?.scene.project_id;
   const project = useQuery({ queryKey: ["project", projectId], queryFn: () => api.project(projectId!), enabled: Boolean(projectId) });
   const scriptProject = project.data?.project.kind === "script";
+  // Task 40: сцена видеопроекта — «← К видео» и Approval C (состояние сцены из вкладки «Сцены»)
+  const videoProject = project.data?.project.kind === "video";
+  const videoScenes = useVideoScenes(projectId, videoProject);
+  const videoScene = videoScenes.data?.scenes.find((x) => x.scene_id === id);
 
   if (scene.isError) return <div className="page"><p className="error">{errorText(scene.error)}</p></div>;
   if (!scene.data) return <div className="page"><p className="muted">{t("common.loading")}</p></div>;
@@ -157,6 +163,8 @@ export function Playground({ id, version }: { id: string; version?: string }) {
       <nav className="crumbs">
         {scriptProject ? (
           <Link to={{ name: "project", id: s.project_id }}>{t("scriptOutput.backToScript")}</Link>
+        ) : videoProject ? (
+          <Link to={{ name: "project", id: s.project_id }}>{t("videoScenes.backToVideo")}</Link>
         ) : (
           <Link to={{ name: "project", id: s.project_id }}>{t("nav.project")}</Link>
         )}
@@ -228,6 +236,15 @@ export function Playground({ id, version }: { id: string; version?: string }) {
             {dto.data ? <Generation dto={dto.data} /> : null}
             {m?.prompt ? <p className="muted prompt-line" title={m.prompt}>{m.prompt}</p> : null}
           </div>
+          {videoScene ? (
+            <ApprovalCButton
+              projectId={s.project_id}
+              sceneId={id}
+              versionId={videoScene.version_id}
+              versionNumber={videoScene.version_number}
+              approval={videoScene.approval}
+            />
+          ) : null}
           {!openId ? (
             <div className="empty-player">
               <p>{active_job ? t("playground.generating", { stage: stageText(active_job.stage) }) : t("playground.noVersions")}</p>

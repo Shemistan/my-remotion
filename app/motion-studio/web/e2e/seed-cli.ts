@@ -2,13 +2,15 @@
 // tmp-хранилище тестов, `MS_ALLOW_SYSTEM_DISK=1`). Раннер берёт только задачи засева (`onlyIds`):
 // три сцены — две версии (kit-gallery → choreo-gallery), прозрачная kit-gallery для ProRes,
 // hang-scene → failed-версия; сценарный проект (S9, `seed-script.ts`), его план строит задача
-// `script.plan` без агента. Последняя строка вывода — JSON с id.
+// `script.plan` без агента; видеопроект со сценами плана (Task 40, `seed-video-scenes.ts`).
+// Последняя строка вывода — JSON с id.
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bootCore } from "../../server/src/boot.js";
 import { registerHandlers } from "../../server/src/jobs/handlers.js";
 import { seedScript } from "./seed-script.js";
 import { seedScene } from "./seed.js";
+import { seedVideoScenes } from "./seed-video-scenes.js";
 
 const RENDER_FIXTURES = fileURLToPath(new URL("../../render/test/fixtures/", import.meta.url));
 const HANG = fileURLToPath(new URL("./fixtures/hang-scene/", import.meta.url));
@@ -31,7 +33,8 @@ async function main() {
     ], { projectId: PROJECT });
     const failed = await seedScene(core, [{ dir: HANG, timeoutMs: 20_000, prompt: "Сцена, которая вешает рендер" }], { projectId: PROJECT });
     const script = await seedScript(core, mine, join(root, "..", "script-fixtures"));
-    console.log(JSON.stringify({ projectId: PROJECT, versions, prores, failed, script }));
+    const videoScenes = await seedVideoScenes(core, mine, join(root, "..", "video-scene-fixtures"));
+    console.log(JSON.stringify({ projectId: PROJECT, versions, prores, failed, script, videoScenes }));
   } finally {
     await core.close();
   }
