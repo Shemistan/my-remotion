@@ -1,7 +1,7 @@
 // Сведение технического gate, программных проверок и ответа Visual QA в QAReport.
 import { type QAIssue, QAReportSchema, type VisualQAOutput } from "@ms/contracts";
 import { describe, expect, it } from "vitest";
-import { acceptedAsWarn, fixHints, mergeQA, qaBlocks } from "../../src/qa/report.js";
+import { acceptedAsWarn, fixHints, mergeQA, qaBlocks, repeatsAsWarning } from "../../src/qa/report.js";
 
 const issue = (code: string, severity: QAIssue["severity"], source: QAIssue["source"] = "programmatic"): QAIssue => ({
   source, code, severity, frame: 30, area: "right", description: `${code}: описание`, fix_hint: `${code}: как исправить`,
@@ -98,5 +98,47 @@ describe("fixHints", () => {
 
   it("без замечаний — пустая строка", () => {
     expect(fixHints(mergeQA({ technical: [], programmatic: [], agent: agentPass }))).toBe("");
+  });
+});
+
+describe("repeatsAsWarning (ревью S15a, I-1)", () => {
+  const rep = (...issues: QAIssue[]) => mergeQA({ technical: [], programmatic: issues });
+  const bare = (code: string, description: string): QAIssue => ({ source: "agent", code, severity: "blocking", description, fix_hint: "—" });
+  const ghost = (frames: number[], area = "Swiss Table"): QAIssue => ({
+    source: "programmatic", code: "ghost_text", severity: "blocking", frame: Math.min(...frames), area,
+    description: `текст «${area}» виден в 2 копиях друг на друге (кадры ${frames.join(", ")}) — след из копий читается мусором`, fix_hint: "—",
+  });
+  const sev = (r: ReturnType<typeof repeatsAsWarning>) => r.report.issues.map((i) => i.severity);
+
+  it("тот же ghost_text с теми же кадрами — warning, visual fail → warn", () => {
+    const r = repeatsAsWarning(rep(ghost([30, 60])), [rep(ghost([30, 60]))]);
+    expect(sev(r)).toEqual(["warning"]);
+    expect(r.report.gate.visual).toBe("warn");
+  });
+
+  it("ghost_text с другими кадрами — остаётся blocking", () => {
+    expect(sev(repeatsAsWarning(rep(ghost([30, 90])), [rep(ghost([30, 60]))]))).toEqual(["blocking"]);
+  });
+
+  it("тот же код и кадр, другая область — остаётся blocking", () => {
+    expect(sev(repeatsAsWarning(rep(ghost([30, 60], "Hash Map")), [rep(ghost([30, 60]))]))).toEqual(["blocking"]);
+  });
+
+  it("замечание без кадра и области: другой текст — blocking, тот же текст — warning", () => {
+    const prev = [rep(bare("missing_element", "на кадрах нет подписи оси"))];
+    expect(sev(repeatsAsWarning(rep(bare("missing_element", "в финале нет героя-числа")), prev))).toEqual(["blocking"]);
+    expect(sev(repeatsAsWarning(rep(bare("missing_element", "на кадрах  нет подписи оси")), prev))).toEqual(["warning"]);
+  });
+
+  it("kit_misuse, network, preview_size — никогда не понижаются, даже при том же тексте", () => {
+    const kit = (d: string): QAIssue => ({ ...bare("kit_misuse", `kit сообщает о неверном использовании: ${d}`), source: "programmatic" });
+    expect(sev(repeatsAsWarning(rep(kit("queue cells переполнен")), [rep(kit("DataToken раньше ребра"))]))).toEqual(["blocking"]);
+    expect(sev(repeatsAsWarning(rep(kit("DataToken раньше ребра")), [rep(kit("DataToken раньше ребра"))]))).toEqual(["blocking"]);
+    for (const code of ["network", "preview_size"]) {
+      const i: QAIssue = { ...bare(code, "сцена обращается к сети: http://x"), source: "programmatic" };
+      const r = repeatsAsWarning(rep(i), [rep(i)]);
+      expect(sev(r)).toEqual(["blocking"]);
+      expect(r.report.gate.visual).toBe("fail");
+    }
   });
 });

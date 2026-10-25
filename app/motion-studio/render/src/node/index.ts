@@ -10,6 +10,7 @@ export { exportDurationFrames, exportFps, exportGate } from "./export-gate.js";
 export { type AlphaCoverage, alphaAtCorner, alphaCoverage, overlayFrames } from "./alpha.js";
 // Чистые расчёты стиля kit (без React и шрифтов) — для QA и пайплайна на сервере.
 export { KIT_FONTS, type ResolveStyleInput, type ResolvedStyle, resolveStyle } from "../motion-kit/style/resolve.js";
+export { MOTION_KIT_VERSION } from "../motion-kit/version.js";
 export { contrastRatio, relativeLuminance } from "../motion-kit/style/contrast.js";
 export { type Rect, safeRect } from "../motion-kit/choreo/safe-area.js";
 export { type TypeLevel, typeSize } from "../motion-kit/style/type-scale.js";

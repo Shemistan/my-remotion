@@ -5,8 +5,7 @@ import { ensureFonts } from "./fonts.js";
 // шрифты kit грузятся при импорте: первый кадр уже нужным шрифтом
 ensureFonts();
 
-/** Версия API kit (API.md): 0.2 — StyleBible-система, хореография, примитивы паттернов ТЗ §8.4; 0.2.1 — Emphasis/Halo, акцент точки LineChart, входы и вспышки узлов FlowGraph (аддитивно); 0.2.2 — FlowNode.emphasis, AccentPulse.swell (аддитивно); 0.3.0 — кольцо акцента только на ударе по умолчанию, шторка mask с мягкой кромкой 14–18 кадров, FlowNode.size, Background seed/focus/spotlight/blueprint, useArrivalCount, StatusChip, DataToken, LatencyRace, SceneTitle (меняет вид существующих сцен, API — обратно совместим); 0.3.1 — полировка после дизайн-ревью: FlowNode.slot и DataToken в слот, разная грамматика StatusChip / DataToken, LatencyRace от высоты кадра, различимые blueprint / spotlight, свечение Emphasis за текстом, сообщения kit о неверном использовании (аддитивно); 0.4.0 — плохое движение трудно выразить: DataToken без копий текста (штрих-след, путь по линии, полоса узла / consume), FlowNode.kind (облик по роли), места данных и статуса узла, кадр-постер (pre-силуэты, фон с кадра 0), предел кегля 22 px, ось ≤ 4 делений, разметка реестра раскладки для QA (меняет вид существующих сцен, API — обратно совместим); 0.4.1 — ошибки kit `[motion-kit:error]` (QA kit_misuse): ёмкость `cells` буфера queue, токен раньше готовности ребра; ярлык компактного токена подписью связи (аддитивно); 0.4.2 — DataToken: запись в полосу без шторки, передача токена без двойника, постер под сдвигающим входом гаснет за 1/6; планировщик ритма: полоса удара по структуре, phaseTokens (меняет вид существующих сцен, API — обратно совместим); 0.5.0 — hold engine: живой финал по режиму удержания (`hold` у FlowGraph, LineChart, LatencyRace, Timeline, Emphasis, Camera; useHold, Comet, RadarRing, TickLabel), потоки графа в удержании стоят, кроме steady-flow (без `hold` — как раньше; аддитивно); 0.5.1 — планировщик ритма: полосы удара сдвигаются вместе под длинный вывод (ширина и порядок структур), главный акцент payoff входит целиком, setup графа не короче прорисовки рёбер (graphSetupMin), импульс со вспышкой прихода гаснет к удару (меняет кадры сцен с фазами, API — обратно совместим); 0.5.2 — S3-fix: передача акцента Emphasis в финал без скачка (emphasisHold), подпись тика repeat-result по приходу (repeatTick), герой графа дышит только в now-pulse / repeat-result / settle-push, steady-flow ведёт потоки с бита hold и держит каскад, блик data-shimmer графа — цепочкой к герою (shimmerPaths), блик repeat-result к тику у LineChart / Timeline, без подписи тика у гонки, settlePushHeadroom и kitWarn, хвост длинной сцены в секундах (HOLD_MAX_S, PAYOFF_MAX_S) (меняет вид финалов и кадры длинных сцен, API — обратно совместим); 0.5.3 — S3-fix2: метки пробы QA от движения (импульс steady-flow в пути, волна героя, повтор, блик), а не от включённого режима, привязка меток к кадру, kitWarn у steady-flow без потока; cold-open — крючок, а не спойлер (ColdOpen / useColdOpen / coldOpenAt: итог в полную силу с кадра 0, уходит целиком, возвращается на ударе), постер с текстом (`ghost` у Enter, `dim` у KineticText) — только у текста первых 1,5 с (меняет вид cold-open и поздних текстов с постером, API — аддитивно); 0.5.4 — S6: transparent-режим для наложения поверх видео — ореол текста цвета palette.bg у всего текста сцены (textHalo, withHalo, силуэт постера без ореола), muted ближе к text, приглушение текста цветом, а не opacity (dimText: BarChart, CodeBlock) (без transparent вид прежний; API — аддитивно); 0.5.5 — S14: Timeline — ось во всю ширину с делениями, шкала лет с подписями (timelineScale, timelineLayoutFor, datePosition), прогресс до последней вехи; ComparisonSplit — содержимое по центру панели, крупнее пункты и метка; FlowGraph — узел без подписи — kitError; проба раскладки — контейнеры kit (data-ms-box) и доли площади текста/графики (summarizeBoxes, areaShares) (меняет вид Timeline и ComparisonSplit, API — аддитивно). */
-export const MOTION_KIT_VERSION = "0.5.5";
+export { MOTION_KIT_VERSION } from "./version.js";
 
 export { ensureFonts, FONT_FILES, KIT_FONT_FAMILIES } from "./fonts.js";
 export { type PresetId, presets } from "./presets.js";
@@ -36,7 +35,7 @@ export { type FormatOptions, type PluralForms, formatNumber, pluralForm } from "
 export { axisTicks, niceTicks } from "./ticks.js";
 export { barLayout } from "./bars.js";
 export { type CodeFragment, type CodeLang, type CodeToken, type TokenKind, caretLine, codeLines, tokenizeCode, typedTokens } from "./code-tokens.js";
-export { datePosition, type TimelineScale, type TimelineTick, timelineLayout, timelineLayoutFor, timelineScale } from "./timeline-layout.js";
+export { datePosition, TIMELINE_LABEL_MIN, type TimelineFit, type TimelineScale, type TimelineTick, timelineFit, timelineLayout, timelineLayoutFor, timelineScale, yearTickShown } from "./timeline-layout.js";
 export {
   type CubicSegment,
   type PathLUT,
@@ -78,10 +77,10 @@ export { AreaChart, type AreaChartProps } from "./components/AreaChart.js";
 export { BarChart, type BarChartProps, barTimings } from "./components/BarChart.js";
 export { Callout, type CalloutProps } from "./components/Callout.js";
 export { CodeBlock, type CodeBlockProps, codeCharWidth, codeLineRect } from "./components/CodeBlock.js";
-export { type ComparisonSide, ComparisonSplit, type ComparisonSplitProps } from "./components/ComparisonSplit.js";
+export { type ComparisonSide, ComparisonSplit, type ComparisonSplitProps, metricShare } from "./components/ComparisonSplit.js";
 export { Highlight, type HighlightProps } from "./components/Highlight.js";
 export { Particles, type ParticlesProps } from "./components/Particles.js";
-export { ProcessSteps, type ProcessStepsProps, stepStarts } from "./components/ProcessSteps.js";
+export { ProcessSteps, type ProcessStepsProps, STEP_DIM, stepDim, stepStarts } from "./components/ProcessSteps.js";
 export { Timeline, type TimelineProps } from "./components/Timeline.js";
 export { Background, type BackgroundBlob, type BackgroundProps, type BackgroundVariant, backgroundLayout, backgroundReveal } from "./components/Background.js";
 export { Camera, type CameraProps, useCamera } from "./components/Camera.js";

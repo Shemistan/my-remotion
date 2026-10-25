@@ -150,6 +150,7 @@ export function specChecks(spec: MotionSpec, settings: Settings, opts: SpecCheck
   out.push(...structureMismatch(spec, opts.concept));
   out.push(...placeholderIssues(spec));
   out.push(...emptyContainerIssues(spec));
+  out.push(...timelineSingleEvent(spec));
   out.push(...purposeClaimIssues(spec));
   for (const prev of [opts.previous ?? []].flat()) {
     const repeat = signatureRepeat(spec, prev);
@@ -780,6 +781,22 @@ const EMPTY_ROLE = /(^|[^\p{L}])(пуст\p{L}*|empty|blank|заглушк\p{L}*
  * содержимого — `content.empty: true` или роль «пустые/заглушка». Warning — подсказка Director
  * (сцене сценария — раунд); по кадрам то же ловит проба раскладки (`empty_container` QA).
  */
+/**
+ * Таймлайн из одной вехи (S15a; смоук S14, сц. 4: ось 2024–2027 ради «февраль 2025»): ось
+ * времени без второй точки не сравнивает и не показывает ход — подсказка сменить приём.
+ */
+function timelineSingleEvent(spec: MotionSpec): Omit<QAIssue, "source">[] {
+  const hits = spec.elements.filter((e) => {
+    const c = e.content as Record<string, unknown>;
+    return c.component === "Timeline" && Array.isArray(c.items) && c.items.length < 2;
+  });
+  return hits.map((e) => ({
+    code: "timeline_single_event", severity: "warning" as const, area: e.id,
+    description: `таймлайн ${e.id} — ${((e.content as { items: unknown[] }).items.length)} веха: оси времени не с чем сравнить`,
+    fix_hint: "смени приём: одна дата — крупная плашка даты или число-герой (DataToken, AnimatedNumber) с подписью события; таймлайн — от двух вех (было → стало, этапы)",
+  }));
+}
+
 function emptyContainerIssues(spec: MotionSpec): Omit<QAIssue, "source">[] {
   const hits = spec.elements.filter((e) => (e.kind === "card" || e.kind === "group" || e.kind === "shape") && ((e.content as Record<string, unknown>).empty === true || EMPTY_ROLE.test(e.role)));
   if (hits.length === 0) return [];

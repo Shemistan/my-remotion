@@ -337,6 +337,21 @@ export function planSpecBeats(spec: DirectorSpec | MotionSpec, settings: Pick<Se
       });
     }
   }
+  // счёт фазы, что стоит в списке раньше фазы входа числа (count-up: action до setup), — тоже
+  // не раньше «вход + countFrom» (S15a: смоук S14 считал с кадра 39 при входе «0» на 92)
+  for (const [k, b] of out.entries()) {
+    const p = phases.find((x) => x.id === b.phase);
+    if (!p || p.role === "payoff" || p.role === "hold" || beatKind(b) !== "count") continue;
+    // вход числа — бит входа с этим элементом, начатый внутри окна счёта (счёт сам по себе
+    // показывает «от» с кадра 0, если отдельного входа нет)
+    const seen = Math.min(Infinity, ...out.filter((x) => x !== b && !posters.has(x.id) && beatKind(x) === "enter" && x.start_frame > b.start_frame && x.start_frame < b.end_frame && b.element_ids.some((id) => x.element_ids.includes(id))).map((x) => x.start_frame));
+    if (!Number.isFinite(seen) || seen + tok.countFrom <= b.start_frame) continue;
+    const s0 = Math.min(seen + tok.countFrom, b.end_frame - tok.enter);
+    if (s0 > b.start_frame) {
+      out[k] = { ...b, start_frame: s0 };
+      changes.push(`бит ${b.id}: счёт с кадра ${s0} — «от» видно ${tok.countFrom} кадров после входа`);
+    }
+  }
   // бит графа в setup короче прорисовки рёбер (span: "slot" Director или тесная сцена) —
   // рёбра не успеют, kit_misuse вернётся: предупреждение в журнал и раунд (s3afix2-rereview m3)
   for (const p of phases.filter((x) => graphMin(x) > 0)) {

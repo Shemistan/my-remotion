@@ -16,7 +16,7 @@ import type { Hold } from "../choreo/hold.js";
 import { pathLUT } from "../geometry.js";
 import { Comet, RadarRing, TickLabel, useHoldFrame } from "./HoldLayers.js";
 import { useStyle } from "../style.js";
-import { timelineLayoutFor, timelineScale } from "../timeline-layout.js";
+import { TIMELINE_LABEL_MIN, timelineLayoutFor, timelineScale, yearTickShown } from "../timeline-layout.js";
 import { accent, alpha, fontFamily, isDark, mix, radius, tracking } from "../tokens.js";
 
 export interface TimelineProps {
@@ -92,8 +92,10 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
   const rect = h ? { x: padX, y: 0, w: W - 2 * padX, h: H } : { x: padX, y: padY, w: 0, h: H - 2 * padY };
   // шкала (0.5.5): у всех дат есть год — вехи по шкале лет, иначе равномерно; ось — во всю
   // ширину области (одна веха — не точка без оси), с делениями
-  const scale = timelineScale(items.map((x) => x.date));
-  const pts = timelineLayoutFor(items.map((x) => x.date), rect, orientation);
+  // скученные вехи (0.5.6) — равномерно: подписи одной стороны не налезают, точки не сливаются
+  const fit = h ? { width: rect.w, node, label: TIMELINE_LABEL_MIN } : { width: rect.h, node, label: 0 };
+  const scale = timelineScale(items.map((x) => x.date), fit);
+  const pts = timelineLayoutFor(items.map((x) => x.date), rect, orientation, fit);
   const lastPt = pts.at(-1);
   const first = pts.length > 0 ? (h ? { x: rect.x, y: rect.y + rect.h / 2 } : { x: rect.x, y: rect.y }) : undefined;
   const axisEnd = pts.length > 0 ? (h ? { x: rect.x + rect.w, y: rect.y + rect.h / 2 } : { x: rect.x, y: rect.y + rect.h }) : undefined;
@@ -211,9 +213,9 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
       ) : null}
 
       {/* подписи лет у делений (0.5.5): под осью, проявляются с головой; рядом с вехой — нет
-          (дата вехи уже подписана, а её ореол и стебель не делят место с годом) */}
+          (стебель и дата там), кроме одиночной вехи (0.5.7: «февраль 2025» не теряет 2025) */}
       {h && scale.mode === "years"
-        ? scale.ticks.filter((t) => t.label !== undefined && pts.every((p) => Math.abs(tickAt(t.u).x - p.x) > Math.max(80, node * 4))).map((t, k) => {
+        ? scale.ticks.filter((t) => t.label !== undefined && yearTickShown(tickAt(t.u).x, pts, Math.max(80, node * 4))).map((t, k) => {
             const q = tickAt(t.u);
             const o = clamp01(track * 0.6 + clamp01((reach - t.u) * 10) * 0.4);
             return (
@@ -290,7 +292,11 @@ function TimelineBody({ items, beat, orientation, width, height, accentIndex = 0
           </div>
         );
         if (h) {
-          const boxW = Math.max(240, rect.w / Math.max(1, items.length - 1) - 30);
+          // ширина подписи (0.5.6): не шире зазора до вех своей стороны (через одну) — на шкале
+          // лет вехи стоят неравномерно
+          const even = rect.w / Math.max(1, items.length - 1) - 30;
+          const side = [i - 2, i + 2].filter((j) => j >= 0 && j < pts.length).map((j) => Math.abs(pts[j]!.x - p.x) - 30);
+          const boxW = Math.max(TIMELINE_LABEL_MIN, Math.min(even, ...side));
           // крайние вехи: подпись выровнена к краю внутрь области, средние — по центру узла
           const u = uOf(i);
           const edge = items.length > 1 && u <= 0.08 ? "start" : items.length > 1 && u >= 0.92 ? "end" : "center";

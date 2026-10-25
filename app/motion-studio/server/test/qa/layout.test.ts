@@ -53,6 +53,10 @@ describe("layoutIssues", () => {
     const f = summarizeLayout(90, 1080, [...wrap, sibling]);
     expect(layoutIssues([f])).toEqual([]);
   });
+  it("S15a: одинаковый текст друг на друге — только ghost_text, без text_overlap той же пары", () => {
+    const r = layoutIssues([{ frame: 54, height: 1080, ghosts: [{ text: "Память заранее", count: 2 }], items: [item("scene#0", "scene", "Память заранее", 100, 100, 300, 40), item("scene#9", "scene", "Память заранее", 100, 100, 300, 40)] }]);
+    expect(r.map((i) => i.code)).toEqual(["ghost_text"]);
+  });
   it("призраки — ghost_text (blocking)", () => {
     const r = layoutIssues([{ frame: 48, height: 1080, items: [], ghosts: [{ text: "GET /user/42", count: 3 }] }]);
     expect(r).toMatchObject([{ code: "ghost_text", severity: "blocking", frame: 48 }]);

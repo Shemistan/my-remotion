@@ -85,7 +85,7 @@ describe("loadPrompt", () => {
   });
 
   it("версия motion-kit в промптах и справке = MOTION_KIT_VERSION", () => {
-    const version = /MOTION_KIT_VERSION = "([\d.]+)"/.exec(readFileSync(join(APP, "render/src/motion-kit/index.ts"), "utf8"))?.[1];
+    const version = /MOTION_KIT_VERSION = "([\d.]+)"/.exec(readFileSync(join(APP, "render/src/motion-kit/version.ts"), "utf8"))?.[1];
     expect(version).toMatch(/^\d+\.\d+\.\d+$/);
     expect(readFileSync(join(APP, "render/src/motion-kit/API.md"), "utf8")).toMatch(new RegExp(`^# @ms/motion-kit ${version!.replace(/\./g, "\\.")} `));
     for (const f of globSync("prompts/**/*.md", { cwd: APP })) {

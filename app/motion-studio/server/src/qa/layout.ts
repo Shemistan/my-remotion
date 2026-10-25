@@ -34,6 +34,16 @@ export interface LayoutFrame {
   boxes?: { id: string; kind: string; rect: Box; filled: boolean; graphic: boolean }[];
   /** Доли кадра под текстом и под графикой (kit 0.5.5+). */
   areas?: { text: number; graphic: number };
+  /** Активные акценты кадра (`data-ms-accent` > 0,5; kit 0.5.6+). */
+  accents?: { id: string; level: number }[];
+}
+
+/** accent_conflict подтверждён пробой, если два акцента сразу — в стольких QA-кадрах (S15a). */
+export const ACCENT_CONFLICT_FRAMES = 2;
+
+/** QA-кадры, где светятся ≥ 2 акцента сразу (kit 0.5.6: Emphasis, Highlight, шаг ProcessSteps). */
+export function accentConflictFrames(frames: readonly LayoutFrame[]): number[] {
+  return frames.filter((f) => (f.accents?.length ?? 0) >= 2).map((f) => f.frame);
 }
 
 /** Графики в hold меньше этой доли кадра при тексте вдвое больше — «текст вместо героя» (S14). */
@@ -42,6 +52,8 @@ export const HERO_GRAPHIC_MIN = 0.12;
 const PLACEHOLDER_REPEAT = 3;
 /** Знак вместо подписи: вопрос или многоточие. */
 const GLYPH_ONLY = /^\s*(?:[?？]+|…|\.{3})\s*$/u;
+/** Контейнеры kit, чья подпись-повтор — заглушка (S15a): карточка, узел графа, панель сравнения. */
+const CONTAINER_KINDS: ReadonlySet<string> = new Set(["card", "node", "panel"]);
 /** Общая подпись: 1–2 слова без цифр. */
 const GENERIC = /^[\p{L}]+(?: [\p{L}]+)?$/u;
 const pctOf = (v: number) => `${Math.round(v * 100)} %`;
@@ -74,17 +86,27 @@ export function scriptLayoutIssues(frames: LayoutFrame[]): Issue[] {
     const box = (last.boxes ?? []).find((b) => inBox(mid(it.rect), b.rect));
     return !box || !last.items.some((o) => o !== it && o.text.trim() !== it.text.trim() && inBox(mid(o.rect), box.rect));
   };
-  const groups = new Map<string, Set<string>>();
+  // S15a: подпись в контейнере kit (карточка, узел, панель) — объект без своего содержимого;
+  // повтор вне контейнеров (подписи оси, легенда) — только подсказка
+  const contained = (it: LayoutItem) => (last.boxes ?? []).some((b) => CONTAINER_KINDS.has(b.kind) && inBox(mid(it.rect), b.rect));
+  // единица у числа («12 мс»): короткий токен на строке с цифрой — не подпись
+  const sameLine = (a: Box, b: Box) => Math.abs(mid(a).y - mid(b).y) <= Math.max(a.h, b.h) / 2;
+  const unit = (it: LayoutItem, t: string) => t.length <= 3 && last.items.some((o) => o !== it && /\d/.test(o.text) && sameLine(o.rect, it.rect));
+  const groups = new Map<string, { all: Set<string>; boxed: Set<string> }>();
   for (const it of own) {
     const t = it.text.trim().toLowerCase().replace(/ё/g, "е");
-    if ((!GENERIC.test(t) && !GLYPH_ONLY.test(t)) || !alone(it)) continue;
-    groups.set(t, (groups.get(t) ?? new Set()).add(it.id));
+    if ((!GENERIC.test(t) && !GLYPH_ONLY.test(t)) || !alone(it) || (!GLYPH_ONLY.test(t) && unit(it, t))) continue;
+    const g = groups.get(t) ?? { all: new Set<string>(), boxed: new Set<string>() };
+    g.all.add(it.id);
+    if (contained(it)) g.boxed.add(it.id);
+    groups.set(t, g);
   }
-  const stubs = [...groups].filter(([t, ids]) => ids.size >= (GLYPH_ONLY.test(t) ? 2 : PLACEHOLDER_REPEAT));
+  const stubs = [...groups].filter(([t, g]) => g.all.size >= (GLYPH_ONLY.test(t) ? 2 : PLACEHOLDER_REPEAT));
   if (stubs.length > 0) {
+    const hard = stubs.some(([t, g]) => GLYPH_ONLY.test(t) || g.boxed.size >= PLACEHOLDER_REPEAT);
     out.push({
-      code: "placeholder_label", severity: "blocking", frame: last.frame, area: stubs.map(([t]) => q(t)).join(", "),
-      description: `подписи-заглушки в финальном кадре: ${stubs.map(([t, ids]) => `${q(t)} ×${ids.size}`).join(", ")} — у объектов нет своего содержимого`,
+      code: "placeholder_label", severity: hard ? "blocking" : "warning", frame: last.frame, area: stubs.map(([t]) => q(t)).join(", "),
+      description: `подписи-заглушки в финальном кадре: ${stubs.map(([t, g]) => `${q(t)} ×${g.all.size}`).join(", ")} — у объектов нет своего содержимого${hard ? "" : " (вне карточек и узлов — подсказка)"}`,
       fix_hint: "у каждого объекта — своё содержимое из spec (имя, число, термин фразы), не одна общая подпись и не «?»; нет различий — один объект с числом вместо копий",
     });
   }
@@ -158,6 +180,8 @@ export function layoutIssues(frames: LayoutFrame[]): Issue[] {
         const [a, b] = [f.items[i]!, f.items[j]!];
         // строки и узлы одного элемента (перенос, `В {n} раз`) — не наложение (S2-fix2 N3)
         if (a.el !== undefined && a.el === b.el) continue;
+        // один и тот же текст друг на друге — это ghost_text (свод призраков), не вторая проблема (S15a)
+        if (a.text.trim() === b.text.trim()) continue;
         if (overlap(a.rect, b.rect) < OVERLAP_SHARE) continue;
         const token = a.role === "token" ? a : b.role === "token" ? b : null;
         const other = token === a ? b : a;

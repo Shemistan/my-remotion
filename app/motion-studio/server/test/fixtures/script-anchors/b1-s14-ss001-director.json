@@ -1,0 +1,409 @@
+{
+  "input_hash": "8f413888846c663cb70bcf77a652c92e709ffad0b000de138ce4b6671b25eff4",
+  "output": {
+    "spec": {
+      "title": "Разбор map: три вопроса",
+      "purpose": "Самый известный разбор map в Go держался на трёх вопросах с собеседования — цифра «3» отсчитывается и раскрывает три вопроса.",
+      "duration_frames": 321,
+      "fps": {
+        "num": 30,
+        "den": 1
+      },
+      "style_preset": "dark-premium",
+      "palette_overrides": {},
+      "composition": {
+        "archetype": "split",
+        "idea": "Слева — спокойная карточка видео «map в Go», справа от неё — огромная цифра-счётчик. Счёт 0 → 3 встаёт на слове «трёх», и от цифры тремя лучами расходятся три слота-вопроса. Взгляд идёт: карточка → цифра → лучи → слоты.",
+        "focus": "Setup: фокус на карточке видео (она входит первой). Action: удар акцента на «map» у кадра ~147, затем взгляд переходит на счёт цифры. Payoff: цифра «3» бьёт, лучи ведут взгляд вправо к слотам. Hold: settle-push — медленный наезд к цифре, она дышит (Emphasis hold). До hold камера стоит.",
+        "transitions": "Карточка видео входит и остаётся тихой опорой до конца; её акцент гаснет (loop: false) и передаётся цифре. Цифра держит «0», считает, бьёт на «3» и дальше дышит. Подпись под цифрой проявляется после удара, лучи прорастают от цифры, слоты въезжают каскадом по их концам. Ничего не уходит — финал собирает всю композицию.",
+        "title_mode": "none",
+        "background": {
+          "variant": "aurora",
+          "focus": {
+            "x": 0.55,
+            "y": 0.45
+          }
+        },
+        "structure": "count-up",
+        "structure_reason": "Форма времени one-number: число ведёт сцену — входит в setup со значением «0», считает в action и бьёт на слове «трёх»."
+      },
+      "elements": [
+        {
+          "id": "video-card",
+          "kind": "card",
+          "role": "опора: карточка видео-разбора, акцент на «map» у кадра 147",
+          "entrance": "rise",
+          "depth_layer": 1,
+          "content": {
+            "component": "Card",
+            "enter": "flip",
+            "elevation": 2,
+            "kicker": {
+              "text": "YouTube · разбор",
+              "size": "caption",
+              "color": "muted"
+            },
+            "preview": "тёмный кадр-превью 16:9 сверху карточки с круглой кнопкой ▶ в центре (shape внутри карточки, accent[0] контуром)",
+            "title": {
+              "text": "map в Go",
+              "size": "h1",
+              "font": "mono",
+              "emphasis_word": "map"
+            },
+            "progress_bar": "тонкая полоса просмотра внизу карточки, заполнена на 100 % muted-тоном (видео вышло давно)",
+            "emphasis": {
+              "target": "слово «map» в заголовке",
+              "mode": "Highlight glow",
+              "loop": false
+            }
+          },
+          "layout": {
+            "x": 0.05,
+            "y": 0.24,
+            "w": 0.3,
+            "h": 0.52
+          }
+        },
+        {
+          "id": "hero-number",
+          "kind": "number",
+          "role": "герой: число вопросов «3», акцент в payoff и финале",
+          "entrance": "count",
+          "depth_layer": 2,
+          "content": {
+            "component": "AnimatedNumber",
+            "from": 0,
+            "to": 3,
+            "locale": "ru",
+            "size": 357,
+            "size_note": "3 × display (≈ 33 % высоты кадра): бриф требует героя-число на 30–40 % кадра; это единственный кегль вне шкалы",
+            "font": "display",
+            "reserveWidth": true,
+            "enterAt": "начало бита b-number-in",
+            "wrapper": "Emphasis (shape circle, ring strike, удар в b-number-strike, hold settle-push)",
+            "note": "без суффикса: подпись «вопроса с собеседования» входит отдельно в payoff"
+          },
+          "layout": {
+            "x": 0.39,
+            "y": 0.12,
+            "w": 0.25,
+            "h": 0.58
+          }
+        },
+        {
+          "id": "number-caption",
+          "kind": "text",
+          "role": "подпись к герою",
+          "entrance": "blur",
+          "depth_layer": 1,
+          "content": {
+            "component": "KineticText",
+            "text": "вопроса\nс собеседования",
+            "size": "body",
+            "mode": "words",
+            "enter": "fade",
+            "align": "center",
+            "color": "text"
+          },
+          "layout": {
+            "x": 0.38,
+            "y": 0.72,
+            "w": 0.27,
+            "h": 0.18
+          }
+        },
+        {
+          "id": "rays",
+          "kind": "shape",
+          "role": "связь: три луча от цифры к слотам",
+          "entrance": "draw",
+          "depth_layer": 1,
+          "content": {
+            "component": "svg paths (linear draw)",
+            "paths": "три мягкие S-кривые из правого края цифры (общая точка ~y 0.5 области) к левым кромкам трёх слотов",
+            "stroke": "muted 2 px, головка-точка accent[0] на конце прорисовки",
+            "stagger": "stagger_frames между лучами"
+          },
+          "layout": {
+            "x": 0.63,
+            "y": 0.2,
+            "w": 0.06,
+            "h": 0.6
+          }
+        },
+        {
+          "id": "slot-1",
+          "kind": "card",
+          "role": "слот-вопрос: память",
+          "entrance": "slide",
+          "depth_layer": 1,
+          "content": {
+            "component": "Card",
+            "enter": "slide",
+            "elevation": 1,
+            "outline": "пунктирная кромка muted — слот ждёт ответа",
+            "index_mark": {
+              "text": "01",
+              "size": "caption",
+              "font": "mono",
+              "color": "muted"
+            },
+            "label": {
+              "text": "Память заранее",
+              "size": "body"
+            }
+          },
+          "layout": {
+            "x": 0.69,
+            "y": 0.18,
+            "w": 0.26,
+            "h": 0.17
+          }
+        },
+        {
+          "id": "slot-2",
+          "kind": "card",
+          "role": "слот-вопрос: обход",
+          "entrance": "slide",
+          "depth_layer": 1,
+          "content": {
+            "component": "Card",
+            "enter": "slide",
+            "elevation": 1,
+            "outline": "пунктирная кромка muted",
+            "index_mark": {
+              "text": "02",
+              "size": "caption",
+              "font": "mono",
+              "color": "muted"
+            },
+            "label": {
+              "text": "Порядок обхода",
+              "size": "body"
+            }
+          },
+          "layout": {
+            "x": 0.69,
+            "y": 0.415,
+            "w": 0.26,
+            "h": 0.17
+          }
+        },
+        {
+          "id": "slot-3",
+          "kind": "card",
+          "role": "слот-вопрос: адрес",
+          "entrance": "slide",
+          "depth_layer": 1,
+          "content": {
+            "component": "Card",
+            "enter": "slide",
+            "elevation": 1,
+            "outline": "пунктирная кромка muted",
+            "index_mark": {
+              "text": "03",
+              "size": "caption",
+              "font": "mono",
+              "color": "muted"
+            },
+            "label": {
+              "text": "Адрес элемента",
+              "size": "body"
+            }
+          },
+          "layout": {
+            "x": 0.69,
+            "y": 0.65,
+            "w": 0.26,
+            "h": 0.17
+          }
+        }
+      ],
+      "phases": [
+        {
+          "id": "setup",
+          "role": "setup",
+          "weight": 40,
+          "element_ids": [
+            "video-card",
+            "hero-number"
+          ]
+        },
+        {
+          "id": "action",
+          "role": "action",
+          "weight": 32,
+          "element_ids": [
+            "video-card",
+            "hero-number"
+          ]
+        },
+        {
+          "id": "payoff",
+          "role": "payoff",
+          "weight": 18,
+          "element_ids": [
+            "hero-number",
+            "number-caption",
+            "rays",
+            "slot-1",
+            "slot-2",
+            "slot-3"
+          ]
+        },
+        {
+          "id": "hold",
+          "role": "hold",
+          "weight": 10,
+          "element_ids": [
+            "hero-number"
+          ],
+          "hold_mode": "settle-push"
+        }
+      ],
+      "beats": [
+        {
+          "id": "b-card-in",
+          "action": "video-card-in",
+          "description": "Карточка видео поворачивается к зрителю (Card enter flip, elevation 2): кикер «YouTube · разбор», превью с ▶, заголовок «map в Go» моно h1. До входа — силуэт рамки (pre silhouette).",
+          "element_ids": [
+            "video-card"
+          ],
+          "phase": "setup",
+          "kind": "enter"
+        },
+        {
+          "id": "b-number-in",
+          "action": "hero-number-in",
+          "description": "Справа выскакивает огромный «0» (pop) и держит значение «от» до начала счёта (enterAt = начало этого бита, ≥ 15 кадров до счёта). Акцента нет — пока спокойный muted-ореол отсутствует.",
+          "element_ids": [
+            "hero-number"
+          ],
+          "phase": "setup",
+          "kind": "enter"
+        },
+        {
+          "id": "b-map-emphasis",
+          "action": "map-emphasis",
+          "description": "На слове «map» (кадр ~147) слово в заголовке карточки разгорается Highlight glow (accentIndex 0) с коротким ударом; loop: false — гаснет за ~0.5 с, передавая акцент цифре.",
+          "element_ids": [
+            "video-card"
+          ],
+          "phase": "action",
+          "kind": "accent"
+        },
+        {
+          "id": "b-count",
+          "action": "hero-number-count",
+          "description": "Счёт 0 → 1 → 2 → 3 через всё окно action (≥ 1,5 с), EASE.count: разгон и долгое торможение; итог «3» приходит к кадру ~240 (за 3–6 кадров до слова «трёх» на 243). Цифры моноширинные, reserveWidth.",
+          "element_ids": [
+            "hero-number"
+          ],
+          "phase": "action",
+          "span": "phase",
+          "kind": "count"
+        },
+        {
+          "id": "b-number-strike",
+          "action": "final-emphasis-number",
+          "description": "Удар готового «3»: Emphasis (shape circle, ring strike) — масштаб +6 %, вспышка свечения accent[0], одно кольцо. Единственный акцент кадра с этого момента.",
+          "element_ids": [
+            "hero-number"
+          ],
+          "phase": "payoff",
+          "kind": "accent"
+        },
+        {
+          "id": "b-caption-in",
+          "action": "caption-in",
+          "description": "Под цифрой из размытия проявляется «вопроса / с собеседования» (body, по центру, две строки) — к слову «вопросах» (кадр ~255).",
+          "element_ids": [
+            "number-caption"
+          ],
+          "phase": "payoff",
+          "kind": "enter"
+        },
+        {
+          "id": "b-rays-draw",
+          "action": "rays-draw",
+          "description": "От правого края цифры прорисовываются три луча (linear draw, сдвиг stagger_frames) к трём слотам; головка-точка бежит по каждому.",
+          "element_ids": [
+            "rays"
+          ],
+          "phase": "payoff",
+          "kind": "sustain"
+        },
+        {
+          "id": "b-slots-in",
+          "action": "slots-in",
+          "description": "Три слота въезжают слева каскадом (Card enter slide, сдвиг stagger_frames) у концов лучей: «01 · Память заранее», «02 · Порядок обхода», «03 · Адрес элемента». Пунктирная кромка — ждут ответа в следующей сцене; акцента у слотов нет.",
+          "element_ids": [
+            "slot-1",
+            "slot-2",
+            "slot-3"
+          ],
+          "phase": "payoff",
+          "kind": "enter"
+        },
+        {
+          "id": "b-hold",
+          "action": "hold",
+          "description": "Новых входов нет. Цифра «3» дышит (Emphasis hold: ореол и масштаб в противофазе), камера settle-push медленно наезжает ещё на ~4 % к цифре (focus x +30 px). Итог подтверждён — слоты и карточка стоят тихо.",
+          "element_ids": [
+            "hero-number"
+          ],
+          "phase": "hold",
+          "span": "phase",
+          "kind": "hold"
+        }
+      ],
+      "camera": [
+        {
+          "frame": 0,
+          "scale": 1,
+          "x": 0,
+          "y": 0
+        },
+        {
+          "frame": 290,
+          "scale": 1,
+          "x": 0,
+          "y": 0
+        }
+      ]
+    },
+    "composition": {
+      "archetype": "split",
+      "idea": "Слева — спокойная карточка видео «map в Go», справа — огромная цифра-счётчик. Счёт 0 → 3 встаёт на слове «трёх», и от цифры тремя лучами расходятся три слота-вопроса. Взгляд: карточка → цифра → лучи → слоты.",
+      "focus": "Setup — карточка видео; action — акцент «map» (~147), затем счёт цифры; payoff — удар «3», лучи ведут к слотам; hold — settle-push к цифре, до этого камера стоит.",
+      "transitions": "Карточка остаётся тихой опорой, её акцент гаснет и передаётся цифре. Цифра держит «0», считает, бьёт на «3» и дышит. Подпись, лучи и слоты вырастают из цифры; ничего не уходит.",
+      "title_mode": "none",
+      "background": {
+        "variant": "aurora",
+        "focus": {
+          "x": 0.55,
+          "y": 0.45
+        }
+      },
+      "structure": "count-up",
+      "structure_reason": "Форма one-number: число входит в setup с «0», считает в action, бьёт на «трёх»."
+    },
+    "selection": {
+      "items": [
+        {
+          "kb_id": "remotion-bits/animated-counter",
+          "strategy": "adapt",
+          "why": "Идея крупного счётчика с ключевым значением — реализуется через AnimatedNumber kit с enterAt и ударом на финише.",
+          "files_to_copy": []
+        },
+        {
+          "kb_id": "motion-primitives/animated-number",
+          "strategy": "adapt",
+          "why": "Пружинное докручивание целого числа с табличными цифрами — ориентир для характера счёта 0 → 3.",
+          "files_to_copy": []
+        }
+      ]
+    },
+    "rationale": "Мысль: известный разбор map держался на трёх вопросах. Герой — огромная цифра «3» (AnimatedNumber, ≈ 33 % высоты кадра). Архетип split: карточка видео слева уравновешивает цифру и слоты справа, в отличие от следующей сцены-чеклиста. Заголовка нет — смысл несут «map в Go» и подпись к цифре. Фон aurora с пятном за числом. Отвергнут DataToken в роли героя: «3» — величина, а не передаваемая запись, и токен не дал бы числу масштаба. Структура count-up: «0» видно с setup, счёт идёт в action, удар — у слова «трёх» (кадр 243), подпись — у «вопросах» (255). Акцент переходит от «map» (loop: false) к цифре. Финал settle-push: цифра дышит под медленным наездом. Слоты подписаны темами следующей сцены, чтобы не было пустых рамок. KB — идея счётчика из animated-counter/animated-number."
+  }
+}

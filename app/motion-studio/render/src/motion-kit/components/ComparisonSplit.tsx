@@ -24,6 +24,17 @@ export interface ComparisonSide {
   value?: string;
   /** Тон: negative — ✕ и цвет negative, positive — ✓ и positive; по умолчанию слева negative, справа positive. */
   tone?: "negative" | "positive" | "neutral";
+  /**
+   * Графика стороны (0.5.6): мини-метр «значение из максимума» — полоса, которая заполняется
+   * до `value / max` цветом тона. Сравнение читается картинкой, а не двумя столбцами текста;
+   * панель с метром в пробе QA — графика (`data-ms-graphic`).
+   */
+  metric?: { value: number; max: number };
+}
+
+/** Доля метра стороны (0.5.6, чистая функция): `value / max` в [0; 1]; max ≤ 0 — 0. */
+export function metricShare(m: { value: number; max: number }): number {
+  return m.max > 0 && Number.isFinite(m.value) ? Math.max(0, Math.min(1, m.value / m.max)) : 0;
 }
 
 export interface ComparisonSplitProps {
@@ -92,6 +103,7 @@ function ComparisonSplitBody({ left, right, beat, divider, emphasizeRight = true
     return (
       <div
         data-ms-box="panel"
+        data-ms-graphic={side.metric ? "metric" : undefined}
         style={{
           position: "relative",
           flex: 1,
@@ -185,6 +197,19 @@ function ComparisonSplitBody({ left, right, beat, divider, emphasizeRight = true
               );
             })}
           </div>
+          {side.metric ? (
+            // мини-метр (0.5.6): дорожка и заполнение до value / max, растёт после пунктов
+            <svg
+              width="100%"
+              height={Math.max(48, Math.round(height * 0.06))}
+              viewBox="0 0 100 10"
+              preserveAspectRatio="none"
+              style={{ display: "block", marginTop: Math.round(height * 0.012), overflow: "visible" }}
+            >
+              <rect x={0} y={2} width={100} height={6} rx={3} fill={alpha(s.palette.text, dark ? 0.12 : 0.1)} />
+              <rect x={0} y={2} width={(100 * metricShare(side.metric) * ramp(frame, items + itemsSpan * 0.5, items + itemsSpan * 1.1, EASE.outQuart)).toFixed(3)} height={6} rx={3} fill={toneColor} />
+            </svg>
+          ) : null}
           {side.value ? (
             <div
               style={{

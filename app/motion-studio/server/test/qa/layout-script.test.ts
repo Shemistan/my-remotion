@@ -23,7 +23,8 @@ describe("scriptLayoutIssues", () => {
   });
 
   it("«вопрос» ×3 в узлах и «?» в трёх карточках — blocking placeholder_label", () => {
-    const nodes = frame({ items: [item("label:q1:0", "вопрос", 0, 0), item("label:q2:1", "вопрос", 0, 100), item("label:q3:2", "вопрос", 0, 200)] });
+    const nodeBoxes = [0, 1, 2].map((k) => ({ id: `node:q${k}:${k}`, kind: "node", rect: { x: 0, y: k * 100, w: 220, h: 60 }, filled: true, graphic: false }));
+    const nodes = frame({ boxes: nodeBoxes, items: [item("label:q1:0", "вопрос", 0, 0), item("label:q2:1", "вопрос", 0, 100), item("label:q3:2", "вопрос", 0, 200)] });
     expect(codes([nodes])).toEqual(["placeholder_label:blocking"]);
     const glyphs = frame({ items: [item("scene#1", "?", 0, 0), item("scene#2", "?", 300, 0), item("scene#3", "?", 600, 0)] });
     expect(codes([glyphs])).toEqual(["placeholder_label:blocking"]);
@@ -38,6 +39,18 @@ describe("scriptLayoutIssues", () => {
   it("статусы («актуален» ×3) и подписи с числом — не заглушки", () => {
     const ok = frame({ items: [item("status::0", "актуален", 0, 0, "status"), item("status::1", "актуален", 0, 100, "status"), item("status::2", "актуален", 0, 200, "status"), item("a", "Шаг 1", 0, 300), item("b", "Шаг 1", 0, 400), item("c", "Шаг 1", 0, 500)] });
     expect(codes([ok])).toEqual([]);
+  });
+
+  it("S15a: повтор подписи вне контейнеров kit — warning (подпись оси, легенда), не blocking", () => {
+    const loose = frame({ items: [item("a", "вопрос", 0, 0), item("b", "вопрос", 0, 100), item("c", "вопрос", 0, 200)] });
+    expect(codes([loose])).toEqual(["placeholder_label:warning"]);
+  });
+
+  it("S15a: короткий токен (≤ 3 символов) на строке с числом — не подпись-заглушка", () => {
+    // единица в своём чипе-узле, число рядом на той же строке
+    const boxes = [0, 1, 2].map((k) => ({ id: `node::${k}`, kind: "node", rect: { x: k * 500 + 220, y: 0, w: 240, h: 80 }, filled: true, graphic: false }));
+    const items = [0, 1, 2].flatMap((k) => [item(`n${k}`, String(10 * (k + 1)), k * 500, 20), item(`u${k}`, "мс", k * 500 + 230, 20)]);
+    expect(codes([frame({ boxes, items })])).toEqual([]);
   });
 
   it("текст ≫ графики в hold — warning text_dominant с долями; график на треть кадра — норма", () => {

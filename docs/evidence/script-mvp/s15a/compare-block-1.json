@@ -1,0 +1,19 @@
+{
+  "task": "S15a",
+  "date": "2026-10-25",
+  "before": "docs/evidence/script-mvp/s14/smoke-block-1.json (S14)",
+  "after": "docs/evidence/script-mvp/s15a/smoke-block-1.json",
+  "note": "план другой у сцен 1 и 5: S14 hero-number / process-steps, S15a kinetic-quote / line-trend; сцены 2–4 — те же приёмы",
+  "scenes": [
+    {"n": 1, "technique": "hero-number → kinetic-quote", "designer": [7, 7], "judge": [5.5, 5.5], "engineer_calls": [3, 3]},
+    {"n": 2, "technique": "checklist", "designer": [7, 6], "judge": [4.5, 4], "engineer_calls": [1, 1]},
+    {"n": 3, "technique": "split-versus", "designer": [5.5, 5.5], "judge": [4.5, 5], "engineer_calls": [3, 1]},
+    {"n": 4, "technique": "timeline", "designer": [6, 6], "judge": [4.5, 4.5], "engineer_calls": [3, 1]},
+    {"n": 5, "technique": "process-steps → line-trend", "designer": [6.5, 5.5], "judge": [5, 4.5], "engineer_calls": [3, 2]}
+  ],
+  "average": {"designer": [6.4, 6.0], "judge": [4.8, 4.7]},
+  "enters_after_anchor": {"S14_over_1_5_enter": ["b-card-in 101", "b-number-in 101 (сц. 1, якорь «3» 155 → 239)"], "S15a_over_1_5_enter_in_anchored_scenes": []},
+  "unfixed_blocking": {"S14": ["accent_conflict ×2 сцены", "ghost_text ×8", "text_overlap ×8", "placeholder_label"], "S15a": []},
+  "engineer_calls": [13, 8],
+  "smoke": {"generate_minutes": [28.8, 26.4], "generate_cost_usd": [13.77, 13.3], "test_seconds": [2007, 1883]}
+}

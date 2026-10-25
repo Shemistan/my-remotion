@@ -134,8 +134,11 @@ export async function exportOne(ctx: JobContext, d: SceneExportDeps, input: Expo
   const root = d.repo.root;
   const versionDir = join(root, row.path);
   let settings: Settings;
+  let builtOn: RenderEnv;
   try {
-    settings = (await readVersion(versionDir)).settings;
+    const vm = await readVersion(versionDir);
+    settings = vm.settings;
+    builtOn = vm.render_env;
   } catch (e) {
     if (isStorageError(e)) return fail("storage", errText(e));
     return fail("prepare", `версия ${row.number} не прочитана: ${errText(e)}`);
@@ -254,6 +257,10 @@ export async function exportOne(ctx: JobContext, d: SceneExportDeps, input: Expo
       overlayRec = { coverage: c.opaque, haze: c.haze, frames: checkFrames };
     }
     if (request.format === "mp4" && settings.transparent_export === true) warnings.push(TRANSPARENT_MP4_WARNING);
+    // S15a: версия собрана на другом motion-kit — вид компонентов мог измениться (честный экспорт)
+    const envNow = await (d.renderEnv ?? currentRenderEnv)();
+    const kitChanged = kitChangedWarning(builtOn, envNow);
+    if (kitChanged) warnings.push(kitChanged);
 
     ctx.progress(0.9, "publish");
     const exportId = newId("exp");
@@ -268,7 +275,7 @@ export async function exportOne(ctx: JobContext, d: SceneExportDeps, input: Expo
       settings: { ...settings, fps: exportFps(settings, request), duration_frames: exportDurationFrames(settings, request), ...(overlay ? { transparent_export: true } : {}) },
       ffprobe: r.probe,
       sha256,
-      render_env: await (d.renderEnv ?? currentRenderEnv)(),
+      render_env: envNow,
       created_at: new Date().toISOString(),
       ...(r.tempo ? { tempo_check: r.tempo } : {}),
       ...(warnings.length ? { warnings } : {}),
@@ -364,4 +371,18 @@ function publish(
     }
     throw e;
   }
+}
+
+/**
+ * Версия собрана на другом motion-kit, чем идёт экспорт (S15a): по `motion_kit_version`, а у
+ * версий без него (до kit 0.5.6) — по хешу исходников kit. Вид компонентов мог измениться —
+ * предупреждение, экспорт не блокируется.
+ */
+export function kitChangedWarning(built: RenderEnv, now: RenderEnv): string | undefined {
+  if (built.motion_kit_version && now.motion_kit_version) {
+    if (built.motion_kit_version === now.motion_kit_version) return undefined;
+    return `kit_changed: версия собрана на motion-kit ${built.motion_kit_version}, экспорт — на ${now.motion_kit_version}: вид компонентов мог измениться; сверьте с превью версии или перегенерируйте сцену`;
+  }
+  if (built.motion_kit === now.motion_kit) return undefined;
+  return `kit_changed: версия собрана на другом motion-kit (${built.motion_kit} → ${now.motion_kit}${now.motion_kit_version ? `, сейчас ${now.motion_kit_version}` : ""}): вид компонентов мог измениться; сверьте с превью версии или перегенерируйте сцену`;
 }

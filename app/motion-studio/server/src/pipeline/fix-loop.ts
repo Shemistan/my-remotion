@@ -31,12 +31,12 @@ import {
 import { type ReapOptions, fileProcessRegistry, reapAttempt, safeMkdir } from "@ms/core";
 import { type RenderRequest, type RenderResult, type renderVersion, probeGate } from "@ms/render";
 import { ACCENT_HOLD_GAP, programmaticChecks } from "../qa/programmatic.js";
-import { type LayoutFrame, parseLayout, scriptLayoutIssues } from "../qa/layout.js";
-import { acceptedAsWarn, fixHints, meaningFails, mergeQA, qaBlocks } from "../qa/report.js";
+import { ACCENT_CONFLICT_FRAMES, type LayoutFrame, accentConflictFrames, parseLayout, scriptLayoutIssues } from "../qa/layout.js";
+import { acceptedAsWarn, fixHints, meaningFails, mergeQA, qaBlocks, repeatsAsWarning } from "../qa/report.js";
 import { specChecks } from "../qa/spec-checks.js";
 import { reconcileMissing, runVisualQA } from "../qa/visual-agent.js";
 import { sha256File } from "../scenes/hash.js";
-import { kitImportsInDir } from "../scenes/kit-imports.js";
+import { kitImportsInDir, kitJsxInDir } from "../scenes/kit-imports.js";
 import { copyTree } from "../scenes/store.js";
 import { type checkSceneDir, frameLiteralsInDir } from "../scenes/static-check.js";
 import type { typecheckVersion } from "../scenes/typecheck.js";
@@ -961,7 +961,12 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
         if (first) i.progress?.(0.7, "qa");
         const q = await runQa(i, state, t, rr, techWarnings, call, extra, style);
         if ("exit" in q) return { exit: q.exit, ...(issue ? { issue } : {}) };
-        lastQa = report_ = q.report;
+        // S15a: тот же blocking после исправления — warning, раунд Engineer на него не тратится.
+        // Только сцены сценария (ревью S15a, I-2): Playground крутит исправления, как раньше.
+        const prev = i.script ? ctl.attempts.filter((x) => x.take === t.no && x.qa).map((x) => x.qa!) : [];
+        const rep = repeatsAsWarning(q.report, prev);
+        if (rep.repeated.length > 0) rc.note("qa", `повтор после исправления → warning: ${[...new Set(rep.repeated)].join(", ")}`);
+        lastQa = report_ = rep.report;
         notes = q.notes;
         qaCost = q.costUsd;
       }
@@ -993,11 +998,13 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
 
 /**
  * Сцена сценария (S14): два акцента сразу (`accent_conflict` Visual QA) — исправляемый брак, а
- * не предупреждение: Engineer гасит лишнее свечение, акцент — один в момент. После
- * исчерпания исправлений лучшая попытка публикуется с warn, как прочие visual.
+ * не предупреждение: Engineer гасит лишнее свечение, акцент — один в момент. S15a: только если
+ * проба подтверждает (kit 0.5.6: ≥ 2 активных акцента одновременно в ≥ 2 QA-кадрах); иначе —
+ * предупреждение зрения. Исправляется не больше одного раза (`FIX_ONCE`).
  */
-export function scriptAccentFixable(agent: VisualQAOutput): VisualQAOutput {
+export function scriptAccentFixable(agent: VisualQAOutput, layout: readonly LayoutFrame[] = []): VisualQAOutput {
   if (!agent.issues.some((x) => x.code === "accent_conflict" && x.severity === "warning")) return agent;
+  if (accentConflictFrames(layout).length < ACCENT_CONFLICT_FRAMES) return agent;
   return {
     ...agent,
     issues: agent.issues.map((x) => (x.code === "accent_conflict" && x.severity === "warning"
@@ -1008,15 +1015,17 @@ export function scriptAccentFixable(agent: VisualQAOutput): VisualQAOutput {
 
 /**
  * Код без ключевого компонента приёма (S14): строка замечания для Engineer (имена kit — ему
- * можно) или `undefined`, если компонент приёма импортирован.
+ * можно) или `undefined`, если компонент приёма стоит в JSX (S15a; импорта мало).
  */
 export async function techniqueMissing(dir: string, technique: Technique): Promise<string | undefined> {
   const t = TECHNIQUES.find((x) => x.slug === technique);
   if (!t) return undefined;
-  const used = await kitImportsInDir(dir);
+  // S15a: компонент приёма должен стоять в JSX (`<Timeline`), импорта мало
+  const used = await kitJsxInDir(dir);
   const kit = t.kit as readonly string[];
   if (kit.some((c) => used.includes(c))) return undefined;
-  return `[technique_not_realized] приём сцены «${t.slug}» (${t.ru}) не реализован: в src/ нет ${kit.map((c) => `<${c}>`).join(" или ")} из @ms/motion-kit (импортировано: ${used.join(", ") || "—"}). ` +
+  const imported = await kitImportsInDir(dir);
+  return `[technique_not_realized] приём сцены «${t.slug}» (${t.ru}) не реализован: в JSX src/ нет ${kit.map((c) => `<${c}>`).join(" или ")} из @ms/motion-kit (импортировано: ${imported.join(", ") || "—"}; в JSX: ${used.join(", ") || "—"}). ` +
     `Построй героя сцены на ${kit.map((c) => `<${c}>`).join(" / ")} по refs/motion-kit/API.md с данными spec; текст — подписи к нему, не замена.`;
 }
 
@@ -1220,7 +1229,7 @@ async function runQa(
   }
   // S5: missing_element только по зрению, который опровергает реестр раскладки, — warning
   agent = reconcileMissing(agent, spec, parseLayout(rr.browserLogs), end, settings);
-  if (i.script) agent = scriptAccentFixable(agent);
+  if (i.script) agent = scriptAccentFixable(agent, parseLayout(rr.browserLogs));
   const report = mergeQA({ technical: techWarnings, programmatic: [...programmatic, ...fromSpec], agent });
   rc.note("qa", `QA ${pre ? "дубля 2 " : ""}вызова ${call}: ${JSON.stringify(report.gate)}; overall ${agent.scores.overall}; blocking: ${report.issues.filter((x) => x.severity === "blocking").map((x) => x.code).join(", ") || "—"}`);
   return { report, notes: agent.score_notes, costUsd: cost };

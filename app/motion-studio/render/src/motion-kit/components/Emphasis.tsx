@@ -197,7 +197,8 @@ export function Emphasis({ beat, loop = true, children, accentIndex = 0, color, 
   // свечение — широкое и мягкое за глифами, свет удержания несёт Halo за блоком
   const filter = emphasisFilter(p, col, dark);
   return (
-    <span style={{ position: "relative", display, isolation: "isolate", transform: p.scale === 1 ? undefined : `scale(${p.scale.toFixed(5)})`, transformOrigin: "50% 50%", ...style }}>
+    // data-ms-accent (0.5.6): сила акцента для пробы QA — accent_conflict по данным, не догадкой
+    <span data-ms-accent={p.level > 0.005 ? p.level.toFixed(2) : undefined} style={{ position: "relative", display, isolation: "isolate", transform: p.scale === 1 ? undefined : `scale(${p.scale.toFixed(5)})`, transformOrigin: "50% 50%", ...style }}>
       {halo ? <Halo level={haloLevel(p)} color={col} spread={spread} /> : null}
       {wave >= 0 ? (
         // волна света now-pulse: ореол расходится от цели и гаснет — без рамки вокруг слова

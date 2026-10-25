@@ -1,0 +1,327 @@
+{
+  "input_hash": "37b2cd01a16abc6150955bba7742e315b4db1441b1c2e4570230f903b4b2af6c",
+  "output": {
+    "spec": {
+      "title": "Go 1.24 — map на Swiss Table",
+      "purpose": "С Go 1.24 (февраль 2025) встроенная map переписана заново на основе Swiss Table: на вехе оси старая реализация уступает место новой.",
+      "duration_frames": 285,
+      "fps": {
+        "num": 30,
+        "den": 1
+      },
+      "style_preset": "tech-neon",
+      "composition": {
+        "archetype": "stacked",
+        "idea": "Три яруса по вертикали: сверху бейдж версии «Go 1.24», в середине во всю ширину ось времени с одной вехой «февраль 2025», снизу у вехи место реализации map. Сначала там стоит старая map, на слове «заново» она уходит, и на её место бьёт «Swiss Table». Взгляд идёт сверху вниз: версия → дата на оси → смена блока под вехой.",
+        "focus": "Камера стоит: движение ведут голова оси и смена блоков. Фокус переходит по битам: бейдж «Go 1.24» (кадр ~36) → веха и дата «февраль 2025» (~107) → слово «заново» и уход старой map (~180) → карточка «Swiss Table» (~228), которая остаётся героем финала.",
+        "transitions": "Тусклая дорожка оси видна с кадра 0. Старая карточка «map» встаёт под вехой первой. Бейдж версии выскакивает и затем гаснет до спокойного. Ось прорисовывается к вехе, и дата загорается. На «заново» старая карточка уходит размытием, рядом шторкой входит слово «заново». На том же месте из глубины встаёт «Swiss Table» с ударом. До конца остаются ось с вехой, бейдж, «заново» и дышащая «Swiss Table».",
+        "title_mode": "none",
+        "background": {
+          "variant": "grid",
+          "focus": {
+            "x": 0.5,
+            "y": 0.72
+          }
+        },
+        "structure": "build-strike"
+      },
+      "elements": [
+        {
+          "id": "version-badge",
+          "kind": "text",
+          "role": "опора: версия Go",
+          "entrance": "pop",
+          "depth_layer": 1,
+          "content": {
+            "component": "Card+Emphasis",
+            "text": "Go 1.24",
+            "size": "h1",
+            "font": "mono",
+            "elevation": 2,
+            "emphasis": {
+              "shape": "rounded",
+              "loop": false,
+              "ring": "strike"
+            },
+            "note": "Число «1.24» раскрывается к кадру ~36 (слово на 39), не раньше"
+          },
+          "layout": {
+            "x": 0.36,
+            "y": 0.03,
+            "w": 0.28,
+            "h": 0.14
+          }
+        },
+        {
+          "id": "timeline",
+          "kind": "chart",
+          "role": "герой: ось времени с вехой релиза",
+          "entrance": "draw",
+          "depth_layer": 1,
+          "content": {
+            "component": "Timeline",
+            "orientation": "h",
+            "items": [
+              {
+                "date": "февраль 2025",
+                "label": "встроенная map"
+              }
+            ],
+            "highlightLast": false,
+            "width": 1728,
+            "height": 420,
+            "pre": "silhouette",
+            "note": "Одна веха в центре симметричной шкалы лет; голова оси доходит до вехи и дата «февраль 2025» выезжает к кадру ~107 (слово «2025» на 111). Акцент даты — цвет акцента самой вехи, без кольца highlightLast"
+          },
+          "layout": {
+            "x": 0,
+            "y": 0.2,
+            "w": 1,
+            "h": 0.42
+          }
+        },
+        {
+          "id": "old-map",
+          "kind": "card",
+          "role": "контекст: старая реализация map",
+          "entrance": "rise",
+          "depth_layer": 1,
+          "content": {
+            "component": "Card",
+            "label": "map",
+            "caption": "старая реализация",
+            "size": "body",
+            "elevation": 1,
+            "tone": "muted",
+            "exit": "blur",
+            "note": "Уходит размытием на «заново»; Swiss Table встаёт на то же место"
+          },
+          "layout": {
+            "x": 0.33,
+            "y": 0.68,
+            "w": 0.34,
+            "h": 0.24
+          }
+        },
+        {
+          "id": "word-anew",
+          "kind": "text",
+          "role": "подпись: заново",
+          "entrance": "mask",
+          "depth_layer": 1,
+          "content": {
+            "component": "KineticText",
+            "text": "заново",
+            "size": "h2",
+            "font": "mono",
+            "color": "text",
+            "note": "Входит к кадру ~180 (слово на 183), спокойный цвет текста, без акцента"
+          },
+          "layout": {
+            "x": 0.06,
+            "y": 0.74,
+            "w": 0.24,
+            "h": 0.12
+          }
+        },
+        {
+          "id": "swiss-table",
+          "kind": "card",
+          "role": "акцент: новая реализация Swiss Table",
+          "entrance": "scale",
+          "depth_layer": 1,
+          "content": {
+            "component": "Card+Emphasis",
+            "label": "Swiss Table",
+            "caption": "новая map",
+            "size": "h2",
+            "elevation": 3,
+            "accentIndex": 0,
+            "enter": "scale",
+            "emphasis": {
+              "shape": "rounded",
+              "loop": true,
+              "ring": "strike",
+              "hold": "now-pulse"
+            },
+            "note": "Встаёт на место old-map к кадру ~228 (слово «Swiss» на 231); 11 знаков h2 ≈ 370 px, влезает в 0.34×1728 ≈ 590 px"
+          },
+          "layout": {
+            "x": 0.33,
+            "y": 0.68,
+            "w": 0.34,
+            "h": 0.24
+          }
+        }
+      ],
+      "phases": [
+        {
+          "id": "setup",
+          "role": "setup",
+          "weight": 8,
+          "element_ids": [
+            "timeline",
+            "old-map"
+          ]
+        },
+        {
+          "id": "version",
+          "role": "action",
+          "weight": 56,
+          "element_ids": [
+            "version-badge",
+            "timeline"
+          ]
+        },
+        {
+          "id": "rewrite",
+          "role": "turn",
+          "weight": 23,
+          "element_ids": [
+            "old-map",
+            "word-anew"
+          ]
+        },
+        {
+          "id": "strike",
+          "role": "payoff",
+          "weight": 13,
+          "element_ids": [
+            "swiss-table"
+          ]
+        },
+        {
+          "id": "hold",
+          "role": "hold",
+          "weight": 11,
+          "element_ids": [
+            "swiss-table",
+            "timeline"
+          ],
+          "hold_mode": "now-pulse"
+        }
+      ],
+      "beats": [
+        {
+          "id": "old-map-in",
+          "action": "old-map-in",
+          "description": "Под центром оси карточкой rise встаёт приглушённая «map · старая реализация» (elevation 1). Дорожка оси видна силуэтом с кадра 0.",
+          "element_ids": [
+            "old-map"
+          ],
+          "phase": "setup",
+          "kind": "enter"
+        },
+        {
+          "id": "version-in",
+          "action": "version-badge-in",
+          "description": "Бейдж «Go 1.24» (h1, mono) выскакивает pop над осью к кадру ~36, за 3 кадра до слова «1.24».",
+          "element_ids": [
+            "version-badge"
+          ],
+          "phase": "version",
+          "kind": "enter"
+        },
+        {
+          "id": "version-emphasis",
+          "action": "version-emphasis",
+          "description": "Удар Emphasis по бейджу: одно кольцо и ореол, затем loop:false — акцент гаснет до того, как загорится дата.",
+          "element_ids": [
+            "version-badge"
+          ],
+          "phase": "version",
+          "kind": "accent"
+        },
+        {
+          "id": "timeline-draw",
+          "action": "chart-draw",
+          "description": "Ось прогресса прорисовывается слева со светящейся головой. Голова доходит до центральной вехи к кадру ~107: узел выскакивает с волной, прорастает стебель, выезжают дата «февраль 2025» (h2, mono, акцент) и подпись «встроенная map». Деления лет под осью.",
+          "element_ids": [
+            "timeline"
+          ],
+          "phase": "version",
+          "span": "phase",
+          "kind": "sustain"
+        },
+        {
+          "id": "old-map-out",
+          "action": "old-map-exit",
+          "description": "Старая карточка «map» уходит blur-выходом за exit_frames к кадру ~180, место под вехой освобождается.",
+          "element_ids": [
+            "old-map"
+          ],
+          "phase": "rewrite",
+          "kind": "enter"
+        },
+        {
+          "id": "anew-in",
+          "action": "word-anew-in",
+          "description": "Слева от места карточки шторкой mask входит «заново» (h2, mono, цвет текста) к кадру ~180 — слово звучит на 183.",
+          "element_ids": [
+            "word-anew"
+          ],
+          "phase": "rewrite",
+          "kind": "enter"
+        },
+        {
+          "id": "swiss-in",
+          "action": "swiss-table-in",
+          "description": "На месте старой map из глубины (scale) встаёт карточка «Swiss Table · новая map» (h2, elevation 3, кромка accent 0) к кадру ~228.",
+          "element_ids": [
+            "swiss-table"
+          ],
+          "phase": "strike",
+          "kind": "enter"
+        },
+        {
+          "id": "swiss-emphasis",
+          "action": "final-emphasis",
+          "description": "Удар Emphasis по карточке Swiss Table на слове «Swiss» (231): толчок масштаба, вспышка, одно кольцо, loop:true. Единственный акцент в кадре.",
+          "element_ids": [
+            "swiss-table"
+          ],
+          "phase": "strike",
+          "kind": "accent"
+        },
+        {
+          "id": "hold",
+          "action": "hold",
+          "description": "Новых входов нет. Режим now-pulse у Emphasis карточки Swiss Table: волна радара от карточки и дыхание ореола с пиком в N−1. Ось с вехой «февраль 2025» стоит спокойно. Кадры N−20 и N−1 различаются фазой дыхания.",
+          "element_ids": [
+            "swiss-table",
+            "timeline"
+          ],
+          "phase": "hold",
+          "kind": "hold"
+        }
+      ],
+      "camera": []
+    },
+    "composition": {
+      "archetype": "stacked",
+      "idea": "Три яруса по вертикали: сверху бейдж версии «Go 1.24», в середине во всю ширину ось времени с одной вехой «февраль 2025», снизу у вехи место реализации map. Сначала там стоит старая map, на слове «заново» она уходит, и на её место бьёт «Swiss Table».",
+      "focus": "Камера стоит: движение ведут голова оси и смена блоков. Фокус по битам: «Go 1.24» → дата на вехе → «заново» и уход старой map → «Swiss Table», которая дышит в финале.",
+      "transitions": "Силуэт оси с кадра 0 → старая map под вехой → бейдж версии → ось дорисована, дата загорается → старая map уходит размытием, входит «заново» → Swiss Table встаёт на её место с ударом и остаётся героем до конца.",
+      "title_mode": "none",
+      "background": {
+        "variant": "grid",
+        "focus": {
+          "x": 0.5,
+          "y": 0.72
+        }
+      },
+      "structure": "build-strike"
+    },
+    "selection": {
+      "items": [
+        {
+          "kb_id": "remotion-video-templates/line-chart-draw",
+          "strategy": "build",
+          "why": "Идея прорисовки оси со светящейся бегущей головой, которая доходит до точки-события; в сцене это делает kit Timeline.",
+          "files_to_copy": []
+        }
+      ]
+    },
+    "rationale": "Главная мысль: релиз Go 1.24 в феврале 2025 — это точка, где старая map уступает место Swiss Table. Поэтому героем стала ось Timeline во всю ширину, а под её вехой разыгрывается смена блоков. Архетип stacked (версия → ось → реализация) не повторяет сцену до (split) и сцену после (line-trend). Фон grid с фокусом под вехой, без заголовка: смысл несут подписи. Отвергнутый вариант — ComparisonSplit «было/стало»: он повторил бы форму предыдущей сцены и оторвал бы смену реализации от даты на оси. Версия, год, «заново» и Swiss Table раскрываются в порядке речи, у моментов своих слов. Акцент переходит от бейджа (loop:false) к дате на вехе и затем к карточке. Структура build-strike: опора, ось, перелом и удар Swiss Table в конце. Финал now-pulse: волна и дыхание у самой карточки Swiss Table. Из KB взята только идея бегущей головы прорисовки."
+  }
+}
