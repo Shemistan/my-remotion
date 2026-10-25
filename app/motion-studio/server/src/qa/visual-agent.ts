@@ -27,6 +27,11 @@ export interface VisualQAInput {
   signal: AbortSignal;
   /** Каталог QA дубля (S5): `qa` — первый, `qa-t2` — второй; параллельные дубли не делят кадры. */
   dirName?: string;
+  /**
+   * Видеосцена (Task 37′): кадры-композиты «сцена с transparent поверх кадра исходника» —
+   * копии в `context/ctx-<кадр>.png` каталога QA, отдельным пунктом задачи.
+   */
+  context?: readonly { frame: number; path: string }[];
 }
 
 export interface VisualQADeps {
@@ -95,12 +100,15 @@ export function qaChecklist(frames: number[], spec: MotionSpec, style?: MotionTo
   ].join("\n");
 }
 
-function prompt(frames: number[]): string {
+function prompt(frames: number[], context: readonly number[] = []): string {
   return [
     "Проверь сцену по реальным кадрам. Все файлы — в текущем каталоге:",
     "- `checklist.md` — что проверить и какие элементы найти (прочитай первым);",
     "- `spec.json` — спецификация сцены, `style.json` — стиль, `brief.json` — запрос пользователя;",
     `- кадры: ${frames.map((f) => `\`frames/${f}.png\``).join(", ")}.`,
+    ...(context.length > 0
+      ? [`- кадры поверх видео (сцена с прозрачным фоном на кадре ролика, как увидит зритель): ${context.map((f) => `\`context/ctx-${f}.png\``).join(", ")} — читаемость графики на видео и лицо автора открыто.`]
+      : []),
     "Открой инструментом Read каждый кадр. Оценивай только то, что видно на кадрах.",
   ].join("\n");
 }
@@ -120,12 +128,22 @@ export async function runVisualQA(input: VisualQAInput, deps: VisualQADeps): Pro
   // покрытие — тем же стилем и длительностью, что при выборе кадров (generate.ts)
   const duration = input.durationFrames ?? input.spec.duration_frames;
   await writeFile(join(dir, "checklist.md"), qaChecklist(frames, input.spec, input.style, duration));
+  // кадры-композиты видеосцены (Task 37′): только свои кадры попытки
+  await rm(join(dir, "context"), { recursive: true, force: true });
+  const context = input.context ?? [];
+  if (context.length > 0) {
+    const ctxDir = await safeMkdir(root, join("run", "tmp", `${runId}-a${attempt}`, qaName, "context"));
+    for (const c of context) await copyFile(c.path, join(ctxDir, `ctx-${c.frame}.png`));
+  }
 
   const s = deps.config.agents.visual_qa;
   const task: AgentTask<string> = {
     role: "visual_qa",
-    input: prompt(frames),
-    inputRefs: frames.map((f) => ({ kind: "file", id: `frames/${f}.png`, path: join(framesDir, `${f}.png`) })),
+    input: prompt(frames, context.map((c) => c.frame)),
+    inputRefs: [
+      ...frames.map((f) => ({ kind: "file" as const, id: `frames/${f}.png`, path: join(framesDir, `${f}.png`) })),
+      ...context.map((c) => ({ kind: "file" as const, id: `context/ctx-${c.frame}.png`, path: join(dir, "context", `ctx-${c.frame}.png`) })),
+    ],
     workdir: dir,
     tools: ["Read"],
     model: s.model,

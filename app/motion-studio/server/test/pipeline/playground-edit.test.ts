@@ -340,6 +340,31 @@ describe("playgroundEdit: path code и spec", () => {
     expect(transparent().length).toBeGreaterThanOrEqual(1);
   });
 
+  it("ревью Task 37′: правка видеосцены — Engineer получает LayoutRect, props.layout.rect зоны, проверки по альфе (рендер с transparent)", async () => {
+    const agents = fakeAgents({
+      engineer: async () => ({ files: { "src/Scene.tsx": GOOD_SCENE } }),
+      editPlanner: async () => ({ output: plan({ path: "code", changes: [{ target: "chart", kind: "code", description: "толще" }], preserve: [], reply: "ок" }) }),
+    });
+    const { scene, render, gen, edit } = await start({ agents });
+    await gen();
+    const rect = { x: 0.05, y: 0.7, w: 0.9, h: 0.25 };
+    const video = {
+      project_id: "playground", plan_id: "pln_v", plan_revision: 1, item_id: "sp_001", style: { preset: "dark-premium", intensity: "balanced", depth: 2 },
+      lead_frames: 15, tail_frames: 30, placement: { mode: "overlay", zone: "lower_third", rect, transparent: true },
+    };
+    jobs.insert(env.db, { id: "job_video_gen", type: "playground.generate", project_id: "playground", scene_id: scene.id, input: { sceneId: scene.id, prompt: "бриф", settings, video }, status: "completed", attempt: 1 });
+    const before = agents.engineerCalls.length;
+    const job = await edit({}, "толще");
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(agents.engineerCalls.slice(before)[0]!.input).toContain("LayoutRect");
+    const v = rows(scene.id).at(-1)!;
+    expect(json<{ layout?: { rect: unknown } }>(v.path, "props.json").layout).toEqual({ rect });
+    const clear = render.calls.filter((c) => (c.inputProps as { style?: { transparent?: boolean } } | undefined)?.style?.transparent === true);
+    expect(clear.some((c) => c.stills.length > 1)).toBe(true);
+    // fix I1: проверки по всей сцене — временной проход пробы запрошен
+    expect(render.calls.some((c) => c.sweep !== undefined)).toBe(true);
+  });
+
   /** Сцена сценария: план pln_f7 r1 со сценой ss_001 на 180 кадров и вход script у генерации сцены. */
   function scriptScene(sceneId: string, total = 180) {
     const item = { ...PLAN.items[0]!, frames: { lead: 15, speech: total - 45, tail: 30, total } };

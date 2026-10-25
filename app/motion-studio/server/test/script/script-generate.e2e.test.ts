@@ -53,6 +53,8 @@ const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
 const ROOT = process.env.MS_DATA_DIR ?? materialsPath("e2e", "script");
 const EVIDENCE = join(REPO, "docs/evidence/script-mvp/generate");
 const TMP = join(REPO, "tmp/s5-e2e");
+/** Сцен в прогоне (по умолчанию 3; смоук fix-раунда — 1). */
+const N = Number(process.env.MS_S5_SCENES ?? 3);
 const FINAL = ["completed", "failed", "cancelled", "blocked"];
 const run = promisify(execFile);
 
@@ -122,7 +124,7 @@ function pick(doc: ScriptPlanRevisionDoc): ScriptSceneItem[] {
   ];
   const out: ScriptSceneItem[] = [];
   const add = (x: ScriptSceneItem | undefined) => {
-    if (x && out.length < 3 && !out.includes(x) && !out.some((o) => o.technique === x.technique)) out.push(x);
+    if (x && out.length < N && !out.includes(x) && !out.some((o) => o.technique === x.technique)) out.push(x);
   };
   for (const f of want) add(acc.find(f));
   for (const x of acc) add(x);
@@ -171,17 +173,17 @@ it("script.plan по block-2 реальным claude: completed, ≥ 3 прин�
   say(`script.plan: ${s.toFixed(0)} с, $${res.agent.cost_usd}, вызовов ${res.agent.calls}, сцен ${cur.doc.items.length}, blocking ${res.issues.blocking}`);
   for (const x of cur.doc.items) say(`  ${x.id} ${x.status} ${x.technique}/${x.structure_rule ?? "—"} ${x.frames.total} кадров «${x.quote.slice(0, 80)}»`);
   const chosen = pick(cur.doc);
-  expect(chosen.map((x) => x.technique).length).toBe(3);
+  expect(chosen.map((x) => x.technique).length).toBe(N);
   say(`выбраны: ${chosen.map((x) => `${x.id} ${x.technique}`).join(", ")}`);
   state.runs = chosen.map((item) => ({ item, n: cur.doc.items.filter((x) => x.status === "accepted").indexOf(item) + 1, sceneId: "", jobs: [], windows: sentenceWindows(item, state.script!, cur.doc.reading, cur.doc.fps), wallMs: 0 }));
 }, T);
 
 it("generate: пакет из 3 сцен доходит до конечного статуса; упавшая — один повтор", async () => {
-  expect(state.runs).toHaveLength(3);
+  expect(state.runs).toHaveLength(N);
   const { projectId, doc } = state as Required<typeof state>;
   const t0 = Date.now();
   const batch = startScriptBatch(core, { projectId, revision: doc.revision, itemIds: state.runs.map((r) => r.item.id), idempotencyKey: `e2e-s5-gen-${newId("run")}` });
-  expect(batch.items).toHaveLength(3);
+  expect(batch.items).toHaveLength(N);
   await Promise.all(batch.items.map(async (bi) => {
     const r = state.runs.find((x) => x.item.id === bi.item_id)!;
     r.sceneId = bi.scene_id;

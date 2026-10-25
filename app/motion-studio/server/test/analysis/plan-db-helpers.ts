@@ -32,9 +32,9 @@ export async function publishPlan(db: Db, store: ArtifactStore, root: string, do
 }
 
 /** p1 с EDL r1 (вырезка `CUT` принята), анализом видеоряда, стилем r1 и планом r1 из `items`. */
-export async function seedPlanProject(db: Db, store: ArtifactStore, root: string, items: ScenePlanItem[]): Promise<VisualPlanRevisionDoc> {
+export async function seedPlanProject(db: Db, store: ArtifactStore, root: string, items: ScenePlanItem[], ftg?: FootageAnalysis): Promise<VisualPlanRevisionDoc> {
   await seedVideo(db, store, root, { words, decisions: [dec("d1", { status: "accepted", source_start_us: CUT.start_us, source_end_us: CUT.end_us })], durationUs: SOURCE_US });
-  await seedFootage(db, store, root);
+  await seedFootage(db, store, root, ftg);
   const style = await saveProjectStyle({ db, store, root }, "p1", STYLE_BASE, "agent", { rationale: "тест" });
   const doc = planDoc(items.map((x) => ({ ...x, style_id: style.style_id })), {
     inputs: {
