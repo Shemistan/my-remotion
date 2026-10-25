@@ -33,4 +33,8 @@ export * from "./api-video.js";
 export * from "./script.js";
 export * from "./script-text.js";
 export * from "./api-script.js";
+export * from "./video-scene.js";
+export * from "./timeline-render.js";
+export * from "./final.js";
+export * from "./api-video-scenes.js";
 // canonical.ts — отдельно: `@ms/contracts/canonical` (node:crypto, не для web)

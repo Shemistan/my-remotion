@@ -6,12 +6,26 @@ export type ApprovalKind = z.infer<typeof ApprovalKindSchema>;
 export const ApprovalStatusSchema = z.enum(["valid", "stale", "revoked"]);
 export type ApprovalStatus = z.infer<typeof ApprovalStatusSchema>;
 
-export const ApprovalStaleReasonSchema = z.enum(["subject_changed", "edl_changed", "style_changed", "upstream_A"]);
+/** Phase 4–6 (Task 35′): + `plan_changed`, `version_changed`, `timeline_changed` (C и final). */
+export const ApprovalStaleReasonSchema = z.enum(["subject_changed", "edl_changed", "style_changed", "upstream_A", "plan_changed", "version_changed", "timeline_changed"]);
 export type ApprovalStaleReason = z.infer<typeof ApprovalStaleReasonSchema>;
 
 const SUBJECT_REF = /^([a-z_]+):([^@\s]+)@r([1-9]\d*)$/;
-/** Тип субъекта по виду approval: A — ревизия EDL, B — ревизия плана (`05` §7). */
-const SUBJECT_TYPE: Partial<Record<ApprovalKind, string>> = { A: "edl", B: "plan" };
+/**
+ * Тип субъекта по виду approval: A — ревизия EDL, B — ревизия плана (`05` §7); C — версия сцены
+ * (`scene:<sceneId>@r<номер версии>`), final — ревизия таймлайна (`timeline:<id>@r<N>`), Р-V4.
+ */
+const SUBJECT_TYPE: Record<ApprovalKind, string> = { A: "edl", B: "plan", C: "scene", final: "timeline" };
+
+/**
+ * Область решения — субъект без ревизии: `"<type>:<id>"` (`scene:scn_1@r2` → `scene:scn_1`).
+ * C и final отзываются и ищутся по ней (Р-V4), A и B — по виду в проекте.
+ */
+export function subjectKey(ref: string): string {
+  const p = parseSubjectRef(ref);
+  if (!p) throw new RangeError(`не субъект approval: ${ref}`);
+  return `${p.type}:${p.id}`;
+}
 
 /** `"edl:<id>@r<N>"`. */
 export function subjectRef(type: string, id: string, revision: number): string {

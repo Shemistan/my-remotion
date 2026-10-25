@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { NormRectSchema } from "./footage.js";
 import { BeatSchema, PaletteOverridesSchema } from "./motion-spec.js";
 import { IntensitySchema, SafeAreaSchema, StylePresetSchema } from "./settings.js";
 
@@ -35,6 +36,11 @@ export const ScenePropsBaseSchema = z.object({
   timing: SceneTimingSchema,
   style: ScenePropsStyleSchema,
   content: z.record(z.unknown()),
+  /**
+   * Task 35′ (Р-V5): видеосцена рендерится на весь кадр, графика — только внутри `rect` (доли
+   * кадра, зона сцены плана); `<LayoutRect>` kit 0.5.9. Нет поля — графика на весь кадр.
+   */
+  layout: z.object({ rect: NormRectSchema }).strict().optional(),
 }).strict();
 export type ScenePropsBase = z.infer<typeof ScenePropsBaseSchema>;
 

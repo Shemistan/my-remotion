@@ -16,8 +16,12 @@ export function sceneLockFor(job: Job): string | undefined {
   return SCENE_WRITING_TYPES.includes(job.type) ? job.scene_id ?? undefined : undefined;
 }
 
-/** Ресурс проекта, который пишет задача Phase 2–3. */
-export type ProjectResource = "media" | "transcript" | "edl" | "footage" | "semantic" | "plan" | "package";
+/** Ресурс проекта, который пишет задача Phase 2–6. */
+export type ProjectResource = "media" | "transcript" | "edl" | "footage" | "semantic" | "plan" | "package" | "timeline" | "final";
+
+/** Замки хранилища целиком (Phase 6): очистка корзины и кэша — по одной на хранилище. */
+export const STORE_TRASH_LOCK = "store:trash";
+export const STORE_CACHE_LOCK = "store:cache";
 
 /** Ключ замка ресурса проекта: `project:<id>:<ресурс>`. */
 export const projectLockKey = (projectId: string, resource: ProjectResource): string => `project:${projectId}:${resource}`;
@@ -26,6 +30,7 @@ export const projectLockKey = (projectId: string, resource: ProjectResource): st
  * Ключ замка ресурса проекта. Типы Phase 1 его не берут: их сериализует замок сцены
  * (`scene_locks`, `sceneLockFor`) — поведение Task 12 не меняется. Задачи Phase 2–3, пишущие
  * артефакт, — `project:<id>:<ресурс>`; `roughcut.preview` читает иммутабельные ревизии — без замка.
+ * Phase 6: `trash.purge` и `cache.gc` — замок хранилища (`store:trash`, `store:cache`).
  */
 export function lockKeyFor(job: Job): string | undefined {
   const key = (r: ProjectResource) => projectLockKey(job.project_id, r);
@@ -51,7 +56,21 @@ export function lockKeyFor(job: Job): string | undefined {
     case "script.plan":
       return key("plan");
     case "script.package":
+    case "video.package":
       return key("package");
+    // Phase 4–6 (Task 35′): видеосцены пишут playground.* (замок сцены); превью читают иммутабельное
+    case "scene.preview_context":
+    case "timeline.preview":
+      return undefined;
+    case "timeline.build":
+      return key("timeline");
+    case "final.render":
+    case "final.reproduce":
+      return key("final");
+    case "trash.purge":
+      return STORE_TRASH_LOCK;
+    case "cache.gc":
+      return STORE_CACHE_LOCK;
   }
 }
 

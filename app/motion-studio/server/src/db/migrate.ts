@@ -46,12 +46,27 @@ const JOBS_V2_COLUMNS = [
 /** Колонки `projects` после 001 — те, что 005 переносит в `projects_new`. */
 const PROJECTS_V1_COLUMNS = ["id", "kind", "title", "settings_json", "created_at", "updated_at"];
 
-/** 005 пересобирает `jobs` с теми же колонками, что 003, и `projects` (не менялась с 001). */
+/** Колонки `approvals` после 003 — те, что 006 переносит в `approvals_new`. */
+const APPROVALS_V3_COLUMNS = ["id", "project_id", "kind", "subject_ref", "subject_hash", "status", "stale_reason", "decided_at"];
+
+const hasTable = (db: Db, table: string): boolean =>
+  db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table) !== undefined;
+
+/**
+ * 005 пересобирает `jobs` с теми же колонками, что 003, и `projects` (не менялась с 001).
+ * 006 пересобирает `jobs` (как 005) и `approvals` (создана в 003 — при старте с версии < 3 её ещё
+ * нет: сверка до копии её пропускает, в транзакции 006 таблица уже есть), `projects` дополняет.
+ */
 const PRECHECKS: Record<number, (db: Db) => void> = {
   3: (db) => expectColumns(db, "jobs", JOBS_V2_COLUMNS),
   5: (db) => {
     expectColumns(db, "jobs", JOBS_V2_COLUMNS);
     expectColumns(db, "projects", PROJECTS_V1_COLUMNS);
+  },
+  6: (db) => {
+    expectColumns(db, "jobs", JOBS_V2_COLUMNS);
+    expectColumns(db, "projects", PROJECTS_V1_COLUMNS);
+    if (hasTable(db, "approvals")) expectColumns(db, "approvals", APPROVALS_V3_COLUMNS);
   },
 };
 
