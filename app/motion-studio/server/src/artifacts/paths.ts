@@ -24,18 +24,23 @@ function rev(n: number): string {
   return `r${n}`;
 }
 
+function padPart(n: number): number {
+  if (!Number.isInteger(n) || n < 0) throw new Error(`artifacts: поля превью — целое >= 0: ${n}`);
+  return n;
+}
+
 /** Префикс каталогов проектов: публикация артефактов — только внутрь него. */
 export const PROJECTS_REL = "workspace/projects";
 
 /**
  * Ровно формы `artifactPaths`: `<p>/(source|proxy|packages|final)/<id>`, `<p>/master/<id>@<num>-<den>`,
- * `<p>/(transcript|edits|preview|style|plan|script|timeline|audio)/<id>/r<N>`, `<p>/context/<id>/<id>`,
+ * `<p>/(transcript|edits|preview|style|plan|script|timeline|audio)/<id>/r<N>`, `<p>/context/<id>/<id>@r<N>[-p<pad>]`,
  * `<p>/analysis/(footage|semantic)/<id>`. Остальное в каталоге проекта (сцены Phase 1,
  * `project.json`, родители ревизий) публикацией и карантином сирот не затрагивается.
  */
 const DEST_REL_RE = new RegExp(
   `^${PROJECTS_REL}/${ART_ID}/(?:(?:source|proxy|packages|final)/${ART_ID}|master/${ART_ID}@[1-9][0-9]*-[1-9][0-9]*` +
-    `|(?:transcript|edits|preview|style|plan|script|timeline|audio)/${ART_ID}/r[1-9][0-9]*|context/${ART_ID}/${ART_ID}|analysis/(?:footage|semantic)/${ART_ID})$`,
+    `|(?:transcript|edits|preview|style|plan|script|timeline|audio)/${ART_ID}/r[1-9][0-9]*|context/${ART_ID}/${ART_ID}@r[1-9][0-9]*(?:-p(?:0|[1-9][0-9]*))?|analysis/(?:footage|semantic)/${ART_ID})$`,
 );
 
 /** destRel публикации — путь формы `artifactPaths`; иначе ошибка до любых изменений ФС. */
@@ -76,8 +81,11 @@ export interface ArtifactPaths {
   master(mediaId: string, fps: Fps): string;
   /** Смонтированная дорожка звука ревизии EDL `audio/<edl>/r<N>` (F2). */
   editedAudio(edlId: string, n: number): string;
-  /** Превью версии сцены поверх исходника `context/<scene>/<version>`. */
-  contextPreview(sceneId: string, versionId: string): string;
+  /**
+   * Превью версии сцены поверх исходника `context/<scene>/<version>@r<N>[-p<pad>]`: ключ — версия,
+   * ревизия плана (позиция сцены и EDL под ней) и поля до/после, кадров (ревью Task 38-39, I2).
+   */
+  contextPreview(sceneId: string, versionId: string, planRevision: number, padFrames?: number): string;
   /** Абсолютный путь в хранилище `root`. */
   abs(rel: string): string;
 }
@@ -102,7 +110,8 @@ export function artifactPaths(root: string, projectId: string): ArtifactPaths {
     finalExport: (id) => `${p}/final/${checkId("exportId", id)}`,
     master: (mediaId, fps) => `${p}/master/${checkId("mediaId", mediaId)}@${fpsPart(fps.num)}-${fpsPart(fps.den)}`,
     editedAudio: (id, n) => `${p}/audio/${checkId("edlId", id)}/${rev(n)}`,
-    contextPreview: (sceneId, versionId) => `${p}/context/${checkId("sceneId", sceneId)}/${checkId("versionId", versionId)}`,
+    contextPreview: (sceneId, versionId, planRevision, padFrames) =>
+      `${p}/context/${checkId("sceneId", sceneId)}/${checkId("versionId", versionId)}@${rev(planRevision)}${padFrames === undefined ? "" : `-p${padPart(padFrames)}`}`,
     abs: (rel) => join(root, rel),
   };
 }

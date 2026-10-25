@@ -104,7 +104,7 @@ describe("startVideoBatch", () => {
     const b = startVideoBatch(core(), { projectId: P, revision: rev(), idempotencyKey: "a1" });
     run();
     await runToIdle(b.id);
-    expect(startVideoBatch(core(), { projectId: P, revision: rev(), idempotencyKey: "a2" }).items).toEqual([]);
+    expect(codeOf(() => startVideoBatch(core(), { projectId: P, revision: rev(), idempotencyKey: "a2" }))).toBe("nothing_to_generate");
     const regen = startVideoBatch(core(), { projectId: P, revision: rev(), idempotencyKey: "a3", itemIds: [ids()[2]!], regenerate: true });
     expect(regen.items.map((x) => x.item_id)).toEqual([ids()[2]]);
     expect(jobs.get(env.db, regen.items[0]!.job!.id)!.idempotency_key).toBe(`video:pln_1@r1:${ids()[2]}:s1:regen-1`);
@@ -147,7 +147,17 @@ describe("startVideoBatch", () => {
     approveB(env);
     const staleOf = () => Object.fromEntries(videoScenesState(env.db, env.s.root, P).scenes.map((x) => [x.item_id, x.stale]));
     expect(Object.values(staleOf())).toEqual([false, false, false, false]);
-    expect(startVideoBatch(core(), { projectId: P, revision: rev(), idempotencyKey: "s2" }).items).toEqual([]);
+    // всё готово — пустой пакет не создаётся: 409 nothing_to_generate со списком пропущенных
+    const before = videoBatchesForState(env.db, env.s.root, P).length;
+    let err: { status?: number; code?: string; extra?: { skipped?: unknown[] } } = {};
+    try {
+      startVideoBatch(core(), { projectId: P, revision: rev(), idempotencyKey: "s2" });
+    } catch (e) {
+      err = e as typeof err;
+    }
+    expect(err).toMatchObject({ status: 409, code: "nothing_to_generate" });
+    expect(err.extra?.skipped).toHaveLength(4);
+    expect(videoBatchesForState(env.db, env.s.root, P)).toHaveLength(before);
 
     await nextRevision(v, (items) => items.map((x, k) => (k === 0 ? { ...x, zone: "right_third" as const } : x)));
     approveB(env);

@@ -16,15 +16,19 @@ import { timelineFor } from "../../src/edit/timeline-store.js";
 import { enqueue } from "../../src/jobs/queue.js";
 import { JobRunner } from "../../src/jobs/runner.js";
 import { type ScenePreviewContextDeps, type ScenePreviewContextResult, scenePreviewContext } from "../../src/pipeline/scene-preview-context.js";
+import * as scenes from "../../src/db/repos/scenes.js";
+import { contextPreviewState } from "../../src/pipeline/scene-preview-context.js";
 import { startVideoBatch } from "../../src/video-scenes/batch.js";
+import { videoScenesState } from "../../src/video-scenes/state.js";
 import { removeStore } from "../db/helpers.js";
 import { setupDb, until, type JobsEnv } from "../jobs/helpers.js";
-import { P, TERMINAL, type VideoEnv, fakeVideoGenerate, seedVideoBatchProject, startRunner } from "../video-scenes/batch-helpers.js";
+import { P, TERMINAL, type VideoEnv, approveB, fakeVideoGenerate, nextRevision, seedVideoBatchProject, startRunner } from "../video-scenes/batch-helpers.js";
 
 let env: JobsEnv;
 let v: VideoEnv;
 let runner: JobRunner | undefined;
 let calls: TimelineRenderRequest[];
+let audioReqs: Parameters<NonNullable<ScenePreviewContextDeps["editedAudio"]>>[0][];
 let fail: string | undefined;
 
 beforeEach(async () => {
@@ -35,6 +39,7 @@ beforeEach(async () => {
   writeFileSync(join(env.s.root, rel), "proxy");
   media.setDerivative(env.db, "med_1", { kind: "proxy", rel_path: rel, sha256: "c".repeat(64), params: {} });
   calls = [];
+  audioReqs = [];
   fail = undefined;
 });
 afterEach(async () => {
@@ -60,6 +65,7 @@ const deps = (): ScenePreviewContextDeps => ({
   options: {}, exporter: {} as ScenePreviewContextDeps["exporter"],
   renderRange: render,
   editedAudio: async (r) => {
+    audioReqs.push(r);
     writeFileSync(r.out, "wav");
     return { path: r.out, sha256: "e".repeat(64), samples: 1 };
   },
@@ -94,7 +100,7 @@ describe("scene.preview_context", () => {
     const total = timelineFrames(timelineFor(env.db, "edl_1", 1));
     const want: [number, number] = [Math.max(0, item.frames.start - 30), Math.min(total, item.frames.start + videoSceneFrames(item) + 30) - 1];
     expect(out).toMatchObject({ scene_id: x.scene_id, item_id: item.id, version_number: 1, range: want, pad_frames: 30, reused: false, edl: { id: "edl_1", revision: 1 } });
-    expect(out.rel_path).toBe(`workspace/projects/p1/context/${x.scene_id}/${out.version_id}/preview.mp4`);
+    expect(out.rel_path).toBe(`workspace/projects/p1/context/${x.scene_id}/${out.version_id}@r1-p30/preview.mp4`);
     expect(existsSync(join(env.s.root, out.rel_path))).toBe(true);
     expect(JSON.parse(readFileSync(join(env.s.root, dirname(out.rel_path), "preview.json"), "utf8"))).toMatchObject({ range: want, scale: 0.5 });
     expect(calls).toHaveLength(1);
@@ -104,6 +110,8 @@ describe("scene.preview_context", () => {
     expect(req.props.duration_frames).toBe(total);
     expect(req.props.video.path).toBe(join(env.s.root, "workspace/projects/p1/proxy/med_1/proxy.mov"));
     expect(req.props.audio?.path).toMatch(/edited-audio\.wav$/);
+    // звук — только окно превью
+    expect(audioReqs.at(-1)!.window).toEqual({ startUs: Math.round((want[0] * 1e6) / 30), endUs: Math.round(((want[1] + 1) * 1e6) / 30) });
     expect(req.props.scenes).toEqual([expect.objectContaining({ key: "S0", start_frame: item.frames.start, duration_frames: videoSceneFrames(item), transparent: true, z: 1 })]);
 
     // повтор (другая задача, тот же каталог) — опубликованное превью, рендера нет
@@ -133,5 +141,52 @@ describe("scene.preview_context", () => {
     const bad = await preview("scn_1");
     expect(bad.status).toBe("failed");
     expect(bad.error).toMatchObject({ code: "pipeline", stage: "prepare" });
+  });
+
+  it("ключ кэша — версия + ревизия плана + поля: сцену сдвинули в новой ревизии — превью устарело, перерисовка в свой каталог; другие поля — свой", async () => {
+    const b = await readyScenes();
+    const x = b.items[0]!;
+    const o1 = (await preview(x.scene_id)).output_refs as ScenePreviewContextResult;
+    const dir = (r: number, pad: number) => `workspace/projects/p1/context/${x.scene_id}/${o1.version_id}@r${r}-p${pad}/preview.mp4`;
+    expect(o1.rel_path).toBe(dir(1, 30));
+    expect(contextPreviewState(env.db, env.s.root, x.scene_id, o1.version_id)).toMatchObject({ rel_path: dir(1, 30), plan_revision: 1, pad_frames: 30, outdated: false });
+    expect(videoScenesState(env.db, env.s.root, P).scenes[0]!.context_preview).toMatchObject({ rel_path: dir(1, 30), outdated: false });
+
+    // r2: сцена сдвинута на 9 кадров (отпечаток тот же) — опубликованное превью устарело
+    const shift = 300_000;
+    await nextRevision(v, (items) => items.map((i) => ({
+      ...i, edited: { start_us: i.edited.start_us + shift, end_us: i.edited.end_us + shift }, frames: { start: i.frames.start + 9, end: i.frames.end + 9 },
+      key_terms: i.key_terms.map((k) => ({ ...k, edited_at_us: k.edited_at_us + shift })),
+    })));
+    approveB(env);
+    expect(contextPreviewState(env.db, env.s.root, x.scene_id, o1.version_id)).toMatchObject({ rel_path: dir(1, 30), plan_revision: 1, outdated: true });
+    expect(videoScenesState(env.db, env.s.root, P).scenes[0]!.context_preview).toMatchObject({ outdated: true });
+
+    // перерисовка — новый каталог по r2, окно сдвинуто
+    const o2 = (await preview(x.scene_id)).output_refs as ScenePreviewContextResult;
+    expect(o2).toMatchObject({ reused: false, rel_path: dir(2, 30), plan: { revision: 2 } });
+    expect(o2.range[0]).toBe(o1.range[0] + 9);
+    expect(calls).toHaveLength(2);
+    expect(contextPreviewState(env.db, env.s.root, x.scene_id, o1.version_id)).toMatchObject({ rel_path: dir(2, 30), plan_revision: 2, outdated: false });
+
+    // другие поля — свой каталог, не опубликованное с полями 30
+    const o3 = (await preview(x.scene_id, { padFrames: 10 })).output_refs as ScenePreviewContextResult;
+    expect(o3).toMatchObject({ reused: false, rel_path: dir(2, 10), pad_frames: 10 });
+    expect(calls).toHaveLength(3);
+  });
+
+  it("размещение — из генерации версии: план overlay → fullscreen, перегенерация в очереди — превью v1 рисуется как overlay", async () => {
+    const b = await readyScenes();
+    const x = b.items[0]!;
+    const v1 = scenes.get(env.db, x.scene_id)!.current_version_id!;
+    await nextRevision(v, (items) => items.map((i) => (i.id === x.item_id ? { ...i, composition_mode: "fullscreen" as const, zone: "full" as const } : i)));
+    approveB(env);
+    const core = { db: env.db, root: env.s.root, processes: fileProcessRegistry(env.s.root) };
+    const regen = startVideoBatch(core, { projectId: P, revision: 2, idempotencyKey: "rg", itemIds: [x.item_id], regenerate: true });
+    expect(jobs.get(env.db, regen.items[0]!.job!.id)!.status).toBe("pending");
+    const j = await preview(x.scene_id, { versionId: v1 });
+    expect(j.status, JSON.stringify(j.error)).toBe("completed");
+    expect(calls[0]!.props.scenes[0]).toMatchObject({ transparent: true, z: 1 });
+    expect((j.output_refs as ScenePreviewContextResult).warnings?.join(" ")).toMatch(/не по текущей сцене плана/);
   });
 });

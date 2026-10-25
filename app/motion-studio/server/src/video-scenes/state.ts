@@ -2,7 +2,7 @@
 // по принятой сцене текущей ревизии плана — сцена Playground, последняя задача генерации, текущая
 // и утверждённая версии с номерами, Approval C, `stale` (отпечаток версии ≠ текущему), очередь
 // последней пишущей задачи сцены, замечания QA; Approval B ревизии; пакеты. Только чтение.
-import { type Job, type SceneApprovalDto, type VideoSceneDto, type VideoScenesStateDto, placementFor } from "@ms/contracts";
+import { type SceneApprovalDto, type VideoSceneDto, type VideoScenesStateDto, placementFor } from "@ms/contracts";
 import { currentPlan } from "../analysis/plan-ops.js";
 import { currentProjectStyle } from "../analysis/project-style.js";
 import { ApiError, notFound } from "../api/errors.js";
@@ -20,13 +20,9 @@ import { SCENE_WRITING_TYPES } from "../jobs/locks.js";
 import { sceneStatus, versionQaWarnings } from "../script/state.js";
 import { sceneApprovalState } from "./approval-c.js";
 import { acceptedItems, videoBatchesForState } from "./batch.js";
+import { contextPreviewState } from "./context-preview.js";
 import { videoItemFingerprint } from "./fingerprint.js";
-import { queuePosition } from "./queue.js";
-
-/** Последняя ждущая пишущая задача сцены (генерация, правка, восстановление); нет — undefined. */
-function waitingJob(db: Db, sceneId: string): Job | undefined {
-  return jobs.list(db, { sceneId }).filter((j) => SCENE_WRITING_TYPES.includes(j.type) && j.status === "pending").at(-1);
-}
+import { lastPending, queuePosition, queueSnapshot } from "./queue.js";
 
 export function videoScenesState(db: Db, root: string, projectId: string): VideoScenesStateDto {
   const project = projects.get(db, projectId);
@@ -38,6 +34,7 @@ export function videoScenesState(db: Db, root: string, projectId: string): Video
   const styleRef = style ? { id: style.style_id, revision: style.revision } : null;
   const peek = peekApprovalState(db, projectId, "B", doc ? currentSubject(db, projectId, "B") : undefined);
 
+  const snap = queueSnapshot(db);
   const sceneDtos: VideoSceneDto[] = doc ? acceptedItems(doc).map((item) => {
     const row = videoScenes.get(db, doc.plan_id, item.id);
     const scene = row ? scenes.get(db, row.scene_id) : undefined;
@@ -45,7 +42,9 @@ export function videoScenesState(db: Db, root: string, projectId: string): Video
     const versionId = scene?.current_version_id ?? null;
     const current = versionId ? versions.get(db, versionId) : undefined;
     const approved = scene?.approved_version_id ? versions.get(db, scene.approved_version_id) : undefined;
-    const c = row ? sceneApprovalState(db, row.scene_id) : { state: "missing" as const };
+    // без стиля проекта текущий отпечаток не посчитать — устаревшим не считаем ничего
+    const fingerprint = styleRef ? videoItemFingerprint(item, styleRef) : undefined;
+    const c = row ? sceneApprovalState(db, row.scene_id, { root, fingerprint }) : { state: "missing" as const };
     const approval: SceneApprovalDto = {
       state: c.state,
       ...(c.approval ? { approval_id: c.approval.id } : {}),
@@ -53,8 +52,9 @@ export function videoScenesState(db: Db, root: string, projectId: string): Video
       ...(c.versionNumber ? { version_number: c.versionNumber } : {}),
       ...(c.reason ? { reason: c.reason } : {}),
     };
-    const waiting = row ? waitingJob(db, row.scene_id) : undefined;
-    const q = waiting ? queuePosition(db, waiting.id) : undefined;
+    // последняя ждущая пишущая задача сцены (генерация, правка, восстановление)
+    const waiting = row ? lastPending(snap, row.scene_id, (j) => SCENE_WRITING_TYPES.includes(j.type)) : undefined;
+    const q = waiting ? queuePosition(db, waiting.id, snap) : undefined;
     return {
       item_id: item.id,
       scene_id: row?.scene_id ?? null,
@@ -64,7 +64,7 @@ export function videoScenesState(db: Db, root: string, projectId: string): Video
       version_number: current?.number ?? null,
       approval,
       // версия есть, но сделана не по текущей сцене плана (режим, зона, слова, длительность, стиль)
-      stale: row !== undefined && versionId !== null && row.item_fingerprint !== videoItemFingerprint(item, styleRef),
+      stale: row !== undefined && versionId !== null && fingerprint !== undefined && row.item_fingerprint !== fingerprint,
       placement: placementFor(item.composition_mode, item.zone, item.rect),
       frames: { start: item.frames.start, end: item.frames.end },
       quote: item.evidence.map((e) => e.quote).join(" … "),
@@ -72,6 +72,7 @@ export function videoScenesState(db: Db, root: string, projectId: string): Video
       approved_version_number: approved?.number ?? null,
       queue: q && q.ahead > 0 ? { ahead: q.ahead, ...(q.blockingJobId ? { blocking_job_id: q.blockingJobId } : {}) } : null,
       qa_warnings: versionQaWarnings(db, root, versionId),
+      context_preview: row && (approved?.id ?? versionId) ? contextPreviewState(db, root, row.scene_id, (approved?.id ?? versionId)!) : null,
     };
   }) : [];
 

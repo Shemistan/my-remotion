@@ -22,40 +22,48 @@ function locksOf(j: Job): string[] {
   return out;
 }
 
-/** Задача не ждёт (идёт, завершена, нет такой) или замков у неё нет — `{ ahead: 0 }`. */
-export function queuePosition(db: Db, jobId: string): QueuePosition {
-  const job = jobs.get(db, jobId);
-  if (!job || job.status !== "pending") return { ahead: 0 };
-  const mine = new Set(locksOf(job));
-  if (mine.size === 0) return { ahead: 0 };
+/** Снимок очереди: идущие и ждущие задачи в порядке claimNext (created_at, rowid) с их замками. */
+export interface QueueSnapshot {
+  order: { job: Job; locks: string[] }[];
+  index: Map<string, number>;
+}
+
+/** Один проход по активным задачам — на весь ответ состояния, не на каждую сцену. */
+export function queueSnapshot(db: Db): QueueSnapshot {
   const ids = db.prepare("SELECT id FROM jobs WHERE status IN ('pending', 'running') ORDER BY created_at, rowid").pluck().all() as string[];
+  const order = ids.map((id) => jobs.get(db, id)).filter((j): j is Job => j !== undefined).map((job) => ({ job, locks: locksOf(job) }));
+  return { order, index: new Map(order.map((x, k) => [x.job.id, k])) };
+}
+
+/**
+ * Задача не ждёт (идёт, завершена, нет такой) или замков у неё нет — `{ ahead: 0 }`. Впереди —
+ * идущие с тем же замком (они его держат) и ждущие, поставленные раньше. `snap` — снимок
+ * очереди, если считается для многих задач сразу.
+ */
+export function queuePosition(db: Db, jobId: string, snap: QueueSnapshot = queueSnapshot(db)): QueuePosition {
+  const at = snap.index.get(jobId);
+  const job = at === undefined ? undefined : snap.order[at]!.job;
+  if (!job || job.status !== "pending") return { ahead: 0 };
+  const mine = new Set(snap.order[at!]!.locks);
+  if (mine.size === 0) return { ahead: 0 };
   let ahead = 0;
   let running: string | undefined;
   let first: string | undefined;
-  for (const id of ids) {
-    if (id === jobId) {
-      // идущие после неё в порядке очереди всё равно впереди: они уже держат замок
-      continue;
-    }
-    const other = jobs.get(db, id)!;
-    if (!locksOf(other).some((k) => mine.has(k))) continue;
-    if (other.status === "running") {
+  snap.order.forEach((x, k) => {
+    if (k === at || !x.locks.some((l) => mine.has(l))) return;
+    if (x.job.status === "running") {
       ahead++;
-      running ??= id;
-      continue;
-    }
-    if (isBefore(db, id, jobId)) {
+      running ??= x.job.id;
+    } else if (k < at!) {
       ahead++;
-      first ??= id;
+      first ??= x.job.id;
     }
-  }
+  });
   const blocking = running ?? first;
   return blocking === undefined ? { ahead } : { ahead, blockingJobId: blocking };
 }
 
-/** `a` в очереди раньше `b` (created_at, rowid). */
-function isBefore(db: Db, a: string, b: string): boolean {
-  const r = db.prepare("SELECT (SELECT created_at FROM jobs WHERE id = ?) AS ac, (SELECT rowid FROM jobs WHERE id = ?) AS ar, (SELECT created_at FROM jobs WHERE id = ?) AS bc, (SELECT rowid FROM jobs WHERE id = ?) AS br")
-    .get(a, a, b, b) as { ac: string; ar: number; bc: string; br: number };
-  return r.ac < r.bc || (r.ac === r.bc && r.ar < r.br);
+/** Последняя ждущая задача сцены из снимка, подходящая под `pred`. */
+export function lastPending(snap: QueueSnapshot, sceneId: string, pred: (j: Job) => boolean): Job | undefined {
+  return snap.order.filter((x) => x.job.status === "pending" && x.job.scene_id === sceneId && pred(x.job)).at(-1)?.job;
 }

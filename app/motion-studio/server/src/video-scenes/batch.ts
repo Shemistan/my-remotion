@@ -19,6 +19,7 @@ import { peekApprovalState } from "../approvals/engine.js";
 import { currentSubject } from "../approvals/subjects.js";
 import { PROJECTS_REL } from "../artifacts/paths.js";
 import type { Db } from "../db/open.js";
+import * as approvals from "../db/repos/approvals.js";
 import * as jobEvents from "../db/repos/job-events.js";
 import * as jobs from "../db/repos/jobs.js";
 import * as media from "../db/repos/media.js";
@@ -38,7 +39,9 @@ import { clean, clipWords } from "../script/brief.js";
 import { sceneStatus } from "../script/state.js";
 import { buildVideoSceneBrief, videoSceneSettings } from "./brief.js";
 import { planFps, videoNarration, videoSceneContext } from "./context.js";
+import { sceneKey } from "./approval-c.js";
 import { videoItemFingerprint } from "./fingerprint.js";
+import { inputVideoFingerprint, versionVideoFingerprint } from "./origin.js";
 
 /** Вид события `job_events`: задача входит в пакет видеосцен (`data: { batch_id, item_id }`). */
 export const VIDEO_BATCH_EVENT = "video_batch";
@@ -88,11 +91,7 @@ const versionOfJob = (db: Db, jobId: string): string | null =>
   versions.listByJob(db, jobId).filter((v) => v.status === "ready" && !v.broken_reason).at(-1)?.id ?? null;
 const generateJobs = (db: Db, sceneId: string): number => jobs.list(db, { sceneId }).filter((j) => j.type === "playground.generate").length;
 
-/** Отпечаток видеосцены плана из входа задачи (`video_fingerprint`). */
-export function inputVideoFingerprint(input: unknown): string | undefined {
-  const fp = (input as { video_fingerprint?: unknown } | null)?.video_fingerprint;
-  return typeof fp === "string" ? fp : undefined;
-}
+export { inputVideoFingerprint } from "./origin.js";
 
 interface Work {
   item: ScenePlanItem;
@@ -190,6 +189,8 @@ export function startVideoBatch(core: { db: Db; root: string }, i: StartVideoBat
       enqueue: { sceneId, title, brief, settings, input: { sceneId, prompt: brief, settings, video: ctx, video_fingerprint: fingerprint, answers: "skip" }, key },
     });
   }
+  // все выбранные пропущены — пустой пакет не создаётся
+  if (work.length === 0) throw new ApiError(409, "nothing_to_generate", "все выбранные сцены уже готовы по текущему плану или не приняты — генерировать нечего", { skipped });
   stage(core, { project, doc, batchId, work, retitle });
   const dto = videoBatchStatus(db, root, batchId);
   return skipped.length > 0 ? { ...dto, skipped } : dto;
@@ -225,6 +226,10 @@ function stage(core: { db: Db; root: string }, s: { project: ProjectDto; doc: Vi
             scenes.create(db, { id: e.sceneId, project_id: pid, title: e.title });
             videoScenes.insert(db, { project_id: pid, plan_id: doc.plan_id, item_id: w.item.id, scene_id: e.sceneId, batch_id: batchId, job_id: null, item_fingerprint: w.fingerprint });
           }
+          // утверждённая версия сделана по другой сцене плана — её C устарело (ревью I1)
+          const approved = w.row ? scenes.get(db, e.sceneId)?.approved_version_id : undefined;
+          const made = approved ? versionVideoFingerprint(db, approved) : undefined;
+          if (made !== undefined && made !== w.fingerprint) approvals.markStaleByKey(db, pid, "C", sceneKey(e.sceneId), "plan_changed");
           job = enqueue(db, { type: "playground.generate", projectId: pid, sceneId: e.sceneId, input: e.input, idempotencyKey: e.key }).job;
           // отпечаток — не здесь: он сдвигается после публикации версии (playground.generate)
           videoScenes.setJob(db, e.sceneId, job.id);

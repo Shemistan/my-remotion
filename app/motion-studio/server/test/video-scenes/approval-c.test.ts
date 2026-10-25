@@ -75,4 +75,11 @@ describe("Approval C", () => {
     expect(sceneApprovalState(env.db, "scn_a")).toEqual({ state: "missing" });
     expect(scenes.get(env.db, "scn_a")!.approved_version_id).toBeNull();
   });
+
+  it("проект в корзине — project_deleted, C не ставится", async () => {
+    const a1 = await version("scn_a");
+    env.db.prepare("UPDATE projects SET deleted_at = ? WHERE id = ?").run(new Date().toISOString(), "p1");
+    expect(codeOf(() => approveScene(env.db, { sceneId: "scn_a", versionId: a1 }))).toBe("project_deleted");
+    expect(sceneApprovalState(env.db, "scn_a")).toEqual({ state: "missing" });
+  });
 });

@@ -3,27 +3,28 @@
 // end + pad)` кадров таймлайна (`timeline_fps` EDL ревизии плана), композиция `ProjectTimeline`
 // из одной сцены (тот же движок, что у финала, ADR 0010): исходник — CFR-прокси (кадр N прокси =
 // кадр N master), звук — `buildEditedAudio(прокси)`, `renderTimelineRange` в масштабе 0,5.
-// Публикация — `context/<scene>/<version>/preview.mp4` + `preview.json` (иммутабельно).
+// Публикация — `context/<scene>/<version>@r<план>-p<поля>/preview.mp4` + `preview.json`
+// (иммутабельно; ключ — версия, ревизия плана, поля: ревью I2).
 //
 // Замка нет (читает иммутабельное): повтор и параллельная задача не падают на существующем
-// каталоге — опубликованное превью версии и есть результат (`reused: true`). Позиция сцены — по
-// текущей ревизии плана; превью, опубликованное по другой ревизии EDL, отдаётся с
-// `edl_outdated: true` (каталог иммутабелен, путь — по версии: реестр путей — Task 35′).
+// каталоге — опубликованное превью и есть результат (`reused: true`). Окно — по текущей ревизии
+// плана (сцена там принята), иначе по ревизии генерации (`plan_outdated: true`). Размещение
+// (overlay/fullscreen, прозрачность) — из генерации, создавшей версию (у правки — предка), а не
+// последней задачи генерации сцены (ревью I3). Устарело ли опубликованное — `contextPreviewState`.
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { type EditedTimeline, type JobError, type ScenePlanItem, type VideoSceneContext, type VisualPlanRevisionDoc, clipsToSequences, timelineFrames, videoSceneFrames } from "@ms/contracts";
+import { type EditedTimeline, type JobError, clipsToSequences, timelineFrames, videoSceneFrames } from "@ms/contracts";
 import { safeMkdir } from "@ms/core";
 import { renderTimelineRange } from "@ms/render";
 import { z } from "zod";
-import { currentPlan } from "../analysis/plan-ops.js";
+import { currentProjectStyle } from "../analysis/project-style.js";
 import { createJobDraft } from "../artifacts/job-draft.js";
 import { artifactPaths } from "../artifacts/paths.js";
 import { ArtifactExistsError, ArtifactStore, isPublished } from "../artifacts/store.js";
 import * as edls from "../db/repos/edls.js";
 import * as jobs from "../db/repos/jobs.js";
 import * as media from "../db/repos/media.js";
-import * as plans from "../db/repos/plans.js";
 import * as scenes from "../db/repos/scenes.js";
 import * as versions from "../db/repos/versions.js";
 import { timelineFor } from "../edit/timeline-store.js";
@@ -34,7 +35,9 @@ import { FencedOutError, PublishCancelledError } from "../scenes/repo.js";
 import { checkSceneDir } from "../scenes/static-check.js";
 import { QUARANTINE, fsyncWrite, quarantineDir, setWritable } from "../scenes/store.js";
 import type { Phase46Deps } from "./phase46-deps.js";
-import { videoContextOf } from "./playground-edit.js";
+import { CONTEXT_PREVIEW_FILE, CONTEXT_PREVIEW_META, previewPlanItem } from "../video-scenes/context-preview.js";
+import { videoItemFingerprint } from "../video-scenes/fingerprint.js";
+import { versionVideoContext, versionVideoFingerprint } from "../video-scenes/origin.js";
 import { errText, isStorageError } from "./steps.js";
 
 export interface ScenePreviewContextDeps extends Phase46Deps {
@@ -52,8 +55,7 @@ export const ScenePreviewContextInputSchema = z.object({
 }).strict();
 export type ScenePreviewContextInput = z.infer<typeof ScenePreviewContextInputSchema>;
 
-export const CONTEXT_PREVIEW_FILE = "preview.mp4";
-export const CONTEXT_PREVIEW_META = "preview.json";
+export { CONTEXT_PREVIEW_FILE, CONTEXT_PREVIEW_META, contextPreviewState } from "../video-scenes/context-preview.js";
 /** Масштаб превью к кадру сцены (половина, как превью версии). */
 export const CONTEXT_PREVIEW_SCALE = 0.5;
 const RENDER_TIMEOUT_MS = 20 * 60_000;
@@ -71,8 +73,8 @@ export interface ScenePreviewContextResult {
   pad_frames: number;
   rel_path: string;
   reused: boolean;
-  /** Превью опубликовано по другой ревизии EDL, чем текущая ревизия плана (сцена с тех пор сдвинулась). */
-  edl_outdated?: boolean;
+  /** Окно — по ревизии генерации: сцены нет среди принятых в текущей ревизии плана. */
+  plan_outdated?: boolean;
   duration_ms?: number;
   width?: number;
   height?: number;
@@ -85,23 +87,9 @@ class Fail extends Error {
     super(error.message);
   }
 }
+/** Начало кадра `f` таймлайна, µs. */
+const frameUs = (f: number, fps: { num: number; den: number }): number => Math.round((f * 1e6 * fps.den) / fps.num);
 const prep = (message: string) => new Fail({ code: "pipeline", stage: "prepare", message });
-
-/** Сцена плана видеосцены: по текущей ревизии плана (принятая), иначе — по ревизии генерации. */
-function planItemOf(db: Parameters<typeof currentPlan>[0], root: string, c: VideoSceneContext): { doc: VisualPlanRevisionDoc; item: ScenePlanItem; current: boolean } {
-  const cur = plans.get(db, c.plan_id)?.current_revision ?? undefined;
-  for (const rev of [cur, c.plan_revision]) {
-    if (rev === undefined) continue;
-    try {
-      const doc = currentPlan(db, root, c.plan_id, rev);
-      const item = doc.items.find((x) => x.id === c.item_id && (x.status === "accepted" || rev === c.plan_revision));
-      if (item) return { doc, item, current: rev === cur };
-    } catch {
-      // ревизия не читается — следующая
-    }
-  }
-  throw prep(`сцены ${c.item_id} нет в плане ${c.plan_id}`);
-}
 
 export function scenePreviewContext(depsOf: () => ScenePreviewContextDeps): JobHandler {
   return async (ctx) => {
@@ -131,9 +119,12 @@ export function scenePreviewContext(depsOf: () => ScenePreviewContextDeps): JobH
       const ver = versionId ? versions.get(ctx.db, versionId) : undefined;
       if (!ver || ver.scene_id !== scene.id) throw prep(`версии ${versionId ?? "—"} нет у сцены ${scene.id}`);
       if (ver.status !== "ready" || ver.broken_reason) throw prep(`версия v${ver.number} не готова: ${ver.broken_reason ?? ver.status}`);
-      const vctx = videoContextOf(ctx.db, scene.id);
-      if (!vctx) throw prep(`сцена ${scene.id} — не видеосцена (нет входа video у генерации)`);
-      const { doc, item, current } = planItemOf(ctx.db, root, vctx);
+      // контекст генерации, создавшей версию (у правки — предка): размещение версии, не последней генерации
+      const vctx = versionVideoContext(ctx.db, ver.id);
+      if (!vctx) throw prep(`версия v${ver.number} сцены ${scene.id} — не видеосцена (нет входа video у её генерации)`);
+      const at = previewPlanItem(ctx.db, root, vctx);
+      if (!at) throw prep(`сцены ${vctx.item_id} нет в плане ${vctx.plan_id}`);
+      const { doc, item, current } = at;
       const edlRef = { id: doc.inputs.edl.id, revision: doc.inputs.edl.revision };
       const tl: EditedTimeline = timelineFor(ctx.db, edlRef.id, edlRef.revision);
       const total = timelineFrames(tl);
@@ -141,23 +132,26 @@ export function scenePreviewContext(depsOf: () => ScenePreviewContextDeps): JobH
       const sceneFrames = { start: item.frames.start, end: item.frames.start + videoSceneFrames(item) };
       const range: [number, number] = [Math.max(0, sceneFrames.start - pad), Math.min(total, sceneFrames.end + pad) - 1];
       if (sceneFrames.end > total) throw prep(`сцена ${item.id} кончается на кадре ${sceneFrames.end}, а ролик — на ${total}`);
-      const destRel = artifactPaths(root, scene.project_id).contextPreview(scene.id, ver.id);
+      const destRel = artifactPaths(root, scene.project_id).contextPreview(scene.id, ver.id, doc.revision, pad);
       const relPath = `${destRel}/${CONTEXT_PREVIEW_FILE}`;
       const base: ScenePreviewContextResult = {
         scene_id: scene.id, version_id: ver.id, version_number: ver.number, item_id: item.id, plan: { id: doc.plan_id, revision: doc.revision }, edl: edlRef,
-        range, scene_frames: sceneFrames, pad_frames: pad, rel_path: relPath, reused: false,
+        range, scene_frames: sceneFrames, pad_frames: pad, rel_path: relPath, reused: false, ...(current ? {} : { plan_outdated: true }),
       };
       const reused = async (why: string): Promise<HandlerResult> => {
         ctx.emit("preview_reused", why);
         const meta = await readFile(join(root, destRel, CONTEXT_PREVIEW_META), "utf8").then((x) => JSON.parse(x) as Partial<ScenePreviewContextResult>, () => ({}));
-        const r = { ...base, ...meta, rel_path: relPath, reused: true } as ScenePreviewContextResult;
-        const outdated = r.edl.id !== edlRef.id || r.edl.revision !== edlRef.revision;
-        return done(outdated ? { ...r, edl_outdated: true } : r);
+        return done({ ...base, ...meta, rel_path: relPath, reused: true } as ScenePreviewContextResult);
       };
-      if (isPublished(ctx.db, destRel)) return await reused(`превью версии v${ver.number} уже опубликовано`);
+      if (isPublished(ctx.db, destRel)) return await reused(`превью версии v${ver.number} по плану r${doc.revision} уже опубликовано`);
 
       const warnings: string[] = [];
       if (!current) warnings.push(`сцены ${item.id} нет среди принятых в текущем плане — окно по ревизии генерации r${doc.revision}`);
+      const style = currentProjectStyle(ctx.db, root, scene.project_id);
+      const made = versionVideoFingerprint(ctx.db, ver.id);
+      if (current && style && made !== undefined && made !== videoItemFingerprint(item, { id: style.style_id, revision: style.revision })) {
+        warnings.push(`версия v${ver.number} сделана не по текущей сцене плана r${doc.revision} — размещение по её генерации, окно по плану; перегенерируйте сцену`);
+      }
       if (ver.settings.duration_frames !== videoSceneFrames(item)) warnings.push(`версия длиной ${ver.settings.duration_frames} кадров, а сцена плана — ${videoSceneFrames(item)}: в превью — по плану`);
       if (ver.settings.fps.num * tl.fps.den !== tl.fps.num * ver.settings.fps.den) throw prep(`fps версии ${ver.settings.fps.num}/${ver.settings.fps.den} ≠ fps таймлайна ${tl.fps.num}/${tl.fps.den}`);
       const edl = edls.get(ctx.db, edlRef.id);
@@ -179,7 +173,11 @@ export function scenePreviewContext(depsOf: () => ScenePreviewContextDeps): JobH
       stage = "audio";
       ctx.progress(0.05, stage);
       const audio = asset.probe.audio !== undefined
-        ? await (d.editedAudio ?? buildEditedAudio)({ input: proxy, tl, fadeUs: d.svc.config.roughcut.fadeUs, out: join(workdir, "edited-audio.wav"), run, signal })
+        ? await (d.editedAudio ?? buildEditedAudio)({
+          input: proxy, tl, fadeUs: d.svc.config.roughcut.fadeUs, out: join(workdir, "edited-audio.wav"), run, signal,
+          // звук только окна превью: проход 1 читает участок прокси, а не весь ролик
+          window: { startUs: frameUs(range[0], tl.fps), endUs: frameUs(range[1] + 1, tl.fps) },
+        })
         : undefined;
 
       stage = "render";
