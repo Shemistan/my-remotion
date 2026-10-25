@@ -19,6 +19,18 @@ describe("summarizeLayout", () => {
     expect(n.fontPx).toBe(60);
     expect(f.ghosts).toEqual([]);
   });
+  it("Task 37′ fix 2: у text/number — части по строкам (слова, строки) для word_gap; у подписей — нет", () => {
+    const f = summarizeLayout(5, 1080, [
+      raw({ owner: "text::0", role: "text", text: "не", rect: { x: 100, y: 100, w: 80, h: 100 }, fontPx: 88, opacity: 0.5 }),
+      raw({ owner: "text::0", role: "text", text: "прерывая", rect: { x: 200, y: 100, w: 300, h: 100 }, fontPx: 88 }),
+      raw({ owner: "label::0", role: "label", text: "ось", rect: { x: 100, y: 400, w: 80, h: 30 }, fontPx: 24 }),
+    ]);
+    expect(f.items.find((i) => i.role === "text")!.lines).toEqual([
+      { text: "не", rect: { x: 100, y: 100, w: 80, h: 100 }, fontPx: 88, opacity: 0.5 },
+      { text: "прерывая", rect: { x: 200, y: 100, w: 300, h: 100 }, fontPx: 88, opacity: 1 },
+    ]);
+    expect(f.items.find((i) => i.role === "label")!.lines).toBeUndefined();
+  });
   it("невидимое (силуэт, приглушённый кикер, уходящий статус) не считается", () => {
     const f = summarizeLayout(0, 1080, [raw({ text: "РУБРИКА", rect: { x: 0, y: 0, w: 300, h: 30 }, opacity: 0.3 })]);
     expect(f.items).toEqual([]);

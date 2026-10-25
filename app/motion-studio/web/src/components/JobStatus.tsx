@@ -1,11 +1,14 @@
-// Статус задачи: тип, этап, прогресс, ошибка (понятный текст + технические подробности),
+// Статус задачи: тип, этап, прогресс, стоимость (справочно), ошибка — `ErrorCard` (Task 48:
+// понятный текст, подсказка и действия каталога, технические подробности),
 // журнал событий, отмена и повтор. blocked (stale_process): PID и команды процессов прежней
 // попытки; повтор — только когда они завершились.
 import type { Job, JobDetailDto } from "@ms/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import { isActive, useJob } from "../api/queries.js";
+import { usd } from "../api/diagnostics-client.js";
 import { errorText, t, tk } from "../i18n/index.js";
+import { ErrorCard } from "./diagnostics/ErrorCard.js";
 
 export interface JobStatusProps {
   jobId: string;
@@ -76,14 +79,14 @@ export function JobStatus({ jobId, compact }: JobStatusProps) {
         <span className={`badge status-${job.status}`}>{t(`job.status.${job.status}`)}</span>
         {isActive(job.status) && job.stage ? <span className="muted">{stageText(job.stage)}</span> : null}
         {job.cancel_requested && job.status === "running" ? <span className="muted">{t("job.cancelRequested")}</span> : null}
+        {job.cost_usd ? <span className="muted small" title={t("diagnostics.costNote")}>{t("diagnostics.cost", { usd: usd(job.cost_usd) })}</span> : null}
       </div>
       {isActive(job.status) || job.status === "completed" ? (
         <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={t("job.progress")}>
           <div style={{ width: `${pct}%` }} />
         </div>
       ) : null}
-      {title ? <p className="error-title">{title}</p> : null}
-      {job.error ? <pre className="log small">{job.error.message}</pre> : null}
+      {job.error ? <ErrorCard error={job.error} jobId={job.id} {...(title ? { title } : {})} /> : null}
       {job.status === "blocked" ? (
         <>
           <Processes detail={q.data} />

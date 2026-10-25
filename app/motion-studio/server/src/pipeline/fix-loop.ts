@@ -13,6 +13,7 @@ import {
   type FailureStage,
   type KnowledgeRef,
   type MotionSpec,
+  type NormRect,
   type QAIssue,
   type QAReport,
   QA_SCORE_AXES,
@@ -29,7 +30,8 @@ import {
   type VisualQAOutput,
 } from "@ms/contracts";
 import { type ReapOptions, fileProcessRegistry, reapAttempt, safeMkdir } from "@ms/core";
-import { FfmpegError, type RenderRequest, type RenderResult, SWEEP_EVERY, type renderVersion, probeGate } from "@ms/render";
+import { FfmpegError, type RenderRequest, type RenderResult, SWEEP_EVERY, type SweepFrame, type renderVersion, probeGate } from "@ms/render";
+import { parseSweep } from "../qa/temporal.js";
 import { ACCENT_HOLD_GAP, programmaticChecks } from "../qa/programmatic.js";
 import { ACCENT_CONFLICT_FRAMES, type LayoutFrame, accentConflictFrames, parseLayout, scriptLayoutIssues } from "../qa/layout.js";
 import { acceptedAsWarn, fixHints, meaningFails, mergeQA, qaBlocks, repeatsAsWarning } from "../qa/report.js";
@@ -165,6 +167,19 @@ export interface LoopInput {
    * предупреждение (сцена не падает из-за вкуса).
    */
   technique?: Technique;
+  /**
+   * Видеосцена с прозрачным размещением (Task 37′): прямоугольник графики (доли кадра) —
+   * в задачу Engineer и в `props.layout.rect` (`checkProps`, как стиль из настроек).
+   */
+  layout?: NormRect;
+  /**
+   * Проверки по всей сцене без правил сценария (Task 37′ fix I1, прозрачная видеосцена):
+   * временной проход пробы, `scriptSceneIssues` и реестр финала (`empty_container`,
+   * `placeholder_label`, `dead_air`) — как у сцены сценария, но без строк сценария у Engineer;
+   * коды `skip` (пустая половина, герой на 30–40 % кадра — против зоны) отбрасываются.
+   * У сцены сценария окно берётся из `scriptTiming`.
+   */
+  temporal?: { window?: SpeechWindow; moments?: readonly KeyMoment[]; skip: readonly string[] };
 }
 
 /**
@@ -184,6 +199,8 @@ export type ExtraQa = (v: {
   renderStills: (stills: number[], inputProps: Record<string, unknown>) => Promise<RenderResult>;
   /** Реестр раскладки kit QA-кадров попытки (`[motion-kit:layout]`; S10: интерфейс Shorts). */
   layout: LayoutFrame[];
+  /** Временной проход пробы попытки (каждый 6-й кадр; есть у `script`/`temporal`, иначе пусто; Task 37′ fix I2). */
+  sweep?: SweepFrame[];
   /** Контекст задачи (S15b): вызов малой модели (смысл по фрагменту) — с бюджетом и журналом задачи. */
   rc: RunCtx;
 }) => Promise<QAIssue[]>;
@@ -331,7 +348,7 @@ const technical = (code: string, description: string, fix_hint: string, severity
  * transparent} == settings.*` — иначе blocking `props_settings_mismatch`. Биты props, не
  * совпавшие с биты spec, — warning.
  */
-export function checkProps(text: string | undefined, spec: MotionSpec, settings: Settings): { props?: ScenePropsBase; text?: string; issues: QAIssue[] } {
+export function checkProps(text: string | undefined, spec: MotionSpec, settings: Settings, layout?: NormRect): { props?: ScenePropsBase; text?: string; issues: QAIssue[] } {
   if (text === undefined) return { issues: [technical("props_contract", "props.json нет", "запиши props.json: { timing, style, content } по контракту сцены")] };
   let raw: unknown;
   try {
@@ -352,7 +369,8 @@ export function checkProps(text: string | undefined, spec: MotionSpec, settings:
     // стиль проекта сценария (`settings.style_lock`) важнее палитры и глубины сцены
     ...styleLockOf(settings),
   };
-  const parsed = ScenePropsBaseSchema.safeParse({ ...obj, style });
+  // видеосцена (Task 37′): прямоугольник графики — зона плана, как стиль — из настроек задачи
+  const parsed = ScenePropsBaseSchema.safeParse({ ...obj, style, ...(layout ? { layout: { rect: layout } } : {}) });
   if (!parsed.success) {
     const where = parsed.error.issues.slice(0, 8).map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`).join("; ");
     return { issues: [technical("props_contract", `props.json не проходит ScenePropsBaseSchema: ${where}`, "props.json — ровно { timing: { duration_frames, beats: [{ id, start_frame, end_frame }] }, style, content }, без лишних полей")] };
@@ -633,7 +651,7 @@ function attemptRecord(a: Attempt, published: boolean): AttemptRecord {
 }
 
 /** Файлы попытки в снимке: код сцены, props, превью, QA-кадры. */
-const ATTEMPT_FILES = ["src", "props.json", "preview.mp4", "frames"];
+const ATTEMPT_FILES = ["src", "props.json", "preview.mp4", "frames", "qa"];
 const posixRel = (root: string, p: string) => relative(root, p).split(sep).join("/");
 
 /** Снимок попытки: `run/tmp/<runId>-a<attempt>/attempts/<n>/` (каталоги — через safeMkdir). */
@@ -641,7 +659,8 @@ async function snapshotAttempt(rc: RunCtx, dir: string, frames: number[], n: num
   const rel = `run/tmp/${rc.runId}-a${rc.attempt}/attempts/${n}`;
   await rm(join(rc.root, rel), { recursive: true, force: true });
   await safeMkdir(rc.root, rel);
-  for (const x of ["src", "props.json", "preview.mp4"]) if (existsSync(join(dir, x))) await copyTree(rc.root, join(dir, x), `${rel}/${x}`);
+  // qa/ — кадры-композиты видеосцены (Task 37′): у лучшей попытки — её композиты
+  for (const x of ["src", "props.json", "preview.mp4", "qa"]) if (existsSync(join(dir, x))) await copyTree(rc.root, join(dir, x), `${rel}/${x}`);
   await safeMkdir(rc.root, `${rel}/frames`);
   for (const f of frames) {
     const p = join(dir, "frames", `${f}.png`);
@@ -795,7 +814,7 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
           ].join("\n")
         : call === 1 ? t.brief : undefined;
       rc.log(`${first ? "" : "дубль 2: "}${call === 1 ? "Engineer…" : `Engineer: исправление ${call - 1} из ${maxCalls - 1} (${issue?.stage})…`}`);
-      const e = await rc.timed(`${pre}engineer_${call}`, () => rc.call(buildEngineerTask({ draftDir: dir, ...(fix ? { fix } : {}), spec, ...(i.script ? { script: true } : {}), ...(i.technique ? { technique: i.technique } : {}) }, { ...rc.taskRun, seq: first ? call : 100 + call }), EngineerReportSchema, t.signal));
+      const e = await rc.timed(`${pre}engineer_${call}`, () => rc.call(buildEngineerTask({ draftDir: dir, ...(fix ? { fix } : {}), spec, ...(i.script ? { script: true } : {}), ...(i.technique ? { technique: i.technique } : {}), ...(i.layout ? { layout: i.layout } : {}) }, { ...rc.taskRun, seq: first ? call : 100 + call }), EngineerReportSchema, t.signal));
       if (e.budget !== undefined) return end("budget", `${e.budget}${issue ? `; последняя ошибка (${issue.stage}): ${clip(issue.message, 1000)}` : ""}`);
       if (e.skipped) return end("cancelled", "отменено до Engineer");
       if (e.error !== undefined) {
@@ -887,7 +906,7 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
         continue;
       }
       const propsPath = join(dir, "props.json");
-      const checked = checkProps(existsSync(propsPath) ? await readFile(propsPath, "utf8") : undefined, spec, settings);
+      const checked = checkProps(existsSync(propsPath) ? await readFile(propsPath, "utf8") : undefined, spec, settings, i.layout);
       const blocking = checked.issues.filter((x) => x.severity === "blocking");
       if (blocking.length > 0 || !checked.props) {
         push({ stage: "static", message: asText(checked.issues) });
@@ -921,7 +940,7 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
       versionDir: dir, settings, cacheDir: i.cacheDir, stills: [...frames, ...extra], preview: PREVIEW, timeoutMs: renderTimeoutMs(settings),
       run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry },
       // S15b: сцена сценария — временной проход пробы после превью (проверки по всей сцене)
-      ...(i.script ? { sweep: { every: SWEEP_EVERY, scale: SWEEP_SCALE } } : {}),
+      ...(i.script || i.temporal ? { sweep: { every: SWEEP_EVERY, scale: SWEEP_SCALE } } : {}),
     };
     const t0 = Date.now();
     const r = await rc.timed(`${pre}render_${call}`, () =>
@@ -1119,14 +1138,14 @@ async function preserveHoldIssues(i: LoopInput, rr: RenderResult): Promise<{ iss
  * под семафором рендеров, каталоги убираются после хука (кроме живых процессов `orphaned`).
  * Сбой или отмена хука — предупреждение `extra_qa_failed`.
  */
-async function extraQaIssues(i: LoopInput, t: Take, settings: Settings, layout: LayoutFrame[]): Promise<{ issues: QAIssue[] } | { orphaned: string }> {
+async function extraQaIssues(i: LoopInput, t: Take, settings: Settings, layout: LayoutFrame[], sweep: SweepFrame[]): Promise<{ issues: QAIssue[] } | { orphaned: string }> {
   const { rc } = i;
   const dirs: string[] = [];
   let orphaned: string | undefined;
   const r = await rc.underWatch(
     (sig) =>
       i.extraQa!({
-        versionDir: t.dir, spec: t.spec, settings, signal: sig, layout, rc,
+        versionDir: t.dir, spec: t.spec, settings, signal: sig, layout, sweep, rc,
         run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry },
         renderStills: async (stills, inputProps) => {
           const outDir = await mkdtemp(join(await safeMkdir(rc.root, `run/tmp/${rc.runId}-a${rc.attempt}`), "extra-"));
@@ -1157,6 +1176,15 @@ async function extraQaIssues(i: LoopInput, t: Take, settings: Settings, layout: 
   return { issues: [technical("extra_qa_failed", `доп. проверка попытки не выполнена: ${why}`, "проверка повторится на следующей попытке; при повторе — смотри журнал задачи", "warning")] };
 }
 
+/** Кадры-композиты видеосцены попытки: `qa/ctx-<кадр>.png` (Task 37′); нет каталога — пусто. */
+async function contextFrames(dir: string): Promise<{ frame: number; path: string }[]> {
+  const names = await readdir(join(dir, "qa")).catch(() => [] as string[]);
+  return names.flatMap((n) => {
+    const m = /^ctx-(\d+)\.png$/.exec(n);
+    return m ? [{ frame: Number(m[1]), path: join(dir, "qa", n) }] : [];
+  }).sort((a, b) => a.frame - b.frame);
+}
+
 /** Программные проверки, проверки spec и Visual QA по кадрам рендера → QAReport (или выход). */
 async function runQa(
   i: LoopInput, state: LoopState, t: Take, rr: RenderResult, techWarnings: QAIssue[], call: number, extra: number[], styleOverride: ScenePropsStyle | undefined,
@@ -1179,16 +1207,18 @@ async function runQa(
   const fromSpec = specChecks(spec, settings, { previous: i.previous ?? [] });
   // сцена сценария (S14): пустые контейнеры и подписи-заглушки в финале — брак (реестр раскладки
   // kit 0.5.5); S15b: по всей сцене (временной проход) и один герой (пик payoff, удержание)
-  if (i.script) {
+  if (i.script || i.temporal) {
     const layout = parseLayout(rr.browserLogs);
-    programmatic.push(...scriptLayoutIssues(layout).map((x) => ({ source: "programmatic" as const, ...x })));
+    const skip = new Set(i.script ? [] : i.temporal!.skip);
+    const timing = i.scriptTiming ?? (i.temporal?.window ? { window: i.temporal.window, ...(i.temporal.moments ? { moments: i.temporal.moments } : {}) } : undefined);
+    programmatic.push(...scriptLayoutIssues(layout).filter((x) => !skip.has(x.code)).map((x) => ({ source: "programmatic" as const, ...x })));
     const propsPath = join(dir, "props.json");
     const sig = t.signal ?? rc.signal;
     let st: Awaited<ReturnType<typeof scriptSceneIssues>>;
     try {
       st = await rc.timed(`${pre}qa_temporal`, async () => scriptSceneIssues({
         spec, settings, browserLogs: rr.browserLogs, layout, ...(rr.previewPath ? { previewPath: rr.previewPath } : {}),
-        ...(i.scriptTiming ? { window: i.scriptTiming.window, ...(i.scriptTiming.moments ? { moments: i.scriptTiming.moments } : {}) } : {}),
+        ...(timing ? { window: timing.window, ...(timing.moments ? { moments: timing.moments } : {}) } : {}),
         ...(i.technique ? { technique: i.technique } : {}),
         propsText: existsSync(propsPath) ? await readFile(propsPath, "utf8") : "",
         ffmpeg: { run: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry }, ...(sig ? { signal: sig } : {}) },
@@ -1200,16 +1230,19 @@ async function runQa(
       throw e;
     }
     for (const n of st.notes) rc.note("qa", n);
-    programmatic.push(...st.issues);
+    programmatic.push(...st.issues.filter((x) => !skip.has(x.code)));
   }
   const hold = await preserveHoldIssues(i, rr);
   if ("orphaned" in hold) return { exit: { ok: false, stage: "orphaned", message: hold.orphaned, alive: true } };
   programmatic.push(...hold.issues);
   if (i.extraQa) {
-    const x = await extraQaIssues(i, t, settings, parseLayout(rr.browserLogs));
+    const x = await extraQaIssues(i, t, settings, parseLayout(rr.browserLogs), parseSweep(rr.browserLogs));
     if ("orphaned" in x) return { exit: { ok: false, stage: "orphaned", message: x.orphaned, alive: true } };
     programmatic.push(...x.issues);
   }
+
+  // видеосцена (Task 37′): кадры-композиты «сцена поверх видео» хука extraQa — Visual QA вместе с кадрами
+  const context = await contextFrames(dir);
 
   // ruling P5: QA по реальным кадрам обязателен. Бюджет кончился до Visual QA — `budget`;
   // Visual QA не дал оценки — один повтор (без исправления Engineer), затем `qa`. Обе
@@ -1229,7 +1262,7 @@ async function runQa(
     const v = await rc.timed(`${pre}visual_qa_${call}`, () =>
       rc.underWatch((sig) =>
         runVisualQA(
-          { workdir: dir, frames, spec, style, durationFrames: end, brief: i.qa!.brief, runRef: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry }, signal: sig, ...(pre ? { dirName: "qa-t2" } : {}) },
+          { workdir: dir, frames, spec, style, durationFrames: end, brief: i.qa!.brief, runRef: { root: rc.root, runId: rc.runId, attempt: rc.attempt, registry: rc.registry }, signal: sig, ...(pre ? { dirName: "qa-t2" } : {}), ...(context.length > 0 ? { context } : {}) },
           { agents: rc.recording, config: rc.config, log: (m) => rc.warnings.push(m) },
         ),
       t.signal),

@@ -31,6 +31,15 @@ export function placementFor(mode: PlannedCompositionMode, zone: Zone, rect?: No
   return { mode, zone, rect: rect ?? ZONE_RECTS[zone], transparent: mode !== "fullscreen" };
 }
 
+/**
+ * Путь в хранилище из входа задачи (fix I4): относительный, POSIX, без `..`, без абсолютного
+ * пути и диска Windows, без `\\` — дальше его резолвят от корня хранилища.
+ */
+export function isStoreRel(p: string): boolean {
+  return p !== "" && !p.startsWith("/") && !/^[A-Za-z]:/.test(p) && !p.includes("\\") && !p.includes("\0") && p.split("/").every((s) => s !== ".." && s !== "");
+}
+const StoreRel = z.string().min(1).refine(isStoreRel, "путь в хранилище: относительный, без `..` и абсолютного");
+
 /** Ключевой момент сцены: кадр от начала сцены, когда звучит слово (раскрытие не раньше слова). */
 const KeyMomentSchema = z.object({ text: z.string().min(1), value: z.number().optional(), frame: Int0 }).strict();
 
@@ -49,7 +58,12 @@ export const VideoSceneContextSchema = z.object({
   face: NormRectSchema.optional(),
   key_moments: z.array(KeyMomentSchema).optional(),
   /** Кадр исходника под сценой (путь в хранилище) — контекст для Director и Visual QA. */
-  context_frame_rel: z.string().min(1).optional(),
+  context_frame_rel: StoreRel.optional(),
+  /**
+   * Ключевые кадры анализа видеоряда в окне исходника сцены (fix I2): `frame` — кадр сцены от её
+   * начала, ближайший ко времени ключевого кадра; композит берёт ближайший к своему кадру.
+   */
+  context_frames: z.array(z.object({ frame: Int0, rel: StoreRel }).strict()).optional(),
 }).strict();
 export type VideoSceneContext = z.infer<typeof VideoSceneContextSchema>;
 
