@@ -1,0 +1,20 @@
+# Исходники KB для ./setup --kb (S19): путь от корня, https-URL, полный коммит (= commit в knowledge/repositories.json).
+# Клон без истории: fetch --depth 1 <url> <коммит>. Поднять коммит — правка здесь и в repositories.json.
+official_skills/claude-code-plugin	https://github.com/remotion-dev/claude-code-plugin.git	60ee4088f84a11e31e29c87cb97da50d26889be9
+official_skills/skills	https://github.com/remotion-dev/skills.git	039e8a2fc78b67efc228d5645367838b85818a1c
+templates/infografika/echarts	https://github.com/apache/echarts.git	34f4d927eafe251f26f63afd3aeefa30f2feba30
+templates/infografika/mermaid	https://github.com/mermaid-js/mermaid.git	6d8921f94f9a12b76586eddcf45a566080d4767e
+templates/infografika/nivo	https://github.com/plouc/nivo.git	0dae2c32052a573f9f1d66ec1b453b572119b265
+templates/infografika/recharts	https://github.com/recharts/recharts.git	172725009877dd629ff396ca8642e8b42827f63e
+templates/infografika/xyflow	https://github.com/xyflow/xyflow.git	654ba5a5e04f3404bc4db2eee88bfa15866d203d
+templates/react-libriry/animata	https://github.com/codse/animata.git	e7478b835a3b5c4153e71f60666634e91bb38813
+templates/react-libriry/magicui	https://github.com/magicuidesign/magicui.git	efe76fc5755eca1142dd4f74c1d6f0ace2887e3c
+templates/react-libriry/motion-primitives	https://github.com/ibelick/motion-primitives.git	120f64f6ca60348e251f929e9c81f11ccbe45eda
+templates/react-libriry/motion-primitives-website	https://github.com/itsjwill/motion-primitives-website.git	cff72d82aa48ecefba79d9ec5996f1eafe98e107
+templates/react-libriry/react-bits	https://github.com/DavidHDev/react-bits.git	e12c22192ac7b4b452c5e2feb9b586d74765d696
+templates/remotion-components/awesome-claude-video-skills	https://github.com/zhuyansen/awesome-claude-video-skills.git	ffdf99cbc7879f611abba186e933695904cd638f
+templates/remotion-components/free-remotion-templates	https://github.com/RenderComp/free-remotion-templates.git	f648980e528defb7594e24c6447055f0540f340b
+templates/remotion-components/remotion-bits	https://github.com/av/remotion-bits.git	de35fda84b7b6acbe549a0b302a82ef211e8ef1e
+templates/remotion-components/remotion-boilerplate	https://github.com/gorillabiscuit/remotion-boilerplate.git	ba6185926a4c885c60cf44bb05b3eece5e1e563b
+templates/remotion-components/remotion-motion-graphics-skill	https://github.com/fernandokaraka/remotion-motion-graphics-skill.git	1fc286924c68260b7945f1f29e474b986446b70d
+templates/remotion-components/remotion-video-templates	https://github.com/AleBrito124356/remotion-video-templates.git	90149464d51a43fcb90e15491bf0d681c1b0fa49

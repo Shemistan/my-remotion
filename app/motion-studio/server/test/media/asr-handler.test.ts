@@ -55,7 +55,7 @@ beforeAll(async () => {
   await mkdir(join(models, "asr/whisper-large-v3-turbo"), { recursive: true });
   writeFileSync(join(models, "asr/whisper-large-v3-turbo/config.json"), "{}\n");
   cfg = {
-    python: PY, aiPlatformRoot: aip, modelsDir: models, model: "whisper-large-v3-turbo", language: "ru",
+    python: PY, worker: join(montage, "asr_worker.py"), modelsDir: models, model: "whisper-large-v3-turbo", language: "ru",
     expectedWorkerSha256: await sha256File(join(montage, "asr_worker.py")), timeoutMs: 60_000, noOutputTimeoutMs: 20_000,
   };
 }, 60_000);

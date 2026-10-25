@@ -1,8 +1,9 @@
-// Технический gate превью: системный ffprobe → ProbeResult → сверка с настройками.
+// Технический gate превью: ffprobe (S19: `.deps/ffmpeg`, иначе PATH) → ProbeResult → сверка с настройками.
 import { execFile } from "node:child_process";
 import { access, constants } from "node:fs/promises";
 import { delimiter, isAbsolute, join } from "node:path";
 import type { Fps, ProbeResult, Settings } from "@ms/contracts";
+import { resolveTool } from "@ms/core";
 
 // Тип — из `@ms/contracts` (ProbeResultSchema); `audioCodec` и `pixFmt` нужны gate экспорта.
 export type { ProbeResult };
@@ -85,11 +86,11 @@ export async function findOnPath(name: string, path = process.env.PATH ?? ""): P
   return undefined;
 }
 
-/** Абсолютный путь системного ffprobe; бросает, если его нет (проверка до spawn). */
+/** Абсолютный путь ffprobe (`.deps/ffmpeg`, иначе PATH); бросает, если его нет (проверка до spawn). */
 export async function ffprobeBin(): Promise<string> {
-  const bin = await findOnPath("ffprobe");
-  if (!bin) throw new Error("render: ffprobe не найден в PATH (brew install ffmpeg)");
-  return bin;
+  const t = resolveTool("ffprobe");
+  if (!t) throw new Error("render: ffprobe не найден ни в .deps/ffmpeg, ни в PATH (./setup ставит закреплённую сборку в .deps/ffmpeg)");
+  return t.path;
 }
 
 /**
