@@ -6,9 +6,9 @@
 //
 // Кэш — опубликованный каталог `master/<media>@<num>-<den>` (artifactPaths, ревью 35′: вне
 // read-only `proxy/<media>`) с `master.mp4` и `master.json`. Повторный вызов берёт его без ffmpeg,
-// сверив sha256 файла с манифестом и манифест — с исходником.
+// сверив манифест с исходником и размер+mtime файла с манифестом (полный sha256 — при расхождении).
 import { existsSync } from "node:fs";
-import { readFile, rm } from "node:fs/promises";
+import { readFile, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { type Fps, FpsSchema, type ProbeSummary, Sha256Schema } from "@ms/contracts";
 import { type StorageStatus, type spawnTracked } from "@ms/core";
@@ -39,6 +39,9 @@ export const MasterManifestSchema = z.object({
   width: z.number().int().positive(),
   height: z.number().int().positive(),
   sha256: Sha256Schema,
+  // ревью Task 36 (minor): размер и mtime master.mp4 при публикации — быстрая сверка кэша
+  size_bytes: z.number().int().positive().optional(),
+  mtime_ms: z.number().int().nonnegative().optional(),
   created_at: z.string().datetime(),
 }).strict();
 export type MasterManifest = z.infer<typeof MasterManifestSchema>;
@@ -49,10 +52,42 @@ export type MasterManifest = z.infer<typeof MasterManifestSchema>;
  * 27 дБ. Поэтому master — всегда BT.709 limited с явными тегами: `scale` переводит матрицу из
  * той, что ffmpeg видит у входа (теги, без тегов — BT.601), исходник BT.709 проходит без изменений;
  * `setparams` ставит теги кадрам (x264 берёт primaries/trc из кадра, а не из опций вывода).
- * HDR (HLG/PQ) так не тонмапится — вне Task 36 (ADR 0010, риски).
+ * HDR (HLG/PQ) так не тонмапится: такой исходник отвергается (`hdrReason`), тонмаппинг — бэклог ADR 0010.
  */
 export const MASTER_COLOR_FILTER = "scale=out_color_matrix=bt709:out_range=tv,setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv";
+/**
+ * Хвост видео (ревью Task 36, I1): у iPhone звук длиннее видео на 10–40 мс, а `duration_us` — до
+ * конца самого длинного потока. `fps` после последнего кадра ничего не дописывает, поэтому
+ * последний кадр повторяется (`tpad`, без конца), а `-frames:v` обрезает ровно `masterFrames`.
+ */
+export const MASTER_TAIL_FILTER = "tpad=stop_mode=clone:stop=-1";
 export const MASTER_COLOR_TAGS = ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"] as const;
+
+/**
+ * Причина, по которой исходник — HDR (ревью Task 36, I2): передача HLG (`arib-std-b67`) или PQ
+ * (`smpte2084`), либо цветовой охват BT.2020. `undefined` — SDR или тегов нет (без тегов ffmpeg и
+ * Remotion читают файл как SDR).
+ */
+export function hdrReason(probe: Pick<ProbeSummary, "video">): string | undefined {
+  const { color_transfer: trc, color_primaries: prim } = probe.video;
+  if (trc === "arib-std-b67") return "передача HLG (arib-std-b67)";
+  if (trc === "smpte2084") return "передача PQ (smpte2084)";
+  if (prim?.startsWith("bt2020")) return `цветовой охват BT.2020 (${prim})`;
+  return undefined;
+}
+
+/** HDR-исходник: master BT.709 без тонмаппинга дал бы тусклый неверный цвет — явный отказ. */
+export class HdrUnsupportedError extends Error {
+  readonly code = "hdr_unsupported";
+  constructor(reason: string) {
+    super(
+      `hdr_unsupported: ролик снят в HDR (${reason}), а Motion Studio пока работает только с SDR — цвета вышли бы неверными. ` +
+      "Экспортируйте ролик в SDR (Rec.709) и импортируйте заново: на iPhone — «Фото» → «Экспорт» с выключенным HDR " +
+      "или «Настройки» → «Камера» → «Запись видео» → выключить «Видео HDR» для новых съёмок; в монтажной программе — экспорт в Rec.709 SDR.",
+    );
+    this.name = "HdrUnsupportedError";
+  }
+}
 
 /** Кадров в master: `round(duration · fps)` (длительность исходника по probe). */
 export function masterFrames(probe: Pick<ProbeSummary, "duration_us">, fps: Fps): number {
@@ -71,7 +106,7 @@ export function masterArgs(input: string, out: string, probe: ProbeSummary, fps:
   return [
     "-protocol_whitelist", "file", "-f", demuxerFor(probe.container), "-i", `file:${input}`,
     "-map", "0:v:0",
-    "-vf", `fps=${rate}:start_time=0,${MASTER_COLOR_FILTER},format=yuv420p`,
+    "-vf", `fps=${rate}:start_time=0,${MASTER_COLOR_FILTER},${MASTER_TAIL_FILTER},format=yuv420p`,
     "-fps_mode", "cfr", "-r", rate,
     "-c:v", "libx264", "-preset", "medium", "-crf", String(crf), "-g", String(gop), "-pix_fmt", "yuv420p",
     ...MASTER_COLOR_TAGS,
@@ -113,6 +148,11 @@ async function fromCache(root: string, destRel: string, mediaSha: string): Promi
   const m = MasterManifestSchema.parse(JSON.parse(await readFile(join(dir, MASTER_META), "utf8")));
   if (m.media_sha256 !== mediaSha) throw new Error(`master ${destRel}: сделан из другого исходника (sha256 ${m.media_sha256.slice(0, 12)}…, сейчас ${mediaSha.slice(0, 12)}…)`);
   const path = join(dir, MASTER_FILE);
+  // размер и mtime совпали с публикацией — файл не перечитывается (master 4K — гигабайты);
+  // расхождение или старый манифест без них — подозрение: полный sha256
+  const st = await stat(path);
+  // mtime в манифесте — целые мс; |Δ| < 1 мс — та же метка (utimes/APFS округляют дробную часть)
+  if (m.size_bytes === st.size && m.mtime_ms !== undefined && Math.abs(st.mtimeMs - m.mtime_ms) < 1) return { path, sha256: m.sha256 };
   const sha = await sha256File(path);
   if (sha !== m.sha256) throw new Error(`master ${destRel}: sha256 файла ${sha.slice(0, 12)}… не совпадает с ${MASTER_META} (${m.sha256.slice(0, 12)}…) — файл повреждён`);
   return { path, sha256: sha };
@@ -131,8 +171,8 @@ async function dropDraft(dir: string): Promise<void> {
 }
 
 /**
- * master исходника `mediaId` на сетке `fps`: опубликованный — из кэша (sha256 сверяется, ffmpeg не
- * запускается), иначе ffmpeg в draft попытки → проверка (CFR, fps, `masterFrames` кадров) →
+ * master исходника `mediaId` на сетке `fps`: опубликованный — из кэша (размер+mtime, при
+ * расхождении — sha256; ffmpeg не запускается); HDR-исходник — `HdrUnsupportedError`, иначе ffmpeg в draft попытки → проверка (CFR, fps, `masterFrames` кадров) →
  * `master.json` → публикация с fencing в `master/<media>@<num>-<den>`. Параллельная публикация того
  * же master (`artifact_exists`) — берётся она. Бросает `FfmpegError` (`orphaned` — draft в
  * карантин, процесс жив), `FencedOutError`/`PublishCancelledError` публикации и `Error` (нет
@@ -146,12 +186,16 @@ export async function ensureMaster(d: MasterDeps, mediaId: string, fps: Fps): Pr
   const status = await d.storage();
   if (!status.ok) throw new Error(`storage_unavailable: ${status.reason}: ${status.detail}`);
   const src = join(d.root, asset.rel_path);
+  const o = { run: d.run, signal: d.signal };
+  // сводка до Task 36 без тегов цвета — перечитать исходник (ffprobe, только чтение)
+  const colorProbe = asset.probe.video.color_transfer !== undefined || asset.probe.video.color_primaries !== undefined ? asset.probe : await probeMedia(src, o);
+  const hdr = hdrReason(colorProbe);
+  if (hdr) throw new HdrUnsupportedError(hdr);
   const crf = d.crf ?? MASTER_CRF;
   const fence = { jobId: d.run.runId, attempt: d.run.attempt };
   const draft = await createJobDraft(d.root, { runId: fence.jobId, attempt: fence.attempt });
   const out = join(draft.dir, MASTER_FILE);
   assertOutsideSource(out, d.root, [src]);
-  const o = { run: d.run, signal: d.signal };
   const started = Date.now();
   try {
     await runFfmpeg(masterArgs(src, out, asset.probe, fps, crf), {
@@ -165,9 +209,11 @@ export async function ensureMaster(d: MasterDeps, mediaId: string, fps: Fps): Pr
       throw new Error(`master не прошёл проверку: ${px.vfr ? "VFR; " : ""}fps ${px.video.r_frame_rate.num}/${px.video.r_frame_rate.den} (нужно ${fps.num}/${fps.den}), кадров ${frames} (нужно ${want})`);
     }
     const sha256 = await sha256File(out, { sync: true });
+    const st = await stat(out);
     const manifest: MasterManifest = {
       schema_version: 1, media_id: mediaId, media_sha256: asset.sha256, fps: { num: fps.num, den: fps.den }, crf, frames,
-      width: px.video.display_width, height: px.video.display_height, sha256, created_at: new Date().toISOString(),
+      width: px.video.display_width, height: px.video.display_height, sha256, size_bytes: st.size, mtime_ms: Math.floor(st.mtimeMs),
+      created_at: new Date().toISOString(),
     };
     await fsyncWrite(join(draft.dir, MASTER_META), JSON.stringify(manifest, null, 2) + "\n");
     await new ArtifactStore({ root: d.root, db: d.db, guard: d.storage }).publish(draft.dir, destRel, () => undefined, fence);

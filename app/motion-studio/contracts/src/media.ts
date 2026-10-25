@@ -28,6 +28,10 @@ export const ProbeSummarySchema = z.object({
     pix_fmt: z.string().min(1),
     bit_depth: z.number().int().positive().optional(),
     start_time_us: z.number().int().optional(),
+    // Task 36 (fix 1): теги цвета ffprobe (`color_transfer`, `color_primaries`) — master отказывает
+    // HDR (HLG/PQ, BT.2020); у сводок до Task 36 полей нет.
+    color_transfer: z.string().min(1).optional(),
+    color_primaries: z.string().min(1).optional(),
   }).strict(),
   audio: z.object({
     codec: z.string().min(1),

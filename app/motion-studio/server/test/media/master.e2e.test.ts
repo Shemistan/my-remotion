@@ -1,7 +1,8 @@
 // Task 36 e2e (`make e2e`): ensureMaster на фикстурах Task 25 (`scripts/make-media-fixtures.mjs`) —
 // talk-ru-cfr.mp4 (повторный вызов — из кэша: ffmpeg не запускается, реестр процессов попытки
 // пуст, sha256 тот же) и talk-ru-vfr.mov (части 25 и 30 fps → master CFR, кадров round(duration · fps),
-// цвет BT.709 с тегами). Хранилище — tmp/ репозитория (initStore с фейковым томом), исходник — копия.
+// цвет BT.709 с тегами), audio-long.mp4 (звук длиннее видео на 40 мс — кадров всё равно
+// round(duration · fps)) и hdr-hlg.mp4 (отказ hdr_unsupported). Хранилище — tmp/ репозитория (initStore с фейковым томом), исходник — копия.
 import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
@@ -15,7 +16,7 @@ import { type Db, openDb } from "../../src/db/open.js";
 import * as media from "../../src/db/repos/media.js";
 import * as projects from "../../src/db/repos/projects.js";
 import { claimNext, enqueue } from "../../src/jobs/queue.js";
-import { type MasterDeps, ensureMaster, masterFrames } from "../../src/media/master.js";
+import { HdrUnsupportedError, type MasterDeps, ensureMaster, masterFrames } from "../../src/media/master.js";
 import { probeMedia } from "../../src/media/probe.js";
 import { asset } from "../db/video-fixtures.js";
 import { type TestStore, makeStore, removeStore } from "../db/helpers.js";
@@ -26,7 +27,7 @@ let db: Db;
 let n = 0;
 
 beforeAll(async () => {
-  if (!existsSync(join(MEDIA, "talk-ru-vfr.mov"))) throw new Error(`нет фикстур в ${MEDIA}: ./scripts/with-node.sh node scripts/make-media-fixtures.mjs`);
+  if (!existsSync(join(MEDIA, "talk-ru-vfr.mov")) || !existsSync(join(MEDIA, "hdr-hlg.mp4"))) throw new Error(`нет фикстур в ${MEDIA}: ./scripts/with-node.sh node scripts/make-media-fixtures.mjs`);
   s = await makeStore("ms-master-e2e-");
   db = openDb(s.root);
   await migrate(db);
@@ -84,3 +85,19 @@ it("talk-ru-vfr.mov (25 + 30 fps): master CFR на timeline_fps, кадров ro
   expect(packets(m.path)).toBe(Math.round((duration_us * fps.num) / (fps.den * 1e6)));
   console.log(`master talk-ru-vfr: timeline_fps ${fps.num}/${fps.den}, ${packets(m.path)} кадров, ${duration_us} µs`);
 }, 120_000);
+
+it("audio-long.mp4 (звук на 40 мс длиннее видео): master — round(duration · fps) кадров, хвост — повтор последнего", async () => {
+  const F30: Fps = { num: 30, den: 1 };
+  const { mediaId, duration_us } = await seed("audio-long.mp4");
+  expect(duration_us).toBeGreaterThanOrEqual(5_030_000);
+  const m = await ensureMaster(deps(), mediaId, F30);
+  expect(packets(m.path)).toBe(masterFrames({ duration_us }, F30));
+  expect(packets(m.path)).toBeGreaterThan(150);
+}, 120_000);
+
+it("hdr-hlg.mp4: отказ hdr_unsupported с советом экспортировать в SDR", async () => {
+  const { mediaId } = await seed("hdr-hlg.mp4");
+  const err = await ensureMaster(deps(), mediaId, { num: 30, den: 1 }).catch((e: unknown) => e);
+  expect(err).toBeInstanceOf(HdrUnsupportedError);
+  expect((err as Error).message).toMatch(/HLG.*SDR/s);
+}, 60_000);
