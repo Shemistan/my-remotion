@@ -1,10 +1,10 @@
 // Задача `timeline.build` (Task 42, без LLM): ревизия таймлайна проекта из текущих EDL, плана и
 // версий с Approval C (`buildTimelineDoc`). Прежняя ревизия есть — сдвиги и исключения
-// пользователя переносятся (`carryOver`); состав не изменился — `no_change` без новой ревизии.
+// пользователя переносятся (`carryOver`; операции выпавшей сцены ждут её возвращения); состав не изменился — `no_change` без новой ревизии.
 // Публикация `timeline/<id>/r<N>/timeline.json` с fencing; в транзакции публикации входы
 // сверяются с текущими (EDL или план сменились между сборкой и публикацией — сборка заново, до 3
 // раз). A или B не валидны — `approval_required`. Прошлая попытка уже опубликовала — по ней (M3).
-import { VideoTimelineDocSchema } from "@ms/contracts";
+import { type VideoTimelineDoc, VideoTimelineDocSchema } from "@ms/contracts";
 import { z } from "zod";
 import { artifactPaths } from "../artifacts/paths.js";
 import { ArtifactStore, publicationsByJob } from "../artifacts/store.js";
@@ -14,7 +14,7 @@ import { videoTimelines } from "../db/repos/video.js";
 import { EditError, RevisionConflictError } from "../edit/errors.js";
 import type { HandlerResult, JobHandler } from "../jobs/types.js";
 import { buildTimelineDoc, currentTimelineInputs, planStarts, timelineIdFor, timelinePlan } from "../timeline/build.js";
-import { carryOver } from "../timeline/carry-over.js";
+import { type SeenClip, carryOver } from "../timeline/carry-over.js";
 import { TIMELINE_FILE, readTimelineDoc, registerTimelineRevision, timelineContent } from "../timeline/ops.js";
 import { type Phase46Deps } from "./phase46-deps.js";
 import { planFailure } from "./plan-visual.js";
@@ -39,6 +39,30 @@ export interface TimelineBuildResult {
 }
 
 const BUILD_TRIES = 3;
+
+/**
+ * Клипы с отложенными операциями (`prev.ops` есть, в `prev.scenes` нет — сцена выпадала): каким
+ * клип был в последней предыдущей ревизии, где стоял на таймлайне, и позиция его сцены в плане
+ * той ревизии — опора для переноса сдвига (`carryOver`, ревью I2).
+ */
+export function lastSeenClips(db: Db, root: string, prev: VideoTimelineDoc): Record<string, SeenClip> {
+  const want = new Set((prev.ops ?? []).map((o) => o.clip_id).filter((id) => !prev.scenes.some((c) => c.clip_id === id)));
+  const out: Record<string, SeenClip> = {};
+  let rev = prev.parent_revision;
+  while (want.size > 0 && rev !== undefined) {
+    const d = readTimelineDoc(db, root, prev.timeline_id, rev);
+    let starts: Record<string, number> | undefined;
+    for (const c of d.scenes) {
+      if (!want.has(c.clip_id)) continue;
+      starts ??= planStarts(timelinePlan(db, root, d.inputs).items);
+      const planStart = starts[c.item_id];
+      out[c.clip_id] = { clip: c, ...(planStart !== undefined ? { planStart } : {}) };
+      want.delete(c.clip_id);
+    }
+    rev = d.parent_revision;
+  }
+  return out;
+}
 const sameRef = (a: { id: string; revision: number; hash: string }, b: { id: string; revision: number; hash: string }) => a.id === b.id && a.revision === b.revision && a.hash === b.hash;
 
 export const timelineBuild: (depsOf: () => TimelineBuildDeps) => JobHandler = (depsOf) => async (ctx) => {
@@ -75,7 +99,7 @@ export const timelineBuild: (depsOf: () => TimelineBuildDeps) => JobHandler = (d
       const cur = row?.current_revision ?? undefined;
       const prev = cur === undefined ? undefined : readTimelineDoc(ctx.db, root, timelineId, cur);
       const built = buildTimelineDoc(ctx.db, root, projectId, { timelineId, revision: (cur ?? 0) + 1, ...(cur !== undefined ? { parentRevision: cur } : {}) });
-      const next = prev ? carryOver(prev, built, { prevPlanStarts: planStarts(timelinePlan(ctx.db, root, prev.inputs).items) }) : built;
+      const next = prev ? carryOver(prev, built, { prevPlanStarts: planStarts(timelinePlan(ctx.db, root, prev.inputs).items), lastSeen: lastSeenClips(ctx.db, root, prev) }) : built;
       if (prev && timelineContent(prev) === timelineContent(next)) {
         ctx.emit("timeline_current", `таймлайн ${timelineId} r${prev.revision} уже собран по текущим монтажу, плану и утверждённым версиям — новая ревизия не нужна`);
         return done({ timeline_id: timelineId, revision: prev.revision, no_change: true });
@@ -105,7 +129,8 @@ export const timelineBuild: (depsOf: () => TimelineBuildDeps) => JobHandler = (d
         throw e;
       }
       const dropped = doc.issues.filter((i) => i.code === "move_dropped").map((i) => `clip_${i.item_id}`);
-      const carried = (doc.ops ?? []).filter((o) => o.op === "move").map((o) => o.clip_id);
+      // отложенные сдвиги (сцены нет на таймлайне) перенесёнными не считаются
+      const carried = (doc.ops ?? []).filter((o) => o.op === "move" && doc.scenes.some((c) => c.clip_id === o.clip_id)).map((o) => o.clip_id);
       const blocking = doc.issues.filter((i) => i.severity === "blocking").length;
       ctx.emit("timeline_built", `таймлайн ${timelineId} r${doc.revision}: сцен ${doc.scenes.length}, исключено ${doc.excluded.length}, блокирующих проблем ${blocking}${prev ? `, перенесено сдвигов ${carried.length}, сброшено ${dropped.length}` : ""}`);
       return done({ timeline_id: timelineId, revision: doc.revision, reused: false, scenes: doc.scenes.length, excluded: doc.excluded.length, blocking, carried, dropped });

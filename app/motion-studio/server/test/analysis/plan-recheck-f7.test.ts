@@ -30,4 +30,12 @@ describe("recheckPlan F7", () => {
     expect(re.changed).toEqual([{ item_id: "sp_001", change: "remapped" }]);
     expect(re.doc.items[0]!.status).toBe("proposed");
   });
+
+  it("восстановление вырезки (как в video-phase3): сцена после неё — remapped со сдвигом назад, сцена до — не в changed", () => {
+    const cut = recheckPlan(planDoc(items), tlCutting(11), words, f, P, { edl: edl2 }).doc;
+    const re = recheckPlan(cut, tlCutting(20), words, f, P, { edl: { ...edl2, revision: 3 } });
+    expect(re.changed).toEqual([{ item_id: "sp_002", change: "remapped" }]);
+    expect(re.doc.items[1]!.edited.start_us).toBeGreaterThan(cut.items[1]!.edited.start_us);
+    expect(re.doc.items[0]!.edited).toEqual(cut.items[0]!.edited);
+  });
 });

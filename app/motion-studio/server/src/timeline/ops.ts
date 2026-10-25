@@ -7,14 +7,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  type TimelineOp, type TimelineVersionRef, type VideoTimelineClip, type VideoTimelineDoc, VideoTimelineDocSchema,
+  type PlanIssue, type TimelineOp, type TimelineVersionRef, type VideoTimelineClip, type VideoTimelineDoc, VideoTimelineDocSchema,
   composeTimeline, mapWords, snapToWord, timelineChecks, usToFrame,
 } from "@ms/contracts";
 import { canonicalHash, canonicalJson } from "@ms/contracts/canonical";
 import { artifactPaths } from "../artifacts/paths.js";
 import type { Db } from "../db/open.js";
 import * as approvalsRepo from "../db/repos/approvals.js";
-import * as edls from "../db/repos/edls.js";
 import * as transcripts from "../db/repos/transcripts.js";
 import { type VideoTimelineRow, videoTimelines } from "../db/repos/video.js";
 import * as versions from "../db/repos/versions.js";
@@ -55,17 +54,17 @@ export interface TimelineOpsContext {
 }
 
 /**
- * Контекст операций над ревизией `doc`: слова её EDL (текущая ревизия транскрипта), клипы сцен её
- * плана с утверждённой и текущей версией по текущему состоянию видеосцен и C.
+ * Контекст операций над ревизией `doc`: слова ревизии транскрипта, на которой построены её EDL и
+ * план (`plan.inputs.transcript`, а не текущая), клипы сцен её плана с утверждённой и текущей
+ * версией по текущему состоянию видеосцен и C (`sceneStates`).
  */
 export function timelineOpsContext(db: Db, root: string, doc: VideoTimelineDoc): TimelineOpsContext {
   const tl = timelineFor(db, doc.inputs.edl.id, doc.inputs.edl.revision);
-  const edl = edls.get(db, doc.inputs.edl.id);
-  const t = edl ? transcripts.get(db, edl.transcript_id) : undefined;
-  const words = t?.current_revision == null ? [] : transcripts.words(db, t.id, t.current_revision).map((w) => ({ id: w.word_id, start_us: w.start_us, end_us: w.end_us }));
-  const wordFrames = [...new Set(Object.values(mapWords(tl, words)).flatMap((m) => (m.state === "removed" ? [] : [usToFrame(m.edited_start_us, tl.fps)])))].sort((a, b) => a - b);
   const plan = timelinePlan(db, root, doc.inputs);
-  const states = sceneStates(db, edl?.project_id ?? "", plan);
+  const tr = plan.inputs.transcript;
+  const words = transcripts.words(db, tr.id, tr.revision).map((w) => ({ id: w.word_id, start_us: w.start_us, end_us: w.end_us }));
+  const wordFrames = [...new Set(Object.values(mapWords(tl, words)).flatMap((m) => (m.state === "removed" ? [] : [usToFrame(m.edited_start_us, tl.fps)])))].sort((a, b) => a - b);
+  const states = sceneStates(db, root, plan);
   const base = { tl, items: plan.items, scenes: states, inputs: doc.inputs, timelineId: doc.timeline_id, revision: doc.revision };
   const approved = Object.fromEntries(composeTimeline(base).scenes.map((c) => [c.clip_id, c]));
   const all = Object.fromEntries(plan.items.map((x) => [x.id, "—"]));
@@ -91,6 +90,20 @@ export function lastMove(ops: readonly TimelineOp[] | undefined, clipId: string)
   return [...(ops ?? [])].reverse().find((o): o is Extract<TimelineOp, { op: "move" }> => o.op === "move" && o.clip_id === clipId);
 }
 
+/**
+ * Проверки ревизии (`timelineChecks`) с правилом Р-V6 для `override`: причина включения не
+ * оправдывает перенос — если последний `move` клипа без `override_reason`, якорь вне окна —
+ * blocking (ревью I3).
+ */
+export function timelineIssues(doc: Pick<VideoTimelineDoc, "scenes" | "duration_frames" | "ops">): PlanIssue[] {
+  return timelineChecks(doc).map((i) => {
+    if (i.code !== "anchor_outside" || i.severity !== "warning") return i;
+    const c = doc.scenes.find((x) => x.item_id === i.item_id);
+    const m = c ? lastMove(doc.ops, c.clip_id) : undefined;
+    return c?.include === "override" && m !== undefined && m.override_reason === undefined ? { ...i, severity: "blocking" as const } : i;
+  });
+}
+
 const byStart = (a: VideoTimelineClip, b: VideoTimelineClip) => a.start_frame - b.start_frame || a.clip_id.localeCompare(b.clip_id);
 
 /**
@@ -98,8 +111,9 @@ const byStart = (a: VideoTimelineClip, b: VideoTimelineClip) => a.start_frame - 
  * прилипание к началу слова (`ctx.wordFrames`), причина операции отменяет blocking `anchor_outside`
  * (у клипа `override` остаётся причина включения); `use_version` — версия с валидной C
  * (`ctx.approved`) или любая готовая у клипа `override`; `include` — исключение пользователем
- * (`excluded: user`) и возврат: утверждённая версия или, с причиной, текущая как `override`. Затем
- * `timelineChecks`. Неприменимая операция — `TimelineError`.
+ * (`excluded: user`) и возврат: утверждённая версия или, с причиной, текущая как `override`, на
+ * позиции последнего `move` клипа, если он был. Затем `timelineIssues` (у `override` перенос без
+ * причины — blocking). Неприменимая операция — `TimelineError`.
  */
 export function applyTimelineOps(doc: VideoTimelineDoc, ops: readonly TimelineOp[], ctx: TimelineOpsContext = {}): VideoTimelineDoc {
   if (ops.length === 0) throw new TimelineError("empty_ops", "нет операций");
@@ -156,6 +170,12 @@ export function applyTimelineOps(doc: VideoTimelineDoc, ops: readonly TimelineOp
         else if (cur && op.override_reason !== undefined) add = { ...cur, override_reason: op.override_reason };
         else if (cur) throw new TimelineError("override_reason_required", `сцена ${cur.item_id} не утверждена (C): включить можно только с причиной`);
         else throw new TimelineError("version_not_approved", `у сцены ${op.clip_id} нет утверждённой версии`);
+        // возврат сцены не сбрасывает сдвиг пользователя: последний `move` клипа снова в силе
+        const m = lastMove(applied, add.clip_id);
+        if (m) {
+          add.start_frame = m.start_frame;
+          if (m.override_reason !== undefined) add.override_reason = m.override_reason;
+        }
         scenes.push(add);
         excluded = excluded.filter((x) => x.item_id !== add.item_id);
       }
@@ -164,7 +184,7 @@ export function applyTimelineOps(doc: VideoTimelineDoc, ops: readonly TimelineOp
   }
   scenes.sort(byStart);
   const next: VideoTimelineDoc = { ...doc, scenes, excluded, ops: applied };
-  return { ...next, issues: timelineChecks(next) };
+  return { ...next, issues: timelineIssues(next) };
 }
 
 /** Документ ревизии таймлайна (по умолчанию текущей) из хранилища, проверенный схемой. */

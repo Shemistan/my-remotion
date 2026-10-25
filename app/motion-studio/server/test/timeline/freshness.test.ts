@@ -8,7 +8,7 @@ import { loadConfig } from "../../src/config.js";
 import { saveEdlRevision } from "../../src/edit/edl-ops.js";
 import { buildTimelineDoc } from "../../src/timeline/build.js";
 import { timelineFreshness } from "../../src/timeline/freshness.js";
-import { publishTimelineRevision } from "../../src/timeline/ops.js";
+import { publishTimelineRevision, saveTimelineRevision } from "../../src/timeline/ops.js";
 import { STYLE_BASE } from "../analysis/plan-db-helpers.js";
 import { removeStore } from "../db/helpers.js";
 import { ITEMS, type TimelineEnv, addVersion, approveC, id, seedScene, seedTimelineProject } from "./helpers.js";
@@ -53,6 +53,23 @@ describe("timelineFreshness", () => {
     expect(timelineFreshness(env.db, env.s.root, "p1").fresh).toBe(true);
     approveC(env.db, addVersion(env.db, "scn_002", 132).id);
     expect(timelineFreshness(env.db, env.s.root, "p1")).toEqual({ fresh: false, reasons: ["version_changed"] });
+  });
+
+  it("сцена выпала как stale, перегенерирована и утверждена → version_changed; исключённая пользователем — нет", async () => {
+    const { b } = await published();
+    const fp = env.db.prepare("SELECT item_fingerprint AS f FROM video_scenes WHERE item_id = 'sp_002'").get() as { f: string };
+    env.db.prepare("UPDATE video_scenes SET item_fingerprint = 'old' WHERE item_id = 'sp_002'").run();
+    const r2 = await publishTimelineRevision(deps(), "p1", buildTimelineDoc(env.db, env.s.root, "p1"));
+    expect(r2.excluded).toEqual([{ item_id: "sp_002", reason: "stale" }]);
+    expect(timelineFreshness(env.db, env.s.root, "p1")).toEqual({ fresh: true, reasons: [] });
+    // перегенерация: отпечаток снова текущий, новая версия с C
+    env.db.prepare("UPDATE video_scenes SET item_fingerprint = ? WHERE item_id = 'sp_002'").run(fp.f);
+    approveC(env.db, addVersion(env.db, b.sceneId, 132).id);
+    expect(timelineFreshness(env.db, env.s.root, "p1")).toEqual({ fresh: false, reasons: ["version_changed"] });
+    // исключение пользователем: утверждённая версия есть, но таймлайн свежий
+    const r3 = await publishTimelineRevision(deps(), "p1", buildTimelineDoc(env.db, env.s.root, "p1"));
+    await saveTimelineRevision(deps(), r3.timeline_id, { base_revision: r3.revision, ops: [{ op: "include", clip_id: "clip_sp_002", include: false }] });
+    expect(timelineFreshness(env.db, env.s.root, "p1")).toEqual({ fresh: true, reasons: [] });
   });
 
   it("новая ревизия плана → plan_changed; новый стиль → style_changed", async () => {

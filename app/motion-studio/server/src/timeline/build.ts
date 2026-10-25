@@ -4,13 +4,12 @@
 // Только чтение БД и хранилища: публикует ревизию задача `timeline.build` или правка пользователя.
 import {
   type ComposeSceneState, type ScenePlanItem, type TimelineVersionRef, type VideoTimelineDoc, type VisualPlanRevisionDoc,
-  composeTimeline, parseSubjectRef,
+  composeTimeline,
 } from "@ms/contracts";
 import { approvalState } from "../approvals/engine.js";
-import { currentSubject, sceneSubject } from "../approvals/subjects.js";
+import { currentSubject } from "../approvals/subjects.js";
 import { currentPlan } from "../analysis/plan-ops.js";
 import type { Db } from "../db/open.js";
-import * as approvalsRepo from "../db/repos/approvals.js";
 import * as edls from "../db/repos/edls.js";
 import * as jobsRepo from "../db/repos/jobs.js";
 import * as media from "../db/repos/media.js";
@@ -22,6 +21,7 @@ import * as versions from "../db/repos/versions.js";
 import { roughCutApprovalValid } from "../edit/approval-a.js";
 import { EditError } from "../edit/errors.js";
 import { timelineFor } from "../edit/timeline-store.js";
+import { sceneApprovalState } from "../video-scenes/approval-c.js";
 import { videoItemFingerprint } from "../video-scenes/fingerprint.js";
 
 /** Таймлайн один на проект (`video_timelines.project_id` UNIQUE): id выводится из проекта. */
@@ -47,30 +47,28 @@ export function currentTimelineInputs(db: Db, projectId: string): TimelineInputs
   };
 }
 
-/**
- * Версия сцены с валидным Approval C (Р-V4): последнее решение области `scene:<id>` валидно, его
- * версия есть, не `failed`, не сломана, и её манифест тот же. Иначе — undefined. Только чтение.
- */
-export function approvedVersion(db: Db, projectId: string, sceneId: string): versions.VersionRow | undefined {
-  const a = approvalsRepo.latestActive(db, projectId, "C", `scene:${sceneId}`);
-  const ref = a?.status === "valid" ? parseSubjectRef(a.subject_ref) : null;
-  if (!a || !ref) return undefined;
-  const v = versions.listByScene(db, sceneId).find((x) => x.number === ref.revision);
-  const now = v ? sceneSubject(db, v.id) : undefined;
-  return now && now.ref === a.subject_ref && now.hash === a.subject_hash ? v : undefined;
-}
-
-export const versionRef = (v: versions.VersionRow): TimelineVersionRef => ({ version_id: v.id, version_number: v.number, duration_frames: v.settings.duration_frames });
-
 /** Готовая и целая версия или undefined. */
 const usable = (v: versions.VersionRow | undefined): versions.VersionRow | undefined => (v !== undefined && v.status === "ready" && v.broken_reason === null ? v : undefined);
 
 /**
- * Состояние видеосцен плана для `composeTimeline` (вместо `sceneApprovalState` 38-39, которого
- * в staging ещё нет): утверждённая версия, текущая готовая версия, итог последней генерации,
- * устаревание по отпечатку (`videoItemFingerprint` против `video_scenes.item_fingerprint`).
+ * Версия сцены с валидным Approval C — по `sceneApprovalState` (38-39, одна точка решения с
+ * `GET /video-scenes`): решение есть, версия цела, манифест тот же и (с `fingerprint`) сделана по
+ * текущей сцене плана. Иначе — undefined. Только чтение.
  */
-export function sceneStates(db: Db, projectId: string, doc: VisualPlanRevisionDoc): Record<string, ComposeSceneState> {
+export function approvedVersion(db: Db, root: string, sceneId: string, fingerprint?: string | null): versions.VersionRow | undefined {
+  const c = sceneApprovalState(db, sceneId, { root, ...(fingerprint !== undefined ? { fingerprint } : {}) });
+  return c.state === "valid" && c.versionId ? usable(versions.get(db, c.versionId)) : undefined;
+}
+
+export const versionRef = (v: versions.VersionRow): TimelineVersionRef => ({ version_id: v.id, version_number: v.number, duration_frames: v.settings.duration_frames });
+
+/**
+ * Состояние видеосцен плана `doc` для `composeTimeline` — те же правила, что `videoScenesState`
+ * (38-39): утверждённая версия — `sceneApprovalState` с текущим отпечатком сцены плана; текущая
+ * готовая версия; итог последней генерации; `stale` — `videoItemFingerprint` ≠
+ * `video_scenes.item_fingerprint`. Совпадение проверяет тест (build.test.ts).
+ */
+export function sceneStates(db: Db, root: string, doc: VisualPlanRevisionDoc): Record<string, ComposeSceneState> {
   const out: Record<string, ComposeSceneState> = {};
   const style = { id: doc.inputs.style.id, revision: doc.inputs.style.revision };
   for (const item of doc.items) {
@@ -79,7 +77,8 @@ export function sceneStates(db: Db, projectId: string, doc: VisualPlanRevisionDo
     if (!row) continue;
     const scene = scenes.get(db, row.scene_id);
     const cur = scene?.current_version_id ? versions.get(db, scene.current_version_id) : undefined;
-    const approved = approvedVersion(db, projectId, row.scene_id);
+    const fingerprint = videoItemFingerprint(item, style);
+    const approved = approvedVersion(db, root, row.scene_id, fingerprint);
     const job = row.job_id ? jobsRepo.get(db, row.job_id) : undefined;
     const ready = usable(cur);
     const status = ready ? "ready" : job?.status === "failed" || cur?.status === "failed" ? "failed" : "none";
@@ -88,7 +87,7 @@ export function sceneStates(db: Db, projectId: string, doc: VisualPlanRevisionDo
       status,
       ...(approved ? { approved: versionRef(approved) } : {}),
       ...(ready ? { current: versionRef(ready) } : {}),
-      ...(row.item_fingerprint !== videoItemFingerprint(item, style) ? { stale: true } : {}),
+      ...(row.item_fingerprint !== fingerprint ? { stale: true } : {}),
     };
   }
   return out;
@@ -129,7 +128,7 @@ export function buildTimelineDoc(db: Db, root: string, projectId: string, target
   const cur = row?.current_revision ?? undefined;
   const parentRevision = target.parentRevision ?? cur;
   return composeTimeline({
-    tl, items: doc.items, scenes: sceneStates(db, projectId, doc), inputs,
+    tl, items: doc.items, scenes: sceneStates(db, root, doc), inputs,
     timelineId: target.timelineId ?? row?.id ?? timelineIdFor(projectId),
     revision: target.revision ?? (cur ?? 0) + 1,
     ...(parentRevision !== undefined ? { parentRevision } : {}),

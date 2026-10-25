@@ -1,6 +1,6 @@
 // Task 42: обработчик `timeline.preview` с подменой рендера и звука — запрос рендера (прокси,
 // последовательности EDL, сцены ревизии, масштаб 0,5, CRF 23), проверка длительности, публикация в
-// `preview/<timeline>/r<N>/`, повтор — `reused`, живой процесс рендера — `blocked(stale_process)`.
+// `timeline-preview/<timeline>/r<N>/` (не пространство превью EDL `preview/`), повтор — `reused`, живой процесс рендера — `blocked(stale_process)`.
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -13,7 +13,7 @@ import * as media from "../../src/db/repos/media.js";
 import { enqueue } from "../../src/jobs/queue.js";
 import { JobRunner } from "../../src/jobs/runner.js";
 import type { Phase46Deps } from "../../src/pipeline/phase46-deps.js";
-import { type TimelinePreviewImpl, timelinePreviewWith } from "../../src/pipeline/timeline-preview.js";
+import { type TimelinePreviewImpl, previewDurationOk, timelinePreviewWith } from "../../src/pipeline/timeline-preview.js";
 import * as versions from "../../src/db/repos/versions.js";
 import { buildTimelineDoc } from "../../src/timeline/build.js";
 import { publishTimelineRevision } from "../../src/timeline/ops.js";
@@ -64,7 +64,7 @@ const editedAudio: TimelinePreviewImpl["editedAudio"] = async (req) => {
 };
 
 describe("timeline.preview", () => {
-  it("запрос рендера по ревизии, публикация preview/<timeline>/r1, повтор — reused", async () => {
+  it("запрос рендера по ревизии, публикация timeline-preview/<timeline>/r1, повтор — reused", async () => {
     const doc = await ready();
     const calls: TimelineRenderRequest[] = [];
     start({
@@ -77,7 +77,8 @@ describe("timeline.preview", () => {
     });
     const j = await runPreview({ timelineId: doc.timeline_id, revision: 1 }, "p-1");
     expect(j.status, JSON.stringify(j.error)).toBe("completed");
-    const rel = `${artifactPaths(env.s.root, "p1").previewRev(doc.timeline_id, 1)}/preview.mp4`;
+    const rel = `${artifactPaths(env.s.root, "p1").timelinePreviewRev(doc.timeline_id, 1)}/preview.mp4`;
+    expect(rel).toBe(`workspace/projects/p1/timeline-preview/${doc.timeline_id}/r1/preview.mp4`);
     expect(j.output_refs).toMatchObject({ rel_path: rel, reused: false, scenes: 2, width: 960, height: 540 });
     expect(existsSync(join(env.s.root, rel))).toBe(true);
     const req = calls[0]!;
@@ -111,5 +112,21 @@ describe("timeline.preview", () => {
     expect(orphan.error).toMatchObject({ code: "stale_process", stage: "orphaned" });
     const none = await runPreview({ timelineId: doc.timeline_id, revision: 5 }, "s-3");
     expect(none.error).toMatchObject({ code: "pipeline", stage: "prepare" });
+    // исходник уже не тот, по которому собрана ревизия (sha256 ≠ inputs.media_sha256) — не рендерим
+    env.db.prepare("UPDATE media_assets SET sha256 = ? WHERE id = 'med_1'").run("e".repeat(64));
+    const swapped = await runPreview({ timelineId: doc.timeline_id, revision: 1 }, "s-4");
+    expect(swapped.status).toBe("failed");
+    expect(swapped.error).toMatchObject({ code: "pipeline", stage: "prepare" });
+    expect(swapped.error!.message).toMatch(/media_sha256|исходник/);
   });
+});
+
+it("длительность превью при 29,97: 555 кадров = 18 518,5 мс, допуск — кадр (33,4 мс)", () => {
+  const ntsc = { fps: { num: 30000, den: 1001 }, duration_frames: 555 };
+  expect(previewDurationOk(ntsc, 18_518)).toBe(true);
+  expect(previewDurationOk(ntsc, 18_551)).toBe(true);
+  expect(previewDurationOk(ntsc, 18_553)).toBe(false);
+  // 18 480 мс — в пределах кадра от 30 fps (18 500), но не от 29,97: длительность считается по дроби
+  expect(previewDurationOk({ fps: { num: 30, den: 1 }, duration_frames: 555 }, 18_480)).toBe(true);
+  expect(previewDurationOk(ntsc, 18_480)).toBe(false);
 });

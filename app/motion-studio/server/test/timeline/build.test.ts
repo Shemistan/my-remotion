@@ -20,11 +20,13 @@ import { JobRunner } from "../../src/jobs/runner.js";
 import type { Phase46Deps } from "../../src/pipeline/phase46-deps.js";
 import { planRecheck } from "../../src/pipeline/plan-recheck.js";
 import { timelineBuild } from "../../src/pipeline/timeline-build.js";
-import { buildTimelineDoc, timelineIdFor } from "../../src/timeline/build.js";
+import { buildTimelineDoc, sceneStates, timelineIdFor } from "../../src/timeline/build.js";
 import { saveTimelineRevision } from "../../src/timeline/ops.js";
+import { videoScenesState } from "../../src/video-scenes/state.js";
+import * as versions from "../../src/db/repos/versions.js";
 import { removeStore } from "../db/helpers.js";
 import { until } from "../jobs/helpers.js";
-import { ITEMS, type TimelineEnv, addVersion, id, seedScene, seedTimelineProject } from "./helpers.js";
+import { ITEMS, type TimelineEnv, addVersion, approveC, id, seedScene, seedTimelineProject } from "./helpers.js";
 
 let env: TimelineEnv;
 let runner: JobRunner | undefined;
@@ -75,6 +77,32 @@ describe("buildTimelineDoc", () => {
     expect(buildTimelineDoc(env.db, env.s.root, "p1").scenes[0]).toMatchObject({ version_id: version.id, version_number: 1, include: "approved" });
     approvalsRepo.revokeActive(env.db, "p1", "C", `scene:${sceneId}`);
     expect(buildTimelineDoc(env.db, env.s.root, "p1").excluded[0]).toEqual({ item_id: "sp_001", reason: "not_approved" });
+  });
+
+  it("состояние сцен — как videoScenesState (38-39): утверждённая и текущая версии, stale", async () => {
+    env = await seedTimelineProject("ms-v42-build-same-");
+    const a = seedScene(env, ITEMS[0]!);
+    addVersion(env.db, a.sceneId, 87);
+    seedScene(env, ITEMS[1]!, { withC: false });
+    const plan = currentPlan(env.db, env.s.root, "pln_1", 1);
+    const same = () => {
+      const mine = sceneStates(env.db, env.s.root, plan);
+      const dto = videoScenesState(env.db, env.s.root, "p1");
+      expect(dto.scenes.map((s) => s.item_id)).toEqual(["sp_001", "sp_002"]);
+      for (const s of dto.scenes) {
+        const m = mine[s.item_id];
+        expect([s.item_id, m?.scene_id ?? null, m?.approved?.version_id ?? null, m?.current?.version_id ?? null, m?.stale ?? false])
+          .toEqual([s.item_id, s.scene_id, s.approval.state === "valid" ? s.approval.version_id : null, s.version_id, s.stale]);
+      }
+      return mine;
+    };
+    expect(same()["sp_001"]).toMatchObject({ approved: { version_number: 1 }, current: { version_number: 2 } });
+    approveC(env.db, versions.listByScene(env.db, a.sceneId).find((v) => v.number === 2)!.id);
+    expect(same()["sp_001"]!.approved).toMatchObject({ version_number: 2 });
+    env.db.prepare("UPDATE video_scenes SET item_fingerprint = 'old' WHERE item_id = 'sp_002'").run();
+    expect(same()["sp_002"]).toMatchObject({ stale: true });
+    approvalsRepo.revokeActive(env.db, "p1", "C", `scene:${a.sceneId}`);
+    expect(same()["sp_001"]!.approved).toBeUndefined();
   });
 
   it("A или B не валидны → approval_required", async () => {
@@ -140,5 +168,36 @@ describe("timeline.build", () => {
     expect(r3.scenes[1]!.anchors[0]!.frame).toBe(651 - shift);
     expect(r3.ops).toEqual([{ op: "move", clip_id: "clip_sp_002", start_frame: 621 - shift }]);
     expect(r3.issues).toEqual([]);
+  });
+
+  it("ревью I2: исключить → stale → пересобрать → перегенерировать + C → пересобрать → excluded: user; сдвиг ждал возвращения", async () => {
+    env = await seedTimelineProject("ms-v42-job-defer-");
+    const a = seedScene(env, ITEMS[0]!);
+    const b = seedScene(env, ITEMS[1]!);
+    expect((await runBuild("df-1")).status).toBe("completed");
+    const tid = timelineIdFor("p1");
+    const r2 = await saveTimelineRevision({ db: env.db, store: env.store, root: env.s.root }, tid, { base_revision: 1, ops: [
+      { op: "move", clip_id: "clip_sp_001", start_frame: 290 }, { op: "include", clip_id: "clip_sp_002", include: false },
+    ] });
+    const moved = r2.scenes[0]!.start_frame;
+    expect(moved).not.toBe(300);
+    const fps = env.db.prepare("SELECT item_id, item_fingerprint AS f FROM video_scenes").all() as { item_id: string; f: string }[];
+    env.db.prepare("UPDATE video_scenes SET item_fingerprint = 'old'").run();
+    const j3 = await runBuild("df-2");
+    expect(j3.status, JSON.stringify(j3.error)).toBe("completed");
+    const r3 = VideoTimelineDocSchema.parse(JSON.parse(readFileSync(join(env.s.root, videoTimelines.revision(env.db, tid, 3)!.rel_path), "utf8")));
+    expect(r3.scenes).toEqual([]);
+    expect(r3.excluded.map((x) => x.reason)).toEqual(["stale", "stale"]);
+    expect(r3.ops).toEqual(r2.ops);
+    // перегенерация: отпечатки снова текущие, новые версии с C
+    for (const x of fps) env.db.prepare("UPDATE video_scenes SET item_fingerprint = ? WHERE item_id = ?").run(x.f, x.item_id);
+    approveC(env.db, addVersion(env.db, a.sceneId, 87).id);
+    approveC(env.db, addVersion(env.db, b.sceneId, 132).id);
+    const j4 = await runBuild("df-3");
+    expect(j4.status, JSON.stringify(j4.error)).toBe("completed");
+    const r4 = VideoTimelineDocSchema.parse(JSON.parse(readFileSync(join(env.s.root, videoTimelines.revision(env.db, tid, 4)!.rel_path), "utf8")));
+    expect(r4.scenes.map((c) => [c.item_id, c.start_frame, c.version_number])).toEqual([["sp_001", moved, 2]]);
+    expect(r4.excluded).toEqual([{ item_id: "sp_002", reason: "user" }]);
+    expect(r4.issues).toEqual([]);
   });
 });

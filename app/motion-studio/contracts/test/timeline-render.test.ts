@@ -121,6 +121,17 @@ describe("composeTimeline", () => {
     expect(d.excluded).toEqual([{ item_id: "sp_001", reason: "stale" }, { item_id: "sp_003", reason: "no_version" }]);
   });
 
+  it("29,97: якорь — кадр NTSC (вниз), окно сцены его покрывает; окно до якоря — вне", () => {
+    const tlN = buildTimeline(20_000_000, [{ start_us: 2_000_000, end_us: 3_500_000 }], NTSC);
+    const d = composeTimeline({ tl: tlN, items: [i1], scenes: { sp_001: ready("ver_a", "ver_a") }, inputs, timelineId: "tml_1", revision: 1 });
+    expect(d.fps).toEqual(NTSC);
+    // 11 000 000 мкс × 30000 / 1001 / 10⁶ = 329,67 → кадр 329
+    expect(d.scenes[0]!.anchors).toEqual([{ word_id: "w_000120", text: "миллион", frame: 329 }]);
+    expect(d.issues).toEqual([]);
+    expect(anchorCheck(d.scenes[0]!, 240)).toEqual({ ok: true });
+    expect(anchorCheck(d.scenes[0]!, 239)).toEqual({ ok: false, outside: ["w_000120"] });
+  });
+
   it("длительность версии ≠ плану — blocking duration_mismatch", () => {
     const d = composeTimeline({ tl, items: [i1], inputs, timelineId: "tml_1", revision: 1, scenes: { sp_001: { ...ready("ver_a"), approved: { version_id: "ver_a", version_number: 1, duration_frames: 75 } } } });
     expect(d.issues).toContainEqual(expect.objectContaining({ item_id: "sp_001", code: "duration_mismatch", severity: "blocking" }));

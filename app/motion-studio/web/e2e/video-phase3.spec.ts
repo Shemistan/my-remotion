@@ -204,7 +204,11 @@ test("анализ видеоряда и визуальный план: лицо
   }).map((x) => x.id);
   expect((after.recheck?.changed ?? []).map((c) => c.item_id)).toEqual(shifted);
   if (shifted.length > 0) {
-    await expect(page.getByTestId("stale-banner")).toContainText(/Монтаж изменился: 1 сцена пересчитана, 0 требуют решения/, { timeout: 30_000 });
+    // форма числа — как в StaleBanner (детерминированно: web/test/video/stale-banner.test.tsx,
+    // сдвиг при восстановлении вырезки — server/test/analysis/plan-recheck-f7.test.ts)
+    const n = shifted.length;
+    const form = n % 10 === 1 && n % 100 !== 11 ? "сцена пересчитана" : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? "сцены пересчитаны" : "сцен пересчитаны";
+    await expect(page.getByTestId("stale-banner")).toContainText(`Монтаж изменился: ${n} ${form}, 0 требуют решения`, { timeout: 30_000 });
   } else {
     await expect(page.getByTestId("stale-banner")).toBeHidden({ timeout: 30_000 });
   }

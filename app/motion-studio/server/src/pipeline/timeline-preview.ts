@@ -2,10 +2,11 @@
 // `ProjectTimeline`, что финал, — видео прокси (CFR на `timeline_fps`, кадр N = кадр N master)
 // кусками EDL, звук `buildEditedAudio(прокси)`, сцены ревизии на весь кадр (прозрачные — через
 // `overlayInputProps`); `renderTimelineRange` целиком, масштаб 0,5, CRF 23. Проверка: длительность
-// видео = `duration_frames / fps` ± кадр. Публикация с fencing в `preview/<timeline>/r<N>/`
+// видео = `duration_frames / fps` ± кадр. Публикация с fencing в `timeline-preview/<timeline>/r<N>/`
 // (`preview.mp4`, `preview.json`): каталог ревизии `timeline/<id>/r<N>` уже опубликован документом и
-// закрыт от записи, как у превью EDL. Ревизия иммутабельна — замка нет; опубликованное превью не
-// строится второй раз (`reused`).
+// закрыт от записи, а `preview/<id>/` — пространство превью EDL (ADR 0010). Исходник должен быть тем,
+// по которому собрана ревизия (`inputs.media_sha256`). Ревизия иммутабельна — замка нет;
+// опубликованное превью не строится второй раз (`reused`).
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -67,6 +68,12 @@ class PreviewFail extends Error {
   }
 }
 
+/** Длительность видео превью = `duration_frames / fps` ± кадр (+1 мс на округление ffprobe). */
+export function previewDurationOk(doc: Pick<VideoTimelineDoc, "fps" | "duration_frames">, durationMs: number): boolean {
+  const expectMs = (doc.duration_frames * 1000 * doc.fps.den) / doc.fps.num;
+  return Math.abs(durationMs - expectMs) <= (1000 * doc.fps.den) / doc.fps.num + 1;
+}
+
 /** Таймаут рендера: не меньше 10 мин, иначе 250 мс на кадр (половинный размер, veryfast). */
 export const previewTimeoutMs = (doc: Pick<VideoTimelineDoc, "duration_frames">): number => Math.max(600_000, doc.duration_frames * 250);
 
@@ -83,7 +90,7 @@ export function timelinePreviewWith(depsOf: () => TimelinePreviewDeps, impl: Tim
     const { svc, options } = depsOf();
     const root = svc.root;
     const storage = svc.storageCheck;
-    const destRel = artifactPaths(root, t.project_id).previewRev(timelineId, revision);
+    const destRel = artifactPaths(root, t.project_id).timelinePreviewRev(timelineId, revision);
     const relPath = `${destRel}/${TIMELINE_PREVIEW_FILE}`;
     const fence = { jobId: ctx.job.id, attempt: ctx.attempt };
     const { signal, run } = ctx;
@@ -113,6 +120,9 @@ export function timelinePreviewWith(depsOf: () => TimelinePreviewDeps, impl: Tim
       const edl = edls.get(ctx.db, doc.inputs.edl.id);
       const asset = edl ? media.get(ctx.db, edl.media_id) : undefined;
       if (!edl || !asset) throw new PreviewFail({ code: "pipeline", stage: "prepare", message: `нет EDL ${doc.inputs.edl.id} или его исходника` });
+      if (asset.sha256 !== doc.inputs.media_sha256) {
+        throw new PreviewFail({ code: "pipeline", stage: "prepare", message: `исходник ${asset.id} не тот, по которому собран таймлайн r${revision} (media_sha256): пересоберите таймлайн` });
+      }
       const proxyRow = media.derivatives(ctx.db, asset.id).find((x) => x.kind === "proxy");
       if (!proxyRow) throw new PreviewFail({ code: "pipeline", stage: "prepare", message: `у исходника ${asset.id} нет прокси` });
       const tl = timelineFor(ctx.db, edl.id, doc.inputs.edl.revision);
@@ -167,8 +177,7 @@ export function timelinePreviewWith(depsOf: () => TimelinePreviewDeps, impl: Tim
       ctx.progress(0.9, "check");
       const p = r.probe;
       const expectMs = (doc.duration_frames * 1000 * doc.fps.den) / doc.fps.num;
-      const frameMs = (1000 * doc.fps.den) / doc.fps.num;
-      if (!p || Math.abs(p.durationMs - expectMs) > frameMs + 1) {
+      if (!p || !previewDurationOk(doc, p.durationMs)) {
         throw new PreviewFail({ code: "pipeline", stage: "probe", message: `длительность превью ${p?.durationMs ?? "—"} мс ≠ ${doc.duration_frames} кадров (${expectMs.toFixed(1)} мс) ± кадр` });
       }
       stage = "publish";

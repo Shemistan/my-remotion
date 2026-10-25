@@ -82,6 +82,26 @@ describe("applyTimelineOps", () => {
   });
 });
 
+describe("applyTimelineOps: ревью", () => {
+  it("I3: override-клип перенесён без причины — anchor_outside blocking; с причиной переноса — warning", async () => {
+    const { d1, ctx } = await seeded({ secondC: false });
+    const ov = applyTimelineOps(d1, [{ op: "include", clip_id: "clip_sp_002", include: true, override_reason: "черновой показ" }], ctx);
+    expect(ov.issues).toEqual([]);
+    const bad = applyTimelineOps(ov, [{ op: "move", clip_id: "clip_sp_002", start_frame: 450 }], ctx);
+    expect(bad.issues).toContainEqual(expect.objectContaining({ item_id: "sp_002", code: "anchor_outside", severity: "blocking" }));
+    const ok = applyTimelineOps(ov, [{ op: "move", clip_id: "clip_sp_002", start_frame: 450, override_reason: "так задумано" }], ctx);
+    expect(ok.issues).toContainEqual(expect.objectContaining({ item_id: "sp_002", code: "anchor_outside", severity: "warning" }));
+  });
+
+  it("возврат исключённой сцены (include: true) не сбрасывает её сдвиг", async () => {
+    const { d1, ctx } = await seeded();
+    const moved = applyTimelineOps(d1, [{ op: "move", clip_id: "clip_sp_001", start_frame: 281 }], ctx);
+    const back = applyTimelineOps(moved, [{ op: "include", clip_id: "clip_sp_001", include: false }, { op: "include", clip_id: "clip_sp_001", include: true }], ctx);
+    expect(back.scenes[0]).toMatchObject({ item_id: "sp_001", start_frame: moved.scenes[0]!.start_frame });
+    expect(moved.scenes[0]!.start_frame).not.toBe(300);
+  });
+});
+
 describe("saveTimelineRevision", () => {
   it("новая ревизия от базы; база устарела → revision_conflict; таймлайн пишет задача → resource_busy; final устаревает", async () => {
     const { d1 } = await seeded();

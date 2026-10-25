@@ -7,8 +7,6 @@ import { type ScenePlanItem, type Settings, type TranscriptWord, ZONE_RECTS, bui
 import { canonicalHash } from "@ms/contracts/canonical";
 import { approveVisualPlan } from "../../src/analysis/approval-b.js";
 import { saveProjectStyle } from "../../src/analysis/project-style.js";
-import { approve } from "../../src/approvals/engine.js";
-import { sceneSubject } from "../../src/approvals/subjects.js";
 import { ArtifactStore } from "../../src/artifacts/store.js";
 import type { Db } from "../../src/db/open.js";
 import * as edls from "../../src/db/repos/edls.js";
@@ -16,6 +14,7 @@ import * as scenes from "../../src/db/repos/scenes.js";
 import { videoScenes } from "../../src/db/repos/video.js";
 import * as versions from "../../src/db/repos/versions.js";
 import { approveRoughCut } from "../../src/edit/approval-a.js";
+import { approveScene } from "../../src/video-scenes/approval-c.js";
 import { videoItemFingerprint } from "../../src/video-scenes/fingerprint.js";
 import { STYLE_BASE, publishPlan, seedFootage } from "../analysis/plan-db-helpers.js";
 import { P, planDoc, sc } from "../analysis/plan-helpers.js";
@@ -84,10 +83,9 @@ export function addVersion(db: Db, sceneId: string, frames: number, over: Partia
   return versions.get(db, v.id)!;
 }
 
-/** Approval C версии. */
+/** Approval C версии — как `POST …/approve` (38-39): решение и `scenes.approved_version_id`. */
 export function approveC(db: Db, versionId: string): void {
-  const s = sceneSubject(db, versionId)!;
-  approve(db, { projectId: "p1", kind: "C", subjectRef: s.ref, subjectHash: s.hash });
+  approveScene(db, { sceneId: versions.get(db, versionId)!.scene_id, versionId });
 }
 
 /** Видеосцена сцены плана `item` (`scn_<item>`), отпечаток — текущий; версия v1 длиной плана, C — если `withC`. */

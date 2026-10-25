@@ -56,6 +56,36 @@ describe("carryOver", () => {
     expect(next.ops).toEqual([{ op: "move", clip_id: "clip_sp_001", start_frame: 265 }, { op: "include", clip_id: "clip_sp_002", include: false }]);
   });
 
+  it("ревью I2: сцена временно выпала — include:false и move ждут в журнале; вернулась — исключена пользователем, сдвиг по прежнему якорю", () => {
+    const user = applyTimelineOps(d1, [{ op: "move", clip_id: "clip_sp_001", start_frame: 330 }, { op: "include", clip_id: "clip_sp_002", include: false }], {});
+    // пересборка, пока обе сцены stale: клипов нет, операции отложены
+    const gone = carryOver(user, doc([], { revision: 3, excluded: [{ item_id: "sp_001", reason: "stale" }, { item_id: "sp_002", reason: "stale" }] }));
+    expect(gone.excluded).toEqual([{ item_id: "sp_001", reason: "stale" }, { item_id: "sp_002", reason: "stale" }]);
+    expect(gone.ops).toEqual([{ op: "move", clip_id: "clip_sp_001", start_frame: 330 }, { op: "include", clip_id: "clip_sp_002", include: false }]);
+    // перегенерированы и утверждены, монтаж с вырезкой 45 кадров до сцен
+    const back = carryOver(gone, doc([clip("sp_001", 255, 90, 295), clip("sp_002", 555, 120, 600)], { revision: 4 }), { lastSeen: { clip_sp_001: { clip: user.scenes[0]! } } });
+    expect(back.scenes.map((c) => [c.item_id, c.start_frame])).toEqual([["sp_001", 285]]);
+    expect(back.excluded).toEqual([{ item_id: "sp_002", reason: "user" }]);
+    expect(back.ops).toEqual([{ op: "move", clip_id: "clip_sp_001", start_frame: 285 }, { op: "include", clip_id: "clip_sp_002", include: false }]);
+    // без опоры (lastSeen нет) — сдвиг не переносится, move_dropped
+    const blind = carryOver(gone, doc([clip("sp_001", 255, 90, 295)], { revision: 4 }));
+    expect(blind.issues).toContainEqual(expect.objectContaining({ item_id: "sp_001", code: "move_dropped" }));
+  });
+
+  it("опора сдвига — первый якорь, общий со старым окном (первый вырезан)", () => {
+    const two = (start: number, a: [string, number][]): VideoTimelineClip => ({ ...clip("sp_001", start, 90), anchors: a.map(([w, f]) => ({ word_id: w, text: "слово", frame: f })) });
+    const prev = applyTimelineOps(doc([two(300, [["w_a", 310], ["w_b", 350]])]), [{ op: "move", clip_id: "clip_sp_001", start_frame: 290 }], {});
+    const next = carryOver(prev, doc([two(260, [["w_b", 305]])], { revision: 2 }));
+    expect(next.scenes[0]!.start_frame).toBe(305 + (290 - 350));
+    expect(next.issues).toEqual([]);
+  });
+
+  it("override-клип выпал из пересборки — warning override_dropped", () => {
+    const ov = doc([{ ...clip("sp_001", 300, 90, 340), include: "override", override_reason: "черновой показ" }]);
+    const next = carryOver(ov, doc([], { revision: 2, excluded: [{ item_id: "sp_001", reason: "not_approved" }] }));
+    expect(next.issues).toContainEqual(expect.objectContaining({ item_id: "sp_001", code: "override_dropped", severity: "warning" }));
+  });
+
   it("операций в прежней ревизии нет — следующая как есть", () => {
     expect(carryOver(d1, rebuilt)).toEqual(rebuilt);
   });
