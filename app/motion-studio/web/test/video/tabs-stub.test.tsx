@@ -37,7 +37,8 @@ describe("Video Workspace: вкладки Phase 4–6", () => {
     renderQ(<VideoWorkspace id="p1" />);
     const tabs = await screen.findAllByRole("tab");
     expect(tabs.map((x) => x.textContent).slice(-3)).toEqual(["Сцены", "Экспорт", "Таймлайн"]);
-    for (const [name, key] of [["Сцены", "videoScenes.stub"], ["Экспорт", "videoExport.stub"], ["Таймлайн", "projectTimeline.stub"]] as const) {
+    // Task 5L: «Экспорт» — папка клипов (web/test/video/export-tab.test.tsx)
+    for (const [name, key] of [["Сцены", "videoScenes.stub"], ["Экспорт", "videoExport.clips.title"], ["Таймлайн", "projectTimeline.stub"]] as const) {
       fireEvent.click(screen.getByRole("tab", { name }));
       expect(screen.getByRole("tab", { name }).getAttribute("aria-selected")).toBe("true");
       expect(screen.getByText(t(key))).toBeTruthy();

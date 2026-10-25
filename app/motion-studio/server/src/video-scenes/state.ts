@@ -17,6 +17,7 @@ import * as scenes from "../db/repos/scenes.js";
 import { videoScenes } from "../db/repos/video.js";
 import * as versions from "../db/repos/versions.js";
 import { SCENE_WRITING_TYPES } from "../jobs/locks.js";
+import { videoPackagesForProject } from "../pipeline/video-package.js";
 import { sceneStatus, versionQaWarnings } from "../script/state.js";
 import { sceneApprovalState } from "./approval-c.js";
 import { acceptedItems, videoBatchesForState } from "./batch.js";
@@ -82,7 +83,7 @@ export function videoScenesState(db: Db, root: string, projectId: string): Video
     approval_b: { state: peek.state, ...(peek.approval ? { ref: peek.approval.subject_ref } : {}), ...(peek.reason ? { reason: peek.reason } : {}) },
     scenes: sceneDtos,
     batches: videoBatchesForState(db, root, projectId),
-    // папки клипов видеопроекта — Task 5L (`video.package`)
-    packages: [],
+    // папки клипов видеопроекта (Task 5L, `video.package`), новые первыми
+    packages: videoPackagesForProject(db, root, projectId),
   };
 }
