@@ -22,6 +22,8 @@ export interface LayoutItem {
   rect: Box;
   fontPx: number;
   opacity: number;
+  /** Части текста `text`/`number` по строкам (kit, Task 37′ fix 2); нет — старая проба. */
+  lines?: { text: string; rect: Box; fontPx: number; opacity: number }[];
 }
 export interface LayoutFrame {
   frame: number;
@@ -310,39 +312,80 @@ export function layoutIssues(frames: LayoutFrame[]): Issue[] {
 
 /** Зазор между соседними текстами одной строки меньше этой доли кегля — слова слиплись (fix I3). */
 export const WORD_GAP_EM = 0.2;
+/** Части стабильны (не вход и не уход): прозрачность обеих не ниже. */
+export const WORD_GAP_OPACITY = 0.9;
+/** Разница кеглей больше — не стык слов фразы (число и единица, подпись к числу). */
+export const WORD_GAP_FONT_RATIO = 1.5;
+/** Крупный текст (blocking): оба кегля не меньше этой доли высоты кадра; мельче — warning. */
+export const WORD_GAP_BIG = 0.04;
+
+/** Буква или цифра (любой алфавит): стык слов, а не пунктуация, знак, эмодзи. */
+const WORDISH = /[\p{L}\p{N}]/u;
+type Part = { text: string; rect: Box; fontPx: number; opacity: number };
+/** Части элемента: строки пробы kit; старая проба — элемент целиком. */
+const partsOf = (it: LayoutItem): Part[] => it.lines ?? [{ text: it.text, rect: it.rect, fontPx: it.fontPx, opacity: it.opacity }];
+/** Строк у элемента: по частям (разные ряды) или оценкой по высоте охвата. */
+function rowsOf(it: LayoutItem): number {
+  if (!it.lines) return Math.max(1, Math.round(it.rect.h / Math.max(1, it.fontPx * 1.2)));
+  const tops: number[] = [];
+  for (const l of it.lines) if (!tops.some((t) => Math.abs(t - l.rect.y) < 0.5 * l.rect.h)) tops.push(l.rect.y);
+  return tops.length;
+}
 
 /**
- * Слипшиеся слова (Task 37′ fix I3, чистая функция): фраза, разбитая на соседние тексты kit
- * (`data-ms-layout="text"`, напр. два `KineticText` во flex с зазором в em родителя), стоит на
- * одной строке с зазором меньше `WORD_GAP_EM` кегля — «прерываясоединения» читается одним
- * словом. Одна строка — вертикальное перекрытие рамок не меньше половины меньшей; сильное
- * наложение — это `text_overlap`, не зазор.
+ * Слипшиеся слова (Task 37′ fix I3 → fix 2, чистая функция): фраза, разбитая на соседние тексты
+ * kit (`data-ms-layout="text"`/`"number"`, напр. два `KineticText` во flex с зазором в em
+ * родителя), стоит на одной строке с зазором меньше `WORD_GAP_EM` кегля — «прерываясоединения»
+ * читается одним словом. Сравниваются части (строки, слова) соседних элементов, а не охват
+ * владельца; стык — буква/цифра к букве/цифре, кегли в пределах `WORD_GAP_FONT_RATIO`.
+ * Blocking — крупный текст (`WORD_GAP_BIG`), стабильный (прозрачность ≥ `WORD_GAP_OPACITY`) на
+ * ≥ 2 QA-кадрах или на кадре удержания (последний); только вход/уход, один кадр, мелкий текст,
+ * абзац > 2 строк — warning. Сильное наложение — `text_overlap`, не зазор.
  */
 export function wordGapIssues(frames: LayoutFrame[]): Issue[] {
-  const pairs = new Map<string, { a: LayoutItem; b: LayoutItem; gap: number; font: number; frames: number[] }>();
+  const hold = frames.reduce((m, f) => Math.max(m, f.frame), -Infinity);
+  type Pair = { a: string; b: string; ids: string; gap: number; font: number; stable: number[]; moving: number[]; big: boolean; para: boolean };
+  const pairs = new Map<string, Pair>();
   for (const f of frames) {
-    const texts = f.items.filter((it) => it.role === "text");
+    const texts = f.items.filter((it) => it.role === "text" || it.role === "number");
     for (let i = 0; i < texts.length; i++) {
       for (let j = i + 1; j < texts.length; j++) {
-        const [l, r] = [texts[i]!, texts[j]!].sort((p, s) => p.rect.x - s.rect.x) as [LayoutItem, LayoutItem];
-        if (l.id === r.id || (l.el !== undefined && l.el === r.el)) continue;
-        const vy = Math.min(l.rect.y + l.rect.h, r.rect.y + r.rect.h) - Math.max(l.rect.y, r.rect.y);
-        if (vy < 0.5 * Math.min(l.rect.h, r.rect.h)) continue;
-        if (overlap(l.rect, r.rect) >= OVERLAP_SHARE) continue;
-        const font = Math.min(l.fontPx, r.fontPx);
-        const gap = r.rect.x - (l.rect.x + l.rect.w);
-        if (gap >= WORD_GAP_EM * font || gap < -0.5 * font) continue;
-        const key = `${l.text}|${r.text}`;
-        const e = pairs.get(key) ?? { a: l, b: r, gap, font, frames: [] };
-        e.gap = Math.min(e.gap, gap);
-        e.frames.push(f.frame);
-        pairs.set(key, e);
+        const [x, y] = [texts[i]!, texts[j]!];
+        if (x.id === y.id || (x.el !== undefined && x.el === y.el)) continue;
+        if (overlap(x.rect, y.rect) >= OVERLAP_SHARE) continue;
+        for (const pa of partsOf(x)) {
+          for (const pb of partsOf(y)) {
+            const [l, r] = pa.rect.x <= pb.rect.x ? [pa, pb] : [pb, pa];
+            const vy = Math.min(l.rect.y + l.rect.h, r.rect.y + r.rect.h) - Math.max(l.rect.y, r.rect.y);
+            if (vy < 0.5 * Math.min(l.rect.h, r.rect.h)) continue;
+            const big = Math.max(l.fontPx, r.fontPx);
+            const font = Math.min(l.fontPx, r.fontPx);
+            if (big > WORD_GAP_FONT_RATIO * font) continue;
+            if (!WORDISH.test(l.text.trim().slice(-1)) || !WORDISH.test(Array.from(r.text.trim())[0] ?? "")) continue;
+            const gap = r.rect.x - (l.rect.x + l.rect.w);
+            if (gap >= WORD_GAP_EM * font || gap < -0.5 * font) continue;
+            const key = `${l.text}|${r.text}`;
+            const e = pairs.get(key) ?? { a: l.text, b: r.text, ids: `${x.id} / ${y.id}`, gap, font, stable: [], moving: [], big: true, para: false };
+            e.gap = Math.min(e.gap, gap);
+            e.font = Math.min(e.font, font);
+            e.big &&= font >= WORD_GAP_BIG * f.height;
+            e.para ||= rowsOf(x) > 2 || rowsOf(y) > 2;
+            (l.opacity >= WORD_GAP_OPACITY && r.opacity >= WORD_GAP_OPACITY ? e.stable : e.moving).push(f.frame);
+            pairs.set(key, e);
+          }
+        }
       }
     }
   }
-  return [...pairs.values()].map((p) => ({
-    code: "word_gap", severity: "blocking" as const, frame: Math.min(...p.frames), area: `${p.a.id} / ${p.b.id}`,
-    description: `слова ${q(p.a.text)} и ${q(p.b.text)} слиплись: зазор ${Math.max(0, p.gap).toFixed(1)} px при кегле ${p.font.toFixed(0)} px (меньше ${WORD_GAP_EM} кегля; кадры ${list(p.frames)}) — читается одним словом`,
-    fix_hint: "фраза — одним KineticText, акцентное слово — его проп highlight (не дроби фразу на соседние тексты); если тексты всё же рядом — зазор в единицах кегля текста (от его fontSize, не em родителя 16 px)",
-  }));
+  return [...pairs.values()].map((p) => {
+    const stable = [...new Set(p.stable)];
+    const hard = p.big && !p.para && (stable.length >= 2 || stable.includes(hold));
+    const all = [...p.stable, ...p.moving];
+    const why = hard ? "" : !p.big ? " (мелкий текст — подсказка)" : p.para ? " (абзац больше 2 строк — подсказка)" : stable.length === 0 ? " (только на входе/уходе — подсказка)" : " (один кадр — подсказка)";
+    return {
+      code: "word_gap", severity: hard ? ("blocking" as const) : ("warning" as const), frame: Math.min(...all), area: p.ids,
+      description: `слова ${q(p.a)} и ${q(p.b)} слиплись: зазор ${Math.max(0, p.gap).toFixed(1)} px при кегле ${p.font.toFixed(0)} px (меньше ${WORD_GAP_EM} кегля; кадры ${list(all)}) — читается одним словом${why}`,
+      fix_hint: "фраза — одним KineticText, акцентное слово — его проп highlight (не дроби фразу на соседние тексты); если тексты всё же рядом — зазор в единицах кегля текста (от его fontSize, не em родителя 16 px)",
+    };
+  });
 }

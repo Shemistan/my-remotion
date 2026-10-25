@@ -327,6 +327,7 @@ export const ru = {
   "qa.code.text_size": "размер текста",
   "qa.code.token_on_label": "токен на подписи",
   "qa.code.uniform_entrance": "однообразные появления",
+  "qa.code.video_plan_changed": "сцена плана изменилась",
   "qa.code.word_gap": "слова слиплись",
   "qa.frame": "Кадр {frame}",
   "qa.fixHint": "Как исправить: {hint}",

@@ -17,6 +17,7 @@ import { enqueue } from "../../src/jobs/queue.js";
 import { JobRunner } from "../../src/jobs/runner.js";
 import type { GenerateDeps } from "../../src/pipeline/generate.js";
 import { playgroundGenerate } from "../../src/pipeline/playground-generate.js";
+import { videoPlanDrift } from "../../src/pipeline/playground-edit.js";
 import { SceneRepo } from "../../src/scenes/repo.js";
 import { SCRIPT_PLAN_FILE } from "../../src/script/read.js";
 import { currentProjectStyle } from "../../src/analysis/project-style.js";
@@ -219,6 +220,13 @@ describe("playground.generate с video", () => {
     expect(job.status).toBe("failed");
     expect(job.error).toMatchObject({ code: "pipeline" });
     expect(agents.tasks).toEqual([]);
+  });
+
+  it("ревью fix 2: правка видеосцены — вход генерации против текущей ревизии плана (videoPlanDrift)", () => {
+    const p = prepare(overlay);
+    expect(videoPlanDrift(env.db, env.s.root, p.ctx)).toBeUndefined();
+    expect(videoPlanDrift(env.db, env.s.root, { ...p.ctx, placement: { ...p.ctx.placement, zone: "right_third" } })).toMatch(/размещение overlay\/right_third → overlay\/lower_third/);
+    expect(videoPlanDrift(env.db, env.s.root, { ...p.ctx, item_id: "sp_404" })).toMatch(/нет среди принятых/);
   });
 
   it("video и script вместе — failed(pipeline) без агентов", async () => {
