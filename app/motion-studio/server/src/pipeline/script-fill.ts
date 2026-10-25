@@ -104,7 +104,12 @@ export async function sceneFill(d: SceneFillDeps): Promise<HandlerResult> {
   const failed: string[] = [];
   const items = new Map(doc.items.map((x) => [x.id, x]));
   let seq = 0;
+  // ревью S16a M8: время дозаполнения — в журнал задачи (по сцене и итогом): замок плана держится всё время
+  const secs = (ms: number) => (ms / 1000).toFixed(1).replace(".", ",");
+  const t0 = Date.now();
   for (const [k, item] of pending.entries()) {
+    const ts = Date.now();
+    const calls = seq;
     ctx.progress(0.1 + (0.8 * k) / pending.length, "agent");
     const at = accepted.findIndex((x) => x.id === item.id);
     const si = pos.get(item.start_word_id)!;
@@ -133,6 +138,8 @@ export async function sceneFill(d: SceneFillDeps): Promise<HandlerResult> {
       if (typeof next === "string") why = next;
       else result = next;
     }
+    const ms = Date.now() - ts;
+    ctx.emit("fill_scene", `${item.id}: ${result ? "дозаполнена" : "не дозаполнена"} за ${secs(ms)} с (вызовов Director: ${seq - calls})`, { item_id: item.id, ok: result !== undefined, ms, calls: seq - calls });
     if (result) {
       items.set(item.id, result);
       filled.push(item.id);
@@ -159,6 +166,6 @@ export async function sceneFill(d: SceneFillDeps): Promise<HandlerResult> {
     scriptPlans.insertRevision(db, { doc: next, rel_path: `${destRel}/${SCRIPT_PLAN_FILE}`, sha256: files[0]!.sha256 });
     approvalState(db, projectId, "B", currentSubject(db, projectId, "B"));
   });
-  ctx.emit("fill_done", `дозаполнено сцен: ${filled.length}${failed.length > 0 ? `, не удалось: ${failed.join(", ")}` : ""} — ревизия плана r${next.revision}`);
+  ctx.emit("fill_done", `дозаполнено сцен: ${filled.length}${failed.length > 0 ? `, не удалось: ${failed.join(", ")}` : ""} — ревизия плана r${next.revision}; сцен в работе: ${pending.length}, всего ${secs(Date.now() - t0)} с`);
   return done({ plan_id: next.plan_id, revision: next.revision, filled, failed });
 }
