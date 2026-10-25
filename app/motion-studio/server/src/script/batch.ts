@@ -34,8 +34,8 @@ import * as scenes from "../db/repos/scenes.js";
 import { type ScriptBatchRow, type ScriptSceneRow, scriptBatches, scriptScenes } from "../db/repos/script.js";
 import * as versions from "../db/repos/versions.js";
 import { tx } from "../db/tx.js";
+import { BATCH_ACTIVE, BATCH_CANCELLABLE, keyPrefix, nextTryKey, requestTag } from "../jobs/batch-keys.js";
 import { cancelJob, enqueue } from "../jobs/queue.js";
-import { sha256 } from "../scenes/hash.js";
 import { newId } from "../scenes/ids.js";
 import { removeHollowDir } from "../projects/hollow.js";
 import { deletedRefusal } from "../projects/lifecycle.js";
@@ -50,10 +50,8 @@ import { sceneStatus } from "./state.js";
 /** Вид события `job_events`: задача входит в пакет (`data: { batch_id, item_id }`). */
 export const BATCH_EVENT = "script_batch";
 
-/** Задача сцены ещё идёт (или ждёт человека): новую не ставим, она входит в пакет как есть. */
-const ACTIVE: ReadonlySet<Job["status"]> = new Set(["pending", "running", "awaiting_input", "awaiting_approval", "blocked"]);
-/** Отменяемые пакетом статусы (blocked — решение человека: разбор процессов, `jobs/:id/cancel`). */
-const CANCELLABLE: ReadonlySet<Job["status"]> = new Set(["pending", "running", "awaiting_input", "awaiting_approval"]);
+const ACTIVE = BATCH_ACTIVE;
+const CANCELLABLE = BATCH_CANCELLABLE;
 
 export interface StartBatchInput {
   projectId: string;
@@ -71,25 +69,25 @@ const APPROVABLE_ERR: Record<Exclude<PlanApprovable, { ok: true }>["code"], [num
   no_items: [422, "в плане нет принятых сцен"],
 };
 
-/** Префикс id пакета из ключа запроса: повтор того же `Idempotency-Key` находит пакет без новой колонки. */
-export const keyPrefix = (projectId: string, key: string): string => `sb_${sha256(`${projectId}\n${key}`).slice(0, 20)}`;
-/** Отпечаток тела запроса в id пакета (M6): тот же ключ с другим телом — 422 `idempotency_key_reused`. */
-const requestTag = (i: Pick<StartBatchInput, "revision" | "itemIds" | "regenerate">, aspect: Aspect): string =>
-  sha256(JSON.stringify({ revision: i.revision, aspect, item_ids: i.itemIds ? [...new Set(i.itemIds)].sort() : null, regenerate: i.regenerate === true })).slice(0, 10);
+/** Префикс id пакетов сценария (`keyPrefix`, `jobs/batch-keys.ts`). */
+export const SCRIPT_BATCH_PREFIX = "sb";
+/** Отпечаток тела запроса генерации в id пакета (M6, `requestTag`). */
+export const scriptRequestTag = (i: Pick<StartBatchInput, "revision" | "itemIds" | "regenerate">, aspect: Aspect): string =>
+  requestTag({ revision: i.revision, aspect, item_ids: i.itemIds ? [...new Set(i.itemIds)].sort() : null, regenerate: i.regenerate === true });
 /** Отпечаток тела запроса двойников 9:16 (`startReframe`): тот же ключ у генерации — другой id. */
 export const reframeRequestTag = (itemIds: readonly string[] | undefined): string =>
-  sha256(JSON.stringify({ reframe: "9:16", item_ids: itemIds ? [...new Set(itemIds)].sort() : null })).slice(0, 10);
+  requestTag({ reframe: "9:16", item_ids: itemIds ? [...new Set(itemIds)].sort() : null });
 
 /**
  * Пакет полный (S17a): id кончается отпечатком запроса без `item_ids` и `regenerate` — у генерации
  * по ревизии пакета, у двойников — reframe без `item_ids`. Колонки не нужно: тег вычислим.
  */
 const fullBatch = (b: ScriptBatchRow): boolean =>
-  b.id.endsWith(b.aspect === "9:16" ? reframeRequestTag(undefined) : requestTag({ revision: b.plan_revision }, b.aspect));
+  b.id.endsWith(b.aspect === "9:16" ? reframeRequestTag(undefined) : scriptRequestTag({ revision: b.plan_revision }, b.aspect));
 
 /** Пакет, созданный запросом с этим `Idempotency-Key` (любое тело), — для 200/202 маршрута. */
 export function batchForKey(db: Db, projectId: string, key: string): ScriptBatchRow | undefined {
-  const prefix = keyPrefix(projectId, key);
+  const prefix = keyPrefix(projectId, key, SCRIPT_BATCH_PREFIX);
   return scriptBatches.listByProject(db, projectId).find((b) => b.id.startsWith(prefix));
 }
 
@@ -130,7 +128,7 @@ export function startScriptBatch(core: { db: Db; root: string }, i: StartBatchIn
   if (!project) throw notFound(`проект ${i.projectId}`);
   if (project.kind !== "script") throw new ApiError(409, "not_script_project", "проект не сценарный");
   const aspect = i.aspect ?? "16:9";
-  const batchId = `${keyPrefix(i.projectId, i.idempotencyKey)}${requestTag(i, aspect)}`;
+  const batchId = `${keyPrefix(i.projectId, i.idempotencyKey, SCRIPT_BATCH_PREFIX)}${scriptRequestTag(i, aspect)}`;
   const existing = batchForKey(db, i.projectId, i.idempotencyKey);
   if (existing) {
     if (existing.id !== batchId) {
@@ -290,12 +288,7 @@ export function stageBatch(core: { db: Db; root: string }, s: StageBatch): Scrip
     });
     // :try-n — последняя задача упала или отменена; ключ уже занят завершённой задачей
     // (завершилась без версии) — тоже новый номер, иначе очередь вернула бы старую
-    let tryN = failedLast || supersede ? prior : undefined;
-    const taken = (k: string) => {
-      const j = jobs.findByIdempotencyKey(db, k);
-      return j !== undefined && (supersede !== undefined || !ACTIVE.has(j.status));
-    };
-    for (let k = keyOf(tryN); taken(k); k = keyOf(tryN)) tryN = (tryN ?? prior) + 1;
+    const key = nextTryKey(db, keyOf, prior, { retry: failedLast, supersede: supersede !== undefined });
     const settings = sceneSettings(base, item, aspect, style.base);
     // S11: моменты слов ключевых чисел и терминов — в бриф и в проверку spec (`key_term_early`)
     const moments = keyMoments(item, script, doc.reading, doc.fps);
@@ -312,7 +305,7 @@ export function stageBatch(core: { db: Db; root: string }, s: StageBatch): Scrip
     };
     work.push({
       item, index, fingerprint, ...(row ? { row } : {}),
-      enqueue: { sceneId, title: titleOf(index + 1, item, aspect), brief, settings, input: { sceneId, prompt: brief, settings, script: ctx, script_fingerprint: fingerprint, answers: "skip" }, key: keyOf(tryN) },
+      enqueue: { sceneId, title: titleOf(index + 1, item, aspect), brief, settings, input: { sceneId, prompt: brief, settings, script: ctx, script_fingerprint: fingerprint, answers: "skip" }, key },
     });
   }
 
