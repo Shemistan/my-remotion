@@ -131,7 +131,10 @@ export async function recoverMissingVersions(repo: SceneRepo, root: string): Pro
     }
     return drafts.get(versionId);
   };
+  // каталог проекта в корзине (Task 47) — версии не пропали, их не трогаем
+  const trashed = new Set(db.prepare("SELECT s.id FROM scenes s JOIN projects p ON p.id = s.project_id WHERE p.deleted_at IS NOT NULL").pluck().all() as string[]);
   for (const row of versions.listIntact(db)) {
+    if (trashed.has(row.scene_id)) continue;
     const dir = join(root, row.path);
     if (existsSync(dir)) continue;
     const draft = await draftFor(row.id);

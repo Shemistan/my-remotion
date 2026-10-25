@@ -10,7 +10,9 @@ export type IdPrefix =
   // загрузка видео через браузер (Task 29): `workspace/uploads/upl_…`
   | "upl"
   // карантин каталога-сироты артефакта
-  | "qrn";
+  | "qrn"
+  // Task 47: строка корзины, отчёт старта
+  | "trs" | "brp";
 
 let lastTime = -1;
 let lastRand = 0n;

@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { safeMkdir } from "@ms/core";
 import * as exportsRepo from "../db/repos/exports.js";
 import type { Db } from "../db/open.js";
+import { lifecycleOf } from "../projects/lifecycle.js";
 import { lockChildren, quarantineDir, sealVersion, writablePath } from "./store.js";
 
 export interface ExportsReconcile {
@@ -17,7 +18,7 @@ export interface ExportsReconcile {
   relocked: string[];
   /** Каталоги без строки в БД, перенесённые в карантин. */
   quarantined: { dir: string; to: string }[];
-  /** id строк, чьего каталога нет. */
+  /** id строк, чьего каталога нет (кроме проектов в корзине). */
   missing: string[];
   /** Каталоги, которые разобрать не удалось (не тронуты). */
   errors: { dir: string; error: string }[];
@@ -56,6 +57,11 @@ export async function reconcileExports(db: Db, root: string): Promise<ExportsRec
       }
     }
   }
-  for (const id of rows.keys()) if (!seen.has(id)) out.missing.push(id);
+  // экспорты проекта в корзине лежат в `workspace/trash/…` — не пропали (Task 47)
+  const inTrash = (path: string) => {
+    const m = /^workspace\/projects\/([^/]+)\//.exec(path);
+    return m !== null && Boolean(lifecycleOf(db, m[1]!)?.deleted_at);
+  };
+  for (const [id, row] of rows) if (!seen.has(id) && !inTrash(row.path)) out.missing.push(id);
   return out;
 }

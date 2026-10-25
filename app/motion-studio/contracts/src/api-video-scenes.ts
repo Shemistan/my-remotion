@@ -158,15 +158,32 @@ export const DeleteIntentDtoSchema = z.object({
   files: Count,
   active_jobs: Count,
   expires_at: Ts,
+  // Task 47: сводка «что будет удалено» для диалога подтверждения
+  title: z.string().optional(),
+  scenes: Count.optional(),
+  versions: Count.optional(),
+  exports: Count.optional(),
+  /** Папки пакетов `packages/` (сценарий, Phase 5-lite). */
+  packages: Count.optional(),
+  /** id незавершённых задач (в т. ч. сценарного пакета): удаление — 409 `project_busy`. */
+  active_job_ids: z.array(Id).optional(),
 }).strict();
 export type DeleteIntentDto = z.infer<typeof DeleteIntentDtoSchema>;
 
 /** Центр восстановления после сбоя (Task 47): отчёт старта и задачи, требующие решения. */
 export const RecoveryDtoSchema = z.object({
-  boot: z.object({ id: Id, created_at: Ts, crashed: z.boolean(), acknowledged_at: Ts.nullable() }).strict().nullable(),
+  boot: z.object({
+    id: Id, created_at: Ts, crashed: z.boolean(), acknowledged_at: Ts.nullable(),
+    // Task 47: итог восстановления для баннера (восстановлено / заблокировано / в карантине / не удалось)
+    summary: z.object({ recovered: Count, blocked: Count, quarantined: Count, failed: Count }).strict().optional(),
+  }).strict().nullable(),
   interrupted: z.array(JobSchema),
   blocked: z.array(JobSchema),
-  quarantined: z.array(z.object({ rel_path: z.string().min(1), reason: z.string().min(1) }).strict()),
+  quarantined: z.array(z.object({
+    rel_path: z.string().min(1), reason: z.string().min(1),
+    // Task 47: попытка, размер и время карантина (журнал — по задаче)
+    job_id: Id.nullable().optional(), attempt: z.number().int().nonnegative().nullable().optional(), bytes: Count.optional(), at: Ts.nullable().optional(),
+  }).strict()),
 }).strict();
 export type RecoveryDto = z.infer<typeof RecoveryDtoSchema>;
 

@@ -1,14 +1,17 @@
-// Dashboard (ТЗ §11.1): проекты, активные задачи, последние экспорты, «Новый проект».
+// Dashboard (ТЗ §11.1): проекты (поиск, архив, корзина — Task 47), баннер восстановления после
+// сбоя, активные задачи, последние экспорты, «Новый проект».
 // Служебные проекты bench скрывает сервер (`GET /projects`). Страница проекта — сцены,
 // экспорты проекта и новая сцена по промпту.
 import { type HistoryEntry, type Job, type ProjectDto, type Settings, defaultSettings } from "@ms/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { api, newKey, urls } from "../api/client.js";
-import { isActive, useAppSettings, useJobs, useProject, useProjects } from "../api/queries.js";
+import { isActive, useAppSettings, useJobs, useProject } from "../api/queries.js";
 import { stageText } from "../components/JobStatus.js";
 import { Link } from "../components/Link.js";
 import { SettingsForm } from "../components/SettingsForm.js";
+import { ProjectList } from "../components/projects/ProjectList.js";
+import { RecoveryBanner } from "../components/projects/RecoveryBanner.js";
 import { versionState } from "../components/VersionHistory.js";
 import { errorText, t, tk } from "../i18n/index.js";
 import { navigate } from "../router.js";
@@ -104,26 +107,16 @@ function RecentExports({ q }: { q: JobsQuery }) {
 }
 
 export function Dashboard() {
-  const projects = useProjects();
   const jobs = useJobs();
   return (
     <div className="page dashboard">
       <h1>{t("dashboard.title")}</h1>
+      <RecoveryBanner />
       <div className="grid-2">
         <section className="panel">
           <h2>{t("dashboard.projects")}</h2>
-          {projects.isError ? <p className="error">{errorText(projects.error)}</p> : null}
-          {projects.isPending ? <p className="muted">{t("common.loading")}</p> : null}
-          {projects.data?.length === 0 && !projects.isError ? <p className="muted">{t("dashboard.noProjects")}</p> : null}
-          <ul className="project-list">
-            {(projects.data ?? []).map((p) => (
-              <li key={p.id} data-project-id={p.id}>
-                <Link to={{ name: "project", id: p.id }} className="strong">{p.title}</Link>
-                <span className="badge">{t(`project.kind.${p.kind}`)}</span>
-                <span className="muted small">{t("dashboard.updated", { at: dateTime(p.updated_at) })}</span>
-              </li>
-            ))}
-          </ul>
+          {/* Task 47: поиск, активные / архив / корзина, переименование, архив, удаление */}
+          <ProjectList />
         </section>
         <div className="stack">
           <NewProject />
