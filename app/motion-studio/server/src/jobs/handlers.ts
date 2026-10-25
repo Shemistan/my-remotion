@@ -1,12 +1,17 @@
 // Обработчики задач, общие для сервера и CLI: оба регистрируют одни и те же обработчики
 // (`playground.generate`, `playground.edit`, `scene.restore`, `scene.export`, `media.import`,
 // `asr.transcribe`, `roughcut.propose`, `roughcut.preview`, `footage.analyze`, `semantic.analyze`,
-// `plan.visual`, `plan.recheck`, `script.plan`, `script.package`).
+// `plan.visual`, `plan.recheck`, `script.plan`, `script.package`; Phase 4–6 — `video.package`,
+// `scene.preview_context`, `timeline.build`, `timeline.preview`, `final.render`, `final.reproduce`,
+// `trash.purge`, `cache.gc`: заглушки Task 35′, тела — задачи 5L, 38-39, 42, 43, 47, 49a).
 import type { Job } from "@ms/contracts";
 import { DEFAULT_MIN_FREE_GB } from "@ms/core";
 import { alphaAtCorner, exportVersion, renderVersion } from "@ms/render";
 import type { CoreServices } from "../boot.js";
 import { type AsrTranscribeDeps, asrTranscribe } from "../pipeline/asr-transcribe.js";
+import { cacheGc } from "../pipeline/cache-gc.js";
+import { finalRender } from "../pipeline/final-render.js";
+import { finalReproduce } from "../pipeline/final-reproduce.js";
 import { type FootageAnalyzeDeps, footageAnalyze } from "../pipeline/footage-analyze.js";
 import type { GenerateResult } from "../pipeline/generate.js";
 import { type MediaImportDeps, mediaImport } from "../pipeline/media-import.js";
@@ -21,6 +26,12 @@ import { type SemanticAnalyzeDeps, semanticAnalyze } from "../pipeline/semantic-
 import { sceneRestore } from "../pipeline/scene-restore.js";
 import { scriptPackage } from "../pipeline/script-package.js";
 import { scriptPlan } from "../pipeline/script-plan.js";
+import { scenePreviewContext } from "../pipeline/scene-preview-context.js";
+import { timelineBuild } from "../pipeline/timeline-build.js";
+import { timelinePreview } from "../pipeline/timeline-preview.js";
+import { trashPurge } from "../pipeline/trash-purge.js";
+import { videoPackage } from "../pipeline/video-package.js";
+import type { Phase46Deps } from "../pipeline/phase46-deps.js";
 import { checkSceneDir } from "../scenes/static-check.js";
 import { typecheckVersion } from "../scenes/typecheck.js";
 import type { Handlers } from "./types.js";
@@ -78,6 +89,8 @@ export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extr
       ...(o.log ? { log: o.log } : {}),
     }),
   };
+  // Phase 4–6: службы ядра, опции и экспорт — заглушкам 35′ и задачам, которые их заменят
+  const p46 = (): Phase46Deps => ({ svc, options: o, exporter });
   return {
     "playground.generate": playgroundGenerate({ deps, repo: svc.repo, ...(o.onGenerateResult ? { onResult: o.onGenerateResult } : {}) }),
     "playground.edit": playgroundEdit({ deps, repo: svc.repo, ...(o.onGenerateResult ? { onResult: o.onGenerateResult } : {}) }),
@@ -161,6 +174,15 @@ export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extr
       ...(o.log ? { log: o.log } : {}),
     })),
     "script.package": scriptPackage(() => ({ root: svc.root, storage: svc.storageCheck, exporter, ...(o.log ? { log: o.log } : {}) })),
+    // Phase 4–6 (Task 35′ — заглушки)
+    "video.package": videoPackage(p46),
+    "scene.preview_context": scenePreviewContext(p46),
+    "timeline.build": timelineBuild(p46),
+    "timeline.preview": timelinePreview(p46),
+    "final.render": finalRender(p46),
+    "final.reproduce": finalReproduce(p46),
+    "trash.purge": trashPurge(p46),
+    "cache.gc": cacheGc(p46),
     ...extra,
   };
 }

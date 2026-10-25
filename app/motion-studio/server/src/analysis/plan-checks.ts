@@ -1,10 +1,11 @@
 // Проверки визуального плана (Task 32): лицо, пересечения, плотность, fullscreen, промежутки,
-// длительность, ключевые слова вне сцены, зона, занятая руками в окнах времени сцены, план без сцен.
+// длительность, ключевые слова вне сцены, зона, занятая руками в окнах времени сцены, план без сцен;
+// split_screen при лице в центре кадра (Task 35′).
 // Отклонённые сцены в проверки не входят; `stale(anchor_cut)` — времена со старой шкалы монтажа
 // (перепроверка их не пересчитала): в наложение, промежутки и покрытие не входят.
 import type { FootageAnalysis, PlanIssue, ScenePlanItem } from "@ms/contracts";
 import type { PlanningConfig } from "./plan-build.js";
-import { occupiedAt } from "./planner-input.js";
+import { facesAt, occupiedAt } from "./planner-input.js";
 import { ZONE_TITLE, freeZones } from "./zones.js";
 
 /** Режимы поверх кадра с автором: лицо и занятые зоны проверяются. */
@@ -12,6 +13,11 @@ const OVER_AUTHOR = new Set<ScenePlanItem["composition_mode"]>(["overlay", "call
 const FULLSCREEN = new Set<ScenePlanItem["composition_mode"]>(["fullscreen", "split_screen"]);
 /** Свободная доля зоны в окнах сцены ниже этой — `zone_occupied` (warning). */
 export const ZONE_FREE_MIN = 0.85;
+/**
+ * Центр рамки лица по x в этих границах — автор в центре кадра: половина экрана под графику
+ * закроет лицо, а перекадрировать автора нельзя (Р-V5, Phase 3 F6) — blocking `split_face_center`.
+ */
+export const SPLIT_FACE_CENTER: readonly [number, number] = [0.35, 0.65];
 
 export interface PlanCheckContext {
   editedDurationUs: number;
@@ -47,6 +53,14 @@ export function planChecks(items: ScenePlanItem[], ctx: PlanCheckContext): PlanI
     for (const k of x.key_terms) {
       if (k.edited_at_us < x.edited.start_us || k.edited_at_us >= x.edited.end_us) {
         add("key_term_outside", "blocking", `ключевое слово «${k.text}» звучит вне сцены (${s1(k.edited_at_us)} с)`, x.id);
+      }
+    }
+    if (ctx.footage && x.composition_mode === "split_screen") {
+      const faces = facesAt(ctx.footage, x.source);
+      const big = faces.length === 0 ? undefined : faces.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
+      const cx = big ? big.x + big.w / 2 : undefined;
+      if (cx !== undefined && cx >= SPLIT_FACE_CENTER[0] && cx <= SPLIT_FACE_CENTER[1]) {
+        add("split_face_center", "blocking", "автор в центре кадра — половина экрана под графику закроет лицо: выберите оверлей в свободной зоне или полный экран", x.id);
       }
     }
     if (ctx.footage && !faceIssue && OVER_AUTHOR.has(x.composition_mode)) {

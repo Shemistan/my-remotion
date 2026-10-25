@@ -1,4 +1,4 @@
-# @ms/motion-kit 0.5.8 — справка для агента
+# @ms/motion-kit 0.5.9 — справка для агента
 
 Детерминированные компоненты Remotion 4.0.537. Всё движение считается от
 `useCurrentFrame()`; оформление берётся из StyleBible (`useStyle()`). Импорт —
@@ -40,6 +40,10 @@ import { AnimatedNumber, AreaChart, Background, BarChart, Callout, Camera, Card,
 поздний текст (вывод) до входа пуст или каркасом. QA видит финал по тому, кто в кадре
 движется: импульс `steady-flow` в пути, волна героя, повтор, блик — а не по включённому
 режиму; `FlowGraph` предупреждает, если `steady-flow` не продолжает ни одного потока.
+
+**0.5.9.** `<LayoutRect rect?>` и `useLayoutRect()` — для сцены видеопроекта: кадр целиком
+(поверх видео — прозрачный), графика только внутри `props.layout.rect` (зона плана). Нет поля —
+весь кадр, вид прежний.
 
 **0.5.8.** Только проба QA (вид компонентов прежний): QA смотрит сцену целиком — каждый 6-й
 кадр (пустые секунды, пустая половина кадра, «ничего не происходит»), и ищет одного героя —
@@ -403,6 +407,13 @@ seed? = "bg", focus?: { x, y } }`. По умолчанию вариант выб
 от её края, а не от края кадра. Свойства раскладки из `style` (`justifyContent`,
 `alignItems`, `flexDirection`, `gap`, grid-свойства) действуют на этот блок. `useSafeArea()`
 возвращает `{ x, y, w, h }` и `{ left, top, width, height }` в px, если раскладку нужно считать вручную.
+
+### LayoutRect / useLayoutRect()
+`<LayoutRect rect? style?>` — абсолютный блок по `rect` в долях кадра (`{ x, y, w, h }`, обычно
+`props.layout?.rect`); без `rect` — весь кадр. Дети отсчитываются от его края, `useLayoutRect()`
+внутри возвращает `{ left, top, width, height }` в px (вне блока — весь кадр). Сцена видеопроекта
+кладёт всю графику внутрь: `<LayoutRect rect={props.layout?.rect}>…</LayoutRect>`; фон кадра
+(`<Background>`) — только у `fullscreen`. Содержимое не обрезается: выход за rect ловит проверка кадров.
 
 ### KineticText
 `{ text, beat, mode: "words" | "letters", enter: "rise" | "fade" | "scale" | "slide" | "type",

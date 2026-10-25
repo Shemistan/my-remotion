@@ -1,5 +1,6 @@
 // Каталоги артефактов видеопроекта (`05` §1) относительно корня хранилища.
 import { join } from "node:path";
+import type { Fps } from "@ms/contracts";
 
 /**
  * Идентификатор в пути артефакта — алфавит `newId` (`<префикс>_<ULID>`): буквы, цифры, `_`,
@@ -13,6 +14,11 @@ function checkId(kind: string, id: string): string {
   return id;
 }
 
+function fpsPart(n: number): number {
+  if (!Number.isInteger(n) || n < 1) throw new Error(`artifacts: fps должен быть дробью целых >= 1: ${n}`);
+  return n;
+}
+
 function rev(n: number): string {
   if (!Number.isInteger(n) || n < 1) throw new Error(`artifacts: ревизия должна быть целым >= 1: ${n}`);
   return `r${n}`;
@@ -22,12 +28,14 @@ function rev(n: number): string {
 export const PROJECTS_REL = "workspace/projects";
 
 /**
- * Ровно формы `artifactPaths`: `<p>/(source|proxy|packages)/<id>`, `<p>/(transcript|edits|preview|style|plan|script)/<id>/r<N>`,
+ * Ровно формы `artifactPaths`: `<p>/(source|proxy|packages|final)/<id>`, `<p>/proxy/<id>/master@<num>-<den>`,
+ * `<p>/(transcript|edits|preview|style|plan|script|timeline|audio)/<id>/r<N>`, `<p>/context/<id>/<id>`,
  * `<p>/analysis/(footage|semantic)/<id>`. Остальное в каталоге проекта (сцены Phase 1,
  * `project.json`, родители ревизий) публикацией и карантином сирот не затрагивается.
  */
 const DEST_REL_RE = new RegExp(
-  `^${PROJECTS_REL}/${ART_ID}/(?:(?:source|proxy|packages)/${ART_ID}|(?:transcript|edits|preview|style|plan|script)/${ART_ID}/r[1-9][0-9]*|analysis/(?:footage|semantic)/${ART_ID})$`,
+  `^${PROJECTS_REL}/${ART_ID}/(?:(?:source|proxy|packages|final)/${ART_ID}|proxy/${ART_ID}/master@[1-9][0-9]*-[1-9][0-9]*` +
+    `|(?:transcript|edits|preview|style|plan|script|timeline|audio)/${ART_ID}/r[1-9][0-9]*|context/${ART_ID}/${ART_ID}|analysis/(?:footage|semantic)/${ART_ID})$`,
 );
 
 /** destRel публикации — путь формы `artifactPaths`; иначе ошибка до любых изменений ФС. */
@@ -55,13 +63,23 @@ export interface ArtifactPaths {
   planRev(id: string, n: number): string;
   /** Ревизия текста сценария `script/<id>/r<N>`. */
   scriptRev(id: string, n: number): string;
-  /** Папка пакета экспорта сценария `packages/<id>`. */
+  /** Папка пакета экспорта сценария `packages/<id>` (и папка клипов видеопроекта, Phase 5-lite). */
   package(id: string): string;
+  /** Ревизия таймлайна видеопроекта `timeline/<id>/r<N>` (Phase 5). */
+  timelineRev(id: string, n: number): string;
+  /** Экспорт финала `final/<id>`. */
+  finalExport(id: string): string;
+  /** CFR-дериватив исходника для композиции (F1): `proxy/<media>/master@<num>-<den>`. */
+  master(mediaId: string, fps: Fps): string;
+  /** Смонтированная дорожка звука ревизии EDL `audio/<edl>/r<N>` (F2). */
+  editedAudio(edlId: string, n: number): string;
+  /** Превью версии сцены поверх исходника `context/<scene>/<version>`. */
+  contextPreview(sceneId: string, versionId: string): string;
   /** Абсолютный путь в хранилище `root`. */
   abs(rel: string): string;
 }
 
-/** Пути `workspace/projects/<p>/{source,proxy,transcript,edits,preview,analysis/footage,analysis/semantic,style,plan,script,packages}/…`. */
+/** Пути `workspace/projects/<p>/{source,proxy,transcript,edits,preview,analysis/footage,analysis/semantic,style,plan,script,packages,timeline,final,audio,context}/…`. */
 export function artifactPaths(root: string, projectId: string): ArtifactPaths {
   const p = `${PROJECTS_REL}/${checkId("projectId", projectId)}`;
   return {
@@ -77,6 +95,11 @@ export function artifactPaths(root: string, projectId: string): ArtifactPaths {
     planRev: (id, n) => `${p}/plan/${checkId("planId", id)}/${rev(n)}`,
     scriptRev: (id, n) => `${p}/script/${checkId("scriptId", id)}/${rev(n)}`,
     package: (id) => `${p}/packages/${checkId("packageId", id)}`,
+    timelineRev: (id, n) => `${p}/timeline/${checkId("timelineId", id)}/${rev(n)}`,
+    finalExport: (id) => `${p}/final/${checkId("exportId", id)}`,
+    master: (mediaId, fps) => `${p}/proxy/${checkId("mediaId", mediaId)}/master@${fpsPart(fps.num)}-${fpsPart(fps.den)}`,
+    editedAudio: (id, n) => `${p}/audio/${checkId("edlId", id)}/${rev(n)}`,
+    contextPreview: (sceneId, versionId) => `${p}/context/${checkId("sceneId", sceneId)}/${checkId("versionId", versionId)}`,
     abs: (rel) => join(root, rel),
   };
 }

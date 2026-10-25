@@ -53,7 +53,7 @@
 - `callout` — короткая подпись или число рядом с автором;
 - `pip` — небольшое окно в углу (`pip_tl`, `pip_tr`, `pip_bl`, `pip_br`);
 - `split_screen` — кадр делится пополам: автор на одной половине, графика на другой
-  (`split_left` / `split_right` — половина под графику);
+  (`split_left` / `split_right` — половина под графику); автор в центре кадра (`face_zone: center`) — `split_screen` не предлагай, половина под графику закроет лицо;
 - `fullscreen` — графика на весь кадр (`full`), автора не видно.
 
 У `skip` режим `none`. Зона (`zone`): `left_third`, `right_third`, `top_band`, `lower_third`, `full`,

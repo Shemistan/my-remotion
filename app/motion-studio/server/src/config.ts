@@ -6,7 +6,8 @@
 //   `AIP_MONTAGE_ASR_PYTHON`, `AI_PLATFORM_ROOT`, `AIP_MODELS_DIR`) > умолчание (S19: зависимости
 //   проекта в `.deps/`, веса — в папке материалов; прежние места этой машины — запасной путь);
 // - второй дубль: env (`MS_SECOND_TAKE`, `MS_SECOND_TAKE_THRESHOLD`, для bench A/B) > config.json > умолчание;
-// - остальное (агенты, лимиты, сцена, media, roughcut, planning, analysis): config.json > умолчание, env не читается.
+// - остальное (агенты, лимиты, сцена, media, roughcut, planning, analysis, video, final, watchdog,
+//   cache, render): config.json > умолчание, env не читается.
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -146,6 +147,26 @@ const PlanningFileSchema = z.object({
 }).partial().strict();
 const AnalysisFileSchema = z.object({ maxCostUsd: z.number().positive().max(MAX_CALL_BUDGET_USD), occupancyWindowUs: z.number().int().min(500_000).max(60_000_000) }).partial().strict();
 
+/**
+ * Phase 4–6 (Task 35′): превью сцены в контексте — поля вокруг сцены, кадров (`video`); финал —
+ * таймаут рендера и CRF CFR-мастера (`final`, F1); сторож прогресса — порог без прогресса по типу
+ * задачи, мс (`watchdog`, Task 49a; нет типа — сторож его не трогает); кэш кадров и мастеров —
+ * потолок, байт (`cache`); рендер — параллельность Remotion (`render.concurrency`, нет — по умолчанию Remotion).
+ */
+export interface VideoConfig { contextPadFrames: number }
+export interface FinalConfig { timeoutMs: number; masterCrf: number }
+export interface WatchdogConfig { noProgressMs: Record<string, number> }
+export interface CacheConfig { maxBytes: number }
+export interface RenderConfig { concurrency?: number }
+const VIDEO: VideoConfig = { contextPadFrames: 30 };
+const FINAL: FinalConfig = { timeoutMs: 7_200_000, masterCrf: 12 };
+const CACHE: CacheConfig = { maxBytes: 20 * 1024 ** 3 };
+const VideoFileSchema = z.object({ contextPadFrames: z.number().int().min(0).max(600) }).partial().strict();
+const FinalFileSchema = z.object({ timeoutMs: z.number().int().min(60_000).max(24 * 60 * 60_000), masterCrf: z.number().int().min(0).max(51) }).partial().strict();
+const WatchdogFileSchema = z.object({ noProgressMs: z.record(z.number().int().positive()) }).partial().strict();
+const CacheFileSchema = z.object({ maxBytes: z.number().int().min(0) }).partial().strict();
+const RenderFileSchema = z.object({ concurrency: z.number().int().min(1).max(16) }).partial().strict();
+
 /** Порт Control API по умолчанию; хост — только 127.0.0.1 (`main.ts`), в config.json его нет. */
 export const DEFAULT_PORT = 8790;
 /** `server.port` (S17b): непривилегированный порт; `host` и другие ключи — отказ (strict). */
@@ -168,6 +189,11 @@ export interface AppConfig {
   roughcut: RoughcutConfig;
   planning: PlanningConfig;
   analysis: AnalysisConfig;
+  video: VideoConfig;
+  final: FinalConfig;
+  watchdog: WatchdogConfig;
+  cache: CacheConfig;
+  render: RenderConfig;
 }
 
 const OPUS_ROLES: readonly Role[] = ["motion_director", "engineer"];
@@ -216,6 +242,11 @@ const FileSchema = z
     planning: PlanningFileSchema,
     analysis: AnalysisFileSchema,
     server: ServerFileSchema,
+    video: VideoFileSchema,
+    final: FinalFileSchema,
+    watchdog: WatchdogFileSchema,
+    cache: CacheFileSchema,
+    render: RenderFileSchema,
   })
   .partial()
   .strict();
@@ -285,6 +316,11 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown, probe: Pa
     limits: { ...LIMITS, ...file.limits },
     defaults: file.defaults ?? defaultSettings(),
     ...videoConfig(env, file, probe),
+    video: { ...VIDEO, ...file.video },
+    final: { ...FINAL, ...file.final },
+    watchdog: { noProgressMs: { ...file.watchdog?.noProgressMs } },
+    cache: { ...CACHE, ...file.cache },
+    render: { ...file.render },
   };
 }
 
