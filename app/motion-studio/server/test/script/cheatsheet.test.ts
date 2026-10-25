@@ -1,6 +1,6 @@
 // S7: шпаргалка «сцена ↔ фраза» (спека §9 п.4, контракт C8): md по блокам, csv UTF-8 BOM «;», txt.
 import { describe, expect, it } from "vitest";
-import { type CheatRow, CHEAT_COLUMNS, cheatsheet, mss } from "../../src/script/cheatsheet.js";
+import { type CheatRow, CHEAT_COLUMNS, CHEAT_NOTE_CHARS, CHEAT_NOTES_MAX, cheatNotes, cheatsheet, mss, shortNote } from "../../src/script/cheatsheet.js";
 
 function row(over: Partial<CheatRow> = {}): CheatRow {
   return {
@@ -61,6 +61,27 @@ describe("cheatsheet", () => {
     expect(cheatsheet([r], "txt")).toBe("03 · 0:00 · «Раз два три» · нет сцены: нет готовой версии\n");
     expect(cheatsheet([r], "csv")).toContain("нет сцены: нет готовой версии");
     expect(cheatsheet([r], "md")).toContain("одно ключевое число, счёт");
+  });
+
+  it("F8: замечания — одна короткая русская фраза на код, повторы склеены, не больше трёх", () => {
+    expect(cheatNotes([], ["no_hero", "composition", "no_hero"])).toEqual(["нет главного героя", "композиция неровная"]);
+    expect(cheatNotes(["альфа-версия невозможна: сцена закрывает кадр"], ["no_hero", "rhythm", "frozen", "dead_air"])).toEqual([
+      "альфа-версия невозможна: сцена закрывает кадр", "нет главного героя", "рваный ритм",
+    ]);
+    // неизвестный код — общая русская фраза, не латиница
+    expect(shortNote("brand_new_check")).toBe("есть замечание проверки");
+    expect(cheatNotes([], ["a_x", "b_y"])).toEqual(["есть замечание проверки"]);
+    // длинная фраза обрезается по слову
+    const long = cheatNotes(["нет сцены: экспорт не удался из-за очень длинной причины, которую никто не дочитает до конца строки"], []);
+    expect(long[0]!.length).toBeLessThanOrEqual(CHEAT_NOTE_CHARS);
+    expect(long[0]!.endsWith("…")).toBe(true);
+    const codes = ["accent_conflict", "clipping", "composition", "contrast", "dead_air", "empty_open", "frame0_coverage", "hierarchy", "no_hero", "rhythm", "semantic", "scene_signature_repeat", "fragment_unsupported", "overlay_haze"];
+    for (const c of codes) {
+      const n = shortNote(c);
+      expect(n.length, c).toBeLessThanOrEqual(CHEAT_NOTE_CHARS);
+      expect(n, c).toMatch(/^[а-яё ,-]+$/iu);
+    }
+    expect(cheatNotes([], codes)).toHaveLength(CHEAT_NOTES_MAX);
   });
 
   it("м:сс", () => {

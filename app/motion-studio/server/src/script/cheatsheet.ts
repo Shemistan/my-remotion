@@ -20,7 +20,7 @@ export interface CheatRow {
   total_s: number;
   lead_s: number;
   tail_s: number;
-  /** Замечания: предупреждения QA, «нет сцены: …», «альфа-версия невозможна: …». */
+  /** Замечания (`cheatNotes`): короткие фразы по кодам QA, «нет сцены: …», «альфа-версия невозможна: …». */
   notes: string[];
 }
 
@@ -34,6 +34,93 @@ export const CHEAT_COLUMNS = [
 export const CHEAT_FILES: Record<CheatFormat, string> = { md: "шпаргалка.md", csv: "шпаргалка.csv", txt: "шпаргалка.txt" };
 
 const TECH_RU = new Map<string, string>(TECHNIQUES.map((t) => [t.slug, t.ru]));
+
+/** F8: замечаний в строке шпаргалки — не больше трёх, каждое — короткая фраза. */
+export const CHEAT_NOTES_MAX = 3;
+export const CHEAT_NOTE_CHARS = 60;
+
+/**
+ * Короткая фраза по коду замечания QA или экспорта (F8): полный текст — в Playground и манифесте,
+ * в шпаргалке — одна фраза на код, без id элементов и номеров кадров.
+ */
+const NOTE_BY_CODE: Record<string, string> = {
+  accent_conflict: "несколько акцентов спорят",
+  accent_static: "акцент не живёт в финале",
+  artifact: "артефакты в кадре",
+  beat_reference: "бит не по плану",
+  blank: "пустые кадры",
+  bound_counter_timing: "счётчик не в такт",
+  clipping: "обрезка элементов",
+  composition: "композиция неровная",
+  contrast: "слабый контраст",
+  dead_air: "пауза без движения",
+  empty_container: "пустые рамки",
+  empty_half: "половина кадра пуста",
+  empty_open: "пустое начало",
+  empty_region: "пустая область кадра",
+  exposed_edge: "виден край элемента",
+  final_contradiction: "финал спорит с фразой",
+  foreign_label: "подпись не из фразы",
+  fragment_mismatch: "кадр не про эту фразу",
+  fragment_unsupported: "утверждение не из фразы",
+  frame0_coverage: "первый кадр почти пуст",
+  frozen: "финал застыл",
+  ghost_text: "двоящийся текст",
+  hero_split: "герой распадается",
+  hierarchy: "нет ясной иерархии",
+  key_term_early: "термин раньше слова",
+  kit_misuse: "компонент kit не по назначению",
+  late_hero: "герой появляется поздно",
+  min_font: "мелкий текст",
+  missing_element: "не хватает элемента",
+  no_emphasis: "нет акцента",
+  no_hero: "нет главного героя",
+  outside_safe_area: "выход за безопасную зону",
+  overlap: "элементы наложились",
+  overlay_check_failed: "проверка альфы не прошла",
+  overlay_haze: "дымка в альфа-версии",
+  placeholder_label: "подписи-заглушки",
+  purpose_claim: "смысл не показан",
+  relation_not_shown: "связь не показана",
+  rhythm: "рваный ритм",
+  safe_area: "выход за безопасную зону",
+  scene_signature_repeat: "похожа на соседнюю сцену",
+  semantic: "смысл передан слабо",
+  speech_window: "не в такт речи",
+  structure_mismatch: "форма не по плану",
+  style: "стиль выбивается",
+  technique_not_realized: "приём не виден",
+  text_dominant: "много текста",
+  text_overlap: "текст наложился",
+  text_size: "мелкий текст",
+  timeline_single_event: "на оси одно событие",
+  token_on_label: "токен на подписи",
+  uniform_entrance: "однообразные входы",
+};
+
+/** Фраза по коду; неизвестный код — общая фраза (код латиницей человеку не показываем). */
+export const shortNote = (code: string): string => NOTE_BY_CODE[code] ?? "есть замечание проверки";
+
+/** Фраза не длиннее `CHEAT_NOTE_CHARS`: обрезка по слову с «…». */
+function clipNote(s: string): string {
+  const t = s.replace(/\s+/g, " ").trim();
+  if (t.length <= CHEAT_NOTE_CHARS) return t;
+  const cut = t.slice(0, CHEAT_NOTE_CHARS - 1);
+  const sp = cut.lastIndexOf(" ");
+  return `${(sp > CHEAT_NOTE_CHARS / 2 ? cut.slice(0, sp) : cut).replace(/[\s,;:.—-]+$/u, "")}…`;
+}
+
+/**
+ * Замечания строки шпаргалки (F8): сначала важные для монтажа (`first`: нет альфы, длительность не
+ * по плану), затем по фразе на код QA/экспорта; повторы убраны, не больше `CHEAT_NOTES_MAX`.
+ */
+export function cheatNotes(first: readonly string[], codes: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const n of [...first.map(clipNote), ...codes.map(shortNote)]) {
+    if (n !== "" && !out.includes(n)) out.push(n);
+  }
+  return out.slice(0, CHEAT_NOTES_MAX);
+}
 
 /** Секунды → `м:сс` (до целой секунды). */
 export function mss(s: number): string {
