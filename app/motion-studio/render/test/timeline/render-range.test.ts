@@ -25,22 +25,28 @@ interface Call { cmd: string; args: string[]; opts: SpawnTrackedOptions }
 let tmp: string;
 let calls: Call[];
 let base: TimelineRenderRequest;
+const FFMPEG = "/fake/ffmpeg";
 const jobOf = (c: Call) => JSON.parse(c.opts.stdin ?? "{}") as TimelineWorkerJob;
+const workerCall = () => calls.find((c) => /worker-timeline\.ts$/.test(c.args.at(-1) ?? ""))!;
 
 function deps(): RenderDeps {
   return {
     browserPath: async () => "/fake/chrome-headless-shell",
     ffprobeBin: async () => FFPROBE,
+    ffmpegBin: async () => FFMPEG,
     spawn: async (_root, _ref, cmd, args, opts) => {
       const c = { cmd, args, opts };
       calls.push(c);
       let r: Partial<SpawnTrackedResult> = { stdout: MP4 };
-      if (cmd !== FFPROBE) {
+      if (cmd === FFMPEG) {
+        await writeFile(args.at(-1)!, "cut");
+        r = { stdout: "" };
+      } else if (cmd !== FFPROBE) {
         const job = jobOf(c);
         if (job.output) await writeFile(job.output.out, "video");
         r = {
           stdout: `@@ms:origins ${JSON.stringify(ORIGINS)}\n` +
-            JSON.stringify({ ok: true, stills: job.stills.map((s) => s.out), ...(job.output ? { outPath: job.output.out } : {}), browserLogs: [], allowedOrigins: ORIGINS }) + "\n",
+            JSON.stringify({ ok: true, stills: job.stills.map((s) => s.out), ...(job.output ? { outPath: job.output.out } : {}), browserLogs: [], allowedOrigins: ORIGINS, mediaBytes: 4242 }) + "\n",
         };
       }
       return { code: 0, signal: null, stdout: "", stderr: "", orphaned: false, ...r };
@@ -92,11 +98,14 @@ describe("renderTimelineRange", () => {
     expect(r.probe).toMatchObject({ codec: "h264", audioCodec: "aac", audioSampleRate: 48_000, audioChannels: 2 });
     expect(r.stills).toEqual([join(tmp, "out", "frames", "100.png"), join(tmp, "out", "frames", "200.png")]);
     expect(r.outPath).toBe(join(tmp, "out", "timeline.mp4"));
-    const job = jobOf(calls[0]!);
-    expect(calls[0]!.args.at(-1)).toMatch(/worker-timeline\.ts$/);
+    const job = jobOf(workerCall());
+    // ffprobe master → две вырезки (кадры 100 и 200) → worker → ffprobe файла
+    expect(calls.map((c) => (c.cmd === FFPROBE ? "probe" : c.cmd === FFMPEG ? "cut" : "worker"))).toEqual(["probe", "cut", "cut", "worker", "probe"]);
+    expect(calls[0]!.args.at(-1)).toBe(join(tmp, "master.mp4"));
     expect(job.entryPoint).toMatch(/\/entries\/tl-[0-9a-f]{64}\/index\.tsx$/);
     expect(job.bundleDir).toMatch(/\/bundles\/tl-[0-9a-f]{64}$/);
-    expect(job.media).toEqual({ video: join(tmp, "master.mp4"), audio: join(tmp, "audio.wav") });
+    expect(job.media).toMatchObject({ video: join(tmp, "master.mp4"), audio: join(tmp, "audio.wav") });
+    expect(r.mediaBytes).toBe(4242);
     expect(job.props.audio).toBe(true);
     expect(job.composition).toEqual({ width: 1280, height: 720, fps: 30, durationInFrames: 555 });
     expect(job.output).toMatchObject({ crf: 18, audioBitrateKbps: 192, x264Preset: "medium", frameRange: [90, 359] });
@@ -105,19 +114,68 @@ describe("renderTimelineRange", () => {
     expect((b!.props.style as { transparent: boolean }).transparent).toBe(false);
     // исходные props вызывающего не тронуты
     expect((base.props.scenes[0]!.props.style as { transparent: boolean }).transparent).toBe(false);
-    expect(calls[1]!.cmd).toBe(FFPROBE);
   });
 
-  it("без звука и без файла: только кадры, ffprobe не зовётся", async () => {
+  it("ревью I3: кадры и короткий диапазон — по вырезкам master, длинный диапазон — весь master", async () => {
+    // master 18,5 с = 555 кадров; кадр 100 → master 145, кадр 200 → master 245; запас 30 кадров
+    await renderTimelineRange({ ...base, range: [90, 359] }, undefined, deps());
+    const job = jobOf(workerCall());
+    const cuts = calls.filter((c) => c.cmd === FFMPEG);
+    expect(Object.keys(job.media.cuts!)).toEqual(["cut0", "cut1"]);
+    expect(cuts.map((c) => c.args.at(-1))).toEqual([job.media.cuts!.cut0, job.media.cuts!.cut1]);
+    expect(cuts[0]!.args.join(" ")).toContain(`-ss 3.816667 -f mov -i file:${join(tmp, "master.mp4")}`);
+    expect(cuts[0]!.args[cuts[0]!.args.indexOf("-frames:v") + 1]).toBe("61");
+    // вырезки — во временном каталоге попытки (TMPDIR worker), не рядом с master
+    expect(job.media.cuts!.cut0!.startsWith(cuts[0]!.opts.cwd!)).toBe(true);
+    expect(job.stills).toEqual([
+      { frame: 100, out: join(tmp, "out", "frames", "100.png"), video: { file: "cut0", sequences: [{ idx: 1, from: 70, durationInFrames: 61, startFrom: 0 }] } },
+      { frame: 200, out: join(tmp, "out", "frames", "200.png"), video: { file: "cut1", sequences: [{ idx: 1, from: 170, durationInFrames: 61, startFrom: 0 }] } },
+    ]);
+    // [90, 359] → master 135..404 + запас = 330 кадров > половины master: весь master
+    expect(job.output!.video).toBeUndefined();
+
+    calls = [];
+    await renderTimelineRange({ ...base, stills: [], range: [100, 129] }, undefined, deps());
+    const short = jobOf(workerCall());
+    expect(short.output!.video).toEqual({ file: "cut0", sequences: [{ idx: 1, from: 70, durationInFrames: 90, startFrom: 0 }] });
+    expect(calls.filter((c) => c.cmd === FFMPEG)[0]!.args.join(" ")).toContain("-frames:v 90");
+  });
+
+  it("30000/1001: композиция на дробном fps, вырезка — на той же сетке", async () => {
+    const NTSC = { num: 30000, den: 1001 };
+    await renderTimelineRange({ ...base, props: { ...base.props, fps: NTSC }, output: undefined }, undefined, deps());
+    const job = jobOf(workerCall());
+    expect(job.composition.fps).toBe(30000 / 1001);
+    expect(job.props.fps).toEqual(NTSC);
+    const cut = calls.find((c) => c.cmd === FFMPEG)!.args;
+    expect(cut[cut.indexOf("-r") + 1]).toBe("30000/1001");
+    // кадр 100 → master 145, запас round(29,97) = 30: с кадра 115, seek за полкадра — (114,5 · 1001) / 30000
+    expect(cut[cut.indexOf("-ss") + 1]).toBe(((114.5 * 1001) / 30000).toFixed(6));
+  });
+
+  it("одинаковые вырезки не дублируются; кадр без видео — без master", async () => {
+    const props = { ...base.props, video: { ...base.props.video, sequences: [{ idx: 0, from: 100, durationInFrames: 455, startFrom: 0 }] } };
+    await renderTimelineRange({ ...base, props, stills: [10, 300, 300], output: undefined }, undefined, deps());
+    const job = jobOf(workerCall());
+    expect(job.stills.map((s) => s.video)).toEqual([
+      { file: "video", sequences: [] },
+      { file: "cut0", sequences: [{ idx: 0, from: 270, durationInFrames: 61, startFrom: 0 }] },
+      { file: "cut0", sequences: [{ idx: 0, from: 270, durationInFrames: 61, startFrom: 0 }] },
+    ]);
+    expect(calls.filter((c) => c.cmd === FFMPEG)).toHaveLength(1);
+  });
+
+  it("без звука и без файла: только кадры, ffprobe — только master", async () => {
     const props = { ...base.props };
     delete props.audio;
     const rest = { ...base, props };
     delete rest.output;
     const r = await renderTimelineRange(rest, undefined, deps());
     expect(r.ok).toBe(true);
-    expect(calls).toHaveLength(1);
-    expect(jobOf(calls[0]!).media).toEqual({ video: join(tmp, "master.mp4") });
-    expect(jobOf(calls[0]!).output).toBeNull();
+    expect(calls.filter((c) => c.cmd === FFPROBE)).toHaveLength(1);
+    expect(jobOf(workerCall()).media).toMatchObject({ video: join(tmp, "master.mp4") });
+    expect(jobOf(workerCall()).media.audio).toBeUndefined();
+    expect(jobOf(workerCall()).output).toBeNull();
   });
 
   it("до запуска worker: прозрачная сцена вне ScenePropsBase, кадры и диапазон вне ролика, нет медиа, static check", async () => {

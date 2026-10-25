@@ -37,6 +37,20 @@ function raw(path: string, headers: Record<string, string> = {}, method = "GET")
 }
 
 describe("serveMedia", () => {
+  it("bytesSent — байты тела, отданные с запуска (весь файл + диапазон; HEAD и 404 — ноль)", async () => {
+    const own = await serveMedia({ master: join(tmp, "master.mp4") });
+    try {
+      expect(own.bytesSent()).toBe(0);
+      await (await fetch(own.urlFor("master"))).arrayBuffer();
+      await (await fetch(own.urlFor("master"), { headers: { Range: "bytes=0-99" } })).arrayBuffer();
+      await (await fetch(own.urlFor("master"), { method: "HEAD" })).arrayBuffer();
+      await (await fetch(`${own.origin}/${own.token}/none`)).arrayBuffer();
+      expect(own.bytesSent()).toBe(1100);
+    } finally {
+      await own.close();
+    }
+  });
+
   it("127.0.0.1, путь /<токен 32 hex>/<ключ>", () => {
     expect(new URL(srv.origin).hostname).toBe("127.0.0.1");
     expect(srv.token).toMatch(/^[0-9a-f]{32}$/);

@@ -10,6 +10,10 @@
 // токен в пути), с которого Node-сторона Remotion качает master и звук. Медиасервер живёт в
 // процессе worker: убийство группы по таймауту или отмене гасит и его.
 //
+// Ревью I3: Remotion на каждый renderStill/renderMedia заводит новый каталог загрузок и качает
+// `src` целиком, поэтому вызову отдаётся не master, а его вырезка под кадры вызова (`cut<N>`,
+// режет renderTimelineRange); `mediaBytes` результата — сколько медиасервер отдал.
+//
 // Протокол stdout — как у worker.ts: `@@ms:stage <stage>`, `@@ms:log <json>`, `@@ms:origins <json>`
 // (разрешённые origin — родитель видит их и после убийства); ПОСЛЕДНЯЯ строка — JSON результата.
 import { existsSync } from "node:fs";
@@ -21,7 +25,7 @@ import { bundle } from "@remotion/bundler";
 import type * as Renderer from "@remotion/renderer";
 import type { BrowserLog, HeadlessBrowser } from "@remotion/renderer";
 import type { WorkerStage } from "../node/protocol.js";
-import type { TimelineWorkerJob, TimelineWorkerResult } from "./protocol.js";
+import type { TimelineVideoSource, TimelineWorkerJob, TimelineWorkerResult } from "./protocol.js";
 // .ts явно: исполняется стиранием типов Node, без загрузчика
 import { type AssetPolicy, blockingOnDownload, installAssetGuard } from "../node/asset-guard.ts";
 import { jailResolve } from "../node/resolve-jail.ts";
@@ -122,7 +126,8 @@ function freePort(): Promise<number> {
 
 async function run(job: TimelineWorkerJob): Promise<TimelineWorkerResult> {
   startStage("bundle");
-  media = await serveMedia(job.media.audio !== undefined ? { video: job.media.video, audio: job.media.audio } : { video: job.media.video });
+  // вырезки master (ревью I3) — свои ключи: Remotion качает файл целиком в каталог загрузок вызова
+  media = await serveMedia({ ...job.media.cuts, video: job.media.video, ...(job.media.audio !== undefined ? { audio: job.media.audio } : {}) });
   const serveUrl = await ensureBundle(job);
 
   startStage("still");
@@ -139,12 +144,17 @@ async function run(job: TimelineWorkerJob): Promise<TimelineWorkerResult> {
   const assets: AssetPolicy = { bundlePort: port, media: { origin: media.origin, tokens: new Set([media.token]) } };
   installAssetGuard(assets, onAssetBlocked);
   browser = await openBrowser("chrome", { browserExecutable: job.browserExecutable, chromeMode: "headless-shell", logLevel: LOG_LEVEL });
-  const inputProps = {
-    ...job.props,
-    video: { ...job.props.video, src: media.urlFor("video") },
-    audio: job.props.audio ? { src: media.urlFor("audio") } : undefined,
-  } as Record<string, unknown>;
-  if (!job.props.audio) delete inputProps.audio;
+  const server = media;
+  const propsFor = (v: TimelineVideoSource | undefined): Record<string, unknown> => {
+    const p: Record<string, unknown> = {
+      ...job.props,
+      video: { sequences: v?.sequences ?? job.props.video.sequences, src: server.urlFor(v?.file ?? "video") },
+    };
+    if (job.props.audio) p.audio = { src: server.urlFor("audio") };
+    else delete p.audio;
+    return p;
+  };
+  const inputProps = propsFor(undefined);
   const common = {
     serveUrl, inputProps, puppeteerInstance: browser, browserExecutable: job.browserExecutable, timeoutInMilliseconds: job.timeoutMs,
     onBrowserLog, logLevel: LOG_LEVEL, chromeMode: "headless-shell", port,
@@ -152,26 +162,32 @@ async function run(job: TimelineWorkerJob): Promise<TimelineWorkerResult> {
   const onDownload = blockingOnDownload(assets, onAssetBlocked);
   const selected = await selectComposition({ ...common, id: COMPOSITION });
   const composition = { ...selected, ...job.composition };
+  // Remotion рендерит `composition.props` (разрешённые при selectComposition), а не `inputProps`
+  // вызова: вырезка master — в обоих
+  const callWith = (v: TimelineVideoSource | undefined) => {
+    const props = propsFor(v);
+    return { inputProps: props, composition: { ...composition, props } };
+  };
 
   const stills: string[] = [];
   for (const s of job.stills) {
-    await renderStill({ ...common, onDownload, composition, frame: s.frame, output: s.out, imageFormat: "png", overwrite: true });
+    await renderStill({ ...common, ...callWith(s.video), onDownload, frame: s.frame, output: s.out, imageFormat: "png", overwrite: true });
     stills.push(s.out);
   }
-  if (!job.output) return { ok: true, stills, browserLogs, allowedOrigins };
+  if (!job.output) return { ok: true, stills, browserLogs, allowedOrigins, mediaBytes: media.bytesSent() };
 
   startStage("media");
   const out = job.output;
   // временное имя рядом с итоговым: недописанный файл не выглядит готовым
   const tmpOut = join(out.out, "..", `.timeline-${process.pid}.tmp.mp4`);
   await renderMedia({
-    ...common, onDownload, composition,
+    ...common, ...callWith(out.video), onDownload,
     codec: "h264", crf: out.crf, scale: out.scale, x264Preset: out.x264Preset,
     audioCodec: "aac", audioBitrate: `${out.audioBitrateKbps}k`, enforceAudioTrack: true, sampleRate: SAMPLE_RATE,
     frameRange: out.frameRange, outputLocation: tmpOut, overwrite: true,
   });
   await rename(tmpOut, out.out);
-  return { ok: true, stills, outPath: out.out, browserLogs, allowedOrigins };
+  return { ok: true, stills, outPath: out.out, browserLogs, allowedOrigins, mediaBytes: media.bytesSent() };
 }
 
 async function main(): Promise<void> {
@@ -187,7 +203,7 @@ async function main(): Promise<void> {
     result = await run(job);
   } catch (e) {
     const err = e as Error;
-    result = { ok: false, stills: [], browserLogs, allowedOrigins, error: { stage: DELAY_RENDER_TIMEOUT.test(err.message) ? "timeout" : stage, message: err.stack ?? err.message } };
+    result = { ok: false, stills: [], browserLogs, allowedOrigins, ...(media ? { mediaBytes: media.bytesSent() } : {}), error: { stage: DELAY_RENDER_TIMEOUT.test(err.message) ? "timeout" : stage, message: err.stack ?? err.message } };
   }
   await browser?.close({ silent: true }).catch(() => undefined);
   await media?.close().catch(() => undefined);

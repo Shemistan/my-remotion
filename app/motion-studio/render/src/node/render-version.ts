@@ -92,6 +92,8 @@ export interface RenderDeps {
   spawn?: typeof spawnTracked;
   browserPath?: () => Promise<string>;
   ffprobeBin?: () => Promise<string>;
+  /** ffmpeg вырезок master (рендер таймлайна, ревью Task 36 I3). */
+  ffmpegBin?: () => Promise<string>;
   /** Пауза SIGTERM → SIGKILL группе worker при таймауте/отмене, мс (5000). */
   killGraceMs?: number;
 }

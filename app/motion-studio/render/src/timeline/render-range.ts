@@ -14,8 +14,10 @@ import { FFPROBE_ARGS, type ProbeResult, ffprobeBin, parseProbe } from "../node/
 import { isOverlayUnsupported, overlayInputProps } from "../node/overlay-props.js";
 import { reapByMarker, settleBrowserRecords } from "../node/processes.js";
 import { NODE_ARGS, type RenderDeps, type RunRef, childEnv, innerTimeoutMs, parseWorkerOutput, pidAlive } from "../node/render-version.js";
+import { ffmpegBin } from "../node/ffmpeg.js";
 import { type SceneCheck, writeTimelineEntry } from "./entry.js";
-import type { TimelineWorkerJob, TimelineWorkerResult } from "./protocol.js";
+import { cutArgs, planVideo } from "./master-cut.js";
+import type { TimelineVideoSource, TimelineWorkerJob, TimelineWorkerResult } from "./protocol.js";
 import type { TimelineRenderProps, TimelineSceneSpec } from "./types.js";
 
 export const TIMELINE_WORKER_PATH = fileURLToPath(new URL("./worker-timeline.ts", import.meta.url));
@@ -64,6 +66,8 @@ export interface TimelineRenderResult {
   browserLogs: string[];
   /** Origin медиасервера и сервера бандла этого рендера (QA `network` их пропускает). */
   allowedOrigins: string[];
+  /** Байт, отданных медиасервером worker (master, вырезки, звук) — столько Remotion скачал в TMPDIR. */
+  mediaBytes?: number;
   error?: { stage: TimelineStage; message: string };
 }
 
@@ -168,7 +172,9 @@ export async function renderTimelineRange(req: TimelineRenderRequest, signal?: A
   });
   const chrome = await (deps.browserPath ?? (async () => findRenderBrowser()))();
   if (signal?.aborted) return cancelled();
-  const ffprobe = req.output ? await (deps.ffprobeBin ?? ffprobeBin)() : "";
+  // ffprobe — длина master (план вырезок) и файл диапазона; ffmpeg — вырезки master (ревью I3)
+  const ffprobe = await (deps.ffprobeBin ?? ffprobeBin)();
+  const ffmpeg = await (deps.ffmpegBin ?? ffmpegBin)();
   if (signal?.aborted) return cancelled();
 
   let entryPoint: string;
@@ -230,8 +236,58 @@ export async function renderTimelineRange(req: TimelineRenderRequest, signal?: A
       : fail("aborted", "рендер таймлайна отменён; группа процессов убита", { browserLogs: logs });
 
   let orphaned = false;
+  const tracked = { cwd: runTmp, env, signal: ac.signal, registry };
   try {
     if (ac.signal.aborted) return interrupted([]);
+    // Ревью I3: вызову Remotion — вырезка master под его кадры, а не весь master (master-cut.ts)
+    const mp = await spawn(root, ref, ffprobe, [...FFPROBE_ARGS, p.video.path], tracked);
+    if (mp.orphaned) {
+      orphaned = true;
+      return fail("orphaned", "группа ffprobe master не исчезла после SIGKILL; запись оставлена в run/processes/, попытка не завершена (stale_process)");
+    }
+    if (why) return interrupted([]);
+    let masterFrames: number;
+    try {
+      if (mp.code !== 0) throw new Error(`код ${mp.code}: ${tail(mp.stderr)}`);
+      masterFrames = Math.round((parseProbe(mp.stdout).durationMs * p.fps.num) / (p.fps.den * 1000));
+    } catch (e) {
+      return fail("probe", `ffprobe master ${p.video.path}: ${(e as Error).message}`);
+    }
+    const ranges: [number, number][] = [...req.stills.map((f): [number, number] => [f, f]), ...(req.output ? [req.range ?? [0, p.duration_frames - 1]] : [])];
+    const cuts: Record<string, string> = {};
+    const made = new Map<string, string>();
+    const sources: (TimelineVideoSource | undefined)[] = [];
+    for (const [a, b] of ranges) {
+      const plan = planVideo(p.video.sequences, a, b, p.fps, masterFrames);
+      if (plan.kind === "full") {
+        sources.push(undefined);
+        continue;
+      }
+      if (plan.kind === "none") {
+        sources.push({ file: "video", sequences: [] });
+        continue;
+      }
+      let file = made.get(`${plan.start}:${plan.frames}`);
+      if (file === undefined) {
+        file = `cut${made.size}`;
+        const out = join(runTmp, `${file}.mp4`);
+        const c = await spawn(root, ref, ffmpeg, cutArgs(p.video.path, out, plan.start, plan.frames, p.fps), tracked);
+        if (c.orphaned) {
+          orphaned = true;
+          return fail("orphaned", "группа ffmpeg вырезки master не исчезла после SIGKILL; запись оставлена в run/processes/, попытка не завершена (stale_process)");
+        }
+        if (why) return interrupted([]);
+        if (c.code !== 0) return fail("media", `вырезка master [${plan.start}, +${plan.frames}): ffmpeg код ${c.code}: ${tail(c.stderr)}`);
+        made.set(`${plan.start}:${plan.frames}`, file);
+        cuts[file] = out;
+      }
+      sources.push({ file, sequences: plan.sequences });
+    }
+    if (made.size > 0) job.media.cuts = cuts;
+    job.stills = job.stills.map((s, i) => (sources[i] ? { ...s, video: sources[i] } : s));
+    const outSource = req.output ? sources.at(-1) : undefined;
+    if (job.output && outSource) job.output.video = outSource;
+
     const w = await spawn(root, ref, process.execPath, [...NODE_ARGS, TIMELINE_WORKER_PATH], {
       cwd: runTmp, env, signal: ac.signal, stdin: JSON.stringify(job), killGraceMs: deps.killGraceMs ?? 5000, registry,
     });
@@ -257,17 +313,18 @@ export async function renderTimelineRange(req: TimelineRenderRequest, signal?: A
     }
     if (r.allowedOrigins?.length) allowedOrigins = r.allowedOrigins;
     const browserLogs = out.logs.length > 0 ? out.logs : r.browserLogs;
-    if (!r.ok) return { ok: false, stills: r.stills, browserLogs, allowedOrigins, error: r.error ?? { stage: out.stage ?? "media", message: "worker таймлайна не отработал" } };
-    if (!req.output) return { ok: true, stills: r.stills, browserLogs, allowedOrigins };
-    if (!r.outPath) return fail("media", "worker таймлайна не вернул файл", { stills: r.stills, browserLogs });
+    const bytes = r.mediaBytes !== undefined ? { mediaBytes: r.mediaBytes } : {};
+    if (!r.ok) return { ok: false, stills: r.stills, browserLogs, allowedOrigins, ...bytes, error: r.error ?? { stage: out.stage ?? "media", message: "worker таймлайна не отработал" } };
+    if (!req.output) return { ok: true, stills: r.stills, browserLogs, allowedOrigins, ...bytes };
+    if (!r.outPath) return fail("media", "worker таймлайна не вернул файл", { stills: r.stills, browserLogs, ...bytes });
 
-    const pr = await spawn(root, ref, ffprobe, [...FFPROBE_ARGS, r.outPath], { cwd: runTmp, env, signal: ac.signal, registry });
+    const pr = await spawn(root, ref, ffprobe, [...FFPROBE_ARGS, r.outPath], tracked);
     if (pr.orphaned) {
       orphaned = true;
       return fail("orphaned", "группа ffprobe не исчезла после SIGKILL; запись оставлена в run/processes/, попытка не завершена (stale_process)", { browserLogs });
     }
     if (why) return interrupted(browserLogs);
-    const base = { stills: r.stills, outPath: r.outPath, browserLogs };
+    const base = { stills: r.stills, outPath: r.outPath, browserLogs, ...bytes };
     if (pr.code !== 0) return fail("probe", `ffprobe завершился с кодом ${pr.code}: ${tail(pr.stderr)}`, base);
     try {
       return { ok: true, ...base, allowedOrigins, probe: parseProbe(pr.stdout) };

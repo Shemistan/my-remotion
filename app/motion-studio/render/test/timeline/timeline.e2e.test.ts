@@ -6,7 +6,7 @@
 // сэмплы звука, логи без чужих origin. Пишет только в tmp/ репозитория. Кадры 100, 200, 330 —
 // tmp/timeline-evidence/, с MS_WRITE_EVIDENCE=1 — docs/evidence/phase-4/engine/ (ролик в git нет).
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -182,4 +182,76 @@ it("renderTimelineRange целиком: ffprobe, кадры по исходни�
   // стоп-кадры renderTimelineRange (PNG без кодека) — та же композиция, что и файл
   expect(result.stills.map((x) => x.split("/").at(-1))).toEqual(["100.png", "200.png", "330.png"]);
   expect(psnrOf(result.stills[2]!, cardStill)).toBeGreaterThanOrEqual(40);
+  // ревью I3: стоп-кадры идут по вырезке master — кадровая точность та же
+  const still100 = [143, 144, 145, 146, 147].map((n) => ({ n, db: psnrOf(result.stills[0]!, join(tmp, `s${n}.png`)) }));
+  notes.push(`- still 100 (по вырезке master) против исходника: ${still100.map((x) => `${x.n}: ${x.db.toFixed(1)} дБ`).join(", ")}`);
+  expect(still100.reduce((a, b) => (b.db > a.db ? b : a)).n).toBe(145);
+  expect(psnrOf(result.stills[1]!, s245, `${W}:${r.top}:0:0`)).toBeGreaterThanOrEqual(35);
+  notes.push(`- медиасервер отдал ${(result.mediaBytes! / 1e6).toFixed(1)} МБ (master ${(statSync(master).size / 1e6).toFixed(1)} МБ, звук ${(statSync(audio.path).size / 1e6).toFixed(1)} МБ)`);
+}, T);
+
+it("короткий диапазон: файл и кадр — по вырезке master, медиасервер отдаёт меньше master", async () => {
+  const card = join(tmp, "card");
+  const lower = join(tmp, "lower");
+  const props = (dir: string) => JSON.parse(readFileSync(join(dir, "props.json"), "utf8")) as Record<string, unknown>;
+  const out = join(tmp, "out-short");
+  await mkdir(out);
+  const t0 = Date.now();
+  const r = await renderTimelineRange({
+    props: {
+      width: W, height: H, fps: F30, duration_frames: timelineFrames(tl),
+      video: { path: master, sequences: clipsToSequences(tl) },
+      audio: { path: audio.path },
+      scenes: [{ clip_id: "clip_lower", key: "S1", props: props(lower), start_frame: 150, duration_frames: 90, transparent: true, z: 1 }],
+    },
+    versionDirs: { S0: card, S1: lower },
+    cacheDir,
+    check: checkSceneDir,
+    range: [90, 119],
+    stills: [100],
+    stillsDir: join(out, "frames"),
+    output: { path: join(out, "range.mp4"), codec: "h264", crf: 18, scale: 1, audioBitrateKbps: 192, x264Preset: "veryfast" },
+    timeoutMs: T - 120_000,
+    run: { root, runId: "timeline-short", attempt: 1 },
+  });
+  expect(r.error).toBeUndefined();
+  const masterBytes = statSync(master).size;
+  notes.push(`- короткий диапазон [90, 119] + кадр 100: ${ms(t0)}, медиасервер ${(r.mediaBytes! / 1e6).toFixed(1)} МБ при master ${(masterBytes / 1e6).toFixed(1)} МБ`);
+  // вырезка (≤ 91 кадр из 600) + звук, а не весь master
+  expect(r.mediaBytes!).toBeLessThan(masterBytes * 0.5 + statSync(audio.path).size);
+  // кадр 10 файла = кадр 100 ролика = кадр 145 исходника
+  const f = frameOf(r.outPath!, 10, join(tmp, "short10.png"));
+  const near = [143, 144, 145, 146, 147].map((n) => ({ n, db: psnrOf(f, join(tmp, `s${n}.png`)) }));
+  expect(near.reduce((a, b) => (b.db > a.db ? b : a)).n).toBe(145);
+  expect(near.find((x) => x.n === 145)!.db).toBeGreaterThanOrEqual(30);
+  const st = [143, 144, 145, 146, 147].map((n) => ({ n, db: psnrOf(r.stills[0]!, join(tmp, `s${n}.png`)) }));
+  expect(st.reduce((a, b) => (b.db > a.db ? b : a)).n).toBe(145);
+}, T);
+
+it("30000/1001: ProjectTimeline и вырезка master на дробном fps — кадр 100 = кадр 145 master", async () => {
+  const NTSC = { num: 30000, den: 1001 };
+  const cfr = join(MEDIA, "talk-ru-cfr.mp4");
+  const probe = await probeMedia(cfr);
+  const m = join(tmp, "master-ntsc.mp4");
+  await runFfmpeg(masterArgs(cfr, m, probe, NTSC, MASTER_CRF), { signal: new AbortController().signal });
+  const t = buildTimeline(probe.duration_us, [{ start_us: 2_000_000, end_us: 3_500_000 }], NTSC);
+  const seq = clipsToSequences(t);
+  expect(seq[1]).toMatchObject({ from: 60, startFrom: 105 });
+  const out = join(tmp, "out-ntsc");
+  await mkdir(out);
+  const r = await renderTimelineRange({
+    props: { width: W, height: H, fps: NTSC, duration_frames: timelineFrames(t), video: { path: m, sequences: seq }, scenes: [] },
+    versionDirs: {},
+    cacheDir,
+    check: checkSceneDir,
+    stills: [100],
+    stillsDir: join(out, "frames"),
+    timeoutMs: T - 120_000,
+    run: { root, runId: "timeline-ntsc", attempt: 1 },
+  });
+  expect(r.error).toBeUndefined();
+  const near = [143, 144, 145, 146, 147].map((n) => ({ n, db: psnrOf(r.stills[0]!, frameOf(m, n, join(tmp, `n${n}.png`))) }));
+  notes.push(`- 30000/1001, кадр 100 против master: ${near.map((x) => `${x.n}: ${x.db.toFixed(1)} дБ`).join(", ")}`);
+  expect(near.reduce((a, b) => (b.db > a.db ? b : a)).n).toBe(145);
+  expect(near.find((x) => x.n === 145)!.db).toBeGreaterThanOrEqual(35);
 }, T);

@@ -20,6 +20,8 @@ export interface MediaServer {
   token: string;
   /** URL файла по ключу; неизвестный ключ — ошибка. */
   urlFor(key: string): string;
+  /** Байт тела отдано с запуска (ревью I3: сколько Remotion скачал в TMPDIR). */
+  bytesSent(): number;
   close(): Promise<void>;
 }
 
@@ -71,6 +73,7 @@ export async function serveMedia(files: Record<string, string>): Promise<MediaSe
   }
   const token = randomBytes(16).toString("hex");
   const route = new RegExp(`^/${token}/([A-Za-z0-9_-]{1,64})$`);
+  let sent = 0;
 
   const handle = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     if (req.method !== "GET" && req.method !== "HEAD") {
@@ -96,8 +99,7 @@ export async function serveMedia(files: Record<string, string>): Promise<MediaSe
       res.end();
       return;
     }
-    const { start, end } = range ?? { start: 0, end: size - 1 };
-    const headers: Record<string, string> = { "Content-Type": entry.type, "Accept-Ranges": "bytes", "Content-Length": String(Math.max(0, end - start + 1)), "Cache-Control": "no-store" };
+    const { start, end } = range ?? { start: 0, end: size - 1 };    const headers: Record<string, string> = { "Content-Type": entry.type, "Accept-Ranges": "bytes", "Content-Length": String(Math.max(0, end - start + 1)), "Cache-Control": "no-store" };
     if (range) headers["Content-Range"] = `bytes ${start}-${end}/${size}`;
     res.writeHead(range ? 206 : 200, headers);
     if (req.method === "HEAD" || size === 0) {
@@ -105,6 +107,9 @@ export async function serveMedia(files: Record<string, string>): Promise<MediaSe
       return;
     }
     const stream = createReadStream(entry.path, { start, end });
+    stream.on("data", (chunk) => {
+      sent += chunk.length;
+    });
     stream.on("error", () => res.destroy());
     res.on("close", () => stream.destroy());
     stream.pipe(res);
@@ -125,6 +130,7 @@ export async function serveMedia(files: Record<string, string>): Promise<MediaSe
       if (!table.has(key)) throw new Error(`media-server: ключа ${JSON.stringify(key)} нет`);
       return `${origin}/${token}/${key}`;
     },
+    bytesSent: () => sent,
     close: () =>
       new Promise<void>((resolve) => {
         server.closeAllConnections();
