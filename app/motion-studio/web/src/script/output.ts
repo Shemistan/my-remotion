@@ -41,15 +41,17 @@ export function visibleBatches(batches: readonly ScriptBatchDto[], aspect: Aspec
 export const batchActive = (b: ScriptBatchDto): boolean => b.counts.pending + b.counts.running > 0;
 
 /**
- * Сколько сцен пакета сервер не поставил, потому что они уже готовы (S17a): `skipped` есть только
- * в ответе генерации (`responses` — ответы generate/reframe этой сессии), готовой считается
- * пропущенная сцена, у которой в состоянии готовая неустаревшая версия того же формата и она не в пакете.
+ * Сколько сцен полного пакета сервер не поставил, потому что они уже готовы (S17a) — по состоянию,
+ * не по ответу запроса (его теряет смена вкладки): пакет полный (`full`) и по текущей ревизии
+ * плана — принятые сцены плана, у которых сцена формата пакета готова, не устарела и не в пакете.
+ * Частичный пакет («Повторить», выбранные сцены) не досчитывается.
  */
-export function readySkipped(batch: ScriptBatchDto, responses: readonly (ScriptBatchDto | undefined)[], scenes: readonly ScriptSceneDto[]): number {
-  const skipped = responses.find((r) => r?.id === batch.id)?.skipped ?? [];
+export function readySkipped(batch: ScriptBatchDto, state: Pick<ScriptStateDto, "plan" | "scenes">): number {
+  const doc = state.plan?.doc;
+  if (!batch.full || !doc || doc.revision !== batch.plan_revision) return 0;
+  const accepted = new Set(doc.items.filter((x) => x.status === "accepted").map((x) => x.id));
   const inBatch = new Set(batch.items.map((x) => x.item_id));
-  const ready = new Set(scenes.filter((s) => s.aspect === batch.aspect && s.status === "ready" && !s.stale).map((s) => s.item_id));
-  return new Set(skipped.map((x) => x.item_id).filter((id) => ready.has(id) && !inBatch.has(id))).size;
+  return new Set(state.scenes.filter((s) => s.aspect === batch.aspect && s.status === "ready" && !s.stale && accepted.has(s.item_id) && !inBatch.has(s.item_id)).map((s) => s.item_id)).size;
 }
 
 /**

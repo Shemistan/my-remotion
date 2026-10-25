@@ -434,6 +434,39 @@ describe("playgroundEdit: path code и spec", () => {
     expect(readFileSync(join(env.s.root, v2.path, "warnings.json"), "utf8")).not.toMatch(/Темп не сохранён/);
   });
 
+  it("S17a fix: база с settings не по плану, а spec по плану — заметка называет длину settings, путь param выравнивает settings", async () => {
+    const agents = fakeAgents({ director: async () => ({ output: laidOut() }) });
+    const { scene, gen, edit } = await start({ agents });
+    expect((await gen()).status).toBe("completed");
+    const [v1] = rows(scene.id);
+    env.db.prepare("UPDATE scene_versions SET settings_json = ? WHERE id = ?").run(JSON.stringify({ ...v1!.settings, duration_frames: 210 }), v1!.id);
+    scriptScene(scene.id);
+    const before = agents.engineerCalls.length;
+    const job = await edit({ plan: plan({ base_version_id: v1!.id, path: "param", changes: [{ target: "depth", kind: "param", description: "объёмнее" }], param_patch: { style: { depth: 2 } }, reply: "Объёмнее." }) });
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    expect(agents.engineerCalls.length).toBe(before);
+    const v2 = rows(scene.id)[1]!;
+    expect((await readVersion(join(env.s.root, v2.path))).settings.duration_frames).toBe(180);
+    expect(readFileSync(join(env.s.root, v2.path, "warnings.json"), "utf8")).toMatch(/\(210 кадров\) не по плану/);
+  });
+
+  it("S17a fix: сцену сняли с плана — длительность не закреплена, в ответе сказано, что сцена устарела", async () => {
+    const agents = fakeAgents({ director: async () => ({ output: laidOut() }) });
+    const { scene, gen, edit } = await start({ agents });
+    expect((await gen()).status).toBe("completed");
+    const [v1] = rows(scene.id);
+    scriptScene(scene.id);
+    const doc = { ...PLAN, plan_id: "pln_f7", revision: 2, parent_revision: 1, items: [{ ...PLAN.items[0]!, status: "rejected" as const }] };
+    const rel = `${artifactPaths(env.s.root, "playground").planRev("pln_f7", 2)}/${SCRIPT_PLAN_FILE}`;
+    mkdirSync(dirname(join(env.s.root, rel)), { recursive: true });
+    writeFileSync(join(env.s.root, rel), JSON.stringify(doc));
+    scriptPlans.insertRevision(env.db, { doc, rel_path: rel, sha256: "a".repeat(64) });
+    const job = await edit({ plan: plan({ base_version_id: v1!.id, path: "param", changes: [{ target: "depth", kind: "param", description: "объёмнее" }], param_patch: { style: { depth: 2 } }, reply: "Объёмнее." }) });
+    expect(job.status, JSON.stringify(job.error)).toBe("completed");
+    const msg = chat.list(env.db, scene.id).filter((x) => x.role === "assistant").at(-1)!;
+    expect(msg.text).toMatch(/нет в текущем плане сценария.*длительность не закреплена.*устарела/);
+  });
+
   it("settings_patch { aspect_ratio 9:16, 1080×1920 } → path spec, Director и Engineer вызваны", async () => {
     const agents = fakeAgents({});
     const { scene, gen, edit } = await start({ agents });

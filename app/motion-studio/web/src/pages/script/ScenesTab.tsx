@@ -50,7 +50,7 @@ export const ScenesTab: (props: { state: ScriptStateDto }) => ReactElement = ({ 
       <div className="row wrap">
         {hasVertical ? <AspectSwitch value={aspect} onChange={setPicked} name="scenes-aspect" /> : null}
       </div>
-      {batches.map((b) => <BatchBar key={b.id} projectId={projectId} batch={b} readySkipped={readySkipped(b, [generate.data, reframe.data], state.scenes)} />)}
+      {batches.map((b) => <BatchBar key={b.id} projectId={projectId} batch={b} readySkipped={readySkipped(b, state)} />)}
       {error ? <p className="error" role="alert">{scriptErrorText(error)}</p> : null}
       <SkippedNote batch={generate.data} numbers={numbers} />
       <SkippedNote batch={reframe.data} numbers={numbers} />

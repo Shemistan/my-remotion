@@ -271,10 +271,10 @@ export function scriptSpeechWindow(db: Db, sceneId: string, total: number): Spee
 /**
  * S16a F7: длительность сцены сценария по плану — `frames.total` сцены плана из входа `script`
  * генерации: по текущей ревизии того же плана (ревью M3: «скорость чтения» после генерации). Сцены
- * в текущей ревизии нет или она снята — `undefined`: старые кадры ревизии генерации правка не
- * закрепляет (S17a). Текущая ревизия не читается — по ревизии генерации; и её нет — `undefined`.
+ * в текущей ревизии нет или она снята — `null`: старые кадры ревизии генерации правка не
+ * закрепляет, сцена устарела (S17a). Текущая ревизия не читается — по ревизии генерации; и её нет — `undefined`.
  */
-export function scriptPlannedFrames(db: Db, root: string, c: ScriptSceneContext): number | undefined {
+export function scriptPlannedFrames(db: Db, root: string, c: ScriptSceneContext): number | null | undefined {
   /** Кадры сцены в ревизии; `null` — ревизия прочитана, сцены в ней нет (или снята); `undefined` — не прочитана. */
   const at = (rev: number): number | null | undefined => {
     const row = plans.revision(db, c.plan_id, rev);
@@ -288,8 +288,8 @@ export function scriptPlannedFrames(db: Db, root: string, c: ScriptSceneContext)
   };
   const current = plans.get(db, c.plan_id)?.current_revision;
   const now = current !== undefined && current !== null && current !== c.plan_revision ? at(current) : undefined;
-  if (now === null) return undefined;
-  return now ?? at(c.plan_revision) ?? undefined;
+  if (now === null) return null;
+  return now ?? at(c.plan_revision);
 }
 
 /**
@@ -336,7 +336,10 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
     if (!input.plan && message === undefined && Object.keys(patch).length === 0) return fail("правка без сообщения, плана и патча настроек");
     // S16a F7: сцена сценария — длительность фиксирована планом (клип стоит на своей фразе)
     const scriptCtx = scriptContextOf(ctx.db, sceneId);
-    const planned = scriptCtx ? scriptPlannedFrames(ctx.db, d.repo.root, scriptCtx) : undefined;
+    const plannedAt = scriptCtx ? scriptPlannedFrames(ctx.db, d.repo.root, scriptCtx) : undefined;
+    const planned = plannedAt ?? undefined;
+    // сцену сняли с плана (S17a): длительность не закрепляется — человек должен знать почему
+    const removedNote = plannedAt === null ? ["Сцены нет в текущем плане сценария (снята или план перестроен) — длительность не закреплена: сцена устарела."] : [];
     const lockNotes: string[] = [];
     const lockNote = (fps: { num: number; den: number }) =>
       `Длительность сцены сценария фиксирована планом: ${planned} кадров (${(((planned ?? 0) * fps.den) / fps.num).toFixed(1).replace(".", ",")} с) — темп меняется внутри сцены, не её длиной.`;
@@ -436,8 +439,8 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
       const norm = normalizePlan(raw, base.row.id, history, editPatch, base.spec);
       let plan = norm.plan;
       notes = [
-        ...norm.notes, ...(lockNotes.length > 0 ? [lockNote(base.row.settings.fps)] : []),
-        ...(align ? [`Длительность версии ${base.row.number} (${base.spec.duration_frames} кадров) не по плану — выровнена под план сценария: ${planned} кадров.`] : []),
+        ...norm.notes, ...(lockNotes.length > 0 ? [lockNote(base.row.settings.fps)] : []), ...removedNote,
+        ...(align ? [`Длительность версии ${base.row.number} (${baseFrames !== planned ? baseFrames : base.spec.duration_frames} кадров) не по плану — выровнена под план сценария: ${planned} кадров.`] : []),
       ];
       for (const n of notes) rc.warnings.push(n);
       rc.log(`план правки: ${plan.path}; ${plan.changes.map((c) => c.target).join(", ") || "—"}${plan.preserve.length > 0 ? `; сохранить: ${plan.preserve.join(", ")}` : ""}`);
@@ -453,6 +456,8 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
           return { kind: "failed", stage: "edit_planner", message: `план правки не применить: ${errText(e)}` };
         }
         if (r.kind === "param") {
+          // spec базы уже по плану, settings — нет: масштаба нет, settings выравниваются по spec (S17a)
+          if (planned !== undefined) r.settings.duration_frames = r.spec.duration_frames;
           final = plan;
           const pr = plan.preserve;
           const baseSpec = base.spec;

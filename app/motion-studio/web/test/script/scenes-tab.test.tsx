@@ -182,18 +182,25 @@ it("сервер не поставил сцену (skipped) — причина �
   expect(note.textContent).not.toContain("ss_003");
 });
 
-it("S17a: сцены, пропущенные пакетом как уже готовые, «Готово N из M» считает готовыми", async () => {
-  const running = scene("ss_003", "running");
-  const st = outState({ batches: [batch([running])] });
-  // ответ на «Повторить»: пакет sb_1 из ss_003; ss_001 уже готова, ss_004 снята — не готова
-  fakeFetch([on("POST", "/api/projects/p1/script/generate", batch([running], {
-    skipped: [{ item_id: "ss_001", reason: "готовая версия по текущему плану" }, { item_id: "ss_004", reason: "сцена снята с плана" }],
-  }), 200), ...routes()]);
-  renderQ(<ScenesTab state={{ ...st, scenes: st.scenes.map((x) => (x.item_id === "ss_003" ? scene("ss_003", "failed") : x)) }} />);
-  expect(screen.getByTestId("batch-bar").textContent).toContain(t("scriptOutput.batch.progress", { ready: 0, total: 1 }));
-  fireEvent.click(within(tiles()[2]!).getByRole("button", { name: t("scriptOutput.retry") }));
-  await screen.findByTestId("skipped");
+it("S17a: полный пакет — готовые неустаревшие сцены плана вне пакета считаются в «Готово N из M» (по состоянию, без ответа мутации)", () => {
+  fakeFetch(routes());
+  const scenes = [scene("ss_001", "ready"), scene("ss_002", "ready"), scene("ss_003", "running")];
+  const full = batch([scenes[2]!], { full: true });
+  renderQ(<ScenesTab state={outState({ scenes, batches: [full] })} />);
   const bar = screen.getByTestId("batch-bar");
-  expect(bar.textContent).toContain(t("scriptOutput.batch.progress", { ready: 1, total: 2 }));
-  expect(bar.querySelector('[role="progressbar"]')!.getAttribute("aria-valuenow")).toBe("50");
+  expect(bar.textContent).toContain(t("scriptOutput.batch.progress", { ready: 2, total: 3 }));
+  expect(bar.querySelector('[role="progressbar"]')!.getAttribute("aria-valuenow")).toBe("67");
+});
+
+it("S17a: частичный пакет, устаревшая сцена и пакет старой ревизии плана — не досчитываются", () => {
+  fakeFetch(routes());
+  const scenes = [scene("ss_001", "ready"), scene("ss_002", "ready", { stale: true }), scene("ss_003", "running")];
+  const { unmount } = renderQ(<ScenesTab state={outState({ scenes, batches: [batch([scenes[2]!])] })} />);
+  expect(screen.getByTestId("batch-bar").textContent).toContain(t("scriptOutput.batch.progress", { ready: 0, total: 1 }));
+  unmount();
+  const r2 = renderQ(<ScenesTab state={outState({ scenes, batches: [batch([scenes[2]!], { full: true })] })} />);
+  expect(screen.getByTestId("batch-bar").textContent).toContain(t("scriptOutput.batch.progress", { ready: 1, total: 2 }));
+  r2.unmount();
+  renderQ(<ScenesTab state={outState({ scenes, batches: [batch([scenes[2]!], { full: true, plan_revision: 2 })] })} />);
+  expect(screen.getByTestId("batch-bar").textContent).toContain(t("scriptOutput.batch.progress", { ready: 0, total: 1 }));
 });

@@ -14,9 +14,8 @@ import * as projects from "../db/repos/projects.js";
 import * as scenes from "../db/repos/scenes.js";
 import { scriptScenes } from "../db/repos/script.js";
 import * as versions from "../db/repos/versions.js";
-import { sha256 } from "../scenes/hash.js";
 import { cancelJob } from "../jobs/queue.js";
-import { assertTwinsApprovable, batchForKey, batchStatus, keyPrefix, stageBatch, supersededTwinJob } from "./batch.js";
+import { assertTwinsApprovable, batchForKey, batchStatus, keyPrefix, reframeRequestTag, stageBatch, supersededTwinJob } from "./batch.js";
 import { itemFingerprint } from "./fingerprint.js";
 import { currentScript, currentScriptPlan } from "./read.js";
 
@@ -34,16 +33,13 @@ export const REFRAME_SKIP = {
   notAccepted: "сцена снята с плана",
 } as const;
 
-/** Отпечаток тела запроса в id пакета: тот же ключ с другим телом (или у генерации) — 422. */
-const requestTag = (itemIds: readonly string[] | undefined): string =>
-  sha256(JSON.stringify({ reframe: "9:16", item_ids: itemIds ? [...new Set(itemIds)].sort() : null })).slice(0, 10);
 
 export async function startReframe(core: { db: Db; root: string; processes: ProcessRegistry }, i: StartReframeInput): Promise<ScriptBatchDto> {
   const { db, root } = core;
   const project = projects.get(db, i.projectId);
   if (!project) throw notFound(`проект ${i.projectId}`);
   if (project.kind !== "script") throw new ApiError(409, "not_script_project", "проект не сценарный");
-  const batchId = `${keyPrefix(i.projectId, i.idempotencyKey)}${requestTag(i.itemIds)}`;
+  const batchId = `${keyPrefix(i.projectId, i.idempotencyKey)}${reframeRequestTag(i.itemIds)}`;
   const existing = batchForKey(db, i.projectId, i.idempotencyKey);
   if (existing) {
     if (existing.id !== batchId) {

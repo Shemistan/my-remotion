@@ -179,7 +179,9 @@ describe("startReframe", () => {
     expect(again.skipped).toEqual(expect.arrayContaining([{ item_id: "ss_001", reason: "готовая версия по текущему плану" }]));
     expect(jobs.get(env.db, again.items[0]!.job!.id)!.idempotency_key).toBe("script:pln_r@r1:ss_003:9:16:s1:try-1");
     await runToIdle(again.id);
+    expect(again.full).toBe(true);
     const retry = await startReframe(core(), { projectId: P, idempotencyKey: "r2b", itemIds: ["ss_003"] });
+    expect(retry.full).toBe(false);
     expect(jobs.get(env.db, retry.items[0]!.job!.id)!.idempotency_key).toBe("script:pln_r@r1:ss_003:9:16:s1:try-2");
 
     // 16:9 ss_001 перегенерирована — у готового двойника эталон устарел: ставится заново

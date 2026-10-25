@@ -38,7 +38,7 @@ const withTotal = (rev: number, total: number, items = PLAN.items): ScriptPlanRe
 });
 
 describe("scriptPlannedFrames", () => {
-  it("план с тем же plan_id ушёл вперёд — кадры из текущей ревизии; сцены там нет — длительность не закрепляется", () => {
+  it("план с тем же plan_id ушёл вперёд — кадры из текущей ревизии; сцены там нет — null (не закрепляется)", () => {
     scriptPlans.create(db, { id: "pln_m3", project_id: "playground" });
     publish(withTotal(1, 180));
     const ctx: ScriptSceneContext = { project_id: "playground", plan_id: "pln_m3", plan_revision: 1, item_id: "ss_001", aspect: "16:9", style: { preset: "dark-premium", intensity: "balanced", depth: 2 }, lead_frames: 15, tail_frames: 30 };
@@ -47,9 +47,9 @@ describe("scriptPlannedFrames", () => {
     expect(scriptPlannedFrames(db, s.root, ctx)).toBe(210);
     // сцену сняли с плана (ревью S16a M3): старые кадры ревизии генерации не закрепляются
     publish(withTotal(3, 240, PLAN.items.filter((x) => x.id !== "ss_001")));
-    expect(scriptPlannedFrames(db, s.root, ctx)).toBeUndefined();
+    expect(scriptPlannedFrames(db, s.root, ctx)).toBeNull();
     publish(withTotal(4, 240, PLAN.items.map((x) => (x.id === "ss_001" ? { ...x, status: "rejected" as const } : x))));
-    expect(scriptPlannedFrames(db, s.root, ctx)).toBeUndefined();
+    expect(scriptPlannedFrames(db, s.root, ctx)).toBeNull();
   });
 
   it("текущая ревизия не читается — кадры ревизии генерации", () => {
