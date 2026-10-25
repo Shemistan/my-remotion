@@ -1,0 +1,293 @@
+{
+  "schema_version": 1,
+  "plan_id": "pln_01M5RKBQ0Q1SG3YDKGRAJEM5VD",
+  "revision": 1,
+  "inputs": {
+    "script": {
+      "id": "scr_01M5RKBPZN814JAP4TXSBWTKZJ",
+      "revision": 1,
+      "hash": "3865fb3adfbd0e6317cf15bf113a321c59cc75cabab536c3dbd345073057b43c"
+    },
+    "style": {
+      "id": "sty_01M5RKCNB959V0DYHB4NQZ023Y",
+      "revision": 1,
+      "hash": "d398d585e2d7d0dee2698e2de76490d72ac77d558c8af5f629f749a3061ce30a"
+    }
+  },
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "aspect": "16:9",
+  "reading": {
+    "wps": 2.5,
+    "lead_s": 0.5,
+    "tail_s": 1
+  },
+  "analysis": {
+    "chapters": [
+      {
+        "id": "c1",
+        "title": "Три вопроса и смена реализации",
+        "summary": "Известные вопросы про map в Go опираются на старую реализацию, которую заменил Swiss Table в Go 1.24.",
+        "start_word_id": "w_000001",
+        "end_word_id": "w_000205"
+      }
+    ],
+    "anchors": [],
+    "entities": [],
+    "numbers": [
+      {
+        "value": 1.24,
+        "start_word_id": "w_000066",
+        "end_word_id": "w_000067",
+        "quote": "Go 1.24",
+        "claim_type": "fact"
+      },
+      {
+        "value": 2025,
+        "start_word_id": "w_000072",
+        "end_word_id": "w_000074",
+        "quote": "феврале 2025 года",
+        "claim_type": "fact"
+      }
+    ],
+    "causal": [],
+    "disputed": []
+  },
+  "items": [
+    {
+      "id": "ss_001",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000005",
+      "end_word_id": "w_000027",
+      "quote": "Несколько лет назад на русскоязычном YouTube вышел пожалуй самый известный разбор map в Go и построен он был на трёх вопросах с собеседования",
+      "block_id": "b1",
+      "words": 23,
+      "at_s": 1.6,
+      "frames": {
+        "lead": 15,
+        "speech": 276,
+        "tail": 30,
+        "total": 321
+      },
+      "technique": "kinetic-quote",
+      "pattern": "key-point-emphasis",
+      "structure_rule": "result-first",
+      "purpose": "Известный разбор map держался на трёх собеседовательных вопросах",
+      "idea": "На тёмном фоне крупно «3 вопроса», вокруг тремя карточками-силуэтами вспыхивают знаки вопроса с подписью «собеседование»; акцент на слове «трёх».",
+      "key_terms": [
+        {
+          "text": "известный",
+          "word_id": "w_000014"
+        },
+        {
+          "text": "трёх",
+          "word_id": "w_000024"
+        },
+        {
+          "text": "вопросах",
+          "word_id": "w_000025"
+        }
+      ],
+      "data": [],
+      "importance": 1,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_002",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000028",
+      "end_word_id": "w_000045",
+      "quote": "Зачем заранее выделять память под map Почему порядок обхода случайный И почему нельзя взять указатель на элемент map",
+      "block_id": "b1",
+      "words": 18,
+      "at_s": 10.8,
+      "frames": {
+        "lead": 15,
+        "speech": 216,
+        "tail": 30,
+        "total": 261
+      },
+      "technique": "checklist",
+      "pattern": "sequence-steps",
+      "structure_rule": "assembly",
+      "purpose": "Назвать три вопроса, вокруг которых строится разбор",
+      "idea": "Три строки чек-листа появляются по очереди: иконка блока памяти — «заранее выделять», перемешанные ячейки — «случайный обход», перечёркнутый указатель на ячейку — «нельзя взять указатель».",
+      "key_terms": [
+        {
+          "text": "выделять",
+          "word_id": "w_000030"
+        },
+        {
+          "text": "случайный",
+          "word_id": "w_000037"
+        },
+        {
+          "text": "указатель",
+          "word_id": "w_000042"
+        }
+      ],
+      "data": [],
+      "importance": 2,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_003",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000046",
+      "end_word_id": "w_000064",
+      "quote": "Вопросы отличные их задают до сих пор Проблема в ответах они опираются на реализацию которой в Go больше нет",
+      "block_id": "b1",
+      "words": 19,
+      "at_s": 18,
+      "frames": {
+        "lead": 15,
+        "speech": 228,
+        "tail": 30,
+        "total": 273
+      },
+      "technique": "split-versus",
+      "pattern": "comparison",
+      "structure_rule": "two-sides",
+      "purpose": "Вопросы актуальны, но ответы привязаны к реализации, которой уже нет",
+      "idea": "Слева карточки вопросов с галочкой «актуально», справа блок «старая реализация» с ответами, который тускнеет и перечёркивается надписью «больше нет в Go».",
+      "key_terms": [
+        {
+          "text": "ответах",
+          "word_id": "w_000055"
+        },
+        {
+          "text": "реализацию",
+          "word_id": "w_000059"
+        },
+        {
+          "text": "нет",
+          "word_id": "w_000064"
+        }
+      ],
+      "data": [],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_004",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000065",
+      "end_word_id": "w_000084",
+      "quote": "С Go 1.24 а он вышел в феврале 2025 года встроенная map реализована полностью заново на основе дизайна Swiss Table",
+      "block_id": "b1",
+      "words": 20,
+      "at_s": 25.6,
+      "frames": {
+        "lead": 15,
+        "speech": 240,
+        "tail": 30,
+        "total": 285
+      },
+      "technique": "timeline",
+      "pattern": "timeline",
+      "structure_rule": "assembly",
+      "purpose": "С Go 1.24 в феврале 2025 map заново построена на Swiss Table",
+      "idea": "Ось времени: отметка «Go 1.24 · февраль 2025» вспыхивает, после неё старый блок map заменяется новым с подписью «Swiss Table».",
+      "key_terms": [
+        {
+          "text": "1.24",
+          "word_id": "w_000067"
+        },
+        {
+          "text": "заново",
+          "word_id": "w_000079"
+        },
+        {
+          "text": "Swiss",
+          "word_id": "w_000083"
+        }
+      ],
+      "data": [
+        {
+          "label": "Версия Go",
+          "value": 1.24,
+          "quote": "Go 1.24"
+        },
+        {
+          "label": "Год выхода",
+          "value": 2025,
+          "unit": "год",
+          "quote": "феврале 2025 года"
+        }
+      ],
+      "importance": 3,
+      "anchor_ids": []
+    },
+    {
+      "id": "ss_005",
+      "status": "accepted",
+      "origin": "agent",
+      "start_word_id": "w_000093",
+      "end_word_id": "w_000115",
+      "quote": "добавим четвёртый который под старыми видео задают чаще всего как map растёт и что происходит если вы в этот момент по ней итерируетесь",
+      "block_id": "b1",
+      "words": 23,
+      "at_s": 36.8,
+      "frames": {
+        "lead": 15,
+        "speech": 276,
+        "tail": 30,
+        "total": 321
+      },
+      "technique": "flow-graph",
+      "pattern": "cause-effect",
+      "structure_rule": "always-on",
+      "purpose": "Четвёртый вопрос: что бывает при итерации по map во время её роста",
+      "idea": "Блок map разрастается в больший, одновременно поток стрелок-итератора идёт по ячейкам; в точке роста стрелка сталкивается с переезжающими записями, высвечивается вопрос «что произойдёт?».",
+      "key_terms": [
+        {
+          "text": "четвёртый",
+          "word_id": "w_000094"
+        },
+        {
+          "text": "растёт",
+          "word_id": "w_000104"
+        },
+        {
+          "text": "итерируетесь",
+          "word_id": "w_000115"
+        }
+      ],
+      "data": [],
+      "importance": 2,
+      "anchor_ids": []
+    }
+  ],
+  "skipped": [
+    {
+      "start_word_id": "w_000116",
+      "end_word_id": "w_000128",
+      "quote": "План такой Пара минут старая map как контраст чтобы было с чем сравнивать",
+      "reason": "План ролика — мета-речь автора"
+    },
+    {
+      "start_word_id": "w_000138",
+      "end_word_id": "w_000205",
+      "quote": "Дальше поиск удаление рост и итерация А потом то ради чего стоит досмотреть до конца бенчмарки в кадре старая реализация против новой с аллокациями и задержками при росте И чек-лист что из всего этого менять в продакшен-коде Все числа которые я назову сверены с исходником runtime и с блогом Go ссылки будут в описании А если где-то данных нет я так прямо и скажу а не буду угадывать",
+      "reason": "Анонсы, дисклеймеры и ссылки — мета-речь о ролике"
+    }
+  ],
+  "issues": [],
+  "diversity": {
+    "techniques": {
+      "kinetic-quote": 1,
+      "checklist": 1,
+      "split-versus": 1,
+      "timeline": 1,
+      "flow-graph": 1
+    },
+    "adjacent_repeats": 0,
+    "kinetic_share": 0.2
+  }
+}

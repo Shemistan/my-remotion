@@ -1,0 +1,616 @@
+{
+  "date": "2026-10-25T03:18:50.767Z",
+  "summary": {
+    "no_hero": {
+      "threshold": 0.18,
+      "low_flagged": [
+        "S14-3"
+      ],
+      "low_total": 4,
+      "high_flagged": [
+        "S14-1",
+        "S14-2"
+      ],
+      "high_total": 3,
+      "separates": false
+    },
+    "text_dominant_strict": {
+      "low_flagged": [],
+      "low_total": 4,
+      "high_flagged": [],
+      "high_total": 3,
+      "separates": false
+    },
+    "dead_air_blocking": {
+      "low_flagged": [
+        "S15a-3",
+        "S15a-5"
+      ],
+      "low_total": 4,
+      "high_flagged": [
+        "S14-1",
+        "S15a-1"
+      ],
+      "high_total": 3,
+      "separates": false
+    },
+    "empty_half_blocking": {
+      "low_flagged": [],
+      "low_total": 4,
+      "high_flagged": [],
+      "high_total": 3,
+      "separates": false
+    },
+    "empty_half_any": {
+      "low_flagged": [],
+      "low_total": 4,
+      "high_flagged": [
+        "S14-2"
+      ],
+      "high_total": 3,
+      "separates": false
+    },
+    "hero_max": {
+      "low": [
+        [
+          "S11-5",
+          0.306
+        ],
+        [
+          "S14-3",
+          0.032
+        ],
+        [
+          "S15a-3",
+          0.331
+        ],
+        [
+          "S15a-5",
+          0.282
+        ]
+      ],
+      "high": [
+        [
+          "S14-1",
+          0.167
+        ],
+        [
+          "S14-2",
+          0.125
+        ],
+        [
+          "S15a-1",
+          0.195
+        ]
+      ]
+    }
+  },
+  "rows": [
+    {
+      "scene": "S11-1",
+      "technique": "hero-number",
+      "version_id": "ver_01M5QWHGWJCFS0RTD1EAZYV8S2",
+      "designer": 6,
+      "judge": 4.5,
+      "sweep_frames": 54,
+      "hero_peak": {
+        "frame": 180,
+        "top": [
+          "number:0.026*"
+        ]
+      },
+      "hero_hold": {
+        "frame": 320,
+        "top": [
+          "number:0.025*"
+        ],
+        "areas": {
+          "text": 0.221,
+          "graphic": 0.025
+        }
+      },
+      "hero_max": 0.026,
+      "metric": false,
+      "hero_issues": [
+        "no_hero:blocking",
+        "text_dominant:blocking"
+      ],
+      "temporal": [
+        "dead_air:blocking@114"
+      ],
+      "temporal_text": [
+        "dead_air: кадры 114–168: идёт бит count (count-number), number-in (number-entrance), а в кадре 54 кадров ничего не меняется и не движется — мёртвый воздух посреди речи"
+      ]
+    },
+    {
+      "scene": "S11-2",
+      "technique": "checklist",
+      "version_id": "ver_01M5QWD3310NRCD40N5K234XWZ",
+      "designer": 6.5,
+      "judge": 5,
+      "sweep_frames": 58,
+      "hero_peak": {
+        "frame": 240,
+        "top": [
+          "graphic:0.031"
+        ]
+      },
+      "hero_hold": {
+        "frame": 344,
+        "top": [
+          "graphic:0.031"
+        ],
+        "areas": {
+          "text": 0.485,
+          "graphic": 0.031
+        }
+      },
+      "hero_max": 0.031,
+      "metric": false,
+      "hero_issues": [
+        "no_hero:blocking",
+        "text_dominant:warning"
+      ],
+      "temporal": [
+        "dead_air:blocking@258"
+      ],
+      "temporal_text": [
+        "dead_air: кадры 258–312: идёт бит final-emphasis (final-emphasis), note-in (note-in), bracket-draw (bracket-draw), chips-switch (chips-switch), а в кадре 54 кадров ничего не меняется и не движется — мёртвый воздух посреди речи"
+      ]
+    },
+    {
+      "scene": "S11-3",
+      "technique": "split-versus",
+      "version_id": "ver_01M5QWT1WEB0CYXYSZCP3JXT3T",
+      "designer": 6,
+      "judge": 5,
+      "sweep_frames": 32,
+      "hero_peak": {
+        "frame": 114,
+        "top": [
+          "graphic:0.105"
+        ]
+      },
+      "hero_hold": {
+        "frame": 188,
+        "top": [
+          "graphic:0.125"
+        ],
+        "areas": {
+          "text": 0.237,
+          "graphic": 0.188
+        }
+      },
+      "hero_max": 0.125,
+      "metric": false,
+      "hero_issues": [
+        "no_hero:blocking"
+      ],
+      "temporal": [],
+      "temporal_text": []
+    },
+    {
+      "scene": "S11-4",
+      "technique": "timeline",
+      "version_id": "ver_01M5QWWX1V1MJ059Q23SR3P61M",
+      "designer": 6,
+      "judge": 5,
+      "sweep_frames": 48,
+      "hero_peak": {
+        "frame": 168,
+        "top": [
+          "graphic:0.019"
+        ]
+      },
+      "hero_hold": {
+        "frame": 284,
+        "top": [
+          "graphic:0.023"
+        ],
+        "areas": {
+          "text": 0.181,
+          "graphic": 0.105
+        }
+      },
+      "hero_max": 0.023,
+      "metric": false,
+      "hero_issues": [
+        "no_hero:blocking"
+      ],
+      "temporal": [
+        "dead_air:blocking@84"
+      ],
+      "temporal_text": [
+        "dead_air: кадры 84–156: идёт бит year-in (year-mask-in), map-exit (map-dim-exit), а в кадре 72 кадров ничего не меняется и не движется — мёртвый воздух посреди речи"
+      ]
+    },
+    {
+      "scene": "S11-5",
+      "technique": "flow-graph",
+      "version_id": "ver_01M5QX490DXGAX2W8D4X6PG05B",
+      "designer": 5,
+      "judge": 4.5,
+      "sweep_frames": 70,
+      "hero_peak": {
+        "frame": 234,
+        "top": [
+          "graph:0.245",
+          "graph:0.046"
+        ]
+      },
+      "hero_hold": {
+        "frame": 416,
+        "top": [
+          "graph:0.306"
+        ],
+        "areas": {
+          "text": 0,
+          "graphic": 0.397
+        }
+      },
+      "hero_max": 0.306,
+      "metric": false,
+      "hero_issues": [],
+      "temporal": [
+        "empty_container:blocking@18"
+      ],
+      "temporal_text": [
+        "empty_container: посреди сцены пустой контейнер (node; кадры 18–30, 18–78, 18–222): рамка без текста и графики читается заглушкой"
+      ]
+    },
+    {
+      "scene": "S14-1",
+      "technique": "hero-number",
+      "version_id": "ver_01M5R3GX2NV6V19WYZ4CCBQV75",
+      "designer": 7,
+      "judge": 5.5,
+      "sweep_frames": 54,
+      "hero_peak": {
+        "frame": 246,
+        "top": [
+          "number:0.068*",
+          "box:0.051"
+        ]
+      },
+      "hero_hold": {
+        "frame": 320,
+        "top": [
+          "box:0.167",
+          "number:0.073*"
+        ],
+        "areas": {
+          "text": 0.166,
+          "graphic": 0.247
+        }
+      },
+      "hero_max": 0.167,
+      "metric": false,
+      "hero_issues": [
+        "no_hero:blocking"
+      ],
+      "temporal": [
+        "dead_air:blocking@60",
+        "empty_open:warning@30"
+      ],
+      "temporal_text": [
+        "dead_air: кадры 60–162: идёт бит b-card-in (video-card-in), b-count (hero-number-count), b-number-in (hero-number-in), а в кадре 102 кадров ничего не меняется и не движется — мёртвый воздух посреди речи",
+        "empty_open: на кадре 30 (начало речи + 12) содержимого 0 % кадра — первые секунды пустые"
+      ]
+    },
+    {
+      "scene": "S14-2",
+      "technique": "checklist",
+      "version_id": "ver_01M5R36DWT01AKRKVSFPSCDXX4",
+      "designer": 7,
+      "judge": 4.5,
+      "sweep_frames": 44,
+      "hero_peak": {
+        "frame": 186,
+        "top": [
+          "box:0.125",
+          "box:0.125"
+        ]
+      },
+      "hero_hold": {
+        "frame": 260,
+        "top": [
+          "box:0.125",
+          "box:0.125*"
+        ],
+        "areas": {
+          "text": 0.037,
+          "graphic": 0.37
+        }
+      },
+      "hero_max": 0.125,
+      "metric": false,
+      "hero_issues": [
+        "no_hero:blocking",
+        "hero_split:warning"
+      ],
+      "temporal": [
+        "empty_half:warning@42",
+        "empty_open:warning@30"
+      ],
+      "temporal_text": [
+        "empty_half: правая половина кадра пуста (кадры 42–114; ≈ 36 % речи) — содержимое прижато к одной стороне",
+        "empty_open: на кадре 30 (начало речи + 12) содержимого 4 % кадра — первые секунды пустые"
+      ]
+    },
+    {
+      "scene": "S14-3",
+      "technique": "split-versus",
+      "version_id": "ver_01M5R3R2VKF9SBB1GC05A4MEPS",
+      "designer": 5.5,
+      "judge": 4.5,
+      "sweep_frames": 32,
+      "hero_peak": {
+        "frame": 96,
+        "top": [
+          "graphic:0.031"
+        ]
+      },
+      "hero_hold": {
+        "frame": 188,
+        "top": [
+          "graphic:0.032"
+        ],
+        "areas": {
+          "text": 0.494,
+          "graphic": 0.045
+        }
+      },
+      "hero_max": 0.032,
+      "metric": false,
+      "hero_issues": [
+        "no_hero:blocking",
+        "text_dominant:warning"
+      ],
+      "temporal": [],
+      "temporal_text": []
+    },
+    {
+      "scene": "S14-4",
+      "technique": "timeline",
+      "version_id": "ver_01M5R4182MVFJ69WYE7BTYXQ47",
+      "designer": 6,
+      "judge": 4.5,
+      "sweep_frames": 48,
+      "hero_peak": {
+        "frame": 234,
+        "top": [
+          "graphic:0.02"
+        ]
+      },
+      "hero_hold": {
+        "frame": 284,
+        "top": [
+          "graphic:0.02"
+        ],
+        "areas": {
+          "text": 0.154,
+          "graphic": 0.09
+        }
+      },
+      "hero_max": 0.02,
+      "metric": false,
+      "hero_issues": [
+        "no_hero:blocking"
+      ],
+      "temporal": [
+        "dead_air:blocking@120"
+      ],
+      "temporal_text": [
+        "dead_air: кадры 120–216: идёт бит map-out (map-block-exit), а в кадре 96 кадров ничего не меняется и не движется — мёртвый воздух посреди речи"
+      ]
+    },
+    {
+      "scene": "S14-5",
+      "technique": "process-steps",
+      "version_id": "ver_01M5R4GAAEVP7JVSB21C957Y6D",
+      "designer": 6.5,
+      "judge": 5,
+      "sweep_frames": 70,
+      "hero_peak": {
+        "frame": 318,
+        "top": [
+          "graphic:0.14*"
+        ]
+      },
+      "hero_hold": {
+        "frame": 416,
+        "top": [
+          "graphic:0.146*"
+        ],
+        "areas": {
+          "text": 0.101,
+          "graphic": 0.3
+        }
+      },
+      "hero_max": 0.146,
+      "metric": false,
+      "hero_issues": [
+        "no_hero:blocking"
+      ],
+      "temporal": [
+        "dead_air:blocking@96",
+        "dead_air:blocking@222"
+      ],
+      "temporal_text": [
+        "dead_air: кадры 96–210: идёт бит b-map-old-in (map-old-in), b-runner-in (runner-in), b-runner-walk (runner-walk-old), а в кадре 114 кадров ничего не меняется и не движется — мёртвый воздух посреди речи",
+        "dead_air: кадры 222–306: идёт бит b-map-grow (map-grow-in), b-map-grow-emphasis (map-grow-emphasis), b-runner-walk-new (runner-walk-new), а в кадре 84 кадров ничего не меняется и не движется — мёртвый воздух посреди речи"
+      ]
+    },
+    {
+      "scene": "S15a-1",
+      "technique": "kinetic-quote",
+      "version_id": "ver_01M5RBMYJESVTXE2WARQRK6NCX",
+      "designer": 7,
+      "judge": 5.5,
+      "sweep_frames": 54,
+      "hero_peak": {
+        "frame": 246,
+        "top": [
+          "number:0.195*"
+        ]
+      },
+      "hero_hold": {
+        "frame": 320,
+        "top": [
+          "number:0.178*"
+        ],
+        "areas": {
+          "text": 0.22,
+          "graphic": 0.18
+        }
+      },
+      "hero_max": 0.195,
+      "metric": false,
+      "hero_issues": [],
+      "temporal": [
+        "dead_air:blocking@192"
+      ],
+      "temporal_text": [
+        "dead_air: кадры 192–240: идёт бит plate-shrink (plate-shrink-up), а в кадре 48 кадров ничего не меняется и не движется — мёртвый воздух посреди речи"
+      ]
+    },
+    {
+      "scene": "S15a-2",
+      "technique": "checklist",
+      "version_id": "ver_01M5RB8YCCHA61FNPHE19CPV67",
+      "designer": 6,
+      "judge": 4,
+      "sweep_frames": 44,
+      "hero_peak": {
+        "frame": 180,
+        "top": [
+          "box:0.211",
+          "box:0.211"
+        ]
+      },
+      "hero_hold": {
+        "frame": 260,
+        "top": [
+          "box:0.216*",
+          "box:0.211"
+        ],
+        "areas": {
+          "text": 0,
+          "graphic": 0.637
+        }
+      },
+      "hero_max": 0.216,
+      "metric": false,
+      "hero_issues": [
+        "hero_split:warning"
+      ],
+      "temporal": [],
+      "temporal_text": []
+    },
+    {
+      "scene": "S15a-3",
+      "technique": "split-versus",
+      "version_id": "ver_01M5RBHRVSH9ZSGSDM8YWZRTYD",
+      "designer": 5.5,
+      "judge": 5,
+      "sweep_frames": 46,
+      "hero_peak": {
+        "frame": 180,
+        "top": [
+          "graphic:0.331"
+        ]
+      },
+      "hero_hold": {
+        "frame": 272,
+        "top": [
+          "graphic:0.331"
+        ],
+        "areas": {
+          "text": 0.345,
+          "graphic": 0.336
+        }
+      },
+      "hero_max": 0.331,
+      "metric": false,
+      "hero_issues": [],
+      "temporal": [
+        "dead_air:warning@30",
+        "dead_air:blocking@180"
+      ],
+      "temporal_text": [
+        "dead_air: кадры 30–126: в окне речи 96 кадров ничего не меняется и нет активного бита фазы — пауза плана битов (планировщик)",
+        "dead_air: кадры 180–240: идёт бит final-emphasis (final-emphasis), stamp-in (stamp-in), а в кадре 60 кадров ничего не меняется и не движется — мёртвый воздух посреди речи"
+      ]
+    },
+    {
+      "scene": "S15a-4",
+      "technique": "timeline",
+      "version_id": "ver_01M5RBT5E0Z3SNBWBCVX38Q054",
+      "designer": 6,
+      "judge": 4.5,
+      "sweep_frames": 48,
+      "hero_peak": {
+        "frame": 228,
+        "top": [
+          "graphic:0.02"
+        ]
+      },
+      "hero_hold": {
+        "frame": 284,
+        "top": [
+          "graphic:0.02"
+        ],
+        "areas": {
+          "text": 0.153,
+          "graphic": 0.095
+        }
+      },
+      "hero_max": 0.02,
+      "metric": false,
+      "hero_issues": [
+        "no_hero:blocking"
+      ],
+      "temporal": [
+        "dead_air:warning@144"
+      ],
+      "temporal_text": [
+        "dead_air: кадры 144–216: в окне речи 72 кадров ничего не меняется и нет активного бита фазы — пауза плана битов (планировщик)"
+      ]
+    },
+    {
+      "scene": "S15a-5",
+      "technique": "line-trend",
+      "version_id": "ver_01M5RCAZX24TWWWJWM1G532FA6",
+      "designer": 5.5,
+      "judge": 4.5,
+      "sweep_frames": 70,
+      "hero_peak": {
+        "frame": 300,
+        "top": [
+          "graphic:0.282",
+          "graphic:0.029"
+        ]
+      },
+      "hero_hold": {
+        "frame": 416,
+        "top": [
+          "graphic:0.282",
+          "graphic:0.029"
+        ],
+        "areas": {
+          "text": 0.105,
+          "graphic": 0.342
+        }
+      },
+      "hero_max": 0.282,
+      "metric": false,
+      "hero_issues": [],
+      "temporal": [
+        "dead_air:blocking@30"
+      ],
+      "temporal_text": [
+        "dead_air: кадры 30–84: идёт бит verdict-open (cold-open-hook), а в кадре 54 кадров ничего не меняется и не движется — мёртвый воздух посреди речи"
+      ]
+    }
+  ]
+}

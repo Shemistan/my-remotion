@@ -1,0 +1,17 @@
+block-1: script.plan 32 с, $0.1002, принятых 5, adjacent_structure_repeat 0
+  ss_001 kinetic-quote/result-first 321 кадров «Несколько лет назад на русскоязычном YouTube вышел пожалуй самый известный разбор map в Go»
+  ss_002 checklist/assembly 261 кадров «Зачем заранее выделять память под map Почему порядок обхода случайный И почему нельзя взят»
+  ss_003 split-versus/two-sides 273 кадров «Вопросы отличные их задают до сих пор Проблема в ответах они опираются на реализацию котор»
+  ss_004 timeline/assembly 285 кадров «С Go 1.24 а он вышел в феврале 2025 года встроенная map реализована полностью заново на ос»
+  ss_005 flow-graph/always-on 321 кадров «добавим четвёртый который под старыми видео задают чаще всего как map растёт и что происхо»
+block-1 ss_002 checklist: completed за 6.4 мин, $2.07
+block-1 ss_001 kinetic-quote: completed за 12.9 мин, $3.30
+block-1 ss_003 split-versus: completed за 16.2 мин, $2.46
+block-1 ss_004 timeline: completed за 22.7 мин, $2.42
+block-1 ss_005 flow-graph: completed за 25.7 мин, $2.32
+  судья smoke-block-1-01-kinetic-quote: 5.5
+  судья smoke-block-1-02-checklist: 4
+  судья smoke-block-1-03-split-versus: 5.5
+  судья smoke-block-1-04-timeline: 6
+  судья smoke-block-1-05-flow-graph: 5
+[A] {"ready_share":1,"technique_not_realized":0,"structures":4,"adjacent_structure_repeat":0,"ok":true}
