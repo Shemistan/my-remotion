@@ -76,9 +76,7 @@ describe("версия Remotion", () => {
     const require = createRequire(import.meta.url);
     expect((require("@remotion/renderer/package.json") as { version: string }).version).toBe(PINNED_RENDERER);
   });
-  it("media origin пока отвергается", () => {
-    expect(() => installAssetGuard({ bundlePort: 1, media: { origin: "http://127.0.0.1:2", tokens: new Set() } })).toThrow(/Phase 4\/5/);
-  });
+  // media origin (Task 36) — test/timeline/asset-guard-media.test.ts
 });
 
 // --- настоящие вызывающие downloadAsset ---

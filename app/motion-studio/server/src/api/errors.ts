@@ -5,6 +5,7 @@ import { hasZodFastifySchemaValidationErrors, isResponseSerializationError } fro
 import { ResourceBusyError } from "../artifacts/store.js";
 import { EditError, ProposedLeftError, RevisionConflictError } from "../edit/errors.js";
 import { IdempotencyKeyReusedError } from "../jobs/queue.js";
+import { LifecycleError } from "../projects/lifecycle.js";
 import { StaleProcessAliveError } from "../jobs/retry.js";
 import { isStorageError } from "../jobs/runner.js";
 import { maskDeep } from "./job-dto.js";
@@ -45,6 +46,8 @@ export function toApiResponse(e: unknown): { status: number; body: Record<string
   if (e instanceof ResourceBusyError) return { status: 409, body: { error: "resource_busy", message: "ресурс занят задачей — повторите правку после её завершения", resource: e.resource, job_id: e.jobId } };
   if (e instanceof ProposedLeftError) return { status: 409, body: { error: e.code, message: e.message, count: e.count } };
   if (e instanceof EditError) return { status: e.status, body: { ...e.details, error: e.code, message: e.message } };
+  // Task 47: архив, корзина, карантин — код и статус из ошибки ядра (без путей хранилища)
+  if (e instanceof LifecycleError) return { status: e.status, body: { ...e.extra, error: e.code, message: e.message.slice(e.code.length + 2) } };
   if (e instanceof StaleProcessAliveError) return { status: 409, body: { error: e.code, message: e.message, pids: e.pids, cmds: e.cmds } };
   // сообщения ядра и файловой системы содержат абсолютные пути MS_DATA_DIR: наружу — код и общий
   // текст, подробности — в журнал сервера (F6)

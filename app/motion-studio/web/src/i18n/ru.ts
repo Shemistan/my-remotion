@@ -1,8 +1,15 @@
 // Словарь интерфейса (русский). Плоские ключи `раздел.ключ`, параметры — `{name}`.
 // Вся видимая пользователю строка UI берётся отсюда через `t(key)`. Сценарный проект — в своих
-// словарях (`ru-script-plan.ts`, `ru-script-output.ts`), подмешанных сюда.
+// словарях (`ru-script-plan.ts`, `ru-script-output.ts`), подмешанных сюда; Phase 4–6 — `ru-video-scenes`,
+// `ru-video-export`, `ru-timeline`, `ru-projects`, `ru-diagnostics`, `ru-ux` (Task 35′).
+import { ruDiagnostics } from "./ru-diagnostics.js";
+import { ruProjects } from "./ru-projects.js";
 import { ruScriptOutput } from "./ru-script-output.js";
 import { ruScriptPlan } from "./ru-script-plan.js";
+import { ruTimeline } from "./ru-timeline.js";
+import { ruUx } from "./ru-ux.js";
+import { ruVideoExport } from "./ru-video-export.js";
+import { ruVideoScenes } from "./ru-video-scenes.js";
 
 export const ru = {
   "app.title": "AI Motion Studio",
@@ -881,4 +888,10 @@ export const ru = {
   "style.presetChanged": "Палитра и шрифт нового пресета появятся после сохранения.",
   ...ruScriptPlan,
   ...ruScriptOutput,
+  ...ruVideoScenes,
+  ...ruVideoExport,
+  ...ruTimeline,
+  ...ruProjects,
+  ...ruDiagnostics,
+  ...ruUx,
 } as const satisfies Record<string, string>;

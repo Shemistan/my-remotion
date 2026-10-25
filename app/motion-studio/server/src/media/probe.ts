@@ -100,6 +100,8 @@ interface RawStream {
   r_frame_rate?: string;
   avg_frame_rate?: string;
   pix_fmt?: string;
+  color_transfer?: string;
+  color_primaries?: string;
   bits_per_raw_sample?: string;
   duration?: string;
   start_time?: string;
@@ -125,6 +127,9 @@ const us = (s: string | undefined): number | undefined => {
 export function parsePtsCsv(stdout: string): number[] {
   return stdout.split("\n").map((l) => us(l.trim().split(",")[0])).filter((x): x is number => x !== undefined);
 }
+
+/** Тег цвета ffprobe: пустой и `unknown` — нет тега. */
+const tag = (s: string | undefined): s is string => s !== undefined && s !== "" && s !== "unknown";
 
 function rate(s: string | undefined): Fps | undefined {
   try {
@@ -195,6 +200,8 @@ export function parseProbe(json: unknown, ptsUs: number[]): ProbeSummary {
       pix_fmt: v.pix_fmt ?? "unknown",
       ...(Number.isInteger(bitDepth) && bitDepth > 0 ? { bit_depth: bitDepth } : {}),
       ...(vStart !== undefined ? { start_time_us: vStart } : {}),
+      ...(tag(v.color_transfer) ? { color_transfer: v.color_transfer } : {}),
+      ...(tag(v.color_primaries) ? { color_primaries: v.color_primaries } : {}),
     },
     ...(hasAudio
       ? { audio: { codec: a.codec_name!, sample_rate: sampleRate, channels: a.channels && a.channels > 0 ? a.channels : 1, ...(aStart !== undefined ? { start_time_us: aStart } : {}) } }

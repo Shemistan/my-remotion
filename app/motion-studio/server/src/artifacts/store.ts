@@ -10,6 +10,8 @@ import type { Db } from "../db/open.js";
 import * as jobs from "../db/repos/jobs.js";
 import { tx } from "../db/tx.js";
 import { resourceBusy } from "../jobs/locks.js";
+import { removeHollowDir } from "../projects/hollow.js";
+import { LifecycleError, deletedRefusal } from "../projects/lifecycle.js";
 import { fenceOk } from "../jobs/queue.js";
 import { sha256File } from "../scenes/hash.js";
 import { newId } from "../scenes/ids.js";
@@ -18,7 +20,7 @@ import {
   QUARANTINE, SYNC_DRAFT_PREFIX, attachCause, fsyncDirSync, fsyncWrite, fsyncWriteSync, lockChildrenSync, quarantineDraft, setWritableSync,
 } from "../scenes/store.js";
 import { createJobDraft } from "./job-draft.js";
-import { checkArtifactDestRel } from "./paths.js";
+import { PROJECTS_REL, checkArtifactDestRel } from "./paths.js";
 
 export interface ArtifactFile {
   path: string;
@@ -60,6 +62,9 @@ function requireStorage(status: StorageStatus): void {
 
 /** destRel — только форма `artifactPaths` (повторное ревью Task 24, N1). */
 const checkDestRel = checkArtifactDestRel;
+
+/** Проект пути формы `artifactPaths`: `workspace/projects/<id>/…`. */
+const projectOfDest = (destRel: string) => destRel.slice(PROJECTS_REL.length + 1).split("/")[0]!;
 
 /**
  * Зарегистрирован предок или потомок `destRel` — отказ: публикация внутрь опубликованной
@@ -240,6 +245,9 @@ export class ArtifactStore {
     fence: Fence | undefined,
   ): Promise<PublishedArtifact> {
     checkDestRel(destRel);
+    const projectId = projectOfDest(destRel);
+    const deleted = deletedRefusal(this.db, projectId); // до safeMkdir: удалённый проект не пересоздаётся
+    if (deleted) throw deleted;
     const draftsDir = join(this.root, DRAFTS_REL);
     checkDraftDir(draftDir, draftsDir);
     const quarantined = () => existsSync(join(draftDir, QUARANTINE));
@@ -266,6 +274,10 @@ export class ArtifactStore {
     let moved = false;
     try {
       tx(this.db, () => {
+        // проект ушёл в корзину между проверкой выше и транзакцией (Task 47): перенос в корзину и
+        // публикация сериализованы write-lock БД — после него сюда не пишем
+        const gone = deletedRefusal(this.db, projectId);
+        if (gone) throw gone;
         const refused = gateInTx();
         if (refused) throw refused;
         // rename поверх пустого каталога прошёл бы молча — проверка под write-lock БД.
@@ -310,6 +322,14 @@ export class ArtifactStore {
         attachCause(e, u);
       }
       if (fence && (e instanceof FencedOutError || e instanceof PublishCancelledError)) await quarantineDraft({ dir: draftDir }, e.message);
+      // safeMkdir выше успел пересоздать родителей в уже перенесённом проекте — пустые каталоги убрать
+      if (e instanceof LifecycleError && e.code === "project_deleted") {
+        try {
+          removeHollowDir(join(this.root, PROJECTS_REL, projectId));
+        } catch (u) {
+          attachCause(e, u);
+        }
+      }
       throw e;
     }
     const warnings: string[] = [];

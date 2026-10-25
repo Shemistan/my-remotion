@@ -1,6 +1,8 @@
 // Старт ядра сервера и CLI (ADR 0007 п. 5): owner_lock → storage → db → registry → reap →
-// sweep_drafts (и рабочие каталоги агентов) → relock_versions → reconcile_versions → reconcile_exports → recovery → runner. Новые задачи
-// захватываются только после разбора реестра процессов и восстановления.
+// sweep_drafts (и рабочие каталоги агентов) → reconcile_trash → relock_versions → reconcile_versions → reconcile_exports → recovery →
+// sweep_uploads → boot_report → runner. Новые задачи захватываются только после разбора реестра процессов и восстановления.
+// Task 47: маркер чистой остановки снимается после проверки хранилища и пишется в конце `close()`;
+// отчёт старта (был ли сбой, итог восстановления, карантин) — в `boot_reports` до запуска раннера.
 import { isAbsolute, join } from "node:path";
 import {
   type OwnerLock,
@@ -33,13 +35,19 @@ import { JobRunner, type JobRunnerOptions } from "./jobs/runner.js";
 import { StorageSupervisor } from "./jobs/storage-mode.js";
 import type { Handlers } from "./jobs/types.js";
 import { KnowledgeAdapter } from "./knowledge/adapter.js";
+import * as bootReports from "./db/repos/boot-reports.js";
+import { type TrashReconcile, reconcileTrash } from "./projects/trash.js";
+import { type PersistedBootReport, persistBootReport } from "./recovery/boot-report.js";
+import { listQuarantined } from "./recovery/quarantine.js";
+import { consumeShutdownMarker, writeShutdownMarker } from "./recovery/shutdown-marker.js";
 import { type ImportReport, type MissingReport, reconcileVersions } from "./scenes/import-slice.js";
 import { type ExportsReconcile, reconcileExports } from "./scenes/reconcile-exports.js";
 import { SceneRepo } from "./scenes/repo.js";
 import { relockVersions, sweepAbandonedDrafts, sweepAgentCwds } from "./scenes/store.js";
 
 export const BOOT_STEPS = [
-  "owner_lock", "storage", "db", "registry", "reap", "sweep_drafts", "relock_versions", "reconcile_versions", "reconcile_exports", "recovery", "sweep_uploads", "runner",
+  "owner_lock", "storage", "db", "registry", "reap", "sweep_drafts", "reconcile_trash", "relock_versions", "reconcile_versions", "reconcile_exports",
+  "recovery", "sweep_uploads", "boot_report", "runner",
 ] as const;
 export type BootStep = (typeof BOOT_STEPS)[number];
 
@@ -87,6 +95,8 @@ export interface BootReport {
   reconcile: ImportReport & { missing: MissingReport };
   /** Каталоги `exports/` против таблицы: сироты в карантин, незакрытые корни закрыты (F6). */
   exports: ExportsReconcile;
+  /** Корзина (Task 47): «полуудалённые» после сбоя проекты возвращены. */
+  trash: TrashReconcile;
   /**
    * Задачи `pending`/`running` после восстановления, до старта раннера: раннер возьмёт их сам
    * (возобновление после сбоя). Сервер печатает их в журнал, `/health` отдаёт счётчики (F9).
@@ -121,6 +131,8 @@ export interface Core {
   processes: ProcessRegistry;
   events: EventBus;
   recovery: RecoveryReport;
+  /** Отчёт этого старта в `boot_reports` (Task 47): `crashed` — прежний запуск не остановлен штатно. */
+  bootReport: PersistedBootReport;
   /** Шаг `reap`: процессы, не завершившиеся после SIGKILL, и выжившие рендеры без записи. */
   reaped: { alive: TrackedProcess[]; strays: Proc[] };
   boot: BootReport;
@@ -150,6 +162,8 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     const storageCheck = () => checkStorage(env, probe, storeId);
     // боковой реестр Chrome: хранилище старше init с `run/processes` получает каталог здесь
     await safeMkdir(root, "run/processes");
+    // маркер чистой остановки прежнего запуска (Task 47): нет — был сбой (если запуск был)
+    const cleanShutdown = consumeShutdownMarker(root);
     log("storage");
 
     // quick_check до миграций: повреждённую базу не мигрировать и не копировать поверх (ревью M9)
@@ -167,6 +181,7 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     };
     db = await reopen();
     const config = loadConfig(env, await readConfigFile(root));
+    const hadBoot = bootReports.count(db) > 0;
     log("db");
 
     const registry = new SqliteProcessRegistry(db);
@@ -190,6 +205,9 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     // рабочие каталоги агентов брошенных попыток (копии кадров Footage Analyst) — удалить (m6)
     const agentCwds = await sweepAgentCwds(root, processes);
     log("sweep_drafts");
+    // до сверки версий: каталог «полуудалённого» проекта иначе сочли бы пропавшим (Task 47)
+    const trash = reconcileTrash(db, root);
+    log("reconcile_trash");
     const relock = await relockVersions(root);
     log("relock_versions");
     const current = { db };
@@ -211,6 +229,8 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     // загрузки браузером без задачи (обрыв) или с завершённым импортом (Task 29, M4)
     await sweepUploads(db, root);
     log("sweep_uploads");
+    const bootReport = persistBootReport(db, { ...recovery, crashed: hadBoot && !cleanShutdown, quarantined: listQuarantined(root, db) });
+    log("boot_report");
 
     const kb = opts.kb ?? (await KnowledgeAdapter.load({ kbRoot: config.kb.root, sourceRoot: config.kb.sourceRoot }));
     const agents = opts.agents ?? new ClaudeCodeRuntime({ bin: config.claudeBin, logRoot: join(root, "logs", "agent-runs"), promptLoader: loadPrompt });
@@ -284,8 +304,9 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
       processes,
       events,
       recovery,
+      bootReport,
       reaped: { alive, strays },
-      boot: { swept, agentCwds, relock, reconcile, exports: exportsReport, queued },
+      boot: { swept, agentCwds, relock, reconcile, exports: exportsReport, trash, queued },
       async close() {
         if (closed) return;
         closed = true;
@@ -294,6 +315,8 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
         await r.stop({ abortRunning: true });
         try {
           if (current.db.open) current.db.close();
+          // штатная остановка дошла до конца: следующий старт — не после сбоя (Task 47)
+          await writeShutdownMarker(root, { kind }).catch(() => undefined);
         } finally {
           await lock.release();
         }

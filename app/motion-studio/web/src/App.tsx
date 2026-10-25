@@ -8,9 +8,11 @@ import { VersionCompare } from "./components/VersionCompare.js";
 import { t } from "./i18n/index.js";
 import { AppSettings } from "./pages/AppSettings.js";
 import { Dashboard, ProjectPage } from "./pages/Dashboard.js";
+import { Diagnostics } from "./pages/Diagnostics.js";
 import { JobsMonitor } from "./pages/JobsMonitor.js";
 import { KnowledgeBrowser } from "./pages/KnowledgeBrowser.js";
 import { Playground } from "./pages/Playground.js";
+import { RecoveryCenter } from "./pages/RecoveryCenter.js";
 import { type Route, useRoute } from "./router.js";
 
 function Page({ route }: { route: Route }) {
@@ -29,6 +31,8 @@ function Page({ route }: { route: Route }) {
     case "kb": return <KnowledgeBrowser {...(route.q ? { q: route.q } : {})} {...(route.id ? { id: route.id } : {})} />;
     case "jobs": return <JobsMonitor {...(route.status ? { status: route.status } : {})} />;
     case "settings": return <AppSettings />;
+    case "diagnostics": return <Diagnostics />;
+    case "recovery": return <RecoveryCenter />;
     case "notFound": return <div className="page"><h1>{t("nav.notFound")}</h1><Link to={{ name: "dashboard" }}>{t("nav.dashboard")}</Link></div>;
   }
 }
@@ -37,6 +41,7 @@ const NAV = [
   { to: { name: "dashboard" }, key: "nav.dashboard", match: ["dashboard", "project", "scene", "compare"] },
   { to: { name: "kb" }, key: "nav.kb", match: ["kb"] },
   { to: { name: "jobs" }, key: "nav.jobs", match: ["jobs"] },
+  { to: { name: "diagnostics" }, key: "nav.diagnostics", match: ["diagnostics", "recovery"] },
   { to: { name: "settings" }, key: "nav.settings", match: ["settings"] },
 ] as const;
 

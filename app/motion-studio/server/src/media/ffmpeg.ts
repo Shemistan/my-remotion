@@ -1,11 +1,11 @@
-// Вызовы системных ffmpeg/ffprobe для медиа видеопроекта (Task 25). С `run` — через
+// Вызовы ffmpeg/ffprobe для медиа видеопроекта (Task 25; S19: `.deps/ffmpeg`, иначе PATH). С `run` — через
 // spawnTracked (своя группа процессов, запись в реестре попытки, по `signal` SIGTERM группе и
 // SIGKILL через 2 с); без `run` (тесты, CLI-утилиты) — обычный дочерний процесс с отменой.
 // Прогресс — `-progress pipe:1 -nostats` (`out_time_us=` в stdout). Сеть не нужна: входы
 // вызывающие передают как `file:<абсолютный путь>` с `-protocol_whitelist file`.
 import { spawn } from "node:child_process";
-import { type ProcessRegistry, spawnTracked } from "@ms/core";
-import { FfmpegError, findOnPath } from "@ms/render";
+import { type ProcessRegistry, resolveTool, spawnTracked } from "@ms/core";
+import { FfmpegError } from "@ms/render";
 
 export { FfmpegError };
 
@@ -39,9 +39,9 @@ const STDERR_TAIL = 4000;
 const DEFAULT_TIMEOUT_MS = 4 * 60 * 60_000;
 
 async function bin(name: "ffmpeg" | "ffprobe"): Promise<string> {
-  const b = await findOnPath(name);
-  if (!b) throw new FfmpegError("failed", `${name} не найден в PATH (brew install ffmpeg)`);
-  return b;
+  const t = resolveTool(name);
+  if (!t) throw new FfmpegError("failed", `${name} не найден ни в .deps/ffmpeg, ни в PATH (./setup ставит закреплённую сборку в .deps/ffmpeg)`);
+  return t.path;
 }
 
 function env(): NodeJS.ProcessEnv {

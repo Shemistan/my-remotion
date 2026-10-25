@@ -9,6 +9,7 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { resolveTool } from "@ms/core";
 import { z } from "zod";
 import { ClaudeCodeRuntime } from "../agents/claude-code.js";
 import { PROMPTS_DIR } from "../agents/prompts.js";
@@ -17,6 +18,8 @@ import { CRITERIA, type Criterion, type JudgeScores, sheetFrames } from "./metri
 import type { ReferenceGrade } from "./reference.js";
 
 const run = promisify(execFile);
+/** ffmpeg судьи: `.deps/ffmpeg` (S19), иначе PATH. */
+const ffmpegPath = () => resolveTool("ffmpeg")?.path ?? "ffmpeg";
 
 const Score = z.number().min(1).max(10);
 const CriterionSchema = z.object({
@@ -87,7 +90,7 @@ export async function prepareJudgeInput(preview: string, dir: string, brief: Jud
   const frames = judgeFrames(n);
   const select = frames.map((f) => `eq(n\\,${f})`).join("+");
   const tmp = join(dir, "frames", "_%03d.png");
-  await run("ffmpeg", ["-v", "error", "-y", "-i", preview, "-vf", `select=${select}`, "-fps_mode", "vfr", tmp]);
+  await run(ffmpegPath(), ["-v", "error", "-y", "-i", preview, "-vf", `select=${select}`, "-fps_mode", "vfr", tmp]);
   for (let i = 0; i < frames.length; i++) {
     const src = join(dir, "frames", `_${String(i + 1).padStart(3, "0")}.png`);
     if (!existsSync(src)) throw new Error(`bench: в превью нет кадра ${frames[i]} (${preview}: меньше ${n} кадров?)`);
@@ -101,7 +104,7 @@ export async function prepareJudgeInput(preview: string, dir: string, brief: Jud
     const tiles = list.map((f, i) => `[${i}:v]scale=${TILE.w}:${TILE.h},drawbox=x=0:y=0:w=iw:h=ih:color=gray@0.6:t=2${label.replace("%LABEL%", `кадр ${f}`)}[t${i}]`);
     const layout = "0_0|w0_0|0_h0|w0_h0|0_h0+h2|w0_h0+h2";
     const graph = `${tiles.join(";")};${list.map((_, i) => `[t${i}]`).join("")}xstack=inputs=${list.length}:layout=${layout}`;
-    await run("ffmpeg", ["-v", "error", "-y", ...inputs, "-filter_complex", graph, "-frames:v", "1", join(dir, "sheets", `sheet-${name}.png`)]);
+    await run(ffmpegPath(), ["-v", "error", "-y", ...inputs, "-filter_complex", graph, "-frames:v", "1", join(dir, "sheets", `sheet-${name}.png`)]);
   }
 }
 

@@ -46,7 +46,7 @@ describe("004_phase1_kind", () => {
     insertProject("prj_empty", "video");
 
     const r = await migrate(db, quiet);
-    expect(r).toMatchObject({ from: 3, to: 5, backup: expect.stringMatching(/studio\.db\.bak-v3-/) });
+    expect(r).toMatchObject({ from: 3, to: 6, backup: expect.stringMatching(/studio\.db\.bak-v3-/) });
     expect(kindOf("prj_scenes")).toBe("playground");
     expect(kindOf("prj_media")).toBe("video");
     expect(kindOf("prj_both")).toBe("video");

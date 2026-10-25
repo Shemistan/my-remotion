@@ -1,32 +1,78 @@
 // Task 24: настройки Phase 2–3 — ASR, медиа, черновой монтаж, планирование, роли агентов.
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { configFileIssues, loadConfig, SettingsPutSchema } from "../../src/config.js";
+import { ASR_WORKER_COPY, ASR_WORKER_SHA256, LEGACY_ASR_PYTHON, LEGACY_MODELS_DIR, configFileIssues, loadConfig, SettingsPutSchema } from "../../src/config.js";
 import { ROLES } from "../../src/agents/runtime.js";
 
 const root = "/Volumes/Test/MotionStudio";
 
-it("умолчания ASR: контракт воркера, пути через env", () => {
-  const c = loadConfig({ MS_DATA_DIR: root, HOME: "/Users/u" });
+// S19: зависимости — в проекте (.deps, копия воркера), веса — в папке материалов на SSD.
+const none = { exists: () => false };
+const WORKER_COPY = /\/app\/motion-studio\/tools\/asr-worker\/asr_worker\.py$/;
+
+it("умолчания ASR (S19): копия воркера в проекте, python из .deps/asr-venv, веса в папке материалов", () => {
+  const c = loadConfig({ MS_DATA_DIR: root, HOME: "/Users/u", MS_DEPS_DIR: "/D" }, undefined, none);
   expect(c.asr).toEqual({
-    python: "/Users/u/.local/share/montage/mlx-audio-0.5.8/.venv/bin/python",
-    aiPlatformRoot: expect.stringMatching(/\/ai-platform$/),
-    modelsDir: "/Volumes/External SSD/local_models",
+    python: "/D/asr-venv/bin/python",
+    worker: expect.stringMatching(WORKER_COPY),
+    modelsDir: "/Volumes/External SSD/moution-studio-materials/models",
     model: "whisper-large-v3-turbo",
     language: "ru",
     expectedWorkerSha256: "59b7e03bf5a8b7f940b2607d357528e7120f5bb6bbe98efa70de4b39bdce1073",
     timeoutMs: 14_400_000,
     noOutputTimeoutMs: 1_800_000,
   });
-  expect(c.asr.aiPlatformRoot).not.toContain(".claude/worktrees");
-  expect(loadConfig({ MS_DATA_DIR: root }).asr.expectedWorkerSha256).toBe("59b7e03bf5a8b7f940b2607d357528e7120f5bb6bbe98efa70de4b39bdce1073");
-  expect(loadConfig({ MS_DATA_DIR: root }).asr.python).toBe(join(homedir(), ".local/share/montage/mlx-audio-0.5.8/.venv/bin/python"));
+  expect(c.asr.worker).toBe(ASR_WORKER_COPY);
+  expect(loadConfig({ MS_DATA_DIR: root }, undefined, none).asr.expectedWorkerSha256).toBe("59b7e03bf5a8b7f940b2607d357528e7120f5bb6bbe98efa70de4b39bdce1073");
+  // MS_MATERIALS_ROOT (тесты) переносит и веса
+  expect(loadConfig({ MS_DATA_DIR: root, MS_MATERIALS_ROOT: "/M/mat" }, undefined, none).asr.modelsDir).toBe("/M/mat/models");
 });
 
-it("env переопределяет пути ASR", () => {
-  const c = loadConfig({ MS_DATA_DIR: root, AIP_MODELS_DIR: "/x", AI_PLATFORM_ROOT: "/aip", AIP_MONTAGE_ASR_PYTHON: "/py" });
-  expect(c.asr).toMatchObject({ modelsDir: "/x", aiPlatformRoot: "/aip", python: "/py" });
+it("копия воркера совпадает с закреплённым sha256 контракта", () => {
+  expect(createHash("sha256").update(readFileSync(ASR_WORKER_COPY)).digest("hex")).toBe(ASR_WORKER_SHA256);
+});
+
+it("до ./setup (S19): прежние python mlx-audio и веса local_models — запасной путь, если только они есть", () => {
+  const legacyPy = "/Users/u/.local/share/montage/mlx-audio-0.5.8/.venv/bin/python";
+  const have = (s: string[]) => ({ exists: (p: string) => s.includes(p) });
+  const LM = "/Volumes/External SSD/local_models";
+  const MM = "/Volumes/External SSD/moution-studio-materials/models";
+  const ready = (dir: string, model = "whisper-large-v3-turbo", weights = "weights.safetensors") => [`${dir}/asr/${model}/config.json`, `${dir}/asr/${model}/${weights}`];
+  const old = loadConfig({ MS_DATA_DIR: root, HOME: "/Users/u", MS_DEPS_DIR: "/D" }, undefined, have([legacyPy, ...ready(LM)]));
+  expect(old.asr).toMatchObject({ python: legacyPy, modelsDir: LM });
+  expect(LEGACY_ASR_PYTHON("/Users/u")).toBe(legacyPy);
+  expect(LEGACY_MODELS_DIR).toBe(LM);
+  // после ./setup — .deps и папка материалов, даже если прежние на месте
+  const both = have([legacyPy, "/D/asr-venv/bin/python", "/D/asr-venv/.ms-lock", ...ready(LM), ...ready(MM)]);
+  expect(loadConfig({ MS_DATA_DIR: root, HOME: "/Users/u", MS_DEPS_DIR: "/D" }, undefined, both).asr)
+    .toMatchObject({ python: "/D/asr-venv/bin/python", modelsDir: MM });
+});
+
+it("частичная установка (S19 fix): умолчания — по штампу готовности, а не по наличию пути", () => {
+  const legacyPy = "/Users/u/.local/share/montage/mlx-audio-0.5.8/.venv/bin/python";
+  const LM = "/Volumes/External SSD/local_models";
+  const MM = "/Volumes/External SSD/moution-studio-materials/models";
+  const have = (s: string[]) => ({ exists: (p: string) => s.includes(p) });
+  const env = { MS_DATA_DIR: root, HOME: "/Users/u", MS_DEPS_DIR: "/D" };
+  const ready = (dir: string, model: string, weights = "weights.safetensors") => [`${dir}/asr/${model}/config.json`, `${dir}/asr/${model}/${weights}`];
+  // прерванный uv pip sync: bin/python есть, штампа .ms-lock нет → прежнее окружение
+  expect(loadConfig(env, undefined, have(["/D/asr-venv/bin/python", legacyPy])).asr.python).toBe(legacyPy);
+  expect(loadConfig(env, undefined, have(["/D/asr-venv/bin/python", "/D/asr-venv/.ms-lock", legacyPy])).asr.python).toBe("/D/asr-venv/bin/python");
+  // models/asr есть (прерванная копия/другая модель), а весов нужной модели нет → local_models
+  const partial = have([`${MM}/asr`, `${MM}/asr/whisper-large-v3-turbo`, `${MM}/asr/whisper-large-v3-turbo/config.json`, ...ready(LM, "whisper-large-v3-turbo")]);
+  expect(loadConfig(env, undefined, partial).asr.modelsDir).toBe(LM);
+  // модель не из ./setup (whisper-large-v3-mlx, веса .npz) — берётся из local_models, хотя turbo уже в папке материалов
+  const mlx = have([...ready(MM, "whisper-large-v3-turbo"), ...ready(LM, "whisper-large-v3-mlx", "weights.npz")]);
+  expect(loadConfig(env, { asr: { model: "whisper-large-v3-mlx" } }, mlx).asr).toMatchObject({ model: "whisper-large-v3-mlx", modelsDir: LM });
+  expect(loadConfig(env, undefined, mlx).asr.modelsDir).toBe(MM);
+  // нигде нет — папка материалов (doctor/capability подскажут ./setup)
+  expect(loadConfig(env, { asr: { model: "whisper-large-v3-mlx" } }, have([])).asr.modelsDir).toBe(MM);
+});
+
+it("env переопределяет пути ASR; AI_PLATFORM_ROOT — воркер из ai-platform (совместимость)", () => {
+  const c = loadConfig({ MS_DATA_DIR: root, AIP_MODELS_DIR: "/x", AI_PLATFORM_ROOT: "/aip", AIP_MONTAGE_ASR_PYTHON: "/py" }, undefined, none);
+  expect(c.asr).toMatchObject({ modelsDir: "/x", aiPlatformRoot: "/aip", worker: "/aip/app/platform/aiplatform/montage/asr_worker.py", python: "/py" });
 });
 
 it("умолчания медиа, чернового монтажа, планирования, анализа", () => {
@@ -65,7 +111,7 @@ it("пути ASR и корни импорта: `~` раскрывается, о�
   const c = loadConfig({ MS_DATA_DIR: root, HOME: "/Users/u", AIP_MODELS_DIR: "~/models" }, {
     asr: { python: "~/py/bin/python", aiPlatformRoot: "~" }, media: { importRoots: ["~/Movies", "/Volumes/X"] },
   });
-  expect(c.asr).toMatchObject({ python: "/Users/u/py/bin/python", aiPlatformRoot: "/Users/u", modelsDir: "/Users/u/models" });
+  expect(c.asr).toMatchObject({ python: "/Users/u/py/bin/python", aiPlatformRoot: "/Users/u", worker: "/Users/u/app/platform/aiplatform/montage/asr_worker.py", modelsDir: "/Users/u/models" });
   expect(c.media.importRoots).toEqual(["/Users/u/Movies", "/Volumes/X"]);
   expect(() => loadConfig({ MS_DATA_DIR: root }, { asr: { python: "venv/bin/python" } })).toThrow(/asr\.python.*абсолютн/);
   expect(() => loadConfig({ MS_DATA_DIR: root, AI_PLATFORM_ROOT: "ai-platform" })).toThrow(/asr\.aiPlatformRoot.*абсолютн/);

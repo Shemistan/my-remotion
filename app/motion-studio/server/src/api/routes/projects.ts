@@ -17,6 +17,7 @@ import * as projects from "../../db/repos/projects.js";
 import * as scenes from "../../db/repos/scenes.js";
 import { tx } from "../../db/tx.js";
 import { enqueue } from "../../jobs/queue.js";
+import { lifecycleOf, listProjects } from "../../projects/lifecycle.js";
 import { versionHistoryDigest } from "../../scenes/history.js";
 import { sceneRel } from "../../scenes/store.js";
 import { type ApiContext, IdParams, QueryBool, type ZApp, idempotencyKey, inputField, replay } from "../context.js";
@@ -27,9 +28,10 @@ const RECENT_EXPORTS = 20;
 
 export function projectRoutes(app: ZApp, { core }: ApiContext): void {
   app.get("/api/projects", {
-    schema: { querystring: z.object({ includeBench: QueryBool.optional() }).strict(), response: { 200: z.array(ProjectDtoSchema) } },
+    // Task 47: `view` — активные (по умолчанию) или архив; удалённые — только в `GET /trash`
+    schema: { querystring: z.object({ includeBench: QueryBool.optional(), view: z.enum(["active", "archived"]).optional() }).strict(), response: { 200: z.array(ProjectDtoSchema) } },
   }, async (req) => {
-    const all = projects.list(core.db);
+    const all = listProjects(core.db, req.query.view ?? "active");
     return req.query.includeBench ? all : all.filter((p) => !projects.isBenchProject(p.id));
   });
 
@@ -44,7 +46,8 @@ export function projectRoutes(app: ZApp, { core }: ApiContext): void {
   app.get("/api/projects/:id", { schema: { params: IdParams, response: { 200: ProjectDetailDtoSchema } } }, async (req) => {
     const db = core.db;
     const project = projects.get(db, req.params.id);
-    if (!project) throw notFound(`проект ${req.params.id}`);
+    // проект в корзине (Task 47) открывается только после восстановления
+    if (!project || lifecycleOf(db, project.id)?.deleted_at) throw notFound(`проект ${req.params.id}`);
     const list = scenes.listByProject(db, project.id).map((s) => {
       const history = versionHistoryDigest(db, core.root, s.id);
       const current = s.current_version_id ? history.find((h) => h.version_id === s.current_version_id) ?? null : null;

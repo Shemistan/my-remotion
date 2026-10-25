@@ -14,9 +14,11 @@ import { installViteDev } from "./dev-vite.js";
 import { installErrorHandler } from "./errors.js";
 import { approvalRoutes } from "./routes/approvals.js";
 import { chatRoutes } from "./routes/chat.js";
+import { diagnosticsRoutes } from "./routes/diagnostics.js";
 import { edlRoutes } from "./routes/edls.js";
 import { eventRoutes } from "./routes/events.js";
 import { exportRoutes } from "./routes/exports.js";
+import { finalExportRoutes } from "./routes/final-exports.js";
 import { footageRoutes } from "./routes/footage.js";
 import { type HealthProbes, healthRoutes } from "./routes/health.js";
 import { jobRoutes } from "./routes/jobs.js";
@@ -24,14 +26,19 @@ import { kbRoutes } from "./routes/kb.js";
 import { mediaRoutes } from "./routes/media.js";
 import { planRoutes } from "./routes/plans.js";
 import { projectStyleRoutes } from "./routes/project-style.js";
+import { projectLifecycleRoutes } from "./routes/project-lifecycle.js";
 import { projectRoutes } from "./routes/projects.js";
+import { recoveryRoutes } from "./routes/recovery.js";
 import { sceneRoutes } from "./routes/scenes.js";
 import { scriptBatchRoutes } from "./routes/script-batch.js";
 import { scriptTextRoutes } from "./routes/script-text.js";
 import { semanticRoutes } from "./routes/semantic.js";
 import { settingsRoutes } from "./routes/settings.js";
+import { timelineRoutes } from "./routes/timelines.js";
 import { transcriptRoutes } from "./routes/transcripts.js";
 import { versionRoutes } from "./routes/versions.js";
+import { videoBatchRoutes } from "./routes/video-batch.js";
+import { videoPackageRoutes } from "./routes/video-package.js";
 import { videoProjectRoutes } from "./routes/video-projects.js";
 import { installSecurity } from "./security.js";
 import { SSE_HEARTBEAT_MS, sseStreams } from "./sse.js";
@@ -90,6 +97,14 @@ export async function buildApp(core: Core, opts: BuildAppOptions = { port: PORT 
   // сценарный проект
   scriptTextRoutes(app, ctx);
   scriptBatchRoutes(app, ctx);
+  // Phase 4–6 (Task 35′ — заглушки без путей; тела — задачи 40, 5L, 45, 47, 48)
+  videoBatchRoutes(app, ctx);
+  videoPackageRoutes(app, ctx);
+  timelineRoutes(app, ctx);
+  finalExportRoutes(app, ctx);
+  projectLifecycleRoutes(app, ctx);
+  recoveryRoutes(app, ctx);
+  diagnosticsRoutes(app, ctx);
   eventRoutes(app, ctx, sse);
 
   if (opts.dev) await installViteDev(app, WEB_ROOT, opts.port);

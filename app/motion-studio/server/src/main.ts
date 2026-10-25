@@ -1,7 +1,7 @@
 // Точка входа сервера (`npm start`, `npm run dev`): `bootCore({ kind: "server" })` (ADR 0007
 // п. 5: owner-lock → хранилище → БД → реестр → восстановление → раннер с обработчиками задач)
 // → Control API → `listen` только на 127.0.0.1 (порт — `server.port` config.json, по умолчанию 8790). SIGTERM/SIGINT: API закрывается (SSE-потоки
-// тоже), раннер прерывает попытки, БД закрывается, owner-lock освобождается.
+// тоже), раннер прерывает попытки, БД закрывается, пишется маркер чистой остановки (Task 47), owner-lock освобождается.
 // `--dev` — Vite middleware (Q7), иначе статика `web/dist`.
 import { pathToFileURL } from "node:url";
 import { buildApp } from "./api/app.js";
@@ -10,6 +10,7 @@ import type { AppConfig } from "./config.js";
 import { exportVersion } from "@ms/render";
 import { registerHandlers } from "./jobs/handlers.js";
 import { testHooks } from "./jobs/test-hooks.js";
+import { bootSummary } from "./recovery/boot-report.js";
 
 export const HOST = "127.0.0.1";
 
@@ -39,6 +40,11 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv): Promise<void
     // раннер уже взял их в работу: это возобновление после сбоя, платные агенты могут запуститься
     log(`внимание: в очереди при старте ${q.pending} pending и ${q.running} running — раннер возобновит их сам (отмена: POST /api/jobs/:id/cancel)`);
     for (const j of q.jobs) log(`  ${j.id} ${j.type} ${j.status} (создана ${j.created_at})`);
+  }
+  if (core.bootReport.crashed) {
+    // Task 47: прежний запуск не остановлен штатно — итог восстановления (подробности — /recovery в UI)
+    const sm = bootSummary(core.bootReport.report);
+    log(`внимание: прежний запуск завершился аварийно — возобновлено ${sm.recovered}, заблокировано ${sm.blocked}, не удалось ${sm.failed}, черновиков в карантине ${sm.quarantined} (центр восстановления: /recovery)`);
   }
   if (core.reaped.alive.length > 0) log(`предупреждение: живы процессы прежних попыток: ${core.reaped.alive.map((p) => p.pid).join(", ")}`);
 

@@ -32,18 +32,40 @@ export interface AssetPolicy {
   /** Порт сервера бандла Remotion (MS_BUNDLE_PORT): http://localhost|127.0.0.1:<порт>. */
   bundlePort: number;
   /**
-   * Точка расширения Phase 4/5 — пока НЕ реализована, installAssetGuard её отвергает.
-   *
-   * Финальная склейка (композиция пакета рендера — доверенный код, не сцена агента)
-   * получает id медиа через провалидированные inputProps. Worker поднимает свой
-   * loopback-медиасервер, который отдаёт только явный allowlist `{token → realpath}`,
-   * собранный оркестратором из EDL: без листинга каталогов и без редиректов. Его origin
-   * передаётся сюда (`origin`, `tokens` — разрешённые пути `/<token>`) и в allowlist
-   * chrome-wrapper.sh. Сцены агента по-прежнему получают медиа только через import.
-   * Файловых путей и file:// политика не пропускает: Remotion их всё равно не качает,
-   * а доступ к MS_DATA_DIR целиком был бы шире нужного.
+   * Медиасервер worker таймлайна (Task 36, F9). Композиция `ProjectTimeline` — доверенный код
+   * пакета рендера, не сцена агента: master и звук монтажа она получает по URL из inputProps.
+   * worker-timeline.ts поднимает loopback-медиасервер (`serveMedia`, `127.0.0.1:0`), который
+   * отдаёт только явный allowlist ключей по пути `/<token>/<key>`: без листинга и редиректов.
+   * Политика пропускает ровно его `origin` и пути `/<token>/<key>` с токенами из `tokens` (без
+   * query, учётных данных и кодированных разделителей). Chrome медиасервер не нужен:
+   * `OffthreadVideo` ходит в `/proxy` сервера бандла, а `<Audio>` при рендере качает Node, —
+   * поэтому в allowlist chrome-wrapper.sh его нет. Сцены агента по-прежнему получают медиа только
+   * через import. Файловых путей и file:// политика не пропускает: Remotion их всё равно не
+   * качает, а доступ к MS_DATA_DIR целиком был бы шире нужного.
    */
   media?: { origin: string; tokens: ReadonlySet<string> };
+}
+
+/** Токен пути медиасервера: 32 hex (`serveMedia`). */
+export const MEDIA_TOKEN = /^[0-9a-f]{32}$/;
+/** Путь файла медиасервера: `/<token>/<key>`, ключ — `[A-Za-z0-9_-]{1,64}`. */
+const MEDIA_PATH = /^\/([0-9a-f]{32})\/[A-Za-z0-9_-]{1,64}$/;
+
+/** Бросает, если `media` политики — не loopback-origin `http://127.0.0.1:<порт>` с токенами 32 hex. */
+export function assertMediaPolicy(media: NonNullable<AssetPolicy["media"]>): void {
+  let url: URL;
+  try {
+    url = new URL(media.origin);
+  } catch {
+    throw new Error(`render: AssetPolicy.media.origin не URL: ${JSON.stringify(media.origin)}`);
+  }
+  if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || url.port === "") {
+    throw new Error(`render: медиасервер только http://127.0.0.1:<порт>, а не ${media.origin}`);
+  }
+  if (url.origin !== media.origin) throw new Error(`render: AssetPolicy.media.origin — только origin без пути: ${media.origin}`);
+  if (media.tokens.size === 0 || [...media.tokens].some((t) => !MEDIA_TOKEN.test(t))) {
+    throw new Error("render: токен медиасервера — 32 hex, хотя бы один");
+  }
 }
 
 /** Метка в тексте ошибки: по ней тесты и логи отличают блокировку от прочих сбоев. */
@@ -79,6 +101,12 @@ export function assetBlockReason(src: string, policy: AssetPolicy): string | nul
     return "не URL";
   }
   if (url.protocol !== "http:") return `схема ${url.protocol} запрещена`;
+  if (policy.media !== undefined && url.origin === policy.media.origin) {
+    if (url.username !== "" || url.password !== "") return "учётные данные в URL";
+    const m = MEDIA_PATH.exec(url.pathname);
+    if (m === null || url.search !== "" || url.hash !== "" || !policy.media.tokens.has(m[1]!)) return "путь медиасервера вне allowlist";
+    return null;
+  }
   if (!BUNDLE_HOSTS.has(url.hostname) || url.port !== String(policy.bundlePort)) return "адрес вне сервера бандла";
   if (url.username !== "" || url.password !== "") return "учётные данные в URL";
   if (safeDecode(url.pathname).toLowerCase().startsWith("/proxy")) return "вложенный /proxy";
@@ -125,7 +153,7 @@ type DownloadAsset = (o: { src: string }) => Promise<string>;
  * рендерер через `require`.
  */
 export function installAssetGuard(policy: AssetPolicy, onBlocked?: (message: string) => void): () => void {
-  if (policy.media !== undefined) throw new Error("render: AssetPolicy.media ещё не реализован (Phase 4/5)");
+  if (policy.media !== undefined) assertMediaPolicy(policy.media);
   const require = createRequire(import.meta.url);
   assertPinnedRenderer((require("@remotion/renderer/package.json") as { version?: unknown }).version);
   const index = require.resolve("@remotion/renderer");

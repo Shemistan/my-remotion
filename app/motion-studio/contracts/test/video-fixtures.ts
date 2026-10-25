@@ -1,4 +1,22 @@
-import type { TranscriptWord } from "../src/index.js";
+import type { ScenePlanItem, TranscriptWord } from "../src/index.js";
+
+/**
+ * Сцена плана видеопроекта (Phase 4–6, Task 35′): кадры 300–390 при 30 fps (10–13 с), ключевое
+ * слово на 11 с, цитата 10,2–12,5 с; поля — переопределяются.
+ */
+export function planItem(over: Partial<ScenePlanItem> = {}): ScenePlanItem {
+  return {
+    id: "sp_001", status: "accepted", origin: "agent", anchor_ids: ["a1"], start_word_id: "w_000100", end_word_id: "w_000130",
+    edited: { start_us: 10_000_000, end_us: 13_000_000 }, source: { start_us: 12_000_000, end_us: 15_000_000 }, frames: { start: 300, end: 390 },
+    segment_ids: ["seg_0001"], purpose: "показать рост", visual_type: "growth-decline", composition_mode: "overlay", zone: "lower_third",
+    rect: { x: 0.04, y: 0.7, w: 0.92, h: 0.24 },
+    key_terms: [{ text: "миллион", word_id: "w_000120", edited_at_us: 11_000_000 }], metaphor: "лестница",
+    complexity: 2, usefulness: 4, effort: 2, visual_load: 3,
+    evidence: [{ quote: "мы выросли до миллиона", start_word_id: "w_000101", end_word_id: "w_000125", edited: { start_us: 10_200_000, end_us: 12_500_000 } }],
+    face_overlap: { ratio: 0 }, style_id: "sty_1",
+    ...over,
+  };
+}
 
 export const F30 = { num: 30, den: 1 };
 export const NTSC = { num: 30000, den: 1001 };

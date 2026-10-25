@@ -5,7 +5,9 @@
 // (Apple Vision, Task 30: собран ли `npm run build:vision`, отвечает ли `--version`); KB_ROOT/KB_SOURCE_ROOT; StorageGuard
 // MS_DATA_DIR; Chrome Headless Shell (скачивается при отсутствии); `quick_check` studio.db;
 // owner-lock свободен. Итог — таблица (или `--json`), код 1 при любой ошибке; `degraded`
-// (нет vision-detect) и `warning` (хранилище на SSD вне папки материалов, S18) — предупреждения, код 0.
+// (нет vision-detect) и `warning` (хранилище на SSD вне папки материалов, S18; S19 — строка `deps`:
+// Node, ffmpeg/ffprobe или python/веса ASR взяты не из `.deps`/папки материалов, а из nvm, PATH или
+// прежних мест ai-platform — запасной путь до `./setup`) — предупреждения, код 0.
 // `--init` создаёт хранилище, `--adopt` привязывает его к новому тому после переноса (вывод —
 // StorageStatus в JSON). `--import-slice` (Q2): под owner lock открывает studio.db (миграции,
 // сверка store_id), закрывает незакрытые версии, доводит прерванные rename и регистрирует
@@ -13,7 +15,7 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -29,13 +31,15 @@ import {
   materialsAdvice,
   materialsRoot,
   StorageError,
+  isDepsNode,
+  resolveTool,
   type StorageEnv,
   type StorageStatus,
   type VolumeProbe,
 } from "@ms/core";
 import { ensureRenderBrowser, findOnPath } from "@ms/render";
 import { childEnv } from "../agents/env.js";
-import { type AppConfig, loadConfig, readConfigFile } from "../config.js";
+import { type AppConfig, LEGACY_ASR_PYTHON, LEGACY_MODELS_DIR, loadConfig, readConfigFile } from "../config.js";
 import { bindStoreId, quickCheck } from "../db/meta.js";
 import { migrate } from "../db/migrate.js";
 import { openDb } from "../db/open.js";
@@ -137,6 +141,16 @@ async function fullCheck(env: NodeJS.ProcessEnv, probe: VolumeProbe, browser: Br
   const rows: CheckRow[] = [];
   const row = (name: string, ok: boolean, status: string, detail: string) => rows.push({ name, ok, status: ok ? "ok" : status, detail });
   const root = env.MS_DATA_DIR?.trim();
+  // S19: что взято не из `.deps` / папки материалов (запасной путь до ./setup) — строка `deps`
+  const fallback: string[] = [];
+  const depsOk = (() => {
+    try {
+      return isDepsNode(process.execPath, env);
+    } catch {
+      return false;
+    }
+  })();
+  if (!depsOk) fallback.push(`node (${process.execPath})`);
 
   // node
   const major = Number(process.versions.node.split(".")[0]);
@@ -168,16 +182,23 @@ async function fullCheck(env: NodeJS.ProcessEnv, probe: VolumeProbe, browser: Br
     else rows.push(await claudeLogin(claude, cenv));
   }
 
-  // ffmpeg, ffprobe, энкодеры
-  const ffmpeg = await findOnPath("ffmpeg", env.PATH);
-  const ffprobe = await findOnPath("ffprobe", env.PATH);
-  for (const [name, bin] of [["ffmpeg", ffmpeg], ["ffprobe", ffprobe]] as const) {
-    if (!bin) {
-      row(name, false, "missing", `${name} не найден в PATH (brew install ffmpeg)`);
+  // ffmpeg, ffprobe (S19: `.deps/ffmpeg`, иначе PATH — с предупреждением), энкодеры
+  const tools = (["ffmpeg", "ffprobe"] as const).map((name) => {
+    try {
+      return [name, resolveTool(name, env)] as const;
+    } catch {
+      return [name, undefined] as const; // относительный MS_DEPS_DIR
+    }
+  });
+  const ffmpeg = tools[0]![1]?.path;
+  for (const [name, t] of tools) {
+    if (!t) {
+      row(name, false, "missing", `${name} не найден ни в .deps/ffmpeg, ни в PATH (./setup ставит закреплённую сборку)`);
       continue;
     }
+    if (t.source === "path") fallback.push(`${name} (PATH ${t.path})`);
     try {
-      row(name, true, "ok", firstLine(await exec(bin, ["-version"], { PATH: env.PATH }, 15_000)));
+      row(name, true, "ok", `${firstLine(await exec(t.path, ["-version"], { PATH: env.PATH }, 15_000))} (${t.path})`);
     } catch (e) {
       row(name, false, "error", errText(e));
     }
@@ -215,6 +236,10 @@ async function fullCheck(env: NodeJS.ProcessEnv, probe: VolumeProbe, browser: Br
   } catch (e) {
     row("asr", false, "error", errText(e));
   }
+
+  const home = env.HOME?.trim() || homedir();
+  if (config.asr.python === LEGACY_ASR_PYTHON(home)) fallback.push(`python ASR (${config.asr.python})`);
+  if (config.asr.modelsDir === LEGACY_MODELS_DIR) fallback.push(`веса ASR (${LEGACY_MODELS_DIR})`);
 
   // Apple Vision (Task 30): детектор лиц и рук для безопасных зон
   try {
@@ -258,6 +283,10 @@ async function fullCheck(env: NodeJS.ProcessEnv, probe: VolumeProbe, browser: Br
     row("owner_lock", false, "skipped", "хранилище недоступно");
   } else {
     rows.push(...(await dbAndLock(storage.root)));
+  }
+
+  if (fallback.length > 0) {
+    rows.push({ name: "deps", ok: true, status: "warning", detail: `не из .deps: ${fallback.join(", ")} — ./setup поставит зависимости в .deps и веса в папку материалов` });
   }
 
   const ok = rows.every((r) => r.ok);

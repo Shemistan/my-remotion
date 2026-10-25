@@ -1,0 +1,171 @@
+#!/bin/sh
+# Установка AI Motion Studio на этой машине (S19, ADR 0008): всё, что нужно приложению, — в проекте
+# (`.deps/`: Node, ffmpeg, Python-окружение ASR; node_modules с Chrome; vision-detect), тяжёлое —
+# веса моделей и хранилище — в папке материалов на SSD. Повторный запуск ничего не перекачивает.
+#
+#   ./setup            проверки системы → установка → итоговый doctor
+#   ./setup --check    только проверки и что уже стоит; ничего не ставит и не пишет
+#   ./setup --kb       ещё и исходники KB (templates/, official_skills/) без истории
+#
+# Хранилище — MS_DATA_DIR (по умолчанию <папка материалов>/store; создаётся `doctor --init`, если его нет).
+set -e
+cd "$(dirname "$0")" || exit 1
+REPO=$(pwd)
+APP="$REPO/app/motion-studio"
+. "$REPO/tools/setup/lib.sh"
+. "$REPO/tools/setup/manifest.sh"
+
+MODE=install
+KB=0
+for a in "$@"; do
+  case "$a" in
+    --check) MODE=check ;;
+    --kb) KB=1 ;;
+    -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "setup: неизвестный флаг $a (есть --check, --kb)" >&2; exit 2 ;;
+  esac
+done
+
+DEPS=${MS_DEPS_DIR:-$REPO/.deps}
+DL="$DEPS/.downloads"
+NODE_V=$(cat "$APP/.nvmrc")
+MATERIALS=$(ms_materials_root)
+STORE=${MS_DATA_DIR:-$MATERIALS/store}
+MODEL_DIR="$MATERIALS/models/asr/$ASR_MODEL"
+MODEL_STAMP="$MODEL_DIR/.ms-ready-$ASR_WEIGHTS_REV-$ASR_PROCESSOR_REV"
+LOCK="$APP/tools/asr-worker/requirements.lock"
+ASR_STAMP_WANT="$(ms_sha256 "$LOCK") python$ASR_PYTHON"
+UV="$DEPS/uv/uv"
+
+echo "Проверки системы"
+SETUP_FAILS=0
+ms_check_platform || SETUP_FAILS=1
+ms_check_clt || SETUP_FAILS=1
+ms_check_claude || SETUP_FAILS=1
+ms_check_ssd || SETUP_FAILS=1
+if [ "$NODE_V" != "$NODE_VERSION" ]; then
+  ms_bad "app/motion-studio/.nvmrc = $NODE_V, а в tools/setup/manifest.sh — Node $NODE_VERSION: обновите NODE_VERSION и NODE_SHA256"
+  SETUP_FAILS=1
+fi
+if [ "$SETUP_FAILS" -ne 0 ]; then
+  echo "setup: исправьте пункты ✗ выше и запустите ./setup снова" >&2
+  exit 1
+fi
+
+state() { if "$@"; then echo "есть"; else echo "нет"; fi; }
+if [ "$MODE" = check ]; then
+  echo "Установлено (./setup поставит недостающее)"
+  ms_info "Node $NODE_V ($DEPS/node): $(state ms_node_ok "$DEPS/node" "$NODE_V")"
+  ms_info "node_modules и Chrome ($APP/node_modules): $(state test -f "$APP/node_modules/.package-lock.json")"
+  ms_info "ffmpeg $FFMPEG_VERSION ($DEPS/ffmpeg): $(state ms_ffmpeg_ok "$DEPS/ffmpeg" "$FFMPEG_BUILD")"
+  ms_info "окружение ASR ($DEPS/asr-venv): $(state ms_stamp_ok "$DEPS/asr-venv/.ms-lock" "$ASR_STAMP_WANT")"
+  ms_info "vision-detect: $(state test -x "$APP/tools/vision-detect/bin/vision-detect")"
+  ms_info "веса $ASR_MODEL ($MODEL_DIR): $(state test -f "$MODEL_STAMP")"
+  ms_info "хранилище ($STORE): $(state test -f "$STORE/.motion-studio-store.json")"
+  ms_info "хуки репозитория (bootstrap.sh): $(state ms_hooks_ok)"
+  exit 0
+fi
+
+T0=$(date +%s)
+mkdir -p "$DEPS"
+
+install_node() {
+  if ms_node_ok "$DEPS/node" "$NODE_V"; then ms_info "уже стоит: $("$DEPS/node/bin/node" --version)"; return 0; fi
+  nf="node-v$NODE_V-darwin-arm64.tar.gz"
+  # sha256 — закреплённый в manifest.sh и он же в SHASUMS256.txt nodejs.org
+  curl -fsSL --retry 3 "https://nodejs.org/dist/v$NODE_V/SHASUMS256.txt" | grep -q "^$NODE_SHA256  $nf\$" ||
+    { ms_bad "sha256 $nf из manifest.sh нет в SHASUMS256.txt nodejs.org"; return 1; }
+  ms_fetch "https://nodejs.org/dist/v$NODE_V/$nf" "$DL/$nf" "$NODE_SHA256" || return 1
+  rm -rf "$DEPS/.node.tmp" && mkdir -p "$DEPS/.node.tmp" || return 1
+  tar -xzf "$DL/$nf" -C "$DEPS/.node.tmp" || return 1
+  rm -rf "$DEPS/node" && mv "$DEPS/.node.tmp/node-v$NODE_V-darwin-arm64" "$DEPS/node" || return 1
+  rm -rf "$DEPS/.node.tmp"
+  ms_node_ok "$DEPS/node" "$NODE_V" || { ms_bad "Node из $nf не запускается"; return 1; }
+  ms_ok "Node $("$DEPS/node/bin/node" --version)"
+}
+
+install_ffmpeg() {
+  if ms_ffmpeg_ok "$DEPS/ffmpeg" "$FFMPEG_BUILD"; then ms_info "уже стоит: $("$DEPS/ffmpeg/ffmpeg" -version | head -1)"; return 0; fi
+  ms_fetch "$FFMPEG_BASE/ffmpeg.zip" "$DL/ffmpeg-$FFMPEG_BUILD.zip" "$FFMPEG_ZIP_SHA256" || return 1
+  ms_fetch "$FFMPEG_BASE/ffprobe.zip" "$DL/ffprobe-$FFMPEG_BUILD.zip" "$FFPROBE_ZIP_SHA256" || return 1
+  rm -rf "$DEPS/.ffmpeg.tmp" && mkdir -p "$DEPS/.ffmpeg.tmp" || return 1
+  unzip -oq "$DL/ffmpeg-$FFMPEG_BUILD.zip" -d "$DEPS/.ffmpeg.tmp" || return 1
+  unzip -oq "$DL/ffprobe-$FFMPEG_BUILD.zip" -d "$DEPS/.ffmpeg.tmp" || return 1
+  "$DEPS/.ffmpeg.tmp/ffmpeg" -version | head -1 | grep -q "ffmpeg version $FFMPEG_VERSION" ||
+    { ms_bad "скачанный ffmpeg — не $FFMPEG_VERSION"; return 1; }
+  echo "$FFMPEG_BUILD" > "$DEPS/.ffmpeg.tmp/.build" || return 1
+  rm -rf "$DEPS/ffmpeg" && mv "$DEPS/.ffmpeg.tmp" "$DEPS/ffmpeg" || return 1
+  ms_ok "$("$DEPS/ffmpeg/ffmpeg" -version | head -1)"
+}
+
+install_asr() {
+  if ms_stamp_ok "$DEPS/asr-venv/.ms-lock" "$ASR_STAMP_WANT" && [ -x "$DEPS/asr-venv/bin/python" ]; then
+    ms_info "уже стоит: $("$DEPS/asr-venv/bin/python" --version)"; return 0
+  fi
+  if ! ms_stamp_ok "$DEPS/uv/.version" "$UV_VERSION"; then
+    ms_fetch "$UV_URL" "$DL/uv-$UV_VERSION.tar.gz" "$UV_SHA256" || return 1
+    rm -rf "$DEPS/uv" && mkdir -p "$DEPS/uv" || return 1
+    tar -xzf "$DL/uv-$UV_VERSION.tar.gz" -C "$DEPS/uv" --strip-components 1 || return 1
+    echo "$UV_VERSION" > "$DEPS/uv/.version" || return 1
+  fi
+  # Python и кэш uv — тоже в .deps: ничего не ставится в ~/.local
+  export UV_PYTHON_INSTALL_DIR="$DEPS/python" UV_CACHE_DIR="$DEPS/.cache/uv" UV_NO_CONFIG=1
+  rm -rf "$DEPS/asr-venv"
+  "$UV" venv --quiet --python "$ASR_PYTHON" --python-preference only-managed "$DEPS/asr-venv" || return 1
+  "$UV" pip sync --quiet --require-hashes --python "$DEPS/asr-venv/bin/python" "$LOCK" || return 1
+  "$DEPS/asr-venv/bin/python" -I -c "import mlx.core, mlx_audio, transformers" ||
+    { ms_bad "окружение ASR не импортирует mlx/mlx_audio"; return 1; }
+  echo "$ASR_STAMP_WANT" > "$DEPS/asr-venv/.ms-lock" || return 1
+  ms_ok "окружение ASR: $("$DEPS/asr-venv/bin/python" --version), mlx-audio по $LOCK"
+}
+
+install_model() {
+  if [ -f "$MODEL_STAMP" ]; then ms_info "уже на SSD: $MODEL_DIR"; return 0; fi
+  part="$MODEL_DIR.partial"
+  src="$AIP_MODELS_DIR_RO/asr/$ASR_MODEL"
+  mkdir -p "$MATERIALS/models/asr" || return 1
+  rm -rf "$part"
+  if [ -f "$src/.aip-$ASR_WEIGHTS_REV" ] && [ -f "$src/.aip-processor-$ASR_PROCESSOR_REV" ]; then
+    # те же репозитории и ревизии уже скачаны ai-platform — копия (clonefile на том же томе APFS)
+    ms_info "копирую из $src (только чтение)"
+    cp -cR "$src" "$part" 2>/dev/null || { rm -rf "$part"; cp -R "$src" "$part"; } || return 1
+    rm -rf "$part/.cache"
+  else
+    ms_info "скачиваю $ASR_WEIGHTS_REPO@$ASR_WEIGHTS_REV и $ASR_PROCESSOR_REPO@$ASR_PROCESSOR_REV"
+    # shellcheck disable=SC2086
+    HF_HOME="$MATERIALS/models/.hf-cache" "$DEPS/asr-venv/bin/hf" download "$ASR_WEIGHTS_REPO" --revision "$ASR_WEIGHTS_REV" --local-dir "$part" >/dev/null &&
+      HF_HOME="$MATERIALS/models/.hf-cache" "$DEPS/asr-venv/bin/hf" download "$ASR_PROCESSOR_REPO" $ASR_PROCESSOR_FILES --revision "$ASR_PROCESSOR_REV" --local-dir "$part" >/dev/null ||
+      { ms_bad "веса не скачались (нужна сеть к Hugging Face)"; return 1; }
+    rm -rf "$part/.cache"
+  fi
+  [ -f "$part/config.json" ] || { ms_bad "в $part нет config.json"; return 1; }
+  # как ai-platform: процессор загружается из папки весов (ловит неполный набор файлов)
+  "$DEPS/asr-venv/bin/python" -I -c 'import sys; from transformers import WhisperProcessor; WhisperProcessor.from_pretrained(sys.argv[1])' "$part" >/dev/null 2>&1 ||
+    { ms_bad "WhisperProcessor не загрузился из $part"; return 1; }
+  touch "$part/$(basename "$MODEL_STAMP")" || return 1
+  rm -rf "$MODEL_DIR" && mv "$part" "$MODEL_DIR" || return 1
+  ms_ok "веса $ASR_MODEL: $MODEL_DIR"
+}
+
+install_store() {
+  if [ -f "$STORE/.motion-studio-store.json" ]; then ms_info "уже есть: $STORE"; return 0; fi
+  ms_check_not_system_disk "$STORE" "хранилище (MS_DATA_DIR)" || return 1
+  MS_DATA_DIR="$STORE" "$APP/scripts/with-node.sh" sh -c "cd '$APP' && npm run --silent doctor -- --init"
+}
+
+echo "Установка (зависимости — $DEPS, тяжёлое — $MATERIALS)"
+ms_step "Node $NODE_V" "$DEPS/node" install_node
+ms_step "npm ci и Chrome Headless Shell" "$APP/node_modules" make -s -C "$APP" node_modules/.package-lock.json
+ms_step "ffmpeg $FFMPEG_VERSION" "$DEPS/ffmpeg" install_ffmpeg
+ms_step "окружение ASR (mlx-audio)" "$DEPS/asr-venv" install_asr
+ms_step "vision-detect" "$APP/tools/vision-detect/bin" make -s -C "$APP" tools/vision-detect/bin/vision-detect
+ms_step "веса $ASR_MODEL на SSD" "$MODEL_DIR" install_model
+ms_step "хранилище" "$STORE" install_store
+if [ "$KB" = 1 ]; then ms_step "исходники KB" "$REPO/templates" ms_install_kb "$REPO" "$REPO/tools/setup/kb-sources.tsv"; fi
+ms_step "хуки git" "$REPO/.githooks" sh "$REPO/bootstrap.sh"
+# архивы распакованы и сверены; повторный ./setup проверяет установленное и их не скачивает
+rm -rf "$DL"
+printf 'Итого: %s с; .deps %s\n' "$(($(date +%s) - T0))" "$(ms_size "$DEPS")"
+
+echo "doctor"
+MS_DATA_DIR="$STORE" "$APP/scripts/with-node.sh" sh -c "cd '$APP' && npm run --silent doctor"

@@ -1,12 +1,11 @@
-// Разовые вызовы системного ffmpeg (проверки экспорта: альфа угла, сверка темпа). С `run` —
+// Разовые вызовы ffmpeg (S19: `.deps/ffmpeg`, иначе PATH) (проверки экспорта: альфа угла, сверка темпа). С `run` —
 // через spawnTracked: процесс в реестре попытки, отменяется её сигналом (правило Task 13
 // «все дочерние процессы через реестр»); без `run` (CLI, тесты) — execFile.
 import { execFile } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { safeMkdir, spawnTracked } from "@ms/core";
-import { findOnPath } from "./ffprobe.js";
+import { resolveTool, safeMkdir, spawnTracked } from "@ms/core";
 import type { RunRef } from "./render-version.js";
 
 export const FFMPEG_TIMEOUT_MS = 60_000;
@@ -31,10 +30,11 @@ export class FfmpegError extends Error {
   }
 }
 
+/** ffmpeg: закреплённая сборка `.deps/ffmpeg` (S19), иначе системный из PATH. */
 export async function ffmpegBin(): Promise<string> {
-  const bin = await findOnPath("ffmpeg");
-  if (!bin) throw new FfmpegError("failed", "render: ffmpeg не найден в PATH (brew install ffmpeg)");
-  return bin;
+  const t = resolveTool("ffmpeg");
+  if (!t) throw new FfmpegError("failed", "render: ffmpeg не найден ни в .deps/ffmpeg, ни в PATH (./setup ставит закреплённую сборку в .deps/ffmpeg)");
+  return t.path;
 }
 
 /** Временный каталог проверки: у попытки — в `run/tmp` хранилища, иначе системный. */

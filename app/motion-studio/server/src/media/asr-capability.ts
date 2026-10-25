@@ -1,5 +1,6 @@
-// Доступность ASR (Task 26): python окружения mlx-audio, воркер ai-platform с закреплённым
-// sha256 (контракт), веса модели на томе моделей, коммит ai-platform (справочно), занятость
+// Доступность ASR (Task 26, S19): python окружения mlx-audio, воркер (копия в проекте или
+// ai-platform) с закреплённым sha256 (контракт), веса модели на томе моделей, коммит ai-platform
+// (справочно: у копии — коммит, с которого она снята), занятость
 // порта ai-platform 8780 (R15: возможна конкуренция за GPU — предупреждение, не отказ).
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
@@ -7,7 +8,7 @@ import { access, realpath } from "node:fs/promises";
 import { connect } from "node:net";
 import { join, sep } from "node:path";
 import { promisify } from "node:util";
-import type { AsrConfig } from "../config.js";
+import { ASR_WORKER_SOURCE_COMMIT, type AsrConfig } from "../config.js";
 import { sha256File as hashFile } from "../scenes/hash.js";
 import { modelDir, workerPath } from "./asr-adapter.js";
 
@@ -83,20 +84,20 @@ function volumeOf(path: string): string | undefined {
  */
 export async function asrCapability(cfg: AsrConfig, deps: AsrCapabilityDeps = defaultCapabilityDeps, o: { model?: AsrModel } = {}): Promise<AsrCapability> {
   const no = (reason: AsrUnavailableReason, detail: string): AsrCapability => ({ available: false, reason, detail });
-  if (!(await deps.exists(cfg.python))) return no("python_missing", `python окружения mlx-audio не найден: ${cfg.python} (asr.python / AIP_MONTAGE_ASR_PYTHON)`);
+  if (!(await deps.exists(cfg.python))) return no("python_missing", `python окружения mlx-audio не найден: ${cfg.python} (./setup ставит .deps/asr-venv; asr.python / AIP_MONTAGE_ASR_PYTHON)`);
   const worker = workerPath(cfg);
-  if (!(await deps.exists(worker))) return no("worker_missing", `воркер ASR ai-platform не найден: ${worker} (asr.aiPlatformRoot / AI_PLATFORM_ROOT)`);
+  if (!(await deps.exists(worker))) return no("worker_missing", `воркер ASR не найден: ${worker} (копия — tools/asr-worker; asr.aiPlatformRoot / AI_PLATFORM_ROOT)`);
   const sha = await deps.sha256File(worker);
   if (sha !== cfg.expectedWorkerSha256) {
     return no("asr_contract_changed", `sha256 ${worker} = ${sha}, закреплён ${cfg.expectedWorkerSha256}: контракт воркера мог измениться — сверить вывод и обновить asr.expectedWorkerSha256`);
   }
   const vol = volumeOf(cfg.modelsDir);
   if (vol && !(await deps.exists(vol))) return no("models_volume_offline", `том моделей не подключён: ${vol} (asr.modelsDir ${cfg.modelsDir})`);
-  if (!(await deps.exists(cfg.modelsDir))) return no("model_missing", `каталога моделей нет: ${cfg.modelsDir}`);
+  if (!(await deps.exists(cfg.modelsDir))) return no("model_missing", `каталога моделей нет: ${cfg.modelsDir} (./setup кладёт веса в папку материалов models/)`);
   const model = o.model ?? cfg.model;
   const dir = modelDir(cfg, model);
-  if (!(await deps.exists(join(dir, "config.json")))) return no("model_missing", `весов модели ${model} нет: ${dir}`);
-  const commit = await deps.gitHead(cfg.aiPlatformRoot).catch(() => "unknown");
+  if (!(await deps.exists(join(dir, "config.json")))) return no("model_missing", `весов модели ${model} нет: ${dir} (./setup)`);
+  const commit = cfg.aiPlatformRoot ? await deps.gitHead(cfg.aiPlatformRoot).catch(() => "unknown") : ASR_WORKER_SOURCE_COMMIT;
   const gpuContention = await deps.portBusy(AI_PLATFORM_PORT).catch(() => false);
   return { available: true, workerSha256: sha, commit, gpuContention };
 }

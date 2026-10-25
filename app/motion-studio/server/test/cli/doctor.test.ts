@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -63,6 +63,30 @@ function fakeBin(opts: { only?: string[]; cost?: number; encoders?: string[]; fi
     chmodSync(join(dir, name), 0o755);
   }
   return dir;
+}
+
+/**
+ * S19: окружение «после ./setup» — `.deps` с ffmpeg/ffprobe из `fakeBin` и python ASR, веса в папке
+ * материалов (временной). PATH — только claude, чтобы ffmpeg брался из `.deps`.
+ */
+function setupEnv(opts: Parameters<typeof fakeBin>[0] = {}): Record<string, string> {
+  const bin = fakeBin(opts);
+  const deps = join(tmp, `deps-${Math.random().toString(36).slice(2)}`);
+  mkdirSync(join(deps, "ffmpeg"), { recursive: true });
+  for (const n of ["ffmpeg", "ffprobe"]) {
+    if (existsSync(join(bin, n))) copyFileSync(join(bin, n), join(deps, "ffmpeg", n));
+  }
+  mkdirSync(join(deps, "asr-venv/bin"), { recursive: true });
+  writeFileSync(join(deps, "asr-venv/bin/python"), "#!/bin/sh\n");
+  writeFileSync(join(deps, "asr-venv/.ms-lock"), "lock\n"); // штамп полной установки
+  const materials = join(tmp, "mat", "moution-studio-materials");
+  const turbo = join(materials, "models/asr/whisper-large-v3-turbo");
+  mkdirSync(turbo, { recursive: true });
+  for (const f of ["config.json", "weights.safetensors"]) writeFileSync(join(turbo, f), "{}");
+  const claudeOnly = join(tmp, `path-${Math.random().toString(36).slice(2)}`);
+  mkdirSync(claudeOnly);
+  if (existsSync(join(bin, "claude"))) copyFileSync(join(bin, "claude"), join(claudeOnly, "claude"));
+  return { PATH: claudeOnly, MS_DEPS_DIR: deps, MS_MATERIALS_ROOT: materials };
 }
 
 type Check = { name: string; ok: boolean; status: string; detail: string };
@@ -138,10 +162,16 @@ describe("полный doctor (03 §7)", () => {
 
   it("всё в порядке: node, claude (версия и вход haiku), ffmpeg/ffprobe и энкодеры, KB, хранилище, Chrome, БД, owner-lock → код 0", async () => {
     const root = await store();
-    const r = await runDoctor(["--json"], { MS_DATA_DIR: root, PATH: fakeBin() }, probe, browser, asrOk, visionOk);
+    const r = await runDoctor(["--json"], { MS_DATA_DIR: root, ...setupEnv() }, probe, browser, asrOk, visionOk);
     const c = checks(r.output);
-    expect(Object.keys(c)).toEqual(["node", "claude", "claude_login", "ffmpeg", "ffprobe", "encoders", "filters", "asr", "vision", "kb", "storage", "chrome", "db", "owner_lock"]);
-    for (const x of Object.values(c)) expect(x, x.name).toMatchObject({ ok: true, status: "ok" });
+    // node тестов — из nvm, не из .deps: единственное предупреждение строки deps (S19)
+    expect(Object.keys(c)).toEqual(["node", "claude", "claude_login", "ffmpeg", "ffprobe", "encoders", "filters", "asr", "vision", "kb", "storage", "chrome", "db", "owner_lock", "deps"]);
+    for (const x of Object.values(c)) if (x.name !== "deps") expect(x, x.name).toMatchObject({ ok: true, status: "ok" });
+    expect(c.deps).toMatchObject({ ok: true, status: "warning" });
+    expect(c.deps!.detail).toMatch(/^не из \.deps: node \(/);
+    expect(c.deps!.detail).not.toMatch(/ffmpeg|python|local_models/);
+    expect(c.deps!.detail).toContain("./setup");
+    expect(c.ffmpeg!.detail).toMatch(/^ffmpeg version 7\.1\.1 .*\/deps-\w+\/ffmpeg\/ffmpeg\)$/);
     expect(c.claude!.detail).toContain("2.1.0");
     expect(c.claude_login!.detail).toMatch(/\$0\.002/);
     expect(c.chrome!.detail).toBe("/fake/chrome-headless-shell");
@@ -149,10 +179,28 @@ describe("полный doctor (03 §7)", () => {
     expect(JSON.parse(r.output)).toMatchObject({ ok: true, storage: { ok: true, root } });
     // без --json — таблица
     expect(c.asr!.detail).toMatch(/whisper-large-v3-turbo.*sha256 59b7e03bf5a8.*ai-platform 0456395/);
-    const t = await runDoctor([], { MS_DATA_DIR: root, PATH: fakeBin() }, probe, browser, asrOk, visionOk);
+    const t = await runDoctor([], { MS_DATA_DIR: root, ...setupEnv() }, probe, browser, asrOk, visionOk);
     expect(t.code).toBe(0);
+    expect(t.output).toMatch(/^warning\s+deps\s+/m);
     expect(t.output).toMatch(/^ok\s+node\s+/m);
     expect(t.output).toMatch(/^ok\s+owner_lock\s+/m);
+  });
+
+  it("S19: до ./setup — ffmpeg из PATH и прежний python ASR работают, но doctor предупреждает (код 0)", async () => {
+    const root = await store();
+    const home = join(tmp, "home");
+    const legacy = join(home, ".local/share/montage/mlx-audio-0.5.8/.venv/bin/python");
+    mkdirSync(join(legacy, ".."), { recursive: true });
+    writeFileSync(legacy, "#!/bin/sh\n");
+    const env = { MS_DATA_DIR: root, PATH: fakeBin(), HOME: home, MS_DEPS_DIR: join(tmp, "no-deps") };
+    const r = await runDoctor(["--json"], env, probe, browser, asrOk, visionOk);
+    const c = checks(r.output);
+    expect(c.ffmpeg).toMatchObject({ ok: true, status: "ok" });
+    expect(c.deps).toMatchObject({ ok: true, status: "warning" });
+    expect(c.deps!.detail).toMatch(/ffmpeg \(PATH .*\/ffmpeg\)/);
+    expect(c.deps!.detail).toMatch(/ffprobe \(PATH /);
+    expect(c.deps!.detail).toContain(`python ASR (${legacy})`);
+    expect(r.code).toBe(0);
   });
 
   it("вход Claude запускается в пустом временном каталоге, не в cwd процесса; каталог убран (F8)", async () => {

@@ -1,8 +1,9 @@
-// Технический gate превью: системный ffprobe → ProbeResult → сверка с настройками.
+// Технический gate превью: ffprobe (S19: `.deps/ffmpeg`, иначе PATH) → ProbeResult → сверка с настройками.
 import { execFile } from "node:child_process";
 import { access, constants } from "node:fs/promises";
 import { delimiter, isAbsolute, join } from "node:path";
 import type { Fps, ProbeResult, Settings } from "@ms/contracts";
+import { resolveTool } from "@ms/core";
 
 // Тип — из `@ms/contracts` (ProbeResultSchema); `audioCodec` и `pixFmt` нужны gate экспорта.
 export type { ProbeResult };
@@ -20,6 +21,8 @@ interface RawStream {
   nb_frames?: string;
   pix_fmt?: string;
   profile?: string;
+  sample_rate?: string;
+  channels?: number;
 }
 
 const ms = (seconds: number) => Math.round(seconds * 1_000_000) / 1000;
@@ -57,6 +60,8 @@ export function parseProbe(json: string): ProbeResult {
   if (seconds === undefined) throw new Error("ffprobe: длительность не определена");
   const audio = data.streams?.find((s) => s.codec_type === "audio" && s.codec_name);
   const audioSeconds = positive(audio?.duration);
+  const sampleRate = positive(audio?.sample_rate);
+  const channels = positive(audio?.channels);
   return {
     durationMs: ms(seconds),
     width: v.width,
@@ -67,6 +72,8 @@ export function parseProbe(json: string): ProbeResult {
     ...(v.pix_fmt ? { pixFmt: v.pix_fmt } : {}),
     ...(audio?.codec_name ? { audioCodec: audio.codec_name } : {}),
     ...(audioSeconds !== undefined ? { audioDurationMs: ms(audioSeconds) } : {}),
+    ...(sampleRate !== undefined && Number.isInteger(sampleRate) ? { audioSampleRate: sampleRate } : {}),
+    ...(channels !== undefined && Number.isInteger(channels) ? { audioChannels: channels } : {}),
   };
 }
 
@@ -85,11 +92,11 @@ export async function findOnPath(name: string, path = process.env.PATH ?? ""): P
   return undefined;
 }
 
-/** Абсолютный путь системного ffprobe; бросает, если его нет (проверка до spawn). */
+/** Абсолютный путь ffprobe (`.deps/ffmpeg`, иначе PATH); бросает, если его нет (проверка до spawn). */
 export async function ffprobeBin(): Promise<string> {
-  const bin = await findOnPath("ffprobe");
-  if (!bin) throw new Error("render: ffprobe не найден в PATH (brew install ffmpeg)");
-  return bin;
+  const t = resolveTool("ffprobe");
+  if (!t) throw new Error("render: ffprobe не найден ни в .deps/ffmpeg, ни в PATH (./setup ставит закреплённую сборку в .deps/ffmpeg)");
+  return t.path;
 }
 
 /**

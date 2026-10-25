@@ -1,5 +1,5 @@
 // bootCore (ADR 0007 п. 5, H6, H9, M6): owner_lock → storage → db → registry → reap →
-// sweep_drafts → relock_versions → reconcile_versions → reconcile_exports → recovery → sweep_uploads → runner.
+// sweep_drafts → reconcile_trash → relock_versions → reconcile_versions → reconcile_exports → recovery → sweep_uploads → boot_report → runner.
 import { existsSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -40,7 +40,7 @@ const opts = (over: Partial<BootOptions> = {}): BootOptions => ({ env: { MS_DATA
 it("step order (ADR 0007 п.5)", async () => {
   const steps: string[] = [];
   core = await bootCore(opts({ log: (x) => steps.push(x) }));
-  expect(steps).toEqual(["owner_lock", "storage", "db", "registry", "reap", "sweep_drafts", "relock_versions", "reconcile_versions", "reconcile_exports", "recovery", "sweep_uploads", "runner"]);
+  expect(steps).toEqual(["owner_lock", "storage", "db", "registry", "reap", "sweep_drafts", "reconcile_trash", "relock_versions", "reconcile_versions", "reconcile_exports", "recovery", "sweep_uploads", "boot_report", "runner"]);
   expect(core.storage.mode()).toBe("online");
   expect(core.registry).toBeInstanceOf(SqliteProcessRegistry);
   // хранилище занято, пока ядро живо

@@ -1,6 +1,10 @@
-# Команды корня репозитория. AI Motion Studio: `make run` → http://127.0.0.1:8790
+# Команды корня репозитория. AI Motion Studio: `make setup` (один раз), `make run` → http://127.0.0.1:8790
 # Хранилище — /Volumes/External SSD/moution-studio-materials/store (своё — MS_DATA_DIR=… make run).
-.PHONY: run doctor check
+.PHONY: setup run doctor check
+
+# Установка на этой машине (новый компьютер): проверки системы, зависимости в .deps/, веса на SSD.
+setup:
+	./setup
 
 # Запуск сервиса: ставит недостающие зависимости, собирает UI, стартует сервер (Ctrl+C — стоп).
 run:

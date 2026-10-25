@@ -10,6 +10,9 @@ export type Route =
   | { name: "kb"; q?: string; id?: string }
   | { name: "jobs"; status?: string }
   | { name: "settings" }
+  // Phase 6 (Task 35′): диагностика (Task 48), центр восстановления (Task 47)
+  | { name: "diagnostics" }
+  | { name: "recovery" }
   | { name: "notFound" };
 
 export function parseRoute(pathname: string, search: string): Route {
@@ -24,6 +27,8 @@ export function parseRoute(pathname: string, search: string): Route {
   if (head === "kb" && parts.length === 1) return { name: "kb", ...(opt("q") ? { q: opt("q")! } : {}), ...(opt("id") ? { id: opt("id")! } : {}) };
   if (head === "jobs" && parts.length === 1) return { name: "jobs", ...(opt("status") ? { status: opt("status")! } : {}) };
   if (head === "settings" && parts.length === 1) return { name: "settings" };
+  if (head === "diagnostics" && parts.length === 1) return { name: "diagnostics" };
+  if (head === "recovery" && parts.length === 1) return { name: "recovery" };
   return { name: "notFound" };
 }
 
@@ -42,6 +47,8 @@ export function href(r: Route): string {
     case "kb": return `/kb${qs({ q: r.q, id: r.id })}`;
     case "jobs": return `/jobs${qs({ status: r.status })}`;
     case "settings": return "/settings";
+    case "diagnostics": return "/diagnostics";
+    case "recovery": return "/recovery";
     case "notFound": return "/";
   }
 }

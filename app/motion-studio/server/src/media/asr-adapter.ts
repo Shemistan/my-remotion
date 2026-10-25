@@ -1,5 +1,5 @@
-// Адаптер ASR (Task 26): CLI-воркер ai-platform `asr_worker.py` подпроцессом. ai-platform не
-// меняется и не импортируется: только запуск python окружения mlx-audio с путём воркера и
+// Адаптер ASR (Task 26): CLI-воркер `asr_worker.py` подпроцессом — копия из ai-platform в
+// `tools/asr-worker/` (S19) или сам ai-platform (`asr.aiPlatformRoot`). Не импортируется: только запуск python окружения mlx-audio с путём воркера и
 // аргументами массивом (без shell). Процесс — через spawnTracked: своя группа, запись в реестре
 // попытки, отмена — SIGTERM группе и SIGKILL после паузы (ADR 0007). Env — allowlist childEnv +
 // PYTHONNOUSERSITE и офлайн-флаги Hugging Face; веса — только локальный каталог модели.
@@ -11,9 +11,8 @@ import type { AsrConfig } from "../config.js";
 import { AsrContractError, type AsrWorkerOutput, parseAsrOutput } from "./asr-contract.js";
 import type { RunRef } from "./ffmpeg.js";
 
-/** Путь воркера в ai-platform (контракт закреплён sha256 этого файла). */
-export const WORKER_REL = "app/platform/aiplatform/montage/asr_worker.py";
-export const workerPath = (cfg: Pick<AsrConfig, "aiPlatformRoot">): string => join(cfg.aiPlatformRoot, WORKER_REL);
+/** Путь воркера (контракт закреплён sha256 этого файла). */
+export const workerPath = (cfg: Pick<AsrConfig, "worker">): string => cfg.worker;
 export const modelDir = (cfg: Pick<AsrConfig, "modelsDir">, model: AsrConfig["model"]): string => join(cfg.modelsDir, "asr", model);
 
 /** Вход задачи не годится для воркера (hotwords, язык, пути) — отказ до запуска. */

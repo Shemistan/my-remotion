@@ -53,6 +53,9 @@ export const JobErrorCodeSchema = z.enum([
   "approval_required", "asr_unavailable", "asr_contract_changed", "asr_contract_violation", "asr_failed", "low_space", "media_invalid", "media_exists", "no_audio",
   // S7: package_empty — в папку пакета экспорта не вошло ни одной сцены (C10)
   "plan_exists", "semantic_skipped", "package_empty",
+  // Phase 4–6 (Task 35′): таймлайн устарел, сцена не готова, версия сломана, финал не прошёл проверку,
+  // задача без прогресса (сторож), проект занят задачей (удаление/архив)
+  "timeline_stale", "scene_not_ready", "version_failed", "verify_failed", "stalled", "project_busy",
 ]);
 export type JobErrorCode = z.infer<typeof JobErrorCodeSchema>;
 

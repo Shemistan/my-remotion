@@ -3,15 +3,18 @@
 //
 // Приоритет источников (фактическое правило кода):
 // - `kb.root`/`kb.sourceRoot` и пути `asr.*`: config.json > env (`KB_ROOT`, `KB_SOURCE_ROOT`,
-//   `AIP_MONTAGE_ASR_PYTHON`, `AI_PLATFORM_ROOT`, `AIP_MODELS_DIR`) > умолчание;
+//   `AIP_MONTAGE_ASR_PYTHON`, `AI_PLATFORM_ROOT`, `AIP_MODELS_DIR`) > умолчание (S19: зависимости
+//   проекта в `.deps/`, веса — в папке материалов; прежние места этой машины — запасной путь);
 // - второй дубль: env (`MS_SECOND_TAKE`, `MS_SECOND_TAKE_THRESHOLD`, для bench A/B) > config.json > умолчание;
-// - остальное (агенты, лимиты, сцена, media, roughcut, planning, analysis): config.json > умолчание, env не читается.
+// - остальное (агенты, лимиты, сцена, media, roughcut, planning, analysis, video, final, watchdog,
+//   cache, render): config.json > умолчание, env не читается.
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type Settings, SettingsSchema, defaultSettings } from "@ms/contracts";
-import { SSD_ROOT } from "@ms/core";
+import { JobTypeSchema, type Settings, SettingsSchema, defaultSettings } from "@ms/contracts";
+import { MATERIALS_ROOT, SSD_ROOT, depsRoots, materialsRoot } from "@ms/core";
 import { EXPORT_TIMEOUT_MS } from "@ms/render";
 import { z } from "zod";
 import { MAX_CALL_BUDGET_USD, MODEL_RE, ROLES, type Role } from "./agents/runtime.js";
@@ -57,13 +60,18 @@ const EXPORT_TIMEOUT_MAX_MS = 4 * 60 * 60_000;
 const LimitsSchema = z.object({ maxRunning: Count, agentCalls: Count, renders: Count, exportTimeoutMs: z.number().int().min(10_000).max(EXPORT_TIMEOUT_MAX_MS) }).partial().strict();
 
 /**
- * ASR (Task 26): CLI-воркер ai-platform подпроцессом; ai-platform не меняется. Пути — умолчания
- * этой машины, переопределяются env (`AIP_MONTAGE_ASR_PYTHON`, `AI_PLATFORM_ROOT`,
- * `AIP_MODELS_DIR`) или config.json. Контракт воркера закреплён sha256 `asr_worker.py`.
+ * ASR (Task 26, S19): CLI-воркер подпроцессом — копия `asr_worker.py` ai-platform в
+ * `tools/asr-worker/` (решение 1а: ai-platform на новой машине не нужен). Умолчания: python
+ * `.deps/asr-venv`, веса — `<папка материалов>/models`; переопределяются env
+ * (`AIP_MONTAGE_ASR_PYTHON`, `AI_PLATFORM_ROOT`, `AIP_MODELS_DIR`) или config.json.
+ * `aiPlatformRoot` (совместимость) — воркер берётся из ai-platform. Контракт — sha256 воркера.
  */
 export interface AsrConfig {
   python: string;
-  aiPlatformRoot: string;
+  /** Абсолютный путь `asr_worker.py`. */
+  worker: string;
+  /** Задан (env/config.json) — воркер из этого checkout ai-platform. */
+  aiPlatformRoot?: string;
   modelsDir: string;
   model: (typeof ASR_MODELS)[number];
   language: string;
@@ -80,6 +88,10 @@ export const ASR_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3-mlx"] as 
 export const ASR_WORKER_SHA256 = "59b7e03bf5a8b7f940b2607d357528e7120f5bb6bbe98efa70de4b39bdce1073";
 /** HEAD ai-platform, на котором сверен контракт воркера (справочно: коммит — не контракт, sha256 — да). */
 export const ASR_WORKER_VERIFIED_COMMIT = "3a2513a79736c1a910075418cb0d3b7098eee416";
+/** Последний коммит ai-platform, менявший `asr_worker.py`, — источник копии (S19). */
+export const ASR_WORKER_SOURCE_COMMIT = "e3024ac8ff250a02bf21a8229c4c1706c40ffd44";
+/** Путь воркера внутри ai-platform (для `aiPlatformRoot`). */
+export const AIP_WORKER_REL = "app/platform/aiplatform/montage/asr_worker.py";
 
 /** Импорт исходника (V2): корни для импорта по пути, прокси, шаг миниатюр. */
 export interface MediaConfig {
@@ -135,6 +147,27 @@ const PlanningFileSchema = z.object({
 }).partial().strict();
 const AnalysisFileSchema = z.object({ maxCostUsd: z.number().positive().max(MAX_CALL_BUDGET_USD), occupancyWindowUs: z.number().int().min(500_000).max(60_000_000) }).partial().strict();
 
+/**
+ * Phase 4–6 (Task 35′): превью сцены в контексте — поля вокруг сцены, кадров (`video`); финал —
+ * таймаут рендера и CRF CFR-мастера (`final`, F1); сторож прогресса — порог без прогресса по типу
+ * задачи, мс (`watchdog`, Task 49a; нет типа — сторож его не трогает); кэш кадров и мастеров —
+ * потолок, байт (`cache`); рендер — параллельность Remotion (`render.concurrency`, нет — по умолчанию Remotion).
+ */
+export interface VideoConfig { contextPadFrames: number }
+export interface FinalConfig { timeoutMs: number; masterCrf: number }
+export interface WatchdogConfig { noProgressMs: Record<string, number> }
+export interface CacheConfig { maxBytes: number }
+export interface RenderConfig { concurrency?: number }
+const VIDEO: VideoConfig = { contextPadFrames: 30 };
+const FINAL: FinalConfig = { timeoutMs: 7_200_000, masterCrf: 12 };
+const CACHE: CacheConfig = { maxBytes: 20 * 1024 ** 3 };
+const VideoFileSchema = z.object({ contextPadFrames: z.number().int().min(0).max(600) }).partial().strict();
+const FinalFileSchema = z.object({ timeoutMs: z.number().int().min(60_000).max(24 * 60 * 60_000), masterCrf: z.number().int().min(0).max(51) }).partial().strict();
+// ключи — только типы задач (zod 3: record по enum — частичный; опечатка в типе — отказ, а не тихий пропуск)
+const WatchdogFileSchema = z.object({ noProgressMs: z.record(JobTypeSchema, z.number().int().positive()) }).partial().strict();
+const CacheFileSchema = z.object({ maxBytes: z.number().int().min(0) }).partial().strict();
+const RenderFileSchema = z.object({ concurrency: z.number().int().min(1).max(16) }).partial().strict();
+
 /** Порт Control API по умолчанию; хост — только 127.0.0.1 (`main.ts`), в config.json его нет. */
 export const DEFAULT_PORT = 8790;
 /** `server.port` (S17b): непривилегированный порт; `host` и другие ключи — отказ (strict). */
@@ -157,6 +190,11 @@ export interface AppConfig {
   roughcut: RoughcutConfig;
   planning: PlanningConfig;
   analysis: AnalysisConfig;
+  video: VideoConfig;
+  final: FinalConfig;
+  watchdog: WatchdogConfig;
+  cache: CacheConfig;
+  render: RenderConfig;
 }
 
 const OPUS_ROLES: readonly Role[] = ["motion_director", "engineer"];
@@ -169,8 +207,17 @@ const AGENT_BUDGET_USD = 2;
 const REPO_ROOT = fileURLToPath(new URL("../../../../", import.meta.url)).replace(/\/$/, "");
 // Исходники KB лежат в main checkout; из worktree — это путь до `.claude/worktrees/`.
 const MAIN_CHECKOUT = REPO_ROOT.split("/.claude/worktrees/")[0]!;
-// ai-platform — соседний с main checkout репозиторий (только чтение и запуск воркера).
-const AI_PLATFORM_ROOT = join(dirname(MAIN_CHECKOUT), "ai-platform");
+/** Копия воркера ASR в проекте (S19, `tools/asr-worker/README.md`). */
+export const ASR_WORKER_COPY = join(REPO_ROOT, "app/motion-studio/tools/asr-worker/asr_worker.py");
+/** Прежние места этой машины (до `./setup`): окружение mlx-audio ai-platform и его веса. */
+export const LEGACY_ASR_PYTHON = (home: string): string => join(home, ".local/share/montage/mlx-audio-0.5.8/.venv/bin/python");
+export const LEGACY_MODELS_DIR = `${SSD_ROOT}/local_models`;
+
+/** Проверка существования путей для умолчаний (подменяется в тестах). */
+export interface PathProbe {
+  exists(path: string): boolean;
+}
+const fsProbe: PathProbe = { exists: existsSync };
 
 const AgentOverride = z
   .object({
@@ -196,6 +243,11 @@ const FileSchema = z
     planning: PlanningFileSchema,
     analysis: AnalysisFileSchema,
     server: ServerFileSchema,
+    video: VideoFileSchema,
+    final: FinalFileSchema,
+    watchdog: WatchdogFileSchema,
+    cache: CacheFileSchema,
+    render: RenderFileSchema,
   })
   .partial()
   .strict();
@@ -223,7 +275,7 @@ export function configFileIssues(fileJson: unknown): { path: string; message: st
 }
 
 /** `fileJson` — разобранный `$MS_DATA_DIR/config.json` (см. `readConfigFile`). */
-export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfig {
+export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown, probe: PathProbe = fsProbe): AppConfig {
   const dataDir = env.MS_DATA_DIR?.trim();
   if (!dataDir) throw new Error("config: MS_DATA_DIR не задан");
   const parsed = FileSchema.safeParse(fileJson ?? {});
@@ -264,7 +316,12 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown): AppConfi
     },
     limits: { ...LIMITS, ...file.limits },
     defaults: file.defaults ?? defaultSettings(),
-    ...videoConfig(env, file),
+    ...videoConfig(env, file, probe),
+    video: { ...VIDEO, ...file.video },
+    final: { ...FINAL, ...file.final },
+    watchdog: { noProgressMs: { ...file.watchdog?.noProgressMs } },
+    cache: { ...CACHE, ...file.cache },
+    render: { ...file.render },
   };
 }
 
@@ -276,12 +333,12 @@ const env1 = (env: NodeJS.ProcessEnv, k: string): string | undefined => env[k]?.
  * (домашний каталог из `HOME`) обязаны быть абсолютными — относительный путь зависел бы от
  * cwd процесса. Перекрёстные проверки планирования — после слияния всех источников.
  */
-function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig): Pick<AppConfig, "asr" | "media" | "roughcut" | "planning" | "analysis"> {
+function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig, probe: PathProbe): Pick<AppConfig, "asr" | "media" | "roughcut" | "planning" | "analysis"> {
   const home = env1(env, "HOME") ?? homedir();
   const asr: AsrConfig = {
-    python: join(home, ".local/share/montage/mlx-audio-0.5.8/.venv/bin/python"),
-    aiPlatformRoot: AI_PLATFORM_ROOT,
-    modelsDir: `${SSD_ROOT}/local_models`,
+    python: defaultAsrPython(env, home, probe),
+    worker: ASR_WORKER_COPY,
+    modelsDir: defaultModelsDir(env, file.asr?.model ?? "whisper-large-v3-turbo", probe),
     model: "whisper-large-v3-turbo",
     language: "ru",
     expectedWorkerSha256: ASR_WORKER_SHA256,
@@ -290,7 +347,11 @@ function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig): Pick<AppConfig, 
     ...definedOnly({ python: env1(env, "AIP_MONTAGE_ASR_PYTHON"), aiPlatformRoot: env1(env, "AI_PLATFORM_ROOT"), modelsDir: env1(env, "AIP_MODELS_DIR") }),
     ...file.asr,
   };
-  for (const k of ["python", "aiPlatformRoot", "modelsDir"] as const) asr[k] = absPath(`asr.${k}`, asr[k], home);
+  for (const k of ["python", "modelsDir"] as const) asr[k] = absPath(`asr.${k}`, asr[k], home);
+  if (asr.aiPlatformRoot !== undefined) {
+    asr.aiPlatformRoot = absPath("asr.aiPlatformRoot", asr.aiPlatformRoot, home);
+    asr.worker = join(asr.aiPlatformRoot, AIP_WORKER_REL);
+  }
   const media: MediaConfig = { importRoots: [SSD_ROOT, join(home, "Movies")], proxyShortSide: 720, thumbEveryUs: 2_000_000, ...file.media };
   media.importRoots = media.importRoots.map((p, i) => absPath(`media.importRoots[${i}]`, p, home));
   const planning: PlanningConfig = { ...PLANNING, ...file.planning };
@@ -307,6 +368,43 @@ function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig): Pick<AppConfig, 
     planning,
     analysis: { maxCostUsd: 3, occupancyWindowUs: 4_000_000, ...file.analysis },
   };
+}
+
+/**
+ * python ASR: `.deps/asr-venv` с штампом полной установки `.ms-lock` (его пишет `./setup` после
+ * `uv pip sync` и проверки импорта), иначе прежнее окружение ai-platform, если есть.
+ */
+function defaultAsrPython(env: NodeJS.ProcessEnv, home: string, probe: PathProbe): string {
+  const venvs = depsRoots(env, REPO_ROOT).map((r) => join(r, "asr-venv"));
+  const ready = venvs.find((v) => probe.exists(join(v, ".ms-lock")));
+  if (ready) return join(ready, "bin/python");
+  const legacy = LEGACY_ASR_PYTHON(home);
+  return probe.exists(legacy) ? legacy : join(venvs[0]!, "bin/python");
+}
+
+/** Веса модели готовы: `config.json` и файл весов (`./setup` переносит каталог целиком после проверки). */
+const modelReady = (modelsDir: string, model: string, probe: PathProbe): boolean => {
+  const dir = join(modelsDir, "asr", model);
+  return probe.exists(join(dir, "config.json")) && ["weights.safetensors", "weights.npz"].some((w) => probe.exists(join(dir, w)));
+};
+
+/**
+ * Веса ASR для модели `asr.model`: `<папка материалов>/models`, если там она готова; иначе прежний
+ * `local_models`, если она есть там (так модель не из `./setup` берётся оттуда); иначе папка материалов.
+ */
+function defaultModelsDir(env: NodeJS.ProcessEnv, model: string, probe: PathProbe): string {
+  // неверный MS_MATERIALS_ROOT покажет doctor (строка materials); веса — по умолчанию
+  const models = join(materialsRootOr(env), "models");
+  if (modelReady(models, model, probe)) return models;
+  return modelReady(LEGACY_MODELS_DIR, model, probe) ? LEGACY_MODELS_DIR : models;
+}
+
+function materialsRootOr(env: NodeJS.ProcessEnv): string {
+  try {
+    return materialsRoot(env);
+  } catch {
+    return MATERIALS_ROOT;
+  }
 }
 
 /** `~` и `~/…` → домашний каталог; результат — абсолютный путь, иначе ошибка (`~user` не поддерживается). */

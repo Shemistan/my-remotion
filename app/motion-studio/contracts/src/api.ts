@@ -70,6 +70,9 @@ export const ProjectDtoSchema = z.object({
   settings: SettingsSchema.nullable(),
   created_at: Ts,
   updated_at: Ts,
+  // Task 47: архив и корзина — только в списке проектов (`GET /projects?view=`)
+  archived_at: Ts.nullable().optional(),
+  deleted_at: Ts.nullable().optional(),
 }).strict();
 export type ProjectDto = z.infer<typeof ProjectDtoSchema>;
 

@@ -13,9 +13,26 @@
 | `render` (`@ms/render`) | Рендер версии на Remotion 4.0.537: бандл, кадры, превью, ffprobe-gate (`render/README.md`) |
 | `server` (`@ms/server`) | Сервер: Control API (Fastify), очередь задач, пайплайны; CLI `doctor`, `generate` |
 
-## Node
+## Установка и где лежат зависимости
 
-Нужен Node из `.nvmrc` (22.21.1) через nvm. Все команды — через обёртку:
+На новой машине — `./setup` в корне репозитория (раздел «Новый компьютер» корневого README,
+ADR 0008). Зависимости — в проекте, тяжёлое — в папке материалов на SSD:
+
+| Что | Где | Кто ищет |
+|---|---|---|
+| Node (`.nvmrc`, 22.21.1) | `<repo>/.deps/node` | `scripts/with-node.sh`; нет — nvm (запасной путь) |
+| ffmpeg, ffprobe 7.1.1 | `<repo>/.deps/ffmpeg` | `resolveTool` (`core/src/deps.ts`): render, server, health, doctor; нет — PATH |
+| python воркера ASR | `<repo>/.deps/asr-venv/bin/python` | `config.ts` (`asr.python`), если есть штамп полной установки `asr-venv/.ms-lock`; нет — прежнее окружение ai-platform |
+| воркер ASR | `tools/asr-worker/asr_worker.py` (копия, README там же) | `asr.worker`; `asr.aiPlatformRoot` — воркер из ai-platform |
+| веса Whisper | `<папка материалов>/models/asr/<модель>` | `asr.modelsDir`: папка материалов, если модель `asr.model` там готова (`config.json` + веса); нет — `/Volumes/External SSD/local_models`, если она там |
+| npm-пакеты, Chrome Headless Shell | `node_modules/`, `node_modules/.remotion/` | `make install` |
+| vision-detect | `tools/vision-detect/bin/` | `make install` (swiftc) |
+
+`MS_DEPS_DIR` (абсолютный путь) заменяет каталог `.deps`; в worktree агента `.deps` ищется сначала
+в worktree, потом в main checkout. Запасные пути (nvm, ffmpeg из PATH, прежние python и веса
+ai-platform) работают, но `doctor` показывает строку `warning deps` с подсказкой `./setup`.
+
+Все команды — через обёртку (Node из `.deps/node`, ffmpeg из `.deps/ffmpeg` первым в PATH):
 
 ```sh
 ./scripts/with-node.sh npm ci
@@ -67,8 +84,8 @@ export MS_DATA_DIR="/Volumes/External SSD/moution-studio-materials/store"
 `MS_MIN_FREE_GB` — порог свободного места (по умолчанию 10 ГиБ).
 
 `doctor` (`03` §7) проверяет: Node ≥ 22; `claude --version` и вход (короткий `claude -p`
-модели haiku без инструментов, стоимость < $0,01 — реальный вызов); `ffmpeg`/`ffprobe` и
-энкодеры `libx264`, `aac`, `prores_ks`; `KB_ROOT`/`KB_SOURCE_ROOT`; StorageGuard; Chrome Headless
+модели haiku без инструментов, стоимость < $0,01 — реальный вызов); `ffmpeg`/`ffprobe` (путь в
+строке) и энкодеры `libx264`, `aac`, `prores_ks`; ASR (python, sha256 воркера, веса); `KB_ROOT`/`KB_SOURCE_ROOT`; StorageGuard; Chrome Headless
 Shell (качает при отсутствии); `quick_check` `studio.db`; свободен ли owner-lock (при запущенном
 сервере — `busy`).
 

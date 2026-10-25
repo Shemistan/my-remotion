@@ -4,7 +4,7 @@ import type { Db } from "../open.js";
 import { fromJson, nowIso, toJson } from "./util.js";
 
 export type ProjectRow = ProjectDto;
-interface Raw { id: string; kind: ProjectRow["kind"]; title: string; settings_json: string | null; created_at: string; updated_at: string }
+interface Raw { id: string; kind: ProjectRow["kind"]; title: string; settings_json: string | null; created_at: string; updated_at: string; deleted_at?: string | null }
 
 const row = (r: Raw): ProjectRow => ({
   id: r.id, kind: r.kind, title: r.title,
@@ -41,7 +41,8 @@ export const BENCH_PROJECT_PREFIXES = ["bench-", "eval-"] as const;
 
 export const isBenchProject = (id: string): boolean => BENCH_PROJECT_PREFIXES.some((p) => id.startsWith(p));
 
-/** Playground первым, затем по времени создания. */
+/** Playground первым, затем по времени создания; удалённые в корзину (Task 47) — нет. */
 export function list(db: Db): ProjectRow[] {
-  return (db.prepare("SELECT * FROM projects ORDER BY kind = 'playground' DESC, created_at, rowid").all() as Raw[]).map(row);
+  // `deleted_at` — колонка 006: на базе до неё строк-удалённых нет (поле отсутствует)
+  return (db.prepare("SELECT * FROM projects ORDER BY kind = 'playground' DESC, created_at, rowid").all() as Raw[]).filter((r) => !r.deleted_at).map(row);
 }

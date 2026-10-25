@@ -1,6 +1,7 @@
 // Video Workspace (ТЗ §11.1 п.3–4, Task 29, 33): шапка проекта с утверждениями A/B, плеер (исходник /
 // после монтажа) с зонами поверх кадра, волна, миниатюры, линейки монтажа и дорожка визуального
-// плана; вкладки «Медиа», «Транскрипт», «Черновой монтаж», «Анализ», «План», «Стиль». Задачи
+// плана; вкладки «Медиа», «Транскрипт», «Черновой монтаж», «Анализ», «План», «Стиль», Phase 4–6 —
+// «Сцены», «Экспорт», «Таймлайн» (заглушки Task 35′). Задачи
 // проекта — со статусом и прогрессом; данные перечитываются по событиям задач и опросом, пока задача идёт.
 import { type SceneDto, ZONE_RECTS, type Zone } from "@ms/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -26,9 +27,13 @@ import { ThumbStrip } from "../components/video/ThumbStrip.js";
 import { TranscriptEditor } from "../components/video/TranscriptEditor.js";
 import { Waveform } from "../components/video/Waveform.js";
 import { errorText, t } from "../i18n/index.js";
+import { ExportTab } from "./video/ExportTab.js";
+import { ScenesTab } from "./video/ScenesTab.js";
+import { TimelineTab } from "./video/TimelineTab.js";
 import { toEdited, toSource } from "../video/use-timeline.js";
 
-const TABS = ["media", "transcript", "roughcut", "analysis", "plan", "style"] as const;
+/** Вкладки; Phase 4–6 (Task 35′): «Сцены» (Task 40), «Экспорт» (5L, 45), «Таймлайн» (45). */
+export const TABS = ["media", "transcript", "roughcut", "analysis", "plan", "style", "scenes", "export", "timeline"] as const;
 type Tab = (typeof TABS)[number];
 
 export function VideoWorkspace({ id, scenes = [] }: { id: string; scenes?: Pick<SceneDto, "id" | "title">[] }) {
@@ -255,6 +260,9 @@ export function VideoWorkspace({ id, scenes = [] }: { id: string; scenes?: Pick<
                 />
               ) : <p className="muted">{t("roughcut.empty")}</p>
             ) : null}
+            {tab === "scenes" ? <ScenesTab data={data} currentUs={currentUs} onSeek={seek} onChanged={refresh} /> : null}
+            {tab === "export" ? <ExportTab data={data} currentUs={currentUs} onSeek={seek} onChanged={refresh} /> : null}
+            {tab === "timeline" ? <TimelineTab data={data} currentUs={currentUs} onSeek={seek} onChanged={refresh} /> : null}
             {tab === "style" ? (
               style.data ? (
                 <StyleBiblePanel projectId={project.id} style={style.data} bValid={data.approvals.B.state === "valid"} onSaved={(dto) => { client.setQueryData(["style", id], dto); refresh(); }} />

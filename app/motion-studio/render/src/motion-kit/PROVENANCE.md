@@ -31,6 +31,7 @@ Clause) и `remotion-boilerplate` (UNLICENSED).
 | `Background` | `xyflow/background` | xyflow @ 654ba5a5e | MIT (LICENSE) | идея точечной и линейной сетки-подложки (варианты `paper`, `grid`) | ok |
 | | `free-remotion-templates/lower-third-glass-card` | free-remotion-templates @ f648980 | MIT (LICENSE, SPDX) | идея: размытое радиальное пятно акцента, чтобы фон «дышал» (вариант `aurora`) | ok |
 | `useBeat`, `beatProgress`, `formatNumber`, геометрия (`pathLUT`, `pointAtLength`, `smoothSegments`), токены, пресеты, `SafeArea`, `useSafeArea` | `own` | — | — | монотонная интерполяция Фритча — Карлсона; LUT длины пути | ok (юнит-тесты, рендер) |
+| `LayoutRect`, `useLayoutRect`, `layoutRectPx` | `own` | — | — | Task 35′ (0.5.9, Р-V5): графика видеосцены в прямоугольнике зоны плана, края по пикселям без зазора | ok (юнит-тесты layout-rect) |
 
 ## v0.2: StyleBible-система и хореография
 

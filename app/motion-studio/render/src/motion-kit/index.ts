@@ -94,6 +94,7 @@ export { KineticText, type KineticEnter, type KineticTextProps } from "./compone
 export { LineChart, type LineChartProps, chartFont, lineChartHead, lineHighlight } from "./components/LineChart.js";
 export { PulseAlongPath, type PulseAlongPathProps, useArrivalCount } from "./components/PulseAlongPath.js";
 export { SafeArea, useSafeArea } from "./components/SafeArea.js";
+export { LayoutRect, type LayoutNormRect, type LayoutRectPx, layoutRectPx, useLayoutRect } from "./components/LayoutRect.js";
 export { type StatusAnchor, StatusChip, type StatusChipProps, type StatusFrame, type StatusState, type StatusTone, statusAt, statusChipLook, toneColor } from "./components/StatusChip.js";
 export { DataToken, type DataTokenProps, type TokenFrame, type TokenMode, type TokenShot, dataColor, dataTokenLook, tokenAt, tokenBox, tokenMode, tokenShot, tokenSpan } from "./components/DataToken.js";
 export { type LaneFrame, type LaneTiming, type LatencyLane, LatencyRace, type LatencyRaceProps, type LaneReadout, type LatencyLayout, laneReadout, latencyAt, latencyLayout, latencyTiming } from "./components/LatencyRace.js";

@@ -8,6 +8,7 @@ import * as jobProcesses from "../db/repos/job-processes.js";
 import * as jobs from "../db/repos/jobs.js";
 import { nowIso } from "../db/repos/util.js";
 import { tx } from "../db/tx.js";
+import { assertProjectOpen } from "../projects/lifecycle.js";
 import { sha256 } from "../scenes/hash.js";
 import { newId } from "../scenes/ids.js";
 import { LEASE_MS, MAX_ATTEMPTS } from "./limits.js";
@@ -64,6 +65,8 @@ export function enqueue(db: Db, req: EnqueueRequest): { job: Job; created: boole
       return { job: existing, created: false };
     }
     if (SCENE_WRITING_TYPES.includes(req.type) && !req.sceneId) throw new Error(`jobs: ${req.type} требует scene_id (замок сцены)`);
+    // Task 47: архивный проект — `project_archived`, удалённый — `project_deleted` (повтор по ключу выше — та же задача)
+    assertProjectOpen(db, req.projectId);
     const job = jobs.insert(db, {
       id: newId("job"),
       type: req.type,
