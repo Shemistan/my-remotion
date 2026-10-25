@@ -7,12 +7,14 @@
 import { readFile } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { readFileSync } from "node:fs";
-import { type ConceptOutput, ConceptOutputSchema, type Job, type MotionSpec, MotionSpecSchema, STRUCTURE_RULES, structureOf, type QAIssue, type ScriptPlanRevisionDoc, ScriptPlanRevisionDocSchema, type ScriptSceneContext, ScriptSceneContextSchema, type ScriptSceneItem, SettingsSchema, failureToJobErrorCode } from "@ms/contracts";
+import { type ConceptOutput, ConceptOutputSchema, type Job, type MotionSpec, MotionSpecSchema, STRUCTURE_RULES, structureOf, type QAIssue, type ScenePlanItem, type ScriptPlanRevisionDoc, ScriptPlanRevisionDocSchema, type ScriptSceneContext, ScriptSceneContextSchema, type ScriptSceneItem, SettingsSchema, type VideoSceneContext, VideoSceneContextSchema, failureToJobErrorCode, videoSceneFrames } from "@ms/contracts";
 import { z } from "zod";
 import { loadPartial } from "../agents/prompts.js";
+import { currentPlan } from "../analysis/plan-ops.js";
 import * as jobs from "../db/repos/jobs.js";
 import * as plans from "../db/repos/plans.js";
 import { scriptScenes } from "../db/repos/script.js";
+import { videoScenes } from "../db/repos/video.js";
 import { overlayChecks, shortsUiIssues } from "../script/overlay-check.js";
 import { fragmentFitAttempt } from "../qa/fragment-fit.js";
 import { foreignLabelQa } from "../qa/spec-checks.js";
@@ -27,7 +29,10 @@ import { type StepRef, checkpointPath } from "./checkpoints.js";
 import { type AbortKind, type GenerateDeps, type GenerateResult, patternTexts, readKitApi, runGeneration } from "./generate.js";
 import { selectCandidates } from "./kb-select.js";
 import { assistantMessage, recordRun } from "./record.js";
-import { type CheckpointOpts, conceptStep, directorStep, errText, sceneStyle, startPropsStyle } from "./steps.js";
+import { durationChecks } from "./playground-edit.js";
+import { type CheckpointOpts, type SpeechWindow, conceptStep, directorStep, errText, sceneStyle, startPropsStyle } from "./steps.js";
+import { videoFrameQa } from "../video-scenes/checks.js";
+import { videoNarration } from "../video-scenes/context.js";
 
 export const PlaygroundGenerateInputSchema = z.object({
   sceneId: z.string().min(1),
@@ -41,6 +46,10 @@ export const PlaygroundGenerateInputSchema = z.object({
   script: z.unknown().optional(),
   /** Отпечаток сцены плана (S5 fix I2): после публикации — в `script_scenes.item_fingerprint`. */
   script_fingerprint: z.string().optional(),
+  /** Сцена видеопроекта (Task 37′, ADR 0009): `VideoSceneContextSchema` в обработчике; вместе со `script` — нельзя. */
+  video: z.unknown().optional(),
+  /** Отпечаток видеосцены плана (`videoItemFingerprint`): после публикации — в `video_scenes.item_fingerprint`. */
+  video_fingerprint: z.string().optional(),
 }).passthrough();
 export type PlaygroundGenerateInput = z.infer<typeof PlaygroundGenerateInputSchema>;
 
@@ -75,6 +84,16 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
     const fence = { jobId, attempt: ctx.attempt };
     const base = d.deps(ctx);
     const projectId = scenes.get(ctx.db, sceneId)?.project_id;
+    if (parsed.data.script !== undefined && parsed.data.video !== undefined) {
+      return { status: "failed", error: { code: "pipeline", message: "вход playground.generate: script и video вместе нельзя — сцена либо сценария, либо видеопроекта" } };
+    }
+    // видеосцена (Task 37′): бриф по плану, стиль проекта, окно фразы, графика в зоне плана
+    let vs: VideoScene | undefined;
+    if (parsed.data.video !== undefined) {
+      const r = videoScene(ctx, d.repo.root, parsed.data.video, settings.duration_frames);
+      if (typeof r === "string") return { status: "failed", error: { code: "pipeline", message: r } };
+      vs = r;
+    }
     // сцена сценария: бриф вместо промпта, уточнения пропускаются, стиль — проекта (S5)
     let sc: ScriptScene | undefined;
     if (parsed.data.script !== undefined) {
@@ -89,16 +108,19 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
       if (typeof r === "string") return { status: "failed", error: { code: "pipeline", message: r } };
       ref = r;
     }
-    const answers = parsed.data.answers ?? (sc ? "skip" : undefined);
+    const answers = parsed.data.answers ?? (sc || vs ? "skip" : undefined);
     const neighbors = sc && projectId ? await neighborSpecs(ctx, d.repo.root, sc) : [];
     const previous = neighbors.length > 0 ? neighbors : projectId ? await previousSpecs(ctx, d.repo.root, projectId, sceneId) : [];
-    const kbQuery = sc ? `${sc.item.purpose} ${sc.item.idea} ${sc.item.quote}` : prompt;
-    const scriptRules = sc ? loadPartial("script-scene") : undefined;
-    const speechWindow = sc ? { lead: sc.ctx.lead_frames, speech: settings.duration_frames - sc.ctx.lead_frames - sc.ctx.tail_frames, tail: sc.ctx.tail_frames } : undefined;
+    const kbQuery = sc ? `${sc.item.purpose} ${sc.item.idea} ${sc.item.quote}` : vs ? `${vs.item.purpose} ${vs.item.metaphor} ${vs.quote}` : prompt;
+    const scriptRules = sc ? loadPartial("script-scene") : vs ? loadPartial("video-scene") : undefined;
+    const speechWindow = sc ? { lead: sc.ctx.lead_frames, speech: settings.duration_frames - sc.ctx.lead_frames - sc.ctx.tail_frames, tail: sc.ctx.tail_frames } : vs?.window;
     // S11: раскрытие не раньше слова и подписи только из текста сцены — подсказки Director
     // S15b: фрагмент сценария — сверка смысла строк spec и props.json малой моделью
-    const fragment = sc ? { quote: sc.item.quote, purpose: sc.item.purpose, key_terms: sc.item.key_terms, data: sc.item.data } : undefined;
-    const scriptHints = sc ? { ...(sc.ctx.key_moments ? { keyMoments: sc.ctx.key_moments } : {}), sourceText: sceneSourceText(sc.item), ...(fragment ? { fragment } : {}) } : undefined;
+    const fragment = sc
+      ? { quote: sc.item.quote, purpose: sc.item.purpose, key_terms: sc.item.key_terms, data: sc.item.data }
+      : vs ? { quote: vs.quote, purpose: vs.item.purpose, key_terms: vs.item.key_terms, data: [] } : undefined;
+    const keyMoments = sc?.ctx.key_moments ?? vs?.ctx.key_moments;
+    const scriptHints = sc || vs ? { ...(keyMoments ? { keyMoments } : {}), sourceText: sc ? sceneSourceText(sc.item) : vs!.sourceText, ...(fragment ? { fragment } : {}) } : undefined;
 
     // чекпоинты Concept и Director (M7): файл в logs/agent-runs/<jobId>/checkpoints/, ссылка — в output_refs.steps
     const steps: Partial<Record<"concept" | "motion_director", StepRef>> = {};
@@ -130,6 +152,7 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
       publish: async (draft, meta) => {
         const v = await d.repo.publish(draft, meta, fence);
         if (parsed.data.script_fingerprint) recordPublishedFingerprint(ctx.db, sceneId, parsed.data);
+        if (vs && parsed.data.video_fingerprint) videoScenes.setFingerprint(ctx.db, sceneId, parsed.data.video_fingerprint);
         return { dir: v.dir, warnings: v.warnings.map((w) => `${w.code}: ${w.message}`), versionId: v.versionId, number: v.manifest.number };
       },
       permits: { agents: ctx.agents, renders: ctx.renders },
@@ -147,8 +170,23 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
         // S11: подписи-примеры kit в props.json (код Engineer) — warning QA версии
         ...(sc ? { script: true, technique: sc.item.technique } : {}),
         // S15b: окно речи и моменты слов — проверки по всей сцене (временной проход пробы)
-        ...(speechWindow ? { scriptTiming: { window: speechWindow, ...(sc?.ctx.key_moments ? { moments: sc.ctx.key_moments } : {}) } } : {}),
+        ...(sc && speechWindow ? { scriptTiming: { window: speechWindow, ...(sc.ctx.key_moments ? { moments: sc.ctx.key_moments } : {}) } } : {}),
         // S10 fix I1: 9:16 — текст под интерфейсом Shorts (низ, колонка кнопок) по пробе раскладки
+        // Task 37′: видеосцена — графика в зоне плана (Engineer, props.layout), проверки по альфе и
+        // кадры-композиты, смысл подписей по фразе, длительность — только план; fullscreen —
+        // как сцена сценария (проверки по всей сцене)
+        ...(vs ? {
+          ...(vs.ctx.placement.transparent ? { layout: vs.ctx.placement.rect } : { script: true, ...(speechWindow ? { scriptTiming: { window: speechWindow, ...(keyMoments ? { moments: keyMoments } : {}) } } : {}) }),
+          extraQa: async (v) => {
+            const peak = payoffStart(v.spec);
+            return [
+              ...(vs!.ctx.placement.transparent ? await overlayChecks(v) : []), ...(await propsForeignLabels(v.versionDir, vs!.sourceText)),
+              ...(await videoFrameQa(v, { ctx: vs!.ctx, ...(vs!.item.face_overlap.override_reason !== undefined ? { overrideReason: vs!.item.face_overlap.override_reason } : {}) })),
+              ...(await fragmentFitAttempt(v, fragment!, speechWindow, peak === undefined ? undefined : peak + PAYOFF_PEAK)),
+              ...durationChecks(v, videoSceneFrames(vs!.item)),
+            ];
+          },
+        } : {}),
         ...(sc ? {
           extraQa: async (v) => {
             const peak = payoffStart(v.spec);
@@ -173,10 +211,10 @@ export function playgroundGenerate(d: PlaygroundDeps): JobHandler {
           const candidates = selectCandidates(deps.kb, kbQuery, concept, 12, { allowRestricted }).map((h) => h.view);
           rc.log(`KB: ${candidates.length} кандидатов по ключам Concept`);
           const texts = await patternTexts(deps.kb, concept.patterns, rc.warnings);
-          if (sc && (concept.style_hint.palette_overrides || concept.style_hint.preset !== settings.style_preset)) {
-            rc.log("style_hint Concept не применяется: у сцены сценария стиль проекта (settings.style_lock)");
+          if ((sc || vs) && (concept.style_hint.palette_overrides || concept.style_hint.preset !== settings.style_preset)) {
+            rc.log(`style_hint Concept не применяется: у сцены ${sc ? "сценария" : "видеопроекта"} стиль проекта (settings.style_lock)`);
           }
-          const style = sceneStyle(startPropsStyle(settings, sc ? undefined : concept.style_hint.palette_overrides), settings);
+          const style = sceneStyle(startPropsStyle(settings, sc || vs ? undefined : concept.style_hint.palette_overrides), settings);
           ctx.progress(0.15, "director");
           const dr = await directorStep(rc, { prompt, settings, concept, ...(ref ? { reference: ref.spec } : {}), candidates, patternTexts: texts, kitApi: await readKitApi(), style, previous, ...(speechWindow ? { speechWindow } : {}), ...(scriptRules ? { scriptRules } : {}), ...(scriptHints ? { scriptHints } : {}) }, cp);
           if (!dr.ok) return { kind: "failed", stage: dr.stage, message: dr.message };
@@ -229,6 +267,43 @@ function scriptScene(ctx: JobContext, root: string, raw: unknown): ScriptScene |
   const item = plan.items.find((x) => x.id === p.data.item_id);
   if (!item) return `в плане ${p.data.plan_id}@r${p.data.plan_revision} нет сцены ${p.data.item_id}`;
   return { ctx: p.data, plan, item };
+}
+
+/** Видеосцена задачи (Task 37′): вход `video`, сцена ревизии плана, окно фразы, опорная фраза, речь. */
+interface VideoScene {
+  ctx: VideoSceneContext;
+  item: ScenePlanItem;
+  /** Окно фразы в кадрах сцены; запаса нет или фраза нулевой длины — нет. */
+  window?: SpeechWindow;
+  /** Опорные фразы плана (`evidence`) одной строкой. */
+  quote: string;
+  /** Текст, из которого сцена законно берёт подписи: речь сцены, фразы, назначение, метафора, ключевые слова. */
+  sourceText: string;
+}
+
+/** Вход `video` и сцена плана из ревизии `plan_revision`; не годится — текст ошибки. */
+function videoScene(ctx: JobContext, root: string, raw: unknown, total: number): VideoScene | string {
+  const p = VideoSceneContextSchema.safeParse(raw);
+  if (!p.success) return `вход video не годится: ${p.error.message}`;
+  let item: ScenePlanItem | undefined;
+  let narration: string;
+  try {
+    const doc = currentPlan(ctx.db, root, p.data.plan_id, p.data.plan_revision);
+    item = doc.items.find((x) => x.id === p.data.item_id);
+    if (!item) return `в плане ${p.data.plan_id}@r${p.data.plan_revision} нет сцены ${p.data.item_id}`;
+    narration = videoNarration(ctx.db, root, doc, item);
+  } catch (e) {
+    return `план видеопроекта ${p.data.plan_id}@r${p.data.plan_revision} не прочитан: ${errText(e)}`;
+  }
+  const quote = item.evidence.map((e) => e.quote).join(" … ");
+  const speech = total - p.data.lead_frames - p.data.tail_frames;
+  return {
+    ctx: p.data,
+    item,
+    ...(speech > 0 ? { window: { lead: p.data.lead_frames, speech, tail: p.data.tail_frames } } : {}),
+    quote,
+    sourceText: [narration, quote, item.purpose, item.metaphor, ...item.key_terms.map((k) => k.text)].join("\n"),
+  };
 }
 
 /** Эталон двойника 9:16 (S10): spec 16:9-версии и concept её задачи (или собранный по spec). */
