@@ -4,7 +4,7 @@
 import { type MotionSpec, type QAIssue, type Settings, holdModeFor, isHoldBeat } from "@ms/contracts";
 import { type Rect, type RenderResult, type ResolvedStyle, contrastRatio, safeRect } from "@ms/render";
 import { accentBeat, blankCheckFrom, inBeat, isEmphasisRole } from "../pipeline/qa-frames.js";
-import { type LayoutFrame, layoutIssues, parseLayout } from "./layout.js";
+import { type LayoutFrame, layoutIssues, parseLayout, wordGapIssues } from "./layout.js";
 import { EDGES, type Edge, type Img, INK_THRESHOLD, backgroundEstimate, downsample, edgeBackground, edgeClip, loadPng, lumaStats, objectDelta } from "./image.js";
 
 export interface ProgrammaticInput {
@@ -220,6 +220,8 @@ export async function programmaticChecks(input: ProgrammaticInput): Promise<QAIs
     out.push(...(await posterIssues(input.posterFrames)));
   }
   out.push(...layoutIssues(parseLayout(input.render.browserLogs)));
+  // Task 37′ fix I3: фраза из соседних текстов без зазора — слова слиплись (все сцены)
+  out.push(...wordGapIssues(parseLayout(input.render.browserLogs)));
   out.push(...textClipIssues(parseLayout(input.render.browserLogs), input.settings));
   out.push(...contrastIssues(input.style));
   out.push(...logIssues(input.render.browserLogs, input.render.allowedOrigins));

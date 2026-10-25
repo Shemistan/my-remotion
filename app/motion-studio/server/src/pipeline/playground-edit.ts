@@ -25,6 +25,11 @@ import {
   type Settings,
   SettingsFieldsSchema,
   SettingsSchema,
+  type VideoSceneContext,
+  VideoSceneContextSchema,
+  placementFor,
+  videoSceneFrames,
+  videoSceneWindow,
 } from "@ms/contracts";
 import { z } from "zod";
 import { buildEditPlannerTask } from "../agents/prompts.js";
@@ -39,10 +44,14 @@ import type { HandlerResult, JobContext, JobHandler } from "../jobs/types.js";
 import type { CapabilityView } from "../knowledge/types.js";
 import { versionHistoryDigest } from "../scenes/history.js";
 import { overlayChecks } from "../script/overlay-check.js";
+import { currentPlan } from "../analysis/plan-ops.js";
+import { videoFrameQa } from "../video-scenes/checks.js";
+import { planFps } from "../video-scenes/context.js";
+import { canonicalHash } from "@ms/contracts/canonical";
 import type { StepRef } from "./checkpoints.js";
 import { type EditRequest, type GenerateDeps, type PlanOutcome, readKitApi, runGeneration } from "./generate.js";
 import { applyParamEdit, hardcodedFrameProps, touchesGeometry } from "./param-edit.js";
-import { type PlaygroundDeps, abortKind, record, toHandlerResult } from "./playground-generate.js";
+import { type PlaygroundDeps, TRANSPARENT_SKIP, abortKind, record, toHandlerResult } from "./playground-generate.js";
 import { checkPreserve, compareHoldLayout } from "./preserve.js";
 import { type CheckpointOpts, type RunCtx, type SpeechWindow, directorStep, errText, sceneStyle, startPropsStyle, toolless } from "./steps.js";
 
@@ -318,6 +327,72 @@ export function scriptContextOf(db: Db, sceneId: string): ScriptSceneContext | u
   return undefined;
 }
 
+/** Вход `video` последней генерации сцены с ним (видеосцена, ревью Task 37′); нет — `undefined`. */
+export function videoContextOf(db: Db, sceneId: string): VideoSceneContext | undefined {
+  const gens = jobs.list(db, { sceneId }).filter((j) => j.type === "playground.generate").reverse();
+  for (const j of gens) {
+    const p = VideoSceneContextSchema.safeParse((j.input as { video?: unknown } | null)?.video);
+    if (p.success) return p.data;
+  }
+  return undefined;
+}
+
+/**
+ * Проверки правки видеосцены — как в генерации (ревью Task 37′): прозрачная — графика в зоне
+ * (`layout`), проверки по всей сцене без правил сценария, наложение, альфа и композиты;
+ * длительность — по сцене ревизии плана генерации. План не читается — без сверки длительности.
+ */
+/**
+ * Вход `video` генерации против текущей ревизии плана (ревью 37′ fix 2): сцену сняли, сменили
+ * режим/зону, длительность или окно речи — правка идёт по старому входу (текст расхождения);
+ * совпадает или план не читается — `undefined`.
+ */
+export function videoPlanDrift(db: Db, root: string, c: VideoSceneContext): string | undefined {
+  try {
+    const doc = currentPlan(db, root, c.plan_id);
+    const item = doc.items.find((x) => x.id === c.item_id && x.status === "accepted");
+    if (!item) return `сцены ${c.item_id} нет среди принятых в текущем плане r${doc.revision}`;
+    const fps = planFps(db, doc);
+    const w = videoSceneWindow(item, fps);
+    const p = placementFor(item.composition_mode, item.zone, item.rect);
+    const diff = [
+      canonicalHash(p) !== canonicalHash(c.placement) ? `размещение ${c.placement.mode}/${c.placement.zone} → ${p.mode}/${p.zone}` : "",
+      w.lead !== c.lead_frames || w.tail !== c.tail_frames ? `окно речи lead ${c.lead_frames}/tail ${c.tail_frames} → ${w.lead}/${w.tail}` : "",
+    ].filter(Boolean);
+    return diff.length > 0 ? `сцена ${c.item_id} изменилась в плане r${doc.revision} после генерации (r${c.plan_revision}): ${diff.join("; ")}` : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function videoEditQa(db: Db, root: string, c: VideoSceneContext, total: number): Pick<EditRequestQa, "layout" | "temporal" | "extraQa"> {
+  let planned: number | undefined;
+  let overrideReason: string | undefined;
+  try {
+    const item = currentPlan(db, root, c.plan_id, c.plan_revision).items.find((x) => x.id === c.item_id);
+    if (item) {
+      planned = videoSceneFrames(item);
+      overrideReason = item.face_overlap.override_reason;
+    }
+  } catch {
+    // план недоступен — правка без сверки длительности
+  }
+  const drift = videoPlanDrift(db, root, c);
+  const driftIssue: QAIssue[] = drift ? [{ source: "programmatic", code: "video_plan_changed", severity: "warning", description: `${drift} — правка сделана по входу генерации`, fix_hint: "перегенерируйте сцену по текущему плану (пакет видеосцен), правка не меняет режим, зону и длительность" }] : [];
+  const speech = total - c.lead_frames - c.tail_frames;
+  const t = c.placement.transparent;
+  return {
+    ...(t ? { layout: c.placement.rect, temporal: { ...(speech > 0 ? { window: { lead: c.lead_frames, speech, tail: c.tail_frames } } : {}), ...(c.key_moments ? { moments: c.key_moments } : {}), skip: TRANSPARENT_SKIP } } : {}),
+    extraQa: async (v) => [
+      ...(t ? await overlayChecks(v) : []),
+      ...(await videoFrameQa(v, { ctx: c, ...(overrideReason !== undefined ? { overrideReason } : {}) })),
+      ...(planned !== undefined ? durationChecks(v, planned, total) : []),
+      ...driftIssue,
+    ],
+  };
+}
+type EditRequestQa = Parameters<typeof runGeneration>[0];
+
 export function playgroundEdit(d: PlaygroundDeps): JobHandler {
   return async (ctx) => {
     const fail = (message: string, stage: "prepare" | "edit_planner" = "prepare"): HandlerResult => ({ status: "failed", error: { code: "pipeline", stage, message } });
@@ -336,6 +411,8 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
     if (!input.plan && message === undefined && Object.keys(patch).length === 0) return fail("правка без сообщения, плана и патча настроек");
     // S16a F7: сцена сценария — длительность фиксирована планом (клип стоит на своей фразе)
     const scriptCtx = scriptContextOf(ctx.db, sceneId);
+    // видеосцена (ревью Task 37′): зона, проверки и композиты — как в генерации
+    const videoCtx = scriptCtx ? undefined : videoContextOf(ctx.db, sceneId);
     const plannedAt = scriptCtx ? scriptPlannedFrames(ctx.db, d.repo.root, scriptCtx) : undefined;
     const planned = plannedAt ?? undefined;
     // сцену сняли с плана (S17a): длительность не закрепляется — человек должен знать почему
@@ -547,6 +624,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
       {
         prompt, settings: base.row.settings, qa: { allowRestricted: input.allowRestricted ?? false }, keepBrief: true, plan: planEdit,
         ...(scriptCtx ? { extraQa: async (v) => [...(await overlayChecks(v)), ...(planned !== undefined ? durationChecks(v, planned, base.row.settings.duration_frames) : [])] } : {}),
+        ...(videoCtx ? videoEditQa(ctx.db, root, videoCtx, base.row.settings.duration_frames) : {}),
       },
       deps,
       ctx.signal,

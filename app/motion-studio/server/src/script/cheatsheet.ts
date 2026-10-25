@@ -96,6 +96,8 @@ const NOTE_BY_CODE: Record<string, string> = {
   timeline_single_event: "на оси одно событие",
   token_on_label: "токен на подписи",
   uniform_entrance: "однообразные входы",
+  video_plan_changed: "план сцены изменился",
+  word_gap: "слова слиплись",
 };
 
 /** Фраза по коду; неизвестный код — общая фраза (код латиницей человеку не показываем). */

@@ -14,6 +14,7 @@ import {
   type EditPlan,
   type FailureStage,
   type MotionSpec,
+  type NormRect,
   type QAIssue,
   KIT_FONTS,
   PATTERN_SLUGS,
@@ -551,7 +552,8 @@ export function styleBrief(style: ResolvedStyle, settings: Settings) {
 }
 
 /** Правила сцены сценария (S5 fix M1) — разделом в начале задачи, только у сцены сценария. */
-const scriptRulesBlock = (rules: string | undefined): string[] => (rules ? ["# Правила сцены сценария", rules, ""] : []);
+// правила со своим заголовком (`# …`, видеосцена Task 37′) — как есть
+const scriptRulesBlock = (rules: string | undefined): string[] => (rules ? (rules.startsWith("# ") ? [rules, ""] : ["# Правила сцены сценария", rules, ""]) : []);
 
 export interface DirectorTaskInput {
   prompt: string;
@@ -688,6 +690,23 @@ function scriptEngineerLines(technique: Technique | undefined): string[] {
     "- визуальный герой — одна не-текстовая графика из данных фразы (ось, схема, столбцы, сетка, число со счётом) на 30–40 % кадра и больше; текст — подписи к ней, не наоборот;",
     "- ни одной пустой карточки или рамки и ни одной подписи-заглушки («?», «вопрос» ×3): у каждого объекта — своё содержимое из spec (empty_container, placeholder_label — брак);",
     "- один акцент в момент: светится (ореол, обводка акцентом, Emphasis/Highlight) только объект текущего бита, остальные — спокойные (accent_conflict — брак);",
+    PHRASE_LINE,
+  ];
+}
+
+/** Слипшиеся слова (Task 37′ fix I3): фраза — один KineticText, зазоры — от кегля текста. */
+const PHRASE_LINE = "- фраза на экране — один `<KineticText>`, акцентное слово — его проп `highlight` (не дроби фразу на соседние тексты); зазоры между текстами — в единицах кегля текста (`0.3 * px` от `sizePx`), не в `em` родителя (16 px): слипшиеся слова (`word_gap`) — брак;";
+
+/**
+ * Видеосцена с прозрачным размещением (Task 37′, Р-V5): холст — весь кадр, графика — только в
+ * прямоугольнике зоны плана; `props.layout` пайплайн записывает сам (`checkProps`).
+ */
+function layoutEngineerLines(rect: NormRect): string[] {
+  return [
+    `- сцена видеопроекта поверх ролика: вся графика — внутри \`<LayoutRect rect={props.layout?.rect}>\` (@ms/motion-kit, refs/motion-kit/API.md «LayoutRect»), \`props.layout.rect\` = ${JSON.stringify(rect)} (доли кадра; пайплайн записывает его в props.json сам); раскладку детей считай от края прямоугольника (\`useLayoutRect()\`), \`layout\` элементов spec — доли прямоугольника;`,
+    "- вне прямоугольника — пусто: там видео и лицо автора (`outside_zone`, `face_ink` — брак); фон — только `<Background>` вне LayoutRect, своих заливок на весь кадр нет (сцену кладут с transparent = true);",
+    "- ни одной пустой карточки или рамки и ни одной подписи-заглушки («?»): у каждого объекта — своё содержимое из spec; мёртвых секунд посреди речи нет (empty_container, placeholder_label, dead_air — брак);",
+    PHRASE_LINE,
   ];
 }
 
@@ -698,7 +717,7 @@ export const ENGINEER_TOOLS: AgentTool[] = ["Read", "Write", "Edit", "Glob", "Gr
  * Задача Engineer: всё о сцене — в файлах draft (spec, settings, style, selection,
  * knowledge-refs, refs/); `fix` — замечания прошлой проверки (с заголовком «Исправление N»).
  */
-export function buildEngineerTask(i: { draftDir: string; fix?: string; spec?: MotionSpec; script?: boolean; technique?: Technique }, run: TaskRun): AgentTask<string> {
+export function buildEngineerTask(i: { draftDir: string; fix?: string; spec?: MotionSpec; script?: boolean; technique?: Technique; layout?: NormRect }, run: TaskRun): AgentTask<string> {
   const parts: string[] = [];
   if (i.fix) parts.push(i.fix, "");
   parts.push(
@@ -706,6 +725,7 @@ export function buildEngineerTask(i: { draftDir: string; fix?: string; spec?: Mo
     "Собери Remotion-сцену в текущем каталоге (draft) по `spec.json`:",
     ...(i.spec ? [finaleLine(i.spec, i.script === true)] : []),
     ...(i.script ? scriptEngineerLines(i.technique) : []),
+    ...(i.layout ? layoutEngineerLines(i.layout) : []),
     "- `src/Scene.tsx` с `export const Scene` (можно добавить модули в `src/`);",
     "- `props.json` по контракту сцены: `timing` (биты spec), `style` (из `settings.json`), `content` (данные spec).",
     "Прочитай первым `refs/motion-kit/API.md`, затем `spec.json`, `style.json`, `settings.json`, `selection.json`, `knowledge-refs.json`;",
