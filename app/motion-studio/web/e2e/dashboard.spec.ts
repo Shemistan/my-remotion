@@ -35,7 +35,8 @@ test("настройки приложения: модели ролей, лими
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "Настройки", level: 1 })).toBeVisible();
   const running = page.getByLabel("Задач одновременно");
-  await expect(running).toHaveValue("2");
+  // умолчание `MAX_RUNNING` (server/src/jobs/limits.ts, 5 с коммита 7cc095f)
+  await expect(running).toHaveValue("5");
   await running.fill("3");
   await page.getByRole("button", { name: "Сохранить" }).click();
   await expect(page.getByText("Сохранено. Действует после перезапуска.")).toBeVisible();
