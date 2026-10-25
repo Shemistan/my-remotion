@@ -13,7 +13,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type Settings, SettingsSchema, defaultSettings } from "@ms/contracts";
+import { JobTypeSchema, type Settings, SettingsSchema, defaultSettings } from "@ms/contracts";
 import { MATERIALS_ROOT, SSD_ROOT, depsRoots, materialsRoot } from "@ms/core";
 import { EXPORT_TIMEOUT_MS } from "@ms/render";
 import { z } from "zod";
@@ -163,7 +163,8 @@ const FINAL: FinalConfig = { timeoutMs: 7_200_000, masterCrf: 12 };
 const CACHE: CacheConfig = { maxBytes: 20 * 1024 ** 3 };
 const VideoFileSchema = z.object({ contextPadFrames: z.number().int().min(0).max(600) }).partial().strict();
 const FinalFileSchema = z.object({ timeoutMs: z.number().int().min(60_000).max(24 * 60 * 60_000), masterCrf: z.number().int().min(0).max(51) }).partial().strict();
-const WatchdogFileSchema = z.object({ noProgressMs: z.record(z.number().int().positive()) }).partial().strict();
+// ключи — только типы задач (zod 3: record по enum — частичный; опечатка в типе — отказ, а не тихий пропуск)
+const WatchdogFileSchema = z.object({ noProgressMs: z.record(JobTypeSchema, z.number().int().positive()) }).partial().strict();
 const CacheFileSchema = z.object({ maxBytes: z.number().int().min(0) }).partial().strict();
 const RenderFileSchema = z.object({ concurrency: z.number().int().min(1).max(16) }).partial().strict();
 

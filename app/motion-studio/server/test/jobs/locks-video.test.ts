@@ -42,7 +42,7 @@ describe("artifactPaths: Phase 4–6", () => {
   it("таймлайн, финал, master, звук, превью в контексте", () => {
     expect(a.timelineRev("tml_1", 2)).toBe("workspace/projects/prj_A/timeline/tml_1/r2");
     expect(a.finalExport("fx_1")).toBe("workspace/projects/prj_A/final/fx_1");
-    expect(a.master("med_1", { num: 30000, den: 1001 })).toBe("workspace/projects/prj_A/proxy/med_1/master@30000-1001");
+    expect(a.master("med_1", { num: 30000, den: 1001 })).toBe("workspace/projects/prj_A/master/med_1@30000-1001");
     expect(a.editedAudio("edl_1", 3)).toBe("workspace/projects/prj_A/audio/edl_1/r3");
     expect(a.contextPreview("scn_1", "ver_2")).toBe("workspace/projects/prj_A/context/scn_1/ver_2");
     expect(() => a.timelineRev("tml_1", 0)).toThrow();
@@ -54,7 +54,8 @@ describe("artifactPaths: Phase 4–6", () => {
     for (const p of [a.timelineRev("tml_1", 2), a.finalExport("fx_1"), a.master("med_1", { num: 30, den: 1 }), a.editedAudio("edl_1", 3), a.contextPreview("scn_1", "ver_2")]) {
       expect(() => checkArtifactDestRel(p), p).not.toThrow();
     }
-    for (const p of ["workspace/projects/prj_A/timeline/tml_1", "workspace/projects/prj_A/final/fx_1/r1", "workspace/projects/prj_A/proxy/med_1/master@30",
+    for (const p of ["workspace/projects/prj_A/timeline/tml_1", "workspace/projects/prj_A/final/fx_1/r1", "workspace/projects/prj_A/master/med_1@30", "workspace/projects/prj_A/proxy/med_1/master@30-1",
+      "workspace/projects/prj_A/master/med_1@0-1", "workspace/projects/prj_A/master/med_1",
       "workspace/projects/prj_A/context/scn_1", "workspace/projects/prj_A/audio/edl_1/r0"]) {
       expect(() => checkArtifactDestRel(p), p).toThrow();
     }
@@ -76,6 +77,8 @@ describe("config: Phase 4–6", () => {
     expect(o.render.concurrency).toBe(2);
     expect(configFileIssues({ video: { pad: 1 } })).not.toEqual([]);
     expect(configFileIssues({ final: { masterCrf: 60 } })).not.toEqual([]);
+    expect(configFileIssues({ watchdog: { noProgressMs: { "final.rendr": 600_000 } } })).not.toEqual([]);
+    expect(configFileIssues({ watchdog: { noProgressMs: { "final.render": 600_000, "timeline.build": 60_000 } } })).toEqual([]);
   });
 });
 

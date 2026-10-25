@@ -28,13 +28,13 @@ function rev(n: number): string {
 export const PROJECTS_REL = "workspace/projects";
 
 /**
- * Ровно формы `artifactPaths`: `<p>/(source|proxy|packages|final)/<id>`, `<p>/proxy/<id>/master@<num>-<den>`,
+ * Ровно формы `artifactPaths`: `<p>/(source|proxy|packages|final)/<id>`, `<p>/master/<id>@<num>-<den>`,
  * `<p>/(transcript|edits|preview|style|plan|script|timeline|audio)/<id>/r<N>`, `<p>/context/<id>/<id>`,
  * `<p>/analysis/(footage|semantic)/<id>`. Остальное в каталоге проекта (сцены Phase 1,
  * `project.json`, родители ревизий) публикацией и карантином сирот не затрагивается.
  */
 const DEST_REL_RE = new RegExp(
-  `^${PROJECTS_REL}/${ART_ID}/(?:(?:source|proxy|packages|final)/${ART_ID}|proxy/${ART_ID}/master@[1-9][0-9]*-[1-9][0-9]*` +
+  `^${PROJECTS_REL}/${ART_ID}/(?:(?:source|proxy|packages|final)/${ART_ID}|master/${ART_ID}@[1-9][0-9]*-[1-9][0-9]*` +
     `|(?:transcript|edits|preview|style|plan|script|timeline|audio)/${ART_ID}/r[1-9][0-9]*|context/${ART_ID}/${ART_ID}|analysis/(?:footage|semantic)/${ART_ID})$`,
 );
 
@@ -69,7 +69,10 @@ export interface ArtifactPaths {
   timelineRev(id: string, n: number): string;
   /** Экспорт финала `final/<id>`. */
   finalExport(id: string): string;
-  /** CFR-дериватив исходника для композиции (F1): `proxy/<media>/master@<num>-<den>`. */
+  /**
+   * CFR-дериватив исходника для композиции (F1): `master/<media>@<num>-<den>` — свой каталог, не внутри
+   * `proxy/<media>`: опубликованный прокси read-only (publish делает каталог a-w), вложить в него нельзя.
+   */
   master(mediaId: string, fps: Fps): string;
   /** Смонтированная дорожка звука ревизии EDL `audio/<edl>/r<N>` (F2). */
   editedAudio(edlId: string, n: number): string;
@@ -97,7 +100,7 @@ export function artifactPaths(root: string, projectId: string): ArtifactPaths {
     package: (id) => `${p}/packages/${checkId("packageId", id)}`,
     timelineRev: (id, n) => `${p}/timeline/${checkId("timelineId", id)}/${rev(n)}`,
     finalExport: (id) => `${p}/final/${checkId("exportId", id)}`,
-    master: (mediaId, fps) => `${p}/proxy/${checkId("mediaId", mediaId)}/master@${fpsPart(fps.num)}-${fpsPart(fps.den)}`,
+    master: (mediaId, fps) => `${p}/master/${checkId("mediaId", mediaId)}@${fpsPart(fps.num)}-${fpsPart(fps.den)}`,
     editedAudio: (id, n) => `${p}/audio/${checkId("edlId", id)}/${rev(n)}`,
     contextPreview: (sceneId, versionId) => `${p}/context/${checkId("sceneId", sceneId)}/${checkId("versionId", versionId)}`,
     abs: (rel) => join(root, rel),
