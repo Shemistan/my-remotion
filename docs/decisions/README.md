@@ -15,4 +15,5 @@
 | [0006](0006-external-ssd-storage.md) | Данные на внешнем SSD через `MS_DATA_DIR` под защитой StorageGuard | принято |
 | [0007](0007-job-attempt-isolation.md) | Изоляция попыток задач и дочерних процессов | принято |
 | [0008](0008-portable-setup.md) | Переносимая установка: `./setup` ставит зависимости в проект, тяжёлое — на SSD | принято |
+| [0009](0009-video-scenes-via-script-pipeline.md) | Видеосцены через сценарный конвейер | принято |
 <!-- gate:end adr-index -->
