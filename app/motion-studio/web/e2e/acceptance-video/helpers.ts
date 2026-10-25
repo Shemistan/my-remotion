@@ -13,14 +13,15 @@ import { fileURLToPath } from "node:url";
 import { type APIRequestContext, type Page, expect } from "@playwright/test";
 import Database from "better-sqlite3";
 import type { Job } from "@ms/contracts";
+import { SSD_ROOT, materialsPath } from "../../../core/src/storage/materials.js";
 
 export const APP = fileURLToPath(new URL("../../../", import.meta.url));
 export const REPO = join(APP, "../..");
-export const ACC_ROOT = "/Volumes/External SSD/MotionStudio-acceptance";
+export const ACC_ROOT = materialsPath("acceptance", "store");
 /** Копии-отрезки исходника (оригинал не трогается): импорт идёт отсюда. */
-export const ACC_SRC = "/Volumes/External SSD/MotionStudio-acceptance-src";
+export const ACC_SRC = materialsPath("acceptance", "src");
 /** Сырой ролик пользователя (rulings 2026-10-24): только чтение, sha256 до/после. */
-export const ORIGINAL = "/Volumes/External SSD/Youtube/FinalVideo/MyProtocol/IMG_0685.MOV";
+export const ORIGINAL = `${SSD_ROOT}/Youtube/FinalVideo/MyProtocol/IMG_0685.MOV`;
 export const ORIGINAL_SHA256 = "9df29c1e5c9f26ce3d43a4adda99f4240023e115b65ad6c5647bd75979e7996f";
 export const RUN_ROOT = join(REPO, "tmp/acceptance-video");
 export const STATE_FILE = join(RUN_ROOT, "state.json");

@@ -9,7 +9,7 @@ bench, утром — отчёт с роликами. Спека — `docs/super
 Из worktree ветки задачи (не из main checkout), SSD подключён:
 
 ```sh
-export MS_DATA_DIR="/Volumes/External SSD/MotionStudio"
+export MS_DATA_DIR="/Volumes/External SSD/moution-studio-materials/store"
 ./night --dry-run          # предпроверки и план: ничего не создаёт и не тратит
 ./night                    # до 07:00, бюджет $150
 ./night --until 06:30 --budget-usd 120

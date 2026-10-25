@@ -22,14 +22,15 @@ import { registerHandlers } from "../../src/jobs/handlers.js";
 import { enqueue } from "../../src/jobs/queue.js";
 import { newId } from "../../src/scenes/ids.js";
 import { rootFillIssues } from "../../src/script/overlay-check.js";
+import { materialsPath, materialsRoot, assertSsdWriteAllowed, SSD_ROOT } from "@ms/core";
 
 const T = 60 * 60_000;
-const DATA_DIR = process.env.MS_DATA_DIR ?? "/Volumes/External SSD/MotionStudio";
+const DATA_DIR = process.env.MS_DATA_DIR ?? materialsPath("store");
 const REPO = fileURLToPath(new URL("../../../../../", import.meta.url));
 const FULL = join(REPO, "tmp/script-mvp/overlay");
 const SMALL = join(REPO, "docs/evidence/script-mvp/overlay");
 /** Ролик человека (согласие 2026-10-24): только чтение, кадры — в tmp/. */
-const FOOTAGE = process.env.MS_E2E_S6_FOOTAGE ?? "/Volumes/External SSD/Youtube/FinalVideo/MyProtocol/MyProtocol.mov";
+const FOOTAGE = process.env.MS_E2E_S6_FOOTAGE ?? `${SSD_ROOT}/Youtube/FinalVideo/MyProtocol/MyProtocol.mov`;
 /** Светлый кадр (белая рубашка на красной стене) и тёмный (тёмная IDE), с. */
 const LIGHT_S = 1800;
 const DARK_S = 2400;
@@ -39,7 +40,8 @@ const mine = new Set<string>();
 const lines: string[] = [];
 
 beforeAll(async () => {
-  expect(existsSync("/Volumes/External SSD"), "внешний SSD не подключён").toBe(true);
+  expect(existsSync(materialsRoot()), "внешний SSD не подключён").toBe(true);
+  assertSsdWriteAllowed(DATA_DIR); // S18: на SSD — только в папке материалов
   await ensureRenderBrowser();
   core = await bootCore({
     env: { ...process.env, MS_DATA_DIR: DATA_DIR },

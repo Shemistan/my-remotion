@@ -11,6 +11,7 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Settings, SettingsSchema, defaultSettings } from "@ms/contracts";
+import { SSD_ROOT } from "@ms/core";
 import { EXPORT_TIMEOUT_MS } from "@ms/render";
 import { z } from "zod";
 import { MAX_CALL_BUDGET_USD, MODEL_RE, ROLES, type Role } from "./agents/runtime.js";
@@ -280,7 +281,7 @@ function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig): Pick<AppConfig, 
   const asr: AsrConfig = {
     python: join(home, ".local/share/montage/mlx-audio-0.5.8/.venv/bin/python"),
     aiPlatformRoot: AI_PLATFORM_ROOT,
-    modelsDir: "/Volumes/External SSD/local_models",
+    modelsDir: `${SSD_ROOT}/local_models`,
     model: "whisper-large-v3-turbo",
     language: "ru",
     expectedWorkerSha256: ASR_WORKER_SHA256,
@@ -290,7 +291,7 @@ function videoConfig(env: NodeJS.ProcessEnv, file: FileConfig): Pick<AppConfig, 
     ...file.asr,
   };
   for (const k of ["python", "aiPlatformRoot", "modelsDir"] as const) asr[k] = absPath(`asr.${k}`, asr[k], home);
-  const media: MediaConfig = { importRoots: ["/Volumes/External SSD", join(home, "Movies")], proxyShortSide: 720, thumbEveryUs: 2_000_000, ...file.media };
+  const media: MediaConfig = { importRoots: [SSD_ROOT, join(home, "Movies")], proxyShortSide: 720, thumbEveryUs: 2_000_000, ...file.media };
   media.importRoots = media.importRoots.map((p, i) => absPath(`media.importRoots[${i}]`, p, home));
   const planning: PlanningConfig = { ...PLANNING, ...file.planning };
   if (planning.minSceneUs > planning.maxSceneUs) {

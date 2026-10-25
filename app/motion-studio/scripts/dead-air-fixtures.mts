@@ -13,6 +13,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { materialsPath } from "@ms/core";
 import type { MotionSpec, Settings } from "@ms/contracts";
 import { SWEEP_EVERY, gridDims, previewLuma, renderVersion } from "@ms/render";
 import { parseSweep } from "../server/src/qa/temporal.js";
@@ -20,13 +21,12 @@ import { parseSweep } from "../server/src/qa/temporal.js";
 const REPO = fileURLToPath(new URL("../../../", import.meta.url));
 const OUT = join(REPO, "app", "motion-studio", "server", "test", "fixtures", "dead-air");
 const TMP = join(REPO, "tmp", "dead-air-fixtures");
-const SSD = "/Volumes/External SSD";
 const render = process.argv.includes("--render");
 const s15aLogs = process.argv.find((a) => a.startsWith("--s15a-logs="))?.slice("--s15a-logs=".length);
 
 const CASES = [
-  { name: "s15b-5-flow-graph", store: `${SSD}/MotionStudio-e2e-s15b`, evidence: "docs/evidence/script-mvp/s15b/smoke-block-1.json", n: 5, from: 186, to: 246, logs: undefined as string | undefined, mask: 198 as number | undefined },
-  { name: "s15a-1-kinetic-quote", store: `${SSD}/MotionStudio-e2e-s15a`, evidence: "docs/evidence/script-mvp/s15a/smoke-block-1.json", n: 1, from: 186, to: 240, logs: s15aLogs, mask: undefined },
+  { name: "s15b-5-flow-graph", store: materialsPath("e2e", "s15b"), evidence: "docs/evidence/script-mvp/s15b/smoke-block-1.json", n: 5, from: 186, to: 246, logs: undefined as string | undefined, mask: 198 as number | undefined },
+  { name: "s15a-1-kinetic-quote", store: materialsPath("e2e", "s15a"), evidence: "docs/evidence/script-mvp/s15a/smoke-block-1.json", n: 1, from: 186, to: 240, logs: s15aLogs, mask: undefined },
 ];
 
 function findVersion(store: string, id: string): string | undefined {

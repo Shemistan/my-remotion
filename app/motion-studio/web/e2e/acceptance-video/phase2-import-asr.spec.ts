@@ -145,7 +145,7 @@ export default function importAsr(): void {
       return { segment: s.id, start_s: s.start_us / 1e6, end_s: s.end_us / 1e6, text: s.word_ids.map((id) => byId.get(id)?.text).join(" ") };
     });
     writeEvidence("asr", "segments-sample.json", sample);
-    c.note("2.H", "3 сегмента ASR: текст соответствует речи — требует подтверждения человеком (фрагменты в MotionStudio-примеры)", sample);
+    c.note("2.H", "3 сегмента ASR: текст соответствует речи — требует подтверждения человеком (фрагменты в папке примеров материалов)", sample);
     await page.getByRole("tab", { name: "Транскрипт" }).click();
     await expect(page.locator(".word").nth(10)).toBeVisible({ timeout: 30_000 });
     await shot(page, "asr", "03-transcript-r1");

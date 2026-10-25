@@ -42,7 +42,7 @@
 Из `app/motion-studio`, хранилище на SSD:
 
 ```sh
-export MS_DATA_DIR="/Volumes/External SSD/MotionStudio"
+export MS_DATA_DIR="/Volumes/External SSD/moution-studio-materials/store"
 N=./scripts/with-node.sh
 
 $N npx tsx scripts/bench-set.mts                        # новый прогон: генерация 12 сцен + судья ×3

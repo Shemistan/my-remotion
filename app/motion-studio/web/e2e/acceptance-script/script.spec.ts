@@ -1,5 +1,5 @@
 // Приёмка сценарного MVP (S12, спека §13) через UI: реальный claude и рендер, хранилище
-// /Volumes/External SSD/MotionStudio-acceptance, сервер 127.0.0.1:8790. Шаги по порядку:
+// `materialsPath("acceptance", "store")`, сервер 127.0.0.1:8790. Шаги по порядку:
 // text → plan → edit → generate (рестарт сервера посреди пакета) → package-v1 → refine (чат → v2)
 // → package (п.9–11) → vertical (9:16 двух сцен) → quality (разнообразие пакета, судья, кадры).
 // Продолжение: есть tmp/acceptance-script/state.json + MS_ACC_ONLY=<шаги через запятую>. Проверки — checks.json (id §13),
@@ -19,6 +19,7 @@ import {
   ACC_ROOT, APP, BLOCKS_DIR, EVIDENCE, POLL_MS, RUN_DIR, STATE_FILE, type AccState, addCost, alive, batch, check, db, frame480, getJson, jobCost, log, norm,
   pkg, portBusy, probe, redact, saveState, scriptState, sleep, startServer, state, stopServer, terminal, timeStep, versionPath, waitJob, writeEvidence,
 } from "./helpers.js";
+import { materialsRoot } from "../../../core/src/storage/materials.js";
 
 const PROJECT = "Go map — Swiss Table";
 const FPS = { num: 30, den: 1 };
@@ -176,7 +177,7 @@ test.describe.configure({ mode: "default" });
 
 test.beforeAll(async () => {
   test.setTimeout(15 * 60_000);
-  if (!existsSync("/Volumes/External SSD")) throw new Error("внешний SSD не подключён");
+  if (!existsSync(materialsRoot())) throw new Error(`внешний SSD не подключён: нет ${materialsRoot()}`);
   if (!existsSync(join(APP, "web/dist/index.html"))) throw new Error("нет web/dist: сначала `make web-build`");
   // есть state.json — продолжение прогона (и после перезапуска воркера); новый прогон — без него
   const reuse = existsSync(STATE_FILE);

@@ -1,5 +1,5 @@
 // Подготовка приёмки Phase 2–3 (Task 34, `make acceptance-video`): внешний SSD подключён →
-// хранилище MotionStudio-acceptance (нет — `doctor --init`) → `doctor` обязан пройти, ASR — `ok`,
+// хранилище приёмки `materialsPath("acceptance", "store")` (нет — `doctor --init`) → `doctor` обязан пройти, ASR — `ok`,
 // vision — `ok` (не `degraded`) → копия-отрезок сырого ролика (`pick-test-video.mjs --raw`, уже
 // сделанная — переиспользуется) → sha256 оригинала и копии «до» → сервер на 127.0.0.1:8790 с
 // `web/dist` и реальными claude / ASR-воркером / ffmpeg. Возвращает teardown: SIGTERM серверу.
@@ -11,6 +11,7 @@ import {
   ACC_ROOT, ACC_SRC, APP, ORIGINAL, ORIGINAL_SHA256, RUN_ROOT, STATE_FILE, type VideoAccState, alive, killServer, portBusy, redact, saveState,
   sha256File, startServer, state, writeEvidence,
 } from "./helpers.js";
+import { materialsRoot } from "../../../core/src/storage/materials.js";
 
 const tsx = (args: string[], env: NodeJS.ProcessEnv, timeout = 900_000) =>
   execFileSync(process.execPath, ["--import", "tsx", ...args], { cwd: APP, env, encoding: "utf8", timeout });
@@ -30,7 +31,7 @@ function pickVideo(): { path: string; window?: { start_s: number; end_s: number 
 }
 
 export default async function globalSetup(): Promise<() => Promise<void>> {
-  if (!existsSync("/Volumes/External SSD")) throw new Error("внешний SSD не подключён: приёмка идёт только на /Volumes/External SSD");
+  if (!existsSync(materialsRoot())) throw new Error(`внешний SSD не подключён: приёмка идёт только в ${materialsRoot()}`);
   if (await portBusy()) throw new Error("порт 8790 занят: остановите запущенный Motion Studio");
   if (!existsSync(join(APP, "web/dist/index.html"))) throw new Error("нет web/dist: сначала `make web-build`");
   const renamed = readdirSync(dirname(ACC_ROOT)).filter((n) => n.startsWith(`${basename(ACC_ROOT)}.renamed-`));
