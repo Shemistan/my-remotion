@@ -31,6 +31,8 @@ export interface PlanInspectorProps {
   timeline: EditedTimeline;
   /** Слова транскрипта — для цитат основания. */
   words: readonly TranscriptWord[];
+  /** Сцены плана: соседи ограничивают сдвиг границ (`SceneBounds`, ревью S21). */
+  items?: readonly ScenePlanItem[];
   busy: boolean;
   onOps: (ops: PlanOp[]) => void;
   onPlay: (editedRange: { start_us: number; end_us: number }) => void;
@@ -40,7 +42,7 @@ export interface PlanInspectorProps {
 
 const PROPOSAL_KEYS = ["visual_type", "composition_mode", "zone", "start_word_id", "end_word_id"] as const;
 
-export function PlanInspector({ item: x, proposal, issues, faceOverlapMax, timeline, words, busy, onOps, onPlay, onPreviewZone }: PlanInspectorProps) {
+export function PlanInspector({ item: x, items, proposal, issues, faceOverlapMax, timeline, words, busy, onOps, onPlay, onPreviewZone }: PlanInspectorProps) {
   const ids = { reason: useId(), purpose: useId(), type: useId(), mode: useId(), zone: useId() };
   const [reason, setReason] = useState(x.face_overlap.override_reason ?? "");
   const [edit, setEdit] = useState<{ purpose: string; visual_type: ScenePlanItem["visual_type"]; composition_mode: ScenePlanItem["composition_mode"] } | null>(null);
@@ -142,7 +144,7 @@ export function PlanInspector({ item: x, proposal, issues, faceOverlapMax, timel
           <div><dt>{t("inspector.metaphor")}</dt><dd>{x.metaphor}</dd></div>
         ) : null}
       </dl>
-      <SceneBounds item={x} words={words} timeline={timeline} busy={busy} onOps={onOps} />
+      <SceneBounds item={x} {...(items ? { items } : {})} words={words} timeline={timeline} busy={busy} onOps={onOps} />
       <p className="muted small">{t("inspector.scores", { c: x.complexity, u: x.usefulness, e: x.effort, l: x.visual_load })}</p>
       <h3>{t("inspector.evidence")}</h3>
       {x.evidence.map((e, i) => <EvidenceQuote key={`${e.start_word_id}-${i}`} evidence={e} words={words} timeline={timeline} onPlay={onPlay} />)}

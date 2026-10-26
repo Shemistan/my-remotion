@@ -17,6 +17,12 @@ const STATE = "/api/projects/p1/video/scenes";
 const GEN = "/api/projects/p1/video/generate";
 const posts = (calls: Call[], url: string) => calls.filter((c) => c.method === "POST" && c.url === url);
 const tiles = () => screen.getAllByTestId("video-scene-tile");
+/** «Сгенерировать все» и подтверждение, если оно спрошено (ревью S21: N ≥ 2). */
+const genAll = () => {
+  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.generateAll") }));
+  const go = screen.queryByRole("button", { name: t("videoScenes.confirmGo") });
+  if (go) fireEvent.click(go);
+};
 const props = (plan = true) => ({ data: projectDto(plan), currentUs: 0, onSeek: () => undefined, onChanged: () => undefined });
 const base = (state = scenesState()) => [
   on("GET", STATE, state),
@@ -102,7 +108,7 @@ it("«Сгенерировать все» — generate { revision }; сцена 
   expect(within(tiles()[0]!).getByText(t("videoScenes.stale"))).toBeTruthy();
   expect(within(tiles()[1]!).queryByText(t("videoScenes.stale"))).toBeNull();
   expect(within(tiles()[0]!).getByRole("button", { name: t("videoScenes.regenerate") }).className).toContain("primary");
-  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.generateAll") }));
+  genAll();
   await waitFor(() => expect(posts(calls, GEN)).toHaveLength(1));
   expect(posts(calls, GEN)[0]!.body).toEqual({ revision: 2 });
   expect(posts(calls, GEN)[0]!.headers["idempotency-key"]).toMatch(/^video-all:r2:/);
@@ -123,7 +129,7 @@ it("ошибка генерации 409 approval_required — карточка �
   fakeFetch([on("POST", GEN, { error: "approval_required", message: "x" }, 409), ...base()]);
   renderQ(<ScenesTab {...props()} />);
   await waitFor(() => expect(tiles()).toHaveLength(4));
-  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.generateAll") }));
+  genAll();
   const card = await screen.findByRole("alert");
   expect(card.getAttribute("data-error-code")).toBe("approval_required");
   expect(card.querySelector(".error-title")!.textContent).toBe(t("videoScenes.error.approval_required"));
@@ -134,7 +140,7 @@ it("409 nothing_to_generate — нейтральная подсказка, не 
   fakeFetch([on("POST", GEN, { error: "nothing_to_generate", message: "x" }, 409), ...base()]);
   renderQ(<ScenesTab {...props()} />);
   await waitFor(() => expect(tiles()).toHaveLength(4));
-  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.generateAll") }));
+  genAll();
   await waitFor(() => expect(screen.getByTestId("generate-note").textContent).toBe(t("videoScenes.error.nothing_to_generate")));
   expect(screen.getByTestId("generate-note").className).not.toContain("error");
   expect(screen.queryByRole("alert")).toBeNull();
@@ -175,12 +181,12 @@ it("I2: после отмены пакета «Сгенерировать все
   const { calls } = fakeFetch([(c) => (c.method === "GET" && c.url === STATE ? { body: cur } : undefined), ...base()]);
   renderQ(<ScenesTab {...props()} />);
   await waitFor(() => expect(tiles()).toHaveLength(4));
-  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.generateAll") }));
+  genAll();
   await waitFor(() => expect(posts(calls, GEN)).toHaveLength(1));
   cur = cancelled;
   fireEvent.click(within(await screen.findByTestId("batch-bar")).getByRole("button", { name: t("scriptOutput.batch.cancel") }));
   await waitFor(() => expect(tiles()[1]!.getAttribute("data-status")).toBe("cancelled"));
-  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.generateAll") }));
+  genAll();
   await waitFor(() => expect(posts(calls, GEN)).toHaveLength(2));
   const [k1, k2] = posts(calls, GEN).map((c) => c.headers["idempotency-key"]);
   expect(k2).not.toBe(k1);
@@ -227,6 +233,13 @@ it("S21: «Перегенерировать выбранные» — чекбо�
   fireEvent.click(box(0)!);
   fireEvent.click(box(2)!);
   fireEvent.click(regen());
+  // ревью S21: 2 сцены — сначала подтверждение; «Отмена» — запроса нет
+  expect(screen.getByRole("alert").textContent).toContain(t("videoScenes.confirmN", { n: 2 }));
+  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.confirmCancel") }));
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(posts(calls, GEN)).toHaveLength(0);
+  fireEvent.click(regen());
+  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.confirmGo") }));
   await waitFor(() => expect(posts(calls, GEN)).toHaveLength(1));
   expect(posts(calls, GEN)[0]!.body).toEqual({ revision: 2, item_ids: ["sp_001", "sp_003"], regenerate: true });
   expect(posts(calls, GEN)[0]!.headers["idempotency-key"]).toMatch(/^video-regen-selected:r2:[0-9a-f]{16}$/);
@@ -242,6 +255,8 @@ it("S21: «Перегенерировать устаревшие» — уста�
   await waitFor(() => expect(tiles()).toHaveLength(4));
   // sp_002 идёт — в пакет не входит
   fireEvent.click(screen.getByRole("button", { name: t("videoScenes.regenStale", { n: 2 }) }));
+  expect(screen.getByRole("alert").textContent).toContain(t("videoScenes.confirmN", { n: 2 }));
+  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.confirmGo") }));
   await waitFor(() => expect(posts(calls, GEN)).toHaveLength(1));
   expect(posts(calls, GEN)[0]!.body).toEqual({ revision: 2, item_ids: ["sp_001", "sp_003"] });
   expect(posts(calls, GEN)[0]!.headers["idempotency-key"]).toMatch(/^video-stale:r2:[0-9a-f]{16}$/);
@@ -250,6 +265,31 @@ it("S21: «Перегенерировать устаревшие» — уста�
   renderQ(<ScenesTab {...props()} />);
   await waitFor(() => expect(tiles()).toHaveLength(4));
   expect(screen.queryByRole("button", { name: /Перегенерировать устаревшие/ })).toBeNull();
+});
+
+it("ревью S21: подтверждение — «Сгенерировать все» на 2+ сцены спрашивает, на одну — нет; одна выбранная — без вопроса", async () => {
+  const { calls } = fakeFetch(base());
+  const { unmount } = renderQ(<ScenesTab {...props()} />);
+  await waitFor(() => expect(tiles()).toHaveLength(4));
+  // к генерации — упавшая и несгенерированная (готовая и идущая — нет)
+  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.generateAll") }));
+  expect(screen.getByRole("alert").textContent).toContain(t("videoScenes.confirmAllN", { n: 2 }));
+  expect(posts(calls, GEN)).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.confirmGo") }));
+  await waitFor(() => expect(posts(calls, GEN)).toHaveLength(1));
+  // одна выбранная сцена — сразу запрос
+  fireEvent.click(within(tiles()[0]!).getByRole("checkbox", { name: t("videoScenes.select", { n: 1 }) }));
+  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.regenSelected", { n: 1 }) }));
+  await waitFor(() => expect(posts(calls, GEN)).toHaveLength(2));
+  unmount();
+  // одна сцена к генерации — «Сгенерировать все» без вопроса
+  const s = scenesState();
+  const one = scenesState({ scenes: s.scenes.filter((x) => x.item_id !== "sp_004") });
+  const f = fakeFetch(base(one));
+  renderQ(<ScenesTab {...props()} />);
+  await waitFor(() => expect(tiles()).toHaveLength(3));
+  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.generateAll") }));
+  await waitFor(() => expect(posts(f.calls, GEN)).toHaveLength(1));
 });
 
 it("S21: ключ пакета выбранных — от плана, стиля, набора сцен и их задач/версий; тот же выбор — тот же ключ", () => {

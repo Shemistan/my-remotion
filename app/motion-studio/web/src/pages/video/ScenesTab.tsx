@@ -26,6 +26,8 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
   const generate = useVideoGenerate(projectId);
   const cancel = useCancelVideoBatch(projectId);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  // ревью S21: пакет из 2+ сцен — инлайн-подтверждение (каждая сцена — платная генерация)
+  const [confirm, setConfirm] = useState<{ text: string; run: () => void } | null>(null);
 
   if (!hasPlan) return <section className="panel" data-tab="scenes"><p className="muted">{t("videoScenes.stub")}</p></section>;
   if (q.isError) return <section className="panel" data-tab="scenes"><VideoScenesError error={q.error} /></section>;
@@ -57,6 +59,10 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
     { onSuccess: () => setPicked(new Set()) },
   );
   const regenStale = () => generate.mutate({ body: { revision, item_ids: staleIds }, key: videoBatchKey("stale", s, staleIds, data.style) });
+  const generateAll = () => generate.mutate({ body: { revision }, key: videoAllKey(s, data.style) });
+  // к генерации по «Сгенерировать все» — не идущие сцены без готовой версии по текущему плану
+  const allN = selectable.filter((x) => x.status !== "ready" || x.stale).length;
+  const ask = (n: number, text: string, run: () => void) => (n >= 2 ? setConfirm({ text, run }) : run());
   const pick = (id: string, on: boolean) => setPicked((p) => {
     const next = new Set(p);
     if (on) next.add(id);
@@ -73,21 +79,30 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
         <button
           type="button"
           className="primary"
-          disabled={!bValid || busy || s.scenes.length === 0}
+          disabled={!bValid || busy || s.scenes.length === 0 || confirm !== null}
           title={t("videoScenes.generateAllHint")}
-          onClick={() => generate.mutate({ body: { revision }, key: videoAllKey(s, data.style) })}
+          onClick={() => ask(allN, t("videoScenes.confirmAllN", { n: allN }), generateAll)}
         >
           {t("videoScenes.generateAll")}
         </button>
-        <button type="button" disabled={!bValid || busy || selected.length === 0} title={t("videoScenes.regenSelectedHint")} onClick={regenSelected}>
+        <button type="button" disabled={!bValid || busy || selected.length === 0 || confirm !== null} title={t("videoScenes.regenSelectedHint")}
+          onClick={() => ask(selected.length, t("videoScenes.confirmN", { n: selected.length }), regenSelected)}>
           {t("videoScenes.regenSelected", { n: selected.length })}
         </button>
         {staleIds.length > 0 ? (
-          <button type="button" disabled={!bValid || busy} title={t("videoScenes.regenStaleHint")} onClick={regenStale}>
+          <button type="button" disabled={!bValid || busy || confirm !== null} title={t("videoScenes.regenStaleHint")}
+            onClick={() => ask(staleIds.length, t("videoScenes.confirmN", { n: staleIds.length }), regenStale)}>
             {t("videoScenes.regenStale", { n: staleIds.length })}
           </button>
         ) : null}
       </div>
+      {confirm ? (
+        <div className="row wrap confirm" role="alert">
+          <span>{confirm.text}</span>
+          <button type="button" className="primary" disabled={busy} onClick={() => { confirm.run(); setConfirm(null); }}>{t("videoScenes.confirmGo")}</button>
+          <button type="button" onClick={() => setConfirm(null)}>{t("videoScenes.confirmCancel")}</button>
+        </div>
+      ) : null}
       {latest ? <BatchBar projectId={projectId} batch={latest} readySkipped={skipped.length} cancel={cancel} cost={false} /> : null}
       {generate.isError ? <VideoScenesError error={generate.error} /> : null}
       {skipped.length > 0 ? (

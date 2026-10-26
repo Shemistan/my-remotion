@@ -134,7 +134,12 @@ export default function batch(): void {
     await shot(page, "batch", "01-tiles-before");
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.request().method() === "POST" && /\/video\/generate$/.test(r.url())),
-      page.getByRole("button", { name: "Сгенерировать все" }).click(),
+      (async () => {
+        await page.getByRole("button", { name: "Сгенерировать все" }).click();
+        // ревью S21: пакет из 2+ сцен — инлайн-подтверждение
+        const go = page.getByRole("button", { name: "Запустить" });
+        if (await go.isVisible()) await go.click();
+      })(),
     ]);
     expect([200, 202], await resp.text()).toContain(resp.status());
     const b0 = (await resp.json()) as VideoBatchDto;

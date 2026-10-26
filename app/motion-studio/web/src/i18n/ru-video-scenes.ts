@@ -101,4 +101,18 @@ export const ruVideoScenes = {
   "planBounds.endLater": "Конец на слово позже",
   "planBounds.earlier": "← слово",
   "planBounds.later": "слово →",
+  "planBounds.prevLimit": "Начало раньше нельзя: перед сценой идёт сцена {id}",
+  "planBounds.nextLimit": "Конец позже нельзя: дальше идёт сцена {id}",
+  "planBounds.startCut": "Слово начала вырезано монтажом — сначала сдвиньте начало на услышанное слово",
+  "planBounds.endCut": "Слово конца вырезано монтажом — сначала сдвиньте конец на услышанное слово",
+  "planBounds.keyTermOutside": "Ключевое слово «{text}» окажется вне сцены — сдвинуть всё равно?",
+  "planBounds.confirm": "Сдвинуть",
+  "planBounds.cancel": "Отмена",
+  "plan.issue.evidence_outside": "цитата вне сцены",
+
+  // ревью S21: подтверждение пакета из нескольких сцен
+  "videoScenes.confirmN": "Перегенерировать сцен: {n}? Каждая — платная генерация.",
+  "videoScenes.confirmAllN": "Сгенерировать сцен: {n}? Каждая — платная генерация.",
+  "videoScenes.confirmGo": "Запустить",
+  "videoScenes.confirmCancel": "Отмена",
 } as const satisfies Record<string, string>;

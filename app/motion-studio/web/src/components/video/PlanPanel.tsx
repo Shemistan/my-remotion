@@ -178,6 +178,7 @@ export function PlanPanel(p: PlanPanelProps) {
       {item ? (
         <PlanInspector
           item={item}
+          items={doc.items}
           proposal={plan.proposals[item.id]}
           issues={doc.issues}
           faceOverlapMax={plan.face_overlap_max}
