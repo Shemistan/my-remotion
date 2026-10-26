@@ -31,6 +31,11 @@ export interface TimelineOutput {
   scale: number;
   audioBitrateKbps: number;
   x264Preset: "medium" | "veryfast";
+  /**
+   * Task 43: матрица YUV файла (`colorSpace` Remotion, с тегами BT.709). Финал — `bt709`, как master
+   * (ADR 0010); без поля — по умолчанию Remotion (без тегов, swscale bt601).
+   */
+  colorSpace?: "bt709";
 }
 
 export interface TimelineRenderRequest {
@@ -214,7 +219,7 @@ export async function renderTimelineRange(req: TimelineRenderRequest, signal?: A
     composition: { width: p.width, height: p.height, fps: p.fps.num / p.fps.den, durationInFrames: p.duration_frames },
     stills: stillsDir ? req.stills.map((frame) => ({ frame, out: join(stillsDir, `${frame}.png`) })) : [],
     output: req.output
-      ? { out: req.output.path, crf: req.output.crf, scale: req.output.scale, audioBitrateKbps: req.output.audioBitrateKbps, x264Preset: req.output.x264Preset, frameRange: req.range ?? null }
+      ? { out: req.output.path, crf: req.output.crf, scale: req.output.scale, audioBitrateKbps: req.output.audioBitrateKbps, x264Preset: req.output.x264Preset, frameRange: req.range ?? null, ...(req.output.colorSpace ? { colorSpace: req.output.colorSpace } : {}) }
       : null,
     timeoutMs: innerTimeoutMs(req.timeoutMs),
   };

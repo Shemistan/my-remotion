@@ -92,11 +92,11 @@ describe("заглушки обработчиков Phase 4–6", () => {
     const svc = { config: loadConfig({ MS_DATA_DIR: "/tmp/ms-unused" }) } as unknown as CoreServices;
     const h = registerHandlers(svc);
     const want: Record<string, string> = {
-      "final.render": "43", "final.reproduce": "43",
     };
     // Task 47: trash.purge; Task 38-39: scene.preview_context; Task 42: timeline.build и
-    // timeline.preview; Task 49a: cache.gc; Task 5L: video.package — реализованы (свои тесты)
-    for (const t of ["trash.purge", "scene.preview_context", "timeline.build", "timeline.preview", "cache.gc", "video.package"] as const) expect(h[t]).toBeTypeOf("function");
+    // timeline.preview; Task 49a: cache.gc; Task 5L: video.package; Task 43: final.render и
+    // final.reproduce — реализованы (свои тесты); заглушек Phase 4–6 не осталось
+    for (const t of ["trash.purge", "scene.preview_context", "timeline.build", "timeline.preview", "cache.gc", "video.package", "final.render", "final.reproduce"] as const) expect(h[t]).toBeTypeOf("function");
     for (const [type, task] of Object.entries(want)) {
       const r = await h[type as JobType]!({} as JobContext);
       expect(r, type).toEqual({ status: "failed", error: { code: "pipeline", stage: "prepare", message: `не реализовано: Task ${task}` } });

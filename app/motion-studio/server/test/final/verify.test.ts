@@ -1,6 +1,6 @@
 // Task 44: ffprobe-гейт финала, число кадров при смене fps и правила провала отчёта (без ffmpeg).
 import { describe, expect, it } from "vitest";
-import { type FinalProbe, finalFrames, finalProbeGate, syncStatus, verifyFailures } from "../../src/final/verify.js";
+import { type FinalProbe, finalAudioChannels, finalFrames, finalProbeGate, syncStatus, verifyFailures } from "../../src/final/verify.js";
 
 const F30 = { num: 30, den: 1 };
 const probe = (o: Partial<FinalProbe> & { durationUs?: number } = {}): FinalProbe => {
@@ -34,6 +34,12 @@ describe("finalProbeGate", () => {
     // 300 кадров = 10 010 000 мкс, кадр = 33 367 мкс
     expect(finalProbeGate(probe({ fps: ntsc, durationUs: 10_043_367 }), { ...exp(300), fps: ntsc })).toEqual([]);
     expect(finalProbeGate(probe({ fps: ntsc, durationUs: 10_043_369 }), { ...exp(300), fps: ntsc })).toEqual([expect.stringMatching(/^duration/)]);
+  });
+});
+
+describe("finalAudioChannels", () => {
+  it("Task 43: Remotion сводит звук в стерео — моно и 5.1 исходника дают 2 канала; без звука — не сверяется", () => {
+    expect([finalAudioChannels(1), finalAudioChannels(2), finalAudioChannels(6), finalAudioChannels(undefined)]).toEqual([2, 2, 2, undefined]);
   });
 });
 

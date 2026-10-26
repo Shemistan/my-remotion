@@ -6,6 +6,7 @@
 // фикстуры рендера `timeline/overlay-lower-third` и `timeline/fullscreen-card` с длиной по плану;
 // A, B и C утверждены. Пишет только в хранилище `root` (tmp/ репозитория).
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { copyFileSync, cpSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -71,10 +72,15 @@ function fixtureVersion(db: Db, root: string, sceneId: string, fixture: string, 
   writeFileSync(join(dir, "props.json"), JSON.stringify(props, null, 2) + "\n");
   const settings = { ...(JSON.parse(readFileSync(join(dir, "settings.json"), "utf8")) as Settings), duration_frames: frames };
   writeFileSync(join(dir, "settings.json"), JSON.stringify(settings, null, 2) + "\n");
+  // manifest.json версии: файлы и их sha256 — как у настоящей версии (повтор финала сверяет их по диску)
+  const sha = (b: Buffer | string) => createHash("sha256").update(b).digest("hex");
+  const files = ["props.json", "settings.json"].map((path) => ({ path, sha256: sha(readFileSync(join(dir, path))) }));
+  const manifest = JSON.stringify({ fixture, frames, files }, null, 2) + "\n";
+  writeFileSync(join(dir, "manifest.json"), manifest);
   scenes.create(db, { id: sceneId, project_id: "p1", title: fixture });
   versions.insert(db, {
     id: vid, scene_id: sceneId, parent_version_id: null, number: 1, status: "ready", prompt: fixture, edit_plan: null, settings,
-    path: rel, manifest_sha256: canonicalHash({ fixture, frames }), created_by_job_id: null, created_at: new Date().toISOString(),
+    path: rel, manifest_sha256: sha(manifest), created_by_job_id: null, created_at: new Date().toISOString(),
   });
   scenes.setCurrent(db, sceneId, vid);
   return vid;

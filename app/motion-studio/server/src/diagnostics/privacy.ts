@@ -40,6 +40,8 @@ export const SAFE_KINDS: ReadonlySet<string> = new Set([
   "script_batch", "video_batch",
   // таймлайн проекта (Task 42): id таймлайна, ревизии, счётчики, размеры, секунды
   "timeline_reused", "timeline_current", "timeline_built", "timeline_preview",
+  // финал (Task 43): id экспорта, размер, кадры, секунды
+  "final_render", "final_reproduce",
 ]);
 
 /**

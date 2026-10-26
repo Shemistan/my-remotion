@@ -50,7 +50,8 @@ export const REQUEST: FinalExportRequest = { resolution: "source", quality: "sta
 export function okInput(workDir: string): VerifyFinalInput {
   const stills = `${workDir}-stills`;
   return {
-    finalPath: fx("final-like.mp4"), doc: DOC, request: REQUEST, master: fx("counter-30.mp4"),
+    // финал как у Remotion: моно исходника — в оба канала стерео (Task 43, fix 1)
+    finalPath: fx("final-like-st.mp4"), doc: DOC, request: REQUEST, master: fx("counter-30.mp4"),
     editedAudio: fx("final-like-edited.wav"), source16k: fx("counter-30-16k.wav"), words: WORDS, tl: TL, workDir,
     stillsFor: async (frames) => {
       await mkdir(stills, { recursive: true });
