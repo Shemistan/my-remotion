@@ -65,6 +65,11 @@ export interface ProcessRegistry {
    * отметки не хранит.
    */
   markForeign?(p: TrackedProcess, ownerPid: number): Promise<void>;
+  /**
+   * Владелец попытки (S20, I1) — по любой её записи с владельцем, включая завершённые: запись
+   * бокового реестра без владельца (Chrome) берёт его, даже когда worker уже вышел.
+   */
+  attemptOwner?(runId: string, attempt: number): Promise<ProcessOwner | undefined>;
 }
 
 /** Совпадает ли запись с фильтром. */
@@ -195,11 +200,13 @@ export async function reapAttempt(
   const graceMs = opts.graceMs ?? 5000;
   const waitMs = opts.waitMs ?? 30_000;
 
+  // снимок до dropDead: мёртвый worker ещё несёт владельца попытки для своего Chrome (I1)
+  const snapshot = await registry.live();
   let alive = await dropDead(registry, await registry.live(filter));
   if (alive.length === 0) return { clean: true, alive: [] };
 
   // родитель-запись ищется по всему реестру: Chrome (боковой реестр) — потомок worker
-  const judge = ownershipJudge(await registry.live());
+  const judge = ownershipJudge(snapshot, registry);
   const foreign: ForeignProcess[] = [];
   const own: TrackedProcess[] = [];
   for (const p of alive) {
@@ -226,32 +233,35 @@ type Verdict = Omit<ForeignProcess, "process"> | undefined;
 
 /**
  * Чей процесс (S20). Чужой (`Verdict` задан), если
- * - B: у записи есть владелец, это не мы (pid + время старта), и он жив;
- * - A: лидер жив, а его родитель — не 1 (осиротел), не мы и не другая запись реестра, которая
- *   сама не чужая (цепочка worker → Chrome); родитель-запись чужая — чужой и потомок.
- * Лидера уже нет (остались процессы группы) — проверка A невозможна, решает только B.
+ * - B: владелец записи жив и это не мы (pid + время старта). Запись без владельца (боковой
+ *   реестр: Chrome из chrome-wrapper.sh, файловый реестр spawnTracked) берёт владельца попытки —
+ *   у соседа по (runId, attempt) в снимке реестра или `registry.attemptOwner` (и у завершённых
+ *   строк `job_processes`);
+ * - A: лидер жив, а его родитель — не 1 (осиротел), не мы и не другая запись реестра (pid +
+ *   время старта), которая сама не чужая (цепочка worker → Chrome); родитель-запись чужая —
+ *   чужой и потомок; повторный вход в цепочку — чужой (без зацикливания).
+ * Лидера уже нет (остались процессы группы) — проверка A невозможна, решает только B. Записи без
+ * владельца и без владельца попытки (строки до 007) — только A (остаток, ADR 0007 п. 4).
  */
-function ownershipJudge(all: TrackedProcess[]): (p: TrackedProcess) => Promise<Verdict> {
-  const memo = new Map<string, Promise<Verdict>>();
-  const judge = (p: TrackedProcess, depth: number): Promise<Verdict> => {
+function ownershipJudge(all: TrackedProcess[], registry: ProcessRegistry): (p: TrackedProcess) => Promise<Verdict> {
+  const ownerOf = async (p: TrackedProcess): Promise<ProcessOwner | undefined> =>
+    p.owner ??
+    all.find((q) => q.runId === p.runId && q.attempt === p.attempt && q.owner)?.owner ??
+    (await registry.attemptOwner?.(p.runId, p.attempt));
+  const judge = async (p: TrackedProcess, visiting: ReadonlySet<string>): Promise<Verdict> => {
     const key = `${p.runId}\u0000${p.attempt}\u0000${p.pid}`;
-    let v = memo.get(key);
-    if (!v) {
-      v = verdict(p, depth);
-      memo.set(key, v);
-    }
-    return v;
-  };
-  const verdict = async (p: TrackedProcess, depth: number): Promise<Verdict> => {
-    if (p.owner && (await ownerAliveElsewhere(p.owner))) return { ownerPid: p.owner.pid, reason: "owner_alive" };
+    if (visiting.has(key)) return { ownerPid: p.pid, reason: "parent_alive" };
+    const owner = await ownerOf(p);
+    if (owner && (await ownerAliveElsewhere(owner))) return { ownerPid: owner.pid, reason: "owner_alive" };
     const info = await procParent(p.pid);
     if (!info || info.startedAt !== p.startedAt) return undefined;
     if (info.ppid === 1 || info.ppid === process.pid) return undefined;
-    const parent = all.find((q) => q.pid === info.ppid && q.pid !== p.pid);
-    if (parent && depth < 8 && (await procInfo(parent.pid))?.startedAt === parent.startedAt) return judge(parent, depth + 1);
+    const parentStarted = (await procInfo(info.ppid))?.startedAt;
+    const parent = all.find((q) => q.pid === info.ppid && q.startedAt === parentStarted && q !== p);
+    if (parent) return judge(parent, new Set([...visiting, key]));
     return { ownerPid: info.ppid, reason: "parent_alive" };
   };
-  return (p) => judge(p, 0);
+  return (p) => judge(p, new Set());
 }
 
 /** Владелец жив и это не этот процесс. */

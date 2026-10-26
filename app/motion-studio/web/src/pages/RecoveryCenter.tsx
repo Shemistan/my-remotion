@@ -13,7 +13,7 @@ import { errorText, t, tk } from "../i18n/index.js";
 
 type Quarantined = RecoveryDto["quarantined"][number];
 
-function JobRow({ j }: { j: Job }) {
+function JobRow({ j, foreignPids }: { j: Job; foreignPids?: number[] }) {
   const err = j.error as { message?: string; pids?: number[]; cmds?: string[] } | null;
   return (
     <li data-job-id={j.id}>
@@ -24,6 +24,7 @@ function JobRow({ j }: { j: Job }) {
         <span className="mono small">{j.id}</span>
       </div>
       {err?.message ? <p className="muted small">{err.message}</p> : null}
+      {foreignPids?.length ? <p className="hint">{t("recovery.foreignHint", { pid: foreignPids.join(", ") })}</p> : null}
       {err?.pids?.length ? (
         <ul className="mono small">
           {err.pids.map((pid, i) => <li key={pid}>{t("recovery.pid", { pid, cmd: err.cmds?.[i] ?? "" })}</li>)}
@@ -140,7 +141,11 @@ export function RecoveryCenter() {
             {r.blocked.length === 0 ? <p className="muted">{t("recovery.noBlocked")}</p> : (
               <>
                 <p className="hint">{t("recovery.blockedHint")}</p>
-                <ul className="job-list">{r.blocked.map((j) => <JobRow key={j.id} j={j} />)}</ul>
+                <ul className="job-list">
+                  {r.blocked.map((j) => (
+                    <JobRow key={j.id} j={j} foreignPids={r.boot?.warnings?.find((w) => w.kind === "foreign_process" && w.job_id === j.id)?.owner_pids} />
+                  ))}
+                </ul>
               </>
             )}
           </section>

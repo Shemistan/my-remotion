@@ -92,6 +92,14 @@ export class SqliteProcessRegistry implements ProcessRegistry {
     }
   }
 
+  /** S20 (I1): владелец попытки — из копии в памяти или из БД (и по завершённым строкам). */
+  async attemptOwner(runId: string, attempt: number): Promise<ProcessOwner | undefined> {
+    for (const e of this.entries.values()) if (e.p.runId === runId && e.p.attempt === attempt && e.p.owner) return e.p.owner;
+    if (!this.online()) return undefined;
+    const r = jobProcesses.attemptOwner(this.db!, runId, attempt);
+    return r ? { pid: r.owner_pid!, startedAt: r.owner_started_at!, nonce: r.owner_nonce ?? "" } : undefined;
+  }
+
   /** `storage_offline`: база закрывается, дальше — только копия в памяти. */
   detach(): void {
     this.db = undefined;
@@ -146,6 +154,7 @@ export function mergeRegistries(primary: ProcessRegistry, side: ProcessRegistry)
       await primary.markForeign?.(p, ownerPid);
       await side.markForeign?.(p, ownerPid);
     },
+    attemptOwner: async (runId, attempt) => (await primary.attemptOwner?.(runId, attempt)) ?? (await side.attemptOwner?.(runId, attempt)),
     async end(p, exit) {
       await primary.end(p, exit);
       await side.end(p, exit);

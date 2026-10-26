@@ -14,7 +14,7 @@
 // `job_events` (трассировка в UI); в архив он попадает только при `includePrompts`.
 //
 // Пути: `maskExport` — `maskDeep` (хранилище → «хранилище», дом → «~») плюс чужие домашние
-// каталоги `/Users/<имя>` → `/Users/…` и том хранилища `/Volumes/<том>` → `/Volumes/…`.
+// каталоги `/Users/<имя>` → `/Users/…` и любой том `/Volumes/<том>` → `/Volumes/…` (S20).
 import { homedir } from "node:os";
 import { maskDeep } from "../api/job-dto.js";
 
@@ -117,6 +117,9 @@ export function maskExport<T>(value: T, root: string, home: string = homedir()):
     if (typeof v === "string") {
       let s = v;
       if (volRe) s = s.replace(volRe, "/Volumes/…");
+      // S20: любой другой том (исходник копии хранилища и т. п.): имя до «/» (в имени бывают
+      // пробелы), без «/» после — до пробела
+      s = s.replace(/\/Volumes\/(?!…)[^/\n"'`]+(?=\/)/g, "/Volumes/…").replace(/\/Volumes\/(?!…)[^\s/"'`;,)]+/g, "/Volumes/…");
       return s.replace(/\/Users\/(?!…)[^/\s"'`]+/g, "/Users/…");
     }
     if (Array.isArray(v)) return v.map(walk);

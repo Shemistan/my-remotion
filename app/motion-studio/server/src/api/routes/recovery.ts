@@ -17,7 +17,7 @@ export const DiscardBodySchema = z.object({ dir: Dir, token: z.string().min(1).m
 export function recoveryRoutes(app: ZApp, { core }: ApiContext): void {
   // S20: предупреждения (отчёты до S20 — без них); пути — как в остальных DTO, маской
   const warnings = (b: PersistedBootReport) =>
-    (b.report.warnings ?? []).map((w) => ({ kind: w.kind, message: maskPaths(w.message, core.root), ...(w.job_id ? { job_id: w.job_id } : {}) }));
+    (b.report.warnings ?? []).map((w) => ({ kind: w.kind, message: maskPaths(w.message, core.root), ...(w.job_id ? { job_id: w.job_id } : {}), ...(w.owner_pids ? { owner_pids: w.owner_pids } : {}) }));
   const bootDto = (b: PersistedBootReport | undefined) =>
     b ? { id: b.id, created_at: b.created_at, crashed: b.crashed, acknowledged_at: b.acknowledged_at, summary: bootSummary(b.report), warnings: warnings(b) } : null;
 
@@ -35,7 +35,7 @@ export function recoveryRoutes(app: ZApp, { core }: ApiContext): void {
   app.get("/api/recovery", { schema: { response: { 200: RecoveryDtoSchema } } }, async () => recovery());
 
   app.post("/api/recovery/:id/ack", { schema: { params: IdParams, response: { 200: RecoveryDtoSchema } } }, async (req) => {
-    acknowledgeBootReport(core.db, req.params.id);
+    acknowledgeBootReport(core.db, req.params.id, core.root);
     return recovery();
   });
 

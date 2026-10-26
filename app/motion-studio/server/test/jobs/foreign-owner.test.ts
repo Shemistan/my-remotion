@@ -5,7 +5,7 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { cpSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { procInfo, reapAttempt } from "@ms/core";
+import { fileProcessRegistry, procInfo, reapAttempt } from "@ms/core";
 import { type BootOptions, type Core, bootCore } from "../../src/boot.js";
 import type { AgentRuntimeAdapter } from "../../src/agents/runtime.js";
 import { getMeta } from "../../src/db/meta.js";
@@ -15,6 +15,7 @@ import * as jobProcesses from "../../src/db/repos/job-processes.js";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as scenes from "../../src/db/repos/scenes.js";
 import { storeCopyRow } from "../../src/diagnostics/doctor-checks.js";
+import { acknowledgeBootReport } from "../../src/recovery/boot-report.js";
 import { enqueue } from "../../src/jobs/queue.js";
 import type { KnowledgeAdapter } from "../../src/knowledge/adapter.js";
 import { makeStore, probe, removeStore, type TestStore } from "../db/helpers.js";
@@ -107,6 +108,29 @@ for (const withOwner of [true, false]) {
   });
 }
 
+it("I1: Chrome оригинала в боковом реестре (без владельца, ppid 1), worker уже вышел, сервер оригинала жив → Chrome жив", async () => {
+  const o = await originalServer();
+  const db = openDb(s.root);
+  await migrate(db, { log: () => undefined });
+  scenes.create(db, { id: "scn_1", project_id: "playground", title: "x" });
+  const j = enqueue(db, req()).job;
+  jobs.update(db, j.id, { status: "running", attempt: 1 });
+  // строка worker'а завершена (вышел), но несёт владельца попытки
+  jobProcesses.insert(db, { job_id: j.id, attempt: 1, pid: 999_999, pgid: 999_999, started_at: "x", cmd: "worker", owner_pid: o.server, owner_started_at: o.serverStartedAt, owner_nonce: "orig" });
+  jobProcesses.end(db, { job_id: j.id, attempt: 1, pid: 999_999 });
+  db.close();
+  // «Chrome»: осиротевшая группа (ppid 1), записанная chrome-wrapper.sh в run/processes
+  const sh = spawn("/bin/sh", ["-c", `perl -e 'setpgrp(0,0); exec "sleep", "600"' & echo $!`], { stdio: ["ignore", "pipe", "ignore"] });
+  const chrome = await new Promise<number>((resolve) => sh.stdout!.setEncoding("utf8").on("data", (d: string) => resolve(Number(d.trim()))));
+  pids.add(chrome);
+  await new Promise((r) => setTimeout(r, 150));
+  await fileProcessRegistry(s.root).add({ runId: j.id, attempt: 1, pid: chrome, pgid: chrome, startedAt: (await procInfo(chrome))!.startedAt, cmd: "chrome-headless-shell (render) /x" });
+  core = await bootCore(opts(s.root));
+  expect(await procInfo(chrome)).toBeDefined();
+  expect(jobs.get(core.db, j.id)!.status).toBe("blocked");
+  expect(core.recovery.foreign).toEqual([{ jobId: j.id, pids: [chrome], ownerPids: [o.server] }]);
+});
+
 it("владелец мёртв, процесс осиротел (ppid 1) → убит, задача снова в очереди (как прежде)", async () => {
   const o = await originalServer();
   const jobId = await seedCopy(o, true);
@@ -120,9 +144,34 @@ it("владелец мёртв, процесс осиротел (ppid 1) → у
   expect(core.recovery.foreign).toEqual([]);
 });
 
+it("I2: тот же корень в другом регистре (APFS без учёта регистра) — не копия, предупреждения нет", async () => {
+  core = await bootCore(opts(s.root));
+  await core.close();
+  core = undefined;
+  const upper = join(s.tmp, "STORE");
+  expect(realpathSync.native(upper)).toBe(realpathSync.native(s.root)); // том без учёта регистра
+  core = await bootCore(opts(upper));
+  expect(core.bootReport.report.warnings).toEqual([]);
+  expect(storeCopyRow(core.db, upper)).toBeUndefined();
+});
+
+it("I2: «Понятно» снимает метку копии: root_realpath = текущий путь, doctor больше не предупреждает", async () => {
+  core = await bootCore(opts(s.root));
+  await core.close();
+  core = undefined;
+  const copy = join(s.tmp, "copy");
+  cpSync(s.root, copy, { recursive: true });
+  core = await bootCore(opts(copy));
+  expect(storeCopyRow(core.db, copy)).toBeDefined();
+  acknowledgeBootReport(core.db, core.bootReport.id, copy);
+  expect(storeCopyRow(core.db, copy)).toBeUndefined();
+  expect(getMeta(core.db, "root_copied_from")).toBeUndefined();
+  expect(getMeta(core.db, "root_realpath")).toBe(realpathSync.native(copy));
+});
+
 it("C: корень хранилища в meta; на копии — предупреждение в отчёте старта и doctor, без отказа", async () => {
   core = await bootCore(opts(s.root));
-  const orig = realpathSync(s.root);
+  const orig = realpathSync.native(s.root);
   expect(getMeta(core.db, "root_realpath")).toBe(orig);
   expect(core.bootReport.report.warnings).toEqual([]);
   await core.close();
@@ -133,7 +182,7 @@ it("C: корень хранилища в meta; на копии — предуп
   core = await bootCore(opts(copy));
   const text = `хранилище скопировано из ${orig}; процессы оригинала не трогаются`;
   expect(core.bootReport.report.warnings).toEqual([{ kind: "store_copied", level: "warn", message: text, copied_from: orig }]);
-  expect(getMeta(core.db, "root_realpath")).toBe(realpathSync(copy));
+  expect(getMeta(core.db, "root_realpath")).toBe(realpathSync.native(copy));
   // doctor: строка-предупреждение (ok: true) — и по базе сервера, и по закрытой базе (CLI)
   const row = { name: "store_copy", ok: true, status: "warning", detail: text };
   expect(storeCopyRow(core.db, copy)).toEqual(row);

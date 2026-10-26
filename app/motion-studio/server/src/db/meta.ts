@@ -33,7 +33,7 @@ export function bindStoreId(db: Db, marker: StoreMarker): void {
  * работают на копиях.
  */
 export function bindRootPath(db: Db, root: string): string | undefined {
-  const real = realpathSync(root);
+  const real = realpathSync.native(root);
   return tx(db, () => {
     const prev = getMeta(db, "root_realpath");
     if (prev === real) return undefined;
@@ -54,8 +54,19 @@ export function storeCopiedFrom(db: Db, root: string): string | undefined {
   } catch {
     return undefined; // базы ещё нет (нет таблицы meta)
   }
-  if (prev !== undefined && prev !== realpathSync(root)) return prev;
+  if (prev !== undefined && prev !== realpathSync.native(root)) return prev;
   return from;
+}
+
+/**
+ * S20 (I2): человек подтвердил копию («Понятно» в центре восстановления) — метка снята,
+ * текущий путь становится исходным: doctor больше не предупреждает.
+ */
+export function acknowledgeStoreCopy(db: Db, root: string): void {
+  tx(db, () => {
+    db.prepare("DELETE FROM meta WHERE key = 'root_copied_from'").run();
+    setMeta(db, "root_realpath", realpathSync.native(root));
+  });
 }
 
 /** Предупреждение о копии хранилища (S20) — doctor и отчёт старта. */

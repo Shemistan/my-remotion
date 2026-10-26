@@ -142,10 +142,12 @@ it("центр восстановления: итог, PID блокирован�
 it("S20: предупреждения старта (копия хранилища, процесс другого сервера) видны в центре восстановления", async () => {
   const warnings = [
     { kind: "store_copied", message: "хранилище скопировано из /Volumes/…/store; процессы оригинала не трогаются" },
-    { kind: "foreign_process", message: "задача job_b: процесс принадлежит другому живому серверу (pid 777) — не тронут, задача заблокирована", job_id: "job_b" },
+    { kind: "foreign_process", message: "задача job_b: процесс принадлежит другому живому серверу (pid 777) — не тронут, задача заблокирована", job_id: "job_b", owner_pids: [777] },
   ];
   fakeFetch([on("GET", "/api/recovery", recovery({ boot: { id: "brp_1", created_at: TS, crashed: true, acknowledged_at: null, warnings } }))]);
   renderQ(<RecoveryCenter />);
   const list = await screen.findByTestId("recovery-warnings");
   expect([...list.querySelectorAll("li")].map((li) => [li.dataset.kind, li.textContent])).toEqual(warnings.map((w) => [w.kind, t("recovery.warning", { message: w.message })]));
+  // у заблокированной задачи — что делать: остановить второй сервер и повторить
+  expect(screen.getByText(t("recovery.foreignHint", { pid: "777" }))).toBeTruthy();
 });

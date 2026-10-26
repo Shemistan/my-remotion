@@ -1,7 +1,7 @@
 // Отчёт старта (Task 47): итог восстановления (`recoverOnStart`), был ли сбой (нет маркера чистой
 // остановки) и черновики в карантине — в `boot_reports`. Баннер UI показывает последний отчёт
 // со сбоем, пока человек не отметит его прочитанным.
-import { storeCopiedText } from "../db/meta.js";
+import { acknowledgeStoreCopy, storeCopiedText } from "../db/meta.js";
 import type { Db } from "../db/open.js";
 import * as bootReports from "../db/repos/boot-reports.js";
 import { nowIso } from "../db/repos/util.js";
@@ -59,9 +59,12 @@ export function latestBootReport(db: Db): PersistedBootReport | undefined {
   return bootReports.latestUnacknowledgedCrash<BootReportData>(db) ?? bootReports.latest<BootReportData>(db);
 }
 
-export function acknowledgeBootReport(db: Db, id: string): PersistedBootReport {
-  if (!bootReports.get(db, id)) throw new LifecycleError("boot_report_not_found", `отчёта запуска ${id} нет`);
+/** `root` (S20, I2): отчёт с предупреждением о копии снимает и метку копии хранилища. */
+export function acknowledgeBootReport(db: Db, id: string, root?: string): PersistedBootReport {
+  const b = bootReports.get<BootReportData>(db, id);
+  if (!b) throw new LifecycleError("boot_report_not_found", `отчёта запуска ${id} нет`);
   bootReports.acknowledge(db, id, nowIso());
+  if (root !== undefined && (b.report.warnings ?? []).some((w) => w.kind === "store_copied")) acknowledgeStoreCopy(db, root);
   return bootReports.get<BootReportData>(db, id)!;
 }
 

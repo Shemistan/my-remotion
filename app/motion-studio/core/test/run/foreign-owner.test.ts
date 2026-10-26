@@ -171,3 +171,77 @@ it("цепочка: родитель — запись чужого сервер�
   expect(await procInfo(wPid)).toBeDefined();
   expect(await procInfo(cPid)).toBeDefined();
 });
+
+// --- Fix round 1 (I1): записи без владельца (боковой реестр) берут владельца попытки ---
+
+/** Процесс, осиротевший сразу (ppid 1), в своей группе; `withChild` — лидер выходит, в группе остаётся sleep. */
+async function orphanGroup(): Promise<{ leader: number; pid: number }> {
+  const sh = spawn("/bin/sh", ["-c", `perl -e 'setpgrp(0,0); exec "sleep", "600"' & echo $!`], { stdio: ["ignore", "pipe", "ignore"] });
+  const pid = Number(await waitLine(sh));
+  pids.add(pid);
+  for (let i = 0; i < 100 && (await procParent(pid))?.ppid !== 1; i++) await new Promise((r) => setTimeout(r, 20));
+  expect((await procParent(pid))!.ppid).toBe(1);
+  return { leader: pid, pid };
+}
+
+async function deadPid(): Promise<number> {
+  const dead = spawn("true");
+  await new Promise((r) => dead.once("exit", r));
+  return dead.pid!;
+}
+
+/** Реестр, помнящий владельцев попыток и у завершённых записей (как `job_processes`). */
+function ownerAwareRegistry(recs: TrackedProcess[]) {
+  const reg = memRegistry(recs);
+  const everything = [...recs];
+  return Object.assign(reg, {
+    attemptOwner: async (runId: string, attempt: number) => everything.find((p) => p.runId === runId && p.attempt === attempt && p.owner)?.owner,
+  });
+}
+
+it("I1: worker чужого сервера мёртв, его Chrome (без владельца) осиротел, владелец попытки жив → Chrome не тронут", async () => {
+  const f = await foreignServer();
+  const owner = { pid: f.server, startedAt: (await procInfo(f.server))!.startedAt, nonce: "n" };
+  const worker: TrackedProcess = { runId: "run1", attempt: 1, pid: await deadPid(), pgid: 1_000_000, startedAt: "x", cmd: "worker", owner };
+  const chrome = await orphanGroup();
+  const browser = await record(chrome.pid, { cmd: "chrome-headless-shell (render)" });
+  const sent: unknown[] = [];
+  const r = await reapAttempt(ownerAwareRegistry([worker, browser]), { runId: "run1", attempt: 1 }, { kill: (...a) => void sent.push(a), graceMs: 50, waitMs: 50 });
+  expect(sent).toEqual([]);
+  expect(r.foreign).toEqual([{ process: browser, ownerPid: f.server, reason: "owner_alive" }]);
+  expect(await procInfo(chrome.pid)).toBeDefined();
+});
+
+it("I1: владелец берётся и у живого соседа по попытке в реестре (без attemptOwner)", async () => {
+  const f = await foreignServer();
+  const owner = { pid: f.server, startedAt: (await procInfo(f.server))!.startedAt, nonce: "n" };
+  const worker = await record(f.leader, { owner });
+  const chrome = await orphanGroup();
+  const browser = await record(chrome.pid);
+  const r = await reapAttempt(memRegistry([worker, browser]), { runId: "run1", attempt: 1 }, { graceMs: 50, waitMs: 50 });
+  expect(r.foreign?.map((x) => [x.process.pid, x.reason])).toEqual([[f.leader, "owner_alive"], [chrome.pid, "owner_alive"]]);
+  expect(await procInfo(chrome.pid)).toBeDefined();
+});
+
+it("I1: группа с мёртвым лидером (ffmpeg без владельца) и живым владельцем попытки → kill(-pgid) не шлётся", async () => {
+  const f = await foreignServer();
+  const owner = { pid: f.server, startedAt: (await procInfo(f.server))!.startedAt, nonce: "n" };
+  const worker: TrackedProcess = { runId: "run1", attempt: 1, pid: await deadPid(), pgid: 1_000_001, startedAt: "x", cmd: "worker", owner };
+  // лидер группы — уже вышедший sh; в группе остался sleep
+  const g = await orphanGroup();
+  const ffmpeg: TrackedProcess = { runId: "run1", attempt: 1, pid: await deadPid(), pgid: g.pid, startedAt: "x", cmd: "ffmpeg" };
+  const sent: unknown[] = [];
+  const r = await reapAttempt(ownerAwareRegistry([worker, ffmpeg]), { runId: "run1", attempt: 1 }, { kill: (...a) => void sent.push(a), graceMs: 50, waitMs: 50 });
+  expect(sent).toEqual([]);
+  expect(r.foreign).toEqual([{ process: ffmpeg, ownerPid: f.server, reason: "owner_alive" }]);
+  expect(await procInfo(g.pid)).toBeDefined();
+});
+
+it("I1: владелец попытки мёртв → осиротевший Chrome без владельца убивается, как прежде", async () => {
+  const worker: TrackedProcess = { runId: "run1", attempt: 1, pid: await deadPid(), pgid: 1_000_002, startedAt: "x", cmd: "worker", owner: { pid: await deadPid(), startedAt: "y", nonce: "n" } };
+  const chrome = await orphanGroup();
+  const browser = await record(chrome.pid);
+  const r = await reapAttempt(ownerAwareRegistry([worker, browser]), { runId: "run1", attempt: 1 }, { graceMs: 300 });
+  expect(r).toEqual({ clean: true, alive: [] });
+  expect(await procInfo(chrome.pid)).toBeUndefined();
+});

@@ -44,6 +44,12 @@ export function markForeign(db: Db, key: Key, ownerPid: number): void {
     .run(ownerPid, key.job_id, key.attempt, key.pid);
 }
 
+/** S20 (I1): владелец попытки — по любой её строке с владельцем, включая завершённые. */
+export function attemptOwner(db: Db, jobId: string, attempt: number): Pick<JobProcessRow, "owner_pid" | "owner_started_at" | "owner_nonce"> | undefined {
+  return db.prepare("SELECT owner_pid, owner_started_at, owner_nonce FROM job_processes WHERE job_id = ? AND attempt = ? AND owner_pid IS NOT NULL AND owner_started_at IS NOT NULL ORDER BY rowid DESC LIMIT 1")
+    .get(jobId, attempt) as Pick<JobProcessRow, "owner_pid" | "owner_started_at" | "owner_nonce"> | undefined;
+}
+
 /** Процессы без подтверждённого завершения. */
 export function listLive(db: Db, filter: { jobId?: string; attempt?: number } = {}): JobProcessRow[] {
   const where = ["ended_at IS NULL"];
