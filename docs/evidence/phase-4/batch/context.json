@@ -1,0 +1,57 @@
+[
+  {
+    "item": "sp_009",
+    "mode": "overlay",
+    "zone": "left_third",
+    "version": 1,
+    "pad": 30,
+    "frames": {
+      "before": 20,
+      "mid": 76
+    },
+    "keyword": null,
+    "ms": 18664
+  },
+  {
+    "item": "sp_002",
+    "mode": "fullscreen",
+    "zone": "full",
+    "version": 1,
+    "pad": 30,
+    "frames": {
+      "before": 20,
+      "mid": 143,
+      "keyword": 242
+    },
+    "keyword": "тип",
+    "ms": 39518
+  },
+  {
+    "item": "sp_003",
+    "mode": "callout",
+    "zone": "left_third",
+    "version": 1,
+    "pad": 30,
+    "frames": {
+      "before": 20,
+      "mid": 85,
+      "keyword": 96
+    },
+    "keyword": "sequence diagram",
+    "ms": 16706
+  },
+  {
+    "item": "sp_008",
+    "mode": "overlay",
+    "zone": "left_third",
+    "version": 1,
+    "pad": 30,
+    "frames": {
+      "before": 20,
+      "mid": 189,
+      "keyword": 107
+    },
+    "keyword": "handshake",
+    "ms": 30154
+  }
+]

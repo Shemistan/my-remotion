@@ -1,5 +1,5 @@
 // Dashboard (ТЗ §11.1): проекты (поиск, архив, корзина — Task 47), баннер восстановления после
-// сбоя, активные задачи, последние экспорты, «Новый проект».
+// сбоя, активные задачи, последние экспорты, «Новый проект», затраты на агентов (Task 49a).
 // Служебные проекты bench скрывает сервер (`GET /projects`). Страница проекта — сцены,
 // экспорты проекта и новая сцена по промпту.
 import { type HistoryEntry, type Job, type ProjectDto, type Settings, defaultSettings } from "@ms/contracts";
@@ -7,9 +7,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { api, newKey, urls } from "../api/client.js";
 import { isActive, useAppSettings, useJobs, useProject } from "../api/queries.js";
+import { timelineUrls } from "../api/timeline-client.js";
 import { stageText } from "../components/JobStatus.js";
 import { Link } from "../components/Link.js";
 import { SettingsForm } from "../components/SettingsForm.js";
+import { CostSummary } from "../components/costs/CostSummary.js";
 import { ProjectList } from "../components/projects/ProjectList.js";
 import { RecoveryBanner } from "../components/projects/RecoveryBanner.js";
 import { versionState } from "../components/VersionHistory.js";
@@ -24,6 +26,8 @@ function exportIdOf(j: Job): string | undefined {
   const id = (j.output_refs as { export_id?: unknown } | null)?.export_id;
   return typeof id === "string" ? id : undefined;
 }
+
+const isFinal = (j: Job): boolean => j.type === "final.render" || j.type === "final.reproduce";
 
 function NewProject() {
   const id = useId();
@@ -84,7 +88,8 @@ function ActiveJobs({ q }: { q: JobsQuery }) {
 }
 
 function RecentExports({ q }: { q: JobsQuery }) {
-  const done = (q.data ?? []).filter((j) => j.type === "scene.export" && j.status === "completed" && exportIdOf(j)).slice(-10).reverse();
+  // Task 45: и финалы видеопроектов (`final.render`, `final.reproduce`) — файл финала
+  const done = (q.data ?? []).filter((j) => (j.type === "scene.export" || isFinal(j)) && j.status === "completed" && exportIdOf(j)).slice(-10).reverse();
   return (
     <section className="panel">
       <h2>{t("dashboard.recentExports")}</h2>
@@ -92,11 +97,12 @@ function RecentExports({ q }: { q: JobsQuery }) {
         <ul className="job-list">
           {done.map((j) => {
             const format = (j.output_refs as { format?: string } | null)?.format ?? "";
+            const final = isFinal(j);
             return (
               <li key={j.id}>
-                <span>{tk(`export.format.${format}`, format)}</span>
+                <span>{final ? t("dashboard.finalExport") : tk(`export.format.${format}`, format)}</span>
                 <span className="muted">{j.finished_at ? dateTime(j.finished_at) : ""}</span>
-                <a href={urls.exportFile(exportIdOf(j)!)} download>{t("export.download")}</a>
+                <a href={final ? timelineUrls.finalFile(exportIdOf(j)!) : urls.exportFile(exportIdOf(j)!)} download>{t("export.download")}</a>
               </li>
             );
           })}
@@ -122,6 +128,8 @@ export function Dashboard() {
           <NewProject />
           <ActiveJobs q={jobs} />
           <RecentExports q={jobs} />
+          {/* Task 49a: затраты за 7/30 дней, справочно */}
+          <CostSummary />
         </div>
       </div>
     </div>

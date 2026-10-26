@@ -30,6 +30,10 @@ describe("verifyFinal", () => {
     expect(r.sync.length).toBe(5);
     expect(r).toMatchObject({ sync_check: { status: "ok" }, color_matrix: "bt601" });
     expect(r.frames_skipped).toBeUndefined();
+    // каналы: моно исходника продублировано в L и R
+    expect(r.channels).toMatchObject({ mode: "mono", source_channels: 1, final_channels: 2, ok: true });
+    expect(r.channels!.rms_diff_db!).toBeLessThan(1);
+    expect(r.channels!.corr!).toBeGreaterThan(0.99);
     // RGB-still против финала yuv420p: по Y выше порога, U/V записаны
     const scene = r.frames.find((f) => f.kind === "scene")!;
     expect(scene.psnr_db).toBeGreaterThan(35);
@@ -56,14 +60,24 @@ describe("verifyFinal", () => {
     expect(r).toMatchObject({ verdict: "pass", failures: [] });
   }, 180_000);
 
+  it("Task 43 fix 1: звук только в левом канале → channels; теги цвета не bt709 → probe", async () => {
+    const left = await verifyFinal({ ...okInput(await work("left")), finalPath: fx("final-like-left.mp4") });
+    expect(left.failures).toContain("channels");
+    expect(left.channels).toMatchObject({ mode: "mono", ok: false });
+    const tags = await verifyFinal({ ...okInput(await work("tags")), expectColorTags: "bt709" });
+    expect(tags.failures).toEqual(["probe"]);
+    expect(tags.probe).toEqual([expect.stringMatching(/^color_tags .*ожидались bt709/)]);
+    expect(tags.color_tags).toBeDefined();
+  }, 300_000);
+
   it("delayed-audio → sync в failures", async () => {
-    const r = await verifyFinal({ ...okInput(await work("delayed")), finalPath: fx("delayed-audio.mp4") });
+    const r = await verifyFinal({ ...okInput(await work("delayed")), finalPath: fx("delayed-audio-st.mp4") });
     expect(r.verdict).toBe("fail");
     expect(r.failures).toContain("sync");
   }, 180_000);
 
   it("louder → loudness; still вместо сцены → frames", async () => {
-    const loud = await verifyFinal({ ...okInput(await work("louder")), finalPath: fx("louder.mp4"), editedAudio: fx("counter-30.mp4") });
+    const loud = await verifyFinal({ ...okInput(await work("louder")), finalPath: fx("louder-st.mp4"), editedAudio: fx("counter-30.mp4") });
     expect(loud.failures).toContain("loudness");
     const base = okInput(await work("still"));
     const wrong = await verifyFinal({ ...base, stillsFor: (frames) => Promise.all(frames.map(() => base.stillsFor([0]).then((x) => x[0]!))) });

@@ -31,6 +31,12 @@ describe("planChecks", () => {
     expect(fs).toContainEqual(expect.objectContaining({ code: "fullscreen_heavy", severity: "warning" }));
   });
 
+  it("S21 fix: цитата вне границ сцены — warning evidence_outside (старые ревизии после правки границ)", () => {
+    const x = sc(10e6, 14e6, { evidence: [{ quote: "выручка", start_word_id: id(5), end_word_id: id(5), edited: { start_us: 15e6, end_us: 15_400_000 } }] });
+    expect(planChecks([x], c60)).toContainEqual(expect.objectContaining({ code: "evidence_outside", severity: "warning", item_id: x.id }));
+    expect(planChecks([sc(10e6, 14e6)], c60).find((i) => i.code === "evidence_outside")).toBeUndefined();
+  });
+
   it("отклонённые сцены в покрытие и пересечения не входят", () => {
     expect(blocking(planChecks([sc(0, 10e6), sc(12e6, 20e6), sc(30e6, 39e6, { status: "rejected" })], c60))).toEqual([]);
     expect(blocking(planChecks([sc(10e6, 20e6), sc(19e6, 25e6, { status: "rejected" })], c60))).toEqual([]);

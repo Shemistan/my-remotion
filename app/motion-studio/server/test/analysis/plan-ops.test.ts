@@ -2,7 +2,8 @@
 // сцена пользователя `accepted`; проверки после операций; 409 revision_conflict / resource_busy,
 // холостая правка — no_change.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { VisualPlanRevisionDocSchema } from "@ms/contracts";
+import { VisualPlanRevisionDocSchema, videoSceneWindow } from "@ms/contracts";
+import { F30 } from "../edit/helpers.js";
 import { buildPlanItems } from "../../src/analysis/plan-build.js";
 import { applyPlanOps, currentPlan, savePlanRevision } from "../../src/analysis/plan-ops.js";
 import { ZONE_RECTS } from "../../src/analysis/zones.js";
@@ -38,8 +39,22 @@ describe("applyPlanOps", () => {
     const d = applyPlanOps(doc, [{ op: "modify", item_id: "sp_002", patch: { start_word_id: id(11), end_word_id: id(13), key_terms: [{ text: "итог", word_id: id(13) }] } }], pctx);
     // w11 6,4 с → edited 4,9 − 0,2; w13 конец 7,6 → 6,1 + 0,3
     expect(d.items[1]).toMatchObject({ edited: { start_us: 4_700_000, end_us: 6_400_000 }, frames: { start: 141, end: 192 }, key_terms: [{ text: "итог", word_id: id(13), edited_at_us: 5_700_000 }] });
-    // цитата прежняя (w12–w15) не покрыта словами сцены — остаётся (обоснование может лежать рядом)
-    expect(d.items[1]!.evidence[0]!.quote).toBe(textOf(12, 15));
+    // S21: границы сменились — цитата = услышанные слова новых границ (окно речи следует за сценой)
+    expect(d.items[1]!.evidence).toEqual([{ quote: textOf(11, 13), start_word_id: id(11), end_word_id: id(13), edited: { start_us: 4_900_000, end_us: 6_100_000 } }]);
+  });
+
+  it("S21: сдвиг конца сцены на 2 слова — evidence и окно речи как у сцены с такими границами", () => {
+    const d = applyPlanOps(doc, [{ op: "modify", item_id: "sp_002", patch: { end_word_id: id(17) } }], pctx);
+    const fresh = buildPlanItems(out([opp({ id: "o2", s: 12, e: 17, key_terms: [] })]), ctx()).items[0]!;
+    const x = d.items[1]!;
+    expect(x.evidence).toEqual([{ quote: textOf(12, 17), start_word_id: id(12), end_word_id: id(17), edited: fresh.evidence[0]!.edited }]);
+    expect(x.frames).toEqual(fresh.frames);
+    expect(videoSceneWindow(x, F30)).toEqual(videoSceneWindow(fresh, F30));
+    // прежде хвост окна был бы ≈ 2 слова (0,8 с) + поле, а не только поле
+    expect(videoSceneWindow(x, F30).tail).toBeLessThan(videoSceneWindow({ ...x, evidence: items[1]!.evidence }, F30).tail);
+    // правка без смены границ evidence не трогает
+    const z = applyPlanOps(doc, [{ op: "modify", item_id: "sp_002", patch: { zone: "right_third" } }], pctx);
+    expect(z.items[1]!.evidence).toEqual(items[1]!.evidence);
   });
 
   it("add — сцена пользователя accepted с цитатой из слов диапазона; id следующий", () => {

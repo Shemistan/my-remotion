@@ -5,7 +5,7 @@
 // проекта — со статусом и прогрессом; данные перечитываются по событиям задач и опросом, пока задача идёт.
 import { type SceneDto, ZONE_RECTS, type Zone } from "@ms/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, newKey } from "../api/client.js";
 import { isActive, useEdl, useFootage, usePlan, useProjectStyle, useSemantic, useTranscript, useVideoProject } from "../api/queries.js";
 import { JobStatus } from "../components/JobStatus.js";
@@ -27,6 +27,7 @@ import { ThumbStrip } from "../components/video/ThumbStrip.js";
 import { TranscriptEditor } from "../components/video/TranscriptEditor.js";
 import { Waveform } from "../components/video/Waveform.js";
 import { errorText, t } from "../i18n/index.js";
+import { href, navigate, useSearch } from "../router.js";
 import { ExportTab } from "./video/ExportTab.js";
 import { ScenesTab } from "./video/ScenesTab.js";
 import { TimelineTab } from "./video/TimelineTab.js";
@@ -39,12 +40,22 @@ type Tab = (typeof TABS)[number];
 export function VideoWorkspace({ id, scenes = [] }: { id: string; scenes?: Pick<SceneDto, "id" | "title">[] }) {
   const client = useQueryClient();
   const q = useVideoProject(id);
-  const [tab, setTab] = useState<Tab>("media");
+  const [tab, setTab] = useState<Tab>(() => TABS.find((k) => k === new URLSearchParams(window.location.search).get("tab")) ?? "media"); // Task 40: «← К видео» → ?tab=scenes
   const [currentUs, setCurrentUs] = useState(0);
   const [viewing, setViewing] = useState<number | undefined>(undefined);
   const [useAgent, setUseAgent] = useState(false);
   const [proposeKey, setProposeKey] = useState(newKey);
   const [selected, setSelected] = useState<string | undefined>(undefined);
+  // Task 45 (fix): вкладка и сцена плана — из адреса и при переходе без перезагрузки (`navigate`,
+  // «Изменить границы — в плане» таймлайна); клик по вкладке пишет её в адрес (replace)
+  const search = useSearch();
+  useEffect(() => {
+    const p = new URLSearchParams(search);
+    const k = TABS.find((x) => x === p.get("tab"));
+    if (k) setTab(k);
+    const item = p.get("item");
+    if (k === "plan" && item) setSelected(item);
+  }, [search]);
   const [previewZone, setPreviewZone] = useState<Zone | undefined>(undefined);
   const player = useRef<ProxyPlayerHandle>(null);
   const data = q.data;
@@ -178,7 +189,7 @@ export function VideoWorkspace({ id, scenes = [] }: { id: string; scenes?: Pick<
           <div className="stack video-right">
             <div className="row tabs" role="tablist">
               {TABS.map((k) => (
-                <button key={k} type="button" role="tab" aria-selected={tab === k} className={`tab ${tab === k ? "active" : ""}`} onClick={() => setTab(k)}>
+                <button key={k} type="button" role="tab" aria-selected={tab === k} className={`tab ${tab === k ? "active" : ""}`} onClick={() => { setTab(k); navigate(`${href({ name: "project", id })}?tab=${k}`, { replace: true }); }}>
                   {t(`video.tab.${k}`)}
                 </button>
               ))}

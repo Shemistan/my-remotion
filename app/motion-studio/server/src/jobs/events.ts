@@ -71,6 +71,16 @@ export class EventBus {
     this.listeners.add(l);
     return () => { this.listeners.delete(l); };
   }
+
+  /**
+   * Только живые события, без догона из БД (журнал сервера, Task 48): каждое событие после
+   * коммита — ровно один раз.
+   */
+  tail(cb: Listener): () => void {
+    const l = { cb, last: jobEvents.maxId(this.db()) };
+    this.listeners.add(l);
+    return () => { this.listeners.delete(l); };
+  }
 }
 
 function deliver(l: { cb: Listener; last: number }, ev: JobEventDto): void {

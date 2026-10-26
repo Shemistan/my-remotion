@@ -8,7 +8,7 @@ import { ApiError, shouldRetry, storageStatus } from "../src/api/client.js";
 import { StorageBanner } from "../src/components/StorageBanner.js";
 import { t } from "../src/i18n/index.js";
 import { Dashboard } from "../src/pages/Dashboard.js";
-import { fakeFetch, on, renderQ } from "./helpers.js";
+import { fakeFetch, job, on, renderQ } from "./helpers.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -49,4 +49,16 @@ it("хранилище вернулось — все запросы перечи
   expect(spy).not.toHaveBeenCalled();
   storageStatus.set(false);
   await waitFor(() => expect(spy).toHaveBeenCalled());
+});
+
+it("Task 45: «Последние экспорты» — и финалы видеопроектов, ссылка на файл финала", async () => {
+  const done = (id: string, type: string, refs: object) => job({ id, type, status: "completed", output_refs: refs, finished_at: "2026-10-26T10:00:00.000Z" });
+  fakeFetch([
+    on("GET", "/api/projects", []),
+    on("GET", "/api/jobs", [done("job_e", "scene.export", { export_id: "exp_1", format: "mp4" }), done("job_f", "final.render", { export_id: "fin_1", verdict: "pass" })]),
+  ]);
+  renderQ(<Dashboard />);
+  const link = (await screen.findByText(t("dashboard.finalExport"))).parentElement!.querySelector("a")!;
+  expect(link.getAttribute("href")).toBe("/api/final-exports/fin_1/file");
+  expect(screen.getAllByText(t("export.download"))).toHaveLength(2);
 });

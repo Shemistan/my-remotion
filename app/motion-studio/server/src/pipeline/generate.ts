@@ -193,6 +193,10 @@ export interface GenerationRequest {
   technique?: Technique;
   /** Время сцены сценария (S15b): окно речи и моменты слов — QA по всей сцене. */
   scriptTiming?: LoopInput["scriptTiming"];
+  /** Видеосцена с прозрачным размещением (Task 37′): прямоугольник графики — Engineer и `props.layout`. */
+  layout?: LoopInput["layout"];
+  /** Видеосцена с прозрачным размещением (Task 37′ fix I1): проверки по всей сцене без правил сценария. */
+  temporal?: LoopInput["temporal"];
 }
 
 /** Правка: база, план и как вести цикл (`playground-edit.ts`). */
@@ -410,6 +414,8 @@ export async function runGeneration(req: GenerationRequest, deps: GenerateDeps, 
         ...(req.script ? { script: true } : {}),
         ...(req.technique ? { technique: req.technique } : {}),
         ...(req.scriptTiming ? { scriptTiming: req.scriptTiming } : {}),
+        ...(req.layout ? { layout: req.layout } : {}),
+        ...(req.temporal ? { temporal: req.temporal } : {}),
         progress: deps.progress,
         ...(ed ? { reviseOnly: true, ...(paramEdit ? { skipFirstEngineer: true } : {}), ...(ed.brief ? { brief: ed.brief } : {}), ...(ed.preserveCheck ? { preserveCheck: ed.preserveCheck } : {}), ...(ed.preserveHold ? { preserveHold: ed.preserveHold } : {}) } : {}),
         // второй дубль (S5): свой каталог попытки задачи вне draft (граница draft первого дубля

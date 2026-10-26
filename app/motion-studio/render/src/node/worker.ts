@@ -168,6 +168,8 @@ async function run(job: WorkerJob): Promise<WorkerResult> {
     logLevel: LOG_LEVEL,
     chromeMode: "headless-shell",
     port,
+    // Task 49a: параллельность из конфигурации (renderConcurrency); renderStill и selectComposition её не используют
+    ...(job.concurrency === undefined ? {} : { concurrency: job.concurrency }),
   } as const;
   // официальный хук Remotion — второй рубеж за installAssetGuard
   const onDownload = blockingOnDownload(assets, onAssetBlocked);

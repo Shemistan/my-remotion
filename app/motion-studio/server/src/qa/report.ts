@@ -45,7 +45,7 @@ export function acceptedAsWarn(report: QAReport, why: string): QAReport {
  * воздух: после правки кадры сдвигаются, и правило «те же кадры» не срабатывает — ревью S15b, I-2):
  * повтор — warning при любых кадрах.
  */
-export const FIX_ONCE: ReadonlySet<string> = new Set(["accent_conflict", "fragment_mismatch", "dead_air"]);
+export const FIX_ONCE: ReadonlySet<string> = new Set(["accent_conflict", "fragment_mismatch", "dead_air", "word_gap"]);
 /** Пометка замечания, пониженного до warning как повтор после исправления. */
 export const REPEAT_MARK = "[повтор после исправления";
 const REPEAT_PREFIX = /^\[повтор после исправления[^\]]*\]\s*/;

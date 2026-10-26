@@ -1,0 +1,4 @@
+/* Сцены видеопроекта (Task 40): превью в контексте — в ширину плитки, не шире её. */
+.context-player { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.context-video { display: block; width: 100%; max-width: 100%; max-height: 360px; background: #000; border-radius: var(--radius); }
+.approval-c { display: flex; flex-direction: column; gap: 4px; }

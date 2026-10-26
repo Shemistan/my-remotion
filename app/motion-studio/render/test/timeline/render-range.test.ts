@@ -116,6 +116,14 @@ describe("renderTimelineRange", () => {
     expect((base.props.scenes[0]!.props.style as { transparent: boolean }).transparent).toBe(false);
   });
 
+  it("Task 43: colorSpace файла — в задание worker; без поля — нет и в задании", async () => {
+    await renderTimelineRange({ ...base, output: { ...base.output!, colorSpace: "bt709" } }, undefined, deps());
+    expect(jobOf(workerCall()).output).toMatchObject({ colorSpace: "bt709" });
+    calls.length = 0;
+    await renderTimelineRange(base, undefined, deps());
+    expect(jobOf(workerCall()).output).not.toHaveProperty("colorSpace");
+  });
+
   it("ревью I3: кадры и короткий диапазон — по вырезкам master, длинный диапазон — весь master", async () => {
     // master 18,5 с = 555 кадров; кадр 100 → master 145, кадр 200 → master 245; запас 30 кадров
     await renderTimelineRange({ ...base, range: [90, 359] }, undefined, deps());

@@ -352,6 +352,8 @@ label.check { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
 .mode-chip { display: inline-block; padding: 0 6px; border-radius: 3px; color: #fff; font-size: 12px; }
 
 .plan-panel .actions, .plan-inspector .actions, .style-bible .actions { margin-top: 8px; }
+.scene-bounds { margin: 8px 0; display: grid; gap: 4px; }
+.scene-bounds legend { font-weight: 600; margin-bottom: 4px; }
 .b-reasons ul { margin: 2px 0 0; padding-left: 18px; }
 .stale-banner { border-color: var(--warn); }
 .stale-list { margin: 4px 0; padding-left: 18px; }

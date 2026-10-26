@@ -1,7 +1,7 @@
 // Реестр дочерних процессов сервера (ADR 0007 п. 3): таблица `job_processes` + копия в
 // памяти. В `storage_offline` база закрыта — реестр работает по копии и досинхронизирует
 // записи и `ended_at` после возврата хранилища (`attach`).
-import { type ProcessExit, type ProcessRegistry, type RegistryFilter, type TrackedProcess, assertRunRef, matches, trackedRecord } from "@ms/core";
+import { type ProcessExit, type ProcessOwner, type ProcessRegistry, type RegistryFilter, type TrackedProcess, assertRunRef, matches, trackedRecord } from "@ms/core";
 import type { Db } from "../db/open.js";
 import * as jobProcesses from "../db/repos/job-processes.js";
 import { nowIso } from "../db/repos/util.js";
@@ -18,23 +18,35 @@ interface Entry {
 
 const keyOf = (p: Pick<TrackedProcess, "runId" | "attempt" | "pid">): string => `${p.runId}\u0000${p.attempt}\u0000${p.pid}`;
 
+const rowOf = (p: TrackedProcess) => ({
+  job_id: p.runId, attempt: p.attempt, pid: p.pid, pgid: p.pgid, started_at: p.startedAt, cmd: p.cmd,
+  owner_pid: p.owner?.pid ?? null, owner_started_at: p.owner?.startedAt ?? null, owner_nonce: p.owner?.nonce ?? null,
+});
+
 export class SqliteProcessRegistry implements ProcessRegistry {
   private db: Db | undefined;
   private readonly entries = new Map<string, Entry>();
 
-  /** Поднимает копию незавершённых процессов из `job_processes`. */
-  constructor(db: Db) {
+  private readonly owner: () => ProcessOwner | undefined;
+
+  /**
+   * Поднимает копию незавершённых процессов из `job_processes`. `owner` (S20) — владелец
+   * owner-lock этого процесса: пишется в каждую запись без своего `owner`.
+   */
+  constructor(db: Db, opts: { owner?: () => ProcessOwner | undefined } = {}) {
     this.db = db;
+    this.owner = opts.owner ?? (() => undefined);
     this.reload();
   }
 
   async add(p: TrackedProcess): Promise<void> {
     assertRunRef(p);
-    const rec = trackedRecord(p);
+    const owner = p.owner ?? this.owner();
+    const rec = trackedRecord(owner ? { ...p, owner } : p);
     const e: Entry = { p: rec, pendingInsert: true, pendingEnd: false };
     if (this.online()) {
       try {
-        jobProcesses.insert(this.db!, { job_id: rec.runId, attempt: rec.attempt, pid: rec.pid, pgid: rec.pgid, started_at: rec.startedAt, cmd: rec.cmd });
+        jobProcesses.insert(this.db!, rowOf(rec));
         e.pendingInsert = false;
       } catch (err) {
         // не хранилище (ошибка в коде, ограничение) — процесс не должен стартовать без учёта
@@ -70,6 +82,24 @@ export class SqliteProcessRegistry implements ProcessRegistry {
       .sort((a, b) => (a.runId === b.runId ? a.attempt - b.attempt || a.pid - b.pid : a.runId < b.runId ? -1 : 1));
   }
 
+  /** S20: процесс чужого живого сервера — пометка в БД; запись остаётся живой (не `ended_at`). */
+  async markForeign(p: TrackedProcess, ownerPid: number): Promise<void> {
+    if (!this.online()) return;
+    try {
+      jobProcesses.markForeign(this.db!, { job_id: p.runId, attempt: p.attempt, pid: p.pid }, ownerPid);
+    } catch (err) {
+      if (!isStorageError(err)) throw err;
+    }
+  }
+
+  /** S20 (I1): владелец попытки — из копии в памяти или из БД (и по завершённым строкам). */
+  async attemptOwner(runId: string, attempt: number): Promise<ProcessOwner | undefined> {
+    for (const e of this.entries.values()) if (e.p.runId === runId && e.p.attempt === attempt && e.p.owner) return e.p.owner;
+    if (!this.online()) return undefined;
+    const r = jobProcesses.attemptOwner(this.db!, runId, attempt);
+    return r ? { pid: r.owner_pid!, startedAt: r.owner_started_at!, nonce: r.owner_nonce ?? "" } : undefined;
+  }
+
   /** `storage_offline`: база закрывается, дальше — только копия в памяти. */
   detach(): void {
     this.db = undefined;
@@ -91,8 +121,7 @@ export class SqliteProcessRegistry implements ProcessRegistry {
     const db = this.db!;
     const { p } = e;
     if (e.pendingInsert) {
-      db.prepare("INSERT OR IGNORE INTO job_processes (job_id, attempt, pid, pgid, started_at, cmd) VALUES (?, ?, ?, ?, ?, ?)")
-        .run(p.runId, p.attempt, p.pid, p.pgid, p.startedAt, p.cmd);
+      jobProcesses.insert(db, rowOf(p), { ignoreExisting: true });
       e.pendingInsert = false;
     }
     if (e.pendingEnd && e.ended) {
@@ -106,6 +135,7 @@ export class SqliteProcessRegistry implements ProcessRegistry {
     for (const [k, e] of this.entries) if (!e.pendingInsert && !e.pendingEnd) this.entries.delete(k);
     for (const r of jobProcesses.listLive(this.db!)) {
       const p: TrackedProcess = { runId: r.job_id, attempt: r.attempt, pid: r.pid, pgid: r.pgid, startedAt: r.started_at, cmd: r.cmd };
+      if (r.owner_pid !== null && r.owner_started_at !== null) p.owner = { pid: r.owner_pid, startedAt: r.owner_started_at, nonce: r.owner_nonce ?? "" };
       if (!this.entries.has(keyOf(p))) this.entries.set(keyOf(p), { p, pendingInsert: false, pendingEnd: false });
     }
   }
@@ -119,6 +149,12 @@ export class SqliteProcessRegistry implements ProcessRegistry {
 export function mergeRegistries(primary: ProcessRegistry, side: ProcessRegistry): ProcessRegistry {
   return {
     add: (p) => primary.add(p),
+    // отметку хранит только основной (SQLite): у бокового файлового её нет
+    markForeign: async (p, ownerPid) => {
+      await primary.markForeign?.(p, ownerPid);
+      await side.markForeign?.(p, ownerPid);
+    },
+    attemptOwner: async (runId, attempt) => (await primary.attemptOwner?.(runId, attempt)) ?? (await side.attemptOwner?.(runId, attempt)),
     async end(p, exit) {
       await primary.end(p, exit);
       await side.end(p, exit);

@@ -8,7 +8,7 @@ export default defineConfig({
   testDir: "./e2e",
   testMatch: "*.spec.ts",
   // приёмки Task 22, Task 34 и S12 — свои конфиги (playwright.acceptance*.config.ts), реальные агенты и SSD
-  testIgnore: ["acceptance/**", "acceptance-video/**", "acceptance-script/**"],
+  testIgnore: ["acceptance/**", "acceptance-video/**", "acceptance-script/**", "acceptance-video-scenes/**"],
   workers: 1,
   fullyParallel: false,
   retries: 0,

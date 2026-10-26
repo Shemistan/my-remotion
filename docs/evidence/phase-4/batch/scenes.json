@@ -1,0 +1,156 @@
+{
+  "batch": "vb_8e3ff6383da66ec065df66dfec8dbc",
+  "plan_revision": 20,
+  "counts": {
+    "total": 4,
+    "pending": 0,
+    "running": 0,
+    "ready": 4,
+    "failed": 0,
+    "cancelled": 0,
+    "blocked": 0
+  },
+  "skipped": [],
+  "gen_ms": 649410,
+  "cost_usd": 7.61,
+  "rows": [
+    {
+      "item": "sp_009",
+      "mode": "overlay",
+      "zone": "left_third",
+      "status": "ready",
+      "job": "job_01M5TST0P26E8NNP3VFBD9ZZ7T",
+      "attempt": 1,
+      "error": null,
+      "version": {
+        "id": "ver_01M5TT5RBVWG1JP3F704KNFN0P",
+        "number": 1
+      },
+      "plan_frames": 93,
+      "version_frames": 93,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "pass",
+        "style": "pass"
+      },
+      "qa_codes": [
+        "warning:empty_region",
+        "warning:frame0_coverage",
+        "warning:fragment_unsupported",
+        "warning:text_size",
+        "warning:contrast",
+        "warning:artifact",
+        "warning:hierarchy"
+      ],
+      "placement_blocking": [],
+      "events": 14,
+      "cost_usd": 1.596
+    },
+    {
+      "item": "sp_002",
+      "mode": "fullscreen",
+      "zone": "full",
+      "status": "ready",
+      "job": "job_01M5TST0P26E8NNP3VFBD9ZZ7V",
+      "attempt": 1,
+      "error": null,
+      "version": {
+        "id": "ver_01M5TT6YRBKGN1JV8JCJB3QP76",
+        "number": 1
+      },
+      "plan_frames": 227,
+      "version_frames": 227,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "warn",
+        "style": "pass"
+      },
+      "qa_codes": [
+        "warning:frozen",
+        "warning:empty_region",
+        "warning:frame0_coverage",
+        "warning:no_hero",
+        "warning:fragment_unsupported",
+        "warning:semantic",
+        "warning:accent_conflict",
+        "warning:legibility",
+        "warning:text_size",
+        "warning:composition"
+      ],
+      "placement_blocking": [],
+      "events": 14,
+      "cost_usd": 1.741
+    },
+    {
+      "item": "sp_003",
+      "mode": "callout",
+      "zone": "left_third",
+      "status": "ready",
+      "job": "job_01M5TST0P32FWY2NGEM0ZNP71E",
+      "attempt": 1,
+      "error": null,
+      "version": {
+        "id": "ver_01M5TTDDQ3T3Y9XCTBCKWX8QDK",
+        "number": 1
+      },
+      "plan_frames": 110,
+      "version_frames": 110,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "warn",
+        "style": "pass"
+      },
+      "qa_codes": [
+        "warning:frozen",
+        "warning:empty_region",
+        "warning:accent_static",
+        "warning:frame0_coverage",
+        "warning:semantic",
+        "warning:hierarchy",
+        "warning:composition",
+        "warning:rhythm"
+      ],
+      "placement_blocking": [],
+      "events": 23,
+      "cost_usd": 2.484
+    },
+    {
+      "item": "sp_008",
+      "mode": "overlay",
+      "zone": "left_third",
+      "status": "ready",
+      "job": "job_01M5TST0P32FWY2NGEM0ZNP71F",
+      "attempt": 1,
+      "error": null,
+      "version": {
+        "id": "ver_01M5TT76VF8J1DCQHZWY8ANHV5",
+        "number": 1
+      },
+      "plan_frames": 319,
+      "version_frames": 319,
+      "qa": {
+        "technical": "pass",
+        "visual": "warn",
+        "semantic": "warn",
+        "style": "pass"
+      },
+      "qa_codes": [
+        "warning:frozen",
+        "warning:empty_region",
+        "warning:dead_air",
+        "warning:dead_air",
+        "warning:fragment_unsupported",
+        "warning:semantic",
+        "warning:rhythm",
+        "warning:composition",
+        "warning:hold"
+      ],
+      "placement_blocking": [],
+      "events": 15,
+      "cost_usd": 1.79
+    }
+  ]
+}

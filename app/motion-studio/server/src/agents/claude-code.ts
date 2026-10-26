@@ -10,6 +10,7 @@ import { toJsonSchema } from "@ms/contracts";
 import type { ZodType, ZodTypeAny } from "zod";
 import { childEnv } from "./env.js";
 import { loadPrompt } from "./prompts.js";
+import { redact } from "../diagnostics/redact.js";
 import {
   AGENT_TOOLS,
   type AgentErrorKind,
@@ -143,8 +144,9 @@ function usageOf(j: Record<string, unknown>): AgentUsage {
   return usage;
 }
 
+/** Хвост stderr в сообщении ошибки — без секретов (Task 48). */
 function clip(s: string, n = 300): string {
-  const t = s.trim();
+  const t = redact(s).trim();
   return t.length > n ? `${t.slice(0, n)}…` : t;
 }
 
@@ -290,7 +292,8 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
       else await rm(runTmp, { recursive: true, force: true }).catch(() => undefined);
     }
     await storageWrite(stdoutPath, res.stdout);
-    await storageWrite(stderrPath, res.stderr);
+    // stderr — в журнал вызова без токенов и ключей (Task 48: redact)
+    await storageWrite(stderrPath, redact(res.stderr));
 
     const parsed = parseClaudeOutput(res.stdout, schema);
     if (res.orphaned) {

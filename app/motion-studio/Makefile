@@ -3,7 +3,7 @@
 NODE := ./scripts/with-node.sh
 VISION_BIN := tools/vision-detect/bin/vision-detect
 
-.PHONY: check lint typecheck test e2e e2e-footage e2e-ui acceptance acceptance-video acceptance-script web-build install
+.PHONY: check lint typecheck test e2e e2e-footage e2e-ui acceptance acceptance-video acceptance-script acceptance-video-scenes web-build install
 
 check: lint typecheck test
 
@@ -81,3 +81,12 @@ acceptance-video: web-build
 # Evidence — docs/evidence/script-mvp/checks.json и docs/evidence/script-mvp/acceptance/.
 acceptance-script: web-build
 	$(NODE) npx playwright test -c web/playwright.acceptance-script.config.ts
+
+# Приёмка Phase 4 (Task 41): сцены видеопроекта на реальном ролике через UI — сервер на 127.0.0.1:8791
+# (MS_ACC_PORT), хранилище материалов acceptance/phase4 (клон APFS acceptance/store, если его нет; на
+# источнике не должно быть сервера), реальные claude, рендер, ffmpeg. Долго (≈ 3–5 ч) и платно (справочно).
+# Продолжить: MS_ACC_REUSE=1 MS_ACC_ONLY=<prepare,batch,isolation,edit,package,restart>.
+# Evidence — docs/evidence/phase-4/{prepare,batch,isolation,edit,package,restart}/, примеры человеку —
+# examples/phase4/41-приёмка/ папки материалов.
+acceptance-video-scenes: web-build
+	$(NODE) npx playwright test -c web/playwright.acceptance-video-scenes.config.ts

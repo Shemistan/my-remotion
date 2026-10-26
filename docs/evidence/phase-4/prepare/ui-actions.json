@@ -1,0 +1,17 @@
+[
+  {
+    "op": "modify",
+    "id": "sp_002",
+    "detail": "split_screen/split_left → fullscreen/full"
+  },
+  {
+    "op": "reject",
+    "id": "sp_001",
+    "detail": "split_screen: автор в центре кадра (split_face_center)"
+  },
+  {
+    "op": "reject",
+    "id": "sp_007",
+    "detail": "split_screen: автор в центре кадра (split_face_center)"
+  }
+]

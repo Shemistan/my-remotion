@@ -111,7 +111,7 @@ it("центр восстановления: отчёт старта, каран
   mkdirSync(draft, { recursive: true });
   writeFileSync(join(draft, ".quarantined"), JSON.stringify({ reason: "export: сбой", at: "2026-10-25T10:00:00.000Z" }));
   const r = json(await api.inj("GET", "/api/recovery"));
-  expect(r.boot).toMatchObject({ crashed: false, acknowledged_at: null, summary: { recovered: 0, blocked: 0, quarantined: 0, failed: 0 } });
+  expect(r.boot).toMatchObject({ crashed: false, acknowledged_at: null, summary: { recovered: 0, blocked: 0, quarantined: 0, failed: 0 }, warnings: [] });
   expect(r.quarantined).toMatchObject([{ rel_path: "workspace/drafts/job_x-a1", reason: "export: сбой", job_id: null, attempt: 1 }]);
   const ack = json(await api.inj("POST", `/api/recovery/${(r.boot as { id: string }).id}/ack`));
   expect((ack.boot as { acknowledged_at: string | null }).acknowledged_at).not.toBeNull();

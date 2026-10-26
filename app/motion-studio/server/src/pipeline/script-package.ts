@@ -79,7 +79,7 @@ const fail = (stage: Stage, message: string): HandlerResult => {
 };
 
 /** Отказ публикации пакета: fencing или отмена. */
-class Refused extends Error {
+export class Refused extends Error {
   constructor(readonly stage: "fenced_out" | "cancelled", message: string) {
     super(message);
   }
@@ -93,7 +93,7 @@ export interface PackageRefs {
   missing: { item_id: string; reason: string }[];
 }
 
-interface Exported {
+export interface Exported {
   exportId: string;
   abs: string;
   sha256: string;
@@ -105,7 +105,7 @@ interface Exported {
  * Итог экспорта сцены: файл, причина для `missing` (`detail` — исходный текст сбоя для манифеста
  * и журнала) или итог всей задачи (отмена, хранилище…).
  */
-type ExportOutcome = { ok: Exported } | { reason: string; detail?: string } | { abort: HandlerResult };
+export type ExportOutcome = { ok: Exported } | { reason: string; detail?: string } | { abort: HandlerResult };
 
 const ExportManifestLite = z.object({ request: ExportRequestSchema, ffprobe: ProbeResultSchema, warnings: z.array(z.string()).optional() }).passthrough();
 
@@ -190,8 +190,8 @@ async function verifiedExport(root: string, row: exportsRepo.ExportRow, m: z.inf
  * Готовый экспорт версии с тем же запросом (новые первыми) или новый через `exportOne`. Запрос
  * сверяется по манифесту, хешируется только файл совпавшего экспорта (ProRes — сотни МБ).
  */
-async function ensureExport(
-  ctx: JobContext, d: ScriptPackageDeps, versionId: string, request: ExportRequest, draftKey: string, frames: ScriptSceneItem["frames"],
+export async function ensureExport(
+  ctx: JobContext, d: Pick<ScriptPackageDeps, "root" | "exporter" | "exportOne">, versionId: string, request: ExportRequest, draftKey: string, frames: ScriptSceneItem["frames"],
 ): Promise<ExportOutcome> {
   const rows = exportsRepo.listByVersion(ctx.db, versionId).filter((r) => r.format === request.format).reverse();
   for (const row of rows) {
@@ -471,7 +471,7 @@ export const scriptPackage: (depsOf: () => ScriptPackageDeps) => JobHandler = (d
 };
 
 /** Запрет записи корня опубликованного пакета (после COMMIT; повтор безвреден). */
-async function sealRoot(dest: string, log?: (line: string) => void): Promise<void> {
+export async function sealRoot(dest: string, log?: (line: string) => void): Promise<void> {
   try {
     await chmod(dest, lstatSync(dest).mode & 0o555);
   } catch (e) {
@@ -480,7 +480,7 @@ async function sealRoot(dest: string, log?: (line: string) => void): Promise<voi
 }
 
 /** Жёсткая ссылка на файл экспорта (тот же том); не вышло — копия, сверка sha256, a-w. */
-async function place(e: Exported, dst: string): Promise<void> {
+export async function place(e: Exported, dst: string): Promise<void> {
   try {
     linkSync(e.abs, dst);
     return;
@@ -495,12 +495,12 @@ async function place(e: Exported, dst: string): Promise<void> {
 }
 
 /** Свой файл пакета (шпаргалка, манифест): запись с fsync, затем a-w. */
-async function writeLocked(path: string, text: string): Promise<void> {
+export async function writeLocked(path: string, text: string): Promise<void> {
   await fsyncWrite(path, text);
   chmodSync(path, 0o444);
 }
 
-function lstatOrUndefined(path: string) {
+export function lstatOrUndefined(path: string) {
   try {
     return lstatSync(path);
   } catch (e) {
@@ -514,7 +514,7 @@ function lstatOrUndefined(path: string) {
  * `workspace/quarantine/artifacts/<qrn_…>/` с маркером. Снимается запрет записи только с
  * корня (каталог 0555 не переносится в другой родитель); файлы внутри не трогаются.
  */
-function quarantineOrphan(root: string, dest: string, rel: string): void {
+export function quarantineOrphan(root: string, dest: string, rel: string): void {
   const st = lstatSync(dest);
   if (st.isSymbolicLink() || !st.isDirectory()) throw new Error(`на месте пакета ${rel} не каталог — публикация отклонена`);
   const qdir = join(safeMkdirSync(root, ORPHANS_REL), newId("qrn"));

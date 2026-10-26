@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import type { SequenceSpec } from "@ms/contracts";
 import { StorageError, fileProcessRegistry, safeMkdir, spawnTracked } from "@ms/core";
 import { CHROME_WRAPPER, findRenderBrowser } from "../node/browser.js";
+import { markCacheUse } from "../node/cache-use.js";
 import { APP_NODE_MODULES, MOTION_KIT_DIR, mkdirOne } from "../node/entry.js";
 import { FFPROBE_ARGS, type ProbeResult, ffprobeBin, parseProbe } from "../node/ffprobe.js";
 import { isOverlayUnsupported, overlayInputProps } from "../node/overlay-props.js";
@@ -30,6 +31,11 @@ export interface TimelineOutput {
   scale: number;
   audioBitrateKbps: number;
   x264Preset: "medium" | "veryfast";
+  /**
+   * Task 43: матрица YUV файла (`colorSpace` Remotion, с тегами BT.709). Финал — `bt709`, как master
+   * (ADR 0010); без поля — по умолчанию Remotion (без тегов, swscale bt601).
+   */
+  colorSpace?: "bt709";
 }
 
 export interface TimelineRenderRequest {
@@ -180,7 +186,7 @@ export async function renderTimelineRange(req: TimelineRenderRequest, signal?: A
   let entryPoint: string;
   try {
     const used = [...new Set(scenes.map((s) => s.key))];
-    entryPoint = await writeTimelineEntry({ scenes: used.map((key) => ({ key, versionDir: req.versionDirs[key]! })), cacheDir: req.cacheDir, check: req.check });
+    entryPoint = await writeTimelineEntry({ scenes: used.map((key) => ({ key, versionDir: req.versionDirs[key]! })), cacheDir: req.cacheDir, check: req.check, onKey: (k) => markCacheUse(req.cacheDir, k, req.run.runId) });
   } catch (e) {
     if (e instanceof StorageError) throw e;
     return fail("bundle", (e as Error).message);
@@ -213,7 +219,7 @@ export async function renderTimelineRange(req: TimelineRenderRequest, signal?: A
     composition: { width: p.width, height: p.height, fps: p.fps.num / p.fps.den, durationInFrames: p.duration_frames },
     stills: stillsDir ? req.stills.map((frame) => ({ frame, out: join(stillsDir, `${frame}.png`) })) : [],
     output: req.output
-      ? { out: req.output.path, crf: req.output.crf, scale: req.output.scale, audioBitrateKbps: req.output.audioBitrateKbps, x264Preset: req.output.x264Preset, frameRange: req.range ?? null }
+      ? { out: req.output.path, crf: req.output.crf, scale: req.output.scale, audioBitrateKbps: req.output.audioBitrateKbps, x264Preset: req.output.x264Preset, frameRange: req.range ?? null, ...(req.output.colorSpace ? { colorSpace: req.output.colorSpace } : {}) }
       : null,
     timeoutMs: innerTimeoutMs(req.timeoutMs),
   };

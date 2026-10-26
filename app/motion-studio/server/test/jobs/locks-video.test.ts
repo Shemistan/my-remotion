@@ -43,20 +43,30 @@ describe("artifactPaths: Phase 4–6", () => {
     expect(a.timelineRev("tml_1", 2)).toBe("workspace/projects/prj_A/timeline/tml_1/r2");
     expect(a.finalExport("fx_1")).toBe("workspace/projects/prj_A/final/fx_1");
     expect(a.master("med_1", { num: 30000, den: 1001 })).toBe("workspace/projects/prj_A/master/med_1@30000-1001");
+    // Task 49b: master в разрешении выхода — суффикс ступени; без неё — полный размер (прежний путь)
+    expect(a.master("med_1", { num: 30, den: 1 }, 1080)).toBe("workspace/projects/prj_A/master/med_1@30-1-h1080");
+    expect(() => a.master("med_1", { num: 30, den: 1 }, 0)).toThrow();
+    expect(() => a.master("med_1", { num: 30, den: 1 }, 1080.5)).toThrow();
     expect(a.editedAudio("edl_1", 3)).toBe("workspace/projects/prj_A/audio/edl_1/r3");
-    expect(a.contextPreview("scn_1", "ver_2")).toBe("workspace/projects/prj_A/context/scn_1/ver_2");
+    expect(a.contextPreview("scn_1", "ver_2", 17)).toBe("workspace/projects/prj_A/context/scn_1/ver_2@r17");
+    expect(a.contextPreview("scn_1", "ver_2", 17, 30)).toBe("workspace/projects/prj_A/context/scn_1/ver_2@r17-p30");
+    expect(a.contextPreview("scn_1", "ver_2", 3, 0)).toBe("workspace/projects/prj_A/context/scn_1/ver_2@r3-p0");
+    expect(() => a.contextPreview("scn_1", "ver_2", 0)).toThrow();
+    expect(() => a.contextPreview("scn_1", "ver_2", 1, -1)).toThrow();
     expect(() => a.timelineRev("tml_1", 0)).toThrow();
     expect(() => a.master("med_1", { num: 0, den: 1 })).toThrow();
-    expect(() => a.contextPreview("scn_1", "../x")).toThrow();
+    expect(() => a.contextPreview("scn_1", "../x", 1)).toThrow();
   });
 
   it("destRel: новые формы — да, соседние — нет", () => {
-    for (const p of [a.timelineRev("tml_1", 2), a.finalExport("fx_1"), a.master("med_1", { num: 30, den: 1 }), a.editedAudio("edl_1", 3), a.contextPreview("scn_1", "ver_2")]) {
+    for (const p of [a.timelineRev("tml_1", 2), a.finalExport("fx_1"), a.master("med_1", { num: 30, den: 1 }), a.master("med_1", { num: 30, den: 1 }, 720), a.editedAudio("edl_1", 3), a.contextPreview("scn_1", "ver_2", 4), a.contextPreview("scn_1", "ver_2", 4, 60)]) {
       expect(() => checkArtifactDestRel(p), p).not.toThrow();
     }
     for (const p of ["workspace/projects/prj_A/timeline/tml_1", "workspace/projects/prj_A/final/fx_1/r1", "workspace/projects/prj_A/master/med_1@30", "workspace/projects/prj_A/proxy/med_1/master@30-1",
       "workspace/projects/prj_A/master/med_1@0-1", "workspace/projects/prj_A/master/med_1",
-      "workspace/projects/prj_A/context/scn_1", "workspace/projects/prj_A/audio/edl_1/r0"]) {
+      "workspace/projects/prj_A/master/med_1@30-1-h", "workspace/projects/prj_A/master/med_1@30-1-h0", "workspace/projects/prj_A/master/med_1@30-1-hx", "workspace/projects/prj_A/master/med_1@30-1-h1080-h720",
+      "workspace/projects/prj_A/context/scn_1", "workspace/projects/prj_A/context/scn_1/ver_2", "workspace/projects/prj_A/context/scn_1/ver_2@r0",
+      "workspace/projects/prj_A/context/scn_1/ver_2@r1-p", "workspace/projects/prj_A/context/scn_1/ver_2@r1-px", "workspace/projects/prj_A/audio/edl_1/r0"]) {
       expect(() => checkArtifactDestRel(p), p).toThrow();
     }
   });
@@ -87,11 +97,11 @@ describe("заглушки обработчиков Phase 4–6", () => {
     const svc = { config: loadConfig({ MS_DATA_DIR: "/tmp/ms-unused" }) } as unknown as CoreServices;
     const h = registerHandlers(svc);
     const want: Record<string, string> = {
-      "video.package": "5L", "scene.preview_context": "38-39", "timeline.build": "42", "timeline.preview": "42",
-      "final.render": "43", "final.reproduce": "43", "cache.gc": "49a",
     };
-    // Task 47: trash.purge реализован (test/projects/trash.test.ts)
-    expect(h["trash.purge"]).toBeTypeOf("function");
+    // Task 47: trash.purge; Task 38-39: scene.preview_context; Task 42: timeline.build и
+    // timeline.preview; Task 49a: cache.gc; Task 5L: video.package; Task 43: final.render и
+    // final.reproduce — реализованы (свои тесты); заглушек Phase 4–6 не осталось
+    for (const t of ["trash.purge", "scene.preview_context", "timeline.build", "timeline.preview", "cache.gc", "video.package", "final.render", "final.reproduce"] as const) expect(h[t]).toBeTypeOf("function");
     for (const [type, task] of Object.entries(want)) {
       const r = await h[type as JobType]!({} as JobContext);
       expect(r, type).toEqual({ status: "failed", error: { code: "pipeline", stage: "prepare", message: `не реализовано: Task ${task}` } });

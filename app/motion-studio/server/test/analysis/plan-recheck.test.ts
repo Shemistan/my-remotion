@@ -13,9 +13,9 @@ const f = footage(FACE);
 describe("recheckPlan", () => {
   const items = buildPlanItems(out([opp(), opp({ id: "o2", s: 12, e: 14, key_terms: [], evidence: [ev(12, 14)] })]), ctx()).items;
 
-  it("якорь вырезан после плана → stale(anchor_cut); остальные пересчитаны (remapped)", () => {
+  it("якорь вырезан после плана → stale(anchor_cut); сцена до вырезки без сдвига — не в changed (F7)", () => {
     const re = recheckPlan(planDoc(items), tlCutting(13), words, f, P, { edl: edl2 });
-    expect(re.changed).toEqual([{ item_id: "sp_001", change: "remapped" }, { item_id: "sp_002", change: "anchor_cut" }]);
+    expect(re.changed).toEqual([{ item_id: "sp_002", change: "anchor_cut" }]);
     expect(re.doc.items[1]).toMatchObject({ status: "stale", stale_reason: "anchor_cut" });
     expect(re.doc.items[0]).toMatchObject({ status: "proposed", edited: items[0]!.edited });
     expect(re.doc).toMatchObject({ revision: 2, parent_revision: 1, inputs: { edl: edl2 } });
@@ -42,10 +42,10 @@ describe("recheckPlan", () => {
     expect(dur(re.doc.items[0]!)).toBe(dur(long[0]!) - 800_000);
   });
 
-  it("отклонённые сцены не перепроверяются и не попадают в changed; на том же EDL — всё remapped без изменений", () => {
+  it("отклонённые сцены не перепроверяются и не попадают в changed; на том же EDL — сцены без сдвига не в changed (F7)", () => {
     const rej = [{ ...items[0]!, status: "rejected" as const }, items[1]!];
     const re = recheckPlan(planDoc(rej), tl, words, f, P, { edl: edl2 });
-    expect(re.changed).toEqual([{ item_id: "sp_002", change: "remapped" }]);
+    expect(re.changed).toEqual([]);
     expect(re.doc.items[1]!.edited).toEqual(items[1]!.edited);
   });
 
@@ -54,7 +54,8 @@ describe("recheckPlan", () => {
     const t = buildTimeline(12_000_000, [{ start_us: 2_200_000, end_us: 3_700_000 }, { start_us: w12.start_us, end_us: w12.start_us + 100_000 }], F30);
     expect(mapWords(t, words)[id(12)]!.state).toBe("clipped");
     const re = recheckPlan(planDoc(items), t, words, f, P, { edl: edl2 });
-    expect(re.changed).toEqual([{ item_id: "sp_001", change: "remapped" }, { item_id: "sp_002", change: "remapped" }]);
+    // sp_001 до вырезки — без сдвига (F7); sp_002 укоротилась на задетом слове
+    expect(re.changed).toEqual([{ item_id: "sp_002", change: "remapped" }]);
     expect(re.doc.items[1]!.status).toBe("proposed");
   });
 
@@ -69,6 +70,6 @@ describe("recheckPlan", () => {
 
   it("слово удалено правкой транскрипта → stale(anchor_cut)", () => {
     const re = recheckPlan(planDoc(items), tl, words.filter((w) => w.id !== id(14)), f, P, { edl: edl2 });
-    expect(re.changed[1]).toEqual({ item_id: "sp_002", change: "anchor_cut" });
+    expect(re.changed).toEqual([{ item_id: "sp_002", change: "anchor_cut" }]);
   });
 });

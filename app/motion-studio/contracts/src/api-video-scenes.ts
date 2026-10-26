@@ -8,7 +8,9 @@ import { ScriptItemStatusSchema } from "./api-script.js";
 import { FinalExportRequestSchema, FinalVerifyReportSchema } from "./final.js";
 import { JobErrorCodeSchema } from "./failure.js";
 import { JobSchema } from "./jobs.js";
+import { QAIssueSchema } from "./qa.js";
 import { VideoTimelineDocSchema, TimelineOpSchema } from "./timeline-render.js";
+import { FpsSchema } from "./time.js";
 import { PlacementSchema, VideoPackageManifestSchema } from "./video-scene.js";
 
 const Ts = z.string().datetime();
@@ -44,10 +46,18 @@ export const VideoSceneDtoSchema = z.object({
   placement: PlacementSchema,
   frames: z.object({ start: Count, end: Count }).strict(),
   quote: z.string(),
+  // Task 38-39: утверждённая версия (C), очередь последней задачи сцены, замечания QA текущей версии
+  approved_version_id: Id.nullable().optional(),
+  approved_version_number: z.number().int().positive().nullable().optional(),
+  /** Задача сцены ждёт в очереди: перед ней `ahead` задач, держит замок `blocking_job_id`. */
+  queue: z.object({ ahead: Count, blocking_job_id: Id.optional() }).strict().nullable().optional(),
+  qa_warnings: z.array(QAIssueSchema).optional(),
+  /** Ревью 38-39 (I2): последнее превью в контексте утверждённой (иначе текущей) версии; `outdated` — перерисовать. */
+  context_preview: z.object({ version_id: Id, rel_path: z.string().min(1), plan_revision: Revision, pad_frames: Count, outdated: z.boolean() }).strict().nullable().optional(),
 }).strict();
 export type VideoSceneDto = z.infer<typeof VideoSceneDtoSchema>;
 
-/** `POST /projects/:id/video-scenes/generate`: Approval B на ревизию `revision` + пакет. */
+/** `POST /api/projects/:id/video/generate`: Approval B на ревизию `revision` + пакет. */
 export const VideoGenerateBodySchema = z.object({
   revision: Revision,
   item_ids: z.array(Id).min(1).optional(),
@@ -67,15 +77,18 @@ export const VideoBatchDtoSchema = z.object({
     status: VideoSceneStatusSchema,
   }).strict()),
   counts: z.object({ total: Count, pending: Count, running: Count, ready: Count, failed: Count, cancelled: Count, blocked: Count }).strict(),
+  /** Причина — код (`ready_version`, `not_accepted`); текст — словарь UI. */
   skipped: z.array(z.object({ item_id: Id, reason: z.string().min(1) }).strict()).optional(),
+  // Task 40: пакет полный (без item_ids и regenerate) — готовые сцены вне пакета считаются готовыми
+  full: z.boolean().optional(),
 }).strict();
 export type VideoBatchDto = z.infer<typeof VideoBatchDtoSchema>;
 
-/** `POST /scenes/:id/approve-c`: утвердить версию сцены. */
+/** `POST /api/scenes/:id/approve`: утвердить версию сцены. */
 export const ApproveSceneBodySchema = z.object({ version_id: Id }).strict();
 export type ApproveSceneBody = z.infer<typeof ApproveSceneBodySchema>;
 
-/** `POST /scenes/:id/preview-context`: превью версии поверх исходника с полями. */
+/** `POST /api/scenes/:id/preview-context`: превью версии поверх исходника с полями. */
 export const PreviewContextBodySchema = z.object({ version_id: Id, pad_frames: Count.optional() }).strict();
 export type PreviewContextBody = z.infer<typeof PreviewContextBodySchema>;
 
@@ -90,7 +103,7 @@ export const VideoPackageDtoSchema = z.object({
 }).strict();
 export type VideoPackageDto = z.infer<typeof VideoPackageDtoSchema>;
 
-/** `GET /projects/:id/video-scenes`: всё состояние сцен видеопроекта одним ответом. */
+/** `GET /api/projects/:id/video/scenes`: всё состояние сцен видеопроекта одним ответом. */
 export const VideoScenesStateDtoSchema = z.object({
   project_id: Id,
   plan: z.object({ id: Id, revision: Revision }).strict().nullable(),
@@ -137,6 +150,17 @@ export const FinalExportDtoSchema = z.object({
   verify: FinalVerifyReportSchema.nullable(),
   job: JobSchema.nullable(),
   created_at: Ts,
+  // Task 45: размер файла, выход из манифеста и итог повтора (`compare.json`) — для истории экспортов
+  bytes: Count.optional(),
+  output: z.object({ width: z.number().int().positive(), height: z.number().int().positive(), fps: FpsSchema, frames: z.number().int().positive() }).strict().optional(),
+  compare: z.object({
+    reproduced_from: Id,
+    inputs_equal: z.boolean(),
+    probe_equal: z.boolean(),
+    frames: z.array(z.object({ frame: Count, psnr_db: z.number() }).strict()),
+    file_sha256_equal: z.boolean(),
+    verdict: z.enum(["reproduced", "differs"]),
+  }).strict().optional(),
 }).strict();
 export type FinalExportDto = z.infer<typeof FinalExportDtoSchema>;
 
@@ -176,6 +200,8 @@ export const RecoveryDtoSchema = z.object({
     id: Id, created_at: Ts, crashed: z.boolean(), acknowledged_at: Ts.nullable(),
     // Task 47: итог восстановления для баннера (восстановлено / заблокировано / в карантине / не удалось)
     summary: z.object({ recovered: Count, blocked: Count, quarantined: Count, failed: Count }).strict().optional(),
+    // S20: предупреждения старта — копия хранилища (`store_copied`), процесс другого живого сервера (`foreign_process`)
+    warnings: z.array(z.object({ kind: z.string().min(1), message: z.string().min(1), job_id: Id.optional(), owner_pids: z.array(z.number().int().positive()).optional() }).strict()).optional(),
   }).strict().nullable(),
   interrupted: z.array(JobSchema),
   blocked: z.array(JobSchema),

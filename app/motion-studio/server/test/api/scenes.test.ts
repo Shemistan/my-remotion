@@ -2,6 +2,8 @@
 // Planner: param для длительности/стиля, spec для размера/fps/аспекта, H8), восстановление.
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { HistoryEntrySchema, defaultSettings } from "@ms/contracts";
+import * as jobs from "../../src/db/repos/jobs.js";
+import * as projects from "../../src/db/repos/projects.js";
 import { type Api, getHeaders, makeApi, okHeaders, seedVersion } from "./helpers.js";
 
 let api: Api;
@@ -72,6 +74,22 @@ it("POST /scenes/:id/render: пустой патч → 400, итог не про
   const r = await api.inj("POST", `/api/scenes/${empty.id}/render`, key(), { settings_patch: { duration_frames: 240 } });
   expect(r.statusCode).toBe(409);
   expect(r.json()).toMatchObject({ error: "no_current_version" });
+});
+
+it("POST /scenes/:id/render: сцена видеопроекта — FPS только проекта (иначе 409 fps_locked, задачи нет); тот же FPS и другие поля — можно", async () => {
+  projects.create(api.core.db, { id: "vid", kind: "video", title: "Ролик" });
+  const { scene } = await seedVersion(api, { projectId: "vid" });
+  const before = jobs.list(api.core.db, { sceneId: scene.id }).length;
+  const r = await api.inj("POST", `/api/scenes/${scene.id}/render`, key(), { settings_patch: { fps: { num: 60, den: 1 }, duration_frames: 360 } });
+  expect(r.statusCode).toBe(409);
+  expect(r.json()).toMatchObject({ error: "fps_locked" });
+  expect(jobs.list(api.core.db, { sceneId: scene.id })).toHaveLength(before);
+  const same = await api.inj("POST", `/api/scenes/${scene.id}/render`, key(), { settings_patch: { fps: defaultSettings().fps, style_preset: "tech-neon" } });
+  expect(same.statusCode).toBe(202);
+  expect((await api.inj("POST", `/api/scenes/${scene.id}/render`, key(), { settings_patch: { style_preset: "light-clean" } })).statusCode).toBe(202);
+  // у сцены обычного проекта FPS по-прежнему меняется
+  const plain = await seedVersion(api);
+  expect((await api.inj("POST", `/api/scenes/${plain.scene.id}/render`, key(), { settings_patch: { fps: { num: 60, den: 1 } } })).statusCode).toBe(202);
 });
 
 it("POST /scenes/:id/restore и messages: версия чужой сцены → 404; POST scenes в несуществующий проект → 404", async () => {

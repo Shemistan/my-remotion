@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 import type { Settings } from "@ms/contracts";
 import { type ProcessRegistry, StorageError, fileProcessRegistry, safeMkdir, spawnTracked } from "@ms/core";
 import { CHROME_WRAPPER, findRenderBrowser } from "./browser.js";
+import { markCacheUse } from "./cache-use.js";
+import { currentRenderConcurrency } from "./concurrency.js";
 import { APP_NODE_MODULES, MOTION_KIT_DIR, mkdirOne, readProps, writeEntry } from "./entry.js";
 import { FFPROBE_ARGS, type ProbeResult, ffprobeBin, parseProbe } from "./ffprobe.js";
 import { reapByMarker, settleBrowserRecords } from "./processes.js";
@@ -43,6 +45,8 @@ export interface RenderRequest {
    * `[motion-kit:sweep]` — в `browserLogs`. Только с превью.
    */
   sweep?: { every: number; scale: number };
+  /** Параллельность Remotion (Task 49a); нет — `currentRenderConcurrency()` (config `render.concurrency`). */
+  concurrency?: number;
 }
 
 /**
@@ -85,6 +89,11 @@ export interface RenderResult {
    */
   allowedOrigins?: string[];
   error?: { stage: RenderStage; message: string };
+  /**
+   * S21: worker убит SIGKILL (OOM/сторож снаружи) и не вернул результата — ошибки
+   * сцены нет; вызывающий может повторить рендер тем же кодом. Таймаут и отмена — не сюда.
+   */
+  killed?: string;
 }
 
 /** Подмены для юнит-тестов. */
@@ -242,7 +251,8 @@ export async function renderJob(req: RenderJobRequest, signal?: AbortSignal, dep
   let entryPoint: string;
   let inputProps: Record<string, unknown>;
   try {
-    entryPoint = await writeEntry(req.versionDir, req.cacheDir, req.settings);
+    // Task 49a: отметка использования ключа до первой записи в кэш — уборка не тронет его
+    entryPoint = await writeEntry(req.versionDir, req.cacheDir, req.settings, (k) => markCacheUse(req.cacheDir, k, req.run.runId));
     inputProps = req.inputProps ?? (await readProps(req.versionDir));
   } catch (e) {
     if (e instanceof StorageError) throw e;
@@ -282,6 +292,7 @@ export async function renderJob(req: RenderJobRequest, signal?: AbortSignal, dep
     export: req.export ?? null,
     ...(!req.export && req.preview && req.sweep ? { sweep: req.sweep } : {}),
     timeoutMs: innerTimeoutMs(req.timeoutMs),
+    concurrency: req.concurrency ?? currentRenderConcurrency(),
   };
 
   const ac = new AbortController();
@@ -343,6 +354,8 @@ export async function renderJob(req: RenderJobRequest, signal?: AbortSignal, dep
       const stage = out.stage ?? "bundle";
       return fail(stage, `worker завершился (code ${w.code}, signal ${w.signal}) без результата на этапе ${stage}: ${tail(w.stderr)}`, {
         browserLogs: out.logs,
+        // только SIGKILL (OOM-killer, сторож, kill -9): SIGSEGV/SIGABRT — падение процесса, ошибка как раньше
+        ...(w.signal === "SIGKILL" ? { killed: w.signal } : {}),
       });
     }
     const browserLogs = out.logs.length > 0 ? out.logs : r.browserLogs;

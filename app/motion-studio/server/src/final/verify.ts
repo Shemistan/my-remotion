@@ -1,5 +1,6 @@
 // Проверка финала (Task 44): ffprobe-гейт, длительность, синхронность речи, кадры исходника и
-// сцен, громкость → `verify.json` (`FinalVerifyReportSchema`). Всё — по готовому MP4, без рендера:
+// сцен, громкость, каналы звука по смыслу (`channels.ts`, Task 43) и теги цвета (`expectColorTags`)
+// → `verify.json` (`FinalVerifyReportSchema`). Всё — по готовому MP4, без рендера:
 // still-кадры сцен даёт вызывающий (`stillsFor`; в Task 43 — `renderTimelineRange`).
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -11,6 +12,7 @@ import { ffprobe } from "@ms/render";
 import { type SyncSample, judgeSync } from "../edit/sync-probe.js";
 import { runTool } from "../media/ffmpeg.js";
 import { DEFAULT_MATRIX, type MediaCtx, alignmentOffset, extractFrame, probeColorMatrix, psnr, sampleVerifyFrames, sourceFrameAt } from "./frames.js";
+import { checkChannels } from "./channels.js";
 import { loudnessDelta } from "./loudness.js";
 import { type SyncWord, measureSync, syncAnchors } from "./sync.js";
 
@@ -47,7 +49,8 @@ export function durationOk(actualUs: number, frames: number, fps: Fps): boolean 
 }
 
 /**
- * Гейт MP4 финала: `h264`, звук `aac` 48 кГц, `yuv420p`, размеры, fps, каналы = исходнику;
+ * Гейт MP4 финала: `h264`, звук `aac` 48 кГц, `yuv420p`, размеры, fps, каналы = `expect.audioChannels`
+ * (у `verifyFinal` — `finalAudioChannels`, стерео Remotion);
  * длительность видеопотока (`durationOk`). Пусто — пройден; строки начинаются с имени параметра
  * (`duration …`, `pix_fmt …`).
  */
@@ -60,11 +63,21 @@ export function finalProbeGate(probe: FinalProbe, expect: FinalProbeExpect): str
   if (!sameFps(probe.fps, expect.fps)) out.push(`fps ${probe.fps.num}/${probe.fps.den}, ожидалось ${expect.fps.num}/${expect.fps.den}`);
   if (probe.audioCodec !== undefined && probe.audioSampleRate !== FINAL_SAMPLE_RATE) out.push(`audio_sample_rate ${probe.audioSampleRate ?? "?"}, ожидалось ${FINAL_SAMPLE_RATE}`);
   if (expect.audioChannels !== undefined && probe.audioCodec !== undefined && probe.audioChannels !== expect.audioChannels) {
-    out.push(`audio_channels ${probe.audioChannels ?? "?"}, ожидалось ${expect.audioChannels} (как у исходника)`);
+    out.push(`audio_channels ${probe.audioChannels ?? "?"}, ожидалось ${expect.audioChannels}`);
   }
   const durationUs = Math.round(probe.durationMs * 1000);
   if (!durationOk(durationUs, expect.frames, expect.fps)) out.push(`duration ${durationUs} мкс, ожидалось ${frameToUs(expect.frames, expect.fps)} ± 1 кадр (${expect.frames} кадров)`);
   return out;
+}
+
+/**
+ * Каналы звука финала (Task 43, e2e): Remotion всегда сводит дорожку в стерео (`-ac 2` при
+ * подготовке звука) — моно исходника становится двумя одинаковыми каналами (−3 дБ на канал,
+ * громкость та же), 5.1 — даунмиксом. Сверяется с этим, а не с каналами исходника; нет звука — `undefined`.
+ */
+export const FINAL_AUDIO_CHANNELS = 2;
+export function finalAudioChannels(source: number | undefined): number | undefined {
+  return source === undefined ? undefined : FINAL_AUDIO_CHANNELS;
 }
 
 /** Частота и каналы первой звуковой дорожки (ffprobe). Нет дорожки — `{}`. */
@@ -144,6 +157,8 @@ export interface VerifyFinalInput extends MediaCtx {
    * тега — bt601 (так переводит swscale по умолчанию).
    */
   colorMatrix?: ColorMatrix;
+  /** Task 43: теги цвета видеопотока, которых требует кодирование финала (ffprobe; иное — провал `probe`). */
+  expectColorTags?: "bt709";
   /** Не удалять кадры и WAV проверки (отладка). */
   keepArtifacts?: boolean;
 }
@@ -174,7 +189,15 @@ async function verifyIn(i: VerifyFinalInput, ctx: MediaCtx, work: string): Promi
 
   // ffprobe и длительность
   const probe = await probeFinal(i.finalPath, ctx);
-  const gate = finalProbeGate(probe, { ...size, fps, frames, ...(sourceAudio.audioChannels ? { audioChannels: sourceAudio.audioChannels } : {}) });
+  const channels = finalAudioChannels(sourceAudio.audioChannels);
+  const gate = finalProbeGate(probe, { ...size, fps, frames, ...(channels !== undefined ? { audioChannels: channels } : {}) });
+  let colorTags: FinalVerifyReport["color_tags"];
+  if (i.expectColorTags) {
+    colorTags = await probeColorTags(i.finalPath, ctx);
+    const want = i.expectColorTags;
+    const bad = Object.entries(colorTags).filter(([, v]) => v !== want).map(([k, v]) => `${k}=${v ?? "нет"}`);
+    if (bad.length > 0) gate.push(`color_tags ${bad.join(", ")}, ожидались ${want}`);
+  }
   const actualUs = Math.round(probe.durationMs * 1000);
   const frameUs = frameToUs(1, fps);
   const duration = { expected_frames: frames, actual_us: actualUs, delta_frames: Math.round((actualUs - frameToUs(frames, fps)) / frameUs) };
@@ -221,8 +244,12 @@ async function verifyIn(i: VerifyFinalInput, ctx: MediaCtx, work: string): Promi
   }
 
   const loudness = await loudnessDelta(i.finalPath, i.editedAudio, ctx);
+  const channelsReport = sourceAudio.audioChannels !== undefined && probe.audioChannels !== undefined
+    ? await checkChannels({ finalPath: i.finalPath, editedAudio: i.editedAudio, sourceChannels: sourceAudio.audioChannels, finalChannels: probe.audioChannels, workDir: work }, ctx)
+    : undefined;
   const parts: ReportParts = { probe: gate.filter((g) => !g.startsWith("duration")), duration, frames: checked, loudness };
   const failures = verifyFailures(parts, { sync: sync.status, fps });
+  if (channelsReport && !channelsReport.ok) failures.push("channels");
   return FinalVerifyReportSchema.parse({
     ...parts,
     sync: samples.map((s) => ({ word_id: s.word_id, offset_us: s.offset_us, corr: s.corr, energy: s.energy })),
@@ -231,5 +258,17 @@ async function verifyIn(i: VerifyFinalInput, ctx: MediaCtx, work: string): Promi
     sync_check: sync,
     ...(skipped.length > 0 ? { frames_skipped: skipped } : {}),
     color_matrix: matrix,
+    ...(channelsReport ? { channels: channelsReport } : {}),
+    ...(colorTags ? { color_tags: colorTags } : {}),
   });
+}
+
+/** Теги цвета видеопотока (ffprobe `color_space/color_primaries/color_transfer`); нет тега — `null`. */
+export async function probeColorTags(path: string, o: MediaCtx = {}): Promise<NonNullable<FinalVerifyReport["color_tags"]>> {
+  const r = await runTool("ffprobe", [
+    "-v", "error", "-protocol_whitelist", "file", "-select_streams", "v:0", "-show_entries", "stream=color_space,color_primaries,color_transfer", "-of", "json", `file:${path}`,
+  ], { ...(o.run ? { run: o.run } : {}), ...(o.signal ? { signal: o.signal } : {}), timeoutMs: 60_000 });
+  if (r.code !== 0) throw new Error(`ffprobe ${path}: ${r.stderrTail.trim()}`);
+  const s = (JSON.parse(r.stdout) as { streams?: { color_space?: string; color_primaries?: string; color_transfer?: string }[] }).streams?.[0] ?? {};
+  return { color_space: s.color_space ?? null, color_primaries: s.color_primaries ?? null, color_transfer: s.color_transfer ?? null };
 }

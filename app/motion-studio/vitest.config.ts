@@ -18,7 +18,7 @@ const UNIT_TIMEOUT = 10_000;
 // Тяжёлые юнит-файлы с реальным ядром и конвейером идут 2–3 с без нагрузки, под
 // параллельными рендерами — вдвое-втрое дольше: запас против ложных таймаутов ./check.
 const HEAVY: Record<string, string[]> = {
-  server: ["test/cli/generate-boot.test.ts", "test/pipeline/playground-generate.test.ts", "test/pipeline/best-attempt.test.ts","test/qa/real-frames.test.ts", "test/qa/hold-frames.test.ts", "test/media/import-handler.test.ts", "test/media/asr-handler.test.ts", "test/pipeline/roughcut-preview.test.ts", "test/analysis/ffmpeg-frames.test.ts", "test/analysis/footage-handler.test.ts", "test/pipeline/scene-restore.test.ts", "test/pipeline/playground-edit.test.ts", "test/pipeline/playground-generate-script.test.ts", "test/pipeline/fragment-fit-attempt.test.ts", "test/pipeline/scene-export.test.ts", "test/pipeline/playground-generate-reframe.test.ts"],
+  server: ["test/cli/generate-boot.test.ts", "test/pipeline/playground-generate.test.ts", "test/pipeline/best-attempt.test.ts","test/qa/real-frames.test.ts", "test/qa/hold-frames.test.ts", "test/media/import-handler.test.ts", "test/media/asr-handler.test.ts", "test/pipeline/roughcut-preview.test.ts", "test/analysis/ffmpeg-frames.test.ts", "test/analysis/footage-handler.test.ts", "test/pipeline/scene-restore.test.ts", "test/pipeline/playground-edit.test.ts", "test/pipeline/playground-generate-script.test.ts", "test/pipeline/fragment-fit-attempt.test.ts", "test/pipeline/scene-export.test.ts", "test/pipeline/playground-generate-reframe.test.ts", "test/pipeline/video-generate.test.ts", "test/pipeline/video-edit.test.ts"],
 };
 const HEAVY_TIMEOUT = 30_000;
 

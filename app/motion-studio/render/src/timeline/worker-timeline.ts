@@ -184,7 +184,7 @@ async function run(job: TimelineWorkerJob): Promise<TimelineWorkerResult> {
     ...common, ...callWith(out.video), onDownload,
     codec: "h264", crf: out.crf, scale: out.scale, x264Preset: out.x264Preset,
     audioCodec: "aac", audioBitrate: `${out.audioBitrateKbps}k`, enforceAudioTrack: true, sampleRate: SAMPLE_RATE,
-    frameRange: out.frameRange, outputLocation: tmpOut, overwrite: true,
+    frameRange: out.frameRange, outputLocation: tmpOut, overwrite: true, ...(out.colorSpace ? { colorSpace: out.colorSpace } : {}),
   });
   await rename(tmpOut, out.out);
   return { ok: true, stills, outPath: out.out, browserLogs, allowedOrigins, mediaBytes: media.bytesSent() };

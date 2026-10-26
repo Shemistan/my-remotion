@@ -144,6 +144,17 @@ it("reapStrayRenderers kills process groups started from <root>/run/tmp/ and not
   expect(await reapStrayRenderers(root)).toEqual([]);
 });
 
+it("S20: путь, в который корень вложен (другое хранилище `<x><root>/run/tmp/…`), — не наш: не трогается", async () => {
+  const foreignTmp = join(tmp, "other") + join(root, "run", "tmp", "old-a1-zzz");
+  await mkdir(foreignTmp, { recursive: true });
+  const foreign = spawn("/bin/sh", ["-c", "sleep 60; :", join(foreignTmp, "profile")], { detached: true, stdio: "ignore" });
+  children.push(foreign);
+  await until(async () => (await findByMarker(foreignTmp)).length > 0);
+  expect(await findByMarker(join(root, "run", "tmp") + "/")).toEqual([]);
+  expect(await reapStrayRenderers(root, { graceMs: 100, waitMs: 1000 })).toEqual([]);
+  expect(groupExists(foreign.pid!)).toBe(true);
+});
+
 it("findByMarker never returns our own process or our own group", async () => {
   // наша командная строка содержит путь к тестам; маркер, который точно в ней есть
   const own = process.argv.find((a) => a.includes("/")) ?? process.execPath;

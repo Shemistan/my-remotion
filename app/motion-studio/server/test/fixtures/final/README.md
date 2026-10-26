@@ -13,6 +13,8 @@
 | `final-like.mp4` | `counter-30` с вырезкой исходника [3 с, 4 с) (кадры 90–119), `fps=30`, на кадрах финала 150–239 — оранжевый прямоугольник «сцены» (`drawbox`, правая часть кадра); H.264 CRF 18 `yuv420p`, AAC 192 кбит/с 48 кГц моно | «финал»: 270 кадров, `verifyFinal` → `pass` |
 | `final-like-edited.wav` | тот же монтаж звука, PCM 48 кГц | `editedAudio`: громкость и каналы |
 | `final-like-ref.mkv` | тот же монтаж видео: master декодирован в RGB (bt601, TV-диапазон), прямоугольник нарисован в RGB, FFV1 без потерь `bgr0` | RGB still-кадры сцены, как у Remotion (в Task 43 — `renderTimelineRange`) |
+| `final-like-st.mp4`, `delayed-audio-st.mp4`, `louder-st.mp4` | те же, звук сведён в стерео как у Remotion (`pan` по −3 дБ в каждый канал, AAC 192 кбит/с 48 кГц) | финалы для `verifyFinal` (Task 43 fix 1): каналы `mono` L≈R |
+| `final-like-left.mp4` | `final-like`, звук только в левом канале | каналы: `channels` в `failures` |
 | `still-30.mp4` | `testsrc2` 1 fps → 30 fps, 2 с: 30 одинаковых кадров подряд | неподвижный кадр → `inconclusive` |
 
 Слова монтажа в тестах — по вспышкам шума: `w_00000k` в `[0,7·k, 0,7·k + 0,35)` с; вырезка

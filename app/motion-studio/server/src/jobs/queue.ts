@@ -229,7 +229,7 @@ export function provideInput(db: Db, jobId: string, answers: Record<string, stri
  * задача без живой попытки (`pending`, `awaiting_input`, `awaiting_approval`, `blocked`) —
  * сразу `cancelled`; завершённая — без изменений.
  *
- * @internal Только для очереди (`cancelJob`) и тестов. API и CLI отменяют через
+ * @internal Только для очереди (`cancelJob`, `cancelSuperseded`) и тестов. API и CLI отменяют через
  * `cancelJob`: у `blocked` живость процессов здесь берётся лишь из `job_processes`, без
  * бокового реестра Chrome, и замки сцены могли бы сняться при живом рендере. Экспорт
  * держится ради тестов; вызовы из `src/` вне queue.ts ловит test/jobs/cancel.test.ts.
@@ -258,6 +258,19 @@ export function requestCancel(db: Db, jobId: string, opts: { attemptAlive?: bool
         return j;
     }
   });
+}
+
+/**
+ * Синхронная отмена задачи, вытесненной новым решением (Task 43: новое final той же области,
+ * внутри транзакции `requestFinal`): `pending`/`awaiting_*` — cancelled, `running` —
+ * `cancel_requested`. `blocked` не трогается (`false`): его живость знает только асинхронный
+ * реестр `cancelJob`; завершённые — тоже `false`.
+ */
+export function cancelSuperseded(db: Db, jobId: string): boolean {
+  const j = mustGet(db, jobId);
+  if (!["pending", "running", "awaiting_input", "awaiting_approval"].includes(j.status)) return false;
+  requestCancel(db, jobId);
+  return true;
 }
 
 /**

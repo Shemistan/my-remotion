@@ -25,6 +25,11 @@ import {
   type Settings,
   SettingsFieldsSchema,
   SettingsSchema,
+  type VideoSceneContext,
+  VideoSceneContextSchema,
+  placementFor,
+  videoSceneFrames,
+  videoSceneWindow,
 } from "@ms/contracts";
 import { z } from "zod";
 import { buildEditPlannerTask } from "../agents/prompts.js";
@@ -39,10 +44,14 @@ import type { HandlerResult, JobContext, JobHandler } from "../jobs/types.js";
 import type { CapabilityView } from "../knowledge/types.js";
 import { versionHistoryDigest } from "../scenes/history.js";
 import { overlayChecks } from "../script/overlay-check.js";
+import { currentPlan } from "../analysis/plan-ops.js";
+import { videoFrameQa } from "../video-scenes/checks.js";
+import { planFps } from "../video-scenes/context.js";
+import { canonicalHash } from "@ms/contracts/canonical";
 import type { StepRef } from "./checkpoints.js";
 import { type EditRequest, type GenerateDeps, type PlanOutcome, readKitApi, runGeneration } from "./generate.js";
 import { applyParamEdit, hardcodedFrameProps, touchesGeometry } from "./param-edit.js";
-import { type PlaygroundDeps, abortKind, record, toHandlerResult } from "./playground-generate.js";
+import { type PlaygroundDeps, TRANSPARENT_SKIP, abortKind, record, toHandlerResult } from "./playground-generate.js";
 import { checkPreserve, compareHoldLayout } from "./preserve.js";
 import { type CheckpointOpts, type RunCtx, type SpeechWindow, directorStep, errText, sceneStyle, startPropsStyle, toolless } from "./steps.js";
 
@@ -235,9 +244,9 @@ function elementTexts(spec: MotionSpec, ids: string[]): string[] {
 }
 
 /** Заголовок первого вызова Engineer в правке кода: копия базы и что менять. */
-/** F7: ограничение длительности сцены сценария для Engineer. */
-function durationBrief(planned: number | undefined): string {
-  return planned === undefined ? "" : `\n\n## Длительность\nДлительность сцены фиксирована планом сценария: ${planned} кадров — \`duration_frames\` в spec и props.timing не меняй; темп меняй внутри сцены.`;
+/** F7: ограничение длительности сцены сценария (и видеосцены, Task 38-39) для Engineer. */
+function durationBrief(planned: number | undefined, plan = "планом сценария"): string {
+  return planned === undefined ? "" : `\n\n## Длительность\nДлительность сцены фиксирована ${plan}: ${planned} кадров — \`duration_frames\` в spec и props.timing не меняй; темп меняй внутри сцены.`;
 }
 
 function editBrief(plan: EditPlan, baseNumber: number): string {
@@ -297,13 +306,13 @@ export function scriptPlannedFrames(db: Db, root: string, c: ScriptSceneContext)
  * была не по плану (`baseFrames`, версии до S16a), и правка оставила её длину — warning (ревью M4):
  * правка не испортила длительность, а исправить её цикл не смог — иначе любая правка такой сцены падала бы.
  */
-export function durationChecks(v: { spec: MotionSpec; settings: Settings }, planned: number, baseFrames?: number): QAIssue[] {
+export function durationChecks(v: { spec: MotionSpec; settings: Settings }, planned: number, baseFrames?: number, plan = "плану сценария"): QAIssue[] {
   const got = v.settings.duration_frames !== planned ? v.settings.duration_frames : v.spec.duration_frames;
   if (got === planned) return [];
   const legacy = baseFrames !== undefined && baseFrames !== planned && v.settings.duration_frames === baseFrames && v.spec.duration_frames === baseFrames;
   return [{
     source: "programmatic", code: "duration_changed", severity: legacy ? "warning" : "blocking",
-    description: `длительность сцены ${got} кадров вместо ${planned} по плану сценария — клип не встанет на свою фразу`,
+    description: `длительность сцены ${got} кадров вместо ${planned} по ${plan} — клип не встанет на свою фразу`,
     fix_hint: `верни duration_frames = ${planned} в spec и props.timing; темп меняй внутри сцены (биты, задержки), не её длиной`,
   }];
 }
@@ -317,6 +326,88 @@ export function scriptContextOf(db: Db, sceneId: string): ScriptSceneContext | u
   }
   return undefined;
 }
+
+/** Вход `video` последней генерации сцены с ним (видеосцена, ревью Task 37′); нет — `undefined`. */
+export function videoContextOf(db: Db, sceneId: string): VideoSceneContext | undefined {
+  const gens = jobs.list(db, { sceneId }).filter((j) => j.type === "playground.generate").reverse();
+  for (const j of gens) {
+    const p = VideoSceneContextSchema.safeParse((j.input as { video?: unknown } | null)?.video);
+    if (p.success) return p.data;
+  }
+  return undefined;
+}
+
+/**
+ * Task 38-39: длительность видеосцены по плану (Р-V6) — `frames.end − frames.start` сцены плана
+ * из входа `video` генерации: по текущей ревизии того же плана (как `scriptPlannedFrames`). Сцены
+ * в текущей ревизии нет или она не принята — `null` (длительность не закрепляется, сцена
+ * устарела); текущая не читается — по ревизии генерации; и её нет — `undefined`.
+ */
+export function videoPlannedFrames(db: Db, root: string, c: VideoSceneContext): number | null | undefined {
+  const at = (rev: number): number | null | undefined => {
+    try {
+      const item = currentPlan(db, root, c.plan_id, rev).items.find((x) => x.id === c.item_id && x.status === "accepted");
+      return item ? videoSceneFrames(item) : null;
+    } catch {
+      return undefined;
+    }
+  };
+  const current = plans.get(db, c.plan_id)?.current_revision;
+  const now = current !== undefined && current !== null && current !== c.plan_revision ? at(current) : undefined;
+  if (now === null) return null;
+  return now ?? at(c.plan_revision);
+}
+
+/**
+ * Вход `video` генерации против текущей ревизии плана (ревью 37′ fix 2): сцену сняли, сменили
+ * режим/зону, длительность или окно речи — правка идёт по старому входу (текст расхождения);
+ * совпадает или план не читается — `undefined`.
+ */
+export function videoPlanDrift(db: Db, root: string, c: VideoSceneContext): string | undefined {
+  try {
+    const doc = currentPlan(db, root, c.plan_id);
+    const item = doc.items.find((x) => x.id === c.item_id && x.status === "accepted");
+    if (!item) return `сцены ${c.item_id} нет среди принятых в текущем плане r${doc.revision}`;
+    const fps = planFps(db, doc);
+    const w = videoSceneWindow(item, fps);
+    const p = placementFor(item.composition_mode, item.zone, item.rect);
+    const diff = [
+      canonicalHash(p) !== canonicalHash(c.placement) ? `размещение ${c.placement.mode}/${c.placement.zone} → ${p.mode}/${p.zone}` : "",
+      w.lead !== c.lead_frames || w.tail !== c.tail_frames ? `окно речи lead ${c.lead_frames}/tail ${c.tail_frames} → ${w.lead}/${w.tail}` : "",
+    ].filter(Boolean);
+    return diff.length > 0 ? `сцена ${c.item_id} изменилась в плане r${doc.revision} после генерации (r${c.plan_revision}): ${diff.join("; ")}` : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Проверки правки видеосцены — как в генерации (ревью Task 37′): прозрачная — графика в зоне
+ * (`layout`), проверки по всей сцене без правил сценария, наложение, альфа и композиты;
+ * длительность — по плану (`videoPlannedFrames`, Task 38-39). План не читается — без сверки длительности.
+ */
+function videoEditQa(db: Db, root: string, c: VideoSceneContext, total: number, planned: number | undefined): Pick<EditRequestQa, "layout" | "temporal" | "extraQa"> {
+  let overrideReason: string | undefined;
+  try {
+    overrideReason = currentPlan(db, root, c.plan_id, c.plan_revision).items.find((x) => x.id === c.item_id)?.face_overlap.override_reason;
+  } catch {
+    // план недоступен — без причины наложения на лицо
+  }
+  const drift = videoPlanDrift(db, root, c);
+  const driftIssue: QAIssue[] = drift ? [{ source: "programmatic", code: "video_plan_changed", severity: "warning", description: `${drift} — правка сделана по входу генерации`, fix_hint: "перегенерируйте сцену по текущему плану (пакет видеосцен), правка не меняет режим, зону и длительность" }] : [];
+  const speech = total - c.lead_frames - c.tail_frames;
+  const t = c.placement.transparent;
+  return {
+    ...(t ? { layout: c.placement.rect, temporal: { ...(speech > 0 ? { window: { lead: c.lead_frames, speech, tail: c.tail_frames } } : {}), ...(c.key_moments ? { moments: c.key_moments } : {}), skip: TRANSPARENT_SKIP } } : {}),
+    extraQa: async (v) => [
+      ...(t ? await overlayChecks(v) : []),
+      ...(await videoFrameQa(v, { ctx: c, ...(overrideReason !== undefined ? { overrideReason } : {}) })),
+      ...(planned !== undefined ? durationChecks(v, planned, total, "плану видеопроекта") : []),
+      ...driftIssue,
+    ],
+  };
+}
+type EditRequestQa = Parameters<typeof runGeneration>[0];
 
 export function playgroundEdit(d: PlaygroundDeps): JobHandler {
   return async (ctx) => {
@@ -336,13 +427,19 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
     if (!input.plan && message === undefined && Object.keys(patch).length === 0) return fail("правка без сообщения, плана и патча настроек");
     // S16a F7: сцена сценария — длительность фиксирована планом (клип стоит на своей фразе)
     const scriptCtx = scriptContextOf(ctx.db, sceneId);
-    const plannedAt = scriptCtx ? scriptPlannedFrames(ctx.db, d.repo.root, scriptCtx) : undefined;
+    // видеосцена (ревью Task 37′): зона, проверки и композиты — как в генерации
+    const videoCtx = scriptCtx ? undefined : videoContextOf(ctx.db, sceneId);
+    // Task 38-39: видеосцена — длительность тоже только план (Р-V6), как у сцены сценария
+    const plannedAt = scriptCtx ? scriptPlannedFrames(ctx.db, d.repo.root, scriptCtx) : videoCtx ? videoPlannedFrames(ctx.db, d.repo.root, videoCtx) : undefined;
     const planned = plannedAt ?? undefined;
+    const words = videoCtx
+      ? { removed: "Сцены нет среди принятых в текущем визуальном плане — длительность не закреплена: сцена устарела, перегенерируйте её пакетом видеосцен.", lock: "видеосцены", tail: "; длину меняет только план (границы сцены по словам)", brief: "визуальным планом", align: "визуальный план", ofPlan: "план видеопроекта" }
+      : { removed: "Сцены нет в текущем плане сценария (снята или план перестроен) — длительность не закреплена: сцена устарела.", lock: "сцены сценария", tail: "", brief: "планом сценария", align: "план сценария", ofPlan: "план сценария" };
     // сцену сняли с плана (S17a): длительность не закрепляется — человек должен знать почему
-    const removedNote = plannedAt === null ? ["Сцены нет в текущем плане сценария (снята или план перестроен) — длительность не закреплена: сцена устарела."] : [];
+    const removedNote = plannedAt === null ? [words.removed] : [];
     const lockNotes: string[] = [];
     const lockNote = (fps: { num: number; den: number }) =>
-      `Длительность сцены сценария фиксирована планом: ${planned} кадров (${(((planned ?? 0) * fps.den) / fps.num).toFixed(1).replace(".", ",")} с) — темп меняется внутри сцены, не её длиной.`;
+      `Длительность ${words.lock} фиксирована планом: ${planned} кадров (${(((planned ?? 0) * fps.den) / fps.num).toFixed(1).replace(".", ",")} с) — темп меняется внутри сцены, не её длиной${words.tail}.`;
     if (planned !== undefined && patch.duration_frames !== undefined && patch.duration_frames !== planned) {
       delete patch.duration_frames;
       lockNotes.push("lock");
@@ -425,7 +522,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
         raw = {
           ...rest, path: raw.path === "param" ? "spec" : raw.path,
           changes: [...raw.changes.map((c) => (raw.path === "param" ? { ...c, kind: "spec" as const } : c)),
-            { target: "timing", kind: "spec", description: `темп × ${k} внутри сцены: длительность ${planned} кадров (план сценария) не меняется` }],
+            { target: "timing", kind: "spec", description: `темп × ${k} внутри сцены: длительность ${planned} кадров (${words.ofPlan}) не меняется` }],
         };
         lockNotes.push("lock");
       }
@@ -440,7 +537,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
       let plan = norm.plan;
       notes = [
         ...norm.notes, ...(lockNotes.length > 0 ? [lockNote(base.row.settings.fps)] : []), ...removedNote,
-        ...(align ? [`Длительность версии ${base.row.number} (${baseFrames !== planned ? baseFrames : base.spec.duration_frames} кадров) не по плану — выровнена под план сценария: ${planned} кадров.`] : []),
+        ...(align ? [`Длительность версии ${base.row.number} (${baseFrames !== planned ? baseFrames : base.spec.duration_frames} кадров) не по плану — выровнена под ${words.align}: ${planned} кадров.`] : []),
       ];
       for (const n of notes) rc.warnings.push(n);
       rc.log(`план правки: ${plan.path}; ${plan.changes.map((c) => c.target).join(", ") || "—"}${plan.preserve.length > 0 ? `; сохранить: ${plan.preserve.join(", ")}` : ""}`);
@@ -520,7 +617,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
         spec: kept.spec,
         candidates,
         settings,
-        edit: { ...common, plan, brief: editBrief(plan, base.row.number) + durationBrief(planned), preserveCheck: (props, spec) => checkPreserve(baseSpec, spec, baseProps, props, loopPreserve, 0.02, { size: settings }), ...holdFor(loopPreserve, settings, removedTexts) },
+        edit: { ...common, plan, brief: editBrief(plan, base.row.number) + durationBrief(planned, words.brief), preserveCheck: (props, spec) => checkPreserve(baseSpec, spec, baseProps, props, loopPreserve, 0.02, { size: settings }), ...holdFor(loopPreserve, settings, removedTexts) },
       };
     };
 
@@ -547,6 +644,7 @@ export function playgroundEdit(d: PlaygroundDeps): JobHandler {
       {
         prompt, settings: base.row.settings, qa: { allowRestricted: input.allowRestricted ?? false }, keepBrief: true, plan: planEdit,
         ...(scriptCtx ? { extraQa: async (v) => [...(await overlayChecks(v)), ...(planned !== undefined ? durationChecks(v, planned, base.row.settings.duration_frames) : [])] } : {}),
+        ...(videoCtx ? videoEditQa(ctx.db, root, videoCtx, base.row.settings.duration_frames, planned) : {}),
       },
       deps,
       ctx.signal,

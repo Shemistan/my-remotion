@@ -15,7 +15,8 @@ import * as scenes from "../db/repos/scenes.js";
 import { scriptScenes } from "../db/repos/script.js";
 import * as versions from "../db/repos/versions.js";
 import { cancelJob } from "../jobs/queue.js";
-import { assertTwinsApprovable, batchForKey, batchStatus, keyPrefix, reframeRequestTag, stageBatch, supersededTwinJob } from "./batch.js";
+import { keyPrefix } from "../jobs/batch-keys.js";
+import { SCRIPT_BATCH_PREFIX, assertTwinsApprovable, batchForKey, batchStatus, reframeRequestTag, stageBatch, supersededTwinJob } from "./batch.js";
 import { itemFingerprint } from "./fingerprint.js";
 import { currentScript, currentScriptPlan } from "./read.js";
 
@@ -39,7 +40,7 @@ export async function startReframe(core: { db: Db; root: string; processes: Proc
   const project = projects.get(db, i.projectId);
   if (!project) throw notFound(`проект ${i.projectId}`);
   if (project.kind !== "script") throw new ApiError(409, "not_script_project", "проект не сценарный");
-  const batchId = `${keyPrefix(i.projectId, i.idempotencyKey)}${reframeRequestTag(i.itemIds)}`;
+  const batchId = `${keyPrefix(i.projectId, i.idempotencyKey, SCRIPT_BATCH_PREFIX)}${reframeRequestTag(i.itemIds)}`;
   const existing = batchForKey(db, i.projectId, i.idempotencyKey);
   if (existing) {
     if (existing.id !== batchId) {

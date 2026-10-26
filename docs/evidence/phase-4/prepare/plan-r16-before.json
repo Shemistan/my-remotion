@@ -1,0 +1,112 @@
+{
+  "revision": 16,
+  "items": [
+    {
+      "id": "sp_001",
+      "status": "accepted",
+      "mode": "split_screen",
+      "zone": "split_left",
+      "frames": {
+        "start": 1548,
+        "end": 1845
+      },
+      "face": 0.458327
+    },
+    {
+      "id": "sp_002",
+      "status": "accepted",
+      "mode": "split_screen",
+      "zone": "split_left",
+      "frames": {
+        "start": 2623,
+        "end": 2850
+      },
+      "face": 0.458327
+    },
+    {
+      "id": "sp_003",
+      "status": "accepted",
+      "mode": "callout",
+      "zone": "left_third",
+      "frames": {
+        "start": 3286,
+        "end": 3396
+      },
+      "face": 0
+    },
+    {
+      "id": "sp_004",
+      "status": "rejected",
+      "mode": "overlay",
+      "zone": "left_third",
+      "frames": {
+        "start": 3826,
+        "end": 3970
+      },
+      "face": 0
+    },
+    {
+      "id": "sp_005",
+      "status": "rejected",
+      "mode": "overlay",
+      "zone": "left_third",
+      "frames": {
+        "start": 4796,
+        "end": 5032
+      },
+      "face": 0
+    },
+    {
+      "id": "sp_006",
+      "status": "rejected",
+      "mode": "split_screen",
+      "zone": "split_left",
+      "frames": {
+        "start": 6602,
+        "end": 6995
+      },
+      "face": 0.458327
+    },
+    {
+      "id": "sp_007",
+      "status": "accepted",
+      "mode": "split_screen",
+      "zone": "split_left",
+      "frames": {
+        "start": 7164,
+        "end": 7420
+      },
+      "face": 0.458327
+    },
+    {
+      "id": "sp_008",
+      "status": "accepted",
+      "mode": "overlay",
+      "zone": "left_third",
+      "frames": {
+        "start": 7820,
+        "end": 8139
+      },
+      "face": 0
+    },
+    {
+      "id": "sp_009",
+      "status": "accepted",
+      "mode": "overlay",
+      "zone": "left_third",
+      "frames": {
+        "start": 1911,
+        "end": 2004
+      },
+      "face": 0
+    }
+  ],
+  "issues": [
+    {
+      "item_id": "sp_009",
+      "code": "zone_occupied",
+      "severity": "warning",
+      "message": "зона «левая треть» свободна на 71 % во время сцены (руки, предметы)"
+    }
+  ]
+}

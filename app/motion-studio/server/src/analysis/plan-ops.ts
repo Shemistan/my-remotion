@@ -50,7 +50,8 @@ const nextNumber = (items: ScenePlanItem[]): number => items.reduce((m, x) => Ma
 /**
  * Операции над документом ревизии → следующая ревизия (`revision + 1`, `parent_revision`, `ops`).
  * `set_status accepted` у `stale(anchor_cut)` — `item_stale` (якорь вырезан: сначала поправить слова);
- * `stale(timing_changed)` принимается как есть. `modify` пересчитывает размещение; успешная правка
+ * `stale(timing_changed)` принимается как есть. `modify` пересчитывает размещение (смена границ —
+ * и цитату: услышанные слова новых границ, S21); успешная правка
  * stale-сцены возвращает её в `proposed`. `add` — сцена пользователя `accepted`, цитата — услышанные
  * слова диапазона. Сцены не изменились — `no_change`; пустой список — `empty_ops`.
  */
@@ -75,10 +76,15 @@ export function applyPlanOps(doc: VisualPlanRevisionDoc, ops: PlanOp[], ctx: Pla
       const i = find(op.item_id);
       const x = items[i]!;
       const { override_reason, key_terms, ...fields } = op.patch;
+      const startId = fields.start_word_id ?? x.start_word_id;
+      const endId = fields.end_word_id ?? x.end_word_id;
+      // S21: границы сменились — цитата сцены = услышанные слова новых границ: по `evidence`
+      // считаются окно речи (`videoSceneWindow`), куски исходника папки клипов и фраза генерации
+      const moved = startId !== x.start_word_id || endId !== x.end_word_id;
       const s: SceneWords = {
-        ...sceneWords(x), ...(fields.start_word_id ? { start_word_id: fields.start_word_id } : {}),
-        ...(fields.end_word_id ? { end_word_id: fields.end_word_id } : {}), ...(fields.zone ? { zone: fields.zone } : {}),
+        ...sceneWords(x), start_word_id: startId, end_word_id: endId, ...(fields.zone ? { zone: fields.zone } : {}),
         ...(key_terms ? { key_terms } : {}), ...(override_reason !== undefined ? { override_reason } : {}),
+        ...(moved ? { evidence: [{ quote: wordsBetween(c, startId, endId) || "—", start_word_id: startId, end_word_id: endId }] } : {}),
       };
       const placed = place(s, c, `сцена ${x.id}`);
       const base = x.status === "stale" ? { ...withoutStale(x), status: "proposed" as const } : x;

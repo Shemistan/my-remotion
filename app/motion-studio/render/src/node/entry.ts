@@ -130,9 +130,12 @@ function fpsLiteral({ num, den }: Settings["fps"]): string {
  * `<Composition id="Scene">`. Компонент — `Scene` (или default) из `<versionDir>/src/Scene.tsx`,
  * `defaultProps` — снимок `props.json`, размеры/fps/длительность — из настроек (рендер
  * всё равно подставляет их поверх композиции, так что кэш бандла от настроек не зависит).
+ * `onKey` — вызывается с ключом до записи (отметка использования кэша, Task 49a).
  */
-export async function writeEntry(versionDir: string, cacheDir: string, settings: Settings): Promise<string> {
+export async function writeEntry(versionDir: string, cacheDir: string, settings: Settings, onKey?: (key: string) => Promise<void>): Promise<string> {
   const key = await contentKey(versionDir);
+  // Task 49a: отметка использования ключа — до первой записи в кэш (уборка не тронет его)
+  await onKey?.(key);
   const props = await readProps(versionDir);
   const scene = join(versionDir, "src", "Scene.tsx");
   await readRegular(scene, "src/Scene.tsx");

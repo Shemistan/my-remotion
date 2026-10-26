@@ -8,11 +8,15 @@
 // добивается тишиной) — `atrim` по сэмплам точен только на известной частоте; (2) граф
 // `buildAudioFilter` + добивка/обрезка до ровно `round(duration_us · 48 000 / 1e6)` сэмплов.
 // Каналы — как в источнике, без нормализации громкости (Global Constraints).
+//
+// Окно (`window`, превью в контексте, ревью Task 38-39): длина дорожки та же, но звук — только
+// клипы, пересекающие окно, обрезанные по нему; проход 1 читает лишь их участок исходника
+// (`-ss`/`-t`), перед ними — тишина до их места в монтаже (`adelay`). Края окна — с теми же фейдами.
 import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { open, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
-import type { EditedTimeline } from "@ms/contracts";
+import { type EditedTimeline, type TimelineClip, audioSampleRange } from "@ms/contracts";
 import type { ProcessRegistry } from "@ms/core";
 import { buildAudioFilter } from "../edit/preview-filter.js";
 import { sha256File } from "../scenes/hash.js";
@@ -29,6 +33,8 @@ export interface EditedAudioRequest {
   /** `-f` входа (`demuxerFor(probe.container)`); без него ffmpeg определяет формат сам. */
   demuxer?: Demuxer;
   tl: EditedTimeline;
+  /** Только окно таймлайна `[startUs, endUs)`, µs монтажа: вне окна — тишина, длина та же. */
+  window?: { startUs: number; endUs: number };
   /** Длина фейда на склейке, µs (`roughcut.fadeUs`, как у превью). */
   fadeUs: number;
   /** Выходной `.wav`; существующий — ошибка, каталог должен существовать. */
@@ -95,10 +101,13 @@ async function readWavInfo(path: string): Promise<WavInfo> {
   }
 }
 
-/** Проход 1: звук источника → WAV 48 кГц s24 от начала файла, каналы как есть. */
-export function normalizeAudioArgs(input: string, out: string, demuxer?: Demuxer): string[] {
+const secs = (samples: number): string => (samples / EDITED_AUDIO_RATE).toFixed(6);
+
+/** Проход 1: звук источника → WAV 48 кГц s24 от начала файла (или участка `span` сэмплов), каналы как есть. */
+export function normalizeAudioArgs(input: string, out: string, demuxer?: Demuxer, span?: { start: number; samples: number }): string[] {
   return [
-    "-protocol_whitelist", "file", ...(demuxer ? ["-f", demuxer] : []), "-i", `file:${input}`,
+    "-protocol_whitelist", "file", ...(demuxer ? ["-f", demuxer] : []), ...(span ? ["-ss", secs(span.start)] : []), "-i", `file:${input}`,
+    ...(span ? ["-t", secs(span.samples)] : []),
     "-vn", "-map", "0:a:0",
     "-af", "aresample=async=1:first_pts=0",
     "-ar", String(EDITED_AUDIO_RATE), "-c:a", "pcm_s24le",
@@ -107,9 +116,42 @@ export function normalizeAudioArgs(input: string, out: string, demuxer?: Demuxer
 }
 
 /** Граф прохода 2: склейка `buildAudioFilter` и ровно `samples` сэмплов на выходе `[out]`. */
-export function editedAudioFilter(tl: EditedTimeline, fadeUs: number, samples: number, audioEndUs?: number): string {
-  const graph = buildAudioFilter(tl.clips, EDITED_AUDIO_RATE, fadeUs, audioEndUs !== undefined ? { audioEndUs } : {});
-  return `${graph};\n[a]apad=whole_len=${samples},atrim=end_sample=${samples}[out]`;
+export function editedAudioFilter(tl: EditedTimeline, fadeUs: number, samples: number, audioEndUs?: number, w?: AudioWindow): string {
+  const o = { ...(audioEndUs !== undefined ? { audioEndUs } : {}), ...(w ? { sampleOffset: w.span.start } : {}) };
+  const graph = buildAudioFilter(w ? w.clips : tl.clips, EDITED_AUDIO_RATE, fadeUs, o);
+  return `${graph};\n[a]${w && w.lead > 0 ? `adelay=delays=${w.lead}S:all=1,` : ""}apad=whole_len=${samples},atrim=end_sample=${samples}[out]`;
+}
+
+/** Окно дорожки: клипы, обрезанные по окну; тишина перед ними, сэмплов; участок исходника прохода 1. */
+export interface AudioWindow {
+  clips: TimelineClip[];
+  lead: number;
+  span: { start: number; samples: number };
+}
+
+/** Клипы таймлайна в окне `[startUs, endUs)` монтажа; пустое окно — undefined. */
+export function audioWindow(tl: EditedTimeline, w: { startUs: number; endUs: number }): AudioWindow | undefined {
+  const R = EDITED_AUDIO_RATE;
+  const at = (us: number) => Math.round((us * R) / 1e6);
+  let lead = 0;
+  const clips: TimelineClip[] = [];
+  for (const c of tl.clips) {
+    const r = audioSampleRange(c, R);
+    if (r.end <= r.start) continue;
+    const edEnd = c.edited_start_us + (c.source_end_us - c.source_start_us);
+    if (edEnd <= w.startUs) {
+      lead += r.end - r.start;
+      continue;
+    }
+    if (c.edited_start_us >= w.endUs) break;
+    const from = c.source_start_us + Math.max(0, w.startUs - c.edited_start_us);
+    const to = c.source_end_us - Math.max(0, edEnd - w.endUs);
+    if (clips.length === 0) lead += at(from) - r.start;
+    clips.push({ ...c, source_start_us: from, source_end_us: to, edited_start_us: Math.max(c.edited_start_us, w.startUs) });
+  }
+  if (clips.length === 0) return undefined;
+  const start = at(clips[0]!.source_start_us);
+  return { clips, lead, span: { start, samples: at(clips.at(-1)!.source_end_us) - start } };
 }
 
 /**
@@ -131,10 +173,11 @@ export async function buildEditedAudio(req: EditedAudioRequest): Promise<EditedA
   const o = { ...(run ? { run } : {}), signal: req.signal, ...(req.timeoutMs ? { timeoutMs: req.timeoutMs } : {}) };
   let orphaned = false;
   try {
-    await runFfmpeg(normalizeAudioArgs(req.input, wav, req.demuxer), o);
+    const w = req.window ? audioWindow(req.tl, req.window) : undefined;
+    await runFfmpeg(normalizeAudioArgs(req.input, wav, req.demuxer, w?.span), o);
     const src = await readWavInfo(wav);
-    const audioEndUs = Math.round((src.samples * 1e6) / EDITED_AUDIO_RATE);
-    await writeFile(script, editedAudioFilter(req.tl, req.fadeUs, samples, audioEndUs));
+    const audioEndUs = Math.round((((w?.span.start ?? 0) + src.samples) * 1e6) / EDITED_AUDIO_RATE);
+    await writeFile(script, editedAudioFilter(req.tl, req.fadeUs, samples, audioEndUs, w));
     await runFfmpeg([
       "-protocol_whitelist", "file", "-f", "wav", "-i", `file:${wav}`,
       "-filter_complex_script", script, "-map", "[out]",

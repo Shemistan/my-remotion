@@ -1,0 +1,51 @@
+[
+  {
+    "id": "3.1",
+    "title": "рендер сцены 2 убит SIGKILL группы процессов",
+    "kind": "A",
+    "pass": false,
+    "detail": "этап рендера сцены 2 не пойман"
+  },
+  {
+    "id": "3.2-sp_009",
+    "title": "сцена sp_009: ready, прежние версии (sha256 каталогов) не изменены",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"ready\",\"before\":[{\"id\":\"ver_01M5TT5RBVWG1JP3F704KNFN0P\",\"number\":1,\"status\":\"ready\",\"sha256\":\"d42fed291a1a49aeb3555a997db1c613b6730ff9236b1836a92b666418629b3c\"}],\"after\":[{\"id\":\"ver_01M5TT5RBVWG1JP3F704KNFN0P\",\"number\":1,\"status\":\"ready\",\"sha256\":\"d42fed291a1a49aeb3555a997db1c613b6730ff9236b1836a92b666418629b3c\"},{\"id\":\"ver_01M5TTVPKQFBTM8498M8JPKC8E\",\"number\":2,\"status\":\"ready\",\"sha256\":\"ca39ed7f4b7198d75c66dd7c44de1129b5ffd1b0ca117f4777f121f61338dcf7\"}]}"
+  },
+  {
+    "id": "3.3-sp_009",
+    "title": "сцена sp_009: C не изменено",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"before\":{\"state\":\"missing\"},\"after\":{\"state\":\"missing\"}}"
+  },
+  {
+    "id": "3.2-sp_003",
+    "title": "сцена sp_003: ready, прежние версии (sha256 каталогов) не изменены",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"ready\",\"before\":[{\"id\":\"ver_01M5TTDDQ3T3Y9XCTBCKWX8QDK\",\"number\":1,\"status\":\"ready\",\"sha256\":\"b3bbf870103c5f856e3e64199135614ac08f169e84f419cd2030e9e12dd9095a\"}],\"after\":[{\"id\":\"ver_01M5TTDDQ3T3Y9XCTBCKWX8QDK\",\"number\":1,\"status\":\"ready\",\"sha256\":\"b3bbf870103c5f856e3e64199135614ac08f169e84f419cd2030e9e12dd9095a\"},{\"id\":\"ver_01M5TV41PEBT45TQ36369M0ZAG\",\"number\":2,\"status\":\"ready\",\"sha256\":\"fb1eeae757307b3dbaaa8b7a154c3499c35ae43187c7b2bccd0f63193ad0d835\"}]}"
+  },
+  {
+    "id": "3.3-sp_003",
+    "title": "сцена sp_003: C не изменено",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"before\":{\"state\":\"missing\"},\"after\":{\"state\":\"missing\"}}"
+  },
+  {
+    "id": "3.4",
+    "title": "сцена 2: новая попытка или failed с причиной",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"attempt\":1,\"interrupts\":0,\"error\":null,\"scene\":\"ready\"}"
+  },
+  {
+    "id": "3.5",
+    "title": "очередь не встала: все задачи пакета в конечном статусе",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"total\":3,\"pending\":0,\"running\":0,\"ready\":3,\"failed\":0,\"cancelled\":0,\"blocked\":0}"
+  }
+]

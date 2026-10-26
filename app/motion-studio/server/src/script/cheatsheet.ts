@@ -64,7 +64,7 @@ const NOTE_BY_CODE: Record<string, string> = {
   fragment_mismatch: "кадр не про эту фразу",
   fragment_unsupported: "утверждение не из фразы",
   frame0_coverage: "первый кадр почти пуст",
-  frozen: "финал застыл",
+  frozen: "кадр застыл",
   ghost_text: "двоящийся текст",
   hero_split: "герой распадается",
   hierarchy: "нет ясной иерархии",
@@ -96,6 +96,8 @@ const NOTE_BY_CODE: Record<string, string> = {
   timeline_single_event: "на оси одно событие",
   token_on_label: "токен на подписи",
   uniform_entrance: "однообразные входы",
+  video_plan_changed: "план сцены изменился",
+  word_gap: "слова слиплись",
 };
 
 /** Фраза по коду; неизвестный код — общая фраза (код латиницей человеку не показываем). */
@@ -138,13 +140,13 @@ function cells(r: CheatRow): string[] {
   ];
 }
 
-const oneLine = (s: string): string => s.replace(/\s*[\r\n]+\s*/g, " ");
+export const oneLine = (s: string): string => s.replace(/\s*[\r\n]+\s*/g, " ");
 
 /**
  * Поле CSV: ячейка, начинающаяся с `= + - @`, получает префикс `'` — Excel/Numbers не примут
  * фразу сценария за формулу (CSV injection); затем кавычки при `;`, `"` и переводе строки.
  */
-function csvField(s: string): string {
+export function csvField(s: string): string {
   const v = /^[=+\-@]/.test(s) ? `'${s}` : s;
   return /[;"\r\n]/.test(v) ? `"${v.replaceAll("\"", "\"\"")}"` : v;
 }
@@ -153,7 +155,7 @@ function mdCell(s: string): string {
   return oneLine(s).replaceAll("|", "\\|").trim() || " ";
 }
 
-const mdRow = (xs: readonly string[]): string => `| ${xs.map(mdCell).join(" | ")} |`;
+export const mdRow = (xs: readonly string[]): string => `| ${xs.map(mdCell).join(" | ")} |`;
 
 export function cheatsheet(rows: readonly CheatRow[], format: CheatFormat): string {
   if (format === "csv") {

@@ -1,11 +1,12 @@
 // Логика renderVersion на подменённом spawnTracked: без Chrome, бандла и ffprobe.
 import { type ChildProcess, spawn, spawnSync } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { type SpawnTrackedOptions, type SpawnTrackedResult, groupExists, procInfo, safeMkdir } from "@ms/core";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { CHROME_WRAPPER } from "../src/node/browser.js";
+import { currentRenderConcurrency } from "../src/node/concurrency.js";
 import { type RenderDeps, type RenderRequest, type RenderResult, WORKER_PATH, innerTimeoutMs, renderVersion } from "../src/node/render-version.js";
 import { copyFixture, fixtureSettings, makeStore, makeTmp, removeTmp } from "./helpers.js";
 
@@ -140,10 +141,15 @@ it("worker gets a minimal env, TMPDIR inside run/tmp and the job on stdin; run t
     stills: [0, 30, 59].map((f) => ({ frame: f, out: join(req.versionDir, "frames", `${f}.png`) })),
     preview: { out: join(req.versionDir, "preview.mp4"), scale: 1, crf: 23 },
     timeoutMs: 54_000, // внутренний таймаут Remotion чуть меньше внешнего
+    concurrency: currentRenderConcurrency(), // Task 49a: render.concurrency или по ядрам
   });
   // каталоги созданы: frames/ версии, entries/ и bundles/ кэша
   expect(existsSync(join(req.versionDir, "frames"))).toBe(true);
-  expect(readdirSync(req.cacheDir).sort()).toEqual(["bundles", "entries"]);
+  // used/ — отметка использования ключа для уборки кэша (Task 49a)
+  expect(readdirSync(req.cacheDir).sort()).toEqual(["bundles", "entries", "used"]);
+  const key = basename(job.bundleDir as string);
+  // отметка на пару (ключ, задача) — до записи в кэш (writeEntry → onKey)
+  expect(JSON.parse(readFileSync(join(req.cacheDir, "used", key, `${req.run.runId}.json`), "utf8"))).toMatchObject({ job_id: req.run.runId });
 });
 
 it("worker error result is passed through with its stage", async () => {
@@ -396,4 +402,29 @@ it("S15b: временной проход пробы уходит в задан�
   await renderVersion({ ...req, preview: null, sweep: { every: 6, scale: 0.25 } }, undefined, d);
   await renderVersion(req, undefined, d);
   expect(jobs.map((j) => j.sweep)).toEqual([{ every: 6, scale: 0.25 }, undefined, undefined]);
+});
+
+it("S21: worker убит сигналом без результата — killed (не ошибка сцены); ошибка сцены и таймаут — без killed", async () => {
+  const r = await renderVersion(req, undefined, deps(() => ({ code: null, signal: "SIGKILL", stdout: "@@ms:stage media\n" })));
+  expect(r).toMatchObject({ ok: false, error: { stage: "media" }, killed: "SIGKILL" });
+
+  const scene = await renderVersion(req, undefined, deps(() => ({
+    code: 1,
+    stdout: workerOut({ ok: false, stills: [], browserLogs: [], error: { stage: "still", message: "ReferenceError: x is not defined" } }),
+  })));
+  expect(scene.killed).toBeUndefined();
+
+  // ревью S21: падение процесса (SIGSEGV/SIGABRT) — ошибка как раньше, не «убит снаружи»
+  for (const sig of ["SIGSEGV", "SIGABRT", "SIGTERM"]) {
+    const crash = await renderVersion(req, undefined, deps(() => ({ code: null, signal: sig, stdout: "@@ms:stage media\n" })));
+    expect(crash).toMatchObject({ ok: false, error: { stage: "media" } });
+    expect(crash.killed).toBeUndefined();
+  }
+
+  const late = await renderVersion({ ...req, timeoutMs: 30 }, undefined, deps(async (c) => {
+    await new Promise((res) => c.opts.signal.addEventListener("abort", res));
+    return { code: null, signal: "SIGKILL" };
+  }));
+  expect(late).toMatchObject({ ok: false, error: { stage: "timeout" } });
+  expect(late.killed).toBeUndefined();
 });

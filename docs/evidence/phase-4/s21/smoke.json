@@ -1,0 +1,37 @@
+{
+  "task": "S21 п.1 — окно речи после правки границы; п.3–4 — UI (скриншоты в этом каталоге)",
+  "store": "materialsPath(\"e2e\", \"s21\") — клон APFS (cp -c) materials/acceptance/phase4; на источнике сервера не было (lsof studio.db пуст)",
+  "server": "127.0.0.1:8796",
+  "project": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+  "scene": "sp_003",
+  "ui_steps": [
+    "План → sp_003 → «Конец на слово раньше» (r22) → «Конец на слово позже» (r23): границы как в r21, цитата пересчитана",
+    "«Утвердить визуальный план (B)» r23",
+    "Сцены → «Перегенерировать устаревшие (1)» → пакет vb_4c17bab5cfc57aa434dd6551013b2a (sp_003)"
+  ],
+  "evidence_quote": {
+    "r21": "Такая схема называется sequence diagram. (после монтажа 00:01:49.74–00:01:52.86)",
+    "r23": "Такая схема называется sequence diagram. Кто комуов что ВСТАВКА отправил сверхуов вниз. (00:01:49.74–00:01:56.46)"
+  },
+  "generate_input": {
+    "frames": { "start": 3286, "end": 3503, "total": 217 },
+    "r21_job": { "id": "job_01M5TYXBA9C9K0WRD830AKR2BB", "lead_frames": 6, "tail_frames": 116, "brief": "основное действие в окне фразы [6; 101), удержание ≥ 116 кадров" },
+    "r23_job": { "id": "job_01M5V1N4D7F3CR79B7FSQV6267", "lead_frames": 6, "tail_frames": 9, "brief": "основное действие в окне фразы [6; 208), удержание ≥ 9 кадров" },
+    "key_moments": [{ "text": "sequence diagram", "frame": 63 }]
+  },
+  "result": {
+    "job": "job_01M5V1N4D7F3CR79B7FSQV6267",
+    "status": "completed",
+    "version": "ver_01M5V1YYWKJBV0PS1M4HZF9TM1 (v7)",
+    "duration_s": 322,
+    "cost_usd": 1.586
+  },
+  "clip_folder": {
+    "before": { "package": "pkg_01M5TYRNEY1H0H5YMDH3TDPC3R", "source_pieces_us": [[166666667, 170200000]] },
+    "after": { "package": "pkg_01M5V2G9Q34ZJ7F909KHC1G72J", "source_pieces_us": [[166666667, 170200000], [174366667, 177966666]] },
+    "cheatsheet_row_03": "03 · ролик 00:01:49:16–00:01:56:23 · исходник 2 куска — 00:02:46:20–00:02:50:06 + 00:02:54:11–00:02:57:29; ставьте по началу, клип склеен · 7,2 с",
+    "mp4": "e2e/s21/workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/packages/pkg_01M5V2G9Q34ZJ7F909KHC1G72J/03_takaya-skhema-nazyvaetsya-sequence.mp4",
+    "mp4_sha256": "4462436b885577babf71d62e336d41601d877b89fbfe5f3dfc1bb584b4800f47"
+  },
+  "context_preview": { "job": "job_01M5V2G9PKDQ34K3HS69Q2VZMG", "status": "completed" }
+}

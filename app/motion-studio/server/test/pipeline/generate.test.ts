@@ -129,6 +129,28 @@ describe("generateScene: автоисправления", () => {
     expect(agents.engineerCalls[2]!.input).toContain("duration");
   });
 
+  it("S21: рендер убит сигналом (SIGKILL) — повтор рендера тем же кодом без Engineer", async () => {
+    let n = 0;
+    const agents = fakeAgents({});
+    const killed = { ok: false, stills: [], browserLogs: [], error: { stage: "media" as const, message: "worker завершился (code null, signal SIGKILL) без результата на этапе media: " }, killed: "SIGKILL" };
+    const { render, calls } = fakeRender({ onCall: async () => (++n <= 2 ? killed : undefined) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents, render }));
+    expect(r).toMatchObject({ status: "ready", engineerCalls: 1 });
+    expect(calls).toHaveLength(3);
+    expect(agents.engineerCalls).toHaveLength(1);
+  });
+
+  it("S21: рендер убивают снова и снова — после 2 повторов обычный путь (исправление Engineer)", async () => {
+    let n = 0;
+    const agents = fakeAgents({});
+    const killed = { ok: false, stills: [], browserLogs: [], error: { stage: "media" as const, message: "worker завершился (code null, signal SIGKILL)" }, killed: "SIGKILL" };
+    const { render, calls } = fakeRender({ onCall: async () => (++n <= 3 ? killed : undefined) });
+    const r = await generateScene("тест", s, await makeDeps(root, skills, { agents, render }));
+    expect(r).toMatchObject({ status: "ready", engineerCalls: 2 });
+    expect(calls).toHaveLength(4);
+    expect(agents.engineerCalls[1]!.input).toContain("SIGKILL");
+  });
+
   it("бюджет 5, каждый вызов 2: Director (2) → Engineer (4) → исправление 1 (6) → исправление 2 не делается", async () => {
     const agents = fakeAgents({ costUsd: 2 });
     const { render } = fakeRender({ fail: { stage: "media", message: "render crashed" } });

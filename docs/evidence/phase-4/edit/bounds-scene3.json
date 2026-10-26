@@ -1,0 +1,32 @@
+{
+  "item": "sp_003",
+  "from": {
+    "end_word_id": "w_000165",
+    "frames": {
+      "start": 3286,
+      "end": 3396
+    }
+  },
+  "to": {
+    "end_word_id": "w_000171",
+    "frames": {
+      "start": 3286,
+      "end": 3503
+    }
+  },
+  "revision": 21,
+  "batch": "vb_0ac7ecfd54c8f5a7e66515831de0c5",
+  "version": {
+    "id": "ver_01M5TYPKX2BRYM11TT8J0PD395",
+    "scene_id": "scn_01M5TST0N4DV77XB9YK44E9BPM",
+    "number": 5,
+    "status": "ready",
+    "parent_version_id": null,
+    "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0N4DV77XB9YK44E9BPM/versions/ver_01M5TYPKX2BRYM11TT8J0PD395",
+    "created_by_job_id": "job_01M5TY6R9BRHHKCBJFX080YXWS",
+    "settings_json": "{\"aspect_ratio\":\"16:9\",\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1},\"duration_frames\":217,\"style_preset\":\"dark-premium\",\"animation_intensity\":\"energetic\",\"background\":\"#0b0d12\",\"transparent_export\":false,\"safe_area\":{\"x\":0.05,\"y\":0.05},\"style_lock\":{\"depth\":2}}",
+    "manifest_sha256": "0bd797ac8f66b9276c01f2c40ff602ac8a67ffa5979e08f12bc5641984d616e8"
+  },
+  "stale_after": false,
+  "cost_usd": 2.178
+}

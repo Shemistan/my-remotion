@@ -16,6 +16,7 @@ const ff = (args: string[]) => execFileSync("ffmpeg", ["-hide_banner", "-v", "er
 let tmp: string;
 let src: string;
 let short: string;
+let tone: string;
 
 beforeAll(async () => {
   await mkdir(REPO_TMP, { recursive: true });
@@ -29,10 +30,24 @@ beforeAll(async () => {
   // звук короче видео: 9 с из 10
   ff(["-f", "lavfi", "-i", "color=c=black:s=64x64:r=30:d=10", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=9",
     "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-ac", "1", short]);
+  // тон 10 с — для окна: вне окна тишина
+  tone = join(tmp, "tone.wav");
+  ff(["-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000:duration=10", "-c:a", "pcm_s16le", tone]);
 }, 30_000);
 afterAll(async () => {
   if (tmp) await rm(tmp, { recursive: true, force: true });
 });
+
+/** Последний сэмпл 24-бит PCM первого канала по модулю выше `level`. */
+function lastLoud(path: string, level: number): number {
+  const buf = readFileSync(path);
+  const info = wavInfo(buf);
+  for (let i = info.samples - 1; i >= 0; i--) {
+    const off = info.dataOffset + i * info.blockAlign;
+    if (Math.abs(buf.readIntLE(off, 3)) / 0x800000 > level) return i;
+  }
+  return -1;
+}
 
 /** Первый сэмпл 24-бит PCM первого канала по модулю выше `level` (доля полной шкалы). */
 function firstLoud(path: string, level: number): number {
@@ -74,5 +89,19 @@ describe("buildEditedAudio", () => {
     const ac = new AbortController();
     ac.abort();
     await expect(buildEditedAudio({ input: src, tl, fadeUs: 8_000, out: join(tmp, "x.wav"), signal: ac.signal })).rejects.toThrow(/отмен/);
+  });
+
+  it("окно (превью в контексте): длина та же, звук только в окне и на своих местах", async () => {
+    const cut = buildTimeline(10_000_000, [{ start_us: 2_000_000, end_us: 3_500_000 }], F30);
+    const r = await buildEditedAudio({ input: src, tl: cut, fadeUs: 8_000, out: join(tmp, "win-cut.wav"), window: { startUs: 3_000_000, endUs: 4_000_000 }, signal: new AbortController().signal });
+    expect(r.samples).toBe(408_000);
+    expect(Math.abs(firstLoud(r.path, 0.2) - 168_000)).toBeLessThanOrEqual(48);
+
+    const tl = buildTimeline(10_000_000, [], F30);
+    const w = await buildEditedAudio({ input: tone, tl, fadeUs: 8_000, out: join(tmp, "win-tone.wav"), window: { startUs: 4_000_000, endUs: 5_000_000 }, signal: new AbortController().signal });
+    expect(w.samples).toBe(480_000);
+    // вне окна — тишина (±1 мс на фейд), внутри — тон
+    expect(Math.abs(firstLoud(w.path, 0.01) - 192_000)).toBeLessThanOrEqual(480);
+    expect(Math.abs(lastLoud(w.path, 0.01) - 240_000)).toBeLessThanOrEqual(480);
   });
 });

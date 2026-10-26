@@ -1,6 +1,6 @@
 // Task 35′ (Phase 4–6 v2): реестры UI — вкладки «Сцены», «Экспорт», «Таймлайн» в Video Workspace,
 // страницы «Диагностика» и «Восстановление» в маршрутах, словари областей подмешаны в `ru`.
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { t } from "../../src/i18n/index.js";
 import { ru } from "../../src/i18n/ru.js";
@@ -37,7 +37,8 @@ describe("Video Workspace: вкладки Phase 4–6", () => {
     renderQ(<VideoWorkspace id="p1" />);
     const tabs = await screen.findAllByRole("tab");
     expect(tabs.map((x) => x.textContent).slice(-3)).toEqual(["Сцены", "Экспорт", "Таймлайн"]);
-    for (const [name, key] of [["Сцены", "videoScenes.stub"], ["Экспорт", "videoExport.stub"], ["Таймлайн", "projectTimeline.stub"]] as const) {
+    // Task 5L: «Экспорт» — папка клипов (web/test/video/export-tab.test.tsx)
+    for (const [name, key] of [["Сцены", "videoScenes.stub"], ["Экспорт", "videoExport.clips.title"], ["Таймлайн", "projectTimeline.stub"]] as const) {
       fireEvent.click(screen.getByRole("tab", { name }));
       expect(screen.getByRole("tab", { name }).getAttribute("aria-selected")).toBe("true");
       expect(screen.getByText(t(key))).toBeTruthy();
@@ -55,7 +56,9 @@ describe("страницы и маршруты Phase 6", () => {
   });
 
   it("заглушки страниц — заголовок и текст из словаря", () => {
-    render(<Diagnostics />);
+    // Task 48: страница реализована (web/test/error-card.test.tsx) — нужен QueryClient
+    fakeFetch();
+    renderQ(<Diagnostics />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(t("diagnostics.title"));
     // RecoveryCenter — реализован Task 47 (web/test/recovery-center.test.tsx)
   });

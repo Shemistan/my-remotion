@@ -20,6 +20,8 @@ export interface TimelineWorkerOutput {
   scale: number;
   audioBitrateKbps: number;
   x264Preset: "medium" | "veryfast";
+  /** Task 43: матрица YUV файла (`colorSpace` Remotion); без поля — по умолчанию Remotion. */
+  colorSpace?: "bt709";
   /** Кадры композиции `[первый, последний]` включительно (`frameRange` Remotion); `null` — весь ролик. */
   frameRange: [number, number] | null;
   /** Видео файла; без поля — master и `props.video.sequences`. */
