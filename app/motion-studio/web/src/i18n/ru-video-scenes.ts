@@ -82,4 +82,23 @@ export const ruVideoScenes = {
   "videoScenes.error.no_style": "У проекта нет стиля — сначала постройте план.",
   "videoScenes.error.no_media": "У проекта нет исходного видео.",
   "videoScenes.error.no_items": "В плане нет принятых сцен.",
+
+  // S21: пакетная перегенерация во вкладке «Сцены»
+  "videoScenes.select": "Выбрать сцену {n}",
+  "videoScenes.regenSelected": "Перегенерировать выбранные ({n})",
+  "videoScenes.regenSelectedHint": "Новые версии отмеченных сцен одним пакетом; прежние версии и утверждения остаются",
+  "videoScenes.regenStale": "Перегенерировать устаревшие ({n})",
+  "videoScenes.regenStaleHint": "Сцены, у которых план изменился после генерации, — одним пакетом",
+
+  // S21: границы сцены по словам в инспекторе плана (новая ревизия плана; готовая сцена устаревает)
+  "planBounds.title": "Границы сцены",
+  "planBounds.hint": "Сдвиг границы — новая ревизия плана: длительность и окно речи сцены пересчитаются, готовая сцена устареет",
+  "planBounds.start": "Начало: «{word}» {tc}",
+  "planBounds.end": "Конец: «{word}» {tc}",
+  "planBounds.startEarlier": "Начало на слово раньше",
+  "planBounds.startLater": "Начало на слово позже",
+  "planBounds.endEarlier": "Конец на слово раньше",
+  "planBounds.endLater": "Конец на слово позже",
+  "planBounds.earlier": "← слово",
+  "planBounds.later": "слово →",
 } as const satisfies Record<string, string>;

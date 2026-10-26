@@ -1,5 +1,6 @@
 // Инспектор сцены плана (Task 33): назначение, тип визуализации (паттерн KB), режим, зона (смена —
-// сразу правкой, превью на кадре), ключевые слова с моментом появления, метафора, оценки, основание
+// сразу правкой, превью на кадре), ключевые слова с моментом появления, метафора, границы сцены по
+// словам (`SceneBounds`, S21), оценки, основание
 // (`EvidenceQuote`), перекрытие лица и причина (обязательна, если графика поверх автора закрывает
 // лицо больше порога `planning.faceOverlapMax` из PlanDto или у сцены есть проблема `face_overlap`),
 // проблемы сцены. Действия — операции правки плана: «Принять» (с причиной — одной правкой),
@@ -14,6 +15,7 @@ import { t } from "../../i18n/index.js";
 import { formatTimecode } from "../../video/use-timeline.js";
 import { EvidenceQuote } from "./EvidenceQuote.js";
 import { PlanIssues } from "./PlanIssues.js";
+import { SceneBounds } from "./SceneBounds.js";
 
 const OVER_AUTHOR = new Set<ScenePlanItem["composition_mode"]>(["overlay", "callout", "pip"]);
 export const MODES = PlannedCompositionModeSchema.options;
@@ -140,6 +142,7 @@ export function PlanInspector({ item: x, proposal, issues, faceOverlapMax, timel
           <div><dt>{t("inspector.metaphor")}</dt><dd>{x.metaphor}</dd></div>
         ) : null}
       </dl>
+      <SceneBounds item={x} words={words} timeline={timeline} busy={busy} onOps={onOps} />
       <p className="muted small">{t("inspector.scores", { c: x.complexity, u: x.usefulness, e: x.effort, l: x.visual_load })}</p>
       <h3>{t("inspector.evidence")}</h3>
       {x.evidence.map((e, i) => <EvidenceQuote key={`${e.start_word_id}-${i}`} evidence={e} words={words} timeline={timeline} onPlay={onPlay} />)}

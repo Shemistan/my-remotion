@@ -5,7 +5,7 @@ import { expect, it, vi } from "vitest";
 import { PlanInspector } from "../../src/components/video/PlanInspector.js";
 import { PlanIssues } from "../../src/components/video/PlanIssues.js";
 import { t } from "../../src/i18n/index.js";
-import { WORDS, edlDto } from "./fixtures.js";
+import { WORDS, dec, edlDto } from "./fixtures.js";
 import { item } from "./plan-fixtures.js";
 
 const tl = edlDto().timeline;
@@ -116,6 +116,34 @@ it("ревью #4: у принятой сцены причина сохраня�
   fireEvent.change(screen.getByRole("textbox", { name: t("inspector.reason") }), { target: { value: "автор показывает на схему" } });
   fireEvent.click(screen.getByRole("button", { name: t("inspector.saveReason") }));
   expect(onOps).toHaveBeenLastCalledWith([{ op: "modify", item_id: "sp_001", patch: { override_reason: "автор показывает на схему" } }]);
+});
+
+it("S21: границы сцены по словам — «± слово» у начала и конца, вырезанные монтажом слова пропускаются", () => {
+  const onOps = vi.fn();
+  // w3 «эээ» вырезан принятым решением монтажа
+  const cut = edlDto([dec("fil_cut", { reason: "filler", status: "accepted", start_word_id: "w_000003", end_word_id: "w_000003", source_start_us: 1_200_000, source_end_us: 2_300_000 })]).timeline;
+  const { rerender } = render(<PlanInspector {...base} timeline={cut} item={item()} onOps={onOps} />);
+  const bounds = screen.getByRole("group", { name: t("planBounds.title") });
+  expect(bounds.textContent).toContain("Привет");
+  expect(bounds.textContent).toContain("мир.");
+  const btn = (k: "planBounds.startEarlier" | "planBounds.startLater" | "planBounds.endEarlier" | "planBounds.endLater") => screen.getByRole("button", { name: t(k) });
+  expect(btn("planBounds.startEarlier")).toHaveProperty("disabled", true);
+  fireEvent.click(btn("planBounds.endLater"));
+  expect(onOps).toHaveBeenLastCalledWith([{ op: "modify", item_id: "sp_001", patch: { end_word_id: "w_000004" } }]);
+  fireEvent.click(btn("planBounds.startLater"));
+  expect(onOps).toHaveBeenLastCalledWith([{ op: "modify", item_id: "sp_001", patch: { start_word_id: "w_000002" } }]);
+  fireEvent.click(btn("planBounds.endEarlier"));
+  expect(onOps).toHaveBeenLastCalledWith([{ op: "modify", item_id: "sp_001", patch: { end_word_id: "w_000001" } }]);
+  // сцена из одного слова: начало не позже конца, конец не раньше начала
+  rerender(<PlanInspector {...base} timeline={cut} item={item({ start_word_id: "w_000004", end_word_id: "w_000004" })} onOps={onOps} />);
+  expect(btn("planBounds.startLater")).toHaveProperty("disabled", true);
+  expect(btn("planBounds.endEarlier")).toHaveProperty("disabled", true);
+  expect(btn("planBounds.endLater")).toHaveProperty("disabled", false);
+  fireEvent.click(btn("planBounds.startEarlier"));
+  expect(onOps).toHaveBeenLastCalledWith([{ op: "modify", item_id: "sp_001", patch: { start_word_id: "w_000002" } }]);
+  // занято правкой — всё недоступно
+  rerender(<PlanInspector {...base} busy timeline={cut} item={item()} onOps={onOps} />);
+  expect(btn("planBounds.endLater")).toHaveProperty("disabled", true);
 });
 
 it("ревью V2: id сцены и название проблемы разделены пробелом", () => {
