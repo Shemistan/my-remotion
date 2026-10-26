@@ -414,6 +414,13 @@ it("S21: worker убит сигналом без результата — killed
   })));
   expect(scene.killed).toBeUndefined();
 
+  // ревью S21: падение процесса (SIGSEGV/SIGABRT) — ошибка как раньше, не «убит снаружи»
+  for (const sig of ["SIGSEGV", "SIGABRT", "SIGTERM"]) {
+    const crash = await renderVersion(req, undefined, deps(() => ({ code: null, signal: sig, stdout: "@@ms:stage media\n" })));
+    expect(crash).toMatchObject({ ok: false, error: { stage: "media" } });
+    expect(crash.killed).toBeUndefined();
+  }
+
   const late = await renderVersion({ ...req, timeoutMs: 30 }, undefined, deps(async (c) => {
     await new Promise((res) => c.opts.signal.addEventListener("abort", res));
     return { code: null, signal: "SIGKILL" };

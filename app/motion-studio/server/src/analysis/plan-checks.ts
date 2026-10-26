@@ -65,6 +65,13 @@ export function planChecks(items: ScenePlanItem[], ctx: PlanCheckContext): PlanI
 
   // времена stale(anchor_cut) — со старой шкалы: сравнивать их с остальными нельзя
   const timed = active.filter((x) => !(x.status === "stale" && x.stale_reason === "anchor_cut"));
+  // S21: цитата вне границ сцены (ревизии до S21: правка границ цитату не пересчитывала) — окно
+  // речи и куски исходника по ней неверны; поправить границы сцены ещё раз
+  for (const x of timed) {
+    if (x.evidence.some((e) => e.edited.start_us < x.edited.start_us || e.edited.end_us > x.edited.end_us)) {
+      add("evidence_outside", "warning", "цитата основания выходит за границы сцены — сдвиньте границу сцены, чтобы цитата пересчиталась", x.id);
+    }
+  }
   const sorted = [...timed].sort((a, b) => a.edited.start_us - b.edited.start_us || a.edited.end_us - b.edited.end_us);
   for (let i = 1; i < sorted.length; i++) {
     const prev = sorted[i - 1]!;
