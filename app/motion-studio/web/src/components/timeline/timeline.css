@@ -1,0 +1,51 @@
+/* Таймлайн видеопроекта (Task 45): дорожки на оси кадров, клипы цветом режима, курсор. */
+.ptl-scroll { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); }
+.ptl-content { position: relative; padding: 4px 4px 6px 0; }
+.ptl-row { display: flex; align-items: stretch; min-height: 22px; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); }
+.ptl-label { flex: none; width: 84px; padding: 4px 8px; position: sticky; left: 0; z-index: 3; background: var(--bg); }
+.ptl-cell { position: relative; flex: none; }
+.ptl-lane { position: relative; display: block; }
+.ptl-ruler { height: 20px; cursor: pointer; }
+.ptl-tick { position: absolute; top: 2px; font-size: 10px; color: var(--muted); border-left: 1px solid var(--border); padding-left: 3px; white-space: nowrap; font-family: var(--mono); }
+.ptl-video { height: 36px; cursor: pointer; }
+.ptl-seq { position: absolute; top: 2px; height: 32px; overflow: hidden; border-radius: 3px; background: color-mix(in srgb, var(--accent) 22%, var(--surface)); border: 1px solid var(--border); }
+.ptl-seq img { height: 100%; width: auto; display: block; opacity: 0.9; }
+.ptl-audio { height: 40px; cursor: pointer; }
+.ptl-audio .wf-bar { fill: var(--muted); }
+.ptl-graphics-lane { min-height: 32px; }
+.ptl-clip { position: absolute; height: 24px; padding: 0 4px; display: flex; align-items: center; gap: 4px; overflow: hidden; border: 1px solid transparent; border-radius: 4px; background-color: var(--mode, var(--muted)); color: #fff; font-size: 12px; cursor: grab; touch-action: none; user-select: none; }
+.ptl-clip.override { background-image: repeating-linear-gradient(45deg, transparent 0 6px, rgba(255, 255, 255, 0.18) 6px 12px); }
+.ptl-clip.selected { border-color: var(--text); box-shadow: 0 0 0 1px var(--text); }
+.ptl-clip.dragging { cursor: grabbing; opacity: 0.85; z-index: 2; }
+.ptl-clip.bad { border-color: var(--error); box-shadow: 0 0 0 2px var(--error); }
+.ptl-clip.snapped { outline: 1px dashed #fff; }
+.ptl-clip.excluded { background: color-mix(in srgb, var(--muted) 35%, var(--surface)); color: var(--muted); cursor: pointer; border: 1px dashed var(--border); }
+.ptl-clip-label { font-weight: 600; }
+.ptl-clip-reason { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ptl-badge { font-size: 10px; padding: 0 4px; border-radius: 3px; background: rgba(0, 0, 0, 0.35); }
+.ptl-badge.override { background: var(--warn); color: #111; }
+.ptl-snap { font-size: 12px; }
+.ptl-anchors { height: 26px; cursor: pointer; }
+.ptl-anchor { position: absolute; top: 0; height: 26px; border-left: 2px solid var(--ok); }
+.ptl-anchor.outside { border-left-color: var(--error); }
+.ptl-anchor-label { position: absolute; top: 2px; left: 3px; font-size: 11px; white-space: nowrap; color: var(--text); }
+.ptl-anchor.outside .ptl-anchor-label { color: var(--error); }
+.ptl-word { position: absolute; bottom: 0; height: 8px; border-left: 1px solid var(--muted); }
+.ptl-word-label { position: absolute; bottom: 8px; left: 2px; font-size: 9px; color: var(--muted); white-space: nowrap; }
+.ptl-playhead-layer { position: absolute; top: 0; bottom: 0; pointer-events: none; }
+.ptl-playhead { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px solid var(--error); z-index: 4; pointer-events: none; }
+.ptl-reason { margin-top: 6px; padding: 8px; border: 1px solid var(--error); border-radius: var(--radius); display: grid; gap: 6px; }
+.ptl-preview video { width: 100%; max-height: 320px; background: #000; border-radius: var(--radius); }
+.ptl-issues li.blocking { color: var(--error); }
+.ptl-issues li.warning { color: var(--warn); }
+.ptl-inspector dl { display: grid; grid-template-columns: 1fr; gap: 2px 10px; margin: 0; }
+.ptl-revisions li { display: flex; gap: 8px; align-items: center; }
+.final-dialog { border: 1px solid var(--accent); }
+.final-dialog label { display: grid; gap: 2px; }
+.final-dialog .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); }
+.verify-report .verdict.pass { color: var(--ok); }
+.verify-report .verdict.fail { color: var(--error); }
+.verify-report table { border-collapse: collapse; font-size: 12px; }
+.verify-report td, .verify-report th { padding: 2px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+.verify-report .bad { color: var(--error); }
+.export-history li { display: grid; gap: 4px; padding: 6px 0; border-bottom: 1px solid var(--border); }

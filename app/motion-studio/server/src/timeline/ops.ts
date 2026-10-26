@@ -108,7 +108,7 @@ const byStart = (a: VideoTimelineClip, b: VideoTimelineClip) => a.start_frame - 
 
 /**
  * Применяет операции к ревизии `doc` (номер ревизии не меняется — его ставит публикация): `move` —
- * прилипание к началу слова (`ctx.wordFrames`), причина операции отменяет blocking `anchor_outside`
+ * прилипание к началу слова (`ctx.wordFrames`; `snap: false` — кадр как есть, Task 45), причина операции отменяет blocking `anchor_outside`
  * (у клипа `override` остаётся причина включения); `use_version` — версия с валидной C
  * (`ctx.approved`) или любая готовая у клипа `override`; `include` — исключение пользователем
  * (`excluded: user`) и возврат: утверждённая версия или, с причиной, текущая как `override`, на
@@ -128,7 +128,7 @@ export function applyTimelineOps(doc: VideoTimelineDoc, ops: readonly TimelineOp
   for (const op of ops) {
     if (op.op === "move") {
       const c = find(op.clip_id);
-      c.start_frame = ctx.wordFrames ? snapToWord(op.start_frame, ctx.wordFrames) : op.start_frame;
+      c.start_frame = ctx.wordFrames && op.snap !== false ? snapToWord(op.start_frame, ctx.wordFrames) : op.start_frame;
       if (op.override_reason !== undefined) c.override_reason = op.override_reason;
       else if (c.include === "approved") delete c.override_reason;
       applied.push({ ...op, start_frame: c.start_frame });
