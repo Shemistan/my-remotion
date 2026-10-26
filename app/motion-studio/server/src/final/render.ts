@@ -3,8 +3,9 @@
 // раз), `edited-audio.wav` целиком, x264 `medium`, CRF по качеству, AAC 192 кбит/с, BT.709 с тегами
 // (как master — иначе кадры исходника в финале и проверка по матрице разошлись бы).
 // fps запроса ≠ `timeline_fps` (F8): последовательности — заново из µs клипов EDL в fps выхода, окна
-// сцен — через µs начала, длительность — `round(кадры · k)` (как `exportDurationFrames`), props сцен —
-// `exportProps` (только props по договору `ScenePropsBase`, иначе отказ `fps_change_unsupported`).
+// сцен — через µs начала и конца (`outFrame(start + dur) − outFrame(start)`), Σ последовательностей
+// обязана равняться кадрам выхода; props сцен — `exportProps` (только props по договору
+// `ScenePropsBase`); иначе отказ `fps_change_unsupported`.
 import {
   type EditedTimeline, type FinalExportRequest, type Fps, ScenePropsBaseSchema, type VideoTimelineDoc, clipsToSequences, crfFor, frameToUs, outputSize, usToFrame,
 } from "@ms/contracts";
@@ -82,10 +83,17 @@ export function finalProps(doc: VideoTimelineDoc, request: FinalExportRequest, p
     }
     versionDirs[c.version_id] = v.dir;
     const start = outFrame(c.start_frame, doc.fps, out.fps);
-    const duration = same ? c.duration_frames : Math.max(1, Math.min(Math.round(c.duration_frames * k), out.frames - start));
+    // окно сцены — те же моменты начала и конца, что в таймлайне (через µs), а не `round(кадры · k)`:
+    // иначе соседние окна расходятся на кадр
+    const duration = same ? c.duration_frames : Math.max(1, Math.min(outFrame(c.start_frame + c.duration_frames, doc.fps, out.fps), out.frames) - start);
     scenes.push({ clip_id: c.clip_id, key: c.version_id, props: exportProps(v.props, k), start_frame: start, duration_frames: duration, transparent: c.placement.transparent, z: c.z });
   }
   const sequences = same ? doc.video : clipsToSequences({ ...paths.tl, fps: out.fps });
+  // видео обязано покрыть ровно `out.frames` кадров: иначе хвост ролика без видео или обрезанный звук
+  const covered = sequences.reduce((n, q) => n + q.durationInFrames, 0);
+  if (!same && covered !== out.frames) {
+    throw new FinalPropsError(`последовательности исходника в ${fpsText(out.fps)} fps дают ${covered} кадров, а ролик — ${out.frames}; экспортируйте в fps таймлайна (${fpsText(doc.fps)})`);
+  }
   return {
     props: {
       width: out.width, height: out.height, fps: out.fps, duration_frames: out.frames,

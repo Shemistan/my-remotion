@@ -22,8 +22,11 @@ export function checkImportSpace(est: number, freeBytes: number, minFreeBytes: n
 export const FINAL_BITS_PER_PIXEL: Record<FinalQuality, number> = { high: 0.12, standard: 0.08, draft: 0.05 };
 /** Запас под временные файлы рендера финала (кадры и куски кодирования Remotion, копия WAV). */
 export const FINAL_RESERVE_BYTES = 1_000_000_000;
-/** master x264 CRF 12 — почти без потерь: бит на пиксель кадра (живая съёмка, с запасом; ADR 0010). */
-export const MASTER_BITS_PER_PIXEL = 0.3;
+/**
+ * master x264 CRF 12 — почти без потерь: бит на пиксель кадра (ADR 0010). Калибровка приёмки Task 43:
+ * 4K 272 с живой съёмки → 3,9 ГБ ≈ 0,46 бит/пиксель; с запасом — 0,5.
+ */
+export const MASTER_BITS_PER_PIXEL = 0.5;
 
 /** Файл финала + запас, байт: `round(w·h·кадры·k(q)/8) + 1 ГБ`. */
 export function estimateFinalBytes(i: { frames: number; width: number; height: number; quality: FinalQuality }): number {

@@ -106,6 +106,9 @@ it("timeline.build → requestFinal 720p → final.render: verify pass; final.re
   const m = FinalManifestSchema.parse(JSON.parse(readFileSync(join(dir, "final-manifest.json"), "utf8")));
   const report = FinalVerifyReportSchema.parse(JSON.parse(readFileSync(join(dir, "verify.json"), "utf8")));
   expect(report).toMatchObject({ verdict: "pass", failures: [], color_matrix: "bt709" });
+  // fix 1: теги цвета по ffprobe и каналы по смыслу (моно/стерео исходника — см. channels.ts)
+  expect(report.color_tags).toEqual({ color_space: "bt709", color_primaries: "bt709", color_transfer: "bt709" });
+  expect(report.channels).toMatchObject({ final_channels: 2, ok: true });
   expect(m.output).toEqual({ width: 1280, height: 720, fps: { num: 30, den: 1 }, frames: doc.duration_frames });
   expect(finalExports.get(env.db, out.export_id)).toMatchObject({ status: "ready", inputs_hash: m.inputs_hash });
   const probe = JSON.parse(execFileSync("ffprobe", ["-v", "error", "-print_format", "json", "-show_streams", "-count_frames", file], { encoding: "utf8" })) as {
@@ -118,7 +121,7 @@ it("timeline.build → requestFinal 720p → final.render: verify pass; final.re
   expect([a.codec_name, a.sample_rate]).toEqual(["aac", "48000"]);
   notes.push(`- ${timeline_id} r${revision}: ${doc.duration_frames} кадров, сцены ${doc.scenes.map((c) => `${c.item_id} ${c.placement.mode} [${c.start_frame}, +${c.duration_frames})`).join(", ")}`);
   notes.push(`- final.render ${out.export_id}: ${v.width}×${v.height} ${v.color_space}, ${v.nb_read_frames} кадров, звук ${a.codec_name} ${a.sample_rate} Гц; задача ${renderS.toFixed(1)} с; sha256 ${await sha256File(file)}`);
-  notes.push(`- verify: ${report.verdict}; кадры ${report.frames.map((f) => `${f.kind}@${f.frame} ${f.psnr_db} дБ${f.kind === "source" ? ` off ${f.offset}` : ""}`).join(", ")}; sync ${report.sync_check?.status} (${report.sync.length} слов); громкость Δ ${report.loudness.delta_lu} LU, true peak ${report.loudness.final_peak_db} dBTP`);
+  notes.push(`- verify: ${report.verdict}; кадры ${report.frames.map((f) => `${f.kind}@${f.frame} ${f.psnr_db} дБ${f.kind === "source" ? ` off ${f.offset}` : ""}`).join(", ")}; sync ${report.sync_check?.status} (${report.sync.length} слов); громкость Δ ${report.loudness.delta_lu} LU, true peak ${report.loudness.final_peak_db} dBTP; каналы ${report.channels?.mode} ${report.channels?.ok ? "ok" : "fail"} (${report.channels?.message}); теги ${JSON.stringify(report.color_tags)}`);
 
   // [H] кадры середины сцен, ≤ 480 px
   for (const c of doc.scenes) {

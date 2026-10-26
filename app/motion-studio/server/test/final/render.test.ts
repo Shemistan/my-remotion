@@ -1,7 +1,7 @@
 // Task 43: запрос рендера финала по ревизии таймлайна и настройкам — размер, CRF, 192 кбит/с, BT.709,
 // стоп-кадры сцен для проверки; fps ≠ timeline_fps — последовательности, окна и props сцен в fps выхода.
 import { describe, expect, it } from "vitest";
-import { type EditedTimeline, type FinalExportRequest, type VideoTimelineDoc, buildTimeline } from "@ms/contracts";
+import { type EditedTimeline, type FinalExportRequest, type VideoTimelineDoc, buildTimeline, clipsToSequences } from "@ms/contracts";
 import { FinalPropsError, finalOutput, finalProps, finalStillFrames } from "../../src/final/render.js";
 
 const F30 = { num: 30, den: 1 };
@@ -57,6 +57,21 @@ describe("finalProps", () => {
     expect((r.props.scenes[0]!.props.timing as { duration_frames: number }).duration_frames).toBe(180);
     expect(r.stills).toEqual([330, 660]);
     expect(finalOutput(doc, { ...std, fps: { num: 60, den: 1 } }, display)).toEqual({ width: 1920, height: 1080, fps: { num: 60, den: 1 }, frames: 1110 });
+  });
+
+  it("fps 25 при таймлайне 30: окно сцены = outFrame(start + dur) − outFrame(start), Σ последовательностей = кадрам выхода", () => {
+    const tl2 = buildTimeline(20_000_000, [{ start_us: 2_000_000, end_us: 4_000_000 }], F30);
+    const doc2: VideoTimelineDoc = { ...doc, duration_frames: 540, video: clipsToSequences(tl2), scenes: [clip(1, 6, 7, true)] };
+    const r = finalProps(doc2, { ...std, fps: { num: 25, den: 1 } }, { ...paths, tl: tl2 }, display, env);
+    expect(r.props.duration_frames).toBe(450);
+    expect(r.props.video.sequences.reduce((n, q) => n + q.durationInFrames, 0)).toBe(450);
+    // 6/30 с → кадр 5; 13/30 с → кадр 10: окно 5 кадров (round(7 · 25/30) дал бы 6)
+    expect(r.props.scenes.map((s) => [s.start_frame, s.duration_frames])).toEqual([[5, 5]]);
+  });
+
+  it("fps ≠ timeline_fps: последовательности не покрывают кадры выхода → ошибка, а не тихий хвост", () => {
+    // 18,5 с: при 25 fps последовательности дают 462 кадра, ролик — round(555 · 25/30) = 463
+    expect(() => finalProps(doc, { ...std, fps: { num: 25, den: 1 } }, paths, display, env)).toThrow(/462 кадров, а ролик — 463/);
   });
 
   it("fps ≠ timeline_fps и props сцены вне ScenePropsBase → fps_change_unsupported", () => {

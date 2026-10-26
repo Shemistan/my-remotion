@@ -175,6 +175,14 @@ make("final-like.mp4", (out) => ff([
   "-i", p("counter-30.mp4"), "-filter_complex", `${CUT_V};${CUT_A}`, "-map", "[v]", "-map", "[a]",
   ...FINAL_V, "-crf", "18", ...FINAL_A, "-movflags", "+faststart", out,
 ]));
+// Task 43 (fix 1): финалы как у Remotion — моно исходника сведено в стерео (`-ac 2`: оба канала по
+// −3 дБ, громкость EBU та же). `-left` — звук только в левом канале (провал сверки каналов).
+const STEREO = "pan=stereo|c0=0.70710678*c0|c1=0.70710678*c0";
+const FINAL_A2 = ["-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2"];
+make("final-like-st.mp4", (out) => ff(["-i", p("final-like.mp4"), "-map", "0:v", "-map", "0:a", "-c:v", "copy", "-af", STEREO, ...FINAL_A2, out]));
+make("delayed-audio-st.mp4", (out) => ff(["-i", p("delayed-audio.mp4"), "-map", "0:v", "-map", "0:a", "-c:v", "copy", "-af", STEREO, ...FINAL_A2, out]));
+make("louder-st.mp4", (out) => ff(["-i", p("louder.mp4"), "-map", "0:v", "-map", "0:a", "-c:v", "copy", "-af", STEREO, ...FINAL_A2, out]));
+make("final-like-left.mp4", (out) => ff(["-i", p("final-like.mp4"), "-map", "0:v", "-map", "0:a", "-c:v", "copy", "-af", "pan=stereo|c0=c0|c1=0*c0", ...FINAL_A2, out]));
 // Эталон still — как рендер Remotion: master декодирован в RGB (bt601, TV-диапазон), прямоугольник
 // нарисован в RGB, FFV1 без потерь в RGB (fix 1: сверка RGB-still с финалом yuv420p по Y).
 const CUT_V_RGB = CUT_V.replace("fps=30,settb=1/30,drawbox", "fps=30,settb=1/30,scale=in_color_matrix=bt601:in_range=tv,format=rgb24,drawbox");

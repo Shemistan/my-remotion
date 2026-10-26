@@ -277,7 +277,7 @@ export async function runFinal(ctx: JobContext, deps: FinalRenderDeps, impl: Fin
     stage = "probe";
     ctx.progress(0.8, "probe");
     const report: FinalVerifyReport = await (impl.verify ?? verifyFinal)({
-      finalPath, doc, request, master: master.path, editedAudio: audio.path, source16k, words, tl, workDir: workdir, colorMatrix: FINAL_COLOR_SPACE, run, signal,
+      finalPath, doc, request, master: master.path, editedAudio: audio.path, source16k, words, tl, workDir: workdir, colorMatrix: FINAL_COLOR_SPACE, expectColorTags: FINAL_COLOR_SPACE, run, signal,
       stillsFor: async (frames) => frames.map((f) => join(stillsDir, `${outFrame(f, doc.fps, out.fps)}.png`)),
     });
 

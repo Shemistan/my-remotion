@@ -80,7 +80,7 @@ export type ColorMatrix = z.infer<typeof ColorMatrixSchema>;
 /**
  * `verify.json` (Task 44): ffprobe-гейт, длительность в кадрах, рассинхрон речи по словам, кадры
  * исходника и сцен (PSNR, смещение выравнивания), громкость. `fail`, если любая проверка не прошла;
- * `failures` — имена проверок (`probe`, `duration`, `sync`, `frames`, `loudness`).
+ * `failures` — имена проверок (`probe`, `duration`, `sync`, `frames`, `loudness`, `channels`).
  */
 export const FinalVerifyReportSchema = z.object({
   probe: z.array(z.string()),
@@ -118,5 +118,20 @@ export const FinalVerifyReportSchema = z.object({
   frames_skipped: z.array(z.object({ frame: Int0, kind: z.enum(["source", "scene"]), reason: z.string().min(1) }).strict()).optional(),
   // Task 44 (fix 1): матрица YUV финала, по которой приводились кадры для PSNR.
   color_matrix: ColorMatrixSchema.optional(),
+  // Task 43 (fix 1): каналы звука по смыслу — моно: L≈R; стерео: попарно с edited-audio; 5.1+: даунмикс.
+  channels: z.object({
+    source_channels: Int0,
+    final_channels: Int0,
+    mode: z.enum(["mono", "stereo", "downmix"]),
+    rms_diff_db: z.number().optional(),
+    corr: z.number().optional(),
+    corr_left: z.number().optional(),
+    corr_right: z.number().optional(),
+    lag_ms: z.number().optional(),
+    ok: z.boolean(),
+    message: z.string(),
+  }).strict().optional(),
+  // Task 43 (fix 1): теги цвета видеопотока финала по ffprobe (ожидаются bt709).
+  color_tags: z.object({ color_space: z.string().nullable(), color_primaries: z.string().nullable(), color_transfer: z.string().nullable() }).strict().optional(),
 }).strict();
 export type FinalVerifyReport = z.infer<typeof FinalVerifyReportSchema>;

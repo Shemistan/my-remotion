@@ -1,5 +1,6 @@
 // Проверка финала (Task 44): ffprobe-гейт, длительность, синхронность речи, кадры исходника и
-// сцен, громкость → `verify.json` (`FinalVerifyReportSchema`). Всё — по готовому MP4, без рендера:
+// сцен, громкость, каналы звука по смыслу (`channels.ts`, Task 43) и теги цвета (`expectColorTags`)
+// → `verify.json` (`FinalVerifyReportSchema`). Всё — по готовому MP4, без рендера:
 // still-кадры сцен даёт вызывающий (`stillsFor`; в Task 43 — `renderTimelineRange`).
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -11,6 +12,7 @@ import { ffprobe } from "@ms/render";
 import { type SyncSample, judgeSync } from "../edit/sync-probe.js";
 import { runTool } from "../media/ffmpeg.js";
 import { DEFAULT_MATRIX, type MediaCtx, alignmentOffset, extractFrame, probeColorMatrix, psnr, sampleVerifyFrames, sourceFrameAt } from "./frames.js";
+import { checkChannels } from "./channels.js";
 import { loudnessDelta } from "./loudness.js";
 import { type SyncWord, measureSync, syncAnchors } from "./sync.js";
 
@@ -155,6 +157,8 @@ export interface VerifyFinalInput extends MediaCtx {
    * тега — bt601 (так переводит swscale по умолчанию).
    */
   colorMatrix?: ColorMatrix;
+  /** Task 43: теги цвета видеопотока, которых требует кодирование финала (ffprobe; иное — провал `probe`). */
+  expectColorTags?: "bt709";
   /** Не удалять кадры и WAV проверки (отладка). */
   keepArtifacts?: boolean;
 }
@@ -187,6 +191,13 @@ async function verifyIn(i: VerifyFinalInput, ctx: MediaCtx, work: string): Promi
   const probe = await probeFinal(i.finalPath, ctx);
   const channels = finalAudioChannels(sourceAudio.audioChannels);
   const gate = finalProbeGate(probe, { ...size, fps, frames, ...(channels !== undefined ? { audioChannels: channels } : {}) });
+  let colorTags: FinalVerifyReport["color_tags"];
+  if (i.expectColorTags) {
+    colorTags = await probeColorTags(i.finalPath, ctx);
+    const want = i.expectColorTags;
+    const bad = Object.entries(colorTags).filter(([, v]) => v !== want).map(([k, v]) => `${k}=${v ?? "нет"}`);
+    if (bad.length > 0) gate.push(`color_tags ${bad.join(", ")}, ожидались ${want}`);
+  }
   const actualUs = Math.round(probe.durationMs * 1000);
   const frameUs = frameToUs(1, fps);
   const duration = { expected_frames: frames, actual_us: actualUs, delta_frames: Math.round((actualUs - frameToUs(frames, fps)) / frameUs) };
@@ -233,8 +244,12 @@ async function verifyIn(i: VerifyFinalInput, ctx: MediaCtx, work: string): Promi
   }
 
   const loudness = await loudnessDelta(i.finalPath, i.editedAudio, ctx);
+  const channelsReport = sourceAudio.audioChannels !== undefined && probe.audioChannels !== undefined
+    ? await checkChannels({ finalPath: i.finalPath, editedAudio: i.editedAudio, sourceChannels: sourceAudio.audioChannels, finalChannels: probe.audioChannels, workDir: work }, ctx)
+    : undefined;
   const parts: ReportParts = { probe: gate.filter((g) => !g.startsWith("duration")), duration, frames: checked, loudness };
   const failures = verifyFailures(parts, { sync: sync.status, fps });
+  if (channelsReport && !channelsReport.ok) failures.push("channels");
   return FinalVerifyReportSchema.parse({
     ...parts,
     sync: samples.map((s) => ({ word_id: s.word_id, offset_us: s.offset_us, corr: s.corr, energy: s.energy })),
@@ -243,5 +258,17 @@ async function verifyIn(i: VerifyFinalInput, ctx: MediaCtx, work: string): Promi
     sync_check: sync,
     ...(skipped.length > 0 ? { frames_skipped: skipped } : {}),
     color_matrix: matrix,
+    ...(channelsReport ? { channels: channelsReport } : {}),
+    ...(colorTags ? { color_tags: colorTags } : {}),
   });
+}
+
+/** Теги цвета видеопотока (ffprobe `color_space/color_primaries/color_transfer`); нет тега — `null`. */
+export async function probeColorTags(path: string, o: MediaCtx = {}): Promise<NonNullable<FinalVerifyReport["color_tags"]>> {
+  const r = await runTool("ffprobe", [
+    "-v", "error", "-protocol_whitelist", "file", "-select_streams", "v:0", "-show_entries", "stream=color_space,color_primaries,color_transfer", "-of", "json", `file:${path}`,
+  ], { ...(o.run ? { run: o.run } : {}), ...(o.signal ? { signal: o.signal } : {}), timeoutMs: 60_000 });
+  if (r.code !== 0) throw new Error(`ffprobe ${path}: ${r.stderrTail.trim()}`);
+  const s = (JSON.parse(r.stdout) as { streams?: { color_space?: string; color_primaries?: string; color_transfer?: string }[] }).streams?.[0] ?? {};
+  return { color_space: s.color_space ?? null, color_primaries: s.color_primaries ?? null, color_transfer: s.color_transfer ?? null };
 }
