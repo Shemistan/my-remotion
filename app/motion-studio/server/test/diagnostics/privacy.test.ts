@@ -113,6 +113,20 @@ it("maskExport: хранилище, дом, чужой /Users/<имя>, том �
   expect(v).toEqual({ a: "хранилище/projects/p1/a.mp4", b: ["~/Movies/x.mov", "/Users/…/Desktop/y.mov"], c: { d: "/Volumes/…/other/clip.mov и ещё" }, n: 5 });
 });
 
+it("S20: любой том /Volumes/<том> маскируется целиком (copied_from копии хранилища в архиве)", () => {
+  const root = "/Volumes/External SSD/moution-studio-materials/store";
+  const v = maskExport({
+    copied_from: "/Volumes/Other Disk/moution-studio-materials/store",
+    message: "хранилище скопировано из /Volumes/Other Disk/m/store; процессы оригинала не трогаются",
+    bare: "том /Volumes/Backup отключён",
+  }, root, "/Users/x");
+  expect(v).toEqual({
+    copied_from: "/Volumes/…/moution-studio-materials/store",
+    message: "хранилище скопировано из /Volumes/…/m/store; процессы оригинала не трогаются",
+    bare: "том /Volumes/… отключён",
+  });
+});
+
 it("Task 42 (ревью I4): виды таймлайна — ids/ревизии/счётчики в SAFE_KINDS, пересборка с текстом ошибки — в HIDDEN_KINDS", () => {
   for (const k of ["timeline_reused", "timeline_current", "timeline_built", "timeline_preview"]) expect(SAFE_KINDS.has(k), k).toBe(true);
   expect(HIDDEN_KINDS.has("timeline_rebuild")).toBe(true);

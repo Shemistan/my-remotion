@@ -25,6 +25,11 @@ export interface RecoveryReport {
   failed: string[];
   /** `blocked(stale_process)`: процессы прежней попытки не завершились. */
   blocked: { jobId: string; pids: number[]; cmds: string[] }[];
+  /**
+   * S20: из них — процессы другого живого сервера (копия хранилища): сигнал не послан, записи
+   * `foreign_owner`. `ownerPids` — pid владельца/родителя по каждому процессу.
+   */
+  foreign: { jobId: string; pids: number[]; ownerPids: number[] }[];
   /** Удалены `cleanupDrafts` (карантин `cancelled`/`abandoned`/`interrupted`). */
   draftsRemoved: string[];
   /** Ruling P3: версия этой попытки уже опубликована (сбой между публикацией и `finish`). */
@@ -70,7 +75,7 @@ export async function recoverOnStart(deps: RecoveryDeps): Promise<RecoveryReport
   const { db, repo, registry } = deps;
   const reap = deps.reap ?? reapAttempt;
   const reason = deps.reason ?? "interrupted";
-  const report: RecoveryReport = { requeued: [], failed: [], blocked: [], draftsRemoved: [], completed: [], cancelled: [], locksReleased: [] };
+  const report: RecoveryReport = { requeued: [], failed: [], blocked: [], foreign: [], draftsRemoved: [], completed: [], cancelled: [], locksReleased: [] };
   const event = (jobId: string, level: Level, kind: string, message: string, data?: unknown) => {
     const ev = { job_id: jobId, level, kind, message, ...(data === undefined ? {} : { data }) };
     if (deps.events) deps.events.emit(db, ev);
@@ -84,20 +89,27 @@ export async function recoverOnStart(deps: RecoveryDeps): Promise<RecoveryReport
     if (!r.clean) {
       const pids = r.alive.map((p) => p.pid);
       const cmds = r.alive.map((p) => p.cmd);
-      const error: JobError = {
-        code: "stale_process",
-        stage: "orphaned",
-        message: `процессы попытки ${job.attempt} не завершились после SIGKILL: ${r.alive.map((p) => `pid ${p.pid} (${p.cmd})`).join("; ")}`,
-        pids,
-        cmds,
-      };
+      const foreign = r.foreign ?? [];
+      const isForeign = (pid: number) => foreign.some((f) => f.process.pid === pid);
+      const rest = r.alive.filter((p) => !isForeign(p.pid));
+      // S20: чужие процессы — первыми и отдельной фразой: их не убивали, повтор опасен
+      const parts = [
+        ...foreign.map((f) => `процесс принадлежит другому живому серверу (pid ${f.ownerPid}): pid ${f.process.pid} (${f.process.cmd}) — сигнал не послан`),
+        ...(rest.length > 0 ? [`процессы попытки ${job.attempt} не завершились после SIGKILL: ${rest.map((p) => `pid ${p.pid} (${p.cmd})`).join("; ")}`] : []),
+      ];
+      const error: JobError = { code: "stale_process", stage: "orphaned", message: parts.join("; "), pids, cmds };
       // draft не переиспользуется и не удаляется, пока процессы живы (карантин не одноразовый)
       for (const draft of drafts) await quarantineDir(draft, `stale_process: ${error.message}`);
       tx(db, () => {
         jobs.update(db, job.id, { status: "blocked", error, lease_owner: null, lease_until: null });
+        if (foreign.length > 0) {
+          const ownerPids = foreign.map((f) => f.ownerPid);
+          event(job.id, "warn", "foreign_process", `процесс принадлежит другому живому серверу (pid ${ownerPids.join(", ")}) — не тронут, задача заблокирована`, { pids: foreign.map((f) => f.process.pid), owner_pids: ownerPids });
+        }
         event(job.id, "error", "blocked", error.message, { pids, cmds });
       });
       report.blocked.push({ jobId: job.id, pids, cmds });
+      if (foreign.length > 0) report.foreign.push({ jobId: job.id, pids: foreign.map((f) => f.process.pid), ownerPids: foreign.map((f) => f.ownerPid) });
       continue;
     }
 

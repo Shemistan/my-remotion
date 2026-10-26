@@ -14,7 +14,7 @@
 // `job_events` (трассировка в UI); в архив он попадает только при `includePrompts`.
 //
 // Пути: `maskExport` — `maskDeep` (хранилище → «хранилище», дом → «~») плюс чужие домашние
-// каталоги `/Users/<имя>` → `/Users/…` и том хранилища `/Volumes/<том>` → `/Volumes/…`.
+// каталоги `/Users/<имя>` → `/Users/…` и любой том `/Volumes/<том>` → `/Volumes/…` (S20).
 import { homedir } from "node:os";
 import { maskDeep } from "../api/job-dto.js";
 
@@ -25,6 +25,8 @@ export const SAFE_KINDS: ReadonlySet<string> = new Set([
   // раннер и восстановление: прогресс, старт, статусы без текста ошибки
   "progress", "started", "completed", "requeued", "locks_released", "recovered_completed",
   "fenced_out", "abort_timeout", "late_result_ignored", "permits_released",
+  // S20: процесс другого живого сервера не тронут (сообщение — только pid)
+  "foreign_process",
   // Task 49a: сторож прогресса (этап, мс молчания, порог), итог уборки кэша (счётчики, байты)
   "stalled", "cache_gc",
   // повторное использование опубликованного
@@ -69,6 +71,8 @@ export const HIDDEN_KINDS: ReadonlySet<string> = new Set([
   "api_error", "bundle_failed",
   // таймлайн (Task 42): пересборка с текстом ошибки сверки
   "timeline_rebuild",
+  // S20: предупреждение отчёта старта о копии хранилища — путь исходного хранилища
+  "store_copied",
 ]);
 
 /** Сообщение события этого вида может содержать текст пользователя (всё, кроме `SAFE_KINDS`). */
@@ -115,6 +119,9 @@ export function maskExport<T>(value: T, root: string, home: string = homedir()):
     if (typeof v === "string") {
       let s = v;
       if (volRe) s = s.replace(volRe, "/Volumes/…");
+      // S20: любой другой том (исходник копии хранилища и т. п.): имя до «/» (в имени бывают
+      // пробелы), без «/» после — до пробела
+      s = s.replace(/\/Volumes\/(?!…)[^/\n"'`]+(?=\/)/g, "/Volumes/…").replace(/\/Volumes\/(?!…)[^\s/"'`;,)]+/g, "/Volumes/…");
       return s.replace(/\/Users\/(?!…)[^/\s"'`]+/g, "/Users/…");
     }
     if (Array.isArray(v)) return v.map(walk);

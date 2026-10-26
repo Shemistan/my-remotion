@@ -85,3 +85,25 @@ it("mergeRegistries: live = SQLite ∪ side file registry; add goes to SQLite; e
   expect(await merged.live()).toEqual([]);
   expect(await side.live()).toEqual([]);
 });
+
+it("S20: владелец пишется в каждую запись (и при досинхронизации), поднимается после рестарта; markForeign — без ended_at", async () => {
+  const owner = { pid: 777, startedAt: "Mon Oct 26 09:00:00 2026", nonce: "n-1" };
+  const reg = new SqliteProcessRegistry(env.db, { owner: () => owner });
+  await reg.add(rec());
+  reg.detach();
+  await reg.add(rec({ pid: 5000 }));
+  reg.attach(env.db);
+  const rows = env.db.prepare("SELECT pid, owner_pid, owner_started_at, owner_nonce, foreign_owner FROM job_processes ORDER BY pid").all();
+  expect(rows).toEqual([
+    { pid: 4242, owner_pid: 777, owner_started_at: owner.startedAt, owner_nonce: "n-1", foreign_owner: null },
+    { pid: 5000, owner_pid: 777, owner_started_at: owner.startedAt, owner_nonce: "n-1", foreign_owner: null },
+  ]);
+  // явный владелец записи (не этот сервер) сохраняется как есть
+  await reg.add(rec({ pid: 6000, owner: { pid: 1, startedAt: "x", nonce: "other" } }));
+  expect(env.db.prepare("SELECT owner_nonce FROM job_processes WHERE pid = 6000").pluck().get()).toBe("other");
+  expect((await new SqliteProcessRegistry(env.db).live({ runId: "job_1" })).find((p) => p.pid === 4242)).toEqual(rec({ owner }));
+  const merged = mergeRegistries(reg, fileProcessRegistry(env.s.root));
+  await merged.markForeign!(rec(), 777);
+  expect(env.db.prepare("SELECT foreign_owner, ended_at FROM job_processes WHERE pid = 4242").get()).toEqual({ foreign_owner: 777, ended_at: null });
+  expect((await reg.live()).map((p) => p.pid)).toEqual([4242, 5000, 6000]);
+});
