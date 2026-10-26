@@ -72,6 +72,7 @@ export const ruVideoScenes = {
 
   "videoScenes.backToVideo": "← К видео",
   "videoScenes.durationLocked": "Длительность сцены задаёт визуальный план — меняйте её во вкладке «План»",
+  "videoScenes.fpsLocked": "FPS сцены — FPS проекта: кадры сцены идут по плану и таймлайну",
 
   "videoScenes.error.approval_required": "План не утверждён (B) — утвердите его во вкладке «План».",
   "videoScenes.error.plan_outdated": "План изменился — обновите вкладку и запустите снова.",

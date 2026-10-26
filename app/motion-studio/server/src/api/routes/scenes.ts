@@ -10,6 +10,7 @@ import {
   SettingsSchema,
 } from "@ms/contracts";
 import * as jobs from "../../db/repos/jobs.js";
+import * as projects from "../../db/repos/projects.js";
 import * as scenes from "../../db/repos/scenes.js";
 import * as versions from "../../db/repos/versions.js";
 import { tx } from "../../db/tx.js";
@@ -79,6 +80,11 @@ export function sceneRoutes(app: ZApp, { core }: ApiContext): void {
       } else {
         if (!scene.current_version_id) throw new ApiError(409, "no_current_version", `у сцены ${scene.id} нет готовой версии — Render нечего перерисовывать`);
         base = versions.get(db, scene.current_version_id)!;
+      }
+      // Task 41: FPS видеосцены = FPS проекта (кадры плана и таймлайна); смена FPS изменила бы длину сцены
+      // в кадрах в обход плана (Р-V6) — отказ, как у длительности, только через план
+      if (patch.fps && (patch.fps.num !== base.settings.fps.num || patch.fps.den !== base.settings.fps.den) && projects.get(db, scene.project_id)?.kind === "video") {
+        throw new ApiError(409, "fps_locked", "FPS сцены видеопроекта задаёт проект: менять его у сцены нельзя — длительность и кадры сцены идут по плану");
       }
       const merged = SettingsSchema.safeParse({ ...base.settings, ...patch });
       if (!merged.success) {

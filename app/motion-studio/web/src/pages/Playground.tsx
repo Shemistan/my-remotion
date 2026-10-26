@@ -220,8 +220,8 @@ export function Playground({ id, version }: { id: string; version?: string }) {
             <section className="panel">
               <h2>{t("settings.title")}</h2>
               {baseId !== openId ? <p className="hint" data-testid="settings-base">{t("settings.ofBase", { n: num(baseId) ?? "?" })}</p> : null}
-              {/* длительность видеосцены задаёт план (Р-V: только через план) — здесь только чтение */}
-              <SettingsForm value={draft} onChange={setDraft} {...(videoProject ? { durationLocked: t("videoScenes.durationLocked") } : {})} />
+              {/* длительность видеосцены задаёт план (Р-V: только через план), FPS — проект (Task 41): здесь только чтение */}
+              <SettingsForm value={draft} onChange={setDraft} {...(videoProject ? { durationLocked: t("videoScenes.durationLocked"), fpsLocked: t("videoScenes.fpsLocked") } : {})} />
             </section>
           ) : null}
         </aside>
