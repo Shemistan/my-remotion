@@ -67,8 +67,8 @@ async function ageMarks(key: string, t: Date): Promise<void> {
 }
 
 /** Опубликованный master: каталог read-only + строка artifact_publications. */
-async function master(projectId: string, mediaId: string, agoMin: number): Promise<string> {
-  const rel = `workspace/projects/${projectId}/master/${mediaId}@30-1`;
+async function master(projectId: string, mediaId: string, agoMin: number, height?: number): Promise<string> {
+  const rel = `workspace/projects/${projectId}/master/${mediaId}@30-1${height === undefined ? "" : `-h${height}`}`;
   await file(join(root, rel, "master.mp4"), MiB);
   await chmod(join(root, rel, "master.mp4"), 0o444);
   await chmod(join(root, rel), 0o555);
@@ -255,4 +255,38 @@ it("отметки-сироты: ключа нет в кэше, master не оп
   const r = await gcCache(root, env.db, { maxBytes: 10 * MiB, now: () => Date.now() });
   expect(r.leftovers).toBe(3);
   expect(readdirSync(join(cache, "used"))).toEqual([K.b3]);
+});
+
+it("Task 49b: master ступени (`@30-1-h1080`) — кэш: LRU по своей отметке, удаляется со строкой публикации; сирота-отметка ступени убирается", async () => {
+  const full = await master("p2", "med_a", 3000);
+  const h = await master("p2", "med_a", 4000, 1080);
+  await mkdir(cache, { recursive: true });
+  // ступень использована недавно — удаляется полный master
+  await markCacheUse(cache, masterUseKey("p2", "med_a", { num: 30, den: 1 }, 1080), "job_y");
+  await ageMarks(masterUseKey("p2", "med_a", { num: 30, den: 1 }, 1080), new Date(NOW - 60 * 60_000));
+  const r = await gcCache(root, env.db, { maxBytes: MiB, now: () => NOW });
+  expect(r.removed).toEqual([`master:${full}`]);
+  expect(existsSync(join(root, h, "master.mp4"))).toBe(true);
+  const r2 = await gcCache(root, env.db, { maxBytes: 0, now: () => NOW });
+  expect(r2.removed).toEqual([`master:${h}`]);
+  expect(existsSync(join(root, h))).toBe(false);
+  expect(env.db.prepare("SELECT 1 FROM artifact_publications WHERE dest_rel = ?").get(h)).toBeUndefined();
+
+  // отметка ступени без публикации — сирота
+  const orphan = masterUseKey("p2", "med_z", { num: 30, den: 1 }, 720);
+  await markCacheUse(cache, orphan, "job_a");
+  await utimes(cacheUseDir(cache, orphan), new Date(NOW - 3600_000), new Date(NOW - 3600_000));
+  const kept = await master("p1", "med_k", 10, 720);
+  const keptKey = masterUseKey("p1", "med_k", { num: 30, den: 1 }, 720);
+  await markCacheUse(cache, keptKey, "job_b");
+  await utimes(cacheUseDir(cache, keptKey), new Date(NOW - 3600_000), new Date(NOW - 3600_000));
+  await gcCache(root, env.db, { maxBytes: 100 * MiB, now: () => Date.now() });
+  expect(existsSync(cacheUseDir(cache, orphan))).toBe(false);
+  expect(existsSync(cacheUseDir(cache, keptKey))).toBe(true);
+  expect(existsSync(join(root, kept))).toBe(true);
+});
+
+it("Task 49b: ключ отметки master — суффикс ступени; без ступени — прежний", () => {
+  expect(masterUseKey("p1", "med_1", { num: 30, den: 1 })).toBe("master-p1-med_1@30-1");
+  expect(masterUseKey("p1", "med_1", { num: 30, den: 1 }, 1080)).toBe("master-p1-med_1@30-1-h1080");
 });

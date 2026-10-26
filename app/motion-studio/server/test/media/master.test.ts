@@ -3,7 +3,7 @@
 // сверка sha256, VFR → CFR с числом кадров `round(duration · fps)`. Реальный ffmpeg на крошечном
 // синтетическом ролике (64×64, части 25 и 30 fps, склейка concat-демуксером — как talk-ru-vfr).
 import { execFileSync } from "node:child_process";
-import { appendFileSync, chmodSync, closeSync, openSync, readFileSync, readSync, statSync, utimesSync, writeFileSync, writeSync } from "node:fs";
+import { appendFileSync, chmodSync, existsSync, closeSync, openSync, readFileSync, readSync, statSync, utimesSync, writeFileSync, writeSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -17,8 +17,9 @@ import * as media from "../../src/db/repos/media.js";
 import * as projects from "../../src/db/repos/projects.js";
 import { claimNext, enqueue } from "../../src/jobs/queue.js";
 import { assertOutsideSource } from "../../src/media/guards.js";
-import { HdrUnsupportedError, MASTER_CRF, type MasterDeps, ensureMaster, hdrReason, masterArgs } from "../../src/media/master.js";
+import { HdrUnsupportedError, MASTER_CRF, type MasterDeps, ensureMaster, hdrReason, masterArgs, masterHeightFor, masterSize } from "../../src/media/master.js";
 import { probeMedia } from "../../src/media/probe.js";
+import { masterUseKey } from "../../src/perf/cache-gc.js";
 import { asset } from "../db/video-fixtures.js";
 import { type TestStore, makeStore, removeStore } from "../db/helpers.js";
 
@@ -50,6 +51,41 @@ describe("masterArgs", () => {
     expect(a[a.indexOf("-vf") + 1]).toBe("fps=30000/1001:start_time=0,scale=out_color_matrix=bt709:out_range=tv,setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv,tpad=stop_mode=clone:stop=-1,format=yuv420p");
     expect(a[a.indexOf("-frames:v") + 1]).toBe("300");
     expect(a[a.indexOf("-crf") + 1]).toBe("12");
+  });
+
+  it("Task 49b: ступень master — минимальная из 720/1080/1440/2160 ≥ короткой стороны выхода, не выше исходника", () => {
+    const uhd = { width: 3840, height: 2160 };
+    expect(masterHeightFor(uhd, 1080)).toBe(1080);
+    expect(masterHeightFor(uhd, 720)).toBe(720);
+    // превью в масштабе 0,5 от 1080p — 540 → 720, а не 4K
+    expect(masterHeightFor(uhd, 540)).toBe(720);
+    expect(masterHeightFor(uhd, 1200)).toBe(1440);
+    // 4K-выход и выход «source» — полный размер (прежний путь без суффикса)
+    expect(masterHeightFor(uhd, 2160)).toBeUndefined();
+    expect(masterHeightFor({ width: 1920, height: 1080 }, 1080)).toBeUndefined();
+    // ступень выше исходника (1440 при 1200) — полный размер; без увеличения
+    expect(masterHeightFor({ width: 2133, height: 1200 }, 1080)).toBe(1080);
+    expect(masterHeightFor({ width: 1280, height: 720 }, 1080)).toBeUndefined();
+    // вертикальный кадр: короткая сторона — ширина
+    expect(masterHeightFor({ width: 2160, height: 3840 }, 1080)).toBe(1080);
+  });
+
+  it("Task 49b: размер master — короткая сторона = ступень, длинная пропорционально, чётные (как outputSize)", () => {
+    expect(masterSize({ width: 3840, height: 2160 }, 1080)).toEqual({ width: 1920, height: 1080 });
+    expect(masterSize({ width: 2160, height: 3840 }, 720)).toEqual({ width: 720, height: 1280 });
+    expect(masterSize({ width: 4096, height: 2160 }, 1080)).toEqual({ width: 2048, height: 1080 });
+    expect(masterSize({ width: 3840, height: 2160 })).toEqual({ width: 3840, height: 2160 });
+  });
+
+  it("Task 49b: master ступени — lanczos до размера ступени в том же scale, что и перевод цвета", () => {
+    const uhd = probe({ video: { ...asset().probe.video, display_width: 3840, display_height: 2160 } });
+    const a = masterArgs("in.mov", "out.mp4", uhd, F30, 12, 1080);
+    expect(a[a.indexOf("-vf") + 1]).toBe("fps=30/1:start_time=0,scale=1920:1080:flags=lanczos:out_color_matrix=bt709:out_range=tv,setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv,tpad=stop_mode=clone:stop=-1,format=yuv420p");
+    expect(a).toEqual(expect.arrayContaining(["-crf", "12"]));
+    expect(a.join(" ")).toContain("-colorspace bt709 -color_primaries bt709 -color_trc bt709 -color_range tv");
+    // без ступени — полный размер, аргументы прежние
+    expect(masterArgs("in.mov", "out.mp4", uhd, F30, 12)).toEqual(masterArgs("in.mov", "out.mp4", uhd, F30, 12, undefined));
+    expect(masterArgs("in.mov", "out.mp4", uhd, F30, 12)[a.indexOf("-vf") + 1]).not.toContain("lanczos");
   });
 
   it("HDR: HLG/PQ или BT.2020 — причина отказа, SDR и файл без тегов — нет", () => {
@@ -215,5 +251,35 @@ describe("ensureMaster", () => {
 
     const old = await seedWith(hlg, "mp4", true);
     await expect(ensureMaster(deps([]), old.mediaId, F30)).rejects.toBeInstanceOf(HdrUnsupportedError);
+  }, 30_000);
+
+  it("Task 49b: master ступени — свой каталог master/<media>@30-1-h<ступень>, размер ступени, кэш отдельно от полного; ступень ≥ исходника — полный", async () => {
+    const { mediaId } = await seedWith(["-f", "lavfi", "-i", "testsrc2=size=128x72:rate=30", "-t", "0.5", "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p"]);
+    const spawns: string[] = [];
+    const small = await ensureMaster(deps(spawns), mediaId, F30, 36);
+    const rel = artifactPaths(s.root, `p${n}`).master(mediaId, F30, 36);
+    expect(rel).toMatch(/@30-1-h36$/);
+    expect(small.path).toBe(join(s.root, rel, "master.mp4"));
+    expect(isPublished(db, rel)).toBe(true);
+    const pr = await probeMedia(small.path);
+    expect([pr.video.display_width, pr.video.display_height]).toEqual([64, 36]);
+    const man = JSON.parse(readFileSync(join(s.root, rel, "master.json"), "utf8")) as { width: number; height: number };
+    expect([man.width, man.height]).toEqual([64, 36]);
+    expect(pr.video.color_primaries).toBe("bt709");
+    // отметка LRU — по ключу со ступенью
+    expect(existsSync(join(s.root, "cache", "used", masterUseKey(`p${n}`, mediaId, F30, 36)))).toBe(true);
+
+    // повтор той же ступени — кэш; полный master — отдельный каталог (прежний путь)
+    const again: string[] = [];
+    expect((await ensureMaster(deps(again), mediaId, F30, 36)).sha256).toBe(small.sha256);
+    expect(again).toEqual([]);
+    const full = await ensureMaster(deps([]), mediaId, F30);
+    expect(full.path).toBe(join(s.root, artifactPaths(s.root, `p${n}`).master(mediaId, F30), "master.mp4"));
+    expect((await probeMedia(full.path)).video.display_height).toBe(72);
+    // ступень не меньше исходника — тот же полный master, без ffmpeg
+    const same: string[] = [];
+    expect((await ensureMaster(deps(same), mediaId, F30, 72)).path).toBe(full.path);
+    expect((await ensureMaster(deps(same), mediaId, F30, 1080)).path).toBe(full.path);
+    expect(same).toEqual([]);
   }, 30_000);
 });

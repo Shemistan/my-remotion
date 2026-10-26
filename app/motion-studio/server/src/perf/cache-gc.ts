@@ -3,7 +3,7 @@
 // Что считается кэшем (и только это может быть удалено):
 // - ключ содержимого `<root>/cache/{bundles,entries,stills}/<ключ>` (+ отметки `cache/used/<ключ>/<задача>.json`):
 //   бандл Remotion, точка входа, стоп-кадры (`stillsCache`) — пересоздаются следующим рендером;
-// - master исходника `workspace/projects/<p>/master/<media>@<n>-<d>` (Task 36): опубликованный
+// - master исходника `workspace/projects/<p>/master/<media>@<n>-<d>[-h<ступень>]` (Task 36, 49b): опубликованный
 //   CFR-дериватив, пересоздаётся `ensureMaster`; удаляется вместе со строкой `artifact_publications`;
 // - недоделки убитых worker `cache/bundles/<ключ>.tmp-<pid>` (pid мёртв) и остатки `cache/.gc/`.
 //
@@ -45,7 +45,8 @@ export const GC_MIN_AGE_MS = 15 * 60_000;
 export const ACTIVE_STATUSES = ["pending", "running", "awaiting_input", "awaiting_approval", "blocked"] as const;
 
 const ID = "[A-Za-z0-9][A-Za-z0-9_]*";
-const MASTER_REL_RE = new RegExp(`^${PROJECTS_REL}/(${ID})/master/(${ID})@([1-9][0-9]*)-([1-9][0-9]*)$`);
+// Task 49b: `-h<ступень>` — master в разрешении выхода; без суффикса — полный (кэш до 49b)
+const MASTER_REL_RE = new RegExp(`^${PROJECTS_REL}/(${ID})/master/(${ID})@([1-9][0-9]*)-([1-9][0-9]*)(?:-h([1-9][0-9]*))?$`);
 
 export interface GcOptions {
   maxBytes: number;
@@ -85,16 +86,16 @@ export interface GcResult {
   leftovers: number;
 }
 
-/** Ключ отметки master: `master-<проект>-<media>@<n>-<d>`. */
-export function masterUseKey(projectId: string, mediaId: string, fps: Fps): string {
-  return `master-${projectId}-${mediaId}@${fps.num}-${fps.den}`;
+/** Ключ отметки master: `master-<проект>-<media>@<n>-<d>[-h<ступень>]` (как каталог `artifactPaths.master`). */
+export function masterUseKey(projectId: string, mediaId: string, fps: Fps, height?: number): string {
+  return `master-${projectId}-${mediaId}@${fps.num}-${fps.den}${height === undefined ? "" : `-h${height}`}`;
 }
 
 /** Отметка использования master (вызов `ensureMaster`): LRU уборки. Ошибки глотает. */
-export async function markMasterUse(root: string, projectId: string, mediaId: string, fps: Fps, jobId?: string): Promise<void> {
+export async function markMasterUse(root: string, projectId: string, mediaId: string, fps: Fps, jobId?: string, height?: number): Promise<void> {
   try {
     const dir = safeMkdirSync(root, CACHE_REL);
-    await markCacheUse(dir, masterUseKey(projectId, mediaId, fps), jobId);
+    await markCacheUse(dir, masterUseKey(projectId, mediaId, fps, height), jobId);
   } catch {
     // отметка — подсказка уборке
   }
@@ -224,12 +225,12 @@ async function masterCandidates(root: string, cacheDir: string, db: Db, snap: Sn
   for (const r of rows) {
     const m = MASTER_REL_RE.exec(r.dest_rel);
     if (!m) continue;
-    const [, projectId, mediaId, num, den] = m as unknown as [string, string, string, string, string];
+    const [, projectId, mediaId, num, den, h] = m as unknown as [string, string, string, string, string, string | undefined];
     // удалённый проект — в корзине: его чистит trash.purge, не уборка кэша
     if (snap.deletedProjects.has(projectId)) continue;
     const dir = join(root, r.dest_rel);
     if (!existsSync(dir)) continue;
-    const useKey = masterUseKey(projectId, mediaId, { num: Number(num), den: Number(den) });
+    const useKey = masterUseKey(projectId, mediaId, { num: Number(num), den: Number(den) }, h === undefined ? undefined : Number(h));
     const use = readUse(cacheDir, useKey);
     const marks = cacheUseDir(cacheDir, useKey);
     out.push({
@@ -280,7 +281,7 @@ async function removeTree(root: string, path: string): Promise<void> {
   await rm(path, { recursive: true, force: true });
 }
 
-const MASTER_USE_RE = new RegExp(`^master-(${ID})-(${ID})@([1-9][0-9]*)-([1-9][0-9]*)$`);
+const MASTER_USE_RE = new RegExp(`^master-(${ID})-(${ID})@([1-9][0-9]*)-([1-9][0-9]*)(-h[1-9][0-9]*)?$`);
 
 /**
  * Недоделки: `cache/.gc/*`, `cache/bundles/<ключ>.tmp-<pid>` мёртвых процессов и отметки-сироты
@@ -297,7 +298,7 @@ async function sweepLeftovers(root: string, cacheDir: string, db: Db, now: numbe
     let orphan = !st.isDirectory(); // файлы прямо в used/ — прежний формат отметок
     if (!orphan && CONTENT_KEY_RE.test(name)) orphan = KEY_DIRS.every((d) => !existsSync(join(cacheDir, d, name)));
     const m = MASTER_USE_RE.exec(name);
-    if (!orphan && m) orphan = !published.get(`${PROJECTS_REL}/${m[1]}/master/${m[2]}@${m[3]}-${m[4]}`);
+    if (!orphan && m) orphan = !published.get(`${PROJECTS_REL}/${m[1]}/master/${m[2]}@${m[3]}-${m[4]}${m[5] ?? ""}`);
     if (!orphan) continue;
     await removeTree(root, path);
     n++;

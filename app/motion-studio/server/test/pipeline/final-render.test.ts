@@ -38,6 +38,14 @@ afterEach(async () => {
 
 const req1080: FinalExportRequest = { resolution: "1080p", quality: "standard", audio_bitrate_kbps: 192 };
 const H = (c: string) => c.repeat(64);
+
+/** Исходник проекта — 4K (3840×2160), остальное в сводке как было. */
+function set4k(): void {
+  const row = env.db.prepare("SELECT id, probe_json FROM media_assets WHERE project_id = 'p1'").get() as { id: string; probe_json: string };
+  const probe = JSON.parse(row.probe_json) as { video: Record<string, unknown> };
+  probe.video = { ...probe.video, width: 3840, height: 2160, display_width: 3840, display_height: 2160 };
+  env.db.prepare("UPDATE media_assets SET probe_json = ? WHERE id = ?").run(JSON.stringify(probe), row.id);
+}
 const sha = (t: string) => createHash("sha256").update(t).digest("hex");
 const ENV = { remotion: "4.0.537", render_lock_sha256: H("e"), motion_kit: "sha256:0123456789abcdef", chrome_headless_shell: "x", node: "22.21.1" };
 
@@ -71,20 +79,23 @@ interface Fakes {
   renders: TimelineRenderRequest[];
   masters: number;
   masterTimeouts: (number | undefined)[];
+  /** Task 49b: ступень master вызова (`undefined` — полный размер). */
+  masterHeights: (number | undefined)[];
   verifyColor: (string | undefined)[];
   verified: boolean;
 }
 
 function fakes(o: { verdict?: "pass" | "fail"; duringRender?: () => void } = {}): Fakes {
-  const f: Fakes = { impl: {}, renders: [], masters: 0, masterTimeouts: [], verifyColor: [], verified: false };
+  const f: Fakes = { impl: {}, renders: [], masters: 0, masterTimeouts: [], masterHeights: [], verifyColor: [], verified: false };
   f.impl = {
-    master: async (d) => {
+    master: async (d, _mediaId, _fps, height) => {
       f.masters++;
       f.masterTimeouts.push(d.timeoutMs);
+      f.masterHeights.push(height);
       d.onProgress?.(0.5);
       const p = join(env.s.root, "master-fake.mp4");
       writeFileSync(p, "master");
-      return { path: p, sha256: H("b") };
+      return { path: p, sha256: height === undefined ? H("b") : H("c") };
     },
     editedAudio: async (req) => {
       writeFileSync(req.out, "wav");
@@ -210,6 +221,30 @@ describe("final.render", () => {
     expect(f.renders).toEqual([]);
   });
 
+  it("Task 49b: исходник 4K, выход 1080p → master ступени 1080; место — по master 1080p, не 4K", async () => {
+    const { doc } = await ready();
+    set4k();
+    const f = fakes();
+    // оценка с master 1080p ≈ 1,27 ГБ (+ порог 10 ГиБ) — хватает; с 4K было бы ≈ 1,96 ГБ — нет
+    start(f, 10 * 1024 ** 3 + 1_500_000_000);
+    const { job } = requestFinal({ db: env.db, root: env.s.root }, { timelineId: doc.timeline_id, revision: 1, request: req1080 });
+    const j = await settle(job.id);
+    expect(j.status, JSON.stringify(j.error)).toBe("completed");
+    expect(f.masterHeights).toEqual([1080]);
+  });
+
+  it("Task 49b: исходник 4K, выход 2160p / source → полный master (4K только для 4K-выхода)", async () => {
+    const { doc } = await ready();
+    set4k();
+    const f = fakes();
+    start(f);
+    for (const resolution of ["2160p", "source"] as const) {
+      const { job } = requestFinal({ db: env.db, root: env.s.root }, { timelineId: doc.timeline_id, revision: 1, request: { ...req1080, resolution } });
+      expect((await settle(job.id)).status).toBe("completed");
+    }
+    expect(f.masterHeights).toEqual([undefined, undefined]);
+  });
+
   it("решение final отозвано до старта → approval_required до master и рендера", async () => {
     const { doc } = await ready();
     const f = fakes();
@@ -300,5 +335,29 @@ describe("final.reproduce", () => {
     writeFileSync(join(dir, "manifest.json"), "{}");
     const bad2 = enqueue(env.db, { type: "final.reproduce", projectId: "p1", input: { exportId }, idempotencyKey: "rep-disk-2" }).job;
     expect((await settle(bad2.id)).error).toMatchObject({ code: "verify_failed", message: expect.stringMatching(/inputs_changed/) });
+  });
+
+  it("Task 49b: экспорт до ступеней (полный master в манифесте) повторяется по опубликованному полному master; без него — ступень", async () => {
+    const { doc } = await ready();
+    const f = fakes();
+    start(f);
+    // экспорт исходника 1080p — полный master (sha b), как до Task 49b
+    const { job } = requestFinal({ db: env.db, root: env.s.root }, { timelineId: doc.timeline_id, revision: 1, request: req1080 });
+    const exportId = ((await settle(job.id)).output_refs as { export_id: string }).export_id;
+    expect(f.masterHeights).toEqual([undefined]);
+    set4k(); // сводка 4K: ступень для 1080p — 1080 (sha c)
+    // полного master в кэше нет — повтор строит ступень, sha другой → inputs_changed
+    const r1 = await settle(enqueue(env.db, { type: "final.reproduce", projectId: "p1", input: { exportId }, idempotencyKey: "rep-h-1" }).job.id);
+    expect(r1.error).toMatchObject({ code: "verify_failed", message: expect.stringMatching(/inputs_changed.*master/) });
+    expect(f.masterHeights).toEqual([undefined, 1080]);
+    // опубликованный полный master с sha манифеста — повтор берёт его
+    const mediaId = (env.db.prepare("SELECT id FROM media_assets WHERE project_id = 'p1'").get() as { id: string }).id;
+    const rel = artifactPaths(env.s.root, "p1").master(mediaId, doc.fps);
+    mkdirSync(join(env.s.root, rel), { recursive: true });
+    writeFileSync(join(env.s.root, rel, "master.json"), JSON.stringify({ sha256: H("b") }));
+    env.db.prepare("INSERT INTO artifact_publications (dest_rel, job_id, attempt, published_at) VALUES (?, NULL, NULL, ?)").run(rel, new Date().toISOString());
+    const r2 = await settle(enqueue(env.db, { type: "final.reproduce", projectId: "p1", input: { exportId }, idempotencyKey: "rep-h-2" }).job.id);
+    expect(r2.status, JSON.stringify(r2.error)).toBe("completed");
+    expect(f.masterHeights).toEqual([undefined, 1080, undefined]);
   });
 });
