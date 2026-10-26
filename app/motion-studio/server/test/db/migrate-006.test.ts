@@ -63,8 +63,8 @@ describe("006_video_production", () => {
     const nJobs = count(db, "jobs");
     const nApprovals = count(db, "approvals");
 
-    expect(await migrate(db, quiet)).toMatchObject({ from: 5, to: 6 });
-    expect(db.pragma("user_version", { simple: true })).toBe(6);
+    expect(await migrate(db, quiet)).toMatchObject({ from: 5, to: 7 });
+    expect(db.pragma("user_version", { simple: true })).toBe(7);
     expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
     expect(count(db, "jobs")).toBe(nJobs);

@@ -146,3 +146,11 @@ it("restores run/processes on an existing store without it (server/CLI start)", 
   await acquire("server");
   expect(statSync(join(root, "run/processes")).isDirectory()).toBe(true);
 });
+
+it("S20: замок несёт владельца — pid и время старта этого процесса и случайный nonce на каждый захват", async () => {
+  const a = await acquire();
+  expect(a.owner).toEqual({ pid: process.pid, startedAt: (await procInfo(process.pid))!.startedAt, nonce: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+  await a.release();
+  const b = await acquire();
+  expect(b.owner.nonce).not.toBe(a.owner.nonce);
+});

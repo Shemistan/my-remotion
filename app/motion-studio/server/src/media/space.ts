@@ -33,7 +33,7 @@ export function estimateFinalBytes(i: { frames: number; width: number; height: n
   return Math.round((i.width * i.height * i.frames * FINAL_BITS_PER_PIXEL[i.quality]) / 8) + FINAL_RESERVE_BYTES;
 }
 
-/** CFR master исходника (если его нет в кэше), байт. */
+/** CFR master (если его нет в кэше), байт; размер — master, не исходника (Task 49b: `masterSize` ступени выхода). */
 export function estimateMasterBytes(i: { frames: number; width: number; height: number }): number {
   return Math.round((i.width * i.height * i.frames * MASTER_BITS_PER_PIXEL) / 8);
 }

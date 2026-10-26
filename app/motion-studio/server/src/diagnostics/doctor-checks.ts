@@ -3,7 +3,7 @@
 // инструментов, стоимость < $0,01); ffmpeg/ffprobe, энкодеры libx264, aac, prores_ks и фильтры
 // silencedetect, scdet; ASR (python mlx-audio, воркер ai-platform и его sha256, коммит, веса, порт
 // 8780); `vision-detect` (Task 30); KB_ROOT/KB_SOURCE_ROOT; StorageGuard MS_DATA_DIR; Chrome
-// Headless Shell; `quick_check` studio.db; owner-lock. `degraded` (нет vision-detect) и `warning`
+// Headless Shell; `quick_check` studio.db; owner-lock; копия хранилища (S20, `store_copy`). `degraded` (нет vision-detect) и `warning`
 // (хранилище вне папки материалов — S18; `deps` — инструменты не из `.deps` — S19) —
 // предупреждения, `ok: true`.
 //
@@ -34,7 +34,7 @@ import { ensureRenderBrowser, findOnPath, findRenderBrowser } from "@ms/render";
 import { childEnv } from "../agents/env.js";
 import { DEFAULT_VISION_BIN, visionAvailable } from "../analysis/vision.js";
 import { LEGACY_ASR_PYTHON, LEGACY_MODELS_DIR, loadConfig, readConfigFile, type AppConfig } from "../config.js";
-import { quickCheck } from "../db/meta.js";
+import { quickCheck, storeCopiedFrom, storeCopiedText } from "../db/meta.js";
 import type { Db } from "../db/open.js";
 import { openDb } from "../db/open.js";
 import { KnowledgeAdapter } from "../knowledge/adapter.js";
@@ -265,6 +265,11 @@ export async function doctorChecks(
   } else {
     rows.push(...(await dbAndLock(storage.root)));
   }
+  // S20: копия хранилища — предупреждение (e2e и приёмки законно работают на копиях)
+  if (storage.ok) {
+    const copy = opts.db ? storeCopyRow(opts.db, storage.root) : storeCopyRowReadonly(storage.root);
+    if (copy) rows.push(copy);
+  }
 
   if (fallback.length > 0) {
     rows.push({ name: "deps", ok: true, status: "warning", detail: `не из .deps: ${fallback.join(", ")} — ./setup поставит зависимости в .deps и веса в папку материалов` });
@@ -305,6 +310,28 @@ function dbRow(open: () => Db, close: boolean): CheckRow {
     }
   } catch (e) {
     return { name: "db", ok: false, status: "error", detail: errText(e) };
+  }
+}
+
+/** S20: хранилище — копия (путь корня в `meta` другой) → предупреждение `store_copy` (ok: true). */
+export function storeCopyRow(db: Db, root: string): CheckRow | undefined {
+  const from = storeCopiedFrom(db, root);
+  return from === undefined ? undefined : { name: "store_copy", ok: true, status: "warning", detail: storeCopiedText(from) };
+}
+
+/** `storeCopyRow` по закрытой базе (CLI): только чтение; базы нет или не читается — строки нет. */
+function storeCopyRowReadonly(root: string): CheckRow | undefined {
+  const dbPath = join(root, "studio.db");
+  if (!existsSync(dbPath)) return undefined;
+  try {
+    const db = new Database(dbPath, { readonly: true, fileMustExist: true }) as unknown as Db;
+    try {
+      return storeCopyRow(db, root);
+    } finally {
+      db.close();
+    }
+  } catch {
+    return undefined;
   }
 }
 

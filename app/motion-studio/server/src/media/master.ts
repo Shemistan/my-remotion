@@ -4,7 +4,11 @@
 // прокси: `fps=…:start_time=0`, поэтому кадр N master = кадр N прокси), x264 CRF 12, GOP = 1 с
 // (быстрый seek извлечения кадров Remotion), без звука (звук — `edited-audio.wav`).
 //
-// Кэш — опубликованный каталог `master/<media>@<num>-<den>` (artifactPaths, ревью 35′: вне
+// Task 49b: master в разрешении выхода — ступень короткой стороны (720/1080/1440/2160) не меньше
+// выхода, lanczos; 4K-master — только для 4K-выхода и «source» (приёмка 43: master 4K CRF 12 под финал
+// 1080p строился 32 мин из 54 и весил 3,9 ГБ). Ступень не выше исходника — полный размер.
+//
+// Кэш — опубликованный каталог `master/<media>@<num>-<den>[-h<ступень>]` (artifactPaths, ревью 35′: вне
 // read-only `proxy/<media>`) с `master.mp4` и `master.json`. Повторный вызов берёт его без ffmpeg,
 // сверив манифест с исходником и размер+mtime файла с манифестом (полный sha256 — при расхождении).
 import { existsSync } from "node:fs";
@@ -90,6 +94,37 @@ export class HdrUnsupportedError extends Error {
   }
 }
 
+/** Ступени короткой стороны master (Task 49b). */
+export const MASTER_HEIGHTS = [720, 1080, 1440, 2160] as const;
+
+type Size = { width: number; height: number };
+const even = (v: number): number => Math.max(2, 2 * Math.round(v / 2));
+
+/**
+ * Ступень master под короткую сторону выхода `outShortSide` (Task 49b): минимальная из
+ * `MASTER_HEIGHTS` не меньше неё; ступень не меньше короткой стороны исходника (или выход больше
+ * 2160) — `undefined`, master в размере исходника (без увеличения).
+ */
+export function masterHeightFor(display: Size, outShortSide: number): number | undefined {
+  const src = Math.min(display.width, display.height);
+  const tier = MASTER_HEIGHTS.find((h) => h >= outShortSide);
+  return tier === undefined || tier >= src ? undefined : tier;
+}
+
+/** Размер master: короткая сторона = `height`, длинная пропорционально, обе чётные (как `outputSize`); без ступени — исходник. */
+export function masterSize(display: Size, height?: number): Size {
+  if (height === undefined) return { width: display.width, height: display.height };
+  const k = height / Math.min(display.width, display.height);
+  return { width: even(display.width * k), height: even(display.height * k) };
+}
+
+/** Ступень, если она меньше исходника; иначе `undefined` — полный размер (один каталог кэша на размер). */
+function normHeight(display: Size, height: number | undefined): number | undefined {
+  if (height === undefined) return undefined;
+  if (!Number.isInteger(height) || height < 2) throw new Error(`master: ступень должна быть целым >= 2: ${height}`);
+  return height >= Math.min(display.width, display.height) ? undefined : height;
+}
+
 /** Кадров в master: `round(duration · fps)` (длительность исходника по probe). */
 export function masterFrames(probe: Pick<ProbeSummary, "duration_us">, fps: Fps): number {
   return Math.max(1, Math.round((probe.duration_us * fps.num) / (fps.den * 1e6)));
@@ -99,15 +134,19 @@ export function masterFrames(probe: Pick<ProbeSummary, "duration_us">, fps: Fps)
  * Аргументы ffmpeg master: вход с явным демультиплексором и `file:`; CFR по pts
  * (`fps=<num>/<den>:start_time=0`, `-fps_mode cfr`); `libx264 -preset medium -crf <crf>
  * -g <round(fps)> -pix_fmt yuv420p`; без звука; ровно `masterFrames` кадров; автоповорот ffmpeg
- * не отключается — master в отображаемой ориентации.
+ * не отключается — master в отображаемой ориентации. `height` (Task 49b) — ступень: lanczos до
+ * `masterSize` в том же `scale`, что переводит цвет (один проход swscale).
  */
-export function masterArgs(input: string, out: string, probe: ProbeSummary, fps: Fps, crf: number): string[] {
+export function masterArgs(input: string, out: string, probe: ProbeSummary, fps: Fps, crf: number, height?: number): string[] {
   const rate = `${fps.num}/${fps.den}`;
   const gop = Math.max(1, Math.round(fps.num / fps.den));
+  const h = normHeight({ width: probe.video.display_width, height: probe.video.display_height }, height);
+  const size = h === undefined ? undefined : masterSize({ width: probe.video.display_width, height: probe.video.display_height }, h);
+  const color = size ? MASTER_COLOR_FILTER.replace(/^scale=/, `scale=${size.width}:${size.height}:flags=lanczos:`) : MASTER_COLOR_FILTER;
   return [
     "-protocol_whitelist", "file", "-f", demuxerFor(probe.container), "-i", `file:${input}`,
     "-map", "0:v:0",
-    "-vf", `fps=${rate}:start_time=0,${MASTER_COLOR_FILTER},${MASTER_TAIL_FILTER},format=yuv420p`,
+    "-vf", `fps=${rate}:start_time=0,${color},${MASTER_TAIL_FILTER},format=yuv420p`,
     "-fps_mode", "cfr", "-r", rate,
     "-c:v", "libx264", "-preset", "medium", "-crf", String(crf), "-g", String(gop), "-pix_fmt", "yuv420p",
     ...MASTER_COLOR_TAGS,
@@ -161,6 +200,20 @@ async function fromCache(root: string, destRel: string, mediaSha: string): Promi
   return { path, sha256: sha };
 }
 
+/**
+ * sha256 опубликованного master из его `master.json` (без чтения видео); не опубликован или манифест
+ * не читается — `undefined`. Повтор экспорта до Task 49b ищет им полный master своего манифеста.
+ */
+export async function publishedMasterSha(root: string, db: Db, destRel: string): Promise<string | undefined> {
+  if (!isPublished(db, destRel)) return undefined;
+  try {
+    const m = JSON.parse(await readFile(join(root, destRel, MASTER_META), "utf8")) as { sha256?: unknown };
+    return typeof m.sha256 === "string" ? m.sha256 : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function packets(path: string, o: { run: RunRef; signal: AbortSignal }): Promise<number> {
   const r = await runTool("ffprobe", ["-v", "error", "-protocol_whitelist", "file", "-f", "mov", "-count_packets", "-select_streams", "v:0", "-show_entries", "stream=nb_read_packets", "-of", "csv=p=0", `file:${path}`], o);
   if (r.code !== 0) throw new Error(`ffprobe master: код ${r.code}: ${r.stderrTail.slice(-500)}`);
@@ -176,17 +229,19 @@ async function dropDraft(dir: string): Promise<void> {
 /**
  * master исходника `mediaId` на сетке `fps`: опубликованный — из кэша (размер+mtime, при
  * расхождении — sha256; ffmpeg не запускается); HDR-исходник — `HdrUnsupportedError`, иначе ffmpeg в draft попытки → проверка (CFR, fps, `masterFrames` кадров) →
- * `master.json` → публикация с fencing в `master/<media>@<num>-<den>`. Параллельная публикация того
+ * `master.json` → публикация с fencing в `master/<media>@<num>-<den>[-h<ступень>]` (`height` —
+ * ступень Task 49b; не меньше исходника — полный размер). Параллельная публикация того
  * же master (`artifact_exists`) — берётся она. Бросает `FfmpegError` (`orphaned` — draft в
  * карантин, процесс жив), `FencedOutError`/`PublishCancelledError` публикации и `Error` (нет
  * исходника, хранилище недоступно, master не прошёл проверку, кэш повреждён).
  */
-export async function ensureMaster(d: MasterDeps, mediaId: string, fps: Fps): Promise<MasterRef> {
+export async function ensureMaster(d: MasterDeps, mediaId: string, fps: Fps, height?: number): Promise<MasterRef> {
   const asset = media.get(d.db, mediaId);
   if (!asset) throw new Error(`master: исходника ${mediaId} нет`);
-  const destRel = artifactPaths(d.root, asset.project_id).master(mediaId, fps);
+  const h = normHeight({ width: asset.probe.video.display_width, height: asset.probe.video.display_height }, height);
+  const destRel = artifactPaths(d.root, asset.project_id).master(mediaId, fps, h);
   // Task 49a: отметка использования до чтения — LRU уборки кэша (`cache.gc`)
-  await markMasterUse(d.root, asset.project_id, mediaId, fps, d.run.runId);
+  await markMasterUse(d.root, asset.project_id, mediaId, fps, d.run.runId, h);
   if (isPublished(d.db, destRel)) return fromCache(d.root, destRel, asset.sha256);
   const status = await d.storage();
   if (!status.ok) throw new Error(`storage_unavailable: ${status.reason}: ${status.detail}`);
@@ -203,7 +258,7 @@ export async function ensureMaster(d: MasterDeps, mediaId: string, fps: Fps): Pr
   assertOutsideSource(out, d.root, [src]);
   const started = Date.now();
   try {
-    await runFfmpeg(masterArgs(src, out, asset.probe, fps, crf), {
+    await runFfmpeg(masterArgs(src, out, asset.probe, fps, crf, h), {
       ...o, durationUs: asset.probe.duration_us, ...(d.timeoutMs ? { timeoutMs: d.timeoutMs } : {}), ...(d.spawn ? { spawn: d.spawn } : {}),
       ...(d.onProgress ? { onProgress: d.onProgress } : {}),
     });
@@ -211,8 +266,11 @@ export async function ensureMaster(d: MasterDeps, mediaId: string, fps: Fps): Pr
     const frames = await packets(out, o);
     const want = masterFrames(asset.probe, fps);
     const sameFps = px.video.r_frame_rate.num * fps.den === fps.num * px.video.r_frame_rate.den;
-    if (px.vfr || !sameFps || frames !== want) {
-      throw new Error(`master не прошёл проверку: ${px.vfr ? "VFR; " : ""}fps ${px.video.r_frame_rate.num}/${px.video.r_frame_rate.den} (нужно ${fps.num}/${fps.den}), кадров ${frames} (нужно ${want})`);
+    const size = h === undefined ? undefined : masterSize({ width: asset.probe.video.display_width, height: asset.probe.video.display_height }, h);
+    const badSize = size !== undefined && (px.video.display_width !== size.width || px.video.display_height !== size.height);
+    if (px.vfr || !sameFps || frames !== want || badSize) {
+      throw new Error(`master не прошёл проверку: ${px.vfr ? "VFR; " : ""}fps ${px.video.r_frame_rate.num}/${px.video.r_frame_rate.den} (нужно ${fps.num}/${fps.den}), кадров ${frames} (нужно ${want})` +
+        (badSize ? `, размер ${px.video.display_width}×${px.video.display_height} (нужно ${size.width}×${size.height})` : ""));
     }
     const sha256 = await sha256File(out, { sync: true });
     const st = await stat(out);
@@ -223,7 +281,7 @@ export async function ensureMaster(d: MasterDeps, mediaId: string, fps: Fps): Pr
     };
     await fsyncWrite(join(draft.dir, MASTER_META), JSON.stringify(manifest, null, 2) + "\n");
     await new ArtifactStore({ root: d.root, db: d.db, guard: d.storage }).publish(draft.dir, destRel, () => undefined, fence);
-    d.log?.(`master ${mediaId}@${fps.num}-${fps.den}: ${frames} кадров за ${((Date.now() - started) / 1000).toFixed(1)} с`);
+    d.log?.(`master ${mediaId}@${fps.num}-${fps.den}${h === undefined ? "" : `-h${h}`}: ${frames} кадров за ${((Date.now() - started) / 1000).toFixed(1)} с`);
     return { path: join(d.root, destRel, MASTER_FILE), sha256 };
   } catch (e) {
     if (e instanceof ArtifactExistsError) {

@@ -1,8 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import { safeMkdir } from "../storage/safe-mkdir.js";
 import { procInfo } from "./proc-info.js";
+import type { ProcessOwner } from "./processes.js";
 
 export type OwnerKind = "server" | "cli";
 
@@ -30,6 +32,11 @@ export interface OwnerLock {
   release(): Promise<void>;
   /** Файл замка (`dev`, `ino`), на котором держится блокировка ОС. */
   readonly file: { dev: number; ino: number };
+  /**
+   * Владелец (S20): этот процесс и случайный `nonce` захвата. Пишется в каждую запись
+   * `job_processes`: разбор на копии хранилища не тронет процессы живого владельца оригинала.
+   */
+  readonly owner: ProcessOwner;
 }
 
 // Держит соединения до release: иначе брошенный вызывающим результат соберёт GC,
@@ -66,12 +73,14 @@ export async function acquireOwnerLock(root: string, kind: OwnerKind): Promise<O
 
   let released = false;
   let file: { dev: number; ino: number };
+  let owner: ProcessOwner;
   try {
     // ровно тот файл, что под замком: соединение уже открыто, подмена пути его не меняет
     const st = await stat(lockPath);
     file = { dev: st.dev, ino: st.ino };
     const me = await procInfo(process.pid);
     const info: OwnerInfo = { pid: process.pid, startedAt: me?.startedAt ?? "", kind };
+    owner = { pid: process.pid, startedAt: info.startedAt, nonce: randomUUID() };
     const tmp = `${ownerFile}.${process.pid}.tmp`;
     await writeFile(tmp, JSON.stringify(info, null, 2) + "\n");
     await rename(tmp, ownerFile);
@@ -83,6 +92,7 @@ export async function acquireOwnerLock(root: string, kind: OwnerKind): Promise<O
 
   return {
     file,
+    owner,
     async release() {
       if (released) return;
       released = true;

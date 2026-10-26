@@ -8,7 +8,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, cpSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   type EdlRevisionDoc, type ScenePlanItem, type Settings, type TranscriptRevisionDoc, ZONE_RECTS, acceptedCuts, buildTimeline, rangeFromWords,
@@ -54,6 +54,9 @@ export interface FixtureProject {
   sourceSha256: string;
 }
 
+/** Каталог медиа-фикстур (`scripts/make-media-fixtures.mjs`). */
+export const MEDIA_FIXTURES = MEDIA;
+
 /** Пересоздаёт недостающие медиа-фикстуры (идемпотентно). */
 export function ensureMediaFixtures(): void {
   execFileSync(process.execPath, [join(MS, "scripts/make-media-fixtures.mjs")], { stdio: ["ignore", "ignore", "inherit"] });
@@ -86,9 +89,10 @@ function fixtureVersion(db: Db, root: string, sceneId: string, fixture: string, 
   return vid;
 }
 
-export async function seedFixtureProject(db: Db, store: ArtifactStore, root: string): Promise<FixtureProject> {
+/** `source` — другой исходник вместо talk-ru-cfr.mp4 (замер Task 49b: синтетика 4K); только читается. */
+export async function seedFixtureProject(db: Db, store: ArtifactStore, root: string, o: { source?: string } = {}): Promise<FixtureProject> {
   ensureMediaFixtures();
-  const src = join(MEDIA, "talk-ru-cfr.mp4");
+  const src = o.source ?? join(MEDIA, "talk-ru-cfr.mp4");
   const probe = await probeMedia(src);
   const paths = artifactPaths(root, "p1");
   projects.create(db, { id: "p1", kind: "video", title: "Таймлайн-фикстура" });
@@ -97,7 +101,7 @@ export async function seedFixtureProject(db: Db, store: ArtifactStore, root: str
   copyFileSync(src, join(root, origRel));
   const sha = await sha256File(join(root, origRel));
   media.insert(db, {
-    id: "med_1", project_id: "p1", original_name: "talk-ru-cfr.mp4", rel_path: origRel, sha256: sha, size_bytes: statSync(src).size, probe,
+    id: "med_1", project_id: "p1", original_name: basename(src), rel_path: origRel, sha256: sha, size_bytes: statSync(src).size, probe,
     status: "ready", import: { method: "path", source_path: src, cloned: false }, created_at: new Date().toISOString(),
   });
   const proxyRel = `${paths.proxy("med_1")}/proxy.mp4`;

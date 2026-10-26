@@ -200,6 +200,8 @@ export const RecoveryDtoSchema = z.object({
     id: Id, created_at: Ts, crashed: z.boolean(), acknowledged_at: Ts.nullable(),
     // Task 47: итог восстановления для баннера (восстановлено / заблокировано / в карантине / не удалось)
     summary: z.object({ recovered: Count, blocked: Count, quarantined: Count, failed: Count }).strict().optional(),
+    // S20: предупреждения старта — копия хранилища (`store_copied`), процесс другого живого сервера (`foreign_process`)
+    warnings: z.array(z.object({ kind: z.string().min(1), message: z.string().min(1), job_id: Id.optional(), owner_pids: z.array(z.number().int().positive()).optional() }).strict()).optional(),
   }).strict().nullable(),
   interrupted: z.array(JobSchema),
   blocked: z.array(JobSchema),

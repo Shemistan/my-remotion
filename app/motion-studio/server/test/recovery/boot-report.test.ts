@@ -71,7 +71,7 @@ it("штатный старт: crashed false", async () => {
 it("persist/ack/prune: хранится не больше BOOT_REPORTS_KEEP отчётов, ack — один раз", async () => {
   const db = openDb(s.root);
   await migrate(db);
-  const empty = { requeued: [], failed: [], blocked: [], draftsRemoved: [], completed: [], cancelled: [], locksReleased: [] };
+  const empty = { requeued: [], failed: [], blocked: [], foreign: [], draftsRemoved: [], completed: [], cancelled: [], locksReleased: [], warnings: [] };
   let last;
   for (let i = 0; i < BOOT_REPORTS_KEEP + 5; i++) last = persistBootReport(db, { ...empty, crashed: i % 2 === 0, quarantined: [] });
   expect(bootReports.count(db)).toBe(BOOT_REPORTS_KEEP);
@@ -86,7 +86,7 @@ it("persist/ack/prune: хранится не больше BOOT_REPORTS_KEEP от
 it("центр восстановления: последний неподтверждённый отчёт со сбоем виден после штатных стартов и не удаляется по лимиту", async () => {
   const db = openDb(s.root);
   await migrate(db);
-  const empty = { requeued: [], failed: [], blocked: [], draftsRemoved: [], completed: [], cancelled: [], locksReleased: [] };
+  const empty = { requeued: [], failed: [], blocked: [], foreign: [], draftsRemoved: [], completed: [], cancelled: [], locksReleased: [], warnings: [] };
   const crash = persistBootReport(db, { ...empty, crashed: true, quarantined: [] });
   for (let i = 0; i < BOOT_REPORTS_KEEP + 5; i++) persistBootReport(db, { ...empty, crashed: false, quarantined: [] });
   expect(bootReports.get(db, crash.id)).toBeDefined();

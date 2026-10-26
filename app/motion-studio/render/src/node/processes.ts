@@ -34,11 +34,14 @@ async function ownPgid(): Promise<number> {
 export async function findByMarker(marker: string): Promise<Proc[]> {
   const own = await ownPgid();
   const out = await ps(["-axww", "-o", "pid=,pgid=,command="]);
+  // S20: маркер — с границы аргумента (начало, пробел, `=`, кавычка, `:`, `,`): путь, в который
+  // корень лишь вложен (`/x/<root>/run/tmp/` другого хранилища), не совпадает
+  const at = new RegExp(`(?:^|[\\s='":,])${marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
   const found: Proc[] = [];
   for (const line of out.split("\n")) {
     if (!line.includes(marker)) continue;
-    const m = /^\s*(\d+)\s+(\d+)\s/.exec(line);
-    if (!m) continue;
+    const m = /^\s*(\d+)\s+(\d+)\s+(.*)$/.exec(line);
+    if (!m || !at.test(m[3]!)) continue;
     const p = { pid: Number(m[1]), pgid: Number(m[2]) };
     if (p.pid !== process.pid && p.pgid > 1 && p.pgid !== own) found.push(p);
   }

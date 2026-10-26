@@ -24,6 +24,11 @@ function rev(n: number): string {
   return `r${n}`;
 }
 
+function heightPart(n: number): number {
+  if (!Number.isInteger(n) || n < 1) throw new Error(`artifacts: ступень master — целое >= 1: ${n}`);
+  return n;
+}
+
 function padPart(n: number): number {
   if (!Number.isInteger(n) || n < 0) throw new Error(`artifacts: поля превью — целое >= 0: ${n}`);
   return n;
@@ -33,13 +38,13 @@ function padPart(n: number): number {
 export const PROJECTS_REL = "workspace/projects";
 
 /**
- * Ровно формы `artifactPaths`: `<p>/(source|proxy|packages|final)/<id>`, `<p>/master/<id>@<num>-<den>`,
+ * Ровно формы `artifactPaths`: `<p>/(source|proxy|packages|final)/<id>`, `<p>/master/<id>@<num>-<den>[-h<ступень>]`,
  * `<p>/(transcript|edits|preview|style|plan|script|timeline|timeline-preview|audio)/<id>/r<N>`, `<p>/context/<id>/<id>@r<N>[-p<pad>]`,
  * `<p>/analysis/(footage|semantic)/<id>`. Остальное в каталоге проекта (сцены Phase 1,
  * `project.json`, родители ревизий) публикацией и карантином сирот не затрагивается.
  */
 const DEST_REL_RE = new RegExp(
-  `^${PROJECTS_REL}/${ART_ID}/(?:(?:source|proxy|packages|final)/${ART_ID}|master/${ART_ID}@[1-9][0-9]*-[1-9][0-9]*` +
+  `^${PROJECTS_REL}/${ART_ID}/(?:(?:source|proxy|packages|final)/${ART_ID}|master/${ART_ID}@[1-9][0-9]*-[1-9][0-9]*(?:-h[1-9][0-9]*)?` +
     `|(?:transcript|edits|preview|style|plan|script|timeline|timeline-preview|audio)/${ART_ID}/r[1-9][0-9]*|context/${ART_ID}/${ART_ID}@r[1-9][0-9]*(?:-p(?:0|[1-9][0-9]*))?|analysis/(?:footage|semantic)/${ART_ID})$`,
 );
 
@@ -82,8 +87,10 @@ export interface ArtifactPaths {
   /**
    * CFR-дериватив исходника для композиции (F1): `master/<media>@<num>-<den>` — свой каталог, не внутри
    * `proxy/<media>`: опубликованный прокси read-only (publish делает каталог a-w), вложить в него нельзя.
+   * Task 49b: `height` — ступень короткой стороны master под выход (`-h<ступень>`); без неё — master
+   * в размере исходника (прежний путь, кэш до 49b остаётся валидным).
    */
-  master(mediaId: string, fps: Fps): string;
+  master(mediaId: string, fps: Fps, height?: number): string;
   /** Смонтированная дорожка звука ревизии EDL `audio/<edl>/r<N>` (F2). */
   editedAudio(edlId: string, n: number): string;
   /**
@@ -114,7 +121,8 @@ export function artifactPaths(root: string, projectId: string): ArtifactPaths {
     timelineRev: (id, n) => `${p}/timeline/${checkId("timelineId", id)}/${rev(n)}`,
     timelinePreviewRev: (id, n) => `${p}/timeline-preview/${checkId("timelineId", id)}/${rev(n)}`,
     finalExport: (id) => `${p}/final/${checkId("exportId", id)}`,
-    master: (mediaId, fps) => `${p}/master/${checkId("mediaId", mediaId)}@${fpsPart(fps.num)}-${fpsPart(fps.den)}`,
+    master: (mediaId, fps, height) =>
+      `${p}/master/${checkId("mediaId", mediaId)}@${fpsPart(fps.num)}-${fpsPart(fps.den)}${height === undefined ? "" : `-h${heightPart(height)}`}`,
     editedAudio: (id, n) => `${p}/audio/${checkId("edlId", id)}/${rev(n)}`,
     contextPreview: (sceneId, versionId, planRevision, padFrames) =>
       `${p}/context/${checkId("sceneId", sceneId)}/${checkId("versionId", versionId)}@${rev(planRevision)}${padFrames === undefined ? "" : `-p${padPart(padFrames)}`}`,
