@@ -79,3 +79,20 @@ it("длительность видеосцены — только чтение 
   expect(dur2.readOnly).toBe(false);
   expect(screen.queryByText(t("videoScenes.durationLocked"))).toBeNull();
 });
+
+it("FPS видеосцены — только чтение (FPS проекта, кадры плана); у обычной сцены — редактируемый", async () => {
+  routes("video");
+  const { unmount } = renderQ(<Playground id="scn_1" />);
+  await screen.findByRole("link", { name: t("videoScenes.backToVideo") });
+  const fps = (await screen.findByLabelText(t("settings.fps"))) as HTMLInputElement;
+  await waitFor(() => expect(fps.readOnly).toBe(true));
+  expect(screen.getByText(t("videoScenes.fpsLocked"))).toBeTruthy();
+  unmount();
+  vi.unstubAllGlobals();
+  routes("playground");
+  renderQ(<Playground id="scn_1" />);
+  await screen.findByRole("link", { name: t("nav.project") });
+  const fps2 = (await screen.findByLabelText(t("settings.fps"))) as HTMLInputElement;
+  expect(fps2.readOnly).toBe(false);
+  expect(screen.queryByText(t("videoScenes.fpsLocked"))).toBeNull();
+});

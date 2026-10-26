@@ -1,0 +1,437 @@
+[
+  {
+    "id": "pkg_01M5TYRNEY1H0H5YMDH3TDPC3R",
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "job_id": "job_01M5TYRNEY1H0H5YMDH3TDPC3R",
+    "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/packages/pkg_01M5TYRNEY1H0H5YMDH3TDPC3R",
+    "manifest_sha256": "1d476d873a14acd04fb96a24db6b065b98dfdf15b412ea05f6a607721b1243b7",
+    "created_at": "2026-10-26T01:57:37.873Z",
+    "manifest": {
+      "schema_version": 1,
+      "package_id": "pkg_01M5TYRNEY1H0H5YMDH3TDPC3R",
+      "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+      "project_title": "Приёмка видео 2026-10-24T14:41",
+      "name": "Приёмка видео 2026-10-24T14-41_клипы_2026-10-26",
+      "fps": {
+        "num": 30,
+        "den": 1
+      },
+      "edl": {
+        "id": "edl_01M5Q5ZMHG5PVJS73RQEQ2Z75C",
+        "revision": 15
+      },
+      "plan": {
+        "id": "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM",
+        "revision": 21
+      },
+      "scenes": [
+        {
+          "n": 1,
+          "item_id": "sp_009",
+          "scene_id": "scn_01M5TST0MGYW86H3YMPM4190H8",
+          "version_id": "ver_01M5TXQ68QHMY64C2G05V6QCF4",
+          "version_number": 6,
+          "approved": true,
+          "source": {
+            "start_us": 73480000,
+            "end_us": 101306666
+          },
+          "edited": {
+            "start_us": 63713333,
+            "end_us": 66773333
+          },
+          "frames": {
+            "start": 1911,
+            "end": 2004
+          },
+          "quote": "работать дальше, не прерывая соединения.",
+          "mode": "overlay",
+          "zone": "left_third",
+          "mp4": {
+            "file": "01_rabotat-dalshe-ne-preryvaya-soedineniya.mp4",
+            "export_id": "exp_01M5TYRV624J43XKHF1PEJQ94D",
+            "sha256": "c80abbef06fdd23d0d0f0d3bb4697ceeb597f517174dc40a73497e9142667eae",
+            "ffprobe": {
+              "durationMs": 3100,
+              "audioDurationMs": 3115,
+              "profile": "High",
+              "width": 1920,
+              "height": 1080,
+              "fps": {
+                "num": 30,
+                "den": 1
+              },
+              "codec": "h264",
+              "audioCodec": "aac",
+              "pixFmt": "yuv420p",
+              "audioSampleRate": 48000,
+              "audioChannels": 2
+            }
+          },
+          "alpha": {
+            "file": "01_rabotat-dalshe-ne-preryvaya-soedineniya_alpha.mov",
+            "export_id": "exp_01M5TYS081AH3K7CTVC72ZMFDG",
+            "sha256": "554532bca5b712319e13e193c1fcc13c443f2add9381e42d7c0f4becd927260c",
+            "ffprobe": {
+              "durationMs": 3100,
+              "profile": "4444",
+              "width": 1920,
+              "height": 1080,
+              "fps": {
+                "num": 30,
+                "den": 1
+              },
+              "codec": "prores",
+              "pixFmt": "yuva444p12le"
+            }
+          },
+          "warnings": [
+            "empty_region: кадр 92: правая верхняя четверть почти пуст — содержимого 0.0 % < 1.5 %",
+            "frame0_coverage: кадр 0 почти пуст: чернил 0.2 % < 8 % — сцена открывается фоном",
+            "fragment_unsupported: на экране утверждения, которых нет во фрагменте: «2»",
+            "text_size: Подпись «не прерывая соединения» заметно мельче body (около 3.7% высоты кадра), на видео читается слабее героя.",
+            "contrast: На видео тонкая линия с серой неотрисованной частью почти теряется на занавесе слева, а на кадре 10 герой ещё не вошёл, так что остаётся только полоска.",
+            "artifact: На кадре поверх видео свечение за героем обрезано прямоугольником: справа от слова видна ровная вертикальная кромка.",
+            "hierarchy: Герой занимает около 7.5% высоты кадра (h1), а не display, и на кадре заметно скромнее задачи «ключевая мысль крупно». Левая колонка при этом остаётся пустой снизу."
+          ],
+          "duration_frames": 93,
+          "source_pieces": [
+            {
+              "start_us": 73466667,
+              "end_us": 76533334
+            }
+          ]
+        },
+        {
+          "n": 2,
+          "item_id": "sp_002",
+          "scene_id": "scn_01M5TST0MWTDJE2F127FQYAM76",
+          "version_id": "ver_01M5TY6J3J583XR390N7YREW4W",
+          "version_number": 4,
+          "approved": true,
+          "source": {
+            "start_us": 122740000,
+            "end_us": 132280000
+          },
+          "edited": {
+            "start_us": 87440001,
+            "end_us": 94980001
+          },
+          "frames": {
+            "start": 2623,
+            "end": 2850
+          },
+          "quote": "Поэтому получатель сначала дочитывает сообщение до конца и только потом смотрит на тип.",
+          "mode": "fullscreen",
+          "zone": "full",
+          "mp4": {
+            "file": "02_poetomu-poluchatel-snachala-dochityvaet.mp4",
+            "export_id": "exp_01M5TYSBJ9RTTXKQGXMWKCRPFR",
+            "sha256": "01b3882edc31b796c9fa076330c6087fa509b3eb7abef536958a6ba7536143ec",
+            "ffprobe": {
+              "durationMs": 7566.667,
+              "audioDurationMs": 7573,
+              "profile": "High",
+              "width": 1920,
+              "height": 1080,
+              "fps": {
+                "num": 30,
+                "den": 1
+              },
+              "codec": "h264",
+              "audioCodec": "aac",
+              "pixFmt": "yuv420p",
+              "audioSampleRate": 48000,
+              "audioChannels": 2
+            }
+          },
+          "alpha": null,
+          "warnings": [
+            "frozen: кадры 12 и 16 из разных битов не отличаются (изменение объектов 0.0015)",
+            "dead_air: кадры 138–198: в окне речи 60 кадров ничего не меняется и нет активного бита фазы — пауза плана битов (планировщик)",
+            "no_hero: нет визуального героя: крупнейшая графика 1 % на кадре 132, 1 % на кадре 226 (меньше 18 % кадра)",
+            "text_dominant: в финале текст занимает 38 % кадра, графика — 1 %: сцена читается подписью, а не картинкой",
+            "artifact: Плашка статуса на кадре 106 пустая: синяя капсула с точкой, текста нет, цвет не фиолетовый и не бирюзовый. Смена «ДОЧИТЫВАЕТ» → «ДО КОНЦА» выглядит как мигание пустой плашки.",
+            "semantic: Ячейка «ТИП» раскрыта на кадре 127. Слово «тип» звучит на кадре 209, по брифу раскрытие должно быть не раньше. На кадре 12 в этой ячейке до этого стоит «ждёт».",
+            "text_size: Подписи шагов около 36–40 px (≈3,5 % высоты) — это ниже body. Это основной читаемый текст, а не подпись оси. «сначала — до конца» приглушена в серо-фиолетовый.",
+            "hierarchy: Герой «ТИП» по размеру ненамного крупнее «длина» и подписей. Взгляд делят полоса из фиолетовых ячеек и бирюзовая скобка.",
+            "accent_conflict: На кадре 127 одновременно светятся фиолетовое «ТИП» с ореолом и бирюзовая скобка конца. Сверху остаётся призрак угасающей плашки «до конца»."
+          ],
+          "duration_frames": 227,
+          "source_pieces": [
+            {
+              "start_us": 124833334,
+              "end_us": 132299999
+            }
+          ]
+        },
+        {
+          "n": 3,
+          "item_id": "sp_003",
+          "scene_id": "scn_01M5TST0N4DV77XB9YK44E9BPM",
+          "version_id": "ver_01M5TYPKX2BRYM11TT8J0PD395",
+          "version_number": 5,
+          "approved": true,
+          "source": {
+            "start_us": 163480000,
+            "end_us": 177960000
+          },
+          "edited": {
+            "start_us": 109546668,
+            "end_us": 116760001
+          },
+          "frames": {
+            "start": 3286,
+            "end": 3503
+          },
+          "quote": "Такая схема называется sequence diagram.",
+          "mode": "callout",
+          "zone": "left_third",
+          "mp4": {
+            "file": "03_takaya-skhema-nazyvaetsya-sequence.mp4",
+            "export_id": "exp_01M5TYSPGAKET40E6SMF0N1TKD",
+            "sha256": "a7d26e3f806757dea1ff983c85651b26c84c58ce661a2c8f529115080b6ad2c8",
+            "ffprobe": {
+              "durationMs": 7233.333,
+              "audioDurationMs": 7253,
+              "profile": "High",
+              "width": 1920,
+              "height": 1080,
+              "fps": {
+                "num": 30,
+                "den": 1
+              },
+              "codec": "h264",
+              "audioCodec": "aac",
+              "pixFmt": "yuv420p",
+              "audioSampleRate": 48000,
+              "audioChannels": 2
+            }
+          },
+          "alpha": {
+            "file": "03_takaya-skhema-nazyvaetsya-sequence_alpha.mov",
+            "export_id": "exp_01M5TYSZFAJ1E05FKMTNDK4A2G",
+            "sha256": "f4799c86088b428e1818d73f57155bd4fdea6cb799c233f04f0c34dc30f9893f",
+            "ffprobe": {
+              "durationMs": 7233.333,
+              "profile": "4444",
+              "width": 1920,
+              "height": 1080,
+              "fps": {
+                "num": 30,
+                "den": 1
+              },
+              "codec": "prores",
+              "pixFmt": "yuva444p12le"
+            }
+          },
+          "warnings": [
+            "frozen: кадры 23 и 34 из разных битов не отличаются (изменение объектов 0.0013)",
+            "frozen: кадры 34 и 54 из разных битов не отличаются (изменение объектов 0.0012)",
+            "empty_region: кадр 216: правая верхняя четверть почти пуст — содержимого 0.0 % < 1.5 %",
+            "scene_signature_repeat: сцена повторяет подпись предыдущей «Работать дальше — без разрыва» (3 из 4): фон solid:01, без полосы заголовка, камера стоит",
+            "rhythm: Кадры 159 и 216 почти одинаковы: меняются только дыхание ореола и лёгкое смещение карточки. Волна now-pulse от героя почти не заметна, финал выглядит близким к статичному.",
+            "hierarchy: Заголовок «sequence diagram» крупный и яркий, он конкурирует с карточкой-героем. Нижний край слова «diagram» почти касается ореола карточки.",
+            "artifact: Над первой стрелкой видна микроскопическая точка на месте будущей цифры «1». Это недовошедшая подпись.",
+            "semantic: Подписи стрелок — «1», «2», «3», а участники — «A» и «B». Это нумерация-заглушка, а не имена участников и сообщений."
+          ],
+          "duration_frames": 217,
+          "source_pieces": [
+            {
+              "start_us": 166666667,
+              "end_us": 170200000
+            }
+          ]
+        },
+        {
+          "n": 4,
+          "item_id": "sp_008",
+          "scene_id": "scn_01M5TST0NDS262ZGKWD226R2JZ",
+          "version_id": "ver_01M5TT76VF8J1DCQHZWY8ANHV5",
+          "version_number": 1,
+          "approved": true,
+          "source": {
+            "start_us": 406449667,
+            "end_us": 418483000
+          },
+          "edited": {
+            "start_us": 260682999,
+            "end_us": 271282999
+          },
+          "frames": {
+            "start": 7820,
+            "end": 8139
+          },
+          "quote": "включаем только после handshake обе стороны должны объявить нужную фичу",
+          "mode": "overlay",
+          "zone": "left_third",
+          "mp4": {
+            "file": "04_vklyuchaem-tolko-posle-handshake-obe.mp4",
+            "export_id": "exp_01M5TYTE30T7P6C36FF1ZCJVHE",
+            "sha256": "47d35e5bd03230b410a894384624a675aa7492279dafd637f1cb91c9b848ab11",
+            "ffprobe": {
+              "durationMs": 10633.333,
+              "audioDurationMs": 10645,
+              "profile": "High",
+              "width": 1920,
+              "height": 1080,
+              "fps": {
+                "num": 30,
+                "den": 1
+              },
+              "codec": "h264",
+              "audioCodec": "aac",
+              "pixFmt": "yuv420p",
+              "audioSampleRate": 48000,
+              "audioChannels": 2
+            }
+          },
+          "alpha": {
+            "file": "04_vklyuchaem-tolko-posle-handshake-obe_alpha.mov",
+            "export_id": "exp_01M5TYTW2D66CNZ1945539MECF",
+            "sha256": "044ff8ef6d69aeeb9273207b1fff09aa0926202cc481c7736d3e7f79aad5f9dd",
+            "ffprobe": {
+              "durationMs": 10633.333,
+              "profile": "4444",
+              "width": 1920,
+              "height": 1080,
+              "fps": {
+                "num": 30,
+                "den": 1
+              },
+              "codec": "prores",
+              "pixFmt": "yuva444p12le"
+            }
+          },
+          "warnings": [
+            "frozen: кадры 47 и 64 из разных битов не отличаются (изменение объектов 0.0017)",
+            "empty_region: кадр 318: правая верхняя четверть почти пуст — содержимого 0.0 % < 1.5 %",
+            "dead_air: кадры 162–228: в окне речи 66 кадров ничего не меняется и нет активного бита фазы — пауза плана битов (планировщик)",
+            "dead_air: кадры 234–306: в окне речи 72 кадров ничего не меняется и нет активного бита фазы — пауза плана битов (планировщик)",
+            "fragment_unsupported: на экране утверждения, которых нет во фрагменте: «Фича включена»",
+            "semantic: Слово «handshake» полностью видно уже на кадрах 30–47 (начинает проявляться ещё на 30), хотя по запросу оно звучит на кадре 74 и раскрытие должно быть у его кадра, не раньше.",
+            "rhythm: На кадре 88 слова «Фича» и «включена» стоят на разной высоте (вторая ниже) — итог в середине входа выглядит съехавшим; к 109 выравнивается.",
+            "composition: Подписи «Клиент» и «Сервер» прижаты к верху карточек и почти касаются плашек «объявил фичу». Связь между карточками — короткая вертикальная линия, акцент на ней слабый.",
+            "hold: Финальное дыхание героя едва заметно: между кадрами 147 и 318 меняются лишь лёгкий ореол и масштаб карточки."
+          ],
+          "duration_frames": 319,
+          "source_pieces": [
+            {
+              "start_us": 407966667,
+              "end_us": 418500001
+            }
+          ]
+        }
+      ],
+      "missing": [],
+      "created_at": "2026-10-26T01:57:37.873Z"
+    },
+    "files": [
+      {
+        "file": "01_rabotat-dalshe-ne-preryvaya-soedineniya.mp4",
+        "sha256": "c80abbef06fdd23d0d0f0d3bb4697ceeb597f517174dc40a73497e9142667eae",
+        "ffprobe": {
+          "codec": "h264",
+          "profile": "High",
+          "pix_fmt": "yuv420p",
+          "width": 1920,
+          "height": 1080,
+          "r_frame_rate": "30/1",
+          "nb_frames": "93",
+          "duration": "3.100000",
+          "audio": "aac"
+        }
+      },
+      {
+        "file": "01_rabotat-dalshe-ne-preryvaya-soedineniya_alpha.mov",
+        "sha256": "554532bca5b712319e13e193c1fcc13c443f2add9381e42d7c0f4becd927260c",
+        "ffprobe": {
+          "codec": "prores",
+          "profile": "4444",
+          "pix_fmt": "yuva444p12le",
+          "width": 1920,
+          "height": 1080,
+          "r_frame_rate": "30/1",
+          "nb_frames": "93",
+          "duration": "3.100000",
+          "audio": null
+        }
+      },
+      {
+        "file": "02_poetomu-poluchatel-snachala-dochityvaet.mp4",
+        "sha256": "01b3882edc31b796c9fa076330c6087fa509b3eb7abef536958a6ba7536143ec",
+        "ffprobe": {
+          "codec": "h264",
+          "profile": "High",
+          "pix_fmt": "yuv420p",
+          "width": 1920,
+          "height": 1080,
+          "r_frame_rate": "30/1",
+          "nb_frames": "227",
+          "duration": "7.566667",
+          "audio": "aac"
+        }
+      },
+      {
+        "file": "03_takaya-skhema-nazyvaetsya-sequence.mp4",
+        "sha256": "a7d26e3f806757dea1ff983c85651b26c84c58ce661a2c8f529115080b6ad2c8",
+        "ffprobe": {
+          "codec": "h264",
+          "profile": "High",
+          "pix_fmt": "yuv420p",
+          "width": 1920,
+          "height": 1080,
+          "r_frame_rate": "30/1",
+          "nb_frames": "217",
+          "duration": "7.233333",
+          "audio": "aac"
+        }
+      },
+      {
+        "file": "03_takaya-skhema-nazyvaetsya-sequence_alpha.mov",
+        "sha256": "f4799c86088b428e1818d73f57155bd4fdea6cb799c233f04f0c34dc30f9893f",
+        "ffprobe": {
+          "codec": "prores",
+          "profile": "4444",
+          "pix_fmt": "yuva444p12le",
+          "width": 1920,
+          "height": 1080,
+          "r_frame_rate": "30/1",
+          "nb_frames": "217",
+          "duration": "7.233333",
+          "audio": null
+        }
+      },
+      {
+        "file": "04_vklyuchaem-tolko-posle-handshake-obe.mp4",
+        "sha256": "47d35e5bd03230b410a894384624a675aa7492279dafd637f1cb91c9b848ab11",
+        "ffprobe": {
+          "codec": "h264",
+          "profile": "High",
+          "pix_fmt": "yuv420p",
+          "width": 1920,
+          "height": 1080,
+          "r_frame_rate": "30/1",
+          "nb_frames": "319",
+          "duration": "10.633333",
+          "audio": "aac"
+        }
+      },
+      {
+        "file": "04_vklyuchaem-tolko-posle-handshake-obe_alpha.mov",
+        "sha256": "044ff8ef6d69aeeb9273207b1fff09aa0926202cc481c7736d3e7f79aad5f9dd",
+        "ffprobe": {
+          "codec": "prores",
+          "profile": "4444",
+          "pix_fmt": "yuva444p12le",
+          "width": 1920,
+          "height": 1080,
+          "r_frame_rate": "30/1",
+          "nb_frames": "319",
+          "duration": "10.633333",
+          "audio": null
+        }
+      }
+    ]
+  }
+]

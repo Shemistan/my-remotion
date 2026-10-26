@@ -1,0 +1,53 @@
+{
+  "item": "sp_009",
+  "a": {
+    "job": {
+      "id": "job_01M5TWD533F3BHDYN6S56Q4XTR",
+      "status": "completed",
+      "stage": "publish",
+      "attempt": 1,
+      "interrupts": 0,
+      "started_at": "2026-10-26T01:15:11.105Z",
+      "finished_at": "2026-10-26T01:31:21.244Z",
+      "error_json": null,
+      "input_refs_json": "{\"sceneId\":\"scn_01M5TST0MGYW86H3YMPM4190H8\",\"messageId\":\"msg_01M5TWD531KSWX7N0YTS76RDM2\"}"
+    },
+    "version": {
+      "id": "ver_01M5TXARQSNJ509919CH17ECV2",
+      "scene_id": "scn_01M5TST0MGYW86H3YMPM4190H8",
+      "number": 4,
+      "status": "ready",
+      "parent_version_id": "ver_01M5TVQYFVWSKJYR74K5J5J6AC",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0MGYW86H3YMPM4190H8/versions/ver_01M5TXARQSNJ509919CH17ECV2",
+      "created_by_job_id": "job_01M5TWD533F3BHDYN6S56Q4XTR",
+      "settings_json": "{\"aspect_ratio\":\"16:9\",\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1},\"duration_frames\":93,\"style_preset\":\"dark-premium\",\"animation_intensity\":\"energetic\",\"background\":\"#0b0d12\",\"transparent_export\":false,\"safe_area\":{\"x\":0.05,\"y\":0.05},\"style_lock\":{\"depth\":2}}",
+      "manifest_sha256": "6bd91fd3470d452288f0f32639a0f2aa2c2a0d35e00a99d90db2b78e76eed394"
+    }
+  },
+  "b": {
+    "job": {
+      "id": "job_01M5TWD55AHK0K3EQT0E9NRP7D",
+      "status": "completed",
+      "stage": "publish",
+      "attempt": 1,
+      "interrupts": 0,
+      "started_at": "2026-10-26T01:31:21.255Z",
+      "finished_at": "2026-10-26T01:35:20.646Z",
+      "error_json": null,
+      "input_refs_json": "{\"sceneId\":\"scn_01M5TST0MGYW86H3YMPM4190H8\",\"messageId\":\"msg_01M5TWD55AHK0K3EQT0E9NRP7C\"}"
+    },
+    "version": {
+      "id": "ver_01M5TXJ2H4B29GRG5091G5Q2G9",
+      "scene_id": "scn_01M5TST0MGYW86H3YMPM4190H8",
+      "number": 5,
+      "status": "ready",
+      "parent_version_id": "ver_01M5TXARQSNJ509919CH17ECV2",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0MGYW86H3YMPM4190H8/versions/ver_01M5TXJ2H4B29GRG5091G5Q2G9",
+      "created_by_job_id": "job_01M5TWD55AHK0K3EQT0E9NRP7D",
+      "settings_json": "{\"aspect_ratio\":\"16:9\",\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1},\"duration_frames\":93,\"style_preset\":\"dark-premium\",\"animation_intensity\":\"energetic\",\"background\":\"#0b0d12\",\"transparent_export\":false,\"safe_area\":{\"x\":0.05,\"y\":0.05},\"style_lock\":{\"depth\":2}}",
+      "manifest_sha256": "2327041452eae2add1d25fdc0b6f765fe72da8152b250ebdceba1c3efd6b350c"
+    }
+  },
+  "plan_frames": 93,
+  "cost_usd": 4.638
+}

@@ -1,0 +1,107 @@
+[
+  {
+    "id": "2.1-sp_009",
+    "title": "сцена sp_009: ready или failed с журналом",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"ready\",\"error\":null,\"events\":14}"
+  },
+  {
+    "id": "2.2-sp_009",
+    "title": "сцена sp_009: без blocking face_ink/outside_zone/duration_changed",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"warning:empty_region\",\"warning:frame0_coverage\",\"warning:fragment_unsupported\",\"warning:text_size\",\"warning:contrast\",\"warning:artifact\",\"warning:hierarchy\"]"
+  },
+  {
+    "id": "2.3-sp_009",
+    "title": "сцена sp_009: длительность версии = кадрам плана",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"plan\":93,\"version\":93}"
+  },
+  {
+    "id": "2.1-sp_002",
+    "title": "сцена sp_002: ready или failed с журналом",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"ready\",\"error\":null,\"events\":14}"
+  },
+  {
+    "id": "2.2-sp_002",
+    "title": "сцена sp_002: без blocking face_ink/outside_zone/duration_changed",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"warning:frozen\",\"warning:empty_region\",\"warning:frame0_coverage\",\"warning:no_hero\",\"warning:fragment_unsupported\",\"warning:semantic\",\"warning:accent_conflict\",\"warning:legibility\",\"warning:text_size\",\"warning:composition\"]"
+  },
+  {
+    "id": "2.3-sp_002",
+    "title": "сцена sp_002: длительность версии = кадрам плана",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"plan\":227,\"version\":227}"
+  },
+  {
+    "id": "2.1-sp_003",
+    "title": "сцена sp_003: ready или failed с журналом",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"ready\",\"error\":null,\"events\":23}"
+  },
+  {
+    "id": "2.2-sp_003",
+    "title": "сцена sp_003: без blocking face_ink/outside_zone/duration_changed",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"warning:frozen\",\"warning:empty_region\",\"warning:accent_static\",\"warning:frame0_coverage\",\"warning:semantic\",\"warning:hierarchy\",\"warning:composition\",\"warning:rhythm\"]"
+  },
+  {
+    "id": "2.3-sp_003",
+    "title": "сцена sp_003: длительность версии = кадрам плана",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"plan\":110,\"version\":110}"
+  },
+  {
+    "id": "2.1-sp_008",
+    "title": "сцена sp_008: ready или failed с журналом",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"ready\",\"error\":null,\"events\":15}"
+  },
+  {
+    "id": "2.2-sp_008",
+    "title": "сцена sp_008: без blocking face_ink/outside_zone/duration_changed",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"warning:frozen\",\"warning:empty_region\",\"warning:dead_air\",\"warning:dead_air\",\"warning:fragment_unsupported\",\"warning:semantic\",\"warning:rhythm\",\"warning:composition\",\"warning:hold\"]"
+  },
+  {
+    "id": "2.3-sp_008",
+    "title": "сцена sp_008: длительность версии = кадрам плана",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"plan\":319,\"version\":319}"
+  },
+  {
+    "id": "2.4",
+    "title": "пакет завершён: каждая сцена в конечном статусе",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"total\":4,\"pending\":0,\"running\":0,\"ready\":4,\"failed\":0,\"cancelled\":0,\"blocked\":0}"
+  },
+  {
+    "id": "2.5",
+    "title": "время и стоимость пакета (справочно)",
+    "kind": "info",
+    "pass": true,
+    "detail": "{\"gen_min\":11,\"cost_usd\":7.61,\"counts\":{\"total\":4,\"pending\":0,\"running\":0,\"ready\":4,\"failed\":0,\"cancelled\":0,\"blocked\":0}}"
+  },
+  {
+    "id": "2.6",
+    "title": "превью в контексте собраны (кадры — batch/context/, MP4 — examples/phase4/41-приёмка/context/)",
+    "kind": "H",
+    "pass": true,
+    "detail": "[\"sp_009\",\"sp_002\",\"sp_003\",\"sp_008\"]"
+  }
+]

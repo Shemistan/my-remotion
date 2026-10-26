@@ -1,0 +1,51 @@
+[
+  {
+    "id": "3.1",
+    "title": "рендер сцены 2 убит SIGKILL группы процессов",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"pid\":41950,\"pgid\":41950,\"cmd\":\"~/.nvm/versions/node/v22.21.1/bin/node --disable-warning=ExperimentalWarning ~/my_track/01_It_development/my-remotion/.claude/worktrees/agent-a6bec2ed0ee29c12e/app/motion-studio/render/src/node/worker.ts\",\"attempt\":1,\"stage\":\"render\",\"at\":\"2026-10-26T01:03:38.494Z\"}"
+  },
+  {
+    "id": "3.2-sp_009",
+    "title": "сцена sp_009: ready, прежние версии (sha256 каталогов) не изменены",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"ready\",\"before\":[{\"id\":\"ver_01M5TT5RBVWG1JP3F704KNFN0P\",\"number\":1,\"status\":\"ready\",\"sha256\":\"d42fed291a1a49aeb3555a997db1c613b6730ff9236b1836a92b666418629b3c\"},{\"id\":\"ver_01M5TTVPKQFBTM8498M8JPKC8E\",\"number\":2,\"status\":\"ready\",\"sha256\":\"ca39ed7f4b7198d75c66dd7c44de1129b5ffd1b0ca117f4777f121f61338dcf7\"}],\"after\":[{\"id\":\"ver_01M5TT5RBVWG1JP3F704KNFN0P\",\"number\":1,\"status\":\"ready\",\"sha256\":\"d42fed291a1a49aeb3555a997db1c613b6730ff9236b1836a92b666418629b3c\"},{\"id\":\"ver_01M5TTVPKQFBTM8498M8JPKC8E\",\"number\":2,\"status\":\"ready\",\"sha256\":\"ca39ed7f4b7198d75c66dd7c44de1129b5ffd1b0ca117f4777f121f61338dcf7\"},{\"id\":\"ver_01M5TVQYFVWSKJYR74K5J5J6AC\",\"number\":3,\"status\":\"ready\",\"sha256\":\"aecbc447867510bef810aada70e0aa6b360b7c9488c76bc38c698116379f0ac1\"}]}"
+  },
+  {
+    "id": "3.3-sp_009",
+    "title": "сцена sp_009: C не изменено",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"before\":{\"state\":\"valid\",\"approval_id\":\"apr_01M5TVGBFP7X5VWZ8QAFSJEYSR\",\"version_id\":\"ver_01M5TTVPKQFBTM8498M8JPKC8E\",\"version_number\":2},\"after\":{\"state\":\"valid\",\"approval_id\":\"apr_01M5TVGBFP7X5VWZ8QAFSJEYSR\",\"version_id\":\"ver_01M5TTVPKQFBTM8498M8JPKC8E\",\"version_number\":2}}"
+  },
+  {
+    "id": "3.2-sp_003",
+    "title": "сцена sp_003: ready, прежние версии (sha256 каталогов) не изменены",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"ready\",\"before\":[{\"id\":\"ver_01M5TTDDQ3T3Y9XCTBCKWX8QDK\",\"number\":1,\"status\":\"ready\",\"sha256\":\"b3bbf870103c5f856e3e64199135614ac08f169e84f419cd2030e9e12dd9095a\"},{\"id\":\"ver_01M5TV41PEBT45TQ36369M0ZAG\",\"number\":2,\"status\":\"ready\",\"sha256\":\"fb1eeae757307b3dbaaa8b7a154c3499c35ae43187c7b2bccd0f63193ad0d835\"}],\"after\":[{\"id\":\"ver_01M5TTDDQ3T3Y9XCTBCKWX8QDK\",\"number\":1,\"status\":\"ready\",\"sha256\":\"b3bbf870103c5f856e3e64199135614ac08f169e84f419cd2030e9e12dd9095a\"},{\"id\":\"ver_01M5TV41PEBT45TQ36369M0ZAG\",\"number\":2,\"status\":\"ready\",\"sha256\":\"fb1eeae757307b3dbaaa8b7a154c3499c35ae43187c7b2bccd0f63193ad0d835\"},{\"id\":\"ver_01M5TVX5B6NHV89AJ95AX7VA5V\",\"number\":3,\"status\":\"ready\",\"sha256\":\"2d0c849f3b635e7aaf6b160f490d174741bc9093d5ae5a778967a515427145ac\"}]}"
+  },
+  {
+    "id": "3.3-sp_003",
+    "title": "сцена sp_003: C не изменено",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"before\":{\"state\":\"valid\",\"approval_id\":\"apr_01M5TVGBH6DJAD99ZTK44QYAGM\",\"version_id\":\"ver_01M5TV41PEBT45TQ36369M0ZAG\",\"version_number\":2},\"after\":{\"state\":\"valid\",\"approval_id\":\"apr_01M5TVGBH6DJAD99ZTK44QYAGM\",\"version_id\":\"ver_01M5TV41PEBT45TQ36369M0ZAG\",\"version_number\":2}}"
+  },
+  {
+    "id": "3.4",
+    "title": "сцена 2: новая попытка или failed с причиной",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"attempt\":1,\"interrupts\":0,\"error\":null,\"scene\":\"ready\"}"
+  },
+  {
+    "id": "3.5",
+    "title": "очередь не встала: все задачи пакета в конечном статусе",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"total\":3,\"pending\":0,\"running\":0,\"ready\":3,\"failed\":0,\"cancelled\":0,\"blocked\":0}"
+  }
+]

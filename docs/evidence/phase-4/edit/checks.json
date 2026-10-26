@@ -1,0 +1,93 @@
+[
+  {
+    "id": "4.1",
+    "title": "сцена 1: обе правки чатом завершены, версии ready",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"a\":\"completed\",\"b\":\"completed\",\"err_a\":null,\"err_b\":null}"
+  },
+  {
+    "id": "4.2",
+    "title": "две правки подряд: интервалы задач не пересекаются",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"a\":[\"2026-10-26T01:15:11.105Z\",\"2026-10-26T01:31:21.244Z\"],\"b\":[\"2026-10-26T01:31:21.255Z\",\"2026-10-26T01:35:20.646Z\"]}"
+  },
+  {
+    "id": "4.3",
+    "title": "вторая правка — от результата первой (parent = версия первой)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"va\":\"ver_01M5TXARQSNJ509919CH17ECV2\",\"vb_parent\":\"ver_01M5TXARQSNJ509919CH17ECV2\"}"
+  },
+  {
+    "id": "4.4",
+    "title": "длительность правок = кадрам плана",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"plan\":93,\"va\":93,\"vb\":93}"
+  },
+  {
+    "id": "4.5",
+    "title": "«Сравнить» v1 с текущей — два плеера версий",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"url\":\"http://127.0.0.1:8791/scenes/scn_01M5TST0MGYW86H3YMPM4190H8/compare?a=ver_01M5TXJ2H4B29GRG5091G5Q2G9&b=ver_01M5TT5RBVWG1JP3F704KNFN0P\",\"v1\":\"ver_01M5TT5RBVWG1JP3F704KNFN0P\",\"current\":\"ver_01M5TXJ2H4B29GRG5091G5Q2G9\"}"
+  },
+  {
+    "id": "4.6",
+    "title": "«Восстановить» v1 → новая версия от v1",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"job\":\"completed\",\"version\":6,\"parent\":\"ver_01M5TT5RBVWG1JP3F704KNFN0P\",\"v1\":\"ver_01M5TT5RBVWG1JP3F704KNFN0P\"}"
+  },
+  {
+    "id": "4.7",
+    "title": "история цела: прежние версии не изменены (sha256), номера подряд",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"numbers\":[1,2,3,4,5,6],\"intact\":true}"
+  },
+  {
+    "id": "4.8",
+    "title": "FPS видеосцены — только чтение (FPS проекта)",
+    "kind": "A",
+    "pass": true,
+    "detail": "30"
+  },
+  {
+    "id": "4.9",
+    "title": "сцена 3: правка параметров → новая версия ready той же длины",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"job\":\"completed\",\"error\":null,\"frames\":110,\"plan\":110}"
+  },
+  {
+    "id": "4.10",
+    "title": "сцена 2: «Перегенерировать» → новая версия",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"before\":3,\"after\":4,\"status\":\"ready\",\"cost_usd\":1.755}"
+  },
+  {
+    "id": "4.11",
+    "title": "границы сцены 3 сдвинуты → новая ревизия плана, длина сцены изменилась",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"from\":{\"end\":\"w_000165\",\"frames\":110},\"to\":{\"end\":\"w_000171\",\"frames\":217},\"revision\":21,\"tried\":[{\"wid\":\"w_000171\",\"status\":201}]}"
+  },
+  {
+    "id": "4.12",
+    "title": "после B сцена 3 — stale, остальные — нет",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"s3\":true,\"others\":[{\"id\":\"sp_009\",\"stale\":false,\"approval\":\"valid\"},{\"id\":\"sp_002\",\"stale\":false,\"approval\":\"missing\"},{\"id\":\"sp_008\",\"stale\":false,\"approval\":\"missing\"}]}"
+  },
+  {
+    "id": "4.13",
+    "title": "перегенерация stale-сцены → версия с новой плановой длиной, не stale",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"ready\",\"stale\":false,\"frames\":217,\"plan\":217}"
+  }
+]

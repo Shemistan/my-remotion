@@ -1,0 +1,28 @@
+{
+  "item": "sp_003",
+  "from": "energetic",
+  "job": {
+    "id": "job_01M5TXQBA2ZJEF9D103FC0P2FM",
+    "status": "completed",
+    "stage": "publish",
+    "attempt": 1,
+    "interrupts": 0,
+    "started_at": "2026-10-26T01:38:13.868Z",
+    "finished_at": "2026-10-26T01:39:48.537Z",
+    "error_json": null,
+    "input_refs_json": "{\"sceneId\":\"scn_01M5TST0N4DV77XB9YK44E9BPM\",\"plan\":{\"base_version_id\":\"ver_01M5TVX5B6NHV89AJ95AX7VA5V\",\"path\":\"param\",\"changes\":[{\"target\":\"settings.animation_intensity\",\"kind\":\"param\",\"description\":\"animation_intensity = \\\"calm\\\"\"}],\"borrow\":[],\"preserve\":[\"composition\",\"text\"],\"reply\":\"Применяю новые настройки сцены.\"},\"settings_patch\":{\"animation_intensity\":\"calm\"}}"
+  },
+  "version": {
+    "id": "ver_01M5TXT84R4MWV3FD6KHFBRQ9X",
+    "scene_id": "scn_01M5TST0N4DV77XB9YK44E9BPM",
+    "number": 4,
+    "status": "ready",
+    "parent_version_id": "ver_01M5TVX5B6NHV89AJ95AX7VA5V",
+    "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0N4DV77XB9YK44E9BPM/versions/ver_01M5TXT84R4MWV3FD6KHFBRQ9X",
+    "created_by_job_id": "job_01M5TXQBA2ZJEF9D103FC0P2FM",
+    "settings_json": "{\"aspect_ratio\":\"16:9\",\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1},\"duration_frames\":110,\"style_preset\":\"dark-premium\",\"animation_intensity\":\"calm\",\"background\":\"#0b0d12\",\"transparent_export\":false,\"safe_area\":{\"x\":0.05,\"y\":0.05},\"style_lock\":{\"depth\":2}}",
+    "manifest_sha256": "d6a2ded7cdcbfddc0f95ef2e21bcab5da4768ebcbf0351349962a695f16d9cdc"
+  },
+  "plan_frames": 110,
+  "cost_usd": 0.199
+}

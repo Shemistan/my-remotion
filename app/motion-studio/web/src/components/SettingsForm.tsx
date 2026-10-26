@@ -12,6 +12,8 @@ export interface SettingsFormProps {
   disabled?: boolean;
   /** Длительность задана снаружи (сцена видеопроекта — планом): поле только для чтения, текст — подсказка. */
   durationLocked?: string;
+  /** FPS задан снаружи (сцена видеопроекта — FPS проекта, Task 41): поле только для чтения, текст — подсказка. */
+  fpsLocked?: string;
 }
 
 type Field = "fps" | "duration" | "palette" | "safeX" | "safeY" | "background" | "font";
@@ -53,7 +55,7 @@ function parseFps(raw: string): Settings["fps"] | null {
   return Number.isInteger(n) && n >= 1 && n <= 120 ? { num: n, den: 1 } : null;
 }
 
-export function SettingsForm({ value, onChange, disabled, durationLocked }: SettingsFormProps) {
+export function SettingsForm({ value, onChange, disabled, durationLocked, fpsLocked }: SettingsFormProps) {
   const id = useId();
   const [drafts, setDrafts] = useState<Partial<Record<Field, string>>>({});
   const [errors, setErrors] = useState<Partial<Record<Field, TKey>>>({});
@@ -106,12 +108,12 @@ export function SettingsForm({ value, onChange, disabled, durationLocked }: Sett
         </select>
       ))}
       {row("settings.fps", (cid) => (
-        <input id={cid} inputMode="decimal" value={shown("fps", fpsText(value.fps))} onChange={(e) => {
+        <input id={cid} inputMode="decimal" readOnly={fpsLocked !== undefined} value={shown("fps", fpsText(value.fps))} onChange={(e) => {
           const fps = parseFps(e.target.value);
           const dur = fps ? Math.max(1, Math.round((seconds(value) * fps.num) / fps.den)) : 0;
           accept("fps", fps ? { ...value, fps, duration_frames: dur } : null, e.target.value, "settings.errors.fps");
         }} />
-      ), "fps")}
+      ), "fps", fpsLocked)}
       {row("settings.duration", (cid) => (
         <input id={cid} type="number" min={0.1} step={0.1} readOnly={durationLocked !== undefined} value={shown("duration", String(Math.round(seconds(value) * 100) / 100))} onChange={(e) => {
           const s = Number(e.target.value.replace(",", "."));
