@@ -58,17 +58,17 @@ export const JOB_ERROR_CATALOG: Record<JobErrorCode, ErrorCatalogEntry> = {
 
 /** Ошибки API без особых действий: заголовок — `errors.<код>`. */
 const API_PLAIN = [
-  "anchor_in_cut", "approval_unsupported", "bad_range", "blocking_issues", "confirm_mismatch", "edl_not_found", "empty_block",
+  "anchor_in_cut", "approval_unsupported", "bad_range", "blocking_issues", "clip_not_found", "confirm_mismatch", "edl_not_found", "empty_block",
   "empty_cut", "empty_ops", "empty_patch", "empty_range", "export_not_ready", "footage_missing", "fst_err_ctp_body_too_large", "generic",
   "idempotency_key_reused", "import_in_progress", "intent_expired", "invalid_text", "invalid_title", "item_stale",
   "items_unresolved", "job_not_awaiting_input", "job_not_retryable", "length_required", "media_exists", "media_invalid",
   "media_not_found", "no_change", "no_current_version", "no_edl", "no_items", "no_media", "no_plan", "no_script", "no_style",
   "no_transcript", "no_versions", "not_found", "not_implemented", "not_script_project", "not_video_project", "nothing_to_fill",
-  "order", "overlap", "overlay_mp4", "overlay_unsupported", "plan_exists", "plan_not_found", "project_archived", "project_deleted",
+  "order", "overlap", "overlay_mp4", "overlay_unsupported", "override_reason_required", "plan_exists", "plan_not_found", "project_archived", "project_deleted",
   "project_protected", "proposed_left", "purge_retry_forbidden", "quarantine_not_found", "quote_mismatch", "restore_conflict",
-  "script_too_long", "semantic_missing", "span_too_large", "style_contrast", "style_invalid", "too_many_ops", "transcript_not_found",
+  "script_too_long", "semantic_missing", "span_too_large", "style_contrast", "style_invalid", "timeline_not_found", "too_many_ops", "transcript_not_found",
   "trash_not_found", "trash_purging", "unknown_decision", "unknown_item", "unknown_word", "upload_aborted",
-  "upload_length_mismatch", "upload_too_large", "validation", "version_not_ready", "word_out_of_range",
+  "upload_length_mismatch", "upload_too_large", "validation", "version_not_approved", "version_not_ready", "word_out_of_range",
 ] as const;
 
 /** Ошибки API с действием. */

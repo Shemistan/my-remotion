@@ -10,6 +10,7 @@ import { JobErrorCodeSchema } from "./failure.js";
 import { JobSchema } from "./jobs.js";
 import { QAIssueSchema } from "./qa.js";
 import { VideoTimelineDocSchema, TimelineOpSchema } from "./timeline-render.js";
+import { FpsSchema } from "./time.js";
 import { PlacementSchema, VideoPackageManifestSchema } from "./video-scene.js";
 
 const Ts = z.string().datetime();
@@ -149,6 +150,17 @@ export const FinalExportDtoSchema = z.object({
   verify: FinalVerifyReportSchema.nullable(),
   job: JobSchema.nullable(),
   created_at: Ts,
+  // Task 45: размер файла, выход из манифеста и итог повтора (`compare.json`) — для истории экспортов
+  bytes: Count.optional(),
+  output: z.object({ width: z.number().int().positive(), height: z.number().int().positive(), fps: FpsSchema, frames: z.number().int().positive() }).strict().optional(),
+  compare: z.object({
+    reproduced_from: Id,
+    inputs_equal: z.boolean(),
+    probe_equal: z.boolean(),
+    frames: z.array(z.object({ frame: Count, psnr_db: z.number() }).strict()),
+    file_sha256_equal: z.boolean(),
+    verdict: z.enum(["reproduced", "differs"]),
+  }).strict().optional(),
 }).strict();
 export type FinalExportDto = z.infer<typeof FinalExportDtoSchema>;
 

@@ -73,10 +73,11 @@ const wid = (i: number) => `w_${String(i).padStart(6, "0")}`;
 
 type Opp = VisualPlannerOutput["opportunities"][number];
 /** Сцена плана словами `s..e` (номера с 1), как в ответе Visual Planner. */
-function opp(id: string, s: number, e: number, words: TranscriptWord[], o: Pick<Opp, "composition_mode" | "zone" | "visual_type" | "purpose">): Opp {
+function opp(id: string, s: number, e: number, words: TranscriptWord[], o: Pick<Opp, "composition_mode" | "zone" | "visual_type" | "purpose">, key?: number): Opp {
   const quote = words.slice(s - 1, e).map((w) => w.text).join(" ");
+  const key_terms = key === undefined ? [] : [{ text: words[key - 1]!.text, word_id: wid(key) }];
   return {
-    id, anchor_ids: [`a_${id}`], start_word_id: wid(s), end_word_id: wid(e), decision: "plan", key_terms: [], metaphor: "", complexity: 2, usefulness: 4,
+    id, anchor_ids: [`a_${id}`], start_word_id: wid(s), end_word_id: wid(e), decision: "plan", key_terms, metaphor: "", complexity: 2, usefulness: 4,
     effort: 2, visual_load: 2, evidence: [{ quote, start_word_id: wid(s), end_word_id: wid(e) }], ...o,
   };
 }
@@ -110,10 +111,16 @@ function fixtureDir(base: string, item: ScenePlanItem, settings: ReturnType<type
   return dir;
 }
 
-export async function seedVideoScenes(core: Core, mine: Set<string>, workDir: string): Promise<SeededVideoScenes> {
+/** Task 45: свой проект для таймлайна — название и ключевые слова сцен (якоря таймлайна). */
+export interface SeedVideoScenesOptions {
+  title?: string;
+  keyTerms?: boolean;
+}
+
+export async function seedVideoScenes(core: Core, mine: Set<string>, workDir: string, o: SeedVideoScenesOptions = {}): Promise<SeededVideoScenes> {
   const { db, root } = core;
   const projectId = newId("prj");
-  projects.create(db, { id: projectId, kind: "video", title: VIDEO_TITLE, settings: defaultSettings() });
+  projects.create(db, { id: projectId, kind: "video", title: o.title ?? VIDEO_TITLE, settings: defaultSettings() });
   const store = new ArtifactStore({ root, db, guard: core.storageCheck });
   const paths = artifactPaths(root, projectId);
 
@@ -168,8 +175,8 @@ export async function seedVideoScenes(core: Core, mine: Set<string>, workDir: st
   const out: VisualPlannerOutput = {
     style: { ...STYLE, rationale: "фикстура UI-e2e" },
     opportunities: [
-      opp("o1", 7, 13, words, { composition_mode: "overlay", zone: "left_third", visual_type: "growth-decline", purpose: "показать рост выручки" }),
-      opp("o2", 14, 19, words, { composition_mode: "fullscreen", zone: "full", visual_type: "key-point-emphasis", purpose: "итог команды" }),
+      opp("o1", 7, 13, words, { composition_mode: "overlay", zone: "left_third", visual_type: "growth-decline", purpose: "показать рост выручки" }, o.keyTerms ? 9 : undefined),
+      opp("o2", 14, 19, words, { composition_mode: "fullscreen", zone: "full", visual_type: "key-point-emphasis", purpose: "итог команды" }, o.keyTerms ? 16 : undefined),
       opp("o3", 20, 27, words, { composition_mode: "overlay", zone: "lower_third", visual_type: "key-point-emphasis", purpose: "что дальше" }),
     ],
   };

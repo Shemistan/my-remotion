@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { api, newKey, urls } from "../api/client.js";
 import { isActive, useAppSettings, useJobs, useProject } from "../api/queries.js";
+import { timelineUrls } from "../api/timeline-client.js";
 import { stageText } from "../components/JobStatus.js";
 import { Link } from "../components/Link.js";
 import { SettingsForm } from "../components/SettingsForm.js";
@@ -25,6 +26,8 @@ function exportIdOf(j: Job): string | undefined {
   const id = (j.output_refs as { export_id?: unknown } | null)?.export_id;
   return typeof id === "string" ? id : undefined;
 }
+
+const isFinal = (j: Job): boolean => j.type === "final.render" || j.type === "final.reproduce";
 
 function NewProject() {
   const id = useId();
@@ -85,7 +88,8 @@ function ActiveJobs({ q }: { q: JobsQuery }) {
 }
 
 function RecentExports({ q }: { q: JobsQuery }) {
-  const done = (q.data ?? []).filter((j) => j.type === "scene.export" && j.status === "completed" && exportIdOf(j)).slice(-10).reverse();
+  // Task 45: и финалы видеопроектов (`final.render`, `final.reproduce`) — файл финала
+  const done = (q.data ?? []).filter((j) => (j.type === "scene.export" || isFinal(j)) && j.status === "completed" && exportIdOf(j)).slice(-10).reverse();
   return (
     <section className="panel">
       <h2>{t("dashboard.recentExports")}</h2>
@@ -93,11 +97,12 @@ function RecentExports({ q }: { q: JobsQuery }) {
         <ul className="job-list">
           {done.map((j) => {
             const format = (j.output_refs as { format?: string } | null)?.format ?? "";
+            const final = isFinal(j);
             return (
               <li key={j.id}>
-                <span>{tk(`export.format.${format}`, format)}</span>
+                <span>{final ? t("dashboard.finalExport") : tk(`export.format.${format}`, format)}</span>
                 <span className="muted">{j.finished_at ? dateTime(j.finished_at) : ""}</span>
-                <a href={urls.exportFile(exportIdOf(j)!)} download>{t("export.download")}</a>
+                <a href={final ? timelineUrls.finalFile(exportIdOf(j)!) : urls.exportFile(exportIdOf(j)!)} download>{t("export.download")}</a>
               </li>
             );
           })}
