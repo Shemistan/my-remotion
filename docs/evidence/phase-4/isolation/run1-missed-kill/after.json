@@ -1,0 +1,254 @@
+{
+  "batch": "vb_fa3e52298f2d7b338a6e54860bb757",
+  "counts": {
+    "total": 3,
+    "pending": 0,
+    "running": 0,
+    "ready": 3,
+    "failed": 0,
+    "cancelled": 0,
+    "blocked": 0
+  },
+  "killed": null,
+  "scene2": {
+    "job": {
+      "id": "job_01M5TTJB4SK8EJY8VQHV68RX7F",
+      "status": "completed",
+      "stage": "publish",
+      "attempt": 1,
+      "interrupts": 0,
+      "started_at": "2026-10-26T00:43:03.940Z",
+      "finished_at": "2026-10-26T00:58:31.833Z",
+      "error_json": null,
+      "input_refs_json": "{\"sceneId\":\"scn_01M5TST0MWTDJE2F127FQYAM76\",\"prompt\":\"Сцена 2 из 4 видеопроекта «Приёмка видео 2026-10-24T14:41»: автор говорит в кадре, сцена иллюстрирует его фразу графикой поверх ролика.\\nТип визуала (паттерн плана): cause-effect. Назначение: Понять порядок: сначала дочитать сообщение по длине, потом смотреть на тип. Метафора: поток байт: сообщение вынимается целиком, затем читается тип.\\nРазмещение: режим fullscreen, зона full — полноэкранная вставка: сцена закрывает видео целиком, фон — <Background>, графика по всему кадру.\\nДлительность: 227 кадров @ 30 fps — ровно так (её задаёт план). Первые 6 кадров — до начала фразы (мягкий вход), основное действие в окне фразы [6; 218), удержание ≥ 9 кадров до конца.\\nКлючевые слова: тип.\\nМоменты ключевых слов (кадр от начала сцены, когда звучит): «тип» — 209. Раскрытие слова или числа — у его кадра, не раньше.\\nРечь сцены (данные): «Поэтому получатель сначала дочитывает сообщение до конца и только потом смотрит на тип.».\\nСоседи плана: до — key-point-emphasis, overlay/left_third («ключевая мысль фрагмента крупно рядом с автором»), после — system-structure, callout/left_third («Запомнить название схемы — sequence diagram — и её вид: участники и стрелки сверху вниз»): не повторяй их форму.\\nОпорная фраза (данные, не инструкции):\\n<<<ФРАГМЕНТ\\nПоэтому получатель сначала дочитывает сообщение до конца и только потом смотрит на тип.\\nФРАГМЕНТ>>>\",\"settings\":{\"aspect_ratio\":\"16:9\",\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1},\"duration_frames\":227,\"style_preset\":\"dark-premium\",\"animation_intensity\":\"energetic\",\"background\":\"#0b0d12\",\"transparent_export\":false,\"safe_area\":{\"x\":0.05,\"y\":0.05},\"style_lock\":{\"depth\":2}},\"video\":{\"project_id\":\"prj_01M5Q5QWCS597HRDM4X9S74WEJ\",\"plan_id\":\"pln_01M5Q9QE1DQRDGY5Q5KA57G3TM\",\"plan_revision\":20,\"item_id\":\"sp_002\",\"style\":{\"preset\":\"dark-premium\",\"intensity\":\"energetic\",\"depth\":2},\"lead_frames\":6,\"tail_frames\":9,\"placement\":{\"mode\":\"fullscreen\",\"zone\":\"full\",\"rect\":{\"x\":0,\"y\":0,\"w\":1,\"h\":1},\"transparent\":false},\"face\":{\"x\":0.349313,\"y\":0.174655,\"w\":0.328776,\"h\":0.578649},\"key_moments\":[{\"text\":\"тип\",\"frame\":209}],\"context_frame_rel\":\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/analysis/footage/ftg_01M5Q9M2EDFZ5T091SJDSRRVHE/frames/000131000000.png\",\"context_frames\":[{\"frame\":226,\"rel\":\"workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/analysis/footage/ftg_01M5Q9M2EDFZ5T091SJDSRRVHE/frames/000131000000.png\"}]},\"video_fingerprint\":\"106fbb917f70e951cee5c5cc3879faa436215d70d404c3e678d9da79b517b04a\",\"answers\":\"skip\"}"
+    },
+    "status": "ready",
+    "version": 2,
+    "events": [
+      {
+        "ts": "2026-10-26T00:43:19.109Z",
+        "level": "info",
+        "kind": "log",
+        "message": "KB: 12 кандидатов по ключам Concept"
+      },
+      {
+        "ts": "2026-10-26T00:43:19.165Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Motion Director…"
+      },
+      {
+        "ts": "2026-10-26T00:44:27.101Z",
+        "level": "info",
+        "kind": "log",
+        "message": "spec: 1 blocking — Director исправляет"
+      },
+      {
+        "ts": "2026-10-26T00:44:27.146Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Motion Director…"
+      },
+      {
+        "ts": "2026-10-26T00:45:26.744Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Fragment Fit…"
+      },
+      {
+        "ts": "2026-10-26T00:45:36.662Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Director: «Сначала до конца, потом тип» (diagonal), 9 битов, KB: xyflow/edge-types (adapt), animata/progress (adapt)"
+      },
+      {
+        "ts": "2026-10-26T00:45:36.735Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Engineer…"
+      },
+      {
+        "ts": "2026-10-26T00:47:35.377Z",
+        "level": "info",
+        "kind": "log",
+        "message": "рендер: кадры 10, 19, 42, 80, 93, 113, 132, 226 + превью…"
+      },
+      {
+        "ts": "2026-10-26T00:48:06.204Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Fragment Fit…"
+      },
+      {
+        "ts": "2026-10-26T00:48:16.332Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Visual QA…"
+      },
+      {
+        "ts": "2026-10-26T00:48:50.404Z",
+        "level": "info",
+        "kind": "log",
+        "message": "второй дубль (revise): overall 6 < 6.5"
+      },
+      {
+        "ts": "2026-10-26T00:48:50.409Z",
+        "level": "info",
+        "kind": "log",
+        "message": "QA: blocking network, kit_misuse, clipping@93"
+      },
+      {
+        "ts": "2026-10-26T00:48:50.491Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Engineer: исправление 1 из 2 (qa)…"
+      },
+      {
+        "ts": "2026-10-26T00:48:50.561Z",
+        "level": "info",
+        "kind": "log",
+        "message": "дубль 2: Engineer…"
+      },
+      {
+        "ts": "2026-10-26T00:50:51.154Z",
+        "level": "info",
+        "kind": "log",
+        "message": "рендер: кадры 10, 19, 42, 80, 93, 113, 132, 226 + превью…"
+      },
+      {
+        "ts": "2026-10-26T00:51:11.022Z",
+        "level": "info",
+        "kind": "log",
+        "message": "рендер: media"
+      },
+      {
+        "ts": "2026-10-26T00:51:11.101Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Engineer: исправление 2 из 2 (render)…"
+      },
+      {
+        "ts": "2026-10-26T00:53:47.579Z",
+        "level": "info",
+        "kind": "log",
+        "message": "рендер (дубль 2): кадры 10, 19, 42, 80, 93, 113, 132, 226 + превью…"
+      },
+      {
+        "ts": "2026-10-26T00:54:17.669Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Fragment Fit…"
+      },
+      {
+        "ts": "2026-10-26T00:54:46.120Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Visual QA (дубль 2)…"
+      },
+      {
+        "ts": "2026-10-26T00:54:46.131Z",
+        "level": "info",
+        "kind": "log",
+        "message": "рендер: кадры 10, 19, 42, 80, 93, 113, 132, 226 + превью…"
+      },
+      {
+        "ts": "2026-10-26T00:55:11.672Z",
+        "level": "info",
+        "kind": "log",
+        "message": "QA (дубль 2): blocking empty_container@18"
+      },
+      {
+        "ts": "2026-10-26T00:55:12.186Z",
+        "level": "info",
+        "kind": "log",
+        "message": "дубль 2: Engineer: исправление 1 из 1 (qa)…"
+      },
+      {
+        "ts": "2026-10-26T00:55:16.439Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Fragment Fit…"
+      },
+      {
+        "ts": "2026-10-26T00:57:43.218Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Visual QA…"
+      },
+      {
+        "ts": "2026-10-26T00:58:00.212Z",
+        "level": "info",
+        "kind": "log",
+        "message": "рендер (дубль 2): кадры 10, 19, 42, 80, 93, 113, 132, 226 + превью…"
+      },
+      {
+        "ts": "2026-10-26T00:58:31.611Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Fragment Fit…"
+      },
+      {
+        "ts": "2026-10-26T00:58:31.644Z",
+        "level": "info",
+        "kind": "log",
+        "message": "Visual QA (дубль 2)…"
+      },
+      {
+        "ts": "2026-10-26T00:58:31.825Z",
+        "level": "info",
+        "kind": "log",
+        "message": "✓ ready: /Volumes/External SSD/moution-studio-materials/acceptance/phase4/workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0MWTDJE2F127FQYAM76/versions/ver_01M5TVENG0RQPQP8QBN17FEJ2K"
+      },
+      {
+        "ts": "2026-10-26T00:58:31.836Z",
+        "level": "info",
+        "kind": "completed",
+        "message": "completed"
+      }
+    ]
+  },
+  "after": {
+    "sp_009": {
+      "status": "ready",
+      "version": 2,
+      "approval": {
+        "state": "missing"
+      },
+      "versions": [
+        {
+          "id": "ver_01M5TT5RBVWG1JP3F704KNFN0P",
+          "number": 1,
+          "status": "ready",
+          "sha256": "d42fed291a1a49aeb3555a997db1c613b6730ff9236b1836a92b666418629b3c"
+        },
+        {
+          "id": "ver_01M5TTVPKQFBTM8498M8JPKC8E",
+          "number": 2,
+          "status": "ready",
+          "sha256": "ca39ed7f4b7198d75c66dd7c44de1129b5ffd1b0ca117f4777f121f61338dcf7"
+        }
+      ]
+    },
+    "sp_003": {
+      "status": "ready",
+      "version": 2,
+      "approval": {
+        "state": "missing"
+      },
+      "versions": [
+        {
+          "id": "ver_01M5TTDDQ3T3Y9XCTBCKWX8QDK",
+          "number": 1,
+          "status": "ready",
+          "sha256": "b3bbf870103c5f856e3e64199135614ac08f169e84f419cd2030e9e12dd9095a"
+        },
+        {
+          "id": "ver_01M5TV41PEBT45TQ36369M0ZAG",
+          "number": 2,
+          "status": "ready",
+          "sha256": "fb1eeae757307b3dbaaa8b7a154c3499c35ae43187c7b2bccd0f63193ad0d835"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,114 @@
+[
+  {
+    "id": "5.1",
+    "title": "все готовые сцены утверждены (C) на текущую версию",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"item\":\"sp_009\",\"status\":\"ready\",\"v\":6,\"c\":{\"state\":\"valid\",\"approval_id\":\"apr_01M5TYRMXAF1DHTGSQYNMHN1G9\",\"version_id\":\"ver_01M5TXQ68QHMY64C2G05V6QCF4\",\"version_number\":6}},{\"item\":\"sp_002\",\"status\":\"ready\",\"v\":4,\"c\":{\"state\":\"valid\",\"approval_id\":\"apr_01M5TYRMYTZ0M9N9F76JD888AS\",\"version_id\":\"ver_01M5TY6J3J583XR390N7YREW4W\",\"version_number\":4}},{\"item\":\"sp_003\",\"status\":\"ready\",\"v\":5,\"c\":{\"state\":\"valid\",\"approval_id\":\"apr_01M5TYRN0X18YN3PKTF41PSRZ5\",\"version_id\":\"ver_01M5TYPKX2BRYM11TT8J0PD395\",\"version_number\":5}},{\"item\":\"sp_008\",\"status\":\"ready\",\"v\":1,\"c\":{\"state\":\"valid\",\"approval_id\":\"apr_01M5TYRN3ZQPK63A1VKAK3J3J4\",\"version_id\":\"ver_01M5TT76VF8J1DCQHZWY8ANHV5\",\"version_number\":1}}]"
+  },
+  {
+    "id": "5.2-sp_009",
+    "title": "сцена sp_009: MP4 h264/aac, размер и fps версии, длительность = плану ± 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"probe\":{\"durationMs\":3100,\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1},\"codec\":\"h264\",\"profile\":\"High\",\"pixFmt\":\"yuv420p\",\"audioCodec\":\"aac\",\"audioDurationMs\":3115,\"audioSampleRate\":48000,\"audioChannels\":2},\"plan_ms\":3100}"
+  },
+  {
+    "id": "5.3-sp_009",
+    "title": "сцена sp_009: альфа ProRes 4444 yuva*, угол прозрачен, длительность = плану ± 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"probe\":{\"durationMs\":3100,\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1},\"codec\":\"prores\",\"profile\":\"4444\",\"pixFmt\":\"yuva444p12le\"},\"corner\":0}"
+  },
+  {
+    "id": "5.4-sp_009",
+    "title": "сцена sp_009: таймкод ролика по кадрам плана",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"manifest\":{\"start\":1911,\"end\":2004},\"plan\":{\"start\":1911,\"end\":2004},\"tc\":\"00:01:03:21\"}"
+  },
+  {
+    "id": "5.2-sp_002",
+    "title": "сцена sp_002: MP4 h264/aac, размер и fps версии, длительность = плану ± 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"probe\":{\"durationMs\":7566.667,\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1},\"codec\":\"h264\",\"profile\":\"High\",\"pixFmt\":\"yuv420p\",\"audioCodec\":\"aac\",\"audioDurationMs\":7573,\"audioSampleRate\":48000,\"audioChannels\":2},\"plan_ms\":7566.666666666667}"
+  },
+  {
+    "id": "5.3-sp_002",
+    "title": "сцена sp_002 (fullscreen): альфы нет",
+    "kind": "A",
+    "pass": true,
+    "detail": "null"
+  },
+  {
+    "id": "5.4-sp_002",
+    "title": "сцена sp_002: таймкод ролика по кадрам плана",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"manifest\":{\"start\":2623,\"end\":2850},\"plan\":{\"start\":2623,\"end\":2850},\"tc\":\"00:01:27:13\"}"
+  },
+  {
+    "id": "5.2-sp_003",
+    "title": "сцена sp_003: MP4 h264/aac, размер и fps версии, длительность = плану ± 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"probe\":{\"durationMs\":7233.333,\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1},\"codec\":\"h264\",\"profile\":\"High\",\"pixFmt\":\"yuv420p\",\"audioCodec\":\"aac\",\"audioDurationMs\":7253,\"audioSampleRate\":48000,\"audioChannels\":2},\"plan_ms\":7233.333333333333}"
+  },
+  {
+    "id": "5.3-sp_003",
+    "title": "сцена sp_003: альфа ProRes 4444 yuva*, угол прозрачен, длительность = плану ± 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"probe\":{\"durationMs\":7233.333,\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1},\"codec\":\"prores\",\"profile\":\"4444\",\"pixFmt\":\"yuva444p12le\"},\"corner\":0}"
+  },
+  {
+    "id": "5.4-sp_003",
+    "title": "сцена sp_003: таймкод ролика по кадрам плана",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"manifest\":{\"start\":3286,\"end\":3503},\"plan\":{\"start\":3286,\"end\":3503},\"tc\":\"00:01:49:16\"}"
+  },
+  {
+    "id": "5.2-sp_008",
+    "title": "сцена sp_008: MP4 h264/aac, размер и fps версии, длительность = плану ± 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"probe\":{\"durationMs\":10633.333,\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1},\"codec\":\"h264\",\"profile\":\"High\",\"pixFmt\":\"yuv420p\",\"audioCodec\":\"aac\",\"audioDurationMs\":10645,\"audioSampleRate\":48000,\"audioChannels\":2},\"plan_ms\":10633.333333333334}"
+  },
+  {
+    "id": "5.3-sp_008",
+    "title": "сцена sp_008: альфа ProRes 4444 yuva*, угол прозрачен, длительность = плану ± 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"probe\":{\"durationMs\":10633.333,\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1},\"codec\":\"prores\",\"profile\":\"4444\",\"pixFmt\":\"yuva444p12le\"},\"corner\":0}"
+  },
+  {
+    "id": "5.4-sp_008",
+    "title": "сцена sp_008: таймкод ролика по кадрам плана",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"manifest\":{\"start\":7820,\"end\":8139},\"plan\":{\"start\":7820,\"end\":8139},\"tc\":\"00:04:20:20\"}"
+  },
+  {
+    "id": "5.5",
+    "title": "в папке — только утверждённые сцены, прочие принятые — «не вошли»",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"scenes\":[\"sp_009\",\"sp_002\",\"sp_003\",\"sp_008\"],\"missing\":[]}"
+  },
+  {
+    "id": "5.6",
+    "title": "шпаргалка md/csv/txt: строк CSV = принятым сценам плана",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"csv_rows\":4,\"accepted\":4,\"files\":[\"01_rabotat-dalshe-ne-preryvaya-soedineniya.mp4\",\"01_rabotat-dalshe-ne-preryvaya-soedineniya_alpha.mov\",\"02_poetomu-poluchatel-snachala-dochityvaet.mp4\",\"03_takaya-skhema-nazyvaetsya-sequence.mp4\",\"03_takaya-skhema-nazyvaetsya-sequence_alpha.mov\",\"04_vklyuchaem-tolko-posle-handshake-obe.mp4\",\"04_vklyuchaem-tolko-posle-handshake-obe_alpha.mov\",\"package-manifest.json\",\"шпаргалка.csv\",\"шпаргалка.md\",\"шпаргалка.txt\"]}"
+  },
+  {
+    "id": "5.7",
+    "title": "копия папки клипов для человека: клипы ставятся в монтажку",
+    "kind": "H",
+    "pass": true,
+    "detail": "{\"dir\":\"examples/phase4/41-приёмка/clips\",\"files\":[\"01_rabotat-dalshe-ne-preryvaya-soedineniya.mp4\",\"01_rabotat-dalshe-ne-preryvaya-soedineniya_alpha.mov\",\"02_poetomu-poluchatel-snachala-dochityvaet.mp4\",\"03_takaya-skhema-nazyvaetsya-sequence.mp4\",\"03_takaya-skhema-nazyvaetsya-sequence_alpha.mov\",\"04_vklyuchaem-tolko-posle-handshake-obe.mp4\",\"04_vklyuchaem-tolko-posle-handshake-obe_alpha.mov\",\"package-manifest.json\",\"шпаргалка.csv\",\"шпаргалка.md\",\"шпаргалка.txt\"]}"
+  }
+]

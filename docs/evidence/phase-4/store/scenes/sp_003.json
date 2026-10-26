@@ -1,0 +1,634 @@
+{
+  "video_scene": {
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "plan_id": "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM",
+    "item_id": "sp_003",
+    "scene_id": "scn_01M5TST0N4DV77XB9YK44E9BPM",
+    "batch_id": "vb_8e3ff6383da66ec065df66dfec8dbc",
+    "job_id": "job_01M5TYXBA9C9K0WRD830AKR2BB",
+    "item_fingerprint": "756146136aa1927f84e267a32b4f73e5ea052b22a56d177a2cc3dbcf5d6c0e11",
+    "created_at": "2026-10-26T00:29:46.563Z"
+  },
+  "scene": {
+    "id": "scn_01M5TST0N4DV77XB9YK44E9BPM",
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "title": "03 · Такая схема называется sequence diagram.",
+    "current_version_id": "ver_01M5TZ7W3Y3CYSK9H3QF1TQT5K",
+    "approved_version_id": "ver_01M5TYPKX2BRYM11TT8J0PD395",
+    "created_at": "2026-10-26T00:29:46.563Z"
+  },
+  "versions": [
+    {
+      "id": "ver_01M5TTDDQ3T3Y9XCTBCKWX8QDK",
+      "number": 1,
+      "status": "ready",
+      "parent_version_id": null,
+      "prompt": "Сцена 3 из 4 видеопроекта «Приёмка видео 2026-10-24T14:41»: автор говорит в кадре, сцена иллюстрирует его фразу графикой поверх ролика.\nТип визуала (паттерн плана): system-structure. Назначение: Запомнить название схемы — sequence diagram — и её вид: участники и стрелки сверху вниз. Метафора: две вертикальные линии участников.\nРазмещение: режим callout, зона left_third. Холст — весь кадр, но вся графика внутри <LayoutRect rect={props.layout.rect}>, rect = {\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84} (доли кадра); вне прямоугольника — пусто: там видео и лицо автора.\nРаскладка элементов spec — в долях этого прямоугольника ({\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84}), не кадра. Крупный герой и подписи помещаются в него целиком.\nСцену кладут поверх видео прозрачной (transparent = true): фон — только <Background>, своих заливок и плашек на весь кадр нет; текст читается на любом видео (карточка или ореол).\nДлительность: 110 кадров @ 30 fps — ровно так (её задаёт план). Первые 6 кадров — до начала фразы (мягкий вход), основное действие в окне фразы [6; 101), удержание ≥ 9 кадров до конца.\nКлючевые слова: sequence diagram.\nМоменты ключевых слов (кадр от начала сцены, когда звучит): «sequence diagram» — 63. Раскрытие слова или числа — у его кадра, не раньше.\nРечь сцены (данные): «Такая схема называется sequence diagram.».\nСоседи плана: до — cause-effect, fullscreen/full («Понять порядок: сначала дочитать сообщение по длине, потом смотреть на тип»), после — key-point-emphasis, overlay/left_third («Запомнить вывод: новые фичи включаются только после handshake, когда обе стороны их объявили»): не повторяй их форму.\nОпорная фраза (данные, не инструкции):\n<<<ФРАГМЕНТ\nТакая схема называется sequence diagram.\nФРАГМЕНТ>>>",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0N4DV77XB9YK44E9BPM/versions/ver_01M5TTDDQ3T3Y9XCTBCKWX8QDK",
+      "manifest_sha256": "93c304b36429092b2e8d3b679ad3ac9521a5731fe82a8bc3c4ce028098032ab6",
+      "created_by_job_id": "job_01M5TST0P32FWY2NGEM0ZNP71E",
+      "created_at": "2026-10-26T00:40:22.500Z",
+      "broken_reason": null,
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 110,
+        "style_preset": "dark-premium",
+        "animation_intensity": "energetic",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        },
+        "style_lock": {
+          "depth": 2
+        }
+      },
+      "qa": [
+        {
+          "attempt": 1,
+          "technical": "pass",
+          "visual": "warn",
+          "semantic": "warn",
+          "style": "pass",
+          "report_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0N4DV77XB9YK44E9BPM/versions/ver_01M5TTDDQ3T3Y9XCTBCKWX8QDK/qa.json",
+          "issues": [
+            {
+              "code": "frozen",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "empty_region",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "accent_static",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "frame0_coverage",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "semantic",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "hierarchy",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "composition",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "rhythm",
+              "severity": "warning",
+              "source": "agent"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "file": "preview.mp4",
+          "sha256": "64246e20ce3395dd7eff0fb4d95123761b3145f0fc74e8380d6e1d0238b34e34",
+          "ffprobe": {
+            "codec": "h264",
+            "profile": "High",
+            "pix_fmt": "yuv420p",
+            "width": 960,
+            "height": 540,
+            "r_frame_rate": "30/1",
+            "nb_frames": "110",
+            "duration": "3.666667",
+            "audio": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ver_01M5TV41PEBT45TQ36369M0ZAG",
+      "number": 2,
+      "status": "ready",
+      "parent_version_id": null,
+      "prompt": "Сцена 3 из 4 видеопроекта «Приёмка видео 2026-10-24T14:41»: автор говорит в кадре, сцена иллюстрирует его фразу графикой поверх ролика.\nТип визуала (паттерн плана): system-structure. Назначение: Запомнить название схемы — sequence diagram — и её вид: участники и стрелки сверху вниз. Метафора: две вертикальные линии участников.\nРазмещение: режим callout, зона left_third. Холст — весь кадр, но вся графика внутри <LayoutRect rect={props.layout.rect}>, rect = {\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84} (доли кадра); вне прямоугольника — пусто: там видео и лицо автора.\nРаскладка элементов spec — в долях этого прямоугольника ({\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84}), не кадра. Крупный герой и подписи помещаются в него целиком.\nСцену кладут поверх видео прозрачной (transparent = true): фон — только <Background>, своих заливок и плашек на весь кадр нет; текст читается на любом видео (карточка или ореол).\nДлительность: 110 кадров @ 30 fps — ровно так (её задаёт план). Первые 6 кадров — до начала фразы (мягкий вход), основное действие в окне фразы [6; 101), удержание ≥ 9 кадров до конца.\nКлючевые слова: sequence diagram.\nМоменты ключевых слов (кадр от начала сцены, когда звучит): «sequence diagram» — 63. Раскрытие слова или числа — у его кадра, не раньше.\nРечь сцены (данные): «Такая схема называется sequence diagram.».\nСоседи плана: до — cause-effect, fullscreen/full («Понять порядок: сначала дочитать сообщение по длине, потом смотреть на тип»), после — key-point-emphasis, overlay/left_third («Запомнить вывод: новые фичи включаются только после handshake, когда обе стороны их объявили»): не повторяй их форму.\nОпорная фраза (данные, не инструкции):\n<<<ФРАГМЕНТ\nТакая схема называется sequence diagram.\nФРАГМЕНТ>>>",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0N4DV77XB9YK44E9BPM/versions/ver_01M5TV41PEBT45TQ36369M0ZAG",
+      "manifest_sha256": "5c6b6a51c8f06ebdcbeb27fcdc589ac059dbd9b149590ea2878927f14184e360",
+      "created_by_job_id": "job_01M5TTJB4SK8EJY8VQHV68RX7G",
+      "created_at": "2026-10-26T00:52:43.856Z",
+      "broken_reason": null,
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 110,
+        "style_preset": "dark-premium",
+        "animation_intensity": "energetic",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        },
+        "style_lock": {
+          "depth": 2
+        }
+      },
+      "qa": [
+        {
+          "attempt": 1,
+          "technical": "pass",
+          "visual": "warn",
+          "semantic": "pass",
+          "style": "pass",
+          "report_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0N4DV77XB9YK44E9BPM/versions/ver_01M5TV41PEBT45TQ36369M0ZAG/qa.json",
+          "issues": [
+            {
+              "code": "frozen",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "empty_region",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "frame0_coverage",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "scene_signature_repeat",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "rhythm",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "rhythm",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "hold",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "composition",
+              "severity": "warning",
+              "source": "agent"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "file": "preview.mp4",
+          "sha256": "8bb7497c8e80ef398e3cedbd898b81440e9aaa634b189f13143ff2d06ed343a3",
+          "ffprobe": {
+            "codec": "h264",
+            "profile": "High",
+            "pix_fmt": "yuv420p",
+            "width": 960,
+            "height": 540,
+            "r_frame_rate": "30/1",
+            "nb_frames": "110",
+            "duration": "3.666667",
+            "audio": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ver_01M5TVX5B6NHV89AJ95AX7VA5V",
+      "number": 3,
+      "status": "ready",
+      "parent_version_id": null,
+      "prompt": "Сцена 3 из 4 видеопроекта «Приёмка видео 2026-10-24T14:41»: автор говорит в кадре, сцена иллюстрирует его фразу графикой поверх ролика.\nТип визуала (паттерн плана): system-structure. Назначение: Запомнить название схемы — sequence diagram — и её вид: участники и стрелки сверху вниз. Метафора: две вертикальные линии участников.\nРазмещение: режим callout, зона left_third. Холст — весь кадр, но вся графика внутри <LayoutRect rect={props.layout.rect}>, rect = {\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84} (доли кадра); вне прямоугольника — пусто: там видео и лицо автора.\nРаскладка элементов spec — в долях этого прямоугольника ({\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84}), не кадра. Крупный герой и подписи помещаются в него целиком.\nСцену кладут поверх видео прозрачной (transparent = true): фон — только <Background>, своих заливок и плашек на весь кадр нет; текст читается на любом видео (карточка или ореол).\nДлительность: 110 кадров @ 30 fps — ровно так (её задаёт план). Первые 6 кадров — до начала фразы (мягкий вход), основное действие в окне фразы [6; 101), удержание ≥ 9 кадров до конца.\nКлючевые слова: sequence diagram.\nМоменты ключевых слов (кадр от начала сцены, когда звучит): «sequence diagram» — 63. Раскрытие слова или числа — у его кадра, не раньше.\nРечь сцены (данные): «Такая схема называется sequence diagram.».\nСоседи плана: до — cause-effect, fullscreen/full («Понять порядок: сначала дочитать сообщение по длине, потом смотреть на тип»), после — key-point-emphasis, overlay/left_third («Запомнить вывод: новые фичи включаются только после handshake, когда обе стороны их объявили»): не повторяй их форму.\nОпорная фраза (данные, не инструкции):\n<<<ФРАГМЕНТ\nТакая схема называется sequence diagram.\nФРАГМЕНТ>>>",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0N4DV77XB9YK44E9BPM/versions/ver_01M5TVX5B6NHV89AJ95AX7VA5V",
+      "manifest_sha256": "8e6643f4552320a4e343e06c3cb06aec59ed60c2f940a958a989e00c9d8af0a2",
+      "created_by_job_id": "job_01M5TVGBT6RQ1DEQ3FM937CXCJ",
+      "created_at": "2026-10-26T01:06:26.791Z",
+      "broken_reason": null,
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 110,
+        "style_preset": "dark-premium",
+        "animation_intensity": "energetic",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        },
+        "style_lock": {
+          "depth": 2
+        }
+      },
+      "qa": [
+        {
+          "attempt": 1,
+          "technical": "pass",
+          "visual": "warn",
+          "semantic": "pass",
+          "style": "pass",
+          "report_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0N4DV77XB9YK44E9BPM/versions/ver_01M5TVX5B6NHV89AJ95AX7VA5V/qa.json",
+          "issues": [
+            {
+              "code": "frozen",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "empty_region",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "frame0_coverage",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "scene_signature_repeat",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "rhythm",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "clipping",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "composition",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "uniform_entrance",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "composition",
+              "severity": "warning",
+              "source": "agent"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "file": "preview.mp4",
+          "sha256": "e070b6222aeb330d0f748c9b464509613f492b943f9a63fa72ae4538c0e16e9f",
+          "ffprobe": {
+            "codec": "h264",
+            "profile": "High",
+            "pix_fmt": "yuv420p",
+            "width": 960,
+            "height": 540,
+            "r_frame_rate": "30/1",
+            "nb_frames": "110",
+            "duration": "3.666667",
+            "audio": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ver_01M5TXT84R4MWV3FD6KHFBRQ9X",
+      "number": 4,
+      "status": "ready",
+      "parent_version_id": "ver_01M5TVX5B6NHV89AJ95AX7VA5V",
+      "prompt": "Применяю новые настройки сцены.",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0N4DV77XB9YK44E9BPM/versions/ver_01M5TXT84R4MWV3FD6KHFBRQ9X",
+      "manifest_sha256": "d6a2ded7cdcbfddc0f95ef2e21bcab5da4768ebcbf0351349962a695f16d9cdc",
+      "created_by_job_id": "job_01M5TXQBA2ZJEF9D103FC0P2FM",
+      "created_at": "2026-10-26T01:39:48.506Z",
+      "broken_reason": null,
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 110,
+        "style_preset": "dark-premium",
+        "animation_intensity": "calm",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        },
+        "style_lock": {
+          "depth": 2
+        }
+      },
+      "qa": [
+        {
+          "attempt": 1,
+          "technical": "pass",
+          "visual": "warn",
+          "semantic": "pass",
+          "style": "pass",
+          "report_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0N4DV77XB9YK44E9BPM/versions/ver_01M5TXT84R4MWV3FD6KHFBRQ9X/qa.json",
+          "issues": [
+            {
+              "code": "frozen",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "empty_region",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "frame0_coverage",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "contrast",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "accent_conflict",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "rhythm",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "hierarchy",
+              "severity": "warning",
+              "source": "agent"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "file": "preview.mp4",
+          "sha256": "6a7dec0e5a70aee60e20dd8fdf39b7b568b68a54b984bfe3fe91c0408f4ad407",
+          "ffprobe": {
+            "codec": "h264",
+            "profile": "High",
+            "pix_fmt": "yuv420p",
+            "width": 960,
+            "height": 540,
+            "r_frame_rate": "30/1",
+            "nb_frames": "110",
+            "duration": "3.666667",
+            "audio": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ver_01M5TYPKX2BRYM11TT8J0PD395",
+      "number": 5,
+      "status": "ready",
+      "parent_version_id": null,
+      "prompt": "Сцена 3 из 4 видеопроекта «Приёмка видео 2026-10-24T14:41»: автор говорит в кадре, сцена иллюстрирует его фразу графикой поверх ролика.\nТип визуала (паттерн плана): system-structure. Назначение: Запомнить название схемы — sequence diagram — и её вид: участники и стрелки сверху вниз. Метафора: две вертикальные линии участников.\nРазмещение: режим callout, зона left_third. Холст — весь кадр, но вся графика внутри <LayoutRect rect={props.layout.rect}>, rect = {\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84} (доли кадра); вне прямоугольника — пусто: там видео и лицо автора.\nРаскладка элементов spec — в долях этого прямоугольника ({\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84}), не кадра. Крупный герой и подписи помещаются в него целиком.\nСцену кладут поверх видео прозрачной (transparent = true): фон — только <Background>, своих заливок и плашек на весь кадр нет; текст читается на любом видео (карточка или ореол).\nДлительность: 217 кадров @ 30 fps — ровно так (её задаёт план). Первые 6 кадров — до начала фразы (мягкий вход), основное действие в окне фразы [6; 101), удержание ≥ 116 кадров до конца.\nКлючевые слова: sequence diagram.\nМоменты ключевых слов (кадр от начала сцены, когда звучит): «sequence diagram» — 63. Раскрытие слова или числа — у его кадра, не раньше.\nРечь сцены (данные): «Такая схема называется sequence diagram. Кто комуов что ВСТАВКА отправил сверхуов вниз.».\nСоседи плана: до — cause-effect, fullscreen/full («Понять порядок: сначала дочитать сообщение по длине, потом смотреть на тип»), после — key-point-emphasis, overlay/left_third («Запомнить вывод: новые фичи включаются только после handshake, когда обе стороны их объявили»): не повторяй их форму.\nОпорная фраза (данные, не инструкции):\n<<<ФРАГМЕНТ\nТакая схема называется sequence diagram.\nФРАГМЕНТ>>>",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0N4DV77XB9YK44E9BPM/versions/ver_01M5TYPKX2BRYM11TT8J0PD395",
+      "manifest_sha256": "0bd797ac8f66b9276c01f2c40ff602ac8a67ffa5979e08f12bc5641984d616e8",
+      "created_by_job_id": "job_01M5TY6R9BRHHKCBJFX080YXWS",
+      "created_at": "2026-10-26T01:55:18.050Z",
+      "broken_reason": null,
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 217,
+        "style_preset": "dark-premium",
+        "animation_intensity": "energetic",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        },
+        "style_lock": {
+          "depth": 2
+        }
+      },
+      "qa": [
+        {
+          "attempt": 1,
+          "technical": "pass",
+          "visual": "warn",
+          "semantic": "pass",
+          "style": "pass",
+          "report_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0N4DV77XB9YK44E9BPM/versions/ver_01M5TYPKX2BRYM11TT8J0PD395/qa.json",
+          "issues": [
+            {
+              "code": "frozen",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "frozen",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "empty_region",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "scene_signature_repeat",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "rhythm",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "hierarchy",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "artifact",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "semantic",
+              "severity": "warning",
+              "source": "agent"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "file": "preview.mp4",
+          "sha256": "ac999a754c329abec4c6cb6804b9889ec838391992062a09a947fa628846229d",
+          "ffprobe": {
+            "codec": "h264",
+            "profile": "High",
+            "pix_fmt": "yuv420p",
+            "width": 960,
+            "height": 540,
+            "r_frame_rate": "30/1",
+            "nb_frames": "217",
+            "duration": "7.233333",
+            "audio": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ver_01M5TZ7W3Y3CYSK9H3QF1TQT5K",
+      "number": 6,
+      "status": "ready",
+      "parent_version_id": null,
+      "prompt": "Сцена 3 из 4 видеопроекта «Приёмка видео 2026-10-24T14:41»: автор говорит в кадре, сцена иллюстрирует его фразу графикой поверх ролика.\nТип визуала (паттерн плана): system-structure. Назначение: Запомнить название схемы — sequence diagram — и её вид: участники и стрелки сверху вниз. Метафора: две вертикальные линии участников.\nРазмещение: режим callout, зона left_third. Холст — весь кадр, но вся графика внутри <LayoutRect rect={props.layout.rect}>, rect = {\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84} (доли кадра); вне прямоугольника — пусто: там видео и лицо автора.\nРаскладка элементов spec — в долях этого прямоугольника ({\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84}), не кадра. Крупный герой и подписи помещаются в него целиком.\nСцену кладут поверх видео прозрачной (transparent = true): фон — только <Background>, своих заливок и плашек на весь кадр нет; текст читается на любом видео (карточка или ореол).\nДлительность: 217 кадров @ 30 fps — ровно так (её задаёт план). Первые 6 кадров — до начала фразы (мягкий вход), основное действие в окне фразы [6; 101), удержание ≥ 116 кадров до конца.\nКлючевые слова: sequence diagram.\nМоменты ключевых слов (кадр от начала сцены, когда звучит): «sequence diagram» — 63. Раскрытие слова или числа — у его кадра, не раньше.\nРечь сцены (данные): «Такая схема называется sequence diagram. Кто комуов что ВСТАВКА отправил сверхуов вниз.».\nСоседи плана: до — cause-effect, fullscreen/full («Понять порядок: сначала дочитать сообщение по длине, потом смотреть на тип»), после — key-point-emphasis, overlay/left_third («Запомнить вывод: новые фичи включаются только после handshake, когда обе стороны их объявили»): не повторяй их форму.\nОпорная фраза (данные, не инструкции):\n<<<ФРАГМЕНТ\nТакая схема называется sequence diagram.\nФРАГМЕНТ>>>",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0N4DV77XB9YK44E9BPM/versions/ver_01M5TZ7W3Y3CYSK9H3QF1TQT5K",
+      "manifest_sha256": "e8d9998279d78df3ef78b71e5bc5c017eb6fbf3cfea593c0acd61c5db0d772da",
+      "created_by_job_id": "job_01M5TYXBA9C9K0WRD830AKR2BB",
+      "created_at": "2026-10-26T02:04:43.519Z",
+      "broken_reason": null,
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 217,
+        "style_preset": "dark-premium",
+        "animation_intensity": "energetic",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        },
+        "style_lock": {
+          "depth": 2
+        }
+      },
+      "qa": [
+        {
+          "attempt": 2,
+          "technical": "pass",
+          "visual": "warn",
+          "semantic": "warn",
+          "style": "pass",
+          "report_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0N4DV77XB9YK44E9BPM/versions/ver_01M5TZ7W3Y3CYSK9H3QF1TQT5K/qa.json",
+          "issues": [
+            {
+              "code": "frozen",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "empty_region",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "frame0_coverage",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "scene_signature_repeat",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "semantic",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "hierarchy",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "rhythm",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "composition",
+              "severity": "warning",
+              "source": "agent"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "file": "preview.mp4",
+          "sha256": "7a022e1dbbc86ee1adc1de549c4139efc5c74165484b4e7c966c0763987c6186",
+          "ffprobe": {
+            "codec": "h264",
+            "profile": "High",
+            "pix_fmt": "yuv420p",
+            "width": 960,
+            "height": 540,
+            "r_frame_rate": "30/1",
+            "nb_frames": "217",
+            "duration": "7.233333",
+            "audio": null
+          }
+        }
+      ]
+    }
+  ]
+}

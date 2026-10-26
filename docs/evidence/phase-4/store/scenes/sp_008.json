@@ -1,0 +1,129 @@
+{
+  "video_scene": {
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "plan_id": "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM",
+    "item_id": "sp_008",
+    "scene_id": "scn_01M5TST0NDS262ZGKWD226R2JZ",
+    "batch_id": "vb_8e3ff6383da66ec065df66dfec8dbc",
+    "job_id": "job_01M5TST0P32FWY2NGEM0ZNP71F",
+    "item_fingerprint": "7008bd51f096319136b3e3d902a8c3974d97bb5fb8778bd93debbb35a04a8024",
+    "created_at": "2026-10-26T00:29:46.563Z"
+  },
+  "scene": {
+    "id": "scn_01M5TST0NDS262ZGKWD226R2JZ",
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "title": "04 · включаем только после handshake обе стороны должны…",
+    "current_version_id": "ver_01M5TT76VF8J1DCQHZWY8ANHV5",
+    "approved_version_id": "ver_01M5TT76VF8J1DCQHZWY8ANHV5",
+    "created_at": "2026-10-26T00:29:46.563Z"
+  },
+  "versions": [
+    {
+      "id": "ver_01M5TT76VF8J1DCQHZWY8ANHV5",
+      "number": 1,
+      "status": "ready",
+      "parent_version_id": null,
+      "prompt": "Сцена 4 из 4 видеопроекта «Приёмка видео 2026-10-24T14:41»: автор говорит в кадре, сцена иллюстрирует его фразу графикой поверх ролика.\nТип визуала (паттерн плана): key-point-emphasis. Назначение: Запомнить вывод: новые фичи включаются только после handshake, когда обе стороны их объявили. Метафора: один тезис с акцентом на handshake.\nРазмещение: режим overlay, зона left_third. Холст — весь кадр, но вся графика внутри <LayoutRect rect={props.layout.rect}>, rect = {\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84} (доли кадра); вне прямоугольника — пусто: там видео и лицо автора.\nРаскладка элементов spec — в долях этого прямоугольника ({\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84}), не кадра. Крупный герой и подписи помещаются в него целиком.\nСцену кладут поверх видео прозрачной (transparent = true): фон — только <Background>, своих заливок и плашек на весь кадр нет; текст читается на любом видео (карточка или ореол).\nДлительность: 319 кадров @ 30 fps — ровно так (её задаёт план). Первые 6 кадров — до начала фразы (мягкий вход), основное действие в окне фразы [6; 310), удержание ≥ 9 кадров до конца.\nКлючевые слова: handshake.\nМоменты ключевых слов (кадр от начала сцены, когда звучит): «handshake» — 74. Раскрытие слова или числа — у его кадра, не раньше.\nРечь сцены (данные): «включаем только после handshake обе стороны должны объявить нужную фичу».\nСоседи плана: до — system-structure, callout/left_third («Запомнить название схемы — sequence diagram — и её вид: участники и стрелки сверху вниз»), после — нет: не повторяй их форму.\nОпорная фраза (данные, не инструкции):\n<<<ФРАГМЕНТ\nвключаем только после handshake обе стороны должны объявить нужную фичу\nФРАГМЕНТ>>>",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0NDS262ZGKWD226R2JZ/versions/ver_01M5TT76VF8J1DCQHZWY8ANHV5",
+      "manifest_sha256": "a233fd42181f082a7427acd949603411d5816749014886409c801dc4208426aa",
+      "created_by_job_id": "job_01M5TST0P32FWY2NGEM0ZNP71F",
+      "created_at": "2026-10-26T00:36:58.864Z",
+      "broken_reason": null,
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 319,
+        "style_preset": "dark-premium",
+        "animation_intensity": "energetic",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        },
+        "style_lock": {
+          "depth": 2
+        }
+      },
+      "qa": [
+        {
+          "attempt": 1,
+          "technical": "pass",
+          "visual": "warn",
+          "semantic": "warn",
+          "style": "pass",
+          "report_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0NDS262ZGKWD226R2JZ/versions/ver_01M5TT76VF8J1DCQHZWY8ANHV5/qa.json",
+          "issues": [
+            {
+              "code": "frozen",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "empty_region",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "dead_air",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "dead_air",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "fragment_unsupported",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "semantic",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "rhythm",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "composition",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "hold",
+              "severity": "warning",
+              "source": "agent"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "file": "preview.mp4",
+          "sha256": "3509f91d46538bd273966fac11b44568827b1552040b5638af3cd9ea975746ba",
+          "ffprobe": {
+            "codec": "h264",
+            "profile": "High",
+            "pix_fmt": "yuv420p",
+            "width": 960,
+            "height": 540,
+            "r_frame_rate": "30/1",
+            "nb_frames": "319",
+            "duration": "10.633333",
+            "audio": null
+          }
+        }
+      ]
+    }
+  ]
+}

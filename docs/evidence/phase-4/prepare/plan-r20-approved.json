@@ -1,0 +1,71 @@
+{
+  "revision": 20,
+  "accepted": [
+    {
+      "id": "sp_009",
+      "mode": "overlay",
+      "zone": "left_third",
+      "frames": {
+        "start": 1911,
+        "end": 2004
+      },
+      "key_terms": []
+    },
+    {
+      "id": "sp_002",
+      "mode": "fullscreen",
+      "zone": "full",
+      "frames": {
+        "start": 2623,
+        "end": 2850
+      },
+      "key_terms": [
+        {
+          "text": "тип",
+          "word_id": "w_000129",
+          "edited_at_us": 94420001
+        }
+      ]
+    },
+    {
+      "id": "sp_003",
+      "mode": "callout",
+      "zone": "left_third",
+      "frames": {
+        "start": 3286,
+        "end": 3396
+      },
+      "key_terms": [
+        {
+          "text": "sequence diagram",
+          "word_id": "w_000164",
+          "edited_at_us": 111646668
+        }
+      ]
+    },
+    {
+      "id": "sp_008",
+      "mode": "overlay",
+      "zone": "left_third",
+      "frames": {
+        "start": 7820,
+        "end": 8139
+      },
+      "key_terms": [
+        {
+          "text": "handshake",
+          "word_id": "w_000415",
+          "edited_at_us": 263142999
+        }
+      ]
+    }
+  ],
+  "issues": [
+    {
+      "item_id": "sp_009",
+      "code": "zone_occupied",
+      "severity": "warning",
+      "message": "зона «левая треть» свободна на 71 % во время сцены (руки, предметы)"
+    }
+  ]
+}

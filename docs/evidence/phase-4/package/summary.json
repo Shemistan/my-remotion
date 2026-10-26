@@ -1,0 +1,178 @@
+{
+  "package_id": "pkg_01M5TYRNEY1H0H5YMDH3TDPC3R",
+  "job": {
+    "id": "job_01M5TYRNEY1H0H5YMDH3TDPC3R",
+    "status": "completed",
+    "stage": "publish",
+    "attempt": 1,
+    "interrupts": 0,
+    "started_at": "2026-10-26T01:56:25.630Z",
+    "finished_at": "2026-10-26T01:57:37.938Z",
+    "error_json": null,
+    "input_refs_json": "{\"projectId\":\"prj_01M5Q5QWCS597HRDM4X9S74WEJ\",\"only_approved\":true}"
+  },
+  "rel_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/packages/pkg_01M5TYRNEY1H0H5YMDH3TDPC3R",
+  "display_name": "Приёмка видео 2026-10-24T14-41_клипы_2026-10-26",
+  "plan": {
+    "id": "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM",
+    "revision": 21
+  },
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "rows": [
+    {
+      "n": 1,
+      "item": "sp_009",
+      "mode": "overlay",
+      "version": 6,
+      "approved": true,
+      "mp4": "01_rabotat-dalshe-ne-preryvaya-soedineniya.mp4",
+      "mp4_probe": {
+        "durationMs": 3100,
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "codec": "h264",
+        "profile": "High",
+        "pixFmt": "yuv420p",
+        "audioCodec": "aac",
+        "audioDurationMs": 3115,
+        "audioSampleRate": 48000,
+        "audioChannels": 2
+      },
+      "alpha": "01_rabotat-dalshe-ne-preryvaya-soedineniya_alpha.mov",
+      "alpha_probe": {
+        "durationMs": 3100,
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "codec": "prores",
+        "profile": "4444",
+        "pixFmt": "yuva444p12le"
+      },
+      "alpha_corner": 0
+    },
+    {
+      "n": 2,
+      "item": "sp_002",
+      "mode": "fullscreen",
+      "version": 4,
+      "approved": true,
+      "mp4": "02_poetomu-poluchatel-snachala-dochityvaet.mp4",
+      "mp4_probe": {
+        "durationMs": 7566.667,
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "codec": "h264",
+        "profile": "High",
+        "pixFmt": "yuv420p",
+        "audioCodec": "aac",
+        "audioDurationMs": 7573,
+        "audioSampleRate": 48000,
+        "audioChannels": 2
+      }
+    },
+    {
+      "n": 3,
+      "item": "sp_003",
+      "mode": "callout",
+      "version": 5,
+      "approved": true,
+      "mp4": "03_takaya-skhema-nazyvaetsya-sequence.mp4",
+      "mp4_probe": {
+        "durationMs": 7233.333,
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "codec": "h264",
+        "profile": "High",
+        "pixFmt": "yuv420p",
+        "audioCodec": "aac",
+        "audioDurationMs": 7253,
+        "audioSampleRate": 48000,
+        "audioChannels": 2
+      },
+      "alpha": "03_takaya-skhema-nazyvaetsya-sequence_alpha.mov",
+      "alpha_probe": {
+        "durationMs": 7233.333,
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "codec": "prores",
+        "profile": "4444",
+        "pixFmt": "yuva444p12le"
+      },
+      "alpha_corner": 0
+    },
+    {
+      "n": 4,
+      "item": "sp_008",
+      "mode": "overlay",
+      "version": 1,
+      "approved": true,
+      "mp4": "04_vklyuchaem-tolko-posle-handshake-obe.mp4",
+      "mp4_probe": {
+        "durationMs": 10633.333,
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "codec": "h264",
+        "profile": "High",
+        "pixFmt": "yuv420p",
+        "audioCodec": "aac",
+        "audioDurationMs": 10645,
+        "audioSampleRate": 48000,
+        "audioChannels": 2
+      },
+      "alpha": "04_vklyuchaem-tolko-posle-handshake-obe_alpha.mov",
+      "alpha_probe": {
+        "durationMs": 10633.333,
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "codec": "prores",
+        "profile": "4444",
+        "pixFmt": "yuva444p12le"
+      },
+      "alpha_corner": 0
+    }
+  ],
+  "missing": [],
+  "files": [
+    "01_rabotat-dalshe-ne-preryvaya-soedineniya.mp4",
+    "01_rabotat-dalshe-ne-preryvaya-soedineniya_alpha.mov",
+    "02_poetomu-poluchatel-snachala-dochityvaet.mp4",
+    "03_takaya-skhema-nazyvaetsya-sequence.mp4",
+    "03_takaya-skhema-nazyvaetsya-sequence_alpha.mov",
+    "04_vklyuchaem-tolko-posle-handshake-obe.mp4",
+    "04_vklyuchaem-tolko-posle-handshake-obe_alpha.mov",
+    "package-manifest.json",
+    "шпаргалка.csv",
+    "шпаргалка.md",
+    "шпаргалка.txt"
+  ]
+}

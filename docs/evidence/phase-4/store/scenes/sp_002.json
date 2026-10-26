@@ -1,0 +1,460 @@
+{
+  "video_scene": {
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "plan_id": "pln_01M5Q9QE1DQRDGY5Q5KA57G3TM",
+    "item_id": "sp_002",
+    "scene_id": "scn_01M5TST0MWTDJE2F127FQYAM76",
+    "batch_id": "vb_8e3ff6383da66ec065df66dfec8dbc",
+    "job_id": "job_01M5TXTCEDCQYKGJ4KG7GW8V1V",
+    "item_fingerprint": "106fbb917f70e951cee5c5cc3879faa436215d70d404c3e678d9da79b517b04a",
+    "created_at": "2026-10-26T00:29:46.562Z"
+  },
+  "scene": {
+    "id": "scn_01M5TST0MWTDJE2F127FQYAM76",
+    "project_id": "prj_01M5Q5QWCS597HRDM4X9S74WEJ",
+    "title": "02 · Поэтому получатель сначала дочитывает сообщение до конца и…",
+    "current_version_id": "ver_01M5TY6J3J583XR390N7YREW4W",
+    "approved_version_id": "ver_01M5TY6J3J583XR390N7YREW4W",
+    "created_at": "2026-10-26T00:29:46.562Z"
+  },
+  "versions": [
+    {
+      "id": "ver_01M5TT6YRBKGN1JV8JCJB3QP76",
+      "number": 1,
+      "status": "ready",
+      "parent_version_id": null,
+      "prompt": "Сцена 2 из 4 видеопроекта «Приёмка видео 2026-10-24T14:41»: автор говорит в кадре, сцена иллюстрирует его фразу графикой поверх ролика.\nТип визуала (паттерн плана): cause-effect. Назначение: Понять порядок: сначала дочитать сообщение по длине, потом смотреть на тип. Метафора: поток байт: сообщение вынимается целиком, затем читается тип.\nРазмещение: режим fullscreen, зона full — полноэкранная вставка: сцена закрывает видео целиком, фон — <Background>, графика по всему кадру.\nДлительность: 227 кадров @ 30 fps — ровно так (её задаёт план). Первые 6 кадров — до начала фразы (мягкий вход), основное действие в окне фразы [6; 218), удержание ≥ 9 кадров до конца.\nКлючевые слова: тип.\nМоменты ключевых слов (кадр от начала сцены, когда звучит): «тип» — 209. Раскрытие слова или числа — у его кадра, не раньше.\nРечь сцены (данные): «Поэтому получатель сначала дочитывает сообщение до конца и только потом смотрит на тип.».\nСоседи плана: до — key-point-emphasis, overlay/left_third («ключевая мысль фрагмента крупно рядом с автором»), после — system-structure, callout/left_third («Запомнить название схемы — sequence diagram — и её вид: участники и стрелки сверху вниз»): не повторяй их форму.\nОпорная фраза (данные, не инструкции):\n<<<ФРАГМЕНТ\nПоэтому получатель сначала дочитывает сообщение до конца и только потом смотрит на тип.\nФРАГМЕНТ>>>",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0MWTDJE2F127FQYAM76/versions/ver_01M5TT6YRBKGN1JV8JCJB3QP76",
+      "manifest_sha256": "c362636125973a498c4c306632ea1e69c3df7fe79bba38617f09af6ca85961ab",
+      "created_by_job_id": "job_01M5TST0P26E8NNP3VFBD9ZZ7V",
+      "created_at": "2026-10-26T00:36:50.573Z",
+      "broken_reason": null,
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 227,
+        "style_preset": "dark-premium",
+        "animation_intensity": "energetic",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        },
+        "style_lock": {
+          "depth": 2
+        }
+      },
+      "qa": [
+        {
+          "attempt": 1,
+          "technical": "pass",
+          "visual": "warn",
+          "semantic": "warn",
+          "style": "pass",
+          "report_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0MWTDJE2F127FQYAM76/versions/ver_01M5TT6YRBKGN1JV8JCJB3QP76/qa.json",
+          "issues": [
+            {
+              "code": "frozen",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "empty_region",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "frame0_coverage",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "no_hero",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "fragment_unsupported",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "semantic",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "accent_conflict",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "legibility",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "text_size",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "composition",
+              "severity": "warning",
+              "source": "agent"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "file": "preview.mp4",
+          "sha256": "7a55c2676c5a12418e268a77ae3e56aeb146aa8cffb8dfcf709639bf8db86d86",
+          "ffprobe": {
+            "codec": "h264",
+            "profile": "High",
+            "pix_fmt": "yuv420p",
+            "width": 960,
+            "height": 540,
+            "r_frame_rate": "30/1",
+            "nb_frames": "227",
+            "duration": "7.566667",
+            "audio": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ver_01M5TVENG0RQPQP8QBN17FEJ2K",
+      "number": 2,
+      "status": "ready",
+      "parent_version_id": null,
+      "prompt": "Сцена 2 из 4 видеопроекта «Приёмка видео 2026-10-24T14:41»: автор говорит в кадре, сцена иллюстрирует его фразу графикой поверх ролика.\nТип визуала (паттерн плана): cause-effect. Назначение: Понять порядок: сначала дочитать сообщение по длине, потом смотреть на тип. Метафора: поток байт: сообщение вынимается целиком, затем читается тип.\nРазмещение: режим fullscreen, зона full — полноэкранная вставка: сцена закрывает видео целиком, фон — <Background>, графика по всему кадру.\nДлительность: 227 кадров @ 30 fps — ровно так (её задаёт план). Первые 6 кадров — до начала фразы (мягкий вход), основное действие в окне фразы [6; 218), удержание ≥ 9 кадров до конца.\nКлючевые слова: тип.\nМоменты ключевых слов (кадр от начала сцены, когда звучит): «тип» — 209. Раскрытие слова или числа — у его кадра, не раньше.\nРечь сцены (данные): «Поэтому получатель сначала дочитывает сообщение до конца и только потом смотрит на тип.».\nСоседи плана: до — key-point-emphasis, overlay/left_third («ключевая мысль фрагмента крупно рядом с автором»), после — system-structure, callout/left_third («Запомнить название схемы — sequence diagram — и её вид: участники и стрелки сверху вниз»): не повторяй их форму.\nОпорная фраза (данные, не инструкции):\n<<<ФРАГМЕНТ\nПоэтому получатель сначала дочитывает сообщение до конца и только потом смотрит на тип.\nФРАГМЕНТ>>>",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0MWTDJE2F127FQYAM76/versions/ver_01M5TVENG0RQPQP8QBN17FEJ2K",
+      "manifest_sha256": "64b53f24b472a72194e802d8541044f26686e458b0d17d32853fe0c1487f03d0",
+      "created_by_job_id": "job_01M5TTJB4SK8EJY8VQHV68RX7F",
+      "created_at": "2026-10-26T00:58:31.810Z",
+      "broken_reason": null,
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 227,
+        "style_preset": "dark-premium",
+        "animation_intensity": "energetic",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        },
+        "style_lock": {
+          "depth": 2
+        }
+      },
+      "qa": [
+        {
+          "attempt": 1,
+          "technical": "pass",
+          "visual": "warn",
+          "semantic": "warn",
+          "style": "pass",
+          "report_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0MWTDJE2F127FQYAM76/versions/ver_01M5TVENG0RQPQP8QBN17FEJ2K/qa.json",
+          "issues": [
+            {
+              "code": "dead_air",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "empty_container",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "fragment_unsupported",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "scene_signature_repeat",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "composition",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "hierarchy",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "rhythm",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "accent_conflict",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "semantic",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "hold",
+              "severity": "warning",
+              "source": "agent"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "file": "preview.mp4",
+          "sha256": "6d9b41e5f506fc57ca95e2abaa73d7800bb488762186f1a66acf866dc9aaab9c",
+          "ffprobe": {
+            "codec": "h264",
+            "profile": "High",
+            "pix_fmt": "yuv420p",
+            "width": 960,
+            "height": 540,
+            "r_frame_rate": "30/1",
+            "nb_frames": "227",
+            "duration": "7.566667",
+            "audio": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ver_01M5TWBDHYM698NG6VWH6BQ27V",
+      "number": 3,
+      "status": "ready",
+      "parent_version_id": null,
+      "prompt": "Сцена 2 из 4 видеопроекта «Приёмка видео 2026-10-24T14:41»: автор говорит в кадре, сцена иллюстрирует его фразу графикой поверх ролика.\nТип визуала (паттерн плана): cause-effect. Назначение: Понять порядок: сначала дочитать сообщение по длине, потом смотреть на тип. Метафора: поток байт: сообщение вынимается целиком, затем читается тип.\nРазмещение: режим fullscreen, зона full — полноэкранная вставка: сцена закрывает видео целиком, фон — <Background>, графика по всему кадру.\nДлительность: 227 кадров @ 30 fps — ровно так (её задаёт план). Первые 6 кадров — до начала фразы (мягкий вход), основное действие в окне фразы [6; 218), удержание ≥ 9 кадров до конца.\nКлючевые слова: тип.\nМоменты ключевых слов (кадр от начала сцены, когда звучит): «тип» — 209. Раскрытие слова или числа — у его кадра, не раньше.\nРечь сцены (данные): «Поэтому получатель сначала дочитывает сообщение до конца и только потом смотрит на тип.».\nСоседи плана: до — key-point-emphasis, overlay/left_third («ключевая мысль фрагмента крупно рядом с автором»), после — system-structure, callout/left_third («Запомнить название схемы — sequence diagram — и её вид: участники и стрелки сверху вниз»): не повторяй их форму.\nОпорная фраза (данные, не инструкции):\n<<<ФРАГМЕНТ\nПоэтому получатель сначала дочитывает сообщение до конца и только потом смотрит на тип.\nФРАГМЕНТ>>>",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0MWTDJE2F127FQYAM76/versions/ver_01M5TWBDHYM698NG6VWH6BQ27V",
+      "manifest_sha256": "e04dae646c4880a87b111de9f0884d479f83f893a4efee8dbae1034fd956ad6f",
+      "created_by_job_id": "job_01M5TVGBT5G2255FJS6G3BKFTS",
+      "created_at": "2026-10-26T01:14:13.952Z",
+      "broken_reason": null,
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 227,
+        "style_preset": "dark-premium",
+        "animation_intensity": "energetic",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        },
+        "style_lock": {
+          "depth": 2
+        }
+      },
+      "qa": [
+        {
+          "attempt": 1,
+          "technical": "pass",
+          "visual": "warn",
+          "semantic": "pass",
+          "style": "pass",
+          "report_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0MWTDJE2F127FQYAM76/versions/ver_01M5TWBDHYM698NG6VWH6BQ27V/qa.json",
+          "issues": [
+            {
+              "code": "frozen",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "no_hero",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "fragment_unsupported",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "scene_signature_repeat",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "clipping",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "overlap",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "composition",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "hierarchy",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "accent_conflict",
+              "severity": "warning",
+              "source": "agent"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "file": "preview.mp4",
+          "sha256": "eb2eea7d7cacaba858517816be54df9c3ba30b49d32427843f58fbaee1170933",
+          "ffprobe": {
+            "codec": "h264",
+            "profile": "High",
+            "pix_fmt": "yuv420p",
+            "width": 960,
+            "height": 540,
+            "r_frame_rate": "30/1",
+            "nb_frames": "227",
+            "duration": "7.566667",
+            "audio": null
+          }
+        }
+      ]
+    },
+    {
+      "id": "ver_01M5TY6J3J583XR390N7YREW4W",
+      "number": 4,
+      "status": "ready",
+      "parent_version_id": null,
+      "prompt": "Сцена 2 из 4 видеопроекта «Приёмка видео 2026-10-24T14:41»: автор говорит в кадре, сцена иллюстрирует его фразу графикой поверх ролика.\nТип визуала (паттерн плана): cause-effect. Назначение: Понять порядок: сначала дочитать сообщение по длине, потом смотреть на тип. Метафора: поток байт: сообщение вынимается целиком, затем читается тип.\nРазмещение: режим fullscreen, зона full — полноэкранная вставка: сцена закрывает видео целиком, фон — <Background>, графика по всему кадру.\nДлительность: 227 кадров @ 30 fps — ровно так (её задаёт план). Первые 6 кадров — до начала фразы (мягкий вход), основное действие в окне фразы [6; 218), удержание ≥ 9 кадров до конца.\nКлючевые слова: тип.\nМоменты ключевых слов (кадр от начала сцены, когда звучит): «тип» — 209. Раскрытие слова или числа — у его кадра, не раньше.\nРечь сцены (данные): «Поэтому получатель сначала дочитывает сообщение до конца и только потом смотрит на тип.».\nСоседи плана: до — key-point-emphasis, overlay/left_third («ключевая мысль фрагмента крупно рядом с автором»), после — system-structure, callout/left_third («Запомнить название схемы — sequence diagram — и её вид: участники и стрелки сверху вниз»): не повторяй их форму.\nОпорная фраза (данные, не инструкции):\n<<<ФРАГМЕНТ\nПоэтому получатель сначала дочитывает сообщение до конца и только потом смотрит на тип.\nФРАГМЕНТ>>>",
+      "path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0MWTDJE2F127FQYAM76/versions/ver_01M5TY6J3J583XR390N7YREW4W",
+      "manifest_sha256": "afaf3fcf59b19ed1864551fea216be8cf22e46aa949929ef3ba4e2ddf1cfbde8",
+      "created_by_job_id": "job_01M5TXTCEDCQYKGJ4KG7GW8V1V",
+      "created_at": "2026-10-26T01:46:31.923Z",
+      "broken_reason": null,
+      "settings": {
+        "aspect_ratio": "16:9",
+        "width": 1920,
+        "height": 1080,
+        "fps": {
+          "num": 30,
+          "den": 1
+        },
+        "duration_frames": 227,
+        "style_preset": "dark-premium",
+        "animation_intensity": "energetic",
+        "background": "#0b0d12",
+        "transparent_export": false,
+        "safe_area": {
+          "x": 0.05,
+          "y": 0.05
+        },
+        "style_lock": {
+          "depth": 2
+        }
+      },
+      "qa": [
+        {
+          "attempt": 1,
+          "technical": "pass",
+          "visual": "warn",
+          "semantic": "warn",
+          "style": "pass",
+          "report_path": "workspace/projects/prj_01M5Q5QWCS597HRDM4X9S74WEJ/scenes/scn_01M5TST0MWTDJE2F127FQYAM76/versions/ver_01M5TY6J3J583XR390N7YREW4W/qa.json",
+          "issues": [
+            {
+              "code": "frozen",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "dead_air",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "no_hero",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "text_dominant",
+              "severity": "warning",
+              "source": "programmatic"
+            },
+            {
+              "code": "artifact",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "semantic",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "text_size",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "hierarchy",
+              "severity": "warning",
+              "source": "agent"
+            },
+            {
+              "code": "accent_conflict",
+              "severity": "warning",
+              "source": "agent"
+            }
+          ]
+        }
+      ],
+      "files": [
+        {
+          "file": "preview.mp4",
+          "sha256": "2a692bdc55e48a6380744b1effe1fdc944565de6555a3c2d2a359dfe6c5d5517",
+          "ffprobe": {
+            "codec": "h264",
+            "profile": "High",
+            "pix_fmt": "yuv420p",
+            "width": 960,
+            "height": 540,
+            "r_frame_rate": "30/1",
+            "nb_frames": "227",
+            "duration": "7.566667",
+            "audio": null
+          }
+        }
+      ]
+    }
+  ]
+}

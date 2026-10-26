@@ -1,0 +1,37 @@
+[
+  {
+    "id": "1.1",
+    "title": "в плане ≥ 3 принятых сцен",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"sp_009\",\"sp_002\",\"sp_003\",\"sp_008\"]"
+  },
+  {
+    "id": "1.2",
+    "title": "среди принятых есть overlay и fullscreen",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"sp_009:overlay/left_third\",\"sp_002:fullscreen/full\",\"sp_003:callout/left_third\",\"sp_008:overlay/left_third\"]"
+  },
+  {
+    "id": "1.3",
+    "title": "blocking-замечаний плана нет",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"item_id\":\"sp_009\",\"code\":\"zone_occupied\",\"severity\":\"warning\",\"message\":\"зона «левая треть» свободна на 71 % во время сцены (руки, предметы)\"}]"
+  },
+  {
+    "id": "1.4",
+    "title": "Approval B valid на текущую ревизию",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"state\":\"valid\",\"ref\":\"plan:pln_01M5Q9QE1DQRDGY5Q5KA57G3TM@r20\"}"
+  },
+  {
+    "id": "1.5",
+    "title": "смена режима split_screen → fullscreen сделана через UI (новая ревизия)",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"op\":\"modify\",\"id\":\"sp_002\",\"detail\":\"split_screen/split_left → fullscreen/full\"},{\"op\":\"reject\",\"id\":\"sp_001\",\"detail\":\"split_screen: автор в центре кадра (split_face_center)\"},{\"op\":\"reject\",\"id\":\"sp_007\",\"detail\":\"split_screen: автор в центре кадра (split_face_center)\"}]"
+  }
+]
