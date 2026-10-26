@@ -7,7 +7,7 @@ import * as jobs from "../../db/repos/jobs.js";
 import { acknowledgeBootReport, bootSummary, latestBootReport, type PersistedBootReport } from "../../recovery/boot-report.js";
 import { discardIntent, discardQuarantined, listQuarantined } from "../../recovery/quarantine.js";
 import { type ApiContext, IdParams, type ZApp } from "../context.js";
-import { publicJob } from "../job-dto.js";
+import { maskPaths, publicJob } from "../job-dto.js";
 
 const Dir = z.string().min(1).max(500);
 export const DiscardIntentBodySchema = z.object({ dir: Dir }).strict();
@@ -15,8 +15,11 @@ export const DiscardIntentDtoSchema = z.object({ dir: Dir, token: z.string().min
 export const DiscardBodySchema = z.object({ dir: Dir, token: z.string().min(1).max(200) }).strict();
 
 export function recoveryRoutes(app: ZApp, { core }: ApiContext): void {
+  // S20: предупреждения (отчёты до S20 — без них); пути — как в остальных DTO, маской
+  const warnings = (b: PersistedBootReport) =>
+    (b.report.warnings ?? []).map((w) => ({ kind: w.kind, message: maskPaths(w.message, core.root), ...(w.job_id ? { job_id: w.job_id } : {}) }));
   const bootDto = (b: PersistedBootReport | undefined) =>
-    b ? { id: b.id, created_at: b.created_at, crashed: b.crashed, acknowledged_at: b.acknowledged_at, summary: bootSummary(b.report) } : null;
+    b ? { id: b.id, created_at: b.created_at, crashed: b.crashed, acknowledged_at: b.acknowledged_at, summary: bootSummary(b.report), warnings: warnings(b) } : null;
 
   const recovery = () => {
     const db = core.db;

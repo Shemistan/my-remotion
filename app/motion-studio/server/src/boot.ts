@@ -24,7 +24,7 @@ import { ClaudeCodeRuntime } from "./agents/claude-code.js";
 import { loadPrompt } from "./agents/prompts.js";
 import type { AgentRuntimeAdapter } from "./agents/runtime.js";
 import { type AppConfig, loadConfig, readConfigFile } from "./config.js";
-import { bindStoreId, quickCheck } from "./db/meta.js";
+import { bindRootPath, bindStoreId, quickCheck, storeCopiedText } from "./db/meta.js";
 import { migrate } from "./db/migrate.js";
 import { type Db, openDb } from "./db/open.js";
 import { EventBus } from "./jobs/events.js";
@@ -37,7 +37,7 @@ import type { Handlers } from "./jobs/types.js";
 import { KnowledgeAdapter } from "./knowledge/adapter.js";
 import * as bootReports from "./db/repos/boot-reports.js";
 import { type TrashReconcile, reconcileTrash } from "./projects/trash.js";
-import { type PersistedBootReport, persistBootReport } from "./recovery/boot-report.js";
+import { type PersistedBootReport, bootWarnings, persistBootReport } from "./recovery/boot-report.js";
 import { listQuarantined } from "./recovery/quarantine.js";
 import { consumeShutdownMarker, writeShutdownMarker } from "./recovery/shutdown-marker.js";
 import { type ImportReport, type MissingReport, reconcileVersions } from "./scenes/import-slice.js";
@@ -181,11 +181,15 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
       return d;
     };
     db = await reopen();
+    // S20: путь корня в meta; другой путь — хранилище скопировано (предупреждение, не отказ)
+    const copiedFrom = bindRootPath(db, root);
+    if (copiedFrom !== undefined) opts.storageLog?.(`storage: ${storeCopiedText(copiedFrom)}`);
     const config = loadConfig(env, await readConfigFile(root));
     const hadBoot = bootReports.count(db) > 0;
     log("db");
 
-    const registry = new SqliteProcessRegistry(db);
+    // S20: каждая запись несёт владельца (замок может смениться после storage_offline — берём текущий)
+    const registry = new SqliteProcessRegistry(db, { owner: () => lock.owner });
     const processes = mergeRegistries(registry, fileProcessRegistry(root));
     log("registry");
 
@@ -230,7 +234,12 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     // загрузки браузером без задачи (обрыв) или с завершённым импортом (Task 29, M4)
     await sweepUploads(db, root);
     log("sweep_uploads");
-    const bootReport = persistBootReport(db, { ...recovery, crashed: hadBoot && !cleanShutdown, quarantined: listQuarantined(root, db) });
+    const bootReport = persistBootReport(db, {
+      ...recovery,
+      crashed: hadBoot && !cleanShutdown,
+      quarantined: listQuarantined(root, db),
+      warnings: bootWarnings(recovery, copiedFrom),
+    });
     log("boot_report");
 
     const kb = opts.kb ?? (await KnowledgeAdapter.load({ kbRoot: config.kb.root, sourceRoot: config.kb.sourceRoot }));

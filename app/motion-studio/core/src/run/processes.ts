@@ -2,7 +2,18 @@ import { readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { StorageError, rootProblem } from "../storage/guard.js";
 import { safeMkdir } from "../storage/safe-mkdir.js";
-import { procInfo } from "./proc-info.js";
+import { procInfo, procParent, selfInfo } from "./proc-info.js";
+
+/**
+ * Владелец записи (S20): процесс сервера/CLI, державший owner-lock, когда записал процесс.
+ * `nonce` выдаётся при `acquireOwnerLock`. Жив другой процесс с этим pid и временем старта —
+ * процесс принадлежит ему (копия хранилища рядом с живым оригиналом), трогать нельзя.
+ */
+export interface ProcessOwner {
+  pid: number;
+  startedAt: string;
+  nonce: string;
+}
 
 /** Дочерний процесс попытки прогона (ADR 0007, п. 3). */
 export interface TrackedProcess {
@@ -17,6 +28,8 @@ export interface TrackedProcess {
    * никогда аргументами.
    */
   cmd: string;
+  /** Владелец (S20); нет — запись старше 007 или боковой реестр Chrome: только проверка родителя. */
+  owner?: ProcessOwner;
 }
 
 /** Итог процесса для `ProcessRegistry.end` (неизвестен — оба `null`). */
@@ -46,6 +59,12 @@ export interface ProcessRegistry {
   end(p: TrackedProcess, exit: ProcessExit): Promise<void>;
   /** Записи без подтверждённого завершения (живы ли процессы — проверяет вызывающий). */
   live(filter?: RegistryFilter): Promise<TrackedProcess[]>;
+  /**
+   * Процесс жив, но принадлежит другому живому серверу (S20): запись остаётся незавершённой,
+   * помечается `foreign_owner` (pid владельца или родителя). Необязательно: файловый реестр
+   * отметки не хранит.
+   */
+  markForeign?(p: TrackedProcess, ownerPid: number): Promise<void>;
 }
 
 /** Совпадает ли запись с фильтром. */
@@ -55,7 +74,9 @@ export function matches(p: TrackedProcess, filter: RegistryFilter = {}): boolean
 
 /** Только поля записи (ref может нести `root`, `registry` и т. п. — в реестр они не идут). */
 export function trackedRecord(p: TrackedProcess): TrackedProcess {
-  return { runId: p.runId, attempt: p.attempt, pid: p.pid, pgid: p.pgid, startedAt: p.startedAt, cmd: p.cmd };
+  const rec: TrackedProcess = { runId: p.runId, attempt: p.attempt, pid: p.pid, pgid: p.pgid, startedAt: p.startedAt, cmd: p.cmd };
+  if (p.owner) rec.owner = { pid: p.owner.pid, startedAt: p.owner.startedAt, nonce: p.owner.nonce };
+  return rec;
 }
 
 const PROCESSES_DIR = "run/processes";
@@ -140,10 +161,28 @@ export interface ReapOptions {
   waitMs?: number;
 }
 
+/** Живой процесс другого сервера (S20): сигнал не послан. */
+export interface ForeignProcess {
+  process: TrackedProcess;
+  /** pid живого владельца (`owner_alive`) или живого родителя лидера (`parent_alive`). */
+  ownerPid: number;
+  reason: "owner_alive" | "parent_alive";
+}
+
+export interface ReapResult {
+  clean: boolean;
+  /** Живые после разбора, включая чужие (`foreign`). */
+  alive: TrackedProcess[];
+  /** Только если есть: живые процессы другого сервера — не тронуты, `clean: false`. */
+  foreign?: ForeignProcess[];
+}
+
 /**
  * Разбирает реестр попытки (или всех попыток прогона, если `attempt` не задан) перед
  * повторным запуском (ADR 0007, п. 4). Мёртвые записи (или с другим `startedAt` — pid
- * переиспользован) закрываются `end`; живым группам — SIGTERM, через `graceMs` —
+ * переиспользован) закрываются `end`. Живые сначала проходят проверку принадлежности
+ * (S20, `ownershipJudge`): процессы другого живого сервера сигнала не получают, помечаются
+ * `markForeign` и возвращаются в `foreign`. Остальным группам — SIGTERM, через `graceMs` —
  * SIGKILL, затем ожидание выхода до `waitMs`. `clean: false` — кто-то остался жив; их
  * записи остаются в реестре.
  */
@@ -151,7 +190,7 @@ export async function reapAttempt(
   registry: ProcessRegistry,
   filter: { runId: string; attempt?: number },
   opts: Omit<ReapOptions, "registry"> = {},
-): Promise<{ clean: boolean; alive: TrackedProcess[] }> {
+): Promise<ReapResult> {
   const kill = opts.kill ?? process.kill;
   const graceMs = opts.graceMs ?? 5000;
   const waitMs = opts.waitMs ?? 30_000;
@@ -159,17 +198,70 @@ export async function reapAttempt(
   let alive = await dropDead(registry, await registry.live(filter));
   if (alive.length === 0) return { clean: true, alive: [] };
 
-  for (const p of alive) killGroup(p.pgid, "SIGTERM", kill);
-  alive = await waitDead(registry, alive, graceMs);
+  // родитель-запись ищется по всему реестру: Chrome (боковой реестр) — потомок worker
+  const judge = ownershipJudge(await registry.live());
+  const foreign: ForeignProcess[] = [];
+  const own: TrackedProcess[] = [];
+  for (const p of alive) {
+    const v = await judge(p);
+    if (v) foreign.push({ process: p, ...v });
+    else own.push(p);
+  }
+  for (const f of foreign) await registry.markForeign?.(f.process, f.ownerPid);
+
+  alive = own;
+  if (alive.length > 0) {
+    for (const p of alive) killGroup(p.pgid, "SIGTERM", kill);
+    alive = await waitDead(registry, alive, graceMs);
+  }
   if (alive.length > 0) {
     for (const p of alive) killGroup(p.pgid, "SIGKILL", kill);
     alive = await waitDead(registry, alive, waitMs);
   }
-  return { clean: alive.length === 0, alive };
+  const all = [...foreign.map((f) => f.process), ...alive];
+  return foreign.length > 0 ? { clean: false, alive: all, foreign } : { clean: all.length === 0, alive: all };
+}
+
+type Verdict = Omit<ForeignProcess, "process"> | undefined;
+
+/**
+ * Чей процесс (S20). Чужой (`Verdict` задан), если
+ * - B: у записи есть владелец, это не мы (pid + время старта), и он жив;
+ * - A: лидер жив, а его родитель — не 1 (осиротел), не мы и не другая запись реестра, которая
+ *   сама не чужая (цепочка worker → Chrome); родитель-запись чужая — чужой и потомок.
+ * Лидера уже нет (остались процессы группы) — проверка A невозможна, решает только B.
+ */
+function ownershipJudge(all: TrackedProcess[]): (p: TrackedProcess) => Promise<Verdict> {
+  const memo = new Map<string, Promise<Verdict>>();
+  const judge = (p: TrackedProcess, depth: number): Promise<Verdict> => {
+    const key = `${p.runId}\u0000${p.attempt}\u0000${p.pid}`;
+    let v = memo.get(key);
+    if (!v) {
+      v = verdict(p, depth);
+      memo.set(key, v);
+    }
+    return v;
+  };
+  const verdict = async (p: TrackedProcess, depth: number): Promise<Verdict> => {
+    if (p.owner && (await ownerAliveElsewhere(p.owner))) return { ownerPid: p.owner.pid, reason: "owner_alive" };
+    const info = await procParent(p.pid);
+    if (!info || info.startedAt !== p.startedAt) return undefined;
+    if (info.ppid === 1 || info.ppid === process.pid) return undefined;
+    const parent = all.find((q) => q.pid === info.ppid && q.pid !== p.pid);
+    if (parent && depth < 8 && (await procInfo(parent.pid))?.startedAt === parent.startedAt) return judge(parent, depth + 1);
+    return { ownerPid: info.ppid, reason: "parent_alive" };
+  };
+  return (p) => judge(p, 0);
+}
+
+/** Владелец жив и это не этот процесс. */
+async function ownerAliveElsewhere(o: ProcessOwner): Promise<boolean> {
+  if (o.pid === process.pid && o.startedAt === (await selfInfo())?.startedAt) return false;
+  return (await procInfo(o.pid))?.startedAt === o.startedAt;
 }
 
 /** Срез: все попытки прогона по файловому реестру (или `opts.registry`). */
-export function reapStale(root: string, runId: string, opts: ReapOptions = {}): Promise<{ clean: boolean; alive: TrackedProcess[] }> {
+export function reapStale(root: string, runId: string, opts: ReapOptions = {}): Promise<ReapResult> {
   return reapAttempt(opts.registry ?? fileProcessRegistry(root), { runId }, opts);
 }
 

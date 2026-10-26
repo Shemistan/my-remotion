@@ -25,6 +25,8 @@ export const SAFE_KINDS: ReadonlySet<string> = new Set([
   // раннер и восстановление: прогресс, старт, статусы без текста ошибки
   "progress", "started", "completed", "requeued", "locks_released", "recovered_completed",
   "fenced_out", "abort_timeout", "late_result_ignored", "permits_released",
+  // S20: процесс другого живого сервера не тронут (сообщение — только pid)
+  "foreign_process",
   // Task 49a: сторож прогресса (этап, мс молчания, порог), итог уборки кэша (счётчики, байты)
   "stalled", "cache_gc",
   // повторное использование опубликованного
@@ -67,6 +69,8 @@ export const HIDDEN_KINDS: ReadonlySet<string> = new Set([
   "api_error", "bundle_failed",
   // таймлайн (Task 42): пересборка с текстом ошибки сверки
   "timeline_rebuild",
+  // S20: предупреждение отчёта старта о копии хранилища — путь исходного хранилища
+  "store_copied",
 ]);
 
 /** Сообщение события этого вида может содержать текст пользователя (всё, кроме `SAFE_KINDS`). */

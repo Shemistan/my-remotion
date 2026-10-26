@@ -117,6 +117,11 @@ export function RecoveryCenter() {
                   <span className={r.boot.crashed ? "badge status-failed" : "badge status-completed"}>{r.boot.crashed ? t("recovery.crashed") : t("recovery.clean")}</span>
                 </p>
                 {r.boot.summary ? <p>{t("recovery.summary", r.boot.summary)}</p> : null}
+                {r.boot.warnings?.length ? (
+                  <ul className="small" data-testid="recovery-warnings">
+                    {r.boot.warnings.map((w, i) => <li key={i} className="warn" data-kind={w.kind}>{t("recovery.warning", { message: w.message })}</li>)}
+                  </ul>
+                ) : null}
                 {r.boot.acknowledged_at ? (
                   <p className="muted small">{t("recovery.acked", { at: dateTime(r.boot.acknowledged_at) })}</p>
                 ) : (

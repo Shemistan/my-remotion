@@ -63,6 +63,7 @@ export const ruProjects = {
   "recovery.ack": "Понятно",
   "recovery.acked": "Просмотрено {at}",
   "recovery.noBoot": "Отчётов о запуске ещё нет.",
+  "recovery.warning": "Внимание: {message}",
   "recovery.interrupted": "Задачи, прерванные сбоем",
   "recovery.noInterrupted": "Прерванных задач нет.",
   "recovery.blocked": "Заблокированные задачи",
