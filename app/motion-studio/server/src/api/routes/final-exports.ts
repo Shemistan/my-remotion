@@ -11,8 +11,6 @@ import {
   FinalManifestSchema, FinalVerifyReportSchema, FpsSchema, type Fps, JobSchema, type VideoTimelineDoc,
 } from "@ms/contracts";
 import { z } from "zod";
-import { artifactPaths } from "../../artifacts/paths.js";
-import { isPublished } from "../../artifacts/store.js";
 import type { Core } from "../../boot.js";
 import * as edls from "../../db/repos/edls.js";
 import * as jobs from "../../db/repos/jobs.js";
@@ -20,14 +18,12 @@ import * as media from "../../db/repos/media.js";
 import * as projects from "../../db/repos/projects.js";
 import { type FinalExportRow, finalExports } from "../../db/repos/video.js";
 import { tx } from "../../db/tx.js";
-import { timelineFor } from "../../edit/timeline-store.js";
 import { type FinalGateCode, FinalGateFailed } from "../../final/gate.js";
 import { COMPARE_FILE, FINAL_MANIFEST_FILE, VERIFY_FILE } from "../../final/manifest.js";
-import { finalOutput } from "../../final/render.js";
+import { finalSpacePlan } from "../../final/space-plan.js";
 import { requestFinal } from "../../final/request.js";
 import { enqueue } from "../../jobs/queue.js";
-import { masterFrames } from "../../media/master.js";
-import { checkImportSpace, editedAudioBytes, estimateFinalBytes, estimateMasterBytes, gib } from "../../media/space.js";
+import { checkImportSpace, gib } from "../../media/space.js";
 import { deletedRefusal } from "../../projects/lifecycle.js";
 import { readTimelineDoc } from "../../timeline/ops.js";
 import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "../context.js";
@@ -73,22 +69,15 @@ const parseFps = (s: string): Fps => {
 const GATE_PRIORITY: FinalGateCode[] = ["approval_required", "timeline_stale", "blocking_issues"];
 
 /**
- * Оценка места под финал ревизии `doc` — те же слагаемые, что проверяет задача `final.render`:
- * файл с запасом, master на fps таймлайна (не в кэше — ещё и копия во временном каталоге Remotion),
- * копия `edited-audio.wav`.
+ * Оценка места под финал ревизии `doc` — та же функция `finalSpacePlan`, что у задачи
+ * `final.render` (master по ступени выхода, кэш этой ступени), плюс свободное место и порог.
  */
 export async function finalEstimate(core: Core, projectId: string, doc: VideoTimelineDoc, request: FinalExportRequest): Promise<FinalEstimate> {
   const { db, root } = core;
   const e = edls.get(db, doc.inputs.edl.id);
   const asset = e ? media.get(db, e.media_id) : undefined;
   if (!e || !asset) throw new ApiError(409, "timeline_stale", "исходника таймлайна нет — пересоберите таймлайн");
-  const display = { width: asset.probe.video.display_width, height: asset.probe.video.display_height };
-  const out = finalOutput(doc, request, display);
-  const masterCached = isPublished(db, artifactPaths(root, projectId).master(asset.id, doc.fps));
-  const masterBytes = estimateMasterBytes({ frames: masterFrames(asset.probe, doc.fps), ...display });
-  const tl = timelineFor(db, doc.inputs.edl.id, doc.inputs.edl.revision);
-  const bytes = estimateFinalBytes({ ...out, quality: request.quality }) + masterBytes * (masterCached ? 1 : 2)
-    + 2 * editedAudioBytes({ durationUs: tl.duration_us, channels: asset.probe.audio?.channels ?? 0 });
+  const { out, masterCached, bytes } = await finalSpacePlan(db, root, projectId, asset, doc, request);
   const status = await core.storageCheck();
   const free = status.ok ? status.freeBytes : 0;
   const minFree = core.minFreeBytes;
