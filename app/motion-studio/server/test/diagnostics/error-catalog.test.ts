@@ -19,6 +19,15 @@ it("каждый ключ errors.* словаря сценария (и обще�
   for (const code of [...plan, ...errorKeys("ru.ts"), ...errorKeys("ru-projects.ts")]) expect(ERROR_CATALOG[code], code).toBeDefined();
 });
 
+it("Task 45 (fix): коды API таймлайна — в каталоге, их errors.* — в ru-diagnostics", () => {
+  const diag = errorKeys("ru-diagnostics.ts");
+  for (const code of ["timeline_not_found", "clip_not_found", "override_reason_required", "version_not_approved"]) {
+    expect(explainError({ error: code, message: "x" }).unknown, code).toBe(false);
+    expect(diag, code).toContain(code);
+  }
+  for (const code of diag) expect(ERROR_CATALOG[code], code).toBeDefined();
+});
+
 it("explainError: задача — заголовок и подсказка кода, действия; этап и сообщение", () => {
   expect(explainError({ code: "stale_process", message: "живы 4242", stage: "orphaned" })).toEqual({
     kind: "job", code: "stale_process", title: "job.errorCode.stale_process", hint: "diagnostics.hint.stale_process",

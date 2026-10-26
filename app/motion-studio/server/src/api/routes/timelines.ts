@@ -128,6 +128,11 @@ export const timelineRoutes: (app: ZApp, ctx: ApiContext) => void = (app, { core
     return reply.status(out.status).send({ job: publicJob(out.job, root) });
   });
 
+  // Правка ревизии. Защита `base_revision` — в `saveTimelineRevision`: сверка с текущей ревизией до
+  // работы и ещё раз в транзакции публикации (`publishTimelineRevision(…, conflict)`), так что две
+  // правки на одной базе не перезапишут друг друга — вторая получит 409 `revision_conflict`;
+  // таймлайн пишет задача — 409 `resource_busy`. Idempotency-Key не нужен: повтор той же правки на
+  // старой базе — тот же 409, клиент перечитывает текущую ревизию.
   app.post("/api/timelines/:id/revisions", {
     bodyLimit: EDIT_BODY_LIMIT,
     preValidation: async (req) => {

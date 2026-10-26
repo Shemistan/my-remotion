@@ -20,6 +20,7 @@ import { FreshnessBanner } from "../../components/timeline/FreshnessBanner.js";
 import { TimelineView } from "../../components/timeline/TimelineView.js";
 import type { ExcludedBlock } from "../../components/timeline/TrackGraphics.js";
 import { t } from "../../i18n/index.js";
+import { href, navigate } from "../../router.js";
 import { revertOps } from "../../timeline/drag.js";
 import { toSource } from "../../video/use-timeline.js";
 import type { VideoTabProps } from "./tab-props.js";
@@ -33,21 +34,26 @@ function ApiErrorCard({ error }: { error: unknown }) {
 }
 
 /**
- * «Изменить границы — в плане» (Р-V6): вкладки переключает VideoWorkspace (реестр 35′, свойства
- * вкладок без смены вкладки) — нажимаем сцену на дорожке плана рядом с плеером: она открывает
- * вкладку «План» на этой сцене. Дорожки нет — вкладка «План» по адресу.
+ * «Изменить границы — в плане» (Р-V6): переход без перезагрузки на вкладку «План» этой сцены —
+ * VideoWorkspace читает вкладку и сцену из адреса (`?tab=plan&item=`).
  */
-function openPlanItem(itemId: string): void {
-  const el = [...document.querySelectorAll<HTMLButtonElement>("[data-testid^='plan-item-']")].find((b) => b.dataset.testid === `plan-item-${itemId}`);
-  if (el) el.click();
-  else window.location.assign(`${window.location.pathname}?tab=plan`);
-}
+const openPlanItem = (projectId: string) => (itemId: string): void => {
+  navigate(`${href({ name: "project", id: projectId })}?tab=plan&item=${encodeURIComponent(itemId)}`);
+};
 
 function Revisions({ timelineId, current, busy, onRestore }: { timelineId: string; current: VideoTimelineDoc; busy: boolean; onRestore: (ops: TimelineOp[]) => void }) {
   const q = useTimelineRevisions(timelineId, current.revision);
   const [note, setNote] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const restore = async (r: TimelineRevisionEntry) => {
-    const target = await timelineApi.revision(timelineId, r.revision);
+    setError(null);
+    let target;
+    try {
+      target = await timelineApi.revision(timelineId, r.revision);
+    } catch (e) {
+      setError(e);
+      return;
+    }
     const ops = revertOps(current, target.doc);
     if (ops.length === 0) setNote(t("projectTimeline.revisions.nothing"));
     else {
@@ -72,6 +78,7 @@ function Revisions({ timelineId, current, busy, onRestore }: { timelineId: strin
         ))}
       </ul>
       {note ? <p className="muted small">{note}</p> : null}
+      {error ? <ApiErrorCard error={error} /> : null}
     </section>
   );
 }
@@ -213,7 +220,7 @@ export const TimelineTab: (props: VideoTabProps) => ReactElement = ({ data, onSe
           <ul className="small" data-testid="timeline-issues">
             {doc.issues.map((i, k) => (
               <li key={k} className={i.severity}>
-                {`${i.item_id ? `${t("projectTimeline.excludedItem", { n: numbers.get(i.item_id) ?? "?", reason: i.message })}` : i.message} · ${t(i.severity === "blocking" ? "projectTimeline.issue.blocking" : "projectTimeline.issue.warning")}`}
+                {`${i.item_id ? t("projectTimeline.issue.item", { n: numbers.get(i.item_id) ?? "?", message: i.message }) : i.message} · ${t(i.severity === "blocking" ? "projectTimeline.issue.blocking" : "projectTimeline.issue.warning")}`}
               </li>
             ))}
           </ul>
@@ -229,8 +236,9 @@ export const TimelineTab: (props: VideoTabProps) => ReactElement = ({ data, onSe
           tl={tl}
           scene={sceneOf(selected)}
           busy={busy}
+          wordFrames={words.map((w) => w.frame)}
           onOps={apply}
-          onOpenPlan={openPlanItem}
+          onOpenPlan={openPlanItem(projectId)}
         />
         <Revisions timelineId={dto.timeline_id} current={doc} busy={busy} onRestore={apply} />
       </div>

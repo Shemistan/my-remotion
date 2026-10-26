@@ -37,12 +37,13 @@ describe("dragMove", () => {
 });
 
 describe("revertOps", () => {
-  const doc = (scenes: VideoTimelineClip[]) => ({ scenes }) as Pick<VideoTimelineDoc, "scenes">;
+  type Doc = Pick<VideoTimelineDoc, "scenes" | "excluded" | "ops">;
+  const doc = (scenes: VideoTimelineClip[], excluded: VideoTimelineDoc["excluded"] = [], ops: VideoTimelineDoc["ops"] = []): Doc => ({ scenes, excluded, ops });
   it("сдвиг назад, возврат исключённой, исключение лишней; одинаковые — пусто", () => {
     const a = clip();
     const b = clip({ clip_id: "clip_sp_002", item_id: "sp_002", start_frame: 600, anchors: [] });
     const cur = doc([{ ...a, start_frame: 360 }, { ...clip({ clip_id: "clip_sp_003", item_id: "sp_003" }) }]);
-    expect(revertOps(cur, doc([a, b]))).toEqual([
+    expect(revertOps(cur, doc([a, b], [{ item_id: "sp_003", reason: "user" }]))).toEqual([
       { op: "include", clip_id: "clip_sp_003", include: false },
       { op: "move", clip_id: "clip_sp_001", start_frame: 330, snap: false },
       { op: "include", clip_id: "clip_sp_002", include: true },
@@ -50,6 +51,25 @@ describe("revertOps", () => {
       { op: "move", clip_id: "clip_sp_002", start_frame: 600, snap: false },
     ]);
     expect(revertOps(doc([a]), doc([a]))).toEqual([]);
+  });
+
+  it("клип, исключённый в цели не пользователем (не утверждён, устарел), не исключается пользователем", () => {
+    const a = clip();
+    const c = clip({ clip_id: "clip_sp_003", item_id: "sp_003" });
+    expect(revertOps(doc([a, c]), doc([a], [{ item_id: "sp_003", reason: "not_approved" }]))).toEqual([]);
+    expect(revertOps(doc([a, c]), doc([a], [{ item_id: "sp_003", reason: "stale" }]))).toEqual([]);
+  });
+
+  it("override-клип: причина сдвига — из последнего move цели, не причина включения", () => {
+    const o = clip({ include: "override", override_reason: "черновик для заказчика", start_frame: 250 });
+    const target = doc([o], [], [{ op: "move", clip_id: "clip_sp_001", start_frame: 250, override_reason: "слово раньше сцены — так задумано" }]);
+    expect(revertOps(doc([{ ...o, start_frame: 330 }]), target)).toEqual([
+      { op: "move", clip_id: "clip_sp_001", start_frame: 250, snap: false, override_reason: "слово раньше сцены — так задумано" },
+    ]);
+    // сдвиг цели без причины — и move без причины (причина включения не переносится)
+    expect(revertOps(doc([{ ...o, start_frame: 330 }]), doc([o], [], [{ op: "move", clip_id: "clip_sp_001", start_frame: 250 }]))).toEqual([
+      { op: "move", clip_id: "clip_sp_001", start_frame: 250, snap: false },
+    ]);
   });
 });
 

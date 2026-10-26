@@ -68,6 +68,22 @@ test("таймлайн видеопроекта: сборка, сдвиг по �
   expect(r2.doc.issues.filter((i) => i.severity === "blocking")).toEqual([]);
   await shot(page, "timeline-r2-moved", EVIDENCE_PHASE5);
 
+  // сдвиг с клавиатуры (fix I2): кадр, при котором слово вне сцены, — предупреждение сразу и
+  // обязательная причина; без неё «Сдвинуть» недоступна (правка не отправляется)
+  const insp = page.getByTestId("clip-inspector");
+  const moveTo = insp.getByRole("spinbutton", { name: t("projectTimeline.inspector.moveTo") });
+  await moveTo.fill(String(moved.start_frame + moved.duration_frames + 30));
+  await expect(insp.getByTestId("inspector-move-outside")).toBeVisible();
+  await expect(insp.getByRole("button", { name: t("projectTimeline.inspector.move"), exact: true })).toBeDisabled();
+  await shot(page, "timeline-inspector-outside", EVIDENCE_PHASE5);
+  await moveTo.fill("");
+  // «Изменить границы — в плане»: вкладка «План» этой сцены без перезагрузки
+  await insp.getByRole("button", { name: t("projectTimeline.inspector.bounds") }).click();
+  await expect(page.getByRole("tab", { name: t("video.tab.plan"), exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page).toHaveURL(new RegExp(`tab=plan&item=${i1}`));
+  await openTimeline(page);
+  await expect(page.getByTestId("timeline-revision")).toHaveText(t("projectTimeline.revision", { n: 2 }));
+
   // превью ревизии: настоящая задача timeline.preview → видео по Range
   await page.getByRole("button", { name: t("projectTimeline.preview.build") }).click();
   const preview = page.getByTestId("timeline-preview");

@@ -38,8 +38,11 @@
 .ptl-preview video { width: 100%; max-height: 320px; background: #000; border-radius: var(--radius); }
 .ptl-issues li.blocking { color: var(--error); }
 .ptl-issues li.warning { color: var(--warn); }
-.ptl-inspector dl { display: grid; grid-template-columns: 1fr; gap: 2px 10px; margin: 0; }
-.ptl-revisions li { display: flex; gap: 8px; align-items: center; }
+.ptl-facts { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.ptl-inspector .nowrap { white-space: nowrap; hyphens: none; }
+.ptl-revisions ul { padding: 0; margin: 0; list-style: none; }
+.ptl-revisions li { display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+.ptl-revisions li > button { margin-left: auto; }
 .final-dialog { border: 1px solid var(--accent); }
 .final-dialog label { display: grid; gap: 2px; }
 .final-dialog .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); }

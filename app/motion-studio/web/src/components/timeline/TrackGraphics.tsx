@@ -3,9 +3,9 @@
 // только перемещение (Р-V6): прилипание к слову (Alt — без), мгновенная проверка ключевых слов;
 // слово окажется вне сцены — красная подсветка и поле «причина» перед сохранением.
 import type { VideoTimelineClip } from "@ms/contracts";
-import { type PointerEvent, useRef, useState } from "react";
+import { type KeyboardEvent, type PointerEvent, useRef, useState } from "react";
 import { t, tk } from "../../i18n/index.js";
-import { type DragResult, dragMove } from "../../timeline/drag.js";
+import { type DragResult, dragMove, keyMove } from "../../timeline/drag.js";
 import { frameToX } from "../../timeline/geometry.js";
 
 const LANE_PX = 28;
@@ -85,11 +85,27 @@ export function TrackGraphics({ clips, excluded, durationFrames, zoom, wordFrame
       return;
     }
     onSelect(d.clip.item_id);
-    if (d.res.anchor.ok) onMove(d.clip.clip_id, d.res.start_frame, { snap: !d.alt });
+    commit(d.clip, d.res, !d.alt);
+  };
+  /** Сдвиг готов: слово в сцене — сразу, вне — поле причины. */
+  const commit = (c: VideoTimelineClip, res: DragResult, snap: boolean) => {
+    if (res.anchor.ok) onMove(c.clip_id, res.start_frame, { snap });
     else {
       setReason("");
-      setPending({ clip: d.clip, start: d.res.start_frame, snap: !d.alt, outside: d.res.anchor.outside });
+      setPending({ clip: c, start: res.start_frame, snap, outside: res.anchor.outside });
     }
+  };
+  // стрелки на сфокусированной сцене: ±1 кадр, с Shift — к началу соседнего слова (кадр как есть)
+  const onKey = (e: KeyboardEvent<HTMLButtonElement>, c: VideoTimelineClip) => {
+    if (e.key === "Enter" || e.key === " ") {
+      onSelect(c.item_id);
+      return;
+    }
+    if (busy || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+    e.preventDefault();
+    onSelect(c.item_id);
+    const res = keyMove(c, e.key === "ArrowRight" ? 1 : -1, e.shiftKey, wordFrames, durationFrames - c.duration_frames);
+    if (res) commit(c, res, false);
   };
 
   const words = (c: VideoTimelineClip, ids: readonly string[]) => c.anchors.filter((a) => ids.includes(a.word_id)).map((a) => `«${a.text}»`).join(", ");
@@ -106,8 +122,9 @@ export function TrackGraphics({ clips, excluded, durationFrames, zoom, wordFrame
               className={`ptl-clip excluded ${selected === x.item_id ? "selected" : ""}`}
               data-testid={`timeline-excluded-${x.item_id}`}
               data-reason={x.reason}
-              title={t("projectTimeline.excluded.title", { reason: reasonText })}
-              style={{ left: `${frameToX(x.start, zoom)}px`, width: `${Math.max(4, (x.end - x.start) * zoom)}px`, top: `${2 + (lanes.get(`x_${x.item_id}`) ?? 0) * LANE_PX}px` }}
+              title={t("projectTimeline.excluded.blockTitle", { n: numbers.get(x.item_id) ?? "?", reason: reasonText })}
+              // сцена плана может выходить за конец ролика (монтаж короче) — плашка не шире дорожки
+              style={{ left: `${frameToX(Math.min(x.start, durationFrames - 1), zoom)}px`, width: `${Math.max(4, (Math.min(x.end, durationFrames) - Math.min(x.start, durationFrames - 1)) * zoom)}px`, top: `${2 + (lanes.get(`x_${x.item_id}`) ?? 0) * LANE_PX}px` }}
               onClick={() => onSelect(x.item_id)}
             >
               <span className="ptl-clip-label">{numbers.get(x.item_id) ?? "?"}</span>
@@ -139,7 +156,7 @@ export function TrackGraphics({ clips, excluded, durationFrames, zoom, wordFrame
               onPointerMove={move}
               onPointerUp={up}
               onPointerCancel={() => set(null)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect(c.item_id); }}
+              onKeyDown={(e) => onKey(e, c)}
             >
               <span className="ptl-clip-label">{n}</span>
               <span className={`ptl-badge ${c.include}`}>{c.include === "approved" ? t("projectTimeline.clip.badgeC") : t("projectTimeline.clip.badgeOverride")}</span>

@@ -100,20 +100,31 @@ describe("TimelineTab", () => {
     expect(posts(calls, "/api/timelines/tl_p1/revisions/2/preview")[0]!.headers["idempotency-key"]).toBeTruthy();
   });
 
-  it("превью готово — видео ревизии; «Изменить границы — в плане» нажимает сцену на дорожке плана", async () => {
+  it("превью готово — видео ревизии; «Изменить границы — в плане» — переход на вкладку «План» этой сцены без перезагрузки", async () => {
+    window.history.replaceState(null, "", "/projects/p1?tab=timeline");
+    const scroll = vi.spyOn(window, "scrollTo").mockImplementation(() => undefined); // jsdom: scrollTo не реализован
     fakeFetch([on("GET", TL, timelineDto({ preview_ready: true })), ...base]);
-    const planBtn = document.createElement("button");
-    planBtn.setAttribute("data-testid", "plan-item-sp_001");
-    const clicked = vi.fn();
-    planBtn.addEventListener("click", clicked);
-    document.body.appendChild(planBtn);
     renderQ(<TimelineTab {...props()} />);
     expect((await screen.findByTestId("timeline-preview")).getAttribute("src")).toBe("/api/timelines/tl_p1/revisions/2/preview.mp4");
     const el = screen.getByTestId("timeline-clip-sp_001");
     fireEvent.pointerDown(el, { button: 0, clientX: 10, pointerId: 1 });
     fireEvent.pointerUp(el, { clientX: 10, pointerId: 1 });
     fireEvent.click(await screen.findByRole("button", { name: t("projectTimeline.inspector.bounds") }));
-    expect(clicked).toHaveBeenCalled();
-    planBtn.remove();
+    expect(`${window.location.pathname}${window.location.search}`).toBe("/projects/p1?tab=plan&item=sp_001");
+    window.history.replaceState(null, "", "/");
+    scroll.mockRestore();
+  });
+
+  it("«Вернуть эту»: ревизия не загрузилась — карточка ошибки, правки нет", async () => {
+    const { calls } = fakeFetch([
+      on("GET", TL, timelineDto()), on("GET", "/api/timelines/tl_p1/revisions/1", { error: "timeline_not_found", message: "нет ревизии r1" }, 404), ...base,
+    ]);
+    renderQ(<TimelineTab {...props()} />);
+    const list = await screen.findByTestId("timeline-revisions");
+    await waitFor(() => expect(within(list).getByRole("button", { name: t("projectTimeline.revisions.restore") })).toBeTruthy());
+    fireEvent.click(within(list).getByRole("button", { name: t("projectTimeline.revisions.restore") }));
+    expect((await screen.findByRole("alert")).getAttribute("data-error-code")).toBe("timeline_not_found");
+    expect(screen.getByText(t("errors.timeline_not_found"))).toBeTruthy();
+    expect(posts(calls, "/api/timelines/tl_p1/revisions")).toEqual([]);
   });
 });

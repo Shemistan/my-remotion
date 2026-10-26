@@ -78,3 +78,10 @@ export function useRoute(): Route {
   const i = s.indexOf("?");
   return parseRoute(i < 0 ? s : s.slice(0, i), i < 0 ? "" : s.slice(i));
 }
+
+/** Строка запроса текущего адреса (`?…` или пусто): меняется при `navigate` и «назад». */
+export function useSearch(): string {
+  const s = useSyncExternalStore(subscribe, snapshot, snapshot);
+  const i = s.indexOf("?");
+  return i < 0 ? "" : s.slice(i);
+}
