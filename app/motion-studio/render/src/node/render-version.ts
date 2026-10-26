@@ -89,6 +89,11 @@ export interface RenderResult {
    */
   allowedOrigins?: string[];
   error?: { stage: RenderStage; message: string };
+  /**
+   * S21: worker умер по сигналу (SIGKILL/OOM/сторож снаружи) и не вернул результата — ошибки
+   * сцены нет; вызывающий может повторить рендер тем же кодом. Таймаут и отмена — не сюда.
+   */
+  killed?: string;
 }
 
 /** Подмены для юнит-тестов. */
@@ -349,6 +354,7 @@ export async function renderJob(req: RenderJobRequest, signal?: AbortSignal, dep
       const stage = out.stage ?? "bundle";
       return fail(stage, `worker завершился (code ${w.code}, signal ${w.signal}) без результата на этапе ${stage}: ${tail(w.stderr)}`, {
         browserLogs: out.logs,
+        ...(w.signal ? { killed: w.signal } : {}),
       });
     }
     const browserLogs = out.logs.length > 0 ? out.logs : r.browserLogs;

@@ -51,6 +51,9 @@ import { type RunCtx, type SpeechWindow, buildEngineerTask, clip, errText, isSto
 export const PREVIEW = { scale: 0.5, crf: 23 };
 /** Масштаб временного прохода пробы (S15b): только DOM-замеры, снимков нет. */
 const SWEEP_SCALE = 0.25;
+/** S21: повторов рендера, убитого сигналом без ошибки сцены, до вызова Engineer. */
+export const RENDER_KILL_RETRIES = 2;
+
 /** Время рендера по умолчанию; длинные сцены — `renderTimeoutMs`. */
 const RENDER_TIMEOUT_MS = 10 * 60_000;
 /** Вызовов Visual QA на один рендер: первый и один повтор (ruling P5). */
@@ -942,8 +945,8 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
       // S15b: сцена сценария — временной проход пробы после превью (проверки по всей сцене)
       ...(i.script || i.temporal ? { sweep: { every: SWEEP_EVERY, scale: SWEEP_SCALE } } : {}),
     };
-    const t0 = Date.now();
-    const r = await rc.timed(`${pre}render_${call}`, () =>
+    let t0 = Date.now();
+    const renderOnce = (label: string) => rc.timed(label, () =>
       rc.underWatch(async (sig) => {
         const release = await rc.acquire(rc.deps.permits?.renders, sig);
         try {
@@ -953,6 +956,18 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
         }
       }, t.signal),
     );
+    let r = await renderOnce(`${pre}render_${call}`);
+    // S21: worker убит сигналом снаружи (SIGKILL/OOM/сторож) без ошибки сцены — код не виноват:
+    // повтор рендера тем же кодом, без платного хода Engineer (до RENDER_KILL_RETRIES раз)
+    for (let k = 1; k <= RENDER_KILL_RETRIES && r.value?.killed !== undefined && !r.value.ok && !r.lost && !stopped(); k++) {
+      const msg = `рендер убит сигналом ${r.value.killed} без ошибки сцены — повтор ${k} из ${RENDER_KILL_RETRIES} тем же кодом`;
+      rc.note(first ? "render" : "t2_render", msg);
+      rc.log(msg);
+      const p2 = await rc.storageProblem();
+      if (p2) return end("storage", p2);
+      t0 = Date.now();
+      r = await renderOnce(`${pre}render_${call}_retry${k}`);
+    }
     if (r.skipped) return end("cancelled", "отменено до рендера");
     if (r.error !== undefined) {
       const storage = isStorageError(r.error) || r.lost !== undefined || (await rc.storageProblem()) !== undefined;

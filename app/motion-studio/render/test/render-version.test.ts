@@ -403,3 +403,21 @@ it("S15b: временной проход пробы уходит в задан�
   await renderVersion(req, undefined, d);
   expect(jobs.map((j) => j.sweep)).toEqual([{ every: 6, scale: 0.25 }, undefined, undefined]);
 });
+
+it("S21: worker убит сигналом без результата — killed (не ошибка сцены); ошибка сцены и таймаут — без killed", async () => {
+  const r = await renderVersion(req, undefined, deps(() => ({ code: null, signal: "SIGKILL", stdout: "@@ms:stage media\n" })));
+  expect(r).toMatchObject({ ok: false, error: { stage: "media" }, killed: "SIGKILL" });
+
+  const scene = await renderVersion(req, undefined, deps(() => ({
+    code: 1,
+    stdout: workerOut({ ok: false, stills: [], browserLogs: [], error: { stage: "still", message: "ReferenceError: x is not defined" } }),
+  })));
+  expect(scene.killed).toBeUndefined();
+
+  const late = await renderVersion({ ...req, timeoutMs: 30 }, undefined, deps(async (c) => {
+    await new Promise((res) => c.opts.signal.addEventListener("abort", res));
+    return { code: null, signal: "SIGKILL" };
+  }));
+  expect(late).toMatchObject({ ok: false, error: { stage: "timeout" } });
+  expect(late.killed).toBeUndefined();
+});
