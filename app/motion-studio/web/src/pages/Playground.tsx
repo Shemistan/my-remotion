@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, newKey, urls } from "../api/client.js";
 import { useJob, useScene, useVersion } from "../api/queries.js";
+import { useVideoScenes } from "../api/video-scenes-client.js";
 import { Chat } from "../components/Chat.js";
 import { ClarifyQuestions } from "../components/ClarifyQuestions.js";
 import { ComponentsPanel } from "../components/ComponentsPanel.js";
@@ -18,9 +19,10 @@ import { SceneTimeline, beatsOf } from "../components/SceneTimeline.js";
 import { SettingsForm } from "../components/SettingsForm.js";
 import { SpecView } from "../components/SpecView.js";
 import { VersionHistory } from "../components/VersionHistory.js";
+import { ApprovalCButton } from "../components/video-scenes/ApprovalCButton.js";
 import { errorText, t, tk } from "../i18n/index.js";
 import { formatNumber } from "../lib/player-math.js";
-import { navigate } from "../router.js";
+import { href, navigate } from "../router.js";
 
 const PRESETS = ["dark-premium", "light-clean", "tech-neon"] as const;
 
@@ -133,6 +135,10 @@ export function Playground({ id, version }: { id: string; version?: string }) {
   const projectId = scene.data?.scene.project_id;
   const project = useQuery({ queryKey: ["project", projectId], queryFn: () => api.project(projectId!), enabled: Boolean(projectId) });
   const scriptProject = project.data?.project.kind === "script";
+  // Task 40: сцена видеопроекта — «← К видео» и Approval C (состояние сцены из вкладки «Сцены»)
+  const videoProject = project.data?.project.kind === "video";
+  const videoScenes = useVideoScenes(projectId, videoProject);
+  const videoScene = videoScenes.data?.scenes.find((x) => x.scene_id === id);
 
   if (scene.isError) return <div className="page"><p className="error">{errorText(scene.error)}</p></div>;
   if (!scene.data) return <div className="page"><p className="muted">{t("common.loading")}</p></div>;
@@ -157,6 +163,13 @@ export function Playground({ id, version }: { id: string; version?: string }) {
       <nav className="crumbs">
         {scriptProject ? (
           <Link to={{ name: "project", id: s.project_id }}>{t("scriptOutput.backToScript")}</Link>
+        ) : videoProject ? (
+          // сразу на вкладку «Сцены» рабочего места видео (стартовая вкладка — из query)
+          <a href={`${href({ name: "project", id: s.project_id })}?tab=scenes`} onClick={(e) => {
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            e.preventDefault();
+            navigate(`${href({ name: "project", id: s.project_id })}?tab=scenes`);
+          }}>{t("videoScenes.backToVideo")}</a>
         ) : (
           <Link to={{ name: "project", id: s.project_id }}>{t("nav.project")}</Link>
         )}
@@ -207,7 +220,8 @@ export function Playground({ id, version }: { id: string; version?: string }) {
             <section className="panel">
               <h2>{t("settings.title")}</h2>
               {baseId !== openId ? <p className="hint" data-testid="settings-base">{t("settings.ofBase", { n: num(baseId) ?? "?" })}</p> : null}
-              <SettingsForm value={draft} onChange={setDraft} />
+              {/* длительность видеосцены задаёт план (Р-V: только через план) — здесь только чтение */}
+              <SettingsForm value={draft} onChange={setDraft} {...(videoProject ? { durationLocked: t("videoScenes.durationLocked") } : {})} />
             </section>
           ) : null}
         </aside>
@@ -228,6 +242,18 @@ export function Playground({ id, version }: { id: string; version?: string }) {
             {dto.data ? <Generation dto={dto.data} /> : null}
             {m?.prompt ? <p className="muted prompt-line" title={m.prompt}>{m.prompt}</p> : null}
           </div>
+          {videoScene ? (
+            // утверждается открытая версия (её и смотрит человек), бейдж — про текущую
+            <ApprovalCButton
+              projectId={s.project_id}
+              sceneId={id}
+              versionId={openId && dto.data?.manifest.status === "ready" ? openId : null}
+              versionNumber={dto.data?.manifest.number ?? null}
+              currentNumber={videoScene.version_number}
+              approval={videoScene.approval}
+              numbered
+            />
+          ) : null}
           {!openId ? (
             <div className="empty-player">
               <p>{active_job ? t("playground.generating", { stage: stageText(active_job.stage) }) : t("playground.noVersions")}</p>

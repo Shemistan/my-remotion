@@ -66,6 +66,9 @@ export function videoSceneJobKey(k: { planId: string; revision: number; itemId: 
 const videoRequestTag = (i: Pick<StartVideoBatchInput, "revision" | "itemIds" | "regenerate">): string =>
   requestTag({ video: true, revision: i.revision, item_ids: i.itemIds ? [...new Set(i.itemIds)].sort() : null, regenerate: i.regenerate === true });
 
+/** Пакет полный (как S17a сценария): id кончается отпечатком запроса без `item_ids` и `regenerate`. */
+const fullVideoBatch = (b: Pick<VideoBatchRow, "id" | "plan_revision">): boolean => b.id.endsWith(videoRequestTag({ revision: b.plan_revision }));
+
 /** Пакет, созданный запросом с этим `Idempotency-Key` (любое тело), — для 200/202 маршрута. */
 export function videoBatchForKey(db: Db, projectId: string, key: string): VideoBatchRow | undefined {
   const prefix = keyPrefix(projectId, key, VIDEO_BATCH_PREFIX);
@@ -141,7 +144,7 @@ export function startVideoBatch(core: { db: Db; root: string }, i: StartVideoBat
     const unknown = i.itemIds.filter((id) => !known.has(id));
     if (unknown.length > 0) throw new ApiError(422, "unknown_item", `в плане нет сцен: ${unknown.join(", ")}`);
     const want = new Set(i.itemIds);
-    for (const id of [...want]) if (known.get(id)!.status !== "accepted") skipped.push({ item_id: id, reason: "сцена не принята в плане" });
+    for (const id of [...want]) if (known.get(id)!.status !== "accepted") skipped.push({ item_id: id, reason: "not_accepted" });
     selected = accepted.filter((x) => want.has(x.id));
   }
 
@@ -166,7 +169,7 @@ export function startVideoBatch(core: { db: Db; root: string }, i: StartVideoBat
       }
       // готова: текущая версия опубликована по этому отпечатку (он пишется после публикации)
       if (row.item_fingerprint === fingerprint && scenes.get(db, row.scene_id)?.current_version_id) {
-        skipped.push({ item_id: item.id, reason: "готовая версия по текущему плану" });
+        skipped.push({ item_id: item.id, reason: "ready_version" });
         continue;
       }
     }
@@ -300,7 +303,7 @@ export function videoBatchStatus(db: Db, root: string, batchId: string): VideoBa
     return { item_id: m.item_id, scene_id: job.scene_id!, job: publicJob(job, root), version_id: versionId, status: sceneStatus(job, versionId) as VideoSceneStatus };
   });
   const counts = { total: items.length, ...Object.fromEntries(STATUSES.map((s) => [s, items.filter((x) => x.status === s).length])) } as VideoBatchDto["counts"];
-  return { id: b.id, plan_revision: b.plan_revision, items, counts };
+  return { id: b.id, plan_revision: b.plan_revision, items, counts, full: fullVideoBatch(b) };
 }
 
 /** Отмена незавершённых задач пакета через `cancelJob`; опубликованные версии остаются, `blocked` — не трогается. */

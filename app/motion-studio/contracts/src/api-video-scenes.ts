@@ -56,7 +56,7 @@ export const VideoSceneDtoSchema = z.object({
 }).strict();
 export type VideoSceneDto = z.infer<typeof VideoSceneDtoSchema>;
 
-/** `POST /projects/:id/video-scenes/generate`: Approval B на ревизию `revision` + пакет. */
+/** `POST /api/projects/:id/video/generate`: Approval B на ревизию `revision` + пакет. */
 export const VideoGenerateBodySchema = z.object({
   revision: Revision,
   item_ids: z.array(Id).min(1).optional(),
@@ -76,15 +76,18 @@ export const VideoBatchDtoSchema = z.object({
     status: VideoSceneStatusSchema,
   }).strict()),
   counts: z.object({ total: Count, pending: Count, running: Count, ready: Count, failed: Count, cancelled: Count, blocked: Count }).strict(),
+  /** Причина — код (`ready_version`, `not_accepted`); текст — словарь UI. */
   skipped: z.array(z.object({ item_id: Id, reason: z.string().min(1) }).strict()).optional(),
+  // Task 40: пакет полный (без item_ids и regenerate) — готовые сцены вне пакета считаются готовыми
+  full: z.boolean().optional(),
 }).strict();
 export type VideoBatchDto = z.infer<typeof VideoBatchDtoSchema>;
 
-/** `POST /scenes/:id/approve-c`: утвердить версию сцены. */
+/** `POST /api/scenes/:id/approve`: утвердить версию сцены. */
 export const ApproveSceneBodySchema = z.object({ version_id: Id }).strict();
 export type ApproveSceneBody = z.infer<typeof ApproveSceneBodySchema>;
 
-/** `POST /scenes/:id/preview-context`: превью версии поверх исходника с полями. */
+/** `POST /api/scenes/:id/preview-context`: превью версии поверх исходника с полями. */
 export const PreviewContextBodySchema = z.object({ version_id: Id, pad_frames: Count.optional() }).strict();
 export type PreviewContextBody = z.infer<typeof PreviewContextBodySchema>;
 
@@ -99,7 +102,7 @@ export const VideoPackageDtoSchema = z.object({
 }).strict();
 export type VideoPackageDto = z.infer<typeof VideoPackageDtoSchema>;
 
-/** `GET /projects/:id/video-scenes`: всё состояние сцен видеопроекта одним ответом. */
+/** `GET /api/projects/:id/video/scenes`: всё состояние сцен видеопроекта одним ответом. */
 export const VideoScenesStateDtoSchema = z.object({
   project_id: Id,
   plan: z.object({ id: Id, revision: Revision }).strict().nullable(),

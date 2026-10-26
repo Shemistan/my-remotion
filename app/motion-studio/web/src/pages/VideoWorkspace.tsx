@@ -39,7 +39,7 @@ type Tab = (typeof TABS)[number];
 export function VideoWorkspace({ id, scenes = [] }: { id: string; scenes?: Pick<SceneDto, "id" | "title">[] }) {
   const client = useQueryClient();
   const q = useVideoProject(id);
-  const [tab, setTab] = useState<Tab>("media");
+  const [tab, setTab] = useState<Tab>(() => TABS.find((k) => k === new URLSearchParams(window.location.search).get("tab")) ?? "media"); // Task 40: «← К видео» → ?tab=scenes
   const [currentUs, setCurrentUs] = useState(0);
   const [viewing, setViewing] = useState<number | undefined>(undefined);
   const [useAgent, setUseAgent] = useState(false);

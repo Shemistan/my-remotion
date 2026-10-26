@@ -68,6 +68,7 @@ describe("startVideoBatch", () => {
     const b = startVideoBatch(core(), { projectId: P, revision: rev(), idempotencyKey: "k1" });
     expect(b.items.map((x) => x.item_id)).toEqual(ids());
     expect(b.items.every((x) => x.status === "pending")).toBe(true);
+    expect(b.full).toBe(true); // Task 40 (I1): без item_ids и regenerate — полный пакет
     run({ fail: new Set([ids()[1]!]) });
     await runToIdle(b.id);
     expect(videoBatchStatus(env.db, env.s.root, b.id).counts).toEqual({ total: 4, pending: 0, running: 0, ready: 3, failed: 1, cancelled: 0, blocked: 0 });
@@ -93,6 +94,8 @@ describe("startVideoBatch", () => {
     const retry = startVideoBatch(core(), { projectId: P, revision: rev(), idempotencyKey: "k2" });
     expect(retry.items.map((x) => x.item_id)).toEqual([ids()[1]]);
     expect(retry.skipped?.map((x) => x.item_id)).toEqual([ids()[0], ids()[2], ids()[3]]);
+    expect(retry.skipped?.map((x) => x.reason)).toEqual(["ready_version", "ready_version", "ready_version"]); // код, текст — в UI
+    expect(retry.full).toBe(true);
     expect(jobs.get(env.db, retry.items[0]!.job!.id)!.idempotency_key).toBe(`video:pln_1@r1:${ids()[1]}:s1:try-1`);
     expect(retry.items[0]!.scene_id).toBe(b.items[1]!.scene_id);
     await runToIdle(retry.id);
@@ -107,6 +110,9 @@ describe("startVideoBatch", () => {
     expect(codeOf(() => startVideoBatch(core(), { projectId: P, revision: rev(), idempotencyKey: "a2" }))).toBe("nothing_to_generate");
     const regen = startVideoBatch(core(), { projectId: P, revision: rev(), idempotencyKey: "a3", itemIds: [ids()[2]!], regenerate: true });
     expect(regen.items.map((x) => x.item_id)).toEqual([ids()[2]]);
+    expect(regen.full).toBe(false);
+    expect(videoBatchStatus(env.db, env.s.root, regen.id).full).toBe(false);
+    expect(videoBatchStatus(env.db, env.s.root, b.id).full).toBe(true);
     expect(jobs.get(env.db, regen.items[0]!.job!.id)!.idempotency_key).toBe(`video:pln_1@r1:${ids()[2]}:s1:regen-1`);
     await runToIdle(regen.id);
     expect(versions.listByScene(env.db, regen.items[0]!.scene_id)).toHaveLength(2);

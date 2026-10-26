@@ -60,6 +60,8 @@ export interface E2EState {
   failed: SeededScene;
   /** Сценарный проект (S9): принятые сцены плана, у первых двух — готовые версии. */
   script: { projectId: string; itemIds: string[]; sceneIds: string[] };
+  /** Видеопроект со сценами плана (Task 40): у первых двух сцен — готовые версии v1. */
+  videoScenes: { projectId: string; itemIds: string[]; sceneIds: string[] };
 }
 
 export function state(): E2EState {
