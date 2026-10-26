@@ -7,7 +7,7 @@ import { t } from "../../src/i18n/index.js";
 import { ScenesTab } from "../../src/pages/video/ScenesTab.js";
 import { versionDto } from "../fixtures.js";
 import { type Call, fakeFetch, job, on, renderQ } from "../helpers.js";
-import { videoAllKey } from "../../src/api/video-scenes-client.js";
+import { videoAllKey, videoBatchKey } from "../../src/api/video-scenes-client.js";
 import type { VideoScenesStateDto } from "@ms/contracts";
 import { approvalC, projectDto, scenesState, vbatch, vscene } from "./scenes-fixtures.js";
 
@@ -213,6 +213,61 @@ it("пакет: прогресс и «Отменить пакет» → cancel �
   fireEvent.click(within(bar).getByRole("button", { name: t("scriptOutput.batch.cancel") }));
   await waitFor(() => expect(posts(calls, "/api/video-batches/vb_1/cancel")).toHaveLength(1));
   expect(calls.filter((c) => c.url.includes("/api/script-batches/"))).toEqual([]);
+});
+
+it("S21: «Перегенерировать выбранные» — чекбоксы плиток (не у идущих), generate { item_ids, regenerate } с ключом пакета", async () => {
+  const { calls } = fakeFetch(base());
+  renderQ(<ScenesTab {...props()} />);
+  await waitFor(() => expect(tiles()).toHaveLength(4));
+  const box = (i: number) => within(tiles()[i]!).queryByRole("checkbox", { name: t("videoScenes.select", { n: i + 1 }) });
+  expect(box(1)).toBeNull(); // идёт генерация
+  for (const i of [0, 2, 3]) expect(box(i)).toBeTruthy();
+  const regen = () => screen.getByRole("button", { name: t("videoScenes.regenSelected", { n: 2 }) });
+  expect((screen.getByRole("button", { name: t("videoScenes.regenSelected", { n: 0 }) }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(box(0)!);
+  fireEvent.click(box(2)!);
+  fireEvent.click(regen());
+  await waitFor(() => expect(posts(calls, GEN)).toHaveLength(1));
+  expect(posts(calls, GEN)[0]!.body).toEqual({ revision: 2, item_ids: ["sp_001", "sp_003"], regenerate: true });
+  expect(posts(calls, GEN)[0]!.headers["idempotency-key"]).toMatch(/^video-regen-selected:r2:[0-9a-f]{16}$/);
+  // после запуска выбор снят
+  await waitFor(() => expect((box(0) as HTMLInputElement).checked).toBe(false));
+});
+
+it("S21: «Перегенерировать устаревшие» — устаревшие не идущие сцены, generate { item_ids } без regenerate; нет устаревших — кнопки нет", async () => {
+  const s = scenesState();
+  const stale = scenesState({ scenes: s.scenes.map((x) => (["sp_001", "sp_002", "sp_003"].includes(x.item_id) ? { ...x, stale: true } : x)) });
+  const { calls } = fakeFetch(base(stale));
+  const { unmount } = renderQ(<ScenesTab {...props()} />);
+  await waitFor(() => expect(tiles()).toHaveLength(4));
+  // sp_002 идёт — в пакет не входит
+  fireEvent.click(screen.getByRole("button", { name: t("videoScenes.regenStale", { n: 2 }) }));
+  await waitFor(() => expect(posts(calls, GEN)).toHaveLength(1));
+  expect(posts(calls, GEN)[0]!.body).toEqual({ revision: 2, item_ids: ["sp_001", "sp_003"] });
+  expect(posts(calls, GEN)[0]!.headers["idempotency-key"]).toMatch(/^video-stale:r2:[0-9a-f]{16}$/);
+  unmount();
+  fakeFetch(base());
+  renderQ(<ScenesTab {...props()} />);
+  await waitFor(() => expect(tiles()).toHaveLength(4));
+  expect(screen.queryByRole("button", { name: /Перегенерировать устаревшие/ })).toBeNull();
+});
+
+it("S21: ключ пакета выбранных — от плана, стиля, набора сцен и их задач/версий; тот же выбор — тот же ключ", () => {
+  const s = scenesState();
+  const style = { id: "st_1", current_revision: 1 };
+  const k = videoBatchKey("regen-selected", s, ["sp_001", "sp_003"], style);
+  expect(videoBatchKey("regen-selected", s, ["sp_003", "sp_001"], style)).toBe(k);
+  const variants = [
+    videoBatchKey("regen-selected", s, ["sp_001"], style),
+    videoBatchKey("stale", s, ["sp_001", "sp_003"], style),
+    videoBatchKey("regen-selected", s, ["sp_001", "sp_003"], { id: "st_1", current_revision: 2 }),
+    videoBatchKey("regen-selected", { ...s, scenes: s.scenes.map((x) => (x.item_id === "sp_001" ? { ...x, version_id: "ver_9" } : x)) }, ["sp_001", "sp_003"], style),
+  ];
+  for (const v of variants) expect(v).not.toBe(k);
+  // изменение сцены вне выбора ключ не меняет
+  expect(videoBatchKey("regen-selected", { ...s, scenes: s.scenes.map((x) => (x.item_id === "sp_004" ? { ...x, stale: true } : x)) }, ["sp_001", "sp_003"], style)).toBe(k);
+  // ключ «Сгенерировать все» прежний
+  expect(videoAllKey(s, style)).toMatch(/^video-all:r2:[0-9a-f]{16}$/);
 });
 
 it("«В контексте»: нет превью — «Собрать» (POST preview-context с ключом); устарело — видео и «Перерисовать»", async () => {

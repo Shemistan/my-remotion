@@ -80,9 +80,26 @@ export function videoRetryKey(kind: "retry" | "regen", s: Pick<VideoSceneDto, "i
  * же пакет; после отмены, падения, новой версии или смены стиля — новый ключ.
  */
 export function videoAllKey(s: Pick<VideoScenesStateDto, "plan" | "scenes">, style: { id: string; current_revision: number } | null): string {
-  const scenes = s.scenes.map((x) => `${x.item_id}=${x.job?.id ?? "-"}/${x.job?.status ?? "-"}/${x.stale ? 1 : 0}/${x.version_id ?? "-"}`).join(",");
-  const base = `${s.plan?.id ?? "noplan"}@r${s.plan?.revision ?? 0}:${style ? `${style.id}@r${style.current_revision}` : "nostyle"}:${scenes}`;
-  return `video-all:r${s.plan?.revision ?? 0}:${shortHash(base)}`;
+  return `video-all:r${s.plan?.revision ?? 0}:${shortHash(stateBase(s, s.scenes, style))}`;
+}
+
+function stateBase(s: Pick<VideoScenesStateDto, "plan">, scenes: VideoScenesStateDto["scenes"], style: { id: string; current_revision: number } | null): string {
+  const list = scenes.map((x) => `${x.item_id}=${x.job?.id ?? "-"}/${x.job?.status ?? "-"}/${x.stale ? 1 : 0}/${x.version_id ?? "-"}`).join(",");
+  return `${s.plan?.id ?? "noplan"}@r${s.plan?.revision ?? 0}:${style ? `${style.id}@r${style.current_revision}` : "nostyle"}:${list}`;
+}
+
+/**
+ * S21: ключ пакетной перегенерации («выбранные» — `regenerate: true`, «устаревшие» — без него) по
+ * образцу `videoAllKey`, но только по сценам набора (порядок выбора не важен): то же действие над
+ * тем же состоянием набора — тот же пакет; после новой задачи, версии или смены стиля — новый.
+ */
+export function videoBatchKey(
+  kind: "regen-selected" | "stale", s: Pick<VideoScenesStateDto, "plan" | "scenes">, itemIds: readonly string[],
+  style: { id: string; current_revision: number } | null,
+): string {
+  const want = new Set(itemIds);
+  const scenes = s.scenes.filter((x) => want.has(x.item_id)).sort((a, b) => a.item_id.localeCompare(b.item_id));
+  return `video-${kind}:r${s.plan?.revision ?? 0}:${shortHash(stateBase(s, scenes, style))}`;
 }
 
 /**

@@ -21,6 +21,9 @@ export interface VideoSceneTileProps {
   busy: boolean;
   onRetry?: () => void;
   onRegenerate?: () => void;
+  /** S21: выбор для пакетной перегенерации; нет — чекбокса нет (сцена идёт). */
+  selected?: boolean;
+  onSelect?: (on: boolean) => void;
 }
 
 function VersionPreview({ versionId, status }: { versionId: string | null; status: VideoSceneStatus }) {
@@ -34,7 +37,7 @@ function VersionPreview({ versionId, status }: { versionId: string | null; statu
   return s.height > s.width ? <div className="tall">{player}</div> : player;
 }
 
-export function VideoSceneTile({ projectId, scene, n, busy, onRetry, onRegenerate }: VideoSceneTileProps) {
+export function VideoSceneTile({ projectId, scene, n, busy, onRetry, onRegenerate, selected, onSelect }: VideoSceneTileProps) {
   const [view, setView] = useState<"scene" | "context">("scene");
   const status = scene.status;
   const job = scene.job;
@@ -45,6 +48,9 @@ export function VideoSceneTile({ projectId, scene, n, busy, onRetry, onRegenerat
   return (
     <li className={`scene-tile status-${status}${scene.stale ? " stale" : ""}`} data-testid="video-scene-tile" data-item={scene.item_id} data-status={status}>
       <div className="row wrap tile-head">
+        {onSelect ? (
+          <input type="checkbox" aria-label={t("videoScenes.select", { n })} checked={selected === true} disabled={busy} onChange={(e) => onSelect(e.target.checked)} />
+        ) : null}
         <strong>{t("videoScenes.scene.n", { n })}</strong>
         <span className="chip small">{t("videoScenes.placement", { mode: tk(`plan.mode.${p.mode}`, p.mode), zone: tk(`zone.${p.zone}`, p.zone) })}</span>
         <span className="muted small">{t("videoScenes.frames", { start: scene.frames.start, end: scene.frames.end })}</span>

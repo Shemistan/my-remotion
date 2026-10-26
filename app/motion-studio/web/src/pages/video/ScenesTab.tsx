@@ -2,11 +2,12 @@
 // превью версии или в контексте исходника, статус и очередь, QA, Approval C; «Сгенерировать все»
 // (пакет: сцены без готовой версии по текущему плану, нужно валидное B), прогресс и «Отменить
 // пакет» (`BatchBar` сценария), «Повторить» / «Перегенерировать» — generate { item_ids }
-// (новые ключи `:try-n` / `:regen-k` ставит сервер); «Доработать» — Playground.
-import type { VideoSceneDto } from "@ms/contracts";
-import type { ReactElement } from "react";
+// (новые ключи `:try-n` / `:regen-k` ставит сервер); «Доработать» — Playground. S21: «Перегенерировать
+// выбранные» (чекбоксы плиток) и «Перегенерировать устаревшие» — тот же generate, ключ `videoBatchKey`.
+import type { VideoSceneDto, VideoSceneStatus } from "@ms/contracts";
+import { type ReactElement, useState } from "react";
 import {
-  skipReasonText, useCancelVideoBatch, useVideoGenerate, useVideoScenes, videoAllKey, videoReadySkipped, videoRetryKey,
+  skipReasonText, useCancelVideoBatch, useVideoGenerate, useVideoScenes, videoAllKey, videoBatchKey, videoReadySkipped, videoRetryKey,
 } from "../../api/video-scenes-client.js";
 import { BatchBar } from "../../components/script/BatchBar.js";
 import "../../components/script/script.css";
@@ -15,12 +16,16 @@ import { VideoScenesError } from "../../components/video-scenes/VideoScenesError
 import { t } from "../../i18n/index.js";
 import type { VideoTabProps } from "./tab-props.js";
 
+/** Сцены с идущей задачей (или заблокированные): не выбираются для пакетной перегенерации. */
+const IN_FLIGHT = new Set<VideoSceneStatus>(["pending", "running", "blocked"]);
+
 export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
   const projectId = data.project.id;
   const hasPlan = data.plan !== null;
   const q = useVideoScenes(projectId, hasPlan);
   const generate = useVideoGenerate(projectId);
   const cancel = useCancelVideoBatch(projectId);
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
 
   if (!hasPlan) return <section className="panel" data-tab="scenes"><p className="muted">{t("videoScenes.stub")}</p></section>;
   if (q.isError) return <section className="panel" data-tab="scenes"><VideoScenesError error={q.error} /></section>;
@@ -42,6 +47,22 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
     if (x.version_id && !x.stale) regenerate(x);
     else generate.mutate({ body: { revision, item_ids: [x.item_id] }, key: videoRetryKey("retry", x) });
   };
+  // S21: пакетная перегенерация — выбранные (`regenerate: true`) и устаревшие (по отпечатку плана);
+  // идущие сцены не выбираются и в пакет «устаревших» не входят
+  const selectable = s.scenes.filter((x) => !IN_FLIGHT.has(x.status));
+  const selected = selectable.filter((x) => picked.has(x.item_id)).map((x) => x.item_id);
+  const staleIds = selectable.filter((x) => x.stale).map((x) => x.item_id);
+  const regenSelected = () => generate.mutate(
+    { body: { revision, item_ids: selected, regenerate: true }, key: videoBatchKey("regen-selected", s, selected, data.style) },
+    { onSuccess: () => setPicked(new Set()) },
+  );
+  const regenStale = () => generate.mutate({ body: { revision, item_ids: staleIds }, key: videoBatchKey("stale", s, staleIds, data.style) });
+  const pick = (id: string, on: boolean) => setPicked((p) => {
+    const next = new Set(p);
+    if (on) next.add(id);
+    else next.delete(id);
+    return next;
+  });
 
   return (
     <section className="panel script-scenes" data-tab="scenes">
@@ -58,6 +79,14 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
         >
           {t("videoScenes.generateAll")}
         </button>
+        <button type="button" disabled={!bValid || busy || selected.length === 0} title={t("videoScenes.regenSelectedHint")} onClick={regenSelected}>
+          {t("videoScenes.regenSelected", { n: selected.length })}
+        </button>
+        {staleIds.length > 0 ? (
+          <button type="button" disabled={!bValid || busy} title={t("videoScenes.regenStaleHint")} onClick={regenStale}>
+            {t("videoScenes.regenStale", { n: staleIds.length })}
+          </button>
+        ) : null}
       </div>
       {latest ? <BatchBar projectId={projectId} batch={latest} readySkipped={skipped.length} cancel={cancel} cost={false} /> : null}
       {generate.isError ? <VideoScenesError error={generate.error} /> : null}
@@ -80,6 +109,7 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
               busy={busy || !bValid}
               {...(canRetry ? { onRetry: () => retry(x) } : {})}
               {...(canRegen ? { onRegenerate: () => regenerate(x) } : {})}
+              {...(!IN_FLIGHT.has(x.status) ? { selected: picked.has(x.item_id), onSelect: (on: boolean) => pick(x.item_id, on) } : {})}
             />
           );
         })}
