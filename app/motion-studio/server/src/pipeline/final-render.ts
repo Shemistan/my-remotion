@@ -9,7 +9,7 @@
 // `final.reproduce` (те же входы по манифесту, без гейта свежести).
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import { type FinalExportRequest, type FinalManifest, type FinalVerifyReport, type JobError, type ProbeResult, ProbeResultSchema } from "@ms/contracts";
 import { canonicalHash } from "@ms/contracts/canonical";
 import { safeMkdir } from "@ms/core";
@@ -39,6 +39,7 @@ import { FfmpegError } from "../media/ffmpeg.js";
 import { HdrUnsupportedError, ensureMaster, masterFrames } from "../media/master.js";
 import { type Demuxer, demuxerFor, demuxerForExt } from "../media/probe.js";
 import { checkImportSpace, editedAudioBytes, estimateFinalBytes, estimateMasterBytes, gib } from "../media/space.js";
+import { sha256, sha256File } from "../scenes/hash.js";
 import { checkSceneDir } from "../scenes/static-check.js";
 import { FencedOutError, PublishCancelledError } from "../scenes/repo.js";
 import { QUARANTINE, fsyncWrite, quarantineDir, setWritable } from "../scenes/store.js";
@@ -134,18 +135,18 @@ export async function runFinal(ctx: JobContext, deps: FinalRenderDeps, impl: Fin
     const destRel = artifactPaths(root, projectId).finalExport(exportId);
     const published = finalExports.get(ctx.db, exportId);
     if (published && isPublished(ctx.db, destRel)) return outcome(published.status === "ready" ? "pass" : "fail", published.rel_path);
-    const gate = () => {
+    // Решение final задачи (только `valid`: отозванное новым final той же области или человеком и
+    // устаревшее не годятся) и гейт: до работы и ещё раз в транзакции публикации (`db` — её соединение).
+    const gate = (db = ctx.db) => {
       if (reproduce) return;
-      const g = assembleGate(ctx.db, root, projectId, { timelineId, revision });
+      const a = plan.approvalId ? approvals.get(db, plan.approvalId) : undefined;
+      const subject = finalSubject(timelineId, revision, request);
+      if (!a || a.kind !== "final" || a.project_id !== projectId || a.subject_ref !== subject.ref || a.subject_hash !== subject.hash || a.status !== "valid") {
+        throw prep(`решения final на ${subject.ref} с этими настройками нет, оно отозвано или устарело${a ? ` (${a.status})` : ""}: «Смонтировать и экспортировать» заново`, "approval_required");
+      }
+      const g = assembleGate(db, root, projectId, { timelineId, revision });
       if (!g.ok) throw new FinalFail(gateJobError(g.errors));
     };
-    if (!reproduce) {
-      const a = plan.approvalId ? approvals.get(ctx.db, plan.approvalId) : undefined;
-      const subject = finalSubject(timelineId, revision, request);
-      if (!a || a.kind !== "final" || a.project_id !== projectId || a.subject_ref !== subject.ref || a.subject_hash !== subject.hash || a.status === "stale") {
-        throw prep(`решения final на ${subject.ref} с этими настройками нет или оно устарело: «Смонтировать и экспортировать» заново`, "approval_required");
-      }
-    }
     gate();
 
     let doc;
@@ -171,6 +172,8 @@ export async function runFinal(ctx: JobContext, deps: FinalRenderDeps, impl: Fin
       if (!v || v.status !== "ready" || v.broken_reason !== null) throw new FinalFail({ code: "version_failed", message: `версия ${c.version_id} сцены ${c.item_id} не готова или сломана` });
       const dir = join(root, v.path);
       versionsMap[c.version_id] = { dir, props: JSON.parse(await readFile(join(dir, "props.json"), "utf8")) as Record<string, unknown> };
+      // повтор: manifest_sha256 и файлы версии — по диску (порча файлов при прежней строке БД → inputs_changed)
+      if (reproduce && (await versionOnDisk(dir, c.version_id)) !== v.manifest_sha256) throw inputsChanged(`manifest.json версии ${c.version_id} (sha256 на диске ≠ БД)`);
       scenes.push({ clip_id: c.clip_id, version_id: c.version_id, manifest_sha256: v.manifest_sha256 });
     }
     const envNow = await (impl.renderEnv ?? renderEnv)();
@@ -208,7 +211,16 @@ export async function runFinal(ctx: JobContext, deps: FinalRenderDeps, impl: Fin
     ctx.progress(0.03, "media");
     let master;
     try {
-      master = await (impl.master ?? ensureMaster)({ root, db: ctx.db, storage, run, signal, crf: svc.config.final.masterCrf }, asset.id, doc.fps);
+      // долгая сборка master (4K — десятки минут): тики `-progress` ffmpeg держат сторожа
+      // (`perf/watchdog.ts`), свой таймаут — `final.timeoutMs` (как у рендера)
+      let tick = 0;
+      const onProgress = (p: number) => {
+        const now = Date.now();
+        if (now - tick < 1_000 && p < 1) return;
+        tick = now;
+        ctx.progress(0.03 + 0.069 * Math.min(1, Math.max(0, p)), "media");
+      };
+      master = await (impl.master ?? ensureMaster)({ root, db: ctx.db, storage, run, signal, crf: svc.config.final.masterCrf, timeoutMs: svc.config.final.timeoutMs, onProgress }, asset.id, doc.fps);
     } catch (e) {
       if (e instanceof HdrUnsupportedError) throw prep(e.message);
       throw e;
@@ -271,7 +283,7 @@ export async function runFinal(ctx: JobContext, deps: FinalRenderDeps, impl: Fin
 
     stage = "publish";
     ctx.progress(0.95, "publish");
-    gate(); // за время рендера и проверки ревизия могла устареть — тогда не публикуется ничего
+    gate(); // за время рендера и проверки решение или ревизия могли устареть — тогда не публикуется ничего
     const manifest = buildFinalManifest({
       export_id: exportId, project_id: projectId, timeline: { id: timelineId, revision, hash: rev.hash },
       inputs: { edl: doc.inputs.edl, plan: doc.inputs.plan, style: doc.inputs.style, media_sha256: asset.sha256, master_sha256: master.sha256, audio_sha256: audio.sha256, scenes },
@@ -288,6 +300,8 @@ export async function runFinal(ctx: JobContext, deps: FinalRenderDeps, impl: Fin
     const store = new ArtifactStore({ root, db: ctx.db, guard: storage });
     try {
       await store.publish(draftDir, destRel, (db, files) => {
+        // окно между проверкой выше и COMMIT (хеширование draft) закрыто: та же проверка под write-lock БД
+        gate(db);
         const f = files.find((x) => x.path.endsWith(FINAL_FILE));
         if (!f) throw new Error(`в публикации финала нет ${FINAL_FILE}`);
         finalExports.insert(db, {
@@ -358,6 +372,33 @@ export async function runFinal(ctx: JobContext, deps: FinalRenderDeps, impl: Fin
     if (stage === "prepare") return fail({ code: "pipeline", stage: "prepare", message: msg });
     return fail({ code: "pipeline", stage: "render", message: `${stage}: ${msg}` });
   }
+}
+
+/**
+ * sha256 `manifest.json` версии на диске; файлы из его `files` сверяются по sha256. Нет файла,
+ * не тот sha256 — `inputs_changed` (повтор не воспроизведёт испорченную версию).
+ */
+async function versionOnDisk(dir: string, versionId: string): Promise<string> {
+  let text: Buffer;
+  try {
+    text = await readFile(join(dir, "manifest.json"));
+  } catch {
+    throw inputsChanged(`manifest.json версии ${versionId} (файла нет)`);
+  }
+  let files: unknown;
+  try {
+    files = (JSON.parse(text.toString("utf8")) as { files?: unknown }).files;
+  } catch {
+    files = undefined;
+  }
+  for (const f of Array.isArray(files) ? files : []) {
+    const e = f as { path?: unknown; sha256?: unknown };
+    if (typeof e.path !== "string" || typeof e.sha256 !== "string") continue;
+    if (isAbsolute(e.path) || e.path.split(/[\\/]/).includes("..")) throw inputsChanged(`путь ${e.path} в manifest.json версии ${versionId}`);
+    const got = await sha256File(join(dir, e.path)).catch(() => undefined);
+    if (got !== e.sha256) throw inputsChanged(`файл ${e.path} версии ${versionId} (sha256 по manifest.json)`);
+  }
+  return sha256(text);
 }
 
 /** `-f` по контейнеру probe; запись без узнаваемого контейнера — по расширению копии (тоже явный демультиплексор). */

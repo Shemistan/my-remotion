@@ -51,6 +51,18 @@ describe("requestFinal", () => {
     expect(approvalsRepo.get(env.db, second.approval.id)!.subject_hash).toBe(canonicalHash(req720));
   });
 
+  it("новое final той же области → прежняя задача финала отменяется (pending — cancelled, running — cancel_requested)", async () => {
+    const doc = await published();
+    const a = requestFinal(core(), { timelineId: doc.timeline_id, revision: 2, request: req1080 });
+    const b = requestFinal(core(), { timelineId: doc.timeline_id, revision: 2, request: req720 });
+    expect(jobs.get(env.db, a.job.id)).toMatchObject({ status: "cancelled", cancel_requested: true });
+    jobs.update(env.db, b.job.id, { status: "running", attempt: 1 });
+    const c = requestFinal(core(), { timelineId: doc.timeline_id, revision: 2, request: req1080 });
+    expect(jobs.get(env.db, b.job.id)).toMatchObject({ status: "running", cancel_requested: true });
+    expect(jobs.get(env.db, c.job.id)).toMatchObject({ status: "pending", cancel_requested: false });
+    expect(approvalsRepo.get(env.db, b.approval.id)!.status).toBe("revoked");
+  });
+
   it("гейт не пройден → FinalGateFailed с причинами; ни решения, ни задачи", async () => {
     const doc = await published();
     let err: unknown;

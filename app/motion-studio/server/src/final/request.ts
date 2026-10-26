@@ -1,6 +1,7 @@
 // «Смонтировать и экспортировать» (Task 43, F6): явное действие пользователя — одна транзакция
 // `assembleGate` → Approval final (Р-V4: `timeline:<id>@r<N>` + `canonicalHash(настроек)`) →
-// задача `final.render`. Новое решение той же области (`timeline:<id>`) отзывает прежнее.
+// задача `final.render`. Новое решение той же области (`timeline:<id>`) отзывает прежнее, а задаче
+// прежнего финала этого таймлайна ставит отмену (`pending` — cancelled, `running` — cancel_requested).
 import { type Approval, type FinalExportRequest, FinalExportRequestSchema, type Job } from "@ms/contracts";
 import { z } from "zod";
 import { approve } from "../approvals/engine.js";
@@ -9,7 +10,7 @@ import * as approvals from "../db/repos/approvals.js";
 import type { Db } from "../db/open.js";
 import * as jobs from "../db/repos/jobs.js";
 import { tx } from "../db/tx.js";
-import { enqueue } from "../jobs/queue.js";
+import { cancelSuperseded, enqueue } from "../jobs/queue.js";
 import { timelineRow } from "../timeline/ops.js";
 import { FinalGateFailed, assembleGate } from "./gate.js";
 
@@ -53,9 +54,19 @@ export function requestFinal(core: { db: Db; root: string }, i: RequestFinalInpu
     const gate = assembleGate(db, root, t.project_id, { timelineId: i.timelineId, revision: i.revision });
     if (!gate.ok) throw new FinalGateFailed(gate.errors);
     const subject = finalSubject(i.timelineId, i.revision, request);
+    cancelPrevious(db, t.project_id, i.timelineId);
     const approval = approve(db, { projectId: t.project_id, kind: "final", subjectRef: subject.ref, subjectHash: subject.hash });
     const input: FinalRenderInput = { timelineId: i.timelineId, revision: i.revision, request, approvalId: approval.id };
     const { job } = enqueue(db, { type: "final.render", projectId: t.project_id, input, idempotencyKey: i.idempotencyKey ?? `final:${approval.id}` });
     return { approval, job };
   });
+}
+
+/** Задачи финала таймлайна `timelineId`, чьё решение отзовёт новое final той же области, — в отмену (`cancelSuperseded`). */
+function cancelPrevious(db: Db, projectId: string, timelineId: string): void {
+  for (const j of jobs.list(db, { projectId })) {
+    if (j.type !== "final.render") continue;
+    const input = FinalRenderInputSchema.safeParse(j.input);
+    if (input.success && input.data.timelineId === timelineId) cancelSuperseded(db, j.id);
+  }
 }

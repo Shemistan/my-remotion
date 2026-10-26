@@ -133,6 +133,8 @@ export interface MasterDeps {
   /** По умолчанию `MASTER_CRF`. */
   crf?: number;
   timeoutMs?: number;
+  /** Доля готовности сборки master 0…1 (`-progress` ffmpeg); из кэша — не зовётся. */
+  onProgress?: (p: number) => void;
   /** Подмена запуска ffmpeg (тесты считают вызовы). */
   spawn?: typeof spawnTracked;
   log?: (line: string) => void;
@@ -203,6 +205,7 @@ export async function ensureMaster(d: MasterDeps, mediaId: string, fps: Fps): Pr
   try {
     await runFfmpeg(masterArgs(src, out, asset.probe, fps, crf), {
       ...o, durationUs: asset.probe.duration_us, ...(d.timeoutMs ? { timeoutMs: d.timeoutMs } : {}), ...(d.spawn ? { spawn: d.spawn } : {}),
+      ...(d.onProgress ? { onProgress: d.onProgress } : {}),
     });
     const px = await probeMedia(out, o);
     const frames = await packets(out, o);

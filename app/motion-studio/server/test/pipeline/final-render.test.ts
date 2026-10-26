@@ -1,7 +1,8 @@
 // Task 43: обработчики `final.render` / `final.reproduce` с подменой master, звука, рендера, проверки и
 // сравнения — гейт, место, публикация `final/<id>/` с fencing и `final_exports`, провал проверки,
 // гейт протух за время рендера, повтор по манифесту.
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { type FinalExportRequest, FinalManifestSchema, type FinalVerifyReport } from "@ms/contracts";
@@ -9,6 +10,7 @@ import type { TimelineRenderRequest, TimelineRenderResult } from "@ms/render";
 import { artifactPaths } from "../../src/artifacts/paths.js";
 import type { CoreServices } from "../../src/boot.js";
 import { loadConfig } from "../../src/config.js";
+import * as approvalsRepo from "../../src/db/repos/approvals.js";
 import * as jobEvents from "../../src/db/repos/job-events.js";
 import * as jobs from "../../src/db/repos/jobs.js";
 import { finalExports } from "../../src/db/repos/video.js";
@@ -36,15 +38,23 @@ afterEach(async () => {
 
 const req1080: FinalExportRequest = { resolution: "1080p", quality: "standard", audio_bitrate_kbps: 192 };
 const H = (c: string) => c.repeat(64);
+const sha = (t: string) => createHash("sha256").update(t).digest("hex");
 const ENV = { remotion: "4.0.537", render_lock_sha256: H("e"), motion_kit: "sha256:0123456789abcdef", chrome_headless_shell: "x", node: "22.21.1" };
 
 async function ready() {
   env = await seedTimelineProject("ms-v43-final-");
   const scenes = ITEMS.map((it) => {
-    const s = seedScene(env, it);
-    mkdirSync(join(env.s.root, s.version.path), { recursive: true });
-    writeFileSync(join(env.s.root, s.version.path, "props.json"), JSON.stringify({ timing: { duration_frames: s.version.settings.duration_frames } }));
-    return s;
+    const s = seedScene(env, it, { withC: false });
+    const dir = join(env.s.root, s.version.path);
+    mkdirSync(dir, { recursive: true });
+    const props = JSON.stringify({ timing: { duration_frames: s.version.settings.duration_frames } });
+    writeFileSync(join(dir, "props.json"), props);
+    // manifest.json версии на диске: повтор пересчитывает manifest_sha256 и sha256 файлов по нему
+    const manifest = JSON.stringify({ files: [{ path: "props.json", sha256: sha(props) }] });
+    writeFileSync(join(dir, "manifest.json"), manifest);
+    env.db.prepare("UPDATE scene_versions SET manifest_sha256 = ? WHERE id = ?").run(sha(manifest), s.version.id);
+    approveC(env.db, s.version.id);
+    return { ...s, version: versions.get(env.db, s.version.id)! };
   });
   const doc = await publishTimelineRevision({ db: env.db, store: env.store, root: env.s.root }, "p1", buildTimelineDoc(env.db, env.s.root, "p1"));
   return { doc, scenes };
@@ -60,14 +70,18 @@ interface Fakes {
   impl: FinalImpl;
   renders: TimelineRenderRequest[];
   masters: number;
+  masterTimeouts: (number | undefined)[];
   verifyColor: (string | undefined)[];
+  verified: boolean;
 }
 
 function fakes(o: { verdict?: "pass" | "fail"; duringRender?: () => void } = {}): Fakes {
-  const f: Fakes = { impl: {}, renders: [], masters: 0, verifyColor: [] };
+  const f: Fakes = { impl: {}, renders: [], masters: 0, masterTimeouts: [], verifyColor: [], verified: false };
   f.impl = {
-    master: async () => {
+    master: async (d) => {
       f.masters++;
+      f.masterTimeouts.push(d.timeoutMs);
+      d.onProgress?.(0.5);
       const p = join(env.s.root, "master-fake.mp4");
       writeFileSync(p, "master");
       return { path: p, sha256: H("b") };
@@ -92,6 +106,7 @@ function fakes(o: { verdict?: "pass" | "fail"; duringRender?: () => void } = {})
     },
     verify: async (i) => {
       f.verifyColor.push(i.colorMatrix);
+      f.verified = true;
       expect(await i.stillsFor([165])).toHaveLength(1);
       return report(o.verdict ?? "pass");
     },
@@ -101,10 +116,13 @@ function fakes(o: { verdict?: "pass" | "fail"; duringRender?: () => void } = {})
   return f;
 }
 
-function start(f: Fakes, free = 500 * 1024 ** 3) {
+function start(f: Fakes, free = 500 * 1024 ** 3, onStorage?: () => void) {
   const svc = {
     root: env.s.root, config: loadConfig({ MS_DATA_DIR: env.s.root }), minFreeBytes: 10 * 1024 ** 3,
-    storageCheck: async () => ({ ...(await env.s.guard()), freeBytes: free }),
+    storageCheck: async () => {
+      onStorage?.();
+      return { ...(await env.s.guard()), freeBytes: free };
+    },
   } as unknown as CoreServices;
   const deps = (): Phase46Deps => ({ svc, options: {}, exporter: {} as Phase46Deps["exporter"] });
   runner = new JobRunner({ db: env.db, root: env.s.root, owner: "srv", handlers: { "final.render": finalRenderWith(deps, f.impl), "final.reproduce": finalReproduceWith(deps, f.impl) }, pollMs: 5 });
@@ -149,6 +167,11 @@ describe("final.render", () => {
     expect(f.renders[0]!.output).toMatchObject({ codec: "h264", crf: 20, scale: 1, audioBitrateKbps: 192, x264Preset: "medium", colorSpace: "bt709" });
     expect(f.verifyColor).toEqual(["bt709"]);
     expect(kinds(job.id)).toContain("final_render");
+    // этап master: тики прогресса ffmpeg → 0,03…0,1 «media»; таймаут финала действует и на master
+    const ticks = jobEvents.listSince(env.db, 0, { jobId: job.id, limit: 1000 })
+      .filter((e) => e.kind === "progress").map((e) => e.data as { progress: number; stage: string });
+    expect(ticks.some((t) => t.stage === "media" && t.progress > 0.03 && t.progress < 0.1)).toBe(true);
+    expect(f.masterTimeouts).toEqual([loadConfig({ MS_DATA_DIR: env.s.root }).final.timeoutMs]);
   });
 
   it("verify fail → публикация есть, final_exports.status = failed_verification, задача failed(verify_failed), success-события нет", async () => {
@@ -185,6 +208,38 @@ describe("final.render", () => {
     expect(j.error).toMatchObject({ code: "low_space", message: expect.stringMatching(/ГиБ/) });
     expect(f.masters).toBe(0);
     expect(f.renders).toEqual([]);
+  });
+
+  it("решение final отозвано до старта → approval_required до master и рендера", async () => {
+    const { doc } = await ready();
+    const f = fakes();
+    const { job, approval } = requestFinal({ db: env.db, root: env.s.root }, { timelineId: doc.timeline_id, revision: 1, request: req1080 });
+    approvalsRepo.revoke(env.db, approval.id);
+    start(f);
+    const j = await settle(job.id);
+    expect(j.status).toBe("failed");
+    expect(j.error).toMatchObject({ code: "approval_required" });
+    expect(f.masters).toBe(0);
+    expect(f.renders).toEqual([]);
+  });
+
+  it("решение отозвано между проверками и транзакцией публикации → approval_required, в final/ ничего", async () => {
+    const { doc } = await ready();
+    const f = fakes();
+    const { job, approval } = requestFinal({ db: env.db, root: env.s.root }, { timelineId: doc.timeline_id, revision: 1, request: req1080 });
+    // после проверки финала guard хранилища зовёт только публикация: 2-й вызов — прямо перед транзакцией
+    let afterVerify = 0;
+    start(f, undefined, () => {
+      if (f.verified && ++afterVerify === 2) approvalsRepo.revoke(env.db, approval.id);
+    });
+    const j = await settle(job.id);
+    expect(afterVerify).toBeGreaterThanOrEqual(2);
+    expect(j.status).toBe("failed");
+    expect(j.error).toMatchObject({ code: "approval_required" });
+    expect(finalExports.listByProject(env.db, "p1")).toEqual([]);
+    // родитель final/ публикация создаёт до транзакции — экспорта в нём нет
+    const fin = join(env.s.root, "workspace/projects/p1/final");
+    expect(existsSync(fin) ? readdirSync(fin) : []).toEqual([]);
   });
 
   it("решение final не того субъекта → approval_required", async () => {
@@ -226,5 +281,24 @@ describe("final.reproduce", () => {
     expect(b.status).toBe("failed");
     expect(b.error).toMatchObject({ code: "verify_failed", message: expect.stringMatching(/inputs_changed/) });
     expect(f.renders).toHaveLength(2);
+  });
+
+  it("файлы версии сцены испорчены на диске (БД прежняя) → failed(verify_failed, inputs_changed) до рендера", async () => {
+    const { doc, scenes } = await ready();
+    const f = fakes();
+    start(f);
+    const { job } = requestFinal({ db: env.db, root: env.s.root }, { timelineId: doc.timeline_id, revision: 1, request: req1080 });
+    const exportId = ((await settle(job.id)).output_refs as { export_id: string }).export_id;
+    const dir = join(env.s.root, scenes[1]!.version.path);
+    writeFileSync(join(dir, "props.json"), JSON.stringify({ timing: { duration_frames: 1 } }));
+    const bad = enqueue(env.db, { type: "final.reproduce", projectId: "p1", input: { exportId }, idempotencyKey: "rep-disk-1" }).job;
+    const b = await settle(bad.id);
+    expect(b.status).toBe("failed");
+    expect(b.error).toMatchObject({ code: "verify_failed", message: expect.stringMatching(/inputs_changed/) });
+    expect(f.renders).toHaveLength(1);
+    // испорчен сам manifest.json
+    writeFileSync(join(dir, "manifest.json"), "{}");
+    const bad2 = enqueue(env.db, { type: "final.reproduce", projectId: "p1", input: { exportId }, idempotencyKey: "rep-disk-2" }).job;
+    expect((await settle(bad2.id)).error).toMatchObject({ code: "verify_failed", message: expect.stringMatching(/inputs_changed/) });
   });
 });

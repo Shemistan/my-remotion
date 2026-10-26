@@ -7,7 +7,8 @@
 // умолчание каждого типа больше самого долгого законного молчания в нём: вызов агента без
 // событий идёт до `agents.<роль>.timeoutMs`, экспорт сцены — до `EXPORT_TIMEOUT_MS`, ASR молчит
 // до `asr.noOutputTimeoutMs` (воркер сам убивается раньше), финальный рендер — до
-// `final.timeoutMs`. Ожидание места в семафоре (очередь агентов, рендеров, ASR) молчанием не
+// `final.timeoutMs` (сборка master перед ним молчанием не считается: тики `-progress` ffmpeg,
+// и свой таймаут у неё тот же `final.timeoutMs`). Ожидание места в семафоре (очередь агентов, рендеров, ASR) молчанием не
 // считается. `watchdog.noProgressMs` из config.json заменяет умолчание своего типа.
 import type { JobType } from "@ms/contracts";
 import { JobTypeSchema } from "@ms/contracts";
