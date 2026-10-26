@@ -43,6 +43,10 @@ describe("artifactPaths: Phase 4–6", () => {
     expect(a.timelineRev("tml_1", 2)).toBe("workspace/projects/prj_A/timeline/tml_1/r2");
     expect(a.finalExport("fx_1")).toBe("workspace/projects/prj_A/final/fx_1");
     expect(a.master("med_1", { num: 30000, den: 1001 })).toBe("workspace/projects/prj_A/master/med_1@30000-1001");
+    // Task 49b: master в разрешении выхода — суффикс ступени; без неё — полный размер (прежний путь)
+    expect(a.master("med_1", { num: 30, den: 1 }, 1080)).toBe("workspace/projects/prj_A/master/med_1@30-1-h1080");
+    expect(() => a.master("med_1", { num: 30, den: 1 }, 0)).toThrow();
+    expect(() => a.master("med_1", { num: 30, den: 1 }, 1080.5)).toThrow();
     expect(a.editedAudio("edl_1", 3)).toBe("workspace/projects/prj_A/audio/edl_1/r3");
     expect(a.contextPreview("scn_1", "ver_2", 17)).toBe("workspace/projects/prj_A/context/scn_1/ver_2@r17");
     expect(a.contextPreview("scn_1", "ver_2", 17, 30)).toBe("workspace/projects/prj_A/context/scn_1/ver_2@r17-p30");
@@ -55,11 +59,12 @@ describe("artifactPaths: Phase 4–6", () => {
   });
 
   it("destRel: новые формы — да, соседние — нет", () => {
-    for (const p of [a.timelineRev("tml_1", 2), a.finalExport("fx_1"), a.master("med_1", { num: 30, den: 1 }), a.editedAudio("edl_1", 3), a.contextPreview("scn_1", "ver_2", 4), a.contextPreview("scn_1", "ver_2", 4, 60)]) {
+    for (const p of [a.timelineRev("tml_1", 2), a.finalExport("fx_1"), a.master("med_1", { num: 30, den: 1 }), a.master("med_1", { num: 30, den: 1 }, 720), a.editedAudio("edl_1", 3), a.contextPreview("scn_1", "ver_2", 4), a.contextPreview("scn_1", "ver_2", 4, 60)]) {
       expect(() => checkArtifactDestRel(p), p).not.toThrow();
     }
     for (const p of ["workspace/projects/prj_A/timeline/tml_1", "workspace/projects/prj_A/final/fx_1/r1", "workspace/projects/prj_A/master/med_1@30", "workspace/projects/prj_A/proxy/med_1/master@30-1",
       "workspace/projects/prj_A/master/med_1@0-1", "workspace/projects/prj_A/master/med_1",
+      "workspace/projects/prj_A/master/med_1@30-1-h", "workspace/projects/prj_A/master/med_1@30-1-h0", "workspace/projects/prj_A/master/med_1@30-1-hx", "workspace/projects/prj_A/master/med_1@30-1-h1080-h720",
       "workspace/projects/prj_A/context/scn_1", "workspace/projects/prj_A/context/scn_1/ver_2", "workspace/projects/prj_A/context/scn_1/ver_2@r0",
       "workspace/projects/prj_A/context/scn_1/ver_2@r1-p", "workspace/projects/prj_A/context/scn_1/ver_2@r1-px", "workspace/projects/prj_A/audio/edl_1/r0"]) {
       expect(() => checkArtifactDestRel(p), p).toThrow();

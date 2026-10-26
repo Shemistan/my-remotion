@@ -36,7 +36,7 @@ import type { HandlerResult, JobContext, JobHandler } from "../jobs/types.js";
 import { extractAudio16k } from "../media/audio.js";
 import { buildEditedAudio } from "../media/edited-audio.js";
 import { FfmpegError } from "../media/ffmpeg.js";
-import { HdrUnsupportedError, ensureMaster, masterFrames } from "../media/master.js";
+import { HdrUnsupportedError, ensureMaster, masterFrames, masterHeightFor, masterSize, publishedMasterSha } from "../media/master.js";
 import { type Demuxer, demuxerFor, demuxerForExt } from "../media/probe.js";
 import { checkImportSpace, editedAudioBytes, estimateFinalBytes, estimateMasterBytes, gib } from "../media/space.js";
 import { sha256, sha256File } from "../scenes/hash.js";
@@ -193,8 +193,16 @@ export async function runFinal(ctx: JobContext, deps: FinalRenderDeps, impl: Fin
     if (!status.ok) throw new FinalFail({ code: "storage_unavailable", stage: "storage", message: `${status.reason}: ${status.detail}` });
     const display = { width: asset.probe.video.display_width, height: asset.probe.video.display_height };
     const out = finalOutput(doc, request, display);
-    const masterCached = isPublished(ctx.db, artifactPaths(root, projectId).master(asset.id, doc.fps));
-    const masterBytes = estimateMasterBytes({ frames: masterFrames(asset.probe, doc.fps), ...display });
+    // Task 49b: master в разрешении выхода — ступень короткой стороны выхода (4K — только для 4K и
+    // «source»). Повтор экспорта до 49b: полный master его манифеста, если он опубликован.
+    const outShortSide = Math.min(out.width, out.height);
+    let masterHeight = masterHeightFor(display, outShortSide);
+    if (plan.expect && masterHeight !== undefined) {
+      const fullRel = artifactPaths(root, projectId).master(asset.id, doc.fps);
+      if ((await publishedMasterSha(root, ctx.db, fullRel)) === plan.expect.inputs.master_sha256) masterHeight = undefined;
+    }
+    const masterCached = isPublished(ctx.db, artifactPaths(root, projectId).master(asset.id, doc.fps, masterHeight));
+    const masterBytes = estimateMasterBytes({ frames: masterFrames(asset.probe, doc.fps), ...masterSize(display, masterHeight) });
     const est = estimateFinalBytes({ ...out, quality: request.quality }) + masterBytes * (masterCached ? 1 : 2)
       + 2 * editedAudioBytes({ durationUs: tl.duration_us, channels: asset.probe.audio.channels });
     const minFree = svc.minFreeBytes ?? 0;
@@ -220,7 +228,7 @@ export async function runFinal(ctx: JobContext, deps: FinalRenderDeps, impl: Fin
         tick = now;
         ctx.progress(0.03 + 0.069 * Math.min(1, Math.max(0, p)), "media");
       };
-      master = await (impl.master ?? ensureMaster)({ root, db: ctx.db, storage, run, signal, crf: svc.config.final.masterCrf, timeoutMs: svc.config.final.timeoutMs, onProgress }, asset.id, doc.fps);
+      master = await (impl.master ?? ensureMaster)({ root, db: ctx.db, storage, run, signal, crf: svc.config.final.masterCrf, timeoutMs: svc.config.final.timeoutMs, onProgress }, asset.id, doc.fps, masterHeight);
     } catch (e) {
       if (e instanceof HdrUnsupportedError) throw prep(e.message);
       throw e;
