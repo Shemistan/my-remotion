@@ -41,8 +41,12 @@ export interface WaveformProps {
   onSeek: (sourceUs: number) => void;
 }
 
+/** Пики `waveform.bin` исходника (кэш на всю сессию) — и для волны смонтированного звука таймлайна (Task 45). */
+export const usePeaks = (mediaId: string, enabled: boolean) =>
+  useQuery({ queryKey: ["waveform", mediaId], queryFn: () => loadPeaks(mediaId), enabled, staleTime: Infinity });
+
 export function Waveform({ mediaId, hasWaveform, durationUs, decisions, currentUs, onSeek }: WaveformProps) {
-  const q = useQuery({ queryKey: ["waveform", mediaId], queryFn: () => loadPeaks(mediaId), enabled: hasWaveform, staleTime: Infinity });
+  const q = usePeaks(mediaId, hasWaveform);
   if (!hasWaveform) return <p className="muted small">{t("video.noWaveform")}</p>;
   const cols = q.data ? columnsOf(q.data, COLUMNS) : [];
   const x = (us: number) => (1000 * us) / Math.max(1, durationUs);

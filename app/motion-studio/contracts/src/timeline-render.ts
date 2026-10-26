@@ -70,7 +70,11 @@ export type VideoTimelineClip = z.infer<typeof VideoTimelineClipSchema>;
 
 /** Р-V6, Д2: длительности, режима и зоны с таймлайна нет — `set_duration`, `set_zone` не операции. */
 export const TimelineOpSchema = z.discriminatedUnion("op", [
-  z.object({ op: z.literal("move"), clip_id: Id, start_frame: Frame, override_reason: z.string().min(1).optional() }).strict(),
+  z.object({
+    op: z.literal("move"), clip_id: Id, start_frame: Frame, override_reason: z.string().min(1).optional(),
+    // Task 45: перетаскивание с Alt — кадр как есть, без прилипания к началу слова
+    snap: z.literal(false).optional(),
+  }).strict(),
   z.object({ op: z.literal("use_version"), clip_id: Id, version_id: Id }).strict(),
   z.object({ op: z.literal("include"), clip_id: Id, include: z.boolean(), override_reason: z.string().min(1).optional() }).strict(),
 ]);
