@@ -188,7 +188,9 @@ describe("applyTranscriptOps (края)", () => {
     expect(ids(doc)).toEqual(["w_000001", "w_000002", "w_000003"]);
   });
 
-  it("производительность: правка одного участка в транскрипте ~20 000 слов < 200 мс", () => {
+  // Порог ловит квадратичный разбор (на 20 000 слов — секунды), а не скорость машины: при 200 мс
+  // тест падал под нагрузкой параллельных рендеров (838 мс при том же коде).
+  it("производительность: правка одного участка в транскрипте ~20 000 слов < 1500 мс", () => {
     const big = trDoc(longWords(20_000));
     const op: TranscriptOp = { op: "replace_span", start_word_id: "w_010000", end_word_id: "w_010004", text: "слово49 новое слово0 слово1 слово2. ещё" };
     applyTranscriptOps(big, [op]); // прогрев JIT
@@ -199,7 +201,7 @@ describe("applyTranscriptOps (края)", () => {
       out = applyTranscriptOps(big, [op]);
       best = Math.min(best, performance.now() - t0);
     }
-    expect(best).toBeLessThan(200);
+    expect(best).toBeLessThan(1500);
     // «слово3» → «ещё» — замена один к одному (id и время ASR), «новое» — вставка
     expect(out!.words).toHaveLength(20_001);
     expect(out!.words.slice(9_999, 10_005).map((x) => [x.id, x.text])).toEqual([
