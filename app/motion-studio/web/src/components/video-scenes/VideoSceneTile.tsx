@@ -10,6 +10,9 @@ import { t, tk } from "../../i18n/index.js";
 import { JobStatus, jobErrorTitle } from "../JobStatus.js";
 import { Link } from "../Link.js";
 import { Player } from "../Player.js";
+import { ConfirmDialog } from "../ui/ConfirmDialog.js";
+import { DisabledReason } from "../ui/DisabledReason.js";
+import { Skeleton } from "../ui/Skeleton.js";
 import { ApprovalCButton } from "./ApprovalCButton.js";
 import { ContextPlayer } from "./ContextPlayer.js";
 import { QueueBadge } from "./QueueBadge.js";
@@ -29,7 +32,7 @@ export interface VideoSceneTileProps {
 function VersionPreview({ versionId, status }: { versionId: string | null; status: VideoSceneStatus }) {
   const dto = useVersion(versionId ?? undefined);
   if (!versionId) return <div className="tile-empty muted small">{tk(`videoScenes.status.${status}`, t("videoScenes.preview.none"))}</div>;
-  if (!dto.data) return <div className="tile-empty muted small">{t("common.loading")}</div>;
+  if (!dto.data) return <div className="tile-empty"><Skeleton lines={2} compact /></div>;
   const m = dto.data.manifest;
   if (m.status !== "ready" || !m.preview) return <div className="tile-empty muted small">{t("videoScenes.preview.notReady")}</div>;
   const s = dto.data.settings;
@@ -39,6 +42,7 @@ function VersionPreview({ versionId, status }: { versionId: string | null; statu
 
 export function VideoSceneTile({ projectId, scene, n, busy, onRetry, onRegenerate, selected, onSelect }: VideoSceneTileProps) {
   const [view, setView] = useState<"scene" | "context">("scene");
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const status = scene.status;
   const job = scene.job;
   const failure = status === "failed" && job ? jobErrorTitle(job) : null;
@@ -96,9 +100,28 @@ export function VideoSceneTile({ projectId, scene, n, busy, onRetry, onRegenerat
         <span className="spacer" />
         {onRetry ? <button type="button" className="primary" disabled={busy} onClick={onRetry}>{t("videoScenes.retry")}</button> : null}
         {onRegenerate ? (
-          <button type="button" className={scene.stale ? "primary" : undefined} disabled={busy} onClick={onRegenerate}>{t("videoScenes.regenerate")}</button>
+          <DisabledReason reasonKey={busy ? "ux.disabled.requestRunning" : null}>
+            <button
+              type="button"
+              className={scene.stale ? "primary" : undefined}
+              disabled={busy}
+              onClick={() => (scene.approval.state === "valid" ? setConfirmRegenerate(true) : onRegenerate())}
+            >
+              {t("videoScenes.regenerate")}
+            </button>
+          </DisabledReason>
         ) : null}
       </div>
+      {onRegenerate ? (
+        <ConfirmDialog
+          open={confirmRegenerate}
+          title={t("ux.confirm.regenerate.title")}
+          description={t("ux.confirm.regenerate.description")}
+          confirmLabel={t("ux.confirm.regenerate.action")}
+          onCancel={() => setConfirmRegenerate(false)}
+          onConfirm={() => { setConfirmRegenerate(false); onRegenerate(); }}
+        />
+      ) : null}
     </li>
   );
 }

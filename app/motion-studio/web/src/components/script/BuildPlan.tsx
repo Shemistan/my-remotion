@@ -11,6 +11,8 @@ import { scriptStateKey, useBuildPlan } from "../../api/script-client.js";
 import { t } from "../../i18n/index.js";
 import { scriptErrorText } from "../../script/format.js";
 import { JobStatus } from "../JobStatus.js";
+import { ConfirmDialog } from "../ui/ConfirmDialog.js";
+import { DisabledReason } from "../ui/DisabledReason.js";
 
 export interface BuildPlanProps {
   state: ScriptStateDto;
@@ -63,29 +65,30 @@ export function BuildPlan({ state, reading, blockedReason, onDone }: BuildPlanPr
   return (
     <div className="stack" data-testid="build-plan">
       <div className="row wrap">
-        <button
-          type="button"
-          className={hasPlan ? "" : "primary"}
-          disabled={blockedReason !== null || build.isPending || active || confirm}
-          onClick={() => (hasPlan ? setConfirm(true) : start())}
-        >
-          {t(hasPlan ? "scriptPlan.rebuild" : "scriptPlan.build")}
-        </button>
+        <DisabledReason reasonKey={blockedReason !== null ? "ux.disabled.saveText" : build.isPending || active || confirm ? "ux.disabled.requestRunning" : null}>
+          <button
+            type="button"
+            className={hasPlan ? "" : "primary"}
+            disabled={blockedReason !== null || build.isPending || active || confirm}
+            onClick={() => (hasPlan ? setConfirm(true) : start())}
+          >
+            {t(hasPlan ? "scriptPlan.rebuild" : "scriptPlan.build")}
+          </button>
+        </DisabledReason>
         <label className="row small">
           <input type="checkbox" checked={useAgent} onChange={(e) => setUseAgent(e.target.checked)} />
           {t("scriptPlan.useAgent")}
         </label>
       </div>
       {blockedReason ? <p className="hint">{blockedReason}</p> : !jobId ? <p className="hint">{t("scriptPlan.build.hint")}</p> : null}
-      {confirm ? (
-        <div className="msg-warning" role="alertdialog" aria-label={t("scriptPlan.rebuild")} aria-describedby={`${dlg}-text`}>
-          <p id={`${dlg}-text`}>{t("scriptPlan.rebuild.warning")}</p>
-          <div className="row wrap">
-            <button type="button" className="primary" autoFocus onClick={start}>{t("scriptPlan.rebuild.confirm")}</button>
-            <button type="button" onClick={() => setConfirm(false)}>{t("common.cancel")}</button>
-          </div>
-        </div>
-      ) : null}
+      <ConfirmDialog
+        open={confirm}
+        title={t("scriptPlan.rebuild")}
+        description={<span id={`${dlg}-text`}>{t("scriptPlan.rebuild.warning")}</span>}
+        confirmLabel={t("scriptPlan.rebuild.confirm")}
+        onConfirm={start}
+        onCancel={() => setConfirm(false)}
+      />
       {build.isError ? <p className="error" role="alert">{scriptErrorText(build.error)}</p> : null}
       {jobId && status !== "completed" ? <JobStatus jobId={jobId} compact /> : null}
     </div>

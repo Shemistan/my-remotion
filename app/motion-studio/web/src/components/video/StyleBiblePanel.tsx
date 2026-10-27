@@ -7,7 +7,9 @@ import { useMutation } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
 import { ApiError, api } from "../../api/client.js";
 import { errorText, t } from "../../i18n/index.js";
+import { useUnsavedGuard } from "../../ui/unsaved.js";
 import { contrast } from "../../video/contrast.js";
+import { DisabledReason } from "../ui/DisabledReason.js";
 
 const EDITABLE = ["bg", "surface", "text", "muted", "positive", "negative"] as const;
 type ColorKey = (typeof EDITABLE)[number];
@@ -30,6 +32,7 @@ export function StyleBiblePanel({ projectId, style, bValid, onSaved }: StyleBibl
   const baseKey = JSON.stringify(cur.base);
   useEffect(() => setDraft(JSON.parse(baseKey) as ProjectStyleBase), [cur.style_id, cur.revision, baseKey]);
   const dirty = JSON.stringify(draft) !== baseKey;
+  useUnsavedGuard(dirty);
   const presetChanged = draft.preset !== cur.base.preset;
   // палитра: разрешённая сервером + несохранённые правки (для нового пресета — после сохранения)
   const palette: Record<ColorKey, string> = { ...cur.resolved.palette, ...(presetChanged ? {} : draft.palette_overrides) } as Record<ColorKey, string>;
@@ -125,8 +128,12 @@ export function StyleBiblePanel({ projectId, style, bValid, onSaved }: StyleBibl
         </p>
       ) : null}
       <div className="row wrap actions">
-        <button type="button" className="primary" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>{t("style.save")}</button>
-        <button type="button" disabled={!dirty || save.isPending} onClick={() => setDraft(cur.base)}>{t("style.reset")}</button>
+        <DisabledReason reasonKey={!dirty ? "ux.disabled.noChanges" : save.isPending ? "ux.disabled.requestRunning" : null}>
+          <button type="button" className="primary" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>{t("style.save")}</button>
+        </DisabledReason>
+        <DisabledReason reasonKey={!dirty ? "ux.disabled.noChanges" : save.isPending ? "ux.disabled.requestRunning" : null}>
+          <button type="button" disabled={!dirty || save.isPending} onClick={() => setDraft(cur.base)}>{t("style.reset")}</button>
+        </DisabledReason>
       </div>
     </section>
   );

@@ -83,7 +83,7 @@ export function TraceView({ jobId: initial }: { jobId?: string }) {
           {q.data.events.length > 0 ? (
             <details>
               <summary>{t("job.log", { n: q.data.events.length })}</summary>
-              <pre className="log small">{q.data.events.map((e) => `${e.ts.slice(11, 19)} ${e.level.padEnd(5)} ${e.kind}: ${e.message}`).join("\n")}</pre>
+              <pre className="log small" tabIndex={0} aria-label={t("job.log", { n: q.data.events.length })}>{q.data.events.map((e) => `${e.ts.slice(11, 19)} ${e.level.padEnd(5)} ${e.kind}: ${e.message}`).join("\n")}</pre>
             </details>
           ) : null}
         </>

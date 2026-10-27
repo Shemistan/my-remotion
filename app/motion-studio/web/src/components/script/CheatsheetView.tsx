@@ -6,6 +6,7 @@ import { useState } from "react";
 import { scriptUrls } from "../../api/script-client.js";
 import { t } from "../../i18n/index.js";
 import { parseCheatsheet } from "../../script/output.js";
+import { Skeleton } from "../ui/Skeleton.js";
 
 async function fetchText(url: string): Promise<string> {
   const res = await fetch(url, { headers: { accept: "text/markdown, text/plain" }, credentials: "same-origin" });
@@ -34,7 +35,7 @@ export function CheatsheetView({ packageId, defaultOpen = true }: { packageId: s
       <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
         <summary>{t(open ? "scriptOutput.cheatsheet.hide" : "scriptOutput.cheatsheet.show")}</summary>
         {md.isError ? <p className="muted small">{t("scriptOutput.cheatsheet.unavailable")}</p> : null}
-        {open && !md.data && !md.isError ? <p className="muted small">{t("common.loading")}</p> : null}
+        {open && !md.data && !md.isError ? <Skeleton lines={2} compact /> : null}
         <div className="cheatsheet-body">
           {parts.map((p, i) => {
             if (p.kind === "heading") {

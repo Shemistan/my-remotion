@@ -11,6 +11,10 @@ import {
 } from "../../api/video-scenes-client.js";
 import { BatchBar } from "../../components/script/BatchBar.js";
 import "../../components/script/script.css";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog.js";
+import { DisabledReason } from "../../components/ui/DisabledReason.js";
+import { EmptyState } from "../../components/ui/EmptyState.js";
+import { Skeleton } from "../../components/ui/Skeleton.js";
 import { VideoSceneTile } from "../../components/video-scenes/VideoSceneTile.js";
 import { VideoScenesError } from "../../components/video-scenes/VideoScenesError.js";
 import { t } from "../../i18n/index.js";
@@ -32,7 +36,7 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
   if (!hasPlan) return <section className="panel" data-tab="scenes"><p className="muted">{t("videoScenes.stub")}</p></section>;
   if (q.isError) return <section className="panel" data-tab="scenes"><VideoScenesError error={q.error} /></section>;
   const s = q.data;
-  if (!s) return <section className="panel" data-tab="scenes"><p className="muted">{t("common.loading")}</p></section>;
+  if (!s) return <section className="panel" data-tab="scenes"><Skeleton lines={5} /></section>;
   if (!s.plan) return <section className="panel" data-tab="scenes"><p className="muted">{t("videoScenes.stub")}</p></section>;
   const revision = s.plan.revision;
   const bValid = s.approval_b.state === "valid";
@@ -76,33 +80,42 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
         <p className="hint" role="status">{s.approval_b.state === "stale" ? t("videoScenes.needBStale") : t("videoScenes.needB")}</p>
       ) : null}
       <div className="row wrap">
-        <button
-          type="button"
-          className="primary"
-          disabled={!bValid || busy || s.scenes.length === 0 || confirm !== null}
-          title={t("videoScenes.generateAllHint")}
-          onClick={() => ask(allN, t("videoScenes.confirmAllN", { n: allN }), generateAll)}
-        >
-          {t("videoScenes.generateAll")}
-        </button>
-        <button type="button" disabled={!bValid || busy || selected.length === 0 || confirm !== null} title={t("videoScenes.regenSelectedHint")}
-          onClick={() => ask(selected.length, t("videoScenes.confirmN", { n: selected.length }), regenSelected)}>
-          {t("videoScenes.regenSelected", { n: selected.length })}
-        </button>
-        {staleIds.length > 0 ? (
-          <button type="button" disabled={!bValid || busy || confirm !== null} title={t("videoScenes.regenStaleHint")}
-            onClick={() => ask(staleIds.length, t("videoScenes.confirmN", { n: staleIds.length }), regenStale)}>
-            {t("videoScenes.regenStale", { n: staleIds.length })}
+        <DisabledReason reasonKey={!bValid ? "ux.disabled.approvePlan" : s.scenes.length === 0 ? "ux.disabled.noScenes" : busy || confirm !== null ? "ux.disabled.requestRunning" : null}>
+          <button
+            type="button"
+            className="primary"
+            disabled={!bValid || busy || s.scenes.length === 0 || confirm !== null}
+            title={t("videoScenes.generateAllHint")}
+            onClick={() => ask(allN, t("videoScenes.confirmAllN", { n: allN }), generateAll)}
+          >
+            {t("videoScenes.generateAll")}
           </button>
+        </DisabledReason>
+        <DisabledReason reasonKey={!bValid ? "ux.disabled.approvePlan" : selected.length === 0 ? "ux.disabled.selectScenes" : busy || confirm !== null ? "ux.disabled.requestRunning" : null}>
+          <button type="button" disabled={!bValid || busy || selected.length === 0 || confirm !== null} title={t("videoScenes.regenSelectedHint")}
+            onClick={() => ask(selected.length, t("videoScenes.confirmN", { n: selected.length }), regenSelected)}>
+            {t("videoScenes.regenSelected", { n: selected.length })}
+          </button>
+        </DisabledReason>
+        {staleIds.length > 0 ? (
+          <DisabledReason reasonKey={!bValid ? "ux.disabled.approvePlan" : busy || confirm !== null ? "ux.disabled.requestRunning" : null}>
+            <button type="button" disabled={!bValid || busy || confirm !== null} title={t("videoScenes.regenStaleHint")}
+              onClick={() => ask(staleIds.length, t("videoScenes.confirmN", { n: staleIds.length }), regenStale)}>
+              {t("videoScenes.regenStale", { n: staleIds.length })}
+            </button>
+          </DisabledReason>
         ) : null}
       </div>
-      {confirm ? (
-        <div className="row wrap confirm" role="alert">
-          <span>{confirm.text}</span>
-          <button type="button" className="primary" disabled={busy} onClick={() => { confirm.run(); setConfirm(null); }}>{t("videoScenes.confirmGo")}</button>
-          <button type="button" onClick={() => setConfirm(null)}>{t("videoScenes.confirmCancel")}</button>
-        </div>
-      ) : null}
+      <ConfirmDialog
+        open={confirm !== null}
+        title={t("videoScenes.confirmGo")}
+        description={confirm?.text ?? ""}
+        confirmLabel={t("videoScenes.confirmGo")}
+        cancelLabel={t("videoScenes.confirmCancel")}
+        busy={busy}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => { confirm?.run(); setConfirm(null); }}
+      />
       {latest ? <BatchBar projectId={projectId} batch={latest} readySkipped={skipped.length} cancel={cancel} cost={false} /> : null}
       {generate.isError ? <VideoScenesError error={generate.error} /> : null}
       {skipped.length > 0 ? (
@@ -110,7 +123,7 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
           {t("videoScenes.skipped", { list: skipped.map((x) => t("videoScenes.skippedItem", { n: numbers.get(x.item_id) ?? "?", reason: skipReasonText(x.reason) })).join("; ") })}
         </p>
       ) : null}
-      {s.scenes.length === 0 ? <p className="hint">{t("videoScenes.empty.noScenes")}</p> : null}
+      {s.scenes.length === 0 ? <EmptyState title={t("videoScenes.empty.noScenes")} description={t("ux.videoScenes.empty.description")} /> : null}
       <ul className="scene-tiles">
         {s.scenes.map((x, i) => {
           const canRetry = x.status === "failed" || x.status === "cancelled";

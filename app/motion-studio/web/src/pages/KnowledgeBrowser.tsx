@@ -5,6 +5,7 @@ import { KB_SEARCH_TOP, PATTERN_SLUGS } from "@ms/contracts";
 import { useId, useState } from "react";
 import { useKbCard, useKbSearch } from "../api/queries.js";
 import { LicenseBadge, safeHttpUrl } from "../components/ComponentsPanel.js";
+import { Skeleton } from "../components/ui/Skeleton.js";
 import { errorText, t, tk } from "../i18n/index.js";
 import { navigate } from "../router.js";
 
@@ -17,7 +18,7 @@ function CompatBadge({ value }: { value: string }) {
 function Card({ id }: { id: string }) {
   const q = useKbCard(id);
   if (q.isError) return <p className="error">{errorText(q.error)}</p>;
-  if (!q.data) return <p className="muted">{t("common.loading")}</p>;
+  if (!q.data) return <Skeleton lines={5} compact />;
   const c = q.data.capability as Record<string, unknown> & { id: string; name: string; kind: string; license_class: "permissive" | "restricted" | "unknown" };
   const text = (k: string) => (typeof c[k] === "string" && c[k] ? String(c[k]) : null);
   const list = (k: string) => (Array.isArray(c[k]) ? (c[k] as unknown[]).map(String) : []);
@@ -46,7 +47,7 @@ function Card({ id }: { id: string }) {
         ))}
         {list("patterns").length > 0 ? <div><dt>{t("kb.field.patterns")}</dt><dd>{list("patterns").map((p) => tk(`pattern.${p}`, p)).join(", ")}</dd></div> : null}
       </dl>
-      {q.data.card ? <pre className="card-md">{q.data.card}</pre> : <p className="muted">{t("kb.noCard")}</p>}
+      {q.data.card ? <pre className="card-md" tabIndex={0} aria-label={t("kb.card")}>{q.data.card}</pre> : <p className="muted">{t("kb.noCard")}</p>}
     </article>
   );
 }

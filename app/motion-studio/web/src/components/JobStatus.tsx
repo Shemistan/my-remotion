@@ -4,11 +4,17 @@
 // попытки; повтор — только когда они завершились.
 import type { Job, JobDetailDto } from "@ms/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { api } from "../api/client.js";
 import { isActive, useJob } from "../api/queries.js";
 import { usd } from "../api/diagnostics-client.js";
 import { errorText, t, tk } from "../i18n/index.js";
+import { etaFrom } from "../ui/eta.js";
 import { ErrorCard } from "./diagnostics/ErrorCard.js";
+import { DisabledReason } from "./ui/DisabledReason.js";
+import { ProgressStages, type ProgressStage } from "./ui/ProgressStages.js";
+import { Skeleton } from "./ui/Skeleton.js";
+import { pushToast } from "./ui/Toasts.js";
 
 export interface JobStatusProps {
   jobId: string;
@@ -63,14 +69,33 @@ export function JobStatus({ jobId, compact }: JobStatusProps) {
   };
   const cancel = useMutation({ mutationFn: () => api.cancelJob(jobId), onSuccess: refresh });
   const retry = useMutation({ mutationFn: () => api.retryJob(jobId), onSuccess: refresh });
+  const status = q.data?.job.status;
+  const previous = useRef(status);
+  useEffect(() => {
+    const before = previous.current;
+    previous.current = status;
+    if (!before || !status || !isActive(before) || isActive(status)) return;
+    if (status === "completed") pushToast(t("ux.toast.jobCompleted"), "success");
+    else if (status === "blocked") pushToast(t("ux.toast.jobBlocked"), "error");
+    else if (status === "failed") pushToast(t("ux.toast.jobFailed"), "error");
+  }, [status]);
 
   if (q.isError) return <p className="error">{errorText(q.error)}</p>;
-  if (!q.data) return <p className="muted">{t("common.loading")}</p>;
+  if (!q.data) return <Skeleton lines={2} compact />;
   const { job, events } = q.data;
   const alive = q.data.processes.some((p) => p.alive) || (job.status === "blocked" && q.data.processes.length === 0 && (job.error?.pids?.length ?? 0) > 0);
   const canRetry = ["failed", "cancelled", "blocked"].includes(job.status);
   const title = jobErrorTitle(job);
   const pct = Math.round(job.progress * 100);
+  const progressStages: ProgressStage[] = job.status === "completed" ? [
+    { id: "waiting", label: t("ux.progress.waiting"), state: "done" },
+    { id: "current", label: job.stage ? stageText(job.stage) : t("ux.progress.current", { stage: stageText(job.stage) }), state: "done" },
+    { id: "done", label: t("ux.progress.done"), state: "done" },
+  ] : [
+    { id: "waiting", label: t("ux.progress.waiting"), state: job.status === "pending" ? "current" : "done" },
+    { id: "current", label: t("ux.progress.current", { stage: stageText(job.stage) }), state: job.status === "pending" ? "waiting" : "current" },
+    { id: "done", label: t("ux.progress.finishing"), state: "waiting" },
+  ];
 
   return (
     <section className={`panel job-status status-${job.status}`} aria-label={t("job.title")} data-job={job.id}>
@@ -82,9 +107,7 @@ export function JobStatus({ jobId, compact }: JobStatusProps) {
         {job.cost_usd ? <span className="muted small" title={t("diagnostics.costNote")}>{t("diagnostics.cost", { usd: usd(job.cost_usd) })}</span> : null}
       </div>
       {isActive(job.status) || job.status === "completed" ? (
-        <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={t("job.progress")}>
-          <div style={{ width: `${pct}%` }} />
-        </div>
+        <ProgressStages stages={progressStages} progress={pct / 100} etaSeconds={isActive(job.status) ? etaFrom(job.started_at ?? job.created_at, job.progress) : null} />
       ) : null}
       {job.error ? <ErrorCard error={job.error} jobId={job.id} {...(title ? { title } : {})} /> : null}
       {job.status === "blocked" ? (
@@ -98,7 +121,9 @@ export function JobStatus({ jobId, compact }: JobStatusProps) {
           <button type="button" disabled={cancel.isPending || job.cancel_requested} onClick={() => cancel.mutate()}>{t("job.cancel")}</button>
         ) : null}
         {canRetry ? (
-          <button type="button" disabled={retry.isPending || alive} onClick={() => retry.mutate()}>{t("job.retry")}</button>
+          <DisabledReason reasonKey={alive ? "ux.disabled.activeProcess" : retry.isPending ? "ux.disabled.requestRunning" : null}>
+            <button type="button" disabled={retry.isPending || alive} onClick={() => retry.mutate()}>{t("job.retry")}</button>
+          </DisabledReason>
         ) : null}
         {job.status === "blocked" ? (
           <button type="button" disabled={cancel.isPending} onClick={() => cancel.mutate()}>{t("job.cancel")}</button>
@@ -109,7 +134,7 @@ export function JobStatus({ jobId, compact }: JobStatusProps) {
       {!compact && events.length > 0 ? (
         <details className="job-log">
           <summary>{t("job.log", { n: events.length })}</summary>
-          <pre className="log small">
+          <pre className="log small" tabIndex={0} aria-label={t("job.log", { n: events.length })}>
             {events.slice(-LOG_TAIL).map((e) => `${e.ts.slice(11, 19)} ${e.level.padEnd(5)} ${e.kind}: ${e.message}`).join("\n")}
           </pre>
         </details>

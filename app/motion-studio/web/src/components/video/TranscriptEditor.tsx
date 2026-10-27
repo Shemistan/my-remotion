@@ -9,6 +9,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { ApiError, api } from "../../api/client.js";
 import { errorText, t } from "../../i18n/index.js";
+import { useUnsavedGuard } from "../../ui/unsaved.js";
 import { wordAt } from "../../video/word-index.js";
 import { WordSpan } from "./WordSpan.js";
 
@@ -33,6 +34,7 @@ export function TranscriptEditor({ transcript, wordMap, currentUs, readOnly, onS
   const byId = useMemo(() => new Map(doc.words.map((w, i) => [w.id, { w, i }])), [doc.words]);
   const current = wordAt(doc.words, currentUs);
   const [editing, setEditing] = useState<{ seg: string; text: string } | null>(null);
+  useUnsavedGuard(editing !== null);
   const [sel, setSel] = useState<{ a: number; b: number } | null>(null);
   const [conflict, setConflict] = useState(false);
   // roving tabindex: одна остановка Tab на транскрипт — слово, на котором был фокус, иначе текущее
@@ -100,7 +102,7 @@ export function TranscriptEditor({ transcript, wordMap, currentUs, readOnly, onS
           <button type="button" onClick={() => setSel(null)}>{t("transcript.clearSelection")}</button>
         </div>
       ) : null}
-      <div className="segments">
+      <div className="segments" tabIndex={0} aria-label={t("video.tab.transcript")}>
         {doc.segments.map((seg) => {
           const words = seg.word_ids.map((id) => byId.get(id)?.w).filter((w): w is TranscriptWord => Boolean(w));
           const isEditing = editing?.seg === seg.id;

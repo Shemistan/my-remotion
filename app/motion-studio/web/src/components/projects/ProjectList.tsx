@@ -6,6 +6,8 @@ import { useState } from "react";
 import { type ProjectView, dateTime, useArchive, useProjectList } from "../../api/projects-client.js";
 import { errorText, t } from "../../i18n/index.js";
 import { Link } from "../Link.js";
+import { EmptyState } from "../ui/EmptyState.js";
+import { Skeleton } from "../ui/Skeleton.js";
 import { DeleteDialog } from "./DeleteDialog.js";
 import { RenameDialog } from "./RenameDialog.js";
 import { TrashList } from "./TrashList.js";
@@ -48,8 +50,8 @@ function Projects({ view, filter }: { view: ProjectView; filter: string }) {
   return (
     <>
       {list.isError ? <p className="error">{errorText(list.error)}</p> : null}
-      {list.isPending ? <p className="muted">{t("common.loading")}</p> : null}
-      {list.data?.length === 0 && !list.isError ? <p className="muted">{view === "archived" ? t("projects.noArchived") : t("dashboard.noProjects")}</p> : null}
+      {list.isPending ? <Skeleton lines={3} compact /> : null}
+      {list.data?.length === 0 && !list.isError ? <EmptyState compact title={view === "archived" ? t("projects.noArchived") : t("dashboard.noProjects")} description={view === "archived" ? undefined : t("ux.dashboard.projectsEmpty.description")} /> : null}
       {list.data && list.data.length > 0 && items.length === 0 ? <p className="muted">{t("projects.noMatches")}</p> : null}
       <ul className="project-list">
         {items.map((p) => (

@@ -34,7 +34,7 @@ export function SpecView({ dto }: { dto: VersionDto }) {
         {value === null || value === undefined ? (
           <p className="muted">{t("specView.absent")}</p>
         ) : (
-          <pre className="log small spec-json">{JSON.stringify(value, null, 2)}</pre>
+          <pre className="log small spec-json" tabIndex={0} aria-label={t("specView.title")}>{JSON.stringify(value, null, 2)}</pre>
         )}
       </div>
     </section>

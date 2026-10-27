@@ -96,7 +96,7 @@ export function RoughCutPanel({ projectId, edl, approvals, onListen, onChanged, 
         {approveBlocked ? <span id={hintId} className="hint small" data-testid="approve-hint">{t("approval.a.proposedLeft", { n: proposed.length })}</span> : null}
       </div>
       {decisions.length === 0 ? <p className="muted">{t("roughcut.empty")}</p> : (
-        <ul className="cut-list">
+        <ul className="cut-list" tabIndex={0} aria-label={t("video.tab.roughcut")}>
           {decisions.map((d) => (
             <CutRow
               key={d.id}

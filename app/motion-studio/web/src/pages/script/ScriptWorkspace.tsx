@@ -5,6 +5,7 @@ import type { ProjectDto } from "@ms/contracts";
 import { useState } from "react";
 import { useScriptState } from "../../api/script-client.js";
 import { Link } from "../../components/Link.js";
+import { Skeleton } from "../../components/ui/Skeleton.js";
 import { errorText, t } from "../../i18n/index.js";
 import { ExportTab } from "./ExportTab.js";
 import { PlanTab } from "./PlanTab.js";
@@ -31,7 +32,7 @@ export function ScriptWorkspace({ project }: { project: ProjectDto }) {
         ))}
       </div>
       {q.isError ? <p className="error">{errorText(q.error)}</p> : null}
-      {!state && !q.isError ? <p className="muted">{t("common.loading")}</p> : null}
+      {!state && !q.isError ? <Skeleton lines={6} /> : null}
       {state ? (
         <section role="tabpanel" id={`script-panel-${tab}`} aria-labelledby={`script-tab-${tab}`}>
           {tab === "text" ? <TextTab state={state} onPlan={() => setTab("plan")} /> : null}

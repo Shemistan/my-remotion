@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useCosts, usd } from "../../api/diagnostics-client.js";
 import { errorText, t, tk } from "../../i18n/index.js";
+import { EmptyState } from "../ui/EmptyState.js";
+import { Skeleton } from "../ui/Skeleton.js";
 
 const PERIODS = [7, 30] as const;
 
@@ -39,8 +41,8 @@ export function CostSummary({ projectId }: { projectId?: string }) {
         ))}
       </div>
       <p className="hint small">{t("costs.note")}</p>
-      {q.isError ? <p className="error">{errorText(q.error)}</p> : !s ? <p className="muted">{t("common.loading")}</p> : s.calls === 0 ? (
-        <p className="muted">{t("costs.empty")}</p>
+      {q.isError ? <p className="error">{errorText(q.error)}</p> : !s ? <Skeleton lines={3} compact /> : s.calls === 0 ? (
+        <EmptyState compact title={t("costs.empty")} />
       ) : (
         <>
           <p>

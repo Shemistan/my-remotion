@@ -67,7 +67,7 @@ export function Chat({ sceneId, baseVersionId, baseNote, versions = [], onOpenVe
   return (
     <section className="panel chat" aria-label={t("chat.title")}>
       <h2>{t("chat.title")}</h2>
-      <div className="chat-log">
+      <div className="chat-log" tabIndex={0} aria-label={t("chat.title")}>
         {messages.isError ? <p className="error">{errorText(messages.error)}</p> : null}
         {list.length === 0 && messages.isSuccess ? <p className="muted">{t("chat.empty")}</p> : null}
         {list.map((m) => (

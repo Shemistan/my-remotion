@@ -9,6 +9,7 @@ import { api } from "../api/client.js";
 import { dateTime, projectsApi, useRecovery } from "../api/projects-client.js";
 import { stageText } from "../components/JobStatus.js";
 import { sizeText } from "../components/projects/DeleteDialog.js";
+import { Skeleton } from "../components/ui/Skeleton.js";
 import { errorText, t, tk } from "../i18n/index.js";
 
 type Quarantined = RecoveryDto["quarantined"][number];
@@ -37,7 +38,7 @@ function JobRow({ j, foreignPids }: { j: Job; foreignPids?: number[] }) {
 function JobLog({ jobId }: { jobId: string }) {
   const q = useQuery({ queryKey: ["job", jobId], queryFn: () => api.job(jobId) });
   if (q.isError) return <p className="error">{errorText(q.error)}</p>;
-  if (!q.data) return <p className="muted">{t("common.loading")}</p>;
+  if (!q.data) return <Skeleton lines={3} compact />;
   if (q.data.events.length === 0) return <p className="muted">{t("recovery.noEvents")}</p>;
   return (
     <ul className="mono small" data-testid="job-log">
@@ -62,7 +63,7 @@ function DiscardDialog({ dir, onClose }: { dir: string; onClose: () => void }) {
       <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={`${uid}-title`}>
         <h2 id={`${uid}-title`}>{t("recovery.discardTitle")}</h2>
         {intent.isError ? <p className="error">{errorText(intent.error)}</p> : null}
-        {intent.data ? <p>{t("recovery.discardSummary", { dir, size: sizeText(intent.data.bytes) })}</p> : <p className="muted">{t("common.loading")}</p>}
+        {intent.data ? <p>{t("recovery.discardSummary", { dir, size: sizeText(intent.data.bytes) })}</p> : <Skeleton lines={2} compact />}
         {discard.isError ? <p className="error">{errorText(discard.error)}</p> : null}
         <div className="row end">
           <button type="button" onClick={onClose}>{t("common.cancel")}</button>
@@ -106,7 +107,7 @@ export function RecoveryCenter() {
     <div className="page recovery">
       <h1>{t("recovery.title")}</h1>
       {q.isError ? <p className="error">{errorText(q.error)}</p> : null}
-      {!r && !q.isError ? <p className="muted">{t("common.loading")}</p> : null}
+      {!r && !q.isError ? <Skeleton lines={7} /> : null}
       {r ? (
         <div className="stack">
           <section className="panel" data-testid="recovery-boot">
