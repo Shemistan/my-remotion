@@ -1,0 +1,68 @@
+{
+  "checks": 74,
+  "failed": [
+    "assemble/1.2",
+    "assemble/1.3",
+    "export-720p25/3.0",
+    "export-720p25/3.1",
+    "export-720p25/3.5",
+    "resilience/5.2",
+    "resilience/5.6",
+    "resilience/5.7"
+  ],
+  "timings": {
+    "import": {
+      "wall_ms": 30260
+    },
+    "asr": {
+      "wall_ms": 15122
+    },
+    "roughcut.propose": {
+      "wall_ms": 15136,
+      "cost_usd": 0.0426
+    },
+    "roughcut.preview": {
+      "wall_ms": 10135
+    },
+    "footage.analyze": {
+      "wall_ms": 60231,
+      "cost_usd": 0.11869339999999999
+    },
+    "semantic.analyze": {
+      "wall_ms": 30133,
+      "cost_usd": 0.0775633
+    },
+    "plan.visual": {
+      "wall_ms": 25137,
+      "cost_usd": 0.07045
+    },
+    "generate": {
+      "wall_ms": 1000432,
+      "cost_usd": 9.14455506
+    },
+    "prepare": {
+      "wall_ms": 1195023
+    },
+    "assemble.regenerate": {
+      "wall_ms": 1236416,
+      "cost_usd": 4.95201116
+    },
+    "assemble.preview": {
+      "wall_ms": 88526
+    },
+    "assemble": {
+      "wall_ms": 1329993
+    },
+    "export.1080p": {
+      "wall_ms": 252038,
+      "note": "2026-10-27T17:14:12.578Z → 2026-10-27T17:18:22.234Z"
+    },
+    "export.720p25": {
+      "wall_ms": 90932,
+      "note": "2026-10-27T17:18:27.647Z → 2026-10-27T17:19:55.827Z"
+    },
+    "reproduce": {
+      "wall_ms": 257591
+    }
+  }
+}

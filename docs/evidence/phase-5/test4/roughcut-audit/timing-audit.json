@@ -1,0 +1,125 @@
+{
+  "project_id": "prj_01M5Z12FF1CBJVDM13HPX7QNB0",
+  "edl_id": "edl_01M5Z13X6NGSADFYGCHHTMFPP8",
+  "revision": 9,
+  "fps": {
+    "num": 30,
+    "den": 1
+  },
+  "frame_us": 33334,
+  "duration_us": 89666666,
+  "timeline_rebuilt_equal": true,
+  "ok": true,
+  "rows": [
+    {
+      "word_id": "w_000008",
+      "text": "системы",
+      "source_us": 5940000,
+      "edited_us": 5940000,
+      "in_cut": false,
+      "back_us": 5940000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000029",
+      "text": "есть",
+      "source_us": 20560000,
+      "edited_us": 13826667,
+      "in_cut": false,
+      "back_us": 20560000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000045",
+      "text": "И",
+      "source_us": 33160000,
+      "edited_us": 22193333,
+      "in_cut": false,
+      "back_us": 33160000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000068",
+      "text": "мы",
+      "source_us": 49300000,
+      "edited_us": 30799999,
+      "in_cut": false,
+      "back_us": 49300000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000080",
+      "text": "более",
+      "source_us": 58920000,
+      "edited_us": 40419999,
+      "in_cut": false,
+      "back_us": 58920000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000093",
+      "text": "И",
+      "source_us": 67380000,
+      "edited_us": 47879999,
+      "in_cut": false,
+      "back_us": 67380000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 0.999
+    },
+    {
+      "word_id": "w_000105",
+      "text": "спит,",
+      "source_us": 75060000,
+      "edited_us": 55559999,
+      "in_cut": false,
+      "back_us": 75060000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000118",
+      "text": "занят,",
+      "source_us": 81600000,
+      "edited_us": 62099999,
+      "in_cut": false,
+      "back_us": 81600000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    },
+    {
+      "word_id": "w_000131",
+      "text": "этого",
+      "source_us": 97260000,
+      "edited_us": 75859999,
+      "in_cut": false,
+      "back_us": 97260000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 0.999
+    },
+    {
+      "word_id": "w_000144",
+      "text": "дожидается",
+      "source_us": 109860000,
+      "edited_us": 86126666,
+      "in_cut": false,
+      "back_us": 109860000,
+      "lossless": true,
+      "audio_offset_us": 0,
+      "corr": 1
+    }
+  ]
+}

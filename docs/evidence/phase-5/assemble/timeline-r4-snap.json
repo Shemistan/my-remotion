@@ -1,0 +1,242 @@
+{
+  "base": 3,
+  "tried": [
+    {
+      "target_word_frame": 40,
+      "release_frame": 38,
+      "dx_px": 35.16548902937895,
+      "revision": 4,
+      "start": 40,
+      "blocking": []
+    }
+  ],
+  "zoom": 7.033097805875791,
+  "doc": {
+    "schema_version": 1,
+    "timeline_id": "tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0",
+    "revision": 4,
+    "parent_revision": 3,
+    "fps": {
+      "num": 30,
+      "den": 1
+    },
+    "duration_frames": 2689,
+    "inputs": {
+      "media_sha256": "83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01",
+      "edl": {
+        "id": "edl_01M5Z13X6NGSADFYGCHHTMFPP8",
+        "revision": 9,
+        "hash": "48dbbd49b00054dcefbd1d0c4a054257ae53ea8649af429a63758f45ed580cc3"
+      },
+      "plan": {
+        "id": "pln_01M5Z17JQB173X3NZF1VX1DQX6",
+        "revision": 8,
+        "hash": "feeda2c6878bcee677b0bc4691c146abf7bc0882531775b2561a56e8f9eb1570"
+      },
+      "style": {
+        "id": "sty_01M5Z188RP9K5DT9YQK4FMM50B",
+        "revision": 1,
+        "hash": "c24d4c74d79c48c07f390ad89677c2694579615cdd71fbf4d028ec7903617d88"
+      }
+    },
+    "video": [
+      {
+        "idx": 0,
+        "from": 0,
+        "durationInFrames": 340,
+        "startFrom": 0
+      },
+      {
+        "idx": 1,
+        "from": 340,
+        "durationInFrames": 3,
+        "startFrom": 410
+      },
+      {
+        "idx": 2,
+        "from": 343,
+        "durationInFrames": 139,
+        "startFrom": 545
+      },
+      {
+        "idx": 3,
+        "from": 482,
+        "durationInFrames": 90,
+        "startFrom": 734
+      },
+      {
+        "idx": 4,
+        "from": 572,
+        "durationInFrames": 310,
+        "startFrom": 901
+      },
+      {
+        "idx": 5,
+        "from": 882,
+        "durationInFrames": 3,
+        "startFrom": 1261
+      },
+      {
+        "idx": 6,
+        "from": 885,
+        "durationInFrames": 9,
+        "startFrom": 1385
+      },
+      {
+        "idx": 7,
+        "from": 894,
+        "durationInFrames": 393,
+        "startFrom": 1450
+      },
+      {
+        "idx": 8,
+        "from": 1287,
+        "durationInFrames": 951,
+        "startFrom": 1873
+      },
+      {
+        "idx": 9,
+        "from": 2238,
+        "durationInFrames": 288,
+        "startFrom": 2881
+      },
+      {
+        "idx": 10,
+        "from": 2526,
+        "durationInFrames": 163,
+        "startFrom": 3239
+      }
+    ],
+    "scenes": [
+      {
+        "clip_id": "clip_sp_001",
+        "scene_id": "scn_01M5Z18CWYG011TGN2HJRRVQ8E",
+        "item_id": "sp_001",
+        "version_id": "ver_01M5Z26TXJEQGCP7E3R0CE25XR",
+        "version_number": 1,
+        "include": "approved",
+        "start_frame": 40,
+        "duration_frames": 285,
+        "placement": {
+          "mode": "overlay",
+          "zone": "left_third",
+          "rect": {
+            "x": 0.04,
+            "y": 0.08,
+            "w": 0.3,
+            "h": 0.84
+          },
+          "transparent": true
+        },
+        "z": 1,
+        "anchors": [
+          {
+            "word_id": "w_000005",
+            "text": "TCP",
+            "frame": 105
+          },
+          {
+            "word_id": "w_000014",
+            "text": "SYNC",
+            "frame": 275
+          },
+          {
+            "word_id": "w_000016",
+            "text": "ASK",
+            "frame": 306
+          }
+        ],
+        "version_frames": 285
+      },
+      {
+        "clip_id": "clip_sp_002",
+        "scene_id": "scn_01M5Z18CX1E09P9XGCF4RH0PP2",
+        "item_id": "sp_002",
+        "version_id": "ver_01M5Z1QJMBT91DG0WF64Y9BZF8",
+        "version_number": 1,
+        "include": "approved",
+        "start_frame": 659,
+        "duration_frames": 224,
+        "placement": {
+          "mode": "fullscreen",
+          "zone": "full",
+          "rect": {
+            "x": 0,
+            "y": 0,
+            "w": 1,
+            "h": 1
+          },
+          "transparent": false
+        },
+        "z": 0,
+        "anchors": [
+          {
+            "word_id": "w_000052",
+            "text": "sleep",
+            "frame": 777
+          },
+          {
+            "word_id": "w_000054",
+            "text": "2",
+            "frame": 827
+          },
+          {
+            "word_id": "w_000056",
+            "text": "uppercase",
+            "frame": 843
+          }
+        ],
+        "version_frames": 224
+      },
+      {
+        "clip_id": "clip_sp_003",
+        "scene_id": "scn_01M5Z18CX2AD7BDN3N35ZG8J2S",
+        "item_id": "sp_003",
+        "version_id": "ver_01M5Z3DHKQ7N7YJ7SSRQ722FGV",
+        "version_number": 2,
+        "include": "approved",
+        "start_frame": 1284,
+        "duration_frames": 417,
+        "placement": {
+          "mode": "overlay",
+          "zone": "left_third",
+          "rect": {
+            "x": 0.04,
+            "y": 0.08,
+            "w": 0.3,
+            "h": 0.84
+          },
+          "transparent": true
+        },
+        "z": 1,
+        "anchors": [
+          {
+            "word_id": "w_000087",
+            "text": "пинг",
+            "frame": 1340
+          },
+          {
+            "word_id": "w_000097",
+            "text": "pong",
+            "frame": 1497
+          }
+        ],
+        "version_frames": 417
+      }
+    ],
+    "excluded": [],
+    "issues": [],
+    "ops": [
+      {
+        "op": "move",
+        "clip_id": "clip_sp_001",
+        "start_frame": 33
+      },
+      {
+        "op": "move",
+        "clip_id": "clip_sp_001",
+        "start_frame": 40
+      }
+    ]
+  }
+}

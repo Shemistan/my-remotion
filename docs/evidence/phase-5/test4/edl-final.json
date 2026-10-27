@@ -1,0 +1,124 @@
+{
+  "revision": 9,
+  "decisions": [
+    {
+      "id": "pau_r1_1",
+      "origin": "detector",
+      "reason": "pause",
+      "status": "accepted",
+      "confidence": 0.9,
+      "ms": 2333.333,
+      "explanation": "пауза 2,7 с между словами"
+    },
+    {
+      "id": "agt_r1_1",
+      "origin": "agent",
+      "reason": "bad_take",
+      "status": "accepted",
+      "confidence": 0.65,
+      "ms": 4400,
+      "explanation": "Та же фраза про hello сказана дважды; вторая версия полнее, первую убираем. — «Потом отправляется сообщение, что hello, привет.»"
+    },
+    {
+      "id": "agt_r1_2",
+      "origin": "agent",
+      "reason": "false_start",
+      "status": "accepted",
+      "confidence": 0.75,
+      "ms": 1666.667,
+      "explanation": "Оборванное начало: «И отвечает» и сразу заново «и наш воркер отвечает». — «И отвечает,»"
+    },
+    {
+      "id": "pau_r1_2",
+      "origin": "detector",
+      "reason": "pause",
+      "status": "accepted",
+      "confidence": 0.9,
+      "ms": 2566.667,
+      "explanation": "пауза 3,0 с между словами"
+    },
+    {
+      "id": "pau_r1_3",
+      "origin": "detector",
+      "reason": "pause",
+      "status": "accepted",
+      "confidence": 0.9,
+      "ms": 1633.334,
+      "explanation": "пауза 2,0 с между словами"
+    },
+    {
+      "id": "agt_r1_3",
+      "origin": "agent",
+      "reason": "bad_take",
+      "status": "accepted",
+      "confidence": 0.7,
+      "ms": 4033.333,
+      "explanation": "Первая фраза оборвана («от номер 2»), следующая передаёт ту же мысль целиком. — «И тут мы видим, что результат задачи от номер 2.»"
+    },
+    {
+      "id": "pau_r1_4",
+      "origin": "detector",
+      "reason": "pause",
+      "status": "accepted",
+      "confidence": 0.9,
+      "ms": 1866.667,
+      "explanation": "пауза 2,2 с между словами"
+    },
+    {
+      "id": "pau_r1_5",
+      "origin": "detector",
+      "reason": "pause",
+      "status": "accepted",
+      "confidence": 0.7,
+      "ms": 1000,
+      "explanation": "пауза 1,4 с между словами"
+    },
+    {
+      "id": "agt_r1_4",
+      "origin": "agent",
+      "reason": "bad_take",
+      "status": "rejected",
+      "confidence": 0.55,
+      "ms": 4933.333,
+      "explanation": "Первый дубль неточный («спит», «какую-то задачу»); второй формулирует то же чётче. — «Даже пока он спит, то есть выполняет условно какую -то задачу.»"
+    },
+    {
+      "id": "pau_r1_6",
+      "origin": "detector",
+      "reason": "pause",
+      "status": "rejected",
+      "confidence": 0.7,
+      "ms": 800,
+      "explanation": "пауза 1,2 с между словами"
+    },
+    {
+      "id": "pau_r1_7",
+      "origin": "detector",
+      "reason": "pause",
+      "status": "accepted",
+      "confidence": 0.9,
+      "ms": 1900,
+      "explanation": "пауза 2,3 с между словами"
+    },
+    {
+      "id": "pau_r1_8",
+      "origin": "detector",
+      "reason": "pause",
+      "status": "accepted",
+      "confidence": 0.9,
+      "ms": 2333.333,
+      "explanation": "пауза 2,7 с между словами"
+    },
+    {
+      "id": "pau_r1_9",
+      "origin": "detector",
+      "reason": "pause",
+      "status": "accepted",
+      "confidence": 0.9,
+      "ms": 2709.01,
+      "explanation": "пауза 3,0 с в конце записи"
+    }
+  ],
+  "source_s": 116.10901,
+  "edited_s": 89.666666
+}

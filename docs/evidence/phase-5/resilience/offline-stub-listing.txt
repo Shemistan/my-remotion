@@ -1,0 +1,15 @@
+total 0
+drwx------@  3 stalyzade  staff   96 27 окт.  20:25 .
+drwxr-xr-x@ 13 stalyzade  staff  416 27 окт.  20:25 ..
+drwx------@  3 stalyzade  staff   96 27 окт.  20:25 run
+
+phase5/run:
+total 0
+drwx------@ 3 stalyzade  staff  96 27 окт.  20:25 .
+drwx------@ 3 stalyzade  staff  96 27 окт.  20:25 ..
+drwx------@ 2 stalyzade  staff  64 27 окт.  20:25 tmp
+
+phase5/run/tmp:
+total 0
+drwx------@ 2 stalyzade  staff  64 27 окт.  20:25 .
+drwx------@ 3 stalyzade  staff  96 27 окт.  20:25 ..

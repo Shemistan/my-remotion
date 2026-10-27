@@ -1,0 +1,47 @@
+[
+  {
+    "id": "apr_01M5Z14T4XV6TQKYV6D60M7SEC",
+    "kind": "A",
+    "subject_ref": "edl:edl_01M5Z13X6NGSADFYGCHHTMFPP8@r9",
+    "subject_hash": "48dbbd49b00054dcefbd1d0c4a054257ae53ea8649af429a63758f45ed580cc3",
+    "status": "valid",
+    "stale_reason": null,
+    "decided_at": "2026-10-27T15:54:58.077Z"
+  },
+  {
+    "id": "apr_01M5Z18CJ3AX7K7G3D41MEVYWW",
+    "kind": "B",
+    "subject_ref": "plan:pln_01M5Z17JQB173X3NZF1VX1DQX6@r7",
+    "subject_hash": "2218b52a35a2f7e0cb6452257a161961708b233e6716dc1345d979fa061f17d9",
+    "status": "valid",
+    "stale_reason": null,
+    "decided_at": "2026-10-27T15:56:55.235Z"
+  },
+  {
+    "id": "apr_01M5Z26Y105V4156ECA4CZ9FPY",
+    "kind": "C",
+    "subject_ref": "scene:scn_01M5Z18CWYG011TGN2HJRRVQ8E@r1",
+    "subject_hash": "9d6ac59f9c4608b4ea7438ea6201abdc0e49565937596aa33517f7597cd68a15",
+    "status": "valid",
+    "stale_reason": null,
+    "decided_at": "2026-10-27T16:13:36.161Z"
+  },
+  {
+    "id": "apr_01M5Z26Y2XZF8KX7MGX354STCC",
+    "kind": "C",
+    "subject_ref": "scene:scn_01M5Z18CX1E09P9XGCF4RH0PP2@r1",
+    "subject_hash": "22bca55ece58a48c394692066fefa8405647c3da0c869bb317de12dd239bfd27",
+    "status": "valid",
+    "stale_reason": null,
+    "decided_at": "2026-10-27T16:13:36.221Z"
+  },
+  {
+    "id": "apr_01M5Z26Y40ZGV6PC89QXX5KKYQ",
+    "kind": "C",
+    "subject_ref": "scene:scn_01M5Z18CX2AD7BDN3N35ZG8J2S@r1",
+    "subject_hash": "46881c76229b3bdc081d8679940f6c357b3b9aee42dcd33d04a5f1279d7abb43",
+    "status": "valid",
+    "stale_reason": null,
+    "decided_at": "2026-10-27T16:13:36.256Z"
+  }
+]

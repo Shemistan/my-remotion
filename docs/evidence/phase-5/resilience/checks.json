@@ -1,0 +1,44 @@
+[
+  {
+    "id": "5.1",
+    "title": "после старта группа воркера рендера и медиасервер мертвы (реестр job_processes)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"procs\":[{\"pid\":5103,\"pgid\":5103,\"cmd\":\"~/.nvm/versions/node/v22.21.1/bin/node --disable-warning=ExperimentalWarning ~/my_track/01_It_development/my-remotion/.claude/work\"}],\"after_kill\":[{\"pid\":5103,\"pgid\":5103,\"alive\":true,\"group\":true}],\"after_start\":[{\"pid\":5103,\"alive\":false,\"group\":false}]}"
+  },
+  {
+    "id": "5.2",
+    "title": "частичного файла финала нет (final/ — только опубликованные экспорты)",
+    "kind": "A",
+    "pass": false,
+    "detail": "[\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z3PNRZN4Z39EVGPPE2JNFY/final-manifest.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z3PNRZN4Z39EVGPPE2JNFY/project-snapshot.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z3PNRZN4Z39EVGPPE2JNFY/verify.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z45Y1EJVQ5R2P9534CVKN6/final-manifest.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z45Y1EJVQ5R2P9534CVKN6/project-snapshot.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z45Y1EJVQ5R2P9534CVKN6/verify.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z4M0D0MXDQ9T4DZREPPESK/final-manifest.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z4M0D0MXDQ9T4DZREPPESK/project-snapshot.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z4M0D0MXDQ9T4DZREPPESK/verify.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z4VQDE71828WC91DTN7SBB/final-manifest.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z4VQDE71828WC91DTN7SBB/project-snapshot.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z4VQDE71828WC91DTN7SBB/verify.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z51ND7XWM8XYF446G2FBSY/final-manifest.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z51ND7XWM8XYF446G2FBSY/project-snapshot.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z51ND7XWM8XYF446G2FBSY/verify.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z5963Y8NAYG3P78JE74CVN/final-manifest.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z5963Y8NAYG3P78JE74CVN/project-snapshot.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z5963Y8NAYG3P78JE74CVN/verify.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z5NWVWRW9KEATJ7XXAPSDS/final-manifest.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z5NWVWRW9KEATJ7XXAPSDS/project-snapshot.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z5NWVWRW9KEATJ7XXAPSDS/verify.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z5XP9JWPX53HMBS05TZ4J1/final-manifest.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z5XP9JWPX53HMBS05TZ4J1/project-snapshot.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z5XP9JWPX53HMBS05TZ4J1/verify.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z62KA8JW4937S9BVQA1TA7/compare.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z62KA8JW4937S9BVQA1TA7/final-manifest.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z62KA8JW4937S9BVQA1TA7/project-snapshot.json\",\"workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z62KA8JW4937S9BVQA1TA7/verify.json\"]"
+  },
+  {
+    "id": "5.4",
+    "title": "сервер в режиме storage_offline",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"storage\":\"storage_offline\",\"storage_reason\":\"marker_missing: маркер: storage: marker_missing: /Volumes/External SSD/moution-studio-materials/acceptance/phase5/.motion-studio-store.json: ENOENT: no such file or directory, open '/Volumes/External SSD/moution-studio-materials/acceptance/phase5/.motion-studio-store.json'\",\"claude\":{\"status\":\"ok\",\"detail\":\"~/.local/bin/claude\"},\"chrome\":{\"status\":\"ok\",\"detail\":\"~/my_track/01_It_development/my-remotion/.claude/worktrees/agent-a499304ee58293302/app/motion-studio/node_modules/.remotion/chrome-headless-shell/mac-arm64/chrome-headless-shell-mac-arm64/chrome-headless-shell\"},\"ffmpeg\":{\"status\":\"ok\",\"detail\":\"/opt/homebrew/bin/ffmpeg (системный из PATH; ./setup поставит .deps/ffmpeg)\"},\"owner\":{\"pid\":5329,\"kind\":\"server\"},\"queued_at_start\":{\"pending\":1,\"running\":0}}"
+  },
+  {
+    "id": "5.5",
+    "title": "API: GET → 503",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":503}"
+  },
+  {
+    "id": "5.6",
+    "title": "на исходном пути ничего не создано (запись мимо хранилища не идёт)",
+    "kind": "A",
+    "pass": false,
+    "detail": "total 0\ndrwx------@  3 stalyzade  staff   96 27 окт.  20:25 .\ndrwxr-xr-x@ 13 stalyzade  staff  416 27 окт.  20:25 ..\ndrwx------@  3 stalyzade  staff   96 27 окт.  20:25 run\n\n/Volumes/External SSD/moution-studio-materials/acceptance/phase5/run:\ntotal 0\ndrwx------@ 3 stalyzade  staff  96 27 окт.  20:25 .\ndrwx------@ 3 stalyzade  staff  96 27 окт.  20:25 ..\ndrwx------@ 2 stalyzade  staff  64 27 окт.  20:25 tmp\n\n/Volumes/External SSD/moution-studio-materials/acceptance/phase5/run/tmp:\ntotal 0\ndrwx------@ 2 stalyzade  staff  64 27 окт.  20:25 .\ndrwx------@ 3 stalyzade  staff  96 27 окт.  20:25 ..\n"
+  },
+  {
+    "id": "5.7",
+    "title": "каталог возвращён → online",
+    "kind": "A",
+    "pass": false,
+    "detail": "{\"storage\":\"storage_offline\",\"storage_reason\":\"marker_missing: маркер: storage: marker_missing: /Volumes/External SSD/moution-studio-materials/acceptance/phase5/.motion-studio-store.json: ENOENT: no such file or directory, open '/Volumes/External SSD/moution-studio-materials/acceptance/phase5/.motion-studio-store.json'\",\"claude\":{\"status\":\"ok\",\"detail\":\"~/.local/bin/claude\"},\"chrome\":{\"status\":\"ok\",\"detail\":\"~/my_track/01_It_development/my-remotion/.claude/worktrees/agent-a499304ee58293302/app/motion-studio/node_modules/.remotion/chrome-headless-shell/mac-arm64/chrome-headless-shell-mac-arm64/chrome-headless-shell\"},\"ffmpeg\":{\"status\":\"ok\",\"detail\":\"/opt/homebrew/bin/ffmpeg (системный из PATH; ./setup поставит .deps/ffmpeg)\"},\"owner\":{\"pid\":5329,\"kind\":\"server\"},\"queued_at_start\":{\"pending\":1,\"running\":0}}"
+  }
+]

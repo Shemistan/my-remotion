@@ -1,0 +1,57 @@
+{
+  "items": [
+    {
+      "id": "sp_001",
+      "status": "proposed",
+      "mode": "overlay",
+      "zone": "left_third",
+      "frames": {
+        "start": 56,
+        "end": 341
+      },
+      "usefulness": 4,
+      "face": 0,
+      "purpose": "Зритель увидит порядок: открытие TCP, затем рукопожатие SYNC и ASK"
+    },
+    {
+      "id": "sp_002",
+      "status": "proposed",
+      "mode": "overlay",
+      "zone": "left_third",
+      "frames": {
+        "start": 659,
+        "end": 883
+      },
+      "usefulness": 4,
+      "face": 0,
+      "purpose": "Зритель увидит две задачи, уходящие воркеру по очереди: sleep и uppercase"
+    },
+    {
+      "id": "sp_003",
+      "status": "proposed",
+      "mode": "overlay",
+      "zone": "left_third",
+      "frames": {
+        "start": 1284,
+        "end": 1554
+      },
+      "usefulness": 4,
+      "face": 0,
+      "purpose": "Зритель увидит обмен пинг — понг как проверку, что воркер жив"
+    },
+    {
+      "id": "sp_004",
+      "status": "proposed",
+      "mode": "overlay",
+      "zone": "left_third",
+      "frames": {
+        "start": 2523,
+        "end": 2690
+      },
+      "usefulness": 4,
+      "face": 0,
+      "purpose": "Зритель поймёт вывод: диспетчер ждёт все задачи и только потом закрывает соединение"
+    }
+  ],
+  "issues": []
+}

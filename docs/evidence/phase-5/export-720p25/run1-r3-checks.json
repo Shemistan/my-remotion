@@ -1,0 +1,65 @@
+[
+  {
+    "id": "3.0",
+    "title": "задача final.render завершена",
+    "kind": "A",
+    "pass": false,
+    "detail": "{\"status\":\"failed\",\"error\":{\"code\":\"verify_failed\",\"message\":\"проверка финала fin_01M5Z45Y1EJVQ5R2P9534CVKN6 не пройдена: frames (файл сохранён со статусом failed_verification, verify.json)\"},\"attempt\":1}"
+  },
+  {
+    "id": "3.1",
+    "title": "экспорт ready, verify.verdict = pass, failures пусто",
+    "kind": "A",
+    "pass": false,
+    "detail": "{\"status\":\"failed_verification\",\"verdict\":\"fail\",\"failures\":[\"frames\"],\"probe\":[]}"
+  },
+  {
+    "id": "3.2",
+    "title": "размер и fps выхода",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"output\":{\"width\":1280,\"height\":720,\"fps\":{\"num\":25,\"den\":1},\"frames\":2241},\"want\":{\"width\":1280,\"height\":720,\"fps\":{\"num\":25,\"den\":1}}}"
+  },
+  {
+    "id": "3.3",
+    "title": "длительность: |Δ| ≤ 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"expected_frames\":2241,\"actual_us\":89640000,\"delta_frames\":0}"
+  },
+  {
+    "id": "3.4",
+    "title": "синхронность: ≥ 5 контрольных слов, |смещение| ≤ 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"frame_us\":40000,\"sync\":[{\"word_id\":\"w_000005\",\"offset_us\":0,\"corr\":1,\"energy\":true},{\"word_id\":\"w_000014\",\"offset_us\":0,\"corr\":1,\"energy\":true},{\"word_id\":\"w_000016\",\"offset_us\":0,\"corr\":1,\"energy\":true},{\"word_id\":\"w_000052\",\"offset_us\":0,\"corr\":0.99,\"energy\":true},{\"word_id\":\"w_000054\",\"offset_us\":0,\"corr\":0.995,\"energy\":true}],\"sync_check\":{\"status\":\"ok\",\"message\":\"надёжных замеров 5 из 5 со звуком\"}}"
+  },
+  {
+    "id": "3.5",
+    "title": "кадры: ≥ 12, смещение 0 или inconclusive, PSNR ≥ 30 дБ",
+    "kind": "A",
+    "pass": false,
+    "detail": "{\"n\":9,\"min_psnr\":39.49,\"offsets\":[0,0,0,-2,-2,0,-2,-2,-1],\"kinds\":[\"scene\",\"source\",\"scene\",\"source\",\"source\",\"scene\",\"source\",\"source\",\"source\"]}"
+  },
+  {
+    "id": "3.6",
+    "title": "громкость: |ΔLU| ≤ 0,5",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"source_lufs\":-31,\"final_lufs\":-31,\"delta_lu\":0,\"final_peak_db\":-10.5,\"source_peak_db\":-10.5}"
+  },
+  {
+    "id": "3.7",
+    "title": "файл: H.264 yuv420p + AAC 48 кГц; манифест по схеме FinalManifestSchema",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"video\":{\"codec\":\"h264\",\"pix\":\"yuv420p\",\"w\":1280,\"h\":720,\"r\":\"25/1\"},\"audio\":{\"codec\":\"aac\",\"sr\":\"48000\",\"ch\":2},\"manifest\":true}"
+  },
+  {
+    "id": "3.8",
+    "title": "исходник проекта (копия в хранилище) и копия-вырезка не изменены (sha256)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"asset\":\"83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01\",\"in_store\":\"83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01\",\"cut\":\"83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01\"}"
+  }
+]

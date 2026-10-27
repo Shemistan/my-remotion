@@ -1,0 +1,7 @@
+{
+  "id": "brp_01M5Z6AR40T6DS0EBVTX2KVATQ",
+  "created_at": "2026-10-27T17:25:35.488Z",
+  "crashed": 1,
+  "report_json": "{\"requeued\":[\"job_01M5Z6A9XNCXP8558ZN77G52RN\"],\"failed\":[],\"blocked\":[],\"foreign\":[],\"draftsRemoved\":[\"/Volumes/External SSD/moution-studio-materials/acceptance/phase5/workspace/drafts/job_01M5Z6A9XNCXP8558ZN77G52RN-a1\"],\"completed\":[],\"cancelled\":[],\"locksReleased\":[],\"crashed\":true,\"quarantined\":[{\"dir\":\"workspace/drafts/job_01M5N3BR840BVSNT608P0NWP03-a1\",\"job_id\":\"job_01M5N3BR840BVSNT608P0NWP03\",\"attempt\":1,\"reason\":\"fenced_out: попытка 1 задачи job_01M5N3BR840BVSNT608P0NWP03 устарела (текущая: 2)\",\"at\":\"2026-10-23T19:21:28.709Z\",\"bytes\":3668097}],\"warnings\":[]}",
+  "acknowledged_at": null
+}

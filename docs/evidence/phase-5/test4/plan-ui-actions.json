@@ -1,0 +1,23 @@
+[
+  {
+    "op": "modify",
+    "id": "sp_002",
+    "detail": "overlay/left_third → fullscreen"
+  },
+  {
+    "op": "reject (лимит ≤ 3 сцены)",
+    "id": "sp_004"
+  },
+  {
+    "op": "accept",
+    "id": "sp_001"
+  },
+  {
+    "op": "accept",
+    "id": "sp_002"
+  },
+  {
+    "op": "accept",
+    "id": "sp_003"
+  }
+]
