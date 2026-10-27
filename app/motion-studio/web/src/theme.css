@@ -33,6 +33,9 @@
     --muted: #5d6578;
     --accent: #3d5cf5;
     --accent-text: #ffffff;
+    --ok: #08734f;
+    --warn: #7a5000;
+    --error: #b42318;
     color-scheme: light;
   }
 }
@@ -71,6 +74,7 @@ button, .button {
 button:hover:not(:disabled) { border-color: var(--accent); }
 button:disabled { opacity: 0.45; cursor: default; }
 button.primary, .button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+button.danger { background: var(--error); color: #fff; border-color: var(--error); font-weight: 600; }
 button.link { background: none; border: none; padding: 0; color: var(--accent); }
 input, select, textarea {
   font: inherit;
@@ -236,6 +240,40 @@ label.check { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
 .radio-group label { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
 .radio-group label.disabled { color: var(--muted); }
 
+/* Общая обратная связь Task 51. */
+.skeleton { display: flex; flex-direction: column; gap: 9px; padding: 8px 0; }
+.skeleton span { display: block; height: 13px; border-radius: 5px; background: linear-gradient(90deg, var(--surface-2) 25%, color-mix(in srgb, var(--surface-2) 55%, var(--text)) 50%, var(--surface-2) 75%); background-size: 200% 100%; animation: skeleton-pulse 1.4s ease-in-out infinite; }
+.skeleton.compact { gap: 6px; padding: 4px 0; }
+.skeleton.compact span { height: 9px; }
+@keyframes skeleton-pulse { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton span { animation: none; } }
+
+.empty-state { min-height: 108px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 4px; padding: 18px; border: 1px dashed var(--border); border-radius: var(--radius); background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
+.empty-state.compact { min-height: 72px; padding: 12px; }
+.empty-state p { max-width: 520px; }
+.empty-action { margin-top: 6px; }
+
+.disabled-reason { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.disabled-reason-text { max-width: 300px; color: var(--muted); font-size: 11px; line-height: 1.3; white-space: normal; }
+
+.progress-stages ol { display: flex; gap: 6px; list-style: none; margin: 8px 0; padding: 0; }
+.progress-stages li { flex: 1; min-width: 0; color: var(--muted); font-size: 11px; display: flex; gap: 5px; align-items: center; }
+.progress-stages li > span { width: 8px; height: 8px; border: 1px solid var(--border); border-radius: 50%; flex: none; }
+.progress-stages li.current { color: var(--text); font-weight: 600; }
+.progress-stages li.current > span { border-color: var(--accent); background: var(--accent); }
+.progress-stages li.done > span { border-color: var(--ok); background: var(--ok); }
+
+.toasts { position: fixed; z-index: 30; right: 18px; bottom: 18px; width: min(380px, calc(100vw - 36px)); display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: 9px 11px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 24px rgb(0 0 0 / 28%); }
+.toast.success { border-color: var(--ok); }
+.toast.error { border-color: var(--error); }
+.toast > span { flex: 1; }
+.shortcut-button { margin-left: auto; width: 30px; height: 30px; justify-content: center; padding: 0; border-radius: 50%; }
+.shortcuts-dialog dl { margin: 0; }
+.shortcuts-dialog dl > div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.shortcuts-dialog dt, .shortcuts-dialog dd { margin: 0; }
+kbd { display: inline-block; padding: 2px 6px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; background: var(--surface-2); font: 11px var(--mono); }
+
 @media (max-width: 1100px) {
   .playground-grid, .grid-2, .kb-layout { grid-template-columns: minmax(0, 1fr); }
 }
@@ -304,11 +342,11 @@ label.check { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
 
 /* Анализ и визуальный план (Task 33) */
 :root {
-  --mode-fullscreen: #8b5cf6;
-  --mode-overlay: #3b82f6;
-  --mode-split_screen: #14b8a6;
-  --mode-pip: #f59e0b;
-  --mode-callout: #d946ef;
+  --mode-fullscreen: #6d28d9;
+  --mode-overlay: #1d4ed8;
+  --mode-split_screen: #0f766e;
+  --mode-pip: #92400e;
+  --mode-callout: #a21caf;
 }
 .player-stage { position: relative; }
 .zone-overlay { position: absolute; inset: 0; pointer-events: none; }

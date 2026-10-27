@@ -5,6 +5,7 @@ import { useState } from "react";
 import { diagnosticsApi } from "../../api/diagnostics-client.js";
 import { dateTime } from "../../api/projects-client.js";
 import { errorText, t, tk } from "../../i18n/index.js";
+import { Skeleton } from "../ui/Skeleton.js";
 
 export function DoctorTable() {
   const client = useQueryClient();
@@ -32,7 +33,7 @@ export function DoctorTable() {
       </div>
       <p className="hint small">{full ? t("diagnostics.doctor.fullHint") : t("diagnostics.doctor.fastHint")}</p>
       {q.isError ? <p className="error">{errorText(q.error)}</p> : null}
-      {q.isFetching && !q.data ? <p className="muted">{t("diagnostics.doctor.running")}</p> : null}
+      {q.isFetching && !q.data ? <Skeleton lines={3} compact /> : null}
       {q.data ? (
         <>
           <table className="doctor">

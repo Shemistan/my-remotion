@@ -64,7 +64,7 @@ export function LogViewer({ jobId: initialJob }: { jobId?: string }) {
       {q.isError ? <p className="error">{errorText(q.error)}</p> : null}
       {q.data && q.data.length === 0 ? <p className="muted">{t("diagnostics.logs.empty")}</p> : null}
       {q.data && q.data.length > 0 ? (
-        <pre className="log small" data-testid="server-log">
+        <pre className="log small" data-testid="server-log" tabIndex={0} aria-label={t("diagnostics.logs.title")}>
           {q.data.map((e) => `${e.ts.slice(0, 19).replace("T", " ")} ${e.level.padEnd(5)} ${e.job_id ? `[${e.job_id}${e.attempt !== undefined ? ` a${e.attempt}` : ""}] ` : ""}${e.kind ? `${e.kind}: ` : ""}${e.msg}`).join("\n")}
         </pre>
       ) : null}

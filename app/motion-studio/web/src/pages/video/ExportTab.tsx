@@ -10,6 +10,7 @@ import { isActive, useJob } from "../../api/queries.js";
 import { useBuildVideoPackage, useRevealVideoPackage, useVideoPackages, videoPackageUrls, videoPackagesKey } from "../../api/video-package-client.js";
 import { JobStatus } from "../../components/JobStatus.js";
 import "../../components/script/script.css";
+import { Skeleton } from "../../components/ui/Skeleton.js";
 import { errorText, t } from "../../i18n/index.js";
 import { parseCheatsheet } from "../../script/output.js";
 import type { VideoTabProps } from "./tab-props.js";
@@ -38,7 +39,7 @@ function Cheatsheet({ packageId, defaultOpen }: { packageId: string; defaultOpen
       <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
         <summary>{t(open ? "videoExport.cheatsheet.hide" : "videoExport.cheatsheet.show")}</summary>
         {md.isError ? <p className="muted small">{t("videoExport.cheatsheet.unavailable")}</p> : null}
-        {open && !md.data && !md.isError ? <p className="muted small">{t("common.loading")}</p> : null}
+        {open && !md.data && !md.isError ? <Skeleton lines={2} compact /> : null}
         <div className="cheatsheet-body">
           {parts.map((p, i) => {
             if (p.kind === "heading") return p.level === 1 ? null : <h5 key={i} className="cheatsheet-block">{p.text}</h5>;

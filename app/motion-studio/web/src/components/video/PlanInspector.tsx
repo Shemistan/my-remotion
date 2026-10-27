@@ -12,6 +12,7 @@ import {
 } from "@ms/contracts";
 import { useEffect, useId, useState } from "react";
 import { t } from "../../i18n/index.js";
+import { useUnsavedGuard } from "../../ui/unsaved.js";
 import { formatTimecode } from "../../video/use-timeline.js";
 import { EvidenceQuote } from "./EvidenceQuote.js";
 import { PlanIssues } from "./PlanIssues.js";
@@ -55,6 +56,7 @@ export function PlanInspector({ item: x, items, proposal, issues, faceOverlapMax
   const needsReason = mine.some((i) => i.code === "face_overlap") || (OVER_AUTHOR.has(x.composition_mode) && x.face_overlap.ratio > faceOverlapMax);
   const reasonText = reason.trim();
   const savedReason = x.face_overlap.override_reason ?? "";
+  useUnsavedGuard(edit !== null || reason !== savedReason);
   const cutStale = x.status === "stale" && x.stale_reason === "anchor_cut";
   const acceptBlocked = busy || cutStale || x.status === "accepted" || (needsReason && reasonText === "");
   const accept = () => {

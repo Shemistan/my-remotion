@@ -16,6 +16,7 @@ import { ReadingForm } from "../../components/script/ReadingForm.js";
 import { SceneCard, TechniqueOptions } from "../../components/script/SceneCard.js";
 import { ScriptText } from "../../components/script/ScriptText.js";
 import { StyleBiblePanel } from "../../components/video/StyleBiblePanel.js";
+import { Skeleton } from "../../components/ui/Skeleton.js";
 import { t, tn } from "../../i18n/index.js";
 import { loadReading } from "../../script/draft.js";
 import { generateEstimate, scriptErrorText } from "../../script/format.js";
@@ -33,7 +34,7 @@ function StyleSection({ state }: { state: ScriptStateDto }) {
   const projectId = state.project.id;
   const style = useProjectStyle(projectId, state.style !== null);
   if (!state.style) return <section className="panel"><p className="muted small">{t("scriptPlan.style.none")}</p></section>;
-  if (!style.data) return <section className="panel"><p className="muted small">{t("common.loading")}</p></section>;
+  if (!style.data) return <section className="panel"><Skeleton lines={4} compact /></section>;
   return (
     <StyleBiblePanel
       projectId={projectId}

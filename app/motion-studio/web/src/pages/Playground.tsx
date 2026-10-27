@@ -19,10 +19,13 @@ import { SceneTimeline, beatsOf } from "../components/SceneTimeline.js";
 import { SettingsForm } from "../components/SettingsForm.js";
 import { SpecView } from "../components/SpecView.js";
 import { VersionHistory } from "../components/VersionHistory.js";
+import { DisabledReason } from "../components/ui/DisabledReason.js";
+import { Skeleton } from "../components/ui/Skeleton.js";
 import { ApprovalCButton } from "../components/video-scenes/ApprovalCButton.js";
 import { errorText, t, tk } from "../i18n/index.js";
 import { formatNumber } from "../lib/player-math.js";
 import { href, navigate } from "../router.js";
+import { useUnsavedGuard } from "../ui/unsaved.js";
 
 const PRESETS = ["dark-premium", "light-clean", "tech-neon"] as const;
 
@@ -60,7 +63,7 @@ function RenderFailure({ dto }: { dto: VersionDto }) {
       {f ? (
         <>
           <h3>{t("version.logs")}</h3>
-          <pre className="log" data-testid="failure-log">{f.message}</pre>
+          <pre className="log" data-testid="failure-log" tabIndex={0} aria-label={t("diagnostics.error.details")}>{f.message}</pre>
         </>
       ) : null}
       {jobId ? <JobStatus jobId={jobId} /> : null}
@@ -123,6 +126,7 @@ export function Playground({ id, version }: { id: string; version?: string }) {
 
   const patch = useMemo(() => (settings && draft ? settingsPatch(settings, draft) : {}), [settings, draft]);
   const dirty = Object.keys(patch).length > 0;
+  useUnsavedGuard(dirty);
   const render = useMutation({
     mutationFn: () => api.render(id, patch, baseId!, newKey()),
     onSuccess: (r) => {
@@ -141,7 +145,7 @@ export function Playground({ id, version }: { id: string; version?: string }) {
   const videoScene = videoScenes.data?.scenes.find((x) => x.scene_id === id);
 
   if (scene.isError) return <div className="page"><p className="error">{errorText(scene.error)}</p></div>;
-  if (!scene.data) return <div className="page"><p className="muted">{t("common.loading")}</p></div>;
+  if (!scene.data) return <div className="page"><Skeleton lines={7} /></div>;
   const { scene: s, active_job } = scene.data;
   const questions = active_job?.status === "awaiting_input"
     ? ((active_job.output_refs as { questions?: { question: string; default_if_skipped: string }[] } | null)?.questions ?? [])
@@ -261,7 +265,7 @@ export function Playground({ id, version }: { id: string; version?: string }) {
           ) : dto.isError ? (
             <p className="error">{errorText(dto.error)}</p>
           ) : !dto.data ? (
-            <p className="muted">{t("common.loading")}</p>
+            <Skeleton lines={5} />
           ) : ready ? (
             <Player
               ref={player}
@@ -292,10 +296,14 @@ export function Playground({ id, version }: { id: string; version?: string }) {
               </label>
               <span className="spacer" />
               {dirty ? <button type="button" onClick={() => setDraft(settings)}>{t("playground.resetSettings")}</button> : null}
-              <button type="button" className="primary" disabled={!dirty || render.isPending || !baseId || !baseReady} title={dirty ? t("playground.renderHint", { n: num(baseId) ?? "?" }) : t("playground.renderNoChanges")} onClick={() => render.mutate()}>
-                {t("playground.render")}
-              </button>
-              <button type="button" disabled={!ready} onClick={() => setExportOpen(true)}>{t("playground.export")}</button>
+              <DisabledReason reasonKey={!dirty ? "ux.disabled.noChanges" : !baseId || !baseReady ? "ux.disabled.baseNotReady" : render.isPending ? "ux.disabled.requestRunning" : null}>
+                <button type="button" className="primary" disabled={!dirty || render.isPending || !baseId || !baseReady} title={dirty ? t("playground.renderHint", { n: num(baseId) ?? "?" }) : t("playground.renderNoChanges")} onClick={() => render.mutate()}>
+                  {t("playground.render")}
+                </button>
+              </DisabledReason>
+              <DisabledReason reasonKey={!ready ? "ux.disabled.noPreview" : null}>
+                <button type="button" disabled={!ready} onClick={() => setExportOpen(true)}>{t("playground.export")}</button>
+              </DisabledReason>
             </div>
           ) : null}
           {render.isError ? <p className="error">{errorText(render.error)}</p> : null}

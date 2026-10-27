@@ -1,0 +1,514 @@
+[
+  {
+    "id": "fin_01M5Z3PNRZN4Z39EVGPPE2JNFY",
+    "created_at": "2026-10-27T16:47:47.668Z",
+    "timeline": "tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r3",
+    "request": {
+      "resolution": "1080p",
+      "quality": "standard",
+      "audio_bitrate_kbps": 192
+    },
+    "status": "ready",
+    "job_id": "job_01M5Z3PNRZN4Z39EVGPPE2JNFY",
+    "file": {
+      "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z3PNRZN4Z39EVGPPE2JNFY/final.mp4/final.mp4",
+      "sha256": "e64755cbdd81b460ffb26a7285fc7edce674c2234adde6387f3e6d4890da0215",
+      "bytes": 40968636
+    },
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": {
+        "num": 30,
+        "den": 1
+      },
+      "frames": 2689
+    },
+    "inputs_hash": "a940c9c86a170d55597630cf1a3dbc4b5fd4d3b2d8518c32cedd9eba4af9ef6d",
+    "verify": {
+      "verdict": "pass",
+      "failures": [],
+      "duration": {
+        "expected_frames": 2689,
+        "actual_us": 89633333,
+        "delta_frames": 0
+      },
+      "sync_max_abs_us": 0,
+      "sync_n": 5,
+      "frames_n": 9,
+      "frames_min_psnr": 41.18,
+      "loudness": {
+        "source_lufs": -31,
+        "final_lufs": -31,
+        "delta_lu": 0,
+        "final_peak_db": -10.5,
+        "source_peak_db": -10.5
+      }
+    },
+    "compare": null
+  },
+  {
+    "id": "fin_01M5Z45Y1EJVQ5R2P9534CVKN6",
+    "created_at": "2026-10-27T16:50:40.113Z",
+    "timeline": "tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r3",
+    "request": {
+      "fps": {
+        "num": 25,
+        "den": 1
+      },
+      "resolution": "720p",
+      "quality": "draft",
+      "audio_bitrate_kbps": 192
+    },
+    "status": "failed_verification",
+    "job_id": "job_01M5Z45Y1EJVQ5R2P9534CVKN6",
+    "file": {
+      "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z45Y1EJVQ5R2P9534CVKN6/final.mp4/final.mp4",
+      "sha256": "85b0acc57f52016eb588985159588a6cbb4e3e1a2edd7094c3d4fa8afed45306",
+      "bytes": 9311208
+    },
+    "output": {
+      "width": 1280,
+      "height": 720,
+      "fps": {
+        "num": 25,
+        "den": 1
+      },
+      "frames": 2241
+    },
+    "inputs_hash": "5eb8a63533b46999c4cd11aee475942ec75d36a638c23106ba4b12129c3c0ab5",
+    "verify": {
+      "verdict": "fail",
+      "failures": [
+        "frames"
+      ],
+      "duration": {
+        "expected_frames": 2241,
+        "actual_us": 89640000,
+        "delta_frames": 0
+      },
+      "sync_max_abs_us": 0,
+      "sync_n": 5,
+      "frames_n": 9,
+      "frames_min_psnr": 39.49,
+      "loudness": {
+        "source_lufs": -31,
+        "final_lufs": -31,
+        "delta_lu": 0,
+        "final_peak_db": -10.5,
+        "source_peak_db": -10.5
+      }
+    },
+    "compare": null
+  },
+  {
+    "id": "fin_01M5Z4M0D0MXDQ9T4DZREPPESK",
+    "created_at": "2026-10-27T16:59:46.937Z",
+    "timeline": "tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r3",
+    "request": {
+      "resolution": "1080p",
+      "quality": "standard",
+      "audio_bitrate_kbps": 192
+    },
+    "status": "ready",
+    "job_id": "job_01M5Z4M0D0MXDQ9T4DZREPPESK",
+    "file": {
+      "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z4M0D0MXDQ9T4DZREPPESK/final.mp4/final.mp4",
+      "sha256": "a1446e2f40c63b257a1ac897e7c3599535fb5761747f530e10ac166505cccb72",
+      "bytes": 40974379
+    },
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": {
+        "num": 30,
+        "den": 1
+      },
+      "frames": 2689
+    },
+    "inputs_hash": "a940c9c86a170d55597630cf1a3dbc4b5fd4d3b2d8518c32cedd9eba4af9ef6d",
+    "verify": {
+      "verdict": "pass",
+      "failures": [],
+      "duration": {
+        "expected_frames": 2689,
+        "actual_us": 89633333,
+        "delta_frames": 0
+      },
+      "sync_max_abs_us": 0,
+      "sync_n": 5,
+      "frames_n": 9,
+      "frames_min_psnr": 41.18,
+      "loudness": {
+        "source_lufs": -31,
+        "final_lufs": -31,
+        "delta_lu": 0,
+        "final_peak_db": -10.5,
+        "source_peak_db": -10.5
+      }
+    },
+    "compare": null
+  },
+  {
+    "id": "fin_01M5Z4VQDE71828WC91DTN7SBB",
+    "created_at": "2026-10-27T17:01:21.709Z",
+    "timeline": "tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r3",
+    "request": {
+      "fps": {
+        "num": 25,
+        "den": 1
+      },
+      "resolution": "720p",
+      "quality": "draft",
+      "audio_bitrate_kbps": 192
+    },
+    "status": "failed_verification",
+    "job_id": "job_01M5Z4VQDE71828WC91DTN7SBB",
+    "file": {
+      "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z4VQDE71828WC91DTN7SBB/final.mp4/final.mp4",
+      "sha256": "85b0acc57f52016eb588985159588a6cbb4e3e1a2edd7094c3d4fa8afed45306",
+      "bytes": 9311208
+    },
+    "output": {
+      "width": 1280,
+      "height": 720,
+      "fps": {
+        "num": 25,
+        "den": 1
+      },
+      "frames": 2241
+    },
+    "inputs_hash": "5eb8a63533b46999c4cd11aee475942ec75d36a638c23106ba4b12129c3c0ab5",
+    "verify": {
+      "verdict": "fail",
+      "failures": [
+        "frames"
+      ],
+      "duration": {
+        "expected_frames": 2241,
+        "actual_us": 89640000,
+        "delta_frames": 0
+      },
+      "sync_max_abs_us": 0,
+      "sync_n": 5,
+      "frames_n": 9,
+      "frames_min_psnr": 39.49,
+      "loudness": {
+        "source_lufs": -31,
+        "final_lufs": -31,
+        "delta_lu": 0,
+        "final_peak_db": -10.5,
+        "source_peak_db": -10.5
+      }
+    },
+    "compare": null
+  },
+  {
+    "id": "fin_01M5Z51ND7XWM8XYF446G2FBSY",
+    "created_at": "2026-10-27T17:07:08.144Z",
+    "timeline": "tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r3",
+    "request": {
+      "resolution": "1080p",
+      "quality": "standard",
+      "audio_bitrate_kbps": 192
+    },
+    "status": "ready",
+    "job_id": "job_01M5Z51ND7XWM8XYF446G2FBSY",
+    "file": {
+      "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z51ND7XWM8XYF446G2FBSY/final.mp4/final.mp4",
+      "sha256": "a1446e2f40c63b257a1ac897e7c3599535fb5761747f530e10ac166505cccb72",
+      "bytes": 40974379
+    },
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": {
+        "num": 30,
+        "den": 1
+      },
+      "frames": 2689
+    },
+    "inputs_hash": "a940c9c86a170d55597630cf1a3dbc4b5fd4d3b2d8518c32cedd9eba4af9ef6d",
+    "verify": {
+      "verdict": "pass",
+      "failures": [],
+      "duration": {
+        "expected_frames": 2689,
+        "actual_us": 89633333,
+        "delta_frames": 0
+      },
+      "sync_max_abs_us": 0,
+      "sync_n": 5,
+      "frames_n": 9,
+      "frames_min_psnr": 41.18,
+      "loudness": {
+        "source_lufs": -31,
+        "final_lufs": -31,
+        "delta_lu": 0,
+        "final_peak_db": -10.5,
+        "source_peak_db": -10.5
+      }
+    },
+    "compare": null
+  },
+  {
+    "id": "fin_01M5Z5963Y8NAYG3P78JE74CVN",
+    "created_at": "2026-10-27T17:08:49.866Z",
+    "timeline": "tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r3",
+    "request": {
+      "fps": {
+        "num": 25,
+        "den": 1
+      },
+      "resolution": "720p",
+      "quality": "draft",
+      "audio_bitrate_kbps": 192
+    },
+    "status": "failed_verification",
+    "job_id": "job_01M5Z5963Y8NAYG3P78JE74CVN",
+    "file": {
+      "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z5963Y8NAYG3P78JE74CVN/final.mp4/final.mp4",
+      "sha256": "85b0acc57f52016eb588985159588a6cbb4e3e1a2edd7094c3d4fa8afed45306",
+      "bytes": 9311208
+    },
+    "output": {
+      "width": 1280,
+      "height": 720,
+      "fps": {
+        "num": 25,
+        "den": 1
+      },
+      "frames": 2241
+    },
+    "inputs_hash": "5eb8a63533b46999c4cd11aee475942ec75d36a638c23106ba4b12129c3c0ab5",
+    "verify": {
+      "verdict": "fail",
+      "failures": [
+        "frames"
+      ],
+      "duration": {
+        "expected_frames": 2241,
+        "actual_us": 89640000,
+        "delta_frames": 0
+      },
+      "sync_max_abs_us": 0,
+      "sync_n": 5,
+      "frames_n": 9,
+      "frames_min_psnr": 39.49,
+      "loudness": {
+        "source_lufs": -31,
+        "final_lufs": -31,
+        "delta_lu": 0,
+        "final_peak_db": -10.5,
+        "source_peak_db": -10.5
+      }
+    },
+    "compare": null
+  },
+  {
+    "id": "fin_01M5Z5NWVWRW9KEATJ7XXAPSDS",
+    "created_at": "2026-10-27T17:18:22.220Z",
+    "timeline": "tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r4",
+    "request": {
+      "resolution": "1080p",
+      "quality": "standard",
+      "audio_bitrate_kbps": 192
+    },
+    "status": "ready",
+    "job_id": "job_01M5Z5NWVWRW9KEATJ7XXAPSDS",
+    "file": {
+      "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z5NWVWRW9KEATJ7XXAPSDS/final.mp4/final.mp4",
+      "sha256": "615c19c3232b77b4e5b95864c5b9b0a02781ef32f9877d8a902192c08e7d11a1",
+      "bytes": 40976514
+    },
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": {
+        "num": 30,
+        "den": 1
+      },
+      "frames": 2689
+    },
+    "inputs_hash": "a940c9c86a170d55597630cf1a3dbc4b5fd4d3b2d8518c32cedd9eba4af9ef6d",
+    "verify": {
+      "verdict": "pass",
+      "failures": [],
+      "duration": {
+        "expected_frames": 2689,
+        "actual_us": 89633333,
+        "delta_frames": 0
+      },
+      "sync_max_abs_us": 0,
+      "sync_n": 5,
+      "frames_n": 9,
+      "frames_min_psnr": 41.26,
+      "loudness": {
+        "source_lufs": -31,
+        "final_lufs": -31,
+        "delta_lu": 0,
+        "final_peak_db": -10.5,
+        "source_peak_db": -10.5
+      }
+    },
+    "compare": null
+  },
+  {
+    "id": "fin_01M5Z5XP9JWPX53HMBS05TZ4J1",
+    "created_at": "2026-10-27T17:19:55.818Z",
+    "timeline": "tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r4",
+    "request": {
+      "fps": {
+        "num": 25,
+        "den": 1
+      },
+      "resolution": "720p",
+      "quality": "draft",
+      "audio_bitrate_kbps": 192
+    },
+    "status": "failed_verification",
+    "job_id": "job_01M5Z5XP9JWPX53HMBS05TZ4J1",
+    "file": {
+      "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z5XP9JWPX53HMBS05TZ4J1/final.mp4/final.mp4",
+      "sha256": "e64c98a2c61f1ede89481754701014b55cae1b3d25bb170f82838d98bdb16cfa",
+      "bytes": 9315758
+    },
+    "output": {
+      "width": 1280,
+      "height": 720,
+      "fps": {
+        "num": 25,
+        "den": 1
+      },
+      "frames": 2241
+    },
+    "inputs_hash": "5eb8a63533b46999c4cd11aee475942ec75d36a638c23106ba4b12129c3c0ab5",
+    "verify": {
+      "verdict": "fail",
+      "failures": [
+        "frames"
+      ],
+      "duration": {
+        "expected_frames": 2241,
+        "actual_us": 89640000,
+        "delta_frames": 0
+      },
+      "sync_max_abs_us": 0,
+      "sync_n": 5,
+      "frames_n": 9,
+      "frames_min_psnr": 39.4,
+      "loudness": {
+        "source_lufs": -31,
+        "final_lufs": -31,
+        "delta_lu": 0,
+        "final_peak_db": -10.5,
+        "source_peak_db": -10.5
+      }
+    },
+    "compare": null
+  },
+  {
+    "id": "fin_01M5Z62KA8JW4937S9BVQA1TA7",
+    "created_at": "2026-10-27T17:25:12.223Z",
+    "timeline": "tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r4",
+    "request": {
+      "resolution": "1080p",
+      "quality": "standard",
+      "audio_bitrate_kbps": 192
+    },
+    "status": "ready",
+    "job_id": "job_01M5Z62KA8JW4937S9BVQA1TA7",
+    "file": {
+      "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/final/fin_01M5Z62KA8JW4937S9BVQA1TA7/final.mp4/final.mp4",
+      "sha256": "615c19c3232b77b4e5b95864c5b9b0a02781ef32f9877d8a902192c08e7d11a1",
+      "bytes": 40976514
+    },
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": {
+        "num": 30,
+        "den": 1
+      },
+      "frames": 2689
+    },
+    "inputs_hash": "a940c9c86a170d55597630cf1a3dbc4b5fd4d3b2d8518c32cedd9eba4af9ef6d",
+    "verify": {
+      "verdict": "pass",
+      "failures": [],
+      "duration": {
+        "expected_frames": 2689,
+        "actual_us": 89633333,
+        "delta_frames": 0
+      },
+      "sync_max_abs_us": 0,
+      "sync_n": 5,
+      "frames_n": 9,
+      "frames_min_psnr": 41.26,
+      "loudness": {
+        "source_lufs": -31,
+        "final_lufs": -31,
+        "delta_lu": 0,
+        "final_peak_db": -10.5,
+        "source_peak_db": -10.5
+      }
+    },
+    "compare": {
+      "reproduced_from": "fin_01M5Z5NWVWRW9KEATJ7XXAPSDS",
+      "inputs_equal": true,
+      "probe_equal": true,
+      "frames": [
+        {
+          "frame": 112,
+          "psnr_db": 99
+        },
+        {
+          "frame": 336,
+          "psnr_db": 99
+        },
+        {
+          "frame": 560,
+          "psnr_db": 99
+        },
+        {
+          "frame": 784,
+          "psnr_db": 99
+        },
+        {
+          "frame": 1008,
+          "psnr_db": 99
+        },
+        {
+          "frame": 1232,
+          "psnr_db": 99
+        },
+        {
+          "frame": 1456,
+          "psnr_db": 99
+        },
+        {
+          "frame": 1680,
+          "psnr_db": 99
+        },
+        {
+          "frame": 1904,
+          "psnr_db": 99
+        },
+        {
+          "frame": 2128,
+          "psnr_db": 99
+        },
+        {
+          "frame": 2352,
+          "psnr_db": 99
+        },
+        {
+          "frame": 2576,
+          "psnr_db": 99
+        }
+      ],
+      "file_sha256_equal": true,
+      "verdict": "reproduced"
+    }
+  }
+]

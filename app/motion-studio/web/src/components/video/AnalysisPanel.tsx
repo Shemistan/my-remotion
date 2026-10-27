@@ -7,6 +7,7 @@ import { useState } from "react";
 import { api, newKey } from "../../api/client.js";
 import { isActive, useFootage, useSemantic } from "../../api/queries.js";
 import { errorText, t } from "../../i18n/index.js";
+import { Skeleton } from "../ui/Skeleton.js";
 import { AnchorList } from "./AnchorList.js";
 import { ChaptersPanel } from "./ChaptersPanel.js";
 import { ShotList } from "./ShotList.js";
@@ -62,7 +63,7 @@ export function AnalysisPanel({ data, words, currentUs, onSeek, onJob }: Analysi
             <p className="hint">{t("analysis.overlayHint")}</p>
             <ShotList footageId={data.footage.id} shots={footage.data.analysis.shots} currentUs={currentUs} onSeek={onSeek} />
           </>
-        ) : <p className="muted">{t("common.loading")}</p>}
+        ) : <Skeleton lines={4} compact />}
       </section>
       <section className="panel analysis-semantic" aria-label={t("analysis.semantic")}>
         <h2>{t("analysis.semantic")}</h2>
@@ -84,7 +85,7 @@ export function AnalysisPanel({ data, words, currentUs, onSeek, onJob }: Analysi
             <ChaptersPanel semantic={semantic.data.semantic} words={words} onSeek={onSeek} />
             <AnchorList semantic={semantic.data.semantic} words={words} onSeek={onSeek} />
           </>
-        ) : <p className="muted">{t("common.loading")}</p>}
+        ) : <Skeleton lines={4} compact />}
       </section>
     </>
   );

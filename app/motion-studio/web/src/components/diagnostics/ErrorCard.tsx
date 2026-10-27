@@ -48,7 +48,7 @@ export function ErrorCard({ error, jobId, title, onRetry, retryDisabled, childre
       {v.message || children ? (
         <details className="tech">
           <summary>{t("diagnostics.error.details")}</summary>
-          {v.message ? <pre className="log small">{v.message}</pre> : null}
+          {v.message ? <pre className="log small" tabIndex={0} aria-label={t("diagnostics.error.details")}>{v.message}</pre> : null}
           {children}
         </details>
       ) : null}

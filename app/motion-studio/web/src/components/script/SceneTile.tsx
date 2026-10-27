@@ -12,6 +12,7 @@ import type { SceneRow } from "../../script/output.js";
 import { JobStatus, jobErrorTitle } from "../JobStatus.js";
 import { Link } from "../Link.js";
 import { Player } from "../Player.js";
+import { Skeleton } from "../ui/Skeleton.js";
 import { IssueText } from "./PlanIssues.js";
 
 export interface SceneTileProps {
@@ -27,7 +28,7 @@ export interface SceneTileProps {
 function Preview({ versionId, status }: { versionId: string | null; status: ScriptItemStatus }) {
   const dto = useVersion(versionId ?? undefined);
   if (!versionId) return <div className="tile-empty muted small">{t(`scriptOutput.preview.${status === "ready" ? "notReady" : status}`)}</div>;
-  if (!dto.data) return <div className="tile-empty muted small">{t("common.loading")}</div>;
+  if (!dto.data) return <div className="tile-empty"><Skeleton lines={2} compact /></div>;
   const m = dto.data.manifest;
   if (m.status !== "ready" || !m.preview) return <div className="tile-empty muted small">{t("scriptOutput.preview.notReady")}</div>;
   const s = dto.data.settings;

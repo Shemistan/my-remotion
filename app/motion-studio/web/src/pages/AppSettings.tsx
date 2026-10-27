@@ -7,8 +7,11 @@ import { useId, useState } from "react";
 import { api } from "../api/client.js";
 import { useAppSettings } from "../api/queries.js";
 import { SettingsForm } from "../components/SettingsForm.js";
+import { DisabledReason } from "../components/ui/DisabledReason.js";
+import { Skeleton } from "../components/ui/Skeleton.js";
 import { errorText, t, tk } from "../i18n/index.js";
 import { formatNumber } from "../lib/player-math.js";
+import { useUnsavedGuard } from "../ui/unsaved.js";
 
 type Limits = AppSettingsDto["limits"];
 const LIMIT_KEYS = ["maxRunning", "agentCalls", "renders"] as const;
@@ -19,6 +22,12 @@ function Form({ data }: { data: AppSettingsDto }) {
   const [models, setModels] = useState<Record<string, string>>(Object.fromEntries(Object.entries(data.agents).map(([r, a]) => [r, a.model])));
   const [limits, setLimits] = useState<Limits>(data.limits);
   const [defaults, setDefaults] = useState<Settings>(data.defaults);
+  const dirty = JSON.stringify({ models, limits, defaults }) !== JSON.stringify({
+    models: Object.fromEntries(Object.entries(data.agents).map(([r, a]) => [r, a.model])),
+    limits: data.limits,
+    defaults: data.defaults,
+  });
+  useUnsavedGuard(dirty);
   const save = useMutation({
     mutationFn: () => api.putSettings({
       agents: Object.fromEntries(Object.entries(models).map(([r, m]) => [r, { model: m.trim() }])),
@@ -72,7 +81,9 @@ function Form({ data }: { data: AppSettingsDto }) {
         {save.isError ? <span className="error">{errorText(save.error)}</span> : null}
         {save.isSuccess ? <span className="ok">{t("appSettings.saved")}</span> : null}
         {!valid ? <span className="error">{t("appSettings.invalid")}</span> : null}
-        <button type="submit" className="primary" disabled={!valid || save.isPending}>{t("common.save")}</button>
+        <DisabledReason reasonKey={!dirty ? "ux.disabled.noChanges" : !valid ? "ux.disabled.invalidForm" : save.isPending ? "ux.disabled.requestRunning" : null}>
+          <button type="submit" className="primary" disabled={!dirty || !valid || save.isPending}>{t("common.save")}</button>
+        </DisabledReason>
       </div>
     </form>
   );
@@ -85,7 +96,7 @@ export function AppSettings() {
       <h1>{t("appSettings.title")}</h1>
       <p className="hint">{t("appSettings.restartHint")}</p>
       {q.isError ? <p className="error">{errorText(q.error)}</p> : null}
-      {q.data ? <Form data={q.data} /> : <p className="muted">{t("common.loading")}</p>}
+      {q.data ? <Form data={q.data} /> : <Skeleton lines={7} />}
     </div>
   );
 }

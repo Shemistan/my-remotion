@@ -1,0 +1,163 @@
+[
+  {
+    "id": "T4.1",
+    "title": "импорт вырезки завершён",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null}"
+  },
+  {
+    "id": "T4.2",
+    "title": "ролик 60–120 с, исходник = копии (sha256)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"duration_s\":116.10901,\"asset\":\"83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01\",\"video\":\"83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01\"}"
+  },
+  {
+    "id": "T4.3",
+    "title": "ASR завершён",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null}"
+  },
+  {
+    "id": "T4.4",
+    "title": "ASR: слова со временем, монотонны, в пределах ролика",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"words\":150,\"segments\":20}"
+  },
+  {
+    "id": "T4.5",
+    "title": "в речи есть цифра (Test 4: «хотя бы одна цифра»)",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"w_000049:первая\",\"w_000054:2\",\"w_000066:2.\",\"w_000072:второй\",\"w_000125:первой\"]"
+  },
+  {
+    "id": "T4.6",
+    "title": "предложение монтажа с агентом завершено (паузы, повторы)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null,\"agent\":{\"status\":\"completed\",\"calls\":1,\"cost_usd\":0.0426,\"decisions\":4,\"accepted\":4,\"rejected\":[],\"reviews\":0,\"unknown_reviews\":[],\"retried\":false}}"
+  },
+  {
+    "id": "T4.7",
+    "title": "предложены вырезки пауз/повторов с причиной и уверенностью",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"detector:pause\":9,\"agent:bad_take\":3,\"agent:false_start\":1}"
+  },
+  {
+    "id": "T4.8",
+    "title": "rough cut обратим: «Восстановить» → таймлайн байт-в-байт как без вырезки",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"restored\":\"pau_r1_6\",\"reason\":\"pause\",\"ms\":800}"
+  },
+  {
+    "id": "T4.9",
+    "title": "после монтажа ролик короче (паузы и повторы вырезаны)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"accepted\":11,\"source_s\":116.10901,\"edited_s\":89.666666}"
+  },
+  {
+    "id": "T4.10",
+    "title": "превью чернового монтажа собрано",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null}"
+  },
+  {
+    "id": "T4.11",
+    "title": "source↔edited: 10 слов ± 1 кадр по превью, обратное отображение без потерь (`timing-audit.mjs`)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"ok\":true,\"rows\":10,\"max_abs_offset_us\":0,\"timeline_rebuilt_equal\":true}"
+  },
+  {
+    "id": "T4.12",
+    "title": "анализ видеоряда (Vision + агент) завершён",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null}"
+  },
+  {
+    "id": "T4.13",
+    "title": "смысловой анализ с агентом завершён",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null}"
+  },
+  {
+    "id": "T4.14",
+    "title": "визуальный план с агентом построен",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null}"
+  },
+  {
+    "id": "T4.15",
+    "title": "план: 2–3 принятые сцены, есть overlay/callout и fullscreen",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"sp_001:overlay/left_third\",\"sp_002:fullscreen/full\",\"sp_003:overlay/left_third\"]"
+  },
+  {
+    "id": "T4.16",
+    "title": "предложения графики не закрывают лицо: blocking нет, у прозрачных сцен face_overlap ≤ 0,05",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"id\":\"sp_001\",\"mode\":\"overlay\",\"face\":0},{\"id\":\"sp_002\",\"mode\":\"fullscreen\",\"face\":1},{\"id\":\"sp_003\",\"mode\":\"overlay\",\"face\":0}]"
+  },
+  {
+    "id": "T4.17",
+    "title": "все сцены пакета ready",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"item\":\"sp_001\",\"mode\":\"overlay\",\"status\":\"ready\",\"version\":1,\"blocking\":[]},{\"item\":\"sp_002\",\"mode\":\"fullscreen\",\"status\":\"ready\",\"version\":1,\"blocking\":[]},{\"item\":\"sp_003\",\"mode\":\"overlay\",\"status\":\"ready\",\"version\":1,\"blocking\":[]}]"
+  },
+  {
+    "id": "T4.18",
+    "title": "нет blocking размещения (face_ink/outside_zone/duration_changed/layout_rect)",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"item\":\"sp_001\",\"mode\":\"overlay\",\"status\":\"ready\",\"version\":1,\"blocking\":[]},{\"item\":\"sp_002\",\"mode\":\"fullscreen\",\"status\":\"ready\",\"version\":1,\"blocking\":[]},{\"item\":\"sp_003\",\"mode\":\"overlay\",\"status\":\"ready\",\"version\":1,\"blocking\":[]}]"
+  },
+  {
+    "id": "T4.19",
+    "title": "C каждой готовой сцены valid на её текущую версию",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"state\":\"valid\",\"approval_id\":\"apr_01M5Z26Y105V4156ECA4CZ9FPY\",\"version_id\":\"ver_01M5Z26TXJEQGCP7E3R0CE25XR\",\"version_number\":1},{\"state\":\"valid\",\"approval_id\":\"apr_01M5Z26Y2XZF8KX7MGX354STCC\",\"version_id\":\"ver_01M5Z1QJMBT91DG0WF64Y9BZF8\",\"version_number\":1},{\"state\":\"valid\",\"approval_id\":\"apr_01M5Z26Y40ZGV6PC89QXX5KKYQ\",\"version_id\":\"ver_01M5Z22N98D8RJHX3DAFS5X8MR\",\"version_number\":1}]"
+  },
+  {
+    "id": "T4.20",
+    "title": "финал 1080p: 10 слов source→final ± 1 кадр (звук), обратное отображение без потерь (`final-timing-audit.mjs`)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"ok\":true,\"rows\":10,\"max_abs_offset_us\":0,\"timeline_rebuilt_equal\":true}"
+  },
+  {
+    "id": "T4.21",
+    "title": "оригинал IMG_0685.MOV не изменён (sha256 до = после = эталон)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"before\":\"9df29c1e5c9f26ce3d43a4adda99f4240023e115b65ad6c5647bd75979e7996f\",\"after\":\"9df29c1e5c9f26ce3d43a4adda99f4240023e115b65ad6c5647bd75979e7996f\"}"
+  },
+  {
+    "id": "T4.22",
+    "title": "копия-вырезка не изменена (sha256)",
+    "kind": "A",
+    "pass": true,
+    "detail": "83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01"
+  },
+  {
+    "id": "T4.23",
+    "title": "approvals A, B, C, final приняты; решение финала 1080p — на его ревизию таймлайна",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"kinds\":[\"A\",\"B\",\"C\",\"final\"],\"final\":{\"id\":\"apr_01M5Z5NWVV0M7265EQ8TH6VHWW\",\"kind\":\"final\",\"subject_ref\":\"timeline:tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r4\",\"subject_hash\":\"e066ac2cde5dfc5f2289351ef0cd3691397f7309f05045d1e52220295264f8ec\",\"status\":\"revoked\",\"stale_reason\":null,\"decided_at\":\"2026-10-27T17:14:12.219Z\"},\"statuses\":[\"A:edl:edl_01M5Z13X6NGSADFYGCHHTMFPP8@r9:valid\",\"B:plan:pln_01M5Z17JQB173X3NZF1VX1DQX6@r7:revoked\",\"C:scene:scn_01M5Z18CWYG011TGN2HJRRVQ8E@r1:valid\",\"C:scene:scn_01M5Z18CX1E09P9XGCF4RH0PP2@r1:valid\",\"C:scene:scn_01M5Z18CX2AD7BDN3N35ZG8J2S@r1:revoked\",\"B:plan:pln_01M5Z17JQB173X3NZF1VX1DQX6@r8:valid\",\"C:scene:scn_01M5Z18CX2AD7BDN3N35ZG8J2S@r2:valid\",\"final:timeline:tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r3:revoked\",\"final:timeline:tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r3:revoked\",\"final:timeline:tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r3:revoked\",\"final:timeline:tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r3:revoked\",\"final:timeline:tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r3:revoked\",\"final:timeline:tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r3:revoked\",\"final:timeline:tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r4:revoked\",\"final:timeline:tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r4:revoked\",\"final:timeline:tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0@r4:valid\"]}"
+  }
+]

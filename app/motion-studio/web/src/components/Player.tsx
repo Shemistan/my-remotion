@@ -5,6 +5,7 @@ import type { Fps } from "@ms/contracts";
 import { type Ref, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { t } from "../i18n/index.js";
 import { clampFrame, formatDuration, formatFps, frameToTime, timeToFrame } from "../lib/player-math.js";
+import { isEditableTarget, matchesShortcut, SHORTCUTS } from "../ui/shortcuts.js";
 
 const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
 /** Соотношение сторон по размеру кадра: 1920×1080 → 16:9. */
@@ -61,7 +62,7 @@ export function Player({ ref, src, fps, durationFrames, width, height, aspectRat
     return () => v.cancelVideoFrameCallback(handle);
   }, [playing, fps, durationFrames, show]);
 
-  const toggle = () => {
+  const toggle = useCallback(() => {
     const v = video.current;
     if (!v) return;
     if (v.paused) {
@@ -73,7 +74,23 @@ export function Player({ ref, src, fps, durationFrames, width, height, aspectRat
       // кадр паузы — сразу по currentTime: шаг ±1 считается от него, а не от последнего rVFC
       show(clampFrame(timeToFrame(v.currentTime, fps), durationFrames));
     }
-  };
+  }, [durationFrames, fps, show]);
+
+  useEffect(() => {
+    const shortcuts = Object.fromEntries(SHORTCUTS.map((x) => [x.id, x]));
+    const key = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target) || document.querySelectorAll(".player").length !== 1) return;
+      if (matchesShortcut(event, shortcuts.play!)) toggle();
+      else if (matchesShortcut(event, shortcuts.frameBack!)) seek(frame - 1);
+      else if (matchesShortcut(event, shortcuts.frameForward!)) seek(frame + 1);
+      else if (matchesShortcut(event, shortcuts.secondBack!)) seek(frame - Math.round(fps.num / fps.den));
+      else if (matchesShortcut(event, shortcuts.secondForward!)) seek(frame + Math.round(fps.num / fps.den));
+      else return;
+      event.preventDefault();
+    };
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, [frame, fps, seek, toggle]);
 
   const ratio = aspectRatio ?? ratioOf(width, height);
   return (

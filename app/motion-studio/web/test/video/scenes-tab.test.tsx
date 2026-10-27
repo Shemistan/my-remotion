@@ -234,7 +234,7 @@ it("S21: «Перегенерировать выбранные» — чекбо�
   fireEvent.click(box(2)!);
   fireEvent.click(regen());
   // ревью S21: 2 сцены — сначала подтверждение; «Отмена» — запроса нет
-  expect(screen.getByRole("alert").textContent).toContain(t("videoScenes.confirmN", { n: 2 }));
+  expect(screen.getByRole("dialog").textContent).toContain(t("videoScenes.confirmN", { n: 2 }));
   fireEvent.click(screen.getByRole("button", { name: t("videoScenes.confirmCancel") }));
   expect(screen.queryByRole("alert")).toBeNull();
   expect(posts(calls, GEN)).toHaveLength(0);
@@ -255,7 +255,7 @@ it("S21: «Перегенерировать устаревшие» — уста�
   await waitFor(() => expect(tiles()).toHaveLength(4));
   // sp_002 идёт — в пакет не входит
   fireEvent.click(screen.getByRole("button", { name: t("videoScenes.regenStale", { n: 2 }) }));
-  expect(screen.getByRole("alert").textContent).toContain(t("videoScenes.confirmN", { n: 2 }));
+  expect(screen.getByRole("dialog").textContent).toContain(t("videoScenes.confirmN", { n: 2 }));
   fireEvent.click(screen.getByRole("button", { name: t("videoScenes.confirmGo") }));
   await waitFor(() => expect(posts(calls, GEN)).toHaveLength(1));
   expect(posts(calls, GEN)[0]!.body).toEqual({ revision: 2, item_ids: ["sp_001", "sp_003"] });
@@ -273,7 +273,7 @@ it("ревью S21: подтверждение — «Сгенерировать 
   await waitFor(() => expect(tiles()).toHaveLength(4));
   // к генерации — упавшая и несгенерированная (готовая и идущая — нет)
   fireEvent.click(screen.getByRole("button", { name: t("videoScenes.generateAll") }));
-  expect(screen.getByRole("alert").textContent).toContain(t("videoScenes.confirmAllN", { n: 2 }));
+  expect(screen.getByRole("dialog").textContent).toContain(t("videoScenes.confirmAllN", { n: 2 }));
   expect(posts(calls, GEN)).toHaveLength(0);
   fireEvent.click(screen.getByRole("button", { name: t("videoScenes.confirmGo") }));
   await waitFor(() => expect(posts(calls, GEN)).toHaveLength(1));

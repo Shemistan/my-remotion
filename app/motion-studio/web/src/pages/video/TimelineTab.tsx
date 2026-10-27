@@ -19,6 +19,8 @@ import { FinalExportDialog } from "../../components/timeline/FinalExportDialog.j
 import { FreshnessBanner } from "../../components/timeline/FreshnessBanner.js";
 import { TimelineView } from "../../components/timeline/TimelineView.js";
 import type { ExcludedBlock } from "../../components/timeline/TrackGraphics.js";
+import { EmptyState } from "../../components/ui/EmptyState.js";
+import { Skeleton } from "../../components/ui/Skeleton.js";
 import { t } from "../../i18n/index.js";
 import { href, navigate } from "../../router.js";
 import { revertOps } from "../../timeline/drag.js";
@@ -125,12 +127,12 @@ export const TimelineTab: (props: VideoTabProps) => ReactElement = ({ data, onSe
   const jobLine = job && (isActive(job.status) || job.status === "failed" || job.status === "blocked") ? <JobStatus jobId={job.id} /> : null;
 
   if (q.isError) return <section className="panel" data-tab="timeline">{header}<ApiErrorCard error={q.error} /></section>;
-  if (!st) return <section className="panel" data-tab="timeline"><p className="muted">{t("common.loading")}</p></section>;
+  if (!st) return <section className="panel" data-tab="timeline"><Skeleton lines={5} /></section>;
   if (!dto) {
     return (
       <section className="panel stack" data-tab="timeline">
         {header}
-        <p className="hint">{t("projectTimeline.empty")}</p>
+        <EmptyState title={t("projectTimeline.empty")} description={t("ux.timeline.empty.description")} />
         {build.isError ? <ApiErrorCard error={build.error} /> : null}
         {jobLine}
       </section>

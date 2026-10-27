@@ -14,6 +14,9 @@ import { SettingsForm } from "../components/SettingsForm.js";
 import { CostSummary } from "../components/costs/CostSummary.js";
 import { ProjectList } from "../components/projects/ProjectList.js";
 import { RecoveryBanner } from "../components/projects/RecoveryBanner.js";
+import { DisabledReason } from "../components/ui/DisabledReason.js";
+import { EmptyState } from "../components/ui/EmptyState.js";
+import { Skeleton } from "../components/ui/Skeleton.js";
 import { versionState } from "../components/VersionHistory.js";
 import { errorText, t, tk } from "../i18n/index.js";
 import { navigate } from "../router.js";
@@ -47,9 +50,18 @@ function NewProject() {
       <label htmlFor={id}>{t("dashboard.projectTitle")}</label>
       <div className="row">
         <input id={id} className="grow" value={title} placeholder={t("dashboard.projectTitlePlaceholder")} onChange={(e) => setTitle(e.target.value)} />
-        <button type="submit" className="primary" disabled={!title.trim() || create.isPending}>{t("dashboard.create")}</button>
-        <button type="button" disabled={!title.trim() || create.isPending} onClick={() => create.mutate("video")}>{t("dashboard.createVideo")}</button>
-        <button type="button" disabled={!title.trim() || create.isPending} onClick={() => create.mutate("script")}>{t("dashboard.createScript")}</button>
+        {(["playground", "video", "script"] as const).map((kind) => (
+          <DisabledReason key={kind} reasonKey={!title.trim() ? "ux.disabled.enterProjectTitle" : create.isPending ? "ux.disabled.requestRunning" : null}>
+            <button
+              type={kind === "playground" ? "submit" : "button"}
+              className={kind === "playground" ? "primary" : undefined}
+              disabled={!title.trim() || create.isPending}
+              onClick={kind === "playground" ? undefined : () => create.mutate(kind)}
+            >
+              {t(kind === "playground" ? "dashboard.create" : kind === "video" ? "dashboard.createVideo" : "dashboard.createScript")}
+            </button>
+          </DisabledReason>
+        ))}
       </div>
       {create.isError ? <p className="error">{errorText(create.error)}</p> : null}
     </form>
@@ -61,7 +73,7 @@ type JobsQuery = ReturnType<typeof useJobs>;
 /** Загрузка или ошибка запроса задач: «пусто» показывается только по данным. */
 function JobsState({ q }: { q: JobsQuery }) {
   if (q.isError) return <p className="error">{errorText(q.error)}</p>;
-  return <p className="muted">{t("common.loading")}</p>;
+  return <Skeleton lines={2} compact />;
 }
 
 function ActiveJobs({ q }: { q: JobsQuery }) {
@@ -69,7 +81,7 @@ function ActiveJobs({ q }: { q: JobsQuery }) {
   return (
     <section className="panel">
       <h2>{t("dashboard.activeJobs")}</h2>
-      {!q.data || q.isError ? <JobsState q={q} /> : active.length === 0 ? <p className="muted">{t("dashboard.noActiveJobs")}</p> : (
+      {!q.data || q.isError ? <JobsState q={q} /> : active.length === 0 ? <EmptyState compact title={t("dashboard.noActiveJobs")} description={t("ux.dashboard.jobsEmpty.description")} /> : (
         <ul className="job-list">
           {active.map((j) => (
             <li key={j.id}>
@@ -93,7 +105,7 @@ function RecentExports({ q }: { q: JobsQuery }) {
   return (
     <section className="panel">
       <h2>{t("dashboard.recentExports")}</h2>
-      {!q.data || q.isError ? <JobsState q={q} /> : done.length === 0 ? <p className="muted">{t("dashboard.noExports")}</p> : (
+      {!q.data || q.isError ? <JobsState q={q} /> : done.length === 0 ? <EmptyState compact title={t("dashboard.noExports")} description={t("ux.dashboard.exportsEmpty.description")} /> : (
         <ul className="job-list">
           {done.map((j) => {
             const format = (j.output_refs as { format?: string } | null)?.format ?? "";
@@ -168,7 +180,7 @@ export function ProjectPage({ id }: { id: string }) {
   const q = useProject(id);
   const app = useAppSettings();
   if (q.isError) return <div className="page"><p className="error">{errorText(q.error)}</p></div>;
-  if (!q.data) return <div className="page"><p className="muted">{t("common.loading")}</p></div>;
+  if (!q.data) return <div className="page"><Skeleton lines={5} /></div>;
   const { project, scenes, exports } = q.data;
   // видеопроект (Task 29): Video Workspace; сцены проекта (если есть) — списком внизу
   if (project.kind === "video") return <VideoWorkspace id={project.id} scenes={scenes} />;
@@ -182,7 +194,7 @@ export function ProjectPage({ id }: { id: string }) {
       <div className="grid-2">
         <section className="panel">
           <h2>{t("project.scenes")}</h2>
-          {scenes.length === 0 ? <p className="muted">{t("project.noScenes")}</p> : null}
+          {scenes.length === 0 ? <EmptyState title={t("project.noScenes")} description={t("ux.project.scenesEmpty.description")} /> : null}
           <ul className="scene-cards">
             {scenes.map((s) => (
               <li key={s.id} data-scene-id={s.id}>
@@ -198,10 +210,10 @@ export function ProjectPage({ id }: { id: string }) {
           </ul>
         </section>
         <div className="stack">
-          {app.isSuccess || app.isError ? <NewScene projectId={project.id} initial={initial} /> : <p className="muted">{t("common.loading")}</p>}
+          {app.isSuccess || app.isError ? <NewScene projectId={project.id} initial={initial} /> : <Skeleton lines={4} />}
           <section className="panel">
             <h2>{t("project.exports")}</h2>
-            {exports.length === 0 ? <p className="muted">{t("dashboard.noExports")}</p> : (
+            {exports.length === 0 ? <EmptyState compact title={t("dashboard.noExports")} description={t("ux.project.exportsEmpty.description")} /> : (
               <ul className="job-list">
                 {exports.map((e) => (
                   <li key={e.id}>

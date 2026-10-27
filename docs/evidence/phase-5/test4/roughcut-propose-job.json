@@ -1,0 +1,82 @@
+{
+  "job": {
+    "id": "job_01M5Z13X6NGSADFYGCHHTMFPP8",
+    "type": "roughcut.propose",
+    "project_id": "prj_01M5Z12FF1CBJVDM13HPX7QNB0",
+    "scene_id": null,
+    "version_id": null,
+    "parent_job_id": null,
+    "status": "completed",
+    "progress": 1,
+    "stage": "done",
+    "attempt": 1,
+    "max_attempts": 3,
+    "interrupts": 0,
+    "input": {
+      "projectId": "prj_01M5Z12FF1CBJVDM13HPX7QNB0",
+      "useAgent": true
+    },
+    "input_hash": "158e8a99c485af37bd23e503b61ed01ddc56b3db926e2b71096ff0d0cb2a9225",
+    "output_refs": {
+      "edl_id": "edl_01M5Z13X6NGSADFYGCHHTMFPP8",
+      "revision": 1,
+      "rel_path": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/edits/edl_01M5Z13X6NGSADFYGCHHTMFPP8/r1/edl.json",
+      "reused": false,
+      "no_change": false,
+      "decisions": {
+        "total": 13,
+        "proposed": 13,
+        "by_reason": {
+          "pause": 9,
+          "bad_take": 3,
+          "false_start": 1
+        }
+      },
+      "detector": {
+        "pause": 9,
+        "filler": 0,
+        "repeat": 0
+      },
+      "agent": {
+        "status": "completed",
+        "calls": 1,
+        "cost_usd": 0.0426,
+        "decisions": 4,
+        "accepted": 4,
+        "rejected": [],
+        "reviews": 0,
+        "unknown_reviews": [],
+        "retried": false
+      },
+      "suppressed": 0,
+      "timings_ms": {
+        "prepare": 28,
+        "detect": 11,
+        "agent": 11927,
+        "publish": 37
+      }
+    },
+    "error": null,
+    "idempotency_key": "fe8a6450-2f68-41a5-b6c7-d2c1a63911c7",
+    "lease_owner": null,
+    "lease_until": null,
+    "cancel_requested": false,
+    "created_at": "2026-10-27T15:54:28.437Z",
+    "started_at": "2026-10-27T15:54:28.853Z",
+    "finished_at": "2026-10-27T15:54:40.893Z",
+    "cost_usd": 0.04255
+  },
+  "agent_runs": [
+    {
+      "id": "arun_7346e8a6-b7e1-44b6-add7-95dfbe9af55b",
+      "role": "rough_cut_editor",
+      "model": "claude-sonnet-5-5",
+      "status": "completed",
+      "input_tokens": 7286,
+      "output_tokens": 1341,
+      "cost_usd": 0.04255,
+      "started_at": "2026-10-27T15:54:28.937Z",
+      "finished_at": "2026-10-27T15:54:40.844Z"
+    }
+  ]
+}

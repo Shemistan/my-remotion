@@ -8,6 +8,7 @@ import { urls } from "../api/client.js";
 import { useDiff, useVersion } from "../api/queries.js";
 import { errorText, t } from "../i18n/index.js";
 import { clampFrame, frameToTime, timeToFrame } from "../lib/player-math.js";
+import { Skeleton } from "./ui/Skeleton.js";
 
 export interface VersionCompareProps {
   a: string;
@@ -155,14 +156,14 @@ export function VersionCompare({ a, b }: VersionCompareProps) {
                     <span className="mono">{f.path}</span>
                     <span className={`badge file-${f.status}`}>{t(`compare.file.${f.status}`)}</span>
                   </div>
-                  {f.unified ? <pre className="log small unified">{f.unified}</pre> : null}
+                  {f.unified ? <pre className="log small unified" tabIndex={0} aria-label={t("compare.title")}>{f.unified}</pre> : null}
                 </li>
               ))}
             </ul>
           </section>
         </div>
       ) : (
-        <p className="muted">{t("common.loading")}</p>
+        <Skeleton lines={5} />
       )}
     </div>
   );

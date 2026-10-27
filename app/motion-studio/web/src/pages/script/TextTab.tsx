@@ -8,9 +8,11 @@ import { usePlanOps, useSaveText } from "../../api/script-client.js";
 import { BuildPlan } from "../../components/script/BuildPlan.js";
 import { ReadingForm } from "../../components/script/ReadingForm.js";
 import { ScriptText } from "../../components/script/ScriptText.js";
+import { DisabledReason } from "../../components/ui/DisabledReason.js";
 import { t } from "../../i18n/index.js";
 import { type DraftBlock, type TextDraft, loadReading, loadTextDraft, saveReading, saveTextDraft } from "../../script/draft.js";
 import { DEFAULT_FPS, readingSummary, scriptErrorText } from "../../script/format.js";
+import { useUnsavedGuard } from "../../ui/unsaved.js";
 
 const countWords = (text: string) => tokenizeScript([{ title: "", text }]).words.length;
 const same = (a: DraftBlock[], b: DraftBlock[]) => JSON.stringify(a) === JSON.stringify(b);
@@ -31,6 +33,7 @@ export const TextTab: (props: { state: ScriptStateDto; onPlan: () => void }) => 
   };
   const blocks = draft?.blocks ?? savedBlocks;
   const dirty = draft !== null && !same(draft.blocks, savedBlocks);
+  useUnsavedGuard(dirty);
   const serverRevision = saved?.revision ?? null;
   const conflict = dirty && draft.base !== serverRevision;
   const [localReading, setLocalReadingState] = useState<ReadingSettings>(() => loadReading(projectId) ?? DEFAULT_READING);
@@ -89,14 +92,16 @@ export const TextTab: (props: { state: ScriptStateDto; onPlan: () => void }) => 
           <strong>{t("scriptPlan.text.total", { summary: readingSummary(total, reading, fps) })}</strong>
         </div>
         <div className="row wrap">
-          <button
-            type="button"
-            className="primary"
-            disabled={!dirty || conflict || hasEmpty || save.isPending}
-            onClick={() => doSave(draft?.base ?? serverRevision)}
-          >
-            {t("scriptPlan.text.save")}
-          </button>
+          <DisabledReason reasonKey={!dirty ? "ux.disabled.noChanges" : conflict ? "ux.disabled.resolveConflict" : hasEmpty ? "ux.disabled.completeBlocks" : save.isPending ? "ux.disabled.requestRunning" : null}>
+            <button
+              type="button"
+              className="primary"
+              disabled={!dirty || conflict || hasEmpty || save.isPending}
+              onClick={() => doSave(draft?.base ?? serverRevision)}
+            >
+              {t("scriptPlan.text.save")}
+            </button>
+          </DisabledReason>
           {dirty ? <span className="muted small">{t("scriptPlan.text.unsaved")}</span> : saved ? <span className="ok small">{t("scriptPlan.text.saved", { n: saved.revision })}</span> : null}
         </div>
         {conflict ? (

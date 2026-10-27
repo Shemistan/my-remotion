@@ -10,6 +10,7 @@ import { api, newKey } from "../api/client.js";
 import { isActive, useEdl, useFootage, usePlan, useProjectStyle, useSemantic, useTranscript, useVideoProject } from "../api/queries.js";
 import { JobStatus } from "../components/JobStatus.js";
 import { Link } from "../components/Link.js";
+import { Skeleton } from "../components/ui/Skeleton.js";
 import { AnalysisPanel } from "../components/video/AnalysisPanel.js";
 import { ApprovalBar } from "../components/video/ApprovalBar.js";
 import { AsrStatus } from "../components/video/AsrStatus.js";
@@ -82,7 +83,7 @@ export function VideoWorkspace({ id, scenes = [] }: { id: string; scenes?: Pick<
   const revoke = useMutation({ mutationFn: (aid: string) => api.revokeApproval(aid), onSettled: refresh });
 
   if (q.isError) return <div className="page"><p className="error">{errorText(q.error)}</p></div>;
-  if (!data) return <div className="page"><p className="muted">{t("common.loading")}</p></div>;
+  if (!data) return <div className="page"><Skeleton lines={7} /></div>;
   const { project, media } = data;
   const jobBusy = (type: string) => data.jobs.some((j) => j.type === type && isActive(j.status));
   const seek = (us: number) => player.current?.seekSource(us);
@@ -222,7 +223,7 @@ export function VideoWorkspace({ id, scenes = [] }: { id: string; scenes?: Pick<
                   </section>
                   <RevisionList transcriptId={data.transcript.id} current={current.data} viewing={viewing} onView={setViewing} />
                 </>
-              ) : <p className="muted">{t("common.loading")}</p>
+              ) : <Skeleton lines={5} compact />
             ) : null}
             {tab === "roughcut" ? (
               <>
@@ -277,7 +278,7 @@ export function VideoWorkspace({ id, scenes = [] }: { id: string; scenes?: Pick<
             {tab === "style" ? (
               style.data ? (
                 <StyleBiblePanel projectId={project.id} style={style.data} bValid={data.approvals.B.state === "valid"} onSaved={(dto) => { client.setQueryData(["style", id], dto); refresh(); }} />
-              ) : <p className="muted">{data.style ? t("common.loading") : t("style.empty")}</p>
+              ) : data.style ? <Skeleton lines={5} compact /> : <p className="muted">{t("style.empty")}</p>
             ) : null}
           </div>
         </div>

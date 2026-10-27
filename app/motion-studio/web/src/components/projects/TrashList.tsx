@@ -3,36 +3,41 @@
 // (`purge-intent`), флажок «понимаю, что нельзя отменить», затем задача `trash.purge`. Строку,
 // которую очистка уже начала стирать (`purging`), восстановить нельзя.
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { useState } from "react";
 import { newKey } from "../../api/client.js";
 import { type TrashEntryDto, dateTime, projectsApi, useLifecycleInvalidate, useRestore } from "../../api/projects-client.js";
 import { errorText, t } from "../../i18n/index.js";
+import { ConfirmDialog } from "../ui/ConfirmDialog.js";
+import { DisabledReason } from "../ui/DisabledReason.js";
+import { EmptyState } from "../ui/EmptyState.js";
+import { Skeleton } from "../ui/Skeleton.js";
 import { sizeText } from "./DeleteDialog.js";
 
 function PurgeDialog({ ids, onClose, onStarted }: { ids: string[]; onClose: () => void; onStarted: () => void }) {
-  const uid = useId();
   const [ack, setAck] = useState(false);
   const [key] = useState(newKey);
   const intent = useQuery({ queryKey: ["purge-intent", ids.join(",")], queryFn: () => projectsApi.purgeIntent(ids), gcTime: 0, staleTime: 0, refetchOnWindowFocus: false });
   const purge = useMutation({ mutationFn: () => projectsApi.purge(ids, intent.data!.token, key), onSuccess: () => { onStarted(); onClose(); } });
   const i = intent.data;
   return (
-    <div className="dialog-backdrop" role="presentation">
-      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={`${uid}-title`}>
-        <h2 id={`${uid}-title`}>{t("purge.title")}</h2>
+    <ConfirmDialog
+      open
+      title={t("purge.title")}
+      description={i ? t("purge.summary", { count: i.count, files: i.files, size: sizeText(i.bytes) }) : <Skeleton lines={2} compact />}
+      confirmLabel={t("purge.confirm")}
+      busy={purge.isPending}
+      confirmDisabled={!i || !ack}
+      danger
+      onCancel={onClose}
+      onConfirm={() => purge.mutate()}
+    >
         {intent.isError ? <p className="error">{errorText(intent.error)}</p> : null}
-        {i ? <p>{t("purge.summary", { count: i.count, files: i.files, size: sizeText(i.bytes) })}</p> : <p className="muted">{t("common.loading")}</p>}
         <label className="row">
           <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />
           {t("purge.ack")}
         </label>
         {purge.isError ? <p className="error">{errorText(purge.error)}</p> : null}
-        <div className="row end">
-          <button type="button" onClick={onClose}>{t("common.cancel")}</button>
-          <button type="button" className="primary" disabled={!i || !ack || purge.isPending} onClick={() => purge.mutate()}>{t("purge.confirm")}</button>
-        </div>
-      </div>
-    </div>
+    </ConfirmDialog>
   );
 }
 
@@ -46,10 +51,10 @@ export function TrashList({ filter = "" }: { filter?: string }) {
   const q = filter.trim().toLowerCase();
   const items = (trash.data ?? []).filter((e: TrashEntryDto) => !q || e.title.toLowerCase().includes(q));
   if (trash.isError) return <p className="error">{errorText(trash.error)}</p>;
-  if (!trash.data) return <p className="muted">{t("common.loading")}</p>;
+  if (!trash.data) return <Skeleton lines={3} compact />;
   return (
     <div className="stack" data-testid="trash-list">
-      {trash.data.length === 0 ? <p className="muted">{t("trash.empty")}</p> : null}
+      {trash.data.length === 0 ? <EmptyState compact title={t("trash.empty")} /> : null}
       {trash.data.length > 0 && items.length === 0 ? <p className="muted">{t("projects.noMatches")}</p> : null}
       <ul className="project-list">
         {items.map((e) => (
@@ -58,7 +63,9 @@ export function TrashList({ filter = "" }: { filter?: string }) {
             <span className="badge">{t(`project.kind.${e.kind}`)}</span>
             <span className="muted small">{t("trash.deletedAt", { at: dateTime(e.created_at) })} · {sizeText(e.bytes)}</span>
             {e.purging ? <span className="badge">{t("trash.purging")}</span> : null}
-            <button type="button" disabled={restore.isPending || e.purging} onClick={() => restore.mutate(e.id)}>{t("trash.restore")}</button>
+            <DisabledReason reasonKey={e.purging ? "ux.disabled.purging" : restore.isPending ? "ux.disabled.requestRunning" : null}>
+              <button type="button" disabled={restore.isPending || e.purging} onClick={() => restore.mutate(e.id)}>{t("trash.restore")}</button>
+            </DisabledReason>
             {/* у очищаемой строки тоже: новый purge-intent дочищает застрявший `.purging` */}
             <button type="button" onClick={() => setDialog([e.id])}>{t("trash.purge")}</button>
           </li>

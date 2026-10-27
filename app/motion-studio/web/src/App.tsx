@@ -5,6 +5,8 @@ import { useHealth } from "./api/queries.js";
 import { Link } from "./components/Link.js";
 import { StorageBanner } from "./components/StorageBanner.js";
 import { VersionCompare } from "./components/VersionCompare.js";
+import { ShortcutsHelp } from "./components/ui/ShortcutsHelp.js";
+import { Toasts } from "./components/ui/Toasts.js";
 import { t } from "./i18n/index.js";
 import { AppSettings } from "./pages/AppSettings.js";
 import { Dashboard, ProjectPage } from "./pages/Dashboard.js";
@@ -60,9 +62,11 @@ export function App() {
             </span>
           ))}
         </nav>
+        <ShortcutsHelp />
       </header>
       <StorageBanner />
       <Page route={route} />
+      <Toasts />
     </div>
   );
 }

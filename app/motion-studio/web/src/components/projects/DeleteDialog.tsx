@@ -8,6 +8,8 @@ import { useId, useState } from "react";
 import { ApiError } from "../../api/client.js";
 import { projectsApi, sizeParts, useLifecycleInvalidate } from "../../api/projects-client.js";
 import { errorText, t } from "../../i18n/index.js";
+import { ConfirmDialog } from "../ui/ConfirmDialog.js";
+import { Skeleton } from "../ui/Skeleton.js";
 
 export interface DeleteDialogProps {
   id: string;
@@ -65,22 +67,25 @@ export function DeleteDialog({ id, title, onClose, onDeleted }: DeleteDialogProp
   const name = i?.title ?? title;
   const ok = i !== undefined && !busy && typed.trim() === name && !intent.isFetching;
   return (
-    <div className="dialog-backdrop" role="presentation">
-      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby={`${uid}-title`}>
-        <h2 id={`${uid}-title`}>{t("delete.title", { title: name })}</h2>
+    <ConfirmDialog
+      open
+      title={t("delete.title", { title: name })}
+      description={t("ux.confirm.deleteProject.description")}
+      confirmLabel={t("delete.confirm")}
+      busy={remove.isPending}
+      confirmDisabled={!ok}
+      danger
+      onCancel={onClose}
+      onConfirm={() => remove.mutate()}
+    >
         {intent.isError ? <p className="error">{errorText(intent.error)}</p> : null}
-        {!i && !intent.isError ? <p className="muted">{t("delete.loading")}</p> : null}
+        {!i && !intent.isError ? <Skeleton lines={3} compact /> : null}
         {i ? <Summary i={i} /> : null}
         {busy ? <p className="error" role="alert">{t("delete.busy", { n: i!.active_jobs })}</p> : null}
         <p className="hint">{t("delete.trashNote")}</p>
         <label htmlFor={`${uid}-confirm`}>{t("delete.confirmLabel", { title: name })}</label>
         <input id={`${uid}-confirm`} value={typed} autoComplete="off" onChange={(e) => setTyped(e.target.value)} />
         {remove.isError ? <p className="error">{errorText(remove.error)}</p> : null}
-        <div className="row end">
-          <button type="button" onClick={onClose}>{t("common.cancel")}</button>
-          <button type="button" className="primary" disabled={!ok || remove.isPending} onClick={() => remove.mutate()}>{t("delete.confirm")}</button>
-        </div>
-      </div>
-    </div>
+    </ConfirmDialog>
   );
 }
