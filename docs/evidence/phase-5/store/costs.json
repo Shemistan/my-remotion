@@ -1,0 +1,65 @@
+{
+  "by_type": {
+    "media.import": {
+      "jobs": 1,
+      "cost_usd": 0,
+      "wall_s": 26
+    },
+    "asr.transcribe": {
+      "jobs": 1,
+      "cost_usd": 0,
+      "wall_s": 13
+    },
+    "roughcut.propose": {
+      "jobs": 1,
+      "cost_usd": 0.0426,
+      "wall_s": 12
+    },
+    "roughcut.preview": {
+      "jobs": 1,
+      "cost_usd": 0,
+      "wall_s": 6
+    },
+    "footage.analyze": {
+      "jobs": 1,
+      "cost_usd": 0.1187,
+      "wall_s": 56
+    },
+    "semantic.analyze": {
+      "jobs": 1,
+      "cost_usd": 0.0776,
+      "wall_s": 27
+    },
+    "plan.visual": {
+      "jobs": 1,
+      "cost_usd": 0.0705,
+      "wall_s": 22
+    },
+    "playground.generate": {
+      "jobs": 4,
+      "cost_usd": 14.0966,
+      "wall_s": 3579
+    },
+    "timeline.build": {
+      "jobs": 2,
+      "cost_usd": 0,
+      "wall_s": 0
+    },
+    "timeline.preview": {
+      "jobs": 2,
+      "cost_usd": 0,
+      "wall_s": 183
+    },
+    "final.render": {
+      "jobs": 9,
+      "cost_usd": 0,
+      "wall_s": 1655
+    },
+    "final.reproduce": {
+      "jobs": 1,
+      "cost_usd": 0,
+      "wall_s": 243
+    }
+  },
+  "total_usd": 14.406
+}

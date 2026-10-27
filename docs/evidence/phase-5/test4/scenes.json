@@ -1,0 +1,949 @@
+{
+  "batch": {
+    "id": "vb_34b504ed0f3b1ea6a7440002f7b1b7",
+    "plan_revision": 7,
+    "items": [
+      {
+        "item_id": "sp_001",
+        "scene_id": "scn_01M5Z18CWYG011TGN2HJRRVQ8E",
+        "job": {
+          "id": "job_01M5Z18CXEBEPWMCA2SR3K1144",
+          "type": "playground.generate",
+          "project_id": "prj_01M5Z12FF1CBJVDM13HPX7QNB0",
+          "scene_id": "scn_01M5Z18CWYG011TGN2HJRRVQ8E",
+          "version_id": null,
+          "parent_job_id": null,
+          "status": "completed",
+          "progress": 1,
+          "stage": "publish",
+          "attempt": 1,
+          "max_attempts": 3,
+          "interrupts": 0,
+          "input": {
+            "sceneId": "scn_01M5Z18CWYG011TGN2HJRRVQ8E",
+            "prompt": "Сцена 1 из 3 видеопроекта «Приёмка Phase 5 — talking head 2026-10-27T15:53»: автор говорит в кадре, сцена иллюстрирует его фразу графикой поверх ролика.\nТип визуала (паттерн плана): sequence-steps. Назначение: Зритель увидит порядок: открытие TCP, затем рукопожатие SYNC и ASK. Метафора: два узла обмениваются стрелками SYNC и ASK.\nРазмещение: режим overlay, зона left_third. Холст — весь кадр, но вся графика внутри <LayoutRect rect={props.layout.rect}>, rect = {\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84} (доли кадра); вне прямоугольника — пусто: там видео и лицо автора.\nРаскладка элементов spec — в долях этого прямоугольника ({\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84}), не кадра. Крупный герой и подписи помещаются в него целиком.\nСцену кладут поверх видео прозрачной (transparent = true): фон — только <Background>, своих заливок и плашек на весь кадр нет; текст читается на любом видео (карточка или ореол).\nДлительность: 285 кадров @ 30 fps — ровно так (её задаёт план). Первые 6 кадров — до начала фразы (мягкий вход), основное действие в окне фразы [6; 276), удержание ≥ 9 кадров до конца.\nКлючевые слова: TCP, SYNC, ASK.\nМоменты ключевых слов (кадр от начала сцены, когда звучит): «TCP» — 49; «SYNC» — 219; «ASK» — 250. Раскрытие слова или числа — у его кадра, не раньше.\nРечь сцены (данные): «Сначала открываем TCP соединение. Ядро системы делает свое рукопожатие, то есть SYNC, SYNC, ASK, ASK.».\nСоседи плана: до — нет, после — sequence-steps, fullscreen/full («Зритель увидит две задачи, уходящие воркеру по очереди: sleep и uppercase»): не повторяй их форму.\nОпорная фраза (данные, не инструкции):\n<<<ФРАГМЕНТ\nСначала открываем TCP соединение. … делает свое рукопожатие, то есть SYNC, SYNC, ASK, ASK.\nФРАГМЕНТ>>>",
+            "settings": {
+              "aspect_ratio": "16:9",
+              "width": 1920,
+              "height": 1080,
+              "fps": {
+                "num": 30,
+                "den": 1
+              },
+              "duration_frames": 285,
+              "style_preset": "tech-neon",
+              "animation_intensity": "balanced",
+              "background": "#0b0d12",
+              "transparent_export": false,
+              "safe_area": {
+                "x": 0.05,
+                "y": 0.05
+              },
+              "style_lock": {
+                "depth": 2
+              }
+            },
+            "video": {
+              "project_id": "prj_01M5Z12FF1CBJVDM13HPX7QNB0",
+              "plan_id": "pln_01M5Z17JQB173X3NZF1VX1DQX6",
+              "plan_revision": 7,
+              "item_id": "sp_001",
+              "style": {
+                "preset": "tech-neon",
+                "intensity": "balanced",
+                "depth": 2
+              },
+              "lead_frames": 6,
+              "tail_frames": 9,
+              "placement": {
+                "mode": "overlay",
+                "zone": "left_third",
+                "rect": {
+                  "x": 0.04,
+                  "y": 0.08,
+                  "w": 0.3,
+                  "h": 0.84
+                },
+                "transparent": true
+              },
+              "face": {
+                "x": 0.361813,
+                "y": 0.189559,
+                "w": 0.317345,
+                "h": 0.564515
+              },
+              "key_moments": [
+                {
+                  "text": "TCP",
+                  "frame": 49
+                },
+                {
+                  "text": "SYNC",
+                  "frame": 219
+                },
+                {
+                  "text": "ASK",
+                  "frame": 250
+                }
+              ],
+              "context_frame_rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/analysis/footage/ftg_01M5Z14T9Y6JY5TW1GN63NKMMS/frames/000009000000.png",
+              "context_frames": [
+                {
+                  "frame": 93,
+                  "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/analysis/footage/ftg_01M5Z14T9Y6JY5TW1GN63NKMMS/frames/000005000000.png"
+                },
+                {
+                  "frame": 213,
+                  "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/analysis/footage/ftg_01M5Z14T9Y6JY5TW1GN63NKMMS/frames/000009000000.png"
+                },
+                {
+                  "frame": 284,
+                  "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/analysis/footage/ftg_01M5Z14T9Y6JY5TW1GN63NKMMS/frames/000013000000.png"
+                }
+              ]
+            },
+            "video_fingerprint": "e71812ec26de02ec9bc4ed7c378978f77c34014c9afafd18f791d4a0d8c41edd",
+            "answers": "skip"
+          },
+          "input_hash": "cb35a48826cd773046d6adb07673e24d42ffb85dd705b0e6995abd6d8a5590d0",
+          "output_refs": {
+            "scene_id": "scn_01M5Z18CWYG011TGN2HJRRVQ8E",
+            "version_id": "ver_01M5Z26TXJEQGCP7E3R0CE25XR",
+            "version_number": 1,
+            "version_dir": "хранилище/workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/scenes/scn_01M5Z18CWYG011TGN2HJRRVQ8E/versions/ver_01M5Z26TXJEQGCP7E3R0CE25XR",
+            "preview_path": "хранилище/workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/scenes/scn_01M5Z18CWYG011TGN2HJRRVQ8E/versions/ver_01M5Z26TXJEQGCP7E3R0CE25XR/preview.mp4",
+            "cost_usd": 3.6276762,
+            "engineer_calls": 3,
+            "qa": {
+              "technical": "pass",
+              "visual": "warn",
+              "semantic": "warn",
+              "style": "pass"
+            },
+            "stage_wall_ms": {
+              "concept": 6677,
+              "director": 61567,
+              "fragment_fit": 86162,
+              "engineer": 459915,
+              "check": 52019,
+              "render": 110487,
+              "qa": 186983,
+              "total": 997031
+            },
+            "attempts": [
+              {
+                "n": 1,
+                "take": 1,
+                "call": 1,
+                "overall": 6.5,
+                "scores": {
+                  "overall": 6.5,
+                  "hierarchy": 6,
+                  "composition": 7,
+                  "entrance": 7,
+                  "choreography": 6.5,
+                  "hold": 7,
+                  "legibility": 6.5,
+                  "meaning": 7
+                },
+                "blocking": [
+                  "dead_air",
+                  "empty_container"
+                ],
+                "cost_usd": 0.9933,
+                "published": true
+              },
+              {
+                "n": 2,
+                "take": 1,
+                "call": 2,
+                "overall": 6.5,
+                "scores": {
+                  "overall": 6.5,
+                  "hierarchy": 6.5,
+                  "composition": 7,
+                  "entrance": 6.5,
+                  "choreography": 6.5,
+                  "hold": 7,
+                  "legibility": 7,
+                  "meaning": 6.5
+                },
+                "blocking": [
+                  "dead_air",
+                  "empty_container"
+                ],
+                "cost_usd": 1.0498,
+                "published": false
+              },
+              {
+                "n": 3,
+                "take": 1,
+                "call": 3,
+                "overall": 6,
+                "scores": {
+                  "overall": 6,
+                  "hierarchy": 5.5,
+                  "composition": 6.5,
+                  "entrance": 5,
+                  "choreography": 6,
+                  "hold": 7,
+                  "legibility": 7.5,
+                  "meaning": 6.5
+                },
+                "blocking": [
+                  "empty_container"
+                ],
+                "cost_usd": 0.8879,
+                "published": false
+              }
+            ],
+            "warnings": [
+              "spec: key_term_early: раскрыто раньше, чем звучит: «ASK» на кадре 215, слово — кадр 250",
+              "spec: план call-response: setup 0–115, call 115–147, pause 147–159, answer 159–183, hold 183–279; вывод с кадра 159, удар 159 (чтение 112, сдвиг -8)",
+              "spec: окно речи: фазы разложены в [6; 285), первые 6 кадров — запас (фон)",
+              "spec: якорь «SYNC»: раскрытие 165 → 215 (слово — кадр 219)",
+              "spec: фаза call: биты ведут элементы вне её element_ids (handshake)",
+              "spec: фаза answer: биты ведут элементы вне её element_ids (handshake)",
+              "опубликована лучшая попытка 1 с blocking QA (после 2 исправлений): visual = warn, решение за человеком"
+            ],
+            "steps": {
+              "concept": {
+                "input_hash": "77efe793194875aa029a1ceadc90a1952f3b21797d9b16497e25757462ae173a",
+                "path": "хранилище/logs/agent-runs/job_01M5Z18CXEBEPWMCA2SR3K1144/checkpoints/concept.json"
+              },
+              "director": {
+                "input_hash": "1a4e03121687f740f6c922bc47a952c4059cd81fdf9365c828e08afa58a81395",
+                "path": "хранилище/logs/agent-runs/job_01M5Z18CXEBEPWMCA2SR3K1144/checkpoints/motion_director.json"
+              }
+            }
+          },
+          "error": null,
+          "idempotency_key": "video:pln_01M5Z17JQB173X3NZF1VX1DQX6@r7:sp_001:s1",
+          "lease_owner": null,
+          "lease_until": null,
+          "cancel_requested": false,
+          "created_at": "2026-10-27T15:56:55.598Z",
+          "started_at": "2026-10-27T15:56:55.831Z",
+          "finished_at": "2026-10-27T16:13:33.006Z"
+        },
+        "version_id": "ver_01M5Z26TXJEQGCP7E3R0CE25XR",
+        "status": "ready"
+      },
+      {
+        "item_id": "sp_002",
+        "scene_id": "scn_01M5Z18CX1E09P9XGCF4RH0PP2",
+        "job": {
+          "id": "job_01M5Z18CXFZZFJWASGPA0A72C6",
+          "type": "playground.generate",
+          "project_id": "prj_01M5Z12FF1CBJVDM13HPX7QNB0",
+          "scene_id": "scn_01M5Z18CX1E09P9XGCF4RH0PP2",
+          "version_id": null,
+          "parent_job_id": null,
+          "status": "completed",
+          "progress": 1,
+          "stage": "publish",
+          "attempt": 1,
+          "max_attempts": 3,
+          "interrupts": 0,
+          "input": {
+            "sceneId": "scn_01M5Z18CX1E09P9XGCF4RH0PP2",
+            "prompt": "Сцена 2 из 3 видеопроекта «Приёмка Phase 5 — talking head 2026-10-27T15:53»: автор говорит в кадре, сцена иллюстрирует его фразу графикой поверх ролика.\nТип визуала (паттерн плана): sequence-steps. Назначение: Зритель увидит две задачи, уходящие воркеру по очереди: sleep и uppercase. Метафора: две карточки задач по очереди летят к воркеру.\nРазмещение: режим fullscreen, зона full — полноэкранная вставка: сцена закрывает видео целиком, фон — <Background>, графика по всему кадру.\nДлительность: 224 кадров @ 30 fps — ровно так (её задаёт план). Первые 47 кадров — до начала фразы (мягкий вход), основное действие в окне фразы [47; 215), удержание ≥ 9 кадров до конца.\nКлючевые слова: sleep, 2, uppercase.\nМоменты ключевых слов (кадр от начала сцены, когда звучит): «sleep» — 118; «2» — 168; «uppercase» — 184. Раскрытие слова или числа — у его кадра, не раньше.\nРечь сцены (данные): «И после этого отправляется первая задача на sleep. Задача 2 на uppercase.».\nСоседи плана: до — sequence-steps, overlay/left_third («Зритель увидит порядок: открытие TCP, затем рукопожатие SYNC и ASK»), после — sequence-steps, overlay/left_third («Зритель увидит обмен пинг — понг как проверку, что воркер жив»): не повторяй их форму.\nОпорная фраза (данные, не инструкции):\n<<<ФРАГМЕНТ\nотправляется первая задача на sleep. Задача 2 на uppercase.\nФРАГМЕНТ>>>",
+            "settings": {
+              "aspect_ratio": "16:9",
+              "width": 1920,
+              "height": 1080,
+              "fps": {
+                "num": 30,
+                "den": 1
+              },
+              "duration_frames": 224,
+              "style_preset": "tech-neon",
+              "animation_intensity": "balanced",
+              "background": "#0b0d12",
+              "transparent_export": false,
+              "safe_area": {
+                "x": 0.05,
+                "y": 0.05
+              },
+              "style_lock": {
+                "depth": 2
+              }
+            },
+            "video": {
+              "project_id": "prj_01M5Z12FF1CBJVDM13HPX7QNB0",
+              "plan_id": "pln_01M5Z17JQB173X3NZF1VX1DQX6",
+              "plan_revision": 7,
+              "item_id": "sp_002",
+              "style": {
+                "preset": "tech-neon",
+                "intensity": "balanced",
+                "depth": 2
+              },
+              "lead_frames": 47,
+              "tail_frames": 9,
+              "placement": {
+                "mode": "fullscreen",
+                "zone": "full",
+                "rect": {
+                  "x": 0,
+                  "y": 0,
+                  "w": 1,
+                  "h": 1
+                },
+                "transparent": false
+              },
+              "face": {
+                "x": 0.361813,
+                "y": 0.189559,
+                "w": 0.317345,
+                "h": 0.564515
+              },
+              "key_moments": [
+                {
+                  "text": "sleep",
+                  "frame": 118
+                },
+                {
+                  "text": "2",
+                  "frame": 168
+                },
+                {
+                  "text": "uppercase",
+                  "frame": 184
+                }
+              ],
+              "context_frame_rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/analysis/footage/ftg_01M5Z14T9Y6JY5TW1GN63NKMMS/frames/000037000000.png",
+              "context_frames": [
+                {
+                  "frame": 1,
+                  "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/analysis/footage/ftg_01M5Z14T9Y6JY5TW1GN63NKMMS/frames/000033000000.png"
+                },
+                {
+                  "frame": 121,
+                  "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/analysis/footage/ftg_01M5Z14T9Y6JY5TW1GN63NKMMS/frames/000037000000.png"
+                }
+              ]
+            },
+            "video_fingerprint": "2794490a165b1ee6f1f7425e429ca5d054e2531025db173d27afb2f65eae07a4",
+            "answers": "skip"
+          },
+          "input_hash": "bd43b4b6fc35a6c3aaa140c48316409e1b94f6e54903ae0f80ec5f341867eb99",
+          "output_refs": {
+            "scene_id": "scn_01M5Z18CX1E09P9XGCF4RH0PP2",
+            "version_id": "ver_01M5Z1QJMBT91DG0WF64Y9BZF8",
+            "version_number": 1,
+            "version_dir": "хранилище/workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/scenes/scn_01M5Z18CX1E09P9XGCF4RH0PP2/versions/ver_01M5Z1QJMBT91DG0WF64Y9BZF8",
+            "preview_path": "хранилище/workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/scenes/scn_01M5Z18CX1E09P9XGCF4RH0PP2/versions/ver_01M5Z1QJMBT91DG0WF64Y9BZF8/preview.mp4",
+            "cost_usd": 2.24538362,
+            "engineer_calls": 2,
+            "qa": {
+              "technical": "pass",
+              "visual": "warn",
+              "semantic": "warn",
+              "style": "pass"
+            },
+            "stage_wall_ms": {
+              "concept": 15550,
+              "director": 48491,
+              "fragment_fit": 37522,
+              "engineer": 209462,
+              "check": 30511,
+              "render": 63362,
+              "qa": 88192,
+              "total": 497054
+            },
+            "attempts": [
+              {
+                "n": 1,
+                "take": 1,
+                "call": 1,
+                "overall": 6.5,
+                "scores": {
+                  "overall": 6.5,
+                  "hierarchy": 7,
+                  "composition": 6,
+                  "entrance": 7,
+                  "choreography": 6.5,
+                  "hold": 6.5,
+                  "legibility": 6.5,
+                  "meaning": 7
+                },
+                "blocking": [
+                  "kit_misuse",
+                  "empty_container"
+                ],
+                "cost_usd": 0.7772,
+                "published": false
+              },
+              {
+                "n": 2,
+                "take": 1,
+                "call": 2,
+                "overall": 6.5,
+                "scores": {
+                  "overall": 6.5,
+                  "hierarchy": 8,
+                  "composition": 6.5,
+                  "entrance": 7,
+                  "choreography": 6,
+                  "hold": 7,
+                  "legibility": 7.5,
+                  "meaning": 6.5
+                },
+                "blocking": [],
+                "cost_usd": 0.963,
+                "published": true
+              }
+            ],
+            "warnings": [
+              "spec: fragment_unsupported: на экране утверждения, которых нет во фрагменте: «с бита hold: ring every-breath нет, удар и дыхание — через …»",
+              "spec: нет бита акцента",
+              "spec: план continuous-flow: setup 0–35, send-1 35–56, send-2 56–177, hold 71–177; вывод с кадра 71, удар 71 (чтение 71, сдвиг -7)",
+              "spec: окно речи: фазы разложены в [47; 224), первые 47 кадров — запас (фон)",
+              "консоль браузера: [error] [motion-kit:error] DataToken «1 · sleep»: бит начинается в кадре 82, а ребро \"e-send\" дорисовано только к кадру 89 — токен опоздал бы на 7 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 7 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready). | [error] [motion-kit:error] DataToken «1 · sleep»: бит начинается в кадре 82, а ребро \"e-send\" дорисовано только к кадру 89 — токен опоздал бы на 7 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 7 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready). | [error] [motion-kit:error] DataToken «1 · sleep»: бит начинается в кадре 82, а ребро \"e-send\" дорисовано только к кадру 89 — токен опоздал бы на 7 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 7 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready). | [error] [motion-kit:error] DataToken «1 · sleep»: бит начинается в кадре 82, а ребро \"e-send\" дорисовано только к кадру 89 — токен опоздал бы на 7 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 7 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready). | [error] [motion-kit:error] DataToken «1 · sleep»: бит начинается в кадре 82, а ребро \"e-send\" дорисовано только к кадру 89 — токен опоздал бы на 7 кадров. Начни вход узлов ребра раньше (enterAt узлов на ≥ 7 кадров раньше), чтобы ребро было готово к началу бита; бит токена не сдвигай и не считай старт сам (max с ready)."
+            ],
+            "steps": {
+              "concept": {
+                "input_hash": "d93dbdb1850b4a2ee28a88c153e884ced5a4fb6122fbaaa0c94ac0fce3438b97",
+                "path": "хранилище/logs/agent-runs/job_01M5Z18CXFZZFJWASGPA0A72C6/checkpoints/concept.json"
+              },
+              "director": {
+                "input_hash": "9a7a08ef5e6136d311f03befa47befd21a6c299d48dab81928cd4076768fddfa",
+                "path": "хранилище/logs/agent-runs/job_01M5Z18CXFZZFJWASGPA0A72C6/checkpoints/motion_director.json"
+              }
+            }
+          },
+          "error": null,
+          "idempotency_key": "video:pln_01M5Z17JQB173X3NZF1VX1DQX6@r7:sp_002:s1",
+          "lease_owner": null,
+          "lease_until": null,
+          "cancel_requested": false,
+          "created_at": "2026-10-27T15:56:55.599Z",
+          "started_at": "2026-10-27T15:56:55.840Z",
+          "finished_at": "2026-10-27T16:05:12.998Z"
+        },
+        "version_id": "ver_01M5Z1QJMBT91DG0WF64Y9BZF8",
+        "status": "ready"
+      },
+      {
+        "item_id": "sp_003",
+        "scene_id": "scn_01M5Z18CX2AD7BDN3N35ZG8J2S",
+        "job": {
+          "id": "job_01M5Z18CXFZZFJWASGPA0A72C7",
+          "type": "playground.generate",
+          "project_id": "prj_01M5Z12FF1CBJVDM13HPX7QNB0",
+          "scene_id": "scn_01M5Z18CX2AD7BDN3N35ZG8J2S",
+          "version_id": null,
+          "parent_job_id": null,
+          "status": "completed",
+          "progress": 1,
+          "stage": "publish",
+          "attempt": 1,
+          "max_attempts": 3,
+          "interrupts": 0,
+          "input": {
+            "sceneId": "scn_01M5Z18CX2AD7BDN3N35ZG8J2S",
+            "prompt": "Сцена 3 из 3 видеопроекта «Приёмка Phase 5 — talking head 2026-10-27T15:53»: автор говорит в кадре, сцена иллюстрирует его фразу графикой поверх ролика.\nТип визуала (паттерн плана): sequence-steps. Назначение: Зритель увидит обмен пинг — понг как проверку, что воркер жив. Метафора: сигнал туда и ответ обратно.\nРазмещение: режим overlay, зона left_third. Холст — весь кадр, но вся графика внутри <LayoutRect rect={props.layout.rect}>, rect = {\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84} (доли кадра); вне прямоугольника — пусто: там видео и лицо автора.\nРаскладка элементов spec — в долях этого прямоугольника ({\"x\":0.04,\"y\":0.08,\"w\":0.3,\"h\":0.84}), не кадра. Крупный герой и подписи помещаются в него целиком.\nСцену кладут поверх видео прозрачной (transparent = true): фон — только <Background>, своих заливок и плашек на весь кадр нет; текст читается на любом видео (карточка или ореол).\nДлительность: 270 кадров @ 30 fps — ровно так (её задаёт план). Первые 6 кадров — до начала фразы (мягкий вход), основное действие в окне фразы [6; 261), удержание ≥ 9 кадров до конца.\nКлючевые слова: пинг, pong.\nМоменты ключевых слов (кадр от начала сцены, когда звучит): «пинг» — 56; «pong» — 213. Раскрытие слова или числа — у его кадра, не раньше.\nРечь сцены (данные): «Затем у нас уходит пинг, чтобы проверить все ли ок. И наш воркер отвечает pong, то есть все ок.».\nСоседи плана: до — sequence-steps, fullscreen/full («Зритель увидит две задачи, уходящие воркеру по очереди: sleep и uppercase»), после — нет: не повторяй их форму.\nОпорная фраза (данные, не инструкции):\n<<<ФРАГМЕНТ\nЗатем у нас уходит пинг, чтобы проверить все ли ок. … наш воркер отвечает pong, то есть все ок.\nФРАГМЕНТ>>>",
+            "settings": {
+              "aspect_ratio": "16:9",
+              "width": 1920,
+              "height": 1080,
+              "fps": {
+                "num": 30,
+                "den": 1
+              },
+              "duration_frames": 270,
+              "style_preset": "tech-neon",
+              "animation_intensity": "balanced",
+              "background": "#0b0d12",
+              "transparent_export": false,
+              "safe_area": {
+                "x": 0.05,
+                "y": 0.05
+              },
+              "style_lock": {
+                "depth": 2
+              }
+            },
+            "video": {
+              "project_id": "prj_01M5Z12FF1CBJVDM13HPX7QNB0",
+              "plan_id": "pln_01M5Z17JQB173X3NZF1VX1DQX6",
+              "plan_revision": 7,
+              "item_id": "sp_003",
+              "style": {
+                "preset": "tech-neon",
+                "intensity": "balanced",
+                "depth": 2
+              },
+              "lead_frames": 6,
+              "tail_frames": 9,
+              "placement": {
+                "mode": "overlay",
+                "zone": "left_third",
+                "rect": {
+                  "x": 0.04,
+                  "y": 0.08,
+                  "w": 0.3,
+                  "h": 0.84
+                },
+                "transparent": true
+              },
+              "face": {
+                "x": 0.361813,
+                "y": 0.189559,
+                "w": 0.317345,
+                "h": 0.564515
+              },
+              "key_moments": [
+                {
+                  "text": "пинг",
+                  "frame": 56
+                },
+                {
+                  "text": "pong",
+                  "frame": 213
+                }
+              ],
+              "context_frame_rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/analysis/footage/ftg_01M5Z14T9Y6JY5TW1GN63NKMMS/frames/000067000000.png",
+              "context_frames": [
+                {
+                  "frame": 50,
+                  "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/analysis/footage/ftg_01M5Z14T9Y6JY5TW1GN63NKMMS/frames/000063000000.png"
+                },
+                {
+                  "frame": 170,
+                  "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/analysis/footage/ftg_01M5Z14T9Y6JY5TW1GN63NKMMS/frames/000067000000.png"
+                },
+                {
+                  "frame": 269,
+                  "rel": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/analysis/footage/ftg_01M5Z14T9Y6JY5TW1GN63NKMMS/frames/000071000000.png"
+                }
+              ]
+            },
+            "video_fingerprint": "825f8a73be57b54c7b61e2c2d9b38b7939c7b495afbeb0cf593e05e2324f346e",
+            "answers": "skip"
+          },
+          "input_hash": "0a5004ea1fa8de4f9dfb8622ed9c1b0192a77e167bfe6a175d25014f0158381f",
+          "output_refs": {
+            "scene_id": "scn_01M5Z18CX2AD7BDN3N35ZG8J2S",
+            "version_id": "ver_01M5Z22N98D8RJHX3DAFS5X8MR",
+            "version_number": 1,
+            "version_dir": "хранилище/workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/scenes/scn_01M5Z18CX2AD7BDN3N35ZG8J2S/versions/ver_01M5Z22N98D8RJHX3DAFS5X8MR",
+            "preview_path": "хранилище/workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/scenes/scn_01M5Z18CX2AD7BDN3N35ZG8J2S/versions/ver_01M5Z22N98D8RJHX3DAFS5X8MR/preview.mp4",
+            "cost_usd": 3.27149524,
+            "engineer_calls": 3,
+            "qa": {
+              "technical": "pass",
+              "visual": "warn",
+              "semantic": "warn",
+              "style": "pass"
+            },
+            "stage_wall_ms": {
+              "concept": 11865,
+              "director": 46845,
+              "fragment_fit": 16844,
+              "engineer": 479776,
+              "check": 52605,
+              "render": 95078,
+              "qa": 141597,
+              "total": 860186
+            },
+            "attempts": [
+              {
+                "n": 1,
+                "take": 1,
+                "call": 1,
+                "overall": 6.5,
+                "scores": {
+                  "overall": 6.5,
+                  "hierarchy": 6,
+                  "composition": 7,
+                  "entrance": 7,
+                  "choreography": 6.5,
+                  "hold": 6.5,
+                  "legibility": 7.5,
+                  "meaning": 6.5
+                },
+                "blocking": [
+                  "dead_air"
+                ],
+                "cost_usd": 1.0849,
+                "published": true
+              },
+              {
+                "n": 2,
+                "take": 1,
+                "call": 2,
+                "overall": 6.5,
+                "scores": {
+                  "overall": 6.5,
+                  "hierarchy": 7.5,
+                  "composition": 7,
+                  "entrance": 7,
+                  "choreography": 5.5,
+                  "hold": 6.5,
+                  "legibility": 7.5,
+                  "meaning": 6.5
+                },
+                "blocking": [
+                  "frozen",
+                  "dead_air",
+                  "face_ink",
+                  "outside_zone"
+                ],
+                "cost_usd": 0.8352,
+                "published": false
+              }
+            ],
+            "warnings": [
+              "spec: план call-response: setup 0–35, call 35–79, wait 79–148, answer 148–172, hold 172–264; вывод с кадра 148, удар 148 (чтение 106, сдвиг -6)",
+              "spec: окно речи: фазы разложены в [6; 270), первые 6 кадров — запас (фон)",
+              "spec: фаза answer: биты ведут элементы вне её element_ids (link-graph)",
+              "опубликована лучшая попытка 1 с blocking QA (после 2 исправлений): visual = warn, решение за человеком"
+            ],
+            "steps": {
+              "concept": {
+                "input_hash": "1d4edd45624cae27d7bea659c8b8e08406f5a246874915348d6fa34aaa20ec7d",
+                "path": "хранилище/logs/agent-runs/job_01M5Z18CXFZZFJWASGPA0A72C7/checkpoints/concept.json"
+              },
+              "director": {
+                "input_hash": "d8baeb43449a0d6ddbc1b89c881539e529c14cd12db51c58b042a8fccc301e20",
+                "path": "хранилище/logs/agent-runs/job_01M5Z18CXFZZFJWASGPA0A72C7/checkpoints/motion_director.json"
+              }
+            }
+          },
+          "error": null,
+          "idempotency_key": "video:pln_01M5Z17JQB173X3NZF1VX1DQX6@r7:sp_003:s1",
+          "lease_owner": null,
+          "lease_until": null,
+          "cancel_requested": false,
+          "created_at": "2026-10-27T15:56:55.599Z",
+          "started_at": "2026-10-27T15:56:55.847Z",
+          "finished_at": "2026-10-27T16:11:16.163Z"
+        },
+        "version_id": "ver_01M5Z22N98D8RJHX3DAFS5X8MR",
+        "status": "ready"
+      }
+    ],
+    "counts": {
+      "total": 3,
+      "pending": 0,
+      "running": 0,
+      "ready": 3,
+      "failed": 0,
+      "cancelled": 0,
+      "blocked": 0
+    },
+    "full": true
+  },
+  "rows": [
+    {
+      "item": "sp_001",
+      "mode": "overlay",
+      "status": "ready",
+      "version": 1,
+      "blocking": []
+    },
+    {
+      "item": "sp_002",
+      "mode": "fullscreen",
+      "status": "ready",
+      "version": 1,
+      "blocking": []
+    },
+    {
+      "item": "sp_003",
+      "mode": "overlay",
+      "status": "ready",
+      "version": 1,
+      "blocking": []
+    }
+  ],
+  "events": [
+    {
+      "job": "job_01M5Z18CXEBEPWMCA2SR3K1144",
+      "events": [
+        {
+          "ts": "2026-10-27T16:02:23.011Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Visual QA…"
+        },
+        {
+          "ts": "2026-10-27T16:03:27.865Z",
+          "level": "info",
+          "kind": "log",
+          "message": "QA: blocking dead_air@60, empty_container@18"
+        },
+        {
+          "ts": "2026-10-27T16:03:27.922Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Engineer: исправление 1 из 2 (qa)…"
+        },
+        {
+          "ts": "2026-10-27T16:06:52.388Z",
+          "level": "info",
+          "kind": "log",
+          "message": "рендер: кадры 12, 46, 152, 172, 226, 232, 237, 284 + превью…"
+        },
+        {
+          "ts": "2026-10-27T16:07:27.930Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Fragment Fit…"
+        },
+        {
+          "ts": "2026-10-27T16:07:40.103Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Visual QA…"
+        },
+        {
+          "ts": "2026-10-27T16:08:24.720Z",
+          "level": "info",
+          "kind": "log",
+          "message": "QA: blocking dead_air@48, empty_container@18"
+        },
+        {
+          "ts": "2026-10-27T16:08:24.787Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Engineer: исправление 2 из 2 (qa)…"
+        },
+        {
+          "ts": "2026-10-27T16:10:53.806Z",
+          "level": "info",
+          "kind": "log",
+          "message": "рендер: кадры 12, 46, 152, 172, 226, 232, 237, 284 + превью…"
+        },
+        {
+          "ts": "2026-10-27T16:11:52.693Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Fragment Fit…"
+        },
+        {
+          "ts": "2026-10-27T16:12:11.223Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Fragment Fit (кадры)…"
+        },
+        {
+          "ts": "2026-10-27T16:12:30.524Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Visual QA…"
+        },
+        {
+          "ts": "2026-10-27T16:13:32.755Z",
+          "level": "info",
+          "kind": "log",
+          "message": "QA: blocking empty_container@18"
+        },
+        {
+          "ts": "2026-10-27T16:13:32.996Z",
+          "level": "info",
+          "kind": "log",
+          "message": "✓ ready: /Volumes/External SSD/moution-studio-materials/acceptance/phase5/workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/scenes/scn_01M5Z18CWYG011TGN2HJRRVQ8E/versions/ver_01M5Z26TXJEQGCP7E3R0CE25XR"
+        },
+        {
+          "ts": "2026-10-27T16:13:33.010Z",
+          "level": "info",
+          "kind": "completed",
+          "message": "completed"
+        }
+      ]
+    },
+    {
+      "job": "job_01M5Z18CXFZZFJWASGPA0A72C6",
+      "events": [
+        {
+          "ts": "2026-10-27T15:57:11.520Z",
+          "level": "info",
+          "kind": "log",
+          "message": "KB: 12 кандидатов по ключам Concept"
+        },
+        {
+          "ts": "2026-10-27T15:57:11.560Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Motion Director…"
+        },
+        {
+          "ts": "2026-10-27T15:58:00.067Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Fragment Fit…"
+        },
+        {
+          "ts": "2026-10-27T15:58:10.036Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Director: «Две задачи — воркеру по очереди» (split), 6 битов, KB: xyflow/default-nodes (adapt), remotion-bits/bit-card-stack (adapt)"
+        },
+        {
+          "ts": "2026-10-27T15:58:10.100Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Engineer…"
+        },
+        {
+          "ts": "2026-10-27T15:59:39.851Z",
+          "level": "info",
+          "kind": "log",
+          "message": "рендер: кадры 56, 71, 98, 117, 171, 223 + превью…"
+        },
+        {
+          "ts": "2026-10-27T16:00:18.388Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Fragment Fit…"
+        },
+        {
+          "ts": "2026-10-27T16:00:34.735Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Visual QA…"
+        },
+        {
+          "ts": "2026-10-27T16:01:24.952Z",
+          "level": "info",
+          "kind": "log",
+          "message": "QA: blocking kit_misuse, empty_container@18"
+        },
+        {
+          "ts": "2026-10-27T16:01:27.348Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Engineer: исправление 1 из 2 (qa)…"
+        },
+        {
+          "ts": "2026-10-27T16:03:57.752Z",
+          "level": "info",
+          "kind": "log",
+          "message": "рендер: кадры 56, 71, 98, 117, 171, 223 + превью…"
+        },
+        {
+          "ts": "2026-10-27T16:04:28.467Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Fragment Fit…"
+        },
+        {
+          "ts": "2026-10-27T16:04:39.703Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Visual QA…"
+        },
+        {
+          "ts": "2026-10-27T16:05:12.989Z",
+          "level": "info",
+          "kind": "log",
+          "message": "✓ ready: /Volumes/External SSD/moution-studio-materials/acceptance/phase5/workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/scenes/scn_01M5Z18CX1E09P9XGCF4RH0PP2/versions/ver_01M5Z1QJMBT91DG0WF64Y9BZF8"
+        },
+        {
+          "ts": "2026-10-27T16:05:13.002Z",
+          "level": "info",
+          "kind": "completed",
+          "message": "completed"
+        }
+      ]
+    },
+    {
+      "job": "job_01M5Z18CXFZZFJWASGPA0A72C7",
+      "events": [
+        {
+          "ts": "2026-10-27T15:57:54.742Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Fragment Fit…"
+        },
+        {
+          "ts": "2026-10-27T15:58:02.016Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Director: «Пинг — pong: воркер жив» (stacked), 7 битов, KB: magicui/animated-beam (adapt), animata/icon-ripple (adapt)"
+        },
+        {
+          "ts": "2026-10-27T15:58:02.077Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Engineer…"
+        },
+        {
+          "ts": "2026-10-27T16:00:34.747Z",
+          "level": "info",
+          "kind": "log",
+          "message": "рендер: кадры 23, 57, 101, 119, 160, 172, 224, 269 + превью…"
+        },
+        {
+          "ts": "2026-10-27T16:01:50.168Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Fragment Fit…"
+        },
+        {
+          "ts": "2026-10-27T16:01:59.758Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Visual QA…"
+        },
+        {
+          "ts": "2026-10-27T16:02:49.698Z",
+          "level": "info",
+          "kind": "log",
+          "message": "QA: blocking dead_air@84"
+        },
+        {
+          "ts": "2026-10-27T16:02:49.750Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Engineer: исправление 1 из 2 (qa)…"
+        },
+        {
+          "ts": "2026-10-27T16:05:09.402Z",
+          "level": "info",
+          "kind": "log",
+          "message": "рендер: кадры 23, 57, 101, 119, 160, 172, 224, 269 + превью…"
+        },
+        {
+          "ts": "2026-10-27T16:05:50.919Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Visual QA…"
+        },
+        {
+          "ts": "2026-10-27T16:07:15.446Z",
+          "level": "info",
+          "kind": "log",
+          "message": "QA: blocking frozen@269, dead_air@84, face_ink@57, outside_zone@57"
+        },
+        {
+          "ts": "2026-10-27T16:07:15.559Z",
+          "level": "info",
+          "kind": "log",
+          "message": "Engineer: исправление 2 из 2 (qa)…"
+        },
+        {
+          "ts": "2026-10-27T16:11:15.888Z",
+          "level": "info",
+          "kind": "log",
+          "message": "typecheck: 6 ошибок"
+        },
+        {
+          "ts": "2026-10-27T16:11:16.154Z",
+          "level": "info",
+          "kind": "log",
+          "message": "✓ ready: /Volumes/External SSD/moution-studio-materials/acceptance/phase5/workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/scenes/scn_01M5Z18CX2AD7BDN3N35ZG8J2S/versions/ver_01M5Z22N98D8RJHX3DAFS5X8MR"
+        },
+        {
+          "ts": "2026-10-27T16:11:16.166Z",
+          "level": "info",
+          "kind": "completed",
+          "message": "completed"
+        }
+      ]
+    }
+  ]
+}

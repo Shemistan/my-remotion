@@ -1,0 +1,198 @@
+{
+  "asset": {
+    "id": "med_01M5Z12FJS0XMZWJE0G0Q47Z5K",
+    "project_id": "prj_01M5Z12FF1CBJVDM13HPX7QNB0",
+    "original_name": "IMG_0685-3508-3624.mov",
+    "rel_path": "workspace/projects/prj_01M5Z12FF1CBJVDM13HPX7QNB0/source/med_01M5Z12FJS0XMZWJE0G0Q47Z5K/original.mov",
+    "sha256": "83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01",
+    "size_bytes": 327459691,
+    "probe": {
+      "container": "mov,mp4,m4a,3gp,3g2,mj2",
+      "duration_us": 116109010,
+      "size_bytes": 327459691,
+      "start_time_us": 0,
+      "video": {
+        "codec": "hevc",
+        "width": 3840,
+        "height": 2160,
+        "display_width": 3840,
+        "display_height": 2160,
+        "rotation": 180,
+        "r_frame_rate": {
+          "num": 30,
+          "den": 1
+        },
+        "avg_frame_rate": {
+          "num": 699800,
+          "den": 23329
+        },
+        "pix_fmt": "yuv420p",
+        "start_time_us": 0,
+        "color_transfer": "bt709",
+        "color_primaries": "bt709"
+      },
+      "audio": {
+        "codec": "aac",
+        "sample_rate": 48000,
+        "channels": 2,
+        "start_time_us": 0
+      },
+      "vfr": false,
+      "timeline_fps": {
+        "num": 30,
+        "den": 1
+      }
+    },
+    "status": "ready",
+    "import": {
+      "method": "path",
+      "source_path": "/Volumes/External SSD/moution-studio-materials/acceptance/phase5-src/IMG_0685-3508-3624.mov",
+      "cloned": true
+    },
+    "created_at": "2026-10-27T15:54:08.200Z"
+  },
+  "source_ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "hevc",
+        "codec_long_name": "H.265 / HEVC (High Efficiency Video Coding)",
+        "profile": "Main",
+        "codec_type": "video",
+        "codec_tag_string": "hvc1",
+        "codec_tag": "0x31637668",
+        "width": 3840,
+        "height": 2160,
+        "coded_width": 3840,
+        "coded_height": 2160,
+        "closed_captions": 0,
+        "film_grain": 0,
+        "has_b_frames": 2,
+        "pix_fmt": "yuv420p",
+        "level": 150,
+        "color_range": "tv",
+        "color_space": "bt709",
+        "color_transfer": "bt709",
+        "color_primaries": "bt709",
+        "chroma_location": "left",
+        "refs": 1,
+        "view_ids_available": "",
+        "view_pos_available": "",
+        "id": "0x1",
+        "r_frame_rate": "30/1",
+        "avg_frame_rate": "699800/23329",
+        "time_base": "1/19200",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 2229293,
+        "duration": "116.109010",
+        "bit_rate": "22385397",
+        "nb_frames": "3499",
+        "extradata_size": 104,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "handler_name": "Core Media Video",
+          "vendor_id": "FFMP",
+          "encoder": "HEVC"
+        },
+        "side_data_list": [
+          {
+            "side_data_type": "Display Matrix",
+            "displaymatrix": "\n00000000:       -65536           0           0\n00000001:            0      -65536           0\n00000002:    251658240   141557760  1073741824\n",
+            "rotation": -180
+          }
+        ]
+      },
+      {
+        "index": 1,
+        "codec_name": "aac",
+        "codec_long_name": "AAC (Advanced Audio Coding)",
+        "profile": "LC",
+        "codec_type": "audio",
+        "codec_tag_string": "mp4a",
+        "codec_tag": "0x6134706d",
+        "sample_fmt": "fltp",
+        "sample_rate": "48000",
+        "channels": 2,
+        "channel_layout": "stereo",
+        "bits_per_sample": 0,
+        "initial_padding": 0,
+        "id": "0x2",
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/48000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 5568960,
+        "duration": "116.020000",
+        "bit_rate": "76704",
+        "nb_frames": "5470",
+        "extradata_size": 2,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "handler_name": "Core Media Audio",
+          "vendor_id": "[0][0][0][0]"
+        }
+      }
+    ],
+    "format": {
+      "filename": "file:/Volumes/External SSD/moution-studio-materials/acceptance/phase5-src/IMG_0685-3508-3624.mov",
+      "nb_streams": 2,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "116.109010",
+      "size": "327459691",
+      "bit_rate": "22562224",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "qt  ",
+        "minor_version": "512",
+        "compatible_brands": "qt  ",
+        "encoder": "Lavf61.7.100"
+      }
+    }
+  }
+}

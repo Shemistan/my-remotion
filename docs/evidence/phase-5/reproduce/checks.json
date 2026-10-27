@@ -1,0 +1,79 @@
+[
+  {
+    "id": "4.1",
+    "title": "сервер остановлен SIGTERM",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"pid\":91803}"
+  },
+  {
+    "id": "4.2",
+    "title": "сервер запущен заново (новый pid)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"old\":91803,\"new\":57508}"
+  },
+  {
+    "id": "4.3",
+    "title": "задача final.reproduce завершена",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null}"
+  },
+  {
+    "id": "4.4",
+    "title": "compareExports.verdict = reproduced: входы и ffprobe те же, кадры PSNR ≥ 50 дБ",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"compare\":{\"reproduced_from\":\"fin_01M5Z5NWVWRW9KEATJ7XXAPSDS\",\"inputs_equal\":true,\"probe_equal\":true,\"frames\":[{\"frame\":112,\"psnr_db\":99},{\"frame\":336,\"psnr_db\":99},{\"frame\":560,\"psnr_db\":99},{\"frame\":784,\"psnr_db\":99},{\"frame\":1008,\"psnr_db\":99},{\"frame\":1232,\"psnr_db\":99},{\"frame\":1456,\"psnr_db\":99},{\"frame\":1680,\"psnr_db\":99},{\"frame\":1904,\"psnr_db\":99},{\"frame\":2128,\"psnr_db\":99},{\"frame\":2352,\"psnr_db\":99},{\"frame\":2576,\"psnr_db\":99}],\"file_sha256_equal\":true,\"verdict\":\"reproduced\"}}"
+  },
+  {
+    "id": "4.v.1",
+    "title": "экспорт ready, verify.verdict = pass, failures пусто",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"ready\",\"verdict\":\"pass\",\"failures\":[],\"probe\":[]}"
+  },
+  {
+    "id": "4.v.2",
+    "title": "размер и fps выхода",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"output\":{\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1},\"frames\":2689},\"want\":{\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1}}}"
+  },
+  {
+    "id": "4.v.3",
+    "title": "длительность: |Δ| ≤ 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"expected_frames\":2689,\"actual_us\":89633333,\"delta_frames\":0}"
+  },
+  {
+    "id": "4.v.4",
+    "title": "синхронность: ≥ 5 контрольных слов, |смещение| ≤ 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"frame_us\":33334,\"sync\":[{\"word_id\":\"w_000005\",\"offset_us\":0,\"corr\":1,\"energy\":true},{\"word_id\":\"w_000014\",\"offset_us\":0,\"corr\":1,\"energy\":true},{\"word_id\":\"w_000016\",\"offset_us\":0,\"corr\":1,\"energy\":true},{\"word_id\":\"w_000052\",\"offset_us\":0,\"corr\":0.99,\"energy\":true},{\"word_id\":\"w_000054\",\"offset_us\":0,\"corr\":0.995,\"energy\":true}],\"sync_check\":{\"status\":\"ok\",\"message\":\"надёжных замеров 5 из 5 со звуком\"}}"
+  },
+  {
+    "id": "4.v.5",
+    "title": "кадры: 9 по выборке (6 вне сцен + середины сцен), смещение 0 или inconclusive, PSNR ≥ 30 дБ",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"n\":9,\"min_psnr\":41.26,\"offsets\":[0,0,0,0,0,0,0,0,0],\"kinds\":[\"scene\",\"source\",\"scene\",\"source\",\"source\",\"scene\",\"source\",\"source\",\"source\"]}"
+  },
+  {
+    "id": "4.v.6",
+    "title": "громкость: |ΔLU| ≤ 0,5",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"source_lufs\":-31,\"final_lufs\":-31,\"delta_lu\":0,\"final_peak_db\":-10.5,\"source_peak_db\":-10.5}"
+  },
+  {
+    "id": "4.f.7",
+    "title": "файл: H.264 yuv420p + AAC 48 кГц; манифест по схеме FinalManifestSchema",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"video\":{\"codec\":\"h264\",\"pix\":\"yuv420p\",\"w\":1920,\"h\":1080,\"r\":\"30/1\"},\"audio\":{\"codec\":\"aac\",\"sr\":\"48000\",\"ch\":2},\"manifest\":true}"
+  }
+]

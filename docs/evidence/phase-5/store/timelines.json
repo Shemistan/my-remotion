@@ -1,0 +1,281 @@
+[
+  {
+    "revision": 1,
+    "parent": null,
+    "created_at": "2026-10-27T16:14:15.159Z",
+    "inputs": {
+      "media_sha256": "83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01",
+      "edl": {
+        "id": "edl_01M5Z13X6NGSADFYGCHHTMFPP8",
+        "revision": 9,
+        "hash": "48dbbd49b00054dcefbd1d0c4a054257ae53ea8649af429a63758f45ed580cc3"
+      },
+      "plan": {
+        "id": "pln_01M5Z17JQB173X3NZF1VX1DQX6",
+        "revision": 7,
+        "hash": "2218b52a35a2f7e0cb6452257a161961708b233e6716dc1345d979fa061f17d9"
+      },
+      "style": {
+        "id": "sty_01M5Z188RP9K5DT9YQK4FMM50B",
+        "revision": 1,
+        "hash": "c24d4c74d79c48c07f390ad89677c2694579615cdd71fbf4d028ec7903617d88"
+      }
+    },
+    "duration_frames": 2689,
+    "ops": [],
+    "scenes": [
+      {
+        "item": "sp_001",
+        "version": 1,
+        "start": 56,
+        "len": 285,
+        "mode": "overlay",
+        "anchors": [
+          "TCP@105",
+          "SYNC@275",
+          "ASK@306"
+        ]
+      },
+      {
+        "item": "sp_002",
+        "version": 1,
+        "start": 659,
+        "len": 224,
+        "mode": "fullscreen",
+        "anchors": [
+          "sleep@777",
+          "2@827",
+          "uppercase@843"
+        ]
+      },
+      {
+        "item": "sp_003",
+        "version": 1,
+        "start": 1284,
+        "len": 270,
+        "mode": "overlay",
+        "anchors": [
+          "пинг@1340",
+          "pong@1497"
+        ]
+      }
+    ],
+    "excluded": [],
+    "issues": []
+  },
+  {
+    "revision": 2,
+    "parent": 1,
+    "created_at": "2026-10-27T16:14:15.649Z",
+    "inputs": {
+      "media_sha256": "83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01",
+      "edl": {
+        "id": "edl_01M5Z13X6NGSADFYGCHHTMFPP8",
+        "revision": 9,
+        "hash": "48dbbd49b00054dcefbd1d0c4a054257ae53ea8649af429a63758f45ed580cc3"
+      },
+      "plan": {
+        "id": "pln_01M5Z17JQB173X3NZF1VX1DQX6",
+        "revision": 7,
+        "hash": "2218b52a35a2f7e0cb6452257a161961708b233e6716dc1345d979fa061f17d9"
+      },
+      "style": {
+        "id": "sty_01M5Z188RP9K5DT9YQK4FMM50B",
+        "revision": 1,
+        "hash": "c24d4c74d79c48c07f390ad89677c2694579615cdd71fbf4d028ec7903617d88"
+      }
+    },
+    "duration_frames": 2689,
+    "ops": [
+      {
+        "op": "move",
+        "clip_id": "clip_sp_001",
+        "start_frame": 33
+      }
+    ],
+    "scenes": [
+      {
+        "item": "sp_001",
+        "version": 1,
+        "start": 33,
+        "len": 285,
+        "mode": "overlay",
+        "anchors": [
+          "TCP@105",
+          "SYNC@275",
+          "ASK@306"
+        ]
+      },
+      {
+        "item": "sp_002",
+        "version": 1,
+        "start": 659,
+        "len": 224,
+        "mode": "fullscreen",
+        "anchors": [
+          "sleep@777",
+          "2@827",
+          "uppercase@843"
+        ]
+      },
+      {
+        "item": "sp_003",
+        "version": 1,
+        "start": 1284,
+        "len": 270,
+        "mode": "overlay",
+        "anchors": [
+          "пинг@1340",
+          "pong@1497"
+        ]
+      }
+    ],
+    "excluded": [],
+    "issues": []
+  },
+  {
+    "revision": 3,
+    "parent": 2,
+    "created_at": "2026-10-27T16:34:53.532Z",
+    "inputs": {
+      "media_sha256": "83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01",
+      "edl": {
+        "id": "edl_01M5Z13X6NGSADFYGCHHTMFPP8",
+        "revision": 9,
+        "hash": "48dbbd49b00054dcefbd1d0c4a054257ae53ea8649af429a63758f45ed580cc3"
+      },
+      "plan": {
+        "id": "pln_01M5Z17JQB173X3NZF1VX1DQX6",
+        "revision": 8,
+        "hash": "feeda2c6878bcee677b0bc4691c146abf7bc0882531775b2561a56e8f9eb1570"
+      },
+      "style": {
+        "id": "sty_01M5Z188RP9K5DT9YQK4FMM50B",
+        "revision": 1,
+        "hash": "c24d4c74d79c48c07f390ad89677c2694579615cdd71fbf4d028ec7903617d88"
+      }
+    },
+    "duration_frames": 2689,
+    "ops": [
+      {
+        "op": "move",
+        "clip_id": "clip_sp_001",
+        "start_frame": 33
+      }
+    ],
+    "scenes": [
+      {
+        "item": "sp_001",
+        "version": 1,
+        "start": 33,
+        "len": 285,
+        "mode": "overlay",
+        "anchors": [
+          "TCP@105",
+          "SYNC@275",
+          "ASK@306"
+        ]
+      },
+      {
+        "item": "sp_002",
+        "version": 1,
+        "start": 659,
+        "len": 224,
+        "mode": "fullscreen",
+        "anchors": [
+          "sleep@777",
+          "2@827",
+          "uppercase@843"
+        ]
+      },
+      {
+        "item": "sp_003",
+        "version": 2,
+        "start": 1284,
+        "len": 417,
+        "mode": "overlay",
+        "anchors": [
+          "пинг@1340",
+          "pong@1497"
+        ]
+      }
+    ],
+    "excluded": [],
+    "issues": []
+  },
+  {
+    "revision": 4,
+    "parent": 3,
+    "created_at": "2026-10-27T17:12:08.966Z",
+    "inputs": {
+      "media_sha256": "83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01",
+      "edl": {
+        "id": "edl_01M5Z13X6NGSADFYGCHHTMFPP8",
+        "revision": 9,
+        "hash": "48dbbd49b00054dcefbd1d0c4a054257ae53ea8649af429a63758f45ed580cc3"
+      },
+      "plan": {
+        "id": "pln_01M5Z17JQB173X3NZF1VX1DQX6",
+        "revision": 8,
+        "hash": "feeda2c6878bcee677b0bc4691c146abf7bc0882531775b2561a56e8f9eb1570"
+      },
+      "style": {
+        "id": "sty_01M5Z188RP9K5DT9YQK4FMM50B",
+        "revision": 1,
+        "hash": "c24d4c74d79c48c07f390ad89677c2694579615cdd71fbf4d028ec7903617d88"
+      }
+    },
+    "duration_frames": 2689,
+    "ops": [
+      {
+        "op": "move",
+        "clip_id": "clip_sp_001",
+        "start_frame": 33
+      },
+      {
+        "op": "move",
+        "clip_id": "clip_sp_001",
+        "start_frame": 40
+      }
+    ],
+    "scenes": [
+      {
+        "item": "sp_001",
+        "version": 1,
+        "start": 40,
+        "len": 285,
+        "mode": "overlay",
+        "anchors": [
+          "TCP@105",
+          "SYNC@275",
+          "ASK@306"
+        ]
+      },
+      {
+        "item": "sp_002",
+        "version": 1,
+        "start": 659,
+        "len": 224,
+        "mode": "fullscreen",
+        "anchors": [
+          "sleep@777",
+          "2@827",
+          "uppercase@843"
+        ]
+      },
+      {
+        "item": "sp_003",
+        "version": 2,
+        "start": 1284,
+        "len": 417,
+        "mode": "overlay",
+        "anchors": [
+          "пинг@1340",
+          "pong@1497"
+        ]
+      }
+    ],
+    "excluded": [],
+    "issues": []
+  }
+]

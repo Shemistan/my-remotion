@@ -1,0 +1,148 @@
+{
+  "probe": [],
+  "duration": {
+    "expected_frames": 2241,
+    "actual_us": 89640000,
+    "delta_frames": 0
+  },
+  "sync": [
+    {
+      "word_id": "w_000005",
+      "offset_us": 0,
+      "corr": 1,
+      "energy": true
+    },
+    {
+      "word_id": "w_000014",
+      "offset_us": 0,
+      "corr": 1,
+      "energy": true
+    },
+    {
+      "word_id": "w_000016",
+      "offset_us": 0,
+      "corr": 1,
+      "energy": true
+    },
+    {
+      "word_id": "w_000052",
+      "offset_us": 0,
+      "corr": 0.99,
+      "energy": true
+    },
+    {
+      "word_id": "w_000054",
+      "offset_us": 0,
+      "corr": 0.995,
+      "energy": true
+    }
+  ],
+  "frames": [
+    {
+      "frame": 182,
+      "kind": "scene",
+      "clip_id": "clip_sp_001",
+      "psnr_db": 39.4,
+      "offset": 0,
+      "psnr_u_db": 48.71,
+      "psnr_v_db": 42.94
+    },
+    {
+      "frame": 431,
+      "kind": "source",
+      "psnr_db": 40.83,
+      "offset": 0,
+      "psnr_u_db": 50.41,
+      "psnr_v_db": 45.42
+    },
+    {
+      "frame": 771,
+      "kind": "scene",
+      "clip_id": "clip_sp_002",
+      "psnr_db": 40.36,
+      "offset": 0,
+      "psnr_u_db": 49.14,
+      "psnr_v_db": 43.75
+    },
+    {
+      "frame": 949,
+      "kind": "source",
+      "psnr_db": 40.66,
+      "offset": -2,
+      "psnr_u_db": 50.63,
+      "psnr_v_db": 45.72
+    },
+    {
+      "frame": 1243,
+      "kind": "source",
+      "psnr_db": 40.77,
+      "offset": -2,
+      "psnr_u_db": 50.87,
+      "psnr_v_db": 46.07
+    },
+    {
+      "frame": 1492,
+      "kind": "scene",
+      "clip_id": "clip_sp_003",
+      "psnr_db": 40,
+      "offset": 0,
+      "psnr_u_db": 48.89,
+      "psnr_v_db": 44.75
+    },
+    {
+      "frame": 1954,
+      "kind": "source",
+      "psnr_db": 40.73,
+      "offset": -2,
+      "psnr_u_db": 50.81,
+      "psnr_v_db": 46.02
+    },
+    {
+      "frame": 2248,
+      "kind": "source",
+      "psnr_db": 40.54,
+      "offset": -2,
+      "psnr_u_db": 50.82,
+      "psnr_v_db": 45.83
+    },
+    {
+      "frame": 2542,
+      "kind": "source",
+      "psnr_db": 40.84,
+      "offset": -1,
+      "psnr_u_db": 50.71,
+      "psnr_v_db": 46.04
+    }
+  ],
+  "loudness": {
+    "source_lufs": -31,
+    "final_lufs": -31,
+    "delta_lu": 0,
+    "final_peak_db": -10.5,
+    "source_peak_db": -10.5
+  },
+  "verdict": "fail",
+  "failures": [
+    "frames"
+  ],
+  "sync_check": {
+    "status": "ok",
+    "message": "надёжных замеров 5 из 5 со звуком"
+  },
+  "color_matrix": "bt709",
+  "channels": {
+    "source_channels": 2,
+    "final_channels": 2,
+    "mode": "stereo",
+    "corr_left": 1,
+    "corr_right": 1,
+    "lag_ms": 0,
+    "ok": true,
+    "message": "каналы финала совпадают с каналами смонтированного звука попарно"
+  },
+  "color_tags": {
+    "color_space": "bt709",
+    "color_primaries": "bt709",
+    "color_transfer": "bt709"
+  }
+}

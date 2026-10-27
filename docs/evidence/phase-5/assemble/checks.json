@@ -1,0 +1,107 @@
+[
+  {
+    "id": "1.1",
+    "title": "r1: клип на каждую сцену с C, без исключённых, якоря есть, blocking нет",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"clips\":[{\"item\":\"sp_001\",\"start\":56,\"len\":285,\"mode\":\"overlay\",\"anchors\":[\"TCP@105\",\"SYNC@275\",\"ASK@306\"]},{\"item\":\"sp_002\",\"start\":659,\"len\":224,\"mode\":\"fullscreen\",\"anchors\":[\"sleep@777\",\"2@827\",\"uppercase@843\"]},{\"item\":\"sp_003\",\"start\":1284,\"len\":270,\"mode\":\"overlay\",\"anchors\":[\"пинг@1340\",\"pong@1497\"]}],\"excluded\":[],\"issues\":[]}"
+  },
+  {
+    "id": "1.2",
+    "title": "сдвиг мышью ≈ 10 кадров (1 ≤ |Δ| ≤ 20), длина та же, op move",
+    "kind": "A",
+    "pass": false,
+    "detail": "{\"from\":56,\"to\":33,\"delta\":-23,\"ops\":[{\"op\":\"move\",\"clip_id\":\"clip_sp_001\",\"start_frame\":33}]}"
+  },
+  {
+    "id": "1.3",
+    "title": "прилипание: начало сцены — на начале слова таймлайна",
+    "kind": "A",
+    "pass": false,
+    "detail": "{\"start\":33,\"near\":[40]}"
+  },
+  {
+    "id": "1.4",
+    "title": "после сдвига якоря внутри сцены, blocking нет",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"anchors\":[{\"word_id\":\"w_000005\",\"text\":\"TCP\",\"frame\":105},{\"word_id\":\"w_000014\",\"text\":\"SYNC\",\"frame\":275},{\"word_id\":\"w_000016\",\"text\":\"ASK\",\"frame\":306}],\"issues\":[]}"
+  },
+  {
+    "id": "1.5",
+    "title": "границы сцены изменены новой ревизией плана, B на ней, сцена stale, прочие — нет",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"item\":\"sp_003\",\"patch\":{\"end_word_id\":\"w_000107\"},\"frames\":{\"from\":{\"start\":1284,\"end\":1554},\"to\":{\"start\":1284,\"end\":1701}},\"revision\":8,\"tried\":[{\"patch\":{\"end_word_id\":\"w_000107\"},\"status\":201}],\"b\":{\"state\":\"valid\",\"ref\":\"plan:pln_01M5Z17JQB173X3NZF1VX1DQX6@r8\"}}"
+  },
+  {
+    "id": "1.6",
+    "title": "перегенерация: версия ready с новой плановой длиной, не stale",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"ready\",\"stale\":false,\"version\":2,\"frames\":417,\"plan\":417}"
+  },
+  {
+    "id": "1.7",
+    "title": "таймлайн устарел: plan_changed / version_changed, баннер виден",
+    "kind": "A",
+    "pass": true,
+    "detail": "[\"plan_changed\",\"approval_stale\"]"
+  },
+  {
+    "id": "1.8",
+    "title": "r3: сдвиг первой сцены перенесён (смещение от якоря то же), вторая — новая длина и версия, свежий, blocking нет",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"moved\":{\"r2\":33,\"r3\":33,\"off2\":-72,\"off3\":-72},\"bounds\":{\"len\":417,\"plan\":417,\"version\":2},\"issues\":[]}"
+  },
+  {
+    "id": "1.9",
+    "title": "превью: длительность = duration_frames / fps ± 1 кадр, звук есть",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"video_s\":\"89.633333\",\"expected_s\":89.63333333333334,\"frames\":2689,\"frame_s\":0.03333333333333333,\"size\":[960,540]}"
+  },
+  {
+    "id": "1.10",
+    "title": "[H→агент] Apple Vision: на кадрах прозрачных сцен лицо автора видно (графика лицо не закрывает)",
+    "kind": "A",
+    "pass": true,
+    "detail": "[{\"item\":\"sp_001\",\"placement\":\"overlay\",\"tag\":\"mid\",\"frame\":175,\"faces\":[{\"confidence\":0.9046321511268616,\"h\":0.3178911805152893,\"w\":0.17881378531455994,\"x\":0.413288950920105,\"y\":0.3655252456665039}]},{\"item\":\"sp_001\",\"placement\":\"overlay\",\"tag\":\"keyword\",\"frame\":105,\"faces\":[{\"confidence\":0.9212126731872559,\"h\":0.326496958732605,\"w\":0.1836545467376709,\"x\":0.41922420263290405,\"y\":0.3435421288013458}]},{\"item\":\"sp_002\",\"placement\":\"fullscreen\",\"tag\":\"mid\",\"frame\":771,\"faces\":[]},{\"item\":\"sp_002\",\"placement\":\"fullscreen\",\"tag\":\"keyword\",\"frame\":777,\"faces\":[]},{\"item\":\"sp_003\",\"placement\":\"overlay\",\"tag\":\"mid\",\"frame\":1492,\"faces\":[{\"confidence\":0.8981317281723022,\"h\":0.3115749955177307,\"w\":0.17526094615459442,\"x\":0.41013863682746887,\"y\":0.40014591813087463}]},{\"item\":\"sp_003\",\"placement\":\"overlay\",\"tag\":\"keyword\",\"frame\":1340,\"faces\":[{\"confidence\":0.8825013041496277,\"h\":0.30830952525138855,\"w\":0.17342409491539001,\"x\":0.4160999655723572,\"y\":0.3990539014339447}]}]"
+  },
+  {
+    "id": "1.H",
+    "title": "просмотр превью целиком: сцены в нужные моменты, лицо не закрыто — человеку (MP4 в examples)",
+    "kind": "H",
+    "pass": true,
+    "detail": "{\"preview\":\"/api/timelines/tl_prj_01M5Z12FF1CBJVDM13HPX7QNB0/revisions/3/preview.mp4\",\"local_copy\":\"examples/phase5/46-приёмка/\"}"
+  },
+  {
+    "id": "1.2b",
+    "title": "повтор: сдвиг мышью ≈ 10 кадров (4 ≤ |Δ| ≤ 14), длина та же, op move (r3 → r4)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"from\":33,\"to\":40,\"delta\":7,\"tried\":[{\"target_word_frame\":40,\"release_frame\":38,\"dx_px\":35.16548902937895,\"revision\":4,\"start\":40,\"blocking\":[]}],\"ops\":[{\"op\":\"move\",\"clip_id\":\"clip_sp_001\",\"start_frame\":33},{\"op\":\"move\",\"clip_id\":\"clip_sp_001\",\"start_frame\":40}]}"
+  },
+  {
+    "id": "1.3b",
+    "title": "повтор: прилипание — отпущено в 2 кадрах от слова, начало сцены ровно на начале слова",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"start\":40,\"release\":38,\"near\":[40]}"
+  },
+  {
+    "id": "1.4b",
+    "title": "повтор: якоря внутри сцены, blocking нет, таймлайн свежий",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"anchors\":[{\"word_id\":\"w_000005\",\"text\":\"TCP\",\"frame\":105},{\"word_id\":\"w_000014\",\"text\":\"SYNC\",\"frame\":275},{\"word_id\":\"w_000016\",\"text\":\"ASK\",\"frame\":306}],\"issues\":[]}"
+  },
+  {
+    "id": "1.9b",
+    "title": "превью r4: длительность = duration_frames / fps ± 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"video_s\":\"89.633333\",\"expected_s\":89.63333333333334}"
+  }
+]

@@ -1,0 +1,57 @@
+{
+  "reproduced_from": "fin_01M5Z5NWVWRW9KEATJ7XXAPSDS",
+  "inputs_equal": true,
+  "probe_equal": true,
+  "frames": [
+    {
+      "frame": 112,
+      "psnr_db": 99
+    },
+    {
+      "frame": 336,
+      "psnr_db": 99
+    },
+    {
+      "frame": 560,
+      "psnr_db": 99
+    },
+    {
+      "frame": 784,
+      "psnr_db": 99
+    },
+    {
+      "frame": 1008,
+      "psnr_db": 99
+    },
+    {
+      "frame": 1232,
+      "psnr_db": 99
+    },
+    {
+      "frame": 1456,
+      "psnr_db": 99
+    },
+    {
+      "frame": 1680,
+      "psnr_db": 99
+    },
+    {
+      "frame": 1904,
+      "psnr_db": 99
+    },
+    {
+      "frame": 2128,
+      "psnr_db": 99
+    },
+    {
+      "frame": 2352,
+      "psnr_db": 99
+    },
+    {
+      "frame": 2576,
+      "psnr_db": 99
+    }
+  ],
+  "file_sha256_equal": true,
+  "verdict": "reproduced"
+}

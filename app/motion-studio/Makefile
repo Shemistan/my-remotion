@@ -3,7 +3,7 @@
 NODE := ./scripts/with-node.sh
 VISION_BIN := tools/vision-detect/bin/vision-detect
 
-.PHONY: check lint typecheck test e2e e2e-footage e2e-ui acceptance acceptance-video acceptance-script acceptance-video-scenes web-build install
+.PHONY: check lint typecheck test e2e e2e-footage e2e-ui acceptance acceptance-video acceptance-script acceptance-video-scenes acceptance-final web-build install
 
 check: lint typecheck test
 
@@ -90,3 +90,12 @@ acceptance-script: web-build
 # examples/phase4/41-приёмка/ папки материалов.
 acceptance-video-scenes: web-build
 	$(NODE) npx playwright test -c web/playwright.acceptance-video-scenes.config.ts
+
+# Приёмка Phase 5 и Test 4 (Task 46): таймлайн и финал на реальном ролике через UI — сервер на
+# 127.0.0.1:8796 (MS_ACC_PORT), хранилище материалов acceptance/phase5 (клон APFS acceptance/phase4, если
+# его нет; на источнике не должно быть сервера), копия-вырезка 116 с IMG_0685.MOV в acceptance/phase5-src,
+# реальные claude, ASR, рендер, ffmpeg. Долго (≈ 2–4 ч). Продолжить: MS_ACC_REUSE=1
+# MS_ACC_ONLY=<prepare,assemble,export,reproduce,resilience,test4>. Evidence — docs/evidence/phase-5/,
+# примеры человеку — examples/phase5/46-приёмка/ папки материалов.
+acceptance-final: web-build
+	$(NODE) npx playwright test -c web/playwright.acceptance-final.config.ts

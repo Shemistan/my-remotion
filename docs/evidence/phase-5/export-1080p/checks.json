@@ -1,0 +1,72 @@
+[
+  {
+    "id": "2.0",
+    "title": "задача final.render завершена",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"completed\",\"error\":null,\"attempt\":1}"
+  },
+  {
+    "id": "2.1",
+    "title": "экспорт ready, verify.verdict = pass, failures пусто",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"status\":\"ready\",\"verdict\":\"pass\",\"failures\":[],\"probe\":[]}"
+  },
+  {
+    "id": "2.2",
+    "title": "размер и fps выхода",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"output\":{\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1},\"frames\":2689},\"want\":{\"width\":1920,\"height\":1080,\"fps\":{\"num\":30,\"den\":1}}}"
+  },
+  {
+    "id": "2.3",
+    "title": "длительность: |Δ| ≤ 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"expected_frames\":2689,\"actual_us\":89633333,\"delta_frames\":0}"
+  },
+  {
+    "id": "2.4",
+    "title": "синхронность: ≥ 5 контрольных слов, |смещение| ≤ 1 кадр",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"frame_us\":33334,\"sync\":[{\"word_id\":\"w_000005\",\"offset_us\":0,\"corr\":1,\"energy\":true},{\"word_id\":\"w_000014\",\"offset_us\":0,\"corr\":1,\"energy\":true},{\"word_id\":\"w_000016\",\"offset_us\":0,\"corr\":1,\"energy\":true},{\"word_id\":\"w_000052\",\"offset_us\":0,\"corr\":0.99,\"energy\":true},{\"word_id\":\"w_000054\",\"offset_us\":0,\"corr\":0.995,\"energy\":true}],\"sync_check\":{\"status\":\"ok\",\"message\":\"надёжных замеров 5 из 5 со звуком\"}}"
+  },
+  {
+    "id": "2.5",
+    "title": "кадры: 9 по выборке (6 вне сцен + середины сцен), смещение 0 или inconclusive, PSNR ≥ 30 дБ",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"n\":9,\"min_psnr\":41.26,\"offsets\":[0,0,0,0,0,0,0,0,0],\"kinds\":[\"scene\",\"source\",\"scene\",\"source\",\"source\",\"scene\",\"source\",\"source\",\"source\"]}"
+  },
+  {
+    "id": "2.6",
+    "title": "громкость: |ΔLU| ≤ 0,5",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"source_lufs\":-31,\"final_lufs\":-31,\"delta_lu\":0,\"final_peak_db\":-10.5,\"source_peak_db\":-10.5}"
+  },
+  {
+    "id": "2.7",
+    "title": "файл: H.264 yuv420p + AAC 48 кГц; манифест по схеме FinalManifestSchema",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"video\":{\"codec\":\"h264\",\"pix\":\"yuv420p\",\"w\":1920,\"h\":1080,\"r\":\"30/1\"},\"audio\":{\"codec\":\"aac\",\"sr\":\"48000\",\"ch\":2},\"manifest\":true}"
+  },
+  {
+    "id": "2.8",
+    "title": "исходник проекта (копия в хранилище) и копия-вырезка не изменены (sha256)",
+    "kind": "A",
+    "pass": true,
+    "detail": "{\"asset\":\"83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01\",\"in_store\":\"83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01\",\"cut\":\"83cfc9e93dcb73102cbd484235837154ddccfb400b3e81d6c97b18148f401d01\"}"
+  },
+  {
+    "id": "2.H",
+    "title": "финал целиком: без щелчков на склейках, речь синхронна губам — человеку",
+    "kind": "H",
+    "pass": true,
+    "detail": "examples/phase5/46-приёмка/final-1080p-timeline-fps-standard.mp4"
+  }
+]

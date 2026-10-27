@@ -1,0 +1,88 @@
+{
+  "revision": 7,
+  "accepted": [
+    {
+      "id": "sp_001",
+      "mode": "overlay",
+      "zone": "left_third",
+      "frames": {
+        "start": 56,
+        "end": 341
+      },
+      "key_terms": [
+        {
+          "text": "TCP",
+          "word_id": "w_000005",
+          "edited_at_us": 3500000
+        },
+        {
+          "text": "SYNC",
+          "word_id": "w_000014",
+          "edited_at_us": 9180000
+        },
+        {
+          "text": "ASK",
+          "word_id": "w_000016",
+          "edited_at_us": 10200000
+        }
+      ],
+      "face": {
+        "ratio": 0
+      }
+    },
+    {
+      "id": "sp_002",
+      "mode": "fullscreen",
+      "zone": "full",
+      "frames": {
+        "start": 659,
+        "end": 883
+      },
+      "key_terms": [
+        {
+          "text": "sleep",
+          "word_id": "w_000052",
+          "edited_at_us": 25933333
+        },
+        {
+          "text": "2",
+          "word_id": "w_000054",
+          "edited_at_us": 27593333
+        },
+        {
+          "text": "uppercase",
+          "word_id": "w_000056",
+          "edited_at_us": 28113333
+        }
+      ],
+      "face": {
+        "ratio": 1
+      }
+    },
+    {
+      "id": "sp_003",
+      "mode": "overlay",
+      "zone": "left_third",
+      "frames": {
+        "start": 1284,
+        "end": 1554
+      },
+      "key_terms": [
+        {
+          "text": "пинг",
+          "word_id": "w_000087",
+          "edited_at_us": 44679999
+        },
+        {
+          "text": "pong",
+          "word_id": "w_000097",
+          "edited_at_us": 49919999
+        }
+      ],
+      "face": {
+        "ratio": 0
+      }
+    }
+  ],
+  "issues": []
+}
