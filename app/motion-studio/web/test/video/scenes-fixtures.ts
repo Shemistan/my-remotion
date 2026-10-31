@@ -30,6 +30,7 @@ export function vscene(item: string, status: VideoSceneDto["status"], over: Part
     approved_version_number: null,
     queue: null,
     qa_warnings: [],
+    qa_overall: null,
     context_preview: null,
     ...over,
   };

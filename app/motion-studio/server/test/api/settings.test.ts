@@ -19,7 +19,7 @@ it("GET /settings — действующие настройки с умолча�
   const r = await api.inj("GET", "/api/settings", getHeaders);
   expect(r.statusCode).toBe(200);
   const s = AppSettingsDtoSchema.parse(r.json());
-  expect(s.limits).toEqual({ maxRunning: 5, agentCalls: 10, renders: 3, exportTimeoutMs: 1_800_000 });
+  expect(s.limits).toEqual({ maxRunning: 16, agentCalls: 16, renders: 4, exportTimeoutMs: 1_800_000 });
   expect(s.defaults).toEqual(defaultSettings());
   expect(s.agents.engineer).toMatchObject({ model: "opus" });
 });
@@ -27,7 +27,7 @@ it("GET /settings — действующие настройки с умолча�
 it("PUT /settings: limits и defaults → 200 и в config.json; неизвестный ключ → 400; модель роли видна в GET", async () => {
   const a = await api.inj("PUT", "/api/settings", okHeaders, { limits: { maxRunning: 1 } });
   expect(a.statusCode).toBe(200);
-  expect(a.json().limits).toMatchObject({ maxRunning: 1, agentCalls: 10 });
+  expect(a.json().limits).toMatchObject({ maxRunning: 1, agentCalls: 16 });
   const d = { ...defaultSettings(), duration_frames: 240 };
   expect((await api.inj("PUT", "/api/settings", okHeaders, { defaults: d })).statusCode).toBe(200);
   // слияние: прежние limits сохранились
@@ -46,7 +46,7 @@ it("PUT /settings: limits и defaults → 200 и в config.json; неизвес�
   // неудачный PUT файл не трогает
   expect(file().agents).toEqual({ engineer: { model: "sonnet" } });
   // ядро живёт со старыми лимитами до перезапуска
-  expect(api.core.config.limits.maxRunning).toBe(5);
+  expect(api.core.config.limits.maxRunning).toBe(16);
 });
 
 it("PUT /settings сохраняет ключи файла, которых нет в теле (secondTake, claudeBin)", async () => {

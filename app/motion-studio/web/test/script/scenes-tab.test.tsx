@@ -21,8 +21,27 @@ const routes = () => [
   on("GET", /\/api\/jobs\//, { job: job({ id: "job_2", status: "running" }), events: [], processes: [] }),
   okBatch("/api/projects/p1/script/generate"),
   okBatch("/api/projects/p1/script/reframe"),
+  on("POST", "/api/scenes/sc_1/improve", { job: job({ id: "job_improve", type: "playground.edit", scene_id: "sc_1", status: "pending" }) }, 202),
   okBatch("/api/script-batches/sb_1/cancel"),
 ];
+
+it("оценка показывает кнопку «Улучшить»; без оценки кнопки нет", async () => {
+  const s = outState();
+  s.scenes[0] = { ...s.scenes[0]!, qa_overall: 5.5 };
+  const { calls } = fakeFetch(routes());
+  const view = renderQ(<ScenesTab state={s} />);
+  const first = within(tiles()[0]!);
+  expect(first.getByText(t("scriptOutput.score", { score: 5.5 }))).toBeTruthy();
+  fireEvent.click(first.getByRole("button", { name: t("scriptOutput.improve") }));
+  await waitFor(() => expect(posts(calls, "/api/scenes/sc_1/improve")).toHaveLength(1));
+  expect(posts(calls, "/api/scenes/sc_1/improve")[0]!.body).toEqual({ base_version_id: "ver_1" });
+  view.unmount();
+
+  const without = outState();
+  fakeFetch(routes());
+  renderQ(<ScenesTab state={without} />);
+  expect(within(tiles()[0]!).queryByRole("button", { name: t("scriptOutput.improve") })).toBeNull();
+});
 
 it("пакет из 3 сцен (ready, running, failed) → плитки по порядку плана; ready — плеер и «Доработать», failed — «Повторить»", async () => {
   const { calls } = fakeFetch(routes());

@@ -125,6 +125,8 @@ export const ScriptSceneDtoSchema = z.object({
   status: ScriptItemStatusSchema,
   /** Замечания QA уровня warning текущей версии. */
   qa_warnings: z.array(QAIssueSchema),
+  /** Итоговая оценка Visual QA текущей версии; у старых версий её нет. */
+  qa_overall: z.number().min(1).max(10).nullable(),
   /** Предупреждения разнообразия пакета (`packageDiversity` → `warningsForState`). */
   warnings: z.array(PlanIssueSchema),
   /** Отпечаток сцены плана изменился после генерации: версия не по текущему плану. */

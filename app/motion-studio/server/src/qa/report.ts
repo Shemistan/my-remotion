@@ -20,6 +20,7 @@ export function mergeQA(parts: { technical: QAIssue[]; programmatic: QAIssue[]; 
     checked_frames: agent?.checked_frames ?? [],
     ocr: agent?.ocr ?? [],
     ...(agent?.scores ? { scores: agent.scores } : {}),
+    ...(agent?.score_notes ? { score_notes: agent.score_notes } : {}),
     automated: true,
   };
 }

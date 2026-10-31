@@ -19,7 +19,7 @@ import type {
   ScriptStateDto,
 } from "@ms/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { newKey, request } from "./client.js";
+import { api, newKey, request } from "./client.js";
 import { isActive } from "./queries.js";
 
 const enc = encodeURIComponent;
@@ -107,6 +107,8 @@ export const useGenerate = (projectId: string) =>
 export const useCancelBatch = (projectId: string) => useScriptMutation(projectId, (batchId: string) => scriptApi.cancelBatch(batchId));
 export const useReframe = (projectId: string) =>
   useScriptMutation(projectId, ({ body, key }: { body: ReframeBody; key: string }) => scriptApi.reframe(projectId, body, key));
+export const useImproveScriptScene = (projectId: string) =>
+  useScriptMutation(projectId, ({ sceneId, versionId }: { sceneId: string; versionId: string }) => api.improve(sceneId, { base_version_id: versionId }));
 export const useBuildPackage = (projectId: string) =>
   useScriptMutation(projectId, ({ aspect, key }: { aspect: Aspect; key: string }) => scriptApi.buildPackage(projectId, { aspect }, key));
 export const useReveal = () => useMutation({ mutationFn: (packageId: string) => scriptApi.reveal(packageId) });

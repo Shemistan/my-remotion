@@ -1,6 +1,6 @@
-// Утренний отчёт ночи `tmp/night/<дата>/REPORT.md` (по-русски): окно и бюджет, базовая линия,
+// Отчёт прогона `tmp/night/<ключ>/REPORT.md` (по-русски): окно и бюджет, базовая линия,
 // итерации с цифрами до/после по обоим наборам и по критериям рубрики, коммиты, блоки прав,
-// ролики, что делать утром. Пересобирается после каждого шага ночи.
+// ролики, что делать после прогона. Пересобирается после каждого шага.
 import { existsSync, readFileSync } from "node:fs";
 import { CRITERIA } from "./metrics.js";
 import type { BenchScores } from "./night-accept.js";
@@ -25,12 +25,13 @@ function meanOf(path: string): string {
 export function nightReport(st: NightState, o: { examplesDir: string }): string {
   const agentUsd = st.iterations.reduce((a, i) => a + (i.agent?.cost_usd ?? 0), 0);
   const benchUsd = Object.values(st.bench_cost).reduce((a, b) => a + b, 0);
+  const noWindow = new Date(st.until).getTime() - new Date(st.created_at).getTime() > 7 * 24 * 3600_000;
   const L: string[] = [
-    `# Ночь ${st.date}${st.smoke ? " (smoke: 2 + 2 сцены)" : ""}`,
+    `# Прогон цикла качества ${st.date}${st.smoke ? " (smoke: 2 + 2 сцены)" : ""}`,
     "",
     `Источник: \`${st.source.branch}\` @ \`${st.source.commit.slice(0, 7)}\`. Принятое: \`${st.branch}\` @ \`${st.accepted_commit.slice(0, 7)}\`. Worktree: \`${st.worktree}\`.`,
-    `Окно до ${loc(st.until)} (местное), бюджет $${st.budget_usd}, потрачено **$${st.spent_usd.toFixed(2)}** (агенты $${agentUsd.toFixed(2)}, bench $${benchUsd.toFixed(2)}).`,
-    st.stop ? `Ночь остановлена ${loc(st.stop.at)}: **${st.stop.reason}**.` : "Ночь идёт.",
+    `${noWindow ? "Окно не задано — стоп по бюджету и бэклогу" : `Окно до ${loc(st.until)} (местное)`}, бюджет $${st.budget_usd}, потрачено **$${st.spent_usd.toFixed(2)}** (агенты $${agentUsd.toFixed(2)}, bench $${benchUsd.toFixed(2)}).`,
+    st.stop ? `Прогон остановлен ${loc(st.stop.at)}: **${st.stop.reason}**.` : "Прогон идёт.",
     "",
     "## Базовая линия",
     "",
@@ -68,7 +69,7 @@ export function nightReport(st: NightState, o: { examplesDir: string }): string 
       if (it.confirm) L.push(`- подтверждающий прогон: \`tmp/bench/${it.confirm.runs.explainer}\`, \`tmp/bench/${it.confirm.runs.user}\`; решение — по среднему двух прогонов${fm?.explainer ? ` (первый прогон: explainer ${sg(fm.explainer.delta)}${fm.user ? `, user ${sg(fm.user.delta)}` : ""})` : ""}${it.confirm.error ? `; ошибка: ${it.confirm.error}` : ""}`);
       L.push(`- ветка \`${it.branch}\` от \`${it.start_commit.slice(0, 7)}\`${it.head_commit ? `, голова \`${it.head_commit.slice(0, 7)}\`` : ""}; коммиты агента: ${it.commits?.length ? "" : "нет"}`);
       for (const c of it.commits ?? []) L.push(`  - ${c}`);
-      if (it.bench) L.push(`- bench: \`tmp/bench/${it.bench.runs.explainer}\`, \`tmp/bench/${it.bench.runs.user}\` (в worktree ночи)${it.bench.error ? `; ошибка: ${it.bench.error}` : ""}`);
+      if (it.bench) L.push(`- bench: \`tmp/bench/${it.bench.runs.explainer}\`, \`tmp/bench/${it.bench.runs.user}\` (в worktree цикла качества)${it.bench.error ? `; ошибка: ${it.bench.error}` : ""}`);
       if (it.agent) {
         const a = it.agent;
         L.push(`- агент: ${a.status}, $${a.cost_usd.toFixed(2)}, ${min(a.wall_ms)} мин${a.turns ? `, ходов ${a.turns}` : ""}${a.session_id ? `, сессия \`${a.session_id}\`` : ""}${it.limits ? ` (лимит ${min(it.limits.agent_ms)} мин, $${it.limits.agent_usd})` : ""}`);
@@ -76,7 +77,7 @@ export function nightReport(st: NightState, o: { examplesDir: string }): string 
         for (const d of a.denials.slice(0, 20)) L.push(`  - ${d}`);
         if (a.summary) L.push("- отчёт агента:", "", ...a.summary.slice(0, 2500).split("\n").map((l) => `  > ${l}`));
       }
-      // состояние ночей до перехода на патч (smoke 2026-10-23): там sha записи stash
+      // состояние старых прогонов до перехода на патч (smoke 2026-10-23): там sha записи stash
       if (typeof it.leftover === "string") L.push(`- незакоммиченные правки агента — в stash: \`${it.leftover as string}\` (смотреть \`git stash show -p <sha>\`, не pop)`);
       else if (it.leftover) L.push(`- незакоммиченные правки агента: ${it.leftover.patch ? `\`${it.leftover.dir}/wip.patch\` (применить: \`git apply --index <патч>\`)` : "патча нет"}${it.leftover.untracked.length ? `; неотслеживаемые файлы (${it.leftover.untracked.length}) — копии в \`${it.leftover.dir}/wip-untracked/\`` : ""}`);
       if (it.cleanup?.length) L.push(`- после агента погашено: ${it.cleanup.join("; ")}`);
@@ -88,14 +89,14 @@ export function nightReport(st: NightState, o: { examplesDir: string }): string 
   const accepted = st.iterations.filter((i) => i.outcome === "принято");
   L.push(
     "",
-    "## Утром",
+    "## После прогона",
     "",
     accepted.length
       ? `- Принято итераций: ${accepted.length} (${accepted.map((i) => i.item.id).join(", ")}). Ролики — \`${o.examplesDir}/night-${st.date}-<n>/\`.`
       : "- Принятых итераций нет.",
     `- Разбор: \`git log --oneline ${st.source.commit.slice(0, 7)}..${st.branch}\`; не принятые — ветки \`${st.branch}-<n>\` (не удалены).`,
     `- Влить после ревью: в ветке задачи \`${st.source.branch}\` — \`git merge --ff-only ${st.branch}\` (если ветка задачи ушла вперёд — обычный merge).`,
-    `- Продолжить эту ночь: \`./night --resume --date ${st.date}\`.`,
+    `- Продолжить этот прогон: \`./quality-loop --resume --run ${st.date}\`.`,
     "",
   );
   return L.join("\n");

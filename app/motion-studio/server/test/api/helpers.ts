@@ -87,7 +87,7 @@ export async function makeApi(opts: { boot?: Partial<BootOptions>; app?: Partial
 /** Проект + сцена + опубликованная ready-версия (превью `previewBytes` байт, кадр 0). */
 let seedJobs = 0;
 /** Готовая версия: в новой сцене или (`scene`) следующая версия существующей. */
-export async function seedVersion(api: Api, opts: { projectId?: string; previewBytes?: number; props?: unknown; scene?: { id: string } } = {}) {
+export async function seedVersion(api: Api, opts: { projectId?: string; previewBytes?: number; props?: unknown; qa?: unknown; scene?: { id: string } } = {}) {
   const { core } = api;
   const projectId = opts.projectId ?? "playground";
   if (!projects.get(core.db, projectId)) projects.create(core.db, { id: projectId, title: projectId });
@@ -95,7 +95,9 @@ export async function seedVersion(api: Api, opts: { projectId?: string; previewB
   const jobId = `job_seed_${scene.id}_${++seedJobs}`;
   jobs.insert(core.db, { id: jobId, type: "playground.generate", project_id: projectId, scene_id: scene.id, input: {}, status: "completed", attempt: 1 });
   const preview = "v".repeat(opts.previewBytes ?? 1000);
-  const draft = await makeDraft(core.root, { runId: jobId, attempt: 1, sceneId: scene.id, projectId }, { preview, ...(opts.props ? { props: opts.props } : {}) });
+  const draft = await makeDraft(core.root, { runId: jobId, attempt: 1, sceneId: scene.id, projectId }, {
+    preview, ...(opts.props ? { props: opts.props } : {}), ...(opts.qa !== undefined ? { qa: opts.qa } : {}),
+  });
   const v = await core.repo.publish(draft, meta(scene.id, {}, preview), { jobId, attempt: 1 });
   return { projectId, scene, versionId: v.versionId, dir: v.dir, preview };
 }

@@ -32,6 +32,8 @@ export interface AgentSettings {
  * `revise` — доработка лучшей попытки по трём слабым осям оценки с их кадрами;
  * `fresh` — новый дубль с другим кадрированием (archetype); `off` — без него.
  * `fixes` — исправлений технического gate и QA внутри второго дубля.
+ * По умолчанию `off` (2026-10-31): дорабатывать сцену решает человек кнопкой «Улучшить»
+ * (`POST /api/scenes/:id/improve`); технические исправления первого дубля остаются автоматическими.
  */
 export interface SecondTake {
   mode: "revise" | "fresh" | "off";
@@ -40,7 +42,7 @@ export interface SecondTake {
 }
 const SECOND_TAKE_MODES = ["revise", "fresh", "off"] as const;
 const SecondTakeSchema = z.object({ mode: z.enum(SECOND_TAKE_MODES), threshold: z.number().min(1).max(10), fixes: z.number().int().min(0).max(3) }).partial().strict();
-const SECOND_TAKE: SecondTake = { mode: "revise", threshold: 6.5, fixes: 1 };
+const SECOND_TAKE: SecondTake = { mode: "off", threshold: 6.5, fixes: 1 };
 
 /**
  * Лимиты раннера (`03` §8, M12): задач в работе, мест семафоров агентов и рендеров, таймаут
@@ -54,7 +56,7 @@ export interface Limits {
   exportTimeoutMs: number;
 }
 const LIMITS: Limits = { maxRunning: MAX_RUNNING, agentCalls: AGENT_CALLS, renders: RENDERS, exportTimeoutMs: EXPORT_TIMEOUT_MS };
-const Count = z.number().int().min(1).max(16);
+const Count = z.number().int().min(1).max(32);
 /** Потолок таймаута экспорта: 4 ч (по умолчанию 30 мин). */
 const EXPORT_TIMEOUT_MAX_MS = 4 * 60 * 60_000;
 const LimitsSchema = z.object({ maxRunning: Count, agentCalls: Count, renders: Count, exportTimeoutMs: z.number().int().min(10_000).max(EXPORT_TIMEOUT_MAX_MS) }).partial().strict();

@@ -46,6 +46,8 @@ export const ruScriptOutput = {
   "scriptOutput.refine": "Доработать в Playground",
   "scriptOutput.retry": "Повторить генерацию",
   "scriptOutput.regenerate": "Перегенерировать",
+  "scriptOutput.improve": "Улучшить",
+  "scriptOutput.score": "Оценка {score}/10",
   "scriptOutput.preview.none": "Превью появится после генерации",
   "scriptOutput.preview.pending": "Сцена ждёт очереди",
   "scriptOutput.preview.running": "Сцена генерируется…",

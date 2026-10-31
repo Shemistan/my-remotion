@@ -62,7 +62,7 @@ const API_PLAIN = [
   "empty_cut", "empty_ops", "empty_patch", "empty_range", "export_not_ready", "footage_missing", "fst_err_ctp_body_too_large", "generic",
   "idempotency_key_reused", "import_in_progress", "intent_expired", "invalid_text", "invalid_title", "item_stale",
   "items_unresolved", "job_not_awaiting_input", "job_not_retryable", "length_required", "media_exists", "media_invalid",
-  "media_not_found", "no_change", "no_current_version", "no_edl", "no_items", "no_media", "no_plan", "no_script", "no_style",
+  "media_not_found", "no_change", "no_current_version", "no_edl", "no_items", "no_media", "no_plan", "no_script", "no_scores", "no_style",
   "no_transcript", "no_versions", "not_found", "not_implemented", "not_script_project", "not_video_project", "nothing_to_fill",
   "order", "overlap", "overlay_mp4", "overlay_unsupported", "override_reason_required", "plan_exists", "plan_not_found", "project_archived", "project_deleted",
   "project_protected", "proposed_left", "purge_retry_forbidden", "quarantine_not_found", "quote_mismatch", "restore_conflict",

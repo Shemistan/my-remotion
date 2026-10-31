@@ -1,8 +1,12 @@
 // Сцена: история версий и активная задача; восстановление версии (`scene.restore`); кнопка
-// Render (`playground.edit` с готовым планом из патча настроек, без Edit Planner, H8).
+// Render и «Улучшить» (`playground.edit` с готовым планом, без Edit Planner, H8).
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   CreatedJobDtoSchema,
+  ImproveBodySchema,
   type Job,
+  QAReportSchema,
   RenderBodySchema,
   RestoreBodySchema,
   SceneDetailDtoSchema,
@@ -15,6 +19,7 @@ import * as scenes from "../../db/repos/scenes.js";
 import * as versions from "../../db/repos/versions.js";
 import { tx } from "../../db/tx.js";
 import { enqueue } from "../../jobs/queue.js";
+import { planFromQa } from "../../pipeline/improve-plan.js";
 import { planFromPatch } from "../../pipeline/playground-edit.js";
 import { versionHistoryDigest } from "../../scenes/history.js";
 import { type ApiContext, IdParams, type ZApp, idempotencyKey, replay } from "../context.js";
@@ -92,6 +97,44 @@ export function sceneRoutes(app: ZApp, { core }: ApiContext): void {
         throw new ApiError(400, "validation", issues.map((i) => `${i.path}: ${i.message}`).join("; "), { issues });
       }
       const input = { sceneId: scene.id, plan: planFromPatch(patch, base.id), settings_patch: patch };
+      return { status: 202 as const, job: enqueue(db, { type: "playground.edit", projectId: scene.project_id, sceneId: scene.id, input, idempotencyKey: key }).job };
+    });
+    return reply.status(out.status).send({ job: publicJob(out.job, core.root) });
+  });
+
+  app.post("/api/scenes/:id/improve", {
+    schema: { params: IdParams, body: ImproveBodySchema, response: { 200: CreatedJobDtoSchema, 202: CreatedJobDtoSchema } },
+  }, async (req, reply) => {
+    const key = idempotencyKey(req);
+    const db = core.db;
+    const asked = req.body.base_version_id;
+    const out = tx(db, () => {
+      const prev = replay(db, key, "playground.edit", (j) => {
+        const input = j.input as { sceneId?: string; plan?: { base_version_id?: string }; settings_patch?: unknown; messageId?: string } | null;
+        if (input?.sceneId !== req.params.id || !input.plan || input.settings_patch !== undefined || input.messageId !== undefined) return undefined;
+        if (asked !== undefined && input.plan.base_version_id !== asked) return undefined;
+        return input;
+      });
+      if (prev) return { status: 200 as const, job: prev };
+      const scene = sceneOr404(req.params.id);
+      if (!asked && !scene.current_version_id) {
+        throw new ApiError(409, "no_current_version", `у сцены ${scene.id} нет готовой версии — улучшать нечего`);
+      }
+      const baseId = asked ?? scene.current_version_id!;
+      const base = versions.get(db, baseId);
+      if (!base || base.scene_id !== scene.id) throw notFound(`версия ${baseId} сцены ${scene.id}`);
+      if (base.status !== "ready") throw new ApiError(409, "version_not_ready", `улучшать можно только ready-версию (v${base.number} — ${base.status})`);
+      let qa;
+      try {
+        const parsed = QAReportSchema.safeParse(JSON.parse(readFileSync(join(core.root, base.path, "qa.json"), "utf8")));
+        qa = parsed.success && parsed.data.scores ? parsed.data : undefined;
+      } catch {
+        qa = undefined;
+      }
+      if (!qa) {
+        throw new ApiError(409, "no_scores", "у версии нет оценки QA — улучшать не по чему, используйте Перегенерировать или Playground");
+      }
+      const input = { sceneId: scene.id, plan: planFromQa(qa, base.id) };
       return { status: 202 as const, job: enqueue(db, { type: "playground.edit", projectId: scene.project_id, sceneId: scene.id, input, idempotencyKey: key }).job };
     });
     return reply.status(out.status).send({ job: publicJob(out.job, core.root) });

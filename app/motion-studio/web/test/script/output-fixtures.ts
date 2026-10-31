@@ -16,7 +16,7 @@ export function scene(itemId: string, status: ScriptItemStatus, over: Partial<Sc
   return {
     item_id: itemId, aspect: "16:9", scene_id: `sc_${n}`, version_id: status === "ready" ? `ver_${n}` : null,
     job: js ? (job({ id: `job_${n}`, scene_id: `sc_${n}`, status: js, progress: status === "ready" ? 1 : 0.4, stage: "render", ...failed }) as ScriptSceneDto["job"]) : null,
-    status, qa_warnings: [], warnings: [], stale: false, ...over,
+    status, qa_warnings: [], qa_overall: null, warnings: [], stale: false, ...over,
   };
 }
 

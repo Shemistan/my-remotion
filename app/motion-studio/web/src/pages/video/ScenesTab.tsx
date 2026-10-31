@@ -7,7 +7,7 @@
 import type { VideoSceneDto, VideoSceneStatus } from "@ms/contracts";
 import { type ReactElement, useState } from "react";
 import {
-  skipReasonText, useCancelVideoBatch, useVideoGenerate, useVideoScenes, videoAllKey, videoBatchKey, videoReadySkipped, videoRetryKey,
+  skipReasonText, useCancelVideoBatch, useImproveVideoScene, useVideoGenerate, useVideoScenes, videoAllKey, videoBatchKey, videoReadySkipped, videoRetryKey,
 } from "../../api/video-scenes-client.js";
 import { BatchBar } from "../../components/script/BatchBar.js";
 import "../../components/script/script.css";
@@ -28,6 +28,7 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
   const hasPlan = data.plan !== null;
   const q = useVideoScenes(projectId, hasPlan);
   const generate = useVideoGenerate(projectId);
+  const improve = useImproveVideoScene(projectId);
   const cancel = useCancelVideoBatch(projectId);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   // ревью S21: пакет из 2+ сцен — инлайн-подтверждение (каждая сцена — платная генерация)
@@ -41,7 +42,7 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
   const revision = s.plan.revision;
   const bValid = s.approval_b.state === "valid";
   const numbers = new Map(s.scenes.map((x, i) => [x.item_id, i + 1]));
-  const busy = generate.isPending;
+  const busy = generate.isPending || improve.isPending;
   const latest = s.batches[0];
   // готовые сцены вне полного пакета — по состоянию (переживает смену вкладки и перезагрузку)
   const skipped = latest ? videoReadySkipped(latest, s) : [];
@@ -117,7 +118,7 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
         onConfirm={() => { confirm?.run(); setConfirm(null); }}
       />
       {latest ? <BatchBar projectId={projectId} batch={latest} readySkipped={skipped.length} cancel={cancel} cost={false} /> : null}
-      {generate.isError ? <VideoScenesError error={generate.error} /> : null}
+      {generate.isError || improve.isError ? <VideoScenesError error={generate.error ?? improve.error} /> : null}
       {skipped.length > 0 ? (
         <p className="muted small" data-testid="skipped">
           {t("videoScenes.skipped", { list: skipped.map((x) => t("videoScenes.skippedItem", { n: numbers.get(x.item_id) ?? "?", reason: skipReasonText(x.reason) })).join("; ") })}
@@ -128,6 +129,7 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
         {s.scenes.map((x, i) => {
           const canRetry = x.status === "failed" || x.status === "cancelled";
           const canRegen = x.status === "ready";
+          const canImprove = x.status === "ready" && x.qa_overall !== null && x.scene_id !== null && x.version_id !== null;
           return (
             <VideoSceneTile
               key={x.item_id}
@@ -137,6 +139,7 @@ export const ScenesTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
               busy={busy || !bValid}
               {...(canRetry ? { onRetry: () => retry(x) } : {})}
               {...(canRegen ? { onRegenerate: () => regenerate(x) } : {})}
+              {...(canImprove ? { onImprove: () => improve.mutate({ sceneId: x.scene_id!, versionId: x.version_id! }) } : {})}
               {...(!IN_FLIGHT.has(x.status) ? { selected: picked.has(x.item_id), onSelect: (on: boolean) => pick(x.item_id, on) } : {})}
             />
           );

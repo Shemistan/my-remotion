@@ -715,7 +715,7 @@ export function freshSpec(spec: MotionSpec): MotionSpec {
 }
 
 /** Что значит ось оценки — для критики второго дубля. */
-const AXIS_HINT: Record<QaScoreAxis, string> = {
+export const AXIS_HINT: Record<QaScoreAxis, string> = {
   hierarchy: "один герой крупнее и заметнее всего, итог владеет кадром",
   composition: "кадр заполнен и уравновешен, без пустых третей и мёртвой полосы под заголовком",
   entrance: "кадр 0 уже собран (фон, якорь героя), входы чистые",

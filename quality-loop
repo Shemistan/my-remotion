@@ -1,6 +1,6 @@
 #!/bin/sh
-# Ночной цикл качества видео: ./night [--dry-run] [--smoke] [--until 07:00] [--budget-usd 150]
-#   [--resume] [--item Q07] … — подробно: app/motion-studio/scripts/NIGHT.md, справка: ./night --help.
+# Цикл качества по запросу: ./quality-loop [--dry-run] [--smoke] [--until ЧЧ:ММ|ISO | --hours N]
+#   [--resume] [--run КЛЮЧ] [--item Q07] [--budget-usd 150] … — подробно: app/motion-studio/scripts/NIGHT.md.
 # Нужен MS_DATA_DIR (хранилище на внешнем SSD), например:
 #   export MS_DATA_DIR="/Volumes/External SSD/moution-studio-materials/store"
 cd "$(dirname "$0")/app/motion-studio" || exit 1

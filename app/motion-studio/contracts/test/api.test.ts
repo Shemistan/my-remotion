@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CreateProjectBodySchema, HistoryEntrySchema, KbHitDtoSchema, RenderBodySchema, VersionDiffSchema } from "../src/index.js";
+import { CreateProjectBodySchema, HistoryEntrySchema, ImproveBodySchema, KbHitDtoSchema, RenderBodySchema, VersionDiffSchema } from "../src/index.js";
 
 describe("CreateProjectBody", () => {
   it("kind необязателен; video — видеопроект (Task 29)", () => {
@@ -33,5 +33,10 @@ describe("api DTO", () => {
     expect(RenderBodySchema.safeParse({ settings_patch: { duration_frames: 240 } }).success).toBe(true);
     expect(RenderBodySchema.safeParse({ settings_patch: { duration_frames: -1 } }).success).toBe(false);
     expect(RenderBodySchema.safeParse({ settings_patch: { nope: 1 } }).success).toBe(false);
+  });
+  it("ImproveBody: необязательная версия-основа", () => {
+    expect(ImproveBodySchema.safeParse({}).success).toBe(true);
+    expect(ImproveBodySchema.safeParse({ base_version_id: "ver_1" }).success).toBe(true);
+    expect(ImproveBodySchema.safeParse({ nope: 1 }).success).toBe(false);
   });
 });
