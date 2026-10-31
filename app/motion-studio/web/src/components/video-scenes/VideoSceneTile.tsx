@@ -24,6 +24,7 @@ export interface VideoSceneTileProps {
   busy: boolean;
   onRetry?: () => void;
   onRegenerate?: () => void;
+  onImprove?: () => void;
   /** S21: выбор для пакетной перегенерации; нет — чекбокса нет (сцена идёт). */
   selected?: boolean;
   onSelect?: (on: boolean) => void;
@@ -40,7 +41,7 @@ function VersionPreview({ versionId, status }: { versionId: string | null; statu
   return s.height > s.width ? <div className="tall">{player}</div> : player;
 }
 
-export function VideoSceneTile({ projectId, scene, n, busy, onRetry, onRegenerate, selected, onSelect }: VideoSceneTileProps) {
+export function VideoSceneTile({ projectId, scene, n, busy, onRetry, onRegenerate, onImprove, selected, onSelect }: VideoSceneTileProps) {
   const [view, setView] = useState<"scene" | "context">("scene");
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   const status = scene.status;
@@ -60,6 +61,7 @@ export function VideoSceneTile({ projectId, scene, n, busy, onRetry, onRegenerat
         <span className="muted small">{t("videoScenes.frames", { start: scene.frames.start, end: scene.frames.end })}</span>
         <span className="spacer" />
         {scene.stale ? <span className="badge stale-badge" title={t("videoScenes.staleHint")}>{t("videoScenes.stale")}</span> : null}
+        {scene.qa_overall !== null ? <span className="muted small">{t("videoScenes.score", { score: scene.qa_overall })}</span> : null}
         <span className={`badge status-${status === "ready" ? "completed" : status}`}>{t(`videoScenes.status.${status}`)}</span>
       </div>
       <blockquote className="card-quote">«{scene.quote}»</blockquote>
@@ -97,6 +99,7 @@ export function VideoSceneTile({ projectId, scene, n, busy, onRetry, onRegenerat
         {scene.scene_id ? (
           <Link to={{ name: "scene", id: scene.scene_id }} className="button" title={t("videoScenes.refineHint")}>{t("videoScenes.refine")}</Link>
         ) : null}
+        {onImprove ? <button type="button" disabled={busy} onClick={onImprove}>{t("videoScenes.improve")}</button> : null}
         <span className="spacer" />
         {onRetry ? <button type="button" className="primary" disabled={busy} onClick={onRetry}>{t("videoScenes.retry")}</button> : null}
         {onRegenerate ? (

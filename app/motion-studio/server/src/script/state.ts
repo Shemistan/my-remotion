@@ -4,7 +4,7 @@
 // `warningsForState`) — треки меняют их тела, не этот файл.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { type Aspect, type Job, type QAIssue, QAReportSchema, type ScriptApproval, type ScriptItemStatus, type ScriptSceneDto, type ScriptStateDto } from "@ms/contracts";
+import { type Aspect, type Job, type QAIssue, type QAReport, QAReportSchema, type ScriptApproval, type ScriptItemStatus, type ScriptSceneDto, type ScriptStateDto } from "@ms/contracts";
 import { publicJob } from "../api/job-dto.js";
 import { ApiError, notFound } from "../api/errors.js";
 import { currentProjectStyle } from "../analysis/project-style.js";
@@ -15,6 +15,8 @@ import * as jobs from "../db/repos/jobs.js";
 import * as projects from "../db/repos/projects.js";
 import * as scenes from "../db/repos/scenes.js";
 import * as versions from "../db/repos/versions.js";
+import { BATCH_ACTIVE } from "../jobs/batch-keys.js";
+import { SCENE_WRITING_TYPES } from "../jobs/locks.js";
 import { scriptScenes } from "../db/repos/script.js";
 import { packagesForState } from "../pipeline/script-package.js";
 import { batchesForState, twinOutdated } from "./batch.js";
@@ -42,20 +44,26 @@ export function sceneStatus(job: Job | null, versionId: string | null): ScriptIt
   }
 }
 
-/**
- * Замечания QA уровня warning версии (`qa.json`): в том числе неисправленные
- * `overlay_opaque`/`overlay_root_fill` (I2) — по ним S7 кладёт альфу сцены в `missing`.
- * Нет версии или отчёта, отчёт не читается — пусто.
- */
-export function versionQaWarnings(db: Db, root: string, versionId: string | null): QAIssue[] {
+/** Отчёт QA версии; нет версии/отчёта или файл не читается — `undefined`. */
+export function versionQaReport(db: Db, root: string, versionId: string | null): QAReport | undefined {
   const v = versionId ? versions.get(db, versionId) : undefined;
-  if (!v || v.broken_reason) return [];
+  if (!v || v.broken_reason) return undefined;
   try {
     const qa = QAReportSchema.safeParse(JSON.parse(readFileSync(join(root, v.path, "qa.json"), "utf8")));
-    return qa.success ? qa.data.issues.filter((x) => x.severity === "warning") : [];
+    return qa.success ? qa.data : undefined;
   } catch {
-    return [];
+    return undefined;
   }
+}
+
+/** Warning-замечания, в том числе `overlay_opaque`/`overlay_root_fill` для пакетов. */
+export function versionQaWarnings(db: Db, root: string, versionId: string | null): QAIssue[] {
+  return versionQaReport(db, root, versionId)?.issues.filter((x) => x.severity === "warning") ?? [];
+}
+
+/** Активная правка/генерация важнее последней пакетной задачи: плитка показывает, что сцена занята. */
+export function sceneDisplayJob(db: Db, sceneId: string, fallback: Job | null): Job | null {
+  return jobs.list(db, { sceneId }).filter((j) => SCENE_WRITING_TYPES.includes(j.type) && BATCH_ACTIVE.has(j.status)).at(-1) ?? fallback;
 }
 
 export function scriptState(db: Db, root: string, projectId: string): ScriptStateDto {
@@ -73,9 +81,11 @@ export function scriptState(db: Db, root: string, projectId: string): ScriptStat
 
   const sceneDtos: ScriptSceneDto[] = cur
     ? ASPECTS.flatMap((aspect) => scriptScenes.listByPlan(db, cur.planId, aspect).map((row) => {
-      const raw = row.job_id ? jobs.get(db, row.job_id) ?? null : null;
+      const batchJob = row.job_id ? jobs.get(db, row.job_id) ?? null : null;
+      const raw = sceneDisplayJob(db, row.scene_id, batchJob);
       const versionId = scenes.get(db, row.scene_id)?.current_version_id ?? null;
       const item = items.get(row.item_id);
+      const qa = versionQaReport(db, root, versionId);
       return {
         item_id: row.item_id,
         aspect,
@@ -83,7 +93,8 @@ export function scriptState(db: Db, root: string, projectId: string): ScriptStat
         version_id: versionId,
         job: raw ? publicJob(raw, root) : null,
         status: sceneStatus(raw, versionId),
-        qa_warnings: versionQaWarnings(db, root, versionId),
+        qa_warnings: qa?.issues.filter((x) => x.severity === "warning") ?? [],
+        qa_overall: qa?.scores?.overall ?? null,
         warnings: warnings[row.scene_id] ?? [],
         // двойник 9:16 ещё и по эталону: сделан не по текущей 16:9-версии — устарел (S10 fix I3)
         stale: !item || itemFingerprint(item, styleRef) !== row.item_fingerprint || (aspect === "9:16" && twinOutdated(db, cur.planId, row.item_id, versionId)),

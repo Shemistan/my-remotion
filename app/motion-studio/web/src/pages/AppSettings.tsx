@@ -36,7 +36,7 @@ function Form({ data }: { data: AppSettingsDto }) {
     }),
     onSuccess: (r) => client.setQueryData(["settings"], r),
   });
-  const valid = Object.values(models).every((m) => m.trim()) && LIMIT_KEYS.every((k) => Number.isInteger(limits[k]) && limits[k] >= 1 && limits[k] <= 16)
+  const valid = Object.values(models).every((m) => m.trim()) && LIMIT_KEYS.every((k) => Number.isInteger(limits[k]) && limits[k] >= 1 && limits[k] <= 32)
     && limits.exportTimeoutMs >= 10_000 && limits.exportTimeoutMs <= 4 * 3_600_000;
 
   return (
@@ -62,7 +62,7 @@ function Form({ data }: { data: AppSettingsDto }) {
           {LIMIT_KEYS.map((k) => (
             <div key={k} className="form-row">
               <label htmlFor={`${id}-${k}`}>{t(`appSettings.limit.${k}`)}</label>
-              <input id={`${id}-${k}`} type="number" min={1} max={16} value={limits[k]} onChange={(e) => setLimits({ ...limits, [k]: Number(e.target.value) })} />
+              <input id={`${id}-${k}`} type="number" min={1} max={32} value={limits[k]} onChange={(e) => setLimits({ ...limits, [k]: Number(e.target.value) })} />
             </div>
           ))}
           <div className="form-row">

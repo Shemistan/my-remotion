@@ -36,6 +36,7 @@ export const ru = {
   "errors.not_found": "Не найдено.",
   "errors.no_versions": "У сцены ещё нет версий — править нечего.",
   "errors.no_current_version": "У сцены нет готовой версии — перерисовывать нечего.",
+  "errors.no_scores": "У версии нет оценки QA — улучшать не по чему. Используйте «Перегенерировать» или Playground.",
   "errors.empty_patch": "Параметры не изменились.",
   "errors.version_not_ready": "Восстановить можно только готовую версию.",
   "errors.export_not_ready": "Экспортировать можно только готовую версию.",
@@ -520,7 +521,7 @@ export const ru = {
   "appSettings.sceneBudget": "Не больше ${usd} на генерацию или правку, автоисправлений: {fixes}.",
   "appSettings.defaults": "Параметры сцены по умолчанию",
   "appSettings.saved": "Сохранено. Действует после перезапуска.",
-  "appSettings.invalid": "Проверьте значения: модели не пустые, лимиты 1–16, таймаут экспорта 1–240 мин.",
+  "appSettings.invalid": "Проверьте значения: модели не пустые, лимиты 1–32, таймаут экспорта 1–240 мин.",
 
   "role.concept": "Concept",
   "role.motion_director": "Motion Director",

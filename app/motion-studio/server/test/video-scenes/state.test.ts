@@ -40,7 +40,10 @@ describe("videoScenesState", () => {
 
     const core = { db: env.db, root: env.s.root, processes: fileProcessRegistry(env.s.root) };
     const b = startVideoBatch(core, { projectId: P, revision: 1, idempotencyKey: "k" });
-    runner = startRunner(v, { "playground.generate": fakeVideoGenerate(v) });
+    runner = startRunner(v, { "playground.generate": fakeVideoGenerate(v, { qa: {
+      gate: { technical: "pass", visual: "pass", semantic: "pass", style: "pass" }, issues: [], checked_frames: [0], ocr: [],
+      scores: { overall: 5.5, hierarchy: 6, composition: 4, entrance: 7, choreography: 5, hold: 3, legibility: 8, meaning: 9 }, automated: true,
+    } }) });
     await until(() => b.items.every((x) => TERMINAL.has(jobs.get(env.db, x.job!.id)!.status)), "пакет", 10_000);
     await runner.stop({ abortRunning: true });
     runner = undefined;
@@ -53,7 +56,8 @@ describe("videoScenesState", () => {
     const s1 = videoScenesState(env.db, env.s.root, P);
     expect(VideoScenesStateDtoSchema.safeParse(s1).success).toBe(true);
     const a = s1.scenes[0]!;
-    expect(a).toMatchObject({ status: "ready", version_number: 1, approved_version_number: 1, approval: { state: "valid", version_number: 1 }, stale: false });
+    // активная правка важнее готовой версии: плитка показывает сцену в работе
+    expect(a).toMatchObject({ status: "pending", version_number: 1, approved_version_number: 1, approval: { state: "valid", version_number: 1 }, stale: false, qa_overall: 5.5 });
     expect(a.queue).toMatchObject({ ahead: 1 });
     expect(a.queue?.blocking_job_id).not.toBe(e2.id);
     expect(s1.scenes[1]).toMatchObject({ approval: { state: "missing" }, approved_version_id: null, queue: null });

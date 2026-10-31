@@ -5,7 +5,7 @@
 // Состояние — от ScriptWorkspace (`useScriptState`); вкладка его не запрашивает.
 import type { Aspect, ScriptStateDto } from "@ms/contracts";
 import { type ReactElement, useMemo, useState } from "react";
-import { useGenerate, useReframe } from "../../api/script-client.js";
+import { useGenerate, useImproveScriptScene, useReframe } from "../../api/script-client.js";
 import { AspectSwitch } from "../../components/script/AspectSwitch.js";
 import { BatchBar } from "../../components/script/BatchBar.js";
 import { SceneTile } from "../../components/script/SceneTile.js";
@@ -20,13 +20,14 @@ export const ScenesTab: (props: { state: ScriptStateDto }) => ReactElement = ({ 
   const plan = state.plan;
   const generate = useGenerate(projectId);
   const reframe = useReframe(projectId);
+  const improve = useImproveScriptScene(projectId);
   const hasVertical = state.scenes.some((s) => s.aspect === "9:16");
   const [picked, setPicked] = useState<Aspect>("16:9");
   const aspect: Aspect = hasVertical ? picked : "16:9";
   const rows = useMemo(() => sceneRows(state, aspect), [state, aspect]);
   const numbers = useMemo(() => itemNumbers(state), [state]);
   const batches = visibleBatches(state.batches, aspect);
-  const busy = generate.isPending || reframe.isPending;
+  const busy = generate.isPending || reframe.isPending || improve.isPending;
 
   if (!plan) return <p className="muted">{t("scriptOutput.empty.noPlan")}</p>;
   const nothing = state.scenes.length === 0 && state.batches.length === 0;
@@ -44,7 +45,7 @@ export const ScenesTab: (props: { state: ScriptStateDto }) => ReactElement = ({ 
     else generate.mutate({ body: { revision: plan.doc.revision, item_ids: [row.item.id] }, key: retryKey("retry", row, aspect) });
   };
 
-  const error = generate.error ?? reframe.error;
+  const error = generate.error ?? reframe.error ?? improve.error;
   return (
     <div className="script-scenes">
       <div className="row wrap">
@@ -61,6 +62,7 @@ export const ScenesTab: (props: { state: ScriptStateDto }) => ReactElement = ({ 
           const canRetry = st === "failed" || st === "cancelled";
           // 9:16 перегенерируется заново через reframe — отдельной перегенерации у двойника нет
           const canRegen = aspect === "16:9" && st === "ready";
+          const canImprove = st === "ready" && typeof row.scene?.qa_overall === "number" && typeof row.scene.version_id === "string";
           return (
             <SceneTile
               key={row.item.id}
@@ -69,6 +71,7 @@ export const ScenesTab: (props: { state: ScriptStateDto }) => ReactElement = ({ 
               busy={busy}
               {...(canRetry ? { onRetry: () => retry(row) } : {})}
               {...(canRegen ? { onRegenerate: () => regenerate(row) } : {})}
+              {...(canImprove ? { onImprove: () => improve.mutate({ sceneId: row.scene!.scene_id, versionId: row.scene!.version_id! }) } : {})}
             />
           );
         })}

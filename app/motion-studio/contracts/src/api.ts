@@ -154,6 +154,10 @@ export type ChatBody = z.infer<typeof ChatBodySchema>;
 export const RenderBodySchema = z.object({ settings_patch: SettingsFieldsSchema.partial(), base_version_id: Id.optional() }).strict();
 export type RenderBody = z.infer<typeof RenderBodySchema>;
 
+/** Ручная доработка текущей или выбранной версии по её оценке Visual QA. */
+export const ImproveBodySchema = z.object({ base_version_id: Id.optional() }).strict();
+export type ImproveBody = z.infer<typeof ImproveBodySchema>;
+
 export const RestoreBodySchema = z.object({ versionId: Id }).strict();
 export type RestoreBody = z.infer<typeof RestoreBodySchema>;
 

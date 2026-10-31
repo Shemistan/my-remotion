@@ -1,7 +1,7 @@
 // Сцены: карточка с историей версий и активной задачей, чат, кнопка Render (план без Edit
 // Planner: param для длительности/стиля, spec для размера/fps/аспекта, H8), восстановление.
 import { afterEach, beforeEach, expect, it } from "vitest";
-import { HistoryEntrySchema, defaultSettings } from "@ms/contracts";
+import { HistoryEntrySchema, type QAReport, defaultSettings } from "@ms/contracts";
 import * as jobs from "../../src/db/repos/jobs.js";
 import * as projects from "../../src/db/repos/projects.js";
 import { type Api, getHeaders, makeApi, okHeaders, seedVersion } from "./helpers.js";
@@ -14,6 +14,16 @@ afterEach(() => api.close());
 
 let n = 0;
 const key = () => ({ ...okHeaders, "idempotency-key": `k${++n}` });
+
+const qa = (): QAReport => ({
+  gate: { technical: "pass", visual: "warn", semantic: "pass", style: "pass" },
+  issues: [{ source: "agent", code: "accent_static", severity: "warning", frame: 90, description: "финал застыл", fix_hint: "добавить движение" }],
+  checked_frames: [0, 90],
+  ocr: [],
+  scores: { overall: 5.5, hierarchy: 6, composition: 4, entrance: 7, choreography: 5, hold: 3, legibility: 8, meaning: 9 },
+  score_notes: [{ axis: "hold", frame: 90, note: "финал неподвижен" }],
+  automated: true,
+});
 
 it("GET /scenes/:id: сцена, версии HistoryEntry[], активная задача; 404 для чужого id", async () => {
   const { scene, versionId } = await seedVersion(api);
@@ -90,6 +100,32 @@ it("POST /scenes/:id/render: сцена видеопроекта — FPS тол�
   // у сцены обычного проекта FPS по-прежнему меняется
   const plain = await seedVersion(api);
   expect((await api.inj("POST", `/api/scenes/${plain.scene.id}/render`, key(), { settings_patch: { fps: { num: 60, den: 1 } } })).statusCode).toBe(202);
+});
+
+it("POST /scenes/:id/improve: 202 playground.edit с QA-планом; повтор по ключу → 200 та же задача", async () => {
+  const { scene, versionId } = await seedVersion(api, { qa: qa() });
+  const headers = { ...okHeaders, "idempotency-key": "improve-same" };
+  const a = await api.inj("POST", `/api/scenes/${scene.id}/improve`, headers, {});
+  expect(a.statusCode).toBe(202);
+  expect(a.json().job).toMatchObject({ type: "playground.edit", scene_id: scene.id });
+  expect(a.json().job.input).toMatchObject({ sceneId: scene.id, plan: { base_version_id: versionId, path: "code", preserve: ["timing"] } });
+  expect(a.json().job.input.plan.changes.slice(0, 3).map((x: { target: string }) => x.target)).toEqual(["hold", "composition", "choreography"]);
+  const b = await api.inj("POST", `/api/scenes/${scene.id}/improve`, headers, {});
+  expect(b.statusCode).toBe(200);
+  expect(b.json().job.id).toBe(a.json().job.id);
+});
+
+it("POST /scenes/:id/improve: без оценки → 409 no_scores; не ready → 409 version_not_ready", async () => {
+  const noQa = await seedVersion(api);
+  const absent = await api.inj("POST", `/api/scenes/${noQa.scene.id}/improve`, key(), {});
+  expect(absent.statusCode).toBe(409);
+  expect(absent.json()).toMatchObject({ error: "no_scores" });
+
+  const failed = await seedVersion(api, { qa: qa() });
+  api.core.db.prepare("UPDATE scene_versions SET status = 'failed' WHERE id = ?").run(failed.versionId);
+  const r = await api.inj("POST", `/api/scenes/${failed.scene.id}/improve`, key(), { base_version_id: failed.versionId });
+  expect(r.statusCode).toBe(409);
+  expect(r.json()).toMatchObject({ error: "version_not_ready" });
 });
 
 it("POST /scenes/:id/restore и messages: версия чужой сцены → 404; POST scenes в несуществующий проект → 404", async () => {

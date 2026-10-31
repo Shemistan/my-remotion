@@ -173,4 +173,4 @@ R1→R2), held-mobile, held-queue; остальное — train. Правила 
 — перекалибруй судью (по train), прежде чем ему верить. Новые якоря меняют отпечаток судьи:
 прогоны до и после правки `reference.ts` сравниваются только после `--rejudge`.
 
-Ночной цикл (`./night`, `scripts/NIGHT.md`) применяет более строгое правило: рост explainer ≥ +0.1 и без потерь по набору user, стоимости, времени и failed (`server/src/bench/night-accept.ts`).
+Цикл качества по запросу (`./quality-loop`, `scripts/NIGHT.md`) применяет более строгое правило: рост explainer ≥ +0.1 и без потерь по набору user, стоимости, времени и failed (`server/src/bench/night-accept.ts`).

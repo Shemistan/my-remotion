@@ -25,6 +25,7 @@ import type {
   ExportDto,
   ExportRequest,
   HealthDto,
+  ImproveBody,
   Job,
   JobDetailDto,
   JobInputBody,
@@ -153,6 +154,8 @@ export const api = {
     request<{ job: Job }>("POST", `/api/scenes/${enc(sceneId)}/restore`, { body: { versionId }, idempotency: key }),
   render: (sceneId: string, patch: RenderBody["settings_patch"], baseVersionId: string, key: string = newKey()) =>
     request<{ job: Job }>("POST", `/api/scenes/${enc(sceneId)}/render`, { body: { settings_patch: patch, base_version_id: baseVersionId }, idempotency: key }),
+  improve: (sceneId: string, body: ImproveBody, key: string = newKey()) =>
+    request<{ job: Job }>("POST", `/api/scenes/${enc(sceneId)}/improve`, { body, idempotency: key }),
   version: (id: string) => request<VersionDto>("GET", `/api/versions/${enc(id)}`),
   diff: (a: string, b: string) => request<VersionDiff>("GET", `/api/versions/${enc(a)}/diff/${enc(b)}`),
   exportVersion: (versionId: string, req: ExportRequest, key: string = newKey()) =>

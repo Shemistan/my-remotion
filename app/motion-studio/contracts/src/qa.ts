@@ -66,6 +66,8 @@ export const QAReportSchema = z.object({
   ocr: OcrSchema,
   /** Оценки Visual QA (S5); у отчётов до S5 и без оценки агента — нет. */
   scores: QaScoresSchema.optional(),
+  /** Наблюдения судьи по слабым осям; у старых отчётов их нет. */
+  score_notes: z.array(QaScoreNoteSchema).optional(),
   automated: z.literal(true),
 }).strict();
 export type QAReport = z.infer<typeof QAReportSchema>;

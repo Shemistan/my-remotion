@@ -45,13 +45,13 @@ it("config.json overrides scene, claudeBin and kb; env KB_* wins over defaults",
   expect(c.kb).toEqual({ root: "/kb", sourceRoot: "/src" });
 });
 
-it("S5: второй дубль — по умолчанию revise при overall < 6.5; config.json и env MS_SECOND_TAKE его меняют", () => {
-  expect(loadConfig({ MS_DATA_DIR: root }).scene.secondTake).toEqual({ mode: "revise", threshold: 6.5, fixes: 1 });
+it("второй дубль — по умолчанию off (доработка — кнопкой «Улучшить»); config.json и env MS_SECOND_TAKE его включают", () => {
+  expect(loadConfig({ MS_DATA_DIR: root }).scene.secondTake).toEqual({ mode: "off", threshold: 6.5, fixes: 1 });
   expect(loadConfig({ MS_DATA_DIR: root }, { scene: { secondTake: { mode: "fresh" } } }).scene.secondTake).toEqual({ mode: "fresh", threshold: 6.5, fixes: 1 });
   expect(loadConfig({ MS_DATA_DIR: root, MS_SECOND_TAKE: "off" }, { scene: { secondTake: { mode: "fresh" } } }).scene.secondTake.mode).toBe("off");
   expect(() => loadConfig({ MS_DATA_DIR: root, MS_SECOND_TAKE: "twice" })).toThrow(/MS_SECOND_TAKE/);
   // порог для A/B: Visual QA ставит выше судьи, при 6.5 дубль почти не включается
-  expect(loadConfig({ MS_DATA_DIR: root, MS_SECOND_TAKE_THRESHOLD: "7.5" }).scene.secondTake).toEqual({ mode: "revise", threshold: 7.5, fixes: 1 });
+  expect(loadConfig({ MS_DATA_DIR: root, MS_SECOND_TAKE: "revise", MS_SECOND_TAKE_THRESHOLD: "7.5" }).scene.secondTake).toEqual({ mode: "revise", threshold: 7.5, fixes: 1 });
   expect(() => loadConfig({ MS_DATA_DIR: root, MS_SECOND_TAKE_THRESHOLD: "11" })).toThrow(/MS_SECOND_TAKE_THRESHOLD/);
   expect(() => loadConfig({ MS_DATA_DIR: root }, { scene: { secondTake: { mode: "x" } } })).toThrow(/config/);
 });
@@ -105,11 +105,11 @@ it("model names are validated; maxBudgetUsd has an upper bound", () => {
 
 it("Task 20: limits (агенты 10, рендеры 3 — по коду семафоров S5) и defaults: Settings; config.json их меняет", () => {
   const c = loadConfig({ MS_DATA_DIR: root });
-  expect(c.limits).toEqual({ maxRunning: 5, agentCalls: 10, renders: 3, exportTimeoutMs: 1_800_000 });
+  expect(c.limits).toEqual({ maxRunning: 16, agentCalls: 16, renders: 4, exportTimeoutMs: 1_800_000 });
   expect(c.defaults).toEqual(defaultSettings());
   const d = { ...defaultSettings(), duration_frames: 300 };
   const f = loadConfig({ MS_DATA_DIR: root }, { limits: { maxRunning: 1, renders: 1 }, defaults: d });
-  expect(f.limits).toEqual({ maxRunning: 1, agentCalls: 10, renders: 1, exportTimeoutMs: 1_800_000 });
+  expect(f.limits).toEqual({ maxRunning: 1, agentCalls: 16, renders: 1, exportTimeoutMs: 1_800_000 });
   expect(f.defaults).toEqual(d);
   expect(() => loadConfig({ MS_DATA_DIR: root }, { limits: { nope: 1 } })).toThrow(/limits/);
   expect(() => loadConfig({ MS_DATA_DIR: root }, { limits: { agentCalls: 0 } })).toThrow(/limits\.agentCalls/);

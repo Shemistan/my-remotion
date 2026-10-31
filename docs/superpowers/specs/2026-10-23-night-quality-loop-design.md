@@ -12,7 +12,7 @@
 
 ## Что делает
 
-Команда `./night` в корне репозитория (обёртка над `app/motion-studio/scripts/night.mts`).
+Команда `./quality-loop` в корне репозитория (обёртка над `app/motion-studio/scripts/night.mts`).
 
 1. **Предпроверка.** SSD подключён (`MS_DATA_DIR`), `./check` зелёный, рабочее дерево чистое,
    нет другого запущенного bench (owner-lock ADR 0007). Иначе — отказ с понятным сообщением,

@@ -29,9 +29,23 @@ const base = (state = scenesState()) => [
   on("GET", /\/api\/versions\/ver_\d$/, versionDto("ver_1", 1)),
   on("GET", /\/api\/jobs\//, { job: job({ id: "job_2", status: "running" }), events: [], processes: [] }),
   on("POST", GEN, vbatch([]), 202),
+  on("POST", /\/api\/scenes\/scn_\d\/improve$/, { job: job({ id: "job_improve", type: "playground.edit", status: "pending" }) }, 202),
   on("POST", "/api/video-batches/vb_1/cancel", vbatch([])),
   on("POST", /\/preview-context$/, { job: job({ id: "job_ctx", type: "scene.preview_context", status: "pending" }) }, 202),
 ];
+
+it("оценка показывает кнопку «Улучшить»; без оценки кнопки нет", async () => {
+  const withScore = scenesState({ scenes: [vscene("sp_001", "ready", { qa_overall: 5.5 }), vscene("sp_002", "ready")] });
+  const { calls } = fakeFetch(base(withScore));
+  renderQ(<ScenesTab {...props()} />);
+  await waitFor(() => expect(tiles()).toHaveLength(2));
+  const first = within(tiles()[0]!);
+  expect(first.getByText(t("videoScenes.score", { score: 5.5 }))).toBeTruthy();
+  expect(within(tiles()[1]!).queryByRole("button", { name: t("videoScenes.improve") })).toBeNull();
+  fireEvent.click(first.getByRole("button", { name: t("videoScenes.improve") }));
+  await waitFor(() => expect(posts(calls, "/api/scenes/scn_1/improve")).toHaveLength(1));
+  expect(posts(calls, "/api/scenes/scn_1/improve")[0]!.body).toEqual({ base_version_id: "ver_1" });
+});
 
 it("нет плана — подсказка про план, запросов состояния нет", () => {
   const { calls } = fakeFetch(base());

@@ -52,6 +52,8 @@ export const VideoSceneDtoSchema = z.object({
   /** Задача сцены ждёт в очереди: перед ней `ahead` задач, держит замок `blocking_job_id`. */
   queue: z.object({ ahead: Count, blocking_job_id: Id.optional() }).strict().nullable().optional(),
   qa_warnings: z.array(QAIssueSchema).optional(),
+  /** Итоговая оценка Visual QA текущей версии; у старых версий её нет. */
+  qa_overall: z.number().min(1).max(10).nullable(),
   /** Ревью 38-39 (I2): последнее превью в контексте утверждённой (иначе текущей) версии; `outdated` — перерисовать. */
   context_preview: z.object({ version_id: Id, rel_path: z.string().min(1), plan_revision: Revision, pad_frames: Count, outdated: z.boolean() }).strict().nullable().optional(),
 }).strict();

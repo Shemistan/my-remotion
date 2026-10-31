@@ -1,11 +1,11 @@
-// Ночной цикл качества (спека docs/superpowers/specs/2026-10-23-night-quality-loop-design.md).
-// Логика ночи без побочных эффектов вне `deps`: git, агент, ./check и bench подставляются
+// Цикл качества (спека docs/superpowers/specs/2026-10-23-night-quality-loop-design.md).
+// Логика цикла без побочных эффектов вне `deps`: git, агент, ./check и bench подставляются
 // (настоящие — `scripts/night.mts`, в тестах — фейки). Состояние — `<stateDir>/state.json`
 // после каждого шага, отчёт `REPORT.md` — там же; повторный запуск продолжает с того же шага.
 //
-// Ветки: `night/<дата>` — последний принятый коммит, итерация n — `night/<дата>-<n>` от него
-// (git не держит ветку `night/<дата>` и ветки `night/<дата>/<n>` одновременно). Принято —
-// fast-forward `night/<дата>`; не принято — ветка итерации остаётся для разбора. Ничего не
+// Ветки: `night/<ключ>` — последний принятый коммит, итерация n — `night/<ключ>-<n>` от него
+// (git не держит ветку `night/<ключ>` и ветки `night/<ключ>/<n>` одновременно). Принято —
+// fast-forward `night/<ключ>`; не принято — ветка итерации остаётся для разбора. Ничего не
 // удаляется и не переписывается.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -30,7 +30,7 @@ export interface Sets {
 }
 
 export interface NightConfig {
-  /** Дата ночи (день старта), YYYY-MM-DD. */
+  /** Ключ прогона; поле называется `date` для совместимости старых state.json. */
   date: string;
   /** Конец окна, ISO. */
   until: string;
@@ -49,7 +49,7 @@ export interface NightConfig {
   benchCostEstimateUsd: number;
   /** Сцены наборов: полные или `SMOKE_SETS`. */
   sets: Sets;
-  /** Откуда ночь стартует: ветка, коммит и корень worktree запуска. */
+  /** Откуда стартует прогон: ветка, коммит и корень worktree запуска. */
   source: { branch: string; commit: string; root: string };
   worktree: string;
   stateDir: string;
@@ -138,7 +138,7 @@ export interface NightDeps {
 
 export interface Baseline {
   commit: string;
-  /** Откуда: `ночь` (прогон -0-), `evidence`, `итерация <n>`. */
+  /** Откуда: старое `ночь`/новое `прогон цикла качества`, `evidence`, `итерация <n>`. */
   source: string;
   runs: { explainer: string; user: string };
   scores: { explainer: string; user: string };
@@ -174,7 +174,7 @@ export interface Iteration {
   /** Что погашено после агента (M1). */
   cleanup?: string[];
   commits?: string[];
-  /** Незакоммиченные правки агента: патч и копии в `tmp/night/<дата>/<n>/`. */
+  /** Незакоммиченные правки агента: патч и копии в `tmp/night/<ключ>/<n>/`. */
   leftover?: Leftover | null;
   /** Изменённые агентом запрещённые пути (I2). */
   forbidden?: string[];
@@ -198,7 +198,7 @@ export interface NightState {
   updated_at?: string;
   source: NightConfig["source"];
   worktree: string;
-  /** `night/<дата>`. */
+  /** `night/<ключ>`. */
   branch: string;
   until: string;
   budget_usd: number;
@@ -213,9 +213,38 @@ export interface NightState {
   stop?: { reason: string; at: string };
 }
 
-export const nightBranch = (date: string) => `night/${date}`;
-export const runIdOf = (date: string, n: number, sha: string, set: SetKey) => `night-${date}-${n}-${sha.slice(0, 7)}${set === "user" ? "-user" : ""}`;
+export const nightBranch = (key: string) => `night/${key}`;
+export const runIdOf = (key: string, n: number, sha: string, set: SetKey) => `night-${key}-${n}-${sha.slice(0, 7)}${set === "user" ? "-user" : ""}`;
 export const benchScoresPath = (wt: string, runId: string) => join(wt, "tmp", "bench", runId, "scores.json");
+
+type RunKey = { date: string; time: number; smoke: boolean; smokeNumber: number };
+
+const validDate = (s: string) => {
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+};
+
+/** Ключ прогона: новый с местным временем или старый без времени для `--resume`. */
+function parseRunKey(s: string): RunKey | null {
+  const timed = /^(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})(?:-smoke(\d*))?$/.exec(s);
+  if (timed) {
+    const hour = Number(timed[2]);
+    const minute = Number(timed[3]);
+    if (!validDate(timed[1]!) || hour > 23 || minute > 59) return null;
+    return { date: timed[1]!, time: hour * 60 + minute, smoke: timed[4] !== undefined, smokeNumber: timed[4] === undefined ? -1 : timed[4] === "" ? 1 : Number(timed[4]) };
+  }
+  const old = /^(\d{4}-\d{2}-\d{2})(?:-smoke(\d*))?$/.exec(s);
+  if (!old || !validDate(old[1]!)) return null;
+  return { date: old[1]!, time: -1, smoke: old[2] !== undefined, smokeNumber: old[2] === undefined ? -1 : old[2] === "" ? 1 : Number(old[2]) };
+}
+
+export const isRunKey = (s: string): boolean => parseRunKey(s) !== null;
+
+/** Ключ нового прогона по местному времени старта. */
+export function runKeyOf(start: Date, smoke: boolean): string {
+  const local = new Date(start.getTime() - start.getTimezoneOffset() * 60_000).toISOString();
+  return `${local.slice(0, 10)}-${local.slice(11, 16).replace(":", "")}${smoke ? "-smoke" : ""}`;
+}
 
 /** `--until`: `ЧЧ:ММ` — ближайшее такое время впереди, иначе дата-время ISO (локальное). */
 export function parseUntil(s: string, now: Date): Date {
@@ -231,6 +260,19 @@ export function parseUntil(s: string, now: Date): Date {
     if (d.getTime() <= now.getTime()) throw new Error(`--until: ${s} — в прошлом`);
   }
   return d;
+}
+
+/** Окно CLI: явное время, N часов или внутренний предел в 14 дней при отсутствии окна. */
+export function parseWindow(until: string | undefined, hours: string | undefined, now: Date): Date {
+  if (until !== undefined && hours !== undefined) throw new Error("--hours нельзя использовать вместе с --until");
+  if (hours !== undefined) {
+    const n = Number(hours);
+    if (!Number.isFinite(n) || n <= 0) throw new Error(`--hours: нужно число > 0, получено «${hours}»`);
+    const d = new Date(now.getTime() + n * 3600_000);
+    if (Number.isNaN(d.getTime())) throw new Error(`--hours: слишком большое значение «${hours}»`);
+    return d;
+  }
+  return until === undefined ? new Date(now.getTime() + 14 * 24 * 3600_000) : parseUntil(until, now);
 }
 
 const readJson = <T,>(p: string): T => JSON.parse(readFileSync(p, "utf8")) as T;
@@ -258,12 +300,12 @@ function verdictShort(v: Pick<NightVerdict, "metrics">): string {
 
 /**
  * Пути, которые агент ночи менять не вправе (ревью ночи I2, rulings 2026-10-23): измеритель
- * (bench, судья, наборы), проверки и хуки, сама ночь, бэклог, настройки, зависимости. Итерация
+ * (bench, судья, наборы), проверки и хуки, сам цикл, бэклог, настройки, зависимости. Итерация
  * с их изменением отклоняется до любых commit/push оркестратора и до запуска её кода.
  * `…/` — каталог целиком; `package.json`/`package-lock.json` — на любом уровне.
  */
 export const FORBIDDEN_PATHS = [
-  ".githooks/", "check", "bootstrap.sh", "finish", "night", ".claude/", "tools/", "global/", ".nvmrc",
+  ".githooks/", "check", "bootstrap.sh", "finish", "quality-loop", ".claude/", "tools/", "global/", ".nvmrc",
   BACKLOG,
   "app/motion-studio/server/src/bench/", "app/motion-studio/server/test/bench/",
   "app/motion-studio/scripts/bench-set.mts", "app/motion-studio/scripts/BENCH.md",
@@ -291,7 +333,7 @@ const KIND_TEXT: Record<string, string> = {
   eperm: "песочница не даёт запускать дочерние процессы (spawn EPERM) — см. NIGHT.md, «EPERM»",
   owner_busy: "хранилище занято другим владельцем (owner_busy)",
   storage: "хранилище недоступно",
-  interrupted: "ночь прерывалась во время агента",
+  interrupted: "прогон цикла качества прерывался во время агента",
   no_commits: "агент не сделал ни одного коммита",
   check_red: "./check красный",
   bench: "bench не дал полного прогона",
@@ -301,18 +343,16 @@ const KIND_TEXT: Record<string, string> = {
   judge: "разные судьи у прогонов",
 };
 
-/** Последняя начатая ночь среди каталогов `tmp/night` (`-smokeN` — по числу, L3). */
+/** Последний начатый прогон среди каталогов `tmp/night`; старый ключ раньше временного того же дня. */
 export function latestNight(names: readonly string[], smoke: boolean): string | undefined {
-  const key = (d: string): readonly [string, number] | null => {
-    const m = /^(\d{4}-\d{2}-\d{2})(?:-smoke(\d*))?$/.exec(d);
-    return m ? ([m[1]!, m[2] === undefined ? -1 : m[2] === "" ? 1 : Number(m[2])] as const) : null;
-  };
   return names
-    .filter((d) => key(d) !== null && /-smoke\d*$/.test(d) === smoke)
+    .filter((d) => parseRunKey(d)?.smoke === smoke)
     .sort((a, b) => {
-      const ka = key(a)!;
-      const kb = key(b)!;
-      return ka[0] === kb[0] ? ka[1] - kb[1] : ka[0] < kb[0] ? -1 : 1;
+      const ka = parseRunKey(a)!;
+      const kb = parseRunKey(b)!;
+      if (ka.date !== kb.date) return ka.date < kb.date ? -1 : 1;
+      if (ka.time !== kb.time) return ka.time - kb.time;
+      return ka.smokeNumber - kb.smokeNumber;
     })
     .at(-1);
 }
@@ -355,7 +395,7 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
     save();
     return st;
   };
-  const SSD_OFF = "SSD отключён (MS_DATA_DIR недоступен) — ночь остановлена, данные на системный диск не пишутся";
+  const SSD_OFF = "SSD отключён (MS_DATA_DIR недоступен) — прогон цикла качества остановлен, данные на системный диск не пишутся";
   const untilMs = () => new Date(st.until).getTime();
   const untilText = () => fmtTime(localIso(new Date(st.until)));
   const readLog = (p: string) => (existsSync(p) ? readFileSync(p, "utf8").slice(-200_000) : "");
@@ -367,13 +407,13 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
   }
   save();
   // зависимости и браузер рендера в worktree ночи (идемпотентно): без них bench упадёт после трат
-  if (deps.prepareWorktree && !(await deps.prepareWorktree(wt))) return stop(`worktree ночи не подготовлен (npm ci, браузер рендера) — журнал ${join(cfg.stateDir, "prepare.log")}`);
+  if (deps.prepareWorktree && !(await deps.prepareWorktree(wt))) return stop(`worktree цикла качества не подготовлен (npm ci, браузер рендера) — журнал ${join(cfg.stateDir, "prepare.log")}`);
 
   // ---------- перед bench: SSD и владелец хранилища (M1) ----------
   const preBench = async (): Promise<NightState | null> => {
     if (!deps.storageOnline()) return stop(SSD_OFF);
     const busy = await deps.ownerBusy?.();
-    if (busy) return stop(`хранилище занято: ${busy} — bench не запущен (останови сервер или bench и продолжи: ./night --resume --date ${cfg.date})`);
+    if (busy) return stop(`хранилище занято: ${busy} — bench не запущен (останови сервер или bench и продолжи: ./quality-loop --resume --run ${cfg.date})`);
     return null;
   };
 
@@ -421,7 +461,7 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
     } else {
       const sha = git.head(wt);
       const runs = st.baseline?.runs ?? { explainer: runIdOf(cfg.date, 0, sha, "explainer"), user: runIdOf(cfg.date, 0, sha, "user") };
-      st.baseline = { commit: sha, source: "ночь", runs, scores: scorePaths(runs), done: false };
+      st.baseline = { commit: sha, source: "прогон цикла качества", runs, scores: scorePaths(runs), done: false };
       save();
       const pre = await preBench();
       if (pre) return pre;
@@ -502,7 +542,7 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
     it.head_commit = git.head(wt);
     it.commits = git.log(wt, it.start_commit);
     save();
-    // M5: агент не вправе двигать main/staging — сдвиг останавливает ночь
+    // M5: агент не вправе двигать main/staging — сдвиг останавливает прогон
     if (it.refs_before) {
       const before = it.refs_before;
       const after = git.refs(wt);
@@ -510,7 +550,7 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
       if (moved.length) {
         const what = moved.map((k) => `${k.replace(/^refs\/(heads|remotes)\//, "")} ${before[k]?.slice(0, 7) ?? "—"} → ${after[k]?.slice(0, 7) ?? "—"}`).join(", ");
         finish(it, "сбой", `во время агента сдвинуты защищённые ветки: ${what}`, { kind: "refs", infra: true });
-        return stop(`во время агента итерации ${it.n} сдвинуты защищённые ветки (${what}) — ночь остановлена, разбери руками`);
+        return stop(`во время агента итерации ${it.n} сдвинуты защищённые ветки (${what}) — прогон цикла качества остановлен, разбери руками`);
       }
     }
     // I2: правки измерителя, проверок, хуков и самой ночи — отклонение до любых commit/push и до запуска кода
@@ -521,7 +561,7 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
       return "next";
     }
     if (interrupted) {
-      finish(it, "сбой", "ночь прервана во время работы агента", { kind: "interrupted", infra: true });
+      finish(it, "сбой", "прогон цикла качества прерван во время работы агента", { kind: "interrupted", infra: true });
       return "next";
     }
     const said = `${ar.summary ?? ""}\n${ar.error ?? ""}\n${ar.denials.join("\n")}`;
@@ -547,7 +587,7 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
       // прерванный агент не продолжается. Траты — по его итогу, если он успел его записать,
       // иначе по лимиту итерации (оценка сверху, M2); итог есть — итерация идёт дальше обычным путём
       const rec = readAgentLog(join(cfg.stateDir, String(it.n)));
-      it.agent = rec ?? { status: "error", cost_usd: it.limits?.agent_usd ?? cfg.agentBudgetUsd, wall_ms: 0, denials: [], error: "ночь прервана во время работы агента" };
+      it.agent = rec ?? { status: "error", cost_usd: it.limits?.agent_usd ?? cfg.agentBudgetUsd, wall_ms: 0, denials: [], error: "прогон цикла качества прерван во время работы агента" };
       save();
       const r = await afterAgent(it, rec === null);
       if (typeof r === "object") return r;
@@ -555,7 +595,7 @@ export async function runNight(cfg: NightConfig, deps: NightDeps): Promise<Night
     }
     if (!it || it.phase === "done") {
       const s = streak();
-      if (s) return stop(`два сбоя подряд одного рода: ${KIND_TEXT[s.kind] ?? s.kind} — дальше ночь тратила бы деньги впустую; причина в REPORT.md, продолжение — ./night --resume --date ${cfg.date}`);
+      if (s) return stop(`два сбоя подряд одного рода: ${KIND_TEXT[s.kind] ?? s.kind} — дальше цикл качества тратил бы деньги впустую; причина в REPORT.md, продолжение — ./quality-loop --resume --run ${cfg.date}`);
       if (cfg.maxIterations !== undefined && st.iterations.length >= cfg.maxIterations) return stop(`достигнут предел итераций (${cfg.maxIterations})`);
       if (!deps.storageOnline()) return stop(SSD_OFF);
       const backlog = parseBacklog(readFileSync(join(wt, BACKLOG), "utf8"));
@@ -703,7 +743,7 @@ function baselineLine(st: NightState): string {
   return `explainer ${m(b.scores.explainer)}, user ${m(b.scores.user)} (${b.source}, коммит ${b.commit.slice(0, 7)})`;
 }
 
-/** Ролики принятой итерации → `<examples>/night-<дата>-<n>/` с README; путь каталога. */
+/** Ролики принятой итерации → `<examples>/night-<ключ>-<n>/` с README; путь каталога. */
 function copyVideos(st: NightState, cfg: NightConfig, it: Iteration): string | undefined {
   if (!it.bench) return undefined;
   const dir = join(cfg.examplesDir, `night-${cfg.date}-${it.n}`);
@@ -721,7 +761,7 @@ function copyVideos(st: NightState, cfg: NightConfig, it: Iteration): string | u
   const m = it.verdict?.metrics;
   const crit = m ? CRITERIA.map((c) => `${c} ${(m.explainer_criteria[c] ?? 0) >= 0 ? "+" : ""}${(m.explainer_criteria[c] ?? 0).toFixed(2)}`).join(", ") : "";
   writeFileSync(join(dir, "README.md"), [
-    `# Ночь ${cfg.date}, итерация ${it.n}: ${it.item.id} — ${it.item.title}`,
+    `# Прогон цикла качества ${cfg.date}, итерация ${it.n}: ${it.item.id} — ${it.item.title}`,
     "",
     `Принято. Ветка \`${it.branch}\`, коммит \`${it.head_commit?.slice(0, 7)}\` (влито в \`${st.branch}\`).`,
     m?.explainer ? `explainer ${m.explainer.before.toFixed(2)} → ${m.explainer.after.toFixed(2)}; user ${m.user ? `${m.user.before.toFixed(2)} → ${m.user.after.toFixed(2)}` : "—"}.` : "",
@@ -735,7 +775,7 @@ function copyVideos(st: NightState, cfg: NightConfig, it: Iteration): string | u
   return dir;
 }
 
-/** План ночи для `--dry-run`: ничего не создаёт и не тратит. */
+/** План прогона для `--dry-run`: ничего не создаёт и не тратит. */
 export function describePlan(cfg: NightConfig, a: {
   now: Date;
   backlogMd: string;
@@ -748,12 +788,16 @@ export function describePlan(cfg: NightConfig, a: {
   const b = parseBacklog(a.backlogMd);
   const open = cfg.item ? b.items.filter((i) => i.id === cfg.item) : b.items.filter((i) => i.status === OPEN);
   const hours = (new Date(cfg.until).getTime() - a.now.getTime()) / 3600_000;
+  const noWindow = hours > 7 * 24;
   const iterMs = cfg.agentTimeoutMs + cfg.benchEstimateMs + CHECK_ESTIMATE_MS;
-  const est = Math.max(0, Math.floor((new Date(cfg.until).getTime() - a.now.getTime() - (a.baseline || a.state?.baseline?.done ? 0 : cfg.benchEstimateMs)) / iterMs));
+  const timeEst = Math.max(0, Math.floor((new Date(cfg.until).getTime() - a.now.getTime() - (a.baseline || a.state?.baseline?.done ? 0 : cfg.benchEstimateMs)) / iterMs));
+  const budgetLeft = cfg.budgetUsd - (a.state?.spent_usd ?? 0) - (a.baseline || a.state?.baseline?.done ? 0 : cfg.benchCostEstimateUsd);
+  const budgetEst = Math.max(0, Math.floor(budgetLeft / (cfg.agentBudgetUsd + cfg.benchCostEstimateUsd)));
+  const est = noWindow ? budgetEst : timeEst;
   const lines = [
-    `Ночь ${cfg.date}${cfg.smoke ? " (smoke)" : ""} — план (--dry-run: ничего не создано и не потрачено)`,
+    `Прогон цикла качества ${cfg.date}${cfg.smoke ? " (smoke)" : ""} — план (--dry-run: ничего не создано и не потрачено)`,
     "",
-    `- окно: до ${fmtTime(localIso(new Date(cfg.until)))} (${hours.toFixed(1)} ч); бюджет $${cfg.budgetUsd}; агент на итерацию ≤ ${Math.round(cfg.agentTimeoutMs / 60_000)} мин и ≤ $${cfg.agentBudgetUsd}`,
+    `- ${noWindow ? "окно: не задано — стоп по бюджету и бэклогу" : `окно: до ${fmtTime(localIso(new Date(cfg.until)))} (${hours.toFixed(1)} ч)`}; бюджет $${cfg.budgetUsd}; агент на итерацию ≤ ${Math.round(cfg.agentTimeoutMs / 60_000)} мин и ≤ $${cfg.agentBudgetUsd}`,
     `- источник: ${cfg.source.branch} @ ${cfg.source.commit.slice(0, 7)}`,
     `- worktree: ${cfg.worktree}${a.worktreeExists ? " (уже есть)" : " (будет создан)"}`,
     `- ветки: ${nightBranch(cfg.date)} (принятое, fast-forward), итерации ${nightBranch(cfg.date)}-<n>`,

@@ -6,7 +6,7 @@ import type { Approval, Job, SceneApprovalDto, VideoBatchDto, VideoGenerateBody,
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { shortHash } from "../script/output.js";
 import { tk } from "../i18n/index.js";
-import { newKey, request } from "./client.js";
+import { api, newKey, request } from "./client.js";
 import { isActive } from "./queries.js";
 
 const enc = encodeURIComponent;
@@ -59,6 +59,8 @@ function useScenesMutation<V, R>(projectId: string, fn: (v: V) => Promise<R>) {
 
 export const useVideoGenerate = (projectId: string) =>
   useScenesMutation(projectId, ({ body, key }: { body: VideoGenerateBody; key: string }) => videoScenesApi.generate(projectId, body, key));
+export const useImproveVideoScene = (projectId: string) =>
+  useScenesMutation(projectId, ({ sceneId, versionId }: { sceneId: string; versionId: string }) => api.improve(sceneId, { base_version_id: versionId }));
 export const useCancelVideoBatch = (projectId: string) => useScenesMutation(projectId, (batchId: string) => videoScenesApi.cancelBatch(batchId));
 export const useApproveScene = (projectId: string) =>
   useScenesMutation(projectId, ({ sceneId, versionId }: { sceneId: string; versionId: string }) => videoScenesApi.approve(sceneId, versionId));

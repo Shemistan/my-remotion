@@ -1,13 +1,14 @@
-// Ночной цикл качества: ./night в корне репозитория (обёртка над этим скриптом).
-// Как пользоваться — scripts/NIGHT.md; логика ночи — server/src/bench/night.ts.
+// Цикл качества по запросу: ./quality-loop в корне репозитория (обёртка над этим скриптом).
+// Как пользоваться — scripts/NIGHT.md; логика цикла — server/src/bench/night.ts.
 //
-//   ./night --dry-run                       # предпроверки и план ночи, ничего не создаёт и не тратит
-//   ./night                                 # ночь до 07:00, бюджет $150
-//   ./night --until 06:30 --budget-usd 120
-//   ./night --smoke --until 15:30           # короткая проверка: 2+2 сцены, одна итерация (дата <день>-smoke)
-//   ./night --resume [--smoke] [--date ГГГГ-ММ-ДД]   # продолжить прерванную ночь
+//   ./quality-loop --dry-run                 # предпроверки и план, ничего не создаёт и не тратит
+//   ./quality-loop                           # без окна, бюджет $150
+//   ./quality-loop --hours 6 --budget-usd 120
+//   ./quality-loop --smoke --until 15:30     # 2+2 сцены, одна итерация (ключ <день>-<время>-smoke)
+//   ./quality-loop --resume [--smoke] [--run ГГГГ-ММ-ДД-ЧЧММ]   # продолжить прогон
 // Флаги: --item Q07 (только этот пункт), --max-iterations N, --agent-min N (потолок агента, мин),
-//   --agent-usd N (потолок агента, $), --date ГГГГ-ММ-ДД (по умолчанию — сегодня),
+//   --agent-usd N (потолок агента, $), --run КЛЮЧ (по умолчанию — местные дата и время старта),
+//   --until ЧЧ:ММ|ISO или --hours N (без обоих флагов окна нет),
 //   --skip-probe (без пробного агента предпроверки — только для проверки механики с тестовым
 //   двойником агента MS_NIGHT_CLAUDE_BIN, см. NIGHT.md).
 import { execFileSync } from "node:child_process";
@@ -22,7 +23,7 @@ import { PROBE_MARK, benchRunSpent, children, createNightGit, killGroupOf, parse
 import { nightReport } from "../server/src/bench/night-report.js";
 import {
   type AgentResult, BACKLOG, type NightConfig, type NightDeps, type NightState, SMOKE_SETS, type Sets,
-  describePlan, latestNight, parseUntil, runNight,
+  describePlan, isRunKey, latestNight, parseWindow, runKeyOf, runNight,
 } from "../server/src/bench/night.js";
 import { setItems } from "../server/src/bench/sets.js";
 
@@ -44,15 +45,13 @@ const num = (n: string, d: number) => {
   if (!Number.isFinite(x) || x <= 0) throw new Error(`${n}: нужно число > 0`);
   return x;
 };
-const say = (s: string) => console.log(`[night ${new Date().toTimeString().slice(0, 5)}] ${s}`);
+const say = (s: string) => console.log(`[quality-loop ${new Date().toTimeString().slice(0, 5)}] ${s}`);
 const fail = (s: string): never => {
-  console.error(`⛔ night: ${s}`);
+  console.error(`⛔ quality-loop: ${s}`);
   process.exit(1);
 };
 
 const git = (cwd: string, ...a: string[]) => execFileSync("git", a, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
-const localDate = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
-
 // ---------- конфигурация ----------
 const now = new Date();
 const dryRun = flag("--dry-run");
@@ -60,20 +59,26 @@ const smoke = flag("--smoke");
 const resume = flag("--resume");
 const skipProbe = flag("--skip-probe");
 const NIGHT_ROOT = join(REPO, "tmp", "night");
-// smoke — своя «дата» с суффиксом: не мешает настоящей ночи того же дня
-let date = opt("--date") ?? `${localDate(now)}${smoke ? "-smoke" : ""}`;
-if (!/^\d{4}-\d{2}-\d{2}(-smoke\d*)?$/.test(date)) fail(`--date: ГГГГ-ММ-ДД[-smoke[N]], получено ${date}`);
-if (resume && !opt("--date")) {
-  // ночь, начатая до полуночи, продолжается под своей датой; -smoke10 позже -smoke2
+if (flag("--date")) fail("флаг --date переименован в --run");
+const run = opt("--run");
+if (flag("--run") && run === undefined) fail("--run: нужен ключ прогона");
+let date = run ?? runKeyOf(now, smoke);
+if (!isRunKey(date)) fail(`--run: ГГГГ-ММ-ДД-ЧЧММ[-smoke] или старый ГГГГ-ММ-ДД[-smoke[N]], получено ${date}`);
+if (resume && !run) {
+  // Прогон, начатый до полуночи, продолжается под своим ключом.
   const started = existsSync(NIGHT_ROOT) ? readdirSync(NIGHT_ROOT).filter((d) => existsSync(join(NIGHT_ROOT, d, "state.json"))) : [];
   const last = latestNight(started, smoke);
-  if (!last) fail("--resume: нет начатых ночей в tmp/night");
+  if (!last) fail("--resume: нет начатых прогонов в tmp/night");
   date = last!;
 }
 const stateDir = join(NIGHT_ROOT, date);
 const statePath = join(stateDir, "state.json");
 const prior = existsSync(statePath) ? (JSON.parse(readFileSync(statePath, "utf8")) as NightState) : null;
 if (resume && !prior) fail(`--resume: нет tmp/night/${date}/state.json`);
+const until = opt("--until");
+const hours = opt("--hours");
+if (flag("--until") && until === undefined) fail("--until: нужно значение ЧЧ:ММ или ISO");
+if (flag("--hours") && hours === undefined) fail("--hours: нужно число > 0");
 // общий каталог .git → корень основного checkout: там .claude/worktrees, настройки и примеры
 const MAIN = dirname(git(REPO, "rev-parse", "--path-format=absolute", "--git-common-dir"));
 const worktree = join(MAIN, ".claude", "worktrees", `night-${date}`);
@@ -81,7 +86,7 @@ const fullSets = (): Sets => ({ explainer: setItems("explainer").map((i) => i.id
 const isSmoke = prior ? prior.smoke : smoke;
 const cfg: NightConfig = {
   date,
-  until: parseUntil(opt("--until") ?? (prior && !opt("--until") && new Date(prior.until) > now ? prior.until : "07:00"), now).toISOString(),
+  until: parseWindow(until ?? (prior && hours === undefined && new Date(prior.until) > now ? prior.until : undefined), hours, now).toISOString(),
   budgetUsd: num("--budget-usd", prior?.budget_usd ?? 150),
   smoke: isSmoke,
   item: opt("--item"),
@@ -104,7 +109,7 @@ const claudeBin = process.env.MS_NIGHT_CLAUDE_BIN ?? "claude";
 const agentArgs = (budgetUsd: number, name: string) => [
   "-p", "--output-format", "json",
   // те же права, что у сессий проекта: его settings.json (dontAsk, sandbox, allow), без расширения;
-  // запрос разрешения ночью некому подтвердить — такой вызов отклоняется и попадает в отчёт
+  // запрос разрешения в headless-прогоне некому подтвердить — отказ попадёт в отчёт
   "--permission-mode", "dontAsk", "--permission-prompts", "none",
   ...(existsSync(settingsFile) ? ["--settings", settingsFile] : []),
   "--max-budget-usd", budgetUsd.toFixed(2), "--name", name,
@@ -113,7 +118,7 @@ const agentArgs = (budgetUsd: number, name: string) => [
 // ---------- процессы ----------
 for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
   process.on(sig, () => {
-    say(`${sig}: останавливаю дочерние процессы; продолжить — ./night --resume --date ${date}`);
+    say(`${sig}: останавливаю дочерние процессы; продолжить — ./quality-loop --resume --run ${date}`);
     for (const c of children) killGroupOf(c, "SIGTERM");
     setTimeout(() => process.exit(130), 3000).unref();
   });
@@ -239,7 +244,7 @@ const deps: NightDeps = {
   runBench: async ({ cwd, runId, set, only, logFile, timeoutMs, maxCostUsd }) => {
     const args = ["npx", "tsx", "scripts/bench-set.mts", "--run", runId, ...(set === "user" ? ["--set", "user", "--gen-timeout-min", "180"] : []), ...(only ? ["--only", only.join(",")] : [])];
     const runDir = join(cwd, "tmp", "bench", runId);
-    // потолок трат (M3): bench сам его не знает — ночь следит по файлам сцен и гасит прогон
+    // потолок трат (M3): bench сам его не знает — цикл следит по файлам сцен и гасит прогон
     const r = await runProcess("./scripts/with-node.sh", args, {
       cwd: join(cwd, "app", "motion-studio"), out: logFile, timeoutMs, graceSignal: "SIGINT", watchMs: 60_000,
       watch: () => (benchRunSpent(runDir) > maxCostUsd ? "budget" : null),
@@ -255,7 +260,7 @@ const deps: NightDeps = {
 };
 
 // ---------- предпроверки ----------
-const PROBE_BRIEF = `Это пробный запуск ночного цикла качества, а не задача. Ничего не меняй и не коммить.
+const PROBE_BRIEF = `Это пробный запуск цикла качества, а не задача. Ничего не меняй и не коммить.
 Выполни инструментом Bash ровно одну команду в текущем каталоге: \`./check\` (таймаут Bash — 600000 мс).
 Последней строкой ответа напиши \`${PROBE_MARK}<код выхода ./check>\`. Если команду не дали выполнить,
 напиши \`${PROBE_MARK}blocked\` и дословно текст блока. Если в выводе есть \`EPERM\` — процитируй
@@ -275,7 +280,7 @@ async function preflight(): Promise<string[]> {
   if (busy) fail(`${busy} — дождись конца bench или останови сервер`);
   ok.push("хранилище свободно (owner lock, ADR 0007): bench и сервер не запущены");
   const lockFile = join(stateDir, "night.pid");
-  if (existsSync(lockFile) && alive(Number(readFileSync(lockFile, "utf8").trim() || "0"))) fail(`ночь ${date} уже идёт (pid ${readFileSync(lockFile, "utf8").trim()})`);
+  if (existsSync(lockFile) && alive(Number(readFileSync(lockFile, "utf8").trim() || "0"))) fail(`прогон ${date} уже идёт (pid ${readFileSync(lockFile, "utf8").trim()})`);
   for (const it of prior?.iterations ?? []) {
     const pf = join(stateDir, String(it.n), "agent.pid");
     if (it.phase === "agent" && existsSync(pf) && alive(Number(readFileSync(pf, "utf8").trim() || "0"))) fail(`агент итерации ${it.n} прошлого запуска ещё жив (pid ${readFileSync(pf, "utf8").trim()}) — заверши его`);
@@ -284,7 +289,7 @@ async function preflight(): Promise<string[]> {
   ok.push("рабочее дерево чистое");
   if (!prior && existsSync(join(worktree, ".git"))) fail(`worktree ${worktree} уже есть, а tmp/night/${date}/state.json нет — разбери руками`);
   if (!prior && (() => { try { git(REPO, "rev-parse", "--verify", "-q", `refs/heads/night/${date}`); return true; } catch { return false; } })()) {
-    fail(`ветка night/${date} уже есть без state.json — разбери руками (ночь ничего не удаляет)`);
+    fail(`ветка night/${date} уже есть без state.json — разбери руками (цикл качества ничего не удаляет)`);
   }
   try {
     ok.push(`агент: ${execFileSync(claudeBin, ["--version"], { encoding: "utf8" }).trim()}${existsSync(settingsFile) ? `, настройки ${settingsFile}` : " (нет .claude/settings.json основного checkout — агент без прав проекта)"}`);
@@ -298,8 +303,8 @@ async function preflight(): Promise<string[]> {
   if (c.code !== 0) fail(`./check красный (журнал ${checkLog})`);
   ok.push(`./check зелёный (${Math.round(c.ms / 1000)} с)`);
   // пробный агент (B1): ./check в песочнице агента — иначе агент не сможет коммитить (pre-commit),
-  // и ночь сожжёт бэклог сбоями. Стоит центы, поэтому не в --dry-run.
-  if (dryRun) ok.push("пробный агент (./check в песочнице агента): при запуске ночи, ~$0.1–0.5");
+  // и цикл сожжёт бэклог сбоями. Стоит центы, поэтому не в --dry-run.
+  if (dryRun) ok.push("пробный агент (./check в песочнице агента): при запуске прогона, ~$0.1–0.5");
   else if (skipProbe) ok.push("пробный агент пропущен (--skip-probe)");
   else {
     const dir = join(stateDir, "probe");
@@ -307,7 +312,7 @@ async function preflight(): Promise<string[]> {
     say("пробный агент: ./check в песочнице агента…");
     const a = await runAgent({ cwd: REPO, brief: PROBE_BRIEF, logDir: dir, timeoutMs: 25 * 60_000, budgetUsd: 2, name: `night-${date}-probe` });
     const v = probeVerdict(a);
-    if (!v.ok) fail(`${v.reason} — ночь не начата, траты на bench не сделаны. Журнал ${dir}; что делать — NIGHT.md, «EPERM»`);
+    if (!v.ok) fail(`${v.reason} — прогон не начат, траты на bench не сделаны. Журнал ${dir}; что делать — NIGHT.md, «EPERM»`);
     ok.push(`пробный агент: ./check в песочнице агента зелёный ($${a.cost_usd.toFixed(2)})`);
   }
   return ok;
@@ -327,7 +332,8 @@ if (dryRun) {
 }
 mkdirSync(stateDir, { recursive: true });
 writeFileSync(join(stateDir, "night.pid"), String(process.pid));
-say(`${prior ? "продолжение" : "старт"} ночи ${date}${cfg.smoke ? " (smoke)" : ""}: до ${new Date(cfg.until).toLocaleString("ru-RU")}, бюджет $${cfg.budgetUsd}; ${checks.join("; ")}`);
+const windowText = new Date(cfg.until).getTime() - now.getTime() > 7 * 24 * 3600_000 ? "окно не задано" : `до ${new Date(cfg.until).toLocaleString("ru-RU")}`;
+say(`${prior ? "продолжение" : "старт"} прогона цикла качества ${date}${cfg.smoke ? " (smoke)" : ""}: ${windowText}, бюджет $${cfg.budgetUsd}; ${checks.join("; ")}`);
 try {
   const st = await runNight(cfg, deps);
   say(`итог: ${st.stop?.reason ?? "—"}; потрачено $${st.spent_usd.toFixed(2)}; отчёт ${join(stateDir, "REPORT.md")}`);

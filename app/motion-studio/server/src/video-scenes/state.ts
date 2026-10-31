@@ -18,7 +18,7 @@ import { videoScenes } from "../db/repos/video.js";
 import * as versions from "../db/repos/versions.js";
 import { SCENE_WRITING_TYPES } from "../jobs/locks.js";
 import { videoPackagesForProject } from "../pipeline/video-package.js";
-import { sceneStatus, versionQaWarnings } from "../script/state.js";
+import { sceneDisplayJob, sceneStatus, versionQaReport } from "../script/state.js";
 import { sceneApprovalState } from "./approval-c.js";
 import { acceptedItems, videoBatchesForState } from "./batch.js";
 import { contextPreviewState } from "./context-preview.js";
@@ -39,9 +39,11 @@ export function videoScenesState(db: Db, root: string, projectId: string): Video
   const sceneDtos: VideoSceneDto[] = doc ? acceptedItems(doc).map((item) => {
     const row = videoScenes.get(db, doc.plan_id, item.id);
     const scene = row ? scenes.get(db, row.scene_id) : undefined;
-    const raw = row?.job_id ? jobs.get(db, row.job_id) ?? null : null;
+    const batchJob = row?.job_id ? jobs.get(db, row.job_id) ?? null : null;
+    const raw = row ? sceneDisplayJob(db, row.scene_id, batchJob) : null;
     const versionId = scene?.current_version_id ?? null;
     const current = versionId ? versions.get(db, versionId) : undefined;
+    const qa = versionQaReport(db, root, versionId);
     const approved = scene?.approved_version_id ? versions.get(db, scene.approved_version_id) : undefined;
     // без стиля проекта текущий отпечаток не посчитать — устаревшим не считаем ничего
     const fingerprint = styleRef ? videoItemFingerprint(item, styleRef) : undefined;
@@ -72,7 +74,8 @@ export function videoScenesState(db: Db, root: string, projectId: string): Video
       approved_version_id: approved?.id ?? null,
       approved_version_number: approved?.number ?? null,
       queue: q && q.ahead > 0 ? { ahead: q.ahead, ...(q.blockingJobId ? { blocking_job_id: q.blockingJobId } : {}) } : null,
-      qa_warnings: versionQaWarnings(db, root, versionId),
+      qa_warnings: qa?.issues.filter((x) => x.severity === "warning") ?? [],
+      qa_overall: qa?.scores?.overall ?? null,
       context_preview: row && (approved?.id ?? versionId) ? contextPreviewState(db, root, row.scene_id, (approved?.id ?? versionId)!) : null,
     };
   }) : [];

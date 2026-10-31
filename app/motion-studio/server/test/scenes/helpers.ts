@@ -13,6 +13,7 @@ export interface DraftFiles {
   spec?: unknown;
   refs?: unknown[];
   preview?: string;
+  qa?: unknown;
 }
 
 /** Draft с файлами версии: код, props, spec, settings, knowledge-refs, превью и кадр QA. */
@@ -25,6 +26,7 @@ export async function makeDraft(root: string, ref: DraftRef, files: DraftFiles =
   await writeFile(join(d.dir, "spec.json"), JSON.stringify(files.spec ?? { title: "t", duration_frames: 180 }));
   await writeFile(join(d.dir, "settings.json"), JSON.stringify(defaultSettings()));
   await writeFile(join(d.dir, "knowledge-refs.json"), JSON.stringify(files.refs ?? []));
+  if (files.qa !== undefined) await writeFile(join(d.dir, "qa.json"), JSON.stringify(files.qa));
   await writeFile(join(d.dir, "preview.mp4"), files.preview ?? "video");
   await writeFile(join(d.dir, "frames/0.png"), "png0");
   return d;

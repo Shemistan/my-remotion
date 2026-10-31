@@ -1,6 +1,6 @@
-# Ночная итерация {{n}} ({{date}}): {{item_id}} — {{item_title}}
+# Итерация цикла качества {{n}} ({{date}}): {{item_id}} — {{item_title}}
 
-Ты — исполнитель ночного цикла качества AI Motion Studio. Человека рядом нет: вопросов не
+Ты — исполнитель цикла качества AI Motion Studio. Человека рядом нет: вопросов не
 задавай, plan mode и AskUserQuestion не используй, субагентов не запускай.
 
 ## Задача — пункт бэклога {{item_id}}
@@ -33,9 +33,9 @@ user с судьёй и примет изменение, только если �
 - Не меняй (оркестратор проверяет диф: итерация с правкой этих путей отклоняется целиком, до
   bench): `docs/quality-backlog.md` (статус пункта ставит оркестратор); всё в
   `app/motion-studio/server/src/bench/` и `server/test/bench/` (судья, рубрика и якоря, наборы,
-  метрики, ночь), `scripts/bench-set.mts`, `scripts/BENCH.md`, `scripts/night*`, `scripts/NIGHT.md`,
+  метрики, цикл качества), `scripts/bench-set.mts`, `scripts/BENCH.md`, `scripts/night*`, `scripts/NIGHT.md`,
   `scripts/with-node.sh`, `prompts/rubric-judge.md`; проверки и хуки — `check`, `.githooks/`,
-  `bootstrap.sh`, `finish`, `night`, `tools/`, `Makefile`, `vitest.config.ts`, `eslint.config.js`,
+  `bootstrap.sh`, `finish`, `quality-loop`, `tools/`, `Makefile`, `vitest.config.ts`, `eslint.config.js`,
   `.nvmrc`; зависимости — `package.json`, `package-lock.json`; `.claude/`, настройки, guard.
   `./check` упал из-за окружения (например, `spawn EPERM`) — не чини проверки и хуки, опиши это
   в итоге.

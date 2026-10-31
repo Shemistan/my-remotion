@@ -23,6 +23,8 @@ export interface SceneTileProps {
   onRetry?: () => void;
   /** Перегенерация готовой сцены; нет — кнопки нет. */
   onRegenerate?: () => void;
+  /** Доработка готовой сцены по её оценке Visual QA. */
+  onImprove?: () => void;
 }
 
 function Preview({ versionId, status }: { versionId: string | null; status: ScriptItemStatus }) {
@@ -37,7 +39,7 @@ function Preview({ versionId, status }: { versionId: string | null; status: Scri
   return s.height > s.width ? <div className="tall">{player}</div> : player;
 }
 
-export function SceneTile({ row, numbers, busy, onRetry, onRegenerate }: SceneTileProps) {
+export function SceneTile({ row, numbers, busy, onRetry, onRegenerate, onImprove }: SceneTileProps) {
   const { item, n, scene } = row;
   const status: ScriptItemStatus = scene?.status ?? "none";
   const job = scene?.job ?? null;
@@ -52,6 +54,7 @@ export function SceneTile({ row, numbers, busy, onRetry, onRegenerate }: SceneTi
         <span className="chip small">{techniqueLabel(item.technique)}</span>
         <span className="spacer" />
         {scene?.stale ? <span className="badge stale-badge" title={t("scriptOutput.staleHint")}>{t("scriptOutput.stale")}</span> : null}
+        {scene?.qa_overall !== null && scene?.qa_overall !== undefined ? <span className="muted small">{t("scriptOutput.score", { score: scene.qa_overall })}</span> : null}
         <span className={`badge status-${status === "ready" ? "completed" : status}`}>{t(`scriptOutput.status.${status}`)}</span>
       </div>
       <blockquote className="card-quote">«{item.quote}»</blockquote>
@@ -79,6 +82,7 @@ export function SceneTile({ row, numbers, busy, onRetry, onRegenerate }: SceneTi
       ) : null}
       <div className="row wrap tile-actions">
         {scene ? <Link to={{ name: "scene", id: scene.scene_id }} className="button">{t("scriptOutput.refine")}</Link> : null}
+        {onImprove ? <button type="button" disabled={busy} onClick={onImprove}>{t("scriptOutput.improve")}</button> : null}
         <span className="spacer" />
         {onRetry ? <button type="button" className="primary" disabled={busy} onClick={onRetry}>{t("scriptOutput.retry")}</button> : null}
         {onRegenerate ? (

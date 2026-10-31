@@ -37,6 +37,8 @@ export const ruVideoScenes = {
   "videoScenes.refineHint": "Открыть сцену в Playground: правка чатом, история версий, QA",
   "videoScenes.retry": "Повторить",
   "videoScenes.regenerate": "Перегенерировать",
+  "videoScenes.improve": "Улучшить",
+  "videoScenes.score": "Оценка {score}/10",
 
   "videoScenes.view.scene": "Сцена",
   "videoScenes.view.context": "В контексте",
@@ -79,6 +81,7 @@ export const ruVideoScenes = {
   "videoScenes.error.plan_changed": "Версия сделана не по текущей сцене плана — перегенерируйте сцену.",
   "videoScenes.error.version_failed": "Версия не готова — утверждать и показывать нечего.",
   "videoScenes.error.nothing_to_generate": "Все сцены уже готовы по текущему плану — генерировать нечего.",
+  "videoScenes.error.no_scores": "У версии нет оценки QA — используйте «Перегенерировать» или Playground.",
   "videoScenes.error.no_style": "У проекта нет стиля — сначала постройте план.",
   "videoScenes.error.no_media": "У проекта нет исходного видео.",
   "videoScenes.error.no_items": "В плане нет принятых сцен.",

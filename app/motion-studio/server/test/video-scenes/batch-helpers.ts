@@ -59,7 +59,7 @@ export async function nextRevision(v: VideoEnv, edit: (items: ScenePlanItem[]) =
 type In = { sceneId: string; video: { item_id: string }; video_fingerprint?: string };
 
 /** Фейк генерации видеосцены: сцена из `fail` — failed; иначе ждёт `hold` и публикует версию. */
-export function fakeVideoGenerate(v: VideoEnv, o: { fail?: Set<string>; hold?: Promise<void>; afterPublish?: Promise<void> } = {}): JobHandler {
+export function fakeVideoGenerate(v: VideoEnv, o: { fail?: Set<string>; hold?: Promise<void>; afterPublish?: Promise<void>; qa?: unknown } = {}): JobHandler {
   return async (c: JobContext): Promise<HandlerResult> => {
     const input = c.job.input as In;
     if (o.fail?.has(input.video.item_id)) return { status: "failed", error: { code: "pipeline", message: "фейк: генерация не удалась" } };
@@ -67,7 +67,7 @@ export function fakeVideoGenerate(v: VideoEnv, o: { fail?: Set<string>; hold?: P
       await Promise.race([o.hold, new Promise<void>((r) => c.signal.addEventListener("abort", () => r()))]);
       if (c.signal.aborted) return { status: "cancelled", error: { code: "cancelled", message: "отменено" } };
     }
-    const draft = await makeDraft(v.env.s.root, { runId: c.job.id, attempt: c.attempt, sceneId: input.sceneId, projectId: P });
+    const draft = await makeDraft(v.env.s.root, { runId: c.job.id, attempt: c.attempt, sceneId: input.sceneId, projectId: P }, o.qa !== undefined ? { qa: o.qa } : {});
     const ver = await v.repo.publish(draft, meta(input.sceneId), { jobId: c.job.id, attempt: c.attempt });
     if (input.video_fingerprint) videoScenes.setFingerprint(v.env.db, input.sceneId, input.video_fingerprint); // как playground.generate
     if (o.afterPublish) await o.afterPublish;

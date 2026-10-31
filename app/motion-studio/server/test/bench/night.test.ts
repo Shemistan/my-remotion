@@ -1,4 +1,4 @@
-// Оркестратор ночи (спека 2026-10-23-night-quality-loop) на фейковых git, агенте и bench:
+// Оркестратор цикла качества (спека 2026-10-23-night-quality-loop) на фейковых git, агенте и bench:
 // ветки итераций, fast-forward принятого, пометки бэклога, остановки (окно, бюджет, SSD,
 // пустой бэклог), сбой итерации не останавливает ночь, продолжение без второй базовой линии.
 // Предохранители по ревью ночи: серия сбоев, сбой окружения не «сжигает» пункт (B1),
@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { CRITERIA } from "../../src/bench/metrics.js";
 import {
   type AgentResult, type NightConfig, type NightDeps, type NightGit, type NightState,
-  describePlan, forbiddenTouched, infraKind, latestNight, parseUntil, runNight,
+  describePlan, forbiddenTouched, infraKind, isRunKey, latestNight, parseUntil, parseWindow, runKeyOf, runNight,
 } from "../../src/bench/night.js";
 import { parseBacklog } from "../../src/bench/quality-backlog.js";
 
@@ -237,7 +237,7 @@ describe("runNight", () => {
     expect(b.items[0]!.status).toBe("принято (ночь 2026-10-23, #1)");
     expect(st.stop!.reason).toMatch(/окно/);
     const report = readFileSync(join(t.cfg.stateDir, "REPORT.md"), "utf8");
-    expect(report).toMatch(/# Ночь 2026-10-23/);
+    expect(report).toMatch(/# Прогон цикла качества 2026-10-23/);
     expect(report).toMatch(/Q01.*принято/);
     expect(report).toMatch(/6\.00 → 6\.50/);
     expect(report).toMatch(/подтверждающий прогон/);
@@ -546,14 +546,14 @@ describe("runNight", () => {
 });
 
 describe("forbiddenTouched", () => {
-  it("хуки, check, bootstrap, измеритель, сама ночь, бэклог, зависимости — запрещены; код генератора — нет", () => {
+  it("хуки, check, bootstrap, измеритель, обёртка цикла, бэклог, зависимости — запрещены; код генератора — нет", () => {
     expect(forbiddenTouched([
-      ".githooks/pre-push", "check", "bootstrap.sh", "finish", "night", ".claude/settings.json", "docs/quality-backlog.md",
+      ".githooks/pre-push", "check", "bootstrap.sh", "finish", "quality-loop", "night", ".claude/settings.json", "docs/quality-backlog.md",
       "app/motion-studio/server/src/bench/sets.ts", "app/motion-studio/scripts/bench-set.mts", "app/motion-studio/scripts/night.mts",
       "app/motion-studio/prompts/rubric-judge.md", "app/motion-studio/package.json", "app/motion-studio/render/package.json",
       "app/motion-studio/server/src/pipeline/generate.ts", "app/motion-studio/prompts/engineer.md", "docs/checklist.md", "checker",
     ])).toEqual([
-      ".githooks/pre-push", "check", "bootstrap.sh", "finish", "night", ".claude/settings.json", "docs/quality-backlog.md",
+      ".githooks/pre-push", "check", "bootstrap.sh", "finish", "quality-loop", ".claude/settings.json", "docs/quality-backlog.md",
       "app/motion-studio/server/src/bench/sets.ts", "app/motion-studio/scripts/bench-set.mts", "app/motion-studio/scripts/night.mts",
       "app/motion-studio/prompts/rubric-judge.md", "app/motion-studio/package.json", "app/motion-studio/render/package.json",
     ]);
@@ -570,12 +570,32 @@ describe("infraKind", () => {
 });
 
 describe("latestNight", () => {
-  it("последняя ночь: по дате, smoke — по номеру (smoke10 позже smoke2, L3)", () => {
-    const names = ["2026-10-22", "2026-10-23", "2026-10-23-smoke", "2026-10-23-smoke2", "2026-10-23-smoke10", "мусор"];
-    expect(latestNight(names, false)).toBe("2026-10-23");
-    expect(latestNight(names, true)).toBe("2026-10-23-smoke10");
+  it("выбирает по дате, времени и номеру smoke; старый ключ раньше временного того же дня", () => {
+    const names = [
+      "2026-10-22-2359", "2026-10-23", "2026-10-23-0915", "2026-10-23-1740",
+      "2026-10-23-smoke10", "2026-10-23-0915-smoke", "2026-10-23-1740-smoke", "мусор",
+    ];
+    expect(latestNight(names, false)).toBe("2026-10-23-1740");
+    expect(latestNight(names, true)).toBe("2026-10-23-1740-smoke");
+    expect(latestNight(["2026-10-23-smoke", "2026-10-23-smoke2", "2026-10-23-smoke10"], true)).toBe("2026-10-23-smoke10");
     expect(latestNight(["2026-10-24-smoke", "2026-10-23-smoke9"], true)).toBe("2026-10-24-smoke");
     expect(latestNight([], true)).toBeUndefined();
+  });
+});
+
+describe("runKeyOf", () => {
+  it("по умолчанию включает местные дату и время; два старта одного дня дают разные ключи", () => {
+    const first = runKeyOf(new Date(2026, 9, 23, 9, 15), false);
+    const second = runKeyOf(new Date(2026, 9, 23, 17, 40), false);
+    expect(first).toBe("2026-10-23-0915");
+    expect(second).toBe("2026-10-23-1740");
+    expect(first).not.toBe(second);
+    expect(runKeyOf(new Date(2026, 9, 23, 17, 40), true)).toBe("2026-10-23-1740-smoke");
+  });
+
+  it("принимает новые и старые ключи, но проверяет календарь и время", () => {
+    expect(["2026-10-23-1740", "2026-10-23-1740-smoke", "2026-10-23", "2026-10-23-smoke10"].every(isRunKey)).toBe(true);
+    expect(["2026-02-30-1200", "2026-10-23-2460", "23-10-2026"].some(isRunKey)).toBe(false);
   });
 });
 
@@ -590,8 +610,22 @@ describe("parseUntil", () => {
   });
 });
 
+describe("parseWindow", () => {
+  const now = new Date("2026-10-23T12:00:00");
+
+  it("--hours задаёт окно от старта, без флагов внутренний предел — 14 дней", () => {
+    expect(parseWindow(undefined, "2.5", now).getTime()).toBe(now.getTime() + 2.5 * 3600_000);
+    expect(parseWindow(undefined, undefined, now).getTime()).toBe(now.getTime() + 14 * 24 * 3600_000);
+  });
+
+  it("--hours несовместим с --until и должен быть положительным", () => {
+    expect(() => parseWindow("18:00", "2", now)).toThrow(/вместе с --until/);
+    expect(() => parseWindow(undefined, "0", now)).toThrow(/число > 0/);
+  });
+});
+
 describe("describePlan", () => {
-  it("план ночи: окно, бюджет, ветки, worktree, базовая линия, порядок пунктов; без побочных эффектов", () => {
+  it("план прогона: окно, бюджет, ветки, worktree, базовая линия, порядок пунктов; без побочных эффектов", () => {
     const t = setup({ bench: [], agent: [] });
     const txt = describePlan(t.cfg, { now: new Date("2026-10-23T22:00:00"), backlogMd: BACKLOG, state: null, baseline: null, worktreeExists: false, agentCommand: "claude -p …" });
     expect(txt).toMatch(/night\/2026-10-23/);
@@ -600,5 +634,13 @@ describe("describePlan", () => {
     expect(txt).toMatch(/базовая линия: прогон/);
     expect(txt).toMatch(/\$150/);
     expect(existsSync(t.cfg.stateDir)).toBe(false);
+  });
+
+  it("без окна пишет стоп по бюджету и бэклогу, число итераций оценивает по бюджету", () => {
+    const now = new Date("2026-10-23T22:00:00");
+    const t = setup({ bench: [], agent: [] }, { until: new Date(now.getTime() + 14 * 24 * 3600_000).toISOString() });
+    const txt = describePlan(t.cfg, { now, backlogMd: BACKLOG, state: null, baseline: null, worktreeExists: false, agentCommand: "claude -p …" });
+    expect(txt).toMatch(/окно: не задано — стоп по бюджету и бэклогу/);
+    expect(txt).toMatch(/оценка: ~2 итераций/);
   });
 });
