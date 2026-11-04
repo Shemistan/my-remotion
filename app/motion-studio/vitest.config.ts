@@ -17,10 +17,15 @@ const face = process.env.MS_E2E_FACE === "1";
 const UNIT_TIMEOUT = 10_000;
 // Тяжёлые юнит-файлы с реальным ядром и конвейером идут 2–3 с без нагрузки, под
 // параллельными рендерами — вдвое-втрое дольше: запас против ложных таймаутов ./check.
+// Они же — тяжёлый уровень: `MS_SKIP_HEAVY=1` (pre-commit, `make check-fast`) их не гоняет,
+// полный `make check` (./finish) — гоняет. Сюда же — самые долгие файлы по времени прогона.
 const HEAVY: Record<string, string[]> = {
-  server: ["test/cli/generate-boot.test.ts", "test/pipeline/playground-generate.test.ts", "test/pipeline/best-attempt.test.ts","test/qa/real-frames.test.ts", "test/qa/hold-frames.test.ts", "test/media/import-handler.test.ts", "test/media/asr-handler.test.ts", "test/pipeline/roughcut-preview.test.ts", "test/analysis/ffmpeg-frames.test.ts", "test/analysis/footage-handler.test.ts", "test/pipeline/scene-restore.test.ts", "test/pipeline/playground-edit.test.ts", "test/pipeline/playground-generate-script.test.ts", "test/pipeline/fragment-fit-attempt.test.ts", "test/pipeline/scene-export.test.ts", "test/pipeline/playground-generate-reframe.test.ts", "test/pipeline/video-generate.test.ts", "test/pipeline/video-edit.test.ts"],
+  core: ["test/run/processes.test.ts"],
+  render: ["test/processes.test.ts"],
+  server: ["test/pipeline/generate.test.ts", "test/pipeline/script-package.test.ts", "test/pipeline/final-render.test.ts", "test/pipeline/scene-export-overlay.test.ts", "test/video-scenes/video-package.test.ts", "test/video-scenes/batch.test.ts", "test/script/batch.test.ts", "test/script/reframe.test.ts", "test/jobs/test-hooks.test.ts","test/cli/generate-boot.test.ts", "test/pipeline/playground-generate.test.ts", "test/pipeline/best-attempt.test.ts","test/qa/real-frames.test.ts", "test/qa/hold-frames.test.ts", "test/media/import-handler.test.ts", "test/media/asr-handler.test.ts", "test/pipeline/roughcut-preview.test.ts", "test/analysis/ffmpeg-frames.test.ts", "test/analysis/footage-handler.test.ts", "test/pipeline/scene-restore.test.ts", "test/pipeline/playground-edit.test.ts", "test/pipeline/playground-generate-script.test.ts", "test/pipeline/fragment-fit-attempt.test.ts", "test/pipeline/scene-export.test.ts", "test/pipeline/playground-generate-reframe.test.ts", "test/pipeline/video-generate.test.ts", "test/pipeline/video-edit.test.ts"],
 };
 const HEAVY_TIMEOUT = 30_000;
+const skipHeavy = process.env.MS_SKIP_HEAVY === "1";
 
 const project = (name: string, include: string[], exclude: string[], timeout: number) => ({
   test: {
@@ -48,7 +53,7 @@ export default defineConfig({
         const heavy = HEAVY[name] ?? [];
         return [
           project(name, ["test/**/*.test.ts"], [E2E, ...heavy], UNIT_TIMEOUT),
-          ...(heavy.length > 0 ? [project(`${name}-heavy`, heavy, [], HEAVY_TIMEOUT)] : []),
+          ...(heavy.length > 0 && !skipHeavy ? [project(`${name}-heavy`, heavy, [], HEAVY_TIMEOUT)] : []),
         ];
       }),
       // UI (Task 21): jsdom и React; e2e UI — Playwright (`make e2e-ui`), не Vitest

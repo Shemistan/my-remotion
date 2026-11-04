@@ -27,8 +27,14 @@ if ! git show-ref -q --verify refs/heads/staging; then
   echo "✓ создана ветка staging от $BASE"
 fi
 
+# Полный ./check — если он ещё не был зелёным для этого же дерева (штамп ./check).
 if [ -x ./check ]; then
-  ./check || fail "./check красный"
+  STAMP=$(git rev-parse --git-path check-stamp)
+  if [ -f "$STAMP" ] && [ "$(cat "$STAMP")" = "$(git rev-parse 'HEAD^{tree}')" ]; then
+    echo "✓ ./check уже зелёный для этого дерева — повтор пропущен"
+  else
+    ./check || fail "./check красный"
+  fi
 fi
 
 REMOTE=""
