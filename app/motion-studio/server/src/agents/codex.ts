@@ -159,8 +159,8 @@ export class CodexRuntime implements AgentRuntimeAdapter {
     this.bin = opts.bin.includes("/") ? resolve(opts.bin) : opts.bin;
   }
 
-  async capabilities(): Promise<{ available: boolean; version?: string; reason?: string }> {
-    const env = childEnv(process.env);
+  async capabilities(sourceEnv: NodeJS.ProcessEnv = process.env): Promise<{ available: boolean; version?: string; reason?: string }> {
+    const env = childEnv(sourceEnv);
     const bin = await resolveBin(this.bin, env.PATH);
     if (!bin) return { available: false, reason: `codex не найден: ${this.bin}` };
     try {

@@ -165,7 +165,7 @@ describe("полный doctor (03 §7)", () => {
     const r = await runDoctor(["--json"], { MS_DATA_DIR: root, ...setupEnv() }, probe, browser, asrOk, visionOk);
     const c = checks(r.output);
     // node тестов — из nvm, не из .deps: единственное предупреждение строки deps (S19)
-    expect(Object.keys(c)).toEqual(["node", "claude", "claude_login", "ffmpeg", "ffprobe", "encoders", "filters", "asr", "vision", "kb", "storage", "chrome", "db", "owner_lock", "deps"]);
+    expect(Object.keys(c)).toEqual(["node", "claude", "claude_login", "codex", "ffmpeg", "ffprobe", "encoders", "filters", "asr", "vision", "kb", "storage", "chrome", "db", "owner_lock", "deps"]);
     for (const x of Object.values(c)) if (x.name !== "deps") expect(x, x.name).toMatchObject({ ok: true, status: "ok" });
     expect(c.deps).toMatchObject({ ok: true, status: "warning" });
     expect(c.deps!.detail).toMatch(/^не из \.deps: node \(/);

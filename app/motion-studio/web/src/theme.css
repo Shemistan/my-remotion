@@ -133,6 +133,7 @@ label.inline { display: inline-flex; gap: 6px; align-items: center; }
 label.check { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
 
 /* Dashboard и проект */
+.new-project-title { display: block; width: 100%; margin-bottom: 8px; }
 .project-list, .job-list, .scene-cards, .kb-hits, .issues, .gates, .score-axes, .kb-refs, .chips, .file-diffs, .history ul { list-style: none; margin: 0; padding: 0; }
 .project-list li, .job-list li { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px solid var(--border); }
 .scene-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }

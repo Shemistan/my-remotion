@@ -87,7 +87,7 @@ function Panel({ data }: { data: DelegationDto }) {
         <tbody>
           {data.roles.map((r) => (
             <tr key={r.role}>
-              <td>{tk(`role.${r.role}`, r.role)}</td>
+              <td>{tk(`diagnostics.role.${r.role}`, r.role)}</td>
               <td className="muted">{`${pct(r.weight * 100)} %`}</td>
               <td>{`${pct(r.share * 100, 0)} %`}</td>
               <td className="muted">{t("delegation.cleanValue", { codex: clean(r.stats.codex), claude: clean(r.stats.claude) })}</td>

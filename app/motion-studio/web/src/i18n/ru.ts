@@ -21,6 +21,8 @@ export const ru = {
   "nav.project": "← К проекту",
   "nav.notFound": "Страница не найдена",
 
+  "diagnostics.check.codex": "Codex CLI",
+
   "common.loading": "Загрузка…",
   "common.cancel": "Отмена",
   "common.save": "Сохранить",

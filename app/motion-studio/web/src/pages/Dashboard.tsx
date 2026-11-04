@@ -14,7 +14,6 @@ import { SettingsForm } from "../components/SettingsForm.js";
 import { CostSummary } from "../components/costs/CostSummary.js";
 import { ProjectList } from "../components/projects/ProjectList.js";
 import { RecoveryBanner } from "../components/projects/RecoveryBanner.js";
-import { DisabledReason } from "../components/ui/DisabledReason.js";
 import { EmptyState } from "../components/ui/EmptyState.js";
 import { Skeleton } from "../components/ui/Skeleton.js";
 import { versionState } from "../components/VersionHistory.js";
@@ -48,21 +47,21 @@ function NewProject() {
     <form className="panel new-project" onSubmit={(e) => { e.preventDefault(); if (title.trim()) create.mutate("playground"); }}>
       <h2>{t("dashboard.newProject")}</h2>
       <label htmlFor={id}>{t("dashboard.projectTitle")}</label>
-      <div className="row">
-        <input id={id} className="grow" value={title} placeholder={t("dashboard.projectTitlePlaceholder")} onChange={(e) => setTitle(e.target.value)} />
+      <input id={id} className="new-project-title" value={title} placeholder={t("dashboard.projectTitlePlaceholder")} onChange={(e) => setTitle(e.target.value)} />
+      <div className="row wrap">
         {(["playground", "video", "script"] as const).map((kind) => (
-          <DisabledReason key={kind} reasonKey={!title.trim() ? "ux.disabled.enterProjectTitle" : create.isPending ? "ux.disabled.requestRunning" : null}>
-            <button
-              type={kind === "playground" ? "submit" : "button"}
-              className={kind === "playground" ? "primary" : undefined}
-              disabled={!title.trim() || create.isPending}
-              onClick={kind === "playground" ? undefined : () => create.mutate(kind)}
-            >
-              {t(kind === "playground" ? "dashboard.create" : kind === "video" ? "dashboard.createVideo" : "dashboard.createScript")}
-            </button>
-          </DisabledReason>
+          <button
+            key={kind}
+            type={kind === "playground" ? "submit" : "button"}
+            className={kind === "playground" ? "primary" : undefined}
+            disabled={!title.trim() || create.isPending}
+            onClick={kind === "playground" ? undefined : () => create.mutate(kind)}
+          >
+            {t(kind === "playground" ? "dashboard.create" : kind === "video" ? "dashboard.createVideo" : "dashboard.createScript")}
+          </button>
         ))}
       </div>
+      {!title.trim() ? <p className="hint">{t("ux.disabled.enterProjectTitle")}</p> : null}
       {create.isError ? <p className="error">{errorText(create.error)}</p> : null}
     </form>
   );
@@ -116,6 +115,8 @@ function RecentExports({ q }: { q: JobsQuery }) {
             return (
               <li key={j.id}>
                 <span>{final ? t("dashboard.finalExport") : tk(`export.format.${format}`, format)}</span>
+                <Link to={{ name: "project", id: j.project_id }}>{j.project_title ?? j.project_id}</Link>
+                {j.scene_id ? <Link to={{ name: "scene", id: j.scene_id }}>{j.scene_title ?? j.scene_id}</Link> : null}
                 <span className="muted">{j.finished_at ? dateTime(j.finished_at) : ""}</span>
                 <a href={final ? timelineUrls.finalFile(exportIdOf(j)!) : urls.exportFile(exportIdOf(j)!)} download>{t("export.download")}</a>
               </li>

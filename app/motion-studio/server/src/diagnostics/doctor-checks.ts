@@ -31,6 +31,7 @@ import {
 } from "@ms/core";
 import type { DoctorReportDto } from "@ms/contracts";
 import { ensureRenderBrowser, findOnPath, findRenderBrowser } from "@ms/render";
+import { CodexRuntime } from "../agents/codex.js";
 import { childEnv } from "../agents/env.js";
 import { DEFAULT_VISION_BIN, visionAvailable } from "../analysis/vision.js";
 import { LEGACY_ASR_PYTHON, LEGACY_MODELS_DIR, loadConfig, readConfigFile, type AppConfig } from "../config.js";
@@ -158,6 +159,20 @@ export async function doctorChecks(
     else if (opts.fast) rows.push({ name: "claude_login", ok: true, status: "skipped", detail: "быстрая проверка: вход не проверялся (платный вызов) — «Полная проверка»" });
     else rows.push(await claudeLogin(claude, cenv));
   }
+
+  // Codex необязателен: при включённом делегировании недоступность — предупреждение,
+  // при выключенном достаточно показать причину без тревожного статуса.
+  const codex = new CodexRuntime({
+    bin: config.codex.bin,
+    logRoot: join(config.dataDir, "logs", "agent-runs"),
+  });
+  const codexCapability = await codex.capabilities(env);
+  rows.push({
+    name: "codex",
+    ok: true,
+    status: codexCapability.available || !config.delegation.enabled ? "ok" : "warning",
+    detail: codexCapability.available ? (codexCapability.version ?? config.codex.bin) : (codexCapability.reason ?? config.codex.bin),
+  });
 
   // ffmpeg, ffprobe (S19: `.deps/ffmpeg`, иначе PATH — с предупреждением), энкодеры
   const tools = (["ffmpeg", "ffprobe"] as const).map((name) => {

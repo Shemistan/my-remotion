@@ -50,14 +50,19 @@ function Form({ data }: { data: AppSettingsDto }) {
             <tbody>
               {Object.entries(data.agents).map(([role, a]) => (
                 <tr key={role}>
-                  <td><label htmlFor={`${id}-${role}`}>{tk(`role.${role}`, role)}</label></td>
-                  <td><input id={`${id}-${role}`} value={models[role] ?? ""} onChange={(e) => setModels({ ...models, [role]: e.target.value })} /></td>
+                  <td><label htmlFor={`${id}-${role}`}>{tk(`diagnostics.role.${role}`, role)}</label></td>
+                  <td><input id={`${id}-${role}`} list={`${id}-models`} value={models[role] ?? ""} onChange={(e) => setModels({ ...models, [role]: e.target.value })} /></td>
                   <td className="muted">{t("appSettings.minutes", { n: formatNumber(a.timeoutMs / 60_000, 0) })}</td>
                   <td className="muted">{`$${formatNumber(a.maxBudgetUsd, 2)}`}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          <datalist id={`${id}-models`}>
+            <option value="sonnet" />
+            <option value="opus" />
+            <option value="haiku" />
+          </datalist>
           <p className="hint">{t("appSettings.readOnlyHint")}</p>
           <h2>{t("appSettings.limits")}</h2>
           {LIMIT_KEYS.map((k) => (
