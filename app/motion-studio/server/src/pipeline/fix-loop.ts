@@ -617,7 +617,8 @@ async function fixLoop(i: LoopInput, state: LoopState, t2out: { alive: boolean }
   await dropTakeDirs(rc, t2alive);
 
   let qa = best.qa;
-  if (qa && best.blocking && meaningFails(qa)) {
+  const manual = !rc.config.scene.qaAutoFix;
+  if (qa && best.blocking && meaningFails(qa) && !manual) {
     // rulings 2026-10-23: semantic/style fail не смягчается — версия failed с отчётом QA
     const what = (["semantic", "style"] as const).filter((k) => qa!.gate[k] === "fail").join(", ");
     rc.note("qa", `лучшая попытка ${best.n}: ${what} fail — не ready`);
@@ -626,12 +627,14 @@ async function fixLoop(i: LoopInput, state: LoopState, t2out: { alive: boolean }
   if (qa && best.blocking) {
     const why = t1.exit?.stage === "budget"
       ? "— бюджет сцены исчерпан"
+      : manual && !t1.exit
+        ? "— автодоработка по QA выключена, улучшение — кнопкой «Улучшить»"
       : t1.exit?.stage === "qa"
         ? "— Visual QA не оценил следующую попытку"
         : t1.exit
           ? `— ${t1.exit.stage}`
           : `после ${maxCalls - 1} исправлений`;
-    qa = acceptedAsWarn(qa, why);
+    qa = acceptedAsWarn(qa, why, manual);
     rc.warnings.push(`опубликована лучшая попытка ${best.n} с blocking QA (${why}): visual = warn, решение за человеком`);
   }
   const framesSha: string[] = [];
@@ -1031,6 +1034,12 @@ async function runTake(i: LoopInput, state: LoopState, ctl: TakeCtl, t: Take): P
         const blocking = report_.issues.filter((x) => x.severity === "blocking");
         push({ stage: "qa", message: fixHints(report_) });
         rc.log(`QA${first ? "" : " (дубль 2)"}: blocking ${blocking.map((x) => `${x.code}${x.frame !== undefined ? `@${x.frame}` : ""}`).join(", ") || Object.entries(report_.gate).filter(([, v]) => v === "fail").map(([k]) => `gate.${k}`).join(", ")}`);
+        // ручной режим (2026-11-04): замечания QA не уходят Engineer на второй круг — версия
+        // публикуется с пометкой «низкое качество», доработка — кнопкой «Улучшить»
+        if (!rc.config.scene.qaAutoFix) {
+          rc.note(first ? "qa" : "t2_qa", "автодоработка по QA выключена — публикация с пометкой «низкое качество»");
+          return { issue: issue! };
+        }
         continue;
       }
       rc.note(first ? "gate" : "t2_gate", `gate пройден с вызова ${call}${report_?.scores ? `, overall ${report_.scores.overall}` : ""}`);

@@ -39,6 +39,8 @@ export const ruVideoScenes = {
   "videoScenes.regenerate": "Перегенерировать",
   "videoScenes.improve": "Улучшить",
   "videoScenes.score": "Оценка {score}/10",
+  "videoScenes.lowQuality": "Низкое качество",
+  "videoScenes.lowQualityHint": "Проверка качества не пройдена: видео собрано как есть. Доработать — кнопкой «Улучшить».",
 
   "videoScenes.view.scene": "Сцена",
   "videoScenes.view.context": "В контексте",

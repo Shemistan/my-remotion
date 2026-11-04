@@ -48,6 +48,8 @@ export const ruScriptOutput = {
   "scriptOutput.regenerate": "Перегенерировать",
   "scriptOutput.improve": "Улучшить",
   "scriptOutput.score": "Оценка {score}/10",
+  "scriptOutput.lowQuality": "Низкое качество",
+  "scriptOutput.lowQualityHint": "Проверка качества не пройдена: видео собрано как есть. Доработать — кнопкой «Улучшить».",
   "scriptOutput.preview.none": "Превью появится после генерации",
   "scriptOutput.preview.pending": "Сцена ждёт очереди",
   "scriptOutput.preview.running": "Сцена генерируется…",

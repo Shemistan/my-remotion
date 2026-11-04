@@ -185,7 +185,13 @@ export interface AppConfig {
   /** Codex CLI для делегирования (спека 2026-11-04-codex-delegation). */
   codex: CodexConfig;
   delegation: DelegationConfig;
-  scene: { maxCostUsd: number; maxAutoFixes: number; secondTake: SecondTake };
+  /**
+   * `qaAutoFix` — исправлять ли blocking-замечания Visual QA автоматически (ходы Engineer до
+   * `maxAutoFixes`). По умолчанию `false` (2026-11-04): после проверки качества версия
+   * публикуется с пометкой «низкое качество» (`qa.low_quality`), доработку запускает человек
+   * кнопкой «Улучшить». Технический gate (static, typecheck, рендер) исправляется всегда.
+   */
+  scene: { maxCostUsd: number; maxAutoFixes: number; qaAutoFix: boolean; secondTake: SecondTake };
   kb: { root: string; sourceRoot: string };
   limits: Limits;
   /** Настройки новой сцены по умолчанию (форма в UI). */
@@ -264,7 +270,7 @@ const FileSchema = z
     codex: CodexFileSchema,
     delegation: DelegationSchema,
     agents: z.object(Object.fromEntries(ROLES.map((r) => [r, AgentOverride.optional()]))).strict(),
-    scene: z.object({ maxCostUsd: z.number().positive(), maxAutoFixes: z.number().int().min(0), secondTake: SecondTakeSchema }).partial().strict(),
+    scene: z.object({ maxCostUsd: z.number().positive(), maxAutoFixes: z.number().int().min(0), qaAutoFix: z.boolean(), secondTake: SecondTakeSchema }).partial().strict(),
     kb: z.object({ root: z.string().min(1), sourceRoot: z.string().min(1) }).partial().strict(),
     limits: LimitsSchema,
     defaults: SettingsSchema,
@@ -342,6 +348,7 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown, probe: Pa
     scene: {
       maxCostUsd: file.scene?.maxCostUsd ?? 5,
       maxAutoFixes: file.scene?.maxAutoFixes ?? 2,
+      qaAutoFix: file.scene?.qaAutoFix ?? false,
       secondTake: { ...SECOND_TAKE, ...file.scene?.secondTake, ...secondTakeEnv(env) },
     },
     kb: {

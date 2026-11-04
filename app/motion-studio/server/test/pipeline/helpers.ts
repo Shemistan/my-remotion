@@ -362,7 +362,8 @@ export function fakeRender(opts: {
 }
 
 export async function makeDeps(root: string, skillsRoot: string, over: Partial<GenerateDeps> = {}): Promise<GenerateDeps> {
-  const config = loadConfig({ MS_DATA_DIR: root }, {});
+  // старые тесты цикла проверяют автодоработку по QA; ручной режим (умолчание) — в qa-manual.test.ts
+  const config = loadConfig({ MS_DATA_DIR: root }, { scene: { qaAutoFix: true } });
   return {
     storage: () => okStatus(root),
     kb: fakeKb(),

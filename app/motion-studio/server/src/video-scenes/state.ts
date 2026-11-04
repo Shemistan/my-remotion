@@ -76,6 +76,7 @@ export function videoScenesState(db: Db, root: string, projectId: string): Video
       queue: q && q.ahead > 0 ? { ahead: q.ahead, ...(q.blockingJobId ? { blocking_job_id: q.blockingJobId } : {}) } : null,
       qa_warnings: qa?.issues.filter((x) => x.severity === "warning") ?? [],
       qa_overall: qa?.scores?.overall ?? null,
+      qa_low: qa?.low_quality !== undefined,
       context_preview: row && (approved?.id ?? versionId) ? contextPreviewState(db, root, row.scene_id, (approved?.id ?? versionId)!) : null,
     };
   }) : [];

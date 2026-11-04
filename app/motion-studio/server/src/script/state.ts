@@ -95,6 +95,7 @@ export function scriptState(db: Db, root: string, projectId: string): ScriptStat
         status: sceneStatus(raw, versionId),
         qa_warnings: qa?.issues.filter((x) => x.severity === "warning") ?? [],
         qa_overall: qa?.scores?.overall ?? null,
+        qa_low: qa?.low_quality !== undefined,
         warnings: warnings[row.scene_id] ?? [],
         // двойник 9:16 ещё и по эталону: сделан не по текущей 16:9-версии — устарел (S10 fix I3)
         stale: !item || itemFingerprint(item, styleRef) !== row.item_fingerprint || (aspect === "9:16" && twinOutdated(db, cur.planId, row.item_id, versionId)),
