@@ -28,6 +28,8 @@ fi
 # --- код: `make check` в каждом сервисе app/<svc>/ с Makefile ---
 # В pre-commit — только сервисы с файлами в индексе; вручную и в ./finish — все.
 # Новый Go-сервис: mkdir -p app && cp -R templates/go-service app/<svc> (см. его README).
+# В pre-commit — быстрый уровень (`make check-fast`, если он есть): без тяжёлых тестов;
+# полный набор гоняет ./finish (один раз на дерево — штамп ниже).
 if [ -d app ]; then
   if [ -n "$GIT_INDEX_FILE" ]; then
     svcs=$(git diff --cached --name-only --diff-filter=ACMR -- app/ | \
@@ -37,9 +39,17 @@ if [ -d app ]; then
   fi
   for d in $svcs; do
     [ -f "$d/Makefile" ] || continue
-    echo "→ make check: $d"
-    make -C "$d" check
+    target=check
+    [ -n "$GIT_INDEX_FILE" ] && grep -q '^check-fast:' "$d/Makefile" && target=check-fast
+    echo "→ make $target: $d"
+    make -C "$d" "$target"
   done
 fi
 
 # --- добавь сюда проверки своего проекта (линтер, тесты) ---
+
+# --- штамп: полный ./check зелёный для этого дерева — ./finish не гоняет его повторно ---
+# Только полный прогон (не pre-commit) и только чистое дерево: тогда проверено ровно HEAD.
+if [ -z "$GIT_INDEX_FILE" ] && [ -z "$(git status --porcelain)" ]; then
+  git rev-parse 'HEAD^{tree}' > "$(git rev-parse --git-path check-stamp)"
+fi
