@@ -20,6 +20,10 @@ export type AgentTool = (typeof AGENT_TOOLS)[number];
 /** Алиас (`opus`) или полное имя модели (`claude-haiku-5-5`, `…[1m]`); проверяют config.json и buildClaudeArgs. */
 export const MODEL_RE = /^[a-z0-9][a-z0-9.\-[\]]*$/i;
 
+/** Усилие рассуждения Codex (`-c model_reasoning_effort=…`). */
+export const REASONING_EFFORTS = ["low", "medium", "high", "xhigh"] as const;
+export type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+
 /** Верхняя граница `maxBudgetUsd` одного вызова в config.json. */
 export const MAX_CALL_BUDGET_USD = 50;
 

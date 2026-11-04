@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { api } from "../api/client.js";
 import { useAppSettings } from "../api/queries.js";
+import { DelegationPanel } from "../components/DelegationPanel.js";
 import { SettingsForm } from "../components/SettingsForm.js";
 import { DisabledReason } from "../components/ui/DisabledReason.js";
 import { Skeleton } from "../components/ui/Skeleton.js";
@@ -97,6 +98,7 @@ export function AppSettings() {
       <p className="hint">{t("appSettings.restartHint")}</p>
       {q.isError ? <p className="error">{errorText(q.error)}</p> : null}
       {q.data ? <Form data={q.data} /> : <Skeleton lines={7} />}
+      <DelegationPanel />
     </div>
   );
 }

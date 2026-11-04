@@ -22,6 +22,7 @@ import type {
   TranscribeBody,
   VideoProjectDto,
   ChatMessage,
+  DelegationDto,
   ExportDto,
   ExportRequest,
   HealthDto,
@@ -183,6 +184,8 @@ export const api = {
   kbCard: (id: string) => request<KbCardDto>("GET", `/api/kb/${id.split("/").map(enc).join("/")}`),
   settings: () => request<AppSettingsDto>("GET", "/api/settings"),
   putSettings: (body: unknown) => request<AppSettingsDto>("PUT", "/api/settings", { body }),
+  delegation: () => request<DelegationDto>("GET", "/api/delegation"),
+  resumeDelegation: (role: string) => request<DelegationDto>("POST", `/api/delegation/resume/${enc(role)}`),
 
   // видеопроект (Task 29)
   videoProject: (id: string) => request<VideoProjectDto>("GET", `/api/projects/${enc(id)}/video`),

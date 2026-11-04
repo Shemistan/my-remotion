@@ -17,7 +17,7 @@ import { JobTypeSchema, type Settings, SettingsSchema, defaultSettings } from "@
 import { MATERIALS_ROOT, SSD_ROOT, depsRoots, materialsRoot } from "@ms/core";
 import { EXPORT_TIMEOUT_MS } from "@ms/render";
 import { z } from "zod";
-import { MAX_CALL_BUDGET_USD, MODEL_RE, ROLES, type Role } from "./agents/runtime.js";
+import { MAX_CALL_BUDGET_USD, MODEL_RE, REASONING_EFFORTS, ROLES, type ReasoningEffort, type Role } from "./agents/runtime.js";
 import { AGENT_CALLS, MAX_RUNNING, RENDERS } from "./jobs/limits.js";
 
 export interface AgentSettings {
@@ -182,6 +182,9 @@ export interface AppConfig {
   claudeBin: string;
   agentRuntime: "claude-code";
   agents: Record<Role, AgentSettings>;
+  /** Codex CLI для делегирования (спека 2026-11-04-codex-delegation). */
+  codex: CodexConfig;
+  delegation: DelegationConfig;
   scene: { maxCostUsd: number; maxAutoFixes: number; secondTake: SecondTake };
   kb: { root: string; sourceRoot: string };
   limits: Limits;
@@ -198,6 +201,30 @@ export interface AppConfig {
   cache: CacheConfig;
   render: RenderConfig;
 }
+
+export interface CodexConfig {
+  bin: string;
+  /** Без модели — модель по умолчанию из конфигурации Codex. */
+  model?: string;
+  reasoningEffort: ReasoningEffort;
+}
+
+/** Доля работы агентов для Codex: `level` — целевой процент (0–100) по стоимости Claude. */
+export interface DelegationConfig {
+  enabled: boolean;
+  level: number;
+  /** Разрешить роли без проверки качества (motion_director) в безопасном максимуме. */
+  allowUnverified: boolean;
+}
+
+export const DelegationSchema = z
+  .object({ enabled: z.boolean(), level: z.number().min(0).max(100), allowUnverified: z.boolean() })
+  .partial()
+  .strict();
+const CodexFileSchema = z
+  .object({ bin: z.string().min(1), model: z.string().regex(MODEL_RE, "имя модели: латиница, цифры, . - [ ]"), reasoningEffort: z.enum(REASONING_EFFORTS) })
+  .partial()
+  .strict();
 
 const OPUS_ROLES: readonly Role[] = ["motion_director", "engineer"];
 /** Роли малой модели (S15b): сверка текста со фрагментом — дешёвый вызов на каждую попытку. */
@@ -234,6 +261,8 @@ const FileSchema = z
   .object({
     claudeBin: z.string().min(1),
     agentRuntime: z.literal("claude-code"),
+    codex: CodexFileSchema,
+    delegation: DelegationSchema,
     agents: z.object(Object.fromEntries(ROLES.map((r) => [r, AgentOverride.optional()]))).strict(),
     scene: z.object({ maxCostUsd: z.number().positive(), maxAutoFixes: z.number().int().min(0), secondTake: SecondTakeSchema }).partial().strict(),
     kb: z.object({ root: z.string().min(1), sourceRoot: z.string().min(1) }).partial().strict(),
@@ -266,6 +295,7 @@ export const SettingsPutSchema = z
     agents: z.object(Object.fromEntries(ROLES.map((r) => [r, z.object({ model: z.string().regex(MODEL_RE, "имя модели: латиница, цифры, . - [ ]") }).strict().optional()]))).strict(),
     limits: LimitsSchema,
     defaults: SettingsSchema,
+    delegation: DelegationSchema,
   })
   .partial()
   .strict();
@@ -307,6 +337,8 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown, probe: Pa
     claudeBin: file.claudeBin ?? "claude",
     agentRuntime: "claude-code",
     agents,
+    codex: { bin: file.codex?.bin ?? "codex", ...(file.codex?.model ? { model: file.codex.model } : {}), reasoningEffort: file.codex?.reasoningEffort ?? "high" },
+    delegation: { enabled: false, level: 0, allowUnverified: false, ...file.delegation },
     scene: {
       maxCostUsd: file.scene?.maxCostUsd ?? 5,
       maxAutoFixes: file.scene?.maxAutoFixes ?? 2,

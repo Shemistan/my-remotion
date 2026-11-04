@@ -3,7 +3,7 @@
 // (объекты — глубоко, прочие ключи файла сохраняются), проверяет итог расширенным FileSchema (M12)
 // и пишет атомарно: уникальный временный файл → fsync → rename → fsync каталога; записи
 // сериализованы очередью процесса (F3). Ядро читает config.json при старте: новые значения
-// действуют после перезапуска; GET показывает файл, а не память процесса.
+// действуют после перезапуска (кроме `delegation` — маршрутизатор получает её сразу); GET показывает файл, а не память процесса.
 import { randomUUID } from "node:crypto";
 import { rename, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -28,6 +28,7 @@ const toDto = (c: AppConfig): AppSettingsDto => ({
   scene: { maxCostUsd: c.scene.maxCostUsd, maxAutoFixes: c.scene.maxAutoFixes },
   limits: c.limits,
   defaults: c.defaults,
+  delegation: c.delegation,
 });
 
 export function settingsRoutes(app: ZApp, { core }: ApiContext): void {
@@ -63,6 +64,8 @@ export function settingsRoutes(app: ZApp, { core }: ApiContext): void {
         throw e;
       }
       fsyncDirSync(core.root);
+      // делегирование действует сразу, остальное — после перезапуска
+      core.delegation?.setPolicy(config.delegation);
       return toDto(config);
     }),
   );

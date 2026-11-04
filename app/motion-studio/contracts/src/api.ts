@@ -179,8 +179,36 @@ export const AppSettingsDtoSchema = z.object({
     exportTimeoutMs: z.number().int().positive(),
   }).strict(),
   defaults: SettingsSchema,
+  delegation: z.object({ enabled: z.boolean(), level: z.number().min(0).max(100), allowUnverified: z.boolean() }).strict(),
 }).strict();
 export type AppSettingsDto = z.infer<typeof AppSettingsDtoSchema>;
+
+/** Делегирование в Codex (`GET /api/delegation`): план долей, статистика и паузы ролей. */
+export const DelegationRoleDtoSchema = z.object({
+  role: z.string(),
+  /** Доля стоимости Claude, 0–1. */
+  weight: z.number(),
+  /** Доля вызовов роли в Codex по текущему плану, 0–1. */
+  share: z.number(),
+  status: z.enum(["active", "idle", "paused", "always_claude", "unverified"]),
+  pause: z.object({ reason: z.string(), at: z.string() }).strict().optional(),
+  stats: z.object({
+    codex: z.object({ n: z.number().int(), clean: z.number().int() }).strict(),
+    claude: z.object({ n: z.number().int(), clean: z.number().int() }).strict(),
+  }).strict(),
+}).strict();
+export const DelegationDtoSchema = z.object({
+  policy: z.object({ enabled: z.boolean(), level: z.number(), allowUnverified: z.boolean() }).strict(),
+  /** Фактический уровень плана, минимум и безопасный максимум, %. */
+  level: z.number(),
+  minLevel: z.number(),
+  maxLevel: z.number(),
+  /** Максимум, если разрешить роли без проверки качества, %. */
+  maxLevelUnverified: z.number(),
+  roles: z.array(DelegationRoleDtoSchema),
+  codex: z.object({ status: z.enum(["ok", "unavailable"]), detail: z.string().optional() }).strict(),
+}).strict();
+export type DelegationDto = z.infer<typeof DelegationDtoSchema>;
 
 /** Доступность внешнего инструмента для `GET /health`: без запуска моделей и загрузок. */
 export const CapabilitySchema = z.object({

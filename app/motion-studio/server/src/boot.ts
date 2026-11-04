@@ -21,7 +21,11 @@ import {
 } from "@ms/core";
 import { type Proc, configureRenderConcurrency, reapStrayRenderers } from "@ms/render";
 import { ClaudeCodeRuntime } from "./agents/claude-code.js";
+import { CodexRuntime } from "./agents/codex.js";
+import { DelegationState, normalizeWeights } from "./agents/delegation.js";
 import { loadPrompt } from "./agents/prompts.js";
+import { RoutingRuntime } from "./agents/routing.js";
+import { claudeCostByRole } from "./db/repos/agent-runs.js";
 import type { AgentRuntimeAdapter } from "./agents/runtime.js";
 import { type AppConfig, loadConfig, readConfigFile } from "./config.js";
 import { bindRootPath, bindStoreId, quickCheck, storeCopiedText } from "./db/meta.js";
@@ -59,6 +63,8 @@ export interface CoreServices {
   repo: SceneRepo;
   kb: KnowledgeAdapter;
   agents: AgentRuntimeAdapter;
+  /** Маршрутизатор Claude/Codex (настройки делегирования); нет — подмена `agents` в тестах. */
+  delegation?: RoutingRuntime;
   /** Слияние `job_processes` и бокового файлового реестра Chrome. */
   processes: ProcessRegistry;
   storageCheck: () => ReturnType<typeof checkStorage>;
@@ -121,6 +127,7 @@ export interface Core {
   repo: SceneRepo;
   kb: KnowledgeAdapter;
   agents: AgentRuntimeAdapter;
+  delegation?: RoutingRuntime;
   runner: JobRunner;
   storage: StorageSupervisor;
   /** Проверка хранилища (`checkStorage` с id хранилища) — до приёма загрузки и публикаций API. */
@@ -243,8 +250,28 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     log("boot_report");
 
     const kb = opts.kb ?? (await KnowledgeAdapter.load({ kbRoot: config.kb.root, sourceRoot: config.kb.sourceRoot }));
-    const agents = opts.agents ?? new ClaudeCodeRuntime({ bin: config.claudeBin, logRoot: join(root, "logs", "agent-runs"), promptLoader: loadPrompt });
-    const svc: CoreServices = { root, config, repo, kb, agents, processes, storageCheck, minFreeBytes: minFreeBytes(env) };
+    let delegation: RoutingRuntime | undefined;
+    if (!opts.agents) {
+      const logRoot = join(root, "logs", "agent-runs");
+      const state = new DelegationState(join(root, "delegation-state.json"));
+      await state.load();
+      delegation = new RoutingRuntime({
+        claude: new ClaudeCodeRuntime({ bin: config.claudeBin, logRoot, promptLoader: loadPrompt }),
+        codex: new CodexRuntime({ bin: config.codex.bin, ...(config.codex.model ? { model: config.codex.model } : {}), reasoningEffort: config.codex.reasoningEffort, logRoot, promptLoader: loadPrompt }),
+        state,
+        policy: config.delegation,
+        // веса — доли стоимости Claude за 30 дней; база недоступна — встроенные
+        weights: () => {
+          try {
+            return normalizeWeights(claudeCostByRole(current.db, new Date(Date.now() - 30 * 86_400_000).toISOString()));
+          } catch {
+            return normalizeWeights({});
+          }
+        },
+      });
+    }
+    const agents = opts.agents ?? delegation!;
+    const svc: CoreServices = { root, config, repo, kb, agents, ...(delegation ? { delegation } : {}), processes, storageCheck, minFreeBytes: minFreeBytes(env) };
     const handlers = typeof opts.handlers === "function" ? opts.handlers(svc) : (opts.handlers ?? {});
     // лимиты из config.json (M12); подмены тестов — поверх
     const { maxRunning, agentCalls, renders } = config.limits;
@@ -310,6 +337,7 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
       repo,
       kb,
       agents,
+      ...(delegation ? { delegation } : {}),
       runner: r,
       storage: st,
       storageCheck,

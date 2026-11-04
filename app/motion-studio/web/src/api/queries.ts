@@ -40,6 +40,7 @@ export const useExport = (id: string | undefined) =>
 export const useKbSearch = (p: KbSearchParams) => useQuery({ queryKey: ["kb", p], queryFn: () => api.kbSearch(p) });
 export const useKbCard = (id: string | undefined) => useQuery({ queryKey: ["kbCard", id], queryFn: () => api.kbCard(id!), enabled: Boolean(id) });
 export const useAppSettings = () => useQuery({ queryKey: ["settings"], queryFn: api.settings });
+export const useDelegation = () => useQuery({ queryKey: ["delegation"], queryFn: api.delegation, refetchInterval: 30_000 });
 
 // видеопроект (Task 29): сводка опрашивается, пока идёт задача проекта
 export const useVideoProject = (id: string) =>

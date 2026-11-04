@@ -12,6 +12,7 @@
 - [Visual Knowledge Base для Remotion](specs/2026-10-20-visual-knowledge-base-design.md) — утверждено
 - [Ночной цикл качества видео](specs/2026-10-23-night-quality-loop-design.md) — реализовано
 - [Motion Studio: сценарий → моушн-сцены (первая рабочая версия для человека)](specs/2026-10-24-script-to-motion-design.md) — утверждено
+- [Делегирование работы агентов в Codex](specs/2026-11-04-codex-delegation-design.md) — реализовано
 
 ### Планы
 
@@ -22,4 +23,5 @@
 - [План: Visual Knowledge Base для Remotion](plans/2026-10-20-visual-knowledge-base.md) — в работе
 - [План: ночной цикл качества](plans/2026-10-23-night-quality-loop.md) — завершено
 - [Сценарий → моушн-сцены: план реализации](plans/2026-10-24-script-to-motion.md) — в работе
+- [Делегирование в Codex: план реализации](plans/2026-11-04-codex-delegation.md) — завершено
 <!-- gate:end spec-plan-index -->
