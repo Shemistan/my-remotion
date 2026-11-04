@@ -229,7 +229,12 @@ label.check { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
 .jobs-table { width: 100%; border-collapse: collapse; margin-top: var(--gap); background: var(--surface); border-radius: var(--radius); }
 .jobs-table td, .jobs-table th { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
 .jobs-table tr.selected { background: color-mix(in srgb, var(--accent) 8%, transparent); }
-.job-detail { margin-top: var(--gap); }
+.jobs-actions { margin-top: var(--gap); }
+.job-location { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; }
+.job-detail-row > td { padding: var(--gap); background: var(--bg); }
+.job-detail { margin: 0; }
+.jobs-load-more { margin-top: var(--gap); }
+.job-error-reason { margin: 4px 0 0; }
 .kv { width: 100%; border-collapse: collapse; }
 .kv td, .kv th { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border); }
 .kv input { width: 100%; }

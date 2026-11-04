@@ -76,8 +76,10 @@ function JobsState({ q }: { q: JobsQuery }) {
   return <Skeleton lines={2} compact />;
 }
 
-function ActiveJobs({ q }: { q: JobsQuery }) {
+function ActiveJobs({ q, failed }: { q: JobsQuery; failed: JobsQuery }) {
   const active = (q.data ?? []).filter((j) => isActive(j.status));
+  const since = Date.now() - 24 * 60 * 60 * 1000;
+  const failedLastDay = (failed.data ?? []).filter((j) => new Date(j.finished_at ?? j.created_at).getTime() >= since).length;
   return (
     <section className="panel">
       <h2>{t("dashboard.activeJobs")}</h2>
@@ -94,6 +96,7 @@ function ActiveJobs({ q }: { q: JobsQuery }) {
           ))}
         </ul>
       )}
+      {failedLastDay > 0 ? <p><Link to={{ name: "jobs", status: "failed" }}>{t("dashboard.failedLastDay", { n: failedLastDay })}</Link></p> : null}
       <Link to={{ name: "jobs" }}>{t("dashboard.allJobs")}</Link>
     </section>
   );
@@ -101,7 +104,7 @@ function ActiveJobs({ q }: { q: JobsQuery }) {
 
 function RecentExports({ q }: { q: JobsQuery }) {
   // Task 45: и финалы видеопроектов (`final.render`, `final.reproduce`) — файл финала
-  const done = (q.data ?? []).filter((j) => (j.type === "scene.export" || isFinal(j)) && j.status === "completed" && exportIdOf(j)).slice(-10).reverse();
+  const done = (q.data ?? []).filter((j) => (j.type === "scene.export" || isFinal(j)) && j.status === "completed" && exportIdOf(j)).slice(0, 10);
   return (
     <section className="panel">
       <h2>{t("dashboard.recentExports")}</h2>
@@ -126,6 +129,7 @@ function RecentExports({ q }: { q: JobsQuery }) {
 
 export function Dashboard() {
   const jobs = useJobs();
+  const failed = useJobs({ status: "failed", limit: 500 });
   return (
     <div className="page dashboard">
       <h1>{t("dashboard.title")}</h1>
@@ -138,7 +142,7 @@ export function Dashboard() {
         </section>
         <div className="stack">
           <NewProject />
-          <ActiveJobs q={jobs} />
+          <ActiveJobs q={jobs} failed={failed} />
           <RecentExports q={jobs} />
           {/* Task 49a: затраты за 7/30 дней, справочно */}
           <CostSummary />

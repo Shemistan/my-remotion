@@ -30,12 +30,15 @@ import type {
   Job,
   JobDetailDto,
   JobInputBody,
+  JobListDto,
   JobStatus,
   KbCardDto,
   KbHitDto,
   ProjectDetailDto,
   ProjectDto,
   RenderBody,
+  RetryFailedJobsBody,
+  RetryFailedJobsResult,
   SceneDetailDto,
   SceneDto,
   Settings,
@@ -136,6 +139,14 @@ export interface KbSearchParams {
   allowRestricted?: boolean;
 }
 
+export interface JobsFilter {
+  status?: JobStatus;
+  sceneId?: string;
+  projectId?: string;
+  limit?: number;
+  before?: string;
+}
+
 export const api = {
   async health(): Promise<HealthDto> {
     const h = await request<HealthDto>("GET", "/api/health");
@@ -162,16 +173,20 @@ export const api = {
   exportVersion: (versionId: string, req: ExportRequest, key: string = newKey()) =>
     request<{ job: Job }>("POST", `/api/versions/${enc(versionId)}/exports`, { body: req, idempotency: key }),
   exportInfo: (id: string) => request<ExportDto>("GET", `/api/exports/${enc(id)}`),
-  jobs: (filter: { status?: JobStatus; sceneId?: string } = {}) => {
+  jobs: (filter: JobsFilter = {}) => {
     const q = new URLSearchParams();
     if (filter.status) q.set("status", filter.status);
     if (filter.sceneId) q.set("sceneId", filter.sceneId);
+    if (filter.projectId) q.set("project_id", filter.projectId);
+    if (filter.limit) q.set("limit", String(filter.limit));
+    if (filter.before) q.set("before", filter.before);
     const s = q.toString();
-    return request<Job[]>("GET", `/api/jobs${s ? `?${s}` : ""}`);
+    return request<JobListDto[]>("GET", `/api/jobs${s ? `?${s}` : ""}`);
   },
   job: (id: string) => request<JobDetailDto>("GET", `/api/jobs/${enc(id)}`),
   cancelJob: (id: string) => request<Job>("POST", `/api/jobs/${enc(id)}/cancel`),
   retryJob: (id: string) => request<Job>("POST", `/api/jobs/${enc(id)}/retry`),
+  retryFailedJobs: (scope: RetryFailedJobsBody) => request<RetryFailedJobsResult>("POST", "/api/jobs/retry-failed", { body: scope }),
   jobInput: (id: string, body: JobInputBody) => request<Job>("POST", `/api/jobs/${enc(id)}/input`, { body }),
   kbSearch: (p: KbSearchParams) => {
     const q = new URLSearchParams({ q: p.q });

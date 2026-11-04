@@ -62,3 +62,19 @@ it("Task 45: «Последние экспорты» — и финалы вид�
   expect(link.getAttribute("href")).toBe("/api/final-exports/fin_1/file");
   expect(screen.getAllByText(t("export.download"))).toHaveLength(2);
 });
+
+it("активные задачи показывают число падений за сутки со ссылкой на фильтр", async () => {
+  const recent = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const old = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+  fakeFetch([
+    on("GET", "/api/projects", []),
+    on("GET", "/api/jobs", []),
+    on("GET", "/api/jobs?status=failed&limit=500", [
+      job({ id: "recent", status: "failed", created_at: recent, finished_at: recent }),
+      job({ id: "old", status: "failed", created_at: old, finished_at: old }),
+    ]),
+  ]);
+  renderQ(<Dashboard />);
+  const link = await screen.findByRole("link", { name: t("dashboard.failedLastDay", { n: 1 }) });
+  expect(link.getAttribute("href")).toBe("/jobs?status=failed");
+});

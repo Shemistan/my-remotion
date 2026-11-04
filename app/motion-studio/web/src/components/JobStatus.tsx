@@ -36,6 +36,22 @@ export function jobErrorTitle(job: Job): string | null {
   return t("job.failedAt", { stage: e.stage ? tk(`stage.${e.stage}`, e.stage) : t("stage.unknown") });
 }
 
+/** Короткая пользовательская причина без служебной цепочки этапов. */
+export function jobErrorReason(job: Job): string | null {
+  const message = job.error?.message.trim();
+  if (!message) return null;
+  if (/hit your .*limit|usage limit|rate limit/i.test(message)) {
+    const when = /\bresets\s+([^·\n]+)/i.exec(message)?.[1]?.trim().replace(/[.。]+$/, "");
+    return `${t("job.errorReason.limit")}${when ? t("job.errorReason.reset", { when }) : ""}`;
+  }
+  let reason = message;
+  while (/^[\p{L}\p{N}_. -]+(?:\s+\([^\n)]*\))?:\s*/u.test(reason)) {
+    reason = reason.replace(/^[\p{L}\p{N}_. -]+(?:\s+\([^\n)]*\))?:\s*/u, "");
+  }
+  reason = reason.trim() || message;
+  return reason.length > 120 ? t("job.errorReason.truncated", { text: reason.slice(0, 119).trimEnd() }) : reason;
+}
+
 export const stageText = (s: string | null) => (s ? tk(`stage.${s}`, s) : t("stage.unknown"));
 
 function Processes({ detail }: { detail: JobDetailDto }) {
@@ -86,6 +102,7 @@ export function JobStatus({ jobId, compact }: JobStatusProps) {
   const alive = q.data.processes.some((p) => p.alive) || (job.status === "blocked" && q.data.processes.length === 0 && (job.error?.pids?.length ?? 0) > 0);
   const canRetry = ["failed", "cancelled", "blocked"].includes(job.status);
   const title = jobErrorTitle(job);
+  const reason = jobErrorReason(job);
   const pct = Math.round(job.progress * 100);
   const progressStages: ProgressStage[] = job.status === "completed" ? [
     { id: "waiting", label: t("ux.progress.waiting"), state: "done" },
@@ -110,6 +127,7 @@ export function JobStatus({ jobId, compact }: JobStatusProps) {
         <ProgressStages stages={progressStages} progress={pct / 100} etaSeconds={isActive(job.status) ? etaFrom(job.started_at ?? job.created_at, job.progress) : null} />
       ) : null}
       {job.error ? <ErrorCard error={job.error} jobId={job.id} {...(title ? { title } : {})} /> : null}
+      {reason ? <p className="muted small job-error-reason">{reason}</p> : null}
       {job.status === "blocked" ? (
         <>
           <Processes detail={q.data} />

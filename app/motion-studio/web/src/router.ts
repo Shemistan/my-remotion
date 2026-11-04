@@ -8,7 +8,7 @@ export type Route =
   | { name: "scene"; id: string; version?: string }
   | { name: "compare"; sceneId: string; a: string; b: string }
   | { name: "kb"; q?: string; id?: string }
-  | { name: "jobs"; status?: string }
+  | { name: "jobs"; status?: string; projectId?: string }
   | { name: "settings" }
   // Phase 6 (Task 35′): диагностика (Task 48), центр восстановления (Task 47)
   | { name: "diagnostics" }
@@ -25,7 +25,7 @@ export function parseRoute(pathname: string, search: string): Route {
   if (head === "scenes" && id && parts.length === 2) return { name: "scene", id, ...(opt("v") ? { version: opt("v")! } : {}) };
   if (head === "scenes" && id && sub === "compare" && q.get("a") && q.get("b")) return { name: "compare", sceneId: id, a: q.get("a")!, b: q.get("b")! };
   if (head === "kb" && parts.length === 1) return { name: "kb", ...(opt("q") ? { q: opt("q")! } : {}), ...(opt("id") ? { id: opt("id")! } : {}) };
-  if (head === "jobs" && parts.length === 1) return { name: "jobs", ...(opt("status") ? { status: opt("status")! } : {}) };
+  if (head === "jobs" && parts.length === 1) return { name: "jobs", ...(opt("status") ? { status: opt("status")! } : {}), ...(opt("project_id") ? { projectId: opt("project_id")! } : {}) };
   if (head === "settings" && parts.length === 1) return { name: "settings" };
   if (head === "diagnostics" && parts.length === 1) return { name: "diagnostics" };
   if (head === "recovery" && parts.length === 1) return { name: "recovery" };
@@ -45,7 +45,7 @@ export function href(r: Route): string {
     case "scene": return `/scenes/${enc(r.id)}${qs({ v: r.version })}`;
     case "compare": return `/scenes/${enc(r.sceneId)}/compare${qs({ a: r.a, b: r.b })}`;
     case "kb": return `/kb${qs({ q: r.q, id: r.id })}`;
-    case "jobs": return `/jobs${qs({ status: r.status })}`;
+    case "jobs": return `/jobs${qs({ status: r.status, project_id: r.projectId })}`;
     case "settings": return "/settings";
     case "diagnostics": return "/diagnostics";
     case "recovery": return "/recovery";

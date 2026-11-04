@@ -3,6 +3,8 @@
 import { homedir } from "node:os";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import * as jobs from "../../src/db/repos/jobs.js";
+import * as projects from "../../src/db/repos/projects.js";
+import * as scenes from "../../src/db/repos/scenes.js";
 import { tx } from "../../src/db/tx.js";
 import { enqueue } from "../../src/jobs/queue.js";
 import { killLeftovers, spawnOrphan } from "../jobs/procs.js";
@@ -26,20 +28,63 @@ function scene() {
 
 it("GET /jobs с фильтрами, GET /jobs/:id с событиями; 404 для чужого id", async () => {
   scene();
+  projects.create(api.core.db, { id: "p2", title: "Второй проект" });
+  scenes.create(api.core.db, { id: "scn_p2", project_id: "p2", title: "Вторая сцена" });
   const a = put("a");
   const b = put("b");
+  const c = put("c", { projectId: "p2", sceneId: "scn_p2" });
+  jobs.update(api.core.db, a.id, { created_at: "2026-11-04T10:00:00.000Z" });
+  jobs.update(api.core.db, b.id, { created_at: "2026-11-04T11:00:00.000Z" });
+  jobs.update(api.core.db, c.id, { created_at: "2026-11-04T12:00:00.000Z" });
   jobs.update(api.core.db, b.id, { status: "failed" });
   tx(api.core.db, () => api.core.events.emit(api.core.db, { job_id: a.id, level: "info", kind: "log", message: "первое" }));
   const all = (await api.inj("GET", "/api/jobs", getHeaders)).json();
-  expect(all.map((j: { id: string }) => j.id).sort()).toEqual([a.id, b.id].sort());
+  expect(all.map((j: { id: string }) => j.id).sort()).toEqual([a.id, b.id, c.id].sort());
   expect((await api.inj("GET", "/api/jobs?status=failed", getHeaders)).json().map((j: { id: string }) => j.id)).toEqual([b.id]);
   expect((await api.inj("GET", "/api/jobs?sceneId=scn_api&status=pending", getHeaders)).json()).toHaveLength(1);
+  expect((await api.inj("GET", "/api/jobs?project_id=p2", getHeaders)).json()).toEqual([
+    expect.objectContaining({ id: c.id, project_title: "Второй проект", scene_title: "Вторая сцена" }),
+  ]);
+  expect((await api.inj("GET", "/api/jobs?limit=1", getHeaders)).json().map((j: { id: string }) => j.id)).toEqual([c.id]);
+  const before = encodeURIComponent(`2026-11-04T12:00:00.000Z|${c.id}`);
+  expect((await api.inj("GET", `/api/jobs?limit=1&before=${before}`, getHeaders)).json().map((j: { id: string }) => j.id)).toEqual([b.id]);
+  expect((await api.inj("GET", "/api/jobs?limit=501", getHeaders)).statusCode).toBe(400);
   expect((await api.inj("GET", "/api/jobs?status=nope", getHeaders)).statusCode).toBe(400);
   const one = (await api.inj("GET", `/api/jobs/${a.id}`, getHeaders)).json();
   expect(one.job.id).toBe(a.id);
   expect(one.events.map((e: { message: string }) => e.message)).toEqual(["первое"]);
   expect(one.processes).toEqual([]);
   expect((await api.inj("GET", "/api/jobs/job_nope", getHeaders)).statusCode).toBe(404);
+});
+
+it("POST /jobs/retry-failed: повторяет только failed в области, а отказ одной задачи возвращает в skipped", async () => {
+  scene();
+  projects.create(api.core.db, { id: "p2", title: "Второй проект" });
+  const failed = put("failed");
+  const blocked = put("blocked");
+  const completed = put("completed");
+  jobs.update(api.core.db, failed.id, { status: "failed" });
+  jobs.update(api.core.db, blocked.id, { status: "blocked" });
+  jobs.update(api.core.db, completed.id, { status: "completed" });
+  const skipped = jobs.insert(api.core.db, {
+    id: "job_skip", type: "trash.purge", project_id: "playground", input: {}, status: "failed",
+    error: { code: "pipeline", message: "неподходящий повтор очистки" },
+  });
+  const outside = jobs.insert(api.core.db, { id: "job_outside", type: "cache.gc", project_id: "p2", input: {}, status: "failed" });
+
+  const r = await api.inj("POST", "/api/jobs/retry-failed", okHeaders, { project_id: "playground" });
+  expect(r.statusCode).toBe(200);
+  expect(r.json()).toEqual({ retried: [failed.id], skipped: [{ id: skipped.id, code: "purge_retry_forbidden" }] });
+  expect(jobs.get(api.core.db, failed.id)?.status).toBe("pending");
+  expect(jobs.get(api.core.db, blocked.id)?.status).toBe("blocked");
+  expect(jobs.get(api.core.db, completed.id)?.status).toBe("completed");
+  expect(jobs.get(api.core.db, outside.id)?.status).toBe("failed");
+  expect((await api.inj("POST", "/api/jobs/retry-failed", okHeaders, { nope: true })).statusCode).toBe(400);
+  // ids: только перечисленные задачи, остальные failed не трогаются
+  jobs.update(api.core.db, failed.id, { status: "failed" });
+  const r2 = await api.inj("POST", "/api/jobs/retry-failed", okHeaders, { ids: [outside.id] });
+  expect(r2.json()).toEqual({ retried: [outside.id], skipped: [] });
+  expect(jobs.get(api.core.db, failed.id)?.status).toBe("failed");
 });
 
 it("POST /jobs/:id/cancel: pending → cancelled; завершённая — без изменений", async () => {

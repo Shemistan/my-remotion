@@ -114,6 +114,13 @@ export type VersionDto = z.infer<typeof VersionDtoSchema>;
 export const JobDtoSchema = JobSchema.extend({ cost_usd: z.number().nonnegative().optional() });
 export type JobDto = z.infer<typeof JobDtoSchema>;
 
+/** Строка `GET /api/jobs`: названия проекта и сцены добавляются выборкой списка. */
+export const JobListDtoSchema = JobDtoSchema.extend({
+  project_title: z.string().nullable(),
+  scene_title: z.string().nullable(),
+});
+export type JobListDto = z.infer<typeof JobListDtoSchema>;
+
 /** Событие журнала задачи (`job_events`, SSE `event: job`); `id` монотонный. */
 export const JobEventDtoSchema = z.object({
   id: z.number().int().positive(),
@@ -167,6 +174,20 @@ export const JobInputBodySchema = z.union([
   z.object({ skip: z.literal(true) }).strict(),
 ]);
 export type JobInputBody = z.infer<typeof JobInputBodySchema>;
+
+/** Область повтора: `ids` — ровно эти задачи (то, что видит пользователь), иначе все failed проекта/сцены. */
+export const RetryFailedJobsBodySchema = z.object({
+  project_id: Id.optional(),
+  scene_id: Id.optional(),
+  ids: z.array(Id).min(1).max(500).optional(),
+}).strict();
+export type RetryFailedJobsBody = z.infer<typeof RetryFailedJobsBodySchema>;
+
+export const RetryFailedJobsResultSchema = z.object({
+  retried: z.array(Id),
+  skipped: z.array(z.object({ id: Id, code: z.string().min(1) }).strict()),
+}).strict();
+export type RetryFailedJobsResult = z.infer<typeof RetryFailedJobsResultSchema>;
 
 /** `GET /settings`: действующие настройки приложения (`$MS_DATA_DIR/config.json` + умолчания). */
 export const AppSettingsDtoSchema = z.object({

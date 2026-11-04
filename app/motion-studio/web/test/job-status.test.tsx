@@ -1,8 +1,9 @@
 // JobStatus: этап, прогресс, журнал, отмена/повтор; blocked — PID и команда, повтор отключён,
 // пока процесс жив; ошибки экспорта — понятные русские сообщения.
+import type { Job } from "@ms/contracts";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { JobStatus } from "../src/components/JobStatus.js";
+import { JobStatus, jobErrorReason } from "../src/components/JobStatus.js";
 import { t } from "../src/i18n/index.js";
 import { TS, fakeFetch, job, on, renderQ } from "./helpers.js";
 
@@ -54,10 +55,22 @@ it("отказы экспорта — понятные русские сообщ
     const view = renderQ(<JobStatus jobId="job_x" />);
     expect(await screen.findByText(t(`exportErrors.${code}`))).toBeTruthy();
     // технические подробности — рядом, как текст
-    expect(screen.getByText(/подробности сервера/)).toBeTruthy();
+    expect(screen.getAllByText(/подробности сервера/).length).toBeGreaterThan(0);
     view.unmount();
     vi.unstubAllGlobals();
   }
+});
+
+it("jobErrorReason переводит лимит Claude и сохраняет время сброса", () => {
+  const reason = jobErrorReason(job({
+    status: "failed",
+    error: { code: "pipeline", message: "You've hit your 5-hour limit · resets 7pm (Europe/Moscow)" },
+  }) as Job);
+  expect(reason).toBe(`${t("job.errorReason.limit")}${t("job.errorReason.reset", { when: "7pm (Europe/Moscow)" })}`);
+  expect(jobErrorReason(job({
+    status: "failed",
+    error: { code: "pipeline", message: "Concept: failed (cli): success: короткая причина" },
+  }) as Job)).toBe("короткая причина");
 });
 
 it("failed: этап ошибки и «Повторить»; completed — без кнопок", async () => {
@@ -78,7 +91,7 @@ it("ревью Task 33 M2: отказы plan.visual — русский текс�
     fakeFetch([on("GET", "/api/jobs/job_x", detail({ id: "job_x", type: "plan.visual", status: "failed", error: { code, message: "plan.visual: подробности сервера" } }))]);
     const view = renderQ(<JobStatus jobId="job_x" />);
     expect(await screen.findByText(t(`job.errorCode.${code}`))).toBeTruthy();
-    expect(screen.getByText(/подробности сервера/)).toBeTruthy();
+    expect(screen.getAllByText(/подробности сервера/).length).toBeGreaterThan(0);
     view.unmount();
     vi.unstubAllGlobals();
   }
