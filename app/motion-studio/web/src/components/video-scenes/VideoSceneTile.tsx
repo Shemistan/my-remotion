@@ -61,6 +61,7 @@ export function VideoSceneTile({ projectId, scene, n, busy, onRetry, onRegenerat
         <span className="muted small">{t("videoScenes.frames", { start: scene.frames.start, end: scene.frames.end })}</span>
         <span className="spacer" />
         {scene.stale ? <span className="badge stale-badge" title={t("videoScenes.staleHint")}>{t("videoScenes.stale")}</span> : null}
+        {scene.qa_low ? <span className="badge severity-warning" data-testid="low-quality" title={t("videoScenes.lowQualityHint")}>{t("videoScenes.lowQuality")}</span> : null}
         {scene.qa_overall !== null ? <span className="muted small">{t("videoScenes.score", { score: scene.qa_overall })}</span> : null}
         <span className={`badge status-${status === "ready" ? "completed" : status}`}>{t(`videoScenes.status.${status}`)}</span>
       </div>
@@ -99,7 +100,7 @@ export function VideoSceneTile({ projectId, scene, n, busy, onRetry, onRegenerat
         {scene.scene_id ? (
           <Link to={{ name: "scene", id: scene.scene_id }} className="button" title={t("videoScenes.refineHint")}>{t("videoScenes.refine")}</Link>
         ) : null}
-        {onImprove ? <button type="button" disabled={busy} onClick={onImprove}>{t("videoScenes.improve")}</button> : null}
+        {onImprove ? <button type="button" className={scene.qa_low ? "primary" : undefined} disabled={busy} onClick={onImprove}>{t("videoScenes.improve")}</button> : null}
         <span className="spacer" />
         {onRetry ? <button type="button" className="primary" disabled={busy} onClick={onRetry}>{t("videoScenes.retry")}</button> : null}
         {onRegenerate ? (

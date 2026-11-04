@@ -43,6 +43,17 @@ it("оценка показывает кнопку «Улучшить»; без 
   expect(within(tiles()[0]!).queryByRole("button", { name: t("scriptOutput.improve") })).toBeNull();
 });
 
+it("проверка качества не пройдена (qa_low) → пометка «Низкое качество», «Улучшить» — основная кнопка", async () => {
+  const s = outState();
+  s.scenes[0] = { ...s.scenes[0]!, qa_overall: 4, qa_low: true };
+  fakeFetch(routes());
+  renderQ(<ScenesTab state={s} />);
+  const first = within(tiles()[0]!);
+  expect(first.getByTestId("low-quality").textContent).toBe(t("scriptOutput.lowQuality"));
+  expect(first.getByRole("button", { name: t("scriptOutput.improve") }).className).toBe("primary");
+  expect(within(tiles()[1]!).queryByTestId("low-quality")).toBeNull();
+});
+
 it("пакет из 3 сцен (ready, running, failed) → плитки по порядку плана; ready — плеер и «Доработать», failed — «Повторить»", async () => {
   const { calls } = fakeFetch(routes());
   const s = outState();
