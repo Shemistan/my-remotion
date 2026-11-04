@@ -135,7 +135,7 @@ export class SceneRepo {
   }
 
   /** Новая сцена: `brief.json` в каталоге сцены и строка в БД. Синхронно — годится внутри `tx`. */
-  createScene(projectId: string, input: { prompt: string; settings: Settings }): scenes.SceneRow {
+  createScene(projectId: string, input: { prompt: string; title?: string; settings: Settings }): scenes.SceneRow {
     if (!projects.get(this.db, projectId)) throw new Error(`scenes: проекта нет: ${projectId}`);
     // до записи brief.json: она пересоздала бы каталог проекта в корзине (Task 47)
     assertProjectOpen(this.db, projectId);
@@ -143,7 +143,7 @@ export class SceneRepo {
     const id = newId("scn");
     const created_at = new Date().toISOString();
     writeBriefSync(this.root, id, { prompt: input.prompt, settings, created_at }, projectId);
-    const title = input.prompt.trim().replace(/\s+/g, " ").slice(0, TITLE_MAX);
+    const title = input.title?.trim() ?? input.prompt.trim().replace(/\s+/g, " ").slice(0, TITLE_MAX);
     return scenes.create(this.db, { id, project_id: projectId, title, created_at });
   }
 

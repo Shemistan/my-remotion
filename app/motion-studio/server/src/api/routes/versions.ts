@@ -124,6 +124,17 @@ export function versionRoutes(app: ZApp, { core }: ApiContext): void {
     return sendVersionFile(req.params.id, m.preview.path, "video/mp4", req, reply);
   });
 
+  app.get("/api/versions/:id/poster.png", { schema: { params: IdParams } }, async (req, reply) => {
+    const v = versionOr404(req.params.id);
+    const m = await manifestOf(join(core.root, v.path));
+    const frame = m.files
+      .map((f) => /^frames\/(0|[1-9]\d{0,6})\.png$/.exec(f.path))
+      .filter((x): x is RegExpExecArray => x !== null)
+      .sort((a, b) => Number(a[1]) - Number(b[1]))[0];
+    if (!frame) throw notFound(`кадры версии ${req.params.id}`);
+    return sendVersionFile(req.params.id, `frames/${frame[1]}.png`, "image/png", req, reply);
+  });
+
   app.get("/api/versions/:id/frames/:file", {
     schema: { params: z.object({ id: IdParams.shape.id, file: z.string() }).strict() },
   }, async (req, reply) => {

@@ -86,6 +86,10 @@ export const SceneDtoSchema = z.object({
 }).strict();
 export type SceneDto = z.infer<typeof SceneDtoSchema>;
 
+/** Последняя задача сцены для карточки проекта и пустой страницы сцены. */
+export const SceneLastJobDtoSchema = JobSchema.pick({ id: true, status: true, stage: true, error: true }).strict();
+export type SceneLastJobDto = z.infer<typeof SceneLastJobDtoSchema>;
+
 /** `GET /versions/:id`: manifest и файлы версии; `render_env_mismatch` — рендер в другом окружении. */
 export const VersionDtoSchema = z.object({
   manifest: VersionManifestSchema,
@@ -145,10 +149,14 @@ export type CreateProjectBody = z.infer<typeof CreateProjectBodySchema>;
 
 export const CreateSceneBodySchema = z.object({
   prompt: z.string().min(1),
+  title: z.string().trim().min(1).max(120).optional(),
   settings: SettingsSchema,
   allowRestricted: z.boolean().optional(),
 }).strict();
 export type CreateSceneBody = z.infer<typeof CreateSceneBodySchema>;
+
+export const PatchSceneBodySchema = z.object({ title: z.string().trim().min(1).max(120) }).strict();
+export type PatchSceneBody = z.infer<typeof PatchSceneBodySchema>;
 
 export const ChatBodySchema = z.object({ text: z.string().min(1), baseVersionId: Id.optional() }).strict();
 export type ChatBody = z.infer<typeof ChatBodySchema>;
@@ -268,7 +276,12 @@ export type ExportDto = z.infer<typeof ExportDtoSchema>;
 export const ProjectDetailDtoSchema = z.object({
   project: ProjectDtoSchema,
   /** `latest_version` — последняя по номеру (в т. ч. failed): карточка сцены без готовой версии. */
-  scenes: z.array(SceneDtoSchema.extend({ current_version: HistoryEntrySchema.nullable(), latest_version: HistoryEntrySchema.nullable() })),
+  scenes: z.array(SceneDtoSchema.extend({
+    excerpt: z.string().nullable(),
+    current_version: HistoryEntrySchema.nullable(),
+    latest_version: HistoryEntrySchema.nullable(),
+    last_job: SceneLastJobDtoSchema.nullable(),
+  })),
   exports: z.array(ExportDtoSchema),
 }).strict();
 export type ProjectDetailDto = z.infer<typeof ProjectDetailDtoSchema>;
@@ -278,6 +291,7 @@ export const SceneDetailDtoSchema = z.object({
   scene: SceneDtoSchema,
   versions: z.array(HistoryEntrySchema),
   active_job: JobSchema.nullable(),
+  last_job: SceneLastJobDtoSchema.nullable(),
 }).strict();
 export type SceneDetailDto = z.infer<typeof SceneDetailDtoSchema>;
 

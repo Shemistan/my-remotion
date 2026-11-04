@@ -1,6 +1,6 @@
 // Проекты: список (служебные bench-проекты скрыты), создание, карточка; новая сцена по промпту
 // (`playground.generate`): сцена и задача — одной транзакцией, повтор по Idempotency-Key.
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import {
   CreateProjectBodySchema,
@@ -13,6 +13,7 @@ import {
 } from "@ms/contracts";
 import { z } from "zod";
 import * as exportsRepo from "../../db/repos/exports.js";
+import * as jobs from "../../db/repos/jobs.js";
 import * as projects from "../../db/repos/projects.js";
 import * as scenes from "../../db/repos/scenes.js";
 import { tx } from "../../db/tx.js";
@@ -25,6 +26,38 @@ import { ApiError, notFound } from "../errors.js";
 import { publicJob } from "../job-dto.js";
 
 const RECENT_EXPORTS = 20;
+const EXCERPT_MAX = 120;
+
+function promptOf(root: string, projectId: string, sceneId: string): string | null {
+  try {
+    const value = JSON.parse(readFileSync(join(root, sceneRel(projectId, sceneId), "brief.json"), "utf8")) as { prompt?: unknown };
+    return typeof value.prompt === "string" ? value.prompt.trim().replace(/\s+/g, " ") : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Общая часть стиля режется назад до границы слова. */
+function sharedPromptCut(prompts: readonly (string | null)[]): number {
+  if (prompts.length < 2 || prompts.some((p) => p === null)) return 0;
+  let prefix = prompts[0]!;
+  for (const prompt of prompts.slice(1)) {
+    let i = 0;
+    while (i < prefix.length && i < prompt!.length && prefix[i] === prompt![i]) i++;
+    prefix = prefix.slice(0, i);
+  }
+  if (prefix.length < 20) return 0;
+  return /\s$/.test(prefix) ? prefix.length : prefix.lastIndexOf(" ") + 1;
+}
+
+function excerptOf(prompt: string | null, cut: number): string | null {
+  const text = prompt?.slice(cut).trim();
+  if (!text) return null;
+  if (text.length <= EXCERPT_MAX) return text;
+  const head = text.slice(0, EXCERPT_MAX - 1);
+  const boundary = head.lastIndexOf(" ");
+  return `${(boundary > 0 ? head.slice(0, boundary) : head).trimEnd()}…`;
+}
 
 export function projectRoutes(app: ZApp, { core }: ApiContext): void {
   app.get("/api/projects", {
@@ -48,11 +81,21 @@ export function projectRoutes(app: ZApp, { core }: ApiContext): void {
     const project = projects.get(db, req.params.id);
     // проект в корзине (Task 47) открывается только после восстановления
     if (!project || lifecycleOf(db, project.id)?.deleted_at) throw notFound(`проект ${req.params.id}`);
-    const list = scenes.listByProject(db, project.id).map((s) => {
+    const rows = scenes.listByProject(db, project.id);
+    const prompts = rows.map((s) => promptOf(core.root, project.id, s.id));
+    const promptCut = sharedPromptCut(prompts);
+    const lastJobs = new Map<string, ReturnType<typeof jobs.list>[number]>();
+    for (const job of jobs.list(db, { projectId: project.id })) {
+      if (job.scene_id) lastJobs.set(job.scene_id, job);
+    }
+    const list = rows.map((s, index) => {
       const history = versionHistoryDigest(db, core.root, s.id);
       const current = s.current_version_id ? history.find((h) => h.version_id === s.current_version_id) ?? null : null;
       const latest = history.reduce<(typeof history)[number] | null>((a, h) => (!a || h.number > a.number ? h : a), null);
-      return { ...s, current_version: current, latest_version: latest };
+      const last = lastJobs.get(s.id);
+      const pub = last ? publicJob(last, core.root) : null;
+      const last_job = pub ? { id: pub.id, status: pub.status, stage: pub.stage, error: pub.error } : null;
+      return { ...s, excerpt: excerptOf(prompts[index]!, promptCut), current_version: current, latest_version: latest, last_job };
     });
     return { project, scenes: list, exports: exportsRepo.recentInProject(db, project.id, RECENT_EXPORTS) };
   });
@@ -62,8 +105,8 @@ export function projectRoutes(app: ZApp, { core }: ApiContext): void {
   }, async (req, reply) => {
     const key = idempotencyKey(req);
     const db = core.db;
-    const { prompt, settings, allowRestricted } = req.body;
-    const input = (sceneId: string) => ({ sceneId, prompt, settings, ...(allowRestricted === undefined ? {} : { allowRestricted }) });
+    const { prompt, title, settings, allowRestricted } = req.body;
+    const input = (sceneId: string) => ({ sceneId, prompt, ...(title === undefined ? {} : { title }), settings, ...(allowRestricted === undefined ? {} : { allowRestricted }) });
     let created: string | undefined;
     let out;
     try {
@@ -71,7 +114,7 @@ export function projectRoutes(app: ZApp, { core }: ApiContext): void {
         const prev = replay(db, key, "playground.generate", (j) => (j.project_id === req.params.id && j.scene_id ? input(j.scene_id) : undefined));
         if (prev) return { status: 200 as const, scene: scenes.get(db, prev.scene_id!) as SceneDto, job: prev };
         if (!projects.get(db, req.params.id)) throw notFound(`проект ${req.params.id}`);
-        const scene = core.repo.createScene(req.params.id, { prompt, settings });
+        const scene = core.repo.createScene(req.params.id, { prompt, ...(title === undefined ? {} : { title }), settings });
         created = scene.id;
         const { job } = enqueue(db, { type: "playground.generate", projectId: req.params.id, sceneId: scene.id, input: input(scene.id), idempotencyKey: key });
         return { status: 202 as const, scene, job };

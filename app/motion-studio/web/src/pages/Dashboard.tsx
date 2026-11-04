@@ -8,7 +8,7 @@ import { useId, useState } from "react";
 import { api, newKey, urls } from "../api/client.js";
 import { isActive, useAppSettings, useJobs, useProject } from "../api/queries.js";
 import { timelineUrls } from "../api/timeline-client.js";
-import { stageText } from "../components/JobStatus.js";
+import { jobErrorReason, stageText } from "../components/JobStatus.js";
 import { Link } from "../components/Link.js";
 import { SettingsForm } from "../components/SettingsForm.js";
 import { CostSummary } from "../components/costs/CostSummary.js";
@@ -183,6 +183,16 @@ const sceneLine = (v: HistoryEntry | null) =>
 export function ProjectPage({ id }: { id: string }) {
   const q = useProject(id);
   const app = useAppSettings();
+  const client = useQueryClient();
+  const [sceneFilter, setSceneFilter] = useState<"all" | "failed" | "ready">("all");
+  // повтор — только последняя упавшая задача сцены без готовой версии, не вся история проекта
+  const retryFailed = useMutation({
+    mutationFn: (ids: string[]) => api.retryFailedJobs({ ids }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["project", id] });
+      void client.invalidateQueries({ queryKey: ["jobs"] });
+    },
+  });
   if (q.isError) return <div className="page"><p className="error">{errorText(q.error)}</p></div>;
   if (!q.data) return <div className="page"><Skeleton lines={5} /></div>;
   const { project, scenes, exports } = q.data;
@@ -191,6 +201,14 @@ export function ProjectPage({ id }: { id: string }) {
   // сценарный проект: текст → план → сцены → экспорт
   if (project.kind === "script") return <ScriptWorkspace project={project} />;
   const initial = project.settings ?? app.data?.defaults ?? defaultSettings();
+  const isFailed = (s: (typeof scenes)[number]) => s.last_job?.status === "failed" && s.current_version?.status !== "ready";
+  const failedIds = scenes.filter(isFailed).map((s) => s.last_job!.id);
+  const failedCount = failedIds.length;
+  const titleCounts = new Map<string, number>();
+  for (const scene of scenes) titleCounts.set(scene.title, (titleCounts.get(scene.title) ?? 0) + 1);
+  const visibleScenes = scenes.filter((s) => sceneFilter === "all"
+    || (sceneFilter === "failed" && isFailed(s))
+    || (sceneFilter === "ready" && s.current_version?.status === "ready"));
   return (
     <div className="page project">
       <nav className="crumbs"><Link to={{ name: "dashboard" }}>{t("nav.dashboard")}</Link></nav>
@@ -199,18 +217,44 @@ export function ProjectPage({ id }: { id: string }) {
         <section className="panel">
           <h2>{t("project.scenes")}</h2>
           {scenes.length === 0 ? <EmptyState title={t("project.noScenes")} description={t("ux.project.scenesEmpty.description")} /> : null}
+          {scenes.length > 0 ? (
+            <div className="row wrap scene-filters">
+              <div className="segmented" role="group" aria-label={t("project.sceneFilter.label")}>
+                {(["all", "failed", "ready"] as const).map((filter) => (
+                  <button key={filter} type="button" className={sceneFilter === filter ? "active" : ""} aria-pressed={sceneFilter === filter} onClick={() => setSceneFilter(filter)}>
+                    {t(`project.sceneFilter.${filter}`)}
+                  </button>
+                ))}
+              </div>
+              <button type="button" disabled={failedCount === 0 || retryFailed.isPending} onClick={() => retryFailed.mutate(failedIds)}>
+                {t("project.retryFailed", { n: failedCount })}
+              </button>
+            </div>
+          ) : null}
+          {retryFailed.isError ? <p className="error">{errorText(retryFailed.error)}</p> : null}
           <ul className="scene-cards">
-            {scenes.map((s) => (
-              <li key={s.id} data-scene-id={s.id}>
-                <Link to={{ name: "scene", id: s.id }} className="scene-card">
-                  {s.current_version?.status === "ready" ? (
-                    <img src={urls.frame(s.current_version.version_id, 0)} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
-                  ) : <div className="thumb-empty" />}
-                  <span className="strong">{s.title}</span>
-                  <span className="muted small">{sceneLine(s.current_version ?? s.latest_version)}</span>
-                </Link>
-              </li>
-            ))}
+            {visibleScenes.map((s) => {
+              const ready = s.current_version?.status === "ready";
+              const failed = isFailed(s);
+              const active = s.last_job && isActive(s.last_job.status);
+              return (
+                <li key={s.id} data-scene-id={s.id}>
+                  <Link to={{ name: "scene", id: s.id }} className="scene-card">
+                    {ready ? (
+                      <img src={urls.poster(s.current_version!.version_id)} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
+                    ) : <div className="thumb-empty" />}
+                    <span className="row wrap">
+                      <span className="strong">{s.title}</span>
+                      {failed ? <span className="badge status-failed">{t("job.status.failed")}</span> : null}
+                      {!failed && active ? <span className={`badge status-${s.last_job!.status}`}>{t(`job.status.${s.last_job!.status}`)}</span> : null}
+                    </span>
+                    {(titleCounts.get(s.title) ?? 0) > 1 && s.excerpt ? <span className="muted small scene-excerpt">{s.excerpt}</span> : null}
+                    {failed && jobErrorReason(s.last_job!) ? <span className="muted small job-error-reason">{jobErrorReason(s.last_job!)}</span> : null}
+                    <span className="muted small">{sceneLine(s.current_version ?? s.latest_version)}</span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </section>
         <div className="stack">

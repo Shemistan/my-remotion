@@ -124,6 +124,11 @@ export const ru = {
   "project.generateHint": "Генерация запускает агентов Claude и рендер: обычно 5–20 минут и несколько долларов.",
   "project.generate": "Сгенерировать",
   "project.exports": "Экспорты проекта",
+  "project.sceneFilter.label": "Фильтр сцен",
+  "project.sceneFilter.all": "Все",
+  "project.sceneFilter.failed": "Упавшие",
+  "project.sceneFilter.ready": "Готовые",
+  "project.retryFailed": "Повторить упавшие ({n})",
 
   "playground.generating": "Идёт генерация: {stage}",
   "playground.noVersions": "У сцены пока нет версий.",
@@ -136,6 +141,8 @@ export const ru = {
   "playground.dirty": "Изменено: {fields}. «Рендер» создаст новую версию от v{n}.",
   "playground.lastFailed": "Последняя правка v{n} не удалась",
   "playground.lastFailedHint": "Сейчас показана текущая готовая версия. Ошибку и журнал можно открыть.",
+  "playground.renameScene": "Переименовать сцену «{title}»",
+  "playground.sceneTitle": "Название сцены",
 
   "specView.title": "Spec и данные версии",
   "specView.tab.spec": "Motion Spec",
