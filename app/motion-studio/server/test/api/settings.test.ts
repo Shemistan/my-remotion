@@ -104,3 +104,27 @@ it("PUT /settings: сбой записи → 500 без абсолютных п�
   expect(r.body).not.toContain(api.s.root);
   expect(r.body).not.toMatch(/\/(Users|private|tmp|Volumes)\//);
 });
+
+it("делегирование: PUT delegation применяется сразу (без перезапуска), codex.* через API не меняется", async () => {
+  await api.close();
+  api = await makeApi({ boot: { agents: undefined } });
+  const before = (await api.inj("GET", "/api/delegation", getHeaders)).json();
+  expect(before.policy).toEqual({ enabled: false, level: 0, allowUnverified: false });
+  expect(before.level).toBe(0);
+  expect(before.roles.find((r: { role: string }) => r.role === "visual_qa").status).toBe("always_claude");
+  expect(before.roles.find((r: { role: string }) => r.role === "motion_director").status).toBe("unverified");
+
+  const put = await api.inj("PUT", "/api/settings", okHeaders, { delegation: { enabled: true, level: 30 } });
+  expect(put.statusCode).toBe(200);
+  expect(put.json().delegation).toEqual({ enabled: true, level: 30, allowUnverified: false });
+  expect(file().delegation).toEqual({ enabled: true, level: 30 });
+  const after = (await api.inj("GET", "/api/delegation", getHeaders)).json();
+  expect(after.level).toBeCloseTo(30, 0);
+  expect(after.roles.find((r: { role: string }) => r.role === "engineer").share).toBeGreaterThan(0);
+  expect(after.maxLevelUnverified).toBeGreaterThan(after.maxLevel);
+
+  expect((await api.inj("PUT", "/api/settings", okHeaders, { delegation: { level: 101 } })).statusCode).toBe(400);
+  expect((await api.inj("PUT", "/api/settings", okHeaders, { codex: { bin: "/tmp/evil" } })).statusCode).toBe(400);
+  expect((await api.inj("POST", "/api/delegation/resume/engineer", okHeaders)).statusCode).toBe(200);
+  expect((await api.inj("POST", "/api/delegation/resume/nobody", okHeaders)).statusCode).toBe(400);
+});

@@ -56,7 +56,7 @@ type Parsed<O> = Pick<AgentResult<O>, "status" | "output" | "error" | "usage" | 
 /** `noResult` — в stdout не нашлось итогового объекта `type:"result"`. */
 export type ParsedClaudeOutput<O> = Parsed<O> & { noResult: boolean };
 
-const EMPTY_USAGE: AgentUsage = { model: "", inputTokens: 0, outputTokens: 0, costUsd: 0 };
+export const EMPTY_USAGE: AgentUsage = { model: "", inputTokens: 0, outputTokens: 0, costUsd: 0 };
 
 /**
  * Разбирает итоговый JSON `claude -p --output-format json`. Если весь stdout не JSON
@@ -145,7 +145,7 @@ function usageOf(j: Record<string, unknown>): AgentUsage {
 }
 
 /** Хвост stderr в сообщении ошибки — без секретов (Task 48). */
-function clip(s: string, n = 300): string {
+export function clip(s: string, n = 300): string {
   const t = redact(s).trim();
   return t.length > n ? `${t.slice(0, n)}…` : t;
 }
@@ -312,29 +312,12 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
     return done(parsed);
   }
 
-  /** Первый свободный `<rel>/<runId>/a<attempt>-<role>-<seq>` — через `safeMkdir`. */
   private async logDir(task: AgentTask<unknown>, rel: string): Promise<string> {
-    const base = join(rel, task.run.runId);
-    for (let seq = 1; ; seq++) {
-      const leaf = join(base, `a${task.run.attempt}-${task.role}-${seq}`);
-      const full = join(task.run.root, leaf);
-      if (await exists(full)) continue;
-      // одновременные вызовы роли (два дубля, S5): после await место мог занять другой
-      if (this.claimed.has(full)) continue;
-      this.claimed.add(full);
-      try {
-        // пока мы ждали, владелец этого места мог уже создать каталог и снять заявку
-        if (await exists(full)) continue;
-        return await safeMkdir(task.run.root, leaf);
-      } finally {
-        // каталог уже на диске (или не создан) — дальше его видит `exists`, память не копится
-        this.claimed.delete(full);
-      }
-    }
+    return allocLogDir(task, rel, this.claimed);
   }
 
-  /** Каталоги журналов, выдаваемые сейчас (между проверкой «свободен» и mkdir). */
-  private readonly claimed = new Set<string>();
+  /** Каталоги журналов, выдаваемые сейчас: общие с CodexRuntime (одна роль — оба рантайма). */
+  private readonly claimed = CLAIMED_LOG_DIRS;
 
   private async systemPrompt(role: Role): Promise<string> {
     const { promptLoader, promptsDir } = this.opts;
@@ -347,8 +330,35 @@ export class ClaudeCodeRuntime implements AgentRuntimeAdapter {
   }
 }
 
+/** Каталоги журналов, выдаваемые сейчас всеми рантаймами процесса (между проверкой и mkdir). */
+export const CLAIMED_LOG_DIRS = new Set<string>();
+
+/**
+ * Первый свободный `<rel>/<runId>/a<attempt>-<role>-<seq>` — через `safeMkdir`. `claimed` —
+ * каталоги, выдаваемые сейчас этим рантаймом (между проверкой «свободен» и mkdir).
+ */
+export async function allocLogDir(task: AgentTask<unknown>, rel: string, claimed: Set<string>): Promise<string> {
+  const base = join(rel, task.run.runId);
+  for (let seq = 1; ; seq++) {
+    const leaf = join(base, `a${task.run.attempt}-${task.role}-${seq}`);
+    const full = join(task.run.root, leaf);
+    if (await exists(full)) continue;
+    // одновременные вызовы роли (два дубля, S5): после await место мог занять другой
+    if (claimed.has(full)) continue;
+    claimed.add(full);
+    try {
+      // пока мы ждали, владелец этого места мог уже создать каталог и снять заявку
+      if (await exists(full)) continue;
+      return await safeMkdir(task.run.root, leaf);
+    } finally {
+      // каталог уже на диске (или не создан) — дальше его видит `exists`, память не копится
+      claimed.delete(full);
+    }
+  }
+}
+
 /** Запись журнала вызова; сбой — `StorageError` (`not_writable`): журнал лежит в хранилище. */
-async function storageWrite(path: string, data: string): Promise<void> {
+export async function storageWrite(path: string, data: string): Promise<void> {
   try {
     await writeFile(path, data);
   } catch (e) {
@@ -357,7 +367,7 @@ async function storageWrite(path: string, data: string): Promise<void> {
 }
 
 /** `logRoot` относительно корня хранилища; вне корня (или сам корень) — ошибка. */
-function logRel(root: string, logRoot: string): string {
+export function logRel(root: string, logRoot: string): string {
   const rel = relative(resolve(root), resolve(logRoot));
   if (rel === "" || isAbsolute(rel) || rel === ".." || rel.startsWith(".." + sep)) {
     throw new Error(`agents: logRoot вне хранилища ${root}: ${logRoot}`);
@@ -376,7 +386,7 @@ async function exists(p: string): Promise<boolean> {
 }
 
 /** Путь к исполняемому `bin` (поиск по PATH для голого имени) или `undefined`. */
-async function resolveBin(bin: string, path: string | undefined): Promise<string | undefined> {
+export async function resolveBin(bin: string, path: string | undefined): Promise<string | undefined> {
   const candidates = bin.includes("/") ? [bin] : (path ?? "").split(delimiter).filter(Boolean).map((d) => join(d, bin));
   for (const c of candidates) {
     try {

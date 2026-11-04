@@ -34,6 +34,7 @@ import { scriptBatchRoutes } from "./routes/script-batch.js";
 import { scriptTextRoutes } from "./routes/script-text.js";
 import { semanticRoutes } from "./routes/semantic.js";
 import { settingsRoutes } from "./routes/settings.js";
+import { delegationRoutes } from "./routes/delegation.js";
 import { timelineRoutes } from "./routes/timelines.js";
 import { transcriptRoutes } from "./routes/transcripts.js";
 import { versionRoutes } from "./routes/versions.js";
@@ -83,6 +84,7 @@ export async function buildApp(core: Core, opts: BuildAppOptions = { port: PORT 
   jobRoutes(app, ctx);
   kbRoutes(app, ctx);
   settingsRoutes(app, ctx);
+  delegationRoutes(app, ctx);
   // видеопроект (Task 29)
   videoProjectRoutes(app, ctx);
   mediaRoutes(app, ctx);

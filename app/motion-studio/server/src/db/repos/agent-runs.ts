@@ -27,3 +27,13 @@ export function jobCost(db: Db, jobId: string): { usd: number; runs: number; unk
       FROM agent_runs WHERE job_id = ?`).get(jobId) as { usd: number; runs: number; unknown: number };
   return { usd: Math.round(r.usd * 1e6) / 1e6, runs: r.runs, unknown: r.unknown };
 }
+
+/**
+ * Стоимость вызовов Claude по ролям с `since` (ISO): веса для плана делегирования. Прогоны
+ * Codex (`model` с префиксом `codex:`) не входят — у них нет стоимости.
+ */
+export function claudeCostByRole(db: Db, since: string): Record<string, number> {
+  const rows = db.prepare(`SELECT role, COALESCE(SUM(cost_usd), 0) AS usd FROM agent_runs
+      WHERE started_at >= ? AND model NOT LIKE 'codex:%' GROUP BY role`).all(since) as { role: string; usd: number }[];
+  return Object.fromEntries(rows.map((r) => [r.role, r.usd]));
+}
