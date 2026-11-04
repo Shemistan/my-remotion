@@ -1,10 +1,12 @@
 // Версии: файлы версии с provenance KB, окружение рендера, сравнение, экспорт.
-import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { VersionDiffSchema, VersionDtoSchema } from "@ms/contracts";
 import * as exportsRepo from "../../src/db/repos/exports.js";
 import { renderEnv } from "../../src/pipeline/render-env.js";
+import { sha256 } from "../../src/scenes/hash.js";
+import { makeDraft, meta } from "../scenes/helpers.js";
 import { type Api, getHeaders, makeApi, okHeaders, seedVersion } from "./helpers.js";
 
 let api: Api;
@@ -68,6 +70,30 @@ it("файлы только по id из БД: обход пути и несущ
   }
   expect((await api.inj("GET", `/api/versions/${versionId}/frames/9.png`, getHeaders)).statusCode).toBe(404);
   expect((await api.inj("GET", "/api/versions/ver_nope/preview.mp4", getHeaders)).statusCode).toBe(404);
+});
+
+it("GET /versions/:id/poster.png: кадр с наименьшим номером; без кадров → 404", async () => {
+  const jobs = await import("../../src/db/repos/jobs.js");
+  const scene = api.core.repo.createScene("playground", { prompt: "poster", settings: (await import("@ms/contracts")).defaultSettings() });
+  jobs.insert(api.core.db, { id: "job_poster", type: "playground.generate", project_id: "playground", scene_id: scene.id, input: {}, status: "completed", attempt: 1 });
+  const draft = await makeDraft(api.core.root, { runId: "job_poster", attempt: 1, sceneId: scene.id });
+  rmSync(join(draft.dir, "frames/0.png"));
+  writeFileSync(join(draft.dir, "frames/34.png"), "png34");
+  writeFileSync(join(draft.dir, "frames/11.png"), "png11");
+  const version = await api.core.repo.publish(draft, meta(scene.id, {
+    qa_frames: [34, 11],
+    qa_frames_sha256: [sha256("png34"), sha256("png11")],
+  }), { jobId: "job_poster", attempt: 1 });
+  const poster = await api.inj("GET", `/api/versions/${version.versionId}/poster.png`, getHeaders);
+  expect(poster.statusCode).toBe(200);
+  expect(poster.rawPayload.toString()).toBe("png11");
+
+  const empty = api.core.repo.createScene("playground", { prompt: "empty", settings: (await import("@ms/contracts")).defaultSettings() });
+  jobs.insert(api.core.db, { id: "job_no_poster", type: "playground.generate", project_id: "playground", scene_id: empty.id, input: {}, status: "completed", attempt: 1 });
+  const noFrames = await makeDraft(api.core.root, { runId: "job_no_poster", attempt: 1, sceneId: empty.id });
+  rmSync(join(noFrames.dir, "frames/0.png"));
+  const noPoster = await api.core.repo.publish(noFrames, meta(empty.id, { qa_frames: [], qa_frames_sha256: [] }), { jobId: "job_no_poster", attempt: 1 });
+  expect((await api.inj("GET", `/api/versions/${noPoster.versionId}/poster.png`, getHeaders)).statusCode).toBe(404);
 });
 
 it("POST /versions/:id/exports → 202 scene.export; failed-версия → 409; GET /exports/:id и /file (attachment)", async () => {

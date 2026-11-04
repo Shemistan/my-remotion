@@ -32,13 +32,26 @@ it("GET /scenes/:id: сцена, версии HistoryEntry[], активная �
   expect(before.versions).toHaveLength(1);
   expect(HistoryEntrySchema.parse(before.versions[0])).toMatchObject({ version_id: versionId, number: 1 });
   expect(before.active_job).toBeNull();
+  expect(before.last_job).toMatchObject({ status: "completed" });
   const job = (await api.inj("POST", `/api/scenes/${scene.id}/messages`, key(), { text: "медленнее" })).json().job;
   const after = (await api.inj("GET", `/api/scenes/${scene.id}`, getHeaders)).json();
   expect(after.active_job).toMatchObject({ id: job.id, status: "pending" });
+  expect(after.last_job).toMatchObject({ id: job.id, status: "pending" });
   const msgs = (await api.inj("GET", `/api/scenes/${scene.id}/messages`, getHeaders)).json();
   expect(msgs.map((m: { text: string }) => m.text)).toEqual(["медленнее"]);
   expect((await api.inj("GET", "/api/scenes/scn_nope", getHeaders)).statusCode).toBe(404);
   expect((await api.inj("GET", "/api/scenes/scn_nope/messages", getHeaders)).statusCode).toBe(404);
+});
+
+it("PATCH /scenes/:id переименовывает сцену, trim и ограничения проверяет контракт", async () => {
+  const { scene } = await seedVersion(api);
+  const renamed = await api.inj("PATCH", `/api/scenes/${scene.id}`, okHeaders, { title: "  Новый заголовок  " });
+  expect(renamed.statusCode).toBe(200);
+  expect(renamed.json().title).toBe("Новый заголовок");
+  expect((await api.inj("GET", `/api/scenes/${scene.id}`, getHeaders)).json().scene.title).toBe("Новый заголовок");
+  expect((await api.inj("PATCH", `/api/scenes/${scene.id}`, okHeaders, { title: "   " })).statusCode).toBe(400);
+  expect((await api.inj("PATCH", `/api/scenes/${scene.id}`, okHeaders, { title: "x".repeat(121) })).statusCode).toBe(400);
+  expect((await api.inj("PATCH", "/api/scenes/scn_nope", okHeaders, { title: "Нет" })).statusCode).toBe(404);
 });
 
 it("POST /scenes/:id/render: длительность → playground.edit, plan.path param; fps → spec", async () => {

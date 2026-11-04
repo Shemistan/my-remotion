@@ -148,3 +148,39 @@ it("последняя версия не удалась (новее текуще
   expect(banner.textContent).toContain(t("playground.lastFailed", { n: 3 }));
   expect(banner.querySelector("button")).toBeTruthy();
 });
+
+it("без версий показывает JobStatus последней упавшей задачи вместо пустого состояния", async () => {
+  const failed = job({
+    id: "job_failed", status: "failed", progress: 0.5, stage: "engineer", finished_at: TS,
+    error: { code: "pipeline", stage: "engineer", message: "hit your usage limit" },
+  });
+  fakeFetch([
+    on("GET", "/api/scenes/s1", {
+      scene: { id: "s1", project_id: "p1", title: "Сцена", current_version_id: null, approved_version_id: null, created_at: TS },
+      versions: [], active_job: null,
+      last_job: { id: failed.id, status: failed.status, stage: failed.stage, error: failed.error },
+    }),
+    on("GET", "/api/scenes/s1/messages", []),
+    on("GET", "/api/jobs/job_failed", { job: failed, events: [], processes: [] }),
+  ]);
+  renderQ(<Playground id="s1" />);
+  expect(await screen.findByRole("button", { name: t("job.retry") })).toBeTruthy();
+  expect(screen.queryByText(t("playground.noVersions"))).toBeNull();
+});
+
+it("название сцены редактируется по клику и Enter сохраняет PATCH", async () => {
+  const { calls } = fakeFetch([
+    on("GET", "/api/scenes/s1", {
+      scene: { id: "s1", project_id: "p1", title: "Старое", current_version_id: null, approved_version_id: null, created_at: TS },
+      versions: [], active_job: null, last_job: null,
+    }),
+    on("GET", "/api/scenes/s1/messages", []),
+    on("PATCH", "/api/scenes/s1", { id: "s1", project_id: "p1", title: "Новое", current_version_id: null, approved_version_id: null, created_at: TS }),
+  ]);
+  renderQ(<Playground id="s1" />);
+  fireEvent.click(await screen.findByRole("button", { name: t("playground.renameScene", { title: "Старое" }) }));
+  const input = screen.getByLabelText(t("playground.sceneTitle"));
+  fireEvent.change(input, { target: { value: "  Новое  " } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await waitFor(() => expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ title: "Новое" }));
+});

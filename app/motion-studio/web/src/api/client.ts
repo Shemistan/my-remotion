@@ -156,9 +156,10 @@ export const api = {
   projects: () => request<ProjectDto[]>("GET", "/api/projects"),
   project: (id: string) => request<ProjectDetailDto>("GET", `/api/projects/${enc(id)}`),
   createProject: (title: string, kind?: ProjectDto["kind"]) => request<ProjectDto>("POST", "/api/projects", { body: { title, ...(kind ? { kind } : {}) } }),
-  createScene: (projectId: string, body: { prompt: string; settings: Settings }, key: string = newKey()) =>
+  createScene: (projectId: string, body: { prompt: string; title?: string; settings: Settings }, key: string = newKey()) =>
     request<{ scene: SceneDto; job: Job }>("POST", `/api/projects/${enc(projectId)}/scenes`, { body, idempotency: key }),
   scene: (id: string) => request<SceneDetailDto>("GET", `/api/scenes/${enc(id)}`),
+  renameScene: (id: string, title: string) => request<SceneDto>("PATCH", `/api/scenes/${enc(id)}`, { body: { title } }),
   messages: (sceneId: string) => request<ChatMessage[]>("GET", `/api/scenes/${enc(sceneId)}/messages`),
   sendMessage: (sceneId: string, body: { text: string; baseVersionId?: string }, key: string = newKey()) =>
     request<{ message: ChatMessage; job: Job }>("POST", `/api/scenes/${enc(sceneId)}/messages`, { body, idempotency: key }),
@@ -280,6 +281,7 @@ export function uploadMedia(projectId: string, file: File, key: string, onProgre
 /** URL файлов версии и экспорта (для `<video>`, `<img>` и скачивания). */
 export const urls = {
   preview: (versionId: string) => `/api/versions/${enc(versionId)}/preview.mp4`,
+  poster: (versionId: string) => `/api/versions/${enc(versionId)}/poster.png`,
   frame: (versionId: string, frame: number) => `/api/versions/${enc(versionId)}/frames/${frame}.png`,
   exportFile: (exportId: string) => `/api/exports/${enc(exportId)}/file`,
   proxy: (mediaId: string) => `/api/media/${enc(mediaId)}/proxy.mp4`,

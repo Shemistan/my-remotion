@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { ProjectDtoSchema, defaultSettings } from "@ms/contracts";
 import * as exportsRepo from "../../src/db/repos/exports.js";
+import * as jobs from "../../src/db/repos/jobs.js";
 import * as projects from "../../src/db/repos/projects.js";
 import { type Api, getHeaders, makeApi, okHeaders, seedVersion } from "./helpers.js";
 
@@ -43,13 +44,59 @@ it("GET /projects/:id: сцены с текущими версиями и пос
   const body = r.json();
   expect(body.project.id).toBe(projectId);
   expect(body.scenes).toHaveLength(1);
-  expect(body.scenes[0]).toMatchObject({ id: scene.id, current_version_id: versionId, current_version: { version_id: versionId, number: 1, status: "ready" } });
+  expect(body.scenes[0]).toMatchObject({
+    id: scene.id,
+    excerpt: "Рост выручки",
+    current_version_id: versionId,
+    current_version: { version_id: versionId, number: 1, status: "ready" },
+    last_job: { status: "completed" },
+  });
   expect(body.exports).toHaveLength(1);
   expect(body.exports[0]).toMatchObject({ version_id: versionId, format: "mp4", scene_id: scene.id });
   expect(body.scenes[0].latest_version).toMatchObject({ version_id: versionId, number: 1 });
   const missing = await api.inj("GET", "/api/projects/prj_nope", getHeaders);
   expect(missing.statusCode).toBe(404);
   expect(missing.json()).toMatchObject({ error: "not_found" });
+});
+
+it("GET /projects/:id: excerpt без общего длинного префикса и последняя задача сцены", async () => {
+  projects.create(api.core.db, { id: "p_excerpt", title: "Пакет" });
+  const common = "Общий визуальный стиль: тёмный фон и белый текст. ";
+  const first = api.core.repo.createScene("p_excerpt", { prompt: `${common}Показать рост выручки по месяцам`, settings: defaultSettings() });
+  const second = api.core.repo.createScene("p_excerpt", { prompt: `${common}Сравнить расходы двух отделов`, settings: defaultSettings() });
+  jobs.insert(api.core.db, {
+    id: "job_excerpt_failed",
+    type: "playground.generate",
+    project_id: "p_excerpt",
+    scene_id: first.id,
+    input: {},
+    status: "failed",
+    stage: "engineer",
+    error: { code: "pipeline", stage: "engineer", message: "лимит" },
+  });
+  const body = (await api.inj("GET", "/api/projects/p_excerpt", getHeaders)).json();
+  expect(body.scenes.map((s: { excerpt: string | null }) => s.excerpt)).toEqual([
+    "Показать рост выручки по месяцам",
+    "Сравнить расходы двух отделов",
+  ]);
+  expect(body.scenes[0].last_job).toEqual({
+    id: "job_excerpt_failed",
+    status: "failed",
+    stage: "engineer",
+    error: { code: "pipeline", stage: "engineer", message: "лимит" },
+  });
+  expect(body.scenes[1].last_job).toBeNull();
+  expect(second.id).toBeTruthy();
+});
+
+it("POST /projects/:id/scenes принимает заданное название", async () => {
+  const r = await api.inj("POST", "/api/projects/playground/scenes", { ...okHeaders, "idempotency-key": "title-1" }, {
+    prompt: "Длинный промпт для сцены",
+    title: "Короткое название",
+    settings: defaultSettings(),
+  });
+  expect(r.statusCode).toBe(202);
+  expect(r.json().scene.title).toBe("Короткое название");
 });
 
 it("GET /projects/:id: сцена только с failed-версией — current_version null, latest_version — она (Task 21)", async () => {

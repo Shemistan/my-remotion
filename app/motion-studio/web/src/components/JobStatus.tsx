@@ -37,7 +37,7 @@ export function jobErrorTitle(job: Job): string | null {
 }
 
 /** Короткая пользовательская причина без служебной цепочки этапов. */
-export function jobErrorReason(job: Job): string | null {
+export function jobErrorReason(job: Pick<Job, "error">): string | null {
   const message = job.error?.message.trim();
   if (!message) return null;
   if (/hit your .*limit|usage limit|rate limit/i.test(message)) {

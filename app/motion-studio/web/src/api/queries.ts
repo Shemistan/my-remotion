@@ -11,7 +11,11 @@ const POLL_MS = 5_000;
 
 export const useHealth = () => useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 10_000 });
 export const useProjects = () => useQuery({ queryKey: ["projects"], queryFn: api.projects });
-export const useProject = (id: string) => useQuery({ queryKey: ["project", id], queryFn: () => api.project(id) });
+export const useProject = (id: string) => useQuery({
+  queryKey: ["project", id],
+  queryFn: () => api.project(id),
+  refetchInterval: (q) => (q.state.data?.scenes.some((s) => s.last_job && isActive(s.last_job.status)) ? POLL_MS : false),
+});
 export const useScene = (id: string) =>
   useQuery({
     queryKey: ["scene", id],
