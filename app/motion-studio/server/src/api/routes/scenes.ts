@@ -6,10 +6,12 @@ import {
   CreatedJobDtoSchema,
   ImproveBodySchema,
   type Job,
+  PatchSceneBodySchema,
   QAReportSchema,
   RenderBodySchema,
   RestoreBodySchema,
   SceneDetailDtoSchema,
+  SceneDtoSchema,
   type Settings,
   SettingsSchema,
 } from "@ms/contracts";
@@ -38,8 +40,24 @@ export function sceneRoutes(app: ZApp, { core }: ApiContext): void {
 
   app.get("/api/scenes/:id", { schema: { params: IdParams, response: { 200: SceneDetailDtoSchema } } }, async (req) => {
     const scene = sceneOr404(req.params.id);
-    const active = jobs.list(core.db, { sceneId: scene.id }).filter((j) => ACTIVE.has(j.status));
-    return { scene, versions: versionHistoryDigest(core.db, core.root, scene.id), active_job: active.length ? publicJob(active.at(-1)!, core.root) : null };
+    const all = jobs.list(core.db, { sceneId: scene.id });
+    const active = all.filter((j) => ACTIVE.has(j.status));
+    const last = all.at(-1);
+    const pub = last ? publicJob(last, core.root) : null;
+    return {
+      scene,
+      versions: versionHistoryDigest(core.db, core.root, scene.id),
+      active_job: active.length ? publicJob(active.at(-1)!, core.root) : null,
+      last_job: pub ? { id: pub.id, status: pub.status, stage: pub.stage, error: pub.error } : null,
+    };
+  });
+
+  app.patch("/api/scenes/:id", {
+    schema: { params: IdParams, body: PatchSceneBodySchema, response: { 200: SceneDtoSchema } },
+  }, async (req) => {
+    sceneOr404(req.params.id);
+    scenes.setTitle(core.db, req.params.id, req.body.title);
+    return sceneOr404(req.params.id);
   });
 
   app.post("/api/scenes/:id/restore", {

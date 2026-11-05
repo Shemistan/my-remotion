@@ -31,6 +31,7 @@ export function vscene(item: string, status: VideoSceneDto["status"], over: Part
     queue: null,
     qa_warnings: [],
     qa_overall: null,
+    qa_low: false,
     context_preview: null,
     ...over,
   };

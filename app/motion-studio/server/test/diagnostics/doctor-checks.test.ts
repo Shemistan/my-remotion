@@ -3,6 +3,7 @@
 import { existsSync, mkdirSync, writeFileSync, chmodSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { DoctorReportDtoSchema } from "@ms/contracts";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { runDoctor } from "../../src/diagnostics/doctor-checks.js";
@@ -49,6 +50,8 @@ const deps = {
   vision: async () => ({ ok: true, status: "ok", detail: "vision-detect 1" }),
 };
 
+const fakeCodex = fileURLToPath(new URL("../fixtures/bin/fake-codex.sh", import.meta.url));
+
 it("fast: строки node, claude, ffmpeg, storage, chrome, asr, vision, db; вход Claude не вызывается", async () => {
   const env = { PATH: fakeBin(), HOME: tmp, MS_DATA_DIR: s.root, MS_DEPS_DIR: join(tmp, "deps") };
   const r = await runDoctor({ fast: true, env, probe, deps });
@@ -66,6 +69,22 @@ it("полный: вход Claude вызывается, Chrome — через en
   expect(r.rows.find((c) => c.name === "claude_login")).toMatchObject({ ok: true, status: "ok" });
   expect(existsSync(join(tmp, "login-called"))).toBe(true);
   expect(r.rows.find((c) => c.name === "chrome")).toMatchObject({ detail: "/fake/chrome" });
+});
+
+it("Codex CLI: версия из capabilities; недоступность — предупреждение только при включённом делегировании", async () => {
+  const env = { PATH: fakeBin(), HOME: tmp, MS_DATA_DIR: s.root, MS_DEPS_DIR: join(tmp, "deps") };
+  writeFileSync(join(s.root, "config.json"), JSON.stringify({ codex: { bin: fakeCodex } }));
+  const available = await runDoctor({ fast: true, env, probe, deps });
+  expect(available.rows.find((c) => c.name === "codex")).toMatchObject({ ok: true, status: "ok", detail: "0.165.0" });
+
+  const missing = join(tmp, "no-codex");
+  writeFileSync(join(s.root, "config.json"), JSON.stringify({ codex: { bin: missing }, delegation: { enabled: true, level: 10 } }));
+  const enabled = await runDoctor({ fast: true, env, probe, deps });
+  expect(enabled.rows.find((c) => c.name === "codex")).toMatchObject({ ok: true, status: "warning", detail: expect.stringContaining("codex не найден") });
+
+  writeFileSync(join(s.root, "config.json"), JSON.stringify({ codex: { bin: missing } }));
+  const disabled = await runDoctor({ fast: true, env, probe, deps });
+  expect(disabled.rows.find((c) => c.name === "codex")).toMatchObject({ ok: true, status: "ok", detail: expect.stringContaining("codex не найден") });
 });
 
 it("в сервере: своя база (quick_check) и owner-lock этого сервера — ok; детали без секретов", async () => {

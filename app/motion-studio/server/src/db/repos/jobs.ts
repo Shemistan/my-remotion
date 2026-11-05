@@ -73,6 +73,42 @@ export function list(db: Db, filter: { status?: JobStatus; sceneId?: string; pro
   return (db.prepare(sql).all(args) as Raw[]).map(toJob);
 }
 
+export interface JobListRow {
+  job: Job;
+  projectTitle: string | null;
+  sceneTitle: string | null;
+}
+
+/** Порция для UI: новые первыми, курсор устойчив при одинаковом `created_at`. */
+export function listPage(db: Db, filter: {
+  status?: JobStatus;
+  sceneId?: string;
+  projectId?: string;
+  limit: number;
+  before?: { createdAt: string; id: string };
+}): JobListRow[] {
+  const where: string[] = [];
+  const args: Record<string, string | number> = { limit: filter.limit };
+  if (filter.status) { where.push("j.status = @status"); args.status = filter.status; }
+  if (filter.projectId) { where.push("j.project_id = @projectId"); args.projectId = filter.projectId; }
+  if (filter.sceneId) { where.push("j.scene_id = @sceneId"); args.sceneId = filter.sceneId; }
+  if (filter.before) {
+    where.push("(j.created_at < @beforeCreated OR (j.created_at = @beforeCreated AND j.id < @beforeId))");
+    args.beforeCreated = filter.before.createdAt;
+    args.beforeId = filter.before.id;
+  }
+  const sql = `SELECT j.*, p.title AS project_title, s.title AS scene_title
+    FROM jobs j
+    LEFT JOIN projects p ON p.id = j.project_id
+    LEFT JOIN scenes s ON s.id = j.scene_id
+    ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+    ORDER BY j.created_at DESC, j.id DESC LIMIT @limit`;
+  return (db.prepare(sql).all(args) as (Raw & { project_title: string | null; scene_title: string | null })[]).map((r) => {
+    const { project_title, scene_title, ...raw } = r;
+    return { job: toJob(raw), projectTitle: project_title, sceneTitle: scene_title };
+  });
+}
+
 export function findByIdempotencyKey(db: Db, key: string): Job | undefined {
   const r = db.prepare("SELECT * FROM jobs WHERE idempotency_key = ?").get(key) as Raw | undefined;
   return r && toJob(r);

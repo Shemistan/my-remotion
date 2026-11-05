@@ -54,6 +54,7 @@ export function SceneTile({ row, numbers, busy, onRetry, onRegenerate, onImprove
         <span className="chip small">{techniqueLabel(item.technique)}</span>
         <span className="spacer" />
         {scene?.stale ? <span className="badge stale-badge" title={t("scriptOutput.staleHint")}>{t("scriptOutput.stale")}</span> : null}
+        {scene?.qa_low ? <span className="badge severity-warning" data-testid="low-quality" title={t("scriptOutput.lowQualityHint")}>{t("scriptOutput.lowQuality")}</span> : null}
         {scene?.qa_overall !== null && scene?.qa_overall !== undefined ? <span className="muted small">{t("scriptOutput.score", { score: scene.qa_overall })}</span> : null}
         <span className={`badge status-${status === "ready" ? "completed" : status}`}>{t(`scriptOutput.status.${status}`)}</span>
       </div>
@@ -82,7 +83,7 @@ export function SceneTile({ row, numbers, busy, onRetry, onRegenerate, onImprove
       ) : null}
       <div className="row wrap tile-actions">
         {scene ? <Link to={{ name: "scene", id: scene.scene_id }} className="button">{t("scriptOutput.refine")}</Link> : null}
-        {onImprove ? <button type="button" disabled={busy} onClick={onImprove}>{t("scriptOutput.improve")}</button> : null}
+        {onImprove ? <button type="button" className={scene?.qa_low ? "primary" : undefined} disabled={busy} onClick={onImprove}>{t("scriptOutput.improve")}</button> : null}
         <span className="spacer" />
         {onRetry ? <button type="button" className="primary" disabled={busy} onClick={onRetry}>{t("scriptOutput.retry")}</button> : null}
         {onRegenerate ? (

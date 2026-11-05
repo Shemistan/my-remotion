@@ -3,9 +3,13 @@
 NODE := ./scripts/with-node.sh
 VISION_BIN := tools/vision-detect/bin/vision-detect
 
-.PHONY: check lint typecheck test e2e e2e-footage e2e-ui acceptance acceptance-video acceptance-script acceptance-video-scenes acceptance-final web-build install
+.PHONY: check check-fast test-fast lint typecheck test e2e e2e-footage e2e-ui acceptance acceptance-video acceptance-script acceptance-video-scenes acceptance-final web-build install
 
 check: lint typecheck test
+
+# Быстрый уровень для pre-commit: без тяжёлых файлов (HEAVY в vitest.config.ts);
+# полный `check` гоняет ./finish.
+check-fast: lint typecheck test-fast
 
 # Чистый checkout: ставим зависимости по lockfile.
 # `npm ci` стирает node_modules/.remotion (Chrome Headless Shell) — сразу ставим его снова,
@@ -34,6 +38,9 @@ typecheck: install
 
 test: install
 	$(NODE) npm run --silent test
+
+test-fast: install
+	MS_SKIP_HEAVY=1 $(NODE) npm run --silent test
 
 # Интеграционные тесты с сетью, рендером и реальным SSD (`*.e2e.test.ts`).
 e2e: install

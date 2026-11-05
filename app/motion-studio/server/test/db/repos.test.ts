@@ -118,6 +118,15 @@ describe("jobs", () => {
     expect(jobs.list(db, { status: "running" }).map((j) => j.id)).toEqual(["job_2"]);
     expect(jobs.list(db, { sceneId: "scn_1" }).map((j) => j.id)).toEqual(["job_1"]);
   });
+  it("listPage: новые первыми, названия JOIN и курсор created_at/id", () => {
+    jobs.insert(db, { ...job, created_at: "2026-11-04T10:00:00.000Z" });
+    jobs.insert(db, { ...job, id: "job_2", scene_id: null, created_at: "2026-11-04T11:00:00.000Z" });
+    const first = jobs.listPage(db, { limit: 1 });
+    expect(first).toEqual([expect.objectContaining({ job: expect.objectContaining({ id: "job_2" }), projectTitle: "Playground", sceneTitle: null })]);
+    expect(jobs.listPage(db, { limit: 1, before: { createdAt: first[0]!.job.created_at, id: first[0]!.job.id } })).toEqual([
+      expect.objectContaining({ job: expect.objectContaining({ id: "job_1" }), projectTitle: "Playground", sceneTitle: "Сцена" }),
+    ]);
+  });
   it("tx откатывает всё при исключении", () => {
     expect(() => tx(db, () => {
       jobs.insert(db, job);

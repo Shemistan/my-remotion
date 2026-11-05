@@ -68,6 +68,11 @@ export const QAReportSchema = z.object({
   scores: QaScoresSchema.optional(),
   /** Наблюдения судьи по слабым осям; у старых отчётов их нет. */
   score_notes: z.array(QaScoreNoteSchema).optional(),
+  /**
+   * Опубликовано с непройденной проверкой качества (blocking QA смягчены до warning): причина.
+   * Нет — проверку прошло. Доработка — кнопкой «Улучшить».
+   */
+  low_quality: z.string().optional(),
   automated: z.literal(true),
 }).strict();
 export type QAReport = z.infer<typeof QAReportSchema>;

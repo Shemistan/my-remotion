@@ -86,6 +86,10 @@ export const SceneDtoSchema = z.object({
 }).strict();
 export type SceneDto = z.infer<typeof SceneDtoSchema>;
 
+/** Последняя задача сцены для карточки проекта и пустой страницы сцены. */
+export const SceneLastJobDtoSchema = JobSchema.pick({ id: true, status: true, stage: true, error: true }).strict();
+export type SceneLastJobDto = z.infer<typeof SceneLastJobDtoSchema>;
+
 /** `GET /versions/:id`: manifest и файлы версии; `render_env_mismatch` — рендер в другом окружении. */
 export const VersionDtoSchema = z.object({
   manifest: VersionManifestSchema,
@@ -114,6 +118,13 @@ export type VersionDto = z.infer<typeof VersionDtoSchema>;
 export const JobDtoSchema = JobSchema.extend({ cost_usd: z.number().nonnegative().optional() });
 export type JobDto = z.infer<typeof JobDtoSchema>;
 
+/** Строка `GET /api/jobs`: названия проекта и сцены добавляются выборкой списка. */
+export const JobListDtoSchema = JobDtoSchema.extend({
+  project_title: z.string().nullable(),
+  scene_title: z.string().nullable(),
+});
+export type JobListDto = z.infer<typeof JobListDtoSchema>;
+
 /** Событие журнала задачи (`job_events`, SSE `event: job`); `id` монотонный. */
 export const JobEventDtoSchema = z.object({
   id: z.number().int().positive(),
@@ -138,10 +149,14 @@ export type CreateProjectBody = z.infer<typeof CreateProjectBodySchema>;
 
 export const CreateSceneBodySchema = z.object({
   prompt: z.string().min(1),
+  title: z.string().trim().min(1).max(120).optional(),
   settings: SettingsSchema,
   allowRestricted: z.boolean().optional(),
 }).strict();
 export type CreateSceneBody = z.infer<typeof CreateSceneBodySchema>;
+
+export const PatchSceneBodySchema = z.object({ title: z.string().trim().min(1).max(120) }).strict();
+export type PatchSceneBody = z.infer<typeof PatchSceneBodySchema>;
 
 export const ChatBodySchema = z.object({ text: z.string().min(1), baseVersionId: Id.optional() }).strict();
 export type ChatBody = z.infer<typeof ChatBodySchema>;
@@ -167,6 +182,20 @@ export const JobInputBodySchema = z.union([
   z.object({ skip: z.literal(true) }).strict(),
 ]);
 export type JobInputBody = z.infer<typeof JobInputBodySchema>;
+
+/** Область повтора: `ids` — ровно эти задачи (то, что видит пользователь), иначе все failed проекта/сцены. */
+export const RetryFailedJobsBodySchema = z.object({
+  project_id: Id.optional(),
+  scene_id: Id.optional(),
+  ids: z.array(Id).min(1).max(500).optional(),
+}).strict();
+export type RetryFailedJobsBody = z.infer<typeof RetryFailedJobsBodySchema>;
+
+export const RetryFailedJobsResultSchema = z.object({
+  retried: z.array(Id),
+  skipped: z.array(z.object({ id: Id, code: z.string().min(1) }).strict()),
+}).strict();
+export type RetryFailedJobsResult = z.infer<typeof RetryFailedJobsResultSchema>;
 
 /** `GET /settings`: действующие настройки приложения (`$MS_DATA_DIR/config.json` + умолчания). */
 export const AppSettingsDtoSchema = z.object({
@@ -247,7 +276,12 @@ export type ExportDto = z.infer<typeof ExportDtoSchema>;
 export const ProjectDetailDtoSchema = z.object({
   project: ProjectDtoSchema,
   /** `latest_version` — последняя по номеру (в т. ч. failed): карточка сцены без готовой версии. */
-  scenes: z.array(SceneDtoSchema.extend({ current_version: HistoryEntrySchema.nullable(), latest_version: HistoryEntrySchema.nullable() })),
+  scenes: z.array(SceneDtoSchema.extend({
+    excerpt: z.string().nullable(),
+    current_version: HistoryEntrySchema.nullable(),
+    latest_version: HistoryEntrySchema.nullable(),
+    last_job: SceneLastJobDtoSchema.nullable(),
+  })),
   exports: z.array(ExportDtoSchema),
 }).strict();
 export type ProjectDetailDto = z.infer<typeof ProjectDetailDtoSchema>;
@@ -257,6 +291,7 @@ export const SceneDetailDtoSchema = z.object({
   scene: SceneDtoSchema,
   versions: z.array(HistoryEntrySchema),
   active_job: JobSchema.nullable(),
+  last_job: SceneLastJobDtoSchema.nullable(),
 }).strict();
 export type SceneDetailDto = z.infer<typeof SceneDetailDtoSchema>;
 

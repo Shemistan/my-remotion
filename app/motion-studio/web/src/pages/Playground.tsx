@@ -101,6 +101,7 @@ export function Playground({ id, version }: { id: string; version?: string }) {
   const baseId = notCurrent && fromOpen ? openId : (currentId ?? openId);
   const baseDto = useVersion(baseId);
   const player = useRef<PlayerHandle>(null);
+  const titleCancelled = useRef(false);
   const [frame, setFrame] = useState(0);
   // черновик настроек привязан к базе: при смене базы форма сразу показывает её настройки
   // (без эффекта сброса — иначе правка, пришедшая до эффекта, шла от черновика прежней базы)
@@ -108,11 +109,16 @@ export function Playground({ id, version }: { id: string; version?: string }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [exportJob, setExportJob] = useState<string | null>(null);
   const [lastJob, setLastJob] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
 
   useEffect(() => {
     setFromOpen(false);
     setFrame(0);
   }, [openId]);
+  useEffect(() => {
+    if (!editingTitle) setTitleDraft(scene.data?.scene.title ?? "");
+  }, [editingTitle, scene.data?.scene.title]);
   const settings = baseDto.data?.settings;
   const draft = settings ? (edit && edit.base === baseId ? edit.value : settings) : null;
   const setDraft = (value: Settings) => {
@@ -134,6 +140,13 @@ export function Playground({ id, version }: { id: string; version?: string }) {
       void client.invalidateQueries({ queryKey: ["scene", id] });
     },
   });
+  const rename = useMutation({
+    mutationFn: (title: string) => api.renameScene(id, title),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["scene", id] });
+      void client.invalidateQueries({ queryKey: ["project"] });
+    },
+  });
 
   // S9: сцена сценарного проекта — ссылка «← К сценарию» (кэш тот же, что у useProject)
   const projectId = scene.data?.scene.project_id;
@@ -146,11 +159,22 @@ export function Playground({ id, version }: { id: string; version?: string }) {
 
   if (scene.isError) return <div className="page"><p className="error">{errorText(scene.error)}</p></div>;
   if (!scene.data) return <div className="page"><Skeleton lines={7} /></div>;
-  const { scene: s, active_job } = scene.data;
+  const { scene: s, active_job, last_job } = scene.data;
   const questions = active_job?.status === "awaiting_input"
     ? ((active_job.output_refs as { questions?: { question: string; default_if_skipped: string }[] } | null)?.questions ?? [])
     : [];
-  const jobToShow = active_job?.id ?? lastJob;
+  const terminalJob = last_job && ["failed", "cancelled", "blocked"].includes(last_job.status) ? last_job : null;
+  const jobToShow = active_job?.id ?? lastJob ?? terminalJob?.id ?? null;
+  const emptyTerminalJob = !openId ? terminalJob?.id ?? null : null;
+  const saveTitle = () => {
+    const title = titleDraft.trim();
+    setEditingTitle(false);
+    if (!title || title === s.title) {
+      setTitleDraft(s.title);
+      return;
+    }
+    rename.mutate(title);
+  };
   const open = (vid: string) => navigate({ name: "scene", id, version: vid });
   const seek = (f: number) => player.current?.seek(f);
   const m = dto.data?.manifest;
@@ -204,7 +228,7 @@ export function Playground({ id, version }: { id: string; version?: string }) {
             onOpenVersion={open}
           />
           {active_job && questions.length > 0 ? <ClarifyQuestions jobId={active_job.id} questions={questions} /> : null}
-          {jobToShow ? (
+          {jobToShow && jobToShow !== emptyTerminalJob ? (
             <section className="panel">
               <h2>{t("job.title")}</h2>
               <JobStatus jobId={jobToShow} />
@@ -242,10 +266,37 @@ export function Playground({ id, version }: { id: string; version?: string }) {
           ) : null}
           {dto.data?.render_env_mismatch ? <div className="banner banner-warn" role="status">{t("version.envMismatch")}</div> : null}
           <div className="version-head row wrap">
-            {m ? <h1>{t("versions.label", { n: m.number })}</h1> : <h1>{s.title}</h1>}
+            <h1>
+              {editingTitle ? (
+                <input
+                  autoFocus
+                  aria-label={t("playground.sceneTitle")}
+                  maxLength={120}
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onBlur={() => {
+                    if (titleCancelled.current) {
+                      titleCancelled.current = false;
+                      setTitleDraft(s.title);
+                      setEditingTitle(false);
+                    } else saveTitle();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
+                    if (e.key === "Escape") { e.preventDefault(); titleCancelled.current = true; e.currentTarget.blur(); }
+                  }}
+                />
+              ) : (
+                <button type="button" className="link-button" aria-label={t("playground.renameScene", { title: s.title })} onClick={() => setEditingTitle(true)}>
+                  {s.title}
+                </button>
+              )}
+            </h1>
+            {m ? <h2>{t("versions.label", { n: m.number })}</h2> : null}
             {dto.data ? <Generation dto={dto.data} /> : null}
             {m?.prompt ? <p className="muted prompt-line" title={m.prompt}>{m.prompt}</p> : null}
           </div>
+          {rename.isError ? <p className="error">{errorText(rename.error)}</p> : null}
           {videoScene ? (
             // утверждается открытая версия (её и смотрит человек), бейдж — про текущую
             <ApprovalCButton
@@ -259,9 +310,11 @@ export function Playground({ id, version }: { id: string; version?: string }) {
             />
           ) : null}
           {!openId ? (
-            <div className="empty-player">
-              <p>{active_job ? t("playground.generating", { stage: stageText(active_job.stage) }) : t("playground.noVersions")}</p>
-            </div>
+            emptyTerminalJob ? <JobStatus jobId={emptyTerminalJob} /> : (
+              <div className="empty-player">
+                <p>{active_job ? t("playground.generating", { stage: stageText(active_job.stage) }) : t("playground.noVersions")}</p>
+              </div>
+            )
           ) : dto.isError ? (
             <p className="error">{errorText(dto.error)}</p>
           ) : !dto.data ? (

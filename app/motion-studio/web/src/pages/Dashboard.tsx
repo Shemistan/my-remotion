@@ -8,13 +8,12 @@ import { useId, useState } from "react";
 import { api, newKey, urls } from "../api/client.js";
 import { isActive, useAppSettings, useJobs, useProject } from "../api/queries.js";
 import { timelineUrls } from "../api/timeline-client.js";
-import { stageText } from "../components/JobStatus.js";
+import { jobErrorReason, stageText } from "../components/JobStatus.js";
 import { Link } from "../components/Link.js";
 import { SettingsForm } from "../components/SettingsForm.js";
 import { CostSummary } from "../components/costs/CostSummary.js";
 import { ProjectList } from "../components/projects/ProjectList.js";
 import { RecoveryBanner } from "../components/projects/RecoveryBanner.js";
-import { DisabledReason } from "../components/ui/DisabledReason.js";
 import { EmptyState } from "../components/ui/EmptyState.js";
 import { Skeleton } from "../components/ui/Skeleton.js";
 import { versionState } from "../components/VersionHistory.js";
@@ -48,21 +47,21 @@ function NewProject() {
     <form className="panel new-project" onSubmit={(e) => { e.preventDefault(); if (title.trim()) create.mutate("playground"); }}>
       <h2>{t("dashboard.newProject")}</h2>
       <label htmlFor={id}>{t("dashboard.projectTitle")}</label>
-      <div className="row">
-        <input id={id} className="grow" value={title} placeholder={t("dashboard.projectTitlePlaceholder")} onChange={(e) => setTitle(e.target.value)} />
+      <input id={id} className="new-project-title" value={title} placeholder={t("dashboard.projectTitlePlaceholder")} onChange={(e) => setTitle(e.target.value)} />
+      <div className="row wrap">
         {(["playground", "video", "script"] as const).map((kind) => (
-          <DisabledReason key={kind} reasonKey={!title.trim() ? "ux.disabled.enterProjectTitle" : create.isPending ? "ux.disabled.requestRunning" : null}>
-            <button
-              type={kind === "playground" ? "submit" : "button"}
-              className={kind === "playground" ? "primary" : undefined}
-              disabled={!title.trim() || create.isPending}
-              onClick={kind === "playground" ? undefined : () => create.mutate(kind)}
-            >
-              {t(kind === "playground" ? "dashboard.create" : kind === "video" ? "dashboard.createVideo" : "dashboard.createScript")}
-            </button>
-          </DisabledReason>
+          <button
+            key={kind}
+            type={kind === "playground" ? "submit" : "button"}
+            className={kind === "playground" ? "primary" : undefined}
+            disabled={!title.trim() || create.isPending}
+            onClick={kind === "playground" ? undefined : () => create.mutate(kind)}
+          >
+            {t(kind === "playground" ? "dashboard.create" : kind === "video" ? "dashboard.createVideo" : "dashboard.createScript")}
+          </button>
         ))}
       </div>
+      {!title.trim() ? <p className="hint">{t("ux.disabled.enterProjectTitle")}</p> : null}
       {create.isError ? <p className="error">{errorText(create.error)}</p> : null}
     </form>
   );
@@ -76,8 +75,10 @@ function JobsState({ q }: { q: JobsQuery }) {
   return <Skeleton lines={2} compact />;
 }
 
-function ActiveJobs({ q }: { q: JobsQuery }) {
+function ActiveJobs({ q, failed }: { q: JobsQuery; failed: JobsQuery }) {
   const active = (q.data ?? []).filter((j) => isActive(j.status));
+  const since = Date.now() - 24 * 60 * 60 * 1000;
+  const failedLastDay = (failed.data ?? []).filter((j) => new Date(j.finished_at ?? j.created_at).getTime() >= since).length;
   return (
     <section className="panel">
       <h2>{t("dashboard.activeJobs")}</h2>
@@ -94,6 +95,7 @@ function ActiveJobs({ q }: { q: JobsQuery }) {
           ))}
         </ul>
       )}
+      {failedLastDay > 0 ? <p><Link to={{ name: "jobs", status: "failed" }}>{t("dashboard.failedLastDay", { n: failedLastDay })}</Link></p> : null}
       <Link to={{ name: "jobs" }}>{t("dashboard.allJobs")}</Link>
     </section>
   );
@@ -101,7 +103,7 @@ function ActiveJobs({ q }: { q: JobsQuery }) {
 
 function RecentExports({ q }: { q: JobsQuery }) {
   // Task 45: и финалы видеопроектов (`final.render`, `final.reproduce`) — файл финала
-  const done = (q.data ?? []).filter((j) => (j.type === "scene.export" || isFinal(j)) && j.status === "completed" && exportIdOf(j)).slice(-10).reverse();
+  const done = (q.data ?? []).filter((j) => (j.type === "scene.export" || isFinal(j)) && j.status === "completed" && exportIdOf(j)).slice(0, 10);
   return (
     <section className="panel">
       <h2>{t("dashboard.recentExports")}</h2>
@@ -113,6 +115,8 @@ function RecentExports({ q }: { q: JobsQuery }) {
             return (
               <li key={j.id}>
                 <span>{final ? t("dashboard.finalExport") : tk(`export.format.${format}`, format)}</span>
+                <Link to={{ name: "project", id: j.project_id }}>{j.project_title ?? j.project_id}</Link>
+                {j.scene_id ? <Link to={{ name: "scene", id: j.scene_id }}>{j.scene_title ?? j.scene_id}</Link> : null}
                 <span className="muted">{j.finished_at ? dateTime(j.finished_at) : ""}</span>
                 <a href={final ? timelineUrls.finalFile(exportIdOf(j)!) : urls.exportFile(exportIdOf(j)!)} download>{t("export.download")}</a>
               </li>
@@ -126,6 +130,7 @@ function RecentExports({ q }: { q: JobsQuery }) {
 
 export function Dashboard() {
   const jobs = useJobs();
+  const failed = useJobs({ status: "failed", limit: 500 });
   return (
     <div className="page dashboard">
       <h1>{t("dashboard.title")}</h1>
@@ -138,7 +143,7 @@ export function Dashboard() {
         </section>
         <div className="stack">
           <NewProject />
-          <ActiveJobs q={jobs} />
+          <ActiveJobs q={jobs} failed={failed} />
           <RecentExports q={jobs} />
           {/* Task 49a: затраты за 7/30 дней, справочно */}
           <CostSummary />
@@ -179,6 +184,16 @@ const sceneLine = (v: HistoryEntry | null) =>
 export function ProjectPage({ id }: { id: string }) {
   const q = useProject(id);
   const app = useAppSettings();
+  const client = useQueryClient();
+  const [sceneFilter, setSceneFilter] = useState<"all" | "failed" | "ready">("all");
+  // повтор — только последняя упавшая задача сцены без готовой версии, не вся история проекта
+  const retryFailed = useMutation({
+    mutationFn: (ids: string[]) => api.retryFailedJobs({ ids }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["project", id] });
+      void client.invalidateQueries({ queryKey: ["jobs"] });
+    },
+  });
   if (q.isError) return <div className="page"><p className="error">{errorText(q.error)}</p></div>;
   if (!q.data) return <div className="page"><Skeleton lines={5} /></div>;
   const { project, scenes, exports } = q.data;
@@ -187,6 +202,14 @@ export function ProjectPage({ id }: { id: string }) {
   // сценарный проект: текст → план → сцены → экспорт
   if (project.kind === "script") return <ScriptWorkspace project={project} />;
   const initial = project.settings ?? app.data?.defaults ?? defaultSettings();
+  const isFailed = (s: (typeof scenes)[number]) => s.last_job?.status === "failed" && s.current_version?.status !== "ready";
+  const failedIds = scenes.filter(isFailed).map((s) => s.last_job!.id);
+  const failedCount = failedIds.length;
+  const titleCounts = new Map<string, number>();
+  for (const scene of scenes) titleCounts.set(scene.title, (titleCounts.get(scene.title) ?? 0) + 1);
+  const visibleScenes = scenes.filter((s) => sceneFilter === "all"
+    || (sceneFilter === "failed" && isFailed(s))
+    || (sceneFilter === "ready" && s.current_version?.status === "ready"));
   return (
     <div className="page project">
       <nav className="crumbs"><Link to={{ name: "dashboard" }}>{t("nav.dashboard")}</Link></nav>
@@ -195,18 +218,44 @@ export function ProjectPage({ id }: { id: string }) {
         <section className="panel">
           <h2>{t("project.scenes")}</h2>
           {scenes.length === 0 ? <EmptyState title={t("project.noScenes")} description={t("ux.project.scenesEmpty.description")} /> : null}
+          {scenes.length > 0 ? (
+            <div className="row wrap scene-filters">
+              <div className="segmented" role="group" aria-label={t("project.sceneFilter.label")}>
+                {(["all", "failed", "ready"] as const).map((filter) => (
+                  <button key={filter} type="button" className={sceneFilter === filter ? "active" : ""} aria-pressed={sceneFilter === filter} onClick={() => setSceneFilter(filter)}>
+                    {t(`project.sceneFilter.${filter}`)}
+                  </button>
+                ))}
+              </div>
+              <button type="button" disabled={failedCount === 0 || retryFailed.isPending} onClick={() => retryFailed.mutate(failedIds)}>
+                {t("project.retryFailed", { n: failedCount })}
+              </button>
+            </div>
+          ) : null}
+          {retryFailed.isError ? <p className="error">{errorText(retryFailed.error)}</p> : null}
           <ul className="scene-cards">
-            {scenes.map((s) => (
-              <li key={s.id} data-scene-id={s.id}>
-                <Link to={{ name: "scene", id: s.id }} className="scene-card">
-                  {s.current_version?.status === "ready" ? (
-                    <img src={urls.frame(s.current_version.version_id, 0)} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
-                  ) : <div className="thumb-empty" />}
-                  <span className="strong">{s.title}</span>
-                  <span className="muted small">{sceneLine(s.current_version ?? s.latest_version)}</span>
-                </Link>
-              </li>
-            ))}
+            {visibleScenes.map((s) => {
+              const ready = s.current_version?.status === "ready";
+              const failed = isFailed(s);
+              const active = s.last_job && isActive(s.last_job.status);
+              return (
+                <li key={s.id} data-scene-id={s.id}>
+                  <Link to={{ name: "scene", id: s.id }} className="scene-card">
+                    {ready ? (
+                      <img src={urls.poster(s.current_version!.version_id)} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.visibility = "hidden"; }} />
+                    ) : <div className="thumb-empty" />}
+                    <span className="row wrap">
+                      <span className="strong">{s.title}</span>
+                      {failed ? <span className="badge status-failed">{t("job.status.failed")}</span> : null}
+                      {!failed && active ? <span className={`badge status-${s.last_job!.status}`}>{t(`job.status.${s.last_job!.status}`)}</span> : null}
+                    </span>
+                    {(titleCounts.get(s.title) ?? 0) > 1 && s.excerpt ? <span className="muted small scene-excerpt">{s.excerpt}</span> : null}
+                    {failed && jobErrorReason(s.last_job!) ? <span className="muted small job-error-reason">{jobErrorReason(s.last_job!)}</span> : null}
+                    <span className="muted small">{sceneLine(s.current_version ?? s.latest_version)}</span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </section>
         <div className="stack">

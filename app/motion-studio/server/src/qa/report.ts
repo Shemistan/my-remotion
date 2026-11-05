@@ -31,12 +31,16 @@ export function mergeQA(parts: { technical: QAIssue[]; programmatic: QAIssue[]; 
  * «не исправлено …», вердикт visual `fail` — `warn`. semantic и style не смягчаются
  * (rulings 2026-10-23): неверные числа или смысл не публикуются как ready — такой отчёт
  * по-прежнему блокирует (`qaBlocks`). technical не меняется (его неудача до QA не доходит).
+ * `meaning` — ручной режим (`scene.qaAutoFix = false`, 2026-11-04): видео публикуется всегда,
+ * смягчаются и semantic/style. Причина — в `low_quality` (пометка «низкое качество» в UI).
  */
-export function acceptedAsWarn(report: QAReport, why: string): QAReport {
+export function acceptedAsWarn(report: QAReport, why: string, meaning = false): QAReport {
   const soft = (v: Verdict): Verdict => (v === "fail" ? "warn" : v);
+  const g = report.gate;
   return {
     ...report,
-    gate: { ...report.gate, visual: soft(report.gate.visual) },
+    gate: meaning ? { ...g, visual: soft(g.visual), semantic: soft(g.semantic), style: soft(g.style) } : { ...g, visual: soft(g.visual) },
+    low_quality: why.replace(/^— /, ""),
     issues: report.issues.map((i) => (i.severity === "blocking" ? { ...i, severity: "warning" as const, description: `[не исправлено ${why}] ${i.description}` } : i)),
   };
 }

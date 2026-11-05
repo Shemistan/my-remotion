@@ -2,8 +2,8 @@
 // `messages`, `project`). Активные задачи дополнительно опрашиваются — на случай, если
 // поток событий оборвался.
 import type { JobStatus } from "@ms/contracts";
-import { useQuery } from "@tanstack/react-query";
-import { type KbSearchParams, api } from "./client.js";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { type JobsFilter, type KbSearchParams, api } from "./client.js";
 
 const ACTIVE: ReadonlySet<JobStatus> = new Set(["pending", "running", "awaiting_input", "awaiting_approval", "blocked"]);
 export const isActive = (s: JobStatus): boolean => ACTIVE.has(s);
@@ -11,7 +11,11 @@ const POLL_MS = 5_000;
 
 export const useHealth = () => useQuery({ queryKey: ["health"], queryFn: api.health, refetchInterval: 10_000 });
 export const useProjects = () => useQuery({ queryKey: ["projects"], queryFn: api.projects });
-export const useProject = (id: string) => useQuery({ queryKey: ["project", id], queryFn: () => api.project(id) });
+export const useProject = (id: string) => useQuery({
+  queryKey: ["project", id],
+  queryFn: () => api.project(id),
+  refetchInterval: (q) => (q.state.data?.scenes.some((s) => s.last_job && isActive(s.last_job.status)) ? POLL_MS : false),
+});
 export const useScene = (id: string) =>
   useQuery({
     queryKey: ["scene", id],
@@ -22,11 +26,22 @@ export const useMessages = (sceneId: string) => useQuery({ queryKey: ["messages"
 export const useVersion = (id: string | undefined) =>
   useQuery({ queryKey: ["version", id], queryFn: () => api.version(id!), enabled: Boolean(id), staleTime: Infinity });
 export const useDiff = (a: string, b: string) => useQuery({ queryKey: ["diff", a, b], queryFn: () => api.diff(a, b), staleTime: Infinity });
-export const useJobs = (filter: { status?: JobStatus; sceneId?: string } = {}) =>
+export const useJobs = (filter: JobsFilter = {}) =>
   useQuery({
     queryKey: ["jobs", filter],
     queryFn: () => api.jobs(filter),
     refetchInterval: (q) => (q.state.data?.some((j) => isActive(j.status)) ? POLL_MS : false),
+  });
+export const useInfiniteJobs = (filter: Omit<JobsFilter, "before" | "limit"> = {}, limit = 50) =>
+  useInfiniteQuery({
+    queryKey: ["jobs", "infinite", filter, limit],
+    queryFn: ({ pageParam }) => api.jobs({ ...filter, limit, ...(pageParam ? { before: pageParam } : {}) }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => {
+      const last = page.at(-1);
+      return page.length === limit && last ? `${last.created_at}|${last.id}` : undefined;
+    },
+    refetchInterval: (q) => (q.state.data?.pages.some((page) => page.some((j) => isActive(j.status))) ? POLL_MS : false),
   });
 export const useJob = (id: string | undefined) =>
   useQuery({

@@ -31,7 +31,7 @@ function Page({ route }: { route: Route }) {
         </div>
       );
     case "kb": return <KnowledgeBrowser {...(route.q ? { q: route.q } : {})} {...(route.id ? { id: route.id } : {})} />;
-    case "jobs": return <JobsMonitor {...(route.status ? { status: route.status } : {})} />;
+    case "jobs": return <JobsMonitor {...(route.status ? { status: route.status } : {})} {...(route.projectId ? { projectId: route.projectId } : {})} />;
     case "settings": return <AppSettings />;
     case "diagnostics": return <Diagnostics />;
     case "recovery": return <RecoveryCenter />;

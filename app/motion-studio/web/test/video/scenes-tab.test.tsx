@@ -47,6 +47,17 @@ it("оценка показывает кнопку «Улучшить»; без 
   expect(posts(calls, "/api/scenes/scn_1/improve")[0]!.body).toEqual({ base_version_id: "ver_1" });
 });
 
+it("проверка качества не пройдена (qa_low) → пометка «Низкое качество», «Улучшить» — основная кнопка", async () => {
+  const st = scenesState({ scenes: [vscene("sp_001", "ready", { qa_overall: 4, qa_low: true }), vscene("sp_002", "ready", { qa_overall: 8 })] });
+  fakeFetch(base(st));
+  renderQ(<ScenesTab {...props()} />);
+  await waitFor(() => expect(tiles()).toHaveLength(2));
+  const first = within(tiles()[0]!);
+  expect(first.getByTestId("low-quality").textContent).toBe(t("videoScenes.lowQuality"));
+  expect(first.getByRole("button", { name: t("videoScenes.improve") }).className).toBe("primary");
+  expect(within(tiles()[1]!).queryByTestId("low-quality")).toBeNull();
+});
+
 it("нет плана — подсказка про план, запросов состояния нет", () => {
   const { calls } = fakeFetch(base());
   renderQ(<ScenesTab {...props(false)} />);
