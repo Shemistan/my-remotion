@@ -18,4 +18,5 @@
 | [0009](0009-video-scenes-via-script-pipeline.md) | Видеосцены через сценарный конвейер | принято |
 | [0010](0010-single-remotion-engine-final.md) | Один движок Remotion для превью в контексте, превью таймлайна и финала | предложено |
 | [0011](0011-codex-delegation-runtime.md) | Codex CLI — второй рантайм агентов с регулируемой долей | предложено |
+| [0012](0012-project-download-to-user-folder.md) | Скачивание роликов проекта в папку, которую указал человек | принято |
 <!-- gate:end adr-index -->

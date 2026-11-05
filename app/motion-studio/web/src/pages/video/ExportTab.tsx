@@ -9,6 +9,7 @@ import { newKey } from "../../api/client.js";
 import { isActive, useJob } from "../../api/queries.js";
 import { useBuildVideoPackage, useRevealVideoPackage, useVideoPackages, videoPackageUrls, videoPackagesKey } from "../../api/video-package-client.js";
 import { JobStatus } from "../../components/JobStatus.js";
+import { DownloadButton } from "../../components/projects/DownloadDialog.js";
 import "../../components/script/script.css";
 import { Skeleton } from "../../components/ui/Skeleton.js";
 import { errorText, t } from "../../i18n/index.js";
@@ -148,6 +149,11 @@ export const ExportTab: (props: VideoTabProps) => ReactElement = ({ data }) => {
         </div>
         {build.isError ? <p className="error" role="alert">{errorText(build.error)}</p> : null}
         {jobId ? <JobStatus jobId={jobId} compact /> : null}
+      </section>
+
+      <section className="panel" aria-labelledby="download-title">
+        <h2 id="download-title">{t("download.title")}</h2>
+        <DownloadButton projectId={projectId} />
       </section>
 
       <section className="script-packages" aria-labelledby="video-packages-title">

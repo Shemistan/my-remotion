@@ -2,6 +2,30 @@
 export const ruProjects = {
   "recovery.title": "Восстановление",
   "job.type.trash.purge": "Очистка корзины",
+  "job.type.project.download": "Скачивание роликов",
+  "stage.transfer": "копирование в папку",
+
+  // скачивание выбранных роликов в папку
+  "download.open": "Скачать ролики…",
+  "download.title": "Скачать ролики в папку",
+  "download.noneReady": "Готовых роликов пока нет.",
+  "download.selected": "Выбрано {n} из {total}",
+  "download.selectAll": "Выбрать все",
+  "download.selectNone": "Снять выбор",
+  "download.formats": "Форматы",
+  "download.format.mp4": "MP4 со своим фоном",
+  "download.format.alpha": "MOV с прозрачным фоном (ProRes 4444, для наложения на видео)",
+  "download.folder": "Папка",
+  "download.folderPlaceholder": "/Volumes/External SSD/ролики",
+  "download.choose": "Выбрать папку…",
+  "download.hint": "Файлы — в полном разрешении. Ролики без готового экспорта сначала рендерятся: это может занять время. Файлы в папке не перезаписываются.",
+  "download.background": "Окно можно закрыть: скачивание продолжится, ход виден в разделе задач.",
+  "download.start": "Скачать ({n})",
+  "download.startAgain": "Скачать ещё раз ({n})",
+  "download.close": "Закрыть",
+  "download.done": "Скачано файлов: {n}",
+  "download.reveal": "Показать в Finder",
+  "download.missingTitle": "Не скачаны ({n})",
 
   // список проектов: поиск, фильтр, действия
   "projects.filterLabel": "Показать",

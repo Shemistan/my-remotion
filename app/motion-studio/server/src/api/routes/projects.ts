@@ -59,6 +59,13 @@ function excerptOf(prompt: string | null, cut: number): string | null {
   return `${(boundary > 0 ? head.slice(0, boundary) : head).trimEnd()}…`;
 }
 
+/** Отрывки промптов сцен без общей части стиля (по порядку `rows`): подпись и имя файла ролика. */
+export function sceneExcerpts(root: string, projectId: string, rows: readonly { id: string }[]): (string | null)[] {
+  const prompts = rows.map((s) => promptOf(root, projectId, s.id));
+  const cut = sharedPromptCut(prompts);
+  return prompts.map((p) => excerptOf(p, cut));
+}
+
 export function projectRoutes(app: ZApp, { core }: ApiContext): void {
   app.get("/api/projects", {
     // Task 47: `view` — активные (по умолчанию) или архив; удалённые — только в `GET /trash`
@@ -82,8 +89,7 @@ export function projectRoutes(app: ZApp, { core }: ApiContext): void {
     // проект в корзине (Task 47) открывается только после восстановления
     if (!project || lifecycleOf(db, project.id)?.deleted_at) throw notFound(`проект ${req.params.id}`);
     const rows = scenes.listByProject(db, project.id);
-    const prompts = rows.map((s) => promptOf(core.root, project.id, s.id));
-    const promptCut = sharedPromptCut(prompts);
+    const excerpts = sceneExcerpts(core.root, project.id, rows);
     const lastJobs = new Map<string, ReturnType<typeof jobs.list>[number]>();
     for (const job of jobs.list(db, { projectId: project.id })) {
       if (job.scene_id) lastJobs.set(job.scene_id, job);
@@ -95,7 +101,7 @@ export function projectRoutes(app: ZApp, { core }: ApiContext): void {
       const last = lastJobs.get(s.id);
       const pub = last ? publicJob(last, core.root) : null;
       const last_job = pub ? { id: pub.id, status: pub.status, stage: pub.stage, error: pub.error } : null;
-      return { ...s, excerpt: excerptOf(prompts[index]!, promptCut), current_version: current, latest_version: latest, last_job };
+      return { ...s, excerpt: excerpts[index]!, current_version: current, latest_version: latest, last_job };
     });
     return { project, scenes: list, exports: exportsRepo.recentInProject(db, project.id, RECENT_EXPORTS) };
   });

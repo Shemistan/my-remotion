@@ -247,6 +247,12 @@ label.check { display: flex; gap: 6px; align-items: center; margin: 3px 0; }
 
 .dialog-backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 55%); display: flex; align-items: center; justify-content: center; z-index: 10; }
 .dialog { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; width: min(480px, 92vw); display: flex; flex-direction: column; gap: 10px; }
+.dialog.download-dialog { width: min(760px, 94vw); max-height: 92vh; overflow-y: auto; }
+.download-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; max-height: 44vh; overflow-y: auto; }
+.download-list label { display: grid; grid-template-columns: auto 72px auto minmax(0, 1fr); gap: 6px; align-items: center; cursor: pointer; }
+.download-list img { width: 72px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 4px; background: var(--bg); }
+.download-caption { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.download-folder { flex: 1; min-width: 0; }
 .radio-group label { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
 .radio-group label.disabled { color: var(--muted); }
 

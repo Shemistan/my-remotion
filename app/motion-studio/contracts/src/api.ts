@@ -272,6 +272,30 @@ export const ExportDtoSchema = z.object({
 }).strict();
 export type ExportDto = z.infer<typeof ExportDtoSchema>;
 
+/** Что скачать по сцене: MP4 со своим фоном или MOV (ProRes 4444) с прозрачным фоном. */
+export const ProjectDownloadFormatSchema = z.enum(["mp4", "alpha"]);
+export type ProjectDownloadFormat = z.infer<typeof ProjectDownloadFormatSchema>;
+
+/** `POST /projects/:id/downloads`: выбранные сцены, форматы и абсолютный путь папки назначения. */
+export const ProjectDownloadBodySchema = z.object({
+  scene_ids: z.array(Id).min(1).max(1000),
+  formats: z.array(ProjectDownloadFormatSchema).min(1).max(2),
+  dest: z.string().trim().min(1).max(4096),
+}).strict();
+export type ProjectDownloadBody = z.infer<typeof ProjectDownloadBodySchema>;
+
+/** Итог задачи `project.download` (`output_refs`): что скопировано и что не вошло с причиной. */
+export const ProjectDownloadRefsSchema = z.object({
+  dest: z.string(),
+  files: z.array(z.object({ scene_id: Id, format: ProjectDownloadFormatSchema, name: z.string() }).strict()),
+  missing: z.array(z.object({ scene_id: Id, format: ProjectDownloadFormatSchema, name: z.string(), reason: z.string() }).strict()),
+}).strict();
+export type ProjectDownloadRefs = z.infer<typeof ProjectDownloadRefsSchema>;
+
+/** `POST /system/pick-folder`: выбранная папка; `null` — человек нажал «Отменить». */
+export const PickFolderDtoSchema = z.object({ path: z.string().nullable() }).strict();
+export type PickFolderDto = z.infer<typeof PickFolderDtoSchema>;
+
 /** `GET /projects/:id`: сцены с текущей версией (строка истории) и последние экспорты проекта. */
 export const ProjectDetailDtoSchema = z.object({
   project: ProjectDtoSchema,
