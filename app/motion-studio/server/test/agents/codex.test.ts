@@ -86,6 +86,15 @@ it("run: CLI failure is failed/cli with the turn error", async () => {
   expect(r.error?.message).toContain("quota exceeded");
 });
 
+it("run: role profile overrides the global Codex model", async () => {
+  const r = await new CodexRuntime({
+    bin: bin("fake-codex.sh"), logRoot, model: "gpt-global", reasoningEffort: "high",
+    agents: { engineer: { model: "gpt-engineer", reasoningEffort: "xhigh" } },
+    promptLoader: () => "РОЛЬ",
+  }).run(task({ role: "engineer", tools: ["Read", "Write"] }), Ok, new AbortController().signal);
+  expect(r.usage.model).toBe("codex:gpt-engineer");
+});
+
 it("run: non-JSON final message is failed/schema; null optionals pass", async () => {
   await writeFile(join(workdir, "codex-mode.txt"), "badjson");
   expect((await runtime().run(task(), Ok, new AbortController().signal)).error?.kind).toBe("schema");

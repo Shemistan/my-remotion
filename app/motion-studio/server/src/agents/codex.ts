@@ -25,6 +25,8 @@ export interface CodexRuntimeOptions {
   /** Модель Codex; без неё — модель по умолчанию из конфигурации Codex. */
   model?: string;
   reasoningEffort?: ReasoningEffort;
+  /** Поролевые перекрытия; незаданное поле наследует глобальное. */
+  agents?: Partial<Record<Role, { model?: string; reasoningEffort?: ReasoningEffort }>>;
   /** Каталог журналов внутри хранилища (как у ClaudeCodeRuntime). */
   logRoot: string;
   promptLoader?: (role: Role) => string;
@@ -174,7 +176,9 @@ export class CodexRuntime implements AgentRuntimeAdapter {
   /** Контракт ошибок — как у `ClaudeCodeRuntime.run`. */
   async run<I, O>(task: AgentTask<I>, schema: ZodType<O>, signal: AbortSignal): Promise<AgentResult<O>> {
     const startedAt = new Date().toISOString();
-    const model = this.opts.model ?? "";
+    const role = this.opts.agents?.[task.role];
+    const model = role?.model ?? this.opts.model ?? "";
+    const reasoningEffort = role?.reasoningEffort ?? this.opts.reasoningEffort;
     let stdoutPath = "";
     let stderrPath = "";
     const emptyUsage = (): AgentUsage => ({ ...EMPTY_USAGE, model: `${CODEX_MODEL_PREFIX}${model || "default"}` });
@@ -211,7 +215,7 @@ export class CodexRuntime implements AgentRuntimeAdapter {
     let args: string[];
     let system: string;
     try {
-      args = buildCodexArgs(task, { schemaPath, lastPath, ...(this.opts.model ? { model: this.opts.model } : {}), ...(this.opts.reasoningEffort ? { reasoningEffort: this.opts.reasoningEffort } : {}) });
+      args = buildCodexArgs(task, { schemaPath, lastPath, ...(model ? { model } : {}), ...(reasoningEffort ? { reasoningEffort } : {}) });
       system = this.opts.promptLoader ? this.opts.promptLoader(task.role) : loadPrompt(task.role);
     } catch (e) {
       return stop("failed", "cli", (e as Error).message);

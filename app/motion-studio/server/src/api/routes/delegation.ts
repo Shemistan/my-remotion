@@ -35,19 +35,28 @@ export function delegationRoutes(app: ZApp, { core }: ApiContext): void {
     const pauses = state.pauses();
     const paused = state.pausedRoles();
     const withUnverified = planShares(weights, { ...policy, allowUnverified: true }, paused);
+    const mode = r.getMode();
+    const shares = mode === "codex-only"
+      ? Object.fromEntries(ROLES.map((role) => [role, 1])) as Record<Role, number>
+      : mode === "claude-code"
+        ? Object.fromEntries(ROLES.map((role) => [role, 0])) as Record<Role, number>
+        : plan.shares;
     return {
+      mode,
       policy,
-      level: plan.level,
+      level: mode === "codex-only" ? 100 : mode === "claude-code" ? 0 : plan.level,
       minLevel: plan.minLevel,
       maxLevel: plan.maxLevel,
       maxLevelUnverified: withUnverified.maxLevel,
       roles: ROLES.map((role: Role) => {
         const pause = pauses[role];
-        const status = ALWAYS_CLAUDE.includes(role) ? ("always_claude" as const)
+        const status = mode === "codex-only" ? ("active" as const)
+          : mode === "claude-code" ? ("idle" as const)
+          : ALWAYS_CLAUDE.includes(role) ? ("always_claude" as const)
           : pause ? ("paused" as const)
           : !policy.allowUnverified && UNVERIFIED.includes(role) ? ("unverified" as const)
-          : plan.shares[role] > 0 ? ("active" as const) : ("idle" as const);
-        return { role, weight: weights[role], share: plan.shares[role], status, ...(pause ? { pause } : {}), stats: state.stats(role) };
+          : shares[role] > 0 ? ("active" as const) : ("idle" as const);
+        return { role, weight: weights[role], share: shares[role], status, ...(mode === "hybrid" && pause ? { pause } : {}), stats: state.stats(role) };
       }).sort((a, b) => b.weight - a.weight),
       codex: await codex(),
     };

@@ -14,7 +14,9 @@
 //   ./scripts/with-node.sh npx tsx scripts/bench-set.mts --calibrate [--split train|holdout|all]
 //   ./scripts/with-node.sh npx tsx scripts/bench-set.mts --run <после> --compare <до>
 //   ./scripts/with-node.sh npx tsx scripts/bench-set.mts --set user --run user-<sha> --gen-timeout-min 180
+//   ./scripts/with-node.sh npx tsx scripts/bench-set.mts --runtime codex --only test1,bench-abtest
 // Флаги: --set explainer|user (набор, explainer; user — 6 кейсов пользователя, 60 с, информативно),
+//   --runtime claude|hybrid|codex (runtime только для генератора; судья остаётся Claude),
 //   --runs N (прогонов судьи, 3), --parallel N (задач генерации, 3), --judge-parallel N (6),
 //   --judge-model M (opus), --gen-timeout-min N (60), --no-judge, --write-evidence,
 //   --allow-dirty (генерировать при незакоммиченных правках app/motion-studio; сцены — -dirty),
@@ -46,6 +48,7 @@ import { cancelJob, enqueue, provideInput } from "../server/src/jobs/queue.js";
 import type { GenerateResult } from "../server/src/pipeline/generate.js";
 import { motionKitHash } from "../server/src/pipeline/render-env.js";
 import { type TreeState, dirtyStartError, sceneTree } from "../server/src/bench/tree.js";
+import type { AgentRuntimeMode } from "../server/src/agents/runtime.js";
 import { loadPng } from "../server/src/qa/image.js";
 import { newId } from "../server/src/scenes/ids.js";
 
@@ -87,6 +90,9 @@ const parallel = int("--parallel", 3);
 const judgeParallel = int("--judge-parallel", 6);
 const genTimeoutMs = int("--gen-timeout-min", 60) * 60_000;
 const judgeModel = opt("--judge-model") ?? "opus";
+const runtimeName = opt("--runtime");
+const RUNTIME_ARGS: Record<string, AgentRuntimeMode> = { claude: "claude-code", hybrid: "hybrid", codex: "codex-only" };
+if (runtimeName !== undefined && RUNTIME_ARGS[runtimeName] === undefined) throw new Error(`--runtime: claude, hybrid или codex: ${runtimeName}`);
 // старые id сцен (до переименования харнесса) принимаются через алиасы
 const only = opt("--only")?.split(",").map((s) => canonicalSceneId(s.trim())).filter(Boolean);
 const split = opt("--split") ?? "train";
@@ -137,6 +143,18 @@ if (compareWith !== undefined) {
 const dataDir = process.env.MS_DATA_DIR?.trim();
 if (!dataDir) throw new Error("MS_DATA_DIR не задан");
 assertSsdWriteAllowed(dataDir); // S18: на SSD — только в папке материалов (bench/ внутри хранилища)
+const appConfig = loadConfig(process.env, await readConfigFile(dataDir));
+const generationRuntime = runtimeName === undefined ? appConfig.agentRuntime : RUNTIME_ARGS[runtimeName]!;
+const generator = {
+  agent_runtime: generationRuntime,
+  ...(generationRuntime !== "codex-only" ? { claude_agents: Object.fromEntries(Object.entries(appConfig.agents).map(([role, s]) => [role, s.model])) } : {}),
+  ...(generationRuntime !== "claude-code" ? { codex: {
+    model: appConfig.codex.model ?? "default",
+    reasoning_effort: appConfig.codex.reasoningEffort,
+    agents: appConfig.codex.agents,
+  } } : {}),
+  ...(generationRuntime === "hybrid" ? { delegation: appConfig.delegation } : {}),
+};
 mkdirSync(RUN_DIR, { recursive: true });
 const log = (s: string) => console.log(`[bench ${runId}] ${s}`);
 
@@ -162,18 +180,22 @@ const dirOf = (it: { id: string }) => join(RUN_DIR, it.id);
 // run.json пишется один раз при создании прогона; повторные запуски (--judge-only,
 // --rejudge, продолжение) только дописывают себя в invocations
 const runFile = join(RUN_DIR, "run.json");
-const invocation = { at: new Date().toISOString(), commit, argv };
+const invocation = { at: new Date().toISOString(), commit, argv, agent_runtime: generationRuntime };
 if (!existsSync(runFile)) {
   writeJson(runFile, {
     run: runId, mode: calibrate ? "calibrate" : "bench", set: setName, created_commit: commit, judge_model: judgeModel, judge_runs: runs,
+    generator, judge_runtime: "claude-code",
     ...(calibrate ? { split } : {}),
     items: items.map((i) => ({ id: i.id, scene: i.scene, prompt: i.prompt, ref: i.ref ?? null, split: i.split ?? null, held_out: HELD_OUT.has(i.scene), ...(i.duration_frames ? { duration_frames: i.duration_frames } : {}) })),
     invocations: [invocation],
   });
 } else {
   // прогон одного набора: продолжать его другим набором нельзя (у прогонов до флага --set — explainer)
-  const prev = readJson<{ set?: string; invocations?: unknown[] }>(runFile);
+  const prev = readJson<{ set?: string; invocations?: unknown[]; generator?: typeof generator }>(runFile);
   if ((prev.set ?? "explainer") !== setName) throw new Error(`--run ${runId}: прогон набора ${prev.set ?? "explainer"}, а запрошен --set ${setName}`);
+  if (!judgeOnly && prev.generator && JSON.stringify(prev.generator) !== JSON.stringify(generator)) {
+    throw new Error(`--run ${runId}: генератор прогона ${prev.generator.agent_runtime}, а запрошен ${generationRuntime}; для другого runtime/профиля нужен новый --run`);
+  }
   writeJson(runFile, { ...prev, invocations: [...(prev.invocations ?? []), invocation] });
 }
 
@@ -189,6 +211,7 @@ interface GenInfo {
   duration_frames: number;
   fps: number;
   source: string;
+  generator?: typeof generator;
   /**
    * Чем сгенерировано: коммит (`-dirty` — дерево грязное до или после сцены, или kit поменялся
    * за время сцены), kit, промпты.
@@ -244,13 +267,14 @@ async function generateMissing(todo: Item[]): Promise<void> {
   if (todo.length === 0) return;
   const refuse = dirtyStartError(await treeNow(), allowDirty);
   if (refuse) throw new Error(refuse);
-  log(`генерация: ${todo.map((t) => t.id).join(", ")} (параллельно ${parallel})`);
+  log(`генерация ${generationRuntime}: ${todo.map((t) => t.id).join(", ")} (параллельно ${parallel})`);
   await ensureRenderBrowser();
   const mine = new Set<string>();
   const results = new Map<string, GenerateResult>();
   const core = await bootCore({
     env: process.env,
     kind: "cli",
+    agentRuntime: generationRuntime,
     runner: { onlyIds: mine, maxRunning: parallel },
     handlers: (svc) => registerHandlers(svc, { log: (l) => console.log(`  ${l}`), onGenerateResult: (job, r) => results.set(job.id, r) }),
     storageLog: (l) => console.log(`  [storage] ${l}`),
@@ -275,7 +299,7 @@ async function generateMissing(todo: Item[]): Promise<void> {
       const t0 = Date.now();
       const treeStart = await treeNow();
       const provenance = {
-        commit, motion_kit_version: kitVersionOf(readFileSync(join(REPO, KIT_INDEX), "utf8")), prompts_sha256: promptHashes(),
+        commit, generator, motion_kit_version: kitVersionOf(readFileSync(join(REPO, KIT_INDEX), "utf8")), prompts_sha256: promptHashes(),
       };
       const job = tx(core.db, () => {
         const scene = core.repo.createScene(projectId, { prompt: it.prompt, settings });
@@ -381,9 +405,8 @@ async function judgeAll(todo: Item[]): Promise<void> {
   }
   log(`судья: ${tasks.length} вызовов (${judgeModel}, ${short(fp)}, параллельно ${judgeParallel})`);
   if (tasks.length === 0) return;
-  const config = loadConfig(process.env, await readConfigFile(dataDir!));
   const store = await judgeStore();
-  const agents = judgeRuntime({ bin: config.claudeBin, logRoot: join(store, "logs"), systemPrompt: await loadJudgePrompt() });
+  const agents = judgeRuntime({ bin: appConfig.claudeBin, logRoot: join(store, "logs"), systemPrompt: await loadJudgePrompt() });
   for (const it of new Set(tasks.map((t) => t.it))) {
     const dir = dirOf(it);
     const gen = readJson<GenInfo>(join(dir, "gen.json"));

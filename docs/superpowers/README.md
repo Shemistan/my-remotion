@@ -14,6 +14,7 @@
 - [Motion Studio: сценарий → моушн-сцены (первая рабочая версия для человека)](specs/2026-10-24-script-to-motion-design.md) — утверждено
 - [Делегирование работы агентов в Codex](specs/2026-11-04-codex-delegation-design.md) — реализовано
 - [Юзабилити UI студии: упавшие задачи, сцены, мелочи](specs/2026-11-04-ui-usability-design.md) — реализовано
+- [Codex-only: полный runtime и контур качества](specs/2026-11-05-codex-only-runtime-design.md) — реализовано
 
 ### Планы
 
@@ -26,4 +27,5 @@
 - [Сценарий → моушн-сцены: план реализации](plans/2026-10-24-script-to-motion.md) — в работе
 - [Делегирование в Codex: план реализации](plans/2026-11-04-codex-delegation.md) — завершено
 - [Юзабилити UI студии: план](plans/2026-11-04-ui-usability.md) — завершено
+- [Codex-only: план реализации](plans/2026-11-05-codex-only-runtime.md) — завершено
 <!-- gate:end spec-plan-index -->

@@ -56,6 +56,7 @@ $N npx tsx scripts/bench-set.mts --calibrate --run calib-<n>        # судья
 $N npx tsx scripts/bench-set.mts --calibrate --split holdout        # проверка на holdout
 $N npx tsx scripts/bench-set.mts --run <после> --compare <до>       # дельты и вердикт «до/после»
 $N npx tsx scripts/bench-set.mts --set user --run user-<sha> --gen-timeout-min 180  # набор пользователя
+$N npx tsx scripts/bench-set.mts --runtime codex --run codex-<sha>                  # вся генерация в Codex
 $N npm run bench -- --help                                        # то же через npm-скрипт: справка
 ```
 
@@ -70,6 +71,12 @@ $N npm run bench -- --help                                        # то же ч
 `--second-take-threshold N` (env `MS_SECOND_TAKE_THRESHOLD`) — порог `overall` Visual QA
 (6.5): Visual QA ставит в среднем на ~1 балл выше судьи, и при 6.5 дубль включается редко —
 для A/B порог поднимают (7–7.5), чтобы дубль шёл на большинстве сцен.
+
+`--runtime claude|hybrid|codex` перекрывает `agentRuntime` из `config.json` только для
+генерации этого bench-прогона. Судья всегда остаётся Claude — это одинаковая
+внешняя линейка для A/B. Runtime, глобальные модель/reasoning effort и поролевые
+профили Codex фиксируются в `run.json` и `<scene>/gen.json`; продолжить один `--run`
+с другим профилем генератора нельзя.
 
 **Грязное дерево.** Генерация не стартует, если в `app/motion-studio` есть незакоммиченные
 правки: рендер хэширует motion-kit живьём, и правка в окне генерации попадала в превью, а
@@ -97,7 +104,7 @@ $N npm run bench -- --help                                        # то же ч
 
 ## Что лежит в `tmp/bench/<run>/`
 
-- `run.json` — коммит создания, режим, судья, список сцен; пишется один раз, каждый
+- `run.json` — коммит создания, runtime/профиль генератора, режим, судья, список сцен; пишется один раз, каждый
   следующий запуск (`--judge-only`, `--rejudge`, продолжение) дописывает себя в `invocations`.
 - `<scene>/gen.json` — итог задачи: статус, стоимость, время и происхождение: `commit`
   (`-dirty` — с незакоммиченными правками приложения до или после сцены), `dirty`,

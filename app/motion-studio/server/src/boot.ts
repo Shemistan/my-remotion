@@ -26,7 +26,7 @@ import { DelegationState, normalizeWeights } from "./agents/delegation.js";
 import { loadPrompt } from "./agents/prompts.js";
 import { RoutingRuntime } from "./agents/routing.js";
 import { claudeCostByRole } from "./db/repos/agent-runs.js";
-import type { AgentRuntimeAdapter } from "./agents/runtime.js";
+import type { AgentRuntimeAdapter, AgentRuntimeMode } from "./agents/runtime.js";
 import { type AppConfig, loadConfig, readConfigFile } from "./config.js";
 import { bindRootPath, bindStoreId, quickCheck, storeCopiedText } from "./db/meta.js";
 import { migrate } from "./db/migrate.js";
@@ -84,6 +84,8 @@ export interface BootOptions {
   reapStrays?: (root: string) => Promise<Proc[]>;
   kb?: KnowledgeAdapter;
   agents?: AgentRuntimeAdapter;
+  /** Точечное перекрытие runtime для bench/тестов; в config.json не записывается. */
+  agentRuntime?: AgentRuntimeMode;
   runner?: Partial<Omit<JobRunnerOptions, "db" | "root" | "handlers" | "registry" | "events">>;
   storageIntervalMs?: number;
   /** Переходы режима хранилища (`storage_offline`, возврат) — журнал CLI и сервера. */
@@ -191,7 +193,8 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     // S20: путь корня в meta; другой путь — хранилище скопировано (предупреждение, не отказ)
     const copiedFrom = bindRootPath(db, root);
     if (copiedFrom !== undefined) opts.storageLog?.(`storage: ${storeCopiedText(copiedFrom)}`);
-    const config = loadConfig(env, await readConfigFile(root));
+    const loadedConfig = loadConfig(env, await readConfigFile(root));
+    const config: AppConfig = opts.agentRuntime ? { ...loadedConfig, agentRuntime: opts.agentRuntime } : loadedConfig;
     const hadBoot = bootReports.count(db) > 0;
     log("db");
 
@@ -257,9 +260,17 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
       await state.load();
       delegation = new RoutingRuntime({
         claude: new ClaudeCodeRuntime({ bin: config.claudeBin, logRoot, promptLoader: loadPrompt }),
-        codex: new CodexRuntime({ bin: config.codex.bin, ...(config.codex.model ? { model: config.codex.model } : {}), reasoningEffort: config.codex.reasoningEffort, logRoot, promptLoader: loadPrompt }),
+        codex: new CodexRuntime({
+          bin: config.codex.bin,
+          ...(config.codex.model ? { model: config.codex.model } : {}),
+          reasoningEffort: config.codex.reasoningEffort,
+          agents: config.codex.agents,
+          logRoot,
+          promptLoader: loadPrompt,
+        }),
         state,
         policy: config.delegation,
+        mode: config.agentRuntime,
         // веса — доли стоимости Claude за 30 дней; база недоступна — встроенные
         weights: () => {
           try {

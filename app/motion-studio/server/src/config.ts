@@ -17,7 +17,7 @@ import { JobTypeSchema, type Settings, SettingsSchema, defaultSettings } from "@
 import { MATERIALS_ROOT, SSD_ROOT, depsRoots, materialsRoot } from "@ms/core";
 import { EXPORT_TIMEOUT_MS } from "@ms/render";
 import { z } from "zod";
-import { MAX_CALL_BUDGET_USD, MODEL_RE, REASONING_EFFORTS, ROLES, type ReasoningEffort, type Role } from "./agents/runtime.js";
+import { AGENT_RUNTIME_MODES, MAX_CALL_BUDGET_USD, MODEL_RE, REASONING_EFFORTS, ROLES, type AgentRuntimeMode, type ReasoningEffort, type Role } from "./agents/runtime.js";
 import { AGENT_CALLS, MAX_RUNNING, RENDERS } from "./jobs/limits.js";
 
 export interface AgentSettings {
@@ -180,7 +180,7 @@ export interface AppConfig {
   /** Control API: порт (хост не настраивается — только 127.0.0.1). */
   server: { port: number };
   claudeBin: string;
-  agentRuntime: "claude-code";
+  agentRuntime: AgentRuntimeMode;
   agents: Record<Role, AgentSettings>;
   /** Codex CLI для делегирования (спека 2026-11-04-codex-delegation). */
   codex: CodexConfig;
@@ -213,6 +213,8 @@ export interface CodexConfig {
   /** Без модели — модель по умолчанию из конфигурации Codex. */
   model?: string;
   reasoningEffort: ReasoningEffort;
+  /** Поролевые перекрытия для доводки качества Codex. */
+  agents: Partial<Record<Role, { model?: string; reasoningEffort?: ReasoningEffort }>>;
 }
 
 /** Доля работы агентов для Codex: `level` — целевой процент (0–100) по стоимости Claude. */
@@ -227,8 +229,17 @@ export const DelegationSchema = z
   .object({ enabled: z.boolean(), level: z.number().min(0).max(100), allowUnverified: z.boolean() })
   .partial()
   .strict();
+const CodexAgentOverride = z
+  .object({ model: z.string().regex(MODEL_RE, "имя модели: латиница, цифры, . - [ ]"), reasoningEffort: z.enum(REASONING_EFFORTS) })
+  .partial()
+  .strict();
 const CodexFileSchema = z
-  .object({ bin: z.string().min(1), model: z.string().regex(MODEL_RE, "имя модели: латиница, цифры, . - [ ]"), reasoningEffort: z.enum(REASONING_EFFORTS) })
+  .object({
+    bin: z.string().min(1),
+    model: z.string().regex(MODEL_RE, "имя модели: латиница, цифры, . - [ ]"),
+    reasoningEffort: z.enum(REASONING_EFFORTS),
+    agents: z.object(Object.fromEntries(ROLES.map((r) => [r, CodexAgentOverride.optional()]))).strict(),
+  })
   .partial()
   .strict();
 
@@ -266,7 +277,7 @@ const AgentOverride = z
 const FileSchema = z
   .object({
     claudeBin: z.string().min(1),
-    agentRuntime: z.literal("claude-code"),
+    agentRuntime: z.enum(AGENT_RUNTIME_MODES),
     codex: CodexFileSchema,
     delegation: DelegationSchema,
     agents: z.object(Object.fromEntries(ROLES.map((r) => [r, AgentOverride.optional()]))).strict(),
@@ -292,7 +303,7 @@ type FileConfig = z.infer<typeof FileSchema>;
 
 /**
  * Тело `PUT /api/settings` (ревью Task 20, F2): из браузера меняются только модели ролей, лимиты
- * (с потолками) и настройки новой сцены. `claudeBin`, `kb.*`, `agentRuntime`, `scene.*` (бюджет
+ * (с потолками), настройки новой сцены и безопасный enum `agentRuntime`. `claudeBin`, `kb.*`, `scene.*` (бюджет
  * сцены, второй дубль) и бюджеты/таймауты ролей — только правкой config.json руками: иначе
  * same-origin баг UI запустил бы произвольный бинарник или снял бы денежный предохранитель.
  */
@@ -302,6 +313,7 @@ export const SettingsPutSchema = z
     limits: LimitsSchema,
     defaults: SettingsSchema,
     delegation: DelegationSchema,
+    agentRuntime: z.enum(AGENT_RUNTIME_MODES),
   })
   .partial()
   .strict();
@@ -336,15 +348,25 @@ export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown, probe: Pa
       return [role, { ...base, ...inherit, ...fileAgents[role] }];
     }),
   ) as Record<Role, AgentSettings>;
+  // `enabled` был старым верхнеуровневым переключателем. Теперь режим — единый источник:
+  // явный `hybrid` включает план, а старый config без mode по-прежнему мигрирует по `enabled`.
+  const agentRuntime: AgentRuntimeMode = file.agentRuntime ?? (file.delegation?.enabled ? "hybrid" : "claude-code");
+  const delegation: DelegationConfig = { enabled: false, level: 0, allowUnverified: false, ...file.delegation };
+  if (agentRuntime === "hybrid") delegation.enabled = true;
 
   return {
     dataDir,
     server: { port: file.server?.port ?? DEFAULT_PORT },
     claudeBin: file.claudeBin ?? "claude",
-    agentRuntime: "claude-code",
+    agentRuntime,
     agents,
-    codex: { bin: file.codex?.bin ?? "codex", ...(file.codex?.model ? { model: file.codex.model } : {}), reasoningEffort: file.codex?.reasoningEffort ?? "high" },
-    delegation: { enabled: false, level: 0, allowUnverified: false, ...file.delegation },
+    codex: {
+      bin: file.codex?.bin ?? "codex",
+      ...(file.codex?.model ? { model: file.codex.model } : {}),
+      reasoningEffort: file.codex?.reasoningEffort ?? "high",
+      agents: (file.codex?.agents ?? {}) as CodexConfig["agents"],
+    },
+    delegation,
     scene: {
       maxCostUsd: file.scene?.maxCostUsd ?? 5,
       maxAutoFixes: file.scene?.maxAutoFixes ?? 2,
