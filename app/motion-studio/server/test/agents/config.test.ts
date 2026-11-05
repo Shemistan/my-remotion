@@ -28,6 +28,23 @@ it("defaults: limits from Global Constraints", () => {
   expect(c.kb.root).toMatch(/\/knowledge$/);
 });
 
+it("agent runtime: три режима; старая включённая делегация мигрирует в hybrid", () => {
+  expect(loadConfig({ MS_DATA_DIR: root }, { agentRuntime: "claude-code" }).agentRuntime).toBe("claude-code");
+  expect(loadConfig({ MS_DATA_DIR: root }, { agentRuntime: "hybrid" })).toMatchObject({ agentRuntime: "hybrid", delegation: { enabled: true } });
+  expect(loadConfig({ MS_DATA_DIR: root }, { agentRuntime: "codex-only" }).agentRuntime).toBe("codex-only");
+  expect(loadConfig({ MS_DATA_DIR: root }, { delegation: { enabled: true } }).agentRuntime).toBe("hybrid");
+  expect(loadConfig({ MS_DATA_DIR: root }, { delegation: { enabled: false } }).agentRuntime).toBe("claude-code");
+});
+
+it("codex: поролевые model/reasoning профили валидируются", () => {
+  const c = loadConfig({ MS_DATA_DIR: root }, {
+    codex: { model: "gpt-5.1-codex-max", reasoningEffort: "high", agents: { visual_qa: { reasoningEffort: "xhigh" }, engineer: { model: "gpt-5.1-codex" } } },
+  });
+  expect(c.codex.agents).toEqual({ visual_qa: { reasoningEffort: "xhigh" }, engineer: { model: "gpt-5.1-codex" } });
+  expect(() => loadConfig({ MS_DATA_DIR: root }, { codex: { agents: { nobody: { reasoningEffort: "low" } } } })).toThrow(/config\.json/);
+  expect(() => loadConfig({ MS_DATA_DIR: root }, { codex: { agents: { engineer: { reasoningEffort: "ultra" } } } })).toThrow(/config\.json/);
+});
+
 it("config.json overrides one key and keeps the rest", () => {
   const c = loadConfig({ MS_DATA_DIR: root }, { agents: { engineer: { model: "sonnet" } } });
   expect(c.agents.engineer.model).toBe("sonnet");

@@ -2,8 +2,8 @@
 // умолчанию). PUT принимает только эти поля (`SettingsPutSchema`, F2), сливает тело с файлом
 // (объекты — глубоко, прочие ключи файла сохраняются), проверяет итог расширенным FileSchema (M12)
 // и пишет атомарно: уникальный временный файл → fsync → rename → fsync каталога; записи
-// сериализованы очередью процесса (F3). Ядро читает config.json при старте: новые значения
-// действуют после перезапуска (кроме `delegation` — маршрутизатор получает её сразу); GET показывает файл, а не память процесса.
+// сериализованы очередью процесса (F3). `agentRuntime` и `delegation` применяются
+// маршрутизатором сразу; остальное — после перезапуска. GET показывает файл, а не память процесса.
 import { randomUUID } from "node:crypto";
 import { rename, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -24,6 +24,7 @@ export function mergeJson(base: Json, patch: Json): Json {
 }
 
 const toDto = (c: AppConfig): AppSettingsDto => ({
+  agentRuntime: c.agentRuntime,
   agents: c.agents,
   scene: { maxCostUsd: c.scene.maxCostUsd, maxAutoFixes: c.scene.maxAutoFixes },
   limits: c.limits,
@@ -64,7 +65,8 @@ export function settingsRoutes(app: ZApp, { core }: ApiContext): void {
         throw e;
       }
       fsyncDirSync(core.root);
-      // делегирование действует сразу, остальное — после перезапуска
+      // Режим и делегирование действуют со следующего вызова, остальное — после перезапуска.
+      core.delegation?.setMode(config.agentRuntime);
       core.delegation?.setPolicy(config.delegation);
       return toDto(config);
     }),

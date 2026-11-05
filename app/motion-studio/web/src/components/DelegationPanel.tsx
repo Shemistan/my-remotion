@@ -1,6 +1,6 @@
-// Делегирование в Codex (спека 2026-11-04-codex-delegation-design.md §3): переключатель, ползунок
-// доли от минимума до безопасного максимума, роли без проверки качества, таблица ролей со
-// статистикой и паузами. Применяется сразу (`PUT /settings` → маршрутизатор), без перезапуска.
+// Runtime агентов: Claude / hybrid / Codex only. В hybrid — ползунок доли,
+// предохранители и автопаузы; Codex only явно работает без fallback в Claude.
+// Всё применяется сразу (`PUT /settings` → маршрутизатор), без перезапуска.
 import type { AppSettingsDto, DelegationDto } from "@ms/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
@@ -11,6 +11,7 @@ import { errorText, t, tk } from "../i18n/index.js";
 import { formatNumber } from "../lib/player-math.js";
 
 type Policy = AppSettingsDto["delegation"];
+type Mode = DelegationDto["mode"];
 type RoleRow = DelegationDto["roles"][number];
 
 const pct = (x: number, digits = 1) => formatNumber(x, digits);
@@ -25,13 +26,18 @@ function Panel({ data }: { data: DelegationDto }) {
   const id = useId();
   const client = useQueryClient();
   const [policy, setPolicy] = useState<Policy>(data.policy);
+  const [mode, setMode] = useState<Mode>(data.mode);
+  const nextPolicy = { ...policy, enabled: mode === "hybrid" };
   const max = policy.allowUnverified ? data.maxLevelUnverified : data.maxLevel;
   const shown = Math.min(policy.level, max);
-  const dirty = JSON.stringify(policy) !== JSON.stringify(data.policy);
+  const dirty = mode !== data.mode || JSON.stringify(nextPolicy) !== JSON.stringify(data.policy);
   const refresh = () => client.invalidateQueries({ queryKey: ["delegation"] });
 
   const save = useMutation({
-    mutationFn: () => api.putSettings({ delegation: { ...policy, level: Math.round(Math.min(policy.level, max) * 100) / 100 } }),
+    mutationFn: () => api.putSettings({
+      agentRuntime: mode,
+      delegation: { ...nextPolicy, level: Math.round(Math.min(nextPolicy.level, max) * 100) / 100 },
+    }),
     onSuccess: (r) => {
       client.setQueryData(["settings"], r);
       void refresh();
@@ -50,10 +56,19 @@ function Panel({ data }: { data: DelegationDto }) {
         {data.codex.status === "ok" ? t("delegation.codexOk", { v: data.codex.detail ?? "" }) : t("delegation.codexMissing", { why: data.codex.detail ?? "" })}
       </p>
       <div className="form-row">
-        <label htmlFor={`${id}-on`}>{t("delegation.enabled")}</label>
-        <input id={`${id}-on`} type="checkbox" checked={policy.enabled} onChange={(e) => setPolicy({ ...policy, enabled: e.target.checked })} />
+        <label htmlFor={`${id}-mode`}>{t("delegation.mode")}</label>
+        <select id={`${id}-mode`} value={mode} onChange={(e) => {
+          const next = e.target.value as Mode;
+          setMode(next);
+          if (next === "hybrid" && policy.level <= 0) setPolicy({ ...policy, level: data.minLevel });
+        }}>
+          <option value="claude-code">{t("delegation.mode.claude")}</option>
+          <option value="hybrid">{t("delegation.mode.hybrid")}</option>
+          <option value="codex-only" disabled={data.codex.status !== "ok"}>{t("delegation.mode.codex")}</option>
+        </select>
       </div>
-      <fieldset disabled={!policy.enabled}>
+      <p className="hint">{t(`delegation.modeHint.${mode}`)}</p>
+      <fieldset disabled={mode !== "hybrid"}>
         <div className="form-row">
           <label htmlFor={`${id}-level`}>{t("delegation.level")}</label>
           <input id={`${id}-level`} type="range" min={0} max={max} step={0.1} value={shown} onChange={(e) => setPolicy({ ...policy, level: Number(e.target.value) })} />
@@ -68,7 +83,7 @@ function Panel({ data }: { data: DelegationDto }) {
           <input id={`${id}-unv`} type="checkbox" checked={policy.allowUnverified} onChange={(e) => setPolicy({ ...policy, allowUnverified: e.target.checked })} />
         </div>
       </fieldset>
-      <p className="hint">{t("delegation.guards")}</p>
+      {mode === "hybrid" ? <p className="hint">{t("delegation.guards")}</p> : null}
       <div className="row end">
         {save.isError ? <span className="error">{errorText(save.error)}</span> : null}
         {save.isSuccess && !dirty ? <span className="ok">{t("delegation.saved")}</span> : null}
@@ -110,5 +125,5 @@ export function DelegationPanel() {
   const q = useDelegation();
   if (q.isError) return <p className="error">{errorText(q.error)}</p>;
   // ключ: после «Применить» форма берёт новую политику сервера
-  return q.data ? <Panel key={JSON.stringify(q.data.policy)} data={q.data} /> : <Skeleton lines={5} />;
+  return q.data ? <Panel key={JSON.stringify([q.data.mode, q.data.policy])} data={q.data} /> : <Skeleton lines={5} />;
 }

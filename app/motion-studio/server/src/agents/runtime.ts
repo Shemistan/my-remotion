@@ -13,6 +13,10 @@ export const ROLES = [
 ] as const;
 export type Role = (typeof ROLES)[number];
 
+/** Кто выполняет вызовы агентов. `codex-only` никогда не делает fallback в Claude. */
+export const AGENT_RUNTIME_MODES = ["claude-code", "hybrid", "codex-only"] as const;
+export type AgentRuntimeMode = (typeof AGENT_RUNTIME_MODES)[number];
+
 /** Инструменты, которые вообще можно дать агенту. Bash и WebFetch — никогда. */
 export const AGENT_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep"] as const;
 export type AgentTool = (typeof AGENT_TOOLS)[number];

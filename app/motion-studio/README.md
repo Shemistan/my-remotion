@@ -125,8 +125,16 @@ API и SSE закрываются, попытки прерываются, БД �
 Лимиты (`config.json` → `limits`, действуют после перезапуска): `maxRunning` 2 задачи,
 `agentCalls` 5, `renders` 2, `exportTimeoutMs` 1 800 000. Настройки — `GET/PUT /api/settings`:
 через API меняются только модели ролей (`agents.<роль>.model`), `limits` (1–16, таймаут
-экспорта ≤ 4 ч) и `defaults`; `claudeBin`, `kb.*`, `agentRuntime`, `scene.*` и бюджеты ролей —
+экспорта ≤ 4 ч), `defaults`, политика делегации и `agentRuntime`; `claudeBin`, `kb.*`,
+`codex.*`, `scene.*` и бюджеты ролей —
 только правкой `config.json` руками (в теле PUT — 400).
+
+Runtime агентов меняется в UI без перезапуска: `claude-code` — все вызовы в Claude,
+`hybrid` — регулируемая доля Codex с предохранителями и fallback в Claude, `codex-only` —
+все роли, QA, исправления и повторы в Codex без fallback. Если Codex в последнем режиме
+возвращает quota/CLI/schema/таймаут-ошибку, вызов завершается ею и не расходует лимит Claude.
+Для доводки качества `codex.model` и `codex.reasoningEffort` можно перекрыть по ролям в
+`codex.agents.<роль>.{model,reasoningEffort}`.
 
 ```sh
 curl -H 'Host: 127.0.0.1:8790' http://127.0.0.1:8790/api/health

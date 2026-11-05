@@ -9,6 +9,7 @@ it("настройки используют русские ярлыки роле
   const agent = (model: string) => ({ model, timeoutMs: 1_200_000, maxBudgetUsd: 2 });
   fakeFetch([
     on("GET", "/api/settings", {
+      agentRuntime: "claude-code",
       agents: { concept: agent("sonnet"), engineer: agent("opus") },
       scene: { maxCostUsd: 5, maxAutoFixes: 2 },
       limits: { maxRunning: 16, agentCalls: 16, renders: 4, exportTimeoutMs: 1_800_000 },
@@ -16,6 +17,7 @@ it("настройки используют русские ярлыки роле
       delegation: { enabled: false, level: 0, allowUnverified: false },
     }),
     on("GET", "/api/delegation", {
+      mode: "claude-code",
       policy: { enabled: false, level: 0, allowUnverified: false },
       level: 0,
       minLevel: 1,
@@ -32,6 +34,7 @@ it("настройки используют русские ярлыки роле
   expect(screen.getAllByText(t("diagnostics.role.engineer"))).toHaveLength(2);
   const list = document.getElementById(model.getAttribute("list")!)!;
   expect([...list.querySelectorAll("option")].map((o) => o.getAttribute("value"))).toEqual(["sonnet", "opus", "haiku"]);
+  expect((await screen.findByLabelText(t("delegation.mode")) as HTMLSelectElement).value).toBe("claude-code");
   fireEvent.change(model, { target: { value: "custom-model" } });
   expect(model.value).toBe("custom-model");
 });

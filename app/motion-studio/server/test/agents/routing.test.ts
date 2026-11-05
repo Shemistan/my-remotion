@@ -143,3 +143,38 @@ it("setPolicy applies on the next call", async () => {
   await r.run(task("motion_director", "b"), Ok, sig());
   expect(codex.calls).toHaveLength(1);
 });
+
+it("runtime modes: Claude is exclusive; Codex-only includes QA, fixes and retries", async () => {
+  const { r, claude, codex } = make(100);
+  r.setMode("claude-code");
+  for (const t of [task("concept", "a"), task("visual_qa", "b"), task("engineer", "c", 101), task("engineer", "d", 1, 2)]) await r.run(t, Ok, sig());
+  expect(claude.calls).toHaveLength(4);
+  expect(codex.calls).toHaveLength(0);
+
+  r.setMode("codex-only");
+  for (const t of [task("concept", "e"), task("visual_qa", "f"), task("motion_director", "g"), task("engineer", "h", 101), task("engineer", "i", 1, 2)]) await r.run(t, Ok, sig());
+  expect(codex.calls).toHaveLength(5);
+  expect(claude.calls).toHaveLength(4);
+  expect(r.getMode()).toBe("codex-only");
+});
+
+it("Codex-only returns a Codex failure and never falls back to Claude", async () => {
+  const { r, claude, codex } = make(100, () => "failed");
+  r.setMode("codex-only");
+  const res = await r.run(task("concept", "quota"), Ok, sig());
+  expect(res).toMatchObject({ status: "failed", error: { message: "boom" } });
+  expect(codex.calls).toHaveLength(1);
+  expect(claude.calls).toHaveLength(0);
+});
+
+it("setMode applies to the next call and capabilities follow the exclusive runtime", async () => {
+  const { r, claude, codex } = make(100);
+  r.setMode("claude-code");
+  expect(await r.capabilities()).toMatchObject({ version: "claude" });
+  await r.run(task("concept", "a"), Ok, sig());
+  r.setMode("codex-only");
+  expect(await r.capabilities()).toMatchObject({ version: "codex" });
+  await r.run(task("concept", "b"), Ok, sig());
+  expect(claude.calls).toHaveLength(1);
+  expect(codex.calls).toHaveLength(1);
+});

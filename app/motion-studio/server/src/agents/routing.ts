@@ -1,5 +1,6 @@
-// RoutingRuntime: для каждого вызова агента решает, кто его выполняет — Claude Code или Codex
-// (спека 2026-11-04-codex-delegation-design.md §2). Предохранители качества:
+// RoutingRuntime: явные Claude / hybrid / Codex-only режимы. В hybrid действуют
+// предохранители спеки 2026-11-04-codex-delegation-design.md §2; в Codex-only все
+// роли, фиксы и повторы идут в Codex без fallback в Claude. Hybrid-предохранители:
 //  1. visual_qa — всегда Claude (ALWAYS_CLAUDE в плане);
 //  2. исправления engineer (seq ≥ 100) и повторные попытки задачи (attempt > 1) — Claude;
 //  3. сбой Codex — тот же вызов сразу в Claude; у ролей с записью файлов черновик перед этим
@@ -9,7 +10,7 @@ import { cp, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { ZodType } from "zod";
 import { type DelegationPlan, type DelegationPolicy, type DelegationState, FIX_SEQ, FIX_TRACKED, pickCodex, planShares } from "./delegation.js";
-import type { AgentResult, AgentRuntimeAdapter, AgentTask, Role } from "./runtime.js";
+import type { AgentResult, AgentRuntimeAdapter, AgentRuntimeMode, AgentTask, Role } from "./runtime.js";
 
 const WRITE_TOOLS = new Set(["Write", "Edit"]);
 /** Сколько держать веса ролей из истории, прежде чем перечитать. */
@@ -20,6 +21,8 @@ export interface RoutingRuntimeOptions {
   codex: AgentRuntimeAdapter;
   state: DelegationState;
   policy: DelegationPolicy;
+  /** Без mode старые вызывающие коды сохраняют семантику `policy.enabled`. */
+  mode?: AgentRuntimeMode;
   /** Веса ролей (доли стоимости Claude, сумма 1): из `agent_runs` или встроенные. */
   weights: () => Record<Role, number>;
   now?: () => number;
@@ -35,17 +38,28 @@ export type Route = { runtime: "claude" | "codex"; why: string };
 
 export class RoutingRuntime implements AgentRuntimeAdapter {
   private policy: DelegationPolicy;
+  private mode: AgentRuntimeMode;
   private cached?: { at: number; weights: Record<Role, number> };
   private readonly now: () => number;
 
   constructor(private readonly opts: RoutingRuntimeOptions) {
     this.policy = { ...opts.policy };
+    this.mode = opts.mode ?? (opts.policy.enabled ? "hybrid" : "claude-code");
     this.now = opts.now ?? Date.now;
   }
 
   /** Новая политика из настроек — действует со следующего вызова, без перезапуска. */
   setPolicy(p: DelegationPolicy): void {
     this.policy = { ...p };
+  }
+
+  /** Новый режим действует со следующего вызова; идущий вызов не прерывается. */
+  setMode(mode: AgentRuntimeMode): void {
+    this.mode = mode;
+  }
+
+  getMode(): AgentRuntimeMode {
+    return this.mode;
   }
 
   state(): DelegationState {
@@ -71,8 +85,10 @@ export class RoutingRuntime implements AgentRuntimeAdapter {
   }
 
   /** Решение для вызова (без запуска): для тестов и журнала. */
-  route(task: AgentTask<unknown>): Route {
+  route(task: AgentTask<unknown>, mode: AgentRuntimeMode = this.mode): Route {
     const seq = seqOf(task);
+    if (mode === "claude-code") return { runtime: "claude", why: "режим Claude" };
+    if (mode === "codex-only") return { runtime: "codex", why: "режим Codex only" };
     if (FIX_TRACKED.includes(task.role) && seq >= FIX_SEQ) return { runtime: "claude", why: "исправление" };
     if (task.run.attempt > 1) return { runtime: "claude", why: "повторная попытка" };
     const share = this.plan().shares[task.role];
@@ -81,7 +97,7 @@ export class RoutingRuntime implements AgentRuntimeAdapter {
   }
 
   capabilities(): Promise<{ available: boolean; version?: string; reason?: string }> {
-    return this.opts.claude.capabilities();
+    return this.mode === "codex-only" ? this.opts.codex.capabilities() : this.opts.claude.capabilities();
   }
 
   async run<I, O>(task: AgentTask<I>, schema: ZodType<O>, signal: AbortSignal): Promise<AgentResult<O>> {
@@ -91,7 +107,9 @@ export class RoutingRuntime implements AgentRuntimeAdapter {
     const fix = FIX_TRACKED.includes(task.role) && seq >= FIX_SEQ;
     if (fix) state.markFixed(task.role, runKey);
     const first = !fix && task.run.attempt === 1;
-    const route = this.route(task);
+    // Режим фиксируется на весь вызов: смена в UI влияет только на следующий.
+    const mode = this.mode;
+    const route = this.route(task, mode);
 
     if (route.runtime === "claude") {
       const r = await this.opts.claude.run(task, schema, signal);
@@ -99,14 +117,16 @@ export class RoutingRuntime implements AgentRuntimeAdapter {
       return r;
     }
 
-    // роль пишет файлы (engineer): снимок черновика до Codex — при сбое Claude начнёт с него
+    // Снимок нужен только hybrid: в Codex-only нет Claude, которому нужно откатывать draft.
     const writes = task.tools.some((t) => WRITE_TOOLS.has(t));
-    const snap = writes ? await snapshot(task.workdir) : undefined;
+    const snap = mode === "hybrid" && writes ? await snapshot(task.workdir) : undefined;
     try {
       const r = await this.opts.codex.run(task, schema, signal);
       if (r.status === "cancelled" || signal.aborted) return r;
       state.record(task.role, { runtime: "codex", run: runKey, clean: r.status === "completed" });
       if (r.status === "completed") return r;
+      // В Codex-only ошибка/квота видна пайплайну, а Claude не расходуется скрыто.
+      if (mode === "codex-only") return r;
       // процессы Codex не завершились — состояние неизвестно, повтор только после reap
       if (r.error?.kind === "orphaned") return r;
       // снимок не сделан — черновик мог быть изменён: сбой уходит в штатный цикл исправлений

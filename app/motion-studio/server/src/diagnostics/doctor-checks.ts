@@ -160,8 +160,7 @@ export async function doctorChecks(
     else rows.push(await claudeLogin(claude, cenv));
   }
 
-  // Codex необязателен: при включённом делегировании недоступность — предупреждение,
-  // при выключенном достаточно показать причину без тревожного статуса.
+  // Codex необязателен только в Claude-only: в hybrid/Codex-only недоступность — предупреждение.
   const codex = new CodexRuntime({
     bin: config.codex.bin,
     logRoot: join(config.dataDir, "logs", "agent-runs"),
@@ -170,7 +169,7 @@ export async function doctorChecks(
   rows.push({
     name: "codex",
     ok: true,
-    status: codexCapability.available || !config.delegation.enabled ? "ok" : "warning",
+    status: codexCapability.available || config.agentRuntime === "claude-code" ? "ok" : "warning",
     detail: codexCapability.available ? (codexCapability.version ?? config.codex.bin) : (codexCapability.reason ?? config.codex.bin),
   });
 

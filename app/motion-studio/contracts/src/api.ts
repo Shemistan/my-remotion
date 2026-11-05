@@ -199,6 +199,7 @@ export type RetryFailedJobsResult = z.infer<typeof RetryFailedJobsResultSchema>;
 
 /** `GET /settings`: действующие настройки приложения (`$MS_DATA_DIR/config.json` + умолчания). */
 export const AppSettingsDtoSchema = z.object({
+  agentRuntime: z.enum(["claude-code", "hybrid", "codex-only"]),
   agents: z.record(z.object({ model: z.string().min(1), timeoutMs: z.number().int().positive(), maxBudgetUsd: z.number().positive() }).strict()),
   scene: z.object({ maxCostUsd: z.number().positive(), maxAutoFixes: z.number().int().min(0) }).strict(),
   limits: z.object({
@@ -227,6 +228,7 @@ export const DelegationRoleDtoSchema = z.object({
   }).strict(),
 }).strict();
 export const DelegationDtoSchema = z.object({
+  mode: z.enum(["claude-code", "hybrid", "codex-only"]),
   policy: z.object({ enabled: z.boolean(), level: z.number(), allowUnverified: z.boolean() }).strict(),
   /** Фактический уровень плана, минимум и безопасный максимум, %. */
   level: z.number(),

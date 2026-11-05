@@ -19,6 +19,7 @@ it("GET /settings — действующие настройки с умолча�
   const r = await api.inj("GET", "/api/settings", getHeaders);
   expect(r.statusCode).toBe(200);
   const s = AppSettingsDtoSchema.parse(r.json());
+  expect(s.agentRuntime).toBe("claude-code");
   expect(s.limits).toEqual({ maxRunning: 16, agentCalls: 16, renders: 4, exportTimeoutMs: 1_800_000 });
   expect(s.defaults).toEqual(defaultSettings());
   expect(s.agents.engineer).toMatchObject({ model: "opus" });
@@ -55,14 +56,14 @@ it("PUT /settings сохраняет ключи файла, которых не�
   expect(file()).toEqual({ claudeBin: "/usr/local/bin/claude", scene: { secondTake: { mode: "off" } }, limits: { renders: 3 } });
 });
 
-it("PUT /settings: claudeBin, kb, agentRuntime, scene, бюджет и таймаут ролей через API не меняются (400, файл тот же)", async () => {
+it("PUT /settings: claudeBin, kb, scene, бюджет и таймаут ролей через API не меняются (400, файл тот же)", async () => {
   const before = { limits: { maxRunning: 1 } };
   writeFileSync(join(api.s.root, "config.json"), JSON.stringify(before));
   const bodies: unknown[] = [
     { claudeBin: "/tmp/evil.sh" },
     { kb: { root: "/etc" } },
     { kb: { sourceRoot: "/etc" } },
-    { agentRuntime: "claude-code" },
+    { agentRuntime: "api" },
     { scene: { maxCostUsd: 1e9 } },
     { scene: { maxAutoFixes: 1 } },
     { scene: { secondTake: { mode: "off" } } },
@@ -109,16 +110,17 @@ it("делегирование: PUT delegation применяется сразу
   await api.close();
   api = await makeApi({ boot: { agents: undefined } });
   const before = (await api.inj("GET", "/api/delegation", getHeaders)).json();
+  expect(before.mode).toBe("claude-code");
   expect(before.policy).toEqual({ enabled: false, level: 0, allowUnverified: false });
   expect(before.level).toBe(0);
-  expect(before.roles.find((r: { role: string }) => r.role === "visual_qa").status).toBe("always_claude");
-  expect(before.roles.find((r: { role: string }) => r.role === "motion_director").status).toBe("unverified");
+  expect(before.roles.every((r: { status: string; share: number }) => r.status === "idle" && r.share === 0)).toBe(true);
 
   const put = await api.inj("PUT", "/api/settings", okHeaders, { delegation: { enabled: true, level: 30 } });
   expect(put.statusCode).toBe(200);
   expect(put.json().delegation).toEqual({ enabled: true, level: 30, allowUnverified: false });
   expect(file().delegation).toEqual({ enabled: true, level: 30 });
   const after = (await api.inj("GET", "/api/delegation", getHeaders)).json();
+  expect(after.mode).toBe("hybrid");
   expect(after.level).toBeCloseTo(30, 0);
   expect(after.roles.find((r: { role: string }) => r.role === "engineer").share).toBeGreaterThan(0);
   expect(after.maxLevelUnverified).toBeGreaterThan(after.maxLevel);
@@ -127,4 +129,18 @@ it("делегирование: PUT delegation применяется сразу
   expect((await api.inj("PUT", "/api/settings", okHeaders, { codex: { bin: "/tmp/evil" } })).statusCode).toBe(400);
   expect((await api.inj("POST", "/api/delegation/resume/engineer", okHeaders)).statusCode).toBe(200);
   expect((await api.inj("POST", "/api/delegation/resume/nobody", okHeaders)).statusCode).toBe(400);
+});
+
+it("agentRuntime: PUT меняет режим сразу; codex-only показывает 100 % всех ролей", async () => {
+  await api.close();
+  api = await makeApi({ boot: { agents: undefined } });
+  const put = await api.inj("PUT", "/api/settings", okHeaders, { agentRuntime: "codex-only" });
+  expect(put.statusCode).toBe(200);
+  expect(put.json().agentRuntime).toBe("codex-only");
+  expect(file().agentRuntime).toBe("codex-only");
+  expect(api.core.delegation?.getMode()).toBe("codex-only");
+  const d = (await api.inj("GET", "/api/delegation", getHeaders)).json();
+  expect(d.mode).toBe("codex-only");
+  expect(d.level).toBe(100);
+  expect(d.roles.every((r: { status: string; share: number }) => r.status === "active" && r.share === 1)).toBe(true);
 });

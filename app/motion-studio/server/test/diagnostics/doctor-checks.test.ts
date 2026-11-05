@@ -82,6 +82,10 @@ it("Codex CLI: версия из capabilities; недоступность — п
   const enabled = await runDoctor({ fast: true, env, probe, deps });
   expect(enabled.rows.find((c) => c.name === "codex")).toMatchObject({ ok: true, status: "warning", detail: expect.stringContaining("codex не найден") });
 
+  writeFileSync(join(s.root, "config.json"), JSON.stringify({ agentRuntime: "codex-only", codex: { bin: missing } }));
+  const codexOnly = await runDoctor({ fast: true, env, probe, deps });
+  expect(codexOnly.rows.find((c) => c.name === "codex")).toMatchObject({ ok: true, status: "warning", detail: expect.stringContaining("codex не найден") });
+
   writeFileSync(join(s.root, "config.json"), JSON.stringify({ codex: { bin: missing } }));
   const disabled = await runDoctor({ fast: true, env, probe, deps });
   expect(disabled.rows.find((c) => c.name === "codex")).toMatchObject({ ok: true, status: "ok", detail: expect.stringContaining("codex не найден") });
