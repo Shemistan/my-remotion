@@ -20,6 +20,7 @@ describe("jobs", () => {
       "media.import", "asr.transcribe", "roughcut.propose", "roughcut.preview", "footage.analyze", "semantic.analyze", "plan.visual", "plan.recheck",
       "script.plan", "script.package",
       "video.package", "scene.preview_context", "timeline.build", "timeline.preview", "final.render", "final.reproduce", "trash.purge", "cache.gc",
+      "project.download",
     ]);
   });
   it("JobError: коды Phase 2–3 без этапа", () => {

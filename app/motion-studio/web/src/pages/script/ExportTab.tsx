@@ -8,6 +8,7 @@ import { type ReactElement, useEffect, useMemo, useState } from "react";
 import { isActive, useJob } from "../../api/queries.js";
 import { scriptStateKey, useBuildPackage, useReframe, useScriptPackage } from "../../api/script-client.js";
 import { JobStatus } from "../../components/JobStatus.js";
+import { DownloadButton } from "../../components/projects/DownloadDialog.js";
 import { AspectSwitch } from "../../components/script/AspectSwitch.js";
 import { PackageCard } from "../../components/script/PackageCard.js";
 import { SkippedNote } from "../../components/script/SkippedNote.js";
@@ -122,6 +123,11 @@ export const ExportTab: (props: { state: ScriptStateDto }) => ReactElement = ({ 
         {ready === 0 ? <p className="hint">{t("scriptOutput.export.noneReady")}</p> : ready < rows.length ? <p className="hint">{t("scriptOutput.export.notAll")}</p> : null}
         {build.isError ? <p className="error" role="alert">{scriptErrorText(build.error)}</p> : null}
         {jobId ? <JobStatus jobId={jobId} compact /> : null}
+      </section>
+
+      <section className="panel" aria-labelledby="download-title">
+        <h2 id="download-title">{t("download.title")}</h2>
+        <DownloadButton projectId={projectId} />
       </section>
 
       <Reframe state={state} />

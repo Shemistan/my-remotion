@@ -191,7 +191,7 @@ async function verifiedExport(root: string, row: exportsRepo.ExportRow, m: z.inf
  * сверяется по манифесту, хешируется только файл совпавшего экспорта (ProRes — сотни МБ).
  */
 export async function ensureExport(
-  ctx: JobContext, d: Pick<ScriptPackageDeps, "root" | "exporter" | "exportOne">, versionId: string, request: ExportRequest, draftKey: string, frames: ScriptSceneItem["frames"],
+  ctx: JobContext, d: Pick<ScriptPackageDeps, "root" | "exporter" | "exportOne">, versionId: string, request: ExportRequest, draftKey: string, frames?: ScriptSceneItem["frames"],
 ): Promise<ExportOutcome> {
   const rows = exportsRepo.listByVersion(ctx.db, versionId).filter((r) => r.format === request.format).reverse();
   for (const row of rows) {
@@ -200,7 +200,7 @@ export async function ensureExport(
     const got = await verifiedExport(d.root, row, m);
     if (got) return { ok: got };
   }
-  const r = await (d.exportOne ?? realExportOne)(ctx, d.exporter, { versionId, request, draftKey, frames });
+  const r = await (d.exportOne ?? realExportOne)(ctx, d.exporter, { versionId, request, draftKey, ...(frames ? { frames } : {}) });
   if (r.status === "completed") {
     const id = (r.outputRefs as { export_id?: string }).export_id;
     const row = id ? exportsRepo.get(ctx.db, id) : undefined;

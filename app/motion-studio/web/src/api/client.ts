@@ -25,6 +25,8 @@ import type {
   DelegationDto,
   ExportDto,
   ExportRequest,
+  PickFolderDto,
+  ProjectDownloadBody,
   HealthDto,
   ImproveBody,
   Job,
@@ -174,6 +176,10 @@ export const api = {
   exportVersion: (versionId: string, req: ExportRequest, key: string = newKey()) =>
     request<{ job: Job }>("POST", `/api/versions/${enc(versionId)}/exports`, { body: req, idempotency: key }),
   exportInfo: (id: string) => request<ExportDto>("GET", `/api/exports/${enc(id)}`),
+  pickFolder: () => request<PickFolderDto>("POST", "/api/system/pick-folder"),
+  startProjectDownload: (projectId: string, body: ProjectDownloadBody, key: string = newKey()) =>
+    request<{ job: Job }>("POST", `/api/projects/${enc(projectId)}/downloads`, { body, idempotency: key }),
+  revealDownload: (jobId: string) => request<void>("POST", `/api/project-downloads/${enc(jobId)}/reveal`),
   jobs: (filter: JobsFilter = {}) => {
     const q = new URLSearchParams();
     if (filter.status) q.set("status", filter.status);

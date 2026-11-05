@@ -24,6 +24,7 @@ import { type RoughcutProposeDeps, roughcutPropose } from "../pipeline/roughcut-
 import { type SceneExportDeps, sceneExport } from "../pipeline/scene-export.js";
 import { type SemanticAnalyzeDeps, semanticAnalyze } from "../pipeline/semantic-analyze.js";
 import { sceneRestore } from "../pipeline/scene-restore.js";
+import { projectDownload } from "../pipeline/project-download.js";
 import { scriptPackage } from "../pipeline/script-package.js";
 import { scriptPlan } from "../pipeline/script-plan.js";
 import { scenePreviewContext } from "../pipeline/scene-preview-context.js";
@@ -174,6 +175,7 @@ export function registerHandlers(svc: CoreServices, o: HandlerOptions = {}, extr
       ...(o.log ? { log: o.log } : {}),
     })),
     "script.package": scriptPackage(() => ({ root: svc.root, storage: svc.storageCheck, exporter, ...(o.log ? { log: o.log } : {}) })),
+    "project.download": projectDownload(() => ({ root: svc.root, storage: svc.storageCheck, exporter, ...(o.log ? { log: o.log } : {}) })),
     // Phase 4–6 (Task 35′ — заглушки)
     "video.package": videoPackage(p46),
     "scene.preview_context": scenePreviewContext(p46),

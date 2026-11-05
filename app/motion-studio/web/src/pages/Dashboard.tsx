@@ -19,6 +19,7 @@ import { Skeleton } from "../components/ui/Skeleton.js";
 import { versionState } from "../components/VersionHistory.js";
 import { errorText, t, tk } from "../i18n/index.js";
 import { navigate } from "../router.js";
+import { DownloadButton } from "../components/projects/DownloadDialog.js";
 import { VideoWorkspace } from "./VideoWorkspace.js";
 import { ScriptWorkspace } from "./script/ScriptWorkspace.js";
 
@@ -216,7 +217,11 @@ export function ProjectPage({ id }: { id: string }) {
       <h1>{project.title}</h1>
       <div className="grid-2">
         <section className="panel">
-          <h2>{t("project.scenes")}</h2>
+          <div className="row wrap">
+            <h2>{t("project.scenes")}</h2>
+            <span className="spacer" />
+            {scenes.some((s) => s.current_version?.status === "ready") ? <DownloadButton projectId={project.id} /> : null}
+          </div>
           {scenes.length === 0 ? <EmptyState title={t("project.noScenes")} description={t("ux.project.scenesEmpty.description")} /> : null}
           {scenes.length > 0 ? (
             <div className="row wrap scene-filters">

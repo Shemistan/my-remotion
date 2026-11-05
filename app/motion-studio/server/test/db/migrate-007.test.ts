@@ -31,7 +31,7 @@ it("v6 → v7: живые и завершённые строки job_processes �
   db.prepare("INSERT INTO job_processes (job_id, attempt, pid, pgid, started_at, cmd) VALUES ('job_1', 1, 100, 100, 'x', 'sleep')").run();
   db.prepare("INSERT INTO job_processes (job_id, attempt, pid, pgid, started_at, cmd, ended_at, exit_code) VALUES ('job_1', 1, 101, 101, 'x', 'sleep', 't', 0)").run();
 
-  expect(await migrate(db, { log: () => undefined })).toMatchObject({ from: 6, to: 7 });
+  expect(await migrate(db, { log: () => undefined })).toMatchObject({ from: 6, to: 8 });
   expect(jobProcesses.listLive(db)).toEqual([
     { job_id: "job_1", attempt: 1, pid: 100, pgid: 100, started_at: "x", cmd: "sleep", ended_at: null, exit_code: null, owner_pid: null, owner_started_at: null, owner_nonce: null, foreign_owner: null },
   ]);

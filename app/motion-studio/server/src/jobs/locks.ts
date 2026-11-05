@@ -57,6 +57,7 @@ export function lockKeyFor(job: Job): string | undefined {
       return key("plan");
     case "script.package":
     case "video.package":
+    case "project.download":
       return key("package");
     // Phase 4–6 (Task 35′): видеосцены пишут playground.* (замок сцены); превью читают иммутабельное
     case "scene.preview_context":

@@ -18,6 +18,7 @@ import { diagnosticsRoutes } from "./routes/diagnostics.js";
 import { edlRoutes } from "./routes/edls.js";
 import { eventRoutes } from "./routes/events.js";
 import { exportRoutes } from "./routes/exports.js";
+import { projectDownloadRoutes } from "./routes/project-download.js";
 import { finalExportRoutes } from "./routes/final-exports.js";
 import { footageRoutes } from "./routes/footage.js";
 import { type HealthProbes, healthRoutes } from "./routes/health.js";
@@ -81,6 +82,7 @@ export async function buildApp(core: Core, opts: BuildAppOptions = { port: PORT 
   chatRoutes(app, ctx);
   versionRoutes(app, ctx);
   exportRoutes(app, ctx);
+  projectDownloadRoutes(app, ctx);
   jobRoutes(app, ctx);
   kbRoutes(app, ctx);
   settingsRoutes(app, ctx);

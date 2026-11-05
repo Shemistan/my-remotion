@@ -47,8 +47,8 @@ describe("005_script", () => {
     const before = jobsCount(db);
     const projectsBefore = projects.list(db);
 
-    expect(await migrate(db, quiet)).toMatchObject({ from: 4, to: 7 });
-    expect(db.pragma("user_version", { simple: true })).toBe(7);
+    expect(await migrate(db, quiet)).toMatchObject({ from: 4, to: 8 });
+    expect(db.pragma("user_version", { simple: true })).toBe(8);
     expect(db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(db.pragma("foreign_keys", { simple: true })).toBe(1);
     expect(jobsCount(db)).toBe(before);
