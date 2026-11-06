@@ -83,14 +83,20 @@ export function codexToolsNote(tools: readonly string[]): string {
 type Json = Record<string, unknown>;
 const isObj = (v: unknown): v is Json => v !== null && typeof v === "object" && !Array.isArray(v);
 
+const FREE_FORM_NOTE = "JSON-объект, записанный строкой";
+/** Объект без `properties` (`z.record`): строгая схема такие запрещает. */
+const isFreeForm = (s: Json): boolean => s.type === "object" && !isObj(s.properties);
+
 /**
  * Строгая JSON Schema для structured outputs: у каждого объекта все свойства в `required`,
  * `additionalProperties: false`; необязательные свойства допускают `null` (`anyOf`).
+ * Свободный объект заменяется JSON-строкой (обратно — `decodeFreeForm`).
  * Ответ потом проходит `dropNulls` и ту же Zod-схему.
  */
 export function toStrictSchema(schema: unknown): unknown {
   if (Array.isArray(schema)) return schema.map(toStrictSchema);
   if (!isObj(schema)) return schema;
+  if (isFreeForm(schema)) return { type: "string", description: `${typeof schema.description === "string" ? `${schema.description}. ` : ""}${FREE_FORM_NOTE}` };
   const out: Json = {};
   for (const [k, v] of Object.entries(schema)) {
     if (k === "properties" && isObj(v)) out[k] = Object.fromEntries(Object.entries(v).map(([p, s]) => [p, toStrictSchema(s)]));
@@ -105,6 +111,30 @@ export function toStrictSchema(schema: unknown): unknown {
     out.additionalProperties = false;
   }
   return out;
+}
+
+/**
+ * Разворачивает JSON-строки свободных объектов по исходной схеме. Строка, которая не разбирается
+ * в объект, остаётся как есть: её отклонит Zod-схема.
+ */
+export function decodeFreeForm(value: unknown, schema: unknown): unknown {
+  if (!isObj(schema)) return value;
+  if (Array.isArray(schema.anyOf)) return schema.anyOf.reduce((v: unknown, s) => decodeFreeForm(v, s), value);
+  if (isFreeForm(schema)) {
+    if (typeof value !== "string") return value;
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return isObj(parsed) ? parsed : value;
+    } catch {
+      return value;
+    }
+  }
+  if (Array.isArray(value)) return value.map((v) => decodeFreeForm(v, schema.items));
+  if (isObj(value) && isObj(schema.properties)) {
+    const props = schema.properties;
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, decodeFreeForm(v, props[k])]));
+  }
+  return value;
 }
 
 /** Удаляет ключи объектов со значением `null` (так строгая схема передаёт «поле не задано»). */
@@ -163,6 +193,7 @@ export function parseCodexOutput<O>(stdout: string, lastMessage: string | undefi
   } catch {
     return { ...base, status: "failed", error: { kind: "schema", message: `ответ Codex — не JSON: ${clip(text)}` }, noResult: false };
   }
+  json = decodeFreeForm(json, toJsonSchema(schema as unknown as ZodTypeAny));
   let r = schema.safeParse(json);
   if (!r.success) r = schema.safeParse(dropNulls(json));
   if (!r.success) {
