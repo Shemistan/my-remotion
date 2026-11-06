@@ -27,7 +27,7 @@ import { loadPrompt } from "./agents/prompts.js";
 import { RoutingRuntime } from "./agents/routing.js";
 import { claudeCostByRole } from "./db/repos/agent-runs.js";
 import type { AgentRuntimeAdapter, AgentRuntimeMode } from "./agents/runtime.js";
-import { type AppConfig, loadConfig, readConfigFile } from "./config.js";
+import { type AppConfig, loadConfig, readConfigFile, withAgentRuntime } from "./config.js";
 import { bindRootPath, bindStoreId, quickCheck, storeCopiedText } from "./db/meta.js";
 import { migrate } from "./db/migrate.js";
 import { type Db, openDb } from "./db/open.js";
@@ -194,7 +194,7 @@ export async function bootCore(opts: BootOptions): Promise<Core> {
     const copiedFrom = bindRootPath(db, root);
     if (copiedFrom !== undefined) opts.storageLog?.(`storage: ${storeCopiedText(copiedFrom)}`);
     const loadedConfig = loadConfig(env, await readConfigFile(root));
-    const config: AppConfig = opts.agentRuntime ? { ...loadedConfig, agentRuntime: opts.agentRuntime } : loadedConfig;
+    const config: AppConfig = opts.agentRuntime ? withAgentRuntime(loadedConfig, opts.agentRuntime) : loadedConfig;
     const hadBoot = bootReports.count(db) > 0;
     log("db");
 

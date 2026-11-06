@@ -30,7 +30,7 @@ import { type Job, type Settings, defaultSettings } from "@ms/contracts";
 import { MARKER_FILE, assertSsdWriteAllowed, initStore, macosProbe } from "@ms/core";
 import { ensureRenderBrowser } from "@ms/render";
 import { bootCore } from "../server/src/boot.js";
-import { loadConfig, readConfigFile } from "../server/src/config.js";
+import { loadConfig, readConfigFile, withAgentRuntime } from "../server/src/config.js";
 import * as jobs from "../server/src/db/repos/jobs.js";
 import * as projects from "../server/src/db/repos/projects.js";
 import * as versions from "../server/src/db/repos/versions.js";
@@ -145,6 +145,9 @@ if (!dataDir) throw new Error("MS_DATA_DIR не задан");
 assertSsdWriteAllowed(dataDir); // S18: на SSD — только в папке материалов (bench/ внутри хранилища)
 const appConfig = loadConfig(process.env, await readConfigFile(dataDir));
 const generationRuntime = runtimeName === undefined ? appConfig.agentRuntime : RUNTIME_ARGS[runtimeName]!;
+const generationDelegation = withAgentRuntime(appConfig, generationRuntime).delegation;
+// hybrid с нулевым уровнем — все вызовы в Claude: такой прогон выдавал бы себя за A/B Codex
+if (!judgeOnly && generationRuntime === "hybrid" && generationDelegation.level <= 0) throw new Error("runtime hybrid: delegation.level в config.json равен 0 — вся генерация ушла бы в Claude");
 const generator = {
   agent_runtime: generationRuntime,
   ...(generationRuntime !== "codex-only" ? { claude_agents: Object.fromEntries(Object.entries(appConfig.agents).map(([role, s]) => [role, s.model])) } : {}),
@@ -153,7 +156,7 @@ const generator = {
     reasoning_effort: appConfig.codex.reasoningEffort,
     agents: appConfig.codex.agents,
   } } : {}),
-  ...(generationRuntime === "hybrid" ? { delegation: appConfig.delegation } : {}),
+  ...(generationRuntime === "hybrid" ? { delegation: generationDelegation } : {}),
 };
 mkdirSync(RUN_DIR, { recursive: true });
 const log = (s: string) => console.log(`[bench ${runId}] ${s}`);

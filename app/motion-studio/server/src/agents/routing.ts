@@ -123,7 +123,8 @@ export class RoutingRuntime implements AgentRuntimeAdapter {
     try {
       const r = await this.opts.codex.run(task, schema, signal);
       if (r.status === "cancelled" || signal.aborted) return r;
-      state.record(task.role, { runtime: "codex", run: runKey, clean: r.status === "completed" });
+      // Статистика — про первые вызовы hybrid: исходы Codex-only (фиксы, повторы, сбои квоты) не должны ставить роли на автопаузу.
+      if (mode === "hybrid") state.record(task.role, { runtime: "codex", run: runKey, clean: r.status === "completed" });
       if (r.status === "completed") return r;
       // В Codex-only ошибка/квота видна пайплайну, а Claude не расходуется скрыто.
       if (mode === "codex-only") return r;

@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { defaultSettings } from "@ms/contracts";
-import { configFileIssues, loadConfig, readConfigFile } from "../../src/config.js";
+import { configFileIssues, loadConfig, readConfigFile, withAgentRuntime } from "../../src/config.js";
 import { makeTmp, removeTmp } from "./helpers.js";
 
 const root = "/Volumes/Test/MotionStudio";
@@ -34,6 +34,13 @@ it("agent runtime: три режима; старая включённая дел
   expect(loadConfig({ MS_DATA_DIR: root }, { agentRuntime: "codex-only" }).agentRuntime).toBe("codex-only");
   expect(loadConfig({ MS_DATA_DIR: root }, { delegation: { enabled: true } }).agentRuntime).toBe("hybrid");
   expect(loadConfig({ MS_DATA_DIR: root }, { delegation: { enabled: false } }).agentRuntime).toBe("claude-code");
+});
+
+it("withAgentRuntime: перекрытие hybrid включает делегацию, как и режим из config.json", () => {
+  const off = loadConfig({ MS_DATA_DIR: root }, { delegation: { enabled: false, level: 40 } });
+  expect(withAgentRuntime(off, "hybrid")).toMatchObject({ agentRuntime: "hybrid", delegation: { enabled: true, level: 40 } });
+  expect(withAgentRuntime(off, "codex-only")).toMatchObject({ agentRuntime: "codex-only", delegation: { enabled: false } });
+  expect(off.delegation.enabled).toBe(false);
 });
 
 it("codex: поролевые model/reasoning профили валидируются", () => {
