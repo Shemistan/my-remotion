@@ -1,0 +1,74 @@
+{
+  "status": "ready",
+  "job_status": "completed",
+  "version_status": "ready",
+  "cost_usd": 0,
+  "wall_ms": 711181,
+  "engineer_calls": 1,
+  "stage_wall_ms": {
+    "concept": 24556,
+    "director": 155112,
+    "engineer": 288154,
+    "check": 33689,
+    "render": 41118,
+    "qa": 166747,
+    "total": 709721
+  },
+  "attempts": [
+    {
+      "n": 1,
+      "take": 1,
+      "call": 1,
+      "overall": 8.5,
+      "scores": {
+        "overall": 8.5,
+        "hierarchy": 8.5,
+        "composition": 8,
+        "entrance": 8,
+        "choreography": 8,
+        "hold": 8.5,
+        "legibility": 8.5,
+        "meaning": 9
+      },
+      "blocking": [],
+      "cost_usd": 0,
+      "published": true
+    }
+  ],
+  "second_take": "off",
+  "duration_frames": 180,
+  "fps": 30,
+  "source": "/Volumes/External SSD/moution-studio-materials/store/workspace/projects/bench-codex-probe-2/scenes/scn_01M6QP5V65B6ZN1J1KC220GPCW/versions/ver_01M6QPVGTRNSRWC8FC7BB0HNQV",
+  "commit": "c3e1daa",
+  "generator": {
+    "agent_runtime": "codex-only",
+    "codex": {
+      "model": "default",
+      "reasoning_effort": "high",
+      "agents": {}
+    }
+  },
+  "motion_kit_version": null,
+  "prompts_sha256": {
+    "concept.md": "64dbee9cc4a77da34e8348fc84bfb282eccafede5f27ae3ace8edc1faff8dc65",
+    "edit-planner.md": "52c67eb17a5c886dde095eb8b8c34bc1330cb96ccf001e325a0f66bcb3cec88f",
+    "engineer.md": "c080a3a50fa88555790c067e209958ec875dcf96ba073ae72cc078eae3511348",
+    "footage-analyst.md": "1459c8794379e93ca0fcd13ad21dd1f184f98aacd459844e5b887c69fe1ed9c4",
+    "fragment-fit.md": "8751827a1583fd5da6ad5cb663375742a49d7a9dfce6e47eafc6c5a4ce89f168",
+    "motion-director.md": "940b6e15ceb8248cdbd745cfc330fb1b86ea05829ea77d66eedd62cf1fdb7877",
+    "partials/evidence-contract.md": "46f81f92159b1cb4795f6da31de735d5472e1ae08d9710653aa8eb8a9ce0e0c5",
+    "partials/quality-rubric.md": "5baf36b60f0a570d0e99e5f037b0182fd200f669ab2b16c934367f5df0303f68",
+    "partials/scene-contract.md": "411d023e58c10df4604e61f2860bcd385f5364af2304e5d265d705637e3e83fb",
+    "partials/script-scene.md": "0cb136a379822d93a05b422a4525701a64c1fee9957d3c04076dbad410adf876",
+    "partials/video-scene.md": "72821d1bb71ae7b1c38380313af69a182e99b87a2b723996fb179e34d0b021fc",
+    "rough-cut-editor.md": "ee50efe4a7ba49691a9701bc74622b3a0b9132ce8218ac2c3d969df2d54e7fad",
+    "rubric-judge.md": "b7028c6191f6de61a381b35b5be1fc0b25d5c4f0e29d161e1aa24246248b6ba6",
+    "script-director.md": "88b0eb3f8de4a61afa99a09ec4a9f3095ce85c9b1e7c3a90435ea252f8371b24",
+    "semantic-director.md": "c909ca00bd08f15f039438262b5b2f94a16dada7b43731b6bb7adb568dab36af",
+    "visual-planner.md": "e3a274d32647724f1db72149ab8f4d5361035747f6c518021ecf883700d12b57",
+    "visual-qa.md": "e8805c9498f52d578d806967705c241ef9d76b9d6b930025c2ef71381066037e"
+  },
+  "dirty": false,
+  "kit_hash": "sha256:611b0ccc52e6c9ff",
+  "motion_kit_sha256": "sha256:611b0ccc52e6c9ff"
+}
