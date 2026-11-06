@@ -3,7 +3,7 @@ import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { z } from "zod";
-import { CodexRuntime, buildCodexArgs, dropNulls, parseCodexOutput, toStrictSchema } from "../../src/agents/codex.js";
+import { CodexRuntime, buildCodexArgs, codexToolsNote, dropNulls, parseCodexOutput, toStrictSchema } from "../../src/agents/codex.js";
 import { Ok, bin, makeStore, makeTask, makeTmp, removeTmp } from "./helpers.js";
 
 let tmp: string;
@@ -76,6 +76,24 @@ it("run: happy path through the fake CLI, prompt carries the role prompt and dat
   expect(stdin).toContain("Файлы не создавай");
   const schema = JSON.parse(readFileSync(join(r.stdoutPath, "..", "schema.json"), "utf8")) as { additionalProperties: boolean };
   expect(schema.additionalProperties).toBe(false);
+});
+
+it("tools note: translates Claude tool names into Codex tools", () => {
+  const reader = codexToolsNote(["Read"]);
+  expect(reader).toContain("view_image");
+  expect(reader).toContain("только чтение");
+  expect(reader).not.toContain("apply_patch");
+  const engineer = codexToolsNote(["Read", "Write", "Edit", "Glob", "Grep"]);
+  expect(engineer).toContain("apply_patch");
+  expect(engineer).toContain("Glob и Grep");
+  expect(engineer).not.toContain("только чтение");
+  expect(codexToolsNote([])).toBe("Файлы не создавай и не меняй: ответ — только итоговый JSON.");
+});
+
+it("run: a role with Read gets the view_image instruction after its role prompt", async () => {
+  await runtime().run(task({ tools: ["Read"] }), Ok, new AbortController().signal);
+  const stdin = readFileSync(join(workdir, "stdin.txt"), "utf8");
+  expect(stdin.indexOf("view_image")).toBeGreaterThan(stdin.indexOf("СИСТЕМНЫЙ ПРОМПТ РОЛИ"));
 });
 
 it("run: CLI failure is failed/cli with the turn error", async () => {

@@ -62,6 +62,24 @@ export function buildCodexArgs(task: AgentTask<unknown>, opts: { schemaPath: str
   return args;
 }
 
+/**
+ * Правила инструментов для Codex. Промпты ролей написаны под инструменты Claude: без перевода
+ * Codex отвечает «Инструмент Read недоступен» и кадры не открывает, поэтому Read назван через
+ * `view_image` (проверено на `codex exec` 0.165.0).
+ */
+export function codexToolsNote(tools: readonly string[]): string {
+  if (tools.length === 0) return "Файлы не создавай и не меняй: ответ — только итоговый JSON.";
+  const writes = tools.some((t) => WRITE_TOOLS.has(t));
+  const lines = [
+    `Работай только в текущем каталоге. Разрешено: ${tools.join(", ")}${writes ? " (создавать и править файлы в текущем каталоге)" : " (только чтение)"}. Сеть недоступна.`,
+    "Это названия инструментов из описания роли, у тебя их нет: это не повод отказываться, выполняй задание своими инструментами.",
+  ];
+  if (tools.includes("Read")) lines.push("Read: каждое изображение (PNG, JPG) открывай инструментом view_image, иначе ты его не видишь и оценивать его нельзя; текстовые файлы читай командами shell.");
+  if (tools.includes("Glob") || tools.includes("Grep")) lines.push("Glob и Grep: ищи командами shell.");
+  if (writes) lines.push("Write и Edit: создавай и правь файлы инструментом apply_patch или командами shell.");
+  return lines.join("\n");
+}
+
 type Json = Record<string, unknown>;
 const isObj = (v: unknown): v is Json => v !== null && typeof v === "object" && !Array.isArray(v);
 
@@ -222,10 +240,7 @@ export class CodexRuntime implements AgentRuntimeAdapter {
     }
 
     const data = typeof task.input === "string" ? task.input : "````json\n" + JSON.stringify(task.input, null, 2) + "\n````\n";
-    const tools = task.tools.length === 0
-      ? "Файлы не создавай и не меняй: ответ — только итоговый JSON."
-      : `Работай только в текущем каталоге. Разрешено: ${task.tools.join(", ")}${task.tools.some((t) => WRITE_TOOLS.has(t)) ? " (создавать и править файлы в текущем каталоге)" : " (только чтение)"}. Сеть недоступна.`;
-    const prompt = [system, "", "---", "", tools, "Итоговое сообщение — один JSON-объект по заданной схеме, без пояснений.", "", "---", "", data].join("\n");
+    const prompt = [system, "", "---", "", codexToolsNote(task.tools), "Итоговое сообщение — один JSON-объект по заданной схеме, без пояснений.", "", "---", "", data].join("\n");
     await storageWrite(join(dir, "prompt.md"), prompt);
     await storageWrite(schemaPath, JSON.stringify(toStrictSchema(toJsonSchema(schema as unknown as ZodTypeAny)), null, 2));
     if (signal.aborted) return stop("cancelled", "cancelled", "отменено до запуска");
