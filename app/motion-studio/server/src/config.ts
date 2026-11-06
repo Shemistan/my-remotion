@@ -324,6 +324,11 @@ export function configFileIssues(fileJson: unknown): { path: string; message: st
   return parsed.success ? [] : parsed.error.issues.map((i) => ({ path: i.path.join(".") || "<root>", message: i.message }));
 }
 
+/** Перекрытие режима без записи в файл (bench, тесты): `hybrid` включает план, как и в `loadConfig`. */
+export function withAgentRuntime(config: AppConfig, agentRuntime: AgentRuntimeMode): AppConfig {
+  return { ...config, agentRuntime, delegation: { ...config.delegation, enabled: agentRuntime === "hybrid" || config.delegation.enabled } };
+}
+
 /** `fileJson` — разобранный `$MS_DATA_DIR/config.json` (см. `readConfigFile`). */
 export function loadConfig(env: NodeJS.ProcessEnv, fileJson?: unknown, probe: PathProbe = fsProbe): AppConfig {
   const dataDir = env.MS_DATA_DIR?.trim();

@@ -53,6 +53,25 @@ const make = (level: number, codexStatus?: () => Status, kind?: "cli" | "orphane
 };
 const sig = () => new AbortController().signal;
 
+it("Codex-only failures do not pause roles for hybrid and do not enter its statistics", async () => {
+  const { r, state } = make(50, () => "failed");
+  r.setMode("codex-only");
+  for (let i = 0; i < 8; i++) await r.run(task("concept", `quota-${i}`), Ok, sig());
+  await r.run(task("concept", "retry", 1, 2), Ok, sig());
+  expect(state.pausedRoles().size).toBe(0);
+  expect(state.stats("concept").codex.n).toBe(0);
+  r.setMode("hybrid");
+  expect(r.plan().shares.concept).toBe(1);
+});
+
+it("a fix in Codex-only still spoils the first hybrid call of the same run", async () => {
+  const { r, state } = make(100);
+  await r.run(task("engineer", "switched"), Ok, sig());
+  r.setMode("codex-only");
+  await r.run(task("engineer", "switched", 101), Ok, sig());
+  expect(state.stats("engineer").codex).toEqual({ n: 1, clean: 0 });
+});
+
 it("seq from the idempotency key", () => {
   expect(seqOf(task("engineer", "run-1", 102))).toBe(102);
 });
