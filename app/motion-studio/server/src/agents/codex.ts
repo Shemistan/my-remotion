@@ -62,17 +62,41 @@ export function buildCodexArgs(task: AgentTask<unknown>, opts: { schemaPath: str
   return args;
 }
 
+/**
+ * Правила инструментов для Codex. Промпты ролей написаны под инструменты Claude: без перевода
+ * Codex отвечает «Инструмент Read недоступен» и кадры не открывает, поэтому Read назван через
+ * `view_image` (проверено на `codex exec` 0.165.0).
+ */
+export function codexToolsNote(tools: readonly string[]): string {
+  if (tools.length === 0) return "Файлы не создавай и не меняй: ответ — только итоговый JSON.";
+  const writes = tools.some((t) => WRITE_TOOLS.has(t));
+  const lines = [
+    `Работай только в текущем каталоге. Разрешено: ${tools.join(", ")}${writes ? " (создавать и править файлы в текущем каталоге)" : " (только чтение)"}. Сеть недоступна.`,
+    "Это названия инструментов из описания роли, у тебя их нет: это не повод отказываться, выполняй задание своими инструментами.",
+  ];
+  if (tools.includes("Read")) lines.push("Read: каждое изображение (PNG, JPG) открывай инструментом view_image, иначе ты его не видишь и оценивать его нельзя; текстовые файлы читай командами shell.");
+  if (tools.includes("Glob") || tools.includes("Grep")) lines.push("Glob и Grep: ищи командами shell.");
+  if (writes) lines.push("Write и Edit: создавай и правь файлы инструментом apply_patch или командами shell.");
+  return lines.join("\n");
+}
+
 type Json = Record<string, unknown>;
 const isObj = (v: unknown): v is Json => v !== null && typeof v === "object" && !Array.isArray(v);
+
+const FREE_FORM_NOTE = "JSON-объект, записанный строкой";
+/** Объект без `properties` (`z.record`): строгая схема такие запрещает. */
+const isFreeForm = (s: Json): boolean => s.type === "object" && !isObj(s.properties);
 
 /**
  * Строгая JSON Schema для structured outputs: у каждого объекта все свойства в `required`,
  * `additionalProperties: false`; необязательные свойства допускают `null` (`anyOf`).
+ * Свободный объект заменяется JSON-строкой (обратно — `decodeFreeForm`).
  * Ответ потом проходит `dropNulls` и ту же Zod-схему.
  */
 export function toStrictSchema(schema: unknown): unknown {
   if (Array.isArray(schema)) return schema.map(toStrictSchema);
   if (!isObj(schema)) return schema;
+  if (isFreeForm(schema)) return { type: "string", description: `${typeof schema.description === "string" ? `${schema.description}. ` : ""}${FREE_FORM_NOTE}` };
   const out: Json = {};
   for (const [k, v] of Object.entries(schema)) {
     if (k === "properties" && isObj(v)) out[k] = Object.fromEntries(Object.entries(v).map(([p, s]) => [p, toStrictSchema(s)]));
@@ -87,6 +111,30 @@ export function toStrictSchema(schema: unknown): unknown {
     out.additionalProperties = false;
   }
   return out;
+}
+
+/**
+ * Разворачивает JSON-строки свободных объектов по исходной схеме. Строка, которая не разбирается
+ * в объект, остаётся как есть: её отклонит Zod-схема.
+ */
+export function decodeFreeForm(value: unknown, schema: unknown): unknown {
+  if (!isObj(schema)) return value;
+  if (Array.isArray(schema.anyOf)) return schema.anyOf.reduce((v: unknown, s) => decodeFreeForm(v, s), value);
+  if (isFreeForm(schema)) {
+    if (typeof value !== "string") return value;
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return isObj(parsed) ? parsed : value;
+    } catch {
+      return value;
+    }
+  }
+  if (Array.isArray(value)) return value.map((v) => decodeFreeForm(v, schema.items));
+  if (isObj(value) && isObj(schema.properties)) {
+    const props = schema.properties;
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, decodeFreeForm(v, props[k])]));
+  }
+  return value;
 }
 
 /** Удаляет ключи объектов со значением `null` (так строгая схема передаёт «поле не задано»). */
@@ -145,6 +193,7 @@ export function parseCodexOutput<O>(stdout: string, lastMessage: string | undefi
   } catch {
     return { ...base, status: "failed", error: { kind: "schema", message: `ответ Codex — не JSON: ${clip(text)}` }, noResult: false };
   }
+  json = decodeFreeForm(json, toJsonSchema(schema as unknown as ZodTypeAny));
   let r = schema.safeParse(json);
   if (!r.success) r = schema.safeParse(dropNulls(json));
   if (!r.success) {
@@ -222,10 +271,7 @@ export class CodexRuntime implements AgentRuntimeAdapter {
     }
 
     const data = typeof task.input === "string" ? task.input : "````json\n" + JSON.stringify(task.input, null, 2) + "\n````\n";
-    const tools = task.tools.length === 0
-      ? "Файлы не создавай и не меняй: ответ — только итоговый JSON."
-      : `Работай только в текущем каталоге. Разрешено: ${task.tools.join(", ")}${task.tools.some((t) => WRITE_TOOLS.has(t)) ? " (создавать и править файлы в текущем каталоге)" : " (только чтение)"}. Сеть недоступна.`;
-    const prompt = [system, "", "---", "", tools, "Итоговое сообщение — один JSON-объект по заданной схеме, без пояснений.", "", "---", "", data].join("\n");
+    const prompt = [system, "", "---", "", codexToolsNote(task.tools), "Итоговое сообщение — один JSON-объект по заданной схеме, без пояснений.", "", "---", "", data].join("\n");
     await storageWrite(join(dir, "prompt.md"), prompt);
     await storageWrite(schemaPath, JSON.stringify(toStrictSchema(toJsonSchema(schema as unknown as ZodTypeAny)), null, 2));
     if (signal.aborted) return stop("cancelled", "cancelled", "отменено до запуска");

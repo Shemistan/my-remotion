@@ -3,7 +3,8 @@ import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { z } from "zod";
-import { CodexRuntime, buildCodexArgs, dropNulls, parseCodexOutput, toStrictSchema } from "../../src/agents/codex.js";
+import { ConceptOutputSchema, DirectorOutputSchema, EditPlanSchema, EngineerReportSchema, VisualQAOutputSchema, toJsonSchema } from "@ms/contracts";
+import { CodexRuntime, buildCodexArgs, codexToolsNote, dropNulls, parseCodexOutput, toStrictSchema } from "../../src/agents/codex.js";
 import { Ok, bin, makeStore, makeTask, makeTmp, removeTmp } from "./helpers.js";
 
 let tmp: string;
@@ -76,6 +77,46 @@ it("run: happy path through the fake CLI, prompt carries the role prompt and dat
   expect(stdin).toContain("Файлы не создавай");
   const schema = JSON.parse(readFileSync(join(r.stdoutPath, "..", "schema.json"), "utf8")) as { additionalProperties: boolean };
   expect(schema.additionalProperties).toBe(false);
+});
+
+it("strict schema: no free-form objects in agent contracts, the API rejects them", () => {
+  const freeForm = (n: unknown): boolean => {
+    if (Array.isArray(n)) return n.some(freeForm);
+    if (n === null || typeof n !== "object") return false;
+    const o = n as Record<string, unknown>;
+    return (o.type === "object" && o.properties === undefined) || Object.values(o).some(freeForm);
+  };
+  for (const s of [ConceptOutputSchema, DirectorOutputSchema, EditPlanSchema, EngineerReportSchema, VisualQAOutputSchema]) {
+    expect(freeForm(toStrictSchema(toJsonSchema(s)))).toBe(false);
+  }
+});
+
+it("parse: a free-form object arrives as a JSON string and is decoded, also inside arrays and optionals", () => {
+  const S = z.object({ items: z.array(z.object({ content: z.record(z.unknown()) })), extra: z.record(z.string()).optional() });
+  const answer = JSON.stringify({ items: [{ content: JSON.stringify({ component: "Card", states: [{ on: 1 }] }) }], extra: '{"a":"b"}' });
+  expect(parseCodexOutput("", answer, S, "m").output).toEqual({ items: [{ content: { component: "Card", states: [{ on: 1 }] } }], extra: { a: "b" } });
+  const unset = JSON.stringify({ items: [], extra: null });
+  expect(parseCodexOutput("", unset, S, "m").output).toEqual({ items: [] });
+  const broken = JSON.stringify({ items: [{ content: "не json" }] });
+  expect(parseCodexOutput("", broken, S, "m").error?.kind).toBe("schema");
+});
+
+it("tools note: translates Claude tool names into Codex tools", () => {
+  const reader = codexToolsNote(["Read"]);
+  expect(reader).toContain("view_image");
+  expect(reader).toContain("только чтение");
+  expect(reader).not.toContain("apply_patch");
+  const engineer = codexToolsNote(["Read", "Write", "Edit", "Glob", "Grep"]);
+  expect(engineer).toContain("apply_patch");
+  expect(engineer).toContain("Glob и Grep");
+  expect(engineer).not.toContain("только чтение");
+  expect(codexToolsNote([])).toBe("Файлы не создавай и не меняй: ответ — только итоговый JSON.");
+});
+
+it("run: a role with Read gets the view_image instruction after its role prompt", async () => {
+  await runtime().run(task({ tools: ["Read"] }), Ok, new AbortController().signal);
+  const stdin = readFileSync(join(workdir, "stdin.txt"), "utf8");
+  expect(stdin.indexOf("view_image")).toBeGreaterThan(stdin.indexOf("СИСТЕМНЫЙ ПРОМПТ РОЛИ"));
 });
 
 it("run: CLI failure is failed/cli with the turn error", async () => {

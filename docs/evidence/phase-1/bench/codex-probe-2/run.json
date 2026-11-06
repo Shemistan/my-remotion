@@ -1,0 +1,55 @@
+{
+  "run": "codex-probe-2",
+  "mode": "bench",
+  "set": "explainer",
+  "created_commit": "c3e1daa",
+  "judge_model": "opus",
+  "judge_runs": 3,
+  "generator": {
+    "agent_runtime": "codex-only",
+    "codex": {
+      "model": "default",
+      "reasoning_effort": "high",
+      "agents": {}
+    }
+  },
+  "judge_runtime": "claude-code",
+  "items": [
+    {
+      "id": "test1",
+      "scene": "test1",
+      "prompt": "Создай премиальную анимацию роста пользователей с 10 000 до 1 000 000 за три года. Тёмный фон, крупная типографика, плавное движение графика, акцент на конечном значении",
+      "ref": null,
+      "split": null,
+      "held_out": false
+    }
+  ],
+  "invocations": [
+    {
+      "at": "2026-11-06T05:44:06.379Z",
+      "commit": "c3e1daa",
+      "argv": [
+        "--runtime",
+        "codex",
+        "--only",
+        "test1",
+        "--run",
+        "codex-probe-2",
+        "--no-judge"
+      ],
+      "agent_runtime": "codex-only"
+    },
+    {
+      "at": "2026-11-06T06:03:39.473Z",
+      "commit": "c3e1daa",
+      "argv": [
+        "--run",
+        "codex-probe-2",
+        "--judge-only",
+        "--no-judge",
+        "--write-evidence"
+      ],
+      "agent_runtime": "hybrid"
+    }
+  ]
+}
